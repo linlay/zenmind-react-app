@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -20,46 +21,74 @@ import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-
 
 const STORAGE_KEY = 'agw_mobile_chat_settings_v1';
 const DEFAULT_ENDPOINT_INPUT = 'agw.linlay.cc';
-const DRAWER_WIDTH = 320;
+const DRAWER_WIDTH = 328;
 
-const THEME_PALETTES = {
+const FONT_SANS = Platform.select({
+  ios: 'Avenir Next',
+  android: 'sans-serif',
+  default: 'system-ui'
+});
+
+const FONT_MONO = Platform.select({
+  ios: 'Menlo',
+  android: 'monospace',
+  default: 'monospace'
+});
+
+const THEMES = {
   light: {
-    page: '#f4f7ff',
-    surface: '#ffffff',
-    surfaceSoft: '#edf3ff',
-    input: '#f7f9ff',
-    border: '#d7e2f3',
-    text: '#1f2d41',
-    muted: '#647691',
-    primary: '#2d67e8',
-    primarySoft: '#e3ecff',
-    userBubble: '#2f67ea',
+    mode: 'light',
+    gradient: ['#f8fbff', '#eef3fb', '#e9eff9'],
+    bgCircleA: 'rgba(47, 108, 243, 0.18)',
+    bgCircleB: 'rgba(79, 146, 255, 0.12)',
+    surface: '#fbfcff',
+    surfaceStrong: '#ffffff',
+    surfaceSoft: '#f1f5fd',
+    border: '#d4dfef',
+    borderStrong: '#b9cbe5',
+    text: '#27334a',
+    textSoft: '#60728f',
+    textMute: '#8d9bb2',
+    primary: '#2f6cf3',
+    primaryDeep: '#1f54c7',
+    primarySoft: 'rgba(47, 108, 243, 0.13)',
+    userBubble: ['#3b77f5', '#2a60dc'],
     assistantBubble: '#ffffff',
     systemBubble: '#fff1f1',
-    danger: '#c53f3f',
-    success: '#1a9663',
-    shadow: 'rgba(31, 54, 94, 0.12)',
-    overlay: 'rgba(8, 15, 30, 0.34)',
-    statusBg: '#edf3ff'
+    timelineDot: '#7ea6ff',
+    ok: '#1fa06c',
+    warn: '#cc8c2f',
+    danger: '#d65252',
+    shadow: 'rgba(25, 49, 88, 0.14)',
+    overlay: 'rgba(12, 22, 38, 0.34)',
+    sendIcon: '#ffffff'
   },
   dark: {
-    page: '#0d1728',
-    surface: '#16243a',
-    surfaceSoft: '#1c2d48',
-    input: '#1c2d47',
-    border: '#304a6f',
-    text: '#ecf3ff',
-    muted: '#9bb0cf',
-    primary: '#6f97ff',
-    primarySoft: 'rgba(111, 151, 255, 0.2)',
-    userBubble: '#3f6de0',
-    assistantBubble: '#1a2a43',
-    systemBubble: '#3a232b',
-    danger: '#f07575',
-    success: '#39c78b',
-    shadow: 'rgba(0, 0, 0, 0.35)',
-    overlay: 'rgba(1, 4, 10, 0.62)',
-    statusBg: '#1b2c46'
+    mode: 'dark',
+    gradient: ['#0c1626', '#0f1b2f', '#10203a'],
+    bgCircleA: 'rgba(89, 143, 255, 0.22)',
+    bgCircleB: 'rgba(48, 104, 225, 0.18)',
+    surface: '#14253f',
+    surfaceStrong: '#182b49',
+    surfaceSoft: '#1f3455',
+    border: '#2f4b73',
+    borderStrong: '#426193',
+    text: '#ecf2ff',
+    textSoft: '#b8caea',
+    textMute: '#8ea8cf',
+    primary: '#78a0ff',
+    primaryDeep: '#5f89eb',
+    primarySoft: 'rgba(120, 160, 255, 0.16)',
+    userBubble: ['#5d84eb', '#4067cf'],
+    assistantBubble: '#1a2d4c',
+    systemBubble: '#3a2530',
+    timelineDot: '#90b0ff',
+    ok: '#34c88e',
+    warn: '#e0ab58',
+    danger: '#f17979',
+    shadow: 'rgba(0, 0, 0, 0.38)',
+    overlay: 'rgba(2, 7, 16, 0.62)',
+    sendIcon: '#f5f8ff'
   }
 };
 
@@ -68,17 +97,18 @@ function normalizeEndpointInput(raw) {
   return text || DEFAULT_ENDPOINT_INPUT;
 }
 
-function looksLikeLocalHost(host) {
+function looksLikeLocalAddress(host) {
   const value = String(host || '').toLowerCase();
   if (!value) {
     return false;
   }
 
-  if (value.startsWith('localhost') || value.startsWith('127.') || value.startsWith('10.')) {
-    return true;
-  }
-
-  if (value.startsWith('192.168.')) {
+  if (
+    value.startsWith('localhost') ||
+    value.startsWith('127.') ||
+    value.startsWith('10.') ||
+    value.startsWith('192.168.')
+  ) {
     return true;
   }
 
@@ -99,7 +129,7 @@ function toBackendBaseUrl(endpointInput) {
     return normalized;
   }
 
-  const scheme = looksLikeLocalHost(normalized) ? 'http' : 'https';
+  const scheme = looksLikeLocalAddress(normalized) ? 'http' : 'https';
   return `${scheme}://${normalized}`;
 }
 
@@ -107,26 +137,67 @@ function createRequestId(prefix = 'mobile') {
   return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function getAgentKey(item) {
-  if (!item || typeof item !== 'object') {
-    return '';
+function formatError(error) {
+  const message = String(error?.message || 'unknown error');
+  if (message.toLowerCase().includes('network request failed')) {
+    return `${message}（请确认域名/IP 可访问，并且手机可连接后端）`;
   }
-  return String(item.key || item.id || '').trim();
+  return message;
 }
 
-function chatDisplayName(chat) {
+function getAgentKey(agent) {
+  if (!agent || typeof agent !== 'object') {
+    return '';
+  }
+  return String(agent.key || agent.id || '').trim();
+}
+
+function getAgentName(agent) {
+  if (!agent || typeof agent !== 'object') {
+    return '';
+  }
+  return String(agent.name || getAgentKey(agent) || '').trim();
+}
+
+function getChatTitle(chat) {
   if (!chat || typeof chat !== 'object') {
     return '';
   }
   return String(chat.chatName || chat.title || chat.chatId || '').trim();
 }
 
-function withNetworkHint(error) {
-  const message = String(error?.message || 'unknown error');
-  if (message.toLowerCase().includes('network request failed')) {
-    return `${message}（请确认域名/IP可访问，并且手机网络可直连后端）`;
+function getChatTimestamp(chat) {
+  if (!chat || typeof chat !== 'object') {
+    return Date.now();
   }
-  return message;
+
+  const values = [chat.updatedAt, chat.updateTime, chat.createdAt, chat.timestamp];
+  for (const value of values) {
+    if (!value) {
+      continue;
+    }
+    const ms = new Date(value).getTime();
+    if (!Number.isNaN(ms)) {
+      return ms;
+    }
+  }
+
+  return Date.now();
+}
+
+function toHHMM(input) {
+  if (!input) {
+    return '';
+  }
+
+  const date = new Date(input);
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  return `${hh}:${mm}`;
 }
 
 function parseApiEnvelope(response, bodyText) {
@@ -222,176 +293,157 @@ async function consumeJsonSse(response, onJsonEvent, signal) {
   }
 }
 
-function formatChatMeta(chat) {
-  const parts = [];
-  if (chat?.firstAgentKey) {
-    parts.push(`@${chat.firstAgentKey}`);
+function renderToolLabel(event) {
+  const toolName = String(event.toolName || '').trim();
+  if (toolName) {
+    return toolName;
   }
-  if (chat?.chatId) {
-    parts.push(chat.chatId);
+
+  const toolApi = String(event.toolApi || '').trim();
+  if (toolApi) {
+    return toolApi;
   }
-  return parts.join(' · ');
+
+  const toolId = String(event.toolId || '').trim();
+  if (toolId) {
+    return toolId;
+  }
+
+  return 'tool';
 }
 
-function timestampText(ts) {
-  if (!ts) {
+function clipToolResult(value) {
+  if (value === undefined || value === null) {
     return '';
   }
 
-  const date = new Date(ts);
-  if (Number.isNaN(date.getTime())) {
-    return '';
+  let text = '';
+  if (typeof value === 'string') {
+    text = value;
+  } else {
+    try {
+      text = JSON.stringify(value);
+    } catch (_error) {
+      text = String(value);
+    }
   }
 
-  const hh = String(date.getHours()).padStart(2, '0');
-  const mm = String(date.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
+  return text.length > 140 ? `${text.slice(0, 140)}...` : text;
 }
 
-function messageTimestamp(item) {
-  if (!item || typeof item !== 'object') {
-    return Date.now();
+function getToolTone(state) {
+  if (state === 'done') {
+    return 'ok';
   }
-
-  const candidates = [item.updatedAt, item.updateTime, item.createdAt, item.timestamp];
-  for (const candidate of candidates) {
-    if (!candidate) {
-      continue;
-    }
-    const ms = new Date(candidate).getTime();
-    if (!Number.isNaN(ms)) {
-      return ms;
-    }
+  if (state === 'failed') {
+    return 'danger';
   }
-  return Date.now();
+  return 'warn';
 }
 
-function buildConversationFromEvents(events) {
-  const messages = [];
-  const messageIndexById = new Map();
-  const contentToMessageId = new Map();
-  let latestChatId = '';
+function EntryRow({ item, styles, theme }) {
+  const appear = useRef(new Animated.Value(0)).current;
 
-  const upsertMessage = (id, role, text, ts = Date.now()) => {
-    const index = messageIndexById.get(id);
-    if (index === undefined) {
-      messageIndexById.set(id, messages.length);
-      messages.push({ id, role, text: String(text || ''), ts });
-      return;
-    }
+  useEffect(() => {
+    Animated.timing(appear, {
+      toValue: 1,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [appear]);
 
-    messages[index] = {
-      ...messages[index],
-      role,
-      text: String(text || ''),
-      ts
-    };
-  };
-
-  const appendMessageText = (id, role, delta, ts = Date.now()) => {
-    const index = messageIndexById.get(id);
-    if (index === undefined) {
-      messageIndexById.set(id, messages.length);
-      messages.push({ id, role, text: String(delta || ''), ts });
-      return;
-    }
-
-    const current = messages[index];
-    messages[index] = {
-      ...current,
-      role,
-      text: `${current.text || ''}${String(delta || '')}`,
-      ts
-    };
-  };
-
-  for (const event of events) {
-    if (!event || typeof event !== 'object') {
-      continue;
-    }
-
-    if (event.chatId) {
-      latestChatId = String(event.chatId);
-    }
-
-    const type = String(event.type || '');
-    if (type === 'request.query') {
-      const requestId = String(event.requestId || createRequestId('history'));
-      upsertMessage(`user:${requestId}`, 'user', event.message || '', event.timestamp || Date.now());
-      continue;
-    }
-
-    if ((type === 'run.error' || type === 'run.cancel') && event.error) {
-      const payload = type === 'run.cancel'
-        ? 'run.cancel'
-        : `run.error: ${JSON.stringify(event.error || {}, null, 2)}`;
-      upsertMessage(`system:${type}:${Date.now()}:${Math.random()}`, 'system', payload, event.timestamp || Date.now());
-      continue;
-    }
-
-    if ((type === 'content.start' || type === 'content.delta' || type === 'content.snapshot' || type === 'content.end') && event.contentId) {
-      const contentId = String(event.contentId);
-      let messageId = contentToMessageId.get(contentId);
-      if (!messageId) {
-        messageId = `assistant:${contentId}`;
-        contentToMessageId.set(contentId, messageId);
+  const enterStyle = {
+    opacity: appear,
+    transform: [
+      {
+        translateY: appear.interpolate({
+          inputRange: [0, 1],
+          outputRange: [8, 0]
+        })
       }
+    ]
+  };
 
-      if (type === 'content.delta') {
-        appendMessageText(messageId, 'assistant', event.delta || '', event.timestamp || Date.now());
-      } else if (type === 'content.start') {
-        upsertMessage(messageId, 'assistant', event.text || '', event.timestamp || Date.now());
-      } else {
-        const snapshot = typeof event.text === 'string' ? event.text : '';
-        if (snapshot) {
-          upsertMessage(messageId, 'assistant', snapshot, event.timestamp || Date.now());
-        }
-      }
-    }
+  if (item.kind === 'stage') {
+    const stageToneStyle =
+      item.tone === 'ok'
+        ? { borderColor: theme.ok, color: theme.ok, backgroundColor: `${theme.ok}22` }
+        : item.tone === 'error'
+          ? { borderColor: theme.danger, color: theme.danger, backgroundColor: `${theme.danger}22` }
+          : { borderColor: theme.borderStrong, color: theme.textSoft, backgroundColor: theme.surfaceSoft };
+
+    return (
+      <Animated.View style={[styles.stageWrap, enterStyle]}>
+        <View style={[styles.stagePill, stageToneStyle]}>
+          <Text style={[styles.stageText, { color: stageToneStyle.color }]}>{item.text}</Text>
+        </View>
+      </Animated.View>
+    );
   }
 
-  return {
-    messages,
-    latestChatId,
-    contentToMessageId
-  };
-}
+  if (item.kind === 'tool') {
+    const tone = getToolTone(item.state);
+    const toneStyle =
+      tone === 'ok'
+        ? { borderColor: `${theme.ok}66`, color: theme.ok, bg: `${theme.ok}14` }
+        : tone === 'danger'
+          ? { borderColor: `${theme.danger}66`, color: theme.danger, bg: `${theme.danger}14` }
+          : { borderColor: `${theme.warn}66`, color: theme.warn, bg: `${theme.warn}14` };
 
-function MessageBubble({ item, theme, styles }) {
+    return (
+      <Animated.View style={[styles.toolRow, enterStyle]}>
+        <View style={[styles.timelineDot, { backgroundColor: theme.timelineDot }]} />
+        <View style={styles.toolBody}>
+          <View style={[styles.toolChip, { borderColor: toneStyle.borderColor, backgroundColor: toneStyle.bg }]}> 
+            <Text style={[styles.toolChipText, { color: toneStyle.color }]}>call: _{item.label}_</Text>
+          </View>
+          {item.detail ? (
+            <Text style={[styles.toolDetailText, { color: theme.textSoft }]} numberOfLines={2}>
+              {item.detail}
+            </Text>
+          ) : null}
+        </View>
+      </Animated.View>
+    );
+  }
+
   const isUser = item.role === 'user';
   const isSystem = item.role === 'system';
-  const wrapperStyle = isUser ? styles.messageUserWrap : styles.messageAssistantWrap;
 
-  const bubbleStyle = [
-    styles.messageBubble,
-    {
-      borderColor: theme.border,
-      shadowColor: theme.shadow,
-      backgroundColor: isUser ? theme.userBubble : isSystem ? theme.systemBubble : theme.assistantBubble
-    },
-    isUser ? styles.messageUserBubble : null,
-    isSystem ? styles.messageSystemBubble : null
-  ];
-
-  const textStyle = [
-    styles.messageText,
-    { color: isUser ? '#ffffff' : theme.text }
-  ];
+  if (isUser) {
+    return (
+      <Animated.View style={[styles.userRow, enterStyle]}>
+        <LinearGradient colors={theme.userBubble} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.userBubble}>
+          <Text style={styles.userText}>{item.text}</Text>
+          <Text style={styles.userTime}>{toHHMM(item.ts)}</Text>
+        </LinearGradient>
+      </Animated.View>
+    );
+  }
 
   return (
-    <View style={wrapperStyle}>
-      <View style={bubbleStyle}>
-        <Text style={textStyle}>{item.text || (isSystem ? '系统提示' : '')}</Text>
-        <Text style={[styles.messageTime, { color: isUser ? 'rgba(255,255,255,0.8)' : theme.muted }]}> 
-          {timestampText(item.ts)}
-        </Text>
+    <Animated.View style={[styles.assistantRow, enterStyle]}>
+      <View style={[styles.timelineDot, { backgroundColor: theme.timelineDot }]} />
+      <View
+        style={[
+          styles.assistantBubble,
+          {
+            borderColor: isSystem ? `${theme.danger}8f` : theme.border,
+            backgroundColor: isSystem ? theme.systemBubble : theme.assistantBubble
+          }
+        ]}
+      >
+        <Text style={[styles.assistantText, { color: theme.text }]}>{item.text}</Text>
+        <Text style={[styles.assistantTime, { color: theme.textMute }]}>{toHHMM(item.ts)}</Text>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 function AppContent() {
   const insets = useSafeAreaInsets();
+
   const [booting, setBooting] = useState(true);
   const [themeMode, setThemeMode] = useState('light');
   const [endpointInput, setEndpointInput] = useState(DEFAULT_ENDPOINT_INPUT);
@@ -401,100 +453,222 @@ function AppContent() {
   const [chats, setChats] = useState([]);
   const [chatKeyword, setChatKeyword] = useState('');
   const [chatId, setChatId] = useState('');
-  const [messages, setMessages] = useState([]);
+  const [timeline, setTimeline] = useState([]);
   const [composerText, setComposerText] = useState('');
   const [streaming, setStreaming] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [statusText, setStatusText] = useState('初始化中...');
-  const [loadingChats, setLoadingChats] = useState(false);
   const [loadingAgents, setLoadingAgents] = useState(false);
+  const [loadingChats, setLoadingChats] = useState(false);
 
-  const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
-  const theme = THEME_PALETTES[themeMode] || THEME_PALETTES.light;
+  const theme = THEMES[themeMode] || THEMES.light;
   const styles = useMemo(() => createStyles(theme), [theme]);
+  const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
 
-  const flatListRef = useRef(null);
+  const listRef = useRef(null);
   const abortControllerRef = useRef(null);
-  const contentMessageMapRef = useRef(new Map());
+  const sequenceRef = useRef(0);
+  const contentIdMapRef = useRef(new Map());
+  const toolIdMapRef = useRef(new Map());
   const drawerAnim = useRef(new Animated.Value(0)).current;
 
-  const tailSignature = useMemo(() => {
-    const last = messages[messages.length - 1];
-    if (!last) {
-      return 'empty';
-    }
-    return `${last.id}:${last.text.length}`;
-  }, [messages]);
+  const nextId = useCallback((prefix) => {
+    sequenceRef.current += 1;
+    return `${prefix}:${sequenceRef.current}`;
+  }, []);
 
-  const filteredChats = useMemo(() => {
-    const keyword = chatKeyword.trim().toLowerCase();
-    const sorted = [...chats].sort((a, b) => messageTimestamp(b) - messageTimestamp(a));
-    if (!keyword) {
-      return sorted;
-    }
+  const resetTimeline = useCallback(() => {
+    sequenceRef.current = 0;
+    contentIdMapRef.current = new Map();
+    toolIdMapRef.current = new Map();
+    setTimeline([]);
+  }, []);
 
-    return sorted.filter((item) => {
-      const hay = `${item.chatName || ''} ${item.chatId || ''} ${item.firstAgentKey || ''}`.toLowerCase();
-      return hay.includes(keyword);
-    });
-  }, [chatKeyword, chats]);
-
-  const persistSettings = useCallback(async (next = {}) => {
+  const persistSettings = useCallback(async (partial = {}) => {
     try {
       const payload = {
         themeMode,
         endpointInput,
         selectedAgentKey,
-        ...next
+        ...partial
       };
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (_error) {
-      // Ignore persistence failure silently.
+      // Ignore persistence failures silently.
     }
   }, [endpointInput, selectedAgentKey, themeMode]);
 
-  const setOrAppendMessage = useCallback((id, role, text, ts = Date.now()) => {
-    setMessages((prev) => {
-      const index = prev.findIndex((item) => item.id === id);
+  const upsertEntry = useCallback((id, builder) => {
+    setTimeline((prev) => {
+      const index = prev.findIndex((entry) => entry.id === id);
       if (index === -1) {
-        return [...prev, { id, role, text: String(text || ''), ts }];
+        return [...prev, builder(null)];
       }
 
       const next = [...prev];
-      next[index] = {
-        ...next[index],
-        role,
-        text: String(text || ''),
-        ts
-      };
+      next[index] = builder(next[index]);
       return next;
     });
   }, []);
 
-  const appendToMessage = useCallback((id, role, delta, ts = Date.now()) => {
-    setMessages((prev) => {
-      const index = prev.findIndex((item) => item.id === id);
-      if (index === -1) {
-        return [...prev, { id, role, text: String(delta || ''), ts }];
+  const appendEntry = useCallback((entry) => {
+    setTimeline((prev) => [...prev, entry]);
+  }, []);
+
+  const applyEvent = useCallback((event, source = 'live') => {
+    if (!event || typeof event !== 'object') {
+      return;
+    }
+
+    if (event.chatId) {
+      setChatId(String(event.chatId));
+    }
+
+    const ts = event.timestamp || Date.now();
+    const type = String(event.type || '');
+
+    if (type === 'request.query') {
+      const requestId = String(event.requestId || nextId('request'));
+      const itemId = `message:user:${requestId}`;
+      upsertEntry(itemId, (old) => ({
+        ...(old || {}),
+        id: itemId,
+        kind: 'message',
+        role: 'user',
+        text: String(event.message || ''),
+        ts
+      }));
+      return;
+    }
+
+    if (type === 'run.start') {
+      if (source === 'live') {
+        appendEntry({ id: nextId('stage'), kind: 'stage', tone: 'normal', text: '正在生成回答...', ts });
+      }
+      setStatusText('助手正在处理中...');
+      return;
+    }
+
+    if (type === 'run.complete') {
+      setStreaming(false);
+      if (source === 'live') {
+        appendEntry({ id: nextId('stage'), kind: 'stage', tone: 'ok', text: '本轮会话已完成', ts });
+      }
+      setStatusText('回答完成');
+      return;
+    }
+
+    if (type === 'run.cancel') {
+      setStreaming(false);
+      appendEntry({ id: nextId('stage'), kind: 'stage', tone: 'error', text: '会话已取消', ts });
+      setStatusText('已取消');
+      return;
+    }
+
+    if (type === 'run.error') {
+      setStreaming(false);
+      const message = `run.error: ${JSON.stringify(event.error || {}, null, 2)}`;
+      appendEntry({
+        id: nextId('system'),
+        kind: 'message',
+        role: 'system',
+        text: message,
+        ts
+      });
+      setStatusText('运行失败');
+      return;
+    }
+
+    if ((type === 'tool.start' || type === 'tool.snapshot') && event.toolId) {
+      const toolId = String(event.toolId);
+      let itemId = toolIdMapRef.current.get(toolId);
+      if (!itemId) {
+        itemId = nextId('tool');
+        toolIdMapRef.current.set(toolId, itemId);
       }
 
-      const next = [...prev];
-      const current = next[index];
-      next[index] = {
-        ...current,
-        role,
-        text: `${current.text || ''}${String(delta || '')}`,
+      upsertEntry(itemId, (old) => ({
+        ...(old || {}),
+        id: itemId,
+        kind: 'tool',
+        label: renderToolLabel(event),
+        detail: old?.detail || '',
+        state: 'running',
         ts
-      };
-      return next;
-    });
-  }, []);
+      }));
+      return;
+    }
 
-  const clearConversation = useCallback(() => {
-    contentMessageMapRef.current = new Map();
-    setMessages([]);
-  }, []);
+    if ((type === 'tool.result' || type === 'tool.end') && event.toolId) {
+      const toolId = String(event.toolId);
+      let itemId = toolIdMapRef.current.get(toolId);
+      if (!itemId) {
+        itemId = nextId('tool');
+        toolIdMapRef.current.set(toolId, itemId);
+      }
+
+      const detail = type === 'tool.result'
+        ? clipToolResult(Object.prototype.hasOwnProperty.call(event, 'result') ? event.result : (event.output ?? event.text))
+        : '';
+
+      upsertEntry(itemId, (old) => ({
+        ...(old || {}),
+        id: itemId,
+        kind: 'tool',
+        label: old?.label || renderToolLabel(event),
+        detail: detail || old?.detail || '',
+        state: event.error ? 'failed' : 'done',
+        ts
+      }));
+      return;
+    }
+
+    if ((type === 'content.start' || type === 'content.delta' || type === 'content.snapshot' || type === 'content.end') && event.contentId) {
+      const contentId = String(event.contentId);
+      let itemId = contentIdMapRef.current.get(contentId);
+      if (!itemId) {
+        itemId = nextId('assistant');
+        contentIdMapRef.current.set(contentId, itemId);
+      }
+
+      if (type === 'content.delta') {
+        upsertEntry(itemId, (old) => ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'message',
+          role: 'assistant',
+          text: `${old?.text || ''}${String(event.delta || '')}`,
+          ts
+        }));
+        return;
+      }
+
+      if (type === 'content.start') {
+        upsertEntry(itemId, (old) => ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'message',
+          role: 'assistant',
+          text: String(event.text || ''),
+          ts
+        }));
+        return;
+      }
+
+      const nextText = typeof event.text === 'string' ? event.text : '';
+      if (nextText || source === 'history') {
+        upsertEntry(itemId, (old) => ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'message',
+          role: 'assistant',
+          text: nextText,
+          ts
+        }));
+      }
+    }
+  }, [appendEntry, nextId, upsertEntry]);
 
   const stopStreaming = useCallback((reason = '已停止') => {
     if (abortControllerRef.current) {
@@ -505,91 +679,26 @@ function AppContent() {
     setStatusText(reason);
   }, []);
 
-  const applyAgwEvent = useCallback((event, source = 'live') => {
-    if (!event || typeof event !== 'object') {
-      return;
-    }
-
-    if (event.chatId) {
-      setChatId(String(event.chatId));
-    }
-
-    const type = String(event.type || '');
-
-    if (type === 'request.query') {
-      const requestId = String(event.requestId || createRequestId('evt'));
-      setOrAppendMessage(`user:${requestId}`, 'user', event.message || '', event.timestamp || Date.now());
-      return;
-    }
-
-    if (type === 'run.start') {
-      setStatusText('助手正在思考...');
-      return;
-    }
-
-    if (type === 'run.complete') {
-      setStreaming(false);
-      setStatusText('已完成');
-      return;
-    }
-
-    if (type === 'run.error') {
-      setStreaming(false);
-      const errorText = `run.error: ${JSON.stringify(event.error || {}, null, 2)}`;
-      setOrAppendMessage(`system:${Date.now()}`, 'system', errorText, event.timestamp || Date.now());
-      setStatusText('运行失败');
-      return;
-    }
-
-    if (type === 'run.cancel') {
-      setStreaming(false);
-      setOrAppendMessage(`system:${Date.now()}`, 'system', 'run.cancel', event.timestamp || Date.now());
-      setStatusText('已取消');
-      return;
-    }
-
-    if ((type === 'content.start' || type === 'content.delta' || type === 'content.snapshot' || type === 'content.end') && event.contentId) {
-      const contentId = String(event.contentId);
-      let messageId = contentMessageMapRef.current.get(contentId);
-
-      if (!messageId) {
-        messageId = `assistant:${contentId}`;
-        contentMessageMapRef.current.set(contentId, messageId);
-      }
-
-      if (type === 'content.delta') {
-        appendToMessage(messageId, 'assistant', event.delta || '', event.timestamp || Date.now());
-      } else if (type === 'content.start') {
-        setOrAppendMessage(messageId, 'assistant', event.text || '', event.timestamp || Date.now());
-      } else {
-        const snapshotText = typeof event.text === 'string' ? event.text : '';
-        if (snapshotText || source === 'history') {
-          setOrAppendMessage(messageId, 'assistant', snapshotText, event.timestamp || Date.now());
-        }
-      }
-    }
-  }, [appendToMessage, setOrAppendMessage]);
-
   const refreshAgents = useCallback(async (base = backendUrl, silent = false) => {
     if (!silent) {
       setLoadingAgents(true);
     }
 
     try {
-      const items = await fetchApiJson(base, '/api/agents');
-      const list = Array.isArray(items) ? items : [];
+      const data = await fetchApiJson(base, '/api/agents');
+      const list = Array.isArray(data) ? data : [];
       setAgents(list);
-      setSelectedAgentKey((prev) => {
-        if (prev && list.some((item) => getAgentKey(item) === prev)) {
-          return prev;
+      setSelectedAgentKey((current) => {
+        if (current && list.some((item) => getAgentKey(item) === current)) {
+          return current;
         }
         return getAgentKey(list[0]) || '';
       });
       if (!silent) {
-        setStatusText(`已连接，加载到 ${list.length} 个 agent`);
+        setStatusText(`已加载 ${list.length} 个 Agent`);
       }
     } catch (error) {
-      setStatusText(`agent 加载失败：${withNetworkHint(error)}`);
+      setStatusText(`Agent 加载失败：${formatError(error)}`);
     } finally {
       if (!silent) {
         setLoadingAgents(false);
@@ -607,10 +716,10 @@ function AppContent() {
       const list = Array.isArray(data) ? data : [];
       setChats(list);
       if (!silent) {
-        setStatusText(`会话列表已刷新（${list.length}）`);
+        setStatusText(`会话列表已更新 (${list.length})`);
       }
     } catch (error) {
-      setStatusText(`会话加载失败：${withNetworkHint(error)}`);
+      setStatusText(`会话列表加载失败：${formatError(error)}`);
     } finally {
       if (!silent) {
         setLoadingChats(false);
@@ -619,69 +728,75 @@ function AppContent() {
   }, [backendUrl]);
 
   const refreshAll = useCallback(async (base = backendUrl, silent = false) => {
-    await Promise.all([
-      refreshAgents(base, silent),
-      refreshChats(base, silent)
-    ]);
+    await Promise.all([refreshAgents(base, silent), refreshChats(base, silent)]);
   }, [backendUrl, refreshAgents, refreshChats]);
 
   const loadChat = useCallback(async (targetChatId) => {
-    const nextChatId = String(targetChatId || '').trim();
-    if (!nextChatId) {
+    const id = String(targetChatId || '').trim();
+    if (!id) {
       return;
     }
 
-    stopStreaming();
-    setStatusText(`正在加载会话 ${nextChatId}...`);
+    stopStreaming('会话切换中...');
+    resetTimeline();
 
     try {
-      const query = `?chatId=${encodeURIComponent(nextChatId)}`;
+      const query = `?chatId=${encodeURIComponent(id)}`;
       const data = await fetchApiJson(backendUrl, `/api/chat${query}`);
       const events = Array.isArray(data?.events) ? data.events : [];
-      const parsed = buildConversationFromEvents(events);
-      contentMessageMapRef.current = parsed.contentToMessageId;
-      setMessages(parsed.messages);
-      setChatId(nextChatId);
+      for (const event of events) {
+        applyEvent(event, 'history');
+      }
+      setChatId(id);
       setDrawerOpen(false);
-      setStatusText(`会话已载入：${nextChatId}`);
+      setStatusText(`会话已载入：${id}`);
     } catch (error) {
-      setStatusText(`会话载入失败：${withNetworkHint(error)}`);
+      setStatusText(`会话载入失败：${formatError(error)}`);
     }
-  }, [backendUrl, stopStreaming]);
+  }, [applyEvent, backendUrl, resetTimeline, stopStreaming]);
 
   const startNewChat = useCallback(() => {
     stopStreaming('新会话已就绪');
     setChatId('');
-    clearConversation();
     setDrawerOpen(false);
-  }, [clearConversation, stopStreaming]);
+    resetTimeline();
+  }, [resetTimeline, stopStreaming]);
 
   const sendMessage = useCallback(async () => {
-    const text = String(composerText || '').trim();
-    if (!text) {
+    const message = String(composerText || '').trim();
+    if (!message) {
       return;
     }
 
     if (streaming) {
-      setStatusText('当前有进行中的回答，请先停止');
+      setStatusText('已有进行中的回答，请先停止');
       return;
     }
 
     const agentKey = selectedAgentKey || getAgentKey(agents[0]);
     if (!agentKey) {
-      setStatusText('请先选择一个 Agent');
+      setStatusText('请先选择 Agent');
       return;
     }
 
-    const requestId = createRequestId('mobile');
-    setOrAppendMessage(`user:${requestId}`, 'user', text, Date.now());
     setComposerText('');
+
+    const requestId = createRequestId('mobile');
+    applyEvent(
+      {
+        type: 'request.query',
+        requestId,
+        message,
+        timestamp: Date.now(),
+        chatId
+      },
+      'live'
+    );
 
     const controller = new AbortController();
     abortControllerRef.current = controller;
-    contentMessageMapRef.current = new Map();
     setStreaming(true);
-    setStatusText(`正在请求 @${agentKey} ...`);
+    setStatusText(`@${agentKey} 正在回复中...`);
 
     try {
       const response = await fetch(`${backendUrl}/api/query`, {
@@ -693,7 +808,7 @@ function AppContent() {
         body: JSON.stringify({
           requestId,
           chatId: chatId || undefined,
-          message: text,
+          message,
           agentKey,
           role: 'user',
           stream: true
@@ -705,17 +820,27 @@ function AppContent() {
         throw new Error(`HTTP ${response.status}: ${detail.slice(0, 220)}`);
       }
 
-      await consumeJsonSse(response, (jsonEvent) => {
-        applyAgwEvent(jsonEvent, 'live');
-      }, controller.signal);
+      await consumeJsonSse(
+        response,
+        (event) => {
+          applyEvent(event, 'live');
+        },
+        controller.signal
+      );
 
-      setStatusText('回答结束');
+      setStatusText('本轮回答结束');
       refreshChats(backendUrl, true);
     } catch (error) {
       if (controller.signal.aborted) {
         setStatusText('已停止');
       } else {
-        setOrAppendMessage(`system:${Date.now()}`, 'system', withNetworkHint(error), Date.now());
+        appendEntry({
+          id: nextId('system'),
+          kind: 'message',
+          role: 'system',
+          text: formatError(error),
+          ts: Date.now()
+        });
         setStatusText('请求失败');
       }
     } finally {
@@ -724,17 +849,22 @@ function AppContent() {
       }
       setStreaming(false);
     }
-  }, [agents, applyAgwEvent, backendUrl, chatId, composerText, refreshChats, selectedAgentKey, setOrAppendMessage, streaming]);
+  }, [agents, applyEvent, appendEntry, backendUrl, chatId, composerText, nextId, refreshChats, selectedAgentKey, streaming]);
 
   const applyEndpoint = useCallback(async () => {
     const normalized = normalizeEndpointInput(endpointDraft);
-    const nextBaseUrl = toBackendBaseUrl(normalized);
+    const nextBase = toBackendBaseUrl(normalized);
     setEndpointInput(normalized);
     setEndpointDraft(normalized);
-    setStatusText(`正在连接 ${nextBaseUrl} ...`);
+    setStatusText(`正在连接 ${nextBase} ...`);
     await persistSettings({ endpointInput: normalized });
-    refreshAll(nextBaseUrl);
+    refreshAll(nextBase);
   }, [endpointDraft, persistSettings, refreshAll]);
+
+  const openSettingsFromTop = useCallback(() => {
+    setDrawerOpen(true);
+    setSettingsOpen(true);
+  }, []);
 
   const toggleTheme = useCallback(async () => {
     const next = themeMode === 'light' ? 'dark' : 'light';
@@ -748,14 +878,14 @@ function AppContent() {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        const saved = raw ? JSON.parse(raw) : {};
+        const parsed = raw ? JSON.parse(raw) : {};
         if (!mounted) {
           return;
         }
 
-        const savedTheme = saved?.themeMode === 'dark' ? 'dark' : 'light';
-        const savedEndpoint = normalizeEndpointInput(saved?.endpointInput || DEFAULT_ENDPOINT_INPUT);
-        const savedAgent = String(saved?.selectedAgentKey || '');
+        const savedTheme = parsed?.themeMode === 'dark' ? 'dark' : 'light';
+        const savedEndpoint = normalizeEndpointInput(parsed?.endpointInput || DEFAULT_ENDPOINT_INPUT);
+        const savedAgent = String(parsed?.selectedAgentKey || '');
 
         setThemeMode(savedTheme);
         setEndpointInput(savedEndpoint);
@@ -796,253 +926,300 @@ function AppContent() {
     if (booting) {
       return;
     }
-    refreshAll(backendUrl, true);
-  }, [backendUrl, booting, refreshAll]);
+
+    persistSettings();
+  }, [booting, endpointInput, persistSettings, selectedAgentKey, themeMode]);
 
   useEffect(() => {
     if (booting) {
       return;
     }
 
-    persistSettings();
-  }, [booting, endpointInput, persistSettings, selectedAgentKey, themeMode]);
+    refreshAll(backendUrl, true);
+  }, [backendUrl, booting, refreshAll]);
+
+  const tailSignature = useMemo(() => {
+    if (!timeline.length) {
+      return 'empty';
+    }
+    const last = timeline[timeline.length - 1];
+    const body = `${last.text || ''}${last.detail || ''}${last.state || ''}`;
+    return `${last.id}:${body.length}`;
+  }, [timeline]);
 
   useEffect(() => {
-    if (!flatListRef.current) {
-      return;
-    }
-
     const timer = setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 20);
+      listRef.current?.scrollToEnd({ animated: true });
+    }, 30);
 
     return () => clearTimeout(timer);
   }, [tailSignature]);
+
+  const filteredChats = useMemo(() => {
+    const keyword = chatKeyword.trim().toLowerCase();
+    const sorted = [...chats].sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a));
+    if (!keyword) {
+      return sorted;
+    }
+
+    return sorted.filter((chat) => {
+      const haystack = `${chat.chatName || ''} ${chat.chatId || ''} ${chat.firstAgentKey || ''}`.toLowerCase();
+      return haystack.includes(keyword);
+    });
+  }, [chatKeyword, chats]);
 
   const drawerTranslateX = drawerAnim.interpolate({
     inputRange: [0, 1],
     outputRange: [-DRAWER_WIDTH, 0]
   });
 
+  const activeAgentName = useMemo(() => {
+    const found = agents.find((agent) => getAgentKey(agent) === selectedAgentKey);
+    return getAgentName(found || agents[0]) || 'AGW';
+  }, [agents, selectedAgentKey]);
+
+  const agentBadgeLetter = activeAgentName.trim().charAt(0).toUpperCase() || 'A';
+
   if (booting) {
     return (
-      <SafeAreaView edges={['top']} style={[styles.safeRoot, styles.centered]}>
-        <StatusBar style="light" />
-        <View style={styles.bootCard}>
-          <ActivityIndicator size="small" color={theme.primary} />
-          <Text style={[styles.bootText, { color: theme.text }]}>正在加载配置...</Text>
-        </View>
+      <SafeAreaView edges={['top']} style={styles.safeRoot}>
+        <LinearGradient colors={theme.gradient} style={styles.gradientFill}>
+          <View style={styles.bootWrap}>
+            <View style={styles.bootCard}>
+              <ActivityIndicator size="small" color={theme.primary} />
+              <Text style={styles.bootText}>正在加载配置...</Text>
+            </View>
+          </View>
+        </LinearGradient>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeRoot}>
-      <StatusBar style={themeMode === 'dark' ? 'light' : 'dark'} />
+      <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
 
-      <View pointerEvents="none" style={styles.backgroundDecorLayer}>
-        <View style={styles.bgBlobOne} />
-        <View style={styles.bgBlobTwo} />
-      </View>
+      <LinearGradient colors={theme.gradient} style={styles.gradientFill}>
+        <View pointerEvents="none" style={styles.bgDecorWrap}>
+          <View style={[styles.bgCircleA, { backgroundColor: theme.bgCircleA }]} />
+          <View style={[styles.bgCircleB, { backgroundColor: theme.bgCircleB }]} />
+        </View>
 
-      <KeyboardAvoidingView
-        style={styles.main}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 6 : 0}
-      >
-        <View style={styles.topBar}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => setDrawerOpen(true)}>
-            <Text style={[styles.iconButtonText, { color: theme.text }]}>☰</Text>
-          </TouchableOpacity>
+        <KeyboardAvoidingView
+          style={styles.shell}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
+        >
+          <View style={styles.topNav}>
+            <TouchableOpacity style={styles.navPillButton} onPress={() => setDrawerOpen(true)}>
+              <Text style={styles.navPillButtonText}>会话</Text>
+            </TouchableOpacity>
 
-          <View style={styles.titleWrap}>
-            <Text style={[styles.title, { color: theme.text }]}>AGW Chat Assistant</Text>
-            <Text numberOfLines={1} style={[styles.subTitle, { color: theme.muted }]}> 
+            <View style={styles.brandBlock}>
+              <View style={styles.brandAvatarWrap}>
+                <Text style={styles.brandAvatarText}>{agentBadgeLetter}</Text>
+              </View>
+              <Text style={styles.brandTitle}>AGW</Text>
+            </View>
+
+            <View style={styles.topActions}>
+              <TouchableOpacity style={styles.topActionBtn} onPress={openSettingsFromTop}>
+                <Text style={styles.topActionText}>设置</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.topActionBtn} onPress={toggleTheme}>
+                <Text style={styles.topActionText}>{theme.mode === 'light' ? '夜间' : '日间'}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          <View style={styles.agentRailWrap}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.agentRailContent}>
+              {(agents.length ? agents : [{ key: '', name: '暂无 Agent' }]).map((agent) => {
+                const key = getAgentKey(agent);
+                const name = getAgentName(agent) || key || 'Agent';
+                const selected = key && key === selectedAgentKey;
+                return (
+                  <TouchableOpacity
+                    key={key || 'empty-agent'}
+                    disabled={!key}
+                    onPress={() => {
+                      setSelectedAgentKey(key);
+                      persistSettings({ selectedAgentKey: key });
+                    }}
+                    style={[
+                      styles.agentPill,
+                      {
+                        borderColor: selected ? theme.primaryDeep : theme.border,
+                        backgroundColor: selected ? theme.primarySoft : theme.surface
+                      }
+                    ]}
+                  >
+                    <Text style={[styles.agentPillText, { color: selected ? theme.primaryDeep : theme.textSoft }]}>{name}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+
+          <View style={styles.statusBarCard}>
+            <Text style={styles.statusText} numberOfLines={1}>
+              {statusText}
+            </Text>
+            <Text style={styles.statusSubText} numberOfLines={1}>
               {chatId ? `chat: ${chatId}` : 'new chat'}
             </Text>
+            {loadingAgents || loadingChats ? <ActivityIndicator size="small" color={theme.primary} /> : null}
           </View>
 
-          <TouchableOpacity style={styles.iconButton} onPress={toggleTheme}>
-            <Text style={[styles.iconButtonText, { color: theme.text }]}>{themeMode === 'light' ? '☾' : '☀'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.agentRailCard}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.agentRailContent}>
-            {(agents.length ? agents : [{ key: '', name: '暂无 Agent' }]).map((agent) => {
-              const key = getAgentKey(agent);
-              const label = agent.name || key || 'agent';
-              const selected = key && key === selectedAgentKey;
-              return (
-                <TouchableOpacity
-                  key={key || 'empty-agent'}
-                  disabled={!key}
-                  onPress={() => {
-                    setSelectedAgentKey(key);
-                    persistSettings({ selectedAgentKey: key });
-                  }}
-                  style={[
-                    styles.agentChip,
-                    {
-                      borderColor: selected ? theme.primary : theme.border,
-                      backgroundColor: selected ? theme.primarySoft : theme.surface
-                    }
-                  ]}
-                >
-                  <Text style={[styles.agentChipText, { color: selected ? theme.primary : theme.muted }]}>{label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-
-        <View style={styles.statusRow}>
-          <Text numberOfLines={1} style={[styles.statusText, { color: theme.muted }]}> 
-            {statusText}
-          </Text>
-          {(loadingAgents || loadingChats) ? <ActivityIndicator size="small" color={theme.primary} /> : null}
-        </View>
-
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <MessageBubble item={item} theme={theme} styles={styles} />}
-          style={styles.messagesList}
-          contentContainerStyle={[
-            styles.messagesContent,
-            messages.length === 0 ? styles.messagesContentEmpty : null
-          ]}
-          ListEmptyComponent={(
-            <View style={[styles.emptyWrap, { borderColor: theme.border, backgroundColor: theme.surface }]}> 
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>开始一段新的对话</Text>
-              <Text style={[styles.emptySub, { color: theme.muted }]}> 
-                左上角打开历史会话，或直接输入问题发起聊天。
-              </Text>
-            </View>
-          )}
-        />
-
-        <View style={[styles.composerWrap, { paddingBottom: Math.max(insets.bottom, 10) }]}> 
-          <View style={styles.composerCard}>
-            <TextInput
-              value={composerText}
-              onChangeText={setComposerText}
-              placeholder={streaming ? '正在流式回答中，可点击停止' : '输入消息...'}
-              placeholderTextColor={theme.muted}
-              editable={!streaming}
-              multiline
-              style={styles.composerInput}
-            />
-            <View style={styles.composerActions}>
-              {streaming ? (
-                <TouchableOpacity style={[styles.stopButton, { borderColor: theme.danger }]} onPress={() => stopStreaming('已手动停止')}> 
-                  <Text style={[styles.stopButtonText, { color: theme.danger }]}>停止</Text>
-                </TouchableOpacity>
-              ) : null}
-              <TouchableOpacity
-                style={[styles.sendButton, { backgroundColor: theme.primary }]}
-                onPress={sendMessage}
-              >
-                <Text style={styles.sendButtonText}>发送</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </KeyboardAvoidingView>
-
-      <View pointerEvents={drawerOpen ? 'auto' : 'none'} style={StyleSheet.absoluteFill}>
-        <Animated.View style={[styles.drawerOverlay, { opacity: drawerAnim }]}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setDrawerOpen(false)} />
-        </Animated.View>
-
-        <Animated.View
-          style={[
-            styles.drawerPanel,
-            {
-              paddingTop: insets.top + 8,
-              transform: [{ translateX: drawerTranslateX }]
+          <FlatList
+            ref={listRef}
+            data={timeline}
+            keyExtractor={(item) => item.id}
+            style={styles.timelineList}
+            contentContainerStyle={[
+              styles.timelineContent,
+              timeline.length === 0 ? styles.timelineContentEmpty : null
+            ]}
+            renderItem={({ item }) => <EntryRow item={item} styles={styles} theme={theme} />}
+            ListEmptyComponent={
+              <View style={styles.emptyPanel}>
+                <Text style={styles.emptyTitle}>开始一个完整对话</Text>
+                <Text style={styles.emptySubTitle}>左上角打开历史会话，或者直接输入消息发起聊天。</Text>
+              </View>
             }
-          ]}
-        >
-          <View style={styles.drawerHeader}>
-            <Text style={[styles.drawerTitle, { color: theme.text }]}>聊天历史</Text>
-            <TouchableOpacity style={styles.iconButton} onPress={() => setDrawerOpen(false)}>
-              <Text style={[styles.iconButtonText, { color: theme.text }]}>✕</Text>
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.drawerToolRow}>
-            <TouchableOpacity style={[styles.drawerToolBtn, { borderColor: theme.border }]} onPress={startNewChat}> 
-              <Text style={[styles.drawerToolText, { color: theme.text }]}>+ 新会话</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.drawerToolBtn, { borderColor: theme.border }]} onPress={() => refreshChats(backendUrl)}> 
-              <Text style={[styles.drawerToolText, { color: theme.text }]}>刷新</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.drawerToolBtn, { borderColor: theme.border }]} onPress={() => setSettingsOpen((prev) => !prev)}> 
-              <Text style={[styles.drawerToolText, { color: theme.text }]}>设置</Text>
-            </TouchableOpacity>
-          </View>
-
-          {settingsOpen ? (
-            <View style={[styles.settingsCard, { borderColor: theme.border, backgroundColor: theme.surfaceSoft }]}> 
-              <Text style={[styles.settingsLabel, { color: theme.text }]}>后端域名 / IP</Text>
-              <TextInput
-                value={endpointDraft}
-                onChangeText={setEndpointDraft}
-                autoCapitalize="none"
-                autoCorrect={false}
-                placeholder="agw.linlay.cc 或 192.168.1.8:8080"
-                placeholderTextColor={theme.muted}
-                style={[styles.settingsInput, { borderColor: theme.border, color: theme.text }]}
-              />
-              <Text style={[styles.settingsHint, { color: theme.muted }]}>当前地址：{backendUrl}</Text>
-              <TouchableOpacity style={[styles.settingsApplyBtn, { backgroundColor: theme.primary }]} onPress={applyEndpoint}> 
-                <Text style={styles.settingsApplyText}>保存并重连</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-
-          <TextInput
-            value={chatKeyword}
-            onChangeText={setChatKeyword}
-            placeholder="搜索会话"
-            placeholderTextColor={theme.muted}
-            style={[styles.searchInput, { borderColor: theme.border, color: theme.text }]}
           />
 
-          <ScrollView style={styles.chatListWrap} contentContainerStyle={styles.chatListContent}>
-            {filteredChats.length ? filteredChats.map((chat, index) => {
-              const active = chat.chatId === chatId;
-              const chatKey = chat.chatId || `${chatDisplayName(chat) || 'chat'}:${index}`;
-              return (
-                <TouchableOpacity
-                  key={chatKey}
-                  style={[
-                    styles.chatItem,
-                    {
-                      borderColor: active ? theme.primary : theme.border,
-                      backgroundColor: active ? theme.primarySoft : theme.surface
-                    }
-                  ]}
-                  onPress={() => loadChat(chat.chatId)}
-                >
-                  <Text numberOfLines={1} style={[styles.chatItemTitle, { color: theme.text }]}> 
-                    {chatDisplayName(chat) || chat.chatId || '未命名会话'}
-                  </Text>
-                  <Text numberOfLines={1} style={[styles.chatItemMeta, { color: theme.muted }]}> 
-                    {formatChatMeta(chat)}
-                  </Text>
+          <View style={[styles.composerOuter, { paddingBottom: Math.max(insets.bottom, 10) }]}> 
+            <View style={styles.composerCard}>
+              <TextInput
+                value={composerText}
+                onChangeText={setComposerText}
+                placeholder={streaming ? '正在流式输出中，可点击停止' : '回复消息...'}
+                placeholderTextColor={theme.textMute}
+                editable={!streaming}
+                multiline
+                style={styles.composerInput}
+              />
+              <View style={styles.composerActionRow}>
+                {streaming ? (
+                  <TouchableOpacity style={styles.stopBtn} onPress={() => stopStreaming('已手动停止')}>
+                    <Text style={styles.stopBtnText}>停止</Text>
+                  </TouchableOpacity>
+                ) : null}
+
+                <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
+                  <LinearGradient colors={[theme.primary, theme.primaryDeep]} style={styles.sendBtnGradient}>
+                    <Text style={styles.sendBtnText}>↑</Text>
+                  </LinearGradient>
                 </TouchableOpacity>
-              );
-            }) : (
-              <View style={[styles.emptyHistory, { borderColor: theme.border }]}> 
-                <Text style={[styles.emptyHistoryText, { color: theme.muted }]}>暂无历史会话</Text>
               </View>
-            )}
-          </ScrollView>
-        </Animated.View>
-      </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+
+        <View pointerEvents={drawerOpen ? 'auto' : 'none'} style={StyleSheet.absoluteFill}>
+          <Animated.View style={[styles.drawerOverlay, { opacity: drawerAnim }]}>
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setDrawerOpen(false)} />
+          </Animated.View>
+
+          <Animated.View
+            style={[
+              styles.drawerPanel,
+              {
+                paddingTop: insets.top + 8,
+                transform: [{ translateX: drawerTranslateX }]
+              }
+            ]}
+          >
+            <View style={styles.drawerHead}>
+              <Text style={styles.drawerTitle}>聊天历史</Text>
+              <TouchableOpacity style={styles.drawerCloseBtn} onPress={() => setDrawerOpen(false)}>
+                <Text style={styles.drawerCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.drawerActionRow}>
+              <TouchableOpacity style={styles.drawerActionBtn} onPress={startNewChat}>
+                <Text style={styles.drawerActionText}>+ 新会话</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.drawerActionBtn} onPress={() => refreshChats(backendUrl)}>
+                <Text style={styles.drawerActionText}>刷新</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.drawerActionBtn} onPress={() => setSettingsOpen((prev) => !prev)}>
+                <Text style={styles.drawerActionText}>设置</Text>
+              </TouchableOpacity>
+            </View>
+
+            {settingsOpen ? (
+              <View style={styles.settingCard}>
+                <Text style={styles.settingLabel}>后端域名 / IP</Text>
+                <TextInput
+                  value={endpointDraft}
+                  onChangeText={setEndpointDraft}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  placeholder="agw.linlay.cc 或 192.168.1.8:8080"
+                  placeholderTextColor={theme.textMute}
+                  style={styles.settingInput}
+                />
+                <Text style={styles.settingHint}>当前连接：{backendUrl}</Text>
+                <TouchableOpacity style={styles.settingApplyBtn} onPress={applyEndpoint}>
+                  <LinearGradient colors={[theme.primary, theme.primaryDeep]} style={styles.settingApplyGradient}>
+                    <Text style={styles.settingApplyText}>保存并重连</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
+            <TextInput
+              value={chatKeyword}
+              onChangeText={setChatKeyword}
+              placeholder="搜索会话"
+              placeholderTextColor={theme.textMute}
+              style={styles.chatSearchInput}
+            />
+
+            <ScrollView style={styles.chatListWrap} contentContainerStyle={styles.chatListContent}>
+              {filteredChats.length ? (
+                filteredChats.map((chat, index) => {
+                  const active = chat.chatId === chatId;
+                  const title = getChatTitle(chat) || chat.chatId || '未命名会话';
+                  const chatMetaParts = [];
+                  if (chat.firstAgentKey) {
+                    chatMetaParts.push(`@${chat.firstAgentKey}`);
+                  }
+                  if (chat.chatId) {
+                    chatMetaParts.push(chat.chatId);
+                  }
+                  const chatMeta = chatMetaParts.join(' · ');
+                  const itemKey = chat.chatId || `${title}:${index}`;
+
+                  return (
+                    <TouchableOpacity
+                      key={itemKey}
+                      style={[
+                        styles.chatItem,
+                        {
+                          borderColor: active ? theme.primaryDeep : theme.border,
+                          backgroundColor: active ? theme.primarySoft : theme.surfaceStrong
+                        }
+                      ]}
+                      onPress={() => loadChat(chat.chatId)}
+                    >
+                      <Text style={styles.chatItemTitle} numberOfLines={1}>{title}</Text>
+                      <Text style={styles.chatItemMeta} numberOfLines={1}>{chatMeta}</Text>
+                    </TouchableOpacity>
+                  );
+                })
+              ) : (
+                <View style={styles.emptyHistoryCard}>
+                  <Text style={styles.emptyHistoryText}>暂无历史会话</Text>
+                </View>
+              )}
+            </ScrollView>
+          </Animated.View>
+        </View>
+      </LinearGradient>
     </SafeAreaView>
   );
 }
@@ -1059,100 +1236,145 @@ function createStyles(theme) {
   return StyleSheet.create({
     safeRoot: {
       flex: 1,
-      backgroundColor: theme.page
+      backgroundColor: theme.surface
     },
-    centered: {
+    gradientFill: {
+      flex: 1
+    },
+    shell: {
+      flex: 1
+    },
+    bgDecorWrap: {
+      ...StyleSheet.absoluteFillObject
+    },
+    bgCircleA: {
+      position: 'absolute',
+      width: 270,
+      height: 270,
+      borderRadius: 135,
+      top: -130,
+      right: -50
+    },
+    bgCircleB: {
+      position: 'absolute',
+      width: 220,
+      height: 220,
+      borderRadius: 110,
+      left: -90,
+      bottom: 110
+    },
+    bootWrap: {
+      flex: 1,
       justifyContent: 'center',
       alignItems: 'center'
-    },
-    main: {
-      flex: 1
     },
     bootCard: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10,
-      borderRadius: 14,
+      gap: 12,
+      borderRadius: 15,
       borderWidth: 1,
       borderColor: theme.border,
-      backgroundColor: theme.surface,
+      backgroundColor: theme.surfaceStrong,
       paddingHorizontal: 16,
-      paddingVertical: 12
+      paddingVertical: 12,
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.11,
+      shadowRadius: 12,
+      elevation: 3
     },
     bootText: {
-      fontSize: 15,
-      fontWeight: '600'
+      color: theme.text,
+      fontFamily: FONT_SANS,
+      fontWeight: '700',
+      fontSize: 15
     },
-    backgroundDecorLayer: {
-      ...StyleSheet.absoluteFillObject
-    },
-    bgBlobOne: {
-      position: 'absolute',
-      top: -120,
-      right: -40,
-      width: 260,
-      height: 260,
-      borderRadius: 130,
-      backgroundColor: theme.primarySoft
-    },
-    bgBlobTwo: {
-      position: 'absolute',
-      bottom: 60,
-      left: -90,
-      width: 220,
-      height: 220,
-      borderRadius: 110,
-      backgroundColor: theme.surfaceSoft
-    },
-    topBar: {
-      marginHorizontal: 14,
-      marginTop: 6,
+    topNav: {
+      marginTop: 8,
+      marginHorizontal: 12,
       borderRadius: 18,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface,
-      shadowColor: '#000000',
-      shadowOpacity: 0.06,
-      shadowRadius: 12,
-      shadowOffset: { width: 0, height: 6 },
-      elevation: 2,
-      paddingHorizontal: 8,
-      paddingVertical: 8,
+      paddingHorizontal: 10,
+      paddingVertical: 10,
       flexDirection: 'row',
-      alignItems: 'center'
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 7 },
+      shadowOpacity: 0.08,
+      shadowRadius: 12,
+      elevation: 2
     },
-    titleWrap: {
-      flex: 1,
-      minWidth: 0,
-      marginHorizontal: 8
-    },
-    title: {
-      fontSize: 16,
-      fontWeight: '700',
-      letterSpacing: 0.2
-    },
-    subTitle: {
-      marginTop: 2,
-      fontSize: 12
-    },
-    iconButton: {
-      width: 36,
-      height: 36,
-      borderRadius: 18,
+    navPillButton: {
+      height: 30,
+      borderRadius: 999,
       borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.surfaceSoft,
+      borderColor: theme.borderStrong,
+      backgroundColor: theme.surfaceStrong,
+      paddingHorizontal: 12,
       justifyContent: 'center',
       alignItems: 'center'
     },
-    iconButtonText: {
-      fontSize: 16,
-      fontWeight: '700'
+    navPillButtonText: {
+      color: theme.textSoft,
+      fontFamily: FONT_SANS,
+      fontWeight: '700',
+      fontSize: 12
     },
-    agentRailCard: {
-      marginTop: 10,
-      marginHorizontal: 14,
-      borderRadius: 14,
+    brandBlock: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8
+    },
+    brandAvatarWrap: {
+      width: 30,
+      height: 30,
+      borderRadius: 10,
+      backgroundColor: theme.primary,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    brandAvatarText: {
+      color: '#ffffff',
+      fontFamily: FONT_SANS,
+      fontWeight: '800',
+      fontSize: 14
+    },
+    brandTitle: {
+      color: theme.text,
+      fontFamily: FONT_SANS,
+      fontWeight: '700',
+      fontSize: 20,
+      letterSpacing: 0.4
+    },
+    topActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 8
+    },
+    topActionBtn: {
+      height: 30,
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
+      backgroundColor: theme.surfaceStrong,
+      paddingHorizontal: 11,
+      justifyContent: 'center',
+      alignItems: 'center'
+    },
+    topActionText: {
+      color: theme.textSoft,
+      fontFamily: FONT_SANS,
+      fontWeight: '700',
+      fontSize: 12
+    },
+    agentRailWrap: {
+      marginHorizontal: 12,
+      marginTop: 8,
+      borderRadius: 15,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface,
@@ -1160,160 +1382,266 @@ function createStyles(theme) {
     },
     agentRailContent: {
       paddingHorizontal: 8,
+      gap: 7,
       alignItems: 'center'
     },
-    agentChip: {
-      marginHorizontal: 5,
+    agentPill: {
       borderWidth: 1,
       borderRadius: 999,
       paddingHorizontal: 12,
-      paddingVertical: 8
+      height: 30,
+      alignItems: 'center',
+      justifyContent: 'center'
     },
-    agentChipText: {
+    agentPillText: {
+      fontFamily: FONT_SANS,
       fontSize: 12,
-      fontWeight: '600'
+      fontWeight: '700'
     },
-    statusRow: {
-      marginHorizontal: 14,
-      marginTop: 10,
-      marginBottom: 2,
-      borderRadius: 12,
+    statusBarCard: {
+      marginHorizontal: 12,
+      marginTop: 8,
+      borderRadius: 13,
       borderWidth: 1,
       borderColor: theme.border,
-      backgroundColor: theme.statusBg,
-      minHeight: 34,
+      backgroundColor: theme.surfaceStrong,
+      minHeight: 42,
       paddingHorizontal: 12,
+      paddingVertical: 7,
       flexDirection: 'row',
       alignItems: 'center',
-      justifyContent: 'space-between'
+      gap: 10
     },
     statusText: {
       flex: 1,
+      color: theme.textSoft,
+      fontFamily: FONT_SANS,
       fontSize: 12,
-      marginRight: 10
+      fontWeight: '600'
     },
-    messagesList: {
+    statusSubText: {
+      maxWidth: 130,
+      color: theme.textMute,
+      fontFamily: FONT_MONO,
+      fontSize: 11,
+      fontWeight: '600'
+    },
+    timelineList: {
       flex: 1
     },
-    messagesContent: {
-      paddingHorizontal: 14,
+    timelineContent: {
+      paddingHorizontal: 12,
       paddingTop: 10,
-      paddingBottom: 16
+      paddingBottom: 14
     },
-    messagesContentEmpty: {
+    timelineContentEmpty: {
       flexGrow: 1,
       justifyContent: 'center'
     },
-    emptyWrap: {
-      borderRadius: 18,
+    emptyPanel: {
+      borderRadius: 16,
       borderWidth: 1,
-      paddingHorizontal: 20,
-      paddingVertical: 20,
-      alignItems: 'center'
+      borderColor: theme.borderStrong,
+      borderStyle: 'dashed',
+      backgroundColor: theme.surfaceStrong,
+      paddingHorizontal: 18,
+      paddingVertical: 20
     },
     emptyTitle: {
-      fontSize: 16,
-      fontWeight: '700'
+      color: theme.text,
+      fontFamily: FONT_SANS,
+      fontWeight: '700',
+      fontSize: 16
     },
-    emptySub: {
+    emptySubTitle: {
       marginTop: 8,
+      color: theme.textSoft,
+      fontFamily: FONT_SANS,
       fontSize: 13,
-      textAlign: 'center',
       lineHeight: 20
     },
-    messageUserWrap: {
-      alignItems: 'flex-end',
-      marginBottom: 9
+    stageWrap: {
+      alignItems: 'center',
+      marginBottom: 10
     },
-    messageAssistantWrap: {
-      alignItems: 'flex-start',
-      marginBottom: 9
-    },
-    messageBubble: {
-      maxWidth: '90%',
-      borderRadius: 16,
-      borderTopLeftRadius: 10,
+    stagePill: {
       borderWidth: 1,
+      borderRadius: 999,
+      paddingHorizontal: 11,
+      paddingVertical: 5
+    },
+    stageText: {
+      fontFamily: FONT_SANS,
+      fontWeight: '700',
+      fontSize: 11,
+      letterSpacing: 0.2
+    },
+    toolRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: 10
+    },
+    timelineDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+      marginTop: 9,
+      marginRight: 8
+    },
+    toolBody: {
+      flex: 1
+    },
+    toolChip: {
+      alignSelf: 'flex-start',
+      borderWidth: 1,
+      borderRadius: 999,
+      paddingHorizontal: 10,
+      paddingVertical: 4
+    },
+    toolChipText: {
+      fontFamily: FONT_MONO,
+      fontSize: 12,
+      fontWeight: '700'
+    },
+    toolDetailText: {
+      marginTop: 4,
+      fontFamily: FONT_SANS,
+      fontSize: 12,
+      lineHeight: 18
+    },
+    userRow: {
+      alignItems: 'flex-end',
+      marginBottom: 10
+    },
+    userBubble: {
+      maxWidth: '87%',
+      borderRadius: 16,
+      borderTopRightRadius: 10,
       paddingHorizontal: 12,
       paddingVertical: 9,
-      shadowOpacity: 0.16,
-      shadowRadius: 9,
-      shadowOffset: { width: 0, height: 3 },
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.17,
+      shadowRadius: 12,
+      elevation: 2
+    },
+    userText: {
+      color: '#ffffff',
+      fontFamily: FONT_SANS,
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '600'
+    },
+    userTime: {
+      marginTop: 6,
+      color: 'rgba(255,255,255,0.83)',
+      textAlign: 'right',
+      fontFamily: FONT_MONO,
+      fontSize: 11,
+      fontWeight: '700'
+    },
+    assistantRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      marginBottom: 10
+    },
+    assistantBubble: {
+      flex: 1,
+      borderWidth: 1,
+      borderRadius: 15,
+      borderTopLeftRadius: 8,
+      paddingHorizontal: 12,
+      paddingVertical: 10,
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 5 },
+      shadowOpacity: 0.1,
+      shadowRadius: 10,
       elevation: 1
     },
-    messageUserBubble: {
-      borderTopLeftRadius: 16,
-      borderTopRightRadius: 10
-    },
-    messageSystemBubble: {
-      borderColor: theme.danger
-    },
-    messageText: {
+    assistantText: {
+      fontFamily: FONT_SANS,
       fontSize: 15,
-      lineHeight: 22
+      lineHeight: 23,
+      fontWeight: '500'
     },
-    messageTime: {
+    assistantTime: {
       marginTop: 6,
+      textAlign: 'right',
+      fontFamily: FONT_MONO,
       fontSize: 11,
-      textAlign: 'right'
+      fontWeight: '700'
     },
-    composerWrap: {
-      paddingHorizontal: 14,
+    composerOuter: {
+      paddingHorizontal: 12,
       paddingTop: 6
     },
     composerCard: {
       borderRadius: 16,
       borderWidth: 1,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
-      padding: 10
+      borderColor: theme.borderStrong,
+      backgroundColor: theme.surfaceStrong,
+      padding: 10,
+      shadowColor: '#000000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.09,
+      shadowRadius: 12,
+      elevation: 2
     },
     composerInput: {
       minHeight: 44,
       maxHeight: 150,
-      borderRadius: 12,
+      borderRadius: 11,
       borderWidth: 1,
       borderColor: theme.border,
-      backgroundColor: theme.input,
+      backgroundColor: theme.surface,
       color: theme.text,
-      paddingHorizontal: 12,
-      paddingTop: 10,
-      paddingBottom: 10,
+      fontFamily: FONT_SANS,
       fontSize: 15,
       lineHeight: 20,
+      paddingHorizontal: 11,
+      paddingVertical: 10,
       textAlignVertical: 'top'
     },
-    composerActions: {
+    composerActionRow: {
       marginTop: 10,
       flexDirection: 'row',
       justifyContent: 'flex-end',
       alignItems: 'center',
       gap: 10
     },
-    stopButton: {
-      height: 36,
-      borderRadius: 12,
-      borderWidth: 1,
+    stopBtn: {
+      height: 34,
       paddingHorizontal: 14,
-      justifyContent: 'center',
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: `${theme.danger}85`,
+      backgroundColor: `${theme.danger}14`,
       alignItems: 'center',
-      backgroundColor: 'transparent'
+      justifyContent: 'center'
     },
-    stopButtonText: {
-      fontSize: 13,
+    stopBtnText: {
+      color: theme.danger,
+      fontFamily: FONT_SANS,
+      fontSize: 12,
       fontWeight: '700'
     },
-    sendButton: {
-      height: 36,
-      borderRadius: 12,
-      paddingHorizontal: 18,
-      justifyContent: 'center',
-      alignItems: 'center'
+    sendBtn: {
+      width: 38,
+      height: 38,
+      borderRadius: 19,
+      overflow: 'hidden'
     },
-    sendButtonText: {
-      fontSize: 14,
-      color: '#ffffff',
-      fontWeight: '700'
+    sendBtnGradient: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    sendBtnText: {
+      color: theme.sendIcon,
+      fontFamily: FONT_SANS,
+      fontSize: 17,
+      fontWeight: '800',
+      marginTop: -2
     },
     drawerOverlay: {
       ...StyleSheet.absoluteFillObject,
@@ -1325,119 +1653,167 @@ function createStyles(theme) {
       top: 0,
       bottom: 0,
       width: DRAWER_WIDTH,
-      backgroundColor: theme.page,
       borderRightWidth: 1,
-      borderRightColor: theme.border,
-      paddingTop: Platform.OS === 'android' ? 26 : 12,
+      borderRightColor: theme.borderStrong,
+      backgroundColor: theme.surface,
       paddingHorizontal: 12,
       shadowColor: '#000000',
-      shadowOpacity: 0.2,
-      shadowRadius: 20,
       shadowOffset: { width: 2, height: 0 },
+      shadowOpacity: 0.25,
+      shadowRadius: 15,
       elevation: 8
     },
-    drawerHeader: {
+    drawerHead: {
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between'
     },
     drawerTitle: {
-      fontSize: 19,
+      color: theme.text,
+      fontFamily: FONT_SANS,
+      fontSize: 20,
       fontWeight: '700'
     },
-    drawerToolRow: {
-      flexDirection: 'row',
+    drawerCloseBtn: {
+      width: 30,
+      height: 30,
+      borderRadius: 15,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
+      backgroundColor: theme.surfaceStrong,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    drawerCloseText: {
+      color: theme.textSoft,
+      fontFamily: FONT_SANS,
+      fontSize: 13,
+      fontWeight: '700'
+    },
+    drawerActionRow: {
       marginTop: 12,
+      flexDirection: 'row',
+      alignItems: 'center',
       gap: 8
     },
-    drawerToolBtn: {
+    drawerActionBtn: {
       flex: 1,
+      height: 34,
       borderRadius: 11,
       borderWidth: 1,
-      backgroundColor: theme.surface,
-      height: 36,
-      justifyContent: 'center',
-      alignItems: 'center'
+      borderColor: theme.borderStrong,
+      backgroundColor: theme.surfaceStrong,
+      alignItems: 'center',
+      justifyContent: 'center'
     },
-    drawerToolText: {
-      fontSize: 13,
-      fontWeight: '600'
+    drawerActionText: {
+      color: theme.textSoft,
+      fontFamily: FONT_SANS,
+      fontSize: 12,
+      fontWeight: '700'
     },
-    settingsCard: {
+    settingCard: {
       marginTop: 10,
+      borderRadius: 13,
       borderWidth: 1,
-      borderRadius: 12,
+      borderColor: theme.borderStrong,
+      backgroundColor: theme.surfaceStrong,
       padding: 10
     },
-    settingsLabel: {
+    settingLabel: {
+      color: theme.text,
+      fontFamily: FONT_SANS,
       fontSize: 13,
       fontWeight: '700'
     },
-    settingsInput: {
-      marginTop: 7,
-      borderWidth: 1,
+    settingInput: {
+      marginTop: 8,
       borderRadius: 10,
+      borderWidth: 1,
+      borderColor: theme.border,
       backgroundColor: theme.surface,
+      color: theme.text,
+      fontFamily: FONT_MONO,
+      fontSize: 13,
       paddingHorizontal: 10,
-      height: 38,
-      fontSize: 14
+      height: 38
     },
-    settingsHint: {
-      marginTop: 6,
+    settingHint: {
+      marginTop: 7,
+      color: theme.textMute,
+      fontFamily: FONT_SANS,
       fontSize: 11
     },
-    settingsApplyBtn: {
+    settingApplyBtn: {
       marginTop: 10,
       height: 34,
       borderRadius: 10,
-      justifyContent: 'center',
-      alignItems: 'center'
+      overflow: 'hidden'
     },
-    settingsApplyText: {
+    settingApplyGradient: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    settingApplyText: {
       color: '#ffffff',
-      fontSize: 13,
+      fontFamily: FONT_SANS,
+      fontSize: 12,
       fontWeight: '700'
     },
-    searchInput: {
+    chatSearchInput: {
       marginTop: 10,
-      borderWidth: 1,
       borderRadius: 10,
-      backgroundColor: theme.surface,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
+      backgroundColor: theme.surfaceStrong,
+      color: theme.text,
+      fontFamily: FONT_SANS,
+      fontSize: 13,
       paddingHorizontal: 10,
-      height: 38,
-      fontSize: 14
+      height: 38
     },
     chatListWrap: {
-      flex: 1,
-      marginTop: 10
+      marginTop: 10,
+      flex: 1
     },
     chatListContent: {
-      paddingBottom: 20
+      paddingBottom: 22
     },
     chatItem: {
-      borderWidth: 1,
       borderRadius: 12,
+      borderWidth: 1,
       paddingHorizontal: 10,
       paddingVertical: 10,
       marginBottom: 8
     },
     chatItemTitle: {
+      color: theme.text,
+      fontFamily: FONT_SANS,
       fontSize: 14,
       fontWeight: '700'
     },
     chatItemMeta: {
       marginTop: 4,
-      fontSize: 11
+      color: theme.textMute,
+      fontFamily: FONT_MONO,
+      fontSize: 11,
+      fontWeight: '700'
     },
-    emptyHistory: {
-      borderWidth: 1,
+    emptyHistoryCard: {
       borderRadius: 12,
+      borderWidth: 1,
+      borderColor: theme.borderStrong,
       borderStyle: 'dashed',
-      padding: 14,
+      paddingHorizontal: 12,
+      paddingVertical: 16,
       alignItems: 'center'
     },
     emptyHistoryText: {
-      fontSize: 12
+      color: theme.textMute,
+      fontFamily: FONT_SANS,
+      fontSize: 12,
+      fontWeight: '600'
     }
   });
 }
