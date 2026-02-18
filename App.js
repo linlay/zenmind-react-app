@@ -343,15 +343,19 @@ function getToolTone(state) {
 
 function EntryRow({ item, styles, theme }) {
   const appear = useRef(new Animated.Value(0)).current;
+  const seqMatch = String(item?.id || '').match(/:(\d+)$/);
+  const seq = seqMatch ? Number(seqMatch[1]) : 0;
+  const delay = Number.isFinite(seq) ? Math.min(120, seq * 8) : 0;
 
   useEffect(() => {
     Animated.timing(appear, {
       toValue: 1,
-      duration: 220,
+      duration: 210,
+      delay,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true
     }).start();
-  }, [appear]);
+  }, [appear, delay]);
 
   const enterStyle = {
     opacity: appear,
@@ -359,7 +363,13 @@ function EntryRow({ item, styles, theme }) {
       {
         translateY: appear.interpolate({
           inputRange: [0, 1],
-          outputRange: [8, 0]
+          outputRange: [6, 0]
+        })
+      },
+      {
+        scale: appear.interpolate({
+          inputRange: [0, 1],
+          outputRange: [0.985, 1]
         })
       }
     ]
@@ -395,7 +405,7 @@ function EntryRow({ item, styles, theme }) {
       <Animated.View style={[styles.toolRow, enterStyle]}>
         <View style={[styles.timelineDot, { backgroundColor: theme.timelineDot }]} />
         <View style={styles.toolBody}>
-          <View style={[styles.toolChip, { borderColor: toneStyle.borderColor, backgroundColor: toneStyle.bg }]}> 
+          <View style={[styles.toolChip, { borderColor: toneStyle.borderColor, backgroundColor: toneStyle.bg }]}>
             <Text style={[styles.toolChipText, { color: toneStyle.color }]}>call: _{item.label}_</Text>
           </View>
           {item.detail ? (
@@ -472,6 +482,7 @@ function AppContent() {
   const contentIdMapRef = useRef(new Map());
   const toolIdMapRef = useRef(new Map());
   const drawerAnim = useRef(new Animated.Value(0)).current;
+  const sendScale = useRef(new Animated.Value(1)).current;
 
   const nextId = useCallback((prefix) => {
     sequenceRef.current += 1;
@@ -866,6 +877,15 @@ function AppContent() {
     setSettingsOpen(true);
   }, []);
 
+  const pressSendScale = useCallback((toValue) => {
+    Animated.spring(sendScale, {
+      toValue,
+      useNativeDriver: true,
+      speed: 36,
+      bounciness: 5
+    }).start();
+  }, [sendScale]);
+
   const toggleTheme = useCallback(async () => {
     const next = themeMode === 'light' ? 'dark' : 'light';
     setThemeMode(next);
@@ -1011,7 +1031,7 @@ function AppContent() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? 10 : 0}
         >
           <View style={styles.topNav}>
-            <TouchableOpacity style={styles.navPillButton} onPress={() => setDrawerOpen(true)}>
+            <TouchableOpacity activeOpacity={0.72} style={styles.navPillButton} onPress={() => setDrawerOpen(true)}>
               <Text style={styles.navPillButtonText}>会话</Text>
             </TouchableOpacity>
 
@@ -1023,10 +1043,10 @@ function AppContent() {
             </View>
 
             <View style={styles.topActions}>
-              <TouchableOpacity style={styles.topActionBtn} onPress={openSettingsFromTop}>
+              <TouchableOpacity activeOpacity={0.72} style={styles.topActionBtn} onPress={openSettingsFromTop}>
                 <Text style={styles.topActionText}>设置</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.topActionBtn} onPress={toggleTheme}>
+              <TouchableOpacity activeOpacity={0.72} style={styles.topActionBtn} onPress={toggleTheme}>
                 <Text style={styles.topActionText}>{theme.mode === 'light' ? '夜间' : '日间'}</Text>
               </TouchableOpacity>
             </View>
@@ -1042,6 +1062,7 @@ function AppContent() {
                   <TouchableOpacity
                     key={key || 'empty-agent'}
                     disabled={!key}
+                    activeOpacity={0.78}
                     onPress={() => {
                       setSelectedAgentKey(key);
                       persistSettings({ selectedAgentKey: key });
@@ -1089,7 +1110,7 @@ function AppContent() {
             }
           />
 
-          <View style={[styles.composerOuter, { paddingBottom: Math.max(insets.bottom, 10) }]}> 
+          <View style={[styles.composerOuter, { paddingBottom: Math.max(insets.bottom, 10) }]}>
             <View style={styles.composerCard}>
               <TextInput
                 value={composerText}
@@ -1102,16 +1123,24 @@ function AppContent() {
               />
               <View style={styles.composerActionRow}>
                 {streaming ? (
-                  <TouchableOpacity style={styles.stopBtn} onPress={() => stopStreaming('已手动停止')}>
+                  <TouchableOpacity activeOpacity={0.78} style={styles.stopBtn} onPress={() => stopStreaming('已手动停止')}>
                     <Text style={styles.stopBtnText}>停止</Text>
                   </TouchableOpacity>
                 ) : null}
 
-                <TouchableOpacity style={styles.sendBtn} onPress={sendMessage}>
-                  <LinearGradient colors={[theme.primary, theme.primaryDeep]} style={styles.sendBtnGradient}>
-                    <Text style={styles.sendBtnText}>↑</Text>
-                  </LinearGradient>
-                </TouchableOpacity>
+                <Animated.View style={{ transform: [{ scale: sendScale }] }}>
+                  <TouchableOpacity
+                    activeOpacity={0.9}
+                    style={styles.sendBtn}
+                    onPress={sendMessage}
+                    onPressIn={() => pressSendScale(0.92)}
+                    onPressOut={() => pressSendScale(1)}
+                  >
+                    <LinearGradient colors={[theme.primary, theme.primaryDeep]} style={styles.sendBtnGradient}>
+                      <Text style={styles.sendBtnText}>↑</Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
+                </Animated.View>
               </View>
             </View>
           </View>
@@ -1133,19 +1162,19 @@ function AppContent() {
           >
             <View style={styles.drawerHead}>
               <Text style={styles.drawerTitle}>聊天历史</Text>
-              <TouchableOpacity style={styles.drawerCloseBtn} onPress={() => setDrawerOpen(false)}>
+              <TouchableOpacity activeOpacity={0.72} style={styles.drawerCloseBtn} onPress={() => setDrawerOpen(false)}>
                 <Text style={styles.drawerCloseText}>✕</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.drawerActionRow}>
-              <TouchableOpacity style={styles.drawerActionBtn} onPress={startNewChat}>
+              <TouchableOpacity activeOpacity={0.74} style={styles.drawerActionBtn} onPress={startNewChat}>
                 <Text style={styles.drawerActionText}>+ 新会话</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.drawerActionBtn} onPress={() => refreshChats(backendUrl)}>
+              <TouchableOpacity activeOpacity={0.74} style={styles.drawerActionBtn} onPress={() => refreshChats(backendUrl)}>
                 <Text style={styles.drawerActionText}>刷新</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.drawerActionBtn} onPress={() => setSettingsOpen((prev) => !prev)}>
+              <TouchableOpacity activeOpacity={0.74} style={styles.drawerActionBtn} onPress={() => setSettingsOpen((prev) => !prev)}>
                 <Text style={styles.drawerActionText}>设置</Text>
               </TouchableOpacity>
             </View>
@@ -1163,7 +1192,7 @@ function AppContent() {
                   style={styles.settingInput}
                 />
                 <Text style={styles.settingHint}>当前连接：{backendUrl}</Text>
-                <TouchableOpacity style={styles.settingApplyBtn} onPress={applyEndpoint}>
+                <TouchableOpacity activeOpacity={0.82} style={styles.settingApplyBtn} onPress={applyEndpoint}>
                   <LinearGradient colors={[theme.primary, theme.primaryDeep]} style={styles.settingApplyGradient}>
                     <Text style={styles.settingApplyText}>保存并重连</Text>
                   </LinearGradient>
@@ -1197,6 +1226,7 @@ function AppContent() {
                   return (
                     <TouchableOpacity
                       key={itemKey}
+                      activeOpacity={0.74}
                       style={[
                         styles.chatItem,
                         {
@@ -1291,30 +1321,30 @@ function createStyles(theme) {
       fontSize: 15
     },
     topNav: {
-      marginTop: 8,
+      marginTop: 7,
       marginHorizontal: 12,
-      borderRadius: 18,
+      borderRadius: 16,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface,
-      paddingHorizontal: 10,
-      paddingVertical: 10,
+      paddingHorizontal: 9,
+      paddingVertical: 8,
       flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'space-between',
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 7 },
-      shadowOpacity: 0.08,
-      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.07,
+      shadowRadius: 10,
       elevation: 2
     },
     navPillButton: {
-      height: 30,
+      height: 28,
       borderRadius: 999,
       borderWidth: 1,
       borderColor: theme.borderStrong,
       backgroundColor: theme.surfaceStrong,
-      paddingHorizontal: 12,
+      paddingHorizontal: 11,
       justifyContent: 'center',
       alignItems: 'center'
     },
@@ -1353,15 +1383,15 @@ function createStyles(theme) {
     topActions: {
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8
+      gap: 7
     },
     topActionBtn: {
-      height: 30,
+      height: 28,
       borderRadius: 999,
       borderWidth: 1,
       borderColor: theme.borderStrong,
       backgroundColor: theme.surfaceStrong,
-      paddingHorizontal: 11,
+      paddingHorizontal: 10,
       justifyContent: 'center',
       alignItems: 'center'
     },
@@ -1373,23 +1403,23 @@ function createStyles(theme) {
     },
     agentRailWrap: {
       marginHorizontal: 12,
-      marginTop: 8,
-      borderRadius: 15,
+      marginTop: 7,
+      borderRadius: 14,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surface,
-      paddingVertical: 8
+      paddingVertical: 7
     },
     agentRailContent: {
-      paddingHorizontal: 8,
-      gap: 7,
+      paddingHorizontal: 7,
+      gap: 6,
       alignItems: 'center'
     },
     agentPill: {
       borderWidth: 1,
       borderRadius: 999,
-      paddingHorizontal: 12,
-      height: 30,
+      paddingHorizontal: 11,
+      height: 28,
       alignItems: 'center',
       justifyContent: 'center'
     },
@@ -1400,17 +1430,17 @@ function createStyles(theme) {
     },
     statusBarCard: {
       marginHorizontal: 12,
-      marginTop: 8,
-      borderRadius: 13,
+      marginTop: 7,
+      borderRadius: 12,
       borderWidth: 1,
       borderColor: theme.border,
       backgroundColor: theme.surfaceStrong,
-      minHeight: 42,
-      paddingHorizontal: 12,
-      paddingVertical: 7,
+      minHeight: 40,
+      paddingHorizontal: 11,
+      paddingVertical: 6,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 10
+      gap: 8
     },
     statusText: {
       flex: 1,
@@ -1431,8 +1461,8 @@ function createStyles(theme) {
     },
     timelineContent: {
       paddingHorizontal: 12,
-      paddingTop: 10,
-      paddingBottom: 14
+      paddingTop: 8,
+      paddingBottom: 12
     },
     timelineContentEmpty: {
       flexGrow: 1,
@@ -1462,13 +1492,13 @@ function createStyles(theme) {
     },
     stageWrap: {
       alignItems: 'center',
-      marginBottom: 10
+      marginBottom: 8
     },
     stagePill: {
       borderWidth: 1,
       borderRadius: 999,
-      paddingHorizontal: 11,
-      paddingVertical: 5
+      paddingHorizontal: 10,
+      paddingVertical: 4
     },
     stageText: {
       fontFamily: FONT_SANS,
@@ -1479,14 +1509,14 @@ function createStyles(theme) {
     toolRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      marginBottom: 10
+      marginBottom: 8
     },
     timelineDot: {
-      width: 8,
-      height: 8,
-      borderRadius: 4,
-      marginTop: 9,
-      marginRight: 8
+      width: 6,
+      height: 6,
+      borderRadius: 3,
+      marginTop: 10,
+      marginRight: 7
     },
     toolBody: {
       flex: 1
@@ -1495,45 +1525,45 @@ function createStyles(theme) {
       alignSelf: 'flex-start',
       borderWidth: 1,
       borderRadius: 999,
-      paddingHorizontal: 10,
-      paddingVertical: 4
+      paddingHorizontal: 8,
+      paddingVertical: 3
     },
     toolChipText: {
       fontFamily: FONT_MONO,
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: '700'
     },
     toolDetailText: {
-      marginTop: 4,
+      marginTop: 3,
       fontFamily: FONT_SANS,
-      fontSize: 12,
-      lineHeight: 18
+      fontSize: 11,
+      lineHeight: 17
     },
     userRow: {
       alignItems: 'flex-end',
-      marginBottom: 10
+      marginBottom: 8
     },
     userBubble: {
       maxWidth: '87%',
-      borderRadius: 16,
-      borderTopRightRadius: 10,
-      paddingHorizontal: 12,
-      paddingVertical: 9,
+      borderRadius: 14,
+      borderTopRightRadius: 8,
+      paddingHorizontal: 11,
+      paddingVertical: 8,
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.17,
-      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 5 },
+      shadowOpacity: 0.14,
+      shadowRadius: 10,
       elevation: 2
     },
     userText: {
       color: '#ffffff',
       fontFamily: FONT_SANS,
-      fontSize: 15,
-      lineHeight: 22,
+      fontSize: 14,
+      lineHeight: 21,
       fontWeight: '600'
     },
     userTime: {
-      marginTop: 6,
+      marginTop: 5,
       color: 'rgba(255,255,255,0.83)',
       textAlign: 'right',
       fontFamily: FONT_MONO,
@@ -1543,29 +1573,29 @@ function createStyles(theme) {
     assistantRow: {
       flexDirection: 'row',
       alignItems: 'flex-start',
-      marginBottom: 10
+      marginBottom: 8
     },
     assistantBubble: {
       flex: 1,
       borderWidth: 1,
-      borderRadius: 15,
-      borderTopLeftRadius: 8,
-      paddingHorizontal: 12,
-      paddingVertical: 10,
+      borderRadius: 13,
+      borderTopLeftRadius: 7,
+      paddingHorizontal: 11,
+      paddingVertical: 9,
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 5 },
-      shadowOpacity: 0.1,
-      shadowRadius: 10,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
       elevation: 1
     },
     assistantText: {
       fontFamily: FONT_SANS,
-      fontSize: 15,
-      lineHeight: 23,
+      fontSize: 14,
+      lineHeight: 22,
       fontWeight: '500'
     },
     assistantTime: {
-      marginTop: 6,
+      marginTop: 5,
       textAlign: 'right',
       fontFamily: FONT_MONO,
       fontSize: 11,
@@ -1573,18 +1603,18 @@ function createStyles(theme) {
     },
     composerOuter: {
       paddingHorizontal: 12,
-      paddingTop: 6
+      paddingTop: 4
     },
     composerCard: {
-      borderRadius: 16,
+      borderRadius: 14,
       borderWidth: 1,
       borderColor: theme.borderStrong,
       backgroundColor: theme.surfaceStrong,
-      padding: 10,
+      padding: 9,
       shadowColor: '#000000',
-      shadowOffset: { width: 0, height: 8 },
-      shadowOpacity: 0.09,
-      shadowRadius: 12,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 10,
       elevation: 2
     },
     composerInput: {
@@ -1603,15 +1633,15 @@ function createStyles(theme) {
       textAlignVertical: 'top'
     },
     composerActionRow: {
-      marginTop: 10,
+      marginTop: 8,
       flexDirection: 'row',
       justifyContent: 'flex-end',
       alignItems: 'center',
       gap: 10
     },
     stopBtn: {
-      height: 34,
-      paddingHorizontal: 14,
+      height: 32,
+      paddingHorizontal: 13,
       borderRadius: 999,
       borderWidth: 1,
       borderColor: `${theme.danger}85`,
@@ -1626,9 +1656,9 @@ function createStyles(theme) {
       fontWeight: '700'
     },
     sendBtn: {
-      width: 38,
-      height: 38,
-      borderRadius: 19,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
       overflow: 'hidden'
     },
     sendBtnGradient: {
@@ -1691,15 +1721,15 @@ function createStyles(theme) {
       fontWeight: '700'
     },
     drawerActionRow: {
-      marginTop: 12,
+      marginTop: 10,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 8
+      gap: 7
     },
     drawerActionBtn: {
       flex: 1,
-      height: 34,
-      borderRadius: 11,
+      height: 32,
+      borderRadius: 10,
       borderWidth: 1,
       borderColor: theme.borderStrong,
       backgroundColor: theme.surfaceStrong,
@@ -1781,11 +1811,11 @@ function createStyles(theme) {
       paddingBottom: 22
     },
     chatItem: {
-      borderRadius: 12,
+      borderRadius: 11,
       borderWidth: 1,
       paddingHorizontal: 10,
-      paddingVertical: 10,
-      marginBottom: 8
+      paddingVertical: 9,
+      marginBottom: 7
     },
     chatItemTitle: {
       color: theme.text,
