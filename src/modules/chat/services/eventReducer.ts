@@ -1,0 +1,659 @@
+// @ts-nocheck
+import { toDisplayText } from '../../../shared/utils/format';
+import {
+  ChatEvent,
+  ChatRuntimeMaps,
+  ChatState,
+  TimelineEntry
+} from '../types/chat';
+import {
+  FRONTEND_VIEWPORT_TYPES,
+  isFrontendToolEvent,
+  normalizeEventType,
+  normalizePlanTask,
+  normalizeTaskStatus,
+  parseStructuredArgs,
+  renderActionLabel,
+  renderToolLabel
+} from './eventNormalizer';
+
+export interface ChatEffect {
+  type: 'set_chat_id' | 'execute_action' | 'stream_end' | 'activate_frontend_tool';
+  payload?: Record<string, unknown>;
+}
+
+export function createEmptyChatState(): ChatState {
+  return {
+    timeline: [],
+    planState: {
+      planId: '',
+      tasks: [],
+      expanded: false,
+      lastTaskId: ''
+    },
+    activeFrontendTool: null,
+    actionModal: {
+      visible: false,
+      title: '',
+      content: '',
+      closeText: '关闭'
+    },
+    chatId: '',
+    statusText: '',
+    streaming: false,
+    expandedTools: {}
+  };
+}
+
+export function createRuntimeMaps(): ChatRuntimeMaps {
+  return {
+    sequence: 0,
+    contentIdMap: new Map(),
+    toolIdMap: new Map(),
+    actionIdMap: new Map(),
+    reasoningIdMap: new Map(),
+    actionStateMap: new Map(),
+    toolStateMap: new Map(),
+    runId: ''
+  };
+}
+
+function nextId(runtime: ChatRuntimeMaps, prefix: string): string {
+  runtime.sequence += 1;
+  return `${prefix}:${runtime.sequence}`;
+}
+
+function upsertEntry(next: ChatState, id: string, builder: (old: TimelineEntry | null) => TimelineEntry | null): void {
+  const index = next.timeline.findIndex((entry) => entry.id === id);
+  if (index === -1) {
+    const created = builder(null);
+    if (created) next.timeline = [...next.timeline, created];
+    return;
+  }
+
+  const replaced = builder(next.timeline[index]);
+  if (!replaced) return;
+  next.timeline = next.timeline.slice();
+  next.timeline[index] = replaced;
+}
+
+function appendEntry(next: ChatState, entry: TimelineEntry): void {
+  next.timeline = [...next.timeline, entry];
+}
+
+export function reduceChatEvent(
+  prev: ChatState,
+  rawEvent: ChatEvent,
+  source: 'live' | 'history',
+  runtime: ChatRuntimeMaps
+): { next: ChatState; effects: ChatEffect[] } {
+  if (!rawEvent || typeof rawEvent !== 'object') {
+    return { next: prev, effects: [] };
+  }
+
+  const event = rawEvent as Record<string, unknown>;
+  const effects: ChatEffect[] = [];
+  const next: ChatState = {
+    ...prev,
+    timeline: [...prev.timeline],
+    planState: { ...prev.planState, tasks: [...prev.planState.tasks] },
+    expandedTools: { ...prev.expandedTools }
+  };
+
+  if (event.chatId) {
+    const chatId = String(event.chatId);
+    next.chatId = chatId;
+    effects.push({ type: 'set_chat_id', payload: { chatId } });
+  }
+
+  const ts = Number(event.timestamp || Date.now());
+  const type = normalizeEventType(event.type);
+
+  if (type === 'request.query') {
+    const requestId = String(event.requestId || nextId(runtime, 'request'));
+    const itemId = `message:user:${requestId}`;
+    upsertEntry(next, itemId, (old) => ({
+      ...(old || {}),
+      id: itemId,
+      kind: 'message',
+      role: 'user',
+      text: String(event.message || ''),
+      ts
+    }) as TimelineEntry);
+    return { next, effects };
+  }
+
+  if (type === 'chat.start') {
+    return { next, effects };
+  }
+
+  if (type === 'run.start') {
+    if (event.runId) {
+      runtime.runId = String(event.runId);
+    }
+    return { next, effects };
+  }
+
+  if (type === 'run.complete' || type === 'run.cancel') {
+    next.streaming = false;
+    next.activeFrontendTool = null;
+
+    const finishedRunId = String(event.runId || runtime.runId || '');
+    const itemId = finishedRunId ? `run:end:${finishedRunId}` : nextId(runtime, 'run_end');
+
+    upsertEntry(next, itemId, (old) => ({
+      ...(old || {}),
+      id: itemId,
+      kind: 'message',
+      role: 'system',
+      variant: 'run_end',
+      tone: type === 'run.cancel' ? 'warn' : 'ok',
+      text: type === 'run.cancel' ? '本次运行已取消' : '本次运行结束',
+      ts
+    }) as TimelineEntry);
+
+    effects.push({ type: 'stream_end' });
+    return { next, effects };
+  }
+
+  if (type === 'run.error') {
+    next.streaming = false;
+    next.activeFrontendTool = null;
+    appendEntry(next, {
+      id: nextId(runtime, 'system'),
+      kind: 'message',
+      role: 'system',
+      text: `run.error: ${toDisplayText(event.error || event)}`,
+      ts
+    });
+    effects.push({ type: 'stream_end' });
+    return { next, effects };
+  }
+
+  if (type === 'plan.update') {
+    const tasks = Array.isArray(event.plan)
+      ? event.plan.map((task, index) => normalizePlanTask((task || {}) as Record<string, unknown>, index))
+      : [];
+    next.planState = {
+      ...next.planState,
+      planId: String(event.planId || next.planState.planId || ''),
+      tasks,
+      expanded: true,
+      lastTaskId: tasks.find((task) => task.status === 'running')?.taskId || next.planState.lastTaskId
+    };
+    return { next, effects };
+  }
+
+  if (type === 'task.start' || type === 'task.end' || type === 'task.complete') {
+    const taskId = String(event.taskId || '');
+    if (!taskId) {
+      return { next, effects };
+    }
+    const idx = next.planState.tasks.findIndex((task) => task.taskId === taskId);
+    const description = String(event.description || event.taskName || taskId);
+
+    if (idx === -1) {
+      next.planState.tasks.push({
+        taskId,
+        description,
+        status: type === 'task.start' ? 'running' : normalizeTaskStatus(event.status || (event.error ? 'failed' : 'done'))
+      });
+    } else {
+      next.planState.tasks[idx] = {
+        ...next.planState.tasks[idx],
+        description,
+        status: type === 'task.start' ? 'running' : normalizeTaskStatus(event.status || (event.error ? 'failed' : 'done'))
+      };
+    }
+
+    next.planState.expanded = true;
+    next.planState.lastTaskId = taskId;
+    return { next, effects };
+  }
+
+  if ((type === 'action.start' || type === 'action.snapshot') && event.actionId) {
+    const actionId = String(event.actionId);
+    const actionName = String(event.actionName || '').trim();
+    const description = String(event.description || '').trim();
+    let itemId = runtime.actionIdMap.get(actionId);
+    if (!itemId) {
+      itemId = nextId(runtime, 'action');
+      runtime.actionIdMap.set(actionId, itemId);
+    }
+
+    const actionState = runtime.actionStateMap.get(actionId) || {
+      actionName,
+      argsText: '',
+      resultText: '',
+      executed: false
+    };
+    actionState.actionName = actionName || actionState.actionName || '';
+    runtime.actionStateMap.set(actionId, actionState);
+
+    upsertEntry(next, itemId, (old) => ({
+      ...(old || {}),
+      id: itemId,
+      kind: 'action',
+      actionName: actionState.actionName,
+      label: (old as Record<string, unknown> | null)?.label || renderActionLabel(event),
+      description: description || String((old as Record<string, unknown> | null)?.description || ''),
+      argsText: String((old as Record<string, unknown> | null)?.argsText || actionState.argsText || ''),
+      resultText: String((old as Record<string, unknown> | null)?.resultText || actionState.resultText || ''),
+      state: 'running',
+      ts
+    }) as TimelineEntry);
+
+    return { next, effects };
+  }
+
+  if (type === 'action.args' && event.actionId) {
+    const actionId = String(event.actionId);
+    let itemId = runtime.actionIdMap.get(actionId);
+    if (!itemId) {
+      itemId = nextId(runtime, 'action');
+      runtime.actionIdMap.set(actionId, itemId);
+    }
+
+    const deltaText = String(event.delta || '');
+    const stateInRef = runtime.actionStateMap.get(actionId) || {
+      actionName: String(event.actionName || '').trim(),
+      argsText: '',
+      resultText: '',
+      executed: false
+    };
+    stateInRef.argsText = `${stateInRef.argsText || ''}${deltaText}`;
+    runtime.actionStateMap.set(actionId, stateInRef);
+
+    upsertEntry(next, itemId, (old) => ({
+      ...(old || {}),
+      id: itemId,
+      kind: 'action',
+      actionName: String((old as Record<string, unknown> | null)?.actionName || stateInRef.actionName || ''),
+      label: String((old as Record<string, unknown> | null)?.label || renderActionLabel(event)),
+      description: String((old as Record<string, unknown> | null)?.description || event.description || ''),
+      argsText: `${String((old as Record<string, unknown> | null)?.argsText || '')}${deltaText}`,
+      resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
+      state: String((old as Record<string, unknown> | null)?.state || 'running') as 'init' | 'running' | 'done' | 'failed',
+      ts
+    }) as TimelineEntry);
+
+    return { next, effects };
+  }
+
+  if (type === 'action.result' && event.actionId) {
+    const actionId = String(event.actionId);
+    let itemId = runtime.actionIdMap.get(actionId);
+    if (!itemId) {
+      itemId = nextId(runtime, 'action');
+      runtime.actionIdMap.set(actionId, itemId);
+    }
+
+    const nextResult = toDisplayText(Object.prototype.hasOwnProperty.call(event, 'result') ? event.result : event.output);
+    const stateInRef = runtime.actionStateMap.get(actionId) || {
+      actionName: String(event.actionName || '').trim(),
+      argsText: '',
+      resultText: '',
+      executed: false
+    };
+    stateInRef.resultText = nextResult || stateInRef.resultText || '';
+    runtime.actionStateMap.set(actionId, stateInRef);
+
+    upsertEntry(next, itemId, (old) => ({
+      ...(old || {}),
+      id: itemId,
+      kind: 'action',
+      actionName: String((old as Record<string, unknown> | null)?.actionName || stateInRef.actionName || ''),
+      label: String((old as Record<string, unknown> | null)?.label || renderActionLabel(event)),
+      description: String((old as Record<string, unknown> | null)?.description || event.description || ''),
+      argsText: String((old as Record<string, unknown> | null)?.argsText || stateInRef.argsText || ''),
+      resultText: nextResult || String((old as Record<string, unknown> | null)?.resultText || ''),
+      state: event.error ? 'failed' : (String((old as Record<string, unknown> | null)?.state || 'running') as 'init' | 'running' | 'done' | 'failed'),
+      ts
+    }) as TimelineEntry);
+
+    return { next, effects };
+  }
+
+  if (type === 'action.end' && event.actionId) {
+    const actionId = String(event.actionId);
+    let itemId = runtime.actionIdMap.get(actionId);
+    if (!itemId) {
+      itemId = nextId(runtime, 'action');
+      runtime.actionIdMap.set(actionId, itemId);
+    }
+
+    const stateInRef = runtime.actionStateMap.get(actionId) || {
+      actionName: String(event.actionName || '').trim(),
+      argsText: '',
+      resultText: '',
+      executed: false
+    };
+    stateInRef.actionName = String(event.actionName || stateInRef.actionName || '').trim();
+    runtime.actionStateMap.set(actionId, stateInRef);
+
+    upsertEntry(next, itemId, (old) => ({
+      ...(old || {}),
+      id: itemId,
+      kind: 'action',
+      actionName: String((old as Record<string, unknown> | null)?.actionName || stateInRef.actionName || ''),
+      label: String((old as Record<string, unknown> | null)?.label || renderActionLabel(event)),
+      description: String((old as Record<string, unknown> | null)?.description || event.description || ''),
+      argsText: String((old as Record<string, unknown> | null)?.argsText || stateInRef.argsText || ''),
+      resultText: String((old as Record<string, unknown> | null)?.resultText || stateInRef.resultText || ''),
+      state: event.error ? 'failed' : String((old as Record<string, unknown> | null)?.state) === 'failed' ? 'failed' : 'done',
+      ts
+    }) as TimelineEntry);
+
+    if (source === 'live' && !stateInRef.executed) {
+      stateInRef.executed = true;
+      runtime.actionStateMap.set(actionId, stateInRef);
+      effects.push({
+        type: 'execute_action',
+        payload: {
+          actionName: stateInRef.actionName,
+          args: parseStructuredArgs(stateInRef.argsText) || undefined
+        }
+      });
+    }
+
+    return { next, effects };
+  }
+
+  if ((type === 'tool.start' || type === 'tool.snapshot') && event.toolId) {
+    const toolId = String(event.toolId);
+    let itemId = runtime.toolIdMap.get(toolId);
+    if (!itemId) {
+      itemId = nextId(runtime, 'tool');
+      runtime.toolIdMap.set(toolId, itemId);
+    }
+
+    const toolState = runtime.toolStateMap.get(toolId) || {
+      toolId,
+      argsBuffer: '',
+      toolName: '',
+      toolType: '',
+      toolKey: '',
+      toolTimeout: null,
+      toolParams: null,
+      runId: ''
+    };
+    toolState.toolName = String(event.toolName || toolState.toolName || '');
+    toolState.toolType = String(event.toolType || toolState.toolType || '');
+    toolState.toolKey = String(event.toolKey || toolState.toolKey || '');
+    toolState.toolTimeout = (event.toolTimeout as number | null | undefined) ?? toolState.toolTimeout;
+    toolState.runId = String(event.runId || toolState.runId || runtime.runId);
+
+    if (event.toolParams && typeof event.toolParams === 'object') {
+      toolState.toolParams = event.toolParams as Record<string, unknown>;
+    }
+
+    runtime.toolStateMap.set(toolId, toolState);
+
+    upsertEntry(next, itemId, (old) => ({
+      ...(old || {}),
+      id: itemId,
+      kind: 'tool',
+      label: String((old as Record<string, unknown> | null)?.label || renderToolLabel(event)),
+      argsText: String((old as Record<string, unknown> | null)?.argsText || ''),
+      resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
+      state: 'running',
+      ts
+    }) as TimelineEntry);
+
+    if (source === 'live' && isFrontendToolEvent({ toolType: toolState.toolType, toolKey: toolState.toolKey })) {
+      effects.push({
+        type: 'activate_frontend_tool',
+        payload: {
+          runId: toolState.runId || runtime.runId,
+          toolId: toolState.toolId,
+          toolKey: toolState.toolKey,
+          toolType: toolState.toolType,
+          toolName: toolState.toolName || toolState.toolKey,
+          toolTimeout: toolState.toolTimeout,
+          toolParams: toolState.toolParams || undefined
+        }
+      });
+    }
+
+    return { next, effects };
+  }
+
+  if (type === 'tool.args' && event.toolId) {
+    const toolId = String(event.toolId);
+    let itemId = runtime.toolIdMap.get(toolId);
+    if (!itemId) {
+      itemId = nextId(runtime, 'tool');
+      runtime.toolIdMap.set(toolId, itemId);
+    }
+
+    const deltaText = String(event.delta || '');
+    const toolState = runtime.toolStateMap.get(toolId) || {
+      toolId,
+      argsBuffer: '',
+      toolName: '',
+      toolType: '',
+      toolKey: '',
+      toolTimeout: null,
+      toolParams: null,
+      runId: runtime.runId
+    };
+    toolState.argsBuffer = (toolState.argsBuffer || '') + deltaText;
+
+    if (!toolState.toolParams) {
+      try {
+        const parsed = JSON.parse(toolState.argsBuffer) as Record<string, unknown>;
+        if (parsed && typeof parsed === 'object') {
+          toolState.toolParams = parsed;
+        }
+      } catch {
+        // noop
+      }
+    }
+
+    runtime.toolStateMap.set(toolId, toolState);
+
+    upsertEntry(next, itemId, (old) => ({
+      ...(old || {}),
+      id: itemId,
+      kind: 'tool',
+      label: String((old as Record<string, unknown> | null)?.label || renderToolLabel(event)),
+      argsText: `${String((old as Record<string, unknown> | null)?.argsText || '')}${deltaText}`,
+      resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
+      state: String((old as Record<string, unknown> | null)?.state || 'running') as 'init' | 'running' | 'done' | 'failed',
+      ts
+    }) as TimelineEntry);
+
+    return { next, effects };
+  }
+
+  if (type === 'tool.result' && event.toolId) {
+    const toolId = String(event.toolId);
+    let itemId = runtime.toolIdMap.get(toolId);
+    if (!itemId) {
+      itemId = nextId(runtime, 'tool');
+      runtime.toolIdMap.set(toolId, itemId);
+    }
+
+    const nextResult = toDisplayText(Object.prototype.hasOwnProperty.call(event, 'result') ? event.result : event.output);
+    upsertEntry(next, itemId, (old) => ({
+      ...(old || {}),
+      id: itemId,
+      kind: 'tool',
+      label: String((old as Record<string, unknown> | null)?.label || renderToolLabel(event)),
+      argsText: String((old as Record<string, unknown> | null)?.argsText || ''),
+      resultText: nextResult || String((old as Record<string, unknown> | null)?.resultText || ''),
+      state: event.error
+        ? 'failed'
+        : (nextResult || String((old as Record<string, unknown> | null)?.resultText || ''))
+          ? 'done'
+          : (String((old as Record<string, unknown> | null)?.state || 'running') as 'init' | 'running' | 'done' | 'failed'),
+      ts
+    }) as TimelineEntry);
+
+    return { next, effects };
+  }
+
+  if (type === 'tool.end' && event.toolId) {
+    const toolId = String(event.toolId);
+    let itemId = runtime.toolIdMap.get(toolId);
+    if (!itemId) {
+      itemId = nextId(runtime, 'tool');
+      runtime.toolIdMap.set(toolId, itemId);
+    }
+
+    upsertEntry(next, itemId, (old) => ({
+      ...(old || {}),
+      id: itemId,
+      kind: 'tool',
+      label: String((old as Record<string, unknown> | null)?.label || renderToolLabel(event)),
+      argsText: String((old as Record<string, unknown> | null)?.argsText || ''),
+      resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
+      state: event.error ? 'failed' : String((old as Record<string, unknown> | null)?.state) === 'failed' ? 'failed' : 'done',
+      ts
+    }) as TimelineEntry);
+
+    return { next, effects };
+  }
+
+  if (type.startsWith('reasoning.') && (event.reasoningId || event.runId || event.contentId)) {
+    const reasoningId = String(event.reasoningId || event.runId || event.contentId);
+    let itemId = runtime.reasoningIdMap.get(reasoningId);
+    if (!itemId) {
+      itemId = nextId(runtime, 'reasoning');
+      runtime.reasoningIdMap.set(reasoningId, itemId);
+    }
+
+    if (type === 'reasoning.start') {
+      upsertEntry(next, itemId, (old) => ({
+        ...(old || {}),
+        id: itemId,
+        kind: 'reasoning',
+        text: String(event.text || ''),
+        collapsed: false,
+        startTs: Date.now(),
+        ts
+      }) as TimelineEntry);
+      return { next, effects };
+    }
+
+    if (type === 'reasoning.delta') {
+      upsertEntry(next, itemId, (old) => ({
+        ...(old || {}),
+        id: itemId,
+        kind: 'reasoning',
+        text: `${String((old as Record<string, unknown> | null)?.text || '')}${String(event.delta || '')}`,
+        collapsed: false,
+        ts
+      }) as TimelineEntry);
+      return { next, effects };
+    }
+
+    if (type === 'reasoning.end') {
+      upsertEntry(next, itemId, (old) => ({
+        ...(old || {}),
+        id: itemId,
+        kind: 'reasoning',
+        collapsed: false,
+        endTs: Date.now(),
+        ts
+      }) as TimelineEntry);
+      return { next, effects };
+    }
+  }
+
+  if (
+    (type === 'content.start' || type === 'content.delta' || type === 'content.snapshot' || type === 'content.end') &&
+    (event.contentId || event.runId || event.messageId || event.requestId)
+  ) {
+    const contentId = String(event.contentId || event.runId || event.messageId || event.requestId);
+    let itemId = runtime.contentIdMap.get(contentId);
+    if (!itemId) {
+      itemId = nextId(runtime, 'assistant');
+      runtime.contentIdMap.set(contentId, itemId);
+    }
+
+    if (type === 'content.start') {
+      const seedText =
+        typeof event.text === 'string'
+          ? event.text
+          : typeof event.delta === 'string'
+            ? event.delta
+            : typeof event.content === 'string'
+              ? event.content
+              : '';
+
+      upsertEntry(next, itemId, (old) => ({
+        ...(old || {}),
+        id: itemId,
+        kind: 'message',
+        role: 'assistant',
+        text: seedText || String((old as Record<string, unknown> | null)?.text || ''),
+        isStreamingContent: source === 'live',
+        ts
+      }) as TimelineEntry);
+      return { next, effects };
+    }
+
+    if (type === 'content.delta') {
+      const deltaText =
+        typeof event.delta === 'string'
+          ? event.delta
+          : typeof event.text === 'string'
+            ? event.text
+            : typeof event.content === 'string'
+              ? event.content
+              : '';
+
+      upsertEntry(next, itemId, (old) => ({
+        ...(old || {}),
+        id: itemId,
+        kind: 'message',
+        role: 'assistant',
+        text: `${String((old as Record<string, unknown> | null)?.text || '')}${deltaText}`,
+        isStreamingContent: source === 'live',
+        ts
+      }) as TimelineEntry);
+      return { next, effects };
+    }
+
+    if (type === 'content.snapshot') {
+      upsertEntry(next, itemId, (old) => ({
+        ...(old || {}),
+        id: itemId,
+        kind: 'message',
+        role: 'assistant',
+        text:
+          (typeof event.text === 'string'
+            ? event.text
+            : typeof event.content === 'string'
+              ? event.content
+              : '') || String((old as Record<string, unknown> | null)?.text || ''),
+        isStreamingContent: false,
+        ts
+      }) as TimelineEntry);
+      return { next, effects };
+    }
+
+    if (type === 'content.end') {
+      const nextText = typeof event.text === 'string' ? event.text : '';
+      if (nextText || source === 'history') {
+        upsertEntry(next, itemId, (old) => ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'message',
+          role: 'assistant',
+          text: nextText || String((old as Record<string, unknown> | null)?.text || ''),
+          isStreamingContent: false,
+          ts
+        }) as TimelineEntry);
+      }
+      return { next, effects };
+    }
+  }
+
+  if (source === 'live' && type && FRONTEND_VIEWPORT_TYPES.has(type)) {
+    // reserved extension point
+  }
+
+  return { next, effects };
+}

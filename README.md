@@ -1,46 +1,59 @@
-# agw-react-app (React Native)
+# agw-react-app (React Native + TypeScript)
 
-这是一个基于 React Native + WebView 的 AGW 移动端骨架，主要交互界面放在内嵌 HTML 中，后端对接 `agw-springai-agent` 的 `/api/*` 协议。
+AGW 移动端已从单体 `App.js` 重构为四业务域分层架构：
 
-## 已实现
+- 聊天助理（主域）
+- 终端管理（PTY WebView）
+- 智能体管理（本地静态 WebView 占位）
+- 用户管理与配置（原生设置 + 本地静态 WebView 占位）
 
-- `WebView` 内置 HTML 聊天壳层（可后续替换成你的 React Web 页面）。
-- Agent 列表拉取：`GET /api/agents`。
-- 对话请求：`POST /api/query`（SSE 事件解析）。
-- Viewport 拉取：`GET /api/viewport`。
-- 前端工具提交：`POST /api/submit`。
-- 顶部可配置后端地址（默认 `http://10.0.2.2:8080`，适用于 Android 模拟器）。
+## 技术栈
+
+- React Native (Expo)
+- TypeScript
+- Redux Toolkit
+- RTK Query
+- WebView
+
+## 目录
+
+- `/Users/linlay-macmini/Project/agw-react-app/src/app`：应用壳层、Provider、Store、Shell
+- `/Users/linlay-macmini/Project/agw-react-app/src/core`：网络/配置/存储/基础类型
+- `/Users/linlay-macmini/Project/agw-react-app/src/modules/chat`：聊天主域（SSE、事件归一化、事件 reducer、时间线渲染）
+- `/Users/linlay-macmini/Project/agw-react-app/src/modules/terminal`：PTY 终端管理
+- `/Users/linlay-macmini/Project/agw-react-app/src/modules/agents`：智能体管理
+- `/Users/linlay-macmini/Project/agw-react-app/src/modules/user`：用户配置
+- `/Users/linlay-macmini/Project/agw-react-app/src/shared`：共享 UI、工具函数、动画
 
 ## 启动
 
 ```bash
 npm install
-npm run android
-```
-
-或：
-
-```bash
 npm run start
 ```
 
-然后用 Expo Go / Android 模拟器运行。
+## 常用命令
 
-## 真机连接后端
-
-如果你在 Android 真机上调试，`10.0.2.2` 不可用。请把顶部地址改成你电脑局域网 IP，例如：
-
-```text
-http://192.168.1.25:8080
+```bash
+npm run typecheck
+npm run test
+npm run build
 ```
 
-同时确保：
+## 后端协议
 
-- 手机和电脑在同一局域网。
-- `agw-springai-agent` 已启动并监听该地址。
-- 防火墙允许 8080 入站访问。
+接口保持不变：
 
-## 结构
+- `GET /api/agents`
+- `GET /api/chats`
+- `GET /api/chat?chatId=...`
+- `GET /api/viewport?viewportKey=...`
+- `POST /api/query`（SSE）
+- `POST /api/submit`
 
-- `App.js`: React Native 宿主 + WebView 与后端桥接。
-- `src/webShellHtml.js`: 内嵌 HTML 交互界面。
+## 配置存储迁移
+
+- 旧 key：`agw_mobile_chat_settings_v1`
+- 新 key：`agw_mobile_app_settings_v2`
+
+应用会在首次启动时自动迁移。
