@@ -1,6 +1,5 @@
 // @ts-nocheck
 import * as Clipboard from 'expo-clipboard';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,21 +19,22 @@ import { WebView } from 'react-native-webview';
 import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
 import { fetchViewportHtml, formatError } from '../../../core/network/apiClient';
 import { AppTheme } from '../../../core/constants/theme';
-import { createRequestId, getAgentKey, toDisplayText } from '../../../shared/utils/format';
+import { createRequestId, getAgentKey } from '../../../shared/utils/format';
 import { createFireworksShow } from '../../../shared/animations/fireworks';
 import { setChatId, setStatusText } from '../state/chatSlice';
+import { toggleTheme, setThemeMode } from '../../../modules/user/state/userSlice';
 import {
   useLazyGetChatQuery,
   useSubmitFrontendToolMutation
 } from '../api/chatApi';
 import { consumeJsonSseXhr } from '../services/chatStreamClient';
 import {
-  getCollapsedPlanTask,
   getPlanProgress,
   isStreamActivityType,
   normalizeEventType,
   parseStructuredArgs
 } from '../services/eventNormalizer';
+import { buildCollapsedPlanText, cleanPlanTaskDescription } from '../utils/planUi';
 import {
   ChatEvent,
   ChatState,
@@ -52,6 +52,8 @@ import { Composer } from '../components/Composer';
 
 const REASONING_COLLAPSE_MS = 1500;
 const STREAM_IDLE_MS = 2500;
+const PLAN_COLLAPSE_MS = 1500;
+const AUTO_SCROLL_THRESHOLD = 36;
 
 interface ChatAssistantScreenProps {
   theme: AppTheme;
@@ -73,6 +75,9 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
   const [composerText, setComposerText] = useState('');
   const [copyToast, setCopyToast] = useState(false);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [composerFocused, setComposerFocused] = useState(false);
+  const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
+  const [planExpanded, setPlanExpanded] = useState(false);
 
   const [fireworksVisible, setFireworksVisible] = useState(false);
   const [fireworkRockets, setFireworkRockets] = useState<Array<Record<string, unknown>>>([]);
@@ -90,8 +95,9 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
   const abortControllerRef = useRef<AbortController | null>(null);
   const streamIdleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const streamLastEventAtRef = useRef(0);
-  const isAtBottomRef = useRef(true);
+  const autoScrollEnabledRef = useRef(true);
   const skipNextHistoryLoadRef = useRef(false);
+  const planCollapseTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const reasoningTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const copyToastTimer = useRef<NodeJS.Timeout | null>(null);
@@ -105,6 +111,27 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
       activeFrontendToolRef.current = next.activeFrontendTool;
       return next;
     });
+  }, []);
+
+  const setAutoScrollMode = useCallback((enabled: boolean) => {
+    autoScrollEnabledRef.current = enabled;
+    setAutoScrollEnabled((prev) => (prev === enabled ? prev : enabled));
+  }, []);
+
+  const scrollToBottom = useCallback((animated = true) => {
+    listRef.current?.scrollToEnd({ animated });
+    setAutoScrollMode(true);
+  }, [setAutoScrollMode]);
+
+  const armPlanCollapseTimer = useCallback(() => {
+    setPlanExpanded(true);
+    if (planCollapseTimerRef.current) {
+      clearTimeout(planCollapseTimerRef.current);
+    }
+    planCollapseTimerRef.current = setTimeout(() => {
+      setPlanExpanded(false);
+      planCollapseTimerRef.current = null;
+    }, PLAN_COLLAPSE_MS);
   }, []);
 
   const clearStreamIdleTimer = useCallback(() => {
@@ -203,7 +230,12 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
       if (!name) return;
 
       if (name === 'switch_theme') {
-        dispatch(setStatusText('请在“用户配置”域切换主题'));
+        const nextTheme = String(args?.theme || '').trim().toLowerCase();
+        if (nextTheme === 'light' || nextTheme === 'dark') {
+          dispatch(setThemeMode(nextTheme as 'light' | 'dark'));
+        } else {
+          dispatch(toggleTheme());
+        }
         return;
       }
 
@@ -330,6 +362,9 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
       if (source === 'live' && isStreamActivityType(type)) {
         markStreamAlive();
       }
+      if (source === 'live' && type === 'plan.update') {
+        armPlanCollapseTimer();
+      }
 
       let capturedEffects: ChatEffect[] = [];
 
@@ -354,13 +389,19 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
         }
       }
     },
-    [handleEffects, markStreamAlive, scheduleReasoningCollapse, setChatStateSafe]
+    [armPlanCollapseTimer, handleEffects, markStreamAlive, scheduleReasoningCollapse, setChatStateSafe]
   );
 
   const resetTimeline = useCallback(() => {
     runtimeRef.current = createRuntimeMaps();
     setChatStateSafe(() => createEmptyChatState());
     clearReasoningTimers();
+    setPlanExpanded(false);
+    if (planCollapseTimerRef.current) {
+      clearTimeout(planCollapseTimerRef.current);
+      planCollapseTimerRef.current = null;
+    }
+    setAutoScrollMode(true);
 
     if (fireworksTimerRef.current) {
       clearTimeout(fireworksTimerRef.current);
@@ -369,7 +410,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
     setFireworksVisible(false);
     setFireworkRockets([]);
     setFireworkSparks([]);
-  }, [clearReasoningTimers, setChatStateSafe]);
+  }, [clearReasoningTimers, setAutoScrollMode, setChatStateSafe]);
 
   const stopStreaming = useCallback(() => {
     if (abortControllerRef.current) {
@@ -403,6 +444,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
 
     const requestId = createRequestId('mobile');
     setComposerText('');
+    setAutoScrollMode(true);
 
     applyEvent(
       {
@@ -473,6 +515,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
     markStreamAlive,
     onRefreshChats,
     selectedAgentKey,
+    setAutoScrollMode,
     setChatStateSafe
   ]);
 
@@ -593,16 +636,25 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
     return `${String(last.id)}:${body.length}`;
   }, [chatState.timeline]);
 
-  const collapsedPlanTask = useMemo(() => getCollapsedPlanTask(chatState.planState.tasks), [chatState.planState.tasks]);
   const planProgress = useMemo(() => getPlanProgress(chatState.planState.tasks), [chatState.planState.tasks]);
+  const cleanedPlanTasks = useMemo(
+    () =>
+      chatState.planState.tasks.map((task) => ({
+        ...task,
+        cleanedDescription: cleanPlanTaskDescription(task) || '未命名任务'
+      })),
+    [chatState.planState.tasks]
+  );
+  const collapsedPlanText = useMemo(() => buildCollapsedPlanText(chatState.planState.tasks), [chatState.planState.tasks]);
 
   useEffect(() => {
-    if (Platform.OS === 'ios') return;
-    const onShow = Keyboard.addListener('keyboardDidShow', (event) => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = Keyboard.addListener(showEvent, (event) => {
       const next = event?.endCoordinates?.height || 0;
       setKeyboardHeight(next);
     });
-    const onHide = Keyboard.addListener('keyboardDidHide', () => {
+    const onHide = Keyboard.addListener(hideEvent, () => {
       setKeyboardHeight(0);
     });
 
@@ -613,16 +665,21 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
   }, []);
 
   useEffect(() => {
-    if (!isAtBottomRef.current) {
+    if (!autoScrollEnabledRef.current) {
       return undefined;
     }
 
     const timer = setTimeout(() => {
-      listRef.current?.scrollToEnd({ animated: true });
+      scrollToBottom(true);
     }, 24);
 
     return () => clearTimeout(timer);
-  }, [tailSignature]);
+  }, [scrollToBottom, tailSignature]);
+
+  useEffect(() => {
+    if (chatState.planState.tasks.length) return;
+    setPlanExpanded(false);
+  }, [chatState.planState.tasks.length]);
 
   useEffect(() => {
     if (skipNextHistoryLoadRef.current) {
@@ -663,6 +720,10 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
       stopStreaming();
       clearReasoningTimers();
       clearStreamIdleTimer();
+      if (planCollapseTimerRef.current) {
+        clearTimeout(planCollapseTimerRef.current);
+        planCollapseTimerRef.current = null;
+      }
 
       if (copyToastTimer.current) {
         clearTimeout(copyToastTimer.current);
@@ -696,7 +757,8 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
           const native = event.nativeEvent;
           const viewportBottom = native.contentOffset.y + native.layoutMeasurement.height;
           const distance = native.contentSize.height - viewportBottom;
-          isAtBottomRef.current = distance < 36;
+          const atBottom = distance < AUTO_SCROLL_THRESHOLD;
+          setAutoScrollMode(atBottom);
         }}
         scrollEventThrottle={16}
         renderItem={({ item }) => (
@@ -719,33 +781,37 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
         }
       />
 
-      <View style={[styles.composerOuter, { paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 10) : (keyboardHeight > 0 ? 10 : Math.max(insets.bottom, 10)) }]}>
+      <View style={[styles.composerOuter, { paddingBottom: keyboardHeight > 0 ? 8 : Math.max(insets.bottom, 10) }]}>
+        {!autoScrollEnabled && chatState.timeline.length ? (
+          <View style={styles.scrollToBottomWrap}>
+            <TouchableOpacity
+              activeOpacity={0.86}
+              onPress={() => scrollToBottom(true)}
+              style={[styles.scrollToBottomBtn, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+            >
+              <Text style={[styles.scrollToBottomText, { color: theme.text }]}>↓</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {chatState.planState.tasks.length ? (
-          <TouchableOpacity
-            activeOpacity={0.84}
-            onPress={() => {
-              setChatStateSafe((prev) => ({
-                ...prev,
-                planState: { ...prev.planState, expanded: !prev.planState.expanded }
-              }));
-            }}
-            style={[styles.planCard, { backgroundColor: theme.surfaceStrong }]}
-          >
-            {chatState.planState.expanded ? (
+          <View style={[styles.planFloatWrap, { shadowColor: theme.shadow }]}>
+            <View style={[styles.planCard, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}>
+              {planExpanded ? (
               <View>
                 <View style={styles.planHead}>
                   <Text style={[styles.planTitle, { color: theme.text }]}>
-                    {planProgress.current}/{planProgress.total}
+                    {collapsedPlanText || `${planProgress.current}/${planProgress.total}`}
                   </Text>
                 </View>
                 <View style={styles.planTaskList}>
-                  {chatState.planState.tasks.map((task) => {
+                  {cleanedPlanTasks.map((task) => {
                     const tone = task.status === 'done' ? theme.ok : task.status === 'failed' ? theme.danger : task.status === 'running' ? theme.warn : theme.textMute;
                     return (
                       <View key={task.taskId} style={styles.planTaskRow}>
                         <View style={[styles.planTaskDot, { backgroundColor: `${tone}` }]} />
                         <Text style={[styles.planTaskText, { color: theme.textSoft }]} numberOfLines={2}>
-                          {task.description}
+                          {task.cleanedDescription}
                         </Text>
                       </View>
                     );
@@ -755,17 +821,21 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
             ) : (
               <View style={styles.planCollapsedWrap}>
                 <Text style={[styles.planCollapsedText, { color: theme.text }]} numberOfLines={1}>
-                  {planProgress.current}/{planProgress.total} · {collapsedPlanTask ? collapsedPlanTask.description : '暂无任务'}
+                  {collapsedPlanText}
                 </Text>
               </View>
             )}
-          </TouchableOpacity>
+            </View>
+          </View>
         ) : null}
 
         <Composer
           theme={theme}
           composerText={composerText}
+          focused={composerFocused}
           onChangeText={setComposerText}
+          onFocus={() => setComposerFocused(true)}
+          onBlur={() => setComposerFocused(false)}
           onSend={sendMessage}
           onStop={stopStreaming}
           streaming={chatState.streaming}
@@ -936,9 +1006,39 @@ const styles = StyleSheet.create({
   composerOuter: {
     paddingTop: 4
   },
-  planCard: {
-    borderRadius: 12,
+  scrollToBottomWrap: {
+    alignItems: 'center',
+    marginBottom: 8
+  },
+  scrollToBottomBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3
+  },
+  scrollToBottomText: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: -2
+  },
+  planFloatWrap: {
     marginHorizontal: 14,
+    marginBottom: -6,
+    zIndex: 3,
+    shadowOpacity: 0.14,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2
+  },
+  planCard: {
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
     marginBottom: 8,
     paddingHorizontal: 12,
     paddingVertical: 10
@@ -951,25 +1051,26 @@ const styles = StyleSheet.create({
   },
   planTitle: {
     fontWeight: '700',
-    fontSize: 13
+    fontSize: 14
   },
   planTaskList: {
-    gap: 6
+    gap: 8
   },
   planTaskRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 8
   },
   planTaskDot: {
     width: 8,
     height: 8,
-    borderRadius: 4
+    borderRadius: 4,
+    marginTop: 4
   },
   planTaskText: {
     flex: 1,
-    fontSize: 12,
-    lineHeight: 17
+    fontSize: 13,
+    lineHeight: 18
   },
   planCollapsedWrap: {
     flexDirection: 'row',
@@ -977,7 +1078,7 @@ const styles = StyleSheet.create({
   },
   planCollapsedText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600'
   },
   copyToast: {

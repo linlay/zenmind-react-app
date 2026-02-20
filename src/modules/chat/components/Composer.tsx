@@ -21,6 +21,7 @@ interface ComposerProps {
   theme: {
     surfaceStrong: string;
     surface: string;
+    border: string;
     text: string;
     textMute: string;
     primary: string;
@@ -28,7 +29,10 @@ interface ComposerProps {
     danger: string;
   };
   composerText: string;
+  focused: boolean;
   onChangeText: (text: string) => void;
+  onFocus: () => void;
+  onBlur: () => void;
   onSend: () => void;
   onStop: () => void;
   streaming: boolean;
@@ -41,7 +45,10 @@ interface ComposerProps {
 export function Composer({
   theme,
   composerText,
+  focused,
   onChangeText,
+  onFocus,
+  onBlur,
   onSend,
   onStop,
   streaming,
@@ -50,10 +57,13 @@ export function Composer({
   onFrontendToolMessage,
   onFrontendToolLoad
 }: ComposerProps) {
+  const minRows = 1;
+  const minHeight = minRows * 20 + 20;
+
   return (
-    <View style={[styles.card, { backgroundColor: theme.surfaceStrong }]}> 
+    <View style={styles.card}>
       {activeFrontendTool ? (
-        <View style={styles.frontendToolContainer}>
+        <View style={[styles.frontendToolContainer, { backgroundColor: theme.surfaceStrong, borderRadius: 20 }]}>
           {activeFrontendTool.loading ? (
             <View style={styles.center}>
               <Text style={{ color: theme.text }}>加载前端工具...</Text>
@@ -82,25 +92,23 @@ export function Composer({
           )}
         </View>
       ) : (
-        <>
+        <View style={[styles.inputShell, { backgroundColor: theme.surface, borderColor: theme.border }]}>
           <TextInput
             value={composerText}
             onChangeText={onChangeText}
+            onFocus={onFocus}
+            onBlur={onBlur}
             placeholder={streaming ? '正在流式输出中，可点击停止' : '输入消息...'}
             placeholderTextColor={theme.textMute}
             editable={!streaming}
             multiline
-            numberOfLines={1}
+            numberOfLines={minRows}
             scrollEnabled
             textAlignVertical="top"
-            style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
+            style={[styles.input, { color: theme.text, minHeight }]}
           />
 
-          <View style={styles.bottomRow}>
-            {composerText.length > 0 ? (
-              <Text style={[styles.charCount, { color: theme.textMute }]}>{composerText.length}</Text>
-            ) : <View />}
-
+          <View style={styles.actionWrap}>
             {streaming ? (
               <TouchableOpacity activeOpacity={0.9} style={[styles.actionBtn, { backgroundColor: theme.danger }]} onPress={onStop}>
                 <View style={styles.stopSquare} />
@@ -113,7 +121,7 @@ export function Composer({
               </TouchableOpacity>
             )}
           </View>
-        </>
+        </View>
       )}
     </View>
   );
@@ -121,40 +129,40 @@ export function Composer({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    padding: 10,
     marginHorizontal: 14,
     marginBottom: 8
   },
+  inputShell: {
+    borderRadius: 22,
+    borderWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingLeft: 14,
+    paddingRight: 8,
+    paddingTop: 8,
+    paddingBottom: 8
+  },
   input: {
-    minHeight: 40,
+    flex: 1,
     maxHeight: 140,
-    borderRadius: 12,
-    paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 10,
+    paddingRight: 10,
     fontSize: 15,
     lineHeight: 20
   },
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 6
-  },
-  charCount: {
-    fontSize: 11,
-    fontWeight: '600',
-    marginLeft: 4
+  actionWrap: {
+    marginLeft: 6,
+    marginBottom: 2
   },
   actionBtn: {
-    borderRadius: 12,
+    borderRadius: 19,
     overflow: 'hidden'
   },
   sendGradient: {
-    width: 44,
-    height: 40,
-    borderRadius: 12,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center'
   },
@@ -164,11 +172,11 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   },
   stopSquare: {
-    width: 14,
-    height: 14,
+    width: 13,
+    height: 13,
     backgroundColor: '#fff',
     borderRadius: 2,
-    margin: 13
+    margin: 12.5
   },
   frontendToolContainer: {
     minHeight: 130,

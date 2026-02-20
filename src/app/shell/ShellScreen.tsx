@@ -224,7 +224,8 @@ export function ShellScreen() {
     return getAgentName(found || agents[0]) || 'AGW';
   }, [agents, selectedAgentKey]);
 
-  const agentBadgeLetter = activeAgentName.trim().charAt(0).toUpperCase() || 'A';
+  const topNavTitle = activeDomain === 'chat' ? activeAgentName : DOMAIN_LABEL[activeDomain];
+  const topNavSubtitle = activeDomain === 'chat' ? selectedAgentKey : '当前功能区';
 
   if (booting) {
     return (
@@ -254,60 +255,65 @@ export function ShellScreen() {
         <Animated.View style={[styles.mainShell, { transform: [{ translateX: mainTranslateX }] }]}> 
           <KeyboardAvoidingView
             style={styles.shell}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
             pointerEvents={drawerOpen ? 'none' : 'auto'}
           >
             <View style={styles.topNavCompact}>
               <TouchableOpacity
                 activeOpacity={0.72}
-                style={styles.iconOnlyBtn}
+                style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
                 onPress={() => {
                   setAgentMenuOpen(false);
                   dispatch(setDrawerOpen(true));
                 }}
               >
-                <Text style={styles.iconOnlyBtnText}>≡</Text>
+                <Text style={[styles.iconOnlyBtnText, { color: theme.primaryDeep }]}>≡</Text>
               </TouchableOpacity>
 
               {activeDomain === 'chat' ? (
                 <TouchableOpacity
                   activeOpacity={0.76}
-                  style={[styles.agentCompactBtn, { backgroundColor: theme.surfaceStrong }]}
+                  style={[styles.assistantTopBtn, { backgroundColor: theme.surfaceStrong }]}
                   onPress={() => setAgentMenuOpen((prev) => !prev)}
                 >
-                  <View style={[styles.agentCompactAvatar, { backgroundColor: theme.primary }]}> 
-                    <Text style={styles.agentCompactAvatarText}>{agentBadgeLetter}</Text>
+                  <View style={styles.assistantTopTextWrap}>
+                    <Text style={[styles.assistantTopTitle, { color: theme.text }]} numberOfLines={1}>
+                      {topNavTitle}
+                    </Text>
+                    <Text style={[styles.assistantTopSubTitle, { color: theme.textMute }]} numberOfLines={1}>
+                      {topNavSubtitle}
+                    </Text>
                   </View>
-                  <Text style={[styles.agentCompactName, { color: theme.text }]} numberOfLines={1}>
-                    {activeAgentName}
-                  </Text>
-                  <Text style={[styles.agentCompactArrow, { color: theme.textMute }]}>{agentMenuOpen ? '▴' : '▾'}</Text>
+                  <Text style={[styles.assistantTopArrow, { color: theme.textMute }]}>{agentMenuOpen ? '▴' : '▾'}</Text>
                 </TouchableOpacity>
               ) : (
-                <View style={[styles.agentCompactBtn, { backgroundColor: theme.surfaceStrong }]}> 
-                  <View style={[styles.agentCompactAvatar, { backgroundColor: theme.primary }]}> 
-                    <Text style={styles.agentCompactAvatarText}>{DOMAIN_LABEL[activeDomain].slice(0, 1)}</Text>
+                <View style={[styles.assistantTopBtn, { backgroundColor: theme.surfaceStrong }]}>
+                  <View style={styles.assistantTopTextWrap}>
+                    <Text style={[styles.assistantTopTitle, { color: theme.text }]} numberOfLines={1}>
+                      {topNavTitle}
+                    </Text>
+                    <Text style={[styles.assistantTopSubTitle, { color: theme.textMute }]} numberOfLines={1}>
+                      {topNavSubtitle}
+                    </Text>
                   </View>
-                  <Text style={[styles.agentCompactName, { color: theme.text }]} numberOfLines={1}>
-                    {DOMAIN_LABEL[activeDomain]}
-                  </Text>
+                  <Text style={[styles.assistantTopArrow, { color: theme.textMute }]}>•</Text>
                 </View>
               )}
 
               <TouchableOpacity
                 activeOpacity={0.72}
-                style={styles.iconOnlyBtn}
+                style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
                 onPress={() => {
                   dispatch(toggleTheme());
                 }}
               >
-                <Text style={styles.iconOnlyBtnText}>{theme.mode === 'light' ? '◐' : '◑'}</Text>
+                <Text style={[styles.iconOnlyBtnText, { color: theme.primaryDeep }]}>{theme.mode === 'light' ? '◐' : '◑'}</Text>
               </TouchableOpacity>
             </View>
 
             {activeDomain === 'chat' && agentMenuOpen ? (
-              <View style={[styles.agentMenuCard, { backgroundColor: theme.surfaceStrong }]}> 
+              <View style={[styles.agentMenuCard, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}> 
                 <ScrollView style={styles.agentMenuList} contentContainerStyle={styles.agentMenuListContent}>
                   {(agents.length ? agents : [{ key: '', name: '暂无 Agent' }]).map((agent, index) => {
                     const key = getAgentKey(agent);
@@ -321,7 +327,8 @@ export function ShellScreen() {
                         style={[
                           styles.agentMenuItem,
                           {
-                            backgroundColor: selected ? theme.primarySoft : theme.surface
+                            backgroundColor: selected ? theme.primarySoft : theme.surface,
+                            borderColor: selected ? theme.primary : theme.border
                           }
                         ]}
                         onPress={() => {
@@ -331,7 +338,15 @@ export function ShellScreen() {
                           setAgentMenuOpen(false);
                         }}
                       >
-                        <Text style={[styles.agentMenuItemText, { color: selected ? theme.primaryDeep : theme.textSoft }]}>{name}</Text>
+                        <View style={styles.agentMenuItemRow}>
+                          <View style={styles.agentMenuTextWrap}>
+                            <Text style={[styles.agentMenuItemText, { color: selected ? theme.primaryDeep : theme.text }]}>{name}</Text>
+                            <Text style={[styles.agentMenuItemSubText, { color: theme.textMute }]} numberOfLines={1}>
+                              {key || '未配置 key'}
+                            </Text>
+                          </View>
+                          {selected ? <Text style={[styles.agentMenuItemCheck, { color: theme.primary }]}>✓</Text> : null}
+                        </View>
                       </TouchableOpacity>
                     );
                   })}
@@ -592,69 +607,85 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 10,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.9)'
+    justifyContent: 'center'
   },
   iconOnlyBtnText: {
     fontSize: 17,
-    fontWeight: '700',
-    color: '#2f6cf3'
-  },
-  agentCompactBtn: {
-    flex: 1,
-    borderRadius: 12,
-    minHeight: 40,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    gap: 9
-  },
-  agentCompactAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  agentCompactAvatarText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: '800'
-  },
-  agentCompactName: {
-    flex: 1,
-    fontSize: 13,
     fontWeight: '700'
   },
-  agentCompactArrow: {
-    fontSize: 15,
+  assistantTopBtn: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12
+  },
+  assistantTopTextWrap: {
+    flex: 1,
+    minWidth: 0
+  },
+  assistantTopTitle: {
+    fontSize: 17,
+    fontWeight: '700'
+  },
+  assistantTopSubTitle: {
+    marginTop: 2,
+    fontSize: 12,
+    fontWeight: '500'
+  },
+  assistantTopArrow: {
+    marginLeft: 10,
+    fontSize: 14,
     fontWeight: '700'
   },
   agentMenuCard: {
     marginHorizontal: 14,
-    marginTop: -2,
+    marginTop: 0,
     marginBottom: 8,
-    borderRadius: 12,
-    maxHeight: 176,
+    borderRadius: 18,
+    borderWidth: StyleSheet.hairlineWidth,
+    maxHeight: 280,
     overflow: 'hidden'
   },
   agentMenuList: {
     flexGrow: 0
   },
   agentMenuListContent: {
-    paddingVertical: 6,
-    paddingHorizontal: 6,
-    gap: 6
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    gap: 8
   },
   agentMenuItem: {
-    borderRadius: 10,
-    minHeight: 34,
+    borderRadius: 12,
+    minHeight: 52,
+    borderWidth: StyleSheet.hairlineWidth,
     justifyContent: 'center',
-    paddingHorizontal: 10
+    paddingHorizontal: 12,
+    paddingVertical: 9
+  },
+  agentMenuItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10
+  },
+  agentMenuTextWrap: {
+    flex: 1,
+    minWidth: 0
   },
   agentMenuItemText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700'
+  },
+  agentMenuItemSubText: {
+    marginTop: 2,
+    fontSize: 11
+  },
+  agentMenuItemCheck: {
+    fontSize: 16,
+    fontWeight: '800'
   },
   drawerOverlay: {
     ...StyleSheet.absoluteFillObject,

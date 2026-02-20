@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { ActivityIndicator, Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { FONT_MONO, FONT_SANS } from '../../../core/constants/theme';
-import { toHHMM } from '../../../shared/utils/format';
+import { toSmartTime } from '../../../shared/utils/format';
 import { TimelineEntry } from '../types/chat';
 import { getActionGlyph, getTaskTone, normalizeTaskStatus } from '../services/eventNormalizer';
 import { ViewportBlockView } from './ViewportBlockView';
@@ -258,7 +258,7 @@ export function TimelineEntryRow({
               <Text style={styles.userText}>{item.text}</Text>
             </LinearGradient>
           </TouchableOpacity>
-          <Text style={[styles.userTime, { color: theme.textMute }]}>{toHHMM(item.ts)}</Text>
+          <Text style={[styles.userTime, { color: theme.textMute }]}>{toSmartTime(item.ts)}</Text>
         </View>
       </Animated.View>
     );
@@ -268,8 +268,8 @@ export function TimelineEntryRow({
     const endText = String(item.text || '本次运行结束').trim();
     return (
       <Animated.View style={[styles.runEndRow, enterStyle]}>
-        {item.ts ? <Text style={[styles.runEndTime, { color: theme.textMute }]}>{toHHMM(item.ts)}</Text> : null}
         <Text style={[styles.runEndText, { color: theme.textMute }]}>{`-- ${endText} --`}</Text>
+        {item.ts ? <Text style={[styles.runEndTime, { color: theme.textMute }]}>{toSmartTime(item.ts)}</Text> : null}
       </Animated.View>
     );
   }
@@ -291,7 +291,7 @@ export function TimelineEntryRow({
           <View style={[styles.systemBadge, { backgroundColor: theme.systemBubble }]}> 
             <Text style={[styles.systemText, { color: systemColor }]}>{item.text}</Text>
           </View>
-          <Text style={[styles.systemTime, { color: theme.textMute }]}>{toHHMM(item.ts)}</Text>
+          <Text style={[styles.systemTime, { color: theme.textMute }]}>{toSmartTime(item.ts)}</Text>
         </View>
       </Animated.View>
     );
@@ -599,10 +599,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   runEndTime: {
+    alignSelf: 'flex-end',
+    marginRight: 14,
+    marginTop: 2,
     fontFamily: FONT_MONO,
     fontSize: 10,
-    fontWeight: '600',
-    marginBottom: 2
+    fontWeight: '600'
   },
   runEndText: {
     fontFamily: FONT_MONO,

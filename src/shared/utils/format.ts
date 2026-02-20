@@ -13,6 +13,32 @@ export function toHHMM(input: unknown): string {
   return `${hh}:${mm}`;
 }
 
+export function toSmartTime(input: unknown): string {
+  if (!input) return '';
+  const date = new Date(input as string | number | Date);
+  if (Number.isNaN(date.getTime())) return '';
+  const now = new Date();
+  const hh = String(date.getHours()).padStart(2, '0');
+  const mm = String(date.getMinutes()).padStart(2, '0');
+  const time = `${hh}:${mm}`;
+
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const yesterday = new Date(today.getTime() - 86400000);
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  if (target.getTime() === today.getTime()) return time;
+  if (target.getTime() === yesterday.getTime()) return `昨天 ${time}`;
+  if (date.getFullYear() === now.getFullYear()) {
+    const M = String(date.getMonth() + 1).padStart(2, '0');
+    const D = String(date.getDate()).padStart(2, '0');
+    return `${M}/${D} ${time}`;
+  }
+  const Y = date.getFullYear();
+  const M = String(date.getMonth() + 1).padStart(2, '0');
+  const D = String(date.getDate()).padStart(2, '0');
+  return `${Y}/${M}/${D} ${time}`;
+}
+
 export function getAgentKey(agent: Agent | null | undefined): string {
   if (!agent || typeof agent !== 'object') return '';
   return String(agent.key || agent.id || '').trim();

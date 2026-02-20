@@ -22,7 +22,8 @@
       },
       "usesCleartextTraffic": true,
       "edgeToEdgeEnabled": true,
-      "package": "com.zqfrank.agwreactapp"
+      "package": "com.zqfrank.agwreactapp",
+      "softwareKeyboardLayoutMode": "adjustResize"
     },
     "web": {
       "favicon": "./assets/favicon.png"
