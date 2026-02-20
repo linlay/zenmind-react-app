@@ -268,8 +268,8 @@ export function TimelineEntryRow({
     const endText = String(item.text || '本次运行结束').trim();
     return (
       <Animated.View style={[styles.runEndRow, enterStyle]}>
-        <Text style={[styles.runEndText, { color: theme.textMute }]}>{`-- ${endText} --`}</Text>
         {item.ts ? <Text style={[styles.runEndTime, { color: theme.textMute }]}>{toSmartTime(item.ts)}</Text> : null}
+        <Text style={[styles.runEndText, { color: theme.textMute }]}>{`-- ${endText} --`}</Text>
       </Animated.View>
     );
   }
@@ -594,14 +594,13 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   },
   runEndRow: {
+    flexDirection: 'row',
     marginBottom: 10,
     alignItems: 'center',
     justifyContent: 'center'
   },
   runEndTime: {
-    alignSelf: 'flex-end',
-    marginRight: 14,
-    marginTop: 2,
+    marginRight: 6,
     fontFamily: FONT_MONO,
     fontSize: 10,
     fontWeight: '600'

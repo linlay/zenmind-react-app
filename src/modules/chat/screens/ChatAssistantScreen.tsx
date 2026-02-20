@@ -6,7 +6,6 @@ import {
   Animated,
   Easing,
   FlatList,
-  Keyboard,
   Modal,
   Platform,
   StyleSheet,
@@ -60,9 +59,10 @@ interface ChatAssistantScreenProps {
   backendUrl: string;
   contentWidth: number;
   onRefreshChats: (silent?: boolean) => Promise<void>;
+  keyboardHeight: number;
 }
 
-export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefreshChats }: ChatAssistantScreenProps) {
+export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefreshChats, keyboardHeight }: ChatAssistantScreenProps) {
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
 
@@ -74,7 +74,6 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
   const [chatState, setChatState] = useState<ChatState>(createEmptyChatState());
   const [composerText, setComposerText] = useState('');
   const [copyToast, setCopyToast] = useState(false);
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [composerFocused, setComposerFocused] = useState(false);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [planExpanded, setPlanExpanded] = useState(false);
@@ -366,16 +365,9 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
         armPlanCollapseTimer();
       }
 
-      let capturedEffects: ChatEffect[] = [];
-
-      setChatStateSafe((prev) => {
-        const { next, effects } = reduceChatEvent(prev, event, source, runtimeRef.current);
-        capturedEffects = effects;
-        return next;
-      });
-
-      // updater 同步执行，capturedEffects 此时已填充
-      handleEffects(capturedEffects, source);
+      const { next, effects } = reduceChatEvent(chatStateRef.current, event, source, runtimeRef.current);
+      setChatStateSafe(() => next);
+      handleEffects(effects, source);
 
       if (type === 'reasoning.end') {
         const reasoningId = String(
@@ -648,23 +640,6 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
   const collapsedPlanText = useMemo(() => buildCollapsedPlanText(chatState.planState.tasks), [chatState.planState.tasks]);
 
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-    const onShow = Keyboard.addListener(showEvent, (event) => {
-      const next = event?.endCoordinates?.height || 0;
-      setKeyboardHeight(next);
-    });
-    const onHide = Keyboard.addListener(hideEvent, () => {
-      setKeyboardHeight(0);
-    });
-
-    return () => {
-      onShow.remove();
-      onHide.remove();
-    };
-  }, []);
-
-  useEffect(() => {
     if (!autoScrollEnabledRef.current) {
       return undefined;
     }
@@ -781,7 +756,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
         }
       />
 
-      <View style={[styles.composerOuter, { paddingBottom: keyboardHeight > 0 ? 8 : Math.max(insets.bottom, 10) }]}>
+      <View style={[styles.composerOuter, { paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'ios' ? 0 : 10) : Math.max(insets.bottom, 10) }]}>
         {!autoScrollEnabled && chatState.timeline.length ? (
           <View style={styles.scrollToBottomWrap}>
             <TouchableOpacity
@@ -796,7 +771,17 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
 
         {chatState.planState.tasks.length ? (
           <View style={[styles.planFloatWrap, { shadowColor: theme.shadow }]}>
-            <View style={[styles.planCard, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}>
+            <TouchableOpacity
+              activeOpacity={0.84}
+              onPress={() => {
+                if (planCollapseTimerRef.current) {
+                  clearTimeout(planCollapseTimerRef.current);
+                  planCollapseTimerRef.current = null;
+                }
+                setPlanExpanded((prev) => !prev);
+              }}
+              style={[styles.planCard, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+            >
               {planExpanded ? (
               <View>
                 <View style={styles.planHead}>
@@ -820,12 +805,13 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
               </View>
             ) : (
               <View style={styles.planCollapsedWrap}>
+                <Text style={[styles.planCollapsedLabel, { color: theme.textMute }]}>plan</Text>
                 <Text style={[styles.planCollapsedText, { color: theme.text }]} numberOfLines={1}>
-                  {collapsedPlanText}
+                  {`${planProgress.current}/${planProgress.total}` + (cleanedPlanTasks.length ? ` · ${cleanedPlanTasks[cleanedPlanTasks.length - 1].cleanedDescription}` : '')}
                 </Text>
               </View>
             )}
-            </View>
+            </TouchableOpacity>
           </View>
         ) : null}
 
@@ -1075,6 +1061,12 @@ const styles = StyleSheet.create({
   planCollapsedWrap: {
     flexDirection: 'row',
     alignItems: 'center'
+  },
+  planCollapsedLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginRight: 8
   },
   planCollapsedText: {
     flex: 1,

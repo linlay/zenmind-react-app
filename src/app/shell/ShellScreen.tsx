@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Keyboard,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -91,6 +92,7 @@ export function ShellScreen() {
   const filteredChats = useAppSelector(selectFilteredChats);
 
   const [agentMenuOpen, setAgentMenuOpen] = useState(false);
+  const [shellKeyboardHeight, setShellKeyboardHeight] = useState(0);
 
   const [triggerAgents] = useLazyGetAgentsQuery();
   const [triggerChats] = useLazyGetChatsQuery();
@@ -103,6 +105,16 @@ export function ShellScreen() {
     const candidate = Math.floor(window.width * 0.84);
     return Math.min(DRAWER_MAX_WIDTH, Math.max(278, candidate));
   }, [window.width]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = Keyboard.addListener(showEvent, (e) => setShellKeyboardHeight(e?.endCoordinates?.height || 0));
+    const onHide = Keyboard.addListener(hideEvent, () => setShellKeyboardHeight(0));
+    return () => { onShow.remove(); onHide.remove(); };
+  }, []);
+
+  const keyboardInset = Platform.OS === 'android' ? Math.max(0, shellKeyboardHeight - insets.bottom) : 0;
 
   const drawerTranslateX = useMemo(
     () =>
@@ -254,8 +266,8 @@ export function ShellScreen() {
 
         <Animated.View style={[styles.mainShell, { transform: [{ translateX: mainTranslateX }] }]}> 
           <KeyboardAvoidingView
-            style={styles.shell}
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={[styles.shell, { paddingBottom: keyboardInset }]}
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
             pointerEvents={drawerOpen ? 'none' : 'auto'}
           >
@@ -360,6 +372,7 @@ export function ShellScreen() {
                 backendUrl={backendUrl}
                 contentWidth={window.width}
                 onRefreshChats={refreshChats}
+                keyboardHeight={shellKeyboardHeight}
               />
             ) : null}
 
