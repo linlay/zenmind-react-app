@@ -113,14 +113,45 @@ function resolveActionLabel(
   return renderActionLabel(event);
 }
 
-function resolveEndTs(event: Record<string, unknown>, source: 'live' | 'history'): number {
-  for (const key of ['completedAt', 'finishedAt', 'endTime', 'endTimestamp', 'timestamp']) {
-    const v = event[key];
-    if (v == null || v === '') continue;
-    const ms = typeof v === 'number' ? v : new Date(v as string).getTime();
-    if (!Number.isNaN(ms)) return ms;
+function parseEventTime(value: unknown): number | null {
+  if (value == null || value === '') return null;
+
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    if (value > 0 && value < 1e11) return Math.floor(value * 1000);
+    return value;
   }
-  return source === 'live' ? Date.now() : Number(event.timestamp || Date.now());
+
+  if (typeof value === 'string') {
+    const raw = value.trim();
+    if (!raw) return null;
+    const numeric = Number(raw);
+    if (!Number.isNaN(numeric)) {
+      if (numeric > 0 && numeric < 1e11) return Math.floor(numeric * 1000);
+      return numeric;
+    }
+    const parsed = new Date(raw).getTime();
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+
+  const parsed = new Date(value as string | number | Date).getTime();
+  if (!Number.isNaN(parsed)) return parsed;
+  return null;
+}
+
+function resolveEventTs(event: Record<string, unknown>, source: 'live' | 'history'): number {
+  for (const key of ['timestamp', 'ts', 'time', 'createdAt', 'updatedAt', 'updateTime', 'startTime', 'startTimestamp']) {
+    const ms = parseEventTime(event[key]);
+    if (ms != null) return ms;
+  }
+  return source === 'live' ? Date.now() : parseEventTime(event.timestamp) || Date.now();
+}
+
+function resolveEndTs(event: Record<string, unknown>, source: 'live' | 'history'): number {
+  for (const key of ['completedAt', 'finishedAt', 'endTime', 'endTimestamp', 'timestamp', 'ts']) {
+    const ms = parseEventTime(event[key]);
+    if (ms != null) return ms;
+  }
+  return resolveEventTs(event, source);
 }
 
 export function reduceChatEvent(
@@ -148,7 +179,7 @@ export function reduceChatEvent(
     effects.push({ type: 'set_chat_id', payload: { chatId } });
   }
 
-  const ts = Number(event.timestamp || Date.now());
+  const ts = resolveEventTs(event, source);
   const type = normalizeEventType(event.type);
 
   if (type === 'request.query') {
@@ -227,7 +258,7 @@ export function reduceChatEvent(
     return { next, effects };
   }
 
-  if (type === 'task.start' || type === 'task.end' || type === 'task.complete') {
+  if (type === 'task.start' || type === 'task.end' || type === 'task.complete' || type === 'task.fail' || type === 'task.cancel') {
     const taskId = String(event.taskId || '');
     if (!taskId) {
       return { next, effects };
@@ -235,17 +266,25 @@ export function reduceChatEvent(
     const idx = next.planState.tasks.findIndex((task) => task.taskId === taskId);
     const description = String(event.description || event.taskName || taskId);
 
+    const resolvedStatus = type === 'task.start'
+      ? 'running'
+      : type === 'task.fail'
+        ? 'failed'
+        : type === 'task.cancel'
+          ? 'done'
+          : normalizeTaskStatus(event.status || (event.error ? 'failed' : 'done'));
+
     if (idx === -1) {
       next.planState.tasks.push({
         taskId,
         description,
-        status: type === 'task.start' ? 'running' : normalizeTaskStatus(event.status || (event.error ? 'failed' : 'done'))
+        status: resolvedStatus
       });
     } else {
       next.planState.tasks[idx] = {
         ...next.planState.tasks[idx],
         description,
-        status: type === 'task.start' ? 'running' : normalizeTaskStatus(event.status || (event.error ? 'failed' : 'done'))
+        status: resolvedStatus
       };
     }
 
@@ -429,6 +468,17 @@ export function reduceChatEvent(
       toolState.toolParams = event.toolParams as Record<string, unknown>;
     }
 
+    // 从 snapshot 事件中提取 argsText（历史加载时 tool.snapshot 携带完整参数）
+    let snapshotArgsText = '';
+    if (typeof event.arguments === 'string' && event.arguments) {
+      snapshotArgsText = event.arguments;
+    } else if (event.toolParams && typeof event.toolParams === 'object') {
+      try { snapshotArgsText = JSON.stringify(event.toolParams); } catch {}
+    }
+    if (snapshotArgsText && !toolState.argsBuffer) {
+      toolState.argsBuffer = snapshotArgsText;
+    }
+
     runtime.toolStateMap.set(toolId, toolState);
 
     upsertEntry(next, itemId, (old) => ({
@@ -436,7 +486,7 @@ export function reduceChatEvent(
       id: itemId,
       kind: 'tool',
       label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
-      argsText: String((old as Record<string, unknown> | null)?.argsText || ''),
+      argsText: String((old as Record<string, unknown> | null)?.argsText || snapshotArgsText || ''),
       resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
       state: 'running',
       ts

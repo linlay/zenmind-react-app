@@ -268,7 +268,11 @@ export function TimelineEntryRow({
     const endText = String(item.text || '本次运行结束').trim();
     return (
       <Animated.View style={[styles.runEndRow, enterStyle]}>
-        {item.ts ? <Text style={[styles.runEndTime, { color: theme.textMute }]}>{toSmartTime(item.ts)}</Text> : null}
+        {item.ts ? (
+          <View style={styles.runEndTimeWrap}>
+            <Text style={[styles.runEndTime, { color: theme.textMute }]}>{toSmartTime(item.ts)}</Text>
+          </View>
+        ) : null}
         <Text style={[styles.runEndText, { color: theme.textMute }]}>{`-- ${endText} --`}</Text>
       </Animated.View>
     );
@@ -594,13 +598,17 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   },
   runEndRow: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     marginBottom: 10,
-    alignItems: 'center',
-    justifyContent: 'center'
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    paddingHorizontal: 14
+  },
+  runEndTimeWrap: {
+    alignItems: 'flex-end',
+    marginBottom: 3
   },
   runEndTime: {
-    marginRight: 6,
     fontFamily: FONT_MONO,
     fontSize: 10,
     fontWeight: '600'
@@ -608,6 +616,7 @@ const styles = StyleSheet.create({
   runEndText: {
     fontFamily: FONT_MONO,
     fontSize: 10.5,
-    fontWeight: '600'
+    fontWeight: '600',
+    textAlign: 'center'
   }
 });

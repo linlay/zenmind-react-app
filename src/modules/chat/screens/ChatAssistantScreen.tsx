@@ -750,8 +750,8 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
         )}
         ListEmptyComponent={
           <View style={[styles.emptyPanel, { backgroundColor: theme.surfaceStrong }]}> 
-            <Text style={styles.emptyTitle}>开始一个完整对话</Text>
-            <Text style={styles.emptySubTitle}>左上角打开历史会话，或直接发送消息开始。</Text>
+            <Text style={[styles.emptyTitle, { color: theme.text }]}>开始一个完整对话</Text>
+            <Text style={[styles.emptySubTitle, { color: theme.textSoft }]}>左上角打开历史会话，或直接发送消息开始。</Text>
           </View>
         }
       />
@@ -980,13 +980,11 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#27334a'
+    fontWeight: '700'
   },
   emptySubTitle: {
     marginTop: 6,
     fontSize: 13,
-    color: '#60728f',
     lineHeight: 18
   },
   composerOuter: {

@@ -104,7 +104,7 @@ export function Composer({
             multiline
             numberOfLines={minRows}
             scrollEnabled
-            textAlignVertical="top"
+            textAlignVertical="center"
             style={[styles.input, { color: theme.text, minHeight }]}
           />
 
@@ -136,7 +136,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     paddingLeft: 14,
     paddingRight: 8,
     paddingTop: 8,
@@ -145,15 +145,15 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     maxHeight: 140,
-    paddingTop: 10,
-    paddingBottom: 10,
+    paddingTop: 0,
+    paddingBottom: 0,
     paddingRight: 10,
     fontSize: 15,
     lineHeight: 20
   },
   actionWrap: {
     marginLeft: 6,
-    marginBottom: 2
+    marginBottom: 0
   },
   actionBtn: {
     borderRadius: 19,

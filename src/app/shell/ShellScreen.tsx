@@ -1,4 +1,3 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -241,29 +240,24 @@ export function ShellScreen() {
 
   if (booting) {
     return (
-      <SafeAreaView edges={['top']} style={styles.safeRoot}>
-        <LinearGradient colors={theme.gradient} style={styles.gradientFill}>
+      <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}>
+        <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}>
           <View style={styles.bootWrap}>
-            <View style={styles.bootCard}>
+            <View style={[styles.bootCard, { borderColor: theme.border }]}>
               <ActivityIndicator size="small" color={theme.primary} />
-              <Text style={styles.bootText}>正在加载配置...</Text>
+              <Text style={[styles.bootText, { color: theme.textSoft }]}>正在加载配置...</Text>
             </View>
           </View>
-        </LinearGradient>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView edges={['top']} style={styles.safeRoot}>
+    <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}>
       <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
 
-      <LinearGradient colors={theme.gradient} style={styles.gradientFill}>
-        <View pointerEvents="none" style={styles.bgDecorWrap}>
-          <View style={[styles.bgCircleA, { backgroundColor: theme.bgCircleA }]} />
-          <View style={[styles.bgCircleB, { backgroundColor: theme.bgCircleB }]} />
-        </View>
-
+      <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}>
         <Animated.View style={[styles.mainShell, { transform: [{ translateX: mainTranslateX }] }]}> 
           <KeyboardAvoidingView
             style={[styles.shell, { paddingBottom: keyboardInset }]}
@@ -357,7 +351,6 @@ export function ShellScreen() {
                               {key || '未配置 key'}
                             </Text>
                           </View>
-                          {selected ? <Text style={[styles.agentMenuItemCheck, { color: theme.primary }]}>✓</Text> : null}
                         </View>
                       </TouchableOpacity>
                     );
@@ -408,8 +401,6 @@ export function ShellScreen() {
             <View style={styles.drawerContent}>
               {activeDomain === 'chat' ? (
                 <>
-                  <Text style={[styles.drawerSectionTitle, { color: theme.textSoft }]}>对话</Text>
-
                   <View style={styles.drawerActionRow}>
                     <TouchableOpacity
                       activeOpacity={0.74}
@@ -551,7 +542,7 @@ export function ShellScreen() {
             </View>
           </Animated.View>
         </View>
-      </LinearGradient>
+      </View>
     </SafeAreaView>
   );
 }
@@ -569,25 +560,6 @@ const styles = StyleSheet.create({
   shell: {
     flex: 1
   },
-  bgDecorWrap: {
-    ...StyleSheet.absoluteFillObject
-  },
-  bgCircleA: {
-    position: 'absolute',
-    width: 270,
-    height: 270,
-    borderRadius: 135,
-    top: -130,
-    right: -50
-  },
-  bgCircleB: {
-    position: 'absolute',
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    left: -90,
-    bottom: 110
-  },
   bootWrap: {
     flex: 1,
     justifyContent: 'center',
@@ -597,14 +569,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10
   },
   bootText: {
-    fontSize: 14,
-    color: '#60728f'
+    fontSize: 14
   },
   topNavCompact: {
     flexDirection: 'row',
@@ -632,25 +603,30 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 12
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    gap: 6
   },
   assistantTopTextWrap: {
-    flex: 1,
-    minWidth: 0
+    flexGrow: 0,
+    flexShrink: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    maxWidth: '84%'
   },
   assistantTopTitle: {
-    fontSize: 17,
-    fontWeight: '700'
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center'
   },
   assistantTopSubTitle: {
-    marginTop: 2,
+    marginTop: 0,
     fontSize: 12,
-    fontWeight: '500'
+    fontWeight: '500',
+    textAlign: 'center'
   },
   assistantTopArrow: {
-    marginLeft: 10,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700'
   },
   agentMenuCard: {
@@ -659,11 +635,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    maxHeight: 280,
+    height: 252,
     overflow: 'hidden'
   },
   agentMenuList: {
-    flexGrow: 0
+    flex: 1
   },
   agentMenuListContent: {
     paddingVertical: 10,
@@ -681,24 +657,22 @@ const styles = StyleSheet.create({
   agentMenuItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10
+    justifyContent: 'center'
   },
   agentMenuTextWrap: {
     flex: 1,
-    minWidth: 0
+    minWidth: 0,
+    alignItems: 'center'
   },
   agentMenuItemText: {
-    fontSize: 14,
-    fontWeight: '700'
+    fontSize: 11,
+    fontWeight: '700',
+    textAlign: 'center'
   },
   agentMenuItemSubText: {
     marginTop: 2,
-    fontSize: 11
-  },
-  agentMenuItemCheck: {
-    fontSize: 16,
-    fontWeight: '800'
+    fontSize: 10,
+    textAlign: 'center'
   },
   drawerOverlay: {
     ...StyleSheet.absoluteFillObject,
@@ -757,9 +731,12 @@ const styles = StyleSheet.create({
   },
   chatSearchInput: {
     borderRadius: 10,
+    height: 38,
     paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingVertical: 0,
     fontSize: 13,
+    lineHeight: 18,
+    textAlignVertical: 'center',
     marginBottom: 10
   },
   chatListWrap: {
