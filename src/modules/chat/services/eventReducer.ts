@@ -653,6 +653,20 @@ export function reduceChatEvent(
       }) as TimelineEntry);
       return { next, effects };
     }
+
+    if (type === 'reasoning.snapshot') {
+      upsertEntry(next, itemId, (old) => ({
+        ...(old || {}),
+        id: itemId,
+        kind: 'reasoning',
+        text: String(event.text || event.content || ''),
+        collapsed: true,
+        startTs: resolveEventTs(event, source),
+        endTs: resolveEndTs(event, source),
+        ts
+      }) as TimelineEntry);
+      return { next, effects };
+    }
   }
 
   if (
@@ -730,17 +744,15 @@ export function reduceChatEvent(
 
     if (type === 'content.end') {
       const nextText = typeof event.text === 'string' ? event.text : '';
-      if (nextText || source === 'history') {
-        upsertEntry(next, itemId, (old) => ({
-          ...(old || {}),
-          id: itemId,
-          kind: 'message',
-          role: 'assistant',
-          text: nextText || String((old as Record<string, unknown> | null)?.text || ''),
-          isStreamingContent: false,
-          ts
-        }) as TimelineEntry);
-      }
+      upsertEntry(next, itemId, (old) => ({
+        ...(old || {}),
+        id: itemId,
+        kind: 'message',
+        role: 'assistant',
+        text: nextText || String((old as Record<string, unknown> | null)?.text || ''),
+        isStreamingContent: false,
+        ts
+      }) as TimelineEntry);
       return { next, effects };
     }
   }

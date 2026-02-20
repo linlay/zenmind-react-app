@@ -107,7 +107,7 @@ modules/[domain]/
 | 层 | 事件 | 说明 |
 |---|---|---|
 | 内容层 | `plan.update` | 全量替换：携带 `plan[]` 数组，整体替换 `planState.tasks` |
-| 状态层 | `task.start` / `task.complete` / `task.end` / `task.fail` / `task.cancel` | 增量更新：按 `taskId` 定位单条任务，修改其 `status` |
+| 状态层 | `task.start` / `task.complete` / `task.fail` / `task.cancel` | 增量更新：按 `taskId` 定位单条任务，修改其 `status` |
 
 ### 数据结构
 
@@ -122,7 +122,7 @@ interface PlanState {
 interface PlanTask {
   taskId: string;          // 唯一标识
   description: string;     // 任务描述文本
-  status: 'pending' | 'running' | 'done' | 'failed';
+  status: 'init' | 'running' | 'done' | 'failed';
 }
 ```
 
@@ -130,7 +130,7 @@ interface PlanTask {
 
 1. `plan.update` → 全量替换 `tasks`，通过 `normalizePlanTask()` 归一化
 2. `task.start` → 设置 `status = 'running'`
-3. `task.complete` / `task.end` → 设置 `status = normalizeTaskStatus()` 结果（通常为 `'done'`）
+3. `task.complete` → 设置 `status = normalizeTaskStatus()` 结果（通常为 `'done'`）
 4. `task.fail` → 设置 `status = 'failed'`
 5. `task.cancel` → 设置 `status = 'done'`（`PlanTask['status']` 类型无 `'cancelled'`，映射为完成）
 6. 若 `taskId` 不在现有列表中，自动追加新条目
@@ -156,12 +156,12 @@ interface PlanTask {
 
 | 事件类型 | 关键字段 | 说明 |
 |----------|----------|------|
+| `request.query` | `requestId`, `message` | 用户消息回显 |
 | `chat.start` | — | 会话开始，无需处理 |
 | `run.start` | `runId` | 运行开始，记录 runId |
 | `run.complete` | `runId` | 运行正常结束 |
 | `run.cancel` | `runId` | 运行被取消 |
 | `run.error` | `error` | 运行出错 |
-| `request.query` | `requestId`, `message` | 用户消息回显 |
 
 #### 内容流事件
 
@@ -169,8 +169,8 @@ interface PlanTask {
 |----------|----------|------|
 | `content.start` | `contentId`, `text` | 助手内容开始 |
 | `content.delta` | `contentId`, `delta` | 助手内容增量 |
-| `content.snapshot` | `contentId`, `text` / `content` | 助手内容快照（历史加载） |
 | `content.end` | `contentId`, `text` | 助手内容结束 |
+| `content.snapshot` | `contentId`, `text` / `content` | 助手内容快照（历史加载） |
 
 #### 推理事件
 
@@ -179,26 +179,28 @@ interface PlanTask {
 | `reasoning.start` | `reasoningId`, `text` | 推理开始 |
 | `reasoning.delta` | `reasoningId`, `delta` | 推理增量 |
 | `reasoning.end` | `reasoningId` | 推理结束 |
+| `reasoning.snapshot` | `reasoningId`, `text` | 推理快照（历史加载） |
 
 #### 工具调用事件
 
 | 事件类型 | 关键字段 | 说明 |
 |----------|----------|------|
 | `tool.start` | `toolId`, `toolName`, `toolType`, `toolKey` | 工具调用开始 |
-| `tool.snapshot` | `toolId`, `arguments`(JSON 字符串), `toolParams`(对象) | 工具快照（历史加载携带完整参数） |
 | `tool.args` | `toolId`, `delta` | 工具参数增量流 |
-| `tool.result` | `toolId`, `result` / `output` | 工具执行结果 |
 | `tool.end` | `toolId`, `error`(可选) | 工具调用结束 |
+| `tool.params` | `toolId`, `toolParams`(对象) | 前端工具参数（由 `/api/submit` 触发，仅 HITL 工具） |
+| `tool.result` | `toolId`, `result` / `output` | 工具执行结果 |
+| `tool.snapshot` | `toolId`, `arguments`(JSON 字符串), `toolParams`(对象) | 工具快照（历史加载携带完整参数） |
 
 #### 动作事件
 
 | 事件类型 | 关键字段 | 说明 |
 |----------|----------|------|
 | `action.start` | `actionId`, `actionName` | 动作开始 |
-| `action.snapshot` | `actionId` | 动作快照 |
 | `action.args` | `actionId`, `delta` | 动作参数增量 |
-| `action.result` | `actionId`, `result` / `output` | 动作结果 |
 | `action.end` | `actionId`, `error`(可选) | 动作结束，触发 `execute_action` 副作用 |
+| `action.result` | `actionId`, `result` / `output` | 动作结果 |
+| `action.snapshot` | `actionId` | 动作快照 |
 
 #### 计划事件
 
@@ -207,7 +209,7 @@ interface PlanTask {
 | `plan.update` | `planId`, `plan[]` | 全量替换计划任务列表 |
 | `task.start` | `taskId`, `description` | 单任务开始执行 |
 | `task.complete` | `taskId`, `status` | 单任务完成 |
-| `task.end` | `taskId`, `status` | 单任务结束 |
+
 | `task.fail` | `taskId`, `error` | 单任务失败 |
 | `task.cancel` | `taskId` | 单任务取消 |
 

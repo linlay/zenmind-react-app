@@ -358,15 +358,25 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
   const applyEvent = useCallback(
     (event: ChatEvent, source: 'live' | 'history') => {
       const type = normalizeEventType((event as Record<string, unknown>)?.type);
+
       if (source === 'live' && isStreamActivityType(type)) {
-        markStreamAlive();
+        streamLastEventAtRef.current = Date.now();
+        armStreamIdleTimer();
       }
       if (source === 'live' && type === 'plan.update') {
         armPlanCollapseTimer();
       }
 
       const { next, effects } = reduceChatEvent(chatStateRef.current, event, source, runtimeRef.current);
-      setChatStateSafe(() => next);
+
+      if (source === 'live' && isStreamActivityType(type)) {
+        next.streaming = true;
+      }
+
+      chatStateRef.current = next;
+      activeFrontendToolRef.current = next.activeFrontendTool;
+      setChatState(next);
+
       handleEffects(effects, source);
 
       if (type === 'reasoning.end') {
@@ -381,7 +391,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
         }
       }
     },
-    [armPlanCollapseTimer, handleEffects, markStreamAlive, scheduleReasoningCollapse, setChatStateSafe]
+    [armPlanCollapseTimer, armStreamIdleTimer, handleEffects, scheduleReasoningCollapse]
   );
 
   const resetTimeline = useCallback(() => {
@@ -713,7 +723,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
 
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} nativeID="chat-screen-root" testID="chat-screen-root">
       {(statusText || loadChatState.isFetching) ? (
         <View style={styles.liveStatusLine}>
           <Text style={[styles.liveStatusText, { color: theme.textSoft }]} numberOfLines={1}>{statusText}</Text>
@@ -736,6 +746,8 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
           setAutoScrollMode(atBottom);
         }}
         scrollEventThrottle={16}
+        nativeID="chat-timeline-list"
+        testID="chat-timeline-list"
         renderItem={({ item }) => (
           <TimelineEntryRow
             item={item}
@@ -762,6 +774,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
             <TouchableOpacity
               activeOpacity={0.86}
               onPress={() => scrollToBottom(true)}
+              testID="scroll-to-bottom-btn"
               style={[styles.scrollToBottomBtn, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
             >
               <Text style={[styles.scrollToBottomText, { color: theme.text }]}>↓</Text>
@@ -780,6 +793,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
                 }
                 setPlanExpanded((prev) => !prev);
               }}
+              testID="plan-toggle-btn"
               style={[styles.planCard, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
             >
               {planExpanded ? (
