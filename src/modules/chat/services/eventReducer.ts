@@ -81,6 +81,48 @@ function appendEntry(next: ChatState, entry: TimelineEntry): void {
   next.timeline = [...next.timeline, entry];
 }
 
+function resolveToolLabel(
+  oldLabel: string,
+  event: Record<string, unknown>,
+  toolState?: { toolName?: string; toolKey?: string }
+): string {
+  const bestName = String(event.toolName || toolState?.toolName || '').trim();
+  if (bestName) return bestName;
+
+  const fallback = renderToolLabel({
+    ...event,
+    toolKey: String(event.toolKey || toolState?.toolKey || '')
+  });
+
+  if (!oldLabel || oldLabel === 'tool') {
+    return fallback;
+  }
+  return oldLabel;
+}
+
+function resolveActionLabel(
+  oldLabel: string,
+  event: Record<string, unknown>,
+  actionState?: { actionName?: string }
+): string {
+  const bestName = String(event.actionName || actionState?.actionName || '').trim();
+  if (bestName) return bestName;
+  const description = String(event.description || '').trim();
+  if (description) return description;
+  if (oldLabel && oldLabel !== 'action') return oldLabel;
+  return renderActionLabel(event);
+}
+
+function resolveEndTs(event: Record<string, unknown>, source: 'live' | 'history'): number {
+  for (const key of ['completedAt', 'finishedAt', 'endTime', 'endTimestamp', 'timestamp']) {
+    const v = event[key];
+    if (v == null || v === '') continue;
+    const ms = typeof v === 'number' ? v : new Date(v as string).getTime();
+    if (!Number.isNaN(ms)) return ms;
+  }
+  return source === 'live' ? Date.now() : Number(event.timestamp || Date.now());
+}
+
 export function reduceChatEvent(
   prev: ChatState,
   rawEvent: ChatEvent,
@@ -140,6 +182,7 @@ export function reduceChatEvent(
 
     const finishedRunId = String(event.runId || runtime.runId || '');
     const itemId = finishedRunId ? `run:end:${finishedRunId}` : nextId(runtime, 'run_end');
+    const endTs = resolveEndTs(event, source);
 
     upsertEntry(next, itemId, (old) => ({
       ...(old || {}),
@@ -149,7 +192,7 @@ export function reduceChatEvent(
       variant: 'run_end',
       tone: type === 'run.cancel' ? 'warn' : 'ok',
       text: type === 'run.cancel' ? '本次运行已取消' : '本次运行结束',
-      ts
+      ts: endTs
     }) as TimelineEntry);
 
     effects.push({ type: 'stream_end' });
@@ -178,7 +221,7 @@ export function reduceChatEvent(
       ...next.planState,
       planId: String(event.planId || next.planState.planId || ''),
       tasks,
-      expanded: true,
+      expanded: next.planState.expanded,
       lastTaskId: tasks.find((task) => task.status === 'running')?.taskId || next.planState.lastTaskId
     };
     return { next, effects };
@@ -206,7 +249,6 @@ export function reduceChatEvent(
       };
     }
 
-    next.planState.expanded = true;
     next.planState.lastTaskId = taskId;
     return { next, effects };
   }
@@ -235,7 +277,7 @@ export function reduceChatEvent(
       id: itemId,
       kind: 'action',
       actionName: actionState.actionName,
-      label: (old as Record<string, unknown> | null)?.label || renderActionLabel(event),
+      label: resolveActionLabel(String((old as Record<string, unknown> | null)?.label || ''), event, actionState),
       description: description || String((old as Record<string, unknown> | null)?.description || ''),
       argsText: String((old as Record<string, unknown> | null)?.argsText || actionState.argsText || ''),
       resultText: String((old as Record<string, unknown> | null)?.resultText || actionState.resultText || ''),
@@ -269,7 +311,7 @@ export function reduceChatEvent(
       id: itemId,
       kind: 'action',
       actionName: String((old as Record<string, unknown> | null)?.actionName || stateInRef.actionName || ''),
-      label: String((old as Record<string, unknown> | null)?.label || renderActionLabel(event)),
+      label: resolveActionLabel(String((old as Record<string, unknown> | null)?.label || ''), event, stateInRef),
       description: String((old as Record<string, unknown> | null)?.description || event.description || ''),
       argsText: `${String((old as Record<string, unknown> | null)?.argsText || '')}${deltaText}`,
       resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
@@ -303,7 +345,7 @@ export function reduceChatEvent(
       id: itemId,
       kind: 'action',
       actionName: String((old as Record<string, unknown> | null)?.actionName || stateInRef.actionName || ''),
-      label: String((old as Record<string, unknown> | null)?.label || renderActionLabel(event)),
+      label: resolveActionLabel(String((old as Record<string, unknown> | null)?.label || ''), event, stateInRef),
       description: String((old as Record<string, unknown> | null)?.description || event.description || ''),
       argsText: String((old as Record<string, unknown> | null)?.argsText || stateInRef.argsText || ''),
       resultText: nextResult || String((old as Record<string, unknown> | null)?.resultText || ''),
@@ -336,7 +378,7 @@ export function reduceChatEvent(
       id: itemId,
       kind: 'action',
       actionName: String((old as Record<string, unknown> | null)?.actionName || stateInRef.actionName || ''),
-      label: String((old as Record<string, unknown> | null)?.label || renderActionLabel(event)),
+      label: resolveActionLabel(String((old as Record<string, unknown> | null)?.label || ''), event, stateInRef),
       description: String((old as Record<string, unknown> | null)?.description || event.description || ''),
       argsText: String((old as Record<string, unknown> | null)?.argsText || stateInRef.argsText || ''),
       resultText: String((old as Record<string, unknown> | null)?.resultText || stateInRef.resultText || ''),
@@ -393,7 +435,7 @@ export function reduceChatEvent(
       ...(old || {}),
       id: itemId,
       kind: 'tool',
-      label: String((old as Record<string, unknown> | null)?.label || renderToolLabel(event)),
+      label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
       argsText: String((old as Record<string, unknown> | null)?.argsText || ''),
       resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
       state: 'running',
@@ -456,7 +498,7 @@ export function reduceChatEvent(
       ...(old || {}),
       id: itemId,
       kind: 'tool',
-      label: String((old as Record<string, unknown> | null)?.label || renderToolLabel(event)),
+      label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
       argsText: `${String((old as Record<string, unknown> | null)?.argsText || '')}${deltaText}`,
       resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
       state: String((old as Record<string, unknown> | null)?.state || 'running') as 'init' | 'running' | 'done' | 'failed',
@@ -475,11 +517,12 @@ export function reduceChatEvent(
     }
 
     const nextResult = toDisplayText(Object.prototype.hasOwnProperty.call(event, 'result') ? event.result : event.output);
+    const toolState = runtime.toolStateMap.get(toolId);
     upsertEntry(next, itemId, (old) => ({
       ...(old || {}),
       id: itemId,
       kind: 'tool',
-      label: String((old as Record<string, unknown> | null)?.label || renderToolLabel(event)),
+      label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
       argsText: String((old as Record<string, unknown> | null)?.argsText || ''),
       resultText: nextResult || String((old as Record<string, unknown> | null)?.resultText || ''),
       state: event.error
@@ -501,11 +544,12 @@ export function reduceChatEvent(
       runtime.toolIdMap.set(toolId, itemId);
     }
 
+    const toolState = runtime.toolStateMap.get(toolId);
     upsertEntry(next, itemId, (old) => ({
       ...(old || {}),
       id: itemId,
       kind: 'tool',
-      label: String((old as Record<string, unknown> | null)?.label || renderToolLabel(event)),
+      label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
       argsText: String((old as Record<string, unknown> | null)?.argsText || ''),
       resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
       state: event.error ? 'failed' : String((old as Record<string, unknown> | null)?.state) === 'failed' ? 'failed' : 'done',

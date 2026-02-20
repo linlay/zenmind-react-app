@@ -90,22 +90,29 @@ export function Composer({
             placeholderTextColor={theme.textMute}
             editable={!streaming}
             multiline
+            numberOfLines={1}
             scrollEnabled
             textAlignVertical="top"
             style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
           />
 
-          {streaming ? (
-            <TouchableOpacity activeOpacity={0.9} style={[styles.actionBtn, { backgroundColor: theme.danger }]} onPress={onStop}>
-              <View style={styles.stopSquare} />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity activeOpacity={0.9} style={styles.actionBtn} onPress={onSend}>
-              <LinearGradient colors={[theme.primary, theme.primaryDeep]} style={styles.sendGradient}>
-                <Text style={styles.sendText}>↑</Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          )}
+          <View style={styles.bottomRow}>
+            {composerText.length > 0 ? (
+              <Text style={[styles.charCount, { color: theme.textMute }]}>{composerText.length}</Text>
+            ) : <View />}
+
+            {streaming ? (
+              <TouchableOpacity activeOpacity={0.9} style={[styles.actionBtn, { backgroundColor: theme.danger }]} onPress={onStop}>
+                <View style={styles.stopSquare} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity activeOpacity={0.9} style={styles.actionBtn} onPress={onSend}>
+                <LinearGradient colors={[theme.primary, theme.primaryDeep]} style={styles.sendGradient}>
+                  <Text style={styles.sendText}>↑</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            )}
+          </View>
         </>
       )}
     </View>
@@ -117,22 +124,30 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 10,
     marginHorizontal: 14,
-    marginBottom: 8,
-    minHeight: 84
+    marginBottom: 8
   },
   input: {
-    minHeight: 72,
-    maxHeight: 190,
+    minHeight: 40,
+    maxHeight: 140,
     borderRadius: 12,
     paddingHorizontal: 12,
     paddingTop: 10,
     paddingBottom: 10,
     fontSize: 15,
-    lineHeight: 21
+    lineHeight: 20
+  },
+  bottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 6
+  },
+  charCount: {
+    fontSize: 11,
+    fontWeight: '600',
+    marginLeft: 4
   },
   actionBtn: {
-    alignSelf: 'flex-end',
-    marginTop: 8,
     borderRadius: 12,
     overflow: 'hidden'
   },

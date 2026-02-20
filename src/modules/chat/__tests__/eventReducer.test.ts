@@ -37,4 +37,50 @@ describe('eventReducer', () => {
     expect(action && action.state).toBe('done');
     expect(tool && tool.state).toBe('done');
   });
+
+  it('upgrades tool label when toolName arrives later', () => {
+    const runtime = createRuntimeMaps();
+    let state = createEmptyChatState();
+
+    state = reduceChatEvent(state, { type: 'tool.start', toolId: 't1' }, 'live', runtime).next;
+    state = reduceChatEvent(state, { type: 'tool.snapshot', toolId: 't1', toolName: 'fetch_disk' }, 'live', runtime).next;
+
+    const tool = state.timeline.find((item) => item.kind === 'tool');
+    expect(tool && tool.label).toBe('fetch_disk');
+  });
+
+  it('keeps plan expanded state controlled by UI', () => {
+    const runtime = createRuntimeMaps();
+    let state = createEmptyChatState();
+
+    state = reduceChatEvent(
+      state,
+      {
+        type: 'plan.update',
+        plan: [{ taskId: 't1', description: 'a', status: 'running' }]
+      },
+      'live',
+      runtime
+    ).next;
+    expect(state.planState.expanded).toBe(false);
+
+    state = {
+      ...state,
+      planState: {
+        ...state.planState,
+        expanded: true
+      }
+    };
+    state = reduceChatEvent(
+      state,
+      {
+        type: 'task.end',
+        taskId: 't1',
+        status: 'done'
+      },
+      'live',
+      runtime
+    ).next;
+    expect(state.planState.expanded).toBe(true);
+  });
 });

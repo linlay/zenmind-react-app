@@ -1,4 +1,10 @@
-import { getPlanProgress, normalizeEventType, normalizeTaskStatus, parseStructuredArgs } from '../services/eventNormalizer';
+import {
+  getPlanProgress,
+  normalizeEventType,
+  normalizeTaskStatus,
+  parseStructuredArgs,
+  renderToolLabel
+} from '../services/eventNormalizer';
 
 describe('eventNormalizer', () => {
   it('normalizes task status', () => {
@@ -23,5 +29,12 @@ describe('eventNormalizer', () => {
         { taskId: 't2', description: 'b', status: 'running' }
       ])
     ).toEqual({ current: 2, total: 2 });
+  });
+
+  it('does not fallback to toolId for display label', () => {
+    expect(renderToolLabel({ toolId: 'tool-123' })).toBe('tool');
+    expect(renderToolLabel({ toolApi: 'file.read', toolId: 'tool-123' })).toBe('file.read');
+    expect(renderToolLabel({ toolKey: 'file.read', toolId: 'tool-123' })).toBe('file.read');
+    expect(renderToolLabel({ toolName: '读取文件', toolKey: 'file.read', toolId: 'tool-123' })).toBe('读取文件');
   });
 });

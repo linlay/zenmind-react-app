@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -55,6 +55,20 @@ import { getAgentKey, getAgentName, getChatTitle } from '../../shared/utils/form
 
 const DRAWER_MAX_WIDTH = 332;
 
+const DOMAIN_LABEL: Record<DomainMode, string> = {
+  chat: '助理',
+  terminal: '终端',
+  agents: '智能体',
+  user: '配置'
+};
+
+const DRAWER_TITLE: Record<DomainMode, string> = {
+  chat: '对话',
+  terminal: '会话',
+  agents: '智能体',
+  user: '配置'
+};
+
 export function ShellScreen() {
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
@@ -75,6 +89,8 @@ export function ShellScreen() {
   const agentsLoading = useAppSelector((state) => state.agents.loading);
   const agents = useAppSelector((state) => state.agents.agents);
   const filteredChats = useAppSelector(selectFilteredChats);
+
+  const [agentMenuOpen, setAgentMenuOpen] = useState(false);
 
   const [triggerAgents] = useLazyGetAgentsQuery();
   const [triggerChats] = useLazyGetChatsQuery();
@@ -182,18 +198,12 @@ export function ShellScreen() {
   }, [drawerAnim, drawerOpen]);
 
   useEffect(() => {
-    if (booting) {
-      return;
-    }
-
+    if (booting) return;
     refreshAll(true);
   }, [booting, refreshAll]);
 
   useEffect(() => {
-    if (booting) {
-      return;
-    }
-
+    if (booting) return;
     patchSettings({
       themeMode,
       endpointInput,
@@ -202,6 +212,12 @@ export function ShellScreen() {
       activeDomain
     }).catch(() => {});
   }, [activeDomain, booting, endpointInput, ptyUrlInput, selectedAgentKey, themeMode]);
+
+  useEffect(() => {
+    if (activeDomain !== 'chat' || drawerOpen) {
+      setAgentMenuOpen(false);
+    }
+  }, [activeDomain, drawerOpen]);
 
   const activeAgentName = useMemo(() => {
     const found = agents.find((agent) => getAgentKey(agent) === selectedAgentKey);
@@ -235,7 +251,7 @@ export function ShellScreen() {
           <View style={[styles.bgCircleB, { backgroundColor: theme.bgCircleB }]} />
         </View>
 
-        <Animated.View style={[styles.mainShell, { transform: [{ translateX: mainTranslateX }] }]}>
+        <Animated.View style={[styles.mainShell, { transform: [{ translateX: mainTranslateX }] }]}> 
           <KeyboardAvoidingView
             style={styles.shell}
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -243,27 +259,41 @@ export function ShellScreen() {
             pointerEvents={drawerOpen ? 'none' : 'auto'}
           >
             <View style={styles.topNavCompact}>
-              <TouchableOpacity activeOpacity={0.72} style={styles.iconOnlyBtn} onPress={() => dispatch(setDrawerOpen(true))}>
+              <TouchableOpacity
+                activeOpacity={0.72}
+                style={styles.iconOnlyBtn}
+                onPress={() => {
+                  setAgentMenuOpen(false);
+                  dispatch(setDrawerOpen(true));
+                }}
+              >
                 <Text style={styles.iconOnlyBtnText}>≡</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity
-                activeOpacity={activeDomain === 'chat' ? 0.78 : 1}
-                style={[styles.agentCompactBtn, { backgroundColor: theme.surfaceStrong }]}
-              >
-                <View style={[styles.agentCompactAvatar, { backgroundColor: theme.primary }]}>
-                  <Text style={styles.agentCompactAvatarText}>{activeDomain === 'chat' ? agentBadgeLetter : activeDomain.slice(0, 1).toUpperCase()}</Text>
+              {activeDomain === 'chat' ? (
+                <TouchableOpacity
+                  activeOpacity={0.76}
+                  style={[styles.agentCompactBtn, { backgroundColor: theme.surfaceStrong }]}
+                  onPress={() => setAgentMenuOpen((prev) => !prev)}
+                >
+                  <View style={[styles.agentCompactAvatar, { backgroundColor: theme.primary }]}> 
+                    <Text style={styles.agentCompactAvatarText}>{agentBadgeLetter}</Text>
+                  </View>
+                  <Text style={[styles.agentCompactName, { color: theme.text }]} numberOfLines={1}>
+                    {activeAgentName}
+                  </Text>
+                  <Text style={[styles.agentCompactArrow, { color: theme.textMute }]}>{agentMenuOpen ? '▴' : '▾'}</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={[styles.agentCompactBtn, { backgroundColor: theme.surfaceStrong }]}> 
+                  <View style={[styles.agentCompactAvatar, { backgroundColor: theme.primary }]}> 
+                    <Text style={styles.agentCompactAvatarText}>{DOMAIN_LABEL[activeDomain].slice(0, 1)}</Text>
+                  </View>
+                  <Text style={[styles.agentCompactName, { color: theme.text }]} numberOfLines={1}>
+                    {DOMAIN_LABEL[activeDomain]}
+                  </Text>
                 </View>
-                <Text style={styles.agentCompactName} numberOfLines={1}>
-                  {activeDomain === 'chat'
-                    ? activeAgentName
-                    : activeDomain === 'terminal'
-                      ? '终端管理'
-                      : activeDomain === 'agents'
-                        ? '智能体管理'
-                        : '用户配置'}
-                </Text>
-              </TouchableOpacity>
+              )}
 
               <TouchableOpacity
                 activeOpacity={0.72}
@@ -275,6 +305,39 @@ export function ShellScreen() {
                 <Text style={styles.iconOnlyBtnText}>{theme.mode === 'light' ? '◐' : '◑'}</Text>
               </TouchableOpacity>
             </View>
+
+            {activeDomain === 'chat' && agentMenuOpen ? (
+              <View style={[styles.agentMenuCard, { backgroundColor: theme.surfaceStrong }]}> 
+                <ScrollView style={styles.agentMenuList} contentContainerStyle={styles.agentMenuListContent}>
+                  {(agents.length ? agents : [{ key: '', name: '暂无 Agent' }]).map((agent, index) => {
+                    const key = getAgentKey(agent);
+                    const name = getAgentName(agent) || key || `Agent ${index + 1}`;
+                    const selected = key && key === selectedAgentKey;
+                    return (
+                      <TouchableOpacity
+                        key={key || `${name}-${index}`}
+                        disabled={!key}
+                        activeOpacity={0.78}
+                        style={[
+                          styles.agentMenuItem,
+                          {
+                            backgroundColor: selected ? theme.primarySoft : theme.surface
+                          }
+                        ]}
+                        onPress={() => {
+                          if (!key) return;
+                          dispatch(setAgentsSelectedAgentKey(key));
+                          dispatch(setUserSelectedAgentKey(key));
+                          setAgentMenuOpen(false);
+                        }}
+                      >
+                        <Text style={[styles.agentMenuItemText, { color: selected ? theme.primaryDeep : theme.textSoft }]}>{name}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              </View>
+            ) : null}
 
             {activeDomain === 'chat' ? (
               <ChatAssistantScreen
@@ -308,89 +371,96 @@ export function ShellScreen() {
             ]}
           >
             <View style={styles.drawerHead}>
-              <Text style={styles.drawerTitle}>会话与域切换</Text>
-              <TouchableOpacity activeOpacity={0.72} style={styles.drawerIconBtn} onPress={() => dispatch(setDrawerOpen(false))}>
-                <Text style={styles.drawerIconText}>✕</Text>
+              <Text style={[styles.drawerTitle, { color: theme.text }]}>{DRAWER_TITLE[activeDomain]}</Text>
+              <TouchableOpacity activeOpacity={0.72} style={[styles.drawerIconBtn, { backgroundColor: theme.surfaceStrong }]} onPress={() => dispatch(setDrawerOpen(false))}>
+                <Text style={[styles.drawerIconText, { color: theme.textSoft }]}>✕</Text>
               </TouchableOpacity>
             </View>
 
-            <DomainSwitcher
-              value={activeDomain}
-              onChange={(mode: DomainMode) => {
-                dispatch(setActiveDomain(mode));
-                dispatch(setDrawerOpen(false));
-              }}
-              theme={theme}
-            />
+            <View style={styles.drawerContent}>
+              {activeDomain === 'chat' ? (
+                <>
+                  <Text style={[styles.drawerSectionTitle, { color: theme.textSoft }]}>对话</Text>
 
-            {activeDomain === 'chat' ? (
-              <>
-                <View style={styles.drawerActionRow}>
-                  <TouchableOpacity
-                    activeOpacity={0.74}
-                    style={[styles.drawerActionBtn, { backgroundColor: theme.surfaceStrong }]}
-                    onPress={() => {
-                      dispatch(setChatId(''));
-                      dispatch(setDrawerOpen(false));
-                    }}
-                  >
-                    <Text style={styles.drawerActionText}>+ 新会话</Text>
-                  </TouchableOpacity>
+                  <View style={styles.drawerActionRow}>
+                    <TouchableOpacity
+                      activeOpacity={0.74}
+                      style={[styles.drawerActionBtn, { backgroundColor: theme.surfaceStrong }]}
+                      onPress={() => {
+                        dispatch(setChatId(''));
+                        dispatch(setDrawerOpen(false));
+                      }}
+                    >
+                      <Text style={[styles.drawerActionText, { color: theme.textSoft }]}>+ 新对话</Text>
+                    </TouchableOpacity>
+                  </View>
 
-                  <TouchableOpacity
-                    activeOpacity={0.74}
-                    style={[styles.drawerActionBtn, { backgroundColor: theme.surfaceStrong }]}
-                    onPress={() => refreshChats(false)}
-                  >
-                    <Text style={styles.drawerActionText}>刷新</Text>
-                  </TouchableOpacity>
-                </View>
+                  <TextInput
+                    value={chatKeyword}
+                    onChangeText={(text) => dispatch(setChatKeyword(text))}
+                    placeholder="搜索"
+                    placeholderTextColor={theme.textMute}
+                    style={[styles.chatSearchInput, { backgroundColor: theme.surfaceStrong, color: theme.text }]}
+                  />
 
-                <TextInput
-                  value={chatKeyword}
-                  onChangeText={(text) => dispatch(setChatKeyword(text))}
-                  placeholder="搜索会话"
-                  placeholderTextColor={theme.textMute}
-                  style={[styles.chatSearchInput, { backgroundColor: theme.surfaceStrong, color: theme.text }]}
-                />
+                  <ScrollView style={styles.chatListWrap} contentContainerStyle={styles.chatListContent}>
+                    {filteredChats.length ? (
+                      filteredChats.map((chat, index) => {
+                        const active = chat.chatId === chatId;
+                        const title = getChatTitle(chat) || chat.chatId || '未命名会话';
+                        const chatMetaParts: string[] = [];
+                        if (chat.firstAgentKey) chatMetaParts.push(`@${chat.firstAgentKey}`);
+                        if (chat.chatId) chatMetaParts.push(chat.chatId);
+                        const chatMeta = chatMetaParts.join(' · ');
+                        const itemKey = chat.chatId || `${title}:${index}`;
 
-                <ScrollView style={styles.chatListWrap} contentContainerStyle={styles.chatListContent}>
-                  {filteredChats.length ? (
-                    filteredChats.map((chat, index) => {
-                      const active = chat.chatId === chatId;
-                      const title = getChatTitle(chat) || chat.chatId || '未命名会话';
-                      const chatMetaParts: string[] = [];
-                      if (chat.firstAgentKey) chatMetaParts.push(`@${chat.firstAgentKey}`);
-                      if (chat.chatId) chatMetaParts.push(chat.chatId);
-                      const chatMeta = chatMetaParts.join(' · ');
-                      const itemKey = chat.chatId || `${title}:${index}`;
+                        return (
+                          <TouchableOpacity
+                            key={itemKey}
+                            activeOpacity={0.74}
+                            style={[styles.chatItem, { backgroundColor: active ? theme.primarySoft : theme.surfaceStrong }]}
+                            onPress={() => {
+                              if (!chat.chatId) return;
+                              dispatch(setChatId(chat.chatId));
+                              dispatch(setDrawerOpen(false));
+                            }}
+                          >
+                            <Text style={[styles.chatItemTitle, { color: theme.text }]} numberOfLines={1}>{title}</Text>
+                            <Text style={[styles.chatItemMeta, { color: theme.textMute }]} numberOfLines={1}>{chatMeta}</Text>
+                          </TouchableOpacity>
+                        );
+                      })
+                    ) : (
+                      <View style={[styles.emptyHistoryCard, { backgroundColor: theme.surfaceStrong }]}> 
+                        <Text style={[styles.emptyHistoryText, { color: theme.textMute }]}>{loadingChats ? '加载中...' : '暂无历史会话'}</Text>
+                      </View>
+                    )}
+                  </ScrollView>
+                </>
+              ) : null}
 
-                      return (
-                        <TouchableOpacity
-                          key={itemKey}
-                          activeOpacity={0.74}
-                          style={[styles.chatItem, { backgroundColor: active ? theme.primarySoft : theme.surfaceStrong }]}
-                          onPress={() => {
-                            if (!chat.chatId) return;
-                            dispatch(setChatId(chat.chatId));
-                            dispatch(setDrawerOpen(false));
-                          }}
-                        >
-                          <Text style={styles.chatItemTitle} numberOfLines={1}>{title}</Text>
-                          <Text style={styles.chatItemMeta} numberOfLines={1}>{chatMeta}</Text>
-                        </TouchableOpacity>
-                      );
-                    })
-                  ) : (
-                    <View style={styles.emptyHistoryCard}>
-                      <Text style={styles.emptyHistoryText}>{loadingChats ? '加载中...' : '暂无历史会话'}</Text>
-                    </View>
-                  )}
-                </ScrollView>
+              {activeDomain === 'terminal' ? (
+                <>
+                  <Text style={[styles.drawerSectionTitle, { color: theme.textSoft }]}>会话</Text>
+                  <View style={styles.drawerActionRow}>
+                    <TouchableOpacity
+                      activeOpacity={0.74}
+                      style={[styles.drawerActionBtn, { backgroundColor: theme.surfaceStrong }]}
+                      onPress={() => dispatch(setStatusText('终端会话列表待接入'))}
+                    >
+                      <Text style={[styles.drawerActionText, { color: theme.textSoft }]}>+ 新会话</Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={[styles.emptyHistoryCard, { backgroundColor: theme.surfaceStrong, marginTop: 8 }]}> 
+                    <Text style={[styles.emptyHistoryText, { color: theme.textMute }]}>暂无终端会话</Text>
+                  </View>
+                </>
+              ) : null}
 
-                <View style={styles.agentBlock}>
-                  <Text style={[styles.agentTitle, { color: theme.textSoft }]}>Agent</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.agentListRow}>
+              {activeDomain === 'agents' ? (
+                <>
+                  <Text style={[styles.drawerSectionTitle, { color: theme.textSoft }]}>智能体列表</Text>
+                  <ScrollView style={styles.chatListWrap} contentContainerStyle={styles.chatListContent}>
                     {(agents.length ? agents : [{ key: '', name: '暂无 Agent' }]).map((agent, index) => {
                       const key = getAgentKey(agent);
                       const name = getAgentName(agent) || key || `Agent ${index + 1}`;
@@ -401,10 +471,9 @@ export function ShellScreen() {
                           disabled={!key}
                           activeOpacity={0.78}
                           style={[
-                            styles.agentChip,
+                            styles.chatItem,
                             {
-                              backgroundColor: selected ? theme.primarySoft : theme.surfaceStrong,
-                              borderColor: selected ? theme.primary : 'transparent'
+                              backgroundColor: selected ? theme.primarySoft : theme.surfaceStrong
                             }
                           ]}
                           onPress={() => {
@@ -413,29 +482,44 @@ export function ShellScreen() {
                             dispatch(setUserSelectedAgentKey(key));
                           }}
                         >
-                          <Text style={{ color: selected ? theme.primaryDeep : theme.textSoft, fontSize: 12, fontWeight: '600' }}>{name}</Text>
+                          <Text style={[styles.chatItemTitle, { color: selected ? theme.primaryDeep : theme.text }]} numberOfLines={1}>
+                            {name}
+                          </Text>
+                          <Text style={[styles.chatItemMeta, { color: theme.textMute }]} numberOfLines={1}>
+                            {key || '未配置 key'}
+                          </Text>
                         </TouchableOpacity>
                       );
                     })}
                   </ScrollView>
-                </View>
-              </>
-            ) : (
-              <View style={styles.nonChatHintWrap}>
-                <Text style={[styles.nonChatHint, { color: theme.textSoft }]}>当前是 {activeDomain} 域，主内容区可直接操作。</Text>
-              </View>
-            )}
+                </>
+              ) : null}
 
-            <View style={styles.drawerFooter}>
-              <View style={styles.profileRow}>
+              {activeDomain === 'user' ? (
+                <View style={styles.nonChatHintWrap}>
+                  <Text style={[styles.nonChatHint, { color: theme.textSoft }]}>配置项请在主内容区编辑。</Text>
+                </View>
+              ) : null}
+            </View>
+
+            <View style={[styles.drawerBottom, { borderTopColor: theme.border }]}>
+              <View style={styles.profileDomainRow}>
                 <View style={[styles.profileAvatar, { backgroundColor: theme.primary }]}>
                   <Text style={styles.profileAvatarText}>L</Text>
                 </View>
-                <Text style={[styles.profileName, { color: theme.text }]}>Linlay</Text>
+                <DomainSwitcher
+                  value={activeDomain}
+                  onChange={(mode: DomainMode) => {
+                    setAgentMenuOpen(false);
+                    dispatch(setActiveDomain(mode));
+                    dispatch(setDrawerOpen(false));
+                  }}
+                  theme={theme}
+                  compact
+                />
               </View>
-              <View style={styles.drawerStatusRow}>
-                {agentsLoading ? <ActivityIndicator size="small" color={theme.primary} /> : null}
-              </View>
+
+              <View style={styles.drawerStatusRow}>{agentsLoading ? <ActivityIndicator size="small" color={theme.primary} /> : null}</View>
             </View>
           </Animated.View>
         </View>
@@ -539,7 +623,36 @@ const styles = StyleSheet.create({
   },
   agentCompactName: {
     flex: 1,
-    color: '#27334a',
+    fontSize: 13,
+    fontWeight: '700'
+  },
+  agentCompactArrow: {
+    fontSize: 15,
+    fontWeight: '700'
+  },
+  agentMenuCard: {
+    marginHorizontal: 14,
+    marginTop: -2,
+    marginBottom: 8,
+    borderRadius: 12,
+    maxHeight: 176,
+    overflow: 'hidden'
+  },
+  agentMenuList: {
+    flexGrow: 0
+  },
+  agentMenuListContent: {
+    paddingVertical: 6,
+    paddingHorizontal: 6,
+    gap: 6
+  },
+  agentMenuItem: {
+    borderRadius: 10,
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 10
+  },
+  agentMenuItemText: {
     fontSize: 13,
     fontWeight: '700'
   },
@@ -552,31 +665,36 @@ const styles = StyleSheet.create({
     left: 0,
     top: 0,
     bottom: 0,
-    paddingHorizontal: 12
+    paddingHorizontal: 12,
+    gap: 10
   },
   drawerHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12
+    justifyContent: 'space-between'
   },
   drawerTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: '#27334a'
+    fontSize: 20,
+    fontWeight: '700'
   },
   drawerIconBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.04)'
+    justifyContent: 'center'
   },
   drawerIconText: {
-    fontSize: 15,
+    fontSize: 13,
+    fontWeight: '700'
+  },
+  drawerContent: {
+    flex: 1
+  },
+  drawerSectionTitle: {
+    fontSize: 12,
     fontWeight: '700',
-    color: '#60728f'
+    marginBottom: 8
   },
   drawerActionRow: {
     flexDirection: 'row',
@@ -590,7 +708,6 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   drawerActionText: {
-    color: '#60728f',
     fontSize: 12,
     fontWeight: '700'
   },
@@ -615,13 +732,11 @@ const styles = StyleSheet.create({
   },
   chatItemTitle: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#27334a'
+    fontWeight: '700'
   },
   chatItemMeta: {
     marginTop: 4,
-    fontSize: 11,
-    color: '#8d9bb2'
+    fontSize: 11
   },
   emptyHistoryCard: {
     borderRadius: 10,
@@ -629,27 +744,7 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   emptyHistoryText: {
-    color: '#8d9bb2',
     fontSize: 12
-  },
-  agentBlock: {
-    marginTop: 8,
-    marginBottom: 10
-  },
-  agentTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    marginBottom: 8
-  },
-  agentListRow: {
-    gap: 8,
-    paddingRight: 8
-  },
-  agentChip: {
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 7
   },
   nonChatHintWrap: {
     flex: 1,
@@ -662,15 +757,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20
   },
-  drawerFooter: {
+  drawerBottom: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#d4dfef',
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between'
+    paddingTop: 10,
+    paddingBottom: 8,
+    gap: 10
   },
-  profileRow: {
+  profileDomainRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8
@@ -687,12 +780,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700'
   },
-  profileName: {
-    fontSize: 13,
-    fontWeight: '700'
-  },
   drawerStatusRow: {
-    minWidth: 20,
-    alignItems: 'flex-end'
+    minHeight: 16,
+    alignItems: 'flex-end',
+    justifyContent: 'center'
   }
 });

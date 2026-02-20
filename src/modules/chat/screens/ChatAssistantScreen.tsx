@@ -50,7 +50,7 @@ import {
 import { TimelineEntryRow } from '../components/TimelineEntryRow';
 import { Composer } from '../components/Composer';
 
-const AUTO_COLLAPSE_MS = 1500;
+const REASONING_COLLAPSE_MS = 1500;
 const STREAM_IDLE_MS = 2500;
 
 interface ChatAssistantScreenProps {
@@ -94,7 +94,6 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
   const skipNextHistoryLoadRef = useRef(false);
 
   const reasoningTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
-  const planTimerRef = useRef<NodeJS.Timeout | null>(null);
   const copyToastTimer = useRef<NodeJS.Timeout | null>(null);
   const fireworksTimerRef = useRef<NodeJS.Timeout | null>(null);
   const fireworksAnim = useRef(new Animated.Value(0)).current;
@@ -140,24 +139,6 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
     reasoningTimerRef.current.clear();
   }, []);
 
-  const clearPlanTimer = useCallback(() => {
-    if (planTimerRef.current) {
-      clearTimeout(planTimerRef.current);
-      planTimerRef.current = null;
-    }
-  }, []);
-
-  const armPlanCollapse = useCallback(() => {
-    clearPlanTimer();
-    planTimerRef.current = setTimeout(() => {
-      setChatStateSafe((prev) => ({
-        ...prev,
-        planState: { ...prev.planState, expanded: false }
-      }));
-      planTimerRef.current = null;
-    }, AUTO_COLLAPSE_MS);
-  }, [clearPlanTimer, setChatStateSafe]);
-
   const scheduleReasoningCollapse = useCallback(
     (itemId: string) => {
       const old = reasoningTimerRef.current.get(itemId);
@@ -171,7 +152,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
           )
         }));
         reasoningTimerRef.current.delete(itemId);
-      }, AUTO_COLLAPSE_MS);
+      }, REASONING_COLLAPSE_MS);
 
       reasoningTimerRef.current.set(itemId, timer);
     },
@@ -350,32 +331,36 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
         markStreamAlive();
       }
 
-      const { next, effects } = reduceChatEvent(chatStateRef.current, event, source, runtimeRef.current);
-      setChatStateSafe(() => next);
-      handleEffects(effects, source);
+      let capturedEffects: ChatEffect[] = [];
+
+      setChatStateSafe((prev) => {
+        const { next, effects } = reduceChatEvent(prev, event, source, runtimeRef.current);
+        capturedEffects = effects;
+        return next;
+      });
+
+      // updater 同步执行，capturedEffects 此时已填充
+      handleEffects(capturedEffects, source);
 
       if (type === 'reasoning.end') {
-        const reasoningId = String((event as Record<string, unknown>).reasoningId || (event as Record<string, unknown>).runId || (event as Record<string, unknown>).contentId || '');
+        const reasoningId = String(
+          (event as Record<string, unknown>).reasoningId ||
+          (event as Record<string, unknown>).runId ||
+          (event as Record<string, unknown>).contentId || ''
+        );
         if (reasoningId) {
           const itemId = runtimeRef.current.reasoningIdMap.get(reasoningId);
-          if (itemId) {
-            scheduleReasoningCollapse(itemId);
-          }
+          if (itemId) scheduleReasoningCollapse(itemId);
         }
       }
-
-      if (type === 'plan.update' || type === 'task.start' || type === 'task.end' || type === 'task.complete') {
-        armPlanCollapse();
-      }
     },
-    [armPlanCollapse, handleEffects, markStreamAlive, scheduleReasoningCollapse, setChatStateSafe]
+    [handleEffects, markStreamAlive, scheduleReasoningCollapse, setChatStateSafe]
   );
 
   const resetTimeline = useCallback(() => {
     runtimeRef.current = createRuntimeMaps();
     setChatStateSafe(() => createEmptyChatState());
     clearReasoningTimers();
-    clearPlanTimer();
 
     if (fireworksTimerRef.current) {
       clearTimeout(fireworksTimerRef.current);
@@ -384,7 +369,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
     setFireworksVisible(false);
     setFireworkRockets([]);
     setFireworkSparks([]);
-  }, [clearPlanTimer, clearReasoningTimers, setChatStateSafe]);
+  }, [clearReasoningTimers, setChatStateSafe]);
 
   const stopStreaming = useCallback(() => {
     if (abortControllerRef.current) {
@@ -612,14 +597,12 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
   const planProgress = useMemo(() => getPlanProgress(chatState.planState.tasks), [chatState.planState.tasks]);
 
   useEffect(() => {
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const onShow = Keyboard.addListener(showEvent, (event) => {
+    if (Platform.OS === 'ios') return;
+    const onShow = Keyboard.addListener('keyboardDidShow', (event) => {
       const next = event?.endCoordinates?.height || 0;
       setKeyboardHeight(next);
     });
-    const onHide = Keyboard.addListener(hideEvent, () => {
+    const onHide = Keyboard.addListener('keyboardDidHide', () => {
       setKeyboardHeight(0);
     });
 
@@ -679,7 +662,6 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
     return () => {
       stopStreaming();
       clearReasoningTimers();
-      clearPlanTimer();
       clearStreamIdleTimer();
 
       if (copyToastTimer.current) {
@@ -691,9 +673,8 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
         fireworksTimerRef.current = null;
       }
     };
-  }, [clearPlanTimer, clearReasoningTimers, clearStreamIdleTimer, stopStreaming]);
+  }, [clearReasoningTimers, clearStreamIdleTimer, stopStreaming]);
 
-  const keyboardInset = Platform.OS === 'android' ? keyboardHeight : 0;
 
   return (
     <View style={styles.container}>
@@ -738,12 +719,11 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
         }
       />
 
-      <View style={[styles.composerOuter, { paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'ios' ? 0 : 10) : Math.max(insets.bottom, 10) + keyboardInset }]}>
+      <View style={[styles.composerOuter, { paddingBottom: Platform.OS === 'ios' ? Math.max(insets.bottom, 10) : (keyboardHeight > 0 ? 10 : Math.max(insets.bottom, 10)) }]}>
         {chatState.planState.tasks.length ? (
           <TouchableOpacity
             activeOpacity={0.84}
             onPress={() => {
-              clearPlanTimer();
               setChatStateSafe((prev) => ({
                 ...prev,
                 planState: { ...prev.planState, expanded: !prev.planState.expanded }
@@ -754,8 +734,9 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
             {chatState.planState.expanded ? (
               <View>
                 <View style={styles.planHead}>
-                  <Text style={[styles.planTitle, { color: theme.text }]}>plan {planProgress.current}/{planProgress.total}</Text>
-                  <Text style={[styles.planHint, { color: theme.textMute }]}>▾ 自动收起 1.5s</Text>
+                  <Text style={[styles.planTitle, { color: theme.text }]}>
+                    {planProgress.current}/{planProgress.total}
+                  </Text>
                 </View>
                 <View style={styles.planTaskList}>
                   {chatState.planState.tasks.map((task) => {
@@ -773,7 +754,6 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
               </View>
             ) : (
               <View style={styles.planCollapsedWrap}>
-                <Text style={[styles.planCollapsedTitle, { color: theme.textSoft }]}>plan</Text>
                 <Text style={[styles.planCollapsedText, { color: theme.text }]} numberOfLines={1}>
                   {planProgress.current}/{planProgress.total} · {collapsedPlanTask ? collapsedPlanTask.description : '暂无任务'}
                 </Text>
@@ -973,9 +953,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 13
   },
-  planHint: {
-    fontSize: 11
-  },
   planTaskList: {
     gap: 6
   },
@@ -996,12 +973,7 @@ const styles = StyleSheet.create({
   },
   planCollapsedWrap: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
-  },
-  planCollapsedTitle: {
-    fontSize: 12,
-    fontWeight: '700'
+    alignItems: 'center'
   },
   planCollapsedText: {
     flex: 1,

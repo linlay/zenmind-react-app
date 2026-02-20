@@ -32,8 +32,8 @@ export function renderToolLabel(event: Record<string, unknown>): string {
   const toolApi = String(event.toolApi || '').trim();
   if (toolApi) return toolApi;
 
-  const toolId = String(event.toolId || '').trim();
-  if (toolId) return toolId;
+  const toolKey = String(event.toolKey || '').trim();
+  if (toolKey) return toolKey;
 
   return 'tool';
 }

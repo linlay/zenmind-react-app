@@ -12,18 +12,19 @@ interface DomainSwitcherProps {
     surfaceStrong: string;
     border: string;
   };
+  compact?: boolean;
 }
 
 const ITEMS: Array<{ key: DomainMode; label: string }> = [
-  { key: 'chat', label: '聊天助理' },
-  { key: 'terminal', label: '终端管理' },
-  { key: 'agents', label: '智能体管理' },
-  { key: 'user', label: '用户配置' }
+  { key: 'chat', label: '助理' },
+  { key: 'terminal', label: '终端' },
+  { key: 'agents', label: '智能体' },
+  { key: 'user', label: '配置' }
 ];
 
-export function DomainSwitcher({ value, onChange, theme }: DomainSwitcherProps) {
+export function DomainSwitcher({ value, onChange, theme, compact }: DomainSwitcherProps) {
   return (
-    <View style={styles.wrap}>
+    <View style={[styles.wrap, compact && styles.wrapCompact]}>
       {ITEMS.map((item) => {
         const active = item.key === value;
         return (
@@ -32,6 +33,7 @@ export function DomainSwitcher({ value, onChange, theme }: DomainSwitcherProps) 
             activeOpacity={0.8}
             style={[
               styles.btn,
+              compact && styles.btnCompact,
               {
                 backgroundColor: active ? theme.primarySoft : theme.surfaceStrong,
                 borderColor: active ? theme.primary : theme.border
@@ -39,7 +41,7 @@ export function DomainSwitcher({ value, onChange, theme }: DomainSwitcherProps) 
             ]}
             onPress={() => onChange(item.key)}
           >
-            <Text style={{ color: active ? theme.primaryDeep : theme.textSoft, fontSize: 12, fontWeight: '600' }}>
+            <Text style={{ color: active ? theme.primaryDeep : theme.textSoft, fontSize: compact ? 11 : 12, fontWeight: '600' }}>
               {item.label}
             </Text>
           </TouchableOpacity>
@@ -52,14 +54,24 @@ export function DomainSwitcher({ value, onChange, theme }: DomainSwitcherProps) 
 const styles = StyleSheet.create({
   wrap: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 12
+    gap: 8
+  },
+  wrapCompact: {
+    gap: 6,
+    flex: 1
   },
   btn: {
+    flex: 1,
     borderWidth: 1,
     borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 10
+    minHeight: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8
+  },
+  btnCompact: {
+    minHeight: 32,
+    borderRadius: 8,
+    paddingHorizontal: 6
   }
 });
