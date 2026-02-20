@@ -264,7 +264,7 @@ export function reduceChatEvent(
       return { next, effects };
     }
     const idx = next.planState.tasks.findIndex((task) => task.taskId === taskId);
-    const description = String(event.description || event.taskName || taskId);
+    const newDescription = event.description || event.taskName;
 
     const resolvedStatus = type === 'task.start'
       ? 'running'
@@ -277,13 +277,13 @@ export function reduceChatEvent(
     if (idx === -1) {
       next.planState.tasks.push({
         taskId,
-        description,
+        description: String(newDescription || taskId),
         status: resolvedStatus
       });
     } else {
       next.planState.tasks[idx] = {
         ...next.planState.tasks[idx],
-        description,
+        ...(newDescription ? { description: String(newDescription) } : {}),
         status: resolvedStatus
       };
     }

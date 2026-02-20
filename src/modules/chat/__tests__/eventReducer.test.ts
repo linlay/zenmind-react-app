@@ -83,4 +83,70 @@ describe('eventReducer', () => {
     ).next;
     expect(state.planState.expanded).toBe(true);
   });
+
+  it('task.complete without description preserves original description', () => {
+    const runtime = createRuntimeMaps();
+    let state = createEmptyChatState();
+
+    // plan.update 设置初始任务描述
+    state = reduceChatEvent(
+      state,
+      {
+        type: 'plan.update',
+        plan: [
+          { taskId: 'abc123', description: '执行数据库迁移', status: 'init' }
+        ]
+      },
+      'live',
+      runtime
+    ).next;
+    expect(state.planState.tasks[0].description).toBe('执行数据库迁移');
+
+    // task.start 携带 description，应更新
+    state = reduceChatEvent(
+      state,
+      {
+        type: 'task.start',
+        taskId: 'abc123',
+        description: '正在执行数据库迁移'
+      },
+      'live',
+      runtime
+    ).next;
+    expect(state.planState.tasks[0].description).toBe('正在执行数据库迁移');
+    expect(state.planState.tasks[0].status).toBe('running');
+
+    // task.complete 不携带 description，应保留原有描述
+    state = reduceChatEvent(
+      state,
+      {
+        type: 'task.complete',
+        taskId: 'abc123'
+      },
+      'live',
+      runtime
+    ).next;
+    expect(state.planState.tasks[0].description).toBe('正在执行数据库迁移');
+    expect(state.planState.tasks[0].status).toBe('done');
+  });
+
+  it('task event for unknown taskId appends new task with taskId as description', () => {
+    const runtime = createRuntimeMaps();
+    let state = createEmptyChatState();
+
+    // task.start 引用不存在的 taskId，应追加新任务
+    state = reduceChatEvent(
+      state,
+      {
+        type: 'task.start',
+        taskId: 'new-task-1'
+      },
+      'live',
+      runtime
+    ).next;
+    expect(state.planState.tasks).toHaveLength(1);
+    expect(state.planState.tasks[0].taskId).toBe('new-task-1');
+    expect(state.planState.tasks[0].description).toBe('new-task-1');
+    expect(state.planState.tasks[0].status).toBe('running');
+  });
 });

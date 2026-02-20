@@ -482,7 +482,6 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
         controller.signal
       );
 
-      await onRefreshChats(true);
     } catch (error) {
       if (!controller.signal.aborted) {
         setChatStateSafe((prev) => ({
@@ -505,6 +504,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
       }
       clearStreamIdleTimer();
       setChatStateSafe((prev) => ({ ...prev, streaming: false }));
+      onRefreshChats(true).catch(() => {});
     }
   }, [
     agents,
