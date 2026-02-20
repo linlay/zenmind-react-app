@@ -22,12 +22,13 @@ export function TerminalScreen({ theme }: TerminalScreenProps) {
   const ptyWebUrl = normalizePtyUrlInput(ptyUrlInput, endpointInput);
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.head, { backgroundColor: theme.surfaceStrong }]}> 
+    <View style={styles.container} nativeID="terminal-root" testID="terminal-root">
+      <View style={[styles.head, { backgroundColor: theme.surfaceStrong }]} nativeID="terminal-head" testID="terminal-head">
         <Text style={[styles.title, { color: theme.text }]}>PTY 模式</Text>
         <TouchableOpacity
           activeOpacity={0.78}
           style={[styles.actionBtn, { backgroundColor: theme.surface }]}
+          testID="terminal-refresh-btn"
           onPress={() => dispatch(reloadPty())}
         >
           <Text style={[styles.actionText, { color: theme.primaryDeep }]}>刷新</Text>

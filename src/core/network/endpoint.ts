@@ -1,9 +1,39 @@
-export const DEFAULT_ENDPOINT_INPUT = 'agw.linlay.cc';
+const DEV_FALLBACK_ENDPOINT_INPUT = 'http://localhost:11946';
+const PROD_FALLBACK_ENDPOINT_INPUT = 'agw.linlay.cc';
+const ENDPOINT_ENV_KEY = 'EXPO_PUBLIC_AGW_ENDPOINT';
 export const DEFAULT_PTY_FRONTEND_PORT = '11949';
+
+function readEndpointEnv(): string {
+  const raw =
+    typeof process !== 'undefined' && process?.env
+      ? process.env[ENDPOINT_ENV_KEY]
+      : '';
+  return String(raw || '').trim().replace(/\/+$/, '');
+}
+
+function isDevRuntime(): boolean {
+  if (typeof __DEV__ !== 'undefined') {
+    return __DEV__;
+  }
+  if (typeof process !== 'undefined' && process?.env) {
+    return process.env.NODE_ENV !== 'production';
+  }
+  return false;
+}
+
+export function getDefaultEndpointInput(): string {
+  const fromEnv = readEndpointEnv();
+  if (fromEnv) {
+    return fromEnv;
+  }
+  return isDevRuntime() ? DEV_FALLBACK_ENDPOINT_INPUT : PROD_FALLBACK_ENDPOINT_INPUT;
+}
+
+export const DEFAULT_ENDPOINT_INPUT = getDefaultEndpointInput();
 
 export function normalizeEndpointInput(raw: string | undefined | null): string {
   const text = String(raw || '').trim().replace(/\/+$/, '');
-  return text || DEFAULT_ENDPOINT_INPUT;
+  return text || getDefaultEndpointInput();
 }
 
 export function looksLikeLocalAddress(host: string | undefined | null): boolean {
@@ -56,7 +86,7 @@ export function toDefaultPtyWebUrl(endpointInput: string | undefined | null): st
 
 export function normalizePtyUrlInput(
   raw: string | undefined | null,
-  endpointInput: string = DEFAULT_ENDPOINT_INPUT
+  endpointInput: string = getDefaultEndpointInput()
 ): string {
   const text = String(raw || '').trim().replace(/\/+$/, '');
   if (!text) {

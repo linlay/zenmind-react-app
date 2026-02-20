@@ -254,7 +254,12 @@ export function ShellScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}>
+    <SafeAreaView
+      edges={['top']}
+      style={[styles.safeRoot, { backgroundColor: theme.surface }]}
+      nativeID="shell-root"
+      testID="shell-root"
+    >
       <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
 
       <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}>
@@ -265,10 +270,11 @@ export function ShellScreen() {
             keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
             pointerEvents={drawerOpen ? 'none' : 'auto'}
           >
-            <View style={styles.topNavCompact}>
+            <View style={styles.topNavCompact} nativeID="shell-top-nav" testID="shell-top-nav">
               <TouchableOpacity
                 activeOpacity={0.72}
                 style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                testID="open-drawer-btn"
                 onPress={() => {
                   setAgentMenuOpen(false);
                   dispatch(setDrawerOpen(true));
@@ -281,6 +287,7 @@ export function ShellScreen() {
                 <TouchableOpacity
                   activeOpacity={0.76}
                   style={[styles.assistantTopBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="chat-agent-toggle-btn"
                   onPress={() => setAgentMenuOpen((prev) => !prev)}
                 >
                   <View style={styles.assistantTopTextWrap}>
@@ -310,6 +317,7 @@ export function ShellScreen() {
               <TouchableOpacity
                 activeOpacity={0.72}
                 style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                testID="shell-theme-toggle-btn"
                 onPress={() => {
                   dispatch(toggleTheme());
                 }}
@@ -319,7 +327,11 @@ export function ShellScreen() {
             </View>
 
             {activeDomain === 'chat' && agentMenuOpen ? (
-              <View style={[styles.agentMenuCard, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}> 
+              <View
+                style={[styles.agentMenuCard, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+                nativeID="agent-menu-card"
+                testID="agent-menu-card"
+              >
                 <ScrollView style={styles.agentMenuList} contentContainerStyle={styles.agentMenuListContent}>
                   {(agents.length ? agents : [{ key: '', name: '暂无 Agent' }]).map((agent, index) => {
                     const key = getAgentKey(agent);
@@ -330,6 +342,7 @@ export function ShellScreen() {
                         key={key || `${name}-${index}`}
                         disabled={!key}
                         activeOpacity={0.78}
+                        testID={`agent-menu-item-${index}`}
                         style={[
                           styles.agentMenuItem,
                           {
@@ -390,10 +403,17 @@ export function ShellScreen() {
                 backgroundColor: theme.surface
               }
             ]}
+            nativeID="shell-drawer-panel"
+            testID="shell-drawer-panel"
           >
             <View style={styles.drawerHead}>
               <Text style={[styles.drawerTitle, { color: theme.text }]}>{DRAWER_TITLE[activeDomain]}</Text>
-              <TouchableOpacity activeOpacity={0.72} style={[styles.drawerIconBtn, { backgroundColor: theme.surfaceStrong }]} onPress={() => dispatch(setDrawerOpen(false))}>
+              <TouchableOpacity
+                activeOpacity={0.72}
+                style={[styles.drawerIconBtn, { backgroundColor: theme.surfaceStrong }]}
+                testID="close-drawer-btn"
+                onPress={() => dispatch(setDrawerOpen(false))}
+              >
                 <Text style={[styles.drawerIconText, { color: theme.textSoft }]}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -405,6 +425,7 @@ export function ShellScreen() {
                     <TouchableOpacity
                       activeOpacity={0.74}
                       style={[styles.drawerActionBtn, { backgroundColor: theme.surfaceStrong }]}
+                      testID="new-chat-btn"
                       onPress={() => {
                         dispatch(setChatId(''));
                         dispatch(setDrawerOpen(false));
@@ -420,6 +441,8 @@ export function ShellScreen() {
                     placeholder="搜索"
                     placeholderTextColor={theme.textMute}
                     style={[styles.chatSearchInput, { backgroundColor: theme.surfaceStrong, color: theme.text }]}
+                    nativeID="chat-search-input"
+                    testID="chat-search-input"
                   />
 
                   <ScrollView style={styles.chatListWrap} contentContainerStyle={styles.chatListContent}>
@@ -437,6 +460,7 @@ export function ShellScreen() {
                           <TouchableOpacity
                             key={itemKey}
                             activeOpacity={0.74}
+                            testID={`chat-list-item-${index}`}
                             style={[styles.chatItem, { backgroundColor: active ? theme.primarySoft : theme.surfaceStrong }]}
                             onPress={() => {
                               if (!chat.chatId) return;

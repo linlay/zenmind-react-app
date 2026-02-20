@@ -24,13 +24,14 @@ const ITEMS: Array<{ key: DomainMode; label: string }> = [
 
 export function DomainSwitcher({ value, onChange, theme, compact }: DomainSwitcherProps) {
   return (
-    <View style={[styles.wrap, compact && styles.wrapCompact]}>
+    <View style={[styles.wrap, compact && styles.wrapCompact]} nativeID="domain-switcher" testID="domain-switcher">
       {ITEMS.map((item) => {
         const active = item.key === value;
         return (
           <TouchableOpacity
             key={item.key}
             activeOpacity={0.8}
+            testID={`domain-switch-${item.key}`}
             style={[
               styles.btn,
               compact && styles.btnCompact,

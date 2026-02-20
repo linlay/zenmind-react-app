@@ -15,8 +15,8 @@ interface AgentsScreenProps {
 
 export function AgentsScreen({ theme }: AgentsScreenProps) {
   return (
-    <View style={styles.container}>
-      <View style={[styles.card, { backgroundColor: theme.surfaceStrong }]}> 
+    <View style={styles.container} nativeID="agents-root" testID="agents-root">
+      <View style={[styles.card, { backgroundColor: theme.surfaceStrong }]} nativeID="agents-card" testID="agents-card">
         <Text style={[styles.title, { color: theme.text }]}>智能体管理</Text>
         <Text style={[styles.hint, { color: theme.textSoft }]}>智能体列表与切换已迁移到侧边栏。</Text>
       </View>

@@ -40,6 +40,20 @@ npm run test
 npm run build
 ```
 
+## 环境变量（后端地址）
+
+- 变量名：`EXPO_PUBLIC_AGW_ENDPOINT`
+- 规则：
+  - 若设置该变量，优先使用它作为默认后端地址
+  - 若未设置，开发态默认 `http://localhost:11946`
+  - 若未设置，生产态默认 `agw.linlay.cc`
+
+示例：
+
+```bash
+EXPO_PUBLIC_AGW_ENDPOINT=http://localhost:11946 npm run start
+```
+
 ## 后端协议
 
 接口保持不变：

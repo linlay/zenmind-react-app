@@ -56,13 +56,18 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
   };
 
   return (
-    <View style={styles.container}>
-      <View style={[styles.settingCard, { backgroundColor: theme.surfaceStrong }]}> 
+    <View style={styles.container} nativeID="settings-root" testID="settings-root">
+      <View
+        style={[styles.settingCard, { backgroundColor: theme.surfaceStrong }]}
+        nativeID="settings-card"
+        testID="settings-card"
+      >
         <View style={styles.settingRowHead}>
           <Text style={[styles.title, { color: theme.text }]}>用户配置</Text>
           <TouchableOpacity
             activeOpacity={0.8}
             style={[styles.themeBtn, { backgroundColor: theme.surface }]}
+            testID="theme-toggle-btn"
             onPress={async () => {
               dispatch(toggleTheme());
               const nextMode = themeMode === 'light' ? 'dark' : 'light';
@@ -83,8 +88,22 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
           placeholder="agw.linlay.cc 或 192.168.1.8:8080"
           placeholderTextColor={theme.textMute}
           style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
+          nativeID="endpoint-input"
+          testID="endpoint-input"
         />
         <Text style={styles.hint}>当前连接：{backendUrl}</Text>
+
+        <TouchableOpacity
+          activeOpacity={0.74}
+          style={[styles.quickBtn, { backgroundColor: theme.surface }]}
+          testID="use-local-debug-btn"
+          onPress={() => {
+            dispatch(setEndpointDraft('http://localhost:11946'));
+            dispatch(setPtyUrlDraft('http://localhost:11949'));
+          }}
+        >
+          <Text style={[styles.quickBtnText, { color: theme.textSoft }]}>切换到本地调试（localhost:11946）</Text>
+        </TouchableOpacity>
 
         <Text style={[styles.label, styles.labelOffset]}>PTY 前端地址</Text>
         <TextInput
@@ -95,17 +114,25 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
           placeholder="https://agw.linlay.cc:11949"
           placeholderTextColor={theme.textMute}
           style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
+          nativeID="pty-url-input"
+          testID="pty-url-input"
         />
         <TouchableOpacity
           activeOpacity={0.74}
           style={[styles.quickBtn, { backgroundColor: theme.surface }]}
+          testID="generate-pty-url-btn"
           onPress={() => dispatch(setPtyUrlDraft(toDefaultPtyWebUrl(endpointDraft)))}
         >
           <Text style={[styles.quickBtnText, { color: theme.textSoft }]}>按后端地址生成默认 PTY 地址</Text>
         </TouchableOpacity>
         <Text style={styles.hint}>当前 PTY：{ptyUrlInput}</Text>
 
-        <TouchableOpacity activeOpacity={0.82} style={styles.applyBtn} onPress={handleApply}>
+        <TouchableOpacity
+          activeOpacity={0.82}
+          style={styles.applyBtn}
+          testID="save-settings-btn"
+          onPress={handleApply}
+        >
           <LinearGradient colors={[theme.primary, theme.primaryDeep]} style={styles.applyGradient}>
             <Text style={styles.applyText}>保存设置</Text>
           </LinearGradient>

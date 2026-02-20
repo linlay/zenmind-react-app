@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppSettings } from '../types/common';
 import {
-  DEFAULT_ENDPOINT_INPUT,
+  getDefaultEndpointInput,
   normalizeEndpointInput,
   normalizePtyUrlInput,
   toDefaultPtyWebUrl
@@ -13,10 +13,11 @@ const STORAGE_KEY = 'agw_mobile_app_settings_v2';
 export { STORAGE_KEY, LEGACY_STORAGE_KEY };
 
 export function buildDefaultSettings(): AppSettings {
+  const defaultEndpointInput = getDefaultEndpointInput();
   return {
     themeMode: 'light',
-    endpointInput: DEFAULT_ENDPOINT_INPUT,
-    ptyUrlInput: toDefaultPtyWebUrl(DEFAULT_ENDPOINT_INPUT),
+    endpointInput: defaultEndpointInput,
+    ptyUrlInput: toDefaultPtyWebUrl(defaultEndpointInput),
     selectedAgentKey: '',
     activeDomain: 'chat'
   };

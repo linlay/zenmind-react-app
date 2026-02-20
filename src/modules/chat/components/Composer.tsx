@@ -61,9 +61,13 @@ export function Composer({
   const minHeight = minRows * 20 + 20;
 
   return (
-    <View style={styles.card}>
+    <View style={styles.card} nativeID="chat-composer" testID="chat-composer">
       {activeFrontendTool ? (
-        <View style={[styles.frontendToolContainer, { backgroundColor: theme.surfaceStrong, borderRadius: 20 }]}>
+        <View
+          style={[styles.frontendToolContainer, { backgroundColor: theme.surfaceStrong, borderRadius: 20 }]}
+          nativeID="frontend-tool-container"
+          testID="frontend-tool-container"
+        >
           {activeFrontendTool.loading ? (
             <View style={styles.center}>
               <Text style={{ color: theme.text }}>加载前端工具...</Text>
@@ -75,6 +79,8 @@ export function Composer({
           ) : activeFrontendTool.viewportHtml ? (
             <WebView
               ref={frontendToolWebViewRef}
+              nativeID="frontend-tool-webview"
+              testID="frontend-tool-webview"
               originWhitelist={['*']}
               source={{ html: activeFrontendTool.viewportHtml }}
               style={styles.frontendToolWebView}
@@ -92,7 +98,11 @@ export function Composer({
           )}
         </View>
       ) : (
-        <View style={[styles.inputShell, { backgroundColor: theme.surface, borderColor: theme.border }]}>
+        <View
+          style={[styles.inputShell, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          nativeID="chat-input-shell"
+          testID="chat-input-shell"
+        >
           <TextInput
             value={composerText}
             onChangeText={onChangeText}
@@ -106,15 +116,27 @@ export function Composer({
             scrollEnabled
             textAlignVertical="center"
             style={[styles.input, { color: theme.text, minHeight }]}
+            nativeID="chat-input"
+            testID="chat-input"
           />
 
           <View style={styles.actionWrap}>
             {streaming ? (
-              <TouchableOpacity activeOpacity={0.9} style={[styles.actionBtn, { backgroundColor: theme.danger }]} onPress={onStop}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={[styles.actionBtn, { backgroundColor: theme.danger }]}
+                testID="chat-stop-btn"
+                onPress={onStop}
+              >
                 <View style={styles.stopSquare} />
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity activeOpacity={0.9} style={styles.actionBtn} onPress={onSend}>
+              <TouchableOpacity
+                activeOpacity={0.9}
+                style={styles.actionBtn}
+                testID="chat-send-btn"
+                onPress={onSend}
+              >
                 <LinearGradient colors={[theme.primary, theme.primaryDeep]} style={styles.sendGradient}>
                   <Text style={styles.sendText}>↑</Text>
                 </LinearGradient>
