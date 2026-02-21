@@ -8,20 +8,20 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_AGW_ENDPOINT": "http://localhost:11946"
+        "EXPO_PUBLIC_BACKEND_ENDPOINT": "app.linlay.cc"
       }
     },
     "preview": {
       "distribution": "internal",
       "android": { "buildType": "apk" },
       "env": {
-        "EXPO_PUBLIC_AGW_ENDPOINT": "agw.linlay.cc"
+        "EXPO_PUBLIC_BACKEND_ENDPOINT": "app.linlay.cc"
       }
     },
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_AGW_ENDPOINT": "agw.linlay.cc"
+        "EXPO_PUBLIC_BACKEND_ENDPOINT": "app.linlay.cc"
       }
     }
   },

@@ -17,6 +17,13 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
 import { fetchViewportHtml, formatError } from '../../../core/network/apiClient';
+import { getAccessToken } from '../../../core/auth/appAuth';
+import {
+  buildWebViewPostMessageScript,
+  createWebViewAuthRefreshResultMessage,
+  createWebViewAuthTokenMessage,
+  WebViewAuthRefreshOutcome
+} from '../../../core/auth/webViewAuthBridge';
 import { AppTheme } from '../../../core/constants/theme';
 import { createRequestId, getAgentKey } from '../../../shared/utils/format';
 import { createFireworksShow } from '../../../shared/animations/fireworks';
@@ -33,7 +40,7 @@ import {
   normalizeEventType,
   parseStructuredArgs
 } from '../services/eventNormalizer';
-import { buildCollapsedPlanText, cleanPlanTaskDescription } from '../utils/planUi';
+import { cleanPlanTaskDescription } from '../utils/planUi';
 import {
   ChatEvent,
   ChatState,
@@ -46,6 +53,7 @@ import {
   createRuntimeMaps,
   reduceChatEvent
 } from '../services/eventReducer';
+import { parseFrontendToolBridgeMessage } from '../services/frontendToolBridge';
 import { TimelineEntryRow } from '../components/TimelineEntryRow';
 import { Composer } from '../components/Composer';
 
@@ -60,9 +68,25 @@ interface ChatAssistantScreenProps {
   contentWidth: number;
   onRefreshChats: (silent?: boolean) => Promise<void>;
   keyboardHeight: number;
+  refreshSignal?: number;
+  authAccessToken?: string;
+  authAccessExpireAtMs?: number;
+  authTokenSignal?: number;
+  onWebViewAuthRefreshRequest?: (requestId: string, source: string) => Promise<WebViewAuthRefreshOutcome>;
 }
 
-export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefreshChats, keyboardHeight }: ChatAssistantScreenProps) {
+export function ChatAssistantScreen({
+  theme,
+  backendUrl,
+  contentWidth,
+  onRefreshChats,
+  keyboardHeight,
+  refreshSignal = 0,
+  authAccessToken = '',
+  authAccessExpireAtMs,
+  authTokenSignal = 0,
+  onWebViewAuthRefreshRequest
+}: ChatAssistantScreenProps) {
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
 
@@ -448,6 +472,12 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
     setComposerText('');
     setAutoScrollMode(true);
 
+    const initialAccessToken = await getAccessToken(backendUrl);
+    if (!initialAccessToken) {
+      dispatch(setStatusText('登录状态失效，请重新登录'));
+      return;
+    }
+
     applyEvent(
       {
         type: 'request.query',
@@ -463,12 +493,15 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
     abortControllerRef.current = controller;
     markStreamAlive();
 
-    try {
+    const runStreamRequest = async (accessToken: string) => {
       await consumeJsonSseXhr(
         `${backendUrl}/api/query`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`
+          },
           body: JSON.stringify({
             requestId,
             chatId: chatId || undefined,
@@ -481,7 +514,24 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
         (event) => applyEvent(event, 'live'),
         controller.signal
       );
+    };
 
+    try {
+      try {
+        await runStreamRequest(initialAccessToken);
+      } catch (error) {
+        const rawMessage = String((error as Error)?.message || '');
+        const isUnauthorized = rawMessage.includes('HTTP 401');
+        if (!controller.signal.aborted && isUnauthorized) {
+          const retryAccessToken = await getAccessToken(backendUrl, true);
+          if (!retryAccessToken) {
+            throw error;
+          }
+          await runStreamRequest(retryAccessToken);
+        } else {
+          throw error;
+        }
+      }
     } catch (error) {
       if (!controller.signal.aborted) {
         setChatStateSafe((prev) => ({
@@ -550,29 +600,53 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
     [backendUrl, dispatch, setChatStateSafe, submitFrontendTool]
   );
 
+  const postToFrontendToolWebView = useCallback((payload: Record<string, unknown>) => {
+    if (!frontendToolWebViewRef.current) {
+      return;
+    }
+    frontendToolWebViewRef.current.injectJavaScript(buildWebViewPostMessageScript(payload));
+  }, []);
+
   const handleFrontendToolMessage = useCallback(
     (event: { nativeEvent: { data: string } }) => {
       try {
-        const data = typeof event.nativeEvent.data === 'string'
-          ? JSON.parse(event.nativeEvent.data)
-          : event.nativeEvent.data;
-
-        if (!data || typeof data !== 'object') {
+        const bridgeMessage = parseFrontendToolBridgeMessage(event.nativeEvent.data);
+        if (!bridgeMessage) {
           return;
         }
 
-        if ((data as Record<string, unknown>).type === 'agw_frontend_submit') {
-          const params =
-            (data as Record<string, unknown>).params && typeof (data as Record<string, unknown>).params === 'object'
-              ? ((data as Record<string, unknown>).params as Record<string, unknown>)
-              : {};
-          submitActiveFrontendTool(params).catch(() => {});
+        if (bridgeMessage.type === 'frontend_submit') {
+          submitActiveFrontendTool(bridgeMessage.params).catch(() => {});
+          return;
+        }
+
+        if (bridgeMessage.type === 'auth_refresh_request') {
+          const fallback = Promise.resolve<WebViewAuthRefreshOutcome>({
+            ok: false,
+            error: 'Auth refresh handler unavailable'
+          });
+          const refreshTask = onWebViewAuthRefreshRequest
+            ? onWebViewAuthRefreshRequest(bridgeMessage.requestId, bridgeMessage.source)
+            : fallback;
+
+          refreshTask
+            .then((outcome) => {
+              const result = createWebViewAuthRefreshResultMessage(bridgeMessage.requestId, outcome);
+              postToFrontendToolWebView(result as unknown as Record<string, unknown>);
+            })
+            .catch((error) => {
+              const result = createWebViewAuthRefreshResultMessage(bridgeMessage.requestId, {
+                ok: false,
+                error: String((error as Error)?.message || 'refresh failed')
+              });
+              postToFrontendToolWebView(result as unknown as Record<string, unknown>);
+            });
         }
       } catch {
         // Ignore parse errors.
       }
     },
-    [submitActiveFrontendTool]
+    [onWebViewAuthRefreshRequest, postToFrontendToolWebView, submitActiveFrontendTool]
   );
 
   const handleFrontendToolWebViewLoad = useCallback(() => {
@@ -580,7 +654,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
     if (!active || !frontendToolWebViewRef.current) return;
 
     const initPayload = {
-      type: 'agw_tool_init',
+      type: 'tool_init',
       data: {
         runId: active.runId,
         toolId: active.toolId,
@@ -590,14 +664,24 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
         params: active.toolParams && typeof active.toolParams === 'object' ? active.toolParams : {}
       }
     };
-    const initScript = `
-      try {
-        window.postMessage(${JSON.stringify(initPayload)}, '*');
-      } catch(e) {}
-      true;
-    `;
-    frontendToolWebViewRef.current.injectJavaScript(initScript);
-  }, []);
+    postToFrontendToolWebView(initPayload);
+
+    const authTokenMessage = createWebViewAuthTokenMessage(authAccessToken, authAccessExpireAtMs);
+    if (authTokenMessage) {
+      postToFrontendToolWebView(authTokenMessage as unknown as Record<string, unknown>);
+    }
+  }, [authAccessExpireAtMs, authAccessToken, postToFrontendToolWebView]);
+
+  useEffect(() => {
+    if (!authTokenSignal || !frontendToolWebViewRef.current) {
+      return;
+    }
+    const authTokenMessage = createWebViewAuthTokenMessage(authAccessToken, authAccessExpireAtMs);
+    if (!authTokenMessage) {
+      return;
+    }
+    postToFrontendToolWebView(authTokenMessage as unknown as Record<string, unknown>);
+  }, [authAccessExpireAtMs, authAccessToken, authTokenSignal, postToFrontendToolWebView]);
 
   const handleToggleToolExpanded = useCallback((id: string) => {
     setChatStateSafe((prev) => ({
@@ -647,7 +731,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
       })),
     [chatState.planState.tasks]
   );
-  const collapsedPlanText = useMemo(() => buildCollapsedPlanText(chatState.planState.tasks), [chatState.planState.tasks]);
+  const hasPlanTasks = chatState.planState.tasks.length > 0;
 
   useEffect(() => {
     if (!autoScrollEnabledRef.current) {
@@ -699,6 +783,41 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
       cancelled = true;
     };
   }, [applyEvent, backendUrl, chatId, dispatch, loadChat, resetTimeline, stopStreaming]);
+
+  useEffect(() => {
+    if (!chatId || !refreshSignal) {
+      return;
+    }
+
+    if (chatStateRef.current.streaming) {
+      return;
+    }
+
+    let cancelled = false;
+    loadChat({ baseUrl: backendUrl, chatId })
+      .unwrap()
+      .then((data) => {
+        if (cancelled) {
+          return;
+        }
+
+        runtimeRef.current = createRuntimeMaps();
+        const emptyState = createEmptyChatState();
+        chatStateRef.current = emptyState;
+        activeFrontendToolRef.current = null;
+        setChatState(emptyState);
+
+        const events = Array.isArray(data?.events) ? data.events : [];
+        events.forEach((event) => applyEvent(event, 'history'));
+      })
+      .catch(() => {
+        // ignore background refresh failure
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [applyEvent, backendUrl, chatId, loadChat, refreshSignal]);
 
   useEffect(() => {
     return () => {
@@ -769,21 +888,21 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
       />
 
       <View style={[styles.composerOuter, { paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'ios' ? 0 : 10) : Math.max(insets.bottom, 10) }]}>
-        {!autoScrollEnabled && chatState.timeline.length ? (
-          <View style={styles.scrollToBottomWrap}>
-            <TouchableOpacity
-              activeOpacity={0.86}
-              onPress={() => scrollToBottom(true)}
-              testID="scroll-to-bottom-btn"
-              style={[styles.scrollToBottomBtn, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
-            >
-              <Text style={[styles.scrollToBottomText, { color: theme.text }]}>↓</Text>
-            </TouchableOpacity>
-          </View>
-        ) : null}
-
-        {chatState.planState.tasks.length ? (
+        {hasPlanTasks ? (
           <View style={[styles.planFloatWrap, { shadowColor: theme.shadow }]}>
+            {!autoScrollEnabled && chatState.timeline.length ? (
+              <View style={styles.scrollToBottomAbovePlan}>
+                <TouchableOpacity
+                  activeOpacity={0.86}
+                  onPress={() => scrollToBottom(true)}
+                  testID="scroll-to-bottom-btn"
+                  style={[styles.scrollToBottomBtn, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+                >
+                  <Text style={[styles.scrollToBottomText, { color: theme.text }]}>↓</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+
             <TouchableOpacity
               activeOpacity={0.84}
               onPress={() => {
@@ -794,13 +913,21 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
                 setPlanExpanded((prev) => !prev);
               }}
               testID="plan-toggle-btn"
-              style={[styles.planCard, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+              style={[
+                styles.planCard,
+                planExpanded
+                  ? { backgroundColor: theme.surfaceStrong, borderColor: theme.border }
+                  : { backgroundColor: theme.primarySoft, borderColor: theme.borderStrong }
+              ]}
             >
               {planExpanded ? (
               <View>
-                <View style={styles.planHead}>
-                  <Text style={[styles.planTitle, { color: theme.text }]}>
-                    {collapsedPlanText || `${planProgress.current}/${planProgress.total}`}
+                <View style={[styles.planHead, { backgroundColor: theme.primarySoft, borderColor: theme.borderStrong }]}>
+                  <Text style={[styles.planTitle, { color: theme.primaryDeep }]}>
+                    {`任务列表 ${planProgress.current}/${planProgress.total}`}
+                  </Text>
+                  <Text style={[styles.planHint, { color: theme.textMute }]}>
+                    点击收起
                   </Text>
                 </View>
                 <View style={styles.planTaskList}>
@@ -819,8 +946,7 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
               </View>
             ) : (
               <View style={styles.planCollapsedWrap}>
-                <Text style={[styles.planCollapsedLabel, { color: theme.textMute }]}>plan</Text>
-                <Text style={[styles.planCollapsedText, { color: theme.text }]} numberOfLines={1}>
+                <Text style={[styles.planCollapsedText, { color: theme.primaryDeep }]} numberOfLines={1}>
                   {`${planProgress.current}/${planProgress.total}` + (cleanedPlanTasks.length ? ` · ${cleanedPlanTasks[cleanedPlanTasks.length - 1].cleanedDescription}` : '')}
                 </Text>
               </View>
@@ -829,21 +955,36 @@ export function ChatAssistantScreen({ theme, backendUrl, contentWidth, onRefresh
           </View>
         ) : null}
 
-        <Composer
-          theme={theme}
-          composerText={composerText}
-          focused={composerFocused}
-          onChangeText={setComposerText}
-          onFocus={() => setComposerFocused(true)}
-          onBlur={() => setComposerFocused(false)}
-          onSend={sendMessage}
-          onStop={stopStreaming}
-          streaming={chatState.streaming}
-          activeFrontendTool={chatState.activeFrontendTool}
-          frontendToolWebViewRef={frontendToolWebViewRef}
-          onFrontendToolMessage={handleFrontendToolMessage}
-          onFrontendToolLoad={handleFrontendToolWebViewLoad}
-        />
+        <View style={styles.composerLayer}>
+          <Composer
+            theme={theme}
+            composerText={composerText}
+            focused={composerFocused}
+            onChangeText={setComposerText}
+            onFocus={() => setComposerFocused(true)}
+            onBlur={() => setComposerFocused(false)}
+            onSend={sendMessage}
+            onStop={stopStreaming}
+            streaming={chatState.streaming}
+            activeFrontendTool={chatState.activeFrontendTool}
+            frontendToolWebViewRef={frontendToolWebViewRef}
+            onFrontendToolMessage={handleFrontendToolMessage}
+            onFrontendToolLoad={handleFrontendToolWebViewLoad}
+          />
+
+          {!hasPlanTasks && !autoScrollEnabled && chatState.timeline.length ? (
+            <View style={styles.scrollToBottomAboveComposer}>
+              <TouchableOpacity
+                activeOpacity={0.86}
+                onPress={() => scrollToBottom(true)}
+                testID="scroll-to-bottom-btn"
+                style={[styles.scrollToBottomBtn, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+              >
+                <Text style={[styles.scrollToBottomText, { color: theme.text }]}>↓</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+        </View>
       </View>
 
       {copyToast ? (
@@ -1004,9 +1145,22 @@ const styles = StyleSheet.create({
   composerOuter: {
     paddingTop: 4
   },
-  scrollToBottomWrap: {
-    alignItems: 'center',
-    marginBottom: 8
+  composerLayer: {
+    position: 'relative'
+  },
+  scrollToBottomAbovePlan: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -22,
+    top: -54,
+    zIndex: 4
+  },
+  scrollToBottomAboveComposer: {
+    position: 'absolute',
+    left: '50%',
+    marginLeft: -22,
+    top: -54,
+    zIndex: 4
   },
   scrollToBottomBtn: {
     width: 44,
@@ -1028,6 +1182,7 @@ const styles = StyleSheet.create({
   planFloatWrap: {
     marginHorizontal: 14,
     marginBottom: -6,
+    position: 'relative',
     zIndex: 3,
     shadowOpacity: 0.14,
     shadowRadius: 12,
@@ -1045,11 +1200,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8
+    marginBottom: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 7
   },
   planTitle: {
     fontWeight: '700',
     fontSize: 14
+  },
+  planHint: {
+    fontSize: 10,
+    fontWeight: '500'
   },
   planTaskList: {
     gap: 8
@@ -1073,12 +1236,6 @@ const styles = StyleSheet.create({
   planCollapsedWrap: {
     flexDirection: 'row',
     alignItems: 'center'
-  },
-  planCollapsedLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginRight: 8
   },
   planCollapsedText: {
     flex: 1,

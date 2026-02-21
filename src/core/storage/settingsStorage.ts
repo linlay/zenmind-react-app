@@ -1,14 +1,22 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppSettings } from '../types/common';
 import {
+  DEFAULT_REMOTE_ENDPOINT_INPUT,
   getDefaultEndpointInput,
   normalizeEndpointInput,
   normalizePtyUrlInput,
   toDefaultPtyWebUrl
 } from '../network/endpoint';
 
-const LEGACY_STORAGE_KEY = 'agw_mobile_chat_settings_v1';
-const STORAGE_KEY = 'agw_mobile_app_settings_v2';
+const LEGACY_STORAGE_KEY = 'mobile_chat_settings_v1';
+const STORAGE_KEY = 'mobile_app_settings_v2';
+const LEGACY_LOCAL_ENDPOINTS = new Set([
+  'localhost:11946',
+  'http://localhost:11946',
+  'localhost:8080',
+  'http://localhost:8080'
+]);
+const LEGACY_LOCAL_PTY_URLS = new Set(['http://localhost:11949', 'localhost:11949']);
 
 export { STORAGE_KEY, LEGACY_STORAGE_KEY };
 
@@ -25,8 +33,18 @@ export function buildDefaultSettings(): AppSettings {
 
 function normalizeSettings(raw: Partial<AppSettings> | null | undefined): AppSettings {
   const defaults = buildDefaultSettings();
-  const endpointInput = normalizeEndpointInput(raw?.endpointInput || defaults.endpointInput);
-  const ptyUrlInput = normalizePtyUrlInput(raw?.ptyUrlInput || '', endpointInput);
+  const rawEndpointInput = String(raw?.endpointInput || '').trim().replace(/\/+$/, '');
+  const shouldUpgradeLegacyLocalEndpoint =
+    defaults.endpointInput === DEFAULT_REMOTE_ENDPOINT_INPUT &&
+    LEGACY_LOCAL_ENDPOINTS.has(rawEndpointInput);
+  const endpointInput = normalizeEndpointInput(
+    shouldUpgradeLegacyLocalEndpoint ? defaults.endpointInput : raw?.endpointInput || defaults.endpointInput
+  );
+
+  const rawPtyUrlInput = String(raw?.ptyUrlInput || '').trim().replace(/\/+$/, '');
+  const shouldRegeneratePtyUrl =
+    shouldUpgradeLegacyLocalEndpoint && (!rawPtyUrlInput || LEGACY_LOCAL_PTY_URLS.has(rawPtyUrlInput));
+  const ptyUrlInput = normalizePtyUrlInput(shouldRegeneratePtyUrl ? '' : raw?.ptyUrlInput || '', endpointInput);
 
   return {
     themeMode: raw?.themeMode === 'dark' ? 'dark' : 'light',

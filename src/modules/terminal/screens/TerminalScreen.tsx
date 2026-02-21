@@ -1,7 +1,8 @@
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
 import { normalizePtyUrlInput } from '../../../core/network/endpoint';
-import { reloadPty, setPtyLoadError, setPtyLoading } from '../state/terminalSlice';
+import { WebViewAuthRefreshOutcome } from '../../../core/auth/webViewAuthBridge';
+import { setPtyLoadError, setPtyLoading } from '../state/terminalSlice';
 import { TerminalWebView } from '../components/TerminalWebView';
 
 interface TerminalScreenProps {
@@ -11,9 +12,19 @@ interface TerminalScreenProps {
     text: string;
     primaryDeep: string;
   };
+  authAccessToken?: string;
+  authAccessExpireAtMs?: number;
+  authTokenSignal?: number;
+  onWebViewAuthRefreshRequest?: (requestId: string, source: string) => Promise<WebViewAuthRefreshOutcome>;
 }
 
-export function TerminalScreen({ theme }: TerminalScreenProps) {
+export function TerminalScreen({
+  theme,
+  authAccessToken = '',
+  authAccessExpireAtMs,
+  authTokenSignal = 0,
+  onWebViewAuthRefreshRequest
+}: TerminalScreenProps) {
   const dispatch = useAppDispatch();
   const endpointInput = useAppSelector((state) => state.user.endpointInput);
   const ptyUrlInput = useAppSelector((state) => state.user.ptyUrlInput);
@@ -23,23 +34,14 @@ export function TerminalScreen({ theme }: TerminalScreenProps) {
 
   return (
     <View style={styles.container} nativeID="terminal-root" testID="terminal-root">
-      <View style={[styles.head, { backgroundColor: theme.surfaceStrong }]} nativeID="terminal-head" testID="terminal-head">
-        <Text style={[styles.title, { color: theme.text }]}>PTY 模式</Text>
-        <TouchableOpacity
-          activeOpacity={0.78}
-          style={[styles.actionBtn, { backgroundColor: theme.surface }]}
-          testID="terminal-refresh-btn"
-          onPress={() => dispatch(reloadPty())}
-        >
-          <Text style={[styles.actionText, { color: theme.primaryDeep }]}>刷新</Text>
-        </TouchableOpacity>
-      </View>
-
       <TerminalWebView
         uri={ptyWebUrl}
         reloadKey={ptyReloadKey}
         loading={ptyLoading}
         error={ptyLoadError}
+        authAccessToken={authAccessToken}
+        authAccessExpireAtMs={authAccessExpireAtMs}
+        authTokenSignal={authTokenSignal}
         theme={{ ...theme, textSoft: '#60728f', danger: '#d65252', textMute: '#8d9bb2', primary: '#2f6cf3' }}
         onLoadStart={() => {
           dispatch(setPtyLoading(true));
@@ -50,6 +52,7 @@ export function TerminalScreen({ theme }: TerminalScreenProps) {
           dispatch(setPtyLoadError(message));
           dispatch(setPtyLoading(false));
         }}
+        onAuthRefreshRequest={onWebViewAuthRefreshRequest}
       />
     </View>
   );
@@ -57,30 +60,6 @@ export function TerminalScreen({ theme }: TerminalScreenProps) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    gap: 10,
-    paddingHorizontal: 14,
-    paddingBottom: 10
-  },
-  head: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between'
-  },
-  title: {
-    fontSize: 16,
-    fontWeight: '700'
-  },
-  actionBtn: {
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8
-  },
-  actionText: {
-    fontSize: 13,
-    fontWeight: '700'
+    flex: 1
   }
 });

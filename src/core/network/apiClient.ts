@@ -1,4 +1,5 @@
 import { ApiEnvelope } from '../types/common';
+import { authorizedFetch } from '../auth/appAuth';
 
 export function formatError(error: unknown): string {
   const message = String((error as { message?: string })?.message || 'unknown error');
@@ -17,7 +18,8 @@ export function parseApiEnvelope<T>(response: Response, bodyText: string): T {
   }
 
   if (!response.ok) {
-    throw new Error(json?.msg || `HTTP ${response.status}`);
+    const errorPayload = json as unknown as { msg?: string; error?: string } | null;
+    throw new Error(errorPayload?.msg || errorPayload?.error || `HTTP ${response.status}`);
   }
 
   if (!json || typeof json !== 'object' || json.code !== 0) {
@@ -28,9 +30,33 @@ export function parseApiEnvelope<T>(response: Response, bodyText: string): T {
 }
 
 export async function fetchApiJson<T>(baseUrl: string, path: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, options);
+  const response = await authorizedFetch(baseUrl, path, options);
   const bodyText = await response.text();
   return parseApiEnvelope<T>(response, bodyText);
+}
+
+export async function fetchAuthedJson<T>(baseUrl: string, path: string, options?: RequestInit): Promise<T> {
+  const response = await authorizedFetch(baseUrl, path, options);
+  const bodyText = await response.text();
+
+  let payload: unknown = null;
+  if (bodyText) {
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      throw new Error(`Invalid JSON response: ${bodyText.slice(0, 180)}`);
+    }
+  }
+
+  if (!response.ok) {
+    if (payload && typeof payload === 'object') {
+      const data = payload as Record<string, unknown>;
+      throw new Error(String(data.error || data.msg || `HTTP ${response.status}`));
+    }
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  return payload as T;
 }
 
 export async function fetchViewportHtml(baseUrl: string, viewportKey: string): Promise<string> {

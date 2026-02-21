@@ -50,7 +50,7 @@ export function ViewportBlockView({ viewportKey, payload, backendUrl, theme, con
     if (!webViewRef.current || !payload) return;
     const initScript = `
       try {
-        window.postMessage(${JSON.stringify({ type: 'agw_tool_init', data: { params: payload } })}, '*');
+        window.postMessage(${JSON.stringify({ type: 'tool_init', data: { params: payload } })}, '*');
       } catch(e) {}
       true;
     `;

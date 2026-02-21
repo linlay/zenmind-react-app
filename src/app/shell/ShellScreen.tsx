@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AppState,
   Animated,
   Easing,
   Keyboard,
@@ -17,6 +18,7 @@ import {
   useWindowDimensions
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import Svg, { Path, Rect } from 'react-native-svg';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { DomainMode } from '../../core/types/common';
 import { THEMES } from '../../core/constants/theme';
@@ -26,8 +28,7 @@ import { setDrawerOpen } from './shellSlice';
 import {
   hydrateSettings,
   setActiveDomain,
-  setSelectedAgentKey as setUserSelectedAgentKey,
-  toggleTheme
+  setSelectedAgentKey as setUserSelectedAgentKey
 } from '../../modules/user/state/userSlice';
 import {
   setAgents,
@@ -42,6 +43,7 @@ import {
   setLoadingChats,
   setStatusText
 } from '../../modules/chat/state/chatSlice';
+import { reloadPty } from '../../modules/terminal/state/terminalSlice';
 import { selectFilteredChats } from '../../modules/chat/state/chatSelectors';
 import { ChatAssistantScreen } from '../../modules/chat/screens/ChatAssistantScreen';
 import { TerminalScreen } from '../../modules/terminal/screens/TerminalScreen';
@@ -50,10 +52,24 @@ import { UserSettingsScreen } from '../../modules/user/screens/UserSettingsScree
 import { DomainSwitcher } from './DomainSwitcher';
 import { useLazyGetAgentsQuery } from '../../modules/agents/api/agentsApi';
 import { useLazyGetChatsQuery } from '../../modules/chat/api/chatApi';
-import { formatError } from '../../core/network/apiClient';
+import { fetchAuthedJson, formatError } from '../../core/network/apiClient';
 import { getAgentKey, getAgentName, getChatTitle } from '../../shared/utils/format';
+import {
+  ensureFreshAccessToken,
+  getCurrentSession,
+  getAccessToken,
+  getDefaultDeviceName,
+  loginWithMasterPassword,
+  restoreSession,
+  subscribeAuthSession
+} from '../../core/auth/appAuth';
+import { WebViewAuthRefreshCoordinator, WebViewAuthRefreshOutcome } from '../../core/auth/webViewAuthBridge';
 
 const DRAWER_MAX_WIDTH = 332;
+const PREFRESH_MIN_VALIDITY_MS = 90_000;
+const PREFRESH_JITTER_MS = 8_000;
+const ACTIVE_REFRESH_DEBOUNCE_MS = 20_000;
+const FOREGROUND_REFRESH_INTERVAL_MS = 60_000;
 
 const DOMAIN_LABEL: Record<DomainMode, string> = {
   chat: '助理',
@@ -68,6 +84,27 @@ const DRAWER_TITLE: Record<DomainMode, string> = {
   agents: '智能体',
   user: '配置'
 };
+
+interface InboxMessage {
+  messageId: string;
+  title: string;
+  content: string;
+  type: string;
+  sender: string;
+  read: boolean;
+  createAt?: string | number;
+}
+
+function formatInboxTime(raw: unknown): string {
+  if (!raw) {
+    return '-';
+  }
+  const date = new Date(String(raw));
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+  return date.toLocaleString();
+}
 
 export function ShellScreen() {
   const dispatch = useAppDispatch();
@@ -91,12 +128,36 @@ export function ShellScreen() {
   const filteredChats = useAppSelector(selectFilteredChats);
 
   const [agentMenuOpen, setAgentMenuOpen] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
+  const [publishOpen, setPublishOpen] = useState(false);
   const [shellKeyboardHeight, setShellKeyboardHeight] = useState(0);
+  const [authChecking, setAuthChecking] = useState(true);
+  const [authReady, setAuthReady] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [masterPassword, setMasterPassword] = useState('');
+  const [deviceName, setDeviceName] = useState(getDefaultDeviceName());
+  const [inboxMessages, setInboxMessages] = useState<InboxMessage[]>([]);
+  const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
+  const [inboxLoading, setInboxLoading] = useState(false);
+  const [chatRefreshSignal, setChatRefreshSignal] = useState(0);
+  const [authAccessToken, setAuthAccessToken] = useState('');
+  const [authAccessExpireAtMs, setAuthAccessExpireAtMs] = useState<number | undefined>(undefined);
+  const [authTokenSignal, setAuthTokenSignal] = useState(0);
 
   const [triggerAgents] = useLazyGetAgentsQuery();
   const [triggerChats] = useLazyGetChatsQuery();
 
+  const wsRef = useRef<WebSocket | null>(null);
+  const wsReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const wsRetryRef = useRef(0);
+  const wsAccessTokenRef = useRef('');
+  const appStateRef = useRef(AppState.currentState);
+  const lastActiveRefreshAtRef = useRef(0);
+  const authRefreshCoordinatorRef = useRef<WebViewAuthRefreshCoordinator | null>(null);
+
   const drawerAnim = useRef(new Animated.Value(0)).current;
+  const inboxAnim = useRef(new Animated.Value(0)).current;
+  const publishAnim = useRef(new Animated.Value(0)).current;
   const theme = THEMES[themeMode] || THEMES.light;
   const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
 
@@ -132,6 +193,18 @@ export function ShellScreen() {
       }),
     [drawerAnim, drawerWidth]
   );
+
+  const syncAuthStateFromSession = useCallback((session = getCurrentSession()) => {
+    if (!session) {
+      setAuthAccessToken('');
+      setAuthAccessExpireAtMs(undefined);
+      setAuthTokenSignal((prev) => prev + 1);
+      return;
+    }
+    setAuthAccessToken(String(session.accessToken || ''));
+    setAuthAccessExpireAtMs(Number.isFinite(session.accessExpireAtMs) ? session.accessExpireAtMs : undefined);
+    setAuthTokenSignal((prev) => prev + 1);
+  }, []);
 
   const refreshAgents = useCallback(
     async (base = backendUrl, silent = false) => {
@@ -181,6 +254,317 @@ export function ShellScreen() {
     [backendUrl, refreshAgents, refreshChats]
   );
 
+  const refreshInbox = useCallback(
+    async (silent = false) => {
+      if (!silent) {
+        setInboxLoading(true);
+      }
+      try {
+        const [list, unread] = await Promise.all([
+          fetchAuthedJson<InboxMessage[]>(backendUrl, '/api/app/inbox?limit=50'),
+          fetchAuthedJson<{ unreadCount?: number }>(backendUrl, '/api/app/inbox/unread-count')
+        ]);
+        setInboxMessages(Array.isArray(list) ? list : []);
+        setInboxUnreadCount(Number((unread && unread.unreadCount) || 0));
+      } catch (error) {
+        dispatch(setStatusText(`消息盒子加载失败：${formatError(error)}`));
+      } finally {
+        if (!silent) {
+          setInboxLoading(false);
+        }
+      }
+    },
+    [backendUrl, dispatch]
+  );
+
+  const markInboxRead = useCallback(
+    async (messageId: string) => {
+      if (!messageId) {
+        return;
+      }
+      try {
+        await fetchAuthedJson<unknown>(backendUrl, '/api/app/inbox/read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messageIds: [messageId] })
+        });
+        await refreshInbox(true);
+      } catch (error) {
+        dispatch(setStatusText(`消息已读失败：${formatError(error)}`));
+      }
+    },
+    [backendUrl, dispatch, refreshInbox]
+  );
+
+  const markAllInboxRead = useCallback(async () => {
+    try {
+      await fetchAuthedJson<unknown>(backendUrl, '/api/app/inbox/read-all', {
+        method: 'POST'
+      });
+      await refreshInbox(true);
+    } catch (error) {
+      dispatch(setStatusText(`全部已读失败：${formatError(error)}`));
+    }
+  }, [backendUrl, dispatch, refreshInbox]);
+
+  const clearWs = useCallback(() => {
+    if (wsReconnectTimerRef.current) {
+      clearTimeout(wsReconnectTimerRef.current);
+      wsReconnectTimerRef.current = null;
+    }
+    if (wsRef.current) {
+      wsRef.current.onopen = null;
+      wsRef.current.onclose = null;
+      wsRef.current.onmessage = null;
+      wsRef.current.onerror = null;
+      try {
+        wsRef.current.close();
+      } catch {
+        // ignore close errors
+      }
+      wsRef.current = null;
+    }
+    wsAccessTokenRef.current = '';
+  }, []);
+
+  const handleWsEnvelope = useCallback(
+    (raw: string) => {
+      if (!raw) {
+        return;
+      }
+
+      let parsed: Record<string, unknown> | null = null;
+      try {
+        parsed = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        return;
+      }
+
+      const type = String(parsed?.type || '');
+      const payload = (parsed?.payload as Record<string, unknown>) || {};
+
+      if (type === 'inbox.new') {
+        const message = payload.message as InboxMessage | undefined;
+        if (message && message.messageId) {
+          setInboxMessages((prev) => [message, ...prev.filter((item) => item.messageId !== message.messageId)]);
+        }
+        if (typeof payload.unreadCount === 'number') {
+          setInboxUnreadCount(payload.unreadCount);
+        } else {
+          refreshInbox(true).catch(() => {});
+        }
+        return;
+      }
+
+      if (type === 'inbox.sync') {
+        if (typeof payload.unreadCount === 'number') {
+          setInboxUnreadCount(payload.unreadCount);
+        } else {
+          refreshInbox(true).catch(() => {});
+        }
+        return;
+      }
+
+      if (type === 'chat.new_content') {
+        refreshChats(true).catch(() => {});
+        setChatRefreshSignal((prev) => prev + 1);
+      }
+    },
+    [refreshChats, refreshInbox]
+  );
+
+  const handleHardAuthFailure = useCallback(
+    (statusMessage = '登录状态失效，请重新登录') => {
+      clearWs();
+      setAuthReady(false);
+      setInboxMessages([]);
+      setInboxUnreadCount(0);
+      setAuthError(statusMessage);
+      setMasterPassword('');
+      syncAuthStateFromSession(null);
+      dispatch(setStatusText(statusMessage));
+    },
+    [clearWs, dispatch, syncAuthStateFromSession]
+  );
+
+  const runForegroundProactiveRefresh = useCallback(async () => {
+    if (!authReady) {
+      return null;
+    }
+    const accessToken = await ensureFreshAccessToken(backendUrl, {
+      minValidityMs: PREFRESH_MIN_VALIDITY_MS,
+      jitterMs: PREFRESH_JITTER_MS,
+      failureMode: 'soft'
+    });
+    if (accessToken) {
+      syncAuthStateFromSession();
+    }
+    return accessToken;
+  }, [authReady, backendUrl, syncAuthStateFromSession]);
+
+  const resolveHardRefreshToken = useCallback(async () => {
+    const accessToken = await getAccessToken(backendUrl, true);
+    if (accessToken) {
+      syncAuthStateFromSession();
+    }
+    return accessToken;
+  }, [backendUrl, syncAuthStateFromSession]);
+
+  useEffect(() => {
+    authRefreshCoordinatorRef.current = new WebViewAuthRefreshCoordinator(resolveHardRefreshToken, {
+      onHardFailure: () => {
+        handleHardAuthFailure();
+      }
+    });
+    return () => {
+      authRefreshCoordinatorRef.current = null;
+    };
+  }, [handleHardAuthFailure, resolveHardRefreshToken]);
+
+  const handleWebViewAuthRefreshRequest = useCallback(
+    async (_requestId: string, _source: string): Promise<WebViewAuthRefreshOutcome> => {
+      const coordinator = authRefreshCoordinatorRef.current;
+      if (!coordinator) {
+        return {
+          ok: false,
+          error: 'Auth refresh coordinator unavailable'
+        };
+      }
+      return coordinator.refresh();
+    },
+    []
+  );
+
+  const connectWs = useCallback(async () => {
+    clearWs();
+    const accessToken = await getAccessToken(backendUrl);
+    if (!accessToken) {
+      handleHardAuthFailure();
+      return;
+    }
+
+    let wsUrl = '';
+    try {
+      const url = new URL(`${backendUrl}/api/app/ws`);
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      url.searchParams.set('access_token', accessToken);
+      wsUrl = url.toString();
+    } catch {
+      return;
+    }
+
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+    wsAccessTokenRef.current = accessToken;
+
+    ws.onopen = () => {
+      wsRetryRef.current = 0;
+    };
+
+    ws.onmessage = (event) => {
+      handleWsEnvelope(String(event?.data || ''));
+    };
+
+    ws.onclose = () => {
+      if (!authReady) {
+        return;
+      }
+      const retryCount = Math.min(wsRetryRef.current, 6);
+      const delayMs = Math.min(30_000, 1000 * (2 ** retryCount));
+      wsRetryRef.current += 1;
+      wsReconnectTimerRef.current = setTimeout(() => {
+        connectWs().catch(() => {});
+      }, delayMs);
+    };
+
+    ws.onerror = () => {
+      // rely on onclose to schedule reconnect
+    };
+  }, [authReady, backendUrl, clearWs, handleHardAuthFailure, handleWsEnvelope]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeAuthSession((event) => {
+      if (event.type === 'session_updated') {
+        const previousToken = wsAccessTokenRef.current;
+        const nextToken = String(event.session.accessToken || '');
+        syncAuthStateFromSession(event.session);
+        if (authReady && previousToken && nextToken && previousToken !== nextToken) {
+          connectWs().catch(() => {});
+        }
+        return;
+      }
+      syncAuthStateFromSession(null);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, [authReady, connectWs, syncAuthStateFromSession]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      const prevState = appStateRef.current;
+      appStateRef.current = nextState;
+
+      if ((prevState === 'background' || prevState === 'inactive') && nextState === 'active') {
+        if (booting || !authReady) {
+          return;
+        }
+        const now = Date.now();
+        if (now - lastActiveRefreshAtRef.current < ACTIVE_REFRESH_DEBOUNCE_MS) {
+          return;
+        }
+        lastActiveRefreshAtRef.current = now;
+        runForegroundProactiveRefresh().catch(() => {});
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [authReady, booting, runForegroundProactiveRefresh]);
+
+  useEffect(() => {
+    if (booting || !authReady) {
+      return;
+    }
+    const timer = setInterval(() => {
+      if (appStateRef.current !== 'active') {
+        return;
+      }
+      runForegroundProactiveRefresh().catch(() => {});
+    }, FOREGROUND_REFRESH_INTERVAL_MS);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [authReady, booting, runForegroundProactiveRefresh]);
+
+  const submitLogin = useCallback(async () => {
+    const password = String(masterPassword || '').trim();
+    if (!password) {
+      setAuthError('请输入主密码');
+      return;
+    }
+
+    setAuthChecking(true);
+    setAuthError('');
+    try {
+      await loginWithMasterPassword(backendUrl, password, deviceName);
+      setMasterPassword('');
+      setAuthReady(true);
+      syncAuthStateFromSession();
+      await Promise.all([refreshAll(true), refreshInbox(true)]);
+    } catch (error) {
+      setAuthReady(false);
+      setInboxMessages([]);
+      setInboxUnreadCount(0);
+      setAuthError(formatError(error));
+      syncAuthStateFromSession(null);
+    } finally {
+      setAuthChecking(false);
+    }
+  }, [backendUrl, deviceName, masterPassword, refreshAll, refreshInbox, syncAuthStateFromSession]);
+
   useEffect(() => {
     let mounted = true;
     loadSettings()
@@ -209,9 +593,74 @@ export function ShellScreen() {
   }, [drawerAnim, drawerOpen]);
 
   useEffect(() => {
+    Animated.timing(inboxAnim, {
+      toValue: inboxOpen ? 1 : 0,
+      duration: inboxOpen ? 240 : 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [inboxAnim, inboxOpen]);
+
+  useEffect(() => {
+    Animated.timing(publishAnim, {
+      toValue: publishOpen ? 1 : 0,
+      duration: publishOpen ? 240 : 180,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [publishAnim, publishOpen]);
+
+  useEffect(() => {
     if (booting) return;
-    refreshAll(true);
-  }, [booting, refreshAll]);
+
+    let cancelled = false;
+    setAuthChecking(true);
+    setAuthError('');
+    restoreSession(backendUrl)
+      .then((session) => {
+        if (cancelled) return;
+        setAuthReady(Boolean(session));
+        if (!session) {
+          setInboxMessages([]);
+          setInboxUnreadCount(0);
+          syncAuthStateFromSession(null);
+        } else {
+          syncAuthStateFromSession(session);
+        }
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setAuthReady(false);
+        setInboxMessages([]);
+        setInboxUnreadCount(0);
+        syncAuthStateFromSession(null);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAuthChecking(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [backendUrl, booting, syncAuthStateFromSession]);
+
+  useEffect(() => {
+    if (booting || !authReady) {
+      clearWs();
+      return;
+    }
+
+    runForegroundProactiveRefresh().catch(() => {});
+    refreshAll(true).catch(() => {});
+    refreshInbox(true).catch(() => {});
+    connectWs().catch(() => {});
+
+    return () => {
+      clearWs();
+    };
+  }, [authReady, booting, clearWs, connectWs, refreshAll, refreshInbox, runForegroundProactiveRefresh]);
 
   useEffect(() => {
     if (booting) return;
@@ -230,22 +679,111 @@ export function ShellScreen() {
     }
   }, [activeDomain, drawerOpen]);
 
+  useEffect(() => {
+    if (drawerOpen) {
+      setInboxOpen(false);
+      setPublishOpen(false);
+    }
+  }, [drawerOpen]);
+
+  useEffect(() => {
+    if (activeDomain !== 'chat' && inboxOpen) {
+      setInboxOpen(false);
+    }
+  }, [activeDomain, inboxOpen]);
+
+  useEffect(() => {
+    if (!inboxOpen || !authReady) {
+      return;
+    }
+    refreshInbox(true).catch(() => {});
+  }, [authReady, inboxOpen, refreshInbox]);
+
+  useEffect(() => {
+    if (activeDomain !== 'agents' && publishOpen) {
+      setPublishOpen(false);
+    }
+  }, [activeDomain, publishOpen]);
+
   const activeAgentName = useMemo(() => {
     const found = agents.find((agent) => getAgentKey(agent) === selectedAgentKey);
-    return getAgentName(found || agents[0]) || 'AGW';
+    return getAgentName(found || agents[0]) || 'Agent';
   }, [agents, selectedAgentKey]);
 
-  const topNavTitle = activeDomain === 'chat' ? activeAgentName : DOMAIN_LABEL[activeDomain];
-  const topNavSubtitle = activeDomain === 'chat' ? selectedAgentKey : '当前功能区';
+  const isChatDomain = activeDomain === 'chat';
+  const isTerminalDomain = activeDomain === 'terminal';
+  const isAgentsDomain = activeDomain === 'agents';
+  const isUserDomain = activeDomain === 'user';
+  const topNavTitle = isChatDomain ? activeAgentName : isTerminalDomain ? '终端/CLI' : DOMAIN_LABEL[activeDomain];
+  const topNavSubtitle = selectedAgentKey;
 
   if (booting) {
     return (
-      <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}>
-        <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}>
+      <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}> 
+        <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}> 
           <View style={styles.bootWrap}>
             <View style={[styles.bootCard, { borderColor: theme.border }]}>
               <ActivityIndicator size="small" color={theme.primary} />
               <Text style={[styles.bootText, { color: theme.textSoft }]}>正在加载配置...</Text>
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (authChecking) {
+    return (
+      <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}> 
+        <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}> 
+          <View style={styles.bootWrap}>
+            <View style={[styles.bootCard, { borderColor: theme.border }]}> 
+              <ActivityIndicator size="small" color={theme.primary} />
+              <Text style={[styles.bootText, { color: theme.textSoft }]}>正在验证登录状态...</Text>
+            </View>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!authReady) {
+    return (
+      <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}> 
+        <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}> 
+          <View style={[styles.bootWrap, { paddingHorizontal: 20 }]}> 
+            <View style={[styles.bootCard, { borderColor: theme.border, width: '100%', maxWidth: 440, flexDirection: 'column', alignItems: 'stretch', gap: 10 }]}> 
+              <Text style={[styles.drawerTitle, { color: theme.text, fontSize: 18 }]}>设备登录</Text>
+              <Text style={[styles.emptyHistoryText, { color: theme.textMute, textAlign: 'left' }]}>请输入主密码完成设备授权。</Text>
+
+              <TextInput
+                value={deviceName}
+                onChangeText={setDeviceName}
+                placeholder="设备名称"
+                placeholderTextColor={theme.textMute}
+                style={[styles.chatSearchInput, { backgroundColor: theme.surfaceStrong, color: theme.text, marginBottom: 0 }]}
+              />
+              <TextInput
+                value={masterPassword}
+                onChangeText={setMasterPassword}
+                placeholder="主密码"
+                placeholderTextColor={theme.textMute}
+                secureTextEntry
+                style={[styles.chatSearchInput, { backgroundColor: theme.surfaceStrong, color: theme.text, marginBottom: 0 }]}
+              />
+
+              {authError ? <Text style={[styles.emptyHistoryText, { color: theme.danger, textAlign: 'left' }]}>{authError}</Text> : null}
+
+              <TouchableOpacity
+                activeOpacity={0.82}
+                style={[styles.publishPrimaryBtn, { backgroundColor: theme.primary, alignSelf: 'stretch' }]}
+                onPress={() => {
+                  submitLogin().catch(() => {});
+                }}
+                testID="app-login-submit-btn"
+              >
+                <Text style={styles.publishPrimaryText}>登录</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -277,18 +815,27 @@ export function ShellScreen() {
                 testID="open-drawer-btn"
                 onPress={() => {
                   setAgentMenuOpen(false);
+                  setInboxOpen(false);
+                  setPublishOpen(false);
                   dispatch(setDrawerOpen(true));
                 }}
               >
-                <Text style={[styles.iconOnlyBtnText, { color: theme.primaryDeep }]}>≡</Text>
+                <Svg width={20} height={20} viewBox="0 0 20 20" fill="none" style={styles.menuIconSvg}>
+                  <Rect x={2} y={5.6} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
+                  <Rect x={2} y={12.2} width={10} height={2.2} rx={1.1} fill={theme.primaryDeep} />
+                </Svg>
               </TouchableOpacity>
 
-              {activeDomain === 'chat' ? (
+              {isChatDomain ? (
                 <TouchableOpacity
                   activeOpacity={0.76}
                   style={[styles.assistantTopBtn, { backgroundColor: theme.surfaceStrong }]}
                   testID="chat-agent-toggle-btn"
-                  onPress={() => setAgentMenuOpen((prev) => !prev)}
+                  onPress={() => {
+                    setInboxOpen(false);
+                    setPublishOpen(false);
+                    setAgentMenuOpen((prev) => !prev);
+                  }}
                 >
                   <View style={styles.assistantTopTextWrap}>
                     <Text style={[styles.assistantTopTitle, { color: theme.text }]} numberOfLines={1}>
@@ -302,31 +849,235 @@ export function ShellScreen() {
                 </TouchableOpacity>
               ) : (
                 <View style={[styles.assistantTopBtn, { backgroundColor: theme.surfaceStrong }]}>
-                  <View style={styles.assistantTopTextWrap}>
-                    <Text style={[styles.assistantTopTitle, { color: theme.text }]} numberOfLines={1}>
-                      {topNavTitle}
-                    </Text>
-                    <Text style={[styles.assistantTopSubTitle, { color: theme.textMute }]} numberOfLines={1}>
-                      {topNavSubtitle}
-                    </Text>
-                  </View>
-                  <Text style={[styles.assistantTopArrow, { color: theme.textMute }]}>•</Text>
+                  <Text style={[styles.assistantTopSingleTitle, { color: theme.text }]} numberOfLines={1}>
+                    {topNavTitle}
+                  </Text>
                 </View>
               )}
 
-              <TouchableOpacity
-                activeOpacity={0.72}
-                style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-                testID="shell-theme-toggle-btn"
-                onPress={() => {
-                  dispatch(toggleTheme());
-                }}
-              >
-                <Text style={[styles.iconOnlyBtnText, { color: theme.primaryDeep }]}>{theme.mode === 'light' ? '◐' : '◑'}</Text>
-              </TouchableOpacity>
+              {isTerminalDomain ? (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="shell-terminal-refresh-btn"
+                  onPress={() => {
+                    setAgentMenuOpen(false);
+                    setInboxOpen(false);
+                    setPublishOpen(false);
+                    dispatch(reloadPty());
+                  }}
+                >
+                  <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>刷新</Text>
+                </TouchableOpacity>
+              ) : isAgentsDomain ? (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="shell-publish-toggle-btn"
+                  onPress={() => {
+                    setAgentMenuOpen(false);
+                    setInboxOpen(false);
+                    setPublishOpen((prev) => !prev);
+                  }}
+                >
+                  <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>发布</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="shell-inbox-toggle-btn"
+                  onPress={() => {
+                    setAgentMenuOpen(false);
+                    setPublishOpen(false);
+                    setInboxOpen((prev) => !prev);
+                  }}
+                >
+                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" style={styles.inboxIconSvg}>
+                    <Rect x={3.2} y={5} width={17.6} height={14} rx={3} stroke={theme.primaryDeep} strokeWidth={1.9} />
+                    <Path d="M4.8 8.4L12 13.2L19.2 8.4" stroke={theme.primaryDeep} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                  {inboxUnreadCount > 0 ? (
+                    <View style={[styles.inboxBadge, { backgroundColor: theme.danger }]}> 
+                      <Text style={styles.inboxBadgeText}>{inboxUnreadCount > 99 ? '99+' : String(inboxUnreadCount)}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              )}
             </View>
 
-            {activeDomain === 'chat' && agentMenuOpen ? (
+            <View pointerEvents={inboxOpen ? 'auto' : 'none'} style={styles.inboxLayer}>
+              <Animated.View
+                style={[
+                  styles.inboxModal,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                    opacity: inboxAnim,
+                    paddingTop: insets.top + 8,
+                    transform: [
+                      {
+                        translateY: inboxAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [-Math.max(120, window.height * 0.16), 0]
+                        })
+                      }
+                    ]
+                  }
+                ]}
+              >
+                <View style={[styles.inboxModalHead, { borderBottomColor: theme.border }]}> 
+                  <View>
+                    <Text style={[styles.inboxTitle, { color: theme.text }]}>消息盒子</Text>
+                    <Text style={[styles.inboxSubTitle, { color: theme.textMute }]}>未读 {inboxUnreadCount}</Text>
+                  </View>
+                  <View style={styles.inboxHeadActions}>
+                    <TouchableOpacity
+                      activeOpacity={0.78}
+                      style={[styles.inboxActionBtn, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
+                      onPress={() => {
+                        markAllInboxRead().catch(() => {});
+                      }}
+                      testID="shell-inbox-read-all-btn"
+                    >
+                      <Text style={[styles.inboxCloseText, { color: theme.textSoft }]}>全部已读</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      activeOpacity={0.78}
+                      style={[styles.inboxActionBtn, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
+                      onPress={() => setInboxOpen(false)}
+                      testID="shell-inbox-close-btn"
+                    >
+                      <Text style={[styles.inboxCloseText, { color: theme.textSoft }]}>关闭</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+                <ScrollView style={styles.inboxModalScroll} contentContainerStyle={styles.inboxList}>
+                  {inboxLoading ? <Text style={[styles.inboxItemBody, { color: theme.textMute }]}>加载中...</Text> : null}
+                  {!inboxLoading && inboxMessages.length === 0 ? (
+                    <Text style={[styles.inboxItemBody, { color: theme.textMute }]}>暂无消息</Text>
+                  ) : null}
+                  {inboxMessages.map((message) => (
+                    <TouchableOpacity
+                      key={message.messageId}
+                      activeOpacity={0.78}
+                      style={[
+                        styles.inboxItem,
+                        {
+                          borderColor: theme.border,
+                          backgroundColor: message.read ? theme.surface : theme.primarySoft
+                        }
+                      ]}
+                      onPress={() => {
+                        if (!message.read) {
+                          markInboxRead(message.messageId).catch(() => {});
+                        }
+                      }}
+                    >
+                      <View style={styles.inboxItemTop}>
+                        <Text style={[styles.inboxItemTitle, { color: theme.text }]}>{message.title}</Text>
+                        <Text style={[styles.inboxItemTime, { color: theme.textMute }]}>{formatInboxTime(message.createAt)}</Text>
+                      </View>
+                      <Text style={[styles.inboxItemBody, { color: theme.textSoft }]}>{message.content}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </Animated.View>
+            </View>
+
+            <View pointerEvents={publishOpen ? 'auto' : 'none'} style={styles.publishLayer}>
+              <Animated.View
+                style={[
+                  styles.publishModal,
+                  {
+                    backgroundColor: theme.surface,
+                    borderColor: theme.border,
+                    opacity: publishAnim,
+                    paddingTop: insets.top + 8,
+                    transform: [
+                      {
+                        translateY: publishAnim.interpolate({
+                          inputRange: [0, 1],
+                          outputRange: [Math.max(120, window.height * 0.14), 0]
+                        })
+                      }
+                    ]
+                  }
+                ]}
+              >
+                <View style={[styles.publishHead, { borderBottomColor: theme.border }]}>
+                  <View style={styles.publishTitleWrap}>
+                    <Text style={[styles.publishTitle, { color: theme.text }]}>发布中心</Text>
+                    <Text style={[styles.publishSubTitle, { color: theme.textMute }]} numberOfLines={2}>
+                      {selectedAgentKey ? `当前智能体：${selectedAgentKey}` : '请先选择智能体，然后发起发布。'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    activeOpacity={0.78}
+                    style={[styles.publishCloseBtn, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
+                    onPress={() => setPublishOpen(false)}
+                    testID="shell-publish-close-btn"
+                  >
+                    <Text style={[styles.publishCloseText, { color: theme.textSoft }]}>关闭</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <ScrollView style={styles.publishScroll} contentContainerStyle={styles.publishContent}>
+                  <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}>
+                    <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布目标</Text>
+                    <View style={styles.publishChipRow}>
+                      {['内部频道', '变更公告页', '测试环境'].map((item) => (
+                        <View key={item} style={[styles.publishChip, { borderColor: theme.border, backgroundColor: theme.surface }]}>
+                          <Text style={[styles.publishChipText, { color: theme.textSoft }]}>{item}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}>
+                    <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布说明</Text>
+                    <Text style={[styles.publishSectionBody, { color: theme.textSoft }]}>
+                      本次发布会同步当前智能体配置、默认提示词和会话能力开关。建议先在测试环境验证 5 分钟后再推送到团队频道。
+                    </Text>
+                  </View>
+
+                  <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}>
+                    <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布清单</Text>
+                    <View style={styles.publishChecklist}>
+                      {['配置校验已通过', '变更摘要已生成', '回滚方案已就绪'].map((item) => (
+                        <View key={item} style={styles.publishChecklistItem}>
+                          <Text style={[styles.publishChecklistDot, { color: theme.primaryDeep }]}>•</Text>
+                          <Text style={[styles.publishChecklistText, { color: theme.textSoft }]}>{item}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                </ScrollView>
+
+                <View style={[styles.publishFooter, { borderTopColor: theme.border }]}>
+                  <TouchableOpacity
+                    activeOpacity={0.76}
+                    style={[styles.publishGhostBtn, { backgroundColor: theme.surfaceStrong }]}
+                    onPress={() => setPublishOpen(false)}
+                  >
+                    <Text style={[styles.publishGhostText, { color: theme.textSoft }]}>取消</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    activeOpacity={0.82}
+                    style={[styles.publishPrimaryBtn, { backgroundColor: theme.primary }]}
+                    testID="shell-publish-submit-btn"
+                    onPress={() => {
+                      setPublishOpen(false);
+                      dispatch(setStatusText('发布任务已创建（演示）'));
+                    }}
+                  >
+                    <Text style={styles.publishPrimaryText}>确认发布</Text>
+                  </TouchableOpacity>
+                </View>
+              </Animated.View>
+            </View>
+
+            {isChatDomain && agentMenuOpen ? (
               <View
                 style={[styles.agentMenuCard, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
                 nativeID="agent-menu-card"
@@ -372,19 +1123,32 @@ export function ShellScreen() {
               </View>
             ) : null}
 
-            {activeDomain === 'chat' ? (
+            {isChatDomain ? (
               <ChatAssistantScreen
                 theme={theme}
                 backendUrl={backendUrl}
                 contentWidth={window.width}
                 onRefreshChats={refreshChats}
                 keyboardHeight={shellKeyboardHeight}
+                refreshSignal={chatRefreshSignal}
+                authAccessToken={authAccessToken}
+                authAccessExpireAtMs={authAccessExpireAtMs}
+                authTokenSignal={authTokenSignal}
+                onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
               />
             ) : null}
 
-            {activeDomain === 'terminal' ? <TerminalScreen theme={theme} /> : null}
-            {activeDomain === 'agents' ? <AgentsScreen theme={theme} /> : null}
-            {activeDomain === 'user' ? <UserSettingsScreen theme={theme} onSettingsApplied={() => refreshAll(true)} /> : null}
+            {isTerminalDomain ? (
+              <TerminalScreen
+                theme={theme}
+                authAccessToken={authAccessToken}
+                authAccessExpireAtMs={authAccessExpireAtMs}
+                authTokenSignal={authTokenSignal}
+                onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
+              />
+            ) : null}
+            {isAgentsDomain ? <AgentsScreen theme={theme} /> : null}
+            {isUserDomain ? <UserSettingsScreen theme={theme} onSettingsApplied={() => refreshAll(true)} /> : null}
           </KeyboardAvoidingView>
         </Animated.View>
 
@@ -554,6 +1318,8 @@ export function ShellScreen() {
                   value={activeDomain}
                   onChange={(mode: DomainMode) => {
                     setAgentMenuOpen(false);
+                    setInboxOpen(false);
+                    setPublishOpen(false);
                     dispatch(setActiveDomain(mode));
                     dispatch(setDrawerOpen(false));
                   }}
@@ -606,51 +1372,290 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginHorizontal: 14,
-    marginTop: 10,
-    marginBottom: 10,
-    gap: 10
+    marginTop: 6,
+    marginBottom: 6,
+    gap: 8
   },
   iconOnlyBtn: {
-    width: 36,
-    height: 36,
+    width: 34,
+    height: 34,
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center'
   },
-  iconOnlyBtnText: {
-    fontSize: 17,
+  menuIconSvg: {
+    width: 20,
+    height: 20
+  },
+  inboxIconSvg: {
+    width: 22,
+    height: 22
+  },
+  inboxBadge: {
+    position: 'absolute',
+    right: -4,
+    top: -4,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3
+  },
+  inboxBadgeText: {
+    color: '#fff',
+    fontSize: 9,
+    fontWeight: '700'
+  },
+  topActionBtn: {
+    minWidth: 52,
+    height: 34,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  topActionText: {
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  themeToggleText: {
+    fontSize: 16,
     fontWeight: '700'
   },
   assistantTopBtn: {
     flex: 1,
-    minHeight: 52,
-    borderRadius: 16,
+    minHeight: 36,
+    borderRadius: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 12,
-    gap: 6
+    paddingHorizontal: 10,
+    gap: 5
   },
   assistantTopTextWrap: {
     flexGrow: 0,
     flexShrink: 1,
     minWidth: 0,
     alignItems: 'center',
-    maxWidth: '84%'
+    maxWidth: '82%'
   },
   assistantTopTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
+    textAlign: 'center'
+  },
+  assistantTopSingleTitle: {
+    fontSize: 13,
+    fontWeight: '600',
     textAlign: 'center'
   },
   assistantTopSubTitle: {
     marginTop: 0,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '500',
     textAlign: 'center'
   },
   assistantTopArrow: {
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  inboxLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10
+  },
+  inboxModal: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: StyleSheet.hairlineWidth
+  },
+  inboxModalHead: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth
+  },
+  inboxModalScroll: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingTop: 10
+  },
+  inboxHeadActions: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  inboxActionBtn: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6
+  },
+  inboxCloseText: {
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  inboxTitle: {
+    fontSize: 15,
+    fontWeight: '700'
+  },
+  inboxSubTitle: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginTop: 2
+  },
+  inboxList: {
+    paddingBottom: 16,
+    gap: 8
+  },
+  inboxItem: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8
+  },
+  inboxItemTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center'
+  },
+  inboxItemTitle: {
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  inboxItemTime: {
+    fontSize: 10
+  },
+  inboxItemBody: {
+    marginTop: 4,
+    fontSize: 11,
+    lineHeight: 16
+  },
+  publishLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 11
+  },
+  publishModal: {
+    ...StyleSheet.absoluteFillObject,
+    borderWidth: StyleSheet.hairlineWidth
+  },
+  publishHead: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    paddingHorizontal: 14,
+    paddingBottom: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth
+  },
+  publishTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 10
+  },
+  publishTitle: {
+    fontSize: 16,
+    fontWeight: '700'
+  },
+  publishSubTitle: {
+    marginTop: 3,
+    fontSize: 11,
+    lineHeight: 16
+  },
+  publishCloseBtn: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6
+  },
+  publishCloseText: {
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  publishScroll: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingTop: 10
+  },
+  publishContent: {
+    paddingBottom: 14,
+    gap: 10
+  },
+  publishSection: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10
+  },
+  publishSectionTitle: {
     fontSize: 13,
+    fontWeight: '700'
+  },
+  publishSectionBody: {
+    marginTop: 6,
+    fontSize: 12,
+    lineHeight: 18
+  },
+  publishChipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8
+  },
+  publishChip: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 6
+  },
+  publishChipText: {
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  publishChecklist: {
+    marginTop: 8,
+    gap: 6
+  },
+  publishChecklistItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6
+  },
+  publishChecklistDot: {
+    fontSize: 12,
+    lineHeight: 16
+  },
+  publishChecklistText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 18
+  },
+  publishFooter: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 10,
+    flexDirection: 'row',
+    gap: 8
+  },
+  publishGhostBtn: {
+    flex: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center'
+  },
+  publishGhostText: {
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  publishPrimaryBtn: {
+    flex: 1.2,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center'
+  },
+  publishPrimaryText: {
+    color: '#fff',
+    fontSize: 12,
     fontWeight: '700'
   },
   agentMenuCard: {

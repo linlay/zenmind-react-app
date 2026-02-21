@@ -59,6 +59,43 @@ POST /api/query (SSE) → XMLHttpRequest 流式读取
 - `core/network/endpoint.ts` — URL 规范化（检测内网 IP 用 http，公网用 https）
 - SSE 流通过 XMLHttpRequest 实现（`chatStreamClient.ts`）
 
+### WebView 鉴权桥接协议
+
+当前采用“**App 主动预刷新 + WebView 401 兜底刷新**”组合策略，避免 App 切前台后 WebView 因旧 token 立即 401。
+
+#### 消息协议
+
+| 消息类型 | 方向 | 字段 | 用途 |
+|----------|------|------|------|
+| `auth_token` | RN -> WebView | `accessToken`, `accessExpireAtMs?` | 主动下发最新 access token |
+| `auth_refresh_request` | WebView -> RN | `requestId`, `source` | WebView 侧 API 401 时请求 RN 刷新 |
+| `auth_refresh_result` | RN -> WebView | `requestId`, `ok`, `accessToken?`, `error?` | 返回本次刷新结果，供 WebView 决定重放或进入未登录态 |
+
+#### 关键流程
+
+1. WebView 在 H5 内部捕获 401，立即 `postMessage({ type: 'auth_refresh_request', ... })`。
+2. RN `onMessage` 解析后，调用 `onWebViewAuthRefreshRequest` 触发刷新。
+3. `ShellScreen` 通过 `WebViewAuthRefreshCoordinator` 做单飞（并发请求仅一次 refresh）。
+4. 刷新成功回 `auth_refresh_result(ok=true, accessToken)`；失败回 `ok=false`。
+5. WebView 在 `auth_refresh_result` 成功前应排队待重放请求，失败时清理鉴权状态并引导重登。
+
+#### App 主动广播机制
+
+- 前台保活刷新：
+  - App 回到 `active` 时触发一次预刷新（带 debounce）。
+  - 前台期间每 60s 定时触发预刷新。
+- 预刷新入口 `ensureFreshAccessToken()` 使用最小有效期阈值 + 抖动（默认 90s + 8s）决定是否 refresh。
+- 只要 session 更新，`syncAuthStateFromSession()` 会更新 `authAccessToken/authAccessExpireAtMs` 并递增 `authTokenSignal`。
+- `authTokenSignal` 变化后，已挂载 WebView（Chat Frontend Tool、Terminal）通过 `injectJavaScript(window.postMessage(...))` 广播 `auth_token`。
+
+#### 代码锚点
+
+- 协议定义与构造：`src/core/auth/webViewAuthBridge.ts`
+- 刷新与会话订阅：`src/core/auth/appAuth.ts`
+- 统一协调与定时预刷新：`src/app/shell/ShellScreen.tsx`
+- Terminal WebView 桥接：`src/modules/terminal/components/TerminalWebView.tsx`
+- Chat Frontend Tool WebView 桥接：`src/modules/chat/components/Composer.tsx`、`src/modules/chat/screens/ChatAssistantScreen.tsx`
+
 ### 后端 API 协议
 
 | 方法 | 端点 | 用途 |
@@ -72,7 +109,7 @@ POST /api/query (SSE) → XMLHttpRequest 流式读取
 
 ### 持久化
 
-AsyncStorage 存储应用设置，key 为 `agw_mobile_app_settings_v2`。应用启动时自动从 v1 迁移。
+AsyncStorage 存储应用设置，key 为 `mobile_app_settings_v2`。应用启动时自动从 v1 迁移。
 
 ## 模块结构约定
 

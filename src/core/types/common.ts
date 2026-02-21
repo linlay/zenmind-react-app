@@ -35,12 +35,12 @@ export interface ApiEnvelope<T> {
 }
 
 export interface FrontendSubmitMessage {
-  type: 'agw_frontend_submit';
+  type: 'frontend_submit';
   params?: Record<string, unknown>;
 }
 
 export interface ToolInitMessage {
-  type: 'agw_tool_init';
+  type: 'tool_init';
   data: {
     runId?: string;
     toolId?: string;

@@ -1,14 +1,16 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
-import { toBackendBaseUrl, toDefaultPtyWebUrl } from '../../../core/network/endpoint';
+import {
+  DEFAULT_REMOTE_ENDPOINT_INPUT,
+  toBackendBaseUrl,
+  toDefaultPtyWebUrl
+} from '../../../core/network/endpoint';
 import { patchSettings } from '../../../core/storage/settingsStorage';
 import {
   applyEndpointDraft,
   setEndpointDraft,
-  setPtyUrlDraft,
-  setThemeMode,
-  toggleTheme
+  setPtyUrlDraft
 } from '../state/userSlice';
 import { UserWebViewPlaceholder } from '../components/UserWebViewPlaceholder';
 
@@ -64,19 +66,6 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
       >
         <View style={styles.settingRowHead}>
           <Text style={[styles.title, { color: theme.text }]}>用户配置</Text>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            style={[styles.themeBtn, { backgroundColor: theme.surface }]}
-            testID="theme-toggle-btn"
-            onPress={async () => {
-              dispatch(toggleTheme());
-              const nextMode = themeMode === 'light' ? 'dark' : 'light';
-              dispatch(setThemeMode(nextMode));
-              await patchSettings({ themeMode: nextMode });
-            }}
-          >
-            <Text style={[styles.themeBtnText, { color: theme.primaryDeep }]}>{theme.mode === 'light' ? '◐' : '◑'}</Text>
-          </TouchableOpacity>
         </View>
 
         <Text style={styles.label}>后端域名 / IP</Text>
@@ -85,7 +74,7 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
           onChangeText={(text) => dispatch(setEndpointDraft(text))}
           autoCapitalize="none"
           autoCorrect={false}
-          placeholder="agw.linlay.cc 或 192.168.1.8:8080"
+          placeholder={`${DEFAULT_REMOTE_ENDPOINT_INPUT} 或 192.168.1.8:8080`}
           placeholderTextColor={theme.textMute}
           style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
           nativeID="endpoint-input"
@@ -96,13 +85,27 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
         <TouchableOpacity
           activeOpacity={0.74}
           style={[styles.quickBtn, { backgroundColor: theme.surface }]}
+          testID="use-cloud-endpoint-btn"
+          onPress={() => {
+            dispatch(setEndpointDraft(DEFAULT_REMOTE_ENDPOINT_INPUT));
+            dispatch(setPtyUrlDraft(toDefaultPtyWebUrl(DEFAULT_REMOTE_ENDPOINT_INPUT)));
+          }}
+        >
+          <Text style={[styles.quickBtnText, { color: theme.textSoft }]}>
+            切换到线上环境（{DEFAULT_REMOTE_ENDPOINT_INPUT}）
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          activeOpacity={0.74}
+          style={[styles.quickBtn, { backgroundColor: theme.surface }]}
           testID="use-local-debug-btn"
           onPress={() => {
-            dispatch(setEndpointDraft('http://localhost:11946'));
+            dispatch(setEndpointDraft('http://localhost:8080'));
             dispatch(setPtyUrlDraft('http://localhost:11949'));
           }}
         >
-          <Text style={[styles.quickBtnText, { color: theme.textSoft }]}>切换到本地调试（localhost:11946）</Text>
+          <Text style={[styles.quickBtnText, { color: theme.textSoft }]}>切换到本地调试（localhost:8080）</Text>
         </TouchableOpacity>
 
         <Text style={[styles.label, styles.labelOffset]}>PTY 前端地址</Text>
@@ -111,7 +114,7 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
           onChangeText={(text) => dispatch(setPtyUrlDraft(text))}
           autoCapitalize="none"
           autoCorrect={false}
-          placeholder="https://agw.linlay.cc:11949"
+          placeholder={`https://${DEFAULT_REMOTE_ENDPOINT_INPUT}:11949`}
           placeholderTextColor={theme.textMute}
           style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
           nativeID="pty-url-input"
@@ -158,22 +161,11 @@ const styles = StyleSheet.create({
   settingRowHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     marginBottom: 6
   },
   title: {
     fontSize: 16,
-    fontWeight: '700'
-  },
-  themeBtn: {
-    borderRadius: 10,
-    width: 38,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  themeBtnText: {
-    fontSize: 18,
     fontWeight: '700'
   },
   label: {
@@ -188,9 +180,12 @@ const styles = StyleSheet.create({
   },
   input: {
     borderRadius: 10,
+    height: 40,
     paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 13
+    paddingVertical: 0,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlignVertical: 'center'
   },
   hint: {
     marginTop: 6,

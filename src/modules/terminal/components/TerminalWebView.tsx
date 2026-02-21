@@ -1,11 +1,35 @@
+import { useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
+import {
+  buildWebViewPostMessageScript,
+  createWebViewAuthRefreshResultMessage,
+  createWebViewAuthTokenMessage,
+  parseWebViewAuthRefreshRequest,
+  WebViewAuthRefreshOutcome
+} from '../../../core/auth/webViewAuthBridge';
+
+const TERMINAL_WEBVIEW_BRIDGE_SCRIPT = `
+(function() {
+  var origPostMessage = window.postMessage;
+  window.postMessage = function(data, targetOrigin) {
+    if (data && typeof data === 'object' && data.type === 'auth_refresh_request') {
+      window.ReactNativeWebView.postMessage(JSON.stringify(data));
+    }
+    origPostMessage.call(window, data, targetOrigin);
+  };
+  true;
+})();
+`;
 
 interface TerminalWebViewProps {
   uri: string;
   reloadKey: number;
   loading: boolean;
   error: string;
+  authAccessToken?: string;
+  authAccessExpireAtMs?: number;
+  authTokenSignal?: number;
   theme: {
     textSoft: string;
     danger: string;
@@ -16,6 +40,7 @@ interface TerminalWebViewProps {
   onLoadStart: () => void;
   onLoadEnd: () => void;
   onError: (message: string) => void;
+  onAuthRefreshRequest?: (requestId: string, source: string) => Promise<WebViewAuthRefreshOutcome>;
 }
 
 export function TerminalWebView({
@@ -23,14 +48,43 @@ export function TerminalWebView({
   reloadKey,
   loading,
   error,
+  authAccessToken = '',
+  authAccessExpireAtMs,
+  authTokenSignal = 0,
   theme,
   onLoadStart,
   onLoadEnd,
-  onError
+  onError,
+  onAuthRefreshRequest
 }: TerminalWebViewProps) {
+  const webViewRef = useRef<WebView>(null);
+
+  const postToTerminalWebView = useCallback((payload: Record<string, unknown>) => {
+    if (!webViewRef.current) {
+      return;
+    }
+    webViewRef.current.injectJavaScript(buildWebViewPostMessageScript(payload));
+  }, []);
+
+  const pushLatestToken = useCallback(() => {
+    const message = createWebViewAuthTokenMessage(authAccessToken, authAccessExpireAtMs);
+    if (!message) {
+      return;
+    }
+    postToTerminalWebView(message as unknown as Record<string, unknown>);
+  }, [authAccessExpireAtMs, authAccessToken, postToTerminalWebView]);
+
+  useEffect(() => {
+    if (!authTokenSignal) {
+      return;
+    }
+    pushLatestToken();
+  }, [authTokenSignal, pushLatestToken]);
+
   return (
     <View style={[styles.wrap, { backgroundColor: theme.surfaceStrong }]}> 
       <WebView
+        ref={webViewRef}
         key={`${uri}:${reloadKey}`}
         originWhitelist={['*']}
         source={{ uri }}
@@ -40,11 +94,40 @@ export function TerminalWebView({
         sharedCookiesEnabled
         thirdPartyCookiesEnabled
         mixedContentMode="always"
+        injectedJavaScript={TERMINAL_WEBVIEW_BRIDGE_SCRIPT}
         onLoadStart={onLoadStart}
-        onLoadEnd={onLoadEnd}
+        onLoadEnd={() => {
+          onLoadEnd();
+          pushLatestToken();
+        }}
         onError={(event) => {
           const message = String(event?.nativeEvent?.description || '加载失败');
           onError(message);
+        }}
+        onMessage={(event) => {
+          const request = parseWebViewAuthRefreshRequest(event?.nativeEvent?.data);
+          if (!request) {
+            return;
+          }
+          const fallback = Promise.resolve<WebViewAuthRefreshOutcome>({
+            ok: false,
+            error: 'Auth refresh handler unavailable'
+          });
+          const refreshTask = onAuthRefreshRequest
+            ? onAuthRefreshRequest(request.requestId, request.source)
+            : fallback;
+          refreshTask
+            .then((outcome) => {
+              const result = createWebViewAuthRefreshResultMessage(request.requestId, outcome);
+              postToTerminalWebView(result as unknown as Record<string, unknown>);
+            })
+            .catch((error) => {
+              const result = createWebViewAuthRefreshResultMessage(request.requestId, {
+                ok: false,
+                error: String((error as Error)?.message || 'refresh failed')
+              });
+              postToTerminalWebView(result as unknown as Record<string, unknown>);
+            });
         }}
       />
 
@@ -68,7 +151,6 @@ export function TerminalWebView({
 const styles = StyleSheet.create({
   wrap: {
     flex: 1,
-    borderRadius: 14,
     overflow: 'hidden'
   },
   webView: {

@@ -1,5 +1,6 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { FrontendToolState } from '../types/chat';
 
@@ -8,7 +9,9 @@ export const WEBVIEW_BRIDGE_SCRIPT = `
   var origPostMessage = window.postMessage;
   window.postMessage = function(data, targetOrigin) {
     if (data && typeof data === 'object' &&
-        (data.type === 'agw_frontend_submit' || data.type === 'agw_chat_message')) {
+        (data.type === 'frontend_submit' ||
+         data.type === 'chat_message' ||
+         data.type === 'auth_refresh_request')) {
       window.ReactNativeWebView.postMessage(JSON.stringify(data));
     }
     origPostMessage.call(window, data, targetOrigin);
@@ -58,7 +61,40 @@ export function Composer({
   onFrontendToolLoad
 }: ComposerProps) {
   const minRows = 1;
-  const minHeight = minRows * 20 + 20;
+  const maxRows = 6;
+  const lineHeight = 20;
+  const baseInputHeight = 22;
+  const rowSwitchThreshold = lineHeight * 0.35;
+  const minHeight = baseInputHeight;
+  const maxHeight = baseInputHeight + (maxRows - 1) * lineHeight;
+  const [visibleRows, setVisibleRows] = useState(minRows);
+  const charCount = useMemo(() => Array.from(composerText || '').length, [composerText]);
+  const inputHeight = minHeight + (visibleRows - minRows) * lineHeight;
+  const showCharCount = !streaming && charCount > 0 && visibleRows > 1;
+  const isEmpty = charCount === 0;
+  const placeholderText = streaming ? '正在流式输出中，可点击停止' : '输入提问内容';
+  const showPlaceholder = isEmpty;
+
+  useEffect(() => {
+    if (isEmpty) {
+      setVisibleRows(minRows);
+    }
+  }, [isEmpty, minRows]);
+
+  const handleContentSizeChange = useCallback(
+    (event: { nativeEvent: { contentSize: { height: number } } }) => {
+      if (isEmpty) {
+        setVisibleRows((prev) => (prev === minRows ? prev : minRows));
+        return;
+      }
+      const contentHeight = Math.max(minHeight, Math.min(maxHeight, Math.ceil(event.nativeEvent.contentSize.height)));
+      const heightDelta = Math.max(0, contentHeight - minHeight);
+      const estimatedRows = minRows + Math.floor((heightDelta + rowSwitchThreshold) / lineHeight);
+      const nextRows = Math.max(minRows, Math.min(maxRows, estimatedRows));
+      setVisibleRows((prev) => (prev === nextRows ? prev : nextRows));
+    },
+    [isEmpty, lineHeight, maxHeight, maxRows, minHeight, minRows, rowSwitchThreshold]
+  );
 
   return (
     <View style={styles.card} nativeID="chat-composer" testID="chat-composer">
@@ -99,26 +135,50 @@ export function Composer({
         </View>
       ) : (
         <View
-          style={[styles.inputShell, { backgroundColor: theme.surface, borderColor: theme.border }]}
+          style={[
+            styles.inputShell,
+            visibleRows === 1 ? styles.inputShellCompact : styles.inputShellExpanded,
+            { backgroundColor: theme.surface, borderColor: theme.border }
+          ]}
           nativeID="chat-input-shell"
           testID="chat-input-shell"
         >
-          <TextInput
-            value={composerText}
-            onChangeText={onChangeText}
-            onFocus={onFocus}
-            onBlur={onBlur}
-            placeholder={streaming ? '正在流式输出中，可点击停止' : '输入消息...'}
-            placeholderTextColor={theme.textMute}
-            editable={!streaming}
-            multiline
-            numberOfLines={minRows}
-            scrollEnabled
-            textAlignVertical="center"
-            style={[styles.input, { color: theme.text, minHeight }]}
-            nativeID="chat-input"
-            testID="chat-input"
-          />
+          <View style={[styles.inputBox, { minHeight, maxHeight, height: inputHeight }]}>
+            {showPlaceholder ? (
+              <View
+                pointerEvents="none"
+                style={[
+                  styles.placeholderWrap,
+                  visibleRows > 1 ? styles.placeholderWrapMulti : styles.placeholderWrapSingle
+                ]}
+              >
+                <Text style={[styles.placeholderText, { color: theme.textMute }]} numberOfLines={1}>
+                  {placeholderText}
+                </Text>
+              </View>
+            ) : null}
+
+            <TextInput
+              value={composerText}
+              onChangeText={onChangeText}
+              onFocus={onFocus}
+              onBlur={onBlur}
+              placeholder=""
+              editable={!streaming}
+              multiline
+              numberOfLines={minRows}
+              scrollEnabled
+              onContentSizeChange={handleContentSizeChange}
+              textAlignVertical={visibleRows > 1 ? 'top' : 'center'}
+              style={[
+                styles.input,
+                visibleRows > 1 ? styles.inputMultiRow : styles.inputSingleRow,
+                { color: theme.text, minHeight, maxHeight, height: inputHeight }
+              ]}
+              nativeID="chat-input"
+              testID="chat-input"
+            />
+          </View>
 
           <View style={styles.actionWrap}>
             {streaming ? (
@@ -142,6 +202,11 @@ export function Composer({
                 </LinearGradient>
               </TouchableOpacity>
             )}
+            {showCharCount ? (
+              <Text style={[styles.charCount, { color: theme.textMute }]} testID="chat-input-char-count">
+                {`${charCount}字`}
+              </Text>
+            ) : null}
           </View>
         </View>
       )}
@@ -160,45 +225,85 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingLeft: 14,
-    paddingRight: 8,
+    paddingRight: 8
+  },
+  inputShellCompact: {
+    paddingTop: 7,
+    paddingBottom: 7
+  },
+  inputShellExpanded: {
     paddingTop: 8,
     paddingBottom: 8
+  },
+  inputBox: {
+    flex: 1,
+    position: 'relative'
+  },
+  placeholderWrap: {
+    ...StyleSheet.absoluteFillObject,
+    paddingRight: 10
+  },
+  placeholderWrapSingle: {
+    justifyContent: 'center'
+  },
+  placeholderWrapMulti: {
+    justifyContent: 'flex-start'
+  },
+  placeholderText: {
+    fontSize: 15,
+    lineHeight: 20
   },
   input: {
     flex: 1,
     maxHeight: 140,
-    paddingTop: 0,
-    paddingBottom: 0,
     paddingRight: 10,
     fontSize: 15,
     lineHeight: 20
   },
+  inputSingleRow: {
+    paddingTop: Platform.OS === 'ios' ? 1 : 0,
+    paddingBottom: Platform.OS === 'ios' ? 1 : 0
+  },
+  inputMultiRow: {
+    paddingTop: 0,
+    paddingBottom: 0
+  },
   actionWrap: {
     marginLeft: 6,
-    marginBottom: 0
+    marginBottom: 0,
+    alignItems: 'center'
   },
   actionBtn: {
-    borderRadius: 19,
-    overflow: 'hidden'
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   sendGradient: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: '100%',
+    height: '100%',
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center'
   },
   sendText: {
     color: '#fff',
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '700'
   },
   stopSquare: {
-    width: 13,
-    height: 13,
+    width: 10,
+    height: 10,
     backgroundColor: '#fff',
-    borderRadius: 2,
-    margin: 12.5
+    borderRadius: 2
+  },
+  charCount: {
+    marginTop: 4,
+    fontSize: 10,
+    lineHeight: 12,
+    fontWeight: '600'
   },
   frontendToolContainer: {
     minHeight: 130,

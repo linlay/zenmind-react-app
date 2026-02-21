@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "agw-react-app",
-    "slug": "agw-react-app",
+    "name": "agent-terminal-app",
+    "slug": "agent-terminal-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -22,7 +22,7 @@
       },
       "usesCleartextTraffic": true,
       "edgeToEdgeEnabled": true,
-      "package": "com.zqfrank.agwreactapp",
+      "package": "com.zqfrank.agentterminalapp",
       "softwareKeyboardLayoutMode": "adjustResize"
     },
     "web": {
