@@ -1,6 +1,30 @@
 import { ChatEvent } from '../types/chat';
 
-export function parseSseBlock(block: string, onJsonEvent: (event: ChatEvent) => void): void {
+export interface SseMalformedFrameObserver {
+  onMalformedFrame?: (rawFrame: string, reason: string) => void;
+}
+
+function notifyMalformed(
+  observer: SseMalformedFrameObserver | undefined,
+  rawFrame: string,
+  reason: string
+): void {
+  if (!observer?.onMalformedFrame) return;
+  observer.onMalformedFrame(rawFrame, reason);
+}
+
+export function splitSseFrames(raw: string): { frames: string[]; incomplete: string } {
+  const parts = String(raw || '').split(/\r?\n\r?\n/);
+  const incomplete = parts.pop() || '';
+  const frames = parts.filter((chunk) => Boolean(String(chunk || '').trim()));
+  return { frames, incomplete };
+}
+
+export function parseSseBlock(
+  block: string,
+  onJsonEvent: (event: ChatEvent) => void,
+  observer?: SseMalformedFrameObserver
+): void {
   const lines = block.split(/\r?\n/);
   const dataLines: string[] = [];
 
@@ -11,6 +35,7 @@ export function parseSseBlock(block: string, onJsonEvent: (event: ChatEvent) => 
   }
 
   if (!dataLines.length) {
+    notifyMalformed(observer, block, 'missing_data_line');
     return;
   }
 
@@ -23,9 +48,11 @@ export function parseSseBlock(block: string, onJsonEvent: (event: ChatEvent) => 
     const parsed = JSON.parse(payload) as ChatEvent;
     if (parsed && typeof parsed === 'object') {
       onJsonEvent(parsed);
+    } else {
+      notifyMalformed(observer, block, 'json_payload_not_object');
     }
   } catch {
-    // Ignore malformed frame
+    notifyMalformed(observer, block, 'json_parse_error');
   }
 }
 
@@ -33,7 +60,8 @@ export function consumeJsonSseXhr(
   url: string,
   fetchOptions: RequestInit,
   onJsonEvent: (event: ChatEvent) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  options?: SseMalformedFrameObserver
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) {
@@ -69,12 +97,9 @@ export function consumeJsonSseXhr(
         const full = xhr.responseText;
         const fresh = full.substring(lastIndex);
         if (fresh) {
-          const parts = fresh.split(/\r?\n\r?\n/);
-          const incomplete = parts.pop() || '';
-          for (const chunk of parts) {
-            if (chunk.trim()) {
-              parseSseBlock(chunk, onJsonEvent);
-            }
+          const { frames, incomplete } = splitSseFrames(fresh);
+          for (const chunk of frames) {
+            parseSseBlock(chunk, onJsonEvent, options);
           }
           lastIndex = full.length - incomplete.length;
         }
@@ -83,7 +108,7 @@ export function consumeJsonSseXhr(
       if (xhr.readyState === 4) {
         const remain = xhr.responseText.substring(lastIndex).trim();
         if (remain) {
-          parseSseBlock(remain, onJsonEvent);
+          parseSseBlock(remain, onJsonEvent, options);
         }
 
         cleanup();

@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { parseErrorMessage } from '../network/errorUtils';
 
 const DEVICE_TOKEN_KEY = 'app_device_token_v2';
 const LEGACY_DEVICE_TOKEN_KEY = 'app_device_token_v1';
@@ -66,22 +67,6 @@ function parseExpireAt(raw: unknown): number {
   return Date.now() + 60_000;
 }
 
-function readErrorMessage(status: number, payload: unknown): string {
-  if (payload && typeof payload === 'object') {
-    const value = payload as Record<string, unknown>;
-    if (typeof value.error === 'string' && value.error.trim()) {
-      return value.error;
-    }
-    if (typeof value.msg === 'string' && value.msg.trim()) {
-      return value.msg;
-    }
-    if (typeof value.message === 'string' && value.message.trim()) {
-      return value.message;
-    }
-  }
-  return `HTTP ${status}`;
-}
-
 async function requestJson<T>(
   baseUrl: string,
   path: string,
@@ -92,7 +77,7 @@ async function requestJson<T>(
   const body = bodyText ? JSON.parse(bodyText) : null;
 
   if (!response.ok) {
-    throw new Error(readErrorMessage(response.status, body));
+    throw new Error(parseErrorMessage(response.status, body));
   }
 
   return body as T;

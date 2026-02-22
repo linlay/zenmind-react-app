@@ -1,33 +1,12 @@
 import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
 import { getAccessToken } from '../../../core/auth/appAuth';
+import { parseErrorMessage } from '../../../core/network/errorUtils';
 import { CreateTerminalSessionResponse, TerminalSessionItem } from '../types/terminal';
 import { resolveTerminalSessionsBaseUrl } from '../utils/sessionUrl';
 
 interface TerminalApiArg {
   backendUrl: string;
   ptyWebUrl: string;
-}
-
-interface TerminalApiErrorPayload {
-  error?: string;
-  msg?: string;
-  message?: string;
-}
-
-function parseErrorMessage(status: number, payload: unknown): string {
-  if (payload && typeof payload === 'object') {
-    const obj = payload as TerminalApiErrorPayload;
-    if (typeof obj.error === 'string' && obj.error.trim()) {
-      return obj.error;
-    }
-    if (typeof obj.msg === 'string' && obj.msg.trim()) {
-      return obj.msg;
-    }
-    if (typeof obj.message === 'string' && obj.message.trim()) {
-      return obj.message;
-    }
-  }
-  return `HTTP ${status}`;
 }
 
 async function fetchTerminalAuthedJson<T>(backendUrl: string, absoluteUrl: string, options: RequestInit = {}): Promise<T> {

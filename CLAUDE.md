@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Claude Code 开发指南。修改代码前必须阅读此文件。
 
 ## 常用命令
 
@@ -18,135 +18,121 @@ npm run build        # Expo 导出构建
 
 ## 架构概览
 
-React Native (Expo) + TypeScript 移动应用，采用 **四业务域单壳架构**。
+React Native (Expo SDK 54) + TypeScript 5.9 移动应用，采用 **四业务域单壳架构**。
 
-### 应用壳层
+### 应用启动链
 
-`ShellScreen` 是主容器，管理动画抽屉导航和域切换。不使用 React Navigation，而是通过 `activeDomain` 状态条件渲染四个域屏幕：
+```
+index.js → registerRootComponent(App)
+  → App.tsx: SafeAreaProvider > AppProviders > AppRoot
+    → AppProviders.tsx: Redux Provider(store)
+      → AppRoot.tsx: <ShellScreen />
+```
 
-- **chat** — 聊天助理（主域，最复杂）
-- **terminal** — PTY 终端（WebView 包装）
-- **agents** — 智能体管理
-- **user** — 用户设置
+### 应用壳层 (ShellScreen)
 
-域切换由 `DomainSwitcher` 组件触发，状态持久化到 AsyncStorage。
+`src/app/shell/ShellScreen.tsx` 是唯一主容器（~2100 行），职责：
+
+1. **鉴权流**: 启动时 `restoreSession()` 恢复会话 → 未登录显示登录表单 → 登录后进入主界面
+2. **域切换**: 通过 `activeDomain` 状态条件渲染四个域屏幕（不使用 React Navigation）
+3. **抽屉导航**: 左侧动画抽屉，展示当前域对应的列表（聊天列表 / 终端会话 / 智能体列表）
+4. **WebSocket 推送**: 连接 `/api/app/ws`，处理 `inbox.new` / `chat.new_content` 等实时事件
+5. **鉴权广播**: 管理 `authTokenSignal`，通过 `WebViewAuthRefreshCoordinator` 统一协调 WebView 鉴权刷新
+6. **前台保活**: App 回到 `active` 时预刷新 token (debounce 20s) + 每 60s 定时刷新
+7. **消息盒子**: 收件箱 UI + 未读数 badge
+8. **发布中心**: 智能体发布面板（agents 域）
+
+四个域屏幕：
+
+| 域 | 组件 | 文件 |
+|----|------|------|
+| `chat` | `ChatAssistantScreen` | `src/modules/chat/screens/ChatAssistantScreen.tsx` |
+| `terminal` | `TerminalScreen` | `src/modules/terminal/screens/TerminalScreen.tsx` |
+| `agents` | `AgentsScreen` | `src/modules/agents/screens/AgentsScreen.tsx` |
+| `user` | `UserSettingsScreen` | `src/modules/user/screens/UserSettingsScreen.tsx` |
 
 ### 状态管理
 
-Redux Toolkit，5 个 slice（shell、user、agents、chat、terminal）+ 2 个 RTK Query API（chatApi、agentsApi）。
+Redux Toolkit，5 个 slice + 3 个 RTK Query API。
 
-- RTK Query 使用 `fakeBaseQuery` + 自定义 `queryFn` 模式
-- 聊天时间线数据存储在组件本地 state（非 Redux），通过事件 reducer 构建
-- Typed hooks：`useAppDispatch`、`useAppSelector`（位于 `src/app/store/hooks.ts`）
+**Redux Slices:**
 
-### 聊天域事件流水线
+| Slice | 文件 | State 关键字段 |
+|-------|------|----------------|
+| `shell` | `src/app/shell/shellSlice.ts` | `drawerOpen` |
+| `user` | `src/modules/user/state/userSlice.ts` | `themeMode`, `endpointInput`, `ptyUrlInput`, `selectedAgentKey`, `activeDomain`, `booting` |
+| `agents` | `src/modules/agents/state/agentsSlice.ts` | `agents[]`, `selectedAgentKey`, `loading`, `error` |
+| `chat` | `src/modules/chat/state/chatSlice.ts` | `chats[]`, `chatId`, `chatKeyword`, `statusText`, `loadingChats` |
+| `terminal` | `src/modules/terminal/state/terminalSlice.ts` | `ptyReloadKey`, `ptyLoading`, `activeSessionId`, `openNewSessionNonce` |
 
-聊天是最复杂的模块，采用 SSE 流式架构：
+**RTK Query APIs:**
 
-```
-POST /api/query (SSE) → XMLHttpRequest 流式读取
-  → chatStreamClient.ts (SSE 解析)
-  → eventNormalizer.ts (事件类型归一化 + 任务解析)
-  → eventReducer.ts (统一 reducer 构建时间线)
-  → FlatList 渲染
-```
+| API | 文件 | Endpoints |
+|-----|------|-----------|
+| `chatApi` | `src/modules/chat/api/chatApi.ts` | `getChats`, `getChat`, `getViewportHtml`, `submitFrontendTool` |
+| `agentsApi` | `src/modules/agents/api/agentsApi.ts` | `getAgents` |
+| `terminalApi` | `src/modules/terminal/api/terminalApi.ts` | `listTerminalSessions`, `createTerminalSession` |
 
-支持 Frontend Tool 集成：后端返回 HTML，通过 WebView 嵌入聊天中，双向消息通信。
+所有 RTK Query API 使用 `fakeBaseQuery()` + 自定义 `queryFn` 模式（因为需要走 `authorizedFetch` / `getAccessToken` 等自定义鉴权逻辑）。
 
-### 网络层
+**Typed Hooks:** `useAppDispatch` / `useAppSelector`（`src/app/store/hooks.ts`）
 
-- `core/network/apiClient.ts` — fetch 封装，统一信封解析 `ApiEnvelope<T> { code, msg, data }`
-- `core/network/endpoint.ts` — URL 规范化（检测内网 IP 用 http，公网用 https）
-- SSE 流通过 XMLHttpRequest 实现（`chatStreamClient.ts`）
+**重要**: 聊天时间线数据（`timeline[]`、`planState`、`activeFrontendTool` 等）存储在 `ChatAssistantScreen` 组件本地 state，不在 Redux 中。通过 `eventReducer.ts` 的纯函数构建。
 
-### WebView 鉴权桥接协议
+### 核心基础设施 (src/core/)
 
-当前采用“**App 主动预刷新 + WebView 401 兜底刷新**”组合策略，避免 App 切前台后 WebView 因旧 token 立即 401。
+#### 鉴权 (`core/auth/appAuth.ts`)
 
-#### 消息协议
+- `loginWithMasterPassword(baseUrl, password, deviceName)` — 登录
+- `restoreSession(baseUrl)` — 从 `deviceToken` 恢复会话
+- `getAccessToken(baseUrl, forceRefresh?)` — 获取有效 token（自动刷新）
+- `ensureFreshAccessToken(baseUrl, options?)` — 预刷新（阈值 90s + 抖动 8s）
+- `authorizedFetch(baseUrl, path, options?)` — 带鉴权的 fetch（401 自动重试一次）
+- `subscribeAuthSession(listener)` — 监听 session 变化
+- `logoutCurrentDevice(baseUrl)` — 登出
 
-| 消息类型 | 方向 | 字段 | 用途 |
-|----------|------|------|------|
-| `auth_token` | RN -> WebView | `accessToken`, `accessExpireAtMs?` | 主动下发最新 access token |
-| `auth_refresh_request` | WebView -> RN | `requestId`, `source` | WebView 侧 API 401 时请求 RN 刷新 |
-| `auth_refresh_result` | RN -> WebView | `requestId`, `ok`, `accessToken?`, `error?` | 返回本次刷新结果，供 WebView 决定重放或进入未登录态 |
+Session 状态: `{ username, deviceId, deviceName, accessToken, accessExpireAtMs, deviceToken }`
 
-#### 关键流程
+单飞机制: `refreshingPromise` 确保并发刷新请求只执行一次网络调用。
 
-1. WebView 在 H5 内部捕获 401，立即 `postMessage({ type: 'auth_refresh_request', ... })`。
-2. RN `onMessage` 解析后，调用 `onWebViewAuthRefreshRequest` 触发刷新。
-3. `ShellScreen` 通过 `WebViewAuthRefreshCoordinator` 做单飞（并发请求仅一次 refresh）。
-4. 刷新成功回 `auth_refresh_result(ok=true, accessToken)`；失败回 `ok=false`。
-5. WebView 在 `auth_refresh_result` 成功前应排队待重放请求，失败时清理鉴权状态并引导重登。
+#### 网络 (`core/network/`)
 
-#### App 主动广播机制
+**apiClient.ts:**
+- `fetchApiJson<T>(baseUrl, path, options?)` — 带鉴权 fetch + `ApiEnvelope<T>` 解析（code=0 成功）
+- `fetchAuthedJson<T>(baseUrl, path, options?)` — 带鉴权 fetch，直接返回 JSON payload
+- `fetchViewportHtml(baseUrl, viewportKey)` — 获取 Frontend Tool HTML（多种响应格式兼容）
+- `submitFrontendToolApi(baseUrl, payload)` — 提交 Frontend Tool 结果
+- `parseApiEnvelope<T>(response, bodyText)` — 解析 `{ code, msg, data }` 信封
 
-- 前台保活刷新：
-  - App 回到 `active` 时触发一次预刷新（带 debounce）。
-  - 前台期间每 60s 定时触发预刷新。
-- 预刷新入口 `ensureFreshAccessToken()` 使用最小有效期阈值 + 抖动（默认 90s + 8s）决定是否 refresh。
-- 只要 session 更新，`syncAuthStateFromSession()` 会更新 `authAccessToken/authAccessExpireAtMs` 并递增 `authTokenSignal`。
-- `authTokenSignal` 变化后，已挂载 WebView（Chat Frontend Tool、Terminal）通过 `injectJavaScript(window.postMessage(...))` 广播 `auth_token`。
+**endpoint.ts:**
+- `toBackendBaseUrl(endpointInput)` — 规范化后端 URL（内网 IP → `http://`，公网 → `https://`）
+- `looksLikeLocalAddress(host)` — 检测内网地址
+- `toDefaultPtyWebUrl(endpointInput)` — 生成默认 PTY 地址（内网端口 11931，公网 443）
 
-#### 代码锚点
+#### 持久化 (`core/storage/settingsStorage.ts`)
 
-- 协议定义与构造：`src/core/auth/webViewAuthBridge.ts`
-- 刷新与会话订阅：`src/core/auth/appAuth.ts`
-- 统一协调与定时预刷新：`src/app/shell/ShellScreen.tsx`
-- Terminal WebView 桥接：`src/modules/terminal/components/TerminalWebView.tsx`
-- Chat Frontend Tool WebView 桥接：`src/modules/chat/components/Composer.tsx`、`src/modules/chat/screens/ChatAssistantScreen.tsx`
+- Storage key: `mobile_app_settings_v3`
+- 启动时清理旧 key（`v1`, `v2`, 旧 device token）
+- `loadSettings()` / `saveSettings()` / `patchSettings(partial)`
+- `AppSettings`: `{ themeMode, endpointInput, ptyUrlInput, selectedAgentKey, activeDomain }`
 
-#### 开发接入指南（必须遵循）
+#### 类型 (`core/types/common.ts`)
 
-1. **先统一桥接消息类型**
-   - 所有鉴权桥接消息仅允许三种：`auth_token`、`auth_refresh_request`、`auth_refresh_result`。
-   - 消息结构必须复用 `src/core/auth/webViewAuthBridge.ts` 的构造/解析函数，不要在业务代码手写字段。
+关键公共类型:
+- `ThemeMode` = `'light' | 'dark'`
+- `DomainMode` = `'chat' | 'terminal' | 'agents' | 'user'`
+- `Agent` = `{ key?, id?, name?, ... }`
+- `ChatSummary` = `{ chatId?, chatName?, title?, firstAgentKey?, firstAgentName?, updatedAt?, ... }`
+- `AppSettings` = `{ themeMode, endpointInput, ptyUrlInput, selectedAgentKey, activeDomain }`
+- `ApiEnvelope<T>` = `{ code: number, msg?: string, data: T }`
+- `FrontendSubmitMessage` / `ToolInitMessage` — WebView 消息类型
 
-2. **明确传输通道（不是 HTTP 协议替代，而是 WebView 消息桥）**
-   - WebView -> RN：H5 调 `window.postMessage(payload, '*')`，由 `injectedJavaScript` 劫持后转发到 `window.ReactNativeWebView.postMessage(JSON.stringify(payload))`。
-   - RN -> WebView：RN 通过 `injectJavaScript(buildWebViewPostMessageScript(payload))` 注入 `window.postMessage(payload, '*')` 到 H5 页面。
-   - 结论：这是基于 `react-native-webview` 的双向消息桥协议，token 刷新本身仍由 RN 调后端 `/api/auth/refresh` 完成。
+### 主题系统 (`core/constants/theme.ts`)
 
-3. **RN 侧接入步骤（Terminal / Frontend Tool 都一致）**
-   - WebView 注入桥脚本，只透传白名单消息类型（至少含 `auth_refresh_request`）。
-   - `onMessage` 里用 `parseWebViewAuthRefreshRequest()` 解析请求，忽略无法解析的数据。
-   - 收到请求后调用 `onWebViewAuthRefreshRequest(requestId, source)`，该回调最终走 `WebViewAuthRefreshCoordinator.refresh()` 做单飞刷新。
-   - 刷新结果用 `createWebViewAuthRefreshResultMessage()` 回写 WebView。
-   - WebView `onLoad` 时主动下发一次 `auth_token`；后续每次 `authTokenSignal` 变化再次下发。
-
-4. **H5 侧接入步骤（前端工具页面 / PTY 页面）**
-   - 维护内存态 `accessToken/accessExpireAtMs`，监听 `window.message` 接收 `auth_token` 并更新。
-   - 所有 API 请求统一走带鉴权封装：先带当前 token 请求，遇到 401 触发 `auth_refresh_request`。
-   - 发起 refresh 请求时生成 `requestId`，并将本次失败请求加入待重放队列。
-   - 收到 `auth_refresh_result(ok=true)`：更新 token 并重放队列；`ok=false`：清空队列并进入未登录态。
-   - 并发 401 时要在 H5 侧做“等待同一次刷新结果”的去重，避免页面同时发多个 refresh 请求。
-
-5. **时序约束（避免常见线上问题）**
-   - App 回前台与前台定时器会触发 `ensureFreshAccessToken()` 预刷新；即使如此，WebView 仍必须保留 401 兜底刷新逻辑。
-   - `auth_refresh_result` 必须按 `requestId` 对应到原请求；不要用“最后一次结果”覆盖所有等待项。
-   - 不要把 token 落日志、落 localStorage、或通过 URL query 传给 H5。
-   - 刷新失败（hard failure）后由 RN 统一清会话并引导重登，WebView 只负责进入未登录 UI。
-
-6. **最小验收清单**
-   - WebView 初次加载后 1 次 `auth_token` 下发成功。
-   - 人工构造 access token 过期后，WebView 首次 401 能触发 `auth_refresh_request` 并成功重放。
-   - 并发 3 个 401 请求只触发 1 次 RN refresh（其余复用结果）。
-   - refresh 失败时，RN/H5 双方都进入未登录态且不死循环重试。
-
-### 后端 API 协议
-
-| 方法 | 端点 | 用途 |
-|------|------|------|
-| GET | `/api/agents` | 智能体列表 |
-| GET | `/api/chats` | 聊天摘要列表 |
-| GET | `/api/chat?chatId=...` | 聊天历史事件 |
-| GET | `/api/viewport?viewportKey=...` | Frontend Tool HTML |
-| POST | `/api/query` | 流式聊天查询（SSE） |
-| POST | `/api/submit` | 提交 Frontend Tool 结果 |
-
-### 持久化
-
-AsyncStorage 存储应用设置，key 为 `mobile_app_settings_v2`。应用启动时自动从 v1 迁移。
+- `THEMES.light` / `THEMES.dark` 定义完整调色板
+- `AppTheme` 类型导出
+- 主题通过 props 向下传递（不使用 React Context）
+- 字体: iOS `Avenir Next` / Android `sans-serif`，等宽 `Menlo` / `monospace`
 
 ## 模块结构约定
 
@@ -155,187 +141,315 @@ AsyncStorage 存储应用设置，key 为 `mobile_app_settings_v2`。应用启�
 ```
 modules/[domain]/
 ├── api/          # RTK Query 端点
-├── services/     # 业务逻辑
+├── services/     # 业务逻辑（SSE 客户端、事件处理等）
 ├── state/        # Redux slice + selectors
 ├── screens/      # 顶层屏幕组件
 ├── components/   # 子组件
 ├── types/        # TypeScript 接口
 ├── utils/        # 工具函数
+├── webview/      # WebView 注入 HTML（仅 agents 模块）
 └── __tests__/    # Jest 测试
 ```
 
-## 样式约定
+## 聊天域详细架构
 
-- `StyleSheet.create()` 定义样式
-- 主题通过 props 传递（`core/constants/theme.ts` 定义 light/dark 调色板）
-- 无 CSS-in-JS 库，纯 React Native 样式
-- 响应式布局使用 `useWindowDimensions()` hook
-- 平台差异处理：iOS 使用 KeyboardAvoidingView padding，Android 不需要
+聊天是最复杂的模块，以下是完整的技术实现。
 
-## 计划栏 (Plan Bar) 事件架构
+### 聊天时间线类型 (`modules/chat/types/chat.ts`)
 
-### 双层更新模型
+```typescript
+type TimelineEntry = MessageEntry | ToolEntry | ActionEntry | ReasoningEntry;
 
-计划栏采用内容层 + 状态层的双层更新模型：
+interface MessageEntry  { kind: 'message';   role: 'user'|'assistant'|'system'; text: string; isStreamingContent?: boolean; }
+interface ToolEntry      { kind: 'tool';      label: string; argsText: string; resultText: string; state: 'init'|'running'|'done'|'failed'; }
+interface ActionEntry    { kind: 'action';    actionName: string; argsText: string; resultText: string; state: 'init'|'running'|'done'|'failed'; }
+interface ReasoningEntry { kind: 'reasoning'; text: string; collapsed: boolean; }
+```
+
+### SSE 流式客户端 (`modules/chat/services/chatStreamClient.ts`)
+
+- 使用 `XMLHttpRequest` 实现 SSE（非浏览器 EventSource，因为 RN 环境限制 + 需要 POST）
+- `POST /api/query` 发起，响应为 `text/event-stream`
+- 每个 SSE 块格式: `data: {JSON}\n\n`
+- 解析入口: `parseSseBlock()` → 逐块解析 → `applyEvent()` 分发
+
+### 事件归一化 (`modules/chat/services/eventNormalizer.ts`)
+
+将后端原始事件统一为标准格式，处理字段名差异和类型映射。
+
+### 事件 Reducer (`modules/chat/services/eventReducer.ts`)
+
+核心纯函数: `reduceChatEvent(prevState, event, source, runtime) → { nextState, effects }`
+
+**数据流:**
+
+```
+POST /api/query (SSE)
+  → XMLHttpRequest onprogress
+  → parseSseBlock()          # SSE 文本 → JSON
+  → applyEvent()             # 路由: 设置 chatId、调用 reduceChatEvent
+  → reduceChatEvent()        # 纯函数: 构建时间线
+  → handleEffects()          # 副作用: set_chat_id / execute_action / stream_end / activate_frontend_tool
+  → React setState()         # 触发 FlatList 重渲染
+```
+
+### Runtime Maps (`ChatRuntimeMaps`)
+
+单次会话加载期间维护，映射后端 ID → 时间线条目 ID：
+
+| Map | 用途 |
+|-----|------|
+| `contentIdMap` | `contentId` → `assistant:N` |
+| `toolIdMap` | `toolId` → `tool:N` |
+| `actionIdMap` | `actionId` → `action:N` |
+| `reasoningIdMap` | `reasoningId` → `reasoning:N` |
+| `actionStateMap` | `actionId` → 动作累积状态 `{ argsText, resultText, executed }` |
+| `toolStateMap` | `toolId` → 工具累积状态 `{ argsBuffer, toolName, toolParams, ... }` |
+
+### 副作用 (ChatEffect)
+
+| 类型 | 触发时机 | 行为 |
+|------|----------|------|
+| `set_chat_id` | 任何携带 `chatId` 的事件 | 更新组件 chatId 状态 |
+| `execute_action` | `action.end`（仅 live） | 执行动作业务逻辑 |
+| `stream_end` | `run.complete` / `run.cancel` / `run.error` | 标记流结束 |
+| `activate_frontend_tool` | `tool.start`/`tool.snapshot`（仅 live + Frontend Tool） | 激活 WebView |
+
+### Frontend Tool 集成
+
+- 后端通过工具调用返回 HTML 页面，嵌入聊天 WebView 中
+- `ViewportBlockView.tsx` 渲染视口块
+- `Composer.tsx` 管理输入框和 Frontend Tool WebView
+- `frontendToolBridge.ts` 解析 WebView 消息 (`frontend_submit` / `auth_refresh_request`)
+- 提交结果: `POST /api/submit { runId, toolId, params }`
+
+### 历史加载 vs 实时流
+
+| 维度 | 实时流 (`source='live'`) | 历史加载 (`source='history'`) |
+|------|--------------------------|-------------------------------|
+| 数据来源 | `POST /api/query` SSE | `GET /api/chat?chatId=` 事件数组 |
+| 内容事件 | `content.start` → N 个 `content.delta` → `content.end` | `content.snapshot` |
+| 工具参数 | `tool.start` → N 个 `tool.args` → `tool.end` | `tool.snapshot` |
+| `isStreamingContent` | `true`（控制光标动画） | `false` |
+| 副作用执行 | 执行 | 不执行（避免重放） |
+| Frontend Tool | 激活 WebView | 不激活 |
+
+### 计划栏 (Plan Bar)
+
+双层更新模型:
 
 | 层 | 事件 | 说明 |
 |---|---|---|
-| 内容层 | `plan.update` | 全量替换：携带 `plan[]` 数组，整体替换 `planState.tasks` |
-| 状态层 | `task.start` / `task.complete` / `task.fail` / `task.cancel` | 增量更新：按 `taskId` 定位单条任务，修改其 `status` |
-
-### 数据结构
+| 内容层 | `plan.update` | 全量替换 `tasks[]` |
+| 状态层 | `task.start` / `task.complete` / `task.fail` / `task.cancel` | 按 `taskId` 增量更新 `status` |
 
 ```typescript
-interface PlanState {
-  planId: string;          // 当前计划 ID
-  tasks: PlanTask[];       // 任务列表
-  expanded: boolean;       // UI 展开/收起状态
-  lastTaskId: string;      // 最近活跃的 taskId
-}
-
-interface PlanTask {
-  taskId: string;          // 唯一标识
-  description: string;     // 任务描述文本
-  status: 'init' | 'running' | 'done' | 'failed';
-}
+interface PlanState { planId: string; tasks: PlanTask[]; expanded: boolean; lastTaskId: string; }
+interface PlanTask  { taskId: string; description: string; status: 'init' | 'running' | 'done' | 'failed'; }
 ```
 
-### 事件处理流程
+- `task.cancel` → `status = 'done'`（类型无 `'cancelled'`）
+- 未知 `taskId` 自动追加新条目
+- 最后一个任务完成后 1.5s 自动收起
+- `cleanPlanTaskDescription()` (`utils/planUi.ts`): 清理 markdown/前缀，提取纯文本
 
-1. `plan.update` → 全量替换 `tasks`，通过 `normalizePlanTask()` 归一化
-2. `task.start` → 设置 `status = 'running'`
-3. `task.complete` → 设置 `status = normalizeTaskStatus()` 结果（通常为 `'done'`）
-4. `task.fail` → 设置 `status = 'failed'`
-5. `task.cancel` → 设置 `status = 'done'`（`PlanTask['status']` 类型无 `'cancelled'`，映射为完成）
-6. 若 `taskId` 不在现有列表中，自动追加新条目
+## SSE 完整事件类型表
 
-### UI 交互
-
-- 展开/收起：用户点击切换 `expanded` 状态
-- 自动收起：最后一个任务完成后 1.5s 自动收起
-- `cleanPlanTaskDescription()`：清理 markdown 标记，提取纯文本用于 UI 显示
-
-## SSE 事件协议
-
-### 传输层
-
-- 使用 XMLHttpRequest 实现 SSE 流式读取（`chatStreamClient.ts`）
-- `POST /api/query` 发起查询，响应为 `text/event-stream`
-- 每个 SSE 块格式：`data: {JSON}\n\n`
-- 解析入口：`parseSseBlock()` → 逐块解析 → `applyEvent()` 分发
-
-### 完整事件类型表
-
-#### 会话控制事件
+### 会话控制事件
 
 | 事件类型 | 关键字段 | 说明 |
 |----------|----------|------|
 | `request.query` | `requestId`, `message` | 用户消息回显 |
-| `chat.start` | — | 会话开始，无需处理 |
-| `run.start` | `runId` | 运行开始，记录 runId |
+| `chat.start` | — | 会话开始 |
+| `run.start` | `runId` | 运行开始 |
 | `run.complete` | `runId` | 运行正常结束 |
 | `run.cancel` | `runId` | 运行被取消 |
 | `run.error` | `error` | 运行出错 |
 
-#### 内容流事件
+### 内容流事件
 
 | 事件类型 | 关键字段 | 说明 |
 |----------|----------|------|
 | `content.start` | `contentId`, `text` | 助手内容开始 |
 | `content.delta` | `contentId`, `delta` | 助手内容增量 |
 | `content.end` | `contentId`, `text` | 助手内容结束 |
-| `content.snapshot` | `contentId`, `text` / `content` | 助手内容快照（历史加载） |
+| `content.snapshot` | `contentId`, `text`/`content` | 助手内容快照（历史） |
 
-#### 推理事件
+### 推理事件
 
 | 事件类型 | 关键字段 | 说明 |
 |----------|----------|------|
 | `reasoning.start` | `reasoningId`, `text` | 推理开始 |
 | `reasoning.delta` | `reasoningId`, `delta` | 推理增量 |
 | `reasoning.end` | `reasoningId` | 推理结束 |
-| `reasoning.snapshot` | `reasoningId`, `text` | 推理快照（历史加载） |
+| `reasoning.snapshot` | `reasoningId`, `text` | 推理快照（历史） |
 
-#### 工具调用事件
+### 工具调用事件
 
 | 事件类型 | 关键字段 | 说明 |
 |----------|----------|------|
 | `tool.start` | `toolId`, `toolName`, `toolType`, `toolKey` | 工具调用开始 |
-| `tool.args` | `toolId`, `delta` | 工具参数增量流 |
-| `tool.end` | `toolId`, `error`(可选) | 工具调用结束 |
-| `tool.params` | `toolId`, `toolParams`(对象) | 前端工具参数（由 `/api/submit` 触发，仅 HITL 工具） |
-| `tool.result` | `toolId`, `result` / `output` | 工具执行结果 |
-| `tool.snapshot` | `toolId`, `arguments`(JSON 字符串), `toolParams`(对象) | 工具快照（历史加载携带完整参数） |
+| `tool.args` | `toolId`, `delta` | 工具参数增量 |
+| `tool.end` | `toolId`, `error`? | 工具调用结束 |
+| `tool.params` | `toolId`, `toolParams` | 前端工具参数（HITL） |
+| `tool.result` | `toolId`, `result`/`output` | 工具结果 |
+| `tool.snapshot` | `toolId`, `arguments`, `toolParams` | 工具快照（历史） |
 
-#### 动作事件
+### 动作事件
 
 | 事件类型 | 关键字段 | 说明 |
 |----------|----------|------|
 | `action.start` | `actionId`, `actionName` | 动作开始 |
 | `action.args` | `actionId`, `delta` | 动作参数增量 |
-| `action.end` | `actionId`, `error`(可选) | 动作结束，触发 `execute_action` 副作用 |
-| `action.result` | `actionId`, `result` / `output` | 动作结果 |
-| `action.snapshot` | `actionId` | 动作快照 |
+| `action.end` | `actionId`, `error`? | 动作结束 |
+| `action.result` | `actionId`, `result`/`output` | 动作结果 |
+| `action.snapshot` | `actionId` | 动作快照（历史） |
 
-#### 计划事件
+### 计划事件
 
 | 事件类型 | 关键字段 | 说明 |
 |----------|----------|------|
-| `plan.update` | `planId`, `plan[]` | 全量替换计划任务列表 |
-| `task.start` | `taskId`, `description` | 单任务开始执行 |
-| `task.complete` | `taskId`, `status` | 单任务完成 |
+| `plan.update` | `planId`, `plan[]` | 全量替换计划 |
+| `task.start` | `taskId`, `description` | 任务开始 |
+| `task.complete` | `taskId`, `status` | 任务完成 |
+| `task.fail` | `taskId`, `error` | 任务失败 |
+| `task.cancel` | `taskId` | 任务取消 |
 
-| `task.fail` | `taskId`, `error` | 单任务失败 |
-| `task.cancel` | `taskId` | 单任务取消 |
+## WebView 鉴权桥接协议
 
-## 事件处理流水线架构
+采用 "App 主动预刷新 + WebView 401 兜底刷新" 组合策略。
 
-### 完整数据流
+### 消息类型
 
+| 消息类型 | 方向 | 字段 | 用途 |
+|----------|------|------|------|
+| `auth_token` | RN → WebView | `accessToken`, `accessExpireAtMs?` | 主动下发 token |
+| `auth_refresh_request` | WebView → RN | `requestId`, `source` | WebView 401 请求刷新 |
+| `auth_refresh_result` | RN → WebView | `requestId`, `ok`, `accessToken?`, `error?` | 刷新结果 |
+
+### 代码锚点
+
+| 职责 | 文件 |
+|------|------|
+| 协议定义与构造 | `src/core/auth/webViewAuthBridge.ts` |
+| 刷新与会话管理 | `src/core/auth/appAuth.ts` |
+| 统一协调与定时预刷新 | `src/app/shell/ShellScreen.tsx` |
+| Terminal WebView 桥接 | `src/modules/terminal/components/TerminalWebView.tsx` |
+| Chat Frontend Tool 桥接 | `src/modules/chat/components/Composer.tsx` / `ChatAssistantScreen.tsx` |
+
+### 开发接入规则
+
+1. **消息类型限定**: 仅 `auth_token` / `auth_refresh_request` / `auth_refresh_result` 三种，必须复用 `webViewAuthBridge.ts` 的构造/解析函数
+2. **传输通道**: 基于 `react-native-webview` 的 `postMessage` 桥（非 HTTP），token 刷新仍由 RN 调 `/api/auth/refresh`
+3. **RN 侧**: WebView 注入桥脚本 → `onMessage` 解析 → `WebViewAuthRefreshCoordinator.refresh()` 单飞 → 回写结果
+4. **H5 侧**: 内存态 token → 401 触发 `auth_refresh_request` → 请求排队 → 收到结果后重放或清理
+5. **安全**: 不把 token 落日志/localStorage/URL query
+
+## 后端 API 协议
+
+所有业务 API 统一 `ApiEnvelope<T>` 格式: `{ code: 0, msg?, data: T }`。鉴权: `Authorization: Bearer <accessToken>`。
+
+### 鉴权 API
+
+| 方法 | 端点 | 请求体 | 响应 |
+|------|------|--------|------|
+| POST | `/api/auth/login` | `{ masterPassword, deviceName }` | `{ username, deviceId, deviceName, accessToken, accessExpireAt, deviceToken }` |
+| POST | `/api/auth/refresh` | `{ deviceToken }` | `{ deviceId, accessToken, accessExpireAt, deviceToken }` |
+| POST | `/api/auth/logout` | — | — |
+
+### 业务 API
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| GET | `/api/agents` | 返回 `Agent[]` |
+| GET | `/api/chats` | 返回 `ChatSummary[]` |
+| GET | `/api/chat?chatId=...` | 返回 `{ events: ChatEvent[] }` |
+| GET | `/api/viewport?viewportKey=...` | 返回 HTML（多种格式兼容） |
+| POST | `/api/query` | SSE 流式响应（`text/event-stream`） |
+| POST | `/api/submit` | `{ runId, toolId, params }` → `{ accepted, detail, status }` |
+
+### 消息盒子 API
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| GET | `/api/app/inbox?limit=N` | `InboxMessage[]` |
+| GET | `/api/app/inbox/unread-count` | `{ unreadCount }` |
+| POST | `/api/app/inbox/read` | `{ messageIds: string[] }` |
+| POST | `/api/app/inbox/read-all` | — |
+
+### WebSocket
+
+`ws(s)://{host}/api/app/ws?access_token=...`
+
+推送格式: `{ type: string, payload: { ... } }`
+
+| type | payload | 说明 |
+|------|---------|------|
+| `inbox.new` | `{ message: InboxMessage, unreadCount? }` | 新消息 |
+| `inbox.sync` | `{ unreadCount }` | 同步未读数 |
+| `chat.new_content` | — | 聊天有新内容 |
+
+### 终端 API
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| GET | `{ptyBase}/sessions` | `TerminalSessionItem[]` |
+| POST | `{ptyBase}/sessions` | `{ sessionId, wsUrl?, startedAt? }` |
+
+`ptyBase` = `{ptyWebUrl}/appterm/api`
+
+## 样式约定
+
+- `StyleSheet.create()` 定义样式，样式对象放在组件文件底部
+- 主题通过 props 传递（`theme` prop），不使用 React Context
+- `core/constants/theme.ts` 定义 `THEMES.light` / `THEMES.dark` 完整调色板
+- 响应式布局: `useWindowDimensions()` hook
+- 平台差异: iOS `KeyboardAvoidingView behavior="padding"`，Android 手动计算 `keyboardInset`
+
+## 测试约定
+
+- 测试文件: `__tests__/*.test.ts` / `__tests__/*.test.tsx`
+- Jest 配置: `jest.config.js`，preset `jest-expo`
+- 现有测试覆盖: eventReducer、eventNormalizer、chatStreamClient、planUi、format、fireworks、endpoint、settingsStorage、appAuth、webViewAuthBridge、frontendToolBridge、chatSelectors、Composer
+
+## 关键编码模式
+
+### RTK Query + fakeBaseQuery
+
+```typescript
+export const someApi = createApi({
+  reducerPath: 'someApi',
+  baseQuery: fakeBaseQuery(),
+  endpoints: (builder) => ({
+    getData: builder.query<ReturnType, ArgType>({
+      async queryFn(arg) {
+        try {
+          const data = await fetchApiJson<ReturnType>(baseUrl, '/api/path');
+          return { data };
+        } catch (error) {
+          return { error: error as Error };
+        }
+      }
+    })
+  })
+});
 ```
-POST /api/query (SSE 响应)
-  → XMLHttpRequest onprogress
-  → parseSseBlock()          # SSE 文本 → JSON 对象
-  → applyEvent()             # 路由：设置 chatId、调用 reduceChatEvent
-  → reduceChatEvent()        # 纯函数：(prevState, event, source, runtime) → { nextState, effects }
-  → handleEffects()          # 副作用执行：set_chat_id / execute_action / stream_end / activate_frontend_tool
-  → React setState()         # 触发 FlatList 重渲染
+
+### 工具函数命名
+
+- `getAgentKey(agent)` / `getAgentName(agent)` — 安全提取 Agent 字段
+- `getChatTitle(chat)` / `getChatAgentName(chat)` — 安全提取 Chat 字段
+- `toHHMM()` / `toSmartTime()` / `formatChatListTime()` — 时间格式化
+- `createRequestId(prefix?)` — 生成唯一请求 ID
+
+### WebView 消息桥接模式
+
+```typescript
+// RN -> WebView
+webViewRef.current?.injectJavaScript(buildWebViewPostMessageScript(payload));
+
+// WebView -> RN (onMessage)
+const message = parseFrontendToolBridgeMessage(event.nativeEvent.data);
+if (message?.type === 'frontend_submit') { /* 处理提交 */ }
+if (message?.type === 'auth_refresh_request') { /* 处理鉴权刷新 */ }
 ```
-
-### Runtime Maps（运行时映射表）
-
-`ChatRuntimeMaps` 在单次会话加载期间维护，用于将后端 ID 映射到时间线条目 ID：
-
-| Map | 用途 |
-|-----|------|
-| `contentIdMap` | `contentId` → 时间线 `assistant:N` |
-| `toolIdMap` | `toolId` → 时间线 `tool:N` |
-| `actionIdMap` | `actionId` → 时间线 `action:N` |
-| `reasoningIdMap` | `reasoningId` → 时间线 `reasoning:N` |
-| `actionStateMap` | `actionId` → 动作累积状态（argsText, resultText, executed） |
-| `toolStateMap` | `toolId` → 工具累积状态（argsBuffer, toolName, toolParams 等） |
-
-### 副作用（ChatEffect）
-
-| 类型 | 触发时机 | 行为 |
-|------|----------|------|
-| `set_chat_id` | 任何携带 `chatId` 的事件 | 更新组件 chatId 状态 |
-| `execute_action` | `action.end`（仅 live） | 执行动作对应的业务逻辑 |
-| `stream_end` | `run.complete` / `run.cancel` / `run.error` | 标记流结束 |
-| `activate_frontend_tool` | `tool.start`/`tool.snapshot`（仅 live + Frontend Tool） | 激活 WebView 前端工具 |
-
-## 历史加载 vs 实时流差异
-
-| 维度 | 实时流 (`source='live'`) | 历史加载 (`source='history'`) |
-|------|--------------------------|-------------------------------|
-| 数据来源 | `POST /api/query` SSE 响应 | `GET /api/chat?chatId=` 返回事件数组 |
-| 事件顺序 | 逐个到达，有时间间隔 | 批量到达，顺序遍历 |
-| 内容事件 | `content.start` → 多个 `content.delta` → `content.end` | 通常为 `content.snapshot`（完整文本） |
-| 工具参数 | `tool.start` → 多个 `tool.args` 增量 → `tool.end` | `tool.snapshot` 携带 `arguments` + `toolParams` |
-| `isStreamingContent` | `true`（流式标记，控制光标动画） | `false` |
-| 副作用执行 | 执行（action.end 触发 execute_action） | 不执行（避免重放副作用） |
-| Frontend Tool | 激活 WebView（activate_frontend_tool） | 不激活 |
-| 时间戳回退 | `Date.now()` | 从事件字段提取 |
-| Runtime Maps | 持续累积 | 一次性构建完成 |
-| planState | 增量更新（可见动画） | 批量构建最终状态 |
-| streaming 状态 | `true` → `false`（run.complete 时） | 始终 `false` |
-| 典型耗时 | 数秒到数分钟（取决于 LLM 响应） | 毫秒级（本地遍历） |

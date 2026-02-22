@@ -21,6 +21,15 @@ export interface FrontendToolState {
   toolName: string;
   toolTimeout?: number | null;
   toolParams?: Record<string, unknown> | null;
+  paramsReady: boolean;
+  paramsError: string;
+  argsText: string;
+  missingChunkIndexes?: number[];
+  chunkGapDetected?: boolean;
+  toolInitDispatched: boolean;
+  userInteracted?: boolean;
+  initAttempt?: number;
+  initLastSentAtMs?: number;
   viewportHtml: string | null;
   loading: boolean;
   loadError: string;
@@ -96,6 +105,10 @@ export interface ChatRuntimeMaps {
       toolKey: string;
       toolTimeout: number | null;
       toolParams: Record<string, unknown> | null;
+      argsChunksByIndex: Record<number, string>;
+      maxChunkIndex: number;
+      hasChunkGap: boolean;
+      missingChunkIndexes: number[];
       runId: string;
     }
   >;

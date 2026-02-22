@@ -1,5 +1,6 @@
 import { ApiEnvelope } from '../types/common';
 import { authorizedFetch } from '../auth/appAuth';
+export { parseErrorMessage } from './errorUtils';
 
 export function formatError(error: unknown): string {
   const message = String((error as { message?: string })?.message || 'unknown error');
@@ -9,7 +10,7 @@ export function formatError(error: unknown): string {
   return message;
 }
 
-export function parseApiEnvelope<T>(response: Response, bodyText: string): T {
+function parseApiEnvelope<T>(response: Response, bodyText: string): T {
   let json: ApiEnvelope<T> | null = null;
   try {
     json = bodyText ? (JSON.parse(bodyText) as ApiEnvelope<T>) : null;
@@ -60,15 +61,43 @@ export async function fetchAuthedJson<T>(baseUrl: string, path: string, options?
 }
 
 export async function fetchViewportHtml(baseUrl: string, viewportKey: string): Promise<string> {
-  const data = await fetchApiJson<{ html?: string }>(
-    baseUrl,
-    `/api/viewport?viewportKey=${encodeURIComponent(viewportKey)}`
-  );
-  const html = data?.html;
-  if (typeof html !== 'string' || !html.trim()) {
-    throw new Error('Viewport response does not contain html');
+  const response = await authorizedFetch(baseUrl, `/api/viewport?viewportKey=${encodeURIComponent(viewportKey)}`);
+  const bodyText = await response.text();
+  let payload: unknown = null;
+  if (bodyText) {
+    try {
+      payload = JSON.parse(bodyText);
+    } catch {
+      payload = null;
+    }
   }
-  return html;
+
+  if (!response.ok) {
+    if (payload && typeof payload === 'object') {
+      const data = payload as Record<string, unknown>;
+      throw new Error(String(data.msg || data.error || `HTTP ${response.status}`));
+    }
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  if (payload && typeof payload === 'object') {
+    const data = payload as Record<string, unknown>;
+    if (Number(data.code) === 0 && data.data && typeof data.data === 'object') {
+      const htmlFromEnvelope = (data.data as Record<string, unknown>).html;
+      if (typeof htmlFromEnvelope === 'string' && htmlFromEnvelope.trim()) {
+        return htmlFromEnvelope;
+      }
+    }
+    if (typeof data.html === 'string' && data.html.trim()) {
+      return data.html;
+    }
+  }
+
+  if (bodyText && /<(?:!doctype|html|body|div|main|section|script)\b/i.test(bodyText)) {
+    return bodyText;
+  }
+
+  throw new Error('Viewport response does not contain html');
 }
 
 export async function submitFrontendToolApi(

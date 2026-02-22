@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "agent-terminal-app",
-    "slug": "agw-react-app",
+    "slug": "zenmind-react-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",

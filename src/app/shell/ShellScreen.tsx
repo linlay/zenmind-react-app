@@ -20,7 +20,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { DomainMode } from '../../core/types/common';
+import { DomainMode, InboxMessage, WebSocketMessage } from '../../core/types/common';
 import { THEMES } from '../../core/constants/theme';
 import { normalizePtyUrlInput, toBackendBaseUrl } from '../../core/network/endpoint';
 import { loadSettings, patchSettings } from '../../core/storage/settingsStorage';
@@ -55,7 +55,7 @@ import { useLazyGetAgentsQuery } from '../../modules/agents/api/agentsApi';
 import { useLazyGetChatsQuery } from '../../modules/chat/api/chatApi';
 import { useLazyListTerminalSessionsQuery } from '../../modules/terminal/api/terminalApi';
 import { fetchAuthedJson, formatError } from '../../core/network/apiClient';
-import { formatChatListTime, getAgentKey, getAgentName, getChatAgentName, getChatTitle } from '../../shared/utils/format';
+import { formatChatListTime, formatInboxTime, getAgentKey, getAgentName, getChatAgentName, getChatTitle } from '../../shared/utils/format';
 import { TerminalSessionItem } from '../../modules/terminal/types/terminal';
 import {
   ensureFreshAccessToken,
@@ -87,27 +87,6 @@ const DRAWER_TITLE: Record<DomainMode, string> = {
   agents: '智能体',
   user: '配置'
 };
-
-interface InboxMessage {
-  messageId: string;
-  title: string;
-  content: string;
-  type: string;
-  sender: string;
-  read: boolean;
-  createAt?: string | number;
-}
-
-function formatInboxTime(raw: unknown): string {
-  if (!raw) {
-    return '-';
-  }
-  const date = new Date(String(raw));
-  if (Number.isNaN(date.getTime())) {
-    return '-';
-  }
-  return date.toLocaleString();
-}
 
 export function ShellScreen() {
   const dispatch = useAppDispatch();
@@ -379,15 +358,15 @@ export function ShellScreen() {
         return;
       }
 
-      let parsed: Record<string, unknown> | null = null;
+      let parsed: WebSocketMessage | null = null;
       try {
-        parsed = JSON.parse(raw) as Record<string, unknown>;
+        parsed = JSON.parse(raw) as WebSocketMessage;
       } catch {
         return;
       }
 
       const type = String(parsed?.type || '');
-      const payload = (parsed?.payload as Record<string, unknown>) || {};
+      const payload = parsed?.payload || {};
 
       if (type === 'inbox.new') {
         const message = payload.message as InboxMessage | undefined;

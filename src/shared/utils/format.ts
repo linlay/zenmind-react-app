@@ -111,3 +111,14 @@ export function toDisplayText(value: unknown): string {
     return String(value);
   }
 }
+
+export function formatInboxTime(raw: unknown): string {
+  if (!raw) {
+    return '-';
+  }
+  const date = new Date(String(raw));
+  if (Number.isNaN(date.getTime())) {
+    return '-';
+  }
+  return date.toLocaleString();
+}

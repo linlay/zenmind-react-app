@@ -9,6 +9,12 @@ export type FrontendToolBridgeMessage =
       params: Record<string, unknown>;
     }
   | {
+      type: 'frontend_interacted';
+    }
+  | {
+      type: 'frontend_ready';
+    }
+  | {
       type: 'auth_refresh_request';
       requestId: string;
       source: string;
@@ -20,7 +26,8 @@ export function parseFrontendToolBridgeMessage(raw: unknown): FrontendToolBridge
     return null;
   }
 
-  if (String(payload.type || '') === 'frontend_submit') {
+  const payloadType = String(payload.type || '');
+  if (payloadType === 'frontend_submit' || payloadType === 'agw_frontend_submit') {
     const params =
       payload.params && typeof payload.params === 'object'
         ? (payload.params as Record<string, unknown>)
@@ -28,6 +35,18 @@ export function parseFrontendToolBridgeMessage(raw: unknown): FrontendToolBridge
     return {
       type: 'frontend_submit',
       params
+    };
+  }
+
+  if (String(payload.type || '') === 'frontend_interacted') {
+    return {
+      type: 'frontend_interacted'
+    };
+  }
+
+  if (String(payload.type || '') === 'frontend_ready') {
+    return {
+      type: 'frontend_ready'
     };
   }
 

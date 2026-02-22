@@ -1,144 +1,239 @@
-# agent-terminal-app (React Native + TypeScript)
+# ZenMind React App
 
-Agent 移动端已从单体 `App.js` 重构为四业务域分层架构：
-
-- 聊天助理（主域）
-- 终端管理（PTY WebView）
-- 智能体管理（本地静态 WebView 占位）
-- 用户管理与配置（原生设置 + 本地静态 WebView 占位）
+React Native (Expo) + TypeScript 跨平台移动应用，提供 AI 聊天助理、PTY 终端、智能体管理等功能。采用四业务域单壳架构。
 
 ## 技术栈
 
-- React Native (Expo)
-- TypeScript
-- Redux Toolkit
-- RTK Query
-- WebView
+| 类别 | 技术 | 版本 |
+|------|------|------|
+| 框架 | React Native (Expo) | RN 0.81 / Expo SDK 54 |
+| 语言 | TypeScript | 5.9 |
+| 状态管理 | Redux Toolkit + RTK Query | 2.5 |
+| UI | React Native StyleSheet (无 CSS-in-JS) | — |
+| 持久化 | @react-native-async-storage/async-storage | 2.2 |
+| WebView | react-native-webview | 13.15 |
+| Markdown 渲染 | react-native-markdown-display | 7.0 |
+| HTML 渲染 | react-native-render-html | 6.3 |
+| SVG | react-native-svg | 15.15 |
+| 渐变 | expo-linear-gradient | 15.0 |
+| 剪贴板 | expo-clipboard | 8.0 |
+| 测试 | Jest + jest-expo | 29.7 |
 
-## 目录
+## 环境要求
 
-- `/Users/linlay-macmini/Project/agent-terminal-app/src/app`：应用壳层、Provider、Store、Shell
-- `/Users/linlay-macmini/Project/agent-terminal-app/src/core`：网络/配置/存储/基础类型
-- `/Users/linlay-macmini/Project/agent-terminal-app/src/modules/chat`：聊天主域（SSE、事件归一化、事件 reducer、时间线渲染）
-- `/Users/linlay-macmini/Project/agent-terminal-app/src/modules/terminal`：PTY 终端管理
-- `/Users/linlay-macmini/Project/agent-terminal-app/src/modules/agents`：智能体管理
-- `/Users/linlay-macmini/Project/agent-terminal-app/src/modules/user`：用户配置
-- `/Users/linlay-macmini/Project/agent-terminal-app/src/shared`：共享 UI、工具函数、动画
+- Node.js >= 18
+- npm >= 9
+- Expo CLI (`npx expo`)
+- iOS 开发: Xcode + iOS Simulator (macOS)
+- Android 开发: Android Studio + Emulator 或物理设备
 
-## 启动
+## 安装与运行
 
 ```bash
+# 克隆仓库
+git clone <repo-url>
+cd zenmind-react-app
+
+# 安装依赖
 npm install
-npm run start
+
+# 启动开发服务器
+npm run start        # 交互式选择平台
+npm run ios          # iOS 模拟器
+npm run android      # Android 模拟器/设备
+npm run web          # 浏览器
 ```
 
-## 常用命令
+## 测试与检查
 
 ```bash
-npm run typecheck
-npm run test
-npm run build
+npm run test         # Jest 单元测试
+npm run typecheck    # TypeScript 类型检查 (tsc --noEmit)
 ```
 
-## 打包与发布
+项目未配置 ESLint，无独立 lint 命令。
 
-本项目使用 Expo + EAS Build，推荐按下面三种场景区分：
-
-### 1) 开发调试（二维码扫码打开，非安装包）
+## 构建与发布
 
 ```bash
-npm run start
+npm run build        # Expo 导出构建
 ```
 
-- 终端会显示 Expo 二维码。
-- Android 用 Expo Go 扫码可直接打开调试包（要求手机和电脑网络可互通）。
-
-### 2) 安卓内部分发（二维码扫码下载安装 APK）
-
-这是你说的“安卓扫码下载”方式，使用 EAS `internal` 分发：
+### 安卓内部分发（APK）
 
 ```bash
 npx eas login
 npx eas build -p android --profile preview
 ```
 
-- 本仓库 `eas.json` 的 `preview` 已配置：
-  - `distribution: internal`
-  - `android.buildType: apk`
-- 构建完成后，EAS 会提供一个安装页面链接和二维码。
-- Android 手机扫码后可直接下载并安装 APK（首次可能需要允许“安装未知来源应用”）。
+- `preview` 配置: `distribution: internal`, `android.buildType: apk`
+- 构建完成后 EAS 提供下载链接和二维码，手机扫码即可安装
 
-### 3) 正式发布（Google Play）
+### 正式发布（Google Play）
 
 ```bash
 npx eas build -p android --profile production
 npx eas submit -p android --profile production
 ```
 
-- `production` 通常用于商店分发（默认构建 AAB，更适合 Google Play）。
-- 提交前请先在 Google Play Console 完成应用和签名相关配置。
+## 环境变量
 
-## 环境变量（后端地址）
-
-- 变量名：`EXPO_PUBLIC_BACKEND_ENDPOINT`
-- 规则：
-  - 若设置该变量，优先使用它作为默认后端地址
-  - 若未设置，开发态默认 `app.linlay.cc`
-  - 若未设置，生产态默认 `app.linlay.cc`
-
-示例：
+| 变量名 | 说明 | 默认值 |
+|--------|------|--------|
+| `EXPO_PUBLIC_BACKEND_ENDPOINT` | 后端 API 地址 | `app.linlay.cc` |
 
 ```bash
 EXPO_PUBLIC_BACKEND_ENDPOINT=app.linlay.cc npm run start
 ```
 
-默认 PTY WebView 地址会按后端地址生成：`https://{host}/appterm`。  
-本地调试推荐：`http://localhost:11931/appterm`。
+- 内网 IP / localhost 自动使用 `http://`，公网域名自动使用 `https://`
+- PTY WebView 默认地址: `https://{host}/appterm`（本地调试: `http://localhost:11931/appterm`）
 
-## 后端协议
+## 项目结构
 
-接口保持不变：
+```
+zenmind-react-app/
+├── App.tsx                          # 应用入口 (SafeAreaProvider > AppProviders > AppRoot)
+├── index.js                         # Expo registerRootComponent
+├── app.json                         # Expo 配置 (slug: zenmind-react-app)
+├── package.json
+├── tsconfig.json                    # extends expo/tsconfig.base, strict: false
+├── jest.config.js                   # preset: jest-expo
+├── CLAUDE.md                        # Claude Code AI 开发指南
+├── assets/                          # 图标、启动图
+└── src/
+    ├── app/                         # 应用壳层
+    │   ├── AppRoot.tsx
+    │   ├── providers/AppProviders.tsx
+    │   ├── shell/
+    │   │   ├── ShellScreen.tsx      # 主容器 (1500+ 行)
+    │   │   ├── shellSlice.ts
+    │   │   └── DomainSwitcher.tsx
+    │   └── store/
+    │       ├── store.ts             # Redux store (5 slice + 3 RTK Query API)
+    │       └── hooks.ts
+    ├── core/                        # 核心基础设施
+    │   ├── auth/
+    │   │   ├── appAuth.ts           # 鉴权: 登录/登出/刷新/session
+    │   │   └── webViewAuthBridge.ts # WebView 鉴权桥接协议
+    │   ├── constants/theme.ts       # light/dark 主题
+    │   ├── network/
+    │   │   ├── apiClient.ts         # fetch 封装 + ApiEnvelope 解析
+    │   │   └── endpoint.ts          # URL 规范化
+    │   ├── storage/settingsStorage.ts
+    │   └── types/common.ts
+    ├── modules/
+    │   ├── chat/                    # 聊天助理 (最复杂模块)
+    │   ├── terminal/                # PTY 终端 (WebView)
+    │   ├── agents/                  # 智能体管理
+    │   └── user/                    # 用户设置
+    └── shared/                      # 共享 UI / 工具 / 动画
+```
 
-- `GET /api/agents`
-- `GET /api/chats`
-- `GET /api/chat?chatId=...`
-- `GET /api/viewport?viewportKey=...`
-- `POST /api/query`（SSE）
-- `POST /api/submit`
+## 架构概览
 
-## WebView 鉴权桥接协议
+### 四域单壳架构
 
-为减少 App 从后台切回前台后的 WebView 401，当前实现采用“App 主动预刷新 + WebView 401 兜底刷新”组合策略。
+`ShellScreen` 是应用唯一主容器，不使用 React Navigation，通过 `activeDomain` 状态条件渲染四个域屏幕：
 
-WebView 与 RN 之间的鉴权消息约定如下：
+| 域 | 屏幕组件 | 说明 |
+|----|----------|------|
+| `chat` | `ChatAssistantScreen` | AI 聊天助理，SSE 流式对话 |
+| `terminal` | `TerminalScreen` | PTY 终端，WebView 包装 |
+| `agents` | `AgentsScreen` | 智能体列表与管理 |
+| `user` | `UserSettingsScreen` | 应用设置 |
 
-- `auth_refresh_request`（WebView -> RN）
-  - 字段：`requestId`（建议唯一）、`source`（可选）
-  - 触发时机：WebView 内任意 API 返回 401 或等价未授权错误
-- `auth_refresh_result`（RN -> WebView）
-  - 字段：`requestId`、`ok`、`accessToken`（`ok=true` 时）或 `error`（`ok=false` 时）
-  - 含义：RN 已完成一次 refresh（单飞），WebView 根据结果重试或进入未登录态
-- `auth_token`（RN -> WebView）
-  - 字段：`accessToken`、`accessExpireAtMs`（可选）
-  - 触发时机：WebView 首次加载、App 主动刷新成功、token 更新后广播
+域切换由 `DomainSwitcher` 组件触发，状态持久化到 AsyncStorage。
 
-H5/WebView 侧职责：
+### 状态管理
 
-- 遇到 401 时发送 `auth_refresh_request`
-- 在收到 `auth_refresh_result` 成功回包前，排队待重放请求
-- 成功后用新 token 重放，失败时清理状态并引导登录
+Redux Toolkit 配置：
 
-RN 侧职责：
+| Slice | 职责 |
+|-------|------|
+| `shell` | 抽屉开关 |
+| `user` | 主题/端点/域/设置 |
+| `agents` | 智能体列表与选中状态 |
+| `chat` | 聊天列表/选中 chatId/关键词 |
+| `terminal` | PTY 加载/会话/重载 |
 
-- 前台 `active` 时基于过期时间做预刷新（含抖动，避免同一时刻洪峰）
-- 保留 401 场景的强制刷新兜底
-- 多个 WebView 并发刷新请求时仅执行一次 refresh
+RTK Query API: `chatApi`, `agentsApi`, `terminalApi` (均使用 `fakeBaseQuery` + 自定义 `queryFn`)
 
-## 配置存储迁移
+聊天时间线数据存储在 `ChatAssistantScreen` 组件本地 state（非 Redux），通过 `eventReducer` 构建。
 
-- 旧 key：`mobile_chat_settings_v1`
-- 旧 key：`mobile_app_settings_v2`
-- 新 key：`mobile_app_settings_v3`
-- 旧设备令牌 key：`app_device_token_v1`（已废弃）
+### 鉴权系统
 
-当前版本采用不兼容升级策略，启动时会清理旧 key，不做自动迁移。
+- 主密码登录 -> 获取 `accessToken` + `deviceToken`
+- `deviceToken` 持久化到 AsyncStorage，用于无感刷新
+- `accessToken` 短期有效，过期自动刷新
+- 前台保活: App 回到 `active` 时预刷新 (debounce 20s) + 每 60s 定时刷新
+- WebView 鉴权桥接: `auth_token` / `auth_refresh_request` / `auth_refresh_result` 三种消息类型
+
+### SSE 流式聊天
+
+```
+POST /api/query (SSE)
+  -> XMLHttpRequest onprogress
+  -> parseSseBlock()          # SSE 文本 -> JSON
+  -> applyEvent()             # 路由分发
+  -> reduceChatEvent()        # 纯函数构建时间线
+  -> handleEffects()          # 副作用执行
+  -> React setState()         # FlatList 渲染
+```
+
+## 后端 API 协议
+
+所有 API 统一返回 `ApiEnvelope<T>` 格式：`{ code: 0, msg?: string, data: T }`
+
+鉴权方式: `Authorization: Bearer <accessToken>`
+
+### 鉴权
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| POST | `/api/auth/login` | 主密码登录 |
+| POST | `/api/auth/refresh` | 刷新 accessToken |
+| POST | `/api/auth/logout` | 登出当前设备 |
+
+### 业务
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| GET | `/api/agents` | 智能体列表 |
+| GET | `/api/chats` | 聊天摘要列表 |
+| GET | `/api/chat?chatId=...` | 聊天历史事件 |
+| GET | `/api/viewport?viewportKey=...` | Frontend Tool HTML |
+| POST | `/api/query` | 流式聊天 (SSE) |
+| POST | `/api/submit` | 提交 Frontend Tool 结果 |
+
+### 消息盒子
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| GET | `/api/app/inbox?limit=N` | 收件箱消息 |
+| GET | `/api/app/inbox/unread-count` | 未读数 |
+| POST | `/api/app/inbox/read` | 标记已读 |
+| POST | `/api/app/inbox/read-all` | 全部已读 |
+
+### WebSocket 推送
+
+| 端点 | 事件 |
+|------|------|
+| `ws(s)://.../api/app/ws?access_token=...` | `inbox.new` / `inbox.sync` / `chat.new_content` |
+
+### 终端 (PTY 前端服务)
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| GET | `{ptyWebUrl}/appterm/api/sessions` | 终端会话列表 |
+| POST | `{ptyWebUrl}/appterm/api/sessions` | 创建终端会话 |
+
+## 配置存储
+
+- 当前 key: `mobile_app_settings_v3`
+- 设备令牌 key: `app_device_token_v2`
+- 启动时自动清理旧版本 key (`v1`, `v2`)
+
+## License
+
+Private

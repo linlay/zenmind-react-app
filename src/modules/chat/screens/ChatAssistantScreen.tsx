@@ -61,6 +61,10 @@ const REASONING_COLLAPSE_MS = 1500;
 const STREAM_IDLE_MS = 2500;
 const PLAN_COLLAPSE_MS = 1500;
 const AUTO_SCROLL_THRESHOLD = 36;
+const TOOL_INIT_FAST_RETRY_DELAYS_MS = [0, 150, 500, 1200];
+const TOOL_INIT_HEARTBEAT_MS = 2000;
+const TOOL_INIT_HINT_MIN_ATTEMPT = 4;
+const TOOL_INIT_HINT_THROTTLE_MS = 3000;
 
 interface ChatAssistantScreenProps {
   theme: AppTheme;
@@ -112,6 +116,7 @@ export function ChatAssistantScreen({
   const runtimeRef = useRef(createRuntimeMaps());
   const chatStateRef = useRef(chatState);
   const activeFrontendToolRef = useRef<FrontendToolState | null>(null);
+  const frontendToolLoadedRef = useRef(false);
   const listRef = useRef<FlatList<TimelineEntry>>(null);
   const frontendToolWebViewRef = useRef<WebView>(null);
 
@@ -127,6 +132,15 @@ export function ChatAssistantScreen({
   const copyToastTimer = useRef<NodeJS.Timeout | null>(null);
   const fireworksTimerRef = useRef<NodeJS.Timeout | null>(null);
   const fireworksAnim = useRef(new Animated.Value(0)).current;
+  const malformedNoticeAtRef = useRef(0);
+  const chunkGapNotifiedToolIdsRef = useRef<Set<string>>(new Set());
+  const toolInitRetryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const toolInitHeartbeatTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const toolInitSessionKeyRef = useRef('');
+  const toolInitFastRetryIndexRef = useRef(0);
+  const toolInitFastRetryStartedRef = useRef(false);
+  const toolInitHintSessionKeyRef = useRef('');
+  const toolInitHintAtRef = useRef(0);
 
   const setChatStateSafe = useCallback((updater: (prev: ChatState) => ChatState) => {
     setChatState((prev) => {
@@ -135,6 +149,45 @@ export function ChatAssistantScreen({
       activeFrontendToolRef.current = next.activeFrontendTool;
       return next;
     });
+  }, []);
+
+  const stringifyToolParams = useCallback((params: Record<string, unknown> | null | undefined) => {
+    if (!params || typeof params !== 'object') {
+      return '';
+    }
+    try {
+      return JSON.stringify(params);
+    } catch {
+      return '__unserializable_params__';
+    }
+  }, []);
+
+  const resolveToolInitSessionKey = useCallback(
+    (tool: FrontendToolState | null) => {
+      if (!tool) {
+        return '';
+      }
+      return `${tool.toolId}:${stringifyToolParams(tool.toolParams as Record<string, unknown> | null | undefined)}`;
+    },
+    [stringifyToolParams]
+  );
+
+  const clearToolInitTimers = useCallback((resetSession = false) => {
+    if (toolInitRetryTimerRef.current) {
+      clearTimeout(toolInitRetryTimerRef.current);
+      toolInitRetryTimerRef.current = null;
+    }
+    if (toolInitHeartbeatTimerRef.current) {
+      clearInterval(toolInitHeartbeatTimerRef.current);
+      toolInitHeartbeatTimerRef.current = null;
+    }
+    toolInitFastRetryIndexRef.current = 0;
+    toolInitFastRetryStartedRef.current = false;
+    if (resetSession) {
+      toolInitSessionKeyRef.current = '';
+      toolInitHintSessionKeyRef.current = '';
+      toolInitHintAtRef.current = 0;
+    }
   }, []);
 
   const setAutoScrollMode = useCallback((enabled: boolean) => {
@@ -283,32 +336,27 @@ export function ChatAssistantScreen({
     [dispatch, launchFireworks, setChatStateSafe]
   );
 
-  const activateFrontendToolFromEffect = useCallback(
-    async (payload: Record<string, unknown> | undefined) => {
-      if (!payload) return;
-
-      const toolId = String(payload.toolId || '');
-      const toolKey = String(payload.toolKey || '');
-      const toolType = String(payload.toolType || '').toLowerCase();
-      if (!toolId || !toolKey || !toolType) {
-        return;
-      }
-
-      setChatStateSafe((prev) => ({
-        ...prev,
-        activeFrontendTool: {
-          runId: String(payload.runId || ''),
-          toolId,
-          toolKey,
-          toolType,
-          toolName: String(payload.toolName || toolKey),
-          toolTimeout: (payload.toolTimeout as number | null | undefined) ?? null,
-          toolParams: (payload.toolParams as Record<string, unknown> | undefined) || null,
-          viewportHtml: null,
-          loading: true,
-          loadError: ''
-        }
-      }));
+  const reloadActiveFrontendToolViewport = useCallback(
+    async (toolId: string, toolKey: string) => {
+      clearToolInitTimers(false);
+      frontendToolLoadedRef.current = false;
+      setChatStateSafe((prev) =>
+        prev.activeFrontendTool && prev.activeFrontendTool.toolId === toolId
+          ? {
+              ...prev,
+              activeFrontendTool: {
+                ...prev.activeFrontendTool,
+                viewportHtml: null,
+                loading: true,
+                loadError: '',
+                toolInitDispatched: false,
+                userInteracted: false,
+                initAttempt: 0,
+                initLastSentAtMs: undefined
+              }
+            }
+          : prev
+      );
 
       try {
         const html = await fetchViewportHtml(backendUrl, toolKey);
@@ -322,7 +370,8 @@ export function ChatAssistantScreen({
                 activeFrontendTool: {
                   ...prev.activeFrontendTool,
                   viewportHtml: html,
-                  loading: false
+                  loading: false,
+                  loadError: ''
                 }
               }
             : prev
@@ -330,6 +379,7 @@ export function ChatAssistantScreen({
       } catch (error) {
         const current = activeFrontendToolRef.current;
         if (!current || current.toolId !== toolId) return;
+        clearToolInitTimers(false);
 
         setChatStateSafe((prev) =>
           prev.activeFrontendTool && prev.activeFrontendTool.toolId === toolId
@@ -345,8 +395,65 @@ export function ChatAssistantScreen({
         );
       }
     },
-    [backendUrl, setChatStateSafe]
+    [backendUrl, clearToolInitTimers, setChatStateSafe]
   );
+
+  const activateFrontendToolFromEffect = useCallback(
+    async (payload: Record<string, unknown> | undefined) => {
+      if (!payload) return;
+
+      const toolId = String(payload.toolId || '');
+      const toolKey = String(payload.toolKey || '');
+      const toolType = String(payload.toolType || '').toLowerCase();
+      if (!toolId || !toolKey || !toolType) {
+        return;
+      }
+
+      const initialToolParams = payload.toolParams && typeof payload.toolParams === 'object'
+        ? (payload.toolParams as Record<string, unknown>)
+        : null;
+      const initialParamsReady = Boolean(payload.paramsReady) || Boolean(initialToolParams);
+      clearToolInitTimers(true);
+      frontendToolLoadedRef.current = false;
+
+      setChatStateSafe((prev) => ({
+        ...prev,
+        activeFrontendTool: {
+          runId: String(payload.runId || ''),
+          toolId,
+          toolKey,
+          toolType,
+          toolName: String(payload.toolName || toolKey),
+          toolTimeout: (payload.toolTimeout as number | null | undefined) ?? null,
+          toolParams: initialToolParams,
+          paramsReady: initialParamsReady,
+          paramsError: String(payload.paramsError || ''),
+          argsText: String(payload.argsText || ''),
+          missingChunkIndexes: Array.isArray(payload.missingChunkIndexes)
+            ? (payload.missingChunkIndexes as number[])
+            : [],
+          chunkGapDetected: Boolean(payload.chunkGapDetected),
+          toolInitDispatched: false,
+          userInteracted: false,
+          initAttempt: 0,
+          initLastSentAtMs: undefined,
+          viewportHtml: null,
+          loading: true,
+          loadError: ''
+        }
+      }));
+
+      await reloadActiveFrontendToolViewport(toolId, toolKey);
+    },
+    [clearToolInitTimers, reloadActiveFrontendToolViewport, setChatStateSafe]
+  );
+
+  const handleFrontendToolRetry = useCallback(() => {
+    const active = activeFrontendToolRef.current;
+    if (!active) return;
+    clearToolInitTimers(false);
+    reloadActiveFrontendToolViewport(active.toolId, active.toolKey).catch(() => {});
+  }, [clearToolInitTimers, reloadActiveFrontendToolViewport]);
 
   const handleEffects = useCallback(
     (effects: ChatEffect[], source: 'live' | 'history') => {
@@ -378,10 +485,56 @@ export function ChatAssistantScreen({
 
         if (effect.type === 'activate_frontend_tool') {
           activateFrontendToolFromEffect(effect.payload).catch(() => {});
+          return;
+        }
+
+        if (effect.type === 'frontend_tool_params_ready') {
+          const payload = effect.payload || {};
+          const toolId = String(payload.toolId || '');
+          if (!toolId) return;
+
+          setChatStateSafe((prev) =>
+            prev.activeFrontendTool && prev.activeFrontendTool.toolId === toolId
+              ? {
+                  ...prev,
+                activeFrontendTool: {
+                  ...prev.activeFrontendTool,
+                  toolParams:
+                    payload.toolParams && typeof payload.toolParams === 'object'
+                      ? (payload.toolParams as Record<string, unknown>)
+                      : null,
+                  paramsReady: Boolean(payload.paramsReady),
+                  paramsError: String(payload.paramsError || ''),
+                  argsText: String(payload.argsText || prev.activeFrontendTool.argsText || ''),
+                  missingChunkIndexes: Array.isArray(payload.missingChunkIndexes)
+                    ? (payload.missingChunkIndexes as number[])
+                    : [],
+                  chunkGapDetected: Boolean(payload.chunkGapDetected),
+                  toolInitDispatched: false,
+                  userInteracted: false,
+                  initAttempt: 0,
+                  initLastSentAtMs: undefined
+                }
+              }
+              : prev
+          );
+
+          const chunkGapDetected = Boolean(payload.chunkGapDetected);
+          const missingChunkIndexes = Array.isArray(payload.missingChunkIndexes)
+            ? (payload.missingChunkIndexes as Array<number | string>)
+            : [];
+          if (chunkGapDetected && !chunkGapNotifiedToolIdsRef.current.has(toolId)) {
+            chunkGapNotifiedToolIdsRef.current.add(toolId);
+            dispatch(
+              setStatusText(
+                `前端工具参数分片缺失：toolId=${toolId} missing=[${missingChunkIndexes.join(',')}]`
+              )
+            );
+          }
         }
       });
     },
-    [activateFrontendToolFromEffect, clearStreamIdleTimer, dispatch, executeAction, onRefreshChats]
+    [activateFrontendToolFromEffect, clearStreamIdleTimer, dispatch, executeAction, onRefreshChats, setChatStateSafe]
   );
 
   const applyEvent = useCallback(
@@ -424,7 +577,10 @@ export function ChatAssistantScreen({
   );
 
   const resetTimeline = useCallback(() => {
+    clearToolInitTimers(true);
     runtimeRef.current = createRuntimeMaps();
+    frontendToolLoadedRef.current = false;
+    chunkGapNotifiedToolIdsRef.current.clear();
     setChatStateSafe(() => createEmptyChatState());
     clearReasoningTimers();
     setPlanExpanded(false);
@@ -441,7 +597,7 @@ export function ChatAssistantScreen({
     setFireworksVisible(false);
     setFireworkRockets([]);
     setFireworkSparks([]);
-  }, [clearReasoningTimers, setAutoScrollMode, setChatStateSafe]);
+  }, [clearReasoningTimers, clearToolInitTimers, setAutoScrollMode, setChatStateSafe]);
 
   const stopStreaming = useCallback(() => {
     if (abortControllerRef.current) {
@@ -517,7 +673,20 @@ export function ChatAssistantScreen({
           })
         },
         (event) => applyEvent(event, 'live'),
-        controller.signal
+        controller.signal,
+        {
+          onMalformedFrame: (rawFrame, reason) => {
+            if (__DEV__) {
+              const preview = String(rawFrame || '').replace(/\s+/g, ' ').slice(0, 220);
+              console.warn(`[chatStream] malformed SSE frame: ${reason}; preview=${preview}`);
+            }
+            const now = Date.now();
+            if (now - malformedNoticeAtRef.current > 1800) {
+              malformedNoticeAtRef.current = now;
+              dispatch(setStatusText(`SSE 数据帧异常：${reason}`));
+            }
+          }
+        }
       );
     };
 
@@ -593,6 +762,8 @@ export function ChatAssistantScreen({
         }).unwrap();
 
         if (data?.accepted) {
+          clearToolInitTimers(true);
+          frontendToolLoadedRef.current = false;
           setChatStateSafe((prev) => ({ ...prev, activeFrontendTool: null }));
         } else {
           const detail = String(data?.detail || data?.status || 'unmatched');
@@ -602,7 +773,7 @@ export function ChatAssistantScreen({
         dispatch(setStatusText(`提交失败：${(error as Error)?.message || 'unknown error'}`));
       }
     },
-    [backendUrl, dispatch, setChatStateSafe, submitFrontendTool]
+    [backendUrl, clearToolInitTimers, dispatch, setChatStateSafe, submitFrontendTool]
   );
 
   const postToFrontendToolWebView = useCallback((payload: Record<string, unknown>) => {
@@ -611,6 +782,164 @@ export function ChatAssistantScreen({
     }
     frontendToolWebViewRef.current.injectJavaScript(buildWebViewPostMessageScript(payload));
   }, []);
+
+  const canDispatchToolInit = useCallback((active: FrontendToolState | null) => {
+    if (!active || !frontendToolWebViewRef.current) {
+      return false;
+    }
+    if (!frontendToolLoadedRef.current) {
+      return false;
+    }
+    if (active.loading || active.loadError || !active.viewportHtml) {
+      return false;
+    }
+    if (!active.paramsReady || Boolean(active.paramsError)) {
+      return false;
+    }
+    if (active.userInteracted) {
+      return false;
+    }
+    return true;
+  }, []);
+
+  const dispatchToolInitOnce = useCallback(
+    (_trigger: string) => {
+      const active = activeFrontendToolRef.current;
+      if (!canDispatchToolInit(active)) {
+        return false;
+      }
+
+      const initPayload = {
+        type: 'tool_init',
+        data: {
+          runId: active.runId,
+          toolId: active.toolId,
+          toolKey: active.toolKey,
+          toolType: active.toolType,
+          toolTimeout: active.toolTimeout,
+          params: active.toolParams && typeof active.toolParams === 'object' ? active.toolParams : {}
+        }
+      };
+      postToFrontendToolWebView(initPayload);
+      postToFrontendToolWebView({ ...initPayload, type: 'agw_tool_init' });
+
+      const sentAtMs = Date.now();
+      const sessionKey = resolveToolInitSessionKey(active);
+      const nextAttempt = Number(active.initAttempt || 0) + 1;
+
+      setChatStateSafe((prev) =>
+        prev.activeFrontendTool && prev.activeFrontendTool.toolId === active.toolId
+          ? {
+              ...prev,
+              activeFrontendTool: {
+                ...prev.activeFrontendTool,
+                toolInitDispatched: true,
+                initAttempt: Number(prev.activeFrontendTool.initAttempt || 0) + 1,
+                initLastSentAtMs: sentAtMs
+              }
+            }
+          : prev
+      );
+
+      if (
+        nextAttempt >= TOOL_INIT_HINT_MIN_ATTEMPT &&
+        toolInitHintSessionKeyRef.current !== sessionKey &&
+        sentAtMs - toolInitHintAtRef.current >= TOOL_INIT_HINT_THROTTLE_MS
+      ) {
+        toolInitHintSessionKeyRef.current = sessionKey;
+        toolInitHintAtRef.current = sentAtMs;
+        dispatch(setStatusText('前端工具已重发初始化，请在页面内点击任意位置唤醒交互'));
+      }
+
+      return true;
+    },
+    [canDispatchToolInit, dispatch, postToFrontendToolWebView, resolveToolInitSessionKey, setChatStateSafe]
+  );
+
+  const startToolInitHeartbeat = useCallback(() => {
+    if (toolInitHeartbeatTimerRef.current) {
+      return;
+    }
+    toolInitHeartbeatTimerRef.current = setInterval(() => {
+      const active = activeFrontendToolRef.current;
+      if (!active || active.userInteracted || active.loadError || active.paramsError) {
+        clearToolInitTimers(false);
+        return;
+      }
+      dispatchToolInitOnce('heartbeat');
+    }, TOOL_INIT_HEARTBEAT_MS);
+  }, [clearToolInitTimers, dispatchToolInitOnce]);
+
+  const scheduleToolInitFastRetry = useCallback(function scheduleToolInitFastRetry() {
+    if (!toolInitFastRetryStartedRef.current) {
+      return;
+    }
+    if (toolInitRetryTimerRef.current) {
+      return;
+    }
+    if (toolInitFastRetryIndexRef.current >= TOOL_INIT_FAST_RETRY_DELAYS_MS.length) {
+      startToolInitHeartbeat();
+      return;
+    }
+
+    const delay = TOOL_INIT_FAST_RETRY_DELAYS_MS[toolInitFastRetryIndexRef.current];
+    toolInitFastRetryIndexRef.current += 1;
+    toolInitRetryTimerRef.current = setTimeout(() => {
+      toolInitRetryTimerRef.current = null;
+      const active = activeFrontendToolRef.current;
+      if (!active || active.userInteracted || active.loadError || active.paramsError) {
+        clearToolInitTimers(false);
+        return;
+      }
+      dispatchToolInitOnce('fast_retry');
+      scheduleToolInitFastRetry();
+    }, delay);
+  }, [clearToolInitTimers, dispatchToolInitOnce, startToolInitHeartbeat]);
+
+  const ensureToolInitReliableDispatch = useCallback(
+    (trigger: string) => {
+      const active = activeFrontendToolRef.current;
+      if (!active) {
+        clearToolInitTimers(true);
+        return;
+      }
+
+      const nextSessionKey = resolveToolInitSessionKey(active);
+      if (toolInitSessionKeyRef.current !== nextSessionKey) {
+        clearToolInitTimers(false);
+        toolInitSessionKeyRef.current = nextSessionKey;
+      }
+
+      if (!canDispatchToolInit(active)) {
+        if (active.userInteracted || active.loadError || active.paramsError) {
+          clearToolInitTimers(false);
+        }
+        return;
+      }
+
+      if (!toolInitFastRetryStartedRef.current) {
+        toolInitFastRetryStartedRef.current = true;
+        toolInitFastRetryIndexRef.current = 0;
+        scheduleToolInitFastRetry();
+        return;
+      }
+
+      if (trigger !== 'timer') {
+        dispatchToolInitOnce(trigger);
+      }
+      if (toolInitFastRetryIndexRef.current >= TOOL_INIT_FAST_RETRY_DELAYS_MS.length) {
+        startToolInitHeartbeat();
+      }
+    },
+    [
+      canDispatchToolInit,
+      clearToolInitTimers,
+      dispatchToolInitOnce,
+      resolveToolInitSessionKey,
+      scheduleToolInitFastRetry,
+      startToolInitHeartbeat
+    ]
+  );
 
   const handleFrontendToolMessage = useCallback(
     (event: { nativeEvent: { data: string } }) => {
@@ -622,6 +951,31 @@ export function ChatAssistantScreen({
 
         if (bridgeMessage.type === 'frontend_submit') {
           submitActiveFrontendTool(bridgeMessage.params).catch(() => {});
+          return;
+        }
+
+        if (bridgeMessage.type === 'frontend_interacted') {
+          clearToolInitTimers(false);
+          const active = activeFrontendToolRef.current;
+          if (!active) {
+            return;
+          }
+          setChatStateSafe((prev) =>
+            prev.activeFrontendTool && prev.activeFrontendTool.toolId === active.toolId
+              ? {
+                  ...prev,
+                  activeFrontendTool: {
+                    ...prev.activeFrontendTool,
+                    userInteracted: true
+                  }
+                }
+              : prev
+          );
+          return;
+        }
+
+        if (bridgeMessage.type === 'frontend_ready') {
+          ensureToolInitReliableDispatch('frontend_ready');
           return;
         }
 
@@ -651,31 +1005,52 @@ export function ChatAssistantScreen({
         // Ignore parse errors.
       }
     },
-    [onWebViewAuthRefreshRequest, postToFrontendToolWebView, submitActiveFrontendTool]
+    [
+      clearToolInitTimers,
+      ensureToolInitReliableDispatch,
+      onWebViewAuthRefreshRequest,
+      postToFrontendToolWebView,
+      setChatStateSafe,
+      submitActiveFrontendTool
+    ]
   );
 
   const handleFrontendToolWebViewLoad = useCallback(() => {
     const active = activeFrontendToolRef.current;
     if (!active || !frontendToolWebViewRef.current) return;
-
-    const initPayload = {
-      type: 'tool_init',
-      data: {
-        runId: active.runId,
-        toolId: active.toolId,
-        toolKey: active.toolKey,
-        toolType: active.toolType,
-        toolTimeout: active.toolTimeout,
-        params: active.toolParams && typeof active.toolParams === 'object' ? active.toolParams : {}
-      }
-    };
-    postToFrontendToolWebView(initPayload);
+    frontendToolLoadedRef.current = true;
+    ensureToolInitReliableDispatch('webview_load');
 
     const authTokenMessage = createWebViewAuthTokenMessage(authAccessToken, authAccessExpireAtMs);
     if (authTokenMessage) {
       postToFrontendToolWebView(authTokenMessage as unknown as Record<string, unknown>);
     }
-  }, [authAccessExpireAtMs, authAccessToken, postToFrontendToolWebView]);
+  }, [authAccessExpireAtMs, authAccessToken, ensureToolInitReliableDispatch, postToFrontendToolWebView]);
+
+  useEffect(() => {
+    const active = chatState.activeFrontendTool;
+    if (!active) {
+      frontendToolLoadedRef.current = false;
+      clearToolInitTimers(true);
+      return;
+    }
+    if (active.loadError || active.paramsError || active.userInteracted) {
+      clearToolInitTimers(false);
+      return;
+    }
+    ensureToolInitReliableDispatch('active_tool_state');
+  }, [
+    chatState.activeFrontendTool?.toolId,
+    chatState.activeFrontendTool?.viewportHtml,
+    chatState.activeFrontendTool?.loading,
+    chatState.activeFrontendTool?.loadError,
+    chatState.activeFrontendTool?.paramsReady,
+    chatState.activeFrontendTool?.paramsError,
+    chatState.activeFrontendTool?.toolParams,
+    chatState.activeFrontendTool?.userInteracted,
+    clearToolInitTimers,
+    ensureToolInitReliableDispatch
+  ]);
 
   useEffect(() => {
     if (!authTokenSignal || !frontendToolWebViewRef.current) {
@@ -834,6 +1209,7 @@ export function ChatAssistantScreen({
       stopStreaming();
       clearReasoningTimers();
       clearStreamIdleTimer();
+      clearToolInitTimers(true);
       if (planCollapseTimerRef.current) {
         clearTimeout(planCollapseTimerRef.current);
         planCollapseTimerRef.current = null;
@@ -848,7 +1224,7 @@ export function ChatAssistantScreen({
         fireworksTimerRef.current = null;
       }
     };
-  }, [clearReasoningTimers, clearStreamIdleTimer, stopStreaming]);
+  }, [clearReasoningTimers, clearStreamIdleTimer, clearToolInitTimers, stopStreaming]);
 
 
   return (
@@ -977,9 +1353,11 @@ export function ChatAssistantScreen({
             onStop={stopStreaming}
             streaming={chatState.streaming}
             activeFrontendTool={chatState.activeFrontendTool}
+            frontendToolBaseUrl={backendUrl}
             frontendToolWebViewRef={frontendToolWebViewRef}
             onFrontendToolMessage={handleFrontendToolMessage}
             onFrontendToolLoad={handleFrontendToolWebViewLoad}
+            onFrontendToolRetry={handleFrontendToolRetry}
           />
 
           {!hasPlanTasks && !autoScrollEnabled && chatState.timeline.length ? (

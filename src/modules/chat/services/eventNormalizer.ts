@@ -108,19 +108,6 @@ export function isFrontendToolEvent(event: Record<string, unknown>): boolean {
   return FRONTEND_VIEWPORT_TYPES.has(toolType) && Boolean(event.toolKey);
 }
 
-export function getCollapsedPlanTask(tasks: PlanTask[] = []): PlanTask | null {
-  const running = tasks.find((task) => normalizeTaskStatus(task.status) === 'running');
-  if (running) return running;
-
-  for (let i = tasks.length - 1; i >= 0; i -= 1) {
-    const task = tasks[i];
-    const status = normalizeTaskStatus(task.status);
-    if (status === 'done' || status === 'failed') return task;
-  }
-
-  return tasks[tasks.length - 1] || null;
-}
-
 export function getPlanProgress(tasks: PlanTask[] = []): { current: number; total: number } {
   const total = tasks.length;
   if (!total) return { current: 0, total: 0 };

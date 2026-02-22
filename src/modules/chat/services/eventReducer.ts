@@ -18,7 +18,7 @@ import {
 } from './eventNormalizer';
 
 export interface ChatEffect {
-  type: 'set_chat_id' | 'execute_action' | 'stream_end' | 'activate_frontend_tool';
+  type: 'set_chat_id' | 'execute_action' | 'stream_end' | 'activate_frontend_tool' | 'frontend_tool_params_ready';
   payload?: Record<string, unknown>;
 }
 
@@ -152,6 +152,84 @@ function resolveEndTs(event: Record<string, unknown>, source: 'live' | 'history'
     if (ms != null) return ms;
   }
   return resolveEventTs(event, source);
+}
+
+function parseChunkIndex(value: unknown): number | null {
+  if (value == null || value === '') return null;
+  const numeric = Number(value);
+  if (!Number.isInteger(numeric) || numeric < 0) return null;
+  return numeric;
+}
+
+function rebuildArgsBufferByChunkIndex(toolState: {
+  argsChunksByIndex: Record<number, string>;
+  maxChunkIndex: number;
+  argsBuffer: string;
+  hasChunkGap: boolean;
+  missingChunkIndexes: number[];
+}): void {
+  const nextMissing: number[] = [];
+  const ordered: string[] = [];
+  for (let idx = 0; idx <= toolState.maxChunkIndex; idx += 1) {
+    if (Object.prototype.hasOwnProperty.call(toolState.argsChunksByIndex, idx)) {
+      ordered.push(String(toolState.argsChunksByIndex[idx] || ''));
+    } else {
+      nextMissing.push(idx);
+    }
+  }
+  toolState.argsBuffer = ordered.join('');
+  toolState.missingChunkIndexes = nextMissing;
+  toolState.hasChunkGap = nextMissing.length > 0;
+}
+
+function createDefaultToolState(toolId: string, runId: string) {
+  return {
+    toolId,
+    argsBuffer: '',
+    toolName: '',
+    toolType: '',
+    toolKey: '',
+    toolTimeout: null as number | null | undefined,
+    toolParams: null as Record<string, unknown> | null,
+    argsChunksByIndex: {} as Record<number, string>,
+    maxChunkIndex: -1,
+    hasChunkGap: false,
+    missingChunkIndexes: [] as number[],
+    runId
+  };
+}
+
+function getOrCreateActionState(
+  actionId: string,
+  runtime: ChatRuntimeMaps,
+  actionName: string
+) {
+  const existing = runtime.actionStateMap.get(actionId);
+  if (existing) return existing;
+  const state = {
+    actionName,
+    argsText: '',
+    resultText: '',
+    executed: false
+  };
+  runtime.actionStateMap.set(actionId, state);
+  return state;
+}
+
+function resetToolChunkState(toolState: {
+  argsChunksByIndex: Record<number, string>;
+  maxChunkIndex: number;
+  hasChunkGap: boolean;
+  missingChunkIndexes: number[];
+}): void {
+  toolState.argsChunksByIndex = {};
+  toolState.maxChunkIndex = -1;
+  toolState.hasChunkGap = false;
+  toolState.missingChunkIndexes = [];
+}
+
+function getEventResult(event: Record<string, unknown>): unknown {
+  return Object.prototype.hasOwnProperty.call(event, 'result') ? event.result : event.output;
 }
 
 export function reduceChatEvent(
@@ -302,14 +380,8 @@ export function reduceChatEvent(
       runtime.actionIdMap.set(actionId, itemId);
     }
 
-    const actionState = runtime.actionStateMap.get(actionId) || {
-      actionName,
-      argsText: '',
-      resultText: '',
-      executed: false
-    };
+    const actionState = getOrCreateActionState(actionId, runtime, actionName);
     actionState.actionName = actionName || actionState.actionName || '';
-    runtime.actionStateMap.set(actionId, actionState);
 
     upsertEntry(next, itemId, (old) => ({
       ...(old || {}),
@@ -336,14 +408,8 @@ export function reduceChatEvent(
     }
 
     const deltaText = String(event.delta || '');
-    const stateInRef = runtime.actionStateMap.get(actionId) || {
-      actionName: String(event.actionName || '').trim(),
-      argsText: '',
-      resultText: '',
-      executed: false
-    };
+    const stateInRef = getOrCreateActionState(actionId, runtime, String(event.actionName || '').trim());
     stateInRef.argsText = `${stateInRef.argsText || ''}${deltaText}`;
-    runtime.actionStateMap.set(actionId, stateInRef);
 
     upsertEntry(next, itemId, (old) => ({
       ...(old || {}),
@@ -369,15 +435,9 @@ export function reduceChatEvent(
       runtime.actionIdMap.set(actionId, itemId);
     }
 
-    const nextResult = toDisplayText(Object.prototype.hasOwnProperty.call(event, 'result') ? event.result : event.output);
-    const stateInRef = runtime.actionStateMap.get(actionId) || {
-      actionName: String(event.actionName || '').trim(),
-      argsText: '',
-      resultText: '',
-      executed: false
-    };
+    const nextResult = toDisplayText(getEventResult(event));
+    const stateInRef = getOrCreateActionState(actionId, runtime, String(event.actionName || '').trim());
     stateInRef.resultText = nextResult || stateInRef.resultText || '';
-    runtime.actionStateMap.set(actionId, stateInRef);
 
     upsertEntry(next, itemId, (old) => ({
       ...(old || {}),
@@ -403,14 +463,8 @@ export function reduceChatEvent(
       runtime.actionIdMap.set(actionId, itemId);
     }
 
-    const stateInRef = runtime.actionStateMap.get(actionId) || {
-      actionName: String(event.actionName || '').trim(),
-      argsText: '',
-      resultText: '',
-      executed: false
-    };
+    const stateInRef = getOrCreateActionState(actionId, runtime, String(event.actionName || '').trim());
     stateInRef.actionName = String(event.actionName || stateInRef.actionName || '').trim();
-    runtime.actionStateMap.set(actionId, stateInRef);
 
     upsertEntry(next, itemId, (old) => ({
       ...(old || {}),
@@ -448,16 +502,7 @@ export function reduceChatEvent(
       runtime.toolIdMap.set(toolId, itemId);
     }
 
-    const toolState = runtime.toolStateMap.get(toolId) || {
-      toolId,
-      argsBuffer: '',
-      toolName: '',
-      toolType: '',
-      toolKey: '',
-      toolTimeout: null,
-      toolParams: null,
-      runId: ''
-    };
+    const toolState = runtime.toolStateMap.get(toolId) || createDefaultToolState(toolId, '');
     toolState.toolName = String(event.toolName || toolState.toolName || '');
     toolState.toolType = String(event.toolType || toolState.toolType || '');
     toolState.toolKey = String(event.toolKey || toolState.toolKey || '');
@@ -477,6 +522,7 @@ export function reduceChatEvent(
     }
     if (snapshotArgsText && !toolState.argsBuffer) {
       toolState.argsBuffer = snapshotArgsText;
+      resetToolChunkState(toolState);
     }
 
     runtime.toolStateMap.set(toolId, toolState);
@@ -493,6 +539,7 @@ export function reduceChatEvent(
     }) as TimelineEntry);
 
     if (source === 'live' && isFrontendToolEvent({ toolType: toolState.toolType, toolKey: toolState.toolKey })) {
+      const paramsReady = Boolean(toolState.toolParams && typeof toolState.toolParams === 'object');
       effects.push({
         type: 'activate_frontend_tool',
         payload: {
@@ -502,7 +549,10 @@ export function reduceChatEvent(
           toolType: toolState.toolType,
           toolName: toolState.toolName || toolState.toolKey,
           toolTimeout: toolState.toolTimeout,
-          toolParams: toolState.toolParams || undefined
+          toolParams: toolState.toolParams || undefined,
+          paramsReady,
+          paramsError: '',
+          argsText: toolState.argsBuffer || snapshotArgsText || ''
         }
       });
     }
@@ -519,26 +569,22 @@ export function reduceChatEvent(
     }
 
     const deltaText = String(event.delta || '');
-    const toolState = runtime.toolStateMap.get(toolId) || {
-      toolId,
-      argsBuffer: '',
-      toolName: '',
-      toolType: '',
-      toolKey: '',
-      toolTimeout: null,
-      toolParams: null,
-      runId: runtime.runId
-    };
-    toolState.argsBuffer = (toolState.argsBuffer || '') + deltaText;
+    const toolState = runtime.toolStateMap.get(toolId) || createDefaultToolState(toolId, runtime.runId);
 
-    if (!toolState.toolParams) {
-      try {
-        const parsed = JSON.parse(toolState.argsBuffer) as Record<string, unknown>;
-        if (parsed && typeof parsed === 'object') {
-          toolState.toolParams = parsed;
-        }
-      } catch {
-        // noop
+    const chunkIndex = parseChunkIndex(event.chunkIndex);
+    if (chunkIndex != null) {
+      toolState.argsChunksByIndex = {
+        ...(toolState.argsChunksByIndex || {}),
+        [chunkIndex]: deltaText
+      };
+      toolState.maxChunkIndex = Math.max(Number(toolState.maxChunkIndex || -1), chunkIndex);
+      rebuildArgsBufferByChunkIndex(toolState);
+    } else {
+      toolState.argsBuffer = `${toolState.argsBuffer || ''}${deltaText}`;
+      // 未提供 chunkIndex 的旧协议按追加处理，不视作缺块
+      if (Number(toolState.maxChunkIndex || -1) < 0) {
+        toolState.hasChunkGap = false;
+        toolState.missingChunkIndexes = [];
       }
     }
 
@@ -549,7 +595,55 @@ export function reduceChatEvent(
       id: itemId,
       kind: 'tool',
       label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
-      argsText: `${String((old as Record<string, unknown> | null)?.argsText || '')}${deltaText}`,
+      argsText: String(toolState.argsBuffer || ''),
+      resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
+      state: String((old as Record<string, unknown> | null)?.state || 'running') as 'init' | 'running' | 'done' | 'failed',
+      ts
+    }) as TimelineEntry);
+
+    return { next, effects };
+  }
+
+  if (type === 'tool.params' && event.toolId) {
+    const toolId = String(event.toolId);
+    let itemId = runtime.toolIdMap.get(toolId);
+    if (!itemId) {
+      itemId = nextId(runtime, 'tool');
+      runtime.toolIdMap.set(toolId, itemId);
+    }
+
+    const toolState = runtime.toolStateMap.get(toolId) || createDefaultToolState(toolId, runtime.runId);
+    const nextToolParams =
+      event.toolParams && typeof event.toolParams === 'object'
+        ? (event.toolParams as Record<string, unknown>)
+        : event.params && typeof event.params === 'object'
+          ? (event.params as Record<string, unknown>)
+          : null;
+    if (nextToolParams) {
+      toolState.toolParams = nextToolParams;
+      try {
+        toolState.argsBuffer = JSON.stringify(nextToolParams);
+      } catch {
+        // noop
+      }
+      resetToolChunkState(toolState);
+    }
+    runtime.toolStateMap.set(toolId, toolState);
+
+    upsertEntry(next, itemId, (old) => ({
+      ...(old || {}),
+      id: itemId,
+      kind: 'tool',
+      label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
+      argsText: nextToolParams
+        ? (() => {
+            try {
+              return JSON.stringify(nextToolParams);
+            } catch {
+              return String((old as Record<string, unknown> | null)?.argsText || '');
+            }
+          })()
+        : String((old as Record<string, unknown> | null)?.argsText || ''),
       resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
       state: String((old as Record<string, unknown> | null)?.state || 'running') as 'init' | 'running' | 'done' | 'failed',
       ts
@@ -566,7 +660,7 @@ export function reduceChatEvent(
       runtime.toolIdMap.set(toolId, itemId);
     }
 
-    const nextResult = toDisplayText(Object.prototype.hasOwnProperty.call(event, 'result') ? event.result : event.output);
+    const nextResult = toDisplayText(getEventResult(event));
     const toolState = runtime.toolStateMap.get(toolId);
     upsertEntry(next, itemId, (old) => ({
       ...(old || {}),
@@ -595,16 +689,66 @@ export function reduceChatEvent(
     }
 
     const toolState = runtime.toolStateMap.get(toolId);
+    const argsTextFromState = String(toolState?.argsBuffer || '');
     upsertEntry(next, itemId, (old) => ({
       ...(old || {}),
       id: itemId,
       kind: 'tool',
       label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
-      argsText: String((old as Record<string, unknown> | null)?.argsText || ''),
+      argsText: argsTextFromState,
       resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
       state: event.error ? 'failed' : String((old as Record<string, unknown> | null)?.state) === 'failed' ? 'failed' : 'done',
       ts
     }) as TimelineEntry);
+
+    if (source === 'live' && toolState && isFrontendToolEvent({ toolType: toolState.toolType, toolKey: toolState.toolKey })) {
+      let toolParams: Record<string, unknown> | undefined;
+      let paramsError = '';
+      const missingChunkIndexes = Array.isArray(toolState.missingChunkIndexes)
+        ? toolState.missingChunkIndexes.filter((value) => Number.isInteger(value) && value >= 0)
+        : [];
+      const chunkGapDetected = missingChunkIndexes.length > 0 || Boolean(toolState.hasChunkGap);
+
+      if (chunkGapDetected) {
+        paramsError = `工具参数分片缺失（missing chunks: ${missingChunkIndexes.join(',')}），无法严格解析 JSON`;
+      }
+
+      if (toolState.toolParams && typeof toolState.toolParams === 'object') {
+        toolParams = toolState.toolParams;
+      } else if (!paramsError) {
+        const rawArgs = String(toolState.argsBuffer || '');
+        try {
+          const parsed = JSON.parse(rawArgs) as Record<string, unknown>;
+          if (parsed && typeof parsed === 'object') {
+            toolParams = parsed;
+            toolState.toolParams = parsed;
+            runtime.toolStateMap.set(toolId, toolState);
+          } else {
+            paramsError = '工具参数解析失败（严格 JSON）';
+          }
+        } catch {
+          paramsError = '工具参数解析失败（严格 JSON）';
+        }
+      }
+
+      effects.push({
+        type: 'frontend_tool_params_ready',
+        payload: {
+          runId: toolState.runId || runtime.runId,
+          toolId: toolState.toolId,
+          toolKey: toolState.toolKey,
+          toolType: toolState.toolType,
+          toolName: toolState.toolName || toolState.toolKey,
+          toolTimeout: toolState.toolTimeout,
+          toolParams,
+          paramsReady: Boolean(toolParams),
+          paramsError,
+          argsText: argsTextFromState,
+          missingChunkIndexes,
+          chunkGapDetected
+        }
+      });
+    }
 
     return { next, effects };
   }

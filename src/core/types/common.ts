@@ -49,3 +49,27 @@ export interface ToolInitMessage {
     params?: Record<string, unknown>;
   };
 }
+
+export interface InboxMessage {
+  messageId: string;
+  title: string;
+  content: string;
+  type: string;
+  sender: string;
+  read: boolean;
+  createAt?: string | number;
+}
+
+export interface WebSocketInboxNewPayload {
+  message?: InboxMessage;
+  unreadCount?: number;
+}
+
+export interface WebSocketInboxSyncPayload {
+  unreadCount?: number;
+}
+
+export interface WebSocketMessage {
+  type: string;
+  payload: Record<string, unknown>;
+}

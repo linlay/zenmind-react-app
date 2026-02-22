@@ -183,7 +183,7 @@ export function ViewportBlockView({ viewportKey, payload, backendUrl, theme, con
       <WebView
         ref={webViewRef}
         originWhitelist={['*']}
-        source={{ html }}
+        source={{ html, baseUrl: backendUrl }}
         style={{ height: Math.max(MIN_VIEWPORT_HEIGHT, webViewHeight), width: '100%', backgroundColor: 'transparent' }}
         javaScriptEnabled
         injectedJavaScript={VIEWPORT_AUTOSIZE_SCRIPT}

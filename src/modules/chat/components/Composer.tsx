@@ -3,22 +3,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { FrontendToolState } from '../types/chat';
-
-export const WEBVIEW_BRIDGE_SCRIPT = `
-(function() {
-  var origPostMessage = window.postMessage;
-  window.postMessage = function(data, targetOrigin) {
-    if (data && typeof data === 'object' &&
-        (data.type === 'frontend_submit' ||
-         data.type === 'chat_message' ||
-         data.type === 'auth_refresh_request')) {
-      window.ReactNativeWebView.postMessage(JSON.stringify(data));
-    }
-    origPostMessage.call(window, data, targetOrigin);
-  };
-  true;
-})();
-`;
+import { WEBVIEW_BRIDGE_SCRIPT } from '../utils/webViewBridge';
+export { WEBVIEW_BRIDGE_SCRIPT } from '../utils/webViewBridge';
 
 interface ComposerProps {
   theme: {
@@ -40,9 +26,11 @@ interface ComposerProps {
   onStop: () => void;
   streaming: boolean;
   activeFrontendTool: FrontendToolState | null;
+  frontendToolBaseUrl: string;
   frontendToolWebViewRef: React.RefObject<WebView>;
   onFrontendToolMessage: (event: { nativeEvent: { data: string } }) => void;
   onFrontendToolLoad: () => void;
+  onFrontendToolRetry: () => void;
 }
 
 export function Composer({
@@ -56,9 +44,11 @@ export function Composer({
   onStop,
   streaming,
   activeFrontendTool,
+  frontendToolBaseUrl,
   frontendToolWebViewRef,
   onFrontendToolMessage,
-  onFrontendToolLoad
+  onFrontendToolLoad,
+  onFrontendToolRetry
 }: ComposerProps) {
   const minRows = 1;
   const maxRows = 6;
@@ -110,23 +100,56 @@ export function Composer({
             </View>
           ) : activeFrontendTool.loadError ? (
             <View style={styles.center}>
-              <Text style={{ color: theme.danger }}>{activeFrontendTool.loadError}</Text>
+              <Text style={[styles.frontendToolErrorText, { color: theme.danger }]}>{activeFrontendTool.loadError}</Text>
+              <TouchableOpacity
+                activeOpacity={0.86}
+                style={[styles.frontendToolRetryBtn, { borderColor: theme.border }]}
+                onPress={onFrontendToolRetry}
+                testID="frontend-tool-retry-btn"
+              >
+                <Text style={{ color: theme.text }}>重试加载</Text>
+              </TouchableOpacity>
             </View>
           ) : activeFrontendTool.viewportHtml ? (
-            <WebView
-              ref={frontendToolWebViewRef}
-              nativeID="frontend-tool-webview"
-              testID="frontend-tool-webview"
-              originWhitelist={['*']}
-              source={{ html: activeFrontendTool.viewportHtml }}
-              style={styles.frontendToolWebView}
-              javaScriptEnabled
-              injectedJavaScript={WEBVIEW_BRIDGE_SCRIPT}
-              onMessage={onFrontendToolMessage as never}
-              onLoad={onFrontendToolLoad}
-              scrollEnabled
-              nestedScrollEnabled
-            />
+            <View style={styles.frontendToolWebViewWrap}>
+              {!activeFrontendTool.userInteracted && !activeFrontendTool.paramsError ? (
+                <View
+                  style={[styles.frontendToolInitBanner, { borderColor: `${theme.border}`, backgroundColor: `${theme.surface}EE` }]}
+                  testID="frontend-tool-init-banner"
+                >
+                  <Text style={[styles.frontendToolInitText, { color: theme.textMute }]}>正在初始化前端工具...</Text>
+                </View>
+              ) : null}
+              <WebView
+                ref={frontendToolWebViewRef}
+                nativeID="frontend-tool-webview"
+                testID="frontend-tool-webview"
+                originWhitelist={['*']}
+                source={{ html: activeFrontendTool.viewportHtml, baseUrl: frontendToolBaseUrl }}
+                style={styles.frontendToolWebView}
+                javaScriptEnabled
+                injectedJavaScript={WEBVIEW_BRIDGE_SCRIPT}
+                onMessage={onFrontendToolMessage as never}
+                onLoad={onFrontendToolLoad}
+                scrollEnabled
+                nestedScrollEnabled
+              />
+              {activeFrontendTool.paramsError ? (
+                <View
+                  style={[styles.frontendToolParamsErrorBanner, { backgroundColor: `${theme.danger}22` }]}
+                  testID="frontend-tool-params-error"
+                >
+                  <Text style={[styles.frontendToolErrorText, { color: theme.danger }]}>
+                    {activeFrontendTool.paramsError}
+                  </Text>
+                  {activeFrontendTool.chunkGapDetected ? (
+                    <Text style={[styles.frontendToolChunkGapHint, { color: theme.danger }]}>
+                      {`检测到参数分片缺失（${Array.isArray(activeFrontendTool.missingChunkIndexes) ? activeFrontendTool.missingChunkIndexes.join(',') : ''}），无法初始化确认对话框`}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+            </View>
           ) : (
             <View style={styles.center}>
               <Text style={{ color: theme.textMute }}>等待前端工具就绪...</Text>
@@ -314,9 +337,52 @@ const styles = StyleSheet.create({
   frontendToolWebView: {
     flex: 1
   },
+  frontendToolWebViewWrap: {
+    flex: 1
+  },
   center: {
     minHeight: 120,
     alignItems: 'center',
     justifyContent: 'center'
+  },
+  frontendToolErrorText: {
+    textAlign: 'center',
+    paddingHorizontal: 16
+  },
+  frontendToolRetryBtn: {
+    marginTop: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6
+  },
+  frontendToolParamsErrorBanner: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    top: 10,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10
+  },
+  frontendToolChunkGapHint: {
+    marginTop: 6,
+    fontSize: 12,
+    textAlign: 'center'
+  },
+  frontendToolInitBanner: {
+    position: 'absolute',
+    left: 10,
+    right: 10,
+    top: 10,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    zIndex: 2
+  },
+  frontendToolInitText: {
+    fontSize: 12,
+    textAlign: 'center'
   }
 });
