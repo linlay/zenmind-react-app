@@ -13,10 +13,9 @@ export interface ChatSummary {
   chatName?: string;
   title?: string;
   firstAgentKey?: string;
+  firstAgentName?: string;
   updatedAt?: string | number;
-  updateTime?: string | number;
   createdAt?: string | number;
-  timestamp?: string | number;
   [key: string]: unknown;
 }
 

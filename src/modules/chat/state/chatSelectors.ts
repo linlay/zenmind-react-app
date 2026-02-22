@@ -12,7 +12,7 @@ export const selectFilteredChats = (state: RootState) => {
   if (!keyword) return sorted;
 
   return sorted.filter((chat) => {
-    const haystack = `${chat.chatName || ''} ${chat.chatId || ''} ${chat.firstAgentKey || ''}`.toLowerCase();
+    const haystack = `${chat.chatName || ''} ${chat.chatId || ''}`.toLowerCase();
     return haystack.includes(keyword);
   });
 };

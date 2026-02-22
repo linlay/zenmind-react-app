@@ -49,22 +49,57 @@ export function getAgentName(agent: Agent | null | undefined): string {
   return String(agent.name || getAgentKey(agent) || '').trim();
 }
 
+function pickFirstNonEmpty(values: unknown[]): string {
+  for (const value of values) {
+    const text = String(value || '').trim();
+    if (text) return text;
+  }
+  return '';
+}
+
+function parseDate(input: unknown): Date | null {
+  if (!input) return null;
+  const date = new Date(input as string | number | Date);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export function getChatTitle(chat: ChatSummary | null | undefined): string {
   if (!chat || typeof chat !== 'object') return '';
-  return String(chat.chatName || chat.title || chat.chatId || '').trim();
+  return pickFirstNonEmpty([chat.chatName, chat.title, chat.chatId]);
+}
+
+export function getChatAgentName(chat: ChatSummary | null | undefined): string {
+  if (!chat || typeof chat !== 'object') return '未知智能体';
+  return pickFirstNonEmpty([chat.firstAgentName, '未知智能体']);
+}
+
+export function formatChatListTime(chat: ChatSummary | null | undefined, nowInput?: Date): string {
+  if (!chat || typeof chat !== 'object') return '--';
+  const date = parseDate(chat.updatedAt);
+  if (!date) return '--';
+
+  const now = nowInput || new Date();
+  const targetDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  if (targetDate.getTime() === todayDate.getTime()) {
+    const hh = String(date.getHours()).padStart(2, '0');
+    const mm = String(date.getMinutes()).padStart(2, '0');
+    return `${hh}:${mm}`;
+  }
+
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  if (date.getFullYear() === now.getFullYear()) {
+    return `${month}-${day}`;
+  }
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 export function getChatTimestamp(chat: ChatSummary | null | undefined): number {
-  if (!chat || typeof chat !== 'object') return Date.now();
-  const values = [chat.updatedAt, chat.updateTime, chat.createdAt, chat.timestamp];
-  for (const value of values) {
-    if (!value) continue;
-    const ms = new Date(value as string | number | Date).getTime();
-    if (!Number.isNaN(ms)) {
-      return ms;
-    }
-  }
-  return Date.now();
+  if (!chat || typeof chat !== 'object') return 0;
+  const date = parseDate(chat.updatedAt) || parseDate(chat.createdAt);
+  return date ? date.getTime() : 0;
 }
 
 export function toDisplayText(value: unknown): string {

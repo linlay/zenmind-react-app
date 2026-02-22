@@ -55,7 +55,7 @@ import { useLazyGetAgentsQuery } from '../../modules/agents/api/agentsApi';
 import { useLazyGetChatsQuery } from '../../modules/chat/api/chatApi';
 import { useLazyListTerminalSessionsQuery } from '../../modules/terminal/api/terminalApi';
 import { fetchAuthedJson, formatError } from '../../core/network/apiClient';
-import { getAgentKey, getAgentName, getChatTitle } from '../../shared/utils/format';
+import { formatChatListTime, getAgentKey, getAgentName, getChatAgentName, getChatTitle } from '../../shared/utils/format';
 import { TerminalSessionItem } from '../../modules/terminal/types/terminal';
 import {
   ensureFreshAccessToken,
@@ -1339,10 +1339,8 @@ export function ShellScreen() {
                       filteredChats.map((chat, index) => {
                         const active = chat.chatId === chatId;
                         const title = getChatTitle(chat) || chat.chatId || '未命名会话';
-                        const chatMetaParts: string[] = [];
-                        if (chat.firstAgentKey) chatMetaParts.push(`@${chat.firstAgentKey}`);
-                        if (chat.chatId) chatMetaParts.push(chat.chatId);
-                        const chatMeta = chatMetaParts.join(' · ');
+                        const agentName = getChatAgentName(chat);
+                        const chatTime = formatChatListTime(chat);
                         const itemKey = chat.chatId || `${title}:${index}`;
 
                         return (
@@ -1358,7 +1356,17 @@ export function ShellScreen() {
                             }}
                           >
                             <Text style={[styles.chatItemTitle, { color: theme.text }]} numberOfLines={1}>{title}</Text>
-                            <Text style={[styles.chatItemMeta, { color: theme.textMute }]} numberOfLines={1}>{chatMeta}</Text>
+                            <View style={styles.chatHistoryMetaRow}>
+                              <Text
+                                style={[styles.chatHistoryMetaAgent, { color: theme.textMute }]}
+                                numberOfLines={1}
+                              >
+                                {agentName}
+                              </Text>
+                              <Text style={[styles.chatHistoryMetaTime, { color: theme.textMute }]} numberOfLines={1}>
+                                {chatTime}
+                              </Text>
+                            </View>
                           </TouchableOpacity>
                         );
                       })
@@ -2027,6 +2035,22 @@ const styles = StyleSheet.create({
   chatItemMeta: {
     marginTop: 4,
     fontSize: 11
+  },
+  chatHistoryMetaRow: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8
+  },
+  chatHistoryMetaAgent: {
+    flex: 1,
+    minWidth: 0,
+    fontSize: 11
+  },
+  chatHistoryMetaTime: {
+    fontSize: 11,
+    textAlign: 'right'
   },
   emptyHistoryCard: {
     borderRadius: 10,
