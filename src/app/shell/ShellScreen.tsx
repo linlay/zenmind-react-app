@@ -22,13 +22,14 @@ import Svg, { Path, Rect } from 'react-native-svg';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { DomainMode } from '../../core/types/common';
 import { THEMES } from '../../core/constants/theme';
-import { toBackendBaseUrl } from '../../core/network/endpoint';
+import { normalizePtyUrlInput, toBackendBaseUrl } from '../../core/network/endpoint';
 import { loadSettings, patchSettings } from '../../core/storage/settingsStorage';
 import { setDrawerOpen } from './shellSlice';
 import {
   hydrateSettings,
   setActiveDomain,
-  setSelectedAgentKey as setUserSelectedAgentKey
+  setSelectedAgentKey as setUserSelectedAgentKey,
+  toggleTheme
 } from '../../modules/user/state/userSlice';
 import {
   setAgents,
@@ -43,7 +44,7 @@ import {
   setLoadingChats,
   setStatusText
 } from '../../modules/chat/state/chatSlice';
-import { reloadPty } from '../../modules/terminal/state/terminalSlice';
+import { reloadPty, requestOpenNewSessionModal, setActiveSessionId } from '../../modules/terminal/state/terminalSlice';
 import { selectFilteredChats } from '../../modules/chat/state/chatSelectors';
 import { ChatAssistantScreen } from '../../modules/chat/screens/ChatAssistantScreen';
 import { TerminalScreen } from '../../modules/terminal/screens/TerminalScreen';
@@ -52,8 +53,10 @@ import { UserSettingsScreen } from '../../modules/user/screens/UserSettingsScree
 import { DomainSwitcher } from './DomainSwitcher';
 import { useLazyGetAgentsQuery } from '../../modules/agents/api/agentsApi';
 import { useLazyGetChatsQuery } from '../../modules/chat/api/chatApi';
+import { useLazyListTerminalSessionsQuery } from '../../modules/terminal/api/terminalApi';
 import { fetchAuthedJson, formatError } from '../../core/network/apiClient';
 import { getAgentKey, getAgentName, getChatTitle } from '../../shared/utils/format';
+import { TerminalSessionItem } from '../../modules/terminal/types/terminal';
 import {
   ensureFreshAccessToken,
   getCurrentSession,
@@ -126,6 +129,7 @@ export function ShellScreen() {
   const agentsLoading = useAppSelector((state) => state.agents.loading);
   const agents = useAppSelector((state) => state.agents.agents);
   const filteredChats = useAppSelector(selectFilteredChats);
+  const activeTerminalSessionId = useAppSelector((state) => state.terminal.activeSessionId);
 
   const [agentMenuOpen, setAgentMenuOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -145,9 +149,13 @@ export function ShellScreen() {
   const [authTokenSignal, setAuthTokenSignal] = useState(0);
   const [authUsername, setAuthUsername] = useState('');
   const [authDeviceName, setAuthDeviceName] = useState('');
+  const [terminalSessions, setTerminalSessions] = useState<TerminalSessionItem[]>([]);
+  const [terminalSessionsLoading, setTerminalSessionsLoading] = useState(false);
+  const [terminalSessionsError, setTerminalSessionsError] = useState('');
 
   const [triggerAgents] = useLazyGetAgentsQuery();
   const [triggerChats] = useLazyGetChatsQuery();
+  const [triggerTerminalSessions] = useLazyListTerminalSessionsQuery();
 
   const wsRef = useRef<WebSocket | null>(null);
   const wsReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -162,6 +170,7 @@ export function ShellScreen() {
   const publishAnim = useRef(new Animated.Value(0)).current;
   const theme = THEMES[themeMode] || THEMES.light;
   const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
+  const ptyWebUrl = useMemo(() => normalizePtyUrlInput(ptyUrlInput, endpointInput), [endpointInput, ptyUrlInput]);
 
   const drawerWidth = useMemo(() => {
     const candidate = Math.floor(window.width * 0.84);
@@ -216,7 +225,7 @@ export function ShellScreen() {
     async (base = backendUrl, silent = false) => {
       if (!silent) dispatch(setAgentsLoading(true));
       try {
-        const list = await triggerAgents(base, true).unwrap();
+        const list = await triggerAgents(base).unwrap();
         dispatch(setAgents(list));
         dispatch(setAgentsError(''));
 
@@ -242,7 +251,7 @@ export function ShellScreen() {
     async (silent = false) => {
       if (!silent) dispatch(setLoadingChats(true));
       try {
-        const list = await triggerChats(backendUrl, true).unwrap();
+        const list = await triggerChats(backendUrl).unwrap();
         dispatch(setChats(list));
       } catch (error) {
         dispatch(setStatusText(`会话列表加载失败：${formatError(error)}`));
@@ -252,6 +261,37 @@ export function ShellScreen() {
     },
     [backendUrl, dispatch, triggerChats]
   );
+
+  const refreshTerminalSessions = useCallback(
+    async (silent = false) => {
+      if (!silent) {
+        setTerminalSessionsLoading(true);
+      }
+      try {
+        const sessions = await triggerTerminalSessions({ backendUrl, ptyWebUrl }).unwrap();
+        setTerminalSessions(Array.isArray(sessions) ? sessions : []);
+        setTerminalSessionsError('');
+        if (activeTerminalSessionId && !sessions.some((item) => item.sessionId === activeTerminalSessionId)) {
+          dispatch(setActiveSessionId(''));
+        }
+      } catch (error) {
+        const message = formatError(error);
+        setTerminalSessionsError(message);
+        dispatch(setStatusText(`终端会话加载失败：${message}`));
+      } finally {
+        if (!silent) {
+          setTerminalSessionsLoading(false);
+        }
+      }
+    },
+    [activeTerminalSessionId, backendUrl, dispatch, ptyWebUrl, triggerTerminalSessions]
+  );
+
+  const openTerminalCreateSessionModal = useCallback(() => {
+    dispatch(requestOpenNewSessionModal(Date.now()));
+    dispatch(reloadPty());
+    dispatch(setDrawerOpen(false));
+  }, [dispatch]);
 
   const refreshAll = useCallback(
     async (silent = false) => {
@@ -706,6 +746,29 @@ export function ShellScreen() {
   }, [authReady, inboxOpen, refreshInbox]);
 
   useEffect(() => {
+    if (!authReady) {
+      setTerminalSessions([]);
+      setTerminalSessionsLoading(false);
+      setTerminalSessionsError('');
+      dispatch(setActiveSessionId(''));
+    }
+  }, [authReady, dispatch]);
+
+  useEffect(() => {
+    if (booting || !authReady || activeDomain !== 'terminal') {
+      return;
+    }
+    refreshTerminalSessions(true).catch(() => {});
+  }, [activeDomain, authReady, booting, refreshTerminalSessions]);
+
+  useEffect(() => {
+    if (!drawerOpen || !authReady || activeDomain !== 'terminal') {
+      return;
+    }
+    refreshTerminalSessions(true).catch(() => {});
+  }, [activeDomain, authReady, drawerOpen, refreshTerminalSessions]);
+
+  useEffect(() => {
     if (activeDomain !== 'agents' && publishOpen) {
       setPublishOpen(false);
     }
@@ -893,6 +956,20 @@ export function ShellScreen() {
                   }}
                 >
                   <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>发布</Text>
+                </TouchableOpacity>
+              ) : isUserDomain ? (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="shell-theme-toggle-btn"
+                  onPress={() => {
+                    setAgentMenuOpen(false);
+                    setPublishOpen(false);
+                    setInboxOpen(false);
+                    dispatch(toggleTheme());
+                  }}
+                >
+                  <Text style={[styles.themeToggleText, { color: theme.primaryDeep }]}>◐</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
@@ -1198,6 +1275,22 @@ export function ShellScreen() {
                     <Text style={[styles.drawerHeadNewChatText, { color: theme.primaryDeep }]}>+新建对话</Text>
                   </TouchableOpacity>
                 ) : null}
+                {activeDomain === 'terminal' ? (
+                  <TouchableOpacity
+                    activeOpacity={0.76}
+                    style={styles.drawerHeadRefreshBtn}
+                    testID="terminal-sessions-refresh-btn"
+                    onPress={() => {
+                      refreshTerminalSessions().catch(() => {});
+                    }}
+                  >
+                    {terminalSessionsLoading ? (
+                      <ActivityIndicator size="small" color={theme.primaryDeep} />
+                    ) : (
+                      <Text style={[styles.drawerHeadRefreshText, { color: theme.primaryDeep }]}>↻</Text>
+                    )}
+                  </TouchableOpacity>
+                ) : null}
               </View>
               <TouchableOpacity
                 activeOpacity={0.72}
@@ -1280,19 +1373,57 @@ export function ShellScreen() {
 
               {activeDomain === 'terminal' ? (
                 <>
-                  <Text style={[styles.drawerSectionTitle, { color: theme.textSoft }]}>会话</Text>
                   <View style={styles.drawerActionRow}>
                     <TouchableOpacity
                       activeOpacity={0.74}
                       style={[styles.drawerActionBtn, { backgroundColor: theme.surfaceStrong }]}
-                      onPress={() => dispatch(setStatusText('终端会话列表待接入'))}
+                      testID="terminal-sessions-create-btn"
+                      onPress={() => {
+                        openTerminalCreateSessionModal();
+                      }}
                     >
                       <Text style={[styles.drawerActionText, { color: theme.textSoft }]}>+ 新会话</Text>
                     </TouchableOpacity>
                   </View>
-                  <View style={[styles.emptyHistoryCard, { backgroundColor: theme.surfaceStrong, marginTop: 8 }]}> 
-                    <Text style={[styles.emptyHistoryText, { color: theme.textMute }]}>暂无终端会话</Text>
-                  </View>
+                  <ScrollView style={styles.chatListWrap} contentContainerStyle={styles.chatListContent}>
+                    {terminalSessions.length ? (
+                      terminalSessions.map((session, index) => {
+                        const active = session.sessionId === activeTerminalSessionId;
+                        const title = session.title || session.sessionId;
+                        const parts: string[] = [];
+                        if (session.sessionType) parts.push(session.sessionType);
+                        if (session.toolId) parts.push(session.toolId);
+                        parts.push(session.sessionId);
+                        const meta = parts.join(' · ');
+                        return (
+                          <TouchableOpacity
+                            key={session.sessionId}
+                            activeOpacity={0.74}
+                            testID={`terminal-session-item-${index}`}
+                            style={[styles.chatItem, { backgroundColor: active ? theme.primarySoft : theme.surfaceStrong }]}
+                            onPress={() => {
+                              dispatch(setActiveSessionId(session.sessionId));
+                              dispatch(reloadPty());
+                              dispatch(setDrawerOpen(false));
+                            }}
+                          >
+                            <Text style={[styles.chatItemTitle, { color: theme.text }]} numberOfLines={1}>
+                              {title}
+                            </Text>
+                            <Text style={[styles.chatItemMeta, { color: theme.textMute }]} numberOfLines={1}>
+                              {meta}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })
+                    ) : (
+                      <View style={[styles.emptyHistoryCard, { backgroundColor: theme.surfaceStrong, marginTop: 8 }]}>
+                        <Text style={[styles.emptyHistoryText, { color: theme.textMute }]}>
+                          {terminalSessionsLoading ? '加载中...' : terminalSessionsError ? terminalSessionsError : '暂无终端会话'}
+                        </Text>
+                      </View>
+                    )}
+                  </ScrollView>
                 </>
               ) : null}
 
@@ -1445,7 +1576,7 @@ const styles = StyleSheet.create({
   inboxBadgeText: {
     color: '#fff',
     fontSize: 9,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   topActionBtn: {
     minWidth: 52,
@@ -1457,11 +1588,11 @@ const styles = StyleSheet.create({
   },
   topActionText: {
     fontSize: 12,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   themeToggleText: {
     fontSize: 16,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   assistantTopBtn: {
     flex: 1,
@@ -1482,7 +1613,7 @@ const styles = StyleSheet.create({
   },
   assistantTopTitle: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     textAlign: 'center'
   },
   assistantTopSingleTitle: {
@@ -1497,8 +1628,8 @@ const styles = StyleSheet.create({
     textAlign: 'center'
   },
   assistantTopArrow: {
-    fontSize: 12,
-    fontWeight: '700'
+    fontSize: 18,
+    fontWeight: '600'
   },
   inboxLayer: {
     ...StyleSheet.absoluteFillObject,
@@ -1560,8 +1691,8 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   inboxItemTitle: {
-    fontSize: 12,
-    fontWeight: '700'
+    fontSize: 13,
+    fontWeight: '600'
   },
   inboxItemTime: {
     fontSize: 10
@@ -1594,7 +1725,7 @@ const styles = StyleSheet.create({
   },
   publishTitle: {
     fontSize: 16,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   publishSubTitle: {
     marginTop: 3,
@@ -1628,7 +1759,7 @@ const styles = StyleSheet.create({
   },
   publishSectionTitle: {
     fontSize: 13,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   publishSectionBody: {
     marginTop: 6,
@@ -1685,7 +1816,7 @@ const styles = StyleSheet.create({
   },
   publishGhostText: {
     fontSize: 12,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   publishPrimaryBtn: {
     flex: 1.2,
@@ -1696,7 +1827,7 @@ const styles = StyleSheet.create({
   publishPrimaryText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   loginSubmitBtn: {
     minHeight: 44,
@@ -1745,7 +1876,7 @@ const styles = StyleSheet.create({
   },
   agentMenuItemText: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     textAlign: 'center'
   },
   agentMenuItemSubText: {
@@ -1776,16 +1907,27 @@ const styles = StyleSheet.create({
     gap: 8
   },
   drawerTitle: {
-    fontSize: 20,
-    fontWeight: '700'
+    fontSize: 18,
+    fontWeight: '600'
   },
   drawerHeadNewChatBtn: {
     paddingHorizontal: 8,
     paddingVertical: 4
   },
   drawerHeadNewChatText: {
-    fontSize: 12,
-    fontWeight: '700'
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  drawerHeadRefreshBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  drawerHeadRefreshText: {
+    fontSize: 14,
+    fontWeight: '600'
   },
   drawerIconBtn: {
     width: 30,
@@ -1796,14 +1938,14 @@ const styles = StyleSheet.create({
   },
   drawerIconText: {
     fontSize: 13,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   drawerContent: {
     flex: 1
   },
   drawerSectionTitle: {
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
     marginBottom: 8
   },
   drawerActionRow: {
@@ -1825,7 +1967,7 @@ const styles = StyleSheet.create({
   },
   drawerActionText: {
     fontSize: 12,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   drawerActionTextStrong: {
     fontSize: 13
@@ -1864,7 +2006,7 @@ const styles = StyleSheet.create({
   },
   drawerRefreshText: {
     fontSize: 12,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   chatListWrap: {
     flex: 1
@@ -1880,7 +2022,7 @@ const styles = StyleSheet.create({
   },
   chatItemTitle: {
     fontSize: 13,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   chatItemMeta: {
     marginTop: 4,
@@ -1927,7 +2069,7 @@ const styles = StyleSheet.create({
   profileAvatarText: {
     color: '#fff',
     fontSize: 12,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   profileMeta: {
     flex: 1,
@@ -1935,7 +2077,7 @@ const styles = StyleSheet.create({
   },
   profileNameText: {
     fontSize: 13,
-    fontWeight: '700'
+    fontWeight: '600'
   },
   profileDeviceText: {
     marginTop: 2,

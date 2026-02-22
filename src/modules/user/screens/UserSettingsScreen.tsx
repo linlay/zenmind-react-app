@@ -12,7 +12,6 @@ import {
   setEndpointDraft,
   setPtyUrlDraft
 } from '../state/userSlice';
-import { UserWebViewPlaceholder } from '../components/UserWebViewPlaceholder';
 
 interface UserSettingsScreenProps {
   theme: {
@@ -142,7 +141,6 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
         </TouchableOpacity>
       </View>
 
-      <UserWebViewPlaceholder />
     </View>
   );
 }

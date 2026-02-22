@@ -4,6 +4,7 @@ import { normalizePtyUrlInput } from '../../../core/network/endpoint';
 import { WebViewAuthRefreshOutcome } from '../../../core/auth/webViewAuthBridge';
 import { setPtyLoadError, setPtyLoading } from '../state/terminalSlice';
 import { TerminalWebView } from '../components/TerminalWebView';
+import { buildPtyWebUrlWithSessionId } from '../utils/sessionUrl';
 
 interface TerminalScreenProps {
   theme: {
@@ -28,9 +29,13 @@ export function TerminalScreen({
   const dispatch = useAppDispatch();
   const endpointInput = useAppSelector((state) => state.user.endpointInput);
   const ptyUrlInput = useAppSelector((state) => state.user.ptyUrlInput);
-  const { ptyReloadKey, ptyLoading, ptyLoadError } = useAppSelector((state) => state.terminal);
+  const { ptyReloadKey, ptyLoading, ptyLoadError, activeSessionId, openNewSessionNonce } = useAppSelector((state) => state.terminal);
 
-  const ptyWebUrl = normalizePtyUrlInput(ptyUrlInput, endpointInput);
+  const ptyWebUrl = buildPtyWebUrlWithSessionId(
+    normalizePtyUrlInput(ptyUrlInput, endpointInput),
+    activeSessionId,
+    { openNewSessionNonce }
+  );
 
   return (
     <View style={styles.container} nativeID="terminal-root" testID="terminal-root">

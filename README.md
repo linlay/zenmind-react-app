@@ -40,6 +40,44 @@ npm run test
 npm run build
 ```
 
+## 打包与发布
+
+本项目使用 Expo + EAS Build，推荐按下面三种场景区分：
+
+### 1) 开发调试（二维码扫码打开，非安装包）
+
+```bash
+npm run start
+```
+
+- 终端会显示 Expo 二维码。
+- Android 用 Expo Go 扫码可直接打开调试包（要求手机和电脑网络可互通）。
+
+### 2) 安卓内部分发（二维码扫码下载安装 APK）
+
+这是你说的“安卓扫码下载”方式，使用 EAS `internal` 分发：
+
+```bash
+npx eas login
+npx eas build -p android --profile preview
+```
+
+- 本仓库 `eas.json` 的 `preview` 已配置：
+  - `distribution: internal`
+  - `android.buildType: apk`
+- 构建完成后，EAS 会提供一个安装页面链接和二维码。
+- Android 手机扫码后可直接下载并安装 APK（首次可能需要允许“安装未知来源应用”）。
+
+### 3) 正式发布（Google Play）
+
+```bash
+npx eas build -p android --profile production
+npx eas submit -p android --profile production
+```
+
+- `production` 通常用于商店分发（默认构建 AAB，更适合 Google Play）。
+- 提交前请先在 Google Play Console 完成应用和签名相关配置。
+
 ## 环境变量（后端地址）
 
 - 变量名：`EXPO_PUBLIC_BACKEND_ENDPOINT`

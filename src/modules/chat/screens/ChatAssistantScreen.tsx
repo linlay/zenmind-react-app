@@ -119,7 +119,8 @@ export function ChatAssistantScreen({
   const streamIdleTimerRef = useRef<NodeJS.Timeout | null>(null);
   const streamLastEventAtRef = useRef(0);
   const autoScrollEnabledRef = useRef(true);
-  const skipNextHistoryLoadRef = useRef(false);
+  const chatIdRef = useRef(chatId);
+  const skipHistoryLoadChatIdRef = useRef<string | null>(null);
   const planCollapseTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const reasoningTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -352,11 +353,15 @@ export function ChatAssistantScreen({
       effects.forEach((effect) => {
         if (effect.type === 'set_chat_id') {
           const nextChatId = String(effect.payload?.chatId || '');
-          if (nextChatId) {
+          if (nextChatId && nextChatId !== chatIdRef.current) {
             if (source === 'live') {
-              skipNextHistoryLoadRef.current = true;
+              skipHistoryLoadChatIdRef.current = nextChatId;
             }
+            chatIdRef.current = nextChatId;
             dispatch(setChatId(nextChatId));
+            if (source === 'live') {
+              onRefreshChats(true).catch(() => {});
+            }
           }
           return;
         }
@@ -376,7 +381,7 @@ export function ChatAssistantScreen({
         }
       });
     },
-    [activateFrontendToolFromEffect, clearStreamIdleTimer, dispatch, executeAction]
+    [activateFrontendToolFromEffect, clearStreamIdleTimer, dispatch, executeAction, onRefreshChats]
   );
 
   const applyEvent = useCallback(
@@ -734,6 +739,10 @@ export function ChatAssistantScreen({
   const hasPlanTasks = chatState.planState.tasks.length > 0;
 
   useEffect(() => {
+    chatIdRef.current = chatId;
+  }, [chatId]);
+
+  useEffect(() => {
     if (!autoScrollEnabledRef.current) {
       return undefined;
     }
@@ -751,12 +760,13 @@ export function ChatAssistantScreen({
   }, [chatState.planState.tasks.length]);
 
   useEffect(() => {
-    if (skipNextHistoryLoadRef.current) {
-      skipNextHistoryLoadRef.current = false;
+    if (chatId && skipHistoryLoadChatIdRef.current === chatId) {
+      skipHistoryLoadChatIdRef.current = null;
       return;
     }
 
     if (!chatId) {
+      skipHistoryLoadChatIdRef.current = null;
       stopStreaming();
       resetTimeline();
       return;

@@ -6,6 +6,7 @@ import chatReducer from '../../modules/chat/state/chatSlice';
 import terminalReducer from '../../modules/terminal/state/terminalSlice';
 import { chatApi } from '../../modules/chat/api/chatApi';
 import { agentsApi } from '../../modules/agents/api/agentsApi';
+import { terminalApi } from '../../modules/terminal/api/terminalApi';
 
 export const store = configureStore({
   reducer: {
@@ -15,12 +16,13 @@ export const store = configureStore({
     chat: chatReducer,
     terminal: terminalReducer,
     [chatApi.reducerPath]: chatApi.reducer,
-    [agentsApi.reducerPath]: agentsApi.reducer
+    [agentsApi.reducerPath]: agentsApi.reducer,
+    [terminalApi.reducerPath]: terminalApi.reducer
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: false
-    }).concat(chatApi.middleware, agentsApi.middleware)
+    }).concat(chatApi.middleware, agentsApi.middleware, terminalApi.middleware)
 });
 
 export type RootState = ReturnType<typeof store.getState>;
