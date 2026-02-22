@@ -143,6 +143,8 @@ export function ShellScreen() {
   const [authAccessToken, setAuthAccessToken] = useState('');
   const [authAccessExpireAtMs, setAuthAccessExpireAtMs] = useState<number | undefined>(undefined);
   const [authTokenSignal, setAuthTokenSignal] = useState(0);
+  const [authUsername, setAuthUsername] = useState('');
+  const [authDeviceName, setAuthDeviceName] = useState('');
 
   const [triggerAgents] = useLazyGetAgentsQuery();
   const [triggerChats] = useLazyGetChatsQuery();
@@ -198,11 +200,15 @@ export function ShellScreen() {
     if (!session) {
       setAuthAccessToken('');
       setAuthAccessExpireAtMs(undefined);
+      setAuthUsername('');
+      setAuthDeviceName('');
       setAuthTokenSignal((prev) => prev + 1);
       return;
     }
     setAuthAccessToken(String(session.accessToken || ''));
     setAuthAccessExpireAtMs(Number.isFinite(session.accessExpireAtMs) ? session.accessExpireAtMs : undefined);
+    setAuthUsername(String(session.username || '').trim());
+    setAuthDeviceName(String(session.deviceName || '').trim());
     setAuthTokenSignal((prev) => prev + 1);
   }, []);
 
@@ -716,6 +722,12 @@ export function ShellScreen() {
   const isUserDomain = activeDomain === 'user';
   const topNavTitle = isChatDomain ? activeAgentName : isTerminalDomain ? '终端/CLI' : DOMAIN_LABEL[activeDomain];
   const topNavSubtitle = selectedAgentKey;
+  const profileName = authUsername || '未登录用户';
+  const profileDeviceLabel = authDeviceName || deviceName || '当前设备';
+  const profileInitial = useMemo(() => {
+    const source = profileName.trim();
+    return source ? source.slice(0, 1).toUpperCase() : 'U';
+  }, [profileName]);
 
   if (booting) {
     return (
@@ -776,13 +788,13 @@ export function ShellScreen() {
 
               <TouchableOpacity
                 activeOpacity={0.82}
-                style={[styles.publishPrimaryBtn, { backgroundColor: theme.primary, alignSelf: 'stretch' }]}
+                style={[styles.publishPrimaryBtn, styles.loginSubmitBtn, { backgroundColor: theme.primary, borderColor: theme.primaryDeep, alignSelf: 'stretch' }]}
                 onPress={() => {
                   submitLogin().catch(() => {});
                 }}
                 testID="app-login-submit-btn"
               >
-                <Text style={styles.publishPrimaryText}>登录</Text>
+                <Text style={styles.loginSubmitText}>登录设备</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1171,7 +1183,22 @@ export function ShellScreen() {
             testID="shell-drawer-panel"
           >
             <View style={styles.drawerHead}>
-              <Text style={[styles.drawerTitle, { color: theme.text }]}>{DRAWER_TITLE[activeDomain]}</Text>
+              <View style={styles.drawerHeadLeft}>
+                <Text style={[styles.drawerTitle, { color: theme.text }]}>{DRAWER_TITLE[activeDomain]}</Text>
+                {activeDomain === 'chat' ? (
+                  <TouchableOpacity
+                    activeOpacity={0.74}
+                    style={styles.drawerHeadNewChatBtn}
+                    testID="new-chat-btn"
+                    onPress={() => {
+                      dispatch(setChatId(''));
+                      dispatch(setDrawerOpen(false));
+                    }}
+                  >
+                    <Text style={[styles.drawerHeadNewChatText, { color: theme.primaryDeep }]}>+新建对话</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
               <TouchableOpacity
                 activeOpacity={0.72}
                 style={[styles.drawerIconBtn, { backgroundColor: theme.surfaceStrong }]}
@@ -1185,29 +1212,34 @@ export function ShellScreen() {
             <View style={styles.drawerContent}>
               {activeDomain === 'chat' ? (
                 <>
-                  <View style={styles.drawerActionRow}>
+                  <View style={styles.searchRow}>
+                    <View style={[styles.chatSearchShell, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}>
+                      <TextInput
+                        value={chatKeyword}
+                        onChangeText={(text) => dispatch(setChatKeyword(text))}
+                        placeholder="搜索"
+                        placeholderTextColor={theme.textMute}
+                        style={[styles.chatSearchInput, styles.chatSearchInputInner, { color: theme.text }]}
+                        nativeID="chat-search-input"
+                        testID="chat-search-input"
+                      />
+                    </View>
+
                     <TouchableOpacity
-                      activeOpacity={0.74}
-                      style={[styles.drawerActionBtn, { backgroundColor: theme.surfaceStrong }]}
-                      testID="new-chat-btn"
+                      activeOpacity={0.76}
+                      style={styles.drawerRefreshBtn}
+                      testID="chat-refresh-btn"
                       onPress={() => {
-                        dispatch(setChatId(''));
-                        dispatch(setDrawerOpen(false));
+                        refreshChats().catch(() => {});
                       }}
                     >
-                      <Text style={[styles.drawerActionText, { color: theme.textSoft }]}>+ 新对话</Text>
+                      {loadingChats ? (
+                        <ActivityIndicator size="small" color={theme.primaryDeep} />
+                      ) : (
+                        <Text style={[styles.drawerRefreshText, { color: theme.primaryDeep }]}>刷新</Text>
+                      )}
                     </TouchableOpacity>
                   </View>
-
-                  <TextInput
-                    value={chatKeyword}
-                    onChangeText={(text) => dispatch(setChatKeyword(text))}
-                    placeholder="搜索"
-                    placeholderTextColor={theme.textMute}
-                    style={[styles.chatSearchInput, { backgroundColor: theme.surfaceStrong, color: theme.text }]}
-                    nativeID="chat-search-input"
-                    testID="chat-search-input"
-                  />
 
                   <ScrollView style={styles.chatListWrap} contentContainerStyle={styles.chatListContent}>
                     {filteredChats.length ? (
@@ -1312,7 +1344,15 @@ export function ShellScreen() {
             <View style={[styles.drawerBottom, { borderTopColor: theme.border }]}>
               <View style={styles.profileDomainRow}>
                 <View style={[styles.profileAvatar, { backgroundColor: theme.primary }]}>
-                  <Text style={styles.profileAvatarText}>L</Text>
+                  <Text style={styles.profileAvatarText}>{profileInitial}</Text>
+                </View>
+                <View style={styles.profileMeta}>
+                  <Text style={[styles.profileNameText, { color: theme.text }]} numberOfLines={1}>
+                    {profileName}
+                  </Text>
+                  <Text style={[styles.profileDeviceText, { color: theme.textMute }]} numberOfLines={1}>
+                    {profileDeviceLabel}
+                  </Text>
                 </View>
                 <DomainSwitcher
                   value={activeDomain}
@@ -1658,30 +1698,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700'
   },
+  loginSubmitBtn: {
+    minHeight: 44,
+    borderWidth: 1
+  },
+  loginSubmitText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.3
+  },
   agentMenuCard: {
     marginHorizontal: 14,
     marginTop: 0,
     marginBottom: 8,
     borderRadius: 18,
     borderWidth: StyleSheet.hairlineWidth,
-    height: 252,
+    height: 246,
     overflow: 'hidden'
   },
   agentMenuList: {
     flex: 1
   },
   agentMenuListContent: {
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-    gap: 8
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    gap: 5
   },
   agentMenuItem: {
     borderRadius: 12,
-    minHeight: 52,
+    minHeight: 42,
     borderWidth: StyleSheet.hairlineWidth,
     justifyContent: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 9
+    paddingVertical: 7
   },
   agentMenuItemRow: {
     flexDirection: 'row',
@@ -1694,13 +1744,13 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   agentMenuItemText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
     textAlign: 'center'
   },
   agentMenuItemSubText: {
     marginTop: 2,
-    fontSize: 10,
+    fontSize: 11,
     textAlign: 'center'
   },
   drawerOverlay: {
@@ -1720,8 +1770,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between'
   },
+  drawerHeadLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
   drawerTitle: {
     fontSize: 20,
+    fontWeight: '700'
+  },
+  drawerHeadNewChatBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4
+  },
+  drawerHeadNewChatText: {
+    fontSize: 12,
     fontWeight: '700'
   },
   drawerIconBtn: {
@@ -1752,11 +1815,32 @@ const styles = StyleSheet.create({
     flex: 1,
     borderRadius: 10,
     paddingVertical: 9,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'transparent',
     alignItems: 'center'
+  },
+  drawerActionBtnStrong: {
+    borderWidth: 1,
+    minHeight: 40
   },
   drawerActionText: {
     fontSize: 12,
     fontWeight: '700'
+  },
+  drawerActionTextStrong: {
+    fontSize: 13
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10
+  },
+  chatSearchShell: {
+    flex: 1,
+    borderRadius: 10,
+    borderWidth: 1,
+    justifyContent: 'center'
   },
   chatSearchInput: {
     borderRadius: 10,
@@ -1767,6 +1851,20 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlignVertical: 'center',
     marginBottom: 10
+  },
+  chatSearchInputInner: {
+    marginBottom: 0
+  },
+  drawerRefreshBtn: {
+    minWidth: 44,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 2
+  },
+  drawerRefreshText: {
+    fontSize: 12,
+    fontWeight: '700'
   },
   chatListWrap: {
     flex: 1
@@ -1811,17 +1909,18 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: 10,
     paddingBottom: 8,
-    gap: 10
+    gap: 8
   },
   profileDomainRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: 8,
+    minHeight: 40
   },
   profileAvatar: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center'
   },
@@ -1829,6 +1928,18 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '700'
+  },
+  profileMeta: {
+    flex: 1,
+    minWidth: 0
+  },
+  profileNameText: {
+    fontSize: 13,
+    fontWeight: '700'
+  },
+  profileDeviceText: {
+    marginTop: 2,
+    fontSize: 11
   },
   drawerStatusRow: {
     minHeight: 16,

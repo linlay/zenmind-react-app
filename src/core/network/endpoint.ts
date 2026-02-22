@@ -2,7 +2,8 @@ export const DEFAULT_REMOTE_ENDPOINT_INPUT = 'app.linlay.cc';
 const DEV_FALLBACK_ENDPOINT_INPUT = DEFAULT_REMOTE_ENDPOINT_INPUT;
 const PROD_FALLBACK_ENDPOINT_INPUT = DEFAULT_REMOTE_ENDPOINT_INPUT;
 const ENDPOINT_ENV_KEY = 'EXPO_PUBLIC_BACKEND_ENDPOINT';
-export const DEFAULT_PTY_FRONTEND_PORT = '11949';
+export const DEFAULT_PTY_FRONTEND_PORT = '11931';
+export const DEFAULT_PTY_FRONTEND_PATH = '/appterm';
 
 function readEndpointEnv(): string {
   const raw =
@@ -75,13 +76,17 @@ export function toDefaultPtyWebUrl(endpointInput: string | undefined | null): st
   const backendBase = toBackendBaseUrl(endpointInput);
   try {
     const url = new URL(backendBase);
-    url.port = DEFAULT_PTY_FRONTEND_PORT;
-    url.pathname = '/';
+    if (looksLikeLocalAddress(url.hostname)) {
+      url.port = DEFAULT_PTY_FRONTEND_PORT;
+    } else if (String(url.port || '').trim() === '443') {
+      url.port = '';
+    }
+    url.pathname = DEFAULT_PTY_FRONTEND_PATH;
     url.search = '';
     url.hash = '';
     return url.toString().replace(/\/+$/, '');
   } catch {
-    return `http://127.0.0.1:${DEFAULT_PTY_FRONTEND_PORT}`;
+    return `http://127.0.0.1:${DEFAULT_PTY_FRONTEND_PORT}${DEFAULT_PTY_FRONTEND_PATH}`;
   }
 }
 

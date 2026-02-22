@@ -34,7 +34,8 @@ describe('endpoint helpers', () => {
   });
 
   it('creates default pty url from endpoint', () => {
-    expect(toDefaultPtyWebUrl('api.example.com')).toBe('https://api.example.com:11949');
+    expect(toDefaultPtyWebUrl('api.example.com')).toBe('https://api.example.com/appterm');
+    expect(toDefaultPtyWebUrl('http://localhost:8080')).toBe('http://localhost:11931/appterm');
   });
 
   it('normalizes pty path and full url', () => {

@@ -1,7 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-const DEVICE_TOKEN_KEY = 'app_device_token_v1';
+const DEVICE_TOKEN_KEY = 'app_device_token_v2';
+const LEGACY_DEVICE_TOKEN_KEY = 'app_device_token_v1';
 const DEFAULT_TOKEN_MIN_VALIDITY_MS = 90_000;
 const DEFAULT_TOKEN_JITTER_MS = 8_000;
 
@@ -55,6 +56,7 @@ let refreshingPromise: Promise<string | null> | null = null;
 let refreshingFailureMode: RefreshFailureMode | null = null;
 let currentBaseUrl = '';
 const authListeners = new Set<AuthSessionListener>();
+let legacyDeviceTokenPurged = false;
 
 function parseExpireAt(raw: unknown): number {
   const ts = new Date(String(raw || '')).getTime();
@@ -116,6 +118,14 @@ function ensureBaseUrl(baseUrl: string) {
 }
 
 async function loadDeviceTokenFromStorage(): Promise<string> {
+  if (!legacyDeviceTokenPurged) {
+    legacyDeviceTokenPurged = true;
+    try {
+      await AsyncStorage.removeItem(LEGACY_DEVICE_TOKEN_KEY);
+    } catch {
+      // ignore storage cleanup failures
+    }
+  }
   return String((await AsyncStorage.getItem(DEVICE_TOKEN_KEY)) || '').trim();
 }
 

@@ -1,4 +1,5 @@
-const DEVICE_TOKEN_KEY = 'app_device_token_v1';
+const DEVICE_TOKEN_KEY = 'app_device_token_v2';
+const LEGACY_DEVICE_TOKEN_KEY = 'app_device_token_v1';
 
 const storage = new Map<string, string>();
 const mockAsyncStorage = {
@@ -133,7 +134,19 @@ describe('appAuth', () => {
 
     expect(result).toBeNull();
     expect(auth.getCurrentSession()?.accessToken).toBe('token-old');
-    expect(mockAsyncStorage.removeItem).not.toHaveBeenCalled();
+    expect(mockAsyncStorage.removeItem).not.toHaveBeenCalledWith(DEVICE_TOKEN_KEY);
+  });
+
+  it('purges legacy device token key during non-compatible upgrade', async () => {
+    storage.set(LEGACY_DEVICE_TOKEN_KEY, 'legacy-device-token');
+    const auth = loadAppAuth();
+    const fetchMock = globalThis.fetch as unknown as jest.Mock;
+
+    const result = await auth.getAccessToken(baseUrl, true);
+
+    expect(result).toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(LEGACY_DEVICE_TOKEN_KEY);
   });
 
   it('clears session when hard refresh fails', async () => {

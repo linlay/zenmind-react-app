@@ -96,6 +96,43 @@ POST /api/query (SSE) → XMLHttpRequest 流式读取
 - Terminal WebView 桥接：`src/modules/terminal/components/TerminalWebView.tsx`
 - Chat Frontend Tool WebView 桥接：`src/modules/chat/components/Composer.tsx`、`src/modules/chat/screens/ChatAssistantScreen.tsx`
 
+#### 开发接入指南（必须遵循）
+
+1. **先统一桥接消息类型**
+   - 所有鉴权桥接消息仅允许三种：`auth_token`、`auth_refresh_request`、`auth_refresh_result`。
+   - 消息结构必须复用 `src/core/auth/webViewAuthBridge.ts` 的构造/解析函数，不要在业务代码手写字段。
+
+2. **明确传输通道（不是 HTTP 协议替代，而是 WebView 消息桥）**
+   - WebView -> RN：H5 调 `window.postMessage(payload, '*')`，由 `injectedJavaScript` 劫持后转发到 `window.ReactNativeWebView.postMessage(JSON.stringify(payload))`。
+   - RN -> WebView：RN 通过 `injectJavaScript(buildWebViewPostMessageScript(payload))` 注入 `window.postMessage(payload, '*')` 到 H5 页面。
+   - 结论：这是基于 `react-native-webview` 的双向消息桥协议，token 刷新本身仍由 RN 调后端 `/api/auth/refresh` 完成。
+
+3. **RN 侧接入步骤（Terminal / Frontend Tool 都一致）**
+   - WebView 注入桥脚本，只透传白名单消息类型（至少含 `auth_refresh_request`）。
+   - `onMessage` 里用 `parseWebViewAuthRefreshRequest()` 解析请求，忽略无法解析的数据。
+   - 收到请求后调用 `onWebViewAuthRefreshRequest(requestId, source)`，该回调最终走 `WebViewAuthRefreshCoordinator.refresh()` 做单飞刷新。
+   - 刷新结果用 `createWebViewAuthRefreshResultMessage()` 回写 WebView。
+   - WebView `onLoad` 时主动下发一次 `auth_token`；后续每次 `authTokenSignal` 变化再次下发。
+
+4. **H5 侧接入步骤（前端工具页面 / PTY 页面）**
+   - 维护内存态 `accessToken/accessExpireAtMs`，监听 `window.message` 接收 `auth_token` 并更新。
+   - 所有 API 请求统一走带鉴权封装：先带当前 token 请求，遇到 401 触发 `auth_refresh_request`。
+   - 发起 refresh 请求时生成 `requestId`，并将本次失败请求加入待重放队列。
+   - 收到 `auth_refresh_result(ok=true)`：更新 token 并重放队列；`ok=false`：清空队列并进入未登录态。
+   - 并发 401 时要在 H5 侧做“等待同一次刷新结果”的去重，避免页面同时发多个 refresh 请求。
+
+5. **时序约束（避免常见线上问题）**
+   - App 回前台与前台定时器会触发 `ensureFreshAccessToken()` 预刷新；即使如此，WebView 仍必须保留 401 兜底刷新逻辑。
+   - `auth_refresh_result` 必须按 `requestId` 对应到原请求；不要用“最后一次结果”覆盖所有等待项。
+   - 不要把 token 落日志、落 localStorage、或通过 URL query 传给 H5。
+   - 刷新失败（hard failure）后由 RN 统一清会话并引导重登，WebView 只负责进入未登录 UI。
+
+6. **最小验收清单**
+   - WebView 初次加载后 1 次 `auth_token` 下发成功。
+   - 人工构造 access token 过期后，WebView 首次 401 能触发 `auth_refresh_request` 并成功重放。
+   - 并发 3 个 401 请求只触发 1 次 RN refresh（其余复用结果）。
+   - refresh 失败时，RN/H5 双方都进入未登录态且不死循环重试。
+
 ### 后端 API 协议
 
 | 方法 | 端点 | 用途 |

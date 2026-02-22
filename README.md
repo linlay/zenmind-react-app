@@ -54,6 +54,9 @@ npm run build
 EXPO_PUBLIC_BACKEND_ENDPOINT=app.linlay.cc npm run start
 ```
 
+默认 PTY WebView 地址会按后端地址生成：`https://{host}/appterm`。  
+本地调试推荐：`http://localhost:11931/appterm`。
+
 ## 后端协议
 
 接口保持不变：
@@ -96,6 +99,8 @@ RN 侧职责：
 ## 配置存储迁移
 
 - 旧 key：`mobile_chat_settings_v1`
-- 新 key：`mobile_app_settings_v2`
+- 旧 key：`mobile_app_settings_v2`
+- 新 key：`mobile_app_settings_v3`
+- 旧设备令牌 key：`app_device_token_v1`（已废弃）
 
-应用会在首次启动时自动迁移。
+当前版本采用不兼容升级策略，启动时会清理旧 key，不做自动迁移。

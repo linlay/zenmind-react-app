@@ -9,7 +9,9 @@ import {
 } from '../network/endpoint';
 
 const LEGACY_STORAGE_KEY = 'mobile_chat_settings_v1';
-const STORAGE_KEY = 'mobile_app_settings_v2';
+const PREVIOUS_STORAGE_KEY = 'mobile_app_settings_v2';
+const STORAGE_KEY = 'mobile_app_settings_v3';
+const LEGACY_DEVICE_TOKEN_KEY = 'app_device_token_v1';
 const LEGACY_LOCAL_ENDPOINTS = new Set([
   'localhost:11946',
   'http://localhost:11946',
@@ -18,7 +20,9 @@ const LEGACY_LOCAL_ENDPOINTS = new Set([
 ]);
 const LEGACY_LOCAL_PTY_URLS = new Set(['http://localhost:11949', 'localhost:11949']);
 
-export { STORAGE_KEY, LEGACY_STORAGE_KEY };
+export { STORAGE_KEY, LEGACY_STORAGE_KEY, PREVIOUS_STORAGE_KEY };
+
+let legacyStoragePurged = false;
 
 export function buildDefaultSettings(): AppSettings {
   const defaultEndpointInput = getDefaultEndpointInput();
@@ -62,20 +66,19 @@ export async function loadSettings(): Promise<AppSettings> {
   const defaults = buildDefaultSettings();
 
   try {
-    const [currentRaw, legacyRaw] = await Promise.all([
-      AsyncStorage.getItem(STORAGE_KEY),
-      AsyncStorage.getItem(LEGACY_STORAGE_KEY)
-    ]);
+    if (!legacyStoragePurged) {
+      legacyStoragePurged = true;
+      await Promise.allSettled([
+        AsyncStorage.removeItem(PREVIOUS_STORAGE_KEY),
+        AsyncStorage.removeItem(LEGACY_STORAGE_KEY),
+        AsyncStorage.removeItem(LEGACY_DEVICE_TOKEN_KEY)
+      ]);
+    }
+
+    const currentRaw = await AsyncStorage.getItem(STORAGE_KEY);
 
     if (currentRaw) {
       return normalizeSettings(JSON.parse(currentRaw));
-    }
-
-    if (legacyRaw) {
-      const legacy = JSON.parse(legacyRaw) as Partial<AppSettings>;
-      const migrated = normalizeSettings(legacy);
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
-      return migrated;
     }
   } catch {
     return defaults;

@@ -102,7 +102,7 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
           testID="use-local-debug-btn"
           onPress={() => {
             dispatch(setEndpointDraft('http://localhost:8080'));
-            dispatch(setPtyUrlDraft('http://localhost:11949'));
+            dispatch(setPtyUrlDraft('http://localhost:11931/appterm'));
           }}
         >
           <Text style={[styles.quickBtnText, { color: theme.textSoft }]}>切换到本地调试（localhost:8080）</Text>
@@ -114,7 +114,7 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
           onChangeText={(text) => dispatch(setPtyUrlDraft(text))}
           autoCapitalize="none"
           autoCorrect={false}
-          placeholder={`https://${DEFAULT_REMOTE_ENDPOINT_INPUT}:11949`}
+          placeholder={`https://${DEFAULT_REMOTE_ENDPOINT_INPUT}/appterm`}
           placeholderTextColor={theme.textMute}
           style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
           nativeID="pty-url-input"
