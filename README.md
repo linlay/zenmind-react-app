@@ -69,6 +69,12 @@ npx eas build -p android --profile preview
 - `preview` 配置: `distribution: internal`, `android.buildType: apk`
 - 构建完成后 EAS 提供下载链接和二维码，手机扫码即可安装
 
+#### 轮询构建状态（避免一直盯着终端）
+
+1. 从构建链接中拿到 `BUILD_ID`（例如 `https://expo.dev/.../builds/<BUILD_ID>`）。
+2. 查看状态：`npx eas build:view <BUILD_ID>`
+3. 看最近安卓构建列表：`npx eas build:list -p android --limit 5`
+
 ### 正式发布（Google Play）
 
 ```bash

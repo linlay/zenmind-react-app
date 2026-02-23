@@ -75,6 +75,118 @@ describe('appAuth', () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it('accepts accessTokenExpireAt field from backend responses', async () => {
+    const auth = loadAppAuth();
+    const fetchMock = globalThis.fetch as unknown as jest.Mock;
+
+    fetchMock
+      .mockResolvedValueOnce(
+        mockResponse(200, {
+          username: 'mobile',
+          deviceId: 'dev-1',
+          deviceName: 'phone',
+          accessToken: 'token-1',
+          accessTokenExpireAt: new Date(Date.now() + 15 * 60_000).toISOString(),
+          deviceToken: 'device-token-1'
+        })
+      )
+      .mockResolvedValueOnce(
+        mockResponse(200, {
+          deviceId: 'dev-1',
+          accessToken: 'token-2',
+          accessTokenExpireAt: new Date(Date.now() + 25 * 60_000).toISOString(),
+          deviceToken: 'device-token-1'
+        })
+      );
+
+    await auth.loginWithMasterPassword(baseUrl, 'master', 'device');
+    const token = await auth.ensureFreshAccessToken(baseUrl, {
+      minValidityMs: 20 * 60_000,
+      jitterMs: 0,
+      failureMode: 'soft'
+    });
+
+    expect(token).toBe('token-2');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('prefers accessTokenExpireAtMs over string expire fields', async () => {
+    const auth = loadAppAuth();
+    const fetchMock = globalThis.fetch as unknown as jest.Mock;
+    const prioritizedMs = Date.now() + 20 * 60_000;
+
+    fetchMock.mockResolvedValueOnce(
+      mockResponse(200, {
+        username: 'mobile',
+        deviceId: 'dev-1',
+        deviceName: 'phone',
+        accessToken: 'token-priority',
+        accessTokenExpireAtMs: prioritizedMs,
+        accessTokenExpireAt: new Date(Date.now() + 60_000).toISOString(),
+        accessExpireAt: new Date(Date.now() + 60_000).toISOString(),
+        deviceToken: 'device-token-1'
+      })
+    );
+
+    await auth.loginWithMasterPassword(baseUrl, 'master', 'device');
+    const token = await auth.ensureFreshAccessToken(baseUrl, {
+      minValidityMs: 10 * 60_000,
+      jitterMs: 0,
+      failureMode: 'soft'
+    });
+
+    expect(token).toBe('token-priority');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('normalizes high-precision ISO timestamps with nanosecond fraction', async () => {
+    const auth = loadAppAuth();
+    const fetchMock = globalThis.fetch as unknown as jest.Mock;
+
+    fetchMock.mockResolvedValueOnce(
+      mockResponse(200, {
+        username: 'mobile',
+        deviceId: 'dev-1',
+        deviceName: 'phone',
+        accessToken: 'token-nano',
+        accessTokenExpireAt: '2026-02-23T14:30:55.620066428Z',
+        deviceToken: 'device-token-1'
+      })
+    );
+
+    await auth.loginWithMasterPassword(baseUrl, 'master', 'device');
+    expect(auth.getCurrentSession()?.accessExpireAtMs).toBe(new Date('2026-02-23T14:30:55.620Z').getTime());
+  });
+
+  it('falls back to short validity window when expire field is invalid', async () => {
+    const auth = loadAppAuth();
+    const fetchMock = globalThis.fetch as unknown as jest.Mock;
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    fetchMock.mockResolvedValueOnce(
+      mockResponse(200, {
+        username: 'mobile',
+        deviceId: 'dev-1',
+        deviceName: 'phone',
+        accessToken: 'token-invalid-expire',
+        accessTokenExpireAt: 'not-a-time',
+        deviceToken: 'device-token-1'
+      })
+    );
+
+    await auth.loginWithMasterPassword(baseUrl, 'master', 'device');
+    const token = await auth.ensureFreshAccessToken(baseUrl, {
+      minValidityMs: 2 * 60_000,
+      jitterMs: 0,
+      failureMode: 'soft'
+    });
+
+    expect(token).toBe('token-invalid-expire');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
   it('shares one refresh request for concurrent hard refresh calls', async () => {
     storage.set(DEVICE_TOKEN_KEY, 'device-token-1');
     const auth = loadAppAuth();

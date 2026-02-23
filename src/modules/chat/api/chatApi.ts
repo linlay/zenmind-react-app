@@ -9,7 +9,7 @@ export const chatApi = createApi({
     getChats: builder.query<ChatSummary[], string>({
       async queryFn(baseUrl) {
         try {
-          const data = await fetchApiJson<ChatSummary[]>(baseUrl, '/api/chats');
+          const data = await fetchApiJson<ChatSummary[]>(baseUrl, '/api/ap/chats');
           return { data: Array.isArray(data) ? data : [] };
         } catch (error) {
           return { error: error as Error };
@@ -20,7 +20,7 @@ export const chatApi = createApi({
       async queryFn({ baseUrl, chatId }) {
         try {
           const query = `?chatId=${encodeURIComponent(chatId)}`;
-          const data = await fetchApiJson<{ events?: Record<string, unknown>[] }>(baseUrl, `/api/chat${query}`);
+          const data = await fetchApiJson<{ events?: Record<string, unknown>[] }>(baseUrl, `/api/ap/chat${query}`);
           return { data: { events: Array.isArray(data?.events) ? data.events : [] } };
         } catch (error) {
           return { error: error as Error };

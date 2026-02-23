@@ -6,6 +6,7 @@ const DEVICE_TOKEN_KEY = 'app_device_token_v2';
 const LEGACY_DEVICE_TOKEN_KEY = 'app_device_token_v1';
 const DEFAULT_TOKEN_MIN_VALIDITY_MS = 90_000;
 const DEFAULT_TOKEN_JITTER_MS = 8_000;
+const FALLBACK_TOKEN_VALIDITY_MS = 5 * 60_000;
 
 export type RefreshFailureMode = 'soft' | 'hard';
 
@@ -41,14 +42,18 @@ interface LoginResponse {
   deviceId: string;
   deviceName: string;
   accessToken: string;
-  accessExpireAt: string;
+  accessTokenExpireAtMs?: number | string;
+  accessTokenExpireAt?: number | string;
+  accessExpireAt?: number | string;
   deviceToken: string;
 }
 
 interface RefreshResponse {
   deviceId: string;
   accessToken: string;
-  accessExpireAt: string;
+  accessTokenExpireAtMs?: number | string;
+  accessTokenExpireAt?: number | string;
+  accessExpireAt?: number | string;
   deviceToken: string;
 }
 
@@ -59,12 +64,76 @@ let currentBaseUrl = '';
 const authListeners = new Set<AuthSessionListener>();
 let legacyDeviceTokenPurged = false;
 
-function parseExpireAt(raw: unknown): number {
-  const ts = new Date(String(raw || '')).getTime();
+function parseNumericEpochMs(raw: unknown): number | null {
+  if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
+    return raw >= 1_000_000_000_000 ? raw : raw * 1000;
+  }
+  if (typeof raw === 'string') {
+    const trimmed = raw.trim();
+    if (/^\d+$/.test(trimmed)) {
+      const num = Number(trimmed);
+      if (Number.isFinite(num) && num > 0) {
+        return num >= 1_000_000_000_000 ? num : num * 1000;
+      }
+    }
+  }
+  return null;
+}
+
+function parseExpireAt(raw: unknown): number | null {
+  const numericTs = parseNumericEpochMs(raw);
+  if (numericTs) {
+    return numericTs;
+  }
+
+  const text = String(raw || '').trim();
+  if (!text) {
+    return null;
+  }
+
+  const localMatch = text.match(
+    /^(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/
+  );
+  if (localMatch) {
+    const [, year, month, day, hour, minute, second = '0'] = localMatch;
+    const localTs = new Date(
+      Number(year),
+      Number(month) - 1,
+      Number(day),
+      Number(hour),
+      Number(minute),
+      Number(second),
+      0
+    ).getTime();
+    if (Number.isFinite(localTs) && localTs > 0) {
+      return localTs;
+    }
+  }
+
+  const normalizedIsoText = text.replace(/(\.\d{3})\d+(?=(Z|[+-]\d{2}:\d{2})$)/, '$1');
+  const ts = new Date(normalizedIsoText).getTime();
   if (Number.isFinite(ts) && ts > 0) {
     return ts;
   }
-  return Date.now() + 60_000;
+  return null;
+}
+
+function resolveAccessExpireAtMs(payload: LoginResponse | RefreshResponse): number {
+  const candidates = [
+    payload.accessTokenExpireAtMs,
+    payload.accessTokenExpireAt,
+    payload.accessExpireAt
+  ];
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    const ts = parseExpireAt(candidates[i]);
+    if (ts) {
+      return ts;
+    }
+  }
+
+  console.warn('[auth] Access token expiry is missing or invalid; using fallback validity window');
+  return Date.now() + FALLBACK_TOKEN_VALIDITY_MS;
 }
 
 async function requestJson<T>(
@@ -130,7 +199,7 @@ function updateSessionWithRefresh(refresh: RefreshResponse, fallbackUsername = '
     deviceId: String(refresh.deviceId || previous?.deviceId || ''),
     deviceName: previous?.deviceName || fallbackDeviceName || 'Device',
     accessToken: String(refresh.accessToken || ''),
-    accessExpireAtMs: parseExpireAt(refresh.accessExpireAt),
+    accessExpireAtMs: resolveAccessExpireAtMs(refresh),
     deviceToken: String(refresh.deviceToken || previous?.deviceToken || '')
   };
   emitSessionUpdated();
@@ -272,7 +341,7 @@ export async function loginWithMasterPassword(
     deviceId: String(payload.deviceId || ''),
     deviceName: String(payload.deviceName || normalizedDeviceName),
     accessToken: String(payload.accessToken || ''),
-    accessExpireAtMs: parseExpireAt(payload.accessExpireAt),
+    accessExpireAtMs: resolveAccessExpireAtMs(payload),
     deviceToken: String(payload.deviceToken || '')
   };
 

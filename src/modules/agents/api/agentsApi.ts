@@ -9,7 +9,7 @@ export const agentsApi = createApi({
     getAgents: builder.query<Agent[], string>({
       async queryFn(baseUrl) {
         try {
-          const data = await fetchApiJson<Agent[]>(baseUrl, '/api/agents');
+          const data = await fetchApiJson<Agent[]>(baseUrl, '/api/ap/agents');
           return { data: Array.isArray(data) ? data : [] };
         } catch (error) {
           return { error: error as Error };

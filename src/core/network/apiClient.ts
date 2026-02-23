@@ -61,7 +61,7 @@ export async function fetchAuthedJson<T>(baseUrl: string, path: string, options?
 }
 
 export async function fetchViewportHtml(baseUrl: string, viewportKey: string): Promise<string> {
-  const response = await authorizedFetch(baseUrl, `/api/viewport?viewportKey=${encodeURIComponent(viewportKey)}`);
+  const response = await authorizedFetch(baseUrl, `/api/ap/viewport?viewportKey=${encodeURIComponent(viewportKey)}`);
   const bodyText = await response.text();
   let payload: unknown = null;
   if (bodyText) {
@@ -104,7 +104,7 @@ export async function submitFrontendToolApi(
   baseUrl: string,
   payload: { runId?: string; toolId?: string; params?: Record<string, unknown> }
 ): Promise<{ accepted?: boolean; detail?: string; status?: string }> {
-  return fetchApiJson(baseUrl, '/api/submit', {
+  return fetchApiJson(baseUrl, '/api/ap/submit', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)

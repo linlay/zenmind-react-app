@@ -1,12 +1,14 @@
 // @ts-nocheck
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, Animated, Easing, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
+import { authorizedFetch } from '../../../core/auth/appAuth';
 import { FONT_MONO, FONT_SANS } from '../../../core/constants/theme';
 import { toSmartTime } from '../../../shared/utils/format';
 import { TimelineEntry } from '../types/chat';
 import { getActionGlyph, getTaskTone, normalizeTaskStatus } from '../services/eventNormalizer';
+import { isAbsoluteHttpUrl, resolveMarkdownImageUrl, resolveMarkdownLinkUrl } from '../utils/markdownAssetUrl';
 import { ViewportBlockView } from './ViewportBlockView';
 
 interface TimelineEntryRowProps {
@@ -111,6 +113,315 @@ function splitViewportBlocks(rawText: string) {
   return segments;
 }
 
+function extractTextFromMarkdownChildren(children: unknown): string {
+  if (children == null) return '';
+  if (typeof children === 'string' || typeof children === 'number') {
+    return String(children);
+  }
+  if (Array.isArray(children)) {
+    return children.map((child) => extractTextFromMarkdownChildren(child)).join('');
+  }
+  if (typeof children === 'object' && children && 'props' in (children as Record<string, unknown>)) {
+    const props = (children as { props?: { children?: unknown } }).props;
+    return extractTextFromMarkdownChildren(props?.children);
+  }
+  return '';
+}
+
+function pathFromHref(rawHref: string): string {
+  const text = String(rawHref || '').trim();
+  if (!text) return '';
+  try {
+    return new URL(text, 'https://zenmind.local').pathname || '';
+  } catch {
+    return text.split('#')[0]?.split('?')[0] || '';
+  }
+}
+
+function safeDecodeURIComponent(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function fileNameFromHref(rawHref: string): string {
+  const text = String(rawHref || '').trim();
+  if (!text) return '';
+  try {
+    const parsed = new URL(text, 'https://zenmind.local');
+    const pathname = parsed.pathname || '';
+    if (pathname === '/api/ap/data' || pathname.startsWith('/api/ap/data/')) {
+      const fileParam = safeDecodeURIComponent(parsed.searchParams.get('file') || '');
+      const fileSegments = fileParam.split('/').filter(Boolean);
+      const fromFileParam = fileSegments[fileSegments.length - 1] || '';
+      if (fromFileParam) return fromFileParam;
+    }
+    const segments = pathname.split('/').filter(Boolean);
+    const last = segments[segments.length - 1] || '';
+    return safeDecodeURIComponent(last);
+  } catch {
+    const pathname = pathFromHref(rawHref);
+    const segments = pathname.split('/').filter(Boolean);
+    const last = segments[segments.length - 1] || '';
+    return safeDecodeURIComponent(last);
+  }
+}
+
+function fileExtensionFromName(rawName: string): string {
+  const match = String(rawName || '').trim().match(/\.([a-z0-9]{1,10})$/i);
+  return match ? String(match[1] || '').toLowerCase() : '';
+}
+
+function looksLikeAttachmentHref(rawHref: string, labelText: string): boolean {
+  const raw = String(rawHref || '').toLowerCase();
+  const label = String(labelText || '').toLowerCase();
+  const path = pathFromHref(rawHref).toLowerCase();
+
+  if (!raw) return false;
+  if (/(^|[?&])(download|attachment)=1($|&)/.test(raw) || /(^|[?&])download=true($|&)/.test(raw)) {
+    return true;
+  }
+  if (path.startsWith('/api/ap/data') || path.startsWith('/data/') || path.includes('/data/')) {
+    return true;
+  }
+  if (label.includes('附件') || label.includes('download')) {
+    return true;
+  }
+
+  if (/\.(png|jpe?g|gif|webp|bmp|svg|ico|heic|avif)$/i.test(path)) {
+    return false;
+  }
+
+  return /\.(pdf|docx?|xlsx?|pptx?|zip|rar|7z|tar|gz|tgz|csv|txt|md|json|xml|sql|apk|ipa|dmg|exe|msi)$/i.test(path);
+}
+
+function resolveAttachmentTitle(rawHref: string, resolvedHref: string, labelText: string): string {
+  const normalizedLabel = String(labelText || '').trim().replace(/^下载附件[:：]\s*/i, '');
+  if (normalizedLabel && normalizedLabel !== rawHref && normalizedLabel !== resolvedHref) {
+    return normalizedLabel;
+  }
+
+  const fromResolved = fileNameFromHref(resolvedHref);
+  if (fromResolved) return fromResolved;
+
+  const fromRaw = fileNameFromHref(rawHref);
+  if (fromRaw) return fromRaw;
+
+  return normalizedLabel || '附件';
+}
+
+function normalizeBackendBase(backendUrl: string): string {
+  return String(backendUrl || '').trim().replace(/\/+$/, '');
+}
+
+function toAuthedRequestPath(assetUrl: string, backendUrl: string): string {
+  const normalizedBase = normalizeBackendBase(backendUrl);
+  const base = normalizedBase ? `${normalizedBase}/` : 'https://zenmind.local/';
+  try {
+    const parsed = new URL(String(assetUrl || '').trim(), base);
+    return `${parsed.pathname}${parsed.search}`;
+  } catch {
+    const text = String(assetUrl || '').trim();
+    return text.startsWith('/') ? text : `/${text}`;
+  }
+}
+
+function safeDecodeUrlPart(raw: string): string {
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function fileNameFromContentDisposition(raw: string): string {
+  const text = String(raw || '');
+  const utf8Match = text.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) {
+    return safeDecodeUrlPart(String(utf8Match[1]).trim().replace(/^["']|["']$/g, ''));
+  }
+  const basicMatch = text.match(/filename\s*=\s*("?)([^";]+)\1/i);
+  if (basicMatch?.[2]) {
+    return String(basicMatch[2]).trim();
+  }
+  return '';
+}
+
+function toSafeDownloadName(raw: string, fallback = '附件'): string {
+  const text = String(raw || '').trim();
+  if (!text) return fallback;
+  const normalized = text.replace(/[\\/:*?"<>|]/g, '_').trim();
+  return normalized || fallback;
+}
+
+async function fetchAuthedAssetBlob(backendUrl: string, assetUrl: string): Promise<{ blob: Blob; fileName: string }> {
+  const requestPath = toAuthedRequestPath(assetUrl, backendUrl);
+  const response = await authorizedFetch(backendUrl, requestPath, { method: 'GET' });
+  if (!response.ok) {
+    throw new Error(`下载失败（${response.status}）`);
+  }
+  const contentDisposition = response.headers?.get?.('content-disposition') || '';
+  const headerName = fileNameFromContentDisposition(contentDisposition);
+  const fallbackName = fileNameFromHref(assetUrl) || '附件';
+  const blob = await response.blob();
+  return {
+    blob,
+    fileName: toSafeDownloadName(headerName || fallbackName, '附件')
+  };
+}
+
+async function createBlobPreviewUrl(blob: Blob): Promise<{ url: string; revoke: () => void }> {
+  if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+    const objectUrl = URL.createObjectURL(blob);
+    return {
+      url: objectUrl,
+      revoke: () => {
+        try {
+          URL.revokeObjectURL(objectUrl);
+        } catch {
+          // ignore revoke failures
+        }
+      }
+    };
+  }
+
+  if (typeof FileReader !== 'undefined') {
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(reader.error || new Error('无法读取文件'));
+      reader.readAsDataURL(blob);
+    });
+    return { url: dataUrl, revoke: () => {} };
+  }
+
+  throw new Error('当前环境不支持文件预览');
+}
+
+async function triggerDownloadFromUrl(downloadUrl: string, downloadName: string): Promise<void> {
+  const doc = (globalThis as any)?.document;
+  if (doc?.createElement) {
+    const anchor = doc.createElement('a');
+    anchor.href = downloadUrl;
+    anchor.download = toSafeDownloadName(downloadName, '附件');
+    anchor.rel = 'noopener';
+    anchor.style.display = 'none';
+    doc.body?.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    return;
+  }
+  await Linking.openURL(downloadUrl);
+}
+
+async function downloadAuthedAsset(backendUrl: string, assetUrl: string, fallbackName: string): Promise<void> {
+  const { blob, fileName } = await fetchAuthedAssetBlob(backendUrl, assetUrl);
+  const preview = await createBlobPreviewUrl(blob);
+  try {
+    await triggerDownloadFromUrl(preview.url, fileName || fallbackName || '附件');
+  } finally {
+    setTimeout(() => {
+      preview.revoke();
+    }, 1200);
+  }
+}
+
+function MarkdownAssetImage({
+  backendUrl,
+  rawSrc,
+  altText,
+  imageStyle,
+  fallbackStyle,
+  indicatorColor
+}: {
+  backendUrl: string;
+  rawSrc: string;
+  altText: string;
+  imageStyle: unknown;
+  fallbackStyle: unknown;
+  indicatorColor: string;
+}) {
+  const [uri, setUri] = useState<string>('');
+  const [loading, setLoading] = useState(false);
+  const revokeRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const srcText = String(rawSrc || '').trim();
+    const resolved = resolveMarkdownImageUrl(srcText, backendUrl);
+    if (!resolved) {
+      setUri('');
+      setLoading(false);
+      return undefined;
+    }
+
+    if (isAbsoluteHttpUrl(srcText)) {
+      setUri(resolved);
+      setLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    if (revokeRef.current) {
+      revokeRef.current();
+      revokeRef.current = null;
+    }
+    setUri('');
+    setLoading(true);
+
+    (async () => {
+      try {
+        const { blob } = await fetchAuthedAssetBlob(backendUrl, resolved);
+        const preview = await createBlobPreviewUrl(blob);
+        if (cancelled) {
+          preview.revoke();
+          return;
+        }
+        revokeRef.current = preview.revoke;
+        setUri(preview.url);
+      } catch {
+        if (!cancelled) {
+          setUri(resolved);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (revokeRef.current) {
+        revokeRef.current();
+        revokeRef.current = null;
+      }
+    };
+  }, [backendUrl, rawSrc]);
+
+  if (loading && !uri) {
+    return (
+      <View style={[fallbackStyle, imageStyle, styles.markdownImageLoading]}>
+        <ActivityIndicator size="small" color={indicatorColor} />
+      </View>
+    );
+  }
+
+  if (!uri) {
+    return null;
+  }
+
+  return (
+    <Image
+      accessibilityLabel={altText || undefined}
+      source={{ uri }}
+      style={[fallbackStyle, imageStyle]}
+      resizeMode="contain"
+    />
+  );
+}
+
 export function TimelineEntryRow({
   item,
   theme,
@@ -133,6 +444,140 @@ export function TimelineEntryRow({
     }
     return [];
   }, [isAssistantStreaming, item.kind, item.role, item.text]);
+
+  const handleMarkdownLinkPress = useCallback((href: string, asAttachment = false, suggestedFileName = '') => {
+    const rawHref = String(href || '').trim();
+    if (!rawHref) return false;
+    const rawIsAbsolute = isAbsoluteHttpUrl(rawHref);
+    const customScheme = /^[a-z][a-z0-9+.-]*:/i.test(rawHref) && !rawIsAbsolute;
+    const resolved = resolveMarkdownLinkUrl(href, backendUrl, asAttachment);
+    if (!resolved) return false;
+
+    if (rawIsAbsolute || customScheme) {
+      Linking.openURL(resolved).catch(() => {});
+      return false;
+    }
+
+    const fallbackName = toSafeDownloadName(
+      suggestedFileName || fileNameFromHref(resolved) || fileNameFromHref(rawHref) || '附件',
+      '附件'
+    );
+    downloadAuthedAsset(backendUrl, resolved, fallbackName).catch(() => {});
+    return false;
+  }, [backendUrl]);
+
+  const renderMarkdownLinkNode = useCallback((node: any, children: any, markdownStyles: any, asBlock = false) => {
+    const rawHref = String(node?.attributes?.href || '');
+    const labelText = extractTextFromMarkdownChildren(children).trim();
+    const attachment = looksLikeAttachmentHref(rawHref, labelText);
+    const resolvedHref = resolveMarkdownLinkUrl(rawHref, backendUrl, attachment);
+
+    if (!attachment) {
+      if (asBlock) {
+        return (
+          <TouchableOpacity
+            key={node.key}
+            activeOpacity={0.88}
+            onPress={() => {
+              handleMarkdownLinkPress(rawHref, false, labelText);
+            }}
+            style={markdownStyles.blocklink}
+          >
+            <View style={markdownStyles.image}>{children}</View>
+          </TouchableOpacity>
+        );
+      }
+      return (
+        <Text
+          key={node.key}
+          style={markdownStyles.link}
+          onPress={() => {
+            handleMarkdownLinkPress(rawHref, false, labelText);
+          }}
+        >
+          {children}
+        </Text>
+      );
+    }
+
+    const title = resolveAttachmentTitle(rawHref, resolvedHref, labelText);
+    const ext = fileExtensionFromName(title || fileNameFromHref(resolvedHref));
+    const badgeText = (ext || 'file').toUpperCase();
+
+    return (
+      <TouchableOpacity
+        key={node.key}
+        activeOpacity={0.84}
+        onPress={() => {
+          handleMarkdownLinkPress(rawHref, true, title);
+        }}
+        style={styles.attachmentCardPress}
+      >
+        <View
+          style={[
+            styles.attachmentCard,
+            {
+              backgroundColor: theme.surfaceSoft,
+              borderColor: `${theme.primary}2b`
+            }
+          ]}
+        >
+          <View
+            style={[
+              styles.attachmentCardGlyphWrap,
+              {
+                backgroundColor: `${theme.primary}20`
+              }
+            ]}
+          >
+            <Text style={[styles.attachmentCardGlyph, { color: theme.primaryDeep || theme.primary }]}>⬇</Text>
+          </View>
+          <View style={styles.attachmentCardMeta}>
+            <Text numberOfLines={1} style={[styles.attachmentCardTitle, { color: theme.text }]}>
+              {title}
+            </Text>
+            <Text style={[styles.attachmentCardHint, { color: theme.textMute }]}>
+              {`${badgeText} · 点击下载`}
+            </Text>
+          </View>
+          <Text style={[styles.attachmentCardAction, { color: theme.primary }]}>下载</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  }, [backendUrl, handleMarkdownLinkPress, theme.primary, theme.primaryDeep, theme.surfaceSoft, theme.text, theme.textMute]);
+
+  const renderMarkdownImageNode = useCallback((node: any, _children: any, _parent: any, markdownStyles: any) => {
+    const rawSrc = String(node?.attributes?.src || '');
+    const width = Math.max(140, Math.min(Math.round(contentWidth * 0.78), 360));
+    const fallbackStyle = {
+      width,
+      height: Math.round(width * 0.62),
+      alignSelf: 'flex-start',
+      borderRadius: 10,
+      marginTop: 2,
+      marginBottom: 10
+    };
+    return (
+      <MarkdownAssetImage
+        key={node.key}
+        backendUrl={backendUrl}
+        rawSrc={rawSrc}
+        altText={String(node?.attributes?.alt || '')}
+        imageStyle={markdownStyles.image}
+        fallbackStyle={fallbackStyle}
+        indicatorColor={theme.primary}
+      />
+    );
+  }, [backendUrl, contentWidth, theme.primary]);
+
+  const markdownRules = useMemo(() => ({
+    link: (node: any, children: any, _parent: any, markdownStyles: any) =>
+      renderMarkdownLinkNode(node, children, markdownStyles, false),
+    blocklink: (node: any, children: any, _parent: any, markdownStyles: any) =>
+      renderMarkdownLinkNode(node, children, markdownStyles, true),
+    image: (node: any, children: any, parent: any, markdownStyles: any) =>
+      renderMarkdownImageNode(node, children, parent, markdownStyles)
+  }), [renderMarkdownImageNode, renderMarkdownLinkNode]);
 
   useEffect(() => {
     Animated.timing(appear, {
@@ -341,7 +786,13 @@ export function TimelineEntryRow({
       <TouchableOpacity activeOpacity={0.9} style={styles.assistantFlowWrap} onLongPress={() => onCopyText(item.kind === 'message' ? item.text : '')}>
         <View style={styles.assistantBubblePanel}>
           {isAssistantStreaming ? (
-            <Markdown style={mdStyle}>{item.kind === 'message' ? item.text : ''}</Markdown>
+            <Markdown
+              style={mdStyle}
+              onLinkPress={handleMarkdownLinkPress}
+              rules={markdownRules}
+            >
+              {item.kind === 'message' ? item.text : ''}
+            </Markdown>
           ) : (
             segments.map((segment, index) => {
               if (segment.type === 'viewport') {
@@ -380,7 +831,12 @@ export function TimelineEntryRow({
               const content = String(segment.content || '');
               if (!content.trim()) return null;
               return (
-                <Markdown key={`md-${item.id}-${index}`} style={mdStyle}>
+                <Markdown
+                  key={`md-${item.id}-${index}`}
+                  style={mdStyle}
+                  onLinkPress={handleMarkdownLinkPress}
+                  rules={markdownRules}
+                >
                   {content}
                 </Markdown>
               );
@@ -396,8 +852,7 @@ const styles = StyleSheet.create({
   timelineRail: {
     width: 12,
     alignSelf: 'stretch',
-    alignItems: 'center',
-    marginRight: 8
+    alignItems: 'center'
   },
   timelineLine: {
     position: 'absolute',
@@ -415,10 +870,10 @@ const styles = StyleSheet.create({
     lineHeight: 14
   },
   timelineDotTool: {
-    marginTop: 11
+    marginTop: 5
   },
   timelineDotReasoning: {
-    marginTop: 8
+    marginTop: 1
   },
   timelineDotMessage: {
     marginTop: 10
@@ -436,10 +891,10 @@ const styles = StyleSheet.create({
     flex: 1
   },
   toolHead: {
-    minHeight: 30,
+    minHeight: 24,
     borderRadius: 11,
     paddingHorizontal: 8,
-    paddingVertical: 5,
+    paddingVertical: 2,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
@@ -505,6 +960,8 @@ const styles = StyleSheet.create({
   },
   reasoningBody: {
     flex: 1,
+    paddingLeft: 4,
+    paddingRight: 4,
     paddingTop: 1
   },
   reasoningLabel: {
@@ -522,7 +979,7 @@ const styles = StyleSheet.create({
   userRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: 10,
+    marginBottom: 4,
     paddingHorizontal: 14
   },
   userBubbleWrap: {
@@ -558,7 +1015,7 @@ const styles = StyleSheet.create({
   assistantRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 10,
+    marginBottom: 4,
     paddingHorizontal: 14
   },
   assistantFlowWrap: {
@@ -566,8 +1023,8 @@ const styles = StyleSheet.create({
     paddingRight: 2
   },
   assistantBubblePanel: {
-    paddingHorizontal: 10,
-    paddingVertical: 9,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
     marginBottom: 3
   },
   systemRow: {
@@ -618,5 +1075,56 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '600',
     textAlign: 'center'
+  },
+  attachmentCardPress: {
+    marginTop: 2,
+    marginBottom: 8
+  },
+  attachmentCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 9
+  },
+  attachmentCardGlyphWrap: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  attachmentCardGlyph: {
+    fontFamily: FONT_MONO,
+    fontSize: 13,
+    fontWeight: '800'
+  },
+  attachmentCardMeta: {
+    flex: 1,
+    minWidth: 0
+  },
+  attachmentCardTitle: {
+    fontFamily: FONT_SANS,
+    fontSize: 13.5,
+    lineHeight: 18,
+    fontWeight: '700'
+  },
+  attachmentCardHint: {
+    marginTop: 2,
+    fontFamily: FONT_MONO,
+    fontSize: 10.5,
+    fontWeight: '600'
+  },
+  attachmentCardAction: {
+    fontFamily: FONT_MONO,
+    fontSize: 10.5,
+    fontWeight: '800'
+  },
+  markdownImageLoading: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 120
   }
 });

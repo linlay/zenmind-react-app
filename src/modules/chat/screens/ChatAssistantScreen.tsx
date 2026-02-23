@@ -672,7 +672,7 @@ export function ChatAssistantScreen({
 
     const runStreamRequest = async (accessToken: string) => {
       await consumeJsonSseXhr(
-        `${backendUrl}/api/query`,
+        `${backendUrl}/api/ap/query`,
         {
           method: 'POST',
           headers: {

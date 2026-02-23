@@ -77,7 +77,7 @@ import {
 import { WebViewAuthRefreshCoordinator, WebViewAuthRefreshOutcome } from '../../core/auth/webViewAuthBridge';
 
 const DRAWER_MAX_WIDTH = 332;
-const PREFRESH_MIN_VALIDITY_MS = 90_000;
+const PREFRESH_MIN_VALIDITY_MS = 120_000;
 const PREFRESH_JITTER_MS = 8_000;
 const ACTIVE_REFRESH_DEBOUNCE_MS = 20_000;
 const FOREGROUND_REFRESH_INTERVAL_MS = 60_000;
