@@ -1296,6 +1296,7 @@ export function ChatAssistantScreen({
         ref={listRef}
         data={chatState.timeline}
         extraData={chatState.expandedTools}
+        removeClippedSubviews={Platform.OS === 'web' ? false : undefined}
         keyExtractor={(item) => item.id}
         style={styles.timelineList}
         contentContainerStyle={[styles.timelineContent, chatState.timeline.length === 0 ? styles.timelineContentEmpty : null]}

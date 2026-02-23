@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
-import { authorizedFetch } from '../../../core/auth/appAuth';
+import { authorizedFetch, getAccessToken } from '../../../core/auth/appAuth';
 import { FONT_MONO, FONT_SANS } from '../../../core/constants/theme';
 import { toSmartTime } from '../../../shared/utils/format';
 import { TimelineEntry } from '../types/chat';
@@ -300,6 +300,64 @@ async function createBlobPreviewUrl(blob: Blob): Promise<{ url: string; revoke: 
   throw new Error('当前环境不支持文件预览');
 }
 
+const AUTHED_IMAGE_CACHE_MAX = 48;
+const authedImagePreviewCache = new Map<string, { uri: string; revoke: () => void }>();
+const authedImageInFlight = new Map<string, Promise<{ uri: string; revoke: () => void }>>();
+
+function makeAuthedImageCacheKey(backendUrl: string, assetUrl: string): string {
+  return `${normalizeBackendBase(backendUrl)}|${String(assetUrl || '').trim()}`;
+}
+
+function getAuthedImagePreviewFromCache(cacheKey: string): { uri: string; revoke: () => void } | null {
+  const entry = authedImagePreviewCache.get(cacheKey);
+  if (!entry) return null;
+  authedImagePreviewCache.delete(cacheKey);
+  authedImagePreviewCache.set(cacheKey, entry);
+  return entry;
+}
+
+function setAuthedImagePreviewCache(cacheKey: string, entry: { uri: string; revoke: () => void }) {
+  const previous = authedImagePreviewCache.get(cacheKey);
+  if (previous && previous.uri !== entry.uri) {
+    previous.revoke();
+  }
+  authedImagePreviewCache.delete(cacheKey);
+  authedImagePreviewCache.set(cacheKey, entry);
+  while (authedImagePreviewCache.size > AUTHED_IMAGE_CACHE_MAX) {
+    const oldest = authedImagePreviewCache.entries().next().value as [string, { uri: string; revoke: () => void }] | undefined;
+    if (!oldest) break;
+    const [oldestKey, oldestEntry] = oldest;
+    authedImagePreviewCache.delete(oldestKey);
+    oldestEntry.revoke();
+  }
+}
+
+async function loadCachedAuthedImagePreview(backendUrl: string, assetUrl: string): Promise<{ uri: string; revoke: () => void }> {
+  const cacheKey = makeAuthedImageCacheKey(backendUrl, assetUrl);
+  const cached = getAuthedImagePreviewFromCache(cacheKey);
+  if (cached) return cached;
+
+  const inFlight = authedImageInFlight.get(cacheKey);
+  if (inFlight) return inFlight;
+
+  const task = (async () => {
+    const { blob } = await fetchAuthedAssetBlob(backendUrl, assetUrl);
+    const preview = await createBlobPreviewUrl(blob);
+    setAuthedImagePreviewCache(cacheKey, preview);
+    return preview;
+  })();
+
+  authedImageInFlight.set(cacheKey, task);
+  try {
+    return await task;
+  } finally {
+    const current = authedImageInFlight.get(cacheKey);
+    if (current === task) {
+      authedImageInFlight.delete(cacheKey);
+    }
+  }
+}
+
 async function triggerDownloadFromUrl(downloadUrl: string, downloadName: string): Promise<void> {
   const doc = (globalThis as any)?.document;
   if (doc?.createElement) {
@@ -344,41 +402,82 @@ function MarkdownAssetImage({
   indicatorColor: string;
 }) {
   const [uri, setUri] = useState<string>('');
+  const [nativeSource, setNativeSource] = useState<{ uri: string; headers?: Record<string, string> } | null>(null);
   const [loading, setLoading] = useState(false);
-  const revokeRef = useRef<(() => void) | null>(null);
+  const nativeRetriedRef = useRef(false);
+  const nativeReqSeqRef = useRef(0);
+  const isWeb = Platform.OS === 'web';
+  const srcText = String(rawSrc || '').trim();
+  const resolved = resolveMarkdownImageUrl(srcText, backendUrl);
+  const absoluteHttp = isAbsoluteHttpUrl(srcText);
 
   useEffect(() => {
-    const srcText = String(rawSrc || '').trim();
-    const resolved = resolveMarkdownImageUrl(srcText, backendUrl);
     if (!resolved) {
       setUri('');
+      setNativeSource(null);
       setLoading(false);
       return undefined;
     }
 
-    if (isAbsoluteHttpUrl(srcText)) {
-      setUri(resolved);
+    if (absoluteHttp) {
+      if (isWeb) {
+        setUri(resolved);
+      } else {
+        setNativeSource({ uri: resolved });
+      }
       setLoading(false);
       return undefined;
+    }
+
+    if (!isWeb) {
+      let cancelled = false;
+      nativeRetriedRef.current = false;
+      setNativeSource((prev) => (prev && prev.uri === resolved ? prev : null));
+      setLoading(true);
+      const seq = nativeReqSeqRef.current + 1;
+      nativeReqSeqRef.current = seq;
+
+      getAccessToken(backendUrl, false)
+        .then((token) => {
+          if (cancelled || nativeReqSeqRef.current !== seq) return;
+          if (token) {
+            setNativeSource({
+              uri: resolved,
+              headers: { Authorization: `Bearer ${token}` }
+            });
+          } else {
+            setNativeSource({ uri: resolved });
+          }
+        })
+        .catch(() => {
+          if (cancelled || nativeReqSeqRef.current !== seq) return;
+          setNativeSource({ uri: resolved });
+        })
+        .finally(() => {
+          if (cancelled || nativeReqSeqRef.current !== seq) return;
+          setLoading(false);
+        });
+
+      return () => {
+        cancelled = true;
+      };
     }
 
     let cancelled = false;
-    if (revokeRef.current) {
-      revokeRef.current();
-      revokeRef.current = null;
+    const cacheKey = makeAuthedImageCacheKey(backendUrl, resolved);
+    const cached = getAuthedImagePreviewFromCache(cacheKey);
+    if (cached) {
+      setUri(cached.uri);
+      setLoading(false);
+      return undefined;
     }
-    setUri('');
+
     setLoading(true);
 
     (async () => {
       try {
-        const { blob } = await fetchAuthedAssetBlob(backendUrl, resolved);
-        const preview = await createBlobPreviewUrl(blob);
-        if (cancelled) {
-          preview.revoke();
-          return;
-        }
-        revokeRef.current = preview.revoke;
+        const preview = await loadCachedAuthedImagePreview(backendUrl, resolved);
+        if (cancelled) return;
         setUri(preview.url);
       } catch {
         if (!cancelled) {
@@ -393,12 +492,59 @@ function MarkdownAssetImage({
 
     return () => {
       cancelled = true;
-      if (revokeRef.current) {
-        revokeRef.current();
-        revokeRef.current = null;
-      }
     };
-  }, [backendUrl, rawSrc]);
+  }, [absoluteHttp, backendUrl, isWeb, resolved]);
+
+  const handleNativeImageError = useCallback(() => {
+    if (isWeb || absoluteHttp || !resolved) return;
+    if (nativeRetriedRef.current) return;
+    nativeRetriedRef.current = true;
+    setLoading(true);
+    const seq = nativeReqSeqRef.current + 1;
+    nativeReqSeqRef.current = seq;
+    getAccessToken(backendUrl, true)
+      .then((token) => {
+        if (nativeReqSeqRef.current !== seq) return;
+        if (token) {
+          setNativeSource({
+            uri: resolved,
+            headers: { Authorization: `Bearer ${token}` }
+          });
+        } else {
+          setNativeSource({ uri: resolved });
+        }
+      })
+      .catch(() => {
+        if (nativeReqSeqRef.current !== seq) return;
+        setNativeSource({ uri: resolved });
+      })
+      .finally(() => {
+        if (nativeReqSeqRef.current !== seq) return;
+        setLoading(false);
+      });
+  }, [absoluteHttp, backendUrl, isWeb, resolved]);
+
+  if (!isWeb) {
+    if (loading && !nativeSource) {
+      return (
+        <View style={[fallbackStyle, imageStyle, styles.markdownImageLoading]}>
+          <ActivityIndicator size="small" color={indicatorColor} />
+        </View>
+      );
+    }
+    if (!nativeSource) {
+      return null;
+    }
+    return (
+      <Image
+        accessibilityLabel={altText || undefined}
+        source={nativeSource}
+        onError={handleNativeImageError}
+        style={[fallbackStyle, imageStyle]}
+        resizeMode="contain"
+      />
+    );
+  }
 
   if (loading && !uri) {
     return (

@@ -286,6 +286,23 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
     (Platform as { OS: string }).OS = originalOs;
   });
 
+  it('disables clipped subviews for web timeline list', async () => {
+    const originalOs = Platform.OS;
+    (Platform as { OS: string }).OS = 'web';
+
+    try {
+      mockInitialChatStateValue = createBaseChatState(null);
+      const tree = await renderScreen();
+      const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+      expect(list.props.removeClippedSubviews).toBe(false);
+      await act(async () => {
+        tree.unmount();
+      });
+    } finally {
+      (Platform as { OS: string }).OS = originalOs;
+    }
+  });
+
   it('hides overlay after frontend tool submit succeeds', async () => {
     mockInitialChatStateValue = createBaseChatState(createActiveFrontendTool());
     const tree = await renderScreen();
