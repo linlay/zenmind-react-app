@@ -76,16 +76,9 @@ npx eas build -p android --profile production
 npx eas submit -p android --profile production
 ```
 
-## 环境变量
+## 首次启动配置
 
-| 变量名 | 说明 | 默认值 |
-|--------|------|--------|
-| `EXPO_PUBLIC_BACKEND_ENDPOINT` | 后端 API 地址 | `app.linlay.cc` |
-
-```bash
-EXPO_PUBLIC_BACKEND_ENDPOINT=app.linlay.cc npm run start
-```
-
+- 应用首次启动会在登录页要求填写后端域名/IP（例如 `api.example.com` 或 `192.168.1.8:8080`）
 - 内网 IP / localhost 自动使用 `http://`，公网域名自动使用 `https://`
 - PTY WebView 默认地址: `https://{host}/appterm`（本地调试: `http://localhost:11931/appterm`）
 

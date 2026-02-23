@@ -1,41 +1,15 @@
-export const DEFAULT_REMOTE_ENDPOINT_INPUT = 'app.linlay.cc';
-const DEV_FALLBACK_ENDPOINT_INPUT = DEFAULT_REMOTE_ENDPOINT_INPUT;
-const PROD_FALLBACK_ENDPOINT_INPUT = DEFAULT_REMOTE_ENDPOINT_INPUT;
-const ENDPOINT_ENV_KEY = 'EXPO_PUBLIC_BACKEND_ENDPOINT';
 export const DEFAULT_PTY_FRONTEND_PORT = '11931';
 export const DEFAULT_PTY_FRONTEND_PATH = '/appterm';
 
-function readEndpointEnv(): string {
-  const raw =
-    typeof process !== 'undefined' && process?.env
-      ? process.env[ENDPOINT_ENV_KEY]
-      : '';
-  return String(raw || '').trim().replace(/\/+$/, '');
-}
-
-function isDevRuntime(): boolean {
-  if (typeof __DEV__ !== 'undefined') {
-    return __DEV__;
-  }
-  if (typeof process !== 'undefined' && process?.env) {
-    return process.env.NODE_ENV !== 'production';
-  }
-  return false;
-}
-
 export function getDefaultEndpointInput(): string {
-  const fromEnv = readEndpointEnv();
-  if (fromEnv) {
-    return fromEnv;
-  }
-  return isDevRuntime() ? DEV_FALLBACK_ENDPOINT_INPUT : PROD_FALLBACK_ENDPOINT_INPUT;
+  return '';
 }
 
 export const DEFAULT_ENDPOINT_INPUT = getDefaultEndpointInput();
 
 export function normalizeEndpointInput(raw: string | undefined | null): string {
   const text = String(raw || '').trim().replace(/\/+$/, '');
-  return text || getDefaultEndpointInput();
+  return text;
 }
 
 export function looksLikeLocalAddress(host: string | undefined | null): boolean {
@@ -64,6 +38,9 @@ export function looksLikeLocalAddress(host: string | undefined | null): boolean 
 
 export function toBackendBaseUrl(endpointInput: string | undefined | null): string {
   const normalized = normalizeEndpointInput(endpointInput);
+  if (!normalized) {
+    return '';
+  }
   if (/^https?:\/\//i.test(normalized)) {
     return normalized;
   }
@@ -74,6 +51,9 @@ export function toBackendBaseUrl(endpointInput: string | undefined | null): stri
 
 export function toDefaultPtyWebUrl(endpointInput: string | undefined | null): string {
   const backendBase = toBackendBaseUrl(endpointInput);
+  if (!backendBase) {
+    return '';
+  }
   try {
     const url = new URL(backendBase);
     if (looksLikeLocalAddress(url.hostname)) {
@@ -86,7 +66,7 @@ export function toDefaultPtyWebUrl(endpointInput: string | undefined | null): st
     url.hash = '';
     return url.toString().replace(/\/+$/, '');
   } catch {
-    return `http://127.0.0.1:${DEFAULT_PTY_FRONTEND_PORT}${DEFAULT_PTY_FRONTEND_PATH}`;
+    return '';
   }
 }
 
@@ -96,11 +76,18 @@ export function normalizePtyUrlInput(
 ): string {
   const text = String(raw || '').trim().replace(/\/+$/, '');
   if (!text) {
+    const normalizedEndpoint = normalizeEndpointInput(endpointInput);
+    if (!normalizedEndpoint) {
+      return '';
+    }
     return toDefaultPtyWebUrl(endpointInput);
   }
 
   if (text.startsWith('/')) {
     const backend = toBackendBaseUrl(endpointInput).replace(/\/+$/, '');
+    if (!backend) {
+      return '';
+    }
     return `${backend}${text}`;
   }
 

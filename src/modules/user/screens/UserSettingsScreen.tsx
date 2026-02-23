@@ -1,11 +1,7 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
-import {
-  DEFAULT_REMOTE_ENDPOINT_INPUT,
-  toBackendBaseUrl,
-  toDefaultPtyWebUrl
-} from '../../../core/network/endpoint';
+import { toBackendBaseUrl, toDefaultPtyWebUrl } from '../../../core/network/endpoint';
 import { patchSettings } from '../../../core/storage/settingsStorage';
 import {
   applyEndpointDraft,
@@ -73,27 +69,13 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
           onChangeText={(text) => dispatch(setEndpointDraft(text))}
           autoCapitalize="none"
           autoCorrect={false}
-          placeholder={`${DEFAULT_REMOTE_ENDPOINT_INPUT} 或 192.168.1.8:8080`}
+          placeholder="api.example.com 或 192.168.1.8:8080"
           placeholderTextColor={theme.textMute}
           style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
           nativeID="endpoint-input"
           testID="endpoint-input"
         />
         <Text style={styles.hint}>当前连接：{backendUrl}</Text>
-
-        <TouchableOpacity
-          activeOpacity={0.74}
-          style={[styles.quickBtn, { backgroundColor: theme.surface }]}
-          testID="use-cloud-endpoint-btn"
-          onPress={() => {
-            dispatch(setEndpointDraft(DEFAULT_REMOTE_ENDPOINT_INPUT));
-            dispatch(setPtyUrlDraft(toDefaultPtyWebUrl(DEFAULT_REMOTE_ENDPOINT_INPUT)));
-          }}
-        >
-          <Text style={[styles.quickBtnText, { color: theme.textSoft }]}>
-            切换到线上环境（{DEFAULT_REMOTE_ENDPOINT_INPUT}）
-          </Text>
-        </TouchableOpacity>
 
         <TouchableOpacity
           activeOpacity={0.74}
@@ -113,7 +95,7 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
           onChangeText={(text) => dispatch(setPtyUrlDraft(text))}
           autoCapitalize="none"
           autoCorrect={false}
-          placeholder={`https://${DEFAULT_REMOTE_ENDPOINT_INPUT}/appterm`}
+          placeholder="https://api.example.com/appterm"
           placeholderTextColor={theme.textMute}
           style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
           nativeID="pty-url-input"

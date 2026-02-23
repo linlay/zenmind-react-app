@@ -22,12 +22,20 @@ import Svg, { Path, Rect } from 'react-native-svg';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { DomainMode, InboxMessage, WebSocketMessage } from '../../core/types/common';
 import { THEMES } from '../../core/constants/theme';
-import { normalizePtyUrlInput, toBackendBaseUrl } from '../../core/network/endpoint';
+import {
+  normalizeEndpointInput,
+  normalizePtyUrlInput,
+  toBackendBaseUrl,
+  toDefaultPtyWebUrl
+} from '../../core/network/endpoint';
 import { loadSettings, patchSettings } from '../../core/storage/settingsStorage';
 import { setDrawerOpen } from './shellSlice';
 import {
+  applyEndpointDraft,
   hydrateSettings,
   setActiveDomain,
+  setEndpointDraft,
+  setPtyUrlDraft,
   setSelectedAgentKey as setUserSelectedAgentKey,
   toggleTheme
 } from '../../modules/user/state/userSlice';
@@ -97,6 +105,7 @@ export function ShellScreen() {
   const {
     booting,
     themeMode,
+    endpointDraft,
     endpointInput,
     ptyUrlInput,
     selectedAgentKey,
@@ -150,6 +159,11 @@ export function ShellScreen() {
   const theme = THEMES[themeMode] || THEMES.light;
   const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
   const ptyWebUrl = useMemo(() => normalizePtyUrlInput(ptyUrlInput, endpointInput), [endpointInput, ptyUrlInput]);
+  const normalizedLoginEndpointDraft = useMemo(
+    () => normalizeEndpointInput(endpointDraft),
+    [endpointDraft]
+  );
+  const canSubmitLogin = Boolean(normalizedLoginEndpointDraft) && !authChecking;
 
   const drawerWidth = useMemo(() => {
     const candidate = Math.floor(window.width * 0.84);
@@ -227,10 +241,10 @@ export function ShellScreen() {
   );
 
   const refreshChats = useCallback(
-    async (silent = false) => {
+    async (silent = false, base = backendUrl) => {
       if (!silent) dispatch(setLoadingChats(true));
       try {
-        const list = await triggerChats(backendUrl).unwrap();
+        const list = await triggerChats(base).unwrap();
         dispatch(setChats(list));
       } catch (error) {
         dispatch(setStatusText(`会话列表加载失败：${formatError(error)}`));
@@ -273,21 +287,21 @@ export function ShellScreen() {
   }, [dispatch]);
 
   const refreshAll = useCallback(
-    async (silent = false) => {
-      await Promise.all([refreshAgents(backendUrl, silent), refreshChats(silent)]);
+    async (silent = false, base = backendUrl) => {
+      await Promise.all([refreshAgents(base, silent), refreshChats(silent, base)]);
     },
     [backendUrl, refreshAgents, refreshChats]
   );
 
   const refreshInbox = useCallback(
-    async (silent = false) => {
+    async (silent = false, base = backendUrl) => {
       if (!silent) {
         setInboxLoading(true);
       }
       try {
         const [list, unread] = await Promise.all([
-          fetchAuthedJson<InboxMessage[]>(backendUrl, '/api/app/inbox?limit=50'),
-          fetchAuthedJson<{ unreadCount?: number }>(backendUrl, '/api/app/inbox/unread-count')
+          fetchAuthedJson<InboxMessage[]>(base, '/api/app/inbox?limit=50'),
+          fetchAuthedJson<{ unreadCount?: number }>(base, '/api/app/inbox/unread-count')
         ]);
         setInboxMessages(Array.isArray(list) ? list : []);
         setInboxUnreadCount(Number((unread && unread.unreadCount) || 0));
@@ -565,20 +579,36 @@ export function ShellScreen() {
   }, [authReady, booting, runForegroundProactiveRefresh]);
 
   const submitLogin = useCallback(async () => {
+    const normalizedEndpoint = normalizeEndpointInput(endpointDraft);
+    if (!normalizedEndpoint) {
+      setAuthError('请输入后端域名或 IP');
+      return;
+    }
+
     const password = String(masterPassword || '').trim();
     if (!password) {
       setAuthError('请输入主密码');
       return;
     }
 
+    const loginBackendUrl = toBackendBaseUrl(normalizedEndpoint);
+    if (!loginBackendUrl) {
+      setAuthError('后端地址格式无效');
+      return;
+    }
+
+    dispatch(setEndpointDraft(normalizedEndpoint));
+    dispatch(setPtyUrlDraft(toDefaultPtyWebUrl(normalizedEndpoint)));
+    dispatch(applyEndpointDraft());
+
     setAuthChecking(true);
     setAuthError('');
     try {
-      await loginWithMasterPassword(backendUrl, password, deviceName);
+      await loginWithMasterPassword(loginBackendUrl, password, deviceName);
       setMasterPassword('');
       setAuthReady(true);
       syncAuthStateFromSession();
-      await Promise.all([refreshAll(true), refreshInbox(true)]);
+      await Promise.all([refreshAll(true, loginBackendUrl), refreshInbox(true, loginBackendUrl)]);
     } catch (error) {
       setAuthReady(false);
       setInboxMessages([]);
@@ -588,7 +618,15 @@ export function ShellScreen() {
     } finally {
       setAuthChecking(false);
     }
-  }, [backendUrl, deviceName, masterPassword, refreshAll, refreshInbox, syncAuthStateFromSession]);
+  }, [
+    deviceName,
+    dispatch,
+    endpointDraft,
+    masterPassword,
+    refreshAll,
+    refreshInbox,
+    syncAuthStateFromSession
+  ]);
 
   useEffect(() => {
     let mounted = true;
@@ -637,6 +675,15 @@ export function ShellScreen() {
 
   useEffect(() => {
     if (booting) return;
+
+    if (!backendUrl) {
+      setAuthReady(false);
+      setInboxMessages([]);
+      setInboxUnreadCount(0);
+      syncAuthStateFromSession(null);
+      setAuthChecking(false);
+      return;
+    }
 
     let cancelled = false;
     setAuthChecking(true);
@@ -808,7 +855,17 @@ export function ShellScreen() {
           <View style={[styles.bootWrap, { paddingHorizontal: 20 }]}> 
             <View style={[styles.bootCard, { borderColor: theme.border, width: '100%', maxWidth: 440, flexDirection: 'column', alignItems: 'stretch', gap: 10 }]}> 
               <Text style={[styles.drawerTitle, { color: theme.text, fontSize: 18 }]}>设备登录</Text>
-              <Text style={[styles.emptyHistoryText, { color: theme.textMute, textAlign: 'left' }]}>请输入主密码完成设备授权。</Text>
+              <Text style={[styles.emptyHistoryText, { color: theme.textMute, textAlign: 'left' }]}>请先填写后端地址，再输入主密码完成设备授权。</Text>
+
+              <TextInput
+                value={endpointDraft}
+                onChangeText={(text) => dispatch(setEndpointDraft(text))}
+                placeholder="后端域名 / IP（如 api.example.com 或 192.168.1.8:8080）"
+                placeholderTextColor={theme.textMute}
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={[styles.chatSearchInput, { backgroundColor: theme.surfaceStrong, color: theme.text, marginBottom: 0 }]}
+              />
 
               <TextInput
                 value={deviceName}
@@ -830,11 +887,21 @@ export function ShellScreen() {
 
               <TouchableOpacity
                 activeOpacity={0.82}
-                style={[styles.publishPrimaryBtn, styles.loginSubmitBtn, { backgroundColor: theme.primary, borderColor: theme.primaryDeep, alignSelf: 'stretch' }]}
+                style={[
+                  styles.publishPrimaryBtn,
+                  styles.loginSubmitBtn,
+                  {
+                    backgroundColor: theme.primary,
+                    borderColor: theme.primaryDeep,
+                    alignSelf: 'stretch',
+                    opacity: canSubmitLogin ? 1 : 0.56
+                  }
+                ]}
                 onPress={() => {
                   submitLogin().catch(() => {});
                 }}
                 testID="app-login-submit-btn"
+                disabled={!canSubmitLogin}
               >
                 <Text style={styles.loginSubmitText}>登录设备</Text>
               </TouchableOpacity>

@@ -175,7 +175,7 @@ async function renderScreen() {
     tree = create(
       <ChatAssistantScreen
         theme={THEMES.light}
-        backendUrl="https://app.linlay.cc"
+        backendUrl="https://api.example.com"
         contentWidth={390}
         onRefreshChats={mockRefreshChats}
         keyboardHeight={0}
