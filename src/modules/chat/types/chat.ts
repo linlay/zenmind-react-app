@@ -19,6 +19,7 @@ export interface FrontendToolState {
   toolKey: string;
   toolType: string;
   toolName: string;
+  renderMode: 'webview' | 'native_confirm_dialog';
   toolTimeout?: number | null;
   toolParams?: Record<string, unknown> | null;
   paramsReady: boolean;

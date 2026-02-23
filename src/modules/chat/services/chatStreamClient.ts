@@ -56,6 +56,28 @@ export function parseSseBlock(
   }
 }
 
+function consumeSseChunk(
+  rawChunk: string,
+  onJsonEvent: (event: ChatEvent) => void,
+  observer?: SseMalformedFrameObserver,
+  flushIncomplete = false
+): string {
+  const { frames, incomplete } = splitSseFrames(rawChunk);
+  for (const chunk of frames) {
+    parseSseBlock(chunk, onJsonEvent, observer);
+  }
+
+  if (flushIncomplete) {
+    const tail = String(incomplete || '').trim();
+    if (tail) {
+      parseSseBlock(tail, onJsonEvent, observer);
+    }
+    return '';
+  }
+
+  return incomplete;
+}
+
 export function consumeJsonSseXhr(
   url: string,
   fetchOptions: RequestInit,
@@ -97,18 +119,15 @@ export function consumeJsonSseXhr(
         const full = xhr.responseText;
         const fresh = full.substring(lastIndex);
         if (fresh) {
-          const { frames, incomplete } = splitSseFrames(fresh);
-          for (const chunk of frames) {
-            parseSseBlock(chunk, onJsonEvent, options);
-          }
+          const incomplete = consumeSseChunk(fresh, onJsonEvent, options);
           lastIndex = full.length - incomplete.length;
         }
       }
 
       if (xhr.readyState === 4) {
-        const remain = xhr.responseText.substring(lastIndex).trim();
+        const remain = xhr.responseText.substring(lastIndex);
         if (remain) {
-          parseSseBlock(remain, onJsonEvent, options);
+          consumeSseChunk(remain, onJsonEvent, options, true);
         }
 
         cleanup();

@@ -1248,6 +1248,7 @@ export function ShellScreen() {
                     testID="new-chat-btn"
                     onPress={() => {
                       dispatch(setChatId(''));
+                      dispatch(setStatusText(''));
                       dispatch(setDrawerOpen(false));
                     }}
                   >

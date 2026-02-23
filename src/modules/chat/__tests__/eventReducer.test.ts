@@ -349,6 +349,46 @@ describe('eventReducer', () => {
     expect(effect?.payload?.missingChunkIndexes).toEqual([0]);
   });
 
+  it('keeps params submit-ready when tool.params exists even if args chunks are missing', () => {
+    const runtime = createRuntimeMaps();
+    let state = createEmptyChatState();
+
+    state = reduceChatEvent(
+      state,
+      { type: 'tool.start', toolId: 'tc3b', runId: 'run-c3b', toolType: 'html', toolKey: 'confirm_dialog' },
+      'live',
+      runtime
+    ).next;
+    state = reduceChatEvent(
+      state,
+      {
+        type: 'tool.params',
+        toolId: 'tc3b',
+        toolParams: { question: 'Q', options: ['A', 'B'], allowFreeText: false }
+      },
+      'live',
+      runtime
+    ).next;
+    state = reduceChatEvent(
+      state,
+      { type: 'tool.args', toolId: 'tc3b', chunkIndex: 1, delta: '{"question":"missing-zero"}' },
+      'live',
+      runtime
+    ).next;
+
+    const end = reduceChatEvent(state, { type: 'tool.end', toolId: 'tc3b' }, 'live', runtime);
+    const effect = end.effects.find((item) => item.type === 'frontend_tool_params_ready');
+    expect(effect).toBeTruthy();
+    expect(effect?.payload?.paramsReady).toBe(true);
+    expect(effect?.payload?.paramsError).toBe('');
+    expect(effect?.payload?.chunkGapDetected).toBe(true);
+    expect(effect?.payload?.toolParams).toEqual({
+      question: 'Q',
+      options: ['A', 'B'],
+      allowFreeText: false
+    });
+  });
+
   it('uses runtime argsBuffer as source of truth for tool.end argsText', () => {
     const runtime = createRuntimeMaps();
     let state = createEmptyChatState();

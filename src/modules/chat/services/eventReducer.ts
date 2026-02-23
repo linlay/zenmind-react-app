@@ -708,12 +708,14 @@ export function reduceChatEvent(
         ? toolState.missingChunkIndexes.filter((value) => Number.isInteger(value) && value >= 0)
         : [];
       const chunkGapDetected = missingChunkIndexes.length > 0 || Boolean(toolState.hasChunkGap);
+      const hasStructuredToolParams = Boolean(toolState.toolParams && typeof toolState.toolParams === 'object');
 
-      if (chunkGapDetected) {
+      // If the backend has already sent structured params, chunk gaps in argsText are non-blocking.
+      if (chunkGapDetected && !hasStructuredToolParams) {
         paramsError = `工具参数分片缺失（missing chunks: ${missingChunkIndexes.join(',')}），无法严格解析 JSON`;
       }
 
-      if (toolState.toolParams && typeof toolState.toolParams === 'object') {
+      if (hasStructuredToolParams) {
         toolParams = toolState.toolParams;
       } else if (!paramsError) {
         const rawArgs = String(toolState.argsBuffer || '');

@@ -1,10 +1,28 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  useWindowDimensions
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 import { FrontendToolState } from '../types/chat';
+import {
+  buildConfirmDialogSubmitParams,
+  normalizeConfirmDialogParams
+} from '../utils/confirmDialog';
+import { parseFrontendToolBridgeMessage } from '../services/frontendToolBridge';
 import { WEBVIEW_BRIDGE_SCRIPT } from '../utils/webViewBridge';
 export { WEBVIEW_BRIDGE_SCRIPT } from '../utils/webViewBridge';
+
+const FRONTEND_TOOL_MAX_HEIGHT_RATIO = 0.8;
+const FRONTEND_TOOL_MIN_HEIGHT = 320;
+const FRONTEND_TOOL_HEIGHT_EPSILON = 2;
 
 interface ComposerProps {
   theme: {
@@ -31,6 +49,7 @@ interface ComposerProps {
   onFrontendToolMessage: (event: { nativeEvent: { data: string } }) => void;
   onFrontendToolLoad: () => void;
   onFrontendToolRetry: () => void;
+  onNativeConfirmSubmit: (params: Record<string, unknown>) => Promise<boolean>;
 }
 
 export function Composer({
@@ -48,8 +67,10 @@ export function Composer({
   frontendToolWebViewRef,
   onFrontendToolMessage,
   onFrontendToolLoad,
-  onFrontendToolRetry
+  onFrontendToolRetry,
+  onNativeConfirmSubmit
 }: ComposerProps) {
+  const { height: windowHeight } = useWindowDimensions();
   const minRows = 1;
   const maxRows = 6;
   const lineHeight = 20;
@@ -58,6 +79,11 @@ export function Composer({
   const minHeight = baseInputHeight;
   const maxHeight = baseInputHeight + (maxRows - 1) * lineHeight;
   const [visibleRows, setVisibleRows] = useState(minRows);
+  const [confirmSelectedIndex, setConfirmSelectedIndex] = useState(-1);
+  const [confirmFreeText, setConfirmFreeText] = useState('');
+  const [confirmSubmitting, setConfirmSubmitting] = useState(false);
+  const [frontendToolMeasuredHeight, setFrontendToolMeasuredHeight] = useState<number | null>(null);
+
   const charCount = useMemo(() => Array.from(composerText || '').length, [composerText]);
   const inputHeight = minHeight + (visibleRows - minRows) * lineHeight;
   const showCharCount = !streaming && charCount > 0 && visibleRows > 1;
@@ -65,11 +91,28 @@ export function Composer({
   const placeholderText = streaming ? '正在流式输出中，可点击停止' : '输入提问内容';
   const showPlaceholder = isEmpty;
 
+  const isNativeConfirmDialog = activeFrontendTool?.renderMode === 'native_confirm_dialog';
+  const normalizedConfirmDialog = useMemo(() => {
+    if (!isNativeConfirmDialog) {
+      return { params: null, error: '' };
+    }
+    return normalizeConfirmDialogParams(
+      activeFrontendTool?.toolParams as Record<string, unknown> | null | undefined
+    );
+  }, [activeFrontendTool?.toolParams, isNativeConfirmDialog]);
+
   useEffect(() => {
     if (isEmpty) {
       setVisibleRows(minRows);
     }
   }, [isEmpty, minRows]);
+
+  useEffect(() => {
+    setConfirmSelectedIndex(-1);
+    setConfirmFreeText('');
+    setConfirmSubmitting(false);
+    setFrontendToolMeasuredHeight(null);
+  }, [activeFrontendTool?.toolId]);
 
   const handleContentSizeChange = useCallback(
     (event: { nativeEvent: { contentSize: { height: number } } }) => {
@@ -86,11 +129,159 @@ export function Composer({
     [isEmpty, lineHeight, maxHeight, maxRows, minHeight, minRows, rowSwitchThreshold]
   );
 
+  const submitNativeConfirmDialog = useCallback(
+    async (params: Record<string, unknown>) => {
+      if (confirmSubmitting) {
+        return;
+      }
+      setConfirmSubmitting(true);
+      try {
+        await onNativeConfirmSubmit(params);
+      } finally {
+        setConfirmSubmitting(false);
+      }
+    },
+    [confirmSubmitting, onNativeConfirmSubmit]
+  );
+
+  const handleNativeConfirmOptionPress = useCallback(
+    async (option: string, index: number, allowFreeText: boolean) => {
+      if (confirmSubmitting) {
+        return;
+      }
+      if (allowFreeText) {
+        setConfirmSelectedIndex(index);
+        setConfirmFreeText('');
+        return;
+      }
+      const params = buildConfirmDialogSubmitParams({
+        selectedOption: option,
+        selectedIndex: index
+      });
+      if (!params) {
+        return;
+      }
+      await submitNativeConfirmDialog({ ...params });
+    },
+    [confirmSubmitting, submitNativeConfirmDialog]
+  );
+
+  const handleNativeConfirmTextChange = useCallback((text: string) => {
+    setConfirmFreeText(text);
+    if (String(text || '').trim()) {
+      setConfirmSelectedIndex(-1);
+    }
+  }, []);
+
+  const handleNativeConfirmSubmitPress = useCallback(async () => {
+    if (confirmSubmitting || !normalizedConfirmDialog.params) {
+      return;
+    }
+    const selectedOption =
+      confirmSelectedIndex >= 0 ? normalizedConfirmDialog.params.options[confirmSelectedIndex] || '' : '';
+    const payload = buildConfirmDialogSubmitParams({
+      selectedOption,
+      selectedIndex: confirmSelectedIndex,
+      freeText: confirmFreeText
+    });
+    if (!payload) {
+      return;
+    }
+    await submitNativeConfirmDialog({ ...payload });
+  }, [
+    confirmFreeText,
+    confirmSelectedIndex,
+    confirmSubmitting,
+    normalizedConfirmDialog.params,
+    submitNativeConfirmDialog
+  ]);
+
+  const waitingConfirmParams = Boolean(
+    isNativeConfirmDialog &&
+      activeFrontendTool &&
+      !activeFrontendTool.paramsReady &&
+      !activeFrontendTool.paramsError
+  );
+  const nativeConfirmError = isNativeConfirmDialog
+    ? String(activeFrontendTool?.paramsError || normalizedConfirmDialog.error || '')
+    : '';
+  const canSubmitFreeTextConfirm = useMemo(() => {
+    const params = normalizedConfirmDialog.params;
+    if (!params || !params.allowFreeText || confirmSubmitting) {
+      return false;
+    }
+    const hasCustomText = String(confirmFreeText || '').trim().length > 0;
+    const hasSelectedOption =
+      confirmSelectedIndex >= 0 && confirmSelectedIndex < params.options.length;
+    return hasCustomText || hasSelectedOption;
+  }, [confirmFreeText, confirmSelectedIndex, confirmSubmitting, normalizedConfirmDialog.params]);
+
+  const frontendToolMaxHeight = useMemo(
+    () =>
+      Math.max(
+        FRONTEND_TOOL_MIN_HEIGHT,
+        Math.floor(Number(windowHeight || 0) * FRONTEND_TOOL_MAX_HEIGHT_RATIO)
+      ),
+    [windowHeight]
+  );
+
+  const updateFrontendToolMeasuredHeight = useCallback((nextHeight: number) => {
+    if (!Number.isFinite(nextHeight) || nextHeight <= 0) {
+      return;
+    }
+    const normalizedHeight = Math.ceil(nextHeight);
+    setFrontendToolMeasuredHeight((prev) => {
+      if (prev !== null && Math.abs(prev - normalizedHeight) < FRONTEND_TOOL_HEIGHT_EPSILON) {
+        return prev;
+      }
+      return normalizedHeight;
+    });
+  }, []);
+
+  const frontendToolResolvedHeight = useMemo(() => {
+    if (!activeFrontendTool) {
+      return FRONTEND_TOOL_MIN_HEIGHT;
+    }
+    const fallbackHeight = isNativeConfirmDialog ? FRONTEND_TOOL_MIN_HEIGHT : frontendToolMaxHeight;
+    const measuredOrFallback =
+      frontendToolMeasuredHeight !== null && Number.isFinite(frontendToolMeasuredHeight)
+        ? frontendToolMeasuredHeight
+        : fallbackHeight;
+    return Math.max(FRONTEND_TOOL_MIN_HEIGHT, Math.min(frontendToolMaxHeight, Math.ceil(measuredOrFallback)));
+  }, [activeFrontendTool, frontendToolMaxHeight, frontendToolMeasuredHeight, isNativeConfirmDialog]);
+
+  const handleNativeConfirmContentSizeChange = useCallback(
+    (_width: number, height: number) => {
+      updateFrontendToolMeasuredHeight(height);
+    },
+    [updateFrontendToolMeasuredHeight]
+  );
+
+  const handleFrontendToolWebViewMessage = useCallback(
+    (event: { nativeEvent: { data: string } }) => {
+      const bridgeMessage = parseFrontendToolBridgeMessage(event.nativeEvent.data);
+      if (bridgeMessage?.type === 'frontend_layout') {
+        updateFrontendToolMeasuredHeight(bridgeMessage.contentHeight);
+        return;
+      }
+      onFrontendToolMessage(event);
+    },
+    [onFrontendToolMessage, updateFrontendToolMeasuredHeight]
+  );
+
   return (
     <View style={styles.card} nativeID="chat-composer" testID="chat-composer">
       {activeFrontendTool ? (
         <View
-          style={[styles.frontendToolContainer, { backgroundColor: theme.surfaceStrong, borderRadius: 20 }]}
+          style={[
+            styles.frontendToolContainer,
+            {
+              backgroundColor: theme.surfaceStrong,
+              borderRadius: 20,
+              height: frontendToolResolvedHeight,
+              maxHeight: frontendToolMaxHeight
+            }
+          ]}
           nativeID="frontend-tool-container"
           testID="frontend-tool-container"
         >
@@ -109,6 +300,114 @@ export function Composer({
               >
                 <Text style={{ color: theme.text }}>重试加载</Text>
               </TouchableOpacity>
+            </View>
+          ) : isNativeConfirmDialog ? (
+            <View style={styles.nativeConfirmWrap} testID="native-confirm-dialog-root">
+              {waitingConfirmParams ? (
+                <View style={styles.center}>
+                  <Text style={{ color: theme.textMute }}>等待确认参数...</Text>
+                </View>
+              ) : nativeConfirmError ? (
+                <View
+                  style={[styles.nativeConfirmErrorPanel, { backgroundColor: `${theme.danger}22` }]}
+                  testID="native-confirm-dialog-error"
+                >
+                  <Text style={[styles.frontendToolErrorText, { color: theme.danger }]}>
+                    {nativeConfirmError}
+                  </Text>
+                  {activeFrontendTool.chunkGapDetected ? (
+                    <Text style={[styles.frontendToolChunkGapHint, { color: theme.danger }]}>
+                      {`检测到参数分片缺失（${Array.isArray(activeFrontendTool.missingChunkIndexes) ? activeFrontendTool.missingChunkIndexes.join(',') : ''}），无法初始化确认对话框`}
+                    </Text>
+                  ) : null}
+                </View>
+              ) : normalizedConfirmDialog.params ? (
+                <ScrollView
+                  style={styles.nativeConfirmScroll}
+                  contentContainerStyle={styles.nativeConfirmScrollContent}
+                  keyboardShouldPersistTaps="handled"
+                  onContentSizeChange={handleNativeConfirmContentSizeChange}
+                  testID="native-confirm-dialog-scroll"
+                >
+                  <Text style={[styles.nativeConfirmCaption, { color: theme.textMute }]}>确认操作</Text>
+                  <Text style={[styles.nativeConfirmQuestion, { color: theme.text }]}>
+                    {normalizedConfirmDialog.params.question}
+                  </Text>
+
+                  <View style={styles.nativeConfirmOptions}>
+                    {normalizedConfirmDialog.params.options.map((option, index) => {
+                      const selected = confirmSelectedIndex === index;
+                      return (
+                        <TouchableOpacity
+                          key={`${option}:${index}`}
+                          activeOpacity={0.86}
+                          disabled={confirmSubmitting}
+                          onPress={() =>
+                            handleNativeConfirmOptionPress(
+                              option,
+                              index,
+                              normalizedConfirmDialog.params?.allowFreeText || false
+                            ).catch(() => {})
+                          }
+                          style={[
+                            styles.nativeConfirmOptionBtn,
+                            {
+                              borderColor: selected ? theme.primary : theme.border,
+                              backgroundColor: selected ? `${theme.primary}18` : theme.surface
+                            }
+                          ]}
+                          testID={`native-confirm-dialog-option-${index}`}
+                        >
+                          <Text style={[styles.nativeConfirmOptionText, { color: selected ? theme.primaryDeep : theme.text }]}>
+                            {option}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+
+                  {normalizedConfirmDialog.params.allowFreeText ? (
+                    <View style={styles.nativeConfirmFreeTextWrap}>
+                      <TextInput
+                        value={confirmFreeText}
+                        onChangeText={handleNativeConfirmTextChange}
+                        style={[
+                          styles.nativeConfirmInput,
+                          {
+                            color: theme.text,
+                            borderColor: theme.border,
+                            backgroundColor: theme.surface
+                          }
+                        ]}
+                        editable={!confirmSubmitting}
+                        placeholder="或输入自定义内容"
+                        placeholderTextColor={theme.textMute}
+                        testID="native-confirm-dialog-free-text-input"
+                      />
+                      <TouchableOpacity
+                        activeOpacity={0.9}
+                        disabled={!canSubmitFreeTextConfirm}
+                        onPress={() => {
+                          handleNativeConfirmSubmitPress().catch(() => {});
+                        }}
+                        style={[
+                          styles.nativeConfirmSubmitBtn,
+                          { backgroundColor: canSubmitFreeTextConfirm ? theme.primary : `${theme.primary}66` }
+                        ]}
+                        testID="native-confirm-dialog-submit-btn"
+                      >
+                        <Text style={styles.nativeConfirmSubmitText}>
+                          {confirmSubmitting ? '提交中...' : '确认'}
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
+                </ScrollView>
+              ) : (
+                <View style={styles.center}>
+                  <Text style={{ color: theme.textMute }}>确认参数不可用</Text>
+                </View>
+              )}
             </View>
           ) : activeFrontendTool.viewportHtml ? (
             <View style={styles.frontendToolWebViewWrap}>
@@ -129,7 +428,7 @@ export function Composer({
                 style={styles.frontendToolWebView}
                 javaScriptEnabled
                 injectedJavaScript={WEBVIEW_BRIDGE_SCRIPT}
-                onMessage={onFrontendToolMessage as never}
+                onMessage={handleFrontendToolWebViewMessage as never}
                 onLoad={onFrontendToolLoad}
                 scrollEnabled
                 nestedScrollEnabled
@@ -330,7 +629,6 @@ const styles = StyleSheet.create({
   },
   frontendToolContainer: {
     minHeight: 130,
-    maxHeight: 340,
     borderRadius: 12,
     overflow: 'hidden'
   },
@@ -339,6 +637,68 @@ const styles = StyleSheet.create({
   },
   frontendToolWebViewWrap: {
     flex: 1
+  },
+  nativeConfirmWrap: {
+    flex: 1
+  },
+  nativeConfirmScroll: {
+    flex: 1
+  },
+  nativeConfirmScrollContent: {
+    paddingHorizontal: 14,
+    paddingVertical: 12
+  },
+  nativeConfirmCaption: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginBottom: 8
+  },
+  nativeConfirmQuestion: {
+    fontSize: 15,
+    lineHeight: 22,
+    fontWeight: '600'
+  },
+  nativeConfirmOptions: {
+    marginTop: 10,
+    gap: 8
+  },
+  nativeConfirmOptionBtn: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10
+  },
+  nativeConfirmOptionText: {
+    fontSize: 14,
+    lineHeight: 20
+  },
+  nativeConfirmFreeTextWrap: {
+    marginTop: 12
+  },
+  nativeConfirmInput: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: Platform.OS === 'ios' ? 10 : 8,
+    fontSize: 14
+  },
+  nativeConfirmSubmitBtn: {
+    marginTop: 10,
+    borderRadius: 10,
+    height: 38,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  nativeConfirmSubmitText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700'
+  },
+  nativeConfirmErrorPanel: {
+    margin: 10,
+    borderRadius: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10
   },
   center: {
     minHeight: 120,

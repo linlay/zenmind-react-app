@@ -55,15 +55,36 @@ describe('frontendToolBridge', () => {
     });
   });
 
-  it('parses agw_frontend_submit as frontend_submit', () => {
+  it('parses frontend layout message', () => {
+    const result = parseFrontendToolBridgeMessage(
+      JSON.stringify({
+        type: 'frontend_layout',
+        contentHeight: 486
+      })
+    );
+
+    expect(result).toEqual({
+      type: 'frontend_layout',
+      contentHeight: 486
+    });
+  });
+
+  it('returns null for invalid frontend layout height', () => {
+    const result = parseFrontendToolBridgeMessage(
+      JSON.stringify({
+        type: 'frontend_layout',
+        contentHeight: 'oops'
+      })
+    );
+    expect(result).toBeNull();
+  });
+
+  it('returns null for removed agw_frontend_submit event', () => {
     const result = parseFrontendToolBridgeMessage({
       type: 'agw_frontend_submit',
       params: { selectedOption: '海滨城市', selectedIndex: 1, freeText: '', isCustom: false }
     });
-    expect(result).toEqual({
-      type: 'frontend_submit',
-      params: { selectedOption: '海滨城市', selectedIndex: 1, freeText: '', isCustom: false }
-    });
+    expect(result).toBeNull();
   });
 
   it('returns null for unsupported message', () => {

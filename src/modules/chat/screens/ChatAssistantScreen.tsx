@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import {
   ActivityIndicator,
   Animated,
+  BackHandler,
   Easing,
   FlatList,
   Modal,
@@ -61,10 +62,17 @@ const REASONING_COLLAPSE_MS = 1500;
 const STREAM_IDLE_MS = 2500;
 const PLAN_COLLAPSE_MS = 1500;
 const AUTO_SCROLL_THRESHOLD = 36;
+const SSE_MALFORMED_STATUS_PREFIX = 'SSE 数据帧异常：';
+const SSE_MALFORMED_STATUS_TTL_MS = 3000;
 const TOOL_INIT_FAST_RETRY_DELAYS_MS = [0, 150, 500, 1200];
 const TOOL_INIT_HEARTBEAT_MS = 2000;
 const TOOL_INIT_HINT_MIN_ATTEMPT = 4;
 const TOOL_INIT_HINT_THROTTLE_MS = 3000;
+const NATIVE_CONFIRM_DIALOG_TOOL_KEY = 'confirm_dialog';
+
+function isNativeConfirmDialogTool(toolType: string, toolKey: string): boolean {
+  return String(toolType || '').toLowerCase() === 'html' && String(toolKey || '') === NATIVE_CONFIRM_DIALOG_TOOL_KEY;
+}
 
 interface ChatAssistantScreenProps {
   theme: AppTheme;
@@ -131,6 +139,7 @@ export function ChatAssistantScreen({
   const reasoningTimerRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
   const copyToastTimer = useRef<NodeJS.Timeout | null>(null);
   const fireworksTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const malformedStatusClearTimerRef = useRef<NodeJS.Timeout | null>(null);
   const fireworksAnim = useRef(new Animated.Value(0)).current;
   const malformedNoticeAtRef = useRef(0);
   const chunkGapNotifiedToolIdsRef = useRef<Set<string>>(new Set());
@@ -408,6 +417,9 @@ export function ChatAssistantScreen({
       if (!toolId || !toolKey || !toolType) {
         return;
       }
+      const renderMode: FrontendToolState['renderMode'] = isNativeConfirmDialogTool(toolType, toolKey)
+        ? 'native_confirm_dialog'
+        : 'webview';
 
       const initialToolParams = payload.toolParams && typeof payload.toolParams === 'object'
         ? (payload.toolParams as Record<string, unknown>)
@@ -424,6 +436,7 @@ export function ChatAssistantScreen({
           toolKey,
           toolType,
           toolName: String(payload.toolName || toolKey),
+          renderMode,
           toolTimeout: (payload.toolTimeout as number | null | undefined) ?? null,
           toolParams: initialToolParams,
           paramsReady: initialParamsReady,
@@ -438,12 +451,14 @@ export function ChatAssistantScreen({
           initAttempt: 0,
           initLastSentAtMs: undefined,
           viewportHtml: null,
-          loading: true,
+          loading: renderMode === 'webview',
           loadError: ''
         }
       }));
 
-      await reloadActiveFrontendToolViewport(toolId, toolKey);
+      if (renderMode === 'webview') {
+        await reloadActiveFrontendToolViewport(toolId, toolKey);
+      }
     },
     [clearToolInitTimers, reloadActiveFrontendToolViewport, setChatStateSafe]
   );
@@ -451,6 +466,7 @@ export function ChatAssistantScreen({
   const handleFrontendToolRetry = useCallback(() => {
     const active = activeFrontendToolRef.current;
     if (!active) return;
+    if (active.renderMode !== 'webview') return;
     clearToolInitTimers(false);
     reloadActiveFrontendToolViewport(active.toolId, active.toolKey).catch(() => {});
   }, [clearToolInitTimers, reloadActiveFrontendToolViewport]);
@@ -750,7 +766,7 @@ export function ChatAssistantScreen({
       const active = activeFrontendToolRef.current;
       if (!active) {
         dispatch(setStatusText('当前没有等待提交的前端工具'));
-        return;
+        return false;
       }
 
       try {
@@ -765,12 +781,15 @@ export function ChatAssistantScreen({
           clearToolInitTimers(true);
           frontendToolLoadedRef.current = false;
           setChatStateSafe((prev) => ({ ...prev, activeFrontendTool: null }));
+          return true;
         } else {
           const detail = String(data?.detail || data?.status || 'unmatched');
           dispatch(setStatusText(`提交未被接受：${detail}`));
+          return false;
         }
       } catch (error) {
         dispatch(setStatusText(`提交失败：${(error as Error)?.message || 'unknown error'}`));
+        return false;
       }
     },
     [backendUrl, clearToolInitTimers, dispatch, setChatStateSafe, submitFrontendTool]
@@ -784,7 +803,7 @@ export function ChatAssistantScreen({
   }, []);
 
   const canDispatchToolInit = useCallback((active: FrontendToolState | null) => {
-    if (!active || !frontendToolWebViewRef.current) {
+    if (!active || active.renderMode !== 'webview' || !frontendToolWebViewRef.current) {
       return false;
     }
     if (!frontendToolLoadedRef.current) {
@@ -821,7 +840,6 @@ export function ChatAssistantScreen({
         }
       };
       postToFrontendToolWebView(initPayload);
-      postToFrontendToolWebView({ ...initPayload, type: 'agw_tool_init' });
 
       const sentAtMs = Date.now();
       const sessionKey = resolveToolInitSessionKey(active);
@@ -1017,7 +1035,7 @@ export function ChatAssistantScreen({
 
   const handleFrontendToolWebViewLoad = useCallback(() => {
     const active = activeFrontendToolRef.current;
-    if (!active || !frontendToolWebViewRef.current) return;
+    if (!active || active.renderMode !== 'webview' || !frontendToolWebViewRef.current) return;
     frontendToolLoadedRef.current = true;
     ensureToolInitReliableDispatch('webview_load');
 
@@ -1112,10 +1130,44 @@ export function ChatAssistantScreen({
     [chatState.planState.tasks]
   );
   const hasPlanTasks = chatState.planState.tasks.length > 0;
+  const hasActiveFrontendTool = Boolean(chatState.activeFrontendTool);
+  const composerBottomPadding =
+    keyboardHeight > 0 ? (Platform.OS === 'ios' ? 0 : 10) : Math.max(insets.bottom, 10);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android' || !hasActiveFrontendTool) {
+      return;
+    }
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => true);
+    return () => sub.remove();
+  }, [hasActiveFrontendTool]);
 
   useEffect(() => {
     chatIdRef.current = chatId;
   }, [chatId]);
+
+  useEffect(() => {
+    if (malformedStatusClearTimerRef.current) {
+      clearTimeout(malformedStatusClearTimerRef.current);
+      malformedStatusClearTimerRef.current = null;
+    }
+
+    if (!String(statusText || '').startsWith(SSE_MALFORMED_STATUS_PREFIX)) {
+      return;
+    }
+
+    malformedStatusClearTimerRef.current = setTimeout(() => {
+      malformedStatusClearTimerRef.current = null;
+      dispatch(setStatusText(''));
+    }, SSE_MALFORMED_STATUS_TTL_MS);
+
+    return () => {
+      if (malformedStatusClearTimerRef.current) {
+        clearTimeout(malformedStatusClearTimerRef.current);
+        malformedStatusClearTimerRef.current = null;
+      }
+    };
+  }, [dispatch, statusText]);
 
   useEffect(() => {
     if (!autoScrollEnabledRef.current) {
@@ -1223,6 +1275,10 @@ export function ChatAssistantScreen({
         clearTimeout(fireworksTimerRef.current);
         fireworksTimerRef.current = null;
       }
+      if (malformedStatusClearTimerRef.current) {
+        clearTimeout(malformedStatusClearTimerRef.current);
+        malformedStatusClearTimerRef.current = null;
+      }
     };
   }, [clearReasoningTimers, clearStreamIdleTimer, clearToolInitTimers, stopStreaming]);
 
@@ -1273,11 +1329,97 @@ export function ChatAssistantScreen({
         }
       />
 
-      <View style={[styles.composerOuter, { paddingBottom: keyboardHeight > 0 ? (Platform.OS === 'ios' ? 0 : 10) : Math.max(insets.bottom, 10) }]}>
-        {hasPlanTasks ? (
-          <View style={[styles.planFloatWrap, { shadowColor: theme.shadow }]}>
-            {!autoScrollEnabled && chatState.timeline.length ? (
-              <View style={styles.scrollToBottomAbovePlan}>
+      {!hasActiveFrontendTool ? (
+        <View style={[styles.composerOuter, { paddingBottom: composerBottomPadding }]}>
+          {hasPlanTasks ? (
+            <View style={[styles.planFloatWrap, { shadowColor: theme.shadow }]}>
+              {!autoScrollEnabled && chatState.timeline.length ? (
+                <View style={styles.scrollToBottomAbovePlan}>
+                  <TouchableOpacity
+                    activeOpacity={0.86}
+                    onPress={() => scrollToBottom(true)}
+                    testID="scroll-to-bottom-btn"
+                    style={[styles.scrollToBottomBtn, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+                  >
+                    <Text style={[styles.scrollToBottomText, { color: theme.text }]}>↓</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                activeOpacity={0.84}
+                onPress={() => {
+                  if (planCollapseTimerRef.current) {
+                    clearTimeout(planCollapseTimerRef.current);
+                    planCollapseTimerRef.current = null;
+                  }
+                  setPlanExpanded((prev) => !prev);
+                }}
+                testID="plan-toggle-btn"
+                style={[
+                  styles.planCard,
+                  planExpanded
+                    ? { backgroundColor: theme.surfaceStrong, borderColor: theme.border }
+                    : { backgroundColor: theme.primarySoft, borderColor: theme.borderStrong }
+                ]}
+              >
+                {planExpanded ? (
+                <View>
+                  <View style={[styles.planHead, { backgroundColor: theme.primarySoft, borderColor: theme.borderStrong }]}>
+                    <Text style={[styles.planTitle, { color: theme.primaryDeep }]}>
+                      {`任务列表 ${planProgress.current}/${planProgress.total}`}
+                    </Text>
+                    <Text style={[styles.planHint, { color: theme.textMute }]}>
+                      点击收起
+                    </Text>
+                  </View>
+                  <View style={styles.planTaskList}>
+                    {cleanedPlanTasks.map((task) => {
+                      const tone = task.status === 'done' ? theme.ok : task.status === 'failed' ? theme.danger : task.status === 'running' ? theme.warn : theme.textMute;
+                      return (
+                        <View key={task.taskId} style={styles.planTaskRow}>
+                          <View style={[styles.planTaskDot, { backgroundColor: `${tone}` }]} />
+                          <Text style={[styles.planTaskText, { color: theme.textSoft }]} numberOfLines={2}>
+                            {task.cleanedDescription}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.planCollapsedWrap}>
+                  <Text style={[styles.planCollapsedText, { color: theme.primaryDeep }]} numberOfLines={1}>
+                    {`${planProgress.current}/${planProgress.total}` + (cleanedPlanTasks.length ? ` · ${cleanedPlanTasks[cleanedPlanTasks.length - 1].cleanedDescription}` : '')}
+                  </Text>
+                </View>
+              )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
+          <View style={styles.composerLayer}>
+            <Composer
+              theme={theme}
+              composerText={composerText}
+              focused={composerFocused}
+              onChangeText={setComposerText}
+              onFocus={() => setComposerFocused(true)}
+              onBlur={() => setComposerFocused(false)}
+              onSend={sendMessage}
+              onStop={stopStreaming}
+              streaming={chatState.streaming}
+              activeFrontendTool={null}
+              frontendToolBaseUrl={backendUrl}
+              frontendToolWebViewRef={frontendToolWebViewRef}
+              onFrontendToolMessage={handleFrontendToolMessage}
+              onFrontendToolLoad={handleFrontendToolWebViewLoad}
+              onFrontendToolRetry={handleFrontendToolRetry}
+              onNativeConfirmSubmit={submitActiveFrontendTool}
+            />
+
+            {!hasPlanTasks && !autoScrollEnabled && chatState.timeline.length ? (
+              <View style={styles.scrollToBottomAboveComposer}>
                 <TouchableOpacity
                   activeOpacity={0.86}
                   onPress={() => scrollToBottom(true)}
@@ -1288,92 +1430,9 @@ export function ChatAssistantScreen({
                 </TouchableOpacity>
               </View>
             ) : null}
-
-            <TouchableOpacity
-              activeOpacity={0.84}
-              onPress={() => {
-                if (planCollapseTimerRef.current) {
-                  clearTimeout(planCollapseTimerRef.current);
-                  planCollapseTimerRef.current = null;
-                }
-                setPlanExpanded((prev) => !prev);
-              }}
-              testID="plan-toggle-btn"
-              style={[
-                styles.planCard,
-                planExpanded
-                  ? { backgroundColor: theme.surfaceStrong, borderColor: theme.border }
-                  : { backgroundColor: theme.primarySoft, borderColor: theme.borderStrong }
-              ]}
-            >
-              {planExpanded ? (
-              <View>
-                <View style={[styles.planHead, { backgroundColor: theme.primarySoft, borderColor: theme.borderStrong }]}>
-                  <Text style={[styles.planTitle, { color: theme.primaryDeep }]}>
-                    {`任务列表 ${planProgress.current}/${planProgress.total}`}
-                  </Text>
-                  <Text style={[styles.planHint, { color: theme.textMute }]}>
-                    点击收起
-                  </Text>
-                </View>
-                <View style={styles.planTaskList}>
-                  {cleanedPlanTasks.map((task) => {
-                    const tone = task.status === 'done' ? theme.ok : task.status === 'failed' ? theme.danger : task.status === 'running' ? theme.warn : theme.textMute;
-                    return (
-                      <View key={task.taskId} style={styles.planTaskRow}>
-                        <View style={[styles.planTaskDot, { backgroundColor: `${tone}` }]} />
-                        <Text style={[styles.planTaskText, { color: theme.textSoft }]} numberOfLines={2}>
-                          {task.cleanedDescription}
-                        </Text>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            ) : (
-              <View style={styles.planCollapsedWrap}>
-                <Text style={[styles.planCollapsedText, { color: theme.primaryDeep }]} numberOfLines={1}>
-                  {`${planProgress.current}/${planProgress.total}` + (cleanedPlanTasks.length ? ` · ${cleanedPlanTasks[cleanedPlanTasks.length - 1].cleanedDescription}` : '')}
-                </Text>
-              </View>
-            )}
-            </TouchableOpacity>
           </View>
-        ) : null}
-
-        <View style={styles.composerLayer}>
-          <Composer
-            theme={theme}
-            composerText={composerText}
-            focused={composerFocused}
-            onChangeText={setComposerText}
-            onFocus={() => setComposerFocused(true)}
-            onBlur={() => setComposerFocused(false)}
-            onSend={sendMessage}
-            onStop={stopStreaming}
-            streaming={chatState.streaming}
-            activeFrontendTool={chatState.activeFrontendTool}
-            frontendToolBaseUrl={backendUrl}
-            frontendToolWebViewRef={frontendToolWebViewRef}
-            onFrontendToolMessage={handleFrontendToolMessage}
-            onFrontendToolLoad={handleFrontendToolWebViewLoad}
-            onFrontendToolRetry={handleFrontendToolRetry}
-          />
-
-          {!hasPlanTasks && !autoScrollEnabled && chatState.timeline.length ? (
-            <View style={styles.scrollToBottomAboveComposer}>
-              <TouchableOpacity
-                activeOpacity={0.86}
-                onPress={() => scrollToBottom(true)}
-                testID="scroll-to-bottom-btn"
-                style={[styles.scrollToBottomBtn, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
-              >
-                <Text style={[styles.scrollToBottomText, { color: theme.text }]}>↓</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
         </View>
-      </View>
+      ) : null}
 
       {copyToast ? (
         <View style={styles.copyToast} pointerEvents="none">
@@ -1464,6 +1523,38 @@ export function ChatAssistantScreen({
         </View>
       ) : null}
 
+      {hasActiveFrontendTool ? (
+        <View style={styles.frontendToolOverlay} testID="frontend-tool-overlay">
+          <View
+            style={[styles.frontendToolOverlayMask, { backgroundColor: theme.overlay }]}
+            testID="frontend-tool-overlay-mask"
+          />
+          <View
+            style={[styles.frontendToolOverlaySheetWrap, { paddingBottom: composerBottomPadding }]}
+            testID="frontend-tool-overlay-sheet"
+          >
+            <Composer
+              theme={theme}
+              composerText={composerText}
+              focused={composerFocused}
+              onChangeText={setComposerText}
+              onFocus={() => setComposerFocused(true)}
+              onBlur={() => setComposerFocused(false)}
+              onSend={sendMessage}
+              onStop={stopStreaming}
+              streaming={chatState.streaming}
+              activeFrontendTool={chatState.activeFrontendTool}
+              frontendToolBaseUrl={backendUrl}
+              frontendToolWebViewRef={frontendToolWebViewRef}
+              onFrontendToolMessage={handleFrontendToolMessage}
+              onFrontendToolLoad={handleFrontendToolWebViewLoad}
+              onFrontendToolRetry={handleFrontendToolRetry}
+              onNativeConfirmSubmit={submitActiveFrontendTool}
+            />
+          </View>
+        </View>
+      ) : null}
+
       <Modal
         transparent
         visible={chatState.actionModal.visible}
@@ -1535,6 +1626,17 @@ const styles = StyleSheet.create({
   },
   composerLayer: {
     position: 'relative'
+  },
+  frontendToolOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'flex-end',
+    zIndex: 6
+  },
+  frontendToolOverlayMask: {
+    ...StyleSheet.absoluteFillObject
+  },
+  frontendToolOverlaySheetWrap: {
+    paddingTop: 4
   },
   scrollToBottomAbovePlan: {
     position: 'absolute',
