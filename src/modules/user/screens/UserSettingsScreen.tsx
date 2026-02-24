@@ -1,8 +1,10 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
 import { toBackendBaseUrl, toDefaultPtyWebUrl } from '../../../core/network/endpoint';
 import { patchSettings } from '../../../core/storage/settingsStorage';
+import { FONT_MONO } from '../../../core/constants/theme';
 import {
   applyEndpointDraft,
   setEndpointDraft,
@@ -19,11 +21,18 @@ interface UserSettingsScreenProps {
     textSoft: string;
     primary: string;
     primaryDeep: string;
+    danger: string;
+    border: string;
   };
   onSettingsApplied?: () => void;
+  username: string;
+  deviceName: string;
+  accessToken: string;
+  versionLabel: string;
+  onLogout: () => void;
 }
 
-export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScreenProps) {
+export function UserSettingsScreen({ theme, onSettingsApplied, username, deviceName, accessToken, versionLabel, onLogout }: UserSettingsScreenProps) {
   const dispatch = useAppDispatch();
   const {
     endpointDraft,
@@ -52,15 +61,34 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
     onSettingsApplied?.();
   };
 
+  const truncatedToken = accessToken
+    ? accessToken.length > 20
+      ? accessToken.slice(0, 10) + '...' + accessToken.slice(-6)
+      : accessToken
+    : '(无)';
+
+  const handleCopyToken = async () => {
+    if (!accessToken) return;
+    await Clipboard.setStringAsync(accessToken);
+    Alert.alert('已复制', 'Access Token 已复制到剪贴板');
+  };
+
+  const handleLogoutPress = () => {
+    Alert.alert('确认登出', '登出后需要重新输入密码登录，确定继续？', [
+      { text: '取消', style: 'cancel' },
+      { text: '登出', style: 'destructive', onPress: onLogout }
+    ]);
+  };
+
   return (
-    <View style={styles.container} nativeID="settings-root" testID="settings-root">
+    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} nativeID="settings-root" testID="settings-root">
       <View
         style={[styles.settingCard, { backgroundColor: theme.surfaceStrong }]}
         nativeID="settings-card"
         testID="settings-card"
       >
         <View style={styles.settingRowHead}>
-          <Text style={[styles.title, { color: theme.text }]}>用户配置</Text>
+          <Text style={[styles.title, { color: theme.text }]}>软件配置</Text>
         </View>
 
         <Text style={styles.label}>后端域名 / IP</Text>
@@ -123,15 +151,61 @@ export function UserSettingsScreen({ theme, onSettingsApplied }: UserSettingsScr
         </TouchableOpacity>
       </View>
 
-    </View>
+      <View style={[styles.settingCard, { backgroundColor: theme.surfaceStrong }]} testID="user-info-card">
+        <View style={styles.settingRowHead}>
+          <Text style={[styles.title, { color: theme.text }]}>用户信息</Text>
+        </View>
+
+        <Text style={styles.label}>用户名</Text>
+        <View style={[styles.readonlyField, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.readonlyText, { color: theme.text }]}>{username || '(未知)'}</Text>
+        </View>
+
+        <Text style={[styles.label, styles.labelOffset]}>设备名称</Text>
+        <View style={[styles.readonlyField, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.readonlyText, { color: theme.text }]}>{deviceName || '(未知)'}</Text>
+        </View>
+
+        <Text style={[styles.label, styles.labelOffset]}>Access Token</Text>
+        <View style={[styles.tokenRow, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.tokenText, { color: theme.textSoft, fontFamily: FONT_MONO }]} numberOfLines={1}>
+            {truncatedToken}
+          </Text>
+          <TouchableOpacity
+            activeOpacity={0.72}
+            style={[styles.copyBtn, { borderColor: theme.border }]}
+            onPress={handleCopyToken}
+            testID="copy-token-btn"
+          >
+            <Text style={[styles.copyBtnText, { color: theme.primaryDeep }]}>复制</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={[styles.label, styles.labelOffset]}>软件版本</Text>
+        <View style={[styles.readonlyField, { backgroundColor: theme.surface }]}>
+          <Text style={[styles.readonlyText, { color: theme.textMute }]}>{versionLabel}</Text>
+        </View>
+      </View>
+
+      <TouchableOpacity
+        activeOpacity={0.78}
+        style={[styles.logoutBtn, { borderColor: theme.danger }]}
+        onPress={handleLogoutPress}
+        testID="logout-btn"
+      >
+        <Text style={[styles.logoutText, { color: theme.danger }]}>登出当前设备</Text>
+      </TouchableOpacity>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 14,
-    paddingBottom: 10,
+    paddingHorizontal: 14
+  },
+  scrollContent: {
+    paddingBottom: 30,
     gap: 10
   },
   settingCard: {
@@ -196,5 +270,47 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 14
+  },
+  readonlyField: {
+    borderRadius: 10,
+    height: 40,
+    paddingHorizontal: 12,
+    justifyContent: 'center'
+  },
+  readonlyText: {
+    fontSize: 13
+  },
+  tokenRow: {
+    borderRadius: 10,
+    height: 40,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  tokenText: {
+    flex: 1,
+    fontSize: 12,
+    minWidth: 0
+  },
+  copyBtn: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4
+  },
+  copyBtnText: {
+    fontSize: 11,
+    fontWeight: '600'
+  },
+  logoutBtn: {
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center'
+  },
+  logoutText: {
+    fontSize: 14,
+    fontWeight: '600'
   }
 });

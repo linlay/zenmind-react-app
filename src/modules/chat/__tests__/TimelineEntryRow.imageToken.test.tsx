@@ -257,7 +257,7 @@ describe('TimelineEntryRow markdown image token behavior', () => {
     });
   });
 
-  it('shows placeholder for relative image in streaming tail block', async () => {
+  it('renders relative image immediately in streaming tail block', async () => {
     const streamingItem = buildAssistantItem({
       text: '![示例](/data/sample_photo.jpg)',
       isStreamingContent: true
@@ -265,8 +265,8 @@ describe('TimelineEntryRow markdown image token behavior', () => {
 
     const { tree } = await renderRow({ item: streamingItem });
 
-    expect(tree.root.findAllByType(Image).length).toBe(0);
-    expect(tree.root.findAllByProps({ testID: 'markdown-image-deferred-placeholder' }).length).toBeGreaterThan(0);
+    expect(tree.root.findAllByType(Image).length).toBeGreaterThan(0);
+    expect(tree.root.findAllByProps({ testID: 'markdown-image-deferred-placeholder' }).length).toBe(0);
 
     await act(async () => {
       tree.unmount();
@@ -305,14 +305,14 @@ describe('TimelineEntryRow markdown image token behavior', () => {
     });
   });
 
-  it('loads relative image after streaming block is frozen', async () => {
+  it('keeps relative image visible when streaming block is frozen', async () => {
     const streamingItem = buildAssistantItem({
       text: '![示例](/data/sample_photo.jpg)',
       isStreamingContent: true
     });
 
     const { tree } = await renderRow({ item: streamingItem });
-    expect(tree.root.findAllByType(Image).length).toBe(0);
+    expect(tree.root.findAllByType(Image).length).toBeGreaterThan(0);
 
     await act(async () => {
       tree.update(
@@ -383,40 +383,61 @@ describe('TimelineEntryRow markdown image token behavior', () => {
     });
   });
 
-  it('reports auth error only after exhausting retries for relative image in streaming frozen block', async () => {
+  it('reports auth error only after exceeding retry time window for relative image in streaming frozen block', async () => {
     const onImageAuthError = jest.fn();
     const streamingItem = buildAssistantItem({
       text: ['1. 图', '![示例](/data/sample_photo.jpg)', '', '2. 后续内容'].join('\n'),
       isStreamingContent: true
     });
 
+    const realDateNow = Date.now;
+    let fakeNow = realDateNow();
+    Date.now = () => fakeNow;
+
     const { tree } = await renderRow({ item: streamingItem, onImageAuthError });
 
+    // First error: quick retry phase starts
     const image1 = tree.root.findByType(Image);
     await act(async () => {
       image1.props.onError?.({ nativeEvent: { error: 'HTTP 403 forbidden' } });
     });
-    await flushWait(220);
+    expect(onImageAuthError).toHaveBeenCalledTimes(0);
+    expect(tree.root.findAllByProps({ testID: 'markdown-image-fallback' }).length).toBe(0);
 
+    // Advance through quick retries
+    await flushWait(220);
     const image2 = tree.root.findByType(Image);
     await act(async () => {
       image2.props.onError?.({ nativeEvent: { error: 'HTTP 401 unauthorized' } });
     });
     await flushWait(470);
-
     const image3 = tree.root.findByType(Image);
     await act(async () => {
       image3.props.onError?.({ nativeEvent: { error: 'token expired' } });
     });
     await flushWait(920);
 
+    // Now in periodic retry phase - still retrying
     const image4 = tree.root.findByType(Image);
     await act(async () => {
       image4.props.onError?.({ nativeEvent: { error: 'signature invalid' } });
     });
+    expect(onImageAuthError).toHaveBeenCalledTimes(0);
+    expect(tree.root.findAllByProps({ testID: 'markdown-image-fallback' }).length).toBe(0);
+
+    // Advance past total window (30s)
+    fakeNow += 31_000;
+    await flushWait(3100);
+
+    const image5 = tree.root.findByType(Image);
+    await act(async () => {
+      image5.props.onError?.({ nativeEvent: { error: 'HTTP 403 forbidden' } });
+    });
 
     expect(onImageAuthError).toHaveBeenCalledTimes(1);
     expect(tree.root.findAllByProps({ testID: 'markdown-image-fallback' }).length).toBeGreaterThan(0);
+
+    Date.now = realDateNow;
 
     await act(async () => {
       tree.unmount();
@@ -482,6 +503,102 @@ describe('TimelineEntryRow markdown image token behavior', () => {
     expect(tree.root.findAllByType(Image).length).toBeGreaterThan(0);
     expect(tree.root.findAllByProps({ testID: 'markdown-image-fallback' }).length).toBe(0);
     expect(tree.root.findAllByProps({ testID: 'markdown-image-deferred-placeholder' }).length).toBe(0);
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it('keeps loading indicator during periodic retry phase after quick retries exhausted', async () => {
+    const onImageAuthError = jest.fn();
+    const streamingItem = buildAssistantItem({
+      text: ['1. 图', '![示例](/data/sample_photo.jpg)', '', '2. 后续内容'].join('\n'),
+      isStreamingContent: true
+    });
+
+    const { tree } = await renderRow({ item: streamingItem, onImageAuthError });
+
+    // Exhaust quick retries (3 attempts)
+    const image1 = tree.root.findByType(Image);
+    await act(async () => {
+      image1.props.onError?.({ nativeEvent: { error: 'HTTP 403 forbidden' } });
+    });
+    await flushWait(220);
+
+    const image2 = tree.root.findByType(Image);
+    await act(async () => {
+      image2.props.onError?.({ nativeEvent: { error: 'HTTP 403 forbidden' } });
+    });
+    await flushWait(470);
+
+    const image3 = tree.root.findByType(Image);
+    await act(async () => {
+      image3.props.onError?.({ nativeEvent: { error: 'HTTP 403 forbidden' } });
+    });
+    await flushWait(920);
+
+    // Now in periodic retry phase (attempt 3+): should still show Image, not fallback
+    const image4 = tree.root.findByType(Image);
+    await act(async () => {
+      image4.props.onError?.({ nativeEvent: { error: 'HTTP 403 forbidden' } });
+    });
+
+    // Should still be retrying (loading), not showing error fallback
+    expect(onImageAuthError).toHaveBeenCalledTimes(0);
+    expect(tree.root.findAllByProps({ testID: 'markdown-image-fallback' }).length).toBe(0);
+    expect(tree.root.findAllByType(Image).length).toBeGreaterThan(0);
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it('succeeds loading image during periodic retry phase', async () => {
+    const onImageAuthError = jest.fn();
+    const streamingItem = buildAssistantItem({
+      text: ['1. 图', '![示例](/data/sample_photo.jpg)', '', '2. 后续内容'].join('\n'),
+      isStreamingContent: true
+    });
+
+    const { tree } = await renderRow({ item: streamingItem, onImageAuthError });
+
+    // Exhaust quick retries
+    const image1 = tree.root.findByType(Image);
+    await act(async () => {
+      image1.props.onError?.({ nativeEvent: { error: 'HTTP 403 forbidden' } });
+    });
+    await flushWait(220);
+
+    const image2 = tree.root.findByType(Image);
+    await act(async () => {
+      image2.props.onError?.({ nativeEvent: { error: 'HTTP 403 forbidden' } });
+    });
+    await flushWait(470);
+
+    const image3 = tree.root.findByType(Image);
+    await act(async () => {
+      image3.props.onError?.({ nativeEvent: { error: 'HTTP 403 forbidden' } });
+    });
+    await flushWait(920);
+
+    // Periodic retry attempt: trigger error then wait for retry
+    const image4 = tree.root.findByType(Image);
+    await act(async () => {
+      image4.props.onError?.({ nativeEvent: { error: 'HTTP 403 forbidden' } });
+    });
+    await flushWait(3100);
+
+    // Image loads successfully on periodic retry
+    const image5 = tree.root.findByType(Image);
+    expect(String(image5.props.source?.uri || '')).toContain('__rmn=');
+    await act(async () => {
+      image5.props.onLoad?.();
+    });
+
+    // Should show loaded image, no fallback, no auth error
+    expect(onImageAuthError).toHaveBeenCalledTimes(0);
+    expect(tree.root.findAllByProps({ testID: 'markdown-image-fallback' }).length).toBe(0);
+    expect(tree.root.findAllByType(Image).length).toBeGreaterThan(0);
 
     await act(async () => {
       tree.unmount();

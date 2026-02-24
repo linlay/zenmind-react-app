@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import {
@@ -58,6 +58,15 @@ export function TerminalWebView({
   onAuthRefreshRequest
 }: TerminalWebViewProps) {
   const webViewRef = useRef<WebView>(null);
+  const [loadTimedOut, setLoadTimedOut] = useState(false);
+  const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearLoadTimer = useCallback(() => {
+    if (loadTimerRef.current) {
+      clearTimeout(loadTimerRef.current);
+      loadTimerRef.current = null;
+    }
+  }, []);
 
   const postToTerminalWebView = useCallback((payload: Record<string, unknown>) => {
     if (!webViewRef.current) {
@@ -81,6 +90,10 @@ export function TerminalWebView({
     pushLatestToken();
   }, [authTokenSignal, pushLatestToken]);
 
+  useEffect(() => {
+    return () => clearLoadTimer();
+  }, [clearLoadTimer]);
+
   return (
     <View style={[styles.wrap, { backgroundColor: theme.surfaceStrong }]}> 
       <WebView
@@ -95,13 +108,28 @@ export function TerminalWebView({
         thirdPartyCookiesEnabled
         mixedContentMode="always"
         injectedJavaScript={TERMINAL_WEBVIEW_BRIDGE_SCRIPT}
-        onLoadStart={onLoadStart}
+        onLoadStart={() => {
+          console.log('[TerminalWebView] onLoadStart uri=', uri);
+          clearLoadTimer();
+          setLoadTimedOut(false);
+          loadTimerRef.current = setTimeout(() => {
+            console.warn('[TerminalWebView] load timed out after 8s, hiding overlay');
+            setLoadTimedOut(true);
+          }, 8000);
+          onLoadStart();
+        }}
         onLoadEnd={() => {
+          console.log('[TerminalWebView] onLoadEnd uri=', uri);
+          clearLoadTimer();
+          setLoadTimedOut(false);
           onLoadEnd();
           pushLatestToken();
         }}
         onError={(event) => {
           const message = String(event?.nativeEvent?.description || '加载失败');
+          console.warn('[TerminalWebView] onError:', message, 'uri=', uri);
+          clearLoadTimer();
+          setLoadTimedOut(false);
           onError(message);
         }}
         onMessage={(event) => {
@@ -131,7 +159,7 @@ export function TerminalWebView({
         }}
       />
 
-      {loading ? (
+      {loading && !loadTimedOut ? (
         <View style={styles.overlay}>
           <ActivityIndicator size="small" color={theme.primary} />
           <Text style={[styles.overlayText, { color: theme.textSoft }]}>正在加载 PTY 前端...</Text>

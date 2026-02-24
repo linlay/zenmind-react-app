@@ -42,8 +42,9 @@ interface TimelineEntryRowProps {
   onImageAuthError: () => void;
 }
 
-const AUTH_RETRY_DELAYS_MS = [200, 450, 900];
-const AUTH_RETRY_MAX_ATTEMPTS = AUTH_RETRY_DELAYS_MS.length;
+const AUTH_RETRY_QUICK_DELAYS_MS = [200, 450, 900];
+const AUTH_RETRY_PERIODIC_INTERVAL_MS = 3000;
+const AUTH_RETRY_TOTAL_WINDOW_MS = 30_000;
 const AUTH_FAILURE_REGEX = /(^|[^0-9])(401|403)([^0-9]|$)|forbidden|unauthori[sz]ed|expired|signature|token/i;
 
 function parseViewportHeaderFields(headerLine: string) {
@@ -366,6 +367,7 @@ function MarkdownAssetImage({
   const [retryNonce, setRetryNonce] = useState(0);
   const retryAttemptRef = useRef(0);
   const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const firstErrorTsRef = useRef(0);
   const srcText = String(rawSrc || '').trim();
   const directImageSource = isDirectImageUrl(srcText);
   const shouldDeferRelative = Boolean(deferRelativeLoad) && Boolean(srcText) && !directImageSource;
@@ -391,6 +393,7 @@ function MarkdownAssetImage({
 
   useEffect(() => {
     retryAttemptRef.current = 0;
+    firstErrorTsRef.current = 0;
     setRetryNonce(0);
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current);
@@ -401,6 +404,7 @@ function MarkdownAssetImage({
   useEffect(() => {
     if (shouldDeferRelative) {
       retryAttemptRef.current = 0;
+      firstErrorTsRef.current = 0;
       setRetryNonce(0);
       if (retryTimerRef.current) {
         clearTimeout(retryTimerRef.current);
@@ -432,8 +436,8 @@ function MarkdownAssetImage({
   }, []);
 
   const handleImageError = useCallback((event: unknown) => {
-    setLoading(false);
     if (directImageSource) {
+      setLoading(false);
       setFailed(true);
       return;
     }
@@ -442,25 +446,46 @@ function MarkdownAssetImage({
       String((event as { nativeEvent?: { error?: string } })?.nativeEvent?.error || '') ||
       String(event || '');
     const authLikeFailure = AUTH_FAILURE_REGEX.test(raw);
-    if (authLikeFailure && shouldRetryTransientAuth && retryAttemptRef.current < AUTH_RETRY_MAX_ATTEMPTS) {
-      const attempt = retryAttemptRef.current;
-      retryAttemptRef.current = attempt + 1;
-      setFailed(false);
-      setLoading(true);
-      if (retryTimerRef.current) {
-        clearTimeout(retryTimerRef.current);
+
+    if (!authLikeFailure || !shouldRetryTransientAuth) {
+      setLoading(false);
+      setFailed(true);
+      if (authLikeFailure) {
+        onImageAuthError();
       }
-      retryTimerRef.current = setTimeout(() => {
-        retryTimerRef.current = null;
-        setRetryNonce((prev) => prev + 1);
-      }, AUTH_RETRY_DELAYS_MS[attempt] || AUTH_RETRY_DELAYS_MS[AUTH_RETRY_DELAYS_MS.length - 1]);
       return;
     }
 
-    setFailed(true);
-    if (authLikeFailure) {
-      onImageAuthError();
+    // Auth-like failure during streaming: two-phase retry
+    const attempt = retryAttemptRef.current;
+    if (firstErrorTsRef.current === 0) {
+      firstErrorTsRef.current = Date.now();
     }
+
+    const elapsed = Date.now() - firstErrorTsRef.current;
+    if (elapsed >= AUTH_RETRY_TOTAL_WINDOW_MS) {
+      setLoading(false);
+      setFailed(true);
+      onImageAuthError();
+      return;
+    }
+
+    retryAttemptRef.current = attempt + 1;
+    setFailed(false);
+    setLoading(true);
+
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+    }
+
+    const delay = attempt < AUTH_RETRY_QUICK_DELAYS_MS.length
+      ? AUTH_RETRY_QUICK_DELAYS_MS[attempt]
+      : AUTH_RETRY_PERIODIC_INTERVAL_MS;
+
+    retryTimerRef.current = setTimeout(() => {
+      retryTimerRef.current = null;
+      setRetryNonce((prev) => prev + 1);
+    }, delay);
   }, [directImageSource, onImageAuthError, shouldRetryTransientAuth]);
 
   if (shouldDeferRelative) {
@@ -772,7 +797,7 @@ function TimelineEntryRowComponent({
       renderMarkdownLinkNode(node, children, markdownStyles, true),
     image: (node: any, children: any, parent: any, markdownStyles: any) =>
       renderMarkdownImageNode(node, children, parent, markdownStyles, {
-        deferRelativeLoad: true,
+        deferRelativeLoad: false,
         streamingPhase: true,
         retryOnTransientError: true
       })
@@ -1006,7 +1031,7 @@ function TimelineEntryRowComponent({
                   mdStyle={mdStyle}
                   onLinkPress={handleMarkdownLinkPress}
                   markdownRules={streamingTailMarkdownRules}
-                  deferRelativeLoad
+                  deferRelativeLoad={false}
                 />
               ) : null}
             </>

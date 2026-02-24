@@ -72,6 +72,7 @@ import {
   getAccessToken,
   getDefaultDeviceName,
   loginWithMasterPassword,
+  logoutCurrentDevice,
   restoreSession,
   subscribeAuthSession
 } from '../../core/auth/appAuth';
@@ -426,6 +427,15 @@ export function ShellScreen() {
     },
     [clearWs, dispatch, syncAuthStateFromSession]
   );
+
+  const handleLogout = useCallback(async () => {
+    try {
+      await logoutCurrentDevice(backendUrl);
+    } catch {
+      // ignore logout API errors
+    }
+    handleHardAuthFailure('已登出');
+  }, [backendUrl, handleHardAuthFailure]);
 
   const runForegroundProactiveRefresh = useCallback(async () => {
     if (!authReady) {
@@ -907,11 +917,11 @@ export function ShellScreen() {
               >
                 <Text style={styles.loginSubmitText}>登录设备</Text>
               </TouchableOpacity>
-              <Text style={[styles.loginVersionText, { color: theme.textMute }]} testID="login-version-label">
-                {appVersionLabel}
-              </Text>
             </View>
           </View>
+          <Text style={[styles.loginVersionTextBottom, { color: theme.textMute, bottom: insets.bottom + 12 }]} testID="login-version-label">
+            {appVersionLabel}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -1288,15 +1298,9 @@ export function ShellScreen() {
               />
             ) : null}
             {isAgentsDomain ? <AgentsScreen theme={theme} /> : null}
-            {isUserDomain ? <UserSettingsScreen theme={theme} onSettingsApplied={() => refreshAll(true)} /> : null}
+            {isUserDomain ? <UserSettingsScreen theme={theme} onSettingsApplied={() => refreshAll(true)} username={authUsername} deviceName={authDeviceName} accessToken={authAccessToken} versionLabel={appVersionLabel} onLogout={handleLogout} /> : null}
           </KeyboardAvoidingView>
         </Animated.View>
-
-        <View pointerEvents="none" style={[styles.homeVersionWrap, { bottom: insets.bottom + 8 }]}>
-          <Text style={[styles.homeVersionText, { color: theme.textMute }]} testID="home-version-label">
-            {appVersionLabel}
-          </Text>
-        </View>
 
         <View pointerEvents={drawerOpen ? 'auto' : 'none'} style={StyleSheet.absoluteFill}>
           <Animated.View style={[styles.drawerOverlay, { opacity: drawerAnim }]}> 
@@ -1540,17 +1544,29 @@ export function ShellScreen() {
 
             <View style={[styles.drawerBottom, { borderTopColor: theme.border }]}>
               <View style={styles.profileDomainRow}>
-                <View style={[styles.profileAvatar, { backgroundColor: theme.primary }]}>
-                  <Text style={styles.profileAvatarText}>{profileInitial}</Text>
-                </View>
-                <View style={styles.profileMeta}>
-                  <Text style={[styles.profileNameText, { color: theme.text }]} numberOfLines={1}>
-                    {profileName}
-                  </Text>
-                  <Text style={[styles.profileDeviceText, { color: theme.textMute }]} numberOfLines={1}>
-                    {profileDeviceLabel}
-                  </Text>
-                </View>
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={styles.profileTouchable}
+                  onPress={() => {
+                    setAgentMenuOpen(false);
+                    setInboxOpen(false);
+                    setPublishOpen(false);
+                    dispatch(setActiveDomain('user'));
+                    dispatch(setDrawerOpen(false));
+                  }}
+                >
+                  <View style={[styles.profileAvatar, { backgroundColor: theme.primary }]}>
+                    <Text style={styles.profileAvatarText}>{profileInitial}</Text>
+                  </View>
+                  <View style={styles.profileMeta}>
+                    <Text style={[styles.profileNameText, { color: theme.text }]} numberOfLines={1}>
+                      {profileName}
+                    </Text>
+                    <Text style={[styles.profileDeviceText, { color: theme.textMute }]} numberOfLines={1}>
+                      {profileDeviceLabel}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
                 <DomainSwitcher
                   value={activeDomain}
                   onChange={(mode: DomainMode) => {
@@ -1905,18 +1921,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.3
   },
-  loginVersionText: {
+  loginVersionTextBottom: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
     fontSize: 11,
     textAlign: 'center'
-  },
-  homeVersionWrap: {
-    position: 'absolute',
-    right: 12
-  },
-  homeVersionText: {
-    fontSize: 11,
-    fontWeight: '500',
-    opacity: 0.8
   },
   agentMenuCard: {
     marginHorizontal: 14,
@@ -2153,6 +2163,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     minHeight: 40
+  },
+  profileTouchable: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+    minWidth: 0
   },
   profileAvatar: {
     width: 32,
