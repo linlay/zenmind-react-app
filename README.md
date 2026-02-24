@@ -68,6 +68,9 @@ npx eas build -p android --profile preview
 
 - `preview` 配置: `distribution: internal`, `android.buildType: apk`
 - 构建完成后 EAS 提供下载链接和二维码，手机扫码即可安装
+- 安装新 APK 前建议先卸载旧包（避免版本覆盖异常）：
+  - `adb uninstall com.zqfrank.agentterminalapp`
+  - 或手机上手动卸载旧应用后再安装新包
 
 #### 轮询构建状态（避免一直盯着终端）
 

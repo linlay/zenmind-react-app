@@ -2,7 +2,7 @@
   "expo": {
     "name": "agent-terminal-app",
     "slug": "zenmind-react-app",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -33,6 +33,12 @@
         "projectId": "e6cc69ea-7449-44f2-ae7c-69831be52d5c"
       }
     },
-    "owner": "zqfrank"
+    "owner": "zqfrank",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/e6cc69ea-7449-44f2-ae7c-69831be52d5c"
+    }
   }
 }

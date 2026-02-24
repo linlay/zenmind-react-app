@@ -64,6 +64,7 @@ import { useLazyGetChatsQuery } from '../../modules/chat/api/chatApi';
 import { useLazyListTerminalSessionsQuery } from '../../modules/terminal/api/terminalApi';
 import { fetchAuthedJson, formatError } from '../../core/network/apiClient';
 import { formatChatListTime, formatInboxTime, getAgentKey, getAgentName, getChatAgentName, getChatTitle } from '../../shared/utils/format';
+import { getAppVersionLabel } from '../../shared/utils/appVersion';
 import { TerminalSessionItem } from '../../modules/terminal/types/terminal';
 import {
   ensureFreshAccessToken,
@@ -817,6 +818,7 @@ export function ShellScreen() {
     const source = profileName.trim();
     return source ? source.slice(0, 1).toUpperCase() : 'U';
   }, [profileName]);
+  const appVersionLabel = useMemo(() => getAppVersionLabel(), []);
 
   if (booting) {
     return (
@@ -905,6 +907,9 @@ export function ShellScreen() {
               >
                 <Text style={styles.loginSubmitText}>登录设备</Text>
               </TouchableOpacity>
+              <Text style={[styles.loginVersionText, { color: theme.textMute }]} testID="login-version-label">
+                {appVersionLabel}
+              </Text>
             </View>
           </View>
         </View>
@@ -1286,6 +1291,12 @@ export function ShellScreen() {
             {isUserDomain ? <UserSettingsScreen theme={theme} onSettingsApplied={() => refreshAll(true)} /> : null}
           </KeyboardAvoidingView>
         </Animated.View>
+
+        <View pointerEvents="none" style={[styles.homeVersionWrap, { bottom: insets.bottom + 8 }]}>
+          <Text style={[styles.homeVersionText, { color: theme.textMute }]} testID="home-version-label">
+            {appVersionLabel}
+          </Text>
+        </View>
 
         <View pointerEvents={drawerOpen ? 'auto' : 'none'} style={StyleSheet.absoluteFill}>
           <Animated.View style={[styles.drawerOverlay, { opacity: drawerAnim }]}> 
@@ -1893,6 +1904,19 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     letterSpacing: 0.3
+  },
+  loginVersionText: {
+    fontSize: 11,
+    textAlign: 'center'
+  },
+  homeVersionWrap: {
+    position: 'absolute',
+    right: 12
+  },
+  homeVersionText: {
+    fontSize: 11,
+    fontWeight: '500',
+    opacity: 0.8
   },
   agentMenuCard: {
     marginHorizontal: 14,
