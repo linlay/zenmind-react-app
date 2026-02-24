@@ -7,6 +7,10 @@ export function getDefaultEndpointInput(): string {
 
 export const DEFAULT_ENDPOINT_INPUT = getDefaultEndpointInput();
 
+function normalizeUrlBase(raw: string | undefined | null): string {
+  return String(raw || '').trim().replace(/\/+$/, '');
+}
+
 export function normalizeEndpointInput(raw: string | undefined | null): string {
   const text = String(raw || '').trim().replace(/\/+$/, '');
   return text;
@@ -41,12 +45,15 @@ export function toBackendBaseUrl(endpointInput: string | undefined | null): stri
   if (!normalized) {
     return '';
   }
+  let resolvedBase = '';
   if (/^https?:\/\//i.test(normalized)) {
-    return normalized;
+    resolvedBase = normalized;
+  } else {
+    const scheme = looksLikeLocalAddress(normalized) ? 'http' : 'https';
+    resolvedBase = `${scheme}://${normalized}`;
   }
 
-  const scheme = looksLikeLocalAddress(normalized) ? 'http' : 'https';
-  return `${scheme}://${normalized}`;
+  return applyWebDevProxyBaseUrl(resolvedBase);
 }
 
 export function toDefaultPtyWebUrl(endpointInput: string | undefined | null): string {
@@ -97,4 +104,47 @@ export function normalizePtyUrlInput(
 
   const scheme = looksLikeLocalAddress(text) ? 'http' : 'https';
   return `${scheme}://${text}`;
+}
+
+function isWebLocalhostRuntime(): boolean {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+  const host = String(window.location?.hostname || '').toLowerCase();
+  return host === 'localhost' || host === '127.0.0.1';
+}
+
+function getWebDevProxyBaseUrl(): string {
+  if (typeof process === 'undefined') {
+    return '';
+  }
+  const configured = normalizeUrlBase(process.env.EXPO_PUBLIC_WEB_PROXY_BASE || '');
+  if (!configured) {
+    return '';
+  }
+  if (!/^https?:\/\//i.test(configured)) {
+    return '';
+  }
+  return configured;
+}
+
+function applyWebDevProxyBaseUrl(baseUrl: string): string {
+  const normalizedBase = normalizeUrlBase(baseUrl);
+  if (!normalizedBase || !isWebLocalhostRuntime()) {
+    return normalizedBase;
+  }
+  let parsedTarget: URL;
+  try {
+    parsedTarget = new URL(normalizedBase);
+  } catch {
+    return normalizedBase;
+  }
+  if (looksLikeLocalAddress(parsedTarget.host)) {
+    return normalizedBase;
+  }
+  const proxyBase = getWebDevProxyBaseUrl();
+  if (!proxyBase) {
+    return normalizedBase;
+  }
+  return proxyBase;
 }

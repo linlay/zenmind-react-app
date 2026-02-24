@@ -13,6 +13,9 @@ const mockLoadChatUnwrap = jest.fn();
 const mockSubmitFrontendTool = jest.fn();
 const mockSubmitFrontendToolUnwrap = jest.fn();
 const mockComposerRender = jest.fn();
+const mockTimelineRowRender = jest.fn();
+const mockConsumeJsonSseXhr = jest.fn((..._args: any[]) => Promise.resolve());
+const mockGetAccessToken = jest.fn((..._args: any[]) => Promise.resolve('access-token-1'));
 
 let mockSelectorState: Record<string, unknown> = {};
 let mockInitialChatStateValue: Record<string, unknown> = {};
@@ -65,7 +68,11 @@ jest.mock('../services/eventReducer', () => ({
 }));
 
 jest.mock('../services/chatStreamClient', () => ({
-  consumeJsonSseXhr: jest.fn(() => Promise.resolve())
+  consumeJsonSseXhr: mockConsumeJsonSseXhr
+}));
+
+jest.mock('../../../core/auth/appAuth', () => ({
+  getAccessToken: (...args: any[]) => mockGetAccessToken(...args)
 }));
 
 jest.mock('react-native-safe-area-context', () => ({
@@ -83,7 +90,10 @@ jest.mock('../components/TimelineEntryRow', () => {
   const ReactLocal = require('react');
   const { View } = require('react-native');
   return {
-    TimelineEntryRow: () => ReactLocal.createElement(View, { testID: 'timeline-entry-row' })
+    TimelineEntryRow: (props: Record<string, unknown>) => {
+      mockTimelineRowRender(props);
+      return ReactLocal.createElement(View, { testID: 'timeline-entry-row' });
+    }
   };
 });
 
@@ -92,8 +102,8 @@ jest.mock('../components/Composer', () => {
   const { Text, TouchableOpacity, View } = require('react-native');
   return {
     Composer: (props: Record<string, unknown>) => {
+      mockComposerRender(props);
       const hasTool = Boolean(props.activeFrontendTool);
-      mockComposerRender({ hasTool });
       return ReactLocal.createElement(
         View,
         { testID: hasTool ? 'composer-with-tool' : 'composer-without-tool' },
@@ -188,6 +198,32 @@ async function renderScreen() {
   return tree as ReturnType<typeof create>;
 }
 
+async function flushMicrotasks() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+function renderTimelineRowViaList(tree: ReturnType<typeof create>) {
+  const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+  const sampleItem = {
+    id: 'assistant-sample',
+    kind: 'message',
+    role: 'assistant',
+    text: 'hello',
+    ts: Date.now()
+  };
+  const element = list.props.renderItem({ item: sampleItem });
+  let rowTree: ReturnType<typeof create> | null = null;
+  act(() => {
+    rowTree = create(element);
+  });
+  act(() => {
+    rowTree?.unmount();
+  });
+}
+
 describe('ChatAssistantScreen frontend tool overlay', () => {
   beforeAll(() => {
     jest.useFakeTimers();
@@ -214,13 +250,18 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
     mockRefreshChats.mockClear();
     mockLoadChat.mockReset();
     mockLoadChatUnwrap.mockReset();
-    mockLoadChatUnwrap.mockResolvedValue({ events: [] });
+    mockLoadChatUnwrap.mockResolvedValue({ events: [], chatImageToken: '' });
     mockLoadChat.mockReturnValue({ unwrap: mockLoadChatUnwrap });
     mockSubmitFrontendTool.mockReset();
     mockSubmitFrontendToolUnwrap.mockReset();
     mockSubmitFrontendToolUnwrap.mockResolvedValue({ accepted: true });
     mockSubmitFrontendTool.mockReturnValue({ unwrap: mockSubmitFrontendToolUnwrap });
     mockComposerRender.mockClear();
+    mockTimelineRowRender.mockClear();
+    mockConsumeJsonSseXhr.mockReset();
+    mockConsumeJsonSseXhr.mockResolvedValue(undefined);
+    mockGetAccessToken.mockReset();
+    mockGetAccessToken.mockResolvedValue('access-token-1');
   });
 
   afterEach(() => {
@@ -301,6 +342,62 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
     } finally {
       (Platform as { OS: string }).OS = originalOs;
     }
+  });
+
+  it('configures timeline list with stable scroll options', async () => {
+    const tree = await renderScreen();
+    const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+    expect(list.props.removeClippedSubviews).toBe(false);
+    expect(list.props.keyboardShouldPersistTaps).toBe('handled');
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it('passes history chatImageToken from getChat response to row renderer', async () => {
+    mockSelectorState = {
+      chat: { chatId: 'chat-history-1', statusText: '' },
+      agents: { selectedAgentKey: 'agent-1', agents: [{ key: 'agent-1', name: 'Agent 1' }] }
+    };
+    mockLoadChatUnwrap.mockResolvedValue({
+      chatId: 'chat-history-1',
+      chatImageToken: 'history-token-1',
+      events: []
+    });
+
+    const tree = await renderScreen();
+    await flushMicrotasks();
+    renderTimelineRowViaList(tree);
+
+    const latestRowProps = mockTimelineRowRender.mock.calls[mockTimelineRowRender.mock.calls.length - 1]?.[0] || {};
+    expect(latestRowProps.chatImageToken).toBe('history-token-1');
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it('updates row chatImageToken when chat.start event carries token', async () => {
+    mockSelectorState = {
+      chat: { chatId: 'chat-stream-1', statusText: '' },
+      agents: { selectedAgentKey: 'agent-1', agents: [{ key: 'agent-1', name: 'Agent 1' }] }
+    };
+    mockLoadChatUnwrap.mockResolvedValue({
+      chatId: 'chat-stream-1',
+      chatImageToken: '',
+      events: [{ type: 'chat.start', chatImageToken: 'stream-token-1' }]
+    });
+
+    const tree = await renderScreen();
+    await flushMicrotasks();
+
+    renderTimelineRowViaList(tree);
+    const latestRowProps = mockTimelineRowRender.mock.calls[mockTimelineRowRender.mock.calls.length - 1]?.[0] || {};
+    expect(latestRowProps.chatImageToken).toBe('stream-token-1');
+
+    await act(async () => {
+      tree.unmount();
+    });
   });
 
   it('hides overlay after frontend tool submit succeeds', async () => {

@@ -1,4 +1,6 @@
 const ABSOLUTE_HTTP_URL_REGEX = /^https?:\/\//i;
+const PROTOCOL_RELATIVE_URL_REGEX = /^\/\//;
+const DIRECT_IMAGE_SCHEME_REGEX = /^(data:|blob:|file:)/i;
 const CUSTOM_SCHEME_REGEX = /^[a-z][a-z0-9+.-]*:/i;
 
 function normalizeBackendBase(backendUrl: string): string {
@@ -45,6 +47,25 @@ export function isAbsoluteHttpUrl(raw: string): boolean {
   return ABSOLUTE_HTTP_URL_REGEX.test(String(raw || '').trim());
 }
 
+export function isDirectImageUrl(raw: string): boolean {
+  const text = String(raw || '').trim();
+  if (!text) return false;
+  return (
+    ABSOLUTE_HTTP_URL_REGEX.test(text) ||
+    PROTOCOL_RELATIVE_URL_REGEX.test(text) ||
+    DIRECT_IMAGE_SCHEME_REGEX.test(text)
+  );
+}
+
+function normalizeDirectImageUrl(raw: string): string {
+  const text = String(raw || '').trim();
+  if (!text) return '';
+  if (PROTOCOL_RELATIVE_URL_REGEX.test(text)) {
+    return `https:${text}`;
+  }
+  return text;
+}
+
 export function sanitizeFilePath(raw: string): string {
   const text = String(raw || '').trim();
   if (!text) return '';
@@ -53,10 +74,16 @@ export function sanitizeFilePath(raw: string): string {
   return withoutQuery;
 }
 
-export function buildApDataUrl(backendUrl: string, filePath: string, download: boolean): string {
+export function buildApDataUrl(
+  backendUrl: string,
+  filePath: string,
+  download: boolean,
+  chatImageToken = ''
+): string {
   const path = sanitizeFilePath(filePath);
   if (!path) return '';
-  const query = `file=${encodeURIComponent(path)}${download ? '&download=true' : ''}`;
+  const token = String(chatImageToken || '').trim();
+  const query = `file=${encodeURIComponent(path)}${download ? '&download=true' : ''}${token ? `&t=${encodeURIComponent(token)}` : ''}`;
   const base = normalizeBackendBase(backendUrl);
   if (!base) return `/api/ap/data?${query}`;
   try {
@@ -67,13 +94,17 @@ export function buildApDataUrl(backendUrl: string, filePath: string, download: b
   }
 }
 
-export function resolveMarkdownImageUrl(raw: string, backendUrl: string): string {
+export function resolveMarkdownImageUrl(raw: string, backendUrl: string, chatImageToken: string): string {
   const text = String(raw || '').trim();
   if (!text) return '';
-  if (isAbsoluteHttpUrl(text)) return text;
+  if (isDirectImageUrl(text)) return normalizeDirectImageUrl(text);
+
+  const token = String(chatImageToken || '').trim();
+  if (!token) return '';
+
   const filePath = extractFilePathFromApData(text) || sanitizeFilePath(text);
-  if (!filePath) return text;
-  return buildApDataUrl(backendUrl, filePath, false);
+  if (!filePath) return '';
+  return buildApDataUrl(backendUrl, filePath, false, token);
 }
 
 export function resolveMarkdownLinkUrl(raw: string, backendUrl: string, asAttachment: boolean): string {

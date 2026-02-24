@@ -16,12 +16,32 @@ export const chatApi = createApi({
         }
       }
     }),
-    getChat: builder.query<{ events: Record<string, unknown>[] }, { baseUrl: string; chatId: string }>({
+    getChat: builder.query<
+      {
+        chatId?: string;
+        chatName?: string;
+        chatImageToken?: string;
+        events: Record<string, unknown>[];
+      },
+      { baseUrl: string; chatId: string }
+    >({
       async queryFn({ baseUrl, chatId }) {
         try {
           const query = `?chatId=${encodeURIComponent(chatId)}`;
-          const data = await fetchApiJson<{ events?: Record<string, unknown>[] }>(baseUrl, `/api/ap/chat${query}`);
-          return { data: { events: Array.isArray(data?.events) ? data.events : [] } };
+          const data = await fetchApiJson<{
+            chatId?: string;
+            chatName?: string;
+            chatImageToken?: string;
+            events?: Record<string, unknown>[];
+          }>(baseUrl, `/api/ap/chat${query}`);
+          return {
+            data: {
+              chatId: String(data?.chatId || ''),
+              chatName: String(data?.chatName || ''),
+              chatImageToken: String(data?.chatImageToken || ''),
+              events: Array.isArray(data?.events) ? data.events : []
+            }
+          };
         } catch (error) {
           return { error: error as Error };
         }

@@ -42,6 +42,7 @@ npm run start        # 交互式选择平台
 npm run ios          # iOS 模拟器
 npm run android      # Android 模拟器/设备
 npm run web          # 浏览器
+npx expo start -c --tunnel # 隧道模式
 ```
 
 ## 测试与检查
@@ -90,6 +91,30 @@ npx eas submit -p android --profile production
 - 应用首次启动会在登录页要求填写后端域名/IP（例如 `api.example.com` 或 `192.168.1.8:8080`）
 - 内网 IP / localhost 自动使用 `http://`，公网域名自动使用 `https://`
 - PTY WebView 默认地址: `https://{host}/appterm`（本地调试: `http://localhost:11931/appterm`）
+
+## Web 本地代理（解决 CORS）
+
+当你在浏览器用 `http://localhost:8081` 调试，同时后端填 `app.zenmind.cc` 时，浏览器会直接跨域请求远端接口，预检会被 CORS 拦截。项目已内置本地反向代理：
+
+1. 启动代理（默认转发到 `https://app.zenmind.cc`）：
+
+```bash
+npm run proxy
+```
+
+2. 启动 Web，并告诉前端走本地代理：
+
+```bash
+EXPO_PUBLIC_WEB_PROXY_BASE=http://localhost:19080 npm run web
+```
+
+3. 应用里仍然填写远端域名（例如 `app.zenmind.cc`），请求会在本地 Web 调试环境自动改走代理。
+
+可选环境变量：
+
+- `ZENMIND_PROXY_TARGET`：上游目标地址（默认 `https://app.zenmind.cc`）
+- `ZENMIND_PROXY_PORT`：本地代理端口（默认 `19080`）
+- `ZENMIND_PROXY_HOST`：本地监听地址（默认 `127.0.0.1`）
 
 ## 项目结构
 

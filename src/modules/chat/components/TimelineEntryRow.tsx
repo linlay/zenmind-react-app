@@ -1,14 +1,16 @@
 // @ts-nocheck
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, Linking, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Image, Linking, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
-import { authorizedFetch, getAccessToken } from '../../../core/auth/appAuth';
+import { authorizedFetch } from '../../../core/auth/appAuth';
 import { FONT_MONO, FONT_SANS } from '../../../core/constants/theme';
 import { toSmartTime } from '../../../shared/utils/format';
 import { TimelineEntry } from '../types/chat';
 import { getActionGlyph, getTaskTone, normalizeTaskStatus } from '../services/eventNormalizer';
-import { isAbsoluteHttpUrl, resolveMarkdownImageUrl, resolveMarkdownLinkUrl } from '../utils/markdownAssetUrl';
+import { isDirectImageUrl, isAbsoluteHttpUrl, resolveMarkdownImageUrl, resolveMarkdownLinkUrl } from '../utils/markdownAssetUrl';
+import { partitionStreamingBlocks, splitStreamingMarkdownBlocks } from '../utils/markdownStreamingBlocks';
+import type { StreamingMarkdownBlock } from '../utils/markdownStreamingBlocks';
 import { ViewportBlockView } from './ViewportBlockView';
 
 interface TimelineEntryRowProps {
@@ -32,11 +34,17 @@ interface TimelineEntryRowProps {
   };
   contentWidth: number;
   backendUrl: string;
+  chatImageToken: string;
   toolExpanded: boolean;
   onToggleTool: (id: string) => void;
   onToggleReasoning: (id: string) => void;
   onCopyText: (text: string) => void;
+  onImageAuthError: () => void;
 }
+
+const AUTH_RETRY_DELAYS_MS = [200, 450, 900];
+const AUTH_RETRY_MAX_ATTEMPTS = AUTH_RETRY_DELAYS_MS.length;
+const AUTH_FAILURE_REGEX = /(^|[^0-9])(401|403)([^0-9]|$)|forbidden|unauthori[sz]ed|expired|signature|token/i;
 
 function parseViewportHeaderFields(headerLine: string) {
   const result: Record<string, string> = {};
@@ -300,64 +308,6 @@ async function createBlobPreviewUrl(blob: Blob): Promise<{ url: string; revoke: 
   throw new Error('当前环境不支持文件预览');
 }
 
-const AUTHED_IMAGE_CACHE_MAX = 48;
-const authedImagePreviewCache = new Map<string, { uri: string; revoke: () => void }>();
-const authedImageInFlight = new Map<string, Promise<{ uri: string; revoke: () => void }>>();
-
-function makeAuthedImageCacheKey(backendUrl: string, assetUrl: string): string {
-  return `${normalizeBackendBase(backendUrl)}|${String(assetUrl || '').trim()}`;
-}
-
-function getAuthedImagePreviewFromCache(cacheKey: string): { uri: string; revoke: () => void } | null {
-  const entry = authedImagePreviewCache.get(cacheKey);
-  if (!entry) return null;
-  authedImagePreviewCache.delete(cacheKey);
-  authedImagePreviewCache.set(cacheKey, entry);
-  return entry;
-}
-
-function setAuthedImagePreviewCache(cacheKey: string, entry: { uri: string; revoke: () => void }) {
-  const previous = authedImagePreviewCache.get(cacheKey);
-  if (previous && previous.uri !== entry.uri) {
-    previous.revoke();
-  }
-  authedImagePreviewCache.delete(cacheKey);
-  authedImagePreviewCache.set(cacheKey, entry);
-  while (authedImagePreviewCache.size > AUTHED_IMAGE_CACHE_MAX) {
-    const oldest = authedImagePreviewCache.entries().next().value as [string, { uri: string; revoke: () => void }] | undefined;
-    if (!oldest) break;
-    const [oldestKey, oldestEntry] = oldest;
-    authedImagePreviewCache.delete(oldestKey);
-    oldestEntry.revoke();
-  }
-}
-
-async function loadCachedAuthedImagePreview(backendUrl: string, assetUrl: string): Promise<{ uri: string; revoke: () => void }> {
-  const cacheKey = makeAuthedImageCacheKey(backendUrl, assetUrl);
-  const cached = getAuthedImagePreviewFromCache(cacheKey);
-  if (cached) return cached;
-
-  const inFlight = authedImageInFlight.get(cacheKey);
-  if (inFlight) return inFlight;
-
-  const task = (async () => {
-    const { blob } = await fetchAuthedAssetBlob(backendUrl, assetUrl);
-    const preview = await createBlobPreviewUrl(blob);
-    setAuthedImagePreviewCache(cacheKey, preview);
-    return preview;
-  })();
-
-  authedImageInFlight.set(cacheKey, task);
-  try {
-    return await task;
-  } finally {
-    const current = authedImageInFlight.get(cacheKey);
-    if (current === task) {
-      authedImageInFlight.delete(cacheKey);
-    }
-  }
-}
-
 async function triggerDownloadFromUrl(downloadUrl: string, downloadName: string): Promise<void> {
   const doc = (globalThis as any)?.document;
   if (doc?.createElement) {
@@ -388,208 +338,267 @@ async function downloadAuthedAsset(backendUrl: string, assetUrl: string, fallbac
 
 function MarkdownAssetImage({
   backendUrl,
+  chatImageToken,
   rawSrc,
   altText,
   imageStyle,
   fallbackStyle,
-  indicatorColor
+  indicatorColor,
+  deferRelativeLoad,
+  streamingPhase,
+  retryOnTransientError,
+  onImageAuthError
 }: {
   backendUrl: string;
+  chatImageToken: string;
   rawSrc: string;
   altText: string;
   imageStyle: unknown;
   fallbackStyle: unknown;
   indicatorColor: string;
+  deferRelativeLoad?: boolean;
+  streamingPhase?: boolean;
+  retryOnTransientError?: boolean;
+  onImageAuthError: () => void;
 }) {
-  const [uri, setUri] = useState<string>('');
-  const [nativeSource, setNativeSource] = useState<{ uri: string; headers?: Record<string, string> } | null>(null);
   const [loading, setLoading] = useState(false);
-  const nativeRetriedRef = useRef(false);
-  const nativeReqSeqRef = useRef(0);
-  const isWeb = Platform.OS === 'web';
+  const [failed, setFailed] = useState(false);
+  const [retryNonce, setRetryNonce] = useState(0);
+  const retryAttemptRef = useRef(0);
+  const retryTimerRef = useRef<NodeJS.Timeout | null>(null);
   const srcText = String(rawSrc || '').trim();
-  const resolved = resolveMarkdownImageUrl(srcText, backendUrl);
-  const absoluteHttp = isAbsoluteHttpUrl(srcText);
+  const directImageSource = isDirectImageUrl(srcText);
+  const shouldDeferRelative = Boolean(deferRelativeLoad) && Boolean(srcText) && !directImageSource;
+  const resolved = resolveMarkdownImageUrl(srcText, backendUrl, chatImageToken);
+  const shouldRetryTransientAuth = Boolean(retryOnTransientError) && Boolean(streamingPhase) && !directImageSource;
+  const sourceUri = useMemo(() => {
+    const uri = String(resolved || '').trim();
+    if (!uri) return '';
+    if (!shouldRetryTransientAuth || retryNonce <= 0) return uri;
+    const separator = uri.includes('?') ? '&' : '?';
+    return `${uri}${separator}__rmn=${retryNonce}`;
+  }, [resolved, retryNonce, shouldRetryTransientAuth]);
+  const missingSignedToken = Boolean(srcText) && !directImageSource && !resolved;
 
   useEffect(() => {
-    if (!resolved) {
-      setUri('');
-      setNativeSource(null);
-      setLoading(false);
-      return undefined;
-    }
-
-    if (absoluteHttp) {
-      if (isWeb) {
-        setUri(resolved);
-      } else {
-        setNativeSource({ uri: resolved });
-      }
-      setLoading(false);
-      return undefined;
-    }
-
-    if (!isWeb) {
-      let cancelled = false;
-      nativeRetriedRef.current = false;
-      setNativeSource((prev) => (prev && prev.uri === resolved ? prev : null));
-      setLoading(true);
-      const seq = nativeReqSeqRef.current + 1;
-      nativeReqSeqRef.current = seq;
-
-      getAccessToken(backendUrl, false)
-        .then((token) => {
-          if (cancelled || nativeReqSeqRef.current !== seq) return;
-          if (token) {
-            setNativeSource({
-              uri: resolved,
-              headers: { Authorization: `Bearer ${token}` }
-            });
-          } else {
-            setNativeSource({ uri: resolved });
-          }
-        })
-        .catch(() => {
-          if (cancelled || nativeReqSeqRef.current !== seq) return;
-          setNativeSource({ uri: resolved });
-        })
-        .finally(() => {
-          if (cancelled || nativeReqSeqRef.current !== seq) return;
-          setLoading(false);
-        });
-
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    let cancelled = false;
-    const cacheKey = makeAuthedImageCacheKey(backendUrl, resolved);
-    const cached = getAuthedImagePreviewFromCache(cacheKey);
-    if (cached) {
-      setUri(cached.uri);
-      setLoading(false);
-      return undefined;
-    }
-
-    setLoading(true);
-
-    (async () => {
-      try {
-        const preview = await loadCachedAuthedImagePreview(backendUrl, resolved);
-        if (cancelled) return;
-        setUri(preview.url);
-      } catch {
-        if (!cancelled) {
-          setUri(resolved);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    })();
-
     return () => {
-      cancelled = true;
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
     };
-  }, [absoluteHttp, backendUrl, isWeb, resolved]);
+  }, []);
 
-  const handleNativeImageError = useCallback(() => {
-    if (isWeb || absoluteHttp || !resolved) return;
-    if (nativeRetriedRef.current) return;
-    nativeRetriedRef.current = true;
+  useEffect(() => {
+    retryAttemptRef.current = 0;
+    setRetryNonce(0);
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+  }, [resolved]);
+
+  useEffect(() => {
+    if (shouldDeferRelative) {
+      retryAttemptRef.current = 0;
+      setRetryNonce(0);
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+      setLoading(false);
+      setFailed(false);
+      return;
+    }
+    if (!sourceUri) {
+      setLoading(false);
+      setFailed(missingSignedToken);
+      return;
+    }
     setLoading(true);
-    const seq = nativeReqSeqRef.current + 1;
-    nativeReqSeqRef.current = seq;
-    getAccessToken(backendUrl, true)
-      .then((token) => {
-        if (nativeReqSeqRef.current !== seq) return;
-        if (token) {
-          setNativeSource({
-            uri: resolved,
-            headers: { Authorization: `Bearer ${token}` }
-          });
-        } else {
-          setNativeSource({ uri: resolved });
-        }
-      })
-      .catch(() => {
-        if (nativeReqSeqRef.current !== seq) return;
-        setNativeSource({ uri: resolved });
-      })
-      .finally(() => {
-        if (nativeReqSeqRef.current !== seq) return;
-        setLoading(false);
-      });
-  }, [absoluteHttp, backendUrl, isWeb, resolved]);
+    setFailed(false);
+  }, [missingSignedToken, shouldDeferRelative, sourceUri]);
 
-  if (!isWeb) {
-    if (loading && !nativeSource) {
-      return (
-        <View style={[fallbackStyle, imageStyle, styles.markdownImageLoading]}>
-          <ActivityIndicator size="small" color={indicatorColor} />
-        </View>
-      );
+  const handleImageLoadStart = useCallback(() => {
+    if (sourceUri) {
+      setLoading(true);
+      setFailed(false);
     }
-    if (!nativeSource) {
-      return null;
-    }
-    return (
-      <Image
-        accessibilityLabel={altText || undefined}
-        source={nativeSource}
-        onError={handleNativeImageError}
-        style={[fallbackStyle, imageStyle]}
-        resizeMode="contain"
-      />
-    );
-  }
+  }, [sourceUri]);
 
-  if (loading && !uri) {
+  const handleImageLoad = useCallback(() => {
+    setLoading(false);
+    setFailed(false);
+  }, []);
+
+  const handleImageError = useCallback((event: unknown) => {
+    setLoading(false);
+    if (directImageSource) {
+      setFailed(true);
+      return;
+    }
+
+    const raw =
+      String((event as { nativeEvent?: { error?: string } })?.nativeEvent?.error || '') ||
+      String(event || '');
+    const authLikeFailure = AUTH_FAILURE_REGEX.test(raw);
+    if (authLikeFailure && shouldRetryTransientAuth && retryAttemptRef.current < AUTH_RETRY_MAX_ATTEMPTS) {
+      const attempt = retryAttemptRef.current;
+      retryAttemptRef.current = attempt + 1;
+      setFailed(false);
+      setLoading(true);
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+      }
+      retryTimerRef.current = setTimeout(() => {
+        retryTimerRef.current = null;
+        setRetryNonce((prev) => prev + 1);
+      }, AUTH_RETRY_DELAYS_MS[attempt] || AUTH_RETRY_DELAYS_MS[AUTH_RETRY_DELAYS_MS.length - 1]);
+      return;
+    }
+
+    setFailed(true);
+    if (authLikeFailure) {
+      onImageAuthError();
+    }
+  }, [directImageSource, onImageAuthError, shouldRetryTransientAuth]);
+
+  if (shouldDeferRelative) {
     return (
-      <View style={[fallbackStyle, imageStyle, styles.markdownImageLoading]}>
-        <ActivityIndicator size="small" color={indicatorColor} />
+      <View testID="markdown-image-deferred-placeholder" style={[fallbackStyle, styles.markdownImageFallback]}>
+        <Text style={styles.markdownImageFallbackText}>图片生成中，完成后加载</Text>
       </View>
     );
   }
 
-  if (!uri) {
-    return null;
+  if (!sourceUri) {
+    if (!missingSignedToken) {
+      return null;
+    }
+    return (
+      <View testID="markdown-image-fallback" style={[fallbackStyle, styles.markdownImageFallback]}>
+        <Text style={styles.markdownImageFallbackText}>图片签名缺失</Text>
+      </View>
+    );
+  }
+
+  if (failed) {
+    return (
+      <View testID="markdown-image-fallback" style={[fallbackStyle, styles.markdownImageFallback]}>
+        <Text style={styles.markdownImageFallbackText}>
+          {directImageSource ? '图片加载失败' : '图片加载失败（签名失效）'}
+        </Text>
+      </View>
+    );
   }
 
   return (
-    <Image
-      accessibilityLabel={altText || undefined}
-      source={{ uri }}
-      style={[fallbackStyle, imageStyle]}
-      resizeMode="contain"
-    />
+    <View style={[fallbackStyle, styles.markdownImageContainer]}>
+      <Image
+        accessibilityLabel={altText || undefined}
+        source={{ uri: sourceUri }}
+        style={styles.markdownImageFill}
+        onLoadStart={handleImageLoadStart}
+        onLoad={handleImageLoad}
+        onError={handleImageError}
+        resizeMode="contain"
+      />
+      {loading ? (
+        <View style={styles.markdownImageLoading}>
+          <ActivityIndicator size="small" color={indicatorColor} />
+        </View>
+      ) : null}
+    </View>
   );
 }
 
-export function TimelineEntryRow({
+function MarkdownBlock({
+  content,
+  mdStyle,
+  onLinkPress,
+  markdownRules,
+  deferRelativeLoad
+}: {
+  content: string;
+  mdStyle: Record<string, unknown>;
+  onLinkPress: (href: string, asAttachment?: boolean, suggestedFileName?: string) => boolean;
+  markdownRules: Record<string, unknown>;
+  deferRelativeLoad?: boolean;
+}) {
+  const text = String(content || '');
+  if (!text.trim()) return null;
+  void deferRelativeLoad;
+  return (
+    <Markdown
+      style={mdStyle}
+      onLinkPress={onLinkPress}
+      rules={markdownRules}
+    >
+      {text}
+    </Markdown>
+  );
+}
+
+const MemoMarkdownBlock = memo(
+  MarkdownBlock,
+  (prev, next) =>
+    prev.content === next.content &&
+    Boolean(prev.deferRelativeLoad) === Boolean(next.deferRelativeLoad) &&
+    prev.mdStyle === next.mdStyle &&
+    prev.onLinkPress === next.onLinkPress &&
+    prev.markdownRules === next.markdownRules
+);
+
+function TimelineEntryRowComponent({
   item,
   theme,
   contentWidth,
   backendUrl,
+  chatImageToken,
   toolExpanded,
   onToggleTool,
   onToggleReasoning,
-  onCopyText
+  onCopyText,
+  onImageAuthError
 }: TimelineEntryRowProps) {
   const appear = useRef(new Animated.Value(0)).current;
 
   const isAssistantStreaming =
     item.kind === 'message' && item.role === 'assistant' && Boolean(item.isStreamingContent);
 
+  const prevFrozenRef = useRef<StreamingMarkdownBlock[]>([]);
+
+  const streamingPartition = useMemo(() => {
+    if (!isAssistantStreaming) {
+      prevFrozenRef.current = [];
+      return { frozenBlocks: [], tailBlock: null };
+    }
+    if (item.kind === 'message' && item.role === 'assistant') {
+      const result = partitionStreamingBlocks(item.text, prevFrozenRef.current);
+      prevFrozenRef.current = result.frozenBlocks;
+      return result;
+    }
+    return { frozenBlocks: [], tailBlock: null };
+  }, [isAssistantStreaming, item.kind, item.role, item.text]);
+
+  const hasViewportBlocks = useMemo(() => {
+    if (isAssistantStreaming || item.kind !== 'message' || item.role !== 'assistant') return false;
+    return /```viewport\s/i.test(item.text);
+  }, [isAssistantStreaming, item.kind, item.role, item.text]);
+
+  const finalBlocks = useMemo(() => {
+    if (isAssistantStreaming || hasViewportBlocks) return null;
+    if (item.kind !== 'message' || item.role !== 'assistant') return null;
+    return splitStreamingMarkdownBlocks(item.text);
+  }, [isAssistantStreaming, hasViewportBlocks, item.kind, item.role, item.text]);
+
   const segments = useMemo(() => {
-    if (isAssistantStreaming) return [];
+    if (!hasViewportBlocks) return [];
     if (item.kind === 'message' && item.role === 'assistant') {
       return splitViewportBlocks(item.text);
     }
     return [];
-  }, [isAssistantStreaming, item.kind, item.role, item.text]);
+  }, [hasViewportBlocks, item.kind, item.role, item.text]);
 
   const handleMarkdownLinkPress = useCallback((href: string, asAttachment = false, suggestedFileName = '') => {
     const rawHref = String(href || '').trim();
@@ -692,7 +701,16 @@ export function TimelineEntryRow({
     );
   }, [backendUrl, handleMarkdownLinkPress, theme.primary, theme.primaryDeep, theme.surfaceSoft, theme.text, theme.textMute]);
 
-  const renderMarkdownImageNode = useCallback((node: any, _children: any, _parent: any, markdownStyles: any) => {
+  const renderMarkdownImageNode = useCallback((
+    node: any,
+    _children: any,
+    _parent: any,
+    markdownStyles: any,
+    options?: { deferRelativeLoad?: boolean; streamingPhase?: boolean; retryOnTransientError?: boolean }
+  ) => {
+    const deferRelativeLoad = Boolean(options?.deferRelativeLoad);
+    const streamingPhase = Boolean(options?.streamingPhase);
+    const retryOnTransientError = Boolean(options?.retryOnTransientError);
     const rawSrc = String(node?.attributes?.src || '');
     const width = Math.max(140, Math.min(Math.round(contentWidth * 0.78), 360));
     const fallbackStyle = {
@@ -707,22 +725,57 @@ export function TimelineEntryRow({
       <MarkdownAssetImage
         key={node.key}
         backendUrl={backendUrl}
+        chatImageToken={chatImageToken}
         rawSrc={rawSrc}
         altText={String(node?.attributes?.alt || '')}
         imageStyle={markdownStyles.image}
         fallbackStyle={fallbackStyle}
         indicatorColor={theme.primary}
+        deferRelativeLoad={deferRelativeLoad}
+        streamingPhase={streamingPhase}
+        retryOnTransientError={retryOnTransientError}
+        onImageAuthError={onImageAuthError}
       />
     );
-  }, [backendUrl, contentWidth, theme.primary]);
+  }, [backendUrl, chatImageToken, contentWidth, onImageAuthError, theme.primary]);
 
-  const markdownRules = useMemo(() => ({
+  const nonStreamingMarkdownRules = useMemo(() => ({
     link: (node: any, children: any, _parent: any, markdownStyles: any) =>
       renderMarkdownLinkNode(node, children, markdownStyles, false),
     blocklink: (node: any, children: any, _parent: any, markdownStyles: any) =>
       renderMarkdownLinkNode(node, children, markdownStyles, true),
     image: (node: any, children: any, parent: any, markdownStyles: any) =>
-      renderMarkdownImageNode(node, children, parent, markdownStyles)
+      renderMarkdownImageNode(node, children, parent, markdownStyles, {
+        deferRelativeLoad: false,
+        streamingPhase: false,
+        retryOnTransientError: false
+      })
+  }), [renderMarkdownImageNode, renderMarkdownLinkNode]);
+
+  const streamingFrozenMarkdownRules = useMemo(() => ({
+    link: (node: any, children: any, _parent: any, markdownStyles: any) =>
+      renderMarkdownLinkNode(node, children, markdownStyles, false),
+    blocklink: (node: any, children: any, _parent: any, markdownStyles: any) =>
+      renderMarkdownLinkNode(node, children, markdownStyles, true),
+    image: (node: any, children: any, parent: any, markdownStyles: any) =>
+      renderMarkdownImageNode(node, children, parent, markdownStyles, {
+        deferRelativeLoad: false,
+        streamingPhase: true,
+        retryOnTransientError: true
+      })
+  }), [renderMarkdownImageNode, renderMarkdownLinkNode]);
+
+  const streamingTailMarkdownRules = useMemo(() => ({
+    link: (node: any, children: any, _parent: any, markdownStyles: any) =>
+      renderMarkdownLinkNode(node, children, markdownStyles, false),
+    blocklink: (node: any, children: any, _parent: any, markdownStyles: any) =>
+      renderMarkdownLinkNode(node, children, markdownStyles, true),
+    image: (node: any, children: any, parent: any, markdownStyles: any) =>
+      renderMarkdownImageNode(node, children, parent, markdownStyles, {
+        deferRelativeLoad: true,
+        streamingPhase: true,
+        retryOnTransientError: true
+      })
   }), [renderMarkdownImageNode, renderMarkdownLinkNode]);
 
   useEffect(() => {
@@ -892,7 +945,7 @@ export function TimelineEntryRow({
     );
   }
 
-  const mdStyle = {
+  const mdStyle = useMemo(() => ({
     body: { color: theme.text, fontFamily: FONT_SANS, fontSize: 15, lineHeight: 22 },
     text: { color: theme.text, fontFamily: FONT_SANS, fontSize: 15, lineHeight: 22 },
     paragraph: { marginTop: 0, marginBottom: 10 },
@@ -924,21 +977,50 @@ export function TimelineEntryRow({
       color: theme.primary,
       textDecorationLine: 'underline'
     }
-  };
+  }), [theme.primary, theme.primaryDeep, theme.primarySoft, theme.surfaceSoft, theme.text, theme.textSoft]);
 
   return (
     <Animated.View style={[styles.assistantRow, enterStyle]}>
       {renderTimelineRail(styles.timelineDotMessage, '💬')}
-      <TouchableOpacity activeOpacity={0.9} style={styles.assistantFlowWrap} onLongPress={() => onCopyText(item.kind === 'message' ? item.text : '')}>
+      <Pressable
+        style={styles.assistantFlowWrap}
+        onLongPress={() => onCopyText(item.kind === 'message' ? item.text : '')}
+      >
         <View style={styles.assistantBubblePanel}>
           {isAssistantStreaming ? (
-            <Markdown
-              style={mdStyle}
-              onLinkPress={handleMarkdownLinkPress}
-              rules={markdownRules}
-            >
-              {item.kind === 'message' ? item.text : ''}
-            </Markdown>
+            <>
+              {streamingPartition.frozenBlocks.map((block) => (
+                <MemoMarkdownBlock
+                  key={`stream-md-${item.id}-${block.key}`}
+                  content={block.content}
+                  mdStyle={mdStyle}
+                  onLinkPress={handleMarkdownLinkPress}
+                  markdownRules={streamingFrozenMarkdownRules}
+                  deferRelativeLoad={false}
+                />
+              ))}
+              {streamingPartition.tailBlock ? (
+                <MemoMarkdownBlock
+                  key={`stream-md-${item.id}-${streamingPartition.tailBlock.key}`}
+                  content={streamingPartition.tailBlock.content}
+                  mdStyle={mdStyle}
+                  onLinkPress={handleMarkdownLinkPress}
+                  markdownRules={streamingTailMarkdownRules}
+                  deferRelativeLoad
+                />
+              ) : null}
+            </>
+          ) : finalBlocks ? (
+            finalBlocks.map((block) => (
+              <MemoMarkdownBlock
+                key={`stream-md-${item.id}-${block.key}`}
+                content={block.content}
+                mdStyle={mdStyle}
+                onLinkPress={handleMarkdownLinkPress}
+                markdownRules={nonStreamingMarkdownRules}
+                deferRelativeLoad={false}
+              />
+            ))
           ) : (
             segments.map((segment, index) => {
               if (segment.type === 'viewport') {
@@ -977,19 +1059,19 @@ export function TimelineEntryRow({
               const content = String(segment.content || '');
               if (!content.trim()) return null;
               return (
-                <Markdown
+                <MemoMarkdownBlock
                   key={`md-${item.id}-${index}`}
-                  style={mdStyle}
+                  content={content}
+                  mdStyle={mdStyle}
                   onLinkPress={handleMarkdownLinkPress}
-                  rules={markdownRules}
-                >
-                  {content}
-                </Markdown>
+                  markdownRules={nonStreamingMarkdownRules}
+                  deferRelativeLoad={false}
+                />
               );
             })
           )}
         </View>
-      </TouchableOpacity>
+      </Pressable>
     </Animated.View>
   );
 }
@@ -1268,9 +1350,73 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '800'
   },
+  markdownImageContainer: {
+    position: 'relative',
+    overflow: 'hidden'
+  },
+  markdownImageFill: {
+    width: '100%',
+    height: '100%'
+  },
   markdownImageLoading: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.06)',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  markdownImageFallback: {
+    borderWidth: 1,
+    borderColor: '#d0d7de',
+    backgroundColor: '#f6f8fa',
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 120
+    paddingHorizontal: 12
+  },
+  markdownImageFallbackText: {
+    fontFamily: FONT_MONO,
+    fontSize: 11,
+    color: '#667085',
+    textAlign: 'center'
   }
 });
+
+function isSameTheme(
+  prev: TimelineEntryRowProps['theme'],
+  next: TimelineEntryRowProps['theme']
+): boolean {
+  return (
+    prev.timelineLine === next.timelineLine &&
+    prev.timelineDot === next.timelineDot &&
+    prev.ok === next.ok &&
+    prev.danger === next.danger &&
+    prev.warn === next.warn &&
+    prev.text === next.text &&
+    prev.textSoft === next.textSoft &&
+    prev.textMute === next.textMute &&
+    prev.primary === next.primary &&
+    prev.primaryDeep === next.primaryDeep &&
+    prev.primarySoft === next.primarySoft &&
+    prev.surfaceSoft === next.surfaceSoft &&
+    prev.surfaceStrong === next.surfaceStrong &&
+    prev.systemBubble === next.systemBubble &&
+    prev.userBubble[0] === next.userBubble[0] &&
+    prev.userBubble[1] === next.userBubble[1]
+  );
+}
+
+function areTimelineEntryRowPropsEqual(prev: TimelineEntryRowProps, next: TimelineEntryRowProps): boolean {
+  return (
+    prev.item === next.item &&
+    prev.toolExpanded === next.toolExpanded &&
+    prev.contentWidth === next.contentWidth &&
+    prev.backendUrl === next.backendUrl &&
+    prev.chatImageToken === next.chatImageToken &&
+    isSameTheme(prev.theme, next.theme)
+  );
+}
+
+export const TimelineEntryRow = memo(TimelineEntryRowComponent, areTimelineEntryRowPropsEqual);

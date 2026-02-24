@@ -113,6 +113,7 @@ export function ChatAssistantScreen({
   const [composerFocused, setComposerFocused] = useState(false);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [planExpanded, setPlanExpanded] = useState(false);
+  const [chatImageToken, setChatImageToken] = useState('');
 
   const [fireworksVisible, setFireworksVisible] = useState(false);
   const [fireworkRockets, setFireworkRockets] = useState<Array<Record<string, unknown>>>([]);
@@ -133,6 +134,8 @@ export function ChatAssistantScreen({
   const streamLastEventAtRef = useRef(0);
   const autoScrollEnabledRef = useRef(true);
   const chatIdRef = useRef(chatId);
+  const chatImageTokenRef = useRef('');
+  const imageTokenErrorNotifiedRef = useRef(false);
   const skipHistoryLoadChatIdRef = useRef<string | null>(null);
   const planCollapseTimerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -158,6 +161,13 @@ export function ChatAssistantScreen({
       activeFrontendToolRef.current = next.activeFrontendTool;
       return next;
     });
+  }, []);
+
+  const setChatImageTokenSafe = useCallback((nextToken: string) => {
+    const normalized = String(nextToken || '').trim();
+    chatImageTokenRef.current = normalized;
+    setChatImageToken((prev) => (prev === normalized ? prev : normalized));
+    imageTokenErrorNotifiedRef.current = false;
   }, []);
 
   const stringifyToolParams = useCallback((params: Record<string, unknown> | null | undefined) => {
@@ -557,6 +567,13 @@ export function ChatAssistantScreen({
     (event: ChatEvent, source: 'live' | 'history') => {
       const type = normalizeEventType((event as Record<string, unknown>)?.type);
 
+      if (type === 'chat.start') {
+        const eventToken = String((event as Record<string, unknown>)?.chatImageToken || '').trim();
+        if (eventToken && eventToken !== chatImageTokenRef.current) {
+          setChatImageTokenSafe(eventToken);
+        }
+      }
+
       if (source === 'live' && isStreamActivityType(type)) {
         streamLastEventAtRef.current = Date.now();
         armStreamIdleTimer();
@@ -589,7 +606,7 @@ export function ChatAssistantScreen({
         }
       }
     },
-    [armPlanCollapseTimer, armStreamIdleTimer, handleEffects, scheduleReasoningCollapse]
+    [armPlanCollapseTimer, armStreamIdleTimer, handleEffects, scheduleReasoningCollapse, setChatImageTokenSafe]
   );
 
   const resetTimeline = useCallback(() => {
@@ -598,6 +615,7 @@ export function ChatAssistantScreen({
     frontendToolLoadedRef.current = false;
     chunkGapNotifiedToolIdsRef.current.clear();
     setChatStateSafe(() => createEmptyChatState());
+    setChatImageTokenSafe('');
     clearReasoningTimers();
     setPlanExpanded(false);
     if (planCollapseTimerRef.current) {
@@ -613,7 +631,7 @@ export function ChatAssistantScreen({
     setFireworksVisible(false);
     setFireworkRockets([]);
     setFireworkSparks([]);
-  }, [clearReasoningTimers, clearToolInitTimers, setAutoScrollMode, setChatStateSafe]);
+  }, [clearReasoningTimers, clearToolInitTimers, setAutoScrollMode, setChatImageTokenSafe, setChatStateSafe]);
 
   const stopStreaming = useCallback(() => {
     if (abortControllerRef.current) {
@@ -1112,6 +1130,14 @@ export function ChatAssistantScreen({
     }
   }, []);
 
+  const handleMarkdownImageTokenError = useCallback(() => {
+    if (imageTokenErrorNotifiedRef.current) {
+      return;
+    }
+    imageTokenErrorNotifiedRef.current = true;
+    dispatch(setStatusText('图片加载失败：签名可能过期或无权限'));
+  }, [dispatch]);
+
   const tailSignature = useMemo(() => {
     const timeline = chatState.timeline;
     if (!timeline.length) return 'empty';
@@ -1208,6 +1234,7 @@ export function ChatAssistantScreen({
       .unwrap()
       .then((data) => {
         if (cancelled) return;
+        setChatImageTokenSafe(String(data?.chatImageToken || ''));
         const events = Array.isArray(data?.events) ? data.events : [];
         events.forEach((event) => applyEvent(event, 'history'));
       })
@@ -1219,7 +1246,7 @@ export function ChatAssistantScreen({
     return () => {
       cancelled = true;
     };
-  }, [applyEvent, backendUrl, chatId, dispatch, loadChat, resetTimeline, stopStreaming]);
+  }, [applyEvent, backendUrl, chatId, dispatch, loadChat, resetTimeline, setChatImageTokenSafe, stopStreaming]);
 
   useEffect(() => {
     if (!chatId || !refreshSignal) {
@@ -1243,6 +1270,7 @@ export function ChatAssistantScreen({
         chatStateRef.current = emptyState;
         activeFrontendToolRef.current = null;
         setChatState(emptyState);
+        setChatImageTokenSafe(String(data?.chatImageToken || ''));
 
         const events = Array.isArray(data?.events) ? data.events : [];
         events.forEach((event) => applyEvent(event, 'history'));
@@ -1254,7 +1282,43 @@ export function ChatAssistantScreen({
     return () => {
       cancelled = true;
     };
-  }, [applyEvent, backendUrl, chatId, loadChat, refreshSignal]);
+  }, [applyEvent, backendUrl, chatId, loadChat, refreshSignal, setChatImageTokenSafe]);
+
+  const listExtraData = useMemo(
+    () => ({
+      expandedTools: chatState.expandedTools,
+      chatImageToken
+    }),
+    [chatImageToken, chatState.expandedTools]
+  );
+
+  const renderTimelineItem = useCallback(
+    ({ item }: { item: TimelineEntry }) => (
+      <TimelineEntryRow
+        item={item}
+        theme={theme}
+        contentWidth={contentWidth}
+        backendUrl={backendUrl}
+        chatImageToken={chatImageToken}
+        onToggleTool={handleToggleToolExpanded}
+        toolExpanded={Boolean(chatState.expandedTools[item.id])}
+        onToggleReasoning={handleToggleReasoning}
+        onCopyText={handleCopyText}
+        onImageAuthError={handleMarkdownImageTokenError}
+      />
+    ),
+    [
+      backendUrl,
+      chatImageToken,
+      chatState.expandedTools,
+      contentWidth,
+      handleCopyText,
+      handleMarkdownImageTokenError,
+      handleToggleReasoning,
+      handleToggleToolExpanded,
+      theme
+    ]
+  );
 
   useEffect(() => {
     return () => {
@@ -1295,8 +1359,10 @@ export function ChatAssistantScreen({
       <FlatList
         ref={listRef}
         data={chatState.timeline}
-        extraData={chatState.expandedTools}
-        removeClippedSubviews={Platform.OS === 'web' ? false : undefined}
+        extraData={listExtraData}
+        removeClippedSubviews={false}
+        nestedScrollEnabled={Platform.OS === 'android'}
+        keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => item.id}
         style={styles.timelineList}
         contentContainerStyle={[styles.timelineContent, chatState.timeline.length === 0 ? styles.timelineContentEmpty : null]}
@@ -1310,18 +1376,7 @@ export function ChatAssistantScreen({
         scrollEventThrottle={16}
         nativeID="chat-timeline-list"
         testID="chat-timeline-list"
-        renderItem={({ item }) => (
-          <TimelineEntryRow
-            item={item}
-            theme={theme}
-            contentWidth={contentWidth}
-            backendUrl={backendUrl}
-            onToggleTool={handleToggleToolExpanded}
-            toolExpanded={Boolean(chatState.expandedTools[item.id])}
-            onToggleReasoning={handleToggleReasoning}
-            onCopyText={handleCopyText}
-          />
-        )}
+        renderItem={renderTimelineItem}
         ListEmptyComponent={
           <View style={[styles.emptyPanel, { backgroundColor: theme.surfaceStrong }]}> 
             <Text style={[styles.emptyTitle, { color: theme.text }]}>开始一个完整对话</Text>
