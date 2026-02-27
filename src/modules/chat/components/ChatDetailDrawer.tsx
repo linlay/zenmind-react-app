@@ -1,29 +1,32 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { Animated, PanResponder, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AppTheme } from '../../../core/constants/theme';
 import { ChatSummary } from '../../../core/types/common';
-import { formatChatListTime, getChatTitle } from '../../../shared/utils/format';
+import { formatChatListTime } from '../../../shared/utils/format';
 
 interface ChatDetailDrawerProps {
   visible: boolean;
   theme: AppTheme;
+  activeAgentName: string;
   chats: ChatSummary[];
   activeChatId: string;
   onClose: () => void;
+  onCreateChat: () => void;
   onSelectChat: (chatId: string) => void;
 }
 
 export function ChatDetailDrawer({
   visible,
   theme,
+  activeAgentName,
   chats,
   activeChatId,
   onClose,
+  onCreateChat,
   onSelectChat
 }: ChatDetailDrawerProps) {
   const overlayAnim = useRef(new Animated.Value(0)).current;
   const drawerAnim = useRef(new Animated.Value(0)).current;
-  const swipeTranslateX = useRef(new Animated.Value(0)).current;
 
   const drawerTranslateX = useMemo(
     () =>
@@ -32,50 +35,6 @@ export function ChatDetailDrawer({
         outputRange: [88, 0]
       }),
     [drawerAnim]
-  );
-
-  const swipeResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, gestureState) => {
-          if (!visible) {
-            return false;
-          }
-          const horizontal = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2;
-          return horizontal && gestureState.dx > 8;
-        },
-        onPanResponderMove: (_event, gestureState) => {
-          if (!visible) {
-            return;
-          }
-          const next = Math.max(0, Math.min(gestureState.dx, 120));
-          swipeTranslateX.setValue(next);
-        },
-        onPanResponderRelease: (_event, gestureState) => {
-          if (!visible) {
-            return;
-          }
-          const shouldClose = gestureState.dx > 72 || gestureState.vx > 0.6;
-          if (shouldClose) {
-            swipeTranslateX.setValue(0);
-            onClose();
-            return;
-          }
-          Animated.spring(swipeTranslateX, {
-            toValue: 0,
-            useNativeDriver: true,
-            bounciness: 0
-          }).start();
-        },
-        onPanResponderTerminate: () => {
-          Animated.spring(swipeTranslateX, {
-            toValue: 0,
-            useNativeDriver: true,
-            bounciness: 0
-          }).start();
-        }
-      }),
-    [onClose, swipeTranslateX, visible]
   );
 
   useEffect(() => {
@@ -91,12 +50,12 @@ export function ChatDetailDrawer({
         useNativeDriver: true
       })
     ]).start();
-    if (!visible) {
-      swipeTranslateX.setValue(0);
-    }
-  }, [drawerAnim, overlayAnim, swipeTranslateX, visible]);
+  }, [drawerAnim, overlayAnim, visible]);
 
-  const drawerBackground = theme.mode === 'dark' ? 'rgba(16, 25, 43, 0.86)' : 'rgba(255, 255, 255, 0.86)';
+  const drawerBackground = theme.surface;
+  const cardBackground = theme.mode === 'dark' ? '#182740' : '#f4f7fc';
+  const cardActiveBackground = theme.mode === 'dark' ? '#264673' : '#e4eeff';
+  const normalizedAgentName = String(activeAgentName || '').trim() || '当前智能体';
 
   return (
     <View pointerEvents={visible ? 'auto' : 'none'} style={StyleSheet.absoluteFill} testID="chat-detail-drawer-layer">
@@ -114,9 +73,6 @@ export function ChatDetailDrawer({
             transform: [
               {
                 translateX: drawerTranslateX
-              },
-              {
-                translateX: swipeTranslateX
               }
             ]
           }
@@ -124,7 +80,9 @@ export function ChatDetailDrawer({
         testID="chat-detail-drawer"
       >
         <View style={[styles.head, { borderBottomColor: theme.border }]}> 
-          <Text style={[styles.title, { color: theme.text }]}>当前智能体对话</Text>
+          <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
+            {`与${normalizedAgentName}的对话`}
+          </Text>
           <TouchableOpacity
             activeOpacity={0.78}
             style={[styles.closeBtn, { backgroundColor: theme.surfaceStrong }]}
@@ -135,25 +93,35 @@ export function ChatDetailDrawer({
           </TouchableOpacity>
         </View>
 
-        <View style={styles.swipeHintWrap} {...swipeResponder.panHandlers} testID="chat-detail-drawer-swipe-area">
-          <View style={[styles.swipeHint, { backgroundColor: theme.primarySoft }]}>
-            <Text style={[styles.swipeHintText, { color: theme.primaryDeep }]}>右滑关闭</Text>
-          </View>
-        </View>
-
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
+          <TouchableOpacity
+            activeOpacity={0.74}
+            style={[styles.createItem, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+            onPress={onCreateChat}
+            testID="chat-detail-drawer-create-chat-btn"
+          >
+            <Text style={[styles.createItemTitle, { color: theme.text }]}>新建对话</Text>
+            <Text style={[styles.createItemSubTitle, { color: theme.textMute }]}>详情页左滑</Text>
+          </TouchableOpacity>
+
           {chats.length ? (
             chats.map((chat, index) => {
               const active = chat.chatId === activeChatId;
-              const title = getChatTitle(chat) || chat.chatId || '未命名会话';
+              const title = String(chat.chatName || '').trim() || '未命名会话';
+              const last = String((chat as Record<string, unknown>).last || '').trim() || '暂无 last';
               const chatTime = formatChatListTime(chat);
               const itemKey = chat.chatId || `${title}:${index}`;
+              // mock read status by odd-even index until backend returns per-chat read state
+              const isRead = index % 2 === 0;
+              const readIcon = isRead ? '○' : '●';
+              const readLabel = isRead ? '已读' : '未读';
+              const readColor = isRead ? theme.textMute : theme.primaryDeep;
               return (
                 <TouchableOpacity
                   key={itemKey}
                   activeOpacity={0.74}
                   testID={`chat-detail-drawer-item-${index}`}
-                  style={[styles.item, { backgroundColor: active ? theme.primarySoft : theme.surfaceStrong }]}
+                  style={[styles.item, { backgroundColor: active ? cardActiveBackground : cardBackground }]}
                   onPress={() => {
                     if (!chat.chatId) {
                       return;
@@ -161,12 +129,27 @@ export function ChatDetailDrawer({
                     onSelectChat(chat.chatId);
                   }}
                 >
-                  <Text style={[styles.itemTitle, { color: theme.text }]} numberOfLines={1}>
-                    {title}
-                  </Text>
-                  <Text style={[styles.itemMetaTime, { color: theme.textMute }]} numberOfLines={1}>
-                    {chatTime}
-                  </Text>
+                  <View style={styles.itemTopRow}>
+                    <Text style={[styles.itemTitle, { color: theme.text }]} numberOfLines={1}>
+                      {title}
+                    </Text>
+                    <Text style={[styles.itemMetaTime, { color: theme.textMute }]} numberOfLines={1}>
+                      {chatTime}
+                    </Text>
+                  </View>
+                  <View style={styles.itemBottomRow}>
+                    <Text style={[styles.itemLast, { color: theme.textSoft }]} numberOfLines={1} testID={`chat-detail-drawer-item-last-${index}`}>
+                      {last}
+                    </Text>
+                    <View style={styles.itemReadState} testID={`chat-detail-drawer-read-state-${index}`}>
+                      <Text style={[styles.itemReadIcon, { color: readColor }]} testID={`chat-detail-drawer-read-icon-${index}`}>
+                        {readIcon}
+                      </Text>
+                      <Text style={[styles.itemReadLabel, { color: readColor }]} numberOfLines={1}>
+                        {readLabel}
+                      </Text>
+                    </View>
+                  </View>
                 </TouchableOpacity>
               );
             })
@@ -190,7 +173,7 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    width: '82%',
+    width: '76%',
     borderTopLeftRadius: 16,
     borderBottomLeftRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
@@ -228,21 +211,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600'
   },
-  swipeHintWrap: {
-    paddingHorizontal: 10,
-    paddingTop: 8,
-    paddingBottom: 4
-  },
-  swipeHint: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    paddingHorizontal: 9,
-    paddingVertical: 4
-  },
-  swipeHintText: {
-    fontSize: 10,
-    fontWeight: '700'
-  },
   list: {
     flex: 1
   },
@@ -251,18 +219,62 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     gap: 8
   },
+  createItem: {
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 10,
+    paddingVertical: 9
+  },
+  createItemTitle: {
+    fontSize: 13,
+    fontWeight: '700'
+  },
+  createItemSubTitle: {
+    marginTop: 2,
+    fontSize: 11
+  },
   item: {
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 9
   },
+  itemTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
   itemTitle: {
+    flex: 1,
     fontSize: 13,
     fontWeight: '600'
   },
   itemMetaTime: {
-    marginTop: 4,
     fontSize: 11
+  },
+  itemBottomRow: {
+    marginTop: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  itemLast: {
+    flex: 1,
+    fontSize: 11
+  },
+  itemReadState: {
+    minWidth: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4
+  },
+  itemReadIcon: {
+    fontSize: 11,
+    fontWeight: '700'
+  },
+  itemReadLabel: {
+    fontSize: 10,
+    fontWeight: '600'
   },
   emptyCard: {
     borderRadius: 10,

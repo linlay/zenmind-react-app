@@ -24,6 +24,9 @@ describe('BottomDomainNav', () => {
     const chatContent = tree!.root.findByProps({ testID: 'bottom-nav-tab-content-chat' });
     const chatContentStyle = StyleSheet.flatten(chatContent.props.style) as { flexDirection?: string } | undefined;
     expect(chatContentStyle?.flexDirection).toBe('column');
+    const iconWrap = tree!.root.findByProps({ testID: 'bottom-nav-tab-icon-wrap-chat' });
+    const iconWrapStyle = StyleSheet.flatten(iconWrap.props.style) as { backgroundColor?: string } | undefined;
+    expect(iconWrapStyle?.backgroundColor).toBeUndefined();
 
     act(() => {
       chatTab.props.onPress();

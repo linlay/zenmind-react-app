@@ -1,4 +1,4 @@
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AppTheme } from '../../../core/constants/theme';
 import { formatChatListTime, getChatTitle } from '../../../shared/utils/format';
 import { AgentLatestChatItem } from '../state/chatSelectors';
@@ -6,66 +6,40 @@ import { AgentAvatarIcon, resolveAgentAvatarBgColor, resolveAgentAvatarName } fr
 
 interface ChatListPaneProps {
   theme: AppTheme;
-  keyword: string;
   loading: boolean;
   items: AgentLatestChatItem[];
-  activeChatId: string;
-  onChangeKeyword: (next: string) => void;
-  onRefresh: () => void;
   onSelectChat: (chatId: string, agentKey: string) => void;
 }
 
 export function ChatListPane({
   theme,
-  keyword,
   loading,
   items,
-  activeChatId,
-  onChangeKeyword,
-  onRefresh,
   onSelectChat
 }: ChatListPaneProps) {
   return (
     <View style={styles.container} testID="chat-list-pane">
-      <View style={styles.searchRow}>
-        <View style={[styles.chatSearchShell, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}> 
-          <TextInput
-            value={keyword}
-            onChangeText={onChangeKeyword}
-            placeholder="搜索"
-            placeholderTextColor={theme.textMute}
-            style={[styles.chatSearchInput, { color: theme.text }]}
-            nativeID="chat-search-input"
-            testID="chat-search-input"
-          />
-        </View>
-        <TouchableOpacity activeOpacity={0.76} style={styles.refreshBtn} testID="chat-refresh-btn" onPress={onRefresh}>
-          {loading ? (
-            <ActivityIndicator size="small" color={theme.primaryDeep} />
-          ) : (
-            <Text style={[styles.refreshText, { color: theme.primaryDeep }]}>刷新</Text>
-          )}
-        </TouchableOpacity>
-      </View>
-
       <ScrollView style={styles.listWrap} contentContainerStyle={styles.listContent}>
         {items.length ? (
           items.map((item, index) => {
             const chat = item.latestChat;
-            const active = chat.chatId === activeChatId;
             const latestChatName = getChatTitle(chat) || chat.chatId || '未命名会话';
             const agentName = item.agentName || '未知智能体';
             const chatTime = formatChatListTime(chat);
             const itemKey = item.agentKey || chat.chatId || `${latestChatName}:${index}`;
             const avatarName = resolveAgentAvatarName(item.agentKey, item.iconName);
             const avatarColor = resolveAgentAvatarBgColor(item.agentKey, item.iconColor);
+            // mock unread count: stable pseudo-random value (1-9) until backend returns per-agent unread stats
+            const unreadSeed = `${item.agentKey || ''}:${chat.chatId || ''}:${index}`;
+            const unreadCount =
+              ((unreadSeed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 9) + 1);
 
             return (
               <TouchableOpacity
                 key={itemKey}
                 activeOpacity={0.74}
                 testID={`chat-list-item-${index}`}
-                style={[styles.chatItem, { backgroundColor: active ? theme.primarySoft : theme.surfaceStrong }]}
+                style={[styles.chatItem, { backgroundColor: theme.surfaceStrong }]}
                 onPress={() => {
                   if (!chat.chatId) {
                     return;
@@ -87,15 +61,25 @@ export function ChatListPane({
                     </Text>
                   </View>
 
-                  <Text style={[styles.metaTime, { color: theme.textMute }]} numberOfLines={1}>
-                    {chatTime}
-                  </Text>
+                  <View style={styles.metaWrap}>
+                    <Text style={[styles.metaTime, { color: theme.textMute }]} numberOfLines={1}>
+                      {chatTime}
+                    </Text>
+                    <View style={[styles.metaUnreadBadge, { backgroundColor: theme.primaryDeep }]} testID={`chat-list-item-unread-badge-${index}`}>
+                      <Text style={styles.metaUnreadText} numberOfLines={1}>
+                        {unreadCount}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
               </TouchableOpacity>
             );
           })
         ) : (
           <View style={[styles.emptyCard, { backgroundColor: theme.surfaceStrong }]}> 
+            {loading ? (
+              <ActivityIndicator size="small" color={theme.primaryDeep} />
+            ) : null}
             <Text style={[styles.emptyText, { color: theme.textMute }]}>{loading ? '加载中...' : '暂无历史会话'}</Text>
           </View>
         )}
@@ -109,38 +93,6 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 8,
     paddingTop: 8
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10
-  },
-  chatSearchShell: {
-    flex: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: 'center'
-  },
-  chatSearchInput: {
-    borderRadius: 10,
-    height: 38,
-    paddingHorizontal: 12,
-    paddingVertical: 0,
-    fontSize: 13,
-    lineHeight: 18,
-    textAlignVertical: 'center'
-  },
-  refreshBtn: {
-    minWidth: 44,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 2
-  },
-  refreshText: {
-    fontSize: 12,
-    fontWeight: '600'
   },
   listWrap: {
     flex: 1
@@ -182,6 +134,24 @@ const styles = StyleSheet.create({
   metaTime: {
     fontSize: 12,
     textAlign: 'right'
+  },
+  metaWrap: {
+    alignItems: 'flex-end',
+    minWidth: 66
+  },
+  metaUnreadBadge: {
+    marginTop: 4,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  metaUnreadText: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontWeight: '600'
   },
   emptyCard: {
     borderRadius: 10,

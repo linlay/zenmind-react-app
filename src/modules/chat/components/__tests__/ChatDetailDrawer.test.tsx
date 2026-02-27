@@ -7,23 +7,6 @@ const { Animated, StyleSheet } = ReactNative;
 
 describe('ChatDetailDrawer side drawer', () => {
   beforeAll(() => {
-    jest.spyOn(ReactNative.PanResponder, 'create').mockImplementation((config: Record<string, (...args: any[]) => unknown>) => {
-      return {
-        panHandlers: {
-          onMoveShouldSetResponder: (event: unknown, gesture: unknown) =>
-            config.onMoveShouldSetPanResponder?.(event, gesture),
-          onResponderGrant: (event: unknown, gesture: unknown) =>
-            config.onPanResponderGrant?.(event, gesture),
-          onResponderMove: (event: unknown, gesture: unknown) =>
-            config.onPanResponderMove?.(event, gesture),
-          onResponderRelease: (event: unknown, gesture: unknown) =>
-            config.onPanResponderRelease?.(event, gesture),
-          onResponderTerminate: (event: unknown, gesture: unknown) =>
-            config.onPanResponderTerminate?.(event, gesture)
-        }
-      } as any;
-    });
-
     jest.spyOn(Animated, 'timing').mockImplementation(() => {
       return {
         start: (cb?: () => void) => cb?.(),
@@ -58,9 +41,11 @@ describe('ChatDetailDrawer side drawer', () => {
         <ChatDetailDrawer
           visible
           theme={THEMES.light}
+          activeAgentName="Agent A"
           chats={[{ chatId: 'chat-1', chatName: '会话一', updatedAt: Date.now() } as any]}
           activeChatId="chat-1"
           onClose={() => {}}
+          onCreateChat={() => {}}
           onSelectChat={() => {}}
         />
       );
@@ -72,6 +57,9 @@ describe('ChatDetailDrawer side drawer', () => {
     expect(style?.right).toBe(0);
     expect(style?.top).toBe(0);
     expect(style?.bottom).toBe(0);
+    expect((style as { width?: string }).width).toBe('76%');
+    expect((tree as ReturnType<typeof create>).root.findByProps({ children: '与Agent A的对话' })).toBeTruthy();
+    expect((tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-create-chat-btn' })).toBeTruthy();
   });
 
   it('calls onClose when tapping mask', () => {
@@ -82,9 +70,11 @@ describe('ChatDetailDrawer side drawer', () => {
         <ChatDetailDrawer
           visible
           theme={THEMES.light}
+          activeAgentName="Agent A"
           chats={[{ chatId: 'chat-1', chatName: '会话一', updatedAt: Date.now() } as any]}
           activeChatId="chat-1"
           onClose={onClose}
+          onCreateChat={() => {}}
           onSelectChat={() => {}}
         />
       );
@@ -105,9 +95,11 @@ describe('ChatDetailDrawer side drawer', () => {
         <ChatDetailDrawer
           visible
           theme={THEMES.light}
-          chats={[{ chatId: 'chat-7', chatName: '会话七', updatedAt: Date.now() } as any]}
+          activeAgentName="Agent A"
+          chats={[{ chatId: 'chat-7', chatName: '会话七', updatedAt: Date.now(), last: '最近消息' } as any]}
           activeChatId=""
           onClose={() => {}}
+          onCreateChat={() => {}}
           onSelectChat={onSelectChat}
         />
       );
@@ -120,28 +112,55 @@ describe('ChatDetailDrawer side drawer', () => {
     expect(onSelectChat).toHaveBeenCalledWith('chat-7');
   });
 
-  it('supports swiping right to close drawer', () => {
-    const onClose = jest.fn();
+  it('renders chatName + last fallback and read-state icon', () => {
     let tree: ReturnType<typeof create> | null = null;
     act(() => {
       tree = create(
         <ChatDetailDrawer
           visible
           theme={THEMES.light}
-          chats={[{ chatId: 'chat-7', chatName: '会话七', updatedAt: Date.now() } as any]}
+          activeAgentName="Agent A"
+          chats={[
+            { chatId: 'chat-7', chatName: '会话七', updatedAt: Date.now(), last: 'last content' },
+            { chatId: 'chat-8', updatedAt: Date.now() }
+          ] as any}
           activeChatId=""
-          onClose={onClose}
+          onClose={() => {}}
+          onCreateChat={() => {}}
           onSelectChat={() => {}}
         />
       );
     });
 
-    const swipeArea = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-swipe-area' });
+    expect((tree as ReturnType<typeof create>).root.findByProps({ children: '会话七' })).toBeTruthy();
+    expect((tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-item-last-0' }).props.children).toBe('last content');
+    expect((tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-item-last-1' }).props.children).toBe('暂无 last');
+    const icon0 = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-read-icon-0' });
+    const icon1 = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-read-icon-1' });
+    expect(icon0.props.children).not.toBe(icon1.props.children);
+  });
+
+  it('creates new chat from drawer create row', () => {
+    const onCreateChat = jest.fn();
+    let tree: ReturnType<typeof create> | null = null;
     act(() => {
-      swipeArea.props.onResponderGrant?.({}, { dx: 0, dy: 0, vx: 0, vy: 0 });
-      swipeArea.props.onResponderMove?.({}, { dx: 80, dy: 0, vx: 0.1, vy: 0 });
-      swipeArea.props.onResponderRelease?.({}, { dx: 80, dy: 0, vx: 0.1, vy: 0 });
+      tree = create(
+        <ChatDetailDrawer
+          visible
+          theme={THEMES.light}
+          activeAgentName="Agent A"
+          chats={[]}
+          activeChatId=""
+          onClose={() => {}}
+          onCreateChat={onCreateChat}
+          onSelectChat={() => {}}
+        />
+      );
     });
-    expect(onClose).toHaveBeenCalledTimes(1);
+    const createBtn = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-create-chat-btn' });
+    act(() => {
+      createBtn.props.onPress();
+    });
+    expect(onCreateChat).toHaveBeenCalledTimes(1);
   });
 });

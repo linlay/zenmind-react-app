@@ -90,7 +90,7 @@ export function BottomDomainNav({ value, theme, onPressItem }: BottomDomainNavPr
             testID={`bottom-nav-tab-${item.key}`}
           >
             <View style={styles.itemInner} testID={`bottom-nav-tab-content-${item.key}`}>
-              <View style={[styles.iconWrap, active ? { backgroundColor: theme.primarySoft } : null]}>
+              <View style={styles.iconWrap} testID={`bottom-nav-tab-icon-wrap-${item.key}`}>
                 <DomainIcon mode={item.key} color={iconColor} />
               </View>
               <Text style={[styles.label, { color: active ? theme.primaryDeep : theme.textMute }]}>{item.label}</Text>

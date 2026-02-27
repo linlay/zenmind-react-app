@@ -9,6 +9,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -55,7 +56,6 @@ import {
 } from '../../modules/agents/state/agentsSlice';
 import {
   setChatId,
-  setChatKeyword,
   setChats,
   setLoadingChats,
   setStatusText
@@ -68,6 +68,7 @@ import { AgentsScreen } from '../../modules/agents/screens/AgentsScreen';
 import { UserSettingsScreen } from '../../modules/user/screens/UserSettingsScreen';
 import { BottomDomainNav } from './BottomDomainNav';
 import { ChatListPane } from '../../modules/chat/components/ChatListPane';
+import { ChatSearchPane, ChatSearchAgentItem } from '../../modules/chat/components/ChatSearchPane';
 import { ChatDetailDrawer } from '../../modules/chat/components/ChatDetailDrawer';
 import { TerminalSessionListPane } from '../../modules/terminal/components/TerminalSessionListPane';
 import { AgentSidebar } from '../../modules/chat/components/AgentSidebar';
@@ -75,7 +76,7 @@ import { useLazyGetAgentsQuery } from '../../modules/agents/api/agentsApi';
 import { useLazyGetChatsQuery } from '../../modules/chat/api/chatApi';
 import { useLazyListTerminalSessionsQuery } from '../../modules/terminal/api/terminalApi';
 import { fetchAuthedJson, formatError } from '../../core/network/apiClient';
-import { formatInboxTime, getAgentKey, getAgentName } from '../../shared/utils/format';
+import { formatInboxTime, getAgentKey, getAgentName, getChatTimestamp, getChatTitle } from '../../shared/utils/format';
 import { getAppVersionLabel } from '../../shared/utils/appVersion';
 import { TerminalSessionItem } from '../../modules/terminal/types/terminal';
 import {
@@ -119,7 +120,7 @@ export function ShellScreen() {
     activeDomain
   } = useAppSelector((state) => state.user);
   const chatId = useAppSelector((state) => state.chat.chatId);
-  const chatKeyword = useAppSelector((state) => state.chat.chatKeyword);
+  const chats = useAppSelector((state) => state.chat.chats);
   const loadingChats = useAppSelector((state) => state.chat.loadingChats);
   const agentsLoading = useAppSelector((state) => state.agents.loading);
   const agents = useAppSelector((state) => state.agents.agents);
@@ -147,6 +148,9 @@ export function ShellScreen() {
   const [terminalSessions, setTerminalSessions] = useState<TerminalSessionItem[]>([]);
   const [terminalSessionsLoading, setTerminalSessionsLoading] = useState(false);
   const [terminalSessionsError, setTerminalSessionsError] = useState('');
+  const [chatListMode, setChatListMode] = useState<'default' | 'search'>('default');
+  const [chatPlusMenuOpen, setChatPlusMenuOpen] = useState(false);
+  const [chatSearchQuery, setChatSearchQuery] = useState('');
 
   const [triggerAgents] = useLazyGetAgentsQuery();
   const [triggerChats] = useLazyGetChatsQuery();
@@ -185,6 +189,12 @@ export function ShellScreen() {
   }, []);
 
   const keyboardInset = Platform.OS === 'android' ? Math.max(0, shellKeyboardHeight - insets.bottom) : 0;
+
+  const closeSearchMode = useCallback(() => {
+    setChatListMode('default');
+    setChatSearchQuery('');
+    setChatPlusMenuOpen(false);
+  }, []);
 
   const chatTranslateX = useMemo(
     () =>
@@ -775,10 +785,11 @@ export function ShellScreen() {
       setInboxOpen(false);
     }
     if (activeDomain !== 'chat') {
+      closeSearchMode();
       dispatch(setChatAgentsSidebarOpen(false));
       dispatch(closeChatDetailDrawer());
     }
-  }, [activeDomain, dispatch]);
+  }, [activeDomain, closeSearchMode, dispatch]);
 
   useEffect(() => {
     if (chatPane !== 'detail' && chatDetailDrawerOpen) {
@@ -829,6 +840,10 @@ export function ShellScreen() {
     }
 
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (activeDomain === 'chat' && chatPane === 'list' && chatListMode === 'search') {
+        closeSearchMode();
+        return true;
+      }
       if (inboxOpen) {
         setInboxOpen(false);
         return true;
@@ -857,12 +872,63 @@ export function ShellScreen() {
     });
 
     return () => sub.remove();
-  }, [activeDomain, chatAgentsSidebarOpen, chatDetailDrawerOpen, chatPane, dispatch, inboxOpen, publishOpen, terminalPane]);
+  }, [
+    activeDomain,
+    chatAgentsSidebarOpen,
+    chatDetailDrawerOpen,
+    chatListMode,
+    chatPane,
+    closeSearchMode,
+    dispatch,
+    inboxOpen,
+    publishOpen,
+    terminalPane
+  ]);
 
   const activeAgentName = useMemo(() => {
     const found = agents.find((agent) => getAgentKey(agent) === selectedAgentKey);
     return getAgentName(found || agents[0]) || 'Agent';
   }, [agents, selectedAgentKey]);
+  const normalizedSearchKeyword = String(chatSearchQuery || '').trim().toLowerCase();
+
+  const searchAgentResults = useMemo<ChatSearchAgentItem[]>(() => {
+    if (!normalizedSearchKeyword) {
+      return [];
+    }
+    return agents
+      .map((agent) => {
+        const agentKey = getAgentKey(agent);
+        const agentName = getAgentName(agent);
+        if (!agentKey || !agentName) {
+          return null;
+        }
+        const haystack = `${agentName} ${agentKey}`.toLowerCase();
+        if (!haystack.includes(normalizedSearchKeyword)) {
+          return null;
+        }
+        const latestChat = [...chats]
+          .filter((chat) => String(chat.firstAgentKey || '').trim() === agentKey)
+          .sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a))[0];
+        return {
+          agentKey,
+          agentName,
+          latestChatName: latestChat ? getChatTitle(latestChat) : ''
+        };
+      })
+      .filter((item) => Boolean(item)) as ChatSearchAgentItem[];
+  }, [agents, chats, normalizedSearchKeyword]);
+
+  const searchChatResults = useMemo(() => {
+    if (!normalizedSearchKeyword) {
+      return [];
+    }
+    return [...chats]
+      .filter((chat) => {
+        const haystack = `${chat.chatName || ''} ${chat.title || ''} ${chat.chatId || ''} ${chat.firstAgentName || ''} ${chat.firstAgentKey || ''}`.toLowerCase();
+        return haystack.includes(normalizedSearchKeyword);
+      })
+      .sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a));
+  }, [chats, normalizedSearchKeyword]);
 
   const isChatDomain = activeDomain === 'chat';
   const isTerminalDomain = activeDomain === 'terminal';
@@ -871,7 +937,9 @@ export function ShellScreen() {
   const topNavTitle = isChatDomain
     ? chatPane === 'detail'
       ? activeAgentName
-      : '对话'
+      : chatListMode === 'search'
+        ? '搜索'
+        : '对话'
     : isTerminalDomain
       ? terminalPane === 'detail'
         ? '终端/CLI'
@@ -884,6 +952,7 @@ export function ShellScreen() {
   const closeFloatingPanels = useCallback(() => {
     setInboxOpen(false);
     setPublishOpen(false);
+    setChatPlusMenuOpen(false);
     dispatch(setChatAgentsSidebarOpen(false));
     dispatch(closeChatDetailDrawer());
   }, [dispatch]);
@@ -902,9 +971,12 @@ export function ShellScreen() {
         return;
       }
       closeFloatingPanels();
+      if (mode !== 'chat') {
+        closeSearchMode();
+      }
       dispatch(setActiveDomain(mode));
     },
-    [activeDomain, chatPane, closeFloatingPanels, dispatch, terminalPane]
+    [activeDomain, chatPane, closeFloatingPanels, closeSearchMode, dispatch, terminalPane]
   );
 
   const openChatDetail = useCallback(
@@ -917,8 +989,9 @@ export function ShellScreen() {
       dispatch(setChatId(nextChatId));
       dispatch(closeChatDetailDrawer());
       dispatch(showChatDetailPane());
+      closeSearchMode();
     },
-    [dispatch]
+    [closeSearchMode, dispatch]
   );
 
   const handleAgentSelectNewChat = useCallback(
@@ -930,9 +1003,79 @@ export function ShellScreen() {
       dispatch(setChatAgentsSidebarOpen(false));
       dispatch(closeChatDetailDrawer());
       dispatch(showChatDetailPane());
+      closeSearchMode();
     },
-    [dispatch]
+    [closeSearchMode, dispatch]
   );
+
+  const openNewCurrentAgentChat = useCallback(() => {
+    dispatch(setChatId(''));
+    dispatch(setStatusText(''));
+    dispatch(closeChatDetailDrawer());
+    dispatch(showChatDetailPane());
+    setChatPlusMenuOpen(false);
+    closeSearchMode();
+  }, [closeSearchMode, dispatch]);
+
+  const handleSearchSelectAgent = useCallback(
+    (agentKey: string) => {
+      const normalizedKey = String(agentKey || '').trim();
+      if (!normalizedKey) {
+        return;
+      }
+      dispatch(setAgentsSelectedAgentKey(normalizedKey));
+      dispatch(setUserSelectedAgentKey(normalizedKey));
+      const latestChat = [...chats]
+        .filter((chat) => String(chat.firstAgentKey || '').trim() === normalizedKey)
+        .sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a))[0];
+      if (latestChat?.chatId) {
+        dispatch(setChatId(String(latestChat.chatId)));
+      } else {
+        dispatch(setChatId(''));
+      }
+      dispatch(showChatDetailPane());
+      closeSearchMode();
+    },
+    [chats, closeSearchMode, dispatch]
+  );
+
+  const handleSearchBack = useCallback(() => {
+    closeSearchMode();
+  }, [closeSearchMode]);
+
+  const handleRequestSwitchAgentChat = useCallback(
+    (direction: 'prev' | 'next') => {
+      const list = currentAgentChats;
+      if (!list.length) {
+        return { ok: false, message: '暂无可切换对话' };
+      }
+      const currentIndex = list.findIndex((item) => String(item.chatId || '') === String(chatId || ''));
+      if (currentIndex < 0) {
+        return { ok: false, message: '未找到当前对话' };
+      }
+
+      const nextIndex = direction === 'prev' ? currentIndex + 1 : currentIndex - 1;
+      if (nextIndex < 0) {
+        return { ok: false, message: '已到最新对话' };
+      }
+      if (nextIndex >= list.length) {
+        return { ok: false, message: '已到最早对话' };
+      }
+      const targetChatId = String(list[nextIndex]?.chatId || '');
+      if (!targetChatId) {
+        return { ok: false, message: '目标对话不可用' };
+      }
+      dispatch(setChatId(targetChatId));
+      dispatch(closeChatDetailDrawer());
+      return { ok: true };
+    },
+    [chatId, currentAgentChats, dispatch]
+  );
+
+  const handleRequestCreateAgentChatBySwipe = useCallback(() => {
+    openNewCurrentAgentChat();
+    return { ok: true, message: '已新建当前智能体对话' };
+  }, [openNewCurrentAgentChat]);
 
   const openTerminalDetail = useCallback(
     (sessionId: string) => {
@@ -1072,6 +1215,15 @@ export function ShellScreen() {
                     ‹
                   </Text>
                 </TouchableOpacity>
+              ) : chatListMode === 'search' ? (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="chat-search-back-btn"
+                  onPress={handleSearchBack}
+                >
+                  <Text style={[styles.detailBackText, { color: theme.primaryDeep }]}>‹</Text>
+                </TouchableOpacity>
               ) : (
                 <TouchableOpacity
                   activeOpacity={0.72}
@@ -1080,6 +1232,7 @@ export function ShellScreen() {
                   onPress={() => {
                     setPublishOpen(false);
                     setInboxOpen(false);
+                    setChatPlusMenuOpen(false);
                     dispatch(closeChatDetailDrawer());
                     dispatch(setChatAgentsSidebarOpen(!chatAgentsSidebarOpen));
                   }}
@@ -1192,8 +1345,64 @@ export function ShellScreen() {
                     <Rect x={2} y={13} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
                   </Svg>
                 </TouchableOpacity>
+              ) : chatListMode === 'search' ? (
+                <View style={styles.iconOnlyBtn} testID="chat-search-right-placeholder" />
               ) : (
-                <View style={styles.iconOnlyBtn} testID="chat-list-right-placeholder" />
+                <View style={styles.chatListTopActions} testID="chat-list-top-actions">
+                  <TouchableOpacity
+                    activeOpacity={0.72}
+                    style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                    testID="chat-list-search-btn"
+                    onPress={() => {
+                      setChatPlusMenuOpen(false);
+                      setChatListMode('search');
+                    }}
+                  >
+                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                      <Path
+                        d="M16.2 16.2L20 20M18 11a7 7 0 1 1-14 0a7 7 0 0 1 14 0Z"
+                        stroke={theme.primaryDeep}
+                        strokeWidth={1.9}
+                        strokeLinecap="round"
+                      />
+                    </Svg>
+                  </TouchableOpacity>
+
+                  <View style={styles.chatPlusWrap}>
+                    <TouchableOpacity
+                      activeOpacity={0.72}
+                      style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                      testID="chat-list-plus-btn"
+                      onPress={() => setChatPlusMenuOpen((prev) => !prev)}
+                    >
+                      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+                        <Path d="M12 5v14M5 12h14" stroke={theme.primaryDeep} strokeWidth={2} strokeLinecap="round" />
+                      </Svg>
+                    </TouchableOpacity>
+
+                    {chatPlusMenuOpen ? (
+                      <View style={[styles.chatPlusMenu, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]} testID="chat-list-plus-menu">
+                        {['扫一扫', '建立群组', '创建频道'].map((label, index) => (
+                          <TouchableOpacity
+                            key={label}
+                            activeOpacity={0.74}
+                            style={[
+                              styles.chatPlusMenuItem,
+                              index > 0 ? { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth } : null
+                            ]}
+                            testID={`chat-list-plus-menu-item-${index}`}
+                            onPress={() => {
+                              setChatPlusMenuOpen(false);
+                              dispatch(setStatusText(`功能建设中：${label}`));
+                            }}
+                          >
+                            <Text style={[styles.chatPlusMenuItemText, { color: theme.text }]}>{label}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
               )
             ) : isAgentsDomain ? (
               <TouchableOpacity
@@ -1227,6 +1436,10 @@ export function ShellScreen() {
             )}
           </View>
 
+          {isChatDomain && chatPane === 'list' && chatPlusMenuOpen ? (
+            <Pressable style={styles.chatTopMenuMask} onPress={() => setChatPlusMenuOpen(false)} testID="chat-list-plus-menu-mask" />
+          ) : null}
+
           <View style={styles.domainContent}>
             {isChatDomain ? (
               <View style={styles.stackViewport} testID="chat-pane-stack">
@@ -1240,18 +1453,25 @@ export function ShellScreen() {
                   ]}
                 >
                   <View style={[styles.stackPage, { width: window.width }]}>
-                    <ChatListPane
-                      theme={theme}
-                      keyword={chatKeyword}
-                      loading={loadingChats}
-                      items={agentLatestChats}
-                      activeChatId={chatId}
-                      onChangeKeyword={(text) => dispatch(setChatKeyword(text))}
-                      onRefresh={() => {
-                        refreshChats().catch(() => {});
-                      }}
-                      onSelectChat={openChatDetail}
-                    />
+                    {chatListMode === 'search' ? (
+                      <ChatSearchPane
+                        theme={theme}
+                        keyword={chatSearchQuery}
+                        agentResults={searchAgentResults}
+                        chatResults={searchChatResults}
+                        onChangeKeyword={setChatSearchQuery}
+                        onSelectRecentKeyword={setChatSearchQuery}
+                        onSelectAgent={handleSearchSelectAgent}
+                        onSelectChat={openChatDetail}
+                      />
+                    ) : (
+                      <ChatListPane
+                        theme={theme}
+                        loading={loadingChats}
+                        items={agentLatestChats}
+                        onSelectChat={openChatDetail}
+                      />
+                    )}
                   </View>
                   <View style={[styles.stackPage, { width: window.width }]}>
                     <ChatAssistantScreen
@@ -1265,6 +1485,8 @@ export function ShellScreen() {
                       authAccessExpireAtMs={authAccessExpireAtMs}
                       authTokenSignal={authTokenSignal}
                       onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
+                      onRequestSwitchAgentChat={handleRequestSwitchAgentChat}
+                      onRequestCreateAgentChatBySwipe={handleRequestCreateAgentChatBySwipe}
                     />
                   </View>
                 </Animated.View>
@@ -1272,6 +1494,12 @@ export function ShellScreen() {
                   enabled={chatPane === 'detail' && !chatDetailDrawerOpen}
                   onBack={() => dispatch(showChatListPane())}
                 />
+                {chatPane === 'list' && chatListMode === 'search' ? (
+                  <SwipeBackEdge
+                    enabled
+                    onBack={handleSearchBack}
+                  />
+                ) : null}
               </View>
             ) : null}
 
@@ -1515,9 +1743,11 @@ export function ShellScreen() {
         <ChatDetailDrawer
           visible={isChatDomain && chatPane === 'detail' && chatDetailDrawerOpen}
           theme={theme}
+          activeAgentName={activeAgentName}
           chats={currentAgentChats}
           activeChatId={chatId}
           onClose={() => dispatch(closeChatDetailDrawer())}
+          onCreateChat={openNewCurrentAgentChat}
           onSelectChat={(nextChatId) => {
             dispatch(setChatId(nextChatId));
             dispatch(closeChatDetailDrawer());
@@ -1562,6 +1792,14 @@ const styles = StyleSheet.create({
   domainContent: {
     flex: 1
   },
+  chatTopMenuMask: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    top: 56,
+    zIndex: 8
+  },
   stackViewport: {
     flex: 1,
     overflow: 'hidden'
@@ -1574,6 +1812,8 @@ const styles = StyleSheet.create({
     flex: 1
   },
   topNavCompact: {
+    position: 'relative',
+    zIndex: 20,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1621,6 +1861,33 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   topActionText: {
+    fontSize: 12,
+    fontWeight: '600'
+  },
+  chatListTopActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  chatPlusWrap: {
+    position: 'relative'
+  },
+  chatPlusMenu: {
+    position: 'absolute',
+    right: 0,
+    top: 40,
+    width: 132,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden',
+    zIndex: 12
+  },
+  chatPlusMenuItem: {
+    minHeight: 34,
+    justifyContent: 'center',
+    paddingHorizontal: 10
+  },
+  chatPlusMenuItemText: {
     fontSize: 12,
     fontWeight: '600'
   },
