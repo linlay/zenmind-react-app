@@ -1292,6 +1292,21 @@ export function ChatAssistantScreen({
     [chatImageToken, chatState.expandedTools]
   );
 
+  const latestRunEndEntryId = useMemo(() => {
+    for (let index = chatState.timeline.length - 1; index >= 0; index -= 1) {
+      const entry = chatState.timeline[index];
+      if (entry.kind === 'message' && entry.role === 'system' && entry.variant === 'run_end') {
+        return entry.id;
+      }
+    }
+    return '';
+  }, [chatState.timeline]);
+
+  const handleUnlockNewChat = useCallback(() => {
+    dispatch(setChatId(''));
+    dispatch(setStatusText(''));
+  }, [dispatch]);
+
   const renderTimelineItem = useCallback(
     ({ item }: { item: TimelineEntry }) => (
       <TimelineEntryRow
@@ -1305,6 +1320,8 @@ export function ChatAssistantScreen({
         onToggleReasoning={handleToggleReasoning}
         onCopyText={handleCopyText}
         onImageAuthError={handleMarkdownImageTokenError}
+        showRunEndUnlock={item.id === latestRunEndEntryId}
+        onUnlockNewChat={handleUnlockNewChat}
       />
     ),
     [
@@ -1313,9 +1330,11 @@ export function ChatAssistantScreen({
       chatState.expandedTools,
       contentWidth,
       handleCopyText,
+      handleUnlockNewChat,
       handleMarkdownImageTokenError,
       handleToggleReasoning,
       handleToggleToolExpanded,
+      latestRunEndEntryId,
       theme
     ]
   );
@@ -1380,7 +1399,7 @@ export function ChatAssistantScreen({
         ListEmptyComponent={
           <View style={[styles.emptyPanel, { backgroundColor: theme.surfaceStrong }]}> 
             <Text style={[styles.emptyTitle, { color: theme.text }]}>开始一个完整对话</Text>
-            <Text style={[styles.emptySubTitle, { color: theme.textSoft }]}>左上角打开历史会话，或直接发送消息开始。</Text>
+            <Text style={[styles.emptySubTitle, { color: theme.textSoft }]}>先在对话列表选择会话，或直接发送消息开始。</Text>
           </View>
         }
       />

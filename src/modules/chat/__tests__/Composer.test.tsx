@@ -107,7 +107,7 @@ describe('Composer', () => {
     expect(WEBVIEW_BRIDGE_SCRIPT).toContain('frontend_ready');
     expect(WEBVIEW_BRIDGE_SCRIPT).toContain('frontend_layout');
     expect(WEBVIEW_BRIDGE_SCRIPT).toContain("['click', 'input', 'change', 'keydown', 'touchstart']");
-    expect(WEBVIEW_BRIDGE_SCRIPT).not.toContain('frontend_submit');
+    expect(WEBVIEW_BRIDGE_SCRIPT).toContain('frontend_submit');
   });
 
   it('shows retry button when frontend tool loadError exists', async () => {

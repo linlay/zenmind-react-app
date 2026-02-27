@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, Linking, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, Linking, PanResponder, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import { authorizedFetch } from '../../../core/auth/appAuth';
 import { FONT_MONO, FONT_SANS } from '../../../core/constants/theme';
@@ -40,12 +40,144 @@ interface TimelineEntryRowProps {
   onToggleReasoning: (id: string) => void;
   onCopyText: (text: string) => void;
   onImageAuthError: () => void;
+  showRunEndUnlock?: boolean;
+  onUnlockNewChat?: () => void;
 }
 
 const AUTH_RETRY_QUICK_DELAYS_MS = [200, 450, 900];
 const AUTH_RETRY_PERIODIC_INTERVAL_MS = 3000;
 const AUTH_RETRY_TOTAL_WINDOW_MS = 30_000;
 const AUTH_FAILURE_REGEX = /(^|[^0-9])(401|403)([^0-9]|$)|forbidden|unauthori[sz]ed|expired|signature|token/i;
+const RUN_END_UNLOCK_KNOB_SIZE = 20;
+
+function RunEndUnlockSlider({
+  theme,
+  onUnlock
+}: {
+  theme: Pick<TimelineEntryRowProps['theme'], 'primary' | 'primaryDeep' | 'primarySoft' | 'surfaceStrong' | 'textMute' | 'border'>;
+  onUnlock: () => void;
+}) {
+  const dragX = useRef(new Animated.Value(0)).current;
+  const hintAnim = useRef(new Animated.Value(0)).current;
+  const trackWidthRef = useRef(0);
+
+  const maxSlide = useCallback(() => {
+    const width = trackWidthRef.current;
+    return Math.max(0, width - RUN_END_UNLOCK_KNOB_SIZE - 4);
+  }, []);
+
+  const resetDrag = useCallback(
+    (animated = true) => {
+      if (!animated) {
+        dragX.setValue(0);
+        return;
+      }
+      Animated.spring(dragX, {
+        toValue: 0,
+        useNativeDriver: true,
+        bounciness: 0
+      }).start();
+    },
+    [dragX]
+  );
+
+  useEffect(() => {
+    const anim = Animated.sequence([
+      Animated.timing(hintAnim, {
+        toValue: 1,
+        duration: 260,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      }),
+      Animated.timing(hintAnim, {
+        toValue: 0,
+        duration: 320,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      })
+    ]);
+    anim.start();
+    return () => {
+      anim.stop();
+    };
+  }, [hintAnim]);
+
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_event, gestureState) => {
+          const horizontal = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2;
+          return horizontal && gestureState.dx > 3;
+        },
+        onPanResponderGrant: () => {
+          hintAnim.stopAnimation();
+          hintAnim.setValue(0);
+        },
+        onPanResponderMove: (_event, gestureState) => {
+          const next = Math.max(0, Math.min(gestureState.dx, maxSlide()));
+          dragX.setValue(next);
+        },
+        onPanResponderRelease: (_event, gestureState) => {
+          const max = maxSlide();
+          const next = Math.max(0, Math.min(gestureState.dx, max));
+          const threshold = Math.min(72, Math.max(46, max * 0.7));
+          const shouldUnlock = next >= threshold || gestureState.vx > 0.6;
+          if (shouldUnlock) {
+            Animated.timing(dragX, {
+              toValue: max,
+              duration: 90,
+              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true
+            }).start(() => {
+              dragX.setValue(0);
+              onUnlock();
+            });
+            return;
+          }
+          resetDrag(true);
+        },
+        onPanResponderTerminate: () => {
+          resetDrag(true);
+        }
+      }),
+    [dragX, hintAnim, maxSlide, onUnlock, resetDrag]
+  );
+
+  const knobTranslateX = Animated.add(
+    dragX,
+    hintAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, 7]
+    })
+  );
+
+  return (
+    <View style={styles.runEndUnlockWrap}>
+      <View
+        style={[styles.runEndUnlockTrack, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+        onLayout={(event) => {
+          trackWidthRef.current = event.nativeEvent.layout.width;
+        }}
+        testID="run-end-unlock-track"
+      >
+        <Text style={[styles.runEndUnlockLabel, { color: theme.textMute }]}>右滑开启新对话</Text>
+        <Animated.View
+          style={[
+            styles.runEndUnlockKnob,
+            {
+              backgroundColor: theme.primary,
+              transform: [{ translateX: knobTranslateX }]
+            }
+          ]}
+          {...panResponder.panHandlers}
+          testID="run-end-unlock-handle"
+        >
+          <Text style={[styles.runEndUnlockGlyph, { color: theme.primaryDeep === theme.primary ? '#fff' : '#eef4ff' }]}>›</Text>
+        </Animated.View>
+      </View>
+    </View>
+  );
+}
 
 function parseViewportHeaderFields(headerLine: string) {
   const result: Record<string, string> = {};
@@ -584,7 +716,9 @@ function TimelineEntryRowComponent({
   onToggleTool,
   onToggleReasoning,
   onCopyText,
-  onImageAuthError
+  onImageAuthError,
+  showRunEndUnlock = false,
+  onUnlockNewChat
 }: TimelineEntryRowProps) {
   const appear = useRef(new Animated.Value(0)).current;
 
@@ -943,6 +1077,7 @@ function TimelineEntryRowComponent({
           </View>
         ) : null}
         <Text style={[styles.runEndText, { color: theme.textMute }]}>{`-- ${endText} --`}</Text>
+        {showRunEndUnlock && onUnlockNewChat ? <RunEndUnlockSlider theme={theme} onUnlock={onUnlockNewChat} /> : null}
       </Animated.View>
     );
   }
@@ -1328,6 +1463,41 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '600',
     textAlign: 'center'
+  },
+  runEndUnlockWrap: {
+    marginTop: 7,
+    alignItems: 'center'
+  },
+  runEndUnlockTrack: {
+    width: '50%',
+    minWidth: 156,
+    maxWidth: 236,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden'
+  },
+  runEndUnlockLabel: {
+    fontFamily: FONT_SANS,
+    fontSize: 10,
+    fontWeight: '600'
+  },
+  runEndUnlockKnob: {
+    position: 'absolute',
+    left: 2,
+    top: 2,
+    width: RUN_END_UNLOCK_KNOB_SIZE,
+    height: RUN_END_UNLOCK_KNOB_SIZE,
+    borderRadius: RUN_END_UNLOCK_KNOB_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  runEndUnlockGlyph: {
+    fontFamily: FONT_MONO,
+    fontSize: 13,
+    fontWeight: '700'
   },
   attachmentCardPress: {
     marginTop: 2,

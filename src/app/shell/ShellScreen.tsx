@@ -4,11 +4,11 @@ import {
   ActivityIndicator,
   AppState,
   Animated,
+  BackHandler,
   Easing,
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -29,7 +29,15 @@ import {
   toDefaultPtyWebUrl
 } from '../../core/network/endpoint';
 import { loadSettings, patchSettings } from '../../core/storage/settingsStorage';
-import { setDrawerOpen } from './shellSlice';
+import {
+  closeChatDetailDrawer,
+  openChatDetailDrawer,
+  setChatAgentsSidebarOpen,
+  showChatDetailPane,
+  showChatListPane,
+  showTerminalDetailPane,
+  showTerminalListPane
+} from './shellSlice';
 import {
   applyEndpointDraft,
   hydrateSettings,
@@ -53,17 +61,21 @@ import {
   setStatusText
 } from '../../modules/chat/state/chatSlice';
 import { reloadPty, requestOpenNewSessionModal, setActiveSessionId } from '../../modules/terminal/state/terminalSlice';
-import { selectFilteredChats } from '../../modules/chat/state/chatSelectors';
+import { selectAgentLatestChats, selectCurrentAgentChats } from '../../modules/chat/state/chatSelectors';
 import { ChatAssistantScreen } from '../../modules/chat/screens/ChatAssistantScreen';
 import { TerminalScreen } from '../../modules/terminal/screens/TerminalScreen';
 import { AgentsScreen } from '../../modules/agents/screens/AgentsScreen';
 import { UserSettingsScreen } from '../../modules/user/screens/UserSettingsScreen';
-import { DomainSwitcher } from './DomainSwitcher';
+import { BottomDomainNav } from './BottomDomainNav';
+import { ChatListPane } from '../../modules/chat/components/ChatListPane';
+import { ChatDetailDrawer } from '../../modules/chat/components/ChatDetailDrawer';
+import { TerminalSessionListPane } from '../../modules/terminal/components/TerminalSessionListPane';
+import { AgentSidebar } from '../../modules/chat/components/AgentSidebar';
 import { useLazyGetAgentsQuery } from '../../modules/agents/api/agentsApi';
 import { useLazyGetChatsQuery } from '../../modules/chat/api/chatApi';
 import { useLazyListTerminalSessionsQuery } from '../../modules/terminal/api/terminalApi';
 import { fetchAuthedJson, formatError } from '../../core/network/apiClient';
-import { formatChatListTime, formatInboxTime, getAgentKey, getAgentName, getChatAgentName, getChatTitle } from '../../shared/utils/format';
+import { formatInboxTime, getAgentKey, getAgentName } from '../../shared/utils/format';
 import { getAppVersionLabel } from '../../shared/utils/appVersion';
 import { TerminalSessionItem } from '../../modules/terminal/types/terminal';
 import {
@@ -77,23 +89,16 @@ import {
   subscribeAuthSession
 } from '../../core/auth/appAuth';
 import { WebViewAuthRefreshCoordinator, WebViewAuthRefreshOutcome } from '../../core/auth/webViewAuthBridge';
+import { SwipeBackEdge } from '../../shared/ui/SwipeBackEdge';
 
-const DRAWER_MAX_WIDTH = 332;
 const PREFRESH_MIN_VALIDITY_MS = 120_000;
 const PREFRESH_JITTER_MS = 8_000;
 const ACTIVE_REFRESH_DEBOUNCE_MS = 20_000;
 const FOREGROUND_REFRESH_INTERVAL_MS = 60_000;
 
 const DOMAIN_LABEL: Record<DomainMode, string> = {
-  chat: '助理',
-  terminal: '终端',
-  agents: '智能体',
-  user: '配置'
-};
-
-const DRAWER_TITLE: Record<DomainMode, string> = {
   chat: '对话',
-  terminal: '会话',
+  terminal: '终端',
   agents: '智能体',
   user: '配置'
 };
@@ -103,7 +108,7 @@ export function ShellScreen() {
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
 
-  const drawerOpen = useAppSelector((state) => state.shell.drawerOpen);
+  const { chatPane, terminalPane, chatAgentsSidebarOpen, chatDetailDrawerOpen } = useAppSelector((state) => state.shell);
   const {
     booting,
     themeMode,
@@ -118,10 +123,10 @@ export function ShellScreen() {
   const loadingChats = useAppSelector((state) => state.chat.loadingChats);
   const agentsLoading = useAppSelector((state) => state.agents.loading);
   const agents = useAppSelector((state) => state.agents.agents);
-  const filteredChats = useAppSelector(selectFilteredChats);
+  const agentLatestChats = useAppSelector(selectAgentLatestChats);
+  const currentAgentChats = useAppSelector(selectCurrentAgentChats);
   const activeTerminalSessionId = useAppSelector((state) => state.terminal.activeSessionId);
 
-  const [agentMenuOpen, setAgentMenuOpen] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [shellKeyboardHeight, setShellKeyboardHeight] = useState(0);
@@ -155,9 +160,10 @@ export function ShellScreen() {
   const lastActiveRefreshAtRef = useRef(0);
   const authRefreshCoordinatorRef = useRef<WebViewAuthRefreshCoordinator | null>(null);
 
-  const drawerAnim = useRef(new Animated.Value(0)).current;
   const inboxAnim = useRef(new Animated.Value(0)).current;
   const publishAnim = useRef(new Animated.Value(0)).current;
+  const chatPaneAnim = useRef(new Animated.Value(chatPane === 'detail' ? 1 : 0)).current;
+  const terminalPaneAnim = useRef(new Animated.Value(terminalPane === 'detail' ? 1 : 0)).current;
   const theme = THEMES[themeMode] || THEMES.light;
   const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
   const ptyWebUrl = useMemo(() => normalizePtyUrlInput(ptyUrlInput, endpointInput), [endpointInput, ptyUrlInput]);
@@ -167,37 +173,35 @@ export function ShellScreen() {
   );
   const canSubmitLogin = Boolean(normalizedLoginEndpointDraft) && !authChecking;
 
-  const drawerWidth = useMemo(() => {
-    const candidate = Math.floor(window.width * 0.84);
-    return Math.min(DRAWER_MAX_WIDTH, Math.max(278, candidate));
-  }, [window.width]);
-
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
     const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
     const onShow = Keyboard.addListener(showEvent, (e) => setShellKeyboardHeight(e?.endCoordinates?.height || 0));
     const onHide = Keyboard.addListener(hideEvent, () => setShellKeyboardHeight(0));
-    return () => { onShow.remove(); onHide.remove(); };
+    return () => {
+      onShow.remove();
+      onHide.remove();
+    };
   }, []);
 
   const keyboardInset = Platform.OS === 'android' ? Math.max(0, shellKeyboardHeight - insets.bottom) : 0;
 
-  const drawerTranslateX = useMemo(
+  const chatTranslateX = useMemo(
     () =>
-      drawerAnim.interpolate({
+      chatPaneAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [-drawerWidth, 0]
+        outputRange: [0, -window.width]
       }),
-    [drawerAnim, drawerWidth]
+    [chatPaneAnim, window.width]
   );
 
-  const mainTranslateX = useMemo(
+  const terminalTranslateX = useMemo(
     () =>
-      drawerAnim.interpolate({
+      terminalPaneAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [0, drawerWidth - 42]
+        outputRange: [0, -window.width]
       }),
-    [drawerAnim, drawerWidth]
+    [terminalPaneAnim, window.width]
   );
 
   const syncAuthStateFromSession = useCallback((session = getCurrentSession()) => {
@@ -268,6 +272,7 @@ export function ShellScreen() {
         setTerminalSessionsError('');
         if (activeTerminalSessionId && !sessions.some((item) => item.sessionId === activeTerminalSessionId)) {
           dispatch(setActiveSessionId(''));
+          dispatch(showTerminalListPane());
         }
       } catch (error) {
         const message = formatError(error);
@@ -285,7 +290,7 @@ export function ShellScreen() {
   const openTerminalCreateSessionModal = useCallback(() => {
     dispatch(requestOpenNewSessionModal(Date.now()));
     dispatch(reloadPty());
-    dispatch(setDrawerOpen(false));
+    dispatch(showTerminalDetailPane());
   }, [dispatch]);
 
   const refreshAll = useCallback(
@@ -658,15 +663,6 @@ export function ShellScreen() {
   }, [dispatch]);
 
   useEffect(() => {
-    Animated.timing(drawerAnim, {
-      toValue: drawerOpen ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true
-    }).start();
-  }, [drawerAnim, drawerOpen]);
-
-  useEffect(() => {
     Animated.timing(inboxAnim, {
       toValue: inboxOpen ? 1 : 0,
       duration: inboxOpen ? 240 : 180,
@@ -683,6 +679,24 @@ export function ShellScreen() {
       useNativeDriver: true
     }).start();
   }, [publishAnim, publishOpen]);
+
+  useEffect(() => {
+    Animated.timing(chatPaneAnim, {
+      toValue: chatPane === 'detail' ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [chatPane, chatPaneAnim]);
+
+  useEffect(() => {
+    Animated.timing(terminalPaneAnim, {
+      toValue: terminalPane === 'detail' ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [terminalPane, terminalPaneAnim]);
 
   useEffect(() => {
     if (booting) return;
@@ -757,23 +771,20 @@ export function ShellScreen() {
   }, [activeDomain, booting, endpointInput, ptyUrlInput, selectedAgentKey, themeMode]);
 
   useEffect(() => {
-    if (activeDomain !== 'chat' || drawerOpen) {
-      setAgentMenuOpen(false);
-    }
-  }, [activeDomain, drawerOpen]);
-
-  useEffect(() => {
-    if (drawerOpen) {
-      setInboxOpen(false);
-      setPublishOpen(false);
-    }
-  }, [drawerOpen]);
-
-  useEffect(() => {
-    if (activeDomain !== 'chat' && inboxOpen) {
+    if (activeDomain !== 'chat' && activeDomain !== 'user') {
       setInboxOpen(false);
     }
-  }, [activeDomain, inboxOpen]);
+    if (activeDomain !== 'chat') {
+      dispatch(setChatAgentsSidebarOpen(false));
+      dispatch(closeChatDetailDrawer());
+    }
+  }, [activeDomain, dispatch]);
+
+  useEffect(() => {
+    if (chatPane !== 'detail' && chatDetailDrawerOpen) {
+      dispatch(closeChatDetailDrawer());
+    }
+  }, [chatDetailDrawerOpen, chatPane, dispatch]);
 
   useEffect(() => {
     if (!inboxOpen || !authReady) {
@@ -788,6 +799,7 @@ export function ShellScreen() {
       setTerminalSessionsLoading(false);
       setTerminalSessionsError('');
       dispatch(setActiveSessionId(''));
+      dispatch(showTerminalListPane());
     }
   }, [authReady, dispatch]);
 
@@ -799,17 +811,53 @@ export function ShellScreen() {
   }, [activeDomain, authReady, booting, refreshTerminalSessions]);
 
   useEffect(() => {
-    if (!drawerOpen || !authReady || activeDomain !== 'terminal') {
+    if (booting || !authReady || activeDomain !== 'terminal' || terminalPane !== 'list') {
       return;
     }
     refreshTerminalSessions(true).catch(() => {});
-  }, [activeDomain, authReady, drawerOpen, refreshTerminalSessions]);
+  }, [activeDomain, authReady, booting, refreshTerminalSessions, terminalPane]);
 
   useEffect(() => {
     if (activeDomain !== 'agents' && publishOpen) {
       setPublishOpen(false);
     }
   }, [activeDomain, publishOpen]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') {
+      return;
+    }
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (inboxOpen) {
+        setInboxOpen(false);
+        return true;
+      }
+      if (chatDetailDrawerOpen) {
+        dispatch(closeChatDetailDrawer());
+        return true;
+      }
+      if (chatAgentsSidebarOpen) {
+        dispatch(setChatAgentsSidebarOpen(false));
+        return true;
+      }
+      if (publishOpen) {
+        setPublishOpen(false);
+        return true;
+      }
+      if (activeDomain === 'chat' && chatPane === 'detail') {
+        dispatch(showChatListPane());
+        return true;
+      }
+      if (activeDomain === 'terminal' && terminalPane === 'detail') {
+        dispatch(showTerminalListPane());
+        return true;
+      }
+      return false;
+    });
+
+    return () => sub.remove();
+  }, [activeDomain, chatAgentsSidebarOpen, chatDetailDrawerOpen, chatPane, dispatch, inboxOpen, publishOpen, terminalPane]);
 
   const activeAgentName = useMemo(() => {
     const found = agents.find((agent) => getAgentKey(agent) === selectedAgentKey);
@@ -820,15 +868,80 @@ export function ShellScreen() {
   const isTerminalDomain = activeDomain === 'terminal';
   const isAgentsDomain = activeDomain === 'agents';
   const isUserDomain = activeDomain === 'user';
-  const topNavTitle = isChatDomain ? activeAgentName : isTerminalDomain ? '终端/CLI' : DOMAIN_LABEL[activeDomain];
-  const topNavSubtitle = selectedAgentKey;
-  const profileName = authUsername || '未登录用户';
-  const profileDeviceLabel = authDeviceName || deviceName || '当前设备';
-  const profileInitial = useMemo(() => {
-    const source = profileName.trim();
-    return source ? source.slice(0, 1).toUpperCase() : 'U';
-  }, [profileName]);
+  const topNavTitle = isChatDomain
+    ? chatPane === 'detail'
+      ? activeAgentName
+      : '对话'
+    : isTerminalDomain
+      ? terminalPane === 'detail'
+        ? '终端/CLI'
+        : '会话'
+      : DOMAIN_LABEL[activeDomain];
+  const topNavSubtitle = isChatDomain && chatPane === 'detail' ? selectedAgentKey : '';
   const appVersionLabel = useMemo(() => getAppVersionLabel(), []);
+  const showBottomNav = !((isChatDomain && chatPane === 'detail') || (isTerminalDomain && terminalPane === 'detail'));
+
+  const closeFloatingPanels = useCallback(() => {
+    setInboxOpen(false);
+    setPublishOpen(false);
+    dispatch(setChatAgentsSidebarOpen(false));
+    dispatch(closeChatDetailDrawer());
+  }, [dispatch]);
+
+  const handleDomainSwitch = useCallback(
+    (mode: DomainMode) => {
+      if (mode === activeDomain) {
+        if (mode === 'chat' && chatPane === 'detail') {
+          dispatch(showChatListPane());
+          return;
+        }
+        if (mode === 'terminal' && terminalPane === 'detail') {
+          dispatch(showTerminalListPane());
+          return;
+        }
+        return;
+      }
+      closeFloatingPanels();
+      dispatch(setActiveDomain(mode));
+    },
+    [activeDomain, chatPane, closeFloatingPanels, dispatch, terminalPane]
+  );
+
+  const openChatDetail = useCallback(
+    (nextChatId: string, nextAgentKey?: string) => {
+      const normalizedAgentKey = String(nextAgentKey || '').trim();
+      if (normalizedAgentKey && normalizedAgentKey !== '__unknown_agent__') {
+        dispatch(setAgentsSelectedAgentKey(normalizedAgentKey));
+        dispatch(setUserSelectedAgentKey(normalizedAgentKey));
+      }
+      dispatch(setChatId(nextChatId));
+      dispatch(closeChatDetailDrawer());
+      dispatch(showChatDetailPane());
+    },
+    [dispatch]
+  );
+
+  const handleAgentSelectNewChat = useCallback(
+    (agentKey: string) => {
+      dispatch(setAgentsSelectedAgentKey(agentKey));
+      dispatch(setUserSelectedAgentKey(agentKey));
+      dispatch(setChatId(''));
+      dispatch(setStatusText(''));
+      dispatch(setChatAgentsSidebarOpen(false));
+      dispatch(closeChatDetailDrawer());
+      dispatch(showChatDetailPane());
+    },
+    [dispatch]
+  );
+
+  const openTerminalDetail = useCallback(
+    (sessionId: string) => {
+      dispatch(setActiveSessionId(sessionId));
+      dispatch(reloadPty());
+      dispatch(showTerminalDetailPane());
+    },
+    [dispatch]
+  );
 
   if (booting) {
     return (
@@ -866,7 +979,7 @@ export function ShellScreen() {
         <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}> 
           <View style={[styles.bootWrap, { paddingHorizontal: 20 }]}> 
             <View style={[styles.bootCard, { borderColor: theme.border, width: '100%', maxWidth: 440, flexDirection: 'column', alignItems: 'stretch', gap: 10 }]}> 
-              <Text style={[styles.drawerTitle, { color: theme.text, fontSize: 18 }]}>设备登录</Text>
+              <Text style={[styles.authTitle, { color: theme.text }]}>设备登录</Text>
               <Text style={[styles.emptyHistoryText, { color: theme.textMute, textAlign: 'left' }]}>请先填写后端地址，再输入主密码完成设备授权。</Text>
 
               <TextInput
@@ -936,655 +1049,480 @@ export function ShellScreen() {
     >
       <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
 
-      <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}>
-        <Animated.View style={[styles.mainShell, { transform: [{ translateX: mainTranslateX }] }]}> 
-          <KeyboardAvoidingView
-            style={[styles.shell, { paddingBottom: keyboardInset }]}
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-            pointerEvents={drawerOpen ? 'none' : 'auto'}
-          >
-            <View style={styles.topNavCompact} nativeID="shell-top-nav" testID="shell-top-nav">
+      <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}> 
+        <KeyboardAvoidingView
+          style={[styles.shell, { paddingBottom: keyboardInset }]}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+        >
+          <View style={styles.topNavCompact} nativeID="shell-top-nav" testID="shell-top-nav">
+            {isChatDomain ? (
+              chatPane === 'detail' ? (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="chat-detail-back-btn"
+                  onPress={() => {
+                    setPublishOpen(false);
+                    setInboxOpen(false);
+                    dispatch(showChatListPane());
+                  }}
+                >
+                  <Text style={[styles.detailBackText, { color: theme.primaryDeep }]} testID="chat-detail-back-text">
+                    ‹
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="chat-left-action-btn"
+                  onPress={() => {
+                    setPublishOpen(false);
+                    setInboxOpen(false);
+                    dispatch(closeChatDetailDrawer());
+                    dispatch(setChatAgentsSidebarOpen(!chatAgentsSidebarOpen));
+                  }}
+                >
+                  <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+                    <Rect x={2} y={5.6} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
+                    <Rect x={2} y={12.2} width={10} height={2.2} rx={1.1} fill={theme.primaryDeep} />
+                  </Svg>
+                </TouchableOpacity>
+              )
+            ) : isTerminalDomain ? (
+              terminalPane === 'detail' ? (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="terminal-detail-back-btn"
+                  onPress={() => {
+                    setPublishOpen(false);
+                    setInboxOpen(false);
+                    dispatch(showTerminalListPane());
+                  }}
+                >
+                  <Text style={[styles.detailBackText, { color: theme.primaryDeep }]}>‹</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="terminal-left-action-btn"
+                  onPress={() => {
+                    setPublishOpen(false);
+                    setInboxOpen(false);
+                  }}
+                >
+                  <Text style={[styles.topActionText, { color: theme.textMute }]}>·</Text>
+                </TouchableOpacity>
+              )
+            ) : isUserDomain ? (
               <TouchableOpacity
                 activeOpacity={0.72}
                 style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-                testID="open-drawer-btn"
+                testID="shell-user-inbox-toggle-btn"
                 onPress={() => {
-                  setAgentMenuOpen(false);
-                  setInboxOpen(false);
                   setPublishOpen(false);
-                  dispatch(setDrawerOpen(true));
+                  dispatch(setChatAgentsSidebarOpen(false));
+                  dispatch(closeChatDetailDrawer());
+                  setInboxOpen((prev) => !prev);
                 }}
               >
-                <Svg width={20} height={20} viewBox="0 0 20 20" fill="none" style={styles.menuIconSvg}>
-                  <Rect x={2} y={5.6} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
-                  <Rect x={2} y={12.2} width={10} height={2.2} rx={1.1} fill={theme.primaryDeep} />
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Rect x={3.2} y={5} width={17.6} height={14} rx={3} stroke={theme.primaryDeep} strokeWidth={1.9} />
+                  <Path d="M4.8 8.4L12 13.2L19.2 8.4" stroke={theme.primaryDeep} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
                 </Svg>
+                {inboxUnreadCount > 0 ? (
+                  <View style={[styles.inboxBadge, { backgroundColor: theme.danger }]}>
+                    <Text style={styles.inboxBadgeText}>{inboxUnreadCount > 99 ? '99+' : String(inboxUnreadCount)}</Text>
+                  </View>
+                ) : null}
               </TouchableOpacity>
+            ) : (
+              <View style={styles.iconOnlyBtn} />
+            )}
 
-              {isChatDomain ? (
-                <TouchableOpacity
-                  activeOpacity={0.76}
-                  style={[styles.assistantTopBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID="chat-agent-toggle-btn"
-                  onPress={() => {
-                    setInboxOpen(false);
-                    setPublishOpen(false);
-                    setAgentMenuOpen((prev) => !prev);
-                  }}
-                >
-                  <View style={styles.assistantTopTextWrap}>
-                    <Text style={[styles.assistantTopTitle, { color: theme.text }]} numberOfLines={1}>
-                      {topNavTitle}
-                    </Text>
-                    <Text style={[styles.assistantTopSubTitle, { color: theme.textMute }]} numberOfLines={1}>
-                      {topNavSubtitle}
-                    </Text>
-                  </View>
-                  <Text style={[styles.assistantTopArrow, { color: theme.textMute }]}>{agentMenuOpen ? '▴' : '▾'}</Text>
-                </TouchableOpacity>
-              ) : (
-                <View style={[styles.assistantTopBtn, { backgroundColor: theme.surfaceStrong }]}>
-                  <Text style={[styles.assistantTopSingleTitle, { color: theme.text }]} numberOfLines={1}>
-                    {topNavTitle}
+            <View style={[styles.assistantTopBtn, { backgroundColor: theme.surfaceStrong }]}>
+              <View style={styles.assistantTopTextWrap}>
+                <Text style={[styles.assistantTopTitle, { color: theme.text }]} numberOfLines={1}>
+                  {topNavTitle}
+                </Text>
+                {topNavSubtitle ? (
+                  <Text style={[styles.assistantTopSubTitle, { color: theme.textMute }]} numberOfLines={1}>
+                    {topNavSubtitle}
                   </Text>
-                </View>
-              )}
+                ) : null}
+              </View>
+            </View>
 
-              {isTerminalDomain ? (
-                <TouchableOpacity
-                  activeOpacity={0.72}
-                  style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID="shell-terminal-refresh-btn"
-                  onPress={() => {
-                    setAgentMenuOpen(false);
-                    setInboxOpen(false);
-                    setPublishOpen(false);
+            {isTerminalDomain ? (
+              <TouchableOpacity
+                activeOpacity={0.72}
+                style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
+                testID="shell-terminal-refresh-btn"
+                onPress={() => {
+                  setInboxOpen(false);
+                  setPublishOpen(false);
+                  if (terminalPane === 'detail') {
                     dispatch(reloadPty());
-                  }}
-                >
-                  <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>刷新</Text>
-                </TouchableOpacity>
-              ) : isAgentsDomain ? (
-                <TouchableOpacity
-                  activeOpacity={0.72}
-                  style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID="shell-publish-toggle-btn"
-                  onPress={() => {
-                    setAgentMenuOpen(false);
-                    setInboxOpen(false);
-                    setPublishOpen((prev) => !prev);
-                  }}
-                >
-                  <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>发布</Text>
-                </TouchableOpacity>
-              ) : isUserDomain ? (
+                  } else {
+                    refreshTerminalSessions().catch(() => {});
+                  }
+                }}
+              >
+                <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>刷新</Text>
+              </TouchableOpacity>
+            ) : isChatDomain ? (
+              chatPane === 'detail' ? (
                 <TouchableOpacity
                   activeOpacity={0.72}
                   style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID="shell-theme-toggle-btn"
+                  testID="chat-detail-menu-btn"
                   onPress={() => {
-                    setAgentMenuOpen(false);
-                    setPublishOpen(false);
                     setInboxOpen(false);
-                    dispatch(toggleTheme());
+                    setPublishOpen(false);
+                    dispatch(setChatAgentsSidebarOpen(false));
+                    dispatch(openChatDetailDrawer());
                   }}
                 >
-                  <Text style={[styles.themeToggleText, { color: theme.primaryDeep }]}>◐</Text>
+                  <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+                    <Rect x={2} y={4.8} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
+                    <Rect x={2} y={8.9} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
+                    <Rect x={2} y={13} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
+                  </Svg>
                 </TouchableOpacity>
               ) : (
-                <TouchableOpacity
-                  activeOpacity={0.72}
-                  style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID="shell-inbox-toggle-btn"
-                  onPress={() => {
-                    setAgentMenuOpen(false);
-                    setPublishOpen(false);
-                    setInboxOpen((prev) => !prev);
-                  }}
-                >
-                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" style={styles.inboxIconSvg}>
-                    <Rect x={3.2} y={5} width={17.6} height={14} rx={3} stroke={theme.primaryDeep} strokeWidth={1.9} />
-                    <Path d="M4.8 8.4L12 13.2L19.2 8.4" stroke={theme.primaryDeep} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
-                  </Svg>
-                  {inboxUnreadCount > 0 ? (
-                    <View style={[styles.inboxBadge, { backgroundColor: theme.danger }]}> 
-                      <Text style={styles.inboxBadgeText}>{inboxUnreadCount > 99 ? '99+' : String(inboxUnreadCount)}</Text>
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              )}
-            </View>
-
-            <View pointerEvents={inboxOpen ? 'auto' : 'none'} style={styles.inboxLayer}>
-              <Animated.View
-                style={[
-                  styles.inboxModal,
-                  {
-                    backgroundColor: theme.surface,
-                    borderColor: theme.border,
-                    opacity: inboxAnim,
-                    paddingTop: insets.top + 8,
-                    transform: [
-                      {
-                        translateY: inboxAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [-Math.max(120, window.height * 0.16), 0]
-                        })
-                      }
-                    ]
-                  }
-                ]}
+                <View style={styles.iconOnlyBtn} testID="chat-list-right-placeholder" />
+              )
+            ) : isAgentsDomain ? (
+              <TouchableOpacity
+                activeOpacity={0.72}
+                style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
+                testID="shell-publish-toggle-btn"
+                onPress={() => {
+                  dispatch(setChatAgentsSidebarOpen(false));
+                  setInboxOpen(false);
+                  setPublishOpen((prev) => !prev);
+                }}
               >
-                <View style={[styles.inboxModalHead, { borderBottomColor: theme.border }]}> 
-                  <View>
-                    <Text style={[styles.inboxTitle, { color: theme.text }]}>消息盒子</Text>
-                    <Text style={[styles.inboxSubTitle, { color: theme.textMute }]}>未读 {inboxUnreadCount}</Text>
-                  </View>
-                  <View style={styles.inboxHeadActions}>
-                    <TouchableOpacity
-                      activeOpacity={0.78}
-                      style={[styles.inboxActionBtn, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
-                      onPress={() => {
-                        markAllInboxRead().catch(() => {});
-                      }}
-                      testID="shell-inbox-read-all-btn"
-                    >
-                      <Text style={[styles.inboxCloseText, { color: theme.textSoft }]}>全部已读</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      activeOpacity={0.78}
-                      style={[styles.inboxActionBtn, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
-                      onPress={() => setInboxOpen(false)}
-                      testID="shell-inbox-close-btn"
-                    >
-                      <Text style={[styles.inboxCloseText, { color: theme.textSoft }]}>关闭</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <ScrollView style={styles.inboxModalScroll} contentContainerStyle={styles.inboxList}>
-                  {inboxLoading ? <Text style={[styles.inboxItemBody, { color: theme.textMute }]}>加载中...</Text> : null}
-                  {!inboxLoading && inboxMessages.length === 0 ? (
-                    <Text style={[styles.inboxItemBody, { color: theme.textMute }]}>暂无消息</Text>
-                  ) : null}
-                  {inboxMessages.map((message) => (
-                    <TouchableOpacity
-                      key={message.messageId}
-                      activeOpacity={0.78}
-                      style={[
-                        styles.inboxItem,
-                        {
-                          borderColor: theme.border,
-                          backgroundColor: message.read ? theme.surface : theme.primarySoft
-                        }
-                      ]}
-                      onPress={() => {
-                        if (!message.read) {
-                          markInboxRead(message.messageId).catch(() => {});
-                        }
-                      }}
-                    >
-                      <View style={styles.inboxItemTop}>
-                        <Text style={[styles.inboxItemTitle, { color: theme.text }]}>{message.title}</Text>
-                        <Text style={[styles.inboxItemTime, { color: theme.textMute }]}>{formatInboxTime(message.createAt)}</Text>
-                      </View>
-                      <Text style={[styles.inboxItemBody, { color: theme.textSoft }]}>{message.content}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </Animated.View>
-            </View>
-
-            <View pointerEvents={publishOpen ? 'auto' : 'none'} style={styles.publishLayer}>
-              <Animated.View
-                style={[
-                  styles.publishModal,
-                  {
-                    backgroundColor: theme.surface,
-                    borderColor: theme.border,
-                    opacity: publishAnim,
-                    paddingTop: insets.top + 8,
-                    transform: [
-                      {
-                        translateY: publishAnim.interpolate({
-                          inputRange: [0, 1],
-                          outputRange: [Math.max(120, window.height * 0.14), 0]
-                        })
-                      }
-                    ]
-                  }
-                ]}
+                <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>发布</Text>
+              </TouchableOpacity>
+            ) : isUserDomain ? (
+              <TouchableOpacity
+                activeOpacity={0.72}
+                style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                testID="shell-theme-toggle-btn"
+                onPress={() => {
+                  dispatch(setChatAgentsSidebarOpen(false));
+                  setPublishOpen(false);
+                  setInboxOpen(false);
+                  dispatch(toggleTheme());
+                }}
               >
-                <View style={[styles.publishHead, { borderBottomColor: theme.border }]}>
-                  <View style={styles.publishTitleWrap}>
-                    <Text style={[styles.publishTitle, { color: theme.text }]}>发布中心</Text>
-                    <Text style={[styles.publishSubTitle, { color: theme.textMute }]} numberOfLines={2}>
-                      {selectedAgentKey ? `当前智能体：${selectedAgentKey}` : '请先选择智能体，然后发起发布。'}
-                    </Text>
-                  </View>
-                  <TouchableOpacity
-                    activeOpacity={0.78}
-                    style={[styles.publishCloseBtn, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
-                    onPress={() => setPublishOpen(false)}
-                    testID="shell-publish-close-btn"
-                  >
-                    <Text style={[styles.publishCloseText, { color: theme.textSoft }]}>关闭</Text>
-                  </TouchableOpacity>
-                </View>
+                <Text style={[styles.themeToggleText, { color: theme.primaryDeep }]}>◐</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={styles.iconOnlyBtn} />
+            )}
+          </View>
 
-                <ScrollView style={styles.publishScroll} contentContainerStyle={styles.publishContent}>
-                  <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}>
-                    <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布目标</Text>
-                    <View style={styles.publishChipRow}>
-                      {['内部频道', '变更公告页', '测试环境'].map((item) => (
-                        <View key={item} style={[styles.publishChip, { borderColor: theme.border, backgroundColor: theme.surface }]}>
-                          <Text style={[styles.publishChipText, { color: theme.textSoft }]}>{item}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-
-                  <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}>
-                    <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布说明</Text>
-                    <Text style={[styles.publishSectionBody, { color: theme.textSoft }]}>
-                      本次发布会同步当前智能体配置、默认提示词和会话能力开关。建议先在测试环境验证 5 分钟后再推送到团队频道。
-                    </Text>
-                  </View>
-
-                  <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}>
-                    <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布清单</Text>
-                    <View style={styles.publishChecklist}>
-                      {['配置校验已通过', '变更摘要已生成', '回滚方案已就绪'].map((item) => (
-                        <View key={item} style={styles.publishChecklistItem}>
-                          <Text style={[styles.publishChecklistDot, { color: theme.primaryDeep }]}>•</Text>
-                          <Text style={[styles.publishChecklistText, { color: theme.textSoft }]}>{item}</Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                </ScrollView>
-
-                <View style={[styles.publishFooter, { borderTopColor: theme.border }]}>
-                  <TouchableOpacity
-                    activeOpacity={0.76}
-                    style={[styles.publishGhostBtn, { backgroundColor: theme.surfaceStrong }]}
-                    onPress={() => setPublishOpen(false)}
-                  >
-                    <Text style={[styles.publishGhostText, { color: theme.textSoft }]}>取消</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    activeOpacity={0.82}
-                    style={[styles.publishPrimaryBtn, { backgroundColor: theme.primary }]}
-                    testID="shell-publish-submit-btn"
-                    onPress={() => {
-                      setPublishOpen(false);
-                      dispatch(setStatusText('发布任务已创建（演示）'));
-                    }}
-                  >
-                    <Text style={styles.publishPrimaryText}>确认发布</Text>
-                  </TouchableOpacity>
-                </View>
-              </Animated.View>
-            </View>
-
-            {isChatDomain && agentMenuOpen ? (
-              <View
-                style={[styles.agentMenuCard, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
-                nativeID="agent-menu-card"
-                testID="agent-menu-card"
-              >
-                <ScrollView style={styles.agentMenuList} contentContainerStyle={styles.agentMenuListContent}>
-                  {(agents.length ? agents : [{ key: '', name: '暂无 Agent' }]).map((agent, index) => {
-                    const key = getAgentKey(agent);
-                    const name = getAgentName(agent) || key || `Agent ${index + 1}`;
-                    const selected = key && key === selectedAgentKey;
-                    return (
-                      <TouchableOpacity
-                        key={key || `${name}-${index}`}
-                        disabled={!key}
-                        activeOpacity={0.78}
-                        testID={`agent-menu-item-${index}`}
-                        style={[
-                          styles.agentMenuItem,
-                          {
-                            backgroundColor: selected ? theme.primarySoft : theme.surface,
-                            borderColor: selected ? theme.primary : theme.border
-                          }
-                        ]}
-                        onPress={() => {
-                          if (!key) return;
-                          dispatch(setAgentsSelectedAgentKey(key));
-                          dispatch(setUserSelectedAgentKey(key));
-                          setAgentMenuOpen(false);
-                        }}
-                      >
-                        <View style={styles.agentMenuItemRow}>
-                          <View style={styles.agentMenuTextWrap}>
-                            <Text style={[styles.agentMenuItemText, { color: selected ? theme.primaryDeep : theme.text }]}>{name}</Text>
-                            <Text style={[styles.agentMenuItemSubText, { color: theme.textMute }]} numberOfLines={1}>
-                              {key || '未配置 key'}
-                            </Text>
-                          </View>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-            ) : null}
-
+          <View style={styles.domainContent}>
             {isChatDomain ? (
-              <ChatAssistantScreen
-                theme={theme}
-                backendUrl={backendUrl}
-                contentWidth={window.width}
-                onRefreshChats={refreshChats}
-                keyboardHeight={shellKeyboardHeight}
-                refreshSignal={chatRefreshSignal}
-                authAccessToken={authAccessToken}
-                authAccessExpireAtMs={authAccessExpireAtMs}
-                authTokenSignal={authTokenSignal}
-                onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
-              />
+              <View style={styles.stackViewport} testID="chat-pane-stack">
+                <Animated.View
+                  style={[
+                    styles.stackTrack,
+                    {
+                      width: window.width * 2,
+                      transform: [{ translateX: chatTranslateX }]
+                    }
+                  ]}
+                >
+                  <View style={[styles.stackPage, { width: window.width }]}>
+                    <ChatListPane
+                      theme={theme}
+                      keyword={chatKeyword}
+                      loading={loadingChats}
+                      items={agentLatestChats}
+                      activeChatId={chatId}
+                      onChangeKeyword={(text) => dispatch(setChatKeyword(text))}
+                      onRefresh={() => {
+                        refreshChats().catch(() => {});
+                      }}
+                      onSelectChat={openChatDetail}
+                    />
+                  </View>
+                  <View style={[styles.stackPage, { width: window.width }]}>
+                    <ChatAssistantScreen
+                      theme={theme}
+                      backendUrl={backendUrl}
+                      contentWidth={window.width}
+                      onRefreshChats={refreshChats}
+                      keyboardHeight={shellKeyboardHeight}
+                      refreshSignal={chatRefreshSignal}
+                      authAccessToken={authAccessToken}
+                      authAccessExpireAtMs={authAccessExpireAtMs}
+                      authTokenSignal={authTokenSignal}
+                      onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
+                    />
+                  </View>
+                </Animated.View>
+                <SwipeBackEdge
+                  enabled={chatPane === 'detail' && !chatDetailDrawerOpen}
+                  onBack={() => dispatch(showChatListPane())}
+                />
+              </View>
             ) : null}
 
             {isTerminalDomain ? (
-              <TerminalScreen
+              <View style={styles.stackViewport} testID="terminal-pane-stack">
+                <Animated.View
+                  style={[
+                    styles.stackTrack,
+                    {
+                      width: window.width * 2,
+                      transform: [{ translateX: terminalTranslateX }]
+                    }
+                  ]}
+                >
+                  <View style={[styles.stackPage, { width: window.width }]}>
+                    <TerminalSessionListPane
+                      theme={theme}
+                      loading={terminalSessionsLoading}
+                      error={terminalSessionsError}
+                      sessions={terminalSessions}
+                      activeSessionId={activeTerminalSessionId}
+                      onCreateSession={openTerminalCreateSessionModal}
+                      onRefresh={() => {
+                        refreshTerminalSessions().catch(() => {});
+                      }}
+                      onSelectSession={openTerminalDetail}
+                    />
+                  </View>
+                  <View style={[styles.stackPage, { width: window.width }]}>
+                    <TerminalScreen
+                      theme={theme}
+                      authAccessToken={authAccessToken}
+                      authAccessExpireAtMs={authAccessExpireAtMs}
+                      authTokenSignal={authTokenSignal}
+                      onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
+                    />
+                  </View>
+                </Animated.View>
+                <SwipeBackEdge enabled={terminalPane === 'detail'} onBack={() => dispatch(showTerminalListPane())} />
+              </View>
+            ) : null}
+
+            {isAgentsDomain ? <AgentsScreen theme={theme} /> : null}
+            {isUserDomain ? (
+              <UserSettingsScreen
                 theme={theme}
-                authAccessToken={authAccessToken}
-                authAccessExpireAtMs={authAccessExpireAtMs}
-                authTokenSignal={authTokenSignal}
-                onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
+                onSettingsApplied={() => refreshAll(true)}
+                username={authUsername}
+                deviceName={authDeviceName}
+                accessToken={authAccessToken}
+                versionLabel={appVersionLabel}
+                onLogout={handleLogout}
               />
             ) : null}
-            {isAgentsDomain ? <AgentsScreen theme={theme} /> : null}
-            {isUserDomain ? <UserSettingsScreen theme={theme} onSettingsApplied={() => refreshAll(true)} username={authUsername} deviceName={authDeviceName} accessToken={authAccessToken} versionLabel={appVersionLabel} onLogout={handleLogout} /> : null}
-          </KeyboardAvoidingView>
-        </Animated.View>
+          </View>
 
-        <View pointerEvents={drawerOpen ? 'auto' : 'none'} style={StyleSheet.absoluteFill}>
-          <Animated.View style={[styles.drawerOverlay, { opacity: drawerAnim }]}> 
-            <Pressable style={StyleSheet.absoluteFill} onPress={() => dispatch(setDrawerOpen(false))} />
-          </Animated.View>
+          {showBottomNav ? (
+            <View style={[styles.bottomNavWrap, { paddingBottom: Math.max(insets.bottom, 6) }]}>
+              <BottomDomainNav value={activeDomain} theme={theme} onPressItem={handleDomainSwitch} />
+            </View>
+          ) : null}
+        </KeyboardAvoidingView>
 
+        <View pointerEvents={inboxOpen ? 'auto' : 'none'} style={styles.inboxLayer}>
           <Animated.View
             style={[
-              styles.drawerPanel,
+              styles.inboxModal,
               {
-                width: drawerWidth,
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                opacity: inboxAnim,
                 paddingTop: insets.top + 8,
-                transform: [{ translateX: drawerTranslateX }],
-                backgroundColor: theme.surface
+                transform: [
+                  {
+                    translateY: inboxAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [-Math.max(120, window.height * 0.16), 0]
+                    })
+                  }
+                ]
               }
             ]}
-            nativeID="shell-drawer-panel"
-            testID="shell-drawer-panel"
           >
-            <View style={styles.drawerHead}>
-              <View style={styles.drawerHeadLeft}>
-                <Text style={[styles.drawerTitle, { color: theme.text }]}>{DRAWER_TITLE[activeDomain]}</Text>
-                {activeDomain === 'chat' ? (
-                  <TouchableOpacity
-                    activeOpacity={0.74}
-                    style={styles.drawerHeadNewChatBtn}
-                    testID="new-chat-btn"
-                    onPress={() => {
-                      dispatch(setChatId(''));
-                      dispatch(setStatusText(''));
-                      dispatch(setDrawerOpen(false));
-                    }}
-                  >
-                    <Text style={[styles.drawerHeadNewChatText, { color: theme.primaryDeep }]}>+新建对话</Text>
-                  </TouchableOpacity>
-                ) : null}
-                {activeDomain === 'terminal' ? (
-                  <TouchableOpacity
-                    activeOpacity={0.76}
-                    style={styles.drawerHeadRefreshBtn}
-                    testID="terminal-sessions-refresh-btn"
-                    onPress={() => {
-                      refreshTerminalSessions().catch(() => {});
-                    }}
-                  >
-                    {terminalSessionsLoading ? (
-                      <ActivityIndicator size="small" color={theme.primaryDeep} />
-                    ) : (
-                      <Text style={[styles.drawerHeadRefreshText, { color: theme.primaryDeep }]}>↻</Text>
-                    )}
-                  </TouchableOpacity>
-                ) : null}
+            <View style={[styles.inboxModalHead, { borderBottomColor: theme.border }]}> 
+              <View>
+                <Text style={[styles.inboxTitle, { color: theme.text }]}>消息盒子</Text>
+                <Text style={[styles.inboxSubTitle, { color: theme.textMute }]}>未读 {inboxUnreadCount}</Text>
+              </View>
+              <View style={styles.inboxHeadActions}>
+                <TouchableOpacity
+                  activeOpacity={0.78}
+                  style={[styles.inboxActionBtn, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
+                  onPress={() => {
+                    markAllInboxRead().catch(() => {});
+                  }}
+                  testID="shell-inbox-read-all-btn"
+                >
+                  <Text style={[styles.inboxCloseText, { color: theme.textSoft }]}>全部已读</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.78}
+                  style={[styles.inboxActionBtn, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
+                  onPress={() => setInboxOpen(false)}
+                  testID="shell-inbox-close-btn"
+                >
+                  <Text style={[styles.inboxCloseText, { color: theme.textSoft }]}>关闭</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+            <ScrollView style={styles.inboxModalScroll} contentContainerStyle={styles.inboxList}>
+              {inboxLoading ? <Text style={[styles.inboxItemBody, { color: theme.textMute }]}>加载中...</Text> : null}
+              {!inboxLoading && inboxMessages.length === 0 ? (
+                <Text style={[styles.inboxItemBody, { color: theme.textMute }]}>暂无消息</Text>
+              ) : null}
+              {inboxMessages.map((message) => (
+                <TouchableOpacity
+                  key={message.messageId}
+                  activeOpacity={0.78}
+                  style={[
+                    styles.inboxItem,
+                    {
+                      borderColor: theme.border,
+                      backgroundColor: message.read ? theme.surface : theme.primarySoft
+                    }
+                  ]}
+                  onPress={() => {
+                    if (!message.read) {
+                      markInboxRead(message.messageId).catch(() => {});
+                    }
+                  }}
+                >
+                  <View style={styles.inboxItemTop}>
+                    <Text style={[styles.inboxItemTitle, { color: theme.text }]}>{message.title}</Text>
+                    <Text style={[styles.inboxItemTime, { color: theme.textMute }]}>{formatInboxTime(message.createAt)}</Text>
+                  </View>
+                  <Text style={[styles.inboxItemBody, { color: theme.textSoft }]}>{message.content}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Animated.View>
+        </View>
+
+        <View pointerEvents={publishOpen ? 'auto' : 'none'} style={styles.publishLayer}>
+          <Animated.View
+            style={[
+              styles.publishModal,
+              {
+                backgroundColor: theme.surface,
+                borderColor: theme.border,
+                opacity: publishAnim,
+                paddingTop: insets.top + 8,
+                transform: [
+                  {
+                    translateY: publishAnim.interpolate({
+                      inputRange: [0, 1],
+                      outputRange: [Math.max(120, window.height * 0.14), 0]
+                    })
+                  }
+                ]
+              }
+            ]}
+          >
+            <View style={[styles.publishHead, { borderBottomColor: theme.border }]}>
+              <View style={styles.publishTitleWrap}>
+                <Text style={[styles.publishTitle, { color: theme.text }]}>发布中心</Text>
+                <Text style={[styles.publishSubTitle, { color: theme.textMute }]} numberOfLines={2}>
+                  {selectedAgentKey ? `当前智能体：${selectedAgentKey}` : '请先选择智能体，然后发起发布。'}
+                </Text>
               </View>
               <TouchableOpacity
-                activeOpacity={0.72}
-                style={[styles.drawerIconBtn, { backgroundColor: theme.surfaceStrong }]}
-                testID="close-drawer-btn"
-                onPress={() => dispatch(setDrawerOpen(false))}
+                activeOpacity={0.78}
+                style={[styles.publishCloseBtn, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
+                onPress={() => setPublishOpen(false)}
+                testID="shell-publish-close-btn"
               >
-                <Text style={[styles.drawerIconText, { color: theme.textSoft }]}>✕</Text>
+                <Text style={[styles.publishCloseText, { color: theme.textSoft }]}>关闭</Text>
               </TouchableOpacity>
             </View>
 
-            <View style={styles.drawerContent}>
-              {activeDomain === 'chat' ? (
-                <>
-                  <View style={styles.searchRow}>
-                    <View style={[styles.chatSearchShell, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}>
-                      <TextInput
-                        value={chatKeyword}
-                        onChangeText={(text) => dispatch(setChatKeyword(text))}
-                        placeholder="搜索"
-                        placeholderTextColor={theme.textMute}
-                        style={[styles.chatSearchInput, styles.chatSearchInputInner, { color: theme.text }]}
-                        nativeID="chat-search-input"
-                        testID="chat-search-input"
-                      />
+            <ScrollView style={styles.publishScroll} contentContainerStyle={styles.publishContent}>
+              <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}>
+                <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布目标</Text>
+                <View style={styles.publishChipRow}>
+                  {['内部频道', '变更公告页', '测试环境'].map((item) => (
+                    <View key={item} style={[styles.publishChip, { borderColor: theme.border, backgroundColor: theme.surface }]}> 
+                      <Text style={[styles.publishChipText, { color: theme.textSoft }]}>{item}</Text>
                     </View>
-
-                    <TouchableOpacity
-                      activeOpacity={0.76}
-                      style={styles.drawerRefreshBtn}
-                      testID="chat-refresh-btn"
-                      onPress={() => {
-                        refreshChats().catch(() => {});
-                      }}
-                    >
-                      {loadingChats ? (
-                        <ActivityIndicator size="small" color={theme.primaryDeep} />
-                      ) : (
-                        <Text style={[styles.drawerRefreshText, { color: theme.primaryDeep }]}>刷新</Text>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-
-                  <ScrollView style={styles.chatListWrap} contentContainerStyle={styles.chatListContent}>
-                    {filteredChats.length ? (
-                      filteredChats.map((chat, index) => {
-                        const active = chat.chatId === chatId;
-                        const title = getChatTitle(chat) || chat.chatId || '未命名会话';
-                        const agentName = getChatAgentName(chat);
-                        const chatTime = formatChatListTime(chat);
-                        const itemKey = chat.chatId || `${title}:${index}`;
-
-                        return (
-                          <TouchableOpacity
-                            key={itemKey}
-                            activeOpacity={0.74}
-                            testID={`chat-list-item-${index}`}
-                            style={[styles.chatItem, { backgroundColor: active ? theme.primarySoft : theme.surfaceStrong }]}
-                            onPress={() => {
-                              if (!chat.chatId) return;
-                              dispatch(setChatId(chat.chatId));
-                              dispatch(setDrawerOpen(false));
-                            }}
-                          >
-                            <Text style={[styles.chatItemTitle, { color: theme.text }]} numberOfLines={1}>{title}</Text>
-                            <View style={styles.chatHistoryMetaRow}>
-                              <Text
-                                style={[styles.chatHistoryMetaAgent, { color: theme.textMute }]}
-                                numberOfLines={1}
-                              >
-                                {agentName}
-                              </Text>
-                              <Text style={[styles.chatHistoryMetaTime, { color: theme.textMute }]} numberOfLines={1}>
-                                {chatTime}
-                              </Text>
-                            </View>
-                          </TouchableOpacity>
-                        );
-                      })
-                    ) : (
-                      <View style={[styles.emptyHistoryCard, { backgroundColor: theme.surfaceStrong }]}> 
-                        <Text style={[styles.emptyHistoryText, { color: theme.textMute }]}>{loadingChats ? '加载中...' : '暂无历史会话'}</Text>
-                      </View>
-                    )}
-                  </ScrollView>
-                </>
-              ) : null}
-
-              {activeDomain === 'terminal' ? (
-                <>
-                  <View style={styles.drawerActionRow}>
-                    <TouchableOpacity
-                      activeOpacity={0.74}
-                      style={[styles.drawerActionBtn, { backgroundColor: theme.surfaceStrong }]}
-                      testID="terminal-sessions-create-btn"
-                      onPress={() => {
-                        openTerminalCreateSessionModal();
-                      }}
-                    >
-                      <Text style={[styles.drawerActionText, { color: theme.textSoft }]}>+ 新会话</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <ScrollView style={styles.chatListWrap} contentContainerStyle={styles.chatListContent}>
-                    {terminalSessions.length ? (
-                      terminalSessions.map((session, index) => {
-                        const active = session.sessionId === activeTerminalSessionId;
-                        const title = session.title || session.sessionId;
-                        const parts: string[] = [];
-                        if (session.sessionType) parts.push(session.sessionType);
-                        if (session.toolId) parts.push(session.toolId);
-                        parts.push(session.sessionId);
-                        const meta = parts.join(' · ');
-                        return (
-                          <TouchableOpacity
-                            key={session.sessionId}
-                            activeOpacity={0.74}
-                            testID={`terminal-session-item-${index}`}
-                            style={[styles.chatItem, { backgroundColor: active ? theme.primarySoft : theme.surfaceStrong }]}
-                            onPress={() => {
-                              dispatch(setActiveSessionId(session.sessionId));
-                              dispatch(reloadPty());
-                              dispatch(setDrawerOpen(false));
-                            }}
-                          >
-                            <Text style={[styles.chatItemTitle, { color: theme.text }]} numberOfLines={1}>
-                              {title}
-                            </Text>
-                            <Text style={[styles.chatItemMeta, { color: theme.textMute }]} numberOfLines={1}>
-                              {meta}
-                            </Text>
-                          </TouchableOpacity>
-                        );
-                      })
-                    ) : (
-                      <View style={[styles.emptyHistoryCard, { backgroundColor: theme.surfaceStrong, marginTop: 8 }]}>
-                        <Text style={[styles.emptyHistoryText, { color: theme.textMute }]}>
-                          {terminalSessionsLoading ? '加载中...' : terminalSessionsError ? terminalSessionsError : '暂无终端会话'}
-                        </Text>
-                      </View>
-                    )}
-                  </ScrollView>
-                </>
-              ) : null}
-
-              {activeDomain === 'agents' ? (
-                <>
-                  <Text style={[styles.drawerSectionTitle, { color: theme.textSoft }]}>智能体列表</Text>
-                  <ScrollView style={styles.chatListWrap} contentContainerStyle={styles.chatListContent}>
-                    {(agents.length ? agents : [{ key: '', name: '暂无 Agent' }]).map((agent, index) => {
-                      const key = getAgentKey(agent);
-                      const name = getAgentName(agent) || key || `Agent ${index + 1}`;
-                      const selected = key && key === selectedAgentKey;
-                      return (
-                        <TouchableOpacity
-                          key={key || `${name}-${index}`}
-                          disabled={!key}
-                          activeOpacity={0.78}
-                          style={[
-                            styles.chatItem,
-                            {
-                              backgroundColor: selected ? theme.primarySoft : theme.surfaceStrong
-                            }
-                          ]}
-                          onPress={() => {
-                            if (!key) return;
-                            dispatch(setAgentsSelectedAgentKey(key));
-                            dispatch(setUserSelectedAgentKey(key));
-                          }}
-                        >
-                          <Text style={[styles.chatItemTitle, { color: selected ? theme.primaryDeep : theme.text }]} numberOfLines={1}>
-                            {name}
-                          </Text>
-                          <Text style={[styles.chatItemMeta, { color: theme.textMute }]} numberOfLines={1}>
-                            {key || '未配置 key'}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </ScrollView>
-                </>
-              ) : null}
-
-              {activeDomain === 'user' ? (
-                <View style={styles.nonChatHintWrap}>
-                  <Text style={[styles.nonChatHint, { color: theme.textSoft }]}>配置项请在主内容区编辑。</Text>
+                  ))}
                 </View>
-              ) : null}
-            </View>
-
-            <View style={[styles.drawerBottom, { borderTopColor: theme.border }]}>
-              <View style={styles.profileDomainRow}>
-                <TouchableOpacity
-                  activeOpacity={0.72}
-                  style={styles.profileTouchable}
-                  onPress={() => {
-                    setAgentMenuOpen(false);
-                    setInboxOpen(false);
-                    setPublishOpen(false);
-                    dispatch(setActiveDomain('user'));
-                    dispatch(setDrawerOpen(false));
-                  }}
-                >
-                  <View style={[styles.profileAvatar, { backgroundColor: theme.primary }]}>
-                    <Text style={styles.profileAvatarText}>{profileInitial}</Text>
-                  </View>
-                  <View style={styles.profileMeta}>
-                    <Text style={[styles.profileNameText, { color: theme.text }]} numberOfLines={1}>
-                      {profileName}
-                    </Text>
-                    <Text style={[styles.profileDeviceText, { color: theme.textMute }]} numberOfLines={1}>
-                      {profileDeviceLabel}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-                <DomainSwitcher
-                  value={activeDomain}
-                  onChange={(mode: DomainMode) => {
-                    setAgentMenuOpen(false);
-                    setInboxOpen(false);
-                    setPublishOpen(false);
-                    dispatch(setActiveDomain(mode));
-                    dispatch(setDrawerOpen(false));
-                  }}
-                  theme={theme}
-                  compact
-                />
               </View>
 
-              <View style={styles.drawerStatusRow}>{agentsLoading ? <ActivityIndicator size="small" color={theme.primary} /> : null}</View>
+              <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}>
+                <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布说明</Text>
+                <Text style={[styles.publishSectionBody, { color: theme.textSoft }]}>本次发布会同步当前智能体配置、默认提示词和会话能力开关。建议先在测试环境验证 5 分钟后再推送到团队频道。</Text>
+              </View>
+
+              <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}>
+                <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布清单</Text>
+                <View style={styles.publishChecklist}>
+                  {['配置校验已通过', '变更摘要已生成', '回滚方案已就绪'].map((item) => (
+                    <View key={item} style={styles.publishChecklistItem}>
+                      <Text style={[styles.publishChecklistDot, { color: theme.primaryDeep }]}>•</Text>
+                      <Text style={[styles.publishChecklistText, { color: theme.textSoft }]}>{item}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+
+            <View style={[styles.publishFooter, { borderTopColor: theme.border }]}> 
+              <TouchableOpacity
+                activeOpacity={0.76}
+                style={[styles.publishGhostBtn, { backgroundColor: theme.surfaceStrong }]}
+                onPress={() => setPublishOpen(false)}
+              >
+                <Text style={[styles.publishGhostText, { color: theme.textSoft }]}>取消</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.82}
+                style={[styles.publishPrimaryBtn, { backgroundColor: theme.primary }]}
+                testID="shell-publish-submit-btn"
+                onPress={() => {
+                  setPublishOpen(false);
+                  dispatch(setStatusText('发布任务已创建（演示）'));
+                }}
+              >
+                <Text style={styles.publishPrimaryText}>确认发布</Text>
+              </TouchableOpacity>
             </View>
           </Animated.View>
         </View>
+
+        <AgentSidebar
+          visible={isChatDomain && chatAgentsSidebarOpen}
+          theme={theme}
+          agents={agents}
+          selectedAgentKey={selectedAgentKey}
+          onClose={() => dispatch(setChatAgentsSidebarOpen(false))}
+          onSelectAgent={handleAgentSelectNewChat}
+        />
+        <ChatDetailDrawer
+          visible={isChatDomain && chatPane === 'detail' && chatDetailDrawerOpen}
+          theme={theme}
+          chats={currentAgentChats}
+          activeChatId={chatId}
+          onClose={() => dispatch(closeChatDetailDrawer())}
+          onSelectChat={(nextChatId) => {
+            dispatch(setChatId(nextChatId));
+            dispatch(closeChatDetailDrawer());
+          }}
+        />
       </View>
     </SafeAreaView>
   );
@@ -1595,9 +1533,6 @@ const styles = StyleSheet.create({
     flex: 1
   },
   gradientFill: {
-    flex: 1
-  },
-  mainShell: {
     flex: 1
   },
   shell: {
@@ -1617,8 +1552,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10
   },
+  authTitle: {
+    fontSize: 18,
+    fontWeight: '600'
+  },
   bootText: {
     fontSize: 14
+  },
+  domainContent: {
+    flex: 1
+  },
+  stackViewport: {
+    flex: 1,
+    overflow: 'hidden'
+  },
+  stackTrack: {
+    flex: 1,
+    flexDirection: 'row'
+  },
+  stackPage: {
+    flex: 1
   },
   topNavCompact: {
     flexDirection: 'row',
@@ -1636,13 +1589,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center'
   },
-  menuIconSvg: {
-    width: 20,
-    height: 20
-  },
-  inboxIconSvg: {
-    width: 22,
-    height: 22
+  detailBackBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   inboxBadge: {
     position: 'absolute',
@@ -1672,6 +1624,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600'
   },
+  detailBackText: {
+    fontSize: 20,
+    fontWeight: '700',
+    lineHeight: 22
+  },
   themeToggleText: {
     fontSize: 16,
     fontWeight: '600'
@@ -1691,14 +1648,9 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minWidth: 0,
     alignItems: 'center',
-    maxWidth: '82%'
+    maxWidth: '84%'
   },
   assistantTopTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    textAlign: 'center'
-  },
-  assistantTopSingleTitle: {
     fontSize: 13,
     fontWeight: '600',
     textAlign: 'center'
@@ -1709,13 +1661,9 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textAlign: 'center'
   },
-  assistantTopArrow: {
-    fontSize: 18,
-    fontWeight: '600'
-  },
   inboxLayer: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 10
+    zIndex: 12
   },
   inboxModal: {
     ...StyleSheet.absoluteFillObject,
@@ -1786,7 +1734,7 @@ const styles = StyleSheet.create({
   },
   publishLayer: {
     ...StyleSheet.absoluteFillObject,
-    zIndex: 11
+    zIndex: 13
   },
   publishModal: {
     ...StyleSheet.absoluteFillObject,
@@ -1928,151 +1876,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     textAlign: 'center'
   },
-  agentMenuCard: {
-    marginHorizontal: 14,
-    marginTop: 0,
-    marginBottom: 8,
-    borderRadius: 18,
-    borderWidth: StyleSheet.hairlineWidth,
-    height: 246,
-    overflow: 'hidden'
-  },
-  agentMenuList: {
-    flex: 1
-  },
-  agentMenuListContent: {
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    gap: 5
-  },
-  agentMenuItem: {
-    borderRadius: 12,
-    minHeight: 42,
-    borderWidth: StyleSheet.hairlineWidth,
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 7
-  },
-  agentMenuItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  agentMenuTextWrap: {
-    flex: 1,
-    minWidth: 0,
-    alignItems: 'center'
-  },
-  agentMenuItemText: {
-    fontSize: 12,
-    fontWeight: '600',
-    textAlign: 'center'
-  },
-  agentMenuItemSubText: {
-    marginTop: 2,
-    fontSize: 11,
-    textAlign: 'center'
-  },
-  drawerOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.22)'
-  },
-  drawerPanel: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    paddingHorizontal: 12,
-    gap: 10
-  },
-  drawerHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between'
-  },
-  drawerHeadLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8
-  },
-  drawerTitle: {
-    fontSize: 18,
-    fontWeight: '600'
-  },
-  drawerHeadNewChatBtn: {
-    paddingHorizontal: 8,
-    paddingVertical: 4
-  },
-  drawerHeadNewChatText: {
-    fontSize: 14,
-    fontWeight: '600'
-  },
-  drawerHeadRefreshBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  drawerHeadRefreshText: {
-    fontSize: 14,
-    fontWeight: '600'
-  },
-  drawerIconBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  drawerIconText: {
-    fontSize: 13,
-    fontWeight: '600'
-  },
-  drawerContent: {
-    flex: 1
-  },
-  drawerSectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginBottom: 8
-  },
-  drawerActionRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 10
-  },
-  drawerActionBtn: {
-    flex: 1,
-    borderRadius: 10,
-    paddingVertical: 9,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'transparent',
-    alignItems: 'center'
-  },
-  drawerActionBtnStrong: {
-    borderWidth: 1,
-    minHeight: 40
-  },
-  drawerActionText: {
-    fontSize: 12,
-    fontWeight: '600'
-  },
-  drawerActionTextStrong: {
-    fontSize: 13
-  },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 10
-  },
-  chatSearchShell: {
-    flex: 1,
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: 'center'
-  },
   chatSearchInput: {
     borderRadius: 10,
     height: 38,
@@ -2083,121 +1886,10 @@ const styles = StyleSheet.create({
     textAlignVertical: 'center',
     marginBottom: 10
   },
-  chatSearchInputInner: {
-    marginBottom: 0
-  },
-  drawerRefreshBtn: {
-    minWidth: 44,
-    height: 38,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 2
-  },
-  drawerRefreshText: {
-    fontSize: 12,
-    fontWeight: '600'
-  },
-  chatListWrap: {
-    flex: 1
-  },
-  chatListContent: {
-    paddingBottom: 12,
-    gap: 8
-  },
-  chatItem: {
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 9
-  },
-  chatItemTitle: {
-    fontSize: 13,
-    fontWeight: '600'
-  },
-  chatItemMeta: {
-    marginTop: 4,
-    fontSize: 11
-  },
-  chatHistoryMetaRow: {
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 8
-  },
-  chatHistoryMetaAgent: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 11
-  },
-  chatHistoryMetaTime: {
-    fontSize: 11,
-    textAlign: 'right'
-  },
-  emptyHistoryCard: {
-    borderRadius: 10,
-    paddingVertical: 22,
-    alignItems: 'center'
-  },
   emptyHistoryText: {
     fontSize: 12
   },
-  nonChatHintWrap: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 16
-  },
-  nonChatHint: {
-    fontSize: 13,
-    textAlign: 'center',
-    lineHeight: 20
-  },
-  drawerBottom: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 10,
-    paddingBottom: 8,
-    gap: 8
-  },
-  profileDomainRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    minHeight: 40
-  },
-  profileTouchable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
-    minWidth: 0
-  },
-  profileAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  profileAvatarText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600'
-  },
-  profileMeta: {
-    flex: 1,
-    minWidth: 0
-  },
-  profileNameText: {
-    fontSize: 13,
-    fontWeight: '600'
-  },
-  profileDeviceText: {
-    marginTop: 2,
-    fontSize: 11
-  },
-  drawerStatusRow: {
-    minHeight: 16,
-    alignItems: 'flex-end',
-    justifyContent: 'center'
+  bottomNavWrap: {
+    borderTopWidth: 0
   }
 });
