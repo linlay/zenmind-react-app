@@ -4,7 +4,7 @@ import { selectAgentLatestChats, selectCurrentAgentChats, selectFilteredChats } 
 function createState(
   chats: Array<Record<string, unknown>>,
   chatKeyword = '',
-  options: { chatId?: string; selectedAgentKey?: string } = {}
+  options: { chatId?: string; selectedAgentKey?: string; agents?: Array<Record<string, unknown>> } = {}
 ): RootState {
   return {
     chat: {
@@ -16,6 +16,9 @@ function createState(
     },
     user: {
       selectedAgentKey: options.selectedAgentKey || ''
+    },
+    agents: {
+      agents: options.agents || []
     }
   } as unknown as RootState;
 }
@@ -90,6 +93,23 @@ describe('chatSelectors', () => {
 
     const byAgentKey = selectAgentLatestChats(createState(state.chat.chats, 'agent-b'));
     expect(byAgentKey.map((item) => item.agentKey)).toEqual(['agent-b']);
+  });
+
+  it('uses agentKey and resolves display name from agents first', () => {
+    const state = createState(
+      [
+        { chatId: 'chat-1', chatName: 'A', agentKey: 'demoAction', agentName: 'ChatAgentName', updatedAt: 200 },
+        { chatId: 'chat-2', chatName: 'B', agentKey: 'demoAction', updatedAt: 100 }
+      ],
+      '',
+      {
+        agents: [{ key: 'demoAction', name: 'AgentFromAgents' }]
+      }
+    );
+    const result = selectAgentLatestChats(state);
+    expect(result).toHaveLength(1);
+    expect(result[0].agentKey).toBe('demoAction');
+    expect(result[0].agentName).toBe('AgentFromAgents');
   });
 
   it('returns current agent chats by active chat firstAgentKey', () => {

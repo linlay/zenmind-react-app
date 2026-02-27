@@ -1,4 +1,4 @@
-import { formatChatListTime, getChatAgentName, getChatTimestamp, getChatTitle } from '../format';
+import { formatChatListTime, getChatAgentKey, getChatAgentName, getChatLastContent, getChatTimestamp, getChatTitle } from '../format';
 
 describe('chat format helpers', () => {
   it('uses chatName first and falls back to title/chatId', () => {
@@ -9,8 +9,20 @@ describe('chat format helpers', () => {
 
   it('resolves agent name with fallback order', () => {
     expect(getChatAgentName({ firstAgentName: '示例智能体', firstAgentKey: 'agent-key' })).toBe('示例智能体');
-    expect(getChatAgentName({ firstAgentName: '   ', firstAgentKey: 'agent-key' })).toBe('未知智能体');
+    expect(getChatAgentName({ firstAgentName: '   ', agentName: '备用智能体', firstAgentKey: 'agent-key' })).toBe('备用智能体');
     expect(getChatAgentName({ firstAgentName: '', firstAgentKey: '' })).toBe('未知智能体');
+  });
+
+  it('resolves agent key with fallback order', () => {
+    expect(getChatAgentKey({ firstAgentKey: 'agent-a', agentKey: 'agent-b' })).toBe('agent-a');
+    expect(getChatAgentKey({ firstAgentKey: '', agentKey: 'agent-b' })).toBe('agent-b');
+    expect(getChatAgentKey({ firstAgentKey: '', agentKey: '' })).toBe('');
+  });
+
+  it('resolves last content with fallback order', () => {
+    expect(getChatLastContent({ lastRunContent: '最新结果', last: '旧结果' } as any)).toBe('最新结果');
+    expect(getChatLastContent({ lastRunContent: '', last: '旧结果' } as any)).toBe('旧结果');
+    expect(getChatLastContent({} as any)).toBe('');
   });
 
   it('formats chat list time as hh:mm for today', () => {

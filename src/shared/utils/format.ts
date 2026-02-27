@@ -68,9 +68,19 @@ export function getChatTitle(chat: ChatSummary | null | undefined): string {
   return pickFirstNonEmpty([chat.chatName, chat.title, chat.chatId]);
 }
 
+export function getChatAgentKey(chat: ChatSummary | null | undefined): string {
+  if (!chat || typeof chat !== 'object') return '';
+  return pickFirstNonEmpty([chat.firstAgentKey, chat.agentKey]);
+}
+
 export function getChatAgentName(chat: ChatSummary | null | undefined): string {
   if (!chat || typeof chat !== 'object') return '未知智能体';
-  return pickFirstNonEmpty([chat.firstAgentName, '未知智能体']);
+  return pickFirstNonEmpty([chat.firstAgentName, chat.agentName, '未知智能体']);
+}
+
+export function getChatLastContent(chat: ChatSummary | null | undefined): string {
+  if (!chat || typeof chat !== 'object') return '';
+  return pickFirstNonEmpty([(chat as Record<string, unknown>).lastRunContent, (chat as Record<string, unknown>).last]);
 }
 
 export function formatChatListTime(chat: ChatSummary | null | undefined, nowInput?: Date): string {

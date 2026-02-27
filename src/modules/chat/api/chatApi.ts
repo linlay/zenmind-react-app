@@ -2,6 +2,23 @@ import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
 import { ChatSummary } from '../../../core/types/common';
 import { fetchApiJson, fetchViewportHtml, submitFrontendToolApi } from '../../../core/network/apiClient';
 
+function normalizeChatSummary(raw: ChatSummary): ChatSummary {
+  if (!raw || typeof raw !== 'object') {
+    return {};
+  }
+  const chat = raw as ChatSummary;
+  const firstAgentKey = String(chat.firstAgentKey || '').trim();
+  const agentKey = String(chat.agentKey || '').trim();
+  const firstAgentName = String(chat.firstAgentName || '').trim();
+  const agentName = String(chat.agentName || '').trim();
+
+  return {
+    ...chat,
+    firstAgentKey: firstAgentKey || agentKey,
+    firstAgentName: firstAgentName || agentName
+  };
+}
+
 export const chatApi = createApi({
   reducerPath: 'chatApi',
   baseQuery: fakeBaseQuery(),
@@ -10,7 +27,8 @@ export const chatApi = createApi({
       async queryFn(baseUrl) {
         try {
           const data = await fetchApiJson<ChatSummary[]>(baseUrl, '/api/ap/chats');
-          return { data: Array.isArray(data) ? data : [] };
+          const list = Array.isArray(data) ? data.map((item) => normalizeChatSummary(item)) : [];
+          return { data: list };
         } catch (error) {
           return { error: error as Error };
         }

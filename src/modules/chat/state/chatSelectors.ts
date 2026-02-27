@@ -1,7 +1,6 @@
 import { RootState } from '../../../app/store/store';
 import { Agent } from '../../../core/types/common';
-import { getAgentKey } from '../../../shared/utils/format';
-import { getChatTimestamp, getChatTitle } from '../../../shared/utils/format';
+import { getAgentKey, getAgentName, getChatAgentKey, getChatAgentName, getChatTimestamp, getChatTitle } from '../../../shared/utils/format';
 import { ChatSummary } from '../../../core/types/common';
 
 const UNKNOWN_AGENT_KEY = '__unknown_agent__';
@@ -19,16 +18,21 @@ export const selectChatId = (state: RootState) => state.chat.chatId;
 export const selectChatKeyword = (state: RootState) => state.chat.chatKeyword;
 
 function getAgentKeyFromChat(chat: ChatSummary): string {
-  const key = String(chat.firstAgentKey || '').trim();
+  const key = String(getChatAgentKey(chat) || '').trim();
   return key || UNKNOWN_AGENT_KEY;
 }
 
-function getAgentNameFromChat(chat: ChatSummary): string {
-  const name = String(chat.firstAgentName || '').trim();
+function getAgentNameFromChat(chat: ChatSummary, agentNameByKey: Map<string, string>): string {
+  const agentKey = String(getChatAgentKey(chat) || '').trim();
+  const mappedName = agentKey ? String(agentNameByKey.get(agentKey) || '').trim() : '';
+  if (mappedName) {
+    return mappedName;
+  }
+  const name = String(getChatAgentName(chat) || '').trim();
   if (name) {
     return name;
   }
-  const fallbackKey = String(chat.firstAgentKey || '').trim();
+  const fallbackKey = String(getChatAgentKey(chat) || '').trim();
   return fallbackKey || '未知智能体';
 }
 
@@ -36,7 +40,7 @@ function matchesKeyword(chat: ChatSummary, keyword: string): boolean {
   if (!keyword) {
     return true;
   }
-  const haystack = `${chat.chatName || ''} ${chat.title || ''} ${chat.chatId || ''} ${chat.firstAgentName || ''} ${chat.firstAgentKey || ''}`.toLowerCase();
+  const haystack = `${chat.chatName || ''} ${chat.title || ''} ${chat.chatId || ''} ${getChatAgentName(chat)} ${getChatAgentKey(chat)}`.toLowerCase();
   return haystack.includes(keyword);
 }
 
@@ -122,6 +126,7 @@ export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] 
   const sorted = [...state.chat.chats].sort(sortByRecent);
   const keyword = state.chat.chatKeyword.trim().toLowerCase();
   const latestByAgent = new Map<string, ChatSummary>();
+  const agentNameByKey = new Map<string, string>();
   const visualByAgentKey = new Map<string, { iconName: string; iconColor: string }>();
 
   const agents = Array.isArray((state as RootState).agents?.agents) ? (state as RootState).agents.agents : [];
@@ -129,6 +134,10 @@ export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] 
     const key = getAgentKey(agent);
     if (!key) {
       return;
+    }
+    const mappedName = String(getAgentName(agent) || '').trim();
+    if (mappedName) {
+      agentNameByKey.set(key, mappedName);
     }
     visualByAgentKey.set(key, {
       iconName: resolveAgentIconName(agent),
@@ -148,7 +157,7 @@ export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] 
       const visualFromAgent = visualByAgentKey.get(agentKey);
       return {
         agentKey,
-        agentName: getAgentNameFromChat(chat),
+        agentName: getAgentNameFromChat(chat, agentNameByKey),
         iconName: resolveChatIconName(chat) || visualFromAgent?.iconName || '',
         iconColor: resolveChatIconColor(chat) || visualFromAgent?.iconColor || '',
         latestChat: chat
@@ -167,7 +176,7 @@ export const selectCurrentAgentChats = (state: RootState): ChatSummary[] => {
   const selectedAgentKey = String(state.user.selectedAgentKey || '').trim();
   const activeChatId = String(state.chat.chatId || '').trim();
   const activeChat = chats.find((chat) => String(chat.chatId || '').trim() === activeChatId);
-  const activeAgentKey = String(activeChat?.firstAgentKey || '').trim();
+  const activeAgentKey = String(getChatAgentKey(activeChat) || '').trim();
   const resolvedAgentKey = activeAgentKey || selectedAgentKey || UNKNOWN_AGENT_KEY;
 
   return [...chats]

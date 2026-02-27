@@ -12,8 +12,14 @@ export interface ChatSummary {
   chatId?: string;
   chatName?: string;
   title?: string;
+  agentKey?: string;
+  agentName?: string;
   firstAgentKey?: string;
   firstAgentName?: string;
+  lastRunContent?: string;
+  lastRunId?: string;
+  readStatus?: number;
+  readAt?: string | number | null;
   updatedAt?: string | number;
   createdAt?: string | number;
   [key: string]: unknown;

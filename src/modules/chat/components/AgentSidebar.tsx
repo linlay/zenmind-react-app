@@ -43,7 +43,7 @@ export function AgentSidebar({
   );
 
   return (
-    <View pointerEvents={visible ? 'auto' : 'none'} style={StyleSheet.absoluteFill} testID="chat-agent-sidebar-layer">
+    <View pointerEvents={visible ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, styles.layer]} testID="chat-agent-sidebar-layer">
       <Animated.View style={[styles.overlay, { opacity: anim, backgroundColor: theme.overlay }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
@@ -113,6 +113,10 @@ export function AgentSidebar({
 }
 
 const styles = StyleSheet.create({
+  layer: {
+    zIndex: 24,
+    elevation: 24
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject
   },

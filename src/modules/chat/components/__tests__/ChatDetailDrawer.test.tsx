@@ -60,6 +60,7 @@ describe('ChatDetailDrawer side drawer', () => {
     expect((style as { width?: string }).width).toBe('76%');
     expect((tree as ReturnType<typeof create>).root.findByProps({ children: '与Agent A的对话' })).toBeTruthy();
     expect((tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-create-chat-btn' })).toBeTruthy();
+    expect((tree as ReturnType<typeof create>).root.findByProps({ children: '新建对话 · 详情页左滑' })).toBeTruthy();
   });
 
   it('calls onClose when tapping mask', () => {
@@ -121,8 +122,8 @@ describe('ChatDetailDrawer side drawer', () => {
           theme={THEMES.light}
           activeAgentName="Agent A"
           chats={[
-            { chatId: 'chat-7', chatName: '会话七', updatedAt: Date.now(), last: 'last content' },
-            { chatId: 'chat-8', updatedAt: Date.now() }
+            { chatId: 'chat-7', chatName: '会话七', updatedAt: Date.now(), lastRunContent: 'last content', readStatus: 1 },
+            { chatId: 'chat-8', updatedAt: Date.now(), readStatus: 0 }
           ] as any}
           activeChatId=""
           onClose={() => {}}
@@ -134,10 +135,11 @@ describe('ChatDetailDrawer side drawer', () => {
 
     expect((tree as ReturnType<typeof create>).root.findByProps({ children: '会话七' })).toBeTruthy();
     expect((tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-item-last-0' }).props.children).toBe('last content');
-    expect((tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-item-last-1' }).props.children).toBe('暂无 last');
+    expect((tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-item-last-1' }).props.children).toBe('暂无内容');
     const icon0 = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-read-icon-0' });
     const icon1 = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-read-icon-1' });
-    expect(icon0.props.children).not.toBe(icon1.props.children);
+    expect(icon0.props.children).toBe('○');
+    expect(icon1.props.children).toBe('●');
   });
 
   it('creates new chat from drawer create row', () => {

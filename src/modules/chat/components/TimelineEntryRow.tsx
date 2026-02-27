@@ -1,8 +1,9 @@
 // @ts-nocheck
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, Linking, PanResponder, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, Linking, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Markdown from 'react-native-markdown-display';
+import Svg, { Circle, Path } from 'react-native-svg';
 import { authorizedFetch } from '../../../core/auth/appAuth';
 import { FONT_MONO, FONT_SANS } from '../../../core/constants/theme';
 import { toSmartTime } from '../../../shared/utils/format';
@@ -40,142 +41,59 @@ interface TimelineEntryRowProps {
   onToggleReasoning: (id: string) => void;
   onCopyText: (text: string) => void;
   onImageAuthError: () => void;
-  showRunEndUnlock?: boolean;
-  onUnlockNewChat?: () => void;
 }
 
 const AUTH_RETRY_QUICK_DELAYS_MS = [200, 450, 900];
 const AUTH_RETRY_PERIODIC_INTERVAL_MS = 3000;
 const AUTH_RETRY_TOTAL_WINDOW_MS = 30_000;
 const AUTH_FAILURE_REGEX = /(^|[^0-9])(401|403)([^0-9]|$)|forbidden|unauthori[sz]ed|expired|signature|token/i;
-const RUN_END_UNLOCK_KNOB_SIZE = 20;
+type TimelineIconKind = 'tool' | 'reasoning' | 'message';
 
-function RunEndUnlockSlider({
-  theme,
-  onUnlock
+function TimelineRailIcon({
+  kind,
+  color
 }: {
-  theme: Pick<TimelineEntryRowProps['theme'], 'primary' | 'primaryDeep' | 'primarySoft' | 'surfaceStrong' | 'textMute' | 'border'>;
-  onUnlock: () => void;
+  kind: TimelineIconKind;
+  color: string;
 }) {
-  const dragX = useRef(new Animated.Value(0)).current;
-  const hintAnim = useRef(new Animated.Value(0)).current;
-  const trackWidthRef = useRef(0);
+  if (kind === 'tool') {
+    return (
+      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M21 7.7A5.2 5.2 0 0 1 13.7 13L7 19.7a2 2 0 0 1-2.8-2.8L10.9 10A5.2 5.2 0 0 1 17.1 2L14 5.1l1.9 1.9L19 3.9A5.2 5.2 0 0 1 21 7.7Z"
+          fill={color}
+        />
+      </Svg>
+    );
+  }
 
-  const maxSlide = useCallback(() => {
-    const width = trackWidthRef.current;
-    return Math.max(0, width - RUN_END_UNLOCK_KNOB_SIZE - 4);
-  }, []);
-
-  const resetDrag = useCallback(
-    (animated = true) => {
-      if (!animated) {
-        dragX.setValue(0);
-        return;
-      }
-      Animated.spring(dragX, {
-        toValue: 0,
-        useNativeDriver: true,
-        bounciness: 0
-      }).start();
-    },
-    [dragX]
-  );
-
-  useEffect(() => {
-    const anim = Animated.sequence([
-      Animated.timing(hintAnim, {
-        toValue: 1,
-        duration: 260,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true
-      }),
-      Animated.timing(hintAnim, {
-        toValue: 0,
-        duration: 320,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true
-      })
-    ]);
-    anim.start();
-    return () => {
-      anim.stop();
-    };
-  }, [hintAnim]);
-
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_event, gestureState) => {
-          const horizontal = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) * 1.2;
-          return horizontal && gestureState.dx > 3;
-        },
-        onPanResponderGrant: () => {
-          hintAnim.stopAnimation();
-          hintAnim.setValue(0);
-        },
-        onPanResponderMove: (_event, gestureState) => {
-          const next = Math.max(0, Math.min(gestureState.dx, maxSlide()));
-          dragX.setValue(next);
-        },
-        onPanResponderRelease: (_event, gestureState) => {
-          const max = maxSlide();
-          const next = Math.max(0, Math.min(gestureState.dx, max));
-          const threshold = Math.min(72, Math.max(46, max * 0.7));
-          const shouldUnlock = next >= threshold || gestureState.vx > 0.6;
-          if (shouldUnlock) {
-            Animated.timing(dragX, {
-              toValue: max,
-              duration: 90,
-              easing: Easing.out(Easing.cubic),
-              useNativeDriver: true
-            }).start(() => {
-              dragX.setValue(0);
-              onUnlock();
-            });
-            return;
-          }
-          resetDrag(true);
-        },
-        onPanResponderTerminate: () => {
-          resetDrag(true);
-        }
-      }),
-    [dragX, hintAnim, maxSlide, onUnlock, resetDrag]
-  );
-
-  const knobTranslateX = Animated.add(
-    dragX,
-    hintAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, 7]
-    })
-  );
+  if (kind === 'reasoning') {
+    return (
+      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M9.5 21h5M10 17h4M8.5 14.5c-1.7-1.1-2.8-3-2.8-5.2a6.3 6.3 0 0 1 12.6 0c0 2.2-1.1 4.1-2.8 5.2-.7.5-1.1 1.3-1.1 2.1H9.6c0-.8-.4-1.6-1.1-2.1Z"
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </Svg>
+    );
+  }
 
   return (
-    <View style={styles.runEndUnlockWrap}>
-      <View
-        style={[styles.runEndUnlockTrack, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
-        onLayout={(event) => {
-          trackWidthRef.current = event.nativeEvent.layout.width;
-        }}
-        testID="run-end-unlock-track"
-      >
-        <Text style={[styles.runEndUnlockLabel, { color: theme.textMute }]}>右滑开启新对话</Text>
-        <Animated.View
-          style={[
-            styles.runEndUnlockKnob,
-            {
-              backgroundColor: theme.primary,
-              transform: [{ translateX: knobTranslateX }]
-            }
-          ]}
-          {...panResponder.panHandlers}
-          testID="run-end-unlock-handle"
-        >
-          <Text style={[styles.runEndUnlockGlyph, { color: theme.primaryDeep === theme.primary ? '#fff' : '#eef4ff' }]}>›</Text>
-        </Animated.View>
-      </View>
-    </View>
+    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6.2 7.4h11.6a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-7l-3.6 2.6v-2.6H6.2a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Circle cx="9.2" cy="12.4" r="0.9" fill={color} />
+      <Circle cx="12" cy="12.4" r="0.9" fill={color} />
+      <Circle cx="14.8" cy="12.4" r="0.9" fill={color} />
+    </Svg>
   );
 }
 
@@ -716,9 +634,7 @@ function TimelineEntryRowComponent({
   onToggleTool,
   onToggleReasoning,
   onCopyText,
-  onImageAuthError,
-  showRunEndUnlock = false,
-  onUnlockNewChat
+  onImageAuthError
 }: TimelineEntryRowProps) {
   const appear = useRef(new Animated.Value(0)).current;
 
@@ -958,11 +874,13 @@ function TimelineEntryRowComponent({
     ]
   };
 
-  const renderTimelineRail = (dotStyle?: Record<string, unknown>, icon?: string) => (
+  const renderTimelineRail = (dotStyle?: Record<string, unknown>, iconKind?: TimelineIconKind) => (
     <View style={styles.timelineRail}>
       <View style={[styles.timelineLine, { backgroundColor: theme.timelineLine }]} />
-      {icon ? (
-        <Text style={[styles.timelineIcon, dotStyle]}>{icon}</Text>
+      {iconKind ? (
+        <View style={[styles.timelineIconWrap, dotStyle]}>
+          <TimelineRailIcon kind={iconKind} color={theme.primaryDeep || theme.primary} />
+        </View>
       ) : (
         <View style={[styles.timelineDot, dotStyle, { backgroundColor: theme.timelineDot }]} />
       )}
@@ -1003,7 +921,7 @@ function TimelineEntryRowComponent({
 
     return (
       <Animated.View style={[styles.toolRow, enterStyle]}>
-        {renderTimelineRail(styles.timelineDotTool, '🔧')}
+        {renderTimelineRail(styles.timelineDotTool, 'tool')}
         <View style={styles.toolBody}>
           <TouchableOpacity activeOpacity={0.8} onPress={() => onToggleTool(item.id)}>
             <View style={[styles.toolHead, { backgroundColor: toneStyle.bg }]}> 
@@ -1038,7 +956,7 @@ function TimelineEntryRowComponent({
 
     return (
       <Animated.View style={[styles.reasoningRow, enterStyle]}>
-        {renderTimelineRail(styles.timelineDotReasoning, '💡')}
+        {renderTimelineRail(styles.timelineDotReasoning, 'reasoning')}
         <TouchableOpacity activeOpacity={0.7} style={styles.reasoningBody} onPress={() => onToggleReasoning(item.id)}>
           <Text style={[styles.reasoningLabel, { color: theme.textMute }]}>{durationLabel}</Text>
           {item.collapsed ? null : <Text style={[styles.reasoningText, { color: theme.textMute }]}>{item.text || ''}</Text>}
@@ -1054,7 +972,7 @@ function TimelineEntryRowComponent({
   if (isUser) {
     return (
       <Animated.View style={[styles.userRow, enterStyle]}>
-        <View style={styles.timelineSpacer} />
+        {renderTimelineRail(styles.timelineDotMessage, 'message')}
         <View style={styles.userBubbleWrap}>
           <TouchableOpacity activeOpacity={0.85} onLongPress={() => onCopyText(item.text)}>
             <LinearGradient colors={theme.userBubble} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.userBubble}>
@@ -1071,13 +989,15 @@ function TimelineEntryRowComponent({
     const endText = String(item.text || '本次运行结束').trim();
     return (
       <Animated.View style={[styles.runEndRow, enterStyle]}>
-        {item.ts ? (
-          <View style={styles.runEndTimeWrap}>
-            <Text style={[styles.runEndTime, { color: theme.textMute }]}>{toSmartTime(item.ts)}</Text>
-          </View>
-        ) : null}
-        <Text style={[styles.runEndText, { color: theme.textMute }]}>{`-- ${endText} --`}</Text>
-        {showRunEndUnlock && onUnlockNewChat ? <RunEndUnlockSlider theme={theme} onUnlock={onUnlockNewChat} /> : null}
+        {renderTimelineRail(styles.timelineDotMessage)}
+        <View style={styles.runEndBody}>
+          {item.ts ? (
+            <View style={styles.runEndTimeWrap}>
+              <Text style={[styles.runEndTime, { color: theme.textMute }]}>{toSmartTime(item.ts)}</Text>
+            </View>
+          ) : null}
+          <Text style={[styles.runEndText, { color: theme.textMute }]}>{`-- ${endText} --`}</Text>
+        </View>
       </Animated.View>
     );
   }
@@ -1141,7 +1061,7 @@ function TimelineEntryRowComponent({
 
   return (
     <Animated.View style={[styles.assistantRow, enterStyle]}>
-      {renderTimelineRail(styles.timelineDotMessage, '💬')}
+      {renderTimelineRail(styles.timelineDotMessage, 'message')}
       <Pressable
         style={styles.assistantFlowWrap}
         onLongPress={() => onCopyText(item.kind === 'message' ? item.text : '')}
@@ -1253,9 +1173,11 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 2.5
   },
-  timelineIcon: {
-    fontSize: 10,
-    lineHeight: 14
+  timelineIconWrap: {
+    width: 12,
+    height: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
   },
   timelineDotTool: {
     marginTop: 5
@@ -1266,14 +1188,11 @@ const styles = StyleSheet.create({
   timelineDotMessage: {
     marginTop: 10
   },
-  timelineSpacer: {
-    width: 20
-  },
   toolRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 10,
-    paddingHorizontal: 14
+    paddingHorizontal: 14,
+    paddingBottom: 10
   },
   toolBody: {
     flex: 1
@@ -1343,8 +1262,8 @@ const styles = StyleSheet.create({
   reasoningRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 8,
-    paddingHorizontal: 14
+    paddingHorizontal: 14,
+    paddingBottom: 8
   },
   reasoningBody: {
     flex: 1,
@@ -1367,8 +1286,8 @@ const styles = StyleSheet.create({
   userRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    marginBottom: 4,
-    paddingHorizontal: 14
+    paddingHorizontal: 14,
+    paddingBottom: 4
   },
   userBubbleWrap: {
     flex: 1,
@@ -1403,8 +1322,8 @@ const styles = StyleSheet.create({
   assistantRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 4,
-    paddingHorizontal: 14
+    paddingHorizontal: 14,
+    paddingBottom: 4
   },
   assistantFlowWrap: {
     flex: 1,
@@ -1418,8 +1337,8 @@ const styles = StyleSheet.create({
   systemRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 10,
-    paddingHorizontal: 14
+    paddingHorizontal: 14,
+    paddingBottom: 10
   },
   systemWrap: {
     flex: 1,
@@ -1443,11 +1362,14 @@ const styles = StyleSheet.create({
     fontWeight: '700'
   },
   runEndRow: {
-    flexDirection: 'column',
-    marginBottom: 10,
-    alignItems: 'stretch',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     justifyContent: 'center',
-    paddingHorizontal: 14
+    paddingHorizontal: 14,
+    paddingBottom: 10
+  },
+  runEndBody: {
+    flex: 1
   },
   runEndTimeWrap: {
     alignItems: 'flex-end',
@@ -1463,41 +1385,6 @@ const styles = StyleSheet.create({
     fontSize: 10.5,
     fontWeight: '600',
     textAlign: 'center'
-  },
-  runEndUnlockWrap: {
-    marginTop: 7,
-    alignItems: 'center'
-  },
-  runEndUnlockTrack: {
-    width: '50%',
-    minWidth: 156,
-    maxWidth: 236,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    justifyContent: 'center',
-    alignItems: 'center',
-    overflow: 'hidden'
-  },
-  runEndUnlockLabel: {
-    fontFamily: FONT_SANS,
-    fontSize: 10,
-    fontWeight: '600'
-  },
-  runEndUnlockKnob: {
-    position: 'absolute',
-    left: 2,
-    top: 2,
-    width: RUN_END_UNLOCK_KNOB_SIZE,
-    height: RUN_END_UNLOCK_KNOB_SIZE,
-    borderRadius: RUN_END_UNLOCK_KNOB_SIZE / 2,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  runEndUnlockGlyph: {
-    fontFamily: FONT_MONO,
-    fontSize: 13,
-    fontWeight: '700'
   },
   attachmentCardPress: {
     marginTop: 2,

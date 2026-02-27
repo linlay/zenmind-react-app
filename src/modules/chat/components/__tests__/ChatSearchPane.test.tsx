@@ -14,7 +14,6 @@ describe('ChatSearchPane', () => {
           keyword=""
           agentResults={[]}
           chatResults={[]}
-          onChangeKeyword={() => {}}
           onSelectRecentKeyword={onSelectRecentKeyword}
           onSelectAgent={() => {}}
           onSelectChat={() => {}}
@@ -41,7 +40,6 @@ describe('ChatSearchPane', () => {
           keyword="alpha"
           agentResults={[{ agentKey: 'agent-a', agentName: 'Agent A', latestChatName: '最近会话' }]}
           chatResults={[{ chatId: 'chat-1', chatName: 'Alpha Chat', firstAgentKey: 'agent-a', firstAgentName: 'Agent A', updatedAt: Date.now() } as any]}
-          onChangeKeyword={() => {}}
           onSelectRecentKeyword={() => {}}
           onSelectAgent={onSelectAgent}
           onSelectChat={onSelectChat}

@@ -1,7 +1,7 @@
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AppTheme } from '../../../core/constants/theme';
 import { ChatSummary } from '../../../core/types/common';
-import { formatChatListTime, getChatTitle } from '../../../shared/utils/format';
+import { formatChatListTime, getChatAgentKey, getChatAgentName, getChatTitle } from '../../../shared/utils/format';
 
 export interface ChatSearchAgentItem {
   agentKey: string;
@@ -14,7 +14,6 @@ interface ChatSearchPaneProps {
   keyword: string;
   agentResults: ChatSearchAgentItem[];
   chatResults: ChatSummary[];
-  onChangeKeyword: (next: string) => void;
   onSelectRecentKeyword: (keyword: string) => void;
   onSelectAgent: (agentKey: string) => void;
   onSelectChat: (chatId: string, agentKey?: string) => void;
@@ -27,7 +26,6 @@ export function ChatSearchPane({
   keyword,
   agentResults,
   chatResults,
-  onChangeKeyword,
   onSelectRecentKeyword,
   onSelectAgent,
   onSelectChat
@@ -37,20 +35,6 @@ export function ChatSearchPane({
 
   return (
     <View style={styles.container} testID="chat-search-pane">
-      <View style={[styles.searchShell, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}>
-        <TextInput
-          value={keyword}
-          onChangeText={onChangeKeyword}
-          placeholder="搜索 chat / 智能体"
-          placeholderTextColor={theme.textMute}
-          style={[styles.searchInput, { color: theme.text }]}
-          autoFocus
-          autoCorrect={false}
-          autoCapitalize="none"
-          testID="chat-search-pane-input"
-        />
-      </View>
-
       <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
         {showRecent ? (
           <View testID="chat-search-recent-section">
@@ -101,7 +85,8 @@ export function ChatSearchPane({
                 chatResults.map((chat, index) => {
                   const chatId = String(chat.chatId || '');
                   const title = getChatTitle(chat) || chatId || '未命名会话';
-                  const agentName = String(chat.firstAgentName || chat.firstAgentKey || '未知智能体');
+                  const agentName = getChatAgentName(chat);
+                  const agentKey = String(getChatAgentKey(chat) || '').trim();
                   const chatTime = formatChatListTime(chat);
                   return (
                     <TouchableOpacity
@@ -113,7 +98,7 @@ export function ChatSearchPane({
                         if (!chatId) {
                           return;
                         }
-                        onSelectChat(chatId, String(chat.firstAgentKey || '').trim());
+                        onSelectChat(chatId, agentKey);
                       }}
                     >
                       <View style={styles.chatItemTop}>
@@ -147,23 +132,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingTop: 8
   },
-  searchShell: {
-    borderRadius: 10,
-    borderWidth: 1,
-    justifyContent: 'center'
-  },
-  searchInput: {
-    borderRadius: 10,
-    height: 38,
-    paddingHorizontal: 12,
-    paddingVertical: 0,
-    fontSize: 13,
-    lineHeight: 18,
-    textAlignVertical: 'center'
-  },
   content: {
     flex: 1,
-    marginTop: 10
+    marginTop: 2
   },
   contentInner: {
     paddingBottom: 12

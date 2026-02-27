@@ -128,8 +128,12 @@ describe('ChatAssistantScreen gestures', () => {
         panHandlers: {
           onMoveShouldSetResponder: (event: unknown, gesture: unknown) =>
             config.onMoveShouldSetPanResponder?.(event, gesture),
+          onResponderMove: (event: unknown, gesture: unknown) =>
+            config.onPanResponderMove?.(event, gesture),
           onResponderRelease: (event: unknown, gesture: unknown) =>
-            config.onPanResponderRelease?.(event, gesture)
+            config.onPanResponderRelease?.(event, gesture),
+          onResponderTerminate: (event: unknown, gesture: unknown) =>
+            config.onPanResponderTerminate?.(event, gesture)
         }
       } as any;
     });
@@ -155,13 +159,35 @@ describe('ChatAssistantScreen gestures', () => {
     jest.restoreAllMocks();
   });
 
-  it('triggers create-chat callback on right-to-left swipe', async () => {
+  it('shows staged create-chat hint on right-to-left swipe before commit threshold', async () => {
     const onCreate = jest.fn(() => ({ ok: true }));
     const tree = await renderScreen({ onRequestCreateAgentChatBySwipe: onCreate });
     const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
     act(() => {
-      layer.props.onMoveShouldSetResponder?.({}, { dx: -90, dy: 8 });
-      layer.props.onResponderRelease?.({}, { dx: -90, dy: 8 });
+      layer.props.onMoveShouldSetResponder?.({}, { dx: -60, dy: 8 });
+      layer.props.onResponderMove?.({}, { dx: -60, dy: 8 });
+    });
+    const hintCard = tree.root.findByProps({ testID: 'chat-create-swipe-hint-card' });
+    const style = ReactNative.StyleSheet.flatten(hintCard.props.style) as { opacity?: number } | undefined;
+    expect(Number(style?.opacity || 0)).toBeGreaterThan(0);
+    act(() => {
+      layer.props.onResponderRelease?.({}, { dx: -60, dy: 8 });
+    });
+    expect(onCreate).toHaveBeenCalledTimes(0);
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('triggers create-chat callback only after commit threshold on right-to-left swipe', async () => {
+    const onCreate = jest.fn(() => ({ ok: true }));
+    const tree = await renderScreen({ onRequestCreateAgentChatBySwipe: onCreate });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    act(() => {
+      layer.props.onMoveShouldSetResponder?.({}, { dx: -128, dy: 8 });
+      layer.props.onResponderMove?.({}, { dx: -128, dy: 8 });
+      layer.props.onResponderRelease?.({}, { dx: -128, dy: 8 });
     });
     expect(onCreate).toHaveBeenCalledTimes(1);
     await act(async () => {

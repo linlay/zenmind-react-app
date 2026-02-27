@@ -72,6 +72,9 @@ const TOOL_INIT_HINT_THROTTLE_MS = 3000;
 const GESTURE_SWITCH_THRESHOLD = 72;
 const GESTURE_RATIO_THRESHOLD = 1.25;
 const GESTURE_COOLDOWN_MS = 450;
+const GESTURE_CREATE_CHAT_REVEAL_THRESHOLD = 18;
+const GESTURE_CREATE_CHAT_COMMIT_THRESHOLD = 112;
+const GESTURE_CREATE_CHAT_VISUAL_MAX = 148;
 const LIST_EDGE_TOP_THRESHOLD = 12;
 const LIST_EDGE_BOTTOM_THRESHOLD = 12;
 const NATIVE_CONFIRM_DIALOG_TOOL_KEY = 'confirm_dialog';
@@ -124,6 +127,7 @@ export function ChatAssistantScreen({
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [planExpanded, setPlanExpanded] = useState(false);
   const [chatImageToken, setChatImageToken] = useState('');
+  const [createChatSwipeDistance, setCreateChatSwipeDistance] = useState(0);
 
   const [fireworksVisible, setFireworksVisible] = useState(false);
   const [fireworkRockets, setFireworkRockets] = useState<Array<Record<string, unknown>>>([]);
@@ -169,6 +173,7 @@ export function ChatAssistantScreen({
   const listContentHeightRef = useRef(0);
   const listOffsetYRef = useRef(0);
   const gestureCooldownUntilRef = useRef(0);
+  const createChatSwipeDistanceRef = useRef(0);
 
   const setChatStateSafe = useCallback((updater: (prev: ChatState) => ChatState) => {
     setChatState((prev) => {
@@ -230,6 +235,12 @@ export function ChatAssistantScreen({
     setAutoScrollEnabled((prev) => (prev === enabled ? prev : enabled));
   }, []);
 
+  const setCreateChatSwipeDistanceSafe = useCallback((distance: number) => {
+    const normalized = Math.max(0, Math.min(Math.round(distance), GESTURE_CREATE_CHAT_VISUAL_MAX));
+    createChatSwipeDistanceRef.current = normalized;
+    setCreateChatSwipeDistance((prev) => (prev === normalized ? prev : normalized));
+  }, []);
+
   const scrollToBottom = useCallback((animated = true) => {
     listRef.current?.scrollToEnd({ animated });
     setAutoScrollMode(true);
@@ -248,6 +259,7 @@ export function ChatAssistantScreen({
 
   const runNavGestureAction = useCallback(
     (runner: (() => { ok: boolean; message?: string } | undefined) | undefined) => {
+      setCreateChatSwipeDistanceSafe(0);
       if (!runner) {
         return;
       }
@@ -269,7 +281,7 @@ export function ChatAssistantScreen({
         dispatch(setStatusText(outcome.message));
       }
     },
-    [dispatch]
+    [dispatch, setCreateChatSwipeDistanceSafe]
   );
 
   const timelineGestureResponder = useMemo(
@@ -289,16 +301,29 @@ export function ChatAssistantScreen({
           const canSwitchToNext = Boolean(onRequestSwitchAgentChat) && listAtBottomRef.current && verticalDominant && gestureState.dy <= -16;
           return canCreateChat || canSwitchToPrev || canSwitchToNext;
         },
+        onPanResponderMove: (_event, gestureState) => {
+          const absDx = Math.abs(gestureState.dx);
+          const absDy = Math.abs(gestureState.dy);
+          const horizontalDominant = absDx > absDy * GESTURE_RATIO_THRESHOLD;
+          if (horizontalDominant && gestureState.dx <= -GESTURE_CREATE_CHAT_REVEAL_THRESHOLD) {
+            setCreateChatSwipeDistanceSafe(Math.abs(gestureState.dx));
+            return;
+          }
+          if (createChatSwipeDistanceRef.current > 0) {
+            setCreateChatSwipeDistanceSafe(0);
+          }
+        },
         onPanResponderRelease: (_event, gestureState) => {
           const absDx = Math.abs(gestureState.dx);
           const absDy = Math.abs(gestureState.dy);
           const horizontalDominant = absDx > absDy * GESTURE_RATIO_THRESHOLD;
           const verticalDominant = absDy > absDx * GESTURE_RATIO_THRESHOLD;
 
-          if (horizontalDominant && gestureState.dx <= -GESTURE_SWITCH_THRESHOLD) {
+          if (horizontalDominant && gestureState.dx <= -GESTURE_CREATE_CHAT_COMMIT_THRESHOLD) {
             runNavGestureAction(onRequestCreateAgentChatBySwipe);
             return;
           }
+          setCreateChatSwipeDistanceSafe(0);
           if (verticalDominant && listAtTopRef.current && gestureState.dy >= GESTURE_SWITCH_THRESHOLD) {
             runNavGestureAction(() => onRequestSwitchAgentChat?.('prev'));
             return;
@@ -306,9 +331,12 @@ export function ChatAssistantScreen({
           if (verticalDominant && listAtBottomRef.current && gestureState.dy <= -GESTURE_SWITCH_THRESHOLD) {
             runNavGestureAction(() => onRequestSwitchAgentChat?.('next'));
           }
+        },
+        onPanResponderTerminate: () => {
+          setCreateChatSwipeDistanceSafe(0);
         }
       }),
-    [onRequestCreateAgentChatBySwipe, onRequestSwitchAgentChat, runNavGestureAction]
+    [onRequestCreateAgentChatBySwipe, onRequestSwitchAgentChat, runNavGestureAction, setCreateChatSwipeDistanceSafe]
   );
 
   const armPlanCollapseTimer = useCallback(() => {
@@ -728,7 +756,8 @@ export function ChatAssistantScreen({
     listViewportHeightRef.current = 0;
     listContentHeightRef.current = 0;
     listOffsetYRef.current = 0;
-  }, [clearReasoningTimers, clearToolInitTimers, setAutoScrollMode, setChatImageTokenSafe, setChatStateSafe]);
+    setCreateChatSwipeDistanceSafe(0);
+  }, [clearReasoningTimers, clearToolInitTimers, setAutoScrollMode, setChatImageTokenSafe, setChatStateSafe, setCreateChatSwipeDistanceSafe]);
 
   const stopStreaming = useCallback(() => {
     if (abortControllerRef.current) {
@@ -1256,6 +1285,22 @@ export function ChatAssistantScreen({
   const hasActiveFrontendTool = Boolean(chatState.activeFrontendTool);
   const composerBottomPadding =
     keyboardHeight > 0 ? (Platform.OS === 'ios' ? 0 : 10) : Math.max(insets.bottom, 10);
+  const createChatRevealProgress = useMemo(() => {
+    if (createChatSwipeDistance <= GESTURE_CREATE_CHAT_REVEAL_THRESHOLD) {
+      return 0;
+    }
+    const range = GESTURE_CREATE_CHAT_VISUAL_MAX - GESTURE_CREATE_CHAT_REVEAL_THRESHOLD;
+    if (range <= 0) {
+      return 0;
+    }
+    return Math.max(
+      0,
+      Math.min(
+        1,
+        (createChatSwipeDistance - GESTURE_CREATE_CHAT_REVEAL_THRESHOLD) / range
+      )
+    );
+  }, [createChatSwipeDistance]);
 
   useEffect(() => {
     if (Platform.OS !== 'android' || !hasActiveFrontendTool) {
@@ -1389,21 +1434,6 @@ export function ChatAssistantScreen({
     [chatImageToken, chatState.expandedTools]
   );
 
-  const latestRunEndEntryId = useMemo(() => {
-    for (let index = chatState.timeline.length - 1; index >= 0; index -= 1) {
-      const entry = chatState.timeline[index];
-      if (entry.kind === 'message' && entry.role === 'system' && entry.variant === 'run_end') {
-        return entry.id;
-      }
-    }
-    return '';
-  }, [chatState.timeline]);
-
-  const handleUnlockNewChat = useCallback(() => {
-    dispatch(setChatId(''));
-    dispatch(setStatusText(''));
-  }, [dispatch]);
-
   const renderTimelineItem = useCallback(
     ({ item }: { item: TimelineEntry }) => (
       <TimelineEntryRow
@@ -1417,8 +1447,6 @@ export function ChatAssistantScreen({
         onToggleReasoning={handleToggleReasoning}
         onCopyText={handleCopyText}
         onImageAuthError={handleMarkdownImageTokenError}
-        showRunEndUnlock={item.id === latestRunEndEntryId}
-        onUnlockNewChat={handleUnlockNewChat}
       />
     ),
     [
@@ -1427,11 +1455,9 @@ export function ChatAssistantScreen({
       chatState.expandedTools,
       contentWidth,
       handleCopyText,
-      handleUnlockNewChat,
       handleMarkdownImageTokenError,
       handleToggleReasoning,
       handleToggleToolExpanded,
-      latestRunEndEntryId,
       theme
     ]
   );
@@ -1518,6 +1544,22 @@ export function ChatAssistantScreen({
             </View>
           }
         />
+        <View pointerEvents="none" style={styles.createChatSwipeHintLayer} testID="chat-create-swipe-hint-layer">
+          <View
+            style={[
+              styles.createChatSwipeHintCard,
+              {
+                backgroundColor: theme.surfaceStrong,
+                borderColor: theme.border,
+                opacity: createChatRevealProgress,
+                transform: [{ translateX: (1 - createChatRevealProgress) * 42 }]
+              }
+            ]}
+            testID="chat-create-swipe-hint-card"
+          >
+            <Text style={[styles.createChatSwipeHintText, { color: theme.text }]}>新建对话</Text>
+          </View>
+        </View>
       </View>
 
       {!hasActiveFrontendTool ? (
@@ -1788,6 +1830,25 @@ const styles = StyleSheet.create({
   },
   timelineGestureLayer: {
     flex: 1
+  },
+  createChatSwipeHintLayer: {
+    position: 'absolute',
+    right: 10,
+    top: '42%',
+    alignItems: 'flex-end'
+  },
+  createChatSwipeHintCard: {
+    minWidth: 92,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  createChatSwipeHintText: {
+    fontSize: 12,
+    fontWeight: '700'
   },
   timelineList: {
     flex: 1

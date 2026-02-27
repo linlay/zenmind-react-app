@@ -318,6 +318,7 @@ describe('ShellScreen navigation flow', () => {
       searchBtn.props.onPress();
     });
     expect(tree.root.findByProps({ testID: 'chat-search-pane' })).toBeTruthy();
+    expect(tree.root.findByProps({ testID: 'chat-top-search-input' })).toBeTruthy();
 
     const backBtn = tree.root.findByProps({ testID: 'chat-search-back-btn' });
     act(() => {

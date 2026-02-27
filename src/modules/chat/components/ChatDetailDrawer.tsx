@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AppTheme } from '../../../core/constants/theme';
 import { ChatSummary } from '../../../core/types/common';
-import { formatChatListTime } from '../../../shared/utils/format';
+import { formatChatListTime, getChatLastContent } from '../../../shared/utils/format';
 
 interface ChatDetailDrawerProps {
   visible: boolean;
@@ -58,7 +58,7 @@ export function ChatDetailDrawer({
   const normalizedAgentName = String(activeAgentName || '').trim() || '当前智能体';
 
   return (
-    <View pointerEvents={visible ? 'auto' : 'none'} style={StyleSheet.absoluteFill} testID="chat-detail-drawer-layer">
+    <View pointerEvents={visible ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, styles.layer]} testID="chat-detail-drawer-layer">
       <Animated.View style={[styles.overlay, { opacity: overlayAnim, backgroundColor: theme.overlay }]}> 
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} testID="chat-detail-overlay-mask" />
       </Animated.View>
@@ -100,19 +100,21 @@ export function ChatDetailDrawer({
             onPress={onCreateChat}
             testID="chat-detail-drawer-create-chat-btn"
           >
-            <Text style={[styles.createItemTitle, { color: theme.text }]}>新建对话</Text>
-            <Text style={[styles.createItemSubTitle, { color: theme.textMute }]}>详情页左滑</Text>
+            <Text style={[styles.createItemTitle, { color: theme.text }]}>新建对话 · 详情页左滑</Text>
           </TouchableOpacity>
 
           {chats.length ? (
             chats.map((chat, index) => {
               const active = chat.chatId === activeChatId;
               const title = String(chat.chatName || '').trim() || '未命名会话';
-              const last = String((chat as Record<string, unknown>).last || '').trim() || '暂无 last';
+              const last = String(getChatLastContent(chat) || '').trim() || '暂无内容';
               const chatTime = formatChatListTime(chat);
               const itemKey = chat.chatId || `${title}:${index}`;
-              // mock read status by odd-even index until backend returns per-chat read state
-              const isRead = index % 2 === 0;
+              const rawReadStatus = (chat as Record<string, unknown>).readStatus;
+              const hasReadStatus = rawReadStatus !== undefined && rawReadStatus !== null && String(rawReadStatus) !== '';
+              const readStatus = Number(rawReadStatus);
+              const readAt = (chat as Record<string, unknown>).readAt;
+              const isRead = hasReadStatus ? readStatus !== 0 : readAt != null ? true : true;
               const readIcon = isRead ? '○' : '●';
               const readLabel = isRead ? '已读' : '未读';
               const readColor = isRead ? theme.textMute : theme.primaryDeep;
@@ -165,6 +167,10 @@ export function ChatDetailDrawer({
 }
 
 const styles = StyleSheet.create({
+  layer: {
+    zIndex: 25,
+    elevation: 25
+  },
   overlay: {
     ...StyleSheet.absoluteFillObject
   },
@@ -228,10 +234,6 @@ const styles = StyleSheet.create({
   createItemTitle: {
     fontSize: 13,
     fontWeight: '700'
-  },
-  createItemSubTitle: {
-    marginTop: 2,
-    fontSize: 11
   },
   item: {
     borderRadius: 10,

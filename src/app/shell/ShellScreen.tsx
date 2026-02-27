@@ -76,7 +76,15 @@ import { useLazyGetAgentsQuery } from '../../modules/agents/api/agentsApi';
 import { useLazyGetChatsQuery } from '../../modules/chat/api/chatApi';
 import { useLazyListTerminalSessionsQuery } from '../../modules/terminal/api/terminalApi';
 import { fetchAuthedJson, formatError } from '../../core/network/apiClient';
-import { formatInboxTime, getAgentKey, getAgentName, getChatTimestamp, getChatTitle } from '../../shared/utils/format';
+import {
+  formatInboxTime,
+  getAgentKey,
+  getAgentName,
+  getChatAgentKey,
+  getChatAgentName,
+  getChatTimestamp,
+  getChatTitle
+} from '../../shared/utils/format';
 import { getAppVersionLabel } from '../../shared/utils/appVersion';
 import { TerminalSessionItem } from '../../modules/terminal/types/terminal';
 import {
@@ -188,7 +196,7 @@ export function ShellScreen() {
     };
   }, []);
 
-  const keyboardInset = Platform.OS === 'android' ? Math.max(0, shellKeyboardHeight - insets.bottom) : 0;
+  const keyboardInset = Platform.OS === 'android' ? Math.max(0, shellKeyboardHeight) : 0;
 
   const closeSearchMode = useCallback(() => {
     setChatListMode('default');
@@ -907,7 +915,7 @@ export function ShellScreen() {
           return null;
         }
         const latestChat = [...chats]
-          .filter((chat) => String(chat.firstAgentKey || '').trim() === agentKey)
+          .filter((chat) => String(getChatAgentKey(chat) || '').trim() === agentKey)
           .sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a))[0];
         return {
           agentKey,
@@ -924,7 +932,7 @@ export function ShellScreen() {
     }
     return [...chats]
       .filter((chat) => {
-        const haystack = `${chat.chatName || ''} ${chat.title || ''} ${chat.chatId || ''} ${chat.firstAgentName || ''} ${chat.firstAgentKey || ''}`.toLowerCase();
+        const haystack = `${chat.chatName || ''} ${chat.title || ''} ${chat.chatId || ''} ${getChatAgentName(chat)} ${getChatAgentKey(chat)}`.toLowerCase();
         return haystack.includes(normalizedSearchKeyword);
       })
       .sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a));
@@ -1026,7 +1034,7 @@ export function ShellScreen() {
       dispatch(setAgentsSelectedAgentKey(normalizedKey));
       dispatch(setUserSelectedAgentKey(normalizedKey));
       const latestChat = [...chats]
-        .filter((chat) => String(chat.firstAgentKey || '').trim() === normalizedKey)
+        .filter((chat) => String(getChatAgentKey(chat) || '').trim() === normalizedKey)
         .sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a))[0];
       if (latestChat?.chatId) {
         dispatch(setChatId(String(latestChat.chatId)));
@@ -1296,18 +1304,34 @@ export function ShellScreen() {
               <View style={styles.iconOnlyBtn} />
             )}
 
-            <View style={[styles.assistantTopBtn, { backgroundColor: theme.surfaceStrong }]}>
-              <View style={styles.assistantTopTextWrap}>
-                <Text style={[styles.assistantTopTitle, { color: theme.text }]} numberOfLines={1}>
-                  {topNavTitle}
-                </Text>
-                {topNavSubtitle ? (
-                  <Text style={[styles.assistantTopSubTitle, { color: theme.textMute }]} numberOfLines={1}>
-                    {topNavSubtitle}
-                  </Text>
-                ) : null}
+            {isChatDomain && chatPane === 'list' && chatListMode === 'search' ? (
+              <View style={[styles.topSearchWrap, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}>
+                <TextInput
+                  value={chatSearchQuery}
+                  onChangeText={setChatSearchQuery}
+                  placeholder="搜索 chat / 智能体"
+                  placeholderTextColor={theme.textMute}
+                  autoFocus
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                  style={[styles.topSearchInput, { color: theme.text }]}
+                  testID="chat-top-search-input"
+                />
               </View>
-            </View>
+            ) : (
+              <View style={[styles.assistantTopBtn, { backgroundColor: theme.surfaceStrong }]}>
+                <View style={styles.assistantTopTextWrap}>
+                  <Text style={[styles.assistantTopTitle, { color: theme.text }]} numberOfLines={1}>
+                    {topNavTitle}
+                  </Text>
+                  {topNavSubtitle ? (
+                    <Text style={[styles.assistantTopSubTitle, { color: theme.textMute }]} numberOfLines={1}>
+                      {topNavSubtitle}
+                    </Text>
+                  ) : null}
+                </View>
+              </View>
+            )}
 
             {isTerminalDomain ? (
               <TouchableOpacity
@@ -1459,7 +1483,6 @@ export function ShellScreen() {
                         keyword={chatSearchQuery}
                         agentResults={searchAgentResults}
                         chatResults={searchChatResults}
-                        onChangeKeyword={setChatSearchQuery}
                         onSelectRecentKeyword={setChatSearchQuery}
                         onSelectAgent={handleSearchSelectAgent}
                         onSelectChat={openChatDetail}
@@ -1479,7 +1502,7 @@ export function ShellScreen() {
                       backendUrl={backendUrl}
                       contentWidth={window.width}
                       onRefreshChats={refreshChats}
-                      keyboardHeight={shellKeyboardHeight}
+                      keyboardHeight={keyboardInset}
                       refreshSignal={chatRefreshSignal}
                       authAccessToken={authAccessToken}
                       authAccessExpireAtMs={authAccessExpireAtMs}
@@ -1813,7 +1836,7 @@ const styles = StyleSheet.create({
   },
   topNavCompact: {
     position: 'relative',
-    zIndex: 20,
+    zIndex: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1909,6 +1932,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 10,
     gap: 5
+  },
+  topSearchWrap: {
+    flex: 1,
+    minHeight: 36,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    justifyContent: 'center',
+    paddingHorizontal: 10
+  },
+  topSearchInput: {
+    height: 34,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    fontSize: 13
   },
   assistantTopTextWrap: {
     flexGrow: 0,
