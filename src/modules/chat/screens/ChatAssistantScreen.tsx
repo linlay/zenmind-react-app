@@ -182,7 +182,7 @@ export function ChatAssistantScreen({
   const insets = useSafeAreaInsets();
 
   const chatId = useAppSelector((state) => state.chat.chatId);
-  const selectedAgentKey = useAppSelector((state) => state.agents.selectedAgentKey);
+  const selectedAgentKey = useAppSelector((state) => state.user.selectedAgentKey);
   const agents = useAppSelector((state) => state.agents.agents);
   const statusText = useAppSelector((state) => state.chat.statusText);
 
@@ -190,7 +190,6 @@ export function ChatAssistantScreen({
   const [composerText, setComposerText] = useState('');
   const [copyToast, setCopyToast] = useState(false);
   const [edgeToast, setEdgeToast] = useState<EdgeToastState | null>(null);
-  const [composerFocused, setComposerFocused] = useState(false);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
   const [isTimelineScrollable, setIsTimelineScrollable] = useState(false);
   const [planExpanded, setPlanExpanded] = useState(false);
@@ -2102,10 +2101,9 @@ export function ChatAssistantScreen({
             <Composer
               theme={theme}
               composerText={composerText}
-              focused={composerFocused}
               onChangeText={setComposerText}
-              onFocus={() => setComposerFocused(true)}
-              onBlur={() => setComposerFocused(false)}
+              onFocus={() => {}}
+              onBlur={() => {}}
               onSend={sendMessage}
               onStop={stopStreaming}
               streaming={chatState.streaming}
@@ -2268,10 +2266,9 @@ export function ChatAssistantScreen({
               <Composer
                 theme={theme}
                 composerText={composerText}
-                focused={composerFocused}
                 onChangeText={setComposerText}
-                onFocus={() => setComposerFocused(true)}
-                onBlur={() => setComposerFocused(false)}
+                onFocus={() => {}}
+                onBlur={() => {}}
                 onSend={sendMessage}
                 onStop={stopStreaming}
                 streaming={chatState.streaming}

@@ -57,8 +57,7 @@ import {
 import {
   setAgents,
   setAgentsError,
-  setAgentsLoading,
-  setSelectedAgentKey as setAgentsSelectedAgentKey
+  setAgentsLoading
 } from '../../modules/agents/state/agentsSlice';
 import {
   setChatId,
@@ -96,6 +95,7 @@ import {
 } from '../../shared/utils/format';
 import { getAppVersionLabel } from '../../shared/utils/appVersion';
 import { TerminalSessionItem } from '../../modules/terminal/types/terminal';
+import { buildPtyWebUrlWithSessionId } from '../../modules/terminal/utils/sessionUrl';
 import {
   ensureFreshAccessToken,
   getCurrentSession,
@@ -147,7 +147,6 @@ export function ShellScreen() {
   const chatId = useAppSelector((state) => state.chat.chatId);
   const chats = useAppSelector((state) => state.chat.chats);
   const loadingChats = useAppSelector((state) => state.chat.loadingChats);
-  const agentsLoading = useAppSelector((state) => state.agents.loading);
   const agents = useAppSelector((state) => state.agents.agents);
   const agentLatestChats = useAppSelector(selectAgentLatestChats);
   const currentAgentChats = useAppSelector(selectCurrentAgentChats);
@@ -173,6 +172,7 @@ export function ShellScreen() {
   const [terminalSessions, setTerminalSessions] = useState<TerminalSessionItem[]>([]);
   const [terminalSessionsLoading, setTerminalSessionsLoading] = useState(false);
   const [terminalSessionsError, setTerminalSessionsError] = useState('');
+  const [terminalCurrentWebViewUrl, setTerminalCurrentWebViewUrl] = useState('');
   const [chatPlusMenuOpen, setChatPlusMenuOpen] = useState(false);
 
   const [triggerAgents] = useLazyGetAgentsQuery();
@@ -274,7 +274,6 @@ export function ShellScreen() {
         }
 
         const fallback = getAgentKey(list[0]) || '';
-        dispatch(setAgentsSelectedAgentKey(fallback));
         dispatch(setUserSelectedAgentKey(fallback));
       } catch (error) {
         dispatch(setAgentsError(formatError(error)));
@@ -690,7 +689,6 @@ export function ShellScreen() {
       .then((settings) => {
         if (!mounted) return;
         dispatch(hydrateSettings(settings));
-        dispatch(setAgentsSelectedAgentKey(settings.selectedAgentKey || ''));
       })
       .catch(() => {
         if (!mounted) return;
@@ -874,13 +872,6 @@ export function ShellScreen() {
       return;
     }
     refreshTerminalSessions(true).catch(() => {});
-  }, [activeDomain, authReady, booting, refreshTerminalSessions]);
-
-  useEffect(() => {
-    if (booting || !authReady || activeDomain !== 'terminal' || terminalPane !== 'list') {
-      return;
-    }
-    refreshTerminalSessions(true).catch(() => {});
   }, [activeDomain, authReady, booting, refreshTerminalSessions, terminalPane]);
 
   useEffect(() => {
@@ -994,6 +985,7 @@ export function ShellScreen() {
   const isUserDomain = activeDomain === 'user';
   const isChatDetailOverlay = topChatOverlayType === 'chatDetail';
   const isChatAgentOverlay = topChatOverlayType === 'agentDetail';
+  const isChatListTopNav = isChatDomain && !hasChatOverlay && chatRoute === 'list';
   const topNavTitle = isChatDomain
     ? isChatDetailOverlay
       ? activeAgentName
@@ -1077,7 +1069,6 @@ export function ShellScreen() {
       Keyboard.dismiss();
       const normalizedAgentKey = String(nextAgentKey || '').trim();
       if (normalizedAgentKey && normalizedAgentKey !== '__unknown_agent__') {
-        dispatch(setAgentsSelectedAgentKey(normalizedAgentKey));
         dispatch(setUserSelectedAgentKey(normalizedAgentKey));
       }
       dispatch(setChatId(nextChatId));
@@ -1102,7 +1093,6 @@ export function ShellScreen() {
         dispatch(setStatusText('智能体信息不可用'));
         return;
       }
-      dispatch(setAgentsSelectedAgentKey(normalizedKey));
       dispatch(setUserSelectedAgentKey(normalizedKey));
       dispatch(setChatAgentsSidebarOpen(false));
       dispatch(closeChatDetailDrawer());
@@ -1119,7 +1109,6 @@ export function ShellScreen() {
 
   const handleAgentSelectNewChat = useCallback(
     (agentKey: string) => {
-      dispatch(setAgentsSelectedAgentKey(agentKey));
       dispatch(setUserSelectedAgentKey(agentKey));
       dispatch(setChatId(''));
       dispatch(setStatusText(''));
@@ -1237,12 +1226,22 @@ export function ShellScreen() {
 
   const openTerminalDetail = useCallback(
     (sessionId: string) => {
+      const baseUrl = buildPtyWebUrlWithSessionId(ptyWebUrl, sessionId);
+      setTerminalCurrentWebViewUrl(baseUrl);
       dispatch(setActiveSessionId(sessionId));
       dispatch(reloadPty());
       dispatch(showTerminalDetailPane());
     },
-    [dispatch]
+    [dispatch, ptyWebUrl]
   );
+
+  const handleTerminalWebViewUrlChange = useCallback((url: string) => {
+    const next = String(url || '').trim();
+    if (!next) {
+      return;
+    }
+    setTerminalCurrentWebViewUrl(next);
+  }, []);
 
   if (booting) {
     return (
@@ -1357,271 +1356,283 @@ export function ShellScreen() {
           keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
         >
           <View style={styles.topNavCompact} nativeID="shell-top-nav" testID="shell-top-nav">
-            {isChatDomain ? (
-              hasChatOverlay ? (
-                <TouchableOpacity
-                  activeOpacity={0.72}
-                  style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID={isChatDetailOverlay ? 'chat-detail-back-btn' : 'chat-agent-back-btn'}
-                  onPress={() => {
-                    setPublishOpen(false);
-                    setInboxOpen(false);
-                    if (chatDetailDrawerOpen) {
-                      dispatch(closeChatDetailDrawer());
-                      return;
-                    }
-                    dispatch(popChatOverlay());
-                  }}
-                >
-                  <Text
-                    style={[styles.detailBackText, { color: theme.primaryDeep }]}
-                    testID={isChatDetailOverlay ? 'chat-detail-back-text' : 'chat-agent-back-text'}
+            <View
+              style={[styles.topNavSide, isChatListTopNav ? styles.topNavSideWide : null]}
+              testID="shell-top-left-slot"
+            >
+              {isChatDomain ? (
+                hasChatOverlay ? (
+                  <TouchableOpacity
+                    activeOpacity={0.72}
+                    style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
+                    testID={isChatDetailOverlay ? 'chat-detail-back-btn' : 'chat-agent-back-btn'}
+                    onPress={() => {
+                      setPublishOpen(false);
+                      setInboxOpen(false);
+                      if (chatDetailDrawerOpen) {
+                        dispatch(closeChatDetailDrawer());
+                        return;
+                      }
+                      dispatch(popChatOverlay());
+                    }}
                   >
-                    ‹
-                  </Text>
-                </TouchableOpacity>
-              ) : chatRoute === 'search' ? (
-                <TouchableOpacity
-                  activeOpacity={0.72}
-                  style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID="chat-search-back-btn"
-                  onPress={handleSearchBack}
-                >
-                  <Text style={[styles.detailBackText, { color: theme.primaryDeep }]}>‹</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  activeOpacity={0.72}
-                  style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID="chat-left-action-btn"
-                  onPress={() => {
-                    setPublishOpen(false);
-                    setInboxOpen(false);
-                    setChatPlusMenuOpen(false);
-                    dispatch(closeChatDetailDrawer());
-                    dispatch(resetChatDetailDrawerPreview());
-                    dispatch(setChatAgentsSidebarOpen(!chatAgentsSidebarOpen));
-                  }}
-                >
-                  <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
-                    <Rect x={2} y={5.6} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
-                    <Rect x={2} y={12.2} width={10} height={2.2} rx={1.1} fill={theme.primaryDeep} />
-                  </Svg>
-                </TouchableOpacity>
-              )
-            ) : isTerminalDomain ? (
-              terminalPane === 'detail' ? (
-                <TouchableOpacity
-                  activeOpacity={0.72}
-                  style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID="terminal-detail-back-btn"
-                  onPress={() => {
-                    setPublishOpen(false);
-                    setInboxOpen(false);
-                    dispatch(showTerminalListPane());
-                  }}
-                >
-                  <Text style={[styles.detailBackText, { color: theme.primaryDeep }]}>‹</Text>
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  activeOpacity={0.72}
-                  style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID="terminal-left-action-btn"
-                  onPress={() => {
-                    setPublishOpen(false);
-                    setInboxOpen(false);
-                  }}
-                >
-                  <Text style={[styles.topActionText, { color: theme.textMute }]}>·</Text>
-                </TouchableOpacity>
-              )
-            ) : isUserDomain ? (
-              <TouchableOpacity
-                activeOpacity={0.72}
-                style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-                testID="shell-user-inbox-toggle-btn"
-                onPress={() => {
-                  setPublishOpen(false);
-                  dispatch(setChatAgentsSidebarOpen(false));
-                  dispatch(closeChatDetailDrawer());
-                  setInboxOpen((prev) => !prev);
-                }}
-              >
-                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                  <Rect x={3.2} y={5} width={17.6} height={14} rx={3} stroke={theme.primaryDeep} strokeWidth={1.9} />
-                  <Path d="M4.8 8.4L12 13.2L19.2 8.4" stroke={theme.primaryDeep} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
-                </Svg>
-                {inboxUnreadCount > 0 ? (
-                  <View style={[styles.inboxBadge, { backgroundColor: theme.danger }]}>
-                    <Text style={styles.inboxBadgeText}>{inboxUnreadCount > 99 ? '99+' : String(inboxUnreadCount)}</Text>
-                  </View>
-                ) : null}
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.iconOnlyBtn} />
-            )}
-
-            {isChatDomain && !hasChatOverlay && chatRoute === 'search' ? (
-              <View style={[styles.topSearchWrap, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}>
-                <TextInput
-                  value={chatSearchQuery}
-                  onChangeText={(value) => dispatch(setShellChatSearchQuery(value))}
-                  placeholder="搜索 chat / 智能体"
-                  placeholderTextColor={theme.textMute}
-                  autoFocus
-                  autoCorrect={false}
-                  autoCapitalize="none"
-                  style={[styles.topSearchInput, { color: theme.text }]}
-                  testID="chat-top-search-input"
-                />
-              </View>
-            ) : (
-              <View style={[styles.assistantTopBtn, { backgroundColor: theme.surfaceStrong }]}>
-                <View style={styles.assistantTopTextWrap}>
-                  <Text style={[styles.assistantTopTitle, { color: theme.text }]} numberOfLines={1}>
-                    {topNavTitle}
-                  </Text>
-                  {topNavSubtitle ? (
                     <Text
-                      style={[styles.assistantTopSubTitle, { color: theme.textMute }]}
-                      numberOfLines={1}
-                      testID="shell-top-subtitle"
+                      style={[styles.detailBackText, { color: theme.primaryDeep }]}
+                      testID={isChatDetailOverlay ? 'chat-detail-back-text' : 'chat-agent-back-text'}
                     >
-                      {topNavSubtitle}
+                      ‹
                     </Text>
-                  ) : null}
-                </View>
-              </View>
-            )}
-
-            {isTerminalDomain ? (
-              <TouchableOpacity
-                activeOpacity={0.72}
-                style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
-                testID="shell-terminal-refresh-btn"
-                onPress={() => {
-                  setInboxOpen(false);
-                  setPublishOpen(false);
-                  if (terminalPane === 'detail') {
-                    dispatch(reloadPty());
-                  } else {
-                    refreshTerminalSessions().catch(() => {});
-                  }
-                }}
-              >
-                <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>刷新</Text>
-              </TouchableOpacity>
-            ) : isChatDomain ? (
-              isChatDetailOverlay ? (
-                <TouchableOpacity
-                  activeOpacity={0.72}
-                  style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID="chat-detail-menu-btn"
-                  onPress={() => {
-                    setInboxOpen(false);
-                    setPublishOpen(false);
-                    dispatch(setChatAgentsSidebarOpen(false));
-                    dispatch(openChatDetailDrawer());
-                  }}
-                >
-                  <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
-                    <Rect x={2} y={4.8} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
-                    <Rect x={2} y={8.9} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
-                    <Rect x={2} y={13} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
-                  </Svg>
-                </TouchableOpacity>
-              ) : isChatAgentOverlay ? (
-                <View style={styles.iconOnlyBtn} testID="chat-agent-right-placeholder" />
-              ) : chatRoute === 'search' ? (
-                <View style={styles.iconOnlyBtn} testID="chat-search-right-placeholder" />
-              ) : (
-                <View style={styles.chatListTopActions} testID="chat-list-top-actions">
+                  </TouchableOpacity>
+                ) : chatRoute === 'search' ? (
+                  <TouchableOpacity
+                    activeOpacity={0.72}
+                    style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
+                    testID="chat-search-back-btn"
+                    onPress={handleSearchBack}
+                  >
+                    <Text style={[styles.detailBackText, { color: theme.primaryDeep }]}>‹</Text>
+                  </TouchableOpacity>
+                ) : (
                   <TouchableOpacity
                     activeOpacity={0.72}
                     style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-                    testID="chat-list-search-btn"
+                    testID="chat-left-action-btn"
                     onPress={() => {
+                      setPublishOpen(false);
+                      setInboxOpen(false);
                       setChatPlusMenuOpen(false);
-                      dispatch(showChatSearchRoute());
+                      dispatch(closeChatDetailDrawer());
+                      dispatch(resetChatDetailDrawerPreview());
+                      dispatch(setChatAgentsSidebarOpen(!chatAgentsSidebarOpen));
                     }}
                   >
-                    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                      <Path
-                        d="M16.2 16.2L20 20M18 11a7 7 0 1 1-14 0a7 7 0 0 1 14 0Z"
-                        stroke={theme.primaryDeep}
-                        strokeWidth={1.9}
-                        strokeLinecap="round"
-                      />
+                    <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+                      <Rect x={2} y={5.6} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
+                      <Rect x={2} y={12.2} width={10} height={2.2} rx={1.1} fill={theme.primaryDeep} />
                     </Svg>
                   </TouchableOpacity>
+                )
+              ) : isTerminalDomain ? (
+                terminalPane === 'detail' ? (
+                  <TouchableOpacity
+                    activeOpacity={0.72}
+                    style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
+                    testID="terminal-detail-back-btn"
+                    onPress={() => {
+                      setPublishOpen(false);
+                      setInboxOpen(false);
+                      dispatch(showTerminalListPane());
+                    }}
+                  >
+                    <Text style={[styles.detailBackText, { color: theme.primaryDeep }]}>‹</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity
+                    activeOpacity={0.72}
+                    style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                    testID="terminal-left-action-btn"
+                    onPress={() => {
+                      setPublishOpen(false);
+                      setInboxOpen(false);
+                    }}
+                  >
+                    <Text style={[styles.topActionText, { color: theme.textMute }]}>·</Text>
+                  </TouchableOpacity>
+                )
+              ) : isUserDomain ? (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="shell-user-inbox-toggle-btn"
+                  onPress={() => {
+                    setPublishOpen(false);
+                    dispatch(setChatAgentsSidebarOpen(false));
+                    dispatch(closeChatDetailDrawer());
+                    setInboxOpen((prev) => !prev);
+                  }}
+                >
+                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                    <Rect x={3.2} y={5} width={17.6} height={14} rx={3} stroke={theme.primaryDeep} strokeWidth={1.9} />
+                    <Path d="M4.8 8.4L12 13.2L19.2 8.4" stroke={theme.primaryDeep} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
+                  </Svg>
+                  {inboxUnreadCount > 0 ? (
+                    <View style={[styles.inboxBadge, { backgroundColor: theme.danger }]}>
+                      <Text style={styles.inboxBadgeText}>{inboxUnreadCount > 99 ? '99+' : String(inboxUnreadCount)}</Text>
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.iconOnlyBtn} />
+              )}
+            </View>
 
-                  <View style={styles.chatPlusWrap}>
-                    <TouchableOpacity
-                      activeOpacity={0.72}
-                      style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-                      testID="chat-list-plus-btn"
-                      onPress={() => setChatPlusMenuOpen((prev) => !prev)}
-                    >
-                      <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
-                        <Path d="M12 5v14M5 12h14" stroke={theme.primaryDeep} strokeWidth={2} strokeLinecap="round" />
-                      </Svg>
-                    </TouchableOpacity>
-
-                    {chatPlusMenuOpen ? (
-                      <View style={[styles.chatPlusMenu, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]} testID="chat-list-plus-menu">
-                        {['扫一扫', '建立群组', '创建频道'].map((label, index) => (
-                          <TouchableOpacity
-                            key={label}
-                            activeOpacity={0.74}
-                            style={[
-                              styles.chatPlusMenuItem,
-                              index > 0 ? { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth } : null
-                            ]}
-                            testID={`chat-list-plus-menu-item-${index}`}
-                            onPress={() => {
-                              setChatPlusMenuOpen(false);
-                              dispatch(setStatusText(`功能建设中：${label}`));
-                            }}
-                          >
-                            <Text style={[styles.chatPlusMenuItemText, { color: theme.text }]}>{label}</Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
+            <View style={styles.topNavCenter} testID="shell-top-center-slot">
+              {isChatDomain && !hasChatOverlay && chatRoute === 'search' ? (
+                <View style={[styles.topSearchWrap, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}>
+                  <TextInput
+                    value={chatSearchQuery}
+                    onChangeText={(value) => dispatch(setShellChatSearchQuery(value))}
+                    placeholder="搜索 chat / 智能体"
+                    placeholderTextColor={theme.textMute}
+                    autoFocus
+                    autoCorrect={false}
+                    autoCapitalize="none"
+                    style={[styles.topSearchInput, { color: theme.text }]}
+                    testID="chat-top-search-input"
+                  />
+                </View>
+              ) : (
+                <View style={[styles.assistantTopBtn, { backgroundColor: theme.surfaceStrong }]}>
+                  <View style={styles.assistantTopTextWrap} testID="shell-top-title-wrap">
+                    <Text style={[styles.assistantTopTitle, { color: theme.text }]} numberOfLines={1}>
+                      {topNavTitle}
+                    </Text>
+                    {topNavSubtitle ? (
+                      <Text
+                        style={[styles.assistantTopSubTitle, { color: theme.textMute }]}
+                        numberOfLines={1}
+                        testID="shell-top-subtitle"
+                      >
+                        {topNavSubtitle}
+                      </Text>
                     ) : null}
                   </View>
                 </View>
-              )
-            ) : isAgentsDomain ? (
-              <TouchableOpacity
-                activeOpacity={0.72}
-                style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
-                testID="shell-publish-toggle-btn"
-                onPress={() => {
-                  dispatch(setChatAgentsSidebarOpen(false));
-                  setInboxOpen(false);
-                  setPublishOpen((prev) => !prev);
-                }}
-              >
-                <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>发布</Text>
-              </TouchableOpacity>
-            ) : isUserDomain ? (
-              <TouchableOpacity
-                activeOpacity={0.72}
-                style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-                testID="shell-theme-toggle-btn"
-                onPress={() => {
-                  dispatch(setChatAgentsSidebarOpen(false));
-                  setPublishOpen(false);
-                  setInboxOpen(false);
-                  dispatch(toggleTheme());
-                }}
-              >
-                <Text style={[styles.themeToggleText, { color: theme.primaryDeep }]}>◐</Text>
-              </TouchableOpacity>
-            ) : (
-              <View style={styles.iconOnlyBtn} />
-            )}
+              )}
+            </View>
+
+            <View
+              style={[styles.topNavSide, styles.topNavRightSide, isChatListTopNav ? styles.topNavSideWide : null]}
+              testID="shell-top-right-slot"
+            >
+              {isTerminalDomain ? (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="shell-terminal-refresh-btn"
+                  onPress={() => {
+                    setInboxOpen(false);
+                    setPublishOpen(false);
+                    if (terminalPane === 'detail') {
+                      dispatch(reloadPty());
+                    } else {
+                      refreshTerminalSessions().catch(() => {});
+                    }
+                  }}
+                >
+                  <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>刷新</Text>
+                </TouchableOpacity>
+              ) : isChatDomain ? (
+                isChatDetailOverlay ? (
+                  <TouchableOpacity
+                    activeOpacity={0.72}
+                    style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                    testID="chat-detail-menu-btn"
+                    onPress={() => {
+                      setInboxOpen(false);
+                      setPublishOpen(false);
+                      dispatch(setChatAgentsSidebarOpen(false));
+                      dispatch(openChatDetailDrawer());
+                    }}
+                  >
+                    <Svg width={20} height={20} viewBox="0 0 20 20" fill="none">
+                      <Rect x={2} y={4.8} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
+                      <Rect x={2} y={8.9} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
+                      <Rect x={2} y={13} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
+                    </Svg>
+                  </TouchableOpacity>
+                ) : isChatAgentOverlay ? (
+                  <View style={styles.iconOnlyBtn} testID="chat-agent-right-placeholder" />
+                ) : chatRoute === 'search' ? (
+                  <View style={styles.iconOnlyBtn} testID="chat-search-right-placeholder" />
+                ) : (
+                  <View style={styles.chatListTopActions} testID="chat-list-top-actions">
+                    <TouchableOpacity
+                      activeOpacity={0.72}
+                      style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                      testID="chat-list-search-btn"
+                      onPress={() => {
+                        setChatPlusMenuOpen(false);
+                        dispatch(showChatSearchRoute());
+                      }}
+                    >
+                      <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                        <Path
+                          d="M16.2 16.2L20 20M18 11a7 7 0 1 1-14 0a7 7 0 0 1 14 0Z"
+                          stroke={theme.primaryDeep}
+                          strokeWidth={2.3}
+                          strokeLinecap="round"
+                        />
+                      </Svg>
+                    </TouchableOpacity>
+
+                    <View style={styles.chatPlusWrap}>
+                      <TouchableOpacity
+                        activeOpacity={0.72}
+                        style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                        testID="chat-list-plus-btn"
+                        onPress={() => setChatPlusMenuOpen((prev) => !prev)}
+                      >
+                        <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                          <Path d="M12 5v14M5 12h14" stroke={theme.primaryDeep} strokeWidth={2.4} strokeLinecap="round" />
+                        </Svg>
+                      </TouchableOpacity>
+
+                      {chatPlusMenuOpen ? (
+                        <View style={[styles.chatPlusMenu, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]} testID="chat-list-plus-menu">
+                          {['扫一扫', '建立群组', '创建频道'].map((label, index) => (
+                            <TouchableOpacity
+                              key={label}
+                              activeOpacity={0.74}
+                              style={[
+                                styles.chatPlusMenuItem,
+                                index > 0 ? { borderTopColor: theme.border, borderTopWidth: StyleSheet.hairlineWidth } : null
+                              ]}
+                              testID={`chat-list-plus-menu-item-${index}`}
+                              onPress={() => {
+                                setChatPlusMenuOpen(false);
+                                dispatch(setStatusText(`功能建设中：${label}`));
+                              }}
+                            >
+                              <Text style={[styles.chatPlusMenuItemText, { color: theme.text }]}>{label}</Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                      ) : null}
+                    </View>
+                  </View>
+                )
+              ) : isAgentsDomain ? (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="shell-publish-toggle-btn"
+                  onPress={() => {
+                    dispatch(setChatAgentsSidebarOpen(false));
+                    setInboxOpen(false);
+                    setPublishOpen((prev) => !prev);
+                  }}
+                >
+                  <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>发布</Text>
+                </TouchableOpacity>
+              ) : isUserDomain ? (
+                <TouchableOpacity
+                  activeOpacity={0.72}
+                  style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                  testID="shell-theme-toggle-btn"
+                  onPress={() => {
+                    dispatch(setChatAgentsSidebarOpen(false));
+                    setPublishOpen(false);
+                    setInboxOpen(false);
+                    dispatch(toggleTheme());
+                  }}
+                >
+                  <Text style={[styles.themeToggleText, { color: theme.primaryDeep }]}>◐</Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.iconOnlyBtn} />
+              )}
+            </View>
           </View>
 
           {isChatDomain && !hasChatOverlay && chatRoute === 'list' && chatPlusMenuOpen ? (
@@ -1743,6 +1754,7 @@ export function ShellScreen() {
                       error={terminalSessionsError}
                       sessions={terminalSessions}
                       activeSessionId={activeTerminalSessionId}
+                      currentWebViewUrl={terminalCurrentWebViewUrl}
                       onCreateSession={openTerminalCreateSessionModal}
                       onRefresh={() => {
                         refreshTerminalSessions().catch(() => {});
@@ -1756,6 +1768,7 @@ export function ShellScreen() {
                       authAccessToken={authAccessToken}
                       authAccessExpireAtMs={authAccessExpireAtMs}
                       authTokenSignal={authTokenSignal}
+                      onUrlChange={handleTerminalWebViewUrlChange}
                       onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
                     />
                   </View>
@@ -2021,7 +2034,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    top: 56,
+    top: 64,
     zIndex: 8
   },
   stackViewport: {
@@ -2043,23 +2056,38 @@ const styles = StyleSheet.create({
     zIndex: 6,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     marginHorizontal: 14,
     marginTop: 6,
     marginBottom: 6,
     gap: 8
   },
+  topNavSide: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'flex-start',
+    justifyContent: 'center'
+  },
+  topNavRightSide: {
+    alignItems: 'flex-end'
+  },
+  topNavSideWide: {
+    width: 96
+  },
+  topNavCenter: {
+    flex: 1,
+    minWidth: 0
+  },
   iconOnlyBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center'
   },
   detailBackBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center'
   },
@@ -2080,21 +2108,21 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   topActionBtn: {
-    minWidth: 52,
-    height: 34,
-    borderRadius: 10,
+    minWidth: 58,
+    height: 38,
+    borderRadius: 12,
     paddingHorizontal: 12,
     alignItems: 'center',
     justifyContent: 'center'
   },
   topActionText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600'
   },
   chatListTopActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8
+    gap: 10
   },
   chatPlusWrap: {
     position: 'relative'
@@ -2102,26 +2130,26 @@ const styles = StyleSheet.create({
   chatPlusMenu: {
     position: 'absolute',
     right: 0,
-    top: 40,
-    width: 132,
-    borderRadius: 10,
+    top: 46,
+    width: 164,
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
     overflow: 'hidden',
     zIndex: 12
   },
   chatPlusMenuItem: {
-    minHeight: 34,
+    minHeight: 42,
     justifyContent: 'center',
-    paddingHorizontal: 10
+    paddingHorizontal: 14
   },
   chatPlusMenuItemText: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '600'
   },
   detailBackText: {
-    fontSize: 20,
+    fontSize: 24,
     fontWeight: '700',
-    lineHeight: 22
+    lineHeight: 26
   },
   themeToggleText: {
     fontSize: 16,
@@ -2129,8 +2157,8 @@ const styles = StyleSheet.create({
   },
   assistantTopBtn: {
     flex: 1,
-    minHeight: 36,
-    borderRadius: 14,
+    minHeight: 40,
+    borderRadius: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2139,17 +2167,17 @@ const styles = StyleSheet.create({
   },
   topSearchWrap: {
     flex: 1,
-    minHeight: 36,
-    borderRadius: 14,
+    minHeight: 40,
+    borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     justifyContent: 'center',
     paddingHorizontal: 10
   },
   topSearchInput: {
-    height: 34,
+    height: 38,
     paddingHorizontal: 0,
     paddingVertical: 0,
-    fontSize: 13
+    fontSize: 14
   },
   assistantTopTextWrap: {
     flexGrow: 0,
@@ -2159,13 +2187,13 @@ const styles = StyleSheet.create({
     maxWidth: '84%'
   },
   assistantTopTitle: {
-    fontSize: 13,
+    fontSize: 16,
     fontWeight: '600',
     textAlign: 'center'
   },
   assistantTopSubTitle: {
     marginTop: 0,
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '500',
     textAlign: 'center'
   },

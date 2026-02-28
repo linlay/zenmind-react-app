@@ -59,10 +59,10 @@ Redux Toolkit，5 个 slice + 3 个 RTK Query API。
 
 | Slice | 文件 | State 关键字段 |
 |-------|------|----------------|
-| `shell` | `src/app/shell/shellSlice.ts` | `drawerOpen` |
+| `shell` | `src/app/shell/shellSlice.ts` | `chatRoute`, `chatSearchQuery`, `chatOverlayStack`, `terminalPane`, `chatAgentsSidebarOpen`, `chatDetailDrawerOpen`, `chatDetailDrawerPreviewProgress` |
 | `user` | `src/modules/user/state/userSlice.ts` | `themeMode`, `endpointInput`, `ptyUrlInput`, `selectedAgentKey`, `activeDomain`, `booting` |
-| `agents` | `src/modules/agents/state/agentsSlice.ts` | `agents[]`, `selectedAgentKey`, `loading`, `error` |
-| `chat` | `src/modules/chat/state/chatSlice.ts` | `chats[]`, `chatId`, `chatKeyword`, `statusText`, `loadingChats` |
+| `agents` | `src/modules/agents/state/agentsSlice.ts` | `agents[]`, `loading`, `error` |
+| `chat` | `src/modules/chat/state/chatSlice.ts` | `chats[]`, `chatId`, `statusText`, `loadingChats` |
 | `terminal` | `src/modules/terminal/state/terminalSlice.ts` | `ptyReloadKey`, `ptyLoading`, `activeSessionId`, `openNewSessionNonce` |
 
 **RTK Query APIs:**
@@ -102,7 +102,7 @@ Session 状态: `{ username, deviceId, deviceName, accessToken, accessExpireAtMs
 - `fetchAuthedJson<T>(baseUrl, path, options?)` — 带鉴权 fetch，直接返回 JSON payload
 - `fetchViewportHtml(baseUrl, viewportKey)` — 获取 Frontend Tool HTML（多种响应格式兼容）
 - `submitFrontendToolApi(baseUrl, payload)` — 提交 Frontend Tool 结果
-- `parseApiEnvelope<T>(response, bodyText)` — 解析 `{ code, msg, data }` 信封
+- `parseApiEnvelope<T>(response, bodyText)` — 解析 `{ code, msg, data }` 信封（`apiClient.ts` 内部函数，未导出）
 
 **endpoint.ts:**
 - `toBackendBaseUrl(endpointInput)` — 规范化后端 URL（内网 IP → `http://`，公网 → `https://`）
@@ -169,7 +169,7 @@ interface ReasoningEntry { kind: 'reasoning'; text: string; collapsed: boolean; 
 ### SSE 流式客户端 (`modules/chat/services/chatStreamClient.ts`)
 
 - 使用 `XMLHttpRequest` 实现 SSE（非浏览器 EventSource，因为 RN 环境限制 + 需要 POST）
-- `POST /api/query` 发起，响应为 `text/event-stream`
+- `POST /api/ap/query` 发起，响应为 `text/event-stream`
 - 每个 SSE 块格式: `data: {JSON}\n\n`
 - 解析入口: `parseSseBlock()` → 逐块解析 → `applyEvent()` 分发
 
@@ -184,7 +184,7 @@ interface ReasoningEntry { kind: 'reasoning'; text: string; collapsed: boolean; 
 **数据流:**
 
 ```
-POST /api/query (SSE)
+POST /api/ap/query (SSE)
   → XMLHttpRequest onprogress
   → parseSseBlock()          # SSE 文本 → JSON
   → applyEvent()             # 路由: 设置 chatId、调用 reduceChatEvent
@@ -221,13 +221,13 @@ POST /api/query (SSE)
 - `ViewportBlockView.tsx` 渲染视口块
 - `Composer.tsx` 管理输入框和 Frontend Tool WebView
 - `frontendToolBridge.ts` 解析 WebView 消息 (`frontend_submit` / `auth_refresh_request`)
-- 提交结果: `POST /api/submit { runId, toolId, params }`
+- 提交结果: `POST /api/ap/submit { runId, toolId, params }`
 
 ### 历史加载 vs 实时流
 
 | 维度 | 实时流 (`source='live'`) | 历史加载 (`source='history'`) |
 |------|--------------------------|-------------------------------|
-| 数据来源 | `POST /api/query` SSE | `GET /api/chat?chatId=` 事件数组 |
+| 数据来源 | `POST /api/ap/query` SSE | `GET /api/ap/chat?chatId=` 事件数组 |
 | 内容事件 | `content.start` → N 个 `content.delta` → `content.end` | `content.snapshot` |
 | 工具参数 | `tool.start` → N 个 `tool.args` → `tool.end` | `tool.snapshot` |
 | `isStreamingContent` | `true`（控制光标动画） | `false` |
@@ -361,12 +361,12 @@ interface PlanTask  { taskId: string; description: string; status: 'init' | 'run
 
 | 方法 | 端点 | 说明 |
 |------|------|------|
-| GET | `/api/agents` | 返回 `Agent[]` |
-| GET | `/api/chats` | 返回 `ChatSummary[]` |
-| GET | `/api/chat?chatId=...` | 返回 `{ events: ChatEvent[] }` |
-| GET | `/api/viewport?viewportKey=...` | 返回 HTML（多种格式兼容） |
-| POST | `/api/query` | SSE 流式响应（`text/event-stream`） |
-| POST | `/api/submit` | `{ runId, toolId, params }` → `{ accepted, detail, status }` |
+| GET | `/api/ap/agents` | 返回 `Agent[]` |
+| GET | `/api/ap/chats` | 返回 `ChatSummary[]` |
+| GET | `/api/ap/chat?chatId=...` | 返回 `{ events: ChatEvent[] }` |
+| GET | `/api/ap/viewport?viewportKey=...` | 返回 HTML（多种格式兼容） |
+| POST | `/api/ap/query` | SSE 流式响应（`text/event-stream`） |
+| POST | `/api/ap/submit` | `{ runId, toolId, params }` → `{ accepted, detail, status }` |
 
 ### 消息盒子 API
 

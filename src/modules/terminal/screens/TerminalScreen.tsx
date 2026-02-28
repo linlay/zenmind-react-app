@@ -16,6 +16,7 @@ interface TerminalScreenProps {
   authAccessToken?: string;
   authAccessExpireAtMs?: number;
   authTokenSignal?: number;
+  onUrlChange?: (url: string) => void;
   onWebViewAuthRefreshRequest?: (requestId: string, source: string) => Promise<WebViewAuthRefreshOutcome>;
 }
 
@@ -24,6 +25,7 @@ export function TerminalScreen({
   authAccessToken = '',
   authAccessExpireAtMs,
   authTokenSignal = 0,
+  onUrlChange,
   onWebViewAuthRefreshRequest
 }: TerminalScreenProps) {
   const dispatch = useAppDispatch();
@@ -48,6 +50,7 @@ export function TerminalScreen({
         authAccessExpireAtMs={authAccessExpireAtMs}
         authTokenSignal={authTokenSignal}
         theme={{ ...theme, textSoft: '#60728f', danger: '#d65252', textMute: '#8d9bb2', primary: '#2f6cf3' }}
+        onUrlChange={onUrlChange}
         onLoadStart={() => {
           dispatch(setPtyLoading(true));
           dispatch(setPtyLoadError(''));

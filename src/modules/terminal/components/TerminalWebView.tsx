@@ -40,6 +40,7 @@ interface TerminalWebViewProps {
   onLoadStart: () => void;
   onLoadEnd: () => void;
   onError: (message: string) => void;
+  onUrlChange?: (url: string) => void;
   onAuthRefreshRequest?: (requestId: string, source: string) => Promise<WebViewAuthRefreshOutcome>;
 }
 
@@ -55,9 +56,11 @@ export function TerminalWebView({
   onLoadStart,
   onLoadEnd,
   onError,
+  onUrlChange,
   onAuthRefreshRequest
 }: TerminalWebViewProps) {
   const webViewRef = useRef<WebView>(null);
+  const lastReportedUrlRef = useRef('');
   const [loadTimedOut, setLoadTimedOut] = useState(false);
   const loadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -108,6 +111,14 @@ export function TerminalWebView({
         thirdPartyCookiesEnabled
         mixedContentMode="always"
         injectedJavaScript={TERMINAL_WEBVIEW_BRIDGE_SCRIPT}
+        onNavigationStateChange={(navState) => {
+          const nextUrl = String(navState?.url || '').trim();
+          if (!nextUrl || nextUrl === lastReportedUrlRef.current) {
+            return;
+          }
+          lastReportedUrlRef.current = nextUrl;
+          onUrlChange?.(nextUrl);
+        }}
         onLoadStart={() => {
           console.log('[TerminalWebView] onLoadStart uri=', uri);
           clearLoadTimer();

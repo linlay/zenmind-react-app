@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontSize: 14,
+    fontSize: 17,
     fontWeight: '700'
   },
   closeBtn: {

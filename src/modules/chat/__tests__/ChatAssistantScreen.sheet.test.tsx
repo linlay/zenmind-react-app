@@ -1,4 +1,3 @@
-import React from 'react';
 import { act, create } from 'react-test-renderer';
 import * as ReactNative from 'react-native';
 import { THEMES } from '../../../core/constants/theme';
@@ -252,7 +251,8 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
   beforeEach(() => {
     mockSelectorState = {
       chat: { chatId: '', statusText: '' },
-      agents: { selectedAgentKey: 'agent-1', agents: [{ key: 'agent-1', name: 'Agent 1' }] }
+      user: { selectedAgentKey: 'agent-1' },
+      agents: { agents: [{ key: 'agent-1', name: 'Agent 1' }] }
     };
     mockInitialChatStateValue = createBaseChatState(null);
 
@@ -569,7 +569,8 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
   it('passes history chatImageToken from getChat response to row renderer', async () => {
     mockSelectorState = {
       chat: { chatId: 'chat-history-1', statusText: '' },
-      agents: { selectedAgentKey: 'agent-1', agents: [{ key: 'agent-1', name: 'Agent 1' }] }
+      user: { selectedAgentKey: 'agent-1' },
+      agents: { agents: [{ key: 'agent-1', name: 'Agent 1' }] }
     };
     mockLoadChatUnwrap.mockResolvedValue({
       chatId: 'chat-history-1',
@@ -592,7 +593,8 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
   it('updates row chatImageToken when chat.start event carries token', async () => {
     mockSelectorState = {
       chat: { chatId: 'chat-stream-1', statusText: '' },
-      agents: { selectedAgentKey: 'agent-1', agents: [{ key: 'agent-1', name: 'Agent 1' }] }
+      user: { selectedAgentKey: 'agent-1' },
+      agents: { agents: [{ key: 'agent-1', name: 'Agent 1' }] }
     };
     mockLoadChatUnwrap.mockResolvedValue({
       chatId: 'chat-stream-1',

@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     gap: 10
   },
   title: {
-    fontSize: 15,
+    fontSize: 18,
     fontWeight: '700'
   },
   hint: {

@@ -69,7 +69,6 @@ async function renderComposer(
       <Composer
         theme={baseTheme}
         composerText=""
-        focused={false}
         onChangeText={() => {}}
         onFocus={() => {}}
         onBlur={() => {}}

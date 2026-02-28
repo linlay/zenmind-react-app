@@ -1,4 +1,3 @@
-import React from 'react';
 import { act, create } from 'react-test-renderer';
 import * as ReactNative from 'react-native';
 import { THEMES } from '../../../core/constants/theme';
@@ -151,7 +150,8 @@ describe('ChatAssistantScreen gestures', () => {
     mockDispatch.mockReset();
     mockSelectorState = {
       chat: { chatId: 'chat-1', statusText: '' },
-      agents: { selectedAgentKey: 'agent-1', agents: [{ key: 'agent-1', name: 'Agent 1' }] }
+      user: { selectedAgentKey: 'agent-1' },
+      agents: { agents: [{ key: 'agent-1', name: 'Agent 1' }] }
     };
     mockInitialChatState = createBaseChatState(false);
     mockLoadChat.mockReset();

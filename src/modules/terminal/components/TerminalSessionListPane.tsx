@@ -1,4 +1,5 @@
-import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AppTheme } from '../../../core/constants/theme';
 import { TerminalSessionItem } from '../types/terminal';
 
@@ -8,6 +9,7 @@ interface TerminalSessionListPaneProps {
   error: string;
   sessions: TerminalSessionItem[];
   activeSessionId: string;
+  currentWebViewUrl?: string;
   onCreateSession: () => void;
   onRefresh: () => void;
   onSelectSession: (sessionId: string) => void;
@@ -19,10 +21,22 @@ export function TerminalSessionListPane({
   error,
   sessions,
   activeSessionId,
+  currentWebViewUrl = '',
   onCreateSession,
   onRefresh,
   onSelectSession
 }: TerminalSessionListPaneProps) {
+  const normalizedCurrentWebViewUrl = String(currentWebViewUrl || '').trim();
+  const hasCurrentWebViewUrl = Boolean(normalizedCurrentWebViewUrl);
+
+  const handleCopyCurrentUrl = async () => {
+    if (!hasCurrentWebViewUrl) {
+      return;
+    }
+    await Clipboard.setStringAsync(normalizedCurrentWebViewUrl);
+    Alert.alert('已复制', '当前终端地址已复制到剪贴板');
+  };
+
   return (
     <View style={styles.container} testID="terminal-session-list-pane">
       <View style={styles.headerRow}>
@@ -81,6 +95,35 @@ export function TerminalSessionListPane({
           </View>
         )}
       </ScrollView>
+
+      <View style={[styles.currentUrlCard, { backgroundColor: theme.surfaceStrong }]} testID="terminal-current-url-footer">
+        <View style={styles.currentUrlHead}>
+          <Text style={[styles.currentUrlLabel, { color: theme.textSoft }]}>当前地址</Text>
+          <TouchableOpacity
+            activeOpacity={0.74}
+            style={[
+              styles.currentUrlCopyBtn,
+              {
+                backgroundColor: hasCurrentWebViewUrl ? theme.surface : theme.surfaceStrong,
+                borderColor: hasCurrentWebViewUrl ? theme.primaryDeep : theme.textMute
+              }
+            ]}
+            testID="terminal-current-url-copy-btn"
+            onPress={handleCopyCurrentUrl}
+            disabled={!hasCurrentWebViewUrl}
+          >
+            <Text style={[styles.currentUrlCopyText, { color: hasCurrentWebViewUrl ? theme.primaryDeep : theme.textMute }]}>复制</Text>
+          </TouchableOpacity>
+        </View>
+        <Text
+          style={[styles.currentUrlText, { color: hasCurrentWebViewUrl ? theme.text : theme.textMute }]}
+          numberOfLines={1}
+          ellipsizeMode="middle"
+          testID="terminal-current-url-text"
+        >
+          {hasCurrentWebViewUrl ? normalizedCurrentWebViewUrl : '未进入终端页面'}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -97,7 +140,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between'
   },
   title: {
-    fontSize: 19,
+    fontSize: 23,
     fontWeight: '700'
   },
   refreshBtn: {
@@ -135,6 +178,39 @@ const styles = StyleSheet.create({
   listContent: {
     paddingBottom: 12,
     gap: 8
+  },
+  currentUrlCard: {
+    marginTop: 8,
+    marginBottom: 4,
+    borderRadius: 11,
+    paddingHorizontal: 11,
+    paddingVertical: 10
+  },
+  currentUrlHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10
+  },
+  currentUrlLabel: {
+    fontSize: 12,
+    fontWeight: '600'
+  },
+  currentUrlCopyBtn: {
+    minHeight: 28,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth
+  },
+  currentUrlCopyText: {
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  currentUrlText: {
+    marginTop: 7,
+    fontSize: 12
   },
   item: {
     borderRadius: 10,

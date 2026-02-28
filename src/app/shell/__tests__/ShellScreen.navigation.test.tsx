@@ -193,7 +193,6 @@ function makeState(overrides: Partial<Record<string, any>> = {}) {
     user,
     chat: {
       chatId: '',
-      chatKeyword: '',
       loadingChats: false,
       chats: [{ chatId: 'chat-1', chatName: 'Test Chat', firstAgentName: 'Agent 1', firstAgentKey: 'agent-1', updatedAt: Date.now() }],
       statusText: '',
@@ -202,7 +201,6 @@ function makeState(overrides: Partial<Record<string, any>> = {}) {
     agents: {
       loading: false,
       agents: [{ key: 'agent-1', name: 'Agent 1' }],
-      selectedAgentKey: 'agent-1',
       ...overrides.agents
     },
     terminal: {
@@ -276,7 +274,6 @@ describe('ShellScreen navigation flow', () => {
     });
 
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'chat/setChatId', payload: 'chat-1' });
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'agents/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'chatDetail' }) })
@@ -290,7 +287,6 @@ describe('ShellScreen navigation flow', () => {
       avatarBtn.props.onPress({ stopPropagation: jest.fn() });
     });
 
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'agents/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'agentDetail' }) })
@@ -332,7 +328,6 @@ describe('ShellScreen navigation flow', () => {
     });
 
     expect(keyboardDismissSpy).toHaveBeenCalled();
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'agents/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'agentDetail' }) })
@@ -351,7 +346,6 @@ describe('ShellScreen navigation flow', () => {
 
     expect(keyboardDismissSpy).toHaveBeenCalled();
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'chat/setChatId', payload: 'chat-1' });
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'agents/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'chatDetail' }) })
@@ -433,6 +427,20 @@ describe('ShellScreen navigation flow', () => {
     const backText = tree.root.findByProps({ testID: 'chat-detail-back-text' });
     const style = ReactNative.StyleSheet.flatten(backText.props.style) as { fontSize?: number } | undefined;
     expect(Number(style?.fontSize || 0)).toBeGreaterThanOrEqual(18);
+  });
+
+  it('keeps chat list header centered with symmetric side slots', async () => {
+    const tree = await renderScreen({
+      user: { activeDomain: 'chat' },
+      shell: { chatRoute: 'list', chatOverlayStack: [] }
+    });
+    const leftSlot = tree.root.findByProps({ testID: 'shell-top-left-slot' });
+    const rightSlot = tree.root.findByProps({ testID: 'shell-top-right-slot' });
+    const leftStyle = ReactNative.StyleSheet.flatten(leftSlot.props.style) as { width?: number } | undefined;
+    const rightStyle = ReactNative.StyleSheet.flatten(rightSlot.props.style) as { width?: number } | undefined;
+
+    expect(leftStyle?.width).toBe(rightStyle?.width);
+    expect(Number(leftStyle?.width || 0)).toBeGreaterThanOrEqual(90);
   });
 
   it('pops agent overlay by back button', async () => {

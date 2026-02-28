@@ -7,8 +7,7 @@ import {
   getAgentRole,
   getChatAgentKey,
   getChatAgentName,
-  getChatTimestamp,
-  getChatTitle
+  getChatTimestamp
 } from '../../../shared/utils/format';
 import { ChatSummary } from '../../../core/types/common';
 
@@ -25,7 +24,6 @@ export interface AgentLatestChatItem {
 
 export const selectChats = (state: RootState) => state.chat.chats;
 export const selectChatId = (state: RootState) => state.chat.chatId;
-export const selectChatKeyword = (state: RootState) => state.chat.chatKeyword;
 
 function getAgentKeyFromChat(chat: ChatSummary): string {
   const key = String(getChatAgentKey(chat) || '').trim();
@@ -44,14 +42,6 @@ function getAgentNameFromChat(chat: ChatSummary, agentNameByKey: Map<string, str
   }
   const fallbackKey = String(getChatAgentKey(chat) || '').trim();
   return fallbackKey || '未知智能体';
-}
-
-function matchesKeyword(chat: ChatSummary, keyword: string): boolean {
-  if (!keyword) {
-    return true;
-  }
-  const haystack = `${chat.chatName || ''} ${chat.title || ''} ${chat.chatId || ''} ${getChatAgentName(chat)} ${getChatAgentKey(chat)}`.toLowerCase();
-  return haystack.includes(keyword);
 }
 
 function pickFirstNonEmptyValue(source: Record<string, unknown>, keys: string[]): string {
@@ -90,31 +80,12 @@ function resolveChatAgentRole(chat: ChatSummary): string {
   return pickFirstNonEmptyValue(chat as Record<string, unknown>, ['firstAgentRole', 'agentRole']);
 }
 
-function matchesAgentItemKeyword(item: AgentLatestChatItem, keyword: string): boolean {
-  if (!keyword) {
-    return true;
-  }
-  const latestChatTitle = getChatTitle(item.latestChat) || item.latestChat.chatName || '';
-  const haystack = `${item.agentName || ''} ${item.agentKey || ''} ${latestChatTitle} ${item.latestChat.chatId || ''}`.toLowerCase();
-  return haystack.includes(keyword);
-}
-
 function sortByRecent(a: ChatSummary, b: ChatSummary): number {
   return getChatTimestamp(b) - getChatTimestamp(a);
 }
 
-export const selectFilteredChats = (state: RootState) => {
-  const chats = state.chat.chats;
-  const keyword = state.chat.chatKeyword.trim().toLowerCase();
-  const sorted = [...chats].sort(sortByRecent);
-  if (!keyword) return sorted;
-
-  return sorted.filter((chat) => matchesKeyword(chat, keyword));
-};
-
 export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] => {
   const sorted = [...state.chat.chats].sort(sortByRecent);
-  const keyword = state.chat.chatKeyword.trim().toLowerCase();
   const latestByAgent = new Map<string, ChatSummary>();
   const agentNameByKey = new Map<string, string>();
   const agentRoleByKey = new Map<string, string>();
@@ -160,11 +131,7 @@ export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] 
       };
     })
     .sort((a, b) => sortByRecent(a.latestChat, b.latestChat));
-
-  if (!keyword) {
-    return items;
-  }
-  return items.filter((item) => matchesAgentItemKeyword(item, keyword));
+  return items;
 };
 
 export const selectCurrentAgentChats = (state: RootState): ChatSummary[] => {

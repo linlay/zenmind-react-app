@@ -32,9 +32,6 @@ const shellSlice = createSlice({
   name: 'shell',
   initialState,
   reducers: {
-    setChatRoute(state, action: PayloadAction<ChatRoute>) {
-      state.chatRoute = action.payload;
-    },
     setChatSearchQuery(state, action: PayloadAction<string>) {
       state.chatSearchQuery = action.payload;
     },
@@ -54,17 +51,8 @@ const shellSlice = createSlice({
       state.chatDetailDrawerOpen = false;
       state.chatDetailDrawerPreviewProgress = 0;
     },
-    setTerminalPane(state, action: PayloadAction<'list' | 'detail'>) {
-      state.terminalPane = action.payload;
-    },
     setChatAgentsSidebarOpen(state, action: PayloadAction<boolean>) {
       state.chatAgentsSidebarOpen = action.payload;
-    },
-    setChatDetailDrawerOpen(state, action: PayloadAction<boolean>) {
-      state.chatDetailDrawerOpen = action.payload;
-      if (!action.payload) {
-        state.chatDetailDrawerPreviewProgress = 0;
-      }
     },
     setChatDetailDrawerPreviewProgress(state, action: PayloadAction<number>) {
       const normalized = Number.isFinite(action.payload) ? action.payload : 0;
@@ -101,14 +89,11 @@ const shellSlice = createSlice({
 });
 
 export const {
-  setChatRoute,
   setChatSearchQuery,
   pushChatOverlay,
   popChatOverlay,
   clearChatOverlays,
-  setTerminalPane,
   setChatAgentsSidebarOpen,
-  setChatDetailDrawerOpen,
   setChatDetailDrawerPreviewProgress,
   resetChatDetailDrawerPreview,
   openChatDetailDrawer,

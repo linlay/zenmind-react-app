@@ -36,7 +36,6 @@ interface ComposerProps {
     danger: string;
   };
   composerText: string;
-  focused: boolean;
   onChangeText: (text: string) => void;
   onFocus: () => void;
   onBlur: () => void;
@@ -55,7 +54,6 @@ interface ComposerProps {
 export function Composer({
   theme,
   composerText,
-  focused,
   onChangeText,
   onFocus,
   onBlur,

@@ -10,7 +10,6 @@ const initialState: UserState = {
   ...defaults,
   endpointDraft: defaults.endpointInput,
   ptyUrlDraft: defaults.ptyUrlInput,
-  settingsOpen: false,
   booting: true
 };
 
@@ -31,9 +30,6 @@ const userSlice = createSlice({
       state.selectedAgentKey = String(action.payload.selectedAgentKey || '');
       state.activeDomain = (action.payload.activeDomain as DomainMode) || 'chat';
       state.booting = false;
-    },
-    setBooting(state, action: PayloadAction<boolean>) {
-      state.booting = action.payload;
     },
     setThemeMode(state, action: PayloadAction<ThemeMode>) {
       state.themeMode = action.payload;
@@ -58,9 +54,6 @@ const userSlice = createSlice({
     setActiveDomain(state, action: PayloadAction<DomainMode>) {
       state.activeDomain = action.payload;
     },
-    setSettingsOpen(state, action: PayloadAction<boolean>) {
-      state.settingsOpen = action.payload;
-    },
     toggleTheme(state) {
       state.themeMode = state.themeMode === 'light' ? 'dark' : 'light';
     }
@@ -69,14 +62,12 @@ const userSlice = createSlice({
 
 export const {
   hydrateSettings,
-  setBooting,
   setThemeMode,
   setEndpointDraft,
   setPtyUrlDraft,
   applyEndpointDraft,
   setSelectedAgentKey,
   setActiveDomain,
-  setSettingsOpen,
   toggleTheme
 } = userSlice.actions;
 

@@ -7,10 +7,7 @@ import shellReducer, {
   resetChatDetailDrawerPreview,
   setChatDetailDrawerPreviewProgress,
   setChatAgentsSidebarOpen,
-  setChatDetailDrawerOpen,
-  setChatRoute,
   setChatSearchQuery,
-  setTerminalPane,
   showChatListRoute,
   showChatSearchRoute,
   showTerminalDetailPane,
@@ -21,20 +18,17 @@ describe('shellSlice', () => {
   it('updates route/sidebar/search state', () => {
     const initial = shellReducer(undefined, { type: 'unknown' });
 
-    const next = shellReducer(initial, setChatRoute('search'));
+    const next = shellReducer(initial, showChatSearchRoute());
     expect(next.chatRoute).toBe('search');
 
     const next2 = shellReducer(next, setChatSearchQuery('部署'));
     expect(next2.chatSearchQuery).toBe('部署');
 
-    const next3 = shellReducer(next2, setTerminalPane('detail'));
+    const next3 = shellReducer(next2, showTerminalDetailPane());
     expect(next3.terminalPane).toBe('detail');
 
     const next4 = shellReducer(next3, setChatAgentsSidebarOpen(true));
     expect(next4.chatAgentsSidebarOpen).toBe(true);
-
-    const next5 = shellReducer(next4, setChatDetailDrawerOpen(true));
-    expect(next5.chatDetailDrawerOpen).toBe(true);
   });
 
   it('supports chat overlay stack actions', () => {

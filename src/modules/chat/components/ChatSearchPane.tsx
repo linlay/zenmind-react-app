@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700'
   },
   recentRow: {

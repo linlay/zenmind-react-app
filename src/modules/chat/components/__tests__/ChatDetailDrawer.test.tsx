@@ -1,4 +1,3 @@
-import React from 'react';
 import { act, create } from 'react-test-renderer';
 import * as ReactNative from 'react-native';
 import { THEMES } from '../../../../core/constants/theme';

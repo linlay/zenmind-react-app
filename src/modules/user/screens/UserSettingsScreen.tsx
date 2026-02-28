@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
     marginBottom: 6
   },
   title: {
-    fontSize: 16,
+    fontSize: 19,
     fontWeight: '700'
   },
   label: {
