@@ -176,9 +176,11 @@ describe('ChatAssistantScreen gestures', () => {
       layer.props.onMoveShouldSetResponder?.(event, { dx: 60, dy: 8 });
       layer.props.onResponderMove?.(event, { dx: 60, dy: 8 });
     });
-    const hintCard = tree.root.findByProps({ testID: 'chat-create-swipe-hint-card' });
-    const style = ReactNative.StyleSheet.flatten(hintCard.props.style) as { opacity?: number } | undefined;
-    expect(Number(style?.opacity || 0)).toBeGreaterThan(0);
+    const hintChars = tree.root.findAll((node) => {
+      if (typeof node.children?.[0] !== 'string') return false;
+      return '新建对话'.includes(node.children[0] as string) && node.children[0].length === 1;
+    });
+    expect(hintChars.length).toBe(4);
     act(() => {
       layer.props.onResponderRelease?.({ nativeEvent: { locationX: 140 } }, { dx: 60, dy: 8 });
     });

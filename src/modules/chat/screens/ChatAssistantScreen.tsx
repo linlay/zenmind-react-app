@@ -77,8 +77,6 @@ const GESTURE_CREATE_CHAT_COMMIT_THRESHOLD = 112;
 const GESTURE_CREATE_CHAT_VISUAL_MAX = 148;
 const GESTURE_CREATE_CHAT_LEFT_EDGE_GUARD_PX = 32;
 const GESTURE_SHOW_DRAWER_ACTIVATE_THRESHOLD = 10;
-const GESTURE_SHOW_DRAWER_PREVIEW_START = 8;
-const GESTURE_SHOW_DRAWER_PREVIEW_FULL = 52;
 const GESTURE_SHOW_DRAWER_COMMIT_DISTANCE = 96;
 const GESTURE_SHOW_DRAWER_COMMIT_VELOCITY = -0.58;
 const GESTURE_SHOW_DRAWER_DISTANCE_MAX = 156;
@@ -90,6 +88,8 @@ const NATIVE_CONFIRM_DIALOG_TOOL_KEY = 'confirm_dialog';
 const FRONTEND_TOOL_OVERLAY_OPEN_MS = 220;
 const FRONTEND_TOOL_OVERLAY_CLOSE_MS = 170;
 const EDGE_TOAST_TTL_MS = 2000;
+const PUSH_DRAWER_WIDTH_RATIO = 0.76;
+const PUSH_DRAWER_PREVIEW_RATIO = 0.2;
 
 function isNativeConfirmDialogTool(toolType: string, toolKey: string): boolean {
   return String(toolType || '').toLowerCase() === 'html' && String(toolKey || '') === NATIVE_CONFIRM_DIALOG_TOOL_KEY;
@@ -153,6 +153,7 @@ interface ChatAssistantScreenProps {
   onRequestCreateAgentChatBySwipe?: () => { ok: boolean; message?: string };
   onRequestPreviewChatDetailDrawer?: (progress: number) => void;
   onRequestShowChatDetailDrawer?: () => void;
+  chatDetailDrawerOpen?: boolean;
 }
 
 type EdgeToastState = {
@@ -174,7 +175,8 @@ export function ChatAssistantScreen({
   onRequestSwitchAgentChat,
   onRequestCreateAgentChatBySwipe,
   onRequestPreviewChatDetailDrawer,
-  onRequestShowChatDetailDrawer
+  onRequestShowChatDetailDrawer,
+  chatDetailDrawerOpen = false
 }: ChatAssistantScreenProps) {
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
@@ -195,8 +197,8 @@ export function ChatAssistantScreen({
   const [chatImageToken, setChatImageToken] = useState('');
   const [createChatSwipeDistance, setCreateChatSwipeDistance] = useState(0);
   const [showDrawerSwipeDistance, setShowDrawerSwipeDistance] = useState(0);
-  const [, setSwitchPrevSwipeDistance] = useState(0);
-  const [, setSwitchNextSwipeDistance] = useState(0);
+  const [switchPrevSwipeDistance, setSwitchPrevSwipeDistance] = useState(0);
+  const [switchNextSwipeDistance, setSwitchNextSwipeDistance] = useState(0);
   const [frontendToolOverlayMounted, setFrontendToolOverlayMounted] = useState(false);
 
   const [fireworksVisible, setFireworksVisible] = useState(false);
@@ -239,6 +241,7 @@ export function ChatAssistantScreen({
   const toolInitFastRetryStartedRef = useRef(false);
   const toolInitHintSessionKeyRef = useRef('');
   const toolInitHintAtRef = useRef(0);
+  const scrollableStabilizationTimerRef = useRef<NodeJS.Timeout | null>(null);
   const listAtTopRef = useRef(true);
   const listAtBottomRef = useRef(false);
   const listViewportHeightRef = useRef(0);
@@ -251,6 +254,8 @@ export function ChatAssistantScreen({
   const switchNextSwipeDistanceRef = useRef(0);
   const shouldScrollTopAfterHistoryLoadRef = useRef(false);
   const navSwitchGestureLockedRef = useRef(false);
+  const contentPushAnim = useRef(new Animated.Value(0)).current;
+  const contentPushPrevDrawerOpenRef = useRef(false);
 
   const setChatStateSafe = useCallback((updater: (prev: ChatState) => ChatState) => {
     setChatState((prev) => {
@@ -385,7 +390,20 @@ export function ChatAssistantScreen({
       listAtBottomRef.current = nextEdge.atBottom;
 
       const scrollable = normalizedContent > normalizedViewport;
-      setIsTimelineScrollable((prev) => (prev === scrollable ? prev : scrollable));
+      if (scrollable) {
+        if (!scrollableStabilizationTimerRef.current) {
+          scrollableStabilizationTimerRef.current = setTimeout(() => {
+            scrollableStabilizationTimerRef.current = null;
+            setIsTimelineScrollable(true);
+          }, 80);
+        }
+      } else {
+        if (scrollableStabilizationTimerRef.current) {
+          clearTimeout(scrollableStabilizationTimerRef.current);
+          scrollableStabilizationTimerRef.current = null;
+        }
+        setIsTimelineScrollable(false);
+      }
 
       if (!scrollable) {
         setAutoScrollMode(true);
@@ -518,7 +536,7 @@ export function ChatAssistantScreen({
 
           if (
             horizontalDominant &&
-            gestureState.dx <= -GESTURE_SHOW_DRAWER_PREVIEW_START
+            gestureState.dx <= -GESTURE_SHOW_DRAWER_ACTIVATE_THRESHOLD
           ) {
             setShowDrawerSwipeDistanceSafe(Math.abs(gestureState.dx));
           } else if (showDrawerSwipeDistanceRef.current > 0) {
@@ -1012,6 +1030,10 @@ export function ChatAssistantScreen({
     setFireworksVisible(false);
     setFireworkRockets([]);
     setFireworkSparks([]);
+    if (scrollableStabilizationTimerRef.current) {
+      clearTimeout(scrollableStabilizationTimerRef.current);
+      scrollableStabilizationTimerRef.current = null;
+    }
     setIsTimelineScrollable(false);
     setEdgeToast(null);
     if (edgeToastTimerRef.current) {
@@ -1552,6 +1574,10 @@ export function ChatAssistantScreen({
   const hasActiveFrontendTool = Boolean(chatState.activeFrontendTool);
   const composerBottomPadding =
     keyboardHeight > 0 ? (Platform.OS === 'ios' ? 0 : 10) : Math.max(insets.bottom, 10);
+  const drawerWidthPx = contentWidth * PUSH_DRAWER_WIDTH_RATIO;
+  const previewMaxOpenFraction = drawerWidthPx > 0
+    ? (contentWidth * PUSH_DRAWER_PREVIEW_RATIO) / drawerWidthPx
+    : 0;
   const createChatRevealProgress = useMemo(() => {
     return calcGestureRevealProgress(
       createChatSwipeDistance,
@@ -1560,19 +1586,64 @@ export function ChatAssistantScreen({
     );
   }, [createChatSwipeDistance]);
   const showDrawerRevealProgress = useMemo(() => {
-    return calcGestureLinearProgress(
-      showDrawerSwipeDistance,
-      GESTURE_SHOW_DRAWER_PREVIEW_START,
-      GESTURE_SHOW_DRAWER_PREVIEW_FULL
-    );
+    if (showDrawerSwipeDistance <= 0) return 0;
+    return Math.min(1, showDrawerSwipeDistance / GESTURE_SHOW_DRAWER_COMMIT_DISTANCE);
   }, [showDrawerSwipeDistance]);
+  const switchPrevRevealProgress = useMemo(() => {
+    return calcGestureRevealProgress(switchPrevSwipeDistance, GESTURE_SWITCH_REVEAL_THRESHOLD, GESTURE_SWITCH_VISUAL_MAX);
+  }, [switchPrevSwipeDistance]);
+  const switchNextRevealProgress = useMemo(() => {
+    return calcGestureRevealProgress(switchNextSwipeDistance, GESTURE_SWITCH_REVEAL_THRESHOLD, GESTURE_SWITCH_VISUAL_MAX);
+  }, [switchNextSwipeDistance]);
 
   useEffect(() => {
     if (!onRequestPreviewChatDetailDrawer) {
       return;
     }
     onRequestPreviewChatDetailDrawer(showDrawerRevealProgress);
-  }, [onRequestPreviewChatDetailDrawer, showDrawerRevealProgress]);
+
+    if (chatDetailDrawerOpen) return;
+
+    if (showDrawerRevealProgress > 0) {
+      contentPushAnim.setValue(showDrawerRevealProgress * previewMaxOpenFraction);
+    } else {
+      contentPushAnim.stopAnimation((val) => {
+        if (val > 0.001) {
+          Animated.timing(contentPushAnim, {
+            toValue: 0,
+            duration: 140,
+            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }).start();
+        }
+      });
+    }
+  }, [chatDetailDrawerOpen, contentPushAnim, onRequestPreviewChatDetailDrawer,
+      previewMaxOpenFraction, showDrawerRevealProgress]);
+
+  useEffect(() => {
+    const wasOpen = contentPushPrevDrawerOpenRef.current;
+    contentPushPrevDrawerOpenRef.current = chatDetailDrawerOpen;
+    if (chatDetailDrawerOpen === wasOpen) return;
+
+    contentPushAnim.stopAnimation();
+    if (chatDetailDrawerOpen) {
+      Animated.spring(contentPushAnim, {
+        toValue: 1,
+        damping: 24,
+        stiffness: 240,
+        mass: 0.9,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      Animated.timing(contentPushAnim, {
+        toValue: 0,
+        duration: 180,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [chatDetailDrawerOpen, contentPushAnim]);
 
   useEffect(() => {
     frontendToolOverlayAnim.stopAnimation();
@@ -1819,67 +1890,144 @@ export function ChatAssistantScreen({
         clearTimeout(malformedStatusClearTimerRef.current);
         malformedStatusClearTimerRef.current = null;
       }
+      if (scrollableStabilizationTimerRef.current) {
+        clearTimeout(scrollableStabilizationTimerRef.current);
+        scrollableStabilizationTimerRef.current = null;
+      }
     };
   }, [clearReasoningTimers, clearStreamIdleTimer, clearToolInitTimers, stopStreaming]);
+
+  const contentTransformStyle = useMemo(() => {
+    const DEAD_ZONE = 18;
+    if (createChatSwipeDistance > DEAD_ZONE) {
+      const raw = (createChatSwipeDistance - DEAD_ZONE) * 0.4;
+      return { transform: [{ translateX: Math.min(raw, 52) }] };
+    }
+    if (switchPrevSwipeDistance > DEAD_ZONE) {
+      const raw = (switchPrevSwipeDistance - DEAD_ZONE) * 0.8;
+      const maxPullDown = Math.max(insets.top + 44, 72);
+      return { transform: [{ translateY: Math.min(raw, maxPullDown) }] };
+    }
+    if (switchNextSwipeDistance > DEAD_ZONE) {
+      const raw = (switchNextSwipeDistance - DEAD_ZONE) * 0.8;
+      const maxPullUp = Math.max(insets.bottom + 60, 80);
+      return { transform: [{ translateY: -Math.min(raw, maxPullUp) }] };
+    }
+    return undefined;
+  }, [createChatSwipeDistance, switchPrevSwipeDistance, switchNextSwipeDistance, insets.top, insets.bottom]);
+
+  const contentPushTranslateX = useMemo(
+    () => contentPushAnim.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, -drawerWidthPx],
+      extrapolate: 'clamp',
+    }),
+    [contentPushAnim, drawerWidthPx]
+  );
 
 
   return (
     <View style={styles.container} nativeID="chat-screen-root" testID="chat-screen-root">
-      <View style={styles.timelineGestureLayer} {...timelineGestureResponder.panHandlers} testID="chat-timeline-gesture-layer">
-        <FlatList
-          ref={listRef}
-          data={chatState.timeline}
-          extraData={listExtraData}
-          removeClippedSubviews={false}
-          nestedScrollEnabled={Platform.OS === 'android'}
-          keyboardShouldPersistTaps="handled"
-          keyExtractor={(item) => item.id}
-          style={styles.timelineList}
-          contentContainerStyle={[styles.timelineContent, chatState.timeline.length === 0 ? styles.timelineContentEmpty : null]}
-          onScroll={(event) => {
-            const native = event.nativeEvent;
-            syncListMetrics(
-              native.contentOffset.y,
-              native.layoutMeasurement.height,
-              native.contentSize.height,
-              { fromScroll: true }
-            );
-          }}
-          onLayout={(event) => {
-            syncListMetrics(listOffsetYRef.current, event.nativeEvent.layout.height, listContentHeightRef.current);
-          }}
-          onContentSizeChange={(width, height) => {
-            void width;
-            syncListMetrics(listOffsetYRef.current, listViewportHeightRef.current, height);
-          }}
-          scrollEventThrottle={16}
-          nativeID="chat-timeline-list"
-          testID="chat-timeline-list"
-          renderItem={renderTimelineItem}
-          ListEmptyComponent={
-            <View style={[styles.emptyPanel, { backgroundColor: theme.surfaceStrong }]}> 
-              <Text style={[styles.emptyTitle, { color: theme.text }]}>开始一个完整对话</Text>
-              <Text style={[styles.emptySubTitle, { color: theme.textSoft }]}>先在对话列表选择会话，或直接发送消息开始。</Text>
-            </View>
-          }
-        />
-        <View pointerEvents="none" style={styles.createChatSwipeHintLayer} testID="chat-create-swipe-hint-layer">
+      {/* ---- 推挤层：左滑时整体向左位移 ---- */}
+      <Animated.View style={[styles.contentPushLayer, { transform: [{ translateX: contentPushTranslateX }] }]}>
+      {/* ---- 背景提示层（zIndex: 0，被 contentWrap 遮住）---- */}
+      {createChatSwipeDistance > 0 ? (
+        <View pointerEvents="none" style={styles.createChatHintBehind}>
+          <View style={[styles.createChatHintBehindCard, { opacity: createChatRevealProgress }]}>
+            {'新建对话'.split('').map((char, i) => (
+              <Text key={i} style={[styles.createChatHintBehindChar, { color: theme.textSoft }]}>
+                {char}
+              </Text>
+            ))}
+          </View>
+        </View>
+      ) : null}
+      {switchPrevSwipeDistance > 0 ? (
+        <View
+          pointerEvents="none"
+          style={[styles.switchPrevHintBehind, { top: insets.top - 2 }]}
+          testID="switch-prev-hint-layer"
+        >
           <View
             style={[
-              styles.createChatSwipeHintCard,
+              styles.switchHintCard,
               {
                 backgroundColor: theme.surfaceStrong,
                 borderColor: theme.border,
-                opacity: createChatRevealProgress,
-                transform: [{ translateX: -((1 - createChatRevealProgress) * 42) }]
+                opacity: switchPrevRevealProgress
               }
             ]}
-            testID="chat-create-swipe-hint-card"
           >
-            <Text style={[styles.createChatSwipeHintText, { color: theme.text }]}>新建对话</Text>
+            <Text style={[styles.switchHintArrow, { color: theme.textSoft }]}>↑</Text>
+            <Text style={[styles.switchHintText, { color: theme.text }]}>上一条对话</Text>
           </View>
         </View>
-      </View>
+      ) : null}
+      {switchNextSwipeDistance > 0 ? (
+        <View
+          pointerEvents="none"
+          style={[styles.switchNextHintBehind, { bottom: composerBottomPadding + 4 }]}
+          testID="switch-next-hint-layer"
+        >
+          <View
+            style={[
+              styles.switchHintCard,
+              {
+                backgroundColor: theme.surfaceStrong,
+                borderColor: theme.border,
+                opacity: switchNextRevealProgress
+              }
+            ]}
+          >
+            <Text style={[styles.switchHintText, { color: theme.text }]}>下一条对话</Text>
+            <Text style={[styles.switchHintArrow, { color: theme.textSoft }]}>↓</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* ---- 内容层（带背景色 + 手势位移）---- */}
+      <View style={[styles.contentWrap, { backgroundColor: theme.surface }, contentTransformStyle]}>
+        <View style={styles.timelineGestureLayer} {...timelineGestureResponder.panHandlers} testID="chat-timeline-gesture-layer">
+          <FlatList
+            ref={listRef}
+            data={chatState.timeline}
+            extraData={listExtraData}
+            removeClippedSubviews={false}
+            nestedScrollEnabled={Platform.OS === 'android'}
+            keyboardShouldPersistTaps="handled"
+            bounces={isTimelineScrollable}
+            alwaysBounceVertical={isTimelineScrollable}
+            keyExtractor={(item) => item.id}
+            style={styles.timelineList}
+            contentContainerStyle={[styles.timelineContent, chatState.timeline.length === 0 ? styles.timelineContentEmpty : null]}
+            onScroll={(event) => {
+              const native = event.nativeEvent;
+              syncListMetrics(
+                native.contentOffset.y,
+                native.layoutMeasurement.height,
+                native.contentSize.height,
+                { fromScroll: true }
+              );
+            }}
+            onLayout={(event) => {
+              syncListMetrics(listOffsetYRef.current, event.nativeEvent.layout.height, listContentHeightRef.current);
+            }}
+            onContentSizeChange={(width, height) => {
+              void width;
+              syncListMetrics(listOffsetYRef.current, listViewportHeightRef.current, height);
+            }}
+            scrollEventThrottle={16}
+            nativeID="chat-timeline-list"
+            testID="chat-timeline-list"
+            renderItem={renderTimelineItem}
+            ListEmptyComponent={
+              <View style={[styles.emptyPanel, { backgroundColor: theme.surfaceStrong }]}>
+                <Text style={[styles.emptyTitle, { color: theme.text }]}>开始一个完整对话</Text>
+                <Text style={[styles.emptySubTitle, { color: theme.textSoft }]}>先在对话列表选择会话，或直接发送消息开始。</Text>
+              </View>
+            }
+          />
+        </View>
 
       {!hasActiveFrontendTool ? (
         <View style={[styles.composerOuter, { paddingBottom: composerBottomPadding }]}>
@@ -1985,7 +2133,10 @@ export function ChatAssistantScreen({
           </View>
         </View>
       ) : null}
+      </View>
+      </Animated.View>
 
+      {/* ---- 浮层 ---- */}
       {edgeToast ? (
         <View
           pointerEvents="none"
@@ -2165,26 +2316,64 @@ const styles = StyleSheet.create({
   container: {
     flex: 1
   },
+  contentPushLayer: {
+    flex: 1
+  },
+  contentWrap: {
+    flex: 1,
+    zIndex: 1
+  },
   timelineGestureLayer: {
     flex: 1
   },
-  createChatSwipeHintLayer: {
+  createChatHintBehind: {
     position: 'absolute',
-    left: 10,
-    top: '42%',
-    alignItems: 'flex-start'
-  },
-  createChatSwipeHintCard: {
-    minWidth: 92,
-    height: 34,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
+    left: 0,
+    top: 0,
+    bottom: 0,
+    width: 52,
+    justifyContent: 'center',
     alignItems: 'center',
-    justifyContent: 'center'
+    zIndex: 0
   },
-  createChatSwipeHintText: {
+  createChatHintBehindCard: {
+    alignItems: 'center',
+    gap: 2
+  },
+  createChatHintBehindChar: {
+    fontSize: 14,
+    fontWeight: '700',
+    lineHeight: 20
+  },
+  switchPrevHintBehind: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 0
+  },
+  switchNextHintBehind: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    zIndex: 0
+  },
+  switchHintCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 7
+  },
+  switchHintText: {
     fontSize: 12,
+    fontWeight: '700'
+  },
+  switchHintArrow: {
+    fontSize: 14,
     fontWeight: '700'
   },
   timelineList: {
@@ -2331,7 +2520,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.76)',
     borderRadius: 999,
     paddingHorizontal: 12,
-    paddingVertical: 7
+    paddingVertical: 7,
+    zIndex: 3
   },
   copyToastText: {
     color: '#fff',
@@ -2357,7 +2547,8 @@ const styles = StyleSheet.create({
     fontWeight: '600'
   },
   fireworksLayer: {
-    ...StyleSheet.absoluteFillObject
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 3
   },
   fireworkRocket: {
     position: 'absolute',

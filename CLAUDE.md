@@ -453,3 +453,65 @@ const message = parseFrontendToolBridgeMessage(event.nativeEvent.data);
 if (message?.type === 'frontend_submit') { /* 处理提交 */ }
 if (message?.type === 'auth_refresh_request') { /* 处理鉴权刷新 */ }
 ```
+
+## 聊天详情页手势操作
+
+`ChatAssistantScreen` 在时间线区域通过 `PanResponder` 实现四方向手势导航，手势识别互斥（同一时刻只激活一个方向）。
+
+### 视觉模型 — 整页位移 + 背景提示
+
+四方向手势统一采用 **整页内容位移，露出背后提示文字** 的视觉反馈：
+
+```
+<View container>
+  {/* 背景提示层 (zIndex: 0) — 被 contentWrap 遮住 */}
+  {createChatHintBehind}      -- 纵向 "新建对话" 文字，左边缘
+  {switchPrevHintBehind}       -- "↑ 上一条对话"，顶部居中
+  {switchNextHintBehind}       -- "下一条对话 ↓"，底部居中
+
+  {/* 内容层 (zIndex: 1, backgroundColor, contentTransformStyle) */}
+  <View contentWrap>
+    <View timelineGestureLayer> <FlatList /> </View>
+    {composerOuter}
+  </View>
+
+  {/* 浮层 (edgeToast, copyToast, fireworks, overlay, modal) */}
+</View>
+```
+
+- `contentWrap` 带 `backgroundColor: theme.surface` + `zIndex: 1`，自然遮住背后提示
+- 手势滑动时 `contentTransformStyle` 对 `contentWrap` 施加 `translateX`/`translateY`，内容移开后背景提示露出
+- 右滑最大位移 52px（纵向 4 个汉字宽度），上下滑最大位移 52px
+
+### 手势方向一览
+
+| 方向 | 动作 | 触发条件 | 视觉反馈 |
+|------|------|----------|----------|
+| 右滑 | 新建对话 | 水平主导 + dx ≥ 112px + 起始点 x ≥ 32px | 整页右移，左边缘露出纵向"新建对话"文字 |
+| 左滑 | 显示对话列表抽屉 | 水平主导 + -dx ≥ 96px 或速度 ≤ -0.58 | 抽屉 preview 线性跟手（0→96px 映射 0→1） |
+| 下拉 | 切换到上一条对话 | 列表已滚到顶 + 垂直主导 + dy ≥ 72px | 整页下移，顶部露出"↑ 上一条对话"卡片 |
+| 上拉 | 切换到下一条对话 | 列表已滚到底 + 垂直主导 + -dy ≥ 72px | 整页上移，底部露出"下一条对话 ↓"卡片 |
+
+### 两阶段模型
+
+每个方向手势分为 **reveal（预览）** 和 **commit（提交）** 两阶段：
+
+1. **Reveal 阶段**：手指拖动超过 `REVEAL_THRESHOLD`（18px）后开始显示视觉反馈，距离映射到 `[0, 1]` progress
+2. **Commit 阶段**：松手时若超过 `COMMIT_THRESHOLD` 则执行对应动作，否则回弹归位
+
+### 上下滑滚动前提
+
+- 长内容列表：上下滑手势**只在列表滚到边缘**时激活。滚到顶部时才能下拉切换，滚到底部时才能上拉切换
+- 短内容列表（不可滚动）：直接支持上下滑切换
+- 到达边缘时显示 edge toast 提示（"已到对话顶部"/"已到对话底部"），引导用户继续滑动切换
+
+### 抽屉 preview 防闪烁
+
+`ChatDetailDrawer` 通过两个独立 `useEffect` 分离手势驱动和状态驱动动画：
+- **手势 effect**：只调用 `setValue()` 直接设值，不启动 `timing`/`spring`
+- **状态 effect**：只在 `visible` 真正变化时才调用 `stopAnimation()` + 动画
+
+### 特殊限制
+
+- 流式回复中（`streaming = true`）或 Frontend Tool 活跃时，禁止上下切换对话
+- 手势冷却时间 450ms，防止连续误触

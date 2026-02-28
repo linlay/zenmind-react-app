@@ -38,6 +38,8 @@ export function ChatDetailDrawer({
   const openFractionAnim = useRef(new Animated.Value(0)).current;
   const previousVisibleRef = useRef(visible);
   const normalizedPreview = Number.isFinite(previewProgress) ? Math.max(0, Math.min(1, previewProgress)) : 0;
+  const prevPreviewRef = useRef(0);
+  const gestureActiveRef = useRef(false);
   const allowInteraction = visible && interactive;
   const drawerBackground = theme.surface;
   const cardBackground = theme.mode === 'dark' ? '#182740' : '#f4f7fc';
@@ -48,12 +50,40 @@ export function ChatDetailDrawer({
   const previewMaxOpenFraction = drawerWidthPx > 0 ? Math.max(0, Math.min(1, previewVisiblePx / drawerWidthPx)) : 0;
   const previewOpenFraction = normalizedPreview * previewMaxOpenFraction;
 
+  // Effect 1: gesture-driven preview — only setValue, never timing/spring
+  useEffect(() => {
+    const prev = prevPreviewRef.current;
+    prevPreviewRef.current = normalizedPreview;
+    if (visible) {
+      gestureActiveRef.current = false;
+      return;
+    }
+    if (normalizedPreview > 0) {
+      gestureActiveRef.current = true;
+      openFractionAnim.setValue(previewOpenFraction);
+      return;
+    }
+    if (prev > 0 && normalizedPreview === 0) {
+      gestureActiveRef.current = false;
+      Animated.timing(openFractionAnim, {
+        toValue: 0,
+        duration: DRAWER_PREVIEW_RESET_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      }).start();
+    }
+  }, [normalizedPreview, openFractionAnim, previewOpenFraction, visible]);
+
+  // Effect 2: state-driven open/close — only on visible change
   useEffect(() => {
     const wasVisible = previousVisibleRef.current;
     previousVisibleRef.current = visible;
+    if (visible === wasVisible) {
+      return;
+    }
     openFractionAnim.stopAnimation();
-
     if (visible) {
+      gestureActiveRef.current = false;
       Animated.spring(openFractionAnim, {
         toValue: 1,
         damping: 24,
@@ -61,27 +91,22 @@ export function ChatDetailDrawer({
         mass: 0.9,
         useNativeDriver: true
       }).start();
-      return;
+    } else {
+      Animated.timing(openFractionAnim, {
+        toValue: 0,
+        duration: DRAWER_CLOSE_MS,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true
+      }).start();
     }
-
-    if (normalizedPreview > 0 && !wasVisible) {
-      openFractionAnim.setValue(previewOpenFraction);
-      return;
-    }
-
-    Animated.timing(openFractionAnim, {
-      toValue: previewOpenFraction,
-      duration: wasVisible ? DRAWER_CLOSE_MS : DRAWER_PREVIEW_RESET_MS,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true
-    }).start();
-  }, [normalizedPreview, openFractionAnim, previewOpenFraction, visible]);
+  }, [openFractionAnim, visible]);
 
   const overlayOpacity = useMemo(
     () =>
       openFractionAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [0, 1]
+        outputRange: [0, 0],
+        extrapolate: 'clamp'
       }),
     [openFractionAnim]
   );
@@ -89,7 +114,7 @@ export function ChatDetailDrawer({
     () =>
       openFractionAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [0.58, 1]
+        outputRange: [1, 1]
       }),
     [openFractionAnim]
   );
@@ -236,9 +261,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderLeftWidth: StyleSheet.hairlineWidth,
     shadowColor: '#000',
-    shadowOpacity: 0.16,
-    shadowRadius: 12,
-    shadowOffset: { width: -4, height: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: -2, height: 0 },
     elevation: 5,
     overflow: 'hidden'
   },

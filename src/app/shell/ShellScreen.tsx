@@ -1703,6 +1703,7 @@ export function ShellScreen() {
                           onRequestCreateAgentChatBySwipe={handleRequestCreateAgentChatBySwipe}
                           onRequestPreviewChatDetailDrawer={handleRequestPreviewChatDetailDrawer}
                           onRequestShowChatDetailDrawer={handleRequestShowChatDetailDrawer}
+                          chatDetailDrawerOpen={chatDetailDrawerOpen}
                         />
                       ) : (
                         <AgentProfilePane
