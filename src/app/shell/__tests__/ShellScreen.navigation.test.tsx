@@ -366,6 +366,19 @@ describe('ShellScreen navigation flow', () => {
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/closeChatDetailDrawer', payload: undefined });
   });
 
+  it('shows agent role in top subtitle for chat detail overlay', async () => {
+    const tree = await renderScreen({
+      user: { activeDomain: 'chat' },
+      shell: { chatOverlayStack: [{ overlayId: 'overlay-chat-1', type: 'chatDetail' }] },
+      agents: {
+        agents: [{ key: 'agent-1', name: 'Agent 1', role: '任务调度助手' }]
+      }
+    });
+    const subtitle = tree.root.findByProps({ testID: 'shell-top-subtitle' });
+    expect(subtitle.props.children).toBe('任务调度助手');
+    expect(subtitle.props.children).not.toBe('agent-1');
+  });
+
   it('creates new chat when tapping create action in chat detail drawer', async () => {
     const tree = await renderScreen({
       user: { activeDomain: 'chat' },

@@ -88,6 +88,7 @@ import {
   formatInboxTime,
   getAgentKey,
   getAgentName,
+  getAgentRole,
   getChatAgentKey,
   getChatAgentName,
   getChatTimestamp,
@@ -897,6 +898,7 @@ export function ShellScreen() {
     return found || agents[0] || null;
   }, [agents, selectedAgentKey]);
   const activeAgentName = useMemo(() => getAgentName(activeAgent) || 'Agent', [activeAgent]);
+  const activeAgentRole = useMemo(() => getAgentRole(activeAgent), [activeAgent]);
   const normalizedSearchKeyword = String(chatSearchQuery || '').trim().toLowerCase();
 
   const searchAgentResults = useMemo<ChatSearchAgentItem[]>(() => {
@@ -957,7 +959,7 @@ export function ShellScreen() {
         ? '终端/CLI'
         : '会话'
       : DOMAIN_LABEL[activeDomain];
-  const topNavSubtitle = isChatDomain && hasChatOverlay ? selectedAgentKey : '';
+  const topNavSubtitle = isChatDomain && isChatDetailOverlay ? activeAgentRole : '';
   const appVersionLabel = useMemo(() => getAppVersionLabel(), []);
   const showBottomNav = !((isChatDomain && hasChatOverlay) || (isTerminalDomain && terminalPane === 'detail'));
 
@@ -1431,7 +1433,11 @@ export function ShellScreen() {
                     {topNavTitle}
                   </Text>
                   {topNavSubtitle ? (
-                    <Text style={[styles.assistantTopSubTitle, { color: theme.textMute }]} numberOfLines={1}>
+                    <Text
+                      style={[styles.assistantTopSubTitle, { color: theme.textMute }]}
+                      numberOfLines={1}
+                      testID="shell-top-subtitle"
+                    >
                       {topNavSubtitle}
                     </Text>
                   ) : null}

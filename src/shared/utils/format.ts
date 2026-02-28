@@ -49,6 +49,19 @@ export function getAgentName(agent: Agent | null | undefined): string {
   return String(agent.name || getAgentKey(agent) || '').trim();
 }
 
+export function getAgentRole(agent: Agent | null | undefined): string {
+  if (!agent || typeof agent !== 'object') return '';
+  const source = agent as Record<string, unknown>;
+  const role = String(source.role || '').trim();
+  if (role) {
+    return role;
+  }
+  const meta = source.meta && typeof source.meta === 'object'
+    ? (source.meta as Record<string, unknown>)
+    : null;
+  return String(meta?.role || '').trim();
+}
+
 export function getAgentIconName(agent: Agent | null | undefined): string {
   if (!agent || typeof agent !== 'object') return '';
   const source = agent as Record<string, unknown>;

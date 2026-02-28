@@ -103,13 +103,14 @@ describe('chatSelectors', () => {
       ],
       '',
       {
-        agents: [{ key: 'demoAction', name: 'AgentFromAgents' }]
+        agents: [{ key: 'demoAction', name: 'AgentFromAgents', role: '任务调度智能体' }]
       }
     );
     const result = selectAgentLatestChats(state);
     expect(result).toHaveLength(1);
     expect(result[0].agentKey).toBe('demoAction');
     expect(result[0].agentName).toBe('AgentFromAgents');
+    expect(result[0].agentRole).toBe('任务调度智能体');
   });
 
   it('resolves icon from agent.icon object when chat payload has no icon fields', () => {
@@ -124,6 +125,19 @@ describe('chatSelectors', () => {
     expect(result).toHaveLength(1);
     expect(result[0].iconName).toBe('rocket');
     expect(result[0].iconColor).toBe('#3F7BFA');
+  });
+
+  it('falls back to role from chat payload when agent role is absent', () => {
+    const state = createState(
+      [{ chatId: 'chat-1', chatName: 'A', agentKey: 'demoAction', firstAgentRole: '对话专家', updatedAt: 200 }],
+      '',
+      {
+        agents: [{ key: 'demoAction', name: 'AgentFromAgents' }]
+      }
+    );
+    const result = selectAgentLatestChats(state);
+    expect(result).toHaveLength(1);
+    expect(result[0].agentRole).toBe('对话专家');
   });
 
   it('returns current agent chats by active chat firstAgentKey', () => {

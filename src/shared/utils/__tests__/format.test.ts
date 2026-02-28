@@ -2,6 +2,7 @@ import {
   formatChatListTime,
   getAgentIconColor,
   getAgentIconName,
+  getAgentRole,
   getChatAgentKey,
   getChatAgentName,
   getChatLastContent,
@@ -43,6 +44,12 @@ describe('chat format helpers', () => {
     expect(getAgentIconName({ iconName: 'terminal', iconColor: '#334155' } as any)).toBe('terminal');
     expect(getAgentIconColor({ iconName: 'terminal', iconColor: '#334155' } as any)).toBe('#334155');
     expect(getAgentIconName({ icon: 'compass' } as any)).toBe('compass');
+  });
+
+  it('resolves role from top-level role first and then meta.role', () => {
+    expect(getAgentRole({ role: '智能写作助手', meta: { role: '备用角色' } } as any)).toBe('智能写作助手');
+    expect(getAgentRole({ role: '   ', meta: { role: '工具调度员' } } as any)).toBe('工具调度员');
+    expect(getAgentRole({ role: '   ', meta: { role: '   ' } } as any)).toBe('');
   });
 
   it('formats chat list time as hh:mm for today', () => {

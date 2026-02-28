@@ -19,6 +19,7 @@ describe('ChatListPane', () => {
             {
               agentKey: 'agent-1',
               agentName: 'Agent 1',
+              agentRole: '任务助手',
               latestChat: { chatId: 'chat-1', chatName: '会话1', updatedAt: Date.now() }
             },
             {
@@ -47,6 +48,13 @@ describe('ChatListPane', () => {
     const badge1Style = StyleSheet.flatten(badge1.props.style) as { backgroundColor?: string } | undefined;
     expect(badge0Style?.backgroundColor).toBe(THEMES.light.primaryDeep);
     expect(badge1Style?.backgroundColor).toBe(THEMES.light.primaryDeep);
+
+    const role0 = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-list-item-agent-role-0' });
+    const role0Style = StyleSheet.flatten(role0.props.style) as { color?: string; fontSize?: number } | undefined;
+    expect(role0.props.children).toBe('任务助手');
+    expect(role0Style?.color).toBe(THEMES.light.textMute);
+    expect(role0Style?.fontSize).toBe(12);
+    expect((tree as ReturnType<typeof create>).root.findAllByProps({ testID: 'chat-list-item-agent-role-1' })).toHaveLength(0);
   });
 
   it('opens agent profile from avatar and keeps row click behavior for chat detail', () => {

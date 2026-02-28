@@ -4,6 +4,7 @@ import {
   getAgentIconName,
   getAgentKey,
   getAgentName,
+  getAgentRole,
   getChatAgentKey,
   getChatAgentName,
   getChatTimestamp,
@@ -16,6 +17,7 @@ const UNKNOWN_AGENT_KEY = '__unknown_agent__';
 export interface AgentLatestChatItem {
   agentKey: string;
   agentName: string;
+  agentRole?: string;
   iconName?: string;
   iconColor?: string;
   latestChat: ChatSummary;
@@ -84,6 +86,10 @@ function resolveChatIconColor(chat: ChatSummary): string {
   ]);
 }
 
+function resolveChatAgentRole(chat: ChatSummary): string {
+  return pickFirstNonEmptyValue(chat as Record<string, unknown>, ['firstAgentRole', 'agentRole']);
+}
+
 function matchesAgentItemKeyword(item: AgentLatestChatItem, keyword: string): boolean {
   if (!keyword) {
     return true;
@@ -111,6 +117,7 @@ export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] 
   const keyword = state.chat.chatKeyword.trim().toLowerCase();
   const latestByAgent = new Map<string, ChatSummary>();
   const agentNameByKey = new Map<string, string>();
+  const agentRoleByKey = new Map<string, string>();
   const visualByAgentKey = new Map<string, { iconName: string; iconColor: string }>();
 
   const agents = Array.isArray((state as RootState).agents?.agents) ? (state as RootState).agents.agents : [];
@@ -122,6 +129,10 @@ export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] 
     const mappedName = String(getAgentName(agent) || '').trim();
     if (mappedName) {
       agentNameByKey.set(key, mappedName);
+    }
+    const mappedRole = String(getAgentRole(agent) || '').trim();
+    if (mappedRole) {
+      agentRoleByKey.set(key, mappedRole);
     }
     visualByAgentKey.set(key, {
       iconName: getAgentIconName(agent),
@@ -142,6 +153,7 @@ export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] 
       return {
         agentKey,
         agentName: getAgentNameFromChat(chat, agentNameByKey),
+        agentRole: agentRoleByKey.get(agentKey) || resolveChatAgentRole(chat) || '',
         iconName: resolveChatIconName(chat) || visualFromAgent?.iconName || '',
         iconColor: resolveChatIconColor(chat) || visualFromAgent?.iconColor || '',
         latestChat: chat

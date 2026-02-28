@@ -27,6 +27,7 @@ export function ChatListPane({
             const chat = item.latestChat;
             const latestChatName = getChatTitle(chat) || chat.chatId || '未命名会话';
             const agentName = item.agentName || '未知智能体';
+            const agentRole = String(item.agentRole || '').trim();
             const chatTime = formatChatListTime(chat);
             const itemKey = item.agentKey || chat.chatId || `${latestChatName}:${index}`;
             const avatarName = resolveAgentAvatarName(item.agentKey, item.iconName);
@@ -69,9 +70,20 @@ export function ChatListPane({
                   </TouchableOpacity>
 
                   <View style={styles.itemMain}>
-                    <Text style={[styles.agentName, { color: theme.text }]} numberOfLines={1}>
-                      {agentName}
-                    </Text>
+                    <View style={styles.agentNameRow}>
+                      <Text style={[styles.agentName, { color: theme.text }]} numberOfLines={1}>
+                        {agentName}
+                      </Text>
+                      {agentRole ? (
+                        <Text
+                          style={[styles.agentRole, { color: theme.textMute }]}
+                          numberOfLines={1}
+                          testID={`chat-list-item-agent-role-${index}`}
+                        >
+                          {agentRole}
+                        </Text>
+                      ) : null}
+                    </View>
                     <Text style={[styles.chatName, { color: theme.textMute }]} numberOfLines={1}>
                       {latestChatName}
                     </Text>
@@ -145,9 +157,21 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0
   },
+  agentNameRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 6
+  },
   agentName: {
+    flexShrink: 1,
     fontSize: 17,
     fontWeight: '700'
+  },
+  agentRole: {
+    flexShrink: 1,
+    fontSize: 12,
+    fontWeight: '500',
+    marginBottom: 1
   },
   chatName: {
     marginTop: 4,

@@ -5,6 +5,7 @@ export interface Agent {
   key?: string;
   id?: string;
   name?: string;
+  role?: string;
   [key: string]: unknown;
 }
 
