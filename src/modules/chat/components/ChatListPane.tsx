@@ -9,13 +9,15 @@ interface ChatListPaneProps {
   loading: boolean;
   items: AgentLatestChatItem[];
   onSelectChat: (chatId: string, agentKey: string) => void;
+  onSelectAgentProfile: (agentKey: string) => void;
 }
 
 export function ChatListPane({
   theme,
   loading,
   items,
-  onSelectChat
+  onSelectChat,
+  onSelectAgentProfile
 }: ChatListPaneProps) {
   return (
     <View style={styles.container} testID="chat-list-pane">
@@ -48,9 +50,23 @@ export function ChatListPane({
                 }}
               >
                 <View style={styles.chatRow}>
-                  <View style={[styles.agentAvatar, { backgroundColor: avatarColor }]}> 
-                    <AgentAvatarIcon name={avatarName} size={24} color="#ffffff" />
-                  </View>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    disabled={!item.agentKey}
+                    testID={`chat-list-item-avatar-btn-${index}`}
+                    style={[styles.agentAvatarBtn, !item.agentKey ? styles.agentAvatarBtnDisabled : null]}
+                    onPress={(event) => {
+                      event.stopPropagation();
+                      if (!item.agentKey) {
+                        return;
+                      }
+                      onSelectAgentProfile(item.agentKey);
+                    }}
+                  >
+                    <View style={[styles.agentAvatar, { backgroundColor: avatarColor }]}> 
+                      <AgentAvatarIcon name={avatarName} size={24} color="#ffffff" />
+                    </View>
+                  </TouchableOpacity>
 
                   <View style={styles.itemMain}>
                     <Text style={[styles.agentName, { color: theme.text }]} numberOfLines={1}>
@@ -118,6 +134,12 @@ const styles = StyleSheet.create({
     borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center'
+  },
+  agentAvatarBtn: {
+    borderRadius: 24
+  },
+  agentAvatarBtnDisabled: {
+    opacity: 0.7
   },
   itemMain: {
     flex: 1,

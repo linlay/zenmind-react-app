@@ -1,5 +1,5 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Svg, { Path, Rect } from 'react-native-svg';
+import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { AppTheme } from '../../core/constants/theme';
 import { DomainMode } from '../../core/types/common';
 
@@ -23,7 +23,7 @@ function DomainIcon({ mode, color }: { mode: DomainMode; color: string }) {
     return (
       <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
         <Path
-          d="M5 6.5C5 5.1 6.1 4 7.5 4h9C17.9 4 19 5.1 19 6.5v6c0 1.4-1.1 2.5-2.5 2.5H10l-3.5 3v-3H7.5C6.1 15 5 13.9 5 12.5v-6Z"
+          d="M12 5.8c4.7 0 8.4 2.8 8.4 6.3s-3.7 6.3-8.4 6.3c-1.2 0-2.3-.2-3.3-.6L5.4 19.6l1.4-3c-1.4-1.1-2.2-2.7-2.2-4.5c0-3.5 3.7-6.3 8.4-6.3Z"
           stroke={color}
           strokeWidth={1.8}
           strokeLinecap="round"
@@ -65,11 +65,14 @@ function DomainIcon({ mode, color }: { mode: DomainMode; color: string }) {
   return (
     <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M12 6.2a2.2 2.2 0 1 0 0-4.4 2.2 2.2 0 0 0 0 4.4ZM5 20.2a7 7 0 0 1 14 0"
+        d="M4.8 8.2H19.2M4.8 12H19.2M4.8 15.8H19.2"
         stroke={color}
         strokeWidth={1.8}
         strokeLinecap="round"
       />
+      <Circle cx={9} cy={8.2} r={1.8} fill={color} />
+      <Circle cx={14.8} cy={12} r={1.8} fill={color} />
+      <Circle cx={7.2} cy={15.8} r={1.8} fill={color} />
     </Svg>
   );
 }

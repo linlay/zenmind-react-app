@@ -47,7 +47,16 @@ const AUTH_RETRY_QUICK_DELAYS_MS = [200, 450, 900];
 const AUTH_RETRY_PERIODIC_INTERVAL_MS = 3000;
 const AUTH_RETRY_TOTAL_WINDOW_MS = 30_000;
 const AUTH_FAILURE_REGEX = /(^|[^0-9])(401|403)([^0-9]|$)|forbidden|unauthori[sz]ed|expired|signature|token/i;
-type TimelineIconKind = 'tool' | 'reasoning' | 'message';
+type TimelineIconKind = 'tool' | 'reasoning' | 'content';
+
+const TIMELINE_ICON_SIZE = 16;
+const TIMELINE_DOT_SIZE = 6;
+const TIMELINE_LINE_GAP = 2;
+const TIMELINE_NODE_TOP = {
+  tool: 4,
+  reasoning: 1,
+  content: 10
+} as const;
 
 function TimelineRailIcon({
   kind,
@@ -58,10 +67,13 @@ function TimelineRailIcon({
 }) {
   if (kind === 'tool') {
     return (
-      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+      <Svg width={TIMELINE_ICON_SIZE} height={TIMELINE_ICON_SIZE} viewBox="0 0 24 24" fill="none">
         <Path
-          d="M21 7.7A5.2 5.2 0 0 1 13.7 13L7 19.7a2 2 0 0 1-2.8-2.8L10.9 10A5.2 5.2 0 0 1 17.1 2L14 5.1l1.9 1.9L19 3.9A5.2 5.2 0 0 1 21 7.7Z"
-          fill={color}
+          d="M20.4 6.6A4.7 4.7 0 0 1 14 11.8L8.4 17.4a2 2 0 0 1-2.8-2.8L11.2 9a4.7 4.7 0 0 1 5.2-6.4L13.7 5.3l2 2l2.7-2.7Z"
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
         />
       </Svg>
     );
@@ -69,7 +81,7 @@ function TimelineRailIcon({
 
   if (kind === 'reasoning') {
     return (
-      <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+      <Svg width={TIMELINE_ICON_SIZE} height={TIMELINE_ICON_SIZE} viewBox="0 0 24 24" fill="none">
         <Path
           d="M9.5 21h5M10 17h4M8.5 14.5c-1.7-1.1-2.8-3-2.8-5.2a6.3 6.3 0 0 1 12.6 0c0 2.2-1.1 4.1-2.8 5.2-.7.5-1.1 1.3-1.1 2.1H9.6c0-.8-.4-1.6-1.1-2.1Z"
           stroke={color}
@@ -82,17 +94,17 @@ function TimelineRailIcon({
   }
 
   return (
-    <Svg width={12} height={12} viewBox="0 0 24 24" fill="none">
+    <Svg width={TIMELINE_ICON_SIZE} height={TIMELINE_ICON_SIZE} viewBox="0 0 24 24" fill="none">
       <Path
-        d="M6.2 7.4h11.6a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-7l-3.6 2.6v-2.6H6.2a2 2 0 0 1-2-2v-6a2 2 0 0 1 2-2Z"
+        d="M6.2 6.6h11.6a2.2 2.2 0 0 1 2.2 2.2v5.6a2.2 2.2 0 0 1-2.2 2.2h-6.2l-3.6 2.7v-2.7H6.2A2.2 2.2 0 0 1 4 14.4V8.8a2.2 2.2 0 0 1 2.2-2.2Z"
         stroke={color}
         strokeWidth={1.8}
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-      <Circle cx="9.2" cy="12.4" r="0.9" fill={color} />
-      <Circle cx="12" cy="12.4" r="0.9" fill={color} />
-      <Circle cx="14.8" cy="12.4" r="0.9" fill={color} />
+      <Circle cx="9.2" cy="11.6" r="0.9" stroke={color} strokeWidth={1.5} fill="none" />
+      <Circle cx="12" cy="11.6" r="0.9" stroke={color} strokeWidth={1.5} fill="none" />
+      <Circle cx="14.8" cy="11.6" r="0.9" stroke={color} strokeWidth={1.5} fill="none" />
     </Svg>
   );
 }
@@ -874,18 +886,25 @@ function TimelineEntryRowComponent({
     ]
   };
 
-  const renderTimelineRail = (dotStyle?: Record<string, unknown>, iconKind?: TimelineIconKind) => (
-    <View style={styles.timelineRail}>
-      <View style={[styles.timelineLine, { backgroundColor: theme.timelineLine }]} />
-      {iconKind ? (
-        <View style={[styles.timelineIconWrap, dotStyle]}>
-          <TimelineRailIcon kind={iconKind} color={theme.primaryDeep || theme.primary} />
-        </View>
-      ) : (
-        <View style={[styles.timelineDot, dotStyle, { backgroundColor: theme.timelineDot }]} />
-      )}
-    </View>
-  );
+  const renderTimelineRail = (nodeTop: number, iconKind?: TimelineIconKind) => {
+    const nodeSize = iconKind ? TIMELINE_ICON_SIZE : TIMELINE_DOT_SIZE;
+    const topLineHeight = Math.max(0, nodeTop - TIMELINE_LINE_GAP / 2);
+    const bottomLineTop = nodeTop + nodeSize + TIMELINE_LINE_GAP / 2;
+    const dotLeft = (TIMELINE_ICON_SIZE - TIMELINE_DOT_SIZE) / 2;
+    return (
+      <View style={styles.timelineRail}>
+        <View style={[styles.timelineLineSegment, { height: topLineHeight, backgroundColor: theme.timelineLine }]} />
+        <View style={[styles.timelineLineSegment, { top: bottomLineTop, bottom: 0, backgroundColor: theme.timelineLine }]} />
+        {iconKind ? (
+          <View style={[styles.timelineIconWrap, { top: nodeTop }]}>
+            <TimelineRailIcon kind={iconKind} color={theme.primaryDeep || theme.primary} />
+          </View>
+        ) : (
+          <View style={[styles.timelineDot, { top: nodeTop, left: dotLeft, backgroundColor: theme.timelineDot }]} />
+        )}
+      </View>
+    );
+  };
 
   const renderStateIcon = (state: unknown, color: string) => {
     const normalized = normalizeTaskStatus(state);
@@ -921,7 +940,7 @@ function TimelineEntryRowComponent({
 
     return (
       <Animated.View style={[styles.toolRow, enterStyle]}>
-        {renderTimelineRail(styles.timelineDotTool, 'tool')}
+        {renderTimelineRail(TIMELINE_NODE_TOP.tool, 'tool')}
         <View style={styles.toolBody}>
           <TouchableOpacity activeOpacity={0.8} onPress={() => onToggleTool(item.id)}>
             <View style={[styles.toolHead, { backgroundColor: toneStyle.bg }]}> 
@@ -956,7 +975,7 @@ function TimelineEntryRowComponent({
 
     return (
       <Animated.View style={[styles.reasoningRow, enterStyle]}>
-        {renderTimelineRail(styles.timelineDotReasoning, 'reasoning')}
+        {renderTimelineRail(TIMELINE_NODE_TOP.reasoning, 'reasoning')}
         <TouchableOpacity activeOpacity={0.7} style={styles.reasoningBody} onPress={() => onToggleReasoning(item.id)}>
           <Text style={[styles.reasoningLabel, { color: theme.textMute }]}>{durationLabel}</Text>
           {item.collapsed ? null : <Text style={[styles.reasoningText, { color: theme.textMute }]}>{item.text || ''}</Text>}
@@ -972,7 +991,7 @@ function TimelineEntryRowComponent({
   if (isUser) {
     return (
       <Animated.View style={[styles.userRow, enterStyle]}>
-        {renderTimelineRail(styles.timelineDotMessage, 'message')}
+        {renderTimelineRail(TIMELINE_NODE_TOP.content, 'content')}
         <View style={styles.userBubbleWrap}>
           <TouchableOpacity activeOpacity={0.85} onLongPress={() => onCopyText(item.text)}>
             <LinearGradient colors={theme.userBubble} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.userBubble}>
@@ -989,7 +1008,7 @@ function TimelineEntryRowComponent({
     const endText = String(item.text || '本次运行结束').trim();
     return (
       <Animated.View style={[styles.runEndRow, enterStyle]}>
-        {renderTimelineRail(styles.timelineDotMessage)}
+        {renderTimelineRail(TIMELINE_NODE_TOP.content)}
         <View style={styles.runEndBody}>
           {item.ts ? (
             <View style={styles.runEndTimeWrap}>
@@ -1014,7 +1033,7 @@ function TimelineEntryRowComponent({
 
     return (
       <Animated.View style={[styles.systemRow, enterStyle]}>
-        {renderTimelineRail(styles.timelineDotMessage)}
+        {renderTimelineRail(TIMELINE_NODE_TOP.content)}
         <View style={styles.systemWrap}>
           <View style={[styles.systemBadge, { backgroundColor: theme.systemBubble }]}> 
             <Text style={[styles.systemText, { color: systemColor }]}>{item.text}</Text>
@@ -1061,7 +1080,7 @@ function TimelineEntryRowComponent({
 
   return (
     <Animated.View style={[styles.assistantRow, enterStyle]}>
-      {renderTimelineRail(styles.timelineDotMessage, 'message')}
+      {renderTimelineRail(TIMELINE_NODE_TOP.content, 'content')}
       <Pressable
         style={styles.assistantFlowWrap}
         onLongPress={() => onCopyText(item.kind === 'message' ? item.text : '')}
@@ -1158,35 +1177,31 @@ function TimelineEntryRowComponent({
 
 const styles = StyleSheet.create({
   timelineRail: {
-    width: 12,
+    width: 16,
     alignSelf: 'stretch',
-    alignItems: 'center'
+    alignItems: 'center',
+    position: 'relative',
+    marginLeft: -1
   },
-  timelineLine: {
+  timelineLineSegment: {
     position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 1
+    width: 1,
+    left: '50%',
+    marginLeft: -0.5
   },
   timelineDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5
+    position: 'absolute',
+    width: TIMELINE_DOT_SIZE,
+    height: TIMELINE_DOT_SIZE,
+    borderRadius: TIMELINE_DOT_SIZE / 2
   },
   timelineIconWrap: {
-    width: 12,
-    height: 12,
+    position: 'absolute',
+    width: TIMELINE_ICON_SIZE,
+    height: TIMELINE_ICON_SIZE,
+    left: 0,
     alignItems: 'center',
     justifyContent: 'center'
-  },
-  timelineDotTool: {
-    marginTop: 5
-  },
-  timelineDotReasoning: {
-    marginTop: 1
-  },
-  timelineDotMessage: {
-    marginTop: 10
   },
   toolRow: {
     flexDirection: 'row',

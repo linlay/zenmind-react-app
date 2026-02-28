@@ -112,6 +112,20 @@ describe('chatSelectors', () => {
     expect(result[0].agentName).toBe('AgentFromAgents');
   });
 
+  it('resolves icon from agent.icon object when chat payload has no icon fields', () => {
+    const state = createState(
+      [{ chatId: 'chat-1', chatName: 'A', agentKey: 'demoAction', updatedAt: 200 }],
+      '',
+      {
+        agents: [{ key: 'demoAction', name: 'AgentFromAgents', icon: { name: 'rocket', color: '#3F7BFA' } }]
+      }
+    );
+    const result = selectAgentLatestChats(state);
+    expect(result).toHaveLength(1);
+    expect(result[0].iconName).toBe('rocket');
+    expect(result[0].iconColor).toBe('#3F7BFA');
+  });
+
   it('returns current agent chats by active chat firstAgentKey', () => {
     const state = createState(
       [

@@ -1,4 +1,13 @@
-import { formatChatListTime, getChatAgentKey, getChatAgentName, getChatLastContent, getChatTimestamp, getChatTitle } from '../format';
+import {
+  formatChatListTime,
+  getAgentIconColor,
+  getAgentIconName,
+  getChatAgentKey,
+  getChatAgentName,
+  getChatLastContent,
+  getChatTimestamp,
+  getChatTitle
+} from '../format';
 
 describe('chat format helpers', () => {
   it('uses chatName first and falls back to title/chatId', () => {
@@ -23,6 +32,17 @@ describe('chat format helpers', () => {
     expect(getChatLastContent({ lastRunContent: '最新结果', last: '旧结果' } as any)).toBe('最新结果');
     expect(getChatLastContent({ lastRunContent: '', last: '旧结果' } as any)).toBe('旧结果');
     expect(getChatLastContent({} as any)).toBe('');
+  });
+
+  it('resolves agent icon from top-level icon object first', () => {
+    expect(getAgentIconName({ icon: { name: 'rocket', color: '#3F7BFA' } } as any)).toBe('rocket');
+    expect(getAgentIconColor({ icon: { name: 'rocket', color: '#3F7BFA' } } as any)).toBe('#3F7BFA');
+  });
+
+  it('falls back to legacy icon fields and string icon', () => {
+    expect(getAgentIconName({ iconName: 'terminal', iconColor: '#334155' } as any)).toBe('terminal');
+    expect(getAgentIconColor({ iconName: 'terminal', iconColor: '#334155' } as any)).toBe('#334155');
+    expect(getAgentIconName({ icon: 'compass' } as any)).toBe('compass');
   });
 
   it('formats chat list time as hh:mm for today', () => {

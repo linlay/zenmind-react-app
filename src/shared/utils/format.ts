@@ -49,6 +49,37 @@ export function getAgentName(agent: Agent | null | undefined): string {
   return String(agent.name || getAgentKey(agent) || '').trim();
 }
 
+export function getAgentIconName(agent: Agent | null | undefined): string {
+  if (!agent || typeof agent !== 'object') return '';
+  const source = agent as Record<string, unknown>;
+  const rawIcon = source.icon;
+  const iconRecord = rawIcon && typeof rawIcon === 'object' ? (rawIcon as Record<string, unknown>) : null;
+  const iconNameFromObject = iconRecord ? pickFirstNonEmpty([iconRecord.name, iconRecord.iconName]) : '';
+  const iconNameFromString = typeof rawIcon === 'string' ? String(rawIcon).trim() : '';
+  return pickFirstNonEmpty([
+    iconNameFromObject,
+    source.iconName,
+    source.agentIconName,
+    source.avatarName,
+    iconNameFromString
+  ]);
+}
+
+export function getAgentIconColor(agent: Agent | null | undefined): string {
+  if (!agent || typeof agent !== 'object') return '';
+  const source = agent as Record<string, unknown>;
+  const rawIcon = source.icon;
+  const iconRecord = rawIcon && typeof rawIcon === 'object' ? (rawIcon as Record<string, unknown>) : null;
+  const iconColorFromObject = iconRecord ? pickFirstNonEmpty([iconRecord.color, iconRecord.iconColor]) : '';
+  return pickFirstNonEmpty([
+    iconColorFromObject,
+    source.iconColor,
+    source.agentIconColor,
+    source.bgColor,
+    source.avatarBgColor
+  ]);
+}
+
 function pickFirstNonEmpty(values: unknown[]): string {
   for (const value of values) {
     const text = String(value || '').trim();

@@ -34,6 +34,7 @@ import {
   closeChatDetailDrawer,
   openChatDetailDrawer,
   setChatAgentsSidebarOpen,
+  showChatAgentPane,
   showChatDetailPane,
   showChatListPane,
   showTerminalDetailPane,
@@ -70,6 +71,7 @@ import { BottomDomainNav } from './BottomDomainNav';
 import { ChatListPane } from '../../modules/chat/components/ChatListPane';
 import { ChatSearchPane, ChatSearchAgentItem } from '../../modules/chat/components/ChatSearchPane';
 import { ChatDetailDrawer } from '../../modules/chat/components/ChatDetailDrawer';
+import { AgentProfilePane } from '../../modules/chat/components/AgentProfilePane';
 import { TerminalSessionListPane } from '../../modules/terminal/components/TerminalSessionListPane';
 import { AgentSidebar } from '../../modules/chat/components/AgentSidebar';
 import { useLazyGetAgentsQuery } from '../../modules/agents/api/agentsApi';
@@ -111,6 +113,16 @@ const DOMAIN_LABEL: Record<DomainMode, string> = {
   agents: '智能体',
   user: '配置'
 };
+
+function getChatPaneIndex(pane: 'list' | 'detail' | 'agent'): 0 | 1 | 2 {
+  if (pane === 'detail') {
+    return 1;
+  }
+  if (pane === 'agent') {
+    return 2;
+  }
+  return 0;
+}
 
 export function ShellScreen() {
   const dispatch = useAppDispatch();
@@ -174,7 +186,7 @@ export function ShellScreen() {
 
   const inboxAnim = useRef(new Animated.Value(0)).current;
   const publishAnim = useRef(new Animated.Value(0)).current;
-  const chatPaneAnim = useRef(new Animated.Value(chatPane === 'detail' ? 1 : 0)).current;
+  const chatPaneAnim = useRef(new Animated.Value(getChatPaneIndex(chatPane))).current;
   const terminalPaneAnim = useRef(new Animated.Value(terminalPane === 'detail' ? 1 : 0)).current;
   const theme = THEMES[themeMode] || THEMES.light;
   const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
@@ -207,8 +219,8 @@ export function ShellScreen() {
   const chatTranslateX = useMemo(
     () =>
       chatPaneAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, -window.width]
+        inputRange: [0, 1, 2],
+        outputRange: [0, -window.width, -window.width * 2]
       }),
     [chatPaneAnim, window.width]
   );
@@ -700,7 +712,7 @@ export function ShellScreen() {
 
   useEffect(() => {
     Animated.timing(chatPaneAnim, {
-      toValue: chatPane === 'detail' ? 1 : 0,
+      toValue: getChatPaneIndex(chatPane),
       duration: 220,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true
@@ -868,7 +880,7 @@ export function ShellScreen() {
         setPublishOpen(false);
         return true;
       }
-      if (activeDomain === 'chat' && chatPane === 'detail') {
+      if (activeDomain === 'chat' && chatPane !== 'list') {
         dispatch(showChatListPane());
         return true;
       }
@@ -893,10 +905,11 @@ export function ShellScreen() {
     terminalPane
   ]);
 
-  const activeAgentName = useMemo(() => {
+  const activeAgent = useMemo(() => {
     const found = agents.find((agent) => getAgentKey(agent) === selectedAgentKey);
-    return getAgentName(found || agents[0]) || 'Agent';
+    return found || agents[0] || null;
   }, [agents, selectedAgentKey]);
+  const activeAgentName = useMemo(() => getAgentName(activeAgent) || 'Agent', [activeAgent]);
   const normalizedSearchKeyword = String(chatSearchQuery || '').trim().toLowerCase();
 
   const searchAgentResults = useMemo<ChatSearchAgentItem[]>(() => {
@@ -945,6 +958,8 @@ export function ShellScreen() {
   const topNavTitle = isChatDomain
     ? chatPane === 'detail'
       ? activeAgentName
+      : chatPane === 'agent'
+        ? activeAgentName
       : chatListMode === 'search'
         ? '搜索'
         : '对话'
@@ -953,9 +968,9 @@ export function ShellScreen() {
         ? '终端/CLI'
         : '会话'
       : DOMAIN_LABEL[activeDomain];
-  const topNavSubtitle = isChatDomain && chatPane === 'detail' ? selectedAgentKey : '';
+  const topNavSubtitle = isChatDomain && chatPane !== 'list' ? selectedAgentKey : '';
   const appVersionLabel = useMemo(() => getAppVersionLabel(), []);
-  const showBottomNav = !((isChatDomain && chatPane === 'detail') || (isTerminalDomain && terminalPane === 'detail'));
+  const showBottomNav = !((isChatDomain && chatPane !== 'list') || (isTerminalDomain && terminalPane === 'detail'));
 
   const closeFloatingPanels = useCallback(() => {
     setInboxOpen(false);
@@ -968,7 +983,7 @@ export function ShellScreen() {
   const handleDomainSwitch = useCallback(
     (mode: DomainMode) => {
       if (mode === activeDomain) {
-        if (mode === 'chat' && chatPane === 'detail') {
+        if (mode === 'chat' && chatPane !== 'list') {
           dispatch(showChatListPane());
           return;
         }
@@ -1002,6 +1017,23 @@ export function ShellScreen() {
     [closeSearchMode, dispatch]
   );
 
+  const openAgentProfile = useCallback(
+    (agentKey: string) => {
+      const normalizedKey = String(agentKey || '').trim();
+      if (!normalizedKey) {
+        dispatch(setStatusText('智能体信息不可用'));
+        return;
+      }
+      dispatch(setAgentsSelectedAgentKey(normalizedKey));
+      dispatch(setUserSelectedAgentKey(normalizedKey));
+      dispatch(setChatAgentsSidebarOpen(false));
+      dispatch(closeChatDetailDrawer());
+      dispatch(showChatAgentPane());
+      closeSearchMode();
+    },
+    [closeSearchMode, dispatch]
+  );
+
   const handleAgentSelectNewChat = useCallback(
     (agentKey: string) => {
       dispatch(setAgentsSelectedAgentKey(agentKey));
@@ -1027,29 +1059,26 @@ export function ShellScreen() {
 
   const handleSearchSelectAgent = useCallback(
     (agentKey: string) => {
-      const normalizedKey = String(agentKey || '').trim();
-      if (!normalizedKey) {
-        return;
-      }
-      dispatch(setAgentsSelectedAgentKey(normalizedKey));
-      dispatch(setUserSelectedAgentKey(normalizedKey));
-      const latestChat = [...chats]
-        .filter((chat) => String(getChatAgentKey(chat) || '').trim() === normalizedKey)
-        .sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a))[0];
-      if (latestChat?.chatId) {
-        dispatch(setChatId(String(latestChat.chatId)));
-      } else {
-        dispatch(setChatId(''));
-      }
-      dispatch(showChatDetailPane());
-      closeSearchMode();
+      openAgentProfile(agentKey);
     },
-    [chats, closeSearchMode, dispatch]
+    [openAgentProfile]
   );
 
   const handleSearchBack = useCallback(() => {
     closeSearchMode();
   }, [closeSearchMode]);
+
+  const handleAgentProfileStartChat = useCallback(
+    (agentKey: string) => {
+      const normalizedKey = String(agentKey || '').trim();
+      if (!normalizedKey) {
+        dispatch(setStatusText('智能体信息不可用'));
+        return;
+      }
+      handleAgentSelectNewChat(normalizedKey);
+    },
+    [dispatch, handleAgentSelectNewChat]
+  );
 
   const handleRequestSwitchAgentChat = useCallback(
     (direction: 'prev' | 'next') => {
@@ -1208,18 +1237,21 @@ export function ShellScreen() {
         >
           <View style={styles.topNavCompact} nativeID="shell-top-nav" testID="shell-top-nav">
             {isChatDomain ? (
-              chatPane === 'detail' ? (
+              chatPane !== 'list' ? (
                 <TouchableOpacity
                   activeOpacity={0.72}
                   style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID="chat-detail-back-btn"
+                  testID={chatPane === 'detail' ? 'chat-detail-back-btn' : 'chat-agent-back-btn'}
                   onPress={() => {
                     setPublishOpen(false);
                     setInboxOpen(false);
                     dispatch(showChatListPane());
                   }}
                 >
-                  <Text style={[styles.detailBackText, { color: theme.primaryDeep }]} testID="chat-detail-back-text">
+                  <Text
+                    style={[styles.detailBackText, { color: theme.primaryDeep }]}
+                    testID={chatPane === 'detail' ? 'chat-detail-back-text' : 'chat-agent-back-text'}
+                  >
                     ‹
                   </Text>
                 </TouchableOpacity>
@@ -1369,6 +1401,8 @@ export function ShellScreen() {
                     <Rect x={2} y={13} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
                   </Svg>
                 </TouchableOpacity>
+              ) : chatPane === 'agent' ? (
+                <View style={styles.iconOnlyBtn} testID="chat-agent-right-placeholder" />
               ) : chatListMode === 'search' ? (
                 <View style={styles.iconOnlyBtn} testID="chat-search-right-placeholder" />
               ) : (
@@ -1471,7 +1505,7 @@ export function ShellScreen() {
                   style={[
                     styles.stackTrack,
                     {
-                      width: window.width * 2,
+                      width: window.width * 3,
                       transform: [{ translateX: chatTranslateX }]
                     }
                   ]}
@@ -1493,6 +1527,7 @@ export function ShellScreen() {
                         loading={loadingChats}
                         items={agentLatestChats}
                         onSelectChat={openChatDetail}
+                        onSelectAgentProfile={openAgentProfile}
                       />
                     )}
                   </View>
@@ -1512,9 +1547,16 @@ export function ShellScreen() {
                       onRequestCreateAgentChatBySwipe={handleRequestCreateAgentChatBySwipe}
                     />
                   </View>
+                  <View style={[styles.stackPage, { width: window.width }]}>
+                    <AgentProfilePane
+                      theme={theme}
+                      agent={activeAgent}
+                      onStartChat={handleAgentProfileStartChat}
+                    />
+                  </View>
                 </Animated.View>
                 <SwipeBackEdge
-                  enabled={chatPane === 'detail' && !chatDetailDrawerOpen}
+                  enabled={chatPane !== 'list' && !chatDetailDrawerOpen}
                   onBack={() => dispatch(showChatListPane())}
                 />
                 {chatPane === 'list' && chatListMode === 'search' ? (

@@ -14,6 +14,7 @@ describe('ChatListPane', () => {
           theme={THEMES.light}
           loading={false}
           onSelectChat={onSelectChat}
+          onSelectAgentProfile={() => {}}
           items={[
             {
               agentKey: 'agent-1',
@@ -46,5 +47,41 @@ describe('ChatListPane', () => {
     const badge1Style = StyleSheet.flatten(badge1.props.style) as { backgroundColor?: string } | undefined;
     expect(badge0Style?.backgroundColor).toBe(THEMES.light.primaryDeep);
     expect(badge1Style?.backgroundColor).toBe(THEMES.light.primaryDeep);
+  });
+
+  it('opens agent profile from avatar and keeps row click behavior for chat detail', () => {
+    const onSelectChat = jest.fn();
+    const onSelectAgentProfile = jest.fn();
+    let tree: ReturnType<typeof create> | null = null;
+    act(() => {
+      tree = create(
+        <ChatListPane
+          theme={THEMES.light}
+          loading={false}
+          onSelectChat={onSelectChat}
+          onSelectAgentProfile={onSelectAgentProfile}
+          items={[
+            {
+              agentKey: 'agent-1',
+              agentName: 'Agent 1',
+              latestChat: { chatId: 'chat-1', chatName: '会话1', updatedAt: Date.now() }
+            }
+          ]}
+        />
+      );
+    });
+
+    const avatarBtn = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-list-item-avatar-btn-0' });
+    act(() => {
+      avatarBtn.props.onPress({ stopPropagation: jest.fn() });
+    });
+    expect(onSelectAgentProfile).toHaveBeenCalledWith('agent-1');
+    expect(onSelectChat).not.toHaveBeenCalled();
+
+    const rowItem = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-list-item-0' });
+    act(() => {
+      rowItem.props.onPress();
+    });
+    expect(onSelectChat).toHaveBeenCalledWith('chat-1', 'agent-1');
   });
 });

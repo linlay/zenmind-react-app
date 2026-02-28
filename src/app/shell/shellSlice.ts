@@ -1,7 +1,7 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
 
 interface ShellState {
-  chatPane: 'list' | 'detail';
+  chatPane: 'list' | 'detail' | 'agent';
   terminalPane: 'list' | 'detail';
   chatAgentsSidebarOpen: boolean;
   chatDetailDrawerOpen: boolean;
@@ -18,7 +18,7 @@ const shellSlice = createSlice({
   name: 'shell',
   initialState,
   reducers: {
-    setChatPane(state, action: PayloadAction<'list' | 'detail'>) {
+    setChatPane(state, action: PayloadAction<'list' | 'detail' | 'agent'>) {
       state.chatPane = action.payload;
     },
     setTerminalPane(state, action: PayloadAction<'list' | 'detail'>) {
@@ -44,6 +44,9 @@ const shellSlice = createSlice({
     showChatDetailPane(state) {
       state.chatPane = 'detail';
     },
+    showChatAgentPane(state) {
+      state.chatPane = 'agent';
+    },
     showTerminalListPane(state) {
       state.terminalPane = 'list';
     },
@@ -62,6 +65,7 @@ export const {
   closeChatDetailDrawer,
   showChatListPane,
   showChatDetailPane,
+  showChatAgentPane,
   showTerminalListPane,
   showTerminalDetailPane
 } = shellSlice.actions;

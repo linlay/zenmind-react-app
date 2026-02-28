@@ -1,6 +1,14 @@
 import { RootState } from '../../../app/store/store';
-import { Agent } from '../../../core/types/common';
-import { getAgentKey, getAgentName, getChatAgentKey, getChatAgentName, getChatTimestamp, getChatTitle } from '../../../shared/utils/format';
+import {
+  getAgentIconColor,
+  getAgentIconName,
+  getAgentKey,
+  getAgentName,
+  getChatAgentKey,
+  getChatAgentName,
+  getChatTimestamp,
+  getChatTitle
+} from '../../../shared/utils/format';
 import { ChatSummary } from '../../../core/types/common';
 
 const UNKNOWN_AGENT_KEY = '__unknown_agent__';
@@ -76,30 +84,6 @@ function resolveChatIconColor(chat: ChatSummary): string {
   ]);
 }
 
-function resolveAgentIconName(agent: Agent | null | undefined): string {
-  if (!agent || typeof agent !== 'object') {
-    return '';
-  }
-  return pickFirstNonEmptyValue(agent as Record<string, unknown>, [
-    'iconName',
-    'agentIconName',
-    'avatarName',
-    'icon'
-  ]);
-}
-
-function resolveAgentIconColor(agent: Agent | null | undefined): string {
-  if (!agent || typeof agent !== 'object') {
-    return '';
-  }
-  return pickFirstNonEmptyValue(agent as Record<string, unknown>, [
-    'iconColor',
-    'bgColor',
-    'avatarBgColor',
-    'agentIconColor'
-  ]);
-}
-
 function matchesAgentItemKeyword(item: AgentLatestChatItem, keyword: string): boolean {
   if (!keyword) {
     return true;
@@ -140,8 +124,8 @@ export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] 
       agentNameByKey.set(key, mappedName);
     }
     visualByAgentKey.set(key, {
-      iconName: resolveAgentIconName(agent),
-      iconColor: resolveAgentIconColor(agent)
+      iconName: getAgentIconName(agent),
+      iconColor: getAgentIconColor(agent)
     });
   });
 

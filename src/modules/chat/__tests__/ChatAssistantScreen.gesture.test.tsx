@@ -128,6 +128,12 @@ describe('ChatAssistantScreen gestures', () => {
         panHandlers: {
           onMoveShouldSetResponder: (event: unknown, gesture: unknown) =>
             config.onMoveShouldSetPanResponder?.(event, gesture),
+          onMoveShouldSetResponderCapture: (event: unknown, gesture: unknown) =>
+            config.onMoveShouldSetPanResponderCapture?.(event, gesture),
+          onResponderGrant: (event: unknown, gesture: unknown) =>
+            config.onPanResponderGrant?.(event, gesture),
+          onResponderTerminationRequest: (event: unknown, gesture: unknown) =>
+            config.onPanResponderTerminationRequest?.(event, gesture),
           onResponderMove: (event: unknown, gesture: unknown) =>
             config.onPanResponderMove?.(event, gesture),
           onResponderRelease: (event: unknown, gesture: unknown) =>
@@ -164,14 +170,15 @@ describe('ChatAssistantScreen gestures', () => {
     const tree = await renderScreen({ onRequestCreateAgentChatBySwipe: onCreate });
     const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
     act(() => {
-      layer.props.onMoveShouldSetResponder?.({}, { dx: -60, dy: 8 });
-      layer.props.onResponderMove?.({}, { dx: -60, dy: 8 });
+      const event = { nativeEvent: { locationX: 140 } };
+      layer.props.onMoveShouldSetResponder?.(event, { dx: -60, dy: 8 });
+      layer.props.onResponderMove?.(event, { dx: -60, dy: 8 });
     });
     const hintCard = tree.root.findByProps({ testID: 'chat-create-swipe-hint-card' });
     const style = ReactNative.StyleSheet.flatten(hintCard.props.style) as { opacity?: number } | undefined;
     expect(Number(style?.opacity || 0)).toBeGreaterThan(0);
     act(() => {
-      layer.props.onResponderRelease?.({}, { dx: -60, dy: 8 });
+      layer.props.onResponderRelease?.({ nativeEvent: { locationX: 140 } }, { dx: -60, dy: 8 });
     });
     expect(onCreate).toHaveBeenCalledTimes(0);
     await act(async () => {
@@ -185,9 +192,10 @@ describe('ChatAssistantScreen gestures', () => {
     const tree = await renderScreen({ onRequestCreateAgentChatBySwipe: onCreate });
     const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
     act(() => {
-      layer.props.onMoveShouldSetResponder?.({}, { dx: -128, dy: 8 });
-      layer.props.onResponderMove?.({}, { dx: -128, dy: 8 });
-      layer.props.onResponderRelease?.({}, { dx: -128, dy: 8 });
+      const event = { nativeEvent: { locationX: 140 } };
+      layer.props.onMoveShouldSetResponder?.(event, { dx: -128, dy: 8 });
+      layer.props.onResponderMove?.(event, { dx: -128, dy: 8 });
+      layer.props.onResponderRelease?.(event, { dx: -128, dy: 8 });
     });
     expect(onCreate).toHaveBeenCalledTimes(1);
     await act(async () => {
@@ -204,6 +212,91 @@ describe('ChatAssistantScreen gestures', () => {
       layer.props.onMoveShouldSetResponder?.({}, { dx: 0, dy: 88 });
       layer.props.onResponderRelease?.({}, { dx: 0, dy: 88 });
     });
+    expect(onSwitch).toHaveBeenCalledWith('prev');
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('does not trigger prev when not at top', async () => {
+    const onSwitch = jest.fn(() => ({ ok: true }));
+    const tree = await renderScreen({ onRequestSwitchAgentChat: onSwitch });
+    const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+    act(() => {
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 96 },
+          layoutMeasurement: { width: 390, height: 240 },
+          contentSize: { width: 390, height: 600 }
+        }
+      });
+    });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    let shouldSet = false;
+    act(() => {
+      shouldSet = Boolean(layer.props.onMoveShouldSetResponder?.({}, { dx: 0, dy: 92 }));
+      layer.props.onResponderRelease?.({}, { dx: 0, dy: 92 });
+    });
+    expect(shouldSet).toBe(false);
+    expect(onSwitch).toHaveBeenCalledTimes(0);
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('shows staged prev-switch hint before commit threshold', async () => {
+    const onSwitch = jest.fn(() => ({ ok: true }));
+    const tree = await renderScreen({ onRequestSwitchAgentChat: onSwitch });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    act(() => {
+      layer.props.onMoveShouldSetResponder?.({}, { dx: 0, dy: 40 });
+      layer.props.onResponderMove?.({}, { dx: 0, dy: 40 });
+    });
+    const hintCard = tree.root.findByProps({ testID: 'chat-switch-prev-swipe-hint-card' });
+    const style = ReactNative.StyleSheet.flatten(hintCard.props.style) as { opacity?: number } | undefined;
+    expect(Number(style?.opacity || 0)).toBeGreaterThan(0);
+    act(() => {
+      layer.props.onResponderRelease?.({}, { dx: 0, dy: 40 });
+    });
+    expect(onSwitch).toHaveBeenCalledTimes(0);
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('triggers prev after scrolling to top during same drag progression', async () => {
+    const onSwitch = jest.fn(() => ({ ok: true }));
+    const tree = await renderScreen({ onRequestSwitchAgentChat: onSwitch });
+    const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+    act(() => {
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 140 },
+          layoutMeasurement: { width: 390, height: 240 },
+          contentSize: { width: 390, height: 680 }
+        }
+      });
+    });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    let beforeAtTop = false;
+    let afterAtTop = false;
+    act(() => {
+      beforeAtTop = Boolean(layer.props.onMoveShouldSetResponderCapture?.({}, { dx: 0, dy: 36 }));
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 0 },
+          layoutMeasurement: { width: 390, height: 240 },
+          contentSize: { width: 390, height: 680 }
+        }
+      });
+      afterAtTop = Boolean(layer.props.onMoveShouldSetResponderCapture?.({}, { dx: 0, dy: 92 }));
+      layer.props.onResponderRelease?.({}, { dx: 0, dy: 92 });
+    });
+    expect(beforeAtTop).toBe(false);
+    expect(afterAtTop).toBe(true);
     expect(onSwitch).toHaveBeenCalledWith('prev');
     await act(async () => {
       tree.unmount();
@@ -231,6 +324,140 @@ describe('ChatAssistantScreen gestures', () => {
       layer.props.onResponderRelease?.({}, { dx: 0, dy: -90 });
     });
     expect(onSwitch).toHaveBeenCalledWith('next');
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('does not trigger next when not at bottom', async () => {
+    const onSwitch = jest.fn(() => ({ ok: true }));
+    const tree = await renderScreen({ onRequestSwitchAgentChat: onSwitch });
+    const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+    act(() => {
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 120 },
+          layoutMeasurement: { width: 390, height: 240 },
+          contentSize: { width: 390, height: 700 }
+        }
+      });
+    });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    let shouldSet = false;
+    act(() => {
+      shouldSet = Boolean(layer.props.onMoveShouldSetResponder?.({}, { dx: 0, dy: -92 }));
+      layer.props.onResponderRelease?.({}, { dx: 0, dy: -92 });
+    });
+    expect(shouldSet).toBe(false);
+    expect(onSwitch).toHaveBeenCalledTimes(0);
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('shows staged next-switch hint before commit threshold', async () => {
+    const onSwitch = jest.fn(() => ({ ok: true }));
+    const tree = await renderScreen({ onRequestSwitchAgentChat: onSwitch });
+    const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+    act(() => {
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 210 },
+          layoutMeasurement: { width: 390, height: 240 },
+          contentSize: { width: 390, height: 450 }
+        }
+      });
+    });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    act(() => {
+      layer.props.onMoveShouldSetResponder?.({}, { dx: 0, dy: -44 });
+      layer.props.onResponderMove?.({}, { dx: 0, dy: -44 });
+    });
+    const hintCard = tree.root.findByProps({ testID: 'chat-switch-next-swipe-hint-card' });
+    const style = ReactNative.StyleSheet.flatten(hintCard.props.style) as { opacity?: number } | undefined;
+    expect(Number(style?.opacity || 0)).toBeGreaterThan(0);
+    act(() => {
+      layer.props.onResponderRelease?.({}, { dx: 0, dy: -44 });
+    });
+    expect(onSwitch).toHaveBeenCalledTimes(0);
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('triggers next after scrolling to bottom during same drag progression', async () => {
+    const onSwitch = jest.fn(() => ({ ok: true }));
+    const tree = await renderScreen({ onRequestSwitchAgentChat: onSwitch });
+    const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+    act(() => {
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 80 },
+          layoutMeasurement: { width: 390, height: 240 },
+          contentSize: { width: 390, height: 700 }
+        }
+      });
+    });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    let beforeAtBottom = false;
+    let afterAtBottom = false;
+    act(() => {
+      beforeAtBottom = Boolean(layer.props.onMoveShouldSetResponderCapture?.({}, { dx: 0, dy: -38 }));
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 460 },
+          layoutMeasurement: { width: 390, height: 240 },
+          contentSize: { width: 390, height: 700 }
+        }
+      });
+      afterAtBottom = Boolean(layer.props.onMoveShouldSetResponderCapture?.({}, { dx: 0, dy: -94 }));
+      layer.props.onResponderRelease?.({}, { dx: 0, dy: -94 });
+    });
+    expect(beforeAtBottom).toBe(false);
+    expect(afterAtBottom).toBe(true);
+    expect(onSwitch).toHaveBeenCalledWith('next');
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('rejects termination once switch gesture has entered reveal stage', async () => {
+    const onSwitch = jest.fn(() => ({ ok: true }));
+    const tree = await renderScreen({ onRequestSwitchAgentChat: onSwitch });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    let beforeReveal = true;
+    let afterReveal = true;
+    act(() => {
+      layer.props.onResponderGrant?.({}, {});
+      beforeReveal = Boolean(layer.props.onResponderTerminationRequest?.({}, {}));
+      layer.props.onResponderMove?.({}, { dx: 0, dy: 44 });
+      afterReveal = Boolean(layer.props.onResponderTerminationRequest?.({}, {}));
+    });
+    expect(beforeReveal).toBe(true);
+    expect(afterReveal).toBe(false);
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('blocks create-chat swipe when gesture starts from right-edge guard zone', async () => {
+    const onCreate = jest.fn(() => ({ ok: true }));
+    const tree = await renderScreen({ onRequestCreateAgentChatBySwipe: onCreate });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    let shouldSet = false;
+    act(() => {
+      const event = { nativeEvent: { locationX: 385 } };
+      shouldSet = Boolean(layer.props.onMoveShouldSetResponder?.(event, { dx: -128, dy: 8 }));
+      layer.props.onResponderMove?.(event, { dx: -128, dy: 8 });
+      layer.props.onResponderRelease?.(event, { dx: -128, dy: 8 });
+    });
+    expect(shouldSet).toBe(false);
+    expect(onCreate).toHaveBeenCalledTimes(0);
     await act(async () => {
       tree.unmount();
       jest.runOnlyPendingTimers();

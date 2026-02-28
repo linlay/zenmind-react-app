@@ -5,6 +5,7 @@ import shellReducer, {
   setChatDetailDrawerOpen,
   setChatPane,
   setTerminalPane,
+  showChatAgentPane,
   showChatDetailPane,
   showChatListPane,
   showTerminalDetailPane,
@@ -32,6 +33,8 @@ describe('shellSlice', () => {
     let state = shellReducer(undefined, { type: 'unknown' });
     state = shellReducer(state, showChatDetailPane());
     expect(state.chatPane).toBe('detail');
+    state = shellReducer(state, showChatAgentPane());
+    expect(state.chatPane).toBe('agent');
     state = shellReducer(state, showChatListPane());
     expect(state.chatPane).toBe('list');
 
