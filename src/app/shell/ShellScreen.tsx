@@ -31,12 +31,17 @@ import {
 } from '../../core/network/endpoint';
 import { loadSettings, patchSettings } from '../../core/storage/settingsStorage';
 import {
+  clearChatOverlays,
   closeChatDetailDrawer,
   openChatDetailDrawer,
+  popChatOverlay,
+  pushChatOverlay,
+  resetChatDetailDrawerPreview,
   setChatAgentsSidebarOpen,
-  showChatAgentPane,
-  showChatDetailPane,
-  showChatListPane,
+  setChatDetailDrawerPreviewProgress,
+  setChatSearchQuery as setShellChatSearchQuery,
+  showChatListRoute,
+  showChatSearchRoute,
   showTerminalDetailPane,
   showTerminalListPane
 } from './shellSlice';
@@ -79,6 +84,7 @@ import { useLazyGetChatsQuery } from '../../modules/chat/api/chatApi';
 import { useLazyListTerminalSessionsQuery } from '../../modules/terminal/api/terminalApi';
 import { fetchAuthedJson, formatError } from '../../core/network/apiClient';
 import {
+  createRequestId,
   formatInboxTime,
   getAgentKey,
   getAgentName,
@@ -114,22 +120,20 @@ const DOMAIN_LABEL: Record<DomainMode, string> = {
   user: '配置'
 };
 
-function getChatPaneIndex(pane: 'list' | 'detail' | 'agent'): 0 | 1 | 2 {
-  if (pane === 'detail') {
-    return 1;
-  }
-  if (pane === 'agent') {
-    return 2;
-  }
-  return 0;
-}
-
 export function ShellScreen() {
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
 
-  const { chatPane, terminalPane, chatAgentsSidebarOpen, chatDetailDrawerOpen } = useAppSelector((state) => state.shell);
+  const {
+    chatRoute,
+    chatSearchQuery,
+    chatOverlayStack,
+    terminalPane,
+    chatAgentsSidebarOpen,
+    chatDetailDrawerOpen,
+    chatDetailDrawerPreviewProgress
+  } = useAppSelector((state) => state.shell);
   const {
     booting,
     themeMode,
@@ -168,9 +172,7 @@ export function ShellScreen() {
   const [terminalSessions, setTerminalSessions] = useState<TerminalSessionItem[]>([]);
   const [terminalSessionsLoading, setTerminalSessionsLoading] = useState(false);
   const [terminalSessionsError, setTerminalSessionsError] = useState('');
-  const [chatListMode, setChatListMode] = useState<'default' | 'search'>('default');
   const [chatPlusMenuOpen, setChatPlusMenuOpen] = useState(false);
-  const [chatSearchQuery, setChatSearchQuery] = useState('');
 
   const [triggerAgents] = useLazyGetAgentsQuery();
   const [triggerChats] = useLazyGetChatsQuery();
@@ -186,7 +188,6 @@ export function ShellScreen() {
 
   const inboxAnim = useRef(new Animated.Value(0)).current;
   const publishAnim = useRef(new Animated.Value(0)).current;
-  const chatPaneAnim = useRef(new Animated.Value(getChatPaneIndex(chatPane))).current;
   const terminalPaneAnim = useRef(new Animated.Value(terminalPane === 'detail' ? 1 : 0)).current;
   const theme = THEMES[themeMode] || THEMES.light;
   const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
@@ -210,21 +211,6 @@ export function ShellScreen() {
 
   const keyboardInset = Platform.OS === 'android' ? Math.max(0, shellKeyboardHeight) : 0;
 
-  const closeSearchMode = useCallback(() => {
-    setChatListMode('default');
-    setChatSearchQuery('');
-    setChatPlusMenuOpen(false);
-  }, []);
-
-  const chatTranslateX = useMemo(
-    () =>
-      chatPaneAnim.interpolate({
-        inputRange: [0, 1, 2],
-        outputRange: [0, -window.width, -window.width * 2]
-      }),
-    [chatPaneAnim, window.width]
-  );
-
   const terminalTranslateX = useMemo(
     () =>
       terminalPaneAnim.interpolate({
@@ -233,6 +219,9 @@ export function ShellScreen() {
       }),
     [terminalPaneAnim, window.width]
   );
+  const topChatOverlay = chatOverlayStack.length ? chatOverlayStack[chatOverlayStack.length - 1] : null;
+  const topChatOverlayType = topChatOverlay?.type || '';
+  const hasChatOverlay = Boolean(topChatOverlay);
 
   const syncAuthStateFromSession = useCallback((session = getCurrentSession()) => {
     if (!session) {
@@ -711,15 +700,6 @@ export function ShellScreen() {
   }, [publishAnim, publishOpen]);
 
   useEffect(() => {
-    Animated.timing(chatPaneAnim, {
-      toValue: getChatPaneIndex(chatPane),
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true
-    }).start();
-  }, [chatPane, chatPaneAnim]);
-
-  useEffect(() => {
     Animated.timing(terminalPaneAnim, {
       toValue: terminalPane === 'detail' ? 1 : 0,
       duration: 220,
@@ -805,17 +785,23 @@ export function ShellScreen() {
       setInboxOpen(false);
     }
     if (activeDomain !== 'chat') {
-      closeSearchMode();
+      setChatPlusMenuOpen(false);
+      dispatch(showChatListRoute());
+      dispatch(clearChatOverlays());
       dispatch(setChatAgentsSidebarOpen(false));
       dispatch(closeChatDetailDrawer());
+      dispatch(resetChatDetailDrawerPreview());
     }
-  }, [activeDomain, closeSearchMode, dispatch]);
+  }, [activeDomain, dispatch]);
 
   useEffect(() => {
-    if (chatPane !== 'detail' && chatDetailDrawerOpen) {
+    if (topChatOverlayType !== 'chatDetail' && chatDetailDrawerOpen) {
       dispatch(closeChatDetailDrawer());
     }
-  }, [chatDetailDrawerOpen, chatPane, dispatch]);
+    if (topChatOverlayType !== 'chatDetail' && chatDetailDrawerPreviewProgress > 0) {
+      dispatch(resetChatDetailDrawerPreview());
+    }
+  }, [chatDetailDrawerOpen, chatDetailDrawerPreviewProgress, dispatch, topChatOverlayType]);
 
   useEffect(() => {
     if (!inboxOpen || !authReady) {
@@ -860,10 +846,6 @@ export function ShellScreen() {
     }
 
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (activeDomain === 'chat' && chatPane === 'list' && chatListMode === 'search') {
-        closeSearchMode();
-        return true;
-      }
       if (inboxOpen) {
         setInboxOpen(false);
         return true;
@@ -880,8 +862,14 @@ export function ShellScreen() {
         setPublishOpen(false);
         return true;
       }
-      if (activeDomain === 'chat' && chatPane !== 'list') {
-        dispatch(showChatListPane());
+      if (activeDomain === 'chat' && hasChatOverlay) {
+        dispatch(popChatOverlay());
+        return true;
+      }
+      if (activeDomain === 'chat' && chatRoute === 'search') {
+        setChatPlusMenuOpen(false);
+        dispatch(showChatListRoute());
+        dispatch(setShellChatSearchQuery(''));
         return true;
       }
       if (activeDomain === 'terminal' && terminalPane === 'detail') {
@@ -896,10 +884,9 @@ export function ShellScreen() {
     activeDomain,
     chatAgentsSidebarOpen,
     chatDetailDrawerOpen,
-    chatListMode,
-    chatPane,
-    closeSearchMode,
+    chatRoute,
     dispatch,
+    hasChatOverlay,
     inboxOpen,
     publishOpen,
     terminalPane
@@ -955,12 +942,14 @@ export function ShellScreen() {
   const isTerminalDomain = activeDomain === 'terminal';
   const isAgentsDomain = activeDomain === 'agents';
   const isUserDomain = activeDomain === 'user';
+  const isChatDetailOverlay = topChatOverlayType === 'chatDetail';
+  const isChatAgentOverlay = topChatOverlayType === 'agentDetail';
   const topNavTitle = isChatDomain
-    ? chatPane === 'detail'
+    ? isChatDetailOverlay
       ? activeAgentName
-      : chatPane === 'agent'
+      : isChatAgentOverlay
         ? activeAgentName
-      : chatListMode === 'search'
+      : chatRoute === 'search'
         ? '搜索'
         : '对话'
     : isTerminalDomain
@@ -968,9 +957,9 @@ export function ShellScreen() {
         ? '终端/CLI'
         : '会话'
       : DOMAIN_LABEL[activeDomain];
-  const topNavSubtitle = isChatDomain && chatPane !== 'list' ? selectedAgentKey : '';
+  const topNavSubtitle = isChatDomain && hasChatOverlay ? selectedAgentKey : '';
   const appVersionLabel = useMemo(() => getAppVersionLabel(), []);
-  const showBottomNav = !((isChatDomain && chatPane !== 'list') || (isTerminalDomain && terminalPane === 'detail'));
+  const showBottomNav = !((isChatDomain && hasChatOverlay) || (isTerminalDomain && terminalPane === 'detail'));
 
   const closeFloatingPanels = useCallback(() => {
     setInboxOpen(false);
@@ -978,13 +967,31 @@ export function ShellScreen() {
     setChatPlusMenuOpen(false);
     dispatch(setChatAgentsSidebarOpen(false));
     dispatch(closeChatDetailDrawer());
+    dispatch(resetChatDetailDrawerPreview());
   }, [dispatch]);
 
   const handleDomainSwitch = useCallback(
     (mode: DomainMode) => {
       if (mode === activeDomain) {
-        if (mode === 'chat' && chatPane !== 'list') {
-          dispatch(showChatListPane());
+        if (mode === 'chat') {
+          if (chatDetailDrawerOpen) {
+            dispatch(closeChatDetailDrawer());
+            return;
+          }
+          if (chatAgentsSidebarOpen) {
+            dispatch(setChatAgentsSidebarOpen(false));
+            return;
+          }
+          if (hasChatOverlay) {
+            dispatch(clearChatOverlays());
+            dispatch(showChatListRoute());
+            return;
+          }
+          if (chatRoute === 'search') {
+            dispatch(showChatListRoute());
+            dispatch(setShellChatSearchQuery(''));
+            return;
+          }
           return;
         }
         if (mode === 'terminal' && terminalPane === 'detail') {
@@ -994,12 +1001,25 @@ export function ShellScreen() {
         return;
       }
       closeFloatingPanels();
-      if (mode !== 'chat') {
-        closeSearchMode();
+      if (mode === 'chat') {
+        dispatch(showChatListRoute());
+      } else {
+        dispatch(showChatListRoute());
+        dispatch(setShellChatSearchQuery(''));
+        dispatch(clearChatOverlays());
       }
       dispatch(setActiveDomain(mode));
     },
-    [activeDomain, chatPane, closeFloatingPanels, closeSearchMode, dispatch, terminalPane]
+    [
+      activeDomain,
+      chatAgentsSidebarOpen,
+      chatDetailDrawerOpen,
+      chatRoute,
+      closeFloatingPanels,
+      dispatch,
+      hasChatOverlay,
+      terminalPane
+    ]
   );
 
   const openChatDetail = useCallback(
@@ -1011,10 +1031,16 @@ export function ShellScreen() {
       }
       dispatch(setChatId(nextChatId));
       dispatch(closeChatDetailDrawer());
-      dispatch(showChatDetailPane());
-      closeSearchMode();
+      dispatch(resetChatDetailDrawerPreview());
+      dispatch(setChatAgentsSidebarOpen(false));
+      dispatch(
+        pushChatOverlay({
+          overlayId: createRequestId('chat_detail_overlay'),
+          type: 'chatDetail'
+        })
+      );
     },
-    [closeSearchMode, dispatch]
+    [dispatch]
   );
 
   const openAgentProfile = useCallback(
@@ -1028,10 +1054,15 @@ export function ShellScreen() {
       dispatch(setUserSelectedAgentKey(normalizedKey));
       dispatch(setChatAgentsSidebarOpen(false));
       dispatch(closeChatDetailDrawer());
-      dispatch(showChatAgentPane());
-      closeSearchMode();
+      dispatch(resetChatDetailDrawerPreview());
+      dispatch(
+        pushChatOverlay({
+          overlayId: createRequestId('agent_detail_overlay'),
+          type: 'agentDetail'
+        })
+      );
     },
-    [closeSearchMode, dispatch]
+    [dispatch]
   );
 
   const handleAgentSelectNewChat = useCallback(
@@ -1042,20 +1073,34 @@ export function ShellScreen() {
       dispatch(setStatusText(''));
       dispatch(setChatAgentsSidebarOpen(false));
       dispatch(closeChatDetailDrawer());
-      dispatch(showChatDetailPane());
-      closeSearchMode();
+      dispatch(resetChatDetailDrawerPreview());
+      if (!isChatDetailOverlay) {
+        dispatch(
+          pushChatOverlay({
+            overlayId: createRequestId('chat_detail_overlay'),
+            type: 'chatDetail'
+          })
+        );
+      }
     },
-    [closeSearchMode, dispatch]
+    [dispatch, isChatDetailOverlay]
   );
 
   const openNewCurrentAgentChat = useCallback(() => {
     dispatch(setChatId(''));
     dispatch(setStatusText(''));
     dispatch(closeChatDetailDrawer());
-    dispatch(showChatDetailPane());
+    dispatch(resetChatDetailDrawerPreview());
+    if (!isChatDetailOverlay) {
+      dispatch(
+        pushChatOverlay({
+          overlayId: createRequestId('chat_detail_overlay'),
+          type: 'chatDetail'
+        })
+      );
+    }
     setChatPlusMenuOpen(false);
-    closeSearchMode();
-  }, [closeSearchMode, dispatch]);
+  }, [dispatch, isChatDetailOverlay]);
 
   const handleSearchSelectAgent = useCallback(
     (agentKey: string) => {
@@ -1065,8 +1110,10 @@ export function ShellScreen() {
   );
 
   const handleSearchBack = useCallback(() => {
-    closeSearchMode();
-  }, [closeSearchMode]);
+    setChatPlusMenuOpen(false);
+    dispatch(showChatListRoute());
+    dispatch(setShellChatSearchQuery(''));
+  }, [dispatch]);
 
   const handleAgentProfileStartChat = useCallback(
     (agentKey: string) => {
@@ -1115,11 +1162,26 @@ export function ShellScreen() {
   }, [openNewCurrentAgentChat]);
 
   const handleRequestShowChatDetailDrawer = useCallback(() => {
+    if (!isChatDetailOverlay) {
+      dispatch(resetChatDetailDrawerPreview());
+      return;
+    }
     setInboxOpen(false);
     setPublishOpen(false);
     dispatch(setChatAgentsSidebarOpen(false));
     dispatch(openChatDetailDrawer());
-  }, [dispatch]);
+  }, [dispatch, isChatDetailOverlay]);
+
+  const handleRequestPreviewChatDetailDrawer = useCallback(
+    (progress: number) => {
+      if (!isChatDetailOverlay || chatDetailDrawerOpen) {
+        dispatch(resetChatDetailDrawerPreview());
+        return;
+      }
+      dispatch(setChatDetailDrawerPreviewProgress(progress));
+    },
+    [chatDetailDrawerOpen, dispatch, isChatDetailOverlay]
+  );
 
   const openTerminalDetail = useCallback(
     (sessionId: string) => {
@@ -1244,25 +1306,29 @@ export function ShellScreen() {
         >
           <View style={styles.topNavCompact} nativeID="shell-top-nav" testID="shell-top-nav">
             {isChatDomain ? (
-              chatPane !== 'list' ? (
+              hasChatOverlay ? (
                 <TouchableOpacity
                   activeOpacity={0.72}
                   style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
-                  testID={chatPane === 'detail' ? 'chat-detail-back-btn' : 'chat-agent-back-btn'}
+                  testID={isChatDetailOverlay ? 'chat-detail-back-btn' : 'chat-agent-back-btn'}
                   onPress={() => {
                     setPublishOpen(false);
                     setInboxOpen(false);
-                    dispatch(showChatListPane());
+                    if (chatDetailDrawerOpen) {
+                      dispatch(closeChatDetailDrawer());
+                      return;
+                    }
+                    dispatch(popChatOverlay());
                   }}
                 >
                   <Text
                     style={[styles.detailBackText, { color: theme.primaryDeep }]}
-                    testID={chatPane === 'detail' ? 'chat-detail-back-text' : 'chat-agent-back-text'}
+                    testID={isChatDetailOverlay ? 'chat-detail-back-text' : 'chat-agent-back-text'}
                   >
                     ‹
                   </Text>
                 </TouchableOpacity>
-              ) : chatListMode === 'search' ? (
+              ) : chatRoute === 'search' ? (
                 <TouchableOpacity
                   activeOpacity={0.72}
                   style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
@@ -1281,6 +1347,7 @@ export function ShellScreen() {
                     setInboxOpen(false);
                     setChatPlusMenuOpen(false);
                     dispatch(closeChatDetailDrawer());
+                    dispatch(resetChatDetailDrawerPreview());
                     dispatch(setChatAgentsSidebarOpen(!chatAgentsSidebarOpen));
                   }}
                 >
@@ -1343,11 +1410,11 @@ export function ShellScreen() {
               <View style={styles.iconOnlyBtn} />
             )}
 
-            {isChatDomain && chatPane === 'list' && chatListMode === 'search' ? (
+            {isChatDomain && !hasChatOverlay && chatRoute === 'search' ? (
               <View style={[styles.topSearchWrap, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}>
                 <TextInput
                   value={chatSearchQuery}
-                  onChangeText={setChatSearchQuery}
+                  onChangeText={(value) => dispatch(setShellChatSearchQuery(value))}
                   placeholder="搜索 chat / 智能体"
                   placeholderTextColor={theme.textMute}
                   autoFocus
@@ -1390,7 +1457,7 @@ export function ShellScreen() {
                 <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>刷新</Text>
               </TouchableOpacity>
             ) : isChatDomain ? (
-              chatPane === 'detail' ? (
+              isChatDetailOverlay ? (
                 <TouchableOpacity
                   activeOpacity={0.72}
                   style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
@@ -1408,9 +1475,9 @@ export function ShellScreen() {
                     <Rect x={2} y={13} width={16} height={2.2} rx={1.1} fill={theme.primaryDeep} />
                   </Svg>
                 </TouchableOpacity>
-              ) : chatPane === 'agent' ? (
+              ) : isChatAgentOverlay ? (
                 <View style={styles.iconOnlyBtn} testID="chat-agent-right-placeholder" />
-              ) : chatListMode === 'search' ? (
+              ) : chatRoute === 'search' ? (
                 <View style={styles.iconOnlyBtn} testID="chat-search-right-placeholder" />
               ) : (
                 <View style={styles.chatListTopActions} testID="chat-list-top-actions">
@@ -1420,7 +1487,7 @@ export function ShellScreen() {
                     testID="chat-list-search-btn"
                     onPress={() => {
                       setChatPlusMenuOpen(false);
-                      setChatListMode('search');
+                      dispatch(showChatSearchRoute());
                     }}
                   >
                     <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
@@ -1501,77 +1568,73 @@ export function ShellScreen() {
             )}
           </View>
 
-          {isChatDomain && chatPane === 'list' && chatPlusMenuOpen ? (
+          {isChatDomain && !hasChatOverlay && chatRoute === 'list' && chatPlusMenuOpen ? (
             <Pressable style={styles.chatTopMenuMask} onPress={() => setChatPlusMenuOpen(false)} testID="chat-list-plus-menu-mask" />
           ) : null}
 
           <View style={styles.domainContent}>
             {isChatDomain ? (
               <View style={styles.stackViewport} testID="chat-pane-stack">
-                <Animated.View
-                  style={[
-                    styles.stackTrack,
-                    {
-                      width: window.width * 3,
-                      transform: [{ translateX: chatTranslateX }]
-                    }
-                  ]}
-                >
-                  <View style={[styles.stackPage, { width: window.width }]}>
-                    {chatListMode === 'search' ? (
-                      <ChatSearchPane
-                        theme={theme}
-                        keyword={chatSearchQuery}
-                        agentResults={searchAgentResults}
-                        chatResults={searchChatResults}
-                        onSelectRecentKeyword={setChatSearchQuery}
-                        onSelectAgent={handleSearchSelectAgent}
-                        onSelectChat={openChatDetail}
-                      />
-                    ) : (
-                      <ChatListPane
-                        theme={theme}
-                        loading={loadingChats}
-                        items={agentLatestChats}
-                        onSelectChat={openChatDetail}
-                        onSelectAgentProfile={openAgentProfile}
-                      />
-                    )}
-                  </View>
-                  <View style={[styles.stackPage, { width: window.width }]}>
-                    <ChatAssistantScreen
-                      theme={theme}
-                      backendUrl={backendUrl}
-                      contentWidth={window.width}
-                      onRefreshChats={refreshChats}
-                      keyboardHeight={keyboardInset}
-                      refreshSignal={chatRefreshSignal}
-                      authAccessToken={authAccessToken}
-                      authAccessExpireAtMs={authAccessExpireAtMs}
-                      authTokenSignal={authTokenSignal}
-                      onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
-                      onRequestSwitchAgentChat={handleRequestSwitchAgentChat}
-                      onRequestCreateAgentChatBySwipe={handleRequestCreateAgentChatBySwipe}
-                      onRequestShowChatDetailDrawer={handleRequestShowChatDetailDrawer}
-                    />
-                  </View>
-                  <View style={[styles.stackPage, { width: window.width }]}>
-                    <AgentProfilePane
-                      theme={theme}
-                      agent={activeAgent}
-                      onStartChat={handleAgentProfileStartChat}
-                    />
-                  </View>
-                </Animated.View>
-                <SwipeBackEdge
-                  enabled={chatPane !== 'list' && !chatDetailDrawerOpen}
-                  onBack={() => dispatch(showChatListPane())}
-                />
-                {chatPane === 'list' && chatListMode === 'search' ? (
-                  <SwipeBackEdge
-                    enabled
-                    onBack={handleSearchBack}
+                {chatRoute === 'search' ? (
+                  <ChatSearchPane
+                    theme={theme}
+                    keyword={chatSearchQuery}
+                    agentResults={searchAgentResults}
+                    chatResults={searchChatResults}
+                    onSelectRecentKeyword={(keyword) => dispatch(setShellChatSearchQuery(keyword))}
+                    onSelectAgent={handleSearchSelectAgent}
+                    onSelectChat={openChatDetail}
                   />
+                ) : (
+                  <ChatListPane
+                    theme={theme}
+                    loading={loadingChats}
+                    items={agentLatestChats}
+                    onSelectChat={openChatDetail}
+                    onSelectAgentProfile={openAgentProfile}
+                  />
+                )}
+                {chatOverlayStack.map((overlay, index) => {
+                  const isTop = index === chatOverlayStack.length - 1;
+                  return (
+                    <View
+                      key={overlay.overlayId}
+                      pointerEvents={isTop ? 'auto' : 'none'}
+                      style={[styles.chatOverlayPage, { zIndex: 10 + index, backgroundColor: theme.surface }]}
+                    >
+                      {overlay.type === 'chatDetail' ? (
+                        <ChatAssistantScreen
+                          theme={theme}
+                          backendUrl={backendUrl}
+                          contentWidth={window.width}
+                          onRefreshChats={refreshChats}
+                          keyboardHeight={keyboardInset}
+                          refreshSignal={chatRefreshSignal}
+                          authAccessToken={authAccessToken}
+                          authAccessExpireAtMs={authAccessExpireAtMs}
+                          authTokenSignal={authTokenSignal}
+                          onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
+                          onRequestSwitchAgentChat={handleRequestSwitchAgentChat}
+                          onRequestCreateAgentChatBySwipe={handleRequestCreateAgentChatBySwipe}
+                          onRequestPreviewChatDetailDrawer={handleRequestPreviewChatDetailDrawer}
+                          onRequestShowChatDetailDrawer={handleRequestShowChatDetailDrawer}
+                        />
+                      ) : (
+                        <AgentProfilePane
+                          theme={theme}
+                          agent={activeAgent}
+                          onStartChat={handleAgentProfileStartChat}
+                        />
+                      )}
+                    </View>
+                  );
+                })}
+                <SwipeBackEdge
+                  enabled={hasChatOverlay && !chatDetailDrawerOpen && !chatAgentsSidebarOpen}
+                  onBack={() => dispatch(popChatOverlay())}
+                />
+                {!hasChatOverlay && chatRoute === 'search' ? (
+                  <SwipeBackEdge enabled onBack={handleSearchBack} />
                 ) : null}
               </View>
             ) : null}
@@ -1814,7 +1877,9 @@ export function ShellScreen() {
           onSelectAgent={handleAgentSelectNewChat}
         />
         <ChatDetailDrawer
-          visible={isChatDomain && chatPane === 'detail' && chatDetailDrawerOpen}
+          visible={isChatDomain && isChatDetailOverlay && chatDetailDrawerOpen}
+          previewProgress={isChatDomain && isChatDetailOverlay ? chatDetailDrawerPreviewProgress : 0}
+          interactive={isChatDomain && isChatDetailOverlay && chatDetailDrawerOpen}
           theme={theme}
           activeAgentName={activeAgentName}
           chats={currentAgentChats}
@@ -1883,6 +1948,9 @@ const styles = StyleSheet.create({
   },
   stackPage: {
     flex: 1
+  },
+  chatOverlayPage: {
+    ...StyleSheet.absoluteFillObject
   },
   topNavCompact: {
     position: 'relative',

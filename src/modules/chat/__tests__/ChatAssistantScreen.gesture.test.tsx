@@ -114,6 +114,7 @@ async function renderScreen(props: Partial<Record<string, unknown>> = {}) {
         keyboardHeight={0}
         onRequestSwitchAgentChat={props.onRequestSwitchAgentChat as any}
         onRequestCreateAgentChatBySwipe={props.onRequestCreateAgentChatBySwipe as any}
+        onRequestPreviewChatDetailDrawer={props.onRequestPreviewChatDetailDrawer as any}
         onRequestShowChatDetailDrawer={props.onRequestShowChatDetailDrawer as any}
       />
     );
@@ -482,21 +483,25 @@ describe('ChatAssistantScreen gestures', () => {
     });
   });
 
-  it('shows staged show-drawer hint on right-to-left swipe before commit threshold', async () => {
+  it('reports drawer preview progress before commit and resets on release', async () => {
+    const onPreview = jest.fn();
     const onShowDrawer = jest.fn();
-    const tree = await renderScreen({ onRequestShowChatDetailDrawer: onShowDrawer });
+    const tree = await renderScreen({
+      onRequestPreviewChatDetailDrawer: onPreview,
+      onRequestShowChatDetailDrawer: onShowDrawer
+    });
     const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
     act(() => {
       const event = { nativeEvent: { locationX: 200 } };
       layer.props.onMoveShouldSetResponder?.(event, { dx: -60, dy: 8 });
       layer.props.onResponderMove?.(event, { dx: -60, dy: 8 });
     });
-    const hintCard = tree.root.findByProps({ testID: 'chat-show-drawer-swipe-hint-card' });
-    const style = ReactNative.StyleSheet.flatten(hintCard.props.style) as { opacity?: number } | undefined;
-    expect(Number(style?.opacity || 0)).toBeGreaterThan(0);
+    const hasPositivePreview = onPreview.mock.calls.some((args) => Number(args?.[0] || 0) > 0);
+    expect(hasPositivePreview).toBe(true);
     act(() => {
       layer.props.onResponderRelease?.({ nativeEvent: { locationX: 200 } }, { dx: -60, dy: 8 });
     });
+    expect(onPreview).toHaveBeenLastCalledWith(0);
     expect(onShowDrawer).toHaveBeenCalledTimes(0);
     await act(async () => {
       tree.unmount();

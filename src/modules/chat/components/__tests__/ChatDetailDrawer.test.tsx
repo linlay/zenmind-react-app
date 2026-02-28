@@ -165,4 +165,67 @@ describe('ChatDetailDrawer side drawer', () => {
     });
     expect(onCreateChat).toHaveBeenCalledTimes(1);
   });
+
+  it('renders preview by progress when drawer is not yet opened', () => {
+    let tree: ReturnType<typeof create> | null = null;
+    act(() => {
+      tree = create(
+        <ChatDetailDrawer
+          visible={false}
+          previewProgress={0.5}
+          interactive={false}
+          theme={THEMES.light}
+          activeAgentName="Agent A"
+          chats={[]}
+          activeChatId=""
+          onClose={() => {}}
+          onCreateChat={() => {}}
+          onSelectChat={() => {}}
+        />
+      );
+    });
+    const drawer = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer' });
+    const overlay = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-overlay-mask' });
+    const style = StyleSheet.flatten(drawer.props.style) as { opacity?: number; transform?: Array<{ translateX?: number }> } | undefined;
+    expect(Number(style?.opacity || 0)).toBeGreaterThan(0);
+    expect(Number(style?.transform?.[0]?.translateX || 0)).toBeGreaterThan(0);
+    expect(overlay).toBeTruthy();
+  });
+
+  it('does not allow interaction when interactive=false', () => {
+    const onCreateChat = jest.fn();
+    const onSelectChat = jest.fn();
+    const onClose = jest.fn();
+    let tree: ReturnType<typeof create> | null = null;
+    act(() => {
+      tree = create(
+        <ChatDetailDrawer
+          visible={false}
+          previewProgress={0.7}
+          interactive={false}
+          theme={THEMES.light}
+          activeAgentName="Agent A"
+          chats={[{ chatId: 'chat-7', chatName: '会话七', updatedAt: Date.now() } as any]}
+          activeChatId=""
+          onClose={onClose}
+          onCreateChat={onCreateChat}
+          onSelectChat={onSelectChat}
+        />
+      );
+    });
+
+    const mask = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-overlay-mask' });
+    const createBtn = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-create-chat-btn' });
+    const item = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-item-0' });
+
+    act(() => {
+      mask.props.onPress?.();
+      createBtn.props.onPress?.();
+      item.props.onPress?.();
+    });
+
+    expect(onClose).toHaveBeenCalledTimes(0);
+    expect(onCreateChat).toHaveBeenCalledTimes(0);
+    expect(onSelectChat).toHaveBeenCalledTimes(0);
+  });
 });

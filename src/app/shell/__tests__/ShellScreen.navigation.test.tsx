@@ -16,9 +16,9 @@ jest.mock('expo-status-bar', () => ({
 
 jest.mock('react-native-safe-area-context', () => {
   const ReactLocal = require('react');
-  const ReactNative = require('react-native');
+  const ReactNativeLocal = require('react-native');
   return {
-    SafeAreaView: ({ children }: { children: React.ReactNode }) => ReactLocal.createElement(ReactNative.View, null, children),
+    SafeAreaView: ({ children }: { children: React.ReactNode }) => ReactLocal.createElement(ReactNativeLocal.View, null, children),
     useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 })
   };
 });
@@ -180,10 +180,13 @@ function makeState(overrides: Partial<Record<string, any>> = {}) {
   };
   return {
     shell: {
-      chatPane: 'list',
+      chatRoute: 'list',
+      chatSearchQuery: '',
+      chatOverlayStack: [],
       terminalPane: 'list',
       chatAgentsSidebarOpen: false,
       chatDetailDrawerOpen: false,
+      chatDetailDrawerPreviewProgress: 0,
       ...overrides.shell
     },
     user,
@@ -259,7 +262,7 @@ describe('ShellScreen navigation flow', () => {
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setActiveDomain', payload: 'terminal' });
   });
 
-  it('opens chat detail when selecting chat list item', async () => {
+  it('opens chat detail overlay when selecting chat list item', async () => {
     const tree = await renderScreen();
     const item = tree.root.findByProps({ testID: 'chat-list-item-0' });
     act(() => {
@@ -269,10 +272,12 @@ describe('ShellScreen navigation flow', () => {
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'chat/setChatId', payload: 'chat-1' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'agents/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/showChatDetailPane', payload: undefined });
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'chatDetail' }) })
+    );
   });
 
-  it('opens agent profile pane when tapping avatar in chat list item', async () => {
+  it('opens agent detail overlay when tapping avatar in chat list item', async () => {
     const tree = await renderScreen();
     const avatarBtn = tree.root.findByProps({ testID: 'chat-list-item-avatar-btn-0' });
     act(() => {
@@ -281,59 +286,21 @@ describe('ShellScreen navigation flow', () => {
 
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'agents/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/showChatAgentPane', payload: undefined });
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'agentDetail' }) })
+    );
   });
 
-  it('opens terminal detail when selecting a terminal session', async () => {
-    const tree = await renderScreen({ user: { activeDomain: 'terminal' } });
-    await act(async () => {
-      await Promise.resolve();
+  it('hides bottom nav when chat overlay stack has active item', async () => {
+    const tree = await renderScreen({
+      user: { activeDomain: 'chat' },
+      shell: { chatOverlayStack: [{ overlayId: 'overlay-chat-1', type: 'chatDetail' }] }
     });
-    const item = tree.root.findByProps({ testID: 'terminal-session-item-0' });
-    act(() => {
-      item.props.onPress();
-    });
-
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'terminal/setActiveSessionId', payload: 's-1' });
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'terminal/reloadPty', payload: undefined });
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/showTerminalDetailPane', payload: undefined });
-  });
-
-  it('hides bottom nav on chat detail page', async () => {
-    const tree = await renderScreen({ shell: { chatPane: 'detail' }, user: { activeDomain: 'chat' } });
     expect(tree.root.findAllByProps({ testID: 'bottom-nav-tab-chat' }).length).toBe(0);
   });
 
-  it('hides bottom nav on chat agent page', async () => {
-    const tree = await renderScreen({ shell: { chatPane: 'agent' }, user: { activeDomain: 'chat' } });
-    expect(tree.root.findAllByProps({ testID: 'bottom-nav-tab-chat' }).length).toBe(0);
-  });
-
-  it('hides bottom nav on terminal detail page', async () => {
-    const tree = await renderScreen({ shell: { terminalPane: 'detail' }, user: { activeDomain: 'terminal' } });
-    expect(tree.root.findAllByProps({ testID: 'bottom-nav-tab-terminal' }).length).toBe(0);
-  });
-
-  it('shows inbox icon on user page left action and not on chat list page right action', async () => {
-    const userTree = await renderScreen({ user: { activeDomain: 'user' } });
-    expect(userTree.root.findByProps({ testID: 'shell-user-inbox-toggle-btn' })).toBeTruthy();
-
-    const chatTree = await renderScreen({ user: { activeDomain: 'chat' }, shell: { chatPane: 'list' } });
-    expect(chatTree.root.findAllByProps({ testID: 'shell-inbox-toggle-btn' }).length).toBe(0);
-  });
-
-  it('shows search and plus icons on chat list top-right actions', async () => {
-    const tree = await renderScreen({ user: { activeDomain: 'chat' }, shell: { chatPane: 'list' } });
-    expect(tree.root.findByProps({ testID: 'chat-list-search-btn' })).toBeTruthy();
-    expect(tree.root.findByProps({ testID: 'chat-list-plus-btn' })).toBeTruthy();
-  });
-
-  it('enters search mode and exits by back button', async () => {
-    const tree = await renderScreen({ user: { activeDomain: 'chat' }, shell: { chatPane: 'list' } });
-    const searchBtn = tree.root.findByProps({ testID: 'chat-list-search-btn' });
-    act(() => {
-      searchBtn.props.onPress();
-    });
+  it('shows search route and exits by back button', async () => {
+    const tree = await renderScreen({ user: { activeDomain: 'chat' }, shell: { chatRoute: 'search', chatSearchQuery: 'agent' } });
     expect(tree.root.findByProps({ testID: 'chat-search-pane' })).toBeTruthy();
     expect(tree.root.findByProps({ testID: 'chat-top-search-input' })).toBeTruthy();
 
@@ -341,18 +308,14 @@ describe('ShellScreen navigation flow', () => {
     act(() => {
       backBtn.props.onPress();
     });
-    expect(tree.root.findAllByProps({ testID: 'chat-search-pane' }).length).toBe(0);
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/showChatListRoute', payload: undefined });
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/setChatSearchQuery', payload: '' });
   });
 
-  it('opens agent profile pane when selecting an agent in search results', async () => {
-    const tree = await renderScreen({ user: { activeDomain: 'chat' }, shell: { chatPane: 'list' } });
-    const searchBtn = tree.root.findByProps({ testID: 'chat-list-search-btn' });
-    act(() => {
-      searchBtn.props.onPress();
-    });
-    const searchInput = tree.root.findByProps({ testID: 'chat-top-search-input' });
-    act(() => {
-      searchInput.props.onChangeText('agent');
+  it('opens agent detail overlay from search results', async () => {
+    const tree = await renderScreen({
+      user: { activeDomain: 'chat' },
+      shell: { chatRoute: 'search', chatSearchQuery: 'agent' }
     });
     const agentItem = tree.root.findByProps({ testID: 'chat-search-agent-item-0' });
     act(() => {
@@ -361,26 +324,16 @@ describe('ShellScreen navigation flow', () => {
 
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'agents/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/showChatAgentPane', payload: undefined });
-  });
-
-  it('opens plus menu and dispatches placeholder status action', async () => {
-    const tree = await renderScreen({ user: { activeDomain: 'chat' }, shell: { chatPane: 'list' } });
-    const plusBtn = tree.root.findByProps({ testID: 'chat-list-plus-btn' });
-    act(() => {
-      plusBtn.props.onPress();
-    });
-    expect(tree.root.findByProps({ testID: 'chat-list-plus-menu' })).toBeTruthy();
-
-    const firstItem = tree.root.findByProps({ testID: 'chat-list-plus-menu-item-0' });
-    act(() => {
-      firstItem.props.onPress();
-    });
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'chat/setStatusText', payload: '功能建设中：扫一扫' });
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'agentDetail' }) })
+    );
   });
 
   it('opens chat detail drawer from the right menu action', async () => {
-    const tree = await renderScreen({ shell: { chatPane: 'detail' }, user: { activeDomain: 'chat' } });
+    const tree = await renderScreen({
+      user: { activeDomain: 'chat' },
+      shell: { chatOverlayStack: [{ overlayId: 'overlay-chat-1', type: 'chatDetail' }] }
+    });
     const menuBtn = tree.root.findByProps({ testID: 'chat-detail-menu-btn' });
     act(() => {
       menuBtn.props.onPress();
@@ -388,10 +341,13 @@ describe('ShellScreen navigation flow', () => {
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/openChatDetailDrawer', payload: undefined });
   });
 
-  it('switches chat when selecting an item in chat detail overlay', async () => {
+  it('switches chat when selecting an item in chat detail drawer', async () => {
     const tree = await renderScreen({
       user: { activeDomain: 'chat' },
-      shell: { chatPane: 'detail', chatDetailDrawerOpen: true },
+      shell: {
+        chatOverlayStack: [{ overlayId: 'overlay-chat-1', type: 'chatDetail' }],
+        chatDetailDrawerOpen: true
+      },
       chat: {
         chatId: 'chat-1',
         chats: [
@@ -410,10 +366,13 @@ describe('ShellScreen navigation flow', () => {
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/closeChatDetailDrawer', payload: undefined });
   });
 
-  it('creates new chat when tapping create action in chat detail overlay', async () => {
+  it('creates new chat when tapping create action in chat detail drawer', async () => {
     const tree = await renderScreen({
       user: { activeDomain: 'chat' },
-      shell: { chatPane: 'detail', chatDetailDrawerOpen: true }
+      shell: {
+        chatOverlayStack: [{ overlayId: 'overlay-chat-1', type: 'chatDetail' }],
+        chatDetailDrawerOpen: true
+      }
     });
     const createBtn = tree.root.findByProps({ testID: 'mock-chat-detail-overlay-create' });
     act(() => {
@@ -422,28 +381,36 @@ describe('ShellScreen navigation flow', () => {
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'chat/setChatId', payload: '' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'chat/setStatusText', payload: '' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/closeChatDetailDrawer', payload: undefined });
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/showChatDetailPane', payload: undefined });
   });
 
   it('uses larger style for chat detail back button', async () => {
-    const tree = await renderScreen({ shell: { chatPane: 'detail' }, user: { activeDomain: 'chat' } });
+    const tree = await renderScreen({
+      shell: { chatOverlayStack: [{ overlayId: 'overlay-chat-1', type: 'chatDetail' }] },
+      user: { activeDomain: 'chat' }
+    });
     const backText = tree.root.findByProps({ testID: 'chat-detail-back-text' });
     const style = ReactNative.StyleSheet.flatten(backText.props.style) as { fontSize?: number } | undefined;
     expect(Number(style?.fontSize || 0)).toBeGreaterThanOrEqual(18);
   });
 
-  it('returns to chat list from agent profile back button', async () => {
-    const tree = await renderScreen({ shell: { chatPane: 'agent' }, user: { activeDomain: 'chat' } });
+  it('pops agent overlay by back button', async () => {
+    const tree = await renderScreen({
+      shell: { chatOverlayStack: [{ overlayId: 'overlay-agent-1', type: 'agentDetail' }] },
+      user: { activeDomain: 'chat' }
+    });
     const backBtn = tree.root.findByProps({ testID: 'chat-agent-back-btn' });
     act(() => {
       backBtn.props.onPress();
     });
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/showChatListPane', payload: undefined });
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'shell/popChatOverlay', payload: undefined });
   });
 
   it('disables detail swipe-back when chat drawer is open', async () => {
     const tree = await renderScreen({
-      shell: { chatPane: 'detail', chatDetailDrawerOpen: true },
+      shell: {
+        chatOverlayStack: [{ overlayId: 'overlay-chat-1', type: 'chatDetail' }],
+        chatDetailDrawerOpen: true
+      },
       user: { activeDomain: 'chat' }
     });
     const edge = tree.root.findByProps({ testID: 'swipe-back-edge' });

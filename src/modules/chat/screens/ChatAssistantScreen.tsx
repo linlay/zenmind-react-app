@@ -129,6 +129,7 @@ interface ChatAssistantScreenProps {
   onWebViewAuthRefreshRequest?: (requestId: string, source: string) => Promise<WebViewAuthRefreshOutcome>;
   onRequestSwitchAgentChat?: (direction: 'prev' | 'next') => { ok: boolean; message?: string };
   onRequestCreateAgentChatBySwipe?: () => { ok: boolean; message?: string };
+  onRequestPreviewChatDetailDrawer?: (progress: number) => void;
   onRequestShowChatDetailDrawer?: () => void;
 }
 
@@ -145,6 +146,7 @@ export function ChatAssistantScreen({
   onWebViewAuthRefreshRequest,
   onRequestSwitchAgentChat,
   onRequestCreateAgentChatBySwipe,
+  onRequestPreviewChatDetailDrawer,
   onRequestShowChatDetailDrawer
 }: ChatAssistantScreenProps) {
   const dispatch = useAppDispatch();
@@ -1485,6 +1487,13 @@ export function ChatAssistantScreen({
   );
 
   useEffect(() => {
+    if (!onRequestPreviewChatDetailDrawer) {
+      return;
+    }
+    onRequestPreviewChatDetailDrawer(showDrawerRevealProgress);
+  }, [onRequestPreviewChatDetailDrawer, showDrawerRevealProgress]);
+
+  useEffect(() => {
     if (Platform.OS !== 'android' || !hasActiveFrontendTool) {
       return;
     }
@@ -1758,22 +1767,6 @@ export function ChatAssistantScreen({
             testID="chat-create-swipe-hint-card"
           >
             <Text style={[styles.createChatSwipeHintText, { color: theme.text }]}>新建对话</Text>
-          </View>
-        </View>
-        <View pointerEvents="none" style={styles.showDrawerSwipeHintLayer} testID="chat-show-drawer-swipe-hint-layer">
-          <View
-            style={[
-              styles.showDrawerSwipeHintCard,
-              {
-                backgroundColor: theme.surfaceStrong,
-                borderColor: theme.border,
-                opacity: showDrawerRevealProgress,
-                transform: [{ translateX: (1 - showDrawerRevealProgress) * 42 }]
-              }
-            ]}
-            testID="chat-show-drawer-swipe-hint-card"
-          >
-            <Text style={[styles.showDrawerSwipeHintText, { color: theme.text }]}>对话列表</Text>
           </View>
         </View>
         <View pointerEvents="none" style={styles.switchPrevSwipeHintLayer} testID="chat-switch-prev-swipe-hint-layer">
@@ -2095,25 +2088,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   createChatSwipeHintText: {
-    fontSize: 12,
-    fontWeight: '700'
-  },
-  showDrawerSwipeHintLayer: {
-    position: 'absolute',
-    right: 10,
-    top: '42%',
-    alignItems: 'flex-end'
-  },
-  showDrawerSwipeHintCard: {
-    minWidth: 92,
-    height: 34,
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  showDrawerSwipeHintText: {
     fontSize: 12,
     fontWeight: '700'
   },

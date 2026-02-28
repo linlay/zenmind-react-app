@@ -1,5 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AppTheme } from '../../../core/constants/theme';
 import { ChatSummary } from '../../../core/types/common';
 import { formatChatListTime, getChatLastContent } from '../../../shared/utils/format';
@@ -13,6 +12,8 @@ interface ChatDetailDrawerProps {
   onClose: () => void;
   onCreateChat: () => void;
   onSelectChat: (chatId: string) => void;
+  previewProgress?: number;
+  interactive?: boolean;
 }
 
 export function ChatDetailDrawer({
@@ -23,56 +24,34 @@ export function ChatDetailDrawer({
   activeChatId,
   onClose,
   onCreateChat,
-  onSelectChat
+  onSelectChat,
+  previewProgress = 0,
+  interactive = true
 }: ChatDetailDrawerProps) {
-  const overlayAnim = useRef(new Animated.Value(0)).current;
-  const drawerAnim = useRef(new Animated.Value(0)).current;
-
-  const drawerTranslateX = useMemo(
-    () =>
-      drawerAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [88, 0]
-      }),
-    [drawerAnim]
-  );
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.timing(overlayAnim, {
-        toValue: visible ? 1 : 0,
-        duration: visible ? 180 : 140,
-        useNativeDriver: true
-      }),
-      Animated.timing(drawerAnim, {
-        toValue: visible ? 1 : 0,
-        duration: visible ? 220 : 150,
-        useNativeDriver: true
-      })
-    ]).start();
-  }, [drawerAnim, overlayAnim, visible]);
-
+  const normalizedPreview = Number.isFinite(previewProgress) ? Math.max(0, Math.min(1, previewProgress)) : 0;
+  const effectiveProgress = visible ? 1 : normalizedPreview;
+  const allowInteraction = visible && interactive;
   const drawerBackground = theme.surface;
   const cardBackground = theme.mode === 'dark' ? '#182740' : '#f4f7fc';
   const cardActiveBackground = theme.mode === 'dark' ? '#264673' : '#e4eeff';
   const normalizedAgentName = String(activeAgentName || '').trim() || '当前智能体';
 
   return (
-    <View pointerEvents={visible ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, styles.layer]} testID="chat-detail-drawer-layer">
-      <Animated.View style={[styles.overlay, { opacity: overlayAnim, backgroundColor: theme.overlay }]}> 
-        <Pressable style={StyleSheet.absoluteFill} onPress={onClose} testID="chat-detail-overlay-mask" />
-      </Animated.View>
+    <View pointerEvents={allowInteraction ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, styles.layer]} testID="chat-detail-drawer-layer">
+      <View style={[styles.overlay, { opacity: effectiveProgress, backgroundColor: theme.overlay }]}> 
+        <Pressable style={StyleSheet.absoluteFill} onPress={allowInteraction ? onClose : undefined} testID="chat-detail-overlay-mask" />
+      </View>
 
-      <Animated.View
+      <View
         style={[
           styles.drawer,
           {
             backgroundColor: drawerBackground,
             borderColor: theme.border,
-            opacity: drawerAnim,
+            opacity: effectiveProgress,
             transform: [
               {
-                translateX: drawerTranslateX
+                translateX: (1 - effectiveProgress) * 88
               }
             ]
           }
@@ -86,8 +65,9 @@ export function ChatDetailDrawer({
           <TouchableOpacity
             activeOpacity={0.78}
             style={[styles.closeBtn, { backgroundColor: theme.surfaceStrong }]}
-            onPress={onClose}
+            onPress={allowInteraction ? onClose : undefined}
             testID="chat-detail-drawer-close-btn"
+            disabled={!allowInteraction}
           >
             <Text style={[styles.closeBtnText, { color: theme.textSoft }]}>关闭</Text>
           </TouchableOpacity>
@@ -97,8 +77,9 @@ export function ChatDetailDrawer({
           <TouchableOpacity
             activeOpacity={0.74}
             style={[styles.createItem, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
-            onPress={onCreateChat}
+            onPress={allowInteraction ? onCreateChat : undefined}
             testID="chat-detail-drawer-create-chat-btn"
+            disabled={!allowInteraction}
           >
             <Text style={[styles.createItemTitle, { color: theme.text }]}>新建对话 · 详情页左滑</Text>
           </TouchableOpacity>
@@ -125,11 +106,15 @@ export function ChatDetailDrawer({
                   testID={`chat-detail-drawer-item-${index}`}
                   style={[styles.item, { backgroundColor: active ? cardActiveBackground : cardBackground }]}
                   onPress={() => {
+                    if (!allowInteraction) {
+                      return;
+                    }
                     if (!chat.chatId) {
                       return;
                     }
                     onSelectChat(chat.chatId);
                   }}
+                  disabled={!allowInteraction}
                 >
                   <View style={styles.itemTopRow}>
                     <Text style={[styles.itemTitle, { color: theme.text }]} numberOfLines={1}>
@@ -161,7 +146,7 @@ export function ChatDetailDrawer({
             </View>
           )}
         </ScrollView>
-      </Animated.View>
+      </View>
     </View>
   );
 }
