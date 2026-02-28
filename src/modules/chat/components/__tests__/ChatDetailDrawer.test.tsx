@@ -7,9 +7,14 @@ const { Animated, StyleSheet } = ReactNative;
 
 describe('ChatDetailDrawer side drawer', () => {
   beforeAll(() => {
-    jest.spyOn(Animated, 'timing').mockImplementation(() => {
+    jest.spyOn(Animated, 'timing').mockImplementation((value: any, config: any) => {
       return {
-        start: (cb?: () => void) => cb?.(),
+        start: (cb?: () => void) => {
+          if (value && typeof value.setValue === 'function' && typeof config?.toValue === 'number') {
+            value.setValue(config.toValue);
+          }
+          cb?.();
+        },
         stop: () => {}
       } as any;
     });
@@ -22,9 +27,14 @@ describe('ChatDetailDrawer side drawer', () => {
         stop: () => {}
       } as any;
     });
-    jest.spyOn(Animated, 'spring').mockImplementation(() => {
+    jest.spyOn(Animated, 'spring').mockImplementation((value: any, config: any) => {
       return {
-        start: (cb?: () => void) => cb?.(),
+        start: (cb?: () => void) => {
+          if (value && typeof value.setValue === 'function' && typeof config?.toValue === 'number') {
+            value.setValue(config.toValue);
+          }
+          cb?.();
+        },
         stop: () => {}
       } as any;
     });
@@ -166,13 +176,13 @@ describe('ChatDetailDrawer side drawer', () => {
     expect(onCreateChat).toHaveBeenCalledTimes(1);
   });
 
-  it('renders preview by progress when drawer is not yet opened', () => {
+  it('renders non-interactive real drawer preview when progress is provided', () => {
     let tree: ReturnType<typeof create> | null = null;
     act(() => {
       tree = create(
         <ChatDetailDrawer
           visible={false}
-          previewProgress={0.5}
+          previewProgress={1}
           interactive={false}
           theme={THEMES.light}
           activeAgentName="Agent A"
@@ -184,11 +194,13 @@ describe('ChatDetailDrawer side drawer', () => {
         />
       );
     });
+    const layer = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-layer' });
     const drawer = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer' });
     const overlay = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-overlay-mask' });
-    const style = StyleSheet.flatten(drawer.props.style) as { opacity?: number; transform?: Array<{ translateX?: number }> } | undefined;
-    expect(Number(style?.opacity || 0)).toBeGreaterThan(0);
-    expect(Number(style?.transform?.[0]?.translateX || 0)).toBeGreaterThan(0);
+    const createBtn = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-create-chat-btn' });
+    expect(layer.props.pointerEvents).toBe('none');
+    expect(createBtn.props.disabled).toBe(true);
+    expect(drawer).toBeTruthy();
     expect(overlay).toBeTruthy();
   });
 

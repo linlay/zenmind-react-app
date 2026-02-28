@@ -179,6 +179,16 @@ function createActiveFrontendTool() {
   };
 }
 
+function createTimelineEntry(id = 'assistant-entry-1') {
+  return {
+    id,
+    kind: 'message',
+    role: 'assistant',
+    text: 'hello',
+    ts: Date.now()
+  };
+}
+
 async function renderScreen() {
   let tree: ReturnType<typeof create> | null = null;
   await act(async () => {
@@ -354,6 +364,208 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
     });
   });
 
+  it('does not show scroll-to-bottom button when timeline is not scrollable', async () => {
+    mockInitialChatStateValue = {
+      ...createBaseChatState(null),
+      timeline: [createTimelineEntry()]
+    };
+    const tree = await renderScreen();
+    const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+
+    act(() => {
+      list.props.onLayout({ nativeEvent: { layout: { width: 390, height: 320 } } });
+      list.props.onContentSizeChange(390, 220);
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 0 },
+          layoutMeasurement: { width: 390, height: 320 },
+          contentSize: { width: 390, height: 220 }
+        }
+      });
+    });
+
+    expect(tree.root.findAllByProps({ testID: 'scroll-to-bottom-btn' })).toHaveLength(0);
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it('does not show scroll-to-bottom button when content size arrives before layout', async () => {
+    mockInitialChatStateValue = {
+      ...createBaseChatState(null),
+      timeline: [createTimelineEntry()]
+    };
+    const tree = await renderScreen();
+    const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+
+    act(() => {
+      list.props.onContentSizeChange(390, 220);
+    });
+    expect(tree.root.findAllByProps({ testID: 'scroll-to-bottom-btn' })).toHaveLength(0);
+
+    act(() => {
+      list.props.onLayout({ nativeEvent: { layout: { width: 390, height: 320 } } });
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 0 },
+          layoutMeasurement: { width: 390, height: 320 },
+          contentSize: { width: 390, height: 220 }
+        }
+      });
+    });
+    expect(tree.root.findAllByProps({ testID: 'scroll-to-bottom-btn' })).toHaveLength(0);
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it('shows edge toasts for scrollable timeline edges and auto hides after 2s', async () => {
+    mockInitialChatStateValue = {
+      ...createBaseChatState(null),
+      timeline: [createTimelineEntry()]
+    };
+    const tree = await renderScreen();
+    const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+
+    act(() => {
+      list.props.onLayout({ nativeEvent: { layout: { width: 390, height: 240 } } });
+      list.props.onContentSizeChange(390, 700);
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 180 },
+          layoutMeasurement: { width: 390, height: 240 },
+          contentSize: { width: 390, height: 700 }
+        }
+      });
+    });
+
+    expect(tree.root.findAllByProps({ testID: 'chat-edge-toast-top' })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: 'chat-edge-toast-bottom' })).toHaveLength(0);
+
+    act(() => {
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 0 },
+          layoutMeasurement: { width: 390, height: 240 },
+          contentSize: { width: 390, height: 700 }
+        }
+      });
+    });
+
+    expect(tree.root.findAllByProps({ testID: 'chat-edge-toast-top' }).length).toBeGreaterThan(0);
+
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
+    expect(tree.root.findAllByProps({ testID: 'chat-edge-toast-top' })).toHaveLength(0);
+
+    act(() => {
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 120 },
+          layoutMeasurement: { width: 390, height: 240 },
+          contentSize: { width: 390, height: 700 }
+        }
+      });
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 460 },
+          layoutMeasurement: { width: 390, height: 240 },
+          contentSize: { width: 390, height: 700 }
+        }
+      });
+    });
+
+    expect(tree.root.findAllByProps({ testID: 'chat-edge-toast-bottom' }).length).toBeGreaterThan(0);
+
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
+    expect(tree.root.findAllByProps({ testID: 'chat-edge-toast-bottom' })).toHaveLength(0);
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it('does not show edge toasts when viewport height is unknown', async () => {
+    mockInitialChatStateValue = {
+      ...createBaseChatState(null),
+      timeline: [createTimelineEntry()]
+    };
+    const tree = await renderScreen();
+    const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+
+    act(() => {
+      list.props.onContentSizeChange(390, 700);
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 0 },
+          layoutMeasurement: { width: 390, height: 0 },
+          contentSize: { width: 390, height: 700 }
+        }
+      });
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 460 },
+          layoutMeasurement: { width: 390, height: 0 },
+          contentSize: { width: 390, height: 700 }
+        }
+      });
+    });
+
+    expect(tree.root.findAllByProps({ testID: 'chat-edge-toast-top' })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: 'chat-edge-toast-bottom' })).toHaveLength(0);
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it('does not show edge toasts when timeline is not scrollable', async () => {
+    mockInitialChatStateValue = {
+      ...createBaseChatState(null),
+      timeline: [createTimelineEntry()]
+    };
+    const tree = await renderScreen();
+    const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
+
+    act(() => {
+      list.props.onLayout({ nativeEvent: { layout: { width: 390, height: 300 } } });
+      list.props.onContentSizeChange(390, 180);
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 0 },
+          layoutMeasurement: { width: 390, height: 300 },
+          contentSize: { width: 390, height: 180 }
+        }
+      });
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 12 },
+          layoutMeasurement: { width: 390, height: 300 },
+          contentSize: { width: 390, height: 180 }
+        }
+      });
+      list.props.onScroll({
+        nativeEvent: {
+          contentOffset: { x: 0, y: 0 },
+          layoutMeasurement: { width: 390, height: 300 },
+          contentSize: { width: 390, height: 180 }
+        }
+      });
+    });
+
+    expect(tree.root.findAllByProps({ testID: 'chat-edge-toast-top' })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: 'chat-edge-toast-bottom' })).toHaveLength(0);
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
   it('passes history chatImageToken from getChat response to row renderer', async () => {
     mockSelectorState = {
       chat: { chatId: 'chat-history-1', statusText: '' },
@@ -414,6 +626,12 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
     });
 
     expect(mockSubmitFrontendTool).toHaveBeenCalledTimes(1);
+    expect(tree.root.findAllByProps({ testID: 'frontend-tool-overlay' }).length).toBeGreaterThan(0);
+
+    act(() => {
+      jest.advanceTimersByTime(220);
+    });
+
     expect(tree.root.findAllByProps({ testID: 'frontend-tool-overlay' })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: 'composer-without-tool' }).length).toBeGreaterThan(0);
 

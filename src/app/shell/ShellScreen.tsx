@@ -189,6 +189,8 @@ export function ShellScreen() {
 
   const inboxAnim = useRef(new Animated.Value(0)).current;
   const publishAnim = useRef(new Animated.Value(0)).current;
+  const chatRouteAnim = useRef(new Animated.Value(chatRoute === 'search' ? 1 : 0)).current;
+  const chatOverlayEnterAnim = useRef(new Animated.Value(1)).current;
   const terminalPaneAnim = useRef(new Animated.Value(terminalPane === 'detail' ? 1 : 0)).current;
   const theme = THEMES[themeMode] || THEMES.light;
   const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
@@ -220,9 +222,27 @@ export function ShellScreen() {
       }),
     [terminalPaneAnim, window.width]
   );
+  const chatRouteTranslateX = useMemo(
+    () =>
+      chatRouteAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, -window.width]
+      }),
+    [chatRouteAnim, window.width]
+  );
+  const chatOverlayEnterTranslateX = useMemo(
+    () =>
+      chatOverlayEnterAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [18, 0]
+      }),
+    [chatOverlayEnterAnim]
+  );
   const topChatOverlay = chatOverlayStack.length ? chatOverlayStack[chatOverlayStack.length - 1] : null;
+  const topChatOverlayId = topChatOverlay?.overlayId || '';
   const topChatOverlayType = topChatOverlay?.type || '';
   const hasChatOverlay = Boolean(topChatOverlay);
+  const previousTopChatOverlayIdRef = useRef(topChatOverlayId);
 
   const syncAuthStateFromSession = useCallback((session = getCurrentSession()) => {
     if (!session) {
@@ -701,6 +721,34 @@ export function ShellScreen() {
   }, [publishAnim, publishOpen]);
 
   useEffect(() => {
+    Animated.timing(chatRouteAnim, {
+      toValue: chatRoute === 'search' ? 1 : 0,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [chatRoute, chatRouteAnim]);
+
+  useEffect(() => {
+    const previousOverlayId = previousTopChatOverlayIdRef.current;
+    previousTopChatOverlayIdRef.current = topChatOverlayId;
+    if (!topChatOverlayId) {
+      chatOverlayEnterAnim.setValue(1);
+      return;
+    }
+    if (topChatOverlayId === previousOverlayId) {
+      return;
+    }
+    chatOverlayEnterAnim.setValue(0);
+    Animated.timing(chatOverlayEnterAnim, {
+      toValue: 1,
+      duration: 220,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [chatOverlayEnterAnim, topChatOverlayId]);
+
+  useEffect(() => {
     Animated.timing(terminalPaneAnim, {
       toValue: terminalPane === 'detail' ? 1 : 0,
       duration: 220,
@@ -1026,6 +1074,7 @@ export function ShellScreen() {
 
   const openChatDetail = useCallback(
     (nextChatId: string, nextAgentKey?: string) => {
+      Keyboard.dismiss();
       const normalizedAgentKey = String(nextAgentKey || '').trim();
       if (normalizedAgentKey && normalizedAgentKey !== '__unknown_agent__') {
         dispatch(setAgentsSelectedAgentKey(normalizedAgentKey));
@@ -1047,6 +1096,7 @@ export function ShellScreen() {
 
   const openAgentProfile = useCallback(
     (agentKey: string) => {
+      Keyboard.dismiss();
       const normalizedKey = String(agentKey || '').trim();
       if (!normalizedKey) {
         dispatch(setStatusText('智能体信息不可用'));
@@ -1581,32 +1631,61 @@ export function ShellScreen() {
           <View style={styles.domainContent}>
             {isChatDomain ? (
               <View style={styles.stackViewport} testID="chat-pane-stack">
-                {chatRoute === 'search' ? (
-                  <ChatSearchPane
-                    theme={theme}
-                    keyword={chatSearchQuery}
-                    agentResults={searchAgentResults}
-                    chatResults={searchChatResults}
-                    onSelectRecentKeyword={(keyword) => dispatch(setShellChatSearchQuery(keyword))}
-                    onSelectAgent={handleSearchSelectAgent}
-                    onSelectChat={openChatDetail}
-                  />
-                ) : (
-                  <ChatListPane
-                    theme={theme}
-                    loading={loadingChats}
-                    items={agentLatestChats}
-                    onSelectChat={openChatDetail}
-                    onSelectAgentProfile={openAgentProfile}
-                  />
-                )}
+                <Animated.View
+                  style={[
+                    styles.stackTrack,
+                    {
+                      width: window.width * 2,
+                      transform: [{ translateX: chatRouteTranslateX }]
+                    }
+                  ]}
+                  testID="chat-route-track"
+                >
+                  <View
+                    pointerEvents={chatRoute === 'list' ? 'auto' : 'none'}
+                    style={[styles.stackPage, { width: window.width }]}
+                    testID="chat-route-page-list"
+                  >
+                    <ChatListPane
+                      theme={theme}
+                      loading={loadingChats}
+                      items={agentLatestChats}
+                      onSelectChat={openChatDetail}
+                      onSelectAgentProfile={openAgentProfile}
+                    />
+                  </View>
+                  <View
+                    pointerEvents={chatRoute === 'search' ? 'auto' : 'none'}
+                    style={[styles.stackPage, { width: window.width }]}
+                    testID="chat-route-page-search"
+                  >
+                    <ChatSearchPane
+                      theme={theme}
+                      keyword={chatSearchQuery}
+                      agentResults={searchAgentResults}
+                      chatResults={searchChatResults}
+                      onSelectRecentKeyword={(keyword) => dispatch(setShellChatSearchQuery(keyword))}
+                      onSelectAgent={handleSearchSelectAgent}
+                      onSelectChat={openChatDetail}
+                    />
+                  </View>
+                </Animated.View>
                 {chatOverlayStack.map((overlay, index) => {
                   const isTop = index === chatOverlayStack.length - 1;
                   return (
-                    <View
+                    <Animated.View
                       key={overlay.overlayId}
                       pointerEvents={isTop ? 'auto' : 'none'}
-                      style={[styles.chatOverlayPage, { zIndex: 10 + index, backgroundColor: theme.surface }]}
+                      style={[
+                        styles.chatOverlayPage,
+                        { zIndex: 10 + index, backgroundColor: theme.surface },
+                        isTop
+                          ? {
+                              opacity: chatOverlayEnterAnim,
+                              transform: [{ translateX: chatOverlayEnterTranslateX }]
+                            }
+                          : null
+                      ]}
                     >
                       {overlay.type === 'chatDetail' ? (
                         <ChatAssistantScreen
@@ -1632,7 +1711,7 @@ export function ShellScreen() {
                           onStartChat={handleAgentProfileStartChat}
                         />
                       )}
-                    </View>
+                    </Animated.View>
                   );
                 })}
                 <SwipeBackEdge

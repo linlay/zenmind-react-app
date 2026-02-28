@@ -1,7 +1,13 @@
-import { Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useMemo, useRef } from 'react';
+import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
 import { AppTheme } from '../../../core/constants/theme';
 import { ChatSummary } from '../../../core/types/common';
 import { formatChatListTime, getChatLastContent } from '../../../shared/utils/format';
+
+const DRAWER_WIDTH_RATIO = 0.76;
+const DRAWER_PREVIEW_VISIBLE_SCREEN_RATIO = 0.2;
+const DRAWER_CLOSE_MS = 180;
+const DRAWER_PREVIEW_RESET_MS = 140;
 
 interface ChatDetailDrawerProps {
   visible: boolean;
@@ -28,30 +34,91 @@ export function ChatDetailDrawer({
   previewProgress = 0,
   interactive = true
 }: ChatDetailDrawerProps) {
+  const window = useWindowDimensions();
+  const openFractionAnim = useRef(new Animated.Value(0)).current;
+  const previousVisibleRef = useRef(visible);
   const normalizedPreview = Number.isFinite(previewProgress) ? Math.max(0, Math.min(1, previewProgress)) : 0;
-  const effectiveProgress = visible ? 1 : normalizedPreview;
   const allowInteraction = visible && interactive;
   const drawerBackground = theme.surface;
   const cardBackground = theme.mode === 'dark' ? '#182740' : '#f4f7fc';
   const cardActiveBackground = theme.mode === 'dark' ? '#264673' : '#e4eeff';
   const normalizedAgentName = String(activeAgentName || '').trim() || '当前智能体';
+  const drawerWidthPx = Math.max(Number(window.width || 0) * DRAWER_WIDTH_RATIO, 0);
+  const previewVisiblePx = Math.max(Number(window.width || 0) * DRAWER_PREVIEW_VISIBLE_SCREEN_RATIO, 0);
+  const previewMaxOpenFraction = drawerWidthPx > 0 ? Math.max(0, Math.min(1, previewVisiblePx / drawerWidthPx)) : 0;
+  const previewOpenFraction = normalizedPreview * previewMaxOpenFraction;
+
+  useEffect(() => {
+    const wasVisible = previousVisibleRef.current;
+    previousVisibleRef.current = visible;
+    openFractionAnim.stopAnimation();
+
+    if (visible) {
+      Animated.spring(openFractionAnim, {
+        toValue: 1,
+        damping: 24,
+        stiffness: 240,
+        mass: 0.9,
+        useNativeDriver: true
+      }).start();
+      return;
+    }
+
+    if (normalizedPreview > 0 && !wasVisible) {
+      openFractionAnim.setValue(previewOpenFraction);
+      return;
+    }
+
+    Animated.timing(openFractionAnim, {
+      toValue: previewOpenFraction,
+      duration: wasVisible ? DRAWER_CLOSE_MS : DRAWER_PREVIEW_RESET_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    }).start();
+  }, [normalizedPreview, openFractionAnim, previewOpenFraction, visible]);
+
+  const overlayOpacity = useMemo(
+    () =>
+      openFractionAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, 1]
+      }),
+    [openFractionAnim]
+  );
+  const drawerOpacity = useMemo(
+    () =>
+      openFractionAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.58, 1]
+      }),
+    [openFractionAnim]
+  );
+  const drawerTranslateX = useMemo(
+    () =>
+      openFractionAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [drawerWidthPx, 0]
+      }),
+    [drawerWidthPx, openFractionAnim]
+  );
 
   return (
     <View pointerEvents={allowInteraction ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, styles.layer]} testID="chat-detail-drawer-layer">
-      <View style={[styles.overlay, { opacity: effectiveProgress, backgroundColor: theme.overlay }]}> 
+      <Animated.View style={[styles.overlay, { opacity: overlayOpacity, backgroundColor: theme.overlay }]}> 
         <Pressable style={StyleSheet.absoluteFill} onPress={allowInteraction ? onClose : undefined} testID="chat-detail-overlay-mask" />
-      </View>
+      </Animated.View>
 
-      <View
+      <Animated.View
         style={[
           styles.drawer,
           {
             backgroundColor: drawerBackground,
             borderColor: theme.border,
-            opacity: effectiveProgress,
+            opacity: drawerOpacity,
+            width: `${DRAWER_WIDTH_RATIO * 100}%`,
             transform: [
               {
-                translateX: (1 - effectiveProgress) * 88
+                translateX: drawerTranslateX
               }
             ]
           }
@@ -146,7 +213,7 @@ export function ChatDetailDrawer({
             </View>
           )}
         </ScrollView>
-      </View>
+      </Animated.View>
     </View>
   );
 }
@@ -164,7 +231,6 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    width: '76%',
     borderTopLeftRadius: 16,
     borderBottomLeftRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,

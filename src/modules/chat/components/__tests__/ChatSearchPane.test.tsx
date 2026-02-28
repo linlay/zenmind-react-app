@@ -1,5 +1,6 @@
 import React from 'react';
 import { act, create } from 'react-test-renderer';
+import { ScrollView } from 'react-native';
 import { THEMES } from '../../../../core/constants/theme';
 import { ChatSearchPane } from '../ChatSearchPane';
 
@@ -61,5 +62,25 @@ describe('ChatSearchPane', () => {
       chatItem.props.onPress();
     });
     expect(onSelectChat).toHaveBeenCalledWith('chat-1', 'agent-a');
+  });
+
+  it('configures list taps to work while keyboard is open', () => {
+    let tree: ReturnType<typeof create> | null = null;
+    act(() => {
+      tree = create(
+        <ChatSearchPane
+          theme={THEMES.light}
+          keyword="alpha"
+          agentResults={[{ agentKey: 'agent-a', agentName: 'Agent A', latestChatName: '最近会话' }]}
+          chatResults={[{ chatId: 'chat-1', chatName: 'Alpha Chat', firstAgentKey: 'agent-a', firstAgentName: 'Agent A', updatedAt: Date.now() } as any]}
+          onSelectRecentKeyword={() => {}}
+          onSelectAgent={() => {}}
+          onSelectChat={() => {}}
+        />
+      );
+    });
+
+    const scrollView = (tree as ReturnType<typeof create>).root.findByType(ScrollView);
+    expect(scrollView.props.keyboardShouldPersistTaps).toBe('handled');
   });
 });

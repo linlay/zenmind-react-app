@@ -35,7 +35,12 @@ export function ChatSearchPane({
 
   return (
     <View style={styles.container} testID="chat-search-pane">
-      <ScrollView style={styles.content} contentContainerStyle={styles.contentInner}>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentInner}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         {showRecent ? (
           <View testID="chat-search-recent-section">
             <Text style={[styles.sectionTitle, { color: theme.textSoft }]}>最近搜索</Text>

@@ -9,6 +9,7 @@ let mockSelectorState: Record<string, any> = {};
 const mockTriggerAgents = jest.fn();
 const mockTriggerChats = jest.fn();
 const mockTriggerTerminalSessions = jest.fn();
+let keyboardDismissSpy: jest.SpyInstance;
 
 jest.mock('expo-status-bar', () => ({
   StatusBar: () => null
@@ -251,6 +252,11 @@ describe('ShellScreen navigation flow', () => {
     mockTriggerAgents.mockReset();
     mockTriggerChats.mockReset();
     mockTriggerTerminalSessions.mockReset();
+    keyboardDismissSpy = jest.spyOn(ReactNative.Keyboard, 'dismiss').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    keyboardDismissSpy.mockRestore();
   });
 
   it('switches domain from bottom nav', async () => {
@@ -301,6 +307,9 @@ describe('ShellScreen navigation flow', () => {
 
   it('shows search route and exits by back button', async () => {
     const tree = await renderScreen({ user: { activeDomain: 'chat' }, shell: { chatRoute: 'search', chatSearchQuery: 'agent' } });
+    expect(tree.root.findByProps({ testID: 'chat-route-track' })).toBeTruthy();
+    expect(tree.root.findByProps({ testID: 'chat-route-page-list' })).toBeTruthy();
+    expect(tree.root.findByProps({ testID: 'chat-route-page-search' })).toBeTruthy();
     expect(tree.root.findByProps({ testID: 'chat-search-pane' })).toBeTruthy();
     expect(tree.root.findByProps({ testID: 'chat-top-search-input' })).toBeTruthy();
 
@@ -322,10 +331,30 @@ describe('ShellScreen navigation flow', () => {
       agentItem.props.onPress();
     });
 
+    expect(keyboardDismissSpy).toHaveBeenCalled();
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'agents/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith(
       expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'agentDetail' }) })
+    );
+  });
+
+  it('opens chat detail overlay from search chat results and dismisses keyboard', async () => {
+    const tree = await renderScreen({
+      user: { activeDomain: 'chat' },
+      shell: { chatRoute: 'search', chatSearchQuery: 'agent' }
+    });
+    const chatItem = tree.root.findByProps({ testID: 'chat-search-chat-item-0' });
+    act(() => {
+      chatItem.props.onPress();
+    });
+
+    expect(keyboardDismissSpy).toHaveBeenCalled();
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'chat/setChatId', payload: 'chat-1' });
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'agents/setSelectedAgentKey', payload: 'agent-1' });
+    expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
+    expect(mockDispatch).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'chatDetail' }) })
     );
   });
 

@@ -248,7 +248,7 @@ describe('ChatAssistantScreen gestures', () => {
     });
   });
 
-  it('shows staged prev-switch hint before commit threshold', async () => {
+  it('does not render prev-switch hint layer while staging switch gesture', async () => {
     const onSwitch = jest.fn(() => ({ ok: true }));
     const tree = await renderScreen({ onRequestSwitchAgentChat: onSwitch });
     const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
@@ -256,9 +256,8 @@ describe('ChatAssistantScreen gestures', () => {
       layer.props.onMoveShouldSetResponder?.({}, { dx: 0, dy: 40 });
       layer.props.onResponderMove?.({}, { dx: 0, dy: 40 });
     });
-    const hintCard = tree.root.findByProps({ testID: 'chat-switch-prev-swipe-hint-card' });
-    const style = ReactNative.StyleSheet.flatten(hintCard.props.style) as { opacity?: number } | undefined;
-    expect(Number(style?.opacity || 0)).toBeGreaterThan(0);
+    expect(tree.root.findAllByProps({ testID: 'chat-switch-prev-swipe-hint-layer' })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: 'chat-switch-prev-swipe-hint-card' })).toHaveLength(0);
     act(() => {
       layer.props.onResponderRelease?.({}, { dx: 0, dy: 40 });
     });
@@ -359,7 +358,7 @@ describe('ChatAssistantScreen gestures', () => {
     });
   });
 
-  it('shows staged next-switch hint before commit threshold', async () => {
+  it('does not render next-switch hint layer while staging switch gesture', async () => {
     const onSwitch = jest.fn(() => ({ ok: true }));
     const tree = await renderScreen({ onRequestSwitchAgentChat: onSwitch });
     const list = tree.root.findByProps({ testID: 'chat-timeline-list' });
@@ -377,9 +376,8 @@ describe('ChatAssistantScreen gestures', () => {
       layer.props.onMoveShouldSetResponder?.({}, { dx: 0, dy: -44 });
       layer.props.onResponderMove?.({}, { dx: 0, dy: -44 });
     });
-    const hintCard = tree.root.findByProps({ testID: 'chat-switch-next-swipe-hint-card' });
-    const style = ReactNative.StyleSheet.flatten(hintCard.props.style) as { opacity?: number } | undefined;
-    expect(Number(style?.opacity || 0)).toBeGreaterThan(0);
+    expect(tree.root.findAllByProps({ testID: 'chat-switch-next-swipe-hint-layer' })).toHaveLength(0);
+    expect(tree.root.findAllByProps({ testID: 'chat-switch-next-swipe-hint-card' })).toHaveLength(0);
     act(() => {
       layer.props.onResponderRelease?.({}, { dx: 0, dy: -44 });
     });
@@ -509,15 +507,32 @@ describe('ChatAssistantScreen gestures', () => {
     });
   });
 
-  it('triggers show-drawer callback after commit threshold on right-to-left swipe', async () => {
+  it('triggers show-drawer callback after medium commit distance on right-to-left swipe', async () => {
     const onShowDrawer = jest.fn();
     const tree = await renderScreen({ onRequestShowChatDetailDrawer: onShowDrawer });
     const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
     act(() => {
       const event = { nativeEvent: { locationX: 200 } };
-      layer.props.onMoveShouldSetResponder?.(event, { dx: -128, dy: 8 });
-      layer.props.onResponderMove?.(event, { dx: -128, dy: 8 });
-      layer.props.onResponderRelease?.(event, { dx: -128, dy: 8 });
+      layer.props.onMoveShouldSetResponder?.(event, { dx: -96, dy: 8 });
+      layer.props.onResponderMove?.(event, { dx: -96, dy: 8 });
+      layer.props.onResponderRelease?.(event, { dx: -96, dy: 8, vx: -0.2 });
+    });
+    expect(onShowDrawer).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('triggers show-drawer callback by velocity even with short swipe distance', async () => {
+    const onShowDrawer = jest.fn();
+    const tree = await renderScreen({ onRequestShowChatDetailDrawer: onShowDrawer });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    act(() => {
+      const event = { nativeEvent: { locationX: 200 } };
+      layer.props.onMoveShouldSetResponder?.(event, { dx: -24, dy: 8 });
+      layer.props.onResponderMove?.(event, { dx: -24, dy: 8 });
+      layer.props.onResponderRelease?.(event, { dx: -24, dy: 8, vx: -0.72 });
     });
     expect(onShowDrawer).toHaveBeenCalledTimes(1);
     await act(async () => {
