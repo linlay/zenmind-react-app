@@ -114,6 +114,7 @@ async function renderScreen(props: Partial<Record<string, unknown>> = {}) {
         keyboardHeight={0}
         onRequestSwitchAgentChat={props.onRequestSwitchAgentChat as any}
         onRequestCreateAgentChatBySwipe={props.onRequestCreateAgentChatBySwipe as any}
+        onRequestShowChatDetailDrawer={props.onRequestShowChatDetailDrawer as any}
       />
     );
   });
@@ -165,20 +166,20 @@ describe('ChatAssistantScreen gestures', () => {
     jest.restoreAllMocks();
   });
 
-  it('shows staged create-chat hint on right-to-left swipe before commit threshold', async () => {
+  it('shows staged create-chat hint on left-to-right swipe before commit threshold', async () => {
     const onCreate = jest.fn(() => ({ ok: true }));
     const tree = await renderScreen({ onRequestCreateAgentChatBySwipe: onCreate });
     const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
     act(() => {
       const event = { nativeEvent: { locationX: 140 } };
-      layer.props.onMoveShouldSetResponder?.(event, { dx: -60, dy: 8 });
-      layer.props.onResponderMove?.(event, { dx: -60, dy: 8 });
+      layer.props.onMoveShouldSetResponder?.(event, { dx: 60, dy: 8 });
+      layer.props.onResponderMove?.(event, { dx: 60, dy: 8 });
     });
     const hintCard = tree.root.findByProps({ testID: 'chat-create-swipe-hint-card' });
     const style = ReactNative.StyleSheet.flatten(hintCard.props.style) as { opacity?: number } | undefined;
     expect(Number(style?.opacity || 0)).toBeGreaterThan(0);
     act(() => {
-      layer.props.onResponderRelease?.({ nativeEvent: { locationX: 140 } }, { dx: -60, dy: 8 });
+      layer.props.onResponderRelease?.({ nativeEvent: { locationX: 140 } }, { dx: 60, dy: 8 });
     });
     expect(onCreate).toHaveBeenCalledTimes(0);
     await act(async () => {
@@ -187,15 +188,15 @@ describe('ChatAssistantScreen gestures', () => {
     });
   });
 
-  it('triggers create-chat callback only after commit threshold on right-to-left swipe', async () => {
+  it('triggers create-chat callback only after commit threshold on left-to-right swipe', async () => {
     const onCreate = jest.fn(() => ({ ok: true }));
     const tree = await renderScreen({ onRequestCreateAgentChatBySwipe: onCreate });
     const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
     act(() => {
       const event = { nativeEvent: { locationX: 140 } };
-      layer.props.onMoveShouldSetResponder?.(event, { dx: -128, dy: 8 });
-      layer.props.onResponderMove?.(event, { dx: -128, dy: 8 });
-      layer.props.onResponderRelease?.(event, { dx: -128, dy: 8 });
+      layer.props.onMoveShouldSetResponder?.(event, { dx: 128, dy: 8 });
+      layer.props.onResponderMove?.(event, { dx: 128, dy: 8 });
+      layer.props.onResponderRelease?.(event, { dx: 128, dy: 8 });
     });
     expect(onCreate).toHaveBeenCalledTimes(1);
     await act(async () => {
@@ -445,16 +446,16 @@ describe('ChatAssistantScreen gestures', () => {
     });
   });
 
-  it('blocks create-chat swipe when gesture starts from right-edge guard zone', async () => {
+  it('blocks create-chat swipe when gesture starts from left-edge guard zone', async () => {
     const onCreate = jest.fn(() => ({ ok: true }));
     const tree = await renderScreen({ onRequestCreateAgentChatBySwipe: onCreate });
     const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
     let shouldSet = false;
     act(() => {
-      const event = { nativeEvent: { locationX: 385 } };
-      shouldSet = Boolean(layer.props.onMoveShouldSetResponder?.(event, { dx: -128, dy: 8 }));
-      layer.props.onResponderMove?.(event, { dx: -128, dy: 8 });
-      layer.props.onResponderRelease?.(event, { dx: -128, dy: 8 });
+      const event = { nativeEvent: { locationX: 20 } };
+      shouldSet = Boolean(layer.props.onMoveShouldSetResponder?.(event, { dx: 128, dy: 8 }));
+      layer.props.onResponderMove?.(event, { dx: 128, dy: 8 });
+      layer.props.onResponderRelease?.(event, { dx: 128, dy: 8 });
     });
     expect(shouldSet).toBe(false);
     expect(onCreate).toHaveBeenCalledTimes(0);
@@ -475,6 +476,63 @@ describe('ChatAssistantScreen gestures', () => {
     });
     expect(onSwitch).not.toHaveBeenCalled();
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'chat/setStatusText', payload: '当前正在回复，暂不能切换对话' });
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('shows staged show-drawer hint on right-to-left swipe before commit threshold', async () => {
+    const onShowDrawer = jest.fn();
+    const tree = await renderScreen({ onRequestShowChatDetailDrawer: onShowDrawer });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    act(() => {
+      const event = { nativeEvent: { locationX: 200 } };
+      layer.props.onMoveShouldSetResponder?.(event, { dx: -60, dy: 8 });
+      layer.props.onResponderMove?.(event, { dx: -60, dy: 8 });
+    });
+    const hintCard = tree.root.findByProps({ testID: 'chat-show-drawer-swipe-hint-card' });
+    const style = ReactNative.StyleSheet.flatten(hintCard.props.style) as { opacity?: number } | undefined;
+    expect(Number(style?.opacity || 0)).toBeGreaterThan(0);
+    act(() => {
+      layer.props.onResponderRelease?.({ nativeEvent: { locationX: 200 } }, { dx: -60, dy: 8 });
+    });
+    expect(onShowDrawer).toHaveBeenCalledTimes(0);
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('triggers show-drawer callback after commit threshold on right-to-left swipe', async () => {
+    const onShowDrawer = jest.fn();
+    const tree = await renderScreen({ onRequestShowChatDetailDrawer: onShowDrawer });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    act(() => {
+      const event = { nativeEvent: { locationX: 200 } };
+      layer.props.onMoveShouldSetResponder?.(event, { dx: -128, dy: 8 });
+      layer.props.onResponderMove?.(event, { dx: -128, dy: 8 });
+      layer.props.onResponderRelease?.(event, { dx: -128, dy: 8 });
+    });
+    expect(onShowDrawer).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      tree.unmount();
+      jest.runOnlyPendingTimers();
+    });
+  });
+
+  it('allows show-drawer swipe while streaming', async () => {
+    mockInitialChatState = createBaseChatState(true);
+    const onShowDrawer = jest.fn();
+    const tree = await renderScreen({ onRequestShowChatDetailDrawer: onShowDrawer });
+    const layer = tree.root.findByProps({ testID: 'chat-timeline-gesture-layer' });
+    act(() => {
+      const event = { nativeEvent: { locationX: 200 } };
+      layer.props.onMoveShouldSetResponder?.(event, { dx: -128, dy: 8 });
+      layer.props.onResponderMove?.(event, { dx: -128, dy: 8 });
+      layer.props.onResponderRelease?.(event, { dx: -128, dy: 8 });
+    });
+    expect(onShowDrawer).toHaveBeenCalledTimes(1);
     await act(async () => {
       tree.unmount();
       jest.runOnlyPendingTimers();

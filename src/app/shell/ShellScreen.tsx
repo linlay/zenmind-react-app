@@ -1114,6 +1114,13 @@ export function ShellScreen() {
     return { ok: true, message: '已新建当前智能体对话' };
   }, [openNewCurrentAgentChat]);
 
+  const handleRequestShowChatDetailDrawer = useCallback(() => {
+    setInboxOpen(false);
+    setPublishOpen(false);
+    dispatch(setChatAgentsSidebarOpen(false));
+    dispatch(openChatDetailDrawer());
+  }, [dispatch]);
+
   const openTerminalDetail = useCallback(
     (sessionId: string) => {
       dispatch(setActiveSessionId(sessionId));
@@ -1545,6 +1552,7 @@ export function ShellScreen() {
                       onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
                       onRequestSwitchAgentChat={handleRequestSwitchAgentChat}
                       onRequestCreateAgentChatBySwipe={handleRequestCreateAgentChatBySwipe}
+                      onRequestShowChatDetailDrawer={handleRequestShowChatDetailDrawer}
                     />
                   </View>
                   <View style={[styles.stackPage, { width: window.width }]}>

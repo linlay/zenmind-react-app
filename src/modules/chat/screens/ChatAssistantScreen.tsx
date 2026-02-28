@@ -75,7 +75,10 @@ const GESTURE_COOLDOWN_MS = 450;
 const GESTURE_CREATE_CHAT_REVEAL_THRESHOLD = 18;
 const GESTURE_CREATE_CHAT_COMMIT_THRESHOLD = 112;
 const GESTURE_CREATE_CHAT_VISUAL_MAX = 148;
-const GESTURE_CREATE_CHAT_RIGHT_EDGE_GUARD_PX = 28;
+const GESTURE_CREATE_CHAT_LEFT_EDGE_GUARD_PX = 32;
+const GESTURE_SHOW_DRAWER_REVEAL_THRESHOLD = 18;
+const GESTURE_SHOW_DRAWER_COMMIT_THRESHOLD = 112;
+const GESTURE_SHOW_DRAWER_VISUAL_MAX = 148;
 const GESTURE_SWITCH_REVEAL_THRESHOLD = 18;
 const GESTURE_SWITCH_VISUAL_MAX = 132;
 const LIST_EDGE_TOP_THRESHOLD = 12;
@@ -126,6 +129,7 @@ interface ChatAssistantScreenProps {
   onWebViewAuthRefreshRequest?: (requestId: string, source: string) => Promise<WebViewAuthRefreshOutcome>;
   onRequestSwitchAgentChat?: (direction: 'prev' | 'next') => { ok: boolean; message?: string };
   onRequestCreateAgentChatBySwipe?: () => { ok: boolean; message?: string };
+  onRequestShowChatDetailDrawer?: () => void;
 }
 
 export function ChatAssistantScreen({
@@ -140,7 +144,8 @@ export function ChatAssistantScreen({
   authTokenSignal = 0,
   onWebViewAuthRefreshRequest,
   onRequestSwitchAgentChat,
-  onRequestCreateAgentChatBySwipe
+  onRequestCreateAgentChatBySwipe,
+  onRequestShowChatDetailDrawer
 }: ChatAssistantScreenProps) {
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
@@ -158,6 +163,7 @@ export function ChatAssistantScreen({
   const [planExpanded, setPlanExpanded] = useState(false);
   const [chatImageToken, setChatImageToken] = useState('');
   const [createChatSwipeDistance, setCreateChatSwipeDistance] = useState(0);
+  const [showDrawerSwipeDistance, setShowDrawerSwipeDistance] = useState(0);
   const [switchPrevSwipeDistance, setSwitchPrevSwipeDistance] = useState(0);
   const [switchNextSwipeDistance, setSwitchNextSwipeDistance] = useState(0);
 
@@ -206,6 +212,7 @@ export function ChatAssistantScreen({
   const listOffsetYRef = useRef(0);
   const gestureCooldownUntilRef = useRef(0);
   const createChatSwipeDistanceRef = useRef(0);
+  const showDrawerSwipeDistanceRef = useRef(0);
   const switchPrevSwipeDistanceRef = useRef(0);
   const switchNextSwipeDistanceRef = useRef(0);
   const shouldScrollTopAfterHistoryLoadRef = useRef(false);
@@ -277,6 +284,12 @@ export function ChatAssistantScreen({
     setCreateChatSwipeDistance((prev) => (prev === normalized ? prev : normalized));
   }, []);
 
+  const setShowDrawerSwipeDistanceSafe = useCallback((distance: number) => {
+    const normalized = Math.max(0, Math.min(Math.round(distance), GESTURE_SHOW_DRAWER_VISUAL_MAX));
+    showDrawerSwipeDistanceRef.current = normalized;
+    setShowDrawerSwipeDistance((prev) => (prev === normalized ? prev : normalized));
+  }, []);
+
   const setSwitchPrevSwipeDistanceSafe = useCallback((distance: number) => {
     const normalized = Math.max(0, Math.min(Math.round(distance), GESTURE_SWITCH_VISUAL_MAX));
     switchPrevSwipeDistanceRef.current = normalized;
@@ -291,9 +304,10 @@ export function ChatAssistantScreen({
 
   const resetNavGestureVisuals = useCallback(() => {
     setCreateChatSwipeDistanceSafe(0);
+    setShowDrawerSwipeDistanceSafe(0);
     setSwitchPrevSwipeDistanceSafe(0);
     setSwitchNextSwipeDistanceSafe(0);
-  }, [setCreateChatSwipeDistanceSafe, setSwitchNextSwipeDistanceSafe, setSwitchPrevSwipeDistanceSafe]);
+  }, [setCreateChatSwipeDistanceSafe, setShowDrawerSwipeDistanceSafe, setSwitchNextSwipeDistanceSafe, setSwitchPrevSwipeDistanceSafe]);
 
   const scrollToBottom = useCallback((animated = true) => {
     listRef.current?.scrollToEnd({ animated });
@@ -326,10 +340,9 @@ export function ChatAssistantScreen({
       if (!Number.isFinite(startX)) {
         return true;
       }
-      const rightGuardStart = Math.max(0, contentWidth - GESTURE_CREATE_CHAT_RIGHT_EDGE_GUARD_PX);
-      return startX <= rightGuardStart;
+      return startX >= GESTURE_CREATE_CHAT_LEFT_EDGE_GUARD_PX;
     },
-    [contentWidth]
+    []
   );
 
   const shouldSetTimelinePanResponder = useCallback(
@@ -346,13 +359,17 @@ export function ChatAssistantScreen({
       const canCreateChat =
         Boolean(onRequestCreateAgentChatBySwipe) &&
         horizontalDominant &&
-        gestureState.dx <= -16 &&
+        gestureState.dx >= 16 &&
         canStartCreateChatFromGesture(event);
+      const canShowDrawer =
+        Boolean(onRequestShowChatDetailDrawer) &&
+        horizontalDominant &&
+        gestureState.dx <= -16;
       const canSwitchToPrev = Boolean(onRequestSwitchAgentChat) && edge.atTop && verticalDominant && gestureState.dy >= 16;
       const canSwitchToNext = Boolean(onRequestSwitchAgentChat) && edge.atBottom && verticalDominant && gestureState.dy <= -16;
-      return canCreateChat || canSwitchToPrev || canSwitchToNext;
+      return canCreateChat || canShowDrawer || canSwitchToPrev || canSwitchToNext;
     },
-    [canStartCreateChatFromGesture, getCurrentListEdgeState, onRequestCreateAgentChatBySwipe, onRequestSwitchAgentChat]
+    [canStartCreateChatFromGesture, getCurrentListEdgeState, onRequestCreateAgentChatBySwipe, onRequestShowChatDetailDrawer, onRequestSwitchAgentChat]
   );
 
   const runNavGestureAction = useCallback(
@@ -405,12 +422,21 @@ export function ChatAssistantScreen({
 
           if (
             horizontalDominant &&
-            gestureState.dx <= -GESTURE_CREATE_CHAT_REVEAL_THRESHOLD &&
+            gestureState.dx >= GESTURE_CREATE_CHAT_REVEAL_THRESHOLD &&
             canStartCreateChatFromGesture(event)
           ) {
             setCreateChatSwipeDistanceSafe(Math.abs(gestureState.dx));
           } else if (createChatSwipeDistanceRef.current > 0) {
             setCreateChatSwipeDistanceSafe(0);
+          }
+
+          if (
+            horizontalDominant &&
+            gestureState.dx <= -GESTURE_SHOW_DRAWER_REVEAL_THRESHOLD
+          ) {
+            setShowDrawerSwipeDistanceSafe(Math.abs(gestureState.dx));
+          } else if (showDrawerSwipeDistanceRef.current > 0) {
+            setShowDrawerSwipeDistanceSafe(0);
           }
 
           if (switchPrevReady) {
@@ -435,10 +461,24 @@ export function ChatAssistantScreen({
 
           if (
             horizontalDominant &&
-            gestureState.dx <= -GESTURE_CREATE_CHAT_COMMIT_THRESHOLD &&
+            gestureState.dx >= GESTURE_CREATE_CHAT_COMMIT_THRESHOLD &&
             canStartCreateChatFromGesture(event)
           ) {
             runNavGestureAction(onRequestCreateAgentChatBySwipe);
+            navSwitchGestureLockedRef.current = false;
+            return;
+          }
+          if (
+            horizontalDominant &&
+            gestureState.dx <= -GESTURE_SHOW_DRAWER_COMMIT_THRESHOLD
+          ) {
+            resetNavGestureVisuals();
+            if (Date.now() < gestureCooldownUntilRef.current) {
+              navSwitchGestureLockedRef.current = false;
+              return;
+            }
+            gestureCooldownUntilRef.current = Date.now() + GESTURE_COOLDOWN_MS;
+            onRequestShowChatDetailDrawer?.();
             navSwitchGestureLockedRef.current = false;
             return;
           }
@@ -462,10 +502,12 @@ export function ChatAssistantScreen({
       canStartCreateChatFromGesture,
       getCurrentListEdgeState,
       onRequestCreateAgentChatBySwipe,
+      onRequestShowChatDetailDrawer,
       onRequestSwitchAgentChat,
       resetNavGestureVisuals,
       runNavGestureAction,
       setCreateChatSwipeDistanceSafe,
+      setShowDrawerSwipeDistanceSafe,
       setSwitchNextSwipeDistanceSafe,
       setSwitchPrevSwipeDistanceSafe,
       shouldSetTimelinePanResponder
@@ -1426,6 +1468,13 @@ export function ChatAssistantScreen({
       GESTURE_CREATE_CHAT_VISUAL_MAX
     );
   }, [createChatSwipeDistance]);
+  const showDrawerRevealProgress = useMemo(() => {
+    return calcGestureRevealProgress(
+      showDrawerSwipeDistance,
+      GESTURE_SHOW_DRAWER_REVEAL_THRESHOLD,
+      GESTURE_SHOW_DRAWER_VISUAL_MAX
+    );
+  }, [showDrawerSwipeDistance]);
   const switchPrevRevealProgress = useMemo(
     () => calcGestureRevealProgress(switchPrevSwipeDistance, GESTURE_SWITCH_REVEAL_THRESHOLD, GESTURE_SWITCH_VISUAL_MAX),
     [switchPrevSwipeDistance]
@@ -1703,12 +1752,28 @@ export function ChatAssistantScreen({
                 backgroundColor: theme.surfaceStrong,
                 borderColor: theme.border,
                 opacity: createChatRevealProgress,
-                transform: [{ translateX: (1 - createChatRevealProgress) * 42 }]
+                transform: [{ translateX: -((1 - createChatRevealProgress) * 42) }]
               }
             ]}
             testID="chat-create-swipe-hint-card"
           >
             <Text style={[styles.createChatSwipeHintText, { color: theme.text }]}>新建对话</Text>
+          </View>
+        </View>
+        <View pointerEvents="none" style={styles.showDrawerSwipeHintLayer} testID="chat-show-drawer-swipe-hint-layer">
+          <View
+            style={[
+              styles.showDrawerSwipeHintCard,
+              {
+                backgroundColor: theme.surfaceStrong,
+                borderColor: theme.border,
+                opacity: showDrawerRevealProgress,
+                transform: [{ translateX: (1 - showDrawerRevealProgress) * 42 }]
+              }
+            ]}
+            testID="chat-show-drawer-swipe-hint-card"
+          >
+            <Text style={[styles.showDrawerSwipeHintText, { color: theme.text }]}>对话列表</Text>
           </View>
         </View>
         <View pointerEvents="none" style={styles.switchPrevSwipeHintLayer} testID="chat-switch-prev-swipe-hint-layer">
@@ -2016,9 +2081,9 @@ const styles = StyleSheet.create({
   },
   createChatSwipeHintLayer: {
     position: 'absolute',
-    right: 10,
+    left: 10,
     top: '42%',
-    alignItems: 'flex-end'
+    alignItems: 'flex-start'
   },
   createChatSwipeHintCard: {
     minWidth: 92,
@@ -2030,6 +2095,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center'
   },
   createChatSwipeHintText: {
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  showDrawerSwipeHintLayer: {
+    position: 'absolute',
+    right: 10,
+    top: '42%',
+    alignItems: 'flex-end'
+  },
+  showDrawerSwipeHintCard: {
+    minWidth: 92,
+    height: 34,
+    borderRadius: 10,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  showDrawerSwipeHintText: {
     fontSize: 12,
     fontWeight: '700'
   },
