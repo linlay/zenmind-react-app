@@ -7,13 +7,20 @@ import {
   Easing,
   FlatList,
   Modal,
-  PanResponder,
   Platform,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Reanimated, {
+  runOnJS,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
@@ -81,6 +88,8 @@ const GESTURE_SHOW_DRAWER_ACTIVATE_THRESHOLD = 10;
 const GESTURE_SHOW_DRAWER_COMMIT_DISTANCE = 96;
 const GESTURE_SHOW_DRAWER_COMMIT_VELOCITY = -0.58;
 const GESTURE_SHOW_DRAWER_DISTANCE_MAX = 156;
+const GESTURE_BOUNCE_X_MAX = 28;
+const GESTURE_BOUNCE_Y_MAX = 36;
 const GESTURE_SWITCH_REVEAL_THRESHOLD = 18;
 const GESTURE_SWITCH_VISUAL_MAX = 132;
 const LIST_EDGE_TOP_THRESHOLD = 12;
@@ -89,14 +98,13 @@ const NATIVE_CONFIRM_DIALOG_TOOL_KEY = 'confirm_dialog';
 const FRONTEND_TOOL_OVERLAY_OPEN_MS = 220;
 const FRONTEND_TOOL_OVERLAY_CLOSE_MS = 170;
 const EDGE_TOAST_TTL_MS = 2000;
-const PUSH_DRAWER_WIDTH_RATIO = 0.76;
-const PUSH_DRAWER_PREVIEW_RATIO = 0.2;
 
 function isNativeConfirmDialogTool(toolType: string, toolKey: string): boolean {
   return String(toolType || '').toLowerCase() === 'html' && String(toolKey || '') === NATIVE_CONFIRM_DIALOG_TOOL_KEY;
 }
 
 function calcGestureRevealProgress(distance: number, revealThreshold: number, visualMax: number): number {
+  'worklet';
   if (distance <= revealThreshold) {
     return 0;
   }
@@ -107,20 +115,9 @@ function calcGestureRevealProgress(distance: number, revealThreshold: number, vi
   return Math.max(0, Math.min(1, (distance - revealThreshold) / range));
 }
 
-function calcGestureLinearProgress(distance: number, startDistance: number, fullDistance: number): number {
-  const normalizedDistance = Number.isFinite(distance) ? Math.max(0, distance) : 0;
-  const start = Math.max(0, Number.isFinite(startDistance) ? startDistance : 0);
-  const full = Math.max(start, Number.isFinite(fullDistance) ? fullDistance : start);
-  if (full <= start) {
-    return normalizedDistance >= full ? 1 : 0;
-  }
-  if (normalizedDistance <= start) {
-    return 0;
-  }
-  if (normalizedDistance >= full) {
-    return 1;
-  }
-  return (normalizedDistance - start) / (full - start);
+function clamp(value: number, min: number, max: number): number {
+  'worklet';
+  return Math.min(max, Math.max(min, value));
 }
 
 function resolveListEdgeState(offsetY: number, viewportHeight: number, contentHeight: number): {
@@ -197,10 +194,6 @@ export function ChatAssistantScreen({
   const [isTimelineScrollable, setIsTimelineScrollable] = useState(false);
   const [planExpanded, setPlanExpanded] = useState(false);
   const [chatImageToken, setChatImageToken] = useState('');
-  const [createChatSwipeDistance, setCreateChatSwipeDistance] = useState(0);
-  const [showDrawerSwipeDistance, setShowDrawerSwipeDistance] = useState(0);
-  const [switchPrevSwipeDistance, setSwitchPrevSwipeDistance] = useState(0);
-  const [switchNextSwipeDistance, setSwitchNextSwipeDistance] = useState(0);
   const [frontendToolOverlayMounted, setFrontendToolOverlayMounted] = useState(false);
 
   const [fireworksVisible, setFireworksVisible] = useState(false);
@@ -250,14 +243,20 @@ export function ChatAssistantScreen({
   const listContentHeightRef = useRef(0);
   const listOffsetYRef = useRef(0);
   const gestureCooldownUntilRef = useRef(0);
-  const createChatSwipeDistanceRef = useRef(0);
-  const showDrawerSwipeDistanceRef = useRef(0);
-  const switchPrevSwipeDistanceRef = useRef(0);
-  const switchNextSwipeDistanceRef = useRef(0);
   const shouldScrollTopAfterHistoryLoadRef = useRef(false);
-  const navSwitchGestureLockedRef = useRef(false);
-  const contentPushAnim = useRef(new Animated.Value(0)).current;
-  const contentPushPrevDrawerOpenRef = useRef(false);
+
+  const listAtTopShared = useSharedValue(1);
+  const listAtBottomShared = useSharedValue(0);
+  const gestureCooldownUntilShared = useSharedValue(0);
+  const createChatSwipeDistanceShared = useSharedValue(0);
+  const showDrawerSwipeDistanceShared = useSharedValue(0);
+  const switchPrevSwipeDistanceShared = useSharedValue(0);
+  const switchNextSwipeDistanceShared = useSharedValue(0);
+  const contentBounceXShared = useSharedValue(0);
+  const contentBounceYShared = useSharedValue(0);
+  const gestureModeShared = useSharedValue(0);
+  const gestureStartXShared = useSharedValue(0);
+  const gestureStartYShared = useSharedValue(0);
 
   const setChatStateSafe = useCallback((updater: (prev: ChatState) => ChatState) => {
     setChatState((prev) => {
@@ -319,36 +318,29 @@ export function ChatAssistantScreen({
     setAutoScrollEnabled((prev) => (prev === enabled ? prev : enabled));
   }, []);
 
-  const setCreateChatSwipeDistanceSafe = useCallback((distance: number) => {
-    const normalized = Math.max(0, Math.min(Math.round(distance), GESTURE_CREATE_CHAT_VISUAL_MAX));
-    createChatSwipeDistanceRef.current = normalized;
-    setCreateChatSwipeDistance((prev) => (prev === normalized ? prev : normalized));
-  }, []);
-
-  const setShowDrawerSwipeDistanceSafe = useCallback((distance: number) => {
-    const normalized = Math.max(0, Math.min(Math.round(distance), GESTURE_SHOW_DRAWER_DISTANCE_MAX));
-    showDrawerSwipeDistanceRef.current = normalized;
-    setShowDrawerSwipeDistance((prev) => (prev === normalized ? prev : normalized));
-  }, []);
-
-  const setSwitchPrevSwipeDistanceSafe = useCallback((distance: number) => {
-    const normalized = Math.max(0, Math.min(Math.round(distance), GESTURE_SWITCH_VISUAL_MAX));
-    switchPrevSwipeDistanceRef.current = normalized;
-    setSwitchPrevSwipeDistance((prev) => (prev === normalized ? prev : normalized));
-  }, []);
-
-  const setSwitchNextSwipeDistanceSafe = useCallback((distance: number) => {
-    const normalized = Math.max(0, Math.min(Math.round(distance), GESTURE_SWITCH_VISUAL_MAX));
-    switchNextSwipeDistanceRef.current = normalized;
-    setSwitchNextSwipeDistance((prev) => (prev === normalized ? prev : normalized));
-  }, []);
-
   const resetNavGestureVisuals = useCallback(() => {
-    setCreateChatSwipeDistanceSafe(0);
-    setShowDrawerSwipeDistanceSafe(0);
-    setSwitchPrevSwipeDistanceSafe(0);
-    setSwitchNextSwipeDistanceSafe(0);
-  }, [setCreateChatSwipeDistanceSafe, setShowDrawerSwipeDistanceSafe, setSwitchNextSwipeDistanceSafe, setSwitchPrevSwipeDistanceSafe]);
+    createChatSwipeDistanceShared.value = withSpring(0, { damping: 18, stiffness: 220, mass: 0.7 });
+    showDrawerSwipeDistanceShared.value = withSpring(0, { damping: 18, stiffness: 220, mass: 0.7 });
+    switchPrevSwipeDistanceShared.value = withSpring(0, { damping: 18, stiffness: 220, mass: 0.7 });
+    switchNextSwipeDistanceShared.value = withSpring(0, { damping: 18, stiffness: 220, mass: 0.7 });
+    contentBounceXShared.value = withSpring(0, { damping: 16, stiffness: 240, mass: 0.65 });
+    contentBounceYShared.value = withSpring(0, { damping: 16, stiffness: 240, mass: 0.65 });
+    gestureModeShared.value = 0;
+  }, [
+    contentBounceXShared,
+    contentBounceYShared,
+    createChatSwipeDistanceShared,
+    gestureModeShared,
+    showDrawerSwipeDistanceShared,
+    switchNextSwipeDistanceShared,
+    switchPrevSwipeDistanceShared
+  ]);
+
+  const setGestureCooldown = useCallback(() => {
+    const until = Date.now() + GESTURE_COOLDOWN_MS;
+    gestureCooldownUntilRef.current = until;
+    gestureCooldownUntilShared.value = until;
+  }, [gestureCooldownUntilShared]);
 
   const scrollToBottom = useCallback((animated = true) => {
     listRef.current?.scrollToEnd({ animated });
@@ -382,6 +374,8 @@ export function ChatAssistantScreen({
         const edgeWithUnknownViewport = resolveListEdgeState(normalizedOffset, normalizedViewport, normalizedContent);
         listAtTopRef.current = edgeWithUnknownViewport.atTop;
         listAtBottomRef.current = edgeWithUnknownViewport.atBottom;
+        listAtTopShared.value = edgeWithUnknownViewport.atTop ? 1 : 0;
+        listAtBottomShared.value = edgeWithUnknownViewport.atBottom ? 1 : 0;
         setIsTimelineScrollable(false);
         setAutoScrollMode(true);
         return;
@@ -390,6 +384,8 @@ export function ChatAssistantScreen({
       const nextEdge = resolveListEdgeState(normalizedOffset, normalizedViewport, normalizedContent);
       listAtTopRef.current = nextEdge.atTop;
       listAtBottomRef.current = nextEdge.atBottom;
+      listAtTopShared.value = nextEdge.atTop ? 1 : 0;
+      listAtBottomShared.value = nextEdge.atBottom ? 1 : 0;
 
       const scrollable = normalizedContent > normalizedViewport;
       if (scrollable) {
@@ -425,58 +421,13 @@ export function ChatAssistantScreen({
         }
       }
     },
-    [setAutoScrollMode, showEdgeToast]
+    [listAtBottomShared, listAtTopShared, setAutoScrollMode, showEdgeToast]
   );
-
-  const getCurrentListEdgeState = useCallback(() => {
-    return resolveListEdgeState(listOffsetYRef.current, listViewportHeightRef.current, listContentHeightRef.current);
-  }, []);
 
   const scrollToTopAndDisableAutoScroll = useCallback(() => {
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
     syncListMetrics(0, listViewportHeightRef.current, listContentHeightRef.current);
   }, [syncListMetrics]);
-
-  const canStartCreateChatFromGesture = useCallback(
-    (event: unknown) => {
-      const nativeEvent = (event as { nativeEvent?: Record<string, unknown> } | null)?.nativeEvent;
-      const locationX = Number(nativeEvent?.locationX);
-      const pageX = Number(nativeEvent?.pageX);
-      const startX = Number.isFinite(locationX) ? locationX : pageX;
-      if (!Number.isFinite(startX)) {
-        return true;
-      }
-      return startX >= GESTURE_CREATE_CHAT_LEFT_EDGE_GUARD_PX;
-    },
-    []
-  );
-
-  const shouldSetTimelinePanResponder = useCallback(
-    (event: unknown, gestureState: { dx: number; dy: number }) => {
-      if (Date.now() < gestureCooldownUntilRef.current) {
-        return false;
-      }
-      const absDx = Math.abs(gestureState.dx);
-      const absDy = Math.abs(gestureState.dy);
-      const horizontalDominant = absDx > absDy * GESTURE_HORIZONTAL_RATIO_THRESHOLD;
-      const verticalDominant = absDy > absDx * GESTURE_RATIO_THRESHOLD;
-      const edge = getCurrentListEdgeState();
-
-      const canCreateChat =
-        Boolean(onRequestCreateAgentChatBySwipe) &&
-        horizontalDominant &&
-        gestureState.dx >= 16 &&
-        canStartCreateChatFromGesture(event);
-      const canShowDrawer =
-        Boolean(onRequestShowChatDetailDrawer) &&
-        horizontalDominant &&
-        gestureState.dx <= -GESTURE_SHOW_DRAWER_ACTIVATE_THRESHOLD;
-      const canSwitchToPrev = Boolean(onRequestSwitchAgentChat) && edge.atTop && verticalDominant && gestureState.dy >= 16;
-      const canSwitchToNext = Boolean(onRequestSwitchAgentChat) && edge.atBottom && verticalDominant && gestureState.dy <= -16;
-      return canCreateChat || canShowDrawer || canSwitchToPrev || canSwitchToNext;
-    },
-    [canStartCreateChatFromGesture, getCurrentListEdgeState, onRequestCreateAgentChatBySwipe, onRequestShowChatDetailDrawer, onRequestSwitchAgentChat]
-  );
 
   const runNavGestureAction = useCallback(
     (runner: (() => { ok: boolean; message?: string } | undefined) | undefined) => {
@@ -496,129 +447,229 @@ export function ChatAssistantScreen({
         return;
       }
 
-      gestureCooldownUntilRef.current = Date.now() + GESTURE_COOLDOWN_MS;
+      setGestureCooldown();
       const outcome = runner();
       if (outcome?.message) {
         dispatch(setStatusText(outcome.message));
       }
     },
-    [dispatch, resetNavGestureVisuals]
+    [dispatch, resetNavGestureVisuals, setGestureCooldown]
   );
 
-  const timelineGestureResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: shouldSetTimelinePanResponder,
-        onMoveShouldSetPanResponderCapture: shouldSetTimelinePanResponder,
-        onPanResponderGrant: () => {
-          navSwitchGestureLockedRef.current = false;
-          resetNavGestureVisuals();
-        },
-        onPanResponderTerminationRequest: () => {
-          return !navSwitchGestureLockedRef.current;
-        },
-        onPanResponderMove: (event, gestureState) => {
-          const absDx = Math.abs(gestureState.dx);
-          const absDy = Math.abs(gestureState.dy);
-          const horizontalDominant = absDx > absDy * GESTURE_HORIZONTAL_RATIO_THRESHOLD;
-          const verticalDominant = absDy > absDx * GESTURE_RATIO_THRESHOLD;
-          const edge = getCurrentListEdgeState();
-          const switchPrevReady = verticalDominant && edge.atTop && gestureState.dy >= GESTURE_SWITCH_REVEAL_THRESHOLD;
-          const switchNextReady = verticalDominant && edge.atBottom && gestureState.dy <= -GESTURE_SWITCH_REVEAL_THRESHOLD;
+  const commitShowDrawerGesture = useCallback(() => {
+    resetNavGestureVisuals();
+    if (Date.now() < gestureCooldownUntilRef.current) {
+      return;
+    }
+    setGestureCooldown();
+    onRequestShowChatDetailDrawer?.();
+  }, [onRequestShowChatDetailDrawer, resetNavGestureVisuals, setGestureCooldown]);
 
-          if (
-            horizontalDominant &&
-            gestureState.dx >= GESTURE_CREATE_CHAT_REVEAL_THRESHOLD &&
-            canStartCreateChatFromGesture(event)
-          ) {
-            setCreateChatSwipeDistanceSafe(Math.abs(gestureState.dx));
-          } else if (createChatSwipeDistanceRef.current > 0) {
-            setCreateChatSwipeDistanceSafe(0);
-          }
+  const runCreateGestureAction = useCallback(() => {
+    runNavGestureAction(onRequestCreateAgentChatBySwipe);
+  }, [onRequestCreateAgentChatBySwipe, runNavGestureAction]);
 
-          if (
-            horizontalDominant &&
-            gestureState.dx <= -GESTURE_SHOW_DRAWER_ACTIVATE_THRESHOLD
-          ) {
-            setShowDrawerSwipeDistanceSafe(Math.abs(gestureState.dx));
-          } else if (showDrawerSwipeDistanceRef.current > 0) {
-            setShowDrawerSwipeDistanceSafe(0);
-          }
+  const runSwitchPrevGestureAction = useCallback(() => {
+    runNavGestureAction(() => onRequestSwitchAgentChat?.('prev'));
+  }, [onRequestSwitchAgentChat, runNavGestureAction]);
 
-          if (switchPrevReady) {
-            setSwitchPrevSwipeDistanceSafe(Math.abs(gestureState.dy));
-          } else if (switchPrevSwipeDistanceRef.current > 0) {
-            setSwitchPrevSwipeDistanceSafe(0);
-          }
+  const runSwitchNextGestureAction = useCallback(() => {
+    runNavGestureAction(() => onRequestSwitchAgentChat?.('next'));
+  }, [onRequestSwitchAgentChat, runNavGestureAction]);
 
-          if (switchNextReady) {
-            setSwitchNextSwipeDistanceSafe(Math.abs(gestureState.dy));
-          } else if (switchNextSwipeDistanceRef.current > 0) {
-            setSwitchNextSwipeDistanceSafe(0);
-          }
-          navSwitchGestureLockedRef.current = switchPrevReady || switchNextReady;
-        },
-        onPanResponderRelease: (event, gestureState) => {
-          const absDx = Math.abs(gestureState.dx);
-          const absDy = Math.abs(gestureState.dy);
-          const horizontalDominant = absDx > absDy * GESTURE_HORIZONTAL_RATIO_THRESHOLD;
-          const verticalDominant = absDy > absDx * GESTURE_RATIO_THRESHOLD;
-          const edge = getCurrentListEdgeState();
+  const timelinePanGesture = useMemo(() => {
+    const MODE_IDLE = 0;
+    const MODE_CREATE = 1;
+    const MODE_SHOW_DRAWER = 2;
+    const MODE_SWITCH_PREV = 3;
+    const MODE_SWITCH_NEXT = 4;
 
-          if (
-            horizontalDominant &&
-            gestureState.dx >= GESTURE_CREATE_CHAT_COMMIT_THRESHOLD &&
-            canStartCreateChatFromGesture(event)
-          ) {
-            runNavGestureAction(onRequestCreateAgentChatBySwipe);
-            navSwitchGestureLockedRef.current = false;
-            return;
-          }
-          const drawerDistance = Math.abs(gestureState.dx);
-          const commitDrawerByDistance = drawerDistance >= GESTURE_SHOW_DRAWER_COMMIT_DISTANCE;
-          const commitDrawerByVelocity = gestureState.vx <= GESTURE_SHOW_DRAWER_COMMIT_VELOCITY;
-          if (horizontalDominant && gestureState.dx <= -GESTURE_SHOW_DRAWER_ACTIVATE_THRESHOLD && (commitDrawerByDistance || commitDrawerByVelocity)) {
-            resetNavGestureVisuals();
-            if (Date.now() < gestureCooldownUntilRef.current) {
-              navSwitchGestureLockedRef.current = false;
-              return;
-            }
-            gestureCooldownUntilRef.current = Date.now() + GESTURE_COOLDOWN_MS;
-            onRequestShowChatDetailDrawer?.();
-            navSwitchGestureLockedRef.current = false;
-            return;
-          }
-          resetNavGestureVisuals();
-          if (verticalDominant && edge.atTop && gestureState.dy >= GESTURE_SWITCH_THRESHOLD) {
-            runNavGestureAction(() => onRequestSwitchAgentChat?.('prev'));
-            navSwitchGestureLockedRef.current = false;
-            return;
-          }
-          if (verticalDominant && edge.atBottom && gestureState.dy <= -GESTURE_SWITCH_THRESHOLD) {
-            runNavGestureAction(() => onRequestSwitchAgentChat?.('next'));
-          }
-          navSwitchGestureLockedRef.current = false;
-        },
-        onPanResponderTerminate: () => {
-          navSwitchGestureLockedRef.current = false;
-          resetNavGestureVisuals();
+    return Gesture.Pan()
+      .manualActivation(true)
+      .onTouchesDown((event) => {
+        'worklet';
+        const touch = event.allTouches[0];
+        if (!touch) {
+          return;
         }
-      }),
-    [
-      canStartCreateChatFromGesture,
-      getCurrentListEdgeState,
-      onRequestCreateAgentChatBySwipe,
-      onRequestShowChatDetailDrawer,
-      onRequestSwitchAgentChat,
-      resetNavGestureVisuals,
-      runNavGestureAction,
-      setCreateChatSwipeDistanceSafe,
-      setShowDrawerSwipeDistanceSafe,
-      setSwitchNextSwipeDistanceSafe,
-      setSwitchPrevSwipeDistanceSafe,
-      shouldSetTimelinePanResponder
-    ]
-  );
+        gestureStartXShared.value = touch.x;
+        gestureStartYShared.value = touch.y;
+        gestureModeShared.value = MODE_IDLE;
+      })
+      .onTouchesMove((event, stateManager) => {
+        'worklet';
+        if (gestureModeShared.value !== MODE_IDLE) {
+          return;
+        }
+        if (Date.now() < gestureCooldownUntilShared.value) {
+          stateManager.fail();
+          return;
+        }
+        const touch = event.allTouches[0];
+        if (!touch) {
+          return;
+        }
+        const dx = touch.x - gestureStartXShared.value;
+        const dy = touch.y - gestureStartYShared.value;
+        const absDx = Math.abs(dx);
+        const absDy = Math.abs(dy);
+        const horizontalDominant = absDx > absDy * GESTURE_HORIZONTAL_RATIO_THRESHOLD;
+        const verticalDominant = absDy > absDx * GESTURE_RATIO_THRESHOLD;
+        const canCreateChat =
+          horizontalDominant &&
+          dx >= 16 &&
+          gestureStartXShared.value >= GESTURE_CREATE_CHAT_LEFT_EDGE_GUARD_PX &&
+          Boolean(onRequestCreateAgentChatBySwipe);
+        const canShowDrawer =
+          horizontalDominant &&
+          dx <= -GESTURE_SHOW_DRAWER_ACTIVATE_THRESHOLD &&
+          Boolean(onRequestShowChatDetailDrawer);
+        const canSwitchPrev = verticalDominant && dy >= 16 && listAtTopShared.value > 0.5 && Boolean(onRequestSwitchAgentChat);
+        const canSwitchNext = verticalDominant && dy <= -16 && listAtBottomShared.value > 0.5 && Boolean(onRequestSwitchAgentChat);
+
+        if (canCreateChat) {
+          gestureModeShared.value = MODE_CREATE;
+          stateManager.activate();
+          return;
+        }
+        if (canShowDrawer) {
+          gestureModeShared.value = MODE_SHOW_DRAWER;
+          stateManager.activate();
+          return;
+        }
+        if (canSwitchPrev) {
+          gestureModeShared.value = MODE_SWITCH_PREV;
+          stateManager.activate();
+          return;
+        }
+        if (canSwitchNext) {
+          gestureModeShared.value = MODE_SWITCH_NEXT;
+          stateManager.activate();
+        }
+      })
+      .onUpdate((event) => {
+        'worklet';
+        if (gestureModeShared.value === MODE_CREATE) {
+          const distance = Math.abs(event.translationX);
+          createChatSwipeDistanceShared.value = clamp(distance, 0, GESTURE_CREATE_CHAT_VISUAL_MAX);
+          contentBounceXShared.value = clamp((distance - 8) * 0.22, 0, GESTURE_BOUNCE_X_MAX);
+          contentBounceYShared.value = 0;
+          showDrawerSwipeDistanceShared.value = 0;
+          switchPrevSwipeDistanceShared.value = 0;
+          switchNextSwipeDistanceShared.value = 0;
+          return;
+        }
+        if (gestureModeShared.value === MODE_SHOW_DRAWER) {
+          const distance = Math.abs(event.translationX);
+          showDrawerSwipeDistanceShared.value = clamp(distance, 0, GESTURE_SHOW_DRAWER_DISTANCE_MAX);
+          contentBounceXShared.value = -clamp((distance - 8) * 0.22, 0, GESTURE_BOUNCE_X_MAX);
+          contentBounceYShared.value = 0;
+          createChatSwipeDistanceShared.value = 0;
+          switchPrevSwipeDistanceShared.value = 0;
+          switchNextSwipeDistanceShared.value = 0;
+          return;
+        }
+        if (gestureModeShared.value === MODE_SWITCH_PREV) {
+          const distance = Math.abs(event.translationY);
+          switchPrevSwipeDistanceShared.value = clamp(distance, 0, GESTURE_SWITCH_VISUAL_MAX);
+          contentBounceYShared.value = clamp((distance - 8) * 0.24, 0, GESTURE_BOUNCE_Y_MAX);
+          contentBounceXShared.value = 0;
+          createChatSwipeDistanceShared.value = 0;
+          showDrawerSwipeDistanceShared.value = 0;
+          switchNextSwipeDistanceShared.value = 0;
+          return;
+        }
+        if (gestureModeShared.value === MODE_SWITCH_NEXT) {
+          const distance = Math.abs(event.translationY);
+          switchNextSwipeDistanceShared.value = clamp(distance, 0, GESTURE_SWITCH_VISUAL_MAX);
+          contentBounceYShared.value = -clamp((distance - 8) * 0.24, 0, GESTURE_BOUNCE_Y_MAX);
+          contentBounceXShared.value = 0;
+          createChatSwipeDistanceShared.value = 0;
+          showDrawerSwipeDistanceShared.value = 0;
+          switchPrevSwipeDistanceShared.value = 0;
+        }
+      })
+      .onEnd((event) => {
+        'worklet';
+        if (
+          gestureModeShared.value === MODE_CREATE &&
+          event.translationX >= GESTURE_CREATE_CHAT_COMMIT_THRESHOLD
+        ) {
+          runOnJS(runCreateGestureAction)();
+          gestureModeShared.value = MODE_IDLE;
+          return;
+        }
+
+        if (gestureModeShared.value === MODE_SHOW_DRAWER) {
+          const drawerDistance = Math.abs(event.translationX);
+          const commitDrawerByDistance = drawerDistance >= GESTURE_SHOW_DRAWER_COMMIT_DISTANCE;
+          const commitDrawerByVelocity = event.velocityX <= GESTURE_SHOW_DRAWER_COMMIT_VELOCITY;
+          if (commitDrawerByDistance || commitDrawerByVelocity) {
+            runOnJS(commitShowDrawerGesture)();
+            gestureModeShared.value = MODE_IDLE;
+            return;
+          }
+        }
+
+        if (
+          gestureModeShared.value === MODE_SWITCH_PREV &&
+          event.translationY >= GESTURE_SWITCH_THRESHOLD
+        ) {
+          runOnJS(runSwitchPrevGestureAction)();
+          gestureModeShared.value = MODE_IDLE;
+          return;
+        }
+
+        if (
+          gestureModeShared.value === MODE_SWITCH_NEXT &&
+          event.translationY <= -GESTURE_SWITCH_THRESHOLD
+        ) {
+          runOnJS(runSwitchNextGestureAction)();
+          gestureModeShared.value = MODE_IDLE;
+          return;
+        }
+
+        createChatSwipeDistanceShared.value = withSpring(0, { damping: 18, stiffness: 220, mass: 0.7 });
+        showDrawerSwipeDistanceShared.value = withSpring(0, { damping: 18, stiffness: 220, mass: 0.7 });
+        switchPrevSwipeDistanceShared.value = withSpring(0, { damping: 18, stiffness: 220, mass: 0.7 });
+        switchNextSwipeDistanceShared.value = withSpring(0, { damping: 18, stiffness: 220, mass: 0.7 });
+        contentBounceXShared.value = withSpring(0, { damping: 16, stiffness: 240, mass: 0.65 });
+        contentBounceYShared.value = withSpring(0, { damping: 16, stiffness: 240, mass: 0.65 });
+        gestureModeShared.value = MODE_IDLE;
+      })
+      .onFinalize(() => {
+        'worklet';
+        if (gestureModeShared.value !== MODE_IDLE) {
+          createChatSwipeDistanceShared.value = withSpring(0, { damping: 18, stiffness: 220, mass: 0.7 });
+          showDrawerSwipeDistanceShared.value = withSpring(0, { damping: 18, stiffness: 220, mass: 0.7 });
+          switchPrevSwipeDistanceShared.value = withSpring(0, { damping: 18, stiffness: 220, mass: 0.7 });
+          switchNextSwipeDistanceShared.value = withSpring(0, { damping: 18, stiffness: 220, mass: 0.7 });
+          contentBounceXShared.value = withSpring(0, { damping: 16, stiffness: 240, mass: 0.65 });
+          contentBounceYShared.value = withSpring(0, { damping: 16, stiffness: 240, mass: 0.65 });
+        }
+        gestureModeShared.value = MODE_IDLE;
+      });
+  }, [
+    commitShowDrawerGesture,
+    contentBounceXShared,
+    contentBounceYShared,
+    createChatSwipeDistanceShared,
+    gestureCooldownUntilShared,
+    gestureModeShared,
+    gestureStartXShared,
+    gestureStartYShared,
+    listAtBottomShared,
+    listAtTopShared,
+    onRequestCreateAgentChatBySwipe,
+    onRequestShowChatDetailDrawer,
+    onRequestSwitchAgentChat,
+    runCreateGestureAction,
+    runSwitchNextGestureAction,
+    runSwitchPrevGestureAction,
+    showDrawerSwipeDistanceShared,
+    switchNextSwipeDistanceShared,
+    switchPrevSwipeDistanceShared
+  ]);
 
   const armPlanCollapseTimer = useCallback(() => {
     setPlanExpanded(true);
@@ -1044,11 +1095,24 @@ export function ChatAssistantScreen({
     }
     listAtTopRef.current = true;
     listAtBottomRef.current = false;
+    listAtTopShared.value = 1;
+    listAtBottomShared.value = 0;
     listContentHeightRef.current = 0;
     listOffsetYRef.current = 0;
-    navSwitchGestureLockedRef.current = false;
+    gestureCooldownUntilRef.current = 0;
+    gestureCooldownUntilShared.value = 0;
     resetNavGestureVisuals();
-  }, [clearReasoningTimers, clearToolInitTimers, resetNavGestureVisuals, setAutoScrollMode, setChatImageTokenSafe, setChatStateSafe]);
+  }, [
+    clearReasoningTimers,
+    clearToolInitTimers,
+    gestureCooldownUntilShared,
+    listAtBottomShared,
+    listAtTopShared,
+    resetNavGestureVisuals,
+    setAutoScrollMode,
+    setChatImageTokenSafe,
+    setChatStateSafe
+  ]);
 
   const stopStreaming = useCallback(() => {
     if (abortControllerRef.current) {
@@ -1576,76 +1640,11 @@ export function ChatAssistantScreen({
   const hasActiveFrontendTool = Boolean(chatState.activeFrontendTool);
   const composerBottomPadding =
     keyboardHeight > 0 ? (Platform.OS === 'ios' ? 0 : 10) : Math.max(insets.bottom, 10);
-  const drawerWidthPx = contentWidth * PUSH_DRAWER_WIDTH_RATIO;
-  const previewMaxOpenFraction = drawerWidthPx > 0
-    ? (contentWidth * PUSH_DRAWER_PREVIEW_RATIO) / drawerWidthPx
-    : 0;
-  const createChatRevealProgress = useMemo(() => {
-    return calcGestureRevealProgress(
-      createChatSwipeDistance,
-      GESTURE_CREATE_CHAT_REVEAL_THRESHOLD,
-      GESTURE_CREATE_CHAT_VISUAL_MAX
-    );
-  }, [createChatSwipeDistance]);
-  const showDrawerRevealProgress = useMemo(() => {
-    if (showDrawerSwipeDistance <= 0) return 0;
-    return Math.min(1, showDrawerSwipeDistance / GESTURE_SHOW_DRAWER_COMMIT_DISTANCE);
-  }, [showDrawerSwipeDistance]);
-  const switchPrevRevealProgress = useMemo(() => {
-    return calcGestureRevealProgress(switchPrevSwipeDistance, GESTURE_SWITCH_REVEAL_THRESHOLD, GESTURE_SWITCH_VISUAL_MAX);
-  }, [switchPrevSwipeDistance]);
-  const switchNextRevealProgress = useMemo(() => {
-    return calcGestureRevealProgress(switchNextSwipeDistance, GESTURE_SWITCH_REVEAL_THRESHOLD, GESTURE_SWITCH_VISUAL_MAX);
-  }, [switchNextSwipeDistance]);
-
   useEffect(() => {
-    if (!onRequestPreviewChatDetailDrawer) {
-      return;
+    if (!chatDetailDrawerOpen) {
+      onRequestPreviewChatDetailDrawer?.(0);
     }
-    onRequestPreviewChatDetailDrawer(showDrawerRevealProgress);
-
-    if (chatDetailDrawerOpen) return;
-
-    if (showDrawerRevealProgress > 0) {
-      contentPushAnim.setValue(showDrawerRevealProgress * previewMaxOpenFraction);
-    } else {
-      contentPushAnim.stopAnimation((val) => {
-        if (val > 0.001) {
-          Animated.timing(contentPushAnim, {
-            toValue: 0,
-            duration: 140,
-            easing: Easing.out(Easing.cubic),
-            useNativeDriver: true,
-          }).start();
-        }
-      });
-    }
-  }, [chatDetailDrawerOpen, contentPushAnim, onRequestPreviewChatDetailDrawer,
-      previewMaxOpenFraction, showDrawerRevealProgress]);
-
-  useEffect(() => {
-    const wasOpen = contentPushPrevDrawerOpenRef.current;
-    contentPushPrevDrawerOpenRef.current = chatDetailDrawerOpen;
-    if (chatDetailDrawerOpen === wasOpen) return;
-
-    contentPushAnim.stopAnimation();
-    if (chatDetailDrawerOpen) {
-      Animated.spring(contentPushAnim, {
-        toValue: 1,
-        damping: 24,
-        stiffness: 240,
-        mass: 0.9,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      Animated.timing(contentPushAnim, {
-        toValue: 0,
-        duration: 180,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }).start();
-    }
-  }, [chatDetailDrawerOpen, contentPushAnim]);
+  }, [chatDetailDrawerOpen, onRequestPreviewChatDetailDrawer]);
 
   useEffect(() => {
     frontendToolOverlayAnim.stopAnimation();
@@ -1933,102 +1932,100 @@ export function ChatAssistantScreen({
     };
   }, [clearReasoningTimers, clearStreamIdleTimer, clearToolInitTimers, stopStreaming]);
 
-  const contentTransformStyle = useMemo(() => {
-    const DEAD_ZONE = 18;
-    if (createChatSwipeDistance > DEAD_ZONE) {
-      const raw = (createChatSwipeDistance - DEAD_ZONE) * 0.4;
-      return { transform: [{ translateX: Math.min(raw, 52) }] };
-    }
-    if (switchPrevSwipeDistance > DEAD_ZONE) {
-      const raw = (switchPrevSwipeDistance - DEAD_ZONE) * 0.8;
-      const maxPullDown = Math.max(insets.top + 44, 72);
-      return { transform: [{ translateY: Math.min(raw, maxPullDown) }] };
-    }
-    if (switchNextSwipeDistance > DEAD_ZONE) {
-      const raw = (switchNextSwipeDistance - DEAD_ZONE) * 0.8;
-      const maxPullUp = Math.max(insets.bottom + 60, 80);
-      return { transform: [{ translateY: -Math.min(raw, maxPullUp) }] };
-    }
-    return undefined;
-  }, [createChatSwipeDistance, switchPrevSwipeDistance, switchNextSwipeDistance, insets.top, insets.bottom]);
+  const createChatHintCardStyle = useAnimatedStyle(() => {
+    const progress = calcGestureRevealProgress(
+      createChatSwipeDistanceShared.value,
+      GESTURE_CREATE_CHAT_REVEAL_THRESHOLD,
+      GESTURE_CREATE_CHAT_VISUAL_MAX
+    );
+    return {
+      opacity: progress,
+      transform: [{ translateX: (1 - progress) * -12 }]
+    };
+  }, [createChatSwipeDistanceShared]);
 
-  const contentPushTranslateX = useMemo(
-    () => contentPushAnim.interpolate({
-      inputRange: [0, 1],
-      outputRange: [0, -drawerWidthPx],
-      extrapolate: 'clamp',
-    }),
-    [contentPushAnim, drawerWidthPx]
-  );
+  const switchPrevHintCardStyle = useAnimatedStyle(() => {
+    const progress = calcGestureRevealProgress(
+      switchPrevSwipeDistanceShared.value,
+      GESTURE_SWITCH_REVEAL_THRESHOLD,
+      GESTURE_SWITCH_VISUAL_MAX
+    );
+    return {
+      opacity: progress,
+      transform: [{ translateY: (1 - progress) * -8 }]
+    };
+  }, [switchPrevSwipeDistanceShared]);
+
+  const switchNextHintCardStyle = useAnimatedStyle(() => {
+    const progress = calcGestureRevealProgress(
+      switchNextSwipeDistanceShared.value,
+      GESTURE_SWITCH_REVEAL_THRESHOLD,
+      GESTURE_SWITCH_VISUAL_MAX
+    );
+    return {
+      opacity: progress,
+      transform: [{ translateY: (1 - progress) * 8 }]
+    };
+  }, [switchNextSwipeDistanceShared]);
+
+  const contentBounceStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: contentBounceXShared.value },
+        { translateY: contentBounceYShared.value }
+      ]
+    };
+  }, [contentBounceXShared, contentBounceYShared]);
 
 
   return (
     <View style={styles.container} nativeID="chat-screen-root" testID="chat-screen-root">
       {/* ---- 推挤层：左滑时整体向左位移 ---- */}
-      <Animated.View style={[styles.contentPushLayer, { transform: [{ translateX: contentPushTranslateX }] }]}>
+      <View style={styles.contentPushLayer}>
       {/* ---- 背景提示层（zIndex: 0，被 contentWrap 遮住）---- */}
-      {createChatSwipeDistance > 0 ? (
-        <View pointerEvents="none" style={styles.createChatHintBehind}>
-          <View style={[styles.createChatHintBehindCard, { opacity: createChatRevealProgress }]}>
+      <View pointerEvents="none" style={styles.createChatHintBehind}>
+        <Reanimated.View style={[styles.createChatHintBehindCard, createChatHintCardStyle]}>
             {'新建对话'.split('').map((char, i) => (
               <Text key={i} style={[styles.createChatHintBehindChar, { color: theme.textSoft }]}>
                 {char}
               </Text>
             ))}
-          </View>
-        </View>
-      ) : null}
-      {switchPrevSwipeDistance > 0 ? (
-        <View
-          pointerEvents="none"
-          style={[styles.switchPrevHintBehind, { top: insets.top - 2 }]}
-          testID="switch-prev-hint-layer"
-        >
-          <View
-            style={[
-              styles.switchHintCard,
-              {
-                backgroundColor: theme.surfaceStrong,
-                borderColor: theme.border,
-                opacity: switchPrevRevealProgress
-              }
-            ]}
+          </Reanimated.View>
+      </View>
+      <View
+        pointerEvents="none"
+        style={[styles.switchPrevHintBehind, { top: insets.top - 2 }]}
+        testID="switch-prev-hint-layer"
+      >
+          <Reanimated.View
+            style={[styles.switchHintCard, switchPrevHintCardStyle, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
           >
             <Text style={[styles.switchHintArrow, { color: theme.textSoft }]}>↑</Text>
             <Text style={[styles.switchHintText, { color: theme.text }]}>上一条对话</Text>
-          </View>
-        </View>
-      ) : null}
-      {switchNextSwipeDistance > 0 ? (
-        <View
-          pointerEvents="none"
-          style={[styles.switchNextHintBehind, { bottom: composerBottomPadding + 4 }]}
-          testID="switch-next-hint-layer"
-        >
-          <View
-            style={[
-              styles.switchHintCard,
-              {
-                backgroundColor: theme.surfaceStrong,
-                borderColor: theme.border,
-                opacity: switchNextRevealProgress
-              }
-            ]}
+          </Reanimated.View>
+      </View>
+      <View
+        pointerEvents="none"
+        style={[styles.switchNextHintBehind, { bottom: composerBottomPadding + 4 }]}
+        testID="switch-next-hint-layer"
+      >
+          <Reanimated.View
+            style={[styles.switchHintCard, switchNextHintCardStyle, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
           >
             <Text style={[styles.switchHintText, { color: theme.text }]}>下一条对话</Text>
             <Text style={[styles.switchHintArrow, { color: theme.textSoft }]}>↓</Text>
-          </View>
-        </View>
-      ) : null}
+          </Reanimated.View>
+      </View>
 
       {/* ---- 内容层（带背景色 + 手势位移）---- */}
-      <View style={[styles.contentWrap, { backgroundColor: theme.surface }, contentTransformStyle]}>
-        <View style={styles.timelineGestureLayer} {...timelineGestureResponder.panHandlers} testID="chat-timeline-gesture-layer">
+      <Reanimated.View style={[styles.contentWrap, { backgroundColor: theme.surface }, contentBounceStyle]}>
+        <GestureDetector gesture={timelinePanGesture}>
+          <View style={styles.timelineGestureLayer} testID="chat-timeline-gesture-layer">
           <FlatList
             ref={listRef}
             data={chatState.timeline}
             extraData={listExtraData}
-            removeClippedSubviews={false}
+            removeClippedSubviews={Platform.OS === 'android'}
             nestedScrollEnabled={Platform.OS === 'android'}
             keyboardShouldPersistTaps="handled"
             bounces={isTimelineScrollable}
@@ -2052,7 +2049,7 @@ export function ChatAssistantScreen({
               void width;
               syncListMetrics(listOffsetYRef.current, listViewportHeightRef.current, height);
             }}
-            scrollEventThrottle={16}
+            scrollEventThrottle={32}
             nativeID="chat-timeline-list"
             testID="chat-timeline-list"
             renderItem={renderTimelineItem}
@@ -2063,7 +2060,8 @@ export function ChatAssistantScreen({
               </View>
             }
           />
-        </View>
+          </View>
+        </GestureDetector>
 
       {!hasActiveFrontendTool ? (
         <View style={[styles.composerOuter, { paddingBottom: composerBottomPadding }]}>
@@ -2168,8 +2166,8 @@ export function ChatAssistantScreen({
           </View>
         </View>
       ) : null}
+      </Reanimated.View>
       </View>
-      </Animated.View>
 
       {/* ---- 浮层 ---- */}
       {edgeToast ? (
