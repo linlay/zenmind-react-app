@@ -19,6 +19,7 @@ export interface AgentLatestChatItem {
   agentRole?: string;
   iconName?: string;
   iconColor?: string;
+  unreadCount: number;
   latestChat: ChatSummary;
 }
 
@@ -87,6 +88,7 @@ function sortByRecent(a: ChatSummary, b: ChatSummary): number {
 export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] => {
   const sorted = [...state.chat.chats].sort(sortByRecent);
   const latestByAgent = new Map<string, ChatSummary>();
+  const unreadByAgent = new Map<string, number>();
   const agentNameByKey = new Map<string, string>();
   const agentRoleByKey = new Map<string, string>();
   const visualByAgentKey = new Map<string, { iconName: string; iconColor: string }>();
@@ -113,6 +115,10 @@ export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] 
 
   sorted.forEach((chat) => {
     const agentKey = getAgentKeyFromChat(chat);
+    const readStatus = Number((chat as Record<string, unknown>).readStatus);
+    if (Number.isFinite(readStatus) && readStatus === 0) {
+      unreadByAgent.set(agentKey, (unreadByAgent.get(agentKey) || 0) + 1);
+    }
     if (!latestByAgent.has(agentKey)) {
       latestByAgent.set(agentKey, chat);
     }
@@ -127,6 +133,7 @@ export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] 
         agentRole: agentRoleByKey.get(agentKey) || resolveChatAgentRole(chat) || '',
         iconName: resolveChatIconName(chat) || visualFromAgent?.iconName || '',
         iconColor: resolveChatIconColor(chat) || visualFromAgent?.iconColor || '',
+        unreadCount: unreadByAgent.get(agentKey) || 0,
         latestChat: chat
       };
     })

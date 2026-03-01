@@ -79,9 +79,8 @@ import { AgentProfilePane } from '../../modules/chat/components/AgentProfilePane
 import { TerminalSessionListPane } from '../../modules/terminal/components/TerminalSessionListPane';
 import { AgentSidebar } from '../../modules/chat/components/AgentSidebar';
 import { useLazyGetAgentsQuery } from '../../modules/agents/api/agentsApi';
-import { useLazyGetChatsQuery } from '../../modules/chat/api/chatApi';
 import { useLazyListTerminalSessionsQuery } from '../../modules/terminal/api/terminalApi';
-import { fetchAuthedJson, formatError } from '../../core/network/apiClient';
+import { fetchAuthedJson, formatError, markChatReadApi } from '../../core/network/apiClient';
 import {
   createRequestId,
   formatInboxTime,
@@ -108,6 +107,12 @@ import {
 } from '../../core/auth/appAuth';
 import { WebViewAuthRefreshCoordinator, WebViewAuthRefreshOutcome } from '../../core/auth/webViewAuthBridge';
 import { SwipeBackEdge } from '../../shared/ui/SwipeBackEdge';
+import {
+  initChatCacheDb,
+  listCachedChats,
+  markChatReadLocal
+} from '../../modules/chat/services/chatCacheDb';
+import { syncChatsIncremental } from '../../modules/chat/services/chatSyncService';
 
 const PREFRESH_MIN_VALIDITY_MS = 120_000;
 const PREFRESH_JITTER_MS = 8_000;
@@ -176,7 +181,6 @@ export function ShellScreen() {
   const [chatPlusMenuOpen, setChatPlusMenuOpen] = useState(false);
 
   const [triggerAgents] = useLazyGetAgentsQuery();
-  const [triggerChats] = useLazyGetChatsQuery();
   const [triggerTerminalSessions] = useLazyListTerminalSessionsQuery();
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -186,6 +190,7 @@ export function ShellScreen() {
   const appStateRef = useRef(AppState.currentState);
   const lastActiveRefreshAtRef = useRef(0);
   const authRefreshCoordinatorRef = useRef<WebViewAuthRefreshCoordinator | null>(null);
+  const chatSyncInFlightRef = useRef(false);
 
   const inboxAnim = useRef(new Animated.Value(0)).current;
   const publishAnim = useRef(new Animated.Value(0)).current;
@@ -200,6 +205,10 @@ export function ShellScreen() {
     [endpointDraft]
   );
   const canSubmitLogin = Boolean(normalizedLoginEndpointDraft) && !authChecking;
+
+  useEffect(() => {
+    initChatCacheDb().catch(() => {});
+  }, []);
 
   useEffect(() => {
     const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
@@ -285,19 +294,62 @@ export function ShellScreen() {
     [backendUrl, dispatch, selectedAgentKey, triggerAgents]
   );
 
+  const loadChatsFromCache = useCallback(async () => {
+    const list = await listCachedChats();
+    dispatch(setChats(list));
+    return list;
+  }, [dispatch]);
+
+  const syncChatsNow = useCallback(
+    async (
+      base = backendUrl,
+      options?: {
+        notifyError?: boolean;
+        bumpActiveChatRefresh?: boolean;
+      }
+    ) => {
+      if (!base || chatSyncInFlightRef.current) {
+        return [];
+      }
+
+      chatSyncInFlightRef.current = true;
+      try {
+        const result = await syncChatsIncremental(base);
+        dispatch(setChats(result.chats));
+
+        if (options?.bumpActiveChatRefresh) {
+          const activeChatId = String(chatId || '').trim();
+          if (activeChatId && result.updatedChatIds.some((item) => item === activeChatId)) {
+            setChatRefreshSignal((prev) => prev + 1);
+          }
+        }
+
+        return result.updatedChatIds;
+      } catch (error) {
+        if (options?.notifyError) {
+          dispatch(setStatusText(`会话增量同步失败：${formatError(error)}`));
+        }
+        return [];
+      } finally {
+        chatSyncInFlightRef.current = false;
+      }
+    },
+    [backendUrl, chatId, dispatch]
+  );
+
   const refreshChats = useCallback(
     async (silent = false, base = backendUrl) => {
       if (!silent) dispatch(setLoadingChats(true));
       try {
-        const list = await triggerChats(base).unwrap();
-        dispatch(setChats(list));
+        await loadChatsFromCache();
+        await syncChatsNow(base, { notifyError: !silent, bumpActiveChatRefresh: true });
       } catch (error) {
         dispatch(setStatusText(`会话列表加载失败：${formatError(error)}`));
       } finally {
         if (!silent) dispatch(setLoadingChats(false));
       }
     },
-    [backendUrl, dispatch, triggerChats]
+    [backendUrl, dispatch, loadChatsFromCache, syncChatsNow]
   );
 
   const refreshTerminalSessions = useCallback(
@@ -392,6 +444,40 @@ export function ShellScreen() {
     }
   }, [backendUrl, dispatch, refreshInbox]);
 
+  const markChatViewed = useCallback(
+    async (viewedChatIdInput: string) => {
+      const viewedChatId = String(viewedChatIdInput || '').trim();
+      if (!viewedChatId) {
+        return;
+      }
+
+      try {
+        await markChatReadLocal(viewedChatId, { readStatus: 1, readAt: Date.now() });
+        await loadChatsFromCache();
+      } catch {
+        // ignore local cache write failures
+      }
+
+      if (!backendUrl) {
+        return;
+      }
+
+      try {
+        const result = await markChatReadApi(backendUrl, viewedChatId);
+        await markChatReadLocal(viewedChatId, {
+          readStatus: Number(result?.readStatus),
+          readAt: result?.readAt
+        });
+        await loadChatsFromCache();
+      } catch (error) {
+        if (__DEV__) {
+          console.warn(`[chat.read] failed: ${viewedChatId}`, error);
+        }
+      }
+    },
+    [backendUrl, loadChatsFromCache]
+  );
+
   const clearWs = useCallback(() => {
     if (wsReconnectTimerRef.current) {
       clearTimeout(wsReconnectTimerRef.current);
@@ -451,11 +537,10 @@ export function ShellScreen() {
       }
 
       if (type === 'chat.new_content') {
-        refreshChats(true).catch(() => {});
-        setChatRefreshSignal((prev) => prev + 1);
+        syncChatsNow(backendUrl, { notifyError: false, bumpActiveChatRefresh: true }).catch(() => {});
       }
     },
-    [refreshChats, refreshInbox]
+    [backendUrl, refreshInbox, syncChatsNow]
   );
 
   const handleHardAuthFailure = useCallback(
@@ -632,6 +717,23 @@ export function ShellScreen() {
       clearInterval(timer);
     };
   }, [authReady, booting, runForegroundProactiveRefresh]);
+
+  useEffect(() => {
+    if (booting || !authReady) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      if (appStateRef.current !== 'active') {
+        return;
+      }
+      syncChatsNow(backendUrl, { notifyError: false, bumpActiveChatRefresh: true }).catch(() => {});
+    }, 5000);
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [authReady, backendUrl, booting, syncChatsNow]);
 
   const submitLogin = useCallback(async () => {
     const normalizedEndpoint = normalizeEndpointInput(endpointDraft);
@@ -1710,6 +1812,7 @@ export function ShellScreen() {
                           authAccessExpireAtMs={authAccessExpireAtMs}
                           authTokenSignal={authTokenSignal}
                           onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
+                          onChatViewed={markChatViewed}
                           onRequestSwitchAgentChat={handleRequestSwitchAgentChat}
                           onRequestCreateAgentChatBySwipe={handleRequestCreateAgentChatBySwipe}
                           onRequestPreviewChatDetailDrawer={handleRequestPreviewChatDetailDrawer}

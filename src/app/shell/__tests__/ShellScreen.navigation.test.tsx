@@ -7,9 +7,13 @@ const mockDispatch = jest.fn();
 let mockSelectorState: Record<string, any> = {};
 
 const mockTriggerAgents = jest.fn();
-const mockTriggerChats = jest.fn();
 const mockTriggerTerminalSessions = jest.fn();
+const mockListCachedChats = jest.fn();
+const mockSyncChatsIncremental = jest.fn();
+const mockMarkChatReadLocal = jest.fn();
+const mockMarkChatReadApi = jest.fn();
 let keyboardDismissSpy: jest.SpyInstance;
+let wsInstances: Array<Record<string, any>> = [];
 
 jest.mock('expo-status-bar', () => ({
   StatusBar: () => null
@@ -31,9 +35,19 @@ jest.mock('../../store/hooks', () => ({
 
 jest.mock('../../../modules/chat/screens/ChatAssistantScreen', () => {
   const ReactLocal = require('react');
-  const { View } = require('react-native');
+  const { TouchableOpacity, View } = require('react-native');
   return {
-    ChatAssistantScreen: () => ReactLocal.createElement(View, { testID: 'mock-chat-assistant-screen' })
+    ChatAssistantScreen: (props: { onChatViewed?: (chatId: string) => Promise<void> }) =>
+      ReactLocal.createElement(
+        View,
+        { testID: 'mock-chat-assistant-screen' },
+        ReactLocal.createElement(TouchableOpacity, {
+          testID: 'mock-chat-assistant-mark-viewed',
+          onPress: () => {
+            props.onChatViewed?.('chat-1').catch(() => {});
+          }
+        })
+      )
   };
 });
 
@@ -119,12 +133,18 @@ jest.mock('../../../modules/agents/api/agentsApi', () => ({
   useLazyGetAgentsQuery: () => [mockTriggerAgents]
 }));
 
-jest.mock('../../../modules/chat/api/chatApi', () => ({
-  useLazyGetChatsQuery: () => [mockTriggerChats]
-}));
-
 jest.mock('../../../modules/terminal/api/terminalApi', () => ({
   useLazyListTerminalSessionsQuery: () => [mockTriggerTerminalSessions]
+}));
+
+jest.mock('../../../modules/chat/services/chatCacheDb', () => ({
+  initChatCacheDb: () => Promise.resolve(),
+  listCachedChats: (...args: any[]) => mockListCachedChats(...args),
+  markChatReadLocal: (...args: any[]) => mockMarkChatReadLocal(...args)
+}));
+
+jest.mock('../../../modules/chat/services/chatSyncService', () => ({
+  syncChatsIncremental: (...args: any[]) => mockSyncChatsIncremental(...args)
 }));
 
 jest.mock('../../../core/network/apiClient', () => ({
@@ -135,6 +155,7 @@ jest.mock('../../../core/network/apiClient', () => ({
     }
     return Promise.resolve([]);
   },
+  markChatReadApi: (...args: any[]) => mockMarkChatReadApi(...args),
   formatError: () => 'error'
 }));
 
@@ -217,7 +238,10 @@ function makeState(overrides: Partial<Record<string, any>> = {}) {
 async function renderScreen(overrides: Partial<Record<string, any>> = {}) {
   mockSelectorState = makeState(overrides);
   mockTriggerAgents.mockReturnValue({ unwrap: () => Promise.resolve([{ key: 'agent-1', name: 'Agent 1' }]) });
-  mockTriggerChats.mockReturnValue({ unwrap: () => Promise.resolve(mockSelectorState.chat.chats) });
+  mockListCachedChats.mockResolvedValue(mockSelectorState.chat.chats);
+  mockSyncChatsIncremental.mockResolvedValue({ chats: mockSelectorState.chat.chats, updatedChatIds: [] });
+  mockMarkChatReadLocal.mockResolvedValue(undefined);
+  mockMarkChatReadApi.mockResolvedValue({ chatId: 'chat-1', readStatus: 1, readAt: Date.now() });
   mockTriggerTerminalSessions.mockReturnValue({
     unwrap: () => Promise.resolve([{ sessionId: 's-1', title: 'session-1' }])
   });
@@ -241,6 +265,9 @@ describe('ShellScreen navigation flow', () => {
       onclose: (() => void) | null = null;
       onmessage: ((evt: any) => void) | null = null;
       onerror: (() => void) | null = null;
+      constructor() {
+        wsInstances.push(this as unknown as Record<string, any>);
+      }
       close() {}
     };
   });
@@ -248,8 +275,12 @@ describe('ShellScreen navigation flow', () => {
   beforeEach(() => {
     mockDispatch.mockClear();
     mockTriggerAgents.mockReset();
-    mockTriggerChats.mockReset();
     mockTriggerTerminalSessions.mockReset();
+    mockListCachedChats.mockReset();
+    mockSyncChatsIncremental.mockReset();
+    mockMarkChatReadLocal.mockReset();
+    mockMarkChatReadApi.mockReset();
+    wsInstances = [];
     keyboardDismissSpy = jest.spyOn(ReactNative.Keyboard, 'dismiss').mockImplementation(() => {});
   });
 
@@ -264,6 +295,62 @@ describe('ShellScreen navigation flow', () => {
       terminalTab.props.onPress();
     });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setActiveDomain', payload: 'terminal' });
+  });
+
+  it('registers a 5-second polling timer for incremental chat sync', async () => {
+    const intervalSpy = jest.spyOn(globalThis, 'setInterval');
+    const tree = await renderScreen();
+    expect(intervalSpy.mock.calls.some((call) => Number(call[1]) === 5000)).toBe(true);
+    intervalSpy.mockRestore();
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it('triggers incremental sync when websocket receives chat.new_content', async () => {
+    const tree = await renderScreen();
+    const before = mockSyncChatsIncremental.mock.calls.length;
+    const socket = wsInstances[0];
+    expect(socket).toBeTruthy();
+
+    await act(async () => {
+      socket.onmessage?.({
+        data: JSON.stringify({ type: 'chat.new_content', payload: {} })
+      });
+      await Promise.resolve();
+    });
+
+    expect(mockSyncChatsIncremental.mock.calls.length).toBeGreaterThan(before);
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it('keeps local read update when chat read API fails', async () => {
+    mockMarkChatReadApi.mockRejectedValueOnce(new Error('read failed'));
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const tree = await renderScreen({
+      shell: { chatOverlayStack: [{ overlayId: 'overlay-chat-1', type: 'chatDetail' }] }
+    });
+    const markViewedBtn = tree.root.findByProps({ testID: 'mock-chat-assistant-mark-viewed' });
+
+    await act(async () => {
+      markViewedBtn.props.onPress();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(mockMarkChatReadLocal).toHaveBeenCalled();
+    expect(mockMarkChatReadApi).toHaveBeenCalledWith('https://api.example.com', 'chat-1');
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+
+    await act(async () => {
+      tree.unmount();
+    });
   });
 
   it('opens chat detail overlay when selecting chat list item', async () => {

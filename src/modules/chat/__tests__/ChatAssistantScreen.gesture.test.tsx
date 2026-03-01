@@ -8,6 +8,8 @@ const mockRefreshChats = jest.fn(() => Promise.resolve());
 const mockLoadChat = jest.fn();
 const mockLoadChatUnwrap = jest.fn();
 const mockSubmitFrontendTool = jest.fn();
+const mockGetCachedChatDetail = jest.fn();
+const mockUpsertChatDetail = jest.fn();
 let mockSelectorState: Record<string, unknown> = {};
 let mockInitialChatState: Record<string, unknown> = {};
 
@@ -29,6 +31,11 @@ jest.mock('../../../modules/user/state/userSlice', () => ({
 jest.mock('../api/chatApi', () => ({
   useLazyGetChatQuery: () => [mockLoadChat, { isFetching: false }],
   useSubmitFrontendToolMutation: () => [mockSubmitFrontendTool]
+}));
+
+jest.mock('../services/chatCacheDb', () => ({
+  getCachedChatDetail: (...args: any[]) => mockGetCachedChatDetail(...args),
+  upsertChatDetail: (...args: any[]) => mockUpsertChatDetail(...args)
 }));
 
 jest.mock('../services/eventReducer', () => ({
@@ -160,6 +167,10 @@ describe('ChatAssistantScreen gestures', () => {
     mockLoadChat.mockReturnValue({ unwrap: mockLoadChatUnwrap });
     mockSubmitFrontendTool.mockReset();
     mockSubmitFrontendTool.mockReturnValue({ unwrap: jest.fn().mockResolvedValue({ accepted: true }) });
+    mockGetCachedChatDetail.mockReset();
+    mockGetCachedChatDetail.mockResolvedValue(null);
+    mockUpsertChatDetail.mockReset();
+    mockUpsertChatDetail.mockResolvedValue(undefined);
   });
 
   afterAll(() => {

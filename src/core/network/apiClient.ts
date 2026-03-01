@@ -110,3 +110,14 @@ export async function submitFrontendToolApi(
     body: JSON.stringify(payload)
   });
 }
+
+export async function markChatReadApi(
+  baseUrl: string,
+  chatId: string
+): Promise<{ chatId?: string; readStatus?: number; readAt?: string | number | null }> {
+  return fetchApiJson(baseUrl, '/api/ap/read', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chatId })
+  });
+}

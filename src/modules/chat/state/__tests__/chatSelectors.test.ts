@@ -87,6 +87,19 @@ describe('chatSelectors', () => {
     expect(result[0].agentRole).toBe('对话专家');
   });
 
+  it('aggregates unread count from readStatus for each agent', () => {
+    const state = createState([
+      { chatId: 'a1', firstAgentKey: 'agent-a', readStatus: 0, updatedAt: 300 },
+      { chatId: 'a2', firstAgentKey: 'agent-a', readStatus: 1, updatedAt: 200 },
+      { chatId: 'b1', firstAgentKey: 'agent-b', readStatus: 0, updatedAt: 100 },
+      { chatId: 'b2', firstAgentKey: 'agent-b', readStatus: 0, updatedAt: 90 }
+    ]);
+
+    const result = selectAgentLatestChats(state);
+    expect(result.find((item) => item.agentKey === 'agent-a')?.unreadCount).toBe(1);
+    expect(result.find((item) => item.agentKey === 'agent-b')?.unreadCount).toBe(2);
+  });
+
   it('returns current agent chats by active chat firstAgentKey', () => {
     const state = createState(
       [

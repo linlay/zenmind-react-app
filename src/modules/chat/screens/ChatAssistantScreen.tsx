@@ -34,6 +34,7 @@ import {
   useLazyGetChatQuery,
   useSubmitFrontendToolMutation
 } from '../api/chatApi';
+import { getCachedChatDetail, upsertChatDetail } from '../services/chatCacheDb';
 import { consumeJsonSseXhr } from '../services/chatStreamClient';
 import {
   getPlanProgress,
@@ -149,6 +150,7 @@ interface ChatAssistantScreenProps {
   authAccessExpireAtMs?: number;
   authTokenSignal?: number;
   onWebViewAuthRefreshRequest?: (requestId: string, source: string) => Promise<WebViewAuthRefreshOutcome>;
+  onChatViewed?: (chatId: string) => Promise<void>;
   onRequestSwitchAgentChat?: (direction: 'prev' | 'next') => { ok: boolean; message?: string };
   onRequestCreateAgentChatBySwipe?: () => { ok: boolean; message?: string };
   onRequestPreviewChatDetailDrawer?: (progress: number) => void;
@@ -172,6 +174,7 @@ export function ChatAssistantScreen({
   authAccessExpireAtMs,
   authTokenSignal = 0,
   onWebViewAuthRefreshRequest,
+  onChatViewed,
   onRequestSwitchAgentChat,
   onRequestCreateAgentChatBySwipe,
   onRequestPreviewChatDetailDrawer,
@@ -1737,6 +1740,40 @@ export function ChatAssistantScreen({
     setPlanExpanded(false);
   }, [chatState.planState.tasks.length]);
 
+  const loadHistoryFromCache = useCallback(async (targetChatId: string) => {
+    const cached = await getCachedChatDetail(targetChatId);
+    if (!cached) {
+      return null;
+    }
+    const events = Array.isArray(cached.events) ? cached.events : [];
+    if (!events.length) {
+      return null;
+    }
+    return {
+      chatImageToken: String(cached.chatImageToken || ''),
+      events
+    };
+  }, []);
+
+  const loadHistoryFromRemote = useCallback(
+    async (targetChatId: string) => {
+      const data = await loadChat({ baseUrl: backendUrl, chatId: targetChatId }).unwrap();
+      const events = Array.isArray(data?.events) ? data.events : [];
+      await upsertChatDetail({
+        chatId: targetChatId,
+        chatName: String(data?.chatName || ''),
+        chatImageToken: String(data?.chatImageToken || ''),
+        events,
+        detailUpdatedAt: Date.now()
+      });
+      return {
+        chatImageToken: String(data?.chatImageToken || ''),
+        events
+      };
+    },
+    [backendUrl, loadChat]
+  );
+
   useEffect(() => {
     if (chatId && skipHistoryLoadChatIdRef.current === chatId) {
       skipHistoryLoadChatIdRef.current = null;
@@ -1757,32 +1794,37 @@ export function ChatAssistantScreen({
     stopStreaming();
     resetTimeline();
 
-    loadChat({ baseUrl: backendUrl, chatId })
-      .unwrap()
-      .then((data) => {
-        if (cancelled) return;
-        setChatImageTokenSafe(String(data?.chatImageToken || ''));
-        const events = Array.isArray(data?.events) ? data.events : [];
-        events.forEach((event) => applyEvent(event, 'history'));
-        if (shouldScrollTopAfterHistoryLoadRef.current) {
-          shouldScrollTopAfterHistoryLoadRef.current = false;
-          scrollToTopAndDisableAutoScroll();
-        }
-      })
-      .catch((error) => {
-        if (cancelled) return;
-        dispatch(setStatusText(`会话载入失败：${formatError(error)}`));
-      });
+    const hydrate = async () => {
+      const cached = await loadHistoryFromCache(chatId);
+      const history = cached || (await loadHistoryFromRemote(chatId));
+
+      if (cancelled) return;
+      setChatImageTokenSafe(history.chatImageToken);
+      history.events.forEach((event) => applyEvent(event, 'history'));
+      if (shouldScrollTopAfterHistoryLoadRef.current) {
+        shouldScrollTopAfterHistoryLoadRef.current = false;
+        scrollToTopAndDisableAutoScroll();
+      }
+      if (onChatViewed) {
+        onChatViewed(chatId).catch(() => {});
+      }
+    };
+
+    hydrate().catch((error) => {
+      if (cancelled) return;
+      dispatch(setStatusText(`会话载入失败：${formatError(error)}`));
+    });
 
     return () => {
       cancelled = true;
     };
   }, [
     applyEvent,
-    backendUrl,
     chatId,
     dispatch,
-    loadChat,
+    loadHistoryFromCache,
+    loadHistoryFromRemote,
+    onChatViewed,
     resetTimeline,
     scrollToTopAndDisableAutoScroll,
     setChatImageTokenSafe,
@@ -1799,31 +1841,26 @@ export function ChatAssistantScreen({
     }
 
     let cancelled = false;
-    loadChat({ baseUrl: backendUrl, chatId })
-      .unwrap()
-      .then((data) => {
-        if (cancelled) {
-          return;
-        }
+    const refreshHistory = async () => {
+      const cached = await loadHistoryFromCache(chatId);
+      const history = cached || (await loadHistoryFromRemote(chatId));
+      if (cancelled) {
+        return;
+      }
 
-        runtimeRef.current = createRuntimeMaps();
-        const emptyState = createEmptyChatState();
-        chatStateRef.current = emptyState;
-        activeFrontendToolRef.current = null;
-        setChatState(emptyState);
-        setChatImageTokenSafe(String(data?.chatImageToken || ''));
+      resetTimeline();
+      setChatImageTokenSafe(history.chatImageToken);
+      history.events.forEach((event) => applyEvent(event, 'history'));
+    };
 
-        const events = Array.isArray(data?.events) ? data.events : [];
-        events.forEach((event) => applyEvent(event, 'history'));
-      })
-      .catch(() => {
-        // ignore background refresh failure
-      });
+    refreshHistory().catch(() => {
+      // ignore background refresh failure
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [applyEvent, backendUrl, chatId, loadChat, refreshSignal, setChatImageTokenSafe]);
+  }, [applyEvent, chatId, loadHistoryFromCache, loadHistoryFromRemote, refreshSignal, resetTimeline, setChatImageTokenSafe]);
 
   const listExtraData = useMemo(
     () => ({

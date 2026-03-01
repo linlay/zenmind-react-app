@@ -19,11 +19,13 @@ describe('ChatListPane', () => {
               agentKey: 'agent-1',
               agentName: 'Agent 1',
               agentRole: '任务助手',
+              unreadCount: 3,
               latestChat: { chatId: 'chat-1', chatName: '会话1', updatedAt: Date.now() }
             },
             {
               agentKey: 'agent-2',
               agentName: 'Agent 2',
+              unreadCount: 0,
               latestChat: { chatId: 'chat-2', chatName: '会话2', updatedAt: Date.now() }
             }
           ]}
@@ -42,11 +44,9 @@ describe('ChatListPane', () => {
     expect((tree as ReturnType<typeof create>).root.findAllByProps({ testID: 'chat-refresh-btn' })).toHaveLength(0);
 
     const badge0 = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-list-item-unread-badge-0' });
-    const badge1 = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-list-item-unread-badge-1' });
+    expect((tree as ReturnType<typeof create>).root.findAllByProps({ testID: 'chat-list-item-unread-badge-1' })).toHaveLength(0);
     const badge0Style = StyleSheet.flatten(badge0.props.style) as { backgroundColor?: string } | undefined;
-    const badge1Style = StyleSheet.flatten(badge1.props.style) as { backgroundColor?: string } | undefined;
     expect(badge0Style?.backgroundColor).toBe(THEMES.light.primaryDeep);
-    expect(badge1Style?.backgroundColor).toBe(THEMES.light.primaryDeep);
 
     const role0 = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-list-item-agent-role-0' });
     const role0Style = StyleSheet.flatten(role0.props.style) as { color?: string; fontSize?: number } | undefined;
@@ -71,6 +71,7 @@ describe('ChatListPane', () => {
             {
               agentKey: 'agent-1',
               agentName: 'Agent 1',
+              unreadCount: 2,
               latestChat: { chatId: 'chat-1', chatName: '会话1', updatedAt: Date.now() }
             }
           ]}

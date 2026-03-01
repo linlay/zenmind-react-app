@@ -32,10 +32,7 @@ export function ChatListPane({
             const itemKey = item.agentKey || chat.chatId || `${latestChatName}:${index}`;
             const avatarName = resolveAgentAvatarName(item.agentKey, item.iconName);
             const avatarColor = resolveAgentAvatarBgColor(item.agentKey, item.iconColor);
-            // mock unread count: stable pseudo-random value (1-9) until backend returns per-agent unread stats
-            const unreadSeed = `${item.agentKey || ''}:${chat.chatId || ''}:${index}`;
-            const unreadCount =
-              ((unreadSeed.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) % 9) + 1);
+            const unreadCount = Math.max(0, Number(item.unreadCount || 0));
 
             return (
               <TouchableOpacity
@@ -93,11 +90,13 @@ export function ChatListPane({
                     <Text style={[styles.metaTime, { color: theme.textMute }]} numberOfLines={1}>
                       {chatTime}
                     </Text>
-                    <View style={[styles.metaUnreadBadge, { backgroundColor: theme.primaryDeep }]} testID={`chat-list-item-unread-badge-${index}`}>
-                      <Text style={styles.metaUnreadText} numberOfLines={1}>
-                        {unreadCount}
-                      </Text>
-                    </View>
+                    {unreadCount > 0 ? (
+                      <View style={[styles.metaUnreadBadge, { backgroundColor: theme.primaryDeep }]} testID={`chat-list-item-unread-badge-${index}`}>
+                        <Text style={styles.metaUnreadText} numberOfLines={1}>
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
                 </View>
               </TouchableOpacity>

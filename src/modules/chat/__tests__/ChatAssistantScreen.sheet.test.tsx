@@ -15,6 +15,8 @@ const mockComposerRender = jest.fn();
 const mockTimelineRowRender = jest.fn();
 const mockConsumeJsonSseXhr = jest.fn((..._args: any[]) => Promise.resolve());
 const mockGetAccessToken = jest.fn((..._args: any[]) => Promise.resolve('access-token-1'));
+const mockGetCachedChatDetail = jest.fn();
+const mockUpsertChatDetail = jest.fn();
 
 let mockSelectorState: Record<string, unknown> = {};
 let mockInitialChatStateValue: Record<string, unknown> = {};
@@ -49,6 +51,11 @@ jest.mock('../../../modules/user/state/userSlice', () => ({
 jest.mock('../api/chatApi', () => ({
   useLazyGetChatQuery: () => [mockLoadChat, { isFetching: false }],
   useSubmitFrontendToolMutation: () => [mockSubmitFrontendTool]
+}));
+
+jest.mock('../services/chatCacheDb', () => ({
+  getCachedChatDetail: (...args: any[]) => mockGetCachedChatDetail(...args),
+  upsertChatDetail: (...args: any[]) => mockUpsertChatDetail(...args)
 }));
 
 jest.mock('../services/eventReducer', () => ({
@@ -188,7 +195,7 @@ function createTimelineEntry(id = 'assistant-entry-1') {
   };
 }
 
-async function renderScreen() {
+async function renderScreen(props: Partial<Record<string, unknown>> = {}) {
   let tree: ReturnType<typeof create> | null = null;
   await act(async () => {
     tree = create(
@@ -198,6 +205,7 @@ async function renderScreen() {
         contentWidth={390}
         onRefreshChats={mockRefreshChats}
         keyboardHeight={0}
+        onChatViewed={props.onChatViewed as any}
       />
     );
   });
@@ -272,6 +280,10 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
     mockConsumeJsonSseXhr.mockResolvedValue(undefined);
     mockGetAccessToken.mockReset();
     mockGetAccessToken.mockResolvedValue('access-token-1');
+    mockGetCachedChatDetail.mockReset();
+    mockGetCachedChatDetail.mockResolvedValue(null);
+    mockUpsertChatDetail.mockReset();
+    mockUpsertChatDetail.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -293,6 +305,32 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
     expect(tree.root.findAllByProps({ testID: 'frontend-tool-overlay' })).toHaveLength(0);
     expect(tree.root.findAllByProps({ testID: 'composer-without-tool' }).length).toBeGreaterThan(0);
     expect(tree.root.findAllByProps({ testID: 'composer-with-tool' })).toHaveLength(0);
+
+    await act(async () => {
+      tree.unmount();
+    });
+  });
+
+  it('calls onChatViewed after loading chat history from cache', async () => {
+    const onChatViewed = jest.fn(() => Promise.resolve());
+    mockSelectorState = {
+      chat: { chatId: 'chat-history-1', statusText: '' },
+      user: { selectedAgentKey: 'agent-1' },
+      agents: { agents: [{ key: 'agent-1', name: 'Agent 1' }] }
+    };
+    mockGetCachedChatDetail.mockResolvedValue({
+      chatId: 'chat-history-1',
+      chatName: '历史会话',
+      chatImageToken: '',
+      events: [{ type: 'content.snapshot', contentId: 'content-1', text: 'cached response' }],
+      detailUpdatedAt: Date.now()
+    });
+
+    const tree = await renderScreen({ onChatViewed });
+    await flushMicrotasks();
+
+    expect(onChatViewed).toHaveBeenCalledWith('chat-history-1');
+    expect(mockLoadChat).not.toHaveBeenCalled();
 
     await act(async () => {
       tree.unmount();
