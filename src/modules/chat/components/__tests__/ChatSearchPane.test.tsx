@@ -39,7 +39,15 @@ describe('ChatSearchPane', () => {
           theme={THEMES.light}
           keyword="alpha"
           agentResults={[{ agentKey: 'agent-a', agentName: 'Agent A', latestChatName: '最近会话' }]}
-          chatResults={[{ chatId: 'chat-1', chatName: 'Alpha Chat', firstAgentKey: 'agent-a', firstAgentName: 'Agent A', updatedAt: Date.now() } as any]}
+          chatResults={[
+            {
+              chatId: 'chat-1',
+              chatName: 'Alpha Chat',
+              firstAgentKey: 'agent-a',
+              firstAgentName: 'Agent A',
+              updatedAt: Date.now()
+            } as any
+          ]}
           onSelectRecentKeyword={() => {}}
           onSelectAgent={onSelectAgent}
           onSelectChat={onSelectChat}
@@ -71,7 +79,15 @@ describe('ChatSearchPane', () => {
           theme={THEMES.light}
           keyword="alpha"
           agentResults={[{ agentKey: 'agent-a', agentName: 'Agent A', latestChatName: '最近会话' }]}
-          chatResults={[{ chatId: 'chat-1', chatName: 'Alpha Chat', firstAgentKey: 'agent-a', firstAgentName: 'Agent A', updatedAt: Date.now() } as any]}
+          chatResults={[
+            {
+              chatId: 'chat-1',
+              chatName: 'Alpha Chat',
+              firstAgentKey: 'agent-a',
+              firstAgentName: 'Agent A',
+              updatedAt: Date.now()
+            } as any
+          ]}
           onSelectRecentKeyword={() => {}}
           onSelectAgent={() => {}}
           onSelectChat={() => {}}

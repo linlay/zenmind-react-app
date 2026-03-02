@@ -87,18 +87,13 @@ function createFakeDb(): FakeDb {
     runAsync: jest.fn(async (sql: string, rawParams?: unknown) => {
       const params = Array.isArray(rawParams) ? rawParams : [];
 
-      if (/INSERT\s+INTO\s+CHATS/i.test(sql) && /ON\s+CONFLICT\(CHAT_ID_\)\s+DO\s+UPDATE/i.test(sql) && /LAST_RUN_CONTENT_/i.test(sql)) {
-        const [
-          chatId,
-          chatName,
-          agentKey,
-          createdAt,
-          updatedAt,
-          lastRunId,
-          lastRunContent,
-          readStatus,
-          readAt
-        ] = params;
+      if (
+        /INSERT\s+INTO\s+CHATS/i.test(sql) &&
+        /ON\s+CONFLICT\(CHAT_ID_\)\s+DO\s+UPDATE/i.test(sql) &&
+        /LAST_RUN_CONTENT_/i.test(sql)
+      ) {
+        const [chatId, chatName, agentKey, createdAt, updatedAt, lastRunId, lastRunContent, readStatus, readAt] =
+          params;
 
         const next: ChatRow = {
           CHAT_ID_: String(chatId || ''),
@@ -119,17 +114,8 @@ function createFakeDb(): FakeDb {
       }
 
       if (/INSERT\s+OR\s+IGNORE\s+INTO\s+CHATS/i.test(sql)) {
-        const [
-          chatId,
-          chatName,
-          agentKey,
-          createdAt,
-          updatedAt,
-          lastRunId,
-          lastRunContent,
-          readStatus,
-          readAt
-        ] = params;
+        const [chatId, chatName, agentKey, createdAt, updatedAt, lastRunId, lastRunContent, readStatus, readAt] =
+          params;
 
         const key = String(chatId || '');
         if (!rows.has(key)) {

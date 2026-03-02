@@ -1,31 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  AppState,
-  Animated,
-  BackHandler,
-  Easing,
-  Keyboard,
-  Platform,
-  useWindowDimensions,
-} from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useAppDispatch, useAppSelector } from "../../store/hooks";
-import {
-  DomainMode,
-  InboxMessage,
-  WebSocketMessage,
-} from "../../../core/types/common";
-import { THEMES } from "../../../core/constants/theme";
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AppState, Animated, BackHandler, Easing, Keyboard, Platform, useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { DomainMode, InboxMessage, WebSocketMessage } from '../../../core/types/common';
+import { THEMES } from '../../../core/constants/theme';
 import {
   normalizeEndpointInput,
   normalizePtyUrlInput,
   toBackendBaseUrl,
-  toDefaultPtyWebUrl,
-} from "../../../core/network/endpoint";
-import {
-  loadSettings,
-  patchSettings,
-} from "../../../core/storage/settingsStorage";
+  toDefaultPtyWebUrl
+} from '../../../core/network/endpoint';
+import { loadSettings, patchSettings } from '../../../core/storage/settingsStorage';
 import {
   clearChatOverlays,
   closeChatDetailDrawer,
@@ -38,44 +23,28 @@ import {
   setChatSearchQuery as setShellChatSearchQuery,
   showChatListRoute,
   showTerminalDetailPane,
-  showTerminalListPane,
-} from "../shellSlice";
+  showTerminalListPane
+} from '../shellSlice';
 import {
   applyEndpointDraft,
   hydrateSettings,
   setActiveDomain,
   setEndpointDraft,
   setPtyUrlDraft,
-  setSelectedAgentKey as setUserSelectedAgentKey,
-} from "../../../modules/user/state/userSlice";
-import {
-  setAgents,
-  setAgentsError,
-  setAgentsLoading,
-} from "../../../modules/agents/state/agentsSlice";
-import {
-  setChatId,
-  setChats,
-  setLoadingChats,
-  setStatusText,
-} from "../../../modules/chat/state/chatSlice";
+  setSelectedAgentKey as setUserSelectedAgentKey
+} from '../../../modules/user/state/userSlice';
+import { setAgents, setAgentsError, setAgentsLoading } from '../../../modules/agents/state/agentsSlice';
+import { setChatId, setChats, setLoadingChats, setStatusText } from '../../../modules/chat/state/chatSlice';
 import {
   reloadPty,
   requestOpenNewSessionModal,
-  setActiveSessionId,
-} from "../../../modules/terminal/state/terminalSlice";
-import {
-  selectAgentLatestChats,
-  selectCurrentAgentChats,
-} from "../../../modules/chat/state/chatSelectors";
-import { ChatSearchAgentItem } from "../../../modules/chat/components/ChatSearchPane";
-import { useLazyGetAgentsQuery } from "../../../modules/agents/api/agentsApi";
-import { useLazyListTerminalSessionsQuery } from "../../../modules/terminal/api/terminalApi";
-import {
-  fetchAuthedJson,
-  formatError,
-  markChatReadApi,
-} from "../../../core/network/apiClient";
+  setActiveSessionId
+} from '../../../modules/terminal/state/terminalSlice';
+import { selectAgentLatestChats, selectCurrentAgentChats } from '../../../modules/chat/state/chatSelectors';
+import { ChatSearchAgentItem } from '../../../modules/chat/components/ChatSearchPane';
+import { useLazyGetAgentsQuery } from '../../../modules/agents/api/agentsApi';
+import { useLazyListTerminalSessionsQuery } from '../../../modules/terminal/api/terminalApi';
+import { fetchAuthedJson, formatError, markChatReadApi } from '../../../core/network/apiClient';
 import {
   createRequestId,
   getAgentKey,
@@ -84,11 +53,11 @@ import {
   getChatAgentKey,
   getChatAgentName,
   getChatTimestamp,
-  getChatTitle,
-} from "../../../shared/utils/format";
-import { getAppVersionLabel } from "../../../shared/utils/appVersion";
-import { TerminalSessionItem } from "../../../modules/terminal/types/terminal";
-import { buildPtyWebUrlWithSessionId } from "../../../modules/terminal/utils/sessionUrl";
+  getChatTitle
+} from '../../../shared/utils/format';
+import { getAppVersionLabel } from '../../../shared/utils/appVersion';
+import { TerminalSessionItem } from '../../../modules/terminal/types/terminal';
+import { buildPtyWebUrlWithSessionId } from '../../../modules/terminal/utils/sessionUrl';
 import {
   ensureFreshAccessToken,
   getCurrentSession,
@@ -97,19 +66,12 @@ import {
   loginWithMasterPassword,
   logoutCurrentDevice,
   restoreSession,
-  subscribeAuthSession,
-} from "../../../core/auth/appAuth";
-import {
-  WebViewAuthRefreshCoordinator,
-  WebViewAuthRefreshOutcome,
-} from "../../../core/auth/webViewAuthBridge";
-import {
-  initChatCacheDb,
-  listCachedChats,
-  markChatReadLocal,
-} from "../../../modules/chat/services/chatCacheDb";
-import { syncChatsIncremental } from "../../../modules/chat/services/chatSyncService";
-import { buildShellRouteModel } from "../routes/shellRouteModel";
+  subscribeAuthSession
+} from '../../../core/auth/appAuth';
+import { WebViewAuthRefreshCoordinator, WebViewAuthRefreshOutcome } from '../../../core/auth/webViewAuthBridge';
+import { initChatCacheDb, listCachedChats, markChatReadLocal } from '../../../modules/chat/services/chatCacheDb';
+import { syncChatsIncremental } from '../../../modules/chat/services/chatSyncService';
+import { buildShellRouteModel } from '../routes/shellRouteModel';
 
 const PREFRESH_MIN_VALIDITY_MS = 120_000;
 const PREFRESH_JITTER_MS = 8_000;
@@ -128,92 +90,62 @@ export function useShellScreenController() {
     terminalPane,
     chatAgentsSidebarOpen,
     chatDetailDrawerOpen,
-    chatDetailDrawerPreviewProgress,
+    chatDetailDrawerPreviewProgress
   } = useAppSelector((state) => state.shell);
-  const {
-    booting,
-    themeMode,
-    endpointDraft,
-    endpointInput,
-    ptyUrlInput,
-    selectedAgentKey,
-    activeDomain,
-  } = useAppSelector((state) => state.user);
+  const { booting, themeMode, endpointDraft, endpointInput, ptyUrlInput, selectedAgentKey, activeDomain } =
+    useAppSelector((state) => state.user);
   const chatId = useAppSelector((state) => state.chat.chatId);
   const chats = useAppSelector((state) => state.chat.chats);
   const loadingChats = useAppSelector((state) => state.chat.loadingChats);
   const agents = useAppSelector((state) => state.agents.agents);
   const agentLatestChats = useAppSelector(selectAgentLatestChats);
   const currentAgentChats = useAppSelector(selectCurrentAgentChats);
-  const activeTerminalSessionId = useAppSelector(
-    (state) => state.terminal.activeSessionId,
-  );
+  const activeTerminalSessionId = useAppSelector((state) => state.terminal.activeSessionId);
 
   const [inboxOpen, setInboxOpen] = useState(false);
   const [publishOpen, setPublishOpen] = useState(false);
   const [shellKeyboardHeight, setShellKeyboardHeight] = useState(0);
   const [authChecking, setAuthChecking] = useState(true);
   const [authReady, setAuthReady] = useState(false);
-  const [authError, setAuthError] = useState("");
-  const [masterPassword, setMasterPassword] = useState("");
+  const [authError, setAuthError] = useState('');
+  const [masterPassword, setMasterPassword] = useState('');
   const [deviceName, setDeviceName] = useState(getDefaultDeviceName());
   const [inboxMessages, setInboxMessages] = useState<InboxMessage[]>([]);
   const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
   const [inboxLoading, setInboxLoading] = useState(false);
   const [chatRefreshSignal, setChatRefreshSignal] = useState(0);
-  const [authAccessToken, setAuthAccessToken] = useState("");
-  const [authAccessExpireAtMs, setAuthAccessExpireAtMs] = useState<
-    number | undefined
-  >(undefined);
+  const [authAccessToken, setAuthAccessToken] = useState('');
+  const [authAccessExpireAtMs, setAuthAccessExpireAtMs] = useState<number | undefined>(undefined);
   const [authTokenSignal, setAuthTokenSignal] = useState(0);
-  const [authUsername, setAuthUsername] = useState("");
-  const [authDeviceName, setAuthDeviceName] = useState("");
-  const [terminalSessions, setTerminalSessions] = useState<
-    TerminalSessionItem[]
-  >([]);
+  const [authUsername, setAuthUsername] = useState('');
+  const [authDeviceName, setAuthDeviceName] = useState('');
+  const [terminalSessions, setTerminalSessions] = useState<TerminalSessionItem[]>([]);
   const [terminalSessionsLoading, setTerminalSessionsLoading] = useState(false);
-  const [terminalSessionsError, setTerminalSessionsError] = useState("");
-  const [terminalCurrentWebViewUrl, setTerminalCurrentWebViewUrl] =
-    useState("");
+  const [terminalSessionsError, setTerminalSessionsError] = useState('');
+  const [terminalCurrentWebViewUrl, setTerminalCurrentWebViewUrl] = useState('');
   const [chatPlusMenuOpen, setChatPlusMenuOpen] = useState(false);
 
   const [triggerAgents] = useLazyGetAgentsQuery();
   const [triggerTerminalSessions] = useLazyListTerminalSessionsQuery();
 
   const wsRef = useRef<WebSocket | null>(null);
-  const wsReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
+  const wsReconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wsRetryRef = useRef(0);
-  const wsAccessTokenRef = useRef("");
+  const wsAccessTokenRef = useRef('');
   const appStateRef = useRef(AppState.currentState);
   const lastActiveRefreshAtRef = useRef(0);
-  const authRefreshCoordinatorRef =
-    useRef<WebViewAuthRefreshCoordinator | null>(null);
+  const authRefreshCoordinatorRef = useRef<WebViewAuthRefreshCoordinator | null>(null);
   const chatSyncInFlightRef = useRef(false);
 
   const inboxAnim = useRef(new Animated.Value(0)).current;
   const publishAnim = useRef(new Animated.Value(0)).current;
-  const chatRouteAnim = useRef(
-    new Animated.Value(chatRoute === "search" ? 1 : 0),
-  ).current;
+  const chatRouteAnim = useRef(new Animated.Value(chatRoute === 'search' ? 1 : 0)).current;
   const chatOverlayEnterAnim = useRef(new Animated.Value(1)).current;
-  const terminalPaneAnim = useRef(
-    new Animated.Value(terminalPane === "detail" ? 1 : 0),
-  ).current;
+  const terminalPaneAnim = useRef(new Animated.Value(terminalPane === 'detail' ? 1 : 0)).current;
   const theme = THEMES[themeMode] || THEMES.light;
-  const backendUrl = useMemo(
-    () => toBackendBaseUrl(endpointInput),
-    [endpointInput],
-  );
-  const ptyWebUrl = useMemo(
-    () => normalizePtyUrlInput(ptyUrlInput, endpointInput),
-    [endpointInput, ptyUrlInput],
-  );
-  const normalizedLoginEndpointDraft = useMemo(
-    () => normalizeEndpointInput(endpointDraft),
-    [endpointDraft],
-  );
+  const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
+  const ptyWebUrl = useMemo(() => normalizePtyUrlInput(ptyUrlInput, endpointInput), [endpointInput, ptyUrlInput]);
+  const normalizedLoginEndpointDraft = useMemo(() => normalizeEndpointInput(endpointDraft), [endpointDraft]);
   const canSubmitLogin = Boolean(normalizedLoginEndpointDraft) && !authChecking;
 
   useEffect(() => {
@@ -221,54 +153,45 @@ export function useShellScreenController() {
   }, []);
 
   useEffect(() => {
-    const showEvent =
-      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
-    const hideEvent =
-      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
-    const onShow = Keyboard.addListener(showEvent, (e) =>
-      setShellKeyboardHeight(e?.endCoordinates?.height || 0),
-    );
-    const onHide = Keyboard.addListener(hideEvent, () =>
-      setShellKeyboardHeight(0),
-    );
+    const showEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const onShow = Keyboard.addListener(showEvent, (e) => setShellKeyboardHeight(e?.endCoordinates?.height || 0));
+    const onHide = Keyboard.addListener(hideEvent, () => setShellKeyboardHeight(0));
     return () => {
       onShow.remove();
       onHide.remove();
     };
   }, []);
 
-  const keyboardInset =
-    Platform.OS === "android" ? Math.max(0, shellKeyboardHeight) : 0;
+  const keyboardInset = Platform.OS === 'android' ? Math.max(0, shellKeyboardHeight) : 0;
 
   const terminalTranslateX = useMemo(
     () =>
       terminalPaneAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [0, -window.width],
+        outputRange: [0, -window.width]
       }),
-    [terminalPaneAnim, window.width],
+    [terminalPaneAnim, window.width]
   );
   const chatRouteTranslateX = useMemo(
     () =>
       chatRouteAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [0, -window.width],
+        outputRange: [0, -window.width]
       }),
-    [chatRouteAnim, window.width],
+    [chatRouteAnim, window.width]
   );
   const chatOverlayEnterTranslateX = useMemo(
     () =>
       chatOverlayEnterAnim.interpolate({
         inputRange: [0, 1],
-        outputRange: [18, 0],
+        outputRange: [18, 0]
       }),
-    [chatOverlayEnterAnim],
+    [chatOverlayEnterAnim]
   );
-  const topChatOverlay = chatOverlayStack.length
-    ? chatOverlayStack[chatOverlayStack.length - 1]
-    : null;
-  const topChatOverlayId = topChatOverlay?.overlayId || "";
-  const topChatOverlayType = topChatOverlay?.type || "";
+  const topChatOverlay = chatOverlayStack.length ? chatOverlayStack[chatOverlayStack.length - 1] : null;
+  const topChatOverlayId = topChatOverlay?.overlayId || '';
+  const topChatOverlayType = topChatOverlay?.type || '';
   const hasChatOverlay = Boolean(topChatOverlay);
   const previousTopChatOverlayIdRef = useRef(topChatOverlayId);
 
@@ -276,28 +199,21 @@ export function useShellScreenController() {
    * 从会话对象同步鉴权状态到组件 state
    * 更新 accessToken、过期时间、用户名、设备名，并触发 authTokenSignal 信号
    */
-  const syncAuthStateFromSession = useCallback(
-    (session = getCurrentSession()) => {
-      if (!session) {
-        setAuthAccessToken("");
-        setAuthAccessExpireAtMs(undefined);
-        setAuthUsername("");
-        setAuthDeviceName("");
-        setAuthTokenSignal((prev) => prev + 1);
-        return;
-      }
-      setAuthAccessToken(String(session.accessToken || ""));
-      setAuthAccessExpireAtMs(
-        Number.isFinite(session.accessExpireAtMs)
-          ? session.accessExpireAtMs
-          : undefined,
-      );
-      setAuthUsername(String(session.username || "").trim());
-      setAuthDeviceName(String(session.deviceName || "").trim());
+  const syncAuthStateFromSession = useCallback((session = getCurrentSession()) => {
+    if (!session) {
+      setAuthAccessToken('');
+      setAuthAccessExpireAtMs(undefined);
+      setAuthUsername('');
+      setAuthDeviceName('');
       setAuthTokenSignal((prev) => prev + 1);
-    },
-    [],
-  );
+      return;
+    }
+    setAuthAccessToken(String(session.accessToken || ''));
+    setAuthAccessExpireAtMs(Number.isFinite(session.accessExpireAtMs) ? session.accessExpireAtMs : undefined);
+    setAuthUsername(String(session.username || '').trim());
+    setAuthDeviceName(String(session.deviceName || '').trim());
+    setAuthTokenSignal((prev) => prev + 1);
+  }, []);
 
   /**
    * 刷新智能体列表
@@ -311,14 +227,14 @@ export function useShellScreenController() {
       try {
         const list = await triggerAgents(base).unwrap();
         dispatch(setAgents(list));
-        dispatch(setAgentsError(""));
+        dispatch(setAgentsError(''));
 
         const current = selectedAgentKey;
         if (current && list.some((agent) => getAgentKey(agent) === current)) {
           return;
         }
 
-        const fallback = getAgentKey(list[0]) || "";
+        const fallback = getAgentKey(list[0]) || '';
         dispatch(setUserSelectedAgentKey(fallback));
       } catch (error) {
         dispatch(setAgentsError(formatError(error)));
@@ -327,7 +243,7 @@ export function useShellScreenController() {
         if (!silent) dispatch(setAgentsLoading(false));
       }
     },
-    [backendUrl, dispatch, selectedAgentKey, triggerAgents],
+    [backendUrl, dispatch, selectedAgentKey, triggerAgents]
   );
 
   /**
@@ -355,7 +271,7 @@ export function useShellScreenController() {
       options?: {
         notifyError?: boolean;
         bumpActiveChatRefresh?: boolean;
-      },
+      }
     ) => {
       if (!base || chatSyncInFlightRef.current) {
         return [];
@@ -367,11 +283,8 @@ export function useShellScreenController() {
         dispatch(setChats(result.chats));
 
         if (options?.bumpActiveChatRefresh) {
-          const activeChatId = String(chatId || "").trim();
-          if (
-            activeChatId &&
-            result.updatedChatIds.some((item) => item === activeChatId)
-          ) {
+          const activeChatId = String(chatId || '').trim();
+          if (activeChatId && result.updatedChatIds.some((item) => item === activeChatId)) {
             setChatRefreshSignal((prev) => prev + 1);
           }
         }
@@ -386,7 +299,7 @@ export function useShellScreenController() {
         chatSyncInFlightRef.current = false;
       }
     },
-    [backendUrl, chatId, dispatch],
+    [backendUrl, chatId, dispatch]
   );
 
   /**
@@ -401,7 +314,7 @@ export function useShellScreenController() {
         await loadChatsFromCache();
         await syncChatsNow(base, {
           notifyError: !silent,
-          bumpActiveChatRefresh: true,
+          bumpActiveChatRefresh: true
         });
       } catch (error) {
         dispatch(setStatusText(`会话列表加载失败：${formatError(error)}`));
@@ -409,7 +322,7 @@ export function useShellScreenController() {
         if (!silent) dispatch(setLoadingChats(false));
       }
     },
-    [backendUrl, dispatch, loadChatsFromCache, syncChatsNow],
+    [backendUrl, dispatch, loadChatsFromCache, syncChatsNow]
   );
 
   /**
@@ -425,15 +338,12 @@ export function useShellScreenController() {
       try {
         const sessions = await triggerTerminalSessions({
           backendUrl,
-          ptyWebUrl,
+          ptyWebUrl
         }).unwrap();
         setTerminalSessions(Array.isArray(sessions) ? sessions : []);
-        setTerminalSessionsError("");
-        if (
-          activeTerminalSessionId &&
-          !sessions.some((item) => item.sessionId === activeTerminalSessionId)
-        ) {
-          dispatch(setActiveSessionId(""));
+        setTerminalSessionsError('');
+        if (activeTerminalSessionId && !sessions.some((item) => item.sessionId === activeTerminalSessionId)) {
+          dispatch(setActiveSessionId(''));
           dispatch(showTerminalListPane());
         }
       } catch (error) {
@@ -446,13 +356,7 @@ export function useShellScreenController() {
         }
       }
     },
-    [
-      activeTerminalSessionId,
-      backendUrl,
-      dispatch,
-      ptyWebUrl,
-      triggerTerminalSessions,
-    ],
+    [activeTerminalSessionId, backendUrl, dispatch, ptyWebUrl, triggerTerminalSessions]
   );
 
   /**
@@ -472,12 +376,9 @@ export function useShellScreenController() {
    */
   const refreshAll = useCallback(
     async (silent = false, base = backendUrl) => {
-      await Promise.all([
-        refreshAgents(base, silent),
-        refreshChats(silent, base),
-      ]);
+      await Promise.all([refreshAgents(base, silent), refreshChats(silent, base)]);
     },
-    [backendUrl, refreshAgents, refreshChats],
+    [backendUrl, refreshAgents, refreshChats]
   );
 
   /**
@@ -492,11 +393,8 @@ export function useShellScreenController() {
       }
       try {
         const [list, unread] = await Promise.all([
-          fetchAuthedJson<InboxMessage[]>(base, "/api/app/inbox?limit=50"),
-          fetchAuthedJson<{ unreadCount?: number }>(
-            base,
-            "/api/app/inbox/unread-count",
-          ),
+          fetchAuthedJson<InboxMessage[]>(base, '/api/app/inbox?limit=50'),
+          fetchAuthedJson<{ unreadCount?: number }>(base, '/api/app/inbox/unread-count')
         ]);
         setInboxMessages(Array.isArray(list) ? list : []);
         setInboxUnreadCount(Number((unread && unread.unreadCount) || 0));
@@ -508,7 +406,7 @@ export function useShellScreenController() {
         }
       }
     },
-    [backendUrl, dispatch],
+    [backendUrl, dispatch]
   );
 
   /**
@@ -522,17 +420,17 @@ export function useShellScreenController() {
         return;
       }
       try {
-        await fetchAuthedJson<unknown>(backendUrl, "/api/app/inbox/read", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ messageIds: [messageId] }),
+        await fetchAuthedJson<unknown>(backendUrl, '/api/app/inbox/read', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messageIds: [messageId] })
         });
         await refreshInbox(true);
       } catch (error) {
         dispatch(setStatusText(`消息已读失败：${formatError(error)}`));
       }
     },
-    [backendUrl, dispatch, refreshInbox],
+    [backendUrl, dispatch, refreshInbox]
   );
 
   /**
@@ -540,8 +438,8 @@ export function useShellScreenController() {
    */
   const markAllInboxRead = useCallback(async () => {
     try {
-      await fetchAuthedJson<unknown>(backendUrl, "/api/app/inbox/read-all", {
-        method: "POST",
+      await fetchAuthedJson<unknown>(backendUrl, '/api/app/inbox/read-all', {
+        method: 'POST'
       });
       await refreshInbox(true);
     } catch (error) {
@@ -557,7 +455,7 @@ export function useShellScreenController() {
    */
   const markChatViewed = useCallback(
     async (viewedChatIdInput: string) => {
-      const viewedChatId = String(viewedChatIdInput || "").trim();
+      const viewedChatId = String(viewedChatIdInput || '').trim();
       if (!viewedChatId) {
         return;
       }
@@ -565,7 +463,7 @@ export function useShellScreenController() {
       try {
         await markChatReadLocal(viewedChatId, {
           readStatus: 1,
-          readAt: Date.now(),
+          readAt: Date.now()
         });
         await loadChatsFromCache();
       } catch {
@@ -580,7 +478,7 @@ export function useShellScreenController() {
         const result = await markChatReadApi(backendUrl, viewedChatId);
         await markChatReadLocal(viewedChatId, {
           readStatus: Number(result?.readStatus),
-          readAt: result?.readAt,
+          readAt: result?.readAt
         });
         await loadChatsFromCache();
       } catch (error) {
@@ -589,7 +487,7 @@ export function useShellScreenController() {
         }
       }
     },
-    [backendUrl, loadChatsFromCache],
+    [backendUrl, loadChatsFromCache]
   );
 
   /**
@@ -613,7 +511,7 @@ export function useShellScreenController() {
       }
       wsRef.current = null;
     }
-    wsAccessTokenRef.current = "";
+    wsAccessTokenRef.current = '';
   }, []);
 
   /**
@@ -637,18 +535,15 @@ export function useShellScreenController() {
         return;
       }
 
-      const type = String(parsed?.type || "");
+      const type = String(parsed?.type || '');
       const payload = parsed?.payload || {};
 
-      if (type === "inbox.new") {
+      if (type === 'inbox.new') {
         const message = payload.message as InboxMessage | undefined;
         if (message && message.messageId) {
-          setInboxMessages((prev) => [
-            message,
-            ...prev.filter((item) => item.messageId !== message.messageId),
-          ]);
+          setInboxMessages((prev) => [message, ...prev.filter((item) => item.messageId !== message.messageId)]);
         }
-        if (typeof payload.unreadCount === "number") {
+        if (typeof payload.unreadCount === 'number') {
           setInboxUnreadCount(payload.unreadCount);
         } else {
           refreshInbox(true).catch(() => {});
@@ -656,8 +551,8 @@ export function useShellScreenController() {
         return;
       }
 
-      if (type === "inbox.sync") {
-        if (typeof payload.unreadCount === "number") {
+      if (type === 'inbox.sync') {
+        if (typeof payload.unreadCount === 'number') {
           setInboxUnreadCount(payload.unreadCount);
         } else {
           refreshInbox(true).catch(() => {});
@@ -665,14 +560,14 @@ export function useShellScreenController() {
         return;
       }
 
-      if (type === "chat.new_content") {
+      if (type === 'chat.new_content') {
         syncChatsNow(backendUrl, {
           notifyError: false,
-          bumpActiveChatRefresh: true,
+          bumpActiveChatRefresh: true
         }).catch(() => {});
       }
     },
-    [backendUrl, refreshInbox, syncChatsNow],
+    [backendUrl, refreshInbox, syncChatsNow]
   );
 
   /**
@@ -681,17 +576,17 @@ export function useShellScreenController() {
    * 清理 WebSocket、重置鉴权状态、清空消息盒子
    */
   const handleHardAuthFailure = useCallback(
-    (statusMessage = "登录状态失效，请重新登录") => {
+    (statusMessage = '登录状态失效，请重新登录') => {
       clearWs();
       setAuthReady(false);
       setInboxMessages([]);
       setInboxUnreadCount(0);
       setAuthError(statusMessage);
-      setMasterPassword("");
+      setMasterPassword('');
       syncAuthStateFromSession(null);
       dispatch(setStatusText(statusMessage));
     },
-    [clearWs, dispatch, syncAuthStateFromSession],
+    [clearWs, dispatch, syncAuthStateFromSession]
   );
 
   /**
@@ -704,7 +599,7 @@ export function useShellScreenController() {
     } catch {
       // ignore logout API errors
     }
-    handleHardAuthFailure("已登出");
+    handleHardAuthFailure('已登出');
   }, [backendUrl, handleHardAuthFailure]);
 
   /**
@@ -720,7 +615,7 @@ export function useShellScreenController() {
     const accessToken = await ensureFreshAccessToken(backendUrl, {
       minValidityMs: PREFRESH_MIN_VALIDITY_MS,
       jitterMs: PREFRESH_JITTER_MS,
-      failureMode: "soft",
+      failureMode: 'soft'
     });
     if (accessToken) {
       syncAuthStateFromSession();
@@ -742,14 +637,11 @@ export function useShellScreenController() {
   }, [backendUrl, syncAuthStateFromSession]);
 
   useEffect(() => {
-    authRefreshCoordinatorRef.current = new WebViewAuthRefreshCoordinator(
-      resolveHardRefreshToken,
-      {
-        onHardFailure: () => {
-          handleHardAuthFailure();
-        },
-      },
-    );
+    authRefreshCoordinatorRef.current = new WebViewAuthRefreshCoordinator(resolveHardRefreshToken, {
+      onHardFailure: () => {
+        handleHardAuthFailure();
+      }
+    });
     return () => {
       authRefreshCoordinatorRef.current = null;
     };
@@ -763,20 +655,17 @@ export function useShellScreenController() {
    * @returns 刷新结果（成功/失败 + token/错误信息）
    */
   const handleWebViewAuthRefreshRequest = useCallback(
-    async (
-      _requestId: string,
-      _source: string,
-    ): Promise<WebViewAuthRefreshOutcome> => {
+    async (_requestId: string, _source: string): Promise<WebViewAuthRefreshOutcome> => {
       const coordinator = authRefreshCoordinatorRef.current;
       if (!coordinator) {
         return {
           ok: false,
-          error: "Auth refresh coordinator unavailable",
+          error: 'Auth refresh coordinator unavailable'
         };
       }
       return coordinator.refresh();
     },
-    [],
+    []
   );
 
   /**
@@ -798,11 +687,11 @@ export function useShellScreenController() {
       return;
     }
 
-    let wsUrl = "";
+    let wsUrl = '';
     try {
       const url = new URL(`${backendUrl}/api/app/ws`);
-      url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
-      url.searchParams.set("access_token", accessToken);
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      url.searchParams.set('access_token', accessToken);
       wsUrl = url.toString();
     } catch {
       return;
@@ -817,7 +706,7 @@ export function useShellScreenController() {
     };
 
     ws.onmessage = (event) => {
-      handleWsEnvelope(String(event?.data || ""));
+      handleWsEnvelope(String(event?.data || ''));
     };
 
     ws.onclose = () => {
@@ -839,16 +728,11 @@ export function useShellScreenController() {
 
   useEffect(() => {
     const unsubscribe = subscribeAuthSession((event) => {
-      if (event.type === "session_updated") {
+      if (event.type === 'session_updated') {
         const previousToken = wsAccessTokenRef.current;
-        const nextToken = String(event.session.accessToken || "");
+        const nextToken = String(event.session.accessToken || '');
         syncAuthStateFromSession(event.session);
-        if (
-          authReady &&
-          previousToken &&
-          nextToken &&
-          previousToken !== nextToken
-        ) {
+        if (authReady && previousToken && nextToken && previousToken !== nextToken) {
           connectWs().catch(() => {});
         }
         return;
@@ -861,14 +745,11 @@ export function useShellScreenController() {
   }, [authReady, connectWs, syncAuthStateFromSession]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener("change", (nextState) => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
       const prevState = appStateRef.current;
       appStateRef.current = nextState;
 
-      if (
-        (prevState === "background" || prevState === "inactive") &&
-        nextState === "active"
-      ) {
+      if ((prevState === 'background' || prevState === 'inactive') && nextState === 'active') {
         if (booting || !authReady) {
           return;
         }
@@ -891,7 +772,7 @@ export function useShellScreenController() {
       return;
     }
     const timer = setInterval(() => {
-      if (appStateRef.current !== "active") {
+      if (appStateRef.current !== 'active') {
         return;
       }
       runForegroundProactiveRefresh().catch(() => {});
@@ -908,12 +789,12 @@ export function useShellScreenController() {
     }
 
     const timer = setInterval(() => {
-      if (appStateRef.current !== "active") {
+      if (appStateRef.current !== 'active') {
         return;
       }
       syncChatsNow(backendUrl, {
         notifyError: false,
-        bumpActiveChatRefresh: true,
+        bumpActiveChatRefresh: true
       }).catch(() => {});
     }, 5000);
 
@@ -937,19 +818,19 @@ export function useShellScreenController() {
   const submitLogin = useCallback(async () => {
     const normalizedEndpoint = normalizeEndpointInput(endpointDraft);
     if (!normalizedEndpoint) {
-      setAuthError("请输入后端域名或 IP");
+      setAuthError('请输入后端域名或 IP');
       return;
     }
 
-    const password = String(masterPassword || "").trim();
+    const password = String(masterPassword || '').trim();
     if (!password) {
-      setAuthError("请输入主密码");
+      setAuthError('请输入主密码');
       return;
     }
 
     const loginBackendUrl = toBackendBaseUrl(normalizedEndpoint);
     if (!loginBackendUrl) {
-      setAuthError("后端地址格式无效");
+      setAuthError('后端地址格式无效');
       return;
     }
 
@@ -958,16 +839,13 @@ export function useShellScreenController() {
     dispatch(applyEndpointDraft());
 
     setAuthChecking(true);
-    setAuthError("");
+    setAuthError('');
     try {
       await loginWithMasterPassword(loginBackendUrl, password, deviceName);
-      setMasterPassword("");
+      setMasterPassword('');
       setAuthReady(true);
       syncAuthStateFromSession();
-      await Promise.all([
-        refreshAll(true, loginBackendUrl),
-        refreshInbox(true, loginBackendUrl),
-      ]);
+      await Promise.all([refreshAll(true, loginBackendUrl), refreshInbox(true, loginBackendUrl)]);
     } catch (error) {
       setAuthReady(false);
       setInboxMessages([]);
@@ -977,15 +855,7 @@ export function useShellScreenController() {
     } finally {
       setAuthChecking(false);
     }
-  }, [
-    deviceName,
-    dispatch,
-    endpointDraft,
-    masterPassword,
-    refreshAll,
-    refreshInbox,
-    syncAuthStateFromSession,
-  ]);
+  }, [deviceName, dispatch, endpointDraft, masterPassword, refreshAll, refreshInbox, syncAuthStateFromSession]);
 
   useEffect(() => {
     let mounted = true;
@@ -1009,7 +879,7 @@ export function useShellScreenController() {
       toValue: inboxOpen ? 1 : 0,
       duration: inboxOpen ? 240 : 180,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: true
     }).start();
   }, [inboxAnim, inboxOpen]);
 
@@ -1018,16 +888,16 @@ export function useShellScreenController() {
       toValue: publishOpen ? 1 : 0,
       duration: publishOpen ? 240 : 180,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: true
     }).start();
   }, [publishAnim, publishOpen]);
 
   useEffect(() => {
     Animated.timing(chatRouteAnim, {
-      toValue: chatRoute === "search" ? 1 : 0,
+      toValue: chatRoute === 'search' ? 1 : 0,
       duration: 220,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: true
     }).start();
   }, [chatRoute, chatRouteAnim]);
 
@@ -1046,16 +916,16 @@ export function useShellScreenController() {
       toValue: 1,
       duration: 220,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: true
     }).start();
   }, [chatOverlayEnterAnim, topChatOverlayId]);
 
   useEffect(() => {
     Animated.timing(terminalPaneAnim, {
-      toValue: terminalPane === "detail" ? 1 : 0,
+      toValue: terminalPane === 'detail' ? 1 : 0,
       duration: 220,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: true
     }).start();
   }, [terminalPane, terminalPaneAnim]);
 
@@ -1073,7 +943,7 @@ export function useShellScreenController() {
 
     let cancelled = false;
     setAuthChecking(true);
-    setAuthError("");
+    setAuthError('');
     restoreSession(backendUrl)
       .then((session) => {
         if (cancelled) return;
@@ -1118,15 +988,7 @@ export function useShellScreenController() {
     return () => {
       clearWs();
     };
-  }, [
-    authReady,
-    booting,
-    clearWs,
-    connectWs,
-    refreshAll,
-    refreshInbox,
-    runForegroundProactiveRefresh,
-  ]);
+  }, [authReady, booting, clearWs, connectWs, refreshAll, refreshInbox, runForegroundProactiveRefresh]);
 
   useEffect(() => {
     if (booting) return;
@@ -1135,22 +997,15 @@ export function useShellScreenController() {
       endpointInput,
       ptyUrlInput,
       selectedAgentKey,
-      activeDomain,
+      activeDomain
     }).catch(() => {});
-  }, [
-    activeDomain,
-    booting,
-    endpointInput,
-    ptyUrlInput,
-    selectedAgentKey,
-    themeMode,
-  ]);
+  }, [activeDomain, booting, endpointInput, ptyUrlInput, selectedAgentKey, themeMode]);
 
   useEffect(() => {
-    if (activeDomain !== "chat" && activeDomain !== "user") {
+    if (activeDomain !== 'chat' && activeDomain !== 'user') {
       setInboxOpen(false);
     }
-    if (activeDomain !== "chat") {
+    if (activeDomain !== 'chat') {
       setChatPlusMenuOpen(false);
       dispatch(showChatListRoute());
       dispatch(clearChatOverlays());
@@ -1161,21 +1016,13 @@ export function useShellScreenController() {
   }, [activeDomain, dispatch]);
 
   useEffect(() => {
-    if (topChatOverlayType !== "chatDetail" && chatDetailDrawerOpen) {
+    if (topChatOverlayType !== 'chatDetail' && chatDetailDrawerOpen) {
       dispatch(closeChatDetailDrawer());
     }
-    if (
-      topChatOverlayType !== "chatDetail" &&
-      chatDetailDrawerPreviewProgress > 0
-    ) {
+    if (topChatOverlayType !== 'chatDetail' && chatDetailDrawerPreviewProgress > 0) {
       dispatch(resetChatDetailDrawerPreview());
     }
-  }, [
-    chatDetailDrawerOpen,
-    chatDetailDrawerPreviewProgress,
-    dispatch,
-    topChatOverlayType,
-  ]);
+  }, [chatDetailDrawerOpen, chatDetailDrawerPreviewProgress, dispatch, topChatOverlayType]);
 
   useEffect(() => {
     if (!inboxOpen || !authReady) {
@@ -1188,31 +1035,31 @@ export function useShellScreenController() {
     if (!authReady) {
       setTerminalSessions([]);
       setTerminalSessionsLoading(false);
-      setTerminalSessionsError("");
-      dispatch(setActiveSessionId(""));
+      setTerminalSessionsError('');
+      dispatch(setActiveSessionId(''));
       dispatch(showTerminalListPane());
     }
   }, [authReady, dispatch]);
 
   useEffect(() => {
-    if (booting || !authReady || activeDomain !== "terminal") {
+    if (booting || !authReady || activeDomain !== 'terminal') {
       return;
     }
     refreshTerminalSessions(true).catch(() => {});
   }, [activeDomain, authReady, booting, refreshTerminalSessions, terminalPane]);
 
   useEffect(() => {
-    if (activeDomain !== "agents" && publishOpen) {
+    if (activeDomain !== 'agents' && publishOpen) {
       setPublishOpen(false);
     }
   }, [activeDomain, publishOpen]);
 
   useEffect(() => {
-    if (Platform.OS !== "android") {
+    if (Platform.OS !== 'android') {
       return;
     }
 
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
       if (inboxOpen) {
         setInboxOpen(false);
         return true;
@@ -1229,17 +1076,17 @@ export function useShellScreenController() {
         setPublishOpen(false);
         return true;
       }
-      if (activeDomain === "chat" && hasChatOverlay) {
+      if (activeDomain === 'chat' && hasChatOverlay) {
         dispatch(popChatOverlay());
         return true;
       }
-      if (activeDomain === "chat" && chatRoute === "search") {
+      if (activeDomain === 'chat' && chatRoute === 'search') {
         setChatPlusMenuOpen(false);
         dispatch(showChatListRoute());
-        dispatch(setShellChatSearchQuery(""));
+        dispatch(setShellChatSearchQuery(''));
         return true;
       }
-      if (activeDomain === "terminal" && terminalPane === "detail") {
+      if (activeDomain === 'terminal' && terminalPane === 'detail') {
         dispatch(showTerminalListPane());
         return true;
       }
@@ -1256,24 +1103,16 @@ export function useShellScreenController() {
     hasChatOverlay,
     inboxOpen,
     publishOpen,
-    terminalPane,
+    terminalPane
   ]);
 
   const activeAgent = useMemo(() => {
-    const found = agents.find(
-      (agent) => getAgentKey(agent) === selectedAgentKey,
-    );
+    const found = agents.find((agent) => getAgentKey(agent) === selectedAgentKey);
     return found || agents[0] || null;
   }, [agents, selectedAgentKey]);
-  const activeAgentName = useMemo(
-    () => getAgentName(activeAgent) || "Agent",
-    [activeAgent],
-  );
-  const activeAgentRole = useMemo(
-    () => getAgentRole(activeAgent),
-    [activeAgent],
-  );
-  const normalizedSearchKeyword = String(chatSearchQuery || "")
+  const activeAgentName = useMemo(() => getAgentName(activeAgent) || 'Agent', [activeAgent]);
+  const activeAgentRole = useMemo(() => getAgentRole(activeAgent), [activeAgent]);
+  const normalizedSearchKeyword = String(chatSearchQuery || '')
     .trim()
     .toLowerCase();
 
@@ -1293,14 +1132,12 @@ export function useShellScreenController() {
           return null;
         }
         const latestChat = [...chats]
-          .filter(
-            (chat) => String(getChatAgentKey(chat) || "").trim() === agentKey,
-          )
+          .filter((chat) => String(getChatAgentKey(chat) || '').trim() === agentKey)
           .sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a))[0];
         return {
           agentKey,
           agentName,
-          latestChatName: latestChat ? getChatTitle(latestChat) : "",
+          latestChatName: latestChat ? getChatTitle(latestChat) : ''
         };
       })
       .filter((item) => Boolean(item)) as ChatSearchAgentItem[];
@@ -1312,8 +1149,9 @@ export function useShellScreenController() {
     }
     return [...chats]
       .filter((chat) => {
-        const haystack =
-          `${chat.chatName || ""} ${chat.title || ""} ${chat.chatId || ""} ${getChatAgentName(chat)} ${getChatAgentKey(chat)}`.toLowerCase();
+        const haystack = `${chat.chatName || ''} ${chat.title || ''} ${chat.chatId || ''} ${getChatAgentName(
+          chat
+        )} ${getChatAgentKey(chat)}`.toLowerCase();
         return haystack.includes(normalizedSearchKeyword);
       })
       .sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a));
@@ -1328,17 +1166,9 @@ export function useShellScreenController() {
         hasChatOverlay,
         terminalPane,
         activeAgentName,
-        activeAgentRole,
+        activeAgentRole
       }),
-    [
-      activeAgentName,
-      activeAgentRole,
-      activeDomain,
-      chatRoute,
-      hasChatOverlay,
-      terminalPane,
-      topChatOverlayType,
-    ],
+    [activeAgentName, activeAgentRole, activeDomain, chatRoute, hasChatOverlay, terminalPane, topChatOverlayType]
   );
   const { isChatDetailOverlay } = routeModel;
   const appVersionLabel = useMemo(() => getAppVersionLabel(), []);
@@ -1372,7 +1202,7 @@ export function useShellScreenController() {
   const handleDomainSwitch = useCallback(
     (mode: DomainMode) => {
       if (mode === activeDomain) {
-        if (mode === "chat") {
+        if (mode === 'chat') {
           if (chatDetailDrawerOpen) {
             dispatch(closeChatDetailDrawer());
             return;
@@ -1386,25 +1216,25 @@ export function useShellScreenController() {
             dispatch(showChatListRoute());
             return;
           }
-          if (chatRoute === "search") {
+          if (chatRoute === 'search') {
             dispatch(showChatListRoute());
-            dispatch(setShellChatSearchQuery(""));
+            dispatch(setShellChatSearchQuery(''));
             return;
           }
           return;
         }
-        if (mode === "terminal" && terminalPane === "detail") {
+        if (mode === 'terminal' && terminalPane === 'detail') {
           dispatch(showTerminalListPane());
           return;
         }
         return;
       }
       closeFloatingPanels();
-      if (mode === "chat") {
+      if (mode === 'chat') {
         dispatch(showChatListRoute());
       } else {
         dispatch(showChatListRoute());
-        dispatch(setShellChatSearchQuery(""));
+        dispatch(setShellChatSearchQuery(''));
         dispatch(clearChatOverlays());
       }
       dispatch(setActiveDomain(mode));
@@ -1417,8 +1247,8 @@ export function useShellScreenController() {
       closeFloatingPanels,
       dispatch,
       hasChatOverlay,
-      terminalPane,
-    ],
+      terminalPane
+    ]
   );
 
   /**
@@ -1436,8 +1266,8 @@ export function useShellScreenController() {
   const openChatDetail = useCallback(
     (nextChatId: string, nextAgentKey?: string) => {
       Keyboard.dismiss();
-      const normalizedAgentKey = String(nextAgentKey || "").trim();
-      if (normalizedAgentKey && normalizedAgentKey !== "__unknown_agent__") {
+      const normalizedAgentKey = String(nextAgentKey || '').trim();
+      if (normalizedAgentKey && normalizedAgentKey !== '__unknown_agent__') {
         dispatch(setUserSelectedAgentKey(normalizedAgentKey));
       }
       dispatch(setChatId(nextChatId));
@@ -1446,12 +1276,12 @@ export function useShellScreenController() {
       dispatch(setChatAgentsSidebarOpen(false));
       dispatch(
         pushChatOverlay({
-          overlayId: createRequestId("chat_detail_overlay"),
-          type: "chatDetail",
-        }),
+          overlayId: createRequestId('chat_detail_overlay'),
+          type: 'chatDetail'
+        })
       );
     },
-    [dispatch],
+    [dispatch]
   );
 
   /**
@@ -1468,9 +1298,9 @@ export function useShellScreenController() {
   const openAgentProfile = useCallback(
     (agentKey: string) => {
       Keyboard.dismiss();
-      const normalizedKey = String(agentKey || "").trim();
+      const normalizedKey = String(agentKey || '').trim();
       if (!normalizedKey) {
-        dispatch(setStatusText("智能体信息不可用"));
+        dispatch(setStatusText('智能体信息不可用'));
         return;
       }
       dispatch(setUserSelectedAgentKey(normalizedKey));
@@ -1479,12 +1309,12 @@ export function useShellScreenController() {
       dispatch(resetChatDetailDrawerPreview());
       dispatch(
         pushChatOverlay({
-          overlayId: createRequestId("agent_detail_overlay"),
-          type: "agentDetail",
-        }),
+          overlayId: createRequestId('agent_detail_overlay'),
+          type: 'agentDetail'
+        })
       );
     },
-    [dispatch],
+    [dispatch]
   );
 
   /**
@@ -1497,21 +1327,21 @@ export function useShellScreenController() {
   const handleAgentSelectNewChat = useCallback(
     (agentKey: string) => {
       dispatch(setUserSelectedAgentKey(agentKey));
-      dispatch(setChatId(""));
-      dispatch(setStatusText(""));
+      dispatch(setChatId(''));
+      dispatch(setStatusText(''));
       dispatch(setChatAgentsSidebarOpen(false));
       dispatch(closeChatDetailDrawer());
       dispatch(resetChatDetailDrawerPreview());
       if (!isChatDetailOverlay) {
         dispatch(
           pushChatOverlay({
-            overlayId: createRequestId("chat_detail_overlay"),
-            type: "chatDetail",
-          }),
+            overlayId: createRequestId('chat_detail_overlay'),
+            type: 'chatDetail'
+          })
         );
       }
     },
-    [dispatch, isChatDetailOverlay],
+    [dispatch, isChatDetailOverlay]
   );
 
   /**
@@ -1520,16 +1350,16 @@ export function useShellScreenController() {
    * 如果不在聊天详情页，自动推入聊天详情覆盖层
    */
   const openNewCurrentAgentChat = useCallback(() => {
-    dispatch(setChatId(""));
-    dispatch(setStatusText(""));
+    dispatch(setChatId(''));
+    dispatch(setStatusText(''));
     dispatch(closeChatDetailDrawer());
     dispatch(resetChatDetailDrawerPreview());
     if (!isChatDetailOverlay) {
       dispatch(
         pushChatOverlay({
-          overlayId: createRequestId("chat_detail_overlay"),
-          type: "chatDetail",
-        }),
+          overlayId: createRequestId('chat_detail_overlay'),
+          type: 'chatDetail'
+        })
       );
     }
     setChatPlusMenuOpen(false);
@@ -1544,7 +1374,7 @@ export function useShellScreenController() {
     (agentKey: string) => {
       openAgentProfile(agentKey);
     },
-    [openAgentProfile],
+    [openAgentProfile]
   );
 
   /**
@@ -1554,7 +1384,7 @@ export function useShellScreenController() {
   const handleSearchBack = useCallback(() => {
     setChatPlusMenuOpen(false);
     dispatch(showChatListRoute());
-    dispatch(setShellChatSearchQuery(""));
+    dispatch(setShellChatSearchQuery(''));
   }, [dispatch]);
 
   /**
@@ -1563,14 +1393,14 @@ export function useShellScreenController() {
    */
   const handleAgentProfileStartChat = useCallback(
     (agentKey: string) => {
-      const normalizedKey = String(agentKey || "").trim();
+      const normalizedKey = String(agentKey || '').trim();
       if (!normalizedKey) {
-        dispatch(setStatusText("智能体信息不可用"));
+        dispatch(setStatusText('智能体信息不可用'));
         return;
       }
       handleAgentSelectNewChat(normalizedKey);
     },
-    [dispatch, handleAgentSelectNewChat],
+    [dispatch, handleAgentSelectNewChat]
   );
 
   /**
@@ -1583,35 +1413,32 @@ export function useShellScreenController() {
    * next: 索引 -1
    */
   const handleRequestSwitchAgentChat = useCallback(
-    (direction: "prev" | "next") => {
+    (direction: 'prev' | 'next') => {
       const list = currentAgentChats;
       if (!list.length) {
-        return { ok: false, message: "暂无可切换对话" };
+        return { ok: false, message: '暂无可切换对话' };
       }
-      const currentIndex = list.findIndex(
-        (item) => String(item.chatId || "") === String(chatId || ""),
-      );
+      const currentIndex = list.findIndex((item) => String(item.chatId || '') === String(chatId || ''));
       if (currentIndex < 0) {
-        return { ok: false, message: "未找到当前对话" };
+        return { ok: false, message: '未找到当前对话' };
       }
 
-      const nextIndex =
-        direction === "prev" ? currentIndex + 1 : currentIndex - 1;
+      const nextIndex = direction === 'prev' ? currentIndex + 1 : currentIndex - 1;
       if (nextIndex < 0) {
-        return { ok: false, message: "已到最新对话" };
+        return { ok: false, message: '已到最新对话' };
       }
       if (nextIndex >= list.length) {
-        return { ok: false, message: "已到最早对话" };
+        return { ok: false, message: '已到最早对话' };
       }
-      const targetChatId = String(list[nextIndex]?.chatId || "");
+      const targetChatId = String(list[nextIndex]?.chatId || '');
       if (!targetChatId) {
-        return { ok: false, message: "目标对话不可用" };
+        return { ok: false, message: '目标对话不可用' };
       }
       dispatch(setChatId(targetChatId));
       dispatch(closeChatDetailDrawer());
       return { ok: true };
     },
-    [chatId, currentAgentChats, dispatch],
+    [chatId, currentAgentChats, dispatch]
   );
 
   /**
@@ -1620,7 +1447,7 @@ export function useShellScreenController() {
    */
   const handleRequestCreateAgentChatBySwipe = useCallback(() => {
     openNewCurrentAgentChat();
-    return { ok: true, message: "已新建当前智能体对话" };
+    return { ok: true, message: '已新建当前智能体对话' };
   }, [openNewCurrentAgentChat]);
 
   /**
@@ -1652,7 +1479,7 @@ export function useShellScreenController() {
       }
       dispatch(setChatDetailDrawerPreviewProgress(progress));
     },
-    [chatDetailDrawerOpen, dispatch, isChatDetailOverlay],
+    [chatDetailDrawerOpen, dispatch, isChatDetailOverlay]
   );
 
   /**
@@ -1668,7 +1495,7 @@ export function useShellScreenController() {
       dispatch(reloadPty());
       dispatch(showTerminalDetailPane());
     },
-    [dispatch, ptyWebUrl],
+    [dispatch, ptyWebUrl]
   );
 
   /**
@@ -1677,7 +1504,7 @@ export function useShellScreenController() {
    * 更新终端 WebView 当前显示的 URL
    */
   const handleTerminalWebViewUrlChange = useCallback((url: string) => {
-    const next = String(url || "").trim();
+    const next = String(url || '').trim();
     if (!next) {
       return;
     }
@@ -1749,8 +1576,7 @@ export function useShellScreenController() {
     setPublishOpen,
     setChatPlusMenuOpen,
     setAuthError,
-    setChatSearchQuery: (value: string) =>
-      dispatch(setShellChatSearchQuery(value)),
+    setChatSearchQuery: (value: string) => dispatch(setShellChatSearchQuery(value)),
     setEndpointDraftText: (value: string) => dispatch(setEndpointDraft(value)),
     submitLogin,
     refreshTerminalSessions,
@@ -1776,7 +1602,7 @@ export function useShellScreenController() {
     handleLogout,
     markAllInboxRead,
     markInboxRead,
-    topChatOverlayType,
+    topChatOverlayType
   };
 }
 

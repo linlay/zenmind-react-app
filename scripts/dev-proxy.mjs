@@ -4,7 +4,9 @@ import http from 'node:http';
 import https from 'node:https';
 import { Readable } from 'node:stream';
 
-const TARGET_ORIGIN = String(process.env.ZENMIND_PROXY_TARGET || 'https://app.zenmind.cc').trim().replace(/\/+$/, '');
+const TARGET_ORIGIN = String(process.env.ZENMIND_PROXY_TARGET || 'https://app.zenmind.cc')
+  .trim()
+  .replace(/\/+$/, '');
 const PROXY_PORT = Number(process.env.ZENMIND_PROXY_PORT || 19080);
 const PROXY_HOST = String(process.env.ZENMIND_PROXY_HOST || '127.0.0.1').trim() || '127.0.0.1';
 const DEBUG = String(process.env.ZENMIND_PROXY_DEBUG || '1') !== '0';
@@ -160,7 +162,9 @@ async function handleHttpRequest(req, res) {
   if (method === 'HEAD' || !upstreamResponse.body) {
     if (DEBUG) {
       console.log(
-        `[dev-proxy] ${method} ${req.url || '/'} -> ${targetUrl.toString()} ${upstreamResponse.status} ${Date.now() - startedAt}ms`
+        `[dev-proxy] ${method} ${req.url || '/'} -> ${targetUrl.toString()} ${upstreamResponse.status} ${
+          Date.now() - startedAt
+        }ms`
       );
     }
     res.end();
@@ -169,7 +173,9 @@ async function handleHttpRequest(req, res) {
 
   if (DEBUG) {
     console.log(
-      `[dev-proxy] ${method} ${req.url || '/'} -> ${targetUrl.toString()} ${upstreamResponse.status} ${Date.now() - startedAt}ms`
+      `[dev-proxy] ${method} ${req.url || '/'} -> ${targetUrl.toString()} ${upstreamResponse.status} ${
+        Date.now() - startedAt
+      }ms`
     );
   }
   Readable.fromWeb(upstreamResponse.body).pipe(res);

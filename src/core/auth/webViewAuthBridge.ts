@@ -66,10 +66,7 @@ export function parseWebViewAuthRefreshRequest(raw: unknown): WebViewAuthRefresh
     typeof payload.requestId === 'string' && payload.requestId.trim()
       ? payload.requestId.trim()
       : createFallbackRequestId();
-  const source =
-    typeof payload.source === 'string' && payload.source.trim()
-      ? payload.source.trim()
-      : 'webview';
+  const source = typeof payload.source === 'string' && payload.source.trim() ? payload.source.trim() : 'webview';
 
   return {
     type: 'auth_refresh_request',

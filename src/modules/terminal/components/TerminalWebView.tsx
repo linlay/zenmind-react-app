@@ -98,7 +98,7 @@ export function TerminalWebView({
   }, [clearLoadTimer]);
 
   return (
-    <View style={[styles.wrap, { backgroundColor: theme.surfaceStrong }]}> 
+    <View style={[styles.wrap, { backgroundColor: theme.surfaceStrong }]}>
       <WebView
         ref={webViewRef}
         key={`${uri}:${reloadKey}`}
@@ -152,9 +152,7 @@ export function TerminalWebView({
             ok: false,
             error: 'Auth refresh handler unavailable'
           });
-          const refreshTask = onAuthRefreshRequest
-            ? onAuthRefreshRequest(request.requestId, request.source)
-            : fallback;
+          const refreshTask = onAuthRefreshRequest ? onAuthRefreshRequest(request.requestId, request.source) : fallback;
           refreshTask
             .then((outcome) => {
               const result = createWebViewAuthRefreshResultMessage(request.requestId, outcome);

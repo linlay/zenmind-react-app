@@ -31,7 +31,9 @@ export function buildDefaultSettings(): AppSettings {
 function normalizeSettings(raw: Partial<AppSettings> | null | undefined): AppSettings {
   const defaults = buildDefaultSettings();
   const endpointInput = normalizeEndpointInput(raw?.endpointInput || defaults.endpointInput);
-  const rawPtyUrlInput = String(raw?.ptyUrlInput || '').trim().replace(/\/+$/, '');
+  const rawPtyUrlInput = String(raw?.ptyUrlInput || '')
+    .trim()
+    .replace(/\/+$/, '');
   const shouldRegeneratePtyUrl = !rawPtyUrlInput || LEGACY_LOCAL_PTY_URLS.has(rawPtyUrlInput);
   const ptyUrlInput = normalizePtyUrlInput(shouldRegeneratePtyUrl ? '' : raw?.ptyUrlInput || '', endpointInput);
 

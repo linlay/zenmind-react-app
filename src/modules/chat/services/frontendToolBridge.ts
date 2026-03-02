@@ -1,7 +1,4 @@
-import {
-  parseWebViewAuthRefreshRequest,
-  parseWebViewBridgePayload
-} from '../../../core/auth/webViewAuthBridge';
+import { parseWebViewAuthRefreshRequest, parseWebViewBridgePayload } from '../../../core/auth/webViewAuthBridge';
 
 export type FrontendToolBridgeMessage =
   | {
@@ -33,9 +30,7 @@ export function parseFrontendToolBridgeMessage(raw: unknown): FrontendToolBridge
   const payloadType = String(payload.type || '');
   if (payloadType === 'frontend_submit') {
     const params =
-      payload.params && typeof payload.params === 'object'
-        ? (payload.params as Record<string, unknown>)
-        : {};
+      payload.params && typeof payload.params === 'object' ? (payload.params as Record<string, unknown>) : {};
     return {
       type: 'frontend_submit',
       params

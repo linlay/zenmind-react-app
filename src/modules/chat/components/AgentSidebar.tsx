@@ -15,14 +15,7 @@ interface AgentSidebarProps {
 
 const SIDEBAR_WIDTH = 284;
 
-export function AgentSidebar({
-  visible,
-  theme,
-  agents,
-  selectedAgentKey,
-  onClose,
-  onSelectAgent
-}: AgentSidebarProps) {
+export function AgentSidebar({ visible, theme, agents, selectedAgentKey, onClose, onSelectAgent }: AgentSidebarProps) {
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -43,7 +36,11 @@ export function AgentSidebar({
   );
 
   return (
-    <View pointerEvents={visible ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, styles.layer]} testID="chat-agent-sidebar-layer">
+    <View
+      pointerEvents={visible ? 'auto' : 'none'}
+      style={[StyleSheet.absoluteFill, styles.layer]}
+      testID="chat-agent-sidebar-layer"
+    >
       <Animated.View style={[styles.overlay, { opacity: anim, backgroundColor: theme.overlay }]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} />
       </Animated.View>
@@ -97,7 +94,10 @@ export function AgentSidebar({
                   onSelectAgent(key);
                 }}
               >
-                <Text style={[styles.itemTitle, { color: selected ? theme.primaryDeep : theme.text }]} numberOfLines={1}>
+                <Text
+                  style={[styles.itemTitle, { color: selected ? theme.primaryDeep : theme.text }]}
+                  numberOfLines={1}
+                >
                   {name}
                 </Text>
                 <Text style={[styles.itemSub, { color: theme.textMute }]} numberOfLines={1}>

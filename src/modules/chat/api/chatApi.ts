@@ -91,9 +91,5 @@ export const chatApi = createApi({
   })
 });
 
-export const {
-  useLazyGetChatsQuery,
-  useLazyGetChatQuery,
-  useLazyGetViewportHtmlQuery,
-  useSubmitFrontendToolMutation
-} = chatApi;
+export const { useLazyGetChatsQuery, useLazyGetChatQuery, useLazyGetViewportHtmlQuery, useSubmitFrontendToolMutation } =
+  chatApi;

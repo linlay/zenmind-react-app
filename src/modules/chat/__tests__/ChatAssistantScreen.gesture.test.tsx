@@ -131,26 +131,24 @@ async function renderScreen(props: Partial<Record<string, unknown>> = {}) {
 describe('ChatAssistantScreen gestures', () => {
   beforeAll(() => {
     jest.useFakeTimers();
-    jest.spyOn(ReactNative.PanResponder, 'create').mockImplementation((config: Record<string, (...args: any[]) => unknown>) => {
-      return {
-        panHandlers: {
-          onMoveShouldSetResponder: (event: unknown, gesture: unknown) =>
-            config.onMoveShouldSetPanResponder?.(event, gesture),
-          onMoveShouldSetResponderCapture: (event: unknown, gesture: unknown) =>
-            config.onMoveShouldSetPanResponderCapture?.(event, gesture),
-          onResponderGrant: (event: unknown, gesture: unknown) =>
-            config.onPanResponderGrant?.(event, gesture),
-          onResponderTerminationRequest: (event: unknown, gesture: unknown) =>
-            config.onPanResponderTerminationRequest?.(event, gesture),
-          onResponderMove: (event: unknown, gesture: unknown) =>
-            config.onPanResponderMove?.(event, gesture),
-          onResponderRelease: (event: unknown, gesture: unknown) =>
-            config.onPanResponderRelease?.(event, gesture),
-          onResponderTerminate: (event: unknown, gesture: unknown) =>
-            config.onPanResponderTerminate?.(event, gesture)
-        }
-      } as any;
-    });
+    jest
+      .spyOn(ReactNative.PanResponder, 'create')
+      .mockImplementation((config: Record<string, (...args: any[]) => unknown>) => {
+        return {
+          panHandlers: {
+            onMoveShouldSetResponder: (event: unknown, gesture: unknown) =>
+              config.onMoveShouldSetPanResponder?.(event, gesture),
+            onMoveShouldSetResponderCapture: (event: unknown, gesture: unknown) =>
+              config.onMoveShouldSetPanResponderCapture?.(event, gesture),
+            onResponderGrant: (event: unknown, gesture: unknown) => config.onPanResponderGrant?.(event, gesture),
+            onResponderTerminationRequest: (event: unknown, gesture: unknown) =>
+              config.onPanResponderTerminationRequest?.(event, gesture),
+            onResponderMove: (event: unknown, gesture: unknown) => config.onPanResponderMove?.(event, gesture),
+            onResponderRelease: (event: unknown, gesture: unknown) => config.onPanResponderRelease?.(event, gesture),
+            onResponderTerminate: (event: unknown, gesture: unknown) => config.onPanResponderTerminate?.(event, gesture)
+          }
+        } as any;
+      });
   });
 
   beforeEach(() => {

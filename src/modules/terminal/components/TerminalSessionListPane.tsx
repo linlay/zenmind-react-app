@@ -47,7 +47,11 @@ export function TerminalSessionListPane({
           testID="terminal-sessions-refresh-btn"
           onPress={onRefresh}
         >
-          {loading ? <ActivityIndicator size="small" color={theme.primaryDeep} /> : <Text style={[styles.refreshText, { color: theme.primaryDeep }]}>↻</Text>}
+          {loading ? (
+            <ActivityIndicator size="small" color={theme.primaryDeep} />
+          ) : (
+            <Text style={[styles.refreshText, { color: theme.primaryDeep }]}>↻</Text>
+          )}
         </TouchableOpacity>
       </View>
 
@@ -91,12 +95,17 @@ export function TerminalSessionListPane({
           })
         ) : (
           <View style={[styles.emptyCard, { backgroundColor: theme.surfaceStrong, marginTop: 8 }]}>
-            <Text style={[styles.emptyText, { color: theme.textMute }]}>{loading ? '加载中...' : error || '暂无终端会话'}</Text>
+            <Text style={[styles.emptyText, { color: theme.textMute }]}>
+              {loading ? '加载中...' : error || '暂无终端会话'}
+            </Text>
           </View>
         )}
       </ScrollView>
 
-      <View style={[styles.currentUrlCard, { backgroundColor: theme.surfaceStrong }]} testID="terminal-current-url-footer">
+      <View
+        style={[styles.currentUrlCard, { backgroundColor: theme.surfaceStrong }]}
+        testID="terminal-current-url-footer"
+      >
         <View style={styles.currentUrlHead}>
           <Text style={[styles.currentUrlLabel, { color: theme.textSoft }]}>当前地址</Text>
           <TouchableOpacity
@@ -112,7 +121,11 @@ export function TerminalSessionListPane({
             onPress={handleCopyCurrentUrl}
             disabled={!hasCurrentWebViewUrl}
           >
-            <Text style={[styles.currentUrlCopyText, { color: hasCurrentWebViewUrl ? theme.primaryDeep : theme.textMute }]}>复制</Text>
+            <Text
+              style={[styles.currentUrlCopyText, { color: hasCurrentWebViewUrl ? theme.primaryDeep : theme.textMute }]}
+            >
+              复制
+            </Text>
           </TouchableOpacity>
         </View>
         <Text

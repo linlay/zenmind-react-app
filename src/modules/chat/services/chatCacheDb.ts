@@ -143,7 +143,13 @@ async function openDb(): Promise<SQLite.SQLiteDatabase> {
       await db.execAsync(CREATE_CHATS_LAST_RUN_ID_INDEX_SQL);
 
       const columns = await db.getAllAsync<{ name?: string }>('PRAGMA table_info(CHATS)');
-      const existing = new Set(columns.map((item) => String(item?.name || '').trim().toUpperCase()));
+      const existing = new Set(
+        columns.map((item) =>
+          String(item?.name || '')
+            .trim()
+            .toUpperCase()
+        )
+      );
 
       for (const extension of CHAT_EXTENSION_COLUMNS) {
         if (existing.has(extension.name)) {
@@ -187,9 +193,7 @@ export async function listCachedChats(): Promise<ChatSummary[]> {
 
 export async function getMaxLastRunId(): Promise<string> {
   const db = await openDb();
-  const row = await db.getFirstAsync<{ maxLastRunId?: string }>(
-    'SELECT MAX(LAST_RUN_ID_) AS maxLastRunId FROM CHATS'
-  );
+  const row = await db.getFirstAsync<{ maxLastRunId?: string }>('SELECT MAX(LAST_RUN_ID_) AS maxLastRunId FROM CHATS');
   return String(row?.maxLastRunId || '').trim();
 }
 
@@ -350,9 +354,7 @@ export async function markChatReadLocal(
 
   const now = Date.now();
   const readStatus = normalizeReadStatus(options?.readStatus);
-  const readAt = options?.readAt === null
-    ? null
-    : toNullableTimestampMs(options?.readAt) ?? now;
+  const readAt = options?.readAt === null ? null : toNullableTimestampMs(options?.readAt) ?? now;
 
   const db = await openDb();
   await db.withTransactionAsync(async () => {

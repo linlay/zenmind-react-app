@@ -4,11 +4,7 @@ export interface SseMalformedFrameObserver {
   onMalformedFrame?: (rawFrame: string, reason: string) => void;
 }
 
-function notifyMalformed(
-  observer: SseMalformedFrameObserver | undefined,
-  rawFrame: string,
-  reason: string
-): void {
+function notifyMalformed(observer: SseMalformedFrameObserver | undefined, rawFrame: string, reason: string): void {
   if (!observer?.onMalformedFrame) return;
   observer.onMalformedFrame(rawFrame, reason);
 }

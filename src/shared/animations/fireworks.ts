@@ -18,12 +18,10 @@ function parseFireworkPalette(rawPalette: unknown): string[] {
   const list = Array.isArray(rawPalette)
     ? rawPalette
     : typeof rawPalette === 'string'
-      ? rawPalette.split(/[\s,|]+/)
-      : [];
+    ? rawPalette.split(/[\s,|]+/)
+    : [];
 
-  const colors = list
-    .map((item) => String(item || '').trim())
-    .filter(Boolean);
+  const colors = list.map((item) => String(item || '').trim()).filter(Boolean);
 
   return colors.length ? colors : FIREWORK_COLORS;
 }
@@ -57,9 +55,7 @@ export function normalizeFireworksArgs(rawArgs: unknown) {
 
   const estimatedBursts = Math.max(2, Math.round(durationMs / 900));
   const bursts = Math.round(clampNumber(burstInput, 2, 8, estimatedBursts));
-  const particlesPerBurst = Math.round(
-    clampNumber(particleInput, 14, 90, 34 + Math.round(16 * intensity))
-  );
+  const particlesPerBurst = Math.round(clampNumber(particleInput, 14, 90, 34 + Math.round(16 * intensity)));
 
   return {
     durationMs,
@@ -142,7 +138,8 @@ export function createFireworksShow(width: number, height: number, rawArgs: unkn
     const centerY = safeHeight * (config.burstTop + Math.random() * (config.burstBottom - config.burstTop));
     const launchX = centerX + (Math.random() - 0.5) * 54;
     const launchY = launchBaseY + Math.random() * 30;
-    const color = config.palette[(burstIndex + Math.floor(Math.random() * config.palette.length)) % config.palette.length];
+    const color =
+      config.palette[(burstIndex + Math.floor(Math.random() * config.palette.length)) % config.palette.length];
     const rocketStartT = launchStartMs / config.durationMs;
     const rocketEndT = explodeAtMs / config.durationMs;
     const rocketMidT = rocketStartT + (rocketEndT - rocketStartT) * 0.55;
@@ -197,7 +194,12 @@ export function createFireworksShow(width: number, height: number, rawArgs: unkn
       if (peakMax <= peakMin) continue;
 
       const midT = clampNumber(startT + spanT * (0.5 + Math.random() * 0.2), midMin, midMax, startT + spanT * 0.62);
-      const peakT = clampNumber(startT + spanT * (0.26 + Math.random() * 0.22), peakMin, peakMax, startT + spanT * 0.38);
+      const peakT = clampNumber(
+        startT + spanT * (0.26 + Math.random() * 0.22),
+        peakMin,
+        peakMax,
+        startT + spanT * 0.38
+      );
       const fadeMin = peakT + minGap;
       const fadeMax = endT - minGap;
       if (fadeMax <= fadeMin) continue;
@@ -205,9 +207,10 @@ export function createFireworksShow(width: number, height: number, rawArgs: unkn
       if (!(startT < peakT && peakT < fadeT && fadeT < endT && startT < midT && midT < endT)) continue;
 
       const size = 1.8 + Math.random() * 3.1;
-      const sparkColor = config.palette[
-        (burstIndex + sparkIndex + Math.floor(Math.random() * config.palette.length)) % config.palette.length
-      ];
+      const sparkColor =
+        config.palette[
+          (burstIndex + sparkIndex + Math.floor(Math.random() * config.palette.length)) % config.palette.length
+        ];
 
       sparks.push({
         id: `spark-${now}-${burstIndex}-${sparkIndex}`,

@@ -12,13 +12,7 @@ interface ChatListPaneProps {
   onSelectAgentProfile: (agentKey: string) => void;
 }
 
-export function ChatListPane({
-  theme,
-  loading,
-  items,
-  onSelectChat,
-  onSelectAgentProfile
-}: ChatListPaneProps) {
+export function ChatListPane({ theme, loading, items, onSelectChat, onSelectAgentProfile }: ChatListPaneProps) {
   return (
     <View style={styles.container} testID="chat-list-pane">
       <ScrollView style={styles.listWrap} contentContainerStyle={styles.listContent}>
@@ -61,7 +55,7 @@ export function ChatListPane({
                       onSelectAgentProfile(item.agentKey);
                     }}
                   >
-                    <View style={[styles.agentAvatar, { backgroundColor: avatarColor }]}> 
+                    <View style={[styles.agentAvatar, { backgroundColor: avatarColor }]}>
                       <AgentAvatarIcon name={avatarName} size={24} color="#ffffff" />
                     </View>
                   </TouchableOpacity>
@@ -91,7 +85,10 @@ export function ChatListPane({
                       {chatTime}
                     </Text>
                     {unreadCount > 0 ? (
-                      <View style={[styles.metaUnreadBadge, { backgroundColor: theme.primaryDeep }]} testID={`chat-list-item-unread-badge-${index}`}>
+                      <View
+                        style={[styles.metaUnreadBadge, { backgroundColor: theme.primaryDeep }]}
+                        testID={`chat-list-item-unread-badge-${index}`}
+                      >
                         <Text style={styles.metaUnreadText} numberOfLines={1}>
                           {unreadCount > 99 ? '99+' : unreadCount}
                         </Text>
@@ -103,10 +100,8 @@ export function ChatListPane({
             );
           })
         ) : (
-          <View style={[styles.emptyCard, { backgroundColor: theme.surfaceStrong }]}> 
-            {loading ? (
-              <ActivityIndicator size="small" color={theme.primaryDeep} />
-            ) : null}
+          <View style={[styles.emptyCard, { backgroundColor: theme.surfaceStrong }]}>
+            {loading ? <ActivityIndicator size="small" color={theme.primaryDeep} /> : null}
             <Text style={[styles.emptyText, { color: theme.textMute }]}>{loading ? '加载中...' : '暂无历史会话'}</Text>
           </View>
         )}

@@ -34,14 +34,8 @@ describe('shellSlice', () => {
   it('supports chat overlay stack actions', () => {
     let state = shellReducer(undefined, { type: 'unknown' });
 
-    state = shellReducer(
-      state,
-      pushChatOverlay({ overlayId: 'overlay-agent-1', type: 'agentDetail' })
-    );
-    state = shellReducer(
-      state,
-      pushChatOverlay({ overlayId: 'overlay-chat-1', type: 'chatDetail' })
-    );
+    state = shellReducer(state, pushChatOverlay({ overlayId: 'overlay-agent-1', type: 'agentDetail' }));
+    state = shellReducer(state, pushChatOverlay({ overlayId: 'overlay-chat-1', type: 'chatDetail' }));
     expect(state.chatOverlayStack).toHaveLength(2);
     expect(state.chatOverlayStack[1].type).toBe('chatDetail');
 

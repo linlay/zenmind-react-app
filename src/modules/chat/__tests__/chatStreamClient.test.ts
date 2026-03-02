@@ -18,13 +18,9 @@ describe('parseSseBlock', () => {
 
   it('reports malformed frame parse error', () => {
     const malformed: Array<{ frame: string; reason: string }> = [];
-    parseSseBlock(
-      'event: message\ndata: {"type":"content.delta","delta":"broken"\n\n',
-      () => {},
-      {
-        onMalformedFrame: (frame, reason) => malformed.push({ frame, reason })
-      }
-    );
+    parseSseBlock('event: message\ndata: {"type":"content.delta","delta":"broken"\n\n', () => {}, {
+      onMalformedFrame: (frame, reason) => malformed.push({ frame, reason })
+    });
     expect(malformed).toHaveLength(1);
     expect(malformed[0].reason).toBe('json_parse_error');
   });

@@ -12,10 +12,7 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { FrontendToolState } from '../types/chat';
-import {
-  buildConfirmDialogSubmitParams,
-  normalizeConfirmDialogParams
-} from '../utils/confirmDialog';
+import { buildConfirmDialogSubmitParams, normalizeConfirmDialogParams } from '../utils/confirmDialog';
 import { parseFrontendToolBridgeMessage } from '../services/frontendToolBridge';
 import { WEBVIEW_BRIDGE_SCRIPT } from '../utils/webViewBridge';
 export { WEBVIEW_BRIDGE_SCRIPT } from '../utils/webViewBridge';
@@ -94,9 +91,7 @@ export function Composer({
     if (!isNativeConfirmDialog) {
       return { params: null, error: '' };
     }
-    return normalizeConfirmDialogParams(
-      activeFrontendTool?.toolParams as Record<string, unknown> | null | undefined
-    );
+    return normalizeConfirmDialogParams(activeFrontendTool?.toolParams as Record<string, unknown> | null | undefined);
   }, [activeFrontendTool?.toolParams, isNativeConfirmDialog]);
 
   useEffect(() => {
@@ -195,10 +190,7 @@ export function Composer({
   ]);
 
   const waitingConfirmParams = Boolean(
-    isNativeConfirmDialog &&
-      activeFrontendTool &&
-      !activeFrontendTool.paramsReady &&
-      !activeFrontendTool.paramsError
+    isNativeConfirmDialog && activeFrontendTool && !activeFrontendTool.paramsReady && !activeFrontendTool.paramsError
   );
   const nativeConfirmError = isNativeConfirmDialog
     ? String(activeFrontendTool?.paramsError || normalizedConfirmDialog.error || '')
@@ -209,17 +201,12 @@ export function Composer({
       return false;
     }
     const hasCustomText = String(confirmFreeText || '').trim().length > 0;
-    const hasSelectedOption =
-      confirmSelectedIndex >= 0 && confirmSelectedIndex < params.options.length;
+    const hasSelectedOption = confirmSelectedIndex >= 0 && confirmSelectedIndex < params.options.length;
     return hasCustomText || hasSelectedOption;
   }, [confirmFreeText, confirmSelectedIndex, confirmSubmitting, normalizedConfirmDialog.params]);
 
   const frontendToolMaxHeight = useMemo(
-    () =>
-      Math.max(
-        FRONTEND_TOOL_MIN_HEIGHT,
-        Math.floor(Number(windowHeight || 0) * FRONTEND_TOOL_MAX_HEIGHT_RATIO)
-      ),
+    () => Math.max(FRONTEND_TOOL_MIN_HEIGHT, Math.floor(Number(windowHeight || 0) * FRONTEND_TOOL_MAX_HEIGHT_RATIO)),
     [windowHeight]
   );
 
@@ -289,7 +276,9 @@ export function Composer({
             </View>
           ) : activeFrontendTool.loadError ? (
             <View style={styles.center}>
-              <Text style={[styles.frontendToolErrorText, { color: theme.danger }]}>{activeFrontendTool.loadError}</Text>
+              <Text style={[styles.frontendToolErrorText, { color: theme.danger }]}>
+                {activeFrontendTool.loadError}
+              </Text>
               <TouchableOpacity
                 activeOpacity={0.86}
                 style={[styles.frontendToolRetryBtn, { borderColor: theme.border }]}
@@ -310,12 +299,14 @@ export function Composer({
                   style={[styles.nativeConfirmErrorPanel, { backgroundColor: `${theme.danger}22` }]}
                   testID="native-confirm-dialog-error"
                 >
-                  <Text style={[styles.frontendToolErrorText, { color: theme.danger }]}>
-                    {nativeConfirmError}
-                  </Text>
+                  <Text style={[styles.frontendToolErrorText, { color: theme.danger }]}>{nativeConfirmError}</Text>
                   {activeFrontendTool.chunkGapDetected ? (
                     <Text style={[styles.frontendToolChunkGapHint, { color: theme.danger }]}>
-                      {`检测到参数分片缺失（${Array.isArray(activeFrontendTool.missingChunkIndexes) ? activeFrontendTool.missingChunkIndexes.join(',') : ''}），无法初始化确认对话框`}
+                      {`检测到参数分片缺失（${
+                        Array.isArray(activeFrontendTool.missingChunkIndexes)
+                          ? activeFrontendTool.missingChunkIndexes.join(',')
+                          : ''
+                      }），无法初始化确认对话框`}
                     </Text>
                   ) : null}
                 </View>
@@ -356,7 +347,12 @@ export function Composer({
                           ]}
                           testID={`native-confirm-dialog-option-${index}`}
                         >
-                          <Text style={[styles.nativeConfirmOptionText, { color: selected ? theme.primaryDeep : theme.text }]}>
+                          <Text
+                            style={[
+                              styles.nativeConfirmOptionText,
+                              { color: selected ? theme.primaryDeep : theme.text }
+                            ]}
+                          >
                             {option}
                           </Text>
                         </TouchableOpacity>
@@ -394,9 +390,7 @@ export function Composer({
                         ]}
                         testID="native-confirm-dialog-submit-btn"
                       >
-                        <Text style={styles.nativeConfirmSubmitText}>
-                          {confirmSubmitting ? '提交中...' : '确认'}
-                        </Text>
+                        <Text style={styles.nativeConfirmSubmitText}>{confirmSubmitting ? '提交中...' : '确认'}</Text>
                       </TouchableOpacity>
                     </View>
                   ) : null}
@@ -411,7 +405,10 @@ export function Composer({
             <View style={styles.frontendToolWebViewWrap}>
               {!activeFrontendTool.userInteracted && !activeFrontendTool.paramsError ? (
                 <View
-                  style={[styles.frontendToolInitBanner, { borderColor: `${theme.border}`, backgroundColor: `${theme.surface}EE` }]}
+                  style={[
+                    styles.frontendToolInitBanner,
+                    { borderColor: `${theme.border}`, backgroundColor: `${theme.surface}EE` }
+                  ]}
                   testID="frontend-tool-init-banner"
                 >
                   <Text style={[styles.frontendToolInitText, { color: theme.textMute }]}>正在初始化前端工具...</Text>
@@ -441,7 +438,11 @@ export function Composer({
                   </Text>
                   {activeFrontendTool.chunkGapDetected ? (
                     <Text style={[styles.frontendToolChunkGapHint, { color: theme.danger }]}>
-                      {`检测到参数分片缺失（${Array.isArray(activeFrontendTool.missingChunkIndexes) ? activeFrontendTool.missingChunkIndexes.join(',') : ''}），无法初始化确认对话框`}
+                      {`检测到参数分片缺失（${
+                        Array.isArray(activeFrontendTool.missingChunkIndexes)
+                          ? activeFrontendTool.missingChunkIndexes.join(',')
+                          : ''
+                      }），无法初始化确认对话框`}
                     </Text>
                   ) : null}
                 </View>
@@ -511,12 +512,7 @@ export function Composer({
                 <View style={styles.stopSquare} />
               </TouchableOpacity>
             ) : (
-              <TouchableOpacity
-                activeOpacity={0.9}
-                style={styles.actionBtn}
-                testID="chat-send-btn"
-                onPress={onSend}
-              >
+              <TouchableOpacity activeOpacity={0.9} style={styles.actionBtn} testID="chat-send-btn" onPress={onSend}>
                 <LinearGradient colors={[theme.primary, theme.primaryDeep]} style={styles.sendGradient}>
                   <Text style={styles.sendText}>↑</Text>
                 </LinearGradient>

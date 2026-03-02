@@ -1,7 +1,18 @@
 // @ts-nocheck
 import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, Linking, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Image,
+  Linking,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import Markdown from 'react-native-markdown-display';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { authorizedFetch } from '../../../core/auth/appAuth';
@@ -9,7 +20,12 @@ import { FONT_MONO, FONT_SANS } from '../../../core/constants/theme';
 import { toSmartTime } from '../../../shared/utils/format';
 import { TimelineEntry } from '../types/chat';
 import { getActionGlyph, getTaskTone, normalizeTaskStatus } from '../services/eventNormalizer';
-import { isDirectImageUrl, isAbsoluteHttpUrl, resolveMarkdownImageUrl, resolveMarkdownLinkUrl } from '../utils/markdownAssetUrl';
+import {
+  isDirectImageUrl,
+  isAbsoluteHttpUrl,
+  resolveMarkdownImageUrl,
+  resolveMarkdownLinkUrl
+} from '../utils/markdownAssetUrl';
 import { partitionStreamingBlocks, splitStreamingMarkdownBlocks } from '../utils/markdownStreamingBlocks';
 import type { StreamingMarkdownBlock } from '../utils/markdownStreamingBlocks';
 import { ViewportBlockView } from './ViewportBlockView';
@@ -58,13 +74,7 @@ const TIMELINE_NODE_TOP = {
   content: 10
 } as const;
 
-function TimelineRailIcon({
-  kind,
-  color
-}: {
-  kind: TimelineIconKind;
-  color: string;
-}) {
+function TimelineRailIcon({ kind, color }: { kind: TimelineIconKind; color: string }) {
   if (kind === 'tool') {
     return (
       <Svg width={TIMELINE_ICON_SIZE} height={TIMELINE_ICON_SIZE} viewBox="0 0 24 24" fill="none">
@@ -241,7 +251,9 @@ function fileNameFromHref(rawHref: string): string {
 }
 
 function fileExtensionFromName(rawName: string): string {
-  const match = String(rawName || '').trim().match(/\.([a-z0-9]{1,10})$/i);
+  const match = String(rawName || '')
+    .trim()
+    .match(/\.([a-z0-9]{1,10})$/i);
   return match ? String(match[1] || '').toLowerCase() : '';
 }
 
@@ -269,7 +281,9 @@ function looksLikeAttachmentHref(rawHref: string, labelText: string): boolean {
 }
 
 function resolveAttachmentTitle(rawHref: string, resolvedHref: string, labelText: string): string {
-  const normalizedLabel = String(labelText || '').trim().replace(/^下载附件[:：]\s*/i, '');
+  const normalizedLabel = String(labelText || '')
+    .trim()
+    .replace(/^下载附件[:：]\s*/i, '');
   if (normalizedLabel && normalizedLabel !== rawHref && normalizedLabel !== resolvedHref) {
     return normalizedLabel;
   }
@@ -284,7 +298,9 @@ function resolveAttachmentTitle(rawHref: string, resolvedHref: string, labelText
 }
 
 function normalizeBackendBase(backendUrl: string): string {
-  return String(backendUrl || '').trim().replace(/\/+$/, '');
+  return String(backendUrl || '')
+    .trim()
+    .replace(/\/+$/, '');
 }
 
 function toAuthedRequestPath(assetUrl: string, backendUrl: string): string {
@@ -311,7 +327,11 @@ function fileNameFromContentDisposition(raw: string): string {
   const text = String(raw || '');
   const utf8Match = text.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
   if (utf8Match?.[1]) {
-    return safeDecodeUrlPart(String(utf8Match[1]).trim().replace(/^["']|["']$/g, ''));
+    return safeDecodeUrlPart(
+      String(utf8Match[1])
+        .trim()
+        .replace(/^["']|["']$/g, '')
+    );
   }
   const basicMatch = text.match(/filename\s*=\s*("?)([^";]+)\1/i);
   if (basicMatch?.[2]) {
@@ -497,58 +517,61 @@ function MarkdownAssetImage({
     setFailed(false);
   }, []);
 
-  const handleImageError = useCallback((event: unknown) => {
-    if (directImageSource) {
-      setLoading(false);
-      setFailed(true);
-      return;
-    }
-
-    const raw =
-      String((event as { nativeEvent?: { error?: string } })?.nativeEvent?.error || '') ||
-      String(event || '');
-    const authLikeFailure = AUTH_FAILURE_REGEX.test(raw);
-
-    if (!authLikeFailure || !shouldRetryTransientAuth) {
-      setLoading(false);
-      setFailed(true);
-      if (authLikeFailure) {
-        onImageAuthError();
+  const handleImageError = useCallback(
+    (event: unknown) => {
+      if (directImageSource) {
+        setLoading(false);
+        setFailed(true);
+        return;
       }
-      return;
-    }
 
-    // Auth-like failure during streaming: two-phase retry
-    const attempt = retryAttemptRef.current;
-    if (firstErrorTsRef.current === 0) {
-      firstErrorTsRef.current = Date.now();
-    }
+      const raw =
+        String((event as { nativeEvent?: { error?: string } })?.nativeEvent?.error || '') || String(event || '');
+      const authLikeFailure = AUTH_FAILURE_REGEX.test(raw);
 
-    const elapsed = Date.now() - firstErrorTsRef.current;
-    if (elapsed >= AUTH_RETRY_TOTAL_WINDOW_MS) {
-      setLoading(false);
-      setFailed(true);
-      onImageAuthError();
-      return;
-    }
+      if (!authLikeFailure || !shouldRetryTransientAuth) {
+        setLoading(false);
+        setFailed(true);
+        if (authLikeFailure) {
+          onImageAuthError();
+        }
+        return;
+      }
 
-    retryAttemptRef.current = attempt + 1;
-    setFailed(false);
-    setLoading(true);
+      // Auth-like failure during streaming: two-phase retry
+      const attempt = retryAttemptRef.current;
+      if (firstErrorTsRef.current === 0) {
+        firstErrorTsRef.current = Date.now();
+      }
 
-    if (retryTimerRef.current) {
-      clearTimeout(retryTimerRef.current);
-    }
+      const elapsed = Date.now() - firstErrorTsRef.current;
+      if (elapsed >= AUTH_RETRY_TOTAL_WINDOW_MS) {
+        setLoading(false);
+        setFailed(true);
+        onImageAuthError();
+        return;
+      }
 
-    const delay = attempt < AUTH_RETRY_QUICK_DELAYS_MS.length
-      ? AUTH_RETRY_QUICK_DELAYS_MS[attempt]
-      : AUTH_RETRY_PERIODIC_INTERVAL_MS;
+      retryAttemptRef.current = attempt + 1;
+      setFailed(false);
+      setLoading(true);
 
-    retryTimerRef.current = setTimeout(() => {
-      retryTimerRef.current = null;
-      setRetryNonce((prev) => prev + 1);
-    }, delay);
-  }, [directImageSource, onImageAuthError, shouldRetryTransientAuth]);
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+      }
+
+      const delay =
+        attempt < AUTH_RETRY_QUICK_DELAYS_MS.length
+          ? AUTH_RETRY_QUICK_DELAYS_MS[attempt]
+          : AUTH_RETRY_PERIODIC_INTERVAL_MS;
+
+      retryTimerRef.current = setTimeout(() => {
+        retryTimerRef.current = null;
+        setRetryNonce((prev) => prev + 1);
+      }, delay);
+    },
+    [directImageSource, onImageAuthError, shouldRetryTransientAuth]
+  );
 
   if (shouldDeferRelative) {
     return (
@@ -616,11 +639,7 @@ function MarkdownBlock({
   if (!text.trim()) return null;
   void deferRelativeLoad;
   return (
-    <Markdown
-      style={mdStyle}
-      onLinkPress={onLinkPress}
-      rules={markdownRules}
-    >
+    <Markdown style={mdStyle} onLinkPress={onLinkPress} rules={markdownRules}>
       {text}
     </Markdown>
   );
@@ -650,8 +669,7 @@ function TimelineEntryRowComponent({
 }: TimelineEntryRowProps) {
   const appear = useRef(new Animated.Value(0)).current;
 
-  const isAssistantStreaming =
-    item.kind === 'message' && item.role === 'assistant' && Boolean(item.isStreamingContent);
+  const isAssistantStreaming = item.kind === 'message' && item.role === 'assistant' && Boolean(item.isStreamingContent);
 
   const prevFrozenRef = useRef<StreamingMarkdownBlock[]>([]);
 
@@ -687,183 +705,207 @@ function TimelineEntryRowComponent({
     return [];
   }, [hasViewportBlocks, item.kind, item.role, item.text]);
 
-  const handleMarkdownLinkPress = useCallback((href: string, asAttachment = false, suggestedFileName = '') => {
-    const rawHref = String(href || '').trim();
-    if (!rawHref) return false;
-    const rawIsAbsolute = isAbsoluteHttpUrl(rawHref);
-    const customScheme = /^[a-z][a-z0-9+.-]*:/i.test(rawHref) && !rawIsAbsolute;
-    const resolved = resolveMarkdownLinkUrl(href, backendUrl, asAttachment);
-    if (!resolved) return false;
+  const handleMarkdownLinkPress = useCallback(
+    (href: string, asAttachment = false, suggestedFileName = '') => {
+      const rawHref = String(href || '').trim();
+      if (!rawHref) return false;
+      const rawIsAbsolute = isAbsoluteHttpUrl(rawHref);
+      const customScheme = /^[a-z][a-z0-9+.-]*:/i.test(rawHref) && !rawIsAbsolute;
+      const resolved = resolveMarkdownLinkUrl(href, backendUrl, asAttachment);
+      if (!resolved) return false;
 
-    if (rawIsAbsolute || customScheme) {
-      Linking.openURL(resolved).catch(() => {});
+      if (rawIsAbsolute || customScheme) {
+        Linking.openURL(resolved).catch(() => {});
+        return false;
+      }
+
+      const fallbackName = toSafeDownloadName(
+        suggestedFileName || fileNameFromHref(resolved) || fileNameFromHref(rawHref) || '附件',
+        '附件'
+      );
+      downloadAuthedAsset(backendUrl, resolved, fallbackName).catch(() => {});
       return false;
-    }
+    },
+    [backendUrl]
+  );
 
-    const fallbackName = toSafeDownloadName(
-      suggestedFileName || fileNameFromHref(resolved) || fileNameFromHref(rawHref) || '附件',
-      '附件'
-    );
-    downloadAuthedAsset(backendUrl, resolved, fallbackName).catch(() => {});
-    return false;
-  }, [backendUrl]);
+  const renderMarkdownLinkNode = useCallback(
+    (node: any, children: any, markdownStyles: any, asBlock = false) => {
+      const rawHref = String(node?.attributes?.href || '');
+      const labelText = extractTextFromMarkdownChildren(children).trim();
+      const attachment = looksLikeAttachmentHref(rawHref, labelText);
+      const resolvedHref = resolveMarkdownLinkUrl(rawHref, backendUrl, attachment);
 
-  const renderMarkdownLinkNode = useCallback((node: any, children: any, markdownStyles: any, asBlock = false) => {
-    const rawHref = String(node?.attributes?.href || '');
-    const labelText = extractTextFromMarkdownChildren(children).trim();
-    const attachment = looksLikeAttachmentHref(rawHref, labelText);
-    const resolvedHref = resolveMarkdownLinkUrl(rawHref, backendUrl, attachment);
-
-    if (!attachment) {
-      if (asBlock) {
+      if (!attachment) {
+        if (asBlock) {
+          return (
+            <TouchableOpacity
+              key={node.key}
+              activeOpacity={0.88}
+              onPress={() => {
+                handleMarkdownLinkPress(rawHref, false, labelText);
+              }}
+              style={markdownStyles.blocklink}
+            >
+              <View style={markdownStyles.image}>{children}</View>
+            </TouchableOpacity>
+          );
+        }
         return (
-          <TouchableOpacity
+          <Text
             key={node.key}
-            activeOpacity={0.88}
+            style={markdownStyles.link}
             onPress={() => {
               handleMarkdownLinkPress(rawHref, false, labelText);
             }}
-            style={markdownStyles.blocklink}
           >
-            <View style={markdownStyles.image}>{children}</View>
-          </TouchableOpacity>
+            {children}
+          </Text>
         );
       }
+
+      const title = resolveAttachmentTitle(rawHref, resolvedHref, labelText);
+      const ext = fileExtensionFromName(title || fileNameFromHref(resolvedHref));
+      const badgeText = (ext || 'file').toUpperCase();
+
       return (
-        <Text
+        <TouchableOpacity
           key={node.key}
-          style={markdownStyles.link}
+          activeOpacity={0.84}
           onPress={() => {
-            handleMarkdownLinkPress(rawHref, false, labelText);
+            handleMarkdownLinkPress(rawHref, true, title);
           }}
-        >
-          {children}
-        </Text>
-      );
-    }
-
-    const title = resolveAttachmentTitle(rawHref, resolvedHref, labelText);
-    const ext = fileExtensionFromName(title || fileNameFromHref(resolvedHref));
-    const badgeText = (ext || 'file').toUpperCase();
-
-    return (
-      <TouchableOpacity
-        key={node.key}
-        activeOpacity={0.84}
-        onPress={() => {
-          handleMarkdownLinkPress(rawHref, true, title);
-        }}
-        style={styles.attachmentCardPress}
-      >
-        <View
-          style={[
-            styles.attachmentCard,
-            {
-              backgroundColor: theme.surfaceSoft,
-              borderColor: `${theme.primary}2b`
-            }
-          ]}
+          style={styles.attachmentCardPress}
         >
           <View
             style={[
-              styles.attachmentCardGlyphWrap,
+              styles.attachmentCard,
               {
-                backgroundColor: `${theme.primary}20`
+                backgroundColor: theme.surfaceSoft,
+                borderColor: `${theme.primary}2b`
               }
             ]}
           >
-            <Text style={[styles.attachmentCardGlyph, { color: theme.primaryDeep || theme.primary }]}>⬇</Text>
+            <View
+              style={[
+                styles.attachmentCardGlyphWrap,
+                {
+                  backgroundColor: `${theme.primary}20`
+                }
+              ]}
+            >
+              <Text style={[styles.attachmentCardGlyph, { color: theme.primaryDeep || theme.primary }]}>⬇</Text>
+            </View>
+            <View style={styles.attachmentCardMeta}>
+              <Text numberOfLines={1} style={[styles.attachmentCardTitle, { color: theme.text }]}>
+                {title}
+              </Text>
+              <Text style={[styles.attachmentCardHint, { color: theme.textMute }]}>{`${badgeText} · 点击下载`}</Text>
+            </View>
+            <Text style={[styles.attachmentCardAction, { color: theme.primary }]}>下载</Text>
           </View>
-          <View style={styles.attachmentCardMeta}>
-            <Text numberOfLines={1} style={[styles.attachmentCardTitle, { color: theme.text }]}>
-              {title}
-            </Text>
-            <Text style={[styles.attachmentCardHint, { color: theme.textMute }]}>
-              {`${badgeText} · 点击下载`}
-            </Text>
-          </View>
-          <Text style={[styles.attachmentCardAction, { color: theme.primary }]}>下载</Text>
-        </View>
-      </TouchableOpacity>
-    );
-  }, [backendUrl, handleMarkdownLinkPress, theme.primary, theme.primaryDeep, theme.surfaceSoft, theme.text, theme.textMute]);
+        </TouchableOpacity>
+      );
+    },
+    [
+      backendUrl,
+      handleMarkdownLinkPress,
+      theme.primary,
+      theme.primaryDeep,
+      theme.surfaceSoft,
+      theme.text,
+      theme.textMute
+    ]
+  );
 
-  const renderMarkdownImageNode = useCallback((
-    node: any,
-    _children: any,
-    _parent: any,
-    markdownStyles: any,
-    options?: { deferRelativeLoad?: boolean; streamingPhase?: boolean; retryOnTransientError?: boolean }
-  ) => {
-    const deferRelativeLoad = Boolean(options?.deferRelativeLoad);
-    const streamingPhase = Boolean(options?.streamingPhase);
-    const retryOnTransientError = Boolean(options?.retryOnTransientError);
-    const rawSrc = String(node?.attributes?.src || '');
-    const width = Math.max(140, Math.min(Math.round(contentWidth * 0.78), 360));
-    const fallbackStyle = {
-      width,
-      height: Math.round(width * 0.62),
-      alignSelf: 'flex-start',
-      borderRadius: 10,
-      marginTop: 2,
-      marginBottom: 10
-    };
-    return (
-      <MarkdownAssetImage
-        key={node.key}
-        backendUrl={backendUrl}
-        chatImageToken={chatImageToken}
-        rawSrc={rawSrc}
-        altText={String(node?.attributes?.alt || '')}
-        imageStyle={markdownStyles.image}
-        fallbackStyle={fallbackStyle}
-        indicatorColor={theme.primary}
-        deferRelativeLoad={deferRelativeLoad}
-        streamingPhase={streamingPhase}
-        retryOnTransientError={retryOnTransientError}
-        onImageAuthError={onImageAuthError}
-      />
-    );
-  }, [backendUrl, chatImageToken, contentWidth, onImageAuthError, theme.primary]);
+  const renderMarkdownImageNode = useCallback(
+    (
+      node: any,
+      _children: any,
+      _parent: any,
+      markdownStyles: any,
+      options?: { deferRelativeLoad?: boolean; streamingPhase?: boolean; retryOnTransientError?: boolean }
+    ) => {
+      const deferRelativeLoad = Boolean(options?.deferRelativeLoad);
+      const streamingPhase = Boolean(options?.streamingPhase);
+      const retryOnTransientError = Boolean(options?.retryOnTransientError);
+      const rawSrc = String(node?.attributes?.src || '');
+      const width = Math.max(140, Math.min(Math.round(contentWidth * 0.78), 360));
+      const fallbackStyle = {
+        width,
+        height: Math.round(width * 0.62),
+        alignSelf: 'flex-start',
+        borderRadius: 10,
+        marginTop: 2,
+        marginBottom: 10
+      };
+      return (
+        <MarkdownAssetImage
+          key={node.key}
+          backendUrl={backendUrl}
+          chatImageToken={chatImageToken}
+          rawSrc={rawSrc}
+          altText={String(node?.attributes?.alt || '')}
+          imageStyle={markdownStyles.image}
+          fallbackStyle={fallbackStyle}
+          indicatorColor={theme.primary}
+          deferRelativeLoad={deferRelativeLoad}
+          streamingPhase={streamingPhase}
+          retryOnTransientError={retryOnTransientError}
+          onImageAuthError={onImageAuthError}
+        />
+      );
+    },
+    [backendUrl, chatImageToken, contentWidth, onImageAuthError, theme.primary]
+  );
 
-  const nonStreamingMarkdownRules = useMemo(() => ({
-    link: (node: any, children: any, _parent: any, markdownStyles: any) =>
-      renderMarkdownLinkNode(node, children, markdownStyles, false),
-    blocklink: (node: any, children: any, _parent: any, markdownStyles: any) =>
-      renderMarkdownLinkNode(node, children, markdownStyles, true),
-    image: (node: any, children: any, parent: any, markdownStyles: any) =>
-      renderMarkdownImageNode(node, children, parent, markdownStyles, {
-        deferRelativeLoad: false,
-        streamingPhase: false,
-        retryOnTransientError: false
-      })
-  }), [renderMarkdownImageNode, renderMarkdownLinkNode]);
+  const nonStreamingMarkdownRules = useMemo(
+    () => ({
+      link: (node: any, children: any, _parent: any, markdownStyles: any) =>
+        renderMarkdownLinkNode(node, children, markdownStyles, false),
+      blocklink: (node: any, children: any, _parent: any, markdownStyles: any) =>
+        renderMarkdownLinkNode(node, children, markdownStyles, true),
+      image: (node: any, children: any, parent: any, markdownStyles: any) =>
+        renderMarkdownImageNode(node, children, parent, markdownStyles, {
+          deferRelativeLoad: false,
+          streamingPhase: false,
+          retryOnTransientError: false
+        })
+    }),
+    [renderMarkdownImageNode, renderMarkdownLinkNode]
+  );
 
-  const streamingFrozenMarkdownRules = useMemo(() => ({
-    link: (node: any, children: any, _parent: any, markdownStyles: any) =>
-      renderMarkdownLinkNode(node, children, markdownStyles, false),
-    blocklink: (node: any, children: any, _parent: any, markdownStyles: any) =>
-      renderMarkdownLinkNode(node, children, markdownStyles, true),
-    image: (node: any, children: any, parent: any, markdownStyles: any) =>
-      renderMarkdownImageNode(node, children, parent, markdownStyles, {
-        deferRelativeLoad: false,
-        streamingPhase: true,
-        retryOnTransientError: true
-      })
-  }), [renderMarkdownImageNode, renderMarkdownLinkNode]);
+  const streamingFrozenMarkdownRules = useMemo(
+    () => ({
+      link: (node: any, children: any, _parent: any, markdownStyles: any) =>
+        renderMarkdownLinkNode(node, children, markdownStyles, false),
+      blocklink: (node: any, children: any, _parent: any, markdownStyles: any) =>
+        renderMarkdownLinkNode(node, children, markdownStyles, true),
+      image: (node: any, children: any, parent: any, markdownStyles: any) =>
+        renderMarkdownImageNode(node, children, parent, markdownStyles, {
+          deferRelativeLoad: false,
+          streamingPhase: true,
+          retryOnTransientError: true
+        })
+    }),
+    [renderMarkdownImageNode, renderMarkdownLinkNode]
+  );
 
-  const streamingTailMarkdownRules = useMemo(() => ({
-    link: (node: any, children: any, _parent: any, markdownStyles: any) =>
-      renderMarkdownLinkNode(node, children, markdownStyles, false),
-    blocklink: (node: any, children: any, _parent: any, markdownStyles: any) =>
-      renderMarkdownLinkNode(node, children, markdownStyles, true),
-    image: (node: any, children: any, parent: any, markdownStyles: any) =>
-      renderMarkdownImageNode(node, children, parent, markdownStyles, {
-        deferRelativeLoad: false,
-        streamingPhase: true,
-        retryOnTransientError: true
-      })
-  }), [renderMarkdownImageNode, renderMarkdownLinkNode]);
+  const streamingTailMarkdownRules = useMemo(
+    () => ({
+      link: (node: any, children: any, _parent: any, markdownStyles: any) =>
+        renderMarkdownLinkNode(node, children, markdownStyles, false),
+      blocklink: (node: any, children: any, _parent: any, markdownStyles: any) =>
+        renderMarkdownLinkNode(node, children, markdownStyles, true),
+      image: (node: any, children: any, parent: any, markdownStyles: any) =>
+        renderMarkdownImageNode(node, children, parent, markdownStyles, {
+          deferRelativeLoad: false,
+          streamingPhase: true,
+          retryOnTransientError: true
+        })
+    }),
+    [renderMarkdownImageNode, renderMarkdownLinkNode]
+  );
 
   useEffect(() => {
     Animated.timing(appear, {
@@ -894,7 +936,9 @@ function TimelineEntryRowComponent({
     return (
       <View style={styles.timelineRail}>
         <View style={[styles.timelineLineSegment, { height: topLineHeight, backgroundColor: theme.timelineLine }]} />
-        <View style={[styles.timelineLineSegment, { top: bottomLineTop, bottom: 0, backgroundColor: theme.timelineLine }]} />
+        <View
+          style={[styles.timelineLineSegment, { top: bottomLineTop, bottom: 0, backgroundColor: theme.timelineLine }]}
+        />
         {iconKind ? (
           <View style={[styles.timelineIconWrap, { top: nodeTop }]}>
             <TimelineRailIcon kind={iconKind} color={theme.primaryDeep || theme.primary} />
@@ -931,10 +975,10 @@ function TimelineEntryRowComponent({
       tone === 'ok'
         ? { color: theme.ok, bg: `${theme.ok}16` }
         : tone === 'danger'
-          ? { color: theme.danger, bg: `${theme.danger}14` }
-          : tone === 'warn'
-            ? { color: theme.warn, bg: `${theme.warn}16` }
-            : { color: theme.textSoft, bg: theme.surfaceSoft };
+        ? { color: theme.danger, bg: `${theme.danger}14` }
+        : tone === 'warn'
+        ? { color: theme.warn, bg: `${theme.warn}16` }
+        : { color: theme.textSoft, bg: theme.surfaceSoft };
 
     const typeGlyph = item.kind === 'action' ? getActionGlyph(item.actionName || item.label) : '';
 
@@ -943,7 +987,7 @@ function TimelineEntryRowComponent({
         {renderTimelineRail(TIMELINE_NODE_TOP.tool, 'tool')}
         <View style={styles.toolBody}>
           <TouchableOpacity activeOpacity={0.8} onPress={() => onToggleTool(item.id)}>
-            <View style={[styles.toolHead, { backgroundColor: toneStyle.bg }]}> 
+            <View style={[styles.toolHead, { backgroundColor: toneStyle.bg }]}>
               <View style={styles.toolStateIconWrap}>{renderStateIcon(item.state, toneStyle.color)}</View>
               {typeGlyph ? <Text style={[styles.toolKindGlyph, { color: toneStyle.color }]}>{typeGlyph}</Text> : null}
               <Text style={[styles.toolHeadText, { color: toneStyle.color }]} numberOfLines={1}>
@@ -953,7 +997,7 @@ function TimelineEntryRowComponent({
           </TouchableOpacity>
 
           {toolExpanded ? (
-            <View style={[styles.toolExpandPanel, { backgroundColor: theme.surfaceStrong }]}> 
+            <View style={[styles.toolExpandPanel, { backgroundColor: theme.surfaceStrong }]}>
               <View style={styles.toolDetailBlock}>
                 <Text style={[styles.toolDetailTitle, { color: theme.textSoft }]}>args</Text>
                 <Text style={[styles.toolDetailText, { color: theme.text }]}>{item.argsText || '(empty)'}</Text>
@@ -978,7 +1022,9 @@ function TimelineEntryRowComponent({
         {renderTimelineRail(TIMELINE_NODE_TOP.reasoning, 'reasoning')}
         <TouchableOpacity activeOpacity={0.7} style={styles.reasoningBody} onPress={() => onToggleReasoning(item.id)}>
           <Text style={[styles.reasoningLabel, { color: theme.textMute }]}>{durationLabel}</Text>
-          {item.collapsed ? null : <Text style={[styles.reasoningText, { color: theme.textMute }]}>{item.text || ''}</Text>}
+          {item.collapsed ? null : (
+            <Text style={[styles.reasoningText, { color: theme.textMute }]}>{item.text || ''}</Text>
+          )}
         </TouchableOpacity>
       </Animated.View>
     );
@@ -994,7 +1040,12 @@ function TimelineEntryRowComponent({
         {renderTimelineRail(TIMELINE_NODE_TOP.content, 'content')}
         <View style={styles.userBubbleWrap}>
           <TouchableOpacity activeOpacity={0.85} onLongPress={() => onCopyText(item.text)}>
-            <LinearGradient colors={theme.userBubble} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.userBubble}>
+            <LinearGradient
+              colors={theme.userBubble}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.userBubble}
+            >
               <Text style={styles.userText}>{item.text}</Text>
             </LinearGradient>
           </TouchableOpacity>
@@ -1026,16 +1077,16 @@ function TimelineEntryRowComponent({
       item.tone === 'ok'
         ? theme.ok
         : item.tone === 'warn'
-          ? theme.warn
-          : item.tone === 'neutral'
-            ? theme.textSoft
-            : theme.danger;
+        ? theme.warn
+        : item.tone === 'neutral'
+        ? theme.textSoft
+        : theme.danger;
 
     return (
       <Animated.View style={[styles.systemRow, enterStyle]}>
         {renderTimelineRail(TIMELINE_NODE_TOP.content)}
         <View style={styles.systemWrap}>
-          <View style={[styles.systemBadge, { backgroundColor: theme.systemBubble }]}> 
+          <View style={[styles.systemBadge, { backgroundColor: theme.systemBubble }]}>
             <Text style={[styles.systemText, { color: systemColor }]}>{item.text}</Text>
           </View>
           <Text style={[styles.systemTime, { color: theme.textMute }]}>{toSmartTime(item.ts)}</Text>
@@ -1044,39 +1095,42 @@ function TimelineEntryRowComponent({
     );
   }
 
-  const mdStyle = useMemo(() => ({
-    body: { color: theme.text, fontFamily: FONT_SANS, fontSize: 15, lineHeight: 22 },
-    text: { color: theme.text, fontFamily: FONT_SANS, fontSize: 15, lineHeight: 22 },
-    paragraph: { marginTop: 0, marginBottom: 10 },
-    heading1: { color: theme.text, marginTop: 2, marginBottom: 8, fontSize: 22, fontWeight: '800' },
-    heading2: { color: theme.text, marginTop: 2, marginBottom: 8, fontSize: 20, fontWeight: '700' },
-    heading3: { color: theme.text, marginTop: 2, marginBottom: 8, fontSize: 18, fontWeight: '700' },
-    bullet_list: { marginTop: 0, marginBottom: 10 },
-    ordered_list: { marginTop: 0, marginBottom: 10 },
-    code_inline: {
-      color: theme.primaryDeep,
-      backgroundColor: theme.primarySoft,
-      borderRadius: 6,
-      paddingHorizontal: 5,
-      paddingVertical: 2,
-      fontFamily: FONT_MONO
-    },
-    fence: {
-      color: theme.textSoft,
-      backgroundColor: theme.surfaceSoft,
-      borderRadius: 10,
-      padding: 10,
-      fontFamily: FONT_MONO,
-      fontSize: 12,
-      lineHeight: 18,
-      marginTop: 0,
-      marginBottom: 10
-    },
-    link: {
-      color: theme.primary,
-      textDecorationLine: 'underline'
-    }
-  }), [theme.primary, theme.primaryDeep, theme.primarySoft, theme.surfaceSoft, theme.text, theme.textSoft]);
+  const mdStyle = useMemo(
+    () => ({
+      body: { color: theme.text, fontFamily: FONT_SANS, fontSize: 15, lineHeight: 22 },
+      text: { color: theme.text, fontFamily: FONT_SANS, fontSize: 15, lineHeight: 22 },
+      paragraph: { marginTop: 0, marginBottom: 10 },
+      heading1: { color: theme.text, marginTop: 2, marginBottom: 8, fontSize: 22, fontWeight: '800' },
+      heading2: { color: theme.text, marginTop: 2, marginBottom: 8, fontSize: 20, fontWeight: '700' },
+      heading3: { color: theme.text, marginTop: 2, marginBottom: 8, fontSize: 18, fontWeight: '700' },
+      bullet_list: { marginTop: 0, marginBottom: 10 },
+      ordered_list: { marginTop: 0, marginBottom: 10 },
+      code_inline: {
+        color: theme.primaryDeep,
+        backgroundColor: theme.primarySoft,
+        borderRadius: 6,
+        paddingHorizontal: 5,
+        paddingVertical: 2,
+        fontFamily: FONT_MONO
+      },
+      fence: {
+        color: theme.textSoft,
+        backgroundColor: theme.surfaceSoft,
+        borderRadius: 10,
+        padding: 10,
+        fontFamily: FONT_MONO,
+        fontSize: 12,
+        lineHeight: 18,
+        marginTop: 0,
+        marginBottom: 10
+      },
+      link: {
+        color: theme.primary,
+        textDecorationLine: 'underline'
+      }
+    }),
+    [theme.primary, theme.primaryDeep, theme.primarySoft, theme.surfaceSoft, theme.text, theme.textSoft]
+  );
 
   return (
     <Animated.View style={[styles.assistantRow, enterStyle]}>
@@ -1481,10 +1535,7 @@ const styles = StyleSheet.create({
   }
 });
 
-function isSameTheme(
-  prev: TimelineEntryRowProps['theme'],
-  next: TimelineEntryRowProps['theme']
-): boolean {
+function isSameTheme(prev: TimelineEntryRowProps['theme'], next: TimelineEntryRowProps['theme']): boolean {
   return (
     prev.timelineLine === next.timelineLine &&
     prev.timelineDot === next.timelineDot &&

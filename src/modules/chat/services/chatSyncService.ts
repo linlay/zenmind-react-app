@@ -80,9 +80,7 @@ export async function syncChatsIncremental(baseUrl: string): Promise<SyncResult>
 
   const data = await fetchApiJson<ChatSummary[]>(baseUrl, `/api/ap/chats${query}`);
   const updates = Array.isArray(data)
-    ? data
-        .map((item) => normalizeChatSummary(item))
-        .filter((item) => String(item.chatId || '').trim())
+    ? data.map((item) => normalizeChatSummary(item)).filter((item) => String(item.chatId || '').trim())
     : [];
 
   if (updates.length) {

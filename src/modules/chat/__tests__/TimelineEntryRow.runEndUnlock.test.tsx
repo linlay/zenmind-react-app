@@ -85,4 +85,3 @@ describe('TimelineEntryRow run_end', () => {
     expect((tree as ReturnType<typeof create>).root.findByProps({ children: '-- 本次运行结束 --' })).toBeTruthy();
   });
 });
-

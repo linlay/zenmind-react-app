@@ -52,24 +52,14 @@ function DomainIcon({ mode, color }: { mode: DomainMode; color: string }) {
     return (
       <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
         <Rect x={4.5} y={7} width={15} height={11} rx={2.2} stroke={color} strokeWidth={1.8} />
-        <Path
-          d="M9 4.8h6M12 7V4.8M9.2 11.4h.01M14.8 11.4h.01"
-          stroke={color}
-          strokeWidth={1.8}
-          strokeLinecap="round"
-        />
+        <Path d="M9 4.8h6M12 7V4.8M9.2 11.4h.01M14.8 11.4h.01" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
       </Svg>
     );
   }
 
   return (
     <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
-      <Path
-        d="M4.8 8.2H19.2M4.8 12H19.2M4.8 15.8H19.2"
-        stroke={color}
-        strokeWidth={1.8}
-        strokeLinecap="round"
-      />
+      <Path d="M4.8 8.2H19.2M4.8 12H19.2M4.8 15.8H19.2" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
       <Circle cx={9} cy={8.2} r={1.8} fill={color} />
       <Circle cx={14.8} cy={12} r={1.8} fill={color} />
       <Circle cx={7.2} cy={15.8} r={1.8} fill={color} />

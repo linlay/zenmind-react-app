@@ -26,7 +26,9 @@ describe('markdownStreamingBlocks', () => {
     expect(blocks[0].tokenType).toBe('paragraph_open');
     expect(blocks[0].content).toContain('段落1');
 
-    const listItemBlocks = blocks.filter((block) => block.tokenType === 'paragraph_open' && /-\s+[ab]/.test(block.content));
+    const listItemBlocks = blocks.filter(
+      (block) => block.tokenType === 'paragraph_open' && /-\s+[ab]/.test(block.content)
+    );
     expect(listItemBlocks.length).toBe(2);
     expect(listItemBlocks[0].content).toContain('- a');
     expect(listItemBlocks[1].content).toContain('- b');

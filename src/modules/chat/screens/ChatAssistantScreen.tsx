@@ -14,13 +14,7 @@ import {
   View
 } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Reanimated, {
-  runOnJS,
-  useAnimatedStyle,
-  useSharedValue,
-  withSpring,
-  withTiming
-} from 'react-native-reanimated';
+import Reanimated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
@@ -37,10 +31,7 @@ import { createRequestId, getAgentKey } from '../../../shared/utils/format';
 import { createFireworksShow } from '../../../shared/animations/fireworks';
 import { setChatId, setStatusText } from '../state/chatSlice';
 import { toggleTheme, setThemeMode } from '../../../modules/user/state/userSlice';
-import {
-  useLazyGetChatQuery,
-  useSubmitFrontendToolMutation
-} from '../api/chatApi';
+import { useLazyGetChatQuery, useSubmitFrontendToolMutation } from '../api/chatApi';
 import { getCachedChatDetail, upsertChatDetail } from '../services/chatCacheDb';
 import { consumeJsonSseXhr } from '../services/chatStreamClient';
 import {
@@ -50,18 +41,8 @@ import {
   parseStructuredArgs
 } from '../services/eventNormalizer';
 import { cleanPlanTaskDescription } from '../utils/planUi';
-import {
-  ChatEvent,
-  ChatState,
-  FrontendToolState,
-  TimelineEntry
-} from '../types/chat';
-import {
-  ChatEffect,
-  createEmptyChatState,
-  createRuntimeMaps,
-  reduceChatEvent
-} from '../services/eventReducer';
+import { ChatEvent, ChatState, FrontendToolState, TimelineEntry } from '../types/chat';
+import { ChatEffect, createEmptyChatState, createRuntimeMaps, reduceChatEvent } from '../services/eventReducer';
 import { parseFrontendToolBridgeMessage } from '../services/frontendToolBridge';
 import { TimelineEntryRow } from '../components/TimelineEntryRow';
 import { Composer } from '../components/Composer';
@@ -120,7 +101,11 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
-function resolveListEdgeState(offsetY: number, viewportHeight: number, contentHeight: number): {
+function resolveListEdgeState(
+  offsetY: number,
+  viewportHeight: number,
+  contentHeight: number
+): {
   atTop: boolean;
   atBottom: boolean;
   maxOffset: number;
@@ -342,10 +327,13 @@ export function ChatAssistantScreen({
     gestureCooldownUntilShared.value = until;
   }, [gestureCooldownUntilShared]);
 
-  const scrollToBottom = useCallback((animated = true) => {
-    listRef.current?.scrollToEnd({ animated });
-    setAutoScrollMode(true);
-  }, [setAutoScrollMode]);
+  const scrollToBottom = useCallback(
+    (animated = true) => {
+      listRef.current?.scrollToEnd({ animated });
+      setAutoScrollMode(true);
+    },
+    [setAutoScrollMode]
+  );
 
   const showEdgeToast = useCallback((message: string, placement: EdgeToastState['placement']) => {
     if (edgeToastTimerRef.current) {
@@ -361,7 +349,11 @@ export function ChatAssistantScreen({
 
   const syncListMetrics = useCallback(
     (offsetY: number, viewportHeight: number, contentHeight: number, options?: { fromScroll?: boolean }) => {
-      const prevEdge = resolveListEdgeState(listOffsetYRef.current, listViewportHeightRef.current, listContentHeightRef.current);
+      const prevEdge = resolveListEdgeState(
+        listOffsetYRef.current,
+        listViewportHeightRef.current,
+        listContentHeightRef.current
+      );
       const normalizedOffset = Number.isFinite(offsetY) ? offsetY : 0;
       const normalizedViewport = Math.max(0, Number.isFinite(viewportHeight) ? viewportHeight : 0);
       const normalizedContent = Math.max(0, Number.isFinite(contentHeight) ? contentHeight : 0);
@@ -521,11 +513,11 @@ export function ChatAssistantScreen({
           gestureStartXShared.value >= GESTURE_CREATE_CHAT_LEFT_EDGE_GUARD_PX &&
           Boolean(onRequestCreateAgentChatBySwipe);
         const canShowDrawer =
-          horizontalDominant &&
-          dx <= -GESTURE_SHOW_DRAWER_ACTIVATE_THRESHOLD &&
-          Boolean(onRequestShowChatDetailDrawer);
-        const canSwitchPrev = verticalDominant && dy >= 16 && listAtTopShared.value > 0.5 && Boolean(onRequestSwitchAgentChat);
-        const canSwitchNext = verticalDominant && dy <= -16 && listAtBottomShared.value > 0.5 && Boolean(onRequestSwitchAgentChat);
+          horizontalDominant && dx <= -GESTURE_SHOW_DRAWER_ACTIVATE_THRESHOLD && Boolean(onRequestShowChatDetailDrawer);
+        const canSwitchPrev =
+          verticalDominant && dy >= 16 && listAtTopShared.value > 0.5 && Boolean(onRequestSwitchAgentChat);
+        const canSwitchNext =
+          verticalDominant && dy <= -16 && listAtBottomShared.value > 0.5 && Boolean(onRequestSwitchAgentChat);
 
         if (canCreateChat) {
           gestureModeShared.value = MODE_CREATE;
@@ -591,10 +583,7 @@ export function ChatAssistantScreen({
       })
       .onEnd((event) => {
         'worklet';
-        if (
-          gestureModeShared.value === MODE_CREATE &&
-          event.translationX >= GESTURE_CREATE_CHAT_COMMIT_THRESHOLD
-        ) {
+        if (gestureModeShared.value === MODE_CREATE && event.translationX >= GESTURE_CREATE_CHAT_COMMIT_THRESHOLD) {
           runOnJS(runCreateGestureAction)();
           gestureModeShared.value = MODE_IDLE;
           return;
@@ -611,19 +600,13 @@ export function ChatAssistantScreen({
           }
         }
 
-        if (
-          gestureModeShared.value === MODE_SWITCH_PREV &&
-          event.translationY >= GESTURE_SWITCH_THRESHOLD
-        ) {
+        if (gestureModeShared.value === MODE_SWITCH_PREV && event.translationY >= GESTURE_SWITCH_THRESHOLD) {
           runOnJS(runSwitchPrevGestureAction)();
           gestureModeShared.value = MODE_IDLE;
           return;
         }
 
-        if (
-          gestureModeShared.value === MODE_SWITCH_NEXT &&
-          event.translationY <= -GESTURE_SWITCH_THRESHOLD
-        ) {
+        if (gestureModeShared.value === MODE_SWITCH_NEXT && event.translationY <= -GESTURE_SWITCH_THRESHOLD) {
           runOnJS(runSwitchNextGestureAction)();
           gestureModeShared.value = MODE_IDLE;
           return;
@@ -774,11 +757,15 @@ export function ChatAssistantScreen({
 
   const executeAction = useCallback(
     async (actionName: string, args?: Record<string, unknown>) => {
-      const name = String(actionName || '').trim().toLowerCase();
+      const name = String(actionName || '')
+        .trim()
+        .toLowerCase();
       if (!name) return;
 
       if (name === 'switch_theme') {
-        const nextTheme = String(args?.theme || '').trim().toLowerCase();
+        const nextTheme = String(args?.theme || '')
+          .trim()
+          .toLowerCase();
         if (nextTheme === 'light' || nextTheme === 'dark') {
           dispatch(setThemeMode(nextTheme as 'light' | 'dark'));
         } else {
@@ -883,9 +870,10 @@ export function ChatAssistantScreen({
         ? 'native_confirm_dialog'
         : 'webview';
 
-      const initialToolParams = payload.toolParams && typeof payload.toolParams === 'object'
-        ? (payload.toolParams as Record<string, unknown>)
-        : null;
+      const initialToolParams =
+        payload.toolParams && typeof payload.toolParams === 'object'
+          ? (payload.toolParams as Record<string, unknown>)
+          : null;
       const initialParamsReady = Boolean(payload.paramsReady) || Boolean(initialToolParams);
       clearToolInitTimers(true);
       frontendToolLoadedRef.current = false;
@@ -952,7 +940,10 @@ export function ChatAssistantScreen({
         }
 
         if (effect.type === 'execute_action') {
-          executeAction(String(effect.payload?.actionName || ''), effect.payload?.args as Record<string, unknown> | undefined).catch(() => {});
+          executeAction(
+            String(effect.payload?.actionName || ''),
+            effect.payload?.args as Record<string, unknown> | undefined
+          ).catch(() => {});
           return;
         }
 
@@ -975,25 +966,25 @@ export function ChatAssistantScreen({
             prev.activeFrontendTool && prev.activeFrontendTool.toolId === toolId
               ? {
                   ...prev,
-                activeFrontendTool: {
-                  ...prev.activeFrontendTool,
-                  toolParams:
-                    payload.toolParams && typeof payload.toolParams === 'object'
-                      ? (payload.toolParams as Record<string, unknown>)
-                      : null,
-                  paramsReady: Boolean(payload.paramsReady),
-                  paramsError: String(payload.paramsError || ''),
-                  argsText: String(payload.argsText || prev.activeFrontendTool.argsText || ''),
-                  missingChunkIndexes: Array.isArray(payload.missingChunkIndexes)
-                    ? (payload.missingChunkIndexes as number[])
-                    : [],
-                  chunkGapDetected: Boolean(payload.chunkGapDetected),
-                  toolInitDispatched: false,
-                  userInteracted: false,
-                  initAttempt: 0,
-                  initLastSentAtMs: undefined
+                  activeFrontendTool: {
+                    ...prev.activeFrontendTool,
+                    toolParams:
+                      payload.toolParams && typeof payload.toolParams === 'object'
+                        ? (payload.toolParams as Record<string, unknown>)
+                        : null,
+                    paramsReady: Boolean(payload.paramsReady),
+                    paramsError: String(payload.paramsError || ''),
+                    argsText: String(payload.argsText || prev.activeFrontendTool.argsText || ''),
+                    missingChunkIndexes: Array.isArray(payload.missingChunkIndexes)
+                      ? (payload.missingChunkIndexes as number[])
+                      : [],
+                    chunkGapDetected: Boolean(payload.chunkGapDetected),
+                    toolInitDispatched: false,
+                    userInteracted: false,
+                    initAttempt: 0,
+                    initLastSentAtMs: undefined
+                  }
                 }
-              }
               : prev
           );
 
@@ -1004,9 +995,7 @@ export function ChatAssistantScreen({
           if (chunkGapDetected && !chunkGapNotifiedToolIdsRef.current.has(toolId)) {
             chunkGapNotifiedToolIdsRef.current.add(toolId);
             dispatch(
-              setStatusText(
-                `前端工具参数分片缺失：toolId=${toolId} missing=[${missingChunkIndexes.join(',')}]`
-              )
+              setStatusText(`前端工具参数分片缺失：toolId=${toolId} missing=[${missingChunkIndexes.join(',')}]`)
             );
           }
         }
@@ -1049,8 +1038,9 @@ export function ChatAssistantScreen({
       if (type === 'reasoning.end') {
         const reasoningId = String(
           (event as Record<string, unknown>).reasoningId ||
-          (event as Record<string, unknown>).runId ||
-          (event as Record<string, unknown>).contentId || ''
+            (event as Record<string, unknown>).runId ||
+            (event as Record<string, unknown>).contentId ||
+            ''
         );
         if (reasoningId) {
           const itemId = runtimeRef.current.reasoningIdMap.get(reasoningId);
@@ -1192,7 +1182,9 @@ export function ChatAssistantScreen({
         {
           onMalformedFrame: (rawFrame, reason) => {
             if (__DEV__) {
-              const preview = String(rawFrame || '').replace(/\s+/g, ' ').slice(0, 220);
+              const preview = String(rawFrame || '')
+                .replace(/\s+/g, ' ')
+                .slice(0, 220);
               console.warn(`[chatStream] malformed SSE frame: ${reason}; preview=${preview}`);
             }
             const now = Date.now();
@@ -1387,31 +1379,34 @@ export function ChatAssistantScreen({
     }, TOOL_INIT_HEARTBEAT_MS);
   }, [clearToolInitTimers, dispatchToolInitOnce]);
 
-  const scheduleToolInitFastRetry = useCallback(function scheduleToolInitFastRetry() {
-    if (!toolInitFastRetryStartedRef.current) {
-      return;
-    }
-    if (toolInitRetryTimerRef.current) {
-      return;
-    }
-    if (toolInitFastRetryIndexRef.current >= TOOL_INIT_FAST_RETRY_DELAYS_MS.length) {
-      startToolInitHeartbeat();
-      return;
-    }
-
-    const delay = TOOL_INIT_FAST_RETRY_DELAYS_MS[toolInitFastRetryIndexRef.current];
-    toolInitFastRetryIndexRef.current += 1;
-    toolInitRetryTimerRef.current = setTimeout(() => {
-      toolInitRetryTimerRef.current = null;
-      const active = activeFrontendToolRef.current;
-      if (!active || active.userInteracted || active.loadError || active.paramsError) {
-        clearToolInitTimers(false);
+  const scheduleToolInitFastRetry = useCallback(
+    function scheduleToolInitFastRetry() {
+      if (!toolInitFastRetryStartedRef.current) {
         return;
       }
-      dispatchToolInitOnce('fast_retry');
-      scheduleToolInitFastRetry();
-    }, delay);
-  }, [clearToolInitTimers, dispatchToolInitOnce, startToolInitHeartbeat]);
+      if (toolInitRetryTimerRef.current) {
+        return;
+      }
+      if (toolInitFastRetryIndexRef.current >= TOOL_INIT_FAST_RETRY_DELAYS_MS.length) {
+        startToolInitHeartbeat();
+        return;
+      }
+
+      const delay = TOOL_INIT_FAST_RETRY_DELAYS_MS[toolInitFastRetryIndexRef.current];
+      toolInitFastRetryIndexRef.current += 1;
+      toolInitRetryTimerRef.current = setTimeout(() => {
+        toolInitRetryTimerRef.current = null;
+        const active = activeFrontendToolRef.current;
+        if (!active || active.userInteracted || active.loadError || active.paramsError) {
+          clearToolInitTimers(false);
+          return;
+        }
+        dispatchToolInitOnce('fast_retry');
+        scheduleToolInitFastRetry();
+      }, delay);
+    },
+    [clearToolInitTimers, dispatchToolInitOnce, startToolInitHeartbeat]
+  );
 
   const ensureToolInitReliableDispatch = useCallback(
     (trigger: string) => {
@@ -1580,24 +1575,30 @@ export function ChatAssistantScreen({
     postToFrontendToolWebView(authTokenMessage as unknown as Record<string, unknown>);
   }, [authAccessExpireAtMs, authAccessToken, authTokenSignal, postToFrontendToolWebView]);
 
-  const handleToggleToolExpanded = useCallback((id: string) => {
-    setChatStateSafe((prev) => ({
-      ...prev,
-      expandedTools: {
-        ...prev.expandedTools,
-        [id]: !prev.expandedTools[id]
-      }
-    }));
-  }, [setChatStateSafe]);
+  const handleToggleToolExpanded = useCallback(
+    (id: string) => {
+      setChatStateSafe((prev) => ({
+        ...prev,
+        expandedTools: {
+          ...prev.expandedTools,
+          [id]: !prev.expandedTools[id]
+        }
+      }));
+    },
+    [setChatStateSafe]
+  );
 
-  const handleToggleReasoning = useCallback((id: string) => {
-    setChatStateSafe((prev) => ({
-      ...prev,
-      timeline: prev.timeline.map((entry) =>
-        entry.id === id && entry.kind === 'reasoning' ? { ...entry, collapsed: !entry.collapsed } : entry
-      )
-    }));
-  }, [setChatStateSafe]);
+  const handleToggleReasoning = useCallback(
+    (id: string) => {
+      setChatStateSafe((prev) => ({
+        ...prev,
+        timeline: prev.timeline.map((entry) =>
+          entry.id === id && entry.kind === 'reasoning' ? { ...entry, collapsed: !entry.collapsed } : entry
+        )
+      }));
+    },
+    [setChatStateSafe]
+  );
 
   const handleCopyText = useCallback(async (text: string) => {
     if (!text) return;
@@ -1623,7 +1624,9 @@ export function ChatAssistantScreen({
     const timeline = chatState.timeline;
     if (!timeline.length) return 'empty';
     const last = timeline[timeline.length - 1] as Record<string, unknown>;
-    const body = `${String(last.text || '')}${String(last.argsText || '')}${String(last.resultText || '')}${String(last.state || '')}${String(last.collapsed || '')}`;
+    const body = `${String(last.text || '')}${String(last.argsText || '')}${String(last.resultText || '')}${String(
+      last.state || ''
+    )}${String(last.collapsed || '')}`;
     return `${String(last.id)}:${body.length}`;
   }, [chatState.timeline]);
 
@@ -1638,8 +1641,7 @@ export function ChatAssistantScreen({
   );
   const hasPlanTasks = chatState.planState.tasks.length > 0;
   const hasActiveFrontendTool = Boolean(chatState.activeFrontendTool);
-  const composerBottomPadding =
-    keyboardHeight > 0 ? (Platform.OS === 'ios' ? 0 : 10) : Math.max(insets.bottom, 10);
+  const composerBottomPadding = keyboardHeight > 0 ? (Platform.OS === 'ios' ? 0 : 10) : Math.max(insets.bottom, 10);
   useEffect(() => {
     if (!chatDetailDrawerOpen) {
       onRequestPreviewChatDetailDrawer?.(0);
@@ -1859,7 +1861,15 @@ export function ChatAssistantScreen({
     return () => {
       cancelled = true;
     };
-  }, [applyEvent, chatId, loadHistoryFromCache, loadHistoryFromRemote, refreshSignal, resetTimeline, setChatImageTokenSafe]);
+  }, [
+    applyEvent,
+    chatId,
+    loadHistoryFromCache,
+    loadHistoryFromRemote,
+    refreshSignal,
+    resetTimeline,
+    setChatImageTokenSafe
+  ]);
 
   const listExtraData = useMemo(
     () => ({
@@ -1970,203 +1980,232 @@ export function ChatAssistantScreen({
 
   const contentBounceStyle = useAnimatedStyle(() => {
     return {
-      transform: [
-        { translateX: contentBounceXShared.value },
-        { translateY: contentBounceYShared.value }
-      ]
+      transform: [{ translateX: contentBounceXShared.value }, { translateY: contentBounceYShared.value }]
     };
   }, [contentBounceXShared, contentBounceYShared]);
-
 
   return (
     <View style={styles.container} nativeID="chat-screen-root" testID="chat-screen-root">
       {/* ---- 推挤层：左滑时整体向左位移 ---- */}
       <View style={styles.contentPushLayer}>
-      {/* ---- 背景提示层（zIndex: 0，被 contentWrap 遮住）---- */}
-      <View pointerEvents="none" style={styles.createChatHintBehind}>
-        <Reanimated.View style={[styles.createChatHintBehindCard, createChatHintCardStyle]}>
+        {/* ---- 背景提示层（zIndex: 0，被 contentWrap 遮住）---- */}
+        <View pointerEvents="none" style={styles.createChatHintBehind}>
+          <Reanimated.View style={[styles.createChatHintBehindCard, createChatHintCardStyle]}>
             {'新建对话'.split('').map((char, i) => (
               <Text key={i} style={[styles.createChatHintBehindChar, { color: theme.textSoft }]}>
                 {char}
               </Text>
             ))}
           </Reanimated.View>
-      </View>
-      <View
-        pointerEvents="none"
-        style={[styles.switchPrevHintBehind, { top: insets.top - 2 }]}
-        testID="switch-prev-hint-layer"
-      >
+        </View>
+        <View
+          pointerEvents="none"
+          style={[styles.switchPrevHintBehind, { top: insets.top - 2 }]}
+          testID="switch-prev-hint-layer"
+        >
           <Reanimated.View
-            style={[styles.switchHintCard, switchPrevHintCardStyle, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+            style={[
+              styles.switchHintCard,
+              switchPrevHintCardStyle,
+              { backgroundColor: theme.surfaceStrong, borderColor: theme.border }
+            ]}
           >
             <Text style={[styles.switchHintArrow, { color: theme.textSoft }]}>↑</Text>
             <Text style={[styles.switchHintText, { color: theme.text }]}>上一条对话</Text>
           </Reanimated.View>
-      </View>
-      <View
-        pointerEvents="none"
-        style={[styles.switchNextHintBehind, { bottom: composerBottomPadding + 4 }]}
-        testID="switch-next-hint-layer"
-      >
+        </View>
+        <View
+          pointerEvents="none"
+          style={[styles.switchNextHintBehind, { bottom: composerBottomPadding + 4 }]}
+          testID="switch-next-hint-layer"
+        >
           <Reanimated.View
-            style={[styles.switchHintCard, switchNextHintCardStyle, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+            style={[
+              styles.switchHintCard,
+              switchNextHintCardStyle,
+              { backgroundColor: theme.surfaceStrong, borderColor: theme.border }
+            ]}
           >
             <Text style={[styles.switchHintText, { color: theme.text }]}>下一条对话</Text>
             <Text style={[styles.switchHintArrow, { color: theme.textSoft }]}>↓</Text>
           </Reanimated.View>
-      </View>
+        </View>
 
-      {/* ---- 内容层（带背景色 + 手势位移）---- */}
-      <Reanimated.View style={[styles.contentWrap, { backgroundColor: theme.surface }, contentBounceStyle]}>
-        <GestureDetector gesture={timelinePanGesture}>
-          <View style={styles.timelineGestureLayer} testID="chat-timeline-gesture-layer">
-          <FlatList
-            ref={listRef}
-            data={chatState.timeline}
-            extraData={listExtraData}
-            removeClippedSubviews={Platform.OS === 'android'}
-            nestedScrollEnabled={Platform.OS === 'android'}
-            keyboardShouldPersistTaps="handled"
-            bounces={isTimelineScrollable}
-            alwaysBounceVertical={isTimelineScrollable}
-            keyExtractor={(item) => item.id}
-            style={styles.timelineList}
-            contentContainerStyle={[styles.timelineContent, chatState.timeline.length === 0 ? styles.timelineContentEmpty : null]}
-            onScroll={(event) => {
-              const native = event.nativeEvent;
-              syncListMetrics(
-                native.contentOffset.y,
-                native.layoutMeasurement.height,
-                native.contentSize.height,
-                { fromScroll: true }
-              );
-            }}
-            onLayout={(event) => {
-              syncListMetrics(listOffsetYRef.current, event.nativeEvent.layout.height, listContentHeightRef.current);
-            }}
-            onContentSizeChange={(width, height) => {
-              void width;
-              syncListMetrics(listOffsetYRef.current, listViewportHeightRef.current, height);
-            }}
-            scrollEventThrottle={32}
-            nativeID="chat-timeline-list"
-            testID="chat-timeline-list"
-            renderItem={renderTimelineItem}
-            ListEmptyComponent={
-              <View style={[styles.emptyPanel, { backgroundColor: theme.surfaceStrong }]}>
-                <Text style={[styles.emptyTitle, { color: theme.text }]}>开始一个完整对话</Text>
-                <Text style={[styles.emptySubTitle, { color: theme.textSoft }]}>先在对话列表选择会话，或直接发送消息开始。</Text>
-              </View>
-            }
-          />
-          </View>
-        </GestureDetector>
+        {/* ---- 内容层（带背景色 + 手势位移）---- */}
+        <Reanimated.View style={[styles.contentWrap, { backgroundColor: theme.surface }, contentBounceStyle]}>
+          <GestureDetector gesture={timelinePanGesture}>
+            <View style={styles.timelineGestureLayer} testID="chat-timeline-gesture-layer">
+              <FlatList
+                ref={listRef}
+                data={chatState.timeline}
+                extraData={listExtraData}
+                removeClippedSubviews={Platform.OS === 'android'}
+                nestedScrollEnabled={Platform.OS === 'android'}
+                keyboardShouldPersistTaps="handled"
+                bounces={isTimelineScrollable}
+                alwaysBounceVertical={isTimelineScrollable}
+                keyExtractor={(item) => item.id}
+                style={styles.timelineList}
+                contentContainerStyle={[
+                  styles.timelineContent,
+                  chatState.timeline.length === 0 ? styles.timelineContentEmpty : null
+                ]}
+                onScroll={(event) => {
+                  const native = event.nativeEvent;
+                  syncListMetrics(native.contentOffset.y, native.layoutMeasurement.height, native.contentSize.height, {
+                    fromScroll: true
+                  });
+                }}
+                onLayout={(event) => {
+                  syncListMetrics(
+                    listOffsetYRef.current,
+                    event.nativeEvent.layout.height,
+                    listContentHeightRef.current
+                  );
+                }}
+                onContentSizeChange={(width, height) => {
+                  void width;
+                  syncListMetrics(listOffsetYRef.current, listViewportHeightRef.current, height);
+                }}
+                scrollEventThrottle={32}
+                nativeID="chat-timeline-list"
+                testID="chat-timeline-list"
+                renderItem={renderTimelineItem}
+                ListEmptyComponent={
+                  <View style={[styles.emptyPanel, { backgroundColor: theme.surfaceStrong }]}>
+                    <Text style={[styles.emptyTitle, { color: theme.text }]}>开始一个完整对话</Text>
+                    <Text style={[styles.emptySubTitle, { color: theme.textSoft }]}>
+                      先在对话列表选择会话，或直接发送消息开始。
+                    </Text>
+                  </View>
+                }
+              />
+            </View>
+          </GestureDetector>
 
-      {!hasActiveFrontendTool ? (
-        <View style={[styles.composerOuter, { paddingBottom: composerBottomPadding }]}>
-          {hasPlanTasks ? (
-            <View style={[styles.planFloatWrap, { shadowColor: theme.shadow }]}>
-              {isTimelineScrollable && !autoScrollEnabled && chatState.timeline.length ? (
-                <View style={styles.scrollToBottomAbovePlan}>
+          {!hasActiveFrontendTool ? (
+            <View style={[styles.composerOuter, { paddingBottom: composerBottomPadding }]}>
+              {hasPlanTasks ? (
+                <View style={[styles.planFloatWrap, { shadowColor: theme.shadow }]}>
+                  {isTimelineScrollable && !autoScrollEnabled && chatState.timeline.length ? (
+                    <View style={styles.scrollToBottomAbovePlan}>
+                      <TouchableOpacity
+                        activeOpacity={0.86}
+                        onPress={() => scrollToBottom(true)}
+                        testID="scroll-to-bottom-btn"
+                        style={[
+                          styles.scrollToBottomBtn,
+                          { backgroundColor: theme.surfaceStrong, borderColor: theme.border }
+                        ]}
+                      >
+                        <Text style={[styles.scrollToBottomText, { color: theme.text }]}>↓</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : null}
+
                   <TouchableOpacity
-                    activeOpacity={0.86}
-                    onPress={() => scrollToBottom(true)}
-                    testID="scroll-to-bottom-btn"
-                    style={[styles.scrollToBottomBtn, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+                    activeOpacity={0.84}
+                    onPress={() => {
+                      if (planCollapseTimerRef.current) {
+                        clearTimeout(planCollapseTimerRef.current);
+                        planCollapseTimerRef.current = null;
+                      }
+                      setPlanExpanded((prev) => !prev);
+                    }}
+                    testID="plan-toggle-btn"
+                    style={[
+                      styles.planCard,
+                      planExpanded
+                        ? { backgroundColor: theme.surfaceStrong, borderColor: theme.border }
+                        : { backgroundColor: theme.primarySoft, borderColor: theme.borderStrong }
+                    ]}
                   >
-                    <Text style={[styles.scrollToBottomText, { color: theme.text }]}>↓</Text>
+                    {planExpanded ? (
+                      <View>
+                        <View
+                          style={[
+                            styles.planHead,
+                            { backgroundColor: theme.primarySoft, borderColor: theme.borderStrong }
+                          ]}
+                        >
+                          <Text style={[styles.planTitle, { color: theme.primaryDeep }]}>
+                            {`任务列表 ${planProgress.current}/${planProgress.total}`}
+                          </Text>
+                          <Text style={[styles.planHint, { color: theme.textMute }]}>点击收起</Text>
+                        </View>
+                        <View style={styles.planTaskList}>
+                          {cleanedPlanTasks.map((task) => {
+                            const tone =
+                              task.status === 'done'
+                                ? theme.ok
+                                : task.status === 'failed'
+                                ? theme.danger
+                                : task.status === 'running'
+                                ? theme.warn
+                                : theme.textMute;
+                            return (
+                              <View key={task.taskId} style={styles.planTaskRow}>
+                                <View style={[styles.planTaskDot, { backgroundColor: `${tone}` }]} />
+                                <Text style={[styles.planTaskText, { color: theme.textSoft }]} numberOfLines={2}>
+                                  {task.cleanedDescription}
+                                </Text>
+                              </View>
+                            );
+                          })}
+                        </View>
+                      </View>
+                    ) : (
+                      <View style={styles.planCollapsedWrap}>
+                        <Text style={[styles.planCollapsedText, { color: theme.primaryDeep }]} numberOfLines={1}>
+                          {`${planProgress.current}/${planProgress.total}` +
+                            (cleanedPlanTasks.length
+                              ? ` · ${cleanedPlanTasks[cleanedPlanTasks.length - 1].cleanedDescription}`
+                              : '')}
+                        </Text>
+                      </View>
+                    )}
                   </TouchableOpacity>
                 </View>
               ) : null}
 
-              <TouchableOpacity
-                activeOpacity={0.84}
-                onPress={() => {
-                  if (planCollapseTimerRef.current) {
-                    clearTimeout(planCollapseTimerRef.current);
-                    planCollapseTimerRef.current = null;
-                  }
-                  setPlanExpanded((prev) => !prev);
-                }}
-                testID="plan-toggle-btn"
-                style={[
-                  styles.planCard,
-                  planExpanded
-                    ? { backgroundColor: theme.surfaceStrong, borderColor: theme.border }
-                    : { backgroundColor: theme.primarySoft, borderColor: theme.borderStrong }
-                ]}
-              >
-                {planExpanded ? (
-                <View>
-                  <View style={[styles.planHead, { backgroundColor: theme.primarySoft, borderColor: theme.borderStrong }]}>
-                    <Text style={[styles.planTitle, { color: theme.primaryDeep }]}>
-                      {`任务列表 ${planProgress.current}/${planProgress.total}`}
-                    </Text>
-                    <Text style={[styles.planHint, { color: theme.textMute }]}>
-                      点击收起
-                    </Text>
+              <View style={styles.composerLayer}>
+                <Composer
+                  theme={theme}
+                  composerText={composerText}
+                  onChangeText={setComposerText}
+                  onFocus={() => {}}
+                  onBlur={() => {}}
+                  onSend={sendMessage}
+                  onStop={stopStreaming}
+                  streaming={chatState.streaming}
+                  activeFrontendTool={null}
+                  frontendToolBaseUrl={backendUrl}
+                  frontendToolWebViewRef={frontendToolWebViewRef}
+                  onFrontendToolMessage={handleFrontendToolMessage}
+                  onFrontendToolLoad={handleFrontendToolWebViewLoad}
+                  onFrontendToolRetry={handleFrontendToolRetry}
+                  onNativeConfirmSubmit={submitActiveFrontendTool}
+                />
+
+                {!hasPlanTasks && isTimelineScrollable && !autoScrollEnabled && chatState.timeline.length ? (
+                  <View style={styles.scrollToBottomAboveComposer}>
+                    <TouchableOpacity
+                      activeOpacity={0.86}
+                      onPress={() => scrollToBottom(true)}
+                      testID="scroll-to-bottom-btn"
+                      style={[
+                        styles.scrollToBottomBtn,
+                        { backgroundColor: theme.surfaceStrong, borderColor: theme.border }
+                      ]}
+                    >
+                      <Text style={[styles.scrollToBottomText, { color: theme.text }]}>↓</Text>
+                    </TouchableOpacity>
                   </View>
-                  <View style={styles.planTaskList}>
-                    {cleanedPlanTasks.map((task) => {
-                      const tone = task.status === 'done' ? theme.ok : task.status === 'failed' ? theme.danger : task.status === 'running' ? theme.warn : theme.textMute;
-                      return (
-                        <View key={task.taskId} style={styles.planTaskRow}>
-                          <View style={[styles.planTaskDot, { backgroundColor: `${tone}` }]} />
-                          <Text style={[styles.planTaskText, { color: theme.textSoft }]} numberOfLines={2}>
-                            {task.cleanedDescription}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </View>
-              ) : (
-                <View style={styles.planCollapsedWrap}>
-                  <Text style={[styles.planCollapsedText, { color: theme.primaryDeep }]} numberOfLines={1}>
-                    {`${planProgress.current}/${planProgress.total}` + (cleanedPlanTasks.length ? ` · ${cleanedPlanTasks[cleanedPlanTasks.length - 1].cleanedDescription}` : '')}
-                  </Text>
-                </View>
-              )}
-              </TouchableOpacity>
+                ) : null}
+              </View>
             </View>
           ) : null}
-
-          <View style={styles.composerLayer}>
-            <Composer
-              theme={theme}
-              composerText={composerText}
-              onChangeText={setComposerText}
-              onFocus={() => {}}
-              onBlur={() => {}}
-              onSend={sendMessage}
-              onStop={stopStreaming}
-              streaming={chatState.streaming}
-              activeFrontendTool={null}
-              frontendToolBaseUrl={backendUrl}
-              frontendToolWebViewRef={frontendToolWebViewRef}
-              onFrontendToolMessage={handleFrontendToolMessage}
-              onFrontendToolLoad={handleFrontendToolWebViewLoad}
-              onFrontendToolRetry={handleFrontendToolRetry}
-              onNativeConfirmSubmit={submitActiveFrontendTool}
-            />
-
-            {!hasPlanTasks && isTimelineScrollable && !autoScrollEnabled && chatState.timeline.length ? (
-              <View style={styles.scrollToBottomAboveComposer}>
-                <TouchableOpacity
-                  activeOpacity={0.86}
-                  onPress={() => scrollToBottom(true)}
-                  testID="scroll-to-bottom-btn"
-                  style={[styles.scrollToBottomBtn, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
-                >
-                  <Text style={[styles.scrollToBottomText, { color: theme.text }]}>↓</Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
-          </View>
-        </View>
-      ) : null}
-      </Reanimated.View>
+        </Reanimated.View>
       </View>
 
       {/* ---- 浮层 ---- */}
@@ -2209,7 +2248,13 @@ export function ChatAssistantScreen({
                     backgroundColor: String(rocket.color),
                     shadowColor: String(rocket.color),
                     opacity: fireworksAnim.interpolate({
-                      inputRange: [0, Number(rocket.startT), Number(rocket.endT), Math.min(0.995, Number(rocket.endT) + 0.03), 1],
+                      inputRange: [
+                        0,
+                        Number(rocket.startT),
+                        Number(rocket.endT),
+                        Math.min(0.995, Number(rocket.endT) + 0.03),
+                        1
+                      ],
                       outputRange: [0, 0, 0.96, 0, 0],
                       extrapolate: 'clamp'
                     }),
@@ -2249,7 +2294,14 @@ export function ChatAssistantScreen({
                   backgroundColor: String(spark.color),
                   shadowColor: String(spark.color),
                   opacity: fireworksAnim.interpolate({
-                    inputRange: [0, Number(spark.startT), Number(spark.peakT), Number(spark.fadeT), Number(spark.endT), 1],
+                    inputRange: [
+                      0,
+                      Number(spark.startT),
+                      Number(spark.peakT),
+                      Number(spark.fadeT),
+                      Number(spark.endT),
+                      1
+                    ],
                     outputRange: [0, 0, 1, 0.7, 0, 0],
                     extrapolate: 'clamp'
                   }),
@@ -2283,7 +2335,10 @@ export function ChatAssistantScreen({
           testID="frontend-tool-overlay"
         >
           <Animated.View
-            style={[styles.frontendToolOverlayMask, { backgroundColor: theme.overlay, opacity: frontendToolOverlayAnim }]}
+            style={[
+              styles.frontendToolOverlayMask,
+              { backgroundColor: theme.overlay, opacity: frontendToolOverlayAnim }
+            ]}
             testID="frontend-tool-overlay-mask"
           />
           <Animated.View
@@ -2324,18 +2379,28 @@ export function ChatAssistantScreen({
         transparent
         visible={chatState.actionModal.visible}
         animationType="fade"
-        onRequestClose={() => setChatStateSafe((prev) => ({ ...prev, actionModal: { ...prev.actionModal, visible: false } }))}
+        onRequestClose={() =>
+          setChatStateSafe((prev) => ({ ...prev, actionModal: { ...prev.actionModal, visible: false } }))
+        }
       >
-        <View style={[styles.actionModalOverlay, { backgroundColor: theme.overlay }]}> 
-          <View style={[styles.actionModalCard, { backgroundColor: theme.surfaceStrong }]}> 
-            <Text style={[styles.actionModalTitle, { color: theme.text }]}>{chatState.actionModal.title || '提示'}</Text>
-            <Text style={[styles.actionModalContent, { color: theme.textSoft }]}>{chatState.actionModal.content || ' '}</Text>
+        <View style={[styles.actionModalOverlay, { backgroundColor: theme.overlay }]}>
+          <View style={[styles.actionModalCard, { backgroundColor: theme.surfaceStrong }]}>
+            <Text style={[styles.actionModalTitle, { color: theme.text }]}>
+              {chatState.actionModal.title || '提示'}
+            </Text>
+            <Text style={[styles.actionModalContent, { color: theme.textSoft }]}>
+              {chatState.actionModal.content || ' '}
+            </Text>
             <TouchableOpacity
               activeOpacity={0.82}
               style={[styles.actionModalBtn, { backgroundColor: theme.primarySoft }]}
-              onPress={() => setChatStateSafe((prev) => ({ ...prev, actionModal: { ...prev.actionModal, visible: false } }))}
+              onPress={() =>
+                setChatStateSafe((prev) => ({ ...prev, actionModal: { ...prev.actionModal, visible: false } }))
+              }
             >
-              <Text style={[styles.actionModalBtnText, { color: theme.primaryDeep }]}>{chatState.actionModal.closeText || '关闭'}</Text>
+              <Text style={[styles.actionModalBtnText, { color: theme.primaryDeep }]}>
+                {chatState.actionModal.closeText || '关闭'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>

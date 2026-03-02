@@ -30,9 +30,7 @@ export function normalizeConfirmDialogParams(
 
   const allowFreeText = Boolean(raw.allowFreeText);
   const rawOptions = Array.isArray(raw.options) ? raw.options : [];
-  const options = rawOptions
-    .map((item) => String(item || '').trim())
-    .filter((item) => item.length > 0);
+  const options = rawOptions.map((item) => String(item || '').trim()).filter((item) => item.length > 0);
 
   if (!allowFreeText && options.length === 0) {
     return { params: null, error: '确认对话框缺少可选项' };

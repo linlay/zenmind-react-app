@@ -51,9 +51,7 @@ export function isDirectImageUrl(raw: string): boolean {
   const text = String(raw || '').trim();
   if (!text) return false;
   return (
-    ABSOLUTE_HTTP_URL_REGEX.test(text) ||
-    PROTOCOL_RELATIVE_URL_REGEX.test(text) ||
-    DIRECT_IMAGE_SCHEME_REGEX.test(text)
+    ABSOLUTE_HTTP_URL_REGEX.test(text) || PROTOCOL_RELATIVE_URL_REGEX.test(text) || DIRECT_IMAGE_SCHEME_REGEX.test(text)
   );
 }
 
@@ -74,16 +72,13 @@ export function sanitizeFilePath(raw: string): string {
   return withoutQuery;
 }
 
-export function buildApDataUrl(
-  backendUrl: string,
-  filePath: string,
-  download: boolean,
-  chatImageToken = ''
-): string {
+export function buildApDataUrl(backendUrl: string, filePath: string, download: boolean, chatImageToken = ''): string {
   const path = sanitizeFilePath(filePath);
   if (!path) return '';
   const token = String(chatImageToken || '').trim();
-  const query = `file=${encodeURIComponent(path)}${download ? '&download=true' : ''}${token ? `&t=${encodeURIComponent(token)}` : ''}`;
+  const query = `file=${encodeURIComponent(path)}${download ? '&download=true' : ''}${
+    token ? `&t=${encodeURIComponent(token)}` : ''
+  }`;
   const base = normalizeBackendBase(backendUrl);
   if (!base) return `/api/ap/data?${query}`;
   try {

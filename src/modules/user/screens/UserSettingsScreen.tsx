@@ -5,11 +5,7 @@ import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
 import { toBackendBaseUrl, toDefaultPtyWebUrl } from '../../../core/network/endpoint';
 import { patchSettings } from '../../../core/storage/settingsStorage';
 import { FONT_MONO } from '../../../core/constants/theme';
-import {
-  applyEndpointDraft,
-  setEndpointDraft,
-  setPtyUrlDraft
-} from '../state/userSlice';
+import { applyEndpointDraft, setEndpointDraft, setPtyUrlDraft } from '../state/userSlice';
 
 interface UserSettingsScreenProps {
   theme: {
@@ -32,17 +28,18 @@ interface UserSettingsScreenProps {
   onLogout: () => void;
 }
 
-export function UserSettingsScreen({ theme, onSettingsApplied, username, deviceName, accessToken, versionLabel, onLogout }: UserSettingsScreenProps) {
+export function UserSettingsScreen({
+  theme,
+  onSettingsApplied,
+  username,
+  deviceName,
+  accessToken,
+  versionLabel,
+  onLogout
+}: UserSettingsScreenProps) {
   const dispatch = useAppDispatch();
-  const {
-    endpointDraft,
-    ptyUrlDraft,
-    endpointInput,
-    ptyUrlInput,
-    selectedAgentKey,
-    activeDomain,
-    themeMode
-  } = useAppSelector((state) => state.user);
+  const { endpointDraft, ptyUrlDraft, endpointInput, ptyUrlInput, selectedAgentKey, activeDomain, themeMode } =
+    useAppSelector((state) => state.user);
 
   const backendUrl = toBackendBaseUrl(endpointInput);
 
@@ -81,7 +78,12 @@ export function UserSettingsScreen({ theme, onSettingsApplied, username, deviceN
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent} nativeID="settings-root" testID="settings-root">
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={styles.scrollContent}
+      nativeID="settings-root"
+      testID="settings-root"
+    >
       <View
         style={[styles.settingCard, { backgroundColor: theme.surfaceStrong }]}
         nativeID="settings-card"
@@ -139,12 +141,7 @@ export function UserSettingsScreen({ theme, onSettingsApplied, username, deviceN
         </TouchableOpacity>
         <Text style={styles.hint}>当前 PTY：{ptyUrlInput}</Text>
 
-        <TouchableOpacity
-          activeOpacity={0.82}
-          style={styles.applyBtn}
-          testID="save-settings-btn"
-          onPress={handleApply}
-        >
+        <TouchableOpacity activeOpacity={0.82} style={styles.applyBtn} testID="save-settings-btn" onPress={handleApply}>
           <LinearGradient colors={[theme.primary, theme.primaryDeep]} style={styles.applyGradient}>
             <Text style={styles.applyText}>保存设置</Text>
           </LinearGradient>

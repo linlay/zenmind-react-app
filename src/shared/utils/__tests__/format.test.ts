@@ -19,7 +19,9 @@ describe('chat format helpers', () => {
 
   it('resolves agent name with fallback order', () => {
     expect(getChatAgentName({ firstAgentName: '示例智能体', firstAgentKey: 'agent-key' })).toBe('示例智能体');
-    expect(getChatAgentName({ firstAgentName: '   ', agentName: '备用智能体', firstAgentKey: 'agent-key' })).toBe('备用智能体');
+    expect(getChatAgentName({ firstAgentName: '   ', agentName: '备用智能体', firstAgentKey: 'agent-key' })).toBe(
+      '备用智能体'
+    );
     expect(getChatAgentName({ firstAgentName: '', firstAgentKey: '' })).toBe('未知智能体');
   });
 

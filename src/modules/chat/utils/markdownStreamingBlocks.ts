@@ -96,7 +96,9 @@ function hasSingleTrailingNewline(text: string): boolean {
 }
 
 function hasExplicitFenceClosure(content: string): boolean {
-  const lines = String(content || '').replace(/\r/g, '').split('\n');
+  const lines = String(content || '')
+    .replace(/\r/g, '')
+    .split('\n');
   if (lines.length < 2) return false;
 
   const firstNonEmpty = lines.find((line) => String(line || '').trim().length > 0) || '';

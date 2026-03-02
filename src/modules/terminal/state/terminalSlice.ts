@@ -34,5 +34,6 @@ const terminalSlice = createSlice({
   }
 });
 
-export const { reloadPty, setPtyLoading, setPtyLoadError, setActiveSessionId, requestOpenNewSessionModal } = terminalSlice.actions;
+export const { reloadPty, setPtyLoading, setPtyLoadError, setActiveSessionId, requestOpenNewSessionModal } =
+  terminalSlice.actions;
 export default terminalSlice.reducer;

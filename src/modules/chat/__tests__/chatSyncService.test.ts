@@ -53,21 +53,9 @@ describe('chatSyncService', () => {
 
     const result = await syncChatsIncremental('https://api.example.com');
 
-    expect(mockFetchApiJson).toHaveBeenNthCalledWith(
-      1,
-      'https://api.example.com',
-      '/api/ap/chats?lastRunId=0010'
-    );
-    expect(mockFetchApiJson).toHaveBeenNthCalledWith(
-      2,
-      'https://api.example.com',
-      '/api/ap/chat?chatId=chat-1'
-    );
-    expect(mockFetchApiJson).toHaveBeenNthCalledWith(
-      3,
-      'https://api.example.com',
-      '/api/ap/chat?chatId=chat-2'
-    );
+    expect(mockFetchApiJson).toHaveBeenNthCalledWith(1, 'https://api.example.com', '/api/ap/chats?lastRunId=0010');
+    expect(mockFetchApiJson).toHaveBeenNthCalledWith(2, 'https://api.example.com', '/api/ap/chat?chatId=chat-1');
+    expect(mockFetchApiJson).toHaveBeenNthCalledWith(3, 'https://api.example.com', '/api/ap/chat?chatId=chat-2');
 
     expect(mockUpsertChatSummaries).toHaveBeenCalledTimes(1);
     expect(mockUpsertChatDetail).toHaveBeenCalledTimes(2);
@@ -98,10 +86,7 @@ describe('chatSyncService', () => {
 
     const detail = await fetchAndCacheChatDetail('https://api.example.com', 'chat-1');
 
-    expect(mockFetchApiJson).toHaveBeenCalledWith(
-      'https://api.example.com',
-      '/api/ap/chat?chatId=chat-1'
-    );
+    expect(mockFetchApiJson).toHaveBeenCalledWith('https://api.example.com', '/api/ap/chat?chatId=chat-1');
     expect(mockUpsertChatDetail).toHaveBeenCalledWith(
       expect.objectContaining({
         chatId: 'chat-1',

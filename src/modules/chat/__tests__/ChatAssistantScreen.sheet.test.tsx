@@ -244,9 +244,8 @@ function renderTimelineRowViaList(tree: ReturnType<typeof create>) {
 describe('ChatAssistantScreen frontend tool overlay', () => {
   beforeAll(() => {
     jest.useFakeTimers();
-    const globalWindow = (
-      globalThis as unknown as { window?: { dispatchEvent?: (...args: unknown[]) => unknown } }
-    ).window;
+    const globalWindow = (globalThis as unknown as { window?: { dispatchEvent?: (...args: unknown[]) => unknown } })
+      .window;
     if (!globalWindow) {
       (globalThis as unknown as { window: { dispatchEvent: (...args: unknown[]) => unknown } }).window = {
         dispatchEvent: () => undefined

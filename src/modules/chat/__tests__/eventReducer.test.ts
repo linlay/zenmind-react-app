@@ -24,8 +24,18 @@ describe('eventReducer', () => {
     const runtime = createRuntimeMaps();
     let state = createEmptyChatState();
 
-    state = reduceChatEvent(state, { type: 'action.start', actionId: 'a1', actionName: 'show_modal' }, 'live', runtime).next;
-    state = reduceChatEvent(state, { type: 'action.args', actionId: 'a1', delta: '{"title":"ok"}' }, 'live', runtime).next;
+    state = reduceChatEvent(
+      state,
+      { type: 'action.start', actionId: 'a1', actionName: 'show_modal' },
+      'live',
+      runtime
+    ).next;
+    state = reduceChatEvent(
+      state,
+      { type: 'action.args', actionId: 'a1', delta: '{"title":"ok"}' },
+      'live',
+      runtime
+    ).next;
     state = reduceChatEvent(state, { type: 'action.end', actionId: 'a1' }, 'live', runtime).next;
 
     state = reduceChatEvent(state, { type: 'tool.start', toolId: 't1', toolName: 'fetch' }, 'live', runtime).next;
@@ -43,7 +53,12 @@ describe('eventReducer', () => {
     let state = createEmptyChatState();
 
     state = reduceChatEvent(state, { type: 'tool.start', toolId: 't1' }, 'live', runtime).next;
-    state = reduceChatEvent(state, { type: 'tool.snapshot', toolId: 't1', toolName: 'fetch_disk' }, 'live', runtime).next;
+    state = reduceChatEvent(
+      state,
+      { type: 'tool.snapshot', toolId: 't1', toolName: 'fetch_disk' },
+      'live',
+      runtime
+    ).next;
 
     const tool = state.timeline.find((item) => item.kind === 'tool');
     expect(tool && tool.label).toBe('fetch_disk');
@@ -93,9 +108,7 @@ describe('eventReducer', () => {
       state,
       {
         type: 'plan.update',
-        plan: [
-          { taskId: 'abc123', description: '执行数据库迁移', status: 'init' }
-        ]
+        plan: [{ taskId: 'abc123', description: '执行数据库迁移', status: 'init' }]
       },
       'live',
       runtime
@@ -197,12 +210,7 @@ describe('eventReducer', () => {
       runtime
     ).next;
 
-    state = reduceChatEvent(
-      state,
-      { type: 'tool.args', toolId: 't2', delta: '{"question":"Q"' },
-      'live',
-      runtime
-    ).next;
+    state = reduceChatEvent(state, { type: 'tool.args', toolId: 't2', delta: '{"question":"Q"' }, 'live', runtime).next;
 
     const end = reduceChatEvent(state, { type: 'tool.end', toolId: 't2' }, 'live', runtime);
     const effect = end.effects.find((item) => item.type === 'frontend_tool_params_ready');

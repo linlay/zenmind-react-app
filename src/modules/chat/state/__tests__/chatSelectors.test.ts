@@ -36,9 +36,27 @@ describe('chatSelectors', () => {
 
   it('filters aggregated items by agentName/agentKey/latest chat title', () => {
     const state = createState([
-      { chatId: 'a-older', chatName: 'alpha legacy', firstAgentKey: 'agent-a', firstAgentName: 'Agent A', updatedAt: 100 },
-      { chatId: 'a-latest', chatName: 'newest title', firstAgentKey: 'agent-a', firstAgentName: 'Agent A', updatedAt: 200 },
-      { chatId: 'b-latest', chatName: 'beta title', firstAgentKey: 'agent-b', firstAgentName: 'Sales Bot', updatedAt: 180 }
+      {
+        chatId: 'a-older',
+        chatName: 'alpha legacy',
+        firstAgentKey: 'agent-a',
+        firstAgentName: 'Agent A',
+        updatedAt: 100
+      },
+      {
+        chatId: 'a-latest',
+        chatName: 'newest title',
+        firstAgentKey: 'agent-a',
+        firstAgentName: 'Agent A',
+        updatedAt: 200
+      },
+      {
+        chatId: 'b-latest',
+        chatName: 'beta title',
+        firstAgentKey: 'agent-b',
+        firstAgentName: 'Sales Bot',
+        updatedAt: 180
+      }
     ]);
 
     const result = selectAgentLatestChats(state);
@@ -63,12 +81,9 @@ describe('chatSelectors', () => {
   });
 
   it('resolves icon from agent.icon object when chat payload has no icon fields', () => {
-    const state = createState(
-      [{ chatId: 'chat-1', chatName: 'A', agentKey: 'demoAction', updatedAt: 200 }],
-      {
-        agents: [{ key: 'demoAction', name: 'AgentFromAgents', icon: { name: 'rocket', color: '#3F7BFA' } }]
-      }
-    );
+    const state = createState([{ chatId: 'chat-1', chatName: 'A', agentKey: 'demoAction', updatedAt: 200 }], {
+      agents: [{ key: 'demoAction', name: 'AgentFromAgents', icon: { name: 'rocket', color: '#3F7BFA' } }]
+    });
     const result = selectAgentLatestChats(state);
     expect(result).toHaveLength(1);
     expect(result[0].iconName).toBe('rocket');

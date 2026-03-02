@@ -18,8 +18,7 @@ jest.mock('react-native-webview', () => {
   const ReactLocal = require('react');
   const { View } = require('react-native');
   return {
-    WebView: ({ children, ...props }: { children?: React.ReactNode }) =>
-      ReactLocal.createElement(View, props, children)
+    WebView: ({ children, ...props }: { children?: React.ReactNode }) => ReactLocal.createElement(View, props, children)
   };
 });
 

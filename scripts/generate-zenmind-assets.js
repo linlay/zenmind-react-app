@@ -15,7 +15,7 @@ function hexToRgb(hex) {
   return {
     r: (int >> 16) & 255,
     g: (int >> 8) & 255,
-    b: int & 255,
+    b: int & 255
   };
 }
 
@@ -23,7 +23,7 @@ function mix(a, b, t) {
   return {
     r: Math.round(a.r + (b.r - a.r) * t),
     g: Math.round(a.g + (b.g - a.g) * t),
-    b: Math.round(a.b + (b.b - a.b) * t),
+    b: Math.round(a.b + (b.b - a.b) * t)
   };
 }
 
@@ -184,7 +184,7 @@ function fillTechBackground(png) {
         r: Math.round(bg.r + glow.r * sci * 0.5 * wave),
         g: Math.round(bg.g + glow.g * sci * 0.7),
         b: Math.round(bg.b + glow.b * sci),
-        a: 255,
+        a: 255
       };
       const i = idx(png, x, y);
       png.data[i] = c.r;
@@ -236,75 +236,23 @@ function drawZenHomeMark(png, cx, cy, scale, withDisc) {
   drawRing(png, cx, cy, scale * 0.56, scale * 0.03, { ...blue, a: 160 });
 
   const roofY = cy - scale * 0.1;
-  drawLine(
-    png,
-    cx - scale * 0.29,
-    roofY,
-    cx,
-    cy - scale * 0.35,
-    scale * 0.05,
-    { ...cyan, a: 245 }
-  );
-  drawLine(
-    png,
-    cx,
-    cy - scale * 0.35,
-    cx + scale * 0.29,
-    roofY,
-    scale * 0.05,
-    { ...cyan, a: 245 }
-  );
+  drawLine(png, cx - scale * 0.29, roofY, cx, cy - scale * 0.35, scale * 0.05, { ...cyan, a: 245 });
+  drawLine(png, cx, cy - scale * 0.35, cx + scale * 0.29, roofY, scale * 0.05, { ...cyan, a: 245 });
 
-  drawRoundedFrame(
-    png,
-    cx,
-    cy + scale * 0.13,
-    scale * 0.44,
-    scale * 0.34,
-    scale * 0.04,
-    { ...blue, a: 230 }
-  );
+  drawRoundedFrame(png, cx, cy + scale * 0.13, scale * 0.44, scale * 0.34, scale * 0.04, { ...blue, a: 230 });
 
-  fillRect(
-    png,
-    cx - scale * 0.055,
-    cy + scale * 0.10,
-    scale * 0.11,
-    scale * 0.19,
-    { r: 6, g: 32, b: 44, a: 230 }
-  );
-  drawLine(
-    png,
-    cx - scale * 0.12,
-    cy + scale * 0.03,
-    cx + scale * 0.12,
-    cy + scale * 0.03,
-    scale * 0.03,
-    { ...cyan, a: 190 }
-  );
+  fillRect(png, cx - scale * 0.055, cy + scale * 0.1, scale * 0.11, scale * 0.19, { r: 6, g: 32, b: 44, a: 230 });
+  drawLine(png, cx - scale * 0.12, cy + scale * 0.03, cx + scale * 0.12, cy + scale * 0.03, scale * 0.03, {
+    ...cyan,
+    a: 190
+  });
 
   const traceY = cy + scale * 0.11;
-  drawLine(
-    png,
-    cx + scale * 0.24,
-    traceY,
-    cx + scale * 0.39,
-    traceY,
-    scale * 0.028,
-    { ...blue, a: 230 }
-  );
+  drawLine(png, cx + scale * 0.24, traceY, cx + scale * 0.39, traceY, scale * 0.028, { ...blue, a: 230 });
   drawCircle(png, cx + scale * 0.43, traceY, scale * 0.038, { ...cyan, a: 240 });
   drawCircle(png, cx + scale * 0.24, traceY, scale * 0.025, { ...cyan, a: 190 });
 
-  drawLine(
-    png,
-    cx - scale * 0.24,
-    traceY,
-    cx - scale * 0.39,
-    traceY,
-    scale * 0.028,
-    { ...blue, a: 230 }
-  );
+  drawLine(png, cx - scale * 0.24, traceY, cx - scale * 0.39, traceY, scale * 0.028, { ...blue, a: 230 });
   drawCircle(png, cx - scale * 0.43, traceY, scale * 0.038, { ...cyan, a: 240 });
   drawCircle(png, cx - scale * 0.24, traceY, scale * 0.025, { ...cyan, a: 190 });
 }
@@ -315,7 +263,7 @@ const FONT_5x7 = {
   N: ['10001', '11001', '10101', '10011', '10001', '10001', '10001'],
   M: ['10001', '11011', '10101', '10101', '10001', '10001', '10001'],
   I: ['11111', '00100', '00100', '00100', '00100', '00100', '11111'],
-  D: ['11110', '10001', '10001', '10001', '10001', '10001', '11110'],
+  D: ['11110', '10001', '10001', '10001', '10001', '10001', '11110']
 };
 
 function drawBitmapText(png, text, x, y, pixelSize, color, glowColor) {
@@ -364,7 +312,7 @@ const HAN_ZHAI = [
   '0000111111111000',
   '0000000100000000',
   '0000001110000000',
-  '0000000000000000',
+  '0000000000000000'
 ];
 
 const HAN_NAO = [
@@ -383,7 +331,7 @@ const HAN_NAO = [
   '0010010001000100',
   '0011110001111100',
   '0000010000010000',
-  '0000000000000000',
+  '0000000000000000'
 ];
 
 function drawHanChar(png, bitmap, x, y, unit, color, glowColor) {
@@ -430,15 +378,7 @@ function makeSplashIcon() {
   const px = 14;
   const titleWidth = title.length * px * 6 - px;
   const titleX = Math.floor((png.width - titleWidth) / 2);
-  drawBitmapText(
-    png,
-    title,
-    titleX,
-    1350,
-    px,
-    { r: 162, g: 248, b: 255, a: 255 },
-    { r: 31, g: 226, b: 255, a: 65 }
-  );
+  drawBitmapText(png, title, titleX, 1350, px, { r: 162, g: 248, b: 255, a: 255 }, { r: 31, g: 226, b: 255, a: 65 });
 
   const hanUnit = 10;
   const charWidth = 16 * hanUnit;

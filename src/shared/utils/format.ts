@@ -56,9 +56,7 @@ export function getAgentRole(agent: Agent | null | undefined): string {
   if (role) {
     return role;
   }
-  const meta = source.meta && typeof source.meta === 'object'
-    ? (source.meta as Record<string, unknown>)
-    : null;
+  const meta = source.meta && typeof source.meta === 'object' ? (source.meta as Record<string, unknown>) : null;
   return String(meta?.role || '').trim();
 }
 

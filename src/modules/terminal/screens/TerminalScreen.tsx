@@ -31,13 +31,13 @@ export function TerminalScreen({
   const dispatch = useAppDispatch();
   const endpointInput = useAppSelector((state) => state.user.endpointInput);
   const ptyUrlInput = useAppSelector((state) => state.user.ptyUrlInput);
-  const { ptyReloadKey, ptyLoading, ptyLoadError, activeSessionId, openNewSessionNonce } = useAppSelector((state) => state.terminal);
-
-  const ptyWebUrl = buildPtyWebUrlWithSessionId(
-    normalizePtyUrlInput(ptyUrlInput, endpointInput),
-    activeSessionId,
-    { openNewSessionNonce }
+  const { ptyReloadKey, ptyLoading, ptyLoadError, activeSessionId, openNewSessionNonce } = useAppSelector(
+    (state) => state.terminal
   );
+
+  const ptyWebUrl = buildPtyWebUrlWithSessionId(normalizePtyUrlInput(ptyUrlInput, endpointInput), activeSessionId, {
+    openNewSessionNonce
+  });
 
   return (
     <View style={styles.container} nativeID="terminal-root" testID="terminal-root">

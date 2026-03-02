@@ -9,7 +9,11 @@ interface TerminalApiArg {
   ptyWebUrl: string;
 }
 
-async function fetchTerminalAuthedJson<T>(backendUrl: string, absoluteUrl: string, options: RequestInit = {}): Promise<T> {
+async function fetchTerminalAuthedJson<T>(
+  backendUrl: string,
+  absoluteUrl: string,
+  options: RequestInit = {}
+): Promise<T> {
   const execute = async (accessToken: string): Promise<Response> => {
     const headers = new Headers(options.headers ?? undefined);
     headers.set('Authorization', `Bearer ${accessToken}`);
@@ -115,7 +119,4 @@ export const terminalApi = createApi({
   })
 });
 
-export const {
-  useLazyListTerminalSessionsQuery,
-  useCreateTerminalSessionMutation
-} = terminalApi;
+export const { useLazyListTerminalSessionsQuery, useCreateTerminalSessionMutation } = terminalApi;

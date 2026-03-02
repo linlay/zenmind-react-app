@@ -44,12 +44,12 @@ index.js → registerRootComponent(App)
 
 四个域屏幕：
 
-| 域 | 组件 | 文件 |
-|----|------|------|
-| `chat` | `ChatAssistantScreen` | `src/modules/chat/screens/ChatAssistantScreen.tsx` |
-| `terminal` | `TerminalScreen` | `src/modules/terminal/screens/TerminalScreen.tsx` |
-| `agents` | `AgentsScreen` | `src/modules/agents/screens/AgentsScreen.tsx` |
-| `user` | `UserSettingsScreen` | `src/modules/user/screens/UserSettingsScreen.tsx` |
+| 域         | 组件                  | 文件                                               |
+| ---------- | --------------------- | -------------------------------------------------- |
+| `chat`     | `ChatAssistantScreen` | `src/modules/chat/screens/ChatAssistantScreen.tsx` |
+| `terminal` | `TerminalScreen`      | `src/modules/terminal/screens/TerminalScreen.tsx`  |
+| `agents`   | `AgentsScreen`        | `src/modules/agents/screens/AgentsScreen.tsx`      |
+| `user`     | `UserSettingsScreen`  | `src/modules/user/screens/UserSettingsScreen.tsx`  |
 
 ### 状态管理
 
@@ -57,21 +57,21 @@ Redux Toolkit，5 个 slice + 3 个 RTK Query API。
 
 **Redux Slices:**
 
-| Slice | 文件 | State 关键字段 |
-|-------|------|----------------|
-| `shell` | `src/app/shell/shellSlice.ts` | `chatRoute`, `chatSearchQuery`, `chatOverlayStack`, `terminalPane`, `chatAgentsSidebarOpen`, `chatDetailDrawerOpen`, `chatDetailDrawerPreviewProgress` |
-| `user` | `src/modules/user/state/userSlice.ts` | `themeMode`, `endpointInput`, `ptyUrlInput`, `selectedAgentKey`, `activeDomain`, `booting` |
-| `agents` | `src/modules/agents/state/agentsSlice.ts` | `agents[]`, `loading`, `error` |
-| `chat` | `src/modules/chat/state/chatSlice.ts` | `chats[]`, `chatId`, `statusText`, `loadingChats` |
-| `terminal` | `src/modules/terminal/state/terminalSlice.ts` | `ptyReloadKey`, `ptyLoading`, `activeSessionId`, `openNewSessionNonce` |
+| Slice      | 文件                                          | State 关键字段                                                                                                                                         |
+| ---------- | --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `shell`    | `src/app/shell/shellSlice.ts`                 | `chatRoute`, `chatSearchQuery`, `chatOverlayStack`, `terminalPane`, `chatAgentsSidebarOpen`, `chatDetailDrawerOpen`, `chatDetailDrawerPreviewProgress` |
+| `user`     | `src/modules/user/state/userSlice.ts`         | `themeMode`, `endpointInput`, `ptyUrlInput`, `selectedAgentKey`, `activeDomain`, `booting`                                                             |
+| `agents`   | `src/modules/agents/state/agentsSlice.ts`     | `agents[]`, `loading`, `error`                                                                                                                         |
+| `chat`     | `src/modules/chat/state/chatSlice.ts`         | `chats[]`, `chatId`, `statusText`, `loadingChats`                                                                                                      |
+| `terminal` | `src/modules/terminal/state/terminalSlice.ts` | `ptyReloadKey`, `ptyLoading`, `activeSessionId`, `openNewSessionNonce`                                                                                 |
 
 **RTK Query APIs:**
 
-| API | 文件 | Endpoints |
-|-----|------|-----------|
-| `chatApi` | `src/modules/chat/api/chatApi.ts` | `getChats`, `getChat`, `getViewportHtml`, `submitFrontendTool` |
-| `agentsApi` | `src/modules/agents/api/agentsApi.ts` | `getAgents` |
-| `terminalApi` | `src/modules/terminal/api/terminalApi.ts` | `listTerminalSessions`, `createTerminalSession` |
+| API           | 文件                                      | Endpoints                                                      |
+| ------------- | ----------------------------------------- | -------------------------------------------------------------- |
+| `chatApi`     | `src/modules/chat/api/chatApi.ts`         | `getChats`, `getChat`, `getViewportHtml`, `submitFrontendTool` |
+| `agentsApi`   | `src/modules/agents/api/agentsApi.ts`     | `getAgents`                                                    |
+| `terminalApi` | `src/modules/terminal/api/terminalApi.ts` | `listTerminalSessions`, `createTerminalSession`                |
 
 所有 RTK Query API 使用 `fakeBaseQuery()` + 自定义 `queryFn` 模式（因为需要走 `authorizedFetch` / `getAccessToken` 等自定义鉴权逻辑）。
 
@@ -98,6 +98,7 @@ Session 状态: `{ username, deviceId, deviceName, accessToken, accessExpireAtMs
 #### 网络 (`core/network/`)
 
 **apiClient.ts:**
+
 - `fetchApiJson<T>(baseUrl, path, options?)` — 带鉴权 fetch + `ApiEnvelope<T>` 解析（code=0 成功）
 - `fetchAuthedJson<T>(baseUrl, path, options?)` — 带鉴权 fetch，直接返回 JSON payload
 - `fetchViewportHtml(baseUrl, viewportKey)` — 获取 Frontend Tool HTML（多种响应格式兼容）
@@ -105,6 +106,7 @@ Session 状态: `{ username, deviceId, deviceName, accessToken, accessExpireAtMs
 - `parseApiEnvelope<T>(response, bodyText)` — 解析 `{ code, msg, data }` 信封（`apiClient.ts` 内部函数，未导出）
 
 **endpoint.ts:**
+
 - `toBackendBaseUrl(endpointInput)` — 规范化后端 URL（内网 IP → `http://`，公网 → `https://`）
 - `looksLikeLocalAddress(host)` — 检测内网地址
 - `toDefaultPtyWebUrl(endpointInput)` — 生成默认 PTY 地址（内网端口 11931，公网 443）
@@ -119,6 +121,7 @@ Session 状态: `{ username, deviceId, deviceName, accessToken, accessExpireAtMs
 #### 类型 (`core/types/common.ts`)
 
 关键公共类型:
+
 - `ThemeMode` = `'light' | 'dark'`
 - `DomainMode` = `'chat' | 'terminal' | 'agents' | 'user'`
 - `Agent` = `{ key?, id?, name?, ... }`
@@ -160,10 +163,31 @@ modules/[domain]/
 ```typescript
 type TimelineEntry = MessageEntry | ToolEntry | ActionEntry | ReasoningEntry;
 
-interface MessageEntry  { kind: 'message';   role: 'user'|'assistant'|'system'; text: string; isStreamingContent?: boolean; }
-interface ToolEntry      { kind: 'tool';      label: string; argsText: string; resultText: string; state: 'init'|'running'|'done'|'failed'; }
-interface ActionEntry    { kind: 'action';    actionName: string; argsText: string; resultText: string; state: 'init'|'running'|'done'|'failed'; }
-interface ReasoningEntry { kind: 'reasoning'; text: string; collapsed: boolean; }
+interface MessageEntry {
+  kind: 'message';
+  role: 'user' | 'assistant' | 'system';
+  text: string;
+  isStreamingContent?: boolean;
+}
+interface ToolEntry {
+  kind: 'tool';
+  label: string;
+  argsText: string;
+  resultText: string;
+  state: 'init' | 'running' | 'done' | 'failed';
+}
+interface ActionEntry {
+  kind: 'action';
+  actionName: string;
+  argsText: string;
+  resultText: string;
+  state: 'init' | 'running' | 'done' | 'failed';
+}
+interface ReasoningEntry {
+  kind: 'reasoning';
+  text: string;
+  collapsed: boolean;
+}
 ```
 
 ### SSE 流式客户端 (`modules/chat/services/chatStreamClient.ts`)
@@ -197,23 +221,23 @@ POST /api/ap/query (SSE)
 
 单次会话加载期间维护，映射后端 ID → 时间线条目 ID：
 
-| Map | 用途 |
-|-----|------|
-| `contentIdMap` | `contentId` → `assistant:N` |
-| `toolIdMap` | `toolId` → `tool:N` |
-| `actionIdMap` | `actionId` → `action:N` |
-| `reasoningIdMap` | `reasoningId` → `reasoning:N` |
-| `actionStateMap` | `actionId` → 动作累积状态 `{ argsText, resultText, executed }` |
-| `toolStateMap` | `toolId` → 工具累积状态 `{ argsBuffer, toolName, toolParams, ... }` |
+| Map              | 用途                                                                |
+| ---------------- | ------------------------------------------------------------------- |
+| `contentIdMap`   | `contentId` → `assistant:N`                                         |
+| `toolIdMap`      | `toolId` → `tool:N`                                                 |
+| `actionIdMap`    | `actionId` → `action:N`                                             |
+| `reasoningIdMap` | `reasoningId` → `reasoning:N`                                       |
+| `actionStateMap` | `actionId` → 动作累积状态 `{ argsText, resultText, executed }`      |
+| `toolStateMap`   | `toolId` → 工具累积状态 `{ argsBuffer, toolName, toolParams, ... }` |
 
 ### 副作用 (ChatEffect)
 
-| 类型 | 触发时机 | 行为 |
-|------|----------|------|
-| `set_chat_id` | 任何携带 `chatId` 的事件 | 更新组件 chatId 状态 |
-| `execute_action` | `action.end`（仅 live） | 执行动作业务逻辑 |
-| `stream_end` | `run.complete` / `run.cancel` / `run.error` | 标记流结束 |
-| `activate_frontend_tool` | `tool.start`/`tool.snapshot`（仅 live + Frontend Tool） | 激活 WebView |
+| 类型                     | 触发时机                                                | 行为                 |
+| ------------------------ | ------------------------------------------------------- | -------------------- |
+| `set_chat_id`            | 任何携带 `chatId` 的事件                                | 更新组件 chatId 状态 |
+| `execute_action`         | `action.end`（仅 live）                                 | 执行动作业务逻辑     |
+| `stream_end`             | `run.complete` / `run.cancel` / `run.error`             | 标记流结束           |
+| `activate_frontend_tool` | `tool.start`/`tool.snapshot`（仅 live + Frontend Tool） | 激活 WebView         |
 
 ### Frontend Tool 集成
 
@@ -225,27 +249,36 @@ POST /api/ap/query (SSE)
 
 ### 历史加载 vs 实时流
 
-| 维度 | 实时流 (`source='live'`) | 历史加载 (`source='history'`) |
-|------|--------------------------|-------------------------------|
-| 数据来源 | `POST /api/ap/query` SSE | `GET /api/ap/chat?chatId=` 事件数组 |
-| 内容事件 | `content.start` → N 个 `content.delta` → `content.end` | `content.snapshot` |
-| 工具参数 | `tool.start` → N 个 `tool.args` → `tool.end` | `tool.snapshot` |
-| `isStreamingContent` | `true`（控制光标动画） | `false` |
-| 副作用执行 | 执行 | 不执行（避免重放） |
-| Frontend Tool | 激活 WebView | 不激活 |
+| 维度                 | 实时流 (`source='live'`)                               | 历史加载 (`source='history'`)       |
+| -------------------- | ------------------------------------------------------ | ----------------------------------- |
+| 数据来源             | `POST /api/ap/query` SSE                               | `GET /api/ap/chat?chatId=` 事件数组 |
+| 内容事件             | `content.start` → N 个 `content.delta` → `content.end` | `content.snapshot`                  |
+| 工具参数             | `tool.start` → N 个 `tool.args` → `tool.end`           | `tool.snapshot`                     |
+| `isStreamingContent` | `true`（控制光标动画）                                 | `false`                             |
+| 副作用执行           | 执行                                                   | 不执行（避免重放）                  |
+| Frontend Tool        | 激活 WebView                                           | 不激活                              |
 
 ### 计划栏 (Plan Bar)
 
 双层更新模型:
 
-| 层 | 事件 | 说明 |
-|---|---|---|
-| 内容层 | `plan.update` | 全量替换 `tasks[]` |
+| 层     | 事件                                                         | 说明                          |
+| ------ | ------------------------------------------------------------ | ----------------------------- |
+| 内容层 | `plan.update`                                                | 全量替换 `tasks[]`            |
 | 状态层 | `task.start` / `task.complete` / `task.fail` / `task.cancel` | 按 `taskId` 增量更新 `status` |
 
 ```typescript
-interface PlanState { planId: string; tasks: PlanTask[]; expanded: boolean; lastTaskId: string; }
-interface PlanTask  { taskId: string; description: string; status: 'init' | 'running' | 'done' | 'failed'; }
+interface PlanState {
+  planId: string;
+  tasks: PlanTask[];
+  expanded: boolean;
+  lastTaskId: string;
+}
+interface PlanTask {
+  taskId: string;
+  description: string;
+  status: 'init' | 'running' | 'done' | 'failed';
+}
 ```
 
 - `task.cancel` → `status = 'done'`（类型无 `'cancelled'`）
@@ -257,63 +290,63 @@ interface PlanTask  { taskId: string; description: string; status: 'init' | 'run
 
 ### 会话控制事件
 
-| 事件类型 | 关键字段 | 说明 |
-|----------|----------|------|
+| 事件类型        | 关键字段               | 说明         |
+| --------------- | ---------------------- | ------------ |
 | `request.query` | `requestId`, `message` | 用户消息回显 |
-| `chat.start` | — | 会话开始 |
-| `run.start` | `runId` | 运行开始 |
-| `run.complete` | `runId` | 运行正常结束 |
-| `run.cancel` | `runId` | 运行被取消 |
-| `run.error` | `error` | 运行出错 |
+| `chat.start`    | —                      | 会话开始     |
+| `run.start`     | `runId`                | 运行开始     |
+| `run.complete`  | `runId`                | 运行正常结束 |
+| `run.cancel`    | `runId`                | 运行被取消   |
+| `run.error`     | `error`                | 运行出错     |
 
 ### 内容流事件
 
-| 事件类型 | 关键字段 | 说明 |
-|----------|----------|------|
-| `content.start` | `contentId`, `text` | 助手内容开始 |
-| `content.delta` | `contentId`, `delta` | 助手内容增量 |
-| `content.end` | `contentId`, `text` | 助手内容结束 |
+| 事件类型           | 关键字段                      | 说明                 |
+| ------------------ | ----------------------------- | -------------------- |
+| `content.start`    | `contentId`, `text`           | 助手内容开始         |
+| `content.delta`    | `contentId`, `delta`          | 助手内容增量         |
+| `content.end`      | `contentId`, `text`           | 助手内容结束         |
 | `content.snapshot` | `contentId`, `text`/`content` | 助手内容快照（历史） |
 
 ### 推理事件
 
-| 事件类型 | 关键字段 | 说明 |
-|----------|----------|------|
-| `reasoning.start` | `reasoningId`, `text` | 推理开始 |
-| `reasoning.delta` | `reasoningId`, `delta` | 推理增量 |
-| `reasoning.end` | `reasoningId` | 推理结束 |
-| `reasoning.snapshot` | `reasoningId`, `text` | 推理快照（历史） |
+| 事件类型             | 关键字段               | 说明             |
+| -------------------- | ---------------------- | ---------------- |
+| `reasoning.start`    | `reasoningId`, `text`  | 推理开始         |
+| `reasoning.delta`    | `reasoningId`, `delta` | 推理增量         |
+| `reasoning.end`      | `reasoningId`          | 推理结束         |
+| `reasoning.snapshot` | `reasoningId`, `text`  | 推理快照（历史） |
 
 ### 工具调用事件
 
-| 事件类型 | 关键字段 | 说明 |
-|----------|----------|------|
-| `tool.start` | `toolId`, `toolName`, `toolType`, `toolKey` | 工具调用开始 |
-| `tool.args` | `toolId`, `delta` | 工具参数增量 |
-| `tool.end` | `toolId`, `error`? | 工具调用结束 |
-| `tool.params` | `toolId`, `toolParams` | 前端工具参数（HITL） |
-| `tool.result` | `toolId`, `result`/`output` | 工具结果 |
-| `tool.snapshot` | `toolId`, `arguments`, `toolParams` | 工具快照（历史） |
+| 事件类型        | 关键字段                                    | 说明                 |
+| --------------- | ------------------------------------------- | -------------------- |
+| `tool.start`    | `toolId`, `toolName`, `toolType`, `toolKey` | 工具调用开始         |
+| `tool.args`     | `toolId`, `delta`                           | 工具参数增量         |
+| `tool.end`      | `toolId`, `error`?                          | 工具调用结束         |
+| `tool.params`   | `toolId`, `toolParams`                      | 前端工具参数（HITL） |
+| `tool.result`   | `toolId`, `result`/`output`                 | 工具结果             |
+| `tool.snapshot` | `toolId`, `arguments`, `toolParams`         | 工具快照（历史）     |
 
 ### 动作事件
 
-| 事件类型 | 关键字段 | 说明 |
-|----------|----------|------|
-| `action.start` | `actionId`, `actionName` | 动作开始 |
-| `action.args` | `actionId`, `delta` | 动作参数增量 |
-| `action.end` | `actionId`, `error`? | 动作结束 |
-| `action.result` | `actionId`, `result`/`output` | 动作结果 |
-| `action.snapshot` | `actionId` | 动作快照（历史） |
+| 事件类型          | 关键字段                      | 说明             |
+| ----------------- | ----------------------------- | ---------------- |
+| `action.start`    | `actionId`, `actionName`      | 动作开始         |
+| `action.args`     | `actionId`, `delta`           | 动作参数增量     |
+| `action.end`      | `actionId`, `error`?          | 动作结束         |
+| `action.result`   | `actionId`, `result`/`output` | 动作结果         |
+| `action.snapshot` | `actionId`                    | 动作快照（历史） |
 
 ### 计划事件
 
-| 事件类型 | 关键字段 | 说明 |
-|----------|----------|------|
-| `plan.update` | `planId`, `plan[]` | 全量替换计划 |
-| `task.start` | `taskId`, `description` | 任务开始 |
-| `task.complete` | `taskId`, `status` | 任务完成 |
-| `task.fail` | `taskId`, `error` | 任务失败 |
-| `task.cancel` | `taskId` | 任务取消 |
+| 事件类型        | 关键字段                | 说明         |
+| --------------- | ----------------------- | ------------ |
+| `plan.update`   | `planId`, `plan[]`      | 全量替换计划 |
+| `task.start`    | `taskId`, `description` | 任务开始     |
+| `task.complete` | `taskId`, `status`      | 任务完成     |
+| `task.fail`     | `taskId`, `error`       | 任务失败     |
+| `task.cancel`   | `taskId`                | 任务取消     |
 
 ## WebView 鉴权桥接协议
 
@@ -321,20 +354,20 @@ interface PlanTask  { taskId: string; description: string; status: 'init' | 'run
 
 ### 消息类型
 
-| 消息类型 | 方向 | 字段 | 用途 |
-|----------|------|------|------|
-| `auth_token` | RN → WebView | `accessToken`, `accessExpireAtMs?` | 主动下发 token |
-| `auth_refresh_request` | WebView → RN | `requestId`, `source` | WebView 401 请求刷新 |
-| `auth_refresh_result` | RN → WebView | `requestId`, `ok`, `accessToken?`, `error?` | 刷新结果 |
+| 消息类型               | 方向         | 字段                                        | 用途                 |
+| ---------------------- | ------------ | ------------------------------------------- | -------------------- |
+| `auth_token`           | RN → WebView | `accessToken`, `accessExpireAtMs?`          | 主动下发 token       |
+| `auth_refresh_request` | WebView → RN | `requestId`, `source`                       | WebView 401 请求刷新 |
+| `auth_refresh_result`  | RN → WebView | `requestId`, `ok`, `accessToken?`, `error?` | 刷新结果             |
 
 ### 代码锚点
 
-| 职责 | 文件 |
-|------|------|
-| 协议定义与构造 | `src/core/auth/webViewAuthBridge.ts` |
-| 刷新与会话管理 | `src/core/auth/appAuth.ts` |
-| 统一协调与定时预刷新 | `src/app/shell/ShellScreen.tsx` |
-| Terminal WebView 桥接 | `src/modules/terminal/components/TerminalWebView.tsx` |
+| 职责                    | 文件                                                                   |
+| ----------------------- | ---------------------------------------------------------------------- |
+| 协议定义与构造          | `src/core/auth/webViewAuthBridge.ts`                                   |
+| 刷新与会话管理          | `src/core/auth/appAuth.ts`                                             |
+| 统一协调与定时预刷新    | `src/app/shell/ShellScreen.tsx`                                        |
+| Terminal WebView 桥接   | `src/modules/terminal/components/TerminalWebView.tsx`                  |
 | Chat Frontend Tool 桥接 | `src/modules/chat/components/Composer.tsx` / `ChatAssistantScreen.tsx` |
 
 ### 开发接入规则
@@ -351,31 +384,31 @@ interface PlanTask  { taskId: string; description: string; status: 'init' | 'run
 
 ### 鉴权 API
 
-| 方法 | 端点 | 请求体 | 响应 |
-|------|------|--------|------|
-| POST | `/api/auth/login` | `{ masterPassword, deviceName }` | `{ username, deviceId, deviceName, accessToken, accessExpireAt, deviceToken }` |
-| POST | `/api/auth/refresh` | `{ deviceToken }` | `{ deviceId, accessToken, accessExpireAt, deviceToken }` |
-| POST | `/api/auth/logout` | — | — |
+| 方法 | 端点                | 请求体                           | 响应                                                                           |
+| ---- | ------------------- | -------------------------------- | ------------------------------------------------------------------------------ |
+| POST | `/api/auth/login`   | `{ masterPassword, deviceName }` | `{ username, deviceId, deviceName, accessToken, accessExpireAt, deviceToken }` |
+| POST | `/api/auth/refresh` | `{ deviceToken }`                | `{ deviceId, accessToken, accessExpireAt, deviceToken }`                       |
+| POST | `/api/auth/logout`  | —                                | —                                                                              |
 
 ### 业务 API
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `/api/ap/agents` | 返回 `Agent[]` |
-| GET | `/api/ap/chats` | 返回 `ChatSummary[]` |
-| GET | `/api/ap/chat?chatId=...` | 返回 `{ events: ChatEvent[] }` |
-| GET | `/api/ap/viewport?viewportKey=...` | 返回 HTML（多种格式兼容） |
-| POST | `/api/ap/query` | SSE 流式响应（`text/event-stream`） |
-| POST | `/api/ap/submit` | `{ runId, toolId, params }` → `{ accepted, detail, status }` |
+| 方法 | 端点                               | 说明                                                         |
+| ---- | ---------------------------------- | ------------------------------------------------------------ |
+| GET  | `/api/ap/agents`                   | 返回 `Agent[]`                                               |
+| GET  | `/api/ap/chats`                    | 返回 `ChatSummary[]`                                         |
+| GET  | `/api/ap/chat?chatId=...`          | 返回 `{ events: ChatEvent[] }`                               |
+| GET  | `/api/ap/viewport?viewportKey=...` | 返回 HTML（多种格式兼容）                                    |
+| POST | `/api/ap/query`                    | SSE 流式响应（`text/event-stream`）                          |
+| POST | `/api/ap/submit`                   | `{ runId, toolId, params }` → `{ accepted, detail, status }` |
 
 ### 消息盒子 API
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `/api/app/inbox?limit=N` | `InboxMessage[]` |
-| GET | `/api/app/inbox/unread-count` | `{ unreadCount }` |
-| POST | `/api/app/inbox/read` | `{ messageIds: string[] }` |
-| POST | `/api/app/inbox/read-all` | — |
+| 方法 | 端点                          | 说明                       |
+| ---- | ----------------------------- | -------------------------- |
+| GET  | `/api/app/inbox?limit=N`      | `InboxMessage[]`           |
+| GET  | `/api/app/inbox/unread-count` | `{ unreadCount }`          |
+| POST | `/api/app/inbox/read`         | `{ messageIds: string[] }` |
+| POST | `/api/app/inbox/read-all`     | —                          |
 
 ### WebSocket
 
@@ -383,17 +416,17 @@ interface PlanTask  { taskId: string; description: string; status: 'init' | 'run
 
 推送格式: `{ type: string, payload: { ... } }`
 
-| type | payload | 说明 |
-|------|---------|------|
-| `inbox.new` | `{ message: InboxMessage, unreadCount? }` | 新消息 |
-| `inbox.sync` | `{ unreadCount }` | 同步未读数 |
-| `chat.new_content` | — | 聊天有新内容 |
+| type               | payload                                   | 说明         |
+| ------------------ | ----------------------------------------- | ------------ |
+| `inbox.new`        | `{ message: InboxMessage, unreadCount? }` | 新消息       |
+| `inbox.sync`       | `{ unreadCount }`                         | 同步未读数   |
+| `chat.new_content` | —                                         | 聊天有新内容 |
 
 ### 终端 API
 
-| 方法 | 端点 | 说明 |
-|------|------|------|
-| GET | `{ptyBase}/sessions` | `TerminalSessionItem[]` |
+| 方法 | 端点                 | 说明                                |
+| ---- | -------------------- | ----------------------------------- |
+| GET  | `{ptyBase}/sessions` | `TerminalSessionItem[]`             |
 | POST | `{ptyBase}/sessions` | `{ sessionId, wsUrl?, startedAt? }` |
 
 `ptyBase` = `{ptyWebUrl}/appterm/api`
@@ -450,8 +483,12 @@ webViewRef.current?.injectJavaScript(buildWebViewPostMessageScript(payload));
 
 // WebView -> RN (onMessage)
 const message = parseFrontendToolBridgeMessage(event.nativeEvent.data);
-if (message?.type === 'frontend_submit') { /* 处理提交 */ }
-if (message?.type === 'auth_refresh_request') { /* 处理鉴权刷新 */ }
+if (message?.type === 'frontend_submit') {
+  /* 处理提交 */
+}
+if (message?.type === 'auth_refresh_request') {
+  /* 处理鉴权刷新 */
+}
 ```
 
 ## 聊天详情页手势操作
@@ -485,12 +522,12 @@ if (message?.type === 'auth_refresh_request') { /* 处理鉴权刷新 */ }
 
 ### 手势方向一览
 
-| 方向 | 动作 | 触发条件 | 视觉反馈 |
-|------|------|----------|----------|
-| 右滑 | 新建对话 | 水平主导 + dx ≥ 112px + 起始点 x ≥ 32px | 整页右移，左边缘露出纵向"新建对话"文字 |
-| 左滑 | 显示对话列表抽屉 | 水平主导 + -dx ≥ 96px 或速度 ≤ -0.58 | 抽屉 preview 线性跟手（0→96px 映射 0→1） |
-| 下拉 | 切换到上一条对话 | 列表已滚到顶 + 垂直主导 + dy ≥ 72px | 整页下移，顶部露出"↑ 上一条对话"卡片 |
-| 上拉 | 切换到下一条对话 | 列表已滚到底 + 垂直主导 + -dy ≥ 72px | 整页上移，底部露出"下一条对话 ↓"卡片 |
+| 方向 | 动作             | 触发条件                                | 视觉反馈                                 |
+| ---- | ---------------- | --------------------------------------- | ---------------------------------------- |
+| 右滑 | 新建对话         | 水平主导 + dx ≥ 112px + 起始点 x ≥ 32px | 整页右移，左边缘露出纵向"新建对话"文字   |
+| 左滑 | 显示对话列表抽屉 | 水平主导 + -dx ≥ 96px 或速度 ≤ -0.58    | 抽屉 preview 线性跟手（0→96px 映射 0→1） |
+| 下拉 | 切换到上一条对话 | 列表已滚到顶 + 垂直主导 + dy ≥ 72px     | 整页下移，顶部露出"↑ 上一条对话"卡片     |
+| 上拉 | 切换到下一条对话 | 列表已滚到底 + 垂直主导 + -dy ≥ 72px    | 整页上移，底部露出"下一条对话 ↓"卡片     |
 
 ### 两阶段模型
 
@@ -508,6 +545,7 @@ if (message?.type === 'auth_refresh_request') { /* 处理鉴权刷新 */ }
 ### 抽屉 preview 防闪烁
 
 `ChatDetailDrawer` 通过两个独立 `useEffect` 分离手势驱动和状态驱动动画：
+
 - **手势 effect**：只调用 `setValue()` 直接设值，不启动 `timing`/`spring`
 - **状态 effect**：只在 `visible` 真正变化时才调用 `stopAnimation()` + 动画
 

@@ -23,7 +23,8 @@ jest.mock('react-native-safe-area-context', () => {
   const ReactLocal = require('react');
   const ReactNativeLocal = require('react-native');
   return {
-    SafeAreaView: ({ children }: { children: React.ReactNode }) => ReactLocal.createElement(ReactNativeLocal.View, null, children),
+    SafeAreaView: ({ children }: { children: React.ReactNode }) =>
+      ReactLocal.createElement(ReactNativeLocal.View, null, children),
     useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 })
   };
 });
@@ -215,7 +216,15 @@ function makeState(overrides: Partial<Record<string, any>> = {}) {
     chat: {
       chatId: '',
       loadingChats: false,
-      chats: [{ chatId: 'chat-1', chatName: 'Test Chat', firstAgentName: 'Agent 1', firstAgentKey: 'agent-1', updatedAt: Date.now() }],
+      chats: [
+        {
+          chatId: 'chat-1',
+          chatName: 'Test Chat',
+          firstAgentName: 'Agent 1',
+          firstAgentKey: 'agent-1',
+          updatedAt: Date.now()
+        }
+      ],
       statusText: '',
       ...overrides.chat
     },
@@ -363,7 +372,10 @@ describe('ShellScreen navigation flow', () => {
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'chat/setChatId', payload: 'chat-1' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'chatDetail' }) })
+      expect.objectContaining({
+        type: 'shell/pushChatOverlay',
+        payload: expect.objectContaining({ type: 'chatDetail' })
+      })
     );
   });
 
@@ -376,7 +388,10 @@ describe('ShellScreen navigation flow', () => {
 
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'agentDetail' }) })
+      expect.objectContaining({
+        type: 'shell/pushChatOverlay',
+        payload: expect.objectContaining({ type: 'agentDetail' })
+      })
     );
   });
 
@@ -389,7 +404,10 @@ describe('ShellScreen navigation flow', () => {
   });
 
   it('shows search route and exits by back button', async () => {
-    const tree = await renderScreen({ user: { activeDomain: 'chat' }, shell: { chatRoute: 'search', chatSearchQuery: 'agent' } });
+    const tree = await renderScreen({
+      user: { activeDomain: 'chat' },
+      shell: { chatRoute: 'search', chatSearchQuery: 'agent' }
+    });
     expect(tree.root.findByProps({ testID: 'chat-route-track' })).toBeTruthy();
     expect(tree.root.findByProps({ testID: 'chat-route-page-list' })).toBeTruthy();
     expect(tree.root.findByProps({ testID: 'chat-route-page-search' })).toBeTruthy();
@@ -417,7 +435,10 @@ describe('ShellScreen navigation flow', () => {
     expect(keyboardDismissSpy).toHaveBeenCalled();
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'agentDetail' }) })
+      expect.objectContaining({
+        type: 'shell/pushChatOverlay',
+        payload: expect.objectContaining({ type: 'agentDetail' })
+      })
     );
   });
 
@@ -435,7 +456,10 @@ describe('ShellScreen navigation flow', () => {
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'chat/setChatId', payload: 'chat-1' });
     expect(mockDispatch).toHaveBeenCalledWith({ type: 'user/setSelectedAgentKey', payload: 'agent-1' });
     expect(mockDispatch).toHaveBeenCalledWith(
-      expect.objectContaining({ type: 'shell/pushChatOverlay', payload: expect.objectContaining({ type: 'chatDetail' }) })
+      expect.objectContaining({
+        type: 'shell/pushChatOverlay',
+        payload: expect.objectContaining({ type: 'chatDetail' })
+      })
     );
   });
 

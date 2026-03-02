@@ -135,7 +135,13 @@ export function ShellTopNav({
           >
             <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
               <Rect x={3.2} y={5} width={17.6} height={14} rx={3} stroke={theme.primaryDeep} strokeWidth={1.9} />
-              <Path d="M4.8 8.4L12 13.2L19.2 8.4" stroke={theme.primaryDeep} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
+              <Path
+                d="M4.8 8.4L12 13.2L19.2 8.4"
+                stroke={theme.primaryDeep}
+                strokeWidth={1.9}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
             </Svg>
             {inboxUnreadCount > 0 ? (
               <View style={[styles.inboxBadge, { backgroundColor: theme.danger }]}>
@@ -183,7 +189,10 @@ export function ShellTopNav({
         )}
       </View>
 
-      <View style={[styles.topNavSide, styles.topNavRightSide, isChatListTopNav ? styles.topNavSideWide : null]} testID="shell-top-right-slot">
+      <View
+        style={[styles.topNavSide, styles.topNavRightSide, isChatListTopNav ? styles.topNavSideWide : null]}
+        testID="shell-top-right-slot"
+      >
         {isTerminalDomain ? (
           <TouchableOpacity
             activeOpacity={0.72}
@@ -242,7 +251,10 @@ export function ShellTopNav({
                 </TouchableOpacity>
 
                 {chatPlusMenuOpen ? (
-                  <View style={[styles.chatPlusMenu, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]} testID="chat-list-plus-menu">
+                  <View
+                    style={[styles.chatPlusMenu, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+                    testID="chat-list-plus-menu"
+                  >
                     {['扫一扫', '建立群组', '创建频道'].map((label, index) => (
                       <TouchableOpacity
                         key={label}

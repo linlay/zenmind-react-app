@@ -62,13 +62,17 @@ describe('ChatDetailDrawer side drawer', () => {
 
     expect((tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-overlay-mask' })).toBeTruthy();
     const drawer = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer' });
-    const style = StyleSheet.flatten(drawer.props.style) as { right?: number; top?: number; bottom?: number } | undefined;
+    const style = StyleSheet.flatten(drawer.props.style) as
+      | { right?: number; top?: number; bottom?: number }
+      | undefined;
     expect(style?.right).toBe(0);
     expect(style?.top).toBe(0);
     expect(style?.bottom).toBe(0);
     expect((style as { width?: string }).width).toBe('76%');
     expect((tree as ReturnType<typeof create>).root.findByProps({ children: '与Agent A的对话' })).toBeTruthy();
-    expect((tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-create-chat-btn' })).toBeTruthy();
+    expect(
+      (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-create-chat-btn' })
+    ).toBeTruthy();
     expect((tree as ReturnType<typeof create>).root.findByProps({ children: '新建对话 · 详情页左滑' })).toBeTruthy();
   });
 
@@ -130,10 +134,18 @@ describe('ChatDetailDrawer side drawer', () => {
           visible
           theme={THEMES.light}
           activeAgentName="Agent A"
-          chats={[
-            { chatId: 'chat-7', chatName: '会话七', updatedAt: Date.now(), lastRunContent: 'last content', readStatus: 1 },
-            { chatId: 'chat-8', updatedAt: Date.now(), readStatus: 0 }
-          ] as any}
+          chats={
+            [
+              {
+                chatId: 'chat-7',
+                chatName: '会话七',
+                updatedAt: Date.now(),
+                lastRunContent: 'last content',
+                readStatus: 1
+              },
+              { chatId: 'chat-8', updatedAt: Date.now(), readStatus: 0 }
+            ] as any
+          }
           activeChatId=""
           onClose={() => {}}
           onCreateChat={() => {}}
@@ -143,8 +155,12 @@ describe('ChatDetailDrawer side drawer', () => {
     });
 
     expect((tree as ReturnType<typeof create>).root.findByProps({ children: '会话七' })).toBeTruthy();
-    expect((tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-item-last-0' }).props.children).toBe('last content');
-    expect((tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-item-last-1' }).props.children).toBe('暂无内容');
+    expect(
+      (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-item-last-0' }).props.children
+    ).toBe('last content');
+    expect(
+      (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-item-last-1' }).props.children
+    ).toBe('暂无内容');
     const icon0 = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-read-icon-0' });
     const icon1 = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-read-icon-1' });
     expect(icon0.props.children).toBe('○');
@@ -168,7 +184,9 @@ describe('ChatDetailDrawer side drawer', () => {
         />
       );
     });
-    const createBtn = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-create-chat-btn' });
+    const createBtn = (tree as ReturnType<typeof create>).root.findByProps({
+      testID: 'chat-detail-drawer-create-chat-btn'
+    });
     act(() => {
       createBtn.props.onPress();
     });
@@ -196,7 +214,9 @@ describe('ChatDetailDrawer side drawer', () => {
     const layer = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-layer' });
     const drawer = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer' });
     const overlay = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-overlay-mask' });
-    const createBtn = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-create-chat-btn' });
+    const createBtn = (tree as ReturnType<typeof create>).root.findByProps({
+      testID: 'chat-detail-drawer-create-chat-btn'
+    });
     expect(layer.props.pointerEvents).toBe('none');
     expect(createBtn.props.disabled).toBe(true);
     expect(drawer).toBeTruthy();
@@ -226,7 +246,9 @@ describe('ChatDetailDrawer side drawer', () => {
     });
 
     const mask = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-overlay-mask' });
-    const createBtn = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-create-chat-btn' });
+    const createBtn = (tree as ReturnType<typeof create>).root.findByProps({
+      testID: 'chat-detail-drawer-create-chat-btn'
+    });
     const item = (tree as ReturnType<typeof create>).root.findByProps({ testID: 'chat-detail-drawer-item-0' });
 
     act(() => {

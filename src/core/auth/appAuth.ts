@@ -91,9 +91,7 @@ function parseExpireAt(raw: unknown): number | null {
     return null;
   }
 
-  const localMatch = text.match(
-    /^(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/
-  );
+  const localMatch = text.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
   if (localMatch) {
     const [, year, month, day, hour, minute, second = '0'] = localMatch;
     const localTs = new Date(
@@ -119,11 +117,7 @@ function parseExpireAt(raw: unknown): number | null {
 }
 
 function resolveAccessExpireAtMs(payload: LoginResponse | RefreshResponse): number {
-  const candidates = [
-    payload.accessTokenExpireAtMs,
-    payload.accessTokenExpireAt,
-    payload.accessExpireAt
-  ];
+  const candidates = [payload.accessTokenExpireAtMs, payload.accessTokenExpireAt, payload.accessExpireAt];
 
   for (let i = 0; i < candidates.length; i += 1) {
     const ts = parseExpireAt(candidates[i]);
@@ -136,11 +130,7 @@ function resolveAccessExpireAtMs(payload: LoginResponse | RefreshResponse): numb
   return Date.now() + FALLBACK_TOKEN_VALIDITY_MS;
 }
 
-async function requestJson<T>(
-  baseUrl: string,
-  path: string,
-  options: RequestInit = {}
-): Promise<T> {
+async function requestJson<T>(baseUrl: string, path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, options);
   const bodyText = await response.text();
   const body = bodyText ? JSON.parse(bodyText) : null;
@@ -153,7 +143,9 @@ async function requestJson<T>(
 }
 
 function normalizeBaseUrl(baseUrl: string): string {
-  return String(baseUrl || '').trim().replace(/\/+$/, '');
+  return String(baseUrl || '')
+    .trim()
+    .replace(/\/+$/, '');
 }
 
 function ensureBaseUrl(baseUrl: string) {
@@ -252,7 +244,12 @@ async function refreshAccessToken(
 ): Promise<string | null> {
   const normalizedBase = ensureBaseUrl(baseUrl);
 
-  if (!forceRefresh && currentSession && currentSession.accessToken && currentSession.accessExpireAtMs - Date.now() > 30_000) {
+  if (
+    !forceRefresh &&
+    currentSession &&
+    currentSession.accessToken &&
+    currentSession.accessExpireAtMs - Date.now() > 30_000
+  ) {
     return currentSession.accessToken;
   }
 
@@ -391,11 +388,7 @@ export async function ensureFreshAccessToken(
   const forceRefresh = Boolean(options.forceRefresh);
   const failureMode = options.failureMode || 'soft';
 
-  if (
-    !forceRefresh &&
-    currentSession &&
-    currentSession.accessToken
-  ) {
+  if (!forceRefresh && currentSession && currentSession.accessToken) {
     const jitterMs = getRandomJitterMs(maxJitterMs);
     const remainingMs = currentSession.accessExpireAtMs - Date.now();
     if (remainingMs > minValidityMs + jitterMs) {
@@ -413,11 +406,7 @@ export function subscribeAuthSession(listener: AuthSessionListener): () => void 
   };
 }
 
-export async function authorizedFetch(
-  baseUrl: string,
-  path: string,
-  options: RequestInit = {}
-): Promise<Response> {
+export async function authorizedFetch(baseUrl: string, path: string, options: RequestInit = {}): Promise<Response> {
   const normalizedBase = ensureBaseUrl(baseUrl);
   const token = await getAccessToken(normalizedBase);
 

@@ -52,7 +52,9 @@ export function renderActionLabel(event: Record<string, unknown>): string {
 }
 
 export function getActionGlyph(actionName: unknown): string {
-  const name = String(actionName || '').trim().toLowerCase();
+  const name = String(actionName || '')
+    .trim()
+    .toLowerCase();
   if (name === 'switch_theme') return '◐';
   if (name === 'launch_fireworks') return '✦';
   if (name === 'show_modal') return '▣';
@@ -104,7 +106,9 @@ export function parseStructuredArgs(rawText: unknown): Record<string, unknown> |
 
 export function isFrontendToolEvent(event: Record<string, unknown>): boolean {
   if (!event || typeof event !== 'object') return false;
-  const toolType = String(event.toolType || '').trim().toLowerCase();
+  const toolType = String(event.toolType || '')
+    .trim()
+    .toLowerCase();
   return FRONTEND_VIEWPORT_TYPES.has(toolType) && Boolean(event.toolKey);
 }
 

@@ -149,7 +149,5 @@ export const selectCurrentAgentChats = (state: RootState): ChatSummary[] => {
   const activeAgentKey = String(getChatAgentKey(activeChat) || '').trim();
   const resolvedAgentKey = activeAgentKey || selectedAgentKey || UNKNOWN_AGENT_KEY;
 
-  return [...chats]
-    .filter((chat) => getAgentKeyFromChat(chat) === resolvedAgentKey)
-    .sort(sortByRecent);
+  return [...chats].filter((chat) => getAgentKeyFromChat(chat) === resolvedAgentKey).sort(sortByRecent);
 };

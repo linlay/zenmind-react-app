@@ -1,11 +1,6 @@
 // @ts-nocheck
 import { toDisplayText } from '../../../shared/utils/format';
-import {
-  ChatEvent,
-  ChatRuntimeMaps,
-  ChatState,
-  TimelineEntry
-} from '../types/chat';
+import { ChatEvent, ChatRuntimeMaps, ChatState, TimelineEntry } from '../types/chat';
 import {
   FRONTEND_VIEWPORT_TYPES,
   isFrontendToolEvent,
@@ -139,7 +134,16 @@ function parseEventTime(value: unknown): number | null {
 }
 
 function resolveEventTs(event: Record<string, unknown>, source: 'live' | 'history'): number {
-  for (const key of ['timestamp', 'ts', 'time', 'createdAt', 'updatedAt', 'updateTime', 'startTime', 'startTimestamp']) {
+  for (const key of [
+    'timestamp',
+    'ts',
+    'time',
+    'createdAt',
+    'updatedAt',
+    'updateTime',
+    'startTime',
+    'startTimestamp'
+  ]) {
     const ms = parseEventTime(event[key]);
     if (ms != null) return ms;
   }
@@ -199,11 +203,7 @@ function createDefaultToolState(toolId: string, runId: string) {
   };
 }
 
-function getOrCreateActionState(
-  actionId: string,
-  runtime: ChatRuntimeMaps,
-  actionName: string
-) {
+function getOrCreateActionState(actionId: string, runtime: ChatRuntimeMaps, actionName: string) {
   const existing = runtime.actionStateMap.get(actionId);
   if (existing) return existing;
   const state = {
@@ -263,14 +263,19 @@ export function reduceChatEvent(
   if (type === 'request.query') {
     const requestId = String(event.requestId || nextId(runtime, 'request'));
     const itemId = `message:user:${requestId}`;
-    upsertEntry(next, itemId, (old) => ({
-      ...(old || {}),
-      id: itemId,
-      kind: 'message',
-      role: 'user',
-      text: String(event.message || ''),
-      ts
-    }) as TimelineEntry);
+    upsertEntry(
+      next,
+      itemId,
+      (old) =>
+        ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'message',
+          role: 'user',
+          text: String(event.message || ''),
+          ts
+        }) as TimelineEntry
+    );
     return { next, effects };
   }
 
@@ -293,16 +298,21 @@ export function reduceChatEvent(
     const itemId = finishedRunId ? `run:end:${finishedRunId}` : nextId(runtime, 'run_end');
     const endTs = resolveEndTs(event, source);
 
-    upsertEntry(next, itemId, (old) => ({
-      ...(old || {}),
-      id: itemId,
-      kind: 'message',
-      role: 'system',
-      variant: 'run_end',
-      tone: type === 'run.cancel' ? 'warn' : 'ok',
-      text: type === 'run.cancel' ? '本次运行已取消' : '本次运行结束',
-      ts: endTs
-    }) as TimelineEntry);
+    upsertEntry(
+      next,
+      itemId,
+      (old) =>
+        ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'message',
+          role: 'system',
+          variant: 'run_end',
+          tone: type === 'run.cancel' ? 'warn' : 'ok',
+          text: type === 'run.cancel' ? '本次运行已取消' : '本次运行结束',
+          ts: endTs
+        }) as TimelineEntry
+    );
 
     effects.push({ type: 'stream_end' });
     return { next, effects };
@@ -336,7 +346,13 @@ export function reduceChatEvent(
     return { next, effects };
   }
 
-  if (type === 'task.start' || type === 'task.end' || type === 'task.complete' || type === 'task.fail' || type === 'task.cancel') {
+  if (
+    type === 'task.start' ||
+    type === 'task.end' ||
+    type === 'task.complete' ||
+    type === 'task.fail' ||
+    type === 'task.cancel'
+  ) {
     const taskId = String(event.taskId || '');
     if (!taskId) {
       return { next, effects };
@@ -344,13 +360,14 @@ export function reduceChatEvent(
     const idx = next.planState.tasks.findIndex((task) => task.taskId === taskId);
     const newDescription = event.description || event.taskName;
 
-    const resolvedStatus = type === 'task.start'
-      ? 'running'
-      : type === 'task.fail'
+    const resolvedStatus =
+      type === 'task.start'
+        ? 'running'
+        : type === 'task.fail'
         ? 'failed'
         : type === 'task.cancel'
-          ? 'done'
-          : normalizeTaskStatus(event.status || (event.error ? 'failed' : 'done'));
+        ? 'done'
+        : normalizeTaskStatus(event.status || (event.error ? 'failed' : 'done'));
 
     if (idx === -1) {
       next.planState.tasks.push({
@@ -383,18 +400,23 @@ export function reduceChatEvent(
     const actionState = getOrCreateActionState(actionId, runtime, actionName);
     actionState.actionName = actionName || actionState.actionName || '';
 
-    upsertEntry(next, itemId, (old) => ({
-      ...(old || {}),
-      id: itemId,
-      kind: 'action',
-      actionName: actionState.actionName,
-      label: resolveActionLabel(String((old as Record<string, unknown> | null)?.label || ''), event, actionState),
-      description: description || String((old as Record<string, unknown> | null)?.description || ''),
-      argsText: String((old as Record<string, unknown> | null)?.argsText || actionState.argsText || ''),
-      resultText: String((old as Record<string, unknown> | null)?.resultText || actionState.resultText || ''),
-      state: 'running',
-      ts
-    }) as TimelineEntry);
+    upsertEntry(
+      next,
+      itemId,
+      (old) =>
+        ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'action',
+          actionName: actionState.actionName,
+          label: resolveActionLabel(String((old as Record<string, unknown> | null)?.label || ''), event, actionState),
+          description: description || String((old as Record<string, unknown> | null)?.description || ''),
+          argsText: String((old as Record<string, unknown> | null)?.argsText || actionState.argsText || ''),
+          resultText: String((old as Record<string, unknown> | null)?.resultText || actionState.resultText || ''),
+          state: 'running',
+          ts
+        }) as TimelineEntry
+    );
 
     return { next, effects };
   }
@@ -411,18 +433,27 @@ export function reduceChatEvent(
     const stateInRef = getOrCreateActionState(actionId, runtime, String(event.actionName || '').trim());
     stateInRef.argsText = `${stateInRef.argsText || ''}${deltaText}`;
 
-    upsertEntry(next, itemId, (old) => ({
-      ...(old || {}),
-      id: itemId,
-      kind: 'action',
-      actionName: String((old as Record<string, unknown> | null)?.actionName || stateInRef.actionName || ''),
-      label: resolveActionLabel(String((old as Record<string, unknown> | null)?.label || ''), event, stateInRef),
-      description: String((old as Record<string, unknown> | null)?.description || event.description || ''),
-      argsText: `${String((old as Record<string, unknown> | null)?.argsText || '')}${deltaText}`,
-      resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
-      state: String((old as Record<string, unknown> | null)?.state || 'running') as 'init' | 'running' | 'done' | 'failed',
-      ts
-    }) as TimelineEntry);
+    upsertEntry(
+      next,
+      itemId,
+      (old) =>
+        ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'action',
+          actionName: String((old as Record<string, unknown> | null)?.actionName || stateInRef.actionName || ''),
+          label: resolveActionLabel(String((old as Record<string, unknown> | null)?.label || ''), event, stateInRef),
+          description: String((old as Record<string, unknown> | null)?.description || event.description || ''),
+          argsText: `${String((old as Record<string, unknown> | null)?.argsText || '')}${deltaText}`,
+          resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
+          state: String((old as Record<string, unknown> | null)?.state || 'running') as
+            | 'init'
+            | 'running'
+            | 'done'
+            | 'failed',
+          ts
+        }) as TimelineEntry
+    );
 
     return { next, effects };
   }
@@ -439,18 +470,29 @@ export function reduceChatEvent(
     const stateInRef = getOrCreateActionState(actionId, runtime, String(event.actionName || '').trim());
     stateInRef.resultText = nextResult || stateInRef.resultText || '';
 
-    upsertEntry(next, itemId, (old) => ({
-      ...(old || {}),
-      id: itemId,
-      kind: 'action',
-      actionName: String((old as Record<string, unknown> | null)?.actionName || stateInRef.actionName || ''),
-      label: resolveActionLabel(String((old as Record<string, unknown> | null)?.label || ''), event, stateInRef),
-      description: String((old as Record<string, unknown> | null)?.description || event.description || ''),
-      argsText: String((old as Record<string, unknown> | null)?.argsText || stateInRef.argsText || ''),
-      resultText: nextResult || String((old as Record<string, unknown> | null)?.resultText || ''),
-      state: event.error ? 'failed' : (String((old as Record<string, unknown> | null)?.state || 'running') as 'init' | 'running' | 'done' | 'failed'),
-      ts
-    }) as TimelineEntry);
+    upsertEntry(
+      next,
+      itemId,
+      (old) =>
+        ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'action',
+          actionName: String((old as Record<string, unknown> | null)?.actionName || stateInRef.actionName || ''),
+          label: resolveActionLabel(String((old as Record<string, unknown> | null)?.label || ''), event, stateInRef),
+          description: String((old as Record<string, unknown> | null)?.description || event.description || ''),
+          argsText: String((old as Record<string, unknown> | null)?.argsText || stateInRef.argsText || ''),
+          resultText: nextResult || String((old as Record<string, unknown> | null)?.resultText || ''),
+          state: event.error
+            ? 'failed'
+            : (String((old as Record<string, unknown> | null)?.state || 'running') as
+                | 'init'
+                | 'running'
+                | 'done'
+                | 'failed'),
+          ts
+        }) as TimelineEntry
+    );
 
     return { next, effects };
   }
@@ -466,18 +508,27 @@ export function reduceChatEvent(
     const stateInRef = getOrCreateActionState(actionId, runtime, String(event.actionName || '').trim());
     stateInRef.actionName = String(event.actionName || stateInRef.actionName || '').trim();
 
-    upsertEntry(next, itemId, (old) => ({
-      ...(old || {}),
-      id: itemId,
-      kind: 'action',
-      actionName: String((old as Record<string, unknown> | null)?.actionName || stateInRef.actionName || ''),
-      label: resolveActionLabel(String((old as Record<string, unknown> | null)?.label || ''), event, stateInRef),
-      description: String((old as Record<string, unknown> | null)?.description || event.description || ''),
-      argsText: String((old as Record<string, unknown> | null)?.argsText || stateInRef.argsText || ''),
-      resultText: String((old as Record<string, unknown> | null)?.resultText || stateInRef.resultText || ''),
-      state: event.error ? 'failed' : String((old as Record<string, unknown> | null)?.state) === 'failed' ? 'failed' : 'done',
-      ts
-    }) as TimelineEntry);
+    upsertEntry(
+      next,
+      itemId,
+      (old) =>
+        ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'action',
+          actionName: String((old as Record<string, unknown> | null)?.actionName || stateInRef.actionName || ''),
+          label: resolveActionLabel(String((old as Record<string, unknown> | null)?.label || ''), event, stateInRef),
+          description: String((old as Record<string, unknown> | null)?.description || event.description || ''),
+          argsText: String((old as Record<string, unknown> | null)?.argsText || stateInRef.argsText || ''),
+          resultText: String((old as Record<string, unknown> | null)?.resultText || stateInRef.resultText || ''),
+          state: event.error
+            ? 'failed'
+            : String((old as Record<string, unknown> | null)?.state) === 'failed'
+            ? 'failed'
+            : 'done',
+          ts
+        }) as TimelineEntry
+    );
 
     if (source === 'live' && !stateInRef.executed) {
       stateInRef.executed = true;
@@ -518,7 +569,9 @@ export function reduceChatEvent(
     if (typeof event.arguments === 'string' && event.arguments) {
       snapshotArgsText = event.arguments;
     } else if (event.toolParams && typeof event.toolParams === 'object') {
-      try { snapshotArgsText = JSON.stringify(event.toolParams); } catch {}
+      try {
+        snapshotArgsText = JSON.stringify(event.toolParams);
+      } catch {}
     }
     if (snapshotArgsText && !toolState.argsBuffer) {
       toolState.argsBuffer = snapshotArgsText;
@@ -527,16 +580,21 @@ export function reduceChatEvent(
 
     runtime.toolStateMap.set(toolId, toolState);
 
-    upsertEntry(next, itemId, (old) => ({
-      ...(old || {}),
-      id: itemId,
-      kind: 'tool',
-      label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
-      argsText: String((old as Record<string, unknown> | null)?.argsText || snapshotArgsText || ''),
-      resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
-      state: 'running',
-      ts
-    }) as TimelineEntry);
+    upsertEntry(
+      next,
+      itemId,
+      (old) =>
+        ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'tool',
+          label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
+          argsText: String((old as Record<string, unknown> | null)?.argsText || snapshotArgsText || ''),
+          resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
+          state: 'running',
+          ts
+        }) as TimelineEntry
+    );
 
     if (source === 'live' && isFrontendToolEvent({ toolType: toolState.toolType, toolKey: toolState.toolKey })) {
       const paramsReady = Boolean(toolState.toolParams && typeof toolState.toolParams === 'object');
@@ -590,16 +648,25 @@ export function reduceChatEvent(
 
     runtime.toolStateMap.set(toolId, toolState);
 
-    upsertEntry(next, itemId, (old) => ({
-      ...(old || {}),
-      id: itemId,
-      kind: 'tool',
-      label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
-      argsText: String(toolState.argsBuffer || ''),
-      resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
-      state: String((old as Record<string, unknown> | null)?.state || 'running') as 'init' | 'running' | 'done' | 'failed',
-      ts
-    }) as TimelineEntry);
+    upsertEntry(
+      next,
+      itemId,
+      (old) =>
+        ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'tool',
+          label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
+          argsText: String(toolState.argsBuffer || ''),
+          resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
+          state: String((old as Record<string, unknown> | null)?.state || 'running') as
+            | 'init'
+            | 'running'
+            | 'done'
+            | 'failed',
+          ts
+        }) as TimelineEntry
+    );
 
     return { next, effects };
   }
@@ -617,8 +684,8 @@ export function reduceChatEvent(
       event.toolParams && typeof event.toolParams === 'object'
         ? (event.toolParams as Record<string, unknown>)
         : event.params && typeof event.params === 'object'
-          ? (event.params as Record<string, unknown>)
-          : null;
+        ? (event.params as Record<string, unknown>)
+        : null;
     if (nextToolParams) {
       toolState.toolParams = nextToolParams;
       try {
@@ -630,24 +697,33 @@ export function reduceChatEvent(
     }
     runtime.toolStateMap.set(toolId, toolState);
 
-    upsertEntry(next, itemId, (old) => ({
-      ...(old || {}),
-      id: itemId,
-      kind: 'tool',
-      label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
-      argsText: nextToolParams
-        ? (() => {
-            try {
-              return JSON.stringify(nextToolParams);
-            } catch {
-              return String((old as Record<string, unknown> | null)?.argsText || '');
-            }
-          })()
-        : String((old as Record<string, unknown> | null)?.argsText || ''),
-      resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
-      state: String((old as Record<string, unknown> | null)?.state || 'running') as 'init' | 'running' | 'done' | 'failed',
-      ts
-    }) as TimelineEntry);
+    upsertEntry(
+      next,
+      itemId,
+      (old) =>
+        ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'tool',
+          label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
+          argsText: nextToolParams
+            ? (() => {
+                try {
+                  return JSON.stringify(nextToolParams);
+                } catch {
+                  return String((old as Record<string, unknown> | null)?.argsText || '');
+                }
+              })()
+            : String((old as Record<string, unknown> | null)?.argsText || ''),
+          resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
+          state: String((old as Record<string, unknown> | null)?.state || 'running') as
+            | 'init'
+            | 'running'
+            | 'done'
+            | 'failed',
+          ts
+        }) as TimelineEntry
+    );
 
     return { next, effects };
   }
@@ -662,20 +738,29 @@ export function reduceChatEvent(
 
     const nextResult = toDisplayText(getEventResult(event));
     const toolState = runtime.toolStateMap.get(toolId);
-    upsertEntry(next, itemId, (old) => ({
-      ...(old || {}),
-      id: itemId,
-      kind: 'tool',
-      label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
-      argsText: String((old as Record<string, unknown> | null)?.argsText || ''),
-      resultText: nextResult || String((old as Record<string, unknown> | null)?.resultText || ''),
-      state: event.error
-        ? 'failed'
-        : (nextResult || String((old as Record<string, unknown> | null)?.resultText || ''))
-          ? 'done'
-          : (String((old as Record<string, unknown> | null)?.state || 'running') as 'init' | 'running' | 'done' | 'failed'),
-      ts
-    }) as TimelineEntry);
+    upsertEntry(
+      next,
+      itemId,
+      (old) =>
+        ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'tool',
+          label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
+          argsText: String((old as Record<string, unknown> | null)?.argsText || ''),
+          resultText: nextResult || String((old as Record<string, unknown> | null)?.resultText || ''),
+          state: event.error
+            ? 'failed'
+            : nextResult || String((old as Record<string, unknown> | null)?.resultText || '')
+            ? 'done'
+            : (String((old as Record<string, unknown> | null)?.state || 'running') as
+                | 'init'
+                | 'running'
+                | 'done'
+                | 'failed'),
+          ts
+        }) as TimelineEntry
+    );
 
     return { next, effects };
   }
@@ -690,18 +775,31 @@ export function reduceChatEvent(
 
     const toolState = runtime.toolStateMap.get(toolId);
     const argsTextFromState = String(toolState?.argsBuffer || '');
-    upsertEntry(next, itemId, (old) => ({
-      ...(old || {}),
-      id: itemId,
-      kind: 'tool',
-      label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
-      argsText: argsTextFromState,
-      resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
-      state: event.error ? 'failed' : String((old as Record<string, unknown> | null)?.state) === 'failed' ? 'failed' : 'done',
-      ts
-    }) as TimelineEntry);
+    upsertEntry(
+      next,
+      itemId,
+      (old) =>
+        ({
+          ...(old || {}),
+          id: itemId,
+          kind: 'tool',
+          label: resolveToolLabel(String((old as Record<string, unknown> | null)?.label || ''), event, toolState),
+          argsText: argsTextFromState,
+          resultText: String((old as Record<string, unknown> | null)?.resultText || ''),
+          state: event.error
+            ? 'failed'
+            : String((old as Record<string, unknown> | null)?.state) === 'failed'
+            ? 'failed'
+            : 'done',
+          ts
+        }) as TimelineEntry
+    );
 
-    if (source === 'live' && toolState && isFrontendToolEvent({ toolType: toolState.toolType, toolKey: toolState.toolKey })) {
+    if (
+      source === 'live' &&
+      toolState &&
+      isFrontendToolEvent({ toolType: toolState.toolType, toolKey: toolState.toolKey })
+    ) {
       let toolParams: Record<string, unknown> | undefined;
       let paramsError = '';
       const missingChunkIndexes = Array.isArray(toolState.missingChunkIndexes)
@@ -764,53 +862,73 @@ export function reduceChatEvent(
     }
 
     if (type === 'reasoning.start') {
-      upsertEntry(next, itemId, (old) => ({
-        ...(old || {}),
-        id: itemId,
-        kind: 'reasoning',
-        text: String(event.text || ''),
-        collapsed: false,
-        startTs: Date.now(),
-        ts
-      }) as TimelineEntry);
+      upsertEntry(
+        next,
+        itemId,
+        (old) =>
+          ({
+            ...(old || {}),
+            id: itemId,
+            kind: 'reasoning',
+            text: String(event.text || ''),
+            collapsed: false,
+            startTs: Date.now(),
+            ts
+          }) as TimelineEntry
+      );
       return { next, effects };
     }
 
     if (type === 'reasoning.delta') {
-      upsertEntry(next, itemId, (old) => ({
-        ...(old || {}),
-        id: itemId,
-        kind: 'reasoning',
-        text: `${String((old as Record<string, unknown> | null)?.text || '')}${String(event.delta || '')}`,
-        collapsed: false,
-        ts
-      }) as TimelineEntry);
+      upsertEntry(
+        next,
+        itemId,
+        (old) =>
+          ({
+            ...(old || {}),
+            id: itemId,
+            kind: 'reasoning',
+            text: `${String((old as Record<string, unknown> | null)?.text || '')}${String(event.delta || '')}`,
+            collapsed: false,
+            ts
+          }) as TimelineEntry
+      );
       return { next, effects };
     }
 
     if (type === 'reasoning.end') {
-      upsertEntry(next, itemId, (old) => ({
-        ...(old || {}),
-        id: itemId,
-        kind: 'reasoning',
-        collapsed: false,
-        endTs: Date.now(),
-        ts
-      }) as TimelineEntry);
+      upsertEntry(
+        next,
+        itemId,
+        (old) =>
+          ({
+            ...(old || {}),
+            id: itemId,
+            kind: 'reasoning',
+            collapsed: false,
+            endTs: Date.now(),
+            ts
+          }) as TimelineEntry
+      );
       return { next, effects };
     }
 
     if (type === 'reasoning.snapshot') {
-      upsertEntry(next, itemId, (old) => ({
-        ...(old || {}),
-        id: itemId,
-        kind: 'reasoning',
-        text: String(event.text || event.content || ''),
-        collapsed: true,
-        startTs: resolveEventTs(event, source),
-        endTs: resolveEndTs(event, source),
-        ts
-      }) as TimelineEntry);
+      upsertEntry(
+        next,
+        itemId,
+        (old) =>
+          ({
+            ...(old || {}),
+            id: itemId,
+            kind: 'reasoning',
+            text: String(event.text || event.content || ''),
+            collapsed: true,
+            startTs: resolveEventTs(event, source),
+            endTs: resolveEndTs(event, source),
+            ts
+          }) as TimelineEntry
+      );
       return { next, effects };
     }
   }
@@ -831,20 +949,25 @@ export function reduceChatEvent(
         typeof event.text === 'string'
           ? event.text
           : typeof event.delta === 'string'
-            ? event.delta
-            : typeof event.content === 'string'
-              ? event.content
-              : '';
+          ? event.delta
+          : typeof event.content === 'string'
+          ? event.content
+          : '';
 
-      upsertEntry(next, itemId, (old) => ({
-        ...(old || {}),
-        id: itemId,
-        kind: 'message',
-        role: 'assistant',
-        text: seedText || String((old as Record<string, unknown> | null)?.text || ''),
-        isStreamingContent: source === 'live',
-        ts
-      }) as TimelineEntry);
+      upsertEntry(
+        next,
+        itemId,
+        (old) =>
+          ({
+            ...(old || {}),
+            id: itemId,
+            kind: 'message',
+            role: 'assistant',
+            text: seedText || String((old as Record<string, unknown> | null)?.text || ''),
+            isStreamingContent: source === 'live',
+            ts
+          }) as TimelineEntry
+      );
       return { next, effects };
     }
 
@@ -853,52 +976,64 @@ export function reduceChatEvent(
         typeof event.delta === 'string'
           ? event.delta
           : typeof event.text === 'string'
-            ? event.text
-            : typeof event.content === 'string'
-              ? event.content
-              : '';
+          ? event.text
+          : typeof event.content === 'string'
+          ? event.content
+          : '';
 
-      upsertEntry(next, itemId, (old) => ({
-        ...(old || {}),
-        id: itemId,
-        kind: 'message',
-        role: 'assistant',
-        text: `${String((old as Record<string, unknown> | null)?.text || '')}${deltaText}`,
-        isStreamingContent: source === 'live',
-        ts
-      }) as TimelineEntry);
+      upsertEntry(
+        next,
+        itemId,
+        (old) =>
+          ({
+            ...(old || {}),
+            id: itemId,
+            kind: 'message',
+            role: 'assistant',
+            text: `${String((old as Record<string, unknown> | null)?.text || '')}${deltaText}`,
+            isStreamingContent: source === 'live',
+            ts
+          }) as TimelineEntry
+      );
       return { next, effects };
     }
 
     if (type === 'content.snapshot') {
-      upsertEntry(next, itemId, (old) => ({
-        ...(old || {}),
-        id: itemId,
-        kind: 'message',
-        role: 'assistant',
-        text:
-          (typeof event.text === 'string'
-            ? event.text
-            : typeof event.content === 'string'
-              ? event.content
-              : '') || String((old as Record<string, unknown> | null)?.text || ''),
-        isStreamingContent: false,
-        ts
-      }) as TimelineEntry);
+      upsertEntry(
+        next,
+        itemId,
+        (old) =>
+          ({
+            ...(old || {}),
+            id: itemId,
+            kind: 'message',
+            role: 'assistant',
+            text:
+              (typeof event.text === 'string' ? event.text : typeof event.content === 'string' ? event.content : '') ||
+              String((old as Record<string, unknown> | null)?.text || ''),
+            isStreamingContent: false,
+            ts
+          }) as TimelineEntry
+      );
       return { next, effects };
     }
 
     if (type === 'content.end') {
       const nextText = typeof event.text === 'string' ? event.text : '';
-      upsertEntry(next, itemId, (old) => ({
-        ...(old || {}),
-        id: itemId,
-        kind: 'message',
-        role: 'assistant',
-        text: nextText || String((old as Record<string, unknown> | null)?.text || ''),
-        isStreamingContent: false,
-        ts
-      }) as TimelineEntry);
+      upsertEntry(
+        next,
+        itemId,
+        (old) =>
+          ({
+            ...(old || {}),
+            id: itemId,
+            kind: 'message',
+            role: 'assistant',
+            text: nextText || String((old as Record<string, unknown> | null)?.text || ''),
+            isStreamingContent: false,
+            ts
+          }) as TimelineEntry
+      );
       return { next, effects };
     }
   }

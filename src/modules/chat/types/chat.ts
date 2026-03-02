@@ -92,10 +92,7 @@ export interface ChatRuntimeMaps {
   toolIdMap: Map<string, string>;
   actionIdMap: Map<string, string>;
   reasoningIdMap: Map<string, string>;
-  actionStateMap: Map<
-    string,
-    { actionName: string; argsText: string; resultText: string; executed: boolean }
-  >;
+  actionStateMap: Map<string, { actionName: string; argsText: string; resultText: string; executed: boolean }>;
   toolStateMap: Map<
     string,
     {

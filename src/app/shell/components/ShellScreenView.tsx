@@ -138,14 +138,15 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     markInboxRead
   } = controller;
 
-  const { isChatDomain, isTerminalDomain, isAgentsDomain, isUserDomain, isChatDetailOverlay, showBottomNav } = routeModel;
+  const { isChatDomain, isTerminalDomain, isAgentsDomain, isUserDomain, isChatDetailOverlay, showBottomNav } =
+    routeModel;
 
   if (booting) {
     return (
-      <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}> 
-        <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}> 
+      <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}>
+        <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}>
           <View style={styles.bootWrap}>
-            <View style={[styles.bootCard, { borderColor: theme.border }]}> 
+            <View style={[styles.bootCard, { borderColor: theme.border }]}>
               <ActivityIndicator size="small" color={theme.primary} />
               <Text style={[styles.bootText, { color: theme.textSoft }]}>正在加载配置...</Text>
             </View>
@@ -157,10 +158,10 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
 
   if (authChecking) {
     return (
-      <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}> 
-        <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}> 
+      <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}>
+        <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}>
           <View style={styles.bootWrap}>
-            <View style={[styles.bootCard, { borderColor: theme.border }]}> 
+            <View style={[styles.bootCard, { borderColor: theme.border }]}>
               <ActivityIndicator size="small" color={theme.primary} />
               <Text style={[styles.bootText, { color: theme.textSoft }]}>正在验证登录状态...</Text>
             </View>
@@ -172,12 +173,26 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
 
   if (!authReady) {
     return (
-      <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}> 
-        <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}> 
-          <View style={[styles.bootWrap, { paddingHorizontal: 20 }]}> 
-            <View style={[styles.bootCard, { borderColor: theme.border, width: '100%', maxWidth: 440, flexDirection: 'column', alignItems: 'stretch', gap: 10 }]}> 
+      <SafeAreaView edges={['top']} style={[styles.safeRoot, { backgroundColor: theme.surface }]}>
+        <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}>
+          <View style={[styles.bootWrap, { paddingHorizontal: 20 }]}>
+            <View
+              style={[
+                styles.bootCard,
+                {
+                  borderColor: theme.border,
+                  width: '100%',
+                  maxWidth: 440,
+                  flexDirection: 'column',
+                  alignItems: 'stretch',
+                  gap: 10
+                }
+              ]}
+            >
               <Text style={[styles.authTitle, { color: theme.text }]}>设备登录</Text>
-              <Text style={[styles.emptyHistoryText, { color: theme.textMute, textAlign: 'left' }]}>请先填写后端地址，再输入主密码完成设备授权。</Text>
+              <Text style={[styles.emptyHistoryText, { color: theme.textMute, textAlign: 'left' }]}>
+                请先填写后端地址，再输入主密码完成设备授权。
+              </Text>
 
               <TextInput
                 value={endpointDraft}
@@ -186,7 +201,10 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                 placeholderTextColor={theme.textMute}
                 autoCapitalize="none"
                 autoCorrect={false}
-                style={[styles.chatSearchInput, { backgroundColor: theme.surfaceStrong, color: theme.text, marginBottom: 0 }]}
+                style={[
+                  styles.chatSearchInput,
+                  { backgroundColor: theme.surfaceStrong, color: theme.text, marginBottom: 0 }
+                ]}
               />
 
               <TextInput
@@ -194,7 +212,10 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                 onChangeText={setDeviceName}
                 placeholder="设备名称"
                 placeholderTextColor={theme.textMute}
-                style={[styles.chatSearchInput, { backgroundColor: theme.surfaceStrong, color: theme.text, marginBottom: 0 }]}
+                style={[
+                  styles.chatSearchInput,
+                  { backgroundColor: theme.surfaceStrong, color: theme.text, marginBottom: 0 }
+                ]}
               />
               <TextInput
                 value={masterPassword}
@@ -202,10 +223,15 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                 placeholder="主密码"
                 placeholderTextColor={theme.textMute}
                 secureTextEntry
-                style={[styles.chatSearchInput, { backgroundColor: theme.surfaceStrong, color: theme.text, marginBottom: 0 }]}
+                style={[
+                  styles.chatSearchInput,
+                  { backgroundColor: theme.surfaceStrong, color: theme.text, marginBottom: 0 }
+                ]}
               />
 
-              {authError ? <Text style={[styles.emptyHistoryText, { color: theme.danger, textAlign: 'left' }]}>{authError}</Text> : null}
+              {authError ? (
+                <Text style={[styles.emptyHistoryText, { color: theme.danger, textAlign: 'left' }]}>{authError}</Text>
+              ) : null}
 
               <TouchableOpacity
                 activeOpacity={0.82}
@@ -229,7 +255,10 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
               </TouchableOpacity>
             </View>
           </View>
-          <Text style={[styles.loginVersionTextBottom, { color: theme.textMute, bottom: insets.bottom + 12 }]} testID="login-version-label">
+          <Text
+            style={[styles.loginVersionTextBottom, { color: theme.textMute, bottom: insets.bottom + 12 }]}
+            testID="login-version-label"
+          >
             {appVersionLabel}
           </Text>
         </View>
@@ -246,7 +275,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     >
       <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} />
 
-      <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}> 
+      <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}>
         <KeyboardAvoidingView
           style={[styles.shell, { paddingBottom: keyboardInset }]}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -335,7 +364,11 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
           />
 
           {isChatDomain && !hasChatOverlay && chatRoute === 'list' && chatPlusMenuOpen ? (
-            <Pressable style={styles.chatTopMenuMask} onPress={() => setChatPlusMenuOpen(false)} testID="chat-list-plus-menu-mask" />
+            <Pressable
+              style={styles.chatTopMenuMask}
+              onPress={() => setChatPlusMenuOpen(false)}
+              testID="chat-list-plus-menu-mask"
+            />
           ) : null}
 
           <View style={styles.domainContent}>
@@ -417,11 +450,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                           chatDetailDrawerOpen={chatDetailDrawerOpen}
                         />
                       ) : (
-                        <AgentProfilePane
-                          theme={theme}
-                          agent={activeAgent}
-                          onStartChat={handleAgentProfileStartChat}
-                        />
+                        <AgentProfilePane theme={theme} agent={activeAgent} onStartChat={handleAgentProfileStartChat} />
                       )}
                     </Animated.View>
                   );
@@ -430,9 +459,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                   enabled={hasChatOverlay && !chatDetailDrawerOpen && !chatAgentsSidebarOpen}
                   onBack={() => dispatch(popChatOverlay())}
                 />
-                {!hasChatOverlay && chatRoute === 'search' ? (
-                  <SwipeBackEdge enabled onBack={handleSearchBack} />
-                ) : null}
+                {!hasChatOverlay && chatRoute === 'search' ? <SwipeBackEdge enabled onBack={handleSearchBack} /> : null}
               </View>
             ) : null}
 
@@ -518,7 +545,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
               }
             ]}
           >
-            <View style={[styles.inboxModalHead, { borderBottomColor: theme.border }]}> 
+            <View style={[styles.inboxModalHead, { borderBottomColor: theme.border }]}>
               <View>
                 <Text style={[styles.inboxTitle, { color: theme.text }]}>消息盒子</Text>
                 <Text style={[styles.inboxSubTitle, { color: theme.textMute }]}>未读 {inboxUnreadCount}</Text>
@@ -568,7 +595,9 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                 >
                   <View style={styles.inboxItemTop}>
                     <Text style={[styles.inboxItemTitle, { color: theme.text }]}>{message.title}</Text>
-                    <Text style={[styles.inboxItemTime, { color: theme.textMute }]}>{formatInboxTime(message.createAt)}</Text>
+                    <Text style={[styles.inboxItemTime, { color: theme.textMute }]}>
+                      {formatInboxTime(message.createAt)}
+                    </Text>
                   </View>
                   <Text style={[styles.inboxItemBody, { color: theme.textSoft }]}>{message.content}</Text>
                 </TouchableOpacity>
@@ -597,7 +626,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
               }
             ]}
           >
-            <View style={[styles.publishHead, { borderBottomColor: theme.border }]}> 
+            <View style={[styles.publishHead, { borderBottomColor: theme.border }]}>
               <View style={styles.publishTitleWrap}>
                 <Text style={[styles.publishTitle, { color: theme.text }]}>发布中心</Text>
                 <Text style={[styles.publishSubTitle, { color: theme.textMute }]} numberOfLines={2}>
@@ -615,23 +644,35 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
             </View>
 
             <ScrollView style={styles.publishScroll} contentContainerStyle={styles.publishContent}>
-              <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}> 
+              <View
+                style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
+              >
                 <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布目标</Text>
                 <View style={styles.publishChipRow}>
                   {['内部频道', '变更公告页', '测试环境'].map((item) => (
-                    <View key={item} style={[styles.publishChip, { borderColor: theme.border, backgroundColor: theme.surface }]}> 
+                    <View
+                      key={item}
+                      style={[styles.publishChip, { borderColor: theme.border, backgroundColor: theme.surface }]}
+                    >
                       <Text style={[styles.publishChipText, { color: theme.textSoft }]}>{item}</Text>
                     </View>
                   ))}
                 </View>
               </View>
 
-              <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}> 
+              <View
+                style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
+              >
                 <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布说明</Text>
-                <Text style={[styles.publishSectionBody, { color: theme.textSoft }]}>本次发布会同步当前智能体配置、默认提示词和会话能力开关。建议先在测试环境验证 5 分钟后再推送到团队频道。</Text>
+                <Text style={[styles.publishSectionBody, { color: theme.textSoft }]}>
+                  本次发布会同步当前智能体配置、默认提示词和会话能力开关。建议先在测试环境验证 5
+                  分钟后再推送到团队频道。
+                </Text>
               </View>
 
-              <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}> 
+              <View
+                style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
+              >
                 <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布清单</Text>
                 <View style={styles.publishChecklist}>
                   {['配置校验已通过', '变更摘要已生成', '回滚方案已就绪'].map((item) => (
@@ -644,7 +685,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
               </View>
             </ScrollView>
 
-            <View style={[styles.publishFooter, { borderTopColor: theme.border }]}> 
+            <View style={[styles.publishFooter, { borderTopColor: theme.border }]}>
               <TouchableOpacity
                 activeOpacity={0.76}
                 style={[styles.publishGhostBtn, { backgroundColor: theme.surfaceStrong }]}

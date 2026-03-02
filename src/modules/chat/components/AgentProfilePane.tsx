@@ -14,9 +14,7 @@ function toTextList(input: unknown): string[] {
   if (!Array.isArray(input)) {
     return [];
   }
-  return input
-    .map((item) => String(item || '').trim())
-    .filter((item) => Boolean(item));
+  return input.map((item) => String(item || '').trim()).filter((item) => Boolean(item));
 }
 
 export function AgentProfilePane({ theme, agent, onStartChat }: AgentProfilePaneProps) {

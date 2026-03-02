@@ -8,11 +8,15 @@ export function getDefaultEndpointInput(): string {
 export const DEFAULT_ENDPOINT_INPUT = getDefaultEndpointInput();
 
 function normalizeUrlBase(raw: string | undefined | null): string {
-  return String(raw || '').trim().replace(/\/+$/, '');
+  return String(raw || '')
+    .trim()
+    .replace(/\/+$/, '');
 }
 
 export function normalizeEndpointInput(raw: string | undefined | null): string {
-  const text = String(raw || '').trim().replace(/\/+$/, '');
+  const text = String(raw || '')
+    .trim()
+    .replace(/\/+$/, '');
   return text;
 }
 
@@ -81,7 +85,9 @@ export function normalizePtyUrlInput(
   raw: string | undefined | null,
   endpointInput: string = getDefaultEndpointInput()
 ): string {
-  const text = String(raw || '').trim().replace(/\/+$/, '');
+  const text = String(raw || '')
+    .trim()
+    .replace(/\/+$/, '');
   if (!text) {
     const normalizedEndpoint = normalizeEndpointInput(endpointInput);
     if (!normalizedEndpoint) {

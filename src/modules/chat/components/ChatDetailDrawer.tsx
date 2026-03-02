@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from 'react-native';
+import {
+  Animated,
+  Easing,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  useWindowDimensions
+} from 'react-native';
 import { AppTheme } from '../../../core/constants/theme';
 import { ChatSummary } from '../../../core/types/common';
 import { formatChatListTime, getChatLastContent } from '../../../shared/utils/format';
@@ -128,9 +138,17 @@ export function ChatDetailDrawer({
   );
 
   return (
-    <View pointerEvents={allowInteraction ? 'auto' : 'none'} style={[StyleSheet.absoluteFill, styles.layer]} testID="chat-detail-drawer-layer">
-      <Animated.View style={[styles.overlay, { opacity: overlayOpacity, backgroundColor: theme.overlay }]}> 
-        <Pressable style={StyleSheet.absoluteFill} onPress={allowInteraction ? onClose : undefined} testID="chat-detail-overlay-mask" />
+    <View
+      pointerEvents={allowInteraction ? 'auto' : 'none'}
+      style={[StyleSheet.absoluteFill, styles.layer]}
+      testID="chat-detail-drawer-layer"
+    >
+      <Animated.View style={[styles.overlay, { opacity: overlayOpacity, backgroundColor: theme.overlay }]}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={allowInteraction ? onClose : undefined}
+          testID="chat-detail-overlay-mask"
+        />
       </Animated.View>
 
       <Animated.View
@@ -150,7 +168,7 @@ export function ChatDetailDrawer({
         ]}
         testID="chat-detail-drawer"
       >
-        <View style={[styles.head, { borderBottomColor: theme.border }]}> 
+        <View style={[styles.head, { borderBottomColor: theme.border }]}>
           <Text style={[styles.title, { color: theme.text }]} numberOfLines={1}>
             {`与${normalizedAgentName}的对话`}
           </Text>
@@ -184,7 +202,8 @@ export function ChatDetailDrawer({
               const chatTime = formatChatListTime(chat);
               const itemKey = chat.chatId || `${title}:${index}`;
               const rawReadStatus = (chat as Record<string, unknown>).readStatus;
-              const hasReadStatus = rawReadStatus !== undefined && rawReadStatus !== null && String(rawReadStatus) !== '';
+              const hasReadStatus =
+                rawReadStatus !== undefined && rawReadStatus !== null && String(rawReadStatus) !== '';
               const readStatus = Number(rawReadStatus);
               const readAt = (chat as Record<string, unknown>).readAt;
               const isRead = hasReadStatus ? readStatus !== 0 : readAt != null ? true : true;
@@ -217,11 +236,18 @@ export function ChatDetailDrawer({
                     </Text>
                   </View>
                   <View style={styles.itemBottomRow}>
-                    <Text style={[styles.itemLast, { color: theme.textSoft }]} numberOfLines={1} testID={`chat-detail-drawer-item-last-${index}`}>
+                    <Text
+                      style={[styles.itemLast, { color: theme.textSoft }]}
+                      numberOfLines={1}
+                      testID={`chat-detail-drawer-item-last-${index}`}
+                    >
                       {last}
                     </Text>
                     <View style={styles.itemReadState} testID={`chat-detail-drawer-read-state-${index}`}>
-                      <Text style={[styles.itemReadIcon, { color: readColor }]} testID={`chat-detail-drawer-read-icon-${index}`}>
+                      <Text
+                        style={[styles.itemReadIcon, { color: readColor }]}
+                        testID={`chat-detail-drawer-read-icon-${index}`}
+                      >
                         {readIcon}
                       </Text>
                       <Text style={[styles.itemReadLabel, { color: readColor }]} numberOfLines={1}>
@@ -233,7 +259,7 @@ export function ChatDetailDrawer({
               );
             })
           ) : (
-            <View style={[styles.emptyCard, { backgroundColor: theme.surfaceStrong }]}> 
+            <View style={[styles.emptyCard, { backgroundColor: theme.surfaceStrong }]}>
               <Text style={[styles.emptyText, { color: theme.textMute }]}>暂无历史会话</Text>
             </View>
           )}

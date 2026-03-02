@@ -1,7 +1,4 @@
-import {
-  buildConfirmDialogSubmitParams,
-  normalizeConfirmDialogParams
-} from '../utils/confirmDialog';
+import { buildConfirmDialogSubmitParams, normalizeConfirmDialogParams } from '../utils/confirmDialog';
 
 describe('confirmDialog utils', () => {
   it('normalizes valid confirm dialog params', () => {
@@ -23,9 +20,9 @@ describe('confirmDialog utils', () => {
     expect(normalizeConfirmDialogParams({ question: '', options: [], allowFreeText: false }).error).toContain(
       '问题不能为空'
     );
-    expect(
-      normalizeConfirmDialogParams({ question: 'Q', options: [], allowFreeText: false }).error
-    ).toContain('缺少可选项');
+    expect(normalizeConfirmDialogParams({ question: 'Q', options: [], allowFreeText: false }).error).toContain(
+      '缺少可选项'
+    );
   });
 
   it('builds option submit params', () => {
