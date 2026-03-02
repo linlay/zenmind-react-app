@@ -222,6 +222,7 @@ export function ChatAssistantScreen({
 
   const listAtTopShared = useSharedValue(1);
   const listAtBottomShared = useSharedValue(0);
+  const listScrollableShared = useSharedValue(0);
   const gestureCooldownUntilShared = useSharedValue(0);
   const createChatSwipeDistanceShared = useSharedValue(0);
   const showDrawerSwipeDistanceShared = useSharedValue(0);
@@ -353,11 +354,14 @@ export function ChatAssistantScreen({
       listContentHeightRef.current = normalizedContent;
 
       if (normalizedViewport <= 0) {
-        const edgeWithUnknownViewport = resolveListEdgeState(normalizedOffset, normalizedViewport, normalizedContent);
-        listAtTopRef.current = edgeWithUnknownViewport.atTop;
-        listAtBottomRef.current = edgeWithUnknownViewport.atBottom;
-        listAtTopShared.value = edgeWithUnknownViewport.atTop ? 1 : 0;
-        listAtBottomShared.value = edgeWithUnknownViewport.atBottom ? 1 : 0;
+        // const edgeWithUnknownViewport = resolveListEdgeState(normalizedOffset, normalizedViewport, normalizedContent);
+        // listAtTopRef.current = edgeWithUnknownViewport.atTop;
+        // listAtBottomRef.current = edgeWithUnknownViewport.atBottom;
+        // listAtTopShared.value = edgeWithUnknownViewport.atTop ? 1 : 0;
+        // listAtBottomShared.value = edgeWithUnknownViewport.atBottom ? 1 : 0;
+        // 布局未就绪：不要覆写 top/bottom，避免把边缘状态错误写死为 0
+        // 等 onLayout / onContentSizeChange 后再计算真实边缘
+        listScrollableShared.value = 0;
         setIsTimelineScrollable(false);
         setAutoScrollMode(true);
         return;
@@ -370,6 +374,7 @@ export function ChatAssistantScreen({
       listAtBottomShared.value = nextEdge.atBottom ? 1 : 0;
 
       const scrollable = normalizedContent > normalizedViewport;
+      listScrollableShared.value = scrollable ? 1 : 0;
       if (scrollable) {
         if (!scrollableStabilizationTimerRef.current) {
           scrollableStabilizationTimerRef.current = setTimeout(() => {
@@ -403,7 +408,7 @@ export function ChatAssistantScreen({
         }
       }
     },
-    [listAtBottomShared, listAtTopShared, setAutoScrollMode, showEdgeToast]
+    [listAtBottomShared, listAtTopShared, listScrollableShared, setAutoScrollMode, showEdgeToast]
   );
 
   const scrollToTopAndDisableAutoScroll = useCallback(() => {
@@ -504,10 +509,22 @@ export function ChatAssistantScreen({
           Boolean(onRequestCreateAgentChatBySwipe);
         const canShowDrawer =
           horizontalDominant && dx <= -GESTURE_SHOW_DRAWER_ACTIVATE_THRESHOLD && Boolean(onRequestShowChatDetailDrawer);
+        const verticalReady = absDy >= 8;
+        const isScrollable = listScrollableShared.value > 0.5;
+        const atTop = listAtTopShared.value > 0.5;
+        const atBottom = listAtBottomShared.value > 0.5;
         const canSwitchPrev =
-          verticalDominant && dy >= 16 && listAtTopShared.value > 0.5 && Boolean(onRequestSwitchAgentChat);
+          verticalDominant &&
+          verticalReady &&
+          dy >= 10 &&
+          (isScrollable ? atTop : true) &&
+          Boolean(onRequestSwitchAgentChat);
         const canSwitchNext =
-          verticalDominant && dy <= -16 && listAtBottomShared.value > 0.5 && Boolean(onRequestSwitchAgentChat);
+          verticalDominant &&
+          verticalReady &&
+          dy <= -10 &&
+          (isScrollable ? atBottom : true) &&
+          Boolean(onRequestSwitchAgentChat);
 
         if (canCreateChat) {
           gestureModeShared.value = MODE_CREATE;
@@ -597,7 +614,6 @@ export function ChatAssistantScreen({
           return;
         }
 
-
         if (gestureModeShared.value === MODE_SWITCH_NEXT && event.translationY <= -GESTURE_SWITCH_THRESHOLD) {
           runOnJS(runSwitchNextGestureAction)();
           gestureModeShared.value = MODE_IDLE;
@@ -635,6 +651,7 @@ export function ChatAssistantScreen({
     gestureStartYShared,
     listAtBottomShared,
     listAtTopShared,
+    listScrollableShared,
     onRequestCreateAgentChatBySwipe,
     onRequestShowChatDetailDrawer,
     onRequestSwitchAgentChat,
@@ -1075,10 +1092,15 @@ export function ChatAssistantScreen({
       clearTimeout(edgeToastTimerRef.current);
       edgeToastTimerRef.current = null;
     }
+    // listAtTopRef.current = true;
+    // listAtBottomRef.current = false;
+    // 重置后先给“可触发态”，避免切换会话后在布局完成前被 listAtBottom=0 卡死
+    // 真实值由后续 syncListMetrics(onLayout/onContentSizeChange)覆盖
     listAtTopRef.current = true;
-    listAtBottomRef.current = false;
+    listAtBottomRef.current = true;
     listAtTopShared.value = 1;
     listAtBottomShared.value = 0;
+    listScrollableShared.value = 0;
     listContentHeightRef.current = 0;
     listOffsetYRef.current = 0;
     gestureCooldownUntilRef.current = 0;
@@ -1090,6 +1112,7 @@ export function ChatAssistantScreen({
     gestureCooldownUntilShared,
     listAtBottomShared,
     listAtTopShared,
+    listScrollableShared,
     resetNavGestureVisuals,
     setAutoScrollMode,
     setChatImageTokenSafe,
@@ -1794,6 +1817,16 @@ export function ChatAssistantScreen({
       if (cancelled) return;
       setChatImageTokenSafe(history.chatImageToken);
       history.events.forEach((event) => applyEvent(event, 'history'));
+
+      // 强制在切换会话后做一次边缘状态刷新：
+      // 解决“无滚动条时 onScroll 不触发，listAtBottomShared 长时间停留旧值”的问题
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (cancelled) return;
+          syncListMetrics(listOffsetYRef.current, listViewportHeightRef.current, listContentHeightRef.current);
+        });
+      });
+
       if (shouldScrollTopAfterHistoryLoadRef.current) {
         shouldScrollTopAfterHistoryLoadRef.current = false;
         scrollToTopAndDisableAutoScroll();
@@ -1819,6 +1852,7 @@ export function ChatAssistantScreen({
     loadHistoryFromRemote,
     onChatViewed,
     resetTimeline,
+    syncListMetrics,
     scrollToTopAndDisableAutoScroll,
     setChatImageTokenSafe,
     stopStreaming
