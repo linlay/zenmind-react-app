@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit",
     "build": "expo export"
   },
+  "packageManager": "pnpm@7.33.7",
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-navigation/bottom-tabs": "^7.15.3",
