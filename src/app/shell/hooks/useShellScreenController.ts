@@ -18,12 +18,14 @@ import {
   popChatOverlay,
   pushChatOverlay,
   resetChatDetailDrawerPreview,
+  showAgentsRoute,
   setChatAgentsSidebarOpen,
   setChatDetailDrawerPreviewProgress,
   setChatSearchQuery as setShellChatSearchQuery,
   showChatListRoute,
   showTerminalDetailPane,
-  showTerminalListPane
+  showTerminalListPane,
+  showUserRoute
 } from '../shellSlice';
 import {
   applyEndpointDraft,
@@ -1002,6 +1004,12 @@ export function useShellScreenController() {
   }, [activeDomain, booting, endpointInput, ptyUrlInput, selectedAgentKey, themeMode]);
 
   useEffect(() => {
+    if (activeDomain === 'agents') {
+      dispatch(showAgentsRoute());
+    } else if (activeDomain === 'user') {
+      dispatch(showUserRoute());
+    }
+
     if (activeDomain !== 'chat' && activeDomain !== 'user') {
       setInboxOpen(false);
     }
@@ -1232,6 +1240,18 @@ export function useShellScreenController() {
       closeFloatingPanels();
       if (mode === 'chat') {
         dispatch(showChatListRoute());
+      } else if (mode === 'terminal') {
+        dispatch(showTerminalListPane());
+      } else if (mode === 'agents') {
+        dispatch(showAgentsRoute());
+        dispatch(showChatListRoute());
+        dispatch(setShellChatSearchQuery(''));
+        dispatch(clearChatOverlays());
+      } else if (mode === 'user') {
+        dispatch(showUserRoute());
+        dispatch(showChatListRoute());
+        dispatch(setShellChatSearchQuery(''));
+        dispatch(clearChatOverlays());
       } else {
         dispatch(showChatListRoute());
         dispatch(setShellChatSearchQuery(''));

@@ -6,12 +6,12 @@
 - `ShellScreen.styles.ts`: Shell 统一样式定义，避免主文件混杂视觉细节。
 - `components/ShellTopNav.tsx`: 顶部导航组件，仅负责渲染和事件转发。
 - `routes/shellRouteModel.ts`: 显式路由视图模型，将 Redux 状态映射为可渲染路由语义。
-- `shellSlice.ts`: Shell 级路由状态（`chatRoute`/`chatOverlayStack`/`terminalPane` 等）与动作。
+- `shellSlice.ts`: Shell 路由核心，使用 `routeStack` 统一维护页面跳转历史，并向旧 UI 字段提供兼容映射（`chatRoute`/`chatOverlayStack`/`terminalPane`）。
 - `BottomDomainNav.tsx`: 底部域导航组件。
 
 ## 路由模型
 
-`buildShellRouteModel` 将以下状态转换为统一视图结果：
+`buildShellRouteModel` 将以下状态转换为统一视图结果（这些状态由 `routeStack` 推导）：
 
 - 域路由：`chat | terminal | agents | user`
 - Chat 子路由：`list | search`
@@ -26,6 +26,6 @@
 
 ## 维护建议
 
-- 新增页面时，先扩展 `shellSlice` 的状态与 action，再扩展 `shellRouteModel`，最后在 `ShellScreen` 装配页面。
+- 新增页面时，优先扩展 `shellSlice` 的 `ShellRouteName` 与路由 action，再扩展 `shellRouteModel`，最后在 `ShellScreen` 装配页面。
 - 组件内避免直接拼装复杂路由判断，统一复用 `ShellRouteModel` 字段。
 - 业务副作用（网络、鉴权、WS）继续集中在 `ShellScreen`，UI 组件保持“无副作用”。
