@@ -1,31 +1,25 @@
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+
 import { ShellScreenView } from './components/ShellScreenView';
 import { useShellScreenController } from './hooks/useShellScreenController';
 
-import { NavigationContainer } from '@react-navigation/native';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { styles } from './ShellScreen.styles';
 
 export function ShellScreen() {
   const controller = useShellScreenController();
-  return <ShellScreenView controller={controller} />;
-}
 
-const Tab = createBottomTabNavigator();
+  const { theme } = controller;
 
-function Tabs() {
   return (
-    <Tab.Navigator id="RootTab">
-      <Tab.Screen name="Chat" component={HomeScreen} />
-      <Tab.Screen name="Terminal" component={ProfileScreen} />
-      <Tab.Screen name="Agents" component={ProfileScreen} />
-      <Tab.Screen name="User" component={ProfileScreen} />
-    </Tab.Navigator>
-  );
-}
-
-export default function App() {
-  return (
-    <NavigationContainer>
-      <Tabs />
-    </NavigationContainer>
+    <SafeAreaView
+      edges={['top']}
+      style={[styles.safeRoot, { backgroundColor: theme.surface }]}
+      nativeID="shell-root"
+      testID="shell-root"
+    >
+      <StatusBar style={theme.mode === 'dark' ? 'light' : 'dark'} animated />
+      <ShellScreenView controller={controller} />
+    </SafeAreaView>
   );
 }

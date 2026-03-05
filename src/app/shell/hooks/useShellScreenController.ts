@@ -10,17 +10,15 @@ import {
   toBackendBaseUrl,
   toDefaultPtyWebUrl
 } from '../../../core/network/endpoint';
-import { loadSettings, patchSettings } from '../../../core/storage/settingsStorage';
+import { patchSettings } from '../../../core/storage/settingsStorage';
 import {
   clearChatOverlays,
   closeChatDetailDrawer,
-  openChatDetailDrawer,
   popChatOverlay,
   pushChatOverlay,
   resetChatDetailDrawerPreview,
   showAgentsRoute,
   setChatAgentsSidebarOpen,
-  setChatDetailDrawerPreviewProgress,
   setChatSearchQuery as setShellChatSearchQuery,
   showChatListRoute,
   showTerminalDetailPane,
@@ -29,7 +27,6 @@ import {
 } from '../shellSlice';
 import {
   applyEndpointDraft,
-  hydrateSettings,
   setActiveDomain,
   setEndpointDraft,
   setPtyUrlDraft,
@@ -860,23 +857,6 @@ export function useShellScreenController() {
   }, [deviceName, dispatch, endpointDraft, masterPassword, refreshAll, refreshInbox, syncAuthStateFromSession]);
 
   useEffect(() => {
-    let mounted = true;
-    loadSettings()
-      .then((settings) => {
-        if (!mounted) return;
-        dispatch(hydrateSettings(settings));
-      })
-      .catch(() => {
-        if (!mounted) return;
-        dispatch(hydrateSettings({}));
-      });
-
-    return () => {
-      mounted = false;
-    };
-  }, [dispatch]);
-
-  useEffect(() => {
     Animated.timing(inboxAnim, {
       toValue: inboxOpen ? 1 : 0,
       duration: inboxOpen ? 240 : 180,
@@ -1024,15 +1004,6 @@ export function useShellScreenController() {
   }, [activeDomain, dispatch]);
 
   useEffect(() => {
-    if (topChatOverlayType !== 'chatDetail' && chatDetailDrawerOpen) {
-      dispatch(closeChatDetailDrawer());
-    }
-    if (topChatOverlayType !== 'chatDetail' && chatDetailDrawerPreviewProgress > 0) {
-      dispatch(resetChatDetailDrawerPreview());
-    }
-  }, [chatDetailDrawerOpen, chatDetailDrawerPreviewProgress, dispatch, topChatOverlayType]);
-
-  useEffect(() => {
     if (!inboxOpen || !authReady) {
       return;
     }
@@ -1178,7 +1149,6 @@ export function useShellScreenController() {
       }),
     [activeAgentName, activeAgentRole, activeDomain, chatRoute, hasChatOverlay, terminalPane, topChatOverlayType]
   );
-  const { isChatDetailOverlay } = routeModel;
   const appVersionLabel = useMemo(() => getAppVersionLabel(), []);
 
   /**
@@ -1272,39 +1242,6 @@ export function useShellScreenController() {
   );
 
   /**
-   * 打开聊天详情页
-   * @param nextChatId - 聊天 ID
-   * @param nextAgentKey - 智能体 key（可选，用于切换当前选中的智能体）
-   *
-   * 操作流程：
-   * 1. 收起键盘
-   * 2. 更新选中的智能体
-   * 3. 设置 chatId
-   * 4. 关闭抽屉和侧边栏
-   * 5. 推入聊天详情覆盖层
-   */
-  const openChatDetail = useCallback(
-    (nextChatId: string, nextAgentKey?: string) => {
-      Keyboard.dismiss();
-      const normalizedAgentKey = String(nextAgentKey || '').trim();
-      if (normalizedAgentKey && normalizedAgentKey !== '__unknown_agent__') {
-        dispatch(setUserSelectedAgentKey(normalizedAgentKey));
-      }
-      dispatch(setChatId(nextChatId));
-      dispatch(closeChatDetailDrawer());
-      dispatch(resetChatDetailDrawerPreview());
-      dispatch(setChatAgentsSidebarOpen(false));
-      dispatch(
-        pushChatOverlay({
-          overlayId: createRequestId('chat_detail_overlay'),
-          type: 'chatDetail'
-        })
-      );
-    },
-    [dispatch]
-  );
-
-  /**
    * 打开智能体详情页
    * @param agentKey - 智能体 key
    *
@@ -1335,92 +1272,6 @@ export function useShellScreenController() {
       );
     },
     [dispatch]
-  );
-
-  /**
-   * 选择智能体并新建对话
-   * @param agentKey - 智能体 key
-   *
-   * 切换智能体、清空 chatId 和 statusText、关闭侧边栏和抽屉
-   * 如果不在聊天详情页，自动推入聊天详情覆盖层
-   */
-  const handleAgentSelectNewChat = useCallback(
-    (agentKey: string) => {
-      dispatch(setUserSelectedAgentKey(agentKey));
-      dispatch(setChatId(''));
-      dispatch(setStatusText(''));
-      dispatch(setChatAgentsSidebarOpen(false));
-      dispatch(closeChatDetailDrawer());
-      dispatch(resetChatDetailDrawerPreview());
-      if (!isChatDetailOverlay) {
-        dispatch(
-          pushChatOverlay({
-            overlayId: createRequestId('chat_detail_overlay'),
-            type: 'chatDetail'
-          })
-        );
-      }
-    },
-    [dispatch, isChatDetailOverlay]
-  );
-
-  /**
-   * 使用当前选中的智能体新建对话
-   * 清空 chatId 和 statusText、关闭抽屉、关闭加号菜单
-   * 如果不在聊天详情页，自动推入聊天详情覆盖层
-   */
-  const openNewCurrentAgentChat = useCallback(() => {
-    dispatch(setChatId(''));
-    dispatch(setStatusText(''));
-    dispatch(closeChatDetailDrawer());
-    dispatch(resetChatDetailDrawerPreview());
-    if (!isChatDetailOverlay) {
-      dispatch(
-        pushChatOverlay({
-          overlayId: createRequestId('chat_detail_overlay'),
-          type: 'chatDetail'
-        })
-      );
-    }
-    setChatPlusMenuOpen(false);
-  }, [dispatch, isChatDetailOverlay]);
-
-  /**
-   * 搜索结果中选择智能体
-   * @param agentKey - 智能体 key
-   * 直接打开智能体详情页
-   */
-  const handleSearchSelectAgent = useCallback(
-    (agentKey: string) => {
-      openAgentProfile(agentKey);
-    },
-    [openAgentProfile]
-  );
-
-  /**
-   * 搜索页返回
-   * 关闭加号菜单，返回聊天列表视图，清空搜索关键词
-   */
-  const handleSearchBack = useCallback(() => {
-    setChatPlusMenuOpen(false);
-    dispatch(showChatListRoute());
-    dispatch(setShellChatSearchQuery(''));
-  }, [dispatch]);
-
-  /**
-   * 从智能体详情页开始对话
-   * @param agentKey - 智能体 key
-   */
-  const handleAgentProfileStartChat = useCallback(
-    (agentKey: string) => {
-      const normalizedKey = String(agentKey || '').trim();
-      if (!normalizedKey) {
-        dispatch(setStatusText('智能体信息不可用'));
-        return;
-      }
-      handleAgentSelectNewChat(normalizedKey);
-    },
-    [dispatch, handleAgentSelectNewChat]
   );
 
   /**
@@ -1459,47 +1310,6 @@ export function useShellScreenController() {
       return { ok: true };
     },
     [chatId, currentAgentChats, dispatch]
-  );
-
-  /**
-   * 手势滑动新建对话（右滑调用）
-   * @returns 结果 { ok: true, message: string }
-   */
-  const handleRequestCreateAgentChatBySwipe = useCallback(() => {
-    openNewCurrentAgentChat();
-    return { ok: true, message: '已新建当前智能体对话' };
-  }, [openNewCurrentAgentChat]);
-
-  /**
-   * 显示聊天详情抽屉（左滑触发）
-   * 仅在聊天详情覆盖层时有效
-   * 关闭收件箱、发布中心、智能体侧边栏
-   */
-  const handleRequestShowChatDetailDrawer = useCallback(() => {
-    if (!isChatDetailOverlay) {
-      dispatch(resetChatDetailDrawerPreview());
-      return;
-    }
-    setInboxOpen(false);
-    setPublishOpen(false);
-    dispatch(setChatAgentsSidebarOpen(false));
-    dispatch(openChatDetailDrawer());
-  }, [dispatch, isChatDetailOverlay]);
-
-  /**
-   * 预览聊天详情抽屉（左滑拖动时调用）
-   * @param progress - 预览进度 [0, 1]
-   * 仅在聊天详情覆盖层且抽屉未完全打开时有效
-   */
-  const handleRequestPreviewChatDetailDrawer = useCallback(
-    (progress: number) => {
-      if (!isChatDetailOverlay || chatDetailDrawerOpen) {
-        dispatch(resetChatDetailDrawerPreview());
-        return;
-      }
-      dispatch(setChatDetailDrawerPreviewProgress(progress));
-    },
-    [chatDetailDrawerOpen, dispatch, isChatDetailOverlay]
   );
 
   /**
@@ -1580,6 +1390,7 @@ export function useShellScreenController() {
     agents,
     activeAgent,
     activeAgentName,
+    activeAgentRole,
     backendUrl,
     chatRefreshSignal,
     routeModel,
@@ -1603,26 +1414,16 @@ export function useShellScreenController() {
     openTerminalCreateSessionModal,
     openTerminalDetail,
     handleTerminalWebViewUrlChange,
-    handleSearchBack,
     handleDomainSwitch,
-    openChatDetail,
     openAgentProfile,
-    handleSearchSelectAgent,
-    handleAgentSelectNewChat,
-    openNewCurrentAgentChat,
-    handleAgentProfileStartChat,
     handleRequestSwitchAgentChat,
-    handleRequestCreateAgentChatBySwipe,
-    handleRequestPreviewChatDetailDrawer,
-    handleRequestShowChatDetailDrawer,
     handleWebViewAuthRefreshRequest,
     markChatViewed,
     refreshChats,
     refreshAll,
     handleLogout,
     markAllInboxRead,
-    markInboxRead,
-    topChatOverlayType
+    markInboxRead
   };
 }
 

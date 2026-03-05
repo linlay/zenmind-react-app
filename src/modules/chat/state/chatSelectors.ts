@@ -1,3 +1,4 @@
+import { createSelector } from '@reduxjs/toolkit';
 import { RootState } from '../../../app/store/store';
 import {
   getAgentIconColor,
@@ -25,6 +26,8 @@ export interface AgentLatestChatItem {
 
 export const selectChats = (state: RootState) => state.chat.chats;
 export const selectChatId = (state: RootState) => state.chat.chatId;
+const selectAgents = (state: RootState) => state.agents.agents;
+const selectSelectedAgentKey = (state: RootState) => String(state.user.selectedAgentKey || '').trim();
 
 function getAgentKeyFromChat(chat: ChatSummary): string {
   const key = String(getChatAgentKey(chat) || '').trim();
@@ -85,16 +88,16 @@ function sortByRecent(a: ChatSummary, b: ChatSummary): number {
   return getChatTimestamp(b) - getChatTimestamp(a);
 }
 
-export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] => {
-  const sorted = [...state.chat.chats].sort(sortByRecent);
+export const selectAgentLatestChats = createSelector([selectChats, selectAgents], (chats, agents): AgentLatestChatItem[] => {
+  const sorted = [...chats].sort(sortByRecent);
   const latestByAgent = new Map<string, ChatSummary>();
   const unreadByAgent = new Map<string, number>();
   const agentNameByKey = new Map<string, string>();
   const agentRoleByKey = new Map<string, string>();
   const visualByAgentKey = new Map<string, { iconName: string; iconColor: string }>();
 
-  const agents = Array.isArray((state as RootState).agents?.agents) ? (state as RootState).agents.agents : [];
-  agents.forEach((agent) => {
+  const normalizedAgents = Array.isArray(agents) ? agents : [];
+  normalizedAgents.forEach((agent) => {
     const key = getAgentKey(agent);
     if (!key) {
       return;
@@ -139,15 +142,16 @@ export const selectAgentLatestChats = (state: RootState): AgentLatestChatItem[] 
     })
     .sort((a, b) => sortByRecent(a.latestChat, b.latestChat));
   return items;
-};
+});
 
-export const selectCurrentAgentChats = (state: RootState): ChatSummary[] => {
-  const chats = state.chat.chats;
-  const selectedAgentKey = String(state.user.selectedAgentKey || '').trim();
-  const activeChatId = String(state.chat.chatId || '').trim();
-  const activeChat = chats.find((chat) => String(chat.chatId || '').trim() === activeChatId);
-  const activeAgentKey = String(getChatAgentKey(activeChat) || '').trim();
-  const resolvedAgentKey = activeAgentKey || selectedAgentKey || UNKNOWN_AGENT_KEY;
+export const selectCurrentAgentChats = createSelector(
+  [selectChats, selectChatId, selectSelectedAgentKey],
+  (chats, activeChatIdInput, selectedAgentKey): ChatSummary[] => {
+    const activeChatId = String(activeChatIdInput || '').trim();
+    const activeChat = chats.find((chat) => String(chat.chatId || '').trim() === activeChatId);
+    const activeAgentKey = String(getChatAgentKey(activeChat) || '').trim();
+    const resolvedAgentKey = activeAgentKey || selectedAgentKey || UNKNOWN_AGENT_KEY;
 
-  return [...chats].filter((chat) => getAgentKeyFromChat(chat) === resolvedAgentKey).sort(sortByRecent);
-};
+    return [...chats].filter((chat) => getAgentKeyFromChat(chat) === resolvedAgentKey).sort(sortByRecent);
+  }
+);

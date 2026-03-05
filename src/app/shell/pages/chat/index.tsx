@@ -1,126 +1,53 @@
-import {
-  ActivityIndicator,
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-  useWindowDimensions
-} from 'react-native';
+import { View } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+
+import { ChatListRouteScreen } from './ListPane';
+import { ChatSearchRouteScreen } from './SearchPane';
+import { ChatDetailRouteScreen } from './ChatDetail';
+import { AgentProfileRouteScreen } from './AgentProfile';
+
+import { ChatDetailRuntimeBridge, ChatRootNavigation, ChatRouteName, ChatStackParamList } from './types';
+
 import { styles } from './index.styles';
-import { ChatAssistantScreen } from '../../../../modules/chat/screens/ChatAssistantScreen';
-import { ChatListPane } from '../../../../modules/chat/components/ChatListPane';
-import { ChatSearchPane } from '../../../../modules/chat/components/ChatSearchPane';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<ChatStackParamList>();
 
-export function ChatStack() {
-  return (
-    <Stack.Navigator id="ChatStack">
-      <Stack.Screen name="Home" component={ChatListPane} />
-      <Stack.Screen name="Profile" component={ChatSearchPane} />
-    </Stack.Navigator>
-  );
+export interface ChatScreenProps {
+  onRouteFocus?: (routeName: ChatRouteName) => void;
+  onBindNavigation?: (navigation: ChatRootNavigation) => void;
+  chatDetailRuntime?: ChatDetailRuntimeBridge;
 }
 
-export function ChatScreen() {
-  const window = useWindowDimensions();
-
+export function ChatScreen({ onRouteFocus, onBindNavigation, chatDetailRuntime }: ChatScreenProps) {
   return (
     <View style={styles.domainContent}>
-      <View style={styles.stackViewport} testID="chat-pane-stack">
-        <Animated.View
-          style={[
-            styles.stackTrack,
-            {
-              width: window.width * 2,
-              transform: [{ translateX: chatRouteTranslateX }]
-            }
-          ]}
-          testID="chat-route-track"
-        >
-          <View
-            pointerEvents={chatRoute === 'list' ? 'auto' : 'none'}
-            style={[styles.stackPage, { width: window.width }]}
-            testID="chat-route-page-list"
-          >
-            <ChatListPane
-              theme={theme}
-              loading={loadingChats}
-              items={agentLatestChats}
-              onSelectChat={openChatDetail}
-              onSelectAgentProfile={openAgentProfile}
+      <Stack.Navigator id="ChatScreen" initialRouteName="ChatList" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="ChatList">
+          {(props) => (
+            <ChatListRouteScreen {...props} onBindNavigation={onBindNavigation} onRouteFocus={onRouteFocus} />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="ChatSearch">
+          {(props) => (
+            <ChatSearchRouteScreen {...props} onBindNavigation={onBindNavigation} onRouteFocus={onRouteFocus} />
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="ChatDetail">
+          {(props) => (
+            <ChatDetailRouteScreen
+              {...props}
+              onBindNavigation={onBindNavigation}
+              onRouteFocus={onRouteFocus}
+              chatDetailRuntime={chatDetailRuntime}
             />
-          </View>
-          <View
-            pointerEvents={chatRoute === 'search' ? 'auto' : 'none'}
-            style={[styles.stackPage, { width: window.width }]}
-            testID="chat-route-page-search"
-          >
-            <ChatSearchPane
-              theme={theme}
-              keyword={chatSearchQuery}
-              agentResults={searchAgentResults}
-              chatResults={searchChatResults}
-              onSelectRecentKeyword={(keyword) => dispatch(setShellChatSearchQuery(keyword))}
-              onSelectAgent={handleSearchSelectAgent}
-              onSelectChat={openChatDetail}
-            />
-          </View>
-        </Animated.View>
-        {chatOverlayStack.map((overlay, index) => {
-          const isTop = index === chatOverlayStack.length - 1;
-          return (
-            <Animated.View
-              key={overlay.overlayId}
-              pointerEvents={isTop ? 'auto' : 'none'}
-              style={[
-                styles.chatOverlayPage,
-                { zIndex: 10 + index, backgroundColor: theme.surface },
-                isTop
-                  ? {
-                      opacity: chatOverlayEnterAnim,
-                      transform: [{ translateX: chatOverlayEnterTranslateX }]
-                    }
-                  : null
-              ]}
-            >
-              {overlay.type === 'chatDetail' ? (
-                <ChatAssistantScreen
-                  theme={theme}
-                  backendUrl={backendUrl}
-                  contentWidth={window.width}
-                  onRefreshChats={refreshChats}
-                  keyboardHeight={keyboardInset}
-                  refreshSignal={chatRefreshSignal}
-                  authAccessToken={authAccessToken}
-                  authAccessExpireAtMs={authAccessExpireAtMs}
-                  authTokenSignal={authTokenSignal}
-                  onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
-                  onChatViewed={markChatViewed}
-                  onRequestSwitchAgentChat={handleRequestSwitchAgentChat}
-                  onRequestCreateAgentChatBySwipe={handleRequestCreateAgentChatBySwipe}
-                  onRequestPreviewChatDetailDrawer={handleRequestPreviewChatDetailDrawer}
-                  onRequestShowChatDetailDrawer={handleRequestShowChatDetailDrawer}
-                  chatDetailDrawerOpen={chatDetailDrawerOpen}
-                />
-              ) : (
-                <AgentProfilePane theme={theme} agent={activeAgent} onStartChat={handleAgentProfileStartChat} />
-              )}
-            </Animated.View>
-          );
-        })}
-        <SwipeBackEdge
-          enabled={hasChatOverlay && !chatDetailDrawerOpen && !chatAgentsSidebarOpen}
-          onBack={() => dispatch(popChatOverlay())}
-        />
-        {!hasChatOverlay && chatRoute === 'search' ? <SwipeBackEdge enabled onBack={handleSearchBack} /> : null}
-      </View>
+          )}
+        </Stack.Screen>
+        <Stack.Screen name="AgentProfile">
+          {(props) => (
+            <AgentProfileRouteScreen {...props} onBindNavigation={onBindNavigation} onRouteFocus={onRouteFocus} />
+          )}
+        </Stack.Screen>
+      </Stack.Navigator>
     </View>
   );
 }
