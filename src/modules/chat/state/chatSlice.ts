@@ -1,18 +1,20 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
-import { ChatSummary } from '../../../core/types/common';
+import { ChatSummary, TeamSummary } from '../../../core/types/common';
 
 interface ChatUiState {
   chats: ChatSummary[];
   chatId: string;
   statusText: string;
   loadingChats: boolean;
+  teams: TeamSummary[];
 }
 
 const initialState: ChatUiState = {
   chats: [],
   chatId: '',
   statusText: '',
-  loadingChats: false
+  loadingChats: false,
+  teams: []
 };
 
 const chatSlice = createSlice({
@@ -21,6 +23,9 @@ const chatSlice = createSlice({
   reducers: {
     setChats(state, action: PayloadAction<ChatSummary[]>) {
       state.chats = action.payload;
+    },
+    setTeams(state, action: PayloadAction<TeamSummary[]>) {
+      state.teams = action.payload;
     },
     setChatId(state, action: PayloadAction<string>) {
       state.chatId = action.payload;
@@ -34,5 +39,5 @@ const chatSlice = createSlice({
   }
 });
 
-export const { setChats, setChatId, setStatusText, setLoadingChats } = chatSlice.actions;
+export const { setChats, setTeams, setChatId, setStatusText, setLoadingChats } = chatSlice.actions;
 export default chatSlice.reducer;

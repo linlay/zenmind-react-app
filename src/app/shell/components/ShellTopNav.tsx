@@ -1,17 +1,15 @@
 import { StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { AppTheme } from '../../../core/constants/theme';
-import { ChatRoute } from '../shellSlice';
 import { ShellRouteModel } from '../routes/shellRouteModel';
+import { ShellRouteSnapshot } from '../routes/shellRouteSnapshot';
 import { styles } from '../ShellScreen.styles';
 
 interface ShellTopNavProps {
   theme: AppTheme;
   routeModel: ShellRouteModel;
-  chatRoute: ChatRoute;
+  routeSnapshot: ShellRouteSnapshot;
   chatSearchQuery: string;
-  hasChatOverlay: boolean;
-  terminalPane: 'list' | 'detail';
   chatPlusMenuOpen: boolean;
   inboxUnreadCount: number;
   onChangeChatSearchQuery: (value: string) => void;
@@ -19,9 +17,11 @@ interface ShellTopNavProps {
   onPressChatSearchBack: () => void;
   onPressChatLeftAction: () => void;
   onPressTerminalBack: () => void;
+  onPressAgentsBack: () => void;
   onPressTerminalLeftAction: () => void;
   onPressUserInboxToggle: () => void;
   onPressTerminalRefresh: () => void;
+  onPressTerminalDrive: () => void;
   onPressChatDetailMenu: () => void;
   onPressChatListSearch: () => void;
   onToggleChatPlusMenu: () => void;
@@ -33,10 +33,8 @@ interface ShellTopNavProps {
 export function ShellTopNav({
   theme,
   routeModel,
-  chatRoute,
+  routeSnapshot,
   chatSearchQuery,
-  hasChatOverlay,
-  terminalPane,
   chatPlusMenuOpen,
   inboxUnreadCount,
   onChangeChatSearchQuery,
@@ -44,9 +42,11 @@ export function ShellTopNav({
   onPressChatSearchBack,
   onPressChatLeftAction,
   onPressTerminalBack,
+  onPressAgentsBack,
   onPressTerminalLeftAction,
   onPressUserInboxToggle,
   onPressTerminalRefresh,
+  onPressTerminalDrive,
   onPressChatDetailMenu,
   onPressChatListSearch,
   onToggleChatPlusMenu,
@@ -59,12 +59,14 @@ export function ShellTopNav({
     isTerminalDomain,
     isUserDomain,
     isAgentsDomain,
+    isAgentsPublishPage,
     isChatDetailOverlay,
     isChatAgentOverlay,
     isChatListTopNav,
     topNavTitle,
     topNavSubtitle
   } = routeModel;
+  const { agentsPane, chatMode, hasChatOverlay, terminalPane } = routeSnapshot;
 
   return (
     <View style={styles.topNavCompact} nativeID="shell-top-nav" testID="shell-top-nav">
@@ -84,7 +86,7 @@ export function ShellTopNav({
                 ‹
               </Text>
             </TouchableOpacity>
-          ) : chatRoute === 'search' ? (
+          ) : chatMode === 'search' ? (
             <TouchableOpacity
               activeOpacity={0.72}
               style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
@@ -107,24 +109,30 @@ export function ShellTopNav({
             </TouchableOpacity>
           )
         ) : isTerminalDomain ? (
-          terminalPane === 'detail' ? (
+          terminalPane !== 'list' ? (
             <TouchableOpacity
               activeOpacity={0.72}
               style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
-              testID="terminal-detail-back-btn"
+              testID={terminalPane === 'drive' ? 'terminal-drive-back-btn' : 'terminal-detail-back-btn'}
               onPress={onPressTerminalBack}
             >
               <Text style={[styles.detailBackText, { color: theme.primaryDeep }]}>‹</Text>
             </TouchableOpacity>
           ) : (
+            <></>
+          )
+        ) : isAgentsDomain ? (
+          agentsPane === 'publish' ? (
             <TouchableOpacity
               activeOpacity={0.72}
-              style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-              testID="terminal-left-action-btn"
-              onPress={onPressTerminalLeftAction}
+              style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
+              testID="agents-publish-back-btn"
+              onPress={onPressAgentsBack}
             >
-              <Text style={[styles.topActionText, { color: theme.textMute }]}>·</Text>
+              <Text style={[styles.detailBackText, { color: theme.primaryDeep }]}>‹</Text>
             </TouchableOpacity>
+          ) : (
+            <View style={styles.iconOnlyBtn} />
           )
         ) : isUserDomain ? (
           <TouchableOpacity
@@ -155,7 +163,7 @@ export function ShellTopNav({
       </View>
 
       <View style={styles.topNavCenter} testID="shell-top-center-slot">
-        {isChatDomain && !hasChatOverlay && chatRoute === 'search' ? (
+        {isChatDomain && !hasChatOverlay && chatMode === 'search' ? (
           <View style={[styles.topSearchWrap, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}>
             <TextInput
               value={chatSearchQuery}
@@ -194,14 +202,35 @@ export function ShellTopNav({
         testID="shell-top-right-slot"
       >
         {isTerminalDomain ? (
-          <TouchableOpacity
-            activeOpacity={0.72}
-            style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
-            testID="shell-terminal-refresh-btn"
-            onPress={onPressTerminalRefresh}
-          >
-            <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>刷新</Text>
-          </TouchableOpacity>
+          terminalPane === 'list' ? (
+            <TouchableOpacity
+              activeOpacity={0.72}
+              style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+              testID="shell-terminal-drive-btn"
+              onPress={onPressTerminalDrive}
+            >
+              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M3.8 8.4C3.8 7.24 4.74 6.3 5.9 6.3H9.1L10.7 7.9H18.1C19.26 7.9 20.2 8.84 20.2 10V17.6C20.2 18.76 19.26 19.7 18.1 19.7H5.9C4.74 19.7 3.8 18.76 3.8 17.6V8.4Z"
+                  stroke={theme.primaryDeep}
+                  strokeWidth={1.9}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          ) : terminalPane === 'detail' ? (
+            <TouchableOpacity
+              activeOpacity={0.72}
+              style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
+              testID="shell-terminal-refresh-btn"
+              onPress={onPressTerminalRefresh}
+            >
+              <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>刷新</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.iconOnlyBtn} testID="shell-terminal-drive-right-placeholder" />
+          )
         ) : isChatDomain ? (
           isChatDetailOverlay ? (
             <TouchableOpacity
@@ -218,7 +247,7 @@ export function ShellTopNav({
             </TouchableOpacity>
           ) : isChatAgentOverlay ? (
             <View style={styles.iconOnlyBtn} testID="chat-agent-right-placeholder" />
-          ) : chatRoute === 'search' ? (
+          ) : chatMode === 'search' ? (
             <View style={styles.iconOnlyBtn} testID="chat-search-right-placeholder" />
           ) : (
             <View style={styles.chatListTopActions} testID="chat-list-top-actions">
@@ -275,14 +304,18 @@ export function ShellTopNav({
             </View>
           )
         ) : isAgentsDomain ? (
-          <TouchableOpacity
-            activeOpacity={0.72}
-            style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
-            testID="shell-publish-toggle-btn"
-            onPress={onPressPublishToggle}
-          >
-            <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>发布</Text>
-          </TouchableOpacity>
+          isAgentsPublishPage ? (
+            <View style={styles.iconOnlyBtn} testID="agents-publish-right-placeholder" />
+          ) : (
+            <TouchableOpacity
+              activeOpacity={0.72}
+              style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
+              testID="shell-publish-toggle-btn"
+              onPress={onPressPublishToggle}
+            >
+              <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>发布</Text>
+            </TouchableOpacity>
+          )
         ) : isUserDomain ? (
           <TouchableOpacity
             activeOpacity={0.72}

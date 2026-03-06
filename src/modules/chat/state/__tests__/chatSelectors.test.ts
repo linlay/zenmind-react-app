@@ -3,14 +3,20 @@ import { selectAgentLatestChats, selectCurrentAgentChats } from '../chatSelector
 
 function createState(
   chats: Array<Record<string, unknown>>,
-  options: { chatId?: string; selectedAgentKey?: string; agents?: Array<Record<string, unknown>> } = {}
+  options: {
+    chatId?: string;
+    selectedAgentKey?: string;
+    agents?: Array<Record<string, unknown>>;
+    teams?: Array<Record<string, unknown>>;
+  } = {}
 ): RootState {
   return {
     chat: {
       chats,
       chatId: options.chatId || '',
       statusText: '',
-      loadingChats: false
+      loadingChats: false,
+      teams: options.teams || []
     },
     user: {
       selectedAgentKey: options.selectedAgentKey || ''
@@ -102,6 +108,82 @@ describe('chatSelectors', () => {
     expect(result[0].agentRole).toBe('对话专家');
   });
 
+  it('supplements agent name and icon from team when chat carries teamId', () => {
+    const state = createState(
+      [{ chatId: 'chat-1', chatName: 'A', teamId: 'team-1', updatedAt: 200 }],
+      {
+        teams: [
+          {
+            teamId: 'team-1',
+            name: 'Team Alpha',
+            icon: { name: 'users', color: '#2244AA' }
+          }
+        ]
+      }
+    );
+
+    const result = selectAgentLatestChats(state);
+    expect(result).toHaveLength(1);
+    expect(result[0].agentName).toBe('Team Alpha');
+    expect(result[0].iconName).toBe('users');
+    expect(result[0].iconColor).toBe('#2244AA');
+    expect(result[0].latestChat.agentName).toBe('Team Alpha');
+  });
+
+  it('does not let team override existing agent display fields', () => {
+    const state = createState(
+      [{ chatId: 'chat-1', chatName: 'A', agentKey: 'demoAction', teamId: 'team-1', updatedAt: 200 }],
+      {
+        agents: [{ key: 'demoAction', name: 'AgentFromAgents', icon: { name: 'rocket', color: '#3F7BFA' } }],
+        teams: [
+          {
+            teamId: 'team-1',
+            name: 'Team Alpha',
+            icon: { name: 'users', color: '#2244AA' }
+          }
+        ]
+      }
+    );
+
+    const result = selectAgentLatestChats(state);
+    expect(result).toHaveLength(1);
+    expect(result[0].agentName).toBe('AgentFromAgents');
+    expect(result[0].iconName).toBe('rocket');
+    expect(result[0].iconColor).toBe('#3F7BFA');
+  });
+
+  it('falls back to team defaultAgentKey when chat has no agentKey', () => {
+    const state = createState(
+      [{ chatId: 'chat-1', chatName: 'A', teamId: 'team-1', updatedAt: 200 }],
+      {
+        teams: [
+          {
+            teamId: 'team-1',
+            meta: { defaultAgentKey: 'team-default-agent', defaultAgentKeyValid: true, invalidAgentKeys: [] }
+          }
+        ]
+      }
+    );
+
+    const result = selectAgentLatestChats(state);
+    expect(result).toHaveLength(1);
+    expect(result[0].agentKey).toBe('team-default-agent');
+    expect(result[0].latestChat.firstAgentKey).toBe('team-default-agent');
+  });
+
+  it('keeps chat result unchanged when teamId does not match any team', () => {
+    const state = createState([{ chatId: 'chat-1', chatName: 'A', teamId: 'missing-team', updatedAt: 200 }], {
+      teams: [{ teamId: 'team-1', name: 'Team Alpha', icon: { name: 'users', color: '#2244AA' } }]
+    });
+
+    const result = selectAgentLatestChats(state);
+    expect(result).toHaveLength(1);
+    expect(result[0].agentKey).toBe('__unknown_agent__');
+    expect(result[0].agentName).toBe('未知智能体');
+    expect(result[0].iconName).toBe('');
+    expect(result[0].iconColor).toBe('');
+  });
+
   it('aggregates unread count from readStatus for each agent', () => {
     const state = createState([
       { chatId: 'a1', firstAgentKey: 'agent-a', readStatus: 0, updatedAt: 300 },
@@ -113,6 +195,31 @@ describe('chatSelectors', () => {
     const result = selectAgentLatestChats(state);
     expect(result.find((item) => item.agentKey === 'agent-a')?.unreadCount).toBe(1);
     expect(result.find((item) => item.agentKey === 'agent-b')?.unreadCount).toBe(2);
+  });
+
+  it('keeps mixed team and non-team chats sorted by latest update and preserves unread aggregation', () => {
+    const state = createState(
+      [
+        { chatId: 'team-chat-old', teamId: 'team-1', readStatus: 0, updatedAt: 180 },
+        { chatId: 'team-chat-latest', teamId: 'team-1', readStatus: 0, updatedAt: 220 },
+        { chatId: 'agent-chat', firstAgentKey: 'agent-b', readStatus: 0, updatedAt: 210 }
+      ],
+      {
+        teams: [
+          {
+            teamId: 'team-1',
+            name: 'Team Alpha',
+            meta: { defaultAgentKey: 'team-default-agent', defaultAgentKeyValid: true, invalidAgentKeys: [] }
+          }
+        ]
+      }
+    );
+
+    const result = selectAgentLatestChats(state);
+    expect(result.map((item) => item.agentKey)).toEqual(['team-default-agent', 'agent-b']);
+    expect(result.map((item) => item.latestChat.chatId)).toEqual(['team-chat-latest', 'agent-chat']);
+    expect(result.find((item) => item.agentKey === 'team-default-agent')?.unreadCount).toBe(2);
+    expect(result.find((item) => item.agentKey === 'agent-b')?.unreadCount).toBe(1);
   });
 
   it('returns current agent chats by active chat firstAgentKey', () => {

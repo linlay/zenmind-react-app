@@ -1,5 +1,5 @@
 import { DomainMode } from '../../../core/types/common';
-import { ChatOverlayType, ChatRoute } from '../shellSlice';
+import { ShellRouteSnapshot } from './shellRouteSnapshot';
 
 const DOMAIN_LABEL: Record<DomainMode, string> = {
   chat: '对话',
@@ -9,11 +9,7 @@ const DOMAIN_LABEL: Record<DomainMode, string> = {
 };
 
 interface BuildShellRouteModelInput {
-  activeDomain: DomainMode;
-  chatRoute: ChatRoute;
-  topChatOverlayType: ChatOverlayType | '';
-  hasChatOverlay: boolean;
-  terminalPane: 'list' | 'detail';
+  routeSnapshot: ShellRouteSnapshot;
   activeAgentName: string;
   activeAgentRole: string;
 }
@@ -23,6 +19,7 @@ export interface ShellRouteModel {
   isTerminalDomain: boolean;
   isAgentsDomain: boolean;
   isUserDomain: boolean;
+  isAgentsPublishPage: boolean;
   isChatDetailOverlay: boolean;
   isChatAgentOverlay: boolean;
   isChatListTopNav: boolean;
@@ -32,47 +29,54 @@ export interface ShellRouteModel {
 }
 
 export function buildShellRouteModel({
-  activeDomain,
-  chatRoute,
-  topChatOverlayType,
-  hasChatOverlay,
-  terminalPane,
+  routeSnapshot,
   activeAgentName,
   activeAgentRole
 }: BuildShellRouteModelInput): ShellRouteModel {
+  const { activeDomain, agentsPane, chatMode, chatOverlayType, hasChatOverlay, terminalPane } = routeSnapshot;
   const isChatDomain = activeDomain === 'chat';
   const isTerminalDomain = activeDomain === 'terminal';
   const isAgentsDomain = activeDomain === 'agents';
   const isUserDomain = activeDomain === 'user';
+  const isAgentsPublishPage = isAgentsDomain && agentsPane === 'publish';
 
-  const isChatDetailOverlay = topChatOverlayType === 'chatDetail';
-  const isChatAgentOverlay = topChatOverlayType === 'agentDetail';
-  const isChatListTopNav = isChatDomain && !hasChatOverlay && chatRoute === 'list';
+  const isChatDetailOverlay = chatOverlayType === 'chatDetail';
+  const isChatAgentOverlay = chatOverlayType === 'agentDetail';
+  const isChatListTopNav = isChatDomain && !hasChatOverlay && chatMode === 'list';
 
   const topNavTitle = isChatDomain
     ? isChatDetailOverlay
       ? activeAgentName
       : isChatAgentOverlay
       ? activeAgentName
-      : chatRoute === 'search'
+      : chatMode === 'search'
       ? '搜索'
       : '对话'
     : isTerminalDomain
     ? terminalPane === 'detail'
       ? '终端/CLI'
+      : terminalPane === 'drive'
+      ? '网盘'
       : '会话'
+    : isAgentsDomain
+    ? agentsPane === 'publish'
+      ? '发布中心'
+      : DOMAIN_LABEL[activeDomain]
     : DOMAIN_LABEL[activeDomain];
 
-  // 情况1: 聊天详情页面
-  // 情况2: 终端页面
   const showBottomNav =
-    !((isChatDomain && hasChatOverlay) || (isTerminalDomain && terminalPane === 'detail')) && chatRoute !== 'search';
+    !(
+      (isChatDomain && hasChatOverlay) ||
+      (isTerminalDomain && terminalPane !== 'list') ||
+      (isAgentsDomain && agentsPane === 'publish')
+    ) && chatMode !== 'search';
 
   return {
     isChatDomain,
     isTerminalDomain,
     isAgentsDomain,
     isUserDomain,
+    isAgentsPublishPage,
     isChatDetailOverlay,
     isChatAgentOverlay,
     isChatListTopNav,

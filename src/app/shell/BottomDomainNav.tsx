@@ -9,11 +9,11 @@ interface BottomDomainNavProps {
   onPressItem: (mode: DomainMode) => void;
 }
 
-const ITEMS: Array<{ key: DomainMode; label: string }> = [
-  { key: 'chat', label: '对话' },
-  { key: 'terminal', label: '终端' },
-  { key: 'agents', label: '智能体' },
-  { key: 'user', label: '配置' }
+const ITEMS: Array<{ key: DomainMode; label: string; path: string }> = [
+  { key: 'chat', label: '对话', path: 'Chat' },
+  { key: 'terminal', label: '终端', path: 'Terminal' },
+  { key: 'agents', label: '智能体', path: 'Agents' },
+  { key: 'user', label: '配置', path: 'User' }
 ];
 
 const ICON_SIZE = 29;

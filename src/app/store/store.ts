@@ -14,6 +14,7 @@ export const store = configureStore({
     user: userReducer,
     agents: agentsReducer,
     chat: chatReducer,
+    teams: chatReducer,
     terminal: terminalReducer,
     [chatApi.reducerPath]: chatApi.reducer,
     [agentsApi.reducerPath]: agentsApi.reducer,

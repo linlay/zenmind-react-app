@@ -1,5 +1,5 @@
 import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
-import { ChatSummary } from '../../../core/types/common';
+import { ChatSummary, TeamSummary } from '../../../core/types/common';
 import { fetchApiJson, fetchViewportHtml, submitFrontendToolApi } from '../../../core/network/apiClient';
 
 function normalizeChatSummary(raw: ChatSummary): ChatSummary {
@@ -19,6 +19,17 @@ function normalizeChatSummary(raw: ChatSummary): ChatSummary {
   };
 }
 
+function normalizeTeamSummary(raw: TeamSummary): TeamSummary {
+  if (!raw || typeof raw !== 'object') {
+    return {};
+  }
+  const team = raw as TeamSummary;
+
+  return {
+    ...team
+  };
+}
+
 export const chatApi = createApi({
   reducerPath: 'chatApi',
   baseQuery: fakeBaseQuery(),
@@ -28,6 +39,17 @@ export const chatApi = createApi({
         try {
           const data = await fetchApiJson<ChatSummary[]>(baseUrl, '/api/ap/chats');
           const list = Array.isArray(data) ? data.map((item) => normalizeChatSummary(item)) : [];
+          return { data: list };
+        } catch (error) {
+          return { error: error as Error };
+        }
+      }
+    }),
+    getTeams: builder.query<TeamSummary[], string>({
+      async queryFn(baseUrl) {
+        try {
+          const data = await fetchApiJson<TeamSummary[]>(baseUrl, '/api/ap/teams');
+          const list = Array.isArray(data) ? data.map((item) => normalizeTeamSummary(item)) : [];
           return { data: list };
         } catch (error) {
           return { error: error as Error };
@@ -91,5 +113,10 @@ export const chatApi = createApi({
   })
 });
 
-export const { useLazyGetChatsQuery, useLazyGetChatQuery, useLazyGetViewportHtmlQuery, useSubmitFrontendToolMutation } =
-  chatApi;
+export const {
+  useLazyGetChatsQuery,
+  useLazyGetTeamsQuery,
+  useLazyGetChatQuery,
+  useLazyGetViewportHtmlQuery,
+  useSubmitFrontendToolMutation
+} = chatApi;

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  BackHandler,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -9,19 +10,23 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { createNativeBottomTabNavigator } from '@react-navigation/bottom-tabs/unstable';
+import { CommonActions } from '@react-navigation/native';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { BottomDomainNav } from '../BottomDomainNav';
 import { ShellTopNav } from './ShellTopNav';
 import { styles } from '../ShellScreen.styles';
 import { ShellScreenController } from '../hooks/useShellScreenController';
-import { ChatScreen } from '../pages/chat';
+import { buildShellRouteModel } from '../routes/shellRouteModel';
+import { buildShellRouteSnapshot } from '../routes/shellRouteSnapshot';
+import { ShellTabNavigation, ShellTabParamList } from '../types';
+import { AgentsRootNavigation, AgentsRouteName, AgentsRuntimeBridge } from '../pages/agents/types';
 import { ChatRootNavigation, ChatRouteName } from '../pages/chat/types';
-import { SwipeBackEdge } from '../../../shared/ui/SwipeBackEdge';
-import { TerminalSessionListPane } from '../../../modules/terminal/components/TerminalSessionListPane';
-import { TerminalScreen } from '../../../modules/terminal/screens/TerminalScreen';
-import { AgentsScreen } from '../../../modules/agents/screens/AgentsScreen';
-import { UserSettingsScreen } from '../../../modules/user/screens/UserSettingsScreen';
+import { TerminalRootNavigation, TerminalRouteName, TerminalRuntimeBridge } from '../pages/terminal/types';
+import { ShellChatTabScreen } from '../pages/chat';
+import { ShellTerminalTabScreen } from '../pages/terminal';
+import { ShellAgentsTabScreen } from '../pages/agents';
+import { ShellUserTabScreen } from '../pages/user';
 import { AgentSidebar } from '../../../modules/chat/components/AgentSidebar';
 import { ChatDetailDrawer } from '../../../modules/chat/components/ChatDetailDrawer';
 import {
@@ -30,19 +35,32 @@ import {
   resetChatDetailDrawerPreview,
   setChatAgentsSidebarOpen,
   setChatDetailDrawerPreviewProgress,
-  setChatSearchQuery as setShellChatSearchQuery,
-  showTerminalListPane
+  setChatSearchQuery as setShellChatSearchQuery
 } from '../shellSlice';
 import { setStatusText, setChatId } from '../../../modules/chat/state/chatSlice';
-import { setSelectedAgentKey as setUserSelectedAgentKey, toggleTheme } from '../../../modules/user/state/userSlice';
+import {
+  setActiveDomain,
+  setSelectedAgentKey as setUserSelectedAgentKey,
+  toggleTheme
+} from '../../../modules/user/state/userSlice';
 import { reloadPty } from '../../../modules/terminal/state/terminalSlice';
+import { DomainMode } from '../../../core/types/common';
 import { formatInboxTime } from '../../../shared/utils/format';
 
 interface ShellScreenViewProps {
   controller: ShellScreenController;
 }
 
-const Tab = createNativeBottomTabNavigator();
+type ShellTabName = keyof ShellTabParamList;
+
+const DOMAIN_TO_TAB: Record<DomainMode, ShellTabName> = {
+  chat: 'Chat',
+  terminal: 'Terminal',
+  agents: 'Agents',
+  user: 'User'
+};
+
+const Tab = createBottomTabNavigator<ShellTabParamList>();
 
 export function ShellScreenView({ controller }: ShellScreenViewProps) {
   const {
@@ -52,10 +70,8 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     theme,
     keyboardInset,
     inboxOpen,
-    publishOpen,
     chatPlusMenuOpen,
     chatSearchQuery,
-    terminalPane,
     chatAgentsSidebarOpen,
     chatDetailDrawerOpen,
     chatDetailDrawerPreviewProgress,
@@ -80,20 +96,15 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     activeAgentName,
     activeAgentRole,
     chatRefreshSignal,
-    routeModel,
     inboxAnim,
-    publishAnim,
-    terminalTranslateX,
     appVersionLabel,
     setInboxOpen,
-    setPublishOpen,
     setChatPlusMenuOpen,
     setChatSearchQuery,
     refreshTerminalSessions,
     openTerminalCreateSessionModal,
     openTerminalDetail,
     handleTerminalWebViewUrlChange,
-    handleDomainSwitch,
     handleRequestSwitchAgentChat,
     handleWebViewAuthRefreshRequest,
     markChatViewed,
@@ -101,27 +112,146 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     refreshAll,
     handleLogout,
     markAllInboxRead,
-    markInboxRead
+    markInboxRead,
+    closeFloatingPanels,
+    terminalListResetSignal
   } = controller;
 
-  const { isChatDomain, isTerminalDomain, isAgentsDomain, isUserDomain } = routeModel;
+  const rootTabNavigationRef = useRef<ShellTabNavigation | null>(null);
+  const agentsNavigationRef = useRef<AgentsRootNavigation | null>(null);
   const chatNavigationRef = useRef<ChatRootNavigation | null>(null);
+  const terminalNavigationRef = useRef<TerminalRootNavigation | null>(null);
+  const previousFocusedDomainRef = useRef<DomainMode>(activeDomain);
+
+  const [focusedDomain, setFocusedDomain] = useState<DomainMode>(activeDomain);
+  const [agentsFocusedRoute, setAgentsFocusedRoute] = useState<AgentsRouteName>('AgentsList');
   const [chatFocusedRoute, setChatFocusedRoute] = useState<ChatRouteName>('ChatList');
+  const [terminalFocusedRoute, setTerminalFocusedRoute] = useState<TerminalRouteName>('TerminalList');
 
-  useEffect(() => {
-    if (!isChatDomain && chatFocusedRoute !== 'ChatList') {
-      setChatFocusedRoute('ChatList');
+  const routeSnapshot = useMemo(
+    () =>
+      buildShellRouteSnapshot({
+        activeDomain: focusedDomain,
+        agentsRouteName: agentsFocusedRoute,
+        chatRouteName: chatFocusedRoute,
+        terminalRouteName: terminalFocusedRoute
+      }),
+    [agentsFocusedRoute, chatFocusedRoute, focusedDomain, terminalFocusedRoute]
+  );
+
+  const routeModel = useMemo(
+    () =>
+      buildShellRouteModel({
+        routeSnapshot,
+        activeAgentName,
+        activeAgentRole
+      }),
+    [activeAgentName, activeAgentRole, routeSnapshot]
+  );
+
+  const bindRootTabNavigation = useCallback((navigation: ShellTabNavigation) => {
+    rootTabNavigationRef.current = navigation;
+  }, []);
+
+  const handleDomainFocus = useCallback(
+    (domain: DomainMode) => {
+      setFocusedDomain((prev) => (prev === domain ? prev : domain));
+      if (activeDomain !== domain) {
+        dispatch(setActiveDomain(domain));
+      }
+    },
+    [activeDomain, dispatch]
+  );
+
+  const bindChatNavigation = useCallback((navigation: ChatRootNavigation) => {
+    chatNavigationRef.current = navigation;
+  }, []);
+
+  const bindAgentsNavigation = useCallback((navigation: AgentsRootNavigation) => {
+    agentsNavigationRef.current = navigation;
+  }, []);
+
+  const bindTerminalNavigation = useCallback((navigation: TerminalRootNavigation) => {
+    terminalNavigationRef.current = navigation;
+  }, []);
+
+  const handleAgentsRouteFocus = useCallback((routeName: AgentsRouteName) => {
+    setAgentsFocusedRoute(routeName);
+  }, []);
+
+  const handleChatRouteFocus = useCallback((routeName: ChatRouteName) => {
+    setChatFocusedRoute(routeName);
+  }, []);
+
+  const handleTerminalRouteFocus = useCallback((routeName: TerminalRouteName) => {
+    setTerminalFocusedRoute(routeName);
+  }, []);
+
+  const goBackOrNavigateChatList = useCallback(() => {
+    const navigation = chatNavigationRef.current;
+    if (!navigation) return;
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
     }
-  }, [chatFocusedRoute, isChatDomain]);
+    navigation.navigate('ChatList');
+  }, []);
+
+  const goBackOrNavigateAgentsList = useCallback(() => {
+    const navigation = agentsNavigationRef.current;
+    if (!navigation) return;
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate('AgentsList');
+  }, []);
+
+  const goBackOrNavigateTerminalList = useCallback(() => {
+    const navigation = terminalNavigationRef.current;
+    if (!navigation) return;
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.navigate('TerminalList');
+  }, []);
+
+  const resetTerminalStackToList = useCallback(() => {
+    const navigation = terminalNavigationRef.current;
+    if (!navigation) return;
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'TerminalList' }]
+      })
+    );
+  }, []);
+
+  const resetAgentsStackToList = useCallback(() => {
+    const navigation = agentsNavigationRef.current;
+    if (!navigation) {
+      return;
+    }
+    navigation.dispatch(
+      CommonActions.reset({
+        index: 0,
+        routes: [{ name: 'AgentsList' }]
+      })
+    );
+  }, []);
 
   useEffect(() => {
-    if (chatFocusedRoute !== 'ChatList' && chatPlusMenuOpen) {
+    if (routeSnapshot.chatRouteName === 'ChatList') {
+      return;
+    }
+    if (chatPlusMenuOpen) {
       setChatPlusMenuOpen(false);
     }
-  }, [chatFocusedRoute, chatPlusMenuOpen, setChatPlusMenuOpen]);
+  }, [chatPlusMenuOpen, routeSnapshot.chatRouteName, setChatPlusMenuOpen]);
 
   useEffect(() => {
-    if (chatFocusedRoute === 'ChatDetail') {
+    if (routeSnapshot.activeDomain === 'chat' && routeSnapshot.chatRouteName === 'ChatDetail') {
       return;
     }
     if (chatDetailDrawerOpen) {
@@ -130,78 +260,99 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     if (chatDetailDrawerPreviewProgress > 0) {
       dispatch(resetChatDetailDrawerPreview());
     }
-  }, [chatDetailDrawerOpen, chatDetailDrawerPreviewProgress, chatFocusedRoute, dispatch]);
-
-  const bindChatNavigation = useCallback((navigation: ChatRootNavigation) => {
-    chatNavigationRef.current = navigation;
-  }, []);
-
-  const handleChatRouteFocus = useCallback((routeName: ChatRouteName) => {
-    setChatFocusedRoute(routeName);
-  }, []);
-
-  const effectiveChatRoute: 'list' | 'search' = chatFocusedRoute === 'ChatSearch' ? 'search' : 'list';
-  const effectiveHasChatOverlay = chatFocusedRoute === 'ChatDetail' || chatFocusedRoute === 'AgentProfile';
-  const effectiveIsChatDetailOverlay = chatFocusedRoute === 'ChatDetail';
-  const effectiveIsChatAgentOverlay = chatFocusedRoute === 'AgentProfile';
-  const effectiveShowBottomNav = isChatDomain
-    ? !effectiveHasChatOverlay && effectiveChatRoute !== 'search'
-    : routeModel.showBottomNav;
-
-  const effectiveRouteModel = useMemo(() => {
-    if (!isChatDomain) {
-      return routeModel;
-    }
-
-    const topNavTitle =
-      effectiveIsChatDetailOverlay || effectiveIsChatAgentOverlay
-        ? activeAgentName
-        : effectiveChatRoute === 'search'
-          ? '搜索'
-          : '对话';
-
-    return {
-      ...routeModel,
-      isChatDetailOverlay: effectiveIsChatDetailOverlay,
-      isChatAgentOverlay: effectiveIsChatAgentOverlay,
-      isChatListTopNav: !effectiveHasChatOverlay && effectiveChatRoute === 'list',
-      showBottomNav: effectiveShowBottomNav,
-      topNavTitle,
-      topNavSubtitle: effectiveIsChatDetailOverlay ? activeAgentRole : ''
-    };
   }, [
-    activeAgentName,
-    activeAgentRole,
-    effectiveChatRoute,
-    effectiveHasChatOverlay,
-    effectiveIsChatAgentOverlay,
-    effectiveIsChatDetailOverlay,
-    effectiveShowBottomNav,
-    isChatDomain,
-    routeModel
+    chatDetailDrawerOpen,
+    chatDetailDrawerPreviewProgress,
+    dispatch,
+    routeSnapshot.activeDomain,
+    routeSnapshot.chatRouteName
   ]);
 
-  const goBackOrNavigateChatList = useCallback(() => {
-    const navigation = chatNavigationRef.current;
-    if (!navigation) {
+  useEffect(() => {
+    if (!terminalListResetSignal) {
       return;
     }
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-      return;
+    resetTerminalStackToList();
+  }, [resetTerminalStackToList, terminalListResetSignal]);
+
+  useEffect(() => {
+    const previousDomain = previousFocusedDomainRef.current;
+    previousFocusedDomainRef.current = routeSnapshot.activeDomain;
+
+    if (
+      routeSnapshot.activeDomain === 'terminal' &&
+      previousDomain !== 'terminal' &&
+      routeSnapshot.terminalPane !== 'list'
+    ) {
+      resetTerminalStackToList();
     }
-    navigation.navigate('ChatList');
-  }, []);
+  }, [resetTerminalStackToList, routeSnapshot.activeDomain, routeSnapshot.terminalPane]);
+
+  useEffect(() => {
+    if (routeSnapshot.activeDomain === 'agents' || routeSnapshot.agentsPane === 'list') return;
+    resetAgentsStackToList();
+  }, [resetAgentsStackToList, routeSnapshot.activeDomain, routeSnapshot.agentsPane]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (inboxOpen) {
+        setInboxOpen(false);
+        return true;
+      }
+      if (chatDetailDrawerOpen) {
+        dispatch(closeChatDetailDrawer());
+        return true;
+      }
+      if (chatAgentsSidebarOpen) {
+        dispatch(setChatAgentsSidebarOpen(false));
+        return true;
+      }
+      if (routeSnapshot.activeDomain === 'chat' && routeSnapshot.chatMode === 'search') {
+        setChatPlusMenuOpen(false);
+        dispatch(setShellChatSearchQuery(''));
+        goBackOrNavigateChatList();
+        return true;
+      }
+      if (routeSnapshot.activeDomain === 'chat' && chatNavigationRef.current?.canGoBack()) {
+        goBackOrNavigateChatList();
+        return true;
+      }
+      if (routeSnapshot.activeDomain === 'terminal' && terminalNavigationRef.current?.canGoBack()) {
+        goBackOrNavigateTerminalList();
+        return true;
+      }
+      if (routeSnapshot.activeDomain === 'agents' && agentsNavigationRef.current?.canGoBack()) {
+        goBackOrNavigateAgentsList();
+        return true;
+      }
+      return false;
+    });
+
+    return () => sub.remove();
+  }, [
+    chatAgentsSidebarOpen,
+    chatDetailDrawerOpen,
+    dispatch,
+    goBackOrNavigateAgentsList,
+    goBackOrNavigateChatList,
+    goBackOrNavigateTerminalList,
+    inboxOpen,
+    routeSnapshot.activeDomain,
+    routeSnapshot.chatMode,
+    setChatPlusMenuOpen,
+    setInboxOpen
+  ]);
 
   const handleChatOverlayBack = useCallback(() => {
-    setPublishOpen(false);
     setInboxOpen(false);
     if (chatDetailDrawerOpen) {
       dispatch(closeChatDetailDrawer());
       return;
     }
     goBackOrNavigateChatList();
-  }, [chatDetailDrawerOpen, dispatch, goBackOrNavigateChatList, setInboxOpen, setPublishOpen]);
+  }, [chatDetailDrawerOpen, dispatch, goBackOrNavigateChatList, setInboxOpen]);
 
   const handleChatSearchBack = useCallback(() => {
     setChatPlusMenuOpen(false);
@@ -257,25 +408,27 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
 
   const handleGesturePreviewChatDetailDrawer = useCallback(
     (progress: number) => {
-      if (!effectiveIsChatDetailOverlay || chatDetailDrawerOpen) {
+      if (
+        !(routeSnapshot.activeDomain === 'chat' && routeSnapshot.chatOverlayType === 'chatDetail') ||
+        chatDetailDrawerOpen
+      ) {
         dispatch(resetChatDetailDrawerPreview());
         return;
       }
       dispatch(setChatDetailDrawerPreviewProgress(progress));
     },
-    [chatDetailDrawerOpen, dispatch, effectiveIsChatDetailOverlay]
+    [chatDetailDrawerOpen, dispatch, routeSnapshot.activeDomain, routeSnapshot.chatOverlayType]
   );
 
   const handleGestureShowChatDetailDrawer = useCallback(() => {
-    if (!effectiveIsChatDetailOverlay) {
+    if (!(routeSnapshot.activeDomain === 'chat' && routeSnapshot.chatOverlayType === 'chatDetail')) {
       dispatch(resetChatDetailDrawerPreview());
       return;
     }
     setInboxOpen(false);
-    setPublishOpen(false);
     dispatch(setChatAgentsSidebarOpen(false));
     dispatch(openChatDetailDrawer());
-  }, [dispatch, effectiveIsChatDetailOverlay, setInboxOpen, setPublishOpen]);
+  }, [dispatch, routeSnapshot.activeDomain, routeSnapshot.chatOverlayType, setInboxOpen]);
 
   const chatDetailRuntime = useMemo(
     () => ({
@@ -310,6 +463,115 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     ]
   );
 
+  const terminalRuntime = useMemo<TerminalRuntimeBridge>(
+    () => ({
+      sessions: terminalSessions,
+      loading: terminalSessionsLoading,
+      error: terminalSessionsError,
+      activeSessionId: activeTerminalSessionId,
+      currentWebViewUrl: terminalCurrentWebViewUrl,
+      onRefreshSessions: async () => {
+        await refreshTerminalSessions();
+      },
+      onCreateSession: openTerminalCreateSessionModal,
+      onOpenSession: openTerminalDetail,
+      authAccessToken,
+      authAccessExpireAtMs,
+      authTokenSignal,
+      onTerminalUrlChange: handleTerminalWebViewUrlChange,
+      onWebViewAuthRefreshRequest: handleWebViewAuthRefreshRequest
+    }),
+    [
+      activeTerminalSessionId,
+      authAccessExpireAtMs,
+      authAccessToken,
+      authTokenSignal,
+      handleTerminalWebViewUrlChange,
+      handleWebViewAuthRefreshRequest,
+      openTerminalCreateSessionModal,
+      openTerminalDetail,
+      refreshTerminalSessions,
+      terminalCurrentWebViewUrl,
+      terminalSessions,
+      terminalSessionsError,
+      terminalSessionsLoading
+    ]
+  );
+
+  const agentsRuntime = useMemo<AgentsRuntimeBridge>(
+    () => ({
+      theme,
+      selectedAgentKey,
+      onSubmitPublish: () => {
+        dispatch(setStatusText('发布任务已创建（演示）'));
+      },
+      onClosePublish: () => {}
+    }),
+    [dispatch, selectedAgentKey, theme]
+  );
+
+  const handleDomainTabPress = useCallback(
+    (mode: DomainMode) => {
+      if (mode === routeSnapshot.activeDomain) {
+        setInboxOpen(false);
+
+        if (mode === 'chat') {
+          if (chatDetailDrawerOpen) {
+            dispatch(closeChatDetailDrawer());
+            return;
+          }
+          if (chatAgentsSidebarOpen) {
+            dispatch(setChatAgentsSidebarOpen(false));
+            return;
+          }
+          if (routeSnapshot.chatMode === 'search') {
+            setChatPlusMenuOpen(false);
+            dispatch(setShellChatSearchQuery(''));
+            goBackOrNavigateChatList();
+            return;
+          }
+          if (routeSnapshot.hasChatOverlay) {
+            goBackOrNavigateChatList();
+            return;
+          }
+          return;
+        }
+
+        if (mode === 'agents' && routeSnapshot.agentsPane === 'publish') {
+          goBackOrNavigateAgentsList();
+          return;
+        }
+
+        if (mode === 'terminal' && routeSnapshot.terminalPane !== 'list') {
+          goBackOrNavigateTerminalList();
+        }
+        return;
+      }
+
+      closeFloatingPanels();
+      if (routeSnapshot.activeDomain === 'chat') {
+        dispatch(setShellChatSearchQuery(''));
+      }
+      rootTabNavigationRef.current?.dispatch(
+        CommonActions.navigate({
+          name: DOMAIN_TO_TAB[mode]
+        })
+      );
+    },
+    [
+      chatAgentsSidebarOpen,
+      chatDetailDrawerOpen,
+      closeFloatingPanels,
+      dispatch,
+      goBackOrNavigateAgentsList,
+      goBackOrNavigateChatList,
+      goBackOrNavigateTerminalList,
+      routeSnapshot,
+      setChatPlusMenuOpen,
+      setInboxOpen
+    ]
+  );
+
   return (
     <View style={[styles.gradientFill, { backgroundColor: theme.surface }]}>
       <KeyboardAvoidingView
@@ -319,18 +581,18 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       >
         <ShellTopNav
           theme={theme}
-          routeModel={effectiveRouteModel}
-          chatRoute={effectiveChatRoute}
+          routeModel={routeModel}
+          routeSnapshot={routeSnapshot}
           chatSearchQuery={chatSearchQuery}
-          hasChatOverlay={effectiveHasChatOverlay}
-          terminalPane={terminalPane}
           chatPlusMenuOpen={chatPlusMenuOpen}
           inboxUnreadCount={inboxUnreadCount}
           onChangeChatSearchQuery={setChatSearchQuery}
           onPressChatOverlayBack={handleChatOverlayBack}
           onPressChatSearchBack={handleChatSearchBack}
+          onPressAgentsBack={() => {
+            goBackOrNavigateAgentsList();
+          }}
           onPressChatLeftAction={() => {
-            setPublishOpen(false);
             setInboxOpen(false);
             setChatPlusMenuOpen(false);
             dispatch(closeChatDetailDrawer());
@@ -338,32 +600,34 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
             dispatch(setChatAgentsSidebarOpen(!chatAgentsSidebarOpen));
           }}
           onPressTerminalBack={() => {
-            setPublishOpen(false);
             setInboxOpen(false);
-            dispatch(showTerminalListPane());
+            goBackOrNavigateTerminalList();
           }}
           onPressTerminalLeftAction={() => {
-            setPublishOpen(false);
             setInboxOpen(false);
           }}
           onPressUserInboxToggle={() => {
-            setPublishOpen(false);
             dispatch(setChatAgentsSidebarOpen(false));
             dispatch(closeChatDetailDrawer());
             setInboxOpen((prev) => !prev);
           }}
           onPressTerminalRefresh={() => {
             setInboxOpen(false);
-            setPublishOpen(false);
-            if (terminalPane === 'detail') {
+            if (routeSnapshot.terminalPane === 'detail') {
               dispatch(reloadPty());
             } else {
               refreshTerminalSessions().catch(() => {});
             }
           }}
+          onPressTerminalDrive={() => {
+            setInboxOpen(false);
+            if (routeSnapshot.terminalPane !== 'list') {
+              return;
+            }
+            terminalNavigationRef.current?.navigate('TerminalDrive');
+          }}
           onPressChatDetailMenu={() => {
             setInboxOpen(false);
-            setPublishOpen(false);
             dispatch(setChatAgentsSidebarOpen(false));
             dispatch(closeChatDetailDrawer());
             dispatch(resetChatDetailDrawerPreview());
@@ -378,17 +642,19 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
           onPressPublishToggle={() => {
             dispatch(setChatAgentsSidebarOpen(false));
             setInboxOpen(false);
-            setPublishOpen((prev) => !prev);
+            agentsNavigationRef.current?.navigate('AgentsPublish');
           }}
           onPressThemeToggle={() => {
             dispatch(setChatAgentsSidebarOpen(false));
-            setPublishOpen(false);
             setInboxOpen(false);
             dispatch(toggleTheme());
           }}
         />
 
-        {isChatDomain && !effectiveHasChatOverlay && effectiveChatRoute === 'list' && chatPlusMenuOpen ? (
+        {routeSnapshot.activeDomain === 'chat' &&
+        !routeSnapshot.hasChatOverlay &&
+        routeSnapshot.chatMode === 'list' &&
+        chatPlusMenuOpen ? (
           <Pressable
             style={styles.chatTopMenuMask}
             onPress={() => setChatPlusMenuOpen(false)}
@@ -396,94 +662,74 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
           />
         ) : null}
 
-        {/* <Tab.Navigator id="RootTab" initialRouteName="Chat" screenOptions={{ headerShown: false }}>
-          <Tab.Screen
-            name="Chat"
-            component={(props) => (
-              <ChatScreen
-                {...props}
-                onBindNavigation={bindChatNavigation}
-                onRouteFocus={handleChatRouteFocus}
-                chatDetailRuntime={chatDetailRuntime}
-              />
-            )}
-          />
-          <Tab.Screen name="Terminal" component={() => {
-            
-          }} />
-        </Tab.Navigator> */}
-
         <View style={styles.domainContent}>
-          {isChatDomain ? (
-            <View style={styles.stackViewport} testID="chat-pane-stack">
-              <ChatScreen
-                onBindNavigation={bindChatNavigation}
-                onRouteFocus={handleChatRouteFocus}
-                chatDetailRuntime={chatDetailRuntime}
-              />
-            </View>
-          ) : null}
-
-          {isTerminalDomain ? (
-            <View style={styles.stackViewport} testID="terminal-pane-stack">
-              <Animated.View
-                style={[
-                  styles.stackTrack,
-                  {
-                    width: window.width * 2,
-                    transform: [{ translateX: terminalTranslateX }]
-                  }
-                ]}
-              >
-                <View style={[styles.stackPage, { width: window.width }]}>
-                  <TerminalSessionListPane
+          <Tab.Navigator
+            id="RootTab"
+            initialRouteName={DOMAIN_TO_TAB[activeDomain]}
+            backBehavior="none"
+            screenOptions={{ headerShown: false }}
+            tabBar={() =>
+              routeModel.showBottomNav ? (
+                <View style={[styles.bottomNavWrap, { paddingBottom: Math.max(insets.bottom, 6) }]}>
+                  <BottomDomainNav
+                    value={routeSnapshot.activeDomain}
                     theme={theme}
-                    loading={terminalSessionsLoading}
-                    error={terminalSessionsError}
-                    sessions={terminalSessions}
-                    activeSessionId={activeTerminalSessionId}
-                    currentWebViewUrl={terminalCurrentWebViewUrl}
-                    onCreateSession={openTerminalCreateSessionModal}
-                    onRefresh={() => {
-                      refreshTerminalSessions().catch(() => {});
-                    }}
-                    onSelectSession={openTerminalDetail}
+                    onPressItem={handleDomainTabPress}
                   />
                 </View>
-                <View style={[styles.stackPage, { width: window.width }]}>
-                  <TerminalScreen
-                    theme={theme}
-                    authAccessToken={authAccessToken}
-                    authAccessExpireAtMs={authAccessExpireAtMs}
-                    authTokenSignal={authTokenSignal}
-                    onUrlChange={handleTerminalWebViewUrlChange}
-                    onWebViewAuthRefreshRequest={handleWebViewAuthRefreshRequest}
-                  />
-                </View>
-              </Animated.View>
-              <SwipeBackEdge enabled={terminalPane === 'detail'} onBack={() => dispatch(showTerminalListPane())} />
-            </View>
-          ) : null}
-
-          {isAgentsDomain ? <AgentsScreen theme={theme} /> : null}
-          {isUserDomain ? (
-            <UserSettingsScreen
-              theme={theme}
-              onSettingsApplied={() => refreshAll(true)}
-              username={authUsername}
-              deviceName={authDeviceName}
-              accessToken={authAccessToken}
-              versionLabel={appVersionLabel}
-              onLogout={handleLogout}
-            />
-          ) : null}
+              ) : null
+            }
+          >
+            <Tab.Screen name="Chat">
+              {() => (
+                <ShellChatTabScreen
+                  onBindRootTabNavigation={bindRootTabNavigation}
+                  onDomainFocus={handleDomainFocus}
+                  onBindNavigation={bindChatNavigation}
+                  onRouteFocus={handleChatRouteFocus}
+                  chatDetailRuntime={chatDetailRuntime}
+                />
+              )}
+            </Tab.Screen>
+            <Tab.Screen name="Terminal">
+              {() => (
+                <ShellTerminalTabScreen
+                  onBindRootTabNavigation={bindRootTabNavigation}
+                  onDomainFocus={handleDomainFocus}
+                  onBindNavigation={bindTerminalNavigation}
+                  onRouteFocus={handleTerminalRouteFocus}
+                  runtime={terminalRuntime}
+                />
+              )}
+            </Tab.Screen>
+            <Tab.Screen name="Agents">
+              {() => (
+                <ShellAgentsTabScreen
+                  onBindRootTabNavigation={bindRootTabNavigation}
+                  onDomainFocus={handleDomainFocus}
+                  onBindNavigation={bindAgentsNavigation}
+                  onRouteFocus={handleAgentsRouteFocus}
+                  runtime={agentsRuntime}
+                />
+              )}
+            </Tab.Screen>
+            <Tab.Screen name="User">
+              {() => (
+                <ShellUserTabScreen
+                  onBindRootTabNavigation={bindRootTabNavigation}
+                  onDomainFocus={handleDomainFocus}
+                  theme={theme}
+                  onSettingsApplied={() => refreshAll(true)}
+                  username={authUsername}
+                  deviceName={authDeviceName}
+                  accessToken={authAccessToken}
+                  versionLabel={appVersionLabel}
+                  onLogout={handleLogout}
+                />
+              )}
+            </Tab.Screen>
+          </Tab.Navigator>
         </View>
-
-        {effectiveShowBottomNav ? (
-          <View style={[styles.bottomNavWrap, { paddingBottom: Math.max(insets.bottom, 6) }]}>
-            <BottomDomainNav value={activeDomain} theme={theme} onPressItem={handleDomainSwitch} />
-          </View>
-        ) : null}
       </KeyboardAvoidingView>
 
       <View pointerEvents={inboxOpen ? 'auto' : 'none'} style={styles.inboxLayer}>
@@ -567,103 +813,8 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
         </Animated.View>
       </View>
 
-      <View pointerEvents={publishOpen ? 'auto' : 'none'} style={styles.publishLayer}>
-        <Animated.View
-          style={[
-            styles.publishModal,
-            {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-              opacity: publishAnim,
-              paddingTop: insets.top + 8,
-              transform: [
-                {
-                  translateY: publishAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [Math.max(120, window.height * 0.14), 0]
-                  })
-                }
-              ]
-            }
-          ]}
-        >
-          <View style={[styles.publishHead, { borderBottomColor: theme.border }]}>
-            <View style={styles.publishTitleWrap}>
-              <Text style={[styles.publishTitle, { color: theme.text }]}>发布中心</Text>
-              <Text style={[styles.publishSubTitle, { color: theme.textMute }]} numberOfLines={2}>
-                {selectedAgentKey ? `当前智能体：${selectedAgentKey}` : '请先选择智能体，然后发起发布。'}
-              </Text>
-            </View>
-            <TouchableOpacity
-              activeOpacity={0.78}
-              style={[styles.publishCloseBtn, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
-              onPress={() => setPublishOpen(false)}
-              testID="shell-publish-close-btn"
-            >
-              <Text style={[styles.publishCloseText, { color: theme.textSoft }]}>关闭</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.publishScroll} contentContainerStyle={styles.publishContent}>
-            <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}>
-              <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布目标</Text>
-              <View style={styles.publishChipRow}>
-                {['内部频道', '变更公告页', '测试环境'].map((item) => (
-                  <View
-                    key={item}
-                    style={[styles.publishChip, { borderColor: theme.border, backgroundColor: theme.surface }]}
-                  >
-                    <Text style={[styles.publishChipText, { color: theme.textSoft }]}>{item}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}>
-              <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布说明</Text>
-              <Text style={[styles.publishSectionBody, { color: theme.textSoft }]}>
-                本次发布会同步当前智能体配置、默认提示词和会话能力开关。建议先在测试环境验证 5 分钟后再推送到团队频道。
-              </Text>
-            </View>
-
-            <View style={[styles.publishSection, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}>
-              <Text style={[styles.publishSectionTitle, { color: theme.text }]}>发布清单</Text>
-              <View style={styles.publishChecklist}>
-                {['配置校验已通过', '变更摘要已生成', '回滚方案已就绪'].map((item) => (
-                  <View key={item} style={styles.publishChecklistItem}>
-                    <Text style={[styles.publishChecklistDot, { color: theme.primaryDeep }]}>•</Text>
-                    <Text style={[styles.publishChecklistText, { color: theme.textSoft }]}>{item}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </ScrollView>
-
-          <View style={[styles.publishFooter, { borderTopColor: theme.border }]}>
-            <TouchableOpacity
-              activeOpacity={0.76}
-              style={[styles.publishGhostBtn, { backgroundColor: theme.surfaceStrong }]}
-              onPress={() => setPublishOpen(false)}
-            >
-              <Text style={[styles.publishGhostText, { color: theme.textSoft }]}>取消</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.82}
-              style={[styles.publishPrimaryBtn, { backgroundColor: theme.primary }]}
-              testID="shell-publish-submit-btn"
-              onPress={() => {
-                setPublishOpen(false);
-                dispatch(setStatusText('发布任务已创建（演示）'));
-              }}
-            >
-              <Text style={styles.publishPrimaryText}>确认发布</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </View>
-
       <AgentSidebar
-        visible={isChatDomain && chatAgentsSidebarOpen}
+        visible={routeSnapshot.activeDomain === 'chat' && chatAgentsSidebarOpen}
         theme={theme}
         agents={agents}
         selectedAgentKey={selectedAgentKey}
@@ -671,9 +822,21 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
         onSelectAgent={handleSidebarSelectAgent}
       />
       <ChatDetailDrawer
-        visible={isChatDomain && effectiveIsChatDetailOverlay && chatDetailDrawerOpen}
-        previewProgress={isChatDomain && effectiveIsChatDetailOverlay ? chatDetailDrawerPreviewProgress : 0}
-        interactive={isChatDomain && effectiveIsChatDetailOverlay && chatDetailDrawerOpen}
+        visible={
+          routeSnapshot.activeDomain === 'chat' &&
+          routeSnapshot.chatOverlayType === 'chatDetail' &&
+          chatDetailDrawerOpen
+        }
+        previewProgress={
+          routeSnapshot.activeDomain === 'chat' && routeSnapshot.chatOverlayType === 'chatDetail'
+            ? chatDetailDrawerPreviewProgress
+            : 0
+        }
+        interactive={
+          routeSnapshot.activeDomain === 'chat' &&
+          routeSnapshot.chatOverlayType === 'chatDetail' &&
+          chatDetailDrawerOpen
+        }
         theme={theme}
         activeAgentName={activeAgentName}
         chats={currentAgentChats}

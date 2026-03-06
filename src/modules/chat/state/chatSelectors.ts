@@ -10,7 +10,7 @@ import {
   getChatAgentName,
   getChatTimestamp
 } from '../../../shared/utils/format';
-import { ChatSummary } from '../../../core/types/common';
+import { ChatSummary, TeamSummary } from '../../../core/types/common';
 
 const UNKNOWN_AGENT_KEY = '__unknown_agent__';
 
@@ -25,9 +25,34 @@ export interface AgentLatestChatItem {
 }
 
 export const selectChats = (state: RootState) => state.chat.chats;
+export const selectTeams = (state: RootState) => state.chat.teams;
 export const selectChatId = (state: RootState) => state.chat.chatId;
 const selectAgents = (state: RootState) => state.agents.agents;
 const selectSelectedAgentKey = (state: RootState) => String(state.user.selectedAgentKey || '').trim();
+
+function supplementChatWithTeam(chat: ChatSummary, teamById: Map<string, TeamSummary>): ChatSummary {
+  const teamId = String(chat.teamId || '').trim();
+  const team = teamId ? teamById.get(teamId) : undefined;
+  if (!team) {
+    return chat;
+  }
+
+  const next: ChatSummary = { ...chat };
+  const teamDefaultAgentKey = String(team.meta?.defaultAgentKey || '').trim();
+  const teamName = String(team.name || '').trim();
+
+  if (!String(getChatAgentKey(chat) || '').trim() && teamDefaultAgentKey) {
+    next.firstAgentKey = String(next.firstAgentKey || '').trim() || teamDefaultAgentKey;
+    next.agentKey = String(next.agentKey || '').trim() || teamDefaultAgentKey;
+  }
+
+  if (!String(chat.firstAgentName || chat.agentName || '').trim() && teamName) {
+    next.firstAgentName = String(next.firstAgentName || '').trim() || teamName;
+    next.agentName = String(next.agentName || '').trim() || teamName;
+  }
+
+  return next;
+}
 
 function getAgentKeyFromChat(chat: ChatSummary): string {
   const key = String(getChatAgentKey(chat) || '').trim();
@@ -88,70 +113,89 @@ function sortByRecent(a: ChatSummary, b: ChatSummary): number {
   return getChatTimestamp(b) - getChatTimestamp(a);
 }
 
-export const selectAgentLatestChats = createSelector([selectChats, selectAgents], (chats, agents): AgentLatestChatItem[] => {
-  const sorted = [...chats].sort(sortByRecent);
-  const latestByAgent = new Map<string, ChatSummary>();
-  const unreadByAgent = new Map<string, number>();
-  const agentNameByKey = new Map<string, string>();
-  const agentRoleByKey = new Map<string, string>();
-  const visualByAgentKey = new Map<string, { iconName: string; iconColor: string }>();
+export const selectAgentLatestChats = createSelector(
+  [selectChats, selectTeams, selectAgents],
+  (chats, teams, agents): AgentLatestChatItem[] => {
+    const normalizedChats = Array.isArray(chats) ? chats : [];
+    const normalizedTeams = Array.isArray(teams) ? teams : [];
+    const sorted = [...normalizedChats].sort(sortByRecent);
+    const latestByAgent = new Map<string, ChatSummary>();
+    const unreadByAgent = new Map<string, number>();
+    const agentNameByKey = new Map<string, string>();
+    const agentRoleByKey = new Map<string, string>();
+    const visualByAgentKey = new Map<string, { iconName: string; iconColor: string }>();
+    const teamById = new Map<string, TeamSummary>();
 
-  const normalizedAgents = Array.isArray(agents) ? agents : [];
-  normalizedAgents.forEach((agent) => {
-    const key = getAgentKey(agent);
-    if (!key) {
-      return;
-    }
-    const mappedName = String(getAgentName(agent) || '').trim();
-    if (mappedName) {
-      agentNameByKey.set(key, mappedName);
-    }
-    const mappedRole = String(getAgentRole(agent) || '').trim();
-    if (mappedRole) {
-      agentRoleByKey.set(key, mappedRole);
-    }
-    visualByAgentKey.set(key, {
-      iconName: getAgentIconName(agent),
-      iconColor: getAgentIconColor(agent)
+    normalizedTeams.forEach((team) => {
+      const teamId = String(team?.teamId || '').trim();
+      if (!teamId) {
+        return;
+      }
+      teamById.set(teamId, team);
     });
-  });
 
-  sorted.forEach((chat) => {
-    const agentKey = getAgentKeyFromChat(chat);
-    const readStatus = Number((chat as Record<string, unknown>).readStatus);
-    if (Number.isFinite(readStatus) && readStatus === 0) {
-      unreadByAgent.set(agentKey, (unreadByAgent.get(agentKey) || 0) + 1);
-    }
-    if (!latestByAgent.has(agentKey)) {
-      latestByAgent.set(agentKey, chat);
-    }
-  });
+    const normalizedAgents = Array.isArray(agents) ? agents : [];
+    normalizedAgents.forEach((agent) => {
+      const key = getAgentKey(agent);
+      if (!key) {
+        return;
+      }
+      const mappedName = String(getAgentName(agent) || '').trim();
+      if (mappedName) {
+        agentNameByKey.set(key, mappedName);
+      }
+      const mappedRole = String(getAgentRole(agent) || '').trim();
+      if (mappedRole) {
+        agentRoleByKey.set(key, mappedRole);
+      }
+      visualByAgentKey.set(key, {
+        iconName: getAgentIconName(agent),
+        iconColor: getAgentIconColor(agent)
+      });
+    });
 
-  const items = Array.from(latestByAgent.entries())
-    .map(([agentKey, chat]) => {
-      const visualFromAgent = visualByAgentKey.get(agentKey);
-      return {
-        agentKey,
-        agentName: getAgentNameFromChat(chat, agentNameByKey),
-        agentRole: agentRoleByKey.get(agentKey) || resolveChatAgentRole(chat) || '',
-        iconName: resolveChatIconName(chat) || visualFromAgent?.iconName || '',
-        iconColor: resolveChatIconColor(chat) || visualFromAgent?.iconColor || '',
-        unreadCount: unreadByAgent.get(agentKey) || 0,
-        latestChat: chat
-      };
-    })
-    .sort((a, b) => sortByRecent(a.latestChat, b.latestChat));
-  return items;
-});
+    sorted.forEach((chat) => {
+      const supplementedChat = supplementChatWithTeam(chat, teamById);
+      const agentKey = getAgentKeyFromChat(supplementedChat);
+      const readStatus = Number((chat as Record<string, unknown>).readStatus);
+      if (Number.isFinite(readStatus) && readStatus === 0) {
+        unreadByAgent.set(agentKey, (unreadByAgent.get(agentKey) || 0) + 1);
+      }
+      if (!latestByAgent.has(agentKey)) {
+        latestByAgent.set(agentKey, supplementedChat);
+      }
+    });
+
+    const items = Array.from(latestByAgent.entries())
+      .map(([agentKey, latestChat]) => {
+        const visualFromAgent = visualByAgentKey.get(agentKey);
+        const team = latestChat.teamId ? teamById.get(String(latestChat.teamId || '').trim()) : undefined;
+        const teamIconName = String(team?.icon?.name || '').trim();
+        const teamIconColor = String(team?.icon?.color || '').trim();
+        return {
+          agentKey,
+          agentName: getAgentNameFromChat(latestChat, agentNameByKey),
+          agentRole: agentRoleByKey.get(agentKey) || resolveChatAgentRole(latestChat) || '',
+          iconName: resolveChatIconName(latestChat) || visualFromAgent?.iconName || teamIconName || '',
+          iconColor: resolveChatIconColor(latestChat) || visualFromAgent?.iconColor || teamIconColor || '',
+          unreadCount: unreadByAgent.get(agentKey) || 0,
+          latestChat
+        };
+      })
+      .sort((a, b) => sortByRecent(a.latestChat, b.latestChat));
+    return items;
+  }
+);
 
 export const selectCurrentAgentChats = createSelector(
   [selectChats, selectChatId, selectSelectedAgentKey],
   (chats, activeChatIdInput, selectedAgentKey): ChatSummary[] => {
+    const normalizedChats = Array.isArray(chats) ? chats : [];
     const activeChatId = String(activeChatIdInput || '').trim();
-    const activeChat = chats.find((chat) => String(chat.chatId || '').trim() === activeChatId);
+    const activeChat = normalizedChats.find((chat) => String(chat.chatId || '').trim() === activeChatId);
     const activeAgentKey = String(getChatAgentKey(activeChat) || '').trim();
     const resolvedAgentKey = activeAgentKey || selectedAgentKey || UNKNOWN_AGENT_KEY;
 
-    return [...chats].filter((chat) => getAgentKeyFromChat(chat) === resolvedAgentKey).sort(sortByRecent);
+    return [...normalizedChats].filter((chat) => getAgentKeyFromChat(chat) === resolvedAgentKey).sort(sortByRecent);
   }
 );

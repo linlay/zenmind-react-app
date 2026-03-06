@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Animated, BackHandler, Easing, Keyboard, Platform, useWindowDimensions } from 'react-native';
+import { AppState, Animated, Easing, Keyboard, Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { DomainMode, InboxMessage, WebSocketMessage } from '../../../core/types/common';
+import { InboxMessage, WebSocketMessage } from '../../../core/types/common';
 import { THEMES } from '../../../core/constants/theme';
 import {
   normalizeEndpointInput,
@@ -12,28 +12,19 @@ import {
 } from '../../../core/network/endpoint';
 import { patchSettings } from '../../../core/storage/settingsStorage';
 import {
-  clearChatOverlays,
   closeChatDetailDrawer,
-  popChatOverlay,
-  pushChatOverlay,
   resetChatDetailDrawerPreview,
-  showAgentsRoute,
   setChatAgentsSidebarOpen,
-  setChatSearchQuery as setShellChatSearchQuery,
-  showChatListRoute,
-  showTerminalDetailPane,
-  showTerminalListPane,
-  showUserRoute
+  setChatSearchQuery as setShellChatSearchQuery
 } from '../shellSlice';
 import {
   applyEndpointDraft,
-  setActiveDomain,
   setEndpointDraft,
   setPtyUrlDraft,
   setSelectedAgentKey as setUserSelectedAgentKey
 } from '../../../modules/user/state/userSlice';
 import { setAgents, setAgentsError, setAgentsLoading } from '../../../modules/agents/state/agentsSlice';
-import { setChatId, setChats, setLoadingChats, setStatusText } from '../../../modules/chat/state/chatSlice';
+import { setChatId, setChats, setLoadingChats, setStatusText, setTeams } from '../../../modules/chat/state/chatSlice';
 import {
   reloadPty,
   requestOpenNewSessionModal,
@@ -42,10 +33,10 @@ import {
 import { selectAgentLatestChats, selectCurrentAgentChats } from '../../../modules/chat/state/chatSelectors';
 import { ChatSearchAgentItem } from '../../../modules/chat/components/ChatSearchPane';
 import { useLazyGetAgentsQuery } from '../../../modules/agents/api/agentsApi';
+import { useLazyGetTeamsQuery } from '../../../modules/chat/api/chatApi';
 import { useLazyListTerminalSessionsQuery } from '../../../modules/terminal/api/terminalApi';
 import { fetchAuthedJson, formatError, markChatReadApi } from '../../../core/network/apiClient';
 import {
-  createRequestId,
   getAgentKey,
   getAgentName,
   getAgentRole,
@@ -70,7 +61,6 @@ import {
 import { WebViewAuthRefreshCoordinator, WebViewAuthRefreshOutcome } from '../../../core/auth/webViewAuthBridge';
 import { initChatCacheDb, listCachedChats, markChatReadLocal } from '../../../modules/chat/services/chatCacheDb';
 import { syncChatsIncremental } from '../../../modules/chat/services/chatSyncService';
-import { buildShellRouteModel } from '../routes/shellRouteModel';
 
 const PREFRESH_MIN_VALIDITY_MS = 120_000;
 const PREFRESH_JITTER_MS = 8_000;
@@ -82,15 +72,8 @@ export function useShellScreenController() {
   const insets = useSafeAreaInsets();
   const window = useWindowDimensions();
 
-  const {
-    chatRoute,
-    chatSearchQuery,
-    chatOverlayStack,
-    terminalPane,
-    chatAgentsSidebarOpen,
-    chatDetailDrawerOpen,
-    chatDetailDrawerPreviewProgress
-  } = useAppSelector((state) => state.shell);
+  const { chatSearchQuery, chatAgentsSidebarOpen, chatDetailDrawerOpen, chatDetailDrawerPreviewProgress } =
+    useAppSelector((state) => state.shell);
   const { booting, themeMode, endpointDraft, endpointInput, ptyUrlInput, selectedAgentKey, activeDomain } =
     useAppSelector((state) => state.user);
   const chatId = useAppSelector((state) => state.chat.chatId);
@@ -102,7 +85,6 @@ export function useShellScreenController() {
   const activeTerminalSessionId = useAppSelector((state) => state.terminal.activeSessionId);
 
   const [inboxOpen, setInboxOpen] = useState(false);
-  const [publishOpen, setPublishOpen] = useState(false);
   const [shellKeyboardHeight, setShellKeyboardHeight] = useState(0);
   const [authChecking, setAuthChecking] = useState(true);
   const [authReady, setAuthReady] = useState(false);
@@ -122,9 +104,11 @@ export function useShellScreenController() {
   const [terminalSessionsLoading, setTerminalSessionsLoading] = useState(false);
   const [terminalSessionsError, setTerminalSessionsError] = useState('');
   const [terminalCurrentWebViewUrl, setTerminalCurrentWebViewUrl] = useState('');
+  const [terminalListResetSignal, setTerminalListResetSignal] = useState(0);
   const [chatPlusMenuOpen, setChatPlusMenuOpen] = useState(false);
 
   const [triggerAgents] = useLazyGetAgentsQuery();
+  const [triggerTeams] = useLazyGetTeamsQuery();
   const [triggerTerminalSessions] = useLazyListTerminalSessionsQuery();
 
   const wsRef = useRef<WebSocket | null>(null);
@@ -137,10 +121,6 @@ export function useShellScreenController() {
   const chatSyncInFlightRef = useRef(false);
 
   const inboxAnim = useRef(new Animated.Value(0)).current;
-  const publishAnim = useRef(new Animated.Value(0)).current;
-  const chatRouteAnim = useRef(new Animated.Value(chatRoute === 'search' ? 1 : 0)).current;
-  const chatOverlayEnterAnim = useRef(new Animated.Value(1)).current;
-  const terminalPaneAnim = useRef(new Animated.Value(terminalPane === 'detail' ? 1 : 0)).current;
   const theme = THEMES[themeMode] || THEMES.light;
   const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
   const ptyWebUrl = useMemo(() => normalizePtyUrlInput(ptyUrlInput, endpointInput), [endpointInput, ptyUrlInput]);
@@ -163,36 +143,6 @@ export function useShellScreenController() {
   }, []);
 
   const keyboardInset = Platform.OS === 'android' ? Math.max(0, shellKeyboardHeight) : 0;
-
-  const terminalTranslateX = useMemo(
-    () =>
-      terminalPaneAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, -window.width]
-      }),
-    [terminalPaneAnim, window.width]
-  );
-  const chatRouteTranslateX = useMemo(
-    () =>
-      chatRouteAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, -window.width]
-      }),
-    [chatRouteAnim, window.width]
-  );
-  const chatOverlayEnterTranslateX = useMemo(
-    () =>
-      chatOverlayEnterAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [18, 0]
-      }),
-    [chatOverlayEnterAnim]
-  );
-  const topChatOverlay = chatOverlayStack.length ? chatOverlayStack[chatOverlayStack.length - 1] : null;
-  const topChatOverlayId = topChatOverlay?.overlayId || '';
-  const topChatOverlayType = topChatOverlay?.type || '';
-  const hasChatOverlay = Boolean(topChatOverlay);
-  const previousTopChatOverlayIdRef = useRef(topChatOverlayId);
 
   /**
    * 从会话对象同步鉴权状态到组件 state
@@ -311,17 +261,33 @@ export function useShellScreenController() {
       if (!silent) dispatch(setLoadingChats(true));
       try {
         await loadChatsFromCache();
-        await syncChatsNow(base, {
-          notifyError: !silent,
-          bumpActiveChatRefresh: true
-        });
+        const refreshTeams = async () => {
+          if (!base) {
+            dispatch(setTeams([]));
+            return;
+          }
+          try {
+            const list = await triggerTeams(base).unwrap();
+            dispatch(setTeams(Array.isArray(list) ? list : []));
+          } catch {
+            dispatch(setTeams([]));
+          }
+        };
+
+        await Promise.all([
+          syncChatsNow(base, {
+            notifyError: !silent,
+            bumpActiveChatRefresh: true
+          }),
+          refreshTeams()
+        ]);
       } catch (error) {
         dispatch(setStatusText(`会话列表加载失败：${formatError(error)}`));
       } finally {
         if (!silent) dispatch(setLoadingChats(false));
       }
     },
-    [backendUrl, dispatch, loadChatsFromCache, syncChatsNow]
+    [backendUrl, dispatch, loadChatsFromCache, syncChatsNow, triggerTeams]
   );
 
   /**
@@ -343,7 +309,7 @@ export function useShellScreenController() {
         setTerminalSessionsError('');
         if (activeTerminalSessionId && !sessions.some((item) => item.sessionId === activeTerminalSessionId)) {
           dispatch(setActiveSessionId(''));
-          dispatch(showTerminalListPane());
+          setTerminalListResetSignal((prev) => prev + 1);
         }
       } catch (error) {
         const message = formatError(error);
@@ -365,7 +331,6 @@ export function useShellScreenController() {
   const openTerminalCreateSessionModal = useCallback(() => {
     dispatch(requestOpenNewSessionModal(Date.now()));
     dispatch(reloadPty());
-    dispatch(showTerminalDetailPane());
   }, [dispatch]);
 
   /**
@@ -866,52 +831,6 @@ export function useShellScreenController() {
   }, [inboxAnim, inboxOpen]);
 
   useEffect(() => {
-    Animated.timing(publishAnim, {
-      toValue: publishOpen ? 1 : 0,
-      duration: publishOpen ? 240 : 180,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true
-    }).start();
-  }, [publishAnim, publishOpen]);
-
-  useEffect(() => {
-    Animated.timing(chatRouteAnim, {
-      toValue: chatRoute === 'search' ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true
-    }).start();
-  }, [chatRoute, chatRouteAnim]);
-
-  useEffect(() => {
-    const previousOverlayId = previousTopChatOverlayIdRef.current;
-    previousTopChatOverlayIdRef.current = topChatOverlayId;
-    if (!topChatOverlayId) {
-      chatOverlayEnterAnim.setValue(1);
-      return;
-    }
-    if (topChatOverlayId === previousOverlayId) {
-      return;
-    }
-    chatOverlayEnterAnim.setValue(0);
-    Animated.timing(chatOverlayEnterAnim, {
-      toValue: 1,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true
-    }).start();
-  }, [chatOverlayEnterAnim, topChatOverlayId]);
-
-  useEffect(() => {
-    Animated.timing(terminalPaneAnim, {
-      toValue: terminalPane === 'detail' ? 1 : 0,
-      duration: 220,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true
-    }).start();
-  }, [terminalPane, terminalPaneAnim]);
-
-  useEffect(() => {
     if (booting) return;
 
     if (!backendUrl) {
@@ -984,24 +903,10 @@ export function useShellScreenController() {
   }, [activeDomain, booting, endpointInput, ptyUrlInput, selectedAgentKey, themeMode]);
 
   useEffect(() => {
-    if (activeDomain === 'agents') {
-      dispatch(showAgentsRoute());
-    } else if (activeDomain === 'user') {
-      dispatch(showUserRoute());
-    }
-
     if (activeDomain !== 'chat' && activeDomain !== 'user') {
       setInboxOpen(false);
     }
-    if (activeDomain !== 'chat') {
-      setChatPlusMenuOpen(false);
-      dispatch(showChatListRoute());
-      dispatch(clearChatOverlays());
-      dispatch(setChatAgentsSidebarOpen(false));
-      dispatch(closeChatDetailDrawer());
-      dispatch(resetChatDetailDrawerPreview());
-    }
-  }, [activeDomain, dispatch]);
+  }, [activeDomain]);
 
   useEffect(() => {
     if (!inboxOpen || !authReady) {
@@ -1015,8 +920,9 @@ export function useShellScreenController() {
       setTerminalSessions([]);
       setTerminalSessionsLoading(false);
       setTerminalSessionsError('');
+      setTerminalCurrentWebViewUrl('');
       dispatch(setActiveSessionId(''));
-      dispatch(showTerminalListPane());
+      setTerminalListResetSignal((prev) => prev + 1);
     }
   }, [authReady, dispatch]);
 
@@ -1025,65 +931,7 @@ export function useShellScreenController() {
       return;
     }
     refreshTerminalSessions(true).catch(() => {});
-  }, [activeDomain, authReady, booting, refreshTerminalSessions, terminalPane]);
-
-  useEffect(() => {
-    if (activeDomain !== 'agents' && publishOpen) {
-      setPublishOpen(false);
-    }
-  }, [activeDomain, publishOpen]);
-
-  useEffect(() => {
-    if (Platform.OS !== 'android') {
-      return;
-    }
-
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (inboxOpen) {
-        setInboxOpen(false);
-        return true;
-      }
-      if (chatDetailDrawerOpen) {
-        dispatch(closeChatDetailDrawer());
-        return true;
-      }
-      if (chatAgentsSidebarOpen) {
-        dispatch(setChatAgentsSidebarOpen(false));
-        return true;
-      }
-      if (publishOpen) {
-        setPublishOpen(false);
-        return true;
-      }
-      if (activeDomain === 'chat' && hasChatOverlay) {
-        dispatch(popChatOverlay());
-        return true;
-      }
-      if (activeDomain === 'chat' && chatRoute === 'search') {
-        setChatPlusMenuOpen(false);
-        dispatch(showChatListRoute());
-        dispatch(setShellChatSearchQuery(''));
-        return true;
-      }
-      if (activeDomain === 'terminal' && terminalPane === 'detail') {
-        dispatch(showTerminalListPane());
-        return true;
-      }
-      return false;
-    });
-
-    return () => sub.remove();
-  }, [
-    activeDomain,
-    chatAgentsSidebarOpen,
-    chatDetailDrawerOpen,
-    chatRoute,
-    dispatch,
-    hasChatOverlay,
-    inboxOpen,
-    publishOpen,
-    terminalPane
-  ]);
+  }, [activeDomain, authReady, booting, refreshTerminalSessions]);
 
   const activeAgent = useMemo(() => {
     const found = agents.find((agent) => getAgentKey(agent) === selectedAgentKey);
@@ -1136,110 +984,19 @@ export function useShellScreenController() {
       .sort((a, b) => getChatTimestamp(b) - getChatTimestamp(a));
   }, [chats, normalizedSearchKeyword]);
 
-  const routeModel = useMemo(
-    () =>
-      buildShellRouteModel({
-        activeDomain,
-        chatRoute,
-        topChatOverlayType,
-        hasChatOverlay,
-        terminalPane,
-        activeAgentName,
-        activeAgentRole
-      }),
-    [activeAgentName, activeAgentRole, activeDomain, chatRoute, hasChatOverlay, terminalPane, topChatOverlayType]
-  );
   const appVersionLabel = useMemo(() => getAppVersionLabel(), []);
 
   /**
    * 关闭所有浮层面板
-   * 包括：收件箱、发布中心、聊天加号菜单、智能体侧边栏、聊天详情抽屉
+   * 包括：收件箱、聊天加号菜单、智能体侧边栏、聊天详情抽屉
    */
   const closeFloatingPanels = useCallback(() => {
     setInboxOpen(false);
-    setPublishOpen(false);
     setChatPlusMenuOpen(false);
     dispatch(setChatAgentsSidebarOpen(false));
     dispatch(closeChatDetailDrawer());
     dispatch(resetChatDetailDrawerPreview());
   }, [dispatch]);
-
-  /**
-   * 处理域切换（底部导航栏点击）
-   * @param mode - 目标域
-   *
-   * 如果点击当前域：
-   *   - chat 域：依次关闭抽屉 → 侧边栏 → 覆盖层 → 搜索
-   *   - terminal 域：从详情返回列表
-   *
-   * 如果切换到其他域：
-   *   - 关闭所有浮层面板
-   *   - 重置聊天路由和搜索
-   *   - 更新激活域
-   */
-  const handleDomainSwitch = useCallback(
-    (mode: DomainMode) => {
-      if (mode === activeDomain) {
-        if (mode === 'chat') {
-          if (chatDetailDrawerOpen) {
-            dispatch(closeChatDetailDrawer());
-            return;
-          }
-          if (chatAgentsSidebarOpen) {
-            dispatch(setChatAgentsSidebarOpen(false));
-            return;
-          }
-          if (hasChatOverlay) {
-            dispatch(clearChatOverlays());
-            dispatch(showChatListRoute());
-            return;
-          }
-          if (chatRoute === 'search') {
-            dispatch(showChatListRoute());
-            dispatch(setShellChatSearchQuery(''));
-            return;
-          }
-          return;
-        }
-        if (mode === 'terminal' && terminalPane === 'detail') {
-          dispatch(showTerminalListPane());
-          return;
-        }
-        return;
-      }
-      closeFloatingPanels();
-      if (mode === 'chat') {
-        dispatch(showChatListRoute());
-      } else if (mode === 'terminal') {
-        dispatch(showTerminalListPane());
-      } else if (mode === 'agents') {
-        dispatch(showAgentsRoute());
-        dispatch(showChatListRoute());
-        dispatch(setShellChatSearchQuery(''));
-        dispatch(clearChatOverlays());
-      } else if (mode === 'user') {
-        dispatch(showUserRoute());
-        dispatch(showChatListRoute());
-        dispatch(setShellChatSearchQuery(''));
-        dispatch(clearChatOverlays());
-      } else {
-        dispatch(showChatListRoute());
-        dispatch(setShellChatSearchQuery(''));
-        dispatch(clearChatOverlays());
-      }
-      dispatch(setActiveDomain(mode));
-    },
-    [
-      activeDomain,
-      chatAgentsSidebarOpen,
-      chatDetailDrawerOpen,
-      chatRoute,
-      closeFloatingPanels,
-      dispatch,
-      hasChatOverlay,
-      terminalPane
-    ]
-  );
 
   /**
    * 打开智能体详情页
@@ -1264,12 +1021,6 @@ export function useShellScreenController() {
       dispatch(setChatAgentsSidebarOpen(false));
       dispatch(closeChatDetailDrawer());
       dispatch(resetChatDetailDrawerPreview());
-      dispatch(
-        pushChatOverlay({
-          overlayId: createRequestId('agent_detail_overlay'),
-          type: 'agentDetail'
-        })
-      );
     },
     [dispatch]
   );
@@ -1323,7 +1074,6 @@ export function useShellScreenController() {
       setTerminalCurrentWebViewUrl(baseUrl);
       dispatch(setActiveSessionId(sessionId));
       dispatch(reloadPty());
-      dispatch(showTerminalDetailPane());
     },
     [dispatch, ptyWebUrl]
   );
@@ -1357,12 +1107,8 @@ export function useShellScreenController() {
     appVersionLabel,
     keyboardInset,
     inboxOpen,
-    publishOpen,
     chatPlusMenuOpen,
-    chatRoute,
     chatSearchQuery,
-    chatOverlayStack,
-    terminalPane,
     chatAgentsSidebarOpen,
     chatDetailDrawerOpen,
     chatDetailDrawerPreviewProgress,
@@ -1393,18 +1139,11 @@ export function useShellScreenController() {
     activeAgentRole,
     backendUrl,
     chatRefreshSignal,
-    routeModel,
-    hasChatOverlay,
     inboxAnim,
-    publishAnim,
-    terminalTranslateX,
-    chatRouteTranslateX,
-    chatOverlayEnterAnim,
-    chatOverlayEnterTranslateX,
+    terminalListResetSignal,
     setDeviceName,
     setMasterPassword,
     setInboxOpen,
-    setPublishOpen,
     setChatPlusMenuOpen,
     setAuthError,
     setChatSearchQuery: (value: string) => dispatch(setShellChatSearchQuery(value)),
@@ -1414,7 +1153,7 @@ export function useShellScreenController() {
     openTerminalCreateSessionModal,
     openTerminalDetail,
     handleTerminalWebViewUrlChange,
-    handleDomainSwitch,
+    closeFloatingPanels,
     openAgentProfile,
     handleRequestSwitchAgentChat,
     handleWebViewAuthRefreshRequest,

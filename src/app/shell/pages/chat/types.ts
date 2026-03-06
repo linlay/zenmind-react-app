@@ -1,5 +1,6 @@
 import { NavigationProp, RouteProp } from '@react-navigation/native';
 import type { WebViewAuthRefreshOutcome } from '../../../../core/auth/webViewAuthBridge';
+import { ShellTabBindings } from '../../types';
 
 export type ChatStackParamList = {
   ChatList: undefined;
@@ -43,4 +44,10 @@ export interface ChatRouteBridgeProps {
   onBindNavigation?: (navigation: ChatRootNavigation) => void;
   onRouteFocus?: (routeName: ChatRouteName) => void;
   chatDetailRuntime?: ChatDetailRuntimeBridge;
+}
+
+export interface ShellChatTabScreenProps extends ShellTabBindings {
+  onBindNavigation: (navigation: ChatRootNavigation) => void;
+  onRouteFocus: (routeName: ChatRouteName) => void;
+  chatDetailRuntime: ChatDetailRuntimeBridge;
 }

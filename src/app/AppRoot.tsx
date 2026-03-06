@@ -122,10 +122,14 @@ export function AppRoot() {
   return (
     <Stack.Navigator id="RootStack" screenOptions={{ headerShown: false, animation: 'none' }}>
       {isBootPhase ? (
-        <Stack.Screen name="Boot">{() => <BootScreen message={bootMessage} theme={theme} />}</Stack.Screen>
+        <Stack.Screen name="Boot" options={{ animation: 'slide_from_right' }}>
+          {() => <BootScreen message={bootMessage} theme={theme} />}
+        </Stack.Screen>
       ) : null}
       {isLoginPhase ? (
-        <Stack.Screen name="Login">{() => <LoginScreen controller={loginController} />}</Stack.Screen>
+        <Stack.Screen name="Login" options={{ animation: 'slide_from_right' }}>
+          {() => <LoginScreen controller={loginController} />}
+        </Stack.Screen>
       ) : null}
       {isShellPhase ? <Stack.Screen name="Shell" component={ShellScreen} /> : null}
     </Stack.Navigator>

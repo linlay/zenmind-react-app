@@ -13,6 +13,7 @@ export interface ChatSummary {
   chatId?: string;
   chatName?: string;
   title?: string;
+  teamId?: string;
   agentKey?: string;
   agentName?: string;
   firstAgentKey?: string;
@@ -24,6 +25,21 @@ export interface ChatSummary {
   updatedAt?: string | number;
   createdAt?: string | number;
   [key: string]: unknown;
+}
+
+export interface TeamSummary {
+  agentKeys?: string[];
+  icon?: {
+    name?: string;
+    color?: string;
+  };
+  meta?: {
+    defaultAgentKey: string;
+    defaultAgentKeyValid: boolean;
+    invalidAgentKeys: string[];
+  };
+  teamId?: string;
+  name?: string;
 }
 
 export interface AppSettings {
