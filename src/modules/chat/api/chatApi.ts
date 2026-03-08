@@ -39,6 +39,7 @@ export const chatApi = createApi({
         try {
           const data = await fetchApiJson<ChatSummary[]>(baseUrl, '/api/ap/chats');
           const list = Array.isArray(data) ? data.map((item) => normalizeChatSummary(item)) : [];
+          // console.log('list', list[7]);
           return { data: list };
         } catch (error) {
           return { error: error as Error };

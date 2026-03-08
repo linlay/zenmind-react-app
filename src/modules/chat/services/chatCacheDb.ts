@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS CHATS (
   CHAT_ID_ TEXT PRIMARY KEY,
   CHAT_NAME_ TEXT NOT NULL,
   AGENT_KEY_ TEXT NOT NULL,
+  TEAM_ID_ TEXT NOT NULL DEFAULT '',
   CREATED_AT_ INTEGER NOT NULL,
   UPDATED_AT_ INTEGER NOT NULL,
   LAST_RUN_ID_ VARCHAR(12) NOT NULL,
@@ -24,6 +25,7 @@ ON CHATS(LAST_RUN_ID_)
 `;
 
 const CHAT_EXTENSION_COLUMNS: Array<{ name: string; sql: string }> = [
+  { name: 'TEAM_ID_', sql: "ALTER TABLE CHATS ADD COLUMN TEAM_ID_ TEXT NOT NULL DEFAULT ''" },
   { name: 'CHAT_IMAGE_TOKEN_', sql: "ALTER TABLE CHATS ADD COLUMN CHAT_IMAGE_TOKEN_ TEXT NOT NULL DEFAULT ''" },
   { name: 'EVENTS_JSON_', sql: "ALTER TABLE CHATS ADD COLUMN EVENTS_JSON_ TEXT NOT NULL DEFAULT '[]'" },
   { name: 'DETAIL_UPDATED_AT_', sql: 'ALTER TABLE CHATS ADD COLUMN DETAIL_UPDATED_AT_ INTEGER' }
@@ -33,6 +35,7 @@ interface ChatRow {
   CHAT_ID_: string;
   CHAT_NAME_: string;
   AGENT_KEY_: string;
+  TEAM_ID_?: string;
   CREATED_AT_: number;
   UPDATED_AT_: number;
   LAST_RUN_ID_: string;
@@ -98,6 +101,7 @@ function normalizeSummary(input: ChatSummary): ChatSummary {
   const chatId = String(input.chatId || '').trim();
   const chatName = String(input.chatName || input.title || chatId || '').trim();
   const agentKey = String(input.firstAgentKey || input.agentKey || '').trim() || UNKNOWN_AGENT_KEY;
+  const teamId = String(input.teamId || '').trim();
 
   const createdAt = toTimestampMs(input.createdAt, Date.now());
   const updatedAt = toTimestampMs(input.updatedAt, createdAt);
@@ -110,6 +114,7 @@ function normalizeSummary(input: ChatSummary): ChatSummary {
     chatName,
     agentKey,
     firstAgentKey: agentKey,
+    teamId,
     createdAt,
     updatedAt,
     lastRunId: String(input.lastRunId || '').trim(),
@@ -126,6 +131,7 @@ function mapRowToChatSummary(row: ChatRow): ChatSummary {
     title: String(row.CHAT_NAME_ || ''),
     agentKey: String(row.AGENT_KEY_ || ''),
     firstAgentKey: String(row.AGENT_KEY_ || ''),
+    teamId: String(row.TEAM_ID_ || '').trim(),
     createdAt: Number(row.CREATED_AT_ || 0),
     updatedAt: Number(row.UPDATED_AT_ || 0),
     lastRunId: String(row.LAST_RUN_ID_ || ''),
@@ -175,6 +181,7 @@ export async function listCachedChats(): Promise<ChatSummary[]> {
       CHAT_ID_,
       CHAT_NAME_,
       AGENT_KEY_,
+      TEAM_ID_,
       CREATED_AT_,
       UPDATED_AT_,
       LAST_RUN_ID_,
@@ -211,16 +218,18 @@ export async function upsertChatSummaries(input: ChatSummary[]): Promise<void> {
           CHAT_ID_,
           CHAT_NAME_,
           AGENT_KEY_,
+          TEAM_ID_,
           CREATED_AT_,
           UPDATED_AT_,
           LAST_RUN_ID_,
           LAST_RUN_CONTENT_,
           READ_STATUS_,
           READ_AT_
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(CHAT_ID_) DO UPDATE SET
           CHAT_NAME_ = excluded.CHAT_NAME_,
           AGENT_KEY_ = excluded.AGENT_KEY_,
+          TEAM_ID_ = excluded.TEAM_ID_,
           CREATED_AT_ = excluded.CREATED_AT_,
           UPDATED_AT_ = excluded.UPDATED_AT_,
           LAST_RUN_ID_ = excluded.LAST_RUN_ID_,
@@ -231,6 +240,7 @@ export async function upsertChatSummaries(input: ChatSummary[]): Promise<void> {
           String(item.chatId || ''),
           String(item.chatName || item.title || item.chatId || ''),
           String(item.firstAgentKey || item.agentKey || UNKNOWN_AGENT_KEY),
+          String(item.teamId || ''),
           toTimestampMs(item.createdAt, Date.now()),
           toTimestampMs(item.updatedAt, Date.now()),
           String(item.lastRunId || ''),

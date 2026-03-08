@@ -16,7 +16,7 @@ import {
   WebViewAuthRefreshOutcome
 } from '../../../core/auth/webViewAuthBridge';
 import { AppTheme } from '../../../core/constants/theme';
-import { createRequestId, getAgentKey } from '../../../shared/utils/format';
+import { createRequestId, getAgentKey, getAgentName, getAgentRole } from '../../../shared/utils/format';
 import { createFireworksShow } from '../../../shared/animations/fireworks';
 import { setChatId, setStatusText } from '../state/chatSlice';
 import { toggleTheme, setThemeMode } from '../../../modules/user/state/userSlice';
@@ -35,6 +35,7 @@ import { ChatEffect, createEmptyChatState, createRuntimeMaps, reduceChatEvent } 
 import { parseFrontendToolBridgeMessage } from '../services/frontendToolBridge';
 import { TimelineEntryRow } from '../components/TimelineEntryRow';
 import { Composer } from '../components/Composer';
+import { TeamMentionPanel } from '../components/TeamMentionPanel';
 import { styles } from './ChatAssistantScreen.styles';
 
 const REASONING_COLLAPSE_MS = 1500;
@@ -69,6 +70,39 @@ const NATIVE_CONFIRM_DIALOG_TOOL_KEY = 'confirm_dialog';
 const FRONTEND_TOOL_OVERLAY_OPEN_MS = 220;
 const FRONTEND_TOOL_OVERLAY_CLOSE_MS = 170;
 const EDGE_TOAST_TTL_MS = 2000;
+
+function isMentionBoundaryChar(input: string): boolean {
+  return /[\s([{<"'`~!#$%^&*+=|\\:;,.?/\-，。！？、；：（）【】《》“”‘’]/.test(input);
+}
+
+function resolveActiveMention(textInput: string, caretIndexInput: number) {
+  const text = String(textInput || '');
+  const caretIndex = Math.max(0, Math.min(Number(caretIndexInput || 0), text.length));
+  const beforeCaret = text.slice(0, caretIndex);
+  const triggerIndex = beforeCaret.lastIndexOf('@');
+
+  if (triggerIndex < 0) {
+    return { active: false, triggerIndex: -1, query: '', replaceStart: -1, replaceEnd: -1 };
+  }
+
+  const prevChar = triggerIndex > 0 ? beforeCaret[triggerIndex - 1] : '';
+  if (prevChar && !isMentionBoundaryChar(prevChar)) {
+    return { active: false, triggerIndex: -1, query: '', replaceStart: -1, replaceEnd: -1 };
+  }
+
+  const mentionBody = beforeCaret.slice(triggerIndex + 1);
+  if (/\s/.test(mentionBody)) {
+    return { active: false, triggerIndex: -1, query: '', replaceStart: -1, replaceEnd: -1 };
+  }
+
+  return {
+    active: true,
+    triggerIndex,
+    query: mentionBody,
+    replaceStart: triggerIndex,
+    replaceEnd: caretIndex
+  };
+}
 
 function isNativeConfirmDialogTool(toolType: string, toolKey: string): boolean {
   return String(toolType || '').toLowerCase() === 'html' && String(toolKey || '') === NATIVE_CONFIRM_DIALOG_TOOL_KEY;
@@ -157,12 +191,15 @@ export function ChatAssistantScreen({
   const insets = useSafeAreaInsets();
 
   const chatId = useAppSelector((state) => state.chat.chatId);
+  const chats = useAppSelector((state) => state.chat.chats);
+  const teams = useAppSelector((state) => state.chat.teams);
   const selectedAgentKey = useAppSelector((state) => state.user.selectedAgentKey);
   const agents = useAppSelector((state) => state.agents.agents);
   const statusText = useAppSelector((state) => state.chat.statusText);
 
   const [chatState, setChatState] = useState<ChatState>(createEmptyChatState());
   const [composerText, setComposerText] = useState('');
+  const [composerSelection, setComposerSelection] = useState({ start: 0, end: 0 });
   const [copyToast, setCopyToast] = useState(false);
   const [edgeToast, setEdgeToast] = useState<EdgeToastState | null>(null);
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true);
@@ -186,6 +223,7 @@ export function ChatAssistantScreen({
   const onChatViewedRef = useRef(onChatViewed);
   const listRef = useRef<FlatList<TimelineEntry>>(null);
   const frontendToolWebViewRef = useRef<WebView>(null);
+  const composerInputRef = useRef(null);
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const streamIdleTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -244,6 +282,110 @@ export function ChatAssistantScreen({
       return next;
     });
   }, []);
+
+  const activeChatSummary = useMemo(
+    () => chats.find((item) => String(item?.chatId || '').trim() === String(chatId || '').trim()) || null,
+    [chatId, chats]
+  );
+
+  const activeTeam = useMemo(() => {
+    const teamId = String(activeChatSummary?.teamId || '').trim();
+    if (!teamId) {
+      return null;
+    }
+    return teams.find((item) => String(item?.teamId || '').trim() === teamId) || null;
+  }, [activeChatSummary?.teamId, teams]);
+
+  const teamMentionAgents = useMemo(() => {
+    const agentKeys = Array.isArray(activeTeam?.agentKeys) ? activeTeam.agentKeys : [];
+    if (!agentKeys.length) {
+      return [];
+    }
+
+    const agentByKey = new Map();
+    agents.forEach((agent) => {
+      const key = getAgentKey(agent);
+      if (key) {
+        agentByKey.set(key, agent);
+      }
+    });
+
+    return agentKeys
+      .map((key) => {
+        const normalizedKey = String(key || '').trim();
+        return normalizedKey ? agentByKey.get(normalizedKey) : null;
+      })
+      .filter(Boolean);
+  }, [activeTeam?.agentKeys, agents]);
+
+  const activeMentionState = useMemo(
+    () => resolveActiveMention(composerText, composerSelection.start),
+    [composerSelection.start, composerText]
+  );
+
+  const filteredMentionAgents = useMemo(() => {
+    if (!activeMentionState.active) {
+      return [];
+    }
+
+    const keyword = String(activeMentionState.query || '').trim().toLowerCase();
+    if (!keyword) {
+      return teamMentionAgents;
+    }
+
+    return teamMentionAgents.filter((agent) => {
+      const agentKey = String(getAgentKey(agent) || '').trim().toLowerCase();
+      const agentName = String(getAgentName(agent) || '').trim().toLowerCase();
+      const agentRole = String(getAgentRole(agent) || '').trim().toLowerCase();
+      return agentKey.includes(keyword) || agentName.includes(keyword) || agentRole.includes(keyword);
+    });
+  }, [activeMentionState.active, activeMentionState.query, teamMentionAgents]);
+
+  const showMentionPanel = Boolean(
+    String(activeChatSummary?.teamId || '').trim() && activeMentionState.active && filteredMentionAgents.length
+  );
+
+  const syncComposerSelection = useCallback((nextSelection: { start: number; end: number }) => {
+    setComposerSelection(nextSelection);
+    requestAnimationFrame(() => {
+      const input = composerInputRef.current as
+        | {
+            focus?: () => void;
+            setNativeProps?: (props: { selection?: { start: number; end: number } }) => void;
+          }
+        | null;
+      input?.focus?.();
+      input?.setNativeProps?.({ selection: nextSelection });
+    });
+  }, []);
+
+  const handleSelectMentionAgent = useCallback(
+    (agentKeyInput: string) => {
+      const agentKey = String(agentKeyInput || '').trim();
+      if (!agentKey || !activeMentionState.active) {
+        return;
+      }
+
+      const mentionText = `@${agentKey} `;
+      const nextText =
+        composerText.slice(0, activeMentionState.replaceStart) + mentionText + composerText.slice(activeMentionState.replaceEnd);
+      const nextCaret = activeMentionState.replaceStart + mentionText.length;
+
+      setComposerText(nextText);
+      syncComposerSelection({ start: nextCaret, end: nextCaret });
+    },
+    [activeMentionState.active, activeMentionState.replaceEnd, activeMentionState.replaceStart, composerText, syncComposerSelection]
+  );
+
+  const mentionPanelNode = useMemo(() => {
+    if (!showMentionPanel) {
+      return null;
+    }
+
+    return (
+      <TeamMentionPanel theme={theme} items={filteredMentionAgents} onSelect={handleSelectMentionAgent} />
+    );
+  }, [filteredMentionAgents, handleSelectMentionAgent, showMentionPanel, theme]);
 
   useEffect(() => {
     onRefreshChatsRef.current = onRefreshChats;
@@ -1160,6 +1302,7 @@ export function ChatAssistantScreen({
 
     const requestId = createRequestId('mobile');
     setComposerText('');
+    setComposerSelection({ start: 0, end: 0 });
     setAutoScrollMode(true);
 
     const initialAccessToken = await getAccessToken(backendUrl);
@@ -2208,7 +2351,10 @@ export function ChatAssistantScreen({
                 <Composer
                   theme={theme}
                   composerText={composerText}
+                  topOverlay={mentionPanelNode}
+                  inputRef={composerInputRef}
                   onChangeText={setComposerText}
+                  onSelectionChange={setComposerSelection}
                   onFocus={() => {}}
                   onBlur={() => {}}
                   onSend={sendMessage}
@@ -2392,7 +2538,9 @@ export function ChatAssistantScreen({
               <Composer
                 theme={theme}
                 composerText={composerText}
+                inputRef={composerInputRef}
                 onChangeText={setComposerText}
+                onSelectionChange={setComposerSelection}
                 onFocus={() => {}}
                 onBlur={() => {}}
                 onSend={sendMessage}

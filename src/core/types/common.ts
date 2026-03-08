@@ -1,5 +1,5 @@
 export type ThemeMode = 'light' | 'dark';
-export type DomainMode = 'chat' | 'terminal' | 'agents' | 'user';
+export type DomainMode = 'chat' | 'apps' | 'terminal' | 'drive' | 'user';
 
 export interface Agent {
   key?: string;

@@ -94,7 +94,8 @@ export const styles = StyleSheet.create({
     paddingTop: 4
   },
   composerLayer: {
-    position: 'relative'
+    position: 'relative',
+    zIndex: 5
   },
   frontendToolOverlay: {
     ...StyleSheet.absoluteFillObject,

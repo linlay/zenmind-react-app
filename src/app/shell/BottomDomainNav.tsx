@@ -11,9 +11,10 @@ interface BottomDomainNavProps {
 
 const ITEMS: Array<{ key: DomainMode; label: string; path: string }> = [
   { key: 'chat', label: '对话', path: 'Chat' },
+  { key: 'apps', label: '小应用', path: 'Apps' },
   { key: 'terminal', label: '终端', path: 'Terminal' },
-  { key: 'agents', label: '智能体', path: 'Agents' },
-  { key: 'user', label: '配置', path: 'User' }
+  { key: 'drive', label: '网盘', path: 'Drive' },
+  { key: 'user', label: '用户', path: 'User' }
 ];
 
 const ICON_SIZE = 29;
@@ -48,11 +49,25 @@ function DomainIcon({ mode, color }: { mode: DomainMode; color: string }) {
     );
   }
 
-  if (mode === 'agents') {
+  if (mode === 'apps') {
     return (
       <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
-        <Rect x={4.5} y={7} width={15} height={11} rx={2.2} stroke={color} strokeWidth={1.8} />
-        <Path d="M9 4.8h6M12 7V4.8M9.2 11.4h.01M14.8 11.4h.01" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+        <Rect x={4.5} y={5.5} width={15} height={13} rx={2.8} stroke={color} strokeWidth={1.8} />
+        <Path d="M8.2 10.1H15.8M8.2 13.9H13" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      </Svg>
+    );
+  }
+
+  if (mode === 'drive') {
+    return (
+      <Svg width={ICON_SIZE} height={ICON_SIZE} viewBox="0 0 24 24" fill="none">
+        <Path
+          d="M4.2 8.8C4.2 7.53 5.23 6.5 6.5 6.5H9.7L11.3 8.1H17.5C18.77 8.1 19.8 9.13 19.8 10.4V16.7C19.8 17.97 18.77 19 17.5 19H6.5C5.23 19 4.2 17.97 4.2 16.7V8.8Z"
+          stroke={color}
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
       </Svg>
     );
   }

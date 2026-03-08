@@ -56,7 +56,7 @@ export function ShellAgentsTabScreen({
   }, [navigation, onBindRootTabNavigation]);
 
   useEffect(() => {
-    const notifyFocus = () => onDomainFocus?.('agents');
+    const notifyFocus = () => onDomainFocus?.('apps');
 
     if (navigation.isFocused()) {
       notifyFocus();

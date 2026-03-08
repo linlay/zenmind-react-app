@@ -4,7 +4,7 @@
 
 - `ShellScreen.tsx`: Shell 容器，负责状态编排、副作用（鉴权、WebSocket、数据同步）和页面装配。
 - `ShellScreen.styles.ts`: Shell 统一样式定义，避免主文件混杂视觉细节。
-- `components/ShellScreenView.tsx`: Shell 视图层，负责绑定 root tab / chat stack / terminal stack 的 focus listener，并把导航焦点投影为统一 shell 路由状态。
+- `components/ShellScreenView.tsx`: Shell 视图层，负责绑定 root tab / apps stack / chat stack / terminal stack 的 focus listener，并把导航焦点投影为统一 shell 路由状态。
 - `components/ShellTopNav.tsx`: 顶部导航组件，仅负责渲染和事件转发。
 - `routes/shellRouteSnapshot.ts`: 导航焦点快照，将真实 focus route 映射为 shell 可消费的 `chatMode` / `chatOverlayType` / `terminalPane`。
 - `routes/shellRouteModel.ts`: 在 route snapshot 之上生成统一的视图模型（标题、副标题、底栏显隐等）。
@@ -15,19 +15,23 @@
 
 Shell 以 React Navigation 的实际焦点路由为唯一真相源：
 
-- 域路由：`chat | terminal | agents | user`
+- 域路由：`chat | apps | terminal | drive | user`
+- Apps 栈路由：`AppsList | AppsWebView`
 - Chat 栈路由：`ChatList | ChatSearch | ChatDetail | AgentProfile`
 - Terminal 栈路由：`TerminalList | TerminalDetail | TerminalDrive`
+- Drive 一级页：`Drive`
 
 `buildShellRouteSnapshot` 会把上述焦点状态收敛为：
 
+- `appsPane`: `list | detail`
 - `chatMode`: `list | search`
 - `chatOverlayType`: `'' | 'chatDetail' | 'agentDetail'`
 - `terminalPane`: `list | detail | drive`
 
 `buildShellRouteModel` 再基于 snapshot 输出：
 
-- 当前是否在某个域（`isChatDomain` 等）
+- 当前是否在某个域（`isChatDomain`、`isAppsDomain` 等）
+- Drive 一级单页与 `TerminalDrive` 共享同一份网盘内容组件
 - 顶栏形态（`isChatListTopNav`、`topNavTitle`、`topNavSubtitle`）
 - 底栏显隐（`showBottomNav`）
 

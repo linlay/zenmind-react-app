@@ -339,7 +339,6 @@ function createShellController(overrides: Partial<Record<string, any>> = {}) {
     backendUrl: 'https://api.example.com',
     chatRefreshSignal: 0,
     loadingChats: false,
-    agentLatestChats: [],
     searchAgentResults: [],
     searchChatResults: [],
     inboxAnim: new ReactNative.Animated.Value(0),

@@ -16,17 +16,19 @@ interface ShellTopNavProps {
   onPressChatOverlayBack: () => void;
   onPressChatSearchBack: () => void;
   onPressChatLeftAction: () => void;
+  onPressAppsBack: () => void;
+  onPressAppsCreate: () => void;
   onPressTerminalBack: () => void;
-  onPressAgentsBack: () => void;
-  onPressTerminalLeftAction: () => void;
   onPressUserInboxToggle: () => void;
   onPressTerminalRefresh: () => void;
   onPressTerminalDrive: () => void;
+  onPressDriveMenu: () => void;
+  onPressDriveSearch: () => void;
+  onPressDriveSelect: () => void;
   onPressChatDetailMenu: () => void;
   onPressChatListSearch: () => void;
   onToggleChatPlusMenu: () => void;
   onPressChatPlusMenuItem: (label: string) => void;
-  onPressPublishToggle: () => void;
   onPressThemeToggle: () => void;
 }
 
@@ -41,32 +43,35 @@ export function ShellTopNav({
   onPressChatOverlayBack,
   onPressChatSearchBack,
   onPressChatLeftAction,
+  onPressAppsBack,
+  onPressAppsCreate,
   onPressTerminalBack,
-  onPressAgentsBack,
-  onPressTerminalLeftAction,
   onPressUserInboxToggle,
   onPressTerminalRefresh,
   onPressTerminalDrive,
+  onPressDriveMenu,
+  onPressDriveSearch,
+  onPressDriveSelect,
   onPressChatDetailMenu,
   onPressChatListSearch,
   onToggleChatPlusMenu,
   onPressChatPlusMenuItem,
-  onPressPublishToggle,
   onPressThemeToggle
 }: ShellTopNavProps) {
   const {
     isChatDomain,
+    isAppsDomain,
     isTerminalDomain,
+    isDriveDomain,
     isUserDomain,
-    isAgentsDomain,
-    isAgentsPublishPage,
+    isAppsDetailPage,
     isChatDetailOverlay,
     isChatAgentOverlay,
     isChatListTopNav,
     topNavTitle,
     topNavSubtitle
   } = routeModel;
-  const { agentsPane, chatMode, hasChatOverlay, terminalPane } = routeSnapshot;
+  const { appsPane, chatMode, hasChatOverlay, terminalPane } = routeSnapshot;
 
   return (
     <View style={styles.topNavCompact} nativeID="shell-top-nav" testID="shell-top-nav">
@@ -121,13 +126,26 @@ export function ShellTopNav({
           ) : (
             <></>
           )
-        ) : isAgentsDomain ? (
-          agentsPane === 'publish' ? (
+        ) : isDriveDomain ? (
+          <TouchableOpacity
+            activeOpacity={0.72}
+            style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+            testID="shell-drive-menu-btn"
+            onPress={onPressDriveMenu}
+          >
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+              <Rect x={3} y={5.2} width={18} height={2.3} rx={1.15} fill={theme.primaryDeep} />
+              <Rect x={3} y={10.85} width={18} height={2.3} rx={1.15} fill={theme.primaryDeep} />
+              <Rect x={3} y={16.5} width={18} height={2.3} rx={1.15} fill={theme.primaryDeep} />
+            </Svg>
+          </TouchableOpacity>
+        ) : isAppsDomain ? (
+          appsPane === 'detail' ? (
             <TouchableOpacity
               activeOpacity={0.72}
               style={[styles.detailBackBtn, { backgroundColor: theme.surfaceStrong }]}
-              testID="agents-publish-back-btn"
-              onPress={onPressAgentsBack}
+              testID="apps-detail-back-btn"
+              onPress={onPressAppsBack}
             >
               <Text style={[styles.detailBackText, { color: theme.primaryDeep }]}>‹</Text>
             </TouchableOpacity>
@@ -202,24 +220,7 @@ export function ShellTopNav({
         testID="shell-top-right-slot"
       >
         {isTerminalDomain ? (
-          terminalPane === 'list' ? (
-            <TouchableOpacity
-              activeOpacity={0.72}
-              style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-              testID="shell-terminal-drive-btn"
-              onPress={onPressTerminalDrive}
-            >
-              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                <Path
-                  d="M3.8 8.4C3.8 7.24 4.74 6.3 5.9 6.3H9.1L10.7 7.9H18.1C19.26 7.9 20.2 8.84 20.2 10V17.6C20.2 18.76 19.26 19.7 18.1 19.7H5.9C4.74 19.7 3.8 18.76 3.8 17.6V8.4Z"
-                  stroke={theme.primaryDeep}
-                  strokeWidth={1.9}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </Svg>
-            </TouchableOpacity>
-          ) : terminalPane === 'detail' ? (
+          terminalPane === 'detail' ? (
             <TouchableOpacity
               activeOpacity={0.72}
               style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
@@ -228,9 +229,87 @@ export function ShellTopNav({
             >
               <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>刷新</Text>
             </TouchableOpacity>
+          ) : terminalPane === 'drive' ? (
+            <View style={styles.chatListTopActions} testID="shell-drive-top-actions">
+              <TouchableOpacity
+                activeOpacity={0.72}
+                style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                testID="shell-drive-search-btn"
+                onPress={onPressDriveSearch}
+              >
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Path
+                    d="M16.2 16.2L20 20M18 11a7 7 0 1 1-14 0a7 7 0 0 1 14 0Z"
+                    stroke={theme.primaryDeep}
+                    strokeWidth={2.1}
+                    strokeLinecap="round"
+                  />
+                </Svg>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.72}
+                style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+                testID="shell-drive-select-btn"
+                onPress={onPressDriveSelect}
+              >
+                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                  <Rect
+                    x={4}
+                    y={4}
+                    width={16}
+                    height={16}
+                    rx={2.8}
+                    stroke={theme.primaryDeep}
+                    strokeWidth={1.9}
+                  />
+                  <Path
+                    d="M8.6 12.5L11 14.9L16.3 9.7"
+                    stroke={theme.primaryDeep}
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </Svg>
+              </TouchableOpacity>
+            </View>
           ) : (
-            <View style={styles.iconOnlyBtn} testID="shell-terminal-drive-right-placeholder" />
+            <View style={styles.iconOnlyBtn} testID="shell-terminal-list-right-placeholder" />
           )
+        ) : isDriveDomain ? (
+          <View style={styles.chatListTopActions} testID="shell-drive-top-actions">
+            <TouchableOpacity
+              activeOpacity={0.72}
+              style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+              testID="shell-drive-search-btn"
+              onPress={onPressDriveSearch}
+            >
+              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                <Path
+                  d="M16.2 16.2L20 20M18 11a7 7 0 1 1-14 0a7 7 0 0 1 14 0Z"
+                  stroke={theme.primaryDeep}
+                  strokeWidth={2.1}
+                  strokeLinecap="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.72}
+              style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
+              testID="shell-drive-select-btn"
+              onPress={onPressDriveSelect}
+            >
+              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                <Rect x={4} y={4} width={16} height={16} rx={2.8} stroke={theme.primaryDeep} strokeWidth={1.9} />
+                <Path
+                  d="M8.6 12.5L11 14.9L16.3 9.7"
+                  stroke={theme.primaryDeep}
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </Svg>
+            </TouchableOpacity>
+          </View>
         ) : isChatDomain ? (
           isChatDetailOverlay ? (
             <TouchableOpacity
@@ -303,17 +382,17 @@ export function ShellTopNav({
               </View>
             </View>
           )
-        ) : isAgentsDomain ? (
-          isAgentsPublishPage ? (
-            <View style={styles.iconOnlyBtn} testID="agents-publish-right-placeholder" />
+        ) : isAppsDomain ? (
+          isAppsDetailPage ? (
+            <View style={styles.iconOnlyBtn} testID="apps-detail-right-placeholder" />
           ) : (
             <TouchableOpacity
               activeOpacity={0.72}
               style={[styles.topActionBtn, { backgroundColor: theme.surfaceStrong }]}
-              testID="shell-publish-toggle-btn"
-              onPress={onPressPublishToggle}
+              testID="shell-apps-create-btn"
+              onPress={onPressAppsCreate}
             >
-              <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>发布</Text>
+              <Text style={[styles.topActionText, { color: theme.primaryDeep }]}>新增</Text>
             </TouchableOpacity>
           )
         ) : isUserDomain ? (

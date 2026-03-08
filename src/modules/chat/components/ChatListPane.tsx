@@ -1,5 +1,6 @@
 import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AppTheme } from '../../../core/constants/theme';
+import { TAB_LIST_CONTENT_STYLE, getTabPagePalette } from '../../../app/shell/styles/tabPageVisual';
 import { formatChatListTime, getChatTitle } from '../../../shared/utils/format';
 import { AgentLatestChatItem } from '../state/chatSelectors';
 import { AgentAvatarIcon, resolveAgentAvatarBgColor, resolveAgentAvatarName } from './agentAvatarRegistry';
@@ -13,11 +14,16 @@ interface ChatListPaneProps {
 }
 
 export function ChatListPane({ theme, loading, items, onSelectChat, onSelectAgentProfile }: ChatListPaneProps) {
+  const palette = getTabPagePalette(theme);
+
   return (
-    <View style={styles.container} testID="chat-list-pane">
+    <View style={[styles.container, { backgroundColor: palette.pageBackground }]} testID="chat-list-pane">
       <ScrollView style={styles.listWrap} contentContainerStyle={styles.listContent}>
         {items.length ? (
           items.map((item, index) => {
+            if (index === 7) {
+              // console.log(item);
+            }
             const chat = item.latestChat;
             const latestChatName = getChatTitle(chat) || chat.chatId || '未命名会话';
             const agentName = item.agentName || '未知智能体';
@@ -113,14 +119,14 @@ export function ChatListPane({ theme, loading, items, onSelectChat, onSelectAgen
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 8,
-    paddingTop: 8
+    paddingHorizontal: TAB_LIST_CONTENT_STYLE.paddingHorizontal,
+    paddingTop: TAB_LIST_CONTENT_STYLE.paddingTop
   },
   listWrap: {
     flex: 1
   },
   listContent: {
-    paddingBottom: 12,
+    paddingBottom: TAB_LIST_CONTENT_STYLE.paddingBottom,
     gap: 8
   },
   chatItem: {

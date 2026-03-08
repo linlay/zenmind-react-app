@@ -30,7 +30,7 @@ import {
   requestOpenNewSessionModal,
   setActiveSessionId
 } from '../../../modules/terminal/state/terminalSlice';
-import { selectAgentLatestChats, selectCurrentAgentChats } from '../../../modules/chat/state/chatSelectors';
+import { selectCurrentAgentChats } from '../../../modules/chat/state/chatSelectors';
 import { ChatSearchAgentItem } from '../../../modules/chat/components/ChatSearchPane';
 import { useLazyGetAgentsQuery } from '../../../modules/agents/api/agentsApi';
 import { useLazyGetTeamsQuery } from '../../../modules/chat/api/chatApi';
@@ -61,6 +61,7 @@ import {
 import { WebViewAuthRefreshCoordinator, WebViewAuthRefreshOutcome } from '../../../core/auth/webViewAuthBridge';
 import { initChatCacheDb, listCachedChats, markChatReadLocal } from '../../../modules/chat/services/chatCacheDb';
 import { syncChatsIncremental } from '../../../modules/chat/services/chatSyncService';
+import { shouldApplyChatSyncResult } from '../../../modules/chat/state/chatSyncPolicy';
 
 const PREFRESH_MIN_VALIDITY_MS = 120_000;
 const PREFRESH_JITTER_MS = 8_000;
@@ -80,7 +81,6 @@ export function useShellScreenController() {
   const chats = useAppSelector((state) => state.chat.chats);
   const loadingChats = useAppSelector((state) => state.chat.loadingChats);
   const agents = useAppSelector((state) => state.agents.agents);
-  const agentLatestChats = useAppSelector(selectAgentLatestChats);
   const currentAgentChats = useAppSelector(selectCurrentAgentChats);
   const activeTerminalSessionId = useAppSelector((state) => state.terminal.activeSessionId);
 
@@ -128,7 +128,7 @@ export function useShellScreenController() {
   const canSubmitLogin = Boolean(normalizedLoginEndpointDraft) && !authChecking;
 
   useEffect(() => {
-    initChatCacheDb().catch(() => {});
+    initChatCacheDb().catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -229,7 +229,20 @@ export function useShellScreenController() {
       chatSyncInFlightRef.current = true;
       try {
         const result = await syncChatsIncremental(base);
-        dispatch(setChats(result.chats));
+        // TODO
+        /* const { chats } = result
+        // const { lastRunContent, ...test } = chats[]
+        const _testdata = chats.map((chat, index) => {
+          return {
+            index,
+            teamId: chat.teamId
+          }
+        }).filter(t => !!t.teamId)
+        console.log('_testdata', _testdata); */
+
+        if (shouldApplyChatSyncResult(result.updatedChatIds)) {
+          dispatch(setChats(result.chats));
+        }
 
         if (options?.bumpActiveChatRefresh) {
           const activeChatId = String(chatId || '').trim();
@@ -510,7 +523,7 @@ export function useShellScreenController() {
         if (typeof payload.unreadCount === 'number') {
           setInboxUnreadCount(payload.unreadCount);
         } else {
-          refreshInbox(true).catch(() => {});
+          refreshInbox(true).catch(() => { });
         }
         return;
       }
@@ -519,7 +532,7 @@ export function useShellScreenController() {
         if (typeof payload.unreadCount === 'number') {
           setInboxUnreadCount(payload.unreadCount);
         } else {
-          refreshInbox(true).catch(() => {});
+          refreshInbox(true).catch(() => { });
         }
         return;
       }
@@ -528,7 +541,7 @@ export function useShellScreenController() {
         syncChatsNow(backendUrl, {
           notifyError: false,
           bumpActiveChatRefresh: true
-        }).catch(() => {});
+        }).catch(() => { });
       }
     },
     [backendUrl, refreshInbox, syncChatsNow]
@@ -681,7 +694,7 @@ export function useShellScreenController() {
       const delayMs = Math.min(30_000, 1000 * 2 ** retryCount);
       wsRetryRef.current += 1;
       wsReconnectTimerRef.current = setTimeout(() => {
-        connectWs().catch(() => {});
+        connectWs().catch(() => { });
       }, delayMs);
     };
 
@@ -697,7 +710,7 @@ export function useShellScreenController() {
         const nextToken = String(event.session.accessToken || '');
         syncAuthStateFromSession(event.session);
         if (authReady && previousToken && nextToken && previousToken !== nextToken) {
-          connectWs().catch(() => {});
+          connectWs().catch(() => { });
         }
         return;
       }
@@ -722,7 +735,7 @@ export function useShellScreenController() {
           return;
         }
         lastActiveRefreshAtRef.current = now;
-        runForegroundProactiveRefresh().catch(() => {});
+        runForegroundProactiveRefresh().catch(() => { });
       }
     });
 
@@ -739,7 +752,7 @@ export function useShellScreenController() {
       if (appStateRef.current !== 'active') {
         return;
       }
-      runForegroundProactiveRefresh().catch(() => {});
+      runForegroundProactiveRefresh().catch(() => { });
     }, FOREGROUND_REFRESH_INTERVAL_MS);
 
     return () => {
@@ -759,7 +772,7 @@ export function useShellScreenController() {
       syncChatsNow(backendUrl, {
         notifyError: false,
         bumpActiveChatRefresh: true
-      }).catch(() => {});
+      }).catch(() => { });
     }, 5000);
 
     return () => {
@@ -881,10 +894,10 @@ export function useShellScreenController() {
       return;
     }
 
-    runForegroundProactiveRefresh().catch(() => {});
-    refreshAll(true).catch(() => {});
-    refreshInbox(true).catch(() => {});
-    connectWs().catch(() => {});
+    runForegroundProactiveRefresh().catch(() => { });
+    refreshAll(true).catch(() => { });
+    refreshInbox(true).catch(() => { });
+    connectWs().catch(() => { });
 
     return () => {
       clearWs();
@@ -899,7 +912,7 @@ export function useShellScreenController() {
       ptyUrlInput,
       selectedAgentKey,
       activeDomain
-    }).catch(() => {});
+    }).catch(() => { });
   }, [activeDomain, booting, endpointInput, ptyUrlInput, selectedAgentKey, themeMode]);
 
   useEffect(() => {
@@ -912,7 +925,7 @@ export function useShellScreenController() {
     if (!inboxOpen || !authReady) {
       return;
     }
-    refreshInbox(true).catch(() => {});
+    refreshInbox(true).catch(() => { });
   }, [authReady, inboxOpen, refreshInbox]);
 
   useEffect(() => {
@@ -930,7 +943,7 @@ export function useShellScreenController() {
     if (booting || !authReady || activeDomain !== 'terminal') {
       return;
     }
-    refreshTerminalSessions(true).catch(() => {});
+    refreshTerminalSessions(true).catch(() => { });
   }, [activeDomain, authReady, booting, refreshTerminalSessions]);
 
   const activeAgent = useMemo(() => {
@@ -1116,7 +1129,6 @@ export function useShellScreenController() {
     inboxUnreadCount,
     inboxLoading,
     loadingChats,
-    agentLatestChats,
     searchAgentResults,
     searchChatResults,
     terminalSessions,

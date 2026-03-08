@@ -4,8 +4,9 @@ import { DomainMode } from '../../core/types/common';
 
 export type ShellTabParamList = {
   Chat: undefined;
+  Apps: undefined;
   Terminal: undefined;
-  Agents: undefined;
+  Drive: undefined;
   User: undefined;
 };
 

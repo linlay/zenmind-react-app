@@ -1,6 +1,7 @@
 import * as Clipboard from 'expo-clipboard';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { AppTheme } from '../../../core/constants/theme';
+import { TAB_LIST_CONTENT_STYLE, getTabPagePalette } from '../../../app/shell/styles/tabPageVisual';
 import { TerminalSessionItem } from '../types/terminal';
 
 interface TerminalSessionListPaneProps {
@@ -28,6 +29,7 @@ export function TerminalSessionListPane({
 }: TerminalSessionListPaneProps) {
   const normalizedCurrentWebViewUrl = String(currentWebViewUrl || '').trim();
   const hasCurrentWebViewUrl = Boolean(normalizedCurrentWebViewUrl);
+  const palette = getTabPagePalette(theme);
 
   const handleCopyCurrentUrl = async () => {
     if (!hasCurrentWebViewUrl) {
@@ -38,7 +40,7 @@ export function TerminalSessionListPane({
   };
 
   return (
-    <View style={styles.container} testID="terminal-session-list-pane">
+    <View style={[styles.container, { backgroundColor: palette.pageBackground }]} testID="terminal-session-list-pane">
       <View style={styles.headerRow}>
         <Text style={[styles.title, { color: theme.text }]}>会话</Text>
         <TouchableOpacity
@@ -144,8 +146,8 @@ export function TerminalSessionListPane({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 14,
-    paddingTop: 8
+    paddingHorizontal: TAB_LIST_CONTENT_STYLE.paddingHorizontal,
+    paddingTop: TAB_LIST_CONTENT_STYLE.paddingTop
   },
   headerRow: {
     flexDirection: 'row',
@@ -189,7 +191,7 @@ const styles = StyleSheet.create({
     flex: 1
   },
   listContent: {
-    paddingBottom: 12,
+    paddingBottom: TAB_LIST_CONTENT_STYLE.paddingBottom,
     gap: 8
   },
   currentUrlCard: {

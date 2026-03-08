@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
 import { toBackendBaseUrl, toDefaultPtyWebUrl } from '../../../core/network/endpoint';
 import { patchSettings } from '../../../core/storage/settingsStorage';
 import { FONT_MONO } from '../../../core/constants/theme';
+import { TAB_LIST_CONTENT_STYLE } from '../../../app/shell/styles/tabPageVisual';
 import { applyEndpointDraft, setEndpointDraft, setPtyUrlDraft } from '../state/userSlice';
 
 interface UserSettingsScreenProps {
@@ -79,7 +80,7 @@ export function UserSettingsScreen({
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: theme.surface }]}
       contentContainerStyle={styles.scrollContent}
       nativeID="settings-root"
       testID="settings-root"
@@ -202,7 +203,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14
   },
   scrollContent: {
-    paddingBottom: 30,
+    paddingBottom: TAB_LIST_CONTENT_STYLE.paddingBottom,
     gap: 10
   },
   settingCard: {

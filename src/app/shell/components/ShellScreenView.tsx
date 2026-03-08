@@ -20,12 +20,14 @@ import { ShellScreenController } from '../hooks/useShellScreenController';
 import { buildShellRouteModel } from '../routes/shellRouteModel';
 import { buildShellRouteSnapshot } from '../routes/shellRouteSnapshot';
 import { ShellTabNavigation, ShellTabParamList } from '../types';
-import { AgentsRootNavigation, AgentsRouteName, AgentsRuntimeBridge } from '../pages/agents/types';
+import { getAppByKey } from '../pages/apps/config';
+import { AppsRootNavigation, AppsRouteName, AppsRuntimeBridge } from '../pages/apps/types';
 import { ChatRootNavigation, ChatRouteName } from '../pages/chat/types';
 import { TerminalRootNavigation, TerminalRouteName, TerminalRuntimeBridge } from '../pages/terminal/types';
+import { ShellAppsTabScreen } from '../pages/apps';
 import { ShellChatTabScreen } from '../pages/chat';
+import { ShellDriveTabScreen } from '../pages/drive';
 import { ShellTerminalTabScreen } from '../pages/terminal';
-import { ShellAgentsTabScreen } from '../pages/agents';
 import { ShellUserTabScreen } from '../pages/user';
 import { AgentSidebar } from '../../../modules/chat/components/AgentSidebar';
 import { ChatDetailDrawer } from '../../../modules/chat/components/ChatDetailDrawer';
@@ -55,12 +57,20 @@ type ShellTabName = keyof ShellTabParamList;
 
 const DOMAIN_TO_TAB: Record<DomainMode, ShellTabName> = {
   chat: 'Chat',
+  apps: 'Apps',
   terminal: 'Terminal',
-  agents: 'Agents',
+  drive: 'Drive',
   user: 'User'
 };
 
 const Tab = createBottomTabNavigator<ShellTabParamList>();
+
+function normalizeDomain(domain: DomainMode | string): DomainMode {
+  if (domain === 'chat' || domain === 'apps' || domain === 'terminal' || domain === 'drive' || domain === 'user') {
+    return domain;
+  }
+  return domain === 'agents' ? 'apps' : 'chat';
+}
 
 export function ShellScreenView({ controller }: ShellScreenViewProps) {
   const {
@@ -116,15 +126,17 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     closeFloatingPanels,
     terminalListResetSignal
   } = controller;
+  const normalizedActiveDomain = normalizeDomain(activeDomain);
 
   const rootTabNavigationRef = useRef<ShellTabNavigation | null>(null);
-  const agentsNavigationRef = useRef<AgentsRootNavigation | null>(null);
+  const appsNavigationRef = useRef<AppsRootNavigation | null>(null);
   const chatNavigationRef = useRef<ChatRootNavigation | null>(null);
   const terminalNavigationRef = useRef<TerminalRootNavigation | null>(null);
-  const previousFocusedDomainRef = useRef<DomainMode>(activeDomain);
+  const previousFocusedDomainRef = useRef<DomainMode>(normalizedActiveDomain);
 
-  const [focusedDomain, setFocusedDomain] = useState<DomainMode>(activeDomain);
-  const [agentsFocusedRoute, setAgentsFocusedRoute] = useState<AgentsRouteName>('AgentsList');
+  const [focusedDomain, setFocusedDomain] = useState<DomainMode>(normalizedActiveDomain);
+  const [appsFocusedRoute, setAppsFocusedRoute] = useState<AppsRouteName>('AppsList');
+  const [appsFocusedAppKey, setAppsFocusedAppKey] = useState<string>('');
   const [chatFocusedRoute, setChatFocusedRoute] = useState<ChatRouteName>('ChatList');
   const [terminalFocusedRoute, setTerminalFocusedRoute] = useState<TerminalRouteName>('TerminalList');
 
@@ -132,21 +144,24 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     () =>
       buildShellRouteSnapshot({
         activeDomain: focusedDomain,
-        agentsRouteName: agentsFocusedRoute,
+        appsRouteName: appsFocusedRoute,
         chatRouteName: chatFocusedRoute,
         terminalRouteName: terminalFocusedRoute
       }),
-    [agentsFocusedRoute, chatFocusedRoute, focusedDomain, terminalFocusedRoute]
+    [appsFocusedRoute, chatFocusedRoute, focusedDomain, terminalFocusedRoute]
   );
+
+  const activeAppName = useMemo(() => getAppByKey(appsFocusedAppKey)?.name || '', [appsFocusedAppKey]);
 
   const routeModel = useMemo(
     () =>
       buildShellRouteModel({
         routeSnapshot,
         activeAgentName,
-        activeAgentRole
+        activeAgentRole,
+        activeAppName
       }),
-    [activeAgentName, activeAgentRole, routeSnapshot]
+    [activeAgentName, activeAgentRole, activeAppName, routeSnapshot]
   );
 
   const bindRootTabNavigation = useCallback((navigation: ShellTabNavigation) => {
@@ -167,16 +182,17 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     chatNavigationRef.current = navigation;
   }, []);
 
-  const bindAgentsNavigation = useCallback((navigation: AgentsRootNavigation) => {
-    agentsNavigationRef.current = navigation;
+  const bindAppsNavigation = useCallback((navigation: AppsRootNavigation) => {
+    appsNavigationRef.current = navigation;
   }, []);
 
   const bindTerminalNavigation = useCallback((navigation: TerminalRootNavigation) => {
     terminalNavigationRef.current = navigation;
   }, []);
 
-  const handleAgentsRouteFocus = useCallback((routeName: AgentsRouteName) => {
-    setAgentsFocusedRoute(routeName);
+  const handleAppsRouteFocus = useCallback((routeName: AppsRouteName, appKey?: string) => {
+    setAppsFocusedRoute(routeName);
+    setAppsFocusedAppKey(routeName === 'AppsWebView' ? String(appKey || '').trim() : '');
   }, []);
 
   const handleChatRouteFocus = useCallback((routeName: ChatRouteName) => {
@@ -197,14 +213,14 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     navigation.navigate('ChatList');
   }, []);
 
-  const goBackOrNavigateAgentsList = useCallback(() => {
-    const navigation = agentsNavigationRef.current;
+  const goBackOrNavigateAppsList = useCallback(() => {
+    const navigation = appsNavigationRef.current;
     if (!navigation) return;
     if (navigation.canGoBack()) {
       navigation.goBack();
       return;
     }
-    navigation.navigate('AgentsList');
+    navigation.navigate('AppsList');
   }, []);
 
   const goBackOrNavigateTerminalList = useCallback(() => {
@@ -224,19 +240,6 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       CommonActions.reset({
         index: 0,
         routes: [{ name: 'TerminalList' }]
-      })
-    );
-  }, []);
-
-  const resetAgentsStackToList = useCallback(() => {
-    const navigation = agentsNavigationRef.current;
-    if (!navigation) {
-      return;
-    }
-    navigation.dispatch(
-      CommonActions.reset({
-        index: 0,
-        routes: [{ name: 'AgentsList' }]
       })
     );
   }, []);
@@ -289,11 +292,6 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
   }, [resetTerminalStackToList, routeSnapshot.activeDomain, routeSnapshot.terminalPane]);
 
   useEffect(() => {
-    if (routeSnapshot.activeDomain === 'agents' || routeSnapshot.agentsPane === 'list') return;
-    resetAgentsStackToList();
-  }, [resetAgentsStackToList, routeSnapshot.activeDomain, routeSnapshot.agentsPane]);
-
-  useEffect(() => {
     if (Platform.OS !== 'android') return;
 
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
@@ -323,8 +321,8 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
         goBackOrNavigateTerminalList();
         return true;
       }
-      if (routeSnapshot.activeDomain === 'agents' && agentsNavigationRef.current?.canGoBack()) {
-        goBackOrNavigateAgentsList();
+      if (routeSnapshot.activeDomain === 'apps' && appsNavigationRef.current?.canGoBack()) {
+        goBackOrNavigateAppsList();
         return true;
       }
       return false;
@@ -335,7 +333,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     chatAgentsSidebarOpen,
     chatDetailDrawerOpen,
     dispatch,
-    goBackOrNavigateAgentsList,
+    goBackOrNavigateAppsList,
     goBackOrNavigateChatList,
     goBackOrNavigateTerminalList,
     inboxOpen,
@@ -498,16 +496,14 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     ]
   );
 
-  const agentsRuntime = useMemo<AgentsRuntimeBridge>(
+  const appsRuntime = useMemo<AppsRuntimeBridge>(
     () => ({
-      theme,
-      selectedAgentKey,
-      onSubmitPublish: () => {
-        dispatch(setStatusText('发布任务已创建（演示）'));
-      },
-      onClosePublish: () => {}
+      authAccessToken,
+      authAccessExpireAtMs,
+      authTokenSignal,
+      onWebViewAuthRefreshRequest: handleWebViewAuthRefreshRequest
     }),
-    [dispatch, selectedAgentKey, theme]
+    [authAccessExpireAtMs, authAccessToken, authTokenSignal, handleWebViewAuthRefreshRequest]
   );
 
   const handleDomainTabPress = useCallback(
@@ -537,8 +533,8 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
           return;
         }
 
-        if (mode === 'agents' && routeSnapshot.agentsPane === 'publish') {
-          goBackOrNavigateAgentsList();
+        if (mode === 'apps' && routeSnapshot.appsPane === 'detail') {
+          goBackOrNavigateAppsList();
           return;
         }
 
@@ -563,7 +559,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       chatDetailDrawerOpen,
       closeFloatingPanels,
       dispatch,
-      goBackOrNavigateAgentsList,
+      goBackOrNavigateAppsList,
       goBackOrNavigateChatList,
       goBackOrNavigateTerminalList,
       routeSnapshot,
@@ -589,9 +585,6 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
           onChangeChatSearchQuery={setChatSearchQuery}
           onPressChatOverlayBack={handleChatOverlayBack}
           onPressChatSearchBack={handleChatSearchBack}
-          onPressAgentsBack={() => {
-            goBackOrNavigateAgentsList();
-          }}
           onPressChatLeftAction={() => {
             setInboxOpen(false);
             setChatPlusMenuOpen(false);
@@ -599,12 +592,14 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
             dispatch(resetChatDetailDrawerPreview());
             dispatch(setChatAgentsSidebarOpen(!chatAgentsSidebarOpen));
           }}
+          onPressAppsBack={() => {
+            setInboxOpen(false);
+            goBackOrNavigateAppsList();
+          }}
+          onPressAppsCreate={() => {}}
           onPressTerminalBack={() => {
             setInboxOpen(false);
             goBackOrNavigateTerminalList();
-          }}
-          onPressTerminalLeftAction={() => {
-            setInboxOpen(false);
           }}
           onPressUserInboxToggle={() => {
             dispatch(setChatAgentsSidebarOpen(false));
@@ -626,6 +621,18 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
             }
             terminalNavigationRef.current?.navigate('TerminalDrive');
           }}
+          onPressDriveMenu={() => {
+            setInboxOpen(false);
+            dispatch(setStatusText('功能建设中：网盘菜单'));
+          }}
+          onPressDriveSearch={() => {
+            setInboxOpen(false);
+            dispatch(setStatusText('功能建设中：网盘搜索'));
+          }}
+          onPressDriveSelect={() => {
+            setInboxOpen(false);
+            dispatch(setStatusText('功能建设中：网盘管理'));
+          }}
           onPressChatDetailMenu={() => {
             setInboxOpen(false);
             dispatch(setChatAgentsSidebarOpen(false));
@@ -638,11 +645,6 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
           onPressChatPlusMenuItem={(label) => {
             setChatPlusMenuOpen(false);
             dispatch(setStatusText(`功能建设中：${label}`));
-          }}
-          onPressPublishToggle={() => {
-            dispatch(setChatAgentsSidebarOpen(false));
-            setInboxOpen(false);
-            agentsNavigationRef.current?.navigate('AgentsPublish');
           }}
           onPressThemeToggle={() => {
             dispatch(setChatAgentsSidebarOpen(false));
@@ -665,7 +667,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
         <View style={styles.domainContent}>
           <Tab.Navigator
             id="RootTab"
-            initialRouteName={DOMAIN_TO_TAB[activeDomain]}
+            initialRouteName={DOMAIN_TO_TAB[normalizedActiveDomain]}
             backBehavior="none"
             screenOptions={{ headerShown: false }}
             tabBar={() =>
@@ -691,6 +693,17 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                 />
               )}
             </Tab.Screen>
+            <Tab.Screen name="Apps">
+              {() => (
+                <ShellAppsTabScreen
+                  onBindRootTabNavigation={bindRootTabNavigation}
+                  onDomainFocus={handleDomainFocus}
+                  onBindNavigation={bindAppsNavigation}
+                  onRouteFocus={handleAppsRouteFocus}
+                  runtime={appsRuntime}
+                />
+              )}
+            </Tab.Screen>
             <Tab.Screen name="Terminal">
               {() => (
                 <ShellTerminalTabScreen
@@ -702,14 +715,11 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                 />
               )}
             </Tab.Screen>
-            <Tab.Screen name="Agents">
+            <Tab.Screen name="Drive">
               {() => (
-                <ShellAgentsTabScreen
+                <ShellDriveTabScreen
                   onBindRootTabNavigation={bindRootTabNavigation}
                   onDomainFocus={handleDomainFocus}
-                  onBindNavigation={bindAgentsNavigation}
-                  onRouteFocus={handleAgentsRouteFocus}
-                  runtime={agentsRuntime}
                 />
               )}
             </Tab.Screen>

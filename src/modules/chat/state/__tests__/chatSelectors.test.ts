@@ -28,6 +28,11 @@ function createState(
 }
 
 describe('chatSelectors', () => {
+  beforeEach(() => {
+    selectAgentLatestChats.resetRecomputations();
+    selectCurrentAgentChats.resetRecomputations();
+  });
+
   it('aggregates chats by firstAgentKey and keeps only the latest chat per agent', () => {
     const state = createState([
       { chatId: 'a1-older', chatName: 'older', firstAgentKey: 'agent-a', firstAgentName: 'Agent A', updatedAt: 100 },
@@ -247,5 +252,15 @@ describe('chatSelectors', () => {
 
     const result = selectCurrentAgentChats(state);
     expect(result.map((item) => item.chatId)).toEqual(['b1']);
+  });
+
+  it('memoizes selectAgentLatestChats for identical state references', () => {
+    const chats = [{ chatId: 'a1', firstAgentKey: 'agent-a', updatedAt: 100 }];
+    const state = createState(chats);
+
+    selectAgentLatestChats(state);
+    selectAgentLatestChats(state);
+
+    expect(selectAgentLatestChats.recomputations()).toBe(1);
   });
 });

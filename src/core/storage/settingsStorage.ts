@@ -31,6 +31,7 @@ export function buildDefaultSettings(): AppSettings {
 function normalizeSettings(raw: Partial<AppSettings> | null | undefined): AppSettings {
   const defaults = buildDefaultSettings();
   const endpointInput = normalizeEndpointInput(raw?.endpointInput || defaults.endpointInput);
+  const rawActiveDomain = String(raw?.activeDomain || '').trim();
   const rawPtyUrlInput = String(raw?.ptyUrlInput || '')
     .trim()
     .replace(/\/+$/, '');
@@ -43,8 +44,16 @@ function normalizeSettings(raw: Partial<AppSettings> | null | undefined): AppSet
     ptyUrlInput,
     selectedAgentKey: String(raw?.selectedAgentKey || ''),
     activeDomain:
-      raw?.activeDomain === 'terminal' || raw?.activeDomain === 'agents' || raw?.activeDomain === 'user'
-        ? raw.activeDomain
+      rawActiveDomain === 'apps'
+        ? 'apps'
+        : rawActiveDomain === 'agents'
+        ? 'apps'
+        : rawActiveDomain === 'terminal'
+        ? 'terminal'
+        : rawActiveDomain === 'drive'
+        ? 'drive'
+        : rawActiveDomain === 'user'
+        ? 'user'
         : 'chat'
   };
 }

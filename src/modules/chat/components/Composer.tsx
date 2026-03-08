@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ReactNode, RefObject, useCallback, useEffect, useMemo, useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   Platform,
@@ -33,7 +33,10 @@ interface ComposerProps {
     danger: string;
   };
   composerText: string;
+  topOverlay?: ReactNode;
+  inputRef?: RefObject<TextInput | null>;
   onChangeText: (text: string) => void;
+  onSelectionChange?: (selection: { start: number; end: number }) => void;
   onFocus: () => void;
   onBlur: () => void;
   onSend: () => void;
@@ -51,7 +54,10 @@ interface ComposerProps {
 export function Composer({
   theme,
   composerText,
+  topOverlay,
+  inputRef,
   onChangeText,
+  onSelectionChange,
   onFocus,
   onBlur,
   onSend,
@@ -256,6 +262,7 @@ export function Composer({
 
   return (
     <View style={styles.card} nativeID="chat-composer" testID="chat-composer">
+      {topOverlay ? <View style={styles.topOverlayWrap}>{topOverlay}</View> : null}
       {activeFrontendTool ? (
         <View
           style={[
@@ -480,10 +487,12 @@ export function Composer({
             ) : null}
 
             <TextInput
+              ref={inputRef}
               value={composerText}
               onChangeText={onChangeText}
               onFocus={onFocus}
               onBlur={onBlur}
+              onSelectionChange={(event) => onSelectionChange?.(event.nativeEvent.selection)}
               placeholder=""
               editable={!streaming}
               multiline
@@ -533,6 +542,9 @@ export function Composer({
 const styles = StyleSheet.create({
   card: {
     marginHorizontal: 14,
+    marginBottom: 8
+  },
+  topOverlayWrap: {
     marginBottom: 8
   },
   inputShell: {
