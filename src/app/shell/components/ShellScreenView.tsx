@@ -124,6 +124,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     handleRequestSwitchAgentChat,
     handleWebViewAuthRefreshRequest,
     markChatViewed,
+    clearChatCache,
     refreshChats,
     refreshAll,
     handleLogout,
@@ -788,6 +789,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                   deviceName={authDeviceName}
                   accessToken={authAccessToken}
                   versionLabel={appVersionLabel}
+                  onClearChatCache={clearChatCache}
                   onLogout={handleLogout}
                 />
               )}

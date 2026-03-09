@@ -174,6 +174,11 @@ export async function initChatCacheDb(): Promise<void> {
   await openDb();
 }
 
+export async function clearChatCacheDb(): Promise<void> {
+  const db = await openDb();
+  await db.runAsync('DELETE FROM CHATS');
+}
+
 export async function listCachedChats(): Promise<ChatSummary[]> {
   const db = await openDb();
   const rows = await db.getAllAsync<ChatRow>(

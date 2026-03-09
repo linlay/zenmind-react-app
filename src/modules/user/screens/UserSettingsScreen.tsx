@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -26,6 +27,7 @@ interface UserSettingsScreenProps {
   deviceName: string;
   accessToken: string;
   versionLabel: string;
+  onClearChatCache: () => Promise<void>;
   onLogout: () => void;
 }
 
@@ -36,9 +38,11 @@ export function UserSettingsScreen({
   deviceName,
   accessToken,
   versionLabel,
+  onClearChatCache,
   onLogout
 }: UserSettingsScreenProps) {
   const dispatch = useAppDispatch();
+  const [clearingCache, setClearingCache] = useState(false);
   const { endpointDraft, ptyUrlDraft, endpointInput, ptyUrlInput, selectedAgentKey, activeDomain, themeMode } =
     useAppSelector((state) => state.user);
 
@@ -75,6 +79,35 @@ export function UserSettingsScreen({
     Alert.alert('确认登出', '登出后需要重新输入密码登录，确定继续？', [
       { text: '取消', style: 'cancel' },
       { text: '登出', style: 'destructive', onPress: onLogout }
+    ]);
+  };
+
+  const runClearChatCache = async () => {
+    if (clearingCache) {
+      return;
+    }
+    setClearingCache(true);
+    try {
+      await onClearChatCache();
+    } finally {
+      setClearingCache(false);
+    }
+  };
+
+  const handleClearChatCachePress = () => {
+    if (clearingCache) {
+      return;
+    }
+
+    Alert.alert('确认清除聊天缓存', '会清空本机聊天缓存，并立即重新拉取远端聊天数据。账号、设置和服务端数据不会受影响，确定继续？', [
+      { text: '取消', style: 'cancel' },
+      {
+        text: '清除',
+        style: 'destructive',
+        onPress: () => {
+          runClearChatCache().catch(() => {});
+        }
+      }
     ]);
   };
 
@@ -183,6 +216,32 @@ export function UserSettingsScreen({
         <View style={[styles.readonlyField, { backgroundColor: theme.surface }]}>
           <Text style={[styles.readonlyText, { color: theme.textMute }]}>{versionLabel}</Text>
         </View>
+      </View>
+
+      <View style={[styles.settingCard, { backgroundColor: theme.surfaceStrong }]} testID="cache-settings-card">
+        <View style={styles.settingRowHead}>
+          <Text style={[styles.title, { color: theme.text }]}>缓存管理</Text>
+        </View>
+
+        <Text style={[styles.cacheDescription, { color: theme.textMute }]}>
+          仅清理本机 SQLite 聊天缓存，不影响账号、设置和服务端数据
+        </Text>
+
+        <TouchableOpacity
+          activeOpacity={0.78}
+          style={[
+            styles.cacheActionBtn,
+            { backgroundColor: theme.surface, borderColor: theme.border },
+            clearingCache ? styles.cacheActionBtnDisabled : null
+          ]}
+          onPress={handleClearChatCachePress}
+          disabled={clearingCache}
+          testID="clear-chat-cache-btn"
+        >
+          <Text style={[styles.cacheActionText, { color: theme.primaryDeep }]}>
+            {clearingCache ? '清理中...' : '清除聊天缓存'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <TouchableOpacity
@@ -300,6 +359,24 @@ const styles = StyleSheet.create({
   copyBtnText: {
     fontSize: 11,
     fontWeight: '600'
+  },
+  cacheDescription: {
+    fontSize: 12,
+    lineHeight: 18
+  },
+  cacheActionBtn: {
+    marginTop: 12,
+    borderRadius: 10,
+    paddingVertical: 11,
+    alignItems: 'center',
+    borderWidth: StyleSheet.hairlineWidth
+  },
+  cacheActionBtnDisabled: {
+    opacity: 0.6
+  },
+  cacheActionText: {
+    fontSize: 13,
+    fontWeight: '700'
   },
   logoutBtn: {
     borderWidth: 1,

@@ -6,5 +6,6 @@ export interface ShellUserTabScreenProps extends ShellThemeTabScreenProps {
   deviceName: string;
   accessToken: string;
   versionLabel: string;
+  onClearChatCache: () => Promise<void>;
   onLogout: () => void;
 }

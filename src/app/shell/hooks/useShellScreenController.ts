@@ -60,7 +60,7 @@ import {
   subscribeAuthSession
 } from '../../../core/auth/appAuth';
 import { WebViewAuthRefreshCoordinator, WebViewAuthRefreshOutcome } from '../../../core/auth/webViewAuthBridge';
-import { initChatCacheDb, listCachedChats, markChatReadLocal } from '../../../modules/chat/services/chatCacheDb';
+import { clearChatCacheDb, initChatCacheDb, listCachedChats, markChatReadLocal } from '../../../modules/chat/services/chatCacheDb';
 import { syncChatsIncremental } from '../../../modules/chat/services/chatSyncService';
 import { shouldApplyChatSyncResult } from '../../../modules/chat/state/chatSyncPolicy';
 
@@ -464,6 +464,31 @@ export function useShellScreenController() {
     },
     [backendUrl, loadChatsFromCache]
   );
+
+  const clearChatCache = useCallback(async () => {
+    try {
+      await clearChatCacheDb();
+      dispatch(setChats([]));
+
+      if (!backendUrl || !authReady) {
+        notify('本地聊天缓存已清空，当前未执行远端回填', 'warn');
+        return;
+      }
+
+      try {
+        const result = await syncChatsIncremental(backendUrl);
+        dispatch(setChats(result.chats));
+        if (chatId && result.updatedChatIds.some((item) => item === chatId)) {
+          setChatRefreshSignal((prev) => prev + 1);
+        }
+        notify('聊天缓存已清空并重新拉取', 'success');
+      } catch (error) {
+        notify(`本地聊天缓存已清空，远端回填失败：${formatError(error)}`, 'warn');
+      }
+    } catch (error) {
+      notify(`清除聊天缓存失败：${formatError(error)}`, 'danger');
+    }
+  }, [authReady, backendUrl, chatId, dispatch, notify]);
 
   /**
    * 清理 WebSocket 连接
@@ -1168,6 +1193,7 @@ export function useShellScreenController() {
     handleRequestSwitchAgentChat,
     handleWebViewAuthRefreshRequest,
     markChatViewed,
+    clearChatCache,
     refreshChats,
     refreshAll,
     handleLogout,

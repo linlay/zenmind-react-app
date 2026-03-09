@@ -36,6 +36,7 @@ export function ShellUserTabScreen({
   deviceName,
   accessToken,
   versionLabel,
+  onClearChatCache,
   onLogout
 }: ShellUserTabScreenProps) {
   const navigation = useNavigation<ShellTabNavigation>();
@@ -63,6 +64,7 @@ export function ShellUserTabScreen({
       deviceName={deviceName}
       accessToken={accessToken}
       versionLabel={versionLabel}
+      onClearChatCache={onClearChatCache}
       onLogout={onLogout}
     />
   );
