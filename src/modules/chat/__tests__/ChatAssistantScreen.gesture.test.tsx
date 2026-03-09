@@ -7,6 +7,7 @@ const mockDispatch = jest.fn();
 const mockRefreshChats = jest.fn(() => Promise.resolve());
 const mockLoadChat = jest.fn();
 const mockLoadChatUnwrap = jest.fn();
+const mockLoadViewportHtml = jest.fn();
 const mockSubmitFrontendTool = jest.fn();
 const mockGetCachedChatDetail = jest.fn();
 const mockUpsertChatDetail = jest.fn();
@@ -19,8 +20,11 @@ jest.mock('../../../app/store/hooks', () => ({
 }));
 
 jest.mock('../state/chatSlice', () => ({
-  setChatId: (payload: string) => ({ type: 'chat/setChatId', payload }),
-  setStatusText: (payload: string) => ({ type: 'chat/setStatusText', payload })
+  setChatId: (payload: string) => ({ type: 'chat/setChatId', payload })
+}));
+
+jest.mock('../../../app/ui/uiSlice', () => ({
+  showToast: (payload: Record<string, unknown>) => ({ type: 'ui/showToast', payload })
 }));
 
 jest.mock('../../../modules/user/state/userSlice', () => ({
@@ -30,6 +34,7 @@ jest.mock('../../../modules/user/state/userSlice', () => ({
 
 jest.mock('../api/chatApi', () => ({
   useLazyGetChatQuery: () => [mockLoadChat, { isFetching: false }],
+  useLazyGetViewportHtmlQuery: () => [mockLoadViewportHtml, { isFetching: false }],
   useSubmitFrontendToolMutation: () => [mockSubmitFrontendTool]
 }));
 
@@ -101,8 +106,6 @@ function createBaseChatState(streaming = false) {
       content: '',
       closeText: '关闭'
     },
-    chatId: '',
-    statusText: '',
     streaming,
     expandedTools: {}
   };
@@ -154,7 +157,7 @@ describe('ChatAssistantScreen gestures', () => {
   beforeEach(() => {
     mockDispatch.mockReset();
     mockSelectorState = {
-      chat: { chatId: 'chat-1', statusText: '' },
+      chat: { chatId: 'chat-1', chats: [], teams: [] },
       user: { selectedAgentKey: 'agent-1' },
       agents: { agents: [{ key: 'agent-1', name: 'Agent 1' }] }
     };
@@ -485,7 +488,10 @@ describe('ChatAssistantScreen gestures', () => {
       layer.props.onResponderRelease?.({}, { dx: 0, dy: 92 });
     });
     expect(onSwitch).not.toHaveBeenCalled();
-    expect(mockDispatch).toHaveBeenCalledWith({ type: 'chat/setStatusText', payload: '当前正在回复，暂不能切换对话' });
+    expect(mockDispatch).toHaveBeenCalledWith({
+      type: 'ui/showToast',
+      payload: { message: '当前正在回复，暂不能切换对话', tone: 'warn' }
+    });
     await act(async () => {
       tree.unmount();
       jest.runOnlyPendingTimers();

@@ -80,13 +80,6 @@ export async function syncChatsIncremental(baseUrl: string): Promise<SyncResult>
 
   const data = await fetchApiJson<ChatSummary[]>(baseUrl, `/api/ap/chats${query}`);
 
-  /* const _testdata = data.map((chat, index) => {
-    return {
-      index,
-      teamId: chat.teamId
-    }
-  }).filter(t => !!t.teamId) */
-
   const updates = Array.isArray(data)
     ? data.map((item) => normalizeChatSummary(item)).filter((item) => String(item.chatId || '').trim())
     : [];
@@ -110,11 +103,6 @@ export async function syncChatsIncremental(baseUrl: string): Promise<SyncResult>
     }
   }
   const chats = await listCachedChats();
-
-  // TODO
-  /* if (updates.length) {
-    console.log('_testdata111', chats[0], updates, _testdata);
-  } */
 
   return {
     chats,

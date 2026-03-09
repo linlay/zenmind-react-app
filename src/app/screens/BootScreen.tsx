@@ -1,13 +1,11 @@
 import React from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { AppTheme } from '../../core/constants/theme';
+import { useAppTheme } from '../hooks/useAppTheme';
 
 interface BootScreenProps {
   /** 加载提示信息 */
   message: string;
-  /** 当前主题 */
-  theme: AppTheme;
 }
 
 /**
@@ -17,7 +15,9 @@ interface BootScreenProps {
  * 1. booting = true：正在加载配置
  * 2. authChecking = true：正在验证登录状态
  */
-export function BootScreen({ message, theme }: BootScreenProps) {
+export function BootScreen({ message }: BootScreenProps) {
+  const theme = useAppTheme();
+
   return (
     <SafeAreaView edges={['top', 'bottom']} style={[styles.root, { backgroundColor: theme.surface }]}>
       <View style={styles.bootWrap}>
@@ -32,12 +32,12 @@ export function BootScreen({ message, theme }: BootScreenProps) {
 
 const styles = StyleSheet.create({
   root: {
-    flex: 1,
+    flex: 1
   },
   bootWrap: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   bootCard: {
     paddingHorizontal: 18,
@@ -46,9 +46,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 10
   },
   bootText: {
-    fontSize: 14,
-  },
+    fontSize: 14
+  }
 });

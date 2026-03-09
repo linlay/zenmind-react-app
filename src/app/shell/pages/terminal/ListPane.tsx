@@ -1,10 +1,21 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 
-import { THEMES } from '../../../../core/constants/theme';
+import { AppTheme, THEMES } from '../../../../core/constants/theme';
 import { useAppSelector } from '../../../store/hooks';
 import { TerminalSessionListPane } from '../../../../modules/terminal/components/TerminalSessionListPane';
 
 import { TerminalRouteBridgeProps, TerminalRouteScreenProps } from './types';
+import { ShellHeaderActionButton, ShellHeaderPlaceholder, ShellHeaderTitle } from '../../components/ShellTopNav';
+import { ShellHeaderDescriptor } from '../../header/types';
+import { useShellRouteBridge } from '../../hooks/useShellRouteBridge';
+
+export function buildTerminalListHeader(theme: AppTheme, onOpenDrive: () => void): ShellHeaderDescriptor {
+  return {
+    left: <ShellHeaderPlaceholder />,
+    center: <ShellHeaderTitle theme={theme} title="会话" />,
+    right: <ShellHeaderActionButton theme={theme} label="My PC" testID="shell-terminal-drive-btn" onPress={onOpenDrive} />
+  };
+}
 
 export function TerminalListRouteScreen({
   navigation,
@@ -15,19 +26,11 @@ export function TerminalListRouteScreen({
   const themeMode = useAppSelector((state) => state.user.themeMode);
   const theme = useMemo(() => THEMES[themeMode] || THEMES.light, [themeMode]);
 
-  useEffect(() => {
-    onBindNavigation?.(navigation);
-  }, [navigation, onBindNavigation]);
-
-  useEffect(() => {
-    const notifyFocus = () => {
-      onRouteFocus?.('TerminalList');
-    };
-
-    notifyFocus();
-    const unsubscribe = navigation.addListener('focus', notifyFocus);
-    return unsubscribe;
-  }, [navigation, onRouteFocus]);
+  useShellRouteBridge({
+    navigation,
+    onBindNavigation,
+    onFocus: () => onRouteFocus?.('TerminalList')
+  });
 
   const handleCreateSession = useCallback(() => {
     runtime?.onCreateSession();

@@ -3,24 +3,12 @@ import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import {
   buildWebViewPostMessageScript,
-  createWebViewAuthRefreshResultMessage,
   createWebViewAuthTokenMessage,
-  parseWebViewAuthRefreshRequest,
+  relayWebViewAuthMessage,
+  WEBVIEW_AUTH_BRIDGE_SCRIPT,
   WebViewAuthRefreshOutcome
 } from '../../../core/auth/webViewAuthBridge';
-
-const TERMINAL_WEBVIEW_BRIDGE_SCRIPT = `
-(function() {
-  var origPostMessage = window.postMessage;
-  window.postMessage = function(data, targetOrigin) {
-    if (data && typeof data === 'object' && data.type === 'auth_refresh_request') {
-      window.ReactNativeWebView.postMessage(JSON.stringify(data));
-    }
-    origPostMessage.call(window, data, targetOrigin);
-  };
-  true;
-})();
-`;
+import { EmbeddedWebViewState } from '../../../core/components/EmbeddedWebViewState';
 
 interface TerminalWebViewProps {
   uri: string;
@@ -110,7 +98,7 @@ export function TerminalWebView({
         sharedCookiesEnabled
         thirdPartyCookiesEnabled
         mixedContentMode="always"
-        injectedJavaScript={TERMINAL_WEBVIEW_BRIDGE_SCRIPT}
+        injectedJavaScript={WEBVIEW_AUTH_BRIDGE_SCRIPT}
         onNavigationStateChange={(navState) => {
           const nextUrl = String(navState?.url || '').trim();
           if (!nextUrl || nextUrl === lastReportedUrlRef.current) {
@@ -120,17 +108,14 @@ export function TerminalWebView({
           onUrlChange?.(nextUrl);
         }}
         onLoadStart={() => {
-          console.log('[TerminalWebView] onLoadStart uri=', uri);
           clearLoadTimer();
           setLoadTimedOut(false);
           loadTimerRef.current = setTimeout(() => {
-            console.warn('[TerminalWebView] load timed out after 8s, hiding overlay');
             setLoadTimedOut(true);
           }, 8000);
           onLoadStart();
         }}
         onLoadEnd={() => {
-          console.log('[TerminalWebView] onLoadEnd uri=', uri);
           clearLoadTimer();
           setLoadTimedOut(false);
           onLoadEnd();
@@ -138,49 +123,27 @@ export function TerminalWebView({
         }}
         onError={(event) => {
           const message = String(event?.nativeEvent?.description || '加载失败');
-          console.warn('[TerminalWebView] onError:', message, 'uri=', uri);
           clearLoadTimer();
           setLoadTimedOut(false);
           onError(message);
         }}
         onMessage={(event) => {
-          const request = parseWebViewAuthRefreshRequest(event?.nativeEvent?.data);
-          if (!request) {
-            return;
-          }
-          const fallback = Promise.resolve<WebViewAuthRefreshOutcome>({
-            ok: false,
-            error: 'Auth refresh handler unavailable'
-          });
-          const refreshTask = onAuthRefreshRequest ? onAuthRefreshRequest(request.requestId, request.source) : fallback;
-          refreshTask
-            .then((outcome) => {
-              const result = createWebViewAuthRefreshResultMessage(request.requestId, outcome);
-              postToTerminalWebView(result as unknown as Record<string, unknown>);
-            })
-            .catch((error) => {
-              const result = createWebViewAuthRefreshResultMessage(request.requestId, {
-                ok: false,
-                error: String((error as Error)?.message || 'refresh failed')
-              });
-              postToTerminalWebView(result as unknown as Record<string, unknown>);
-            });
+          relayWebViewAuthMessage({
+            raw: event?.nativeEvent?.data,
+            onAuthRefreshRequest,
+            postMessage: postToTerminalWebView
+          }).catch(() => {});
         }}
       />
 
-      {loading && !loadTimedOut ? (
-        <View style={styles.overlay}>
-          <ActivityIndicator size="small" color={theme.primary} />
-          <Text style={[styles.overlayText, { color: theme.textSoft }]}>正在加载 PTY 前端...</Text>
-        </View>
-      ) : null}
-
-      {error ? (
-        <View style={styles.overlay}>
-          <Text style={[styles.overlayText, { color: theme.danger }]}>PTY 页面加载失败：{error}</Text>
-          <Text style={[styles.overlayText, { color: theme.textMute }]}>地址：{uri}</Text>
-        </View>
-      ) : null}
+      <EmbeddedWebViewState
+        loading={loading && !loadTimedOut}
+        error={error}
+        loadingText="正在加载 PTY 前端..."
+        errorTitle="PTY 页面加载失败"
+        errorDetail={`地址：${uri}`}
+        theme={theme}
+      />
     </View>
   );
 }
@@ -192,16 +155,5 @@ const styles = StyleSheet.create({
   },
   webView: {
     flex: 1
-  },
-  overlay: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    gap: 8
-  },
-  overlayText: {
-    fontSize: 12,
-    textAlign: 'center'
   }
 });

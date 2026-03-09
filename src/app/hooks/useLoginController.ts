@@ -5,7 +5,6 @@ import { normalizeEndpointInput, toBackendBaseUrl, toDefaultPtyWebUrl } from '..
 import { getDefaultDeviceName, loginWithMasterPassword } from '../../core/auth/appAuth';
 import { formatError } from '../../core/network/apiClient';
 import { getAppVersionLabel } from '../../shared/utils/appVersion';
-import type { AppTheme } from '../../core/constants/theme';
 
 /**
  * 登录控制器接口
@@ -18,7 +17,6 @@ export interface LoginController {
   authError: string;
   canSubmitLogin: boolean;
   appVersionLabel: string;
-  theme: AppTheme;
   isSubmitting: boolean;
 
   // 方法
@@ -39,7 +37,7 @@ export interface LoginController {
  *
  * 注意：登录成功后，需要外部调用 restoreSession 来刷新数据
  */
-export function useLoginController(theme: AppTheme): LoginController {
+export function useLoginController(): LoginController {
   const dispatch = useAppDispatch();
   const endpointDraft = useAppSelector((state) => state.user.endpointDraft);
   const [masterPassword, setMasterPassword] = useState('');
@@ -111,7 +109,6 @@ export function useLoginController(theme: AppTheme): LoginController {
     authError,
     canSubmitLogin,
     appVersionLabel,
-    theme,
     isSubmitting,
     setEndpointDraftText,
     setDeviceName,

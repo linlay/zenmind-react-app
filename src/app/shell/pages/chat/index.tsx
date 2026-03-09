@@ -32,14 +32,10 @@ export function ChatScreen({ onRouteFocus, onBindNavigation, chatDetailRuntime }
     <View style={styles.domainContent}>
       <Stack.Navigator id="ChatScreen" initialRouteName="ChatList" screenOptions={{ headerShown: false }}>
         <Stack.Screen name="ChatList" options={{ animation: 'slide_from_right' }}>
-          {(props) => (
-            <ChatListRouteScreen {...props} onBindNavigation={onBindNavigation} onRouteFocus={onRouteFocus} />
-          )}
+          {(props) => <ChatListRouteScreen {...props} onBindNavigation={onBindNavigation} onRouteFocus={onRouteFocus} />}
         </Stack.Screen>
         <Stack.Screen name="ChatSearch" options={{ animation: 'slide_from_right' }}>
-          {(props) => (
-            <ChatSearchRouteScreen {...props} onBindNavigation={onBindNavigation} onRouteFocus={onRouteFocus} />
-          )}
+          {(props) => <ChatSearchRouteScreen {...props} onBindNavigation={onBindNavigation} onRouteFocus={onRouteFocus} />}
         </Stack.Screen>
         <Stack.Screen name="ChatDetail" options={{ animation: 'slide_from_right' }}>
           {(props) => (
@@ -52,9 +48,7 @@ export function ChatScreen({ onRouteFocus, onBindNavigation, chatDetailRuntime }
           )}
         </Stack.Screen>
         <Stack.Screen name="AgentProfile" options={{ animation: 'slide_from_right' }}>
-          {(props) => (
-            <AgentProfileRouteScreen {...props} onBindNavigation={onBindNavigation} onRouteFocus={onRouteFocus} />
-          )}
+          {(props) => <AgentProfileRouteScreen {...props} onBindNavigation={onBindNavigation} onRouteFocus={onRouteFocus} />}
         </Stack.Screen>
       </Stack.Navigator>
     </View>
@@ -87,11 +81,7 @@ export function ShellChatTabScreen({
 
   return (
     <View style={styles.domainContent} testID="chat-pane-stack">
-      <ChatScreen
-        onBindNavigation={onBindNavigation}
-        onRouteFocus={onRouteFocus}
-        chatDetailRuntime={chatDetailRuntime}
-      />
+      <ChatScreen onBindNavigation={onBindNavigation} onRouteFocus={onRouteFocus} chatDetailRuntime={chatDetailRuntime} />
     </View>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { THEMES } from '../../../../core/constants/theme';
@@ -12,6 +12,7 @@ import {
   TAB_TITLE_FONT_SIZE,
   getTabPagePalette
 } from '../../styles/tabPageVisual';
+import { useShellRouteBridge } from '../../hooks/useShellRouteBridge';
 import { APPS } from './config';
 import { AppsRouteBridgeProps, AppsRouteScreenProps } from './types';
 
@@ -33,19 +34,11 @@ export function AppsListRouteScreen({
   const theme = useMemo(() => THEMES[themeMode] || THEMES.light, [themeMode]);
   const palette = useMemo(() => getTabPagePalette(theme), [theme]);
 
-  useEffect(() => {
-    onBindNavigation?.(navigation);
-  }, [navigation, onBindNavigation]);
-
-  useEffect(() => {
-    const notifyFocus = () => {
-      onRouteFocus?.('AppsList');
-    };
-
-    notifyFocus();
-    const unsubscribe = navigation.addListener('focus', notifyFocus);
-    return unsubscribe;
-  }, [navigation, onRouteFocus]);
+  useShellRouteBridge({
+    navigation,
+    onBindNavigation,
+    onFocus: () => onRouteFocus?.('AppsList')
+  });
 
   return (
     <View style={[styles.page, { backgroundColor: palette.pageBackground }]} testID="apps-list-page">

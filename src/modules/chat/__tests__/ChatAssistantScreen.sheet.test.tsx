@@ -9,6 +9,7 @@ const mockDispatch = jest.fn();
 const mockRefreshChats = jest.fn(() => Promise.resolve());
 const mockLoadChat = jest.fn();
 const mockLoadChatUnwrap = jest.fn();
+const mockLoadViewportHtml = jest.fn();
 const mockSubmitFrontendTool = jest.fn();
 const mockSubmitFrontendToolUnwrap = jest.fn();
 const mockComposerRender = jest.fn();
@@ -39,8 +40,11 @@ jest.mock('../../../app/store/hooks', () => ({
 }));
 
 jest.mock('../state/chatSlice', () => ({
-  setChatId: (payload: string) => ({ type: 'chat/setChatId', payload }),
-  setStatusText: (payload: string) => ({ type: 'chat/setStatusText', payload })
+  setChatId: (payload: string) => ({ type: 'chat/setChatId', payload })
+}));
+
+jest.mock('../../../app/ui/uiSlice', () => ({
+  showToast: (payload: Record<string, unknown>) => ({ type: 'ui/showToast', payload })
 }));
 
 jest.mock('../../../modules/user/state/userSlice', () => ({
@@ -50,6 +54,7 @@ jest.mock('../../../modules/user/state/userSlice', () => ({
 
 jest.mock('../api/chatApi', () => ({
   useLazyGetChatQuery: () => [mockLoadChat, { isFetching: false }],
+  useLazyGetViewportHtmlQuery: () => [mockLoadViewportHtml, { isFetching: false }],
   useSubmitFrontendToolMutation: () => [mockSubmitFrontendTool]
 }));
 
@@ -151,8 +156,6 @@ function createBaseChatState(activeFrontendTool: Record<string, unknown> | null)
       content: '',
       closeText: '关闭'
     },
-    chatId: '',
-    statusText: '',
     streaming: false,
     expandedTools: {}
   };
@@ -257,7 +260,7 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
 
   beforeEach(() => {
     mockSelectorState = {
-      chat: { chatId: '', statusText: '' },
+      chat: { chatId: '', chats: [], teams: [] },
       user: { selectedAgentKey: 'agent-1' },
       agents: { agents: [{ key: 'agent-1', name: 'Agent 1' }] }
     };
@@ -313,7 +316,7 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
   it('calls onChatViewed after loading chat history from cache', async () => {
     const onChatViewed = jest.fn(() => Promise.resolve());
     mockSelectorState = {
-      chat: { chatId: 'chat-history-1', statusText: '' },
+      chat: { chatId: 'chat-history-1' },
       user: { selectedAgentKey: 'agent-1' },
       agents: { agents: [{ key: 'agent-1', name: 'Agent 1' }] }
     };
@@ -605,7 +608,7 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
 
   it('passes history chatImageToken from getChat response to row renderer', async () => {
     mockSelectorState = {
-      chat: { chatId: 'chat-history-1', statusText: '' },
+      chat: { chatId: 'chat-history-1' },
       user: { selectedAgentKey: 'agent-1' },
       agents: { agents: [{ key: 'agent-1', name: 'Agent 1' }] }
     };
@@ -629,7 +632,7 @@ describe('ChatAssistantScreen frontend tool overlay', () => {
 
   it('updates row chatImageToken when chat.start event carries token', async () => {
     mockSelectorState = {
-      chat: { chatId: 'chat-stream-1', statusText: '' },
+      chat: { chatId: 'chat-stream-1' },
       user: { selectedAgentKey: 'agent-1' },
       agents: { agents: [{ key: 'agent-1', name: 'Agent 1' }] }
     };

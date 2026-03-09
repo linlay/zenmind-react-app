@@ -24,6 +24,19 @@ export interface WebViewAuthRefreshOutcome {
   error?: string;
 }
 
+export const WEBVIEW_AUTH_BRIDGE_SCRIPT = `
+(function() {
+  var origPostMessage = window.postMessage;
+  window.postMessage = function(data, targetOrigin) {
+    if (data && typeof data === 'object' && data.type === 'auth_refresh_request') {
+      window.ReactNativeWebView.postMessage(JSON.stringify(data));
+    }
+    origPostMessage.call(window, data, targetOrigin);
+  };
+  true;
+})();
+`;
+
 function createFallbackRequestId() {
   return `wv_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
@@ -118,6 +131,38 @@ export function buildWebViewPostMessageScript(payload: Record<string, unknown>):
       } catch (e) {}
       true;
     `;
+}
+
+export async function relayWebViewAuthMessage(params: {
+  raw: unknown;
+  onAuthRefreshRequest?: (requestId: string, source: string) => Promise<WebViewAuthRefreshOutcome>;
+  postMessage: (payload: Record<string, unknown>) => void;
+}): Promise<boolean> {
+  const request = parseWebViewAuthRefreshRequest(params.raw);
+  if (!request) {
+    return false;
+  }
+
+  const fallback: WebViewAuthRefreshOutcome = {
+    ok: false,
+    error: 'Auth refresh handler unavailable'
+  };
+
+  try {
+    const outcome = params.onAuthRefreshRequest
+      ? await params.onAuthRefreshRequest(request.requestId, request.source)
+      : fallback;
+    params.postMessage(createWebViewAuthRefreshResultMessage(request.requestId, outcome) as unknown as Record<string, unknown>);
+    return true;
+  } catch (error) {
+    params.postMessage(
+      createWebViewAuthRefreshResultMessage(request.requestId, {
+        ok: false,
+        error: String((error as Error)?.message || 'refresh failed')
+      }) as unknown as Record<string, unknown>
+    );
+    return true;
+  }
 }
 
 export class WebViewAuthRefreshCoordinator {

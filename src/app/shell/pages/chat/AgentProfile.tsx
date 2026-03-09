@@ -1,13 +1,31 @@
 import { useCallback, useEffect, useMemo } from 'react';
 
-import { THEMES } from '../../../../core/constants/theme';
-import { getAgentKey } from '../../../../shared/utils/format';
+import { AppTheme, THEMES } from '../../../../core/constants/theme';
+import { getAgentKey, getAgentName } from '../../../../shared/utils/format';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
+import { hideToast } from '../../../ui/uiSlice';
 import { setSelectedAgentKey } from '../../../../modules/user/state/userSlice';
-import { setChatId, setStatusText } from '../../../../modules/chat/state/chatSlice';
+import { setChatId } from '../../../../modules/chat/state/chatSlice';
 import { AgentProfilePane } from '../../../../modules/chat/components/AgentProfilePane';
 
 import { ChatRouteScreenProps, ChatRouteBridgeProps } from './types';
+import { ShellHeaderBackButton, ShellHeaderPlaceholder, ShellHeaderTitle } from '../../components/ShellTopNav';
+import { ShellHeaderDescriptor } from '../../header/types';
+import { useShellRouteBridge } from '../../hooks/useShellRouteBridge';
+
+interface BuildAgentProfileHeaderInput {
+  theme: AppTheme;
+  title: string;
+  onBack: () => void;
+}
+
+export function buildAgentProfileHeader({ theme, title, onBack }: BuildAgentProfileHeaderInput): ShellHeaderDescriptor {
+  return {
+    left: <ShellHeaderBackButton theme={theme} testID="chat-agent-back-btn" onPress={onBack} />,
+    center: <ShellHeaderTitle theme={theme} title={title || 'Agent'} />,
+    right: <ShellHeaderPlaceholder testID="chat-agent-right-placeholder" />
+  };
+}
 
 export function AgentProfileRouteScreen({
   route,
@@ -28,15 +46,11 @@ export function AgentProfileRouteScreen({
     }
   }, [agentKey, dispatch]);
 
-  useEffect(() => {
-    onBindNavigation?.(navigation);
-  }, [navigation, onBindNavigation]);
-
-  useEffect(() => {
-    onRouteFocus?.('AgentProfile');
-    const unsubscribe = navigation.addListener('focus', () => onRouteFocus?.('AgentProfile'));
-    return unsubscribe;
-  }, [navigation, onRouteFocus]);
+  useShellRouteBridge({
+    navigation,
+    onBindNavigation,
+    onFocus: () => onRouteFocus?.('AgentProfile')
+  });
 
   const handleStartChat = useCallback(
     (nextAgentKey: string) => {
@@ -46,7 +60,7 @@ export function AgentProfileRouteScreen({
       }
       dispatch(setSelectedAgentKey(normalizedAgentKey));
       dispatch(setChatId(''));
-      dispatch(setStatusText(''));
+      dispatch(hideToast());
       navigation.navigate('ChatDetail', {
         chatId: '',
         agentKey: normalizedAgentKey

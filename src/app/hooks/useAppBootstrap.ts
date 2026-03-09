@@ -1,6 +1,4 @@
 import { useAppSelector } from '../store/hooks';
-import { THEMES } from '../../core/constants/theme';
-import type { AppTheme } from '../../core/constants/theme';
 
 /**
  * 应用级状态接口
@@ -8,8 +6,6 @@ import type { AppTheme } from '../../core/constants/theme';
 export interface AppBootstrapState {
   /** 是否正在加载配置 */
   booting: boolean;
-  /** 当前主题 */
-  theme: AppTheme;
 }
 
 /**
@@ -25,12 +21,8 @@ export interface AppBootstrapState {
  */
 export function useAppBootstrap(): AppBootstrapState {
   const booting = useAppSelector((state) => state.user.booting);
-  const themeMode = useAppSelector((state) => state.user.themeMode);
-
-  const theme = THEMES[themeMode];
 
   return {
-    booting,
-    theme,
+    booting
   };
 }

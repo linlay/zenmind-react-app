@@ -4,7 +4,6 @@ import { ChatSummary, TeamSummary } from '../../../core/types/common';
 interface ChatUiState {
   chats: ChatSummary[];
   chatId: string;
-  statusText: string;
   loadingChats: boolean;
   teams: TeamSummary[];
 }
@@ -12,7 +11,6 @@ interface ChatUiState {
 const initialState: ChatUiState = {
   chats: [],
   chatId: '',
-  statusText: '',
   loadingChats: false,
   teams: []
 };
@@ -30,14 +28,11 @@ const chatSlice = createSlice({
     setChatId(state, action: PayloadAction<string>) {
       state.chatId = action.payload;
     },
-    setStatusText(state, action: PayloadAction<string>) {
-      state.statusText = action.payload;
-    },
     setLoadingChats(state, action: PayloadAction<boolean>) {
       state.loadingChats = action.payload;
     }
   }
 });
 
-export const { setChats, setTeams, setChatId, setStatusText, setLoadingChats } = chatSlice.actions;
+export const { setChats, setTeams, setChatId, setLoadingChats } = chatSlice.actions;
 export default chatSlice.reducer;

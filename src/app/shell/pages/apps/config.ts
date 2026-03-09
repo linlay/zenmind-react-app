@@ -14,14 +14,14 @@ export const APPS: AppsAppDefinition[] = [
     name: '记事本',
     description: '',
     status: '建设中',
-    url: 'https://app.zenmind.cc/ma/note'
+    url: 'https://app.zenmind.cc/ma/note/'
   },
   {
     key: 'ledger',
     name: '记账本',
     description: '',
     status: '建设中',
-    url: 'https://app.zenmind.cc/ma/cost'
+    url: 'https://app.zenmind.cc/ma/cost/'
   }
 ];
 

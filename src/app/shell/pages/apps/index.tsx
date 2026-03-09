@@ -5,7 +5,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { ShellTabNavigation } from '../../types';
 import { styles } from '../terminal/index.styles';
 import { AppsListRouteScreen } from './List';
-import { AppsWebViewRouteScreen } from './WebView';
 import { AppsRouteBridgeProps, AppsStackParamList, ShellAppsTabScreenProps } from './types';
 
 const Stack = createNativeStackNavigator<AppsStackParamList>();
@@ -22,14 +21,17 @@ export function AppsScreen({ onBindNavigation, onRouteFocus, runtime }: AppsScre
           )}
         </Stack.Screen>
         <Stack.Screen name="AppsWebView" options={{ animation: 'slide_from_right' }}>
-          {(props) => (
-            <AppsWebViewRouteScreen
-              {...props}
-              onBindNavigation={onBindNavigation}
-              onRouteFocus={onRouteFocus}
-              runtime={runtime}
-            />
-          )}
+          {(props) => {
+            const { AppsWebViewRouteScreen } = require('./WebView');
+            return (
+              <AppsWebViewRouteScreen
+                {...props}
+                onBindNavigation={onBindNavigation}
+                onRouteFocus={onRouteFocus}
+                runtime={runtime}
+              />
+            );
+          }}
         </Stack.Screen>
       </Stack.Navigator>
     </View>

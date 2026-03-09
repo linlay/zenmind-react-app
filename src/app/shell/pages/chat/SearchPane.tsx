@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { ChatSearchAgentItem, ChatSearchPane } from '../../../../modules/chat/components/ChatSearchPane';
 import { setChatId } from '../../../../modules/chat/state/chatSlice';
-import { THEMES } from '../../../../core/constants/theme';
+import { AppTheme, THEMES } from '../../../../core/constants/theme';
 import {
   getAgentKey,
   getAgentName,
@@ -14,6 +14,9 @@ import {
 import { setSelectedAgentKey } from '../../../../modules/user/state/userSlice';
 import { setChatSearchQuery } from '../../shellSlice';
 import { useAppDispatch, useAppSelector } from '../../../store/hooks';
+import { ShellHeaderBackButton, ShellHeaderPlaceholder, ShellHeaderSearchInput } from '../../components/ShellTopNav';
+import { ShellHeaderDescriptor } from '../../header/types';
+import { useShellRouteBridge } from '../../hooks/useShellRouteBridge';
 import { ChatRootNavigation, ChatRouteName, ChatRouteScreenProps } from './types';
 
 const UNKNOWN_AGENT_KEY = '__unknown_agent__';
@@ -21,6 +24,34 @@ const UNKNOWN_AGENT_KEY = '__unknown_agent__';
 interface ChatSearchRouteScreenExtraProps {
   onBindNavigation?: (navigation: ChatRootNavigation) => void;
   onRouteFocus?: (routeName: ChatRouteName) => void;
+}
+
+interface BuildChatSearchHeaderInput {
+  theme: AppTheme;
+  chatSearchQuery: string;
+  onChangeChatSearchQuery: (value: string) => void;
+  onBack: () => void;
+}
+
+export function buildChatSearchHeader({
+  theme,
+  chatSearchQuery,
+  onChangeChatSearchQuery,
+  onBack
+}: BuildChatSearchHeaderInput): ShellHeaderDescriptor {
+  return {
+    left: <ShellHeaderBackButton theme={theme} testID="chat-search-back-btn" onPress={onBack} />,
+    center: (
+      <ShellHeaderSearchInput
+        theme={theme}
+        value={chatSearchQuery}
+        onChangeText={onChangeChatSearchQuery}
+        placeholder="搜索 chat / 智能体"
+        testID="chat-top-search-input"
+      />
+    ),
+    right: <ShellHeaderPlaceholder testID="chat-search-right-placeholder" />
+  };
 }
 
 export function ChatSearchRouteScreen({
@@ -39,15 +70,11 @@ export function ChatSearchRouteScreen({
     .trim()
     .toLowerCase();
 
-  useEffect(() => {
-    onBindNavigation?.(navigation);
-  }, [navigation, onBindNavigation]);
-
-  useEffect(() => {
-    onRouteFocus?.('ChatSearch');
-    const unsubscribe = navigation.addListener('focus', () => onRouteFocus?.('ChatSearch'));
-    return unsubscribe;
-  }, [navigation, onRouteFocus]);
+  useShellRouteBridge({
+    navigation,
+    onBindNavigation,
+    onFocus: () => onRouteFocus?.('ChatSearch')
+  });
 
   const agentResults = useMemo<ChatSearchAgentItem[]>(() => {
     if (!normalizedKeyword) {

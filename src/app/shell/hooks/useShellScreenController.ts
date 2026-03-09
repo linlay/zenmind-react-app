@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AppState, Animated, Easing, Keyboard, Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import { showToast } from '../../ui/uiSlice';
 import { InboxMessage, WebSocketMessage } from '../../../core/types/common';
 import { THEMES } from '../../../core/constants/theme';
 import {
@@ -24,7 +25,7 @@ import {
   setSelectedAgentKey as setUserSelectedAgentKey
 } from '../../../modules/user/state/userSlice';
 import { setAgents, setAgentsError, setAgentsLoading } from '../../../modules/agents/state/agentsSlice';
-import { setChatId, setChats, setLoadingChats, setStatusText, setTeams } from '../../../modules/chat/state/chatSlice';
+import { setChatId, setChats, setLoadingChats, setTeams } from '../../../modules/chat/state/chatSlice';
 import {
   reloadPty,
   requestOpenNewSessionModal,
@@ -127,6 +128,13 @@ export function useShellScreenController() {
   const normalizedLoginEndpointDraft = useMemo(() => normalizeEndpointInput(endpointDraft), [endpointDraft]);
   const canSubmitLogin = Boolean(normalizedLoginEndpointDraft) && !authChecking;
 
+  const notify = useCallback(
+    (message: string, tone: 'neutral' | 'danger' | 'warn' | 'success' = 'neutral') => {
+      dispatch(showToast({ message, tone }));
+    },
+    [dispatch]
+  );
+
   useEffect(() => {
     initChatCacheDb().catch(() => { });
   }, []);
@@ -171,10 +179,10 @@ export function useShellScreenController() {
    * 如果当前选中的 agent 不在新列表中，自动切换到第一个 agent
    */
   const refreshAgents = useCallback(
-    async (base = backendUrl, silent = false) => {
+    async (silent = false) => {
       if (!silent) dispatch(setAgentsLoading(true));
       try {
-        const list = await triggerAgents(base).unwrap();
+        const list = await triggerAgents().unwrap();
         dispatch(setAgents(list));
         dispatch(setAgentsError(''));
 
@@ -187,12 +195,12 @@ export function useShellScreenController() {
         dispatch(setUserSelectedAgentKey(fallback));
       } catch (error) {
         dispatch(setAgentsError(formatError(error)));
-        dispatch(setStatusText(`Agent 加载失败：${formatError(error)}`));
+        notify(`Agent 加载失败：${formatError(error)}`, 'danger');
       } finally {
         if (!silent) dispatch(setAgentsLoading(false));
       }
     },
-    [backendUrl, dispatch, selectedAgentKey, triggerAgents]
+    [dispatch, notify, selectedAgentKey, triggerAgents]
   );
 
   /**
@@ -229,16 +237,6 @@ export function useShellScreenController() {
       chatSyncInFlightRef.current = true;
       try {
         const result = await syncChatsIncremental(base);
-        // TODO
-        /* const { chats } = result
-        // const { lastRunContent, ...test } = chats[]
-        const _testdata = chats.map((chat, index) => {
-          return {
-            index,
-            teamId: chat.teamId
-          }
-        }).filter(t => !!t.teamId)
-        console.log('_testdata', _testdata); */
 
         if (shouldApplyChatSyncResult(result.updatedChatIds)) {
           dispatch(setChats(result.chats));
@@ -254,14 +252,14 @@ export function useShellScreenController() {
         return result.updatedChatIds;
       } catch (error) {
         if (options?.notifyError) {
-          dispatch(setStatusText(`会话增量同步失败：${formatError(error)}`));
+          notify(`会话增量同步失败：${formatError(error)}`, 'danger');
         }
         return [];
       } finally {
         chatSyncInFlightRef.current = false;
       }
     },
-    [backendUrl, chatId, dispatch]
+    [backendUrl, chatId, notify]
   );
 
   /**
@@ -280,7 +278,7 @@ export function useShellScreenController() {
             return;
           }
           try {
-            const list = await triggerTeams(base).unwrap();
+            const list = await triggerTeams().unwrap();
             dispatch(setTeams(Array.isArray(list) ? list : []));
           } catch {
             dispatch(setTeams([]));
@@ -295,12 +293,12 @@ export function useShellScreenController() {
           refreshTeams()
         ]);
       } catch (error) {
-        dispatch(setStatusText(`会话列表加载失败：${formatError(error)}`));
+        notify(`会话列表加载失败：${formatError(error)}`, 'danger');
       } finally {
         if (!silent) dispatch(setLoadingChats(false));
       }
     },
-    [backendUrl, dispatch, loadChatsFromCache, syncChatsNow, triggerTeams]
+    [backendUrl, dispatch, loadChatsFromCache, notify, syncChatsNow, triggerTeams]
   );
 
   /**
@@ -315,7 +313,6 @@ export function useShellScreenController() {
       }
       try {
         const sessions = await triggerTerminalSessions({
-          backendUrl,
           ptyWebUrl
         }).unwrap();
         setTerminalSessions(Array.isArray(sessions) ? sessions : []);
@@ -327,14 +324,14 @@ export function useShellScreenController() {
       } catch (error) {
         const message = formatError(error);
         setTerminalSessionsError(message);
-        dispatch(setStatusText(`终端会话加载失败：${message}`));
+        notify(`终端会话加载失败：${message}`, 'danger');
       } finally {
         if (!silent) {
           setTerminalSessionsLoading(false);
         }
       }
     },
-    [activeTerminalSessionId, backendUrl, dispatch, ptyWebUrl, triggerTerminalSessions]
+    [activeTerminalSessionId, dispatch, notify, ptyWebUrl, triggerTerminalSessions]
   );
 
   /**
@@ -353,7 +350,8 @@ export function useShellScreenController() {
    */
   const refreshAll = useCallback(
     async (silent = false, base = backendUrl) => {
-      await Promise.all([refreshAgents(base, silent), refreshChats(silent, base)]);
+      void base;
+      await Promise.all([refreshAgents(silent), refreshChats(silent)]);
     },
     [backendUrl, refreshAgents, refreshChats]
   );
@@ -376,14 +374,14 @@ export function useShellScreenController() {
         setInboxMessages(Array.isArray(list) ? list : []);
         setInboxUnreadCount(Number((unread && unread.unreadCount) || 0));
       } catch (error) {
-        dispatch(setStatusText(`消息盒子加载失败：${formatError(error)}`));
+        notify(`消息盒子加载失败：${formatError(error)}`, 'danger');
       } finally {
         if (!silent) {
           setInboxLoading(false);
         }
       }
     },
-    [backendUrl, dispatch]
+    [backendUrl, notify]
   );
 
   /**
@@ -404,10 +402,10 @@ export function useShellScreenController() {
         });
         await refreshInbox(true);
       } catch (error) {
-        dispatch(setStatusText(`消息已读失败：${formatError(error)}`));
+        notify(`消息已读失败：${formatError(error)}`, 'danger');
       }
     },
-    [backendUrl, dispatch, refreshInbox]
+    [backendUrl, notify, refreshInbox]
   );
 
   /**
@@ -420,9 +418,9 @@ export function useShellScreenController() {
       });
       await refreshInbox(true);
     } catch (error) {
-      dispatch(setStatusText(`全部已读失败：${formatError(error)}`));
+      notify(`全部已读失败：${formatError(error)}`, 'danger');
     }
-  }, [backendUrl, dispatch, refreshInbox]);
+  }, [backendUrl, notify, refreshInbox]);
 
   /**
    * 标记聊天为已查看
@@ -561,9 +559,9 @@ export function useShellScreenController() {
       setAuthError(statusMessage);
       setMasterPassword('');
       syncAuthStateFromSession(null);
-      dispatch(setStatusText(statusMessage));
+      notify(statusMessage, 'warn');
     },
-    [clearWs, dispatch, syncAuthStateFromSession]
+    [clearWs, notify, syncAuthStateFromSession]
   );
 
   /**
@@ -1027,7 +1025,7 @@ export function useShellScreenController() {
       Keyboard.dismiss();
       const normalizedKey = String(agentKey || '').trim();
       if (!normalizedKey) {
-        dispatch(setStatusText('智能体信息不可用'));
+        notify('智能体信息不可用', 'warn');
         return;
       }
       dispatch(setUserSelectedAgentKey(normalizedKey));
@@ -1035,7 +1033,7 @@ export function useShellScreenController() {
       dispatch(closeChatDetailDrawer());
       dispatch(resetChatDetailDrawerPreview());
     },
-    [dispatch]
+    [dispatch, notify]
   );
 
   /**

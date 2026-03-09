@@ -33,8 +33,6 @@ export function createEmptyChatState(): ChatState {
       content: '',
       closeText: '关闭'
     },
-    chatId: '',
-    statusText: '',
     streaming: false,
     expandedTools: {}
   };
@@ -253,7 +251,6 @@ export function reduceChatEvent(
 
   if (event.chatId) {
     const chatId = String(event.chatId);
-    next.chatId = chatId;
     effects.push({ type: 'set_chat_id', payload: { chatId } });
   }
 

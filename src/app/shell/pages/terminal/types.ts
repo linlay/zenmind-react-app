@@ -42,7 +42,7 @@ export interface TerminalRouteBridgeProps {
 }
 
 export interface ShellTerminalTabScreenProps extends ShellTabBindings {
-  onBindNavigation: (navigation: TerminalRootNavigation) => void;
+  onBindNavigation?: (navigation: TerminalRootNavigation) => void;
   onRouteFocus: (routeName: TerminalRouteName) => void;
   runtime: TerminalRuntimeBridge;
 }

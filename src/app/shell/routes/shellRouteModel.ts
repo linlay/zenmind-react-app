@@ -64,10 +64,10 @@ export function buildShellRouteModel({
     ? terminalPane === 'detail'
       ? '终端/CLI'
       : terminalPane === 'drive'
-      ? 'My PC'
+      ? '网盘'
       : '会话'
     : isDriveDomain
-    ? 'My PC'
+    ? '网盘'
     : isLegacyAgentsPublishPage
     ? '发布中心'
     : isAppsDomain

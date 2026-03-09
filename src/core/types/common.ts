@@ -6,6 +6,17 @@ export interface Agent {
   id?: string;
   name?: string;
   role?: string;
+  icon?: string | { name?: string; color?: string };
+  iconName?: string;
+  iconColor?: string;
+  meta?: {
+    role?: string;
+  };
+  agentIconName?: string;
+  agentIconColor?: string;
+  avatarName?: string;
+  avatarBgColor?: string;
+  bgColor?: string;
   [key: string]: unknown;
 }
 
@@ -36,7 +47,7 @@ export interface TeamSummary {
   meta?: {
     defaultAgentKey: string;
     defaultAgentKeyValid: boolean;
-    invalidAgentKeys: string[];
+      invalidAgentKeys: string[];
   };
   teamId?: string;
   name?: string;

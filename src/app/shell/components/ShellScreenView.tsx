@@ -10,25 +10,27 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
-import { CommonActions } from '@react-navigation/native';
+import { CommonActions, NavigationProp, ParamListBase } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 
 import { BottomDomainNav } from '../BottomDomainNav';
 import { ShellTopNav } from './ShellTopNav';
 import { styles } from '../ShellScreen.styles';
 import { ShellScreenController } from '../hooks/useShellScreenController';
+import { buildShellHeaderDescriptor, ShellHeaderActions } from '../routes/shellHeaderModel';
 import { buildShellRouteModel } from '../routes/shellRouteModel';
 import { buildShellRouteSnapshot } from '../routes/shellRouteSnapshot';
 import { ShellTabNavigation, ShellTabParamList } from '../types';
 import { getAppByKey } from '../pages/apps/config';
-import { AppsRootNavigation, AppsRouteName, AppsRuntimeBridge } from '../pages/apps/types';
+import { AppsRouteName, AppsRuntimeBridge } from '../pages/apps/types';
 import { ChatRootNavigation, ChatRouteName } from '../pages/chat/types';
-import { TerminalRootNavigation, TerminalRouteName, TerminalRuntimeBridge } from '../pages/terminal/types';
+import { TerminalRouteName, TerminalRuntimeBridge } from '../pages/terminal/types';
 import { ShellAppsTabScreen } from '../pages/apps';
 import { ShellChatTabScreen } from '../pages/chat';
 import { ShellDriveTabScreen } from '../pages/drive';
 import { ShellTerminalTabScreen } from '../pages/terminal';
 import { ShellUserTabScreen } from '../pages/user';
+import { hideToast, showToast } from '../../ui/uiSlice';
 import { AgentSidebar } from '../../../modules/chat/components/AgentSidebar';
 import { ChatDetailDrawer } from '../../../modules/chat/components/ChatDetailDrawer';
 import {
@@ -39,7 +41,7 @@ import {
   setChatDetailDrawerPreviewProgress,
   setChatSearchQuery as setShellChatSearchQuery
 } from '../shellSlice';
-import { setStatusText, setChatId } from '../../../modules/chat/state/chatSlice';
+import { setChatId } from '../../../modules/chat/state/chatSlice';
 import {
   setActiveDomain,
   setSelectedAgentKey as setUserSelectedAgentKey,
@@ -54,6 +56,11 @@ interface ShellScreenViewProps {
 }
 
 type ShellTabName = keyof ShellTabParamList;
+type ShellNavigableDomain = 'chat' | 'apps' | 'terminal';
+type ShellStackBinding = {
+  navigation: NavigationProp<ParamListBase>;
+  rootRouteName: string;
+};
 
 const DOMAIN_TO_TAB: Record<DomainMode, ShellTabName> = {
   chat: 'Chat',
@@ -129,9 +136,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
   const normalizedActiveDomain = normalizeDomain(activeDomain);
 
   const rootTabNavigationRef = useRef<ShellTabNavigation | null>(null);
-  const appsNavigationRef = useRef<AppsRootNavigation | null>(null);
-  const chatNavigationRef = useRef<ChatRootNavigation | null>(null);
-  const terminalNavigationRef = useRef<TerminalRootNavigation | null>(null);
+  const stackRegistryRef = useRef<Partial<Record<ShellNavigableDomain, ShellStackBinding>>>({});
   const previousFocusedDomainRef = useRef<DomainMode>(normalizedActiveDomain);
 
   const [focusedDomain, setFocusedDomain] = useState<DomainMode>(normalizedActiveDomain);
@@ -178,17 +183,15 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     [activeDomain, dispatch]
   );
 
-  const bindChatNavigation = useCallback((navigation: ChatRootNavigation) => {
-    chatNavigationRef.current = navigation;
-  }, []);
-
-  const bindAppsNavigation = useCallback((navigation: AppsRootNavigation) => {
-    appsNavigationRef.current = navigation;
-  }, []);
-
-  const bindTerminalNavigation = useCallback((navigation: TerminalRootNavigation) => {
-    terminalNavigationRef.current = navigation;
-  }, []);
+  const bindStackNavigation = useCallback(
+    (domain: ShellNavigableDomain, navigation: NavigationProp<ParamListBase>, rootRouteName: string) => {
+      stackRegistryRef.current[domain] = {
+        navigation,
+        rootRouteName
+      };
+    },
+    []
+  );
 
   const handleAppsRouteFocus = useCallback((routeName: AppsRouteName, appKey?: string) => {
     setAppsFocusedRoute(routeName);
@@ -203,38 +206,19 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     setTerminalFocusedRoute(routeName);
   }, []);
 
-  const goBackOrNavigateChatList = useCallback(() => {
-    const navigation = chatNavigationRef.current;
+  const goBackWithinDomain = useCallback((domain: ShellNavigableDomain) => {
+    const binding = stackRegistryRef.current[domain];
+    const navigation = binding?.navigation;
     if (!navigation) return;
     if (navigation.canGoBack()) {
       navigation.goBack();
       return;
     }
-    navigation.navigate('ChatList');
-  }, []);
-
-  const goBackOrNavigateAppsList = useCallback(() => {
-    const navigation = appsNavigationRef.current;
-    if (!navigation) return;
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-      return;
-    }
-    navigation.navigate('AppsList');
-  }, []);
-
-  const goBackOrNavigateTerminalList = useCallback(() => {
-    const navigation = terminalNavigationRef.current;
-    if (!navigation) return;
-    if (navigation.canGoBack()) {
-      navigation.goBack();
-      return;
-    }
-    navigation.navigate('TerminalList');
+    navigation.navigate(binding.rootRouteName);
   }, []);
 
   const resetTerminalStackToList = useCallback(() => {
-    const navigation = terminalNavigationRef.current;
+    const navigation = stackRegistryRef.current.terminal?.navigation;
     if (!navigation) return;
     navigation.dispatch(
       CommonActions.reset({
@@ -310,19 +294,19 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       if (routeSnapshot.activeDomain === 'chat' && routeSnapshot.chatMode === 'search') {
         setChatPlusMenuOpen(false);
         dispatch(setShellChatSearchQuery(''));
-        goBackOrNavigateChatList();
+        goBackWithinDomain('chat');
         return true;
       }
-      if (routeSnapshot.activeDomain === 'chat' && chatNavigationRef.current?.canGoBack()) {
-        goBackOrNavigateChatList();
+      if (routeSnapshot.activeDomain === 'chat' && stackRegistryRef.current.chat?.navigation?.canGoBack()) {
+        goBackWithinDomain('chat');
         return true;
       }
-      if (routeSnapshot.activeDomain === 'terminal' && terminalNavigationRef.current?.canGoBack()) {
-        goBackOrNavigateTerminalList();
+      if (routeSnapshot.activeDomain === 'terminal' && stackRegistryRef.current.terminal?.navigation?.canGoBack()) {
+        goBackWithinDomain('terminal');
         return true;
       }
-      if (routeSnapshot.activeDomain === 'apps' && appsNavigationRef.current?.canGoBack()) {
-        goBackOrNavigateAppsList();
+      if (routeSnapshot.activeDomain === 'apps' && stackRegistryRef.current.apps?.navigation?.canGoBack()) {
+        goBackWithinDomain('apps');
         return true;
       }
       return false;
@@ -333,9 +317,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     chatAgentsSidebarOpen,
     chatDetailDrawerOpen,
     dispatch,
-    goBackOrNavigateAppsList,
-    goBackOrNavigateChatList,
-    goBackOrNavigateTerminalList,
+    goBackWithinDomain,
     inboxOpen,
     routeSnapshot.activeDomain,
     routeSnapshot.chatMode,
@@ -349,18 +331,18 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       dispatch(closeChatDetailDrawer());
       return;
     }
-    goBackOrNavigateChatList();
-  }, [chatDetailDrawerOpen, dispatch, goBackOrNavigateChatList, setInboxOpen]);
+    goBackWithinDomain('chat');
+  }, [chatDetailDrawerOpen, dispatch, goBackWithinDomain, setInboxOpen]);
 
   const handleChatSearchBack = useCallback(() => {
     setChatPlusMenuOpen(false);
     dispatch(setShellChatSearchQuery(''));
-    goBackOrNavigateChatList();
-  }, [dispatch, goBackOrNavigateChatList, setChatPlusMenuOpen]);
+    goBackWithinDomain('chat');
+  }, [dispatch, goBackWithinDomain, setChatPlusMenuOpen]);
 
   const handleChatListSearch = useCallback(() => {
     setChatPlusMenuOpen(false);
-    chatNavigationRef.current?.navigate('ChatSearch');
+    (stackRegistryRef.current.chat?.navigation as ChatRootNavigation | undefined)?.navigate('ChatSearch');
   }, [setChatPlusMenuOpen]);
 
   const handleSidebarSelectAgent = useCallback(
@@ -371,11 +353,11 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       }
       dispatch(setUserSelectedAgentKey(normalizedAgentKey));
       dispatch(setChatId(''));
-      dispatch(setStatusText(''));
+      dispatch(hideToast());
       dispatch(setChatAgentsSidebarOpen(false));
       dispatch(closeChatDetailDrawer());
       dispatch(resetChatDetailDrawerPreview());
-      chatNavigationRef.current?.navigate('ChatDetail', {
+      (stackRegistryRef.current.chat?.navigation as ChatRootNavigation | undefined)?.navigate('ChatDetail', {
         chatId: '',
         agentKey: normalizedAgentKey
       });
@@ -385,12 +367,12 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
 
   const handleCreateCurrentAgentChat = useCallback(() => {
     dispatch(setChatId(''));
-    dispatch(setStatusText(''));
+    dispatch(hideToast());
     dispatch(closeChatDetailDrawer());
     dispatch(resetChatDetailDrawerPreview());
     setChatPlusMenuOpen(false);
     const normalizedAgentKey = String(selectedAgentKey || '').trim();
-    chatNavigationRef.current?.navigate('ChatDetail', {
+    (stackRegistryRef.current.chat?.navigation as ChatRootNavigation | undefined)?.navigate('ChatDetail', {
       chatId: '',
       agentKey: normalizedAgentKey || undefined
     });
@@ -506,6 +488,157 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     [authAccessExpireAtMs, authAccessToken, authTokenSignal, handleWebViewAuthRefreshRequest]
   );
 
+  const toggleChatAgentsSidebar = useCallback(() => {
+    setInboxOpen(false);
+    setChatPlusMenuOpen(false);
+    dispatch(closeChatDetailDrawer());
+    dispatch(resetChatDetailDrawerPreview());
+    dispatch(setChatAgentsSidebarOpen(!chatAgentsSidebarOpen));
+  }, [chatAgentsSidebarOpen, dispatch, setChatPlusMenuOpen, setInboxOpen]);
+
+  const handleCreateApp = useCallback(() => {
+    dispatch(showToast({ message: '功能建设中：新增应用', tone: 'warn' }));
+  }, [dispatch]);
+
+  const handleOpenTerminalDrive = useCallback(() => {
+    setInboxOpen(false);
+    if (routeSnapshot.terminalPane !== 'list') {
+      return;
+    }
+    stackRegistryRef.current.terminal?.navigation?.navigate('TerminalDrive');
+  }, [routeSnapshot.terminalPane, setInboxOpen]);
+
+  const handleReloadTerminalDetail = useCallback(() => {
+    setInboxOpen(false);
+    dispatch(reloadPty());
+  }, [dispatch, setInboxOpen]);
+
+  const handleToggleInbox = useCallback(() => {
+    dispatch(setChatAgentsSidebarOpen(false));
+    dispatch(closeChatDetailDrawer());
+    setInboxOpen((prev) => !prev);
+  }, [dispatch, setInboxOpen]);
+
+  const handleDriveMenu = useCallback(() => {
+    setInboxOpen(false);
+    dispatch(showToast({ message: '功能建设中：网盘菜单', tone: 'warn' }));
+  }, [dispatch, setInboxOpen]);
+
+  const handleDriveSearch = useCallback(() => {
+    setInboxOpen(false);
+    dispatch(showToast({ message: '功能建设中：网盘搜索', tone: 'warn' }));
+  }, [dispatch, setInboxOpen]);
+
+  const handleDriveSelect = useCallback(() => {
+    setInboxOpen(false);
+    dispatch(showToast({ message: '功能建设中：网盘管理', tone: 'warn' }));
+  }, [dispatch, setInboxOpen]);
+
+  const handleChatDetailMenu = useCallback(() => {
+    setInboxOpen(false);
+    dispatch(setChatAgentsSidebarOpen(false));
+    dispatch(closeChatDetailDrawer());
+    dispatch(resetChatDetailDrawerPreview());
+    dispatch(openChatDetailDrawer());
+  }, [dispatch, setInboxOpen]);
+
+  const handleThemeToggle = useCallback(() => {
+    dispatch(setChatAgentsSidebarOpen(false));
+    setInboxOpen(false);
+    dispatch(toggleTheme());
+  }, [dispatch, setInboxOpen]);
+
+  const handleSelectChatPlusMenuItem = useCallback(
+    (label: string) => {
+      setChatPlusMenuOpen(false);
+      dispatch(showToast({ message: `功能建设中：${label}`, tone: 'warn' }));
+    },
+    [dispatch, setChatPlusMenuOpen]
+  );
+
+  const handleGoBackFromAppsDetail = useCallback(() => {
+    setInboxOpen(false);
+    goBackWithinDomain('apps');
+  }, [goBackWithinDomain, setInboxOpen]);
+
+  const handleGoBackFromTerminal = useCallback(() => {
+    setInboxOpen(false);
+    goBackWithinDomain('terminal');
+  }, [goBackWithinDomain, setInboxOpen]);
+
+  const handleToggleChatPlusMenu = useCallback(() => {
+    setChatPlusMenuOpen((prev) => !prev);
+  }, [setChatPlusMenuOpen]);
+
+  const headerActions = useMemo<ShellHeaderActions>(
+    () => ({
+      toggleChatAgentsSidebar,
+      goBackInChat: handleChatOverlayBack,
+      goBackFromChatSearch: handleChatSearchBack,
+      openChatSearch: handleChatListSearch,
+      openChatDetailMenu: handleChatDetailMenu,
+      toggleChatPlusMenu: handleToggleChatPlusMenu,
+      selectChatPlusMenuItem: handleSelectChatPlusMenuItem,
+      setChatSearchQuery,
+      goBackFromAppsDetail: handleGoBackFromAppsDetail,
+      createApp: handleCreateApp,
+      goBackFromTerminal: handleGoBackFromTerminal,
+      openTerminalDrive: handleOpenTerminalDrive,
+      reloadTerminalDetail: handleReloadTerminalDetail,
+      toggleInbox: handleToggleInbox,
+      showDriveMenu: handleDriveMenu,
+      showDriveSearch: handleDriveSearch,
+      showDriveSelect: handleDriveSelect,
+      toggleTheme: handleThemeToggle
+    }),
+    [
+      handleChatDetailMenu,
+      handleChatListSearch,
+      handleChatOverlayBack,
+      handleChatSearchBack,
+      handleCreateApp,
+      handleDriveMenu,
+      handleDriveSearch,
+      handleDriveSelect,
+      handleGoBackFromAppsDetail,
+      handleGoBackFromTerminal,
+      handleOpenTerminalDrive,
+      handleReloadTerminalDetail,
+      handleSelectChatPlusMenuItem,
+      handleThemeToggle,
+      handleToggleChatPlusMenu,
+      handleToggleInbox,
+      setChatSearchQuery,
+      toggleChatAgentsSidebar
+    ]
+  );
+
+  const headerDescriptor = useMemo(
+    () =>
+      buildShellHeaderDescriptor({
+        theme,
+        routeSnapshot,
+        chatSearchQuery,
+        chatPlusMenuOpen,
+        inboxUnreadCount,
+        activeAgentName,
+        activeAgentRole,
+        activeAppName,
+        actions: headerActions
+      }),
+    [
+      activeAgentName,
+      activeAgentRole,
+      activeAppName,
+      chatPlusMenuOpen,
+      chatSearchQuery,
+      headerActions,
+      inboxUnreadCount,
+      routeSnapshot,
+      theme
+    ]
+  );
+
   const handleDomainTabPress = useCallback(
     (mode: DomainMode) => {
       if (mode === routeSnapshot.activeDomain) {
@@ -523,23 +656,23 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
           if (routeSnapshot.chatMode === 'search') {
             setChatPlusMenuOpen(false);
             dispatch(setShellChatSearchQuery(''));
-            goBackOrNavigateChatList();
+            goBackWithinDomain('chat');
             return;
           }
           if (routeSnapshot.hasChatOverlay) {
-            goBackOrNavigateChatList();
+            goBackWithinDomain('chat');
             return;
           }
           return;
         }
 
         if (mode === 'apps' && routeSnapshot.appsPane === 'detail') {
-          goBackOrNavigateAppsList();
+          goBackWithinDomain('apps');
           return;
         }
 
         if (mode === 'terminal' && routeSnapshot.terminalPane !== 'list') {
-          goBackOrNavigateTerminalList();
+          goBackWithinDomain('terminal');
         }
         return;
       }
@@ -559,9 +692,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       chatDetailDrawerOpen,
       closeFloatingPanels,
       dispatch,
-      goBackOrNavigateAppsList,
-      goBackOrNavigateChatList,
-      goBackOrNavigateTerminalList,
+      goBackWithinDomain,
       routeSnapshot,
       setChatPlusMenuOpen,
       setInboxOpen
@@ -575,83 +706,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
       >
-        <ShellTopNav
-          theme={theme}
-          routeModel={routeModel}
-          routeSnapshot={routeSnapshot}
-          chatSearchQuery={chatSearchQuery}
-          chatPlusMenuOpen={chatPlusMenuOpen}
-          inboxUnreadCount={inboxUnreadCount}
-          onChangeChatSearchQuery={setChatSearchQuery}
-          onPressChatOverlayBack={handleChatOverlayBack}
-          onPressChatSearchBack={handleChatSearchBack}
-          onPressChatLeftAction={() => {
-            setInboxOpen(false);
-            setChatPlusMenuOpen(false);
-            dispatch(closeChatDetailDrawer());
-            dispatch(resetChatDetailDrawerPreview());
-            dispatch(setChatAgentsSidebarOpen(!chatAgentsSidebarOpen));
-          }}
-          onPressAppsBack={() => {
-            setInboxOpen(false);
-            goBackOrNavigateAppsList();
-          }}
-          onPressAppsCreate={() => {}}
-          onPressTerminalBack={() => {
-            setInboxOpen(false);
-            goBackOrNavigateTerminalList();
-          }}
-          onPressUserInboxToggle={() => {
-            dispatch(setChatAgentsSidebarOpen(false));
-            dispatch(closeChatDetailDrawer());
-            setInboxOpen((prev) => !prev);
-          }}
-          onPressTerminalRefresh={() => {
-            setInboxOpen(false);
-            if (routeSnapshot.terminalPane === 'detail') {
-              dispatch(reloadPty());
-            } else {
-              refreshTerminalSessions().catch(() => {});
-            }
-          }}
-          onPressTerminalDrive={() => {
-            setInboxOpen(false);
-            if (routeSnapshot.terminalPane !== 'list') {
-              return;
-            }
-            terminalNavigationRef.current?.navigate('TerminalDrive');
-          }}
-          onPressDriveMenu={() => {
-            setInboxOpen(false);
-            dispatch(setStatusText('功能建设中：网盘菜单'));
-          }}
-          onPressDriveSearch={() => {
-            setInboxOpen(false);
-            dispatch(setStatusText('功能建设中：网盘搜索'));
-          }}
-          onPressDriveSelect={() => {
-            setInboxOpen(false);
-            dispatch(setStatusText('功能建设中：网盘管理'));
-          }}
-          onPressChatDetailMenu={() => {
-            setInboxOpen(false);
-            dispatch(setChatAgentsSidebarOpen(false));
-            dispatch(closeChatDetailDrawer());
-            dispatch(resetChatDetailDrawerPreview());
-            dispatch(openChatDetailDrawer());
-          }}
-          onPressChatListSearch={handleChatListSearch}
-          onToggleChatPlusMenu={() => setChatPlusMenuOpen((prev) => !prev)}
-          onPressChatPlusMenuItem={(label) => {
-            setChatPlusMenuOpen(false);
-            dispatch(setStatusText(`功能建设中：${label}`));
-          }}
-          onPressThemeToggle={() => {
-            dispatch(setChatAgentsSidebarOpen(false));
-            setInboxOpen(false);
-            dispatch(toggleTheme());
-          }}
-        />
+        <ShellTopNav descriptor={headerDescriptor} />
 
         {routeSnapshot.activeDomain === 'chat' &&
         !routeSnapshot.hasChatOverlay &&
@@ -687,7 +742,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                 <ShellChatTabScreen
                   onBindRootTabNavigation={bindRootTabNavigation}
                   onDomainFocus={handleDomainFocus}
-                  onBindNavigation={bindChatNavigation}
+                  onBindNavigation={(navigation) => bindStackNavigation('chat', navigation, 'ChatList')}
                   onRouteFocus={handleChatRouteFocus}
                   chatDetailRuntime={chatDetailRuntime}
                 />
@@ -698,7 +753,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                 <ShellAppsTabScreen
                   onBindRootTabNavigation={bindRootTabNavigation}
                   onDomainFocus={handleDomainFocus}
-                  onBindNavigation={bindAppsNavigation}
+                  onBindNavigation={(navigation) => bindStackNavigation('apps', navigation, 'AppsList')}
                   onRouteFocus={handleAppsRouteFocus}
                   runtime={appsRuntime}
                 />
@@ -709,7 +764,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                 <ShellTerminalTabScreen
                   onBindRootTabNavigation={bindRootTabNavigation}
                   onDomainFocus={handleDomainFocus}
-                  onBindNavigation={bindTerminalNavigation}
+                  onBindNavigation={(navigation) => bindStackNavigation('terminal', navigation, 'TerminalList')}
                   onRouteFocus={handleTerminalRouteFocus}
                   runtime={terminalRuntime}
                 />
@@ -857,7 +912,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
           dispatch(setChatId(nextChatId));
           dispatch(closeChatDetailDrawer());
           const normalizedAgentKey = String(selectedAgentKey || '').trim();
-          chatNavigationRef.current?.navigate('ChatDetail', {
+          (stackRegistryRef.current.chat?.navigation as ChatRootNavigation | undefined)?.navigate('ChatDetail', {
             chatId: nextChatId,
             agentKey: normalizedAgentKey || undefined
           });

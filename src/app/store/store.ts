@@ -1,5 +1,6 @@
 import { configureStore } from '@reduxjs/toolkit';
 import shellReducer from '../shell/shellSlice';
+import uiReducer from '../ui/uiSlice';
 import userReducer from '../../modules/user/state/userSlice';
 import agentsReducer from '../../modules/agents/state/agentsSlice';
 import chatReducer from '../../modules/chat/state/chatSlice';
@@ -11,10 +12,10 @@ import { terminalApi } from '../../modules/terminal/api/terminalApi';
 export const store = configureStore({
   reducer: {
     shell: shellReducer,
+    ui: uiReducer,
     user: userReducer,
     agents: agentsReducer,
     chat: chatReducer,
-    teams: chatReducer,
     terminal: terminalReducer,
     [chatApi.reducerPath]: chatApi.reducer,
     [agentsApi.reducerPath]: agentsApi.reducer,

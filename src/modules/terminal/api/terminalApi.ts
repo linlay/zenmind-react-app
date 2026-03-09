@@ -1,53 +1,10 @@
-import { createApi, fakeBaseQuery } from '@reduxjs/toolkit/query/react';
-import { getAccessToken } from '../../../core/auth/appAuth';
-import { parseErrorMessage } from '../../../core/network/errorUtils';
+import { createApi } from '@reduxjs/toolkit/query/react';
+import { authBaseQuery } from '../../../core/network/authBaseQuery';
 import { CreateTerminalSessionResponse, TerminalSessionItem } from '../types/terminal';
 import { resolveTerminalSessionsBaseUrl } from '../utils/sessionUrl';
 
 interface TerminalApiArg {
-  backendUrl: string;
   ptyWebUrl: string;
-}
-
-async function fetchTerminalAuthedJson<T>(
-  backendUrl: string,
-  absoluteUrl: string,
-  options: RequestInit = {}
-): Promise<T> {
-  const execute = async (accessToken: string): Promise<Response> => {
-    const headers = new Headers(options.headers ?? undefined);
-    headers.set('Authorization', `Bearer ${accessToken}`);
-    return fetch(absoluteUrl, { ...options, headers });
-  };
-
-  const token = await getAccessToken(backendUrl);
-  if (!token) {
-    throw new Error('未登录或设备令牌已失效，请重新登录');
-  }
-
-  let response = await execute(token);
-  if (response.status === 401) {
-    const refreshed = await getAccessToken(backendUrl, true);
-    if (refreshed) {
-      response = await execute(refreshed);
-    }
-  }
-
-  const bodyText = await response.text();
-  let payload: unknown = null;
-  if (bodyText) {
-    try {
-      payload = JSON.parse(bodyText);
-    } catch {
-      throw new Error(`Invalid JSON response: ${bodyText.slice(0, 180)}`);
-    }
-  }
-
-  if (!response.ok) {
-    throw new Error(parseErrorMessage(response.status, payload));
-  }
-
-  return payload as T;
 }
 
 function requireStringField(raw: unknown, fieldName: string): string {
@@ -89,32 +46,25 @@ function normalizeCreateSessionResponse(raw: unknown): CreateTerminalSessionResp
 
 export const terminalApi = createApi({
   reducerPath: 'terminalApi',
-  baseQuery: fakeBaseQuery(),
+  baseQuery: authBaseQuery,
+  tagTypes: ['TerminalSessions'],
   endpoints: (builder) => ({
     listTerminalSessions: builder.query<TerminalSessionItem[], TerminalApiArg>({
-      async queryFn({ backendUrl, ptyWebUrl }) {
-        try {
-          const base = resolveTerminalSessionsBaseUrl(ptyWebUrl);
-          const data = await fetchTerminalAuthedJson<unknown>(backendUrl, `${base}/sessions`);
-          const list = Array.isArray(data) ? data.map(normalizeSessionItem) : [];
-          return { data: list };
-        } catch (error) {
-          return { error: error as Error };
-        }
-      }
+      query: ({ ptyWebUrl }) => ({
+        url: '',
+        absoluteUrl: `${resolveTerminalSessionsBaseUrl(ptyWebUrl)}/sessions`
+      }),
+      transformResponse: (data: unknown) => (Array.isArray(data) ? data.map(normalizeSessionItem) : []),
+      providesTags: ['TerminalSessions']
     }),
     createTerminalSession: builder.mutation<CreateTerminalSessionResponse, TerminalApiArg>({
-      async queryFn({ backendUrl, ptyWebUrl }) {
-        try {
-          const base = resolveTerminalSessionsBaseUrl(ptyWebUrl);
-          const data = await fetchTerminalAuthedJson<unknown>(backendUrl, `${base}/sessions`, {
-            method: 'POST'
-          });
-          return { data: normalizeCreateSessionResponse(data) };
-        } catch (error) {
-          return { error: error as Error };
-        }
-      }
+      query: ({ ptyWebUrl }) => ({
+        url: '',
+        absoluteUrl: `${resolveTerminalSessionsBaseUrl(ptyWebUrl)}/sessions`,
+        method: 'POST'
+      }),
+      transformResponse: (data: unknown) => normalizeCreateSessionResponse(data),
+      invalidatesTags: ['TerminalSessions']
     })
   })
 });

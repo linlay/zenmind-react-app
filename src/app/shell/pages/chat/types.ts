@@ -47,7 +47,7 @@ export interface ChatRouteBridgeProps {
 }
 
 export interface ShellChatTabScreenProps extends ShellTabBindings {
-  onBindNavigation: (navigation: ChatRootNavigation) => void;
+  onBindNavigation?: (navigation: ChatRootNavigation) => void;
   onRouteFocus: (routeName: ChatRouteName) => void;
   chatDetailRuntime: ChatDetailRuntimeBridge;
 }

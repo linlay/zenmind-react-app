@@ -28,14 +28,14 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function AppRoot() {
   const dispatch = useAppDispatch();
-  const { booting, theme } = useAppBootstrap();
+  const { booting } = useAppBootstrap();
   const endpointInput = useAppSelector((state) => state.user.endpointInput);
   const backendUrl = toBackendBaseUrl(endpointInput);
 
   const [authChecking, setAuthChecking] = useState(true);
   const [authReady, setAuthReady] = useState(false);
 
-  const loginController = useLoginController(theme);
+  const loginController = useLoginController();
 
   /**
    * 加载配置（在组件挂载时执行）
@@ -123,7 +123,7 @@ export function AppRoot() {
     <Stack.Navigator id="RootStack" screenOptions={{ headerShown: false, animation: 'none' }}>
       {isBootPhase ? (
         <Stack.Screen name="Boot" options={{ animation: 'slide_from_right' }}>
-          {() => <BootScreen message={bootMessage} theme={theme} />}
+          {() => <BootScreen message={bootMessage} />}
         </Stack.Screen>
       ) : null}
       {isLoginPhase ? (

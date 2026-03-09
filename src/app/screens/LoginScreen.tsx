@@ -11,6 +11,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { LoginController } from '../hooks/useLoginController';
+import { useAppTheme } from '../hooks/useAppTheme';
 
 interface LoginScreenProps {
   /** 登录控制器 */
@@ -30,6 +31,7 @@ interface LoginScreenProps {
  */
 export function LoginScreen({ controller }: LoginScreenProps) {
   const insets = useSafeAreaInsets();
+  const theme = useAppTheme();
   const {
     endpointDraft,
     deviceName,
@@ -37,7 +39,6 @@ export function LoginScreen({ controller }: LoginScreenProps) {
     authError,
     canSubmitLogin,
     appVersionLabel,
-    theme,
     setEndpointDraftText,
     setDeviceName,
     setMasterPassword,

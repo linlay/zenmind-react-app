@@ -7,7 +7,8 @@ import Reanimated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, with
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
-import { fetchViewportHtml, formatError } from '../../../core/network/apiClient';
+import { showToast } from '../../../app/ui/uiSlice';
+import { formatError } from '../../../core/network/apiClient';
 import { getAccessToken } from '../../../core/auth/appAuth';
 import {
   buildWebViewPostMessageScript,
@@ -18,9 +19,9 @@ import {
 import { AppTheme } from '../../../core/constants/theme';
 import { createRequestId, getAgentKey, getAgentName, getAgentRole } from '../../../shared/utils/format';
 import { createFireworksShow } from '../../../shared/animations/fireworks';
-import { setChatId, setStatusText } from '../state/chatSlice';
+import { setChatId } from '../state/chatSlice';
 import { toggleTheme, setThemeMode } from '../../../modules/user/state/userSlice';
-import { useLazyGetChatQuery, useSubmitFrontendToolMutation } from '../api/chatApi';
+import { useLazyGetChatQuery, useLazyGetViewportHtmlQuery, useSubmitFrontendToolMutation } from '../api/chatApi';
 import { getCachedChatDetail, upsertChatDetail } from '../services/chatCacheDb';
 import { consumeJsonSseXhr } from '../services/chatStreamClient';
 import {
@@ -34,6 +35,8 @@ import { ChatEvent, ChatState, FrontendToolState, TimelineEntry } from '../types
 import { ChatEffect, createEmptyChatState, createRuntimeMaps, reduceChatEvent } from '../services/eventReducer';
 import { parseFrontendToolBridgeMessage } from '../services/frontendToolBridge';
 import { TimelineEntryRow } from '../components/TimelineEntryRow';
+import { ChatActionModal } from '../components/ChatActionModal';
+import { ChatFrontendToolOverlay } from '../components/ChatFrontendToolOverlay';
 import { Composer } from '../components/Composer';
 import { TeamMentionPanel } from '../components/TeamMentionPanel';
 import { styles } from './ChatAssistantScreen.styles';
@@ -43,7 +46,6 @@ const STREAM_IDLE_MS = 2500;
 const PLAN_COLLAPSE_MS = 1500;
 const AUTO_SCROLL_THRESHOLD = 36;
 const SSE_MALFORMED_STATUS_PREFIX = 'SSE 数据帧异常：';
-const SSE_MALFORMED_STATUS_TTL_MS = 3000;
 const TOOL_INIT_FAST_RETRY_DELAYS_MS = [0, 150, 500, 1200];
 const TOOL_INIT_HEARTBEAT_MS = 2000;
 const TOOL_INIT_HINT_MIN_ATTEMPT = 4;
@@ -195,7 +197,9 @@ export function ChatAssistantScreen({
   const teams = useAppSelector((state) => state.chat.teams);
   const selectedAgentKey = useAppSelector((state) => state.user.selectedAgentKey);
   const agents = useAppSelector((state) => state.agents.agents);
-  const statusText = useAppSelector((state) => state.chat.statusText);
+  const chatList = Array.isArray(chats) ? chats : [];
+  const teamList = Array.isArray(teams) ? teams : [];
+  const agentList = Array.isArray(agents) ? agents : [];
 
   const [chatState, setChatState] = useState<ChatState>(createEmptyChatState());
   const [composerText, setComposerText] = useState('');
@@ -213,6 +217,7 @@ export function ChatAssistantScreen({
   const [fireworkSparks, setFireworkSparks] = useState<Array<Record<string, unknown>>>([]);
 
   const [loadChat] = useLazyGetChatQuery();
+  const [loadViewportHtml] = useLazyGetViewportHtmlQuery();
   const [submitFrontendTool] = useSubmitFrontendToolMutation();
 
   const runtimeRef = useRef(createRuntimeMaps());
@@ -239,7 +244,6 @@ export function ChatAssistantScreen({
   const copyToastTimer = useRef<NodeJS.Timeout | null>(null);
   const edgeToastTimerRef = useRef<NodeJS.Timeout | null>(null);
   const fireworksTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const malformedStatusClearTimerRef = useRef<NodeJS.Timeout | null>(null);
   const fireworksAnim = useRef(new Animated.Value(0)).current;
   const frontendToolOverlayAnim = useRef(new Animated.Value(0)).current;
   const malformedNoticeAtRef = useRef(0);
@@ -283,9 +287,16 @@ export function ChatAssistantScreen({
     });
   }, []);
 
+  const notify = useCallback(
+    (message: string, tone: 'neutral' | 'danger' | 'warn' | 'success' = 'neutral') => {
+      dispatch(showToast({ message, tone }));
+    },
+    [dispatch]
+  );
+
   const activeChatSummary = useMemo(
-    () => chats.find((item) => String(item?.chatId || '').trim() === String(chatId || '').trim()) || null,
-    [chatId, chats]
+    () => chatList.find((item) => String(item?.chatId || '').trim() === String(chatId || '').trim()) || null,
+    [chatId, chatList]
   );
 
   const activeTeam = useMemo(() => {
@@ -293,8 +304,8 @@ export function ChatAssistantScreen({
     if (!teamId) {
       return null;
     }
-    return teams.find((item) => String(item?.teamId || '').trim() === teamId) || null;
-  }, [activeChatSummary?.teamId, teams]);
+    return teamList.find((item) => String(item?.teamId || '').trim() === teamId) || null;
+  }, [activeChatSummary?.teamId, teamList]);
 
   const teamMentionAgents = useMemo(() => {
     const agentKeys = Array.isArray(activeTeam?.agentKeys) ? activeTeam.agentKeys : [];
@@ -303,7 +314,7 @@ export function ChatAssistantScreen({
     }
 
     const agentByKey = new Map();
-    agents.forEach((agent) => {
+    agentList.forEach((agent) => {
       const key = getAgentKey(agent);
       if (key) {
         agentByKey.set(key, agent);
@@ -316,7 +327,7 @@ export function ChatAssistantScreen({
         return normalizedKey ? agentByKey.get(normalizedKey) : null;
       })
       .filter(Boolean);
-  }, [activeTeam?.agentKeys, agents]);
+  }, [activeTeam?.agentKeys, agentList]);
 
   const activeMentionState = useMemo(
     () => resolveActiveMention(composerText, composerSelection.start),
@@ -578,21 +589,21 @@ export function ChatAssistantScreen({
         return;
       }
       if (chatStateRef.current.streaming) {
-        dispatch(setStatusText('当前正在回复，暂不能切换对话'));
+        notify('当前正在回复，暂不能切换对话', 'warn');
         return;
       }
       if (activeFrontendToolRef.current) {
-        dispatch(setStatusText('请先完成当前工具交互后再切换对话'));
+        notify('请先完成当前工具交互后再切换对话', 'warn');
         return;
       }
 
       setGestureCooldown();
       const outcome = runner();
       if (outcome?.message) {
-        dispatch(setStatusText(outcome.message));
+        notify(outcome.message, outcome.ok ? 'success' : 'warn');
       }
     },
-    [dispatch, resetNavGestureVisuals, setGestureCooldown]
+    [notify, resetNavGestureVisuals, setGestureCooldown]
   );
 
   const commitShowDrawerGesture = useCallback(() => {
@@ -602,7 +613,6 @@ export function ChatAssistantScreen({
     }
     setGestureCooldown();
     onRequestShowChatDetailDrawer?.();
-    console.log('-------commitShowDrawerGesture------');
   }, [onRequestShowChatDetailDrawer, resetNavGestureVisuals, setGestureCooldown]);
 
   const runCreateGestureAction = useCallback(() => {
@@ -977,7 +987,7 @@ export function ChatAssistantScreen({
       );
 
       try {
-        const html = await fetchViewportHtml(backendUrl, toolKey);
+        const html = await loadViewportHtml({ viewportKey: toolKey }).unwrap();
         const current = activeFrontendToolRef.current;
         if (!current || current.toolId !== toolId) return;
 
@@ -1013,7 +1023,7 @@ export function ChatAssistantScreen({
         );
       }
     },
-    [backendUrl, clearToolInitTimers, setChatStateSafe]
+    [clearToolInitTimers, loadViewportHtml, setChatStateSafe]
   );
 
   const activateFrontendToolFromEffect = useCallback(
@@ -1154,14 +1164,12 @@ export function ChatAssistantScreen({
             : [];
           if (chunkGapDetected && !chunkGapNotifiedToolIdsRef.current.has(toolId)) {
             chunkGapNotifiedToolIdsRef.current.add(toolId);
-            dispatch(
-              setStatusText(`前端工具参数分片缺失：toolId=${toolId} missing=[${missingChunkIndexes.join(',')}]`)
-            );
+            notify(`前端工具参数分片缺失：toolId=${toolId} missing=[${missingChunkIndexes.join(',')}]`, 'danger');
           }
         }
       });
     },
-    [activateFrontendToolFromEffect, clearStreamIdleTimer, dispatch, executeAction, setChatStateSafe]
+    [activateFrontendToolFromEffect, clearStreamIdleTimer, executeAction, notify, setChatStateSafe]
   );
 
   const applyEvent = useCallback(
@@ -1282,7 +1290,7 @@ export function ChatAssistantScreen({
 
   const sendMessage = useCallback(async () => {
     if (activeFrontendToolRef.current) {
-      dispatch(setStatusText('请先完成当前前端工具操作'));
+      notify('请先完成当前前端工具操作', 'warn');
       return;
     }
 
@@ -1290,13 +1298,13 @@ export function ChatAssistantScreen({
     if (!message) return;
 
     if (chatStateRef.current.streaming) {
-      dispatch(setStatusText('已有进行中的回答，请先停止'));
+      notify('已有进行中的回答，请先停止', 'warn');
       return;
     }
 
-    const agentKey = selectedAgentKey || getAgentKey(agents[0]);
+    const agentKey = selectedAgentKey || getAgentKey(agentList[0]);
     if (!agentKey) {
-      dispatch(setStatusText('请先选择 Agent'));
+      notify('请先选择 Agent', 'warn');
       return;
     }
 
@@ -1307,7 +1315,7 @@ export function ChatAssistantScreen({
 
     const initialAccessToken = await getAccessToken(backendUrl);
     if (!initialAccessToken) {
-      dispatch(setStatusText('登录状态失效，请重新登录'));
+      notify('登录状态失效，请重新登录', 'danger');
       return;
     }
 
@@ -1357,7 +1365,7 @@ export function ChatAssistantScreen({
             const now = Date.now();
             if (now - malformedNoticeAtRef.current > 1800) {
               malformedNoticeAtRef.current = now;
-              dispatch(setStatusText(`SSE 数据帧异常：${reason}`));
+              notify(`${SSE_MALFORMED_STATUS_PREFIX}${reason}`, 'danger');
             }
           }
         }
@@ -1405,14 +1413,14 @@ export function ChatAssistantScreen({
       onRefreshChats(true).catch(() => {});
     }
   }, [
-    agents,
+    agentList,
     applyEvent,
     backendUrl,
     chatId,
     clearStreamIdleTimer,
     composerText,
-    dispatch,
     markStreamAlive,
+    notify,
     onRefreshChats,
     selectedAgentKey,
     setAutoScrollMode,
@@ -1423,13 +1431,12 @@ export function ChatAssistantScreen({
     async (params: Record<string, unknown>) => {
       const active = activeFrontendToolRef.current;
       if (!active) {
-        dispatch(setStatusText('当前没有等待提交的前端工具'));
+        notify('当前没有等待提交的前端工具', 'warn');
         return false;
       }
 
       try {
         const data = await submitFrontendTool({
-          baseUrl: backendUrl,
           runId: active.runId,
           toolId: active.toolId,
           params: params && typeof params === 'object' ? params : {}
@@ -1442,15 +1449,15 @@ export function ChatAssistantScreen({
           return true;
         } else {
           const detail = String(data?.detail || data?.status || 'unmatched');
-          dispatch(setStatusText(`提交未被接受：${detail}`));
+          notify(`提交未被接受：${detail}`, 'warn');
           return false;
         }
       } catch (error) {
-        dispatch(setStatusText(`提交失败：${(error as Error)?.message || 'unknown error'}`));
+        notify(`提交失败：${(error as Error)?.message || 'unknown error'}`, 'danger');
         return false;
       }
     },
-    [backendUrl, clearToolInitTimers, dispatch, setChatStateSafe, submitFrontendTool]
+    [clearToolInitTimers, notify, setChatStateSafe, submitFrontendTool]
   );
 
   const postToFrontendToolWebView = useCallback((payload: Record<string, unknown>) => {
@@ -1524,12 +1531,12 @@ export function ChatAssistantScreen({
       ) {
         toolInitHintSessionKeyRef.current = sessionKey;
         toolInitHintAtRef.current = sentAtMs;
-        dispatch(setStatusText('前端工具已重发初始化，请在页面内点击任意位置唤醒交互'));
+        notify('前端工具已重发初始化，请在页面内点击任意位置唤醒交互', 'warn');
       }
 
       return true;
     },
-    [canDispatchToolInit, dispatch, postToFrontendToolWebView, resolveToolInitSessionKey, setChatStateSafe]
+    [canDispatchToolInit, notify, postToFrontendToolWebView, resolveToolInitSessionKey, setChatStateSafe]
   );
 
   const startToolInitHeartbeat = useCallback(() => {
@@ -1784,8 +1791,8 @@ export function ChatAssistantScreen({
       return;
     }
     imageTokenErrorNotifiedRef.current = true;
-    dispatch(setStatusText('图片加载失败：签名可能过期或无权限'));
-  }, [dispatch]);
+    notify('图片加载失败：签名可能过期或无权限', 'warn');
+  }, [notify]);
 
   const tailSignature = useMemo(() => {
     const timeline = chatState.timeline;
@@ -1869,29 +1876,6 @@ export function ChatAssistantScreen({
   }, [chatId]);
 
   useEffect(() => {
-    if (malformedStatusClearTimerRef.current) {
-      clearTimeout(malformedStatusClearTimerRef.current);
-      malformedStatusClearTimerRef.current = null;
-    }
-
-    if (!String(statusText || '').startsWith(SSE_MALFORMED_STATUS_PREFIX)) {
-      return;
-    }
-
-    malformedStatusClearTimerRef.current = setTimeout(() => {
-      malformedStatusClearTimerRef.current = null;
-      dispatch(setStatusText(''));
-    }, SSE_MALFORMED_STATUS_TTL_MS);
-
-    return () => {
-      if (malformedStatusClearTimerRef.current) {
-        clearTimeout(malformedStatusClearTimerRef.current);
-        malformedStatusClearTimerRef.current = null;
-      }
-    };
-  }, [dispatch, statusText]);
-
-  useEffect(() => {
     if (!autoScrollEnabledRef.current) {
       return undefined;
     }
@@ -1925,7 +1909,7 @@ export function ChatAssistantScreen({
 
   const loadHistoryFromRemote = useCallback(
     async (targetChatId: string) => {
-      const data = await loadChat({ baseUrl: backendUrl, chatId: targetChatId }).unwrap();
+      const data = await loadChat({ chatId: targetChatId }).unwrap();
       const events = Array.isArray(data?.events) ? data.events : [];
       await upsertChatDetail({
         chatId: targetChatId,
@@ -1939,7 +1923,7 @@ export function ChatAssistantScreen({
         events
       };
     },
-    [backendUrl, loadChat]
+    [loadChat]
   );
 
   useEffect(() => {
@@ -1990,7 +1974,7 @@ export function ChatAssistantScreen({
 
     hydrate().catch((error) => {
       if (cancelled) return;
-      dispatch(setStatusText(`会话载入失败：${formatError(error)}`));
+      notify(`会话载入失败：${formatError(error)}`, 'danger');
     });
 
     return () => {
@@ -1999,9 +1983,9 @@ export function ChatAssistantScreen({
   }, [
     applyEvent,
     chatId,
-    dispatch,
     loadHistoryFromCache,
     loadHistoryFromRemote,
+    notify,
     resetTimeline,
     syncListMetrics,
     scrollToTopAndDisableAutoScroll,
@@ -2107,10 +2091,6 @@ export function ChatAssistantScreen({
       if (fireworksTimerRef.current) {
         clearTimeout(fireworksTimerRef.current);
         fireworksTimerRef.current = null;
-      }
-      if (malformedStatusClearTimerRef.current) {
-        clearTimeout(malformedStatusClearTimerRef.current);
-        malformedStatusClearTimerRef.current = null;
       }
       if (scrollableStabilizationTimerRef.current) {
         clearTimeout(scrollableStabilizationTimerRef.current);
@@ -2510,85 +2490,38 @@ export function ChatAssistantScreen({
         </View>
       ) : null}
 
-      {frontendToolOverlayMounted ? (
-        <Animated.View
-          pointerEvents={hasActiveFrontendTool ? 'auto' : 'none'}
-          style={styles.frontendToolOverlay}
-          testID="frontend-tool-overlay"
-        >
-          <Animated.View
-            style={[
-              styles.frontendToolOverlayMask,
-              { backgroundColor: theme.overlay, opacity: frontendToolOverlayAnim }
-            ]}
-            testID="frontend-tool-overlay-mask"
-          />
-          <Animated.View
-            style={[
-              styles.frontendToolOverlaySheetWrap,
-              {
-                paddingBottom: composerBottomPadding,
-                opacity: frontendToolSheetOpacity,
-                transform: [{ translateY: frontendToolSheetTranslateY }]
-              }
-            ]}
-            testID="frontend-tool-overlay-sheet"
-          >
-            {hasActiveFrontendTool ? (
-              <Composer
-                theme={theme}
-                composerText={composerText}
-                inputRef={composerInputRef}
-                onChangeText={setComposerText}
-                onSelectionChange={setComposerSelection}
-                onFocus={() => {}}
-                onBlur={() => {}}
-                onSend={sendMessage}
-                onStop={stopStreaming}
-                streaming={chatState.streaming}
-                activeFrontendTool={chatState.activeFrontendTool}
-                frontendToolBaseUrl={backendUrl}
-                frontendToolWebViewRef={frontendToolWebViewRef}
-                onFrontendToolMessage={handleFrontendToolMessage}
-                onFrontendToolLoad={handleFrontendToolWebViewLoad}
-                onFrontendToolRetry={handleFrontendToolRetry}
-                onNativeConfirmSubmit={submitActiveFrontendTool}
-              />
-            ) : null}
-          </Animated.View>
-        </Animated.View>
-      ) : null}
+      <ChatFrontendToolOverlay
+        mounted={frontendToolOverlayMounted}
+        visible={hasActiveFrontendTool}
+        composerBottomPadding={composerBottomPadding}
+        composerText={composerText}
+        theme={theme}
+        maskOpacity={frontendToolOverlayAnim}
+        sheetOpacity={frontendToolSheetOpacity}
+        sheetTranslateY={frontendToolSheetTranslateY}
+        streaming={chatState.streaming}
+        activeFrontendTool={chatState.activeFrontendTool}
+        frontendToolBaseUrl={backendUrl}
+        frontendToolWebViewRef={frontendToolWebViewRef}
+        composerInputRef={composerInputRef}
+        onChangeText={setComposerText}
+        onSelectionChange={setComposerSelection}
+        onSend={sendMessage}
+        onStop={stopStreaming}
+        onFrontendToolMessage={handleFrontendToolMessage}
+        onFrontendToolLoad={handleFrontendToolWebViewLoad}
+        onFrontendToolRetry={handleFrontendToolRetry}
+        onNativeConfirmSubmit={submitActiveFrontendTool}
+      />
 
-      <Modal
-        transparent
+      <ChatActionModal
         visible={chatState.actionModal.visible}
-        animationType="fade"
-        onRequestClose={() =>
-          setChatStateSafe((prev) => ({ ...prev, actionModal: { ...prev.actionModal, visible: false } }))
-        }
-      >
-        <View style={[styles.actionModalOverlay, { backgroundColor: theme.overlay }]}>
-          <View style={[styles.actionModalCard, { backgroundColor: theme.surfaceStrong }]}>
-            <Text style={[styles.actionModalTitle, { color: theme.text }]}>
-              {chatState.actionModal.title || '提示'}
-            </Text>
-            <Text style={[styles.actionModalContent, { color: theme.textSoft }]}>
-              {chatState.actionModal.content || ' '}
-            </Text>
-            <TouchableOpacity
-              activeOpacity={0.82}
-              style={[styles.actionModalBtn, { backgroundColor: theme.primarySoft }]}
-              onPress={() =>
-                setChatStateSafe((prev) => ({ ...prev, actionModal: { ...prev.actionModal, visible: false } }))
-              }
-            >
-              <Text style={[styles.actionModalBtnText, { color: theme.primaryDeep }]}>
-                {chatState.actionModal.closeText || '关闭'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        title={chatState.actionModal.title}
+        content={chatState.actionModal.content}
+        closeText={chatState.actionModal.closeText}
+        theme={theme}
+        onClose={() => setChatStateSafe((prev) => ({ ...prev, actionModal: { ...prev.actionModal, visible: false } }))}
+      />
     </View>
   );
 }

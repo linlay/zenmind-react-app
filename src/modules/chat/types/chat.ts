@@ -118,8 +118,6 @@ export interface ChatState {
   planState: PlanState;
   activeFrontendTool: FrontendToolState | null;
   actionModal: ActionModalState;
-  chatId: string;
-  statusText: string;
   streaming: boolean;
   expandedTools: Record<string, boolean>;
 }

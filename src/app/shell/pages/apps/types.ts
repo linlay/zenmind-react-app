@@ -31,7 +31,7 @@ export interface AppsRouteBridgeProps {
 }
 
 export interface ShellAppsTabScreenProps extends ShellTabBindings {
-  onBindNavigation: (navigation: AppsRootNavigation) => void;
+  onBindNavigation?: (navigation: AppsRootNavigation) => void;
   onRouteFocus: (routeName: AppsRouteName, appKey?: AppsAppKey) => void;
   runtime: AppsRuntimeBridge;
 }
