@@ -13,6 +13,7 @@ let mockSelectorState: Record<string, any> = {};
 const mockTriggerAgents = jest.fn();
 const mockTriggerTeams = jest.fn();
 const mockTriggerTerminalSessions = jest.fn();
+let mockAppsQueryResult: Record<string, any> = {};
 const mockListCachedChats = jest.fn();
 const mockSyncChatsIncremental = jest.fn();
 const mockMarkChatReadLocal = jest.fn();
@@ -169,6 +170,18 @@ jest.mock('../../../modules/terminal/api/terminalApi', () => ({
   useLazyListTerminalSessionsQuery: () => [mockTriggerTerminalSessions]
 }));
 
+jest.mock('../pages/apps/appsApi', () => ({
+  useGetAppsQuery: () => mockAppsQueryResult
+}));
+
+jest.mock('react-native-webview', () => {
+  const ReactLocal = require('react');
+  const { View } = require('react-native');
+  return {
+    WebView: ({ children, ...props }: { children?: React.ReactNode }) => ReactLocal.createElement(View, props, children)
+  };
+});
+
 jest.mock('../../../modules/chat/services/chatCacheDb', () => ({
   initChatCacheDb: () => Promise.resolve(),
   listCachedChats: (...args: any[]) => mockListCachedChats(...args),
@@ -218,7 +231,11 @@ jest.mock('../../../core/auth/webViewAuthBridge', () => ({
     async refresh() {
       return { ok: true, accessToken: 'token' };
     }
-  }
+  },
+  createWebViewAuthTokenMessage: () => null,
+  buildWebViewPostMessageScript: () => 'true;',
+  relayWebViewAuthMessage: () => Promise.resolve(),
+  WEBVIEW_AUTH_BRIDGE_SCRIPT: 'true;'
 }));
 
 function makeState(overrides: Partial<Record<string, any>> = {}) {
@@ -461,6 +478,33 @@ describe('ShellScreen navigation flow', () => {
 
   beforeEach(() => {
     mockDispatch.mockClear();
+    mockAppsQueryResult = {
+      data: {
+        generatedAt: '2026-03-09T11:02:03.655Z',
+        apps: [
+          {
+            key: 'cost',
+            name: '记账',
+            description: '按日期记录个人开销的轻量应用',
+            effectiveMode: 'dev',
+            mountPath: '/cost',
+            apiBase: '/cost/api',
+            publicMountPath: '/ma/cost',
+            publicApiBase: '/ma/cost/api',
+            frontendStatus: 'active',
+            backendStatus: 'active',
+            status: 'active',
+            lastFrontendLoadAt: '',
+            lastBackendLoadAt: '',
+            lastFrontendError: null,
+            lastBackendError: null
+          }
+        ]
+      },
+      isLoading: false,
+      isError: false,
+      error: undefined
+    };
     mockDispatch.mockImplementation((action: { type?: string; payload?: any }) => {
       switch (action?.type) {
         case 'user/setActiveDomain':
@@ -659,6 +703,27 @@ describe('ShellScreen navigation flow', () => {
     expect(tree.root.findByProps({ testID: 'chat-detail-menu-btn' })).toBeTruthy();
     expect(tree.root.findByProps({ testID: 'shell-top-subtitle' }).props.children).toBe('任务调度助手');
     expect(tree.root.findAllByProps({ testID: 'bottom-nav-tab-chat' }).length).toBe(0);
+  });
+
+  it('uses api app name as shell title on apps detail route', async () => {
+    const { tree } = await renderShellView({ activeDomain: 'chat' });
+
+    const appsTab = tree.root.findByProps({ testID: 'bottom-nav-tab-apps' });
+    act(() => {
+      appsTab.props.onPress();
+    });
+
+    const appCard = tree.root.findByProps({ testID: 'apps-list-card-0' });
+    await act(async () => {
+      appCard.props.onPress();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(tree.root.findByProps({ testID: 'apps-detail-back-btn' })).toBeTruthy();
+    const titleWrap = tree.root.findByProps({ testID: 'shell-top-title-wrap' });
+    const titleText = titleWrap.findAllByType(ReactNative.Text)[0];
+    expect(titleText.props.children).toBe('记账');
   });
 
   it('shows agent profile shell state from navigation', async () => {

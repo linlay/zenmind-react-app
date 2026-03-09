@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import {
   buildWebViewPostMessageScript,
@@ -10,9 +10,11 @@ import {
 } from '../../../../core/auth/webViewAuthBridge';
 import { EmbeddedWebViewState } from '../../../../core/components/EmbeddedWebViewState';
 import { THEMES } from '../../../../core/constants/theme';
+import { formatError } from '../../../../core/network/apiClient';
 import { useAppSelector } from '../../../store/hooks';
 import { useShellRouteBridge } from '../../hooks/useShellRouteBridge';
-import { getAppByKey } from './config';
+import { useGetAppsQuery } from './appsApi';
+import { getAppByKey, resolveAppWebViewUrl } from './helpers';
 import { AppsRouteBridgeProps, AppsRouteScreenProps } from './types';
 
 export function AppsWebViewRouteScreen({
@@ -23,14 +25,17 @@ export function AppsWebViewRouteScreen({
   runtime
 }: AppsRouteScreenProps<'AppsWebView'> & AppsRouteBridgeProps) {
   const themeMode = useAppSelector((state) => state.user.themeMode);
+  const endpointInput = useAppSelector((state) => state.user.endpointInput);
   const theme = useMemo(() => THEMES[themeMode] || THEMES.light, [themeMode]);
-  const app = useMemo(() => getAppByKey(route.params?.appKey), [route.params?.appKey]);
+  const { data, isLoading: appsLoading, isError: appsError, error: appsQueryError } = useGetAppsQuery();
+  const app = useMemo(() => getAppByKey(data?.apps || [], route.params?.appKey), [data?.apps, route.params?.appKey]);
+  const sourceUri = useMemo(() => resolveAppWebViewUrl(app, endpointInput), [app, endpointInput]);
   const webViewRef = useRef<WebView>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   const postToWebView = useCallback((payload: Record<string, unknown>) => {
-    if (!webViewRef.current) {
+    if (!webViewRef.current || typeof webViewRef.current.injectJavaScript !== 'function') {
       return;
     }
     webViewRef.current.injectJavaScript(buildWebViewPostMessageScript(payload));
@@ -50,7 +55,7 @@ export function AppsWebViewRouteScreen({
   useShellRouteBridge({
     navigation,
     onBindNavigation,
-    onFocus: () => onRouteFocus?.('AppsWebView', app?.key)
+    onFocus: () => onRouteFocus?.('AppsWebView', app?.key, app?.name)
   });
 
   useEffect(() => {
@@ -60,10 +65,35 @@ export function AppsWebViewRouteScreen({
     pushLatestToken();
   }, [pushLatestToken, runtime?.authTokenSignal]);
 
+  if (appsLoading && !app) {
+    return (
+      <View style={[styles.stateWrap, { backgroundColor: theme.surface }]} testID="apps-webview-loading-page">
+        <Text style={[styles.stateTitle, { color: theme.text }]}>正在加载小应用...</Text>
+      </View>
+    );
+  }
+
+  if (appsError && !app) {
+    return (
+      <View style={[styles.stateWrap, { backgroundColor: theme.surface }]} testID="apps-webview-error-page">
+        <Text style={[styles.stateTitle, { color: theme.text }]}>小应用列表加载失败</Text>
+        <Text style={[styles.stateText, { color: theme.textMute }]}>{formatError(appsQueryError)}</Text>
+      </View>
+    );
+  }
+
   if (!app) {
     return (
       <View style={[styles.stateWrap, { backgroundColor: theme.surface }]} testID="apps-webview-missing-page">
         <Text style={[styles.stateTitle, { color: theme.text }]}>小应用不存在</Text>
+      </View>
+    );
+  }
+
+  if (!sourceUri) {
+    return (
+      <View style={[styles.stateWrap, { backgroundColor: theme.surface }]} testID="apps-webview-missing-url-page">
+        <Text style={[styles.stateTitle, { color: theme.text }]}>小应用地址无效</Text>
       </View>
     );
   }
@@ -73,7 +103,7 @@ export function AppsWebViewRouteScreen({
       <WebView
         ref={webViewRef}
         originWhitelist={['*']}
-        source={{ uri: app.url }}
+        source={{ uri: sourceUri }}
         style={styles.webView}
         javaScriptEnabled
         domStorageEnabled
@@ -129,5 +159,10 @@ const styles = StyleSheet.create({
   stateTitle: {
     fontSize: 16,
     fontWeight: '600'
+  },
+  stateText: {
+    marginTop: 8,
+    fontSize: 13,
+    textAlign: 'center'
   }
 });
