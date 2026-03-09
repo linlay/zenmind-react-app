@@ -1,11 +1,40 @@
 import { NavigationProp, RouteProp } from '@react-navigation/native';
 import type { WebViewAuthRefreshOutcome } from '../../../../core/auth/webViewAuthBridge';
 import { ShellTabBindings } from '../../types';
-import { AppsAppKey } from './config';
+
+export interface AppsAppDefinition {
+  key: string;
+  name: string;
+  description: string;
+  effectiveMode: string;
+  mountPath: string;
+  apiBase: string;
+  publicMountPath: string;
+  publicApiBase: string;
+  frontendStatus: string;
+  backendStatus: string;
+  status: string;
+  lastFrontendLoadAt: string;
+  lastBackendLoadAt: string;
+  lastFrontendError: string | null;
+  lastBackendError: string | null;
+}
+
+export interface AppsCatalogPayload {
+  generatedAt?: string;
+  apps?: unknown[];
+}
+
+export interface AppsCatalog {
+  generatedAt: string;
+  apps: AppsAppDefinition[];
+}
+
+export type AppsCatalogResponse = AppsCatalogPayload | null;
 
 export type AppsStackParamList = {
   AppsList: undefined;
-  AppsWebView: { appKey: AppsAppKey };
+  AppsWebView: { appKey: string };
 };
 
 export type AppsRouteName = keyof AppsStackParamList;
@@ -24,14 +53,16 @@ export interface AppsRuntimeBridge {
   onWebViewAuthRefreshRequest?: (requestId: string, source: string) => Promise<WebViewAuthRefreshOutcome>;
 }
 
+export type AppsRouteFocusHandler = (routeName: AppsRouteName, appKey?: string, appName?: string) => void;
+
 export interface AppsRouteBridgeProps {
   onBindNavigation?: (navigation: AppsRootNavigation) => void;
-  onRouteFocus?: (routeName: AppsRouteName, appKey?: AppsAppKey) => void;
+  onRouteFocus?: AppsRouteFocusHandler;
   runtime?: AppsRuntimeBridge;
 }
 
 export interface ShellAppsTabScreenProps extends ShellTabBindings {
   onBindNavigation?: (navigation: AppsRootNavigation) => void;
-  onRouteFocus: (routeName: AppsRouteName, appKey?: AppsAppKey) => void;
+  onRouteFocus: AppsRouteFocusHandler;
   runtime: AppsRuntimeBridge;
 }

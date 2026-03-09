@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Svg, { Path, Rect } from 'react-native-svg';
 import { THEMES } from '../../../../core/constants/theme';
+import { formatError } from '../../../../core/network/apiClient';
 import { useAppSelector } from '../../../store/hooks';
 import {
   TAB_CARD_BASE_STYLE,
@@ -13,7 +14,8 @@ import {
   getTabPagePalette
 } from '../../styles/tabPageVisual';
 import { useShellRouteBridge } from '../../hooks/useShellRouteBridge';
-import { APPS } from './config';
+import { useGetAppsQuery } from './appsApi';
+import { getAppStatusLabel } from './helpers';
 import { AppsRouteBridgeProps, AppsRouteScreenProps } from './types';
 
 function AppCardIcon({ color }: { color: string }) {
@@ -33,45 +35,60 @@ export function AppsListRouteScreen({
   const themeMode = useAppSelector((state) => state.user.themeMode);
   const theme = useMemo(() => THEMES[themeMode] || THEMES.light, [themeMode]);
   const palette = useMemo(() => getTabPagePalette(theme), [theme]);
+  const { data, isLoading, isError, error } = useGetAppsQuery();
+  const apps = data?.apps || [];
+  const errorText = isError ? formatError(error) : '';
 
   useShellRouteBridge({
     navigation,
     onBindNavigation,
-    onFocus: () => onRouteFocus?.('AppsList')
+    onFocus: () => onRouteFocus?.('AppsList', '', '')
   });
 
   return (
     <View style={[styles.page, { backgroundColor: palette.pageBackground }]} testID="apps-list-page">
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content}>
-        {APPS.map((app, index) => (
-          <TouchableOpacity
-            key={app.key}
-            activeOpacity={0.8}
-            style={[styles.card, { backgroundColor: palette.cardBackground, borderColor: palette.cardBorder }]}
-            testID={`apps-list-card-${index}`}
-            onPress={() => navigation.navigate('AppsWebView', { appKey: app.key })}
-          >
-            <View style={[styles.iconWrap, { backgroundColor: palette.iconTileBackground }]}>
-              <AppCardIcon color={theme.primaryDeep} />
-            </View>
-            <View style={styles.cardContent}>
-              <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
-                {app.name}
-              </Text>
-              {app.description ? (
-                <Text style={[styles.cardDescription, { color: theme.textMute }]} numberOfLines={2}>
-                  {app.description}
-                </Text>
-              ) : null}
-              <View style={styles.cardMetaRow}>
-                <View style={[styles.statusChip, { backgroundColor: theme.primarySoft }]}>
-                  <Text style={[styles.statusText, { color: theme.primaryDeep }]}>{app.status}</Text>
+        {apps.length
+          ? apps.map((app, index) => (
+              <TouchableOpacity
+                key={app.key}
+                activeOpacity={0.8}
+                style={[styles.card, { backgroundColor: palette.cardBackground, borderColor: palette.cardBorder }]}
+                testID={`apps-list-card-${index}`}
+                onPress={() => navigation.navigate('AppsWebView', { appKey: app.key })}
+              >
+                <View style={[styles.iconWrap, { backgroundColor: palette.iconTileBackground }]}>
+                  <AppCardIcon color={theme.primaryDeep} />
                 </View>
-                <Text style={[styles.cardArrow, { color: theme.textMute }]}>›</Text>
-              </View>
+                <View style={styles.cardContent}>
+                  <Text style={[styles.cardTitle, { color: theme.text }]} numberOfLines={1}>
+                    {app.name}
+                  </Text>
+                  {app.description ? (
+                    <Text style={[styles.cardDescription, { color: theme.textMute }]} numberOfLines={2}>
+                      {app.description}
+                    </Text>
+                  ) : null}
+                  <View style={styles.cardMetaRow}>
+                    <View style={[styles.statusChip, { backgroundColor: theme.primarySoft }]}>
+                      <Text style={[styles.statusText, { color: theme.primaryDeep }]}>{getAppStatusLabel(app.status)}</Text>
+                    </View>
+                    <Text style={[styles.cardArrow, { color: theme.textMute }]}>›</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            ))
+          : (
+            <View
+              style={[styles.stateCard, { backgroundColor: palette.cardBackground, borderColor: palette.cardBorder }]}
+              testID={isLoading ? 'apps-list-loading' : isError ? 'apps-list-error' : 'apps-list-empty'}
+            >
+              {isLoading ? <ActivityIndicator size="small" color={theme.primaryDeep} /> : null}
+              <Text style={[styles.stateText, { color: theme.textMute }]}>
+                {isLoading ? '正在加载小应用...' : isError ? errorText || '小应用列表加载失败' : '暂无小应用'}
+              </Text>
             </View>
-          </TouchableOpacity>
-        ))}
+          )}
       </ScrollView>
     </View>
   );
@@ -136,5 +153,16 @@ const styles = StyleSheet.create({
   cardArrow: {
     fontSize: 18,
     fontWeight: '500'
+  },
+  stateCard: {
+    ...TAB_CARD_BASE_STYLE,
+    minHeight: 110,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10
+  },
+  stateText: {
+    fontSize: TAB_SECONDARY_FONT_SIZE,
+    textAlign: 'center'
   }
 });

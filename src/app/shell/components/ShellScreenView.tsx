@@ -21,7 +21,6 @@ import { buildShellHeaderDescriptor, ShellHeaderActions } from '../routes/shellH
 import { buildShellRouteModel } from '../routes/shellRouteModel';
 import { buildShellRouteSnapshot } from '../routes/shellRouteSnapshot';
 import { ShellTabNavigation, ShellTabParamList } from '../types';
-import { getAppByKey } from '../pages/apps/config';
 import { AppsRouteName, AppsRuntimeBridge } from '../pages/apps/types';
 import { ChatRootNavigation, ChatRouteName } from '../pages/chat/types';
 import { TerminalRouteName, TerminalRuntimeBridge } from '../pages/terminal/types';
@@ -141,7 +140,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
 
   const [focusedDomain, setFocusedDomain] = useState<DomainMode>(normalizedActiveDomain);
   const [appsFocusedRoute, setAppsFocusedRoute] = useState<AppsRouteName>('AppsList');
-  const [appsFocusedAppKey, setAppsFocusedAppKey] = useState<string>('');
+  const [appsFocusedAppName, setAppsFocusedAppName] = useState<string>('');
   const [chatFocusedRoute, setChatFocusedRoute] = useState<ChatRouteName>('ChatList');
   const [terminalFocusedRoute, setTerminalFocusedRoute] = useState<TerminalRouteName>('TerminalList');
 
@@ -156,7 +155,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     [appsFocusedRoute, chatFocusedRoute, focusedDomain, terminalFocusedRoute]
   );
 
-  const activeAppName = useMemo(() => getAppByKey(appsFocusedAppKey)?.name || '', [appsFocusedAppKey]);
+  const activeAppName = useMemo(() => appsFocusedAppName, [appsFocusedAppName]);
 
   const routeModel = useMemo(
     () =>
@@ -193,9 +192,9 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     []
   );
 
-  const handleAppsRouteFocus = useCallback((routeName: AppsRouteName, appKey?: string) => {
+  const handleAppsRouteFocus = useCallback((routeName: AppsRouteName, _appKey?: string, appName?: string) => {
     setAppsFocusedRoute(routeName);
-    setAppsFocusedAppKey(routeName === 'AppsWebView' ? String(appKey || '').trim() : '');
+    setAppsFocusedAppName(routeName === 'AppsWebView' ? String(appName || '').trim() : '');
   }, []);
 
   const handleChatRouteFocus = useCallback((routeName: ChatRouteName) => {
