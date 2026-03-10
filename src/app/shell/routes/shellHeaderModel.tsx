@@ -26,7 +26,6 @@ export interface ShellHeaderActions {
   goBackFromTerminal: () => void;
   openTerminalDrive: () => void;
   reloadTerminalDetail: () => void;
-  toggleInbox: () => void;
   showDriveMenu: () => void;
   showDriveSearch: () => void;
   showDriveSelect: () => void;
@@ -38,7 +37,6 @@ export interface BuildShellHeaderModelInput {
   routeSnapshot: ShellRouteSnapshot;
   chatSearchQuery: string;
   chatPlusMenuOpen: boolean;
-  inboxUnreadCount: number;
   activeAgentName: string;
   activeAgentRole: string;
   activeAppName: string;
@@ -50,7 +48,6 @@ export function buildShellHeaderDescriptor({
   routeSnapshot,
   chatSearchQuery,
   chatPlusMenuOpen,
-  inboxUnreadCount,
   activeAgentName,
   activeAgentRole,
   activeAppName,
@@ -113,7 +110,7 @@ export function buildShellHeaderDescriptor({
   }
 
   if (routeSnapshot.activeDomain === 'user') {
-    return buildUserHeader(theme, inboxUnreadCount, actions.toggleInbox, actions.toggleTheme);
+    return buildUserHeader(theme, actions.toggleTheme);
   }
 
   return {};

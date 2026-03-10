@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
   BackHandler,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
-  Text,
-  TouchableOpacity,
   View
 } from 'react-native';
 import { CommonActions, NavigationProp, ParamListBase } from '@react-navigation/native';
@@ -48,7 +44,6 @@ import {
 } from '../../../modules/user/state/userSlice';
 import { reloadPty } from '../../../modules/terminal/state/terminalSlice';
 import { DomainMode } from '../../../core/types/common';
-import { formatInboxTime } from '../../../shared/utils/format';
 
 interface ShellScreenViewProps {
   controller: ShellScreenController;
@@ -82,18 +77,13 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
   const {
     dispatch,
     insets,
-    window,
     theme,
     keyboardInset,
-    inboxOpen,
     chatPlusMenuOpen,
     chatSearchQuery,
     chatAgentsSidebarOpen,
     chatDetailDrawerOpen,
     chatDetailDrawerPreviewProgress,
-    inboxMessages,
-    inboxUnreadCount,
-    inboxLoading,
     terminalSessions,
     terminalSessionsLoading,
     terminalSessionsError,
@@ -112,9 +102,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     activeAgentName,
     activeAgentRole,
     chatRefreshSignal,
-    inboxAnim,
     appVersionLabel,
-    setInboxOpen,
     setChatPlusMenuOpen,
     setChatSearchQuery,
     refreshTerminalSessions,
@@ -128,8 +116,6 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     refreshChats,
     refreshAll,
     handleLogout,
-    markAllInboxRead,
-    markInboxRead,
     closeFloatingPanels,
     terminalListResetSignal
   } = controller;
@@ -279,10 +265,6 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     if (Platform.OS !== 'android') return;
 
     const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (inboxOpen) {
-        setInboxOpen(false);
-        return true;
-      }
       if (chatDetailDrawerOpen) {
         dispatch(closeChatDetailDrawer());
         return true;
@@ -318,21 +300,18 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     chatDetailDrawerOpen,
     dispatch,
     goBackWithinDomain,
-    inboxOpen,
     routeSnapshot.activeDomain,
     routeSnapshot.chatMode,
-    setChatPlusMenuOpen,
-    setInboxOpen
+    setChatPlusMenuOpen
   ]);
 
   const handleChatOverlayBack = useCallback(() => {
-    setInboxOpen(false);
     if (chatDetailDrawerOpen) {
       dispatch(closeChatDetailDrawer());
       return;
     }
     goBackWithinDomain('chat');
-  }, [chatDetailDrawerOpen, dispatch, goBackWithinDomain, setInboxOpen]);
+  }, [chatDetailDrawerOpen, dispatch, goBackWithinDomain]);
 
   const handleChatSearchBack = useCallback(() => {
     setChatPlusMenuOpen(false);
@@ -405,10 +384,9 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       dispatch(resetChatDetailDrawerPreview());
       return;
     }
-    setInboxOpen(false);
     dispatch(setChatAgentsSidebarOpen(false));
     dispatch(openChatDetailDrawer());
-  }, [dispatch, routeSnapshot.activeDomain, routeSnapshot.chatOverlayType, setInboxOpen]);
+  }, [dispatch, routeSnapshot.activeDomain, routeSnapshot.chatOverlayType]);
 
   const chatDetailRuntime = useMemo(
     () => ({
@@ -489,64 +467,50 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
   );
 
   const toggleChatAgentsSidebar = useCallback(() => {
-    setInboxOpen(false);
     setChatPlusMenuOpen(false);
     dispatch(closeChatDetailDrawer());
     dispatch(resetChatDetailDrawerPreview());
     dispatch(setChatAgentsSidebarOpen(!chatAgentsSidebarOpen));
-  }, [chatAgentsSidebarOpen, dispatch, setChatPlusMenuOpen, setInboxOpen]);
+  }, [chatAgentsSidebarOpen, dispatch, setChatPlusMenuOpen]);
 
   const handleCreateApp = useCallback(() => {
     dispatch(showToast({ message: '功能建设中：新增应用', tone: 'warn' }));
   }, [dispatch]);
 
   const handleOpenTerminalDrive = useCallback(() => {
-    setInboxOpen(false);
     if (routeSnapshot.terminalPane !== 'list') {
       return;
     }
     stackRegistryRef.current.terminal?.navigation?.navigate('TerminalDrive');
-  }, [routeSnapshot.terminalPane, setInboxOpen]);
+  }, [routeSnapshot.terminalPane]);
 
   const handleReloadTerminalDetail = useCallback(() => {
-    setInboxOpen(false);
     dispatch(reloadPty());
-  }, [dispatch, setInboxOpen]);
-
-  const handleToggleInbox = useCallback(() => {
-    dispatch(setChatAgentsSidebarOpen(false));
-    dispatch(closeChatDetailDrawer());
-    setInboxOpen((prev) => !prev);
-  }, [dispatch, setInboxOpen]);
+  }, [dispatch]);
 
   const handleDriveMenu = useCallback(() => {
-    setInboxOpen(false);
     dispatch(showToast({ message: '功能建设中：网盘菜单', tone: 'warn' }));
-  }, [dispatch, setInboxOpen]);
+  }, [dispatch]);
 
   const handleDriveSearch = useCallback(() => {
-    setInboxOpen(false);
     dispatch(showToast({ message: '功能建设中：网盘搜索', tone: 'warn' }));
-  }, [dispatch, setInboxOpen]);
+  }, [dispatch]);
 
   const handleDriveSelect = useCallback(() => {
-    setInboxOpen(false);
     dispatch(showToast({ message: '功能建设中：网盘管理', tone: 'warn' }));
-  }, [dispatch, setInboxOpen]);
+  }, [dispatch]);
 
   const handleChatDetailMenu = useCallback(() => {
-    setInboxOpen(false);
     dispatch(setChatAgentsSidebarOpen(false));
     dispatch(closeChatDetailDrawer());
     dispatch(resetChatDetailDrawerPreview());
     dispatch(openChatDetailDrawer());
-  }, [dispatch, setInboxOpen]);
+  }, [dispatch]);
 
   const handleThemeToggle = useCallback(() => {
     dispatch(setChatAgentsSidebarOpen(false));
-    setInboxOpen(false);
     dispatch(toggleTheme());
-  }, [dispatch, setInboxOpen]);
+  }, [dispatch]);
 
   const handleSelectChatPlusMenuItem = useCallback(
     (label: string) => {
@@ -557,14 +521,12 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
   );
 
   const handleGoBackFromAppsDetail = useCallback(() => {
-    setInboxOpen(false);
     goBackWithinDomain('apps');
-  }, [goBackWithinDomain, setInboxOpen]);
+  }, [goBackWithinDomain]);
 
   const handleGoBackFromTerminal = useCallback(() => {
-    setInboxOpen(false);
     goBackWithinDomain('terminal');
-  }, [goBackWithinDomain, setInboxOpen]);
+  }, [goBackWithinDomain]);
 
   const handleToggleChatPlusMenu = useCallback(() => {
     setChatPlusMenuOpen((prev) => !prev);
@@ -585,7 +547,6 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       goBackFromTerminal: handleGoBackFromTerminal,
       openTerminalDrive: handleOpenTerminalDrive,
       reloadTerminalDetail: handleReloadTerminalDetail,
-      toggleInbox: handleToggleInbox,
       showDriveMenu: handleDriveMenu,
       showDriveSearch: handleDriveSearch,
       showDriveSelect: handleDriveSelect,
@@ -607,7 +568,6 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       handleSelectChatPlusMenuItem,
       handleThemeToggle,
       handleToggleChatPlusMenu,
-      handleToggleInbox,
       setChatSearchQuery,
       toggleChatAgentsSidebar
     ]
@@ -620,7 +580,6 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
         routeSnapshot,
         chatSearchQuery,
         chatPlusMenuOpen,
-        inboxUnreadCount,
         activeAgentName,
         activeAgentRole,
         activeAppName,
@@ -633,7 +592,6 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       chatPlusMenuOpen,
       chatSearchQuery,
       headerActions,
-      inboxUnreadCount,
       routeSnapshot,
       theme
     ]
@@ -642,8 +600,6 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
   const handleDomainTabPress = useCallback(
     (mode: DomainMode) => {
       if (mode === routeSnapshot.activeDomain) {
-        setInboxOpen(false);
-
         if (mode === 'chat') {
           if (chatDetailDrawerOpen) {
             dispatch(closeChatDetailDrawer());
@@ -694,8 +650,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       dispatch,
       goBackWithinDomain,
       routeSnapshot,
-      setChatPlusMenuOpen,
-      setInboxOpen
+      setChatPlusMenuOpen
     ]
   );
 
@@ -797,87 +752,6 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
           </Tab.Navigator>
         </View>
       </KeyboardAvoidingView>
-
-      <View pointerEvents={inboxOpen ? 'auto' : 'none'} style={styles.inboxLayer}>
-        <Animated.View
-          style={[
-            styles.inboxModal,
-            {
-              backgroundColor: theme.surface,
-              borderColor: theme.border,
-              opacity: inboxAnim,
-              paddingTop: insets.top + 8,
-              transform: [
-                {
-                  translateY: inboxAnim.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-Math.max(120, window.height * 0.16), 0]
-                  })
-                }
-              ]
-            }
-          ]}
-        >
-          <View style={[styles.inboxModalHead, { borderBottomColor: theme.border }]}>
-            <View>
-              <Text style={[styles.inboxTitle, { color: theme.text }]}>消息盒子</Text>
-              <Text style={[styles.inboxSubTitle, { color: theme.textMute }]}>未读 {inboxUnreadCount}</Text>
-            </View>
-            <View style={styles.inboxHeadActions}>
-              <TouchableOpacity
-                activeOpacity={0.78}
-                style={[styles.inboxActionBtn, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
-                onPress={() => {
-                  markAllInboxRead().catch(() => {});
-                }}
-                testID="shell-inbox-read-all-btn"
-              >
-                <Text style={[styles.inboxCloseText, { color: theme.textSoft }]}>全部已读</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.78}
-                style={[styles.inboxActionBtn, { borderColor: theme.border, backgroundColor: theme.surfaceStrong }]}
-                onPress={() => setInboxOpen(false)}
-                testID="shell-inbox-close-btn"
-              >
-                <Text style={[styles.inboxCloseText, { color: theme.textSoft }]}>关闭</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-          <ScrollView style={styles.inboxModalScroll} contentContainerStyle={styles.inboxList}>
-            {inboxLoading ? <Text style={[styles.inboxItemBody, { color: theme.textMute }]}>加载中...</Text> : null}
-            {!inboxLoading && inboxMessages.length === 0 ? (
-              <Text style={[styles.inboxItemBody, { color: theme.textMute }]}>暂无消息</Text>
-            ) : null}
-            {inboxMessages.map((message) => (
-              <TouchableOpacity
-                key={message.messageId}
-                activeOpacity={0.78}
-                style={[
-                  styles.inboxItem,
-                  {
-                    borderColor: theme.border,
-                    backgroundColor: message.read ? theme.surface : theme.primarySoft
-                  }
-                ]}
-                onPress={() => {
-                  if (!message.read) {
-                    markInboxRead(message.messageId).catch(() => {});
-                  }
-                }}
-              >
-                <View style={styles.inboxItemTop}>
-                  <Text style={[styles.inboxItemTitle, { color: theme.text }]}>{message.title}</Text>
-                  <Text style={[styles.inboxItemTime, { color: theme.textMute }]}>
-                    {formatInboxTime(message.createAt)}
-                  </Text>
-                </View>
-                <Text style={[styles.inboxItemBody, { color: theme.textSoft }]}>{message.content}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </Animated.View>
-      </View>
 
       <AgentSidebar
         visible={routeSnapshot.activeDomain === 'chat' && chatAgentsSidebarOpen}

@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Animated, Easing, Keyboard, Platform, useWindowDimensions } from 'react-native';
+import { AppState, Keyboard, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { showToast } from '../../ui/uiSlice';
-import { InboxMessage, WebSocketMessage } from '../../../core/types/common';
+import { WebSocketMessage } from '../../../core/types/common';
 import { THEMES } from '../../../core/constants/theme';
 import {
   normalizeEndpointInput,
@@ -36,7 +36,7 @@ import { ChatSearchAgentItem } from '../../../modules/chat/components/ChatSearch
 import { useLazyGetAgentsQuery } from '../../../modules/agents/api/agentsApi';
 import { useLazyGetTeamsQuery } from '../../../modules/chat/api/chatApi';
 import { useLazyListTerminalSessionsQuery } from '../../../modules/terminal/api/terminalApi';
-import { fetchAuthedJson, formatError, markChatReadApi } from '../../../core/network/apiClient';
+import { formatError, markChatReadApi } from '../../../core/network/apiClient';
 import {
   getAgentKey,
   getAgentName,
@@ -72,7 +72,6 @@ const FOREGROUND_REFRESH_INTERVAL_MS = 60_000;
 export function useShellScreenController() {
   const dispatch = useAppDispatch();
   const insets = useSafeAreaInsets();
-  const window = useWindowDimensions();
 
   const { chatSearchQuery, chatAgentsSidebarOpen, chatDetailDrawerOpen, chatDetailDrawerPreviewProgress } =
     useAppSelector((state) => state.shell);
@@ -85,16 +84,12 @@ export function useShellScreenController() {
   const currentAgentChats = useAppSelector(selectCurrentAgentChats);
   const activeTerminalSessionId = useAppSelector((state) => state.terminal.activeSessionId);
 
-  const [inboxOpen, setInboxOpen] = useState(false);
   const [shellKeyboardHeight, setShellKeyboardHeight] = useState(0);
   const [authChecking, setAuthChecking] = useState(true);
   const [authReady, setAuthReady] = useState(false);
   const [authError, setAuthError] = useState('');
   const [masterPassword, setMasterPassword] = useState('');
   const [deviceName, setDeviceName] = useState(getDefaultDeviceName());
-  const [inboxMessages, setInboxMessages] = useState<InboxMessage[]>([]);
-  const [inboxUnreadCount, setInboxUnreadCount] = useState(0);
-  const [inboxLoading, setInboxLoading] = useState(false);
   const [chatRefreshSignal, setChatRefreshSignal] = useState(0);
   const [authAccessToken, setAuthAccessToken] = useState('');
   const [authAccessExpireAtMs, setAuthAccessExpireAtMs] = useState<number | undefined>(undefined);
@@ -121,7 +116,6 @@ export function useShellScreenController() {
   const authRefreshCoordinatorRef = useRef<WebViewAuthRefreshCoordinator | null>(null);
   const chatSyncInFlightRef = useRef(false);
 
-  const inboxAnim = useRef(new Animated.Value(0)).current;
   const theme = THEMES[themeMode] || THEMES.light;
   const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
   const ptyWebUrl = useMemo(() => normalizePtyUrlInput(ptyUrlInput, endpointInput), [endpointInput, ptyUrlInput]);
@@ -357,72 +351,6 @@ export function useShellScreenController() {
   );
 
   /**
-   * 刷新收件箱消息和未读数
-   * @param silent - 是否静默刷新（不显示 loading 状态）
-   * @param base - 后端 URL，默认使用当前 backendUrl
-   */
-  const refreshInbox = useCallback(
-    async (silent = false, base = backendUrl) => {
-      if (!silent) {
-        setInboxLoading(true);
-      }
-      try {
-        const [list, unread] = await Promise.all([
-          fetchAuthedJson<InboxMessage[]>(base, '/api/app/inbox?limit=50'),
-          fetchAuthedJson<{ unreadCount?: number }>(base, '/api/app/inbox/unread-count')
-        ]);
-        setInboxMessages(Array.isArray(list) ? list : []);
-        setInboxUnreadCount(Number((unread && unread.unreadCount) || 0));
-      } catch (error) {
-        notify(`消息盒子加载失败：${formatError(error)}`, 'danger');
-      } finally {
-        if (!silent) {
-          setInboxLoading(false);
-        }
-      }
-    },
-    [backendUrl, notify]
-  );
-
-  /**
-   * 标记单条收件箱消息为已读
-   * @param messageId - 消息 ID
-   * 标记成功后刷新收件箱数据
-   */
-  const markInboxRead = useCallback(
-    async (messageId: string) => {
-      if (!messageId) {
-        return;
-      }
-      try {
-        await fetchAuthedJson<unknown>(backendUrl, '/api/app/inbox/read', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messageIds: [messageId] })
-        });
-        await refreshInbox(true);
-      } catch (error) {
-        notify(`消息已读失败：${formatError(error)}`, 'danger');
-      }
-    },
-    [backendUrl, notify, refreshInbox]
-  );
-
-  /**
-   * 标记所有收件箱消息为已读
-   */
-  const markAllInboxRead = useCallback(async () => {
-    try {
-      await fetchAuthedJson<unknown>(backendUrl, '/api/app/inbox/read-all', {
-        method: 'POST'
-      });
-      await refreshInbox(true);
-    } catch (error) {
-      notify(`全部已读失败：${formatError(error)}`, 'danger');
-    }
-  }, [backendUrl, notify, refreshInbox]);
-
-  /**
    * 标记聊天为已查看
    * @param viewedChatIdInput - 聊天 ID
    * 先更新本地缓存，再调用后端 API 持久化
@@ -517,9 +445,7 @@ export function useShellScreenController() {
   /**
    * 处理 WebSocket 推送消息
    * @param raw - 原始 WebSocket 消息字符串（JSON 格式）
-   * 支持三种消息类型：
-   *   - inbox.new: 新收件箱消息
-   *   - inbox.sync: 同步未读数
+   * 仅处理聊天相关的推送消息：
    *   - chat.new_content: 聊天有新内容
    */
   const handleWsEnvelope = useCallback(
@@ -536,29 +462,6 @@ export function useShellScreenController() {
       }
 
       const type = String(parsed?.type || '');
-      const payload = parsed?.payload || {};
-
-      if (type === 'inbox.new') {
-        const message = payload.message as InboxMessage | undefined;
-        if (message && message.messageId) {
-          setInboxMessages((prev) => [message, ...prev.filter((item) => item.messageId !== message.messageId)]);
-        }
-        if (typeof payload.unreadCount === 'number') {
-          setInboxUnreadCount(payload.unreadCount);
-        } else {
-          refreshInbox(true).catch(() => { });
-        }
-        return;
-      }
-
-      if (type === 'inbox.sync') {
-        if (typeof payload.unreadCount === 'number') {
-          setInboxUnreadCount(payload.unreadCount);
-        } else {
-          refreshInbox(true).catch(() => { });
-        }
-        return;
-      }
 
       if (type === 'chat.new_content') {
         syncChatsNow(backendUrl, {
@@ -567,20 +470,18 @@ export function useShellScreenController() {
         }).catch(() => { });
       }
     },
-    [backendUrl, refreshInbox, syncChatsNow]
+    [backendUrl, syncChatsNow]
   );
 
   /**
    * 处理鉴权硬失败（登出、token 失效等）
    * @param statusMessage - 显示给用户的状态消息
-   * 清理 WebSocket、重置鉴权状态、清空消息盒子
+   * 清理 WebSocket 并重置鉴权状态
    */
   const handleHardAuthFailure = useCallback(
     (statusMessage = '登录状态失效，请重新登录') => {
       clearWs();
       setAuthReady(false);
-      setInboxMessages([]);
-      setInboxUnreadCount(0);
       setAuthError(statusMessage);
       setMasterPassword('');
       syncAuthStateFromSession(null);
@@ -812,7 +713,7 @@ export function useShellScreenController() {
    *    - 清空密码输入
    *    - 标记鉴权就绪
    *    - 同步鉴权状态
-   *    - 刷新所有数据和收件箱
+   *    - 刷新业务数据
    * 5. 登录失败则重置鉴权状态
    */
   const submitLogin = useCallback(async () => {
@@ -845,34 +746,21 @@ export function useShellScreenController() {
       setMasterPassword('');
       setAuthReady(true);
       syncAuthStateFromSession();
-      await Promise.all([refreshAll(true, loginBackendUrl), refreshInbox(true, loginBackendUrl)]);
+      await refreshAll(true, loginBackendUrl);
     } catch (error) {
       setAuthReady(false);
-      setInboxMessages([]);
-      setInboxUnreadCount(0);
       setAuthError(formatError(error));
       syncAuthStateFromSession(null);
     } finally {
       setAuthChecking(false);
     }
-  }, [deviceName, dispatch, endpointDraft, masterPassword, refreshAll, refreshInbox, syncAuthStateFromSession]);
-
-  useEffect(() => {
-    Animated.timing(inboxAnim, {
-      toValue: inboxOpen ? 1 : 0,
-      duration: inboxOpen ? 240 : 180,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: true
-    }).start();
-  }, [inboxAnim, inboxOpen]);
+  }, [deviceName, dispatch, endpointDraft, masterPassword, refreshAll, syncAuthStateFromSession]);
 
   useEffect(() => {
     if (booting) return;
 
     if (!backendUrl) {
       setAuthReady(false);
-      setInboxMessages([]);
-      setInboxUnreadCount(0);
       syncAuthStateFromSession(null);
       setAuthChecking(false);
       return;
@@ -886,8 +774,6 @@ export function useShellScreenController() {
         if (cancelled) return;
         setAuthReady(Boolean(session));
         if (!session) {
-          setInboxMessages([]);
-          setInboxUnreadCount(0);
           syncAuthStateFromSession(null);
         } else {
           syncAuthStateFromSession(session);
@@ -896,8 +782,6 @@ export function useShellScreenController() {
       .catch(() => {
         if (cancelled) return;
         setAuthReady(false);
-        setInboxMessages([]);
-        setInboxUnreadCount(0);
         syncAuthStateFromSession(null);
       })
       .finally(() => {
@@ -919,13 +803,12 @@ export function useShellScreenController() {
 
     runForegroundProactiveRefresh().catch(() => { });
     refreshAll(true).catch(() => { });
-    refreshInbox(true).catch(() => { });
     connectWs().catch(() => { });
 
     return () => {
       clearWs();
     };
-  }, [authReady, booting, clearWs, connectWs, refreshAll, refreshInbox, runForegroundProactiveRefresh]);
+  }, [authReady, booting, clearWs, connectWs, refreshAll, runForegroundProactiveRefresh]);
 
   useEffect(() => {
     if (booting) return;
@@ -937,19 +820,6 @@ export function useShellScreenController() {
       activeDomain
     }).catch(() => { });
   }, [activeDomain, booting, endpointInput, ptyUrlInput, selectedAgentKey, themeMode]);
-
-  useEffect(() => {
-    if (activeDomain !== 'chat' && activeDomain !== 'user') {
-      setInboxOpen(false);
-    }
-  }, [activeDomain]);
-
-  useEffect(() => {
-    if (!inboxOpen || !authReady) {
-      return;
-    }
-    refreshInbox(true).catch(() => { });
-  }, [authReady, inboxOpen, refreshInbox]);
 
   useEffect(() => {
     if (!authReady) {
@@ -1024,10 +894,9 @@ export function useShellScreenController() {
 
   /**
    * 关闭所有浮层面板
-   * 包括：收件箱、聊天加号菜单、智能体侧边栏、聊天详情抽屉
+   * 包括：聊天加号菜单、智能体侧边栏、聊天详情抽屉
    */
   const closeFloatingPanels = useCallback(() => {
-    setInboxOpen(false);
     setChatPlusMenuOpen(false);
     dispatch(setChatAgentsSidebarOpen(false));
     dispatch(closeChatDetailDrawer());
@@ -1130,7 +999,6 @@ export function useShellScreenController() {
   return {
     dispatch,
     insets,
-    window,
     theme,
     booting,
     authChecking,
@@ -1142,15 +1010,11 @@ export function useShellScreenController() {
     canSubmitLogin,
     appVersionLabel,
     keyboardInset,
-    inboxOpen,
     chatPlusMenuOpen,
     chatSearchQuery,
     chatAgentsSidebarOpen,
     chatDetailDrawerOpen,
     chatDetailDrawerPreviewProgress,
-    inboxMessages,
-    inboxUnreadCount,
-    inboxLoading,
     loadingChats,
     searchAgentResults,
     searchChatResults,
@@ -1174,11 +1038,9 @@ export function useShellScreenController() {
     activeAgentRole,
     backendUrl,
     chatRefreshSignal,
-    inboxAnim,
     terminalListResetSignal,
     setDeviceName,
     setMasterPassword,
-    setInboxOpen,
     setChatPlusMenuOpen,
     setAuthError,
     setChatSearchQuery: (value: string) => dispatch(setShellChatSearchQuery(value)),
@@ -1196,9 +1058,7 @@ export function useShellScreenController() {
     clearChatCache,
     refreshChats,
     refreshAll,
-    handleLogout,
-    markAllInboxRead,
-    markInboxRead
+    handleLogout
   };
 }
 

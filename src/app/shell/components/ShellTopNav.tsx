@@ -196,33 +196,6 @@ export function ShellHeaderMenuItem({
   );
 }
 
-export function ShellHeaderInboxButton({
-  theme,
-  badgeCount,
-  onPress,
-  testID
-}: ThemedProps & {
-  badgeCount: number;
-  onPress?: () => void;
-  testID?: string;
-}) {
-  return (
-    <TouchableOpacity
-      activeOpacity={0.72}
-      style={[styles.iconOnlyBtn, { backgroundColor: theme.surfaceStrong }]}
-      testID={testID}
-      onPress={onPress}
-    >
-      <ShellInboxIcon color={theme.primaryDeep} />
-      {badgeCount > 0 ? (
-        <View style={[styles.inboxBadge, { backgroundColor: theme.danger }]}>
-          <Text style={styles.inboxBadgeText}>{badgeCount > 99 ? '99+' : String(badgeCount)}</Text>
-        </View>
-      ) : null}
-    </TouchableOpacity>
-  );
-}
-
 export function ShellHeaderThemeButton({ theme, onPress, testID }: ThemedProps & { onPress?: () => void; testID?: string }) {
   return (
     <TouchableOpacity
@@ -297,15 +270,6 @@ export function ShellSelectIcon({ theme }: ThemedProps) {
         strokeLinecap="round"
         strokeLinejoin="round"
       />
-    </Svg>
-  );
-}
-
-function ShellInboxIcon({ color }: { color: string }) {
-  return (
-    <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-      <Rect x={3.2} y={5} width={17.6} height={14} rx={3} stroke={color} strokeWidth={1.9} />
-      <Path d="M4.8 8.4L12 13.2L19.2 8.4" stroke={color} strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round" />
     </Svg>
   );
 }

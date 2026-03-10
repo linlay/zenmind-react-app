@@ -233,20 +233,11 @@ POST /api/query (SSE)
 | POST | `/api/query`                    | 流式聊天 (SSE)          |
 | POST | `/api/submit`                   | 提交 Frontend Tool 结果 |
 
-### 消息盒子
-
-| 方法 | 端点                          | 说明       |
-| ---- | ----------------------------- | ---------- |
-| GET  | `/api/app/inbox?limit=N`      | 收件箱消息 |
-| GET  | `/api/app/inbox/unread-count` | 未读数     |
-| POST | `/api/app/inbox/read`         | 标记已读   |
-| POST | `/api/app/inbox/read-all`     | 全部已读   |
-
 ### WebSocket 推送
 
 | 端点                                      | 事件                                            |
 | ----------------------------------------- | ----------------------------------------------- |
-| `ws(s)://.../api/app/ws?access_token=...` | `inbox.new` / `inbox.sync` / `chat.new_content` |
+| `ws(s)://.../api/app/ws?access_token=...` | `chat.new_content`                              |
 
 ### 终端 (PTY 前端服务)
 

@@ -133,8 +133,9 @@ describe('AppsScreen routes', () => {
 
     expect(onRouteFocus).toHaveBeenCalledWith('AppsWebView', 'cost', '记账');
     expect(tree.root.findByProps({ testID: 'apps-webview-page' })).toBeTruthy();
-    const webView = tree.root.find((node) => node.props?.source?.uri === 'https://api.example.com/ma/cost');
+    const webView = tree.root.find((node) => node.props?.source?.uri === 'https://api.example.com/ma/cost/');
     expect(webView).toBeTruthy();
+    expect(webView.props.injectedJavaScriptBeforeContentLoaded).toContain('apps_webview_bootstrap');
   });
 
   it('shows missing and fetch error states on detail route', async () => {

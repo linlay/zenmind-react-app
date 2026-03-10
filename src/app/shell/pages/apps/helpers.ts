@@ -10,7 +10,9 @@ export function getAppByKey(apps: AppsAppDefinition[], appKey?: string | null): 
 }
 
 export function getAppStatusLabel(status?: string | null): string {
-  const normalized = String(status || '').trim().toLowerCase();
+  const normalized = String(status || '')
+    .trim()
+    .toLowerCase();
 
   if (normalized === 'active') return '可用';
   if (normalized === 'inactive') return '停用';
@@ -31,23 +33,36 @@ function normalizeRelativePath(path: string): string {
   return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
 }
 
+function ensureTrailingSlash(value: string): string {
+  const normalized = String(value || '').trim();
+  if (!normalized) {
+    return '';
+  }
+
+  if (/^https?:\/\//i.test(normalized)) {
+    try {
+      const parsed = new URL(normalized);
+      if (!parsed.pathname.endsWith('/')) {
+        parsed.pathname = `${parsed.pathname}/`;
+      }
+      return parsed.toString();
+    } catch {
+      return normalized.endsWith('/') ? normalized : `${normalized}/`;
+    }
+  }
+
+  return normalized.endsWith('/') ? normalized : `${normalized}/`;
+}
+
 export function resolveAppWebViewUrl(app: AppsAppDefinition | null, endpointInput?: string | null): string {
-  if (!app) {
-    return '';
-  }
+  if (!app) return '';
 
-  const preferredPath = normalizeRelativePath(app.publicMountPath) || normalizeRelativePath(app.mountPath);
-  if (!preferredPath) {
-    return '';
-  }
-  if (/^https?:\/\//i.test(preferredPath)) {
-    return preferredPath;
-  }
+  const preferredPath = ensureTrailingSlash(normalizeRelativePath(app.publicMountPath) || normalizeRelativePath(app.mountPath));
+  if (!preferredPath) return '';
+  if (/^https?:\/\//i.test(preferredPath)) return preferredPath;
 
-  const backendBaseUrl = toBackendBaseUrl(endpointInput);
-  if (!backendBaseUrl) {
-    return '';
-  }
+  const backendBaseUrl = toBackendBaseUrl(endpointInput) + '/';
+  if (!backendBaseUrl) return '';
 
   try {
     return new URL(preferredPath, `${backendBaseUrl.replace(/\/+$/, '')}/`).toString();

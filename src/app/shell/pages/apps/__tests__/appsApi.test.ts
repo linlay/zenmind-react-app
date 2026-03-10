@@ -127,6 +127,31 @@ describe('appsApi', () => {
       'api.example.test'
     );
 
-    expect(url).toBe('https://api.example.test/ma/cost');
+    expect(url).toBe('https://api.example.test/ma/cost/');
+  });
+
+  it('adds trailing slash to absolute app urls', () => {
+    const url = resolveAppWebViewUrl(
+      {
+        key: 'note',
+        name: '笔记',
+        description: '',
+        effectiveMode: 'build',
+        mountPath: '/note',
+        apiBase: '/note/api',
+        publicMountPath: 'https://app.example.test/ma/note',
+        publicApiBase: 'https://app.example.test/ma/note/api',
+        frontendStatus: 'active',
+        backendStatus: 'active',
+        status: 'active',
+        lastFrontendLoadAt: '',
+        lastBackendLoadAt: '',
+        lastFrontendError: null,
+        lastBackendError: null
+      },
+      'api.example.test'
+    );
+
+    expect(url).toBe('https://app.example.test/ma/note/');
   });
 });

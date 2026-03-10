@@ -36,11 +36,10 @@ index.js → registerRootComponent(App)
 1. **鉴权流**: 启动时 `restoreSession()` 恢复会话 → 未登录显示登录表单 → 登录后进入主界面
 2. **域切换**: 通过 `activeDomain` 状态条件渲染四个域屏幕（不使用 React Navigation）
 3. **抽屉导航**: 左侧动画抽屉，展示当前域对应的列表（聊天列表 / 终端会话 / 智能体列表）
-4. **WebSocket 推送**: 连接 `/api/app/ws`，处理 `inbox.new` / `chat.new_content` 等实时事件
+4. **WebSocket 推送**: 连接 `/api/app/ws`，处理 `chat.new_content` 实时事件
 5. **鉴权广播**: 管理 `authTokenSignal`，通过 `WebViewAuthRefreshCoordinator` 统一协调 WebView 鉴权刷新
 6. **前台保活**: App 回到 `active` 时预刷新 token (debounce 20s) + 每 60s 定时刷新
-7. **消息盒子**: 收件箱 UI + 未读数 badge
-8. **发布中心**: 智能体发布面板（agents 域）
+7. **发布中心**: 智能体发布面板（agents 域）
 
 四个域屏幕：
 
@@ -401,26 +400,15 @@ interface PlanTask {
 | POST | `/api/ap/query`                    | SSE 流式响应（`text/event-stream`）                          |
 | POST | `/api/ap/submit`                   | `{ runId, toolId, params }` → `{ accepted, detail, status }` |
 
-### 消息盒子 API
-
-| 方法 | 端点                          | 说明                       |
-| ---- | ----------------------------- | -------------------------- |
-| GET  | `/api/app/inbox?limit=N`      | `InboxMessage[]`           |
-| GET  | `/api/app/inbox/unread-count` | `{ unreadCount }`          |
-| POST | `/api/app/inbox/read`         | `{ messageIds: string[] }` |
-| POST | `/api/app/inbox/read-all`     | —                          |
-
 ### WebSocket
 
 `ws(s)://{host}/api/app/ws?access_token=...`
 
 推送格式: `{ type: string, payload: { ... } }`
 
-| type               | payload                                   | 说明         |
-| ------------------ | ----------------------------------------- | ------------ |
-| `inbox.new`        | `{ message: InboxMessage, unreadCount? }` | 新消息       |
-| `inbox.sync`       | `{ unreadCount }`                         | 同步未读数   |
-| `chat.new_content` | —                                         | 聊天有新内容 |
+| type               | payload | 说明         |
+| ------------------ | ------- | ------------ |
+| `chat.new_content` | —       | 聊天有新内容 |
 
 ### 终端 API
 

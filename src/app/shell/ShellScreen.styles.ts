@@ -62,8 +62,8 @@ export const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginHorizontal: 14,
-    marginTop: 6,
-    marginBottom: 6,
+    // marginTop: 3,
+    // marginBottom: 3,
     gap: 8
   },
   topNavSide: {
@@ -95,22 +95,6 @@ export const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center'
-  },
-  inboxBadge: {
-    position: 'absolute',
-    right: -4,
-    top: -4,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 3
-  },
-  inboxBadgeText: {
-    color: '#fff',
-    fontSize: 9,
-    fontWeight: '600'
   },
   topActionBtn: {
     minWidth: 58,
@@ -201,77 +185,6 @@ export const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
     textAlign: 'center'
-  },
-  inboxLayer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 12
-  },
-  inboxModal: {
-    ...StyleSheet.absoluteFillObject,
-    borderWidth: StyleSheet.hairlineWidth
-  },
-  inboxModalHead: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingBottom: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth
-  },
-  inboxModalScroll: {
-    flex: 1,
-    paddingHorizontal: 14,
-    paddingTop: 10
-  },
-  inboxHeadActions: {
-    flexDirection: 'row',
-    gap: 8
-  },
-  inboxActionBtn: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 999,
-    paddingHorizontal: 10,
-    paddingVertical: 6
-  },
-  inboxCloseText: {
-    fontSize: 11,
-    fontWeight: '600'
-  },
-  inboxTitle: {
-    fontSize: 15,
-    fontWeight: '700'
-  },
-  inboxSubTitle: {
-    fontSize: 11,
-    fontWeight: '500',
-    marginTop: 2
-  },
-  inboxList: {
-    paddingBottom: 16,
-    gap: 8
-  },
-  inboxItem: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 8
-  },
-  inboxItemTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center'
-  },
-  inboxItemTitle: {
-    fontSize: 13,
-    fontWeight: '600'
-  },
-  inboxItemTime: {
-    fontSize: 10
-  },
-  inboxItemBody: {
-    marginTop: 4,
-    fontSize: 11,
-    lineHeight: 16
   },
   publishLayer: {
     ...StyleSheet.absoluteFillObject,

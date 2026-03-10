@@ -10,6 +10,7 @@ import {
   View,
   useWindowDimensions
 } from 'react-native';
+import Svg, { Path } from 'react-native-svg';
 import { WebView } from 'react-native-webview';
 import { FrontendToolState } from '../types/chat';
 import { buildConfirmDialogSubmitParams, normalizeConfirmDialogParams } from '../utils/confirmDialog';
@@ -20,6 +21,21 @@ export { WEBVIEW_BRIDGE_SCRIPT } from '../utils/webViewBridge';
 const FRONTEND_TOOL_MAX_HEIGHT_RATIO = 0.8;
 const FRONTEND_TOOL_MIN_HEIGHT = 320;
 const FRONTEND_TOOL_HEIGHT_EPSILON = 2;
+
+function VoiceMicIcon({ color }: { color: string }) {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 4.5C10.3431 4.5 9 5.84315 9 7.5V11.5C9 13.1569 10.3431 14.5 12 14.5C13.6569 14.5 15 13.1569 15 11.5V7.5C15 5.84315 13.6569 4.5 12 4.5Z"
+        stroke={color}
+        strokeWidth={1.8}
+      />
+      <Path d="M6.5 11.5C6.5 14.5376 8.96243 17 12 17C15.0376 17 17.5 14.5376 17.5 11.5" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Path d="M12 17V19.5" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+      <Path d="M9 19.5H15" stroke={color} strokeWidth={1.8} strokeLinecap="round" />
+    </Svg>
+  );
+}
 
 interface ComposerProps {
   theme: {
@@ -49,6 +65,9 @@ interface ComposerProps {
   onFrontendToolLoad: () => void;
   onFrontendToolRetry: () => void;
   onNativeConfirmSubmit: (params: Record<string, unknown>) => Promise<boolean>;
+  voiceState?: 'idle' | 'listening' | 'stopping' | 'error';
+  onVoicePress?: () => void;
+  voiceDisabled?: boolean;
 }
 
 export function Composer({
@@ -69,7 +88,10 @@ export function Composer({
   onFrontendToolMessage,
   onFrontendToolLoad,
   onFrontendToolRetry,
-  onNativeConfirmSubmit
+  onNativeConfirmSubmit,
+  voiceState = 'idle',
+  onVoicePress,
+  voiceDisabled = false
 }: ComposerProps) {
   const { height: windowHeight } = useWindowDimensions();
   const minRows = 1;
@@ -91,6 +113,13 @@ export function Composer({
   const isEmpty = charCount === 0;
   const placeholderText = streaming ? '正在流式输出中，可点击停止' : '输入提问内容';
   const showPlaceholder = isEmpty;
+  const showVoiceButton = Boolean(onVoicePress) && !activeFrontendTool;
+  const voiceActive = voiceState === 'listening';
+  const voiceError = voiceState === 'error';
+  const voiceIconColor = voiceActive ? '#fff' : voiceError ? theme.danger : theme.textMute;
+  const voiceButtonStyle = voiceActive
+    ? { backgroundColor: theme.primaryDeep, borderColor: theme.primaryDeep }
+    : { backgroundColor: theme.surfaceStrong, borderColor: theme.border };
 
   const isNativeConfirmDialog = activeFrontendTool?.renderMode === 'native_confirm_dialog';
   const normalizedConfirmDialog = useMemo(() => {
@@ -465,12 +494,26 @@ export function Composer({
         <View
           style={[
             styles.inputShell,
+            showVoiceButton ? styles.inputShellWithVoice : null,
             visibleRows === 1 ? styles.inputShellCompact : styles.inputShellExpanded,
             { backgroundColor: theme.surface, borderColor: theme.border }
           ]}
           nativeID="chat-input-shell"
           testID="chat-input-shell"
         >
+          {showVoiceButton ? (
+            <TouchableOpacity
+              activeOpacity={0.88}
+              accessibilityRole="button"
+              disabled={voiceDisabled}
+              onPress={onVoicePress}
+              style={[styles.voiceBtn, voiceButtonStyle, voiceDisabled ? styles.voiceBtnDisabled : null]}
+              testID="chat-voice-btn"
+            >
+              <VoiceMicIcon color={voiceIconColor} />
+            </TouchableOpacity>
+          ) : null}
+
           <View style={[styles.inputBox, { minHeight, maxHeight, height: inputHeight }]}>
             {showPlaceholder ? (
               <View
@@ -555,6 +598,9 @@ const styles = StyleSheet.create({
     paddingLeft: 14,
     paddingRight: 8
   },
+  inputShellWithVoice: {
+    paddingLeft: 8
+  },
   inputShellCompact: {
     paddingTop: 7,
     paddingBottom: 7
@@ -562,6 +608,18 @@ const styles = StyleSheet.create({
   inputShellExpanded: {
     paddingTop: 8,
     paddingBottom: 8
+  },
+  voiceBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8
+  },
+  voiceBtnDisabled: {
+    opacity: 0.5
   },
   inputBox: {
     flex: 1,
