@@ -1,5 +1,5 @@
 import { PayloadAction, createSlice } from '@reduxjs/toolkit';
-import { DomainMode, ThemeMode } from '../../../core/types/common';
+import { DomainMode, StoredAccountSummary, ThemeMode } from '../../../core/types/common';
 import { buildDefaultSettings } from '../../../core/storage/settingsStorage';
 import { normalizeEndpointInput, normalizePtyUrlInput } from '../../../core/network/endpoint';
 import { UserState } from '../types/user';
@@ -10,6 +10,8 @@ const initialState: UserState = {
   ...defaults,
   endpointDraft: defaults.endpointInput,
   ptyUrlDraft: defaults.ptyUrlInput,
+  savedAccounts: [],
+  accountSwitching: false,
   booting: true
 };
 
@@ -28,8 +30,12 @@ const userSlice = createSlice({
       state.endpointDraft = endpointInput;
       state.ptyUrlDraft = ptyUrlInput;
       state.selectedAgentKey = String(action.payload.selectedAgentKey || '');
+      state.activeAccountId = String(action.payload.activeAccountId || '');
       state.activeDomain = (action.payload.activeDomain as DomainMode) || 'chat';
       state.booting = false;
+    },
+    hydrateAccounts(state, action: PayloadAction<StoredAccountSummary[]>) {
+      state.savedAccounts = Array.isArray(action.payload) ? action.payload : [];
     },
     setThemeMode(state, action: PayloadAction<ThemeMode>) {
       state.themeMode = action.payload;
@@ -51,6 +57,15 @@ const userSlice = createSlice({
     setSelectedAgentKey(state, action: PayloadAction<string>) {
       state.selectedAgentKey = action.payload;
     },
+    setActiveAccountId(state, action: PayloadAction<string>) {
+      state.activeAccountId = String(action.payload || '').trim();
+    },
+    setSavedAccounts(state, action: PayloadAction<StoredAccountSummary[]>) {
+      state.savedAccounts = Array.isArray(action.payload) ? action.payload : [];
+    },
+    setAccountSwitching(state, action: PayloadAction<boolean>) {
+      state.accountSwitching = Boolean(action.payload);
+    },
     setActiveDomain(state, action: PayloadAction<DomainMode>) {
       state.activeDomain = action.payload;
     },
@@ -62,11 +77,15 @@ const userSlice = createSlice({
 
 export const {
   hydrateSettings,
+  hydrateAccounts,
   setThemeMode,
   setEndpointDraft,
   setPtyUrlDraft,
   applyEndpointDraft,
   setSelectedAgentKey,
+  setActiveAccountId,
+  setSavedAccounts,
+  setAccountSwitching,
   setActiveDomain,
   toggleTheme
 } = userSlice.actions;

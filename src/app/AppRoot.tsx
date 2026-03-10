@@ -2,9 +2,10 @@ import { useEffect, useState, useCallback } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useAppSelector, useAppDispatch } from './store/hooks';
 import { toBackendBaseUrl } from '../core/network/endpoint';
-import { restoreSession, getCurrentSession } from '../core/auth/appAuth';
-import { loadSettings } from '../core/storage/settingsStorage';
-import { hydrateSettings } from '../modules/user/state/userSlice';
+import { restoreSession, getCurrentSession, subscribeAuthSession } from '../core/auth/appAuth';
+import { loadSettings, patchSettings } from '../core/storage/settingsStorage';
+import { loadStoredAccounts, toStoredAccountSummary } from '../core/auth/authAccountsStorage';
+import { hydrateAccounts, hydrateSettings } from '../modules/user/state/userSlice';
 import { useAppBootstrap } from './hooks/useAppBootstrap';
 import { useLoginController } from './hooks/useLoginController';
 import { BootScreen } from './screens/BootScreen';
@@ -30,6 +31,8 @@ export function AppRoot() {
   const dispatch = useAppDispatch();
   const { booting } = useAppBootstrap();
   const endpointInput = useAppSelector((state) => state.user.endpointInput);
+  const activeAccountId = useAppSelector((state) => state.user.activeAccountId);
+  const accountSwitching = useAppSelector((state) => state.user.accountSwitching);
   const backendUrl = toBackendBaseUrl(endpointInput);
 
   const [authChecking, setAuthChecking] = useState(true);
@@ -44,13 +47,36 @@ export function AppRoot() {
   useEffect(() => {
     let mounted = true;
     loadSettings()
-      .then((settings) => {
+      .then(async (settings) => {
+        const accounts = await loadStoredAccounts({
+          migrationSettings: {
+            endpointInput: settings.endpointInput,
+            ptyUrlInput: settings.ptyUrlInput
+          }
+        });
+        const activeAccount =
+          accounts.find((item) => item.accountId === String(settings.activeAccountId || '').trim()) || accounts[0] || null;
+        const needsActiveAccountSync =
+          (Boolean(activeAccount) &&
+            (activeAccount.accountId !== String(settings.activeAccountId || '').trim() ||
+              activeAccount.endpointInput !== settings.endpointInput ||
+              activeAccount.ptyUrlInput !== settings.ptyUrlInput)) ||
+          (!activeAccount && Boolean(settings.activeAccountId));
+        const nextSettings = needsActiveAccountSync
+          ? await patchSettings({
+              activeAccountId: activeAccount?.accountId || '',
+              endpointInput: activeAccount?.endpointInput || settings.endpointInput,
+              ptyUrlInput: activeAccount?.ptyUrlInput || settings.ptyUrlInput
+            })
+          : settings;
         if (!mounted) return;
-        dispatch(hydrateSettings(settings));
+        dispatch(hydrateSettings(nextSettings));
+        dispatch(hydrateAccounts(accounts.map((item) => toStoredAccountSummary(item))));
       })
       .catch(() => {
         if (!mounted) return;
         dispatch(hydrateSettings({}));
+        dispatch(hydrateAccounts([]));
       });
 
     return () => {
@@ -62,9 +88,9 @@ export function AppRoot() {
    * 同步鉴权状态：尝试恢复会话
    */
   const syncAuthState = useCallback(() => {
-    if (booting) return;
+    if (booting || authReady) return;
 
-    if (!backendUrl) {
+    if (!backendUrl || !activeAccountId) {
       setAuthReady(false);
       setAuthChecking(false);
       return;
@@ -72,7 +98,7 @@ export function AppRoot() {
 
     let cancelled = false;
     setAuthChecking(true);
-    restoreSession(backendUrl)
+    restoreSession(backendUrl, { silentBaseReset: true })
       .then((session) => {
         if (cancelled) return;
         setAuthReady(Boolean(session));
@@ -90,7 +116,7 @@ export function AppRoot() {
     return () => {
       cancelled = true;
     };
-  }, [backendUrl, booting]);
+  }, [activeAccountId, authReady, backendUrl, booting]);
 
   // 监听端点变化，重新验证登录状态
   useEffect(() => {
@@ -98,26 +124,35 @@ export function AppRoot() {
     return cleanup;
   }, [syncAuthState]);
 
-  // 监听登录成功事件（通过检查 session 是否存在）
   useEffect(() => {
-    const timer = setInterval(() => {
-      const session = getCurrentSession();
-      if (session && !authReady) {
-        // 登录成功后刷新状态
+    const unsubscribe = subscribeAuthSession((event) => {
+      if (event.type === 'session_updated') {
         setAuthReady(true);
-      } else if (!session && authReady) {
-        // 登出后重置状态
-        setAuthReady(false);
+        setAuthChecking(false);
+        return;
       }
-    }, 500); // 每 500ms 检查一次
+      if (!accountSwitching) {
+        setAuthReady(false);
+        setAuthChecking(false);
+      }
+    });
+    return () => unsubscribe();
+  }, [accountSwitching]);
 
-    return () => clearInterval(timer);
-  }, [authReady]);
+  useEffect(() => {
+    if (booting || accountSwitching) {
+      return;
+    }
+    if (!getCurrentSession() && !activeAccountId) {
+      setAuthReady(false);
+      setAuthChecking(false);
+    }
+  }, [activeAccountId, accountSwitching, booting]);
 
-  const isBootPhase = booting || authChecking;
+  const isBootPhase = booting || (!authReady && authChecking);
   const isLoginPhase = !isBootPhase && !authReady;
   const isShellPhase = !isBootPhase && authReady;
-  const bootMessage = booting ? '正在加载配置...' : '正在验证登录状态...';
+  const bootMessage = booting ? '正在加载配置...' : accountSwitching ? '正在切换账号...' : '正在验证登录状态...';
 
   return (
     <Stack.Navigator id="RootStack" screenOptions={{ headerShown: false, animation: 'none' }}>

@@ -8,8 +8,7 @@ import { THEMES } from '../../../core/constants/theme';
 import {
   normalizeEndpointInput,
   normalizePtyUrlInput,
-  toBackendBaseUrl,
-  toDefaultPtyWebUrl
+  toBackendBaseUrl
 } from '../../../core/network/endpoint';
 import { patchSettings } from '../../../core/storage/settingsStorage';
 import {
@@ -20,8 +19,11 @@ import {
 } from '../shellSlice';
 import {
   applyEndpointDraft,
+  setActiveAccountId,
+  setAccountSwitching,
   setEndpointDraft,
   setPtyUrlDraft,
+  setSavedAccounts,
   setSelectedAgentKey as setUserSelectedAgentKey
 } from '../../../modules/user/state/userSlice';
 import { setAgents, setAgentsError, setAgentsLoading } from '../../../modules/agents/state/agentsSlice';
@@ -51,18 +53,24 @@ import { TerminalSessionItem } from '../../../modules/terminal/types/terminal';
 import { buildPtyWebUrlWithSessionId } from '../../../modules/terminal/utils/sessionUrl';
 import {
   ensureFreshAccessToken,
+  getActiveStoredAccount,
   getCurrentSession,
   getAccessToken,
   getDefaultDeviceName,
+  listStoredAccounts,
   loginWithMasterPassword,
+  removeStoredAccount,
   logoutCurrentDevice,
   restoreSession,
+  switchActiveAccount,
+  syncActiveAccountConnection,
   subscribeAuthSession
 } from '../../../core/auth/appAuth';
 import { WebViewAuthRefreshCoordinator, WebViewAuthRefreshOutcome } from '../../../core/auth/webViewAuthBridge';
 import { clearChatCacheDb, initChatCacheDb, listCachedChats, markChatReadLocal } from '../../../modules/chat/services/chatCacheDb';
 import { syncChatsIncremental } from '../../../modules/chat/services/chatSyncService';
 import { shouldApplyChatSyncResult } from '../../../modules/chat/state/chatSyncPolicy';
+import { resolveLoginSubmission } from '../../../core/auth/loginSubmission';
 
 const PREFRESH_MIN_VALIDITY_MS = 120_000;
 const PREFRESH_JITTER_MS = 8_000;
@@ -75,8 +83,18 @@ export function useShellScreenController() {
 
   const { chatSearchQuery, chatAgentsSidebarOpen, chatDetailDrawerOpen, chatDetailDrawerPreviewProgress } =
     useAppSelector((state) => state.shell);
-  const { booting, themeMode, endpointDraft, endpointInput, ptyUrlInput, selectedAgentKey, activeDomain } =
-    useAppSelector((state) => state.user);
+  const {
+    booting,
+    themeMode,
+    endpointDraft,
+    endpointInput,
+    ptyUrlInput,
+    selectedAgentKey,
+    activeDomain,
+    savedAccounts,
+    activeAccountId,
+    accountSwitching
+  } = useAppSelector((state) => state.user);
   const chatId = useAppSelector((state) => state.chat.chatId);
   const chats = useAppSelector((state) => state.chat.chats);
   const loadingChats = useAppSelector((state) => state.chat.loadingChats);
@@ -120,7 +138,11 @@ export function useShellScreenController() {
   const backendUrl = useMemo(() => toBackendBaseUrl(endpointInput), [endpointInput]);
   const ptyWebUrl = useMemo(() => normalizePtyUrlInput(ptyUrlInput, endpointInput), [endpointInput, ptyUrlInput]);
   const normalizedLoginEndpointDraft = useMemo(() => normalizeEndpointInput(endpointDraft), [endpointDraft]);
-  const canSubmitLogin = Boolean(normalizedLoginEndpointDraft) && !authChecking;
+  const currentStoredAccount = useMemo(
+    () => (Array.isArray(savedAccounts) ? savedAccounts : []).find((item) => item.accountId === activeAccountId) || null,
+    [activeAccountId, savedAccounts]
+  );
+  const canSubmitLogin = Boolean(normalizedLoginEndpointDraft) && !authChecking && !accountSwitching;
 
   const notify = useCallback(
     (message: string, tone: 'neutral' | 'danger' | 'warn' | 'success' = 'neutral') => {
@@ -128,6 +150,13 @@ export function useShellScreenController() {
     },
     [dispatch]
   );
+
+  const refreshStoredAccountsState = useCallback(async () => {
+    const [accounts, activeAccount] = await Promise.all([listStoredAccounts(), getActiveStoredAccount()]);
+    dispatch(setSavedAccounts(accounts));
+    dispatch(setActiveAccountId(activeAccount?.accountId || ''));
+    return { accounts, activeAccount };
+  }, [dispatch]);
 
   useEffect(() => {
     initChatCacheDb().catch(() => { });
@@ -202,10 +231,10 @@ export function useShellScreenController() {
    * 用于快速展示已缓存的聊天数据，在网络同步完成前提供即时反馈
    */
   const loadChatsFromCache = useCallback(async () => {
-    const list = await listCachedChats();
+    const list = await listCachedChats(activeAccountId);
     dispatch(setChats(list));
     return list;
-  }, [dispatch]);
+  }, [activeAccountId, dispatch]);
 
   /**
    * 立即执行聊天列表增量同步
@@ -224,13 +253,13 @@ export function useShellScreenController() {
         bumpActiveChatRefresh?: boolean;
       }
     ) => {
-      if (!base || chatSyncInFlightRef.current) {
+      if (!base || !activeAccountId || chatSyncInFlightRef.current) {
         return [];
       }
 
       chatSyncInFlightRef.current = true;
       try {
-        const result = await syncChatsIncremental(base);
+        const result = await syncChatsIncremental(activeAccountId, base);
 
         if (shouldApplyChatSyncResult(result.updatedChatIds)) {
           dispatch(setChats(result.chats));
@@ -253,7 +282,7 @@ export function useShellScreenController() {
         chatSyncInFlightRef.current = false;
       }
     },
-    [backendUrl, chatId, notify]
+    [activeAccountId, backendUrl, chatId, dispatch, notify]
   );
 
   /**
@@ -344,8 +373,7 @@ export function useShellScreenController() {
    */
   const refreshAll = useCallback(
     async (silent = false, base = backendUrl) => {
-      void base;
-      await Promise.all([refreshAgents(silent), refreshChats(silent)]);
+      await Promise.all([refreshAgents(silent), refreshChats(silent, base)]);
     },
     [backendUrl, refreshAgents, refreshChats]
   );
@@ -364,7 +392,7 @@ export function useShellScreenController() {
       }
 
       try {
-        await markChatReadLocal(viewedChatId, {
+        await markChatReadLocal(activeAccountId, viewedChatId, {
           readStatus: 1,
           readAt: Date.now()
         });
@@ -379,7 +407,7 @@ export function useShellScreenController() {
 
       try {
         const result = await markChatReadApi(backendUrl, viewedChatId);
-        await markChatReadLocal(viewedChatId, {
+        await markChatReadLocal(activeAccountId, viewedChatId, {
           readStatus: Number(result?.readStatus),
           readAt: result?.readAt
         });
@@ -390,12 +418,12 @@ export function useShellScreenController() {
         }
       }
     },
-    [backendUrl, loadChatsFromCache]
+    [activeAccountId, backendUrl, loadChatsFromCache]
   );
 
   const clearChatCache = useCallback(async () => {
     try {
-      await clearChatCacheDb();
+      await clearChatCacheDb(activeAccountId);
       dispatch(setChats([]));
 
       if (!backendUrl || !authReady) {
@@ -404,7 +432,7 @@ export function useShellScreenController() {
       }
 
       try {
-        const result = await syncChatsIncremental(backendUrl);
+        const result = await syncChatsIncremental(activeAccountId, backendUrl);
         dispatch(setChats(result.chats));
         if (chatId && result.updatedChatIds.some((item) => item === chatId)) {
           setChatRefreshSignal((prev) => prev + 1);
@@ -416,7 +444,7 @@ export function useShellScreenController() {
     } catch (error) {
       notify(`清除聊天缓存失败：${formatError(error)}`, 'danger');
     }
-  }, [authReady, backendUrl, chatId, dispatch, notify]);
+  }, [activeAccountId, authReady, backendUrl, chatId, dispatch, notify]);
 
   /**
    * 清理 WebSocket 连接
@@ -441,6 +469,27 @@ export function useShellScreenController() {
     }
     wsAccessTokenRef.current = '';
   }, []);
+
+  const resetAccountScopedState = useCallback(() => {
+    clearWs();
+    setChatPlusMenuOpen(false);
+    dispatch(setShellChatSearchQuery(''));
+    dispatch(setChatAgentsSidebarOpen(false));
+    dispatch(closeChatDetailDrawer());
+    dispatch(resetChatDetailDrawerPreview());
+    dispatch(setChats([]));
+    dispatch(setTeams([]));
+    dispatch(setChatId(''));
+    dispatch(setAgents([]));
+    dispatch(setAgentsError(''));
+    dispatch(setAgentsLoading(false));
+    setTerminalSessions([]);
+    setTerminalSessionsLoading(false);
+    setTerminalSessionsError('');
+    setTerminalCurrentWebViewUrl('');
+    dispatch(setActiveSessionId(''));
+    setTerminalListResetSignal((prev) => prev + 1);
+  }, [clearWs, dispatch]);
 
   /**
    * 处理 WebSocket 推送消息
@@ -481,13 +530,14 @@ export function useShellScreenController() {
   const handleHardAuthFailure = useCallback(
     (statusMessage = '登录状态失效，请重新登录') => {
       clearWs();
+      dispatch(setAccountSwitching(false));
       setAuthReady(false);
       setAuthError(statusMessage);
       setMasterPassword('');
       syncAuthStateFromSession(null);
       notify(statusMessage, 'warn');
     },
-    [clearWs, notify, syncAuthStateFromSession]
+    [clearWs, dispatch, notify, syncAuthStateFromSession]
   );
 
   /**
@@ -497,11 +547,12 @@ export function useShellScreenController() {
   const handleLogout = useCallback(async () => {
     try {
       await logoutCurrentDevice(backendUrl);
+      await refreshStoredAccountsState();
     } catch {
       // ignore logout API errors
     }
     handleHardAuthFailure('已登出');
-  }, [backendUrl, handleHardAuthFailure]);
+  }, [backendUrl, handleHardAuthFailure, refreshStoredAccountsState]);
 
   /**
    * 前台保活：主动预刷新 token
@@ -717,36 +768,30 @@ export function useShellScreenController() {
    * 5. 登录失败则重置鉴权状态
    */
   const submitLogin = useCallback(async () => {
-    const normalizedEndpoint = normalizeEndpointInput(endpointDraft);
-    if (!normalizedEndpoint) {
-      setAuthError('请输入后端域名或 IP');
+    const resolved = resolveLoginSubmission({
+      endpointDraft,
+      masterPassword,
+      deviceName
+    });
+    if (!resolved.ok) {
+      setAuthError(String(resolved.error || '登录参数无效'));
       return;
     }
 
-    const password = String(masterPassword || '').trim();
-    if (!password) {
-      setAuthError('请输入主密码');
-      return;
-    }
-
-    const loginBackendUrl = toBackendBaseUrl(normalizedEndpoint);
-    if (!loginBackendUrl) {
-      setAuthError('后端地址格式无效');
-      return;
-    }
-
-    dispatch(setEndpointDraft(normalizedEndpoint));
-    dispatch(setPtyUrlDraft(toDefaultPtyWebUrl(normalizedEndpoint)));
+    dispatch(setEndpointDraft(resolved.normalizedEndpoint || ''));
+    dispatch(setPtyUrlDraft(resolved.ptyUrl || ''));
     dispatch(applyEndpointDraft());
 
+    resetAccountScopedState();
     setAuthChecking(true);
     setAuthError('');
     try {
-      await loginWithMasterPassword(loginBackendUrl, password, deviceName);
+      await loginWithMasterPassword(resolved.backendUrl || '', resolved.password || '', resolved.deviceName || deviceName);
+      await refreshStoredAccountsState();
       setMasterPassword('');
       setAuthReady(true);
       syncAuthStateFromSession();
-      await refreshAll(true, loginBackendUrl);
+      await refreshAll(true, resolved.backendUrl || '');
     } catch (error) {
       setAuthReady(false);
       setAuthError(formatError(error));
@@ -754,12 +799,21 @@ export function useShellScreenController() {
     } finally {
       setAuthChecking(false);
     }
-  }, [deviceName, dispatch, endpointDraft, masterPassword, refreshAll, syncAuthStateFromSession]);
+  }, [
+    deviceName,
+    dispatch,
+    endpointDraft,
+    masterPassword,
+    refreshAll,
+    refreshStoredAccountsState,
+    resetAccountScopedState,
+    syncAuthStateFromSession
+  ]);
 
   useEffect(() => {
     if (booting) return;
 
-    if (!backendUrl) {
+    if (!backendUrl || !activeAccountId) {
       setAuthReady(false);
       syncAuthStateFromSession(null);
       setAuthChecking(false);
@@ -769,7 +823,7 @@ export function useShellScreenController() {
     let cancelled = false;
     setAuthChecking(true);
     setAuthError('');
-    restoreSession(backendUrl)
+    restoreSession(backendUrl, { silentBaseReset: true })
       .then((session) => {
         if (cancelled) return;
         setAuthReady(Boolean(session));
@@ -793,7 +847,7 @@ export function useShellScreenController() {
     return () => {
       cancelled = true;
     };
-  }, [backendUrl, booting, syncAuthStateFromSession]);
+  }, [activeAccountId, backendUrl, booting, syncAuthStateFromSession]);
 
   useEffect(() => {
     if (booting || !authReady) {
@@ -817,9 +871,39 @@ export function useShellScreenController() {
       endpointInput,
       ptyUrlInput,
       selectedAgentKey,
-      activeDomain
+      activeDomain,
+      activeAccountId
     }).catch(() => { });
-  }, [activeDomain, booting, endpointInput, ptyUrlInput, selectedAgentKey, themeMode]);
+    if (
+      activeAccountId &&
+      (!currentStoredAccount ||
+        currentStoredAccount.endpointInput !== endpointInput ||
+        currentStoredAccount.ptyUrlInput !== ptyUrlInput)
+    ) {
+      syncActiveAccountConnection({
+        endpointInput,
+        ptyUrlInput
+      })
+        .then((account) => {
+          if (account) {
+            dispatch(setActiveAccountId(account.accountId));
+            refreshStoredAccountsState().catch(() => { });
+          }
+        })
+        .catch(() => { });
+    }
+  }, [
+    activeAccountId,
+    activeDomain,
+    booting,
+    currentStoredAccount,
+    dispatch,
+    endpointInput,
+    ptyUrlInput,
+    refreshStoredAccountsState,
+    selectedAgentKey,
+    themeMode
+  ]);
 
   useEffect(() => {
     if (!authReady) {
@@ -996,6 +1080,69 @@ export function useShellScreenController() {
     setTerminalCurrentWebViewUrl(next);
   }, []);
 
+  const switchSavedAccount = useCallback(
+    async (accountId: string): Promise<{ success: boolean }> => {
+      const target = savedAccounts.find((item) => item.accountId === accountId);
+      if (!target) {
+        notify('目标账号不存在', 'warn');
+        return { success: false };
+      }
+
+      dispatch(setAccountSwitching(true));
+      dispatch(setActiveAccountId(target.accountId));
+      dispatch(setEndpointDraft(target.endpointInput));
+      dispatch(setPtyUrlDraft(target.ptyUrlInput));
+      dispatch(applyEndpointDraft());
+
+      resetAccountScopedState();
+      setAuthChecking(true);
+      setAuthError('');
+      try {
+        const session = await switchActiveAccount(target.accountId);
+        await refreshStoredAccountsState();
+        if (!session) {
+          setAuthReady(false);
+          setAuthError('保存的登录凭证已失效，请重新登录');
+          syncAuthStateFromSession(null);
+          return { success: false };
+        }
+        setAuthReady(true);
+        syncAuthStateFromSession(session);
+        await refreshAll(true, toBackendBaseUrl(target.endpointInput));
+        return { success: true };
+      } catch (error) {
+        setAuthReady(false);
+        setAuthError(formatError(error));
+        syncAuthStateFromSession(null);
+        return { success: false };
+      } finally {
+        setAuthChecking(false);
+        dispatch(setAccountSwitching(false));
+      }
+    },
+    [
+      dispatch,
+      notify,
+      refreshAll,
+      refreshStoredAccountsState,
+      resetAccountScopedState,
+      savedAccounts,
+      syncAuthStateFromSession
+    ]
+  );
+
+  const removeSavedAccountAction = useCallback(
+    async (accountId: string) => {
+      if (accountId === activeAccountId) {
+        notify('当前账号请使用登出操作移除', 'warn');
+        return;
+      }
+      const accounts = await removeStoredAccount(accountId);
+      dispatch(setSavedAccounts(accounts));
+    },
+    [activeAccountId, dispatch, notify]
+  );
+
   return {
     dispatch,
     insets,
@@ -1005,6 +1152,9 @@ export function useShellScreenController() {
     authReady,
     authError,
     endpointDraft,
+    savedAccounts,
+    activeAccountId,
+    accountSwitching,
     deviceName,
     masterPassword,
     canSubmitLogin,
@@ -1046,6 +1196,8 @@ export function useShellScreenController() {
     setChatSearchQuery: (value: string) => dispatch(setShellChatSearchQuery(value)),
     setEndpointDraftText: (value: string) => dispatch(setEndpointDraft(value)),
     submitLogin,
+    switchSavedAccount,
+    removeSavedAccount: removeSavedAccountAction,
     refreshTerminalSessions,
     openTerminalCreateSessionModal,
     openTerminalDetail,

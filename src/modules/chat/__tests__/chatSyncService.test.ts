@@ -51,14 +51,24 @@ describe('chatSyncService', () => {
       { chatId: 'chat-1', lastRunId: '0011' }
     ]);
 
-    const result = await syncChatsIncremental('https://api.example.com');
+    const result = await syncChatsIncremental('acct-1', 'https://api.example.com');
 
     expect(mockFetchApiJson).toHaveBeenNthCalledWith(1, 'https://api.example.com', '/api/ap/chats?lastRunId=0010');
     expect(mockFetchApiJson).toHaveBeenNthCalledWith(2, 'https://api.example.com', '/api/ap/chat?chatId=chat-1');
     expect(mockFetchApiJson).toHaveBeenNthCalledWith(3, 'https://api.example.com', '/api/ap/chat?chatId=chat-2');
 
-    expect(mockUpsertChatSummaries).toHaveBeenCalledTimes(1);
-    expect(mockUpsertChatDetail).toHaveBeenCalledTimes(2);
+    expect(mockGetMaxLastRunId).toHaveBeenCalledWith('acct-1');
+    expect(mockUpsertChatSummaries).toHaveBeenCalledWith('acct-1', expect.any(Array));
+    expect(mockUpsertChatDetail).toHaveBeenNthCalledWith(
+      1,
+      'acct-1',
+      expect.objectContaining({ chatId: 'chat-1' })
+    );
+    expect(mockUpsertChatDetail).toHaveBeenNthCalledWith(
+      2,
+      'acct-1',
+      expect.objectContaining({ chatId: 'chat-2' })
+    );
     expect(result.updatedChatIds).toEqual(['chat-1', 'chat-2']);
     expect(result.chats).toEqual([
       { chatId: 'chat-2', lastRunId: '0012' },
@@ -69,7 +79,7 @@ describe('chatSyncService', () => {
   it('returns cache directly when baseUrl is empty', async () => {
     mockListCachedChats.mockResolvedValue([{ chatId: 'chat-local-1' }]);
 
-    const result = await syncChatsIncremental('');
+    const result = await syncChatsIncremental('acct-1', '');
 
     expect(mockFetchApiJson).not.toHaveBeenCalled();
     expect(result).toEqual({ chats: [{ chatId: 'chat-local-1' }], updatedChatIds: [] });
@@ -84,10 +94,11 @@ describe('chatSyncService', () => {
     });
     mockUpsertChatDetail.mockResolvedValue(undefined);
 
-    const detail = await fetchAndCacheChatDetail('https://api.example.com', 'chat-1');
+    const detail = await fetchAndCacheChatDetail('acct-1', 'https://api.example.com', 'chat-1');
 
     expect(mockFetchApiJson).toHaveBeenCalledWith('https://api.example.com', '/api/ap/chat?chatId=chat-1');
     expect(mockUpsertChatDetail).toHaveBeenCalledWith(
+      'acct-1',
       expect.objectContaining({
         chatId: 'chat-1',
         chatName: '会话一',

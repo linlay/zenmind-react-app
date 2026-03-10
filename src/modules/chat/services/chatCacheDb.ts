@@ -6,7 +6,8 @@ const UNKNOWN_AGENT_KEY = '__unknown_agent__';
 
 const CREATE_CHATS_SQL = `
 CREATE TABLE IF NOT EXISTS CHATS (
-  CHAT_ID_ TEXT PRIMARY KEY,
+  ACCOUNT_ID_ TEXT NOT NULL DEFAULT '',
+  CHAT_ID_ TEXT NOT NULL,
   CHAT_NAME_ TEXT NOT NULL,
   AGENT_KEY_ TEXT NOT NULL,
   TEAM_ID_ TEXT NOT NULL DEFAULT '',
@@ -15,16 +16,20 @@ CREATE TABLE IF NOT EXISTS CHATS (
   LAST_RUN_ID_ VARCHAR(12) NOT NULL,
   LAST_RUN_CONTENT_ TEXT NOT NULL DEFAULT '',
   READ_STATUS_ INTEGER NOT NULL DEFAULT 1,
-  READ_AT_ INTEGER
+  READ_AT_ INTEGER,
+  CHAT_IMAGE_TOKEN_ TEXT NOT NULL DEFAULT '',
+  EVENTS_JSON_ TEXT NOT NULL DEFAULT '[]',
+  DETAIL_UPDATED_AT_ INTEGER,
+  PRIMARY KEY (ACCOUNT_ID_, CHAT_ID_)
 )
 `;
 
 const CREATE_CHATS_LAST_RUN_ID_INDEX_SQL = `
-CREATE INDEX IF NOT EXISTS IDX_CHATS_LAST_RUN_ID_
-ON CHATS(LAST_RUN_ID_)
+CREATE INDEX IF NOT EXISTS IDX_CHATS_ACCOUNT_LAST_RUN_ID_
+ON CHATS(ACCOUNT_ID_, LAST_RUN_ID_)
 `;
 
-const CHAT_EXTENSION_COLUMNS: Array<{ name: string; sql: string }> = [
+const LEGACY_EXTENSION_COLUMNS: Array<{ name: string; sql: string }> = [
   { name: 'TEAM_ID_', sql: "ALTER TABLE CHATS ADD COLUMN TEAM_ID_ TEXT NOT NULL DEFAULT ''" },
   { name: 'CHAT_IMAGE_TOKEN_', sql: "ALTER TABLE CHATS ADD COLUMN CHAT_IMAGE_TOKEN_ TEXT NOT NULL DEFAULT ''" },
   { name: 'EVENTS_JSON_', sql: "ALTER TABLE CHATS ADD COLUMN EVENTS_JSON_ TEXT NOT NULL DEFAULT '[]'" },
@@ -32,6 +37,7 @@ const CHAT_EXTENSION_COLUMNS: Array<{ name: string; sql: string }> = [
 ];
 
 interface ChatRow {
+  ACCOUNT_ID_?: string;
   CHAT_ID_: string;
   CHAT_NAME_: string;
   AGENT_KEY_: string;
@@ -56,6 +62,10 @@ export interface CachedChatDetail {
 }
 
 let dbPromise: Promise<SQLite.SQLiteDatabase> | null = null;
+
+function normalizeAccountId(accountId: string): string {
+  return String(accountId || '').trim();
+}
 
 function toTimestampMs(input: unknown, fallback: number): number {
   if (input === null || input === undefined || input === '') {
@@ -142,6 +152,73 @@ function mapRowToChatSummary(row: ChatRow): ChatSummary {
   };
 }
 
+async function migrateLegacyTable(db: SQLite.SQLiteDatabase, existingColumns: Set<string>): Promise<void> {
+  for (const extension of LEGACY_EXTENSION_COLUMNS) {
+    if (existingColumns.has(extension.name)) {
+      continue;
+    }
+    await db.execAsync(extension.sql);
+  }
+
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS CHATS_V2 (
+      ACCOUNT_ID_ TEXT NOT NULL DEFAULT '',
+      CHAT_ID_ TEXT NOT NULL,
+      CHAT_NAME_ TEXT NOT NULL,
+      AGENT_KEY_ TEXT NOT NULL,
+      TEAM_ID_ TEXT NOT NULL DEFAULT '',
+      CREATED_AT_ INTEGER NOT NULL,
+      UPDATED_AT_ INTEGER NOT NULL,
+      LAST_RUN_ID_ VARCHAR(12) NOT NULL,
+      LAST_RUN_CONTENT_ TEXT NOT NULL DEFAULT '',
+      READ_STATUS_ INTEGER NOT NULL DEFAULT 1,
+      READ_AT_ INTEGER,
+      CHAT_IMAGE_TOKEN_ TEXT NOT NULL DEFAULT '',
+      EVENTS_JSON_ TEXT NOT NULL DEFAULT '[]',
+      DETAIL_UPDATED_AT_ INTEGER,
+      PRIMARY KEY (ACCOUNT_ID_, CHAT_ID_)
+    )
+  `);
+
+  await db.execAsync(`
+    INSERT OR IGNORE INTO CHATS_V2 (
+      ACCOUNT_ID_,
+      CHAT_ID_,
+      CHAT_NAME_,
+      AGENT_KEY_,
+      TEAM_ID_,
+      CREATED_AT_,
+      UPDATED_AT_,
+      LAST_RUN_ID_,
+      LAST_RUN_CONTENT_,
+      READ_STATUS_,
+      READ_AT_,
+      CHAT_IMAGE_TOKEN_,
+      EVENTS_JSON_,
+      DETAIL_UPDATED_AT_
+    )
+    SELECT
+      '',
+      CHAT_ID_,
+      CHAT_NAME_,
+      AGENT_KEY_,
+      TEAM_ID_,
+      CREATED_AT_,
+      UPDATED_AT_,
+      LAST_RUN_ID_,
+      LAST_RUN_CONTENT_,
+      READ_STATUS_,
+      READ_AT_,
+      CHAT_IMAGE_TOKEN_,
+      EVENTS_JSON_,
+      DETAIL_UPDATED_AT_
+    FROM CHATS
+  `);
+
+  await db.execAsync('DROP TABLE CHATS');
+  await db.execAsync('ALTER TABLE CHATS_V2 RENAME TO CHATS');
+}
+
 async function openDb(): Promise<SQLite.SQLiteDatabase> {
   if (!dbPromise) {
     dbPromise = SQLite.openDatabaseAsync(DATABASE_NAME).then(async (db) => {
@@ -157,13 +234,11 @@ async function openDb(): Promise<SQLite.SQLiteDatabase> {
         )
       );
 
-      for (const extension of CHAT_EXTENSION_COLUMNS) {
-        if (existing.has(extension.name)) {
-          continue;
-        }
-        await db.execAsync(extension.sql);
+      if (!existing.has('ACCOUNT_ID_')) {
+        await migrateLegacyTable(db, existing);
       }
 
+      await db.execAsync(CREATE_CHATS_LAST_RUN_ID_INDEX_SQL);
       return db;
     });
   }
@@ -174,15 +249,16 @@ export async function initChatCacheDb(): Promise<void> {
   await openDb();
 }
 
-export async function clearChatCacheDb(): Promise<void> {
+export async function clearChatCacheDb(accountId: string): Promise<void> {
   const db = await openDb();
-  await db.runAsync('DELETE FROM CHATS');
+  await db.runAsync('DELETE FROM CHATS WHERE ACCOUNT_ID_ = ?', [normalizeAccountId(accountId)]);
 }
 
-export async function listCachedChats(): Promise<ChatSummary[]> {
+export async function listCachedChats(accountId: string): Promise<ChatSummary[]> {
   const db = await openDb();
   const rows = await db.getAllAsync<ChatRow>(
     `SELECT
+      ACCOUNT_ID_,
       CHAT_ID_,
       CHAT_NAME_,
       AGENT_KEY_,
@@ -197,19 +273,25 @@ export async function listCachedChats(): Promise<ChatSummary[]> {
       EVENTS_JSON_,
       DETAIL_UPDATED_AT_
     FROM CHATS
-    ORDER BY UPDATED_AT_ DESC`
+    WHERE ACCOUNT_ID_ = ?
+    ORDER BY UPDATED_AT_ DESC`,
+    [normalizeAccountId(accountId)]
   );
 
   return rows.map((row) => mapRowToChatSummary(row));
 }
 
-export async function getMaxLastRunId(): Promise<string> {
+export async function getMaxLastRunId(accountId: string): Promise<string> {
   const db = await openDb();
-  const row = await db.getFirstAsync<{ maxLastRunId?: string }>('SELECT MAX(LAST_RUN_ID_) AS maxLastRunId FROM CHATS');
+  const row = await db.getFirstAsync<{ maxLastRunId?: string }>(
+    'SELECT MAX(LAST_RUN_ID_) AS maxLastRunId FROM CHATS WHERE ACCOUNT_ID_ = ?',
+    [normalizeAccountId(accountId)]
+  );
   return String(row?.maxLastRunId || '').trim();
 }
 
-export async function upsertChatSummaries(input: ChatSummary[]): Promise<void> {
+export async function upsertChatSummaries(accountId: string, input: ChatSummary[]): Promise<void> {
+  const normalizedAccountId = normalizeAccountId(accountId);
   const list = Array.isArray(input) ? input.map((item) => normalizeSummary(item)).filter((item) => item.chatId) : [];
   if (!list.length) {
     return;
@@ -220,6 +302,7 @@ export async function upsertChatSummaries(input: ChatSummary[]): Promise<void> {
     for (const item of list) {
       await db.runAsync(
         `INSERT INTO CHATS (
+          ACCOUNT_ID_,
           CHAT_ID_,
           CHAT_NAME_,
           AGENT_KEY_,
@@ -230,8 +313,8 @@ export async function upsertChatSummaries(input: ChatSummary[]): Promise<void> {
           LAST_RUN_CONTENT_,
           READ_STATUS_,
           READ_AT_
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(CHAT_ID_) DO UPDATE SET
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(ACCOUNT_ID_, CHAT_ID_) DO UPDATE SET
           CHAT_NAME_ = excluded.CHAT_NAME_,
           AGENT_KEY_ = excluded.AGENT_KEY_,
           TEAM_ID_ = excluded.TEAM_ID_,
@@ -242,6 +325,7 @@ export async function upsertChatSummaries(input: ChatSummary[]): Promise<void> {
           READ_STATUS_ = excluded.READ_STATUS_,
           READ_AT_ = excluded.READ_AT_`,
         [
+          normalizedAccountId,
           String(item.chatId || ''),
           String(item.chatName || item.title || item.chatId || ''),
           String(item.firstAgentKey || item.agentKey || UNKNOWN_AGENT_KEY),
@@ -258,13 +342,17 @@ export async function upsertChatSummaries(input: ChatSummary[]): Promise<void> {
   });
 }
 
-export async function upsertChatDetail(payload: {
-  chatId: string;
-  chatName?: string;
-  chatImageToken?: string;
-  events?: Record<string, unknown>[];
-  detailUpdatedAt?: number;
-}): Promise<void> {
+export async function upsertChatDetail(
+  accountId: string,
+  payload: {
+    chatId: string;
+    chatName?: string;
+    chatImageToken?: string;
+    events?: Record<string, unknown>[];
+    detailUpdatedAt?: number;
+  }
+): Promise<void> {
+  const normalizedAccountId = normalizeAccountId(accountId);
   const chatId = String(payload.chatId || '').trim();
   if (!chatId) {
     return;
@@ -286,6 +374,7 @@ export async function upsertChatDetail(payload: {
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `INSERT OR IGNORE INTO CHATS (
+        ACCOUNT_ID_,
         CHAT_ID_,
         CHAT_NAME_,
         AGENT_KEY_,
@@ -295,8 +384,8 @@ export async function upsertChatDetail(payload: {
         LAST_RUN_CONTENT_,
         READ_STATUS_,
         READ_AT_
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [chatId, chatName, UNKNOWN_AGENT_KEY, now, now, '', '', 1, null]
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [normalizedAccountId, chatId, chatName, UNKNOWN_AGENT_KEY, now, now, '', '', 1, null]
     );
 
     await db.runAsync(
@@ -305,13 +394,15 @@ export async function upsertChatDetail(payload: {
           CHAT_IMAGE_TOKEN_ = ?,
           EVENTS_JSON_ = ?,
           DETAIL_UPDATED_AT_ = ?
-      WHERE CHAT_ID_ = ?`,
-      [chatName, String(payload.chatImageToken || ''), eventsJson, detailUpdatedAt, chatId]
+      WHERE ACCOUNT_ID_ = ?
+        AND CHAT_ID_ = ?`,
+      [chatName, String(payload.chatImageToken || ''), eventsJson, detailUpdatedAt, normalizedAccountId, chatId]
     );
   });
 }
 
-export async function getCachedChatDetail(chatIdInput: string): Promise<CachedChatDetail | null> {
+export async function getCachedChatDetail(accountId: string, chatIdInput: string): Promise<CachedChatDetail | null> {
+  const normalizedAccountId = normalizeAccountId(accountId);
   const chatId = String(chatIdInput || '').trim();
   if (!chatId) {
     return null;
@@ -320,15 +411,17 @@ export async function getCachedChatDetail(chatIdInput: string): Promise<CachedCh
   const db = await openDb();
   const row = await db.getFirstAsync<ChatRow>(
     `SELECT
+      ACCOUNT_ID_,
       CHAT_ID_,
       CHAT_NAME_,
       CHAT_IMAGE_TOKEN_,
       EVENTS_JSON_,
       DETAIL_UPDATED_AT_
     FROM CHATS
-    WHERE CHAT_ID_ = ?
+    WHERE ACCOUNT_ID_ = ?
+      AND CHAT_ID_ = ?
     LIMIT 1`,
-    [chatId]
+    [normalizedAccountId, chatId]
   );
 
   if (!row) {
@@ -359,9 +452,11 @@ export async function getCachedChatDetail(chatIdInput: string): Promise<CachedCh
 }
 
 export async function markChatReadLocal(
+  accountId: string,
   chatIdInput: string,
   options?: { readStatus?: number; readAt?: string | number | null }
 ): Promise<void> {
+  const normalizedAccountId = normalizeAccountId(accountId);
   const chatId = String(chatIdInput || '').trim();
   if (!chatId) {
     return;
@@ -375,6 +470,7 @@ export async function markChatReadLocal(
   await db.withTransactionAsync(async () => {
     await db.runAsync(
       `INSERT OR IGNORE INTO CHATS (
+        ACCOUNT_ID_,
         CHAT_ID_,
         CHAT_NAME_,
         AGENT_KEY_,
@@ -384,16 +480,17 @@ export async function markChatReadLocal(
         LAST_RUN_CONTENT_,
         READ_STATUS_,
         READ_AT_
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [chatId, chatId, UNKNOWN_AGENT_KEY, now, now, '', '', readStatus, readAt]
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [normalizedAccountId, chatId, chatId, UNKNOWN_AGENT_KEY, now, now, '', '', readStatus, readAt]
     );
 
     await db.runAsync(
       `UPDATE CHATS
       SET READ_STATUS_ = ?,
           READ_AT_ = ?
-      WHERE CHAT_ID_ = ?`,
-      [readStatus, readAt, chatId]
+      WHERE ACCOUNT_ID_ = ?
+        AND CHAT_ID_ = ?`,
+      [readStatus, readAt, normalizedAccountId, chatId]
     );
   });
 }

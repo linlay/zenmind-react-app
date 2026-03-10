@@ -247,6 +247,7 @@ export function ChatAssistantScreen({
   const chats = useAppSelector((state) => state.chat.chats);
   const teams = useAppSelector((state) => state.chat.teams);
   const selectedAgentKey = useAppSelector((state) => state.user.selectedAgentKey);
+  const activeAccountId = useAppSelector((state) => state.user.activeAccountId);
   const agents = useAppSelector((state) => state.agents.agents);
   const chatList = Array.isArray(chats) ? chats : [];
   const teamList = Array.isArray(teams) ? teams : [];
@@ -2131,7 +2132,7 @@ export function ChatAssistantScreen({
   }, [chatState.planState.tasks.length]);
 
   const loadHistoryFromCache = useCallback(async (targetChatId: string) => {
-    const cached = await getCachedChatDetail(targetChatId);
+    const cached = await getCachedChatDetail(activeAccountId, targetChatId);
     if (!cached) {
       return null;
     }
@@ -2143,13 +2144,13 @@ export function ChatAssistantScreen({
       chatImageToken: String(cached.chatImageToken || ''),
       events
     };
-  }, []);
+  }, [activeAccountId]);
 
   const loadHistoryFromRemote = useCallback(
     async (targetChatId: string) => {
       const data = await loadChat({ chatId: targetChatId }).unwrap();
       const events = Array.isArray(data?.events) ? data.events : [];
-      await upsertChatDetail({
+      await upsertChatDetail(activeAccountId, {
         chatId: targetChatId,
         chatName: String(data?.chatName || ''),
         chatImageToken: String(data?.chatImageToken || ''),
@@ -2161,7 +2162,7 @@ export function ChatAssistantScreen({
         events
       };
     },
-    [loadChat]
+    [activeAccountId, loadChat]
   );
 
   useEffect(() => {

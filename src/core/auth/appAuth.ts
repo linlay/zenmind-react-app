@@ -1,9 +1,17 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import { toBackendBaseUrl } from '../network/endpoint';
 import { parseErrorMessage } from '../network/errorUtils';
+import { patchSettings, loadSettings } from '../storage/settingsStorage';
+import { StoredAccount } from '../types/common';
+import {
+  buildStoredAccountId,
+  getStoredAccount,
+  listStoredAccounts as listStoredAccountsFromStorage,
+  removeStoredAccount as removeStoredAccountFromStorage,
+  toStoredAccountSummary,
+  upsertStoredAccount
+} from './authAccountsStorage';
 
-const DEVICE_TOKEN_KEY = 'app_device_token_v2';
-const LEGACY_DEVICE_TOKEN_KEY = 'app_device_token_v1';
 const DEFAULT_TOKEN_MIN_VALIDITY_MS = 90_000;
 const DEFAULT_TOKEN_JITTER_MS = 8_000;
 const FALLBACK_TOKEN_VALIDITY_MS = 5 * 60_000;
@@ -15,6 +23,10 @@ export interface EnsureFreshAccessTokenOptions {
   jitterMs?: number;
   forceRefresh?: boolean;
   failureMode?: RefreshFailureMode;
+}
+
+export interface RestoreSessionOptions {
+  silentBaseReset?: boolean;
 }
 
 export type AuthSessionEvent =
@@ -62,7 +74,6 @@ let refreshingPromise: Promise<string | null> | null = null;
 let refreshingFailureMode: RefreshFailureMode | null = null;
 let currentBaseUrl = '';
 const authListeners = new Set<AuthSessionListener>();
-let legacyDeviceTokenPurged = false;
 
 function parseNumericEpochMs(raw: unknown): number | null {
   if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
@@ -148,7 +159,7 @@ function normalizeBaseUrl(baseUrl: string): string {
     .replace(/\/+$/, '');
 }
 
-function ensureBaseUrl(baseUrl: string) {
+function ensureBaseUrl(baseUrl: string, options: RestoreSessionOptions = {}) {
   const normalized = normalizeBaseUrl(baseUrl);
   if (normalized !== currentBaseUrl) {
     const hadSession = Boolean(currentSession);
@@ -156,45 +167,11 @@ function ensureBaseUrl(baseUrl: string) {
     currentSession = null;
     refreshingPromise = null;
     refreshingFailureMode = null;
-    if (hadSession) {
+    if (hadSession && !options.silentBaseReset) {
       emitSessionCleared();
     }
   }
   return normalized;
-}
-
-async function loadDeviceTokenFromStorage(): Promise<string> {
-  if (!legacyDeviceTokenPurged) {
-    legacyDeviceTokenPurged = true;
-    try {
-      await AsyncStorage.removeItem(LEGACY_DEVICE_TOKEN_KEY);
-    } catch {
-      // ignore storage cleanup failures
-    }
-  }
-  return String((await AsyncStorage.getItem(DEVICE_TOKEN_KEY)) || '').trim();
-}
-
-async function saveDeviceToken(deviceToken: string): Promise<void> {
-  const normalized = String(deviceToken || '').trim();
-  if (!normalized) {
-    await AsyncStorage.removeItem(DEVICE_TOKEN_KEY);
-    return;
-  }
-  await AsyncStorage.setItem(DEVICE_TOKEN_KEY, normalized);
-}
-
-function updateSessionWithRefresh(refresh: RefreshResponse, fallbackUsername = 'app', fallbackDeviceName = '') {
-  const previous = currentSession;
-  currentSession = {
-    username: previous?.username || fallbackUsername,
-    deviceId: String(refresh.deviceId || previous?.deviceId || ''),
-    deviceName: previous?.deviceName || fallbackDeviceName || 'Device',
-    accessToken: String(refresh.accessToken || ''),
-    accessExpireAtMs: resolveAccessExpireAtMs(refresh),
-    deviceToken: String(refresh.deviceToken || previous?.deviceToken || '')
-  };
-  emitSessionUpdated();
 }
 
 function emitSessionUpdated() {
@@ -228,21 +205,113 @@ function getRandomJitterMs(maxJitterMs: number): number {
   return Math.floor(Math.random() * maxJitterMs);
 }
 
-async function clearSessionAndDeviceToken(): Promise<void> {
+async function getStoredAccountsWithSettings() {
+  const settings = await loadSettings();
+  const accounts = await listStoredAccountsFromStorage({
+    migrationSettings: {
+      endpointInput: settings.endpointInput,
+      ptyUrlInput: settings.ptyUrlInput
+    }
+  });
+
+  return {
+    settings,
+    accounts
+  };
+}
+
+async function getActiveAccountState(): Promise<{
+  activeAccount: StoredAccount | null;
+  accounts: StoredAccount[];
+  settings: Awaited<ReturnType<typeof loadSettings>>;
+}> {
+  const { settings, accounts } = await getStoredAccountsWithSettings();
+  const activeAccount =
+    accounts.find((item) => item.accountId === String(settings.activeAccountId || '').trim()) || null;
+
+  return {
+    activeAccount,
+    accounts,
+    settings
+  };
+}
+
+async function persistActiveAccountSession(
+  baseUrl: string,
+  session: SessionState,
+  overrides?: Partial<StoredAccount>
+): Promise<StoredAccount> {
+  const settings = await loadSettings();
+  const endpointInput = String(overrides?.endpointInput || settings.endpointInput || baseUrl).trim();
+  const deviceId = String(overrides?.deviceId || session.deviceId || '').trim();
+  const accountId = buildStoredAccountId(endpointInput, deviceId);
+  const nextAccount: StoredAccount = {
+    accountId,
+    username: String(overrides?.username || session.username || '').trim(),
+    deviceId,
+    deviceName: String(overrides?.deviceName || session.deviceName || '').trim(),
+    endpointInput,
+    ptyUrlInput: String(overrides?.ptyUrlInput || settings.ptyUrlInput || '').trim(),
+    deviceToken: String(overrides?.deviceToken || session.deviceToken || '').trim(),
+    lastUsedAtMs: Date.now()
+  };
+
+  await upsertStoredAccount(nextAccount);
+  await patchSettings({
+    activeAccountId: accountId,
+    endpointInput: nextAccount.endpointInput,
+    ptyUrlInput: nextAccount.ptyUrlInput
+  });
+
+  return nextAccount;
+}
+
+async function clearSessionAndRemoveActiveAccount(options: {
+  forceEmit?: boolean;
+  preserveBaseUrl?: boolean;
+} = {}): Promise<void> {
+  const { activeAccount, settings } = await getActiveAccountState();
   const hadSession = Boolean(currentSession);
   currentSession = null;
-  await saveDeviceToken('');
-  if (hadSession) {
+  refreshingPromise = null;
+  refreshingFailureMode = null;
+  if (!options.preserveBaseUrl) {
+    currentBaseUrl = '';
+  }
+
+  if (activeAccount) {
+    await removeStoredAccountFromStorage(activeAccount.accountId);
+  }
+
+  if (String(settings.activeAccountId || '').trim()) {
+    await patchSettings({ activeAccountId: '' });
+  }
+
+  if (hadSession || options.forceEmit) {
     emitSessionCleared();
   }
+}
+
+function updateSessionWithRefresh(refresh: RefreshResponse, account: StoredAccount | null) {
+  const previous = currentSession;
+  currentSession = {
+    username: account?.username || previous?.username || 'app',
+    deviceId: String(refresh.deviceId || account?.deviceId || previous?.deviceId || ''),
+    deviceName: account?.deviceName || previous?.deviceName || 'Device',
+    accessToken: String(refresh.accessToken || ''),
+    accessExpireAtMs: resolveAccessExpireAtMs(refresh),
+    deviceToken: String(refresh.deviceToken || account?.deviceToken || previous?.deviceToken || '')
+  };
+  emitSessionUpdated();
 }
 
 async function refreshAccessToken(
   baseUrl: string,
   forceRefresh: boolean,
-  failureMode: RefreshFailureMode
+  failureMode: RefreshFailureMode,
+  options: RestoreSessionOptions = {}
 ): Promise<string | null> {
-  const normalizedBase = ensureBaseUrl(baseUrl);
+  const normalizedBase = ensureBaseUrl(baseUrl, options);
 
   if (
     !forceRefresh &&
@@ -260,17 +329,15 @@ async function refreshAccessToken(
     if (token || failureMode !== 'hard' || inFlightMode === 'hard') {
       return token;
     }
-    // A soft refresh failed while a hard refresh caller was waiting.
-    // Re-run once in hard mode to guarantee session invalidation semantics.
-    return refreshAccessToken(normalizedBase, true, 'hard');
+    return refreshAccessToken(normalizedBase, true, 'hard', options);
   }
 
   const refreshTask = (async () => {
-    const storedDeviceToken = await loadDeviceTokenFromStorage();
-    const deviceToken = storedDeviceToken || currentSession?.deviceToken || '';
+    const { activeAccount } = await getActiveAccountState();
+    const deviceToken = activeAccount?.deviceToken || currentSession?.deviceToken || '';
     if (!deviceToken) {
       if (failureMode === 'hard') {
-        await clearSessionAndDeviceToken();
+        await clearSessionAndRemoveActiveAccount({ forceEmit: true });
       }
       return null;
     }
@@ -282,12 +349,14 @@ async function refreshAccessToken(
         body: JSON.stringify({ deviceToken })
       });
 
-      updateSessionWithRefresh(refreshed);
-      await saveDeviceToken(currentSession?.deviceToken || '');
+      updateSessionWithRefresh(refreshed, activeAccount);
+      if (currentSession) {
+        await persistActiveAccountSession(normalizedBase, currentSession, activeAccount || undefined);
+      }
       return currentSession?.accessToken || null;
     } catch {
       if (failureMode === 'hard') {
-        await clearSessionAndDeviceToken();
+        await clearSessionAndRemoveActiveAccount({ forceEmit: true });
       }
       return null;
     }
@@ -309,12 +378,97 @@ export function getCurrentSession(): SessionState | null {
   return currentSession;
 }
 
-export async function restoreSession(baseUrl: string): Promise<SessionState | null> {
-  const token = await refreshAccessToken(baseUrl, true, 'hard');
+export async function listStoredAccounts(): Promise<ReturnType<typeof toStoredAccountSummary>[]> {
+  const { accounts } = await getStoredAccountsWithSettings();
+  return accounts.map((item) => toStoredAccountSummary(item));
+}
+
+export async function getActiveStoredAccount(): Promise<ReturnType<typeof toStoredAccountSummary> | null> {
+  const { activeAccount } = await getActiveAccountState();
+  return activeAccount ? toStoredAccountSummary(activeAccount) : null;
+}
+
+export async function restoreSession(
+  baseUrl: string,
+  options: RestoreSessionOptions = {}
+): Promise<SessionState | null> {
+  const token = await refreshAccessToken(baseUrl, true, 'hard', options);
   if (!token || !currentSession) {
     return null;
   }
   return currentSession;
+}
+
+export async function switchActiveAccount(accountId: string): Promise<SessionState | null> {
+  const account = await getStoredAccount(accountId);
+  if (!account) {
+    await patchSettings({ activeAccountId: '' });
+    await clearSessionAndRemoveActiveAccount({ forceEmit: true });
+    return null;
+  }
+
+  await patchSettings({
+    activeAccountId: account.accountId,
+    endpointInput: account.endpointInput,
+    ptyUrlInput: account.ptyUrlInput
+  });
+
+  const backendUrl = toBackendBaseUrl(account.endpointInput);
+  if (!backendUrl) {
+    await clearSessionAndRemoveActiveAccount({ forceEmit: true });
+    return null;
+  }
+
+  return restoreSession(backendUrl, { silentBaseReset: true });
+}
+
+export async function removeStoredAccount(accountId: string): Promise<ReturnType<typeof toStoredAccountSummary>[]> {
+  const normalizedId = String(accountId || '').trim();
+  const settings = await loadSettings();
+  const next = await removeStoredAccountFromStorage(normalizedId);
+
+  if (normalizedId && normalizedId === String(settings.activeAccountId || '').trim()) {
+    await patchSettings({ activeAccountId: '' });
+  }
+
+  return next.map((item) => toStoredAccountSummary(item));
+}
+
+export async function syncActiveAccountConnection(config: {
+  endpointInput: string;
+  ptyUrlInput: string;
+}): Promise<ReturnType<typeof toStoredAccountSummary> | null> {
+  const { activeAccount } = await getActiveAccountState();
+  if (!activeAccount) {
+    return null;
+  }
+
+  const nextAccount = {
+    ...activeAccount,
+    endpointInput: String(config.endpointInput || '').trim(),
+    ptyUrlInput: String(config.ptyUrlInput || '').trim(),
+    lastUsedAtMs: Date.now()
+  };
+
+  await removeStoredAccountFromStorage(activeAccount.accountId);
+  const saved = await upsertStoredAccount({
+    ...nextAccount,
+    accountId: buildStoredAccountId(nextAccount.endpointInput, nextAccount.deviceId)
+  });
+  const resolved =
+    saved.find((item) => item.deviceId === activeAccount.deviceId && item.endpointInput === nextAccount.endpointInput) ||
+    null;
+
+  if (resolved) {
+    await patchSettings({
+      activeAccountId: resolved.accountId,
+      endpointInput: resolved.endpointInput,
+      ptyUrlInput: resolved.ptyUrlInput
+    });
+    return toStoredAccountSummary(resolved);
+  }
+
+  return null;
 }
 
 export async function loginWithMasterPassword(
@@ -322,7 +476,7 @@ export async function loginWithMasterPassword(
   masterPassword: string,
   deviceName: string
 ): Promise<SessionState> {
-  const normalizedBase = ensureBaseUrl(baseUrl);
+  const normalizedBase = ensureBaseUrl(baseUrl, { silentBaseReset: true });
   const normalizedDeviceName = String(deviceName || '').trim() || getDefaultDeviceName();
   const payload = await requestJson<LoginResponse>(normalizedBase, '/api/auth/login', {
     method: 'POST',
@@ -342,13 +496,13 @@ export async function loginWithMasterPassword(
     deviceToken: String(payload.deviceToken || '')
   };
 
-  await saveDeviceToken(currentSession.deviceToken);
+  await persistActiveAccountSession(normalizedBase, currentSession);
   emitSessionUpdated();
   return currentSession;
 }
 
 export async function logoutCurrentDevice(baseUrl: string): Promise<void> {
-  const normalizedBase = ensureBaseUrl(baseUrl);
+  const normalizedBase = ensureBaseUrl(baseUrl, { silentBaseReset: true });
   const token = await getAccessToken(normalizedBase);
 
   try {
@@ -364,14 +518,7 @@ export async function logoutCurrentDevice(baseUrl: string): Promise<void> {
     // ignore network errors when logging out
   }
 
-  const hadSession = Boolean(currentSession);
-  currentSession = null;
-  refreshingPromise = null;
-  refreshingFailureMode = null;
-  await saveDeviceToken('');
-  if (hadSession) {
-    emitSessionCleared();
-  }
+  await clearSessionAndRemoveActiveAccount({ forceEmit: true });
 }
 
 export async function getAccessToken(baseUrl: string, forceRefresh = false): Promise<string | null> {
@@ -382,7 +529,7 @@ export async function ensureFreshAccessToken(
   baseUrl: string,
   options: EnsureFreshAccessTokenOptions = {}
 ): Promise<string | null> {
-  const normalizedBase = ensureBaseUrl(baseUrl);
+  const normalizedBase = ensureBaseUrl(baseUrl, { silentBaseReset: false });
   const minValidityMs = Math.max(0, Number(options.minValidityMs ?? DEFAULT_TOKEN_MIN_VALIDITY_MS));
   const maxJitterMs = Math.max(0, Number(options.jitterMs ?? DEFAULT_TOKEN_JITTER_MS));
   const forceRefresh = Boolean(options.forceRefresh);
@@ -407,7 +554,7 @@ export function subscribeAuthSession(listener: AuthSessionListener): () => void 
 }
 
 export async function authorizedFetch(baseUrl: string, path: string, options: RequestInit = {}): Promise<Response> {
-  const normalizedBase = ensureBaseUrl(baseUrl);
+  const normalizedBase = ensureBaseUrl(baseUrl, { silentBaseReset: false });
   const token = await getAccessToken(normalizedBase);
 
   if (!token) {

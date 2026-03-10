@@ -96,6 +96,14 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     authTokenSignal,
     authUsername,
     authDeviceName,
+    authError,
+    endpointDraft,
+    savedAccounts,
+    activeAccountId,
+    accountSwitching,
+    deviceName,
+    masterPassword,
+    canSubmitLogin,
     currentAgentChats,
     chatId,
     agents,
@@ -104,7 +112,14 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     chatRefreshSignal,
     appVersionLabel,
     setChatPlusMenuOpen,
+    setDeviceName,
+    setMasterPassword,
+    setAuthError,
     setChatSearchQuery,
+    setEndpointDraftText,
+    submitLogin,
+    switchSavedAccount,
+    removeSavedAccount,
     refreshTerminalSessions,
     openTerminalCreateSessionModal,
     openTerminalDetail,
@@ -744,8 +759,23 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                   deviceName={authDeviceName}
                   accessToken={authAccessToken}
                   versionLabel={appVersionLabel}
+                  savedAccounts={savedAccounts}
+                  activeAccountId={activeAccountId}
+                  accountSwitching={accountSwitching}
+                  loginEndpointDraft={endpointDraft}
+                  loginDeviceName={deviceName}
+                  loginMasterPassword={masterPassword}
+                  loginAuthError={authError}
+                  canSubmitLogin={canSubmitLogin}
                   onClearChatCache={clearChatCache}
                   onLogout={handleLogout}
+                  onSwitchAccount={switchSavedAccount}
+                  onRemoveAccount={removeSavedAccount}
+                  onSetLoginEndpointDraft={setEndpointDraftText}
+                  onSetLoginDeviceName={setDeviceName}
+                  onSetLoginMasterPassword={setMasterPassword}
+                  onSetLoginAuthError={setAuthError}
+                  onSubmitLogin={() => submitLogin()}
                 />
               )}
             </Tab.Screen>

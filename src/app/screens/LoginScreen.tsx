@@ -1,4 +1,5 @@
 import {
+  Alert,
   View,
   Text,
   TextInput,
@@ -12,6 +13,18 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import type { LoginController } from '../hooks/useLoginController';
 import { useAppTheme } from '../hooks/useAppTheme';
+
+function formatLastUsedAt(lastUsedAtMs: number): string {
+  if (!Number.isFinite(lastUsedAtMs) || lastUsedAtMs <= 0) {
+    return '最近使用时间未知';
+  }
+
+  try {
+    return `最近使用：${new Date(lastUsedAtMs).toLocaleString()}`;
+  } catch {
+    return '最近使用时间未知';
+  }
+}
 
 interface LoginScreenProps {
   /** 登录控制器 */
@@ -39,10 +52,15 @@ export function LoginScreen({ controller }: LoginScreenProps) {
     authError,
     canSubmitLogin,
     appVersionLabel,
+    savedAccounts,
+    activeAccountId,
+    isSwitchingAccount,
     setEndpointDraftText,
     setDeviceName,
     setMasterPassword,
-    submitLogin
+    submitLogin,
+    switchToSavedAccount,
+    removeSavedAccount
   } = controller;
 
   return (
@@ -69,6 +87,77 @@ export function LoginScreen({ controller }: LoginScreenProps) {
                 }
               ]}
             >
+              {savedAccounts.length ? (
+                <View style={styles.savedAccountsSection} testID="saved-accounts-card">
+                  <Text style={[styles.savedAccountsTitle, { color: theme.text }]}>已保存账号</Text>
+                  <View style={styles.savedAccountsList}>
+                    {savedAccounts.map((account, index) => {
+                      const title = account.username || account.endpointInput || '(未命名账号)';
+                      const isActive = account.accountId === activeAccountId;
+
+                      return (
+                        <View
+                          key={account.accountId}
+                          style={[styles.savedAccountItem, { backgroundColor: theme.surfaceStrong, borderColor: theme.border }]}
+                          testID={`saved-account-item-${index}`}
+                        >
+                          <View style={styles.savedAccountTextWrap}>
+                            <Text style={[styles.savedAccountTitle, { color: theme.text }]} numberOfLines={1}>
+                              {title}
+                            </Text>
+                            <Text style={[styles.savedAccountMeta, { color: theme.textMute }]} numberOfLines={1}>
+                              {account.deviceName || '(未命名设备)'}
+                            </Text>
+                            <Text style={[styles.savedAccountMeta, { color: theme.textMute }]} numberOfLines={1}>
+                              {account.endpointInput}
+                            </Text>
+                            <Text style={[styles.savedAccountMeta, { color: theme.textMute }]} numberOfLines={1}>
+                              {formatLastUsedAt(account.lastUsedAtMs)}
+                            </Text>
+                          </View>
+
+                          <View style={styles.savedAccountActions}>
+                            <TouchableOpacity
+                              activeOpacity={0.82}
+                              style={[
+                                styles.savedAccountButton,
+                                { backgroundColor: theme.primary, opacity: isSwitchingAccount ? 0.56 : 1 }
+                              ]}
+                              disabled={isSwitchingAccount}
+                              onPress={() => {
+                                switchToSavedAccount(account.accountId).catch(() => {});
+                              }}
+                              testID={`saved-account-switch-btn-${index}`}
+                            >
+                              <Text style={styles.savedAccountButtonText}>{isActive ? '进入当前账号' : '进入该账号'}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              activeOpacity={0.82}
+                              style={[styles.savedAccountGhostButton, { borderColor: theme.border }]}
+                              onPress={() => {
+                                Alert.alert('移除已保存账号', '仅删除本机保存的登录凭证，不会影响服务端账号，确定继续？', [
+                                  { text: '取消', style: 'cancel' },
+                                  {
+                                    text: '移除',
+                                    style: 'destructive',
+                                    onPress: () => {
+                                      removeSavedAccount(account.accountId).catch(() => {});
+                                    }
+                                  }
+                                ]);
+                              }}
+                              testID={`saved-account-remove-btn-${index}`}
+                            >
+                              <Text style={[styles.savedAccountGhostButtonText, { color: theme.textSoft }]}>移除</Text>
+                            </TouchableOpacity>
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </View>
+              ) : null}
+
               <Text style={[styles.title, { color: theme.text }]}>设备登录</Text>
               <Text style={[styles.hint, { color: theme.textMute }]}>请先填写后端地址，再输入主密码完成设备授权。</Text>
 
@@ -107,9 +196,9 @@ export function LoginScreen({ controller }: LoginScreenProps) {
                   styles.submitBtn,
                   {
                     backgroundColor: theme.primary,
-                    borderColor: theme.primaryDeep,
-                    opacity: canSubmitLogin ? 1 : 0.56
-                  }
+                  borderColor: theme.primaryDeep,
+                  opacity: canSubmitLogin ? 1 : 0.56
+                }
                 ]}
                 onPress={() => {
                   submitLogin().catch(() => {});
@@ -156,6 +245,61 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'stretch',
     gap: 10
+  },
+  savedAccountsSection: {
+    marginBottom: 6,
+    gap: 8
+  },
+  savedAccountsTitle: {
+    fontSize: 15,
+    fontWeight: '700'
+  },
+  savedAccountsList: {
+    gap: 8
+  },
+  savedAccountItem: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    gap: 10
+  },
+  savedAccountTextWrap: {
+    gap: 3
+  },
+  savedAccountTitle: {
+    fontSize: 14,
+    fontWeight: '700'
+  },
+  savedAccountMeta: {
+    fontSize: 11
+  },
+  savedAccountActions: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  savedAccountButton: {
+    minHeight: 34,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  savedAccountButtonText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  savedAccountGhostButton: {
+    minHeight: 34,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  savedAccountGhostButtonText: {
+    fontSize: 12,
+    fontWeight: '600'
   },
   title: {
     fontSize: 18,

@@ -24,7 +24,8 @@ export function buildDefaultSettings(): AppSettings {
     endpointInput: defaultEndpointInput,
     ptyUrlInput: toDefaultPtyWebUrl(defaultEndpointInput),
     selectedAgentKey: '',
-    activeDomain: 'chat'
+    activeDomain: 'chat',
+    activeAccountId: ''
   };
 }
 
@@ -43,6 +44,7 @@ function normalizeSettings(raw: Partial<AppSettings> | null | undefined): AppSet
     endpointInput,
     ptyUrlInput,
     selectedAgentKey: String(raw?.selectedAgentKey || ''),
+    activeAccountId: String(raw?.activeAccountId || '').trim(),
     activeDomain:
       rawActiveDomain === 'apps'
         ? 'apps'

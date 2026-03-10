@@ -1,5 +1,5 @@
-const DEVICE_TOKEN_KEY = 'app_device_token_v2';
-const LEGACY_DEVICE_TOKEN_KEY = 'app_device_token_v1';
+const SETTINGS_KEY = 'mobile_app_settings_v3';
+const ACCOUNTS_KEY = 'mobile_auth_accounts_v1';
 
 const storage = new Map<string, string>();
 const mockAsyncStorage = {
@@ -24,6 +24,50 @@ function mockResponse(status: number, body: unknown): Response {
     status,
     text: async () => payload
   } as unknown as Response;
+}
+
+function seedActiveStoredAccount(options: {
+  accountId?: string;
+  endpointInput?: string;
+  ptyUrlInput?: string;
+  username?: string;
+  deviceId?: string;
+  deviceName?: string;
+  deviceToken?: string;
+  lastUsedAtMs?: number;
+}) {
+  const endpointInput = options.endpointInput || 'https://example.test';
+  const deviceId = options.deviceId || 'dev-1';
+  const accountId = options.accountId || `${endpointInput}::${deviceId}`;
+
+  storage.set(
+    SETTINGS_KEY,
+    JSON.stringify({
+      themeMode: 'light',
+      endpointInput,
+      ptyUrlInput: options.ptyUrlInput || `${endpointInput}/appterm`,
+      selectedAgentKey: '',
+      activeDomain: 'chat',
+      activeAccountId: accountId
+    })
+  );
+  storage.set(
+    ACCOUNTS_KEY,
+    JSON.stringify([
+      {
+        accountId,
+        username: options.username || 'mobile',
+        deviceId,
+        deviceName: options.deviceName || 'phone',
+        endpointInput,
+        ptyUrlInput: options.ptyUrlInput || `${endpointInput}/appterm`,
+        deviceToken: options.deviceToken || 'device-token-1',
+        lastUsedAtMs: options.lastUsedAtMs || Date.now()
+      }
+    ])
+  );
+
+  return accountId;
 }
 
 describe('appAuth', () => {
@@ -188,7 +232,7 @@ describe('appAuth', () => {
   });
 
   it('shares one refresh request for concurrent hard refresh calls', async () => {
-    storage.set(DEVICE_TOKEN_KEY, 'device-token-1');
+    seedActiveStoredAccount({});
     const auth = loadAppAuth();
     const fetchMock = globalThis.fetch as unknown as jest.Mock;
 
@@ -220,6 +264,88 @@ describe('appAuth', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('stores login result into saved accounts and activeAccountId', async () => {
+    const auth = loadAppAuth();
+    const fetchMock = globalThis.fetch as unknown as jest.Mock;
+
+    fetchMock.mockResolvedValueOnce(
+      mockResponse(200, {
+        username: 'tester',
+        deviceId: 'dev-9',
+        deviceName: 'ipad',
+        accessToken: 'token-login',
+        accessExpireAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+        deviceToken: 'device-token-9'
+      })
+    );
+
+    await auth.loginWithMasterPassword(baseUrl, 'master', 'device');
+
+    const accounts = await auth.listStoredAccounts();
+    const active = await auth.getActiveStoredAccount();
+
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0].deviceId).toBe('dev-9');
+    expect(active?.deviceId).toBe('dev-9');
+    expect(JSON.parse(String(storage.get(SETTINGS_KEY) || '{}')).activeAccountId).toBe(accounts[0].accountId);
+  });
+
+  it('switches to another saved account and restores its session', async () => {
+    const auth = loadAppAuth();
+    const fetchMock = globalThis.fetch as unknown as jest.Mock;
+
+    storage.set(
+      SETTINGS_KEY,
+      JSON.stringify({
+        themeMode: 'light',
+        endpointInput: 'https://one.example.test',
+        ptyUrlInput: 'https://one.example.test/appterm',
+        selectedAgentKey: '',
+        activeDomain: 'chat',
+        activeAccountId: 'https://one.example.test::dev-1'
+      })
+    );
+    storage.set(
+      ACCOUNTS_KEY,
+      JSON.stringify([
+        {
+          accountId: 'https://one.example.test::dev-1',
+          username: 'one',
+          deviceId: 'dev-1',
+          deviceName: 'phone',
+          endpointInput: 'https://one.example.test',
+          ptyUrlInput: 'https://one.example.test/appterm',
+          deviceToken: 'token-one',
+          lastUsedAtMs: 1
+        },
+        {
+          accountId: 'https://two.example.test::dev-2',
+          username: 'two',
+          deviceId: 'dev-2',
+          deviceName: 'tablet',
+          endpointInput: 'https://two.example.test',
+          ptyUrlInput: 'https://two.example.test/appterm',
+          deviceToken: 'token-two',
+          lastUsedAtMs: 2
+        }
+      ])
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      mockResponse(200, {
+        deviceId: 'dev-2',
+        accessToken: 'token-restored',
+        accessExpireAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+        deviceToken: 'token-two-next'
+      })
+    );
+
+    const session = await auth.switchActiveAccount('https://two.example.test::dev-2');
+
+    expect(session?.deviceId).toBe('dev-2');
+    expect((await auth.getActiveStoredAccount())?.accountId).toBe('https://two.example.test::dev-2');
+  });
+
   it('keeps existing session when soft refresh fails', async () => {
     const auth = loadAppAuth();
     const fetchMock = globalThis.fetch as unknown as jest.Mock;
@@ -246,44 +372,57 @@ describe('appAuth', () => {
 
     expect(result).toBeNull();
     expect(auth.getCurrentSession()?.accessToken).toBe('token-old');
-    expect(mockAsyncStorage.removeItem).not.toHaveBeenCalledWith(DEVICE_TOKEN_KEY);
+    expect((await auth.listStoredAccounts())).toHaveLength(1);
   });
 
-  it('purges legacy device token key during non-compatible upgrade', async () => {
-    storage.set(LEGACY_DEVICE_TOKEN_KEY, 'legacy-device-token');
+  it('clears only the active account when hard refresh fails', async () => {
     const auth = loadAppAuth();
     const fetchMock = globalThis.fetch as unknown as jest.Mock;
 
-    const result = await auth.getAccessToken(baseUrl, true);
-
-    expect(result).toBeNull();
-    expect(fetchMock).not.toHaveBeenCalled();
-    expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(LEGACY_DEVICE_TOKEN_KEY);
-  });
-
-  it('clears session when hard refresh fails', async () => {
-    const auth = loadAppAuth();
-    const fetchMock = globalThis.fetch as unknown as jest.Mock;
-
-    fetchMock
-      .mockResolvedValueOnce(
-        mockResponse(200, {
-          username: 'mobile',
+    storage.set(
+      SETTINGS_KEY,
+      JSON.stringify({
+        themeMode: 'light',
+        endpointInput: 'https://one.example.test',
+        ptyUrlInput: 'https://one.example.test/appterm',
+        selectedAgentKey: '',
+        activeDomain: 'chat',
+        activeAccountId: 'https://one.example.test::dev-1'
+      })
+    );
+    storage.set(
+      ACCOUNTS_KEY,
+      JSON.stringify([
+        {
+          accountId: 'https://one.example.test::dev-1',
+          username: 'one',
           deviceId: 'dev-1',
           deviceName: 'phone',
-          accessToken: 'token-old',
-          accessExpireAt: new Date(Date.now() + 10 * 60_000).toISOString(),
-          deviceToken: 'device-token-1'
-        })
-      )
-      .mockResolvedValueOnce(mockResponse(500, { error: 'refresh failed' }));
+          endpointInput: 'https://one.example.test',
+          ptyUrlInput: 'https://one.example.test/appterm',
+          deviceToken: 'token-one',
+          lastUsedAtMs: 1
+        },
+        {
+          accountId: 'https://two.example.test::dev-2',
+          username: 'two',
+          deviceId: 'dev-2',
+          deviceName: 'tablet',
+          endpointInput: 'https://two.example.test',
+          ptyUrlInput: 'https://two.example.test/appterm',
+          deviceToken: 'token-two',
+          lastUsedAtMs: 2
+        }
+      ])
+    );
 
-    await auth.loginWithMasterPassword(baseUrl, 'master', 'device');
-    const result = await auth.getAccessToken(baseUrl, true);
+    fetchMock.mockResolvedValueOnce(mockResponse(500, { error: 'refresh failed' }));
+
+    const result = await auth.getAccessToken('https://one.example.test', true);
 
     expect(result).toBeNull();
     expect(auth.getCurrentSession()).toBeNull();
-    expect(mockAsyncStorage.removeItem).toHaveBeenCalledWith(DEVICE_TOKEN_KEY);
+    expect((await auth.listStoredAccounts()).map((item) => item.accountId)).toEqual(['https://two.example.test::dev-2']);
   });
 
   it('retries in hard mode after a failed in-flight soft refresh', async () => {
@@ -352,5 +491,64 @@ describe('appAuth', () => {
     expect(fetchMock).toHaveBeenCalledTimes(4);
     expect((fetchMock.mock.calls[1][1].headers as Record<string, string>).Authorization).toBe('Bearer token-old');
     expect((fetchMock.mock.calls[3][1].headers as Record<string, string>).Authorization).toBe('Bearer token-new');
+  });
+
+  it('logout removes only the current account', async () => {
+    const auth = loadAppAuth();
+    const fetchMock = globalThis.fetch as unknown as jest.Mock;
+
+    storage.set(
+      SETTINGS_KEY,
+      JSON.stringify({
+        themeMode: 'light',
+        endpointInput: 'https://one.example.test',
+        ptyUrlInput: 'https://one.example.test/appterm',
+        selectedAgentKey: '',
+        activeDomain: 'chat',
+        activeAccountId: 'https://one.example.test::dev-1'
+      })
+    );
+    storage.set(
+      ACCOUNTS_KEY,
+      JSON.stringify([
+        {
+          accountId: 'https://one.example.test::dev-1',
+          username: 'one',
+          deviceId: 'dev-1',
+          deviceName: 'phone',
+          endpointInput: 'https://one.example.test',
+          ptyUrlInput: 'https://one.example.test/appterm',
+          deviceToken: 'token-one',
+          lastUsedAtMs: 1
+        },
+        {
+          accountId: 'https://two.example.test::dev-2',
+          username: 'two',
+          deviceId: 'dev-2',
+          deviceName: 'tablet',
+          endpointInput: 'https://two.example.test',
+          ptyUrlInput: 'https://two.example.test/appterm',
+          deviceToken: 'token-two',
+          lastUsedAtMs: 2
+        }
+      ])
+    );
+
+    fetchMock
+      .mockResolvedValueOnce(
+        mockResponse(200, {
+          deviceId: 'dev-1',
+          accessToken: 'token-one-access',
+          accessExpireAt: new Date(Date.now() + 10 * 60_000).toISOString(),
+          deviceToken: 'token-one'
+        })
+      )
+      .mockResolvedValueOnce(mockResponse(200, { ok: true }));
+
+    await auth.restoreSession('https://one.example.test');
+    await auth.logoutCurrentDevice('https://one.example.test');
+
+    expect((await auth.listStoredAccounts()).map((item) => item.accountId)).toEqual(['https://two.example.test::dev-2']);
+    expect(await auth.getActiveStoredAccount()).toBeNull();
   });
 });

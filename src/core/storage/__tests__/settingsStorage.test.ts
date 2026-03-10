@@ -47,7 +47,8 @@ describe('settingsStorage', () => {
       endpointInput: 'demo.example.com',
       ptyUrlInput: 'https://demo.example.com/appterm',
       selectedAgentKey: 'demo',
-      activeDomain: 'terminal'
+      activeDomain: 'terminal',
+      activeAccountId: 'acct-1'
     });
 
     const loaded = await module.loadSettings();
@@ -55,5 +56,6 @@ describe('settingsStorage', () => {
     expect(loaded.endpointInput).toBe('demo.example.com');
     expect(loaded.ptyUrlInput).toBe('https://demo.example.com/appterm');
     expect(loaded.activeDomain).toBe('terminal');
+    expect(loaded.activeAccountId).toBe('acct-1');
   });
 });

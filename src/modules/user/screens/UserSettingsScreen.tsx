@@ -4,10 +4,22 @@ import * as Clipboard from 'expo-clipboard';
 import { Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAppDispatch, useAppSelector } from '../../../app/store/hooks';
 import { toBackendBaseUrl, toDefaultPtyWebUrl } from '../../../core/network/endpoint';
-import { patchSettings } from '../../../core/storage/settingsStorage';
 import { FONT_MONO } from '../../../core/constants/theme';
 import { TAB_LIST_CONTENT_STYLE } from '../../../app/shell/styles/tabPageVisual';
+import { StoredAccountSummary } from '../../../core/types/common';
 import { applyEndpointDraft, setEndpointDraft, setPtyUrlDraft } from '../state/userSlice';
+
+function formatLastUsedAt(lastUsedAtMs: number): string {
+  if (!Number.isFinite(lastUsedAtMs) || lastUsedAtMs <= 0) {
+    return '最近使用时间未知';
+  }
+
+  try {
+    return `最近使用：${new Date(lastUsedAtMs).toLocaleString()}`;
+  } catch {
+    return '最近使用时间未知';
+  }
+}
 
 interface UserSettingsScreenProps {
   theme: {
@@ -27,8 +39,23 @@ interface UserSettingsScreenProps {
   deviceName: string;
   accessToken: string;
   versionLabel: string;
+  savedAccounts: StoredAccountSummary[];
+  activeAccountId: string;
+  accountSwitching: boolean;
+  loginEndpointDraft: string;
+  loginDeviceName: string;
+  loginMasterPassword: string;
+  loginAuthError: string;
+  canSubmitLogin: boolean;
   onClearChatCache: () => Promise<void>;
   onLogout: () => void;
+  onSwitchAccount: (accountId: string) => Promise<{ success: boolean }>;
+  onRemoveAccount: (accountId: string) => Promise<void>;
+  onSetLoginEndpointDraft: (value: string) => void;
+  onSetLoginDeviceName: (value: string) => void;
+  onSetLoginMasterPassword: (value: string) => void;
+  onSetLoginAuthError: (value: string) => void;
+  onSubmitLogin: () => Promise<void>;
 }
 
 export function UserSettingsScreen({
@@ -38,28 +65,33 @@ export function UserSettingsScreen({
   deviceName,
   accessToken,
   versionLabel,
+  savedAccounts,
+  activeAccountId,
+  accountSwitching,
+  loginEndpointDraft,
+  loginDeviceName,
+  loginMasterPassword,
+  loginAuthError,
+  canSubmitLogin,
   onClearChatCache,
-  onLogout
+  onLogout,
+  onSwitchAccount,
+  onRemoveAccount,
+  onSetLoginEndpointDraft,
+  onSetLoginDeviceName,
+  onSetLoginMasterPassword,
+  onSetLoginAuthError,
+  onSubmitLogin
 }: UserSettingsScreenProps) {
   const dispatch = useAppDispatch();
   const [clearingCache, setClearingCache] = useState(false);
-  const { endpointDraft, ptyUrlDraft, endpointInput, ptyUrlInput, selectedAgentKey, activeDomain, themeMode } =
-    useAppSelector((state) => state.user);
+  const [showAddAccountForm, setShowAddAccountForm] = useState(false);
+  const { endpointDraft, ptyUrlDraft, endpointInput, ptyUrlInput } = useAppSelector((state) => state.user);
 
   const backendUrl = toBackendBaseUrl(endpointInput);
 
   const handleApply = async () => {
     dispatch(applyEndpointDraft());
-
-    const nextState = {
-      themeMode,
-      endpointInput: endpointDraft,
-      ptyUrlInput: ptyUrlDraft,
-      selectedAgentKey,
-      activeDomain
-    };
-
-    await patchSettings(nextState);
     onSettingsApplied?.();
   };
 
@@ -76,7 +108,7 @@ export function UserSettingsScreen({
   };
 
   const handleLogoutPress = () => {
-    Alert.alert('确认登出', '登出后需要重新输入密码登录，确定继续？', [
+    Alert.alert('确认登出', '登出后会删除当前账号在本机保存的登录凭证，确定继续？', [
       { text: '取消', style: 'cancel' },
       { text: '登出', style: 'destructive', onPress: onLogout }
     ]);
@@ -99,7 +131,7 @@ export function UserSettingsScreen({
       return;
     }
 
-    Alert.alert('确认清除聊天缓存', '会清空本机聊天缓存，并立即重新拉取远端聊天数据。账号、设置和服务端数据不会受影响，确定继续？', [
+    Alert.alert('确认清除聊天缓存', '会清空当前账号在本机的聊天缓存，并立即重新拉取远端聊天数据。账号、设置和服务端数据不会受影响，确定继续？', [
       { text: '取消', style: 'cancel' },
       {
         text: '清除',
@@ -182,6 +214,173 @@ export function UserSettingsScreen({
         </TouchableOpacity>
       </View>
 
+      <View style={[styles.settingCard, { backgroundColor: theme.surfaceStrong }]} testID="account-settings-card">
+        <View style={styles.settingRowHead}>
+          <Text style={[styles.title, { color: theme.text }]}>账号管理</Text>
+        </View>
+
+        <Text style={[styles.cacheDescription, { color: theme.textMute }]}>
+          当前仅保存设备凭证，不保存主密码。切换账号时会隔离聊天缓存。
+        </Text>
+
+        <View style={styles.accountsList}>
+          {savedAccounts.length ? (
+            savedAccounts.map((account, index) => {
+              const isActive = account.accountId === activeAccountId;
+              const title = account.username || account.endpointInput || '(未命名账号)';
+
+              return (
+                <View
+                  key={account.accountId}
+                  style={[styles.accountItem, { backgroundColor: theme.surface, borderColor: theme.border }]}
+                  testID={`settings-account-item-${index}`}
+                >
+                  <View style={styles.accountItemText}>
+                    <View style={styles.accountItemHeader}>
+                      <Text style={[styles.accountItemTitle, { color: theme.text }]} numberOfLines={1}>
+                        {title}
+                      </Text>
+                      {isActive ? (
+                        <View style={[styles.accountBadge, { backgroundColor: theme.primaryDeep }]}>
+                          <Text style={styles.accountBadgeText}>当前</Text>
+                        </View>
+                      ) : null}
+                    </View>
+                    <Text style={[styles.accountItemMeta, { color: theme.textMute }]} numberOfLines={1}>
+                      {account.deviceName || '(未命名设备)'}
+                    </Text>
+                    <Text style={[styles.accountItemMeta, { color: theme.textMute }]} numberOfLines={1}>
+                      {account.endpointInput}
+                    </Text>
+                    <Text style={[styles.accountItemMeta, { color: theme.textMute }]} numberOfLines={1}>
+                      {formatLastUsedAt(account.lastUsedAtMs)}
+                    </Text>
+                  </View>
+
+                  <View style={styles.accountActions}>
+                    {isActive ? (
+                      <View style={[styles.accountHintPill, { borderColor: theme.border }]}>
+                        <Text style={[styles.accountHintPillText, { color: theme.textSoft }]}>当前会话</Text>
+                      </View>
+                    ) : (
+                      <>
+                        <TouchableOpacity
+                          activeOpacity={0.82}
+                          style={[
+                            styles.accountActionPrimary,
+                            { backgroundColor: theme.primary, opacity: accountSwitching ? 0.56 : 1 }
+                          ]}
+                          disabled={accountSwitching}
+                          onPress={() => {
+                            onSwitchAccount(account.accountId).catch(() => {});
+                          }}
+                          testID={`settings-switch-account-btn-${index}`}
+                        >
+                          <Text style={styles.accountActionPrimaryText}>切换</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          activeOpacity={0.82}
+                          style={[styles.accountActionGhost, { borderColor: theme.border }]}
+                          onPress={() => {
+                            Alert.alert('移除已保存账号', '仅删除本机保存的登录凭证，不会影响服务端账号，确定继续？', [
+                              { text: '取消', style: 'cancel' },
+                              {
+                                text: '移除',
+                                style: 'destructive',
+                                onPress: () => {
+                                  onRemoveAccount(account.accountId).catch(() => {});
+                                }
+                              }
+                            ]);
+                          }}
+                          testID={`settings-remove-account-btn-${index}`}
+                        >
+                          <Text style={[styles.accountActionGhostText, { color: theme.textSoft }]}>移除</Text>
+                        </TouchableOpacity>
+                      </>
+                    )}
+                  </View>
+                </View>
+              );
+            })
+          ) : (
+            <Text style={[styles.emptyText, { color: theme.textMute }]}>当前还没有已保存账号</Text>
+          )}
+        </View>
+
+        <TouchableOpacity
+          activeOpacity={0.78}
+          style={[styles.quickBtn, { backgroundColor: theme.surface }]}
+          onPress={() => {
+            setShowAddAccountForm((prev) => !prev);
+            onSetLoginAuthError('');
+          }}
+          testID="toggle-add-account-form-btn"
+        >
+          <Text style={[styles.quickBtnText, { color: theme.textSoft }]}>
+            {showAddAccountForm ? '收起添加账号表单' : '添加新账号'}
+          </Text>
+        </TouchableOpacity>
+
+        {showAddAccountForm ? (
+          <View style={styles.addAccountForm}>
+            <Text style={[styles.label, styles.labelCompact]}>后端域名 / IP</Text>
+            <TextInput
+              value={loginEndpointDraft}
+              onChangeText={onSetLoginEndpointDraft}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="api.example.com 或 192.168.1.8:8080"
+              placeholderTextColor={theme.textMute}
+              style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
+              testID="settings-add-account-endpoint-input"
+            />
+
+            <Text style={[styles.label, styles.labelCompact]}>设备名称</Text>
+            <TextInput
+              value={loginDeviceName}
+              onChangeText={onSetLoginDeviceName}
+              placeholder="设备名称"
+              placeholderTextColor={theme.textMute}
+              style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
+              testID="settings-add-account-device-name-input"
+            />
+
+            <Text style={[styles.label, styles.labelCompact]}>主密码</Text>
+            <TextInput
+              value={loginMasterPassword}
+              onChangeText={onSetLoginMasterPassword}
+              placeholder="主密码"
+              placeholderTextColor={theme.textMute}
+              secureTextEntry
+              style={[styles.input, { backgroundColor: theme.surface, color: theme.text }]}
+              testID="settings-add-account-password-input"
+            />
+
+            {loginAuthError ? <Text style={[styles.error, { color: theme.danger }]}>{loginAuthError}</Text> : null}
+
+            <TouchableOpacity
+              activeOpacity={0.82}
+              style={[
+                styles.submitBtn,
+                {
+                  backgroundColor: theme.primary,
+                  borderColor: theme.primaryDeep,
+                  opacity: canSubmitLogin && !accountSwitching ? 1 : 0.56
+                }
+              ]}
+              onPress={() => {
+                onSubmitLogin().catch(() => {});
+              }}
+              disabled={!canSubmitLogin || accountSwitching}
+              testID="settings-add-account-submit-btn"
+            >
+              <Text style={styles.submitBtnText}>登录并切换到该账号</Text>
+            </TouchableOpacity>
+          </View>
+        ) : null}
+      </View>
+
       <View style={[styles.settingCard, { backgroundColor: theme.surfaceStrong }]} testID="user-info-card">
         <View style={styles.settingRowHead}>
           <Text style={[styles.title, { color: theme.text }]}>用户信息</Text>
@@ -224,7 +423,7 @@ export function UserSettingsScreen({
         </View>
 
         <Text style={[styles.cacheDescription, { color: theme.textMute }]}>
-          仅清理本机 SQLite 聊天缓存，不影响账号、设置和服务端数据
+          仅清理当前账号在本机 SQLite 中的聊天缓存，不影响账号、设置和服务端数据
         </Text>
 
         <TouchableOpacity
@@ -250,7 +449,7 @@ export function UserSettingsScreen({
         onPress={handleLogoutPress}
         testID="logout-btn"
       >
-        <Text style={[styles.logoutText, { color: theme.danger }]}>登出当前设备</Text>
+        <Text style={[styles.logoutText, { color: theme.danger }]}>登出当前账号</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -288,6 +487,9 @@ const styles = StyleSheet.create({
   },
   labelOffset: {
     marginTop: 12
+  },
+  labelCompact: {
+    marginTop: 0
   },
   input: {
     borderRadius: 10,
@@ -327,6 +529,103 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 14
+  },
+  accountsList: {
+    marginTop: 12,
+    gap: 8
+  },
+  accountItem: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 12,
+    gap: 10
+  },
+  accountItemText: {
+    gap: 3
+  },
+  accountItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8
+  },
+  accountItemTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '700'
+  },
+  accountBadge: {
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3
+  },
+  accountBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700'
+  },
+  accountItemMeta: {
+    fontSize: 11
+  },
+  accountActions: {
+    flexDirection: 'row',
+    gap: 8
+  },
+  accountActionPrimary: {
+    minHeight: 34,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  accountActionPrimaryText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '700'
+  },
+  accountActionGhost: {
+    minHeight: 34,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  accountActionGhostText: {
+    fontSize: 12,
+    fontWeight: '600'
+  },
+  accountHintPill: {
+    minHeight: 34,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  accountHintPillText: {
+    fontSize: 12,
+    fontWeight: '600'
+  },
+  addAccountForm: {
+    marginTop: 12,
+    gap: 8
+  },
+  error: {
+    fontSize: 12,
+    textAlign: 'left'
+  },
+  submitBtn: {
+    minHeight: 44,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    alignSelf: 'stretch'
+  },
+  submitBtnText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700'
   },
   readonlyField: {
     borderRadius: 10,
@@ -377,6 +676,10 @@ const styles = StyleSheet.create({
   cacheActionText: {
     fontSize: 13,
     fontWeight: '700'
+  },
+  emptyText: {
+    marginTop: 12,
+    fontSize: 12
   },
   logoutBtn: {
     borderWidth: 1,

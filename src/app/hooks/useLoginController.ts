@@ -1,10 +1,25 @@
 import { useCallback, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
-import { applyEndpointDraft, setEndpointDraft, setPtyUrlDraft } from '../../modules/user/state/userSlice';
-import { normalizeEndpointInput, toBackendBaseUrl, toDefaultPtyWebUrl } from '../../core/network/endpoint';
-import { getDefaultDeviceName, loginWithMasterPassword } from '../../core/auth/appAuth';
+import {
+  applyEndpointDraft,
+  setActiveAccountId,
+  setAccountSwitching,
+  setEndpointDraft,
+  setPtyUrlDraft,
+  setSavedAccounts
+} from '../../modules/user/state/userSlice';
+import {
+  getActiveStoredAccount,
+  getDefaultDeviceName,
+  listStoredAccounts,
+  loginWithMasterPassword,
+  removeStoredAccount,
+  switchActiveAccount
+} from '../../core/auth/appAuth';
+import { resolveLoginSubmission } from '../../core/auth/loginSubmission';
 import { formatError } from '../../core/network/apiClient';
 import { getAppVersionLabel } from '../../shared/utils/appVersion';
+import { StoredAccountSummary } from '../../core/types/common';
 
 /**
  * 登录控制器接口
@@ -18,6 +33,9 @@ export interface LoginController {
   canSubmitLogin: boolean;
   appVersionLabel: string;
   isSubmitting: boolean;
+  savedAccounts: StoredAccountSummary[];
+  activeAccountId: string;
+  isSwitchingAccount: boolean;
 
   // 方法
   setEndpointDraftText: (value: string) => void;
@@ -25,6 +43,8 @@ export interface LoginController {
   setMasterPassword: (value: string) => void;
   setAuthError: (value: string) => void;
   submitLogin: () => Promise<{ success: boolean }>;
+  switchToSavedAccount: (accountId: string) => Promise<{ success: boolean }>;
+  removeSavedAccount: (accountId: string) => Promise<void>;
 }
 
 /**
@@ -39,15 +59,22 @@ export interface LoginController {
  */
 export function useLoginController(): LoginController {
   const dispatch = useAppDispatch();
-  const endpointDraft = useAppSelector((state) => state.user.endpointDraft);
+  const { endpointDraft, savedAccounts, activeAccountId, accountSwitching } = useAppSelector((state) => state.user);
   const [masterPassword, setMasterPassword] = useState('');
   const [deviceName, setDeviceName] = useState(getDefaultDeviceName());
   const [authError, setAuthError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const normalizedLoginEndpointDraft = normalizeEndpointInput(endpointDraft);
-  const canSubmitLogin = Boolean(normalizedLoginEndpointDraft) && !isSubmitting;
+  const normalizedLoginEndpointDraft = String(endpointDraft || '').trim();
+  const canSubmitLogin = Boolean(normalizedLoginEndpointDraft) && !isSubmitting && !accountSwitching;
   const appVersionLabel = getAppVersionLabel();
+
+  const refreshStoredAccountsState = useCallback(async () => {
+    const [accounts, activeAccount] = await Promise.all([listStoredAccounts(), getActiveStoredAccount()]);
+    dispatch(setSavedAccounts(accounts));
+    dispatch(setActiveAccountId(activeAccount?.accountId || ''));
+    return { accounts, activeAccount };
+  }, [dispatch]);
 
   /**
    * 提交登录表单
@@ -58,33 +85,26 @@ export function useLoginController(): LoginController {
    * 5. 登录失败则显示错误信息并返回 { success: false }
    */
   const submitLogin = useCallback(async (): Promise<{ success: boolean }> => {
-    const normalizedEndpoint = normalizeEndpointInput(endpointDraft);
-    if (!normalizedEndpoint) {
-      setAuthError('请输入后端域名或 IP');
-      return { success: false };
-    }
-
-    const password = String(masterPassword || '').trim();
-    if (!password) {
-      setAuthError('请输入主密码');
-      return { success: false };
-    }
-
-    const loginBackendUrl = toBackendBaseUrl(normalizedEndpoint);
-    if (!loginBackendUrl) {
-      setAuthError('后端地址格式无效');
+    const resolved = resolveLoginSubmission({
+      endpointDraft,
+      masterPassword,
+      deviceName
+    });
+    if (!resolved.ok) {
+      setAuthError(String(resolved.error || '登录参数无效'));
       return { success: false };
     }
 
     // 更新 Redux 端点配置
-    dispatch(setEndpointDraft(normalizedEndpoint));
-    dispatch(setPtyUrlDraft(toDefaultPtyWebUrl(normalizedEndpoint)));
+    dispatch(setEndpointDraft(resolved.normalizedEndpoint || ''));
+    dispatch(setPtyUrlDraft(resolved.ptyUrl || ''));
     dispatch(applyEndpointDraft());
 
     setIsSubmitting(true);
     setAuthError('');
     try {
-      await loginWithMasterPassword(loginBackendUrl, password, deviceName);
+      await loginWithMasterPassword(resolved.backendUrl || '', resolved.password || '', resolved.deviceName || deviceName);
+      await refreshStoredAccountsState();
       setMasterPassword(''); // 登录成功后清空密码
       return { success: true };
     } catch (error) {
@@ -93,13 +113,57 @@ export function useLoginController(): LoginController {
     } finally {
       setIsSubmitting(false);
     }
-  }, [deviceName, dispatch, endpointDraft, masterPassword]);
+  }, [deviceName, dispatch, endpointDraft, masterPassword, refreshStoredAccountsState]);
 
   const setEndpointDraftText = useCallback(
     (value: string) => {
       dispatch(setEndpointDraft(value));
     },
     [dispatch]
+  );
+
+  const switchToSavedAccount = useCallback(
+    async (accountId: string): Promise<{ success: boolean }> => {
+      const target = savedAccounts.find((item) => item.accountId === accountId);
+      if (!target) {
+        setAuthError('选中的账号不存在');
+        return { success: false };
+      }
+
+      dispatch(setAccountSwitching(true));
+      dispatch(setActiveAccountId(target.accountId));
+      dispatch(setEndpointDraft(target.endpointInput));
+      dispatch(setPtyUrlDraft(target.ptyUrlInput));
+      dispatch(applyEndpointDraft());
+      setAuthError('');
+
+      try {
+        const session = await switchActiveAccount(target.accountId);
+        await refreshStoredAccountsState();
+        if (!session) {
+          setAuthError('保存的登录凭证已失效，请重新登录');
+          return { success: false };
+        }
+        return { success: true };
+      } catch (error) {
+        setAuthError(formatError(error));
+        return { success: false };
+      } finally {
+        dispatch(setAccountSwitching(false));
+      }
+    },
+    [dispatch, refreshStoredAccountsState, savedAccounts]
+  );
+
+  const removeSavedAccountAction = useCallback(
+    async (accountId: string) => {
+      const accounts = await removeStoredAccount(accountId);
+      dispatch(setSavedAccounts(accounts));
+      if (accountId === activeAccountId) {
+        dispatch(setActiveAccountId(''));
+      }
+    },
+    [activeAccountId, dispatch]
   );
 
   return {
@@ -110,10 +174,15 @@ export function useLoginController(): LoginController {
     canSubmitLogin,
     appVersionLabel,
     isSubmitting,
+    savedAccounts,
+    activeAccountId,
+    isSwitchingAccount: accountSwitching,
     setEndpointDraftText,
     setDeviceName,
     setMasterPassword,
     setAuthError,
     submitLogin,
+    switchToSavedAccount,
+    removeSavedAccount: removeSavedAccountAction
   };
 }

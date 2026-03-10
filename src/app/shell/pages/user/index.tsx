@@ -23,8 +23,23 @@ export function ShellUserTabScreen({
   deviceName,
   accessToken,
   versionLabel,
+  savedAccounts,
+  activeAccountId,
+  accountSwitching,
+  loginEndpointDraft,
+  loginDeviceName,
+  loginMasterPassword,
+  loginAuthError,
+  canSubmitLogin,
   onClearChatCache,
-  onLogout
+  onLogout,
+  onSwitchAccount,
+  onRemoveAccount,
+  onSetLoginEndpointDraft,
+  onSetLoginDeviceName,
+  onSetLoginMasterPassword,
+  onSetLoginAuthError,
+  onSubmitLogin
 }: ShellUserTabScreenProps) {
   const navigation = useNavigation<ShellTabNavigation>();
 
@@ -51,8 +66,23 @@ export function ShellUserTabScreen({
       deviceName={deviceName}
       accessToken={accessToken}
       versionLabel={versionLabel}
+      savedAccounts={savedAccounts}
+      activeAccountId={activeAccountId}
+      accountSwitching={accountSwitching}
+      loginEndpointDraft={loginEndpointDraft}
+      loginDeviceName={loginDeviceName}
+      loginMasterPassword={loginMasterPassword}
+      loginAuthError={loginAuthError}
+      canSubmitLogin={canSubmitLogin}
       onClearChatCache={onClearChatCache}
       onLogout={onLogout}
+      onSwitchAccount={onSwitchAccount}
+      onRemoveAccount={onRemoveAccount}
+      onSetLoginEndpointDraft={onSetLoginEndpointDraft}
+      onSetLoginDeviceName={onSetLoginDeviceName}
+      onSetLoginMasterPassword={onSetLoginMasterPassword}
+      onSetLoginAuthError={onSetLoginAuthError}
+      onSubmitLogin={onSubmitLogin}
     />
   );
 }

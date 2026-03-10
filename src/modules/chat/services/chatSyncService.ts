@@ -50,7 +50,11 @@ function normalizeChatDetail(chatId: string, data: ChatDetailResponse): CachedCh
   };
 }
 
-export async function fetchAndCacheChatDetail(baseUrl: string, chatIdInput: string): Promise<CachedChatDetail> {
+export async function fetchAndCacheChatDetail(
+  accountId: string,
+  baseUrl: string,
+  chatIdInput: string
+): Promise<CachedChatDetail> {
   const chatId = String(chatIdInput || '').trim();
   if (!chatId) {
     return {
@@ -65,17 +69,17 @@ export async function fetchAndCacheChatDetail(baseUrl: string, chatIdInput: stri
   const query = `?chatId=${encodeURIComponent(chatId)}`;
   const data = await fetchApiJson<ChatDetailResponse>(baseUrl, `/api/ap/chat${query}`);
   const normalized = normalizeChatDetail(chatId, data);
-  await upsertChatDetail(normalized);
+  await upsertChatDetail(accountId, normalized);
   return normalized;
 }
 
-export async function syncChatsIncremental(baseUrl: string): Promise<SyncResult> {
+export async function syncChatsIncremental(accountId: string, baseUrl: string): Promise<SyncResult> {
   if (!baseUrl) {
-    const chats = await listCachedChats();
+    const chats = await listCachedChats(accountId);
     return { chats, updatedChatIds: [] };
   }
 
-  const lastRunId = await getMaxLastRunId();
+  const lastRunId = await getMaxLastRunId(accountId);
   const query = lastRunId ? `?lastRunId=${encodeURIComponent(lastRunId)}` : '';
 
   const data = await fetchApiJson<ChatSummary[]>(baseUrl, `/api/ap/chats${query}`);
@@ -85,7 +89,7 @@ export async function syncChatsIncremental(baseUrl: string): Promise<SyncResult>
     : [];
 
   if (updates.length) {
-    await upsertChatSummaries(updates);
+    await upsertChatSummaries(accountId, updates);
 
     for (const item of updates) {
       const chatId = String(item.chatId || '').trim();
@@ -94,7 +98,7 @@ export async function syncChatsIncremental(baseUrl: string): Promise<SyncResult>
       }
 
       try {
-        await fetchAndCacheChatDetail(baseUrl, chatId);
+        await fetchAndCacheChatDetail(accountId, baseUrl, chatId);
       } catch (error) {
         if (__DEV__) {
           console.warn(`[chatSync] fetch detail failed for ${chatId}:`, error);
@@ -102,7 +106,7 @@ export async function syncChatsIncremental(baseUrl: string): Promise<SyncResult>
       }
     }
   }
-  const chats = await listCachedChats();
+  const chats = await listCachedChats(accountId);
 
   return {
     chats,

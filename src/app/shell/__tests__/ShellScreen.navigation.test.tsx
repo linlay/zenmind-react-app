@@ -152,7 +152,8 @@ jest.mock('../../../core/storage/settingsStorage', () => ({
     endpointInput: 'https://api.example.com',
     ptyUrlInput: 'https://api.example.com/appterm',
     selectedAgentKey: '',
-    activeDomain: 'chat'
+    activeDomain: 'chat',
+    activeAccountId: 'acct-1'
   }),
   loadSettings: () => Promise.resolve({}),
   patchSettings: () => Promise.resolve({})
@@ -206,6 +207,7 @@ jest.mock('../../../core/network/apiClient', () => ({
 
 jest.mock('../../../core/auth/appAuth', () => ({
   ensureFreshAccessToken: () => Promise.resolve('token'),
+  getActiveStoredAccount: () => Promise.resolve({ accountId: 'acct-1' }),
   getCurrentSession: () => ({
     accessToken: 'token',
     accessExpireAtMs: Date.now() + 60_000,
@@ -214,7 +216,9 @@ jest.mock('../../../core/auth/appAuth', () => ({
   }),
   getAccessToken: () => Promise.resolve('token'),
   getDefaultDeviceName: () => 'device',
+  listStoredAccounts: () => Promise.resolve([]),
   loginWithMasterPassword: () => Promise.resolve({}),
+  removeStoredAccount: () => Promise.resolve([]),
   logoutCurrentDevice: () => Promise.resolve({}),
   restoreSession: () =>
     Promise.resolve({
@@ -223,6 +227,8 @@ jest.mock('../../../core/auth/appAuth', () => ({
       username: 'tester',
       deviceName: 'device'
     }),
+  switchActiveAccount: () => Promise.resolve(null),
+  syncActiveAccountConnection: () => Promise.resolve(null),
   subscribeAuthSession: () => () => {}
 }));
 
@@ -247,6 +253,9 @@ function makeState(overrides: Partial<Record<string, any>> = {}) {
     ptyUrlInput: 'https://api.example.com/appterm',
     selectedAgentKey: 'agent-1',
     activeDomain: 'chat',
+    savedAccounts: [],
+    activeAccountId: 'acct-1',
+    accountSwitching: false,
     ...overrides.user
   };
 
@@ -347,6 +356,14 @@ function createShellController(overrides: Partial<Record<string, any>> = {}) {
     authTokenSignal: 1,
     authUsername: 'tester',
     authDeviceName: 'device',
+    authError: '',
+    endpointDraft: 'https://api.example.com',
+    savedAccounts: [],
+    activeAccountId: 'acct-1',
+    accountSwitching: false,
+    deviceName: 'device',
+    masterPassword: '',
+    canSubmitLogin: true,
     currentAgentChats: [],
     chatId: '',
     agents: [{ key: 'agent-1', name: 'Agent 1', role: '任务调度助手' }],
@@ -369,6 +386,8 @@ function createShellController(overrides: Partial<Record<string, any>> = {}) {
     setChatSearchQuery: jest.fn(),
     setEndpointDraftText: jest.fn(),
     submitLogin: jest.fn(),
+    switchSavedAccount: jest.fn(),
+    removeSavedAccount: jest.fn(),
     refreshTerminalSessions: jest.fn().mockResolvedValue(undefined),
     openTerminalCreateSessionModal: jest.fn(),
     openTerminalDetail: jest.fn(),
@@ -385,11 +404,6 @@ function createShellController(overrides: Partial<Record<string, any>> = {}) {
     booting: false,
     authChecking: false,
     authReady: true,
-    authError: '',
-    endpointDraft: 'https://api.example.com',
-    deviceName: 'device',
-    masterPassword: '',
-    canSubmitLogin: true,
     ...overrides
   };
 }

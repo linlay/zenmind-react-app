@@ -59,7 +59,21 @@ export interface AppSettings {
   ptyUrlInput: string;
   selectedAgentKey: string;
   activeDomain: DomainMode;
+  activeAccountId: string;
 }
+
+export interface StoredAccount {
+  accountId: string;
+  username: string;
+  deviceId: string;
+  deviceName: string;
+  endpointInput: string;
+  ptyUrlInput: string;
+  deviceToken: string;
+  lastUsedAtMs: number;
+}
+
+export type StoredAccountSummary = Omit<StoredAccount, 'deviceToken'>;
 
 export interface ApiEnvelope<T> {
   code: number;
