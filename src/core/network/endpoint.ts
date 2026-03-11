@@ -44,34 +44,59 @@ export function looksLikeLocalAddress(host: string | undefined | null): boolean 
   return /^\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?$/.test(value);
 }
 
-export function toBackendBaseUrl(endpointInput: string | undefined | null): string {
+function resolveEndpointBaseUrl(endpointInput: string | undefined | null): string {
   const normalized = normalizeEndpointInput(endpointInput);
   if (!normalized) {
     return '';
   }
-  let resolvedBase = '';
   if (/^https?:\/\//i.test(normalized)) {
-    resolvedBase = normalized;
-  } else {
-    const scheme = looksLikeLocalAddress(normalized) ? 'http' : 'https';
-    resolvedBase = `${scheme}://${normalized}`;
+    return normalized;
   }
+  const scheme = looksLikeLocalAddress(normalized) ? 'http' : 'https';
+  return `${scheme}://${normalized}`;
+}
 
+function shouldForceWebDevProxyForLocalTargets(): boolean {
+  if (typeof process === 'undefined') {
+    return false;
+  }
+  const value = String(process.env.EXPO_PUBLIC_WEB_PROXY_FORCE_ALL || '')
+    .trim()
+    .toLowerCase();
+  return value === '1' || value === 'true' || value === 'yes' || value === 'on';
+}
+
+export function toBackendBaseUrl(endpointInput: string | undefined | null): string {
+  const resolvedBase = resolveEndpointBaseUrl(endpointInput);
   return applyWebDevProxyBaseUrl(resolvedBase);
 }
 
 export function toDefaultPtyWebUrl(endpointInput: string | undefined | null): string {
-  const backendBase = toBackendBaseUrl(endpointInput);
-  if (!backendBase) {
+  const resolvedBase = resolveEndpointBaseUrl(endpointInput);
+  if (!resolvedBase) {
     return '';
   }
+
   try {
-    const url = new URL(backendBase);
+    const directUrl = new URL(resolvedBase);
+    const proxyBase = getWebDevProxyBaseUrl();
+    const shouldUseProxy =
+      isWebLocalhostRuntime() &&
+      Boolean(proxyBase) &&
+      (!looksLikeLocalAddress(directUrl.host) || shouldForceWebDevProxyForLocalTargets());
+
+    const url = new URL(shouldUseProxy ? proxyBase : resolvedBase);
+
     if (looksLikeLocalAddress(url.hostname)) {
       url.port = DEFAULT_PTY_FRONTEND_PORT;
     } else if (String(url.port || '').trim() === '443') {
       url.port = '';
     }
+
+    if (shouldUseProxy) {
+      url.port = new URL(proxyBase).port;
+    }
+
     url.pathname = DEFAULT_PTY_FRONTEND_PATH;
     url.search = '';
     url.hash = '';
@@ -145,7 +170,7 @@ function applyWebDevProxyBaseUrl(baseUrl: string): string {
   } catch {
     return normalizedBase;
   }
-  if (looksLikeLocalAddress(parsedTarget.host)) {
+  if (looksLikeLocalAddress(parsedTarget.host) && !shouldForceWebDevProxyForLocalTargets()) {
     return normalizedBase;
   }
   const proxyBase = getWebDevProxyBaseUrl();

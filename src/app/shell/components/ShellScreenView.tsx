@@ -42,6 +42,14 @@ import {
   setSelectedAgentKey as setUserSelectedAgentKey,
   toggleTheme
 } from '../../../modules/user/state/userSlice';
+import {
+  closeDriveDetail,
+  openDriveBrowser,
+  openDriveMenu,
+  openDriveSearch,
+  setDriveSearchQuery,
+  toggleDriveSelectionMode
+} from '../../../modules/drive/state/driveSlice';
 import { reloadPty } from '../../../modules/terminal/state/terminalSlice';
 import { DomainMode } from '../../../core/types/common';
 
@@ -98,6 +106,11 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     authDeviceName,
     currentAgentChats,
     chatId,
+    drivePanel,
+    driveDetailMode,
+    driveDetailTitle,
+    driveSearchQuery,
+    driveSelectionMode,
     agents,
     activeAgentName,
     activeAgentRole,
@@ -488,17 +501,43 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     dispatch(reloadPty());
   }, [dispatch]);
 
+  const handleGoBackFromDrive = useCallback(() => {
+    if (driveDetailMode !== 'none') {
+      dispatch(closeDriveDetail());
+      return;
+    }
+    if (drivePanel !== 'browser') {
+      dispatch(openDriveBrowser());
+    }
+  }, [dispatch, driveDetailMode, drivePanel]);
+
   const handleDriveMenu = useCallback(() => {
-    dispatch(showToast({ message: '功能建设中：网盘菜单', tone: 'warn' }));
-  }, [dispatch]);
+    if (driveDetailMode !== 'none') {
+      return;
+    }
+    dispatch(openDriveMenu());
+  }, [dispatch, driveDetailMode]);
 
   const handleDriveSearch = useCallback(() => {
-    dispatch(showToast({ message: '功能建设中：网盘搜索', tone: 'warn' }));
-  }, [dispatch]);
+    if (driveDetailMode !== 'none') {
+      dispatch(closeDriveDetail());
+    }
+    dispatch(openDriveSearch());
+  }, [dispatch, driveDetailMode]);
 
   const handleDriveSelect = useCallback(() => {
-    dispatch(showToast({ message: '功能建设中：网盘管理', tone: 'warn' }));
-  }, [dispatch]);
+    if (driveDetailMode !== 'none' || drivePanel !== 'browser') {
+      return;
+    }
+    dispatch(toggleDriveSelectionMode());
+  }, [dispatch, driveDetailMode, drivePanel]);
+
+  const handleDriveSearchQueryChange = useCallback(
+    (value: string) => {
+      dispatch(setDriveSearchQuery(value));
+    },
+    [dispatch]
+  );
 
   const handleChatDetailMenu = useCallback(() => {
     dispatch(setChatAgentsSidebarOpen(false));
@@ -547,9 +586,11 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       goBackFromTerminal: handleGoBackFromTerminal,
       openTerminalDrive: handleOpenTerminalDrive,
       reloadTerminalDetail: handleReloadTerminalDetail,
-      showDriveMenu: handleDriveMenu,
-      showDriveSearch: handleDriveSearch,
-      showDriveSelect: handleDriveSelect,
+      goBackFromDrive: handleGoBackFromDrive,
+      openDriveMenu: handleDriveMenu,
+      openDriveSearch: handleDriveSearch,
+      setDriveSearchQuery: handleDriveSearchQueryChange,
+      toggleDriveSelectionMode: handleDriveSelect,
       toggleTheme: handleThemeToggle
     }),
     [
@@ -560,7 +601,9 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       handleCreateApp,
       handleDriveMenu,
       handleDriveSearch,
+      handleDriveSearchQueryChange,
       handleDriveSelect,
+      handleGoBackFromDrive,
       handleGoBackFromAppsDetail,
       handleGoBackFromTerminal,
       handleOpenTerminalDrive,
@@ -583,6 +626,11 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
         activeAgentName,
         activeAgentRole,
         activeAppName,
+        drivePanel,
+        driveDetailMode,
+        driveDetailTitle,
+        driveSearchQuery,
+        driveSelectionMode,
         actions: headerActions
       }),
     [
@@ -591,6 +639,11 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       activeAppName,
       chatPlusMenuOpen,
       chatSearchQuery,
+      driveDetailMode,
+      driveDetailTitle,
+      drivePanel,
+      driveSearchQuery,
+      driveSelectionMode,
       headerActions,
       routeSnapshot,
       theme

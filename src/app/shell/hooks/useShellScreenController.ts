@@ -31,6 +31,7 @@ import {
   requestOpenNewSessionModal,
   setActiveSessionId
 } from '../../../modules/terminal/state/terminalSlice';
+import { DriveDetailMode, DrivePanel } from '../../../modules/drive/state/driveSlice';
 import { selectCurrentAgentChats } from '../../../modules/chat/state/chatSelectors';
 import { ChatSearchAgentItem } from '../../../modules/chat/components/ChatSearchPane';
 import { useLazyGetAgentsQuery } from '../../../modules/agents/api/agentsApi';
@@ -78,6 +79,11 @@ export function useShellScreenController() {
   const { booting, themeMode, endpointDraft, endpointInput, ptyUrlInput, selectedAgentKey, activeDomain } =
     useAppSelector((state) => state.user);
   const chatId = useAppSelector((state) => state.chat.chatId);
+  const drivePanel = useAppSelector((state) => state.drive.panel) as DrivePanel;
+  const driveDetailMode = useAppSelector((state) => state.drive.detailMode) as DriveDetailMode;
+  const driveDetailTitle = useAppSelector((state) => state.drive.detailTitle);
+  const driveSearchQuery = useAppSelector((state) => state.drive.searchQuery);
+  const driveSelectionMode = useAppSelector((state) => state.drive.selectionMode);
   const chats = useAppSelector((state) => state.chat.chats);
   const loadingChats = useAppSelector((state) => state.chat.loadingChats);
   const agents = useAppSelector((state) => state.agents.agents);
@@ -1032,6 +1038,11 @@ export function useShellScreenController() {
     authDeviceName,
     currentAgentChats,
     chatId,
+    drivePanel,
+    driveDetailMode,
+    driveDetailTitle,
+    driveSearchQuery,
+    driveSelectionMode,
     agents,
     activeAgent,
     activeAgentName,

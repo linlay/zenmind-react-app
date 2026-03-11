@@ -4,6 +4,7 @@ import uiReducer from '../ui/uiSlice';
 import userReducer from '../../modules/user/state/userSlice';
 import agentsReducer from '../../modules/agents/state/agentsSlice';
 import chatReducer from '../../modules/chat/state/chatSlice';
+import driveReducer from '../../modules/drive/state/driveSlice';
 import terminalReducer from '../../modules/terminal/state/terminalSlice';
 import { chatApi } from '../../modules/chat/api/chatApi';
 import { agentsApi } from '../../modules/agents/api/agentsApi';
@@ -17,6 +18,7 @@ export const store = configureStore({
     user: userReducer,
     agents: agentsReducer,
     chat: chatReducer,
+    drive: driveReducer,
     terminal: terminalReducer,
     [chatApi.reducerPath]: chatApi.reducer,
     [agentsApi.reducerPath]: agentsApi.reducer,

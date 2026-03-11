@@ -11,6 +11,7 @@ import { buildTerminalListHeader } from '../pages/terminal/ListPane';
 import { buildUserHeader } from '../pages/user';
 import { ShellHeaderDescriptor } from '../header/types';
 import { ShellRouteSnapshot } from './shellRouteSnapshot';
+import { DriveDetailMode, DrivePanel } from '../../../modules/drive/state/driveSlice';
 
 export interface ShellHeaderActions {
   toggleChatAgentsSidebar: () => void;
@@ -26,9 +27,11 @@ export interface ShellHeaderActions {
   goBackFromTerminal: () => void;
   openTerminalDrive: () => void;
   reloadTerminalDetail: () => void;
-  showDriveMenu: () => void;
-  showDriveSearch: () => void;
-  showDriveSelect: () => void;
+  goBackFromDrive: () => void;
+  openDriveMenu: () => void;
+  openDriveSearch: () => void;
+  setDriveSearchQuery: (value: string) => void;
+  toggleDriveSelectionMode: () => void;
   toggleTheme: () => void;
 }
 
@@ -40,6 +43,11 @@ export interface BuildShellHeaderModelInput {
   activeAgentName: string;
   activeAgentRole: string;
   activeAppName: string;
+  drivePanel: DrivePanel;
+  driveDetailMode: DriveDetailMode;
+  driveDetailTitle: string;
+  driveSearchQuery: string;
+  driveSelectionMode: boolean;
   actions: ShellHeaderActions;
 }
 
@@ -51,6 +59,11 @@ export function buildShellHeaderDescriptor({
   activeAgentName,
   activeAgentRole,
   activeAppName,
+  drivePanel,
+  driveDetailMode,
+  driveDetailTitle,
+  driveSearchQuery,
+  driveSelectionMode,
   actions
 }: BuildShellHeaderModelInput): ShellHeaderDescriptor {
   if (routeSnapshot.activeDomain === 'chat') {
@@ -100,13 +113,37 @@ export function buildShellHeaderDescriptor({
       return buildTerminalDetailHeader(theme, actions.goBackFromTerminal, actions.reloadTerminalDetail);
     }
     if (routeSnapshot.terminalRouteName === 'TerminalDrive') {
-      return buildTerminalDriveHeader(theme, actions.goBackFromTerminal, actions.showDriveSearch, actions.showDriveSelect);
+      return buildTerminalDriveHeader({
+        theme,
+        panel: drivePanel,
+        detailMode: driveDetailMode,
+        detailTitle: driveDetailTitle,
+        searchQuery: driveSearchQuery,
+        selectionMode: driveSelectionMode,
+        onBrowserBack: actions.goBackFromTerminal,
+        onDriveBack: actions.goBackFromDrive,
+        onOpenSearch: actions.openDriveSearch,
+        onChangeSearch: actions.setDriveSearchQuery,
+        onToggleSelect: actions.toggleDriveSelectionMode
+      });
     }
     return buildTerminalListHeader(theme, actions.openTerminalDrive);
   }
 
   if (routeSnapshot.activeDomain === 'drive') {
-    return buildDriveHeader(theme, actions.showDriveMenu, actions.showDriveSearch, actions.showDriveSelect);
+    return buildDriveHeader({
+      theme,
+      panel: drivePanel,
+      detailMode: driveDetailMode,
+      detailTitle: driveDetailTitle,
+      searchQuery: driveSearchQuery,
+      selectionMode: driveSelectionMode,
+      onBack: actions.goBackFromDrive,
+      onOpenMenu: actions.openDriveMenu,
+      onOpenSearch: actions.openDriveSearch,
+      onChangeSearch: actions.setDriveSearchQuery,
+      onToggleSelect: actions.toggleDriveSelectionMode
+    });
   }
 
   if (routeSnapshot.activeDomain === 'user') {

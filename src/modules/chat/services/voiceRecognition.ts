@@ -1,4 +1,4 @@
-import { PermissionsAndroid, Platform } from 'react-native';
+import { NativeModules, PermissionsAndroid, Platform } from 'react-native';
 
 export type VoiceInputState = 'idle' | 'listening' | 'stopping' | 'error';
 
@@ -30,8 +30,15 @@ type StartVoiceRecognitionOptions = {
 
 let activeSessionId = 0;
 
-function loadVoiceModule(): VoiceRecognitionModule | null {
+function hasNativeVoiceModule(): boolean {
   if (Platform.OS === 'web') {
+    return false;
+  }
+  return Boolean(NativeModules.Voice);
+}
+
+function loadVoiceModule(): VoiceRecognitionModule | null {
+  if (!hasNativeVoiceModule()) {
     return null;
   }
   try {

@@ -13,7 +13,8 @@
       "backgroundColor": "#031722"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.zqfrank.agentterminalapp"
     },
     "android": {
       "adaptiveIcon": {
@@ -23,7 +24,10 @@
       "usesCleartextTraffic": true,
       "edgeToEdgeEnabled": true,
       "package": "com.zqfrank.agentterminalapp",
-      "softwareKeyboardLayoutMode": "adjustResize"
+      "softwareKeyboardLayoutMode": "adjustResize",
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
