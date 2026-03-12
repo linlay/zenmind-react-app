@@ -32,15 +32,6 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": [
-      [
-        "@react-native-voice/voice",
-        {
-          "microphonePermission": "允许 ZenMind 使用麦克风进行语音输入",
-          "speechRecognitionPermission": "允许 ZenMind 使用语音识别将语音转换为文字"
-        }
-      ]
-    ],
     "extra": {
       "eas": {
         "projectId": "e6cc69ea-7449-44f2-ae7c-69831be52d5c"

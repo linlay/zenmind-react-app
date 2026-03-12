@@ -1,7 +1,7 @@
 // @ts-nocheck
 import * as Clipboard from 'expo-clipboard';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, BackHandler, Easing, FlatList, Keyboard, Modal, Platform, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, BackHandler, Easing, FlatList, Modal, Platform, Text, TouchableOpacity, View } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Reanimated, { runOnJS, useAnimatedStyle, useSharedValue, withSpring, withTiming } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -34,14 +34,6 @@ import { cleanPlanTaskDescription } from '../utils/planUi';
 import { ChatEvent, ChatState, FrontendToolState, TimelineEntry } from '../types/chat';
 import { ChatEffect, createEmptyChatState, createRuntimeMaps, reduceChatEvent } from '../services/eventReducer';
 import { parseFrontendToolBridgeMessage } from '../services/frontendToolBridge';
-import {
-  destroyVoiceRecognition,
-  isVoiceRecognitionAvailable,
-  requestVoiceRecognitionPermission,
-  startVoiceRecognition,
-  stopVoiceRecognition,
-  VoiceInputState
-} from '../services/voiceRecognition';
 import { TimelineEntryRow } from '../components/TimelineEntryRow';
 import { ChatActionModal } from '../components/ChatActionModal';
 import { ChatFrontendToolOverlay } from '../components/ChatFrontendToolOverlay';
@@ -80,7 +72,6 @@ const NATIVE_CONFIRM_DIALOG_TOOL_KEY = 'confirm_dialog';
 const FRONTEND_TOOL_OVERLAY_OPEN_MS = 220;
 const FRONTEND_TOOL_OVERLAY_CLOSE_MS = 170;
 const EDGE_TOAST_TTL_MS = 2000;
-const VOICE_STOP_FALLBACK_MS = 1200;
 
 function isMentionBoundaryChar(input: string): boolean {
   return /[\s([{<"'`~!#$%^&*+=|\\:;,.?/\-，。！？、；：（）【】《》“”‘’]/.test(input);
@@ -134,48 +125,6 @@ function calcGestureRevealProgress(distance: number, revealThreshold: number, vi
 function clamp(value: number, min: number, max: number): number {
   'worklet';
   return Math.min(max, Math.max(min, value));
-}
-
-function resolveVoiceRecognitionLocale(): string {
-  try {
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale;
-    return String(locale || '').trim() || 'zh-CN';
-  } catch {
-    return 'zh-CN';
-  }
-}
-
-function applyTranscriptToComposer(
-  currentTextInput: string,
-  currentSelectionInput: { start: number; end: number },
-  transcriptInput: string
-) {
-  const currentText = String(currentTextInput || '');
-  const transcript = String(transcriptInput || '').trim();
-  const currentSelection =
-    currentSelectionInput && Number.isFinite(currentSelectionInput.start) && Number.isFinite(currentSelectionInput.end)
-      ? currentSelectionInput
-      : { start: currentText.length, end: currentText.length };
-
-  if (!transcript) {
-    return {
-      text: currentText,
-      selection: currentSelection
-    };
-  }
-
-  const start = Math.max(0, Math.min(currentSelection.start, currentText.length));
-  const end = Math.max(start, Math.min(currentSelection.end, currentText.length));
-  const nextText = `${currentText.slice(0, start)}${transcript}${currentText.slice(end)}`;
-  const nextCaret = start + transcript.length;
-
-  return {
-    text: nextText,
-    selection: {
-      start: nextCaret,
-      end: nextCaret
-    }
-  };
 }
 
 function resolveListEdgeState(
@@ -262,8 +211,6 @@ export function ChatAssistantScreen({
   const [planExpanded, setPlanExpanded] = useState(false);
   const [chatImageToken, setChatImageToken] = useState('');
   const [frontendToolOverlayMounted, setFrontendToolOverlayMounted] = useState(false);
-  const [voiceState, setVoiceState] = useState<VoiceInputState>('idle');
-  const [voiceSupported, setVoiceSupported] = useState(Platform.OS !== 'web');
 
   const [fireworksVisible, setFireworksVisible] = useState(false);
   const [fireworkRockets, setFireworkRockets] = useState<Array<Record<string, unknown>>>([]);
@@ -290,7 +237,6 @@ export function ChatAssistantScreen({
   const streamLastEventAtRef = useRef(0);
   const autoScrollEnabledRef = useRef(true);
   const chatIdRef = useRef(chatId);
-  const previousChatIdRef = useRef(chatId);
   const chatImageTokenRef = useRef('');
   const imageTokenErrorNotifiedRef = useRef(false);
   const skipHistoryLoadChatIdRef = useRef<string | null>(null);
@@ -312,8 +258,6 @@ export function ChatAssistantScreen({
   const toolInitHintSessionKeyRef = useRef('');
   const toolInitHintAtRef = useRef(0);
   const scrollableStabilizationTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const voiceStateRef = useRef<VoiceInputState>('idle');
-  const voiceStopFallbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const listAtTopRef = useRef(true);
   const listAtBottomRef = useRef(false);
   const listViewportHeightRef = useRef(0);
@@ -345,24 +289,6 @@ export function ChatAssistantScreen({
     });
   }, []);
 
-  const clearVoiceStopFallbackTimer = useCallback(() => {
-    if (voiceStopFallbackTimerRef.current) {
-      clearTimeout(voiceStopFallbackTimerRef.current);
-      voiceStopFallbackTimerRef.current = null;
-    }
-  }, []);
-
-  const setVoiceStateSafe = useCallback(
-    (nextState: VoiceInputState) => {
-      voiceStateRef.current = nextState;
-      setVoiceState(nextState);
-      if (nextState !== 'stopping') {
-        clearVoiceStopFallbackTimer();
-      }
-    },
-    [clearVoiceStopFallbackTimer]
-  );
-
   const notify = useCallback(
     (message: string, tone: 'neutral' | 'danger' | 'warn' | 'success' = 'neutral') => {
       dispatch(showToast({ message, tone }));
@@ -382,28 +308,6 @@ export function ChatAssistantScreen({
   useEffect(() => {
     composerSelectionRef.current = composerSelection;
   }, [composerSelection]);
-
-  useEffect(() => {
-    if (Platform.OS === 'web') {
-      setVoiceSupported(false);
-      return;
-    }
-    let cancelled = false;
-    isVoiceRecognitionAvailable()
-      .then((supported) => {
-        if (!cancelled) {
-          setVoiceSupported(supported);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setVoiceSupported(false);
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const activeTeam = useMemo(() => {
     const teamId = String(activeChatSummary?.teamId || '').trim();
@@ -477,106 +381,6 @@ export function ChatAssistantScreen({
     });
   }, []);
 
-  const applyVoiceTranscript = useCallback(
-    (transcriptInput: string) => {
-      const transcript = String(transcriptInput || '').trim();
-      if (!transcript) {
-        return false;
-      }
-      const nextComposer = applyTranscriptToComposer(composerTextRef.current, composerSelectionRef.current, transcript);
-      composerTextRef.current = nextComposer.text;
-      setComposerText(nextComposer.text);
-      syncComposerSelection(nextComposer.selection);
-      return true;
-    },
-    [syncComposerSelection]
-  );
-
-  const destroyVoiceSession = useCallback(async () => {
-    clearVoiceStopFallbackTimer();
-    await destroyVoiceRecognition();
-    setVoiceStateSafe('idle');
-  }, [clearVoiceStopFallbackTimer, setVoiceStateSafe]);
-
-  const stopActiveVoiceRecognition = useCallback(async () => {
-    const currentState = voiceStateRef.current;
-    if (currentState !== 'listening' && currentState !== 'stopping') {
-      return;
-    }
-    setVoiceStateSafe('stopping');
-    try {
-      await stopVoiceRecognition();
-    } catch {
-      setVoiceStateSafe('idle');
-      return;
-    }
-    voiceStopFallbackTimerRef.current = setTimeout(() => {
-      setVoiceStateSafe('idle');
-    }, VOICE_STOP_FALLBACK_MS);
-  }, [setVoiceStateSafe]);
-
-  const handleVoicePress = useCallback(async () => {
-    if (activeFrontendToolRef.current) {
-      notify('请先完成当前前端工具操作', 'warn');
-      return;
-    }
-
-    if (chatStateRef.current.streaming) {
-      notify('已有进行中的回答，请先停止', 'warn');
-      return;
-    }
-
-    if (voiceStateRef.current === 'stopping') {
-      return;
-    }
-
-    if (voiceStateRef.current === 'listening') {
-      await stopActiveVoiceRecognition();
-      return;
-    }
-
-    const supported = await isVoiceRecognitionAvailable();
-    setVoiceSupported(supported);
-    if (!supported) {
-      setVoiceStateSafe('error');
-      notify('当前设备不支持语音输入', 'warn');
-      return;
-    }
-
-    const permission = await requestVoiceRecognitionPermission();
-    if (!permission.granted) {
-      setVoiceStateSafe('error');
-      notify(permission.message || '请开启麦克风权限后重试', 'warn');
-      return;
-    }
-
-    Keyboard.dismiss();
-    setVoiceStateSafe('listening');
-
-    const result = await startVoiceRecognition({
-      locale: resolveVoiceRecognitionLocale(),
-      onFinalResult: (transcript) => {
-        applyVoiceTranscript(transcript);
-      },
-      onEnd: () => {
-        setVoiceStateSafe('idle');
-      },
-      onError: (error) => {
-        if (voiceStateRef.current === 'stopping') {
-          setVoiceStateSafe('idle');
-          return;
-        }
-        setVoiceStateSafe('error');
-        notify(error.message || '语音识别失败，请重试', error.code === 'permission_denied' ? 'warn' : 'danger');
-      }
-    });
-
-    if (!result.ok) {
-      setVoiceStateSafe('error');
-      notify(result.error.message || '语音识别启动失败，请重试', result.error.code === 'permission_denied' ? 'warn' : 'danger');
-    }
-  }, [applyVoiceTranscript, notify, setVoiceStateSafe, stopActiveVoiceRecognition]);
-
   const handleSelectMentionAgent = useCallback(
     (agentKeyInput: string) => {
       const agentKey = String(agentKeyInput || '').trim();
@@ -613,29 +417,6 @@ export function ChatAssistantScreen({
   useEffect(() => {
     onChatViewedRef.current = onChatViewed;
   }, [onChatViewed]);
-
-  useEffect(() => {
-    if (previousChatIdRef.current !== chatId) {
-      previousChatIdRef.current = chatId;
-      if (voiceStateRef.current === 'listening' || voiceStateRef.current === 'stopping') {
-        void destroyVoiceSession();
-      }
-    }
-  }, [chatId, destroyVoiceSession]);
-
-  useEffect(() => {
-    if ((chatState.streaming || chatState.activeFrontendTool) && (voiceStateRef.current === 'listening' || voiceStateRef.current === 'stopping')) {
-      void destroyVoiceSession();
-    }
-  }, [chatState.activeFrontendTool, chatState.streaming, destroyVoiceSession]);
-
-  useEffect(
-    () => () => {
-      clearVoiceStopFallbackTimer();
-      void destroyVoiceRecognition();
-    },
-    [clearVoiceStopFallbackTimer]
-  );
 
   const setChatImageTokenSafe = useCallback((nextToken: string) => {
     const normalized = String(nextToken || '').trim();
@@ -1525,10 +1306,6 @@ export function ChatAssistantScreen({
       return;
     }
 
-    if (voiceStateRef.current === 'listening' || voiceStateRef.current === 'stopping') {
-      await destroyVoiceSession();
-    }
-
     const message = String(composerText || '').trim();
     if (!message) return;
 
@@ -1656,7 +1433,6 @@ export function ChatAssistantScreen({
     chatId,
     clearStreamIdleTimer,
     composerText,
-    destroyVoiceSession,
     markStreamAlive,
     notify,
     onRefreshChats,
@@ -2585,9 +2361,6 @@ export function ChatAssistantScreen({
                   onFrontendToolLoad={handleFrontendToolWebViewLoad}
                   onFrontendToolRetry={handleFrontendToolRetry}
                   onNativeConfirmSubmit={submitActiveFrontendTool}
-                  voiceState={voiceState}
-                  onVoicePress={Platform.OS === 'web' || hasActiveFrontendTool ? undefined : handleVoicePress}
-                  voiceDisabled={voiceState === 'stopping'}
                 />
 
                 {!hasPlanTasks && isTimelineScrollable && !autoScrollEnabled && chatState.timeline.length ? (
