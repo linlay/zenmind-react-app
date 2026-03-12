@@ -102,7 +102,7 @@ export function TasksPage({
               </Text>
             </View>
 
-            {task.totalBytes ? (
+            {active && task.totalBytes ? (
               <>
                 <View style={[styles.progressTrack, { backgroundColor: theme.surface }]}>
                   <View

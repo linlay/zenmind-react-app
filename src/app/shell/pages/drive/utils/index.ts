@@ -1,5 +1,5 @@
 import { buildDriveRawFilePath } from "../../../../../modules/drive/api/driveApi";
-import { DriveEntry, DrivePreviewMeta, DriveSearchHit } from "../../../../../modules/drive/types";
+import { DriveEntry, DrivePreviewKind, DrivePreviewMeta, DriveSearchHit } from "../../../../../modules/drive/types";
 
 export const buildTestID = (prefix: string | undefined, suffix: string) => {
   return prefix ? `${prefix}-${suffix}` : undefined;
@@ -130,11 +130,33 @@ export const defaultTargetDirectory = (entries: DriveEntry[], currentMountId: st
   if (first.mountId === currentMountId) {
     return currentPath || '/';
   }
-  return dirnamePath(first.path);
+  return '/';
 };
 
 export const shouldLoadBlobPreview = (preview: DrivePreviewMeta) => {
   return preview.kind === 'image' || preview.kind === 'pdf' || preview.kind === 'video' || preview.kind === 'audio';
+};
+
+const INLINE_PREVIEW_KINDS: readonly DrivePreviewKind[] = ['image', 'video', 'audio', 'pdf', 'markdown', 'text'];
+
+export const canInlinePreview = (preview: DrivePreviewMeta | null) => {
+  return Boolean(preview && INLINE_PREVIEW_KINDS.includes(preview.kind));
+};
+
+export const describePreviewSupport = (preview: DrivePreviewMeta | null) => {
+  if (!preview) {
+    return '当前文件暂时没有可用的预览信息。';
+  }
+
+  switch (preview.kind) {
+    case 'directory':
+      return '目录类型不支持文件预览。';
+    case 'download':
+    case 'unknown':
+      return '当前文件类型暂不支持预览。支持图片、文本、Markdown、PDF、音频和视频等常见格式。';
+    default:
+      return '当前文件暂不支持内嵌预览。';
+  }
 };
 
 export const fileTone = (entry: DriveEntry, themeMode: 'light' | 'dark') => {

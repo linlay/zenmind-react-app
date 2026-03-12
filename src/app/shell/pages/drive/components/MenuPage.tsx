@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { Picker } from '@react-native-picker/picker';
+import { Modal, Pressable, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DriveMount } from '../../../../../modules/drive/types';
-import { openDriveTasks, openDriveTrash } from '../../../../../modules/drive/state/driveSlice';
-import { useAppDispatch } from '../../../../store/hooks';
 import { DrivePalette } from '../types';
 import styles from '../DriveContent.styles';
 
@@ -16,6 +16,8 @@ interface MenuPageProps {
   onMountSelect: (mountId: string) => void;
   onRefresh: () => void;
   onToggleHidden: () => void;
+  onOpenTasks: () => void;
+  onOpenTrash: () => void;
 }
 
 export function MenuPage({
@@ -26,57 +28,129 @@ export function MenuPage({
   currentMount,
   onMountSelect,
   onRefresh,
-  onToggleHidden
+  onToggleHidden,
+  onOpenTasks,
+  onOpenTrash
 }: MenuPageProps) {
-  const dispatch = useAppDispatch();
-  const [mountPickerOpen, setMountPickerOpen] = useState(false);
+  const insets = useSafeAreaInsets();
+  const hasMounts = mounts.length > 0;
+  const resolvedCurrentMountId = mounts.some((mount) => mount.id === currentMountId) ? currentMountId : '';
+  const [mountPickerVisible, setMountPickerVisible] = useState(false);
+  const [pendingMountId, setPendingMountId] = useState(resolvedCurrentMountId);
+  const pendingMount = mounts.find((mount) => mount.id === pendingMountId) ?? null;
+
+  useEffect(() => {
+    if (!mountPickerVisible) {
+      setPendingMountId(resolvedCurrentMountId);
+    }
+  }, [mountPickerVisible, resolvedCurrentMountId]);
+
+  const closeMountPicker = () => {
+    if (pendingMountId && pendingMountId !== currentMountId) {
+      onMountSelect(pendingMountId);
+    }
+    setMountPickerVisible(false);
+  };
 
   return (
     <>
-      {/* 挂载点切换 Picker */}
-      <View style={[styles.menuRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder }]}>
+      <TouchableOpacity
+        activeOpacity={0.82}
+        style={[styles.menuRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder }]}
+        onPress={() => {
+          if (mountPickerVisible) {
+            closeMountPicker();
+            return;
+          }
+          setPendingMountId(resolvedCurrentMountId);
+          setMountPickerVisible(true);
+        }}
+      >
         <View style={styles.menuRowTextWrap}>
           <Text style={[styles.menuRowTitle, { color: palette.text }]}>切换挂载目录</Text>
-          <Text style={[styles.menuRowDesc, { color: palette.textSoft }]}>当前：{currentMount?.name || '未选择'}</Text>
-        </View>
-        <TouchableOpacity activeOpacity={0.78} onPress={() => setMountPickerOpen((prev) => !prev)}>
-          <Text style={[styles.menuRowAction, { color: palette.primaryDeep }]}>
-            {mountPickerOpen ? '收起' : '选择'}
+          <Text style={[styles.menuRowDesc, { color: palette.textSoft }]}>
+            当前：{currentMount ? `${currentMount.name} (${currentMount.id})` : '未选择'}
           </Text>
-        </TouchableOpacity>
-      </View>
+        </View>
+        <View style={[styles.menuBubbleTrigger, { backgroundColor: palette.primarySoft }]}>
+          <Text style={[styles.menuBubbleTriggerText, { color: palette.primaryDeep }]}>
+            {mountPickerVisible ? '收起' : '选择'}
+          </Text>
+        </View>
+      </TouchableOpacity>
 
-      {mountPickerOpen
-        ? mounts.map((mount) => {
-            const active = mount.id === currentMountId;
-            return (
+      <Modal transparent visible={mountPickerVisible} animationType="fade" onRequestClose={closeMountPicker}>
+        <View style={styles.bottomSheetOverlay}>
+          <Pressable
+            style={[styles.bottomSheetMask, { backgroundColor: palette.overlay }]}
+            onPress={closeMountPicker}
+          />
+
+          <View
+            style={[
+              styles.bottomSheetCard,
+              {
+                backgroundColor: palette.cardBg,
+                borderColor: palette.cardBorder,
+                paddingBottom: Math.max(insets.bottom, 14) + 8
+              }
+            ]}
+          >
+            <View style={[styles.bottomSheetHandle, { backgroundColor: palette.cardBorder }]} />
+
+            <View style={styles.bottomSheetHeader}>
+              <View style={styles.bottomSheetHeaderMain}>
+                <Text style={[styles.bottomSheetTitle, { color: palette.text }]}>切换挂载目录</Text>
+                <Text style={[styles.bottomSheetMeta, { color: palette.textSoft }]}>
+                  {hasMounts ? '先选择挂载目录，关闭弹窗后再统一应用切换。' : '请先在服务端配置至少一个挂载目录。'}
+                </Text>
+              </View>
               <TouchableOpacity
-                key={mount.id}
                 activeOpacity={0.82}
-                style={[
-                  styles.menuRow,
-                  {
-                    backgroundColor: active ? palette.primarySoft : palette.cardBg,
-                    borderColor: active ? palette.primary : palette.cardBorder,
-                    marginLeft: 16
+                style={[styles.bottomSheetCloseBtn, { backgroundColor: palette.primarySoft }]}
+                onPress={closeMountPicker}
+              >
+                <Text style={[styles.bottomSheetCloseText, { color: palette.primaryDeep }]}>关闭</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View
+              style={[
+                styles.menuPickerField,
+                {
+                  backgroundColor: palette.pageBg,
+                  borderColor: hasMounts ? palette.cardBorder : palette.primarySoft
+                }
+              ]}
+            >
+              <Picker
+                enabled={hasMounts}
+                mode="dropdown"
+                selectedValue={pendingMountId}
+                dropdownIconColor={palette.primaryDeep}
+                style={[styles.menuPicker, { color: hasMounts ? palette.text : palette.textSoft }]}
+                itemStyle={[styles.menuPickerItem, { color: palette.text }]}
+                onValueChange={(mountId) => {
+                  if (typeof mountId !== 'string' || !mountId) {
+                    return;
                   }
-                ]}
-                onPress={() => {
-                  onMountSelect(mount.id);
-                  setMountPickerOpen(false);
+                  setPendingMountId(mountId);
                 }}
               >
-                <View style={styles.menuRowTextWrap}>
-                  <Text style={[styles.menuRowTitle, { color: active ? palette.primaryDeep : palette.text }]}>
-                    {mount.name}
-                  </Text>
-                  <Text style={[styles.menuRowDesc, { color: palette.textMute }]}>{mount.id}</Text>
-                </View>
-                {active ? <Text style={[styles.menuRowAction, { color: palette.primaryDeep }]}>当前</Text> : null}
-              </TouchableOpacity>
-            );
-          })
-        : null}
+                {!hasMounts ? <Picker.Item label="暂无可用挂载目录" value="" /> : null}
+                {hasMounts && !pendingMountId ? <Picker.Item label="请选择挂载目录" value="" /> : null}
+                {mounts.map((mount) => (
+                  <Picker.Item
+                    key={mount.id}
+                    label={mount.name === mount.id ? mount.name : `${mount.name} (${mount.id})`}
+                    value={mount.id}
+                  />
+                ))}
+              </Picker>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <TouchableOpacity
         activeOpacity={0.82}
@@ -107,7 +181,7 @@ export function MenuPage({
       <TouchableOpacity
         activeOpacity={0.82}
         style={[styles.menuRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder }]}
-        onPress={() => dispatch(openDriveTasks())}
+        onPress={onOpenTasks}
       >
         <View style={styles.menuRowTextWrap}>
           <Text style={[styles.menuRowTitle, { color: palette.text }]}>查看传输任务</Text>
@@ -119,7 +193,7 @@ export function MenuPage({
       <TouchableOpacity
         activeOpacity={0.82}
         style={[styles.menuRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder }]}
-        onPress={() => dispatch(openDriveTrash())}
+        onPress={onOpenTrash}
       >
         <View style={styles.menuRowTextWrap}>
           <Text style={[styles.menuRowTitle, { color: palette.text }]}>查看垃圾桶</Text>

@@ -82,6 +82,7 @@ export function useShellScreenController() {
   const drivePanel = useAppSelector((state) => state.drive.panel) as DrivePanel;
   const driveDetailMode = useAppSelector((state) => state.drive.detailMode) as DriveDetailMode;
   const driveDetailTitle = useAppSelector((state) => state.drive.detailTitle);
+  const driveBrowserPath = useAppSelector((state) => state.drive.browserPath);
   const driveSearchQuery = useAppSelector((state) => state.drive.searchQuery);
   const driveSelectionMode = useAppSelector((state) => state.drive.selectionMode);
   const chats = useAppSelector((state) => state.chat.chats);
@@ -1041,6 +1042,7 @@ export function useShellScreenController() {
     drivePanel,
     driveDetailMode,
     driveDetailTitle,
+    driveBrowserPath,
     driveSearchQuery,
     driveSelectionMode,
     agents,

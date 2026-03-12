@@ -9,6 +9,7 @@ interface DriveState {
   detailTitle: string;
   searchQuery: string;
   selectionMode: boolean;
+  browserPath: string;
 }
 
 const initialState: DriveState = {
@@ -16,7 +17,8 @@ const initialState: DriveState = {
   detailMode: 'none',
   detailTitle: '',
   searchQuery: '',
-  selectionMode: false
+  selectionMode: false,
+  browserPath: '/'
 };
 
 const driveSlice = createSlice({
@@ -55,6 +57,9 @@ const driveSlice = createSlice({
     toggleDriveSelectionMode(state) {
       state.selectionMode = !state.selectionMode;
     },
+    setDriveBrowserPath(state, action: PayloadAction<string>) {
+      state.browserPath = String(action.payload || '').trim() || '/';
+    },
     openDriveDetail(
       state,
       action: PayloadAction<{
@@ -83,9 +88,9 @@ export const {
   setDriveSearchQuery,
   setDriveSelectionMode,
   toggleDriveSelectionMode,
+  setDriveBrowserPath,
   openDriveDetail,
   closeDriveDetail
 } = driveSlice.actions;
 
 export default driveSlice.reducer;
-

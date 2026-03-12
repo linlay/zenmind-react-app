@@ -18,6 +18,15 @@ interface EntryActionsPageProps {
   onDelete: (entries: DriveEntry[]) => void;
 }
 
+interface EntryActionItem {
+  key: string;
+  label: string;
+  textColor: string;
+  backgroundColor: string;
+  borderColor: string;
+  onPress: () => void;
+}
+
 export function EntryActionsPage({
   palette,
   theme,
@@ -38,6 +47,62 @@ export function EntryActionsPage({
   if (!entry) {
     return null;
   }
+
+  const actions: EntryActionItem[] = [
+    ...(!entry.isDir
+      ? [{
+          key: 'preview',
+          label: '预览',
+          textColor: palette.primaryDeep,
+          backgroundColor: palette.primarySoft,
+          borderColor: palette.primarySoft,
+          onPress: () => onPreview(entry)
+        }]
+      : []),
+    {
+      key: 'download',
+      label: entry.isDir ? '打包下载' : '下载',
+      textColor: palette.textSoft,
+      backgroundColor: theme.surface,
+      borderColor: palette.cardBorder,
+      onPress: () => {
+        onClose();
+        onDownload([entry]);
+      }
+    },
+    {
+      key: 'rename',
+      label: '重命名',
+      textColor: palette.textSoft,
+      backgroundColor: theme.surface,
+      borderColor: palette.cardBorder,
+      onPress: () => onRename(entry)
+    },
+    {
+      key: 'move',
+      label: '移动',
+      textColor: palette.textSoft,
+      backgroundColor: theme.surface,
+      borderColor: palette.cardBorder,
+      onPress: () => onMoveCopy('move', [entry])
+    },
+    {
+      key: 'copy',
+      label: '复制',
+      textColor: palette.textSoft,
+      backgroundColor: theme.surface,
+      borderColor: palette.cardBorder,
+      onPress: () => onMoveCopy('copy', [entry])
+    },
+    {
+      key: 'delete',
+      label: '删除',
+      textColor: palette.danger,
+      backgroundColor: theme.surface,
+      borderColor: palette.cardBorder,
+      onPress: () => onDelete([entry])
+    }
+  ];
 
   return (
     <Modal transparent visible animationType="fade" onRequestClose={onClose}>
@@ -76,85 +141,27 @@ export function EntryActionsPage({
           </View>
 
           <ScrollView
-            style={styles.bottomSheetBody}
-            contentContainerStyle={styles.bottomSheetBodyContent}
-            showsVerticalScrollIndicator={false}
+            horizontal
+            style={styles.bottomSheetActionStrip}
+            contentContainerStyle={styles.bottomSheetActionStripContent}
+            showsHorizontalScrollIndicator={false}
           >
-            {!entry.isDir ? (
+            {actions.map((action) => (
               <TouchableOpacity
+                key={action.key}
                 activeOpacity={0.82}
-                style={[styles.menuRow, styles.bottomSheetMenuRow, { backgroundColor: theme.surface, borderColor: palette.cardBorder }]}
-                onPress={() => onPreview(entry)}
+                style={[
+                  styles.actionPill,
+                  {
+                    backgroundColor: action.backgroundColor,
+                    borderColor: action.borderColor
+                  }
+                ]}
+                onPress={action.onPress}
               >
-                <View style={styles.menuRowTextWrap}>
-                  <Text style={[styles.menuRowTitle, { color: palette.text }]}>打开预览</Text>
-                  <Text style={[styles.menuRowDesc, { color: palette.textSoft }]}>查看文件内容和元数据</Text>
-                </View>
-                <Text style={[styles.menuRowAction, { color: palette.primaryDeep }]}>进入</Text>
+                <Text style={[styles.actionPillText, { color: action.textColor }]}>{action.label}</Text>
               </TouchableOpacity>
-            ) : null}
-            <TouchableOpacity
-              activeOpacity={0.82}
-              style={[styles.menuRow, styles.bottomSheetMenuRow, { backgroundColor: theme.surface, borderColor: palette.cardBorder }]}
-              onPress={() => {
-                onClose();
-                onDownload([entry]);
-              }}
-            >
-              <View style={styles.menuRowTextWrap}>
-                <Text style={[styles.menuRowTitle, { color: palette.text }]}>
-                  {entry.isDir ? '打包下载' : '下载文件'}
-                </Text>
-                <Text style={[styles.menuRowDesc, { color: palette.textSoft }]}>
-                  {entry.isDir ? '在后台生成压缩包后下载到本机' : '下载到本机并调起系统保存 / 分享'}
-                </Text>
-              </View>
-              <Text style={[styles.menuRowAction, { color: palette.primaryDeep }]}>执行</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.82}
-              style={[styles.menuRow, styles.bottomSheetMenuRow, { backgroundColor: theme.surface, borderColor: palette.cardBorder }]}
-              onPress={() => onRename(entry)}
-            >
-              <View style={styles.menuRowTextWrap}>
-                <Text style={[styles.menuRowTitle, { color: palette.text }]}>重命名</Text>
-                <Text style={[styles.menuRowDesc, { color: palette.textSoft }]}>只修改名称，不改变所在目录</Text>
-              </View>
-              <Text style={[styles.menuRowAction, { color: palette.primaryDeep }]}>进入</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.82}
-              style={[styles.menuRow, styles.bottomSheetMenuRow, { backgroundColor: theme.surface, borderColor: palette.cardBorder }]}
-              onPress={() => onMoveCopy('move', [entry])}
-            >
-              <View style={styles.menuRowTextWrap}>
-                <Text style={[styles.menuRowTitle, { color: palette.text }]}>移动到...</Text>
-                <Text style={[styles.menuRowDesc, { color: palette.textSoft }]}>浏览目录并把项目移动过去</Text>
-              </View>
-              <Text style={[styles.menuRowAction, { color: palette.primaryDeep }]}>进入</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.82}
-              style={[styles.menuRow, styles.bottomSheetMenuRow, { backgroundColor: theme.surface, borderColor: palette.cardBorder }]}
-              onPress={() => onMoveCopy('copy', [entry])}
-            >
-              <View style={styles.menuRowTextWrap}>
-                <Text style={[styles.menuRowTitle, { color: palette.text }]}>复制到...</Text>
-                <Text style={[styles.menuRowDesc, { color: palette.textSoft }]}>保留原文件，再复制一份到目标目录</Text>
-              </View>
-              <Text style={[styles.menuRowAction, { color: palette.primaryDeep }]}>进入</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.82}
-              style={[styles.menuRow, styles.bottomSheetMenuRow, { backgroundColor: theme.surface, borderColor: palette.cardBorder }]}
-              onPress={() => onDelete([entry])}
-            >
-              <View style={styles.menuRowTextWrap}>
-                <Text style={[styles.menuRowTitle, { color: palette.text }]}>删除</Text>
-                <Text style={[styles.menuRowDesc, { color: palette.textSoft }]}>先移入垃圾桶，后续仍可恢复</Text>
-              </View>
-              <Text style={[styles.menuRowAction, { color: palette.danger }]}>进入</Text>
-            </TouchableOpacity>
+            ))}
           </ScrollView>
         </View>
       </View>

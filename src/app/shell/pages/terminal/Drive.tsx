@@ -2,6 +2,7 @@ import { View } from 'react-native';
 
 import { AppTheme } from '../../../../core/constants/theme';
 import { DriveDetailMode, DrivePanel } from '../../../../modules/drive/state/driveSlice';
+import { DriveRouteName } from '../drive/types';
 import {
   ShellHeaderActionButton,
   ShellHeaderActionRow,
@@ -15,14 +16,18 @@ import {
 } from '../../components/ShellTopNav';
 import { ShellHeaderDescriptor } from '../../header/types';
 import { useShellRouteBridge } from '../../hooks/useShellRouteBridge';
-import { DriveContent } from '../drive/DriveContent';
+import { DriveScreen } from '../drive/Navigator';
 import { TerminalRouteBridgeProps, TerminalRouteScreenProps } from './types';
 
 interface BuildTerminalDriveHeaderInput {
   theme: AppTheme;
+  routeName: DriveRouteName;
+  pickerPath?: string;
+  pickerMountName?: string;
   panel: DrivePanel;
   detailMode: DriveDetailMode;
   detailTitle: string;
+  browserPath: string;
   searchQuery: string;
   selectionMode: boolean;
   onBrowserBack: () => void;
@@ -30,21 +35,66 @@ interface BuildTerminalDriveHeaderInput {
   onOpenSearch: () => void;
   onChangeSearch: (value: string) => void;
   onToggleSelect: () => void;
+  onCancelPicker: () => void;
+}
+
+function resolveTerminalDriveBrowserTitle(path: string) {
+  const normalized = String(path || '').trim();
+  if (!normalized || normalized === '/') {
+    return '网盘';
+  }
+  return normalized.split('/').filter(Boolean).at(-1) || '网盘';
+}
+
+function resolveTerminalDrivePickerTitle(path: string, mountName?: string) {
+  const normalized = String(path || '').trim();
+  if (!normalized || normalized === '/') {
+    return String(mountName || '').trim() || '网盘';
+  }
+  return normalized.split('/').filter(Boolean).at(-1) || String(mountName || '').trim() || '网盘';
 }
 
 export function buildTerminalDriveHeader({
   theme,
+  routeName,
+  pickerPath,
+  pickerMountName,
   panel,
   detailMode,
   detailTitle,
+  browserPath,
   searchQuery,
   selectionMode,
   onBrowserBack,
   onDriveBack,
   onOpenSearch,
   onChangeSearch,
-  onToggleSelect
+  onToggleSelect,
+  onCancelPicker
 }: BuildTerminalDriveHeaderInput): ShellHeaderDescriptor {
+  if (routeName === 'DriveMoveCopyPicker') {
+    const isRootPicker = !pickerPath || pickerPath === '/';
+
+    return {
+      left: isRootPicker ? (
+        <ShellHeaderPlaceholder testID="terminal-drive-picker-placeholder" />
+      ) : (
+        <ShellHeaderBackButton theme={theme} testID="terminal-drive-picker-back-btn" onPress={onDriveBack} />
+      ),
+      center: (
+        <ShellHeaderTitle theme={theme} title={resolveTerminalDrivePickerTitle(pickerPath || '/', pickerMountName)} />
+      ),
+      right: (
+        <ShellHeaderActionButton
+          theme={theme}
+          label="取消"
+          testID="terminal-drive-picker-cancel-btn"
+          onPress={onCancelPicker}
+        />
+      )
+    };
+  }
+
   if (detailMode !== 'none') {
     return {
       left: <ShellHeaderBackButton theme={theme} testID="terminal-drive-back-btn" onPress={onDriveBack} />,
@@ -81,7 +131,7 @@ export function buildTerminalDriveHeader({
 
   return {
     left: <ShellHeaderBackButton theme={theme} testID="terminal-drive-back-btn" onPress={onBrowserBack} />,
-    center: <ShellHeaderTitle theme={theme} title="网盘" />,
+    center: <ShellHeaderTitle theme={theme} title={resolveTerminalDriveBrowserTitle(browserPath)} />,
     right: (
       <ShellHeaderActionRow testID="shell-drive-top-actions">
         <ShellHeaderIconButton theme={theme} testID="shell-drive-search-btn" onPress={onOpenSearch}>
@@ -107,6 +157,8 @@ export function buildTerminalDriveHeader({
 export function TerminalDriveRouteScreen({
   navigation,
   onBindNavigation,
+  onBindDriveNavigation,
+  onDriveRouteFocus,
   onRouteFocus
 }: TerminalRouteScreenProps<'TerminalDrive'> & TerminalRouteBridgeProps) {
   useShellRouteBridge({
@@ -117,7 +169,7 @@ export function TerminalDriveRouteScreen({
 
   return (
     <View style={{ flex: 1 }}>
-      <DriveContent testIDPrefix="terminal-drive" />
+      <DriveScreen onBindNavigation={onBindDriveNavigation} onRouteFocus={onDriveRouteFocus} testIDPrefix="terminal-drive" />
     </View>
   );
 }

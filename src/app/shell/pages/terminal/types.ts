@@ -2,6 +2,7 @@ import { NavigationProp, RouteProp } from '@react-navigation/native';
 
 import type { WebViewAuthRefreshOutcome } from '../../../../core/auth/webViewAuthBridge';
 import type { TerminalSessionItem } from '../../../../modules/terminal/types/terminal';
+import type { DriveRootNavigation, DriveRouteFocusHandler } from '../drive/types';
 import { ShellTabBindings } from '../../types';
 
 export type TerminalStackParamList = {
@@ -37,12 +38,16 @@ export interface TerminalRuntimeBridge {
 
 export interface TerminalRouteBridgeProps {
   onBindNavigation?: (navigation: TerminalRootNavigation) => void;
+  onBindDriveNavigation?: (navigation: DriveRootNavigation) => void;
+  onDriveRouteFocus?: DriveRouteFocusHandler;
   onRouteFocus?: (routeName: TerminalRouteName) => void;
   runtime?: TerminalRuntimeBridge;
 }
 
 export interface ShellTerminalTabScreenProps extends ShellTabBindings {
   onBindNavigation?: (navigation: TerminalRootNavigation) => void;
+  onBindDriveNavigation?: (navigation: DriveRootNavigation) => void;
+  onDriveRouteFocus?: DriveRouteFocusHandler;
   onRouteFocus: (routeName: TerminalRouteName) => void;
   runtime: TerminalRuntimeBridge;
 }

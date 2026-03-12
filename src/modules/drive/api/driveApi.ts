@@ -43,11 +43,11 @@ async function parseJsonResponse<T>(response: Response): Promise<T> {
 
 export function buildDriveRawFilePath(mountId: string, path: string): string {
   const query = buildSearchParams({ mountId, path });
-  return `/api/files/raw?${query}`;
+  return `/apppan/api/files/raw?${query}`;
 }
 
 export function buildDriveTaskDownloadPath(taskId: string): string {
-  return `/api/tasks/${encodeURIComponent(taskId)}/download`;
+  return `/apppan/api/tasks/${encodeURIComponent(taskId)}/download`;
 }
 
 export function buildAbsoluteDriveUrl(baseUrl: string, relativePath: string): string {
@@ -55,7 +55,7 @@ export function buildAbsoluteDriveUrl(baseUrl: string, relativePath: string): st
 }
 
 export async function listDriveMounts(baseUrl: string): Promise<DriveMount[]> {
-  return fetchAuthedJson<DriveMount[]>(baseUrl, '/api/mounts');
+  return fetchAuthedJson<DriveMount[]>(baseUrl, '/apppan/api/mounts');
 }
 
 export async function listDriveFiles(
@@ -65,29 +65,29 @@ export async function listDriveFiles(
   showHidden: boolean
 ): Promise<DriveEntry[]> {
   const query = buildSearchParams({ mountId, path, showHidden: showHidden ? 1 : 0 });
-  return fetchAuthedJson<DriveEntry[]>(baseUrl, `/api/files?${query}`);
+  return fetchAuthedJson<DriveEntry[]>(baseUrl, `/apppan/api/files?${query}`);
 }
 
 export async function searchDriveFiles(baseUrl: string, queryText: string, showHidden: boolean): Promise<DriveSearchHit[]> {
   const query = buildSearchParams({ q: queryText, showHidden: showHidden ? 1 : 0 });
-  return fetchAuthedJson<DriveSearchHit[]>(baseUrl, `/api/search?${query}`);
+  return fetchAuthedJson<DriveSearchHit[]>(baseUrl, `/apppan/api/search?${query}`);
 }
 
 export async function getDrivePreview(baseUrl: string, mountId: string, path: string): Promise<DrivePreviewMeta> {
   const query = buildSearchParams({ mountId, path });
-  return fetchAuthedJson<DrivePreviewMeta>(baseUrl, `/api/preview?${query}`);
+  return fetchAuthedJson<DrivePreviewMeta>(baseUrl, `/apppan/api/preview?${query}`);
 }
 
 export async function getDriveFileContent(baseUrl: string, mountId: string, path: string): Promise<DriveEditorDocument> {
   const query = buildSearchParams({ mountId, path });
-  return fetchAuthedJson<DriveEditorDocument>(baseUrl, `/api/files/content?${query}`);
+  return fetchAuthedJson<DriveEditorDocument>(baseUrl, `/apppan/api/files/content?${query}`);
 }
 
 export async function createDriveFolder(
   baseUrl: string,
   payload: { mountId: string; path: string; name: string }
 ): Promise<DriveEntry> {
-  return fetchAuthedJson<DriveEntry>(baseUrl, '/api/files/folder', {
+  return fetchAuthedJson<DriveEntry>(baseUrl, '/apppan/api/files/folder', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -98,7 +98,7 @@ export async function renameDriveEntry(
   baseUrl: string,
   payload: { mountId: string; path: string; newName: string }
 ): Promise<DriveEntry> {
-  return fetchAuthedJson<DriveEntry>(baseUrl, '/api/files/rename', {
+  return fetchAuthedJson<DriveEntry>(baseUrl, '/apppan/api/files/rename', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -109,7 +109,7 @@ export async function moveDriveEntry(
   baseUrl: string,
   payload: { mountId: string; path: string; targetDir: string }
 ): Promise<DriveEntry> {
-  return fetchAuthedJson<DriveEntry>(baseUrl, '/api/files/move', {
+  return fetchAuthedJson<DriveEntry>(baseUrl, '/apppan/api/files/move', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -120,7 +120,7 @@ export async function copyDriveEntry(
   baseUrl: string,
   payload: { mountId: string; path: string; targetDir: string }
 ): Promise<DriveEntry> {
-  return fetchAuthedJson<DriveEntry>(baseUrl, '/api/files/copy', {
+  return fetchAuthedJson<DriveEntry>(baseUrl, '/apppan/api/files/copy', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -128,7 +128,7 @@ export async function copyDriveEntry(
 }
 
 export async function deleteDriveEntry(baseUrl: string, payload: { mountId: string; path: string }): Promise<{ ok: boolean }> {
-  return fetchAuthedJson<{ ok: boolean }>(baseUrl, '/api/files/delete', {
+  return fetchAuthedJson<{ ok: boolean }>(baseUrl, '/apppan/api/files/delete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -136,18 +136,18 @@ export async function deleteDriveEntry(baseUrl: string, payload: { mountId: stri
 }
 
 export async function listDriveTasks(baseUrl: string): Promise<DriveTask[]> {
-  return fetchAuthedJson<DriveTask[]>(baseUrl, '/api/tasks');
+  return fetchAuthedJson<DriveTask[]>(baseUrl, '/apppan/api/tasks');
 }
 
 export async function getDriveTask(baseUrl: string, taskId: string): Promise<DriveTask> {
-  return fetchAuthedJson<DriveTask>(baseUrl, `/api/tasks/${encodeURIComponent(taskId)}`);
+  return fetchAuthedJson<DriveTask>(baseUrl, `/apppan/api/tasks/${encodeURIComponent(taskId)}`);
 }
 
 export async function createDriveBatchDownload(
   baseUrl: string,
   payload: { mountId: string; items: string[]; archiveName: string }
 ): Promise<DriveTask> {
-  return fetchAuthedJson<DriveTask>(baseUrl, '/api/downloads/batch', {
+  return fetchAuthedJson<DriveTask>(baseUrl, '/apppan/api/downloads/batch', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -155,21 +155,21 @@ export async function createDriveBatchDownload(
 }
 
 export async function deleteDriveTask(baseUrl: string, taskId: string): Promise<{ ok: boolean }> {
-  const response = await authorizedFetch(baseUrl, `/api/tasks/${encodeURIComponent(taskId)}`, {
+  const response = await authorizedFetch(baseUrl, `/apppan/api/tasks/${encodeURIComponent(taskId)}`, {
     method: 'DELETE'
   });
   return parseJsonResponse<{ ok: boolean }>(response);
 }
 
 export async function listDriveTrash(baseUrl: string): Promise<DriveTrashItem[]> {
-  return fetchAuthedJson<DriveTrashItem[]>(baseUrl, '/api/trash');
+  return fetchAuthedJson<DriveTrashItem[]>(baseUrl, '/apppan/api/trash');
 }
 
 export async function restoreDriveTrash(
   baseUrl: string,
   payload: { ids: string[] }
 ): Promise<{ restored: number; conflicts: string[] }> {
-  return fetchAuthedJson<{ restored: number; conflicts: string[] }>(baseUrl, '/api/trash/restore', {
+  return fetchAuthedJson<{ restored: number; conflicts: string[] }>(baseUrl, '/apppan/api/trash/restore', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -180,7 +180,7 @@ export async function deleteDriveTrash(
   baseUrl: string,
   payload: { ids: string[] }
 ): Promise<{ deleted: number; missing: string[] }> {
-  return fetchAuthedJson<{ deleted: number; missing: string[] }>(baseUrl, '/api/trash/delete', {
+  return fetchAuthedJson<{ deleted: number; missing: string[] }>(baseUrl, '/apppan/api/trash/delete', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
@@ -200,7 +200,7 @@ export async function uploadDriveFiles(
     formData.append('files', file as unknown as Blob);
   });
 
-  const response = await authorizedFetch(baseUrl, '/api/uploads', {
+  const response = await authorizedFetch(baseUrl, '/apppan/api/uploads', {
     method: 'POST',
     body: formData
   });

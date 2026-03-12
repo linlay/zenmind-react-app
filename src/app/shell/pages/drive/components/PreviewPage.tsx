@@ -5,7 +5,7 @@ import { WebView } from 'react-native-webview';
 import { DriveEntry } from '../../../../../modules/drive/types';
 import { AppTheme } from '../../../../../core/constants/theme';
 import { PreviewPageState, DrivePalette } from '../types';
-import { formatBytes, formatDateTime, renderKindLabel } from '../utils';
+import { canInlinePreview, describePreviewSupport, formatBytes, formatDateTime, renderKindLabel } from '../utils';
 import styles from '../DriveContent.styles';
 
 interface PreviewPageProps {
@@ -33,6 +33,8 @@ export function PreviewPage({
 }: PreviewPageProps) {
   const preview = previewPage.preview;
   const contentText = previewPage.document?.content || preview?.content || '';
+  const inlinePreviewSupported = canInlinePreview(preview);
+  const unsupportedPreviewMessage = describePreviewSupport(preview);
 
   return (
     <>
@@ -49,6 +51,7 @@ export function PreviewPage({
             ? `${renderKindLabel(preview)}  •  ${formatBytes(preview.size)}  •  ${formatDateTime(preview.modTime)}`
             : '--'}
         </Text>
+        <Text style={[styles.infoMeta, { color: palette.textSoft }]}>可在这里查看文件内容、预览效果和基础元数据。</Text>
       </View>
 
       {previewPage.loading ? (
@@ -82,7 +85,7 @@ export function PreviewPage({
             <Text selectable style={[styles.previewText, { color: palette.text }]}>
               {contentText || '(空文件)'}
             </Text>
-          ) : previewSourceUrl ? (
+          ) : inlinePreviewSupported && previewSourceUrl ? (
             <View style={styles.previewWebViewWrap}>
               <WebView
                 source={{
@@ -95,9 +98,9 @@ export function PreviewPage({
             </View>
           ) : (
             <View style={[styles.emptyStateCard, { backgroundColor: theme.surface, borderColor: palette.cardBorder }]}>
-              <Text style={[styles.emptyStateTitle, { color: palette.text }]}>当前类型暂不支持内嵌预览</Text>
+              <Text style={[styles.emptyStateTitle, { color: palette.text }]}>当前文件不可预览</Text>
               <Text style={[styles.emptyStateBody, { color: palette.textSoft }]}>
-                后续可以继续细化不同文件类型的专属原生预览能力。
+                {unsupportedPreviewMessage}
               </Text>
             </View>
           )}

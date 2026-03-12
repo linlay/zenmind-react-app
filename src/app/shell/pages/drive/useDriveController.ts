@@ -15,6 +15,7 @@ import {
   openDriveTasks,
   openDriveTrash,
   resetDriveUi,
+  setDriveBrowserPath,
   setDriveSelectionMode
 } from '../../../../modules/drive/state/driveSlice';
 import {
@@ -58,7 +59,6 @@ import {
   basename,
   dirnamePath,
   normalizeDirectory,
-  buildBreadcrumbs,
   resolvePreviewRelativePath,
   getSingleMountId,
   defaultTargetDirectory,
@@ -86,6 +86,7 @@ export function useDriveController() {
   const driveDetailMode = useAppSelector((state) => state.drive.detailMode);
   const driveSearchQuery = useAppSelector((state) => state.drive.searchQuery);
   const driveSelectionMode = useAppSelector((state) => state.drive.selectionMode);
+  const driveBrowserPath = useAppSelector((state) => state.drive.browserPath);
 
   const theme = useMemo(() => THEMES[themeMode] || THEMES.light, [themeMode]);
   const sharedPalette = useMemo(() => getTabPagePalette(theme), [theme]);
@@ -98,7 +99,6 @@ export function useDriveController() {
   const [browserRefreshing, setBrowserRefreshing] = useState(false);
   const [browserError, setBrowserError] = useState('');
   const [currentMountId, setCurrentMountId] = useState('');
-  const [currentPath, setCurrentPath] = useState('/');
   const [showHidden, setShowHidden] = useState(false);
   const [selectedEntries, setSelectedEntries] = useState<DriveEntry[]>([]);
 
@@ -124,10 +124,10 @@ export function useDriveController() {
     [currentMountId, mounts]
   );
   const mountMap = useMemo(() => new Map(mounts.map((mount) => [mount.id, mount.name])), [mounts]);
-  const breadcrumbs = useMemo(() => buildBreadcrumbs(currentPath), [currentPath]);
   const sortedEntries = useMemo(() => sortEntries(entries), [entries]);
   const sortedSearchResults = useMemo(() => sortSearchHits(searchResults), [searchResults]);
   const selectedSingleEntry = selectedEntries.length === 1 ? selectedEntries[0] : null;
+  const currentPath = driveBrowserPath || '/';
 
   const palette: DrivePalette = useMemo(
     () => ({
@@ -215,6 +215,13 @@ export function useDriveController() {
     [theme]
   );
 
+  const setCurrentPath = useCallback(
+    (path: string) => {
+      dispatch(setDriveBrowserPath(normalizeDirectory(path)));
+    },
+    [dispatch]
+  );
+
   // --- Effects ---
 
   useEffect(() => {
@@ -272,7 +279,7 @@ export function useDriveController() {
     return () => {
       cancelled = true;
     };
-  }, [baseUrl]);
+  }, [baseUrl, setCurrentPath]);
 
   useEffect(() => {
     if (!mounts.length) {
@@ -283,7 +290,7 @@ export function useDriveController() {
     }
     setCurrentMountId(mounts[0].id);
     setCurrentPath('/');
-  }, [currentMountId, mounts]);
+  }, [currentMountId, mounts, setCurrentPath]);
 
   const loadBrowserEntries = useCallback(
     async (silent = false) => {
@@ -448,26 +455,29 @@ export function useDriveController() {
     return () => clearInterval(timer);
   }, [drivePanel, loadTasks, tasks]);
 
-  const previewEntryKey = previewPage ? `${previewPage.entry.mountId}:${previewPage.entry.path}` : '';
+  const previewEntry = previewPage?.entry || null;
+  const previewEntryKey = previewEntry ? `${previewEntry.mountId}:${previewEntry.path}` : '';
 
   useEffect(() => {
-    if (!previewPage || !baseUrl) {
+    if (!previewEntry || !baseUrl) {
       return;
     }
 
     let cancelled = false;
-    const targetEntry = previewPage.entry;
+    const targetEntry = previewEntry;
 
     setPreviewPage((current) =>
       current && sameEntry(current.entry, targetEntry)
-        ? {
-          ...current,
-          loading: true,
-          error: '',
-          preview: null,
-          document: null,
-          accessToken: ''
-        }
+        ? current.loading && !current.error && !current.preview && !current.document && !current.accessToken
+          ? current
+          : {
+            ...current,
+            loading: true,
+            error: '',
+            preview: null,
+            document: null,
+            accessToken: ''
+          }
         : current
     );
 
@@ -520,7 +530,7 @@ export function useDriveController() {
     return () => {
       cancelled = true;
     };
-  }, [baseUrl, previewEntryKey, previewPage]);
+  }, [baseUrl, previewEntry, previewEntryKey]);
 
   const browseMountId =
     formPage && (formPage.kind === 'move' || formPage.kind === 'copy') ? getSingleMountId(formPage.entries) : '';
@@ -576,7 +586,7 @@ export function useDriveController() {
     return () => {
       cancelled = true;
     };
-  }, [baseUrl, browseMountId, browsePath, formPage, showHidden]);
+  }, [baseUrl, browseMountId, browsePath, showHidden]);
 
   // --- Callbacks ---
 
@@ -614,6 +624,7 @@ export function useDriveController() {
         accessToken: ''
       });
       dispatch(openDriveDetail({ mode: 'preview', title: entry.name || '文件详情' }));
+      return true;
     },
     [dispatch]
   );
@@ -630,7 +641,7 @@ export function useDriveController() {
   const openCreateFolderPage = useCallback(() => {
     if (!currentMountId) {
       dispatch(showToast({ message: '当前没有可用挂载点', tone: 'warn' }));
-      return;
+      return false;
     }
     setPreviewPage(null);
     setEntryActionsPage(null);
@@ -641,13 +652,14 @@ export function useDriveController() {
       error: ''
     });
     dispatch(openDriveDetail({ mode: 'operation', title: '新建目录' }));
+    return true;
   }, [currentMountId, dispatch]);
 
   const openRenamePage = useCallback(
     (entry: DriveEntry | null) => {
       if (!entry) {
         dispatch(showToast({ message: '请选择一个项目后再重命名', tone: 'warn' }));
-        return;
+        return false;
       }
       setPreviewPage(null);
       setEntryActionsPage(null);
@@ -659,6 +671,7 @@ export function useDriveController() {
         error: ''
       });
       dispatch(openDriveDetail({ mode: 'operation', title: '重命名' }));
+      return true;
     },
     [dispatch]
   );
@@ -667,11 +680,11 @@ export function useDriveController() {
     (kind: 'move' | 'copy', entriesArg: DriveEntry[]) => {
       if (!entriesArg.length) {
         dispatch(showToast({ message: '请先选择文件或目录', tone: 'warn' }));
-        return;
+        return false;
       }
       if (!getSingleMountId(entriesArg)) {
         dispatch(showToast({ message: '当前暂不支持跨挂载点批量操作', tone: 'warn' }));
-        return;
+        return false;
       }
       const targetPath = normalizeDirectory(defaultTargetDirectory(entriesArg, currentMountId, currentPath));
       setPreviewPage(null);
@@ -679,14 +692,14 @@ export function useDriveController() {
       setFormPage({
         kind,
         entries: entriesArg,
-        browsePath: targetPath,
+        browsePath: '/',
         targetPath,
         browseEntries: [],
         loading: true,
         submitting: false,
         error: ''
       });
-      dispatch(openDriveDetail({ mode: 'operation', title: kind === 'move' ? '移动到...' : '复制到...' }));
+      return true;
     },
     [currentMountId, currentPath, dispatch]
   );
@@ -695,11 +708,11 @@ export function useDriveController() {
     (entriesArg: DriveEntry[]) => {
       if (!entriesArg.length) {
         dispatch(showToast({ message: '请先选择要删除的项目', tone: 'warn' }));
-        return;
+        return false;
       }
       if (!getSingleMountId(entriesArg)) {
         dispatch(showToast({ message: '当前暂不支持跨挂载点删除', tone: 'warn' }));
-        return;
+        return false;
       }
       setPreviewPage(null);
       setEntryActionsPage(null);
@@ -710,6 +723,7 @@ export function useDriveController() {
         error: ''
       });
       dispatch(openDriveDetail({ mode: 'operation', title: '删除确认' }));
+      return true;
     },
     [dispatch]
   );
@@ -718,11 +732,11 @@ export function useDriveController() {
     (entriesArg: DriveEntry[]) => {
       if (!entriesArg.length) {
         dispatch(showToast({ message: '请先选择要下载的项目', tone: 'warn' }));
-        return;
+        return false;
       }
       if (!getSingleMountId(entriesArg)) {
         dispatch(showToast({ message: '当前暂不支持跨挂载点打包下载', tone: 'warn' }));
-        return;
+        return false;
       }
       setPreviewPage(null);
       setEntryActionsPage(null);
@@ -734,6 +748,7 @@ export function useDriveController() {
         error: ''
       });
       dispatch(openDriveDetail({ mode: 'operation', title: '打包下载' }));
+      return true;
     },
     [dispatch]
   );
@@ -815,7 +830,7 @@ export function useDriveController() {
   const handleDownloadEntries = useCallback(
     async (entriesArg: DriveEntry[]) => {
       if (!entriesArg.length) {
-        return;
+        return 'noop' as const;
       }
 
       const first = entriesArg[0];
@@ -826,10 +841,10 @@ export function useDriveController() {
         } catch (error) {
           dispatch(showToast({ message: formatError(error), tone: 'danger' }));
         }
-        return;
+        return 'shared' as const;
       }
 
-      openBatchDownloadPage(entriesArg);
+      return openBatchDownloadPage(entriesArg) ? ('form' as const) : ('noop' as const);
     },
     [dispatch, downloadFileToDevice, openBatchDownloadPage]
   );
@@ -876,7 +891,7 @@ export function useDriveController() {
     }
   }, [baseUrl, currentMountId, currentPath, dispatch, loadBrowserEntries, loadTasks]);
 
-  const submitFormPage = useCallback(async () => {
+  const submitFormPage = useCallback(async (onComplete?: (destination: 'browser' | 'tasks') => void) => {
     if (!formPage || !baseUrl) {
       return;
     }
@@ -897,6 +912,7 @@ export function useDriveController() {
       try {
         await createDriveFolder(baseUrl, { mountId: currentMountId, path: currentPath, name });
         closeDetailPages();
+        onComplete?.('browser');
         await loadBrowserEntries(true);
         dispatch(showToast({ message: `已创建 ${name}`, tone: 'success' }));
       } catch (error) {
@@ -927,6 +943,7 @@ export function useDriveController() {
           newName: nextName
         });
         closeDetailPages();
+        onComplete?.('browser');
         dispatch(setDriveSelectionMode(false));
         await loadBrowserEntries(true);
         dispatch(showToast({ message: '重命名成功', tone: 'success' }));
@@ -962,6 +979,7 @@ export function useDriveController() {
           )
         );
         closeDetailPages();
+        onComplete?.('browser');
         dispatch(setDriveSelectionMode(false));
         await loadBrowserEntries(true);
         dispatch(
@@ -994,6 +1012,7 @@ export function useDriveController() {
       try {
         await Promise.all(formPage.entries.map((entry) => deleteDriveEntry(baseUrl, { mountId, path: entry.path })));
         closeDetailPages();
+        onComplete?.('browser');
         dispatch(setDriveSelectionMode(false));
         await Promise.all([loadBrowserEntries(true), loadTrash(true)]);
         dispatch(showToast({ message: '已移入垃圾桶', tone: 'success' }));
@@ -1023,6 +1042,7 @@ export function useDriveController() {
           archiveName: formPage.value.trim() || 'bundle.zip'
         });
         closeDetailPages();
+        onComplete?.('tasks');
         dispatch(openDriveTasks());
         await loadTasks(false);
         dispatch(showToast({ message: '已创建下载任务', tone: 'success' }));
@@ -1165,7 +1185,6 @@ export function useDriveController() {
     currentPath,
     currentMount,
     mountMap,
-    breadcrumbs,
     sortedEntries,
     showHidden,
     setShowHidden,

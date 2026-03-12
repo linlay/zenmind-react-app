@@ -63,6 +63,14 @@ const styles = StyleSheet.create({
   browserPathCard: {
     paddingVertical: 12
   },
+  browserPage: {
+    flex: 1,
+    ...TAB_LIST_CONTENT_STYLE,
+    paddingBottom: 0
+  },
+  browserPageTop: {
+    gap: 10
+  },
   browserPathHead: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -137,6 +145,13 @@ const styles = StyleSheet.create({
   quickActionText: {
     fontSize: 13,
     fontWeight: '700'
+  },
+  browserTreeScroll: {
+    flex: 1,
+    marginTop: 10
+  },
+  browserTreeContent: {
+    gap: 10
   },
   itemCard: {
     ...TAB_CARD_BASE_STYLE,
@@ -316,6 +331,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800'
   },
+  menuBubbleTrigger: {
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9
+  },
+  menuBubbleTriggerText: {
+    fontSize: 13,
+    fontWeight: '800'
+  },
+  menuPickerField: {
+    marginTop: 14,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    overflow: 'hidden'
+  },
+  menuPicker: {
+    minHeight: 52
+  },
+  menuPickerItem: {
+    fontSize: 15,
+    fontWeight: '600'
+  },
+  menuPickerHint: {
+    marginTop: 8,
+    fontSize: 12,
+    lineHeight: 18,
+    fontWeight: '600'
+  },
   bottomSheetOverlay: {
     flex: 1,
     justifyContent: 'flex-end'
@@ -430,16 +473,13 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontWeight: '600'
   },
-  bottomSheetBody: {
-    maxHeight: 430,
-    marginTop: 12
+  bottomSheetActionStrip: {
+    marginTop: 16
   },
-  bottomSheetBodyContent: {
-    gap: 8,
+  bottomSheetActionStripContent: {
+    gap: 10,
+    paddingRight: 8,
     paddingBottom: 4
-  },
-  bottomSheetMenuRow: {
-    minHeight: 74
   },
   taskCard: {
     ...TAB_CARD_BASE_STYLE,
@@ -564,6 +604,122 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 12,
     fontWeight: '500'
+  },
+  moveCopyPickerPage: {
+    flex: 1
+  },
+  moveCopySelectedStrip: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingVertical: 14
+  },
+  moveCopySelectedText: {
+    fontSize: 14,
+    fontWeight: '600'
+  },
+  moveCopyList: {
+    flex: 1
+  },
+  moveCopyListContent: {
+    paddingHorizontal: 14,
+    paddingTop: 10
+  },
+  moveCopyDirRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 78,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 10
+  },
+  moveCopyDirIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  moveCopyDirMain: {
+    flex: 1,
+    minWidth: 0,
+    paddingLeft: 12
+  },
+  moveCopyDirName: {
+    fontSize: 17,
+    fontWeight: '700'
+  },
+  moveCopyDirMeta: {
+    marginTop: 5,
+    fontSize: 12,
+    fontWeight: '500'
+  },
+  moveCopyFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    gap: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: 14,
+    paddingTop: 12
+  },
+  moveCopyFooterBtn: {
+    flex: 1,
+    minHeight: 52,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 14
+  },
+  moveCopyFooterBtnPrimary: {
+    borderWidth: 0
+  },
+  moveCopyFooterBtnText: {
+    fontSize: 15,
+    fontWeight: '700'
+  },
+  moveCopyFooterBtnTextPrimary: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '800'
+  },
+  createFolderSheetCard: {
+    paddingBottom: 6
+  },
+  createFolderSheetScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'flex-end',
+    paddingTop: 24
+  },
+  createFolderSheetInput: {
+    marginTop: 16
+  },
+  createFolderSheetError: {
+    marginTop: 10
+  },
+  createFolderSheetActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 18
+  },
+  createFolderSheetSecondaryBtn: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 16,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16
+  },
+  createFolderSheetSecondaryText: {
+    fontSize: 15,
+    fontWeight: '700'
+  },
+  createFolderSheetPrimaryBtn: {
+    flex: 1,
+    marginTop: 0
   },
   selectionBar: {
     position: 'absolute',

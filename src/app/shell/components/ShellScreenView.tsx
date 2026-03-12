@@ -19,6 +19,7 @@ import { buildShellRouteSnapshot } from '../routes/shellRouteSnapshot';
 import { ShellTabNavigation, ShellTabParamList } from '../types';
 import { AppsRouteName, AppsRuntimeBridge } from '../pages/apps/types';
 import { ChatRootNavigation, ChatRouteName } from '../pages/chat/types';
+import { DriveRootNavigation, DriveRouteName, DriveRouteParams } from '../pages/drive/types';
 import { TerminalRouteName, TerminalRuntimeBridge } from '../pages/terminal/types';
 import { ShellAppsTabScreen } from '../pages/apps';
 import { ShellChatTabScreen } from '../pages/chat';
@@ -47,18 +48,20 @@ import {
   openDriveBrowser,
   openDriveMenu,
   openDriveSearch,
+  setDriveBrowserPath,
   setDriveSearchQuery,
   toggleDriveSelectionMode
 } from '../../../modules/drive/state/driveSlice';
 import { reloadPty } from '../../../modules/terminal/state/terminalSlice';
 import { DomainMode } from '../../../core/types/common';
+import { dirnamePath, normalizeDirectory } from '../pages/drive/utils';
 
 interface ShellScreenViewProps {
   controller: ShellScreenController;
 }
 
 type ShellTabName = keyof ShellTabParamList;
-type ShellNavigableDomain = 'chat' | 'apps' | 'terminal';
+type ShellNavigableDomain = 'chat' | 'apps' | 'terminal' | 'drive';
 type ShellStackBinding = {
   navigation: NavigationProp<ParamListBase>;
   rootRouteName: string;
@@ -109,6 +112,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     drivePanel,
     driveDetailMode,
     driveDetailTitle,
+    driveBrowserPath,
     driveSearchQuery,
     driveSelectionMode,
     agents,
@@ -143,6 +147,9 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
   const [appsFocusedAppName, setAppsFocusedAppName] = useState<string>('');
   const [chatFocusedRoute, setChatFocusedRoute] = useState<ChatRouteName>('ChatList');
   const [terminalFocusedRoute, setTerminalFocusedRoute] = useState<TerminalRouteName>('TerminalList');
+  const [driveFocusedRoute, setDriveFocusedRoute] = useState<DriveRouteName>('DriveBrowser');
+  const [driveFocusedPickerPath, setDriveFocusedPickerPath] = useState('/');
+  const [driveFocusedPickerMountName, setDriveFocusedPickerMountName] = useState('');
 
   const routeSnapshot = useMemo(
     () =>
@@ -203,6 +210,18 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
 
   const handleTerminalRouteFocus = useCallback((routeName: TerminalRouteName) => {
     setTerminalFocusedRoute(routeName);
+  }, []);
+
+  const handleDriveRouteFocus = useCallback((routeName: DriveRouteName, params?: DriveRouteParams) => {
+    setDriveFocusedRoute(routeName);
+    if (routeName === 'DriveMoveCopyPicker') {
+      const pickerParams = params as { path?: string; mountName?: string } | undefined;
+      setDriveFocusedPickerPath(normalizeDirectory(pickerParams?.path || '/'));
+      setDriveFocusedPickerMountName(String(pickerParams?.mountName || '').trim());
+      return;
+    }
+    setDriveFocusedPickerPath('/');
+    setDriveFocusedPickerMountName('');
   }, []);
 
   const goBackWithinDomain = useCallback((domain: ShellNavigableDomain) => {
@@ -296,8 +315,20 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
         goBackWithinDomain('chat');
         return true;
       }
+      if (
+        routeSnapshot.activeDomain === 'terminal' &&
+        routeSnapshot.terminalPane === 'drive' &&
+        stackRegistryRef.current.drive?.navigation?.canGoBack()
+      ) {
+        goBackWithinDomain('drive');
+        return true;
+      }
       if (routeSnapshot.activeDomain === 'terminal' && stackRegistryRef.current.terminal?.navigation?.canGoBack()) {
         goBackWithinDomain('terminal');
+        return true;
+      }
+      if (routeSnapshot.activeDomain === 'drive' && stackRegistryRef.current.drive?.navigation?.canGoBack()) {
+        goBackWithinDomain('drive');
         return true;
       }
       if (routeSnapshot.activeDomain === 'apps' && stackRegistryRef.current.apps?.navigation?.canGoBack()) {
@@ -502,28 +533,53 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
   }, [dispatch]);
 
   const handleGoBackFromDrive = useCallback(() => {
+    const inTerminalDrive = routeSnapshot.activeDomain === 'terminal' && routeSnapshot.terminalPane === 'drive';
+    if ((routeSnapshot.activeDomain === 'drive' || inTerminalDrive) && stackRegistryRef.current.drive?.navigation?.canGoBack()) {
+      goBackWithinDomain('drive');
+      return;
+    }
+    if (inTerminalDrive) {
+      goBackWithinDomain('terminal');
+      return;
+    }
     if (driveDetailMode !== 'none') {
       dispatch(closeDriveDetail());
       return;
     }
     if (drivePanel !== 'browser') {
       dispatch(openDriveBrowser());
+      return;
     }
-  }, [dispatch, driveDetailMode, drivePanel]);
+    if (driveBrowserPath && driveBrowserPath !== '/') {
+      dispatch(setDriveBrowserPath(dirnamePath(driveBrowserPath)));
+    }
+  }, [dispatch, driveBrowserPath, driveDetailMode, drivePanel, goBackWithinDomain, routeSnapshot.activeDomain, routeSnapshot.terminalPane]);
 
   const handleDriveMenu = useCallback(() => {
+    const driveNavigation = stackRegistryRef.current.drive?.navigation;
+    const driveStackActive = routeSnapshot.activeDomain === 'drive' || (routeSnapshot.activeDomain === 'terminal' && routeSnapshot.terminalPane === 'drive');
+    if (driveStackActive && driveNavigation) {
+      driveNavigation.navigate('DriveMenu');
+      return;
+    }
     if (driveDetailMode !== 'none') {
       return;
     }
     dispatch(openDriveMenu());
-  }, [dispatch, driveDetailMode]);
+  }, [dispatch, driveDetailMode, routeSnapshot.activeDomain, routeSnapshot.terminalPane]);
 
   const handleDriveSearch = useCallback(() => {
+    const driveNavigation = stackRegistryRef.current.drive?.navigation;
+    const driveStackActive = routeSnapshot.activeDomain === 'drive' || (routeSnapshot.activeDomain === 'terminal' && routeSnapshot.terminalPane === 'drive');
+    if (driveStackActive && driveNavigation) {
+      driveNavigation.navigate('DriveSearch');
+      return;
+    }
     if (driveDetailMode !== 'none') {
       dispatch(closeDriveDetail());
     }
     dispatch(openDriveSearch());
-  }, [dispatch, driveDetailMode]);
+  }, [dispatch, driveDetailMode, routeSnapshot.activeDomain, routeSnapshot.terminalPane]);
 
   const handleDriveSelect = useCallback(() => {
     if (driveDetailMode !== 'none' || drivePanel !== 'browser') {
@@ -531,6 +587,27 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
     }
     dispatch(toggleDriveSelectionMode());
   }, [dispatch, driveDetailMode, drivePanel]);
+
+  const handleCancelDrivePicker = useCallback(() => {
+    const driveNavigation = stackRegistryRef.current.drive?.navigation as DriveRootNavigation | undefined;
+    if (!driveNavigation) {
+      return;
+    }
+
+    const routes = driveNavigation.getState().routes;
+    let pickerCount = 0;
+
+    for (let index = routes.length - 1; index >= 0; index -= 1) {
+      if (routes[index]?.name !== 'DriveMoveCopyPicker') {
+        break;
+      }
+      pickerCount += 1;
+    }
+
+    if (pickerCount > 0) {
+      driveNavigation.pop(pickerCount);
+    }
+  }, []);
 
   const handleDriveSearchQueryChange = useCallback(
     (value: string) => {
@@ -587,6 +664,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       openTerminalDrive: handleOpenTerminalDrive,
       reloadTerminalDetail: handleReloadTerminalDetail,
       goBackFromDrive: handleGoBackFromDrive,
+      cancelDrivePicker: handleCancelDrivePicker,
       openDriveMenu: handleDriveMenu,
       openDriveSearch: handleDriveSearch,
       setDriveSearchQuery: handleDriveSearchQueryChange,
@@ -598,6 +676,7 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       handleChatListSearch,
       handleChatOverlayBack,
       handleChatSearchBack,
+      handleCancelDrivePicker,
       handleCreateApp,
       handleDriveMenu,
       handleDriveSearch,
@@ -629,6 +708,10 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
         drivePanel,
         driveDetailMode,
         driveDetailTitle,
+        driveRouteName: driveFocusedRoute,
+        drivePickerPath: driveFocusedPickerPath,
+        drivePickerMountName: driveFocusedPickerMountName,
+        driveBrowserPath,
         driveSearchQuery,
         driveSelectionMode,
         actions: headerActions
@@ -641,6 +724,10 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
       chatSearchQuery,
       driveDetailMode,
       driveDetailTitle,
+      driveFocusedPickerMountName,
+      driveFocusedPickerPath,
+      driveFocusedRoute,
+      driveBrowserPath,
       drivePanel,
       driveSearchQuery,
       driveSelectionMode,
@@ -773,6 +860,8 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                   onBindRootTabNavigation={bindRootTabNavigation}
                   onDomainFocus={handleDomainFocus}
                   onBindNavigation={(navigation) => bindStackNavigation('terminal', navigation, 'TerminalList')}
+                  onBindDriveNavigation={(navigation) => bindStackNavigation('drive', navigation, 'DriveBrowser')}
+                  onDriveRouteFocus={handleDriveRouteFocus}
                   onRouteFocus={handleTerminalRouteFocus}
                   runtime={terminalRuntime}
                 />
@@ -783,6 +872,8 @@ export function ShellScreenView({ controller }: ShellScreenViewProps) {
                 <ShellDriveTabScreen
                   onBindRootTabNavigation={bindRootTabNavigation}
                   onDomainFocus={handleDomainFocus}
+                  onBindNavigation={(navigation) => bindStackNavigation('drive', navigation, 'DriveBrowser')}
+                  onRouteFocus={handleDriveRouteFocus}
                 />
               )}
             </Tab.Screen>

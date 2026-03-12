@@ -1,10 +1,6 @@
-import { useEffect, useMemo } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-
 import { AppTheme } from '../../../../core/constants/theme';
 import { DriveDetailMode, DrivePanel } from '../../../../modules/drive/state/driveSlice';
-import { ShellTabBindings, ShellTabNavigation } from '../../types';
+import { DriveRouteName } from './types';
 import {
   ShellHeaderActionButton,
   ShellHeaderActionRow,
@@ -18,13 +14,17 @@ import {
   ShellSearchIcon
 } from '../../components/ShellTopNav';
 import { ShellHeaderDescriptor } from '../../header/types';
-import { DriveContent } from './DriveContent';
+export { ShellDriveTabScreen } from './Navigator';
 
 interface BuildDriveHeaderInput {
   theme: AppTheme;
+  routeName: DriveRouteName;
+  pickerPath?: string;
+  pickerMountName?: string;
   panel: DrivePanel;
   detailMode: DriveDetailMode;
   detailTitle: string;
+  browserPath: string;
   searchQuery: string;
   selectionMode: boolean;
   onBack: () => void;
@@ -32,25 +32,70 @@ interface BuildDriveHeaderInput {
   onOpenSearch: () => void;
   onChangeSearch: (value: string) => void;
   onToggleSelect: () => void;
+  onCancelPicker: () => void;
+}
+
+function resolveDriveBrowserTitle(path: string) {
+  const normalized = String(path || '').trim();
+  if (!normalized || normalized === '/') {
+    return '网盘';
+  }
+  return normalized.split('/').filter(Boolean).at(-1) || '网盘';
+}
+
+function resolveMoveCopyPickerTitle(path: string, mountName?: string) {
+  const normalized = String(path || '').trim();
+  if (!normalized || normalized === '/') {
+    return String(mountName || '').trim() || '网盘';
+  }
+  return normalized.split('/').filter(Boolean).at(-1) || String(mountName || '').trim() || '网盘';
 }
 
 export function buildDriveHeader({
   theme,
+  routeName,
+  pickerPath,
+  pickerMountName,
   panel,
   detailMode,
   detailTitle,
+  browserPath,
   searchQuery,
   selectionMode,
   onBack,
   onOpenMenu,
   onOpenSearch,
   onChangeSearch,
-  onToggleSelect
+  onToggleSelect,
+  onCancelPicker
 }: BuildDriveHeaderInput): ShellHeaderDescriptor {
+  if (routeName === 'DriveMoveCopyPicker') {
+    const isRootPicker = !pickerPath || pickerPath === '/';
+
+    return {
+      left: isRootPicker ? (
+        <ShellHeaderPlaceholder testID="shell-drive-picker-placeholder" />
+      ) : (
+        <ShellHeaderBackButton theme={theme} testID="shell-drive-picker-back-btn" onPress={onBack} />
+      ),
+      center: <ShellHeaderTitle theme={theme} title={resolveMoveCopyPickerTitle(pickerPath || '/', pickerMountName)} />,
+      right: (
+        <ShellHeaderActionButton
+          theme={theme}
+          label="取消"
+          testID="shell-drive-picker-cancel-btn"
+          onPress={onCancelPicker}
+        />
+      )
+    };
+  }
+
   if (detailMode !== 'none') {
     return {
       left: <ShellHeaderBackButton theme={theme} testID="shell-drive-back-btn" onPress={onBack} />,
-      center: <ShellHeaderTitle theme={theme} title={detailTitle || (detailMode === 'preview' ? '文件详情' : '文件操作')} />,
+      center: (
+        <ShellHeaderTitle theme={theme} title={detailTitle || (detailMode === 'preview' ? '文件详情' : '文件操作')} />
+      ),
       right: <ShellHeaderPlaceholder testID="shell-drive-detail-placeholder" />
     };
   }
@@ -84,57 +129,40 @@ export function buildDriveHeader({
     };
   }
 
+  const browserAtRoot = !browserPath || browserPath === '/';
+
   return {
-    left: (
+    left: browserAtRoot ? (
       <ShellHeaderIconButton theme={theme} testID="shell-drive-menu-btn" onPress={onOpenMenu}>
         <ShellMenuIcon theme={theme} />
       </ShellHeaderIconButton>
+    ) : (
+      <ShellHeaderBackButton theme={theme} testID="shell-drive-browser-back-btn" onPress={onBack} />
     ),
-    center: <ShellHeaderTitle theme={theme} title="网盘" />,
+    center: <ShellHeaderTitle theme={theme} title={resolveDriveBrowserTitle(browserPath)} />,
     right: (
       <ShellHeaderActionRow testID="shell-drive-top-actions">
         <ShellHeaderIconButton theme={theme} testID="shell-drive-search-btn" onPress={onOpenSearch}>
           <ShellSearchIcon theme={theme} />
         </ShellHeaderIconButton>
         {selectionMode ? (
-          <ShellHeaderActionButton theme={theme} label="完成" testID="shell-drive-select-btn" onPress={onToggleSelect} />
+          <ShellHeaderActionButton
+            theme={theme}
+            label="完成"
+            testID="shell-drive-select-btn"
+            onPress={onToggleSelect}
+          />
         ) : (
           <ShellHeaderIconButton theme={theme} testID="shell-drive-select-btn" onPress={onToggleSelect}>
             <ShellSelectIcon theme={theme} />
           </ShellHeaderIconButton>
         )}
+        {!browserAtRoot ? (
+          <ShellHeaderIconButton theme={theme} testID="shell-drive-browser-menu-btn" onPress={onOpenMenu}>
+            <ShellMenuIcon theme={theme} />
+          </ShellHeaderIconButton>
+        ) : null}
       </ShellHeaderActionRow>
     )
   };
 }
-
-export function ShellDriveTabScreen({ onBindRootTabNavigation, onDomainFocus }: ShellTabBindings) {
-  const navigation = useNavigation<ShellTabNavigation>();
-
-  useEffect(() => {
-    onBindRootTabNavigation(navigation);
-  }, [navigation, onBindRootTabNavigation]);
-
-  useEffect(() => {
-    const notifyFocus = () => onDomainFocus?.('drive');
-
-    if (navigation.isFocused()) {
-      notifyFocus();
-    }
-
-    const unsubscribe = navigation.addListener('focus', notifyFocus);
-    return unsubscribe;
-  }, [navigation, onDomainFocus]);
-
-  return (
-    <View style={styles.page}>
-      <DriveContent testIDPrefix="drive" />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  page: {
-    flex: 1
-  }
-});

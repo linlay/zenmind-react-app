@@ -15,7 +15,13 @@ const Stack = createNativeStackNavigator<TerminalStackParamList>();
 
 interface TerminalScreenProps extends TerminalRouteBridgeProps {}
 
-export function TerminalScreen({ onBindNavigation, onRouteFocus, runtime }: TerminalScreenProps) {
+export function TerminalScreen({
+  onBindNavigation,
+  onBindDriveNavigation,
+  onDriveRouteFocus,
+  onRouteFocus,
+  runtime
+}: TerminalScreenProps) {
   return (
     <View style={styles.domainContent}>
       <Stack.Navigator id="TerminalScreen" initialRouteName="TerminalList" screenOptions={{ headerShown: false }}>
@@ -44,6 +50,8 @@ export function TerminalScreen({ onBindNavigation, onRouteFocus, runtime }: Term
             <TerminalDriveRouteScreen
               {...props}
               onBindNavigation={onBindNavigation}
+              onBindDriveNavigation={onBindDriveNavigation}
+              onDriveRouteFocus={onDriveRouteFocus}
               onRouteFocus={onRouteFocus}
               runtime={runtime}
             />
@@ -58,6 +66,8 @@ export function ShellTerminalTabScreen({
   onBindRootTabNavigation,
   onDomainFocus,
   onBindNavigation,
+  onBindDriveNavigation,
+  onDriveRouteFocus,
   onRouteFocus,
   runtime
 }: ShellTerminalTabScreenProps) {
@@ -80,7 +90,13 @@ export function ShellTerminalTabScreen({
 
   return (
     <View style={styles.domainContent} testID="terminal-route-stack">
-      <TerminalScreen onBindNavigation={onBindNavigation} onRouteFocus={onRouteFocus} runtime={runtime} />
+      <TerminalScreen
+        onBindNavigation={onBindNavigation}
+        onBindDriveNavigation={onBindDriveNavigation}
+        onDriveRouteFocus={onDriveRouteFocus}
+        onRouteFocus={onRouteFocus}
+        runtime={runtime}
+      />
     </View>
   );
 }

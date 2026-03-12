@@ -4,6 +4,7 @@ import { DriveMount } from '../../../../../modules/drive/types';
 import { AppTheme } from '../../../../../core/constants/theme';
 import { DriveFormPageState, DrivePalette } from '../types';
 import { buildBreadcrumbs, dirnamePath } from '../utils';
+import { FolderIcon } from './Icons';
 import styles from '../DriveContent.styles';
 
 interface FormPageProps {
@@ -12,10 +13,19 @@ interface FormPageProps {
   formPage: DriveFormPageState;
   currentMount: DriveMount | null;
   currentPath: string;
+  bottomInset?: number;
   onChangeFormValue: (value: string) => void;
   onSubmit: () => void;
   onBrowseDirectory: (path: string) => void;
   onBrowseUp: () => void;
+}
+
+function resolveMoveCopyTargetLabel(path: string, currentMount: DriveMount | null) {
+  const normalized = String(path || '').trim();
+  if (!normalized || normalized === '/') {
+    return currentMount?.name || '根目录';
+  }
+  return currentMount ? `${currentMount.name} ${normalized}` : normalized;
 }
 
 export function FormPage({
@@ -24,6 +34,7 @@ export function FormPage({
   formPage,
   currentMount,
   currentPath,
+  bottomInset = 0,
   onChangeFormValue,
   onSubmit,
   onBrowseDirectory,
@@ -38,7 +49,7 @@ export function FormPage({
           </Text>
           <Text style={[styles.infoTitle, { color: palette.text }]} numberOfLines={1}>
             {formPage.kind === 'create-folder'
-              ? `${currentMount?.name || '挂载点'} / ${currentPath}`
+              ? `${currentMount?.name || '挂载点'} ${currentPath}`
               : formPage.kind === 'rename'
                 ? formPage.entry.name
                 : `${formPage.entries.length} 个项目`}
@@ -49,6 +60,13 @@ export function FormPage({
               : formPage.kind === 'batch-download'
                 ? '系统会在后台创建压缩包任务'
                 : '新目录会创建在当前路径下'}
+          </Text>
+          <Text style={[styles.infoMeta, { color: palette.textMute }]}>
+            {formPage.kind === 'create-folder'
+              ? '创建后会直接出现在当前目录列表中。'
+              : formPage.kind === 'rename'
+                ? '只修改名称，不改变所在目录。'
+                : '压缩完成后可在“传输任务”中查看并下载。'}
           </Text>
         </View>
 
@@ -134,91 +152,156 @@ export function FormPage({
   // move / copy
   const browseCrumbs = buildBreadcrumbs(formPage.browsePath);
   const canGoUp = formPage.browsePath !== '/';
+  const selectedLabel = resolveMoveCopyTargetLabel(formPage.targetPath, currentMount);
 
   return (
-    <>
-      <View style={[styles.infoCard, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder }]}>
-        <Text style={[styles.sectionLabel, { color: palette.textMute }]}>目标目录</Text>
-        <Text style={[styles.infoTitle, { color: palette.text }]} numberOfLines={1}>
-          {formPage.targetPath}
-        </Text>
-        <Text style={[styles.infoMeta, { color: palette.textSoft }]} numberOfLines={1}>
-          从目录列表中一路浏览，确认后把项目放到"当前目录"。
+    <View style={styles.moveCopyPickerPage}>
+      <View
+        style={[
+          styles.moveCopySelectedStrip,
+          {
+            backgroundColor: theme.surface,
+            borderColor: palette.cardBorder
+          }
+        ]}
+      >
+        <Text style={[styles.moveCopySelectedText, { color: palette.textSoft }]} numberOfLines={1}>
+          选择目标文件夹（已选：{selectedLabel}）
         </Text>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.breadcrumbRow}>
-        {browseCrumbs.map((item, index) => {
-          const isLast = index === browseCrumbs.length - 1;
-          return (
-            <TouchableOpacity
-              key={item.path}
-              activeOpacity={0.78}
-              onPress={() => onBrowseDirectory(item.path)}
-              style={styles.breadcrumbItem}
-            >
-              <Text style={[styles.breadcrumbText, { color: isLast ? palette.primaryDeep : palette.textSoft }]}>
-                {item.label}
+      <ScrollView
+        style={styles.moveCopyList}
+        contentContainerStyle={[styles.moveCopyListContent, { paddingBottom: Math.max(bottomInset + 112, 136) }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.breadcrumbRow}>
+          {browseCrumbs.map((item, index) => {
+            const isLast = index === browseCrumbs.length - 1;
+            return (
+              <TouchableOpacity
+                key={item.path}
+                activeOpacity={0.78}
+                onPress={() => onBrowseDirectory(item.path)}
+                style={styles.breadcrumbItem}
+              >
+                <Text style={[styles.breadcrumbText, { color: isLast ? palette.primaryDeep : palette.textSoft }]}>
+                  {item.label}
+                </Text>
+                {!isLast ? <Text style={[styles.breadcrumbSlash, { color: palette.textMute }]}>/</Text> : null}
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {canGoUp ? (
+          <TouchableOpacity
+            activeOpacity={0.82}
+            style={[
+              styles.moveCopyDirRow,
+              {
+                borderBottomColor: palette.cardBorder
+              }
+            ]}
+            onPress={onBrowseUp}
+          >
+            <View style={[styles.moveCopyDirIconWrap, { backgroundColor: palette.primarySoft }]}>
+              <FolderIcon color={palette.primaryDeep} />
+            </View>
+            <View style={styles.moveCopyDirMain}>
+              <Text style={[styles.moveCopyDirName, { color: palette.text }]}>返回上一级</Text>
+              <Text style={[styles.moveCopyDirMeta, { color: palette.textMute }]} numberOfLines={1}>
+                {dirnamePath(formPage.browsePath)}
               </Text>
-              {!isLast ? <Text style={[styles.breadcrumbSlash, { color: palette.textMute }]}>/</Text> : null}
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+            </View>
+          </TouchableOpacity>
+        ) : null}
 
-      {canGoUp ? (
-        <TouchableOpacity
-          activeOpacity={0.82}
-          style={[styles.menuRow, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder }]}
-          onPress={onBrowseUp}
-        >
-          <View style={styles.menuRowTextWrap}>
-            <Text style={[styles.menuRowTitle, { color: palette.text }]}>返回上一级</Text>
-            <Text style={[styles.menuRowDesc, { color: palette.textSoft }]}>切换到父目录继续浏览</Text>
-          </View>
-          <Text style={[styles.menuRowAction, { color: palette.primaryDeep }]}>上一级</Text>
-        </TouchableOpacity>
-      ) : null}
-
-      <View style={[styles.formCard, { backgroundColor: palette.cardBg, borderColor: palette.cardBorder }]}>
-        <Text style={[styles.formLabel, { color: palette.textSoft }]}>当前目录下的子目录</Text>
         {formPage.loading ? (
           <View style={styles.loadingWrap}>
             <ActivityIndicator color={palette.primaryDeep} />
           </View>
         ) : null}
+
         {!formPage.loading && !formPage.browseEntries.length ? (
           <Text style={[styles.infoMeta, { color: palette.textMute }]}>这个目录下暂时没有更多子目录。</Text>
         ) : null}
-        {formPage.browseEntries.map((entry) => (
-          <TouchableOpacity
-            key={`${entry.mountId}:${entry.path}`}
-            activeOpacity={0.82}
-            style={[styles.browserDirRow, { borderColor: palette.cardBorder }]}
-            onPress={() => onBrowseDirectory(entry.path)}
-          >
-            <Text style={[styles.browserDirName, { color: palette.text }]} numberOfLines={1}>
-              {entry.name}
-            </Text>
-            <Text style={[styles.browserDirPath, { color: palette.textMute }]} numberOfLines={1}>
-              {entry.path}
-            </Text>
-          </TouchableOpacity>
-        ))}
-        {formPage.error ? (
-          <Text style={[styles.formErrorText, { color: palette.danger }]}>{formPage.error}</Text>
-        ) : null}
+
+        {formPage.browseEntries.map((entry) => {
+          const selected = entry.path === formPage.targetPath;
+          return (
+            <TouchableOpacity
+              key={`${entry.mountId}:${entry.path}`}
+              activeOpacity={0.82}
+              style={[
+                styles.moveCopyDirRow,
+                {
+                  backgroundColor: selected ? palette.primarySoft : 'transparent',
+                  borderBottomColor: palette.cardBorder
+                }
+              ]}
+              onPress={() => onBrowseDirectory(entry.path)}
+            >
+              <View style={[styles.moveCopyDirIconWrap, { backgroundColor: palette.primarySoft }]}>
+                <FolderIcon color={palette.primaryDeep} />
+              </View>
+              <View style={styles.moveCopyDirMain}>
+                <Text style={[styles.moveCopyDirName, { color: selected ? palette.primaryDeep : palette.text }]} numberOfLines={1}>
+                  {entry.name}
+                </Text>
+                <Text style={[styles.moveCopyDirMeta, { color: palette.textMute }]} numberOfLines={1}>
+                  {entry.path}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })}
+
+        {formPage.error ? <Text style={[styles.formErrorText, { color: palette.danger }]}>{formPage.error}</Text> : null}
+      </ScrollView>
+
+      <View
+        style={[
+          styles.moveCopyFooter,
+          {
+            backgroundColor: palette.pageBg,
+            borderTopColor: palette.cardBorder,
+            paddingBottom: Math.max(bottomInset, 12) + 8
+          }
+        ]}
+      >
+        <TouchableOpacity
+          activeOpacity={1}
+          disabled
+          style={[
+            styles.moveCopyFooterBtn,
+            {
+              backgroundColor: theme.surface,
+              borderColor: palette.cardBorder,
+              opacity: 0.56
+            }
+          ]}
+        >
+          <Text style={[styles.moveCopyFooterBtnText, { color: palette.textMute }]}>新建文件夹</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity
           activeOpacity={0.84}
-          style={[styles.primaryActionBtn, { backgroundColor: palette.primary }]}
+          style={[
+            styles.moveCopyFooterBtn,
+            styles.moveCopyFooterBtnPrimary,
+            {
+              backgroundColor: palette.primary
+            }
+          ]}
           onPress={onSubmit}
           disabled={formPage.submitting}
         >
-          <Text style={styles.primaryActionText}>
-            {formPage.submitting ? '处理中...' : formPage.kind === 'move' ? '移动到当前目录' : '复制到当前目录'}
+          <Text style={styles.moveCopyFooterBtnTextPrimary}>
+            {formPage.submitting ? '处理中...' : `${formPage.kind === 'move' ? '移动' : '复制'} (${formPage.entries.length})`}
           </Text>
         </TouchableOpacity>
       </View>
-    </>
+    </View>
   );
 }

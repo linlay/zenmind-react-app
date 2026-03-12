@@ -10,11 +10,13 @@
     "proxy": "node scripts/dev-proxy.mjs",
     "test": "jest",
     "typecheck": "tsc --noEmit",
-    "build": "expo export"
+    "build": "expo export",
+    "build:android": "npx eas-cli build -p android --profile preview"
   },
   "packageManager": "pnpm@7.33.7",
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-picker/picker": "2.11.1",
     "@react-navigation/bottom-tabs": "^7.15.3",
     "@react-navigation/native": "^7.1.31",
     "@react-navigation/native-stack": "^7.14.2",

@@ -13,11 +13,13 @@ export function useShellRouteBridge({ navigation, onBindNavigation, onFocus }: U
   }, [navigation, onBindNavigation]);
 
   useEffect(() => {
+    onBindNavigation?.(navigation);
     onFocus?.();
     const unsubscribe = navigation.addListener('focus', () => {
+      onBindNavigation?.(navigation);
       onFocus?.();
     });
 
     return unsubscribe;
-  }, [navigation, onFocus]);
+  }, [navigation, onBindNavigation, onFocus]);
 }

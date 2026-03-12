@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { RefreshControl, ScrollView, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { setDriveSelectionMode } from '../../../../modules/drive/state/driveSlice';
+import { openDriveTasks, openDriveTrash, setDriveSelectionMode } from '../../../../modules/drive/state/driveSlice';
 import { dirnamePath } from './utils';
 import { DriveContentProps } from './types';
 import { useDriveController } from './useDriveController';
@@ -42,6 +42,8 @@ export function DriveContent({ testIDPrefix = 'drive' }: DriveContentProps) {
     !ctrl.driveSelectionMode &&
     Boolean(ctrl.baseUrl) &&
     Boolean(ctrl.currentMountId);
+  const browserPageActive = ctrl.drivePanel === 'browser' && !ctrl.previewPage && !ctrl.formPage;
+  const contentBottomPadding = selectionBarVisible ? Math.max(insets.bottom + 176, 196) : Math.max(insets.bottom + 32, 40);
 
   useEffect(() => {
     if (!uploadFabVisible) {
@@ -155,6 +157,8 @@ export function DriveContent({ testIDPrefix = 'drive' }: DriveContentProps) {
           }}
           onRefresh={() => void ctrl.loadBrowserEntries(false)}
           onToggleHidden={() => ctrl.setShowHidden((prev) => !prev)}
+          onOpenTasks={() => ctrl.dispatch(openDriveTasks())}
+          onOpenTrash={() => ctrl.dispatch(openDriveTrash())}
         />
       );
     }
@@ -191,49 +195,49 @@ export function DriveContent({ testIDPrefix = 'drive' }: DriveContentProps) {
         palette={ctrl.palette}
         themeMode={ctrl.theme.mode}
         baseUrl={ctrl.baseUrl}
+        hasMounts={ctrl.mounts.length > 0}
         mountsLoading={ctrl.mountsLoading}
         entriesLoading={ctrl.entriesLoading}
         browserError={ctrl.browserError}
-        currentMountId={ctrl.currentMountId}
-        currentPath={ctrl.currentPath}
-        currentMount={ctrl.currentMount}
-        breadcrumbs={ctrl.breadcrumbs}
         sortedEntries={ctrl.sortedEntries}
         driveSelectionMode={ctrl.driveSelectionMode}
         selectedEntries={ctrl.selectedEntries}
         mountMap={ctrl.mountMap}
-        onNavigateToDirectory={ctrl.navigateToDirectory}
+        browserRefreshing={ctrl.browserRefreshing}
+        contentBottomPadding={contentBottomPadding}
+        onRefresh={() => void ctrl.loadBrowserEntries(true)}
         onRetry={() => void ctrl.loadBrowserEntries(false)}
         onEntryPress={ctrl.handleEntryPress}
         onEntryLongPress={ctrl.handleEntryLongPress}
         onEntryMore={ctrl.openEntryActionsPage}
+        onOpenTasks={() => ctrl.dispatch(openDriveTasks())}
+        onOpenTrash={() => ctrl.dispatch(openDriveTrash())}
       />
     );
   };
 
   return (
     <View style={[styles.page, { backgroundColor: ctrl.palette.pageBg }]} testID={buildTestID(testIDPrefix, 'page')}>
-      <ScrollView
-        style={styles.listWrap}
-        contentContainerStyle={[
-          styles.listContent,
-          {
-            paddingBottom: selectionBarVisible ? Math.max(insets.bottom + 176, 196) : Math.max(insets.bottom + 32, 40)
+      {browserPageActive ? (
+        renderBody()
+      ) : (
+        <ScrollView
+          style={styles.listWrap}
+          contentContainerStyle={[styles.listContent, { paddingBottom: contentBottomPadding }]}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            !ctrl.previewPage && !ctrl.formPage ? (
+              <RefreshControl
+                refreshing={ctrl.browserRefreshing && ctrl.drivePanel === 'browser'}
+                onRefresh={() => void ctrl.loadBrowserEntries(true)}
+                tintColor={ctrl.palette.primaryDeep}
+              />
+            ) : undefined
           }
-        ]}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          !ctrl.previewPage && !ctrl.formPage ? (
-            <RefreshControl
-              refreshing={ctrl.browserRefreshing && ctrl.drivePanel === 'browser'}
-              onRefresh={() => void ctrl.loadBrowserEntries(true)}
-              tintColor={ctrl.palette.primaryDeep}
-            />
-          ) : undefined
-        }
-      >
-        {renderBody()}
-      </ScrollView>
+        >
+          {renderBody()}
+        </ScrollView>
+      )}
 
       <EntryActionsPage
         palette={ctrl.palette}
