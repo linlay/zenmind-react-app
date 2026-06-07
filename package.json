@@ -14,7 +14,8 @@
     "test": "node --no-warnings --test --experimental-transform-types scripts/tests/*.test.mts",
     "prettier": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
     "prettier:fix": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
-    "build": "expo export",
+    "build": "node ./scripts/worklets/pregenerate.js && expo export",
+    "eas-build-post-install": "node ./scripts/worklets/pregenerate.js",
     "kb:build": "node ./scripts/kb/build.js && prettier --write \"doc/kb/**/*.json\"",
     "kb:validate": "node ./scripts/kb/validate.js",
     "kb:check-stale": "node ./scripts/kb/check-stale.js"
@@ -34,6 +35,7 @@
     "expo-notifications": "56.0.15",
     "expo-splash-screen": "56.0.10",
     "expo-sqlite": "56.0.4",
+    "expo-updates": "~56.0.18",
     "katex": "0.17.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",

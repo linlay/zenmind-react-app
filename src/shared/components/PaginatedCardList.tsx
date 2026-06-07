@@ -1,4 +1,5 @@
-import { ComponentType, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ComponentType, ReactElement } from 'react';
 import {
   FlashList,
   FlashListRef,
@@ -42,8 +43,8 @@ export type PaginatedCardListProps<ItemT> = {
   refreshing?: boolean;
   onRefresh: () => void | Promise<void>;
   itemHeight?: number;
-  ListHeaderComponent?: JSX.Element | null;
-  ListEmptyComponent?: JSX.Element | null;
+  ListHeaderComponent?: ReactElement | null;
+  ListEmptyComponent?: ReactElement | null;
   contentContainerStyle?: StyleProp<ViewStyle>;
   showScrollTopButton?: boolean;
   scrollTopBottomInset?: number;

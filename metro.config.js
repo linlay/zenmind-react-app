@@ -19,7 +19,7 @@ if (!config.resolver.assetExts.includes('wasm')) {
   config.resolver.assetExts.push('wasm');
 }
 
-config.watchFolders = [workspaceNodeModulesDir, generatedWorkletsDir];
+config.watchFolders = fs.existsSync(workspaceNodeModulesDir) ? [workspaceNodeModulesDir] : [];
 
 const defaultResolver = config.resolver.resolveRequest;
 
@@ -29,19 +29,22 @@ const bundleModeResolver = config.resolver.resolveRequest;
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (moduleName.startsWith(generatedWorkletsModulePrefix)) {
-    return {
-      type: 'sourceFile',
-      filePath: path.join(
-        generatedWorkletsDir,
-        moduleName.slice(generatedWorkletsModulePrefix.length)
-      ),
-    };
-  }
-  if (defaultResolver) {
-    return defaultResolver(context, moduleName, platform);
+    const generatedWorkletPath = path.join(
+      generatedWorkletsDir,
+      moduleName.slice(generatedWorkletsModulePrefix.length)
+    );
+    if (fs.existsSync(generatedWorkletPath)) {
+      return {
+        type: 'sourceFile',
+        filePath: generatedWorkletPath,
+      };
+    }
   }
   if (bundleModeResolver) {
     return bundleModeResolver(context, moduleName, platform);
+  }
+  if (defaultResolver) {
+    return defaultResolver(context, moduleName, platform);
   }
   return context.resolveRequest(context, moduleName, platform);
 };
