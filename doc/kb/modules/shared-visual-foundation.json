@@ -1,0 +1,201 @@
+{
+  "id": "shared-visual-foundation",
+  "title": "共享视觉 token 与统一图标基础",
+  "layer": "shared",
+  "paths": ["src/shared/visual", "src/shared/icons", "doc/ui-visual-theme.md"],
+  "responsibility": [
+    "提供静态视觉 token、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
+    "通过 AppIcon/AppIconButton 与 appIconUsages 把业务语义映射到底层 glyph，页面和 feature 组件不直接选择 AppLineIcon 底层图标名。",
+    "统一管理白色背景、白色表面、蓝色主强调、灰色辅助信息、文本层级、分隔线、圆角、头像色板、品牌资产和内置 agent icon 名称映射。",
+    "沉淀当前移动端扁平简约主题规范，给后续页面改造提供统一的风格入口和实现约束。",
+    "保持零业务状态、零运行时主题 provider 和零持久化依赖，避免样式语义散落到各 screen。"
+  ],
+  "publicEntrypoints": [
+    {
+      "file": "src/shared/visual/foundation.ts",
+      "symbol": "appVisualTokens",
+      "kind": "constant",
+      "description": "共享视觉 token 常量。"
+    },
+    {
+      "file": "src/shared/visual/foundation.ts",
+      "symbol": "formatConversationTimestamp",
+      "kind": "helper",
+      "description": "会话列表紧凑时间展示 helper：当天 HH:mm、当年 MM-DD、跨年 YYYY-MM。"
+    },
+    {
+      "file": "src/shared/visual/foundation.ts",
+      "symbol": "getAvatarTone",
+      "kind": "helper",
+      "description": "按稳定 seed 派生头像色板。"
+    },
+    {
+      "file": "src/shared/icons/AppIcon.tsx",
+      "symbol": "AppIcon",
+      "kind": "component",
+      "description": "统一 UI 图标渲染入口，按 AppIconUsage 做 O(1) 静态查表后渲染底层 glyph，允许调用方覆盖动态颜色、尺寸和 strokeWidth。"
+    },
+    {
+      "file": "src/shared/icons/AppIconButton.tsx",
+      "symbol": "AppIconButton",
+      "kind": "component",
+      "description": "统一图标按钮外壳，只封装 Pressable 与 AppIcon，不承载业务状态。"
+    },
+    {
+      "file": "src/shared/icons/registries/appIconUsages.ts",
+      "symbol": "appIconUsages",
+      "kind": "registry",
+      "description": "业务语义 icon usage 到底层 glyph、默认颜色角色、默认尺寸角色和 strokeWidth 的集中映射；常规图标尺寸角色覆盖 18 到 28px。"
+    },
+    {
+      "file": "src/shared/icons/registries/appIconRegistry.ts",
+      "symbol": "appIconRegistry",
+      "kind": "registry",
+      "description": "当前可用底层 AppLineIcon glyph key 的静态注册表。"
+    },
+    {
+      "file": "src/shared/icons/brandAssets.ts",
+      "symbol": "brandAssets",
+      "kind": "asset-registry",
+      "description": "品牌 logo / splash 相关资产入口。"
+    },
+    {
+      "file": "src/shared/visual/AppLineIcon.tsx",
+      "symbol": "AppLineIcon",
+      "kind": "component",
+      "description": "底层 24px react-native-svg glyph renderer，优先用静态 1024 viewBox 填充 path 渲染统一线性风格图标，仅保留少量未替换 glyph 的描边 fallback。"
+    },
+    {
+      "file": "src/shared/visual/AgentAvatar.tsx",
+      "symbol": "AgentAvatar",
+      "kind": "component",
+      "description": "agent/team 头像组件，agent 按服务端 icon.name 命中内置静态图标，支持 icon.uri 图片兜底，缺失或未知 icon 时回落 default 内置头像；team 使用团队符号和稳定色板。"
+    },
+    {
+      "file": "src/shared/visual/AgentBuiltinIcon.tsx",
+      "symbol": "AgentBuiltinIcon",
+      "kind": "component",
+      "description": "内置 agent icon 的 react-native-svg 静态组件集合，避免列表头像运行时解析 SVG XML。"
+    },
+    {
+      "file": "src/shared/visual/agentAvatarIcon.ts",
+      "symbol": "normalizeAgentAvatarIcon",
+      "kind": "helper",
+      "description": "把远端或持久化 icon 输入归一为 name/color/uri 三个展示字段，并提供内置 icon 名称和 uri 类型判断。"
+    },
+    {
+      "file": "doc/ui-visual-theme.md",
+      "symbol": null,
+      "kind": "doc",
+      "description": "固化当前移动端视觉主题与 UI 落地约束。"
+    }
+  ],
+  "dependsOn": [],
+  "dependedBy": [
+    "app-shell-navigation",
+    "feature-agent-task-board",
+    "feature-chat-persistence",
+    "shared-conversation-content-renderer",
+    "shared-paginated-list",
+    "shared-screen-header"
+  ],
+  "stateTouches": [
+    "静态视觉语义映射",
+    "业务 icon usage 到底层 glyph 的集中映射",
+    "agent/team 内置 icon 名称映射与静态 SVG 渲染",
+    "品牌 logo 资产入口",
+    "会话头像展示派生",
+    "底部导航与顶部操作图标渲染"
+  ],
+  "relatedFlows": ["app-startup", "chat-home-cold-boot"],
+  "relatedTasks": [
+    "add-or-edit-tab-screen",
+    "add-reusable-header-component",
+    "add-reusable-list-screen"
+  ],
+  "impactChecklist": [
+    "保持静态导出，不引入运行时主题切换或 context 订阅。",
+    "页面和 feature 组件只消费 AppIcon / AppIconButton / AgentAvatar，不直接 import AppLineIcon 或 AgentBuiltinIcon。",
+    "AppIcon 只做 usage 静态查表和当前 glyph 渲染，不做业务状态判断、不动态解析 SVG、不预渲染全部图标。",
+    "展示 helper、AgentAvatar 和 AgentBuiltinIcon 只做格式化、色板派生和 icon 展示，不夹带业务状态或 repository 逻辑。",
+    "图标和 token 的变更要同步检查 Tab、Header、聊天首页和详情页的一致性。",
+    "如果主题规则变更，同步更新 doc/ui-visual-theme.md，避免代码与文档脱节。",
+    "底部导航避让和长列表层级策略属于主题约束的一部分，不要回退到页面内硬编码 padding、重卡片或逐项阴影。"
+  ],
+  "readNext": [
+    {
+      "type": "module",
+      "ref": "shared-screen-header"
+    },
+    {
+      "type": "module",
+      "ref": "shared-paginated-list"
+    },
+    {
+      "type": "module",
+      "ref": "feature-chat-persistence"
+    }
+  ],
+  "generated": {
+    "fileCount": 11,
+    "files": [
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/icons/AppIconButton.tsx",
+      "src/shared/icons/brandAssets.ts",
+      "src/shared/icons/registries/appIconRegistry.ts",
+      "src/shared/icons/registries/appIconUsages.ts",
+      "src/shared/visual/AgentAvatar.tsx",
+      "src/shared/visual/AgentBuiltinIcon.tsx",
+      "src/shared/visual/AppLineIcon.tsx",
+      "src/shared/visual/agentAvatarIcon.ts",
+      "src/shared/visual/agentAvatarTypes.ts",
+      "src/shared/visual/foundation.ts"
+    ],
+    "exportedSymbolsByFile": {
+      "src/shared/icons/AppIcon.tsx": ["AppIcon", "AppIconProps"],
+      "src/shared/icons/AppIconButton.tsx": ["AppIconButton", "AppIconButtonProps"],
+      "src/shared/icons/brandAssets.ts": ["brandAssets"],
+      "src/shared/icons/registries/appIconRegistry.ts": ["AppIconGlyphName", "appIconRegistry"],
+      "src/shared/icons/registries/appIconUsages.ts": [
+        "AppIconColorRole",
+        "AppIconSizeRole",
+        "AppIconUsage",
+        "AppIconUsageConfig",
+        "appIconUsages"
+      ],
+      "src/shared/visual/AgentAvatar.tsx": ["AGENT_ICON_NAMES", "AgentAvatar", "AgentAvatarProps"],
+      "src/shared/visual/AgentBuiltinIcon.tsx": [
+        "AgentBuiltinIcon",
+        "AgentBuiltinIconKey",
+        "AgentBuiltinIconProps"
+      ],
+      "src/shared/visual/AppLineIcon.tsx": ["AppLineIcon", "AppLineIconName", "AppLineIconProps"],
+      "src/shared/visual/agentAvatarIcon.ts": [
+        "AGENT_ICON_NAMES",
+        "AgentBuiltinIconName",
+        "ResolvedAgentAvatarUri",
+        "normalizeAgentAvatarIcon",
+        "resolveAgentAvatarUri",
+        "resolveAgentBuiltinIconName"
+      ],
+      "src/shared/visual/agentAvatarTypes.ts": ["AgentAvatarIcon", "AgentAvatarKind"],
+      "src/shared/visual/foundation.ts": [
+        "VisualAvatarTone",
+        "appVisualTokens",
+        "formatConversationTimestamp",
+        "formatUnreadCount",
+        "getAvatarLabel",
+        "getAvatarTone"
+      ]
+    },
+    "actualDependsOn": [],
+    "actualDependedBy": [
+      "app-shell-navigation",
+      "feature-agent-task-board",
+      "feature-chat-persistence",
+      "shared-conversation-content-renderer",
+      "shared-paginated-list",
+      "shared-screen-header"
+    ]
+  }
+}

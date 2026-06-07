@@ -1,0 +1,2042 @@
+{
+  "generatedAt": "2026-06-05T08:13:12.506Z",
+  "sourceFiles": [
+    "App.tsx",
+    "index.js",
+    "src/app/AppRoot.tsx",
+    "src/app/debug/DevelopmentDebugPanelHost.tsx",
+    "src/app/debug/developmentDebugPanel.ts",
+    "src/app/navigation/RootNavigator.tsx",
+    "src/app/navigation/TabIcon.tsx",
+    "src/app/navigation/types.ts",
+    "src/app/screens/AppScreenFrame.tsx",
+    "src/app/screens/TabScreens.tsx",
+    "src/app/startup/AppLaunchSkeleton.tsx",
+    "src/app/startup/GeminiLogo.tsx",
+    "src/core/api/apiClient.ts",
+    "src/core/api/services/chatApi.ts",
+    "src/core/api/services/chatEventProtocol.ts",
+    "src/core/api/services/notificationApi.ts",
+    "src/core/api/services/templateApi.ts",
+    "src/core/api/services/uploadApi.ts",
+    "src/core/auth/appAuth.ts",
+    "src/core/auth/authConfig.ts",
+    "src/core/auth/useAuthSession.ts",
+    "src/core/config/endpoint.ts",
+    "src/core/config/runtimeEnv.ts",
+    "src/core/debug/httpDebugLogger.ts",
+    "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+    "src/features/auth/LoginScreen.tsx",
+    "src/features/chatPersistence/ChatDetailScreen.tsx",
+    "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+    "src/features/chatPersistence/chatAttachmentModels.ts",
+    "src/features/chatPersistence/chatDetailAsyncScope.ts",
+    "src/features/chatPersistence/chatDetailFormatters.ts",
+    "src/features/chatPersistence/chatDetailViewModel.ts",
+    "src/features/chatPersistence/chatDirectoryProjector.ts",
+    "src/features/chatPersistence/chatHistoryScope.ts",
+    "src/features/chatPersistence/chatProjector.ts",
+    "src/features/chatPersistence/chatReadState.ts",
+    "src/features/chatPersistence/chatRealtimeUiState.ts",
+    "src/features/chatPersistence/chatRepository.ts",
+    "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
+    "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
+    "src/features/chatPersistence/components/ChatDetailComposerCard.tsx",
+    "src/features/chatPersistence/components/ChatDetailDrawers.tsx",
+    "src/features/chatPersistence/components/ChatDetailEmptyState.tsx",
+    "src/features/chatPersistence/components/ChatDetailHeader.tsx",
+    "src/features/chatPersistence/components/ChatDetailSkeleton.tsx",
+    "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
+    "src/features/chatPersistence/components/ChatTimelineList.tsx",
+    "src/features/chatPersistence/components/ChatTimelineRail.tsx",
+    "src/features/chatPersistence/components/ChatUsageStats.tsx",
+    "src/features/chatPersistence/components/Composer.tsx",
+    "src/features/chatPersistence/components/CopyToast.tsx",
+    "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
+    "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
+    "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
+    "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
+    "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
+    "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
+    "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
+    "src/features/chatPersistence/database.ts",
+    "src/features/chatPersistence/homeSnapshot.ts",
+    "src/features/chatPersistence/schema.ts",
+    "src/features/chatPersistence/types.ts",
+    "src/features/chatPersistence/useChatComposerAttachments.ts",
+    "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts",
+    "src/features/chatPersistence/useChatDetailConversationController.ts",
+    "src/features/chatPersistence/useChatDetailLocalUiState.ts",
+    "src/features/chatRealtime/chatSyncService.ts",
+    "src/features/chatRealtime/chatWsTransport.ts",
+    "src/features/chatRealtime/routing.ts",
+    "src/features/chatRealtime/runtimeState.ts",
+    "src/features/chatRealtime/types.ts",
+    "src/features/chatRealtime/wsClient.ts",
+    "src/features/chatRealtime/wsDebugRecorder.ts",
+    "src/features/chatTimeline/index.ts",
+    "src/features/chatTimeline/messageProjection.ts",
+    "src/features/chatTimeline/timelineDisplay.ts",
+    "src/features/chatTimeline/timelinePersistence.ts",
+    "src/features/chatTimeline/timelineReducer.ts",
+    "src/features/chatTimeline/types.ts",
+    "src/features/chatTimeline/usageSummary.ts",
+    "src/features/notifications/notificationService.ts",
+    "src/shared/components/ConversationMarkdownRenderer.tsx",
+    "src/shared/components/PaginatedCardList.tsx",
+    "src/shared/components/ScreenHeader.tsx",
+    "src/shared/components/__tests__/ScreenHeader.test.tsx",
+    "src/shared/icons/AppIcon.tsx",
+    "src/shared/icons/AppIconButton.tsx",
+    "src/shared/icons/brandAssets.ts",
+    "src/shared/icons/registries/appIconRegistry.ts",
+    "src/shared/icons/registries/appIconUsages.ts",
+    "src/shared/markdown/preprocess.ts",
+    "src/shared/visual/AgentAvatar.tsx",
+    "src/shared/visual/AgentBuiltinIcon.tsx",
+    "src/shared/visual/AppLineIcon.tsx",
+    "src/shared/visual/agentAvatarIcon.ts",
+    "src/shared/visual/agentAvatarTypes.ts",
+    "src/shared/visual/foundation.ts",
+    "src/types/assets.d.ts"
+  ],
+  "directoryTree": {
+    "name": ".",
+    "type": "directory",
+    "children": [
+      {
+        "name": "src",
+        "type": "directory",
+        "children": [
+          {
+            "name": "app",
+            "type": "directory",
+            "children": [
+              {
+                "name": "debug",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "developmentDebugPanel.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "DevelopmentDebugPanelHost.tsx",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "navigation",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "RootNavigator.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "TabIcon.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "types.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "screens",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "AppScreenFrame.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "TabScreens.tsx",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "startup",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "AppLaunchSkeleton.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "GeminiLogo.tsx",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "AppRoot.tsx",
+                "type": "file"
+              }
+            ]
+          },
+          {
+            "name": "core",
+            "type": "directory",
+            "children": [
+              {
+                "name": "api",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "services",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "chatApi.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "chatEventProtocol.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "notificationApi.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "templateApi.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "uploadApi.ts",
+                        "type": "file"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "apiClient.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "auth",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "appAuth.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "authConfig.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "useAuthSession.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "config",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "endpoint.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "runtimeEnv.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "debug",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "httpDebugLogger.ts",
+                    "type": "file"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "features",
+            "type": "directory",
+            "children": [
+              {
+                "name": "agentTaskBoard",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "AgentTaskBoardScreen.tsx",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "auth",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "LoginScreen.tsx",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "chatPersistence",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "components",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "awaiting",
+                        "type": "directory",
+                        "children": [
+                          {
+                            "name": "awaitingQuestionState.ts",
+                            "type": "file"
+                          },
+                          {
+                            "name": "ChatAwaitingDock.tsx",
+                            "type": "file"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "ChatAttachmentStrip.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatAwaitingOverlay.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatDetailComposerCard.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatDetailDrawers.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatDetailEmptyState.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatDetailHeader.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatDetailSkeleton.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatDirectoryPickerDrawer.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatTimelineList.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatTimelineRail.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatUsageStats.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "Composer.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "CopyToast.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "runtimePayloadDescriptor.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "RuntimePayloadFrame.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "runtimePayloadRenderers.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "RuntimeTimelineRow.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "runtimeToolStatusVisual.ts",
+                        "type": "file"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "chatAttachmentModels.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatDetailAsyncScope.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatDetailFormatters.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "ChatDetailScreen.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatDetailViewModel.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatDirectoryProjector.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatHistoryScope.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "ChatHomeStorageDemo.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatProjector.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatReadState.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatRealtimeUiState.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatRepository.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "database.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "homeSnapshot.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "schema.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "types.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "useChatComposerAttachments.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "useChatDetailAwaitingOverlay.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "useChatDetailConversationController.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "useChatDetailLocalUiState.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "chatRealtime",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "chatSyncService.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatWsTransport.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "routing.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "runtimeState.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "types.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "wsClient.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "wsDebugRecorder.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "chatTimeline",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "index.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "messageProjection.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "timelineDisplay.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "timelinePersistence.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "timelineReducer.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "types.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "usageSummary.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "notifications",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "notificationService.ts",
+                    "type": "file"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "shared",
+            "type": "directory",
+            "children": [
+              {
+                "name": "components",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "__tests__",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "ScreenHeader.test.tsx",
+                        "type": "file"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "ConversationMarkdownRenderer.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "PaginatedCardList.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "ScreenHeader.tsx",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "icons",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "registries",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "appIconRegistry.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "appIconUsages.ts",
+                        "type": "file"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "AppIcon.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "AppIconButton.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "brandAssets.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "markdown",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "preprocess.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "visual",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "AgentAvatar.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "agentAvatarIcon.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "agentAvatarTypes.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "AgentBuiltinIcon.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "AppLineIcon.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "foundation.ts",
+                    "type": "file"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "name": "types",
+            "type": "directory",
+            "children": [
+              {
+                "name": "assets.d.ts",
+                "type": "file"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "name": "App.tsx",
+        "type": "file"
+      },
+      {
+        "name": "index.js",
+        "type": "file"
+      }
+    ]
+  },
+  "entryMappings": {
+    "appEntryChain": [
+      {
+        "file": "index.js",
+        "detail": "registerRootComponent(App)"
+      },
+      {
+        "file": "src/app/AppRoot.tsx",
+        "detail": "AppRoot mounts NavigationContainer and RootNavigator"
+      }
+    ],
+    "tabRoutes": [
+      {
+        "routeName": "Chat",
+        "component": "ChatScreen",
+        "file": "src/app/navigation/RootNavigator.tsx"
+      },
+      {
+        "routeName": "Terminal",
+        "component": "TerminalScreen",
+        "file": "src/app/navigation/RootNavigator.tsx"
+      },
+      {
+        "routeName": "Drive",
+        "component": "DriveScreen",
+        "file": "src/app/navigation/RootNavigator.tsx"
+      },
+      {
+        "routeName": "Me",
+        "component": "MeScreen",
+        "file": "src/app/navigation/RootNavigator.tsx"
+      }
+    ]
+  },
+  "moduleOwnership": {
+    "app-development-debug": [
+      "src/app/debug/DevelopmentDebugPanelHost.tsx",
+      "src/app/debug/developmentDebugPanel.ts"
+    ],
+    "app-shell-navigation": [
+      "App.tsx",
+      "index.js",
+      "src/app/AppRoot.tsx",
+      "src/app/navigation/RootNavigator.tsx",
+      "src/app/navigation/TabIcon.tsx",
+      "src/app/navigation/types.ts",
+      "src/app/screens/AppScreenFrame.tsx",
+      "src/app/screens/TabScreens.tsx",
+      "src/app/startup/AppLaunchSkeleton.tsx",
+      "src/app/startup/GeminiLogo.tsx",
+      "src/types/assets.d.ts"
+    ],
+    "core-api-client": [
+      "src/core/api/apiClient.ts",
+      "src/core/api/services/chatApi.ts",
+      "src/core/api/services/chatEventProtocol.ts",
+      "src/core/api/services/notificationApi.ts",
+      "src/core/api/services/templateApi.ts",
+      "src/core/api/services/uploadApi.ts"
+    ],
+    "core-auth-session": [
+      "src/core/auth/appAuth.ts",
+      "src/core/auth/authConfig.ts",
+      "src/core/auth/useAuthSession.ts"
+    ],
+    "core-debug-logging": ["src/core/debug/httpDebugLogger.ts"],
+    "core-runtime-config": ["src/core/config/endpoint.ts", "src/core/config/runtimeEnv.ts"],
+    "feature-agent-task-board": ["src/features/agentTaskBoard/AgentTaskBoardScreen.tsx"],
+    "feature-auth-login": ["src/features/auth/LoginScreen.tsx"],
+    "feature-chat-persistence": [
+      "src/features/chatPersistence/ChatDetailScreen.tsx",
+      "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+      "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/chatDetailAsyncScope.ts",
+      "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/chatDetailViewModel.ts",
+      "src/features/chatPersistence/chatDirectoryProjector.ts",
+      "src/features/chatPersistence/chatHistoryScope.ts",
+      "src/features/chatPersistence/chatProjector.ts",
+      "src/features/chatPersistence/chatReadState.ts",
+      "src/features/chatPersistence/chatRealtimeUiState.ts",
+      "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
+      "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
+      "src/features/chatPersistence/components/ChatDetailComposerCard.tsx",
+      "src/features/chatPersistence/components/ChatDetailDrawers.tsx",
+      "src/features/chatPersistence/components/ChatDetailEmptyState.tsx",
+      "src/features/chatPersistence/components/ChatDetailHeader.tsx",
+      "src/features/chatPersistence/components/ChatDetailSkeleton.tsx",
+      "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
+      "src/features/chatPersistence/components/ChatTimelineList.tsx",
+      "src/features/chatPersistence/components/ChatTimelineRail.tsx",
+      "src/features/chatPersistence/components/ChatUsageStats.tsx",
+      "src/features/chatPersistence/components/Composer.tsx",
+      "src/features/chatPersistence/components/CopyToast.tsx",
+      "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
+      "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
+      "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
+      "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
+      "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
+      "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
+      "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
+      "src/features/chatPersistence/database.ts",
+      "src/features/chatPersistence/homeSnapshot.ts",
+      "src/features/chatPersistence/schema.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatPersistence/useChatComposerAttachments.ts",
+      "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts",
+      "src/features/chatPersistence/useChatDetailConversationController.ts",
+      "src/features/chatPersistence/useChatDetailLocalUiState.ts"
+    ],
+    "feature-chat-realtime": [
+      "src/features/chatRealtime/chatSyncService.ts",
+      "src/features/chatRealtime/chatWsTransport.ts",
+      "src/features/chatRealtime/routing.ts",
+      "src/features/chatRealtime/runtimeState.ts",
+      "src/features/chatRealtime/types.ts",
+      "src/features/chatRealtime/wsClient.ts",
+      "src/features/chatRealtime/wsDebugRecorder.ts"
+    ],
+    "feature-chat-timeline": [
+      "src/features/chatTimeline/index.ts",
+      "src/features/chatTimeline/messageProjection.ts",
+      "src/features/chatTimeline/timelineDisplay.ts",
+      "src/features/chatTimeline/timelinePersistence.ts",
+      "src/features/chatTimeline/timelineReducer.ts",
+      "src/features/chatTimeline/types.ts",
+      "src/features/chatTimeline/usageSummary.ts"
+    ],
+    "feature-notifications": ["src/features/notifications/notificationService.ts"],
+    "shared-conversation-content-renderer": [
+      "src/shared/components/ConversationMarkdownRenderer.tsx",
+      "src/shared/markdown/preprocess.ts"
+    ],
+    "shared-paginated-list": ["src/shared/components/PaginatedCardList.tsx"],
+    "shared-screen-header": [
+      "src/shared/components/ScreenHeader.tsx",
+      "src/shared/components/__tests__/ScreenHeader.test.tsx"
+    ],
+    "shared-visual-foundation": [
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/icons/AppIconButton.tsx",
+      "src/shared/icons/brandAssets.ts",
+      "src/shared/icons/registries/appIconRegistry.ts",
+      "src/shared/icons/registries/appIconUsages.ts",
+      "src/shared/visual/AgentAvatar.tsx",
+      "src/shared/visual/AgentBuiltinIcon.tsx",
+      "src/shared/visual/AppLineIcon.tsx",
+      "src/shared/visual/agentAvatarIcon.ts",
+      "src/shared/visual/agentAvatarTypes.ts",
+      "src/shared/visual/foundation.ts"
+    ]
+  },
+  "fileToModule": {
+    "App.tsx": "app-shell-navigation",
+    "index.js": "app-shell-navigation",
+    "src/app/AppRoot.tsx": "app-shell-navigation",
+    "src/app/debug/DevelopmentDebugPanelHost.tsx": "app-development-debug",
+    "src/app/debug/developmentDebugPanel.ts": "app-development-debug",
+    "src/app/navigation/RootNavigator.tsx": "app-shell-navigation",
+    "src/app/navigation/TabIcon.tsx": "app-shell-navigation",
+    "src/app/navigation/types.ts": "app-shell-navigation",
+    "src/app/screens/AppScreenFrame.tsx": "app-shell-navigation",
+    "src/app/screens/TabScreens.tsx": "app-shell-navigation",
+    "src/app/startup/AppLaunchSkeleton.tsx": "app-shell-navigation",
+    "src/app/startup/GeminiLogo.tsx": "app-shell-navigation",
+    "src/core/api/apiClient.ts": "core-api-client",
+    "src/core/api/services/chatApi.ts": "core-api-client",
+    "src/core/api/services/chatEventProtocol.ts": "core-api-client",
+    "src/core/api/services/notificationApi.ts": "core-api-client",
+    "src/core/api/services/templateApi.ts": "core-api-client",
+    "src/core/api/services/uploadApi.ts": "core-api-client",
+    "src/core/auth/appAuth.ts": "core-auth-session",
+    "src/core/auth/authConfig.ts": "core-auth-session",
+    "src/core/auth/useAuthSession.ts": "core-auth-session",
+    "src/core/config/endpoint.ts": "core-runtime-config",
+    "src/core/config/runtimeEnv.ts": "core-runtime-config",
+    "src/core/debug/httpDebugLogger.ts": "core-debug-logging",
+    "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": "feature-agent-task-board",
+    "src/features/auth/LoginScreen.tsx": "feature-auth-login",
+    "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/ChatHomeStorageDemo.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/chatAttachmentModels.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDetailAsyncScope.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDetailFormatters.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDetailViewModel.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDirectoryProjector.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatHistoryScope.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatProjector.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatReadState.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatRealtimeUiState.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatRepository.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatAttachmentStrip.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatDetailDrawers.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatDetailHeader.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatTimelineList.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatTimelineRail.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatUsageStats.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/Composer.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/CopyToast.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/database.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/homeSnapshot.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/schema.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/types.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/useChatComposerAttachments.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/useChatDetailConversationController.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/useChatDetailLocalUiState.ts": "feature-chat-persistence",
+    "src/features/chatRealtime/chatSyncService.ts": "feature-chat-realtime",
+    "src/features/chatRealtime/chatWsTransport.ts": "feature-chat-realtime",
+    "src/features/chatRealtime/routing.ts": "feature-chat-realtime",
+    "src/features/chatRealtime/runtimeState.ts": "feature-chat-realtime",
+    "src/features/chatRealtime/types.ts": "feature-chat-realtime",
+    "src/features/chatRealtime/wsClient.ts": "feature-chat-realtime",
+    "src/features/chatRealtime/wsDebugRecorder.ts": "feature-chat-realtime",
+    "src/features/chatTimeline/index.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/messageProjection.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelineDisplay.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelinePersistence.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelineReducer.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/types.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/usageSummary.ts": "feature-chat-timeline",
+    "src/features/notifications/notificationService.ts": "feature-notifications",
+    "src/shared/components/ConversationMarkdownRenderer.tsx": "shared-conversation-content-renderer",
+    "src/shared/components/PaginatedCardList.tsx": "shared-paginated-list",
+    "src/shared/components/ScreenHeader.tsx": "shared-screen-header",
+    "src/shared/components/__tests__/ScreenHeader.test.tsx": "shared-screen-header",
+    "src/shared/icons/AppIcon.tsx": "shared-visual-foundation",
+    "src/shared/icons/AppIconButton.tsx": "shared-visual-foundation",
+    "src/shared/icons/brandAssets.ts": "shared-visual-foundation",
+    "src/shared/icons/registries/appIconRegistry.ts": "shared-visual-foundation",
+    "src/shared/icons/registries/appIconUsages.ts": "shared-visual-foundation",
+    "src/shared/markdown/preprocess.ts": "shared-conversation-content-renderer",
+    "src/shared/visual/AgentAvatar.tsx": "shared-visual-foundation",
+    "src/shared/visual/AgentBuiltinIcon.tsx": "shared-visual-foundation",
+    "src/shared/visual/AppLineIcon.tsx": "shared-visual-foundation",
+    "src/shared/visual/agentAvatarIcon.ts": "shared-visual-foundation",
+    "src/shared/visual/agentAvatarTypes.ts": "shared-visual-foundation",
+    "src/shared/visual/foundation.ts": "shared-visual-foundation",
+    "src/types/assets.d.ts": "app-shell-navigation"
+  },
+  "moduleGraph": {
+    "app-development-debug": {
+      "dependsOn": ["core-api-client", "feature-chat-realtime"],
+      "dependedBy": ["app-shell-navigation"]
+    },
+    "app-shell-navigation": {
+      "dependsOn": [
+        "app-development-debug",
+        "core-api-client",
+        "core-auth-session",
+        "feature-agent-task-board",
+        "feature-auth-login",
+        "feature-chat-persistence",
+        "feature-chat-realtime",
+        "feature-notifications",
+        "shared-screen-header",
+        "shared-visual-foundation"
+      ],
+      "dependedBy": ["feature-chat-persistence"]
+    },
+    "core-api-client": {
+      "dependsOn": ["core-auth-session", "core-debug-logging"],
+      "dependedBy": [
+        "app-development-debug",
+        "app-shell-navigation",
+        "feature-chat-persistence",
+        "feature-chat-realtime",
+        "feature-chat-timeline",
+        "feature-notifications"
+      ]
+    },
+    "core-auth-session": {
+      "dependsOn": ["core-debug-logging", "core-runtime-config"],
+      "dependedBy": [
+        "app-shell-navigation",
+        "core-api-client",
+        "feature-auth-login",
+        "feature-chat-realtime",
+        "feature-notifications"
+      ]
+    },
+    "core-debug-logging": {
+      "dependsOn": [],
+      "dependedBy": ["core-api-client", "core-auth-session"]
+    },
+    "core-runtime-config": {
+      "dependsOn": [],
+      "dependedBy": ["core-auth-session", "feature-auth-login", "feature-chat-realtime"]
+    },
+    "feature-agent-task-board": {
+      "dependsOn": ["shared-screen-header", "shared-visual-foundation"],
+      "dependedBy": ["app-shell-navigation"]
+    },
+    "feature-auth-login": {
+      "dependsOn": ["core-auth-session", "core-runtime-config"],
+      "dependedBy": ["app-shell-navigation"]
+    },
+    "feature-chat-persistence": {
+      "dependsOn": [
+        "app-shell-navigation",
+        "core-api-client",
+        "feature-chat-realtime",
+        "feature-chat-timeline",
+        "shared-conversation-content-renderer",
+        "shared-paginated-list",
+        "shared-screen-header",
+        "shared-visual-foundation"
+      ],
+      "dependedBy": ["app-shell-navigation", "feature-chat-realtime", "feature-chat-timeline"]
+    },
+    "feature-chat-realtime": {
+      "dependsOn": [
+        "core-api-client",
+        "core-auth-session",
+        "core-runtime-config",
+        "feature-chat-persistence",
+        "feature-chat-timeline"
+      ],
+      "dependedBy": ["app-development-debug", "app-shell-navigation", "feature-chat-persistence"]
+    },
+    "feature-chat-timeline": {
+      "dependsOn": ["core-api-client", "feature-chat-persistence"],
+      "dependedBy": ["feature-chat-persistence", "feature-chat-realtime"]
+    },
+    "feature-notifications": {
+      "dependsOn": ["core-api-client", "core-auth-session"],
+      "dependedBy": ["app-shell-navigation"]
+    },
+    "shared-conversation-content-renderer": {
+      "dependsOn": ["shared-visual-foundation"],
+      "dependedBy": ["feature-chat-persistence"]
+    },
+    "shared-paginated-list": {
+      "dependsOn": ["shared-visual-foundation"],
+      "dependedBy": ["feature-chat-persistence"]
+    },
+    "shared-screen-header": {
+      "dependsOn": ["shared-visual-foundation"],
+      "dependedBy": ["app-shell-navigation", "feature-agent-task-board", "feature-chat-persistence"]
+    },
+    "shared-visual-foundation": {
+      "dependsOn": [],
+      "dependedBy": [
+        "app-shell-navigation",
+        "feature-agent-task-board",
+        "feature-chat-persistence",
+        "shared-conversation-content-renderer",
+        "shared-paginated-list",
+        "shared-screen-header"
+      ]
+    }
+  },
+  "exportsByFile": {
+    "App.tsx": ["default"],
+    "index.js": [],
+    "src/app/AppRoot.tsx": ["AppRoot"],
+    "src/app/debug/DevelopmentDebugPanelHost.tsx": ["DevelopmentDebugPanelHost"],
+    "src/app/debug/developmentDebugPanel.ts": [
+      "closeDevelopmentDebugPanel",
+      "disableDevelopmentDebugPanel",
+      "getDevelopmentDebugPanelSnapshot",
+      "openDevelopmentDebugPanel",
+      "subscribeDevelopmentDebugPanel"
+    ],
+    "src/app/navigation/RootNavigator.tsx": ["RootNavigator"],
+    "src/app/navigation/TabIcon.tsx": ["AppTabIcon", "TAB_LABELS"],
+    "src/app/navigation/types.ts": ["RootStackParamList", "RootTabParamList"],
+    "src/app/screens/AppScreenFrame.tsx": ["AppScreenFrame"],
+    "src/app/screens/TabScreens.tsx": ["ChatScreen", "DriveScreen", "MeScreen", "TerminalScreen"],
+    "src/app/startup/AppLaunchSkeleton.tsx": ["AppLaunchSkeleton"],
+    "src/app/startup/GeminiLogo.tsx": ["GeminiLogo"],
+    "src/core/api/apiClient.ts": [
+      "ApiError",
+      "ApiRequestOptions",
+      "apiRequest",
+      "authenticatedApiRequest",
+      "authenticatedFormDataRequest",
+      "buildApiUrl",
+      "getApiBaseUrl"
+    ],
+    "src/core/api/services/chatApi.ts": [
+      "AwaitingApprovalSubmitParamData",
+      "AwaitingFormSubmitParamData",
+      "AwaitingPlanSubmitParamData",
+      "AwaitingQuestionSubmitParamData",
+      "AwaitingSubmitParamData",
+      "AwaitingSubmitPayloadData",
+      "CHAT_SUMMARIES_TRANSPORT_TYPE",
+      "MarkChatReadRequest",
+      "MarkChatReadResponse",
+      "RemoteChatDetail",
+      "RemoteChatEvent",
+      "RemoteChatSummary",
+      "SubmitAwaitingRequest",
+      "SubmitAwaitingResponse",
+      "getChatDetailApi",
+      "markChatReadApi",
+      "submitAwaitingApi"
+    ],
+    "src/core/api/services/chatEventProtocol.ts": [
+      "ChatProtocolEventFamily",
+      "buildAssistantMessageId",
+      "classifyChatProtocolEvent",
+      "extractAgentKey",
+      "extractConversationId",
+      "extractEventText",
+      "extractMessageRole",
+      "extractTeamId",
+      "extractTitle",
+      "isAssistantContentEvent",
+      "isChatReadAllEvent",
+      "isChatReadEvent",
+      "isChatUnreadEvent",
+      "isConversationRemovalEvent",
+      "isSummaryLikeEvent",
+      "normalizeEventType",
+      "toFiniteNumber",
+      "toText"
+    ],
+    "src/core/api/services/notificationApi.ts": [
+      "NotificationMessageDetailResponse",
+      "PushTokenPlatform",
+      "PushTokenProvider",
+      "RegisterPushTokenParams",
+      "RegisterPushTokenResponse",
+      "getNotificationMessageDetailApi",
+      "registerPushTokenApi",
+      "unregisterPushTokenApi"
+    ],
+    "src/core/api/services/templateApi.ts": [
+      "GetExampleDetailParams",
+      "GetExampleDetailResponse",
+      "getExampleDetailApi"
+    ],
+    "src/core/api/services/uploadApi.ts": [
+      "CHAT_UPLOAD_API_PATH",
+      "ChatUploadReference",
+      "ChatUploadResponseData",
+      "UploadChatAttachmentInput",
+      "extractUploadChatId",
+      "extractUploadReferences",
+      "uploadChatAttachmentApi"
+    ],
+    "src/core/auth/appAuth.ts": [
+      "AuthStoreSnapshot",
+      "EnsureFreshAccessTokenOptions",
+      "RefreshFailureMode",
+      "SessionState",
+      "bootstrapAuth",
+      "ensureFreshAccessToken",
+      "getAccessTokenForRequest",
+      "getAuthSnapshot",
+      "getCurrentSession",
+      "getDefaultDeviceName",
+      "loginWithMasterPassword",
+      "logoutCurrentDevice",
+      "readPreferredDeviceName",
+      "restoreSession",
+      "subscribeAuthStore"
+    ],
+    "src/core/auth/authConfig.ts": [
+      "isAuthRequired",
+      "readResolvedApiBaseUrl",
+      "readStoredApiBaseUrl",
+      "saveStoredApiBaseUrl"
+    ],
+    "src/core/auth/useAuthSession.ts": ["useAuthSession"],
+    "src/core/config/endpoint.ts": ["looksLikeLocalAddress", "normalizeApiBaseUrl"],
+    "src/core/config/runtimeEnv.ts": ["readPublicEnv"],
+    "src/core/debug/httpDebugLogger.ts": ["logHttpError", "logHttpRequest", "logHttpResponse"],
+    "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": ["AgentTaskBoardScreen"],
+    "src/features/auth/LoginScreen.tsx": ["AuthBootstrapScreen", "LoginScreen"],
+    "src/features/chatPersistence/ChatDetailScreen.tsx": ["ChatDetailScreen"],
+    "src/features/chatPersistence/ChatHomeStorageDemo.tsx": ["ChatHomeStorageDemo"],
+    "src/features/chatPersistence/chatAttachmentModels.ts": [
+      "areChatAttachmentsEqual",
+      "createMessageAttachmentsFromReferences",
+      "formatChatAttachmentSize",
+      "formatChatAttachmentsMessageText",
+      "getChatAttachmentExtension",
+      "getChatAttachmentKind",
+      "getChatAttachmentStatusLabel",
+      "keepLatestChatAttachmentsByName",
+      "normalizeChatAttachmentReferences",
+      "parseChatAttachmentReferencesJson",
+      "serializeChatAttachmentReferences"
+    ],
+    "src/features/chatPersistence/chatDetailAsyncScope.ts": ["shouldApplyChatDetailAsyncResult"],
+    "src/features/chatPersistence/chatDetailFormatters.ts": [
+      "formatChatDetailTimestamp",
+      "formatChatStatusLabel",
+      "formatMessageDeliveryStatusLabel",
+      "formatMessageRoleLabel"
+    ],
+    "src/features/chatPersistence/chatDetailViewModel.ts": [
+      "ChatComposerPrimaryAction",
+      "ChatComposerRunAction",
+      "ChatDetailHeaderRuntimeState",
+      "ChatDetailHeaderStatusTone",
+      "deriveChatComposerPrimaryAction",
+      "deriveChatDetailHeaderRuntimeState"
+    ],
+    "src/features/chatPersistence/chatDirectoryProjector.ts": [
+      "RemoteAgent",
+      "RemoteTeam",
+      "projectRemoteAgent",
+      "projectRemoteDirectory",
+      "projectRemoteHomeDirectory",
+      "projectRemoteTeam"
+    ],
+    "src/features/chatPersistence/chatHistoryScope.ts": [
+      "getChatConversationHistoryScopeKey",
+      "normalizeChatConversationHistoryScope"
+    ],
+    "src/features/chatPersistence/chatProjector.ts": [
+      "ProjectedChatSummaryPatch",
+      "ProjectedConversationDetail",
+      "projectRemoteChatDetail",
+      "projectRemoteChatSummary"
+    ],
+    "src/features/chatPersistence/chatReadState.ts": [
+      "ChatReadStateInput",
+      "hasChatReadStateInput",
+      "isChatUnread",
+      "mergeChatReadState",
+      "normalizeChatReadPatch",
+      "normalizeChatReadState",
+      "normalizeConversationUnreadCount",
+      "readStateToUnreadBit"
+    ],
+    "src/features/chatPersistence/chatRealtimeUiState.ts": [
+      "ChatDirectoryListState",
+      "ChatHomeListState",
+      "applyConversationStreamDelta",
+      "buildHomeListState",
+      "patchConversationMessage",
+      "patchDetailFromHomeEvent",
+      "patchDirectoryListPreviewByConversation",
+      "patchHomeListState",
+      "removeHomeListItem",
+      "upsertConversationMessage"
+    ],
+    "src/features/chatPersistence/chatRepository.ts": [
+      "ConversationReadScope",
+      "ConversationSummaryPatch",
+      "ConversationSummaryPatchResult",
+      "ConversationSyncState",
+      "ConversationUnreadLocalResult",
+      "DirectoryConversationOpenResult",
+      "MessagePatch",
+      "ProjectedMessageUpsertInput",
+      "appendAssistantDelta",
+      "applyConversationSummaryPatch",
+      "clearChatLocalCache",
+      "createConversationForDirectoryItem",
+      "createConversationForHistoryScope",
+      "createOutgoingMessage",
+      "getChatDirectoryCatalogPage",
+      "getChatDirectoryPage",
+      "getChatDirectorySlice",
+      "getCollapsedChatDirectorySlice",
+      "getConversationDetail",
+      "getConversationHistoryScope",
+      "getConversationHistorySlice",
+      "getConversationInitialTimelineState",
+      "getConversationMessages",
+      "getConversationSyncState",
+      "getMessageByClientMessageId",
+      "getMessageByServerMessageId",
+      "getOrCreateConversationForDirectoryItem",
+      "getPendingOutboxCount",
+      "getPendingOutboxMessages",
+      "incrementConversationUnread",
+      "markConversationDirty",
+      "markConversationReadLocal",
+      "markConversationReadScopeLocal",
+      "markConversationSynced",
+      "markConversationUnreadLocal",
+      "patchConversationSummary",
+      "patchMessageByClientMessageId",
+      "persistConversationTimelineState",
+      "prepareChatPersistenceSample",
+      "reconcileConversationDetail",
+      "refreshChatDirectoryProjectionForConversation",
+      "refreshChatDirectorySnapshot",
+      "removeConversation",
+      "replaceChatDirectoryItems",
+      "replaceChatHomeProjection",
+      "replaceConversationProjection",
+      "setChatDirectoryItemPinned",
+      "setConversationActiveRunId",
+      "setConversationPinned",
+      "setConversationReadStateLocal",
+      "setConversationUnreadCountLocal",
+      "upsertProjectedMessage",
+      "upsertServerMessageDetail"
+    ],
+    "src/features/chatPersistence/components/ChatAttachmentStrip.tsx": ["ChatAttachmentStrip"],
+    "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": [
+      "ChatAwaitingOverlay",
+      "ChatAwaitingResumeBar"
+    ],
+    "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": [
+      "ChatDetailComposerCard"
+    ],
+    "src/features/chatPersistence/components/ChatDetailDrawers.tsx": ["ChatDetailHistoryDrawer"],
+    "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": ["ChatDetailEmptyState"],
+    "src/features/chatPersistence/components/ChatDetailHeader.tsx": ["ChatDetailHeader"],
+    "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": ["ChatDetailSkeleton"],
+    "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": [
+      "ChatDirectoryPickerDrawer"
+    ],
+    "src/features/chatPersistence/components/ChatTimelineList.tsx": ["ChatTimelineList"],
+    "src/features/chatPersistence/components/ChatTimelineRail.tsx": ["ChatTimelineRail"],
+    "src/features/chatPersistence/components/ChatUsageStats.tsx": ["ChatUsageStatsButton"],
+    "src/features/chatPersistence/components/Composer.tsx": ["Composer", "ComposerAttachmentType"],
+    "src/features/chatPersistence/components/CopyToast.tsx": ["CopyToast"],
+    "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": ["RuntimePayloadFrame"],
+    "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": ["RuntimeTimelineRow"],
+    "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx": ["ChatAwaitingDock"],
+    "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts": [
+      "AwaitingQuestionDraft",
+      "buildQuestionSubmitParams",
+      "buildQuestionSubmitPayload",
+      "clampAwaitingQuestionIndex",
+      "createAwaitingQuestionDrafts",
+      "findAwaitingAnswerError",
+      "getAwaitingAnswerError",
+      "getAwaitingDateFormat",
+      "getAwaitingQuestionHeading",
+      "getAwaitingQuestionPlaceholder",
+      "getAwaitingQuestionPrompt",
+      "getSelectFreeTextAnswer",
+      "getSelectOptionValue",
+      "getSelectOptions",
+      "getSelectedOptionAnswers",
+      "hasAwaitingQuestions",
+      "isMultiSelectQuestionType",
+      "isSelectQuestionType",
+      "isValidAwaitingDateAnswer",
+      "setFreeTextAnswer",
+      "toggleSelectAnswer"
+    ],
+    "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
+      "RuntimePayloadDescriptor",
+      "RuntimePayloadKind",
+      "RuntimePayloadRendererType",
+      "RuntimePayloadSection",
+      "RuntimePayloadSectionMode",
+      "RuntimePayloadSource",
+      "RuntimePayloadTone",
+      "RuntimeStatusTone",
+      "RuntimeToolArgumentRow",
+      "RuntimeToolRecord",
+      "RuntimeToolStatus",
+      "buildRuntimePayloadDescriptor",
+      "buildToolPillRecords",
+      "formatToolArgumentsInline",
+      "formatToolPillTitle",
+      "getExpandableToolPillRecords"
+    ],
+    "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": [
+      "RuntimePayloadContent"
+    ],
+    "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": [
+      "getRuntimeToolStatusColor"
+    ],
+    "src/features/chatPersistence/database.ts": ["chatDb", "ensureChatDatabase"],
+    "src/features/chatPersistence/homeSnapshot.ts": [
+      "clearChatDirectorySnapshot",
+      "readChatDirectorySnapshot",
+      "writeChatDirectorySnapshot"
+    ],
+    "src/features/chatPersistence/schema.ts": [
+      "ChatDirectoryItemRow",
+      "ConversationRow",
+      "ConversationSyncStateRow",
+      "ConversationTimelineMetaRow",
+      "ConversationTimelineNodeRow",
+      "MessageAttachmentRow",
+      "MessageRow",
+      "NewChatDirectoryItemRow",
+      "NewConversationRow",
+      "NewConversationSyncStateRow",
+      "NewConversationTimelineMetaRow",
+      "NewConversationTimelineNodeRow",
+      "NewMessageAttachmentRow",
+      "NewMessageRow",
+      "NewOutboxMessageRow",
+      "OutboxMessageRow",
+      "chatDirectoryItems",
+      "conversationSyncState",
+      "conversationTimelineMeta",
+      "conversationTimelineNodes",
+      "conversations",
+      "messageAttachments",
+      "messages",
+      "outboxMessages"
+    ],
+    "src/features/chatPersistence/types.ts": [
+      "ChatAttachmentBase",
+      "ChatAttachmentKind",
+      "ChatAttachmentReference",
+      "ChatAttachmentStatus",
+      "ChatComposerAttachment",
+      "ChatConversationHistoryPage",
+      "ChatConversationHistoryScope",
+      "ChatConversationSummaryProjection",
+      "ChatDetailRouteParams",
+      "ChatDirectoryIcon",
+      "ChatDirectoryItem",
+      "ChatDirectoryKind",
+      "ChatDirectoryPage",
+      "ChatDirectoryProjectionItem",
+      "ChatDirectorySnapshot",
+      "ChatHomeItem",
+      "ChatHomeProjection",
+      "ChatMessageAttachment",
+      "ChatMessageItem",
+      "ChatMessageRole",
+      "ChatMessageStatus",
+      "ChatMessageStreamStatus",
+      "ChatReadState",
+      "PendingOutboxMessage",
+      "ServerMessageDetail"
+    ],
+    "src/features/chatPersistence/useChatComposerAttachments.ts": ["useChatComposerAttachments"],
+    "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": [
+      "ChatDetailAwaitingOverlayState",
+      "useChatDetailAwaitingOverlay"
+    ],
+    "src/features/chatPersistence/useChatDetailConversationController.ts": [
+      "useChatDetailConversationController"
+    ],
+    "src/features/chatPersistence/useChatDetailLocalUiState.ts": ["useChatDetailLocalUiState"],
+    "src/features/chatRealtime/chatSyncService.ts": ["chatSyncService"],
+    "src/features/chatRealtime/chatWsTransport.ts": [
+      "attachChatRun",
+      "buildChatQueryPayload",
+      "getChatTransportStatus",
+      "requestChatTransport",
+      "startChatPushTransport",
+      "stopChatPushTransport",
+      "streamChatQuery",
+      "toWsPushEvent"
+    ],
+    "src/features/chatRealtime/routing.ts": [
+      "buildAssistantMessageId",
+      "classifyChatProtocolEvent",
+      "extractAgentKey",
+      "extractConversationId",
+      "extractEventText",
+      "extractMessageRole",
+      "extractTeamId",
+      "extractTitle",
+      "isAssistantContentEvent",
+      "isChatReadAllEvent",
+      "isChatReadEvent",
+      "isChatUnreadEvent",
+      "isConversationRemovalEvent",
+      "isSummaryLikeEvent",
+      "normalizeEventType",
+      "toFiniteNumber",
+      "toText",
+      "type ChatProtocolEventFamily"
+    ],
+    "src/features/chatRealtime/runtimeState.ts": [
+      "applyConversationRuntimeEvent",
+      "deriveConversationRuntimeState",
+      "getConversationRuntimeState"
+    ],
+    "src/features/chatRealtime/types.ts": [
+      "ChatAwaitingMode",
+      "ChatConnectionStatusEvent",
+      "ChatConversationAwaitingState",
+      "ChatConversationMessageInsertEvent",
+      "ChatConversationMessagePatchEvent",
+      "ChatConversationReconcileEvent",
+      "ChatConversationRuntimeReplaceEvent",
+      "ChatConversationRuntimeResetEvent",
+      "ChatConversationRuntimeState",
+      "ChatConversationStreamDeltaEvent",
+      "ChatConversationTimelineReplaceEvent",
+      "ChatConversationTimelineResetEvent",
+      "ChatDirectoryReplaceEvent",
+      "ChatHomeItemPatch",
+      "ChatHomeItemPatchEvent",
+      "ChatHomeItemRemoveEvent",
+      "ChatRuntimeEntry",
+      "ChatRuntimeEntryKind",
+      "ChatRuntimeLifecycle",
+      "ChatSocketStatus",
+      "ChatSyncEvent",
+      "ChatSyncReason"
+    ],
+    "src/features/chatRealtime/wsClient.ts": [
+      "WsClient",
+      "WsClientDisconnectedError",
+      "WsClientRequestTimeoutError",
+      "WsPushFrame"
+    ],
+    "src/features/chatRealtime/wsDebugRecorder.ts": [
+      "WsDebugDirection",
+      "WsDebugRecord",
+      "wsDebugRecorder"
+    ],
+    "src/features/chatTimeline/index.ts": [
+      "applyChatTimelineEvent",
+      "applyChatTimelineMessage",
+      "applyChatTimelineStreamDelta",
+      "buildChatTimelineDisplayItems",
+      "createChatTimelineState",
+      "deriveChatTimelineState",
+      "deriveChatTimelineStateFromMessages",
+      "deserializeChatTimelineState",
+      "getChatTimelineDisplayItemType",
+      "mergeChatTimelineState",
+      "patchChatTimelineMessage",
+      "projectTimelineMessages",
+      "projectTimelineRuntimeState",
+      "serializeChatTimelineState",
+      "timelinePersistenceInternals"
+    ],
+    "src/features/chatTimeline/messageProjection.ts": [
+      "projectTimelineMessages",
+      "projectTimelineRuntimeState"
+    ],
+    "src/features/chatTimeline/timelineDisplay.ts": [
+      "buildChatTimelineDisplayItems",
+      "getChatTimelineDisplayItemType"
+    ],
+    "src/features/chatTimeline/timelinePersistence.ts": [
+      "SerializedTimelineMeta",
+      "SerializedTimelineNode",
+      "SerializedTimelineState",
+      "deserializeChatTimelineState",
+      "serializeChatTimelineState",
+      "timelinePersistenceInternals"
+    ],
+    "src/features/chatTimeline/timelineReducer.ts": [
+      "applyChatTimelineEvent",
+      "applyChatTimelineMessage",
+      "applyChatTimelineStreamDelta",
+      "createChatTimelineState",
+      "deriveChatTimelineState",
+      "deriveChatTimelineStateFromMessages",
+      "mergeChatTimelineState",
+      "patchChatTimelineMessage"
+    ],
+    "src/features/chatTimeline/types.ts": [
+      "ChatTimelineAwaitingInteractive",
+      "ChatTimelineAwaitingInteractiveQuestion",
+      "ChatTimelineAwaitingMode",
+      "ChatTimelineAwaitingNode",
+      "ChatTimelineAwaitingQuestion",
+      "ChatTimelineAwaitingQuestionOption",
+      "ChatTimelineAwaitingQuestionType",
+      "ChatTimelineAwaitingState",
+      "ChatTimelineBaseNode",
+      "ChatTimelineDeliveryStatus",
+      "ChatTimelineDisplayItem",
+      "ChatTimelineDisplayItemKind",
+      "ChatTimelineLifecycle",
+      "ChatTimelineMessageNode",
+      "ChatTimelineMessageRole",
+      "ChatTimelineNode",
+      "ChatTimelineNodeDisplayItem",
+      "ChatTimelineNodeKind",
+      "ChatTimelineRunNode",
+      "ChatTimelineRuntimeEntry",
+      "ChatTimelineRuntimeEntryKind",
+      "ChatTimelineRuntimeState",
+      "ChatTimelineState",
+      "ChatTimelineTextNode",
+      "ChatTimelineToolGroupDisplayItem",
+      "ChatTimelineToolNode",
+      "ChatTimelineUsageContextWindow",
+      "ChatTimelineUsageEstimatedCost",
+      "ChatTimelineUsageStats",
+      "ChatTimelineUsageSummary"
+    ],
+    "src/features/chatTimeline/usageSummary.ts": [
+      "buildChatTimelineUsageSummary",
+      "buildChatTimelineUsageSummaryFromLabel",
+      "chatTimelineUsageSummaryEquals"
+    ],
+    "src/features/notifications/notificationService.ts": ["notificationService"],
+    "src/shared/components/ConversationMarkdownRenderer.tsx": ["ConversationMarkdownRenderer"],
+    "src/shared/components/PaginatedCardList.tsx": [
+      "ListPaginationConfig",
+      "PaginatedCardList",
+      "PaginatedCardListProps"
+    ],
+    "src/shared/components/ScreenHeader.tsx": ["ScreenHeader", "ScreenHeaderProps"],
+    "src/shared/components/__tests__/ScreenHeader.test.tsx": [],
+    "src/shared/icons/AppIcon.tsx": ["AppIcon", "AppIconProps"],
+    "src/shared/icons/AppIconButton.tsx": ["AppIconButton", "AppIconButtonProps"],
+    "src/shared/icons/brandAssets.ts": ["brandAssets"],
+    "src/shared/icons/registries/appIconRegistry.ts": ["AppIconGlyphName", "appIconRegistry"],
+    "src/shared/icons/registries/appIconUsages.ts": [
+      "AppIconColorRole",
+      "AppIconSizeRole",
+      "AppIconUsage",
+      "AppIconUsageConfig",
+      "appIconUsages"
+    ],
+    "src/shared/markdown/preprocess.ts": [
+      "markdownPreprocessInternals",
+      "normalizeMarkdownContent",
+      "preprocessMarkdownContent",
+      "removeEmptyMarkdownTables",
+      "stripPendingSpecialFenceTail"
+    ],
+    "src/shared/visual/AgentAvatar.tsx": ["AGENT_ICON_NAMES", "AgentAvatar", "AgentAvatarProps"],
+    "src/shared/visual/AgentBuiltinIcon.tsx": [
+      "AgentBuiltinIcon",
+      "AgentBuiltinIconKey",
+      "AgentBuiltinIconProps"
+    ],
+    "src/shared/visual/AppLineIcon.tsx": ["AppLineIcon", "AppLineIconName", "AppLineIconProps"],
+    "src/shared/visual/agentAvatarIcon.ts": [
+      "AGENT_ICON_NAMES",
+      "AgentBuiltinIconName",
+      "ResolvedAgentAvatarUri",
+      "normalizeAgentAvatarIcon",
+      "resolveAgentAvatarUri",
+      "resolveAgentBuiltinIconName"
+    ],
+    "src/shared/visual/agentAvatarTypes.ts": ["AgentAvatarIcon", "AgentAvatarKind"],
+    "src/shared/visual/foundation.ts": [
+      "VisualAvatarTone",
+      "appVisualTokens",
+      "formatConversationTimestamp",
+      "formatUnreadCount",
+      "getAvatarLabel",
+      "getAvatarTone"
+    ],
+    "src/types/assets.d.ts": ["default"]
+  },
+  "resolvedImportsByFile": {
+    "App.tsx": ["src/app/AppRoot.tsx", "src/app/startup/AppLaunchSkeleton.tsx"],
+    "index.js": ["App.tsx"],
+    "src/app/AppRoot.tsx": [
+      "src/app/debug/DevelopmentDebugPanelHost.tsx",
+      "src/app/navigation/RootNavigator.tsx",
+      "src/app/navigation/types.ts",
+      "src/core/api/apiClient.ts",
+      "src/core/auth/appAuth.ts",
+      "src/core/auth/authConfig.ts",
+      "src/core/auth/useAuthSession.ts",
+      "src/features/chatRealtime/chatSyncService.ts",
+      "src/features/notifications/notificationService.ts",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/app/debug/DevelopmentDebugPanelHost.tsx": [
+      "src/app/debug/developmentDebugPanel.ts",
+      "src/core/api/apiClient.ts",
+      "src/features/chatRealtime/chatSyncService.ts",
+      "src/features/chatRealtime/wsDebugRecorder.ts"
+    ],
+    "src/app/debug/developmentDebugPanel.ts": [],
+    "src/app/navigation/RootNavigator.tsx": [
+      "src/app/navigation/TabIcon.tsx",
+      "src/app/navigation/types.ts",
+      "src/app/screens/TabScreens.tsx",
+      "src/core/auth/authConfig.ts",
+      "src/core/auth/useAuthSession.ts",
+      "src/features/auth/LoginScreen.tsx",
+      "src/features/chatPersistence/ChatDetailScreen.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/app/navigation/TabIcon.tsx": [
+      "src/app/navigation/types.ts",
+      "src/shared/icons/AppIcon.tsx"
+    ],
+    "src/app/navigation/types.ts": ["src/features/chatPersistence/types.ts"],
+    "src/app/screens/AppScreenFrame.tsx": [
+      "src/shared/components/ScreenHeader.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/app/screens/TabScreens.tsx": [
+      "app.json",
+      "src/app/debug/developmentDebugPanel.ts",
+      "src/app/screens/AppScreenFrame.tsx",
+      "src/core/api/apiClient.ts",
+      "src/core/auth/appAuth.ts",
+      "src/core/auth/authConfig.ts",
+      "src/core/auth/useAuthSession.ts",
+      "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+      "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+      "src/features/notifications/notificationService.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/app/startup/AppLaunchSkeleton.tsx": ["src/app/startup/GeminiLogo.tsx"],
+    "src/app/startup/GeminiLogo.tsx": ["src/shared/icons/brandAssets.ts"],
+    "src/core/api/apiClient.ts": [
+      "src/core/auth/appAuth.ts",
+      "src/core/auth/authConfig.ts",
+      "src/core/debug/httpDebugLogger.ts"
+    ],
+    "src/core/api/services/chatApi.ts": ["src/core/api/apiClient.ts"],
+    "src/core/api/services/chatEventProtocol.ts": [],
+    "src/core/api/services/notificationApi.ts": ["src/core/api/apiClient.ts"],
+    "src/core/api/services/templateApi.ts": ["src/core/api/apiClient.ts"],
+    "src/core/api/services/uploadApi.ts": ["src/core/api/apiClient.ts"],
+    "src/core/auth/appAuth.ts": [
+      "src/core/auth/authConfig.ts",
+      "src/core/debug/httpDebugLogger.ts"
+    ],
+    "src/core/auth/authConfig.ts": ["src/core/config/endpoint.ts", "src/core/config/runtimeEnv.ts"],
+    "src/core/auth/useAuthSession.ts": ["src/core/auth/appAuth.ts"],
+    "src/core/config/endpoint.ts": [],
+    "src/core/config/runtimeEnv.ts": [],
+    "src/core/debug/httpDebugLogger.ts": [],
+    "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": [
+      "src/shared/components/ScreenHeader.tsx",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/auth/LoginScreen.tsx": [
+      "assets/logo.png",
+      "src/core/auth/appAuth.ts",
+      "src/core/auth/authConfig.ts",
+      "src/core/config/endpoint.ts"
+    ],
+    "src/features/chatPersistence/ChatDetailScreen.tsx": [
+      "src/core/api/services/chatApi.ts",
+      "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
+      "src/features/chatPersistence/components/ChatDetailComposerCard.tsx",
+      "src/features/chatPersistence/components/ChatDetailDrawers.tsx",
+      "src/features/chatPersistence/components/ChatDetailEmptyState.tsx",
+      "src/features/chatPersistence/components/ChatDetailHeader.tsx",
+      "src/features/chatPersistence/components/ChatDetailSkeleton.tsx",
+      "src/features/chatPersistence/components/ChatTimelineList.tsx",
+      "src/features/chatPersistence/components/CopyToast.tsx",
+      "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts",
+      "src/features/chatPersistence/useChatDetailConversationController.ts",
+      "src/features/chatPersistence/useChatDetailLocalUiState.ts",
+      "src/features/chatRealtime/chatSyncService.ts",
+      "src/features/chatRealtime/types.ts",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/ChatHomeStorageDemo.tsx": [
+      "src/app/navigation/types.ts",
+      "src/features/chatPersistence/chatRealtimeUiState.ts",
+      "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
+      "src/features/chatPersistence/homeSnapshot.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatRealtime/chatSyncService.ts",
+      "src/shared/components/PaginatedCardList.tsx",
+      "src/shared/components/ScreenHeader.tsx",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/icons/AppIconButton.tsx",
+      "src/shared/visual/AgentAvatar.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/chatAttachmentModels.ts": [
+      "src/features/chatPersistence/types.ts"
+    ],
+    "src/features/chatPersistence/chatDetailAsyncScope.ts": [],
+    "src/features/chatPersistence/chatDetailFormatters.ts": [
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatRealtime/types.ts",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/chatDetailViewModel.ts": ["src/features/chatTimeline/index.ts"],
+    "src/features/chatPersistence/chatDirectoryProjector.ts": [
+      "src/core/api/services/chatApi.ts",
+      "src/features/chatPersistence/chatReadState.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/shared/visual/agentAvatarIcon.ts"
+    ],
+    "src/features/chatPersistence/chatHistoryScope.ts": ["src/features/chatPersistence/types.ts"],
+    "src/features/chatPersistence/chatProjector.ts": [
+      "src/core/api/services/chatApi.ts",
+      "src/core/api/services/chatEventProtocol.ts",
+      "src/features/chatPersistence/chatReadState.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatRealtime/types.ts",
+      "src/features/chatTimeline/index.ts"
+    ],
+    "src/features/chatPersistence/chatReadState.ts": ["src/features/chatPersistence/types.ts"],
+    "src/features/chatPersistence/chatRealtimeUiState.ts": [
+      "src/features/chatPersistence/chatReadState.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatRealtime/types.ts"
+    ],
+    "src/features/chatPersistence/chatRepository.ts": [
+      "src/core/api/apiClient.ts",
+      "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/chatHistoryScope.ts",
+      "src/features/chatPersistence/chatReadState.ts",
+      "src/features/chatPersistence/database.ts",
+      "src/features/chatPersistence/homeSnapshot.ts",
+      "src/features/chatPersistence/schema.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatTimeline/index.ts",
+      "src/shared/visual/agentAvatarIcon.ts"
+    ],
+    "src/features/chatPersistence/components/ChatAttachmentStrip.tsx": [
+      "src/core/api/apiClient.ts",
+      "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/shared/visual/AppLineIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": [
+      "src/features/chatRealtime/types.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": [
+      "src/features/chatPersistence/chatDetailViewModel.ts",
+      "src/features/chatPersistence/components/ChatUsageStats.tsx",
+      "src/features/chatPersistence/components/Composer.tsx",
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatTimeline/index.ts",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatDetailDrawers.tsx": [
+      "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": [
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatDetailHeader.tsx": [
+      "src/features/chatPersistence/chatDetailViewModel.ts",
+      "src/shared/components/ScreenHeader.tsx",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/icons/AppIconButton.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": [
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": [
+      "src/features/chatPersistence/types.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AgentAvatar.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatTimelineList.tsx": [
+      "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
+      "src/features/chatPersistence/components/ChatTimelineRail.tsx",
+      "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
+      "src/features/chatTimeline/index.ts",
+      "src/shared/components/ConversationMarkdownRenderer.tsx",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatTimelineRail.tsx": [
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatUsageStats.tsx": [
+      "src/features/chatTimeline/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/Composer.tsx": [
+      "src/features/chatPersistence/chatDetailViewModel.ts",
+      "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
+      "src/features/chatPersistence/types.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/CopyToast.tsx": ["src/shared/visual/foundation.ts"],
+    "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": [
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": [
+      "src/features/chatPersistence/components/ChatTimelineRail.tsx",
+      "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
+      "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
+      "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
+      "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
+      "src/features/chatTimeline/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx": [
+      "src/core/api/services/chatApi.ts",
+      "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
+      "src/features/chatRealtime/types.ts",
+      "src/features/chatTimeline/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts": [
+      "src/core/api/services/chatApi.ts",
+      "src/features/chatTimeline/index.ts"
+    ],
+    "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
+      "src/features/chatTimeline/index.ts",
+      "src/shared/icons/AppIcon.tsx"
+    ],
+    "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": [
+      "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
+      "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
+      "src/shared/components/ConversationMarkdownRenderer.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": [
+      "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/database.ts": ["src/features/chatPersistence/schema.ts"],
+    "src/features/chatPersistence/homeSnapshot.ts": [
+      "src/features/chatPersistence/types.ts",
+      "src/shared/visual/agentAvatarIcon.ts"
+    ],
+    "src/features/chatPersistence/schema.ts": [],
+    "src/features/chatPersistence/types.ts": ["src/shared/visual/agentAvatarTypes.ts"],
+    "src/features/chatPersistence/useChatComposerAttachments.ts": [
+      "src/core/api/services/uploadApi.ts",
+      "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/types.ts"
+    ],
+    "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": [
+      "src/features/chatRealtime/types.ts"
+    ],
+    "src/features/chatPersistence/useChatDetailConversationController.ts": [
+      "src/core/api/services/notificationApi.ts",
+      "src/features/chatPersistence/chatDetailAsyncScope.ts",
+      "src/features/chatPersistence/chatDetailViewModel.ts",
+      "src/features/chatPersistence/chatHistoryScope.ts",
+      "src/features/chatPersistence/chatRealtimeUiState.ts",
+      "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatPersistence/useChatComposerAttachments.ts",
+      "src/features/chatRealtime/chatSyncService.ts",
+      "src/features/chatRealtime/types.ts",
+      "src/features/chatTimeline/index.ts"
+    ],
+    "src/features/chatPersistence/useChatDetailLocalUiState.ts": [
+      "src/features/chatPersistence/chatHistoryScope.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatRealtime/types.ts"
+    ],
+    "src/features/chatRealtime/chatSyncService.ts": [
+      "src/core/api/apiClient.ts",
+      "src/core/api/services/chatApi.ts",
+      "src/core/auth/appAuth.ts",
+      "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/chatDirectoryProjector.ts",
+      "src/features/chatPersistence/chatProjector.ts",
+      "src/features/chatPersistence/chatReadState.ts",
+      "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatRealtime/chatWsTransport.ts",
+      "src/features/chatRealtime/routing.ts",
+      "src/features/chatRealtime/types.ts",
+      "src/features/chatTimeline/index.ts"
+    ],
+    "src/features/chatRealtime/chatWsTransport.ts": [
+      "src/core/api/services/chatEventProtocol.ts",
+      "src/features/chatRealtime/types.ts",
+      "src/features/chatRealtime/wsClient.ts"
+    ],
+    "src/features/chatRealtime/routing.ts": ["src/core/api/services/chatEventProtocol.ts"],
+    "src/features/chatRealtime/runtimeState.ts": [
+      "src/features/chatRealtime/types.ts",
+      "src/features/chatTimeline/index.ts"
+    ],
+    "src/features/chatRealtime/types.ts": [
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatTimeline/index.ts"
+    ],
+    "src/features/chatRealtime/wsClient.ts": [
+      "src/core/config/runtimeEnv.ts",
+      "src/features/chatRealtime/types.ts",
+      "src/features/chatRealtime/wsDebugRecorder.ts"
+    ],
+    "src/features/chatRealtime/wsDebugRecorder.ts": ["src/core/config/runtimeEnv.ts"],
+    "src/features/chatTimeline/index.ts": [
+      "src/features/chatTimeline/messageProjection.ts",
+      "src/features/chatTimeline/timelineDisplay.ts",
+      "src/features/chatTimeline/timelinePersistence.ts",
+      "src/features/chatTimeline/timelineReducer.ts",
+      "src/features/chatTimeline/types.ts"
+    ],
+    "src/features/chatTimeline/messageProjection.ts": [
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatTimeline/types.ts"
+    ],
+    "src/features/chatTimeline/timelineDisplay.ts": ["src/features/chatTimeline/types.ts"],
+    "src/features/chatTimeline/timelinePersistence.ts": [
+      "src/features/chatTimeline/types.ts",
+      "src/features/chatTimeline/usageSummary.ts"
+    ],
+    "src/features/chatTimeline/timelineReducer.ts": [
+      "src/core/api/services/chatEventProtocol.ts",
+      "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatTimeline/types.ts",
+      "src/features/chatTimeline/usageSummary.ts"
+    ],
+    "src/features/chatTimeline/types.ts": ["src/features/chatPersistence/types.ts"],
+    "src/features/chatTimeline/usageSummary.ts": ["src/features/chatTimeline/types.ts"],
+    "src/features/notifications/notificationService.ts": [
+      "src/core/api/services/notificationApi.ts",
+      "src/core/auth/appAuth.ts"
+    ],
+    "src/shared/components/ConversationMarkdownRenderer.tsx": [
+      "src/shared/markdown/preprocess.ts",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/shared/components/PaginatedCardList.tsx": ["src/shared/visual/foundation.ts"],
+    "src/shared/components/ScreenHeader.tsx": ["src/shared/visual/foundation.ts"],
+    "src/shared/components/__tests__/ScreenHeader.test.tsx": [
+      "src/shared/components/ScreenHeader.tsx"
+    ],
+    "src/shared/icons/AppIcon.tsx": [
+      "src/shared/icons/registries/appIconUsages.ts",
+      "src/shared/visual/AppLineIcon.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/shared/icons/AppIconButton.tsx": ["src/shared/icons/AppIcon.tsx"],
+    "src/shared/icons/brandAssets.ts": ["assets/logo.png"],
+    "src/shared/icons/registries/appIconRegistry.ts": ["src/shared/visual/AppLineIcon.tsx"],
+    "src/shared/icons/registries/appIconUsages.ts": [
+      "src/shared/icons/registries/appIconRegistry.ts"
+    ],
+    "src/shared/markdown/preprocess.ts": [],
+    "src/shared/visual/AgentAvatar.tsx": [
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AgentBuiltinIcon.tsx",
+      "src/shared/visual/agentAvatarIcon.ts",
+      "src/shared/visual/agentAvatarTypes.ts",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/shared/visual/AgentBuiltinIcon.tsx": ["src/shared/visual/agentAvatarIcon.ts"],
+    "src/shared/visual/AppLineIcon.tsx": [],
+    "src/shared/visual/agentAvatarIcon.ts": ["src/shared/visual/agentAvatarTypes.ts"],
+    "src/shared/visual/agentAvatarTypes.ts": [],
+    "src/shared/visual/foundation.ts": [],
+    "src/types/assets.d.ts": []
+  },
+  "cardCounts": {
+    "modules": 16,
+    "flows": 5,
+    "tasks": 11
+  }
+}

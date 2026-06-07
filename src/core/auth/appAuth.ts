@@ -1,9 +1,13 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { saveStoredApiBaseUrl } from './authConfig';
 import { Platform } from 'react-native';
-import { parseErrorMessage } from '../network/errorUtils';
+import { MMKV } from 'react-native-mmkv';
 
-const DEVICE_TOKEN_KEY = 'app_device_token_v2';
-const LEGACY_DEVICE_TOKEN_KEY = 'app_device_token_v1';
+import { logHttpError, logHttpRequest, logHttpResponse } from '../debug/httpDebugLogger';
+
+const authStorage = new MMKV({ id: 'zenmind-auth-session' });
+
+const DEVICE_TOKEN_KEY = 'auth_device_token_v1';
+const DEVICE_NAME_KEY = 'auth_device_name_v1';
 const DEFAULT_TOKEN_MIN_VALIDITY_MS = 90_000;
 const DEFAULT_TOKEN_JITTER_MS = 8_000;
 const FALLBACK_TOKEN_VALIDITY_MS = 5 * 60_000;
@@ -17,17 +21,6 @@ export interface EnsureFreshAccessTokenOptions {
   failureMode?: RefreshFailureMode;
 }
 
-export type AuthSessionEvent =
-  | {
-      type: 'session_updated';
-      session: SessionState;
-    }
-  | {
-      type: 'session_cleared';
-    };
-
-type AuthSessionListener = (event: AuthSessionEvent) => void;
-
 export interface SessionState {
   username: string;
   deviceId: string;
@@ -35,6 +28,11 @@ export interface SessionState {
   accessToken: string;
   accessExpireAtMs: number;
   deviceToken: string;
+}
+
+export interface AuthStoreSnapshot {
+  isBootstrapping: boolean;
+  session: SessionState | null;
 }
 
 interface LoginResponse {
@@ -57,26 +55,66 @@ interface RefreshResponse {
   deviceToken: string;
 }
 
+type StoreListener = () => void;
+
 let currentSession: SessionState | null = null;
-let refreshingPromise: Promise<string | null> | null = null;
-let refreshingFailureMode: RefreshFailureMode | null = null;
 let currentBaseUrl = '';
-const authListeners = new Set<AuthSessionListener>();
-let legacyDeviceTokenPurged = false;
+let refreshPromise: Promise<string | null> | null = null;
+let refreshFailureMode: RefreshFailureMode | null = null;
+let bootstrapPromise: Promise<SessionState | null> | null = null;
+let authSnapshot: AuthStoreSnapshot = {
+  isBootstrapping: true,
+  session: null,
+};
+const listeners = new Set<StoreListener>();
+
+function emitStoreChange() {
+  listeners.forEach((listener) => {
+    try {
+      listener();
+    } catch {
+      // Ignore observer failures so auth state can continue updating.
+    }
+  });
+}
+
+function setAuthSnapshot(nextSnapshot: AuthStoreSnapshot) {
+  if (
+    authSnapshot.isBootstrapping === nextSnapshot.isBootstrapping &&
+    authSnapshot.session === nextSnapshot.session
+  ) {
+    return;
+  }
+
+  authSnapshot = nextSnapshot;
+  emitStoreChange();
+}
+
+function normalizeBaseUrl(baseUrl: string): string {
+  return String(baseUrl || '')
+    .trim()
+    .replace(/\/+$/, '');
+}
 
 function parseNumericEpochMs(raw: unknown): number | null {
   if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
     return raw >= 1_000_000_000_000 ? raw : raw * 1000;
   }
+
   if (typeof raw === 'string') {
     const trimmed = raw.trim();
-    if (/^\d+$/.test(trimmed)) {
-      const num = Number(trimmed);
-      if (Number.isFinite(num) && num > 0) {
-        return num >= 1_000_000_000_000 ? num : num * 1000;
-      }
+    if (!trimmed || !/^\d+$/.test(trimmed)) {
+      return null;
     }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      return null;
+    }
+
+    return parsed >= 1_000_000_000_000 ? parsed : parsed * 1000;
   }
+
   return null;
 }
 
@@ -91,7 +129,9 @@ function parseExpireAt(raw: unknown): number | null {
     return null;
   }
 
-  const localMatch = text.match(/^(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+  const localMatch = text.match(
+    /^(\d{4})[/-](\d{1,2})[/-](\d{1,2})[ T](\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/
+  );
   if (localMatch) {
     const [, year, month, day, hour, minute, second = '0'] = localMatch;
     const localTs = new Date(
@@ -109,132 +149,187 @@ function parseExpireAt(raw: unknown): number | null {
   }
 
   const normalizedIsoText = text.replace(/(\.\d{3})\d+(?=(Z|[+-]\d{2}:\d{2})$)/, '$1');
-  const ts = new Date(normalizedIsoText).getTime();
-  if (Number.isFinite(ts) && ts > 0) {
-    return ts;
+  const parsedTs = new Date(normalizedIsoText).getTime();
+  if (Number.isFinite(parsedTs) && parsedTs > 0) {
+    return parsedTs;
   }
+
   return null;
 }
 
 function resolveAccessExpireAtMs(payload: LoginResponse | RefreshResponse): number {
-  const candidates = [payload.accessTokenExpireAtMs, payload.accessTokenExpireAt, payload.accessExpireAt];
+  const candidates = [
+    payload.accessTokenExpireAtMs,
+    payload.accessTokenExpireAt,
+    payload.accessExpireAt,
+  ];
 
-  for (let i = 0; i < candidates.length; i += 1) {
-    const ts = parseExpireAt(candidates[i]);
+  for (let index = 0; index < candidates.length; index += 1) {
+    const ts = parseExpireAt(candidates[index]);
     if (ts) {
       return ts;
     }
   }
 
-  console.warn('[auth] Access token expiry is missing or invalid; using fallback validity window');
   return Date.now() + FALLBACK_TOKEN_VALIDITY_MS;
 }
 
-async function requestJson<T>(baseUrl: string, path: string, options: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${baseUrl}${path}`, options);
-  const bodyText = await response.text();
-  const body = bodyText ? JSON.parse(bodyText) : null;
+function resolveErrorMessage(status: number, payload: unknown): string {
+  if (payload && typeof payload === 'object') {
+    const data = payload as Record<string, unknown>;
+    const candidates = [data.error, data.msg, data.message];
+    for (let index = 0; index < candidates.length; index += 1) {
+      const value = candidates[index];
+      if (typeof value === 'string' && value.trim()) {
+        return value;
+      }
+    }
+  }
+
+  return `HTTP ${status}`;
+}
+
+function parseJsonPayload(text: string): unknown {
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return text;
+  }
+}
+
+async function requestJson<T>(
+  baseUrl: string,
+  path: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const url = `${baseUrl}${path}`;
+  const method = String(options.method || 'GET');
+  const startedAt = Date.now();
+
+  logHttpRequest({
+    url,
+    method,
+    body: options.body,
+  });
+
+  let response: Response;
+  let payload: unknown;
+  try {
+    response = await fetch(url, options);
+    const text = await response.text();
+    payload = parseJsonPayload(text);
+  } catch (error) {
+    logHttpError({
+      url,
+      method,
+      durationMs: Date.now() - startedAt,
+      error,
+    });
+    throw error;
+  }
+
+  logHttpResponse({
+    url,
+    method,
+    status: response.status,
+    durationMs: Date.now() - startedAt,
+    payload,
+  });
 
   if (!response.ok) {
-    throw new Error(parseErrorMessage(response.status, body));
+    throw new Error(resolveErrorMessage(response.status, payload));
   }
 
-  return body as T;
+  return payload as T;
 }
 
-function normalizeBaseUrl(baseUrl: string): string {
-  return String(baseUrl || '')
-    .trim()
-    .replace(/\/+$/, '');
+function readDeviceTokenFromStorage(): string {
+  return String(authStorage.getString(DEVICE_TOKEN_KEY) || '').trim();
 }
 
-function ensureBaseUrl(baseUrl: string) {
-  const normalized = normalizeBaseUrl(baseUrl);
-  if (normalized !== currentBaseUrl) {
-    const hadSession = Boolean(currentSession);
-    currentBaseUrl = normalized;
-    currentSession = null;
-    refreshingPromise = null;
-    refreshingFailureMode = null;
-    if (hadSession) {
-      emitSessionCleared();
-    }
-  }
-  return normalized;
-}
-
-async function loadDeviceTokenFromStorage(): Promise<string> {
-  if (!legacyDeviceTokenPurged) {
-    legacyDeviceTokenPurged = true;
-    try {
-      await AsyncStorage.removeItem(LEGACY_DEVICE_TOKEN_KEY);
-    } catch {
-      // ignore storage cleanup failures
-    }
-  }
-  return String((await AsyncStorage.getItem(DEVICE_TOKEN_KEY)) || '').trim();
-}
-
-async function saveDeviceToken(deviceToken: string): Promise<void> {
+function saveDeviceToken(deviceToken: string) {
   const normalized = String(deviceToken || '').trim();
   if (!normalized) {
-    await AsyncStorage.removeItem(DEVICE_TOKEN_KEY);
+    authStorage.delete(DEVICE_TOKEN_KEY);
     return;
   }
-  await AsyncStorage.setItem(DEVICE_TOKEN_KEY, normalized);
+
+  authStorage.set(DEVICE_TOKEN_KEY, normalized);
 }
 
-function updateSessionWithRefresh(refresh: RefreshResponse, fallbackUsername = 'app', fallbackDeviceName = '') {
-  const previous = currentSession;
-  currentSession = {
-    username: previous?.username || fallbackUsername,
-    deviceId: String(refresh.deviceId || previous?.deviceId || ''),
-    deviceName: previous?.deviceName || fallbackDeviceName || 'Device',
-    accessToken: String(refresh.accessToken || ''),
-    accessExpireAtMs: resolveAccessExpireAtMs(refresh),
-    deviceToken: String(refresh.deviceToken || previous?.deviceToken || '')
+function savePreferredDeviceName(deviceName: string) {
+  const normalized = String(deviceName || '').trim();
+  if (!normalized) {
+    authStorage.delete(DEVICE_NAME_KEY);
+    return;
+  }
+
+  authStorage.set(DEVICE_NAME_KEY, normalized);
+}
+
+function clearSessionAndDeviceToken() {
+  saveDeviceToken('');
+  setCurrentSession(null);
+}
+
+function ensureBaseUrl(baseUrl: string): string {
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+  if (normalizedBaseUrl === currentBaseUrl) {
+    return normalizedBaseUrl;
+  }
+
+  currentBaseUrl = normalizedBaseUrl;
+  currentSession = null;
+  refreshPromise = null;
+  refreshFailureMode = null;
+  bootstrapPromise = null;
+  setAuthSnapshot({
+    isBootstrapping: false,
+    session: null,
+  });
+  return normalizedBaseUrl;
+}
+
+function setCurrentSession(session: SessionState | null) {
+  currentSession = session;
+  setAuthSnapshot({
+    isBootstrapping: false,
+    session,
+  });
+}
+
+function buildSessionFromLogin(payload: LoginResponse, fallbackDeviceName: string): SessionState {
+  return {
+    username: String(payload.username || 'app'),
+    deviceId: String(payload.deviceId || ''),
+    deviceName: String(payload.deviceName || fallbackDeviceName || 'Device'),
+    accessToken: String(payload.accessToken || ''),
+    accessExpireAtMs: resolveAccessExpireAtMs(payload),
+    deviceToken: String(payload.deviceToken || ''),
   };
-  emitSessionUpdated();
 }
 
-function emitSessionUpdated() {
-  if (!currentSession) {
-    return;
-  }
-  const snapshot = { ...currentSession };
-  authListeners.forEach((listener) => {
-    try {
-      listener({ type: 'session_updated', session: snapshot });
-    } catch {
-      // ignore listener failures
-    }
-  });
-}
-
-function emitSessionCleared() {
-  authListeners.forEach((listener) => {
-    try {
-      listener({ type: 'session_cleared' });
-    } catch {
-      // ignore listener failures
-    }
-  });
+function buildSessionFromRefresh(payload: RefreshResponse): SessionState {
+  return {
+    username: currentSession?.username || 'app',
+    deviceId: String(payload.deviceId || currentSession?.deviceId || ''),
+    deviceName: currentSession?.deviceName || readPreferredDeviceName(),
+    accessToken: String(payload.accessToken || ''),
+    accessExpireAtMs: resolveAccessExpireAtMs(payload),
+    deviceToken: String(payload.deviceToken || currentSession?.deviceToken || ''),
+  };
 }
 
 function getRandomJitterMs(maxJitterMs: number): number {
   if (!Number.isFinite(maxJitterMs) || maxJitterMs <= 0) {
     return 0;
   }
-  return Math.floor(Math.random() * maxJitterMs);
-}
 
-async function clearSessionAndDeviceToken(): Promise<void> {
-  const hadSession = Boolean(currentSession);
-  currentSession = null;
-  await saveDeviceToken('');
-  if (hadSession) {
-    emitSessionCleared();
-  }
+  return Math.floor(Math.random() * maxJitterMs);
 }
 
 async function refreshAccessToken(
@@ -242,7 +337,13 @@ async function refreshAccessToken(
   forceRefresh: boolean,
   failureMode: RefreshFailureMode
 ): Promise<string | null> {
-  const normalizedBase = ensureBaseUrl(baseUrl);
+  const normalizedBaseUrl = ensureBaseUrl(baseUrl);
+  if (!normalizedBaseUrl) {
+    if (failureMode === 'hard') {
+      clearSessionAndDeviceToken();
+    }
+    return null;
+  }
 
   if (
     !forceRefresh &&
@@ -253,128 +354,78 @@ async function refreshAccessToken(
     return currentSession.accessToken;
   }
 
-  if (refreshingPromise) {
-    const inFlightPromise = refreshingPromise;
-    const inFlightMode = refreshingFailureMode;
+  if (refreshPromise) {
+    const inFlightPromise = refreshPromise;
+    const inFlightMode = refreshFailureMode;
     const token = await inFlightPromise;
     if (token || failureMode !== 'hard' || inFlightMode === 'hard') {
       return token;
     }
-    // A soft refresh failed while a hard refresh caller was waiting.
-    // Re-run once in hard mode to guarantee session invalidation semantics.
-    return refreshAccessToken(normalizedBase, true, 'hard');
+    return refreshAccessToken(normalizedBaseUrl, true, 'hard');
   }
 
   const refreshTask = (async () => {
-    const storedDeviceToken = await loadDeviceTokenFromStorage();
-    const deviceToken = storedDeviceToken || currentSession?.deviceToken || '';
+    const deviceToken = readDeviceTokenFromStorage() || currentSession?.deviceToken || '';
     if (!deviceToken) {
       if (failureMode === 'hard') {
-        await clearSessionAndDeviceToken();
+        clearSessionAndDeviceToken();
       }
       return null;
     }
 
     try {
-      const refreshed = await requestJson<RefreshResponse>(normalizedBase, '/api/auth/refresh', {
+      const payload = await requestJson<RefreshResponse>(normalizedBaseUrl, '/api/auth/refresh', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deviceToken })
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ deviceToken }),
       });
 
-      updateSessionWithRefresh(refreshed);
-      await saveDeviceToken(currentSession?.deviceToken || '');
-      return currentSession?.accessToken || null;
+      const nextSession = buildSessionFromRefresh(payload);
+      saveDeviceToken(nextSession.deviceToken);
+      savePreferredDeviceName(nextSession.deviceName);
+      setCurrentSession(nextSession);
+      return nextSession.accessToken;
     } catch {
       if (failureMode === 'hard') {
-        await clearSessionAndDeviceToken();
+        clearSessionAndDeviceToken();
       }
       return null;
     }
   })();
 
-  refreshingPromise = refreshTask;
-  refreshingFailureMode = failureMode;
+  refreshPromise = refreshTask;
+  refreshFailureMode = failureMode;
   try {
     return await refreshTask;
   } finally {
-    if (refreshingPromise === refreshTask) {
-      refreshingPromise = null;
-      refreshingFailureMode = null;
+    if (refreshPromise === refreshTask) {
+      refreshPromise = null;
+      refreshFailureMode = null;
     }
   }
+}
+
+export function getAuthSnapshot(): AuthStoreSnapshot {
+  return authSnapshot;
+}
+
+export function subscribeAuthStore(listener: StoreListener): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
 }
 
 export function getCurrentSession(): SessionState | null {
   return currentSession;
 }
 
-export async function restoreSession(baseUrl: string): Promise<SessionState | null> {
-  const token = await refreshAccessToken(baseUrl, true, 'hard');
-  if (!token || !currentSession) {
-    return null;
-  }
-  return currentSession;
-}
-
-export async function loginWithMasterPassword(
+export async function getAccessTokenForRequest(
   baseUrl: string,
-  masterPassword: string,
-  deviceName: string
-): Promise<SessionState> {
-  const normalizedBase = ensureBaseUrl(baseUrl);
-  const normalizedDeviceName = String(deviceName || '').trim() || getDefaultDeviceName();
-  const payload = await requestJson<LoginResponse>(normalizedBase, '/api/auth/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      masterPassword,
-      deviceName: normalizedDeviceName
-    })
-  });
-
-  currentSession = {
-    username: String(payload.username || 'app'),
-    deviceId: String(payload.deviceId || ''),
-    deviceName: String(payload.deviceName || normalizedDeviceName),
-    accessToken: String(payload.accessToken || ''),
-    accessExpireAtMs: resolveAccessExpireAtMs(payload),
-    deviceToken: String(payload.deviceToken || '')
-  };
-
-  await saveDeviceToken(currentSession.deviceToken);
-  emitSessionUpdated();
-  return currentSession;
-}
-
-export async function logoutCurrentDevice(baseUrl: string): Promise<void> {
-  const normalizedBase = ensureBaseUrl(baseUrl);
-  const token = await getAccessToken(normalizedBase);
-
-  try {
-    if (token) {
-      await fetch(`${normalizedBase}/api/auth/logout`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-    }
-  } catch {
-    // ignore network errors when logging out
-  }
-
-  const hadSession = Boolean(currentSession);
-  currentSession = null;
-  refreshingPromise = null;
-  refreshingFailureMode = null;
-  await saveDeviceToken('');
-  if (hadSession) {
-    emitSessionCleared();
-  }
-}
-
-export async function getAccessToken(baseUrl: string, forceRefresh = false): Promise<string | null> {
+  forceRefresh = false
+): Promise<string | null> {
   return refreshAccessToken(baseUrl, forceRefresh, 'hard');
 }
 
@@ -382,66 +433,124 @@ export async function ensureFreshAccessToken(
   baseUrl: string,
   options: EnsureFreshAccessTokenOptions = {}
 ): Promise<string | null> {
-  const normalizedBase = ensureBaseUrl(baseUrl);
+  const normalizedBaseUrl = ensureBaseUrl(baseUrl);
   const minValidityMs = Math.max(0, Number(options.minValidityMs ?? DEFAULT_TOKEN_MIN_VALIDITY_MS));
   const maxJitterMs = Math.max(0, Number(options.jitterMs ?? DEFAULT_TOKEN_JITTER_MS));
   const forceRefresh = Boolean(options.forceRefresh);
   const failureMode = options.failureMode || 'soft';
 
   if (!forceRefresh && currentSession && currentSession.accessToken) {
-    const jitterMs = getRandomJitterMs(maxJitterMs);
     const remainingMs = currentSession.accessExpireAtMs - Date.now();
-    if (remainingMs > minValidityMs + jitterMs) {
+    if (remainingMs > minValidityMs + getRandomJitterMs(maxJitterMs)) {
       return currentSession.accessToken;
     }
   }
 
-  return refreshAccessToken(normalizedBase, true, failureMode);
+  return refreshAccessToken(normalizedBaseUrl, true, failureMode);
 }
 
-export function subscribeAuthSession(listener: AuthSessionListener): () => void {
-  authListeners.add(listener);
-  return () => {
-    authListeners.delete(listener);
-  };
+export async function bootstrapAuth(baseUrl: string): Promise<SessionState | null> {
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+  if (!normalizedBaseUrl) {
+    ensureBaseUrl('');
+    setCurrentSession(null);
+    return null;
+  }
+
+  ensureBaseUrl(normalizedBaseUrl);
+
+  if (bootstrapPromise) {
+    return bootstrapPromise;
+  }
+
+  setAuthSnapshot({
+    isBootstrapping: true,
+    session: currentSession,
+  });
+
+  const task = (async () => {
+    const accessToken = await refreshAccessToken(normalizedBaseUrl, true, 'hard');
+    setAuthSnapshot({
+      isBootstrapping: false,
+      session: currentSession,
+    });
+    return accessToken && currentSession ? currentSession : null;
+  })();
+
+  bootstrapPromise = task;
+  try {
+    return await task;
+  } finally {
+    if (bootstrapPromise === task) {
+      bootstrapPromise = null;
+    }
+  }
 }
 
-export async function authorizedFetch(baseUrl: string, path: string, options: RequestInit = {}): Promise<Response> {
-  const normalizedBase = ensureBaseUrl(baseUrl);
-  const token = await getAccessToken(normalizedBase);
+export async function restoreSession(baseUrl: string): Promise<SessionState | null> {
+  return bootstrapAuth(baseUrl);
+}
 
-  if (!token) {
-    throw new Error('未登录或设备令牌已失效，请重新登录');
+export async function loginWithMasterPassword(
+  baseUrl: string,
+  masterPassword: string,
+  deviceName: string
+): Promise<SessionState> {
+  const normalizedBaseUrl = ensureBaseUrl(baseUrl);
+  if (!normalizedBaseUrl) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL is not configured');
   }
 
-  const headers = {
-    ...(options.headers || {}),
-    Authorization: `Bearer ${token}`
-  } as Record<string, string>;
+  const normalizedPassword = String(masterPassword || '').trim();
+  if (!normalizedPassword) {
+    throw new Error('请输入主密码');
+  }
 
-  const response = await fetch(`${normalizedBase}${path}`, {
-    ...options,
-    headers
+  const normalizedDeviceName = String(deviceName || '').trim() || getDefaultDeviceName();
+  const payload = await requestJson<LoginResponse>(normalizedBaseUrl, '/api/auth/login', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      masterPassword: normalizedPassword,
+      deviceName: normalizedDeviceName,
+    }),
   });
 
-  if (response.status !== 401) {
-    return response;
+  const nextSession = buildSessionFromLogin(payload, normalizedDeviceName);
+  saveStoredApiBaseUrl(normalizedBaseUrl);
+  saveDeviceToken(nextSession.deviceToken);
+  savePreferredDeviceName(nextSession.deviceName);
+  setCurrentSession(nextSession);
+  return nextSession;
+}
+
+export async function logoutCurrentDevice(baseUrl: string): Promise<void> {
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+  const token = currentSession?.accessToken || '';
+
+  try {
+    if (normalizedBaseUrl && token) {
+      await requestJson<unknown>(normalizedBaseUrl, '/api/auth/logout', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+    }
+  } catch {
+    // Ignore network failures and continue clearing local session.
   }
 
-  const nextToken = await refreshAccessToken(normalizedBase, true, 'hard');
-  if (!nextToken) {
-    return response;
-  }
+  refreshPromise = null;
+  bootstrapPromise = null;
+  saveDeviceToken('');
+  setCurrentSession(null);
+}
 
-  const retryHeaders = {
-    ...(options.headers || {}),
-    Authorization: `Bearer ${nextToken}`
-  } as Record<string, string>;
-
-  return fetch(`${normalizedBase}${path}`, {
-    ...options,
-    headers: retryHeaders
-  });
+export function readPreferredDeviceName(): string {
+  return String(authStorage.getString(DEVICE_NAME_KEY) || '').trim() || getDefaultDeviceName();
 }
 
 export function getDefaultDeviceName(): string {

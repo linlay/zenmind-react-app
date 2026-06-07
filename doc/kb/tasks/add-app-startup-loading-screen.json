@@ -1,0 +1,66 @@
+{
+  "id": "add-app-startup-loading-screen",
+  "title": "新增应用启动加载屏",
+  "intentKeywords": [
+    "启动骨架屏",
+    "启动 loading",
+    "启动遮罩",
+    "splash overlay",
+    "app loading screen",
+    "品牌 logo 动画"
+  ],
+  "entryDecision": [
+    "任务涉及应用冷启动前的遮罩、品牌启动屏、全局 loading overlay 或启动动画时，优先从这张卡开始。",
+    "如果需求只改 Tab、screen 映射或占位页本身，转到 add-or-edit-tab-screen。"
+  ],
+  "mustRead": [
+    {
+      "type": "module",
+      "ref": "app-shell-navigation"
+    },
+    {
+      "type": "flow",
+      "ref": "app-startup"
+    },
+    {
+      "type": "code",
+      "ref": "App.tsx"
+    },
+    {
+      "type": "code",
+      "ref": "app.json"
+    },
+    {
+      "type": "code",
+      "ref": "src/app/AppRoot.tsx"
+    }
+  ],
+  "likelyFiles": [
+    "App.tsx",
+    "app.json",
+    "assets/logo.png",
+    "src/app/AppRoot.tsx",
+    "src/app/startup/AppLaunchSkeleton.tsx",
+    "src/app/startup/GeminiLogo.tsx",
+    "metro.config.js",
+    "android/app/src/main/java/com/zqfrank/zenmindmobile/MainApplication.kt",
+    "android/app/src/main/res/values/styles.xml"
+  ],
+  "doNotMiss": [
+    "启动加载层要挂在 app 壳层，不把业务初始化、SQLite 或 WebSocket 细节塞进启动屏组件。",
+    "启动加载层必须有明确退场条件，优先复用 NavigationContainer 的 ready 时机配合最短展示时长。",
+    "如果启动动画改成 Reanimated 这类 UI 线程方案，同步检查 package.json 和 babel.config.js，避免只在本机 node_modules 碰巧能跑。",
+    "如果 loading 出现前有白屏，先检查 Android splash theme、AppTheme 和 React loading 背景是否连续，不要只盯着 JS 侧动画。",
+    "如果接入 expo-splash-screen，native splash 的第一帧要和 React loading 的第一帧保持同背景、同 logo、同尺寸，再在接棒后启动动画。",
+    "加载层视觉可以放在 src/app/startup，但不要改动 Tab.Screen 映射来实现全局遮罩。"
+  ],
+  "acceptanceChecks": [
+    "冷启动时能先看到全局加载层，导航内容在其下方完成挂载。",
+    "启动加载层退场后，底部 Tab、Chat 工作区和开发态 Debug 入口行为不受影响。",
+    "app 层仍只做显示时序编排，不直接触碰 storage、socket 或 feature 真源。"
+  ],
+  "generated": {
+    "mustReadCount": 5,
+    "likelyFileCount": 9
+  }
+}

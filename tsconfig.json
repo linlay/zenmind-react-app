@@ -4,15 +4,23 @@
     "target": "ES2021",
     "module": "ESNext",
     "jsx": "react-jsx",
-    "strict": false,
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
     "allowJs": false,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "types": ["jest", "react", "react-native"]
+    "types": ["react", "react-native"]
   },
-  "include": ["**/*.ts", "**/*.tsx"],
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

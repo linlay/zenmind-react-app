@@ -1,0 +1,140 @@
+import type {
+  ChatMessageItem,
+  ChatMessageRole,
+  ChatMessageStreamStatus,
+} from '../chatPersistence/types.ts';
+import type {
+  ChatTimelineAwaitingNode,
+  ChatTimelineMessageNode,
+  ChatTimelineNode,
+  ChatTimelineRuntimeEntry,
+  ChatTimelineRuntimeState,
+  ChatTimelineState,
+  ChatTimelineTextNode,
+  ChatTimelineToolNode,
+} from './types.ts';
+
+function statusForNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): string {
+  if (node.kind === 'awaiting') {
+    return node.status === 'answer' ? '已回答' : '等待响应';
+  }
+  return node.status;
+}
+
+function bodyForNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): string {
+  if (node.kind === 'awaiting') {
+    return [node.prompt, node.payloadText, node.answer].filter(Boolean).join('\n');
+  }
+  if (node.kind === 'tool') {
+    return node.body;
+  }
+  return node.body;
+}
+
+function titleForNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): string {
+  if (node.kind === 'awaiting') {
+    return node.mode === 'approval'
+      ? '等待审批'
+      : node.mode === 'form'
+        ? '等待表单'
+        : node.mode === 'plan'
+          ? '等待计划确认'
+          : '向用户提问';
+  }
+  return node.title;
+}
+
+function runtimeEntryFromNode(
+  node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>
+): ChatTimelineRuntimeEntry | null {
+  if (node.kind === 'run' && node.lifecycle === 'active') {
+    return null;
+  }
+  return {
+    id: node.id,
+    kind: node.kind,
+    title: titleForNode(node),
+    body: bodyForNode(node),
+    status: statusForNode(node),
+    lifecycle: node.lifecycle,
+    updatedAt: node.updatedAt,
+    streaming:
+      (node.kind === 'tool' && node.streaming) ||
+      ((node.kind === 'reasoning' || node.kind === 'planning') &&
+        (node as ChatTimelineTextNode | ChatTimelineToolNode).streaming),
+  };
+}
+
+export function projectTimelineMessages(state: ChatTimelineState): ChatMessageItem[] {
+  return state.orderedNodeIds
+    .map((id) => state.nodesById[id])
+    .filter(
+      (node): node is ChatTimelineMessageNode & { role: ChatMessageRole } =>
+        Boolean(node) &&
+        node.kind === 'message' &&
+        (node.role === 'user' || node.role === 'assistant')
+    )
+    .map((node) => {
+      const streamStatus: ChatMessageStreamStatus = node.streaming ? 'streaming' : 'done';
+      return {
+        messageId: node.messageId,
+        clientMessageId: node.clientMessageId,
+        serverMessageId: node.serverMessageId,
+        conversationId: state.conversationId,
+        role: node.role,
+        content: node.content,
+        createdAt: node.createdAt,
+        deliveryStatus: node.deliveryStatus,
+        streamStatus,
+        errorReason: node.errorReason,
+        attachments: node.attachments || [],
+      };
+    })
+    .sort((left, right) => left.createdAt - right.createdAt);
+}
+
+export function projectTimelineRuntimeState(state: ChatTimelineState): ChatTimelineRuntimeState {
+  const entries = state.orderedNodeIds
+    .map((id) => state.nodesById[id])
+    .filter(
+      (node): node is Exclude<ChatTimelineNode, ChatTimelineMessageNode> =>
+        Boolean(node) && node.kind !== 'message'
+    )
+    .map(runtimeEntryFromNode)
+    .filter((entry): entry is ChatTimelineRuntimeEntry => Boolean(entry))
+    .sort((left, right) => right.updatedAt - left.updatedAt)
+    .slice(0, 18);
+  const awaitingNode = state.awaiting
+    ? (state.nodesById[state.awaiting.id] as ChatTimelineAwaitingNode | undefined)
+    : undefined;
+  const visibleAwaiting =
+    state.awaiting && awaitingNode?.status === 'answer'
+      ? state.awaiting
+      : state.awaiting && awaitingNode?.lifecycle === 'active'
+        ? state.awaiting
+        : null;
+
+  return {
+    conversationId: state.conversationId,
+    entries,
+    awaiting:
+      visibleAwaiting && awaitingNode
+        ? {
+            id: visibleAwaiting.id,
+            awaitingId: visibleAwaiting.awaitingId,
+            runId: visibleAwaiting.runId,
+            createdAt: visibleAwaiting.createdAt,
+            prompt: visibleAwaiting.prompt,
+            answer: visibleAwaiting.answer,
+            payloadText: visibleAwaiting.payloadText,
+            mode: visibleAwaiting.mode,
+            status: visibleAwaiting.status,
+            interactive: visibleAwaiting.interactive,
+            answerSummary: visibleAwaiting.answerSummary ?? awaitingNode.answerSummary ?? null,
+            updatedAt: visibleAwaiting.updatedAt,
+          }
+        : null,
+    usageLabel: state.usageLabel,
+    updatedAt: state.updatedAt,
+  };
+}

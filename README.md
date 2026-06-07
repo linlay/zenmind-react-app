@@ -2,6 +2,51 @@
 
 React Native (Expo) + TypeScript 跨平台移动应用，提供 AI 聊天助理、PTY 终端、智能体管理等功能。采用四业务域单壳架构。
 
+## 启动
+
+```bash
+pnpm install
+pnpm start
+```
+
+常用命令：
+
+```bash
+pnpm web
+pnpm android
+pnpm ios
+pnpm typecheck
+```
+
+## 知识库
+
+模型优先知识库入口：[`doc/kb/root.json`](./doc/kb/root.json)
+
+常用命令：
+
+```bash
+pnpm kb:build
+pnpm kb:validate
+pnpm kb:check-stale
+```
+
+## 目录
+
+```text
+.
+├── App.tsx
+├── app.json
+├── babel.config.js
+├── index.js
+├── package.json
+├── src/
+│   └── app/
+│       ├── AppRoot.tsx
+│       └── screens/
+│           └── BlankScreen.tsx
+└── tsconfig.json
+```
+
 ## 技术栈
 
 | 类别          | 技术                                      | 版本                  |

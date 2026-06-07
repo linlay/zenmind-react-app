@@ -1,0 +1,61 @@
+{
+  "id": "feature-notifications",
+  "title": "系统级通知接入",
+  "layer": "features",
+  "paths": ["src/features/notifications"],
+  "responsibility": [
+    "管理系统通知权限、Android channel、原生 FCM/APNs token 获取和注册指纹缓存。",
+    "解析远程 Push 点击 payload，并把 chat.message 通知转成带 conversationId 和 serverMessageId 的导航意图。",
+    "保持移动端不承载通知投递队列、后台轮询或聊天消息真源。"
+  ],
+  "publicEntrypoints": [
+    {
+      "file": "src/features/notifications/notificationService.ts",
+      "symbol": "notificationService",
+      "kind": "notification-service",
+      "description": "App 壳层消费的通知入口，负责 token 注册、点击监听、前台展示策略和登出清理。"
+    }
+  ],
+  "dependsOn": ["core-api-client", "core-auth-session"],
+  "dependedBy": ["app-shell-navigation"],
+  "stateTouches": [
+    "系统通知权限与 Android chat-messages channel",
+    "MMKV push_registration_v1 注册指纹",
+    "当前前台 ChatDetail conversationId，用于抑制已打开会话的前台通知"
+  ],
+  "relatedFlows": ["app-startup", "notification-open-chat-message"],
+  "relatedTasks": ["add-system-notifications"],
+  "impactChecklist": [
+    "移动端通知模块只管理权限、token 和点击 payload，不新增本地通知队列表。",
+    "远程 Push data 只接受 type、conversationId、serverMessageId，不把完整消息正文放进 payload。",
+    "token 注册要按 nativePushToken、用户、设备、平台和环境生成指纹，避免重复调用注册接口。",
+    "点击通知后的消息补拉和落库继续交给 ChatDetail、notificationApi 和 chatRepository。"
+  ],
+  "readNext": [
+    {
+      "type": "flow",
+      "ref": "notification-open-chat-message"
+    },
+    {
+      "type": "module",
+      "ref": "app-shell-navigation"
+    },
+    {
+      "type": "module",
+      "ref": "core-api-client"
+    },
+    {
+      "type": "code",
+      "ref": "src/features/notifications/notificationService.ts"
+    }
+  ],
+  "generated": {
+    "fileCount": 1,
+    "files": ["src/features/notifications/notificationService.ts"],
+    "exportedSymbolsByFile": {
+      "src/features/notifications/notificationService.ts": ["notificationService"]
+    },
+    "actualDependsOn": ["core-api-client", "core-auth-session"],
+    "actualDependedBy": ["app-shell-navigation"]
+  }
+}

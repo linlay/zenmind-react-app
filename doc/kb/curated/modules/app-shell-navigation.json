@@ -1,0 +1,173 @@
+{
+  "id": "app-shell-navigation",
+  "title": "应用壳层与底部导航",
+  "layer": "app",
+  "paths": [
+    "App.tsx",
+    "index.js",
+    "app.json",
+    "assets",
+    "package.json",
+    "babel.config.js",
+    "metro.config.js",
+    "scripts/worklets",
+    "android/app/src/main/java",
+    "android/app/src/main/res/values",
+    "android/app/src/main/res/drawable",
+    "android/app/src/main/res/drawable-hdpi",
+    "android/app/src/main/res/drawable-mdpi",
+    "android/app/src/main/res/drawable-xhdpi",
+    "android/app/src/main/res/drawable-xxhdpi",
+    "android/app/src/main/res/drawable-xxxhdpi",
+    "src/app/AppRoot.tsx",
+    "src/app/navigation",
+    "src/app/screens",
+    "src/app/startup",
+    "src/types/assets.d.ts"
+  ],
+  "responsibility": [
+    "挂载 SafeAreaProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
+    "决定认证前后的 RootStack / Tab 结构、登录门卫开关、任务看板与占位页映射以及 Chat 首页与详情页的导航层级。",
+    "为一级 Tab 页面提供固定顶部 Header 与滚动内容分离的壳层布局。",
+    "承接共享视觉 token、描边 Tab 图标和中文标签映射，统一一级页面的轻量聊天风格。",
+    "让 ChatDetail 作为 Tabs 之上的上层 route 覆盖首页，避免在 feature 内手写 tab 显隐和页面覆盖动画。",
+    "接收系统通知点击后的聊天导航意图，并在认证和导航 ready 前缓存 pending payload。",
+    "保持 app 层只做壳层编排，不直接承载业务状态和底层存储细节。"
+  ],
+  "publicEntrypoints": [
+    {
+      "file": "index.js",
+      "symbol": null,
+      "kind": "expo-bootstrap",
+      "description": "注册 Expo 根组件。"
+    },
+    {
+      "file": "app.json",
+      "symbol": null,
+      "kind": "expo-config",
+      "description": "声明 expo-splash-screen 插件、原生启动图资源和背景色。"
+    },
+    {
+      "file": "metro.config.js",
+      "symbol": null,
+      "kind": "metro-config",
+      "description": "扩展 Expo Metro 配置，允许 Web 构建加载 expo-sqlite 的 wasm 资源，收窄 monorepo watch 范围，并让 Worklets bundle mode 生成文件处于 Metro watch 范围内。"
+    },
+    {
+      "file": "package.json",
+      "symbol": null,
+      "kind": "npm-scripts",
+      "description": "声明 android / android:device / web 等 Expo 运行脚本，并在 Metro 启动前预生成 Worklets bundle 文件。"
+    },
+    {
+      "file": "scripts/worklets/pregenerate.js",
+      "symbol": null,
+      "kind": "worklets-pregenerate-script",
+      "description": "在 Android/Web 打包前用 Expo Metro transformer 与 Metro worker 插件沿 Metro 可见的项目路径和 pnpm 当前 realpath 预生成 development / production 两套 react-native-worklets/.worklets 文件，重写包内相对 import 后同步到项目内 .generated 目录。"
+    },
+    {
+      "file": "App.tsx",
+      "symbol": "default",
+      "kind": "react-entry",
+      "description": "应用 UI 根入口，同时托住 native splash，并编排 React 启动加载层的接棒与退场时机。"
+    },
+    {
+      "file": "src/app/AppRoot.tsx",
+      "symbol": "AppRoot",
+      "kind": "app-shell",
+      "description": "导航容器、认证冷启动恢复、系统通知接入与开发态入口的壳层，并向 App 暴露导航 ready 时机。"
+    },
+    {
+      "file": "src/app/startup/AppLaunchSkeleton.tsx",
+      "symbol": "AppLaunchSkeleton",
+      "kind": "startup-loading-overlay",
+      "description": "应用冷启动期间的毛玻璃启动加载层与品牌 logo 动画。"
+    },
+    {
+      "file": "src/app/navigation/RootNavigator.tsx",
+      "symbol": "RootNavigator",
+      "kind": "navigator",
+      "description": "Root stack 与底部 Tab 的导航配置入口。"
+    }
+  ],
+  "dependsOn": [
+    "app-development-debug",
+    "core-api-client",
+    "core-auth-session",
+    "feature-agent-task-board",
+    "feature-auth-login",
+    "feature-chat-persistence",
+    "feature-chat-realtime",
+    "feature-notifications",
+    "shared-visual-foundation",
+    "shared-screen-header"
+  ],
+  "dependedBy": ["feature-chat-persistence"],
+  "stateTouches": [
+    "Safe area provider 树",
+    "启动加载遮罩可见性",
+    "React Navigation 容器状态",
+    "认证快照驱动的 Root stack 与 bottom tab 路由编排"
+  ],
+  "relatedFlows": ["app-startup", "chat-home-cold-boot", "notification-open-chat-message"],
+  "relatedTasks": [
+    "add-app-startup-loading-screen",
+    "add-auth-login-screen",
+    "add-or-edit-tab-screen",
+    "add-reusable-header-component",
+    "add-system-notifications",
+    "add-reusable-list-screen",
+    "remove-development-debug-entry"
+  ],
+  "impactChecklist": [
+    "启动加载层只负责壳层显示时序，不在 app 层引入业务数据初始化职责。",
+    "启动加载层需要有明确退场信号，避免 overlay 常驻挡住导航和 Debug 面板。",
+    "启动加载层如果依赖 Reanimated 或其他 UI 线程动画库，要同步保持 package.json 依赖和 babel.config.js 插件配置一致。",
+    "Web 构建如果依赖 expo-sqlite，要保持 metro.config.js 中 wasm assetExts 配置可用。",
+    "Metro watchFolders 必须限制在 workspace 根 node_modules 和项目内 .generated/react-native-worklets/.worklets，不要继承 Expo 自动发现的 sibling frontend workspace；否则 pan-webclient 等其他项目的 node_modules 变化会污染移动端 Metro file map。",
+    "Worklets bundle mode 生成物必须同步到项目内 .generated/react-native-worklets/.worklets，并让 Metro 只 watch/resolve 这个项目内稳定目录；预生成时要同时覆盖 node_modules symlink 路径和 pnpm 当前 .pnpm realpath，因为 Worklets hash 会受源码 filename 影响。",
+    "Expo 运行和导出脚本必须先执行 scripts/worklets/pregenerate.js，提前生成并同步 Reanimated、Streamdown、Worklets、remend 和二级 Worklets bundle 文件；预生成要覆盖 development / production 环境和 android / web 平台，避免 Metro 建图后才出现新 .worklets 文件导致 SHA-1 缺失。",
+    "如果 React loading 之前出现空白窗口，同步检查 Android splash theme 与 AppTheme 的 windowBackground 是否连续，避免主题切换时露白。",
+    "如果接入 expo-splash-screen，要同步维护 app.json 插件配置、assets/logo.png 和 Android 当前 splash 资源，保证 native 首帧与 React 首帧一致。",
+    "新增登录页、Tab 或上层 route 时同时检查 RootNavigator、TabScreens、RootTabParamList 和 RootStackParamList 是否一致。",
+    "任务 Tab 当前通过 Terminal route 挂载 AgentTaskBoardScreen；若改 route 名称要同步 types、TabIcon 和 KB。",
+    "一级 Tab 页面如果展示共享 Header，Header 必须固定在滚动区外，避免随 ScrollView 或列表一起滚动。",
+    "底部 Tab 的中文标签、描边图标和颜色语义继续由共享视觉层统一提供，不在单个 screen 内重复定义。",
+    "如果支持关闭登录门卫，AppRoot 与 RootNavigator 必须同时消费同一个 auth config 开关。",
+    "当前 Chat Tab 直接指向 feature 内的 ChatHomeStorageDemo；ChatDetail 由 RootNavigator 的上层 stack 承载。",
+    "app 层可以消费 core auth 暴露的快照与 bootstrap 入口，但不要自己处理 token 存储细节。",
+    "通知点击只在 app 层转成导航动作，不在 app 层读取或写入聊天 SQLite。",
+    "不要在 app 层直接 import SQLite 或 WebSocket 底层实现。",
+    "除非任务明确要求，否则保持当前 Chat initialRouteName 不变。"
+  ],
+  "readNext": [
+    {
+      "type": "flow",
+      "ref": "app-startup"
+    },
+    {
+      "type": "module",
+      "ref": "core-auth-session"
+    },
+    {
+      "type": "module",
+      "ref": "app-development-debug"
+    },
+    {
+      "type": "module",
+      "ref": "feature-auth-login"
+    },
+    {
+      "type": "module",
+      "ref": "feature-chat-persistence"
+    },
+    {
+      "type": "module",
+      "ref": "feature-notifications"
+    },
+    {
+      "type": "code",
+      "ref": "src/app/navigation/RootNavigator.tsx"
+    }
+  ]
+}

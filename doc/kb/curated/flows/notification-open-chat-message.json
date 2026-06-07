@@ -1,0 +1,61 @@
+{
+  "id": "notification-open-chat-message",
+  "title": "系统通知打开聊天消息",
+  "trigger": "用户点击远程 Push 中的 chat.message 通知时触发。",
+  "sourceOfTruth": [
+    "远程 Push payload 只提供 conversationId 和 serverMessageId，不承载完整消息正文。",
+    "SQLite 仍是聊天消息展示真源；本地命中 serverMessageId 时不发起补拉请求。",
+    "缺失消息时通过认证 API 精确补拉单条消息详情，再由 chatRepository 幂等写入 SQLite。"
+  ],
+  "steps": [
+    {
+      "order": 1,
+      "label": "notificationService 解析 NotificationResponse data，只接受 chat.message、conversationId 和 serverMessageId。",
+      "moduleId": "feature-notifications",
+      "file": "src/features/notifications/notificationService.ts",
+      "symbol": "notificationService"
+    },
+    {
+      "order": 2,
+      "label": "AppRoot 在导航和认证 ready 前缓存 pending payload，ready 后导航到 ChatDetail。",
+      "moduleId": "app-shell-navigation",
+      "file": "src/app/AppRoot.tsx",
+      "symbol": "AppRoot"
+    },
+    {
+      "order": 3,
+      "label": "ChatDetailScreen 把 fromNotification 和 serverMessageId 交给 useChatDetailConversationController；controller 先显示整页骨架屏，并用 getMessageByServerMessageId 查 SQLite；若数据过早返回，重消息区也要先在骨架层下完成挂载，再等入场过渡稳定后揭开。",
+      "moduleId": "feature-chat-persistence",
+      "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
+      "symbol": "useChatDetailConversationController"
+    },
+    {
+      "order": 4,
+      "label": "本地未命中时 getNotificationMessageDetailApi 用认证请求补拉服务端消息详情。",
+      "moduleId": "core-api-client",
+      "file": "src/core/api/services/notificationApi.ts",
+      "symbol": "getNotificationMessageDetailApi"
+    },
+    {
+      "order": 5,
+      "label": "upsertServerMessageDetail 幂等写入 conversation/message，并更新 SQLite conversation 摘要。",
+      "moduleId": "feature-chat-persistence",
+      "file": "src/features/chatPersistence/chatRepository.ts",
+      "symbol": "upsertServerMessageDetail"
+    }
+  ],
+  "failureModes": [
+    "payload 放完整消息正文会扩大敏感数据暴露面，也绕开服务端详情权限校验。",
+    "点击后不先查 SQLite 会让重复点击同一通知产生不必要网络请求。",
+    "补拉结果绕过 repository 写库会破坏会话摘要和未读数一致性。",
+    "在导航或认证未 ready 时直接 navigate 可能丢失冷启动通知点击。"
+  ],
+  "mustCheckModules": [
+    "app-shell-navigation",
+    "core-api-client",
+    "core-auth-session",
+    "feature-chat-persistence",
+    "feature-notifications"
+  ],
+  "relatedTasks": ["add-system-notifications", "modify-chat-persistence"]
+}

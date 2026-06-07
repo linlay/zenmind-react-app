@@ -1,0 +1,50 @@
+{
+  "id": "add-reusable-header-component",
+  "title": "新增复用型 Header 组件",
+  "intentKeywords": ["header 组件", "页面头部", "三栏 header", "左按钮区", "右按钮区", "标题组件"],
+  "entryDecision": [
+    "任务涉及新增页面顶部 Header 组件、统一左右按钮区与标题区布局时，从这张卡开始。",
+    "如果还要替换具体 screen 的手写 header，同时补读对应 feature 或 app 模块卡。"
+  ],
+  "mustRead": [
+    {
+      "type": "module",
+      "ref": "shared-screen-header"
+    },
+    {
+      "type": "module",
+      "ref": "app-shell-navigation"
+    },
+    {
+      "type": "code",
+      "ref": "src/shared/components/ScreenHeader.tsx"
+    },
+    {
+      "type": "code",
+      "ref": "src/features/chatPersistence/ChatDetailScreen.tsx"
+    },
+    {
+      "type": "code",
+      "ref": "src/app/screens/AppScreenFrame.tsx"
+    }
+  ],
+  "likelyFiles": [
+    "src/shared/components/ScreenHeader.tsx",
+    "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+    "src/features/chatPersistence/ChatDetailScreen.tsx",
+    "src/app/screens/AppScreenFrame.tsx",
+    "src/app/screens/TabScreens.tsx"
+  ],
+  "doNotMiss": [
+    "Header 只解决共享 UI 布局，不承载导航返回、safe area 或业务状态。",
+    "左右按钮区保持 0 到 2 个元素的轻量约束，不引入通用按钮工厂。",
+    "标题区要允许传入组件，避免把复杂标题信息重新拆回多个字符串 prop。",
+    "一级页面接入 Header 时，Header 自身固定在滚动区外，只把正文留在 ScrollView 或列表里。"
+  ],
+  "acceptanceChecks": [
+    "三栏布局在左右操作区数量不对称时仍保持标题视觉居中。",
+    "标题为字符串时使用默认单行文本样式；标题为自定义组件时原样渲染。",
+    "一级页面场景下 Header 固定在顶部，不因为列表滚动而离开视口。",
+    "共享 Header 不依赖聊天持久化、实时同步或导航底层实现。"
+  ]
+}

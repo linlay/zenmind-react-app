@@ -1,0 +1,210 @@
+{
+  "id": "core-api-client",
+  "title": "统一 API 客户端",
+  "layer": "core",
+  "paths": ["src/core/api"],
+  "responsibility": [
+    "统一拼接 API base URL、path 和 query。",
+    "提供 apiRequest、ApiError 以及业务 service 目录约定。",
+    "提供 authenticatedApiRequest，把当前认证 access token 注入业务接口请求，并在 401 时强制刷新后重试一次。",
+    "在开发态通过 core-debug-logging 打印非 WS HTTP 请求、响应和错误。",
+    "把业务请求实现收口到 core/api/services，避免 feature 到处散写 fetch。",
+    "提供 chatEventProtocol 这类纯协议 helper，统一 REST/WS 聊天事件的 type alias、字段提取和分类。"
+  ],
+  "publicEntrypoints": [
+    {
+      "file": "src/core/api/apiClient.ts",
+      "symbol": "getApiBaseUrl",
+      "kind": "config-reader",
+      "description": "读取归一化 API base URL。"
+    },
+    {
+      "file": "src/core/api/apiClient.ts",
+      "symbol": "buildApiUrl",
+      "kind": "url-builder",
+      "description": "统一拼接完整接口 URL。"
+    },
+    {
+      "file": "src/core/api/apiClient.ts",
+      "symbol": "apiRequest",
+      "kind": "request",
+      "description": "统一 HTTP 请求入口。"
+    },
+    {
+      "file": "src/core/api/apiClient.ts",
+      "symbol": "authenticatedApiRequest",
+      "kind": "authenticated-request",
+      "description": "带当前 access token 的统一业务请求入口，服务端返回 401 时强制刷新 token 并重试一次。"
+    },
+    {
+      "file": "src/core/api/apiClient.ts",
+      "symbol": "ApiError",
+      "kind": "error",
+      "description": "统一接口错误模型。"
+    },
+    {
+      "file": "src/core/api/services/chatApi.ts",
+      "symbol": "CHAT_SUMMARIES_TRANSPORT_TYPE",
+      "kind": "api-service-constant",
+      "description": "Chat 首页远端会话摘要 WS request type，目前为 /api/chats，供首页目录投影刷新集中引用。"
+    },
+    {
+      "file": "src/core/api/services/chatApi.ts",
+      "symbol": "submitAwaitingApi",
+      "kind": "api-service",
+      "description": "向 /ap/api/submit 提交 awaiting question/approval/form/plan 参数，供 chatSyncService 统一处理交互式后端等待态。"
+    },
+    {
+      "file": "src/core/api/services/chatEventProtocol.ts",
+      "symbol": "normalizeEventType",
+      "kind": "protocol-helper",
+      "description": "统一归一化聊天 WS / detail event.type，并为 realtime 与 projector 共享字段提取和事件分类逻辑。"
+    },
+    {
+      "file": "src/core/api/services/notificationApi.ts",
+      "symbol": "registerPushTokenApi",
+      "kind": "api-service",
+      "description": "注册当前设备的原生 FCM/APNs push token。"
+    },
+    {
+      "file": "src/core/api/services/notificationApi.ts",
+      "symbol": "getNotificationMessageDetailApi",
+      "kind": "api-service",
+      "description": "通知点击后按 serverMessageId 精确补拉聊天消息详情。"
+    }
+  ],
+  "dependsOn": ["core-auth-session", "core-debug-logging"],
+  "dependedBy": [
+    "app-development-debug",
+    "app-shell-navigation",
+    "feature-chat-persistence",
+    "feature-chat-realtime",
+    "feature-chat-timeline",
+    "feature-notifications"
+  ],
+  "stateTouches": ["归一化后的 API base URL", "HTTP 请求头与 payload 规范", "接口错误消息解析"],
+  "relatedFlows": ["notification-open-chat-message"],
+  "relatedTasks": [
+    "add-business-api-service",
+    "add-system-notifications",
+    "modify-chat-realtime",
+    "modify-runtime-environment"
+  ],
+  "impactChecklist": [
+    "新增 service 文件统一放在 src/core/api/services，并通过 apiRequest 发请求。",
+    "需要认证的业务接口优先使用 authenticatedApiRequest，不在 service 里重复手写 access token 注入或 401 重试。",
+    "authenticatedApiRequest 只允许对 401 做一次强制刷新重试，非 401 错误不自动重试。",
+    "协议归一化 helper 保持纯函数，不直接依赖 SQLite、UI state 或 transport 单例。",
+    "URL 归一化和 query 过滤逻辑要保持一致，不把空字符串参数无意透传。",
+    "错误解析兼容 data.error、data.msg、data.message 三种常见字段。",
+    "开发态 HTTP 日志不得打印明文 Authorization、password、secret 或 token。"
+  ],
+  "readNext": [
+    {
+      "type": "module",
+      "ref": "core-auth-session"
+    },
+    {
+      "type": "code",
+      "ref": "src/core/api/apiClient.ts"
+    },
+    {
+      "type": "doc",
+      "ref": "src/core/api/services/README.md"
+    }
+  ],
+  "generated": {
+    "fileCount": 6,
+    "files": [
+      "src/core/api/apiClient.ts",
+      "src/core/api/services/chatApi.ts",
+      "src/core/api/services/chatEventProtocol.ts",
+      "src/core/api/services/notificationApi.ts",
+      "src/core/api/services/templateApi.ts",
+      "src/core/api/services/uploadApi.ts"
+    ],
+    "exportedSymbolsByFile": {
+      "src/core/api/apiClient.ts": [
+        "ApiError",
+        "ApiRequestOptions",
+        "apiRequest",
+        "authenticatedApiRequest",
+        "authenticatedFormDataRequest",
+        "buildApiUrl",
+        "getApiBaseUrl"
+      ],
+      "src/core/api/services/chatApi.ts": [
+        "AwaitingApprovalSubmitParamData",
+        "AwaitingFormSubmitParamData",
+        "AwaitingPlanSubmitParamData",
+        "AwaitingQuestionSubmitParamData",
+        "AwaitingSubmitParamData",
+        "AwaitingSubmitPayloadData",
+        "CHAT_SUMMARIES_TRANSPORT_TYPE",
+        "MarkChatReadRequest",
+        "MarkChatReadResponse",
+        "RemoteChatDetail",
+        "RemoteChatEvent",
+        "RemoteChatSummary",
+        "SubmitAwaitingRequest",
+        "SubmitAwaitingResponse",
+        "getChatDetailApi",
+        "markChatReadApi",
+        "submitAwaitingApi"
+      ],
+      "src/core/api/services/chatEventProtocol.ts": [
+        "ChatProtocolEventFamily",
+        "buildAssistantMessageId",
+        "classifyChatProtocolEvent",
+        "extractAgentKey",
+        "extractConversationId",
+        "extractEventText",
+        "extractMessageRole",
+        "extractTeamId",
+        "extractTitle",
+        "isAssistantContentEvent",
+        "isChatReadAllEvent",
+        "isChatReadEvent",
+        "isChatUnreadEvent",
+        "isConversationRemovalEvent",
+        "isSummaryLikeEvent",
+        "normalizeEventType",
+        "toFiniteNumber",
+        "toText"
+      ],
+      "src/core/api/services/notificationApi.ts": [
+        "NotificationMessageDetailResponse",
+        "PushTokenPlatform",
+        "PushTokenProvider",
+        "RegisterPushTokenParams",
+        "RegisterPushTokenResponse",
+        "getNotificationMessageDetailApi",
+        "registerPushTokenApi",
+        "unregisterPushTokenApi"
+      ],
+      "src/core/api/services/templateApi.ts": [
+        "GetExampleDetailParams",
+        "GetExampleDetailResponse",
+        "getExampleDetailApi"
+      ],
+      "src/core/api/services/uploadApi.ts": [
+        "CHAT_UPLOAD_API_PATH",
+        "ChatUploadReference",
+        "ChatUploadResponseData",
+        "UploadChatAttachmentInput",
+        "extractUploadChatId",
+        "extractUploadReferences",
+        "uploadChatAttachmentApi"
+      ]
+    },
+    "actualDependsOn": ["core-auth-session", "core-debug-logging"],
+    "actualDependedBy": [
+      "app-development-debug",
+      "app-shell-navigation",
+      "feature-chat-persistence",
+      "feature-chat-realtime",
+      "feature-chat-timeline",
+      "feature-notifications"
+    ]
+  }
+}

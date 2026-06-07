@@ -1,0 +1,96 @@
+{
+  "frame": "stream",
+  "id": "wss_mq0m14l5",
+  "streamId": "s_2",
+  "event": {
+    "seq": 33,
+    "type": "awaiting.ask",
+    "awaitingId": "call_function_ymdl7tgkp8wo_1",
+    "mode": "question",
+    "viewportType": "builtin",
+    "viewportKey": "question",
+    "timeout": 120000,
+    "runId": "mq0m15fy",
+    "agentKey": "askUser.demo",
+    "questions": [
+      {
+        "id": "q1",
+        "options": [
+          {
+            "label": "engineering 工程部"
+          },
+          {
+            "label": "finance 财务部"
+          },
+          {
+            "label": "hr 人力资源部"
+          },
+          {
+            "label": "marketing 市场部"
+          },
+          {
+            "label": "operations 运营部"
+          }
+        ],
+        "question": "请问您目前所在的岗位类型是？",
+        "type": "select"
+      },
+      {
+        "id": "q2",
+        "options": [
+          {
+            "label": "数据分析"
+          },
+          {
+            "label": "项目管理"
+          },
+          {
+            "label": "文案写作"
+          },
+          {
+            "label": "设计创意"
+          },
+          {
+            "label": "客户沟通"
+          },
+          {
+            "label": "编程开发"
+          }
+        ],
+        "question": "您擅长哪些工作技能？（可多选）",
+        "type": "multi-select"
+      },
+      {
+        "id": "q3",
+        "placeholder": "YYYY-MM-DD",
+        "question": "您的入职日期是哪一天？",
+        "type": "date"
+      },
+      {
+        "allowFreeText": true,
+        "freeTextPlaceholder": "请输入其他沟通方式",
+        "id": "q4",
+        "options": [
+          {
+            "label": "email 邮件"
+          },
+          {
+            "label": "meeting 会议"
+          },
+          {
+            "label": "chat 即时通讯"
+          }
+        ],
+        "question": "您偏好的团队沟通方式是？",
+        "type": "select"
+      },
+      {
+        "id": "q5",
+        "placeholder": "请输入数字",
+        "question": "您的工作年限是多少年？",
+        "type": "number"
+      }
+    ],
+    "timestamp": 1780644966477
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "id": "core-debug-logging",
+  "title": "核心调试日志",
+  "layer": "core",
+  "paths": ["src/core/debug"],
+  "responsibility": [
+    "提供开发态 HTTP 请求、响应和错误日志能力。",
+    "统一脱敏认证、密码和 token 类字段，避免各模块重复实现调试打印。",
+    "保持调试日志只作为旁路观测，不参与业务状态、请求重试或错误决策。"
+  ],
+  "publicEntrypoints": [
+    {
+      "file": "src/core/debug/httpDebugLogger.ts",
+      "symbol": "logHttpRequest",
+      "kind": "debug-logger",
+      "description": "开发态打印非 WS HTTP 请求方法、接口和脱敏后的 body。"
+    },
+    {
+      "file": "src/core/debug/httpDebugLogger.ts",
+      "symbol": "logHttpResponse",
+      "kind": "debug-logger",
+      "description": "开发态打印非 WS HTTP 响应状态、耗时和脱敏后的 payload。"
+    },
+    {
+      "file": "src/core/debug/httpDebugLogger.ts",
+      "symbol": "logHttpError",
+      "kind": "debug-logger",
+      "description": "开发态打印非 WS HTTP 网络异常和耗时。"
+    }
+  ],
+  "dependsOn": [],
+  "dependedBy": ["core-api-client", "core-auth-session"],
+  "stateTouches": ["开发态 console 输出"],
+  "relatedFlows": ["app-startup", "notification-open-chat-message"],
+  "relatedTasks": ["add-business-api-service", "add-auth-login-screen", "add-system-notifications"],
+  "impactChecklist": [
+    "HTTP 调试日志必须只在 __DEV__ 输出，生产环境不打印。",
+    "日志必须脱敏 Authorization、password、secret、token 等字段。",
+    "日志只覆盖 HTTP/API 请求；WebSocket 帧继续由 wsDebugRecorder 观测。",
+    "日志不得影响请求重试、错误抛出、认证清理或业务落库行为。"
+  ],
+  "readNext": [
+    {
+      "type": "code",
+      "ref": "src/core/debug/httpDebugLogger.ts"
+    },
+    {
+      "type": "module",
+      "ref": "core-api-client"
+    },
+    {
+      "type": "module",
+      "ref": "core-auth-session"
+    }
+  ]
+}

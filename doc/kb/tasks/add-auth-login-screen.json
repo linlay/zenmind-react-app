@@ -1,0 +1,65 @@
+{
+  "id": "add-auth-login-screen",
+  "title": "新增登录页与认证门卫",
+  "intentKeywords": [
+    "新增登录页",
+    "设备登录",
+    "认证门卫",
+    "登录 screen",
+    "auth gate",
+    "session bootstrap"
+  ],
+  "entryDecision": [
+    "任务涉及登录页面、未登录前置路由、会话恢复或设备令牌缓存时，优先从这张卡开始。",
+    "如果只是修改已存在 Tab 的 UI，占位页或底部导航，转到 add-or-edit-tab-screen。"
+  ],
+  "mustRead": [
+    {
+      "type": "module",
+      "ref": "app-shell-navigation"
+    },
+    {
+      "type": "module",
+      "ref": "core-auth-session"
+    },
+    {
+      "type": "module",
+      "ref": "feature-auth-login"
+    },
+    {
+      "type": "flow",
+      "ref": "app-startup"
+    },
+    {
+      "type": "code",
+      "ref": "src/app/navigation/RootNavigator.tsx"
+    },
+    {
+      "type": "code",
+      "ref": "src/core/auth/appAuth.ts"
+    }
+  ],
+  "likelyFiles": [
+    "src/app/AppRoot.tsx",
+    "src/app/navigation/RootNavigator.tsx",
+    "src/app/navigation/types.ts",
+    "src/features/auth/LoginScreen.tsx",
+    "src/core/auth/appAuth.ts",
+    "src/core/auth/useAuthSession.ts"
+  ],
+  "doNotMiss": [
+    "登录页属于 feature，认证状态和设备令牌缓存属于 core，不要把 token 逻辑散到 screen 里。",
+    "RootNavigator 必须同时覆盖 bootstrapping、unauthenticated 和 authenticated 三种状态。",
+    "如果存在关闭登录要求的配置，AppRoot 和 RootNavigator 要共享同一个开关入口。",
+    "如果登录接口字段或 base URL 读取方式变化，同步检查 refresh、logout 和冷启动恢复链路。"
+  ],
+  "acceptanceChecks": [
+    "无本地设备令牌时，应用能稳定落到登录页。",
+    "登录成功后根路由自动切到业务 Tabs，不依赖手写 navigation reset。",
+    "退出登录后本地认证缓存被清理，重新回到登录页。"
+  ],
+  "generated": {
+    "mustReadCount": 6,
+    "likelyFileCount": 6
+  }
+}

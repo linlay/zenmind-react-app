@@ -1,0 +1,196 @@
+{
+  "id": "feature-chat-realtime",
+  "title": "聊天实时同步",
+  "layer": "features",
+  "paths": ["src/features/chatRealtime"],
+  "responsibility": [
+    "管理全局唯一聊天 WebSocket 连接、连接状态、重连、pending stream 清理，以及详情页停止/继续生成入口。",
+    "把 push / stream / request 帧转成 scoped sync event，并通过 repository 做 patch 型落库；summary push 会携带 agent/team 归属写入 conversation 真源，且缺失字段不覆盖已有摘要。",
+    "显式处理 chat.read、chat.unread、chat.read_all 及等价事件，把未读状态写回 repository 并发出 scoped UI 事件。",
+    "为 awaiting / reasoning / planning / tool / artifact / plan / task / usage / context 维护会话级内存 timeline state，并以 timeline/runtime scoped event 推给详情页。",
+    "运行态条目会由 feature-chat-timeline 补齐 lifecycle（active/complete/error/cancelled），awaiting 会补齐 question/approval/form mode 和 question interactive payload，供详情页直接渲染而不再猜测 status 文案。",
+    "提供 awaiting question 提交入口，按当前会话 awaiting state 和历史 scope 补齐 chatId、runId、agentKey、awaitingId 与 submitId 后调用 /ap/api/submit，并把本地 awaiting.answer 事件归并回同一份 timeline state。",
+    "向 UI 发出 connection.status、home.directory.replace、home.item.patch/remove、conversation.message.insert/patch、conversation.stream.delta、conversation.timeline.replace/reset、conversation.runtime.replace/reset、conversation.reconcile 事件。",
+    "在首连和重连时触发 outbox replay，并把校准范围限制在单会话 reconcile。",
+    "提供仅开发态启用的 wsDebugRecorder，用内存 ring buffer 旁路观测原始 WS frame。",
+    "提供开发态本地缓存 reset 能力，先停止实时同步内存任务，再委托 chatRepository 清理本地缓存。"
+  ],
+  "publicEntrypoints": [
+    {
+      "file": "src/features/chatRealtime/chatSyncService.ts",
+      "symbol": "chatSyncService",
+      "kind": "sync-service",
+      "description": "UI 侧实时同步入口，统一发出连接状态、首页目录替换事件和带 conversationId 的数据变更事件；详情页通过它发送消息、停止/继续生成、提交 awaiting question，并向 Debug 面板暴露开发态本地缓存 reset。"
+    },
+    {
+      "file": "src/features/chatRealtime/wsClient.ts",
+      "symbol": "WsClient",
+      "kind": "transport-client",
+      "description": "底层 /ap/ws request、stream、push、error 帧处理与自动重连客户端。"
+    },
+    {
+      "file": "src/features/chatRealtime/chatWsTransport.ts",
+      "symbol": "startChatPushTransport",
+      "kind": "transport-adapter",
+      "description": "把统一 API base URL 和 access token 适配到 /ap/ws 连接、/api/agents、/api/teams 与 /api/chats request，以及 query/attach stream。"
+    },
+    {
+      "file": "src/features/chatRealtime/wsDebugRecorder.ts",
+      "symbol": "wsDebugRecorder",
+      "kind": "dev-recorder",
+      "description": "开发态内存 WS frame recorder，用于 Debug 面板查看收发帧、解析失败和连接状态。"
+    }
+  ],
+  "dependsOn": [
+    "core-api-client",
+    "core-auth-session",
+    "core-runtime-config",
+    "feature-chat-persistence",
+    "feature-chat-timeline"
+  ],
+  "dependedBy": ["app-development-debug", "app-shell-navigation", "feature-chat-persistence"],
+  "stateTouches": [
+    "全局 WebSocket 连接状态单例",
+    "发送中/ack/失败消息生命周期",
+    "bootstrap/reconnect 时的 outbox replay",
+    "activeConversationId、active outgoing/attach stream abort handle、stream buffer、timeline state、awaiting question 本地提交投影和 per-conversation reconcile single-flight",
+    "开发态 resetLocalCacheForDevelopment 会停止 transport、清理内存任务并委托持久化层清缓存",
+    "开发态 WS frame ring buffer，不写 SQLite、MMKV 或网络"
+  ],
+  "relatedFlows": ["chat-home-cold-boot", "chat-receive-message", "chat-send-message"],
+  "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime", "modify-runtime-environment"],
+  "impactChecklist": [
+    "transport 层只负责 /ap/ws 帧处理和 request/stream 发送，业务写入继续走 chatSyncService 和 chatRepository。",
+    "详情页停止/继续生成和 awaiting question 提交只能调用 chatSyncService；stopStreaming 要同时处理 attach stream 和 outgoing query stream，并通过同一份 ChatTimelineState 发出 run.cancel / timeline replace，resumeStreaming 复用 attach + 单会话 reconcile，awaiting submit 成功后用 awaiting.answer 本地事件更新 timeline，不让页面直接操作 WebSocket。",
+    "WS 调试记录只能作为开发态旁路观测，不参与业务 type 路由、落库或 UI 同步事件。",
+    "WS URL 默认由 getApiBaseUrl 推导到 /ap/ws，EXPO_PUBLIC_CHAT_WS_URL 只作为开发态 override。",
+    "重连逻辑要继续在 bootstrap/reconnect 时 flush pending outbox，并只触发单会话 reconcile。",
+    "reasoning / planning / tool / artifact / awaiting / plan/task / usage/context 只写内存 timeline/runtime state，不把这些临时运行态塞进 SQLite 真源。",
+    "chat.deleted / chat.archived 要同时清理消息、outbox、sync state、runtime state，并刷新目录投影。",
+    "summary push 与 read/unread/read_all 事件只通过 chatRepository 更新 conversations 和目录物化，不在 service 或 UI 内维护第二套未读计数或最新消息状态；chat.updated 有新最后消息但缺失 unread 字段时，非 active conversation 默认置为未读，active conversation 只触发单会话 /api/read single-flight 确认，不提前改写本地 read truth；单会话 reconcile 只有在 /api/chat 明确带 read 状态时才覆盖本地读状态，缺失 read 时 projection summary 也不携带 fallback read。",
+    "sync service 发给 UI 的事件要保持 scoped，首页目录消费 home.directory.replace 后回读目录切片；home.item.patch 若未改变目录投影，首页只 patch 可见目录项 preview，不回读 SQLite；详情页仍可消费命中会话的摘要 patch。"
+  ],
+  "readNext": [
+    {
+      "type": "module",
+      "ref": "core-runtime-config"
+    },
+    {
+      "type": "module",
+      "ref": "feature-chat-persistence"
+    },
+    {
+      "type": "module",
+      "ref": "feature-chat-timeline"
+    },
+    {
+      "type": "flow",
+      "ref": "chat-send-message"
+    },
+    {
+      "type": "flow",
+      "ref": "chat-receive-message"
+    },
+    {
+      "type": "code",
+      "ref": "src/features/chatRealtime/chatSyncService.ts"
+    }
+  ],
+  "generated": {
+    "fileCount": 7,
+    "files": [
+      "src/features/chatRealtime/chatSyncService.ts",
+      "src/features/chatRealtime/chatWsTransport.ts",
+      "src/features/chatRealtime/routing.ts",
+      "src/features/chatRealtime/runtimeState.ts",
+      "src/features/chatRealtime/types.ts",
+      "src/features/chatRealtime/wsClient.ts",
+      "src/features/chatRealtime/wsDebugRecorder.ts"
+    ],
+    "exportedSymbolsByFile": {
+      "src/features/chatRealtime/chatSyncService.ts": ["chatSyncService"],
+      "src/features/chatRealtime/chatWsTransport.ts": [
+        "attachChatRun",
+        "buildChatQueryPayload",
+        "getChatTransportStatus",
+        "requestChatTransport",
+        "startChatPushTransport",
+        "stopChatPushTransport",
+        "streamChatQuery",
+        "toWsPushEvent"
+      ],
+      "src/features/chatRealtime/routing.ts": [
+        "buildAssistantMessageId",
+        "classifyChatProtocolEvent",
+        "extractAgentKey",
+        "extractConversationId",
+        "extractEventText",
+        "extractMessageRole",
+        "extractTeamId",
+        "extractTitle",
+        "isAssistantContentEvent",
+        "isChatReadAllEvent",
+        "isChatReadEvent",
+        "isChatUnreadEvent",
+        "isConversationRemovalEvent",
+        "isSummaryLikeEvent",
+        "normalizeEventType",
+        "toFiniteNumber",
+        "toText",
+        "type ChatProtocolEventFamily"
+      ],
+      "src/features/chatRealtime/runtimeState.ts": [
+        "applyConversationRuntimeEvent",
+        "deriveConversationRuntimeState",
+        "getConversationRuntimeState"
+      ],
+      "src/features/chatRealtime/types.ts": [
+        "ChatAwaitingMode",
+        "ChatConnectionStatusEvent",
+        "ChatConversationAwaitingState",
+        "ChatConversationMessageInsertEvent",
+        "ChatConversationMessagePatchEvent",
+        "ChatConversationReconcileEvent",
+        "ChatConversationRuntimeReplaceEvent",
+        "ChatConversationRuntimeResetEvent",
+        "ChatConversationRuntimeState",
+        "ChatConversationStreamDeltaEvent",
+        "ChatConversationTimelineReplaceEvent",
+        "ChatConversationTimelineResetEvent",
+        "ChatDirectoryReplaceEvent",
+        "ChatHomeItemPatch",
+        "ChatHomeItemPatchEvent",
+        "ChatHomeItemRemoveEvent",
+        "ChatRuntimeEntry",
+        "ChatRuntimeEntryKind",
+        "ChatRuntimeLifecycle",
+        "ChatSocketStatus",
+        "ChatSyncEvent",
+        "ChatSyncReason"
+      ],
+      "src/features/chatRealtime/wsClient.ts": [
+        "WsClient",
+        "WsClientDisconnectedError",
+        "WsClientRequestTimeoutError",
+        "WsPushFrame"
+      ],
+      "src/features/chatRealtime/wsDebugRecorder.ts": [
+        "WsDebugDirection",
+        "WsDebugRecord",
+        "wsDebugRecorder"
+      ]
+    },
+    "actualDependsOn": [
+      "core-api-client",
+      "core-auth-session",
+      "core-runtime-config",
+      "feature-chat-persistence",
+      "feature-chat-timeline"
+    ],
+    "actualDependedBy": [
+      "app-development-debug",
+      "app-shell-navigation",
+      "feature-chat-persistence"
+    ]
+  }
+}

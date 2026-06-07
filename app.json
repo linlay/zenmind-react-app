@@ -1,27 +1,46 @@
 {
   "expo": {
-    "name": "agent-terminal-app",
+    "name": "zenmind-app",
     "slug": "zenmind-react-app",
-    "version": "1.0.2",
+    "version": "2.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#031722"
-    },
+    "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#EDF1F5",
+          "image": "./assets/logo.png",
+          "imageWidth": 220,
+          "resizeMode": "contain"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "chat-messages",
+          "color": "#2f80ed"
+        }
+      ],
+      [
+        "react-native-enriched-markdown",
+        {
+          "enableMath": true
+        }
+      ]
+    ],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.zqfrank.agentterminalapp"
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#031722"
       },
       "usesCleartextTraffic": true,
-      "edgeToEdgeEnabled": true,
       "package": "com.zqfrank.agentterminalapp",
       "softwareKeyboardLayoutMode": "adjustResize"
     },
@@ -33,12 +52,6 @@
         "projectId": "e6cc69ea-7449-44f2-ae7c-69831be52d5c"
       }
     },
-    "owner": "zqfrank",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
-    "updates": {
-      "url": "https://u.expo.dev/e6cc69ea-7449-44f2-ae7c-69831be52d5c"
-    }
+    "owner": "zqfrank"
   }
 }

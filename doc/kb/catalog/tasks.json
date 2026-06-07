@@ -1,0 +1,261 @@
+{
+  "generatedAt": "2026-06-05T08:13:12.575Z",
+  "items": [
+    {
+      "id": "add-app-startup-loading-screen",
+      "title": "新增应用启动加载屏",
+      "intentKeywords": [
+        "启动骨架屏",
+        "启动 loading",
+        "启动遮罩",
+        "splash overlay",
+        "app loading screen",
+        "品牌 logo 动画"
+      ],
+      "entryDecision": "任务涉及应用冷启动前的遮罩、品牌启动屏、全局 loading overlay 或启动动画时，优先从这张卡开始。",
+      "likelyFiles": [
+        "App.tsx",
+        "app.json",
+        "assets/logo.png",
+        "src/app/AppRoot.tsx",
+        "src/app/startup/AppLaunchSkeleton.tsx",
+        "src/app/startup/GeminiLogo.tsx",
+        "metro.config.js",
+        "android/app/src/main/java/com/zqfrank/zenmindmobile/MainApplication.kt",
+        "android/app/src/main/res/values/styles.xml"
+      ],
+      "card": "doc/kb/tasks/add-app-startup-loading-screen.json"
+    },
+    {
+      "id": "add-auth-login-screen",
+      "title": "新增登录页与认证门卫",
+      "intentKeywords": [
+        "新增登录页",
+        "设备登录",
+        "认证门卫",
+        "登录 screen",
+        "auth gate",
+        "session bootstrap"
+      ],
+      "entryDecision": "任务涉及登录页面、未登录前置路由、会话恢复或设备令牌缓存时，优先从这张卡开始。",
+      "likelyFiles": [
+        "src/app/AppRoot.tsx",
+        "src/app/navigation/RootNavigator.tsx",
+        "src/app/navigation/types.ts",
+        "src/features/auth/LoginScreen.tsx",
+        "src/core/auth/appAuth.ts",
+        "src/core/auth/useAuthSession.ts"
+      ],
+      "card": "doc/kb/tasks/add-auth-login-screen.json"
+    },
+    {
+      "id": "add-business-api-service",
+      "title": "新增业务 API service",
+      "intentKeywords": [
+        "新增接口",
+        "新增 service",
+        "新增 API 文件",
+        "新增请求封装",
+        "新增 fetch 能力"
+      ],
+      "entryDecision": "只要任务涉及新接口、新 service 文件或请求封装方式，先从这张 task card 开始。",
+      "likelyFiles": ["src/core/api/apiClient.ts", "src/core/api/services/templateApi.ts"],
+      "card": "doc/kb/tasks/add-business-api-service.json"
+    },
+    {
+      "id": "add-or-edit-tab-screen",
+      "title": "新增或修改 Tab / Screen",
+      "intentKeywords": [
+        "新增 tab",
+        "修改 tab",
+        "新增 screen",
+        "替换占位页",
+        "修改初始路由",
+        "修改底部导航"
+      ],
+      "entryDecision": "任务涉及 Tab、screen 映射、占位页替换或 initialRouteName 时，优先从这张卡开始。",
+      "likelyFiles": [
+        "src/app/navigation/RootNavigator.tsx",
+        "src/app/navigation/types.ts",
+        "src/app/screens/AppScreenFrame.tsx",
+        "src/app/screens/TabScreens.tsx",
+        "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+        "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+        "src/features/chatPersistence/ChatDetailScreen.tsx"
+      ],
+      "card": "doc/kb/tasks/add-or-edit-tab-screen.json"
+    },
+    {
+      "id": "add-reusable-header-component",
+      "title": "新增复用型 Header 组件",
+      "intentKeywords": [
+        "header 组件",
+        "页面头部",
+        "三栏 header",
+        "左按钮区",
+        "右按钮区",
+        "标题组件"
+      ],
+      "entryDecision": "任务涉及新增页面顶部 Header 组件、统一左右按钮区与标题区布局时，从这张卡开始。",
+      "likelyFiles": [
+        "src/shared/components/ScreenHeader.tsx",
+        "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+        "src/features/chatPersistence/ChatDetailScreen.tsx",
+        "src/app/screens/AppScreenFrame.tsx",
+        "src/app/screens/TabScreens.tsx"
+      ],
+      "card": "doc/kb/tasks/add-reusable-header-component.json"
+    },
+    {
+      "id": "add-reusable-list-screen",
+      "title": "新增复用型列表页",
+      "intentKeywords": [
+        "新增列表页",
+        "复用分页列表",
+        "新增 card list",
+        "新增 load more 页面",
+        "新增刷新列表"
+      ],
+      "entryDecision": "任务目标是新增一个带刷新、分页或返回顶部行为的列表页时，从这张卡开始。",
+      "likelyFiles": [
+        "src/app/screens/AppScreenFrame.tsx",
+        "src/app/screens/TabScreens.tsx",
+        "src/shared/components/PaginatedCardList.tsx"
+      ],
+      "card": "doc/kb/tasks/add-reusable-list-screen.json"
+    },
+    {
+      "id": "add-system-notifications",
+      "title": "新增系统级消息通知",
+      "intentKeywords": [
+        "系统通知",
+        "推送通知",
+        "远程 push",
+        "FCM",
+        "APNs",
+        "通知点击",
+        "通知 token",
+        "expo-notifications"
+      ],
+      "entryDecision": "任务涉及系统级消息通知、原生 push token、通知点击跳转或通知补拉落库时，从这张卡开始。",
+      "likelyFiles": [
+        "app.json",
+        "package.json",
+        "src/app/AppRoot.tsx",
+        "src/app/navigation/types.ts",
+        "src/app/screens/TabScreens.tsx",
+        "src/core/api/apiClient.ts",
+        "src/core/api/services/notificationApi.ts",
+        "src/core/auth/appAuth.ts",
+        "src/features/chatPersistence/ChatDetailScreen.tsx",
+        "src/features/chatPersistence/chatRepository.ts",
+        "src/features/chatPersistence/types.ts",
+        "src/features/notifications/notificationService.ts"
+      ],
+      "card": "doc/kb/tasks/add-system-notifications.json"
+    },
+    {
+      "id": "modify-chat-persistence",
+      "title": "修改聊天持久化逻辑",
+      "intentKeywords": [
+        "修改 sqlite",
+        "修改 repository",
+        "修改快照",
+        "修改聊天首页数据",
+        "修改聊天置顶",
+        "修改 outbox",
+        "修改消息持久化"
+      ],
+      "entryDecision": "任务涉及会话排序、消息状态、SQLite 表、MMKV 快照或 repository 行为时，先从这张卡开始。",
+      "likelyFiles": [
+        "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+        "src/features/chatPersistence/ChatDetailScreen.tsx",
+        "src/features/chatPersistence/components/ChatDetailDrawers.tsx",
+        "src/features/chatPersistence/components/ChatTimelineList.tsx",
+        "src/features/chatPersistence/useChatDetailLocalUiState.ts",
+        "src/features/chatPersistence/chatHistoryScope.ts",
+        "src/features/chatPersistence/chatRealtimeUiState.ts",
+        "src/features/chatPersistence/chatRepository.ts",
+        "src/features/chatPersistence/chatDirectoryProjector.ts",
+        "src/features/chatPersistence/chatReadState.ts",
+        "src/features/chatTimeline/timelineReducer.ts",
+        "src/features/chatTimeline/timelineDisplay.ts",
+        "src/features/chatTimeline/messageProjection.ts",
+        "src/features/chatPersistence/database.ts",
+        "src/features/chatPersistence/homeSnapshot.ts",
+        "src/features/chatPersistence/schema.ts",
+        "src/features/chatPersistence/types.ts"
+      ],
+      "card": "doc/kb/tasks/modify-chat-persistence.json"
+    },
+    {
+      "id": "modify-chat-realtime",
+      "title": "修改聊天实时同步逻辑",
+      "intentKeywords": [
+        "修改 websocket",
+        "修改实时同步",
+        "修改 ack",
+        "修改 reconnect",
+        "修改 mock mode",
+        "修改 ws 事件"
+      ],
+      "entryDecision": "任务涉及 WebSocket 连接、发送、ack、incoming、mock 或 reconnect 时，从这张卡开始。",
+      "likelyFiles": [
+        "src/features/chatRealtime/chatSyncService.ts",
+        "src/features/chatRealtime/chatWsTransport.ts",
+        "src/features/chatRealtime/wsClient.ts",
+        "src/features/chatRealtime/routing.ts",
+        "src/features/chatRealtime/runtimeState.ts",
+        "src/features/chatRealtime/types.ts",
+        "src/features/chatTimeline/timelineReducer.ts",
+        "src/features/chatTimeline/messageProjection.ts",
+        "src/features/chatPersistence/chatRepository.ts",
+        "src/features/chatPersistence/ChatDetailScreen.tsx",
+        "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
+        "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
+        "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+        "src/core/api/services/chatApi.ts",
+        "src/core/api/services/chatEventProtocol.ts"
+      ],
+      "card": "doc/kb/tasks/modify-chat-realtime.json"
+    },
+    {
+      "id": "modify-runtime-environment",
+      "title": "修改运行时环境变量",
+      "intentKeywords": [
+        "修改 env",
+        "修改环境变量",
+        "修改 api base url",
+        "修改 ws url",
+        "修改 EXPO_PUBLIC"
+      ],
+      "entryDecision": "任务涉及 EXPO_PUBLIC_* 变量名、读取方式、REST base URL 或 WS URL 推导时，先从这张卡开始。",
+      "likelyFiles": [
+        "src/app/debug/DevelopmentDebugPanelHost.tsx",
+        "src/core/api/apiClient.ts",
+        "src/core/config/runtimeEnv.ts",
+        "src/features/chatRealtime/chatWsTransport.ts",
+        "src/features/chatRealtime/wsClient.ts"
+      ],
+      "card": "doc/kb/tasks/modify-runtime-environment.json"
+    },
+    {
+      "id": "remove-development-debug-entry",
+      "title": "删除开发态 Debug 入口",
+      "intentKeywords": [
+        "删除 debug 按钮",
+        "移除开发调试入口",
+        "关闭 debug overlay",
+        "删除开发态按钮"
+      ],
+      "entryDecision": "任务明确要求删除或隐藏右下角 Debug 按钮时，从这张卡开始。",
+      "likelyFiles": [
+        "src/app/AppRoot.tsx",
+        "src/app/debug/DevelopmentDebugPanelHost.tsx",
+        "src/app/debug/developmentDebugPanel.ts",
+        "src/app/screens/TabScreens.tsx"
+      ],
+      "card": "doc/kb/tasks/remove-development-debug-entry.json"
+    }
+  ]
+}

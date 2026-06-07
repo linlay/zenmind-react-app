@@ -1,0 +1,4937 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ZenMind Mobile 图标替换对照表</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f7f9fc;
+        --surface: #ffffff;
+        --text: #172033;
+        --muted: #667085;
+        --line: #d9e1ec;
+        --blue: #2f80ed;
+        --blue-soft: #e8f1ff;
+        --target: #fff9db;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          14px/1.5 -apple-system,
+          BlinkMacSystemFont,
+          'Segoe UI',
+          sans-serif;
+      }
+      main {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 28px 20px 48px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 24px;
+        line-height: 32px;
+      }
+      h2 {
+        margin: 30px 0 12px;
+        font-size: 18px;
+        line-height: 26px;
+      }
+      p {
+        margin: 0 0 10px;
+        color: var(--muted);
+      }
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 16px 0 20px;
+      }
+      .pill {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        padding: 5px 10px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .table-wrap {
+        overflow: auto;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--surface);
+      }
+      table {
+        width: 100%;
+        min-width: 980px;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        border-bottom: 1px solid var(--line);
+        padding: 10px 12px;
+        text-align: left;
+        vertical-align: middle;
+      }
+      th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: #eef4fb;
+        color: #334155;
+        font-size: 12px;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      tr:last-child td {
+        border-bottom: 0;
+      }
+      code {
+        border-radius: 5px;
+        background: #f1f5f9;
+        padding: 2px 5px;
+        color: #334155;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        font-size: 12px;
+      }
+      .priority {
+        width: 52px;
+        font-weight: 800;
+        color: var(--blue);
+      }
+      .icon-cell {
+        display: inline-flex;
+        width: 54px;
+        min-height: 54px;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: #fff;
+      }
+      .line-icon svg {
+        width: 30px;
+        height: 30px;
+        color: var(--blue);
+      }
+      .agent-icon svg {
+        width: 42px;
+        height: 42px;
+      }
+      .special-icon {
+        width: 76px;
+        min-height: 60px;
+      }
+      .asset-logo {
+        max-width: 58px;
+        max-height: 58px;
+        display: block;
+      }
+      .usage-ring-preview {
+        position: relative;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .usage-ring-preview svg {
+        position: absolute;
+        inset: 0;
+      }
+      .usage-ring-preview span {
+        position: relative;
+        z-index: 1;
+        font-size: 9px;
+        font-weight: 800;
+        color: var(--text);
+      }
+      .uri-preview {
+        display: inline-flex;
+        width: 42px;
+        height: 42px;
+        align-items: center;
+        justify-content: center;
+        border-radius: 12px;
+        background: var(--blue-soft);
+        color: var(--blue);
+        font-weight: 800;
+        font-size: 11px;
+      }
+      .fill-target {
+        min-width: 180px;
+        background: var(--target);
+      }
+      .note {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>ZenMind Mobile 图标替换对照表</h1>
+      <p>
+        这份表按实际语义位置列出当前图标，并附完整 UI 图标库与 agent
+        头像图标库。黄色列用于填新图标来源、文件名或目标 key。
+      </p>
+      <div class="meta">
+        <span class="pill">生成时间：2026-06-04T09:19:12.891Z</span>
+        <span class="pill">UI 图标源：src/shared/visual/AppLineIcon.tsx</span>
+        <span class="pill">Agent 图标源：src/shared/visual/AgentBuiltinIcon.tsx</span>
+        <span class="pill">不改运行代码，仅用于收集替换清单</span>
+      </div>
+
+      <h2>1. 实际使用场景替换表</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>优先级</th>
+              <th>范围</th>
+              <th>位置/语义</th>
+              <th>当前 key</th>
+              <th>当前图标</th>
+              <th>源码位置</th>
+              <th>新图标/资源</th>
+              <th>备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="priority">P0</td>
+              <td>底部 Tab</td>
+              <td>对话 Tab</td>
+              <td><code>chat</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M6.4 6.2h11.2a1.9 1.9 0 0 1 1.9 1.9v6.9a1.9 1.9 0 0 1-1.9 1.9H11l-4.2 3v-3H6.4a1.9 1.9 0 0 1-1.9-1.9V8.1a1.9 1.9 0 0 1 1.9-1.9Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/app/navigation/TabIcon.tsx:12</code></td>
+              <td class="fill-target"></td>
+              <td>一级入口，需和 active/inactive 两态都适配。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>底部 Tab</td>
+              <td>小应用 Tab</td>
+              <td><code>apps</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <rect
+                      x="5"
+                      y="5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <rect
+                      x="13.5"
+                      y="5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <rect
+                      x="5"
+                      y="13.5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <rect
+                      x="13.5"
+                      y="13.5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/app/navigation/TabIcon.tsx:13</code></td>
+              <td class="fill-target"></td>
+              <td>当前也是团队头像 fallback 图标，若 Tab 与团队语义拆分可分别替换。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>底部 Tab</td>
+              <td>网盘 Tab</td>
+              <td><code>drive</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M4.5 8.4a1.9 1.9 0 0 1 1.9-1.9h3.8l1.7 2h5.7a1.9 1.9 0 0 1 1.9 1.9v6.2a1.9 1.9 0 0 1-1.9 1.9H6.4a1.9 1.9 0 0 1-1.9-1.9V8.4Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/app/navigation/TabIcon.tsx:14</code></td>
+              <td class="fill-target"></td>
+              <td>文件/目录语义。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>底部 Tab</td>
+              <td>用户 Tab</td>
+              <td><code>user</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      cx="12"
+                      cy="9"
+                      r="3.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></circle>
+                    <path
+                      d="M5.7 18.2c1.4-2.7 3.6-4 6.3-4 2.7 0 4.9 1.3 6.3 4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/app/navigation/TabIcon.tsx:15</code></td>
+              <td class="fill-target"></td>
+              <td>个人中心入口。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>Chat 首页 Header</td>
+              <td>打开智能体和团队列表</td>
+              <td><code>menu</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="4.5"
+                      y1="7"
+                      x2="19.5"
+                      y2="7"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="4.5"
+                      y1="12"
+                      x2="15.5"
+                      y2="12"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="4.5"
+                      y1="17"
+                      x2="12.5"
+                      y2="17"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/ChatHomeStorageDemo.tsx:747</code></td>
+              <td class="fill-target"></td>
+              <td>左侧真实按钮。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>Chat 首页 Header</td>
+              <td>搜索入口占位</td>
+              <td><code>search</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      cx="11"
+                      cy="11"
+                      r="5.5"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></circle>
+                    <line
+                      x1="15.4"
+                      y1="15.4"
+                      x2="19.2"
+                      y2="19.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/ChatHomeStorageDemo.tsx:758</code></td>
+              <td class="fill-target"></td>
+              <td>当前仅展示 glyph，未绑定 press。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>Chat 首页 Header</td>
+              <td>新增入口占位</td>
+              <td><code>add</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="12"
+                      y1="5"
+                      x2="12"
+                      y2="19"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="5"
+                      y1="12"
+                      x2="19"
+                      y2="12"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/ChatHomeStorageDemo.tsx:759</code></td>
+              <td class="fill-target"></td>
+              <td>当前仅展示 glyph，未绑定 press。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>Chat 详情 Header</td>
+              <td>返回会话列表</td>
+              <td><code>back</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <polyline
+                      points="14.6 5.8 8.4 12 14.6 18.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/ChatDetailHeader.tsx:122</code></td>
+              <td class="fill-target"></td>
+              <td>详情页左上返回。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>Chat 详情 Header</td>
+              <td>发起新对话</td>
+              <td><code>chat-add</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M10.1 5.2h2.4a6.1 6.1 0 0 1 6.1 6.1v1.5a6.1 6.1 0 0 1-6.1 6.1H8.8l-3.7 2 .8-3.7a6 6 0 0 1-1.7-4.2v-1.7a6.1 6.1 0 0 1 5.9-6.1Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <line
+                      x1="8.7"
+                      y1="11.1"
+                      x2="13.2"
+                      y2="11.1"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="8.7"
+                      y1="14.1"
+                      x2="11.7"
+                      y2="14.1"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="16.8"
+                      y1="3.7"
+                      x2="16.8"
+                      y2="8.7"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="14.3"
+                      y1="6.2"
+                      x2="19.3"
+                      y2="6.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/ChatDetailHeader.tsx:128</code></td>
+              <td class="fill-target"></td>
+              <td>详情页 header 操作，也用于新对话抽屉行操作。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>Chat 详情 Header</td>
+              <td>打开消息记录</td>
+              <td><code>menu</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="4.5"
+                      y1="7"
+                      x2="19.5"
+                      y2="7"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="4.5"
+                      y1="12"
+                      x2="15.5"
+                      y2="12"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="4.5"
+                      y1="17"
+                      x2="12.5"
+                      y2="17"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/ChatDetailHeader.tsx:140</code></td>
+              <td class="fill-target"></td>
+              <td>右侧历史会话抽屉入口；可与首页 menu 区分。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>输入框</td>
+              <td>添加附件</td>
+              <td><code>add</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="12"
+                      y1="5"
+                      x2="12"
+                      y2="19"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="5"
+                      y1="12"
+                      x2="19"
+                      y2="12"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/Composer.tsx:201</code></td>
+              <td class="fill-target"></td>
+              <td>常驻输入框左侧按钮。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>输入框</td>
+              <td>发送消息</td>
+              <td><code>arrow-up</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="12"
+                      y1="19"
+                      x2="12"
+                      y2="6"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <polyline
+                      points="7.2 10.8 12 6 16.8 10.8"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/Composer.tsx:43</code></td>
+              <td class="fill-target"></td>
+              <td>同一主按钮根据状态切换 stop/play/arrow-up。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>输入框</td>
+              <td>停止生成</td>
+              <td><code>stop</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <rect
+                      x="7.8"
+                      y="7.8"
+                      width="8.4"
+                      height="8.4"
+                      rx="1.8"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/Composer.tsx:38</code></td>
+              <td class="fill-target"></td>
+              <td>生成中主按钮。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>输入框</td>
+              <td>继续生成</td>
+              <td><code>play</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M9 6.8v10.4l8-5.2-8-5.2Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/Composer.tsx:40</code></td>
+              <td class="fill-target"></td>
+              <td>恢复主按钮。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>输入框附件面板</td>
+              <td>上传图片</td>
+              <td><code>image</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <rect
+                      x="4.8"
+                      y="5.5"
+                      width="14.4"
+                      height="13"
+                      rx="2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <circle
+                      cx="9"
+                      cy="9.2"
+                      r="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></circle>
+                    <path
+                      d="m6.9 16 3.5-3.7 2.5 2.5 1.5-1.6 2.9 2.8"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/Composer.tsx:159</code></td>
+              <td class="fill-target"></td>
+              <td>附件类型入口。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>输入框附件面板</td>
+              <td>上传文件</td>
+              <td><code>file</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M7 4.5h6.4L18 9.1v10.4H7a1.8 1.8 0 0 1-1.8-1.8V6.3A1.8 1.8 0 0 1 7 4.5Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <path
+                      d="M13.2 4.7V9h4.3"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <line
+                      x1="8.3"
+                      y1="13"
+                      x2="15.7"
+                      y2="13"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="8.3"
+                      y1="16"
+                      x2="14"
+                      y2="16"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/Composer.tsx:176</code></td>
+              <td class="fill-target"></td>
+              <td>附件类型入口；也用于 assistant 内容 rail。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>会话列表</td>
+              <td>置顶状态标记</td>
+              <td><code>pin</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M9.2 4.8h5.6L14 9.1l3.2 3.2v1.5H6.8v-1.5L10 9.1 9.2 4.8Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <line
+                      x1="12"
+                      y1="13.8"
+                      x2="12"
+                      y2="20"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/ChatHomeStorageDemo.tsx:235</code></td>
+              <td class="fill-target"></td>
+              <td>行内小尺寸 14px。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>会话列表</td>
+              <td>置顶折叠组</td>
+              <td><code>menu</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="4.5"
+                      y1="7"
+                      x2="19.5"
+                      y2="7"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="4.5"
+                      y1="12"
+                      x2="15.5"
+                      y2="12"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="4.5"
+                      y1="17"
+                      x2="12.5"
+                      y2="17"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/ChatHomeStorageDemo.tsx:270</code></td>
+              <td class="fill-target"></td>
+              <td>折叠置顶项目左侧图标。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>会话列表</td>
+              <td>置顶折叠/展开</td>
+              <td><code>chevron-down</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <polyline
+                      points="6.8 9.8 12 15 17.2 9.8"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/ChatHomeStorageDemo.tsx:260</code></td>
+              <td class="fill-target"></td>
+              <td>同一位置会在 chevron-down / chevron-up 之间切换。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>会话列表操作菜单</td>
+              <td>置顶/取消置顶</td>
+              <td><code>pin</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M9.2 4.8h5.6L14 9.1l3.2 3.2v1.5H6.8v-1.5L10 9.1 9.2 4.8Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <line
+                      x1="12"
+                      y1="13.8"
+                      x2="12"
+                      y2="20"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/ChatHomeStorageDemo.tsx:864</code></td>
+              <td class="fill-target"></td>
+              <td>长按行后浮层菜单。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>会话列表操作菜单</td>
+              <td>全部已读</td>
+              <td><code>check</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <polyline
+                      points="5.4 12.4 10 16.8 18.8 7.6"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/ChatHomeStorageDemo.tsx:880</code></td>
+              <td class="fill-target"></td>
+              <td>长按行后浮层菜单。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>新对话抽屉</td>
+              <td>选择智能体/团队发起对话</td>
+              <td><code>chat-add</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M10.1 5.2h2.4a6.1 6.1 0 0 1 6.1 6.1v1.5a6.1 6.1 0 0 1-6.1 6.1H8.8l-3.7 2 .8-3.7a6 6 0 0 1-1.7-4.2v-1.7a6.1 6.1 0 0 1 5.9-6.1Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <line
+                      x1="8.7"
+                      y1="11.1"
+                      x2="13.2"
+                      y2="11.1"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="8.7"
+                      y1="14.1"
+                      x2="11.7"
+                      y2="14.1"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="16.8"
+                      y1="3.7"
+                      x2="16.8"
+                      y2="8.7"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="14.3"
+                      y1="6.2"
+                      x2="19.3"
+                      y2="6.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>
+                <code
+                  >src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx:99</code
+                >
+              </td>
+              <td class="fill-target"></td>
+              <td>列表行右侧动作。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>新对话抽屉</td>
+              <td>关闭新对话列表</td>
+              <td><code>close</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="6.5"
+                      y1="6.5"
+                      x2="17.5"
+                      y2="17.5"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="17.5"
+                      y1="6.5"
+                      x2="6.5"
+                      y2="17.5"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>
+                <code
+                  >src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx:222</code
+                >
+              </td>
+              <td class="fill-target"></td>
+              <td>抽屉关闭按钮。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>历史会话抽屉</td>
+              <td>一键已读</td>
+              <td><code>check</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <polyline
+                      points="5.4 12.4 10 16.8 18.8 7.6"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td>
+                <code>src/features/chatPersistence/components/ChatDetailDrawers.tsx:197</code>
+              </td>
+              <td class="fill-target"></td>
+              <td>仅未读存在时展示。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>历史会话抽屉</td>
+              <td>关闭历史会话</td>
+              <td><code>close</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="6.5"
+                      y1="6.5"
+                      x2="17.5"
+                      y2="17.5"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="17.5"
+                      y1="6.5"
+                      x2="6.5"
+                      y2="17.5"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>
+                <code>src/features/chatPersistence/components/ChatDetailDrawers.tsx:213</code>
+              </td>
+              <td class="fill-target"></td>
+              <td>抽屉关闭按钮。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>消息时间线</td>
+              <td>复制消息内容</td>
+              <td><code>copy</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <rect
+                      x="8"
+                      y="7"
+                      width="10"
+                      height="12"
+                      rx="1.8"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <path
+                      d="M6 15.5H5.8A1.8 1.8 0 0 1 4 13.7V5.8A1.8 1.8 0 0 1 5.8 4h7.9A1.8 1.8 0 0 1 15.5 5.8V6"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/ChatTimelineList.tsx:218</code></td>
+              <td class="fill-target"></td>
+              <td>消息 footer 小按钮。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>消息时间线</td>
+              <td>请求输入 rail</td>
+              <td><code>steer</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M5.3 8.4h7.4a5.1 5.1 0 1 1 0 10.2H8.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <path
+                      d="M10 5.7 4.8 8.4 10 11.1"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <path
+                      d="M8.4 18.6h4.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/ChatTimelineList.tsx:307</code></td>
+              <td class="fill-target"></td>
+              <td>timeline rail 12px 小图标。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>消息时间线</td>
+              <td>助手正文 rail</td>
+              <td><code>file</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M7 4.5h6.4L18 9.1v10.4H7a1.8 1.8 0 0 1-1.8-1.8V6.3A1.8 1.8 0 0 1 7 4.5Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <path
+                      d="M13.2 4.7V9h4.3"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <line
+                      x1="8.3"
+                      y1="13"
+                      x2="15.7"
+                      y2="13"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="8.3"
+                      y1="16"
+                      x2="14"
+                      y2="16"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/ChatTimelineList.tsx:344</code></td>
+              <td class="fill-target"></td>
+              <td>流式时背景会切成强调色。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>消息时间线</td>
+              <td>滚动到最新消息</td>
+              <td><code>arrow-down</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="12"
+                      y1="5"
+                      x2="12"
+                      y2="18"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <polyline
+                      points="7.2 13.2 12 18 16.8 13.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/ChatTimelineList.tsx:629</code></td>
+              <td class="fill-target"></td>
+              <td>悬浮按钮。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>运行时消息</td>
+              <td>reasoning rail</td>
+              <td><code>brain</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M9.1 5.1a3 3 0 0 0-2.9 3.7 3.2 3.2 0 0 0 .5 6.1 3.1 3.1 0 0 0 5.3 2.2V7.3a2.4 2.4 0 0 0-2.9-2.2Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <path
+                      d="M14.9 5.1a3 3 0 0 1 2.9 3.7 3.2 3.2 0 0 1-.5 6.1 3.1 3.1 0 0 1-5.3 2.2V7.3a2.4 2.4 0 0 1 2.9-2.2Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <path
+                      d="M8 11.2h2.2M13.8 11.2H16"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>
+                <code>src/features/chatPersistence/components/runtimePayloadDescriptor.ts:433</code>
+              </td>
+              <td class="fill-target"></td>
+              <td>runtime payload kind = reasoning。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>运行时消息</td>
+              <td>awaiting rail</td>
+              <td><code>question</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M9.2 9.3a2.9 2.9 0 1 1 4.2 2.6c-.9.5-1.4 1.2-1.4 2.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <circle cx="12" cy="17.4" r="0.6" fill="#2F80ED"></circle>
+                  </svg>
+                </div>
+              </td>
+              <td>
+                <code>src/features/chatPersistence/components/runtimePayloadDescriptor.ts:436</code>
+              </td>
+              <td class="fill-target"></td>
+              <td>runtime payload kind = awaiting。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>运行时消息</td>
+              <td>tool/action rail</td>
+              <td><code>tool</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M14.2 5.5a4.3 4.3 0 0 0 5.3 5.3l-7.4 7.4a2.7 2.7 0 0 1-3.8-3.8l7.4-7.4Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>
+                <code>src/features/chatPersistence/components/runtimePayloadDescriptor.ts:439</code>
+              </td>
+              <td class="fill-target"></td>
+              <td>tool / tool-group / action。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>运行时消息</td>
+              <td>artifact/plan/task rail</td>
+              <td><code>file</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M7 4.5h6.4L18 9.1v10.4H7a1.8 1.8 0 0 1-1.8-1.8V6.3A1.8 1.8 0 0 1 7 4.5Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <path
+                      d="M13.2 4.7V9h4.3"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <line
+                      x1="8.3"
+                      y1="13"
+                      x2="15.7"
+                      y2="13"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="8.3"
+                      y1="16"
+                      x2="14"
+                      y2="16"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>
+                <code>src/features/chatPersistence/components/runtimePayloadDescriptor.ts:442</code>
+              </td>
+              <td class="fill-target"></td>
+              <td>artifact / plan / task / planning。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>运行时消息</td>
+              <td>展开/收起运行时内容</td>
+              <td><code>chevron-up</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <polyline
+                      points="6.8 14.2 12 9 17.2 14.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td>
+                <code>src/features/chatPersistence/components/RuntimeTimelineRow.tsx:131</code>
+              </td>
+              <td class="fill-target"></td>
+              <td>同一位置会在 chevron-up / chevron-down 之间切换。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>运行时消息内容框</td>
+              <td>自动换行</td>
+              <td><code>wrap-text</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="5"
+                      y1="7"
+                      x2="19"
+                      y2="7"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="5"
+                      y1="12"
+                      x2="15"
+                      y2="12"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <path
+                      d="M15 12a3 3 0 0 1 0 6H9"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <polyline
+                      points="11.2 15.8 9 18 11.2 20.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td>
+                <code>src/features/chatPersistence/components/RuntimePayloadFrame.tsx:51</code>
+              </td>
+              <td class="fill-target"></td>
+              <td>active 状态有浅蓝底。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>运行时消息内容框</td>
+              <td>复制运行时内容</td>
+              <td><code>copy</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <rect
+                      x="8"
+                      y="7"
+                      width="10"
+                      height="12"
+                      rx="1.8"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <path
+                      d="M6 15.5H5.8A1.8 1.8 0 0 1 4 13.7V5.8A1.8 1.8 0 0 1 5.8 4h7.9A1.8 1.8 0 0 1 15.5 5.8V6"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>
+                <code>src/features/chatPersistence/components/RuntimePayloadFrame.tsx:69</code>
+              </td>
+              <td class="fill-target"></td>
+              <td>内容框右上角工具栏。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>等待输入</td>
+              <td>等待输入 resume bar</td>
+              <td><code>spark</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M12 4.7 13.7 9l4.3 1.7-4.3 1.7-1.7 4.3-1.7-4.3L6 10.7 10.3 9 12 4.7Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>
+                <code>src/features/chatPersistence/components/ChatAwaitingOverlay.tsx:73</code>
+              </td>
+              <td class="fill-target"></td>
+              <td>详情页底部提示条。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P2</td>
+              <td>占位 Tab 内容</td>
+              <td>小应用预览卡 - 工作台</td>
+              <td><code>apps</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <rect
+                      x="5"
+                      y="5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <rect
+                      x="13.5"
+                      y="5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <rect
+                      x="5"
+                      y="13.5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <rect
+                      x="13.5"
+                      y="13.5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/app/screens/TabScreens.tsx:204</code></td>
+              <td class="fill-target"></td>
+              <td>占位页视觉素材，真实页面接入后可能移除。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P2</td>
+              <td>占位 Tab 内容</td>
+              <td>小应用预览卡 - 动作</td>
+              <td><code>spark</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M12 4.7 13.7 9l4.3 1.7-4.3 1.7-1.7 4.3-1.7-4.3L6 10.7 10.3 9 12 4.7Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/app/screens/TabScreens.tsx:210</code></td>
+              <td class="fill-target"></td>
+              <td>占位页视觉素材。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P2</td>
+              <td>占位 Tab 内容</td>
+              <td>网盘预览卡 - 文件</td>
+              <td><code>drive</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M4.5 8.4a1.9 1.9 0 0 1 1.9-1.9h3.8l1.7 2h5.7a1.9 1.9 0 0 1 1.9 1.9v6.2a1.9 1.9 0 0 1-1.9 1.9H6.4a1.9 1.9 0 0 1-1.9-1.9V8.4Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/app/screens/TabScreens.tsx:229</code></td>
+              <td class="fill-target"></td>
+              <td>占位页视觉素材。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P2</td>
+              <td>占位 Tab 内容</td>
+              <td>网盘预览卡 - 引用</td>
+              <td><code>chat</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M6.4 6.2h11.2a1.9 1.9 0 0 1 1.9 1.9v6.9a1.9 1.9 0 0 1-1.9 1.9H11l-4.2 3v-3H6.4a1.9 1.9 0 0 1-1.9-1.9V8.1a1.9 1.9 0 0 1 1.9-1.9Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/app/screens/TabScreens.tsx:235</code></td>
+              <td class="fill-target"></td>
+              <td>占位页视觉素材。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P0</td>
+              <td>团队头像</td>
+              <td>team fallback avatar</td>
+              <td><code>apps</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <rect
+                      x="5"
+                      y="5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <rect
+                      x="13.5"
+                      y="5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <rect
+                      x="5"
+                      y="13.5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <rect
+                      x="13.5"
+                      y="13.5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/shared/visual/AgentAvatar.tsx:73</code></td>
+              <td class="fill-target"></td>
+              <td>团队头像没有远端 uri 时使用。</td>
+            </tr>
+
+            <tr>
+              <td class="priority">P1</td>
+              <td>用量统计</td>
+              <td>关闭用量统计抽屉</td>
+              <td><code>close</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="6.5"
+                      y1="6.5"
+                      x2="17.5"
+                      y2="17.5"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="17.5"
+                      y1="6.5"
+                      x2="6.5"
+                      y2="17.5"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/ChatUsageStats.tsx:441</code></td>
+              <td class="fill-target"></td>
+              <td>用量统计主入口是自绘 UsageRing，见特殊资产表。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>2. 完整 UI 线性图标库</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>AppLineIcon key</th>
+              <th>当前图标</th>
+              <th>状态</th>
+              <th>新图标/资源</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>menu</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="4.5"
+                      y1="7"
+                      x2="19.5"
+                      y2="7"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="4.5"
+                      y1="12"
+                      x2="15.5"
+                      y2="12"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="4.5"
+                      y1="17"
+                      x2="12.5"
+                      y2="17"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>search</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      cx="11"
+                      cy="11"
+                      r="5.5"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></circle>
+                    <line
+                      x1="15.4"
+                      y1="15.4"
+                      x2="19.2"
+                      y2="19.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>add</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="12"
+                      y1="5"
+                      x2="12"
+                      y2="19"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="5"
+                      y1="12"
+                      x2="19"
+                      y2="12"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>chat-add</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M10.1 5.2h2.4a6.1 6.1 0 0 1 6.1 6.1v1.5a6.1 6.1 0 0 1-6.1 6.1H8.8l-3.7 2 .8-3.7a6 6 0 0 1-1.7-4.2v-1.7a6.1 6.1 0 0 1 5.9-6.1Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <line
+                      x1="8.7"
+                      y1="11.1"
+                      x2="13.2"
+                      y2="11.1"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="8.7"
+                      y1="14.1"
+                      x2="11.7"
+                      y2="14.1"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="16.8"
+                      y1="3.7"
+                      x2="16.8"
+                      y2="8.7"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="14.3"
+                      y1="6.2"
+                      x2="19.3"
+                      y2="6.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>chat</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M6.4 6.2h11.2a1.9 1.9 0 0 1 1.9 1.9v6.9a1.9 1.9 0 0 1-1.9 1.9H11l-4.2 3v-3H6.4a1.9 1.9 0 0 1-1.9-1.9V8.1a1.9 1.9 0 0 1 1.9-1.9Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>apps</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <rect
+                      x="5"
+                      y="5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <rect
+                      x="13.5"
+                      y="5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <rect
+                      x="5"
+                      y="13.5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <rect
+                      x="13.5"
+                      y="13.5"
+                      width="5.5"
+                      height="5.5"
+                      rx="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>drive</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M4.5 8.4a1.9 1.9 0 0 1 1.9-1.9h3.8l1.7 2h5.7a1.9 1.9 0 0 1 1.9 1.9v6.2a1.9 1.9 0 0 1-1.9 1.9H6.4a1.9 1.9 0 0 1-1.9-1.9V8.4Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>user</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <circle
+                      cx="12"
+                      cy="9"
+                      r="3.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></circle>
+                    <path
+                      d="M5.7 18.2c1.4-2.7 3.6-4 6.3-4 2.7 0 4.9 1.3 6.3 4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>back</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <polyline
+                      points="14.6 5.8 8.4 12 14.6 18.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>history</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M5.2 8.8A7.1 7.1 0 1 1 6 16.9"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <polyline
+                      points="5.2 4.8 5.2 8.8 9.2 8.8"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                    <line
+                      x1="12"
+                      y1="8.3"
+                      x2="12"
+                      y2="12.3"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="12"
+                      y1="12.3"
+                      x2="14.8"
+                      y2="13.9"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>备用/未发现引用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>spark</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M12 4.7 13.7 9l4.3 1.7-4.3 1.7-1.7 4.3-1.7-4.3L6 10.7 10.3 9 12 4.7Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>brain</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M9.1 5.1a3 3 0 0 0-2.9 3.7 3.2 3.2 0 0 0 .5 6.1 3.1 3.1 0 0 0 5.3 2.2V7.3a2.4 2.4 0 0 0-2.9-2.2Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <path
+                      d="M14.9 5.1a3 3 0 0 1 2.9 3.7 3.2 3.2 0 0 1-.5 6.1 3.1 3.1 0 0 1-5.3 2.2V7.3a2.4 2.4 0 0 1 2.9-2.2Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <path
+                      d="M8 11.2h2.2M13.8 11.2H16"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>question</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M9.2 9.3a2.9 2.9 0 1 1 4.2 2.6c-.9.5-1.4 1.2-1.4 2.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <circle cx="12" cy="17.4" r="0.6" fill="#2F80ED"></circle>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>steer</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M5.3 8.4h7.4a5.1 5.1 0 1 1 0 10.2H8.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <path
+                      d="M10 5.7 4.8 8.4 10 11.1"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <path
+                      d="M8.4 18.6h4.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>pin</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M9.2 4.8h5.6L14 9.1l3.2 3.2v1.5H6.8v-1.5L10 9.1 9.2 4.8Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <line
+                      x1="12"
+                      y1="13.8"
+                      x2="12"
+                      y2="20"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>check</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <polyline
+                      points="5.4 12.4 10 16.8 18.8 7.6"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>arrow-up</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="12"
+                      y1="19"
+                      x2="12"
+                      y2="6"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <polyline
+                      points="7.2 10.8 12 6 16.8 10.8"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>arrow-down</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="12"
+                      y1="5"
+                      x2="12"
+                      y2="18"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <polyline
+                      points="7.2 13.2 12 18 16.8 13.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>stop</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <rect
+                      x="7.8"
+                      y="7.8"
+                      width="8.4"
+                      height="8.4"
+                      rx="1.8"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>play</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M9 6.8v10.4l8-5.2-8-5.2Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>image</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <rect
+                      x="4.8"
+                      y="5.5"
+                      width="14.4"
+                      height="13"
+                      rx="2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <circle
+                      cx="9"
+                      cy="9.2"
+                      r="1.4"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></circle>
+                    <path
+                      d="m6.9 16 3.5-3.7 2.5 2.5 1.5-1.6 2.9 2.8"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>chevron-up</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <polyline
+                      points="6.8 14.2 12 9 17.2 14.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>chevron-down</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <polyline
+                      points="6.8 9.8 12 15 17.2 9.8"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>close</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="6.5"
+                      y1="6.5"
+                      x2="17.5"
+                      y2="17.5"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="17.5"
+                      y1="6.5"
+                      x2="6.5"
+                      y2="17.5"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>copy</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <rect
+                      x="8"
+                      y="7"
+                      width="10"
+                      height="12"
+                      rx="1.8"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></rect>
+                    <path
+                      d="M6 15.5H5.8A1.8 1.8 0 0 1 4 13.7V5.8A1.8 1.8 0 0 1 5.8 4h7.9A1.8 1.8 0 0 1 15.5 5.8V6"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>file</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M7 4.5h6.4L18 9.1v10.4H7a1.8 1.8 0 0 1-1.8-1.8V6.3A1.8 1.8 0 0 1 7 4.5Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <path
+                      d="M13.2 4.7V9h4.3"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <line
+                      x1="8.3"
+                      y1="13"
+                      x2="15.7"
+                      y2="13"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="8.3"
+                      y1="16"
+                      x2="14"
+                      y2="16"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>tool</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <path
+                      d="M14.2 5.5a4.3 4.3 0 0 0 5.3 5.3l-7.4 7.4a2.7 2.7 0 0 1-3.8-3.8l7.4-7.4Z"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>wrap-text</code></td>
+              <td>
+                <div class="icon-cell line-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="30"
+                    height="30"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                  >
+                    <line
+                      x1="5"
+                      y1="7"
+                      x2="19"
+                      y2="7"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <line
+                      x1="5"
+                      y1="12"
+                      x2="15"
+                      y2="12"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></line>
+                    <path
+                      d="M15 12a3 3 0 0 1 0 6H9"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></path>
+                    <polyline
+                      points="11.2 15.8 9 18 11.2 20.2"
+                      stroke="#2F80ED"
+                      stroke-width="1.9"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    ></polyline>
+                  </svg>
+                </div>
+              </td>
+              <td>已使用</td>
+              <td class="fill-target"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>3. 完整 Agent 内置头像图标库</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Agent icon name</th>
+              <th>当前图标</th>
+              <th>说明</th>
+              <th>新图标/资源</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>default</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-default"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#94A3B8"></stop>
+                        <stop offset="100%" stop-color="#475569"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M24 14V6"
+                      stroke="url(#g-agent-avatar-default)"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      opacity="0.7"
+                    ></path>
+                    <circle
+                      cx="24"
+                      cy="6"
+                      r="3"
+                      fill="url(#g-agent-avatar-default)"
+                      opacity="0.9"
+                    ></circle>
+                    <rect
+                      x="10"
+                      y="14"
+                      width="28"
+                      height="24"
+                      rx="6"
+                      fill="url(#g-agent-avatar-default)"
+                      opacity="0.15"
+                      stroke="url(#g-agent-avatar-default)"
+                      stroke-width="3"
+                    ></rect>
+                    <rect
+                      x="6"
+                      y="21"
+                      width="4"
+                      height="10"
+                      rx="2"
+                      fill="url(#g-agent-avatar-default)"
+                      opacity="0.6"
+                    ></rect>
+                    <rect
+                      x="38"
+                      y="21"
+                      width="4"
+                      height="10"
+                      rx="2"
+                      fill="url(#g-agent-avatar-default)"
+                      opacity="0.6"
+                    ></rect>
+                    <circle
+                      cx="19"
+                      cy="24"
+                      r="3"
+                      fill="url(#g-agent-avatar-default)"
+                      opacity="0.8"
+                    ></circle>
+                    <circle
+                      cx="29"
+                      cy="24"
+                      r="3"
+                      fill="url(#g-agent-avatar-default)"
+                      opacity="0.8"
+                    ></circle>
+                    <path
+                      d="M18 31h12"
+                      stroke="url(#g-agent-avatar-default)"
+                      stroke-width="2.5"
+                      stroke-linecap="round"
+                      opacity="0.7"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>未知 agent icon fallback</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>folder</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-folder"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#FBBF24"></stop>
+                        <stop offset="100%" stop-color="#D97706"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M6 14 L20 8 L42 16 L28 22 Z"
+                      fill="url(#g-agent-avatar-folder)"
+                      opacity="0.4"
+                    ></path>
+                    <path
+                      d="M6 14 V34 L28 42 V22 Z"
+                      fill="url(#g-agent-avatar-folder)"
+                      opacity="0.8"
+                    ></path>
+                    <path
+                      d="M28 22 L42 16 V36 L28 42 Z"
+                      fill="url(#g-agent-avatar-folder)"
+                      opacity="0.6"
+                    ></path>
+                    <path d="M14 12 L24 8 L34 12 L24 16 Z" fill="#FFFFFF" opacity="0.9"></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>chat</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-chat" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#34D399"></stop>
+                        <stop offset="100%" stop-color="#059669"></stop>
+                      </linearGradient>
+                    </defs>
+                    <rect
+                      x="6"
+                      y="10"
+                      width="24"
+                      height="18"
+                      rx="6"
+                      fill="url(#g-agent-avatar-chat)"
+                      opacity="0.8"
+                    ></rect>
+                    <path
+                      d="M12 28 L6 34 L14 31 Z"
+                      fill="url(#g-agent-avatar-chat)"
+                      opacity="0.8"
+                    ></path>
+                    <rect
+                      x="18"
+                      y="20"
+                      width="24"
+                      height="18"
+                      rx="6"
+                      fill="url(#g-agent-avatar-chat)"
+                      opacity="0.4"
+                      stroke="url(#g-agent-avatar-chat)"
+                      stroke-width="2"
+                    ></rect>
+                    <path
+                      d="M36 38 L42 44 L34 41 Z"
+                      fill="url(#g-agent-avatar-chat)"
+                      opacity="0.4"
+                    ></path>
+                    <circle cx="26" cy="29" r="2" fill="#FFFFFF"></circle>
+                    <circle cx="30" cy="29" r="2" fill="#FFFFFF" opacity="0.7"></circle>
+                    <circle cx="34" cy="29" r="2" fill="#FFFFFF" opacity="0.4"></circle>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>wave</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-wave" x1="0%" y1="100%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#60A5FA"></stop>
+                        <stop offset="100%" stop-color="#2563EB"></stop>
+                      </linearGradient>
+                    </defs>
+                    <circle cx="24" cy="36" r="4" fill="url(#g-agent-avatar-wave)"></circle>
+                    <ellipse
+                      cx="24"
+                      cy="36"
+                      rx="12"
+                      ry="6"
+                      stroke="url(#g-agent-avatar-wave)"
+                      stroke-width="3"
+                      stroke-dasharray="4 6"
+                      fill="none"
+                      opacity="0.5"
+                    ></ellipse>
+                    <ellipse
+                      cx="24"
+                      cy="36"
+                      rx="22"
+                      ry="11"
+                      stroke="url(#g-agent-avatar-wave)"
+                      stroke-width="3"
+                      fill="none"
+                      opacity="0.8"
+                    ></ellipse>
+                    <path
+                      d="M24 6 L28 10 L24 14 L20 10 Z"
+                      fill="url(#g-agent-avatar-wave)"
+                      opacity="0.9"
+                    ></path>
+                    <line
+                      x1="24"
+                      y1="14"
+                      x2="24"
+                      y2="32"
+                      stroke="url(#g-agent-avatar-wave)"
+                      stroke-width="2"
+                      opacity="0.3"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>focus</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-focus" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#A78BFA"></stop>
+                        <stop offset="100%" stop-color="#6D28D9"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M10 28H38M10 34H38M16 22V40M32 22V40"
+                      stroke="url(#g-agent-avatar-focus)"
+                      stroke-width="2"
+                      opacity="0.2"
+                    ></path>
+                    <circle
+                      cx="20"
+                      cy="20"
+                      r="12"
+                      stroke="url(#g-agent-avatar-focus)"
+                      stroke-width="4"
+                      fill="none"
+                      opacity="0.8"
+                    ></circle>
+                    <circle
+                      cx="20"
+                      cy="20"
+                      r="8"
+                      fill="url(#g-agent-avatar-focus)"
+                      opacity="0.3"
+                    ></circle>
+                    <line
+                      x1="28"
+                      y1="28"
+                      x2="42"
+                      y2="42"
+                      stroke="url(#g-agent-avatar-focus)"
+                      stroke-width="6"
+                      stroke-linecap="round"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>library</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-library"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#F472B6"></stop>
+                        <stop offset="100%" stop-color="#DB2777"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M8 34 L24 28 L40 34 L24 40 Z"
+                      fill="url(#g-agent-avatar-library)"
+                      opacity="0.4"
+                    ></path>
+                    <path
+                      d="M8 34 V38 L24 44 V40 Z"
+                      fill="url(#g-agent-avatar-library)"
+                      opacity="0.8"
+                    ></path>
+                    <path d="M24 40 L40 34 V38 L24 44 Z" fill="#FFFFFF" opacity="0.6"></path>
+                    <path
+                      d="M10 24 L26 18 L42 24 L26 30 Z"
+                      fill="url(#g-agent-avatar-library)"
+                      opacity="0.7"
+                    ></path>
+                    <path
+                      d="M10 24 V28 L26 34 V30 Z"
+                      fill="url(#g-agent-avatar-library)"
+                      opacity="0.9"
+                    ></path>
+                    <path d="M26 30 L42 24 V28 L26 34 Z" fill="#FFFFFF" opacity="0.6"></path>
+                    <path
+                      d="M12 14 L28 8 L44 14 L28 20 Z"
+                      fill="url(#g-agent-avatar-library)"
+                      opacity="0.9"
+                    ></path>
+                    <path
+                      d="M12 14 V18 L28 24 V20 Z"
+                      fill="url(#g-agent-avatar-library)"
+                      opacity="0.9"
+                    ></path>
+                    <path d="M28 20 L44 14 V18 L28 24 Z" fill="#FFFFFF" opacity="0.8"></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>coder</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-coder" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#2DD4BF"></stop>
+                        <stop offset="100%" stop-color="#0D9488"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M6 16 L24 8 L42 16 L24 24 Z"
+                      fill="url(#g-agent-avatar-coder)"
+                      opacity="0.3"
+                    ></path>
+                    <path
+                      d="M14 16 L24 12 L34 16 L24 20 Z"
+                      fill="url(#g-agent-avatar-coder)"
+                      opacity="0.8"
+                    ></path>
+                    <path
+                      d="M12 24 L6 28 L12 32"
+                      stroke="url(#g-agent-avatar-coder)"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      fill="none"
+                      opacity="0.9"
+                    ></path>
+                    <path
+                      d="M36 24 L42 28 L36 32"
+                      stroke="url(#g-agent-avatar-coder)"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      fill="none"
+                      opacity="0.9"
+                    ></path>
+                    <path
+                      d="M26 22 L20 34"
+                      stroke="url(#g-agent-avatar-coder)"
+                      stroke-width="4"
+                      stroke-linecap="round"
+                      opacity="0.9"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>canvas</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-canvas"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#F87171"></stop>
+                        <stop offset="100%" stop-color="#B91C1C"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M8 36 C 16 20, 32 20, 40 36"
+                      stroke="url(#g-agent-avatar-canvas)"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      fill="none"
+                      opacity="0.4"
+                    ></path>
+                    <circle cx="24" cy="22" r="3" fill="url(#g-agent-avatar-canvas)"></circle>
+                    <path
+                      d="M24 22 L16 10 L32 10 Z"
+                      fill="url(#g-agent-avatar-canvas)"
+                      opacity="0.9"
+                    ></path>
+                    <circle cx="16" cy="10" r="2" fill="#FFFFFF"></circle>
+                    <circle cx="32" cy="10" r="2" fill="#FFFFFF"></circle>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>ide</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-ide" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#818CF8"></stop>
+                        <stop offset="100%" stop-color="#4338CA"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M6 14 L24 6 L42 14 L24 22 Z"
+                      fill="url(#g-agent-avatar-ide)"
+                      opacity="0.3"
+                    ></path>
+                    <path
+                      d="M6 14 V34 L24 42 V22 Z"
+                      fill="url(#g-agent-avatar-ide)"
+                      opacity="0.8"
+                    ></path>
+                    <path
+                      d="M24 22 L42 14 V34 L24 42 Z"
+                      fill="url(#g-agent-avatar-ide)"
+                      opacity="0.5"
+                    ></path>
+                    <line
+                      x1="24"
+                      y1="22"
+                      x2="24"
+                      y2="42"
+                      stroke="#FFFFFF"
+                      stroke-width="2"
+                      opacity="0.6"
+                    ></line>
+                    <line
+                      x1="14"
+                      y1="18"
+                      x2="14"
+                      y2="34"
+                      stroke="#FFFFFF"
+                      stroke-width="1.5"
+                      opacity="0.4"
+                    ></line>
+                    <line
+                      x1="34"
+                      y1="18"
+                      x2="34"
+                      y2="34"
+                      stroke="#FFFFFF"
+                      stroke-width="1.5"
+                      opacity="0.4"
+                    ></line>
+                    <circle cx="24" cy="30" r="3" fill="#FFFFFF" opacity="0.9"></circle>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>fast</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-fast" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#FB923C"></stop>
+                        <stop offset="100%" stop-color="#EA580C"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M6 24 L20 12 V36 Z"
+                      fill="url(#g-agent-avatar-fast)"
+                      opacity="0.3"
+                    ></path>
+                    <path
+                      d="M18 24 L32 12 V36 Z"
+                      fill="url(#g-agent-avatar-fast)"
+                      opacity="0.6"
+                    ></path>
+                    <path
+                      d="M30 24 L44 12 V36 Z"
+                      fill="url(#g-agent-avatar-fast)"
+                      opacity="0.9"
+                    ></path>
+                    <line
+                      x1="4"
+                      y1="16"
+                      x2="12"
+                      y2="16"
+                      stroke="#FFFFFF"
+                      stroke-width="2"
+                      opacity="0.5"
+                    ></line>
+                    <line
+                      x1="2"
+                      y1="24"
+                      x2="10"
+                      y2="24"
+                      stroke="#FFFFFF"
+                      stroke-width="2"
+                      opacity="0.8"
+                    ></line>
+                    <line
+                      x1="6"
+                      y1="32"
+                      x2="14"
+                      y2="32"
+                      stroke="#FFFFFF"
+                      stroke-width="2"
+                      opacity="0.5"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>peaks</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-peaks" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#10B981"></stop>
+                        <stop offset="100%" stop-color="#047857"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M14 28 L24 12 L34 28 Z"
+                      fill="url(#g-agent-avatar-peaks)"
+                      opacity="0.4"
+                    ></path>
+                    <path
+                      d="M6 38 L18 18 L30 38 Z"
+                      fill="url(#g-agent-avatar-peaks)"
+                      opacity="0.8"
+                    ></path>
+                    <path d="M18 18 L30 38 H18 Z" fill="#FFFFFF" opacity="0.2"></path>
+                    <path
+                      d="M20 38 L32 14 L44 38 Z"
+                      fill="url(#g-agent-avatar-peaks)"
+                      opacity="0.9"
+                    ></path>
+                    <path d="M32 14 L44 38 H32 Z" fill="#FFFFFF" opacity="0.3"></path>
+                    <circle cx="28" cy="10" r="3" fill="#F59E0B" opacity="0.8"></circle>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>flux</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-flux" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#38BDF8"></stop>
+                        <stop offset="100%" stop-color="#0284C7"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M8 24 C 8 12, 24 12, 24 24 C 24 36, 40 36, 40 24"
+                      stroke="url(#g-agent-avatar-flux)"
+                      stroke-width="6"
+                      stroke-linecap="round"
+                      fill="none"
+                      opacity="0.9"
+                    ></path>
+                    <path
+                      d="M8 24 C 8 36, 24 36, 24 24 C 24 12, 40 12, 40 24"
+                      stroke="url(#g-agent-avatar-flux)"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      fill="none"
+                      opacity="0.4"
+                    ></path>
+                    <circle cx="16" cy="18" r="3" fill="#FFFFFF"></circle>
+                    <circle cx="32" cy="30" r="3" fill="#FFFFFF" opacity="0.7"></circle>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>pulse</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-pulse" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#A78BFA"></stop>
+                        <stop offset="100%" stop-color="#6D28D9"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M6 24 H42 M12 10 V38 M24 10 V38 M36 10 V38"
+                      stroke="url(#g-agent-avatar-pulse)"
+                      stroke-width="1"
+                      opacity="0.15"
+                    ></path>
+                    <path
+                      d="M6 24 H16 L20 10 L24 38 L28 20 L32 24 H42"
+                      stroke="url(#g-agent-avatar-pulse)"
+                      stroke-width="4"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      fill="none"
+                      opacity="0.9"
+                    ></path>
+                    <path
+                      d="M6 24 H16 L20 10 L24 38 L28 20 L32 24 H42"
+                      stroke="url(#g-agent-avatar-pulse)"
+                      stroke-width="8"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      fill="none"
+                      opacity="0.2"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>spark</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-spark" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#FCD34D"></stop>
+                        <stop offset="100%" stop-color="#D97706"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M24 10 L32 24 L24 38 L16 24 Z"
+                      fill="url(#g-agent-avatar-spark)"
+                      opacity="0.8"
+                    ></path>
+                    <path d="M24 14 L29 24 L24 34 L19 24 Z" fill="#FFFFFF" opacity="0.4"></path>
+                    <path
+                      d="M24 2 L26 8 H22 Z M24 46 L26 40 H22 Z M2 24 L8 22 V26 Z M46 24 L40 22 V26 Z"
+                      fill="url(#g-agent-avatar-spark)"
+                      opacity="0.9"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>horizon</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-horizon"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#A3E635"></stop>
+                        <stop offset="100%" stop-color="#4D7C0F"></stop>
+                      </linearGradient>
+                    </defs>
+                    <circle
+                      cx="24"
+                      cy="18"
+                      r="12"
+                      fill="url(#g-agent-avatar-horizon)"
+                      opacity="0.8"
+                    ></circle>
+                    <path
+                      d="M6 28 H42"
+                      stroke="url(#g-agent-avatar-horizon)"
+                      stroke-width="3"
+                      opacity="0.9"
+                    ></path>
+                    <path
+                      d="M24 28 L6 42 M24 28 L18 42 M24 28 L30 42 M24 28 L42 42"
+                      stroke="url(#g-agent-avatar-horizon)"
+                      stroke-width="2"
+                      opacity="0.4"
+                    ></path>
+                    <path
+                      d="M24 6 V10 M12 10 L15 13 M36 10 L33 13"
+                      stroke="url(#g-agent-avatar-horizon)"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      opacity="0.5"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>emit</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-emit" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#F87171"></stop>
+                        <stop offset="100%" stop-color="#B91C1C"></stop>
+                      </linearGradient>
+                    </defs>
+                    <ellipse
+                      cx="24"
+                      cy="38"
+                      rx="14"
+                      ry="5"
+                      stroke="url(#g-agent-avatar-emit)"
+                      stroke-width="3"
+                      fill="none"
+                      opacity="0.4"
+                    ></ellipse>
+                    <path
+                      d="M18 38 L24 46 L30 38 Z"
+                      fill="url(#g-agent-avatar-emit)"
+                      opacity="0.9"
+                    ></path>
+                    <path
+                      d="M16 34 L24 10 L32 34 Z"
+                      fill="url(#g-agent-avatar-emit)"
+                      opacity="0.8"
+                    ></path>
+                    <circle cx="24" cy="22" r="3" fill="#FFFFFF"></circle>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>database</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-database"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#22D3EE"></stop>
+                        <stop offset="100%" stop-color="#0891B2"></stop>
+                      </linearGradient>
+                    </defs>
+                    <ellipse
+                      cx="24"
+                      cy="12"
+                      rx="16"
+                      ry="6"
+                      fill="url(#g-agent-avatar-database)"
+                      opacity="0.9"
+                    ></ellipse>
+                    <path
+                      d="M8 12 V22 C8 25 15 28 24 28 C33 28 40 25 40 22 V12"
+                      fill="url(#g-agent-avatar-database)"
+                      opacity="0.6"
+                    ></path>
+                    <path
+                      d="M8 22 V32 C8 35 15 38 24 38 C33 38 40 35 40 32 V22"
+                      fill="url(#g-agent-avatar-database)"
+                      opacity="0.3"
+                    ></path>
+                    <line
+                      x1="24"
+                      y1="12"
+                      x2="24"
+                      y2="32"
+                      stroke="#FFFFFF"
+                      stroke-width="2"
+                      opacity="0.4"
+                    ></line>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>stratus</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-stratus"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#38BDF8"></stop>
+                        <stop offset="100%" stop-color="#0284C7"></stop>
+                      </linearGradient>
+                    </defs>
+                    <circle
+                      cx="16"
+                      cy="28"
+                      r="10"
+                      fill="url(#g-agent-avatar-stratus)"
+                      opacity="0.4"
+                    ></circle>
+                    <circle
+                      cx="32"
+                      cy="28"
+                      r="8"
+                      fill="url(#g-agent-avatar-stratus)"
+                      opacity="0.6"
+                    ></circle>
+                    <circle
+                      cx="24"
+                      cy="18"
+                      r="12"
+                      fill="url(#g-agent-avatar-stratus)"
+                      opacity="0.8"
+                    ></circle>
+                    <path
+                      d="M12 34 H36"
+                      stroke="url(#g-agent-avatar-stratus)"
+                      stroke-width="4"
+                      stroke-linecap="round"
+                      opacity="0.9"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>sentinel</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-sentinel"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#34D399"></stop>
+                        <stop offset="100%" stop-color="#059669"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M24 4 C34 4 40 8 40 18 C40 30 24 44 24 44 C24 44 8 30 8 18 C8 8 14 4 24 4Z"
+                      fill="url(#g-agent-avatar-sentinel)"
+                      opacity="0.3"
+                    ></path>
+                    <path
+                      d="M24 8 L12 14 V24 C12 31 24 38 24 38 Z"
+                      fill="url(#g-agent-avatar-sentinel)"
+                      opacity="0.6"
+                    ></path>
+                    <path
+                      d="M24 8 L36 14 V24 C36 31 24 38 24 38 Z"
+                      fill="url(#g-agent-avatar-sentinel)"
+                      opacity="0.9"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>identity</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-identity"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#F472B6"></stop>
+                        <stop offset="100%" stop-color="#DB2777"></stop>
+                      </linearGradient>
+                    </defs>
+                    <circle
+                      cx="24"
+                      cy="14"
+                      r="8"
+                      fill="url(#g-agent-avatar-identity)"
+                      opacity="0.9"
+                    ></circle>
+                    <path
+                      d="M10 38 C10 30, 14 26, 24 26 C34 26, 38 30, 38 38 Z"
+                      fill="url(#g-agent-avatar-identity)"
+                      opacity="0.4"
+                    ></path>
+                    <path d="M16 28 L24 20 L32 28 Z" fill="#FFFFFF" opacity="0.3"></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>spectrum</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-spectrum"
+                        x1="0%"
+                        y1="100%"
+                        x2="100%"
+                        y2="0%"
+                      >
+                        <stop offset="0%" stop-color="#FCD34D"></stop>
+                        <stop offset="100%" stop-color="#D97706"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M8 32 L16 28 L16 42 L8 42 Z"
+                      fill="url(#g-agent-avatar-spectrum)"
+                      opacity="0.3"
+                    ></path>
+                    <path
+                      d="M19 20 L27 16 L27 42 L19 42 Z"
+                      fill="url(#g-agent-avatar-spectrum)"
+                      opacity="0.6"
+                    ></path>
+                    <path
+                      d="M30 12 L38 8 L38 42 L30 42 Z"
+                      fill="url(#g-agent-avatar-spectrum)"
+                      opacity="0.9"
+                    ></path>
+                    <path
+                      d="M8 26 L19 14 L30 6"
+                      stroke="#FFFFFF"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      fill="none"
+                      opacity="0.8"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>chime</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-chime" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#2DD4BF"></stop>
+                        <stop offset="100%" stop-color="#0D9488"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M24 6 C18 6, 14 12, 14 20 L12 30 H36 L34 20 C34 12, 30 6, 24 6 Z"
+                      fill="url(#g-agent-avatar-chime)"
+                      opacity="0.4"
+                    ></path>
+                    <circle
+                      cx="24"
+                      cy="36"
+                      r="4"
+                      fill="url(#g-agent-avatar-chime)"
+                      opacity="0.9"
+                    ></circle>
+                    <path
+                      d="M8 26 A 18 18 0 0 0 40 26"
+                      stroke="url(#g-agent-avatar-chime)"
+                      stroke-width="2"
+                      stroke-dasharray="4 4"
+                      fill="none"
+                      opacity="0.5"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>sol</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-sol" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#FCD34D"></stop>
+                        <stop offset="100%" stop-color="#D97706"></stop>
+                      </linearGradient>
+                    </defs>
+                    <circle
+                      cx="24"
+                      cy="24"
+                      r="10"
+                      fill="url(#g-agent-avatar-sol)"
+                      opacity="0.9"
+                    ></circle>
+                    <path
+                      d="M24 2 L28 10 H20 Z"
+                      fill="url(#g-agent-avatar-sol)"
+                      opacity="0.8"
+                    ></path>
+                    <path
+                      d="M24 46 L28 38 H20 Z"
+                      fill="url(#g-agent-avatar-sol)"
+                      opacity="0.8"
+                    ></path>
+                    <path
+                      d="M2 24 L10 20 V28 Z"
+                      fill="url(#g-agent-avatar-sol)"
+                      opacity="0.8"
+                    ></path>
+                    <path
+                      d="M46 24 L38 20 V28 Z"
+                      fill="url(#g-agent-avatar-sol)"
+                      opacity="0.8"
+                    ></path>
+                    <path
+                      d="M8 8 L16 12 L12 16 Z"
+                      fill="url(#g-agent-avatar-sol)"
+                      opacity="0.6"
+                    ></path>
+                    <path
+                      d="M40 40 L32 36 L36 32 Z"
+                      fill="url(#g-agent-avatar-sol)"
+                      opacity="0.6"
+                    ></path>
+                    <path
+                      d="M8 40 L12 32 L16 36 Z"
+                      fill="url(#g-agent-avatar-sol)"
+                      opacity="0.6"
+                    ></path>
+                    <path
+                      d="M40 8 L36 16 L32 12 Z"
+                      fill="url(#g-agent-avatar-sol)"
+                      opacity="0.6"
+                    ></path>
+                    <circle cx="24" cy="24" r="5" fill="#FFFFFF" opacity="0.4"></circle>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>atlas</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-atlas" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#38BDF8"></stop>
+                        <stop offset="100%" stop-color="#0284C7"></stop>
+                      </linearGradient>
+                    </defs>
+                    <circle
+                      cx="24"
+                      cy="24"
+                      r="18"
+                      stroke="url(#g-agent-avatar-atlas)"
+                      stroke-width="3"
+                      fill="none"
+                      opacity="0.3"
+                    ></circle>
+                    <ellipse
+                      cx="24"
+                      cy="24"
+                      rx="18"
+                      ry="6"
+                      stroke="url(#g-agent-avatar-atlas)"
+                      stroke-width="2"
+                      fill="none"
+                      opacity="0.6"
+                    ></ellipse>
+                    <ellipse
+                      cx="24"
+                      cy="24"
+                      rx="6"
+                      ry="18"
+                      stroke="url(#g-agent-avatar-atlas)"
+                      stroke-width="2"
+                      fill="none"
+                      opacity="0.6"
+                    ></ellipse>
+                    <circle cx="24" cy="12" r="2" fill="#FFFFFF"></circle>
+                    <circle cx="24" cy="36" r="2" fill="#FFFFFF"></circle>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>chronos</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-chronos"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#FDE047"></stop>
+                        <stop offset="100%" stop-color="#CA8A04"></stop>
+                      </linearGradient>
+                    </defs>
+                    <circle
+                      cx="24"
+                      cy="24"
+                      r="18"
+                      stroke="url(#g-agent-avatar-chronos)"
+                      stroke-width="3"
+                      fill="none"
+                      opacity="0.3"
+                    ></circle>
+                    <path
+                      d="M24 24 L24 6 A 18 18 0 0 1 38 32 Z"
+                      fill="url(#g-agent-avatar-chronos)"
+                      opacity="0.6"
+                    ></path>
+                    <path
+                      d="M24 24 L14 24"
+                      stroke="url(#g-agent-avatar-chronos)"
+                      stroke-width="4"
+                      stroke-linecap="round"
+                      opacity="0.9"
+                    ></path>
+                    <circle cx="24" cy="24" r="3" fill="#FFFFFF"></circle>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>statue</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-statue"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#94A3B8"></stop>
+                        <stop offset="100%" stop-color="#475569"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M12 36 L24 30 L36 36 L24 42 Z"
+                      fill="url(#g-agent-avatar-statue)"
+                      opacity="0.8"
+                    ></path>
+                    <path
+                      d="M12 36 V42 L24 48 V42 Z"
+                      fill="url(#g-agent-avatar-statue)"
+                      opacity="0.9"
+                    ></path>
+                    <path
+                      d="M24 42 L36 36 V42 L24 48 Z"
+                      fill="url(#g-agent-avatar-statue)"
+                      opacity="0.6"
+                    ></path>
+                    <path
+                      d="M18 30 L24 20 L30 30 Z"
+                      fill="url(#g-agent-avatar-statue)"
+                      opacity="0.4"
+                    ></path>
+                    <path
+                      d="M24 8 L30 16 L24 24 L18 16 Z"
+                      fill="url(#g-agent-avatar-statue)"
+                      opacity="0.9"
+                    ></path>
+                    <path d="M24 8 L24 24 L18 16 Z" fill="#FFFFFF" opacity="0.3"></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>portal</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-portal"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#818CF8"></stop>
+                        <stop offset="100%" stop-color="#3730A3"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M6 38 L24 30 L42 38 L24 46 Z"
+                      fill="url(#g-agent-avatar-portal)"
+                      opacity="0.3"
+                    ></path>
+                    <path
+                      d="M14 34 V14 L24 8 L34 14 V34"
+                      stroke="url(#g-agent-avatar-portal)"
+                      stroke-width="4"
+                      fill="none"
+                      opacity="0.6"
+                    ></path>
+                    <path
+                      d="M18 32 V16 L24 12 L30 16 V32 Z"
+                      fill="url(#g-agent-avatar-portal)"
+                      opacity="0.9"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>resonance</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-resonance"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#C084FC"></stop>
+                        <stop offset="100%" stop-color="#7E22CE"></stop>
+                      </linearGradient>
+                    </defs>
+                    <rect
+                      x="10"
+                      y="16"
+                      width="4"
+                      height="16"
+                      rx="2"
+                      fill="url(#g-agent-avatar-resonance)"
+                      opacity="0.4"
+                    ></rect>
+                    <rect
+                      x="18"
+                      y="10"
+                      width="4"
+                      height="28"
+                      rx="2"
+                      fill="url(#g-agent-avatar-resonance)"
+                      opacity="0.7"
+                    ></rect>
+                    <rect
+                      x="26"
+                      y="6"
+                      width="4"
+                      height="36"
+                      rx="2"
+                      fill="url(#g-agent-avatar-resonance)"
+                      opacity="0.9"
+                    ></rect>
+                    <rect
+                      x="34"
+                      y="14"
+                      width="4"
+                      height="20"
+                      rx="2"
+                      fill="url(#g-agent-avatar-resonance)"
+                      opacity="0.5"
+                    ></rect>
+                    <path
+                      d="M6 24 Q 18 12, 26 24 T 42 24"
+                      stroke="#FFFFFF"
+                      stroke-width="2"
+                      fill="none"
+                      opacity="0.8"
+                    ></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>luna</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient id="g-agent-avatar-luna" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#A78BFA"></stop>
+                        <stop offset="100%" stop-color="#4F46E5"></stop>
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d="M30 10 C20 10, 12 18, 12 28 C12 38, 20 46, 30 46 C22 40, 20 30, 26 22 C29 18, 34 16, 38 16 C36 12, 33 10, 30 10 Z"
+                      fill="url(#g-agent-avatar-luna)"
+                      opacity="0.9"
+                    ></path>
+                    <circle
+                      cx="22"
+                      cy="28"
+                      r="6"
+                      fill="url(#g-agent-avatar-luna)"
+                      opacity="0.3"
+                    ></circle>
+                    <circle cx="22" cy="28" r="3" fill="#FFFFFF" opacity="0.5"></circle>
+                    <path d="M14 14 L16 16 L14 18 L12 16 Z" fill="#FFFFFF" opacity="0.8"></path>
+                    <path d="M36 34 L38 36 L36 38 L34 36 Z" fill="#FFFFFF" opacity="0.6"></path>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>cortex</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-cortex"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#60A5FA"></stop>
+                        <stop offset="100%" stop-color="#2563EB"></stop>
+                      </linearGradient>
+                    </defs>
+                    <circle
+                      cx="24"
+                      cy="24"
+                      r="6"
+                      fill="url(#g-agent-avatar-cortex)"
+                      opacity="0.9"
+                    ></circle>
+                    <line
+                      x1="24"
+                      y1="24"
+                      x2="12"
+                      y2="12"
+                      stroke="url(#g-agent-avatar-cortex)"
+                      stroke-width="2"
+                      opacity="0.5"
+                    ></line>
+                    <line
+                      x1="24"
+                      y1="24"
+                      x2="36"
+                      y2="12"
+                      stroke="url(#g-agent-avatar-cortex)"
+                      stroke-width="2"
+                      opacity="0.5"
+                    ></line>
+                    <line
+                      x1="24"
+                      y1="24"
+                      x2="12"
+                      y2="36"
+                      stroke="url(#g-agent-avatar-cortex)"
+                      stroke-width="2"
+                      opacity="0.5"
+                    ></line>
+                    <line
+                      x1="24"
+                      y1="24"
+                      x2="36"
+                      y2="36"
+                      stroke="url(#g-agent-avatar-cortex)"
+                      stroke-width="2"
+                      opacity="0.5"
+                    ></line>
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="4"
+                      fill="url(#g-agent-avatar-cortex)"
+                      opacity="0.6"
+                    ></circle>
+                    <circle
+                      cx="36"
+                      cy="12"
+                      r="3"
+                      fill="url(#g-agent-avatar-cortex)"
+                      opacity="0.4"
+                    ></circle>
+                    <circle
+                      cx="12"
+                      cy="36"
+                      r="3"
+                      fill="url(#g-agent-avatar-cortex)"
+                      opacity="0.4"
+                    ></circle>
+                    <circle
+                      cx="36"
+                      cy="36"
+                      r="4"
+                      fill="url(#g-agent-avatar-cortex)"
+                      opacity="0.6"
+                    ></circle>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+
+            <tr>
+              <td><code>terminal</code></td>
+              <td>
+                <div class="icon-cell agent-icon">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="42"
+                    height="42"
+                    viewBox="0 0 48 48"
+                    fill="none"
+                  >
+                    <defs>
+                      <linearGradient
+                        id="g-agent-avatar-terminal"
+                        x1="0%"
+                        y1="0%"
+                        x2="100%"
+                        y2="100%"
+                      >
+                        <stop offset="0%" stop-color="#94A3B8"></stop>
+                        <stop offset="100%" stop-color="#475569"></stop>
+                      </linearGradient>
+                    </defs>
+                    <rect
+                      x="6"
+                      y="10"
+                      width="36"
+                      height="28"
+                      rx="4"
+                      stroke="url(#g-agent-avatar-terminal)"
+                      stroke-width="3"
+                      fill="none"
+                      opacity="0.3"
+                    ></rect>
+                    <path
+                      d="M12 18 L18 24 L12 30"
+                      stroke="url(#g-agent-avatar-terminal)"
+                      stroke-width="3"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      fill="none"
+                      opacity="0.9"
+                    ></path>
+                    <rect
+                      x="22"
+                      y="28"
+                      width="8"
+                      height="3"
+                      fill="url(#g-agent-avatar-terminal)"
+                      opacity="0.8"
+                    ></rect>
+                  </svg>
+                </div>
+              </td>
+              <td>AGENT_ICON_NAMES 内置名</td>
+              <td class="fill-target"></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>4. 特殊图标/资产</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>范围</th>
+              <th>位置/语义</th>
+              <th>当前 key/资产</th>
+              <th>当前预览</th>
+              <th>源码位置</th>
+              <th>新图标/资源</th>
+              <th>备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>品牌/启动</td>
+              <td>App splash/logo 资产</td>
+              <td><code>assets/logo.png</code></td>
+              <td>
+                <div class="icon-cell special-icon">
+                  <img class="asset-logo" src="../assets/logo.png" alt="assets/logo.png" />
+                </div>
+              </td>
+              <td><code>app.json:9; src/app/startup/GeminiLogo.tsx:3</code></td>
+              <td class="fill-target"></td>
+              <td>Expo splash 与 React 启动动画共用同一 png。</td>
+            </tr>
+
+            <tr>
+              <td>用量统计</td>
+              <td>UsageRing 环形按钮</td>
+              <td><code>custom UsageRing</code></td>
+              <td>
+                <div class="icon-cell special-icon">
+                  <div class="usage-ring-preview" style="width: 42px; height: 42px">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="42"
+                      height="42"
+                      viewBox="0 0 42 42"
+                    >
+                      <circle
+                        cx="21"
+                        cy="21"
+                        r="19.3"
+                        stroke="#CBD5E1"
+                        stroke-width="3.4"
+                        fill="none"
+                      />
+                      <circle
+                        cx="21"
+                        cy="21"
+                        r="19.3"
+                        stroke="#1769D1"
+                        stroke-width="3.4"
+                        fill="none"
+                        stroke-linecap="round"
+                        stroke-dasharray="121.26547642856602 121.26547642856602"
+                        stroke-dashoffset="43.655571514283764"
+                        transform="rotate(-90 21 21)"
+                      /></svg
+                    ><span>64%</span>
+                  </div>
+                </div>
+              </td>
+              <td><code>src/features/chatPersistence/components/ChatUsageStats.tsx:177</code></td>
+              <td class="fill-target"></td>
+              <td>非 AppLineIcon，按组件逻辑替换或保持统计环。</td>
+            </tr>
+
+            <tr>
+              <td>Agent 头像</td>
+              <td>远端 icon.uri</td>
+              <td><code>svg/png/jpg/webp uri</code></td>
+              <td>
+                <div class="icon-cell special-icon"><div class="uri-preview">URI</div></div>
+              </td>
+              <td>
+                <code
+                  >src/shared/visual/AgentAvatar.tsx:40;
+                  src/shared/visual/agentAvatarIcon.ts:83</code
+                >
+              </td>
+              <td class="fill-target"></td>
+              <td>服务端传 uri 时优先展示远端图片，不进入内置图标映射。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p class="note">
+        收集新图标时，优先填“实际使用场景替换表”。如果某个 key
+        要全局统一替换，也可以只填完整图标库中的 key。
+      </p>
+    </main>
+  </body>
+</html>

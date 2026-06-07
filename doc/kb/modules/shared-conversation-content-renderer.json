@@ -1,0 +1,76 @@
+{
+  "id": "shared-conversation-content-renderer",
+  "title": "对话内容渲染组件",
+  "layer": "shared",
+  "paths": [
+    "src/shared/components/ConversationMarkdownRenderer.tsx",
+    "src/shared/markdown/preprocess.ts"
+  ],
+  "responsibility": [
+    "提供纯共享的对话内容渲染管线，普通 Markdown 热路径由原生 GFM renderer 承接，不保留 JS 自绘 Markdown AST fallback。",
+    "原生 Markdown 路径支持段落、标题、嵌套列表、任务列表、引用、代码块、GFM 表格、链接和 LaTeX。",
+    "支持调用方通过 `allowFontScaling` 控制内容文本是否跟随系统字号缩放，默认保持 React Native 文本行为。",
+    "在原生详情页热路径提供 ConversationMarkdownRenderer，基于 react-native-enriched-markdown 与 react-native-streamdown 渲染 native Markdown、GFM table 和 LaTeX math，流式内容交给 worklet 线程补全尾部 Markdown。",
+    "不夹带业务仓储、鉴权或下载逻辑；预处理只清理空 Markdown table 和未完成特殊 fence 尾部，避免页面层复制格式化逻辑。"
+  ],
+  "publicEntrypoints": [
+    {
+      "file": "src/shared/components/ConversationMarkdownRenderer.tsx",
+      "symbol": "ConversationMarkdownRenderer",
+      "kind": "component",
+      "description": "原生 Markdown 渲染 wrapper，完成 preprocess、native markdown 样式、streaming Markdown 和安全 link open。"
+    },
+    {
+      "file": "src/shared/markdown/preprocess.ts",
+      "symbol": "preprocessMarkdownContent",
+      "kind": "preprocess-helper",
+      "description": "归一化 Markdown 内容，移除空表格并剥离未完成特殊 fence 尾部。"
+    },
+    {
+      "file": "src/shared/markdown/preprocess.ts",
+      "symbol": "removeEmptyMarkdownTables",
+      "kind": "preprocess-helper",
+      "description": "移除只有表头和分隔行、没有数据行的空 Markdown 表格。"
+    }
+  ],
+  "dependsOn": ["shared-visual-foundation"],
+  "dependedBy": ["feature-chat-persistence"],
+  "stateTouches": ["消息文本的预处理结果", "Markdown 链接点击回调和外部链接打开行为"],
+  "relatedFlows": [],
+  "relatedTasks": ["modify-chat-persistence"],
+  "impactChecklist": [
+    "shared 组件保持纯净，不依赖 repository、sync service、SQLite、MMKV 或 WebSocket。",
+    "新增普通 Markdown 格式能力时优先配置或升级原生 GFM renderer，不新增 JS 自绘 Markdown AST fallback。",
+    "原生流式 Markdown 必须保持 worklets bundle mode 配置，避免在 JS 线程同步修复流式 Markdown 尾部。",
+    "不得因为单个 GFM table 把整条普通 Markdown 消息降级到 JS 自绘 renderer；长文本和多消息列表场景要避免重复解析和不必要的重新测量。"
+  ],
+  "readNext": [
+    {
+      "type": "module",
+      "ref": "feature-chat-persistence"
+    },
+    {
+      "type": "code",
+      "ref": "src/shared/components/ConversationMarkdownRenderer.tsx"
+    }
+  ],
+  "generated": {
+    "fileCount": 2,
+    "files": [
+      "src/shared/components/ConversationMarkdownRenderer.tsx",
+      "src/shared/markdown/preprocess.ts"
+    ],
+    "exportedSymbolsByFile": {
+      "src/shared/components/ConversationMarkdownRenderer.tsx": ["ConversationMarkdownRenderer"],
+      "src/shared/markdown/preprocess.ts": [
+        "markdownPreprocessInternals",
+        "normalizeMarkdownContent",
+        "preprocessMarkdownContent",
+        "removeEmptyMarkdownTables",
+        "stripPendingSpecialFenceTail"
+      ]
+    },
+    "actualDependsOn": ["shared-visual-foundation"],
+    "actualDependedBy": ["feature-chat-persistence"]
+  }
+}

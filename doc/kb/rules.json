@@ -1,0 +1,100 @@
+{
+  "generatedAt": "2026-06-05T08:13:12.506Z",
+  "rules": [
+    {
+      "id": "screen-no-direct-sqlite",
+      "title": "页面层不直接操作 SQLite",
+      "statement": "页面组件不得直接读写 SQLite；页面通过 repository 或 service 拿数据和触发写入。",
+      "appliesTo": ["app-shell-navigation", "feature-chat-persistence"],
+      "protectedModules": ["feature-chat-persistence"],
+      "checkHints": [
+        "如果 screen 需要新数据，优先扩展 chatRepository 或 chatSyncService。",
+        "不要在 src/app 或 screen 组件里直接 import database.ts 或 schema.ts。"
+      ]
+    },
+    {
+      "id": "screen-no-direct-websocket",
+      "title": "页面层不直接操作 WebSocket",
+      "statement": "页面组件不直接 connect、send 或处理 socket 事件；UI 只订阅 sync service 暴露的状态和数据。",
+      "appliesTo": ["app-shell-navigation", "feature-chat-persistence", "feature-chat-realtime"],
+      "protectedModules": ["feature-chat-realtime"],
+      "checkHints": [
+        "如果页面要触发实时动作，优先扩展 chatSyncService。",
+        "不要把 WebSocket transport 直接下沉到 screen 层。"
+      ]
+    },
+    {
+      "id": "sqlite-source-of-truth",
+      "title": "SQLite 是聊天真源",
+      "statement": "Chat 首页目录排序、会话消息状态和 outbox 真源都在 SQLite，不能把权威状态挪到 UI 或 MMKV。",
+      "appliesTo": ["feature-chat-persistence", "feature-chat-realtime"],
+      "protectedModules": ["feature-chat-persistence"],
+      "checkHints": [
+        "改首页目录排序先检查 chat_directory_items；改会话未读数、发送状态先检查 conversations/messages/outbox_messages。",
+        "影响首页目录的 SQLite 更新后要继续刷新目录快照；conversation 摘要不写 MMKV 首页快照。"
+      ]
+    },
+    {
+      "id": "mmkv-snapshot-only",
+      "title": "MMKV 只保存首页目录快照",
+      "statement": "MMKV 仅承接冷启动首页第一页快照，不承担完整消息历史、复杂查询或最终排序职责。",
+      "appliesTo": ["feature-chat-persistence"],
+      "protectedModules": ["feature-chat-persistence"],
+      "checkHints": [
+        "readChatDirectorySnapshot 只应服务启动回显。",
+        "不要把全量消息、线程详情或 outbox 真源挪进 MMKV。"
+      ]
+    },
+    {
+      "id": "realtime-write-through-repository",
+      "title": "实时层通过 service 或 repository 落库",
+      "statement": "实时链路的 ack、incoming 和 outbox replay 必须继续通过 chatSyncService 与 chatRepository 落库，不直连 UI。",
+      "appliesTo": ["feature-chat-persistence", "feature-chat-realtime"],
+      "protectedModules": ["feature-chat-persistence", "feature-chat-realtime"],
+      "checkHints": [
+        "chatWsTransport / wsClient 只做 transport，业务写入走 repository。",
+        "修改 WebSocket 事件类型时同步检查 ack 和 incoming 的 repository 回写路径。"
+      ]
+    },
+    {
+      "id": "notification-no-mobile-queue",
+      "title": "移动端通知不承载投递队列",
+      "statement": "系统级通知投递队列属于服务端；移动端只处理权限、push token 注册、点击 payload 和按需消息补拉。",
+      "appliesTo": [
+        "app-shell-navigation",
+        "core-api-client",
+        "feature-chat-persistence",
+        "feature-notifications"
+      ],
+      "protectedModules": ["feature-notifications", "feature-chat-persistence"],
+      "checkHints": [
+        "不要新增本地通知队列表，也不要复用 outbox_messages 做通知投递。",
+        "通知 payload 只携带 type、conversationId、serverMessageId。",
+        "点击通知后先查本地 serverMessageId，未命中再补拉服务端详情并通过 repository 落库。"
+      ]
+    },
+    {
+      "id": "ui-follow-shared-visual-theme",
+      "title": "UI 改造遵循共享视觉主题",
+      "statement": "新增页面或视觉改造默认继承共享视觉 token 和既有主题规则，不为单个 screen 另起一套颜色、圆角、底栏避让或长列表层级策略。",
+      "appliesTo": [
+        "app-shell-navigation",
+        "feature-chat-persistence",
+        "shared-paginated-list",
+        "shared-screen-header",
+        "shared-visual-foundation"
+      ],
+      "protectedModules": [
+        "app-shell-navigation",
+        "shared-paginated-list",
+        "shared-screen-header",
+        "shared-visual-foundation"
+      ],
+      "checkHints": [
+        "优先从 src/shared/visual/foundation.ts 和 doc/ui-visual-theme.md 取主题语义。",
+        "底部 Tab 避让继续基于 safe area 或 tab bar height，不在页面内硬编码 paddingBottom。",
+        "长列表默认平面化，阴影只在必要浮层、状态提示或抬升交互里少量使用。"
+      ]
+    }
+  ]
+}

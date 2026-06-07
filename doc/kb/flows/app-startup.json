@@ -1,0 +1,120 @@
+{
+  "id": "app-startup",
+  "title": "应用启动与导航挂载",
+  "trigger": "Expo 启动应用并注册根组件时触发。",
+  "sourceOfTruth": [
+    "app.json 决定 expo-splash-screen 的原生启动图资源、背景色和 imageWidth。",
+    "App.tsx 和 AppRoot.tsx 决定根 provider 树与导航挂载顺序。",
+    "src/core/auth/appAuth.ts 决定冷启动时的认证恢复、设备令牌缓存、前台预刷新和登录态切换。",
+    "notificationService 决定登录后的系统通知权限、原生 push token 注册和冷启动通知点击缓存。",
+    "AppLaunchSkeleton.tsx 决定应用冷启动期间的加载遮罩展示效果。",
+    "AndroidManifest.xml、MainActivity.kt、MainApplication.kt 和 res/values/styles.xml 决定 React 挂载前的原生启动窗口外观与 ReactHost 创建方式。",
+    "RootNavigator.tsx 决定 root stack 与底部 Tab 的真实路由结构。"
+  ],
+  "steps": [
+    {
+      "order": 1,
+      "label": "Expo 通过 registerRootComponent(App) 注册根组件。",
+      "moduleId": "app-shell-navigation",
+      "file": "index.js",
+      "symbol": "registerRootComponent"
+    },
+    {
+      "order": 2,
+      "label": "原生启动阶段先按 app.json 和 Android splash theme 显示灰底与中心 logo；MainActivity 切换到 AppTheme 时背景仍需连续，避免 React 挂载前露白。",
+      "moduleId": "app-shell-navigation",
+      "file": "android/app/src/main/res/values/styles.xml",
+      "symbol": null
+    },
+    {
+      "order": 3,
+      "label": "App 在首帧渲染前调用 SplashScreen.preventAutoHideAsync() 托住 native splash，等待 React loading 首帧 ready 后再 hideAsync() 接棒。",
+      "moduleId": "app-shell-navigation",
+      "file": "App.tsx",
+      "symbol": "AppRoot"
+    },
+    {
+      "order": 4,
+      "label": "AppRoot 挂载 NavigationContainer 前触发 bootstrapAuth，尝试用本地设备令牌恢复会话，再渲染 RootNavigator 和 __DEV__ 下隐藏的 Debug 面板宿主。",
+      "moduleId": "app-shell-navigation",
+      "file": "src/app/AppRoot.tsx",
+      "symbol": "AppRoot"
+    },
+    {
+      "order": 5,
+      "label": "AppRoot 在认证 session 可用后触发 notificationService.registerForSession，订阅通知点击 payload，并在前台 active 状态下做轻量 token 预刷新。",
+      "moduleId": "feature-notifications",
+      "file": "src/features/notifications/notificationService.ts",
+      "symbol": "notificationService"
+    },
+    {
+      "order": 6,
+      "label": "AppLaunchSkeleton 首帧先与 native splash 对齐为灰底加中心 logo；native splash 隐藏后，再淡入背景装饰并启动斜向扫光动画。",
+      "moduleId": "app-shell-navigation",
+      "file": "src/app/startup/AppLaunchSkeleton.tsx",
+      "symbol": "AppLaunchSkeleton"
+    },
+    {
+      "order": 7,
+      "label": "RootNavigator 根据认证快照切到 AuthBootstrapScreen、LoginScreen 或 Tabs；已登录时 ChatDetail 继续作为上层路由覆盖 Tabs。",
+      "moduleId": "app-shell-navigation",
+      "file": "src/app/navigation/RootNavigator.tsx",
+      "symbol": "RootNavigator"
+    },
+    {
+      "order": 8,
+      "label": "DevelopmentDebugPanelHost 在开发态挂载隐藏调试面板宿主；Me 页版本信息三连点通过 developmentDebugPanel 启用 Debug 模式并打开面板，普通关闭后保留右下角 Debug 浮动按钮，彻底关闭才移除入口；面板显示当前 API Base URL、reload、缓存清理和 WS frame 调试入口，并只在可见时订阅 WS frame 快照。",
+      "moduleId": "app-development-debug",
+      "file": "src/app/debug/DevelopmentDebugPanelHost.tsx",
+      "symbol": "DevelopmentDebugPanelHost"
+    },
+    {
+      "order": 9,
+      "label": "当导航 ready 且最短展示时间到达后，App 触发启动加载遮罩淡出并释放交互。",
+      "moduleId": "app-shell-navigation",
+      "file": "App.tsx",
+      "symbol": "default"
+    }
+  ],
+  "failureModes": [
+    "bootstrapAuth 没有在冷启动时执行，会导致已登录设备总是回到登录页。",
+    "前台 token 预刷新没有使用 soft failure，会因短暂网络失败误清理登录态。",
+    "RootNavigator 和 TabScreens 映射不一致会导致错误页面或无效路由。",
+    "认证快照切屏和 RootStack 路由定义不一致时，会出现登录后仍卡在登录页或未登录进入业务页。",
+    "Theme.App.SplashScreen 和 AppTheme 背景不连续时，会在 React loading 出现前露出白屏或占位底图。",
+    "native splash 使用的 logo 与 React loading 首帧不一致时，会在 hideAsync() 接棒瞬间出现明显跳变。",
+    "启动加载遮罩没有在 ready 后退场会导致整个应用不可交互。",
+    "通知点击在认证或导航 ready 前不缓存，会导致冷启动点击丢失。",
+    "误删 __DEV__ 守卫会把调试入口暴露到生产。",
+    "App 壳层直接下沉业务依赖会让 feature 边界失真。"
+  ],
+  "mustCheckModules": [
+    "app-development-debug",
+    "app-shell-navigation",
+    "core-auth-session",
+    "feature-auth-login",
+    "feature-notifications"
+  ],
+  "relatedTasks": [
+    "add-app-startup-loading-screen",
+    "add-auth-login-screen",
+    "add-or-edit-tab-screen",
+    "add-system-notifications",
+    "modify-runtime-environment",
+    "remove-development-debug-entry"
+  ],
+  "generated": {
+    "stepCount": 9,
+    "files": [
+      "App.tsx",
+      "android/app/src/main/res/values/styles.xml",
+      "index.js",
+      "src/app/AppRoot.tsx",
+      "src/app/debug/DevelopmentDebugPanelHost.tsx",
+      "src/app/navigation/RootNavigator.tsx",
+      "src/app/startup/AppLaunchSkeleton.tsx",
+      "src/features/notifications/notificationService.ts"
+    ],
+    "resolvedModules": ["app-development-debug", "app-shell-navigation", "feature-notifications"]
+  }
+}

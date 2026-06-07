@@ -1,0 +1,229 @@
+{
+  "generatedAt": "2026-06-05T08:13:12.575Z",
+  "items": [
+    {
+      "id": "app-development-debug",
+      "title": "开发态调试入口",
+      "layer": "app",
+      "summary": "提供 __DEV__ 下隐藏挂载的开发调试面板；默认不显示浮动入口，Me 页版本信息三连点通过 controller 启用 Debug 模式并打开面板，普通关闭后保留右下角 Debug 浮动按钮，ChatDetail 也挂载面板宿主并上移浮动入口以避开聊天详情输入区。",
+      "pathHints": ["src/app/debug"],
+      "relatedFlows": ["app-startup"],
+      "relatedTasks": ["modify-runtime-environment", "remove-development-debug-entry"],
+      "card": "doc/kb/modules/app-development-debug.json"
+    },
+    {
+      "id": "app-shell-navigation",
+      "title": "应用壳层与底部导航",
+      "layer": "app",
+      "summary": "挂载 SafeAreaProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
+      "pathHints": [
+        "App.tsx",
+        "index.js",
+        "app.json",
+        "assets",
+        "package.json",
+        "babel.config.js",
+        "metro.config.js",
+        "scripts/worklets",
+        "android/app/src/main/java",
+        "android/app/src/main/res/values",
+        "android/app/src/main/res/drawable",
+        "android/app/src/main/res/drawable-hdpi",
+        "android/app/src/main/res/drawable-mdpi",
+        "android/app/src/main/res/drawable-xhdpi",
+        "android/app/src/main/res/drawable-xxhdpi",
+        "android/app/src/main/res/drawable-xxxhdpi",
+        "src/app/AppRoot.tsx",
+        "src/app/navigation",
+        "src/app/screens",
+        "src/app/startup",
+        "src/types/assets.d.ts"
+      ],
+      "relatedFlows": ["app-startup", "chat-home-cold-boot", "notification-open-chat-message"],
+      "relatedTasks": [
+        "add-app-startup-loading-screen",
+        "add-auth-login-screen",
+        "add-or-edit-tab-screen",
+        "add-reusable-header-component",
+        "add-system-notifications",
+        "add-reusable-list-screen",
+        "remove-development-debug-entry"
+      ],
+      "card": "doc/kb/modules/app-shell-navigation.json"
+    },
+    {
+      "id": "core-api-client",
+      "title": "统一 API 客户端",
+      "layer": "core",
+      "summary": "统一拼接 API base URL、path 和 query。",
+      "pathHints": ["src/core/api"],
+      "relatedFlows": ["notification-open-chat-message"],
+      "relatedTasks": [
+        "add-business-api-service",
+        "add-system-notifications",
+        "modify-chat-realtime",
+        "modify-runtime-environment"
+      ],
+      "card": "doc/kb/modules/core-api-client.json"
+    },
+    {
+      "id": "core-auth-session",
+      "title": "认证会话与设备令牌",
+      "layer": "core",
+      "summary": "维护设备登录后的会话状态、设备令牌缓存、冷启动恢复和前台预刷新逻辑。",
+      "pathHints": ["src/core/auth"],
+      "relatedFlows": ["app-startup", "notification-open-chat-message"],
+      "relatedTasks": ["add-auth-login-screen", "add-system-notifications"],
+      "card": "doc/kb/modules/core-auth-session.json"
+    },
+    {
+      "id": "core-debug-logging",
+      "title": "核心调试日志",
+      "layer": "core",
+      "summary": "提供开发态 HTTP 请求、响应和错误日志能力。",
+      "pathHints": ["src/core/debug"],
+      "relatedFlows": ["app-startup", "notification-open-chat-message"],
+      "relatedTasks": [
+        "add-business-api-service",
+        "add-auth-login-screen",
+        "add-system-notifications"
+      ],
+      "card": "doc/kb/modules/core-debug-logging.json"
+    },
+    {
+      "id": "core-runtime-config",
+      "title": "运行时环境变量读取",
+      "layer": "core",
+      "summary": "提供公开环境变量读取入口。",
+      "pathHints": ["src/core/config"],
+      "relatedFlows": [],
+      "relatedTasks": ["add-business-api-service", "modify-runtime-environment"],
+      "card": "doc/kb/modules/core-runtime-config.json"
+    },
+    {
+      "id": "feature-agent-task-board",
+      "title": "AI 任务流转看板",
+      "layer": "features",
+      "summary": "承载面向 AI 智能体任务分配后的移动端任务处置 UI 设计稿。",
+      "pathHints": ["src/features/agentTaskBoard"],
+      "relatedFlows": [],
+      "relatedTasks": ["add-or-edit-tab-screen"],
+      "card": "doc/kb/modules/feature-agent-task-board.json"
+    },
+    {
+      "id": "feature-auth-login",
+      "title": "登录页与认证门卫界面",
+      "layer": "features",
+      "summary": "承载设备登录表单、启动恢复中的认证占位屏和最小会话交互。",
+      "pathHints": ["src/features/auth"],
+      "relatedFlows": ["app-startup"],
+      "relatedTasks": ["add-auth-login-screen", "add-or-edit-tab-screen"],
+      "card": "doc/kb/modules/feature-auth-login.json"
+    },
+    {
+      "id": "feature-chat-persistence",
+      "title": "聊天持久化与首页数据读取",
+      "layer": "features",
+      "summary": "维护 Chat 首页 agent/team 目录、目录 icon 展示字段、远端 chat 摘要投影、聊天会话、置顶状态、消息、outbox、conversation_sync_state、conversation_timeline_meta/nodes、本地数据库和目录快照。",
+      "pathHints": ["src/features/chatPersistence"],
+      "relatedFlows": [
+        "chat-home-cold-boot",
+        "chat-receive-message",
+        "chat-send-message",
+        "notification-open-chat-message"
+      ],
+      "relatedTasks": [
+        "add-reusable-header-component",
+        "add-reusable-list-screen",
+        "add-system-notifications",
+        "modify-chat-persistence",
+        "modify-chat-realtime"
+      ],
+      "card": "doc/kb/modules/feature-chat-persistence.json"
+    },
+    {
+      "id": "feature-chat-realtime",
+      "title": "聊天实时同步",
+      "layer": "features",
+      "summary": "管理全局唯一聊天 WebSocket 连接、连接状态、重连、pending stream 清理，以及详情页停止/继续生成入口。",
+      "pathHints": ["src/features/chatRealtime"],
+      "relatedFlows": ["chat-home-cold-boot", "chat-receive-message", "chat-send-message"],
+      "relatedTasks": [
+        "modify-chat-persistence",
+        "modify-chat-realtime",
+        "modify-runtime-environment"
+      ],
+      "card": "doc/kb/modules/feature-chat-realtime.json"
+    },
+    {
+      "id": "feature-chat-timeline",
+      "title": "聊天详情 Timeline 投影",
+      "layer": "features",
+      "summary": "提供纯函数 timeline reducer，把 request.query、content.*、run.*、reasoning/planning/tool/awaiting/artifact/action/plan/task/usage/context 等事件归并为单会话有序节点。",
+      "pathHints": ["src/features/chatTimeline"],
+      "relatedFlows": ["chat-receive-message", "chat-send-message"],
+      "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime"],
+      "card": "doc/kb/modules/feature-chat-timeline.json"
+    },
+    {
+      "id": "feature-notifications",
+      "title": "系统级通知接入",
+      "layer": "features",
+      "summary": "管理系统通知权限、Android channel、原生 FCM/APNs token 获取和注册指纹缓存。",
+      "pathHints": ["src/features/notifications"],
+      "relatedFlows": ["app-startup", "notification-open-chat-message"],
+      "relatedTasks": ["add-system-notifications"],
+      "card": "doc/kb/modules/feature-notifications.json"
+    },
+    {
+      "id": "shared-conversation-content-renderer",
+      "title": "对话内容渲染组件",
+      "layer": "shared",
+      "summary": "提供纯共享的对话内容渲染管线，普通 Markdown 热路径由原生 GFM renderer 承接，不保留 JS 自绘 Markdown AST fallback。",
+      "pathHints": [
+        "src/shared/components/ConversationMarkdownRenderer.tsx",
+        "src/shared/markdown/preprocess.ts"
+      ],
+      "relatedFlows": [],
+      "relatedTasks": ["modify-chat-persistence"],
+      "card": "doc/kb/modules/shared-conversation-content-renderer.json"
+    },
+    {
+      "id": "shared-paginated-list",
+      "title": "复用型分页列表组件",
+      "layer": "shared",
+      "summary": "提供基于 FlashList 的通用分页列表容器。",
+      "pathHints": ["src/shared/components/PaginatedCardList.tsx"],
+      "relatedFlows": ["chat-home-cold-boot"],
+      "relatedTasks": ["add-reusable-list-screen", "modify-chat-persistence"],
+      "card": "doc/kb/modules/shared-paginated-list.json"
+    },
+    {
+      "id": "shared-screen-header",
+      "title": "复用型页面 Header 组件",
+      "layer": "shared",
+      "summary": "提供纯 UI 的三栏页面 Header 布局，统一承接左按钮区、标题区和右按钮区。",
+      "pathHints": [
+        "src/shared/components/ScreenHeader.tsx",
+        "src/shared/components/__tests__/ScreenHeader.test.tsx"
+      ],
+      "relatedFlows": [],
+      "relatedTasks": ["add-reusable-header-component", "add-or-edit-tab-screen"],
+      "card": "doc/kb/modules/shared-screen-header.json"
+    },
+    {
+      "id": "shared-visual-foundation",
+      "title": "共享视觉 token 与统一图标基础",
+      "layer": "shared",
+      "summary": "提供静态视觉 token、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
+      "pathHints": ["src/shared/visual", "src/shared/icons", "doc/ui-visual-theme.md"],
+      "relatedFlows": ["app-startup", "chat-home-cold-boot"],
+      "relatedTasks": [
+        "add-or-edit-tab-screen",
+        "add-reusable-header-component",
+        "add-reusable-list-screen"
+      ],
+      "card": "doc/kb/modules/shared-visual-foundation.json"
+    }
+  ]
+}

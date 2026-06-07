@@ -1,0 +1,73 @@
+{
+  "kbVersion": 1,
+  "project": {
+    "name": "zenmind-mobile",
+    "summary": "基于 Expo 56 / React Native 0.85 的移动端骨架项目，当前重点是 Chat 持久化与实时同步样例。",
+    "primaryGoal": "让模型先靠索引定位任务入口、影响模块和关键链路，再下钻到具体代码。"
+  },
+  "readPath": [
+    {
+      "step": 1,
+      "instruction": "先读 root.json，确认项目分层、catalog 入口和背景材料。"
+    },
+    {
+      "step": 2,
+      "instruction": "优先从 tasks catalog 选择最接近当前需求的 task card。"
+    },
+    {
+      "step": 3,
+      "instruction": "按 task card 的 mustRead 依次打开 module card、flow card 和必要代码文件。"
+    },
+    {
+      "step": 4,
+      "instruction": "修改前先看规则文件和 impact checklist，避免只修局部。"
+    }
+  ],
+  "layerMap": [
+    {
+      "layer": "app",
+      "role": "应用壳层、导航和开发态入口。",
+      "moduleIds": ["app-development-debug", "app-shell-navigation"]
+    },
+    {
+      "layer": "core",
+      "role": "运行时配置、统一 API 与认证会话能力。",
+      "moduleIds": [
+        "core-api-client",
+        "core-auth-session",
+        "core-debug-logging",
+        "core-runtime-config"
+      ]
+    },
+    {
+      "layer": "features",
+      "role": "认证、聊天持久化与实时同步、AI 任务看板功能边界。",
+      "moduleIds": [
+        "feature-agent-task-board",
+        "feature-auth-login",
+        "feature-chat-persistence",
+        "feature-chat-realtime",
+        "feature-chat-timeline",
+        "feature-notifications"
+      ]
+    },
+    {
+      "layer": "shared",
+      "role": "复用型列表、Header、视觉 token、描边图标与对话内容 UI 能力。",
+      "moduleIds": [
+        "shared-visual-foundation",
+        "shared-paginated-list",
+        "shared-conversation-content-renderer",
+        "shared-screen-header"
+      ]
+    }
+  ],
+  "backgroundDocs": [
+    "AGENTS.md",
+    "CLAUDE.md",
+    "doc/README.md",
+    "doc/project-architecture.md",
+    "doc/module-reference.md",
+    "doc/ui-visual-theme.md"
+  ]
+}

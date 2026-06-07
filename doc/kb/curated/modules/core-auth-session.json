@@ -1,0 +1,105 @@
+{
+  "id": "core-auth-session",
+  "title": "认证会话与设备令牌",
+  "layer": "core",
+  "paths": ["src/core/auth"],
+  "responsibility": [
+    "维护设备登录后的会话状态、设备令牌缓存、冷启动恢复和前台预刷新逻辑。",
+    "提供 login、hard refresh、soft refresh、logout 和 useSyncExternalStore 订阅入口，不把认证细节散落到页面层。",
+    "在开发态通过 core-debug-logging 打印认证 HTTP 请求、响应和错误。",
+    "让 app shell 只消费认证快照，不直接处理 token 解析、持久化和刷新单飞。"
+  ],
+  "publicEntrypoints": [
+    {
+      "file": "src/core/auth/authConfig.ts",
+      "symbol": "isAuthRequired",
+      "kind": "feature-flag",
+      "description": "返回当前是否启用登录门卫。"
+    },
+    {
+      "file": "src/core/auth/authConfig.ts",
+      "symbol": "readResolvedApiBaseUrl",
+      "kind": "config-reader",
+      "description": "读取优先使用本地覆盖值的认证后端地址。"
+    },
+    {
+      "file": "src/core/auth/appAuth.ts",
+      "symbol": "bootstrapAuth",
+      "kind": "session-bootstrap",
+      "description": "冷启动时尝试用设备令牌恢复会话。"
+    },
+    {
+      "file": "src/core/auth/appAuth.ts",
+      "symbol": "getAccessTokenForRequest",
+      "kind": "token-provider",
+      "description": "给认证 API 请求获取可用 access token，支持强制刷新并在 hard 失败时清理会话。"
+    },
+    {
+      "file": "src/core/auth/appAuth.ts",
+      "symbol": "ensureFreshAccessToken",
+      "kind": "token-prefetch",
+      "description": "给前台保活等软刷新场景获取足够新鲜的 access token，网络失败不清理会话。"
+    },
+    {
+      "file": "src/core/auth/appAuth.ts",
+      "symbol": "loginWithMasterPassword",
+      "kind": "login",
+      "description": "用主密码为当前设备换取会话令牌。"
+    },
+    {
+      "file": "src/core/auth/appAuth.ts",
+      "symbol": "logoutCurrentDevice",
+      "kind": "logout",
+      "description": "注销当前设备并清理本地认证缓存。"
+    },
+    {
+      "file": "src/core/auth/useAuthSession.ts",
+      "symbol": "useAuthSession",
+      "kind": "store-hook",
+      "description": "订阅全局认证快照，驱动根路由切换。"
+    }
+  ],
+  "dependsOn": ["core-debug-logging", "core-runtime-config"],
+  "dependedBy": [
+    "app-shell-navigation",
+    "core-api-client",
+    "feature-auth-login",
+    "feature-chat-realtime",
+    "feature-notifications"
+  ],
+  "stateTouches": [
+    "MMKV device token",
+    "MMKV preferred device name",
+    "内存态 access token 和会话快照"
+  ],
+  "relatedFlows": ["app-startup", "notification-open-chat-message"],
+  "relatedTasks": ["add-auth-login-screen", "add-system-notifications"],
+  "impactChecklist": [
+    "认证缓存继续只放设备令牌、设备名和内存态 session，不把业务数据下沉到 auth 模块。",
+    "是否强制登录的开关只保留一个集中入口，避免 app shell、screen 和 service 各自维护状态。",
+    "如果登录页允许编辑后端地址，要同步维护本地 endpoint override 与环境变量回退顺序。",
+    "根路由只根据认证快照切屏，不在 screen 里重复写会话恢复逻辑。",
+    "业务 API 需要 access token 时走 getAccessTokenForRequest，前台预刷新走 ensureFreshAccessToken，避免多个模块各自实现刷新逻辑。",
+    "hard refresh 失败必须清理 device token 和内存 session；soft refresh 失败必须保留当前 session。",
+    "修改登录接口字段时，同时检查 login、refresh 和过期时间解析逻辑。",
+    "认证 HTTP 日志必须脱敏 masterPassword、deviceToken 和 accessToken。"
+  ],
+  "readNext": [
+    {
+      "type": "module",
+      "ref": "core-runtime-config"
+    },
+    {
+      "type": "flow",
+      "ref": "app-startup"
+    },
+    {
+      "type": "code",
+      "ref": "src/core/auth/appAuth.ts"
+    },
+    {
+      "type": "module",
+      "ref": "feature-auth-login"
+    }
+  ]
+}

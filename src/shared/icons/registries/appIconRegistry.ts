@@ -1,0 +1,34 @@
+import type { AppLineIconName } from '../../visual/AppLineIcon';
+
+export const appIconRegistry = {
+  menu: true,
+  search: true,
+  add: true,
+  'chat-add': true,
+  chat: true,
+  apps: true,
+  drive: true,
+  user: true,
+  back: true,
+  history: true,
+  spark: true,
+  brain: true,
+  question: true,
+  steer: true,
+  pin: true,
+  check: true,
+  'arrow-up': true,
+  'arrow-down': true,
+  stop: true,
+  play: true,
+  image: true,
+  'chevron-up': true,
+  'chevron-down': true,
+  close: true,
+  copy: true,
+  file: true,
+  tool: true,
+  'wrap-text': true,
+} as const satisfies Record<AppLineIconName, true>;
+
+export type AppIconGlyphName = keyof typeof appIconRegistry;

@@ -1,1 +1,0 @@
-export { ChatAssistantScreen } from './ChatAssistantScreenContainer';

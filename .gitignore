@@ -1,10 +1,9 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
 # dependencies
 node_modules/
 
 # Expo
 .expo/
+.generated/
 dist/
 web-build/
 expo-env.d.ts
@@ -28,8 +27,8 @@ yarn-error.*
 
 # macOS
 .DS_Store
+Thumbs.db
 *.pem
-AGENTS.md
 
 # local env files
 .env*.local
