@@ -23,6 +23,8 @@ specifiers:
   expo-sqlite: 56.0.4
   expo-updates: ~56.0.18
   katex: 0.17.0
+  metro: 0.84.4
+  metro-source-map: 0.84.4
   prettier: 3.8.3
   react: 19.2.3
   react-dom: 19.2.3
@@ -80,6 +82,8 @@ devDependencies:
   eslint: 9.39.4
   eslint-plugin-react: 7.37.5_eslint@9.39.4
   eslint-plugin-react-hooks: 5.2.0_eslint@9.39.4
+  metro: 0.84.4
+  metro-source-map: 0.84.4
   prettier: 3.8.3
   react-test-renderer: 19.2.3_react@19.2.3
   typescript: 6.0.3
