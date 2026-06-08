@@ -63,10 +63,7 @@
   ],
   "generated": {
     "fileCount": 2,
-    "files": [
-      "src/app/debug/DevelopmentDebugPanelHost.tsx",
-      "src/app/debug/developmentDebugPanel.ts"
-    ],
+    "files": ["src/app/debug/DevelopmentDebugPanelHost.tsx", "src/app/debug/developmentDebugPanel.ts"],
     "exportedSymbolsByFile": {
       "src/app/debug/DevelopmentDebugPanelHost.tsx": ["DevelopmentDebugPanelHost"],
       "src/app/debug/developmentDebugPanel.ts": [

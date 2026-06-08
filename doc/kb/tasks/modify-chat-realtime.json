@@ -1,14 +1,7 @@
 {
   "id": "modify-chat-realtime",
   "title": "修改聊天实时同步逻辑",
-  "intentKeywords": [
-    "修改 websocket",
-    "修改实时同步",
-    "修改 ack",
-    "修改 reconnect",
-    "修改 mock mode",
-    "修改 ws 事件"
-  ],
+  "intentKeywords": ["修改 websocket", "修改实时同步", "修改 ack", "修改 reconnect", "修改 mock mode", "修改 ws 事件"],
   "entryDecision": [
     "任务涉及 WebSocket 连接、发送、ack、incoming、mock 或 reconnect 时，从这张卡开始。",
     "如果改动会连带影响 SQLite、outbox 或首页目录快照，同时补读 modify-chat-persistence。"
@@ -88,8 +81,8 @@
     "connection.status 能正确向 UI 发出 connected、connecting、reconnecting、disconnected、error。",
     "发送消息后的 ack 持久化和收到消息后的 incoming 持久化保持正确。",
     "收到 chat.read、chat.unread、chat.read_all 后，单会话未读位和 agent/team 目录角标同步更新且保持幂等。",
-    "收到无 unread 字段的 chat.updated 后，inactive conversation 会显示未读角标，active conversation 不本地清零，只有 /api/read 成功或 chat.read push 才清除未读。",
-    "收到 awaiting / reasoning / planning / tool / artifact / plan/task / usage/context 事件时，详情页 timeline 区域会实时更新；reconcile 后重新打开同会话也能按 /api/chat events 重建。",
+    "收到无 unread 字段的 chat.updated 后，inactive conversation 会显示未读角标，active conversation 不本地清零，只有 /ap/api/read 成功或 chat.read push 才清除未读。",
+    "收到 awaiting / reasoning / planning / tool / artifact / plan/task / usage/context 事件时，详情页 timeline 区域会实时更新；reconcile 后重新打开同会话也能按 /ap/api/chat events 重建。",
     "收到 question awaiting 事件时，详情页展示贴底问答组件；单选、多选、文本、日期和数字输入能生成紧凑 submit params，提交成功后本地 timeline 先出现 awaiting.answer，并等待后续 WS/reconcile 接管。",
     "收到 chat.deleted 或 chat.archived 后，会话详情会清空并提示不可用，首页目录投影同步刷新。",
     "WS 连接失败、重连和单会话 reconcile 路径都仍可工作。",

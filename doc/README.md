@@ -1,6 +1,6 @@
-# ZenMind Mobile Docs
+# ZenMind React App Docs
 
-本目录用于描述当前项目的实际代码结构、模块职责和主要运行链路。
+本目录描述 `zenmind-react-app` 当前代码结构、模块职责、主要运行链路和视觉约束。仓库主体已从原移动端骨架迁移到此目录，文档应以这里的实际源码为准。
 
 ## 文档索引
 
@@ -11,8 +11,7 @@
 
 ## 知识库维护
 
-`doc/kb/root.json` 是模型读取项目知识的唯一主入口，`project-architecture.md` 和 `module-reference.md`
-保留为背景材料。
+`doc/kb/root.json` 是模型读取项目知识的主入口。它由 `doc/kb/curated` 和源码静态事实生成，不能只手改生成目录。
 
 常用命令：
 
@@ -22,34 +21,31 @@ pnpm kb:validate
 pnpm kb:check-stale
 ```
 
-## 适用范围
-
-以下内容基于当前仓库代码整理，重点覆盖：
-
-- 应用入口与导航结构
-- 基础能力层（环境变量、统一 API 调用）
-- 聊天列表持久化与本地数据库
-- WebSocket 实时同步链路
-- 通用列表组件
-
 ## 当前项目定位
 
-当前项目是一个 Expo 56 / React Native 0.85 的移动端骨架项目，已经具备以下基础能力：
+当前项目是 Expo 56 / React Native 0.85 的跨平台移动应用，主结构为 `app / core / features / shared`：
 
-- 4 个底部 Tab：`Chat` / `Terminal` / `Drive` / `Me`
-- 开发环境悬浮 `Debug` 按钮
-- 统一 API 请求封装
-- `FlashList` 分页列表组件
-- `MMKV + SQLite/Drizzle + WebSocket` 的聊天持久化与实时同步样例
+- `app`：启动遮罩、认证门卫、React Navigation root stack / bottom tabs、开发态 Debug 面板。
+- `core`：API client、认证会话、运行时配置、HTTP debug logging。
+- `features`：Chat 首页与详情页、聊天持久化、`/ap/ws` 实时同步、rich timeline、通知、AI 任务看板、登录页。
+- `shared`：共享 Header、分页列表、图标、Markdown 渲染和视觉 token。
 
-其中：
+当前底部 Tab：
 
-- `Chat` Tab 已接入完整示例
-- `Terminal`、`Drive`、`Me` 目前仍是占位页面
+| Tab | 标签 | 实际入口 |
+| --- | --- | -------- |
+| `Chat` | 对话 | `src/features/chatPersistence/ChatHomeStorageDemo.tsx` |
+| `Terminal` | 任务 | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` |
+| `Drive` | 网盘 | `src/app/screens/TabScreens.tsx` 占位页 |
+| `Me` | 用户 | `src/app/screens/TabScreens.tsx` 用户与会话信息页 |
+
+`ChatDetail` 是 root stack 上层 route，由 `src/features/chatPersistence/ChatDetailScreen.tsx` 承载。
 
 ## 维护原则
 
-- SQLite 是聊天数据的唯一真源
-- MMKV 只保存首页启动快照，不承担完整数据库职责
-- WebSocket 只处理连接和消息收发，不直接操作 UI
-- 业务页面优先通过 repository / service 层取数，不直接拼接底层细节
+- 页面不直接读写 SQLite、MMKV 或底层 WebSocket transport。
+- SQLite 是聊天目录、会话摘要、消息、outbox、read state 和 rich timeline snapshot 的本地真源。
+- MMKV 只保存首页首屏目录冷启动快照。
+- 实时业务写入继续走 `chatSyncService` / `chatRepository`。
+- `chatWsTransport` 和 `WsClient` 只负责 `/ap/ws` transport。
+- 新 UI 默认继承 `doc/ui-visual-theme.md` 与 `src/shared/visual/foundation.ts`。

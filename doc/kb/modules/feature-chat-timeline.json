@@ -28,7 +28,7 @@
       "file": "src/features/chatTimeline/index.ts",
       "symbol": "deriveChatTimelineState",
       "kind": "projector",
-      "description": "从远端 /api/chat detail events 一次 replay 得到完整 timeline state。"
+      "description": "从远端 /ap/api/chat detail events 一次 replay 得到完整 timeline state。"
     },
     {
       "file": "src/features/chatTimeline/index.ts",
@@ -139,10 +139,7 @@
         "serializeChatTimelineState",
         "timelinePersistenceInternals"
       ],
-      "src/features/chatTimeline/messageProjection.ts": [
-        "projectTimelineMessages",
-        "projectTimelineRuntimeState"
-      ],
+      "src/features/chatTimeline/messageProjection.ts": ["projectTimelineMessages", "projectTimelineRuntimeState"],
       "src/features/chatTimeline/timelineDisplay.ts": [
         "buildChatTimelineDisplayItems",
         "getChatTimelineDisplayItemType"
@@ -166,6 +163,9 @@
         "patchChatTimelineMessage"
       ],
       "src/features/chatTimeline/types.ts": [
+        "ChatTimelineAssistantReplyFooter",
+        "ChatTimelineAwaitingAnswerDisplayItem",
+        "ChatTimelineAwaitingAnswerSummary",
         "ChatTimelineAwaitingInteractive",
         "ChatTimelineAwaitingInteractiveQuestion",
         "ChatTimelineAwaitingMode",

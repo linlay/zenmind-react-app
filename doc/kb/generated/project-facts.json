@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T08:13:12.506Z",
+  "generatedAt": "2026-06-08T03:52:06.088Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -679,6 +679,10 @@
         "detail": "registerRootComponent(App)"
       },
       {
+        "file": "App.tsx",
+        "detail": "App renders SafeAreaProvider and AppRoot"
+      },
+      {
         "file": "src/app/AppRoot.tsx",
         "detail": "AppRoot mounts NavigationContainer and RootNavigator"
       }
@@ -707,10 +711,7 @@
     ]
   },
   "moduleOwnership": {
-    "app-development-debug": [
-      "src/app/debug/DevelopmentDebugPanelHost.tsx",
-      "src/app/debug/developmentDebugPanel.ts"
-    ],
+    "app-development-debug": ["src/app/debug/DevelopmentDebugPanelHost.tsx", "src/app/debug/developmentDebugPanel.ts"],
     "app-shell-navigation": [
       "App.tsx",
       "index.js",
@@ -732,11 +733,7 @@
       "src/core/api/services/templateApi.ts",
       "src/core/api/services/uploadApi.ts"
     ],
-    "core-auth-session": [
-      "src/core/auth/appAuth.ts",
-      "src/core/auth/authConfig.ts",
-      "src/core/auth/useAuthSession.ts"
-    ],
+    "core-auth-session": ["src/core/auth/appAuth.ts", "src/core/auth/authConfig.ts", "src/core/auth/useAuthSession.ts"],
     "core-debug-logging": ["src/core/debug/httpDebugLogger.ts"],
     "core-runtime-config": ["src/core/config/endpoint.ts", "src/core/config/runtimeEnv.ts"],
     "feature-agent-task-board": ["src/features/agentTaskBoard/AgentTaskBoardScreen.tsx"],
@@ -1283,20 +1280,13 @@
       "upsertServerMessageDetail"
     ],
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx": ["ChatAttachmentStrip"],
-    "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": [
-      "ChatAwaitingOverlay",
-      "ChatAwaitingResumeBar"
-    ],
-    "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": [
-      "ChatDetailComposerCard"
-    ],
+    "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": ["ChatAwaitingOverlay", "ChatAwaitingResumeBar"],
+    "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": ["ChatDetailComposerCard"],
     "src/features/chatPersistence/components/ChatDetailDrawers.tsx": ["ChatDetailHistoryDrawer"],
     "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": ["ChatDetailEmptyState"],
     "src/features/chatPersistence/components/ChatDetailHeader.tsx": ["ChatDetailHeader"],
     "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": ["ChatDetailSkeleton"],
-    "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": [
-      "ChatDirectoryPickerDrawer"
-    ],
+    "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": ["ChatDirectoryPickerDrawer"],
     "src/features/chatPersistence/components/ChatTimelineList.tsx": ["ChatTimelineList"],
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": ["ChatTimelineRail"],
     "src/features/chatPersistence/components/ChatUsageStats.tsx": ["ChatUsageStatsButton"],
@@ -1317,6 +1307,7 @@
       "getAwaitingQuestionHeading",
       "getAwaitingQuestionPlaceholder",
       "getAwaitingQuestionPrompt",
+      "getAwaitingQuestionsSignature",
       "getSelectFreeTextAnswer",
       "getSelectOptionValue",
       "getSelectOptions",
@@ -1325,7 +1316,9 @@
       "isMultiSelectQuestionType",
       "isSelectQuestionType",
       "isValidAwaitingDateAnswer",
+      "reconcileAwaitingQuestionDrafts",
       "setFreeTextAnswer",
+      "shouldAutoAdvanceAwaitingQuestion",
       "toggleSelectAnswer"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
@@ -1346,12 +1339,8 @@
       "formatToolPillTitle",
       "getExpandableToolPillRecords"
     ],
-    "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": [
-      "RuntimePayloadContent"
-    ],
-    "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": [
-      "getRuntimeToolStatusColor"
-    ],
+    "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": ["RuntimePayloadContent"],
+    "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": ["getRuntimeToolStatusColor"],
     "src/features/chatPersistence/database.ts": ["chatDb", "ensureChatDatabase"],
     "src/features/chatPersistence/homeSnapshot.ts": [
       "clearChatDirectorySnapshot",
@@ -1416,13 +1405,12 @@
       "ChatDetailAwaitingOverlayState",
       "useChatDetailAwaitingOverlay"
     ],
-    "src/features/chatPersistence/useChatDetailConversationController.ts": [
-      "useChatDetailConversationController"
-    ],
+    "src/features/chatPersistence/useChatDetailConversationController.ts": ["useChatDetailConversationController"],
     "src/features/chatPersistence/useChatDetailLocalUiState.ts": ["useChatDetailLocalUiState"],
     "src/features/chatRealtime/chatSyncService.ts": ["chatSyncService"],
     "src/features/chatRealtime/chatWsTransport.ts": [
       "attachChatRun",
+      "buildChatAttachPayload",
       "buildChatQueryPayload",
       "getChatTransportStatus",
       "requestChatTransport",
@@ -1486,11 +1474,7 @@
       "WsClientRequestTimeoutError",
       "WsPushFrame"
     ],
-    "src/features/chatRealtime/wsDebugRecorder.ts": [
-      "WsDebugDirection",
-      "WsDebugRecord",
-      "wsDebugRecorder"
-    ],
+    "src/features/chatRealtime/wsDebugRecorder.ts": ["WsDebugDirection", "WsDebugRecord", "wsDebugRecorder"],
     "src/features/chatTimeline/index.ts": [
       "applyChatTimelineEvent",
       "applyChatTimelineMessage",
@@ -1508,14 +1492,8 @@
       "serializeChatTimelineState",
       "timelinePersistenceInternals"
     ],
-    "src/features/chatTimeline/messageProjection.ts": [
-      "projectTimelineMessages",
-      "projectTimelineRuntimeState"
-    ],
-    "src/features/chatTimeline/timelineDisplay.ts": [
-      "buildChatTimelineDisplayItems",
-      "getChatTimelineDisplayItemType"
-    ],
+    "src/features/chatTimeline/messageProjection.ts": ["projectTimelineMessages", "projectTimelineRuntimeState"],
+    "src/features/chatTimeline/timelineDisplay.ts": ["buildChatTimelineDisplayItems", "getChatTimelineDisplayItemType"],
     "src/features/chatTimeline/timelinePersistence.ts": [
       "SerializedTimelineMeta",
       "SerializedTimelineNode",
@@ -1535,6 +1513,9 @@
       "patchChatTimelineMessage"
     ],
     "src/features/chatTimeline/types.ts": [
+      "ChatTimelineAssistantReplyFooter",
+      "ChatTimelineAwaitingAnswerDisplayItem",
+      "ChatTimelineAwaitingAnswerSummary",
       "ChatTimelineAwaitingInteractive",
       "ChatTimelineAwaitingInteractiveQuestion",
       "ChatTimelineAwaitingMode",
@@ -1594,16 +1575,13 @@
     "src/shared/markdown/preprocess.ts": [
       "markdownPreprocessInternals",
       "normalizeMarkdownContent",
+      "normalizeOrderedListMarkerSpacing",
       "preprocessMarkdownContent",
       "removeEmptyMarkdownTables",
       "stripPendingSpecialFenceTail"
     ],
     "src/shared/visual/AgentAvatar.tsx": ["AGENT_ICON_NAMES", "AgentAvatar", "AgentAvatarProps"],
-    "src/shared/visual/AgentBuiltinIcon.tsx": [
-      "AgentBuiltinIcon",
-      "AgentBuiltinIconKey",
-      "AgentBuiltinIconProps"
-    ],
+    "src/shared/visual/AgentBuiltinIcon.tsx": ["AgentBuiltinIcon", "AgentBuiltinIconKey", "AgentBuiltinIconProps"],
     "src/shared/visual/AppLineIcon.tsx": ["AppLineIcon", "AppLineIconName", "AppLineIconProps"],
     "src/shared/visual/agentAvatarIcon.ts": [
       "AGENT_ICON_NAMES",
@@ -1656,15 +1634,9 @@
       "src/features/chatPersistence/ChatDetailScreen.tsx",
       "src/shared/visual/foundation.ts"
     ],
-    "src/app/navigation/TabIcon.tsx": [
-      "src/app/navigation/types.ts",
-      "src/shared/icons/AppIcon.tsx"
-    ],
+    "src/app/navigation/TabIcon.tsx": ["src/app/navigation/types.ts", "src/shared/icons/AppIcon.tsx"],
     "src/app/navigation/types.ts": ["src/features/chatPersistence/types.ts"],
-    "src/app/screens/AppScreenFrame.tsx": [
-      "src/shared/components/ScreenHeader.tsx",
-      "src/shared/visual/foundation.ts"
-    ],
+    "src/app/screens/AppScreenFrame.tsx": ["src/shared/components/ScreenHeader.tsx", "src/shared/visual/foundation.ts"],
     "src/app/screens/TabScreens.tsx": [
       "app.json",
       "src/app/debug/developmentDebugPanel.ts",
@@ -1691,10 +1663,7 @@
     "src/core/api/services/notificationApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/templateApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/uploadApi.ts": ["src/core/api/apiClient.ts"],
-    "src/core/auth/appAuth.ts": [
-      "src/core/auth/authConfig.ts",
-      "src/core/debug/httpDebugLogger.ts"
-    ],
+    "src/core/auth/appAuth.ts": ["src/core/auth/authConfig.ts", "src/core/debug/httpDebugLogger.ts"],
     "src/core/auth/authConfig.ts": ["src/core/config/endpoint.ts", "src/core/config/runtimeEnv.ts"],
     "src/core/auth/useAuthSession.ts": ["src/core/auth/appAuth.ts"],
     "src/core/config/endpoint.ts": [],
@@ -1747,9 +1716,7 @@
       "src/shared/visual/AgentAvatar.tsx",
       "src/shared/visual/foundation.ts"
     ],
-    "src/features/chatPersistence/chatAttachmentModels.ts": [
-      "src/features/chatPersistence/types.ts"
-    ],
+    "src/features/chatPersistence/chatAttachmentModels.ts": ["src/features/chatPersistence/types.ts"],
     "src/features/chatPersistence/chatDetailAsyncScope.ts": [],
     "src/features/chatPersistence/chatDetailFormatters.ts": [
       "src/features/chatPersistence/types.ts",
@@ -1816,9 +1783,7 @@
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
-    "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": [
-      "src/shared/visual/foundation.ts"
-    ],
+    "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": ["src/shared/visual/foundation.ts"],
     "src/features/chatPersistence/components/ChatDetailHeader.tsx": [
       "src/features/chatPersistence/chatDetailViewModel.ts",
       "src/shared/components/ScreenHeader.tsx",
@@ -1826,9 +1791,7 @@
       "src/shared/icons/AppIconButton.tsx",
       "src/shared/visual/foundation.ts"
     ],
-    "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": [
-      "src/shared/visual/foundation.ts"
-    ],
+    "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": ["src/shared/visual/foundation.ts"],
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": [
       "src/features/chatPersistence/types.ts",
       "src/shared/icons/AppIcon.tsx",
@@ -1914,9 +1877,7 @@
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/types.ts"
     ],
-    "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": [
-      "src/features/chatRealtime/types.ts"
-    ],
+    "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": ["src/features/chatRealtime/types.ts"],
     "src/features/chatPersistence/useChatDetailConversationController.ts": [
       "src/core/api/services/notificationApi.ts",
       "src/features/chatPersistence/chatDetailAsyncScope.ts",
@@ -2005,9 +1966,7 @@
     ],
     "src/shared/components/PaginatedCardList.tsx": ["src/shared/visual/foundation.ts"],
     "src/shared/components/ScreenHeader.tsx": ["src/shared/visual/foundation.ts"],
-    "src/shared/components/__tests__/ScreenHeader.test.tsx": [
-      "src/shared/components/ScreenHeader.tsx"
-    ],
+    "src/shared/components/__tests__/ScreenHeader.test.tsx": ["src/shared/components/ScreenHeader.tsx"],
     "src/shared/icons/AppIcon.tsx": [
       "src/shared/icons/registries/appIconUsages.ts",
       "src/shared/visual/AppLineIcon.tsx",
@@ -2016,9 +1975,7 @@
     "src/shared/icons/AppIconButton.tsx": ["src/shared/icons/AppIcon.tsx"],
     "src/shared/icons/brandAssets.ts": ["assets/logo.png"],
     "src/shared/icons/registries/appIconRegistry.ts": ["src/shared/visual/AppLineIcon.tsx"],
-    "src/shared/icons/registries/appIconUsages.ts": [
-      "src/shared/icons/registries/appIconRegistry.ts"
-    ],
+    "src/shared/icons/registries/appIconUsages.ts": ["src/shared/icons/registries/appIconRegistry.ts"],
     "src/shared/markdown/preprocess.ts": [],
     "src/shared/visual/AgentAvatar.tsx": [
       "src/shared/icons/AppIcon.tsx",

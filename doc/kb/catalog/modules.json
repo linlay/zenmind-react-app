@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T08:13:12.575Z",
+  "generatedAt": "2026-06-08T03:52:06.141Z",
   "items": [
     {
       "id": "app-development-debug",
@@ -83,11 +83,7 @@
       "summary": "提供开发态 HTTP 请求、响应和错误日志能力。",
       "pathHints": ["src/core/debug"],
       "relatedFlows": ["app-startup", "notification-open-chat-message"],
-      "relatedTasks": [
-        "add-business-api-service",
-        "add-auth-login-screen",
-        "add-system-notifications"
-      ],
+      "relatedTasks": ["add-business-api-service", "add-auth-login-screen", "add-system-notifications"],
       "card": "doc/kb/modules/core-debug-logging.json"
     },
     {
@@ -148,11 +144,7 @@
       "summary": "管理全局唯一聊天 WebSocket 连接、连接状态、重连、pending stream 清理，以及详情页停止/继续生成入口。",
       "pathHints": ["src/features/chatRealtime"],
       "relatedFlows": ["chat-home-cold-boot", "chat-receive-message", "chat-send-message"],
-      "relatedTasks": [
-        "modify-chat-persistence",
-        "modify-chat-realtime",
-        "modify-runtime-environment"
-      ],
+      "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime", "modify-runtime-environment"],
       "card": "doc/kb/modules/feature-chat-realtime.json"
     },
     {
@@ -180,10 +172,7 @@
       "title": "对话内容渲染组件",
       "layer": "shared",
       "summary": "提供纯共享的对话内容渲染管线，普通 Markdown 热路径由原生 GFM renderer 承接，不保留 JS 自绘 Markdown AST fallback。",
-      "pathHints": [
-        "src/shared/components/ConversationMarkdownRenderer.tsx",
-        "src/shared/markdown/preprocess.ts"
-      ],
+      "pathHints": ["src/shared/components/ConversationMarkdownRenderer.tsx", "src/shared/markdown/preprocess.ts"],
       "relatedFlows": [],
       "relatedTasks": ["modify-chat-persistence"],
       "card": "doc/kb/modules/shared-conversation-content-renderer.json"
@@ -203,10 +192,7 @@
       "title": "复用型页面 Header 组件",
       "layer": "shared",
       "summary": "提供纯 UI 的三栏页面 Header 布局，统一承接左按钮区、标题区和右按钮区。",
-      "pathHints": [
-        "src/shared/components/ScreenHeader.tsx",
-        "src/shared/components/__tests__/ScreenHeader.test.tsx"
-      ],
+      "pathHints": ["src/shared/components/ScreenHeader.tsx", "src/shared/components/__tests__/ScreenHeader.test.tsx"],
       "relatedFlows": [],
       "relatedTasks": ["add-reusable-header-component", "add-or-edit-tab-screen"],
       "card": "doc/kb/modules/shared-screen-header.json"
@@ -218,11 +204,7 @@
       "summary": "提供静态视觉 token、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
       "pathHints": ["src/shared/visual", "src/shared/icons", "doc/ui-visual-theme.md"],
       "relatedFlows": ["app-startup", "chat-home-cold-boot"],
-      "relatedTasks": [
-        "add-or-edit-tab-screen",
-        "add-reusable-header-component",
-        "add-reusable-list-screen"
-      ],
+      "relatedTasks": ["add-or-edit-tab-screen", "add-reusable-header-component", "add-reusable-list-screen"],
       "card": "doc/kb/modules/shared-visual-foundation.json"
     }
   ]

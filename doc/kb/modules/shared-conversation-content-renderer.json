@@ -2,10 +2,7 @@
   "id": "shared-conversation-content-renderer",
   "title": "对话内容渲染组件",
   "layer": "shared",
-  "paths": [
-    "src/shared/components/ConversationMarkdownRenderer.tsx",
-    "src/shared/markdown/preprocess.ts"
-  ],
+  "paths": ["src/shared/components/ConversationMarkdownRenderer.tsx", "src/shared/markdown/preprocess.ts"],
   "responsibility": [
     "提供纯共享的对话内容渲染管线，普通 Markdown 热路径由原生 GFM renderer 承接，不保留 JS 自绘 Markdown AST fallback。",
     "原生 Markdown 路径支持段落、标题、嵌套列表、任务列表、引用、代码块、GFM 表格、链接和 LaTeX。",
@@ -56,15 +53,13 @@
   ],
   "generated": {
     "fileCount": 2,
-    "files": [
-      "src/shared/components/ConversationMarkdownRenderer.tsx",
-      "src/shared/markdown/preprocess.ts"
-    ],
+    "files": ["src/shared/components/ConversationMarkdownRenderer.tsx", "src/shared/markdown/preprocess.ts"],
     "exportedSymbolsByFile": {
       "src/shared/components/ConversationMarkdownRenderer.tsx": ["ConversationMarkdownRenderer"],
       "src/shared/markdown/preprocess.ts": [
         "markdownPreprocessInternals",
         "normalizeMarkdownContent",
+        "normalizeOrderedListMarkerSpacing",
         "preprocessMarkdownContent",
         "removeEmptyMarkdownTables",
         "stripPendingSpecialFenceTail"

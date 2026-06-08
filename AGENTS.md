@@ -8,7 +8,7 @@
 2. **简单优先** — 不加需求外能力，不提前抽象，不顺手重构无关模块。
 3. **外科手术式修改** — 只动当前任务要求的文件和链路，每处改动都要能追溯到需求。
 4. **先看影响面** — 改动前先确认相关 module card、flow card、rules，避免头痛医头脚痛医脚。
-5. **禁止绕过边界** — 页面不直接操作 SQLite / WebSocket；实时写入继续走 `chatSyncService` / `chatRepository`。
+5. **禁止绕过边界** — 页面不直接操作 SQLite / MMKV / WebSocket；实时写入继续走 `chatSyncService` / `chatRepository`。
 6. **知识库同步更新** — 只要改了模块职责、公共入口、运行链路、任务入口或规则，同一任务里同步更新 `doc/kb`。
 
 ## 常用命令
@@ -17,10 +17,13 @@
 pnpm start            # Expo 开发服务器
 pnpm web              # Web 预览
 pnpm android          # Android 运行
+pnpm android:device   # Android 真机选择
 pnpm ios              # iOS 运行
 pnpm typecheck        # TypeScript 检查
 pnpm lint             # ESLint
+pnpm test             # node:test 脚本
 pnpm build            # Expo 导出构建
+pnpm build:android    # EAS Android preview 构建
 pnpm kb:build         # 重建知识库 JSON
 pnpm kb:validate      # 校验知识库结构和引用
 pnpm kb:check-stale   # 检查索引是否过期
@@ -28,24 +31,28 @@ pnpm kb:check-stale   # 检查索引是否过期
 
 ## 项目概要
 
-Expo SDK 56 + React Native 0.85 + TypeScript 5.9。当前仓库是移动端骨架项目，主结构为 `app / core / features / shared`。
+Expo SDK 56 + React Native 0.85 + TypeScript 6。当前仓库是迁移后的 `zenmind-react-app`，主结构为 `app / core / features / shared`。
 
-| 区域             | 当前入口                                 | 路径                                          |
-| ---------------- | ---------------------------------------- | --------------------------------------------- |
-| app              | `AppRoot` / `RootNavigator`              | `App.tsx`, `src/app/`                         |
-| core             | `readPublicEnv` / `apiRequest`           | `src/core/config`, `src/core/api`             |
-| chat persistence | `ChatHomeStorageDemo` / `chatRepository` | `src/features/chatPersistence/`               |
-| chat realtime    | `chatSyncService` / `chatWsManager`      | `src/features/chatRealtime/`                  |
-| shared ui        | `PaginatedCardList`                      | `src/shared/components/PaginatedCardList.tsx` |
+| 区域 | 当前入口 | 路径 |
+| ---- | -------- | ---- |
+| app | `AppRoot` / `RootNavigator` / `AppLaunchSkeleton` | `App.tsx`, `src/app/` |
+| core | `apiRequest` / `authenticatedApiRequest` / `appAuth` | `src/core/api`, `src/core/auth`, `src/core/config` |
+| chat persistence | `ChatHomeStorageDemo` / `ChatDetailScreen` / `chatRepository` | `src/features/chatPersistence/` |
+| chat realtime | `chatSyncService` / `chatWsTransport` / `WsClient` | `src/features/chatRealtime/` |
+| chat timeline | `ChatTimelineState` reducer / persistence | `src/features/chatTimeline/` |
+| notifications | `notificationService` | `src/features/notifications/` |
+| shared ui | `ScreenHeader` / `PaginatedCardList` / `ConversationMarkdownRenderer` / `AppIcon` | `src/shared/` |
 
 当前底部 Tab：
 
-| Tab      | 实际入口                                               |
-| -------- | ------------------------------------------------------ |
-| Chat     | `src/features/chatPersistence/ChatHomeStorageDemo.tsx` |
-| Terminal | `src/app/screens/TabScreens.tsx` 占位页                |
-| Drive    | `src/app/screens/TabScreens.tsx` 占位页                |
-| Me       | `src/app/screens/TabScreens.tsx` 占位页                |
+| Tab | 标签 | 实际入口 |
+| --- | --- | -------- |
+| Chat | 对话 | `src/features/chatPersistence/ChatHomeStorageDemo.tsx` |
+| Terminal | 任务 | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` |
+| Drive | 网盘 | `src/app/screens/TabScreens.tsx` 占位页 |
+| Me | 用户 | `src/app/screens/TabScreens.tsx` 用户与会话信息页 |
+
+`ChatDetail` 由 root stack 承载，入口是 `src/features/chatPersistence/ChatDetailScreen.tsx`。
 
 知识库主入口：`doc/kb/root.json`
 
@@ -55,7 +62,7 @@ Expo SDK 56 + React Native 0.85 + TypeScript 5.9。当前仓库是移动端骨�
 
 - 单个 screen / component
 - `chatRepository`、`chatSyncService` 这类局部 service / repository
-- `src/shared/components` 内的通用 UI
+- `src/shared/components`、`src/shared/icons`、`src/shared/visual` 内的通用 UI
 - `doc/kb/curated/*` 和 `scripts/kb/*`
 - 同模块类型定义、文档、校验脚本
 
@@ -66,18 +73,21 @@ Expo SDK 56 + React Native 0.85 + TypeScript 5.9。当前仓库是移动端骨�
 - `src/app/navigation/RootNavigator.tsx`
 - `src/features/chatPersistence/database.ts`
 - `src/features/chatPersistence/schema.ts`
-- `src/features/chatRealtime/wsManager.ts`
+- `src/features/chatRealtime/chatWsTransport.ts`
+- `src/features/chatRealtime/wsClient.ts`
 - `app.json`
+- `metro.config.js`
 - `tsconfig.json`
 - `android/`
 
 当前硬约束：
 
-- 页面不直接 import `database.ts`、`schema.ts`、`wsManager.ts`
-- SQLite 是聊天数据真源
-- MMKV 只保存首页冷启动快照
-- `wsManager` 只负责 transport，不直接写 UI 或 SQLite
-- 影响首页摘要的持久化改动必须继续刷新 MMKV 快照
+- 页面不直接 import `database.ts`、`schema.ts`、`chatWsTransport.ts`、`wsClient.ts`
+- SQLite 是聊天目录、会话摘要、消息、outbox、read state 和 rich timeline snapshot 的本地真源
+- MMKV 只保存首页冷启动目录快照
+- `chatWsTransport` / `WsClient` 只负责 transport，不直接写 UI 或 SQLite
+- 实时业务写入必须继续走 `chatSyncService` / `chatRepository`
+- 影响首页目录的持久化改动必须继续刷新 MMKV 目录快照
 
 ## 依赖规则
 
@@ -90,49 +100,49 @@ App Shell / Screen
         -> SQLite / MMKV / WebSocket / API
 
 Core
-  -> 提供环境变量和统一 API 能力
+  -> 提供认证、环境变量和统一 API 能力
 
 Shared
-  -> 只放可复用 UI，不承载业务持久化和实时逻辑
+  -> 只放可复用 UI、图标、Markdown 和视觉 token
 ```
 
 禁止：
 
-- `screen` 直接操作 SQLite 或 WebSocket
+- `screen` 直接操作 SQLite、MMKV 或 WebSocket
 - `shared` 组件依赖聊天持久化或实时模块
-- `wsManager` 直接处理 UI 状态
-- 用 MMKV 替代 SQLite 作为排序、状态或消息真源
+- `chatWsTransport` / `WsClient` 直接处理 UI 状态
+- 用 MMKV 替代 SQLite 作为排序、状态、消息或 timeline 真源
 
 ## UI 主题约定
 
 - 新 UI 或视觉改造默认继承 `doc/ui-visual-theme.md` 与 `src/shared/visual/foundation.ts`，不要为单个页面另起一套主题。
 - 一级页面继续使用白底、平面列表、蓝色主强调、弱灰辅助信息、固定 Header 和贴底式底部导航。
-- 优先复用 `ScreenHeader`、`AppScreenFrame`、`PaginatedCardList`、`AppLineIcon`，避免重复造视觉壳层。
+- 优先复用 `ScreenHeader`、`AppScreenFrame`、`PaginatedCardList`、`AppIcon`、`AppIconButton`，避免重复造视觉壳层。
 - 长列表项默认保持平面，不为每一行叠阴影；阴影只在确实需要抬升的浮层里少量使用。
 - 底部 Tab 避让必须基于真实 `safe area` / `tab bar height`，禁止在页面内硬编码 `paddingBottom` 猜底栏高度。
 
 ## 命名约定
 
-| 类型                   | 规范                            | 示例                                  |
-| ---------------------- | ------------------------------- | ------------------------------------- |
-| Component / Screen     | PascalCase                      | `AppRoot`, `ChatHomeStorageDemo`      |
-| Service / Manager 单例 | camelCase                       | `chatSyncService`, `chatWsManager`    |
-| Repository / API 函数  | camelCase 动词                  | `createOutgoingMessage`, `apiRequest` |
-| 类型                   | PascalCase                      | `ChatHomeItem`, `ChatSocketEvent`     |
-| 常量                   | UPPER_SNAKE_CASE                | `CHAT_PAGE_SIZE`                      |
-| 知识库卡片 id          | kebab-case                      | `feature-chat-persistence`            |
-| 测试                   | `__tests__/原文件名.test.ts(x)` | `__tests__/chatRepository.test.ts`    |
+| 类型 | 规范 | 示例 |
+| ---- | ---- | ---- |
+| Component / Screen | PascalCase | `AppRoot`, `ChatDetailScreen` |
+| Service / Manager 单例 | camelCase | `chatSyncService`, `notificationService` |
+| Repository / API 函数 | camelCase 动词 | `createOutgoingMessage`, `authenticatedApiRequest` |
+| 类型 | PascalCase | `ChatHomeItem`, `ChatTimelineState` |
+| 常量 | UPPER_SNAKE_CASE | `CHAT_PAGE_SIZE` |
+| 知识库卡片 id | kebab-case | `feature-chat-persistence` |
+| 测试 | `__tests__/原文件名.test.ts(x)` 或脚本测试 | `ScreenHeader.test.tsx`, `scripts/tests/*.test.mts` |
 
 ## 按需深度上下文
 
 日常任务不要先通读整个仓库，按知识库入口逐层下钻。
 
-| 关键词      | 触发动作                                                   | 说明                         |
-| ----------- | ---------------------------------------------------------- | ---------------------------- |
-| `#知识库`   | 读取 `doc/kb/root.json` + `doc/kb/catalog/tasks.json`      | 任务入口和阅读路径           |
-| `#模块`     | 读取 `doc/kb/modules/*.json` + `doc/module-reference.md`   | 模块职责、入口、影响清单     |
-| `#链路`     | 读取 `doc/kb/flows/*.json` + `doc/project-architecture.md` | 冷启动、发送、接收等运行链路 |
-| `#规则`     | 读取 `doc/kb/rules.json`                                   | 当前机器可读边界约束         |
-| `#索引更新` | 读取 `scripts/kb/*.js` 并运行 kb 命令                      | 知识库构建、校验、过期检查   |
+| 关键词 | 触发动作 | 说明 |
+| ------ | -------- | ---- |
+| `#知识库` | 读取 `doc/kb/root.json` + `doc/kb/catalog/tasks.json` | 任务入口和阅读路径 |
+| `#模块` | 读取 `doc/kb/modules/*.json` + `doc/module-reference.md` | 模块职责、入口、影响清单 |
+| `#链路` | 读取 `doc/kb/flows/*.json` + `doc/project-architecture.md` | 冷启动、发送、接收等运行链路 |
+| `#规则` | 读取 `doc/kb/rules.json` | 当前机器可读边界约束 |
+| `#索引更新` | 读取 `scripts/kb/*.js` 并运行 kb 命令 | 知识库构建、校验、过期检查 |
 
 未触发时不要先读取全部 `doc/kb/modules/*` 和 `doc/kb/flows/*`，先走 `root -> task -> module/flow -> code`。

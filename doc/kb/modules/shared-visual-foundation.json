@@ -108,11 +108,7 @@
     "底部导航与顶部操作图标渲染"
   ],
   "relatedFlows": ["app-startup", "chat-home-cold-boot"],
-  "relatedTasks": [
-    "add-or-edit-tab-screen",
-    "add-reusable-header-component",
-    "add-reusable-list-screen"
-  ],
+  "relatedTasks": ["add-or-edit-tab-screen", "add-reusable-header-component", "add-reusable-list-screen"],
   "impactChecklist": [
     "保持静态导出，不引入运行时主题切换或 context 订阅。",
     "页面和 feature 组件只消费 AppIcon / AppIconButton / AgentAvatar，不直接 import AppLineIcon 或 AgentBuiltinIcon。",
@@ -164,11 +160,7 @@
         "appIconUsages"
       ],
       "src/shared/visual/AgentAvatar.tsx": ["AGENT_ICON_NAMES", "AgentAvatar", "AgentAvatarProps"],
-      "src/shared/visual/AgentBuiltinIcon.tsx": [
-        "AgentBuiltinIcon",
-        "AgentBuiltinIconKey",
-        "AgentBuiltinIconProps"
-      ],
+      "src/shared/visual/AgentBuiltinIcon.tsx": ["AgentBuiltinIcon", "AgentBuiltinIconKey", "AgentBuiltinIconProps"],
       "src/shared/visual/AppLineIcon.tsx": ["AppLineIcon", "AppLineIconName", "AppLineIconProps"],
       "src/shared/visual/agentAvatarIcon.ts": [
         "AGENT_ICON_NAMES",

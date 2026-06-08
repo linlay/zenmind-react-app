@@ -91,7 +91,7 @@
     "outgoing、ack 和 incoming 三条链路的持久化行为仍然正确。",
     "首页目录列表、详情页消息区、历史抽屉和 outbox 数量各自走对应 repository 边界。",
     "详情页历史抽屉展示会话级未读蓝点、总数和未读会话数；点击历史会话切换 ChatDetail conversationId 并加载对应内容，一键已读通过 chatSyncService.markScopeRead 批量同步。",
-    "详情页 timelineState 可由 SQLite messages 冷启动 fallback、实时 patch 和 /api/chat event history replay 统一派生，不出现重复消息或重复运行态节点；主消息区 messages、头部运行状态、输入区结构化用量统计、runtimeState、streaming 从 timelineState 派生，历史抽屉从 repository 的 conversations 摘要切片派生。",
+    "详情页 timelineState 可由 SQLite messages 冷启动 fallback、实时 patch 和 /ap/api/chat event history replay 统一派生，不出现重复消息或重复运行态节点；主消息区 messages、头部运行状态、输入区结构化用量统计、runtimeState、streaming 从 timelineState 派生，历史抽屉从 repository 的 conversations 摘要切片派生。",
     "影响首页目录的 replace/pin 写入后目录 MMKV 快照仍同步刷新；conversation 摘要的 patch、delta checkpoint 和 reconcile 只更新 SQLite。"
   ]
 }

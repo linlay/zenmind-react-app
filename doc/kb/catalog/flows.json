@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-05T08:13:12.575Z",
+  "generatedAt": "2026-06-08T03:52:06.141Z",
   "items": [
     {
       "id": "app-startup",
@@ -32,22 +32,14 @@
         "feature-chat-realtime",
         "shared-paginated-list"
       ],
-      "relatedTasks": [
-        "add-reusable-list-screen",
-        "modify-chat-persistence",
-        "modify-chat-realtime"
-      ],
+      "relatedTasks": ["add-reusable-list-screen", "modify-chat-persistence", "modify-chat-realtime"],
       "card": "doc/kb/flows/chat-home-cold-boot.json"
     },
     {
       "id": "chat-receive-message",
       "title": "收到服务端消息",
       "trigger": "WebSocket 收到 push / stream / run complete 等聊天实时事件时触发。",
-      "mustCheckModules": [
-        "feature-chat-persistence",
-        "feature-chat-realtime",
-        "feature-chat-timeline"
-      ],
+      "mustCheckModules": ["feature-chat-persistence", "feature-chat-realtime", "feature-chat-timeline"],
       "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime"],
       "card": "doc/kb/flows/chat-receive-message.json"
     },
@@ -55,11 +47,7 @@
       "id": "chat-send-message",
       "title": "发送消息与 ack 落库",
       "trigger": "用户在 Chat 首页点击 demo send 或在 Chat 详情页输入消息时触发。",
-      "mustCheckModules": [
-        "feature-chat-persistence",
-        "feature-chat-realtime",
-        "feature-chat-timeline"
-      ],
+      "mustCheckModules": ["feature-chat-persistence", "feature-chat-realtime", "feature-chat-timeline"],
       "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime"],
       "card": "doc/kb/flows/chat-send-message.json"
     },

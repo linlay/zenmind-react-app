@@ -1,13 +1,7 @@
 {
   "id": "add-reusable-list-screen",
   "title": "新增复用型列表页",
-  "intentKeywords": [
-    "新增列表页",
-    "复用分页列表",
-    "新增 card list",
-    "新增 load more 页面",
-    "新增刷新列表"
-  ],
+  "intentKeywords": ["新增列表页", "复用分页列表", "新增 card list", "新增 load more 页面", "新增刷新列表"],
   "entryDecision": [
     "任务目标是新增一个带刷新、分页或返回顶部行为的列表页时，从这张卡开始。",
     "如果还要新增 Tab 入口，同时补读 add-or-edit-tab-screen。"

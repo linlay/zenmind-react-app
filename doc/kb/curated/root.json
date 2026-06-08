@@ -1,8 +1,8 @@
 {
   "kbVersion": 1,
   "project": {
-    "name": "zenmind-mobile",
-    "summary": "基于 Expo 56 / React Native 0.85 的移动端骨架项目，当前重点是 Chat 持久化与实时同步样例。",
+    "name": "zenmind-react-app",
+    "summary": "基于 Expo 56 / React Native 0.85 的迁移后移动端应用，当前重点是认证门卫、Chat 首页与详情页、SQLite 本地真源、MMKV 冷启动目录快照、/ap/ws 实时同步、系统通知和开发态调试能力。",
     "primaryGoal": "让模型先靠索引定位任务入口、影响模块和关键链路，再下钻到具体代码。"
   },
   "readPath": [
@@ -26,22 +26,17 @@
   "layerMap": [
     {
       "layer": "app",
-      "role": "应用壳层、导航和开发态入口。",
+      "role": "应用壳层、启动遮罩、认证门卫、导航、通知路由和开发态入口。",
       "moduleIds": ["app-development-debug", "app-shell-navigation"]
     },
     {
       "layer": "core",
-      "role": "运行时配置、统一 API 与认证会话能力。",
-      "moduleIds": [
-        "core-api-client",
-        "core-auth-session",
-        "core-debug-logging",
-        "core-runtime-config"
-      ]
+      "role": "运行时配置、统一 API、认证会话与 HTTP debug logging 能力。",
+      "moduleIds": ["core-api-client", "core-auth-session", "core-debug-logging", "core-runtime-config"]
     },
     {
       "layer": "features",
-      "role": "认证、聊天持久化与实时同步、AI 任务看板功能边界。",
+      "role": "认证、聊天持久化、实时同步、timeline、通知和 AI 任务看板功能边界。",
       "moduleIds": [
         "feature-agent-task-board",
         "feature-auth-login",
@@ -53,7 +48,7 @@
     },
     {
       "layer": "shared",
-      "role": "复用型列表、Header、视觉 token、描边图标与对话内容 UI 能力。",
+      "role": "复用型列表、Header、视觉 token、图标和对话 Markdown 渲染能力。",
       "moduleIds": [
         "shared-visual-foundation",
         "shared-paginated-list",

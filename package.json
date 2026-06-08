@@ -15,6 +15,7 @@
     "prettier": "prettier --check \"**/*.{ts,tsx,js,json,md}\"",
     "prettier:fix": "prettier --write \"**/*.{ts,tsx,js,json,md}\"",
     "build": "node ./scripts/worklets/pregenerate.js && expo export",
+    "build:android": "npx eas-cli build -p android --profile preview",
     "eas-build-post-install": "node ./scripts/worklets/pregenerate.js",
     "kb:build": "node ./scripts/kb/build.js && prettier --write \"doc/kb/**/*.json\"",
     "kb:validate": "node ./scripts/kb/validate.js",

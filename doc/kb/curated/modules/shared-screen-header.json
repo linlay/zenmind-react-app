@@ -2,10 +2,7 @@
   "id": "shared-screen-header",
   "title": "复用型页面 Header 组件",
   "layer": "shared",
-  "paths": [
-    "src/shared/components/ScreenHeader.tsx",
-    "src/shared/components/__tests__/ScreenHeader.test.tsx"
-  ],
+  "paths": ["src/shared/components/ScreenHeader.tsx", "src/shared/components/__tests__/ScreenHeader.test.tsx"],
   "responsibility": [
     "提供纯 UI 的三栏页面 Header 布局，统一承接左按钮区、标题区和右按钮区。",
     "支持标题区传入字符串、数字或自定义组件，同时约束左右操作区各自最多 2 个元素；可按页面需要对称配置左右 action rail 宽度，避免宽按钮外溢压到标题区。",

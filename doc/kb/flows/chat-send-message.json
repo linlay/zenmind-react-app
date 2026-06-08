@@ -73,11 +73,7 @@
     "发送失败路径如果不回写 errorReason，UI 无法区分失败和待发送。",
     "停止/继续如果在页面层维护临时状态，会导致 timeline lifecycle、输入区按钮和 reconnect/reconcile 后状态不一致。"
   ],
-  "mustCheckModules": [
-    "feature-chat-persistence",
-    "feature-chat-realtime",
-    "feature-chat-timeline"
-  ],
+  "mustCheckModules": ["feature-chat-persistence", "feature-chat-realtime", "feature-chat-timeline"],
   "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime"],
   "generated": {
     "stepCount": 8,
@@ -88,10 +84,6 @@
       "src/features/chatRealtime/chatWsTransport.ts",
       "src/features/chatTimeline/timelineReducer.ts"
     ],
-    "resolvedModules": [
-      "feature-chat-persistence",
-      "feature-chat-realtime",
-      "feature-chat-timeline"
-    ]
+    "resolvedModules": ["feature-chat-persistence", "feature-chat-realtime", "feature-chat-timeline"]
   }
 }

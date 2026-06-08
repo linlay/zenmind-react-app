@@ -44,7 +44,7 @@
     },
     {
       "order": 6,
-      "label": "run.complete、reconnect、通知未命中或 push 字段不足时，只触发 chatSyncService 的单会话 reconcile；/api/chat detail 的 event 历史在 projector 内单次遍历同时重建 timelineState、消息列表、activeRunId 和 runtime state。repository 在同一事务中写 messages、摘要、sync state 和 normalized rich timeline snapshot，详情页下次打开可首屏恢复运行态节点。若 detail 缺失显式 read 状态，projection 不携带 fallback read，只更新消息和摘要并在 repository 写入时保留 SQLite 当前读状态。",
+      "label": "run.complete、reconnect、通知未命中或 push 字段不足时，只触发 chatSyncService 的单会话 reconcile；/ap/api/chat detail 的 event 历史在 projector 内单次遍历同时重建 timelineState、消息列表、activeRunId 和 runtime state。repository 在同一事务中写 messages、摘要、sync state 和 normalized rich timeline snapshot，详情页下次打开可首屏恢复运行态节点。若 detail 缺失显式 read 状态，projection 不携带 fallback read，只更新消息和摘要并在 repository 写入时保留 SQLite 当前读状态。",
       "moduleId": "feature-chat-realtime",
       "file": "src/features/chatRealtime/chatSyncService.ts",
       "symbol": "reconcileConversation"
@@ -65,10 +65,6 @@
     "chat.created 这类无最后消息的 summary push 如果覆盖 last_message_text 或抢占 latest_conversation_id，会让列表错误显示暂无对话。",
     "chat.updated 有最后消息但缺失 unread 字段时，如果按缺失值清零，会让非 active 会话漏掉未读角标。"
   ],
-  "mustCheckModules": [
-    "feature-chat-persistence",
-    "feature-chat-realtime",
-    "feature-chat-timeline"
-  ],
+  "mustCheckModules": ["feature-chat-persistence", "feature-chat-realtime", "feature-chat-timeline"],
   "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime"]
 }

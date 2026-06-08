@@ -1,14 +1,7 @@
 {
   "id": "add-auth-login-screen",
   "title": "新增登录页与认证门卫",
-  "intentKeywords": [
-    "新增登录页",
-    "设备登录",
-    "认证门卫",
-    "登录 screen",
-    "auth gate",
-    "session bootstrap"
-  ],
+  "intentKeywords": ["新增登录页", "设备登录", "认证门卫", "登录 screen", "auth gate", "session bootstrap"],
   "entryDecision": [
     "任务涉及登录页面、未登录前置路由、会话恢复或设备令牌缓存时，优先从这张卡开始。",
     "如果只是修改已存在 Tab 的 UI，占位页或底部导航，转到 add-or-edit-tab-screen。"

@@ -1,6 +1,7 @@
 # ZenMind React App
 
-React Native (Expo) + TypeScript 跨平台移动应用，提供 AI 聊天助理、PTY 终端、智能体管理等功能。采用四业务域单壳架构。
+Expo + React Native + TypeScript 移动端应用。当前仓库承接原 `zenmind-mobile`
+项目主体，主结构为 `app / core / features / shared`，重点覆盖认证门卫、Chat 首页与详情页、SQLite 本地真源、MMKV 冷启动快照、`/ap/ws` 实时同步、系统通知和开发态调试面板。
 
 ## 启动
 
@@ -14,15 +15,19 @@ pnpm start
 ```bash
 pnpm web
 pnpm android
+pnpm android:device
 pnpm ios
 pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
 ```
 
 ## 知识库
 
 模型优先知识库入口：[`doc/kb/root.json`](./doc/kb/root.json)
 
-常用命令：
+知识库由 `doc/kb/curated` 和源码静态事实生成，修改模块职责、公共入口、运行链路、任务入口或规则时，先改 curated 文件再重建：
 
 ```bash
 pnpm kb:build
@@ -30,281 +35,158 @@ pnpm kb:validate
 pnpm kb:check-stale
 ```
 
-## 目录
-
-```text
-.
-├── App.tsx
-├── app.json
-├── babel.config.js
-├── index.js
-├── package.json
-├── src/
-│   └── app/
-│       ├── AppRoot.tsx
-│       └── screens/
-│           └── BlankScreen.tsx
-└── tsconfig.json
-```
-
 ## 技术栈
 
-| 类别          | 技术                                      | 版本                  |
-| ------------- | ----------------------------------------- | --------------------- |
-| 框架          | React Native (Expo)                       | RN 0.81 / Expo SDK 54 |
-| 语言          | TypeScript                                | 5.9                   |
-| 状态管理      | Redux Toolkit + RTK Query                 | 2.5                   |
-| UI            | React Native StyleSheet (无 CSS-in-JS)    | —                     |
-| 持久化        | @react-native-async-storage/async-storage | 2.2                   |
-| WebView       | react-native-webview                      | 13.15                 |
-| Markdown 渲染 | react-native-markdown-display             | 7.0                   |
-| HTML 渲染     | react-native-render-html                  | 6.3                   |
-| SVG           | react-native-svg                          | 15.15                 |
-| 渐变          | expo-linear-gradient                      | 15.0                  |
-| 剪贴板        | expo-clipboard                            | 8.0                   |
-| 测试          | Jest + jest-expo                          | 29.7                  |
+| 类别     | 技术                                   | 当前版本 |
+| -------- | -------------------------------------- | -------- |
+| 框架     | Expo / React Native                    | 56 / 0.85 |
+| React    | React / React DOM                      | 19.2     |
+| 语言     | TypeScript                             | 6.0      |
+| 导航     | React Navigation bottom tabs + stack   | 7.x      |
+| 列表     | @shopify/flash-list                    | 2.0      |
+| 持久化   | expo-sqlite + drizzle-orm + MMKV       | 56 / 0.44 / 3.3 |
+| 实时通信 | WebSocket                              | `/ap/ws` |
+| 通知     | expo-notifications                     | 56       |
+| Markdown | react-native-streamdown / enriched md  | 0.2 / 0.6 |
+| WebView  | react-native-webview                   | 13.16    |
+| 动画     | react-native-reanimated + worklets     | 4.3 / 0.8 |
 
 ## 环境要求
 
 - Node.js >= 18
-- npm >= 9
-- Expo CLI (`npx expo`)
-- iOS 开发: Xcode + iOS Simulator (macOS)
-- Android 开发: Android Studio + Emulator 或物理设备
+- pnpm 7.x（仓库声明 `pnpm@7.33.7`）
+- Expo CLI（通过 `pnpm start` 或 `npx expo` 使用）
+- iOS 开发：Xcode + iOS Simulator 或真机
+- Android 开发：Android Studio + Emulator 或物理设备
 
-## 安装与运行
+## 项目结构
 
-```bash
-# 克隆仓库
-git clone <repo-url>
-cd zenmind-react-app
-
-# 安装依赖
-npm install
-
-# 启动开发服务器
-npm run start        # 交互式选择平台
-npm run ios          # iOS 模拟器
-npm run android      # Android 模拟器/设备
-npm run web          # 浏览器
-npx expo start -c --tunnel # 隧道模式
+```text
+zenmind-react-app/
+├── App.tsx                         # SafeAreaProvider + native splash handoff + React 启动遮罩
+├── app.json                        # Expo 配置，slug: zenmind-react-app
+├── index.js                        # Expo registerRootComponent
+├── package.json
+├── scripts/
+│   ├── kb/                         # 知识库 build / validate / stale check
+│   ├── tests/                      # node:test 脚本
+│   └── worklets/                   # Metro 启动前预生成 worklets bundle
+├── doc/
+│   ├── kb/                         # 生成后的模型知识库
+│   ├── project-architecture.md
+│   ├── module-reference.md
+│   └── ui-visual-theme.md
+└── src/
+    ├── app/                        # 应用壳层、导航、启动遮罩、开发态 Debug 面板
+    ├── core/                       # API、认证、运行时配置、HTTP debug logging
+    ├── features/                   # auth、chatPersistence、chatRealtime、chatTimeline、notifications、agentTaskBoard
+    ├── shared/                     # 共享 UI、图标、Markdown、视觉 token
+    └── types/
 ```
 
-## 测试与检查
+## 运行架构
 
-```bash
-npm run test         # Jest 单元测试
-npm run typecheck    # TypeScript 类型检查 (tsc --noEmit)
+应用入口链路：
+
+```text
+index.js
+  -> App.tsx
+  -> SafeAreaProvider
+  -> AppRoot
+  -> NavigationContainer
+  -> RootNavigator
 ```
 
-项目未配置 ESLint，无独立 lint 命令。
+`RootNavigator` 使用 root stack 承载登录门卫、底部 Tab 和 Chat 详情页：
+
+| Route / Tab | 实际入口 | 说明 |
+| ----------- | -------- | ---- |
+| `Login` | `src/features/auth/LoginScreen.tsx` | 认证冷启动和登录页 |
+| `Tabs > Chat` | `src/features/chatPersistence/ChatHomeStorageDemo.tsx` | Chat 首页目录 |
+| `Tabs > Terminal` | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` | 移动端 AI 任务看板 |
+| `Tabs > Drive` | `src/app/screens/TabScreens.tsx` | 网盘占位页 |
+| `Tabs > Me` | `src/app/screens/TabScreens.tsx` | 用户与会话信息页 |
+| `ChatDetail` | `src/features/chatPersistence/ChatDetailScreen.tsx` | Tabs 之上的聊天详情页 |
+
+`AppRoot` 还负责认证 bootstrap、前台 access token 预刷新、系统通知点击路由、`chatSyncService` 启停，以及开发态 Debug 面板宿主。
+
+## 数据与实时同步
+
+Chat 数据真源：
+
+- SQLite：目录项、会话摘要、消息、outbox、read state、conversation sync state、rich timeline snapshot。
+- MMKV：只保存 Chat 首页首屏目录冷启动快照，不承担排序、查询或完整消息历史职责。
+- `chatRepository`：本地读写唯一入口，统一刷新 SQLite 与目录快照。
+- `chatSyncService`：实时同步业务协调层，负责 outbox replay、发送、ack、push、stream、awaiting submit、stop/resume 和 scoped UI event。
+- `chatWsTransport` / `WsClient`：只处理 `/ap/ws` transport、request、stream、push、重连和调试 frame 记录。
+
+发送链路：
+
+```text
+ChatDetail / Chat 首页
+  -> chatSyncService.sendMessage()
+  -> chatRepository.createOutgoingMessage()
+  -> SQLite messages + outbox + conversation summary
+  -> chatWsTransport.streamChatQuery(/api/query over /ap/ws)
+  -> ack / stream event
+  -> repository patch + timeline replace
+```
+
+首页冷启动链路：
+
+```text
+ChatHomeStorageDemo mount
+  -> readChatDirectorySnapshot()
+  -> prepareChatPersistenceSample()
+  -> SQLite directory slice
+  -> chatSyncService.start()
+  -> home.directory.replace / home.item.patch scoped events
+```
+
+## 认证与配置
+
+- 首次进入登录页填写后端域名或 IP。
+- `normalizeApiBaseUrl()` 会为内网 / localhost 自动使用 `http://`，公网域名默认使用 `https://`。
+- `deviceToken` 和 API base URL 分别写入 MMKV，用于会话恢复和后续请求。
+- `accessToken` 短期有效，`AppRoot` 在前台恢复和定时器中通过 `ensureFreshAccessToken()` 预刷新。
+- 开发态可用 `EXPO_PUBLIC_API_BASE_URL` 提供默认后端地址。
+- 开发态可用 `EXPO_PUBLIC_CHAT_WS_URL` 覆盖 WebSocket 地址；正式路径默认从 API base URL 推导到 `/ap/ws`。
+
+## 后端接口概览
+
+HTTP REST 请求通过 `authenticatedApiRequest()` 自动附加 `Authorization: Bearer <accessToken>`；WS request / stream 走同一条 `/ap/ws` 连接。
+
+| 能力 | 端点 |
+| ---- | ---- |
+| 登录 / 刷新 / 登出 | `/api/auth/login`、`/api/auth/refresh`、`/api/auth/logout` |
+| agents / teams / chats | `/api/agents`、`/api/teams`、`/api/chats` via `/ap/ws` request |
+| 单会话详情 | `/ap/api/chat` |
+| 标记已读 | `/ap/api/read` |
+| 附件上传 | `/ap/api/upload` |
+| 通知 token 注册 | `POST /api/notifications/device-tokens`、`DELETE /api/notifications/device-tokens/:nativePushToken` |
+| WebSocket transport | `ws(s)://<host>/ap/ws?token=<accessToken>` |
+| WebSocket query / attach | `/api/query`、`/api/attach` via `/ap/ws` stream |
+| Awaiting submit | `/ap/api/submit` |
 
 ## 构建与发布
 
 ```bash
-npm run build        # Expo 导出构建
+pnpm build
+pnpm build:android
 ```
 
-### 安卓内部分发（APK）
+Android 应用包名和 iOS bundle id 当前均为 `com.zqfrank.agentterminalapp`。如果安装新 APK 时遇到覆盖问题，可先卸载旧包：
 
 ```bash
-npx eas login
-npx eas build -p android --profile preview
+adb uninstall com.zqfrank.agentterminalapp
 ```
 
-- `preview` 配置: `distribution: internal`, `android.buildType: apk`
-- 构建完成后 EAS 提供下载链接和二维码，手机扫码即可安装
-- 安装新 APK 前建议先卸载旧包（避免版本覆盖异常）：
-  - `adb uninstall com.zqfrank.agentterminalapp`
-  - 或手机上手动卸载旧应用后再安装新包
+## 文档
 
-#### 轮询构建状态（避免一直盯着终端）
-
-1. 从构建链接中拿到 `BUILD_ID`（例如 `https://expo.dev/.../builds/<BUILD_ID>`）。
-2. 查看状态：`npx eas build:view <BUILD_ID>`
-3. 看最近安卓构建列表：`npx eas build:list -p android --limit 5`
-
-### 正式发布（Google Play）
-
-```bash
-npx eas build -p android --profile production
-npx eas submit -p android --profile production
-```
-
-## 首次启动配置
-
-- 应用首次启动会在登录页要求填写后端域名/IP（例如 `api.example.com` 或 `192.168.1.8:8080`）
-- 内网 IP / localhost 自动使用 `http://`，公网域名自动使用 `https://`
-- PTY WebView 默认地址: `https://{host}/appterm`（本地调试: `http://localhost:11931/appterm`）
-
-## Web 本地代理（解决 CORS）
-
-当你在浏览器用 `http://localhost:8081` 调试，同时后端填 `app.zenmind.cc` 时，浏览器会直接跨域请求远端接口，预检会被 CORS 拦截。项目已内置本地反向代理：
-
-1. 启动代理（默认转发到 `https://app.zenmind.cc`）：
-
-```bash
-npm run proxy
-```
-
-2. 启动 Web，并告诉前端走本地代理：
-
-```bash
-EXPO_PUBLIC_WEB_PROXY_BASE=http://localhost:19080 npm run web
-```
-
-3. 应用里仍然填写远端域名（例如 `app.zenmind.cc`），请求会在本地 Web 调试环境自动改走代理。
-
-可选环境变量：
-
-- `ZENMIND_PROXY_TARGET`：上游目标地址（默认 `https://app.zenmind.cc`）
-- `ZENMIND_PROXY_PORT`：本地代理端口（默认 `19080`）
-- `ZENMIND_PROXY_HOST`：本地监听地址（默认 `127.0.0.1`）
-
-## 项目结构
-
-```
-zenmind-react-app/
-├── App.tsx                          # 应用入口 (SafeAreaProvider > AppProviders > AppRoot)
-├── index.js                         # Expo registerRootComponent
-├── app.json                         # Expo 配置 (slug: zenmind-react-app)
-├── package.json
-├── tsconfig.json                    # extends expo/tsconfig.base, strict: false
-├── jest.config.js                   # preset: jest-expo
-├── CLAUDE.md                        # Claude Code AI 开发指南
-├── assets/                          # 图标、启动图
-└── src/
-    ├── app/                         # 应用壳层
-    │   ├── AppRoot.tsx
-    │   ├── providers/AppProviders.tsx
-    │   ├── shell/
-    │   │   ├── ShellScreen.tsx      # 主容器 (1500+ 行)
-    │   │   ├── shellSlice.ts
-    │   │   └── DomainSwitcher.tsx
-    │   └── store/
-    │       ├── store.ts             # Redux store (5 slice + 3 RTK Query API)
-    │       └── hooks.ts
-    ├── core/                        # 核心基础设施
-    │   ├── auth/
-    │   │   ├── appAuth.ts           # 鉴权: 登录/登出/刷新/session
-    │   │   └── webViewAuthBridge.ts # WebView 鉴权桥接协议
-    │   ├── constants/theme.ts       # light/dark 主题
-    │   ├── network/
-    │   │   ├── apiClient.ts         # fetch 封装 + ApiEnvelope 解析
-    │   │   └── endpoint.ts          # URL 规范化
-    │   ├── storage/settingsStorage.ts
-    │   └── types/common.ts
-    ├── modules/
-    │   ├── chat/                    # 聊天助理 (最复杂模块)
-    │   ├── terminal/                # PTY 终端 (WebView)
-    │   ├── agents/                  # 智能体管理
-    │   └── user/                    # 用户设置
-    └── shared/                      # 共享 UI / 工具 / 动画
-```
-
-## 架构概览
-
-### 四域单壳架构
-
-`ShellScreen` 是应用唯一主容器，不使用 React Navigation，通过 `activeDomain` 状态条件渲染四个域屏幕：
-
-| 域         | 屏幕组件              | 说明                      |
-| ---------- | --------------------- | ------------------------- |
-| `chat`     | `ChatAssistantScreen` | AI 聊天助理，SSE 流式对话 |
-| `terminal` | `TerminalScreen`      | PTY 终端，WebView 包装    |
-| `agents`   | `AgentsScreen`        | 智能体列表与管理          |
-| `user`     | `UserSettingsScreen`  | 应用设置                  |
-
-域切换由 `DomainSwitcher` 组件触发，状态持久化到 AsyncStorage。
-
-### 状态管理
-
-Redux Toolkit 配置：
-
-| Slice      | 职责                        |
-| ---------- | --------------------------- |
-| `shell`    | 抽屉开关                    |
-| `user`     | 主题/端点/域/设置           |
-| `agents`   | 智能体列表与选中状态        |
-| `chat`     | 聊天列表/选中 chatId/关键词 |
-| `terminal` | PTY 加载/会话/重载          |
-
-RTK Query API: `chatApi`, `agentsApi`, `terminalApi` (均使用 `fakeBaseQuery` + 自定义 `queryFn`)
-
-聊天时间线数据存储在 `ChatAssistantScreen` 组件本地 state（非 Redux），通过 `eventReducer` 构建。
-
-### 鉴权系统
-
-- 主密码登录 -> 获取 `accessToken` + `deviceToken`
-- `deviceToken` 持久化到 AsyncStorage，用于无感刷新
-- `accessToken` 短期有效，过期自动刷新
-- 前台保活: App 回到 `active` 时预刷新 (debounce 20s) + 每 60s 定时刷新
-- WebView 鉴权桥接: `auth_token` / `auth_refresh_request` / `auth_refresh_result` 三种消息类型
-
-### SSE 流式聊天
-
-```
-POST /api/query (SSE)
-  -> XMLHttpRequest onprogress
-  -> parseSseBlock()          # SSE 文本 -> JSON
-  -> applyEvent()             # 路由分发
-  -> reduceChatEvent()        # 纯函数构建时间线
-  -> handleEffects()          # 副作用执行
-  -> React setState()         # FlatList 渲染
-```
-
-## 后端 API 协议
-
-所有 API 统一返回 `ApiEnvelope<T>` 格式：`{ code: 0, msg?: string, data: T }`
-
-鉴权方式: `Authorization: Bearer <accessToken>`
-
-### 鉴权
-
-| 方法 | 端点                | 说明             |
-| ---- | ------------------- | ---------------- |
-| POST | `/api/auth/login`   | 主密码登录       |
-| POST | `/api/auth/refresh` | 刷新 accessToken |
-| POST | `/api/auth/logout`  | 登出当前设备     |
-
-### 业务
-
-| 方法 | 端点                            | 说明                    |
-| ---- | ------------------------------- | ----------------------- |
-| GET  | `/api/agents`                   | 智能体列表              |
-| GET  | `/api/chats`                    | 聊天摘要列表            |
-| GET  | `/api/chat?chatId=...`          | 聊天历史事件            |
-| GET  | `/api/viewport?viewportKey=...` | Frontend Tool HTML      |
-| POST | `/api/query`                    | 流式聊天 (SSE)          |
-| POST | `/api/submit`                   | 提交 Frontend Tool 结果 |
-
-### 消息盒子
-
-| 方法 | 端点                          | 说明       |
-| ---- | ----------------------------- | ---------- |
-| GET  | `/api/app/inbox?limit=N`      | 收件箱消息 |
-| GET  | `/api/app/inbox/unread-count` | 未读数     |
-| POST | `/api/app/inbox/read`         | 标记已读   |
-| POST | `/api/app/inbox/read-all`     | 全部已读   |
-
-### WebSocket 推送
-
-| 端点                                      | 事件                                            |
-| ----------------------------------------- | ----------------------------------------------- |
-| `ws(s)://.../api/app/ws?access_token=...` | `inbox.new` / `inbox.sync` / `chat.new_content` |
-
-### 终端 (PTY 前端服务)
-
-| 方法 | 端点                               | 说明         |
-| ---- | ---------------------------------- | ------------ |
-| GET  | `{ptyWebUrl}/appterm/api/sessions` | 终端会话列表 |
-| POST | `{ptyWebUrl}/appterm/api/sessions` | 创建终端会话 |
-
-## 配置存储
-
-- 当前 key: `mobile_app_settings_v3`
-- 设备令牌 key: `app_device_token_v2`
-- 启动时自动清理旧版本 key (`v1`, `v2`)
+- [文档入口](./doc/README.md)
+- [项目架构总览](./doc/project-architecture.md)
+- [模块说明清单](./doc/module-reference.md)
+- [移动端视觉主题](./doc/ui-visual-theme.md)
 
 ## License
 

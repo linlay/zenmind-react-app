@@ -67,11 +67,6 @@
       "src/features/chatPersistence/useChatDetailConversationController.ts",
       "src/features/notifications/notificationService.ts"
     ],
-    "resolvedModules": [
-      "app-shell-navigation",
-      "core-api-client",
-      "feature-chat-persistence",
-      "feature-notifications"
-    ]
+    "resolvedModules": ["app-shell-navigation", "core-api-client", "feature-chat-persistence", "feature-notifications"]
   }
 }

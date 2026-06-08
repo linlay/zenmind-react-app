@@ -43,7 +43,7 @@
     "src/app/startup/AppLaunchSkeleton.tsx",
     "src/app/startup/GeminiLogo.tsx",
     "metro.config.js",
-    "android/app/src/main/java/com/zqfrank/zenmindmobile/MainApplication.kt",
+    "android/app/src/main/java/com/zqfrank/agentterminalapp/MainApplication.kt",
     "android/app/src/main/res/values/styles.xml"
   ],
   "doNotMiss": [

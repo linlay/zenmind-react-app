@@ -67,11 +67,7 @@
     "feature-chat-realtime",
     "feature-notifications"
   ],
-  "stateTouches": [
-    "MMKV device token",
-    "MMKV preferred device name",
-    "内存态 access token 和会话快照"
-  ],
+  "stateTouches": ["MMKV device token", "MMKV preferred device name", "内存态 access token 和会话快照"],
   "relatedFlows": ["app-startup", "notification-open-chat-message"],
   "relatedTasks": ["add-auth-login-screen", "add-system-notifications"],
   "impactChecklist": [

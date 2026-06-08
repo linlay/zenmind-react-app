@@ -497,23 +497,16 @@
         "ChatAwaitingOverlay",
         "ChatAwaitingResumeBar"
       ],
-      "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": [
-        "ChatDetailComposerCard"
-      ],
+      "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": ["ChatDetailComposerCard"],
       "src/features/chatPersistence/components/ChatDetailDrawers.tsx": ["ChatDetailHistoryDrawer"],
       "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": ["ChatDetailEmptyState"],
       "src/features/chatPersistence/components/ChatDetailHeader.tsx": ["ChatDetailHeader"],
       "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": ["ChatDetailSkeleton"],
-      "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": [
-        "ChatDirectoryPickerDrawer"
-      ],
+      "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": ["ChatDirectoryPickerDrawer"],
       "src/features/chatPersistence/components/ChatTimelineList.tsx": ["ChatTimelineList"],
       "src/features/chatPersistence/components/ChatTimelineRail.tsx": ["ChatTimelineRail"],
       "src/features/chatPersistence/components/ChatUsageStats.tsx": ["ChatUsageStatsButton"],
-      "src/features/chatPersistence/components/Composer.tsx": [
-        "Composer",
-        "ComposerAttachmentType"
-      ],
+      "src/features/chatPersistence/components/Composer.tsx": ["Composer", "ComposerAttachmentType"],
       "src/features/chatPersistence/components/CopyToast.tsx": ["CopyToast"],
       "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": ["RuntimePayloadFrame"],
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": ["RuntimeTimelineRow"],
@@ -530,6 +523,7 @@
         "getAwaitingQuestionHeading",
         "getAwaitingQuestionPlaceholder",
         "getAwaitingQuestionPrompt",
+        "getAwaitingQuestionsSignature",
         "getSelectFreeTextAnswer",
         "getSelectOptionValue",
         "getSelectOptions",
@@ -538,7 +532,9 @@
         "isMultiSelectQuestionType",
         "isSelectQuestionType",
         "isValidAwaitingDateAnswer",
+        "reconcileAwaitingQuestionDrafts",
         "setFreeTextAnswer",
+        "shouldAutoAdvanceAwaitingQuestion",
         "toggleSelectAnswer"
       ],
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
@@ -559,12 +555,8 @@
         "formatToolPillTitle",
         "getExpandableToolPillRecords"
       ],
-      "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": [
-        "RuntimePayloadContent"
-      ],
-      "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": [
-        "getRuntimeToolStatusColor"
-      ],
+      "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": ["RuntimePayloadContent"],
+      "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": ["getRuntimeToolStatusColor"],
       "src/features/chatPersistence/database.ts": ["chatDb", "ensureChatDatabase"],
       "src/features/chatPersistence/homeSnapshot.ts": [
         "clearChatDirectorySnapshot",
@@ -629,9 +621,7 @@
         "ChatDetailAwaitingOverlayState",
         "useChatDetailAwaitingOverlay"
       ],
-      "src/features/chatPersistence/useChatDetailConversationController.ts": [
-        "useChatDetailConversationController"
-      ],
+      "src/features/chatPersistence/useChatDetailConversationController.ts": ["useChatDetailConversationController"],
       "src/features/chatPersistence/useChatDetailLocalUiState.ts": ["useChatDetailLocalUiState"]
     },
     "actualDependsOn": [

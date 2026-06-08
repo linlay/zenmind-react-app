@@ -59,12 +59,7 @@
       "id": "notification-no-mobile-queue",
       "title": "移动端通知不承载投递队列",
       "statement": "系统级通知投递队列属于服务端；移动端只处理权限、push token 注册、点击 payload 和按需消息补拉。",
-      "appliesTo": [
-        "app-shell-navigation",
-        "core-api-client",
-        "feature-chat-persistence",
-        "feature-notifications"
-      ],
+      "appliesTo": ["app-shell-navigation", "core-api-client", "feature-chat-persistence", "feature-notifications"],
       "protectedModules": ["feature-notifications", "feature-chat-persistence"],
       "checkHints": [
         "不要新增本地通知队列表，也不要复用 outbox_messages 做通知投递。",

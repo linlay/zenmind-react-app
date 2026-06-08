@@ -67,7 +67,7 @@
     "重连逻辑要继续在 bootstrap/reconnect 时 flush pending outbox，并只触发单会话 reconcile。",
     "reasoning / planning / tool / artifact / awaiting / plan/task / usage/context 只写内存 timeline/runtime state，不把这些临时运行态塞进 SQLite 真源。",
     "chat.deleted / chat.archived 要同时清理消息、outbox、sync state、runtime state，并刷新目录投影。",
-    "summary push 与 read/unread/read_all 事件只通过 chatRepository 更新 conversations 和目录物化，不在 service 或 UI 内维护第二套未读计数或最新消息状态；chat.updated 有新最后消息但缺失 unread 字段时，非 active conversation 默认置为未读，active conversation 只触发单会话 /api/read single-flight 确认，不提前改写本地 read truth；单会话 reconcile 只有在 /api/chat 明确带 read 状态时才覆盖本地读状态，缺失 read 时 projection summary 也不携带 fallback read。",
+    "summary push 与 read/unread/read_all 事件只通过 chatRepository 更新 conversations 和目录物化，不在 service 或 UI 内维护第二套未读计数或最新消息状态；chat.updated 有新最后消息但缺失 unread 字段时，非 active conversation 默认置为未读，active conversation 只触发单会话 /ap/api/read single-flight 确认，不提前改写本地 read truth；单会话 reconcile 只有在 /ap/api/chat 明确带 read 状态时才覆盖本地读状态，缺失 read 时 projection summary 也不携带 fallback read。",
     "sync service 发给 UI 的事件要保持 scoped，首页目录消费 home.directory.replace 后回读目录切片；home.item.patch 若未改变目录投影，首页只 patch 可见目录项 preview，不回读 SQLite；详情页仍可消费命中会话的摘要 patch。"
   ],
   "readNext": [

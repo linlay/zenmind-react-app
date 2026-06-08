@@ -1,14 +1,7 @@
 {
   "id": "add-or-edit-tab-screen",
   "title": "新增或修改 Tab / Screen",
-  "intentKeywords": [
-    "新增 tab",
-    "修改 tab",
-    "新增 screen",
-    "替换占位页",
-    "修改初始路由",
-    "修改底部导航"
-  ],
+  "intentKeywords": ["新增 tab", "修改 tab", "新增 screen", "替换占位页", "修改初始路由", "修改底部导航"],
   "entryDecision": [
     "任务涉及 Tab、screen 映射、占位页替换或 initialRouteName 时，优先从这张卡开始。",
     "如果只是复用列表组件但不改路由，转到 add-reusable-list-screen。"

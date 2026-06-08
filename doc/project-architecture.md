@@ -4,14 +4,14 @@
 
 - 框架：`Expo 56`
 - 渲染层：`React Native 0.85`
-- 语言：`TypeScript`
-- 导航：`React Navigation Bottom Tabs`
+- 语言：`TypeScript 6`
+- 导航：`React Navigation` root stack + bottom tabs
 - 高性能列表：`@shopify/flash-list`
-- 本地持久化：
-  - `expo-sqlite`
-  - `drizzle-orm/expo-sqlite`
-  - `react-native-mmkv`
-- 实时通信：原生 `WebSocket`
+- 本地持久化：`expo-sqlite`、`drizzle-orm`、`react-native-mmkv`
+- 实时通信：`WebSocket`，默认连接后端 `/ap/ws`
+- 系统通知：`expo-notifications`
+- Markdown：`react-native-enriched-markdown`、`react-native-streamdown`
+- 动画：`react-native-reanimated`、`react-native-worklets`
 
 ## 2. 总体分层
 
@@ -19,269 +19,251 @@
 
 ```text
 App Entry
+  -> App.tsx
   -> app
+     -> startup
      -> navigation
      -> screens
      -> debug
 
-Business Foundation
+Core Foundation
   -> core
-     -> config
      -> api
+     -> auth
+     -> config
+     -> debug
 
 Feature Modules
   -> features
+     -> auth
      -> chatPersistence
      -> chatRealtime
+     -> chatTimeline
+     -> notifications
+     -> agentTaskBoard
 
 Reusable UI
   -> shared
      -> components
+     -> icons
+     -> markdown
+     -> visual
 ```
 
 ### 2.1 `app`
 
 负责应用壳层：
 
-- React Navigation 容器
-- 底部 Tab 结构
-- 页面入口挂载
-- 开发环境调试浮层
+- native splash 与 React 启动遮罩接棒
+- `NavigationContainer`、root stack 和底部 Tab
+- 认证门卫下的登录页 / Tabs 切换
+- 系统通知点击后的导航路由
+- 开发态 Debug 面板宿主
 
 ### 2.2 `core`
 
-负责跨业务通用能力：
+负责跨业务基础能力：
 
-- 读取运行时环境变量
-- 统一 API 请求函数
-- 统一接口目录约定
+- API base URL 读取与规范化
+- `authenticatedApiRequest()` 和统一 HTTP debug logging
+- access token / device token 会话恢复与刷新
+- 运行时公开环境变量读取
 
 ### 2.3 `features`
 
-负责具备明确业务边界的功能模块：
+负责有明确业务边界的功能：
 
-- `chatPersistence`：聊天列表、消息、本地数据库、首页快照
-- `chatRealtime`：WebSocket 连接与实时同步
+- `auth`：登录页和认证 bootstrap UI
+- `chatPersistence`：Chat 首页、详情页、本地数据库、目录快照、rich timeline 持久化
+- `chatRealtime`：`/ap/ws` 连接、request / stream / push、outbox replay、scoped sync event
+- `chatTimeline`：reasoning、tool、awaiting、usage、run lifecycle 等 timeline 状态归一
+- `notifications`：push token 注册、通知点击 payload、active conversation 抑制
+- `agentTaskBoard`：任务 Tab 的移动端 AI 任务看板设计稿
 
 ### 2.4 `shared`
 
-负责可复用 UI 组件。当前主要是高性能分页列表组件。
+负责可复用能力：
 
-## 3. 当前目录结构
+- `ScreenHeader`、`PaginatedCardList`
+- `AppIcon` / `AppIconButton` 和使用 registry
+- `ConversationMarkdownRenderer` 与 Markdown 预处理
+- `appVisualTokens`、头像和内建图标视觉 token
 
-```text
-src/
-  app/
-    AppRoot.tsx
-    debug/
-      DevelopmentDebugButton.tsx
-    navigation/
-      RootNavigator.tsx
-      TabIcon.tsx
-      types.ts
-    screens/
-      AppScreenFrame.tsx
-      TabScreens.tsx
-  core/
-    api/
-      apiClient.ts
-      services/
-        README.md
-        templateApi.ts
-    config/
-      runtimeEnv.ts
-  features/
-    chatPersistence/
-      ChatHomeStorageDemo.tsx
-      chatRepository.ts
-      database.ts
-      homeSnapshot.ts
-      schema.ts
-      types.ts
-    chatRealtime/
-      chatSyncService.ts
-      types.ts
-      wsManager.ts
-  shared/
-    components/
-      PaginatedCardList.tsx
-```
-
-## 4. 运行架构
-
-### 4.1 应用启动链路
+## 3. 应用启动链路
 
 ```text
-App.tsx
-  -> AppRoot
-  -> NavigationContainer
-  -> RootNavigator
-  -> TabScreens
+index.js
+  -> registerRootComponent(App)
+  -> App.tsx
+     -> SafeAreaProvider
+     -> AppLaunchSkeleton
+     -> AppRoot
+        -> NavigationContainer
+        -> RootNavigator
 ```
 
-职责说明：
+`App.tsx` 负责 `expo-splash-screen` handoff 和 React 启动遮罩退场时机。`AppRoot` 挂载导航容器、启动认证恢复、管理前台 access token 预刷新、订阅通知点击、按 session 启停 `chatSyncService`，并在开发态挂载 `DevelopmentDebugPanelHost`。
 
-- `AppRoot` 负责导航主题和 `Debug` 按钮挂载
-- `RootNavigator` 负责底部 Tab 配置
-- `TabScreens` 决定各 Tab 具体渲染页面
+## 4. 导航结构
 
-### 4.2 Chat 首页启动链路
+```text
+RootStack
+  -> Login
+  -> Tabs
+     -> Chat
+     -> Terminal
+     -> Drive
+     -> Me
+  -> ChatDetail
+```
 
-`Chat` Tab 当前挂的是一个完整样例页 `ChatHomeStorageDemo`，启动顺序如下：
+| Route / Tab | 实际入口 | 说明 |
+| ----------- | -------- | ---- |
+| `Login` | `src/features/auth/LoginScreen.tsx` | 认证冷启动和登录页 |
+| `Chat` | `src/features/chatPersistence/ChatHomeStorageDemo.tsx` | Chat 首页目录 |
+| `Terminal` | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` | 任务 Tab / AI 任务看板 |
+| `Drive` | `src/app/screens/TabScreens.tsx` | 网盘占位页 |
+| `Me` | `src/app/screens/TabScreens.tsx` | 用户、会话和版本信息 |
+| `ChatDetail` | `src/features/chatPersistence/ChatDetailScreen.tsx` | Tabs 之上的详情页 route |
+
+底部 Tab 的真实 safe area / tab bar height 由导航层和页面容器协同处理，页面内不要硬编码底栏避让。
+
+## 5. 聊天数据分层
+
+### SQLite / Drizzle
+
+SQLite 是本地真源，覆盖：
+
+- 首页目录 `chat_directory_items`
+- 会话摘要 `conversations`
+- 消息 `messages`
+- 待补发 `outbox_messages`
+- 同步状态 `conversation_sync_state`
+- rich timeline snapshot `conversation_timeline_meta` / `conversation_timeline_nodes`
+
+### MMKV
+
+MMKV 只保存首页首屏目录快照，用于冷启动回显。它不承担完整消息历史、排序、去重或 read state 真源职责。
+
+### Repository
+
+`chatRepository` 是本地数据统一读写入口，负责 SQLite 事务、目录投影、会话摘要 patch、outbox、通知补拉落库、timeline snapshot 持久化和目录快照刷新。
+
+## 6. Chat 首页冷启动链路
 
 ```text
 ChatHomeStorageDemo mount
-  -> 读 MMKV 首页快照
+  -> readChatDirectorySnapshot()
   -> prepareChatPersistenceSample()
-  -> 从 SQLite 读取第一页会话列表
-  -> 从 SQLite 读取首个会话的消息预览
+  -> getChatDirectorySlice()
   -> chatSyncService.start()
+  -> home.directory.replace / home.item.patch
 ```
 
 设计目标：
 
-- 首屏尽快有内容：MMKV 快照回显
-- 真正数据来源统一：SQLite 覆盖快照
-- 实时层独立：页面只订阅同步事件，不直接碰 socket
+- 首屏先用 MMKV 快照回显。
+- SQLite 读取覆盖快照并作为真源。
+- 首页只消费 scoped sync event，不直接碰 socket 或数据库底层。
+- 首页失焦时暂停消费实时目录事件，恢复聚焦后补一次可见切片刷新。
 
-### 4.3 聊天数据分层
+## 7. Chat 详情与 Timeline
 
-#### SQLite / Drizzle
+`ChatDetailScreen` 负责页面组合，具体加载、发送、停止、继续、awaiting question 提交、输入区主操作、运行态和用量派生收敛到 hook 与展示组件：
 
-SQLite 是唯一数据真源，负责：
+- `useChatDetailConversationController`
+- `useChatDetailAwaitingOverlay`
+- `useChatDetailLocalUiState`
+- `ChatTimelineList`
+- `ChatAwaitingDock`
+- `ChatDetailComposerCard`
+- `ChatDetailHeader`
 
-- 会话摘要
-- 全量消息
-- 待补发消息 outbox
+详情页主消息、头部运行状态、输入区主操作和 usage 都从同一份 `ChatTimelineState` 派生。旧的 message/runtime event 仅保留兼容信号，不应在页面层维护第二套状态。
 
-数据库表：
-
-- `conversations`
-- `messages`
-- `outbox_messages`
-
-#### MMKV
-
-MMKV 只负责首页启动快照：
-
-- 首屏第一页会话列表
-- 最后一条消息摘要
-- 未读数
-
-它不负责：
-
-- 全量消息历史
-- 复杂查询
-- 排序和去重真源
-
-### 4.4 实时同步链路
+## 8. 实时同步链路
 
 ```text
-chatWsManager
-  -> connect / reconnect / send / receive
-  -> chatSyncService
-     -> createOutgoingMessage
-     -> markOutgoingMessageSent
-     -> markOutgoingMessageFailed
-     -> applyIncomingMessage
-     -> emit UI sync events
+chatSyncService
+  -> chatWsTransport
+     -> WsClient
+        -> /ap/ws
+  -> chatRepository
+  -> feature-chat-timeline
+  -> scoped UI sync events
 ```
 
 职责切分：
 
-- `chatWsManager`
-  - 只关心底层 WebSocket
-  - 维护连接状态
-  - 自动重连
-  - 在没有配置 WS 地址时退回 mock 模式
-- `chatSyncService`
-  - 负责把 socket 事件转成业务同步动作
-  - 负责首连/重连时 flush outbox
-  - 负责乐观发送后的 ack 落库
-- `chatRepository`
-  - 是本地数据写入口
-  - 统一更新 SQLite 与首页快照
+- `WsClient`：底层 WebSocket、request、stream、push、心跳和重连。
+- `chatWsTransport`：把 access token 和 API base URL 适配到 `/ap/ws`，并暴露 query / attach / request。
+- `chatSyncService`：业务协调层，处理 outbox replay、发送、ack、incoming、summary push、read/unread、awaiting submit、stop/resume、reconcile 和 UI event。
+- `chatRepository`：所有 SQLite / MMKV 写入入口。
 
-### 4.5 发送消息链路
+正式路径不把缺失 WS URL 当 mock fallback；开发态可用 `EXPO_PUBLIC_CHAT_WS_URL` 覆盖 WebSocket 地址。
+
+## 9. 发送消息链路
 
 ```text
-UI 点击发送
+UI send
   -> chatSyncService.sendMessage()
   -> chatRepository.createOutgoingMessage()
-     -> 写 messages(pending)
-     -> 写 outbox_messages
-     -> 更新 conversations 摘要
-     -> 刷新 MMKV 首页快照
-  -> wsManager.send()
-  -> 等待 ack
-  -> markOutgoingMessageSent()
+     -> messages(pending)
+     -> outbox_messages
+     -> conversations summary
+     -> chat_directory_snapshot_v1
+  -> chatWsTransport.streamChatQuery(/api/query)
+  -> ack / stream event
+  -> patchMessageByClientMessageId()
+  -> ChatTimelineState replace
 ```
 
-特点：
+本地先落库，保证重启后不丢 pending 消息。ack、done 或 error 必须回到 repository patch，不能只改 UI。
 
-- 本地先落库，保证重启后不丢待发送消息
-- UI 先看到 `pending` 状态
-- 收到 ack 后更新成 `sent`
-
-### 4.6 收到服务端消息链路
+## 10. 收到服务端消息链路
 
 ```text
-wsManager.onmessage
-  -> chatSyncService.handleSocketEvent()
-  -> chatRepository.applyIncomingMessage()
-     -> 去重
-     -> 必要时自动补建会话壳
-     -> 写 messages
-     -> 更新 conversations 摘要和未读数
-     -> 刷新 MMKV 首页快照
-  -> 页面收到同步事件后重新读取可见数据
+WsClient push / stream event
+  -> chatWsTransport normalize
+  -> chatSyncService route
+  -> feature-chat-timeline update
+  -> chatRepository patch / upsert / reconcile
+  -> scoped event to home or detail
 ```
 
-### 4.7 列表组件链路
+summary push、`chat.read`、`chat.unread`、`chat.read_all` 只更新 repository 真源和目录投影，不在 service 或页面内维护第二套未读计数。
 
-通用列表组件 `PaginatedCardList` 基于 `FlashList` 实现，负责：
+## 11. 系统通知链路
 
-- 下拉刷新
-- 自动上拉加载更多
-- 底部 loading
-- 滚动超过一屏后显示右下角返回顶部按钮
-- 固定项高度透传，便于 `FlashList` 预估渲染
+```text
+session ready
+  -> notificationService.registerForSession()
+  -> registerPushTokenApi()
 
-## 5. 模块边界约束
+notification tap
+  -> notificationService payload
+  -> AppRoot pending payload if auth/navigation not ready
+  -> RootStack.navigate('ChatDetail')
+  -> repository local lookup by serverMessageId
+  -> miss: fetch detail and idempotent upsert
+```
 
-### 5.1 当前约束
+移动端不承担通知投递队列；只处理权限、push token 注册、点击 payload 和按需补拉。
 
-- 页面不直接操作 SQLite
-- 页面不直接操作 WebSocket
-- `MMKV` 不保存完整消息库
-- `SQLite` 才是最终排序和状态判断依据
+## 12. 环境变量
 
-### 5.2 当前仍是样例/骨架的部分
-
-- `Terminal` Tab 仍是占位页
-- `Drive` Tab 仍是占位页
-- `Me` Tab 仍是占位页
-- 聊天实时协议仍以 demo/mock 结构为主
-- 还没有接真实后端聊天接口
-
-## 6. 环境变量
-
-当前会读取的公开环境变量：
+当前公开环境变量：
 
 - `EXPO_PUBLIC_API_BASE_URL`
-- `EXPO_PUBLIC_CHAT_WS_URL`
+- `EXPO_PUBLIC_CHAT_WS_URL`（仅开发态 WS override）
 
-规则：
+API base URL 优先读取登录页保存到 MMKV 的地址，未配置时回退到 `EXPO_PUBLIC_API_BASE_URL`。
 
-- 如果配置了 `EXPO_PUBLIC_CHAT_WS_URL`，实时层直接使用它
-- 如果没配，则尝试从 `EXPO_PUBLIC_API_BASE_URL` 推导 `/ws/chat`
-- 如果都没有，则进入 mock 模式
+## 13. 模块边界约束
 
-## 7. 扩展建议
-
-推荐后续按下面方向扩展，而不是打破当前分层：
-
-- 在 `src/core/api/services/` 下新增真实业务接口文件
-- 为聊天详情页新增独立 screen，而不是继续堆在 demo 页里
-- 在 `chatRepository` 上继续加读取和状态更新能力
-- 把 mock 协议替换成真实 WS 协议时，优先保持 `chatSyncService` 接口不变
+- 页面不直接操作 SQLite、MMKV 或底层 WebSocket。
+- `shared` 不依赖聊天业务模块。
+- `chatWsTransport` / `WsClient` 不直接写 UI 或 SQLite。
+- SQLite 是聊天目录、摘要、消息、outbox 和 read state 真源。
+- MMKV 只保存首页冷启动目录快照。
+- 影响首页目录的写入必须刷新 `chat_directory_snapshot_v1`。

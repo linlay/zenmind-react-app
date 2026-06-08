@@ -343,7 +343,7 @@ function buildEntryMappings(sourceContents) {
   }
 
   const appContent = sourceContents['App.tsx'] || '';
-  if (appContent.includes('<AppRoot />')) {
+  if (/<AppRoot\b/.test(appContent)) {
     appEntryChain.push({
       file: 'App.tsx',
       detail: 'App renders SafeAreaProvider and AppRoot',
