@@ -1,16 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Keyboard,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import type { AwaitingSubmitPayloadData } from '../../../../core/api/services/chatApi';
 import { AppIcon } from '../../../../shared/icons/AppIcon';
+import { type TFunction, useT } from '../../../../shared/i18n';
 import { appVisualTokens } from '../../../../shared/visual/foundation';
 import type { ChatConversationAwaitingState } from '../../../chatRealtime/types';
 import type { ChatTimelineAwaitingQuestion } from '../../../chatTimeline/index.ts';
@@ -35,7 +28,7 @@ import {
   setFreeTextAnswer,
   shouldAutoAdvanceAwaitingQuestion,
   toggleSelectAnswer,
-  type AwaitingQuestionDraft,
+  type AwaitingQuestionDraft
 } from './awaitingQuestionState';
 
 type ChatAwaitingDockProps = {
@@ -52,17 +45,18 @@ function formatDuration(ms: number): string {
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
 
-function getCountdownLabel(awaiting: ChatConversationAwaitingState, now: number): string {
+function getCountdownLabel(awaiting: ChatConversationAwaitingState, now: number, t: TFunction): string {
   const timeout = awaiting.interactive?.kind === 'question' ? awaiting.interactive.timeout : null;
   if (!timeout || !awaiting.createdAt) {
     return '';
   }
 
   const remaining = awaiting.createdAt + timeout - now;
-  return remaining > 0 ? `提交倒计时 ${formatDuration(remaining)}` : '提交倒计时 0:00';
+  return remaining > 0 ? t('awaiting.countdown', { duration: formatDuration(remaining) }) : t('awaiting.countdownZero');
 }
 
 function useCountdownLabel(awaiting: ChatConversationAwaitingState): string {
+  const t = useT();
   const [now, setNow] = useState(Date.now());
   const timeout = awaiting.interactive?.kind === 'question' ? awaiting.interactive.timeout : null;
 
@@ -76,7 +70,7 @@ function useCountdownLabel(awaiting: ChatConversationAwaitingState): string {
     return () => clearInterval(timer);
   }, [awaiting.id, timeout]);
 
-  return getCountdownLabel(awaiting, now);
+  return getCountdownLabel(awaiting, now, t);
 }
 
 function patchDraftAt(
@@ -90,12 +84,14 @@ function patchDraftAt(
 function PaginationControl({
   current,
   total,
-  onMove,
+  onMove
 }: {
   current: number;
   total: number;
   onMove: (nextIndex: number) => void;
 }) {
+  const t = useT();
+
   if (total <= 1) {
     return null;
   }
@@ -106,20 +102,17 @@ function PaginationControl({
   return (
     <View style={styles.pagination}>
       <Pressable
-        accessibilityLabel="上一题"
+        accessibilityLabel={t('awaiting.previousQuestion')}
         accessibilityRole="button"
         disabled={!canMoveBack}
         onPress={() => onMove(current - 1)}
         style={({ pressed }) => [
           styles.paginationButton,
           !canMoveBack && styles.disabledButton,
-          pressed && canMoveBack && styles.pressed,
+          pressed && canMoveBack && styles.pressed
         ]}
       >
-        <Text
-          allowFontScaling={false}
-          style={[styles.paginationArrow, !canMoveBack && styles.disabledText]}
-        >
+        <Text allowFontScaling={false} style={[styles.paginationArrow, !canMoveBack && styles.disabledText]}>
           ‹
         </Text>
       </Pressable>
@@ -127,20 +120,17 @@ function PaginationControl({
         {current + 1} / {total}
       </Text>
       <Pressable
-        accessibilityLabel="下一题"
+        accessibilityLabel={t('awaiting.nextQuestion')}
         accessibilityRole="button"
         disabled={!canMoveForward}
         onPress={() => onMove(current + 1)}
         style={({ pressed }) => [
           styles.paginationButton,
           !canMoveForward && styles.disabledButton,
-          pressed && canMoveForward && styles.pressed,
+          pressed && canMoveForward && styles.pressed
         ]}
       >
-        <Text
-          allowFontScaling={false}
-          style={[styles.paginationArrow, !canMoveForward && styles.disabledText]}
-        >
+        <Text allowFontScaling={false} style={[styles.paginationArrow, !canMoveForward && styles.disabledText]}>
           ›
         </Text>
       </Pressable>
@@ -152,7 +142,7 @@ const OptionRow = memo(function OptionRow({
   index,
   label,
   selected,
-  onPress,
+  onPress
 }: {
   index: number;
   label: string;
@@ -174,11 +164,7 @@ const OptionRow = memo(function OptionRow({
       </Text>
       {selected ? (
         <View style={styles.selectedMark}>
-          <AppIcon
-            usage="historyDrawer.markAllRead"
-            size={12}
-            color={appVisualTokens.colors.surface}
-          />
+          <AppIcon usage="historyDrawer.markAllRead" size={12} color={appVisualTokens.colors.surface} />
         </View>
       ) : null}
     </Pressable>
@@ -190,7 +176,7 @@ function QuestionInput({
   value,
   onChange,
   onChangeAndAdvance,
-  onSubmitCurrent,
+  onSubmitCurrent
 }: {
   question: ChatTimelineAwaitingQuestion;
   value: AwaitingQuestionDraft | undefined;
@@ -248,18 +234,11 @@ function QuestionInput({
   }
 
   const textValue =
-    typeof value?.answer === 'number'
-      ? String(value.answer)
-      : typeof value?.answer === 'string'
-        ? value.answer
-        : '';
+    typeof value?.answer === 'number' ? String(value.answer) : typeof value?.answer === 'string' ? value.answer : '';
   const keyboardType = question.type === 'number' ? 'decimal-pad' : 'default';
   const secureTextEntry = question.type === 'password';
   const inputPlaceholder =
-    placeholder ||
-    (question.type === 'date' || question.type === 'datetime'
-      ? getAwaitingDateFormat(question)
-      : '');
+    placeholder || (question.type === 'date' || question.type === 'datetime' ? getAwaitingDateFormat(question) : '');
 
   return (
     <View style={styles.fieldBlock}>
@@ -279,19 +258,15 @@ function QuestionInput({
   );
 }
 
-export const ChatAwaitingDock = memo(function ChatAwaitingDock({
-  awaiting,
-  onSubmit,
-}: ChatAwaitingDockProps) {
+export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSubmit }: ChatAwaitingDockProps) {
+  const t = useT();
   const interactive = awaiting.interactive?.kind === 'question' ? awaiting.interactive : null;
   const questions = useMemo(() => interactive?.questions || [], [interactive]);
   const questionsRef = useRef(questions);
   const questionsSignature = useMemo(() => getAwaitingQuestionsSignature(questions), [questions]);
   const countdownLabel = useCountdownLabel(awaiting);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [values, setValues] = useState<AwaitingQuestionDraft[]>(() =>
-    createAwaitingQuestionDrafts(questions)
-  );
+  const [values, setValues] = useState<AwaitingQuestionDraft[]>(() => createAwaitingQuestionDrafts(questions));
   const [submitting, setSubmitting] = useState(false);
   const [errorText, setErrorText] = useState('');
   const ready = hasAwaitingQuestions(questions);
@@ -362,7 +337,7 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({
 
   const submitAllWithValues = useCallback(
     (nextValues: readonly AwaitingQuestionDraft[]) => {
-      const error = findAwaitingAnswerError(questions, nextValues);
+      const error = findAwaitingAnswerError(questions, nextValues, t);
       if (error) {
         setActiveIndex(error.index);
         setErrorText(error.message);
@@ -374,11 +349,11 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({
           runId: awaiting.runId,
           awaitingId: awaiting.awaitingId,
           questions,
-          values: nextValues,
+          values: nextValues
         })
       );
     },
-    [awaiting.awaitingId, awaiting.runId, questions, submitPayload]
+    [awaiting.awaitingId, awaiting.runId, questions, submitPayload, t]
   );
 
   const submitAll = useCallback(() => {
@@ -395,7 +370,7 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({
       setErrorText('');
       setValues(nextValues);
 
-      const error = getAwaitingAnswerError(currentQuestion, draft);
+      const error = getAwaitingAnswerError(currentQuestion, draft, t);
       if (error) {
         setErrorText(error);
         return;
@@ -407,14 +382,7 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({
       }
       moveToIndex(activeIndex + 1);
     },
-    [
-      activeIndex,
-      currentQuestion,
-      isLastQuestion,
-      moveToIndex,
-      patchCurrentValues,
-      submitAllWithValues,
-    ]
+    [activeIndex, currentQuestion, isLastQuestion, moveToIndex, patchCurrentValues, submitAllWithValues, t]
   );
 
   const submitCurrentOrMove = useCallback(() => {
@@ -422,7 +390,7 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({
       return;
     }
 
-    const error = getAwaitingAnswerError(currentQuestion, currentValue);
+    const error = getAwaitingAnswerError(currentQuestion, currentValue, t);
     if (error) {
       setErrorText(error);
       return;
@@ -433,13 +401,13 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({
       return;
     }
     moveToIndex(activeIndex + 1);
-  }, [activeIndex, currentQuestion, currentValue, isLastQuestion, moveToIndex, submitAll]);
+  }, [activeIndex, currentQuestion, currentValue, isLastQuestion, moveToIndex, submitAll, t]);
 
   const ignoreAwaiting = useCallback(() => {
     void submitPayload({
       runId: awaiting.runId,
       awaitingId: awaiting.awaitingId,
-      params: [],
+      params: []
     });
   }, [awaiting.awaitingId, awaiting.runId, submitPayload]);
 
@@ -470,11 +438,7 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({
                 {countdownLabel}
               </Text>
             ) : null}
-            <PaginationControl
-              current={activeIndex}
-              total={questions.length}
-              onMove={moveToIndex}
-            />
+            <PaginationControl current={activeIndex} total={questions.length} onMove={moveToIndex} />
           </View>
         </View>
 
@@ -496,14 +460,14 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({
           )}
           <View style={styles.actions}>
             <Pressable
-              accessibilityLabel="忽略"
+              accessibilityLabel={t('awaiting.ignore')}
               accessibilityRole="button"
               disabled={submitting}
               onPress={ignoreAwaiting}
               style={({ pressed }) => [styles.ignoreButton, pressed && styles.pressed]}
             >
               <Text allowFontScaling={false} style={styles.ignoreText}>
-                忽略
+                {t('awaiting.ignore')}
               </Text>
               <View style={styles.keycap}>
                 <Text allowFontScaling={false} style={styles.keycapText}>
@@ -512,7 +476,7 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({
               </View>
             </Pressable>
             <Pressable
-              accessibilityLabel={isLastQuestion ? '提交回答' : '继续'}
+              accessibilityLabel={isLastQuestion ? t('awaiting.submitAnswer') : t('awaiting.continue')}
               accessibilityRole="button"
               disabled={submitting}
               onPress={submitCurrentOrMove}
@@ -522,7 +486,7 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({
                 <ActivityIndicator size="small" color={appVisualTokens.colors.surface} />
               ) : (
                 <Text allowFontScaling={false} style={styles.primaryText}>
-                  {isLastQuestion ? '提交' : '继续'}
+                  {isLastQuestion ? t('awaiting.submit') : t('awaiting.continue')}
                 </Text>
               )}
             </Pressable>
@@ -538,7 +502,7 @@ const styles = StyleSheet.create({
     backgroundColor: appVisualTokens.colors.background,
     paddingHorizontal: appVisualTokens.spacing.md,
     paddingTop: 4,
-    paddingBottom: 6,
+    paddingBottom: 6
   },
   panel: {
     gap: appVisualTokens.spacing.md,
@@ -553,60 +517,60 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.08,
     shadowRadius: 16,
-    elevation: 2,
+    elevation: 2
   },
   header: {
     minHeight: 32,
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: appVisualTokens.spacing.md,
+    gap: appVisualTokens.spacing.md
   },
   questionText: {
     flex: 1,
     minWidth: 0,
-    gap: 4,
+    gap: 4
   },
   heading: {
     fontSize: 15,
     lineHeight: 21,
     fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   prompt: {
     fontSize: 12,
     lineHeight: 17,
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   headerSide: {
     flexShrink: 0,
     alignItems: 'flex-end',
-    gap: 4,
+    gap: 4
   },
   countdown: {
     maxWidth: 128,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   pagination: {
     height: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 5
   },
   paginationButton: {
     width: 28,
     height: 28,
     borderRadius: appVisualTokens.radii.sm,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   paginationArrow: {
     fontSize: 26,
     lineHeight: 28,
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   paginationText: {
     minWidth: 34,
@@ -614,23 +578,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   optionsBlock: {
-    gap: appVisualTokens.spacing.sm,
+    gap: appVisualTokens.spacing.sm
   },
   optionRow: {
     minHeight: 34,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: appVisualTokens.spacing.sm,
+    gap: appVisualTokens.spacing.sm
   },
   optionIndex: {
     width: 24,
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   optionLabel: {
     flex: 1,
@@ -638,10 +602,10 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   selectedText: {
-    color: appVisualTokens.colors.brandBlueStrong,
+    color: appVisualTokens.colors.brandBlueStrong
   },
   selectedMark: {
     width: 20,
@@ -649,13 +613,13 @@ const styles = StyleSheet.create({
     borderRadius: appVisualTokens.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appVisualTokens.colors.brandBlue,
+    backgroundColor: appVisualTokens.colors.brandBlue
   },
   freeTextRow: {
     minHeight: 36,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: appVisualTokens.spacing.sm,
+    gap: appVisualTokens.spacing.sm
   },
   freeTextInput: {
     flex: 1,
@@ -663,11 +627,11 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     fontSize: 15,
     lineHeight: 20,
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   fieldBlock: {
     minHeight: 46,
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   inputField: {
     minHeight: 44,
@@ -678,30 +642,30 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     fontSize: 15,
     lineHeight: 20,
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   footer: {
     minHeight: 34,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: appVisualTokens.spacing.sm,
+    gap: appVisualTokens.spacing.sm
   },
   errorText: {
     flex: 1,
     minWidth: 0,
     fontSize: 12,
     lineHeight: 16,
-    color: appVisualTokens.colors.danger,
+    color: appVisualTokens.colors.danger
   },
   errorSpacer: {
-    flex: 1,
+    flex: 1
   },
   actions: {
     flexShrink: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: appVisualTokens.spacing.sm,
+    gap: appVisualTokens.spacing.sm
   },
   ignoreButton: {
     minHeight: 32,
@@ -709,13 +673,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     borderRadius: appVisualTokens.radii.pill,
-    paddingLeft: 4,
+    paddingLeft: 4
   },
   ignoreText: {
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '800',
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   keycap: {
     minWidth: 42,
@@ -724,13 +688,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: appVisualTokens.radii.pill,
     backgroundColor: appVisualTokens.colors.brandBlueSoft,
-    paddingHorizontal: appVisualTokens.spacing.sm,
+    paddingHorizontal: appVisualTokens.spacing.sm
   },
   keycapText: {
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   primaryButton: {
     minWidth: 58,
@@ -739,24 +703,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: appVisualTokens.radii.pill,
     backgroundColor: appVisualTokens.colors.brandBlue,
-    paddingHorizontal: appVisualTokens.spacing.md,
+    paddingHorizontal: appVisualTokens.spacing.md
   },
   primaryText: {
     fontSize: 14,
     lineHeight: 19,
     fontWeight: '800',
-    color: appVisualTokens.colors.surface,
+    color: appVisualTokens.colors.surface
   },
   disabledButton: {
-    opacity: 0.38,
+    opacity: 0.38
   },
   disabledText: {
-    color: appVisualTokens.colors.textTertiary,
+    color: appVisualTokens.colors.textTertiary
   },
   pressed: {
-    opacity: 0.68,
+    opacity: 0.68
   },
   primaryPressed: {
-    opacity: 0.82,
-  },
+    opacity: 0.82
+  }
 });

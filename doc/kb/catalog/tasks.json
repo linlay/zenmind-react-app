@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-08T03:52:06.141Z",
+  "generatedAt": "2026-06-08T09:04:02.138Z",
   "items": [
     {
       "id": "add-app-startup-loading-screen",
@@ -48,6 +48,27 @@
       "entryDecision": "只要任务涉及新接口、新 service 文件或请求封装方式，先从这张 task card 开始。",
       "likelyFiles": ["src/core/api/apiClient.ts", "src/core/api/services/templateApi.ts"],
       "card": "doc/kb/tasks/add-business-api-service.json"
+    },
+    {
+      "id": "add-internationalization",
+      "title": "新增或扩展国际化文案",
+      "intentKeywords": ["国际化", "i18n", "多语言", "语言切换", "翻译文案", "locale", "localization"],
+      "entryDecision": "任务涉及新增语言、迁移 UI 文案、接入设备语言或扩展 locale preference 时，优先从这张卡开始。",
+      "likelyFiles": [
+        "App.tsx",
+        "package.json",
+        "src/shared/i18n",
+        "src/app/navigation/RootNavigator.tsx",
+        "src/app/navigation/TabIcon.tsx",
+        "src/app/screens/TabScreens.tsx",
+        "src/features/auth/LoginScreen.tsx",
+        "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+        "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+        "src/features/chatPersistence/ChatDetailScreen.tsx",
+        "src/features/chatPersistence/components",
+        "scripts/tests/i18n.test.mts"
+      ],
+      "card": "doc/kb/tasks/add-internationalization.json"
     },
     {
       "id": "add-or-edit-tab-screen",

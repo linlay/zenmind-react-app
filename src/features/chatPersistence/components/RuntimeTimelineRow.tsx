@@ -2,14 +2,12 @@ import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
+import { useT } from '../../../shared/i18n';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 import type { ChatTimelineDisplayItem } from '../../chatTimeline/index.ts';
 import { ChatTimelineRail } from './ChatTimelineRail';
 import { RuntimePayloadFrame } from './RuntimePayloadFrame';
-import {
-  buildRuntimePayloadDescriptor,
-  type RuntimePayloadDescriptor,
-} from './runtimePayloadDescriptor';
+import { buildRuntimePayloadDescriptor, type RuntimePayloadDescriptor } from './runtimePayloadDescriptor';
 import { RuntimePayloadContent } from './runtimePayloadRenderers';
 import { getRuntimeToolStatusColor } from './runtimeToolStatusVisual';
 
@@ -24,22 +22,21 @@ const TONE_COLORS: Record<RuntimePayloadDescriptor['tone'], string> = {
   reasoning: appVisualTokens.colors.warning,
   tool: appVisualTokens.colors.brandBlue,
   file: appVisualTokens.colors.success,
-  neutral: appVisualTokens.colors.textSecondary,
+  neutral: appVisualTokens.colors.textSecondary
 };
 
 export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
   item,
   onCopyText,
   getInitialExpanded,
-  onExpandedChange,
+  onExpandedChange
 }: RuntimeTimelineRowProps) {
+  const t = useT();
   const descriptor = useMemo(
-    () => buildRuntimePayloadDescriptor(item.kind === 'tool-group' ? item : item.node),
-    [item]
+    () => buildRuntimePayloadDescriptor(item.kind === 'tool-group' ? item : item.node, t),
+    [item, t]
   );
-  const [expanded, setExpanded] = useState(() =>
-    getInitialExpanded(descriptor.id, descriptor.defaultExpanded)
-  );
+  const [expanded, setExpanded] = useState(() => getInitialExpanded(descriptor.id, descriptor.defaultExpanded));
 
   useEffect(() => {
     setExpanded(getInitialExpanded(descriptor.id, descriptor.defaultExpanded));
@@ -74,10 +71,7 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
               <View
                 key={record.key}
                 accessibilityLabel={`${record.title}${record.statusLabel}`}
-                style={[
-                  styles.toolStatusDot,
-                  { backgroundColor: getRuntimeToolStatusColor(record.status) },
-                ]}
+                style={[styles.toolStatusDot, { backgroundColor: getRuntimeToolStatusColor(record.status) }]}
               />
             ))}
           </View>
@@ -102,7 +96,7 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
         <View style={styles.runtimeBlock}>
           {descriptor.canExpand ? (
             <Pressable
-              accessibilityLabel={expanded ? '收起内容' : '展开内容'}
+              accessibilityLabel={expanded ? t('timeline.collapseContent') : t('timeline.expandContent')}
               accessibilityRole="button"
               onPress={handleToggle}
               style={({ pressed }) => [styles.runtimeHeader, pressed && styles.rowPressed]}
@@ -133,27 +127,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 16
   },
   timelineBody: {
     flex: 1,
-    minWidth: 0,
+    minWidth: 0
   },
   runtimeBlock: {
-    alignSelf: 'stretch',
+    alignSelf: 'stretch'
   },
   runtimeHeader: {
     minHeight: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 7
   },
   runtimeHeaderLeading: {
     flex: 1,
     minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 7
   },
   runtimeTitle: {
     flexShrink: 1,
@@ -161,27 +155,27 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   toolStatusDots: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 7,
-    flexShrink: 0,
+    flexShrink: 0
   },
   toolStatusDot: {
     width: 7,
     height: 7,
-    borderRadius: appVisualTokens.radii.pill,
+    borderRadius: appVisualTokens.radii.pill
   },
   foldButton: {
     width: 28,
     height: 28,
     borderRadius: appVisualTokens.radii.sm,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   rowPressed: {
-    opacity: 0.72,
-  },
+    opacity: 0.72
+  }
 });

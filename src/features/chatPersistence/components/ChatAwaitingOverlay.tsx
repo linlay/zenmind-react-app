@@ -3,6 +3,7 @@ import { Animated, Pressable, ScrollView, StyleSheet, Text, View } from 'react-n
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
+import { type TFunction, useT } from '../../../shared/i18n';
 import { appVisualTokens, formatConversationTimestamp } from '../../../shared/visual/foundation';
 import { ChatConversationAwaitingState } from '../../chatRealtime/types';
 
@@ -10,7 +11,7 @@ const ANIMATION_DURATION = 280;
 const SPRING_CONFIG = {
   damping: 18,
   stiffness: 220,
-  mass: 0.9,
+  mass: 0.9
 };
 
 type ChatAwaitingOverlayProps = {
@@ -24,46 +25,48 @@ type ChatAwaitingResumeBarProps = {
   onPress: () => void;
 };
 
-function getModeLabel(mode: ChatConversationAwaitingState['mode']): string {
+function getModeLabel(mode: ChatConversationAwaitingState['mode'], t: TFunction): string {
   switch (mode) {
     case 'plan':
-      return '计划';
+      return t('awaiting.mode.plan');
     case 'approval':
-      return '审批';
+      return t('awaiting.mode.approval');
     case 'form':
-      return '表单';
+      return t('awaiting.mode.form');
     case 'question':
     default:
-      return '提问';
+      return t('awaiting.mode.question');
   }
 }
 
-function getModeHint(mode: ChatConversationAwaitingState['mode']): string {
+function getModeHint(mode: ChatConversationAwaitingState['mode'], t: TFunction): string {
   switch (mode) {
     case 'plan':
-      return '当前移动端展示计划确认内容，提交动作仍保持在现有消息链路外。';
+      return t('awaiting.hint.plan');
     case 'approval':
-      return '当前移动端仅展示确认请求，提交动作仍保持在现有消息链路外。';
+      return t('awaiting.hint.approval');
     case 'form':
-      return '当前移动端先以只读方式展示待填写信息，不新增专用提交协议。';
+      return t('awaiting.hint.form');
     case 'question':
     default:
-      return '当前步骤正在等待进一步输入，移动端会保持运行态与消息链路一致。';
+      return t('awaiting.hint.question');
   }
 }
 
 export const ChatAwaitingResumeBar = memo(function ChatAwaitingResumeBar({
   awaiting,
   visible,
-  onPress,
+  onPress
 }: ChatAwaitingResumeBarProps) {
+  const t = useT();
+
   if (!awaiting || !visible) {
     return null;
   }
 
   return (
     <Pressable
-      accessibilityLabel="打开等待输入"
+      accessibilityLabel={t('awaiting.resume.open')}
       accessibilityRole="button"
       onPress={onPress}
       style={({ pressed }) => [styles.resumeBar, pressed && styles.resumeBarPressed]}
@@ -72,7 +75,7 @@ export const ChatAwaitingResumeBar = memo(function ChatAwaitingResumeBar({
         <AppIcon usage="awaiting.resume" />
       </View>
       <Text allowFontScaling={false} numberOfLines={1} style={styles.resumeTitle}>
-        等待输入 · {getModeLabel(awaiting.mode)}
+        {t('awaiting.resume.title', { mode: getModeLabel(awaiting.mode, t) })}
       </Text>
     </Pressable>
   );
@@ -80,8 +83,9 @@ export const ChatAwaitingResumeBar = memo(function ChatAwaitingResumeBar({
 
 export const ChatAwaitingOverlay = memo(function ChatAwaitingOverlay({
   awaiting,
-  onDismiss,
+  onDismiss
 }: ChatAwaitingOverlayProps) {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const maskOpacity = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(600)).current;
@@ -94,13 +98,13 @@ export const ChatAwaitingOverlay = memo(function ChatAwaitingOverlay({
       Animated.timing(maskOpacity, {
         toValue: 1,
         duration: ANIMATION_DURATION,
-        useNativeDriver: true,
+        useNativeDriver: true
       }),
       Animated.spring(sheetTranslateY, {
         toValue: 0,
         ...SPRING_CONFIG,
-        useNativeDriver: true,
-      }),
+        useNativeDriver: true
+      })
     ]).start();
   }, [awaiting.id, maskOpacity, sheetTranslateY]);
 
@@ -115,8 +119,8 @@ export const ChatAwaitingOverlay = memo(function ChatAwaitingOverlay({
           styles.sheet,
           {
             paddingBottom: Math.max(insets.bottom, 18),
-            transform: [{ translateY: sheetTranslateY }],
-          },
+            transform: [{ translateY: sheetTranslateY }]
+          }
         ]}
         pointerEvents="box-none"
       >
@@ -124,15 +128,15 @@ export const ChatAwaitingOverlay = memo(function ChatAwaitingOverlay({
         <View style={styles.panelHeader}>
           <View style={styles.panelHeaderText}>
             <Text allowFontScaling={false} style={styles.panelHeaderTitle}>
-              等待输入
+              {t('awaiting.title')}
             </Text>
             <Text allowFontScaling={false} style={styles.panelHeaderMeta}>
-              {getModeLabel(awaiting.mode)} · {formatConversationTimestamp(awaiting.updatedAt)}
+              {getModeLabel(awaiting.mode, t)} · {formatConversationTimestamp(awaiting.updatedAt)}
             </Text>
           </View>
           <Pressable onPress={onDismiss} style={styles.dismissButton}>
             <Text allowFontScaling={false} style={styles.dismissButtonText}>
-              收起
+              {t('awaiting.collapse')}
             </Text>
           </Pressable>
         </View>
@@ -140,7 +144,7 @@ export const ChatAwaitingOverlay = memo(function ChatAwaitingOverlay({
         <View style={styles.panelContent}>
           <View style={styles.modeBadge}>
             <Text allowFontScaling={false} style={styles.modeBadgeText}>
-              {getModeLabel(awaiting.mode)}
+              {getModeLabel(awaiting.mode, t)}
             </Text>
           </View>
           <Text allowFontScaling={false} style={styles.promptText}>
@@ -156,12 +160,12 @@ export const ChatAwaitingOverlay = memo(function ChatAwaitingOverlay({
             </View>
           ) : null}
           <Text allowFontScaling={false} style={styles.hintText}>
-            {getModeHint(awaiting.mode)}
+            {getModeHint(awaiting.mode, t)}
           </Text>
           {awaiting.answer ? (
             <View style={styles.answerCard}>
               <Text allowFontScaling={false} style={styles.answerLabel}>
-                最近回复
+                {t('awaiting.latestAnswer')}
               </Text>
               <Text allowFontScaling={false} style={styles.answerText}>
                 {awaiting.answer}
@@ -186,10 +190,10 @@ const styles = StyleSheet.create({
     borderRadius: appVisualTokens.radii.pill,
     backgroundColor: appVisualTokens.colors.brandBlueSoft,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 6
   },
   resumeBarPressed: {
-    opacity: 0.72,
+    opacity: 0.72
   },
   resumeIcon: {
     width: 20,
@@ -197,25 +201,25 @@ const styles = StyleSheet.create({
     borderRadius: appVisualTokens.radii.pill,
     backgroundColor: appVisualTokens.colors.surface,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   resumeTitle: {
     maxWidth: 180,
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '700',
-    color: appVisualTokens.colors.brandBlueStrong,
+    color: appVisualTokens.colors.brandBlueStrong
   },
   overlay: {
     ...StyleSheet.absoluteFill,
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end'
   },
   mask: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: appVisualTokens.colors.overlay,
+    backgroundColor: appVisualTokens.colors.overlay
   },
   maskPressable: {
-    flex: 1,
+    flex: 1
   },
   sheet: {
     backgroundColor: appVisualTokens.colors.surface,
@@ -223,71 +227,71 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 12,
-    gap: 16,
+    gap: 16
   },
   handle: {
     width: 36,
     height: 5,
     borderRadius: 3,
     backgroundColor: appVisualTokens.colors.lineStrong,
-    alignSelf: 'center',
+    alignSelf: 'center'
   },
   panelHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 12
   },
   panelHeaderText: {
     flex: 1,
-    gap: 4,
+    gap: 4
   },
   panelHeaderTitle: {
     fontSize: 17,
     fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   panelHeaderMeta: {
     fontSize: 12,
     fontWeight: '600',
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   dismissButton: {
     borderRadius: 18,
     backgroundColor: appVisualTokens.colors.brandBlueSoft,
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    paddingVertical: 8
   },
   dismissButtonText: {
     fontSize: 12,
     fontWeight: '700',
-    color: appVisualTokens.colors.brandBlueStrong,
+    color: appVisualTokens.colors.brandBlueStrong
   },
   panelContent: {
-    gap: 12,
+    gap: 12
   },
   modeBadge: {
     alignSelf: 'flex-start',
     borderRadius: 999,
     backgroundColor: appVisualTokens.colors.brandBlueSoft,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 5
   },
   modeBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: appVisualTokens.colors.brandBlueStrong,
+    color: appVisualTokens.colors.brandBlueStrong
   },
   promptText: {
     fontSize: 15,
     lineHeight: 22,
     fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   hintText: {
     fontSize: 13,
     lineHeight: 20,
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   payloadCard: {
     maxHeight: 180,
@@ -296,12 +300,12 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: appVisualTokens.colors.lineStrong,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 12
   },
   payloadText: {
     fontSize: 13,
     lineHeight: 19,
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   answerCard: {
     borderRadius: 16,
@@ -310,16 +314,16 @@ const styles = StyleSheet.create({
     borderColor: appVisualTokens.colors.lineStrong,
     paddingHorizontal: 14,
     paddingVertical: 14,
-    gap: 8,
+    gap: 8
   },
   answerLabel: {
     fontSize: 11,
     fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   answerText: {
     fontSize: 14,
     lineHeight: 21,
-    color: appVisualTokens.colors.textPrimary,
-  },
+    color: appVisualTokens.colors.textPrimary
+  }
 });

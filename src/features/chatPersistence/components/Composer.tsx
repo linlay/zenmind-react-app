@@ -1,15 +1,8 @@
 import { memo, useCallback, useEffect, useState, type ReactNode } from 'react';
-import {
-  ActivityIndicator,
-  Keyboard,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppIcon, type AppIconUsage } from '../../../shared/icons/AppIcon';
+import { type TFunction, useT } from '../../../shared/i18n';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 import type { ChatComposerPrimaryAction } from '../chatDetailViewModel';
 import type { ChatComposerAttachment } from '../types';
@@ -49,16 +42,16 @@ function getPrimaryIconUsage(primaryAction: ChatComposerPrimaryAction): AppIconU
   }
 }
 
-function getPrimaryAccessibilityLabel(primaryAction: ChatComposerPrimaryAction) {
+function getPrimaryAccessibilityLabel(primaryAction: ChatComposerPrimaryAction, t: TFunction) {
   switch (primaryAction) {
     case 'stop':
-      return '停止生成';
+      return t('composer.stop');
     case 'resume':
-      return '继续生成';
+      return t('composer.resume');
     case 'sending':
-      return '正在发送';
+      return t('composer.sending');
     default:
-      return '发送消息';
+      return t('composer.send');
   }
 }
 
@@ -75,25 +68,19 @@ export const Composer = memo(function Composer({
   onRetryAttachment,
   rightAccessory = null,
   disabled = false,
-  placeholder = '输入提问内容',
+  placeholder
 }: ComposerProps) {
+  const t = useT();
   const [inputHeight, setInputHeight] = useState(MIN_HEIGHT);
   const [attachmentTrayOpen, setAttachmentTrayOpen] = useState(false);
-  const primaryDisabled =
-    disabled || primaryAction === 'send-disabled' || primaryAction === 'sending';
+  const primaryDisabled = disabled || primaryAction === 'send-disabled' || primaryAction === 'sending';
   const attachmentDisabled = disabled || primaryAction === 'stop' || primaryAction === 'sending';
 
-  const handleContentSizeChange = useCallback(
-    (event: { nativeEvent: { contentSize: { height: number } } }) => {
-      const contentHeight = event.nativeEvent.contentSize.height;
-      const nextHeight = Math.max(
-        MIN_HEIGHT,
-        Math.min(MAX_HEIGHT, contentHeight + VERTICAL_PADDING * 2)
-      );
-      setInputHeight(nextHeight);
-    },
-    []
-  );
+  const handleContentSizeChange = useCallback((event: { nativeEvent: { contentSize: { height: number } } }) => {
+    const contentHeight = event.nativeEvent.contentSize.height;
+    const nextHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, contentHeight + VERTICAL_PADDING * 2));
+    setInputHeight(nextHeight);
+  }, []);
 
   const handlePrimaryPress = useCallback(() => {
     if (primaryDisabled) {
@@ -132,19 +119,11 @@ export const Composer = memo(function Composer({
     },
     [onSelectAttachment]
   );
-  const handleSelectImageAttachment = useCallback(
-    () => handleSelectAttachment('image'),
-    [handleSelectAttachment]
-  );
-  const handleSelectFileAttachment = useCallback(
-    () => handleSelectAttachment('file'),
-    [handleSelectAttachment]
-  );
+  const handleSelectImageAttachment = useCallback(() => handleSelectAttachment('image'), [handleSelectAttachment]);
+  const handleSelectFileAttachment = useCallback(() => handleSelectAttachment('file'), [handleSelectAttachment]);
 
   const iconUsage = getPrimaryIconUsage(primaryAction);
-  const iconColor = primaryDisabled
-    ? appVisualTokens.colors.textTertiary
-    : appVisualTokens.colors.surface;
+  const iconColor = primaryDisabled ? appVisualTokens.colors.textTertiary : appVisualTokens.colors.surface;
 
   useEffect(() => {
     if (attachmentDisabled) {
@@ -160,24 +139,24 @@ export const Composer = memo(function Composer({
             onPress={handleSelectImageAttachment}
             disabled={attachmentDisabled}
             style={({ pressed }) => [styles.attachmentOption, pressed && styles.pressed]}
-            accessibilityLabel="上传图片"
+            accessibilityLabel={t('composer.uploadImage')}
             accessibilityRole="button"
           >
             <AppIcon usage="composer.attachImage" />
             <Text allowFontScaling={false} style={styles.attachmentOptionText}>
-              图片
+              {t('composer.image')}
             </Text>
           </Pressable>
           <Pressable
             onPress={handleSelectFileAttachment}
             disabled={attachmentDisabled}
             style={({ pressed }) => [styles.attachmentOption, pressed && styles.pressed]}
-            accessibilityLabel="上传文件"
+            accessibilityLabel={t('composer.uploadFile')}
             accessibilityRole="button"
           >
             <AppIcon usage="composer.attachFile" />
             <Text allowFontScaling={false} style={styles.attachmentOptionText}>
-              文件
+              {t('composer.file')}
             </Text>
           </Pressable>
         </View>
@@ -197,19 +176,15 @@ export const Composer = memo(function Composer({
           style={({ pressed }) => [
             styles.iconButton,
             attachmentDisabled && styles.iconButtonDisabled,
-            pressed && !attachmentDisabled && styles.pressed,
+            pressed && !attachmentDisabled && styles.pressed
           ]}
-          accessibilityLabel="添加附件"
+          accessibilityLabel={t('composer.addAttachment')}
           accessibilityRole="button"
         >
           <AppIcon
             usage="composer.attach"
             size={appVisualTokens.iconSizes.md}
-            color={
-              attachmentDisabled
-                ? appVisualTokens.colors.textTertiary
-                : appVisualTokens.colors.textSecondary
-            }
+            color={attachmentDisabled ? appVisualTokens.colors.textTertiary : appVisualTokens.colors.textSecondary}
             strokeWidth={2.2}
           />
         </Pressable>
@@ -217,7 +192,7 @@ export const Composer = memo(function Composer({
         <TextInput
           value={value}
           onChangeText={onChangeText}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t('composer.placeholder')}
           placeholderTextColor={appVisualTokens.colors.textTertiary}
           allowFontScaling={false}
           multiline
@@ -240,9 +215,9 @@ export const Composer = memo(function Composer({
             primaryAction === 'sending' && styles.primaryButtonSending,
             primaryAction === 'stop' && styles.primaryButtonStop,
             primaryAction === 'resume' && styles.primaryButtonResume,
-            pressed && !primaryDisabled && styles.pressed,
+            pressed && !primaryDisabled && styles.pressed
           ]}
-          accessibilityLabel={getPrimaryAccessibilityLabel(primaryAction)}
+          accessibilityLabel={getPrimaryAccessibilityLabel(primaryAction, t)}
           accessibilityRole="button"
         >
           {primaryAction === 'sending' ? (
@@ -258,12 +233,12 @@ export const Composer = memo(function Composer({
 
 const styles = StyleSheet.create({
   root: {
-    gap: appVisualTokens.spacing.xs,
+    gap: appVisualTokens.spacing.xs
   },
   attachmentTray: {
     flexDirection: 'row',
     gap: appVisualTokens.spacing.sm,
-    paddingHorizontal: appVisualTokens.spacing.xs,
+    paddingHorizontal: appVisualTokens.spacing.xs
   },
   attachmentOption: {
     height: 34,
@@ -274,12 +249,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: appVisualTokens.colors.line,
     backgroundColor: appVisualTokens.colors.surface,
-    paddingHorizontal: appVisualTokens.spacing.md,
+    paddingHorizontal: appVisualTokens.spacing.md
   },
   attachmentOptionText: {
     fontSize: 13,
     fontWeight: '600',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   container: {
     minHeight: 44,
@@ -291,7 +266,7 @@ const styles = StyleSheet.create({
     borderColor: appVisualTokens.colors.line,
     backgroundColor: appVisualTokens.colors.surface,
     paddingHorizontal: 5,
-    paddingVertical: 5,
+    paddingVertical: 5
   },
   input: {
     flex: 1,
@@ -303,12 +278,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     color: appVisualTokens.colors.textPrimary,
-    includeFontPadding: false,
+    includeFontPadding: false
   },
   rightAccessory: {
     flexShrink: 0,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   iconButton: {
     width: 34,
@@ -317,34 +292,34 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: appVisualTokens.colors.line,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   iconButtonDisabled: {
-    backgroundColor: appVisualTokens.colors.backgroundMuted,
+    backgroundColor: appVisualTokens.colors.backgroundMuted
   },
   primaryButton: {
     width: 34,
     height: 34,
     borderRadius: appVisualTokens.radii.pill,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   primaryButtonDisabled: {
-    backgroundColor: appVisualTokens.colors.backgroundMuted,
+    backgroundColor: appVisualTokens.colors.backgroundMuted
   },
   primaryButtonSend: {
-    backgroundColor: appVisualTokens.colors.brandBlue,
+    backgroundColor: appVisualTokens.colors.brandBlue
   },
   primaryButtonSending: {
-    backgroundColor: appVisualTokens.colors.brandBlue,
+    backgroundColor: appVisualTokens.colors.brandBlue
   },
   primaryButtonStop: {
-    backgroundColor: appVisualTokens.colors.danger,
+    backgroundColor: appVisualTokens.colors.danger
   },
   primaryButtonResume: {
-    backgroundColor: appVisualTokens.colors.success,
+    backgroundColor: appVisualTokens.colors.success
   },
   pressed: {
-    opacity: 0.72,
-  },
+    opacity: 0.72
+  }
 });

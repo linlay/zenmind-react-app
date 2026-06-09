@@ -1,6 +1,7 @@
 import { memo } from 'react';
 
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
+import type { I18nKey } from '../../shared/i18n';
 import { RootTabParamList } from './types';
 
 type AppTabIconProps = {
@@ -12,14 +13,14 @@ const TAB_ICON_USAGES: Record<keyof RootTabParamList, AppIconUsage> = {
   Chat: 'tab.chat',
   Terminal: 'tab.terminal',
   Drive: 'tab.drive',
-  Me: 'tab.me',
+  Me: 'tab.me'
 };
 
-export const TAB_LABELS: Record<keyof RootTabParamList, string> = {
-  Chat: '对话',
-  Terminal: '任务',
-  Drive: '网盘',
-  Me: '用户',
+export const TAB_LABEL_KEYS: Record<keyof RootTabParamList, I18nKey> = {
+  Chat: 'tabs.chat',
+  Terminal: 'tabs.tasks',
+  Drive: 'tabs.drive',
+  Me: 'tabs.me'
 };
 
 export const AppTabIcon = memo(function AppTabIcon({ routeName, color }: AppTabIconProps) {

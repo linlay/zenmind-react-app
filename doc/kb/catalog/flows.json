@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-08T03:52:06.141Z",
+  "generatedAt": "2026-06-08T09:04:02.138Z",
   "items": [
     {
       "id": "app-startup",
@@ -10,11 +10,13 @@
         "app-shell-navigation",
         "core-auth-session",
         "feature-auth-login",
-        "feature-notifications"
+        "feature-notifications",
+        "shared-i18n"
       ],
       "relatedTasks": [
         "add-app-startup-loading-screen",
         "add-auth-login-screen",
+        "add-internationalization",
         "add-or-edit-tab-screen",
         "add-system-notifications",
         "modify-runtime-environment",

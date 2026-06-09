@@ -26,10 +26,10 @@
     "src/types/assets.d.ts"
   ],
   "responsibility": [
-    "挂载 SafeAreaProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
+    "挂载 SafeAreaProvider、I18nProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
     "决定认证前后的 RootStack / Tab 结构、登录门卫开关、任务看板与占位页映射以及 Chat 首页与详情页的导航层级。",
     "为一级 Tab 页面提供固定顶部 Header 与滚动内容分离的壳层布局。",
-    "承接共享视觉 token、描边 Tab 图标和中文标签映射，统一一级页面的轻量聊天风格。",
+    "承接共享视觉 token、共享国际化文案、描边 Tab 图标和 locale 感知标签映射，统一一级页面的轻量聊天风格。",
     "让 ChatDetail 作为 Tabs 之上的上层 route 覆盖首页，避免在 feature 内手写 tab 显隐和页面覆盖动画。",
     "接收系统通知点击后的聊天导航意图，并在认证和导航 ready 前缓存 pending payload。",
     "保持 app 层只做壳层编排，不直接承载业务状态和底层存储细节。"
@@ -69,7 +69,7 @@
       "file": "App.tsx",
       "symbol": "default",
       "kind": "react-entry",
-      "description": "应用 UI 根入口，同时托住 native splash，并编排 React 启动加载层的接棒与退场时机。"
+      "description": "应用 UI 根入口，挂载 SafeAreaProvider 与 I18nProvider，同时托住 native splash，并编排 React 启动加载层的接棒与退场时机。"
     },
     {
       "file": "src/app/AppRoot.tsx",
@@ -99,6 +99,7 @@
     "feature-chat-persistence",
     "feature-chat-realtime",
     "feature-notifications",
+    "shared-i18n",
     "shared-visual-foundation",
     "shared-screen-header"
   ],
@@ -116,6 +117,7 @@
     "add-or-edit-tab-screen",
     "add-reusable-header-component",
     "add-system-notifications",
+    "add-internationalization",
     "add-reusable-list-screen",
     "remove-development-debug-entry"
   ],
@@ -132,7 +134,8 @@
     "新增登录页、Tab 或上层 route 时同时检查 RootNavigator、TabScreens、RootTabParamList 和 RootStackParamList 是否一致。",
     "任务 Tab 当前通过 Terminal route 挂载 AgentTaskBoardScreen；若改 route 名称要同步 types、TabIcon 和 KB。",
     "一级 Tab 页面如果展示共享 Header，Header 必须固定在滚动区外，避免随 ScrollView 或列表一起滚动。",
-    "底部 Tab 的中文标签、描边图标和颜色语义继续由共享视觉层统一提供，不在单个 screen 内重复定义。",
+    "底部 Tab 的文案 key、描边图标和颜色语义继续由共享层统一提供，不在单个 screen 内重复定义。",
+    "新增壳层或一级页面文案时优先走 shared-i18n，不把 locale 解析、设备语言读取或翻译表散落到 screen 内。",
     "如果支持关闭登录门卫，AppRoot 与 RootNavigator 必须同时消费同一个 auth config 开关。",
     "当前 Chat Tab 直接指向 feature 内的 ChatHomeStorageDemo；ChatDetail 由 RootNavigator 的上层 stack 承载。",
     "app 层可以消费 core auth 暴露的快照与 bootstrap 入口，但不要自己处理 token 存储细节。",
@@ -152,6 +155,10 @@
     {
       "type": "module",
       "ref": "app-development-debug"
+    },
+    {
+      "type": "module",
+      "ref": "shared-i18n"
     },
     {
       "type": "module",
@@ -190,7 +197,7 @@
       "index.js": [],
       "src/app/AppRoot.tsx": ["AppRoot"],
       "src/app/navigation/RootNavigator.tsx": ["RootNavigator"],
-      "src/app/navigation/TabIcon.tsx": ["AppTabIcon", "TAB_LABELS"],
+      "src/app/navigation/TabIcon.tsx": ["AppTabIcon", "TAB_LABEL_KEYS"],
       "src/app/navigation/types.ts": ["RootStackParamList", "RootTabParamList"],
       "src/app/screens/AppScreenFrame.tsx": ["AppScreenFrame"],
       "src/app/screens/TabScreens.tsx": ["ChatScreen", "DriveScreen", "MeScreen", "TerminalScreen"],
@@ -207,6 +214,7 @@
       "feature-chat-persistence",
       "feature-chat-realtime",
       "feature-notifications",
+      "shared-i18n",
       "shared-screen-header",
       "shared-visual-foundation"
     ],

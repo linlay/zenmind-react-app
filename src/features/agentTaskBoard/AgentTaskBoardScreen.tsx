@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
+import { type I18nKey, type TFunction, useT } from '../../shared/i18n';
 import { appVisualTokens, getAvatarLabel, getAvatarTone } from '../../shared/visual/foundation';
 
 type TaskStage = 'intake' | 'assigned' | 'running' | 'review' | 'done';
@@ -19,28 +20,28 @@ type BoardRoute =
 
 type BoardTask = {
   id: string;
-  title: string;
-  outcome: string;
+  titleKey: I18nKey;
+  outcomeKey: I18nKey;
   stage: TaskStage;
   priority: TaskPriority;
-  agent: string;
-  due: string;
-  nextAction: string;
-  blocker?: string;
+  agentName: string;
+  agentKey?: I18nKey;
+  dueKey: I18nKey;
+  nextActionKey: I18nKey;
+  blockerKey?: I18nKey;
   progress: number;
 };
 
 type AgentOption = {
   name: string;
-  role: string;
   load: string;
-  fit: string;
+  fitKey: I18nKey;
   status: 'ready' | 'busy' | 'waiting';
 };
 
 type LifecycleStep = {
   stage: TaskStage;
-  label: string;
+  labelKey: I18nKey;
 };
 
 type BoardSummary = {
@@ -54,70 +55,72 @@ type BoardSummary = {
 const TASKS: readonly BoardTask[] = [
   {
     id: 'task-001',
-    title: '移动端任务看板重构',
-    outcome: '输出一版更聚焦的移动端任务处置流。',
+    titleKey: 'tasks.sample.task001.title',
+    outcomeKey: 'tasks.sample.task001.outcome',
     stage: 'running',
     priority: 'high',
-    agent: 'UI Agent',
-    due: '今天 18:00',
-    nextAction: '确认首屏信息层级',
+    agentName: 'UI Agent',
+    dueKey: 'tasks.sample.task001.due',
+    nextActionKey: 'tasks.sample.task001.nextAction',
     progress: 68,
   },
   {
     id: 'task-002',
-    title: '知识库 stale 巡检',
-    outcome: '检查任务卡、模块卡和生成索引是否一致。',
+    titleKey: 'tasks.sample.task002.title',
+    outcomeKey: 'tasks.sample.task002.outcome',
     stage: 'intake',
     priority: 'medium',
-    agent: '未分配',
-    due: '今天 20:00',
-    nextAction: '选择执行 Agent',
+    agentName: '',
+    agentKey: 'tasks.agent.unassigned',
+    dueKey: 'tasks.sample.task002.due',
+    nextActionKey: 'tasks.sample.task002.nextAction',
     progress: 10,
   },
   {
     id: 'task-003',
-    title: '导入异常归因',
-    outcome: '按日志样例归类失败原因并给出修复建议。',
+    titleKey: 'tasks.sample.task003.title',
+    outcomeKey: 'tasks.sample.task003.outcome',
     stage: 'intake',
     priority: 'high',
-    agent: '未分配',
-    due: '明天 11:00',
-    nextAction: '补充上下文后分配',
-    blocker: '缺 2 条日志',
+    agentName: '',
+    agentKey: 'tasks.agent.unassigned',
+    dueKey: 'tasks.sample.task003.due',
+    nextActionKey: 'tasks.sample.task003.nextAction',
+    blockerKey: 'tasks.sample.task003.blocker',
     progress: 0,
   },
   {
     id: 'task-004',
-    title: '执行权限边界检查',
-    outcome: '确认智能体工具调用不会越过仓库审批策略。',
+    titleKey: 'tasks.sample.task004.title',
+    outcomeKey: 'tasks.sample.task004.outcome',
     stage: 'assigned',
     priority: 'medium',
-    agent: 'Ops Agent',
-    due: '今天 21:00',
-    nextAction: '等待执行窗口',
+    agentName: 'Ops Agent',
+    dueKey: 'tasks.sample.task004.due',
+    nextActionKey: 'tasks.sample.task004.nextAction',
     progress: 28,
   },
   {
     id: 'task-005',
-    title: '复核执行记录',
-    outcome: '确认工具调用、产物和人工批准点可追溯。',
+    titleKey: 'tasks.sample.task005.title',
+    outcomeKey: 'tasks.sample.task005.outcome',
     stage: 'review',
     priority: 'high',
-    agent: 'Reviewer',
-    due: '今天 22:00',
-    nextAction: '通过或退回',
-    blocker: '需人工确认',
+    agentName: 'Reviewer',
+    dueKey: 'tasks.sample.task005.due',
+    nextActionKey: 'tasks.sample.task005.nextAction',
+    blockerKey: 'tasks.sample.task005.blocker',
     progress: 86,
   },
   {
     id: 'task-006',
-    title: '发布节奏摘要',
-    outcome: '生成面向负责人的任务进展日报。',
+    titleKey: 'tasks.sample.task006.title',
+    outcomeKey: 'tasks.sample.task006.outcome',
     stage: 'done',
     priority: 'low',
-    agent: 'Writer',
-    due: '已完成',
-    nextAction: '归档',
+    agentName: 'Writer',
+    dueKey: 'tasks.sample.task006.due',
+    nextActionKey: 'tasks.sample.task006.nextAction',
     progress: 100,
   },
 ] as const;
@@ -125,60 +128,56 @@ const TASKS: readonly BoardTask[] = [
 const AGENTS: readonly AgentOption[] = [
   {
     name: 'UI Agent',
-    role: '界面与交互',
     load: '2/4',
-    fit: '适合移动端 UI 调整',
+    fitKey: 'tasks.agent.fit.ui',
     status: 'ready',
   },
   {
     name: 'Planner',
-    role: '任务拆解',
     load: '1/3',
-    fit: '适合梳理上下文和验收口径',
+    fitKey: 'tasks.agent.fit.planner',
     status: 'ready',
   },
   {
     name: 'Ops Agent',
-    role: '脚本与环境',
     load: '3/3',
-    fit: '队列已满，适合延后',
+    fitKey: 'tasks.agent.fit.ops',
     status: 'busy',
   },
   {
     name: 'Reviewer',
-    role: '复核审计',
     load: '2/2',
-    fit: '等待人工确认',
+    fitKey: 'tasks.agent.fit.reviewer',
     status: 'waiting',
   },
 ] as const;
 
 const LIFECYCLE = [
-  { stage: 'intake', label: '收集' },
-  { stage: 'assigned', label: '分配' },
-  { stage: 'running', label: '执行' },
-  { stage: 'review', label: '复核' },
-  { stage: 'done', label: '完成' },
+  { stage: 'intake', labelKey: 'tasks.lifecycle.intake' },
+  { stage: 'assigned', labelKey: 'tasks.lifecycle.assigned' },
+  { stage: 'running', labelKey: 'tasks.lifecycle.running' },
+  { stage: 'review', labelKey: 'tasks.lifecycle.review' },
+  { stage: 'done', labelKey: 'tasks.lifecycle.done' },
 ] as const satisfies readonly LifecycleStep[];
 
 const QUEUES = [
-  { id: 'focus', label: '待处理' },
-  { id: 'running', label: '执行中' },
-  { id: 'review', label: '待复核' },
-] as const satisfies readonly { id: BoardQueue; label: string }[];
+  { id: 'focus', labelKey: 'tasks.queue.focus' },
+  { id: 'running', labelKey: 'tasks.queue.running' },
+  { id: 'review', labelKey: 'tasks.queue.review' },
+] as const satisfies readonly { id: BoardQueue; labelKey: I18nKey }[];
 
-const PRIORITY_LABELS: Record<TaskPriority, string> = {
-  high: '高',
-  medium: '中',
-  low: '低',
+const PRIORITY_LABEL_KEYS: Record<TaskPriority, I18nKey> = {
+  high: 'tasks.priority.high',
+  medium: 'tasks.priority.medium',
+  low: 'tasks.priority.low',
 };
 
-const STAGE_LABELS: Record<TaskStage, string> = {
-  intake: '待分配',
-  assigned: '已分配',
-  running: '执行中',
-  review: '待复核',
-  done: '已完成',
+const STAGE_LABEL_KEYS: Record<TaskStage, I18nKey> = {
+  intake: 'tasks.stage.intake',
+  assigned: 'tasks.stage.assigned',
+  running: 'tasks.stage.running',
+  review: 'tasks.stage.review',
+  done: 'tasks.stage.done',
 };
 
 function getPriorityColor(priority: TaskPriority): string {
@@ -222,6 +221,10 @@ function getTaskById(taskId: string | undefined): BoardTask {
   return TASKS.find((task) => task.id === taskId) ?? TASKS[0];
 }
 
+function formatTaskAgentName(task: BoardTask, t: TFunction): string {
+  return task.agentKey ? t(task.agentKey) : task.agentName;
+}
+
 function getBoardSummary(queue: BoardQueue): BoardSummary {
   const visibleTasks: BoardTask[] = [];
   let intakeCount = 0;
@@ -233,7 +236,7 @@ function getBoardSummary(queue: BoardQueue): BoardSummary {
   TASKS.forEach((task) => {
     const isIntake = task.stage === 'intake';
     const isReview = task.stage === 'review';
-    const isBlocked = Boolean(task.blocker);
+    const isBlocked = Boolean(task.blockerKey);
 
     if (isIntake) {
       intakeCount += 1;
@@ -347,6 +350,7 @@ function HomeScreen({
   onOpenAssign,
   onOpenTask,
 }: HomeScreenProps) {
+  const t = useT();
   const summary = useMemo(() => getBoardSummary(selectedQueue), [selectedQueue]);
   const agentPreview = useMemo(getAgentPreview, []);
   const focusTask = summary.focusTask;
@@ -367,39 +371,45 @@ function HomeScreen({
           <View style={styles.heroBlock}>
             <View style={styles.heroTitleRow}>
               <View style={styles.heroTextBlock}>
-                <Text style={styles.heroEyebrow}>今日焦点</Text>
-                <Text style={styles.heroTitle}>{focusTask?.title ?? '任务队列稳定'}</Text>
+                <Text style={styles.heroEyebrow}>{t('tasks.hero.todayFocus')}</Text>
+                <Text style={styles.heroTitle}>
+                  {focusTask ? t(focusTask.titleKey) : t('tasks.hero.stable')}
+                </Text>
                 <Text style={styles.heroBody}>
-                  {focusTask?.blocker ?? focusTask?.nextAction ?? '暂无需要人工介入的任务。'}
+                  {focusTask?.blockerKey
+                    ? t(focusTask.blockerKey)
+                    : focusTask
+                      ? t(focusTask.nextActionKey)
+                      : t('tasks.hero.noIntervention')}
                 </Text>
               </View>
               <View style={styles.heroCountBlock}>
                 <Text style={styles.heroCountValue}>
                   {summary.intakeCount + summary.reviewCount}
                 </Text>
-                <Text style={styles.heroCountLabel}>待处理</Text>
+                <Text style={styles.heroCountLabel}>{t('tasks.hero.pending')}</Text>
               </View>
             </View>
 
             <View style={styles.heroActionRow}>
               <PlainButton
-                label="分配任务"
+                label={t('tasks.action.assignTask')}
                 variant="primary"
                 onPress={() => onOpenAssign(focusTask?.id)}
               />
-              <PlainButton label="新增任务" onPress={onOpenNewTask} />
+              <PlainButton label={t('tasks.action.newTask')} onPress={onOpenNewTask} />
             </View>
           </View>
 
           <View style={styles.statusRow}>
-            <StatusPill label="待分配" value={`${summary.intakeCount}`} />
+            <StatusPill label={t('tasks.stage.intake')} value={`${summary.intakeCount}`} />
             <StatusPill
-              label="待复核"
+              label={t('tasks.stage.review')}
               value={`${summary.reviewCount}`}
               tone={appVisualTokens.colors.warning}
             />
             <StatusPill
-              label="有阻塞"
+              label={t('tasks.status.blocked')}
               value={`${summary.blockedCount}`}
               tone={appVisualTokens.colors.danger}
             />
@@ -424,7 +434,7 @@ function HomeScreen({
                       selected ? styles.queueSwitchTextSelected : null,
                     ]}
                   >
-                    {queue.label}
+                    {t(queue.labelKey)}
                   </Text>
                 </Pressable>
               );
@@ -432,16 +442,18 @@ function HomeScreen({
           </View>
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>任务</Text>
-            <Text style={styles.sectionMeta}>{summary.visibleTasks.length} 项</Text>
+            <Text style={styles.sectionTitle}>{t('tasks.section.tasks')}</Text>
+            <Text style={styles.sectionMeta}>
+              {t('tasks.countItems', { count: summary.visibleTasks.length })}
+            </Text>
           </View>
         </View>
       }
       ListFooterComponent={
         <View style={styles.agentFooter}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>可用智能体</Text>
-            <Text style={styles.sectionMeta}>优先显示可接单</Text>
+            <Text style={styles.sectionTitle}>{t('tasks.section.availableAgents')}</Text>
+            <Text style={styles.sectionMeta}>{t('tasks.section.availableAgentsHint')}</Text>
           </View>
           <View style={styles.agentSummaryList}>
             {agentPreview.map((agent) => (
@@ -464,10 +476,15 @@ type TaskRowProps = {
 };
 
 function TaskRow({ task, onOpenTask, onOpenAssign }: TaskRowProps) {
+  const t = useT();
   const priorityColor = getPriorityColor(task.priority);
   const stageColor = getStageColor(task.stage);
   const shouldAssign = task.stage === 'intake';
-  const actionLabel = shouldAssign ? '分配' : task.stage === 'review' ? '复核' : '查看';
+  const actionLabel = shouldAssign
+    ? t('tasks.action.assign')
+    : task.stage === 'review'
+      ? t('tasks.action.review')
+      : t('tasks.action.view');
   const actionHandler = shouldAssign ? onOpenAssign : onOpenTask;
 
   return (
@@ -480,23 +497,23 @@ function TaskRow({ task, onOpenTask, onOpenAssign }: TaskRowProps) {
       >
         <View style={styles.taskRowTitleLine}>
           <Text numberOfLines={1} style={styles.taskRowTitle}>
-            {task.title}
+            {t(task.titleKey)}
           </Text>
           <View style={styles.priorityMini}>
             <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
             <Text style={[styles.priorityMiniText, { color: priorityColor }]}>
-              {PRIORITY_LABELS[task.priority]}
+              {t(PRIORITY_LABEL_KEYS[task.priority])}
             </Text>
           </View>
         </View>
         <Text numberOfLines={2} style={styles.taskOutcome}>
-          {task.outcome}
+          {t(task.outcomeKey)}
         </Text>
         <View style={styles.taskRowMeta}>
           <Text numberOfLines={1} style={styles.taskMetaText}>
-            {STAGE_LABELS[task.stage]} · {task.agent}
+            {t(STAGE_LABEL_KEYS[task.stage])} · {formatTaskAgentName(task, t)}
           </Text>
-          <Text style={styles.taskMetaText}>{task.due}</Text>
+          <Text style={styles.taskMetaText}>{t(task.dueKey)}</Text>
         </View>
       </Pressable>
       <Pressable
@@ -515,6 +532,7 @@ type AgentCompactRowProps = {
 };
 
 function AgentCompactRow({ agent }: AgentCompactRowProps) {
+  const t = useT();
   const tone = getAvatarTone(agent.name);
   const statusColor = getAgentStatusColor(agent.status);
 
@@ -530,7 +548,7 @@ function AgentCompactRow({ agent }: AgentCompactRowProps) {
           {agent.name}
         </Text>
         <Text numberOfLines={1} style={styles.agentFit}>
-          {agent.fit}
+          {t(agent.fitKey)}
         </Text>
       </View>
       <View style={styles.agentLoadBlock}>
@@ -574,25 +592,27 @@ type NewTaskPageProps = {
 };
 
 function NewTaskPage({ onBack, onOpenAssign }: NewTaskPageProps) {
+  const t = useT();
+
   return (
-    <SecondaryPage title="新增任务" onBack={onBack}>
+    <SecondaryPage title={t('tasks.page.newTask')} onBack={onBack}>
       <View style={styles.formBlock}>
-        <Text style={styles.formTitle}>任务草案</Text>
-        <DraftField label="任务目标" value="重构移动端任务看板，让负责人一眼看到待处理事项。" />
-        <DraftField label="预期产物" value="一版主屏 + 新增任务 + 分配任务 + 任务详情交互稿。" />
-        <DraftField label="上下文来源" value="当前仓库 UI 主题、PC 看板截图、任务生命周期规则。" />
+        <Text style={styles.formTitle}>{t('tasks.form.draft')}</Text>
+        <DraftField label={t('tasks.form.goal')} value={t('tasks.form.goalValue')} />
+        <DraftField label={t('tasks.form.deliverable')} value={t('tasks.form.deliverableValue')} />
+        <DraftField label={t('tasks.form.context')} value={t('tasks.form.contextValue')} />
       </View>
 
       <View style={styles.formBlock}>
-        <Text style={styles.formTitle}>执行设置</Text>
-        <OptionRow label="优先级" value="高" />
-        <OptionRow label="截止时间" value="今天 18:00" />
-        <OptionRow label="初始状态" value="待分配" />
+        <Text style={styles.formTitle}>{t('tasks.form.execution')}</Text>
+        <OptionRow label={t('tasks.form.priority')} value={t('tasks.priority.high')} />
+        <OptionRow label={t('tasks.form.dueTime')} value={t('tasks.sample.task001.due')} />
+        <OptionRow label={t('tasks.form.initialStage')} value={t('tasks.stage.intake')} />
       </View>
 
       <View style={styles.stickyActionBlock}>
-        <PlainButton label="生成任务草案" variant="primary" onPress={onOpenAssign} />
-        <PlainButton label="存为待补充" onPress={onBack} />
+        <PlainButton label={t('tasks.action.generateDraft')} variant="primary" onPress={onOpenAssign} />
+        <PlainButton label={t('tasks.action.saveIncomplete')} onPress={onBack} />
       </View>
     </SecondaryPage>
   );
@@ -633,20 +653,21 @@ type AssignTaskPageProps = {
 };
 
 function AssignTaskPage({ task, onBack, onOpenTask }: AssignTaskPageProps) {
+  const t = useT();
   const [selectedAgent, setSelectedAgent] = useState<string>(AGENTS[0].name);
 
   return (
-    <SecondaryPage title="分配任务" onBack={onBack}>
+    <SecondaryPage title={t('tasks.page.assignTask')} onBack={onBack}>
       <View style={styles.assignmentSummary}>
-        <Text style={styles.assignmentEyebrow}>待分配</Text>
-        <Text style={styles.assignmentTitle}>{task.title}</Text>
-        <Text style={styles.assignmentBody}>{task.outcome}</Text>
+        <Text style={styles.assignmentEyebrow}>{t('tasks.stage.intake')}</Text>
+        <Text style={styles.assignmentTitle}>{t(task.titleKey)}</Text>
+        <Text style={styles.assignmentBody}>{t(task.outcomeKey)}</Text>
       </View>
 
       <View style={styles.sectionBlock}>
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>选择智能体</Text>
-          <Text style={styles.sectionMeta}>按匹配度排序</Text>
+          <Text style={styles.sectionTitle}>{t('tasks.section.selectAgent')}</Text>
+          <Text style={styles.sectionMeta}>{t('tasks.section.sortByFit')}</Text>
         </View>
         <View style={styles.agentChoiceList}>
           {AGENTS.map((agent) => (
@@ -661,15 +682,15 @@ function AssignTaskPage({ task, onBack, onOpenTask }: AssignTaskPageProps) {
       </View>
 
       <View style={styles.formBlock}>
-        <Text style={styles.formTitle}>分配后动作</Text>
-        <OptionRow label="进入阶段" value="已分配" />
-        <OptionRow label="通知方式" value="站内任务提醒" />
-        <OptionRow label="人工复核" value="高优先任务完成后复核" />
+        <Text style={styles.formTitle}>{t('tasks.form.afterAssign')}</Text>
+        <OptionRow label={t('tasks.form.enterStage')} value={t('tasks.stage.assigned')} />
+        <OptionRow label={t('tasks.form.notifyBy')} value={t('tasks.form.notifyByValue')} />
+        <OptionRow label={t('tasks.form.manualReview')} value={t('tasks.form.manualReviewValue')} />
       </View>
 
       <View style={styles.stickyActionBlock}>
         <PlainButton
-          label={`分配给 ${selectedAgent}`}
+          label={t('tasks.action.assignTo', { name: selectedAgent })}
           variant="primary"
           onPress={() => onOpenTask(task.id)}
         />
@@ -685,6 +706,7 @@ type AgentChoiceProps = {
 };
 
 function AgentChoice({ agent, selected, onSelect }: AgentChoiceProps) {
+  const t = useT();
   const tone = getAvatarTone(agent.name);
   const statusColor = getAgentStatusColor(agent.status);
 
@@ -707,7 +729,7 @@ function AgentChoice({ agent, selected, onSelect }: AgentChoiceProps) {
           {agent.name}
         </Text>
         <Text numberOfLines={2} style={styles.agentFit}>
-          {agent.fit}
+          {t(agent.fitKey)}
         </Text>
       </View>
       <View style={styles.agentLoadBlock}>
@@ -725,32 +747,33 @@ type TaskDetailPageProps = {
 };
 
 function TaskDetailPage({ task, onBack, onOpenAssign }: TaskDetailPageProps) {
+  const t = useT();
   const activeIndex = LIFECYCLE.findIndex((step) => step.stage === task.stage);
   const progress = clampProgress(task.progress);
 
   return (
-    <SecondaryPage title="任务详情" onBack={onBack}>
+    <SecondaryPage title={t('tasks.page.taskDetail')} onBack={onBack}>
       <View style={styles.detailHero}>
         <View style={styles.detailTitleRow}>
-          <Text style={styles.detailStage}>{STAGE_LABELS[task.stage]}</Text>
-          <Text style={styles.detailDue}>{task.due}</Text>
+          <Text style={styles.detailStage}>{t(STAGE_LABEL_KEYS[task.stage])}</Text>
+          <Text style={styles.detailDue}>{t(task.dueKey)}</Text>
         </View>
-        <Text style={styles.detailTitle}>{task.title}</Text>
-        <Text style={styles.detailBody}>{task.outcome}</Text>
+        <Text style={styles.detailTitle}>{t(task.titleKey)}</Text>
+        <Text style={styles.detailBody}>{t(task.outcomeKey)}</Text>
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
       </View>
 
       <View style={styles.formBlock}>
-        <Text style={styles.formTitle}>下一步</Text>
-        <OptionRow label="动作" value={task.nextAction} />
-        <OptionRow label="负责人" value={task.agent} />
-        <OptionRow label="风险" value={task.blocker ?? '无阻塞'} />
+        <Text style={styles.formTitle}>{t('tasks.form.nextStep')}</Text>
+        <OptionRow label={t('tasks.form.action')} value={t(task.nextActionKey)} />
+        <OptionRow label={t('tasks.form.owner')} value={formatTaskAgentName(task, t)} />
+        <OptionRow label={t('tasks.form.risk')} value={task.blockerKey ? t(task.blockerKey) : t('tasks.risk.none')} />
       </View>
 
       <View style={styles.sectionBlock}>
-        <Text style={styles.sectionTitle}>生命周期</Text>
+        <Text style={styles.sectionTitle}>{t('tasks.section.lifecycle')}</Text>
         <View style={styles.lifecycle}>
           {LIFECYCLE.map((step, index) => {
             const reached = index <= activeIndex;
@@ -763,7 +786,7 @@ function TaskDetailPage({ task, onBack, onOpenAssign }: TaskDetailPageProps) {
                   ]}
                 />
                 <Text style={[styles.lifecycleText, reached ? styles.lifecycleTextReached : null]}>
-                  {step.label}
+                  {t(step.labelKey)}
                 </Text>
               </View>
             );
@@ -772,16 +795,20 @@ function TaskDetailPage({ task, onBack, onOpenAssign }: TaskDetailPageProps) {
       </View>
 
       <View style={styles.formBlock}>
-        <Text style={styles.formTitle}>最近记录</Text>
-        <TimelineRow time="13:20" text="智能体完成首轮方案整理" />
-        <TimelineRow time="13:42" text="等待负责人确认交互主线" />
-        <TimelineRow time="14:10" text="准备进入复核或重新分配" />
+        <Text style={styles.formTitle}>{t('tasks.section.recentRecords')}</Text>
+        <TimelineRow time="13:20" text={t('tasks.record.firstPlan')} />
+        <TimelineRow time="13:42" text={t('tasks.record.waitingOwner')} />
+        <TimelineRow time="14:10" text={t('tasks.record.readyForReview')} />
       </View>
 
       <View style={styles.stickyActionBlock}>
         <PlainButton
           label={
-            task.stage === 'intake' ? '去分配' : task.stage === 'review' ? '通过复核' : '重新分配'
+            task.stage === 'intake'
+              ? t('tasks.action.goAssign')
+              : task.stage === 'review'
+                ? t('tasks.action.passReview')
+                : t('tasks.action.reassign')
           }
           variant="primary"
           onPress={() => onOpenAssign(task.id)}
@@ -806,6 +833,7 @@ function TimelineRow({ time, text }: TimelineRowProps) {
 }
 
 export function AgentTaskBoardScreen() {
+  const t = useT();
   const [route, setRoute] = useState<BoardRoute>({ name: 'home' });
   const [selectedQueue, setSelectedQueue] = useState<BoardQueue>('focus');
   const tabBarHeight = useBottomTabBarHeight();
@@ -852,7 +880,7 @@ export function AgentTaskBoardScreen() {
   return (
     <View style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
-        <ScreenHeader title="任务" rightActions={headerActions} />
+        <ScreenHeader title={t('tabs.tasks')} rightActions={headerActions} />
       </SafeAreaView>
 
       <HomeScreen

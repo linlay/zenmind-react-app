@@ -48,8 +48,9 @@
     },
     {
       "layer": "shared",
-      "role": "复用型列表、Header、视觉 token、图标和对话 Markdown 渲染能力。",
+      "role": "复用型列表、Header、国际化、视觉 token、图标和对话 Markdown 渲染能力。",
       "moduleIds": [
+        "shared-i18n",
         "shared-visual-foundation",
         "shared-paginated-list",
         "shared-conversation-content-renderer",
@@ -65,7 +66,7 @@
     "doc/module-reference.md",
     "doc/ui-visual-theme.md"
   ],
-  "generatedAt": "2026-06-08T03:52:06.088Z",
+  "generatedAt": "2026-06-08T09:04:02.060Z",
   "catalogs": {
     "modules": "doc/kb/catalog/modules.json",
     "flows": "doc/kb/catalog/flows.json",
@@ -73,10 +74,10 @@
   },
   "rulesRef": "doc/kb/rules.json",
   "generated": {
-    "moduleCount": 16,
+    "moduleCount": 17,
     "flowCount": 5,
-    "taskCount": 11,
-    "sourceFileCount": 98,
+    "taskCount": 12,
+    "sourceFileCount": 106,
     "factsRef": "doc/kb/generated/project-facts.json",
     "appEntryChain": [
       {

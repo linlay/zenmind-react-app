@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
+import { useT } from '../../shared/i18n';
 import { appVisualTokens } from '../../shared/visual/foundation';
 
 type AppScreenFrameProps = {
@@ -14,14 +15,9 @@ type AppScreenFrameProps = {
   children?: ReactNode;
 };
 
-export function AppScreenFrame({
-  eyebrow,
-  title,
-  description,
-  accentColor,
-  children,
-}: AppScreenFrameProps) {
+export function AppScreenFrame({ eyebrow, title, description, accentColor, children }: AppScreenFrameProps) {
   const tabBarHeight = useBottomTabBarHeight();
+  const t = useT();
   const hasChildren = children !== undefined && children !== null;
   const contentBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
 
@@ -49,11 +45,9 @@ export function AppScreenFrame({
           children
         ) : (
           <View style={styles.placeholderBlock}>
-            <Text style={styles.cardEyebrow}>预留区域</Text>
-            <Text style={styles.cardTitle}>当前页面先保留扁平化占位结构。</Text>
-            <Text style={styles.cardBody}>
-              后续接入真实内容时，继续沿用固定 Header 和轻量列表化编排。
-            </Text>
+            <Text style={styles.cardEyebrow}>{t('app.placeholder.eyebrow')}</Text>
+            <Text style={styles.cardTitle}>{t('app.placeholder.title')}</Text>
+            <Text style={styles.cardBody}>{t('app.placeholder.body')}</Text>
           </View>
         )}
       </ScrollView>
@@ -64,68 +58,68 @@ export function AppScreenFrame({
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: appVisualTokens.colors.surface,
+    backgroundColor: appVisualTokens.colors.surface
   },
   headerSafeArea: {
-    backgroundColor: appVisualTokens.colors.surface,
+    backgroundColor: appVisualTokens.colors.surface
   },
   scrollView: {
-    flex: 1,
+    flex: 1
   },
   content: {
     paddingHorizontal: appVisualTokens.spacing.xl,
     paddingTop: appVisualTokens.spacing.lg,
-    gap: appVisualTokens.spacing.xl,
+    gap: appVisualTokens.spacing.xl
   },
   introSection: {
-    gap: appVisualTokens.spacing.sm,
+    gap: appVisualTokens.spacing.sm
   },
   eyebrowRow: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
-    gap: appVisualTokens.spacing.sm,
+    gap: appVisualTokens.spacing.sm
   },
   accentDot: {
     width: 6,
     height: 6,
-    borderRadius: appVisualTokens.radii.pill,
+    borderRadius: appVisualTokens.radii.pill
   },
   eyebrow: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '600'
   },
   sectionTitle: {
     fontSize: 24,
     lineHeight: 30,
     fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   description: {
     fontSize: 16,
     lineHeight: 24,
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   placeholderBlock: {
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: appVisualTokens.colors.line,
     paddingTop: appVisualTokens.spacing.lg,
-    gap: appVisualTokens.spacing.sm,
+    gap: appVisualTokens.spacing.sm
   },
   cardEyebrow: {
     fontSize: 12,
     fontWeight: '600',
-    color: appVisualTokens.colors.brandBlue,
+    color: appVisualTokens.colors.brandBlue
   },
   cardTitle: {
     fontSize: 18,
     lineHeight: 24,
     fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   cardBody: {
     fontSize: 15,
     lineHeight: 22,
-    color: appVisualTokens.colors.textSecondary,
-  },
+    color: appVisualTokens.colors.textSecondary
+  }
 });

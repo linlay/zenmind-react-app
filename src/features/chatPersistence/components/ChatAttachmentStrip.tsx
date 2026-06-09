@@ -1,15 +1,8 @@
 import { memo, useMemo, useState } from 'react';
-import {
-  ActivityIndicator,
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { buildApiUrl } from '../../../core/api/apiClient';
+import { useT } from '../../../shared/i18n';
 import { AppLineIcon } from '../../../shared/visual/AppLineIcon';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 import { formatChatAttachmentSize, getChatAttachmentStatusLabel } from '../chatAttachmentModels';
@@ -25,9 +18,7 @@ type ChatAttachmentStripProps = {
 function resolveImageUri(attachment: ChatAttachmentBase, variant: 'composer' | 'message'): string {
   const localUri = attachment.previewUri || attachment.localUri;
   const uri =
-    variant === 'message'
-      ? localUri || attachment.resourceUrl || ''
-      : localUri || attachment.resourceUrl || '';
+    variant === 'message' ? localUri || attachment.resourceUrl || '' : localUri || attachment.resourceUrl || '';
   if (!uri || /^(file|content|data|https?):\/\//.test(uri)) {
     return uri;
   }
@@ -43,11 +34,12 @@ function resolveImageUri(attachment: ChatAttachmentBase, variant: 'composer' | '
 
 const AttachmentImageTile = memo(function AttachmentImageTile({
   attachment,
-  variant,
+  variant
 }: {
   attachment: ChatAttachmentBase;
   variant: 'composer' | 'message';
 }) {
+  const t = useT();
   const [loadState, setLoadState] = useState<'loading' | 'loaded' | 'failed'>('loading');
   const [retrySeed, setRetrySeed] = useState(0);
   const imageUri = resolveImageUri(attachment, variant);
@@ -91,7 +83,7 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
                 color={appVisualTokens.colors.textSecondary}
               />
               <Text allowFontScaling={false} numberOfLines={1} style={styles.imageErrorText}>
-                图片加载失败
+                {t('attachment.imageLoadFailed')}
               </Text>
             </>
           )}
@@ -103,31 +95,26 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
 
 const AttachmentFileTile = memo(function AttachmentFileTile({
   attachment,
-  variant,
+  variant
 }: {
   attachment: ChatAttachmentBase;
   variant: 'composer' | 'message';
 }) {
+  const t = useT();
   const sizeText = formatChatAttachmentSize(attachment.sizeBytes);
   const statusText =
-    variant === 'composer' && attachment.status !== 'ready'
-      ? getChatAttachmentStatusLabel(attachment.status)
-      : '';
+    variant === 'composer' && attachment.status !== 'ready' ? getChatAttachmentStatusLabel(attachment.status, t) : '';
   return (
     <View style={[styles.fileTile, variant === 'message' && styles.messageFileTile]}>
       <View style={styles.fileIconWrap}>
-        <AppLineIcon
-          name="file"
-          size={appVisualTokens.iconSizes.sm}
-          color={appVisualTokens.colors.brandBlue}
-        />
+        <AppLineIcon name="file" size={appVisualTokens.iconSizes.sm} color={appVisualTokens.colors.brandBlue} />
       </View>
       <View style={styles.fileTextWrap}>
         <Text allowFontScaling={false} numberOfLines={1} style={styles.fileName}>
           {attachment.name}
         </Text>
         <Text allowFontScaling={false} numberOfLines={1} style={styles.fileMeta}>
-          {[statusText, sizeText].filter(Boolean).join(' · ') || '文件'}
+          {[statusText, sizeText].filter(Boolean).join(' · ') || t('attachment.file')}
         </Text>
       </View>
     </View>
@@ -138,8 +125,10 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
   attachments,
   variant,
   onRemoveAttachment,
-  onRetryAttachment,
+  onRetryAttachment
 }: ChatAttachmentStripProps) {
+  const t = useT();
+
   if (attachments.length === 0) {
     return null;
   }
@@ -150,10 +139,7 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
       bounces={false}
       keyboardShouldPersistTaps="handled"
       showsHorizontalScrollIndicator={false}
-      contentContainerStyle={[
-        styles.stripContent,
-        variant === 'message' && styles.messageStripContent,
-      ]}
+      contentContainerStyle={[styles.stripContent, variant === 'message' && styles.messageStripContent]}
     >
       {attachments.map((attachment) => {
         const showActions = variant === 'composer';
@@ -163,7 +149,7 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
             style={[
               styles.attachmentShell,
               variant === 'message' && styles.messageAttachmentShell,
-              attachment.status === 'failed' && styles.attachmentFailed,
+              attachment.status === 'failed' && styles.attachmentFailed
             ]}
           >
             {attachment.kind === 'image' ? (
@@ -181,10 +167,10 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
                 onPress={() => onRetryAttachment?.(attachment.attachmentId)}
                 style={styles.retryButton}
                 accessibilityRole="button"
-                accessibilityLabel={`重试上传 ${attachment.name}`}
+                accessibilityLabel={t('attachment.retryUpload', { name: attachment.name })}
               >
                 <Text allowFontScaling={false} style={styles.retryText}>
-                  重试
+                  {t('attachment.retry')}
                 </Text>
               </Pressable>
             ) : null}
@@ -193,7 +179,7 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
                 onPress={() => onRemoveAttachment?.(attachment.attachmentId)}
                 style={styles.removeButton}
                 accessibilityRole="button"
-                accessibilityLabel={`移除附件 ${attachment.name}`}
+                accessibilityLabel={t('attachment.remove', { name: attachment.name })}
               >
                 <AppLineIcon name="close" size={12} color={appVisualTokens.colors.textPrimary} />
               </Pressable>
@@ -209,40 +195,40 @@ const styles = StyleSheet.create({
   stripContent: {
     gap: appVisualTokens.spacing.sm,
     paddingHorizontal: appVisualTokens.spacing.xs,
-    paddingVertical: 2,
+    paddingVertical: 2
   },
   messageStripContent: {
     paddingHorizontal: 0,
-    paddingTop: appVisualTokens.spacing.sm,
+    paddingTop: appVisualTokens.spacing.sm
   },
   attachmentShell: {
     position: 'relative',
-    borderRadius: appVisualTokens.radii.md,
+    borderRadius: appVisualTokens.radii.md
   },
   messageAttachmentShell: {
-    maxWidth: 210,
+    maxWidth: 210
   },
   attachmentFailed: {
-    opacity: 0.86,
+    opacity: 0.86
   },
   imageTile: {
     overflow: 'hidden',
     borderRadius: appVisualTokens.radii.md,
     borderWidth: 1,
     borderColor: appVisualTokens.colors.line,
-    backgroundColor: appVisualTokens.colors.backgroundMuted,
+    backgroundColor: appVisualTokens.colors.backgroundMuted
   },
   composerImageFrame: {
     width: 58,
-    height: 58,
+    height: 58
   },
   messageImageFrame: {
     width: 168,
-    height: 118,
+    height: 118
   },
   image: {
     width: '100%',
-    height: '100%',
+    height: '100%'
   },
   imageOverlay: {
     position: 'absolute',
@@ -253,12 +239,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: appVisualTokens.spacing.xs,
-    backgroundColor: appVisualTokens.colors.backgroundMuted,
+    backgroundColor: appVisualTokens.colors.backgroundMuted
   },
   imageErrorText: {
     maxWidth: 116,
     fontSize: 11,
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   fileTile: {
     width: 184,
@@ -270,10 +256,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: appVisualTokens.colors.line,
     backgroundColor: appVisualTokens.colors.surface,
-    padding: appVisualTokens.spacing.sm,
+    padding: appVisualTokens.spacing.sm
   },
   messageFileTile: {
-    width: 210,
+    width: 210
   },
   fileIconWrap: {
     width: 32,
@@ -281,21 +267,21 @@ const styles = StyleSheet.create({
     borderRadius: appVisualTokens.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appVisualTokens.colors.backgroundMuted,
+    backgroundColor: appVisualTokens.colors.backgroundMuted
   },
   fileTextWrap: {
     minWidth: 0,
-    flex: 1,
+    flex: 1
   },
   fileName: {
     fontSize: 13,
     fontWeight: '600',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   fileMeta: {
     marginTop: 2,
     fontSize: 11,
-    color: appVisualTokens.colors.textTertiary,
+    color: appVisualTokens.colors.textTertiary
   },
   statusBadge: {
     position: 'absolute',
@@ -306,7 +292,7 @@ const styles = StyleSheet.create({
     borderRadius: appVisualTokens.radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appVisualTokens.colors.surface,
+    backgroundColor: appVisualTokens.colors.surface
   },
   retryButton: {
     position: 'absolute',
@@ -315,12 +301,12 @@ const styles = StyleSheet.create({
     borderRadius: appVisualTokens.radii.pill,
     backgroundColor: appVisualTokens.colors.surface,
     paddingHorizontal: appVisualTokens.spacing.sm,
-    paddingVertical: 3,
+    paddingVertical: 3
   },
   retryText: {
     fontSize: 11,
     fontWeight: '700',
-    color: appVisualTokens.colors.brandBlue,
+    color: appVisualTokens.colors.brandBlue
   },
   removeButton: {
     position: 'absolute',
@@ -333,6 +319,6 @@ const styles = StyleSheet.create({
     borderColor: appVisualTokens.colors.line,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: appVisualTokens.colors.surface,
-  },
+    backgroundColor: appVisualTokens.colors.surface
+  }
 });

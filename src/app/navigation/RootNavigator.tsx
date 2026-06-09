@@ -1,7 +1,4 @@
-import {
-  createBottomTabNavigator,
-  type BottomTabBarButtonProps,
-} from '@react-navigation/bottom-tabs';
+import { createBottomTabNavigator, type BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { ComponentProps } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
@@ -12,8 +9,9 @@ import { isAuthRequired } from '../../core/auth/authConfig';
 import { AuthBootstrapScreen, LoginScreen } from '../../features/auth/LoginScreen';
 import { ChatScreen, DriveScreen, MeScreen, TerminalScreen } from '../screens/TabScreens';
 import { ChatDetailScreen } from '../../features/chatPersistence/ChatDetailScreen';
+import { useT } from '../../shared/i18n';
 import { appVisualTokens } from '../../shared/visual/foundation';
-import { AppTabIcon, TAB_LABELS } from './TabIcon';
+import { AppTabIcon, TAB_LABEL_KEYS } from './TabIcon';
 import { RootStackParamList, RootTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
@@ -31,7 +29,7 @@ function getTabBarMetrics(bottomInset: number) {
   return {
     height: TAB_BAR_CONTENT_HEIGHT + TAB_BAR_TOP_PADDING + paddingBottom,
     paddingTop: TAB_BAR_TOP_PADDING,
-    paddingBottom,
+    paddingBottom
   };
 }
 
@@ -48,6 +46,7 @@ function TabBarButtonWithoutRipple({
 
 function TabsNavigator() {
   const insets = useSafeAreaInsets();
+  const t = useT();
   const tabBarMetrics = getTabBarMetrics(insets.bottom);
 
   return (
@@ -59,7 +58,7 @@ function TabsNavigator() {
         lazy: true,
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: true,
-        tabBarLabel: TAB_LABELS[route.name],
+        tabBarLabel: t(TAB_LABEL_KEYS[route.name]),
         tabBarLabelPosition: 'below-icon',
         tabBarActiveTintColor: appVisualTokens.colors.brandBlue,
         tabBarInactiveTintColor: appVisualTokens.colors.textTertiary,
@@ -69,15 +68,15 @@ function TabsNavigator() {
             bottom: 0,
             height: tabBarMetrics.height,
             paddingTop: tabBarMetrics.paddingTop,
-            paddingBottom: tabBarMetrics.paddingBottom,
-          },
+            paddingBottom: tabBarMetrics.paddingBottom
+          }
         ],
         tabBarItemStyle: styles.tabItem,
         tabBarIconStyle: styles.tabIcon,
         tabBarLabelStyle: styles.tabLabel,
         sceneStyle: styles.scene,
         tabBarButton: TabBarButtonWithoutRipple,
-        tabBarIcon: ({ color }) => <AppTabIcon routeName={route.name} color={color} />,
+        tabBarIcon: ({ color }) => <AppTabIcon routeName={route.name} color={color} />
       })}
     >
       <Tab.Screen name="Chat" component={ChatScreen} />
@@ -117,7 +116,7 @@ export function RootNavigator() {
         options={{
           animation: 'slide_from_right',
           animationDuration: 100,
-          gestureEnabled: true,
+          gestureEnabled: true
         }}
       />
     </RootStack.Navigator>
@@ -126,7 +125,7 @@ export function RootNavigator() {
 
 const styles = StyleSheet.create({
   scene: {
-    backgroundColor: appVisualTokens.colors.background,
+    backgroundColor: appVisualTokens.colors.background
   },
   tabBar: {
     position: 'absolute',
@@ -135,17 +134,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: appVisualTokens.spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: appVisualTokens.colors.line,
-    backgroundColor: appVisualTokens.colors.surface,
+    backgroundColor: appVisualTokens.colors.surface
   },
   tabItem: {
     paddingTop: 2,
-    paddingBottom: 0,
+    paddingBottom: 0
   },
   tabIcon: {
-    marginBottom: 1,
+    marginBottom: 1
   },
   tabLabel: {
     fontSize: 12,
-    fontWeight: '500',
-  },
+    fontWeight: '500'
+  }
 });

@@ -7,11 +7,12 @@ import {
   Pressable,
   StyleSheet,
   Text,
-  View,
+  View
 } from 'react-native';
 
 import { ConversationMarkdownRenderer } from '../../../shared/components/ConversationMarkdownRenderer';
 import { AppIcon } from '../../../shared/icons/AppIcon';
+import { useT } from '../../../shared/i18n';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 import {
   buildChatTimelineDisplayItems,
@@ -21,7 +22,7 @@ import {
   type ChatTimelineDisplayItem,
   type ChatTimelineMessageNode,
   type ChatTimelineTextNode,
-  type ChatTimelineState,
+  type ChatTimelineState
 } from '../../chatTimeline/index.ts';
 import { formatChatDetailTimestamp } from '../chatDetailFormatters';
 import { ChatAttachmentStrip } from './ChatAttachmentStrip';
@@ -66,18 +67,11 @@ function isNearTimelineEnd(metrics: TimelineScrollMetrics): boolean {
 function getTimelineNodeContentLength(node: ChatTimelineDisplayItem['node']): number {
   if (node.kind === 'message') {
     return (
-      node.content.length +
-      (node.attachments || []).reduce((total, attachment) => total + attachment.name.length, 0)
+      node.content.length + (node.attachments || []).reduce((total, attachment) => total + attachment.name.length, 0)
     );
   }
   if (node.kind === 'tool') {
-    return (
-      node.title.length +
-      node.body.length +
-      node.argsText.length +
-      node.resultText.length +
-      node.status.length
-    );
+    return node.title.length + node.body.length + node.argsText.length + node.resultText.length + node.status.length;
   }
   if (node.kind === 'awaiting') {
     return (
@@ -101,9 +95,7 @@ function getTimelineItemContentLength(item: ChatTimelineDisplayItem): number {
   return getTimelineNodeContentLength(item.node);
 }
 
-function getTimelineTailSignature(
-  items: readonly ChatTimelineDisplayItem[]
-): TimelineTailSignature | null {
+function getTimelineTailSignature(items: readonly ChatTimelineDisplayItem[]): TimelineTailSignature | null {
   const tail = items[items.length - 1];
   if (!tail) {
     return null;
@@ -113,27 +105,18 @@ function getTimelineTailSignature(
   return {
     key: tail.key,
     contentLength: getTimelineItemContentLength(tail),
-    lifecycle:
-      tail.kind === 'tool-group'
-        ? tail.nodes.map((item) => item.lifecycle).join('|')
-        : node.lifecycle,
+    lifecycle: tail.kind === 'tool-group' ? tail.nodes.map((item) => item.lifecycle).join('|') : node.lifecycle,
     streaming:
       tail.kind === 'tool-group'
         ? tail.nodes.some((item) => item.streaming)
         : 'streaming' in node
           ? Boolean(node.streaming)
           : false,
-    updatedAt:
-      tail.kind === 'tool-group'
-        ? Math.max(...tail.nodes.map((item) => item.updatedAt))
-        : node.updatedAt,
+    updatedAt: tail.kind === 'tool-group' ? Math.max(...tail.nodes.map((item) => item.updatedAt)) : node.updatedAt
   };
 }
 
-function didTimelineTailAdvance(
-  previous: TimelineTailSignature | null,
-  next: TimelineTailSignature | null
-): boolean {
+function didTimelineTailAdvance(previous: TimelineTailSignature | null, next: TimelineTailSignature | null): boolean {
   if (!next) {
     return false;
   }
@@ -154,13 +137,15 @@ function isTimelineScrollable(metrics: TimelineScrollMetrics): boolean {
 }
 
 function ThreadEmptyState() {
+  const t = useT();
+
   return (
     <View style={styles.threadEmptyState}>
       <Text allowFontScaling={false} style={styles.threadEmptyStateTitle}>
-        暂无消息
+        {t('timeline.empty.title')}
       </Text>
       <Text allowFontScaling={false} style={styles.threadEmptyStateBody}>
-        从下方输入框发送第一条消息
+        {t('timeline.empty.body')}
       </Text>
     </View>
   );
@@ -168,11 +153,12 @@ function ThreadEmptyState() {
 
 const MessageCopyButton = memo(function MessageCopyButton({
   text,
-  onCopyText,
+  onCopyText
 }: {
   text: string;
   onCopyText: (text: string) => void;
 }) {
+  const t = useT();
   const disabled = text.length <= 0;
   const handleCopy = useCallback(() => {
     if (!disabled) {
@@ -182,7 +168,7 @@ const MessageCopyButton = memo(function MessageCopyButton({
 
   return (
     <Pressable
-      accessibilityLabel="复制内容"
+      accessibilityLabel={t('timeline.copy')}
       accessibilityRole="button"
       disabled={disabled}
       hitSlop={8}
@@ -190,14 +176,12 @@ const MessageCopyButton = memo(function MessageCopyButton({
       style={({ pressed }) => [
         styles.copyButton,
         disabled && styles.copyButtonDisabled,
-        pressed && styles.copyButtonPressed,
+        pressed && styles.copyButtonPressed
       ]}
     >
       <AppIcon
         usage="timeline.copy"
-        color={
-          disabled ? appVisualTokens.colors.textTertiary : appVisualTokens.colors.textSecondary
-        }
+        color={disabled ? appVisualTokens.colors.textTertiary : appVisualTokens.colors.textSecondary}
       />
     </Pressable>
   );
@@ -208,7 +192,7 @@ const MessageFooter = memo(function MessageFooter({
   timestamp,
   errorReason = '',
   align = 'spread',
-  onCopyText,
+  onCopyText
 }: {
   text: string;
   timestamp: string;
@@ -237,7 +221,7 @@ const MessageFooter = memo(function MessageFooter({
 
 const UserQueryRow = memo(function UserQueryRow({
   node,
-  onCopyText,
+  onCopyText
 }: {
   node: ChatTimelineMessageNode;
   onCopyText: (text: string) => void;
@@ -258,12 +242,7 @@ const UserQueryRow = memo(function UserQueryRow({
           ) : null}
           <ChatAttachmentStrip attachments={node.attachments || []} variant="message" />
         </View>
-        <MessageFooter
-          text={node.content}
-          timestamp={timestamp}
-          align="end"
-          onCopyText={onCopyText}
-        />
+        <MessageFooter text={node.content} timestamp={timestamp} align="end" onCopyText={onCopyText} />
       </View>
     </View>
   );
@@ -271,7 +250,7 @@ const UserQueryRow = memo(function UserQueryRow({
 
 const RequestInputRow = memo(function RequestInputRow({
   node,
-  isLastInRun,
+  isLastInRun
 }: {
   node: ChatTimelineTextNode;
   isLastInRun: boolean;
@@ -305,7 +284,7 @@ const AssistantContentRow = memo(function AssistantContentRow({
   node,
   footer,
   isLastInRun,
-  onCopyText,
+  onCopyText
 }: {
   node: ChatTimelineMessageNode;
   footer?: ChatTimelineAssistantReplyFooter | null;
@@ -342,13 +321,14 @@ const AwaitingAnswerTimelineRow = memo(function AwaitingAnswerTimelineRow({
   node,
   isLastInRun,
   getInitialExpanded,
-  onExpandedChange,
+  onExpandedChange
 }: {
   node: ChatTimelineAwaitingNode;
   isLastInRun: boolean;
   getInitialExpanded: (nodeId: string, fallback: boolean) => boolean;
   onExpandedChange: (nodeId: string, expanded: boolean) => void;
 }) {
+  const t = useT();
   const summary = node.answerSummary;
   const canExpand = Boolean(summary?.items.length);
   const [expanded, setExpanded] = useState(() => getInitialExpanded(node.id, false));
@@ -372,7 +352,7 @@ const AwaitingAnswerTimelineRow = memo(function AwaitingAnswerTimelineRow({
   const headerContent = (
     <>
       <Text allowFontScaling={false} numberOfLines={1} style={styles.awaitingAnswerTitle}>
-        {summary?.title || '已提交回答'}
+        {summary?.title || t('timeline.answerSubmitted')}
       </Text>
       {canExpand ? (
         <View style={styles.awaitingAnswerFoldButton}>
@@ -393,7 +373,7 @@ const AwaitingAnswerTimelineRow = memo(function AwaitingAnswerTimelineRow({
         <View style={styles.awaitingAnswerBlock}>
           {canExpand ? (
             <Pressable
-              accessibilityLabel={expanded ? '收起回答' : '展开回答'}
+              accessibilityLabel={expanded ? t('timeline.collapseAnswer') : t('timeline.expandAnswer')}
               accessibilityRole="button"
               onPress={handleToggle}
               style={({ pressed }) => [styles.awaitingAnswerHeader, pressed && styles.rowPressed]}
@@ -424,10 +404,7 @@ const AwaitingAnswerTimelineRow = memo(function AwaitingAnswerTimelineRow({
   );
 });
 
-function areToolGroupNodesEqual(
-  previous: ChatTimelineDisplayItem,
-  next: ChatTimelineDisplayItem
-): boolean {
+function areToolGroupNodesEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
   if (previous.kind !== 'tool-group' || next.kind !== 'tool-group') {
     return true;
   }
@@ -437,10 +414,7 @@ function areToolGroupNodesEqual(
   return previous.nodes.every((node, index) => node === next.nodes[index]);
 }
 
-function areAssistantReplyFootersEqual(
-  previous: ChatTimelineDisplayItem,
-  next: ChatTimelineDisplayItem
-): boolean {
+function areAssistantReplyFootersEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
   const previousFooter = previous.assistantReplyFooter;
   const nextFooter = next.assistantReplyFooter;
   return (
@@ -455,7 +429,7 @@ const TimelineRow = memo(
     item,
     onCopyText,
     getInitialRuntimeExpanded,
-    onRuntimeExpandedChange,
+    onRuntimeExpandedChange
   }: {
     item: ChatTimelineDisplayItem;
     onCopyText: (text: string) => void;
@@ -512,16 +486,14 @@ const TimelineRow = memo(
     prev.item.groupIndex === next.item.groupIndex
 );
 
-export const ChatTimelineList = memo(function ChatTimelineList({
-  timelineState,
-  onCopyText,
-}: ChatTimelineListProps) {
+export const ChatTimelineList = memo(function ChatTimelineList({ timelineState, onCopyText }: ChatTimelineListProps) {
+  const t = useT();
   const listRef = useRef<FlashListRef<ChatTimelineDisplayItem>>(null);
   const expandedRuntimeNodesRef = useRef(new Map<string, boolean>());
   const scrollMetricsRef = useRef({
     contentHeight: 0,
     offsetY: 0,
-    viewportHeight: 0,
+    viewportHeight: 0
   });
   const isFollowingEndRef = useRef(true);
   const hasUserScrolledRef = useRef(false);
@@ -542,8 +514,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   const updateScrollToEndVisibility = useCallback(() => {
     const metrics = scrollMetricsRef.current;
     const distanceFromEnd = getDistanceFromEnd(scrollMetricsRef.current);
-    const shouldShow =
-      isTimelineScrollable(metrics) && distanceFromEnd > SCROLL_TO_END_BUTTON_THRESHOLD;
+    const shouldShow = isTimelineScrollable(metrics) && distanceFromEnd > SCROLL_TO_END_BUTTON_THRESHOLD;
     setScrollToEndVisible(shouldShow);
   }, [setScrollToEndVisible]);
   const markMetricsAtEnd = useCallback(() => {
@@ -613,7 +584,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
       scrollMetricsRef.current = {
         contentHeight: contentSize.height,
         offsetY: contentOffset.y,
-        viewportHeight: layoutMeasurement.height,
+        viewportHeight: layoutMeasurement.height
       };
       isFollowingEndRef.current = isNearTimelineEnd(scrollMetricsRef.current);
       updateScrollToEndVisibility();
@@ -629,8 +600,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   );
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
-      const wasFollowingEnd =
-        isFollowingEndRef.current || isNearTimelineEnd(scrollMetricsRef.current);
+      const wasFollowingEnd = isFollowingEndRef.current || isNearTimelineEnd(scrollMetricsRef.current);
       scrollMetricsRef.current.viewportHeight = event.nativeEvent.layout.height;
       if (wasFollowingEnd) {
         followTimelineEnd(false);
@@ -662,9 +632,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     const tailAdvanced = didTimelineTailAdvance(previousTailSignature, tailSignature);
     if (
       tailAdvanced &&
-      (isFollowingEndRef.current ||
-        isNearTimelineEnd(scrollMetricsRef.current) ||
-        !hasUserScrolledRef.current)
+      (isFollowingEndRef.current || isNearTimelineEnd(scrollMetricsRef.current) || !hasUserScrolledRef.current)
     ) {
       pendingAutoFollowRef.current = true;
       schedulePendingAutoFollowReset();
@@ -711,7 +679,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
 
       {showScrollToEnd ? (
         <Pressable
-          accessibilityLabel="滚动到最新消息"
+          accessibilityLabel={t('timeline.scrollToEnd')}
           accessibilityRole="button"
           onPress={handleScrollToEnd}
           style={({ pressed }) => [styles.scrollToEndButton, pressed && styles.rowPressed]}
@@ -725,68 +693,68 @@ export const ChatTimelineList = memo(function ChatTimelineList({
 
 const styles = StyleSheet.create({
   thread: {
-    flex: 1,
+    flex: 1
   },
   threadScroller: {
-    flex: 1,
+    flex: 1
   },
   timelineList: {
     paddingHorizontal: appVisualTokens.spacing.md,
     paddingTop: appVisualTokens.spacing.sm,
-    paddingBottom: appVisualTokens.spacing.lg,
+    paddingBottom: appVisualTokens.spacing.lg
   },
   threadEmptyState: {
     paddingTop: 88,
     alignItems: 'center',
-    gap: appVisualTokens.spacing.sm,
+    gap: appVisualTokens.spacing.sm
   },
   threadEmptyStateTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   threadEmptyStateBody: {
     fontSize: 15,
     lineHeight: 22,
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   userRow: {
     alignItems: 'flex-end',
-    marginBottom: 20,
+    marginBottom: 20
   },
   userMessageStack: {
     maxWidth: '78%',
     alignSelf: 'flex-end',
-    alignItems: 'stretch',
+    alignItems: 'stretch'
   },
   userBubble: {
     borderRadius: 16,
     borderBottomRightRadius: 8,
     backgroundColor: appVisualTokens.colors.brandBlue,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 10
   },
   timelineRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 16
   },
   timelineBody: {
     flex: 1,
-    minWidth: 0,
+    minWidth: 0
   },
   contentBlock: {
-    alignSelf: 'stretch',
+    alignSelf: 'stretch'
   },
   awaitingAnswerBlock: {
-    alignSelf: 'stretch',
+    alignSelf: 'stretch'
   },
   awaitingAnswerHeader: {
     minHeight: 28,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 7,
+    gap: 7
   },
   awaitingAnswerTitle: {
     flex: 1,
@@ -794,38 +762,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   awaitingAnswerFoldButton: {
     width: 28,
     height: 28,
     borderRadius: appVisualTokens.radii.sm,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   awaitingAnswerDetails: {
     marginTop: 8,
-    gap: 13,
+    gap: 13
   },
   awaitingAnswerItem: {
-    gap: 4,
+    gap: 4
   },
   awaitingAnswerQuestion: {
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   awaitingAnswerValue: {
     fontSize: 15,
     lineHeight: 22,
     fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   requestMessageStack: {
     maxWidth: '82%',
     alignSelf: 'flex-start',
-    alignItems: 'stretch',
+    alignItems: 'stretch'
   },
   requestBubble: {
     borderRadius: 16,
@@ -836,11 +804,11 @@ const styles = StyleSheet.create({
     shadowColor: appVisualTokens.colors.shadow,
     shadowOffset: {
       width: 0,
-      height: 8,
+      height: 8
     },
     shadowOpacity: 0.1,
     shadowRadius: 14,
-    elevation: 2,
+    elevation: 2
   },
   messageFooter: {
     minHeight: 28,
@@ -848,47 +816,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: appVisualTokens.spacing.sm,
+    gap: appVisualTokens.spacing.sm
   },
   messageFooterEnd: {
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end'
   },
   copyButton: {
     width: 28,
     height: 28,
     borderRadius: appVisualTokens.radii.sm,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   copyButtonDisabled: {
-    opacity: 0.45,
+    opacity: 0.45
   },
   copyButtonPressed: {
-    opacity: 0.7,
+    opacity: 0.7
   },
   footerMeta: {
     flex: 1,
     minWidth: 0,
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    gap: appVisualTokens.spacing.sm,
+    gap: appVisualTokens.spacing.sm
   },
   footerMetaEnd: {
-    flex: 0,
+    flex: 0
   },
   metaText: {
     fontSize: 12,
     fontWeight: '500',
-    color: appVisualTokens.colors.textTertiary,
+    color: appVisualTokens.colors.textTertiary
   },
   errorText: {
     flexShrink: 1,
     fontSize: 12,
     fontWeight: '600',
-    color: appVisualTokens.colors.danger,
+    color: appVisualTokens.colors.danger
   },
   rowPressed: {
-    opacity: 0.72,
+    opacity: 0.72
   },
   scrollToEndButton: {
     position: 'absolute',
@@ -906,10 +874,10 @@ const styles = StyleSheet.create({
     shadowColor: appVisualTokens.colors.shadow,
     shadowOffset: {
       width: 0,
-      height: 8,
+      height: 8
     },
     shadowOpacity: 0.08,
     shadowRadius: 16,
-    elevation: 3,
-  },
+    elevation: 3
+  }
 });

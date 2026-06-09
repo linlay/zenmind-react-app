@@ -1,9 +1,12 @@
 import type { AppIconUsage } from '../../../shared/icons/AppIcon';
+import { defaultT, type TFunction } from '../../../shared/i18n/translate.ts';
 import type {
   ChatTimelineNode,
   ChatTimelineRunNode,
+  ChatTimelineTextNode,
   ChatTimelineToolGroupDisplayItem,
   ChatTimelineToolNode,
+  ChatTimelineUsageStats,
 } from '../../chatTimeline/index.ts';
 
 export type RuntimePayloadRendererType =
@@ -99,9 +102,9 @@ function formatDurationMs(value: number | null | undefined): string {
   return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
 }
 
-function formatRunBody(node: ChatTimelineRunNode): string {
+function formatRunBody(node: ChatTimelineRunNode, t: TFunction): string {
   const duration = formatDurationMs(node.durationMs);
-  return compactJoin([node.body, duration ? `耗时 ${duration}` : '']);
+  return compactJoin([node.body, duration ? t('runtime.duration', { duration }) : '']);
 }
 
 function isToolGroupSource(
@@ -111,25 +114,26 @@ function isToolGroupSource(
 }
 
 function resolveToolLabel(
-  source: Pick<ChatTimelineToolNode | ChatTimelineToolGroupDisplayItem, 'toolLabel' | 'toolName'>
+  source: Pick<ChatTimelineToolNode | ChatTimelineToolGroupDisplayItem, 'toolLabel' | 'toolName'>,
+  t: TFunction
 ): string {
   return (
-    String(source.toolLabel || '').trim() || String(source.toolName || '').trim() || '工具调用'
+    String(source.toolLabel || '').trim() || String(source.toolName || '').trim() || t('runtime.toolCall')
   );
 }
 
-function titleForNode(node: ChatTimelineNode): string {
+function titleForNode(node: ChatTimelineNode, t: TFunction): string {
   if (node.kind === 'awaiting') {
     return node.mode === 'approval'
-      ? '等待审批'
+      ? t('runtime.awaiting.approval')
       : node.mode === 'form'
-        ? '等待表单'
+        ? t('runtime.awaiting.form')
         : node.mode === 'plan'
-          ? '等待计划确认'
-          : '向用户提问';
+          ? t('runtime.awaiting.plan')
+          : t('runtime.awaiting.question');
   }
   if (node.kind === 'tool') {
-    return resolveToolLabel(node) || node.title;
+    return resolveToolLabel(node, t) || node.title;
   }
   if (node.kind === 'run') {
     return node.title;
@@ -141,14 +145,15 @@ function titleForNode(node: ChatTimelineNode): string {
 }
 
 export function formatToolPillTitle(
-  source: ChatTimelineToolNode | ChatTimelineToolGroupDisplayItem
+  source: ChatTimelineToolNode | ChatTimelineToolGroupDisplayItem,
+  t: TFunction = defaultT
 ): string {
-  return resolveToolLabel(source);
+  return resolveToolLabel(source, t);
 }
 
-function statusForNode(node: ChatTimelineNode): string {
+function statusForNode(node: ChatTimelineNode, t: TFunction): string {
   if (node.kind === 'awaiting') {
-    return node.status === 'answer' ? '已回答' : '等待响应';
+    return node.status === 'answer' ? t('runtime.awaiting.answered') : t('runtime.awaiting.waiting');
   }
   if (node.kind === 'run') {
     return node.status;
@@ -227,21 +232,21 @@ function resolveToolStatus(node: ChatTimelineToolNode): RuntimeToolStatus {
   return 'pending';
 }
 
-function resolveToolStatusLabel(status: RuntimeToolStatus): string {
+function resolveToolStatusLabel(status: RuntimeToolStatus, t: TFunction): string {
   switch (status) {
     case 'running':
-      return '运行中';
+      return t('runtime.tool.status.running');
     case 'completed':
-      return '等待结果';
+      return t('runtime.tool.status.completed');
     case 'success':
-      return '完成';
+      return t('runtime.tool.status.success');
     case 'failed':
     case 'error':
-      return '失败';
+      return t('runtime.tool.status.failed');
     case 'canceled':
-      return '已取消';
+      return t('runtime.tool.status.canceled');
     default:
-      return '等待中';
+      return t('runtime.tool.status.pending');
   }
 }
 
@@ -260,35 +265,36 @@ function singleSection(
 }
 
 function awaitingSections(
-  node: Extract<ChatTimelineNode, { kind: 'awaiting' }>
+  node: Extract<ChatTimelineNode, { kind: 'awaiting' }>,
+  t: TFunction
 ): RuntimePayloadSection[] {
   const sections: RuntimePayloadSection[] = [];
   if (node.prompt) {
-    sections.push({ id: 'prompt', label: '问题', text: node.prompt, mode: 'plain' });
+    sections.push({ id: 'prompt', label: t('runtime.section.question'), text: node.prompt, mode: 'plain' });
   }
   if (node.payloadText) {
     sections.push({
       id: 'payload',
-      label: node.mode === 'plan' ? '计划选项' : '内容',
+      label: node.mode === 'plan' ? t('runtime.section.planOptions') : t('runtime.section.content'),
       text: node.payloadText,
       mode: 'plain',
     });
   }
   if (node.answer) {
-    sections.push({ id: 'answer', label: '回答', text: node.answer, mode: 'plain' });
+    sections.push({ id: 'answer', label: t('runtime.section.answer'), text: node.answer, mode: 'plain' });
   }
   return sections;
 }
 
-function toolSections(node: ChatTimelineToolNode): RuntimePayloadSection[] {
+function toolSections(node: ChatTimelineToolNode, t: TFunction): RuntimePayloadSection[] {
   const sections: RuntimePayloadSection[] = [];
   const argsText = formatStructuredTextInline(node.argsText);
   const resultText = formatStructuredTextInline(node.resultText);
   if (argsText) {
-    sections.push({ id: 'args', label: '参数', text: argsText, mode: 'code' });
+    sections.push({ id: 'args', label: t('runtime.section.args'), text: argsText, mode: 'code' });
   }
   if (resultText) {
-    sections.push({ id: 'result', label: '结果', text: resultText, mode: 'code' });
+    sections.push({ id: 'result', label: t('runtime.section.result'), text: resultText, mode: 'code' });
   }
   return sections;
 }
@@ -374,7 +380,8 @@ function formatToolResultText(resultText: string): string {
 }
 
 export function buildToolPillRecords(
-  source: ChatTimelineToolNode | ChatTimelineToolGroupDisplayItem
+  source: ChatTimelineToolNode | ChatTimelineToolGroupDisplayItem,
+  t: TFunction = defaultT
 ): RuntimeToolRecord[] {
   const nodes = isToolGroupSource(source) ? source.nodes : [source];
 
@@ -389,9 +396,9 @@ export function buildToolPillRecords(
 
     return {
       key: node.id,
-      title: `第 ${index + 1} 次`,
+      title: t('runtime.toolAttempt', { count: index + 1 }),
       status,
-      statusLabel: resolveToolStatusLabel(status),
+      statusLabel: resolveToolStatusLabel(status, t),
       hasDetails,
       description: hasDetails ? node.description || '' : '',
       argsText,
@@ -456,11 +463,47 @@ function defaultExpandedForKind(kind: RuntimePayloadKind): boolean {
   return kind === 'awaiting' || kind === 'run' || kind === 'usage' || kind === 'request';
 }
 
+function hasUsageStatsValue(stats: ChatTimelineUsageStats | null | undefined): boolean {
+  return Boolean(
+    stats &&
+      (stats.promptTokens !== null ||
+        stats.completionTokens !== null ||
+        stats.totalTokens !== null)
+  );
+}
+
+function formatUsageBody(node: ChatTimelineTextNode, t: TFunction): string {
+  const summary = node.usageSummary ?? null;
+  const stats = hasUsageStatsValue(summary?.current)
+    ? summary?.current
+    : hasUsageStatsValue(summary?.run)
+      ? summary?.run
+      : hasUsageStatsValue(summary?.chat)
+        ? summary?.chat
+        : hasUsageStatsValue(summary?.compact)
+          ? summary?.compact
+          : null;
+
+  if (!stats) {
+    return node.body;
+  }
+
+  return compactJoin(
+    [
+      stats.promptTokens !== null ? `${t('usage.metric.prompt')} ${stats.promptTokens}` : '',
+      stats.completionTokens !== null ? `${t('usage.metric.completion')} ${stats.completionTokens}` : '',
+      stats.totalTokens !== null ? `${t('usage.metric.total')} ${stats.totalTokens}` : '',
+    ],
+    ' · '
+  );
+}
+
 export function buildRuntimePayloadDescriptor(
-  source: RuntimePayloadSource
+  source: RuntimePayloadSource,
+  t: TFunction = defaultT
 ): RuntimePayloadDescriptor {
   if (isToolGroupSource(source)) {
-    const records = buildToolPillRecords(source);
+    const records = buildToolPillRecords(source, t);
     const latestRecord = records[records.length - 1];
     const icon = iconForKind(source.kind);
     const canExpand = getExpandableToolPillRecords(records).length > 0;
@@ -468,7 +511,7 @@ export function buildRuntimePayloadDescriptor(
     return {
       id: source.key,
       kind: source.kind,
-      title: formatToolPillTitle(source),
+      title: formatToolPillTitle(source, t),
       status: latestRecord?.statusLabel || '',
       statusTone: latestRecord ? statusToneForToolStatus(latestRecord.status) : 'idle',
       iconUsage: icon.iconUsage,
@@ -487,7 +530,7 @@ export function buildRuntimePayloadDescriptor(
     return {
       id: source.id,
       kind: 'request',
-      title: '消息',
+      title: t('runtime.message'),
       status: '',
       statusTone: 'idle',
       iconUsage: 'runtime.neutral',
@@ -503,17 +546,21 @@ export function buildRuntimePayloadDescriptor(
   }
 
   const kind = source.kind;
-  const status = statusForNode(source);
+  const status = statusForNode(source, t);
   const icon = iconForKind(kind);
   const renderer = rendererForKind(kind);
-  const toolRecords = kind === 'tool' ? buildToolPillRecords(source) : [];
+  const toolRecords = kind === 'tool' ? buildToolPillRecords(source, t) : [];
   const sections =
     kind === 'tool'
-      ? toolSections(source)
+      ? toolSections(source, t)
       : kind === 'awaiting'
-        ? awaitingSections(source)
+        ? awaitingSections(source, t)
         : singleSection(
-            kind === 'run' ? formatRunBody(source) : source.body,
+            kind === 'run'
+              ? formatRunBody(source, t)
+              : kind === 'usage'
+                ? formatUsageBody(source, t)
+                : source.body,
             renderer === 'markdown' ? 'markdown' : renderer === 'record' ? 'code' : 'plain'
           );
   const canExpand =
@@ -523,7 +570,7 @@ export function buildRuntimePayloadDescriptor(
   return {
     id: source.id,
     kind,
-    title: titleForNode(source),
+    title: titleForNode(source, t),
     status: latestToolRecord?.statusLabel || status,
     statusTone: latestToolRecord
       ? statusToneForToolStatus(latestToolRecord.status)

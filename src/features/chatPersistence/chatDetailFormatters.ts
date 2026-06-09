@@ -1,3 +1,4 @@
+import { defaultT, type TFunction } from '../../shared/i18n/translate.ts';
 import { formatConversationTimestamp } from '../../shared/visual/foundation';
 import type { ChatSocketStatus } from '../chatRealtime/types';
 import type { ChatMessageItem } from './types';
@@ -6,36 +7,40 @@ export function formatChatDetailTimestamp(value: number): string {
   return formatConversationTimestamp(value);
 }
 
-export function formatChatStatusLabel(status: ChatSocketStatus): string {
+export function formatChatStatusLabel(status: ChatSocketStatus, t: TFunction = defaultT): string {
   switch (status) {
     case 'connected':
-      return '已连接';
+      return t('chatDetail.status.connected');
     case 'connecting':
-      return '连接中';
+      return t('chatDetail.status.connecting');
     case 'reconnecting':
-      return '重连中';
+      return t('chatDetail.status.reconnecting');
     case 'disconnected':
-      return '已断开';
+      return t('chatDetail.status.disconnected');
     case 'idle':
     default:
-      return '空闲';
+      return t('chatDetail.status.idle');
   }
 }
 
 export function formatMessageDeliveryStatusLabel(
-  status: ChatMessageItem['deliveryStatus']
+  status: ChatMessageItem['deliveryStatus'],
+  t: TFunction = defaultT
 ): string {
   switch (status) {
     case 'pending':
-      return '发送中';
+      return t('composer.sending');
     case 'failed':
-      return '发送失败';
+      return t('attachment.status.failed');
     case 'sent':
     default:
-      return '已发送';
+      return t('attachment.status.ready');
   }
 }
 
-export function formatMessageRoleLabel(role: ChatMessageItem['role']): string {
-  return role === 'user' ? '我' : '助手';
+export function formatMessageRoleLabel(
+  role: ChatMessageItem['role'],
+  t: TFunction = defaultT
+): string {
+  return role === 'user' ? t('chatDetail.role.user') : t('chatDetail.role.assistant');
 }

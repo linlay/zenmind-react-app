@@ -2,6 +2,7 @@ import { memo, type ReactNode, useCallback, useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
+import { useT } from '../../../shared/i18n';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 
 type RuntimePayloadFrameProps = {
@@ -14,18 +15,19 @@ type RuntimePayloadFrameProps = {
 
 const RuntimeCopyButton = memo(function RuntimeCopyButton({
   copyText,
-  onCopyText,
+  onCopyText
 }: {
   copyText: string;
   onCopyText: (text: string) => void;
 }) {
+  const t = useT();
   const handleCopy = useCallback(() => {
     onCopyText(copyText);
   }, [copyText, onCopyText]);
 
   return (
     <Pressable
-      accessibilityLabel="复制内容"
+      accessibilityLabel={t('timeline.copy')}
       accessibilityRole="button"
       onPress={handleCopy}
       style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
@@ -40,8 +42,9 @@ export const RuntimePayloadFrame = memo(function RuntimePayloadFrame({
   copyText,
   defaultWrap,
   onCopyText,
-  renderContent,
+  renderContent
 }: RuntimePayloadFrameProps) {
+  const t = useT();
   const [wrap, setWrap] = useState(defaultWrap);
 
   useEffect(() => {
@@ -56,13 +59,13 @@ export const RuntimePayloadFrame = memo(function RuntimePayloadFrame({
     <View style={styles.frame}>
       <View style={styles.toolbar}>
         <Pressable
-          accessibilityLabel={wrap ? '关闭自动换行' : '开启自动换行'}
+          accessibilityLabel={wrap ? t('timeline.wrapOff') : t('timeline.wrapOn')}
           accessibilityRole="button"
           onPress={handleToggleWrap}
           style={({ pressed }) => [
             styles.iconButton,
             wrap && styles.iconButtonActive,
-            pressed && styles.iconButtonPressed,
+            pressed && styles.iconButtonPressed
           ]}
         >
           <AppIcon
@@ -76,12 +79,7 @@ export const RuntimePayloadFrame = memo(function RuntimePayloadFrame({
       {wrap ? (
         <View style={styles.wrapContent}>{content}</View>
       ) : (
-        <ScrollView
-          horizontal
-          nestedScrollEnabled
-          showsHorizontalScrollIndicator
-          style={styles.nowrapScroller}
-        >
+        <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator style={styles.nowrapScroller}>
           <View style={styles.nowrapContent}>{content}</View>
         </ScrollView>
       )}
@@ -96,7 +94,7 @@ const styles = StyleSheet.create({
     backgroundColor: appVisualTokens.colors.surfaceMuted,
     paddingHorizontal: 10,
     paddingTop: 7,
-    paddingBottom: 10,
+    paddingBottom: 10
   },
   toolbar: {
     minHeight: 22,
@@ -104,28 +102,28 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'center',
     gap: appVisualTokens.spacing.xs,
-    marginBottom: 5,
+    marginBottom: 5
   },
   iconButton: {
     width: 24,
     height: 24,
     borderRadius: appVisualTokens.radii.sm,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   iconButtonActive: {
-    backgroundColor: appVisualTokens.colors.brandBlueSoft,
+    backgroundColor: appVisualTokens.colors.brandBlueSoft
   },
   iconButtonPressed: {
-    opacity: 0.7,
+    opacity: 0.7
   },
   wrapContent: {
-    minWidth: 0,
+    minWidth: 0
   },
   nowrapScroller: {
-    alignSelf: 'stretch',
+    alignSelf: 'stretch'
   },
   nowrapContent: {
-    minWidth: 720,
-  },
+    minWidth: 720
+  }
 });

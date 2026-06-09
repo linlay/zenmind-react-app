@@ -6,7 +6,7 @@
   "responsibility": [
     "承载设备登录表单、启动恢复中的认证占位屏和最小会话交互。",
     "通过 core auth 与 core api 读取认证状态和后端地址，不在页面层直接碰 MMKV 或 fetch 细节。",
-    "保持登录界面为纯 screen 级 UI，实现 root stack 的认证前置入口。"
+    "保持登录界面为纯 screen 级 UI，实现 root stack 的认证前置入口，并通过 shared-i18n 获取表单文案与校验提示。"
   ],
   "publicEntrypoints": [
     {
@@ -22,14 +22,15 @@
       "description": "冷启动恢复会话期间显示的认证占位页。"
     }
   ],
-  "dependsOn": ["core-auth-session", "core-runtime-config"],
+  "dependsOn": ["core-auth-session", "core-runtime-config", "shared-i18n"],
   "dependedBy": ["app-shell-navigation"],
   "stateTouches": ["登录表单本地输入态", "登录提交中状态", "认证错误提示"],
   "relatedFlows": ["app-startup"],
-  "relatedTasks": ["add-auth-login-screen", "add-or-edit-tab-screen"],
+  "relatedTasks": ["add-auth-login-screen", "add-internationalization", "add-or-edit-tab-screen"],
   "impactChecklist": [
     "登录页只管表单与提交反馈，不在 UI 层自己保存 token。",
     "后端地址继续来自统一 API 配置入口，不在 feature 内复制环境变量读取逻辑。",
+    "登录页文案和本地校验提示走 shared-i18n，不直接读取 expo-localization 或 i18n storage。",
     "认证中间态保持轻量，避免把复杂初始化逻辑塞进登录 screen。"
   ],
   "readNext": [

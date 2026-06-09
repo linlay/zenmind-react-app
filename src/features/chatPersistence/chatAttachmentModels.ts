@@ -1,9 +1,10 @@
+import { defaultT, type TFunction } from '../../shared/i18n/translate.ts';
 import type {
   ChatAttachmentBase,
   ChatAttachmentKind,
   ChatAttachmentReference,
   ChatAttachmentStatus,
-  ChatMessageAttachment,
+  ChatMessageAttachment
 } from './types';
 
 const IMAGE_EXTENSIONS = new Set([
@@ -20,7 +21,7 @@ const IMAGE_EXTENSIONS = new Set([
   'svg',
   'tif',
   'tiff',
-  'webp',
+  'webp'
 ]);
 
 function normalizeText(value: unknown): string {
@@ -106,7 +107,7 @@ function normalizeReference(input: Record<string, unknown>): ChatAttachmentRefer
     mimeType: normalizeText(input.mimeType) || undefined,
     sizeBytes: Number.isFinite(sizeBytes) && sizeBytes >= 0 ? sizeBytes : undefined,
     url: normalizeText(input.url) || undefined,
-    sha256: normalizeText(input.sha256) || undefined,
+    sha256: normalizeText(input.sha256) || undefined
   };
 }
 
@@ -122,7 +123,7 @@ export function normalizeChatAttachmentReferences(input: unknown): ChatAttachmen
   return keepLatestChatAttachmentsByName(
     references.map((reference, index) => ({
       ...reference,
-      name: reference.name || reference.id || reference.url || `attachment-${index + 1}`,
+      name: reference.name || reference.id || reference.url || `attachment-${index + 1}`
     }))
   );
 }
@@ -152,8 +153,7 @@ function createMessageAttachmentId(input: {
   name: string;
   index: number;
 }): string {
-  const sourceId =
-    normalizeText(input.reference.id) || normalizeText(input.reference.url) || input.name;
+  const sourceId = normalizeText(input.reference.id) || normalizeText(input.reference.url) || input.name;
   return `${input.messageId}:attachment:${input.index + 1}:${sourceId}`;
 }
 
@@ -171,7 +171,7 @@ export function createMessageAttachmentsFromReferences(input: {
         messageId: input.messageId,
         reference,
         name,
-        index,
+        index
       }),
       messageId: input.messageId,
       conversationId: input.conversationId,
@@ -189,7 +189,7 @@ export function createMessageAttachmentsFromReferences(input: {
       errorReason: null,
       references: [reference],
       createdAt: input.createdAt,
-      updatedAt: input.createdAt,
+      updatedAt: input.createdAt
     };
   });
 }
@@ -210,21 +210,18 @@ export function formatChatAttachmentsMessageText(
       : `上传了文件${firstName ? `：${firstName}` : ''}`;
   }
 
-  const parts = [
-    imageCount ? `${imageCount} 张图片` : '',
-    fileCount ? `${fileCount} 个文件` : '',
-  ].filter(Boolean);
+  const parts = [imageCount ? `${imageCount} 张图片` : '', fileCount ? `${fileCount} 个文件` : ''].filter(Boolean);
   return `上传了 ${parts.join('、')}`;
 }
 
-export function getChatAttachmentStatusLabel(status: ChatAttachmentStatus): string {
+export function getChatAttachmentStatusLabel(status: ChatAttachmentStatus, t: TFunction = defaultT): string {
   if (status === 'uploading') {
-    return '上传中';
+    return t('attachment.status.uploading');
   }
   if (status === 'failed') {
-    return '上传失败';
+    return t('attachment.status.failed');
   }
-  return '已上传';
+  return t('attachment.status.ready');
 }
 
 export function areChatAttachmentsEqual(
@@ -250,8 +247,7 @@ export function areChatAttachmentsEqual(
       leftItem.resourceUrl === rightItem.resourceUrl &&
       leftItem.status === rightItem.status &&
       leftItem.errorReason === rightItem.errorReason &&
-      serializeChatAttachmentReferences(leftItem.references) ===
-        serializeChatAttachmentReferences(rightItem.references)
+      serializeChatAttachmentReferences(leftItem.references) === serializeChatAttachmentReferences(rightItem.references)
     );
   });
 }

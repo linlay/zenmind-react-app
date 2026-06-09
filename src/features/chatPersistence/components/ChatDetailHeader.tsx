@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import { AppIconButton } from '../../../shared/icons/AppIconButton';
 import type { AppIconUsage } from '../../../shared/icons/AppIcon';
+import { useT } from '../../../shared/i18n';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 import type { ChatDetailHeaderStatusTone } from '../chatDetailViewModel';
 
@@ -42,7 +43,7 @@ function getStatusPillTextStyle(statusTone: ChatDetailHeaderStatusTone) {
 const HeaderIconButton = memo(function HeaderIconButton({
   usage,
   accessibilityLabel,
-  onPress,
+  onPress
 }: {
   usage: AppIconUsage;
   accessibilityLabel: string;
@@ -64,7 +65,7 @@ const ChatDetailHeaderTitle = memo(function ChatDetailHeaderTitle({
   title,
   subtitle,
   statusLabel,
-  statusTone,
+  statusTone
 }: {
   title: string;
   subtitle: string;
@@ -107,25 +108,26 @@ export const ChatDetailHeader = memo(function ChatDetailHeader({
   statusTone,
   onBack,
   onStartNewConversation,
-  onOpenMenu,
+  onOpenMenu
 }: ChatDetailHeaderProps) {
+  const t = useT();
   const leftActions = useMemo(
     () =>
       [
         <HeaderIconButton
           key="back"
           usage="chatDetail.back"
-          accessibilityLabel="返回会话列表"
+          accessibilityLabel={t('chatDetail.back')}
           onPress={onBack}
         />,
         <HeaderIconButton
           key="new-conversation"
           usage="chatDetail.newConversation"
-          accessibilityLabel="发起新对话"
+          accessibilityLabel={t('chatDetail.newConversation')}
           onPress={onStartNewConversation}
-        />,
+        />
       ] as const,
-    [onBack, onStartNewConversation]
+    [onBack, onStartNewConversation, t]
   );
   const rightActions = useMemo(
     () =>
@@ -133,21 +135,14 @@ export const ChatDetailHeader = memo(function ChatDetailHeader({
         <HeaderIconButton
           key="menu"
           usage="chatDetail.openHistory"
-          accessibilityLabel="打开消息记录"
+          accessibilityLabel={t('chatDetail.openHistory')}
           onPress={onOpenMenu}
-        />,
+        />
       ] as const,
-    [onOpenMenu]
+    [onOpenMenu, t]
   );
   const headerTitle = useMemo(
-    () => (
-      <ChatDetailHeaderTitle
-        title={title}
-        subtitle={subtitle}
-        statusLabel={statusLabel}
-        statusTone={statusTone}
-      />
-    ),
+    () => <ChatDetailHeaderTitle title={title} subtitle={subtitle} statusLabel={statusLabel} statusTone={statusTone} />,
     [statusLabel, statusTone, subtitle, title]
   );
 
@@ -168,31 +163,31 @@ const styles = StyleSheet.create({
     height: 58,
     backgroundColor: appVisualTokens.colors.background,
     borderBottomWidth: 0,
-    zIndex: 20,
+    zIndex: 20
   },
   titleContainer: {
-    height: 58,
+    height: 58
   },
   headerActionButton: {
     width: 34,
     height: 34,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   headerActionPressed: {
-    opacity: 0.58,
+    opacity: 0.58
   },
   headerTitleBlock: {
     width: '100%',
     alignItems: 'center',
-    gap: 2,
+    gap: 2
   },
   headerTitleText: {
     fontSize: 18,
     lineHeight: 22,
     fontWeight: '600',
     color: appVisualTokens.colors.textPrimary,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   headerSubtitleText: {
     flexShrink: 1,
@@ -200,7 +195,7 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '500',
     color: appVisualTokens.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   headerMetaRow: {
     maxWidth: '100%',
@@ -208,36 +203,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
+    gap: 6
   },
   statusPill: {
     height: 18,
     borderRadius: appVisualTokens.radii.pill,
     paddingHorizontal: 7,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   statusPill_idle: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted,
+    backgroundColor: appVisualTokens.colors.surfaceMuted
   },
   statusPill_running: {
-    backgroundColor: appVisualTokens.colors.brandBlueSoft,
+    backgroundColor: appVisualTokens.colors.brandBlueSoft
   },
   statusPill_error: {
-    backgroundColor: 'rgba(239, 100, 100, 0.12)',
+    backgroundColor: 'rgba(239, 100, 100, 0.12)'
   },
   statusPillText: {
     fontSize: 10,
     lineHeight: 13,
-    fontWeight: '700',
+    fontWeight: '700'
   },
   statusPillText_idle: {
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   statusPillText_running: {
-    color: appVisualTokens.colors.brandBlueStrong,
+    color: appVisualTokens.colors.brandBlueStrong
   },
   statusPillText_error: {
-    color: appVisualTokens.colors.danger,
-  },
+    color: appVisualTokens.colors.danger
+  }
 });

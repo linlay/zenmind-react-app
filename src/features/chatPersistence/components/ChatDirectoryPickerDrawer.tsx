@@ -4,6 +4,7 @@ import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from '
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
+import { type TFunction, useT } from '../../../shared/i18n';
 import { AgentAvatar } from '../../../shared/visual/AgentAvatar';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 import type { ChatDirectoryItem } from '../types';
@@ -34,30 +35,29 @@ type DirectoryPickerRowProps = {
   onSelect: (item: ChatDirectoryItem) => void;
 };
 
-function formatDirectoryPickerCount(loaded: number, total: number) {
+function formatDirectoryPickerCount(loaded: number, total: number, t: TFunction) {
   const safeLoaded = Math.max(0, Math.trunc(Number(loaded) || 0));
   const safeTotal = Math.max(safeLoaded, Math.trunc(Number(total) || 0));
 
-  return safeTotal > safeLoaded ? `${safeLoaded}/${safeTotal}` : `共 ${safeTotal} 个`;
+  return safeTotal > safeLoaded
+    ? t('common.loadedOfTotal', { loaded: safeLoaded, total: safeTotal })
+    : t('common.countItems', { count: safeTotal });
 }
 
-function getDirectoryKindLabel(kind: ChatDirectoryItem['kind']) {
-  return kind === 'team' ? '团队' : '智能体';
+function getDirectoryKindLabel(kind: ChatDirectoryItem['kind'], t: TFunction) {
+  return kind === 'team' ? t('directoryPicker.kind.team') : t('directoryPicker.kind.agent');
 }
 
 function getDirectoryItemType(item: ChatDirectoryItem) {
   return item.kind;
 }
 
-const DirectoryPickerRow = memo(function DirectoryPickerRow({
-  item,
-  opening,
-  onSelect,
-}: DirectoryPickerRowProps) {
+const DirectoryPickerRow = memo(function DirectoryPickerRow({ item, opening, onSelect }: DirectoryPickerRowProps) {
+  const t = useT();
   const handlePress = useCallback(() => {
     onSelect(item);
   }, [item, onSelect]);
-  const subtitle = `${getDirectoryKindLabel(item.kind)} · ${item.subtitle || '可发起新对话'}`;
+  const subtitle = `${getDirectoryKindLabel(item.kind, t)} · ${item.subtitle || t('directoryPicker.canStart')}`;
 
   return (
     <Pressable
@@ -67,7 +67,7 @@ const DirectoryPickerRow = memo(function DirectoryPickerRow({
       style={({ pressed }) => [
         styles.directoryRow,
         pressed && !opening ? styles.directoryRowPressed : null,
-        opening ? styles.directoryRowOpening : null,
+        opening ? styles.directoryRowOpening : null
       ]}
     >
       <AgentAvatar
@@ -106,14 +106,12 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
   openingItemId,
   onClose,
   onLoadMore,
-  onSelectItem,
+  onSelectItem
 }: ChatDirectoryPickerDrawerProps) {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const translateX = useRef(new Animated.Value(DIRECTORY_PICKER_ENTER_OFFSET)).current;
-  const countLabel = useMemo(
-    () => formatDirectoryPickerCount(items.length, total),
-    [items.length, total]
-  );
+  const countLabel = useMemo(() => formatDirectoryPickerCount(items.length, total, t), [items.length, total, t]);
   const renderItem = useCallback(
     ({ item }: { item: ChatDirectoryItem }) => (
       <DirectoryPickerRow item={item} opening={openingItemId === item.id} onSelect={onSelectItem} />
@@ -155,7 +153,7 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
       damping: 20,
       stiffness: 230,
       mass: 0.9,
-      useNativeDriver: true,
+      useNativeDriver: true
     }).start();
   }, [translateX, visible]);
 
@@ -172,27 +170,24 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
           {
             paddingTop: Math.max(insets.top, appVisualTokens.spacing.xs),
             paddingBottom: Math.max(insets.bottom, appVisualTokens.spacing.md),
-            transform: [{ translateX }],
-          },
+            transform: [{ translateX }]
+          }
         ]}
       >
         <View style={styles.header}>
           <View style={styles.headerText}>
             <Text numberOfLines={1} style={styles.title}>
-              新对话
+              {t('directoryPicker.title')}
             </Text>
             <Text numberOfLines={1} style={styles.subtitle}>
-              Agents / Teams · {countLabel}
+              {t('directoryPicker.subtitle', { count: countLabel })}
             </Text>
           </View>
           <Pressable
-            accessibilityLabel="关闭新对话列表"
+            accessibilityLabel={t('directoryPicker.close')}
             accessibilityRole="button"
             onPress={onClose}
-            style={({ pressed }) => [
-              styles.closeButton,
-              pressed ? styles.closeButtonPressed : null,
-            ]}
+            style={({ pressed }) => [styles.closeButton, pressed ? styles.closeButtonPressed : null]}
           >
             <AppIcon usage="directoryPicker.close" />
           </Pressable>
@@ -215,7 +210,7 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
               onEndReached={handleEndReached}
               onEndReachedThreshold={0.45}
               showsVerticalScrollIndicator={false}
-              ListEmptyComponent={<Text style={styles.emptyText}>暂无智能体或团队</Text>}
+              ListEmptyComponent={<Text style={styles.emptyText}>{t('directoryPicker.empty')}</Text>}
               ListFooterComponent={footer}
             />
           )}
@@ -229,11 +224,11 @@ const styles = StyleSheet.create({
   drawerOverlay: {
     ...StyleSheet.absoluteFill,
     zIndex: DIRECTORY_PICKER_DRAWER_OVERLAY_Z_INDEX,
-    elevation: DIRECTORY_PICKER_DRAWER_OVERLAY_Z_INDEX,
+    elevation: DIRECTORY_PICKER_DRAWER_OVERLAY_Z_INDEX
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: appVisualTokens.colors.overlay,
+    backgroundColor: appVisualTokens.colors.overlay
   },
   panel: {
     position: 'absolute',
@@ -244,7 +239,7 @@ const styles = StyleSheet.create({
     maxWidth: DIRECTORY_PICKER_PANEL_MAX_WIDTH,
     backgroundColor: appVisualTokens.colors.surface,
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: appVisualTokens.colors.line,
+    borderRightColor: appVisualTokens.colors.line
   },
   header: {
     minHeight: 58,
@@ -254,57 +249,57 @@ const styles = StyleSheet.create({
     paddingHorizontal: appVisualTokens.spacing.md,
     paddingBottom: appVisualTokens.spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: appVisualTokens.colors.line,
+    borderBottomColor: appVisualTokens.colors.line
   },
   headerText: {
     flex: 1,
-    minWidth: 0,
+    minWidth: 0
   },
   title: {
     fontSize: 17,
     lineHeight: 23,
     fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   subtitle: {
     marginTop: 2,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '600',
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   closeButton: {
     width: 34,
     height: 34,
     borderRadius: appVisualTokens.radii.pill,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   closeButtonPressed: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted,
+    backgroundColor: appVisualTokens.colors.surfaceMuted
   },
   errorText: {
     paddingHorizontal: appVisualTokens.spacing.md,
     paddingVertical: appVisualTokens.spacing.sm,
     fontSize: 12,
     lineHeight: 17,
-    color: appVisualTokens.colors.danger,
+    color: appVisualTokens.colors.danger
   },
   listFrame: {
     flex: 1,
-    paddingHorizontal: appVisualTokens.spacing.sm,
+    paddingHorizontal: appVisualTokens.spacing.sm
   },
   stateBlock: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   emptyText: {
     paddingHorizontal: appVisualTokens.spacing.sm,
     paddingVertical: appVisualTokens.spacing.lg,
     fontSize: 14,
     lineHeight: 21,
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   directoryRow: {
     height: DIRECTORY_PICKER_ROW_HEIGHT,
@@ -313,41 +308,41 @@ const styles = StyleSheet.create({
     gap: appVisualTokens.spacing.md,
     paddingHorizontal: appVisualTokens.spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: appVisualTokens.colors.line,
+    borderBottomColor: appVisualTokens.colors.line
   },
   directoryRowPressed: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted,
+    backgroundColor: appVisualTokens.colors.surfaceMuted
   },
   directoryRowOpening: {
-    opacity: 0.74,
+    opacity: 0.74
   },
   directoryRowText: {
     flex: 1,
-    minWidth: 0,
+    minWidth: 0
   },
   directoryRowTitle: {
     fontSize: 15,
     lineHeight: 21,
     fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   directoryRowSubtitle: {
     marginTop: 2,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '500',
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   directoryRowAction: {
     width: 34,
     height: 34,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   footer: {
     minHeight: 42,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   footerText: {
     paddingVertical: appVisualTokens.spacing.md,
@@ -355,6 +350,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
-    color: appVisualTokens.colors.textTertiary,
-  },
+    color: appVisualTokens.colors.textTertiary
+  }
 });

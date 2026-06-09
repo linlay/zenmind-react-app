@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-08T03:52:06.088Z",
+  "generatedAt": "2026-06-08T09:04:02.060Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -86,6 +86,14 @@
     "src/shared/components/PaginatedCardList.tsx",
     "src/shared/components/ScreenHeader.tsx",
     "src/shared/components/__tests__/ScreenHeader.test.tsx",
+    "src/shared/i18n/I18nProvider.tsx",
+    "src/shared/i18n/formatters.ts",
+    "src/shared/i18n/index.ts",
+    "src/shared/i18n/locales.ts",
+    "src/shared/i18n/messages/en-US.ts",
+    "src/shared/i18n/messages/index.ts",
+    "src/shared/i18n/messages/zh-CN.ts",
+    "src/shared/i18n/translate.ts",
     "src/shared/icons/AppIcon.tsx",
     "src/shared/icons/AppIconButton.tsx",
     "src/shared/icons/brandAssets.ts",
@@ -577,6 +585,50 @@
                 ]
               },
               {
+                "name": "i18n",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "messages",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "en-US.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "index.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "zh-CN.ts",
+                        "type": "file"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "formatters.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "I18nProvider.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "index.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "locales.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "translate.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
                 "name": "icons",
                 "type": "directory",
                 "children": [
@@ -803,6 +855,16 @@
       "src/shared/components/ConversationMarkdownRenderer.tsx",
       "src/shared/markdown/preprocess.ts"
     ],
+    "shared-i18n": [
+      "src/shared/i18n/I18nProvider.tsx",
+      "src/shared/i18n/formatters.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/i18n/locales.ts",
+      "src/shared/i18n/messages/en-US.ts",
+      "src/shared/i18n/messages/index.ts",
+      "src/shared/i18n/messages/zh-CN.ts",
+      "src/shared/i18n/translate.ts"
+    ],
     "shared-paginated-list": ["src/shared/components/PaginatedCardList.tsx"],
     "shared-screen-header": [
       "src/shared/components/ScreenHeader.tsx",
@@ -908,6 +970,14 @@
     "src/shared/components/PaginatedCardList.tsx": "shared-paginated-list",
     "src/shared/components/ScreenHeader.tsx": "shared-screen-header",
     "src/shared/components/__tests__/ScreenHeader.test.tsx": "shared-screen-header",
+    "src/shared/i18n/I18nProvider.tsx": "shared-i18n",
+    "src/shared/i18n/formatters.ts": "shared-i18n",
+    "src/shared/i18n/index.ts": "shared-i18n",
+    "src/shared/i18n/locales.ts": "shared-i18n",
+    "src/shared/i18n/messages/en-US.ts": "shared-i18n",
+    "src/shared/i18n/messages/index.ts": "shared-i18n",
+    "src/shared/i18n/messages/zh-CN.ts": "shared-i18n",
+    "src/shared/i18n/translate.ts": "shared-i18n",
     "src/shared/icons/AppIcon.tsx": "shared-visual-foundation",
     "src/shared/icons/AppIconButton.tsx": "shared-visual-foundation",
     "src/shared/icons/brandAssets.ts": "shared-visual-foundation",
@@ -937,6 +1007,7 @@
         "feature-chat-persistence",
         "feature-chat-realtime",
         "feature-notifications",
+        "shared-i18n",
         "shared-screen-header",
         "shared-visual-foundation"
       ],
@@ -972,11 +1043,11 @@
       "dependedBy": ["core-auth-session", "feature-auth-login", "feature-chat-realtime"]
     },
     "feature-agent-task-board": {
-      "dependsOn": ["shared-screen-header", "shared-visual-foundation"],
+      "dependsOn": ["shared-i18n", "shared-screen-header", "shared-visual-foundation"],
       "dependedBy": ["app-shell-navigation"]
     },
     "feature-auth-login": {
-      "dependsOn": ["core-auth-session", "core-runtime-config"],
+      "dependsOn": ["core-auth-session", "core-runtime-config", "shared-i18n"],
       "dependedBy": ["app-shell-navigation"]
     },
     "feature-chat-persistence": {
@@ -986,6 +1057,7 @@
         "feature-chat-realtime",
         "feature-chat-timeline",
         "shared-conversation-content-renderer",
+        "shared-i18n",
         "shared-paginated-list",
         "shared-screen-header",
         "shared-visual-foundation"
@@ -1014,8 +1086,18 @@
       "dependsOn": ["shared-visual-foundation"],
       "dependedBy": ["feature-chat-persistence"]
     },
+    "shared-i18n": {
+      "dependsOn": [],
+      "dependedBy": [
+        "app-shell-navigation",
+        "feature-agent-task-board",
+        "feature-auth-login",
+        "feature-chat-persistence",
+        "shared-paginated-list"
+      ]
+    },
     "shared-paginated-list": {
-      "dependsOn": ["shared-visual-foundation"],
+      "dependsOn": ["shared-i18n", "shared-visual-foundation"],
       "dependedBy": ["feature-chat-persistence"]
     },
     "shared-screen-header": {
@@ -1047,7 +1129,7 @@
       "subscribeDevelopmentDebugPanel"
     ],
     "src/app/navigation/RootNavigator.tsx": ["RootNavigator"],
-    "src/app/navigation/TabIcon.tsx": ["AppTabIcon", "TAB_LABELS"],
+    "src/app/navigation/TabIcon.tsx": ["AppTabIcon", "TAB_LABEL_KEYS"],
     "src/app/navigation/types.ts": ["RootStackParamList", "RootTabParamList"],
     "src/app/screens/AppScreenFrame.tsx": ["AppScreenFrame"],
     "src/app/screens/TabScreens.tsx": ["ChatScreen", "DriveScreen", "MeScreen", "TerminalScreen"],
@@ -1561,6 +1643,40 @@
     ],
     "src/shared/components/ScreenHeader.tsx": ["ScreenHeader", "ScreenHeaderProps"],
     "src/shared/components/__tests__/ScreenHeader.test.tsx": [],
+    "src/shared/i18n/I18nProvider.tsx": ["I18nProvider", "useI18n", "useT"],
+    "src/shared/i18n/formatters.ts": ["formatAccessExpiryLabel"],
+    "src/shared/i18n/index.ts": [
+      "DEFAULT_LOCALE",
+      "I18nProvider",
+      "SUPPORTED_LOCALES",
+      "createTranslator",
+      "defaultT",
+      "formatAccessExpiryLabel",
+      "isSupportedLocale",
+      "resolveLocale",
+      "resolveLocalePreference",
+      "translate",
+      "type AppLocale",
+      "type I18nKey",
+      "type I18nParams",
+      "type LocalePreference",
+      "type TFunction",
+      "useI18n",
+      "useT"
+    ],
+    "src/shared/i18n/locales.ts": [
+      "AppLocale",
+      "DEFAULT_LOCALE",
+      "LocalePreference",
+      "SUPPORTED_LOCALES",
+      "isSupportedLocale",
+      "resolveLocale",
+      "resolveLocalePreference"
+    ],
+    "src/shared/i18n/messages/en-US.ts": ["enUS"],
+    "src/shared/i18n/messages/index.ts": ["messages"],
+    "src/shared/i18n/messages/zh-CN.ts": ["I18nKey", "zhCN"],
+    "src/shared/i18n/translate.ts": ["I18nParams", "TFunction", "createTranslator", "defaultT", "translate"],
     "src/shared/icons/AppIcon.tsx": ["AppIcon", "AppIconProps"],
     "src/shared/icons/AppIconButton.tsx": ["AppIconButton", "AppIconButtonProps"],
     "src/shared/icons/brandAssets.ts": ["brandAssets"],
@@ -1603,7 +1719,7 @@
     "src/types/assets.d.ts": ["default"]
   },
   "resolvedImportsByFile": {
-    "App.tsx": ["src/app/AppRoot.tsx", "src/app/startup/AppLaunchSkeleton.tsx"],
+    "App.tsx": ["src/app/AppRoot.tsx", "src/app/startup/AppLaunchSkeleton.tsx", "src/shared/i18n/index.ts"],
     "index.js": ["App.tsx"],
     "src/app/AppRoot.tsx": [
       "src/app/debug/DevelopmentDebugPanelHost.tsx",
@@ -1632,11 +1748,20 @@
       "src/core/auth/useAuthSession.ts",
       "src/features/auth/LoginScreen.tsx",
       "src/features/chatPersistence/ChatDetailScreen.tsx",
+      "src/shared/i18n/index.ts",
       "src/shared/visual/foundation.ts"
     ],
-    "src/app/navigation/TabIcon.tsx": ["src/app/navigation/types.ts", "src/shared/icons/AppIcon.tsx"],
+    "src/app/navigation/TabIcon.tsx": [
+      "src/app/navigation/types.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx"
+    ],
     "src/app/navigation/types.ts": ["src/features/chatPersistence/types.ts"],
-    "src/app/screens/AppScreenFrame.tsx": ["src/shared/components/ScreenHeader.tsx", "src/shared/visual/foundation.ts"],
+    "src/app/screens/AppScreenFrame.tsx": [
+      "src/shared/components/ScreenHeader.tsx",
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/foundation.ts"
+    ],
     "src/app/screens/TabScreens.tsx": [
       "app.json",
       "src/app/debug/developmentDebugPanel.ts",
@@ -1648,6 +1773,7 @@
       "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
       "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
       "src/features/notifications/notificationService.ts",
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
@@ -1671,6 +1797,7 @@
     "src/core/debug/httpDebugLogger.ts": [],
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": [
       "src/shared/components/ScreenHeader.tsx",
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
@@ -1678,7 +1805,8 @@
       "assets/logo.png",
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
-      "src/core/config/endpoint.ts"
+      "src/core/config/endpoint.ts",
+      "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/ChatDetailScreen.tsx": [
       "src/core/api/services/chatApi.ts",
@@ -1699,6 +1827,7 @@
       "src/features/chatPersistence/useChatDetailLocalUiState.ts",
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatRealtime/types.ts",
+      "src/shared/i18n/index.ts",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/ChatHomeStorageDemo.tsx": [
@@ -1711,16 +1840,21 @@
       "src/features/chatRealtime/chatSyncService.ts",
       "src/shared/components/PaginatedCardList.tsx",
       "src/shared/components/ScreenHeader.tsx",
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/icons/AppIconButton.tsx",
       "src/shared/visual/AgentAvatar.tsx",
       "src/shared/visual/foundation.ts"
     ],
-    "src/features/chatPersistence/chatAttachmentModels.ts": ["src/features/chatPersistence/types.ts"],
+    "src/features/chatPersistence/chatAttachmentModels.ts": [
+      "src/features/chatPersistence/types.ts",
+      "src/shared/i18n/translate.ts"
+    ],
     "src/features/chatPersistence/chatDetailAsyncScope.ts": [],
     "src/features/chatPersistence/chatDetailFormatters.ts": [
       "src/features/chatPersistence/types.ts",
       "src/features/chatRealtime/types.ts",
+      "src/shared/i18n/translate.ts",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/chatDetailViewModel.ts": ["src/features/chatTimeline/index.ts"],
@@ -1761,11 +1895,13 @@
       "src/core/api/apiClient.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/types.ts",
+      "src/shared/i18n/index.ts",
       "src/shared/visual/AppLineIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": [
       "src/features/chatRealtime/types.ts",
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
@@ -1780,13 +1916,18 @@
     "src/features/chatPersistence/components/ChatDetailDrawers.tsx": [
       "src/features/chatPersistence/chatDetailFormatters.ts",
       "src/features/chatPersistence/types.ts",
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
-    "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": ["src/shared/visual/foundation.ts"],
+    "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": [
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/foundation.ts"
+    ],
     "src/features/chatPersistence/components/ChatDetailHeader.tsx": [
       "src/features/chatPersistence/chatDetailViewModel.ts",
       "src/shared/components/ScreenHeader.tsx",
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/icons/AppIconButton.tsx",
       "src/shared/visual/foundation.ts"
@@ -1794,6 +1935,7 @@
     "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": ["src/shared/visual/foundation.ts"],
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": [
       "src/features/chatPersistence/types.ts",
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AgentAvatar.tsx",
       "src/shared/visual/foundation.ts"
@@ -1805,6 +1947,7 @@
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
       "src/features/chatTimeline/index.ts",
       "src/shared/components/ConversationMarkdownRenderer.tsx",
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
@@ -1814,6 +1957,7 @@
     ],
     "src/features/chatPersistence/components/ChatUsageStats.tsx": [
       "src/features/chatTimeline/index.ts",
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
@@ -1821,11 +1965,16 @@
       "src/features/chatPersistence/chatDetailViewModel.ts",
       "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
       "src/features/chatPersistence/types.ts",
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
-    "src/features/chatPersistence/components/CopyToast.tsx": ["src/shared/visual/foundation.ts"],
+    "src/features/chatPersistence/components/CopyToast.tsx": [
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/foundation.ts"
+    ],
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": [
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
@@ -1836,6 +1985,7 @@
       "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
       "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
       "src/features/chatTimeline/index.ts",
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
@@ -1844,15 +1994,18 @@
       "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
       "src/features/chatRealtime/types.ts",
       "src/features/chatTimeline/index.ts",
+      "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts": [
       "src/core/api/services/chatApi.ts",
-      "src/features/chatTimeline/index.ts"
+      "src/features/chatTimeline/index.ts",
+      "src/shared/i18n/translate.ts"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "src/features/chatTimeline/index.ts",
+      "src/shared/i18n/translate.ts",
       "src/shared/icons/AppIcon.tsx"
     ],
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": [
@@ -1875,7 +2028,8 @@
     "src/features/chatPersistence/useChatComposerAttachments.ts": [
       "src/core/api/services/uploadApi.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
-      "src/features/chatPersistence/types.ts"
+      "src/features/chatPersistence/types.ts",
+      "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": ["src/features/chatRealtime/types.ts"],
     "src/features/chatPersistence/useChatDetailConversationController.ts": [
@@ -1889,7 +2043,8 @@
       "src/features/chatPersistence/useChatComposerAttachments.ts",
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatRealtime/types.ts",
-      "src/features/chatTimeline/index.ts"
+      "src/features/chatTimeline/index.ts",
+      "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/useChatDetailLocalUiState.ts": [
       "src/features/chatPersistence/chatHistoryScope.ts",
@@ -1964,9 +2119,22 @@
       "src/shared/markdown/preprocess.ts",
       "src/shared/visual/foundation.ts"
     ],
-    "src/shared/components/PaginatedCardList.tsx": ["src/shared/visual/foundation.ts"],
+    "src/shared/components/PaginatedCardList.tsx": ["src/shared/i18n/index.ts", "src/shared/visual/foundation.ts"],
     "src/shared/components/ScreenHeader.tsx": ["src/shared/visual/foundation.ts"],
     "src/shared/components/__tests__/ScreenHeader.test.tsx": ["src/shared/components/ScreenHeader.tsx"],
+    "src/shared/i18n/I18nProvider.tsx": ["src/shared/i18n/locales.ts", "src/shared/i18n/translate.ts"],
+    "src/shared/i18n/formatters.ts": ["src/shared/i18n/locales.ts", "src/shared/i18n/translate.ts"],
+    "src/shared/i18n/index.ts": [
+      "src/shared/i18n/I18nProvider.tsx",
+      "src/shared/i18n/formatters.ts",
+      "src/shared/i18n/locales.ts",
+      "src/shared/i18n/translate.ts"
+    ],
+    "src/shared/i18n/locales.ts": [],
+    "src/shared/i18n/messages/en-US.ts": ["src/shared/i18n/messages/zh-CN.ts"],
+    "src/shared/i18n/messages/index.ts": ["src/shared/i18n/messages/en-US.ts", "src/shared/i18n/messages/zh-CN.ts"],
+    "src/shared/i18n/messages/zh-CN.ts": [],
+    "src/shared/i18n/translate.ts": ["src/shared/i18n/locales.ts", "src/shared/i18n/messages/index.ts"],
     "src/shared/icons/AppIcon.tsx": [
       "src/shared/icons/registries/appIconUsages.ts",
       "src/shared/visual/AppLineIcon.tsx",
@@ -1992,8 +2160,8 @@
     "src/types/assets.d.ts": []
   },
   "cardCounts": {
-    "modules": 16,
+    "modules": 17,
     "flows": 5,
-    "tasks": 11
+    "tasks": 12
   }
 }

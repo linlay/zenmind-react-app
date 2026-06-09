@@ -2,14 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 
-import {
-  extractUploadReferences,
-  uploadChatAttachmentApi,
-} from '../../core/api/services/uploadApi';
+import { extractUploadReferences, uploadChatAttachmentApi } from '../../core/api/services/uploadApi';
+import { useT } from '../../shared/i18n';
 import {
   getChatAttachmentExtension,
   getChatAttachmentKind,
-  keepLatestChatAttachmentsByName,
+  keepLatestChatAttachmentsByName
 } from './chatAttachmentModels';
 import type { ChatAttachmentKind, ChatComposerAttachment } from './types';
 
@@ -77,16 +75,11 @@ function inferMimeTypeFromName(name: string, fallback = 'application/octet-strea
   return fallback;
 }
 
-function isPickedComposerAttachment(
-  value: PickedComposerAttachment | null
-): value is PickedComposerAttachment {
+function isPickedComposerAttachment(value: PickedComposerAttachment | null): value is PickedComposerAttachment {
   return Boolean(value);
 }
 
-function createPendingAttachment(
-  conversationId: string,
-  picked: PickedComposerAttachment
-): ChatComposerAttachment {
+function createPendingAttachment(conversationId: string, picked: PickedComposerAttachment): ChatComposerAttachment {
   const createdAt = Date.now();
   return {
     attachmentId: createAttachmentId(),
@@ -105,7 +98,7 @@ function createPendingAttachment(
     errorReason: null,
     references: [],
     createdAt,
-    updatedAt: createdAt,
+    updatedAt: createdAt
   };
 }
 
@@ -124,13 +117,11 @@ function normalizeImageAsset(asset: ImagePicker.ImagePickerAsset): PickedCompose
     width: Number.isFinite(Number(asset.width)) ? Number(asset.width) : null,
     height: Number.isFinite(Number(asset.height)) ? Number(asset.height) : null,
     localUri: uri,
-    previewUri: uri,
+    previewUri: uri
   };
 }
 
-function normalizeDocumentAsset(
-  asset: DocumentPicker.DocumentPickerAsset
-): PickedComposerAttachment | null {
+function normalizeDocumentAsset(asset: DocumentPicker.DocumentPickerAsset): PickedComposerAttachment | null {
   const uri = normalizeText(asset.uri);
   if (!uri) {
     return null;
@@ -145,15 +136,16 @@ function normalizeDocumentAsset(
     width: null,
     height: null,
     localUri: uri,
-    previewUri: getChatAttachmentKind({ name, mimeType }) === 'image' ? uri : null,
+    previewUri: getChatAttachmentKind({ name, mimeType }) === 'image' ? uri : null
   };
 }
 
 export function useChatComposerAttachments({
   conversationId,
   disabled = false,
-  onError,
+  onError
 }: UseChatComposerAttachmentsInput) {
+  const t = useT();
   const [attachments, setAttachments] = useState<ChatComposerAttachment[]>([]);
   const attachmentsRef = useRef<ChatComposerAttachment[]>([]);
   const latestAttachmentIdByNameRef = useRef(new Map<string, string>());
@@ -200,7 +192,7 @@ export function useChatComposerAttachments({
           requestId: attachment.attachmentId,
           chatId: conversationId,
           sha256: attachment.sha256,
-          signal: controller.signal,
+          signal: controller.signal
         });
         const latestAttachmentId = latestAttachmentIdByNameRef.current.get(attachment.name);
         if (latestAttachmentId !== attachment.attachmentId || controller.signal.aborted) {
@@ -208,7 +200,7 @@ export function useChatComposerAttachments({
         }
         const references = extractUploadReferences(response);
         if (references.length === 0) {
-          throw new Error('上传成功，但接口未返回可用的文件引用');
+          throw new Error(t('attachment.error.missingReference'));
         }
         const [reference] = references;
         const now = Date.now();
@@ -220,13 +212,12 @@ export function useChatComposerAttachments({
                   kind: getChatAttachmentKind({
                     type: reference?.type,
                     name: reference?.name || item.name,
-                    mimeType: reference?.mimeType || item.mimeType,
+                    mimeType: reference?.mimeType || item.mimeType
                   }),
                   name: reference?.name || item.name,
                   mimeType: reference?.mimeType || item.mimeType,
                   sizeBytes:
-                    Number.isFinite(Number(reference?.sizeBytes)) &&
-                    Number(reference?.sizeBytes) >= 0
+                    Number.isFinite(Number(reference?.sizeBytes)) && Number(reference?.sizeBytes) >= 0
                       ? Number(reference?.sizeBytes)
                       : item.sizeBytes,
                   resourceUrl: reference?.url || item.resourceUrl,
@@ -234,7 +225,7 @@ export function useChatComposerAttachments({
                   status: 'ready',
                   errorReason: null,
                   references,
-                  updatedAt: now,
+                  updatedAt: now
                 }
               : item
           )
@@ -255,9 +246,9 @@ export function useChatComposerAttachments({
               ? {
                   ...item,
                   status: 'failed',
-                  errorReason: errorText || '上传失败',
+                  errorReason: errorText || t('attachment.status.failed'),
                   references: [],
-                  updatedAt: now,
+                  updatedAt: now
                 }
               : item
           )
@@ -266,14 +257,11 @@ export function useChatComposerAttachments({
         abortControllersRef.current.delete(attachment.attachmentId);
       }
     },
-    [conversationId]
+    [conversationId, t]
   );
 
   const drainUploadQueue = useCallback(() => {
-    while (
-      activeUploadCountRef.current < MAX_UPLOAD_CONCURRENCY &&
-      uploadQueueRef.current.length > 0
-    ) {
+    while (activeUploadCountRef.current < MAX_UPLOAD_CONCURRENCY && uploadQueueRef.current.length > 0) {
       const attachment = uploadQueueRef.current.shift();
       if (!attachment) {
         continue;
@@ -293,9 +281,7 @@ export function useChatComposerAttachments({
 
   const enqueueUpload = useCallback(
     (attachment: ChatComposerAttachment) => {
-      uploadQueueRef.current = uploadQueueRef.current.filter(
-        (item) => item.attachmentId !== attachment.attachmentId
-      );
+      uploadQueueRef.current = uploadQueueRef.current.filter((item) => item.attachmentId !== attachment.attachmentId);
       uploadQueueRef.current.push(attachment);
       drainUploadQueue();
     },
@@ -310,7 +296,7 @@ export function useChatComposerAttachments({
 
       const validPickedAttachments = pickedAttachments.filter((attachment) => {
         if (attachment.sizeBytes > 0 && attachment.sizeBytes > MAX_ATTACHMENT_SIZE_BYTES) {
-          reportError(`附件过大：${attachment.name}`);
+          reportError(t('attachment.error.tooLarge', { name: attachment.name }));
           return false;
         }
         return true;
@@ -323,7 +309,7 @@ export function useChatComposerAttachments({
       const availableSlots = Math.max(MAX_COMPOSER_ATTACHMENTS - retainedCount, 0);
       const acceptedPickedAttachments = latestPickedAttachments.slice(0, availableSlots);
       if (latestPickedAttachments.length > acceptedPickedAttachments.length) {
-        reportError(`最多只能添加 ${MAX_COMPOSER_ATTACHMENTS} 个附件`);
+        reportError(t('attachment.error.tooMany', { count: MAX_COMPOSER_ATTACHMENTS }));
       }
 
       const nextAttachments = acceptedPickedAttachments.map((attachment) =>
@@ -354,7 +340,7 @@ export function useChatComposerAttachments({
         enqueueUpload(attachment);
       });
     },
-    [conversationId, disabled, enqueueUpload, reportError]
+    [conversationId, disabled, enqueueUpload, reportError, t]
   );
 
   const handleSelectAttachment = useCallback(
@@ -371,12 +357,10 @@ export function useChatComposerAttachments({
             allowsEditing: false,
             base64: false,
             exif: false,
-            quality: 1,
+            quality: 1
           });
           if (!result.canceled) {
-            addPickedAttachments(
-              result.assets.map(normalizeImageAsset).filter(isPickedComposerAttachment)
-            );
+            addPickedAttachments(result.assets.map(normalizeImageAsset).filter(isPickedComposerAttachment));
           }
           return;
         }
@@ -385,12 +369,10 @@ export function useChatComposerAttachments({
           type: '*/*',
           multiple: true,
           copyToCacheDirectory: true,
-          base64: false,
+          base64: false
         });
         if (!result.canceled) {
-          addPickedAttachments(
-            result.assets.map(normalizeDocumentAsset).filter(isPickedComposerAttachment)
-          );
+          addPickedAttachments(result.assets.map(normalizeDocumentAsset).filter(isPickedComposerAttachment));
         }
       } catch (error) {
         reportError(error instanceof Error ? error.message : String(error));
@@ -428,11 +410,9 @@ export function useChatComposerAttachments({
         ...attachment,
         status: 'uploading' as const,
         errorReason: null,
-        updatedAt: now,
+        updatedAt: now
       };
-      setAttachments((current) =>
-        current.map((item) => (item.attachmentId === attachmentId ? nextAttachment : item))
-      );
+      setAttachments((current) => current.map((item) => (item.attachmentId === attachmentId ? nextAttachment : item)));
       enqueueUpload(nextAttachment);
     },
     [enqueueUpload]
@@ -468,6 +448,6 @@ export function useChatComposerAttachments({
     handleSelectAttachment,
     handleRemoveAttachment,
     handleRetryAttachment,
-    clearAttachments,
+    clearAttachments
   };
 }

@@ -5,7 +5,7 @@
   "paths": ["src/shared/components/PaginatedCardList.tsx"],
   "responsibility": [
     "提供基于 FlashList 的通用分页列表容器。",
-    "统一处理刷新、自动加载更多、底部 loading、返回顶部按钮、item type hint、按 item 覆盖高度和轻量展示控制。",
+    "统一处理刷新、自动加载更多、底部 loading 国际化文案、返回顶部按钮、item type hint、按 item 覆盖高度和轻量展示控制。",
     "通过 CardComponent 注入业务卡片，避免复制列表骨架。"
   ],
   "publicEntrypoints": [
@@ -28,7 +28,7 @@
       "description": "列表组件入参类型。"
     }
   ],
-  "dependsOn": ["shared-visual-foundation"],
+  "dependsOn": ["shared-i18n", "shared-visual-foundation"],
   "dependedBy": ["feature-chat-persistence"],
   "stateTouches": [
     "FlashList viewport 和 drawDistance 配置",
@@ -36,9 +36,10 @@
     "滚动超过一屏后的返回顶部按钮状态"
   ],
   "relatedFlows": ["chat-home-cold-boot"],
-  "relatedTasks": ["add-reusable-list-screen", "modify-chat-persistence"],
+  "relatedTasks": ["add-reusable-list-screen", "add-internationalization", "modify-chat-persistence"],
   "impactChecklist": [
     "列表组件保持通用，不夹带聊天专属字段和仓储逻辑。",
+    "通用 loading 文案走 shared-i18n，不在列表组件内硬编码语言。",
     "改动 itemHeight、getItemHeight、drawDistance 或 onEndReached 时要回归 Chat 首页现有行为。",
     "新增展示控制只承载通用 UI 行为，比如 scroll-top 可见性和 item type hint，不下沉业务字段。",
     "新页面优先复用 CardComponent 注入差异，不要轻易 fork 一份新列表。"
@@ -67,7 +68,7 @@
         "PaginatedCardListProps"
       ]
     },
-    "actualDependsOn": ["shared-visual-foundation"],
+    "actualDependsOn": ["shared-i18n", "shared-visual-foundation"],
     "actualDependedBy": ["feature-chat-persistence"]
   }
 }

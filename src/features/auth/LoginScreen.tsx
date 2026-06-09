@@ -9,7 +9,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  View,
+  View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -17,14 +17,17 @@ import logoImage from '../../../assets/logo.png';
 import { loginWithMasterPassword, readPreferredDeviceName } from '../../core/auth/appAuth';
 import { readResolvedApiBaseUrl } from '../../core/auth/authConfig';
 import { normalizeApiBaseUrl } from '../../core/config/endpoint';
+import { useT } from '../../shared/i18n';
 
 export function AuthBootstrapScreen() {
+  const t = useT();
+
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <View style={styles.bootstrapShell}>
         <View style={styles.bootstrapCard}>
           <ActivityIndicator size="small" color="#0f172a" />
-          <Text style={styles.bootstrapText}>正在恢复登录状态</Text>
+          <Text style={styles.bootstrapText}>{t('auth.bootstrap.restoring')}</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -32,6 +35,7 @@ export function AuthBootstrapScreen() {
 }
 
 export function LoginScreen() {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const [endpointDraft, setEndpointDraft] = useState(() => readResolvedApiBaseUrl());
   const [deviceName, setDeviceName] = useState(() => readPreferredDeviceName());
@@ -43,32 +47,30 @@ export function LoginScreen() {
   const normalizedEndpoint = useMemo(() => normalizeApiBaseUrl(endpointDraft), [endpointDraft]);
   const normalizedDeviceName = useMemo(() => String(deviceName || '').trim(), [deviceName]);
   const normalizedPassword = useMemo(() => String(masterPassword || '').trim(), [masterPassword]);
-  const canSubmit = Boolean(
-    normalizedEndpoint && normalizedDeviceName && normalizedPassword && !isSubmitting
-  );
+  const canSubmit = Boolean(normalizedEndpoint && normalizedDeviceName && normalizedPassword && !isSubmitting);
 
   useEffect(() => {
     if (!normalizedEndpoint) {
-      setErrorMessage('请输入后端域名或 IP');
+      setErrorMessage(t('auth.error.endpointRequired'));
       return;
     }
 
     setErrorMessage('');
-  }, [normalizedEndpoint]);
+  }, [normalizedEndpoint, t]);
 
   async function handleSubmit() {
     if (!normalizedEndpoint) {
-      setErrorMessage('请输入后端域名或 IP');
+      setErrorMessage(t('auth.error.endpointRequired'));
       return;
     }
 
     if (!normalizedDeviceName) {
-      setErrorMessage('请输入设备名称');
+      setErrorMessage(t('auth.error.deviceRequired'));
       return;
     }
 
     if (!normalizedPassword) {
-      setErrorMessage('请输入主密码');
+      setErrorMessage(t('auth.error.passwordRequired'));
       return;
     }
 
@@ -78,7 +80,7 @@ export function LoginScreen() {
       await loginWithMasterPassword(normalizedEndpoint, normalizedPassword, normalizedDeviceName);
       setMasterPassword('');
     } catch (error) {
-      setErrorMessage(String((error as Error)?.message || '登录失败'));
+      setErrorMessage(String((error as Error)?.message || t('auth.error.loginFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -98,8 +100,8 @@ export function LoginScreen() {
             styles.scrollContent,
             {
               paddingTop: Math.max(24, insets.top + 8),
-              paddingBottom: Math.max(32, insets.bottom + 20),
-            },
+              paddingBottom: Math.max(32, insets.bottom + 20)
+            }
           ]}
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           keyboardShouldPersistTaps="handled"
@@ -111,13 +113,13 @@ export function LoginScreen() {
 
           <View style={styles.formCard}>
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>后端地址</Text>
+              <Text style={styles.inputLabel}>{t('auth.endpoint.label')}</Text>
               <TextInput
                 autoCapitalize="none"
                 autoCorrect={false}
                 keyboardType="url"
                 onChangeText={setEndpointDraft}
-                placeholder="如 api.example.com 或 192.168.1.8:8080"
+                placeholder={t('auth.endpoint.placeholder')}
                 placeholderTextColor="#94a3b8"
                 style={styles.input}
                 value={endpointDraft}
@@ -125,12 +127,12 @@ export function LoginScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>设备名称</Text>
+              <Text style={styles.inputLabel}>{t('auth.device.label')}</Text>
               <TextInput
                 autoCapitalize="words"
                 autoCorrect={false}
                 onChangeText={setDeviceName}
-                placeholder="例如 iPhone 15 Pro"
+                placeholder={t('auth.device.placeholder')}
                 placeholderTextColor="#94a3b8"
                 style={styles.input}
                 value={deviceName}
@@ -138,7 +140,7 @@ export function LoginScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>主密码</Text>
+              <Text style={styles.inputLabel}>{t('auth.password.label')}</Text>
               <View style={styles.passwordInputShell}>
                 <TextInput
                   autoCapitalize="none"
@@ -147,22 +149,19 @@ export function LoginScreen() {
                   onSubmitEditing={() => {
                     handleSubmit().catch(() => {});
                   }}
-                  placeholder="输入主密码"
+                  placeholder={t('auth.password.placeholder')}
                   placeholderTextColor="#94a3b8"
                   secureTextEntry={!isPasswordVisible}
                   style={styles.passwordInput}
                   value={masterPassword}
                 />
                 <Pressable
-                  accessibilityLabel={isPasswordVisible ? '隐藏密码' : '显示密码'}
+                  accessibilityLabel={isPasswordVisible ? t('auth.password.hide') : t('auth.password.show')}
                   hitSlop={10}
                   onPress={() => {
                     setIsPasswordVisible((current) => !current);
                   }}
-                  style={({ pressed }) => [
-                    styles.eyeButton,
-                    pressed ? styles.eyeButtonPressed : null,
-                  ]}
+                  style={({ pressed }) => [styles.eyeButton, pressed ? styles.eyeButtonPressed : null]}
                 >
                   <View style={styles.eyeIcon}>
                     <View style={styles.eyeOutline} />
@@ -183,13 +182,13 @@ export function LoginScreen() {
               style={({ pressed }) => [
                 styles.submitButton,
                 !canSubmit ? styles.submitButtonDisabled : null,
-                pressed && canSubmit ? styles.submitButtonPressed : null,
+                pressed && canSubmit ? styles.submitButtonPressed : null
               ]}
             >
               {isSubmitting ? (
                 <ActivityIndicator size="small" color="#f8fafc" />
               ) : (
-                <Text style={styles.submitButtonText}>登录设备</Text>
+                <Text style={styles.submitButtonText}>{t('auth.submit')}</Text>
               )}
             </Pressable>
           </View>
@@ -202,25 +201,25 @@ export function LoginScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f3f7fb',
+    backgroundColor: '#f3f7fb'
   },
   keyboardShell: {
-    flex: 1,
+    flex: 1
   },
   scrollContent: {
     flexGrow: 1,
     paddingHorizontal: 20,
-    gap: 18,
+    gap: 18
   },
   logoWrap: {
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 6,
-    paddingBottom: 4,
+    paddingBottom: 4
   },
   logo: {
     width: 88,
-    height: 88,
+    height: 88
   },
   formCard: {
     borderRadius: 28,
@@ -229,15 +228,15 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    gap: 14,
+    gap: 14
   },
   inputGroup: {
-    gap: 8,
+    gap: 8
   },
   inputLabel: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#334155',
+    color: '#334155'
   },
   input: {
     height: 52,
@@ -247,7 +246,7 @@ const styles = StyleSheet.create({
     borderColor: '#dbe4ee',
     paddingHorizontal: 16,
     fontSize: 16,
-    color: '#0f172a',
+    color: '#0f172a'
   },
   passwordInputShell: {
     height: 52,
@@ -258,29 +257,29 @@ const styles = StyleSheet.create({
     paddingLeft: 16,
     paddingRight: 8,
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'center'
   },
   passwordInput: {
     flex: 1,
     height: '100%',
     fontSize: 16,
-    color: '#0f172a',
+    color: '#0f172a'
   },
   eyeButton: {
     width: 40,
     height: 40,
     borderRadius: 12,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   eyeButtonPressed: {
-    backgroundColor: 'rgba(148, 163, 184, 0.18)',
+    backgroundColor: 'rgba(148, 163, 184, 0.18)'
   },
   eyeIcon: {
     width: 22,
     height: 16,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   eyeOutline: {
     position: 'absolute',
@@ -288,13 +287,13 @@ const styles = StyleSheet.create({
     height: 12,
     borderWidth: 1.6,
     borderColor: '#64748b',
-    borderRadius: 20,
+    borderRadius: 20
   },
   eyePupil: {
     width: 5,
     height: 5,
     borderRadius: 999,
-    backgroundColor: '#64748b',
+    backgroundColor: '#64748b'
   },
   eyeSlash: {
     position: 'absolute',
@@ -302,12 +301,12 @@ const styles = StyleSheet.create({
     height: 1.8,
     borderRadius: 999,
     backgroundColor: '#94a3b8',
-    transform: [{ rotate: '-32deg' }],
+    transform: [{ rotate: '-32deg' }]
   },
   errorText: {
     fontSize: 14,
     lineHeight: 20,
-    color: '#dc2626',
+    color: '#dc2626'
   },
   submitButton: {
     marginTop: 4,
@@ -315,24 +314,24 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     backgroundColor: '#0f172a',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   submitButtonDisabled: {
-    opacity: 0.48,
+    opacity: 0.48
   },
   submitButtonPressed: {
-    opacity: 0.86,
+    opacity: 0.86
   },
   submitButtonText: {
     fontSize: 16,
     fontWeight: '800',
-    color: '#f8fafc',
+    color: '#f8fafc'
   },
   bootstrapShell: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 20
   },
   bootstrapCard: {
     flexDirection: 'row',
@@ -343,10 +342,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
     paddingHorizontal: 18,
-    paddingVertical: 16,
+    paddingVertical: 16
   },
   bootstrapText: {
     fontSize: 14,
-    color: '#334155',
-  },
+    color: '#334155'
+  }
 });

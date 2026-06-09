@@ -1,6 +1,7 @@
 import { memo, useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
+import { useT } from '../../../shared/i18n';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 
 const DISMISS_DELAY_MS = 1200;
@@ -10,10 +11,8 @@ type CopyToastProps = {
   message?: string;
 };
 
-export const CopyToast = memo(function CopyToast({
-  trigger,
-  message = '已复制到剪贴板',
-}: CopyToastProps) {
+export const CopyToast = memo(function CopyToast({ trigger, message }: CopyToastProps) {
+  const t = useT();
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -25,14 +24,14 @@ export const CopyToast = memo(function CopyToast({
     Animated.timing(opacity, {
       toValue: 1,
       duration: 180,
-      useNativeDriver: true,
+      useNativeDriver: true
     }).start();
 
     const timer = setTimeout(() => {
       Animated.timing(opacity, {
         toValue: 0,
         duration: 200,
-        useNativeDriver: true,
+        useNativeDriver: true
       }).start();
     }, DISMISS_DELAY_MS);
 
@@ -46,7 +45,7 @@ export const CopyToast = memo(function CopyToast({
   return (
     <Animated.View style={[styles.container, { opacity }]} pointerEvents="none">
       <View style={styles.toast}>
-        <Text style={styles.toastText}>{message}</Text>
+        <Text style={styles.toastText}>{message || t('copyToast.default')}</Text>
       </View>
     </Animated.View>
   );
@@ -59,17 +58,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     alignItems: 'center',
-    zIndex: 999,
+    zIndex: 999
   },
   toast: {
     backgroundColor: appVisualTokens.colors.textPrimary,
     borderRadius: 24,
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 12
   },
   toastText: {
     fontSize: 14,
     fontWeight: '600',
-    color: appVisualTokens.colors.surface,
-  },
+    color: appVisualTokens.colors.surface
+  }
 });

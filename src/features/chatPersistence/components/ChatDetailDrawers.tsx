@@ -3,6 +3,7 @@ import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
+import { type TFunction, useT } from '../../../shared/i18n';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 import { formatChatDetailTimestamp } from '../chatDetailFormatters';
 import type { ChatHomeItem } from '../types';
@@ -35,12 +36,12 @@ type HistoryRowProps = {
   onSelect: (item: ChatHomeItem) => void;
 };
 
-function formatHistoryCountLabel(total: number, unreadTotal: number) {
+function formatHistoryCountLabel(total: number, unreadTotal: number, t: TFunction) {
   const safeTotal = Math.max(0, Math.trunc(Number(total) || 0));
   const safeUnreadTotal = Math.max(0, Math.trunc(Number(unreadTotal) || 0));
   return safeUnreadTotal > 0
-    ? `共 ${safeTotal} 条，未读 ${safeUnreadTotal} 条`
-    : `共 ${safeTotal} 条`;
+    ? t('history.countUnread', { count: safeTotal, unread: safeUnreadTotal })
+    : t('history.count', { count: safeTotal });
 }
 
 function getHistoryItemType() {
@@ -48,6 +49,7 @@ function getHistoryItemType() {
 }
 
 const HistoryRow = memo(function HistoryRow({ item, active, onSelect }: HistoryRowProps) {
+  const t = useT();
   const unread = item.unreadCount > 0;
   const handlePress = useCallback(() => {
     onSelect(item);
@@ -60,18 +62,16 @@ const HistoryRow = memo(function HistoryRow({ item, active, onSelect }: HistoryR
       style={({ pressed }) => [
         styles.historyRow,
         active ? styles.historyRowActive : null,
-        pressed ? styles.historyRowPressed : null,
+        pressed ? styles.historyRowPressed : null
       ]}
     >
-      <View style={styles.historyUnreadSlot}>
-        {unread ? <View style={styles.historyUnreadDot} /> : null}
-      </View>
+      <View style={styles.historyUnreadSlot}>{unread ? <View style={styles.historyUnreadDot} /> : null}</View>
       <View style={styles.historyTextBlock}>
         <Text numberOfLines={1} style={styles.historyTitle}>
           {item.title || item.conversationId}
         </Text>
         <Text numberOfLines={1} style={styles.historyPreview}>
-          {item.lastMessageText || '暂无消息'}
+          {item.lastMessageText || t('history.noMessage')}
         </Text>
       </View>
       <Text numberOfLines={1} style={styles.historyTime}>
@@ -95,20 +95,14 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
   onClose,
   onLoadMore,
   onMarkAllRead,
-  onSelectConversation,
+  onSelectConversation
 }: ChatDetailHistoryDrawerProps) {
+  const t = useT();
   const translateX = useRef(new Animated.Value(48)).current;
-  const countLabel = useMemo(
-    () => formatHistoryCountLabel(total, unreadTotal),
-    [total, unreadTotal]
-  );
+  const countLabel = useMemo(() => formatHistoryCountLabel(total, unreadTotal, t), [total, unreadTotal, t]);
   const renderHistoryItem = useCallback(
     ({ item }: { item: ChatHomeItem }) => (
-      <HistoryRow
-        item={item}
-        active={item.conversationId === activeConversationId}
-        onSelect={onSelectConversation}
-      />
+      <HistoryRow item={item} active={item.conversationId === activeConversationId} onSelect={onSelectConversation} />
     ),
     [activeConversationId, onSelectConversation]
   );
@@ -127,19 +121,16 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
         accessibilityRole="button"
         disabled={loadingMore}
         onPress={onLoadMore}
-        style={({ pressed }) => [
-          styles.loadMoreButton,
-          pressed && !loadingMore ? styles.loadMoreButtonPressed : null,
-        ]}
+        style={({ pressed }) => [styles.loadMoreButton, pressed && !loadingMore ? styles.loadMoreButtonPressed : null]}
       >
         {loadingMore ? (
           <ActivityIndicator size="small" color={appVisualTokens.colors.brandBlue} />
         ) : (
-          <Text style={styles.loadMoreText}>查看更多（{countLabel}）</Text>
+          <Text style={styles.loadMoreText}>{t('history.loadMore', { count: countLabel })}</Text>
         )}
       </Pressable>
     );
-  }, [countLabel, hasMore, historyItems.length, loading, loadingMore, onLoadMore]);
+  }, [countLabel, hasMore, historyItems.length, loading, loadingMore, onLoadMore, t]);
 
   useEffect(() => {
     if (!visible) {
@@ -152,7 +143,7 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
       damping: 18,
       stiffness: 220,
       mass: 0.9,
-      useNativeDriver: true,
+      useNativeDriver: true
     }).start();
   }, [translateX, visible]);
 
@@ -169,24 +160,24 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
           {
             paddingTop: HISTORY_DRAWER_VERTICAL_PADDING,
             paddingBottom: appVisualTokens.spacing.md,
-            transform: [{ translateX }],
-          },
+            transform: [{ translateX }]
+          }
         ]}
       >
         <View style={styles.drawerHeader}>
           <View style={styles.drawerHeaderText}>
-            <Text style={styles.drawerTitle}>历史会话</Text>
+            <Text style={styles.drawerTitle}>{t('history.title')}</Text>
             <Text style={styles.drawerSubtitle}>{countLabel}</Text>
           </View>
           {unreadTotal > 0 ? (
             <Pressable
-              accessibilityLabel="一键已读"
+              accessibilityLabel={t('history.markAllRead')}
               accessibilityRole="button"
               disabled={markingRead}
               onPress={onMarkAllRead}
               style={({ pressed }) => [
                 styles.markReadButton,
-                pressed && !markingRead ? styles.markReadButtonPressed : null,
+                pressed && !markingRead ? styles.markReadButtonPressed : null
               ]}
             >
               {markingRead ? (
@@ -194,13 +185,13 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
               ) : (
                 <>
                   <AppIcon usage="historyDrawer.markAllRead" />
-                  <Text style={styles.markReadText}>一键已读</Text>
+                  <Text style={styles.markReadText}>{t('history.markAllRead')}</Text>
                 </>
               )}
             </Pressable>
           ) : null}
           <Pressable
-            accessibilityLabel="关闭历史会话"
+            accessibilityLabel={t('history.close')}
             accessibilityRole="button"
             onPress={onClose}
             style={styles.drawerCloseButton}
@@ -224,7 +215,7 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
               drawDistance={HISTORY_DRAW_DISTANCE}
               getItemType={getHistoryItemType}
               showsVerticalScrollIndicator={false}
-              ListEmptyComponent={<Text style={styles.drawerEmptyText}>暂无历史会话</Text>}
+              ListEmptyComponent={<Text style={styles.drawerEmptyText}>{t('history.empty')}</Text>}
               ListFooterComponent={footer}
             />
           )}
@@ -239,11 +230,11 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     zIndex: HISTORY_DRAWER_OVERLAY_Z_INDEX,
-    elevation: HISTORY_DRAWER_OVERLAY_Z_INDEX,
+    elevation: HISTORY_DRAWER_OVERLAY_Z_INDEX
   },
   drawerBackdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: appVisualTokens.colors.overlay,
+    backgroundColor: appVisualTokens.colors.overlay
   },
   drawerPanel: {
     position: 'absolute',
@@ -254,7 +245,7 @@ const styles = StyleSheet.create({
     maxWidth: 360,
     backgroundColor: appVisualTokens.colors.surface,
     borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: appVisualTokens.colors.line,
+    borderLeftColor: appVisualTokens.colors.line
   },
   drawerHeader: {
     minHeight: 58,
@@ -264,31 +255,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: appVisualTokens.spacing.md,
     paddingBottom: appVisualTokens.spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: appVisualTokens.colors.line,
+    borderBottomColor: appVisualTokens.colors.line
   },
   drawerHeaderText: {
     flex: 1,
-    minWidth: 0,
+    minWidth: 0
   },
   drawerTitle: {
     fontSize: 17,
     lineHeight: 23,
     fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   drawerSubtitle: {
     marginTop: 2,
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '600',
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   drawerCloseButton: {
     width: 34,
     height: 34,
     borderRadius: appVisualTokens.radii.pill,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   markReadButton: {
     height: 32,
@@ -299,39 +290,39 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
-    backgroundColor: appVisualTokens.colors.brandBlueSoft,
+    backgroundColor: appVisualTokens.colors.brandBlueSoft
   },
   markReadButtonPressed: {
-    opacity: 0.7,
+    opacity: 0.7
   },
   markReadText: {
     fontSize: 12,
     lineHeight: 17,
     fontWeight: '700',
-    color: appVisualTokens.colors.brandBlue,
+    color: appVisualTokens.colors.brandBlue
   },
   drawerErrorText: {
     paddingHorizontal: appVisualTokens.spacing.md,
     paddingVertical: appVisualTokens.spacing.sm,
     fontSize: 12,
     lineHeight: 17,
-    color: appVisualTokens.colors.danger,
+    color: appVisualTokens.colors.danger
   },
   historyListFrame: {
     flex: 1,
-    paddingHorizontal: appVisualTokens.spacing.sm,
+    paddingHorizontal: appVisualTokens.spacing.sm
   },
   historyStateBlock: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   drawerEmptyText: {
     paddingHorizontal: appVisualTokens.spacing.sm,
     paddingVertical: appVisualTokens.spacing.lg,
     fontSize: 14,
     lineHeight: 21,
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   historyRow: {
     height: HISTORY_ROW_HEIGHT,
@@ -340,41 +331,41 @@ const styles = StyleSheet.create({
     gap: appVisualTokens.spacing.sm,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: appVisualTokens.colors.line,
-    paddingHorizontal: appVisualTokens.spacing.sm,
+    paddingHorizontal: appVisualTokens.spacing.sm
   },
   historyRowActive: {
-    backgroundColor: appVisualTokens.colors.brandBlueSoft,
+    backgroundColor: appVisualTokens.colors.brandBlueSoft
   },
   historyRowPressed: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted,
+    backgroundColor: appVisualTokens.colors.surfaceMuted
   },
   historyUnreadSlot: {
     width: 10,
-    alignItems: 'center',
+    alignItems: 'center'
   },
   historyUnreadDot: {
     width: 8,
     height: 8,
     borderRadius: appVisualTokens.radii.pill,
-    backgroundColor: appVisualTokens.colors.badge,
+    backgroundColor: appVisualTokens.colors.badge
   },
   historyTextBlock: {
     flex: 1,
     minWidth: 0,
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   historyTitle: {
     fontSize: 14,
     lineHeight: 20,
     fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   historyPreview: {
     marginTop: 2,
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '500',
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   historyTime: {
     width: 44,
@@ -382,7 +373,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     fontWeight: '600',
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   historyFooterText: {
     paddingVertical: appVisualTokens.spacing.md,
@@ -390,20 +381,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '600',
-    color: appVisualTokens.colors.textTertiary,
+    color: appVisualTokens.colors.textTertiary
   },
   loadMoreButton: {
     minHeight: 44,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   loadMoreButtonPressed: {
-    opacity: 0.7,
+    opacity: 0.7
   },
   loadMoreText: {
     fontSize: 13,
     lineHeight: 18,
     fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary,
-  },
+    color: appVisualTokens.colors.textSecondary
+  }
 });

@@ -14,6 +14,7 @@
     "详情页左上角新建入口通过 repository 按当前 agent/team history scope 创建本地空 conversation，并用 ChatDetail route replace 切换到新会话；空 conversation 仍不抢占目录 latest_conversation_id。",
     "详情页历史抽屉按当前 agent/team scope 读取 conversations 摘要切片，展示会话级未读蓝点、总数和未读会话数；点击历史会话通过 ChatDetail route 切换 conversationId，一键已读继续委托 chatSyncService.markScopeRead。",
     "详情页由 ChatDetailScreen 负责页面组合，加载/订阅/发送/停止/继续/awaiting question 提交/输入区主操作派生/头部运行态、输入区结构化用量派生/骨架屏入场收敛到 useChatDetailConversationController，普通 awaiting overlay 与收起后重开入口收敛到 useChatDetailAwaitingOverlay，question awaiting 使用 ChatAwaitingDock 贴底展示，历史抽屉与复制提示收敛到 useChatDetailLocalUiState；Header、Timeline 列表、Composer、ChatUsageStats、历史抽屉和骨架屏分别下沉到 components 内部展示组件。",
+    "Chat 首页和详情页 UI 文案通过 shared-i18n 获取，用户消息、服务端正文、runtime payload 原始文本和已持久化会话标题不做本地翻译。",
     "详情页主界面不再展示模型选择、摘要卡和独立运行态卡片；消息、reasoning、tool、awaiting 等通过 ChatTimelineList 扁平渲染，运行状态从同一份 timelineState 派生到 ChatDetailHeader，usageLabel 和 usageSummary 派生到输入区 ChatUsageStatsButton，messages/runtimeState/composer primary action 也都从 timeline 派生；首屏优先从 SQLite normalized rich timeline snapshot 恢复，usageSummary 可从 usage 节点 payload 恢复，缺失或尾签名不匹配时才回退 messages。"
   ],
   "publicEntrypoints": [
@@ -240,6 +241,7 @@
     "feature-chat-realtime",
     "feature-chat-timeline",
     "shared-conversation-content-renderer",
+    "shared-i18n",
     "shared-paginated-list",
     "shared-visual-foundation",
     "shared-screen-header"
@@ -263,6 +265,7 @@
   "relatedTasks": [
     "add-reusable-header-component",
     "add-reusable-list-screen",
+    "add-internationalization",
     "add-system-notifications",
     "modify-chat-persistence",
     "modify-chat-realtime"
@@ -282,6 +285,7 @@
     "首页点击无 latest_conversation_id 的目录项时，只能通过 repository 取/建 scoped conversation；空 conversation 不应写成目录 latest_conversation_id，也不应覆盖最后消息展示。",
     "首页新对话浮层只能通过 catalog page 读取目录，通过 createConversationForDirectoryItem 创建空 conversation；浮层卡片不直接写 SQLite，也不复用首页 latest conversation。",
     "详情页继续通过 repository 或 sync service 取数和写入，不直接碰 schema/database/WebSocket transport。",
+    "Chat UI 新增本地文案走 shared-i18n；不要把用户消息、服务端正文、runtime payload 原始文本或已持久化标题翻译后写回 SQLite。",
     "详情页返回不应重建首页列表；系统 back、header back 和边缘返回手势都应回到同一份首页实例。",
     "首页失焦时应暂停消费实时目录事件，恢复聚焦后再补一次可见切片刷新。",
     "详情页历史抽屉展示的是 conversations 会话摘要列表，不从当前 timeline/messages 反推；未读蓝点、总数和未读数都来自 repository 返回的会话读状态统计。",
@@ -300,6 +304,10 @@
     {
       "type": "module",
       "ref": "shared-visual-foundation"
+    },
+    {
+      "type": "module",
+      "ref": "shared-i18n"
     },
     {
       "type": "flow",
@@ -630,6 +638,7 @@
       "feature-chat-realtime",
       "feature-chat-timeline",
       "shared-conversation-content-renderer",
+      "shared-i18n",
       "shared-paginated-list",
       "shared-screen-header",
       "shared-visual-foundation"

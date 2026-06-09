@@ -1,10 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ComponentType, ReactElement } from 'react';
-import {
-  FlashList,
-  FlashListRef,
-  type FlashListProps as BaseFlashListProps,
-} from '@shopify/flash-list';
+import { FlashList, FlashListRef, type FlashListProps as BaseFlashListProps } from '@shopify/flash-list';
 import {
   ActivityIndicator,
   LayoutChangeEvent,
@@ -15,10 +11,11 @@ import {
   StyleSheet,
   Text,
   View,
-  ViewStyle,
+  ViewStyle
 } from 'react-native';
 
 import { appVisualTokens } from '../visual/foundation';
+import { useT } from '../i18n';
 
 type CardComponentProps<ItemT> = {
   item: ItemT;
@@ -70,8 +67,9 @@ export function PaginatedCardList<ItemT>({
   itemSpacing = ITEM_SPACING,
   getItemHeight,
   getItemType,
-  maintainVisibleContentPosition,
+  maintainVisibleContentPosition
 }: PaginatedCardListProps<ItemT>) {
+  const t = useT();
   const listRef = useRef<FlashListRef<ItemT>>(null);
   const loadMoreLockedRef = useRef(false);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -116,33 +114,26 @@ export function PaginatedCardList<ItemT>({
           const resolvedItemHeight = getItemHeight?.(item, index) ?? itemHeight;
 
           return (
-            <View
-              style={[
-                styles.itemShell,
-                { height: resolvedItemHeight + itemSpacing, paddingBottom: itemSpacing },
-              ]}
-            >
+            <View style={[styles.itemShell, { height: resolvedItemHeight + itemSpacing, paddingBottom: itemSpacing }]}>
               <CardComponent item={item} index={index} itemHeight={resolvedItemHeight} />
             </View>
           );
         }}
         onEndReached={handleEndReached}
         onEndReachedThreshold={pagination.endReachedThreshold ?? 0.35}
-        onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) =>
-          handleScroll(event.nativeEvent.contentOffset.y)
-        }
+        onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => handleScroll(event.nativeEvent.contentOffset.y)}
         onLayout={(event: LayoutChangeEvent) => setViewportHeight(event.nativeEvent.layout.height)}
         scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         onRefresh={() => void onRefresh()}
         refreshing={refreshing}
         ListHeaderComponent={headerComponent}
-        ListEmptyComponent={ListEmptyComponent}
+        ListEmptyComponent={ListEmptyComponent as BaseFlashListProps<ItemT>['ListEmptyComponent']}
         ListFooterComponent={
           pagination.loadingMore ? (
             <View style={styles.footer}>
               <ActivityIndicator size="small" color={appVisualTokens.colors.brandBlue} />
-              <Text style={styles.footerText}>加载中...</Text>
+              <Text style={styles.footerText}>{t('common.loading')}</Text>
             </View>
           ) : (
             <View style={styles.footerSpacer} />
@@ -167,13 +158,13 @@ export function PaginatedCardList<ItemT>({
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flex: 1
   },
   contentContainer: {
-    paddingBottom: 18,
+    paddingBottom: 18
   },
   itemShell: {
-    width: '100%',
+    width: '100%'
   },
   footer: {
     flexDirection: 'row',
@@ -181,15 +172,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     paddingTop: 8,
-    paddingBottom: 18,
+    paddingBottom: 18
   },
   footerText: {
     fontSize: 14,
     fontWeight: '600',
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   footerSpacer: {
-    height: 12,
+    height: 12
   },
   scrollTopButton: {
     position: 'absolute',
@@ -202,12 +193,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: appVisualTokens.colors.surface,
     borderWidth: 1,
-    borderColor: appVisualTokens.colors.line,
+    borderColor: appVisualTokens.colors.line
   },
   scrollTopButtonText: {
     marginTop: -2,
     color: appVisualTokens.colors.brandBlue,
     fontSize: 20,
-    fontWeight: '800',
-  },
+    fontWeight: '800'
+  }
 });

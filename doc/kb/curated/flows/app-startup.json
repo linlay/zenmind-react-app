@@ -4,7 +4,7 @@
   "trigger": "Expo 启动应用并注册根组件时触发。",
   "sourceOfTruth": [
     "app.json 决定 expo-splash-screen 的原生启动图资源、背景色和 imageWidth。",
-    "App.tsx 和 AppRoot.tsx 决定根 provider 树与导航挂载顺序。",
+    "App.tsx 和 AppRoot.tsx 决定根 provider 树、I18nProvider 与导航挂载顺序。",
     "src/core/auth/appAuth.ts 决定冷启动时的认证恢复、设备令牌缓存、前台预刷新和登录态切换。",
     "notificationService 决定登录后的系统通知权限、原生 push token 注册和冷启动通知点击缓存。",
     "AppLaunchSkeleton.tsx 决定应用冷启动期间的加载遮罩展示效果。",
@@ -28,7 +28,7 @@
     },
     {
       "order": 3,
-      "label": "App 在首帧渲染前调用 SplashScreen.preventAutoHideAsync() 托住 native splash，等待 React loading 首帧 ready 后再 hideAsync() 接棒。",
+      "label": "App 在首帧渲染前调用 SplashScreen.preventAutoHideAsync() 托住 native splash，并在 SafeAreaProvider 内挂载 I18nProvider，等待 React loading 首帧 ready 后再 hideAsync() 接棒。",
       "moduleId": "app-shell-navigation",
       "file": "App.tsx",
       "symbol": "AppRoot"
@@ -93,11 +93,13 @@
     "app-shell-navigation",
     "core-auth-session",
     "feature-auth-login",
-    "feature-notifications"
+    "feature-notifications",
+    "shared-i18n"
   ],
   "relatedTasks": [
     "add-app-startup-loading-screen",
     "add-auth-login-screen",
+    "add-internationalization",
     "add-or-edit-tab-screen",
     "add-system-notifications",
     "modify-runtime-environment",

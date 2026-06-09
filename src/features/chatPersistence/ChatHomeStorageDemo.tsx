@@ -8,12 +8,9 @@ import { PaginatedCardList } from '../../shared/components/PaginatedCardList';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { AppIconButton } from '../../shared/icons/AppIconButton';
+import { useT } from '../../shared/i18n';
 import { AgentAvatar } from '../../shared/visual/AgentAvatar';
-import {
-  appVisualTokens,
-  formatConversationTimestamp,
-  formatUnreadCount,
-} from '../../shared/visual/foundation';
+import { appVisualTokens, formatConversationTimestamp, formatUnreadCount } from '../../shared/visual/foundation';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
 import {
   createConversationForDirectoryItem,
@@ -22,13 +19,10 @@ import {
   getChatDirectorySlice,
   getOrCreateConversationForDirectoryItem,
   prepareChatPersistenceSample,
-  setChatDirectoryItemPinned,
+  setChatDirectoryItemPinned
 } from './chatRepository';
 import { ChatDirectoryPickerDrawer } from './components/ChatDirectoryPickerDrawer';
-import {
-  patchDirectoryListPreviewByConversation,
-  type ChatDirectoryListState,
-} from './chatRealtimeUiState';
+import { patchDirectoryListPreviewByConversation, type ChatDirectoryListState } from './chatRealtimeUiState';
 import { readChatDirectorySnapshot } from './homeSnapshot';
 import { ChatConversationHistoryScope, ChatDirectoryItem, ChatDetailRouteParams } from './types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -41,11 +35,8 @@ const CHAT_HOME_AUTOSCROLL_TO_TOP_THRESHOLD = CHAT_ROW_HEIGHT;
 const PIN_FOLD_ROW_HEIGHT = 54;
 const PIN_MENU_WIDTH = 176;
 const PIN_MENU_ROW_HEIGHT = 58;
-const CHAT_TITLE = '对话';
 
-function getDirectoryHistoryScope(
-  item: ChatDirectoryItem
-): ChatConversationHistoryScope | undefined {
+function getDirectoryHistoryScope(item: ChatDirectoryItem): ChatConversationHistoryScope | undefined {
   const teamId = item.kind === 'team' ? item.teamId : null;
   const agentKey = teamId ? null : item.agentKey || item.defaultAgentKey;
 
@@ -55,7 +46,7 @@ function getDirectoryHistoryScope(
 
   return {
     agentKey: agentKey || null,
-    teamId: teamId || null,
+    teamId: teamId || null
   };
 }
 
@@ -88,10 +79,7 @@ type PinnedFoldDisplayItem = {
 
 type ChatListItem = ChatDirectoryDisplayItem | PinnedFoldDisplayItem;
 
-function buildDirectoryListState(
-  items: ChatDirectoryItem[],
-  total: number
-): ChatDirectoryListState {
+function buildDirectoryListState(items: ChatDirectoryItem[], total: number): ChatDirectoryListState {
   const itemsById: Record<string, ChatDirectoryItem> = {};
   const orderedIds: string[] = [];
 
@@ -103,7 +91,7 @@ function buildDirectoryListState(
   return {
     orderedIds,
     itemsById,
-    total,
+    total
   };
 }
 
@@ -125,7 +113,7 @@ function appendDirectoryListState(
   return {
     orderedIds,
     itemsById,
-    total,
+    total
   };
 }
 
@@ -140,7 +128,7 @@ const HeaderIconGlyph = memo(function HeaderIconGlyph({ usage }: { usage: AppIco
 const HeaderIconButton = memo(function HeaderIconButton({
   usage,
   accessibilityLabel,
-  onPress,
+  onPress
 }: {
   usage: AppIconUsage;
   accessibilityLabel: string;
@@ -162,7 +150,7 @@ const ChatRow = memo(function ChatRow({
   item,
   onPress,
   onLongPress,
-  isMenuTarget,
+  isMenuTarget
 }: {
   item: ChatDirectoryDisplayItem;
   onPress: (item: ChatDirectoryItem) => void;
@@ -188,17 +176,9 @@ const ChatRow = memo(function ChatRow({
       style={({ pressed }) => [styles.chatRowPressable, pressed && styles.chatRowPressed]}
     >
       <View
-        style={[
-          styles.chatRow,
-          item.pinnedAt > 0 && styles.chatRowPinned,
-          isMenuTarget && styles.chatRowMenuTarget,
-        ]}
+        style={[styles.chatRow, item.pinnedAt > 0 && styles.chatRowPinned, isMenuTarget && styles.chatRowMenuTarget]}
       >
-        <AgentAvatar
-          type={item.kind}
-          icon={item.icon}
-          fallbackSeed={item.agentKey || item.teamId || item.title}
-        />
+        <AgentAvatar type={item.kind} icon={item.icon} fallbackSeed={item.agentKey || item.teamId || item.title} />
 
         <View style={styles.chatRowMain}>
           <Text numberOfLines={1} style={styles.chatTitle}>
@@ -226,9 +206,7 @@ const ChatRow = memo(function ChatRow({
                 <AppIcon usage="chatHome.rowPinned" />
               </View>
             ) : null}
-            {item.unreadCount <= 0 && item.pinnedAt <= 0 ? (
-              <View style={styles.unreadBadgePlaceholder} />
-            ) : null}
+            {item.unreadCount <= 0 && item.pinnedAt <= 0 ? <View style={styles.unreadBadgePlaceholder} /> : null}
           </View>
         </View>
       </View>
@@ -238,15 +216,16 @@ const ChatRow = memo(function ChatRow({
 
 const PinnedFoldRow = memo(function PinnedFoldRow({
   item,
-  onPress,
+  onPress
 }: {
   item: PinnedFoldDisplayItem;
   onPress: () => void;
 }) {
-  const label = item.collapsed ? `展开置顶项目 (${item.pinnedCount})` : '折叠置顶项目';
-  const chevronUsage: AppIconUsage = item.collapsed
-    ? 'chatHome.pinnedFold.expand'
-    : 'chatHome.pinnedFold.collapse';
+  const t = useT();
+  const label = item.collapsed
+    ? t('chatHome.pinned.expand', { count: item.pinnedCount })
+    : t('chatHome.pinned.collapse');
+  const chevronUsage: AppIconUsage = item.collapsed ? 'chatHome.pinnedFold.expand' : 'chatHome.pinnedFold.collapse';
 
   return (
     <Pressable
@@ -266,10 +245,12 @@ const PinnedFoldRow = memo(function PinnedFoldRow({
 });
 
 const ChatEmptyState = memo(function ChatEmptyState() {
+  const t = useT();
+
   return (
     <View style={styles.emptyState}>
-      <Text style={styles.emptyStateTitle}>暂无智能体或团队</Text>
-      <Text style={styles.emptyStateBody}>下拉刷新后会从服务端重新读取可用目录。</Text>
+      <Text style={styles.emptyStateTitle}>{t('chatHome.empty.title')}</Text>
+      <Text style={styles.emptyStateBody}>{t('chatHome.empty.body')}</Text>
     </View>
   );
 });
@@ -277,13 +258,12 @@ const ChatEmptyState = memo(function ChatEmptyState() {
 const CHAT_EMPTY_STATE = <ChatEmptyState />;
 
 export function ChatHomeStorageDemo() {
+  const t = useT();
   const tabBarHeight = useBottomTabBarHeight();
   const windowDimensions = useWindowDimensions();
   const isFocused = useIsFocused();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const [homeState, setHomeState] = useState<ChatDirectoryListState>(() =>
-    buildDirectoryListState([], 0)
-  );
+  const [homeState, setHomeState] = useState<ChatDirectoryListState>(() => buildDirectoryListState([], 0));
   const [directoryPickerState, setDirectoryPickerState] = useState<ChatDirectoryListState>(() =>
     buildDirectoryListState([], 0)
   );
@@ -335,11 +315,11 @@ export function ChatHomeStorageDemo() {
     () =>
       items.map<ChatDirectoryDisplayItem>((item) => ({
         ...item,
-        lastMessagePreview: item.lastMessageText || '暂无对话',
+        lastMessagePreview: item.lastMessageText || t('chatHome.noConversation'),
         lastMessageTimeLabel: formatConversationTimestamp(item.lastMessageAt),
-        unreadLabel: item.unreadCount > 0 ? formatUnreadCount(item.unreadCount) : '',
+        unreadLabel: item.unreadCount > 0 ? formatUnreadCount(item.unreadCount) : ''
       })),
-    [items]
+    [items, t]
   );
   const listItems = useMemo<ChatListItem[]>(() => {
     if (pinnedTotal <= 0) {
@@ -352,12 +332,10 @@ export function ChatHomeStorageDemo() {
       kind: 'pinned-fold',
       id: 'pinned-fold-control',
       pinnedCount: pinnedTotal,
-      collapsed: arePinnedItemsCollapsed,
+      collapsed: arePinnedItemsCollapsed
     };
 
-    return arePinnedItemsCollapsed
-      ? [foldItem, ...unpinnedItems]
-      : [...pinnedItems, foldItem, ...unpinnedItems];
+    return arePinnedItemsCollapsed ? [foldItem, ...unpinnedItems] : [...pinnedItems, foldItem, ...unpinnedItems];
   }, [arePinnedItemsCollapsed, displayItems, pinnedTotal]);
 
   const handleShowPinMenu = useCallback((item: ChatDirectoryItem, anchor: RowActionAnchor) => {
@@ -379,7 +357,7 @@ export function ChatHomeStorageDemo() {
           if (!item.latestConversationId) {
             const result = await getOrCreateConversationForDirectoryItem(item.id);
             if (!result) {
-              setErrorText('无法创建对话：目录项缺少智能体或团队标识。');
+              setErrorText(t('chatHome.error.missingDirectoryTarget'));
               return;
             }
 
@@ -388,7 +366,7 @@ export function ChatHomeStorageDemo() {
               conversationSubtitle: item.subtitle,
               initialConversation: result.conversation,
               ...(result.historyScope ? { historyScope: result.historyScope } : {}),
-              skipInitialReconcile: result.isLocalDraft,
+              skipInitialReconcile: result.isLocalDraft
             });
             return;
           }
@@ -406,8 +384,8 @@ export function ChatHomeStorageDemo() {
               unreadCount: item.unreadCount,
               read: undefined,
               lastMessageStatus: 'sent',
-              pinnedAt: item.pinnedAt,
-            },
+              pinnedAt: item.pinnedAt
+            }
           };
           navigation.navigate('ChatDetail', params);
         } catch (error) {
@@ -419,14 +397,12 @@ export function ChatHomeStorageDemo() {
 
       void openDirectoryItem();
     },
-    [navigation]
+    [navigation, t]
   );
 
   const loadVisibleSlice = useCallback(async (pageCount: number, collapsed: boolean = false) => {
     const limit = Math.max(1, pageCount) * CHAT_PAGE_SIZE;
-    const home = collapsed
-      ? await getCollapsedChatDirectorySlice(limit)
-      : await getChatDirectorySlice(limit);
+    const home = collapsed ? await getCollapsedChatDirectorySlice(limit) : await getChatDirectorySlice(limit);
 
     setHomeState(buildDirectoryListState(home.items, home.total));
     setPinnedTotal(home.pinnedTotal);
@@ -497,12 +473,7 @@ export function ChatHomeStorageDemo() {
     } finally {
       setDirectoryPickerLoadingMore(false);
     }
-  }, [
-    directoryPickerHasMore,
-    directoryPickerLoading,
-    directoryPickerLoadingMore,
-    loadDirectoryPickerPage,
-  ]);
+  }, [directoryPickerHasMore, directoryPickerLoading, directoryPickerLoadingMore, loadDirectoryPickerPage]);
 
   const handleDirectoryPickerItemPress = useCallback(
     (item: ChatDirectoryItem) => {
@@ -519,7 +490,7 @@ export function ChatHomeStorageDemo() {
         try {
           const result = await createConversationForDirectoryItem(item.id);
           if (!result) {
-            const message = '无法创建对话：目录项缺少智能体或团队标识。';
+            const message = t('chatHome.error.missingDirectoryTarget');
             setDirectoryPickerErrorText(message);
             setErrorText(message);
             return;
@@ -531,7 +502,7 @@ export function ChatHomeStorageDemo() {
             conversationSubtitle: item.subtitle,
             initialConversation: result.conversation,
             ...(result.historyScope ? { historyScope: result.historyScope } : {}),
-            skipInitialReconcile: result.isLocalDraft,
+            skipInitialReconcile: result.isLocalDraft
           });
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
@@ -545,7 +516,7 @@ export function ChatHomeStorageDemo() {
 
       void openNewDirectoryConversation();
     },
-    [navigation]
+    [navigation, t]
   );
 
   const CardComponent = useCallback(
@@ -712,7 +683,7 @@ export function ChatHomeStorageDemo() {
     try {
       await chatSyncService.markScopeRead({
         agentKey: target.agentKey,
-        teamId: target.teamId,
+        teamId: target.teamId
       });
       await loadVisibleSlice(currentPageRef.current, arePinnedItemsCollapsed);
     } catch (error) {
@@ -726,30 +697,27 @@ export function ChatHomeStorageDemo() {
         <HeaderIconButton
           key="directory-picker"
           usage="chatHome.openDirectory"
-          accessibilityLabel="打开智能体和团队列表"
+          accessibilityLabel={t('chatHome.openDirectory')}
           onPress={handleOpenDirectoryPicker}
-        />,
+        />
       ] as const,
-    [handleOpenDirectoryPicker]
+    [handleOpenDirectoryPicker, t]
   );
 
   const headerRightActions = useMemo(
     () =>
       [
         <HeaderIconGlyph key="search" usage="chatHome.search" />,
-        <HeaderIconGlyph key="add" usage="chatHome.add" />,
+        <HeaderIconGlyph key="add" usage="chatHome.add" />
       ] as const,
     []
   );
   const listBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
-  const pinActionLabel = pinActionTarget?.pinnedAt ? '取消置顶' : '置顶聊天';
+  const pinActionLabel = pinActionTarget?.pinnedAt ? t('chatHome.pin.cancel') : t('chatHome.pin.set');
   const pinMenuActionCount = pinActionTarget?.unreadCount ? 2 : 1;
   const pinMenuPosition = useMemo(() => {
     const bottomLimit =
-      windowDimensions.height -
-      tabBarHeight -
-      PIN_MENU_ROW_HEIGHT * pinMenuActionCount -
-      appVisualTokens.spacing.xl;
+      windowDimensions.height - tabBarHeight - PIN_MENU_ROW_HEIGHT * pinMenuActionCount - appVisualTokens.spacing.xl;
     const preferredTop = pinActionAnchor
       ? pinActionAnchor.y + Math.min(28, pinActionAnchor.height * 0.42)
       : appVisualTokens.spacing.xxl;
@@ -760,18 +728,14 @@ export function ChatHomeStorageDemo() {
 
     return {
       top,
-      right: appVisualTokens.spacing.xl,
+      right: appVisualTokens.spacing.xl
     };
   }, [pinActionAnchor, pinMenuActionCount, tabBarHeight, windowDimensions.height]);
 
   return (
     <View style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
-        <ScreenHeader
-          title={CHAT_TITLE}
-          leftActions={headerLeftActions}
-          rightActions={headerRightActions}
-        />
+        <ScreenHeader title={t('chatHome.title')} leftActions={headerLeftActions} rightActions={headerRightActions} />
       </SafeAreaView>
 
       <View style={styles.listShell}>
@@ -782,7 +746,7 @@ export function ChatHomeStorageDemo() {
           pagination={{
             hasMore,
             loadingMore,
-            onLoadMore: handleLoadMore,
+            onLoadMore: handleLoadMore
           }}
           refreshing={refreshing}
           onRefresh={handleRefresh}
@@ -790,7 +754,7 @@ export function ChatHomeStorageDemo() {
           ListHeaderComponent={
             errorText ? (
               <View style={styles.feedbackCard}>
-                <Text style={styles.errorText}>读取失败：{errorText}</Text>
+                <Text style={styles.errorText}>{t('chatHome.error.readFailed', { message: errorText })}</Text>
               </View>
             ) : null
           }
@@ -799,11 +763,9 @@ export function ChatHomeStorageDemo() {
           showScrollTopButton={false}
           itemSpacing={0}
           maintainVisibleContentPosition={{
-            autoscrollToTopThreshold: CHAT_HOME_AUTOSCROLL_TO_TOP_THRESHOLD,
+            autoscrollToTopThreshold: CHAT_HOME_AUTOSCROLL_TO_TOP_THRESHOLD
           }}
-          getItemHeight={(item) =>
-            item.kind === 'pinned-fold' ? PIN_FOLD_ROW_HEIGHT : CHAT_ROW_HEIGHT
-          }
+          getItemHeight={(item) => (item.kind === 'pinned-fold' ? PIN_FOLD_ROW_HEIGHT : CHAT_ROW_HEIGHT)}
           getItemType={(item) => item.kind}
         />
       </View>
@@ -822,23 +784,12 @@ export function ChatHomeStorageDemo() {
         onSelectItem={handleDirectoryPickerItemPress}
       />
 
-      <Modal
-        visible={Boolean(pinActionTarget)}
-        transparent
-        animationType="fade"
-        onRequestClose={handleClosePinMenu}
-      >
+      <Modal visible={Boolean(pinActionTarget)} transparent animationType="fade" onRequestClose={handleClosePinMenu}>
         <Pressable style={styles.menuBackdrop} onPress={handleClosePinMenu}>
-          <Pressable
-            style={[styles.pinMenu, pinMenuPosition]}
-            onPress={(event) => event.stopPropagation()}
-          >
+          <Pressable style={[styles.pinMenu, pinMenuPosition]} onPress={(event) => event.stopPropagation()}>
             <Pressable
               accessibilityRole="button"
-              style={({ pressed }) => [
-                styles.pinMenuAction,
-                pressed && styles.pinMenuActionPressed,
-              ]}
+              style={({ pressed }) => [styles.pinMenuAction, pressed && styles.pinMenuActionPressed]}
               onPress={() => void handleTogglePin()}
             >
               <AppIcon usage="chatHome.pinMenu.toggle" />
@@ -847,14 +798,11 @@ export function ChatHomeStorageDemo() {
             {pinActionTarget?.unreadCount ? (
               <Pressable
                 accessibilityRole="button"
-                style={({ pressed }) => [
-                  styles.pinMenuAction,
-                  pressed && styles.pinMenuActionPressed,
-                ]}
+                style={({ pressed }) => [styles.pinMenuAction, pressed && styles.pinMenuActionPressed]}
                 onPress={() => void handleMarkScopeRead()}
               >
                 <AppIcon usage="chatHome.pinMenu.markRead" />
-                <Text style={styles.pinMenuActionText}>全部已读</Text>
+                <Text style={styles.pinMenuActionText}>{t('chatHome.markAllRead')}</Text>
               </Pressable>
             ) : null}
           </Pressable>
@@ -867,17 +815,17 @@ export function ChatHomeStorageDemo() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: appVisualTokens.colors.surface,
+    backgroundColor: appVisualTokens.colors.surface
   },
   headerSafeArea: {
-    backgroundColor: appVisualTokens.colors.surface,
+    backgroundColor: appVisualTokens.colors.surface
   },
   listShell: {
     flex: 1,
-    backgroundColor: appVisualTokens.colors.surface,
+    backgroundColor: appVisualTokens.colors.surface
   },
   listContent: {
-    paddingTop: appVisualTokens.spacing.xs,
+    paddingTop: appVisualTokens.spacing.xs
   },
   feedbackCard: {
     marginHorizontal: appVisualTokens.spacing.xl,
@@ -887,27 +835,27 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: '#f0d6d6',
     paddingHorizontal: appVisualTokens.spacing.lg,
-    paddingVertical: appVisualTokens.spacing.sm,
+    paddingVertical: appVisualTokens.spacing.sm
   },
   errorText: {
     fontSize: 13,
     lineHeight: 20,
-    color: appVisualTokens.colors.danger,
+    color: appVisualTokens.colors.danger
   },
   headerIconGlyph: {
     width: 40,
     height: 40,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   headerIconButtonPressed: {
-    opacity: 0.68,
+    opacity: 0.68
   },
   chatRowPressable: {
-    flex: 1,
+    flex: 1
   },
   chatRowPressed: {
-    opacity: 0.72,
+    opacity: 0.72
   },
   chatRow: {
     flex: 1,
@@ -918,50 +866,50 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: appVisualTokens.colors.line,
-    backgroundColor: appVisualTokens.colors.surface,
+    backgroundColor: appVisualTokens.colors.surface
   },
   chatRowPinned: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted,
+    backgroundColor: appVisualTokens.colors.surfaceMuted
   },
   chatRowMenuTarget: {
-    backgroundColor: appVisualTokens.colors.backgroundMuted,
+    backgroundColor: appVisualTokens.colors.backgroundMuted
   },
   chatRowMain: {
     flex: 1,
     minWidth: 0,
-    gap: 4,
+    gap: 4
   },
   chatTitle: {
     flexShrink: 1,
     fontSize: 16,
     lineHeight: 22,
     fontWeight: '500',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   chatSummary: {
     fontSize: 13,
     lineHeight: 18,
-    color: appVisualTokens.colors.textTertiary,
+    color: appVisualTokens.colors.textTertiary
   },
   chatRowMeta: {
     alignItems: 'flex-end',
     justifyContent: 'space-between',
     minHeight: 46,
     minWidth: 74,
-    gap: 4,
+    gap: 4
   },
   chatRowMetaBottom: {
     minHeight: 26,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 6,
+    gap: 6
   },
   chatTime: {
     fontSize: 12,
     lineHeight: 14,
     fontWeight: '400',
-    color: appVisualTokens.colors.textTertiary,
+    color: appVisualTokens.colors.textTertiary
   },
   unreadBadge: {
     minWidth: 26,
@@ -970,22 +918,22 @@ const styles = StyleSheet.create({
     backgroundColor: appVisualTokens.colors.badge,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 6,
+    paddingHorizontal: 6
   },
   unreadBadgeText: {
     fontSize: 11,
     fontWeight: '700',
-    color: appVisualTokens.colors.surface,
+    color: appVisualTokens.colors.surface
   },
   unreadBadgePlaceholder: {
     width: 26,
-    height: 26,
+    height: 26
   },
   pinnedMarker: {
     width: 24,
     height: 24,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'center'
   },
   pinnedFoldRow: {
     flex: 1,
@@ -997,23 +945,23 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: appVisualTokens.colors.line,
-    backgroundColor: appVisualTokens.colors.surfaceMuted,
+    backgroundColor: appVisualTokens.colors.surfaceMuted
   },
   pinnedFoldRowPressed: {
-    backgroundColor: appVisualTokens.colors.backgroundMuted,
+    backgroundColor: appVisualTokens.colors.backgroundMuted
   },
   pinnedFoldLeft: {
     flex: 1,
     minWidth: 0,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: appVisualTokens.spacing.lg,
+    gap: appVisualTokens.spacing.lg
   },
   pinnedFoldText: {
     flexShrink: 1,
     fontSize: 15,
     lineHeight: 20,
-    color: appVisualTokens.colors.textSecondary,
+    color: appVisualTokens.colors.textSecondary
   },
   emptyState: {
     alignItems: 'center',
@@ -1021,23 +969,23 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
     marginHorizontal: appVisualTokens.spacing.xl,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: appVisualTokens.colors.line,
+    borderColor: appVisualTokens.colors.line
   },
   emptyStateTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
+    color: appVisualTokens.colors.textPrimary
   },
   emptyStateBody: {
     marginTop: 8,
     fontSize: 14,
     lineHeight: 21,
     color: appVisualTokens.colors.textSecondary,
-    textAlign: 'center',
+    textAlign: 'center'
   },
   menuBackdrop: {
     flex: 1,
-    backgroundColor: 'transparent',
+    backgroundColor: 'transparent'
   },
   pinMenu: {
     position: 'absolute',
@@ -1051,23 +999,23 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.14,
     shadowRadius: 18,
-    elevation: 8,
+    elevation: 8
   },
   pinMenuAction: {
     minHeight: PIN_MENU_ROW_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
     gap: appVisualTokens.spacing.md,
-    paddingHorizontal: appVisualTokens.spacing.xl,
+    paddingHorizontal: appVisualTokens.spacing.xl
   },
   pinMenuActionPressed: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted,
+    backgroundColor: appVisualTokens.colors.surfaceMuted
   },
   pinMenuActionText: {
     flexShrink: 1,
     fontSize: 17,
     lineHeight: 24,
     fontWeight: '500',
-    color: appVisualTokens.colors.textPrimary,
-  },
+    color: appVisualTokens.colors.textPrimary
+  }
 });

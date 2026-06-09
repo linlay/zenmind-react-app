@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-08T03:52:06.141Z",
+  "generatedAt": "2026-06-08T09:04:02.138Z",
   "items": [
     {
       "id": "app-development-debug",
@@ -15,7 +15,7 @@
       "id": "app-shell-navigation",
       "title": "应用壳层与底部导航",
       "layer": "app",
-      "summary": "挂载 SafeAreaProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
+      "summary": "挂载 SafeAreaProvider、I18nProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
       "pathHints": [
         "App.tsx",
         "index.js",
@@ -46,6 +46,7 @@
         "add-or-edit-tab-screen",
         "add-reusable-header-component",
         "add-system-notifications",
+        "add-internationalization",
         "add-reusable-list-screen",
         "remove-development-debug-entry"
       ],
@@ -103,7 +104,7 @@
       "summary": "承载面向 AI 智能体任务分配后的移动端任务处置 UI 设计稿。",
       "pathHints": ["src/features/agentTaskBoard"],
       "relatedFlows": [],
-      "relatedTasks": ["add-or-edit-tab-screen"],
+      "relatedTasks": ["add-or-edit-tab-screen", "add-internationalization"],
       "card": "doc/kb/modules/feature-agent-task-board.json"
     },
     {
@@ -113,7 +114,7 @@
       "summary": "承载设备登录表单、启动恢复中的认证占位屏和最小会话交互。",
       "pathHints": ["src/features/auth"],
       "relatedFlows": ["app-startup"],
-      "relatedTasks": ["add-auth-login-screen", "add-or-edit-tab-screen"],
+      "relatedTasks": ["add-auth-login-screen", "add-internationalization", "add-or-edit-tab-screen"],
       "card": "doc/kb/modules/feature-auth-login.json"
     },
     {
@@ -131,6 +132,7 @@
       "relatedTasks": [
         "add-reusable-header-component",
         "add-reusable-list-screen",
+        "add-internationalization",
         "add-system-notifications",
         "modify-chat-persistence",
         "modify-chat-realtime"
@@ -178,13 +180,23 @@
       "card": "doc/kb/modules/shared-conversation-content-renderer.json"
     },
     {
+      "id": "shared-i18n",
+      "title": "共享国际化能力",
+      "layer": "shared",
+      "summary": "提供轻量 typed i18n 能力，包含静态消息表、locale 解析、翻译函数、根 Provider 和缓存后的日期 formatter。",
+      "pathHints": ["src/shared/i18n"],
+      "relatedFlows": ["app-startup"],
+      "relatedTasks": ["add-internationalization"],
+      "card": "doc/kb/modules/shared-i18n.json"
+    },
+    {
       "id": "shared-paginated-list",
       "title": "复用型分页列表组件",
       "layer": "shared",
       "summary": "提供基于 FlashList 的通用分页列表容器。",
       "pathHints": ["src/shared/components/PaginatedCardList.tsx"],
       "relatedFlows": ["chat-home-cold-boot"],
-      "relatedTasks": ["add-reusable-list-screen", "modify-chat-persistence"],
+      "relatedTasks": ["add-reusable-list-screen", "add-internationalization", "modify-chat-persistence"],
       "card": "doc/kb/modules/shared-paginated-list.json"
     },
     {

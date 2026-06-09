@@ -4,6 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Animated, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useT } from '../../shared/i18n';
 import { appVisualTokens } from '../../shared/visual/foundation';
 import { ChatAwaitingOverlay, ChatAwaitingResumeBar } from './components/ChatAwaitingOverlay';
 import { ChatAwaitingDock } from './components/awaiting/ChatAwaitingDock';
@@ -24,12 +25,10 @@ import { useChatDetailAwaitingOverlay } from './useChatDetailAwaitingOverlay';
 import { useChatDetailConversationController } from './useChatDetailConversationController';
 import { useChatDetailLocalUiState } from './useChatDetailLocalUiState';
 
-type ChatDetailScreenProps = NativeStackScreenProps<
-  { ChatDetail: ChatDetailRouteParams },
-  'ChatDetail'
->;
+type ChatDetailScreenProps = NativeStackScreenProps<{ ChatDetail: ChatDetailRouteParams }, 'ChatDetail'>;
 
 export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
+  const t = useT();
   const insets = useSafeAreaInsets();
   const {
     conversationId,
@@ -38,7 +37,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     historyScope: routeHistoryScope,
     serverMessageId = '',
     fromNotification = false,
-    skipInitialReconcile = false,
+    skipInitialReconcile = false
   } = route.params;
   const {
     summary,
@@ -62,7 +61,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     handleRemoveAttachment,
     handleRetryAttachment,
     handleRetryFromNotification,
-    historyScope,
+    historyScope
   } = useChatDetailConversationController({
     navigation,
     conversationId,
@@ -71,20 +70,20 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     routeHistoryScope,
     serverMessageId,
     fromNotification,
-    skipInitialReconcile,
+    skipInitialReconcile
   });
-  const { awaitingSummary, handleOpenAwaitingOverlay, handleDismissAwaitingOverlay } =
-    useChatDetailAwaitingOverlay(runtimeState, conversationId);
-  const questionAwaiting =
-    awaitingSummary?.interactive?.kind === 'question' ? awaitingSummary : null;
+  const { awaitingSummary, handleOpenAwaitingOverlay, handleDismissAwaitingOverlay } = useChatDetailAwaitingOverlay(
+    runtimeState,
+    conversationId
+  );
+  const questionAwaiting = awaitingSummary?.interactive?.kind === 'question' ? awaitingSummary : null;
   const passiveAwaiting = questionAwaiting ? null : awaitingSummary;
   const handleSubmitAwaiting = useCallback(
     (payload: AwaitingSubmitPayloadData) => chatSyncService.submitAwaiting(conversationId, payload),
     [conversationId]
   );
   const handleLoadHistory = useCallback(
-    (scope: ChatConversationHistoryScope, limit: number) =>
-      getConversationHistorySlice(scope, limit),
+    (scope: ChatConversationHistoryScope, limit: number) => getConversationHistorySlice(scope, limit),
     []
   );
   const handleMarkHistoryScopeRead = useCallback(
@@ -110,12 +109,12 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     handleOpenHistoryDrawer,
     handleCloseHistoryDrawer,
     handleLoadMoreHistory,
-    handleMarkAllHistoryRead,
+    handleMarkAllHistoryRead
   } = useChatDetailLocalUiState(conversationId, historyScope, {
     copyText: Clipboard.setStringAsync,
     loadHistory: handleLoadHistory,
     markHistoryScopeRead: handleMarkHistoryScopeRead,
-    subscribeHistoryEvents: handleSubscribeHistoryEvents,
+    subscribeHistoryEvents: handleSubscribeHistoryEvents
   });
   const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
   const handleSelectHistoryConversation = useCallback(
@@ -129,7 +128,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
         conversationId: item.conversationId,
         conversationSubtitle,
         initialConversation: item,
-        ...(historyScope ? { historyScope } : {}),
+        ...(historyScope ? { historyScope } : {})
       });
     },
     [conversationId, conversationSubtitle, handleCloseHistoryDrawer, historyScope, navigation]
@@ -148,8 +147,14 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
               <View style={styles.screen}>
                 <ChatDetailHeader
                   title={summary.title}
-                  subtitle={conversationSubtitle || formatChatStatusLabel(socketStatus)}
-                  statusLabel={headerRuntimeState.statusLabel}
+                  subtitle={conversationSubtitle || formatChatStatusLabel(socketStatus, t)}
+                  statusLabel={
+                    headerRuntimeState.statusTone === 'running'
+                      ? t('chatDetail.status.running')
+                      : headerRuntimeState.statusTone === 'error'
+                        ? t('chatDetail.status.error')
+                        : t('chatDetail.status.idle')
+                  }
                   statusTone={headerRuntimeState.statusTone}
                   onBack={handleGoBack}
                   onStartNewConversation={handleStartNewConversation}
@@ -235,16 +240,16 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: appVisualTokens.colors.background,
+    backgroundColor: appVisualTokens.colors.background
   },
   keyboardRoot: {
-    flex: 1,
+    flex: 1
   },
   screen: {
     flex: 1,
-    backgroundColor: appVisualTokens.colors.background,
+    backgroundColor: appVisualTokens.colors.background
   },
   initialSkeletonOverlay: {
-    ...StyleSheet.absoluteFill,
-  },
+    ...StyleSheet.absoluteFill
+  }
 });

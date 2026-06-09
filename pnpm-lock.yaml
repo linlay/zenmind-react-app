@@ -22,10 +22,11 @@ specifiers:
   expo-document-picker: 56.0.4
   expo-file-system: 56.0.7
   expo-image-picker: 56.0.15
+  expo-localization: 56.0.6
   expo-notifications: 56.0.15
   expo-splash-screen: 56.0.10
   expo-sqlite: 56.0.4
-  expo-updates: ~56.0.18
+  expo-updates: 56.0.18
   katex: 0.17.0
   metro: 0.84.4
   metro-source-map: 0.84.4
@@ -59,6 +60,7 @@ dependencies:
   expo-document-picker: 56.0.4_expo@56.0.8
   expo-file-system: 56.0.7_lfr4zcstnhexvc76eo5nvsshlm
   expo-image-picker: 56.0.15_expo@56.0.8
+  expo-localization: 56.0.6_expo@56.0.8+react@19.2.3
   expo-notifications: 56.0.15_tuis2rmi4v44sq6tu2v6vann5y
   expo-splash-screen: 56.0.10_uei6d7x7kfbqyplr44vthi66o4
   expo-sqlite: 56.0.4_uxuajdwuqf43uva2ovpcn5faje
@@ -3255,6 +3257,17 @@ packages:
       expo: 56.0.8_5klxhuam7tep6q5zj7mxkcgnya
       react: 19.2.3
 
+  /expo-localization/56.0.6_expo@56.0.8+react@19.2.3:
+    resolution: {integrity: sha512-zzBVoUFHCVNBywcxGsspoZeIXebihOo/AnmQYE4jMv8gHCSKlLNFT+ft+0+mWcZCMs9necvUs8S8TDonAu/xBA==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+    dependencies:
+      expo: 56.0.8_5klxhuam7tep6q5zj7mxkcgnya
+      react: 19.2.3
+      rtl-detect: 1.1.2
+    dev: false
+
   /expo-manifests/56.0.4_expo@56.0.8:
     resolution: {integrity: sha512-Fokawl2UkiExIF0bqGoblRFA8lYpROVD+EpvDwSW4LgqQyPwNua1gLSgHZjdl5GsVugfRMMWE3LHaibDyX93hw==}
     peerDependencies:
@@ -5379,6 +5392,10 @@ packages:
     dependencies:
       onetime: 2.0.1
       signal-exit: 3.0.7
+
+  /rtl-detect/1.1.2:
+    resolution: {integrity: sha512-PGMBq03+TTG/p/cRB7HCLKJ1MgDIi07+QU1faSjiYRfmY5UsAttV9Hs08jDAHVwcOwmVLcSJkpwyfXszVjWfIQ==}
+    dev: false
 
   /safe-array-concat/1.1.4:
     resolution: {integrity: sha512-wtZlHyOje6OZTGqAoaDKxFkgRtkF9CnHAVnCHKfuj200wAgL+bSJhdsCD2l0Qx/2ekEXjPWcyKkfGb5CPboslg==}

@@ -1,17 +1,10 @@
-import type {
-  AwaitingQuestionSubmitParamData,
-  AwaitingSubmitPayloadData,
-} from '../../../../core/api/services/chatApi';
-import type {
-  ChatTimelineAwaitingQuestion,
-  ChatTimelineAwaitingQuestionOption,
-} from '../../../chatTimeline/index.ts';
+import type { AwaitingQuestionSubmitParamData, AwaitingSubmitPayloadData } from '../../../../core/api/services/chatApi';
+import { defaultT, type TFunction } from '../../../../shared/i18n/translate.ts';
+import type { ChatTimelineAwaitingQuestion, ChatTimelineAwaitingQuestionOption } from '../../../chatTimeline/index.ts';
 
 export type AwaitingQuestionDraft = AwaitingQuestionSubmitParamData;
 
-export function hasAwaitingQuestions(
-  questions: readonly ChatTimelineAwaitingQuestion[] | null | undefined
-): boolean {
+export function hasAwaitingQuestions(questions: readonly ChatTimelineAwaitingQuestion[] | null | undefined): boolean {
   return Array.isArray(questions) && questions.length > 0;
 }
 
@@ -51,10 +44,10 @@ export function getAwaitingQuestionsSignature(
               signatureText(option.label),
               signatureText(option.value),
               signatureText(option.description),
-              signatureText(option.previewHtml),
+              signatureText(option.previewHtml)
             ].join('\u001f')
           )
-          .join('\u001e'),
+          .join('\u001e')
       ].join('\u001f')
     )
     .join('\u001d');
@@ -125,10 +118,7 @@ function isValidDateParts(year: number, month: number, day: number): boolean {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
-export function isValidAwaitingDateAnswer(
-  question: ChatTimelineAwaitingQuestion,
-  answer: unknown
-): boolean {
+export function isValidAwaitingDateAnswer(question: ChatTimelineAwaitingQuestion, answer: unknown): boolean {
   if (typeof answer !== 'string') {
     return false;
   }
@@ -146,9 +136,7 @@ export function getSelectOptionValue(option: ChatTimelineAwaitingQuestionOption)
   return option.value ?? option.label;
 }
 
-export function getSelectOptions(
-  question: ChatTimelineAwaitingQuestion
-): ChatTimelineAwaitingQuestionOption[] {
+export function getSelectOptions(question: ChatTimelineAwaitingQuestion): ChatTimelineAwaitingQuestionOption[] {
   return Array.isArray(question.options) ? question.options : [];
 }
 
@@ -194,38 +182,40 @@ function hasNumberAnswer(value: AwaitingQuestionDraft | undefined): boolean {
 
 export function getAwaitingAnswerError(
   question: ChatTimelineAwaitingQuestion,
-  value: AwaitingQuestionDraft | undefined
+  value: AwaitingQuestionDraft | undefined,
+  t: TFunction = defaultT
 ): string | null {
   if (question.type === 'text' || question.type === 'password') {
-    return hasTextAnswer(value) ? null : '请输入内容';
+    return hasTextAnswer(value) ? null : t('awaiting.error.textRequired');
   }
   if (question.type === 'number') {
-    return hasNumberAnswer(value) ? null : '请输入数字';
+    return hasNumberAnswer(value) ? null : t('awaiting.error.numberRequired');
   }
   if (question.type === 'date' || question.type === 'datetime') {
     return isValidAwaitingDateAnswer(question, value?.answer)
       ? null
-      : `请输入 ${getAwaitingDateFormat(question)} 格式的日期`;
+      : t('awaiting.error.dateRequired', { format: getAwaitingDateFormat(question) });
   }
   if (question.type === 'multi-select') {
     const answers = buildQuestionSubmitParams([question], value ? [value] : [])[0]?.answers;
-    return Array.isArray(answers) && answers.length > 0 ? null : '请至少选择一项';
+    return Array.isArray(answers) && answers.length > 0 ? null : t('awaiting.error.multiSelectRequired');
   }
   if (question.type === 'select') {
-    return hasTextAnswer(value) ? null : '请选择一项';
+    return hasTextAnswer(value) ? null : t('awaiting.error.selectRequired');
   }
   return null;
 }
 
 export function findAwaitingAnswerError(
   questions: readonly ChatTimelineAwaitingQuestion[] | null | undefined,
-  values: readonly AwaitingQuestionDraft[] | null | undefined
+  values: readonly AwaitingQuestionDraft[] | null | undefined,
+  t: TFunction = defaultT
 ): { index: number; message: string } | null {
   const normalizedQuestions = questions || [];
   const normalizedValues = values || [];
 
   for (let index = 0; index < normalizedQuestions.length; index += 1) {
-    const message = getAwaitingAnswerError(normalizedQuestions[index], normalizedValues[index]);
+    const message = getAwaitingAnswerError(normalizedQuestions[index], normalizedValues[index], t);
     if (message) {
       return { index, message };
     }
@@ -282,7 +272,7 @@ export function buildQuestionSubmitPayload(input: {
   return {
     runId: input.runId,
     awaitingId: input.awaitingId,
-    params: buildQuestionSubmitParams(input.questions, input.values),
+    params: buildQuestionSubmitParams(input.questions, input.values)
   };
 }
 
@@ -306,7 +296,7 @@ export function toggleSelectAnswer(
 
   return {
     id: question.id,
-    answers: [...selectedSet, ...(freeText ? [freeText] : [])],
+    answers: [...selectedSet, ...(freeText ? [freeText] : [])]
   };
 }
 
@@ -323,6 +313,6 @@ export function setFreeTextAnswer(
   const trimmed = freeText.trim();
   return {
     id: question.id,
-    answers: trimmed ? [...selected, trimmed] : selected,
+    answers: trimmed ? [...selected, trimmed] : selected
   };
 }
