@@ -10,7 +10,9 @@ import { AuthBootstrapScreen, LoginScreen } from '../../features/auth/LoginScree
 import { ChatScreen, DriveScreen, MeScreen, TerminalScreen } from '../screens/TabScreens';
 import { ChatDetailScreen } from '../../features/chatPersistence/ChatDetailScreen';
 import { useT } from '../../shared/i18n';
-import { appVisualTokens } from '../../shared/visual/foundation';
+import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../shared/visual/foundation';
+import { SettingsScreen } from '../screens/SettingsScreen';
 import { AppTabIcon, TAB_LABEL_KEYS } from './TabIcon';
 import { RootStackParamList, RootTabParamList } from './types';
 
@@ -47,6 +49,8 @@ function TabBarButtonWithoutRipple({
 function TabsNavigator() {
   const insets = useSafeAreaInsets();
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const tabBarMetrics = getTabBarMetrics(insets.bottom);
 
   return (
@@ -60,8 +64,8 @@ function TabsNavigator() {
         tabBarShowLabel: true,
         tabBarLabel: t(TAB_LABEL_KEYS[route.name]),
         tabBarLabelPosition: 'below-icon',
-        tabBarActiveTintColor: appVisualTokens.colors.brandBlue,
-        tabBarInactiveTintColor: appVisualTokens.colors.textTertiary,
+        tabBarActiveTintColor: theme.colors.brandBlue,
+        tabBarInactiveTintColor: theme.colors.textTertiary,
         tabBarStyle: [
           styles.tabBar,
           {
@@ -119,32 +123,43 @@ export function RootNavigator() {
           gestureEnabled: true
         }}
       />
+      <RootStack.Screen
+        name="Settings"
+        component={SettingsScreen}
+        options={{
+          animation: 'slide_from_right',
+          animationDuration: 100,
+          gestureEnabled: true
+        }}
+      />
     </RootStack.Navigator>
   );
 }
 
-const styles = StyleSheet.create({
-  scene: {
-    backgroundColor: appVisualTokens.colors.background
-  },
-  tabBar: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    paddingHorizontal: appVisualTokens.spacing.md,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: appVisualTokens.colors.line,
-    backgroundColor: appVisualTokens.colors.surface
-  },
-  tabItem: {
-    paddingTop: 2,
-    paddingBottom: 0
-  },
-  tabIcon: {
-    marginBottom: 1
-  },
-  tabLabel: {
-    fontSize: 12,
-    fontWeight: '500'
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    scene: {
+      backgroundColor: theme.colors.background
+    },
+    tabBar: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      paddingHorizontal: appVisualTokens.spacing.md,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.line,
+      backgroundColor: theme.colors.surface
+    },
+    tabItem: {
+      paddingTop: 2,
+      paddingBottom: 0
+    },
+    tabIcon: {
+      marginBottom: 1
+    },
+    tabLabel: {
+      fontSize: 12,
+      fontWeight: '500'
+    }
+  });
+}

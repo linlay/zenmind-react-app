@@ -5,7 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { useT } from '../../shared/i18n';
-import { appVisualTokens } from '../../shared/visual/foundation';
+import { useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../shared/visual/foundation';
 
 type AppScreenFrameProps = {
   eyebrow: string;
@@ -16,6 +17,7 @@ type AppScreenFrameProps = {
 };
 
 export function AppScreenFrame({ eyebrow, title, description, accentColor, children }: AppScreenFrameProps) {
+  const styles = useAppThemeStyles(createStyles);
   const tabBarHeight = useBottomTabBarHeight();
   const t = useT();
   const hasChildren = children !== undefined && children !== null;
@@ -55,71 +57,73 @@ export function AppScreenFrame({ eyebrow, title, description, accentColor, child
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: appVisualTokens.colors.surface
-  },
-  headerSafeArea: {
-    backgroundColor: appVisualTokens.colors.surface
-  },
-  scrollView: {
-    flex: 1
-  },
-  content: {
-    paddingHorizontal: appVisualTokens.spacing.xl,
-    paddingTop: appVisualTokens.spacing.lg,
-    gap: appVisualTokens.spacing.xl
-  },
-  introSection: {
-    gap: appVisualTokens.spacing.sm
-  },
-  eyebrowRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    gap: appVisualTokens.spacing.sm
-  },
-  accentDot: {
-    width: 6,
-    height: 6,
-    borderRadius: appVisualTokens.radii.pill
-  },
-  eyebrow: {
-    fontSize: 12,
-    fontWeight: '600'
-  },
-  sectionTitle: {
-    fontSize: 24,
-    lineHeight: 30,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  description: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: appVisualTokens.colors.textSecondary
-  },
-  placeholderBlock: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: appVisualTokens.colors.line,
-    paddingTop: appVisualTokens.spacing.lg,
-    gap: appVisualTokens.spacing.sm
-  },
-  cardEyebrow: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: appVisualTokens.colors.brandBlue
-  },
-  cardTitle: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  cardBody: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: appVisualTokens.colors.textSecondary
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.colors.surface
+    },
+    headerSafeArea: {
+      backgroundColor: theme.colors.surface
+    },
+    scrollView: {
+      flex: 1
+    },
+    content: {
+      paddingHorizontal: appVisualTokens.spacing.xl,
+      paddingTop: appVisualTokens.spacing.lg,
+      gap: appVisualTokens.spacing.xl
+    },
+    introSection: {
+      gap: appVisualTokens.spacing.sm
+    },
+    eyebrowRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      alignSelf: 'flex-start',
+      gap: appVisualTokens.spacing.sm
+    },
+    accentDot: {
+      width: 6,
+      height: 6,
+      borderRadius: appVisualTokens.radii.pill
+    },
+    eyebrow: {
+      fontSize: 12,
+      fontWeight: '600'
+    },
+    sectionTitle: {
+      fontSize: 24,
+      lineHeight: 30,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    description: {
+      fontSize: 16,
+      lineHeight: 24,
+      color: theme.colors.textSecondary
+    },
+    placeholderBlock: {
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderTopColor: theme.colors.line,
+      paddingTop: appVisualTokens.spacing.lg,
+      gap: appVisualTokens.spacing.sm
+    },
+    cardEyebrow: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.colors.brandBlue
+    },
+    cardTitle: {
+      fontSize: 18,
+      lineHeight: 24,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    cardBody: {
+      fontSize: 15,
+      lineHeight: 22,
+      color: theme.colors.textSecondary
+    }
+  });
+}

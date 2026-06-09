@@ -2,7 +2,8 @@ import { memo, useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
 import { useT } from '../../../shared/i18n';
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import type { AppThemeTokens } from '../../../shared/visual/foundation';
 
 const DISMISS_DELAY_MS = 1200;
 
@@ -13,6 +14,7 @@ type CopyToastProps = {
 
 export const CopyToast = memo(function CopyToast({ trigger, message }: CopyToastProps) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -51,24 +53,26 @@ export const CopyToast = memo(function CopyToast({ trigger, message }: CopyToast
   );
 });
 
-const styles = StyleSheet.create({
-  container: {
-    position: 'absolute',
-    bottom: 140,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 999
-  },
-  toast: {
-    backgroundColor: appVisualTokens.colors.textPrimary,
-    borderRadius: 24,
-    paddingHorizontal: 20,
-    paddingVertical: 12
-  },
-  toastText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: appVisualTokens.colors.surface
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      position: 'absolute',
+      bottom: 140,
+      left: 0,
+      right: 0,
+      alignItems: 'center',
+      zIndex: 999
+    },
+    toast: {
+      backgroundColor: theme.colors.textPrimary,
+      borderRadius: 24,
+      paddingHorizontal: 20,
+      paddingVertical: 12
+    },
+    toastText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.surface
+    }
+  });
+}

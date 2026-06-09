@@ -13,4 +13,5 @@ export type RootStackParamList = {
   Login: undefined;
   Tabs: NavigatorScreenParams<RootTabParamList>;
   ChatDetail: ChatDetailRouteParams;
+  Settings: undefined;
 };

@@ -1,15 +1,15 @@
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import type { AppVisualColors } from '../../../shared/visual/foundation';
 import type { RuntimeToolStatus } from './runtimePayloadDescriptor';
 
-export function getRuntimeToolStatusColor(status: RuntimeToolStatus): string {
+export function getRuntimeToolStatusColor(colors: AppVisualColors, status: RuntimeToolStatus): string {
   if (status === 'success') {
-    return appVisualTokens.colors.success;
+    return colors.success;
   }
   if (status === 'error' || status === 'failed' || status === 'canceled') {
-    return appVisualTokens.colors.danger;
+    return colors.danger;
   }
   if (status === 'running' || status === 'completed') {
-    return appVisualTokens.colors.brandBlue;
+    return colors.brandBlue;
   }
-  return appVisualTokens.colors.textTertiary;
+  return colors.textTertiary;
 }

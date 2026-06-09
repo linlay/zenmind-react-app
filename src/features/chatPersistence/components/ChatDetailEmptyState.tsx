@@ -1,7 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useT } from '../../../shared/i18n';
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 
 type ChatDetailEmptyStateProps = {
   errorText?: string;
@@ -11,6 +12,7 @@ type ChatDetailEmptyStateProps = {
 
 export function ChatDetailEmptyState({ errorText, onBack, onRetry }: ChatDetailEmptyStateProps) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
 
   return (
     <View style={styles.emptyState}>
@@ -29,41 +31,43 @@ export function ChatDetailEmptyState({ errorText, onBack, onRetry }: ChatDetailE
   );
 }
 
-const styles = StyleSheet.create({
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 28,
-    gap: appVisualTokens.spacing.sm,
-    backgroundColor: appVisualTokens.colors.background
-  },
-  emptyStateTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  emptyStateBody: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: appVisualTokens.colors.textSecondary,
-    textAlign: 'center'
-  },
-  emptyStateButton: {
-    marginTop: 8,
-    borderRadius: appVisualTokens.radii.lg,
-    backgroundColor: appVisualTokens.colors.brandBlue,
-    paddingHorizontal: 18,
-    paddingVertical: 14
-  },
-  emptyStateButtonText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: appVisualTokens.colors.surface
-  },
-  errorText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: appVisualTokens.colors.danger
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    emptyState: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 28,
+      gap: appVisualTokens.spacing.sm,
+      backgroundColor: theme.colors.background
+    },
+    emptyStateTitle: {
+      fontSize: 22,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    emptyStateBody: {
+      fontSize: 15,
+      lineHeight: 22,
+      color: theme.colors.textSecondary,
+      textAlign: 'center'
+    },
+    emptyStateButton: {
+      marginTop: 8,
+      borderRadius: appVisualTokens.radii.lg,
+      backgroundColor: theme.colors.brandBlue,
+      paddingHorizontal: 18,
+      paddingVertical: 14
+    },
+    emptyStateButtonText: {
+      fontSize: 14,
+      fontWeight: '700',
+      color: theme.colors.surface
+    },
+    errorText: {
+      fontSize: 13,
+      lineHeight: 20,
+      color: theme.colors.danger
+    }
+  });
+}

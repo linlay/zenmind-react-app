@@ -4,22 +4,43 @@
     "appVersionSource": "remote"
   },
   "build": {
-    "development": {
+    "development-zenmind": {
       "developmentClient": true,
-      "distribution": "internal"
+      "distribution": "internal",
+      "env": { "BRAND": "zenmind" }
     },
-    "preview": {
-      "channel": "preview",
+    "development-cutej": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": { "BRAND": "cutej" }
+    },
+    "preview-zenmind": {
+      "channel": "zenmind-preview",
       "autoIncrement": true,
       "distribution": "internal",
-      "android": { "buildType": "apk" }
+      "android": { "buildType": "apk" },
+      "env": { "BRAND": "zenmind" }
     },
-    "production": {
-      "channel": "production",
-      "autoIncrement": true
+    "preview-cutej": {
+      "channel": "cutej-preview",
+      "autoIncrement": true,
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "env": { "BRAND": "cutej" }
+    },
+    "production-zenmind": {
+      "channel": "zenmind-production",
+      "autoIncrement": true,
+      "env": { "BRAND": "zenmind" }
+    },
+    "production-cutej": {
+      "channel": "cutej-production",
+      "autoIncrement": true,
+      "env": { "BRAND": "cutej" }
     }
   },
   "submit": {
-    "production": {}
+    "production-zenmind": {},
+    "production-cutej": {}
   }
 }

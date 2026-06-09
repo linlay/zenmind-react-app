@@ -16,6 +16,10 @@
       "ref": "app-startup"
     },
     {
+      "type": "module",
+      "ref": "shared-visual-foundation"
+    },
+    {
       "type": "code",
       "ref": "src/app/navigation/RootNavigator.tsx"
     },
@@ -32,22 +36,28 @@
     "src/app/navigation/RootNavigator.tsx",
     "src/app/navigation/types.ts",
     "src/app/screens/AppScreenFrame.tsx",
+    "src/app/screens/SettingsScreen.tsx",
     "src/app/screens/TabScreens.tsx",
+    "src/app/settings/settingsActions.ts",
+    "src/shared/visual/AppThemeProvider.tsx",
+    "src/shared/visual/foundation.ts",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
     "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx"
   ],
   "doNotMiss": [
-    "Tab.Screen 名称、component 映射和 RootTabParamList / RootStackParamList 必须保持一致。",
+    "Tab.Screen / RootStack.Screen 名称、component 映射和 RootTabParamList / RootStackParamList 必须保持一致。",
     "新页面如果承接业务数据，先确定 feature 边界，不把业务逻辑堆进 src/app。",
     "当前 Chat Tab 直接指向 ChatHomeStorageDemo；详情页由 RootNavigator 的 ChatDetail stack route 承载。",
     "一级页面如果接入共享 Header，标题区要固定在滚动区外，不跟随 ScrollView 或列表滚动。",
+    "如果改设置入口、外观偏好或运行时主题，必须同步检查 shared-visual-foundation 和 app-startup，主题 Provider 要位于 NavigationContainer 上层。",
     "详情页如果有整页骨架屏，不要在 stack push 动画中途卸掉；重内容应先在骨架层下完成挂载，再在过渡稳定后揭开。"
   ],
   "acceptanceChecks": [
-    "新或修改后的 Tab 和上层 route 能从 RootNavigator 正常进入，类型没有漂移。",
+    "新或修改后的 Tab、设置页和上层 route 能从 RootNavigator 正常进入，类型没有漂移。",
     "app 层仍只做壳层编排，不直接碰 storage 或 socket。",
     "一级页面顶部 Header 固定可见，滚动内容从 Header 下方开始。",
+    "设置页外观偏好、底部 Tab、Header、任务看板和聊天主路径能随 system/light/dark 主题偏好同步更新。",
     "初始路由、tab icon 和占位布局行为符合预期。",
     "详情页进入动画期间整页骨架屏保持稳定，不出现骨架中途消失导致的明显卡顿。"
   ]

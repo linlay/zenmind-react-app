@@ -2,7 +2,8 @@ import { memo, type ComponentType } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ConversationMarkdownRenderer } from '../../../shared/components/ConversationMarkdownRenderer';
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import type {
   RuntimePayloadDescriptor,
   RuntimePayloadRendererType,
@@ -17,6 +18,8 @@ type RuntimePayloadContentProps = {
 };
 
 function SectionLabel({ text }: { text: string }) {
+  const styles = useAppThemeStyles(createStyles);
+
   if (!text) {
     return null;
   }
@@ -28,6 +31,8 @@ function SectionLabel({ text }: { text: string }) {
 }
 
 function TextSection({ section, wrap }: { section: RuntimePayloadSection; wrap: boolean }) {
+  const styles = useAppThemeStyles(createStyles);
+
   if (!section.text) {
     return null;
   }
@@ -57,6 +62,8 @@ function TextSection({ section, wrap }: { section: RuntimePayloadSection; wrap: 
 }
 
 function SectionStackPayload({ descriptor, wrap }: RuntimePayloadContentProps) {
+  const styles = useAppThemeStyles(createStyles);
+
   return (
     <View style={styles.stack}>
       {descriptor.sections.map((section) => (
@@ -69,6 +76,8 @@ function SectionStackPayload({ descriptor, wrap }: RuntimePayloadContentProps) {
 const MarkdownPayload = memo(SectionStackPayload);
 
 function ToolArgumentRows({ record, wrap }: { record: RuntimeToolRecord; wrap: boolean }) {
+  const styles = useAppThemeStyles(createStyles);
+
   if (record.argsRows.length > 0) {
     return (
       <View style={styles.toolArgumentRows}>
@@ -114,6 +123,9 @@ function ToolRecordCard({
   record: RuntimeToolRecord;
   wrap: boolean;
 }) {
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
+
   return (
     <View style={styles.toolRecordCard}>
       {grouped ? (
@@ -123,7 +135,7 @@ function ToolRecordCard({
           </Text>
           <Text
             allowFontScaling={false}
-            style={[styles.toolRecordStatus, { color: getRuntimeToolStatusColor(record.status) }]}
+            style={[styles.toolRecordStatus, { color: getRuntimeToolStatusColor(theme.colors, record.status) }]}
           >
             {record.statusLabel}
           </Text>
@@ -149,6 +161,7 @@ function ToolRecordCard({
 }
 
 const ToolPayload = memo(function ToolPayload({ descriptor, wrap }: RuntimePayloadContentProps) {
+  const styles = useAppThemeStyles(createStyles);
   const records = descriptor.toolRecords.filter((record) => record.hasDetails);
   if (records.length > 0) {
     const grouped = descriptor.toolRecords.length > 1;
@@ -189,6 +202,8 @@ const MetricPayload = memo(function MetricPayload({
   descriptor,
   wrap,
 }: RuntimePayloadContentProps) {
+  const styles = useAppThemeStyles(createStyles);
+
   return (
     <View style={styles.metricBox}>
       {descriptor.sections.map((section) => (
@@ -222,129 +237,131 @@ const PAYLOAD_RENDERERS = {
   metric: MetricPayload,
 } satisfies Record<RuntimePayloadRendererType, ComponentType<RuntimePayloadContentProps>>;
 
-const styles = StyleSheet.create({
-  stack: {
-    gap: 9,
-  },
-  section: {
-    gap: 5,
-  },
-  toolSection: {
-    gap: 5,
-  },
-  toolRecordCard: {
-    gap: 7,
-    borderRadius: appVisualTokens.radii.sm,
-    backgroundColor: appVisualTokens.colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-  },
-  toolRecordHeader: {
-    minHeight: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.sm,
-  },
-  toolRecordTitle: {
-    fontFamily: 'monospace',
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary,
-  },
-  toolRecordStatus: {
-    fontFamily: 'monospace',
-    fontSize: 11,
-    lineHeight: 16,
-    fontWeight: '700',
-  },
-  toolDescription: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: appVisualTokens.colors.textSecondary,
-  },
-  toolArgumentRows: {
-    gap: 3,
-  },
-  toolArgumentRow: {
-    minHeight: 20,
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 12,
-  },
-  toolArgumentKey: {
-    minWidth: 76,
-    fontFamily: 'monospace',
-    fontSize: 12,
-    lineHeight: 18,
-    color: appVisualTokens.colors.success,
-  },
-  toolArgumentValue: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-    lineHeight: 18,
-    color: appVisualTokens.colors.textPrimary,
-  },
-  toolInlineText: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-    lineHeight: 18,
-    color: appVisualTokens.colors.textPrimary,
-  },
-  toolResultText: {
-    fontFamily: 'monospace',
-    fontSize: 12,
-    lineHeight: 18,
-    color: appVisualTokens.colors.textSecondary,
-  },
-  sectionLabel: {
-    fontSize: 11,
-    lineHeight: 15,
-    fontWeight: '700',
-    color: appVisualTokens.colors.success,
-  },
-  sectionText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: appVisualTokens.colors.textPrimary,
-  },
-  codeText: {
-    padding: 10,
-    borderRadius: appVisualTokens.radii.sm,
-    backgroundColor: appVisualTokens.colors.surface,
-    fontFamily: 'monospace',
-    fontSize: 12,
-    lineHeight: 18,
-    color: appVisualTokens.colors.textPrimary,
-  },
-  toolText: {
-    padding: 10,
-    borderRadius: appVisualTokens.radii.sm,
-    backgroundColor: appVisualTokens.colors.surface,
-    fontFamily: 'monospace',
-    fontSize: 12,
-    lineHeight: 18,
-    color: appVisualTokens.colors.textPrimary,
-  },
-  nowrapText: {
-    minWidth: 680,
-  },
-  nowrapToolValue: {
-    minWidth: 560,
-  },
-  nowrapMarkdown: {
-    minWidth: 680,
-  },
-  metricBox: {
-    borderRadius: appVisualTokens.radii.sm,
-    backgroundColor: appVisualTokens.colors.surface,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-  },
-  metricText: {
-    fontSize: 13,
-    lineHeight: 19,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
-  },
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    stack: {
+      gap: 9,
+    },
+    section: {
+      gap: 5,
+    },
+    toolSection: {
+      gap: 5,
+    },
+    toolRecordCard: {
+      gap: 7,
+      borderRadius: appVisualTokens.radii.sm,
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: 10,
+      paddingVertical: 9,
+    },
+    toolRecordHeader: {
+      minHeight: 18,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.sm,
+    },
+    toolRecordTitle: {
+      fontFamily: 'monospace',
+      fontSize: 11,
+      lineHeight: 16,
+      fontWeight: '700',
+      color: theme.colors.textSecondary,
+    },
+    toolRecordStatus: {
+      fontFamily: 'monospace',
+      fontSize: 11,
+      lineHeight: 16,
+      fontWeight: '700',
+    },
+    toolDescription: {
+      fontSize: 12,
+      lineHeight: 18,
+      color: theme.colors.textSecondary,
+    },
+    toolArgumentRows: {
+      gap: 3,
+    },
+    toolArgumentRow: {
+      minHeight: 20,
+      flexDirection: 'row',
+      alignItems: 'baseline',
+      gap: 12,
+    },
+    toolArgumentKey: {
+      minWidth: 76,
+      fontFamily: 'monospace',
+      fontSize: 12,
+      lineHeight: 18,
+      color: theme.colors.success,
+    },
+    toolArgumentValue: {
+      fontFamily: 'monospace',
+      fontSize: 12,
+      lineHeight: 18,
+      color: theme.colors.textPrimary,
+    },
+    toolInlineText: {
+      fontFamily: 'monospace',
+      fontSize: 12,
+      lineHeight: 18,
+      color: theme.colors.textPrimary,
+    },
+    toolResultText: {
+      fontFamily: 'monospace',
+      fontSize: 12,
+      lineHeight: 18,
+      color: theme.colors.textSecondary,
+    },
+    sectionLabel: {
+      fontSize: 11,
+      lineHeight: 15,
+      fontWeight: '700',
+      color: theme.colors.success,
+    },
+    sectionText: {
+      fontSize: 13,
+      lineHeight: 20,
+      color: theme.colors.textPrimary,
+    },
+    codeText: {
+      padding: 10,
+      borderRadius: appVisualTokens.radii.sm,
+      backgroundColor: theme.colors.surface,
+      fontFamily: 'monospace',
+      fontSize: 12,
+      lineHeight: 18,
+      color: theme.colors.textPrimary,
+    },
+    toolText: {
+      padding: 10,
+      borderRadius: appVisualTokens.radii.sm,
+      backgroundColor: theme.colors.surface,
+      fontFamily: 'monospace',
+      fontSize: 12,
+      lineHeight: 18,
+      color: theme.colors.textPrimary,
+    },
+    nowrapText: {
+      minWidth: 680,
+    },
+    nowrapToolValue: {
+      minWidth: 560,
+    },
+    nowrapMarkdown: {
+      minWidth: 680,
+    },
+    metricBox: {
+      borderRadius: appVisualTokens.radii.sm,
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: 10,
+      paddingVertical: 9,
+    },
+    metricText: {
+      fontSize: 13,
+      lineHeight: 19,
+      fontWeight: '700',
+      color: theme.colors.textPrimary,
+    },
+  });
+}

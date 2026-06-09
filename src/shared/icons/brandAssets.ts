@@ -1,5 +1,5 @@
-import logoSource from '../../../assets/logo.png';
+import { BRAND_LOGO } from '../generated/brandAssets';
 
 export const brandAssets = {
-  logo: logoSource,
+  logo: BRAND_LOGO,
 } as const;

@@ -1,31 +1,69 @@
+import type { AppResolvedThemePreference } from './themePreference';
+
 export type VisualAvatarTone = {
   backgroundColor: string;
   foregroundColor: string;
 };
 
 // Keep this theme source aligned with doc/ui-visual-theme.md.
-export const appVisualTokens = {
-  colors: {
-    brandBlue: '#2f6df6',
-    brandBlueStrong: '#255fef',
-    brandBlueSoft: '#edf3ff',
-    textPrimary: '#17233a',
-    textSecondary: '#8b96a9',
-    textTertiary: '#b8c0ce',
-    line: '#eceff4',
-    lineStrong: '#dfe5ee',
-    surface: '#ffffff',
-    surfaceMuted: '#f6f8fc',
-    surfaceRaised: '#ffffff',
-    background: '#ffffff',
-    backgroundMuted: '#f4f7fb',
-    badge: '#2f6df6',
-    success: '#2b9a60',
-    warning: '#eb8a19',
-    danger: '#ef6464',
-    overlay: 'rgba(23, 35, 58, 0.18)',
-    shadow: '#0f1728',
-  },
+export const appLightColors = {
+  brandBlue: '#2f6df6',
+  brandBlueStrong: '#255fef',
+  brandBlueSoft: '#edf3ff',
+  textPrimary: '#17233a',
+  textSecondary: '#8b96a9',
+  textTertiary: '#b8c0ce',
+  line: '#eceff4',
+  lineStrong: '#dfe5ee',
+  surface: '#ffffff',
+  surfaceMuted: '#f6f8fc',
+  surfaceRaised: '#ffffff',
+  background: '#ffffff',
+  backgroundMuted: '#f4f7fb',
+  badge: '#2f6df6',
+  success: '#2b9a60',
+  warning: '#eb8a19',
+  danger: '#ef6464',
+  dangerSoft: '#fff5f5',
+  dangerLine: '#ffd6d6',
+  overlay: 'rgba(23, 35, 58, 0.18)',
+  shadow: '#0f1728',
+} as const;
+
+type AppVisualColorName = keyof typeof appLightColors;
+
+export type AppVisualColors = Readonly<Record<AppVisualColorName, string>>;
+
+export const appDarkColors = {
+  brandBlue: '#75a7ff',
+  brandBlueStrong: '#9fc3ff',
+  brandBlueSoft: '#17315f',
+  textPrimary: '#f4f7fb',
+  textSecondary: '#aeb8c9',
+  textTertiary: '#6f7b90',
+  line: '#263248',
+  lineStrong: '#354158',
+  surface: '#101827',
+  surfaceMuted: '#172235',
+  surfaceRaised: '#1b2638',
+  background: '#0b1220',
+  backgroundMuted: '#0f1728',
+  badge: '#75a7ff',
+  success: '#55c98b',
+  warning: '#f4a742',
+  danger: '#ff8585',
+  dangerSoft: '#341a21',
+  dangerLine: '#63313b',
+  overlay: 'rgba(1, 6, 18, 0.62)',
+  shadow: '#000000',
+} as const satisfies AppVisualColors;
+
+export const appThemeColors = {
+  light: appLightColors,
+  dark: appDarkColors,
+} as const satisfies Record<AppResolvedThemePreference, AppVisualColors>;
+
+export const appVisualFoundation = {
   spacing: {
     xs: 4,
     sm: 8,
@@ -75,6 +113,34 @@ export const appVisualTokens = {
     },
   ] satisfies readonly VisualAvatarTone[],
 } as const;
+
+export type AppThemeTokens = typeof appVisualFoundation & {
+  colors: AppVisualColors;
+  preference: AppResolvedThemePreference;
+  isDark: boolean;
+};
+
+export const appThemeTokens = {
+  light: {
+    ...appVisualFoundation,
+    colors: appLightColors,
+    preference: 'light',
+    isDark: false,
+  },
+  dark: {
+    ...appVisualFoundation,
+    colors: appDarkColors,
+    preference: 'dark',
+    isDark: true,
+  },
+} as const satisfies Record<AppResolvedThemePreference, AppThemeTokens>;
+
+export const appVisualTokens = {
+  ...appVisualFoundation,
+  colors: {
+    ...appLightColors,
+  },
+} as const satisfies typeof appVisualFoundation & { colors: AppVisualColors };
 
 const MAX_UNREAD_COUNT = 99;
 

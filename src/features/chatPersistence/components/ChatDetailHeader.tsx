@@ -5,7 +5,8 @@ import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import { AppIconButton } from '../../../shared/icons/AppIconButton';
 import type { AppIconUsage } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import type { ChatDetailHeaderStatusTone } from '../chatDetailViewModel';
 
 type ChatDetailHeaderProps = {
@@ -18,7 +19,7 @@ type ChatDetailHeaderProps = {
   onOpenMenu: () => void;
 };
 
-function getStatusPillStyle(statusTone: ChatDetailHeaderStatusTone) {
+function getStatusPillStyle(styles: ReturnType<typeof createStyles>, statusTone: ChatDetailHeaderStatusTone) {
   switch (statusTone) {
     case 'running':
       return styles.statusPill_running;
@@ -29,7 +30,7 @@ function getStatusPillStyle(statusTone: ChatDetailHeaderStatusTone) {
   }
 }
 
-function getStatusPillTextStyle(statusTone: ChatDetailHeaderStatusTone) {
+function getStatusPillTextStyle(styles: ReturnType<typeof createStyles>, statusTone: ChatDetailHeaderStatusTone) {
   switch (statusTone) {
     case 'running':
       return styles.statusPillText_running;
@@ -49,6 +50,8 @@ const HeaderIconButton = memo(function HeaderIconButton({
   accessibilityLabel: string;
   onPress: () => void;
 }) {
+  const styles = useAppThemeStyles(createStyles);
+
   return (
     <AppIconButton
       usage={usage}
@@ -72,6 +75,8 @@ const ChatDetailHeaderTitle = memo(function ChatDetailHeaderTitle({
   statusLabel: string;
   statusTone: ChatDetailHeaderStatusTone;
 }) {
+  const styles = useAppThemeStyles(createStyles);
+
   return (
     <View style={styles.headerTitleBlock}>
       <Text allowFontScaling={false} numberOfLines={1} style={styles.headerTitleText}>
@@ -85,11 +90,11 @@ const ChatDetailHeaderTitle = memo(function ChatDetailHeaderTitle({
             </Text>
           ) : null}
           {statusLabel ? (
-            <View style={[styles.statusPill, getStatusPillStyle(statusTone)]}>
+            <View style={[styles.statusPill, getStatusPillStyle(styles, statusTone)]}>
               <Text
                 allowFontScaling={false}
                 numberOfLines={1}
-                style={[styles.statusPillText, getStatusPillTextStyle(statusTone)]}
+                style={[styles.statusPillText, getStatusPillTextStyle(styles, statusTone)]}
               >
                 {statusLabel}
               </Text>
@@ -111,6 +116,7 @@ export const ChatDetailHeader = memo(function ChatDetailHeader({
   onOpenMenu
 }: ChatDetailHeaderProps) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
   const leftActions = useMemo(
     () =>
       [
@@ -157,82 +163,84 @@ export const ChatDetailHeader = memo(function ChatDetailHeader({
   );
 });
 
-const styles = StyleSheet.create({
-  detailHeader: {
-    position: 'relative',
-    height: 58,
-    backgroundColor: appVisualTokens.colors.background,
-    borderBottomWidth: 0,
-    zIndex: 20
-  },
-  titleContainer: {
-    height: 58
-  },
-  headerActionButton: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  headerActionPressed: {
-    opacity: 0.58
-  },
-  headerTitleBlock: {
-    width: '100%',
-    alignItems: 'center',
-    gap: 2
-  },
-  headerTitleText: {
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '600',
-    color: appVisualTokens.colors.textPrimary,
-    textAlign: 'center'
-  },
-  headerSubtitleText: {
-    flexShrink: 1,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '500',
-    color: appVisualTokens.colors.textSecondary,
-    textAlign: 'center'
-  },
-  headerMetaRow: {
-    maxWidth: '100%',
-    minHeight: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6
-  },
-  statusPill: {
-    height: 18,
-    borderRadius: appVisualTokens.radii.pill,
-    paddingHorizontal: 7,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  statusPill_idle: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted
-  },
-  statusPill_running: {
-    backgroundColor: appVisualTokens.colors.brandBlueSoft
-  },
-  statusPill_error: {
-    backgroundColor: 'rgba(239, 100, 100, 0.12)'
-  },
-  statusPillText: {
-    fontSize: 10,
-    lineHeight: 13,
-    fontWeight: '700'
-  },
-  statusPillText_idle: {
-    color: appVisualTokens.colors.textSecondary
-  },
-  statusPillText_running: {
-    color: appVisualTokens.colors.brandBlueStrong
-  },
-  statusPillText_error: {
-    color: appVisualTokens.colors.danger
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    detailHeader: {
+      position: 'relative',
+      height: 58,
+      backgroundColor: theme.colors.background,
+      borderBottomWidth: 0,
+      zIndex: 20
+    },
+    titleContainer: {
+      height: 58
+    },
+    headerActionButton: {
+      width: 34,
+      height: 34,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    headerActionPressed: {
+      opacity: 0.58
+    },
+    headerTitleBlock: {
+      width: '100%',
+      alignItems: 'center',
+      gap: 2
+    },
+    headerTitleText: {
+      fontSize: 18,
+      lineHeight: 22,
+      fontWeight: '600',
+      color: theme.colors.textPrimary,
+      textAlign: 'center'
+    },
+    headerSubtitleText: {
+      flexShrink: 1,
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '500',
+      color: theme.colors.textSecondary,
+      textAlign: 'center'
+    },
+    headerMetaRow: {
+      maxWidth: '100%',
+      minHeight: 18,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6
+    },
+    statusPill: {
+      height: 18,
+      borderRadius: appVisualTokens.radii.pill,
+      paddingHorizontal: 7,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    statusPill_idle: {
+      backgroundColor: theme.colors.surfaceMuted
+    },
+    statusPill_running: {
+      backgroundColor: theme.colors.brandBlueSoft
+    },
+    statusPill_error: {
+      backgroundColor: theme.colors.dangerSoft
+    },
+    statusPillText: {
+      fontSize: 10,
+      lineHeight: 13,
+      fontWeight: '700'
+    },
+    statusPillText_idle: {
+      color: theme.colors.textSecondary
+    },
+    statusPillText_running: {
+      color: theme.colors.brandBlueStrong
+    },
+    statusPillText_error: {
+      color: theme.colors.danger
+    }
+  });
+}

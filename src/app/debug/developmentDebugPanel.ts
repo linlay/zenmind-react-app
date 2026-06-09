@@ -35,7 +35,6 @@ export function getDevelopmentDebugPanelSnapshot(): DevelopmentDebugPanelSnapsho
 }
 
 export function subscribeDevelopmentDebugPanel(listener: DevelopmentDebugPanelListener) {
-  listener(currentSnapshot);
   if (!IS_DEV) {
     return () => {};
   }
@@ -50,6 +49,13 @@ export function openDevelopmentDebugPanel() {
   setPanelSnapshot({
     enabled: true,
     visible: true,
+  });
+}
+
+export function setDevelopmentDebugPanelEnabled(enabled: boolean) {
+  setPanelSnapshot({
+    enabled,
+    visible: enabled ? currentSnapshot.visible : false,
   });
 }
 

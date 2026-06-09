@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-06-08T09:04:02.138Z",
+  "generatedAt": "2026-06-09T06:54:01.772Z",
   "items": [
     {
       "id": "app-development-debug",
       "title": "开发态调试入口",
       "layer": "app",
-      "summary": "提供 __DEV__ 下隐藏挂载的开发调试面板；默认不显示浮动入口，Me 页版本信息三连点通过 controller 启用 Debug 模式并打开面板，普通关闭后保留右下角 Debug 浮动按钮，ChatDetail 也挂载面板宿主并上移浮动入口以避开聊天详情输入区。",
+      "summary": "提供 __DEV__ 下隐藏挂载的开发调试面板；默认不显示浮动入口，Me 页版本信息三连点通过 controller 启用 Debug 模式并打开面板，设置页可切换 Debug 模式开关，普通关闭后保留右下角 Debug 浮动按钮，ChatDetail 也挂载面板宿主并上移浮动入口以避开聊天详情输入区。",
       "pathHints": ["src/app/debug"],
       "relatedFlows": ["app-startup"],
       "relatedTasks": ["modify-runtime-environment", "remove-development-debug-entry"],
@@ -15,15 +15,20 @@
       "id": "app-shell-navigation",
       "title": "应用壳层与底部导航",
       "layer": "app",
-      "summary": "挂载 SafeAreaProvider、I18nProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
+      "summary": "挂载 SafeAreaProvider、I18nProvider、AppThemeProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
       "pathHints": [
         "App.tsx",
         "index.js",
-        "app.json",
+        "app.config.js",
         "assets",
+        "assets/generated/brand",
+        "brands",
+        "eas.json",
         "package.json",
         "babel.config.js",
         "metro.config.js",
+        "scripts/lib/brand-config.js",
+        "scripts/sync-brand.js",
         "scripts/worklets",
         "android/app/src/main/java",
         "android/app/src/main/res/values",
@@ -36,6 +41,7 @@
         "src/app/AppRoot.tsx",
         "src/app/navigation",
         "src/app/screens",
+        "src/app/settings",
         "src/app/startup",
         "src/types/assets.d.ts"
       ],
@@ -47,6 +53,7 @@
         "add-reusable-header-component",
         "add-system-notifications",
         "add-internationalization",
+        "configure-multi-brand-builds",
         "add-reusable-list-screen",
         "remove-development-debug-entry"
       ],
@@ -213,10 +220,21 @@
       "id": "shared-visual-foundation",
       "title": "共享视觉 token 与统一图标基础",
       "layer": "shared",
-      "summary": "提供静态视觉 token、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
-      "pathHints": ["src/shared/visual", "src/shared/icons", "doc/ui-visual-theme.md"],
+      "summary": "提供共享视觉 token、运行时 light/dark 主题 Provider、system 偏好解析、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
+      "pathHints": [
+        "src/shared/visual",
+        "src/shared/icons",
+        "src/shared/generated",
+        "assets/generated/brand",
+        "doc/ui-visual-theme.md"
+      ],
       "relatedFlows": ["app-startup", "chat-home-cold-boot"],
-      "relatedTasks": ["add-or-edit-tab-screen", "add-reusable-header-component", "add-reusable-list-screen"],
+      "relatedTasks": [
+        "add-or-edit-tab-screen",
+        "add-reusable-header-component",
+        "add-reusable-list-screen",
+        "configure-multi-brand-builds"
+      ],
       "card": "doc/kb/modules/shared-visual-foundation.json"
     }
   ]

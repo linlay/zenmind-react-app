@@ -13,7 +13,8 @@ import {
 import { ConversationMarkdownRenderer } from '../../../shared/components/ConversationMarkdownRenderer';
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import {
   buildChatTimelineDisplayItems,
   getChatTimelineDisplayItemType,
@@ -138,6 +139,7 @@ function isTimelineScrollable(metrics: TimelineScrollMetrics): boolean {
 
 function ThreadEmptyState() {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
 
   return (
     <View style={styles.threadEmptyState}>
@@ -159,6 +161,8 @@ const MessageCopyButton = memo(function MessageCopyButton({
   onCopyText: (text: string) => void;
 }) {
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const disabled = text.length <= 0;
   const handleCopy = useCallback(() => {
     if (!disabled) {
@@ -181,7 +185,7 @@ const MessageCopyButton = memo(function MessageCopyButton({
     >
       <AppIcon
         usage="timeline.copy"
-        color={disabled ? appVisualTokens.colors.textTertiary : appVisualTokens.colors.textSecondary}
+        color={disabled ? theme.colors.textTertiary : theme.colors.textSecondary}
       />
     </Pressable>
   );
@@ -200,6 +204,8 @@ const MessageFooter = memo(function MessageFooter({
   align?: 'end' | 'spread';
   onCopyText: (text: string) => void;
 }) {
+  const styles = useAppThemeStyles(createStyles);
+
   return (
     <View style={[styles.messageFooter, align === 'end' && styles.messageFooterEnd]}>
       <MessageCopyButton text={text} onCopyText={onCopyText} />
@@ -226,6 +232,8 @@ const UserQueryRow = memo(function UserQueryRow({
   node: ChatTimelineMessageNode;
   onCopyText: (text: string) => void;
 }) {
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const timestamp = formatChatDetailTimestamp(node.createdAt);
 
   return (
@@ -236,8 +244,8 @@ const UserQueryRow = memo(function UserQueryRow({
             <ConversationMarkdownRenderer
               markdown={node.content}
               selectable={false}
-              textColor={appVisualTokens.colors.surface}
-              linkColor={appVisualTokens.colors.surface}
+              textColor={theme.colors.surface}
+              linkColor={theme.colors.surface}
             />
           ) : null}
           <ChatAttachmentStrip attachments={node.attachments || []} variant="message" />
@@ -255,6 +263,8 @@ const RequestInputRow = memo(function RequestInputRow({
   node: ChatTimelineTextNode;
   isLastInRun: boolean;
 }) {
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const text = node.body || node.title;
 
   return (
@@ -262,7 +272,7 @@ const RequestInputRow = memo(function RequestInputRow({
       <ChatTimelineRail
         iconUsage="timeline.requestRail"
         terminal={isLastInRun}
-        toneColor={appVisualTokens.colors.brandBlue}
+        toneColor={theme.colors.brandBlue}
       />
       <View style={styles.timelineBody}>
         <View style={styles.requestMessageStack}>
@@ -270,8 +280,8 @@ const RequestInputRow = memo(function RequestInputRow({
             <ConversationMarkdownRenderer
               markdown={text}
               selectable={false}
-              textColor={appVisualTokens.colors.surface}
-              linkColor={appVisualTokens.colors.surface}
+              textColor={theme.colors.surface}
+              linkColor={theme.colors.surface}
             />
           </View>
         </View>
@@ -291,6 +301,8 @@ const AssistantContentRow = memo(function AssistantContentRow({
   isLastInRun: boolean;
   onCopyText: (text: string) => void;
 }) {
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const timestamp = footer ? formatChatDetailTimestamp(footer.timestamp) : '';
 
   return (
@@ -298,7 +310,7 @@ const AssistantContentRow = memo(function AssistantContentRow({
       <ChatTimelineRail
         iconUsage="timeline.assistantContentRail"
         terminal={isLastInRun}
-        toneColor={appVisualTokens.colors.success}
+        toneColor={theme.colors.success}
       />
       <View style={styles.timelineBody}>
         <View style={styles.contentBlock}>
@@ -329,6 +341,8 @@ const AwaitingAnswerTimelineRow = memo(function AwaitingAnswerTimelineRow({
   onExpandedChange: (nodeId: string, expanded: boolean) => void;
 }) {
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const summary = node.answerSummary;
   const canExpand = Boolean(summary?.items.length);
   const [expanded, setExpanded] = useState(() => getInitialExpanded(node.id, false));
@@ -367,7 +381,7 @@ const AwaitingAnswerTimelineRow = memo(function AwaitingAnswerTimelineRow({
       <ChatTimelineRail
         iconUsage="runtime.awaiting"
         terminal={isLastInRun}
-        toneColor={appVisualTokens.colors.warning}
+        toneColor={theme.colors.warning}
       />
       <View style={styles.timelineBody}>
         <View style={styles.awaitingAnswerBlock}>
@@ -488,6 +502,7 @@ const TimelineRow = memo(
 
 export const ChatTimelineList = memo(function ChatTimelineList({ timelineState, onCopyText }: ChatTimelineListProps) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
   const listRef = useRef<FlashListRef<ChatTimelineDisplayItem>>(null);
   const expandedRuntimeNodesRef = useRef(new Map<string, boolean>());
   const scrollMetricsRef = useRef({
@@ -691,193 +706,195 @@ export const ChatTimelineList = memo(function ChatTimelineList({ timelineState, 
   );
 });
 
-const styles = StyleSheet.create({
-  thread: {
-    flex: 1
-  },
-  threadScroller: {
-    flex: 1
-  },
-  timelineList: {
-    paddingHorizontal: appVisualTokens.spacing.md,
-    paddingTop: appVisualTokens.spacing.sm,
-    paddingBottom: appVisualTokens.spacing.lg
-  },
-  threadEmptyState: {
-    paddingTop: 88,
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.sm
-  },
-  threadEmptyStateTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  threadEmptyStateBody: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: appVisualTokens.colors.textSecondary
-  },
-  userRow: {
-    alignItems: 'flex-end',
-    marginBottom: 20
-  },
-  userMessageStack: {
-    maxWidth: '78%',
-    alignSelf: 'flex-end',
-    alignItems: 'stretch'
-  },
-  userBubble: {
-    borderRadius: 16,
-    borderBottomRightRadius: 8,
-    backgroundColor: appVisualTokens.colors.brandBlue,
-    paddingHorizontal: 14,
-    paddingVertical: 10
-  },
-  timelineRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 8,
-    marginBottom: 16
-  },
-  timelineBody: {
-    flex: 1,
-    minWidth: 0
-  },
-  contentBlock: {
-    alignSelf: 'stretch'
-  },
-  awaitingAnswerBlock: {
-    alignSelf: 'stretch'
-  },
-  awaitingAnswerHeader: {
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7
-  },
-  awaitingAnswerTitle: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  awaitingAnswerFoldButton: {
-    width: 28,
-    height: 28,
-    borderRadius: appVisualTokens.radii.sm,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  awaitingAnswerDetails: {
-    marginTop: 8,
-    gap: 13
-  },
-  awaitingAnswerItem: {
-    gap: 4
-  },
-  awaitingAnswerQuestion: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary
-  },
-  awaitingAnswerValue: {
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary
-  },
-  requestMessageStack: {
-    maxWidth: '82%',
-    alignSelf: 'flex-start',
-    alignItems: 'stretch'
-  },
-  requestBubble: {
-    borderRadius: 16,
-    borderTopLeftRadius: 8,
-    backgroundColor: appVisualTokens.colors.brandBlue,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    shadowColor: appVisualTokens.colors.shadow,
-    shadowOffset: {
-      width: 0,
-      height: 8
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    thread: {
+      flex: 1
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 14,
-    elevation: 2
-  },
-  messageFooter: {
-    minHeight: 28,
-    marginTop: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: appVisualTokens.spacing.sm
-  },
-  messageFooterEnd: {
-    justifyContent: 'flex-end'
-  },
-  copyButton: {
-    width: 28,
-    height: 28,
-    borderRadius: appVisualTokens.radii.sm,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  copyButtonDisabled: {
-    opacity: 0.45
-  },
-  copyButtonPressed: {
-    opacity: 0.7
-  },
-  footerMeta: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: appVisualTokens.spacing.sm
-  },
-  footerMetaEnd: {
-    flex: 0
-  },
-  metaText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: appVisualTokens.colors.textTertiary
-  },
-  errorText: {
-    flexShrink: 1,
-    fontSize: 12,
-    fontWeight: '600',
-    color: appVisualTokens.colors.danger
-  },
-  rowPressed: {
-    opacity: 0.72
-  },
-  scrollToEndButton: {
-    position: 'absolute',
-    left: '50%',
-    bottom: appVisualTokens.spacing.md,
-    width: 44,
-    height: 44,
-    marginLeft: -22,
-    borderRadius: appVisualTokens.radii.pill,
-    backgroundColor: appVisualTokens.colors.surface,
-    borderWidth: 1,
-    borderColor: appVisualTokens.colors.line,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: appVisualTokens.colors.shadow,
-    shadowOffset: {
-      width: 0,
-      height: 8
+    threadScroller: {
+      flex: 1
     },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 3
-  }
-});
+    timelineList: {
+      paddingHorizontal: appVisualTokens.spacing.md,
+      paddingTop: appVisualTokens.spacing.sm,
+      paddingBottom: appVisualTokens.spacing.lg
+    },
+    threadEmptyState: {
+      paddingTop: 88,
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.sm
+    },
+    threadEmptyStateTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    threadEmptyStateBody: {
+      fontSize: 15,
+      lineHeight: 22,
+      color: theme.colors.textSecondary
+    },
+    userRow: {
+      alignItems: 'flex-end',
+      marginBottom: 20
+    },
+    userMessageStack: {
+      maxWidth: '78%',
+      alignSelf: 'flex-end',
+      alignItems: 'stretch'
+    },
+    userBubble: {
+      borderRadius: 16,
+      borderBottomRightRadius: 8,
+      backgroundColor: theme.colors.brandBlue,
+      paddingHorizontal: 14,
+      paddingVertical: 10
+    },
+    timelineRow: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      gap: 8,
+      marginBottom: 16
+    },
+    timelineBody: {
+      flex: 1,
+      minWidth: 0
+    },
+    contentBlock: {
+      alignSelf: 'stretch'
+    },
+    awaitingAnswerBlock: {
+      alignSelf: 'stretch'
+    },
+    awaitingAnswerHeader: {
+      minHeight: 28,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7
+    },
+    awaitingAnswerTitle: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    awaitingAnswerFoldButton: {
+      width: 28,
+      height: 28,
+      borderRadius: appVisualTokens.radii.sm,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    awaitingAnswerDetails: {
+      marginTop: 8,
+      gap: 13
+    },
+    awaitingAnswerItem: {
+      gap: 4
+    },
+    awaitingAnswerQuestion: {
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '700',
+      color: theme.colors.textSecondary
+    },
+    awaitingAnswerValue: {
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '800',
+      color: theme.colors.textPrimary
+    },
+    requestMessageStack: {
+      maxWidth: '82%',
+      alignSelf: 'flex-start',
+      alignItems: 'stretch'
+    },
+    requestBubble: {
+      borderRadius: 16,
+      borderTopLeftRadius: 8,
+      backgroundColor: theme.colors.brandBlue,
+      paddingHorizontal: 14,
+      paddingVertical: 10,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: {
+        width: 0,
+        height: 8
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 14,
+      elevation: 2
+    },
+    messageFooter: {
+      minHeight: 28,
+      marginTop: 6,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: appVisualTokens.spacing.sm
+    },
+    messageFooterEnd: {
+      justifyContent: 'flex-end'
+    },
+    copyButton: {
+      width: 28,
+      height: 28,
+      borderRadius: appVisualTokens.radii.sm,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    copyButtonDisabled: {
+      opacity: 0.45
+    },
+    copyButtonPressed: {
+      opacity: 0.7
+    },
+    footerMeta: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: appVisualTokens.spacing.sm
+    },
+    footerMetaEnd: {
+      flex: 0
+    },
+    metaText: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: theme.colors.textTertiary
+    },
+    errorText: {
+      flexShrink: 1,
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.colors.danger
+    },
+    rowPressed: {
+      opacity: 0.72
+    },
+    scrollToEndButton: {
+      position: 'absolute',
+      left: '50%',
+      bottom: appVisualTokens.spacing.md,
+      width: 44,
+      height: 44,
+      marginLeft: -22,
+      borderRadius: appVisualTokens.radii.pill,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.line,
+      alignItems: 'center',
+      justifyContent: 'center',
+      shadowColor: theme.colors.shadow,
+      shadowOffset: {
+        width: 0,
+        height: 8
+      },
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+      elevation: 3
+    }
+  });
+}

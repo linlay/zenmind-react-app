@@ -29,6 +29,7 @@ export const appIconRegistry = {
   file: true,
   tool: true,
   'wrap-text': true,
+  moon: true,
 } as const satisfies Record<AppLineIconName, true>;
 
 export type AppIconGlyphName = keyof typeof appIconRegistry;

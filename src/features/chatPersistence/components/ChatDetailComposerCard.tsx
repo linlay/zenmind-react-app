@@ -1,7 +1,8 @@
 import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import type { ChatTimelineUsageSummary } from '../../chatTimeline/index.ts';
 import type { ChatComposerAttachment } from '../types';
 import { Composer, type ComposerAttachmentType } from './Composer';
@@ -39,6 +40,7 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
   onRemoveAttachment,
   onRetryAttachment,
 }: ChatDetailComposerCardProps) {
+  const styles = useAppThemeStyles(createStyles);
   const normalizedUsageLabel = usageLabel.trim();
   const usageAccessory =
     normalizedUsageLabel || usageSummary ? (
@@ -69,18 +71,20 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
   );
 });
 
-const styles = StyleSheet.create({
-  composerWrap: {
-    paddingHorizontal: appVisualTokens.spacing.lg,
-    paddingTop: 5,
-    paddingBottom: 6,
-    backgroundColor: appVisualTokens.colors.background,
-  },
-  errorText: {
-    marginTop: appVisualTokens.spacing.sm,
-    paddingHorizontal: appVisualTokens.spacing.md,
-    fontSize: 13,
-    lineHeight: 20,
-    color: appVisualTokens.colors.danger,
-  },
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    composerWrap: {
+      paddingHorizontal: appVisualTokens.spacing.lg,
+      paddingTop: 5,
+      paddingBottom: 6,
+      backgroundColor: theme.colors.background,
+    },
+    errorText: {
+      marginTop: appVisualTokens.spacing.sm,
+      paddingHorizontal: appVisualTokens.spacing.md,
+      fontSize: 13,
+      lineHeight: 20,
+      color: theme.colors.danger,
+    },
+  });
+}

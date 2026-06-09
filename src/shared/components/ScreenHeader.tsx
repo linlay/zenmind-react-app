@@ -1,7 +1,8 @@
 import { memo, ReactElement, ReactNode } from 'react';
 import { StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
 
-import { appVisualTokens } from '../visual/foundation';
+import { useAppThemeStyles } from '../visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../visual/foundation';
 
 type ScreenHeaderActions =
   | readonly []
@@ -33,6 +34,7 @@ export const ScreenHeader = memo(function ScreenHeader({
   titleContainerStyle,
   titleTextStyle,
 }: ScreenHeaderProps) {
+  const styles = useAppThemeStyles(createStyles);
   const isPrimitiveTitle = typeof title === 'string' || typeof title === 'number';
   const actionRailWidthStyle = actionRailWidth ? { width: actionRailWidth } : null;
 
@@ -61,49 +63,51 @@ export const ScreenHeader = memo(function ScreenHeader({
   );
 });
 
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: HEADER_HEIGHT,
-    paddingHorizontal: HEADER_HORIZONTAL_PADDING,
-    backgroundColor: appVisualTokens.colors.surface,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: appVisualTokens.colors.line,
-  },
-  actionRail: {
-    width: ACTION_RAIL_WIDTH,
-    height: HEADER_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.sm,
-  },
-  leftRail: {
-    justifyContent: 'flex-start',
-  },
-  rightRail: {
-    justifyContent: 'flex-end',
-  },
-  actionSlot: {
-    width: ACTION_SLOT_SIZE,
-    height: ACTION_SLOT_SIZE,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  titleContainer: {
-    flex: 1,
-    minWidth: 0,
-    height: HEADER_HEIGHT,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: appVisualTokens.spacing.xs,
-    overflow: 'hidden',
-  },
-  titleText: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary,
-    textAlign: 'center',
-  },
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      height: HEADER_HEIGHT,
+      paddingHorizontal: HEADER_HORIZONTAL_PADDING,
+      backgroundColor: theme.colors.surface,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.line,
+    },
+    actionRail: {
+      width: ACTION_RAIL_WIDTH,
+      height: HEADER_HEIGHT,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.sm,
+    },
+    leftRail: {
+      justifyContent: 'flex-start',
+    },
+    rightRail: {
+      justifyContent: 'flex-end',
+    },
+    actionSlot: {
+      width: ACTION_SLOT_SIZE,
+      height: ACTION_SLOT_SIZE,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    titleContainer: {
+      flex: 1,
+      minWidth: 0,
+      height: HEADER_HEIGHT,
+      justifyContent: 'center',
+      alignItems: 'center',
+      paddingHorizontal: appVisualTokens.spacing.xs,
+      overflow: 'hidden',
+    },
+    titleText: {
+      fontSize: 18,
+      lineHeight: 24,
+      fontWeight: '700',
+      color: theme.colors.textPrimary,
+      textAlign: 'center',
+    },
+  });
+}

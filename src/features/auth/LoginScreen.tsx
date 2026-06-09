@@ -13,10 +13,10 @@ import {
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import logoImage from '../../../assets/logo.png';
 import { loginWithMasterPassword, readPreferredDeviceName } from '../../core/auth/appAuth';
 import { readResolvedApiBaseUrl } from '../../core/auth/authConfig';
 import { normalizeApiBaseUrl } from '../../core/config/endpoint';
+import { brandAssets } from '../../shared/icons/brandAssets';
 import { useT } from '../../shared/i18n';
 
 export function AuthBootstrapScreen() {
@@ -108,7 +108,7 @@ export function LoginScreen() {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.logoWrap}>
-            <Image source={logoImage} style={styles.logo} resizeMode="contain" />
+            <Image source={brandAssets.logo} style={styles.logo} resizeMode="contain" />
           </View>
 
           <View style={styles.formCard}>

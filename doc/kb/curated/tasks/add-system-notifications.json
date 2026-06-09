@@ -54,7 +54,7 @@
     }
   ],
   "likelyFiles": [
-    "app.json",
+    "app.config.js",
     "package.json",
     "src/app/AppRoot.tsx",
     "src/app/navigation/types.ts",

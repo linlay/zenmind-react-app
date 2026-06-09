@@ -1,0 +1,37 @@
+{
+  "id": "cutej",
+  "productName": "CuteJ",
+  "expoName": "CuteJ",
+  "slug": "cutej-react-app",
+  "storageNamespace": "zenmind-app",
+  "android": {
+    "package": "cc.cutej.app",
+    "adaptiveIconBackgroundColor": "#172033"
+  },
+  "ios": {
+    "bundleIdentifier": "cc.cutej.app"
+  },
+  "updates": {
+    "projectId": "e6cc69ea-7449-44f2-ae7c-69831be52d5c",
+    "url": "https://u.expo.dev/e6cc69ea-7449-44f2-ae7c-69831be52d5c"
+  },
+  "splash": {
+    "backgroundColor": "#F5F7FA",
+    "imageWidth": 220
+  },
+  "notification": {
+    "channel": "chat-messages",
+    "color": "#ff6b9a"
+  },
+  "visual": {
+    "glyph": "cutej",
+    "backgroundColor": "#172033",
+    "backgroundColorEnd": "#223449",
+    "primaryColor": "#FF6B9A",
+    "secondaryColor": "#52D6C9"
+  },
+  "i18n": {
+    "zh-CN": "i18n/zh-CN.json",
+    "en-US": "i18n/en-US.json"
+  }
+}

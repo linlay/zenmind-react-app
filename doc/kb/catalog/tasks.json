@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-08T09:04:02.138Z",
+  "generatedAt": "2026-06-09T06:54:01.772Z",
   "items": [
     {
       "id": "add-app-startup-loading-screen",
@@ -15,8 +15,8 @@
       "entryDecision": "任务涉及应用冷启动前的遮罩、品牌启动屏、全局 loading overlay 或启动动画时，优先从这张卡开始。",
       "likelyFiles": [
         "App.tsx",
-        "app.json",
-        "assets/logo.png",
+        "app.config.js",
+        "assets/generated/brand",
         "src/app/AppRoot.tsx",
         "src/app/startup/AppLaunchSkeleton.tsx",
         "src/app/startup/GeminiLogo.tsx",
@@ -60,6 +60,7 @@
         "src/shared/i18n",
         "src/app/navigation/RootNavigator.tsx",
         "src/app/navigation/TabIcon.tsx",
+        "src/app/screens/SettingsScreen.tsx",
         "src/app/screens/TabScreens.tsx",
         "src/features/auth/LoginScreen.tsx",
         "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
@@ -79,7 +80,11 @@
         "src/app/navigation/RootNavigator.tsx",
         "src/app/navigation/types.ts",
         "src/app/screens/AppScreenFrame.tsx",
+        "src/app/screens/SettingsScreen.tsx",
         "src/app/screens/TabScreens.tsx",
+        "src/app/settings/settingsActions.ts",
+        "src/shared/visual/AppThemeProvider.tsx",
+        "src/shared/visual/foundation.ts",
         "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
         "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
         "src/features/chatPersistence/ChatDetailScreen.tsx"
@@ -127,7 +132,7 @@
       ],
       "entryDecision": "任务涉及系统级消息通知、原生 push token、通知点击跳转或通知补拉落库时，从这张卡开始。",
       "likelyFiles": [
-        "app.json",
+        "app.config.js",
         "package.json",
         "src/app/AppRoot.tsx",
         "src/app/navigation/types.ts",
@@ -141,6 +146,37 @@
         "src/features/notifications/notificationService.ts"
       ],
       "card": "doc/kb/tasks/add-system-notifications.json"
+    },
+    {
+      "id": "configure-multi-brand-builds",
+      "title": "配置多品牌打包",
+      "intentKeywords": [
+        "多品牌",
+        "品牌打包",
+        "brand build",
+        "BRAND",
+        "CuteJ",
+        "ZenMind",
+        "bundle id",
+        "android package",
+        "EAS profile"
+      ],
+      "entryDecision": "任务涉及同一移动端项目输出多个品牌、修改品牌 manifest、包名、bundle id、图标、启动图、EAS profile 或构建期品牌同步时，从这张卡开始。",
+      "likelyFiles": [
+        "brands",
+        "app.config.js",
+        "eas.json",
+        "package.json",
+        "scripts/lib/brand-config.js",
+        "scripts/sync-brand.js",
+        "scripts/tests/brandConfig.test.mts",
+        "assets/generated/brand",
+        "src/shared/generated/brand.ts",
+        "src/shared/generated/brandAssets.ts",
+        "src/shared/icons/brandAssets.ts",
+        "src/app/screens/TabScreens.tsx"
+      ],
+      "card": "doc/kb/tasks/configure-multi-brand-builds.json"
     },
     {
       "id": "modify-chat-persistence",

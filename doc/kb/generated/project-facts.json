@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-08T09:04:02.060Z",
+  "generatedAt": "2026-06-09T06:54:01.688Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -10,7 +10,10 @@
     "src/app/navigation/TabIcon.tsx",
     "src/app/navigation/types.ts",
     "src/app/screens/AppScreenFrame.tsx",
+    "src/app/screens/MeScreen.tsx",
+    "src/app/screens/SettingsScreen.tsx",
     "src/app/screens/TabScreens.tsx",
+    "src/app/settings/settingsActions.ts",
     "src/app/startup/AppLaunchSkeleton.tsx",
     "src/app/startup/GeminiLogo.tsx",
     "src/core/api/apiClient.ts",
@@ -86,6 +89,8 @@
     "src/shared/components/PaginatedCardList.tsx",
     "src/shared/components/ScreenHeader.tsx",
     "src/shared/components/__tests__/ScreenHeader.test.tsx",
+    "src/shared/generated/brand.ts",
+    "src/shared/generated/brandAssets.ts",
     "src/shared/i18n/I18nProvider.tsx",
     "src/shared/i18n/formatters.ts",
     "src/shared/i18n/index.ts",
@@ -103,9 +108,11 @@
     "src/shared/visual/AgentAvatar.tsx",
     "src/shared/visual/AgentBuiltinIcon.tsx",
     "src/shared/visual/AppLineIcon.tsx",
+    "src/shared/visual/AppThemeProvider.tsx",
     "src/shared/visual/agentAvatarIcon.ts",
     "src/shared/visual/agentAvatarTypes.ts",
     "src/shared/visual/foundation.ts",
+    "src/shared/visual/themePreference.ts",
     "src/types/assets.d.ts"
   ],
   "directoryTree": {
@@ -161,7 +168,25 @@
                     "type": "file"
                   },
                   {
+                    "name": "MeScreen.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "SettingsScreen.tsx",
+                    "type": "file"
+                  },
+                  {
                     "name": "TabScreens.tsx",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "settings",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "settingsActions.ts",
                     "type": "file"
                   }
                 ]
@@ -585,6 +610,20 @@
                 ]
               },
               {
+                "name": "generated",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "brand.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "brandAssets.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
                 "name": "i18n",
                 "type": "directory",
                 "children": [
@@ -695,7 +734,15 @@
                     "type": "file"
                   },
                   {
+                    "name": "AppThemeProvider.tsx",
+                    "type": "file"
+                  },
+                  {
                     "name": "foundation.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "themePreference.ts",
                     "type": "file"
                   }
                 ]
@@ -772,7 +819,10 @@
       "src/app/navigation/TabIcon.tsx",
       "src/app/navigation/types.ts",
       "src/app/screens/AppScreenFrame.tsx",
+      "src/app/screens/MeScreen.tsx",
+      "src/app/screens/SettingsScreen.tsx",
       "src/app/screens/TabScreens.tsx",
+      "src/app/settings/settingsActions.ts",
       "src/app/startup/AppLaunchSkeleton.tsx",
       "src/app/startup/GeminiLogo.tsx",
       "src/types/assets.d.ts"
@@ -871,6 +921,8 @@
       "src/shared/components/__tests__/ScreenHeader.test.tsx"
     ],
     "shared-visual-foundation": [
+      "src/shared/generated/brand.ts",
+      "src/shared/generated/brandAssets.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/icons/AppIconButton.tsx",
       "src/shared/icons/brandAssets.ts",
@@ -879,9 +931,11 @@
       "src/shared/visual/AgentAvatar.tsx",
       "src/shared/visual/AgentBuiltinIcon.tsx",
       "src/shared/visual/AppLineIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/agentAvatarIcon.ts",
       "src/shared/visual/agentAvatarTypes.ts",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/themePreference.ts"
     ]
   },
   "fileToModule": {
@@ -894,7 +948,10 @@
     "src/app/navigation/TabIcon.tsx": "app-shell-navigation",
     "src/app/navigation/types.ts": "app-shell-navigation",
     "src/app/screens/AppScreenFrame.tsx": "app-shell-navigation",
+    "src/app/screens/MeScreen.tsx": "app-shell-navigation",
+    "src/app/screens/SettingsScreen.tsx": "app-shell-navigation",
     "src/app/screens/TabScreens.tsx": "app-shell-navigation",
+    "src/app/settings/settingsActions.ts": "app-shell-navigation",
     "src/app/startup/AppLaunchSkeleton.tsx": "app-shell-navigation",
     "src/app/startup/GeminiLogo.tsx": "app-shell-navigation",
     "src/core/api/apiClient.ts": "core-api-client",
@@ -970,6 +1027,8 @@
     "src/shared/components/PaginatedCardList.tsx": "shared-paginated-list",
     "src/shared/components/ScreenHeader.tsx": "shared-screen-header",
     "src/shared/components/__tests__/ScreenHeader.test.tsx": "shared-screen-header",
+    "src/shared/generated/brand.ts": "shared-visual-foundation",
+    "src/shared/generated/brandAssets.ts": "shared-visual-foundation",
     "src/shared/i18n/I18nProvider.tsx": "shared-i18n",
     "src/shared/i18n/formatters.ts": "shared-i18n",
     "src/shared/i18n/index.ts": "shared-i18n",
@@ -987,9 +1046,11 @@
     "src/shared/visual/AgentAvatar.tsx": "shared-visual-foundation",
     "src/shared/visual/AgentBuiltinIcon.tsx": "shared-visual-foundation",
     "src/shared/visual/AppLineIcon.tsx": "shared-visual-foundation",
+    "src/shared/visual/AppThemeProvider.tsx": "shared-visual-foundation",
     "src/shared/visual/agentAvatarIcon.ts": "shared-visual-foundation",
     "src/shared/visual/agentAvatarTypes.ts": "shared-visual-foundation",
     "src/shared/visual/foundation.ts": "shared-visual-foundation",
+    "src/shared/visual/themePreference.ts": "shared-visual-foundation",
     "src/types/assets.d.ts": "app-shell-navigation"
   },
   "moduleGraph": {
@@ -1047,7 +1108,7 @@
       "dependedBy": ["app-shell-navigation"]
     },
     "feature-auth-login": {
-      "dependsOn": ["core-auth-session", "core-runtime-config", "shared-i18n"],
+      "dependsOn": ["core-auth-session", "core-runtime-config", "shared-i18n", "shared-visual-foundation"],
       "dependedBy": ["app-shell-navigation"]
     },
     "feature-chat-persistence": {
@@ -1109,6 +1170,7 @@
       "dependedBy": [
         "app-shell-navigation",
         "feature-agent-task-board",
+        "feature-auth-login",
         "feature-chat-persistence",
         "shared-conversation-content-renderer",
         "shared-paginated-list",
@@ -1126,13 +1188,17 @@
       "disableDevelopmentDebugPanel",
       "getDevelopmentDebugPanelSnapshot",
       "openDevelopmentDebugPanel",
+      "setDevelopmentDebugPanelEnabled",
       "subscribeDevelopmentDebugPanel"
     ],
     "src/app/navigation/RootNavigator.tsx": ["RootNavigator"],
     "src/app/navigation/TabIcon.tsx": ["AppTabIcon", "TAB_LABEL_KEYS"],
     "src/app/navigation/types.ts": ["RootStackParamList", "RootTabParamList"],
     "src/app/screens/AppScreenFrame.tsx": ["AppScreenFrame"],
+    "src/app/screens/MeScreen.tsx": ["MeScreen"],
+    "src/app/screens/SettingsScreen.tsx": ["SettingsScreen"],
     "src/app/screens/TabScreens.tsx": ["ChatScreen", "DriveScreen", "MeScreen", "TerminalScreen"],
+    "src/app/settings/settingsActions.ts": ["clearSettingsLocalCache"],
     "src/app/startup/AppLaunchSkeleton.tsx": ["AppLaunchSkeleton"],
     "src/app/startup/GeminiLogo.tsx": ["GeminiLogo"],
     "src/core/api/apiClient.ts": [
@@ -1643,6 +1709,16 @@
     ],
     "src/shared/components/ScreenHeader.tsx": ["ScreenHeader", "ScreenHeaderProps"],
     "src/shared/components/__tests__/ScreenHeader.test.tsx": [],
+    "src/shared/generated/brand.ts": [
+      "APP_BRAND",
+      "APP_SLUG",
+      "APP_VERSION",
+      "BRAND_ID",
+      "EXPO_NAME",
+      "PRODUCT_NAME",
+      "STORAGE_NAMESPACE"
+    ],
+    "src/shared/generated/brandAssets.ts": ["BRAND_LOGO"],
     "src/shared/i18n/I18nProvider.tsx": ["I18nProvider", "useI18n", "useT"],
     "src/shared/i18n/formatters.ts": ["formatAccessExpiryLabel"],
     "src/shared/i18n/index.ts": [
@@ -1699,6 +1775,7 @@
     "src/shared/visual/AgentAvatar.tsx": ["AGENT_ICON_NAMES", "AgentAvatar", "AgentAvatarProps"],
     "src/shared/visual/AgentBuiltinIcon.tsx": ["AgentBuiltinIcon", "AgentBuiltinIconKey", "AgentBuiltinIconProps"],
     "src/shared/visual/AppLineIcon.tsx": ["AppLineIcon", "AppLineIconName", "AppLineIconProps"],
+    "src/shared/visual/AppThemeProvider.tsx": ["AppThemeProvider", "useAppTheme", "useAppThemeStyles"],
     "src/shared/visual/agentAvatarIcon.ts": [
       "AGENT_ICON_NAMES",
       "AgentBuiltinIconName",
@@ -1709,17 +1786,40 @@
     ],
     "src/shared/visual/agentAvatarTypes.ts": ["AgentAvatarIcon", "AgentAvatarKind"],
     "src/shared/visual/foundation.ts": [
+      "AppThemeTokens",
+      "AppVisualColors",
       "VisualAvatarTone",
+      "appDarkColors",
+      "appLightColors",
+      "appThemeColors",
+      "appThemeTokens",
+      "appVisualFoundation",
       "appVisualTokens",
       "formatConversationTimestamp",
       "formatUnreadCount",
       "getAvatarLabel",
       "getAvatarTone"
     ],
+    "src/shared/visual/themePreference.ts": [
+      "APP_RESOLVED_THEME_PREFERENCES",
+      "APP_THEME_PREFERENCES",
+      "AppResolvedThemePreference",
+      "AppThemePreference",
+      "DEFAULT_APP_RESOLVED_THEME_PREFERENCE",
+      "DEFAULT_APP_THEME_PREFERENCE",
+      "isAppResolvedThemePreference",
+      "isAppThemePreference",
+      "resolveAppThemePreference"
+    ],
     "src/types/assets.d.ts": ["default"]
   },
   "resolvedImportsByFile": {
-    "App.tsx": ["src/app/AppRoot.tsx", "src/app/startup/AppLaunchSkeleton.tsx", "src/shared/i18n/index.ts"],
+    "App.tsx": [
+      "src/app/AppRoot.tsx",
+      "src/app/startup/AppLaunchSkeleton.tsx",
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
     "index.js": ["App.tsx"],
     "src/app/AppRoot.tsx": [
       "src/app/debug/DevelopmentDebugPanelHost.tsx",
@@ -1731,6 +1831,7 @@
       "src/core/auth/useAuthSession.ts",
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/notifications/notificationService.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/app/debug/DevelopmentDebugPanelHost.tsx": [
@@ -1743,12 +1844,14 @@
     "src/app/navigation/RootNavigator.tsx": [
       "src/app/navigation/TabIcon.tsx",
       "src/app/navigation/types.ts",
+      "src/app/screens/SettingsScreen.tsx",
       "src/app/screens/TabScreens.tsx",
       "src/core/auth/authConfig.ts",
       "src/core/auth/useAuthSession.ts",
       "src/features/auth/LoginScreen.tsx",
       "src/features/chatPersistence/ChatDetailScreen.tsx",
       "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/app/navigation/TabIcon.tsx": [
@@ -1760,23 +1863,49 @@
     "src/app/screens/AppScreenFrame.tsx": [
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
-    "src/app/screens/TabScreens.tsx": [
-      "app.json",
+    "src/app/screens/MeScreen.tsx": [
       "src/app/debug/developmentDebugPanel.ts",
-      "src/app/screens/AppScreenFrame.tsx",
+      "src/app/navigation/types.ts",
       "src/core/api/apiClient.ts",
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
       "src/core/auth/useAuthSession.ts",
-      "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
-      "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
       "src/features/notifications/notificationService.ts",
+      "src/shared/components/ScreenHeader.tsx",
+      "src/shared/generated/brand.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/themePreference.ts"
+    ],
+    "src/app/screens/SettingsScreen.tsx": [
+      "src/app/debug/developmentDebugPanel.ts",
+      "src/app/navigation/types.ts",
+      "src/app/settings/settingsActions.ts",
+      "src/core/auth/useAuthSession.ts",
+      "src/shared/components/ScreenHeader.tsx",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/icons/AppIconButton.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/themePreference.ts"
+    ],
+    "src/app/screens/TabScreens.tsx": [
+      "src/app/screens/AppScreenFrame.tsx",
+      "src/app/screens/MeScreen.tsx",
+      "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+      "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
+    "src/app/settings/settingsActions.ts": ["src/features/chatRealtime/chatSyncService.ts"],
     "src/app/startup/AppLaunchSkeleton.tsx": ["src/app/startup/GeminiLogo.tsx"],
     "src/app/startup/GeminiLogo.tsx": ["src/shared/icons/brandAssets.ts"],
     "src/core/api/apiClient.ts": [
@@ -1799,14 +1928,15 @@
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/auth/LoginScreen.tsx": [
-      "assets/logo.png",
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
       "src/core/config/endpoint.ts",
-      "src/shared/i18n/index.ts"
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/brandAssets.ts"
     ],
     "src/features/chatPersistence/ChatDetailScreen.tsx": [
       "src/core/api/services/chatApi.ts",
@@ -1828,6 +1958,7 @@
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatRealtime/types.ts",
       "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/ChatHomeStorageDemo.tsx": [
@@ -1844,6 +1975,7 @@
       "src/shared/icons/AppIcon.tsx",
       "src/shared/icons/AppIconButton.tsx",
       "src/shared/visual/AgentAvatar.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/chatAttachmentModels.ts": [
@@ -1897,12 +2029,14 @@
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/index.ts",
       "src/shared/visual/AppLineIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": [
       "src/features/chatRealtime/types.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": [
@@ -1911,6 +2045,7 @@
       "src/features/chatPersistence/components/Composer.tsx",
       "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatDetailDrawers.tsx": [
@@ -1918,10 +2053,12 @@
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": [
       "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatDetailHeader.tsx": [
@@ -1930,14 +2067,19 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/icons/AppIconButton.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
-    "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": ["src/shared/visual/foundation.ts"],
+    "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": [
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": [
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AgentAvatar.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatTimelineList.tsx": [
@@ -1949,16 +2091,19 @@
       "src/shared/components/ConversationMarkdownRenderer.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": [
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatUsageStats.tsx": [
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/Composer.tsx": [
@@ -1967,15 +2112,18 @@
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/CopyToast.tsx": [
       "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": [
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": [
@@ -1987,6 +2135,7 @@
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx": [
@@ -1996,6 +2145,7 @@
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts": [
@@ -2012,6 +2162,7 @@
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
       "src/shared/components/ConversationMarkdownRenderer.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": [
@@ -2117,11 +2268,20 @@
     ],
     "src/shared/components/ConversationMarkdownRenderer.tsx": [
       "src/shared/markdown/preprocess.ts",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
+    "src/shared/components/PaginatedCardList.tsx": [
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
-    "src/shared/components/PaginatedCardList.tsx": ["src/shared/i18n/index.ts", "src/shared/visual/foundation.ts"],
-    "src/shared/components/ScreenHeader.tsx": ["src/shared/visual/foundation.ts"],
+    "src/shared/components/ScreenHeader.tsx": [
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
     "src/shared/components/__tests__/ScreenHeader.test.tsx": ["src/shared/components/ScreenHeader.tsx"],
+    "src/shared/generated/brand.ts": [],
+    "src/shared/generated/brandAssets.ts": ["assets/generated/brand/zenmind/logo.png"],
     "src/shared/i18n/I18nProvider.tsx": ["src/shared/i18n/locales.ts", "src/shared/i18n/translate.ts"],
     "src/shared/i18n/formatters.ts": ["src/shared/i18n/locales.ts", "src/shared/i18n/translate.ts"],
     "src/shared/i18n/index.ts": [
@@ -2138,30 +2298,37 @@
     "src/shared/icons/AppIcon.tsx": [
       "src/shared/icons/registries/appIconUsages.ts",
       "src/shared/visual/AppLineIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/shared/icons/AppIconButton.tsx": ["src/shared/icons/AppIcon.tsx"],
-    "src/shared/icons/brandAssets.ts": ["assets/logo.png"],
+    "src/shared/icons/brandAssets.ts": ["src/shared/generated/brandAssets.ts"],
     "src/shared/icons/registries/appIconRegistry.ts": ["src/shared/visual/AppLineIcon.tsx"],
     "src/shared/icons/registries/appIconUsages.ts": ["src/shared/icons/registries/appIconRegistry.ts"],
     "src/shared/markdown/preprocess.ts": [],
     "src/shared/visual/AgentAvatar.tsx": [
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AgentBuiltinIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/agentAvatarIcon.ts",
       "src/shared/visual/agentAvatarTypes.ts",
       "src/shared/visual/foundation.ts"
     ],
     "src/shared/visual/AgentBuiltinIcon.tsx": ["src/shared/visual/agentAvatarIcon.ts"],
     "src/shared/visual/AppLineIcon.tsx": [],
+    "src/shared/visual/AppThemeProvider.tsx": [
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/themePreference.ts"
+    ],
     "src/shared/visual/agentAvatarIcon.ts": ["src/shared/visual/agentAvatarTypes.ts"],
     "src/shared/visual/agentAvatarTypes.ts": [],
-    "src/shared/visual/foundation.ts": [],
+    "src/shared/visual/foundation.ts": ["src/shared/visual/themePreference.ts"],
+    "src/shared/visual/themePreference.ts": [],
     "src/types/assets.d.ts": []
   },
   "cardCounts": {
     "modules": 17,
     "flows": 5,
-    "tasks": 12
+    "tasks": 13
   }
 }

@@ -57,6 +57,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const setLocalePreference = useCallback((nextPreference: LocalePreference) => {
     const resolvedPreference = resolveLocalePreference(nextPreference);
+    if (resolvedPreference === preference) {
+      return;
+    }
+
     if (resolvedPreference === 'system') {
       i18nStorage.delete(LOCALE_PREFERENCE_KEY);
       setSystemLocale(readDeviceLocale());
@@ -64,7 +68,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       i18nStorage.set(LOCALE_PREFERENCE_KEY, resolvedPreference);
     }
     setPreference(resolvedPreference);
-  }, []);
+  }, [preference]);
 
   const t = useMemo(() => createTranslator(locale), [locale]);
   const value = useMemo(

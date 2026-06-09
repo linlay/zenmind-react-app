@@ -10,7 +10,13 @@ import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { AppIconButton } from '../../shared/icons/AppIconButton';
 import { useT } from '../../shared/i18n';
 import { AgentAvatar } from '../../shared/visual/AgentAvatar';
-import { appVisualTokens, formatConversationTimestamp, formatUnreadCount } from '../../shared/visual/foundation';
+import { useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
+import {
+  appVisualTokens,
+  formatConversationTimestamp,
+  formatUnreadCount,
+  type AppThemeTokens
+} from '../../shared/visual/foundation';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
 import {
   createConversationForDirectoryItem,
@@ -118,6 +124,8 @@ function appendDirectoryListState(
 }
 
 const HeaderIconGlyph = memo(function HeaderIconGlyph({ usage }: { usage: AppIconUsage }) {
+  const styles = useAppThemeStyles(createStyles);
+
   return (
     <View style={styles.headerIconGlyph}>
       <AppIcon usage={usage} />
@@ -134,6 +142,8 @@ const HeaderIconButton = memo(function HeaderIconButton({
   accessibilityLabel: string;
   onPress: () => void;
 }) {
+  const styles = useAppThemeStyles(createStyles);
+
   return (
     <AppIconButton
       usage={usage}
@@ -157,6 +167,7 @@ const ChatRow = memo(function ChatRow({
   onLongPress: (item: ChatDirectoryItem, anchor: RowActionAnchor) => void;
   isMenuTarget: boolean;
 }) {
+  const styles = useAppThemeStyles(createStyles);
   const rowRef = useRef<View>(null);
   const handlePress = useCallback(() => {
     onPress(item);
@@ -221,6 +232,7 @@ const PinnedFoldRow = memo(function PinnedFoldRow({
   item: PinnedFoldDisplayItem;
   onPress: () => void;
 }) {
+  const styles = useAppThemeStyles(createStyles);
   const t = useT();
   const label = item.collapsed
     ? t('chatHome.pinned.expand', { count: item.pinnedCount })
@@ -246,6 +258,7 @@ const PinnedFoldRow = memo(function PinnedFoldRow({
 
 const ChatEmptyState = memo(function ChatEmptyState() {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
 
   return (
     <View style={styles.emptyState}>
@@ -259,6 +272,7 @@ const CHAT_EMPTY_STATE = <ChatEmptyState />;
 
 export function ChatHomeStorageDemo() {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
   const tabBarHeight = useBottomTabBarHeight();
   const windowDimensions = useWindowDimensions();
   const isFocused = useIsFocused();
@@ -812,210 +826,212 @@ export function ChatHomeStorageDemo() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: appVisualTokens.colors.surface
-  },
-  headerSafeArea: {
-    backgroundColor: appVisualTokens.colors.surface
-  },
-  listShell: {
-    flex: 1,
-    backgroundColor: appVisualTokens.colors.surface
-  },
-  listContent: {
-    paddingTop: appVisualTokens.spacing.xs
-  },
-  feedbackCard: {
-    marginHorizontal: appVisualTokens.spacing.xl,
-    marginBottom: appVisualTokens.spacing.sm,
-    backgroundColor: '#fff6f6',
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: '#f0d6d6',
-    paddingHorizontal: appVisualTokens.spacing.lg,
-    paddingVertical: appVisualTokens.spacing.sm
-  },
-  errorText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: appVisualTokens.colors.danger
-  },
-  headerIconGlyph: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  headerIconButtonPressed: {
-    opacity: 0.68
-  },
-  chatRowPressable: {
-    flex: 1
-  },
-  chatRowPressed: {
-    opacity: 0.72
-  },
-  chatRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: appVisualTokens.spacing.xl,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: appVisualTokens.colors.line,
-    backgroundColor: appVisualTokens.colors.surface
-  },
-  chatRowPinned: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted
-  },
-  chatRowMenuTarget: {
-    backgroundColor: appVisualTokens.colors.backgroundMuted
-  },
-  chatRowMain: {
-    flex: 1,
-    minWidth: 0,
-    gap: 4
-  },
-  chatTitle: {
-    flexShrink: 1,
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '500',
-    color: appVisualTokens.colors.textPrimary
-  },
-  chatSummary: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: appVisualTokens.colors.textTertiary
-  },
-  chatRowMeta: {
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    minHeight: 46,
-    minWidth: 74,
-    gap: 4
-  },
-  chatRowMetaBottom: {
-    minHeight: 26,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    gap: 6
-  },
-  chatTime: {
-    fontSize: 12,
-    lineHeight: 14,
-    fontWeight: '400',
-    color: appVisualTokens.colors.textTertiary
-  },
-  unreadBadge: {
-    minWidth: 26,
-    height: 26,
-    borderRadius: appVisualTokens.radii.pill,
-    backgroundColor: appVisualTokens.colors.badge,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6
-  },
-  unreadBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: appVisualTokens.colors.surface
-  },
-  unreadBadgePlaceholder: {
-    width: 26,
-    height: 26
-  },
-  pinnedMarker: {
-    width: 24,
-    height: 24,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  pinnedFoldRow: {
-    flex: 1,
-    minHeight: PIN_FOLD_ROW_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: appVisualTokens.spacing.xl,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderColor: appVisualTokens.colors.line,
-    backgroundColor: appVisualTokens.colors.surfaceMuted
-  },
-  pinnedFoldRowPressed: {
-    backgroundColor: appVisualTokens.colors.backgroundMuted
-  },
-  pinnedFoldLeft: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.lg
-  },
-  pinnedFoldText: {
-    flexShrink: 1,
-    fontSize: 15,
-    lineHeight: 20,
-    color: appVisualTokens.colors.textSecondary
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 48,
-    marginHorizontal: appVisualTokens.spacing.xl,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderColor: appVisualTokens.colors.line
-  },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  emptyStateBody: {
-    marginTop: 8,
-    fontSize: 14,
-    lineHeight: 21,
-    color: appVisualTokens.colors.textSecondary,
-    textAlign: 'center'
-  },
-  menuBackdrop: {
-    flex: 1,
-    backgroundColor: 'transparent'
-  },
-  pinMenu: {
-    position: 'absolute',
-    width: PIN_MENU_WIDTH,
-    borderRadius: appVisualTokens.radii.lg,
-    backgroundColor: appVisualTokens.colors.surface,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: appVisualTokens.colors.line,
-    overflow: 'hidden',
-    shadowColor: appVisualTokens.colors.shadow,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.14,
-    shadowRadius: 18,
-    elevation: 8
-  },
-  pinMenuAction: {
-    minHeight: PIN_MENU_ROW_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.md,
-    paddingHorizontal: appVisualTokens.spacing.xl
-  },
-  pinMenuActionPressed: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted
-  },
-  pinMenuActionText: {
-    flexShrink: 1,
-    fontSize: 17,
-    lineHeight: 24,
-    fontWeight: '500',
-    color: appVisualTokens.colors.textPrimary
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: theme.colors.surface
+    },
+    headerSafeArea: {
+      backgroundColor: theme.colors.surface
+    },
+    listShell: {
+      flex: 1,
+      backgroundColor: theme.colors.surface
+    },
+    listContent: {
+      paddingTop: appVisualTokens.spacing.xs
+    },
+    feedbackCard: {
+      marginHorizontal: appVisualTokens.spacing.xl,
+      marginBottom: appVisualTokens.spacing.sm,
+      backgroundColor: theme.colors.dangerSoft,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.dangerLine,
+      paddingHorizontal: appVisualTokens.spacing.lg,
+      paddingVertical: appVisualTokens.spacing.sm
+    },
+    errorText: {
+      fontSize: 13,
+      lineHeight: 20,
+      color: theme.colors.danger
+    },
+    headerIconGlyph: {
+      width: 40,
+      height: 40,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    headerIconButtonPressed: {
+      opacity: 0.68
+    },
+    chatRowPressable: {
+      flex: 1
+    },
+    chatRowPressed: {
+      opacity: 0.72
+    },
+    chatRow: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 12,
+      paddingHorizontal: appVisualTokens.spacing.xl,
+      paddingVertical: 10,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.line,
+      backgroundColor: theme.colors.surface
+    },
+    chatRowPinned: {
+      backgroundColor: theme.colors.surfaceMuted
+    },
+    chatRowMenuTarget: {
+      backgroundColor: theme.colors.backgroundMuted
+    },
+    chatRowMain: {
+      flex: 1,
+      minWidth: 0,
+      gap: 4
+    },
+    chatTitle: {
+      flexShrink: 1,
+      fontSize: 16,
+      lineHeight: 22,
+      fontWeight: '500',
+      color: theme.colors.textPrimary
+    },
+    chatSummary: {
+      fontSize: 13,
+      lineHeight: 18,
+      color: theme.colors.textTertiary
+    },
+    chatRowMeta: {
+      alignItems: 'flex-end',
+      justifyContent: 'space-between',
+      minHeight: 46,
+      minWidth: 74,
+      gap: 4
+    },
+    chatRowMetaBottom: {
+      minHeight: 26,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      gap: 6
+    },
+    chatTime: {
+      fontSize: 12,
+      lineHeight: 14,
+      fontWeight: '400',
+      color: theme.colors.textTertiary
+    },
+    unreadBadge: {
+      minWidth: 26,
+      height: 26,
+      borderRadius: appVisualTokens.radii.pill,
+      backgroundColor: theme.colors.badge,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 6
+    },
+    unreadBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.colors.surface
+    },
+    unreadBadgePlaceholder: {
+      width: 26,
+      height: 26
+    },
+    pinnedMarker: {
+      width: 24,
+      height: 24,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    pinnedFoldRow: {
+      flex: 1,
+      minHeight: PIN_FOLD_ROW_HEIGHT,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: appVisualTokens.spacing.xl,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.line,
+      backgroundColor: theme.colors.surfaceMuted
+    },
+    pinnedFoldRowPressed: {
+      backgroundColor: theme.colors.backgroundMuted
+    },
+    pinnedFoldLeft: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.lg
+    },
+    pinnedFoldText: {
+      flexShrink: 1,
+      fontSize: 15,
+      lineHeight: 20,
+      color: theme.colors.textSecondary
+    },
+    emptyState: {
+      alignItems: 'center',
+      paddingHorizontal: 24,
+      paddingVertical: 48,
+      marginHorizontal: appVisualTokens.spacing.xl,
+      borderTopWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.line
+    },
+    emptyStateTitle: {
+      fontSize: 18,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    emptyStateBody: {
+      marginTop: 8,
+      fontSize: 14,
+      lineHeight: 21,
+      color: theme.colors.textSecondary,
+      textAlign: 'center'
+    },
+    menuBackdrop: {
+      flex: 1,
+      backgroundColor: 'transparent'
+    },
+    pinMenu: {
+      position: 'absolute',
+      width: PIN_MENU_WIDTH,
+      borderRadius: appVisualTokens.radii.lg,
+      backgroundColor: theme.colors.surface,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.line,
+      overflow: 'hidden',
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 12 },
+      shadowOpacity: 0.14,
+      shadowRadius: 18,
+      elevation: 8
+    },
+    pinMenuAction: {
+      minHeight: PIN_MENU_ROW_HEIGHT,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.md,
+      paddingHorizontal: appVisualTokens.spacing.xl
+    },
+    pinMenuActionPressed: {
+      backgroundColor: theme.colors.surfaceMuted
+    },
+    pinMenuActionText: {
+      flexShrink: 1,
+      fontSize: 17,
+      lineHeight: 24,
+      fontWeight: '500',
+      color: theme.colors.textPrimary
+    }
+  });
+}

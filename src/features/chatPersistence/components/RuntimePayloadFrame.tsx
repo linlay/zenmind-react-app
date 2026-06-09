@@ -3,7 +3,8 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 
 type RuntimePayloadFrameProps = {
   descriptorId: string;
@@ -21,6 +22,8 @@ const RuntimeCopyButton = memo(function RuntimeCopyButton({
   onCopyText: (text: string) => void;
 }) {
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const handleCopy = useCallback(() => {
     onCopyText(copyText);
   }, [copyText, onCopyText]);
@@ -32,7 +35,7 @@ const RuntimeCopyButton = memo(function RuntimeCopyButton({
       onPress={handleCopy}
       style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
     >
-      <AppIcon usage="runtime.copy" color={appVisualTokens.colors.textSecondary} />
+      <AppIcon usage="runtime.copy" color={theme.colors.textSecondary} />
     </Pressable>
   );
 });
@@ -45,6 +48,8 @@ export const RuntimePayloadFrame = memo(function RuntimePayloadFrame({
   renderContent
 }: RuntimePayloadFrameProps) {
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const [wrap, setWrap] = useState(defaultWrap);
 
   useEffect(() => {
@@ -70,7 +75,7 @@ export const RuntimePayloadFrame = memo(function RuntimePayloadFrame({
         >
           <AppIcon
             usage="runtime.wrap"
-            color={wrap ? appVisualTokens.colors.brandBlue : appVisualTokens.colors.textSecondary}
+            color={wrap ? theme.colors.brandBlue : theme.colors.textSecondary}
           />
         </Pressable>
         {copyText ? <RuntimeCopyButton copyText={copyText} onCopyText={onCopyText} /> : null}
@@ -87,43 +92,45 @@ export const RuntimePayloadFrame = memo(function RuntimePayloadFrame({
   );
 });
 
-const styles = StyleSheet.create({
-  frame: {
-    marginTop: 8,
-    borderRadius: appVisualTokens.radii.sm,
-    backgroundColor: appVisualTokens.colors.surfaceMuted,
-    paddingHorizontal: 10,
-    paddingTop: 7,
-    paddingBottom: 10
-  },
-  toolbar: {
-    minHeight: 22,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.xs,
-    marginBottom: 5
-  },
-  iconButton: {
-    width: 24,
-    height: 24,
-    borderRadius: appVisualTokens.radii.sm,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  iconButtonActive: {
-    backgroundColor: appVisualTokens.colors.brandBlueSoft
-  },
-  iconButtonPressed: {
-    opacity: 0.7
-  },
-  wrapContent: {
-    minWidth: 0
-  },
-  nowrapScroller: {
-    alignSelf: 'stretch'
-  },
-  nowrapContent: {
-    minWidth: 720
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    frame: {
+      marginTop: 8,
+      borderRadius: appVisualTokens.radii.sm,
+      backgroundColor: theme.colors.surfaceMuted,
+      paddingHorizontal: 10,
+      paddingTop: 7,
+      paddingBottom: 10
+    },
+    toolbar: {
+      minHeight: 22,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.xs,
+      marginBottom: 5
+    },
+    iconButton: {
+      width: 24,
+      height: 24,
+      borderRadius: appVisualTokens.radii.sm,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    iconButtonActive: {
+      backgroundColor: theme.colors.brandBlueSoft
+    },
+    iconButtonPressed: {
+      opacity: 0.7
+    },
+    wrapContent: {
+      minWidth: 0
+    },
+    nowrapScroller: {
+      alignSelf: 'stretch'
+    },
+    nowrapContent: {
+      minWidth: 720
+    }
+  });
+}

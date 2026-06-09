@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { Animated, DimensionValue, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
 
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 
 function SkeletonBlock({
   width = '100%',
@@ -12,10 +13,12 @@ function SkeletonBlock({
   height: number;
   style?: StyleProp<ViewStyle>;
 }) {
+  const styles = useAppThemeStyles(createStyles);
   return <View style={[styles.skeletonBlock, { width, height }, style]} />;
 }
 
 export function ChatDetailSkeleton() {
+  const styles = useAppThemeStyles(createStyles);
   const opacity = useRef(new Animated.Value(0.55)).current;
 
   useEffect(() => {
@@ -78,59 +81,61 @@ export function ChatDetailSkeleton() {
   );
 }
 
-const styles = StyleSheet.create({
-  skeletonScreen: {
-    flex: 1,
-    backgroundColor: appVisualTokens.colors.background,
-  },
-  skeletonHeader: {
-    height: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: appVisualTokens.spacing.lg,
-  },
-  skeletonHeaderCenter: {
-    alignItems: 'center',
-  },
-  skeletonHeaderMeta: {
-    marginTop: 8,
-  },
-  skeletonThread: {
-    flex: 1,
-    paddingHorizontal: appVisualTokens.spacing.md,
-    paddingTop: appVisualTokens.spacing.sm,
-  },
-  skeletonAssistantRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 22,
-  },
-  skeletonAssistantText: {
-    flex: 1,
-    paddingTop: 2,
-  },
-  skeletonLineGap: {
-    marginTop: 8,
-  },
-  skeletonBubbleUser: {
-    alignSelf: 'flex-end',
-    marginBottom: 20,
-    borderRadius: 18,
-  },
-  skeletonComposer: {
-    paddingHorizontal: appVisualTokens.spacing.lg,
-    paddingTop: 5,
-    paddingBottom: 6,
-  },
-  skeletonComposerInput: {
-    borderRadius: appVisualTokens.radii.pill,
-  },
-  skeletonRound: {
-    borderRadius: appVisualTokens.radii.pill,
-  },
-  skeletonBlock: {
-    backgroundColor: appVisualTokens.colors.backgroundMuted,
-  },
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    skeletonScreen: {
+      flex: 1,
+      backgroundColor: theme.colors.background,
+    },
+    skeletonHeader: {
+      height: 58,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      paddingHorizontal: appVisualTokens.spacing.lg,
+    },
+    skeletonHeaderCenter: {
+      alignItems: 'center',
+    },
+    skeletonHeaderMeta: {
+      marginTop: 8,
+    },
+    skeletonThread: {
+      flex: 1,
+      paddingHorizontal: appVisualTokens.spacing.md,
+      paddingTop: appVisualTokens.spacing.sm,
+    },
+    skeletonAssistantRow: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      marginBottom: 22,
+    },
+    skeletonAssistantText: {
+      flex: 1,
+      paddingTop: 2,
+    },
+    skeletonLineGap: {
+      marginTop: 8,
+    },
+    skeletonBubbleUser: {
+      alignSelf: 'flex-end',
+      marginBottom: 20,
+      borderRadius: 18,
+    },
+    skeletonComposer: {
+      paddingHorizontal: appVisualTokens.spacing.lg,
+      paddingTop: 5,
+      paddingBottom: 6,
+    },
+    skeletonComposerInput: {
+      borderRadius: appVisualTokens.radii.pill,
+    },
+    skeletonRound: {
+      borderRadius: appVisualTokens.radii.pill,
+    },
+    skeletonBlock: {
+      backgroundColor: theme.colors.backgroundMuted,
+    },
+  });
+}

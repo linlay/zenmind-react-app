@@ -4,7 +4,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { type TFunction, useT } from '../../../shared/i18n';
-import { appVisualTokens, formatConversationTimestamp } from '../../../shared/visual/foundation';
+import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, formatConversationTimestamp, type AppThemeTokens } from '../../../shared/visual/foundation';
 import { ChatConversationAwaitingState } from '../../chatRealtime/types';
 
 const ANIMATION_DURATION = 280;
@@ -59,6 +60,7 @@ export const ChatAwaitingResumeBar = memo(function ChatAwaitingResumeBar({
   onPress
 }: ChatAwaitingResumeBarProps) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
 
   if (!awaiting || !visible) {
     return null;
@@ -86,6 +88,7 @@ export const ChatAwaitingOverlay = memo(function ChatAwaitingOverlay({
   onDismiss
 }: ChatAwaitingOverlayProps) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
   const insets = useSafeAreaInsets();
   const maskOpacity = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(600)).current;
@@ -178,152 +181,154 @@ export const ChatAwaitingOverlay = memo(function ChatAwaitingOverlay({
   );
 });
 
-const styles = StyleSheet.create({
-  resumeBar: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginHorizontal: appVisualTokens.spacing.lg,
-    marginTop: 0,
-    marginBottom: 4,
-    borderRadius: appVisualTokens.radii.pill,
-    backgroundColor: appVisualTokens.colors.brandBlueSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 6
-  },
-  resumeBarPressed: {
-    opacity: 0.72
-  },
-  resumeIcon: {
-    width: 20,
-    height: 20,
-    borderRadius: appVisualTokens.radii.pill,
-    backgroundColor: appVisualTokens.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  resumeTitle: {
-    maxWidth: 180,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '700',
-    color: appVisualTokens.colors.brandBlueStrong
-  },
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'flex-end'
-  },
-  mask: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: appVisualTokens.colors.overlay
-  },
-  maskPressable: {
-    flex: 1
-  },
-  sheet: {
-    backgroundColor: appVisualTokens.colors.surface,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    gap: 16
-  },
-  handle: {
-    width: 36,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: appVisualTokens.colors.lineStrong,
-    alignSelf: 'center'
-  },
-  panelHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 12
-  },
-  panelHeaderText: {
-    flex: 1,
-    gap: 4
-  },
-  panelHeaderTitle: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  panelHeaderMeta: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: appVisualTokens.colors.textSecondary
-  },
-  dismissButton: {
-    borderRadius: 18,
-    backgroundColor: appVisualTokens.colors.brandBlueSoft,
-    paddingHorizontal: 12,
-    paddingVertical: 8
-  },
-  dismissButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: appVisualTokens.colors.brandBlueStrong
-  },
-  panelContent: {
-    gap: 12
-  },
-  modeBadge: {
-    alignSelf: 'flex-start',
-    borderRadius: 999,
-    backgroundColor: appVisualTokens.colors.brandBlueSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 5
-  },
-  modeBadgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: appVisualTokens.colors.brandBlueStrong
-  },
-  promptText: {
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  hintText: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: appVisualTokens.colors.textSecondary
-  },
-  payloadCard: {
-    maxHeight: 180,
-    borderRadius: 16,
-    backgroundColor: appVisualTokens.colors.surfaceMuted,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: appVisualTokens.colors.lineStrong,
-    paddingHorizontal: 14,
-    paddingVertical: 12
-  },
-  payloadText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: appVisualTokens.colors.textPrimary
-  },
-  answerCard: {
-    borderRadius: 16,
-    backgroundColor: appVisualTokens.colors.surfaceMuted,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: appVisualTokens.colors.lineStrong,
-    paddingHorizontal: 14,
-    paddingVertical: 14,
-    gap: 8
-  },
-  answerLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary
-  },
-  answerText: {
-    fontSize: 14,
-    lineHeight: 21,
-    color: appVisualTokens.colors.textPrimary
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    resumeBar: {
+      alignSelf: 'flex-start',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      marginHorizontal: appVisualTokens.spacing.lg,
+      marginTop: 0,
+      marginBottom: 4,
+      borderRadius: appVisualTokens.radii.pill,
+      backgroundColor: theme.colors.brandBlueSoft,
+      paddingHorizontal: 10,
+      paddingVertical: 6
+    },
+    resumeBarPressed: {
+      opacity: 0.72
+    },
+    resumeIcon: {
+      width: 20,
+      height: 20,
+      borderRadius: appVisualTokens.radii.pill,
+      backgroundColor: theme.colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    resumeTitle: {
+      maxWidth: 180,
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '700',
+      color: theme.colors.brandBlueStrong
+    },
+    overlay: {
+      ...StyleSheet.absoluteFill,
+      justifyContent: 'flex-end'
+    },
+    mask: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: theme.colors.overlay
+    },
+    maskPressable: {
+      flex: 1
+    },
+    sheet: {
+      backgroundColor: theme.colors.surface,
+      borderTopLeftRadius: 24,
+      borderTopRightRadius: 24,
+      paddingHorizontal: 20,
+      paddingTop: 12,
+      gap: 16
+    },
+    handle: {
+      width: 36,
+      height: 5,
+      borderRadius: 3,
+      backgroundColor: theme.colors.lineStrong,
+      alignSelf: 'center'
+    },
+    panelHeader: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: 12
+    },
+    panelHeaderText: {
+      flex: 1,
+      gap: 4
+    },
+    panelHeaderTitle: {
+      fontSize: 17,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    panelHeaderMeta: {
+      fontSize: 12,
+      fontWeight: '600',
+      color: theme.colors.textSecondary
+    },
+    dismissButton: {
+      borderRadius: 18,
+      backgroundColor: theme.colors.brandBlueSoft,
+      paddingHorizontal: 12,
+      paddingVertical: 8
+    },
+    dismissButtonText: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: theme.colors.brandBlueStrong
+    },
+    panelContent: {
+      gap: 12
+    },
+    modeBadge: {
+      alignSelf: 'flex-start',
+      borderRadius: 999,
+      backgroundColor: theme.colors.brandBlueSoft,
+      paddingHorizontal: 10,
+      paddingVertical: 5
+    },
+    modeBadgeText: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.colors.brandBlueStrong
+    },
+    promptText: {
+      fontSize: 15,
+      lineHeight: 22,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    hintText: {
+      fontSize: 13,
+      lineHeight: 20,
+      color: theme.colors.textSecondary
+    },
+    payloadCard: {
+      maxHeight: 180,
+      borderRadius: 16,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.lineStrong,
+      paddingHorizontal: 14,
+      paddingVertical: 12
+    },
+    payloadText: {
+      fontSize: 13,
+      lineHeight: 19,
+      color: theme.colors.textPrimary
+    },
+    answerCard: {
+      borderRadius: 16,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.lineStrong,
+      paddingHorizontal: 14,
+      paddingVertical: 14,
+      gap: 8
+    },
+    answerLabel: {
+      fontSize: 11,
+      fontWeight: '700',
+      color: theme.colors.textSecondary
+    },
+    answerText: {
+      fontSize: 14,
+      lineHeight: 21,
+      color: theme.colors.textPrimary
+    }
+  });
+}

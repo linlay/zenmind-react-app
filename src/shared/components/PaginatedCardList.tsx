@@ -14,7 +14,8 @@ import {
   ViewStyle
 } from 'react-native';
 
-import { appVisualTokens } from '../visual/foundation';
+import { useAppTheme, useAppThemeStyles } from '../visual/AppThemeProvider';
+import type { AppThemeTokens } from '../visual/foundation';
 import { useT } from '../i18n';
 
 type CardComponentProps<ItemT> = {
@@ -70,6 +71,8 @@ export function PaginatedCardList<ItemT>({
   maintainVisibleContentPosition
 }: PaginatedCardListProps<ItemT>) {
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const listRef = useRef<FlashListRef<ItemT>>(null);
   const loadMoreLockedRef = useRef(false);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -132,7 +135,7 @@ export function PaginatedCardList<ItemT>({
         ListFooterComponent={
           pagination.loadingMore ? (
             <View style={styles.footer}>
-              <ActivityIndicator size="small" color={appVisualTokens.colors.brandBlue} />
+              <ActivityIndicator size="small" color={theme.colors.brandBlue} />
               <Text style={styles.footerText}>{t('common.loading')}</Text>
             </View>
           ) : (
@@ -156,49 +159,51 @@ export function PaginatedCardList<ItemT>({
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1
-  },
-  contentContainer: {
-    paddingBottom: 18
-  },
-  itemShell: {
-    width: '100%'
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-    paddingTop: 8,
-    paddingBottom: 18
-  },
-  footerText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: appVisualTokens.colors.textSecondary
-  },
-  footerSpacer: {
-    height: 12
-  },
-  scrollTopButton: {
-    position: 'absolute',
-    right: 16,
-    bottom: 20,
-    width: 44,
-    height: 44,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: appVisualTokens.colors.surface,
-    borderWidth: 1,
-    borderColor: appVisualTokens.colors.line
-  },
-  scrollTopButtonText: {
-    marginTop: -2,
-    color: appVisualTokens.colors.brandBlue,
-    fontSize: 20,
-    fontWeight: '800'
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    container: {
+      flex: 1
+    },
+    contentContainer: {
+      paddingBottom: 18
+    },
+    itemShell: {
+      width: '100%'
+    },
+    footer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 10,
+      paddingTop: 8,
+      paddingBottom: 18
+    },
+    footerText: {
+      fontSize: 14,
+      fontWeight: '600',
+      color: theme.colors.textSecondary
+    },
+    footerSpacer: {
+      height: 12
+    },
+    scrollTopButton: {
+      position: 'absolute',
+      right: 16,
+      bottom: 20,
+      width: 44,
+      height: 44,
+      borderRadius: 999,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.line
+    },
+    scrollTopButtonText: {
+      marginTop: -2,
+      color: theme.colors.brandBlue,
+      fontSize: 20,
+      fontWeight: '800'
+    }
+  });
+}

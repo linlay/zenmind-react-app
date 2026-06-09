@@ -75,7 +75,8 @@ Expo SDK 56 + React Native 0.85 + TypeScript 6。当前仓库是迁移后的 `ze
 - `src/features/chatPersistence/schema.ts`
 - `src/features/chatRealtime/chatWsTransport.ts`
 - `src/features/chatRealtime/wsClient.ts`
-- `app.json`
+- `app.config.js`
+- `brands/`
 - `metro.config.js`
 - `tsconfig.json`
 - `android/`

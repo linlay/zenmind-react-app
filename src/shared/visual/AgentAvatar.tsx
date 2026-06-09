@@ -10,7 +10,8 @@ import {
   resolveAgentBuiltinIconName,
 } from './agentAvatarIcon.ts';
 import type { AgentAvatarIcon, AgentAvatarKind } from './agentAvatarTypes.ts';
-import { appVisualTokens, getAvatarTone } from './foundation';
+import { useAppTheme, useAppThemeStyles } from './AppThemeProvider';
+import { appVisualTokens, getAvatarTone, type AppThemeTokens } from './foundation';
 
 export { AGENT_ICON_NAMES };
 
@@ -29,6 +30,8 @@ export const AgentAvatar = memo(function AgentAvatar({
   size = 46,
   style,
 }: AgentAvatarProps) {
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const uri = resolveAgentAvatarUri(icon);
   const shellSizeStyle = {
     width: size,
@@ -71,7 +74,7 @@ export const AgentAvatar = memo(function AgentAvatar({
       >
         <AppIcon
           usage="team.avatarFallback"
-          color={appVisualTokens.colors.surface}
+          color={theme.colors.surface}
           size={Math.max(18, Math.round(size * 0.52))}
           strokeWidth={2}
         />
@@ -82,19 +85,21 @@ export const AgentAvatar = memo(function AgentAvatar({
   return null;
 });
 
-const styles = StyleSheet.create({
-  shell: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  iconShell: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: appVisualTokens.colors.line,
-  },
-  remoteImage: {
-    width: '100%',
-    height: '100%',
-  },
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    shell: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    iconShell: {
+      backgroundColor: theme.colors.surfaceMuted,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.line,
+    },
+    remoteImage: {
+      width: '100%',
+      height: '100%',
+    },
+  });
+}

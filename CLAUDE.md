@@ -67,7 +67,8 @@ Expo SDK 56 + React Native 0.85 + TypeScript 5.9。当前仓库是移动端骨�
 - `src/features/chatPersistence/database.ts`
 - `src/features/chatPersistence/schema.ts`
 - `src/features/chatRealtime/wsManager.ts`
-- `app.json`
+- `app.config.js`
+- `brands/`
 - `tsconfig.json`
 - `android/`
 

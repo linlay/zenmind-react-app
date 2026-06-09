@@ -29,17 +29,19 @@ export type AppLineIconName =
   | 'copy'
   | 'file'
   | 'tool'
-  | 'wrap-text';
+  | 'wrap-text'
+  | 'moon';
 
 const FILLED_ICON_VIEW_BOX = '0 0 1024 1024';
 const OUTLINE_ICON_VIEW_BOX = '0 0 24 24';
 
-type AppLineIconOutlineName = 'history' | 'spark';
+type AppLineIconOutlineName = 'history' | 'spark' | 'moon';
 type AppLineIconPathName = Exclude<AppLineIconName, AppLineIconOutlineName>;
 
 const APP_LINE_ICON_OUTLINE_NAMES = {
   history: true,
   spark: true,
+  moon: true,
 } as const satisfies Record<AppLineIconOutlineName, true>;
 
 const APP_LINE_ICON_PATHS: Record<AppLineIconPathName, string> = {
@@ -122,6 +124,10 @@ const renderOutlineIcon = (name: AppLineIconOutlineName, color: string, strokeWi
         {...strokeProps}
       />
     );
+  }
+
+  if (name === 'moon') {
+    return <Path d="M17.8 15.4A7.4 7.4 0 0 1 8.6 6.2 7.4 7.4 0 1 0 17.8 15.4Z" {...strokeProps} />;
   }
 
   return null;

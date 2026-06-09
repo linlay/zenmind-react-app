@@ -6,7 +6,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { type TFunction, useT } from '../../../shared/i18n';
 import { AgentAvatar } from '../../../shared/visual/AgentAvatar';
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import type { ChatDirectoryItem } from '../types';
 
 const DIRECTORY_PICKER_ROW_HEIGHT = 72;
@@ -54,6 +55,8 @@ function getDirectoryItemType(item: ChatDirectoryItem) {
 
 const DirectoryPickerRow = memo(function DirectoryPickerRow({ item, opening, onSelect }: DirectoryPickerRowProps) {
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const handlePress = useCallback(() => {
     onSelect(item);
   }, [item, onSelect]);
@@ -86,7 +89,7 @@ const DirectoryPickerRow = memo(function DirectoryPickerRow({ item, opening, onS
       </View>
       <View style={styles.directoryRowAction}>
         {opening ? (
-          <ActivityIndicator size="small" color={appVisualTokens.colors.brandBlue} />
+          <ActivityIndicator size="small" color={theme.colors.brandBlue} />
         ) : (
           <AppIcon usage="directoryPicker.startConversation" />
         )}
@@ -109,6 +112,8 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
   onSelectItem
 }: ChatDirectoryPickerDrawerProps) {
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const insets = useSafeAreaInsets();
   const translateX = useRef(new Animated.Value(DIRECTORY_PICKER_ENTER_OFFSET)).current;
   const countLabel = useMemo(() => formatDirectoryPickerCount(items.length, total, t), [items.length, total, t]);
@@ -134,13 +139,13 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
     if (loadingMore) {
       return (
         <View style={styles.footer}>
-          <ActivityIndicator size="small" color={appVisualTokens.colors.brandBlue} />
+          <ActivityIndicator size="small" color={theme.colors.brandBlue} />
         </View>
       );
     }
 
     return <Text style={styles.footerText}>{countLabel}</Text>;
-  }, [countLabel, items.length, loading, loadingMore]);
+  }, [countLabel, items.length, loading, loadingMore, styles.footer, styles.footerText, theme.colors.brandBlue]);
 
   useEffect(() => {
     if (!visible) {
@@ -198,7 +203,7 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
         <View style={styles.listFrame}>
           {loading ? (
             <View style={styles.stateBlock}>
-              <ActivityIndicator size="small" color={appVisualTokens.colors.brandBlue} />
+              <ActivityIndicator size="small" color={theme.colors.brandBlue} />
             </View>
           ) : (
             <FlashList
@@ -220,136 +225,138 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
   );
 });
 
-const styles = StyleSheet.create({
-  drawerOverlay: {
-    ...StyleSheet.absoluteFill,
-    zIndex: DIRECTORY_PICKER_DRAWER_OVERLAY_Z_INDEX,
-    elevation: DIRECTORY_PICKER_DRAWER_OVERLAY_Z_INDEX
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: appVisualTokens.colors.overlay
-  },
-  panel: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    bottom: 0,
-    width: '86%',
-    maxWidth: DIRECTORY_PICKER_PANEL_MAX_WIDTH,
-    backgroundColor: appVisualTokens.colors.surface,
-    borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: appVisualTokens.colors.line
-  },
-  header: {
-    minHeight: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.sm,
-    paddingHorizontal: appVisualTokens.spacing.md,
-    paddingBottom: appVisualTokens.spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: appVisualTokens.colors.line
-  },
-  headerText: {
-    flex: 1,
-    minWidth: 0
-  },
-  title: {
-    fontSize: 17,
-    lineHeight: 23,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  subtitle: {
-    marginTop: 2,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '600',
-    color: appVisualTokens.colors.textSecondary
-  },
-  closeButton: {
-    width: 34,
-    height: 34,
-    borderRadius: appVisualTokens.radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  closeButtonPressed: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted
-  },
-  errorText: {
-    paddingHorizontal: appVisualTokens.spacing.md,
-    paddingVertical: appVisualTokens.spacing.sm,
-    fontSize: 12,
-    lineHeight: 17,
-    color: appVisualTokens.colors.danger
-  },
-  listFrame: {
-    flex: 1,
-    paddingHorizontal: appVisualTokens.spacing.sm
-  },
-  stateBlock: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  emptyText: {
-    paddingHorizontal: appVisualTokens.spacing.sm,
-    paddingVertical: appVisualTokens.spacing.lg,
-    fontSize: 14,
-    lineHeight: 21,
-    color: appVisualTokens.colors.textSecondary
-  },
-  directoryRow: {
-    height: DIRECTORY_PICKER_ROW_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.md,
-    paddingHorizontal: appVisualTokens.spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: appVisualTokens.colors.line
-  },
-  directoryRowPressed: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted
-  },
-  directoryRowOpening: {
-    opacity: 0.74
-  },
-  directoryRowText: {
-    flex: 1,
-    minWidth: 0
-  },
-  directoryRowTitle: {
-    fontSize: 15,
-    lineHeight: 21,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  directoryRowSubtitle: {
-    marginTop: 2,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '500',
-    color: appVisualTokens.colors.textSecondary
-  },
-  directoryRowAction: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  footer: {
-    minHeight: 42,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  footerText: {
-    paddingVertical: appVisualTokens.spacing.md,
-    textAlign: 'center',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-    color: appVisualTokens.colors.textTertiary
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    drawerOverlay: {
+      ...StyleSheet.absoluteFill,
+      zIndex: DIRECTORY_PICKER_DRAWER_OVERLAY_Z_INDEX,
+      elevation: DIRECTORY_PICKER_DRAWER_OVERLAY_Z_INDEX
+    },
+    backdrop: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: theme.colors.overlay
+    },
+    panel: {
+      position: 'absolute',
+      top: 0,
+      left: 0,
+      bottom: 0,
+      width: '86%',
+      maxWidth: DIRECTORY_PICKER_PANEL_MAX_WIDTH,
+      backgroundColor: theme.colors.surface,
+      borderRightWidth: StyleSheet.hairlineWidth,
+      borderRightColor: theme.colors.line
+    },
+    header: {
+      minHeight: 58,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.sm,
+      paddingHorizontal: appVisualTokens.spacing.md,
+      paddingBottom: appVisualTokens.spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.line
+    },
+    headerText: {
+      flex: 1,
+      minWidth: 0
+    },
+    title: {
+      fontSize: 17,
+      lineHeight: 23,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    subtitle: {
+      marginTop: 2,
+      fontSize: 12,
+      lineHeight: 17,
+      fontWeight: '600',
+      color: theme.colors.textSecondary
+    },
+    closeButton: {
+      width: 34,
+      height: 34,
+      borderRadius: appVisualTokens.radii.pill,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    closeButtonPressed: {
+      backgroundColor: theme.colors.surfaceMuted
+    },
+    errorText: {
+      paddingHorizontal: appVisualTokens.spacing.md,
+      paddingVertical: appVisualTokens.spacing.sm,
+      fontSize: 12,
+      lineHeight: 17,
+      color: theme.colors.danger
+    },
+    listFrame: {
+      flex: 1,
+      paddingHorizontal: appVisualTokens.spacing.sm
+    },
+    stateBlock: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    emptyText: {
+      paddingHorizontal: appVisualTokens.spacing.sm,
+      paddingVertical: appVisualTokens.spacing.lg,
+      fontSize: 14,
+      lineHeight: 21,
+      color: theme.colors.textSecondary
+    },
+    directoryRow: {
+      height: DIRECTORY_PICKER_ROW_HEIGHT,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.md,
+      paddingHorizontal: appVisualTokens.spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.line
+    },
+    directoryRowPressed: {
+      backgroundColor: theme.colors.surfaceMuted
+    },
+    directoryRowOpening: {
+      opacity: 0.74
+    },
+    directoryRowText: {
+      flex: 1,
+      minWidth: 0
+    },
+    directoryRowTitle: {
+      fontSize: 15,
+      lineHeight: 21,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    directoryRowSubtitle: {
+      marginTop: 2,
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '500',
+      color: theme.colors.textSecondary
+    },
+    directoryRowAction: {
+      width: 34,
+      height: 34,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    footer: {
+      minHeight: 42,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    footerText: {
+      paddingVertical: appVisualTokens.spacing.md,
+      textAlign: 'center',
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '600',
+      color: theme.colors.textTertiary
+    }
+  });
+}

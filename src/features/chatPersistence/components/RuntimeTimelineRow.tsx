@@ -3,7 +3,8 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens, type AppVisualColors } from '../../../shared/visual/foundation';
 import type { ChatTimelineDisplayItem } from '../../chatTimeline/index.ts';
 import { ChatTimelineRail } from './ChatTimelineRail';
 import { RuntimePayloadFrame } from './RuntimePayloadFrame';
@@ -18,12 +19,18 @@ type RuntimeTimelineRowProps = {
   onExpandedChange: (nodeId: string, expanded: boolean) => void;
 };
 
-const TONE_COLORS: Record<RuntimePayloadDescriptor['tone'], string> = {
-  reasoning: appVisualTokens.colors.warning,
-  tool: appVisualTokens.colors.brandBlue,
-  file: appVisualTokens.colors.success,
-  neutral: appVisualTokens.colors.textSecondary
-};
+function getToneColor(colors: AppVisualColors, tone: RuntimePayloadDescriptor['tone']): string {
+  if (tone === 'reasoning') {
+    return colors.warning;
+  }
+  if (tone === 'tool') {
+    return colors.brandBlue;
+  }
+  if (tone === 'file') {
+    return colors.success;
+  }
+  return colors.textSecondary;
+}
 
 export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
   item,
@@ -32,6 +39,8 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
   onExpandedChange
 }: RuntimeTimelineRowProps) {
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const descriptor = useMemo(
     () => buildRuntimePayloadDescriptor(item.kind === 'tool-group' ? item : item.node, t),
     [item, t]
@@ -71,7 +80,7 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
               <View
                 key={record.key}
                 accessibilityLabel={`${record.title}${record.statusLabel}`}
-                style={[styles.toolStatusDot, { backgroundColor: getRuntimeToolStatusColor(record.status) }]}
+                style={[styles.toolStatusDot, { backgroundColor: getRuntimeToolStatusColor(theme.colors, record.status) }]}
               />
             ))}
           </View>
@@ -90,7 +99,7 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
       <ChatTimelineRail
         iconUsage={descriptor.iconUsage}
         terminal={item.isLastInRun}
-        toneColor={TONE_COLORS[descriptor.tone]}
+        toneColor={getToneColor(theme.colors, descriptor.tone)}
       />
       <View style={styles.timelineBody}>
         <View style={styles.runtimeBlock}>
@@ -122,60 +131,62 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
   );
 });
 
-const styles = StyleSheet.create({
-  timelineRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 8,
-    marginBottom: 16
-  },
-  timelineBody: {
-    flex: 1,
-    minWidth: 0
-  },
-  runtimeBlock: {
-    alignSelf: 'stretch'
-  },
-  runtimeHeader: {
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7
-  },
-  runtimeHeaderLeading: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7
-  },
-  runtimeTitle: {
-    flexShrink: 1,
-    minWidth: 0,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  toolStatusDots: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    flexShrink: 0
-  },
-  toolStatusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: appVisualTokens.radii.pill
-  },
-  foldButton: {
-    width: 28,
-    height: 28,
-    borderRadius: appVisualTokens.radii.sm,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  rowPressed: {
-    opacity: 0.72
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    timelineRow: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      gap: 8,
+      marginBottom: 16
+    },
+    timelineBody: {
+      flex: 1,
+      minWidth: 0
+    },
+    runtimeBlock: {
+      alignSelf: 'stretch'
+    },
+    runtimeHeader: {
+      minHeight: 28,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7
+    },
+    runtimeHeaderLeading: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7
+    },
+    runtimeTitle: {
+      flexShrink: 1,
+      minWidth: 0,
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    toolStatusDots: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 7,
+      flexShrink: 0
+    },
+    toolStatusDot: {
+      width: 7,
+      height: 7,
+      borderRadius: appVisualTokens.radii.pill
+    },
+    foldButton: {
+      width: 28,
+      height: 28,
+      borderRadius: appVisualTokens.radii.sm,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    rowPressed: {
+      opacity: 0.72
+    }
+  });
+}

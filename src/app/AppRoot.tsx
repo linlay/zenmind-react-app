@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   DefaultTheme,
   NavigationContainer,
@@ -15,7 +15,8 @@ import {
   notificationService,
 } from '../features/notifications/notificationService';
 import { chatSyncService } from '../features/chatRealtime/chatSyncService';
-import { appVisualTokens } from '../shared/visual/foundation';
+import { useAppTheme } from '../shared/visual/AppThemeProvider';
+import type { AppThemeTokens } from '../shared/visual/foundation';
 import { DevelopmentDebugPanelHost } from './debug/DevelopmentDebugPanelHost';
 import { RootNavigator } from './navigation/RootNavigator';
 import { RootStackParamList } from './navigation/types';
@@ -24,24 +25,27 @@ type AppRootProps = {
   onNavigationReady?: () => void;
 };
 
-const navigationTheme = {
-  ...DefaultTheme,
-  colors: {
-    ...DefaultTheme.colors,
-    primary: appVisualTokens.colors.brandBlue,
-    background: appVisualTokens.colors.background,
-    card: appVisualTokens.colors.surface,
-    text: appVisualTokens.colors.textPrimary,
-    border: appVisualTokens.colors.line,
-    notification: appVisualTokens.colors.badge,
-  },
-};
-
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
 const PREFRESH_MIN_VALIDITY_MS = 120_000;
 const PREFRESH_JITTER_MS = 8_000;
 const ACTIVE_REFRESH_DEBOUNCE_MS = 20_000;
 const FOREGROUND_REFRESH_INTERVAL_MS = 60_000;
+
+function createNavigationTheme(theme: AppThemeTokens) {
+  return {
+    ...DefaultTheme,
+    dark: theme.isDark,
+    colors: {
+      ...DefaultTheme.colors,
+      primary: theme.colors.brandBlue,
+      background: theme.colors.background,
+      card: theme.colors.surface,
+      text: theme.colors.textPrimary,
+      border: theme.colors.line,
+      notification: theme.colors.badge,
+    },
+  };
+}
 
 function syncActiveConversationForNotifications() {
   const currentRoute = navigationRef.getCurrentRoute();
@@ -58,6 +62,7 @@ function syncActiveConversationForNotifications() {
 }
 
 export function AppRoot({ onNavigationReady }: AppRootProps) {
+  const { theme } = useAppTheme();
   const authRequired = isAuthRequired();
   const { isBootstrapping, session } = useAuthSession();
   const [isNavigationReady, setIsNavigationReady] = useState(false);
@@ -191,10 +196,11 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
 
   const isChatDetailRoute = currentRouteName === 'ChatDetail';
   const showDevelopmentDebugPanel = __DEV__ && currentRouteName !== null;
+  const navigationTheme = useMemo(() => createNavigationTheme(theme), [theme]);
 
   return (
-    <View style={styles.container}>
-      <StatusBar barStyle="dark-content" />
+    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.surface} />
       <NavigationContainer
         ref={navigationRef}
         theme={navigationTheme}

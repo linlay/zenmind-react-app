@@ -1,7 +1,8 @@
 import { memo } from 'react';
 
 import { AppLineIcon } from '../visual/AppLineIcon';
-import { appVisualTokens } from '../visual/foundation';
+import { useAppTheme } from '../visual/AppThemeProvider';
+import { appVisualTokens, type AppVisualColors } from '../visual/foundation';
 import {
   appIconUsages,
   type AppIconColorRole,
@@ -19,17 +20,6 @@ export type AppIconProps = {
   strokeWidth?: number;
 };
 
-const APP_ICON_COLOR_BY_ROLE: Record<AppIconColorRole, string> = {
-  brand: appVisualTokens.colors.brandBlue,
-  brandStrong: appVisualTokens.colors.brandBlueStrong,
-  primary: appVisualTokens.colors.textPrimary,
-  secondary: appVisualTokens.colors.textSecondary,
-  tertiary: appVisualTokens.colors.textTertiary,
-  surface: appVisualTokens.colors.surface,
-  success: appVisualTokens.colors.success,
-  warning: appVisualTokens.colors.warning,
-};
-
 const APP_ICON_SIZE_BY_ROLE: Record<AppIconSizeRole, number> = {
   rail: 12,
   pinMarker: 14,
@@ -43,13 +33,39 @@ const APP_ICON_SIZE_BY_ROLE: Record<AppIconSizeRole, number> = {
   tab: 24,
 };
 
+function getAppIconColorByRole(colors: AppVisualColors, role: AppIconColorRole): string {
+  if (role === 'brand') {
+    return colors.brandBlue;
+  }
+  if (role === 'brandStrong') {
+    return colors.brandBlueStrong;
+  }
+  if (role === 'primary') {
+    return colors.textPrimary;
+  }
+  if (role === 'secondary') {
+    return colors.textSecondary;
+  }
+  if (role === 'tertiary') {
+    return colors.textTertiary;
+  }
+  if (role === 'surface') {
+    return colors.surface;
+  }
+  if (role === 'success') {
+    return colors.success;
+  }
+  return colors.warning;
+}
+
 export const AppIcon = memo(function AppIcon({ usage, color, size, strokeWidth }: AppIconProps) {
+  const { theme } = useAppTheme();
   const config: AppIconUsageConfig = appIconUsages[usage];
 
   return (
     <AppLineIcon
       name={config.glyph}
-      color={color ?? APP_ICON_COLOR_BY_ROLE[config.colorRole]}
+      color={color ?? getAppIconColorByRole(theme.colors, config.colorRole)}
       size={size ?? APP_ICON_SIZE_BY_ROLE[config.sizeRole]}
       strokeWidth={strokeWidth ?? config.strokeWidth}
     />

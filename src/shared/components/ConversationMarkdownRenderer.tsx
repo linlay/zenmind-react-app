@@ -5,7 +5,7 @@ import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
 import { StreamdownText } from 'react-native-streamdown';
 
 import { preprocessMarkdownContent } from '../markdown/preprocess';
-import { appVisualTokens } from '../visual/foundation';
+import { useAppTheme } from '../visual/AppThemeProvider';
 
 type ConversationMarkdownRendererProps = {
   markdown: string;
@@ -26,59 +26,62 @@ export const ConversationMarkdownRenderer = memo(function ConversationMarkdownRe
   selectable = true,
   allowFontScaling = false,
   style,
-  textColor = appVisualTokens.colors.textPrimary,
-  linkColor = appVisualTokens.colors.brandBlue,
+  textColor,
+  linkColor,
   onLinkPress,
 }: ConversationMarkdownRendererProps) {
+  const { theme } = useAppTheme();
+  const resolvedTextColor = textColor ?? theme.colors.textPrimary;
+  const resolvedLinkColor = linkColor ?? theme.colors.brandBlue;
   const processedMarkdown = useMemo(() => preprocessMarkdownContent(markdown), [markdown]);
   const containerStyle = useMemo(() => StyleSheet.flatten(style), [style]);
   const markdownStyle = useMemo<MarkdownStyle>(
     () => ({
       paragraph: {
-        color: textColor,
+        color: resolvedTextColor,
         fontSize: 15,
         lineHeight: 23,
         marginTop: 0,
         marginBottom: 10,
       },
-      h1: { color: textColor, fontSize: 22, lineHeight: 29, marginTop: 4, marginBottom: 10 },
-      h2: { color: textColor, fontSize: 20, lineHeight: 27, marginTop: 4, marginBottom: 9 },
-      h3: { color: textColor, fontSize: 18, lineHeight: 25, marginTop: 4, marginBottom: 8 },
-      h4: { color: textColor, fontSize: 16, lineHeight: 23, marginTop: 3, marginBottom: 7 },
-      h5: { color: textColor, fontSize: 15, lineHeight: 22, marginTop: 3, marginBottom: 6 },
-      h6: { color: textColor, fontSize: 14, lineHeight: 21, marginTop: 3, marginBottom: 6 },
+      h1: { color: resolvedTextColor, fontSize: 22, lineHeight: 29, marginTop: 4, marginBottom: 10 },
+      h2: { color: resolvedTextColor, fontSize: 20, lineHeight: 27, marginTop: 4, marginBottom: 9 },
+      h3: { color: resolvedTextColor, fontSize: 18, lineHeight: 25, marginTop: 4, marginBottom: 8 },
+      h4: { color: resolvedTextColor, fontSize: 16, lineHeight: 23, marginTop: 3, marginBottom: 7 },
+      h5: { color: resolvedTextColor, fontSize: 15, lineHeight: 22, marginTop: 3, marginBottom: 6 },
+      h6: { color: resolvedTextColor, fontSize: 14, lineHeight: 21, marginTop: 3, marginBottom: 6 },
       link: {
-        color: linkColor,
+        color: resolvedLinkColor,
         underline: true,
       },
       blockquote: {
-        color: textColor,
-        borderColor: appVisualTokens.colors.brandBlueSoft,
+        color: resolvedTextColor,
+        borderColor: theme.colors.brandBlueSoft,
         borderWidth: 3,
         gapWidth: 10,
-        backgroundColor: appVisualTokens.colors.surfaceMuted,
+        backgroundColor: theme.colors.surfaceMuted,
         marginTop: 2,
         marginBottom: 10,
       },
       list: {
-        color: textColor,
-        markerColor: appVisualTokens.colors.textSecondary,
+        color: resolvedTextColor,
+        markerColor: theme.colors.textSecondary,
         markerMinWidth: 22,
         gapWidth: 7,
         marginBottom: 8,
       },
       code: {
         fontFamily: MONO_FONT_FAMILY,
-        color: appVisualTokens.colors.textPrimary,
-        backgroundColor: appVisualTokens.colors.brandBlueSoft,
-        borderColor: appVisualTokens.colors.line,
+        color: theme.colors.textPrimary,
+        backgroundColor: theme.colors.brandBlueSoft,
+        borderColor: theme.colors.line,
         fontSize: 14,
       },
       codeBlock: {
         fontFamily: MONO_FONT_FAMILY,
-        color: appVisualTokens.colors.textPrimary,
-        backgroundColor: appVisualTokens.colors.surfaceMuted,
-        borderColor: appVisualTokens.colors.line,
+        color: theme.colors.textPrimary,
+        backgroundColor: theme.colors.surfaceMuted,
+        borderColor: theme.colors.line,
         borderWidth: 1,
         borderRadius: 8,
         padding: 10,
@@ -88,33 +91,33 @@ export const ConversationMarkdownRenderer = memo(function ConversationMarkdownRe
         marginBottom: 10,
       },
       table: {
-        color: textColor,
-        borderColor: appVisualTokens.colors.lineStrong,
+        color: resolvedTextColor,
+        borderColor: theme.colors.lineStrong,
         borderWidth: 1,
         borderRadius: 8,
         cellPaddingHorizontal: 10,
         cellPaddingVertical: 8,
-        headerBackgroundColor: appVisualTokens.colors.surfaceMuted,
-        headerTextColor: appVisualTokens.colors.textPrimary,
-        rowEvenBackgroundColor: appVisualTokens.colors.surface,
-        rowOddBackgroundColor: appVisualTokens.colors.backgroundMuted,
+        headerBackgroundColor: theme.colors.surfaceMuted,
+        headerTextColor: theme.colors.textPrimary,
+        rowEvenBackgroundColor: theme.colors.surface,
+        rowOddBackgroundColor: theme.colors.backgroundMuted,
       },
       thematicBreak: {
-        color: appVisualTokens.colors.line,
+        color: theme.colors.line,
         height: StyleSheet.hairlineWidth,
         marginTop: 10,
         marginBottom: 10,
       },
       math: {
-        color: textColor,
+        color: resolvedTextColor,
         fontSize: 15,
         textAlign: 'left',
       },
       inlineMath: {
-        color: textColor,
+        color: resolvedTextColor,
       },
     }),
-    [linkColor, textColor]
+    [resolvedLinkColor, resolvedTextColor, theme]
   );
   const handleLinkPress = useCallback(
     (event: { url: string }) => {

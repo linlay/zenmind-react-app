@@ -4,7 +4,7 @@
   "layer": "app",
   "paths": ["src/app/debug"],
   "responsibility": [
-    "提供 __DEV__ 下隐藏挂载的开发调试面板；默认不显示浮动入口，Me 页版本信息三连点通过 controller 启用 Debug 模式并打开面板，普通关闭后保留右下角 Debug 浮动按钮，ChatDetail 也挂载面板宿主并上移浮动入口以避开聊天详情输入区。",
+    "提供 __DEV__ 下隐藏挂载的开发调试面板；默认不显示浮动入口，Me 页版本信息三连点通过 controller 启用 Debug 模式并打开面板，设置页可切换 Debug 模式开关，普通关闭后保留右下角 Debug 浮动按钮，ChatDetail 也挂载面板宿主并上移浮动入口以避开聊天详情输入区。",
     "展示当前 API Base URL，并在原生端提供手动 reload 入口。",
     "提供开发态清理聊天本地 SQLite 数据和 MMKV 首页目录快照的入口。",
     "展示开发态 WS frame ring buffer，并提供捕获、清空和 console 镜像开关。",
@@ -23,6 +23,12 @@
       "symbol": "openDevelopmentDebugPanel",
       "kind": "dev-panel-controller",
       "description": "供 Me 页版本信息三连点打开开发态调试面板。"
+    },
+    {
+      "file": "src/app/debug/developmentDebugPanel.ts",
+      "symbol": "setDevelopmentDebugPanelEnabled",
+      "kind": "dev-panel-controller",
+      "description": "供设置页在 __DEV__ 下切换调试入口启用状态。"
     }
   ],
   "dependsOn": ["core-api-client", "feature-chat-realtime"],
@@ -71,6 +77,7 @@
         "disableDevelopmentDebugPanel",
         "getDevelopmentDebugPanelSnapshot",
         "openDevelopmentDebugPanel",
+        "setDevelopmentDebugPanelEnabled",
         "subscribeDevelopmentDebugPanel"
       ]
     },

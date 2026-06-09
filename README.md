@@ -53,7 +53,7 @@ pnpm kb:check-stale
 
 ## 环境要求
 
-- Node.js >= 18
+- Node.js >= 22（`pnpm test` 使用 Node TypeScript transform 参数）
 - pnpm 7.x（仓库声明 `pnpm@7.33.7`）
 - Expo CLI（通过 `pnpm start` 或 `npx expo` 使用）
 - iOS 开发：Xcode + iOS Simulator 或真机
@@ -64,11 +64,13 @@ pnpm kb:check-stale
 ```text
 zenmind-react-app/
 ├── App.tsx                         # SafeAreaProvider + native splash handoff + React 启动遮罩
-├── app.json                        # Expo 配置，slug: zenmind-react-app
+├── app.config.js                   # Expo 动态配置，按 BRAND 输出品牌包
+├── brands/                         # 多品牌 manifest、i18n 和构建期视觉参数
 ├── index.js                        # Expo registerRootComponent
 ├── package.json
 ├── scripts/
 │   ├── kb/                         # 知识库 build / validate / stale check
+│   ├── lib/brand-config.js         # 品牌配置校验与 generated 产物同步
 │   ├── tests/                      # node:test 脚本
 │   └── worklets/                   # Metro 启动前预生成 worklets bundle
 ├── doc/
@@ -173,9 +175,13 @@ HTTP REST 请求通过 `authenticatedApiRequest()` 自动附加 `Authorization: 
 ```bash
 pnpm build
 pnpm build:android
+pnpm build:android:zenmind
+pnpm build:android:cutej
 ```
 
-Android 应用包名和 iOS bundle id 当前均为 `com.zqfrank.agentterminalapp`。如果安装新 APK 时遇到覆盖问题，可先卸载旧包：
+默认 Android/iOS 品牌为 ZenMind，包名和 bundle id 为 `com.zqfrank.agentterminalapp`；CuteJ 使用 `cc.cutej.app`，可与默认包并排安装。`BRAND=<id> pnpm brand:sync` 会校验 `brands/<id>/brand.json`，生成运行时品牌常量，并把 PNG 缓存在 `assets/generated/brand/<id>/` 下。
+
+如果安装新 ZenMind APK 时遇到覆盖问题，可先卸载旧包：
 
 ```bash
 adb uninstall com.zqfrank.agentterminalapp

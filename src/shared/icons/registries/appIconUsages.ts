@@ -66,6 +66,13 @@ export const appIconUsages = {
     sizeRole: 'md',
   },
 
+  'settings.cache': { glyph: 'history', colorRole: 'brand', sizeRole: 'md' },
+  'settings.developer': { glyph: 'tool', colorRole: 'brand', sizeRole: 'md' },
+  'settings.openPanel': { glyph: 'spark', colorRole: 'brand', sizeRole: 'md' },
+  'settings.language': { glyph: 'chat', colorRole: 'brand', sizeRole: 'md' },
+  'settings.theme': { glyph: 'moon', colorRole: 'brand', sizeRole: 'md' },
+  'settings.selected': { glyph: 'check', colorRole: 'brand', sizeRole: 'md' },
+
   'composer.attach': { glyph: 'add', colorRole: 'secondary', sizeRole: 'md' },
   'composer.attachImage': { glyph: 'image', colorRole: 'brand', sizeRole: 'sm' },
   'composer.attachFile': { glyph: 'file', colorRole: 'success', sizeRole: 'sm' },

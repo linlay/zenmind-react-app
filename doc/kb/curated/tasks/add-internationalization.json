@@ -38,6 +38,7 @@
     "src/shared/i18n",
     "src/app/navigation/RootNavigator.tsx",
     "src/app/navigation/TabIcon.tsx",
+    "src/app/screens/SettingsScreen.tsx",
     "src/app/screens/TabScreens.tsx",
     "src/features/auth/LoginScreen.tsx",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",

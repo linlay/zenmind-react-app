@@ -4,7 +4,8 @@ import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from '
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { type TFunction, useT } from '../../../shared/i18n';
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import { formatChatDetailTimestamp } from '../chatDetailFormatters';
 import type { ChatHomeItem } from '../types';
 
@@ -50,6 +51,7 @@ function getHistoryItemType() {
 
 const HistoryRow = memo(function HistoryRow({ item, active, onSelect }: HistoryRowProps) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
   const unread = item.unreadCount > 0;
   const handlePress = useCallback(() => {
     onSelect(item);
@@ -98,6 +100,8 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
   onSelectConversation
 }: ChatDetailHistoryDrawerProps) {
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const translateX = useRef(new Animated.Value(48)).current;
   const countLabel = useMemo(() => formatHistoryCountLabel(total, unreadTotal, t), [total, unreadTotal, t]);
   const renderHistoryItem = useCallback(
@@ -124,13 +128,26 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
         style={({ pressed }) => [styles.loadMoreButton, pressed && !loadingMore ? styles.loadMoreButtonPressed : null]}
       >
         {loadingMore ? (
-          <ActivityIndicator size="small" color={appVisualTokens.colors.brandBlue} />
+          <ActivityIndicator size="small" color={theme.colors.brandBlue} />
         ) : (
           <Text style={styles.loadMoreText}>{t('history.loadMore', { count: countLabel })}</Text>
         )}
       </Pressable>
     );
-  }, [countLabel, hasMore, historyItems.length, loading, loadingMore, onLoadMore, t]);
+  }, [
+    countLabel,
+    hasMore,
+    historyItems.length,
+    loading,
+    loadingMore,
+    onLoadMore,
+    styles.historyFooterText,
+    styles.loadMoreButton,
+    styles.loadMoreButtonPressed,
+    styles.loadMoreText,
+    t,
+    theme.colors.brandBlue
+  ]);
 
   useEffect(() => {
     if (!visible) {
@@ -181,7 +198,7 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
               ]}
             >
               {markingRead ? (
-                <ActivityIndicator size="small" color={appVisualTokens.colors.brandBlue} />
+                <ActivityIndicator size="small" color={theme.colors.brandBlue} />
               ) : (
                 <>
                   <AppIcon usage="historyDrawer.markAllRead" />
@@ -205,7 +222,7 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
         <View style={styles.historyListFrame}>
           {loading ? (
             <View style={styles.historyStateBlock}>
-              <ActivityIndicator size="small" color={appVisualTokens.colors.brandBlue} />
+              <ActivityIndicator size="small" color={theme.colors.brandBlue} />
             </View>
           ) : (
             <FlashList
@@ -225,176 +242,178 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
   );
 });
 
-const styles = StyleSheet.create({
-  drawerOverlay: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'center',
-    zIndex: HISTORY_DRAWER_OVERLAY_Z_INDEX,
-    elevation: HISTORY_DRAWER_OVERLAY_Z_INDEX
-  },
-  drawerBackdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: appVisualTokens.colors.overlay
-  },
-  drawerPanel: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    width: '84%',
-    maxWidth: 360,
-    backgroundColor: appVisualTokens.colors.surface,
-    borderLeftWidth: StyleSheet.hairlineWidth,
-    borderLeftColor: appVisualTokens.colors.line
-  },
-  drawerHeader: {
-    minHeight: 58,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.sm,
-    paddingHorizontal: appVisualTokens.spacing.md,
-    paddingBottom: appVisualTokens.spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: appVisualTokens.colors.line
-  },
-  drawerHeaderText: {
-    flex: 1,
-    minWidth: 0
-  },
-  drawerTitle: {
-    fontSize: 17,
-    lineHeight: 23,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  drawerSubtitle: {
-    marginTop: 2,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '600',
-    color: appVisualTokens.colors.textSecondary
-  },
-  drawerCloseButton: {
-    width: 34,
-    height: 34,
-    borderRadius: appVisualTokens.radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  markReadButton: {
-    height: 32,
-    minWidth: 86,
-    borderRadius: appVisualTokens.radii.pill,
-    paddingHorizontal: appVisualTokens.spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    backgroundColor: appVisualTokens.colors.brandBlueSoft
-  },
-  markReadButtonPressed: {
-    opacity: 0.7
-  },
-  markReadText: {
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '700',
-    color: appVisualTokens.colors.brandBlue
-  },
-  drawerErrorText: {
-    paddingHorizontal: appVisualTokens.spacing.md,
-    paddingVertical: appVisualTokens.spacing.sm,
-    fontSize: 12,
-    lineHeight: 17,
-    color: appVisualTokens.colors.danger
-  },
-  historyListFrame: {
-    flex: 1,
-    paddingHorizontal: appVisualTokens.spacing.sm
-  },
-  historyStateBlock: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  drawerEmptyText: {
-    paddingHorizontal: appVisualTokens.spacing.sm,
-    paddingVertical: appVisualTokens.spacing.lg,
-    fontSize: 14,
-    lineHeight: 21,
-    color: appVisualTokens.colors.textSecondary
-  },
-  historyRow: {
-    height: HISTORY_ROW_HEIGHT,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.sm,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: appVisualTokens.colors.line,
-    paddingHorizontal: appVisualTokens.spacing.sm
-  },
-  historyRowActive: {
-    backgroundColor: appVisualTokens.colors.brandBlueSoft
-  },
-  historyRowPressed: {
-    backgroundColor: appVisualTokens.colors.surfaceMuted
-  },
-  historyUnreadSlot: {
-    width: 10,
-    alignItems: 'center'
-  },
-  historyUnreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: appVisualTokens.radii.pill,
-    backgroundColor: appVisualTokens.colors.badge
-  },
-  historyTextBlock: {
-    flex: 1,
-    minWidth: 0,
-    justifyContent: 'center'
-  },
-  historyTitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textPrimary
-  },
-  historyPreview: {
-    marginTop: 2,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '500',
-    color: appVisualTokens.colors.textSecondary
-  },
-  historyTime: {
-    width: 44,
-    textAlign: 'right',
-    fontSize: 12,
-    lineHeight: 18,
-    fontWeight: '600',
-    color: appVisualTokens.colors.textSecondary
-  },
-  historyFooterText: {
-    paddingVertical: appVisualTokens.spacing.md,
-    textAlign: 'center',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-    color: appVisualTokens.colors.textTertiary
-  },
-  loadMoreButton: {
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  loadMoreButtonPressed: {
-    opacity: 0.7
-  },
-  loadMoreText: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    drawerOverlay: {
+      ...StyleSheet.absoluteFill,
+      justifyContent: 'center',
+      zIndex: HISTORY_DRAWER_OVERLAY_Z_INDEX,
+      elevation: HISTORY_DRAWER_OVERLAY_Z_INDEX
+    },
+    drawerBackdrop: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: theme.colors.overlay
+    },
+    drawerPanel: {
+      position: 'absolute',
+      top: 0,
+      right: 0,
+      bottom: 0,
+      width: '84%',
+      maxWidth: 360,
+      backgroundColor: theme.colors.surface,
+      borderLeftWidth: StyleSheet.hairlineWidth,
+      borderLeftColor: theme.colors.line
+    },
+    drawerHeader: {
+      minHeight: 58,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.sm,
+      paddingHorizontal: appVisualTokens.spacing.md,
+      paddingBottom: appVisualTokens.spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.line
+    },
+    drawerHeaderText: {
+      flex: 1,
+      minWidth: 0
+    },
+    drawerTitle: {
+      fontSize: 17,
+      lineHeight: 23,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    drawerSubtitle: {
+      marginTop: 2,
+      fontSize: 12,
+      lineHeight: 17,
+      fontWeight: '600',
+      color: theme.colors.textSecondary
+    },
+    drawerCloseButton: {
+      width: 34,
+      height: 34,
+      borderRadius: appVisualTokens.radii.pill,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    markReadButton: {
+      height: 32,
+      minWidth: 86,
+      borderRadius: appVisualTokens.radii.pill,
+      paddingHorizontal: appVisualTokens.spacing.sm,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 4,
+      backgroundColor: theme.colors.brandBlueSoft
+    },
+    markReadButtonPressed: {
+      opacity: 0.7
+    },
+    markReadText: {
+      fontSize: 12,
+      lineHeight: 17,
+      fontWeight: '700',
+      color: theme.colors.brandBlue
+    },
+    drawerErrorText: {
+      paddingHorizontal: appVisualTokens.spacing.md,
+      paddingVertical: appVisualTokens.spacing.sm,
+      fontSize: 12,
+      lineHeight: 17,
+      color: theme.colors.danger
+    },
+    historyListFrame: {
+      flex: 1,
+      paddingHorizontal: appVisualTokens.spacing.sm
+    },
+    historyStateBlock: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    drawerEmptyText: {
+      paddingHorizontal: appVisualTokens.spacing.sm,
+      paddingVertical: appVisualTokens.spacing.lg,
+      fontSize: 14,
+      lineHeight: 21,
+      color: theme.colors.textSecondary
+    },
+    historyRow: {
+      height: HISTORY_ROW_HEIGHT,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.sm,
+      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomColor: theme.colors.line,
+      paddingHorizontal: appVisualTokens.spacing.sm
+    },
+    historyRowActive: {
+      backgroundColor: theme.colors.brandBlueSoft
+    },
+    historyRowPressed: {
+      backgroundColor: theme.colors.surfaceMuted
+    },
+    historyUnreadSlot: {
+      width: 10,
+      alignItems: 'center'
+    },
+    historyUnreadDot: {
+      width: 8,
+      height: 8,
+      borderRadius: appVisualTokens.radii.pill,
+      backgroundColor: theme.colors.badge
+    },
+    historyTextBlock: {
+      flex: 1,
+      minWidth: 0,
+      justifyContent: 'center'
+    },
+    historyTitle: {
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    historyPreview: {
+      marginTop: 2,
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '500',
+      color: theme.colors.textSecondary
+    },
+    historyTime: {
+      width: 44,
+      textAlign: 'right',
+      fontSize: 12,
+      lineHeight: 18,
+      fontWeight: '600',
+      color: theme.colors.textSecondary
+    },
+    historyFooterText: {
+      paddingVertical: appVisualTokens.spacing.md,
+      textAlign: 'center',
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '600',
+      color: theme.colors.textTertiary
+    },
+    loadMoreButton: {
+      minHeight: 44,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    loadMoreButtonPressed: {
+      opacity: 0.7
+    },
+    loadMoreText: {
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '700',
+      color: theme.colors.textSecondary
+    }
+  });
+}

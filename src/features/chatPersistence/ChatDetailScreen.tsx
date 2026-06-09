@@ -5,7 +5,8 @@ import { Animated, KeyboardAvoidingView, Platform, StyleSheet, View } from 'reac
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '../../shared/i18n';
-import { appVisualTokens } from '../../shared/visual/foundation';
+import { useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
+import type { AppThemeTokens } from '../../shared/visual/foundation';
 import { ChatAwaitingOverlay, ChatAwaitingResumeBar } from './components/ChatAwaitingOverlay';
 import { ChatAwaitingDock } from './components/awaiting/ChatAwaitingDock';
 import { ChatDetailComposerCard } from './components/ChatDetailComposerCard';
@@ -29,6 +30,7 @@ type ChatDetailScreenProps = NativeStackScreenProps<{ ChatDetail: ChatDetailRout
 
 export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
   const insets = useSafeAreaInsets();
   const {
     conversationId,
@@ -237,19 +239,21 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: appVisualTokens.colors.background
-  },
-  keyboardRoot: {
-    flex: 1
-  },
-  screen: {
-    flex: 1,
-    backgroundColor: appVisualTokens.colors.background
-  },
-  initialSkeletonOverlay: {
-    ...StyleSheet.absoluteFill
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: theme.colors.background
+    },
+    keyboardRoot: {
+      flex: 1
+    },
+    screen: {
+      flex: 1,
+      backgroundColor: theme.colors.background
+    },
+    initialSkeletonOverlay: {
+      ...StyleSheet.absoluteFill
+    }
+  });
+}

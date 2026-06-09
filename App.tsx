@@ -6,6 +6,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppRoot } from './src/app/AppRoot';
 import { AppLaunchSkeleton } from './src/app/startup/AppLaunchSkeleton';
 import { I18nProvider } from './src/shared/i18n';
+import { AppThemeProvider } from './src/shared/visual/AppThemeProvider';
 
 const NATIVE_SPLASH_FADE_DURATION_MS = 220;
 // Increase this value to keep the React-side launch animation visible longer after handoff.
@@ -41,27 +42,29 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <I18nProvider>
-        <View style={{ flex: 1 }}>
-          <AppRoot onNavigationReady={() => setIsNavigationReady(true)} />
-          {shouldRenderLaunchSkeleton ? (
-            <AppLaunchSkeleton
-              dismiss={isNativeSplashHidden && isNavigationReady && hasOverlayMinimumDurationElapsed}
-              motionEnabled={isNativeSplashHidden}
-              onHidden={() => setShouldRenderLaunchSkeleton(false)}
-              onReady={() => {
-                SplashScreen.hideAsync()
-                  .catch(() => {
-                    // Expo Go and repeated hides can reject; fall through to React overlay.
-                  })
-                  .finally(() => {
-                    setIsNativeSplashHidden(true);
-                  });
-              }}
-            />
-          ) : null}
-        </View>
-      </I18nProvider>
+      <AppThemeProvider>
+        <I18nProvider>
+          <View style={{ flex: 1 }}>
+            <AppRoot onNavigationReady={() => setIsNavigationReady(true)} />
+            {shouldRenderLaunchSkeleton ? (
+              <AppLaunchSkeleton
+                dismiss={isNativeSplashHidden && isNavigationReady && hasOverlayMinimumDurationElapsed}
+                motionEnabled={isNativeSplashHidden}
+                onHidden={() => setShouldRenderLaunchSkeleton(false)}
+                onReady={() => {
+                  SplashScreen.hideAsync()
+                    .catch(() => {
+                      // Expo Go and repeated hides can reject; fall through to React overlay.
+                    })
+                    .finally(() => {
+                      setIsNativeSplashHidden(true);
+                    });
+                }}
+              />
+            ) : null}
+          </View>
+        </I18nProvider>
+      </AppThemeProvider>
     </SafeAreaProvider>
   );
 }

@@ -5,7 +5,8 @@ import { Circle, Svg } from 'react-native-svg';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { type TFunction, useT } from '../../../shared/i18n';
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import type {
   ChatTimelineUsageEstimatedCost,
   ChatTimelineUsageStats,
@@ -147,6 +148,8 @@ const UsageRing = memo(function UsageRing({
   percent: number | null | undefined;
   size?: number;
 }) {
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const progress = percent === null || percent === undefined ? 0 : Math.max(0, Math.min(100, percent));
   const strokeWidth = size >= 36 ? 3.6 : 3.2;
   const radius = (size - strokeWidth) / 2;
@@ -161,7 +164,7 @@ const UsageRing = memo(function UsageRing({
           cx={center}
           cy={center}
           r={radius}
-          stroke={appVisualTokens.colors.lineStrong}
+          stroke={theme.colors.lineStrong}
           strokeWidth={strokeWidth}
           fill="none"
         />
@@ -169,7 +172,7 @@ const UsageRing = memo(function UsageRing({
           cx={center}
           cy={center}
           r={radius}
-          stroke={appVisualTokens.colors.brandBlueStrong}
+          stroke={theme.colors.brandBlueStrong}
           strokeWidth={strokeWidth}
           fill="none"
           strokeLinecap="round"
@@ -188,6 +191,8 @@ const UsageRing = memo(function UsageRing({
 });
 
 const UsageMetricCell = memo(function UsageMetricCell({ metric }: { metric: UsageMetric }) {
+  const styles = useAppThemeStyles(createStyles);
+
   return (
     <View style={styles.usageMetricCell}>
       <Text allowFontScaling={false} numberOfLines={1} style={styles.usageMetricLabel}>
@@ -202,6 +207,7 @@ const UsageMetricCell = memo(function UsageMetricCell({ metric }: { metric: Usag
 
 const UsageCallCounts = memo(function UsageCallCounts({ stats }: { stats: ChatTimelineUsageStats | null | undefined }) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
   const counts = useMemo(
     () =>
       [
@@ -234,6 +240,7 @@ const UsageSection = memo(function UsageSection({
   stats: ChatTimelineUsageStats | null | undefined;
 }) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
   const metrics = useMemo(() => buildUsageMetrics(stats, t), [stats, t]);
 
   return (
@@ -255,6 +262,7 @@ const UsageSection = memo(function UsageSection({
 
 const UsageContextWindow = memo(function UsageContextWindow({ summary }: { summary: ChatTimelineUsageSummary | null }) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
   const cacheHitLabel = formatUsagePercent(resolveChatCacheHitPercent(summary));
   const estimatedCostLabel = formatChatEstimatedCost(resolveUsageEstimatedCost(summary?.chat));
 
@@ -295,6 +303,7 @@ const ChatUsageStatsContent = memo(function ChatUsageStatsContent({
   usageSummary: ChatTimelineUsageSummary | null;
 }) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
 
   return (
     <ScrollView
@@ -319,6 +328,7 @@ const ChatUsageStatsDrawer = memo(function ChatUsageStatsDrawer({
   onDismissed
 }: ChatUsageStatsDrawerProps) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
   const insets = useSafeAreaInsets();
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(USAGE_SHEET_ENTER_OFFSET)).current;
@@ -421,6 +431,7 @@ export const ChatUsageStatsButton = memo(function ChatUsageStatsButton({
   usageSummary
 }: ChatUsageStatsButtonProps) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const normalizedUsageLabel = usageLabel.trim();
@@ -470,236 +481,238 @@ export const ChatUsageStatsButton = memo(function ChatUsageStatsButton({
   );
 });
 
-const styles = StyleSheet.create({
-  usageButton: {
-    width: 34,
-    height: 34,
-    borderRadius: appVisualTokens.radii.pill,
-    borderWidth: 1,
-    borderColor: appVisualTokens.colors.lineStrong,
-    backgroundColor: appVisualTokens.colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0
-  },
-  usageButtonPressed: {
-    opacity: 0.68
-  },
-  usageRing: {
-    position: 'relative',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0
-  },
-  usageRingLabel: {
-    ...StyleSheet.absoluteFill,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  usageRingText: {
-    fontSize: 7,
-    lineHeight: 9,
-    fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary,
-    textAlign: 'center'
-  },
-  usageModalRoot: {
-    flex: 1,
-    justifyContent: 'flex-end'
-  },
-  usageBackdrop: {
-    ...StyleSheet.absoluteFill,
-    backgroundColor: appVisualTokens.colors.overlay
-  },
-  usageBackdropPressable: {
-    flex: 1
-  },
-  usageDrawerPanel: {
-    borderTopLeftRadius: appVisualTokens.radii.lg,
-    borderTopRightRadius: appVisualTokens.radii.lg,
-    backgroundColor: appVisualTokens.colors.surface,
-    paddingHorizontal: appVisualTokens.spacing.lg,
-    paddingTop: appVisualTokens.spacing.sm,
-    shadowColor: appVisualTokens.colors.shadow,
-    shadowOffset: {
-      width: 0,
-      height: -10
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    usageButton: {
+      width: 34,
+      height: 34,
+      borderRadius: appVisualTokens.radii.pill,
+      borderWidth: 1,
+      borderColor: theme.colors.lineStrong,
+      backgroundColor: theme.colors.surface,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0
     },
-    shadowOpacity: 0.14,
-    shadowRadius: 24,
-    elevation: 12
-  },
-  usageDrawerHandle: {
-    width: 36,
-    height: 5,
-    borderRadius: 3,
-    backgroundColor: appVisualTokens.colors.lineStrong,
-    alignSelf: 'center',
-    marginBottom: appVisualTokens.spacing.md
-  },
-  usageDrawerHeader: {
-    minHeight: 38,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: appVisualTokens.spacing.md,
-    paddingBottom: appVisualTokens.spacing.sm
-  },
-  usageDrawerTitleBlock: {
-    minWidth: 0,
-    flex: 1,
-    gap: 2
-  },
-  usageDrawerTitle: {
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary
-  },
-  usageDrawerModel: {
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary
-  },
-  usageDrawerClose: {
-    width: 30,
-    height: 30,
-    borderRadius: appVisualTokens.radii.pill,
-    backgroundColor: appVisualTokens.colors.surfaceMuted,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  usageDrawerScroll: {
-    flexGrow: 0
-  },
-  usageDrawerContent: {
-    gap: appVisualTokens.spacing.md,
-    paddingBottom: appVisualTokens.spacing.sm
-  },
-  usageContextWindow: {
-    borderRadius: appVisualTokens.radii.sm,
-    backgroundColor: appVisualTokens.colors.brandBlueSoft,
-    paddingHorizontal: 10,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.sm
-  },
-  usageContextMain: {
-    minWidth: 0,
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.sm
-  },
-  usageContextCopy: {
-    minWidth: 0,
-    flex: 1,
-    gap: 1
-  },
-  usageContextLabel: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary
-  },
-  usageContextValue: {
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary
-  },
-  usageContextHint: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '600',
-    color: appVisualTokens.colors.textSecondary
-  },
-  usageContextSide: {
-    minWidth: 126,
-    flexShrink: 0,
-    alignItems: 'flex-end',
-    gap: 4
-  },
-  usageContextSideText: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary,
-    textAlign: 'right'
-  },
-  usageContextSideValue: {
-    color: appVisualTokens.colors.textPrimary,
-    fontWeight: '800'
-  },
-  usageSection: {
-    gap: 7
-  },
-  usageSectionHeader: {
-    minHeight: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: appVisualTokens.spacing.sm
-  },
-  usageSectionTitle: {
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary
-  },
-  usageCallCounts: {
-    minWidth: 0,
-    flexShrink: 1,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: appVisualTokens.spacing.sm
-  },
-  usageCallCountText: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary
-  },
-  usageCallCountValue: {
-    color: appVisualTokens.colors.textPrimary,
-    fontWeight: '800'
-  },
-  usageMetricGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 7
-  },
-  usageMetricCell: {
-    flexBasis: USAGE_METRIC_CELL_BASIS,
-    flexGrow: 1,
-    flexShrink: 1,
-    height: 34,
-    borderRadius: appVisualTokens.radii.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: appVisualTokens.colors.lineStrong,
-    backgroundColor: appVisualTokens.colors.surface,
-    paddingHorizontal: 9,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 5
-  },
-  usageMetricLabel: {
-    flexShrink: 1,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary
-  },
-  usageMetricValue: {
-    flexShrink: 0,
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary,
-    textAlign: 'right'
-  }
-});
+    usageButtonPressed: {
+      opacity: 0.68
+    },
+    usageRing: {
+      position: 'relative',
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexShrink: 0
+    },
+    usageRingLabel: {
+      ...StyleSheet.absoluteFill,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    usageRingText: {
+      fontSize: 7,
+      lineHeight: 9,
+      fontWeight: '800',
+      color: theme.colors.textPrimary,
+      textAlign: 'center'
+    },
+    usageModalRoot: {
+      flex: 1,
+      justifyContent: 'flex-end'
+    },
+    usageBackdrop: {
+      ...StyleSheet.absoluteFill,
+      backgroundColor: theme.colors.overlay
+    },
+    usageBackdropPressable: {
+      flex: 1
+    },
+    usageDrawerPanel: {
+      borderTopLeftRadius: appVisualTokens.radii.lg,
+      borderTopRightRadius: appVisualTokens.radii.lg,
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: appVisualTokens.spacing.lg,
+      paddingTop: appVisualTokens.spacing.sm,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: {
+        width: 0,
+        height: -10
+      },
+      shadowOpacity: 0.14,
+      shadowRadius: 24,
+      elevation: 12
+    },
+    usageDrawerHandle: {
+      width: 36,
+      height: 5,
+      borderRadius: 3,
+      backgroundColor: theme.colors.lineStrong,
+      alignSelf: 'center',
+      marginBottom: appVisualTokens.spacing.md
+    },
+    usageDrawerHeader: {
+      minHeight: 38,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: appVisualTokens.spacing.md,
+      paddingBottom: appVisualTokens.spacing.sm
+    },
+    usageDrawerTitleBlock: {
+      minWidth: 0,
+      flex: 1,
+      gap: 2
+    },
+    usageDrawerTitle: {
+      fontSize: 17,
+      lineHeight: 22,
+      fontWeight: '800',
+      color: theme.colors.textPrimary
+    },
+    usageDrawerModel: {
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '700',
+      color: theme.colors.textSecondary
+    },
+    usageDrawerClose: {
+      width: 30,
+      height: 30,
+      borderRadius: appVisualTokens.radii.pill,
+      backgroundColor: theme.colors.surfaceMuted,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    usageDrawerScroll: {
+      flexGrow: 0
+    },
+    usageDrawerContent: {
+      gap: appVisualTokens.spacing.md,
+      paddingBottom: appVisualTokens.spacing.sm
+    },
+    usageContextWindow: {
+      borderRadius: appVisualTokens.radii.sm,
+      backgroundColor: theme.colors.brandBlueSoft,
+      paddingHorizontal: 10,
+      paddingVertical: 10,
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.sm
+    },
+    usageContextMain: {
+      minWidth: 0,
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.sm
+    },
+    usageContextCopy: {
+      minWidth: 0,
+      flex: 1,
+      gap: 1
+    },
+    usageContextLabel: {
+      fontSize: 11,
+      lineHeight: 14,
+      fontWeight: '700',
+      color: theme.colors.textSecondary
+    },
+    usageContextValue: {
+      fontSize: 13,
+      lineHeight: 16,
+      fontWeight: '800',
+      color: theme.colors.textPrimary
+    },
+    usageContextHint: {
+      fontSize: 11,
+      lineHeight: 14,
+      fontWeight: '600',
+      color: theme.colors.textSecondary
+    },
+    usageContextSide: {
+      minWidth: 126,
+      flexShrink: 0,
+      alignItems: 'flex-end',
+      gap: 4
+    },
+    usageContextSideText: {
+      fontSize: 11,
+      lineHeight: 14,
+      fontWeight: '700',
+      color: theme.colors.textSecondary,
+      textAlign: 'right'
+    },
+    usageContextSideValue: {
+      color: theme.colors.textPrimary,
+      fontWeight: '800'
+    },
+    usageSection: {
+      gap: 7
+    },
+    usageSectionHeader: {
+      minHeight: 18,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: appVisualTokens.spacing.sm
+    },
+    usageSectionTitle: {
+      fontSize: 13,
+      lineHeight: 17,
+      fontWeight: '800',
+      color: theme.colors.textPrimary
+    },
+    usageCallCounts: {
+      minWidth: 0,
+      flexShrink: 1,
+      flexDirection: 'row',
+      justifyContent: 'flex-end',
+      gap: appVisualTokens.spacing.sm
+    },
+    usageCallCountText: {
+      fontSize: 11,
+      lineHeight: 14,
+      fontWeight: '700',
+      color: theme.colors.textSecondary
+    },
+    usageCallCountValue: {
+      color: theme.colors.textPrimary,
+      fontWeight: '800'
+    },
+    usageMetricGrid: {
+      flexDirection: 'row',
+      flexWrap: 'wrap',
+      gap: 7
+    },
+    usageMetricCell: {
+      flexBasis: USAGE_METRIC_CELL_BASIS,
+      flexGrow: 1,
+      flexShrink: 1,
+      height: 34,
+      borderRadius: appVisualTokens.radii.sm,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.lineStrong,
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: 9,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: 5
+    },
+    usageMetricLabel: {
+      flexShrink: 1,
+      fontSize: 11,
+      lineHeight: 14,
+      fontWeight: '700',
+      color: theme.colors.textSecondary
+    },
+    usageMetricValue: {
+      flexShrink: 0,
+      fontSize: 13,
+      lineHeight: 16,
+      fontWeight: '800',
+      color: theme.colors.textPrimary,
+      textAlign: 'right'
+    }
+  });
+}

@@ -3,7 +3,8 @@ import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, Vi
 
 import { AppIcon, type AppIconUsage } from '../../../shared/icons/AppIcon';
 import { type TFunction, useT } from '../../../shared/i18n';
-import { appVisualTokens } from '../../../shared/visual/foundation';
+import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import type { ChatComposerPrimaryAction } from '../chatDetailViewModel';
 import type { ChatComposerAttachment } from '../types';
 import { ChatAttachmentStrip } from './ChatAttachmentStrip';
@@ -71,6 +72,8 @@ export const Composer = memo(function Composer({
   placeholder
 }: ComposerProps) {
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const [inputHeight, setInputHeight] = useState(MIN_HEIGHT);
   const [attachmentTrayOpen, setAttachmentTrayOpen] = useState(false);
   const primaryDisabled = disabled || primaryAction === 'send-disabled' || primaryAction === 'sending';
@@ -123,7 +126,7 @@ export const Composer = memo(function Composer({
   const handleSelectFileAttachment = useCallback(() => handleSelectAttachment('file'), [handleSelectAttachment]);
 
   const iconUsage = getPrimaryIconUsage(primaryAction);
-  const iconColor = primaryDisabled ? appVisualTokens.colors.textTertiary : appVisualTokens.colors.surface;
+  const iconColor = primaryDisabled ? theme.colors.textTertiary : theme.colors.surface;
 
   useEffect(() => {
     if (attachmentDisabled) {
@@ -184,7 +187,7 @@ export const Composer = memo(function Composer({
           <AppIcon
             usage="composer.attach"
             size={appVisualTokens.iconSizes.md}
-            color={attachmentDisabled ? appVisualTokens.colors.textTertiary : appVisualTokens.colors.textSecondary}
+            color={attachmentDisabled ? theme.colors.textTertiary : theme.colors.textSecondary}
             strokeWidth={2.2}
           />
         </Pressable>
@@ -193,7 +196,7 @@ export const Composer = memo(function Composer({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder ?? t('composer.placeholder')}
-          placeholderTextColor={appVisualTokens.colors.textTertiary}
+          placeholderTextColor={theme.colors.textTertiary}
           allowFontScaling={false}
           multiline
           maxLength={480}
@@ -221,7 +224,7 @@ export const Composer = memo(function Composer({
           accessibilityRole="button"
         >
           {primaryAction === 'sending' ? (
-            <ActivityIndicator size="small" color={appVisualTokens.colors.surface} />
+            <ActivityIndicator size="small" color={theme.colors.surface} />
           ) : (
             <AppIcon usage={iconUsage} color={iconColor} />
           )}
@@ -231,95 +234,97 @@ export const Composer = memo(function Composer({
   );
 });
 
-const styles = StyleSheet.create({
-  root: {
-    gap: appVisualTokens.spacing.xs
-  },
-  attachmentTray: {
-    flexDirection: 'row',
-    gap: appVisualTokens.spacing.sm,
-    paddingHorizontal: appVisualTokens.spacing.xs
-  },
-  attachmentOption: {
-    height: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.xs,
-    borderRadius: appVisualTokens.radii.pill,
-    borderWidth: 1,
-    borderColor: appVisualTokens.colors.line,
-    backgroundColor: appVisualTokens.colors.surface,
-    paddingHorizontal: appVisualTokens.spacing.md
-  },
-  attachmentOptionText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: appVisualTokens.colors.textPrimary
-  },
-  container: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.sm,
-    borderRadius: appVisualTokens.radii.pill,
-    borderWidth: 1,
-    borderColor: appVisualTokens.colors.line,
-    backgroundColor: appVisualTokens.colors.surface,
-    paddingHorizontal: 5,
-    paddingVertical: 5
-  },
-  input: {
-    flex: 1,
-    minWidth: 0,
-    minHeight: MIN_HEIGHT,
-    maxHeight: MAX_HEIGHT,
-    paddingHorizontal: 10,
-    paddingVertical: VERTICAL_PADDING,
-    fontSize: 15,
-    lineHeight: 20,
-    color: appVisualTokens.colors.textPrimary,
-    includeFontPadding: false
-  },
-  rightAccessory: {
-    flexShrink: 0,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  iconButton: {
-    width: 34,
-    height: 34,
-    borderRadius: appVisualTokens.radii.pill,
-    borderWidth: 1,
-    borderColor: appVisualTokens.colors.line,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  iconButtonDisabled: {
-    backgroundColor: appVisualTokens.colors.backgroundMuted
-  },
-  primaryButton: {
-    width: 34,
-    height: 34,
-    borderRadius: appVisualTokens.radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  primaryButtonDisabled: {
-    backgroundColor: appVisualTokens.colors.backgroundMuted
-  },
-  primaryButtonSend: {
-    backgroundColor: appVisualTokens.colors.brandBlue
-  },
-  primaryButtonSending: {
-    backgroundColor: appVisualTokens.colors.brandBlue
-  },
-  primaryButtonStop: {
-    backgroundColor: appVisualTokens.colors.danger
-  },
-  primaryButtonResume: {
-    backgroundColor: appVisualTokens.colors.success
-  },
-  pressed: {
-    opacity: 0.72
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    root: {
+      gap: appVisualTokens.spacing.xs
+    },
+    attachmentTray: {
+      flexDirection: 'row',
+      gap: appVisualTokens.spacing.sm,
+      paddingHorizontal: appVisualTokens.spacing.xs
+    },
+    attachmentOption: {
+      height: 34,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.xs,
+      borderRadius: appVisualTokens.radii.pill,
+      borderWidth: 1,
+      borderColor: theme.colors.line,
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: appVisualTokens.spacing.md
+    },
+    attachmentOptionText: {
+      fontSize: 13,
+      fontWeight: '600',
+      color: theme.colors.textPrimary
+    },
+    container: {
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.sm,
+      borderRadius: appVisualTokens.radii.pill,
+      borderWidth: 1,
+      borderColor: theme.colors.line,
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: 5,
+      paddingVertical: 5
+    },
+    input: {
+      flex: 1,
+      minWidth: 0,
+      minHeight: MIN_HEIGHT,
+      maxHeight: MAX_HEIGHT,
+      paddingHorizontal: 10,
+      paddingVertical: VERTICAL_PADDING,
+      fontSize: 15,
+      lineHeight: 20,
+      color: theme.colors.textPrimary,
+      includeFontPadding: false
+    },
+    rightAccessory: {
+      flexShrink: 0,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    iconButton: {
+      width: 34,
+      height: 34,
+      borderRadius: appVisualTokens.radii.pill,
+      borderWidth: 1,
+      borderColor: theme.colors.line,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    iconButtonDisabled: {
+      backgroundColor: theme.colors.backgroundMuted
+    },
+    primaryButton: {
+      width: 34,
+      height: 34,
+      borderRadius: appVisualTokens.radii.pill,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    primaryButtonDisabled: {
+      backgroundColor: theme.colors.backgroundMuted
+    },
+    primaryButtonSend: {
+      backgroundColor: theme.colors.brandBlue
+    },
+    primaryButtonSending: {
+      backgroundColor: theme.colors.brandBlue
+    },
+    primaryButtonStop: {
+      backgroundColor: theme.colors.danger
+    },
+    primaryButtonResume: {
+      backgroundColor: theme.colors.success
+    },
+    pressed: {
+      opacity: 0.72
+    }
+  });
+}

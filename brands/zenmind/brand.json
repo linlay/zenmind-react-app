@@ -1,0 +1,37 @@
+{
+  "id": "zenmind",
+  "productName": "ZenMind",
+  "expoName": "ZenMind",
+  "slug": "zenmind-react-app",
+  "storageNamespace": "zenmind-app",
+  "android": {
+    "package": "com.zqfrank.agentterminalapp",
+    "adaptiveIconBackgroundColor": "#031722"
+  },
+  "ios": {
+    "bundleIdentifier": "com.zqfrank.agentterminalapp"
+  },
+  "updates": {
+    "projectId": "e6cc69ea-7449-44f2-ae7c-69831be52d5c",
+    "url": "https://u.expo.dev/e6cc69ea-7449-44f2-ae7c-69831be52d5c"
+  },
+  "splash": {
+    "backgroundColor": "#EDF1F5",
+    "imageWidth": 220
+  },
+  "notification": {
+    "channel": "chat-messages",
+    "color": "#2f80ed"
+  },
+  "visual": {
+    "glyph": "zenmind",
+    "backgroundColor": "#031722",
+    "backgroundColorEnd": "#0A3647",
+    "primaryColor": "#2F80ED",
+    "secondaryColor": "#10D9FF"
+  },
+  "i18n": {
+    "zh-CN": "i18n/zh-CN.json",
+    "en-US": "i18n/en-US.json"
+  }
+}

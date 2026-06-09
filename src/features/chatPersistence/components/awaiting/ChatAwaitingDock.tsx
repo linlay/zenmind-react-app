@@ -4,7 +4,8 @@ import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, Vi
 import type { AwaitingSubmitPayloadData } from '../../../../core/api/services/chatApi';
 import { AppIcon } from '../../../../shared/icons/AppIcon';
 import { type TFunction, useT } from '../../../../shared/i18n';
-import { appVisualTokens } from '../../../../shared/visual/foundation';
+import { useAppTheme, useAppThemeStyles } from '../../../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../../../shared/visual/foundation';
 import type { ChatConversationAwaitingState } from '../../../chatRealtime/types';
 import type { ChatTimelineAwaitingQuestion } from '../../../chatTimeline/index.ts';
 import {
@@ -91,6 +92,7 @@ function PaginationControl({
   onMove: (nextIndex: number) => void;
 }) {
   const t = useT();
+  const styles = useAppThemeStyles(createStyles);
 
   if (total <= 1) {
     return null;
@@ -149,6 +151,9 @@ const OptionRow = memo(function OptionRow({
   selected: boolean;
   onPress: () => void;
 }) {
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -164,7 +169,7 @@ const OptionRow = memo(function OptionRow({
       </Text>
       {selected ? (
         <View style={styles.selectedMark}>
-          <AppIcon usage="historyDrawer.markAllRead" size={12} color={appVisualTokens.colors.surface} />
+          <AppIcon usage="historyDrawer.markAllRead" size={12} color={theme.colors.surface} />
         </View>
       ) : null}
     </Pressable>
@@ -184,6 +189,8 @@ function QuestionInput({
   onChangeAndAdvance: (draft: AwaitingQuestionDraft) => void;
   onSubmitCurrent: () => void;
 }) {
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const placeholder = getAwaitingQuestionPlaceholder(question);
 
   if (isSelectQuestionType(question)) {
@@ -222,7 +229,7 @@ function QuestionInput({
               onChangeText={(text) => onChange(setFreeTextAnswer(question, value, text))}
               onSubmitEditing={onSubmitCurrent}
               placeholder={placeholder}
-              placeholderTextColor={appVisualTokens.colors.textTertiary}
+              placeholderTextColor={theme.colors.textTertiary}
               allowFontScaling={false}
               returnKeyType="done"
               style={styles.freeTextInput}
@@ -247,7 +254,7 @@ function QuestionInput({
         onChangeText={(text) => onChange({ id: question.id, answer: text })}
         onSubmitEditing={onSubmitCurrent}
         placeholder={inputPlaceholder}
-        placeholderTextColor={appVisualTokens.colors.textTertiary}
+        placeholderTextColor={theme.colors.textTertiary}
         allowFontScaling={false}
         keyboardType={keyboardType}
         secureTextEntry={secureTextEntry}
@@ -260,6 +267,8 @@ function QuestionInput({
 
 export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSubmit }: ChatAwaitingDockProps) {
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const interactive = awaiting.interactive?.kind === 'question' ? awaiting.interactive : null;
   const questions = useMemo(() => interactive?.questions || [], [interactive]);
   const questionsRef = useRef(questions);
@@ -483,7 +492,7 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSub
               style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}
             >
               {submitting ? (
-                <ActivityIndicator size="small" color={appVisualTokens.colors.surface} />
+                <ActivityIndicator size="small" color={theme.colors.surface} />
               ) : (
                 <Text allowFontScaling={false} style={styles.primaryText}>
                   {isLastQuestion ? t('awaiting.submit') : t('awaiting.continue')}
@@ -497,230 +506,232 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSub
   );
 });
 
-const styles = StyleSheet.create({
-  dockWrap: {
-    backgroundColor: appVisualTokens.colors.background,
-    paddingHorizontal: appVisualTokens.spacing.md,
-    paddingTop: 4,
-    paddingBottom: 6
-  },
-  panel: {
-    gap: appVisualTokens.spacing.md,
-    borderRadius: appVisualTokens.radii.lg,
-    borderWidth: 1,
-    borderColor: appVisualTokens.colors.lineStrong,
-    backgroundColor: appVisualTokens.colors.surface,
-    paddingHorizontal: appVisualTokens.spacing.lg,
-    paddingTop: appVisualTokens.spacing.lg,
-    paddingBottom: appVisualTokens.spacing.md,
-    shadowColor: appVisualTokens.colors.shadow,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 2
-  },
-  header: {
-    minHeight: 32,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: appVisualTokens.spacing.md
-  },
-  questionText: {
-    flex: 1,
-    minWidth: 0,
-    gap: 4
-  },
-  heading: {
-    fontSize: 15,
-    lineHeight: 21,
-    fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary
-  },
-  prompt: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: appVisualTokens.colors.textSecondary
-  },
-  headerSide: {
-    flexShrink: 0,
-    alignItems: 'flex-end',
-    gap: 4
-  },
-  countdown: {
-    maxWidth: 128,
-    fontSize: 12,
-    lineHeight: 16,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary
-  },
-  pagination: {
-    height: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5
-  },
-  paginationButton: {
-    width: 28,
-    height: 28,
-    borderRadius: appVisualTokens.radii.sm,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  paginationArrow: {
-    fontSize: 26,
-    lineHeight: 28,
-    color: appVisualTokens.colors.textPrimary
-  },
-  paginationText: {
-    minWidth: 34,
-    textAlign: 'center',
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary
-  },
-  optionsBlock: {
-    gap: appVisualTokens.spacing.sm
-  },
-  optionRow: {
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.sm
-  },
-  optionIndex: {
-    width: 24,
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-    color: appVisualTokens.colors.textSecondary
-  },
-  optionLabel: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 15,
-    lineHeight: 21,
-    fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary
-  },
-  selectedText: {
-    color: appVisualTokens.colors.brandBlueStrong
-  },
-  selectedMark: {
-    width: 20,
-    height: 20,
-    borderRadius: appVisualTokens.radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: appVisualTokens.colors.brandBlue
-  },
-  freeTextRow: {
-    minHeight: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.sm
-  },
-  freeTextInput: {
-    flex: 1,
-    minWidth: 0,
-    paddingVertical: 4,
-    fontSize: 15,
-    lineHeight: 20,
-    color: appVisualTokens.colors.textPrimary
-  },
-  fieldBlock: {
-    minHeight: 46,
-    justifyContent: 'center'
-  },
-  inputField: {
-    minHeight: 44,
-    borderRadius: appVisualTokens.radii.sm,
-    borderWidth: 1.5,
-    borderColor: appVisualTokens.colors.brandBlue,
-    paddingHorizontal: appVisualTokens.spacing.md,
-    paddingVertical: 8,
-    fontSize: 15,
-    lineHeight: 20,
-    color: appVisualTokens.colors.textPrimary
-  },
-  footer: {
-    minHeight: 34,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: appVisualTokens.spacing.sm
-  },
-  errorText: {
-    flex: 1,
-    minWidth: 0,
-    fontSize: 12,
-    lineHeight: 16,
-    color: appVisualTokens.colors.danger
-  },
-  errorSpacer: {
-    flex: 1
-  },
-  actions: {
-    flexShrink: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: appVisualTokens.spacing.sm
-  },
-  ignoreButton: {
-    minHeight: 32,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: appVisualTokens.radii.pill,
-    paddingLeft: 4
-  },
-  ignoreText: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '800',
-    color: appVisualTokens.colors.textSecondary
-  },
-  keycap: {
-    minWidth: 42,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: appVisualTokens.radii.pill,
-    backgroundColor: appVisualTokens.colors.brandBlueSoft,
-    paddingHorizontal: appVisualTokens.spacing.sm
-  },
-  keycapText: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '800',
-    color: appVisualTokens.colors.textPrimary
-  },
-  primaryButton: {
-    minWidth: 58,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: appVisualTokens.radii.pill,
-    backgroundColor: appVisualTokens.colors.brandBlue,
-    paddingHorizontal: appVisualTokens.spacing.md
-  },
-  primaryText: {
-    fontSize: 14,
-    lineHeight: 19,
-    fontWeight: '800',
-    color: appVisualTokens.colors.surface
-  },
-  disabledButton: {
-    opacity: 0.38
-  },
-  disabledText: {
-    color: appVisualTokens.colors.textTertiary
-  },
-  pressed: {
-    opacity: 0.68
-  },
-  primaryPressed: {
-    opacity: 0.82
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    dockWrap: {
+      backgroundColor: theme.colors.background,
+      paddingHorizontal: appVisualTokens.spacing.md,
+      paddingTop: 4,
+      paddingBottom: 6
+    },
+    panel: {
+      gap: appVisualTokens.spacing.md,
+      borderRadius: appVisualTokens.radii.lg,
+      borderWidth: 1,
+      borderColor: theme.colors.lineStrong,
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: appVisualTokens.spacing.lg,
+      paddingTop: appVisualTokens.spacing.lg,
+      paddingBottom: appVisualTokens.spacing.md,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+      elevation: 2
+    },
+    header: {
+      minHeight: 32,
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      justifyContent: 'space-between',
+      gap: appVisualTokens.spacing.md
+    },
+    questionText: {
+      flex: 1,
+      minWidth: 0,
+      gap: 4
+    },
+    heading: {
+      fontSize: 15,
+      lineHeight: 21,
+      fontWeight: '800',
+      color: theme.colors.textPrimary
+    },
+    prompt: {
+      fontSize: 12,
+      lineHeight: 17,
+      color: theme.colors.textSecondary
+    },
+    headerSide: {
+      flexShrink: 0,
+      alignItems: 'flex-end',
+      gap: 4
+    },
+    countdown: {
+      maxWidth: 128,
+      fontSize: 12,
+      lineHeight: 16,
+      fontWeight: '700',
+      color: theme.colors.textSecondary
+    },
+    pagination: {
+      height: 28,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 5
+    },
+    paginationButton: {
+      width: 28,
+      height: 28,
+      borderRadius: appVisualTokens.radii.sm,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    paginationArrow: {
+      fontSize: 26,
+      lineHeight: 28,
+      color: theme.colors.textPrimary
+    },
+    paginationText: {
+      minWidth: 34,
+      textAlign: 'center',
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '800',
+      color: theme.colors.textPrimary
+    },
+    optionsBlock: {
+      gap: appVisualTokens.spacing.sm
+    },
+    optionRow: {
+      minHeight: 34,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.sm
+    },
+    optionIndex: {
+      width: 24,
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '700',
+      color: theme.colors.textSecondary
+    },
+    optionLabel: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 15,
+      lineHeight: 21,
+      fontWeight: '800',
+      color: theme.colors.textPrimary
+    },
+    selectedText: {
+      color: theme.colors.brandBlueStrong
+    },
+    selectedMark: {
+      width: 20,
+      height: 20,
+      borderRadius: appVisualTokens.radii.pill,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: theme.colors.brandBlue
+    },
+    freeTextRow: {
+      minHeight: 36,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.sm
+    },
+    freeTextInput: {
+      flex: 1,
+      minWidth: 0,
+      paddingVertical: 4,
+      fontSize: 15,
+      lineHeight: 20,
+      color: theme.colors.textPrimary
+    },
+    fieldBlock: {
+      minHeight: 46,
+      justifyContent: 'center'
+    },
+    inputField: {
+      minHeight: 44,
+      borderRadius: appVisualTokens.radii.sm,
+      borderWidth: 1.5,
+      borderColor: theme.colors.brandBlue,
+      paddingHorizontal: appVisualTokens.spacing.md,
+      paddingVertical: 8,
+      fontSize: 15,
+      lineHeight: 20,
+      color: theme.colors.textPrimary
+    },
+    footer: {
+      minHeight: 34,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      gap: appVisualTokens.spacing.sm
+    },
+    errorText: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 12,
+      lineHeight: 16,
+      color: theme.colors.danger
+    },
+    errorSpacer: {
+      flex: 1
+    },
+    actions: {
+      flexShrink: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.sm
+    },
+    ignoreButton: {
+      minHeight: 32,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 6,
+      borderRadius: appVisualTokens.radii.pill,
+      paddingLeft: 4
+    },
+    ignoreText: {
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '800',
+      color: theme.colors.textSecondary
+    },
+    keycap: {
+      minWidth: 42,
+      height: 30,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: appVisualTokens.radii.pill,
+      backgroundColor: theme.colors.brandBlueSoft,
+      paddingHorizontal: appVisualTokens.spacing.sm
+    },
+    keycapText: {
+      fontSize: 13,
+      lineHeight: 18,
+      fontWeight: '800',
+      color: theme.colors.textPrimary
+    },
+    primaryButton: {
+      minWidth: 58,
+      height: 34,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: appVisualTokens.radii.pill,
+      backgroundColor: theme.colors.brandBlue,
+      paddingHorizontal: appVisualTokens.spacing.md
+    },
+    primaryText: {
+      fontSize: 14,
+      lineHeight: 19,
+      fontWeight: '800',
+      color: theme.colors.surface
+    },
+    disabledButton: {
+      opacity: 0.38
+    },
+    disabledText: {
+      color: theme.colors.textTertiary
+    },
+    pressed: {
+      opacity: 0.68
+    },
+    primaryPressed: {
+      opacity: 0.82
+    }
+  });
+}
