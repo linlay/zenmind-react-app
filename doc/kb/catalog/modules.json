@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-09T11:16:48.915Z",
+  "generatedAt": "2026-06-10T10:40:19.955Z",
   "items": [
     {
       "id": "app-development-debug",
@@ -27,6 +27,8 @@
         "package.json",
         "babel.config.js",
         "metro.config.js",
+        "plugins/withAndroidAutolinkingCacheGuard.js",
+        "android/settings.gradle",
         "scripts/lib/brand-config.js",
         "scripts/sync-brand.js",
         "scripts/worklets",
@@ -78,7 +80,7 @@
       "id": "core-auth-session",
       "title": "认证会话与设备令牌",
       "layer": "core",
-      "summary": "维护设备登录后的会话状态、设备令牌缓存、冷启动恢复和前台预刷新逻辑。",
+      "summary": "维护设备登录后的会话状态、设备令牌缓存、设备 profile、聊天缓存 scope 切换、冷启动恢复和前台预刷新逻辑。",
       "pathHints": ["src/core/auth"],
       "relatedFlows": ["app-startup", "notification-open-chat-message"],
       "relatedTasks": ["add-auth-login-screen", "add-system-notifications"],
@@ -118,7 +120,7 @@
       "id": "feature-auth-login",
       "title": "登录页与认证门卫界面",
       "layer": "features",
-      "summary": "承载设备登录表单、启动恢复中的认证占位屏和最小会话交互。",
+      "summary": "承载设备登录表单、Desktop 二维码扫码配对、粘贴配对内容备用入口、启动恢复中的认证占位屏和最小会话交互。",
       "pathHints": ["src/features/auth"],
       "relatedFlows": ["app-startup"],
       "relatedTasks": ["add-auth-login-screen", "add-internationalization", "add-or-edit-tab-screen"],

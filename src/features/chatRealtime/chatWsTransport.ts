@@ -178,6 +178,17 @@ export function getChatTransportStatus(): ChatSocketStatus {
   return client?.getStatus() ?? 'idle';
 }
 
+export function updateChatTransportAuth(configInput: ChatTransportConfig): boolean {
+  const config = normalizeConfig(configInput);
+  if (!client || clientBackendUrl !== config.backendUrl) {
+    return false;
+  }
+
+  clientAccessToken = config.accessToken;
+  client.updateOptions({ accessToken: config.accessToken });
+  return true;
+}
+
 export async function startChatPushTransport(
   config: ChatTransportConfig,
   callbacks: ChatTransportCallbacks = {}

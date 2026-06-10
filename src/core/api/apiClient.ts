@@ -30,7 +30,11 @@ type ApiResponseResult = {
   ok: boolean;
   status: number;
   payload: unknown;
+  authScope: string;
 };
+
+const AUTH_SCOPE_HEADER = 'x-zenmind-auth-scope';
+const APP_AUTH_SCOPE = 'app';
 
 function normalizeBaseUrl(value: string | undefined): string {
   return String(value || '')
@@ -179,6 +183,7 @@ async function sendApiRequest(
       ok: response.ok,
       status: response.status,
       payload,
+      authScope: String(response.headers.get(AUTH_SCOPE_HEADER) || '').trim().toLowerCase(),
     };
   } catch (error) {
     logHttpError({
@@ -204,6 +209,16 @@ function parseApiResponse<T>(response: ApiResponseResult): T {
   return response.payload as T;
 }
 
+function shouldRefreshAfterUnauthorized(response: ApiResponseResult, options: ApiRequestOptions): boolean {
+  if (response.status !== 401) {
+    return false;
+  }
+  if (normalizePath(options.path).startsWith('/ap/')) {
+    return response.authScope === APP_AUTH_SCOPE;
+  }
+  return true;
+}
+
 async function apiRequestWithBaseUrl<T>(baseUrl: string, options: ApiRequestOptions): Promise<T> {
   return parseApiResponse<T>(await sendApiRequest(baseUrl, options));
 }
@@ -220,7 +235,7 @@ export async function authenticatedApiRequest<T>(options: ApiRequestOptions): Pr
   }
 
   let response = await sendApiRequest(baseUrl, options, accessToken, 1);
-  if (response.status === 401) {
+  if (shouldRefreshAfterUnauthorized(response, options)) {
     const nextToken = await getAccessTokenForRequest(baseUrl, true);
     if (!nextToken) {
       throw new ApiError('Not authenticated', 401, null);

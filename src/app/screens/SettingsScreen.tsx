@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, Vie
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { getActiveDeviceProfile, listDeviceProfiles } from '../../core/auth/deviceProfiles';
 import { useAuthSession } from '../../core/auth/useAuthSession';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
@@ -165,6 +166,8 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
   );
   const [cacheState, setCacheState] = useState<CacheActionState>('idle');
   const [cacheErrorText, setCacheErrorText] = useState('');
+  const deviceProfiles = listDeviceProfiles();
+  const activeProfile = getActiveDeviceProfile();
   const isClearingCache = cacheState === 'clearing';
   const developerModeEnabled = __DEV__ && debugSnapshot.enabled;
   const cacheDetail = useMemo(() => {
@@ -258,6 +261,20 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
               isClearingCache ? <ActivityIndicator size="small" color={theme.colors.brandBlue} /> : null
             }
           />
+          {deviceProfiles.map((profile) => (
+            <SettingsRow
+              key={profile.desktopDeviceId}
+              iconUsage="tab.me"
+              title={profile.displayName}
+              detail={`${profile.apiBaseUrl} · ${profile.desktopDeviceId.slice(0, 8)}`}
+              value={
+                activeProfile?.desktopDeviceId === profile.desktopDeviceId
+                  ? t('settings.cache.currentDevice')
+                  : undefined
+              }
+              disabled={profile.needsRelink}
+            />
+          ))}
         </SettingsSection>
 
         <SettingsSection title={t('settings.section.developer')}>

@@ -1,4 +1,4 @@
-import { getApiBaseUrl } from '../../core/api/apiClient';
+import { ApiError, getApiBaseUrl } from '../../core/api/apiClient';
 import { getAccessTokenForRequest } from '../../core/auth/appAuth';
 import {
   CHAT_SUMMARIES_TRANSPORT_TYPE,
@@ -73,6 +73,7 @@ import {
   startChatPushTransport,
   stopChatPushTransport,
   streamChatQuery,
+  updateChatTransportAuth,
 } from './chatWsTransport';
 import { ChatHomeItemPatch, ChatSocketStatus, ChatSyncEvent, ChatSyncReason } from './types';
 import {
@@ -161,6 +162,14 @@ function createAwaitingSubmitId(): string {
 
 function isMissingAgentKeyError(error: Error): boolean {
   return /agentKey\s+is\s+required/i.test(error.message);
+}
+
+function isApiStatusError(error: unknown, status: number): boolean {
+  return error instanceof ApiError && error.status === status;
+}
+
+function isRecoverableReconcileError(error: unknown): boolean {
+  return isApiStatusError(error, 401) || isApiStatusError(error, 404);
 }
 
 function findTimelineRunAgentKey(state: ChatTimelineState, runId: string): string {
@@ -287,9 +296,21 @@ class ChatSyncService {
     return this.startPromise;
   }
 
+  async refreshAuth() {
+    if (!this.started && !this.startPromise) {
+      return;
+    }
+
+    const config = await this.resolveTransportConfig();
+    if (config) {
+      updateChatTransportAuth(config);
+    }
+  }
+
   stop() {
     this.lifecycleVersion += 1;
     this.started = false;
+    this.hasConnectedOnce = false;
     stopChatPushTransport();
     this.clearTransientWork();
     this.setStatus('disconnected');
@@ -1898,16 +1919,22 @@ class ChatSyncService {
       current.inFlight = this.runConversationReconcile(
         normalizedConversationId,
         nextReason
-      ).finally(() => {
-        current.inFlight = null;
-        if (current.trailingReason) {
-          void this.scheduleConversationReconcile(
-            normalizedConversationId,
-            current.trailingReason,
-            true
-          );
-        }
-      });
+      )
+        .catch((error) => {
+          if (!isRecoverableReconcileError(error)) {
+            throw error;
+          }
+        })
+        .finally(() => {
+          current.inFlight = null;
+          if (current.trailingReason) {
+            void this.scheduleConversationReconcile(
+              normalizedConversationId,
+              current.trailingReason,
+              true
+            );
+          }
+        });
       return current.inFlight;
     };
 
@@ -1930,10 +1957,24 @@ class ChatSyncService {
   private async runConversationReconcile(conversationId: string, reason: ChatSyncReason) {
     await markConversationDirty(conversationId, reason);
 
+    const remoteDetailPromise = getChatDetailApi(conversationId).catch((error) => {
+      if (isApiStatusError(error, 404)) {
+        return null;
+      }
+      throw error;
+    });
     const [remoteDetail, localSummary] = await Promise.all([
-      getChatDetailApi(conversationId),
+      remoteDetailPromise,
       getConversationDetail(conversationId),
     ]);
+    if (!remoteDetail) {
+      if (localSummary) {
+        await this.emitHomePatchFromConversation(conversationId, {
+          shouldMoveToTop: false,
+        });
+      }
+      return;
+    }
     const projection = projectRemoteChatDetail(remoteDetail, buildFallbackSummary(localSummary));
     if (!projection) {
       return;

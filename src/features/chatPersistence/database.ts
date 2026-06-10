@@ -1,11 +1,17 @@
 import { drizzle } from 'drizzle-orm/expo-sqlite';
-import { openDatabaseSync } from 'expo-sqlite';
+import { deleteDatabaseSync, openDatabaseSync } from 'expo-sqlite';
 
+import {
+  buildChatDatabaseName,
+  getChatCacheScopeId,
+  normalizeChatCacheScopeId,
+  setChatCacheScopeId,
+} from './cacheScope';
 import * as schema from './schema';
 
-const sqlite = openDatabaseSync('zenmind-chat-demo.db', { enableChangeListener: true });
+let sqlite = openDatabaseSync(buildChatDatabaseName(), { enableChangeListener: true });
 
-export const chatDb = drizzle(sqlite, { schema });
+export let chatDb = drizzle(sqlite, { schema });
 
 const READ_STATE_SCHEMA_VERSION = 1;
 const RICH_TIMELINE_SCHEMA_VERSION = 2;
@@ -13,6 +19,41 @@ const CHAT_DIRECTORY_ICON_SCHEMA_VERSION = 3;
 const MESSAGE_ATTACHMENTS_SCHEMA_VERSION = 4;
 const CHAT_QUERY_INDEX_SCHEMA_VERSION = 5;
 let initialized = false;
+
+export function switchChatDatabaseScope(scopeId: string) {
+  const nextScopeId = normalizeChatCacheScopeId(scopeId);
+  if (getChatCacheScopeId() === nextScopeId) {
+    return;
+  }
+
+  const previousSqlite = sqlite;
+  const nextSqlite = openDatabaseSync(buildChatDatabaseName(nextScopeId), { enableChangeListener: true });
+  setChatCacheScopeId(nextScopeId);
+  sqlite = nextSqlite;
+  chatDb = drizzle(sqlite, { schema });
+  initialized = false;
+
+  try {
+    previousSqlite.closeSync();
+  } catch {
+    // Keep the newly selected database active even if the old native handle is already closed.
+  }
+}
+
+export function deleteChatDatabaseScope(scopeId: string): boolean {
+  const rawScopeId = String(scopeId || '').trim();
+  const normalizedScopeId = normalizeChatCacheScopeId(rawScopeId);
+  if (!rawScopeId || normalizedScopeId !== rawScopeId || normalizedScopeId === getChatCacheScopeId()) {
+    return false;
+  }
+
+  try {
+    deleteDatabaseSync(buildChatDatabaseName(normalizedScopeId));
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function ignoreDuplicateColumn(error: unknown) {
   if (!String(error instanceof Error ? error.message : error).includes('duplicate column name')) {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-09T11:16:48.916Z",
+  "generatedAt": "2026-06-10T10:40:19.956Z",
   "items": [
     {
       "id": "add-app-startup-loading-screen",
@@ -32,6 +32,10 @@
       "intentKeywords": ["新增登录页", "设备登录", "认证门卫", "登录 screen", "auth gate", "session bootstrap"],
       "entryDecision": "任务涉及登录页面、未登录前置路由、会话恢复或设备令牌缓存时，优先从这张卡开始。",
       "likelyFiles": [
+        "package.json",
+        "app.config.js",
+        "android/app/src/main/AndroidManifest.xml",
+        "ios/zenmindapp/Info.plist",
         "src/app/AppRoot.tsx",
         "src/app/navigation/RootNavigator.tsx",
         "src/app/navigation/types.ts",

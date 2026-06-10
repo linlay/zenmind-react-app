@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-09T11:16:48.841Z",
+  "generatedAt": "2026-06-10T10:40:19.885Z",
   "rules": [
     {
       "id": "screen-no-direct-sqlite",
@@ -89,6 +89,37 @@
         "优先从 src/shared/visual/foundation.ts 和 doc/ui-visual-theme.md 取主题语义。",
         "底部 Tab 避让继续基于 safe area 或 tab bar height，不在页面内硬编码 paddingBottom。",
         "长列表默认平面化，阴影只在必要浮层、状态提示或抬升交互里少量使用。"
+      ]
+    },
+    {
+      "id": "dependency-change-package-json-only",
+      "title": "依赖变更只改 package.json",
+      "statement": "涉及 npm / pnpm / yarn / bun 依赖新增、升级、降级、移除或版本声明调整时，AI 只能修改 package.json，不修改 lock 文件、不运行安装命令。",
+      "appliesTo": [
+        "app-shell-navigation",
+        "core-api-client",
+        "core-auth-session",
+        "core-runtime-config",
+        "feature-auth-login",
+        "feature-notifications",
+        "shared-i18n",
+        "shared-visual-foundation"
+      ],
+      "protectedModules": [
+        "app-shell-navigation",
+        "core-api-client",
+        "core-auth-session",
+        "core-runtime-config",
+        "feature-auth-login",
+        "feature-notifications",
+        "shared-i18n",
+        "shared-visual-foundation"
+      ],
+      "checkHints": [
+        "依赖相关改动只允许编辑 package.json。",
+        "不要修改 pnpm-lock.yaml、package-lock.json、yarn.lock、bun.lockb 等 lock 文件。",
+        "不要运行 pnpm install、npm install、yarn install、bun install 或其他会写入 lock / node_modules 的安装命令。",
+        "如果需要刷新 lock 或实际安装依赖，停止并提示用户手动执行。"
       ]
     }
   ]

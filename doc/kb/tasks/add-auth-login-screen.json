@@ -33,6 +33,10 @@
     }
   ],
   "likelyFiles": [
+    "package.json",
+    "app.config.js",
+    "android/app/src/main/AndroidManifest.xml",
+    "ios/zenmindapp/Info.plist",
     "src/app/AppRoot.tsx",
     "src/app/navigation/RootNavigator.tsx",
     "src/app/navigation/types.ts",
@@ -42,6 +46,7 @@
   ],
   "doNotMiss": [
     "登录页属于 feature，认证状态和设备令牌缓存属于 core，不要把 token 逻辑散到 screen 里。",
+    "扫码配对入口只负责相机权限、扫码 UI 和提交反馈，QR payload 的解析、claim 和 token/profile 写入继续留在 core auth。",
     "RootNavigator 必须同时覆盖 bootstrapping、unauthenticated 和 authenticated 三种状态。",
     "如果存在关闭登录要求的配置，AppRoot 和 RootNavigator 要共享同一个开关入口。",
     "如果登录接口字段或 base URL 读取方式变化，同步检查 refresh、logout 和冷启动恢复链路。"
@@ -53,6 +58,6 @@
   ],
   "generated": {
     "mustReadCount": 6,
-    "likelyFileCount": 6
+    "likelyFileCount": 10
   }
 }

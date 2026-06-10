@@ -2,7 +2,6 @@ import { Platform } from 'react-native';
 import { MMKV } from 'react-native-mmkv';
 import * as Notifications from 'expo-notifications';
 
-import { SessionState } from '../../core/auth/appAuth';
 import {
   PushTokenPlatform,
   PushTokenProvider,
@@ -27,6 +26,11 @@ type StoredPushRegistration = {
 };
 
 type NotificationPayloadListener = (payload: ChatNotificationPayload) => void;
+
+type NotificationRegistrationSession = {
+  username: string;
+  deviceId: string;
+};
 
 const notificationStorage = new MMKV({ id: 'zenmind-notifications' });
 const notificationPayloadListeners = new Set<NotificationPayloadListener>();
@@ -94,7 +98,7 @@ function buildRegistrationFingerprint(input: {
   ]);
 }
 
-function buildSessionRegistrationKey(session: SessionState) {
+function buildSessionRegistrationKey(session: NotificationRegistrationSession) {
   return JSON.stringify([session.username, session.deviceId]);
 }
 
@@ -198,7 +202,7 @@ async function ensureAndroidChannel() {
   isAndroidChannelConfigured = true;
 }
 
-async function syncPushTokenRegistration(session: SessionState) {
+async function syncPushTokenRegistration(session: NotificationRegistrationSession) {
   if (!isNativePushPlatform() || !session.deviceId) {
     return;
   }
@@ -284,7 +288,7 @@ export const notificationService = {
     activeConversationId = conversationId;
   },
 
-  registerForSession(session: SessionState) {
+  registerForSession(session: NotificationRegistrationSession) {
     const nextRegistrationPromiseKey = buildSessionRegistrationKey(session);
     if (completedRegistrationSessionKey === nextRegistrationPromiseKey) {
       return Promise.resolve();

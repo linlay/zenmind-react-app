@@ -4,7 +4,7 @@
   "layer": "features",
   "paths": ["src/features/auth"],
   "responsibility": [
-    "承载设备登录表单、启动恢复中的认证占位屏和最小会话交互。",
+    "承载设备登录表单、Desktop 二维码扫码配对、粘贴配对内容备用入口、启动恢复中的认证占位屏和最小会话交互。",
     "通过 core auth 与 core api 读取认证状态和后端地址，不在页面层直接碰 MMKV 或 fetch 细节。",
     "保持登录界面为纯 screen 级 UI，实现 root stack 的认证前置入口，并通过 shared-i18n 获取表单文案与校验提示，通过 shared-visual-foundation 复用 generated 品牌 logo。"
   ],
@@ -24,11 +24,13 @@
   ],
   "dependsOn": ["core-auth-session", "core-runtime-config", "shared-i18n", "shared-visual-foundation"],
   "dependedBy": ["app-shell-navigation"],
-  "stateTouches": ["登录表单本地输入态", "登录提交中状态", "认证错误提示"],
+  "stateTouches": ["登录表单本地输入态", "相机权限与扫码面板状态", "登录提交中状态", "认证错误提示"],
   "relatedFlows": ["app-startup"],
   "relatedTasks": ["add-auth-login-screen", "add-internationalization", "add-or-edit-tab-screen"],
   "impactChecklist": [
     "登录页只管表单与提交反馈，不在 UI 层自己保存 token。",
+    "扫码配对只把 QR 文本交给 core auth 的 loginWithPairingPayload，不在 UI 层解析、保存或刷新 token。",
+    "扫码能力依赖 expo-camera；新增或调整扫码入口时同步检查 package.json 和 app.config.js 的相机权限插件配置，不修改 lock 文件或运行安装命令。",
     "后端地址继续来自统一 API 配置入口，不在 feature 内复制环境变量读取逻辑。",
     "登录页文案和本地校验提示走 shared-i18n，不直接读取 expo-localization 或 i18n storage。",
     "登录页品牌图走 shared/icons/brandAssets，不直接 import assets/brands 或具体品牌资源。",

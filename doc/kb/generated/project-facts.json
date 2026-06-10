@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-09T11:16:48.841Z",
+  "generatedAt": "2026-06-10T10:40:19.885Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -24,6 +24,7 @@
     "src/core/api/services/uploadApi.ts",
     "src/core/auth/appAuth.ts",
     "src/core/auth/authConfig.ts",
+    "src/core/auth/deviceProfiles.ts",
     "src/core/auth/useAuthSession.ts",
     "src/core/config/endpoint.ts",
     "src/core/config/runtimeEnv.ts",
@@ -32,6 +33,7 @@
     "src/features/auth/LoginScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+    "src/features/chatPersistence/cacheScope.ts",
     "src/features/chatPersistence/chatAttachmentModels.ts",
     "src/features/chatPersistence/chatDetailAsyncScope.ts",
     "src/features/chatPersistence/chatDetailFormatters.ts",
@@ -264,6 +266,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "deviceProfiles.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "useAuthSession.ts",
                     "type": "file"
                   }
@@ -414,6 +420,10 @@
                         "type": "file"
                       }
                     ]
+                  },
+                  {
+                    "name": "cacheScope.ts",
+                    "type": "file"
                   },
                   {
                     "name": "chatAttachmentModels.ts",
@@ -835,7 +845,12 @@
       "src/core/api/services/templateApi.ts",
       "src/core/api/services/uploadApi.ts"
     ],
-    "core-auth-session": ["src/core/auth/appAuth.ts", "src/core/auth/authConfig.ts", "src/core/auth/useAuthSession.ts"],
+    "core-auth-session": [
+      "src/core/auth/appAuth.ts",
+      "src/core/auth/authConfig.ts",
+      "src/core/auth/deviceProfiles.ts",
+      "src/core/auth/useAuthSession.ts"
+    ],
     "core-debug-logging": ["src/core/debug/httpDebugLogger.ts"],
     "core-runtime-config": ["src/core/config/endpoint.ts", "src/core/config/runtimeEnv.ts"],
     "feature-agent-task-board": ["src/features/agentTaskBoard/AgentTaskBoardScreen.tsx"],
@@ -843,6 +858,7 @@
     "feature-chat-persistence": [
       "src/features/chatPersistence/ChatDetailScreen.tsx",
       "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+      "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatDetailAsyncScope.ts",
       "src/features/chatPersistence/chatDetailFormatters.ts",
@@ -962,6 +978,7 @@
     "src/core/api/services/uploadApi.ts": "core-api-client",
     "src/core/auth/appAuth.ts": "core-auth-session",
     "src/core/auth/authConfig.ts": "core-auth-session",
+    "src/core/auth/deviceProfiles.ts": "core-auth-session",
     "src/core/auth/useAuthSession.ts": "core-auth-session",
     "src/core/config/endpoint.ts": "core-runtime-config",
     "src/core/config/runtimeEnv.ts": "core-runtime-config",
@@ -970,6 +987,7 @@
     "src/features/auth/LoginScreen.tsx": "feature-auth-login",
     "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/ChatHomeStorageDemo.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/cacheScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatAttachmentModels.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailAsyncScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailFormatters.ts": "feature-chat-persistence",
@@ -1086,14 +1104,8 @@
       ]
     },
     "core-auth-session": {
-      "dependsOn": ["core-debug-logging", "core-runtime-config"],
-      "dependedBy": [
-        "app-shell-navigation",
-        "core-api-client",
-        "feature-auth-login",
-        "feature-chat-realtime",
-        "feature-notifications"
-      ]
+      "dependsOn": ["core-debug-logging", "core-runtime-config", "feature-chat-persistence"],
+      "dependedBy": ["app-shell-navigation", "core-api-client", "feature-auth-login", "feature-chat-realtime"]
     },
     "core-debug-logging": {
       "dependsOn": [],
@@ -1123,7 +1135,7 @@
         "shared-screen-header",
         "shared-visual-foundation"
       ],
-      "dependedBy": ["app-shell-navigation", "feature-chat-realtime", "feature-chat-timeline"]
+      "dependedBy": ["app-shell-navigation", "core-auth-session", "feature-chat-realtime", "feature-chat-timeline"]
     },
     "feature-chat-realtime": {
       "dependsOn": [
@@ -1140,7 +1152,7 @@
       "dependedBy": ["feature-chat-persistence", "feature-chat-realtime"]
     },
     "feature-notifications": {
-      "dependsOn": ["core-api-client", "core-auth-session"],
+      "dependsOn": ["core-api-client"],
       "dependedBy": ["app-shell-navigation"]
     },
     "shared-conversation-content-renderer": {
@@ -1278,6 +1290,7 @@
       "EnsureFreshAccessTokenOptions",
       "RefreshFailureMode",
       "SessionState",
+      "activateProfile",
       "bootstrapAuth",
       "ensureFreshAccessToken",
       "getAccessTokenForRequest",
@@ -1285,6 +1298,7 @@
       "getCurrentSession",
       "getDefaultDeviceName",
       "loginWithMasterPassword",
+      "loginWithPairingPayload",
       "logoutCurrentDevice",
       "readPreferredDeviceName",
       "restoreSession",
@@ -1296,6 +1310,18 @@
       "readStoredApiBaseUrl",
       "saveStoredApiBaseUrl"
     ],
+    "src/core/auth/deviceProfiles.ts": [
+      "DeviceProfile",
+      "DeviceProfileRegistrySnapshot",
+      "DeviceProfileWriteResult",
+      "getActiveDeviceProfile",
+      "listDeviceProfiles",
+      "markActiveDeviceProfileNeedsRelink",
+      "setActiveDeviceProfileId",
+      "updateActiveDeviceProfileAuth",
+      "upsertDeviceProfile",
+      "upsertManualDeviceProfile"
+    ],
     "src/core/auth/useAuthSession.ts": ["useAuthSession"],
     "src/core/config/endpoint.ts": ["looksLikeLocalAddress", "normalizeApiBaseUrl"],
     "src/core/config/runtimeEnv.ts": ["readPublicEnv"],
@@ -1304,6 +1330,14 @@
     "src/features/auth/LoginScreen.tsx": ["AuthBootstrapScreen", "LoginScreen"],
     "src/features/chatPersistence/ChatDetailScreen.tsx": ["ChatDetailScreen"],
     "src/features/chatPersistence/ChatHomeStorageDemo.tsx": ["ChatHomeStorageDemo"],
+    "src/features/chatPersistence/cacheScope.ts": [
+      "CHAT_LEGACY_CACHE_SCOPE_ID",
+      "buildChatDatabaseName",
+      "buildChatDirectorySnapshotKey",
+      "getChatCacheScopeId",
+      "normalizeChatCacheScopeId",
+      "setChatCacheScopeId"
+    ],
     "src/features/chatPersistence/chatAttachmentModels.ts": [
       "areChatAttachmentsEqual",
       "createMessageAttachmentsFromReferences",
@@ -1489,9 +1523,15 @@
     ],
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": ["RuntimePayloadContent"],
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": ["getRuntimeToolStatusColor"],
-    "src/features/chatPersistence/database.ts": ["chatDb", "ensureChatDatabase"],
+    "src/features/chatPersistence/database.ts": [
+      "chatDb",
+      "deleteChatDatabaseScope",
+      "ensureChatDatabase",
+      "switchChatDatabaseScope"
+    ],
     "src/features/chatPersistence/homeSnapshot.ts": [
       "clearChatDirectorySnapshot",
+      "clearChatDirectorySnapshotForScope",
       "readChatDirectorySnapshot",
       "writeChatDirectorySnapshot"
     ],
@@ -1565,7 +1605,8 @@
       "startChatPushTransport",
       "stopChatPushTransport",
       "streamChatQuery",
-      "toWsPushEvent"
+      "toWsPushEvent",
+      "updateChatTransportAuth"
     ],
     "src/features/chatRealtime/routing.ts": [
       "buildAssistantMessageId",
@@ -1895,6 +1936,7 @@
       "src/app/debug/developmentDebugPanel.ts",
       "src/app/navigation/types.ts",
       "src/app/settings/settingsActions.ts",
+      "src/core/auth/deviceProfiles.ts",
       "src/core/auth/useAuthSession.ts",
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
@@ -1927,8 +1969,15 @@
     "src/core/api/services/notificationApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/templateApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/uploadApi.ts": ["src/core/api/apiClient.ts"],
-    "src/core/auth/appAuth.ts": ["src/core/auth/authConfig.ts", "src/core/debug/httpDebugLogger.ts"],
+    "src/core/auth/appAuth.ts": [
+      "src/core/auth/authConfig.ts",
+      "src/core/auth/deviceProfiles.ts",
+      "src/core/debug/httpDebugLogger.ts",
+      "src/features/chatPersistence/database.ts",
+      "src/features/chatPersistence/homeSnapshot.ts"
+    ],
     "src/core/auth/authConfig.ts": ["src/core/config/endpoint.ts", "src/core/config/runtimeEnv.ts"],
+    "src/core/auth/deviceProfiles.ts": ["src/core/config/endpoint.ts"],
     "src/core/auth/useAuthSession.ts": ["src/core/auth/appAuth.ts"],
     "src/core/config/endpoint.ts": [],
     "src/core/config/runtimeEnv.ts": [],
@@ -1943,6 +1992,7 @@
     "src/features/auth/LoginScreen.tsx": [
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
+      "src/core/auth/deviceProfiles.ts",
       "src/core/config/endpoint.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/brandAssets.ts",
@@ -1989,6 +2039,7 @@
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
+    "src/features/chatPersistence/cacheScope.ts": [],
     "src/features/chatPersistence/chatAttachmentModels.ts": [
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/translate.ts"
@@ -2180,8 +2231,12 @@
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/shared/visual/foundation.ts"
     ],
-    "src/features/chatPersistence/database.ts": ["src/features/chatPersistence/schema.ts"],
+    "src/features/chatPersistence/database.ts": [
+      "src/features/chatPersistence/cacheScope.ts",
+      "src/features/chatPersistence/schema.ts"
+    ],
     "src/features/chatPersistence/homeSnapshot.ts": [
+      "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/types.ts",
       "src/shared/visual/agentAvatarIcon.ts"
     ],
@@ -2273,10 +2328,7 @@
     ],
     "src/features/chatTimeline/types.ts": ["src/features/chatPersistence/types.ts"],
     "src/features/chatTimeline/usageSummary.ts": ["src/features/chatTimeline/types.ts"],
-    "src/features/notifications/notificationService.ts": [
-      "src/core/api/services/notificationApi.ts",
-      "src/core/auth/appAuth.ts"
-    ],
+    "src/features/notifications/notificationService.ts": ["src/core/api/services/notificationApi.ts"],
     "src/shared/components/ConversationMarkdownRenderer.tsx": [
       "src/shared/markdown/preprocess.ts",
       "src/shared/visual/AppThemeProvider.tsx"

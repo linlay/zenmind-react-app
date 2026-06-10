@@ -90,6 +90,15 @@ Expo SDK 56 + React Native 0.85 + TypeScript 6。当前仓库是迁移后的 `ze
 - 实时业务写入必须继续走 `chatSyncService` / `chatRepository`
 - 影响首页目录的持久化改动必须继续刷新 MMKV 目录快照
 
+## 包依赖变更边界
+
+涉及 npm / pnpm / yarn / bun 依赖新增、升级、降级、移除或版本声明调整时：
+
+- AI 只能修改 `package.json`
+- 禁止修改 `pnpm-lock.yaml`、`package-lock.json`、`yarn.lock`、`bun.lockb` 等 lock 文件
+- 禁止运行 `pnpm install`、`npm install`、`yarn install`、`bun install` 或其他会写入 lock / `node_modules` 的安装命令
+- 如需刷新 lock 文件或实际安装依赖，必须停止并提示用户手动执行
+
 ## 依赖规则
 
 当前推荐依赖方向：

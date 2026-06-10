@@ -4,7 +4,7 @@
   "layer": "core",
   "paths": ["src/core/auth"],
   "responsibility": [
-    "维护设备登录后的会话状态、设备令牌缓存、冷启动恢复和前台预刷新逻辑。",
+    "维护设备登录后的会话状态、设备令牌缓存、设备 profile、聊天缓存 scope 切换、冷启动恢复和前台预刷新逻辑。",
     "提供 login、hard refresh、soft refresh、logout 和 useSyncExternalStore 订阅入口，不把认证细节散落到页面层。",
     "在开发态通过 core-debug-logging 打印认证 HTTP 请求、响应和错误。",
     "让 app shell 只消费认证快照，不直接处理 token 解析、持久化和刷新单飞。"
@@ -59,19 +59,19 @@
       "description": "订阅全局认证快照，驱动根路由切换。"
     }
   ],
-  "dependsOn": ["core-debug-logging", "core-runtime-config"],
-  "dependedBy": [
-    "app-shell-navigation",
-    "core-api-client",
-    "feature-auth-login",
-    "feature-chat-realtime",
-    "feature-notifications"
+  "dependsOn": ["core-debug-logging", "core-runtime-config", "feature-chat-persistence"],
+  "dependedBy": ["app-shell-navigation", "core-api-client", "feature-auth-login", "feature-chat-realtime"],
+  "stateTouches": [
+    "MMKV device token",
+    "MMKV preferred device name",
+    "本机设备 profile 与聊天缓存 scope",
+    "内存态 access token 和会话快照"
   ],
-  "stateTouches": ["MMKV device token", "MMKV preferred device name", "内存态 access token 和会话快照"],
   "relatedFlows": ["app-startup", "notification-open-chat-message"],
   "relatedTasks": ["add-auth-login-screen", "add-system-notifications"],
   "impactChecklist": [
     "认证缓存继续只放设备令牌、设备名和内存态 session，不把业务数据下沉到 auth 模块。",
+    "设备 profile 切换或淘汰只通过 chatPersistence 暴露的 scope 边界切换/清理聊天缓存，不在 auth 内直接读写聊天业务数据。",
     "是否强制登录的开关只保留一个集中入口，避免 app shell、screen 和 service 各自维护状态。",
     "如果登录页允许编辑后端地址，要同步维护本地 endpoint override 与环境变量回退顺序。",
     "根路由只根据认证快照切屏，不在 screen 里重复写会话恢复逻辑。",
@@ -99,14 +99,20 @@
     }
   ],
   "generated": {
-    "fileCount": 3,
-    "files": ["src/core/auth/appAuth.ts", "src/core/auth/authConfig.ts", "src/core/auth/useAuthSession.ts"],
+    "fileCount": 4,
+    "files": [
+      "src/core/auth/appAuth.ts",
+      "src/core/auth/authConfig.ts",
+      "src/core/auth/deviceProfiles.ts",
+      "src/core/auth/useAuthSession.ts"
+    ],
     "exportedSymbolsByFile": {
       "src/core/auth/appAuth.ts": [
         "AuthStoreSnapshot",
         "EnsureFreshAccessTokenOptions",
         "RefreshFailureMode",
         "SessionState",
+        "activateProfile",
         "bootstrapAuth",
         "ensureFreshAccessToken",
         "getAccessTokenForRequest",
@@ -114,6 +120,7 @@
         "getCurrentSession",
         "getDefaultDeviceName",
         "loginWithMasterPassword",
+        "loginWithPairingPayload",
         "logoutCurrentDevice",
         "readPreferredDeviceName",
         "restoreSession",
@@ -125,15 +132,21 @@
         "readStoredApiBaseUrl",
         "saveStoredApiBaseUrl"
       ],
+      "src/core/auth/deviceProfiles.ts": [
+        "DeviceProfile",
+        "DeviceProfileRegistrySnapshot",
+        "DeviceProfileWriteResult",
+        "getActiveDeviceProfile",
+        "listDeviceProfiles",
+        "markActiveDeviceProfileNeedsRelink",
+        "setActiveDeviceProfileId",
+        "updateActiveDeviceProfileAuth",
+        "upsertDeviceProfile",
+        "upsertManualDeviceProfile"
+      ],
       "src/core/auth/useAuthSession.ts": ["useAuthSession"]
     },
-    "actualDependsOn": ["core-debug-logging", "core-runtime-config"],
-    "actualDependedBy": [
-      "app-shell-navigation",
-      "core-api-client",
-      "feature-auth-login",
-      "feature-chat-realtime",
-      "feature-notifications"
-    ]
+    "actualDependsOn": ["core-debug-logging", "core-runtime-config", "feature-chat-persistence"],
+    "actualDependedBy": ["app-shell-navigation", "core-api-client", "feature-auth-login", "feature-chat-realtime"]
   }
 }

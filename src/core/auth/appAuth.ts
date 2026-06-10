@@ -2,7 +2,21 @@ import { saveStoredApiBaseUrl } from './authConfig';
 import { Platform } from 'react-native';
 import { MMKV } from 'react-native-mmkv';
 
+import {
+  deleteChatDatabaseScope,
+  switchChatDatabaseScope,
+} from '../../features/chatPersistence/database';
+import { clearChatDirectorySnapshotForScope } from '../../features/chatPersistence/homeSnapshot';
 import { logHttpError, logHttpRequest, logHttpResponse } from '../debug/httpDebugLogger';
+import {
+  getActiveDeviceProfile,
+  markActiveDeviceProfileNeedsRelink,
+  setActiveDeviceProfileId,
+  updateActiveDeviceProfileAuth,
+  upsertDeviceProfile,
+  upsertManualDeviceProfile,
+  type DeviceProfile,
+} from './deviceProfiles';
 
 const authStorage = new MMKV({ id: 'zenmind-auth-session' });
 
@@ -44,6 +58,29 @@ interface LoginResponse {
   accessTokenExpireAt?: number | string;
   accessExpireAt?: number | string;
   deviceToken: string;
+}
+
+interface PairingPayload {
+  desktopDeviceId: string;
+  desktopIdentityCreatedAt?: string;
+  desktopUsername?: string;
+  desktopHostname?: string;
+  appServerIssuer?: string;
+  appServerPublicKeySha256?: string;
+  apiBaseUrl: string;
+  pairingId: string;
+  secret: string;
+  expiresAt?: string;
+}
+
+interface PairingClaimResponse extends LoginResponse {
+  desktopDeviceId: string;
+  desktopIdentityCreatedAt?: string;
+  desktopUsername?: string;
+  desktopHostname?: string;
+  appServerIssuer?: string;
+  appServerPublicKeySha256?: string;
+  apiBaseUrl?: string;
 }
 
 interface RefreshResponse {
@@ -94,6 +131,75 @@ function normalizeBaseUrl(baseUrl: string): string {
   return String(baseUrl || '')
     .trim()
     .replace(/\/+$/, '');
+}
+
+function readString(record: Record<string, unknown>, key: string): string {
+  return typeof record[key] === 'string' ? record[key].trim() : '';
+}
+
+function parsePairingPayload(payloadText: string): PairingPayload {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(String(payloadText || '').trim());
+  } catch {
+    throw new Error('二维码内容格式不正确');
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('二维码内容格式不正确');
+  }
+  const record = parsed as Record<string, unknown>;
+  const payload: PairingPayload = {
+    desktopDeviceId: readString(record, 'desktopDeviceId'),
+    desktopIdentityCreatedAt: readString(record, 'desktopIdentityCreatedAt'),
+    desktopUsername: readString(record, 'desktopUsername'),
+    desktopHostname: readString(record, 'desktopHostname'),
+    appServerIssuer: readString(record, 'appServerIssuer'),
+    appServerPublicKeySha256: readString(record, 'appServerPublicKeySha256'),
+    apiBaseUrl: normalizeBaseUrl(readString(record, 'apiBaseUrl')),
+    pairingId: readString(record, 'pairingId'),
+    secret: readString(record, 'secret'),
+    expiresAt: readString(record, 'expiresAt'),
+  };
+  if (!payload.desktopDeviceId || !payload.apiBaseUrl || !payload.pairingId || !payload.secret) {
+    throw new Error('二维码缺少必要配对字段');
+  }
+  return payload;
+}
+
+function defaultDisplayNameFromPairing(payload: PairingPayload | PairingClaimResponse): string {
+  return (
+    String(payload.desktopUsername || '').trim() ||
+    String(payload.desktopHostname || '').trim() ||
+    'Desktop'
+  );
+}
+
+function applyDeviceProfileRuntime(profile: DeviceProfile) {
+  switchChatDatabaseScope(profile.cacheScopeId);
+  saveStoredApiBaseUrl(profile.apiBaseUrl);
+  saveDeviceToken(profile.deviceToken);
+}
+
+function hydrateActiveProfileRuntime(): DeviceProfile | null {
+  const profile = getActiveDeviceProfile();
+  if (!profile || profile.needsRelink) {
+    return null;
+  }
+  applyDeviceProfileRuntime(profile);
+  return profile;
+}
+
+function cleanupEvictedDeviceCaches(cacheScopeIds: string[]) {
+  const seen = new Set<string>();
+  for (const cacheScopeId of cacheScopeIds) {
+    const normalized = String(cacheScopeId || '').trim();
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    clearChatDirectorySnapshotForScope(normalized);
+    deleteChatDatabaseScope(normalized);
+  }
 }
 
 function parseNumericEpochMs(raw: unknown): number | null {
@@ -272,6 +378,7 @@ function savePreferredDeviceName(deviceName: string) {
 }
 
 function clearSessionAndDeviceToken() {
+  markActiveDeviceProfileNeedsRelink();
   saveDeviceToken('');
   setCurrentSession(null);
 }
@@ -385,6 +492,14 @@ async function refreshAccessToken(
       const nextSession = buildSessionFromRefresh(payload);
       saveDeviceToken(nextSession.deviceToken);
       savePreferredDeviceName(nextSession.deviceName);
+      const profileResult = updateActiveDeviceProfileAuth({
+        apiBaseUrl: normalizedBaseUrl,
+        deviceToken: nextSession.deviceToken,
+        serverDeviceId: nextSession.deviceId,
+      });
+      if (profileResult) {
+        cleanupEvictedDeviceCaches(profileResult.evictedCacheScopeIds);
+      }
       setCurrentSession(nextSession);
       return nextSession.accessToken;
     } catch {
@@ -450,7 +565,8 @@ export async function ensureFreshAccessToken(
 }
 
 export async function bootstrapAuth(baseUrl: string): Promise<SessionState | null> {
-  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+  const activeProfile = hydrateActiveProfileRuntime();
+  const normalizedBaseUrl = normalizeBaseUrl(activeProfile?.apiBaseUrl || baseUrl);
   if (!normalizedBaseUrl) {
     ensureBaseUrl('');
     setCurrentSession(null);
@@ -519,11 +635,78 @@ export async function loginWithMasterPassword(
   });
 
   const nextSession = buildSessionFromLogin(payload, normalizedDeviceName);
-  saveStoredApiBaseUrl(normalizedBaseUrl);
-  saveDeviceToken(nextSession.deviceToken);
+  const profileResult = upsertManualDeviceProfile({
+    apiBaseUrl: normalizedBaseUrl,
+    deviceName: nextSession.deviceName,
+    deviceToken: nextSession.deviceToken,
+    serverDeviceId: nextSession.deviceId,
+  });
+  applyDeviceProfileRuntime(profileResult.profile);
+  cleanupEvictedDeviceCaches(profileResult.evictedCacheScopeIds);
   savePreferredDeviceName(nextSession.deviceName);
   setCurrentSession(nextSession);
   return nextSession;
+}
+
+export async function loginWithPairingPayload(
+  pairingPayloadText: string,
+  deviceName: string
+): Promise<SessionState> {
+  const pairing = parsePairingPayload(pairingPayloadText);
+  const normalizedBaseUrl = ensureBaseUrl(pairing.apiBaseUrl);
+  if (!normalizedBaseUrl) {
+    throw new Error('二维码缺少服务地址');
+  }
+
+  const normalizedDeviceName = String(deviceName || '').trim() || getDefaultDeviceName();
+  const payload = await requestJson<PairingClaimResponse>(normalizedBaseUrl, '/api/auth/pairing/claim', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      pairingId: pairing.pairingId,
+      secret: pairing.secret,
+      deviceName: normalizedDeviceName,
+    }),
+  });
+
+  const nextSession = buildSessionFromLogin(payload, normalizedDeviceName);
+  const apiBaseUrl = normalizeBaseUrl(payload.apiBaseUrl || pairing.apiBaseUrl);
+  const profileResult = upsertDeviceProfile({
+    desktopDeviceId: payload.desktopDeviceId || pairing.desktopDeviceId,
+    defaultDisplayName: defaultDisplayNameFromPairing(payload) || defaultDisplayNameFromPairing(pairing),
+    apiBaseUrl,
+    deviceToken: nextSession.deviceToken,
+    serverDeviceId: nextSession.deviceId,
+    identityCreatedAt: payload.desktopIdentityCreatedAt || pairing.desktopIdentityCreatedAt,
+    hostname: payload.desktopHostname || pairing.desktopHostname,
+    appServerPublicKeySha256:
+      payload.appServerPublicKeySha256 || pairing.appServerPublicKeySha256,
+  });
+  applyDeviceProfileRuntime(profileResult.profile);
+  cleanupEvictedDeviceCaches(profileResult.evictedCacheScopeIds);
+  savePreferredDeviceName(nextSession.deviceName);
+  setCurrentSession(nextSession);
+  return nextSession;
+}
+
+export function activateProfile(desktopDeviceId: string): DeviceProfile {
+  const profile = setActiveDeviceProfileId(desktopDeviceId);
+  if (!profile) {
+    throw new Error('profile not found');
+  }
+  applyDeviceProfileRuntime(profile);
+  currentBaseUrl = profile.apiBaseUrl;
+  currentSession = null;
+  refreshPromise = null;
+  refreshFailureMode = null;
+  bootstrapPromise = null;
+  setAuthSnapshot({
+    isBootstrapping: false,
+    session: null,
+  });
+  return profile;
 }
 
 export async function logoutCurrentDevice(baseUrl: string): Promise<void> {
@@ -545,6 +728,7 @@ export async function logoutCurrentDevice(baseUrl: string): Promise<void> {
 
   refreshPromise = null;
   bootstrapPromise = null;
+  markActiveDeviceProfileNeedsRelink();
   saveDeviceToken('');
   setCurrentSession(null);
 }

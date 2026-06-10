@@ -65,6 +65,14 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
   const { theme } = useAppTheme();
   const authRequired = isAuthRequired();
   const { isBootstrapping, session } = useAuthSession();
+  const apiBaseUrl = getApiBaseUrl();
+  const hasSession = Boolean(session);
+  const sessionUsername = session?.username || '';
+  const sessionDeviceId = session?.deviceId || '';
+  const sessionIdentityKey = sessionDeviceId
+    ? JSON.stringify([apiBaseUrl, sessionUsername, sessionDeviceId])
+    : '';
+  const sessionAccessToken = session?.accessToken || '';
   const [isNavigationReady, setIsNavigationReady] = useState(false);
   const [currentRouteName, setCurrentRouteName] = useState<string | null>(null);
   const pendingNotificationPayloadRef = useRef<ChatNotificationPayload | null>(null);
@@ -73,7 +81,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
 
   const routeNotificationPayload = useCallback(
     (payload: ChatNotificationPayload) => {
-      if (!navigationRef.isReady() || (authRequired && !session)) {
+      if (!navigationRef.isReady() || (authRequired && !hasSession)) {
         pendingNotificationPayloadRef.current = payload;
         return;
       }
@@ -84,7 +92,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
         fromNotification: true,
       });
     },
-    [authRequired, session]
+    [authRequired, hasSession]
   );
 
   const handleNavigationRouteChange = useCallback(() => {
@@ -93,26 +101,26 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
   }, []);
 
   const runForegroundProactiveRefresh = useCallback(async () => {
-    if (!authRequired || isBootstrapping || !session) {
+    if (!authRequired || isBootstrapping || !hasSession) {
       return null;
     }
 
-    return ensureFreshAccessToken(getApiBaseUrl(), {
+    return ensureFreshAccessToken(apiBaseUrl, {
       minValidityMs: PREFRESH_MIN_VALIDITY_MS,
       jitterMs: PREFRESH_JITTER_MS,
       failureMode: 'soft',
     });
-  }, [authRequired, isBootstrapping, session]);
+  }, [apiBaseUrl, authRequired, hasSession, isBootstrapping]);
 
   useEffect(() => {
     if (!authRequired) {
       return;
     }
 
-    bootstrapAuth(getApiBaseUrl()).catch(() => {
+    bootstrapAuth(apiBaseUrl).catch(() => {
       // Fail closed to the login route if bootstrap refresh cannot complete.
     });
-  }, [authRequired]);
+  }, [apiBaseUrl, authRequired]);
 
   useEffect(() => {
     if (!authRequired) {
@@ -143,7 +151,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
   }, [authRequired, runForegroundProactiveRefresh]);
 
   useEffect(() => {
-    if (!authRequired || isBootstrapping || !session) {
+    if (!authRequired || isBootstrapping || !hasSession) {
       return;
     }
 
@@ -158,19 +166,22 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
     return () => {
       clearInterval(timer);
     };
-  }, [authRequired, isBootstrapping, runForegroundProactiveRefresh, session]);
+  }, [authRequired, hasSession, isBootstrapping, runForegroundProactiveRefresh]);
 
   useEffect(() => {
     return notificationService.subscribe(routeNotificationPayload);
   }, [routeNotificationPayload]);
 
   useEffect(() => {
-    if (!session || isBootstrapping) {
+    if (!sessionIdentityKey || isBootstrapping) {
       chatSyncService.stop();
       return;
     }
 
-    notificationService.registerForSession(session).catch(() => {
+    notificationService.registerForSession({
+      username: sessionUsername,
+      deviceId: sessionDeviceId,
+    }).catch(() => {
       // Push token registration is best-effort and must not block app startup.
     });
     chatSyncService.start().catch(() => {
@@ -180,11 +191,19 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
     return () => {
       chatSyncService.stop();
     };
-  }, [isBootstrapping, session]);
+  }, [isBootstrapping, sessionDeviceId, sessionIdentityKey, sessionUsername]);
+
+  useEffect(() => {
+    if (!authRequired || isBootstrapping || !sessionIdentityKey || !sessionAccessToken) {
+      return;
+    }
+
+    chatSyncService.refreshAuth().catch(() => {});
+  }, [authRequired, isBootstrapping, sessionAccessToken, sessionIdentityKey]);
 
   useEffect(() => {
     const canRouteNotification =
-      isNavigationReady && (!authRequired || (!isBootstrapping && Boolean(session)));
+      isNavigationReady && (!authRequired || (!isBootstrapping && hasSession));
     if (!canRouteNotification || !pendingNotificationPayloadRef.current) {
       return;
     }
@@ -192,7 +211,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
     const payload = pendingNotificationPayloadRef.current;
     pendingNotificationPayloadRef.current = null;
     routeNotificationPayload(payload);
-  }, [authRequired, isBootstrapping, isNavigationReady, routeNotificationPayload, session]);
+  }, [authRequired, hasSession, isBootstrapping, isNavigationReady, routeNotificationPayload]);
 
   const isChatDetailRoute = currentRouteName === 'ChatDetail';
   const showDevelopmentDebugPanel = __DEV__ && currentRouteName !== null;

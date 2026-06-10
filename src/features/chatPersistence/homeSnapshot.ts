@@ -1,6 +1,12 @@
 import { MMKV } from 'react-native-mmkv';
 
 import { normalizeAgentAvatarIcon } from '../../shared/visual/agentAvatarIcon.ts';
+import {
+  buildChatDirectorySnapshotKey,
+  CHAT_LEGACY_CACHE_SCOPE_ID,
+  getChatCacheScopeId,
+  normalizeChatCacheScopeId,
+} from './cacheScope';
 import { ChatDirectoryItem, ChatDirectorySnapshot } from './types';
 
 const storage = new MMKV({ id: 'zenmind-chat-home-snapshot' });
@@ -24,7 +30,10 @@ function normalizeDirectorySnapshotItem(item: ChatDirectoryItem): ChatDirectoryI
 }
 
 export function readChatDirectorySnapshot(): ChatDirectorySnapshot | null {
-  const raw = storage.getString(DIRECTORY_SNAPSHOT_KEY);
+  const scopeId = getChatCacheScopeId();
+  const raw =
+    storage.getString(buildChatDirectorySnapshotKey(scopeId)) ||
+    (scopeId === CHAT_LEGACY_CACHE_SCOPE_ID ? storage.getString(DIRECTORY_SNAPSHOT_KEY) : '');
   if (!raw) {
     return null;
   }
@@ -50,10 +59,30 @@ export function writeChatDirectorySnapshot(items: ChatDirectoryItem[]) {
     items,
   };
 
-  storage.set(DIRECTORY_SNAPSHOT_KEY, JSON.stringify(snapshot));
+  if (getChatCacheScopeId() === CHAT_LEGACY_CACHE_SCOPE_ID) {
+    storage.set(DIRECTORY_SNAPSHOT_KEY, JSON.stringify(snapshot));
+  }
+  storage.set(buildChatDirectorySnapshotKey(), JSON.stringify(snapshot));
 }
 
 export function clearChatDirectorySnapshot() {
   storage.delete(LEGACY_HOME_SNAPSHOT_KEY);
-  storage.delete(DIRECTORY_SNAPSHOT_KEY);
+  if (getChatCacheScopeId() === CHAT_LEGACY_CACHE_SCOPE_ID) {
+    storage.delete(DIRECTORY_SNAPSHOT_KEY);
+  }
+  storage.delete(buildChatDirectorySnapshotKey());
+}
+
+export function clearChatDirectorySnapshotForScope(scopeId: string) {
+  const rawScopeId = String(scopeId || '').trim();
+  const normalizedScopeId = normalizeChatCacheScopeId(rawScopeId);
+  if (!rawScopeId || normalizedScopeId !== rawScopeId || normalizedScopeId === getChatCacheScopeId()) {
+    return;
+  }
+
+  storage.delete(buildChatDirectorySnapshotKey(normalizedScopeId));
+  if (normalizedScopeId === CHAT_LEGACY_CACHE_SCOPE_ID && getChatCacheScopeId() !== CHAT_LEGACY_CACHE_SCOPE_ID) {
+    storage.delete(LEGACY_HOME_SNAPSHOT_KEY);
+    storage.delete(DIRECTORY_SNAPSHOT_KEY);
+  }
 }

@@ -118,7 +118,8 @@
         "startChatPushTransport",
         "stopChatPushTransport",
         "streamChatQuery",
-        "toWsPushEvent"
+        "toWsPushEvent",
+        "updateChatTransportAuth"
       ],
       "src/features/chatRealtime/routing.ts": [
         "buildAssistantMessageId",
