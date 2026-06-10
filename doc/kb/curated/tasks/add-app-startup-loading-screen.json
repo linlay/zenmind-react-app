@@ -38,7 +38,7 @@
   "likelyFiles": [
     "App.tsx",
     "app.config.js",
-    "assets/generated/brand",
+    "assets/brands",
     "src/app/AppRoot.tsx",
     "src/app/startup/AppLaunchSkeleton.tsx",
     "src/app/startup/GeminiLogo.tsx",

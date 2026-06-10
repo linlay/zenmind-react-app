@@ -18,15 +18,19 @@ import { readResolvedApiBaseUrl } from '../../core/auth/authConfig';
 import { normalizeApiBaseUrl } from '../../core/config/endpoint';
 import { brandAssets } from '../../shared/icons/brandAssets';
 import { useT } from '../../shared/i18n';
+import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
+import { appVisualTokens, type AppThemeTokens } from '../../shared/visual/foundation';
 
 export function AuthBootstrapScreen() {
   const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <View style={styles.bootstrapShell}>
         <View style={styles.bootstrapCard}>
-          <ActivityIndicator size="small" color="#0f172a" />
+          <ActivityIndicator size="small" color={theme.colors.brandBlueAction} />
           <Text style={styles.bootstrapText}>{t('auth.bootstrap.restoring')}</Text>
         </View>
       </View>
@@ -37,6 +41,8 @@ export function AuthBootstrapScreen() {
 export function LoginScreen() {
   const t = useT();
   const insets = useSafeAreaInsets();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
   const [endpointDraft, setEndpointDraft] = useState(() => readResolvedApiBaseUrl());
   const [deviceName, setDeviceName] = useState(() => readPreferredDeviceName());
   const [masterPassword, setMasterPassword] = useState('');
@@ -120,7 +126,7 @@ export function LoginScreen() {
                 keyboardType="url"
                 onChangeText={setEndpointDraft}
                 placeholder={t('auth.endpoint.placeholder')}
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={theme.colors.textTertiary}
                 style={styles.input}
                 value={endpointDraft}
               />
@@ -133,7 +139,7 @@ export function LoginScreen() {
                 autoCorrect={false}
                 onChangeText={setDeviceName}
                 placeholder={t('auth.device.placeholder')}
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={theme.colors.textTertiary}
                 style={styles.input}
                 value={deviceName}
               />
@@ -150,7 +156,7 @@ export function LoginScreen() {
                     handleSubmit().catch(() => {});
                   }}
                   placeholder={t('auth.password.placeholder')}
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={theme.colors.textTertiary}
                   secureTextEntry={!isPasswordVisible}
                   style={styles.passwordInput}
                   value={masterPassword}
@@ -186,7 +192,7 @@ export function LoginScreen() {
               ]}
             >
               {isSubmitting ? (
-                <ActivityIndicator size="small" color="#f8fafc" />
+                <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
               ) : (
                 <Text style={styles.submitButtonText}>{t('auth.submit')}</Text>
               )}
@@ -198,154 +204,156 @@ export function LoginScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: '#f3f7fb'
-  },
-  keyboardShell: {
-    flex: 1
-  },
-  scrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-    gap: 18
-  },
-  logoWrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: 6,
-    paddingBottom: 4
-  },
-  logo: {
-    width: 88,
-    height: 88
-  },
-  formCard: {
-    borderRadius: 28,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    gap: 14
-  },
-  inputGroup: {
-    gap: 8
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#334155'
-  },
-  input: {
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#dbe4ee',
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#0f172a'
-  },
-  passwordInputShell: {
-    height: 52,
-    borderRadius: 16,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#dbe4ee',
-    paddingLeft: 16,
-    paddingRight: 8,
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  passwordInput: {
-    flex: 1,
-    height: '100%',
-    fontSize: 16,
-    color: '#0f172a'
-  },
-  eyeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  eyeButtonPressed: {
-    backgroundColor: 'rgba(148, 163, 184, 0.18)'
-  },
-  eyeIcon: {
-    width: 22,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  eyeOutline: {
-    position: 'absolute',
-    width: 20,
-    height: 12,
-    borderWidth: 1.6,
-    borderColor: '#64748b',
-    borderRadius: 20
-  },
-  eyePupil: {
-    width: 5,
-    height: 5,
-    borderRadius: 999,
-    backgroundColor: '#64748b'
-  },
-  eyeSlash: {
-    position: 'absolute',
-    width: 22,
-    height: 1.8,
-    borderRadius: 999,
-    backgroundColor: '#94a3b8',
-    transform: [{ rotate: '-32deg' }]
-  },
-  errorText: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#dc2626'
-  },
-  submitButton: {
-    marginTop: 4,
-    minHeight: 54,
-    borderRadius: 18,
-    backgroundColor: '#0f172a',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  submitButtonDisabled: {
-    opacity: 0.48
-  },
-  submitButtonPressed: {
-    opacity: 0.86
-  },
-  submitButtonText: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#f8fafc'
-  },
-  bootstrapShell: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20
-  },
-  bootstrapCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    borderRadius: 18,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    paddingHorizontal: 18,
-    paddingVertical: 16
-  },
-  bootstrapText: {
-    fontSize: 14,
-    color: '#334155'
-  }
-});
+function createStyles(theme: AppThemeTokens) {
+  return StyleSheet.create({
+    safeArea: {
+      flex: 1,
+      backgroundColor: theme.colors.background
+    },
+    keyboardShell: {
+      flex: 1
+    },
+    scrollContent: {
+      flexGrow: 1,
+      paddingHorizontal: 20,
+      gap: 18
+    },
+    logoWrap: {
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingTop: 6,
+      paddingBottom: 4
+    },
+    logo: {
+      width: 88,
+      height: 88
+    },
+    formCard: {
+      borderRadius: appVisualTokens.radii.lg,
+      backgroundColor: theme.colors.surface,
+      paddingHorizontal: 20,
+      paddingVertical: 20,
+      borderWidth: 1,
+      borderColor: theme.colors.lineStrong,
+      gap: 14
+    },
+    inputGroup: {
+      gap: 8
+    },
+    inputLabel: {
+      fontSize: 13,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    input: {
+      height: 52,
+      borderRadius: appVisualTokens.radii.md,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.colors.lineStrong,
+      paddingHorizontal: 16,
+      fontSize: 16,
+      color: theme.colors.textPrimary
+    },
+    passwordInputShell: {
+      height: 52,
+      borderRadius: appVisualTokens.radii.md,
+      backgroundColor: theme.colors.surfaceMuted,
+      borderWidth: 1,
+      borderColor: theme.colors.lineStrong,
+      paddingLeft: 16,
+      paddingRight: 8,
+      flexDirection: 'row',
+      alignItems: 'center'
+    },
+    passwordInput: {
+      flex: 1,
+      height: '100%',
+      fontSize: 16,
+      color: theme.colors.textPrimary
+    },
+    eyeButton: {
+      width: 40,
+      height: 40,
+      borderRadius: appVisualTokens.radii.md,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    eyeButtonPressed: {
+      backgroundColor: theme.colors.surfaceRaised
+    },
+    eyeIcon: {
+      width: 22,
+      height: 16,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    eyeOutline: {
+      position: 'absolute',
+      width: 20,
+      height: 12,
+      borderWidth: 1.6,
+      borderColor: theme.colors.textTertiary,
+      borderRadius: 20
+    },
+    eyePupil: {
+      width: 5,
+      height: 5,
+      borderRadius: 999,
+      backgroundColor: theme.colors.textTertiary
+    },
+    eyeSlash: {
+      position: 'absolute',
+      width: 22,
+      height: 1.8,
+      borderRadius: 999,
+      backgroundColor: theme.colors.textTertiary,
+      transform: [{ rotate: '-32deg' }]
+    },
+    errorText: {
+      fontSize: 14,
+      lineHeight: 20,
+      color: theme.colors.danger
+    },
+    submitButton: {
+      marginTop: 4,
+      minHeight: 54,
+      borderRadius: appVisualTokens.radii.lg,
+      backgroundColor: theme.colors.brandBlueAction,
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    submitButtonDisabled: {
+      opacity: 0.48
+    },
+    submitButtonPressed: {
+      opacity: 0.86
+    },
+    submitButtonText: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: theme.colors.onBrandBlueAction
+    },
+    bootstrapShell: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingHorizontal: 20
+    },
+    bootstrapCard: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      borderRadius: appVisualTokens.radii.lg,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.lineStrong,
+      paddingHorizontal: 18,
+      paddingVertical: 16
+    },
+    bootstrapText: {
+      fontSize: 14,
+      color: theme.colors.textSecondary
+    }
+  });
+}

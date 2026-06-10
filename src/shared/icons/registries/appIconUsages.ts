@@ -6,7 +6,7 @@ export type AppIconColorRole =
   | 'primary'
   | 'secondary'
   | 'tertiary'
-  | 'surface'
+  | 'onBrandAction'
   | 'success'
   | 'warning';
 
@@ -76,9 +76,9 @@ export const appIconUsages = {
   'composer.attach': { glyph: 'add', colorRole: 'secondary', sizeRole: 'md' },
   'composer.attachImage': { glyph: 'image', colorRole: 'brand', sizeRole: 'sm' },
   'composer.attachFile': { glyph: 'file', colorRole: 'success', sizeRole: 'sm' },
-  'composer.send': { glyph: 'arrow-up', colorRole: 'surface', sizeRole: 'md' },
-  'composer.stop': { glyph: 'stop', colorRole: 'surface', sizeRole: 'md' },
-  'composer.resume': { glyph: 'play', colorRole: 'surface', sizeRole: 'md' },
+  'composer.send': { glyph: 'arrow-up', colorRole: 'onBrandAction', sizeRole: 'md' },
+  'composer.stop': { glyph: 'stop', colorRole: 'onBrandAction', sizeRole: 'md' },
+  'composer.resume': { glyph: 'play', colorRole: 'onBrandAction', sizeRole: 'md' },
 
   'directoryPicker.startConversation': {
     glyph: 'chat-add',
@@ -123,7 +123,7 @@ export const appIconUsages = {
   'runtime.copy': { glyph: 'copy', colorRole: 'secondary', sizeRole: 'toolbar' },
 
   'awaiting.resume': { glyph: 'spark', colorRole: 'brandStrong', sizeRole: 'sm', strokeWidth: 2.1 },
-  'team.avatarFallback': { glyph: 'apps', colorRole: 'surface', sizeRole: 'md' },
+  'team.avatarFallback': { glyph: 'apps', colorRole: 'onBrandAction', sizeRole: 'md' },
   'usage.close': { glyph: 'close', colorRole: 'secondary', sizeRole: 'sm' },
 } as const satisfies Record<string, AppIconUsageConfig>;
 

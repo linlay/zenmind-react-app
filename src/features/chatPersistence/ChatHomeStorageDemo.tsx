@@ -938,7 +938,7 @@ function createStyles(theme: AppThemeTokens) {
     unreadBadgeText: {
       fontSize: 11,
       fontWeight: '700',
-      color: theme.colors.surface
+      color: theme.colors.onBrandBlueAction
     },
     unreadBadgePlaceholder: {
       width: 26,

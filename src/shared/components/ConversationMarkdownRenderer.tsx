@@ -33,7 +33,10 @@ export const ConversationMarkdownRenderer = memo(function ConversationMarkdownRe
   const { theme } = useAppTheme();
   const resolvedTextColor = textColor ?? theme.colors.textPrimary;
   const resolvedLinkColor = linkColor ?? theme.colors.brandBlue;
-  const processedMarkdown = useMemo(() => preprocessMarkdownContent(markdown), [markdown]);
+  const renderedMarkdown = useMemo(
+    () => (streaming ? String(markdown || '') : preprocessMarkdownContent(markdown)),
+    [markdown, streaming]
+  );
   const containerStyle = useMemo(() => StyleSheet.flatten(style), [style]);
   const markdownStyle = useMemo<MarkdownStyle>(
     () => ({
@@ -136,12 +139,12 @@ export const ConversationMarkdownRenderer = memo(function ConversationMarkdownRe
     [onLinkPress]
   );
 
-  if (!processedMarkdown) {
+  if (!renderedMarkdown) {
     return null;
   }
 
   const commonProps = {
-    markdown: processedMarkdown,
+    markdown: renderedMarkdown,
     flavor: 'github' as const,
     markdownStyle,
     containerStyle,

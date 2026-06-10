@@ -126,7 +126,7 @@ export const Composer = memo(function Composer({
   const handleSelectFileAttachment = useCallback(() => handleSelectAttachment('file'), [handleSelectAttachment]);
 
   const iconUsage = getPrimaryIconUsage(primaryAction);
-  const iconColor = primaryDisabled ? theme.colors.textTertiary : theme.colors.surface;
+  const iconColor = primaryDisabled ? theme.colors.textTertiary : undefined;
 
   useEffect(() => {
     if (attachmentDisabled) {
@@ -224,7 +224,7 @@ export const Composer = memo(function Composer({
           accessibilityRole="button"
         >
           {primaryAction === 'sending' ? (
-            <ActivityIndicator size="small" color={theme.colors.surface} />
+            <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
           ) : (
             <AppIcon usage={iconUsage} color={iconColor} />
           )}
@@ -312,10 +312,10 @@ function createStyles(theme: AppThemeTokens) {
       backgroundColor: theme.colors.backgroundMuted
     },
     primaryButtonSend: {
-      backgroundColor: theme.colors.brandBlue
+      backgroundColor: theme.colors.brandBlueAction
     },
     primaryButtonSending: {
-      backgroundColor: theme.colors.brandBlue
+      backgroundColor: theme.colors.brandBlueAction
     },
     primaryButtonStop: {
       backgroundColor: theme.colors.danger

@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "brandId": "cutej",
+  "appVersion": "2.0.0",
+  "runtimeFingerprint": "b9aa2e524231adac8a3b90ee92a7239c3e9effc5efb9c445813fa8fbc212ab05",
+  "assetFingerprint": "5240b0af36900f71580d0f27d369e5a473cee5ed1f3cb202ad83e487164c75ae",
+  "nativeSplashFingerprint": "f387118d0b93a12daa8bd0832abfc8ef3403fd2e32c6c07847309bb790ddf57e",
+  "assetGeneratorVersion": 3,
+  "assets": {
+    "icon": "assets/brands/cutej/icon.png",
+    "adaptiveIcon": "assets/brands/cutej/adaptive-icon.png",
+    "logo": "assets/brands/cutej/logo.png",
+    "favicon": "assets/brands/cutej/favicon.png"
+  }
+}

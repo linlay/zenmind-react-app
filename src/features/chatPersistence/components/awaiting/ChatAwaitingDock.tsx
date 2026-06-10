@@ -169,7 +169,7 @@ const OptionRow = memo(function OptionRow({
       </Text>
       {selected ? (
         <View style={styles.selectedMark}>
-          <AppIcon usage="historyDrawer.markAllRead" size={12} color={theme.colors.surface} />
+          <AppIcon usage="historyDrawer.markAllRead" size={12} color={theme.colors.onBrandBlueAction} />
         </View>
       ) : null}
     </Pressable>
@@ -492,7 +492,7 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSub
               style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}
             >
               {submitting ? (
-                <ActivityIndicator size="small" color={theme.colors.surface} />
+                <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
               ) : (
                 <Text allowFontScaling={false} style={styles.primaryText}>
                   {isLastQuestion ? t('awaiting.submit') : t('awaiting.continue')}
@@ -623,7 +623,7 @@ function createStyles(theme: AppThemeTokens) {
       borderRadius: appVisualTokens.radii.pill,
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: theme.colors.brandBlue
+      backgroundColor: theme.colors.brandBlueAction
     },
     freeTextRow: {
       minHeight: 36,
@@ -712,14 +712,14 @@ function createStyles(theme: AppThemeTokens) {
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: appVisualTokens.radii.pill,
-      backgroundColor: theme.colors.brandBlue,
+      backgroundColor: theme.colors.brandBlueAction,
       paddingHorizontal: appVisualTokens.spacing.md
     },
     primaryText: {
       fontSize: 14,
       lineHeight: 19,
       fontWeight: '800',
-      color: theme.colors.surface
+      color: theme.colors.onBrandBlueAction
     },
     disabledButton: {
       opacity: 0.38

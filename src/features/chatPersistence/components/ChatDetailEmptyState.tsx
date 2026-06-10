@@ -55,14 +55,14 @@ function createStyles(theme: AppThemeTokens) {
     emptyStateButton: {
       marginTop: 8,
       borderRadius: appVisualTokens.radii.lg,
-      backgroundColor: theme.colors.brandBlue,
+      backgroundColor: theme.colors.brandBlueAction,
       paddingHorizontal: 18,
       paddingVertical: 14
     },
     emptyStateButtonText: {
       fontSize: 14,
       fontWeight: '700',
-      color: theme.colors.surface
+      color: theme.colors.onBrandBlueAction
     },
     errorText: {
       fontSize: 13,

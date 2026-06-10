@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
 
+import { BRAND_SPLASH_BACKGROUND_COLOR, BRAND_SPLASH_IMAGE_WIDTH } from '../../shared/generated/brand';
 import { GeminiLogo } from './GeminiLogo';
 
 type AppLaunchSkeletonProps = {
@@ -58,11 +59,11 @@ export function AppLaunchSkeleton({
     });
   }, [dismiss, onHidden, opacity]);
 
-  const logoSize = Math.max(156, Math.min(width * 0.58, height * 0.34, 220));
+  const logoSize = Math.max(156, Math.min(width * 0.58, height * 0.34, BRAND_SPLASH_IMAGE_WIDTH));
 
   return (
     <Animated.View
-      style={[styles.overlay, { opacity }]}
+      style={[styles.overlay, { opacity, backgroundColor: BRAND_SPLASH_BACKGROUND_COLOR }]}
       onLayout={() => {
         if (hasReportedReady.current) {
           return;
@@ -91,7 +92,6 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFill,
     zIndex: 20,
-    backgroundColor: '#edf1f5',
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',

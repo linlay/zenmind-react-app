@@ -998,7 +998,7 @@ function createStyles(theme: AppThemeTokens) {
       paddingHorizontal: appVisualTokens.spacing.md
     },
     buttonPrimary: {
-      backgroundColor: theme.colors.brandBlue
+      backgroundColor: theme.colors.brandBlueAction
     },
     buttonSecondary: {
       borderWidth: StyleSheet.hairlineWidth,
@@ -1012,7 +1012,7 @@ function createStyles(theme: AppThemeTokens) {
       color: theme.colors.textPrimary
     },
     buttonTextPrimary: {
-      color: theme.colors.surface
+      color: theme.colors.onBrandBlueAction
     },
     statusRow: {
       flexDirection: 'row',

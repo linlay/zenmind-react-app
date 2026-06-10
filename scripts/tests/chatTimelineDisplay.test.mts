@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  applyChatTimelineStreamDelta,
+  buildChatTimelineDisplayModel,
   buildChatTimelineDisplayItems,
   deriveChatTimelineState,
 } from '../../src/features/chatTimeline/index.ts';
@@ -242,4 +244,47 @@ test('timeline display puts one assistant footer on the final content item per r
     timestamp: 120,
     errorReason: null,
   });
+});
+
+test('timeline display model replaces only the visible tail item for stream deltas', () => {
+  const initial = deriveChatTimelineState('chat-1', [
+    {
+      type: 'request.query',
+      requestId: 'req-1',
+      runId: 'run-1',
+      message: '写一段摘要',
+      timestamp: 100,
+    },
+    {
+      type: 'content.snapshot',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      text: '第一句',
+      timestamp: 120,
+    },
+  ]);
+  const initialModel = buildChatTimelineDisplayModel(initial);
+  const tailItem = initialModel.items[initialModel.items.length - 1];
+  assert.equal(tailItem?.kind, 'assistant-content');
+  if (!tailItem || tailItem.kind !== 'assistant-content' || tailItem.node.kind !== 'message') {
+    throw new Error('expected assistant tail item');
+  }
+
+  const streamed = applyChatTimelineStreamDelta(initial, {
+    messageId: tailItem.node.messageId,
+    createdAt: 140,
+    delta: '，第二句',
+  });
+  const streamedModel = buildChatTimelineDisplayModel(streamed, initialModel);
+
+  assert.equal(streamedModel.items.length, initialModel.items.length);
+  assert.equal(streamedModel.items[0], initialModel.items[0]);
+  assert.notEqual(streamedModel.items[1], initialModel.items[1]);
+  assert.equal(streamedModel.items[1]?.kind, 'assistant-content');
+  if (streamedModel.items[1]?.kind !== 'assistant-content') {
+    throw new Error('expected assistant content item');
+  }
+  assert.equal(streamedModel.items[1].node.content, '第一句，第二句');
+  assert.equal(streamedModel.items[1].assistantReplyFooter, null);
+  assert.equal(streamedModel.tailSignature?.key, initialModel.tailSignature?.key);
 });

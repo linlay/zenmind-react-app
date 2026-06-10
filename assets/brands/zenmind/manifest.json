@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "brandId": "zenmind",
+  "appVersion": "2.0.0",
+  "runtimeFingerprint": "a31d4b4dbfeb35b0f7bb99eaa540f53eb8a47e1b941376ff170eaef6af9a4c68",
+  "assetFingerprint": "b5d2b4d2e071dbd0de2bd451ab064479dc85bab8ab732aaa67de0ba486337df1",
+  "nativeSplashFingerprint": "873cd91f80d416348ec1fcc5f60a95752efa885e246309f284aed22642a6a386",
+  "assetGeneratorVersion": 3,
+  "assets": {
+    "icon": "assets/brands/zenmind/icon.png",
+    "adaptiveIcon": "assets/brands/zenmind/adaptive-icon.png",
+    "logo": "assets/brands/zenmind/logo.png",
+    "favicon": "assets/brands/zenmind/favicon.png"
+  }
+}

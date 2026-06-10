@@ -43,8 +43,13 @@ export {
   patchChatTimelineMessage,
 } from './timelineReducer.ts';
 export {
+  buildChatTimelineDisplayModel,
   buildChatTimelineDisplayItems,
   getChatTimelineDisplayItemType,
+} from './timelineDisplay.ts';
+export type {
+  ChatTimelineDisplayModel,
+  ChatTimelineDisplayTailSignature,
 } from './timelineDisplay.ts';
 export { projectTimelineMessages, projectTimelineRuntimeState } from './messageProjection.ts';
 export type {

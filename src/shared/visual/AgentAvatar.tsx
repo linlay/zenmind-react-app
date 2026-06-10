@@ -10,7 +10,7 @@ import {
   resolveAgentBuiltinIconName,
 } from './agentAvatarIcon.ts';
 import type { AgentAvatarIcon, AgentAvatarKind } from './agentAvatarTypes.ts';
-import { useAppTheme, useAppThemeStyles } from './AppThemeProvider';
+import { useAppThemeStyles } from './AppThemeProvider';
 import { appVisualTokens, getAvatarTone, type AppThemeTokens } from './foundation';
 
 export { AGENT_ICON_NAMES };
@@ -30,7 +30,6 @@ export const AgentAvatar = memo(function AgentAvatar({
   size = 46,
   style,
 }: AgentAvatarProps) {
-  const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
   const uri = resolveAgentAvatarUri(icon);
   const shellSizeStyle = {
@@ -74,7 +73,6 @@ export const AgentAvatar = memo(function AgentAvatar({
       >
         <AppIcon
           usage="team.avatarFallback"
-          color={theme.colors.surface}
           size={Math.max(18, Math.round(size * 0.52))}
           strokeWidth={2}
         />

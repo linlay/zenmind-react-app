@@ -97,6 +97,22 @@ type TimelineDisplayMetadata = {
   assistantReplyFooters: Map<string, ChatTimelineAssistantReplyFooter>;
 };
 
+export type ChatTimelineDisplayTailSignature = {
+  key: string;
+  contentLength: number;
+  lifecycle: string;
+  streaming: boolean;
+  updatedAt: number;
+};
+
+export type ChatTimelineDisplayModel = {
+  revision: number;
+  orderedNodeIds: ChatTimelineState['orderedNodeIds'];
+  nodesById: ChatTimelineState['nodesById'];
+  items: ChatTimelineDisplayItem[];
+  tailSignature: ChatTimelineDisplayTailSignature | null;
+};
+
 function shouldHideAwaitingAnswerRequestNode(
   node: ChatTimelineDisplayNode,
   previousNode: ChatTimelineDisplayNode | null
@@ -255,6 +271,184 @@ function buildToolGroupDisplayItem(
   };
 }
 
+function getTimelineNodeContentLength(node: ChatTimelineDisplayItem['node']): number {
+  if (node.kind === 'message') {
+    return (
+      node.content.length + (node.attachments || []).reduce((total, attachment) => total + attachment.name.length, 0)
+    );
+  }
+  if (node.kind === 'tool') {
+    return node.title.length + node.body.length + node.argsText.length + node.resultText.length + node.status.length;
+  }
+  if (node.kind === 'awaiting') {
+    return (
+      node.prompt.length +
+      node.payloadText.length +
+      node.answer.length +
+      (node.answerSummary?.title.length ?? 0) +
+      (node.answerSummary?.copyText.length ?? 0)
+    );
+  }
+  if (node.kind === 'run') {
+    return node.title.length + node.body.length + node.status.length;
+  }
+  return node.title.length + node.body.length + node.status.length;
+}
+
+function getTimelineItemContentLength(item: ChatTimelineDisplayItem): number {
+  if (item.kind === 'tool-group') {
+    return item.nodes.reduce((total, node) => total + getTimelineNodeContentLength(node), 0);
+  }
+  return getTimelineNodeContentLength(item.node);
+}
+
+function buildTimelineTailSignature(
+  items: readonly ChatTimelineDisplayItem[]
+): ChatTimelineDisplayTailSignature | null {
+  const tail = items[items.length - 1];
+  if (!tail) {
+    return null;
+  }
+
+  const node = tail.kind === 'tool-group' ? tail.nodes[tail.nodes.length - 1] : tail.node;
+  return {
+    key: tail.key,
+    contentLength: getTimelineItemContentLength(tail),
+    lifecycle: tail.kind === 'tool-group' ? tail.nodes.map((item) => item.lifecycle).join('|') : node.lifecycle,
+    streaming:
+      tail.kind === 'tool-group'
+        ? tail.nodes.some((item) => item.streaming)
+        : 'streaming' in node
+          ? Boolean(node.streaming)
+          : false,
+    updatedAt: tail.kind === 'tool-group' ? Math.max(...tail.nodes.map((item) => item.updatedAt)) : node.updatedAt,
+  };
+}
+
+function getSingleChangedVisibleNodeId(
+  state: ChatTimelineState,
+  previous: ChatTimelineDisplayModel
+): string | null {
+  if (state.orderedNodeIds !== previous.orderedNodeIds) {
+    return null;
+  }
+
+  let changedVisibleNodeId = '';
+  for (const nodeId of state.orderedNodeIds) {
+    const previousNode = previous.nodesById[nodeId];
+    const nextNode = state.nodesById[nodeId];
+    if (previousNode === nextNode) {
+      continue;
+    }
+
+    const previousVisible = isVisibleTimelineNode(previousNode);
+    const nextVisible = isVisibleTimelineNode(nextNode);
+    if (!previousVisible && !nextVisible) {
+      continue;
+    }
+    if (previousVisible !== nextVisible || changedVisibleNodeId) {
+      return null;
+    }
+    changedVisibleNodeId = nodeId;
+  }
+
+  return changedVisibleNodeId;
+}
+
+function buildAssistantReplyFooterForTail(
+  items: readonly ChatTimelineDisplayItem[],
+  tailItem: ChatTimelineDisplayItem,
+  nextNode: ChatTimelineDisplayNode
+): ChatTimelineAssistantReplyFooter | null {
+  if (nextNode.kind !== 'message' || nextNode.role !== 'assistant') {
+    return null;
+  }
+
+  const runId = runIdForNode(nextNode);
+  const copyParts: string[] = [];
+  let hasStreaming = false;
+  let errorReason: string | null = null;
+  let updatedAt = 0;
+
+  for (const item of items) {
+    if (item.kind !== 'assistant-content' || item.runId !== runId) {
+      continue;
+    }
+
+    const node = item.key === tailItem.key ? nextNode : item.node;
+    if (node.kind !== 'message' || node.role !== 'assistant') {
+      continue;
+    }
+    if (node.content.trim()) {
+      copyParts.push(node.content);
+    }
+    hasStreaming = hasStreaming || node.streaming;
+    errorReason = node.errorReason || errorReason;
+    updatedAt = Math.max(updatedAt, node.updatedAt);
+  }
+
+  if (hasStreaming || copyParts.length === 0) {
+    return null;
+  }
+
+  return {
+    copyText: copyParts.join('\n\n'),
+    timestamp: updatedAt,
+    errorReason,
+  };
+}
+
+function updateTailDisplayModel(
+  state: ChatTimelineState,
+  previous: ChatTimelineDisplayModel
+): ChatTimelineDisplayModel | null {
+  const changedVisibleNodeId = getSingleChangedVisibleNodeId(state, previous);
+  if (changedVisibleNodeId === null) {
+    return null;
+  }
+  if (!changedVisibleNodeId) {
+    return {
+      ...previous,
+      revision: state.revision,
+      nodesById: state.nodesById,
+    };
+  }
+
+  const previousTail = previous.items[previous.items.length - 1];
+  if (!previousTail || previousTail.kind === 'tool-group' || previousTail.nodeId !== changedVisibleNodeId) {
+    return null;
+  }
+
+  const nextNode = state.nodesById[changedVisibleNodeId];
+  if (!isVisibleTimelineNode(nextNode)) {
+    return null;
+  }
+
+  const nextKind = displayKindForNode(nextNode);
+  if (nextKind !== previousTail.kind) {
+    return null;
+  }
+
+  const nextTail = {
+    ...previousTail,
+    key: `${nextKind}:${nextNode.id}`,
+    kind: nextKind,
+    node: nextNode,
+    nodeId: nextNode.id,
+    runId: runIdForNode(nextNode),
+    assistantReplyFooter: buildAssistantReplyFooterForTail(previous.items, previousTail, nextNode),
+  } as ChatTimelineDisplayItem;
+  const items = [...previous.items.slice(0, -1), nextTail];
+
+  return {
+    revision: state.revision,
+    orderedNodeIds: state.orderedNodeIds,
+    nodesById: state.nodesById,
+    items,
+    tailSignature: buildTimelineTailSignature(items),
+  };
+}
+
 export function buildChatTimelineDisplayItems(state: ChatTimelineState): ChatTimelineDisplayItem[] {
   const visibleNodes = state.orderedNodeIds
     .map((id) => state.nodesById[id])
@@ -280,6 +474,27 @@ export function buildChatTimelineDisplayItems(state: ChatTimelineState): ChatTim
             : null
         );
   });
+}
+
+export function buildChatTimelineDisplayModel(
+  state: ChatTimelineState,
+  previous?: ChatTimelineDisplayModel | null
+): ChatTimelineDisplayModel {
+  if (previous && previous.items.length > 0) {
+    const updated = updateTailDisplayModel(state, previous);
+    if (updated) {
+      return updated;
+    }
+  }
+
+  const items = buildChatTimelineDisplayItems(state);
+  return {
+    revision: state.revision,
+    orderedNodeIds: state.orderedNodeIds,
+    nodesById: state.nodesById,
+    items,
+    tailSignature: buildTimelineTailSignature(items),
+  };
 }
 
 export function getChatTimelineDisplayItemType(item: ChatTimelineDisplayItem): string {

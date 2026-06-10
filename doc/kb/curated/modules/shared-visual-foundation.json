@@ -2,13 +2,7 @@
   "id": "shared-visual-foundation",
   "title": "共享视觉 token 与统一图标基础",
   "layer": "shared",
-  "paths": [
-    "src/shared/visual",
-    "src/shared/icons",
-    "src/shared/generated",
-    "assets/generated/brand",
-    "doc/ui-visual-theme.md"
-  ],
+  "paths": ["src/shared/visual", "src/shared/icons", "src/shared/generated", "assets/brands", "doc/ui-visual-theme.md"],
   "responsibility": [
     "提供共享视觉 token、运行时 light/dark 主题 Provider、system 偏好解析、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
     "通过 AppIcon/AppIconButton 与 appIconUsages 把业务语义映射到底层 glyph，页面和 feature 组件不直接选择 AppLineIcon 底层图标名。",
@@ -28,7 +22,7 @@
       "file": "src/shared/generated/brandAssets.ts",
       "symbol": "BRAND_LOGO",
       "kind": "generated-brand-asset",
-      "description": "由 scripts/sync-brand.js 生成的当前品牌静态 logo import，指向 assets/generated/brand/<id>/logo.png。"
+      "description": "由 scripts/sync-brand.js 生成的当前品牌静态 logo import，指向 assets/brands/<id>/logo.png。"
     },
     {
       "file": "src/shared/visual/foundation.ts",
@@ -161,7 +155,7 @@
   ],
   "impactChecklist": [
     "运行时主题切换只允许在 shared visual 的 AppThemeProvider 边界内读写 MMKV 偏好，screen 不直接操作主题存储；system 偏好只解析到 light/dark 生效 token，不新增第三套视觉 token。",
-    "品牌差异从 scripts/sync-brand.js 写入 src/shared/generated/brand.ts、src/shared/generated/brandAssets.ts 和 assets/generated/brand/<id>，运行时代码不要读取 brands/<id>/brand.json。",
+    "品牌差异从 scripts/sync-brand.js 写入 src/shared/generated/brand.ts、src/shared/generated/brandAssets.ts 和 assets/brands/<id>，运行时代码不要读取 brands/<id>/brand.json。",
     "页面和 feature 组件只消费 AppIcon / AppIconButton / AgentAvatar，不直接 import AppLineIcon 或 AgentBuiltinIcon。",
     "AppIcon 只做 usage 静态查表和当前 glyph 渲染，不做业务状态判断、不动态解析 SVG、不预渲染全部图标。",
     "展示 helper、AgentAvatar 和 AgentBuiltinIcon 只做格式化、色板派生和 icon 展示，不夹带业务状态或 repository 逻辑。",

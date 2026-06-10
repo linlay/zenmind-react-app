@@ -10,13 +10,27 @@ const BRAND_ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/u;
 const EXPO_SLUG_PATTERN = /^[a-z0-9][a-z0-9._-]*$/u;
 const NATIVE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]+$/u;
 const HEX_COLOR_PATTERN = /^#[0-9a-fA-F]{6}$/u;
-const REQUIRED_VISUAL_GLYPHS = new Set(['zenmind', 'cutej']);
 
-const GENERATED_ASSET_ROOT = 'assets/generated/brand';
+const BRAND_ASSET_ROOT = 'assets/brands';
 const GENERATED_BRAND_TS = 'src/shared/generated/brand.ts';
 const GENERATED_BRAND_ASSETS_TS = 'src/shared/generated/brandAssets.ts';
 const GENERATED_ASSET_MANIFEST_NAME = 'manifest.json';
-const BRAND_ASSET_GENERATOR_VERSION = 2;
+const BRAND_ASSET_GENERATOR_VERSION = 3;
+const ICON_LOGO_SCALE = 0.76;
+const ADAPTIVE_ICON_LOGO_SCALE = 0.72;
+const FAVICON_LOGO_SCALE = 0.72;
+const ANDROID_SPLASH_DENSITIES = [
+  { directory: 'drawable-mdpi', multiplier: 1 },
+  { directory: 'drawable-hdpi', multiplier: 1.5 },
+  { directory: 'drawable-xhdpi', multiplier: 2 },
+  { directory: 'drawable-xxhdpi', multiplier: 3 },
+  { directory: 'drawable-xxxhdpi', multiplier: 4 },
+];
+const IOS_SPLASH_SCALES = [
+  { filename: 'image.png', ratio: 1 },
+  { filename: 'image@2x.png', ratio: 2 },
+  { filename: 'image@3x.png', ratio: 3 },
+];
 
 function normalizeBrandId(value) {
   const normalized = String(value || '').trim().toLowerCase();
@@ -147,17 +161,12 @@ function normalizeManifest(rootDir, brandRoot, manifest, i18n, appVersion) {
     throw new Error('Brand manifest field "splash.imageWidth" must be a positive number.');
   }
 
-  const visualGlyph = requireNestedString(manifest, 'visual', 'glyph');
-  if (!REQUIRED_VISUAL_GLYPHS.has(visualGlyph)) {
-    throw new Error(`Brand manifest field "visual.glyph" is unsupported: ${visualGlyph}`);
-  }
-
-  const generatedAssetRoot = `${GENERATED_ASSET_ROOT}/${id}`;
+  const brandAssetRoot = `${BRAND_ASSET_ROOT}/${id}`;
   const generatedAssets = {
-    icon: `${generatedAssetRoot}/icon.png`,
-    adaptiveIcon: `${generatedAssetRoot}/adaptive-icon.png`,
-    logo: `${generatedAssetRoot}/logo.png`,
-    favicon: `${generatedAssetRoot}/favicon.png`,
+    icon: `${brandAssetRoot}/icon.png`,
+    adaptiveIcon: `${brandAssetRoot}/adaptive-icon.png`,
+    logo: `${brandAssetRoot}/logo.png`,
+    favicon: `${brandAssetRoot}/favicon.png`,
   };
 
   return {
@@ -187,7 +196,6 @@ function normalizeManifest(rootDir, brandRoot, manifest, i18n, appVersion) {
       color: requireHexColor(manifest, 'notification', 'color'),
     },
     visual: {
-      glyph: visualGlyph,
       backgroundColor: requireHexColor(manifest, 'visual', 'backgroundColor'),
       backgroundColorEnd: requireHexColor(manifest, 'visual', 'backgroundColorEnd'),
       primaryColor: requireHexColor(manifest, 'visual', 'primaryColor'),
@@ -236,6 +244,7 @@ function runtimeBrandPayload(brand) {
     slug: brand.slug,
     version: brand.version,
     storageNamespace: brand.storageNamespace,
+    splash: brand.splash,
     i18n: brand.i18n,
   };
 }
@@ -252,6 +261,8 @@ function writeGeneratedBrandFiles(rootDir, brand) {
     'export const APP_SLUG = APP_BRAND.slug;',
     'export const APP_VERSION = APP_BRAND.version;',
     'export const STORAGE_NAMESPACE = APP_BRAND.storageNamespace;',
+    'export const BRAND_SPLASH_BACKGROUND_COLOR = APP_BRAND.splash.backgroundColor;',
+    'export const BRAND_SPLASH_IMAGE_WIDTH = APP_BRAND.splash.imageWidth;',
     '',
   ].join('\n');
   writeFileIfChanged(brandTsPath, brandTsContent);
@@ -289,10 +300,37 @@ function brandRuntimeFingerprint(brand) {
   });
 }
 
-function brandAssetFingerprint(brand) {
+function brandLogoPath(rootDir, brand) {
+  return path.join(rootDir, brand.generatedAssets.logo);
+}
+
+function readRequiredLogoSource(rootDir, brand) {
+  const logoPath = brandLogoPath(rootDir, brand);
+  if (!fs.existsSync(logoPath)) {
+    throw new Error(`Brand logo source not found: ${repoRelative(rootDir, logoPath)}`);
+  }
+
+  const bytes = fs.readFileSync(logoPath);
+  return {
+    bytes,
+    hash: crypto.createHash('sha256').update(bytes).digest('hex'),
+    path: logoPath,
+  };
+}
+
+function brandAssetFingerprint(brand, logoHash) {
   return hashStableJson({
     assetGenerator: BRAND_ASSET_GENERATOR_VERSION,
+    logo: logoHash,
     visual: brand.visual,
+  });
+}
+
+function brandNativeSplashFingerprint(brand, logoHash) {
+  return hashStableJson({
+    assetGenerator: BRAND_ASSET_GENERATOR_VERSION,
+    logo: logoHash,
+    splash: brand.splash,
   });
 }
 
@@ -312,13 +350,54 @@ function readGeneratedManifest(rootDir, brand) {
   }
 }
 
-function generatedAssetFilesExist(rootDir, brand) {
-  return Object.values(brand.generatedAssets).every((relativePath) => fs.existsSync(path.join(rootDir, relativePath)));
+function generatedDerivedAssetFilesExist(rootDir, brand) {
+  return [brand.generatedAssets.icon, brand.generatedAssets.adaptiveIcon, brand.generatedAssets.favicon].every((relativePath) =>
+    fs.existsSync(path.join(rootDir, relativePath))
+  );
 }
 
-function areGeneratedAssetsCurrent(rootDir, brand, assetFingerprint) {
-  const manifest = readGeneratedManifest(rootDir, brand);
-  return manifest?.assetFingerprint === assetFingerprint && generatedAssetFilesExist(rootDir, brand);
+function areGeneratedAssetsCurrent(manifest, rootDir, brand, assetFingerprint) {
+  return manifest?.assetFingerprint === assetFingerprint && generatedDerivedAssetFilesExist(rootDir, brand);
+}
+
+function androidSplashResourceFilesExist(rootDir) {
+  const androidMainPath = path.join(rootDir, 'android', 'app', 'src', 'main');
+  if (!fs.existsSync(androidMainPath)) {
+    return true;
+  }
+
+  return ANDROID_SPLASH_DENSITIES.every((density) =>
+    fs.existsSync(path.join(androidMainPath, 'res', density.directory, 'splashscreen_logo.png'))
+  );
+}
+
+function iosSplashResourceFilesExist(rootDir) {
+  const iosRoot = path.join(rootDir, 'ios');
+  if (!fs.existsSync(iosRoot)) {
+    return true;
+  }
+
+  const projectDirectories = fs.readdirSync(iosRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+  for (const directory of projectDirectories) {
+    const imageSetPath = path.join(iosRoot, directory.name, 'Images.xcassets', 'SplashScreenLogo.imageset');
+    if (!fs.existsSync(imageSetPath)) {
+      continue;
+    }
+
+    if (!IOS_SPLASH_SCALES.every((scale) => fs.existsSync(path.join(imageSetPath, scale.filename)))) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function nativeSplashResourceFilesExist(rootDir) {
+  return androidSplashResourceFilesExist(rootDir) && iosSplashResourceFilesExist(rootDir);
+}
+
+function areNativeSplashResourcesCurrent(manifest, rootDir, nativeSplashFingerprint) {
+  return manifest?.nativeSplashFingerprint === nativeSplashFingerprint && nativeSplashResourceFilesExist(rootDir);
 }
 
 function writeGeneratedManifest(rootDir, brand, fingerprints) {
@@ -331,6 +410,7 @@ function writeGeneratedManifest(rootDir, brand, fingerprints) {
         appVersion: brand.version,
         runtimeFingerprint: fingerprints.runtime,
         assetFingerprint: fingerprints.asset,
+        nativeSplashFingerprint: fingerprints.nativeSplash,
         assetGeneratorVersion: BRAND_ASSET_GENERATOR_VERSION,
         assets: brand.generatedAssets,
       },
@@ -359,11 +439,11 @@ function mixColor(left, right, amount) {
   };
 }
 
-function createPng(size) {
+function createPng(size, height = size) {
   return {
     width: size,
-    height: size,
-    data: Buffer.alloc(size * size * 4),
+    height,
+    data: Buffer.alloc(size * height * 4),
   };
 }
 
@@ -420,6 +500,141 @@ function encodePng(png) {
   ]);
 }
 
+function paethPredictor(left, up, upLeft) {
+  const estimate = left + up - upLeft;
+  const leftDistance = Math.abs(estimate - left);
+  const upDistance = Math.abs(estimate - up);
+  const upLeftDistance = Math.abs(estimate - upLeft);
+  if (leftDistance <= upDistance && leftDistance <= upLeftDistance) {
+    return left;
+  }
+  if (upDistance <= upLeftDistance) {
+    return up;
+  }
+  return upLeft;
+}
+
+function pngChannelCount(colorType) {
+  switch (colorType) {
+    case 0:
+      return 1;
+    case 2:
+      return 3;
+    case 4:
+      return 2;
+    case 6:
+      return 4;
+    default:
+      throw new Error(`Unsupported PNG color type: ${colorType}`);
+  }
+}
+
+function decodePng(buffer, filePath) {
+  if (buffer.length < PNG_SIGNATURE.length || !buffer.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
+    throw new Error(`Invalid PNG signature: ${repoRelative(process.cwd(), filePath)}`);
+  }
+
+  let offset = PNG_SIGNATURE.length;
+  let width = 0;
+  let height = 0;
+  let bitDepth = 0;
+  let colorType = 0;
+  let interlaceMethod = 0;
+  const idatChunks = [];
+
+  while (offset < buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.toString('ascii', offset + 4, offset + 8);
+    const dataStart = offset + 8;
+    const dataEnd = dataStart + length;
+    const data = buffer.subarray(dataStart, dataEnd);
+
+    if (type === 'IHDR') {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      bitDepth = data[8];
+      colorType = data[9];
+      interlaceMethod = data[12];
+    } else if (type === 'IDAT') {
+      idatChunks.push(data);
+    } else if (type === 'IEND') {
+      break;
+    }
+
+    offset = dataEnd + 4;
+  }
+
+  if (width <= 0 || height <= 0 || bitDepth !== 8 || interlaceMethod !== 0) {
+    throw new Error(`Unsupported PNG format: ${repoRelative(process.cwd(), filePath)}`);
+  }
+
+  const channelCount = pngChannelCount(colorType);
+  const bytesPerScanline = width * channelCount;
+  const inflated = zlib.inflateSync(Buffer.concat(idatChunks));
+  const png = createPng(width, height);
+  let inflatedOffset = 0;
+  let previousScanline = Buffer.alloc(bytesPerScanline);
+
+  for (let y = 0; y < height; y += 1) {
+    const filterType = inflated[inflatedOffset];
+    inflatedOffset += 1;
+    const currentScanline = Buffer.alloc(bytesPerScanline);
+
+    for (let index = 0; index < bytesPerScanline; index += 1) {
+      const raw = inflated[inflatedOffset];
+      inflatedOffset += 1;
+      const left = index >= channelCount ? currentScanline[index - channelCount] : 0;
+      const up = previousScanline[index] ?? 0;
+      const upLeft = index >= channelCount ? previousScanline[index - channelCount] : 0;
+      let value = raw;
+
+      if (filterType === 1) {
+        value = raw + left;
+      } else if (filterType === 2) {
+        value = raw + up;
+      } else if (filterType === 3) {
+        value = raw + Math.floor((left + up) / 2);
+      } else if (filterType === 4) {
+        value = raw + paethPredictor(left, up, upLeft);
+      } else if (filterType !== 0) {
+        throw new Error(`Unsupported PNG filter ${filterType}: ${repoRelative(process.cwd(), filePath)}`);
+      }
+
+      currentScanline[index] = value & 0xff;
+    }
+
+    for (let x = 0; x < width; x += 1) {
+      const sourceOffset = x * channelCount;
+      const targetOffset = pixelOffset(png, x, y);
+      if (colorType === 6) {
+        png.data[targetOffset] = currentScanline[sourceOffset];
+        png.data[targetOffset + 1] = currentScanline[sourceOffset + 1];
+        png.data[targetOffset + 2] = currentScanline[sourceOffset + 2];
+        png.data[targetOffset + 3] = currentScanline[sourceOffset + 3];
+      } else if (colorType === 2) {
+        png.data[targetOffset] = currentScanline[sourceOffset];
+        png.data[targetOffset + 1] = currentScanline[sourceOffset + 1];
+        png.data[targetOffset + 2] = currentScanline[sourceOffset + 2];
+        png.data[targetOffset + 3] = 255;
+      } else if (colorType === 4) {
+        png.data[targetOffset] = currentScanline[sourceOffset];
+        png.data[targetOffset + 1] = currentScanline[sourceOffset];
+        png.data[targetOffset + 2] = currentScanline[sourceOffset];
+        png.data[targetOffset + 3] = currentScanline[sourceOffset + 1];
+      } else if (colorType === 0) {
+        png.data[targetOffset] = currentScanline[sourceOffset];
+        png.data[targetOffset + 1] = currentScanline[sourceOffset];
+        png.data[targetOffset + 2] = currentScanline[sourceOffset];
+        png.data[targetOffset + 3] = 255;
+      }
+    }
+
+    previousScanline = currentScanline;
+  }
+
+  return png;
+}
+
 function pixelOffset(png, x, y) {
   return (png.width * y + x) << 2;
 }
@@ -461,6 +676,86 @@ function fillGradient(png, topColor, bottomColor) {
   }
 }
 
+function findOpaqueBounds(png) {
+  let minX = png.width;
+  let minY = png.height;
+  let maxX = -1;
+  let maxY = -1;
+
+  for (let y = 0; y < png.height; y += 1) {
+    for (let x = 0; x < png.width; x += 1) {
+      const alpha = png.data[pixelOffset(png, x, y) + 3];
+      if (alpha <= 8) {
+        continue;
+      }
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x);
+      maxY = Math.max(maxY, y);
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return { x: 0, y: 0, width: png.width, height: png.height };
+  }
+
+  return {
+    x: minX,
+    y: minY,
+    width: maxX - minX + 1,
+    height: maxY - minY + 1,
+  };
+}
+
+function samplePngBilinear(png, x, y) {
+  const clampedX = Math.max(0, Math.min(png.width - 1, x));
+  const clampedY = Math.max(0, Math.min(png.height - 1, y));
+  const x0 = Math.floor(clampedX);
+  const y0 = Math.floor(clampedY);
+  const x1 = Math.min(png.width - 1, x0 + 1);
+  const y1 = Math.min(png.height - 1, y0 + 1);
+  const tx = clampedX - x0;
+  const ty = clampedY - y0;
+  const result = [0, 0, 0, 0];
+
+  for (const [sampleX, sampleY, weight] of [
+    [x0, y0, (1 - tx) * (1 - ty)],
+    [x1, y0, tx * (1 - ty)],
+    [x0, y1, (1 - tx) * ty],
+    [x1, y1, tx * ty],
+  ]) {
+    const offset = pixelOffset(png, sampleX, sampleY);
+    result[0] += png.data[offset] * weight;
+    result[1] += png.data[offset + 1] * weight;
+    result[2] += png.data[offset + 2] * weight;
+    result[3] += png.data[offset + 3] * weight;
+  }
+
+  return {
+    r: Math.round(result[0]),
+    g: Math.round(result[1]),
+    b: Math.round(result[2]),
+    a: Math.round(result[3]),
+  };
+}
+
+function drawPngFit(target, source, maxWidth, maxHeight = maxWidth, { trimTransparent = false } = {}) {
+  const bounds = trimTransparent ? findOpaqueBounds(source) : { x: 0, y: 0, width: source.width, height: source.height };
+  const scale = Math.min(maxWidth / bounds.width, maxHeight / bounds.height);
+  const width = Math.max(1, Math.round(bounds.width * scale));
+  const height = Math.max(1, Math.round(bounds.height * scale));
+  const left = Math.round((target.width - width) / 2);
+  const top = Math.round((target.height - height) / 2);
+
+  for (let y = 0; y < height; y += 1) {
+    const sourceY = bounds.y + ((y + 0.5) / height) * bounds.height - 0.5;
+    for (let x = 0; x < width; x += 1) {
+      const sourceX = bounds.x + ((x + 0.5) / width) * bounds.width - 0.5;
+      setPixel(target, left + x, top + y, samplePngBilinear(source, sourceX, sourceY));
+    }
+  }
+}
+
 function drawCircle(png, cx, cy, radius, color) {
   const x0 = Math.floor(cx - radius);
   const x1 = Math.ceil(cx + radius);
@@ -475,25 +770,6 @@ function drawCircle(png, cx, cy, radius, color) {
         setPixel(png, x, y, color);
       }
     }
-  }
-}
-
-function drawLine(png, x1, y1, x2, y2, thickness, color) {
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const steps = Math.max(1, Math.ceil(Math.hypot(dx, dy)));
-  for (let index = 0; index <= steps; index += 1) {
-    const amount = index / steps;
-    drawCircle(png, x1 + dx * amount, y1 + dy * amount, thickness / 2, color);
-  }
-}
-
-function drawArc(png, cx, cy, radius, startRadians, endRadians, thickness, color) {
-  const steps = Math.max(24, Math.ceil(Math.abs(endRadians - startRadians) * radius));
-  for (let index = 0; index <= steps; index += 1) {
-    const amount = index / steps;
-    const angle = startRadians + (endRadians - startRadians) * amount;
-    drawCircle(png, cx + Math.cos(angle) * radius, cy + Math.sin(angle) * radius, thickness / 2, color);
   }
 }
 
@@ -516,43 +792,6 @@ function drawGlow(png, cx, cy, radius, color, strength) {
   }
 }
 
-function drawZenmindMark(png, palette, scale = 1) {
-  const size = png.width;
-  const primary = { ...palette.primary, a: 255 };
-  const secondary = { ...palette.secondary, a: 235 };
-  const soft = { ...palette.secondary, a: 62 };
-  const thickness = size * 0.074 * scale;
-  const inset = size * 0.27;
-  const left = inset;
-  const right = size - inset;
-  const top = inset;
-  const bottom = size - inset;
-
-  drawGlow(png, size * 0.5, size * 0.5, size * 0.34, palette.secondary, 90);
-  drawLine(png, left, top, right, top, thickness, secondary);
-  drawLine(png, right, top, left, bottom, thickness, primary);
-  drawLine(png, left, bottom, right, bottom, thickness, secondary);
-  drawLine(png, size * 0.42, size * 0.5, size * 0.66, size * 0.5, thickness * 0.52, soft);
-  drawCircle(png, left, top, thickness * 0.72, secondary);
-  drawCircle(png, right, bottom, thickness * 0.72, primary);
-  drawCircle(png, size * 0.5, size * 0.5, thickness * 0.5, { ...palette.background, a: 210 });
-  drawCircle(png, size * 0.5, size * 0.5, thickness * 0.22, { ...palette.secondary, a: 255 });
-}
-
-function drawCutejMark(png, palette, scale = 1) {
-  const size = png.width;
-  const primary = { ...palette.primary, a: 255 };
-  const secondary = { ...palette.secondary, a: 235 };
-  const thickness = size * 0.066 * scale;
-
-  drawGlow(png, size * 0.5, size * 0.5, size * 0.33, palette.primary, 70);
-  drawArc(png, size * 0.5, size * 0.48, size * 0.25, Math.PI * 0.77, Math.PI * 1.95, thickness, secondary);
-  drawLine(png, size * 0.61, size * 0.3, size * 0.61, size * 0.61, thickness, primary);
-  drawArc(png, size * 0.51, size * 0.61, size * 0.1, 0, Math.PI * 0.92, thickness, primary);
-  drawCircle(png, size * 0.61, size * 0.25, thickness * 0.5, secondary);
-  drawCircle(png, size * 0.38, size * 0.43, thickness * 0.34, primary);
-}
-
 function createPalette(brand) {
   return {
     background: hexToRgb(brand.visual.backgroundColor),
@@ -562,39 +801,129 @@ function createPalette(brand) {
   };
 }
 
-function drawBrandMark(png, brand, palette, scale) {
-  if (brand.visual.glyph === 'cutej') {
-    drawCutejMark(png, palette, scale);
-    return;
-  }
-  drawZenmindMark(png, palette, scale);
-}
-
-function createIconPng(brand, size) {
+function createLogoIconPng(brand, logo, size, scale) {
   const png = createPng(size);
   const palette = createPalette(brand);
   fillGradient(png, palette.background, palette.backgroundEnd);
   drawGlow(png, size * 0.5, size * 0.38, size * 0.42, palette.secondary, 54);
   drawGlow(png, size * 0.18, size * 0.85, size * 0.32, palette.primary, 34);
-  drawBrandMark(png, brand, palette, 1);
+  drawPngFit(png, logo, size * scale, size * scale, { trimTransparent: true });
   return encodePng(png);
 }
 
-function createTransparentMarkPng(brand, size) {
+function createLogoForegroundPng(logo, size, scale) {
   const png = createPng(size);
-  drawBrandMark(png, brand, createPalette(brand), 1.12);
+  drawPngFit(png, logo, size * scale, size * scale, { trimTransparent: true });
   return encodePng(png);
 }
 
-function writeGeneratedAssets(rootDir, brand) {
+function createLogoSplashPng(logo, canvasSize, imageSize) {
+  const png = createPng(canvasSize);
+  drawPngFit(png, logo, imageSize, imageSize);
+  return encodePng(png);
+}
+
+function writeGeneratedAssets(rootDir, brand, logo) {
   const assetRoot = path.dirname(path.join(rootDir, brand.generatedAssets.icon));
-  const icon = createIconPng(brand, 1024);
-  const transparentMark = createTransparentMarkPng(brand, 1024);
-  const favicon = createIconPng(brand, 64);
+  const icon = createLogoIconPng(brand, logo, 1024, ICON_LOGO_SCALE);
+  const adaptiveIcon = createLogoForegroundPng(logo, 1024, ADAPTIVE_ICON_LOGO_SCALE);
+  const favicon = createLogoIconPng(brand, logo, 64, FAVICON_LOGO_SCALE);
   writeFileIfChanged(path.join(assetRoot, 'icon.png'), icon);
-  writeFileIfChanged(path.join(assetRoot, 'adaptive-icon.png'), transparentMark);
-  writeFileIfChanged(path.join(assetRoot, 'logo.png'), transparentMark);
+  writeFileIfChanged(path.join(assetRoot, 'adaptive-icon.png'), adaptiveIcon);
   writeFileIfChanged(path.join(assetRoot, 'favicon.png'), favicon);
+}
+
+function writeAndroidSplashResources(rootDir, brand, logo) {
+  const androidMainPath = path.join(rootDir, 'android', 'app', 'src', 'main');
+  if (!fs.existsSync(androidMainPath)) {
+    return;
+  }
+
+  for (const density of ANDROID_SPLASH_DENSITIES) {
+    const canvasSize = Math.round(288 * density.multiplier);
+    const imageSize = Math.round(brand.splash.imageWidth * density.multiplier);
+    writeFileIfChanged(
+      path.join(androidMainPath, 'res', density.directory, 'splashscreen_logo.png'),
+      createLogoSplashPng(logo, canvasSize, imageSize)
+    );
+  }
+
+  const colorsPath = path.join(androidMainPath, 'res', 'values', 'colors.xml');
+  if (fs.existsSync(colorsPath)) {
+    const colors = fs.readFileSync(colorsPath, 'utf8');
+    const nextColors = colors.replace(
+      /(<color name="splashscreen_background">)#[0-9a-fA-F]{6}(<\/color>)/u,
+      `$1${brand.splash.backgroundColor}$2`
+    );
+    writeFileIfChanged(colorsPath, nextColors);
+  }
+}
+
+function decimalColorComponent(value) {
+  return (value / 255).toFixed(15);
+}
+
+function splashBackgroundContents(backgroundColor) {
+  const color = hexToRgb(backgroundColor);
+  return {
+    colors: [
+      {
+        color: {
+          components: {
+            alpha: '1.000',
+            blue: decimalColorComponent(color.b),
+            green: decimalColorComponent(color.g),
+            red: decimalColorComponent(color.r),
+          },
+          'color-space': 'srgb',
+        },
+        idiom: 'universal',
+      },
+    ],
+    info: {
+      version: 1,
+      author: 'expo',
+    },
+  };
+}
+
+function writeIosSplashResources(rootDir, brand, logo) {
+  const iosRoot = path.join(rootDir, 'ios');
+  if (!fs.existsSync(iosRoot)) {
+    return;
+  }
+
+  const projectDirectories = fs.readdirSync(iosRoot, { withFileTypes: true }).filter((entry) => entry.isDirectory());
+  for (const directory of projectDirectories) {
+    const imageSetPath = path.join(iosRoot, directory.name, 'Images.xcassets', 'SplashScreenLogo.imageset');
+    if (!fs.existsSync(imageSetPath)) {
+      continue;
+    }
+
+    for (const scale of IOS_SPLASH_SCALES) {
+      const imageSize = Math.round(brand.splash.imageWidth * scale.ratio);
+      writeFileIfChanged(
+        path.join(imageSetPath, scale.filename),
+        createLogoSplashPng(logo, imageSize, imageSize)
+      );
+    }
+
+    const backgroundPath = path.join(
+      iosRoot,
+      directory.name,
+      'Images.xcassets',
+      'SplashScreenBackground.colorset',
+      'Contents.json'
+    );
+    if (fs.existsSync(backgroundPath)) {
+      writeFileIfChanged(backgroundPath, `${JSON.stringify(splashBackgroundContents(brand.splash.backgroundColor), null, 2)}\n`);
+    }
+  }
+}
+
+function writeNativeSplashResources(rootDir, brand, logo) {
+  writeAndroidSplashResources(rootDir, brand, logo);
+  writeIosSplashResources(rootDir, brand, logo);
 }
 
 function syncBrandArtifacts({
@@ -604,13 +933,23 @@ function syncBrandArtifacts({
   force = false,
 } = {}) {
   const brand = loadBrandConfig(rootDir, brandId, appVersion);
+  const logoSource = readRequiredLogoSource(rootDir, brand);
   const fingerprints = {
     runtime: brandRuntimeFingerprint(brand),
-    asset: brandAssetFingerprint(brand),
+    asset: brandAssetFingerprint(brand, logoSource.hash),
+    nativeSplash: brandNativeSplashFingerprint(brand, logoSource.hash),
   };
+  const manifest = readGeneratedManifest(rootDir, brand);
   writeGeneratedBrandFiles(rootDir, brand);
-  if (force || !areGeneratedAssetsCurrent(rootDir, brand, fingerprints.asset)) {
-    writeGeneratedAssets(rootDir, brand);
+  const shouldWriteGeneratedAssets = force || !areGeneratedAssetsCurrent(manifest, rootDir, brand, fingerprints.asset);
+  const shouldWriteNativeSplash = force || !areNativeSplashResourcesCurrent(manifest, rootDir, fingerprints.nativeSplash);
+  const logo =
+    shouldWriteGeneratedAssets || shouldWriteNativeSplash ? decodePng(logoSource.bytes, logoSource.path) : null;
+  if (shouldWriteGeneratedAssets) {
+    writeGeneratedAssets(rootDir, brand, logo);
+  }
+  if (shouldWriteNativeSplash) {
+    writeNativeSplashResources(rootDir, brand, logo);
   }
   writeGeneratedManifest(rootDir, brand, fingerprints);
   return brand;
@@ -618,7 +957,7 @@ function syncBrandArtifacts({
 
 module.exports = {
   DEFAULT_BRAND_ID,
-  GENERATED_ASSET_ROOT,
+  BRAND_ASSET_ROOT,
   GENERATED_BRAND_ASSETS_TS,
   GENERATED_BRAND_TS,
   SUPPORTED_LOCALES,

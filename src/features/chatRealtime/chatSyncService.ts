@@ -132,7 +132,7 @@ type ReadMarkState = {
   marker: string;
 };
 
-const STREAM_UI_FLUSH_MS = 24;
+const STREAM_UI_FLUSH_MS = 64;
 const STREAM_DB_FLUSH_MS = 320;
 const RUNTIME_EMIT_FLUSH_MS = 48;
 const TIMELINE_PERSIST_DEBOUNCE_MS = 420;

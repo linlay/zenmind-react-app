@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-09T06:54:01.688Z",
+  "generatedAt": "2026-06-09T11:16:48.841Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -1628,6 +1628,7 @@
       "applyChatTimelineMessage",
       "applyChatTimelineStreamDelta",
       "buildChatTimelineDisplayItems",
+      "buildChatTimelineDisplayModel",
       "createChatTimelineState",
       "deriveChatTimelineState",
       "deriveChatTimelineStateFromMessages",
@@ -1641,7 +1642,13 @@
       "timelinePersistenceInternals"
     ],
     "src/features/chatTimeline/messageProjection.ts": ["projectTimelineMessages", "projectTimelineRuntimeState"],
-    "src/features/chatTimeline/timelineDisplay.ts": ["buildChatTimelineDisplayItems", "getChatTimelineDisplayItemType"],
+    "src/features/chatTimeline/timelineDisplay.ts": [
+      "ChatTimelineDisplayModel",
+      "ChatTimelineDisplayTailSignature",
+      "buildChatTimelineDisplayItems",
+      "buildChatTimelineDisplayModel",
+      "getChatTimelineDisplayItemType"
+    ],
     "src/features/chatTimeline/timelinePersistence.ts": [
       "SerializedTimelineMeta",
       "SerializedTimelineNode",
@@ -1714,6 +1721,8 @@
       "APP_SLUG",
       "APP_VERSION",
       "BRAND_ID",
+      "BRAND_SPLASH_BACKGROUND_COLOR",
+      "BRAND_SPLASH_IMAGE_WIDTH",
       "EXPO_NAME",
       "PRODUCT_NAME",
       "STORAGE_NAMESPACE"
@@ -1906,7 +1915,7 @@
       "src/shared/visual/foundation.ts"
     ],
     "src/app/settings/settingsActions.ts": ["src/features/chatRealtime/chatSyncService.ts"],
-    "src/app/startup/AppLaunchSkeleton.tsx": ["src/app/startup/GeminiLogo.tsx"],
+    "src/app/startup/AppLaunchSkeleton.tsx": ["src/app/startup/GeminiLogo.tsx", "src/shared/generated/brand.ts"],
     "src/app/startup/GeminiLogo.tsx": ["src/shared/icons/brandAssets.ts"],
     "src/core/api/apiClient.ts": [
       "src/core/auth/appAuth.ts",
@@ -1936,7 +1945,9 @@
       "src/core/auth/authConfig.ts",
       "src/core/config/endpoint.ts",
       "src/shared/i18n/index.ts",
-      "src/shared/icons/brandAssets.ts"
+      "src/shared/icons/brandAssets.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/ChatDetailScreen.tsx": [
       "src/core/api/services/chatApi.ts",
@@ -2281,7 +2292,7 @@
     ],
     "src/shared/components/__tests__/ScreenHeader.test.tsx": ["src/shared/components/ScreenHeader.tsx"],
     "src/shared/generated/brand.ts": [],
-    "src/shared/generated/brandAssets.ts": ["assets/generated/brand/zenmind/logo.png"],
+    "src/shared/generated/brandAssets.ts": ["assets/brands/zenmind/logo.png"],
     "src/shared/i18n/I18nProvider.tsx": ["src/shared/i18n/locales.ts", "src/shared/i18n/translate.ts"],
     "src/shared/i18n/formatters.ts": ["src/shared/i18n/locales.ts", "src/shared/i18n/translate.ts"],
     "src/shared/i18n/index.ts": [

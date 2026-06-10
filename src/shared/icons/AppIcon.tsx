@@ -49,8 +49,8 @@ function getAppIconColorByRole(colors: AppVisualColors, role: AppIconColorRole):
   if (role === 'tertiary') {
     return colors.textTertiary;
   }
-  if (role === 'surface') {
-    return colors.surface;
+  if (role === 'onBrandAction') {
+    return colors.onBrandBlueAction;
   }
   if (role === 'success') {
     return colors.success;

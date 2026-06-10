@@ -12,8 +12,28 @@ const { loadBrandConfig, resolveBrandId, syncBrandArtifacts } = require('../lib/
 function createBrandFixtureRoot() {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zenmind-brand-config-'));
   fs.cpSync(path.join(process.cwd(), 'brands'), path.join(rootDir, 'brands'), { recursive: true });
+  for (const brandId of ['zenmind', 'cutej']) {
+    const assetRoot = path.join(rootDir, 'assets', 'brands', brandId);
+    fs.mkdirSync(assetRoot, { recursive: true });
+    fs.copyFileSync(
+      path.join(process.cwd(), 'assets', 'brands', brandId, 'logo.png'),
+      path.join(assetRoot, 'logo.png')
+    );
+  }
   fs.writeFileSync(path.join(rootDir, 'package.json'), `${JSON.stringify({ version: '1.0.0' }, null, 2)}\n`);
   return rootDir;
+}
+
+function createNativeSplashFixture(rootDir: string) {
+  fs.mkdirSync(path.join(rootDir, 'android', 'app', 'src', 'main'), { recursive: true });
+  fs.mkdirSync(
+    path.join(rootDir, 'ios', 'fixtureapp', 'Images.xcassets', 'SplashScreenLogo.imageset'),
+    { recursive: true }
+  );
+  fs.mkdirSync(
+    path.join(rootDir, 'ios', 'fixtureapp', 'Images.xcassets', 'SplashScreenBackground.colorset'),
+    { recursive: true }
+  );
 }
 
 test('brand config resolves argv and env brand ids', () => {
@@ -32,10 +52,23 @@ test('brand manifests expose distinct native identities', () => {
   assert.notEqual(zenmind.android.package, cutej.android.package);
   assert.notEqual(zenmind.ios.bundleIdentifier, cutej.ios.bundleIdentifier);
   assert.equal(zenmind.version, '9.9.9');
-  assert.equal(cutej.generatedAssets.logo, 'assets/generated/brand/cutej/logo.png');
+  assert.equal(cutej.generatedAssets.logo, 'assets/brands/cutej/logo.png');
 });
 
-test('brand sync only redraws png assets when visual inputs change', () => {
+test('brand sync requires a checked-in logo source', () => {
+  const rootDir = createBrandFixtureRoot();
+  try {
+    fs.rmSync(path.join(rootDir, 'assets', 'brands', 'zenmind', 'logo.png'));
+    assert.throws(
+      () => syncBrandArtifacts({ rootDir, brandId: 'zenmind' }),
+      /Brand logo source not found/
+    );
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('brand sync redraws derived png assets only when visual inputs or logo source change', () => {
   const rootDir = createBrandFixtureRoot();
   const originalDeflateSync = zlib.deflateSync;
   let pngEncodeCount = 0;
@@ -47,6 +80,9 @@ test('brand sync only redraws png assets when visual inputs change', () => {
   try {
     syncBrandArtifacts({ rootDir, brandId: 'zenmind' });
     assert.equal(pngEncodeCount, 3);
+    const logoPath = path.join(rootDir, 'assets', 'brands', 'zenmind', 'logo.png');
+    const originalLogo = fs.readFileSync(logoPath);
+    assert.deepEqual(fs.readFileSync(logoPath), originalLogo);
 
     pngEncodeCount = 0;
     syncBrandArtifacts({ rootDir, brandId: 'zenmind' });
@@ -59,7 +95,7 @@ test('brand sync only redraws png assets when visual inputs change', () => {
     syncBrandArtifacts({ rootDir, brandId: 'zenmind' });
     assert.equal(pngEncodeCount, 0);
 
-    const manifestPath = path.join(rootDir, 'assets', 'generated', 'brand', 'zenmind', 'manifest.json');
+    const manifestPath = path.join(rootDir, 'assets', 'brands', 'zenmind', 'manifest.json');
     const firstManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     fs.writeFileSync(
       path.join(rootDir, 'brands', 'zenmind', 'i18n', 'en-US.json'),
@@ -82,6 +118,49 @@ test('brand sync only redraws png assets when visual inputs change', () => {
     const visualManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     assert.notEqual(visualManifest.assetFingerprint, i18nManifest.assetFingerprint);
     assert.equal(pngEncodeCount, 3);
+    assert.deepEqual(fs.readFileSync(logoPath), originalLogo);
+
+    fs.copyFileSync(
+      path.join(rootDir, 'assets', 'brands', 'cutej', 'logo.png'),
+      logoPath
+    );
+
+    pngEncodeCount = 0;
+    syncBrandArtifacts({ rootDir, brandId: 'zenmind' });
+    const logoManifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    assert.notEqual(logoManifest.assetFingerprint, visualManifest.assetFingerprint);
+    assert.equal(pngEncodeCount, 3);
+  } finally {
+    zlib.deflateSync = originalDeflateSync;
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('brand sync redraws native splash assets only when splash inputs change', () => {
+  const rootDir = createBrandFixtureRoot();
+  createNativeSplashFixture(rootDir);
+  const originalDeflateSync = zlib.deflateSync;
+  let pngEncodeCount = 0;
+  zlib.deflateSync = ((...args: Parameters<typeof zlib.deflateSync>) => {
+    pngEncodeCount += 1;
+    return originalDeflateSync(...args);
+  }) as typeof zlib.deflateSync;
+
+  try {
+    syncBrandArtifacts({ rootDir, brandId: 'zenmind' });
+    assert.equal(pngEncodeCount, 11);
+
+    pngEncodeCount = 0;
+    syncBrandArtifacts({ rootDir, brandId: 'zenmind' });
+    assert.equal(pngEncodeCount, 0);
+
+    const brandManifestPath = path.join(rootDir, 'brands', 'zenmind', 'brand.json');
+    const brandManifest = JSON.parse(fs.readFileSync(brandManifestPath, 'utf8'));
+    brandManifest.splash.imageWidth = 224;
+    fs.writeFileSync(brandManifestPath, `${JSON.stringify(brandManifest, null, 2)}\n`);
+
+    syncBrandArtifacts({ rootDir, brandId: 'zenmind' });
+    assert.equal(pngEncodeCount, 8);
   } finally {
     zlib.deflateSync = originalDeflateSync;
     fs.rmSync(rootDir, { recursive: true, force: true });

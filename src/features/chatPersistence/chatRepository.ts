@@ -556,6 +556,26 @@ type ConversationDirectoryProjection = {
   unreadCount: number;
 };
 
+type DirectoryProjectionKind = 'agent' | 'team';
+
+type DirectoryProjectionTargetRow = {
+  id: string;
+  scopeKey: string;
+  latestConversationId: string | null;
+  unreadCount: number;
+};
+
+type DirectoryProjectionChange = {
+  id: string;
+  latestConversationId: string | null;
+  unreadCount: number;
+};
+
+type LatestConversationScopeRow = {
+  scope_key: string | null;
+  conversation_id: string | null;
+};
+
 const CHAT_HOME_ITEM_SELECT = {
   conversationId: conversations.id,
   title: conversations.title,
@@ -600,7 +620,6 @@ const CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT = {
 };
 
 const CHAT_DIRECTORY_LATEST_MESSAGE_AT = sql<number>`coalesce(${conversations.lastMessageAt}, 0)`;
-const NON_EMPTY_CONVERSATION_SUMMARY = sql<boolean>`length(trim(${conversations.lastMessageText})) > 0`;
 const CHAT_DIRECTORY_STABLE_ORDER = [asc(chatDirectoryItems.sortRank), asc(chatDirectoryItems.id)];
 const CHAT_DIRECTORY_RECENCY_ORDER = [
   desc(CHAT_DIRECTORY_LATEST_MESSAGE_AT),
@@ -1621,156 +1640,181 @@ function normalizeChatDirectoryItem(
   };
 }
 
-async function getAgentConversationDirectoryProjection(
-  agentKey: string
-): Promise<ConversationDirectoryProjection> {
-  const [latestRows, unreadRows] = await Promise.all([
-    chatDb
-      .select({
-        conversationId: conversations.id,
-      })
-      .from(conversations)
-      .where(and(eq(conversations.agentKey, agentKey), NON_EMPTY_CONVERSATION_SUMMARY))
-      .orderBy(...CONVERSATION_RECENCY_ORDER)
-      .limit(1),
-    chatDb
-      .select({
-        value: count(),
-      })
-      .from(conversations)
-      .where(and(eq(conversations.agentKey, agentKey), eq(conversations.isRead, 0))),
-  ]);
-
-  return {
-    latestConversationId: latestRows[0]?.conversationId || null,
-    unreadCount: clampUnreadCount(Number(unreadRows[0]?.value || 0)),
-  };
+function normalizeDirectoryProjectionKeys(
+  keys: readonly (string | null | undefined)[]
+): string[] {
+  return Array.from(
+    new Set(keys.map((item) => String(item || '').trim()).filter(Boolean))
+  );
 }
 
-async function getTeamConversationDirectoryProjection(
-  teamId: string
-): Promise<ConversationDirectoryProjection> {
-  const [latestRows, unreadRows] = await Promise.all([
-    chatDb
-      .select({
-        conversationId: conversations.id,
-      })
-      .from(conversations)
-      .where(and(eq(conversations.teamId, teamId), NON_EMPTY_CONVERSATION_SUMMARY))
-      .orderBy(...CONVERSATION_RECENCY_ORDER)
-      .limit(1),
-    chatDb
-      .select({
-        value: count(),
-      })
-      .from(conversations)
-      .where(and(eq(conversations.teamId, teamId), eq(conversations.isRead, 0))),
-  ]);
-
-  return {
-    latestConversationId: latestRows[0]?.conversationId || null,
-    unreadCount: clampUnreadCount(Number(unreadRows[0]?.value || 0)),
-  };
-}
-
-async function refreshAgentDirectoryProjection(agentKey: string): Promise<boolean> {
-  const normalizedAgentKey = String(agentKey || '').trim();
-  if (!normalizedAgentKey) {
-    return false;
+function buildDirectoryProjectionChange(
+  target: DirectoryProjectionTargetRow,
+  projection: ConversationDirectoryProjection
+): DirectoryProjectionChange | null {
+  if (
+    (target.latestConversationId || null) === projection.latestConversationId &&
+    clampUnreadCount(Number(target.unreadCount || 0)) === projection.unreadCount
+  ) {
+    return null;
   }
 
+  return {
+    id: target.id,
+    latestConversationId: projection.latestConversationId,
+    unreadCount: projection.unreadCount,
+  };
+}
+
+async function loadDirectoryProjectionTargets(
+  kind: DirectoryProjectionKind,
+  keys: readonly string[]
+): Promise<DirectoryProjectionTargetRow[]> {
+  if (keys.length <= 0) {
+    return [];
+  }
+
+  const scopeColumn = kind === 'agent' ? chatDirectoryItems.agentKey : chatDirectoryItems.teamId;
   const rows = await chatDb
     .select({
       id: chatDirectoryItems.id,
+      scopeKey: scopeColumn,
       latestConversationId: chatDirectoryItems.latestConversationId,
       unreadCount: chatDirectoryItems.unreadCount,
     })
     .from(chatDirectoryItems)
-    .where(eq(chatDirectoryItems.agentKey, normalizedAgentKey));
-  if (rows.length <= 0) {
-    return false;
-  }
+    .where(inArray(scopeColumn, keys));
 
-  const projection = await getAgentConversationDirectoryProjection(normalizedAgentKey);
-  const changed = rows.some(
-    (row) =>
-      (row.latestConversationId || null) !== projection.latestConversationId ||
-      clampUnreadCount(Number(row.unreadCount || 0)) !== projection.unreadCount
-  );
-  if (!changed) {
-    return false;
-  }
-
-  await chatDb
-    .update(chatDirectoryItems)
-    .set({
-      latestConversationId: projection.latestConversationId,
-      unreadCount: projection.unreadCount,
-    })
-    .where(eq(chatDirectoryItems.agentKey, normalizedAgentKey));
-  return true;
+  return rows
+    .map((row) => ({
+      id: row.id,
+      scopeKey: String(row.scopeKey || '').trim(),
+      latestConversationId: row.latestConversationId || null,
+      unreadCount: clampUnreadCount(Number(row.unreadCount || 0)),
+    }))
+    .filter((row) => Boolean(row.scopeKey));
 }
 
-async function refreshTeamDirectoryProjection(teamId: string): Promise<boolean> {
-  const normalizedTeamId = String(teamId || '').trim();
-  if (!normalizedTeamId) {
-    return false;
+async function loadLatestConversationIdsByScope(
+  kind: DirectoryProjectionKind,
+  keys: readonly string[]
+): Promise<Map<string, string>> {
+  if (keys.length <= 0) {
+    return new Map();
   }
 
+  const scopeColumn = sql.raw(kind === 'agent' ? 'agent_key' : 'team_id');
+  const scopeValues = sql.join(keys.map((key) => sql`${key}`), sql`, `);
+  const rows = await chatDb.all<LatestConversationScopeRow>(sql`
+    SELECT scope_key, conversation_id
+    FROM (
+      SELECT
+        ${scopeColumn} AS scope_key,
+        id AS conversation_id,
+        row_number() OVER (
+          PARTITION BY ${scopeColumn}
+          ORDER BY last_message_at DESC, updated_at DESC, id ASC
+        ) AS row_rank
+      FROM conversations
+      WHERE ${scopeColumn} IN (${scopeValues})
+        AND length(trim(last_message_text)) > 0
+    )
+    WHERE row_rank = 1
+  `);
+
+  return new Map(
+    rows
+      .map((row) => [String(row.scope_key || '').trim(), String(row.conversation_id || '').trim()] as const)
+      .filter(([scopeKey, conversationId]) => Boolean(scopeKey && conversationId))
+  );
+}
+
+async function loadUnreadCountsByScope(
+  kind: DirectoryProjectionKind,
+  keys: readonly string[]
+): Promise<Map<string, number>> {
+  if (keys.length <= 0) {
+    return new Map();
+  }
+
+  const scopeColumn = kind === 'agent' ? conversations.agentKey : conversations.teamId;
   const rows = await chatDb
     .select({
-      id: chatDirectoryItems.id,
-      latestConversationId: chatDirectoryItems.latestConversationId,
-      unreadCount: chatDirectoryItems.unreadCount,
+      scopeKey: scopeColumn,
+      value: count(),
     })
-    .from(chatDirectoryItems)
-    .where(eq(chatDirectoryItems.teamId, normalizedTeamId));
-  if (rows.length <= 0) {
-    return false;
-  }
+    .from(conversations)
+    .where(and(inArray(scopeColumn, keys), eq(conversations.isRead, 0)))
+    .groupBy(scopeColumn);
 
-  const projection = await getTeamConversationDirectoryProjection(normalizedTeamId);
-  const changed = rows.some(
-    (row) =>
-      (row.latestConversationId || null) !== projection.latestConversationId ||
-      clampUnreadCount(Number(row.unreadCount || 0)) !== projection.unreadCount
+  return new Map(
+    rows
+      .map((row) => [String(row.scopeKey || '').trim(), clampUnreadCount(Number(row.value || 0))] as const)
+      .filter(([scopeKey]) => Boolean(scopeKey))
   );
-  if (!changed) {
-    return false;
+}
+
+async function collectDirectoryProjectionChanges(
+  kind: DirectoryProjectionKind,
+  rawKeys: readonly string[]
+): Promise<DirectoryProjectionChange[]> {
+  const keys = normalizeDirectoryProjectionKeys(rawKeys);
+  if (keys.length <= 0) {
+    return [];
   }
 
-  await chatDb
-    .update(chatDirectoryItems)
-    .set({
-      latestConversationId: projection.latestConversationId,
-      unreadCount: projection.unreadCount,
-    })
-    .where(eq(chatDirectoryItems.teamId, normalizedTeamId));
-  return true;
+  const targets = await loadDirectoryProjectionTargets(kind, keys);
+  if (targets.length <= 0) {
+    return [];
+  }
+
+  const targetKeys = normalizeDirectoryProjectionKeys(targets.map((row) => row.scopeKey));
+  const [latestConversationIdByScope, unreadCountByScope] = await Promise.all([
+    loadLatestConversationIdsByScope(kind, targetKeys),
+    loadUnreadCountsByScope(kind, targetKeys),
+  ]);
+  const changes: DirectoryProjectionChange[] = [];
+
+  for (const target of targets) {
+    const change = buildDirectoryProjectionChange(target, {
+      latestConversationId: latestConversationIdByScope.get(target.scopeKey) || null,
+      unreadCount: unreadCountByScope.get(target.scopeKey) || 0,
+    });
+    if (change) {
+      changes.push(change);
+    }
+  }
+
+  return changes;
 }
 
 async function refreshChatDirectoryProjectionForKeys(
   keys: ConversationDirectoryKeys[]
 ): Promise<boolean> {
-  const agentKeys = Array.from(
-    new Set(keys.map((item) => item.agentKey).filter((item): item is string => Boolean(item)))
-  );
-  const teamIds = Array.from(
-    new Set(keys.map((item) => item.teamId).filter((item): item is string => Boolean(item)))
-  );
-
-  let changed = false;
-  for (const agentKey of agentKeys) {
-    changed = (await refreshAgentDirectoryProjection(agentKey)) || changed;
-  }
-  for (const teamId of teamIds) {
-    changed = (await refreshTeamDirectoryProjection(teamId)) || changed;
+  const agentKeys = normalizeDirectoryProjectionKeys(keys.map((item) => item.agentKey));
+  const teamIds = normalizeDirectoryProjectionKeys(keys.map((item) => item.teamId));
+  const [agentChanges, teamChanges] = await Promise.all([
+    collectDirectoryProjectionChanges('agent', agentKeys),
+    collectDirectoryProjectionChanges('team', teamIds),
+  ]);
+  const changes = [...agentChanges, ...teamChanges];
+  if (changes.length <= 0) {
+    return false;
   }
 
-  if (changed) {
-    await refreshChatDirectorySnapshot();
-  }
-  return changed;
+  chatDb.transaction((tx) => {
+    for (const change of changes) {
+      tx.update(chatDirectoryItems)
+        .set({
+          latestConversationId: change.latestConversationId,
+          unreadCount: change.unreadCount,
+        })
+        .where(eq(chatDirectoryItems.id, change.id))
+        .run();
+    }
+  });
+  await refreshChatDirectorySnapshot();
+  return true;
 }
 
 export async function refreshChatDirectoryProjectionForConversation(

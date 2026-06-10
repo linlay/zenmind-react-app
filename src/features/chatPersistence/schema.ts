@@ -1,38 +1,70 @@
 import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
-export const conversations = sqliteTable('conversations', {
-  id: text('id').primaryKey(),
-  title: text('title').notNull(),
-  lastMessageText: text('last_message_text').notNull(),
-  lastMessageAt: integer('last_message_at').notNull(),
-  unreadCount: integer('unread_count').notNull().default(0),
-  isRead: integer('is_read').notNull().default(1),
-  readAt: integer('read_at'),
-  readRunId: text('read_run_id'),
-  lastMessageStatus: text('last_message_status').notNull().default('sent'),
-  pinnedAt: integer('pinned_at').notNull().default(0),
-  updatedAt: integer('updated_at').notNull(),
-  agentKey: text('agent_key'),
-  teamId: text('team_id'),
-});
+export const conversations = sqliteTable(
+  'conversations',
+  {
+    id: text('id').primaryKey(),
+    title: text('title').notNull(),
+    lastMessageText: text('last_message_text').notNull(),
+    lastMessageAt: integer('last_message_at').notNull(),
+    unreadCount: integer('unread_count').notNull().default(0),
+    isRead: integer('is_read').notNull().default(1),
+    readAt: integer('read_at'),
+    readRunId: text('read_run_id'),
+    lastMessageStatus: text('last_message_status').notNull().default('sent'),
+    pinnedAt: integer('pinned_at').notNull().default(0),
+    updatedAt: integer('updated_at').notNull(),
+    agentKey: text('agent_key'),
+    teamId: text('team_id'),
+  },
+  (table) => [
+    index('conversations_agent_recency_idx').on(
+      table.agentKey,
+      table.lastMessageAt,
+      table.updatedAt,
+      table.id
+    ),
+    index('conversations_team_recency_idx').on(
+      table.teamId,
+      table.lastMessageAt,
+      table.updatedAt,
+      table.id
+    ),
+    index('conversations_agent_read_idx').on(table.agentKey, table.isRead),
+    index('conversations_team_read_idx').on(table.teamId, table.isRead),
+  ]
+);
 
-export const chatDirectoryItems = sqliteTable('chat_directory_items', {
-  id: text('id').primaryKey(),
-  kind: text('kind').notNull(),
-  title: text('title').notNull(),
-  subtitle: text('subtitle').notNull(),
-  iconName: text('icon_name'),
-  iconColor: text('icon_color'),
-  iconUri: text('icon_uri'),
-  unreadCount: integer('unread_count').notNull().default(0),
-  pinnedAt: integer('pinned_at').notNull().default(0),
-  sortRank: integer('sort_rank').notNull(),
-  agentKey: text('agent_key'),
-  teamId: text('team_id'),
-  defaultAgentKey: text('default_agent_key'),
-  latestConversationId: text('latest_conversation_id'),
-});
+export const chatDirectoryItems = sqliteTable(
+  'chat_directory_items',
+  {
+    id: text('id').primaryKey(),
+    kind: text('kind').notNull(),
+    title: text('title').notNull(),
+    subtitle: text('subtitle').notNull(),
+    iconName: text('icon_name'),
+    iconColor: text('icon_color'),
+    iconUri: text('icon_uri'),
+    unreadCount: integer('unread_count').notNull().default(0),
+    pinnedAt: integer('pinned_at').notNull().default(0),
+    sortRank: integer('sort_rank').notNull(),
+    agentKey: text('agent_key'),
+    teamId: text('team_id'),
+    defaultAgentKey: text('default_agent_key'),
+    latestConversationId: text('latest_conversation_id'),
+  },
+  (table) => [
+    index('chat_directory_items_home_order_idx').on(
+      table.pinnedAt,
+      table.sortRank,
+      table.latestConversationId
+    ),
+    index('chat_directory_items_agent_idx').on(table.agentKey),
+    index('chat_directory_items_team_idx').on(table.teamId),
+    index('chat_directory_items_stable_order_idx').on(table.sortRank, table.id),
+  ]
+);
 
 export const messages = sqliteTable('messages', {
   id: text('id').primaryKey(),
@@ -83,14 +115,21 @@ export const messageAttachments = sqliteTable(
   ]
 );
 
-export const outboxMessages = sqliteTable('outbox_messages', {
-  clientMessageId: text('client_message_id').primaryKey(),
-  conversationId: text('conversation_id')
-    .notNull()
-    .references(() => conversations.id),
-  content: text('content').notNull(),
-  createdAt: integer('created_at').notNull(),
-});
+export const outboxMessages = sqliteTable(
+  'outbox_messages',
+  {
+    clientMessageId: text('client_message_id').primaryKey(),
+    conversationId: text('conversation_id')
+      .notNull()
+      .references(() => conversations.id),
+    content: text('content').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    index('outbox_messages_created_at_idx').on(table.createdAt, table.clientMessageId),
+    index('outbox_messages_conversation_idx').on(table.conversationId),
+  ]
+);
 
 export const conversationSyncState = sqliteTable('conversation_sync_state', {
   conversationId: text('conversation_id')

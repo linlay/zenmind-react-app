@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-09T06:54:01.772Z",
+  "generatedAt": "2026-06-09T11:16:48.915Z",
   "items": [
     {
       "id": "app-development-debug",
@@ -21,7 +21,7 @@
         "index.js",
         "app.config.js",
         "assets",
-        "assets/generated/brand",
+        "assets/brands",
         "brands",
         "eas.json",
         "package.json",
@@ -225,7 +225,7 @@
         "src/shared/visual",
         "src/shared/icons",
         "src/shared/generated",
-        "assets/generated/brand",
+        "assets/brands",
         "doc/ui-visual-theme.md"
       ],
       "relatedFlows": ["app-startup", "chat-home-cold-boot"],

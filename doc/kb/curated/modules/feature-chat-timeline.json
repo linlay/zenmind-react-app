@@ -6,7 +6,7 @@
   "responsibility": [
     "提供纯函数 timeline reducer，把 request.query、content.*、run.*、reasoning/planning/tool/awaiting/artifact/action/plan/task/usage/context 等事件归并为单会话有序节点。",
     "作为详情页消息、头部运行态、输入区结构化用量摘要、输入区主操作、awaiting question 交互数据、streaming 判断、历史抽屉和 FlashList 展示数据的统一投影源，避免页面层和 sync service 各自维护重复的 message/runtime/usage 派生逻辑。",
-    "显示派生层区分 request.query 用户消息与 request.* 控制输入，并按 run 内连续同名同标签工具调用生成 tool-group 展示项，供详情页用单行工具 pill 与多状态点渲染多次调用。",
+    "显示派生层区分 request.query 用户消息与 request.* 控制输入，并按 run 内连续同名同标签工具调用生成 tool-group 展示项，供详情页用单行工具 pill 与多状态点渲染多次调用；高频流式尾节点更新通过 display model 做保守增量派生。",
     "支持从 SQLite ChatMessageItem 构建 fallback timeline，并支持本地消息 patch、stream delta 和远端 event history replay 的结构共享更新。",
     "提供纯序列化/反序列化能力，把 ChatTimelineState 转换为 normalized meta/node rows，供 repository 高性能持久化 rich timeline snapshot；usage 节点 payload 可恢复完整 usageSummary，awaiting question 可恢复结构化 interactive payload，旧 usageLabel 仍可在反序列化时恢复最小 usageSummary。",
     "只处理内存投影、显示派生和纯数据序列化，不直接访问 SQLite、MMKV、WebSocket 或 React UI。"
@@ -56,6 +56,12 @@
     },
     {
       "file": "src/features/chatTimeline/index.ts",
+      "symbol": "buildChatTimelineDisplayModel",
+      "kind": "view-model",
+      "description": "把 timeline state 转成可缓存的 FlashList display model；节点顺序未变且只有可见尾节点变化时复用已有展示项并只替换尾项，其余情况回退全量构建。"
+    },
+    {
+      "file": "src/features/chatTimeline/index.ts",
       "symbol": "buildChatTimelineDisplayItems",
       "kind": "view-model",
       "description": "把 timeline state 转成 FlashList 可消费的扁平展示项，过滤已迁移到详情头部的 run/usage 节点，并在展示层生成 request 控制输入项与连续工具 tool-group。"
@@ -86,7 +92,7 @@
     "awaiting question 的后端 payload 只在 timeline 层做结构化归一，不在页面层重复解析后端协议字段。",
     "运行态事件先进入内存 timeline/runtime 投影；需要首屏恢复时只允许 repository 写 normalized rich timeline snapshot，不保存原始 event history。",
     "本地发送、ack、incoming、assistant stream delta 和 reconcile 都应复用同一套 timeline patch/replay 入口，避免页面层重复维护消息和运行态。",
-    "display item 必须保持 flat list 和稳定 key；run 状态由详情 Header 消费、usage 节点由输入区用量入口消费，不进入主列表；连续同名工具只能在 display 层生成 tool-group，不写回 timeline state；输入区用量统计从 timeline usageSummary 派生，列表行 memo 应基于 node 引用和分组元数据，避免单个流式节点更新带动无关行重渲染。"
+    "display item 必须保持 flat list 和稳定 key；run 状态由详情 Header 消费、usage 节点由输入区用量入口消费，不进入主列表；连续同名工具只能在 display 层生成 tool-group，不写回 timeline state；输入区用量统计从 timeline usageSummary 派生，列表行 memo 和 display model 缓存应基于 node 引用和分组元数据，避免单个流式节点更新带动无关行重渲染。"
   ],
   "readNext": [
     {

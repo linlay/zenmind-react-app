@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-09T06:54:01.772Z",
+  "generatedAt": "2026-06-09T11:16:48.916Z",
   "items": [
     {
       "id": "add-app-startup-loading-screen",
@@ -16,7 +16,7 @@
       "likelyFiles": [
         "App.tsx",
         "app.config.js",
-        "assets/generated/brand",
+        "assets/brands",
         "src/app/AppRoot.tsx",
         "src/app/startup/AppLaunchSkeleton.tsx",
         "src/app/startup/GeminiLogo.tsx",
@@ -170,7 +170,7 @@
         "scripts/lib/brand-config.js",
         "scripts/sync-brand.js",
         "scripts/tests/brandConfig.test.mts",
-        "assets/generated/brand",
+        "assets/brands",
         "src/shared/generated/brand.ts",
         "src/shared/generated/brandAssets.ts",
         "src/shared/icons/brandAssets.ts",

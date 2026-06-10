@@ -50,7 +50,7 @@
     "scripts/lib/brand-config.js",
     "scripts/sync-brand.js",
     "scripts/tests/brandConfig.test.mts",
-    "assets/generated/brand",
+    "assets/brands",
     "src/shared/generated/brand.ts",
     "src/shared/generated/brandAssets.ts",
     "src/shared/icons/brandAssets.ts",
@@ -61,14 +61,14 @@
     "app.config.js 必须通过同步脚本生成图标、启动图和运行时常量，保证 EAS / expo config 直接读取时也有资源。",
     "不同品牌的 android.package 与 ios.bundleIdentifier 必须不同，EAS channel 也要按品牌分开，避免包覆盖或 OTA 串包。",
     "运行时代码只 import 静态 generated 常量和 generated PNG，不在启动期间读取品牌 JSON 或扫描文件系统。",
-    "品牌同步缓存拆分 runtimeFingerprint 与 assetFingerprint；PNG 缓存在 assets/generated/brand/<id>，文案、版本、包名等非视觉变更只更新 generated 常量和 manifest，不重画 PNG。",
+    "品牌同步缓存拆分 runtimeFingerprint、assetFingerprint 与 nativeSplashFingerprint；assets/brands/<id>/logo.png 是必需派生资产源文件，icon、adaptive-icon、favicon 和 native splash 资源从它生成；文案、版本、包名等非视觉变更只更新 generated 常量和 manifest，不重画 PNG。",
     "多品牌改造不进入聊天 SQLite、MMKV 真源、WebSocket transport 或 repository 写入链路。",
     "新增品牌后要跑 BRAND=<id> node ./scripts/sync-brand.js 和 expo config 检查真实 native 标识。"
   ],
   "acceptanceChecks": [
     "BRAND=zenmind 和 BRAND=cutej 生成的 Expo config 在 name、slug、android.package、ios.bundleIdentifier、icon、splash 和 EAS channel 上可区分。",
     "两个品牌 Android 包可并排安装，不互相覆盖。",
-    "Login、React 启动遮罩和原生 splash 使用同一 generated logo 入口。",
+    "Login、React 启动遮罩和原生 splash 使用同一 assets/brands/<id>/logo.png 入口。",
     "重复执行同一品牌 sync 不重画 PNG，非视觉字段变更也不触发 PNG 重生成。",
     "pnpm typecheck、pnpm test、pnpm kb:build、pnpm kb:validate 通过。"
   ]

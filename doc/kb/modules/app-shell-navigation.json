@@ -7,7 +7,7 @@
     "index.js",
     "app.config.js",
     "assets",
-    "assets/generated/brand",
+    "assets/brands",
     "brands",
     "eas.json",
     "package.json",
@@ -58,7 +58,7 @@
       "file": "scripts/lib/brand-config.js",
       "symbol": "syncBrandArtifacts",
       "kind": "brand-build-config",
-      "description": "校验 brands/<id>/brand.json，生成 src/shared/generated/brand.ts、src/shared/generated/brandAssets.ts 与 assets/generated/brand/<id> 静态 PNG 资源。"
+      "description": "校验 brands/<id>/brand.json，生成 src/shared/generated/brand.ts、src/shared/generated/brandAssets.ts 与 assets/brands/<id> 静态 PNG 资源。"
     },
     {
       "file": "metro.config.js",
@@ -158,13 +158,13 @@
     "Worklets bundle mode 生成物必须同步到项目内 .generated/react-native-worklets/.worklets，并让 Metro 只 watch/resolve 这个项目内稳定目录；预生成时要同时覆盖 node_modules symlink 路径和 pnpm 当前 .pnpm realpath，因为 Worklets hash 会受源码 filename 影响。",
     "Expo 运行和导出脚本必须先执行 scripts/worklets/pregenerate.js，提前生成并同步 Reanimated、Streamdown、Worklets、remend 和二级 Worklets bundle 文件；预生成要覆盖 development / production 环境和 android / web 平台，避免 Metro 建图后才出现新 .worklets 文件导致 SHA-1 缺失。",
     "Expo 运行、导出和 EAS post install 脚本必须先执行 scripts/sync-brand.js，保证 app.config.js、React loading、Login 和 Me 页消费的 generated 品牌资源一致。",
-    "scripts/sync-brand.js 必须按品牌目录使用 assetFingerprint 缓存 PNG 生成，只在 visual 字段或资产生成器版本变化时重画图标；runtimeFingerprint 变化只更新 src/shared/generated/brand.ts、src/shared/generated/brandAssets.ts 和 manifest。",
+    "scripts/sync-brand.js 必须按品牌目录使用 assetFingerprint 缓存派生 PNG 生成，并使用 nativeSplashFingerprint 缓存 Android / iOS 原生 splash 资源；assets/brands/<id>/logo.png 是必需源文件，缺失时直接报错，不由同步脚本生成或覆盖。",
     "新增或修改品牌时只改 brands/<id>/brand.json 和必要资源生成逻辑，不在 screen、feature 或 repository 中添加品牌分支。",
     "不同品牌必须使用不同 android.package / ios.bundleIdentifier，并通过不同 EAS channel 发布，避免安装覆盖或 OTA 串包。",
     "AppThemeProvider 必须挂在 NavigationContainer 上层，AppRoot、RootNavigator、TabBar、StatusBar 和各 screen 才能同步消费同一个 theme 引用。",
     "主题切换只改变 shared visual 语义色，不触发 SQLite、MMKV 聊天目录快照、WebSocket 或 outbox 写入链路。",
     "如果 React loading 之前出现空白窗口，同步检查 Android splash theme 与 AppTheme 的 windowBackground 是否连续，避免主题切换时露白。",
-    "如果接入 expo-splash-screen，要同步维护 app.config.js 插件配置、brands manifest、assets/generated/brand/<id>/logo.png 和 Android 当前 splash 资源，保证 native 首帧与 React 首帧一致。",
+    "如果接入 expo-splash-screen，要同步维护 app.config.js 插件配置、brands manifest、assets/brands/<id>/logo.png、Android 当前 splash 资源和 iOS SplashScreenLogo.imageset，保证 native 首帧与 React 首帧一致。",
     "新增登录页、Tab、设置页或上层 route 时同时检查 RootNavigator、TabScreens、RootTabParamList 和 RootStackParamList 是否一致。",
     "任务 Tab 当前通过 Terminal route 挂载 AgentTaskBoardScreen；若改 route 名称要同步 types、TabIcon 和 KB。",
     "一级 Tab 页面如果展示共享 Header，Header 必须固定在滚动区外，避免随 ScrollView 或列表一起滚动。",

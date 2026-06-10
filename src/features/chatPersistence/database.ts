@@ -11,6 +11,7 @@ const READ_STATE_SCHEMA_VERSION = 1;
 const RICH_TIMELINE_SCHEMA_VERSION = 2;
 const CHAT_DIRECTORY_ICON_SCHEMA_VERSION = 3;
 const MESSAGE_ATTACHMENTS_SCHEMA_VERSION = 4;
+const CHAT_QUERY_INDEX_SCHEMA_VERSION = 5;
 let initialized = false;
 
 function ignoreDuplicateColumn(error: unknown) {
@@ -232,8 +233,6 @@ export async function ensureChatDatabase() {
       DROP INDEX IF EXISTS conversations_home_order_idx;
       DROP INDEX IF EXISTS conversations_agent_updated_at_idx;
       DROP INDEX IF EXISTS conversations_team_updated_at_idx;
-      DROP INDEX IF EXISTS conversations_agent_last_message_idx;
-      DROP INDEX IF EXISTS conversations_team_last_message_idx;
       DROP INDEX IF EXISTS conversations_agent_read_idx;
       DROP INDEX IF EXISTS conversations_team_read_idx;
 
@@ -259,12 +258,27 @@ export async function ensureChatDatabase() {
     sqlite.execSync(`PRAGMA user_version = ${MESSAGE_ATTACHMENTS_SCHEMA_VERSION};`);
   }
 
-  sqlite.execSync(`
-    CREATE INDEX IF NOT EXISTS conversations_agent_last_message_idx
-      ON conversations(agent_key, last_message_at DESC);
+  if (getDatabaseUserVersion() < CHAT_QUERY_INDEX_SCHEMA_VERSION) {
+    sqlite.execSync(`
+      DROP INDEX IF EXISTS conversations_agent_last_message_idx;
+      DROP INDEX IF EXISTS conversations_team_last_message_idx;
+    `);
+  }
 
-    CREATE INDEX IF NOT EXISTS conversations_team_last_message_idx
-      ON conversations(team_id, last_message_at DESC);
+  sqlite.execSync(`
+    CREATE INDEX IF NOT EXISTS conversations_agent_recency_idx
+      ON conversations(agent_key, last_message_at DESC, updated_at DESC, id ASC);
+
+    CREATE INDEX IF NOT EXISTS conversations_team_recency_idx
+      ON conversations(team_id, last_message_at DESC, updated_at DESC, id ASC);
+
+    CREATE INDEX IF NOT EXISTS conversations_agent_non_empty_recency_idx
+      ON conversations(agent_key, last_message_at DESC, updated_at DESC, id ASC)
+      WHERE length(trim(last_message_text)) > 0;
+
+    CREATE INDEX IF NOT EXISTS conversations_team_non_empty_recency_idx
+      ON conversations(team_id, last_message_at DESC, updated_at DESC, id ASC)
+      WHERE length(trim(last_message_text)) > 0;
 
     CREATE INDEX IF NOT EXISTS conversations_agent_read_idx
       ON conversations(agent_key, is_read);
@@ -275,6 +289,15 @@ export async function ensureChatDatabase() {
     CREATE INDEX IF NOT EXISTS chat_directory_items_home_order_idx
       ON chat_directory_items(pinned_at DESC, sort_rank ASC, latest_conversation_id);
 
+    CREATE INDEX IF NOT EXISTS chat_directory_items_agent_idx
+      ON chat_directory_items(agent_key);
+
+    CREATE INDEX IF NOT EXISTS chat_directory_items_team_idx
+      ON chat_directory_items(team_id);
+
+    CREATE INDEX IF NOT EXISTS chat_directory_items_stable_order_idx
+      ON chat_directory_items(sort_rank ASC, id ASC);
+
     CREATE INDEX IF NOT EXISTS message_attachments_message_idx
       ON message_attachments(message_id, sort_order);
 
@@ -283,7 +306,17 @@ export async function ensureChatDatabase() {
 
     CREATE INDEX IF NOT EXISTS message_attachments_client_message_idx
       ON message_attachments(client_message_id);
+
+    CREATE INDEX IF NOT EXISTS outbox_messages_created_at_idx
+      ON outbox_messages(created_at DESC, client_message_id);
+
+    CREATE INDEX IF NOT EXISTS outbox_messages_conversation_idx
+      ON outbox_messages(conversation_id);
   `);
+
+  if (getDatabaseUserVersion() < CHAT_QUERY_INDEX_SCHEMA_VERSION) {
+    sqlite.execSync(`PRAGMA user_version = ${CHAT_QUERY_INDEX_SCHEMA_VERSION};`);
+  }
 
   initialized = true;
 }

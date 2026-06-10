@@ -16,11 +16,13 @@ import { useT } from '../../../shared/i18n';
 import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import {
-  buildChatTimelineDisplayItems,
+  buildChatTimelineDisplayModel,
   getChatTimelineDisplayItemType,
   type ChatTimelineAssistantReplyFooter,
   type ChatTimelineAwaitingNode,
+  type ChatTimelineDisplayModel,
   type ChatTimelineDisplayItem,
+  type ChatTimelineDisplayTailSignature,
   type ChatTimelineMessageNode,
   type ChatTimelineTextNode,
   type ChatTimelineState
@@ -45,14 +47,6 @@ type TimelineScrollMetrics = {
   viewportHeight: number;
 };
 
-type TimelineTailSignature = {
-  key: string;
-  contentLength: number;
-  lifecycle: string;
-  streaming: boolean;
-  updatedAt: number;
-};
-
 function getDistanceFromEnd(metrics: TimelineScrollMetrics): number {
   return Math.max(0, metrics.contentHeight - metrics.viewportHeight - metrics.offsetY);
 }
@@ -65,59 +59,10 @@ function isNearTimelineEnd(metrics: TimelineScrollMetrics): boolean {
   );
 }
 
-function getTimelineNodeContentLength(node: ChatTimelineDisplayItem['node']): number {
-  if (node.kind === 'message') {
-    return (
-      node.content.length + (node.attachments || []).reduce((total, attachment) => total + attachment.name.length, 0)
-    );
-  }
-  if (node.kind === 'tool') {
-    return node.title.length + node.body.length + node.argsText.length + node.resultText.length + node.status.length;
-  }
-  if (node.kind === 'awaiting') {
-    return (
-      node.prompt.length +
-      node.payloadText.length +
-      node.answer.length +
-      (node.answerSummary?.title.length ?? 0) +
-      (node.answerSummary?.copyText.length ?? 0)
-    );
-  }
-  if (node.kind === 'run') {
-    return node.title.length + node.body.length + node.status.length;
-  }
-  return node.title.length + node.body.length + node.status.length;
-}
-
-function getTimelineItemContentLength(item: ChatTimelineDisplayItem): number {
-  if (item.kind === 'tool-group') {
-    return item.nodes.reduce((total, node) => total + getTimelineNodeContentLength(node), 0);
-  }
-  return getTimelineNodeContentLength(item.node);
-}
-
-function getTimelineTailSignature(items: readonly ChatTimelineDisplayItem[]): TimelineTailSignature | null {
-  const tail = items[items.length - 1];
-  if (!tail) {
-    return null;
-  }
-
-  const node = tail.kind === 'tool-group' ? tail.nodes[tail.nodes.length - 1] : tail.node;
-  return {
-    key: tail.key,
-    contentLength: getTimelineItemContentLength(tail),
-    lifecycle: tail.kind === 'tool-group' ? tail.nodes.map((item) => item.lifecycle).join('|') : node.lifecycle,
-    streaming:
-      tail.kind === 'tool-group'
-        ? tail.nodes.some((item) => item.streaming)
-        : 'streaming' in node
-          ? Boolean(node.streaming)
-          : false,
-    updatedAt: tail.kind === 'tool-group' ? Math.max(...tail.nodes.map((item) => item.updatedAt)) : node.updatedAt
-  };
-}
-
-function didTimelineTailAdvance(previous: TimelineTailSignature | null, next: TimelineTailSignature | null): boolean {
+function didTimelineTailAdvance(
+  previous: ChatTimelineDisplayTailSignature | null,
+  next: ChatTimelineDisplayTailSignature | null
+): boolean {
   if (!next) {
     return false;
   }
@@ -244,8 +189,8 @@ const UserQueryRow = memo(function UserQueryRow({
             <ConversationMarkdownRenderer
               markdown={node.content}
               selectable={false}
-              textColor={theme.colors.surface}
-              linkColor={theme.colors.surface}
+              textColor={theme.colors.onBrandBlueAction}
+              linkColor={theme.colors.onBrandBlueAction}
             />
           ) : null}
           <ChatAttachmentStrip attachments={node.attachments || []} variant="message" />
@@ -280,8 +225,8 @@ const RequestInputRow = memo(function RequestInputRow({
             <ConversationMarkdownRenderer
               markdown={text}
               selectable={false}
-              textColor={theme.colors.surface}
-              linkColor={theme.colors.surface}
+              textColor={theme.colors.onBrandBlueAction}
+              linkColor={theme.colors.onBrandBlueAction}
             />
           </View>
         </View>
@@ -504,6 +449,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({ timelineState, 
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const listRef = useRef<FlashListRef<ChatTimelineDisplayItem>>(null);
+  const displayModelRef = useRef<ChatTimelineDisplayModel | null>(null);
   const expandedRuntimeNodesRef = useRef(new Map<string, boolean>());
   const scrollMetricsRef = useRef({
     contentHeight: 0,
@@ -516,10 +462,15 @@ export const ChatTimelineList = memo(function ChatTimelineList({ timelineState, 
   const pendingAutoFollowClearFrameRef = useRef<number | null>(null);
   const pendingScrollFrameRef = useRef<number | null>(null);
   const showScrollToEndRef = useRef(false);
-  const tailSignatureRef = useRef<TimelineTailSignature | null>(null);
+  const tailSignatureRef = useRef<ChatTimelineDisplayTailSignature | null>(null);
   const [showScrollToEnd, setShowScrollToEnd] = useState(false);
-  const items = useMemo(() => buildChatTimelineDisplayItems(timelineState), [timelineState]);
-  const tailSignature = useMemo(() => getTimelineTailSignature(items), [items]);
+  const displayModel = useMemo(() => {
+    const nextModel = buildChatTimelineDisplayModel(timelineState, displayModelRef.current);
+    displayModelRef.current = nextModel;
+    return nextModel;
+  }, [timelineState]);
+  const items = displayModel.items;
+  const tailSignature = displayModel.tailSignature;
   const setScrollToEndVisible = useCallback((visible: boolean) => {
     if (showScrollToEndRef.current !== visible) {
       showScrollToEndRef.current = visible;
@@ -746,7 +697,7 @@ function createStyles(theme: AppThemeTokens) {
     userBubble: {
       borderRadius: 16,
       borderBottomRightRadius: 8,
-      backgroundColor: theme.colors.brandBlue,
+      backgroundColor: theme.colors.brandBlueAction,
       paddingHorizontal: 14,
       paddingVertical: 10
     },
@@ -814,7 +765,7 @@ function createStyles(theme: AppThemeTokens) {
     requestBubble: {
       borderRadius: 16,
       borderTopLeftRadius: 8,
-      backgroundColor: theme.colors.brandBlue,
+      backgroundColor: theme.colors.brandBlueAction,
       paddingHorizontal: 14,
       paddingVertical: 10,
       shadowColor: theme.colors.shadow,
