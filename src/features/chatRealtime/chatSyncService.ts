@@ -1,12 +1,18 @@
 import { ApiError, getApiBaseUrl } from '../../core/api/apiClient';
 import { getAccessTokenForRequest } from '../../core/auth/appAuth';
 import {
+  CHAT_DETAIL_TRANSPORT_TYPE,
+  CHAT_READ_TRANSPORT_TYPE,
   CHAT_SUMMARIES_TRANSPORT_TYPE,
+  buildMarkChatReadPayload,
   submitAwaitingApi,
-  getChatDetailApi,
-  markChatReadApi,
   type AwaitingSubmitPayloadData,
+  type ChatApiEnvelope,
+  type MarkChatReadRequest,
+  type MarkChatReadResponse,
+  type RemoteChatDetail,
   type RemoteChatSummary,
+  unwrapChatApiEnvelope,
 } from '../../core/api/services/chatApi';
 import {
   appendAssistantDelta,
@@ -166,7 +172,19 @@ function isMissingAgentKeyError(error: Error): boolean {
 }
 
 function isApiStatusError(error: unknown, status: number): boolean {
-  return error instanceof ApiError && error.status === status;
+  if (error instanceof ApiError) {
+    return error.status === status;
+  }
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+  const record = error as { status?: unknown; code?: unknown };
+  const candidateStatus = Number(record.status);
+  if (Number.isFinite(candidateStatus) && candidateStatus === status) {
+    return true;
+  }
+  const candidateCode = Number(record.code);
+  return Number.isFinite(candidateCode) && candidateCode === status;
 }
 
 function isRecoverableReconcileError(error: unknown): boolean {
@@ -461,7 +479,7 @@ class ChatSyncService {
     }
 
     try {
-      await markChatReadApi({
+      await this.markChatReadViaTransport({
         ...(agentKey ? { agentKey } : {}),
         ...(teamId ? { teamId } : {}),
       });
@@ -773,6 +791,38 @@ class ChatSyncService {
       backendUrl,
       accessToken,
     };
+  }
+
+  private async requestChatApi<T>(type: string, payload?: unknown): Promise<T> {
+    const config = await this.resolveTransportConfig();
+    if (!config) {
+      throw new ApiError('Not authenticated', 401, null);
+    }
+
+    const response = await requestChatTransport<T | ChatApiEnvelope<T>>({
+      ...config,
+      type,
+      payload,
+    });
+    return unwrapChatApiEnvelope<T>(response);
+  }
+
+  private async getChatDetailViaTransport(chatId: string): Promise<RemoteChatDetail> {
+    const response = await this.requestChatApi<RemoteChatDetail>(CHAT_DETAIL_TRANSPORT_TYPE, {
+      chatId: String(chatId || '').trim(),
+      includeRawMessages: true,
+    });
+    return response || {};
+  }
+
+  private async markChatReadViaTransport(
+    request: MarkChatReadRequest,
+    runId?: string
+  ): Promise<MarkChatReadResponse> {
+    return this.requestChatApi<MarkChatReadResponse>(
+      CHAT_READ_TRANSPORT_TYPE,
+      buildMarkChatReadPayload(request, runId)
+    );
   }
 
   private async handleTransportStatusChange(status: ChatSocketStatus) {
@@ -1815,7 +1865,7 @@ class ChatSyncService {
     readAt: number
   ) {
     try {
-      const response = await markChatReadApi({
+      const response = await this.markChatReadViaTransport({
         chatId: conversationId,
         ...(readRunId ? { runId: readRunId } : {}),
       });
@@ -1962,7 +2012,7 @@ class ChatSyncService {
   private async runConversationReconcile(conversationId: string, reason: ChatSyncReason) {
     await markConversationDirty(conversationId, reason);
 
-    const remoteDetailPromise = getChatDetailApi(conversationId).catch((error) => {
+    const remoteDetailPromise = this.getChatDetailViaTransport(conversationId).catch((error) => {
       if (isApiStatusError(error, 404)) {
         return null;
       }

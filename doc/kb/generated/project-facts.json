@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-11T06:05:48.382Z",
+  "generatedAt": "2026-06-11T09:49:14.027Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -1266,7 +1266,11 @@
       "AwaitingQuestionSubmitParamData",
       "AwaitingSubmitParamData",
       "AwaitingSubmitPayloadData",
+      "CHAT_DETAIL_TRANSPORT_TYPE",
+      "CHAT_READ_TRANSPORT_TYPE",
       "CHAT_SUMMARIES_TRANSPORT_TYPE",
+      "ChatApiEnvelope",
+      "MarkChatReadPayload",
       "MarkChatReadRequest",
       "MarkChatReadResponse",
       "RemoteChatDetail",
@@ -1274,9 +1278,9 @@
       "RemoteChatSummary",
       "SubmitAwaitingRequest",
       "SubmitAwaitingResponse",
-      "getChatDetailApi",
-      "markChatReadApi",
-      "submitAwaitingApi"
+      "buildMarkChatReadPayload",
+      "submitAwaitingApi",
+      "unwrapChatApiEnvelope"
     ],
     "src/core/api/services/chatEventProtocol.ts": [
       "ChatProtocolEventFamily",

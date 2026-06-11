@@ -9,6 +9,7 @@
     "提供 authenticatedApiRequest，把当前认证 access token 注入业务接口请求，并在 401 时强制刷新后重试一次。",
     "在开发态通过 core-debug-logging 打印非 WS HTTP 请求、响应和错误。",
     "把业务请求实现收口到 core/api/services，避免 feature 到处散写 fetch。",
+    "提供 chatApi 的聊天 WS request type 常量、envelope 解包和已读 payload 构造 helper，避免 realtime service 重复拼协议字段。",
     "提供 chatEventProtocol 这类纯协议 helper，统一 REST/WS 聊天事件的 type alias、字段提取和分类。"
   ],
   "publicEntrypoints": [
@@ -47,6 +48,30 @@
       "symbol": "CHAT_SUMMARIES_TRANSPORT_TYPE",
       "kind": "api-service-constant",
       "description": "Chat 首页远端会话摘要 WS request type，目前为 /api/chats，供首页目录投影刷新集中引用。"
+    },
+    {
+      "file": "src/core/api/services/chatApi.ts",
+      "symbol": "CHAT_DETAIL_TRANSPORT_TYPE",
+      "kind": "api-service-constant",
+      "description": "Chat 详情单会话 reconcile WS request type，目前为 /api/chat，供 chatSyncService 补拉 detail 时集中引用。"
+    },
+    {
+      "file": "src/core/api/services/chatApi.ts",
+      "symbol": "CHAT_READ_TRANSPORT_TYPE",
+      "kind": "api-service-constant",
+      "description": "Chat 已读确认 WS request type，目前为 /api/read，供 chatSyncService 标记会话或 scope 已读时集中引用。"
+    },
+    {
+      "file": "src/core/api/services/chatApi.ts",
+      "symbol": "unwrapChatApiEnvelope",
+      "kind": "protocol-helper",
+      "description": "统一解包聊天接口 code/data envelope，并把非零 code 转成 ApiError。"
+    },
+    {
+      "file": "src/core/api/services/chatApi.ts",
+      "symbol": "buildMarkChatReadPayload",
+      "kind": "protocol-helper",
+      "description": "集中构造 /api/read payload，过滤空 chatId、agentKey、teamId 与 runId。"
     },
     {
       "file": "src/core/api/services/chatApi.ts",

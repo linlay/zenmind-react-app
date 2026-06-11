@@ -1,6 +1,8 @@
 import { ApiError, authenticatedApiRequest } from '../apiClient';
 
 export const CHAT_SUMMARIES_TRANSPORT_TYPE = '/api/chats';
+export const CHAT_DETAIL_TRANSPORT_TYPE = '/api/chat';
+export const CHAT_READ_TRANSPORT_TYPE = '/api/read';
 
 export type RemoteChatSummary = {
   chatId?: string;
@@ -60,6 +62,13 @@ export type MarkChatReadResponse = {
   unreadCount?: number;
 };
 
+export type MarkChatReadPayload = {
+  chatId?: string;
+  agentKey?: string;
+  teamId?: string;
+  runId?: string;
+};
+
 export type AwaitingQuestionSubmitParamData = {
   id: string;
   answer?: string | number;
@@ -114,19 +123,19 @@ export type SubmitAwaitingResponse = {
   [key: string]: unknown;
 };
 
-type ApiEnvelope<T> = {
+export type ChatApiEnvelope<T> = {
   code?: number;
   msg?: string;
   error?: string;
   data?: T;
 };
 
-function unwrapEnvelope<T>(payload: unknown): T {
+export function unwrapChatApiEnvelope<T>(payload: unknown): T {
   if (!payload || typeof payload !== 'object') {
     return payload as T;
   }
 
-  const envelope = payload as ApiEnvelope<T>;
+  const envelope = payload as ChatApiEnvelope<T>;
   if (!('code' in envelope) && !('data' in envelope)) {
     return payload as T;
   }
@@ -143,52 +152,37 @@ function unwrapEnvelope<T>(payload: unknown): T {
   return (envelope.data ?? null) as T;
 }
 
-export async function getChatDetailApi(chatId: string): Promise<RemoteChatDetail> {
-  const payload = await authenticatedApiRequest<RemoteChatDetail | ApiEnvelope<RemoteChatDetail>>({
-    path: '/ap/api/chat',
-    query: {
-      chatId: String(chatId || '').trim(),
-    },
-  });
-  return unwrapEnvelope<RemoteChatDetail>(payload) || {};
-}
+export function buildMarkChatReadPayload(
+  request: MarkChatReadRequest,
+  runId?: string
+): MarkChatReadPayload {
+  const fallbackRunId = String(runId || '').trim();
+  if (typeof request === 'string') {
+    const chatId = String(request || '').trim();
+    return {
+      chatId,
+      ...(fallbackRunId ? { runId: fallbackRunId } : {}),
+    };
+  }
 
-export async function markChatReadApi(request: MarkChatReadRequest, runId?: string) {
-  const body =
-    typeof request === 'string'
-      ? {
-          chatId: String(request || '').trim(),
-          ...(String(runId || '').trim() ? { runId: String(runId || '').trim() } : {}),
-        }
-      : {
-          ...(String(request.chatId || '').trim()
-            ? { chatId: String(request.chatId || '').trim() }
-            : {}),
-          ...(String(request.agentKey || '').trim()
-            ? { agentKey: String(request.agentKey || '').trim() }
-            : {}),
-          ...(String(request.teamId || '').trim()
-            ? { teamId: String(request.teamId || '').trim() }
-            : {}),
-          ...(String(request.runId || '').trim()
-            ? { runId: String(request.runId || '').trim() }
-            : {}),
-        };
-  const payload = await authenticatedApiRequest<
-    MarkChatReadResponse | ApiEnvelope<MarkChatReadResponse>
-  >({
-    path: '/ap/api/read',
-    method: 'POST',
-    body,
-  });
-  return unwrapEnvelope<MarkChatReadResponse>(payload);
+  const chatId = String(request.chatId || '').trim();
+  const agentKey = String(request.agentKey || '').trim();
+  const teamId = String(request.teamId || '').trim();
+  const readRunId = String(request.runId || '').trim() || fallbackRunId;
+
+  return {
+    ...(chatId ? { chatId } : {}),
+    ...(agentKey ? { agentKey } : {}),
+    ...(teamId ? { teamId } : {}),
+    ...(readRunId ? { runId: readRunId } : {}),
+  };
 }
 
 export async function submitAwaitingApi(
   request: SubmitAwaitingRequest
 ): Promise<SubmitAwaitingResponse> {
   const payload = await authenticatedApiRequest<
-    SubmitAwaitingResponse | ApiEnvelope<SubmitAwaitingResponse>
+    SubmitAwaitingResponse | ChatApiEnvelope<SubmitAwaitingResponse>
   >({
     path: '/ap/api/submit',
     method: 'POST',
@@ -205,5 +199,5 @@ export async function submitAwaitingApi(
       params: request.params,
     },
   });
-  return unwrapEnvelope<SubmitAwaitingResponse>(payload) || {};
+  return unwrapChatApiEnvelope<SubmitAwaitingResponse>(payload) || {};
 }

@@ -28,7 +28,7 @@
       "file": "src/features/chatTimeline/index.ts",
       "symbol": "deriveChatTimelineState",
       "kind": "projector",
-      "description": "从远端 /ap/api/chat detail events 一次 replay 得到完整 timeline state。"
+      "description": "从远端 /ap/ws /api/chat detail events 一次 replay 得到完整 timeline state。"
     },
     {
       "file": "src/features/chatTimeline/index.ts",

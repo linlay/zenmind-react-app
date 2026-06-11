@@ -686,6 +686,7 @@ function createStyles(theme: AppThemeTokens) {
     },
     logoutButton: {
       minHeight: 52,
+      marginBottom: appVisualTokens.spacing.lg,
       alignItems: 'center',
       justifyContent: 'center',
       borderRadius: appVisualTokens.radii.lg,
