@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-10T10:40:19.885Z",
+  "generatedAt": "2026-06-11T06:05:48.382Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -8,6 +8,8 @@
     "src/app/debug/developmentDebugPanel.ts",
     "src/app/navigation/RootNavigator.tsx",
     "src/app/navigation/TabIcon.tsx",
+    "src/app/navigation/TabsNavigator.native.tsx",
+    "src/app/navigation/TabsNavigator.tsx",
     "src/app/navigation/types.ts",
     "src/app/screens/AppScreenFrame.tsx",
     "src/app/screens/MeScreen.tsx",
@@ -114,7 +116,10 @@
     "src/shared/visual/agentAvatarIcon.ts",
     "src/shared/visual/agentAvatarTypes.ts",
     "src/shared/visual/foundation.ts",
+    "src/shared/visual/tabBarMetrics.ts",
     "src/shared/visual/themePreference.ts",
+    "src/shared/visual/useAppTabBarHeight.native.ts",
+    "src/shared/visual/useAppTabBarHeight.ts",
     "src/types/assets.d.ts"
   ],
   "directoryTree": {
@@ -153,6 +158,14 @@
                   },
                   {
                     "name": "TabIcon.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "TabsNavigator.native.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "TabsNavigator.tsx",
                     "type": "file"
                   },
                   {
@@ -752,7 +765,19 @@
                     "type": "file"
                   },
                   {
+                    "name": "tabBarMetrics.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "themePreference.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "useAppTabBarHeight.native.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "useAppTabBarHeight.ts",
                     "type": "file"
                   }
                 ]
@@ -800,22 +825,22 @@
       {
         "routeName": "Chat",
         "component": "ChatScreen",
-        "file": "src/app/navigation/RootNavigator.tsx"
+        "file": "src/app/navigation/TabsNavigator.tsx"
       },
       {
         "routeName": "Terminal",
         "component": "TerminalScreen",
-        "file": "src/app/navigation/RootNavigator.tsx"
+        "file": "src/app/navigation/TabsNavigator.tsx"
       },
       {
         "routeName": "Drive",
         "component": "DriveScreen",
-        "file": "src/app/navigation/RootNavigator.tsx"
+        "file": "src/app/navigation/TabsNavigator.tsx"
       },
       {
         "routeName": "Me",
         "component": "MeScreen",
-        "file": "src/app/navigation/RootNavigator.tsx"
+        "file": "src/app/navigation/TabsNavigator.tsx"
       }
     ]
   },
@@ -827,6 +852,8 @@
       "src/app/AppRoot.tsx",
       "src/app/navigation/RootNavigator.tsx",
       "src/app/navigation/TabIcon.tsx",
+      "src/app/navigation/TabsNavigator.native.tsx",
+      "src/app/navigation/TabsNavigator.tsx",
       "src/app/navigation/types.ts",
       "src/app/screens/AppScreenFrame.tsx",
       "src/app/screens/MeScreen.tsx",
@@ -951,7 +978,10 @@
       "src/shared/visual/agentAvatarIcon.ts",
       "src/shared/visual/agentAvatarTypes.ts",
       "src/shared/visual/foundation.ts",
-      "src/shared/visual/themePreference.ts"
+      "src/shared/visual/tabBarMetrics.ts",
+      "src/shared/visual/themePreference.ts",
+      "src/shared/visual/useAppTabBarHeight.native.ts",
+      "src/shared/visual/useAppTabBarHeight.ts"
     ]
   },
   "fileToModule": {
@@ -962,6 +992,8 @@
     "src/app/debug/developmentDebugPanel.ts": "app-development-debug",
     "src/app/navigation/RootNavigator.tsx": "app-shell-navigation",
     "src/app/navigation/TabIcon.tsx": "app-shell-navigation",
+    "src/app/navigation/TabsNavigator.native.tsx": "app-shell-navigation",
+    "src/app/navigation/TabsNavigator.tsx": "app-shell-navigation",
     "src/app/navigation/types.ts": "app-shell-navigation",
     "src/app/screens/AppScreenFrame.tsx": "app-shell-navigation",
     "src/app/screens/MeScreen.tsx": "app-shell-navigation",
@@ -1068,7 +1100,10 @@
     "src/shared/visual/agentAvatarIcon.ts": "shared-visual-foundation",
     "src/shared/visual/agentAvatarTypes.ts": "shared-visual-foundation",
     "src/shared/visual/foundation.ts": "shared-visual-foundation",
+    "src/shared/visual/tabBarMetrics.ts": "shared-visual-foundation",
     "src/shared/visual/themePreference.ts": "shared-visual-foundation",
+    "src/shared/visual/useAppTabBarHeight.native.ts": "shared-visual-foundation",
+    "src/shared/visual/useAppTabBarHeight.ts": "shared-visual-foundation",
     "src/types/assets.d.ts": "app-shell-navigation"
   },
   "moduleGraph": {
@@ -1205,6 +1240,8 @@
     ],
     "src/app/navigation/RootNavigator.tsx": ["RootNavigator"],
     "src/app/navigation/TabIcon.tsx": ["AppTabIcon", "TAB_LABEL_KEYS"],
+    "src/app/navigation/TabsNavigator.native.tsx": ["TabsNavigator"],
+    "src/app/navigation/TabsNavigator.tsx": ["TabsNavigator"],
     "src/app/navigation/types.ts": ["RootStackParamList", "RootTabParamList"],
     "src/app/screens/AppScreenFrame.tsx": ["AppScreenFrame"],
     "src/app/screens/MeScreen.tsx": ["MeScreen"],
@@ -1446,6 +1483,7 @@
       "patchMessageByClientMessageId",
       "persistConversationTimelineState",
       "prepareChatPersistenceSample",
+      "prewarmChatHomeDirectory",
       "reconcileConversationDetail",
       "refreshChatDirectoryProjectionForConversation",
       "refreshChatDirectorySnapshot",
@@ -1850,6 +1888,7 @@
       "getAvatarLabel",
       "getAvatarTone"
     ],
+    "src/shared/visual/tabBarMetrics.ts": ["getAppTabBarMetrics"],
     "src/shared/visual/themePreference.ts": [
       "APP_RESOLVED_THEME_PREFERENCES",
       "APP_THEME_PREFERENCES",
@@ -1861,6 +1900,8 @@
       "isAppThemePreference",
       "resolveAppThemePreference"
     ],
+    "src/shared/visual/useAppTabBarHeight.native.ts": ["useAppTabBarHeight"],
+    "src/shared/visual/useAppTabBarHeight.ts": ["useAppTabBarHeight"],
     "src/types/assets.d.ts": ["default"]
   },
   "resolvedImportsByFile": {
@@ -1892,29 +1933,46 @@
     ],
     "src/app/debug/developmentDebugPanel.ts": [],
     "src/app/navigation/RootNavigator.tsx": [
-      "src/app/navigation/TabIcon.tsx",
+      "src/app/navigation/TabsNavigator.tsx",
       "src/app/navigation/types.ts",
       "src/app/screens/SettingsScreen.tsx",
-      "src/app/screens/TabScreens.tsx",
       "src/core/auth/authConfig.ts",
       "src/core/auth/useAuthSession.ts",
       "src/features/auth/LoginScreen.tsx",
-      "src/features/chatPersistence/ChatDetailScreen.tsx",
-      "src/shared/i18n/index.ts",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/features/chatPersistence/ChatDetailScreen.tsx"
     ],
     "src/app/navigation/TabIcon.tsx": [
       "src/app/navigation/types.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx"
     ],
+    "src/app/navigation/TabsNavigator.native.tsx": [
+      "assets/tabs/tab-chat.png",
+      "assets/tabs/tab-drive.png",
+      "assets/tabs/tab-me.png",
+      "assets/tabs/tab-terminal.png",
+      "src/app/navigation/TabIcon.tsx",
+      "src/app/navigation/types.ts",
+      "src/app/screens/TabScreens.tsx",
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
+    "src/app/navigation/TabsNavigator.tsx": [
+      "src/app/navigation/TabIcon.tsx",
+      "src/app/navigation/types.ts",
+      "src/app/screens/TabScreens.tsx",
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/tabBarMetrics.ts"
+    ],
     "src/app/navigation/types.ts": ["src/features/chatPersistence/types.ts"],
     "src/app/screens/AppScreenFrame.tsx": [
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/useAppTabBarHeight.ts"
     ],
     "src/app/screens/MeScreen.tsx": [
       "src/app/debug/developmentDebugPanel.ts",
@@ -1930,7 +1988,8 @@
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts",
-      "src/shared/visual/themePreference.ts"
+      "src/shared/visual/themePreference.ts",
+      "src/shared/visual/useAppTabBarHeight.ts"
     ],
     "src/app/screens/SettingsScreen.tsx": [
       "src/app/debug/developmentDebugPanel.ts",
@@ -1987,7 +2046,8 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/useAppTabBarHeight.ts"
     ],
     "src/features/auth/LoginScreen.tsx": [
       "src/core/auth/appAuth.ts",
@@ -2037,7 +2097,8 @@
       "src/shared/icons/AppIconButton.tsx",
       "src/shared/visual/AgentAvatar.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/useAppTabBarHeight.ts"
     ],
     "src/features/chatPersistence/cacheScope.ts": [],
     "src/features/chatPersistence/chatAttachmentModels.ts": [
@@ -2386,7 +2447,10 @@
     "src/shared/visual/agentAvatarIcon.ts": ["src/shared/visual/agentAvatarTypes.ts"],
     "src/shared/visual/agentAvatarTypes.ts": [],
     "src/shared/visual/foundation.ts": ["src/shared/visual/themePreference.ts"],
+    "src/shared/visual/tabBarMetrics.ts": ["src/shared/visual/foundation.ts"],
     "src/shared/visual/themePreference.ts": [],
+    "src/shared/visual/useAppTabBarHeight.native.ts": ["src/shared/visual/tabBarMetrics.ts"],
+    "src/shared/visual/useAppTabBarHeight.ts": [],
     "src/types/assets.d.ts": []
   },
   "cardCounts": {

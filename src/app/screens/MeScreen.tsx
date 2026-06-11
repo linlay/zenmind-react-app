@@ -1,4 +1,3 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
@@ -17,6 +16,7 @@ import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { type AppLocale, formatAccessExpiryLabel, type TFunction, useI18n } from '../../shared/i18n';
 import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
 import { appVisualTokens, getAvatarLabel, getAvatarTone, type AppThemeTokens } from '../../shared/visual/foundation';
+import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
 import type { AppThemePreference } from '../../shared/visual/themePreference';
 import {
   getDevelopmentDebugPanelSnapshot,
@@ -286,7 +286,7 @@ export function MeScreen() {
   const styles = useAppThemeStyles(createStyles);
   const { session } = useAuthSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useAppTabBarHeight();
   const debugPanelEnabled = useSyncExternalStore(
     subscribeDevelopmentDebugPanel,
     getDevelopmentDebugPanelEnabledSnapshot,

@@ -8,7 +8,7 @@
     "通过 repository 统一承接 SQLite、MMKV 和 patch 型写接口，实时摘要 patch 会按字段存在性更新 conversation 归属、最后消息和未读位，并返回目录物化是否变化。",
     "将远端 read/readStatus/unreadRunCount/unreadCount 统一归一为结构化 ChatReadState，以 conversations.is_read/read_at/read_run_id 为会话读状态真源，并把首页 agent/team 未读角标物化为未读会话数。",
     "在通知点击进入详情页时，先查本地 serverMessageId，必要时补拉服务端消息并幂等落库。",
-    "提供 Chat 首页目录列表和详情页样例，演示冷启动、目录+会话摘要合成刷新、消息级实时 patch、固定顶部 Header、分页、整页骨架屏遮罩、轻量消息流、紧凑底部输入栏和按需历史抽屉。",
+    "提供 Chat 首页目录列表和详情页样例，演示冷启动、目录+会话摘要合成刷新、消息级实时 patch、固定顶部 Header、分页、整页骨架屏遮罩、轻量消息流、紧凑底部输入栏和按需历史抽屉；首页首屏先用 MMKV 快照回显，再通过 repository 预热 SQLite 目录切片。",
     "首页点击无 latest_conversation_id 的 agent/team 目录项时，通过 repository 按目录 scope 复用或创建本地空 conversation 后再进入详情；空 conversation 不抢占目录 latest_conversation_id，首条消息写入后再刷新目录投影。",
     "首页左侧新对话入口通过左侧 agents/teams 浮层分页读取目录 catalog，点击目录卡片后通过 repository 按 scope 创建全新本地空 conversation 并进入详情。",
     "详情页左上角新建入口通过 repository 按当前 agent/team history scope 创建本地空 conversation，并用 ChatDetail route replace 切换到新会话；空 conversation 仍不抢占目录 latest_conversation_id。",
@@ -22,7 +22,7 @@
       "file": "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
       "symbol": "ChatHomeStorageDemo",
       "kind": "screen",
-      "description": "Chat 首页目录入口，负责固定顶部 Header、冷启动回显、分页、置顶折叠控制，并按导航焦点消费 home.directory.replace 与未标记 directoryProjectionChanged 且命中当前可见 latestConversationId 的 home.item.patch。"
+      "description": "Chat 首页目录入口，负责固定顶部 Header、MMKV 快照冷启动回显、交互后 SQLite 切片刷新、分页、置顶折叠控制，并按导航焦点消费 home.directory.replace 与未标记 directoryProjectionChanged 且命中当前可见 latestConversationId 的 home.item.patch。"
     },
     {
       "file": "src/features/chatPersistence/ChatDetailScreen.tsx",
@@ -59,6 +59,12 @@
       "symbol": "prepareChatPersistenceSample",
       "kind": "bootstrap",
       "description": "初始化数据库和示例数据。"
+    },
+    {
+      "file": "src/features/chatPersistence/chatRepository.ts",
+      "symbol": "prewarmChatHomeDirectory",
+      "kind": "bootstrap",
+      "description": "首页目录预热入口，确保本地样例数据可用，读取 SQLite 目录首屏切片，并只在有可用目录数据时刷新 MMKV 首页快照。"
     },
     {
       "file": "src/features/chatPersistence/chatRepository.ts",
@@ -494,6 +500,7 @@
         "patchMessageByClientMessageId",
         "persistConversationTimelineState",
         "prepareChatPersistenceSample",
+        "prewarmChatHomeDirectory",
         "reconcileConversationDetail",
         "refreshChatDirectoryProjectionForConversation",
         "refreshChatDirectorySnapshot",

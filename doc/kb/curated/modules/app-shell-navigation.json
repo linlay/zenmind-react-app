@@ -8,6 +8,7 @@
     "app.config.js",
     "assets",
     "assets/brands",
+    "assets/tabs",
     "brands",
     "eas.json",
     "package.json",
@@ -36,9 +37,9 @@
   "responsibility": [
     "挂载 SafeAreaProvider、I18nProvider、AppThemeProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
     "通过 BRAND 环境变量、brands/<id>/brand.json、app.config.js 和品牌同步脚本，把同一移动端项目输出为不同原生包名、bundle id、图标、启动图和 EAS channel 的品牌包。",
-    "决定认证前后的 RootStack / Tab 结构、登录门卫开关、任务看板、设置二级页、占位页映射以及 Chat 首页与详情页的导航层级。",
+    "决定认证前后的 RootStack / Tab 结构、登录门卫开关、任务看板、设置二级页、占位页映射以及 Chat 首页与详情页的导航层级；原生端底部 Tab 通过 Native Bottom Tabs 承载，Web 继续使用 JS Bottom Tabs。",
     "为一级 Tab 页面提供固定顶部 Header 与滚动内容分离的壳层布局。",
-    "承接共享视觉 token、运行时 system/light/dark 主题偏好、共享国际化文案、描边 Tab 图标和 locale 感知标签映射，统一一级页面的轻量聊天风格。",
+    "承接共享视觉 token、运行时 system/light/dark 主题偏好、共享国际化文案、native PNG Tab 图标、描边 JS Tab 图标和 locale 感知标签映射，统一一级页面的轻量聊天风格。",
     "让 ChatDetail 作为 Tabs 之上的上层 route 覆盖首页，避免在 feature 内手写 tab 显隐和页面覆盖动画。",
     "接收系统通知点击后的聊天导航意图，并在认证和导航 ready 前缓存 pending payload。",
     "保持 app 层只做壳层编排，不直接承载业务状态和底层存储细节。"
@@ -114,7 +115,19 @@
       "file": "src/app/navigation/RootNavigator.tsx",
       "symbol": "RootNavigator",
       "kind": "navigator",
-      "description": "Root stack 与底部 Tab 的导航配置入口。"
+      "description": "Root stack 导航配置入口，认证通过后挂载平台解析的 TabsNavigator。"
+    },
+    {
+      "file": "src/app/navigation/TabsNavigator.tsx",
+      "symbol": "TabsNavigator",
+      "kind": "bottom-tab-navigator",
+      "description": "Web/默认平台的 JS Bottom Tabs 配置入口，保留自定义 TabBar、AppTabIcon 和真实 tab bar height context。"
+    },
+    {
+      "file": "src/app/navigation/TabsNavigator.native.tsx",
+      "symbol": "TabsNavigator",
+      "kind": "native-bottom-tab-navigator",
+      "description": "iOS/Android 的 Native Bottom Tabs 配置入口，使用 assets/tabs 下的 tintable PNG 图标和系统原生 Tab 切换手感。"
     },
     {
       "file": "src/app/screens/SettingsScreen.tsx",
@@ -147,6 +160,7 @@
     "Safe area provider 树",
     "启动加载遮罩可见性",
     "React Navigation 容器状态",
+    "平台解析的底部 Tab 容器、native tab 图标资产和共享底部避让 hook/metrics",
     "Settings root route 与 Me 页操作入口",
     "system/light/dark 主题偏好驱动的 NavigationContainer、StatusBar、TabBar 与 Settings 外观分组",
     "认证快照驱动的 Root stack 与 bottom tab 路由编排"
@@ -181,8 +195,11 @@
     "如果 React loading 之前出现空白窗口，同步检查 Android splash theme 与 AppTheme 的 windowBackground 是否连续，避免主题切换时露白。",
     "如果接入 expo-splash-screen，要同步维护 app.config.js 插件配置、brands manifest、assets/brands/<id>/logo.png、Android 当前 splash 资源和 iOS SplashScreenLogo.imageset，保证 native 首帧与 React 首帧一致。",
     "新增登录页、Tab、设置页或上层 route 时同时检查 RootNavigator、TabScreens、RootTabParamList 和 RootStackParamList 是否一致。",
+    "原生端 Tab 逻辑放在 TabsNavigator.native.tsx，Web/默认 Tab 逻辑放在 TabsNavigator.tsx；不要在 RootNavigator 里堆 Platform 分支。",
+    "一级页面和 feature 内二级滚动页只能通过 shared visual 的 useAppTabBarHeight 获取底部避让，不直接调用 useBottomTabBarHeight；Native Bottom Tabs 不提供 JS BottomTabBarHeightContext。",
+    "Native Bottom Tabs 的 tabBarIcon 只能使用平台图标描述或 image source，不能直接传 React SVG 组件；新增图标时同步维护 assets/tabs 和 native icon map。",
     "任务 Tab 当前通过 Terminal route 挂载 AgentTaskBoardScreen；若改 route 名称要同步 types、TabIcon 和 KB。",
-    "一级 Tab 页面如果展示共享 Header，Header 必须固定在滚动区外，避免随 ScrollView 或列表一起滚动。",
+    "一级 Tab 页面如果展示共享 Header，Header 必须固定在滚动区外，避免随 ScrollView 或列表一起滚动；底部操作按钮必须落在 useAppTabBarHeight 留出的可点击区域上方。",
     "底部 Tab 的文案 key、描边图标和颜色语义继续由共享层统一提供，不在单个 screen 内重复定义。",
     "Settings 的外观分组只通过 useAppTheme / setThemePreference 修改 system/light/dark 主题偏好，不在设置页直接读写主题存储。",
     "新增壳层或一级页面文案时优先走 shared-i18n，不把 locale 解析、设备语言读取或翻译表散落到 screen 内。",

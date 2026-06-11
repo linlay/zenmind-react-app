@@ -1,4 +1,3 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { ReactNode } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -7,6 +6,7 @@ import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { useT } from '../../shared/i18n';
 import { useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens } from '../../shared/visual/foundation';
+import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
 
 type AppScreenFrameProps = {
   eyebrow: string;
@@ -18,7 +18,7 @@ type AppScreenFrameProps = {
 
 export function AppScreenFrame({ eyebrow, title, description, accentColor, children }: AppScreenFrameProps) {
   const styles = useAppThemeStyles(createStyles);
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useAppTabBarHeight();
   const t = useT();
   const hasChildren = children !== undefined && children !== null;
   const contentBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;

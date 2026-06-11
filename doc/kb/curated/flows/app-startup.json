@@ -42,7 +42,7 @@
     },
     {
       "order": 5,
-      "label": "AppRoot 在认证 session 可用后触发 notificationService.registerForSession，订阅通知点击 payload，并在前台 active 状态下做轻量 token 预刷新。",
+      "label": "AppRoot 在认证 session 可用后触发 notificationService.registerForSession，预热 Chat 首页目录，订阅通知点击 payload，并在前台 active 状态下做轻量 token 预刷新。",
       "moduleId": "feature-notifications",
       "file": "src/features/notifications/notificationService.ts",
       "symbol": "notificationService"

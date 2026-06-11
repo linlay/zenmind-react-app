@@ -32,7 +32,7 @@
   "impactChecklist": [
     "保持 screen 只消费 feature 内数据模型和共享 UI，不直接操作 SQLite 或 WebSocket。",
     "接入真实任务 API 时先新增 service/repository 边界，再让 screen 消费聚合后的 view model。",
-    "一级页面 Header 固定在滚动区外，底部避让继续使用 useBottomTabBarHeight。",
+    "一级页面 Header 固定在滚动区外，主屏与 feature 内二级滚动页底部避让继续使用 shared visual 的 useAppTabBarHeight。",
     "Header 和任务行只保留有真实行为的操作入口，不保留空 onPress 或占位按钮。",
     "任务列表保持虚拟化渲染；接入真实数据后继续使用 FlashList 或共享分页列表，不回退到 ScrollView + map。",
     "新增或调整任务看板静态 UI 文案时同步维护 shared-i18n messages key，不把中文/英文直接写回 mock 数据结构。",

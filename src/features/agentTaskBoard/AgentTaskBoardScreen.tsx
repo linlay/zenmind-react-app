@@ -1,6 +1,5 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { FlashList } from '@shopify/flash-list';
-import { ReactElement, useMemo, useState } from 'react';
+import { memo, ReactElement, useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -9,6 +8,7 @@ import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { type I18nKey, type TFunction, useT } from '../../shared/i18n';
 import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
 import { appVisualTokens, getAvatarLabel, getAvatarTone, type AppThemeTokens } from '../../shared/visual/foundation';
+import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
 
 type TaskStage = 'intake' | 'assigned' | 'running' | 'review' | 'done';
 type TaskPriority = 'high' | 'medium' | 'low';
@@ -283,7 +283,7 @@ type HeaderActionButtonProps = {
   onPress: () => void;
 };
 
-function HeaderActionButton({ usage, onPress }: HeaderActionButtonProps) {
+const HeaderActionButton = memo(function HeaderActionButton({ usage, onPress }: HeaderActionButtonProps) {
   const styles = useAppThemeStyles(createStyles);
 
   return (
@@ -295,7 +295,7 @@ function HeaderActionButton({ usage, onPress }: HeaderActionButtonProps) {
       <AppIcon usage={usage} size={22} />
     </Pressable>
   );
-}
+});
 
 type PlainButtonProps = {
   label: string;
@@ -303,9 +303,10 @@ type PlainButtonProps = {
   variant?: 'primary' | 'secondary';
 };
 
-function PlainButton({ label, onPress, variant = 'secondary' }: PlainButtonProps) {
+const PlainButton = memo(function PlainButton({ label, onPress, variant = 'secondary' }: PlainButtonProps) {
   const styles = useAppThemeStyles(createStyles);
   const isPrimary = variant === 'primary';
+
   return (
     <Pressable
       accessibilityRole="button"
@@ -319,7 +320,7 @@ function PlainButton({ label, onPress, variant = 'secondary' }: PlainButtonProps
       <Text style={[styles.buttonText, isPrimary ? styles.buttonTextPrimary : null]}>{label}</Text>
     </Pressable>
   );
-}
+});
 
 type StatusPillProps = {
   label: string;
@@ -327,7 +328,7 @@ type StatusPillProps = {
   tone?: string;
 };
 
-function StatusPill({ label, value, tone }: StatusPillProps) {
+const StatusPill = memo(function StatusPill({ label, value, tone }: StatusPillProps) {
   const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
   const resolvedTone = tone ?? theme.colors.brandBlue;
@@ -339,7 +340,7 @@ function StatusPill({ label, value, tone }: StatusPillProps) {
       <Text style={styles.statusPillValue}>{value}</Text>
     </View>
   );
-}
+});
 
 type HomeScreenProps = {
   selectedQueue: BoardQueue;
@@ -350,7 +351,7 @@ type HomeScreenProps = {
   onOpenTask: (taskId: string) => void;
 };
 
-function HomeScreen({
+const HomeScreen = memo(function HomeScreen({
   selectedQueue,
   contentBottomPadding,
   onSelectQueue,
@@ -364,14 +365,19 @@ function HomeScreen({
   const summary = useMemo(() => getBoardSummary(selectedQueue), [selectedQueue]);
   const agentPreview = useMemo(getAgentPreview, []);
   const focusTask = summary.focusTask;
+  const renderTask = useCallback(
+    ({ item }: { item: BoardTask }) => <TaskRow task={item} onOpenTask={onOpenTask} onOpenAssign={onOpenAssign} />,
+    [onOpenAssign, onOpenTask]
+  );
+  const handleAssignFocusTask = useCallback(() => {
+    onOpenAssign(focusTask?.id);
+  }, [focusTask?.id, onOpenAssign]);
 
   return (
     <FlashList
       data={summary.visibleTasks}
       keyExtractor={(task) => task.id}
-      renderItem={({ item }) => (
-        <TaskRow task={item} onOpenTask={() => onOpenTask(item.id)} onOpenAssign={() => onOpenAssign(item.id)} />
-      )}
+      renderItem={renderTask}
       ListHeaderComponent={
         <View style={styles.homeHeader}>
           <View style={styles.heroBlock}>
@@ -397,7 +403,7 @@ function HomeScreen({
               <PlainButton
                 label={t('tasks.action.assignTask')}
                 variant="primary"
-                onPress={() => onOpenAssign(focusTask?.id)}
+                onPress={handleAssignFocusTask}
               />
               <PlainButton label={t('tasks.action.newTask')} onPress={onOpenNewTask} />
             </View>
@@ -458,15 +464,15 @@ function HomeScreen({
       drawDistance={420}
     />
   );
-}
+});
 
 type TaskRowProps = {
   task: BoardTask;
-  onOpenTask: () => void;
-  onOpenAssign: () => void;
+  onOpenTask: (taskId: string) => void;
+  onOpenAssign: (taskId?: string) => void;
 };
 
-function TaskRow({ task, onOpenTask, onOpenAssign }: TaskRowProps) {
+const TaskRow = memo(function TaskRow({ task, onOpenTask, onOpenAssign }: TaskRowProps) {
   const t = useT();
   const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
@@ -478,7 +484,13 @@ function TaskRow({ task, onOpenTask, onOpenAssign }: TaskRowProps) {
     : task.stage === 'review'
       ? t('tasks.action.review')
       : t('tasks.action.view');
-  const actionHandler = shouldAssign ? onOpenAssign : onOpenTask;
+  const handleOpenTask = useCallback(() => {
+    onOpenTask(task.id);
+  }, [onOpenTask, task.id]);
+  const handleOpenAssign = useCallback(() => {
+    onOpenAssign(task.id);
+  }, [onOpenAssign, task.id]);
+  const actionHandler = shouldAssign ? handleOpenAssign : handleOpenTask;
 
   return (
     <View style={styles.taskRow}>
@@ -486,7 +498,7 @@ function TaskRow({ task, onOpenTask, onOpenAssign }: TaskRowProps) {
       <Pressable
         accessibilityRole="button"
         style={({ pressed }) => [styles.taskRowMain, pressed ? styles.rowPressed : null]}
-        onPress={onOpenTask}
+        onPress={handleOpenTask}
       >
         <View style={styles.taskRowTitleLine}>
           <Text numberOfLines={1} style={styles.taskRowTitle}>
@@ -518,13 +530,13 @@ function TaskRow({ task, onOpenTask, onOpenAssign }: TaskRowProps) {
       </Pressable>
     </View>
   );
-}
+});
 
 type AgentCompactRowProps = {
   agent: AgentOption;
 };
 
-function AgentCompactRow({ agent }: AgentCompactRowProps) {
+const AgentCompactRow = memo(function AgentCompactRow({ agent }: AgentCompactRowProps) {
   const t = useT();
   const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
@@ -550,15 +562,16 @@ function AgentCompactRow({ agent }: AgentCompactRowProps) {
       </View>
     </View>
   );
-}
+});
 
 type SecondaryPageProps = {
   title: string;
+  contentBottomPadding: number;
   onBack: () => void;
   children: ReactElement | readonly ReactElement[];
 };
 
-function SecondaryPage({ title, onBack, children }: SecondaryPageProps) {
+function SecondaryPage({ title, contentBottomPadding, onBack, children }: SecondaryPageProps) {
   const styles = useAppThemeStyles(createStyles);
   const backAction = [
     <HeaderActionButton key="back" usage="chatDetail.back" onPress={onBack} />
@@ -571,7 +584,7 @@ function SecondaryPage({ title, onBack, children }: SecondaryPageProps) {
       </SafeAreaView>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={styles.secondaryContent}
+        contentContainerStyle={[styles.secondaryContent, { paddingBottom: contentBottomPadding }]}
         showsVerticalScrollIndicator={false}
       >
         {children}
@@ -581,16 +594,17 @@ function SecondaryPage({ title, onBack, children }: SecondaryPageProps) {
 }
 
 type NewTaskPageProps = {
+  contentBottomPadding: number;
   onBack: () => void;
   onOpenAssign: () => void;
 };
 
-function NewTaskPage({ onBack, onOpenAssign }: NewTaskPageProps) {
+function NewTaskPage({ contentBottomPadding, onBack, onOpenAssign }: NewTaskPageProps) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
 
   return (
-    <SecondaryPage title={t('tasks.page.newTask')} onBack={onBack}>
+    <SecondaryPage title={t('tasks.page.newTask')} contentBottomPadding={contentBottomPadding} onBack={onBack}>
       <View style={styles.formBlock}>
         <Text style={styles.formTitle}>{t('tasks.form.draft')}</Text>
         <DraftField label={t('tasks.form.goal')} value={t('tasks.form.goalValue')} />
@@ -647,17 +661,18 @@ function OptionRow({ label, value }: OptionRowProps) {
 
 type AssignTaskPageProps = {
   task: BoardTask;
+  contentBottomPadding: number;
   onBack: () => void;
   onOpenTask: (taskId: string) => void;
 };
 
-function AssignTaskPage({ task, onBack, onOpenTask }: AssignTaskPageProps) {
+function AssignTaskPage({ task, contentBottomPadding, onBack, onOpenTask }: AssignTaskPageProps) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const [selectedAgent, setSelectedAgent] = useState<string>(AGENTS[0].name);
 
   return (
-    <SecondaryPage title={t('tasks.page.assignTask')} onBack={onBack}>
+    <SecondaryPage title={t('tasks.page.assignTask')} contentBottomPadding={contentBottomPadding} onBack={onBack}>
       <View style={styles.assignmentSummary}>
         <Text style={styles.assignmentEyebrow}>{t('tasks.stage.intake')}</Text>
         <Text style={styles.assignmentTitle}>{t(task.titleKey)}</Text>
@@ -742,18 +757,19 @@ function AgentChoice({ agent, selected, onSelect }: AgentChoiceProps) {
 
 type TaskDetailPageProps = {
   task: BoardTask;
+  contentBottomPadding: number;
   onBack: () => void;
   onOpenAssign: (taskId: string) => void;
 };
 
-function TaskDetailPage({ task, onBack, onOpenAssign }: TaskDetailPageProps) {
+function TaskDetailPage({ task, contentBottomPadding, onBack, onOpenAssign }: TaskDetailPageProps) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const activeIndex = LIFECYCLE.findIndex((step) => step.stage === task.stage);
   const progress = clampProgress(task.progress);
 
   return (
-    <SecondaryPage title={t('tasks.page.taskDetail')} onBack={onBack}>
+    <SecondaryPage title={t('tasks.page.taskDetail')} contentBottomPadding={contentBottomPadding} onBack={onBack}>
       <View style={styles.detailHero}>
         <View style={styles.detailTitleRow}>
           <Text style={styles.detailStage}>{t(STAGE_LABEL_KEYS[task.stage])}</Text>
@@ -821,7 +837,7 @@ type TimelineRowProps = {
   text: string;
 };
 
-function TimelineRow({ time, text }: TimelineRowProps) {
+const TimelineRow = memo(function TimelineRow({ time, text }: TimelineRowProps) {
   const styles = useAppThemeStyles(createStyles);
 
   return (
@@ -830,24 +846,34 @@ function TimelineRow({ time, text }: TimelineRowProps) {
       <Text style={styles.timelineText}>{text}</Text>
     </View>
   );
-}
+});
 
 export function AgentTaskBoardScreen() {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const [route, setRoute] = useState<BoardRoute>({ name: 'home' });
   const [selectedQueue, setSelectedQueue] = useState<BoardQueue>('focus');
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useAppTabBarHeight();
   const contentBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
-  const headerActions = [
-    <HeaderActionButton key="add" usage="chatHome.add" onPress={() => setRoute({ name: 'newTask' })} />
-  ] as const satisfies readonly [ReactElement];
+  const openHome = useCallback(() => setRoute({ name: 'home' }), []);
+  const openNewTask = useCallback(() => setRoute({ name: 'newTask' }), []);
+  const openDefaultAssign = useCallback(() => setRoute({ name: 'assignTask', taskId: 'task-002' }), []);
+  const openAssign = useCallback((taskId?: string) => setRoute({ name: 'assignTask', taskId }), []);
+  const openTask = useCallback((taskId: string) => setRoute({ name: 'taskDetail', taskId }), []);
+  const headerActions = useMemo(
+    () =>
+      [<HeaderActionButton key="add" usage="chatHome.add" onPress={openNewTask} />] as const satisfies readonly [
+        ReactElement
+      ],
+    [openNewTask]
+  );
 
   if (route.name === 'newTask') {
     return (
       <NewTaskPage
-        onBack={() => setRoute({ name: 'home' })}
-        onOpenAssign={() => setRoute({ name: 'assignTask', taskId: 'task-002' })}
+        contentBottomPadding={contentBottomPadding}
+        onBack={openHome}
+        onOpenAssign={openDefaultAssign}
       />
     );
   }
@@ -857,8 +883,9 @@ export function AgentTaskBoardScreen() {
     return (
       <AssignTaskPage
         task={task}
-        onBack={() => setRoute({ name: 'home' })}
-        onOpenTask={(taskId) => setRoute({ name: 'taskDetail', taskId })}
+        contentBottomPadding={contentBottomPadding}
+        onBack={openHome}
+        onOpenTask={openTask}
       />
     );
   }
@@ -868,8 +895,9 @@ export function AgentTaskBoardScreen() {
     return (
       <TaskDetailPage
         task={task}
-        onBack={() => setRoute({ name: 'home' })}
-        onOpenAssign={(taskId) => setRoute({ name: 'assignTask', taskId })}
+        contentBottomPadding={contentBottomPadding}
+        onBack={openHome}
+        onOpenAssign={openAssign}
       />
     );
   }
@@ -884,9 +912,9 @@ export function AgentTaskBoardScreen() {
         selectedQueue={selectedQueue}
         contentBottomPadding={contentBottomPadding}
         onSelectQueue={setSelectedQueue}
-        onOpenNewTask={() => setRoute({ name: 'newTask' })}
-        onOpenAssign={(taskId) => setRoute({ name: 'assignTask', taskId })}
-        onOpenTask={(taskId) => setRoute({ name: 'taskDetail', taskId })}
+        onOpenNewTask={openNewTask}
+        onOpenAssign={openAssign}
+        onOpenTask={openTask}
       />
     </View>
   );

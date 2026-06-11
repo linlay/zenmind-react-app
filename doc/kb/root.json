@@ -66,7 +66,7 @@
     "doc/module-reference.md",
     "doc/ui-visual-theme.md"
   ],
-  "generatedAt": "2026-06-10T10:40:19.885Z",
+  "generatedAt": "2026-06-11T06:05:48.382Z",
   "catalogs": {
     "modules": "doc/kb/catalog/modules.json",
     "flows": "doc/kb/catalog/flows.json",
@@ -77,7 +77,7 @@
     "moduleCount": 17,
     "flowCount": 5,
     "taskCount": 13,
-    "sourceFileCount": 115,
+    "sourceFileCount": 120,
     "factsRef": "doc/kb/generated/project-facts.json",
     "appEntryChain": [
       {
@@ -97,22 +97,22 @@
       {
         "routeName": "Chat",
         "component": "ChatScreen",
-        "file": "src/app/navigation/RootNavigator.tsx"
+        "file": "src/app/navigation/TabsNavigator.tsx"
       },
       {
         "routeName": "Terminal",
         "component": "TerminalScreen",
-        "file": "src/app/navigation/RootNavigator.tsx"
+        "file": "src/app/navigation/TabsNavigator.tsx"
       },
       {
         "routeName": "Drive",
         "component": "DriveScreen",
-        "file": "src/app/navigation/RootNavigator.tsx"
+        "file": "src/app/navigation/TabsNavigator.tsx"
       },
       {
         "routeName": "Me",
         "component": "MeScreen",
-        "file": "src/app/navigation/RootNavigator.tsx"
+        "file": "src/app/navigation/TabsNavigator.tsx"
       }
     ]
   }

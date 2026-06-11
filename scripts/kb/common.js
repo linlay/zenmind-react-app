@@ -332,7 +332,7 @@ function buildDirectoryTree(relativePaths) {
 
 function buildEntryMappings(sourceContents) {
   const appEntryChain = [];
-  const tabRoutes = [];
+  const tabRoutesByKey = new Map();
 
   const indexContent = sourceContents['index.js'] || '';
   if (indexContent.includes('registerRootComponent(App)')) {
@@ -358,21 +358,31 @@ function buildEntryMappings(sourceContents) {
     });
   }
 
-  const rootNavigatorContent = sourceContents['src/app/navigation/RootNavigator.tsx'] || '';
   const routeRegex = /<Tab\.Screen\s+name="([^"]+)"\s+component=\{([A-Za-z0-9_]+)\}\s*\/>/g;
-  let routeMatch = routeRegex.exec(rootNavigatorContent);
-  while (routeMatch) {
-    tabRoutes.push({
-      routeName: routeMatch[1],
-      component: routeMatch[2],
-      file: 'src/app/navigation/RootNavigator.tsx',
-    });
-    routeMatch = routeRegex.exec(rootNavigatorContent);
-  }
+  [
+    'src/app/navigation/RootNavigator.tsx',
+    'src/app/navigation/TabsNavigator.tsx',
+    'src/app/navigation/TabsNavigator.native.tsx',
+  ].forEach((file) => {
+    const content = sourceContents[file] || '';
+    routeRegex.lastIndex = 0;
+    let routeMatch = routeRegex.exec(content);
+    while (routeMatch) {
+      const key = `${routeMatch[1]}:${routeMatch[2]}`;
+      if (!tabRoutesByKey.has(key)) {
+        tabRoutesByKey.set(key, {
+          routeName: routeMatch[1],
+          component: routeMatch[2],
+          file,
+        });
+      }
+      routeMatch = routeRegex.exec(content);
+    }
+  });
 
   return {
     appEntryChain,
-    tabRoutes,
+    tabRoutes: [...tabRoutesByKey.values()],
   };
 }
 

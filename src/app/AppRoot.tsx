@@ -173,6 +173,14 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
   }, [routeNotificationPayload]);
 
   useEffect(() => {
+    if (authRequired && (isBootstrapping || !sessionIdentityKey)) {
+      return;
+    }
+
+    chatSyncService.prewarmHome().catch(() => {});
+  }, [authRequired, isBootstrapping, sessionIdentityKey]);
+
+  useEffect(() => {
     if (!sessionIdentityKey || isBootstrapping) {
       chatSyncService.stop();
       return;

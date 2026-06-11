@@ -194,6 +194,11 @@ const DEMO_SEED: DemoConversationSeed[] = [
 ];
 
 let localIdCounter = 0;
+let chatHomeDirectoryPrewarmPromise: Promise<{
+  items: ChatDirectoryItem[];
+  total: number;
+  pinnedTotal: number;
+}> | null = null;
 
 function createLocalId(prefix: string): string {
   localIdCounter += 1;
@@ -2315,6 +2320,27 @@ export async function prepareChatPersistenceSample() {
   }
 
   await replaceChatDirectoryItems(buildDirectoryRows());
+}
+
+export async function prewarmChatHomeDirectory(pageSize: number = DEMO_PAGE_SIZE) {
+  if (chatHomeDirectoryPrewarmPromise) {
+    return chatHomeDirectoryPrewarmPromise;
+  }
+
+  chatHomeDirectoryPrewarmPromise = (async () => {
+    await prepareChatPersistenceSample();
+    const directory = await getChatDirectorySlice(pageSize);
+
+    if (directory.items.length > 0 || directory.total > 0) {
+      writeChatDirectorySnapshot(directory.items);
+    }
+
+    return directory;
+  })().finally(() => {
+    chatHomeDirectoryPrewarmPromise = null;
+  });
+
+  return chatHomeDirectoryPrewarmPromise;
 }
 
 function getConversationHistoryWhereClause(scope?: Partial<ChatConversationHistoryScope> | null) {

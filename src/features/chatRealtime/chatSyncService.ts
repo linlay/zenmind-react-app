@@ -24,6 +24,7 @@ import {
   patchConversationSummary,
   patchMessageByClientMessageId,
   persistConversationTimelineState,
+  prewarmChatHomeDirectory,
   reconcileConversationDetail,
   refreshChatDirectoryProjectionForConversation,
   removeConversation,
@@ -305,6 +306,10 @@ class ChatSyncService {
     if (config) {
       updateChatTransportAuth(config);
     }
+  }
+
+  async prewarmHome() {
+    await prewarmChatHomeDirectory();
   }
 
   stop() {

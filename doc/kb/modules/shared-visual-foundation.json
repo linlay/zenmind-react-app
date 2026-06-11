@@ -4,7 +4,7 @@
   "layer": "shared",
   "paths": ["src/shared/visual", "src/shared/icons", "src/shared/generated", "assets/brands", "doc/ui-visual-theme.md"],
   "responsibility": [
-    "提供共享视觉 token、运行时 light/dark 主题 Provider、system 偏好解析、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
+    "提供共享视觉 token、运行时 light/dark 主题 Provider、system 偏好解析、底部 Tab 指标与避让 hook、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
     "通过 AppIcon/AppIconButton 与 appIconUsages 把业务语义映射到底层 glyph，页面和 feature 组件不直接选择 AppLineIcon 底层图标名。",
     "统一管理 light/dark 两套语义色、蓝色主强调、灰色辅助信息、文本层级、分隔线、圆角、头像色板、generated 品牌资产和内置 agent icon 名称映射。",
     "提供构建期生成的品牌常量入口，页面只读静态 productName / version / storage namespace，不在运行时解析品牌 manifest。",
@@ -47,6 +47,18 @@
       "symbol": "useAppThemeStyles",
       "kind": "hook",
       "description": "按样式工厂和实际生效主题缓存 StyleSheet，避免列表行和高频组件在每次 render 时重建样式。"
+    },
+    {
+      "file": "src/shared/visual/useAppTabBarHeight.ts",
+      "symbol": "useAppTabBarHeight",
+      "kind": "layout-hook",
+      "description": "一级页面和 feature 内二级滚动页读取底部 Tab 避让高度的兼容入口；JS Tab 返回真实 BottomTabBarHeightContext，Native Tab 基于 safe area 与共享 tab metrics 留出可滚动空间。"
+    },
+    {
+      "file": "src/shared/visual/tabBarMetrics.ts",
+      "symbol": "getAppTabBarMetrics",
+      "kind": "layout-helper",
+      "description": "按 bottom safe-area inset 推导统一底部 Tab 高度、顶部 padding 和底部 padding，供 JS Tab 样式与 Native Tab 页面避让复用。"
     },
     {
       "file": "src/shared/visual/themePreference.ts",
@@ -143,6 +155,7 @@
     "业务 icon usage 到底层 glyph 的集中映射",
     "agent/team 内置 icon 名称映射与静态 SVG 渲染",
     "generated 品牌常量和 logo 资产入口",
+    "底部 Tab 指标与避让高度兼容入口",
     "会话头像展示派生",
     "底部导航与顶部操作图标渲染"
   ],
@@ -160,9 +173,10 @@
     "AppIcon 只做 usage 静态查表和当前 glyph 渲染，不做业务状态判断、不动态解析 SVG、不预渲染全部图标。",
     "展示 helper、AgentAvatar 和 AgentBuiltinIcon 只做格式化、色板派生和 icon 展示，不夹带业务状态或 repository 逻辑。",
     "高频列表、timeline row 和抽屉组件使用 useAppThemeStyles(createStyles) 缓存 StyleSheet，不在 item render 内临时构造整套样式对象。",
+    "一级页面和 feature 内二级滚动页只能通过 useAppTabBarHeight 获取底部避让，不直接调用 useBottomTabBarHeight；Native Bottom Tabs 不提供 JS BottomTabBarHeightContext。",
     "图标和 token 的变更要同步检查 Tab、Header、聊天首页和详情页的一致性。",
     "如果主题规则变更，同步更新 doc/ui-visual-theme.md，避免代码与文档脱节。",
-    "底部导航避让和长列表层级策略属于主题约束的一部分，不要回退到页面内硬编码 padding、重卡片或逐项阴影。"
+    "底部导航避让和长列表层级策略属于主题约束的一部分，不要回退到页面内硬编码 padding、重卡片或逐项阴影；共享 tab metrics 是跨平台底部高度的唯一公式入口。"
   ],
   "readNext": [
     {
@@ -179,7 +193,7 @@
     }
   ],
   "generated": {
-    "fileCount": 15,
+    "fileCount": 18,
     "files": [
       "src/shared/generated/brand.ts",
       "src/shared/generated/brandAssets.ts",
@@ -195,7 +209,10 @@
       "src/shared/visual/agentAvatarIcon.ts",
       "src/shared/visual/agentAvatarTypes.ts",
       "src/shared/visual/foundation.ts",
-      "src/shared/visual/themePreference.ts"
+      "src/shared/visual/tabBarMetrics.ts",
+      "src/shared/visual/themePreference.ts",
+      "src/shared/visual/useAppTabBarHeight.native.ts",
+      "src/shared/visual/useAppTabBarHeight.ts"
     ],
     "exportedSymbolsByFile": {
       "src/shared/generated/brand.ts": [
@@ -249,6 +266,7 @@
         "getAvatarLabel",
         "getAvatarTone"
       ],
+      "src/shared/visual/tabBarMetrics.ts": ["getAppTabBarMetrics"],
       "src/shared/visual/themePreference.ts": [
         "APP_RESOLVED_THEME_PREFERENCES",
         "APP_THEME_PREFERENCES",
@@ -259,7 +277,9 @@
         "isAppResolvedThemePreference",
         "isAppThemePreference",
         "resolveAppThemePreference"
-      ]
+      ],
+      "src/shared/visual/useAppTabBarHeight.native.ts": ["useAppTabBarHeight"],
+      "src/shared/visual/useAppTabBarHeight.ts": ["useAppTabBarHeight"]
     },
     "actualDependsOn": [],
     "actualDependedBy": [

@@ -1,7 +1,6 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { InteractionManager, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PaginatedCardList } from '../../shared/components/PaginatedCardList';
@@ -17,6 +16,7 @@ import {
   formatUnreadCount,
   type AppThemeTokens
 } from '../../shared/visual/foundation';
+import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
 import {
   createConversationForDirectoryItem,
@@ -24,7 +24,7 @@ import {
   getChatDirectoryCatalogPage,
   getChatDirectorySlice,
   getOrCreateConversationForDirectoryItem,
-  prepareChatPersistenceSample,
+  prewarmChatHomeDirectory,
   setChatDirectoryItemPinned
 } from './chatRepository';
 import { ChatDirectoryPickerDrawer } from './components/ChatDirectoryPickerDrawer';
@@ -273,7 +273,7 @@ const CHAT_EMPTY_STATE = <ChatEmptyState />;
 export function ChatHomeStorageDemo() {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
-  const tabBarHeight = useBottomTabBarHeight();
+  const tabBarHeight = useAppTabBarHeight();
   const windowDimensions = useWindowDimensions();
   const isFocused = useIsFocused();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -550,24 +550,32 @@ export function ChatHomeStorageDemo() {
 
   useEffect(() => {
     let mounted = true;
+    let interactionTask: { cancel: () => void } | null = null;
+    let hasSnapshot = false;
 
-    const bootstrap = async () => {
+    try {
+      const snapshot = readChatDirectorySnapshot();
+      hasSnapshot = Boolean(snapshot?.items.length);
+      if (snapshot?.items.length) {
+        setHomeState(buildDirectoryListState(snapshot.items, snapshot.items.length));
+        setPinnedTotal(snapshot.items.filter((item) => item.pinnedAt > 0).length);
+      }
+    } catch {
+      hasSnapshot = false;
+    }
+
+    const refreshFromStore = async () => {
       try {
-        const snapshot = readChatDirectorySnapshot();
-        if (mounted && snapshot?.items.length) {
-          setHomeState(buildDirectoryListState(snapshot.items, snapshot.items.length));
-          setPinnedTotal(snapshot.items.filter((item) => item.pinnedAt > 0).length);
-        }
-
-        await prepareChatPersistenceSample();
+        const home = await prewarmChatHomeDirectory(CHAT_PAGE_SIZE);
         if (!mounted) {
           return;
         }
 
-        await loadVisibleSlice(1);
-        if (!mounted) {
-          return;
+        if (home.items.length > 0 || home.total > 0 || !hasSnapshot) {
+          setHomeState(buildDirectoryListState(home.items, home.total));
+          setPinnedTotal(home.pinnedTotal);
         }
+        currentPageRef.current = 1;
 
         setIsBootstrapReady(true);
       } catch (error) {
@@ -577,12 +585,15 @@ export function ChatHomeStorageDemo() {
       }
     };
 
-    void bootstrap();
+    interactionTask = InteractionManager.runAfterInteractions(() => {
+      void refreshFromStore();
+    });
 
     return () => {
       mounted = false;
+      interactionTask?.cancel();
     };
-  }, [loadVisibleSlice]);
+  }, []);
 
   useEffect(() => {
     if (!isFocused || !isBootstrapReady) {

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-10T10:40:19.956Z",
+  "generatedAt": "2026-06-11T06:05:48.459Z",
   "items": [
     {
       "id": "add-app-startup-loading-screen",
@@ -82,7 +82,12 @@
       "entryDecision": "任务涉及 Tab、screen 映射、占位页替换或 initialRouteName 时，优先从这张卡开始。",
       "likelyFiles": [
         "src/app/navigation/RootNavigator.tsx",
+        "src/app/navigation/TabsNavigator.tsx",
+        "src/app/navigation/TabsNavigator.native.tsx",
+        "src/shared/visual/useAppTabBarHeight.ts",
+        "src/shared/visual/tabBarMetrics.ts",
         "src/app/navigation/types.ts",
+        "assets/tabs",
         "src/app/screens/AppScreenFrame.tsx",
         "src/app/screens/SettingsScreen.tsx",
         "src/app/screens/TabScreens.tsx",

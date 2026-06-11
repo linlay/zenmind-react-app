@@ -4,7 +4,7 @@
   "layer": "features",
   "paths": ["src/features/chatRealtime"],
   "responsibility": [
-    "管理全局唯一聊天 WebSocket 连接、连接状态、重连、pending stream 清理，以及详情页停止/继续生成入口。",
+    "管理全局唯一聊天 WebSocket 连接、连接状态、重连、pending stream 清理、首页目录预热入口，以及详情页停止/继续生成入口。",
     "把 push / stream / request 帧转成 scoped sync event，并通过 repository 做 patch 型落库；summary push 会携带 agent/team 归属写入 conversation 真源，且缺失字段不覆盖已有摘要。",
     "显式处理 chat.read、chat.unread、chat.read_all 及等价事件，把未读状态写回 repository 并发出 scoped UI 事件。",
     "为 awaiting / reasoning / planning / tool / artifact / plan / task / usage / context 维护会话级内存 timeline state，并以 timeline/runtime scoped event 推给详情页。",
@@ -20,7 +20,7 @@
       "file": "src/features/chatRealtime/chatSyncService.ts",
       "symbol": "chatSyncService",
       "kind": "sync-service",
-      "description": "UI 侧实时同步入口，统一发出连接状态、首页目录替换事件和带 conversationId 的数据变更事件；详情页通过它发送消息、停止/继续生成、提交 awaiting question，并向 Debug 面板暴露开发态本地缓存 reset。"
+      "description": "UI 侧实时同步入口，统一发出连接状态、首页目录替换事件和带 conversationId 的数据变更事件；AppRoot 通过它预热首页目录，详情页通过它发送消息、停止/继续生成、提交 awaiting question，并向 Debug 面板暴露开发态本地缓存 reset。"
     },
     {
       "file": "src/features/chatRealtime/wsClient.ts",
@@ -55,6 +55,7 @@
     "bootstrap/reconnect 时的 outbox replay",
     "activeConversationId、active outgoing/attach stream abort handle、stream buffer、timeline state、awaiting question 本地提交投影和 per-conversation reconcile single-flight",
     "开发态 resetLocalCacheForDevelopment 会停止 transport、清理内存任务并委托持久化层清缓存",
+    "prewarmHome 委托 chatRepository 预热首页目录，不启动 WebSocket，也不在 service 内维护目录真源",
     "开发态 WS frame ring buffer，不写 SQLite、MMKV 或网络"
   ],
   "relatedFlows": ["chat-home-cold-boot", "chat-receive-message", "chat-send-message"],

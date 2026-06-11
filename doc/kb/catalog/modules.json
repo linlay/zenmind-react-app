@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-10T10:40:19.955Z",
+  "generatedAt": "2026-06-11T06:05:48.458Z",
   "items": [
     {
       "id": "app-development-debug",
@@ -22,6 +22,7 @@
         "app.config.js",
         "assets",
         "assets/brands",
+        "assets/tabs",
         "brands",
         "eas.json",
         "package.json",
@@ -152,7 +153,7 @@
       "id": "feature-chat-realtime",
       "title": "聊天实时同步",
       "layer": "features",
-      "summary": "管理全局唯一聊天 WebSocket 连接、连接状态、重连、pending stream 清理，以及详情页停止/继续生成入口。",
+      "summary": "管理全局唯一聊天 WebSocket 连接、连接状态、重连、pending stream 清理、首页目录预热入口，以及详情页停止/继续生成入口。",
       "pathHints": ["src/features/chatRealtime"],
       "relatedFlows": ["chat-home-cold-boot", "chat-receive-message", "chat-send-message"],
       "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime", "modify-runtime-environment"],
@@ -222,7 +223,7 @@
       "id": "shared-visual-foundation",
       "title": "共享视觉 token 与统一图标基础",
       "layer": "shared",
-      "summary": "提供共享视觉 token、运行时 light/dark 主题 Provider、system 偏好解析、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
+      "summary": "提供共享视觉 token、运行时 light/dark 主题 Provider、system 偏好解析、底部 Tab 指标与避让 hook、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
       "pathHints": [
         "src/shared/visual",
         "src/shared/icons",

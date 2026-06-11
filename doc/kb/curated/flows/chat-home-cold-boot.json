@@ -24,34 +24,41 @@
     },
     {
       "order": 3,
-      "label": "prepareChatPersistenceSample 确保 SQLite 已初始化；无远端 base URL 时补充本地目录示例数据。",
-      "moduleId": "feature-chat-persistence",
-      "file": "src/features/chatPersistence/chatRepository.ts",
-      "symbol": "prepareChatPersistenceSample"
+      "label": "AppRoot 在认证允许后调用 chatSyncService.prewarmHome，委托 repository 提前初始化 SQLite 和首页目录首屏切片，不让页面切换路径承担预热成本。",
+      "moduleId": "feature-chat-realtime",
+      "file": "src/app/AppRoot.tsx",
+      "symbol": "chatSyncService.prewarmHome"
     },
     {
       "order": 4,
-      "label": "loadVisibleSlice 通过 getChatDirectorySlice 或 getCollapsedChatDirectorySlice 读取 SQLite 真源目录切片，并 join conversations 得到最后消息正文和时间，排序按 pinned_at DESC、conversations.last_message_at DESC、sort_rank ASC。",
+      "label": "prewarmChatHomeDirectory 确保 SQLite 已初始化；无远端 base URL 时补充本地目录示例数据，随后读取首页目录切片并在有可用数据时刷新 MMKV 快照。",
       "moduleId": "feature-chat-persistence",
-      "file": "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
-      "symbol": "loadVisibleSlice"
+      "file": "src/features/chatPersistence/chatRepository.ts",
+      "symbol": "prewarmChatHomeDirectory"
     },
     {
       "order": 5,
+      "label": "ChatHomeStorageDemo 把 SQLite 首屏刷新安排到 InteractionManager.runAfterInteractions 之后；无置顶折叠时复用 prewarmChatHomeDirectory 结果，折叠/分页路径继续通过 loadVisibleSlice 回读 SQLite 真源。",
+      "moduleId": "feature-chat-persistence",
+      "file": "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+      "symbol": "prewarmChatHomeDirectory"
+    },
+    {
+      "order": 6,
       "label": "AppRoot 在认证就绪后全局启动 chatSyncService.start，通过同一条 /ap/ws 连接并发发送 /api/agents、/api/teams 与 /api/chats request，投影后单事务写入 conversations 与 chat_directory_items，并保持 outbox flush 不挂在首页生命周期。",
       "moduleId": "app-shell-navigation",
       "file": "src/app/AppRoot.tsx",
       "symbol": "chatSyncService.start"
     },
     {
-      "order": 6,
+      "order": 7,
       "label": "ChatHomeStorageDemo 聚焦时订阅 scoped sync event；收到 home.directory.replace 后回读当前可见目录切片，收到未标记 directoryProjectionChanged 且命中当前可见 latestConversationId 的 home.item.patch 后回读同一切片刷新最后消息展示。",
       "moduleId": "feature-chat-realtime",
       "file": "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
       "symbol": "chatSyncService.subscribe"
     },
     {
-      "order": 7,
+      "order": 8,
       "label": "初始化、分页、手动刷新和失焦后恢复仍通过目录 repository 入口读取 SQLite 真源切片、置顶顺序和最近消息顺序。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
