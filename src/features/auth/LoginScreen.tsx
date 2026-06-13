@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import * as Clipboard from 'expo-clipboard';
 import {
@@ -61,7 +61,7 @@ export function LoginScreen() {
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [loginMode, setLoginMode] = useState<'pairing' | 'manual'>('pairing');
   const [isScannerVisible, setIsScannerVisible] = useState(false);
-  const [isScanLocked, setIsScanLocked] = useState(false);
+  const pairingSubmitLockedRef = useRef(false);
 
   const normalizedEndpoint = useMemo(() => normalizeApiBaseUrl(endpointDraft), [endpointDraft]);
   const normalizedDeviceName = useMemo(() => String(deviceName || '').trim(), [deviceName]);
@@ -89,11 +89,14 @@ export function LoginScreen() {
   useEffect(() => {
     if (loginMode !== 'pairing') {
       setIsScannerVisible(false);
-      setIsScanLocked(false);
     }
   }, [loginMode]);
 
   async function submitPairingPayload(payloadText: string) {
+    if (pairingSubmitLockedRef.current) {
+      return;
+    }
+
     const normalizedPayload = String(payloadText || '').trim();
 
     if (!normalizedDeviceName) {
@@ -106,15 +109,15 @@ export function LoginScreen() {
       return;
     }
 
+    pairingSubmitLockedRef.current = true;
     setIsSubmitting(true);
-    setIsScanLocked(true);
     setErrorMessage('');
     try {
       await loginWithPairingPayload(normalizedPayload, normalizedDeviceName);
       setIsScannerVisible(false);
     } catch (error) {
       setErrorMessage(String((error as Error)?.message || t('auth.error.loginFailed')));
-      setIsScanLocked(false);
+      pairingSubmitLockedRef.current = false;
     } finally {
       setIsSubmitting(false);
     }
@@ -135,15 +138,10 @@ export function LoginScreen() {
     }
 
     setErrorMessage('');
-    setIsScanLocked(false);
     setIsScannerVisible(true);
   }
 
   function handleBarcodeScanned(result: BarcodeScanningResult) {
-    if (isScanLocked || isSubmitting) {
-      return;
-    }
-
     const data = String(result.data || '').trim();
     if (!data) {
       return;
@@ -340,7 +338,6 @@ export function LoginScreen() {
                         hitSlop={8}
                         onPress={() => {
                           setIsScannerVisible(false);
-                          setIsScanLocked(false);
                         }}
                         style={({ pressed }) => [
                           styles.inlineActionButton,
@@ -358,11 +355,10 @@ export function LoginScreen() {
                       active={!isSubmitting}
                       barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
                       facing="back"
-                      onBarcodeScanned={isScanLocked || isSubmitting ? undefined : handleBarcodeScanned}
+                      onBarcodeScanned={isSubmitting ? undefined : handleBarcodeScanned}
                       onMountError={(event) => {
                         setErrorMessage(event.message || t('auth.scan.mountFailed'));
                         setIsScannerVisible(false);
-                        setIsScanLocked(false);
                       }}
                       style={styles.cameraPreview}
                     />

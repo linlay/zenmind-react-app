@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  applyChatTimelineEvent,
   applyChatTimelineStreamDelta,
   buildChatTimelineDisplayModel,
   buildChatTimelineDisplayItems,
@@ -242,8 +243,90 @@ test('timeline display puts one assistant footer on the final content item per r
   assert.deepEqual(assistantItems[1]?.assistantReplyFooter, {
     copyText: '第一段回复\n\n第二段回复',
     timestamp: 120,
+    durationMs: null,
     errorReason: null,
   });
+});
+
+test('timeline display attaches run duration to the final assistant footer', () => {
+  const state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 1_000,
+    },
+    {
+      type: 'content.snapshot',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      text: '第一段回复',
+      timestamp: 30_000,
+    },
+    {
+      type: 'content.snapshot',
+      runId: 'run-1',
+      contentId: 'answer-2',
+      text: '第二段回复',
+      timestamp: 80_000,
+    },
+    {
+      type: 'run.complete',
+      runId: 'run-1',
+      timestamp: 81_000,
+    },
+  ]);
+
+  const assistantItems = buildChatTimelineDisplayItems(state).filter(
+    (item) => item.kind === 'assistant-content'
+  );
+
+  assert.equal(assistantItems.length, 2);
+  assert.equal(assistantItems[0]?.assistantReplyFooter, null);
+  assert.deepEqual(assistantItems[1]?.assistantReplyFooter, {
+    copyText: '第一段回复\n\n第二段回复',
+    timestamp: 80_000,
+    durationMs: 80_000,
+    errorReason: null,
+  });
+});
+
+test('timeline display model updates only the assistant footer when a hidden run completes', () => {
+  const initial = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 1_000,
+    },
+    {
+      type: 'content.snapshot',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      text: '第一句',
+      timestamp: 30_000,
+    },
+  ]);
+  const initialModel = buildChatTimelineDisplayModel(initial);
+  assert.equal(initialModel.items[0]?.kind, 'assistant-content');
+  if (initialModel.items[0]?.kind !== 'assistant-content') {
+    throw new Error('expected assistant content item');
+  }
+  assert.equal(initialModel.items[0].assistantReplyFooter?.durationMs, null);
+
+  const completed = applyChatTimelineEvent(initial, 'chat-1', {
+    type: 'run.complete',
+    runId: 'run-1',
+    timestamp: 81_000,
+  });
+  const completedModel = buildChatTimelineDisplayModel(completed, initialModel);
+
+  assert.equal(completedModel.items.length, initialModel.items.length);
+  assert.notEqual(completedModel.items[0], initialModel.items[0]);
+  assert.equal(completedModel.items[0]?.kind, 'assistant-content');
+  if (completedModel.items[0]?.kind !== 'assistant-content') {
+    throw new Error('expected assistant content item');
+  }
+  assert.equal(completedModel.items[0].assistantReplyFooter?.durationMs, 80_000);
+  assert.equal(completedModel.tailSignature, initialModel.tailSignature);
 });
 
 test('timeline display model replaces only the visible tail item for stream deltas', () => {

@@ -97,6 +97,21 @@ type TimelineDisplayMetadata = {
   assistantReplyFooters: Map<string, ChatTimelineAssistantReplyFooter>;
 };
 
+type ChangedRunDuration = {
+  runId: string;
+  durationMs: number | null;
+};
+
+type TimelineModelChange = {
+  visibleNodeId: string;
+  runDuration: ChangedRunDuration | null;
+};
+
+type TimelineDisplaySource = {
+  visibleNodes: ChatTimelineDisplayNode[];
+  runDurationsById: Map<string, number>;
+};
+
 export type ChatTimelineDisplayTailSignature = {
   key: string;
   contentLength: number;
@@ -175,8 +190,59 @@ function runIdForEntry(entry: PendingDisplayEntry): string {
   return runIdForNode(node);
 }
 
+function normalizeDurationMs(value: number | null | undefined): number | null {
+  if (!Number.isFinite(value) || Number(value) < 0) {
+    return null;
+  }
+  return Number(value);
+}
+
+function collectTimelineDisplaySource(state: ChatTimelineState): TimelineDisplaySource {
+  const visibleNodes: ChatTimelineDisplayNode[] = [];
+  const runDurationsById = new Map<string, number>();
+  state.orderedNodeIds.forEach((nodeId) => {
+    const node = state.nodesById[nodeId];
+
+    if (!node) {
+      return;
+    }
+
+    if (node.kind === 'run' && node.runId) {
+      const durationMs = normalizeDurationMs(node.durationMs);
+      if (durationMs !== null) {
+        runDurationsById.set(node.runId, durationMs);
+      }
+    }
+
+    if (isVisibleTimelineNode(node)) {
+      visibleNodes.push(node);
+    }
+  });
+
+  return {
+    visibleNodes,
+    runDurationsById,
+  };
+}
+
+function getRunDurationMsById(state: ChatTimelineState, runId: string): number | null {
+  if (!runId) {
+    return null;
+  }
+
+  for (const nodeId of state.orderedNodeIds) {
+    const node = state.nodesById[nodeId];
+    if (node?.kind === 'run' && node.runId === runId) {
+      return normalizeDurationMs(node.durationMs);
+    }
+  }
+
+  return null;
+}
+
 function collectTimelineDisplayMetadata(
-  entries: readonly PendingDisplayEntry[]
+  entries: readonly PendingDisplayEntry[],
+  runDurationsById: ReadonlyMap<string, number>
 ): TimelineDisplayMetadata {
   const runCounts = new Map<string, number>();
   const repliesByRunId = new Map<string, AssistantReplyAccumulator>();
@@ -211,7 +277,7 @@ function collectTimelineDisplayMetadata(
   });
 
   const footersByNodeId = new Map<string, ChatTimelineAssistantReplyFooter>();
-  repliesByRunId.forEach((reply) => {
+  repliesByRunId.forEach((reply, runId) => {
     if (!reply.lastNodeId || reply.hasStreaming || reply.copyParts.length === 0) {
       return;
     }
@@ -219,6 +285,7 @@ function collectTimelineDisplayMetadata(
     footersByNodeId.set(reply.lastNodeId, {
       copyText: reply.copyParts.join('\n\n'),
       timestamp: reply.updatedAt,
+      durationMs: runDurationsById.get(runId) ?? null,
       errorReason: reply.errorReason,
     });
   });
@@ -325,15 +392,33 @@ function buildTimelineTailSignature(
   };
 }
 
-function getSingleChangedVisibleNodeId(
+function getChangedRunDuration(
+  previousNode: ChatTimelineNode | undefined,
+  nextNode: ChatTimelineNode | undefined
+): ChangedRunDuration | null {
+  if (previousNode?.kind !== 'run' || nextNode?.kind !== 'run' || previousNode.runId !== nextNode.runId) {
+    return null;
+  }
+  const durationMs = normalizeDurationMs(nextNode.durationMs);
+  if (!nextNode.runId || normalizeDurationMs(previousNode.durationMs) === durationMs) {
+    return null;
+  }
+  return {
+    runId: nextNode.runId,
+    durationMs,
+  };
+}
+
+function getTimelineModelChange(
   state: ChatTimelineState,
   previous: ChatTimelineDisplayModel
-): string | null {
+): TimelineModelChange | null {
   if (state.orderedNodeIds !== previous.orderedNodeIds) {
     return null;
   }
 
   let changedVisibleNodeId = '';
+  let changedRunDuration: ChangedRunDuration | null = null;
   for (const nodeId of state.orderedNodeIds) {
     const previousNode = previous.nodesById[nodeId];
     const nextNode = state.nodesById[nodeId];
@@ -344,6 +429,13 @@ function getSingleChangedVisibleNodeId(
     const previousVisible = isVisibleTimelineNode(previousNode);
     const nextVisible = isVisibleTimelineNode(nextNode);
     if (!previousVisible && !nextVisible) {
+      const runDuration = getChangedRunDuration(previousNode, nextNode);
+      if (runDuration) {
+        if (changedRunDuration && changedRunDuration.runId !== runDuration.runId) {
+          return null;
+        }
+        changedRunDuration = runDuration;
+      }
       continue;
     }
     if (previousVisible !== nextVisible || changedVisibleNodeId) {
@@ -352,13 +444,21 @@ function getSingleChangedVisibleNodeId(
     changedVisibleNodeId = nodeId;
   }
 
-  return changedVisibleNodeId;
+  if (changedVisibleNodeId && changedRunDuration) {
+    return null;
+  }
+
+  return {
+    visibleNodeId: changedVisibleNodeId,
+    runDuration: changedRunDuration,
+  };
 }
 
 function buildAssistantReplyFooterForTail(
   items: readonly ChatTimelineDisplayItem[],
   tailItem: ChatTimelineDisplayItem,
-  nextNode: ChatTimelineDisplayNode
+  nextNode: ChatTimelineDisplayNode,
+  getDurationMs: (runId: string) => number | null
 ): ChatTimelineAssistantReplyFooter | null {
   if (nextNode.kind !== 'message' || nextNode.role !== 'assistant') {
     return null;
@@ -394,32 +494,69 @@ function buildAssistantReplyFooterForTail(
   return {
     copyText: copyParts.join('\n\n'),
     timestamp: updatedAt,
+    durationMs: getDurationMs(runId),
     errorReason,
   };
+}
+
+function updateAssistantReplyFooterDuration(
+  items: readonly ChatTimelineDisplayItem[],
+  runId: string,
+  durationMs: number | null
+): ChatTimelineDisplayItem[] | null {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (item.kind !== 'assistant-content' || item.runId !== runId || !item.assistantReplyFooter) {
+      continue;
+    }
+    if (item.assistantReplyFooter.durationMs === durationMs) {
+      return null;
+    }
+
+    const nextItems = [...items];
+    nextItems[index] = {
+      ...item,
+      assistantReplyFooter: {
+        ...item.assistantReplyFooter,
+        durationMs,
+      },
+    };
+    return nextItems;
+  }
+
+  return null;
 }
 
 function updateTailDisplayModel(
   state: ChatTimelineState,
   previous: ChatTimelineDisplayModel
 ): ChatTimelineDisplayModel | null {
-  const changedVisibleNodeId = getSingleChangedVisibleNodeId(state, previous);
-  if (changedVisibleNodeId === null) {
+  const change = getTimelineModelChange(state, previous);
+  if (!change) {
     return null;
   }
-  if (!changedVisibleNodeId) {
+  if (!change.visibleNodeId) {
+    const items = change.runDuration
+      ? (updateAssistantReplyFooterDuration(
+          previous.items,
+          change.runDuration.runId,
+          change.runDuration.durationMs
+        ) ?? previous.items)
+      : previous.items;
     return {
       ...previous,
       revision: state.revision,
       nodesById: state.nodesById,
+      items,
     };
   }
 
   const previousTail = previous.items[previous.items.length - 1];
-  if (!previousTail || previousTail.kind === 'tool-group' || previousTail.nodeId !== changedVisibleNodeId) {
+  if (!previousTail || previousTail.kind === 'tool-group' || previousTail.nodeId !== change.visibleNodeId) {
     return null;
   }
 
-  const nextNode = state.nodesById[changedVisibleNodeId];
+  const nextNode = state.nodesById[change.visibleNodeId];
   if (!isVisibleTimelineNode(nextNode)) {
     return null;
   }
@@ -436,7 +573,12 @@ function updateTailDisplayModel(
     node: nextNode,
     nodeId: nextNode.id,
     runId: runIdForNode(nextNode),
-    assistantReplyFooter: buildAssistantReplyFooterForTail(previous.items, previousTail, nextNode),
+    assistantReplyFooter: buildAssistantReplyFooterForTail(
+      previous.items,
+      previousTail,
+      nextNode,
+      (runId) => getRunDurationMsById(state, runId)
+    ),
   } as ChatTimelineDisplayItem;
   const items = [...previous.items.slice(0, -1), nextTail];
 
@@ -450,11 +592,9 @@ function updateTailDisplayModel(
 }
 
 export function buildChatTimelineDisplayItems(state: ChatTimelineState): ChatTimelineDisplayItem[] {
-  const visibleNodes = state.orderedNodeIds
-    .map((id) => state.nodesById[id])
-    .filter(isVisibleTimelineNode);
+  const { visibleNodes, runDurationsById } = collectTimelineDisplaySource(state);
   const entries = buildPendingDisplayEntries(visibleNodes);
-  const { assistantReplyFooters, runCounts } = collectTimelineDisplayMetadata(entries);
+  const { assistantReplyFooters, runCounts } = collectTimelineDisplayMetadata(entries, runDurationsById);
   const runIndexes = new Map<string, number>();
 
   return entries.map((entry) => {

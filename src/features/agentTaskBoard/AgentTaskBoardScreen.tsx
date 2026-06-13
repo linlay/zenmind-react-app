@@ -1,6 +1,6 @@
 import { FlashList } from '@shopify/flash-list';
-import { memo, ReactElement, useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { memo, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
@@ -9,149 +9,39 @@ import { type I18nKey, type TFunction, useT } from '../../shared/i18n';
 import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
 import { appVisualTokens, getAvatarLabel, getAvatarTone, type AppThemeTokens } from '../../shared/visual/foundation';
 import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
+import {
+  createKanbanIssueApi,
+  getKanbanSnapshotApi,
+  moveKanbanIssueApi,
+  updateKanbanIssueApi,
+  type KanbanSnapshot
+} from '../../core/api/services/kanbanApi';
+import {
+  applyKanbanChangeResult,
+  createBoardTaskIndex,
+  deriveAgentOptions,
+  deriveBoardSummary,
+  deriveBoardTasks,
+  getAgentPreview,
+  nextIssuePosition,
+  type AgentOption,
+  type BoardViewText,
+  type BoardQueue,
+  type BoardTask,
+  type TaskPriority,
+  type TaskStage
+} from './kanbanViewModel';
 
-type TaskStage = 'intake' | 'assigned' | 'running' | 'review' | 'done';
-type TaskPriority = 'high' | 'medium' | 'low';
-type BoardQueue = 'focus' | 'running' | 'review';
 type BoardRoute =
   | { name: 'home' }
   | { name: 'newTask' }
-  | { name: 'assignTask'; taskId?: string }
+  | { name: 'assignTask'; taskId: string }
   | { name: 'taskDetail'; taskId: string };
-
-type BoardTask = {
-  id: string;
-  titleKey: I18nKey;
-  outcomeKey: I18nKey;
-  stage: TaskStage;
-  priority: TaskPriority;
-  agentName: string;
-  agentKey?: I18nKey;
-  dueKey: I18nKey;
-  nextActionKey: I18nKey;
-  blockerKey?: I18nKey;
-  progress: number;
-};
-
-type AgentOption = {
-  name: string;
-  load: string;
-  fitKey: I18nKey;
-  status: 'ready' | 'busy' | 'waiting';
-};
 
 type LifecycleStep = {
   stage: TaskStage;
   labelKey: I18nKey;
 };
-
-type BoardSummary = {
-  visibleTasks: readonly BoardTask[];
-  intakeCount: number;
-  reviewCount: number;
-  blockedCount: number;
-  focusTask: BoardTask | undefined;
-};
-
-const TASKS: readonly BoardTask[] = [
-  {
-    id: 'task-001',
-    titleKey: 'tasks.sample.task001.title',
-    outcomeKey: 'tasks.sample.task001.outcome',
-    stage: 'running',
-    priority: 'high',
-    agentName: 'UI Agent',
-    dueKey: 'tasks.sample.task001.due',
-    nextActionKey: 'tasks.sample.task001.nextAction',
-    progress: 68
-  },
-  {
-    id: 'task-002',
-    titleKey: 'tasks.sample.task002.title',
-    outcomeKey: 'tasks.sample.task002.outcome',
-    stage: 'intake',
-    priority: 'medium',
-    agentName: '',
-    agentKey: 'tasks.agent.unassigned',
-    dueKey: 'tasks.sample.task002.due',
-    nextActionKey: 'tasks.sample.task002.nextAction',
-    progress: 10
-  },
-  {
-    id: 'task-003',
-    titleKey: 'tasks.sample.task003.title',
-    outcomeKey: 'tasks.sample.task003.outcome',
-    stage: 'intake',
-    priority: 'high',
-    agentName: '',
-    agentKey: 'tasks.agent.unassigned',
-    dueKey: 'tasks.sample.task003.due',
-    nextActionKey: 'tasks.sample.task003.nextAction',
-    blockerKey: 'tasks.sample.task003.blocker',
-    progress: 0
-  },
-  {
-    id: 'task-004',
-    titleKey: 'tasks.sample.task004.title',
-    outcomeKey: 'tasks.sample.task004.outcome',
-    stage: 'assigned',
-    priority: 'medium',
-    agentName: 'Ops Agent',
-    dueKey: 'tasks.sample.task004.due',
-    nextActionKey: 'tasks.sample.task004.nextAction',
-    progress: 28
-  },
-  {
-    id: 'task-005',
-    titleKey: 'tasks.sample.task005.title',
-    outcomeKey: 'tasks.sample.task005.outcome',
-    stage: 'review',
-    priority: 'high',
-    agentName: 'Reviewer',
-    dueKey: 'tasks.sample.task005.due',
-    nextActionKey: 'tasks.sample.task005.nextAction',
-    blockerKey: 'tasks.sample.task005.blocker',
-    progress: 86
-  },
-  {
-    id: 'task-006',
-    titleKey: 'tasks.sample.task006.title',
-    outcomeKey: 'tasks.sample.task006.outcome',
-    stage: 'done',
-    priority: 'low',
-    agentName: 'Writer',
-    dueKey: 'tasks.sample.task006.due',
-    nextActionKey: 'tasks.sample.task006.nextAction',
-    progress: 100
-  }
-] as const;
-
-const AGENTS: readonly AgentOption[] = [
-  {
-    name: 'UI Agent',
-    load: '2/4',
-    fitKey: 'tasks.agent.fit.ui',
-    status: 'ready'
-  },
-  {
-    name: 'Planner',
-    load: '1/3',
-    fitKey: 'tasks.agent.fit.planner',
-    status: 'ready'
-  },
-  {
-    name: 'Ops Agent',
-    load: '3/3',
-    fitKey: 'tasks.agent.fit.ops',
-    status: 'busy'
-  },
-  {
-    name: 'Reviewer',
-    load: '2/2',
-    fitKey: 'tasks.agent.fit.reviewer',
-    status: 'waiting'
-  }
-] as const;
 
 const LIFECYCLE = [
   { stage: 'intake', labelKey: 'tasks.lifecycle.intake' },
@@ -180,6 +70,45 @@ const STAGE_LABEL_KEYS: Record<TaskStage, I18nKey> = {
   review: 'tasks.stage.review',
   done: 'tasks.stage.done'
 };
+
+const TASK_PRIORITIES = ['high', 'medium', 'low'] as const satisfies readonly TaskPriority[];
+
+type TaskDraftForm = {
+  title: string;
+  description: string;
+  priority: TaskPriority;
+};
+
+function createEmptyTaskDraft(): TaskDraftForm {
+  return {
+    title: '',
+    description: '',
+    priority: 'medium'
+  };
+}
+
+function createBoardViewText(t: TFunction): BoardViewText {
+  return {
+    noDescription: t('tasks.fallback.noDescription'),
+    completedDue: t('tasks.fallback.completedDue'),
+    unscheduledDue: t('tasks.fallback.unscheduledDue'),
+    untitledTask: t('tasks.fallback.untitledTask'),
+    unassignedAgent: t('tasks.agent.unassigned'),
+    actionRunFailed: t('tasks.action.runFailed'),
+    actionRunCancelled: t('tasks.action.runCancelled'),
+    actionAssignAgent: t('tasks.action.assignAgent'),
+    actionWaitingRun: t('tasks.action.waitingRun'),
+    actionTrackRun: t('tasks.action.trackRun'),
+    actionReview: t('tasks.action.reviewOrReturn'),
+    actionArchive: t('tasks.action.archive'),
+    blockerRunFailed: t('tasks.blocker.runFailed'),
+    blockerRunCancelled: t('tasks.blocker.runCancelled'),
+    blockerReviewRequired: t('tasks.blocker.reviewRequired'),
+    catalogAgentFallback: t('tasks.agent.catalogFallback'),
+    desktopOnline: t('tasks.agent.desktopOnline'),
+    existingAssignee: t('tasks.agent.existingAssignee')
+  };
+}
 
 function getPriorityColor(theme: AppThemeTokens, priority: TaskPriority): string {
   if (priority === 'high') {
@@ -218,66 +147,6 @@ function clampProgress(value: number): number {
   return Math.min(100, Math.max(0, value));
 }
 
-function getTaskById(taskId: string | undefined): BoardTask {
-  return TASKS.find((task) => task.id === taskId) ?? TASKS[0];
-}
-
-function formatTaskAgentName(task: BoardTask, t: TFunction): string {
-  return task.agentKey ? t(task.agentKey) : task.agentName;
-}
-
-function getBoardSummary(queue: BoardQueue): BoardSummary {
-  const visibleTasks: BoardTask[] = [];
-  let intakeCount = 0;
-  let reviewCount = 0;
-  let blockedCount = 0;
-  let firstBlockedTask: BoardTask | undefined;
-  let firstIntakeTask: BoardTask | undefined;
-
-  TASKS.forEach((task) => {
-    const isIntake = task.stage === 'intake';
-    const isReview = task.stage === 'review';
-    const isBlocked = Boolean(task.blockerKey);
-
-    if (isIntake) {
-      intakeCount += 1;
-      firstIntakeTask ??= task;
-    }
-    if (isReview) {
-      reviewCount += 1;
-    }
-    if (isBlocked) {
-      blockedCount += 1;
-      firstBlockedTask ??= task;
-    }
-
-    if (
-      (queue === 'focus' && (isIntake || isBlocked)) ||
-      (queue === 'running' && (task.stage === 'assigned' || task.stage === 'running')) ||
-      (queue === 'review' && isReview)
-    ) {
-      visibleTasks.push(task);
-    }
-  });
-
-  return {
-    visibleTasks,
-    intakeCount,
-    reviewCount,
-    blockedCount,
-    focusTask: firstBlockedTask ?? firstIntakeTask
-  };
-}
-
-function getAgentPreview(): readonly AgentOption[] {
-  const readyAgents = AGENTS.filter((agent) => agent.status === 'ready');
-  if (readyAgents.length >= 3) {
-    return readyAgents.slice(0, 3);
-  }
-
-  return [...readyAgents, ...AGENTS.filter((agent) => agent.status !== 'ready')].slice(0, 3);
-}
-
 type HeaderActionButtonProps = {
   usage: AppIconUsage;
   onPress: () => void;
@@ -301,18 +170,26 @@ type PlainButtonProps = {
   label: string;
   onPress: () => void;
   variant?: 'primary' | 'secondary';
+  disabled?: boolean;
 };
 
-const PlainButton = memo(function PlainButton({ label, onPress, variant = 'secondary' }: PlainButtonProps) {
+const PlainButton = memo(function PlainButton({
+  label,
+  onPress,
+  variant = 'secondary',
+  disabled = false
+}: PlainButtonProps) {
   const styles = useAppThemeStyles(createStyles);
   const isPrimary = variant === 'primary';
 
   return (
     <Pressable
       accessibilityRole="button"
+      disabled={disabled}
       style={({ pressed }) => [
         styles.button,
         isPrimary ? styles.buttonPrimary : styles.buttonSecondary,
+        disabled ? styles.disabled : null,
         pressed ? styles.pressed : null
       ]}
       onPress={onPress}
@@ -343,35 +220,48 @@ const StatusPill = memo(function StatusPill({ label, value, tone }: StatusPillPr
 });
 
 type HomeScreenProps = {
+  tasks: readonly BoardTask[];
+  agents: readonly AgentOption[];
   selectedQueue: BoardQueue;
   contentBottomPadding: number;
+  loading: boolean;
+  error: string | null;
   onSelectQueue: (queue: BoardQueue) => void;
   onOpenNewTask: () => void;
-  onOpenAssign: (taskId?: string) => void;
+  onOpenAssign: (taskId: string) => void;
   onOpenTask: (taskId: string) => void;
+  onRetry: () => void;
 };
 
 const HomeScreen = memo(function HomeScreen({
+  tasks,
+  agents,
   selectedQueue,
   contentBottomPadding,
+  loading,
+  error,
   onSelectQueue,
   onOpenNewTask,
   onOpenAssign,
-  onOpenTask
+  onOpenTask,
+  onRetry
 }: HomeScreenProps) {
   const t = useT();
   const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
-  const summary = useMemo(() => getBoardSummary(selectedQueue), [selectedQueue]);
-  const agentPreview = useMemo(getAgentPreview, []);
+  const summary = useMemo(() => deriveBoardSummary(tasks, selectedQueue), [selectedQueue, tasks]);
+  const agentPreview = useMemo(() => getAgentPreview(agents), [agents]);
   const focusTask = summary.focusTask;
+  const focusTaskId = focusTask?.id;
   const renderTask = useCallback(
     ({ item }: { item: BoardTask }) => <TaskRow task={item} onOpenTask={onOpenTask} onOpenAssign={onOpenAssign} />,
     [onOpenAssign, onOpenTask]
   );
   const handleAssignFocusTask = useCallback(() => {
-    onOpenAssign(focusTask?.id);
-  }, [focusTask?.id, onOpenAssign]);
+    if (focusTaskId) {
+      onOpenAssign(focusTaskId);
+    }
+  }, [focusTaskId, onOpenAssign]);
 
   return (
     <FlashList
@@ -384,12 +274,12 @@ const HomeScreen = memo(function HomeScreen({
             <View style={styles.heroTitleRow}>
               <View style={styles.heroTextBlock}>
                 <Text style={styles.heroEyebrow}>{t('tasks.hero.todayFocus')}</Text>
-                <Text style={styles.heroTitle}>{focusTask ? t(focusTask.titleKey) : t('tasks.hero.stable')}</Text>
+                <Text style={styles.heroTitle}>{focusTask ? focusTask.title : t('tasks.hero.stable')}</Text>
                 <Text style={styles.heroBody}>
-                  {focusTask?.blockerKey
-                    ? t(focusTask.blockerKey)
+                  {focusTask?.blocker
+                    ? focusTask.blocker
                     : focusTask
-                      ? t(focusTask.nextActionKey)
+                      ? focusTask.nextAction
                       : t('tasks.hero.noIntervention')}
                 </Text>
               </View>
@@ -403,6 +293,7 @@ const HomeScreen = memo(function HomeScreen({
               <PlainButton
                 label={t('tasks.action.assignTask')}
                 variant="primary"
+                disabled={!focusTask}
                 onPress={handleAssignFocusTask}
               />
               <PlainButton label={t('tasks.action.newTask')} onPress={onOpenNewTask} />
@@ -444,6 +335,24 @@ const HomeScreen = memo(function HomeScreen({
             <Text style={styles.sectionTitle}>{t('tasks.section.tasks')}</Text>
             <Text style={styles.sectionMeta}>{t('tasks.countItems', { count: summary.visibleTasks.length })}</Text>
           </View>
+          {error ? (
+            <View style={styles.stateBlock}>
+              <Text style={styles.stateTitle}>{error}</Text>
+              <PlainButton label={t('common.retry')} onPress={onRetry} />
+            </View>
+          ) : null}
+        </View>
+      }
+      ListEmptyComponent={
+        <View style={styles.stateBlock}>
+          <Text style={styles.stateTitle}>{loading ? t('common.loading') : t('tasks.hero.stable')}</Text>
+          <Text style={styles.stateBody}>
+            {loading
+              ? t('tasks.loadingHint')
+              : tasks.length > 0
+                ? t('tasks.hero.noIntervention')
+                : t('tasks.emptyHint')}
+          </Text>
         </View>
       }
       ListFooterComponent={
@@ -453,9 +362,11 @@ const HomeScreen = memo(function HomeScreen({
             <Text style={styles.sectionMeta}>{t('tasks.section.availableAgentsHint')}</Text>
           </View>
           <View style={styles.agentSummaryList}>
-            {agentPreview.map((agent) => (
-              <AgentCompactRow key={agent.name} agent={agent} />
-            ))}
+            {agentPreview.length > 0 ? (
+              agentPreview.map((agent) => <AgentCompactRow key={agent.key} agent={agent} />)
+            ) : (
+              <Text style={styles.stateBody}>{t('tasks.agent.empty')}</Text>
+            )}
           </View>
         </View>
       }
@@ -469,7 +380,7 @@ const HomeScreen = memo(function HomeScreen({
 type TaskRowProps = {
   task: BoardTask;
   onOpenTask: (taskId: string) => void;
-  onOpenAssign: (taskId?: string) => void;
+  onOpenAssign: (taskId: string) => void;
 };
 
 const TaskRow = memo(function TaskRow({ task, onOpenTask, onOpenAssign }: TaskRowProps) {
@@ -502,7 +413,7 @@ const TaskRow = memo(function TaskRow({ task, onOpenTask, onOpenAssign }: TaskRo
       >
         <View style={styles.taskRowTitleLine}>
           <Text numberOfLines={1} style={styles.taskRowTitle}>
-            {t(task.titleKey)}
+            {task.title}
           </Text>
           <View style={styles.priorityMini}>
             <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
@@ -512,13 +423,13 @@ const TaskRow = memo(function TaskRow({ task, onOpenTask, onOpenAssign }: TaskRo
           </View>
         </View>
         <Text numberOfLines={2} style={styles.taskOutcome}>
-          {t(task.outcomeKey)}
+          {task.outcome}
         </Text>
         <View style={styles.taskRowMeta}>
           <Text numberOfLines={1} style={styles.taskMetaText}>
-            {t(STAGE_LABEL_KEYS[task.stage])} · {formatTaskAgentName(task, t)}
+            {t(STAGE_LABEL_KEYS[task.stage])} · {task.agentName}
           </Text>
-          <Text style={styles.taskMetaText}>{t(task.dueKey)}</Text>
+          <Text style={styles.taskMetaText}>{task.dueLabel}</Text>
         </View>
       </Pressable>
       <Pressable
@@ -537,7 +448,6 @@ type AgentCompactRowProps = {
 };
 
 const AgentCompactRow = memo(function AgentCompactRow({ agent }: AgentCompactRowProps) {
-  const t = useT();
   const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
   const tone = getAvatarTone(agent.name);
@@ -553,7 +463,7 @@ const AgentCompactRow = memo(function AgentCompactRow({ agent }: AgentCompactRow
           {agent.name}
         </Text>
         <Text numberOfLines={1} style={styles.agentFit}>
-          {t(agent.fitKey)}
+          {agent.fitText}
         </Text>
       </View>
       <View style={styles.agentLoadBlock}>
@@ -594,52 +504,104 @@ function SecondaryPage({ title, contentBottomPadding, onBack, children }: Second
 }
 
 type NewTaskPageProps = {
+  draft: TaskDraftForm;
   contentBottomPadding: number;
   onBack: () => void;
-  onOpenAssign: () => void;
+  onChangeDescription: (description: string) => void;
+  onChangePriority: (priority: TaskPriority) => void;
+  onChangeTitle: (title: string) => void;
+  onCreateDraft: () => void;
+  saving: boolean;
 };
 
-function NewTaskPage({ contentBottomPadding, onBack, onOpenAssign }: NewTaskPageProps) {
+function NewTaskPage({
+  draft,
+  contentBottomPadding,
+  onBack,
+  onChangeDescription,
+  onChangePriority,
+  onChangeTitle,
+  onCreateDraft,
+  saving
+}: NewTaskPageProps) {
   const t = useT();
+  const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
+  const canSubmit = draft.title.trim().length > 0 && !saving;
 
   return (
     <SecondaryPage title={t('tasks.page.newTask')} contentBottomPadding={contentBottomPadding} onBack={onBack}>
       <View style={styles.formBlock}>
         <Text style={styles.formTitle}>{t('tasks.form.draft')}</Text>
-        <DraftField label={t('tasks.form.goal')} value={t('tasks.form.goalValue')} />
-        <DraftField label={t('tasks.form.deliverable')} value={t('tasks.form.deliverableValue')} />
-        <DraftField label={t('tasks.form.context')} value={t('tasks.form.contextValue')} />
+        <View style={styles.draftField}>
+          <Text style={styles.fieldLabel}>{t('tasks.form.title')}</Text>
+          <TextInput
+            accessibilityLabel={t('tasks.form.title')}
+            autoCapitalize="sentences"
+            placeholder={t('tasks.form.titlePlaceholder')}
+            placeholderTextColor={theme.colors.textTertiary}
+            returnKeyType="next"
+            style={styles.textInput}
+            value={draft.title}
+            onChangeText={onChangeTitle}
+          />
+        </View>
+        <View style={styles.draftField}>
+          <Text style={styles.fieldLabel}>{t('tasks.form.description')}</Text>
+          <TextInput
+            accessibilityLabel={t('tasks.form.description')}
+            multiline
+            placeholder={t('tasks.form.descriptionPlaceholder')}
+            placeholderTextColor={theme.colors.textTertiary}
+            style={[styles.textInput, styles.textAreaInput]}
+            textAlignVertical="top"
+            value={draft.description}
+            onChangeText={onChangeDescription}
+          />
+        </View>
       </View>
 
       <View style={styles.formBlock}>
         <Text style={styles.formTitle}>{t('tasks.form.execution')}</Text>
-        <OptionRow label={t('tasks.form.priority')} value={t('tasks.priority.high')} />
-        <OptionRow label={t('tasks.form.dueTime')} value={t('tasks.sample.task001.due')} />
+        <View style={styles.draftField}>
+          <Text style={styles.fieldLabel}>{t('tasks.form.priority')}</Text>
+          <View style={styles.priorityChoiceRow}>
+            {TASK_PRIORITIES.map((priority) => {
+              const selected = draft.priority === priority;
+              const priorityColor = getPriorityColor(theme, priority);
+              return (
+                <Pressable
+                  key={priority}
+                  accessibilityRole="button"
+                  style={({ pressed }) => [
+                    styles.priorityChoice,
+                    selected ? styles.priorityChoiceSelected : null,
+                    pressed ? styles.pressed : null
+                  ]}
+                  onPress={() => onChangePriority(priority)}
+                >
+                  <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
+                  <Text style={[styles.priorityChoiceText, selected ? styles.priorityChoiceTextSelected : null]}>
+                    {t(PRIORITY_LABEL_KEYS[priority])}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        </View>
         <OptionRow label={t('tasks.form.initialStage')} value={t('tasks.stage.intake')} />
       </View>
 
       <View style={styles.stickyActionBlock}>
-        <PlainButton label={t('tasks.action.generateDraft')} variant="primary" onPress={onOpenAssign} />
+        <PlainButton
+          label={saving ? t('common.loading') : t('tasks.action.createTask')}
+          variant="primary"
+          disabled={!canSubmit}
+          onPress={onCreateDraft}
+        />
         <PlainButton label={t('tasks.action.saveIncomplete')} onPress={onBack} />
       </View>
     </SecondaryPage>
-  );
-}
-
-type DraftFieldProps = {
-  label: string;
-  value: string;
-};
-
-function DraftField({ label, value }: DraftFieldProps) {
-  const styles = useAppThemeStyles(createStyles);
-
-  return (
-    <View style={styles.draftField}>
-      <Text style={styles.fieldLabel}>{label}</Text>
-      <Text style={styles.fieldValue}>{value}</Text>
-    </View>
   );
 }
 
@@ -661,22 +623,34 @@ function OptionRow({ label, value }: OptionRowProps) {
 
 type AssignTaskPageProps = {
   task: BoardTask;
+  agents: readonly AgentOption[];
   contentBottomPadding: number;
+  saving: boolean;
   onBack: () => void;
-  onOpenTask: (taskId: string) => void;
+  onAssign: (taskId: string, agent: AgentOption) => void;
 };
 
-function AssignTaskPage({ task, contentBottomPadding, onBack, onOpenTask }: AssignTaskPageProps) {
+function AssignTaskPage({ task, agents, contentBottomPadding, saving, onBack, onAssign }: AssignTaskPageProps) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
-  const [selectedAgent, setSelectedAgent] = useState<string>(AGENTS[0].name);
+  const [selectedAgentKey, setSelectedAgentKey] = useState<string>(agents[0]?.key ?? '');
+  const selectedAgent = useMemo(
+    () => agents.find((agent) => agent.key === selectedAgentKey) ?? agents[0],
+    [agents, selectedAgentKey]
+  );
+
+  useEffect(() => {
+    if (!selectedAgent || selectedAgent.key !== selectedAgentKey) {
+      setSelectedAgentKey(selectedAgent?.key ?? '');
+    }
+  }, [selectedAgent, selectedAgentKey]);
 
   return (
     <SecondaryPage title={t('tasks.page.assignTask')} contentBottomPadding={contentBottomPadding} onBack={onBack}>
       <View style={styles.assignmentSummary}>
         <Text style={styles.assignmentEyebrow}>{t('tasks.stage.intake')}</Text>
-        <Text style={styles.assignmentTitle}>{t(task.titleKey)}</Text>
-        <Text style={styles.assignmentBody}>{t(task.outcomeKey)}</Text>
+        <Text style={styles.assignmentTitle}>{task.title}</Text>
+        <Text style={styles.assignmentBody}>{task.outcome}</Text>
       </View>
 
       <View style={styles.sectionBlock}>
@@ -685,14 +659,18 @@ function AssignTaskPage({ task, contentBottomPadding, onBack, onOpenTask }: Assi
           <Text style={styles.sectionMeta}>{t('tasks.section.sortByFit')}</Text>
         </View>
         <View style={styles.agentChoiceList}>
-          {AGENTS.map((agent) => (
-            <AgentChoice
-              key={agent.name}
-              agent={agent}
-              selected={selectedAgent === agent.name}
-              onSelect={() => setSelectedAgent(agent.name)}
-            />
-          ))}
+          {agents.length > 0 ? (
+            agents.map((agent) => (
+              <AgentChoice
+                key={agent.key}
+                agent={agent}
+                selected={selectedAgent?.key === agent.key}
+                onSelect={() => setSelectedAgentKey(agent.key)}
+              />
+            ))
+          ) : (
+            <Text style={styles.stateBody}>{t('tasks.agent.empty')}</Text>
+          )}
         </View>
       </View>
 
@@ -705,9 +683,14 @@ function AssignTaskPage({ task, contentBottomPadding, onBack, onOpenTask }: Assi
 
       <View style={styles.stickyActionBlock}>
         <PlainButton
-          label={t('tasks.action.assignTo', { name: selectedAgent })}
+          label={selectedAgent ? t('tasks.action.assignTo', { name: selectedAgent.name }) : t('tasks.action.assign')}
           variant="primary"
-          onPress={() => onOpenTask(task.id)}
+          disabled={!selectedAgent || saving}
+          onPress={() => {
+            if (selectedAgent) {
+              onAssign(task.id, selectedAgent);
+            }
+          }}
         />
       </View>
     </SecondaryPage>
@@ -721,7 +704,6 @@ type AgentChoiceProps = {
 };
 
 function AgentChoice({ agent, selected, onSelect }: AgentChoiceProps) {
-  const t = useT();
   const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
   const tone = getAvatarTone(agent.name);
@@ -744,7 +726,7 @@ function AgentChoice({ agent, selected, onSelect }: AgentChoiceProps) {
           {agent.name}
         </Text>
         <Text numberOfLines={2} style={styles.agentFit}>
-          {t(agent.fitKey)}
+          {agent.fitText}
         </Text>
       </View>
       <View style={styles.agentLoadBlock}>
@@ -758,25 +740,41 @@ function AgentChoice({ agent, selected, onSelect }: AgentChoiceProps) {
 type TaskDetailPageProps = {
   task: BoardTask;
   contentBottomPadding: number;
+  saving: boolean;
   onBack: () => void;
   onOpenAssign: (taskId: string) => void;
+  onCompleteReview: (task: BoardTask) => void;
 };
 
-function TaskDetailPage({ task, contentBottomPadding, onBack, onOpenAssign }: TaskDetailPageProps) {
+function TaskDetailPage({
+  task,
+  contentBottomPadding,
+  saving,
+  onBack,
+  onOpenAssign,
+  onCompleteReview
+}: TaskDetailPageProps) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const activeIndex = LIFECYCLE.findIndex((step) => step.stage === task.stage);
   const progress = clampProgress(task.progress);
+  const handlePrimaryAction = useCallback(() => {
+    if (task.stage === 'review') {
+      onCompleteReview(task);
+      return;
+    }
+    onOpenAssign(task.id);
+  }, [onCompleteReview, onOpenAssign, task]);
 
   return (
     <SecondaryPage title={t('tasks.page.taskDetail')} contentBottomPadding={contentBottomPadding} onBack={onBack}>
       <View style={styles.detailHero}>
         <View style={styles.detailTitleRow}>
           <Text style={styles.detailStage}>{t(STAGE_LABEL_KEYS[task.stage])}</Text>
-          <Text style={styles.detailDue}>{t(task.dueKey)}</Text>
+          <Text style={styles.detailDue}>{task.dueLabel}</Text>
         </View>
-        <Text style={styles.detailTitle}>{t(task.titleKey)}</Text>
-        <Text style={styles.detailBody}>{t(task.outcomeKey)}</Text>
+        <Text style={styles.detailTitle}>{task.title}</Text>
+        <Text style={styles.detailBody}>{task.outcome}</Text>
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
@@ -784,9 +782,9 @@ function TaskDetailPage({ task, contentBottomPadding, onBack, onOpenAssign }: Ta
 
       <View style={styles.formBlock}>
         <Text style={styles.formTitle}>{t('tasks.form.nextStep')}</Text>
-        <OptionRow label={t('tasks.form.action')} value={t(task.nextActionKey)} />
-        <OptionRow label={t('tasks.form.owner')} value={formatTaskAgentName(task, t)} />
-        <OptionRow label={t('tasks.form.risk')} value={task.blockerKey ? t(task.blockerKey) : t('tasks.risk.none')} />
+        <OptionRow label={t('tasks.form.action')} value={task.nextAction} />
+        <OptionRow label={t('tasks.form.owner')} value={task.agentName} />
+        <OptionRow label={t('tasks.form.risk')} value={task.blocker ?? t('tasks.risk.none')} />
       </View>
 
       <View style={styles.sectionBlock}>
@@ -818,14 +816,17 @@ function TaskDetailPage({ task, contentBottomPadding, onBack, onOpenAssign }: Ta
       <View style={styles.stickyActionBlock}>
         <PlainButton
           label={
-            task.stage === 'intake'
-              ? t('tasks.action.goAssign')
-              : task.stage === 'review'
-                ? t('tasks.action.passReview')
-                : t('tasks.action.reassign')
+            saving
+              ? t('common.loading')
+              : task.stage === 'intake'
+                ? t('tasks.action.goAssign')
+                : task.stage === 'review'
+                  ? t('tasks.action.passReview')
+                  : t('tasks.action.reassign')
           }
           variant="primary"
-          onPress={() => onOpenAssign(task.id)}
+          disabled={saving}
+          onPress={handlePrimaryAction}
         />
       </View>
     </SecondaryPage>
@@ -848,18 +849,157 @@ const TimelineRow = memo(function TimelineRow({ time, text }: TimelineRowProps) 
   );
 });
 
+function messageFromError(error: unknown, fallback: string): string {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+}
+
 export function AgentTaskBoardScreen() {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const [route, setRoute] = useState<BoardRoute>({ name: 'home' });
   const [selectedQueue, setSelectedQueue] = useState<BoardQueue>('focus');
+  const [snapshot, setSnapshot] = useState<KanbanSnapshot | null>(null);
+  const [draft, setDraft] = useState<TaskDraftForm>(createEmptyTaskDraft);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const tabBarHeight = useAppTabBarHeight();
   const contentBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
+  const genericError = t('tasks.error.generic');
+  const boardText = useMemo(() => createBoardViewText(t), [t]);
+  const tasks = useMemo(() => deriveBoardTasks(snapshot, boardText), [boardText, snapshot]);
+  const taskById = useMemo(() => createBoardTaskIndex(tasks), [tasks]);
+  const agents = useMemo(() => deriveAgentOptions(snapshot, tasks, boardText), [boardText, snapshot, tasks]);
+
+  const loadBoard = useCallback(
+    async (signal?: AbortSignal) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const nextSnapshot = await getKanbanSnapshotApi('default', signal);
+        setSnapshot(nextSnapshot);
+      } catch (loadError) {
+        if ((loadError as { name?: string }).name === 'AbortError') {
+          return;
+        }
+        setError(messageFromError(loadError, genericError));
+      } finally {
+        if (!signal?.aborted) {
+          setLoading(false);
+        }
+      }
+    },
+    [genericError]
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void loadBoard(controller.signal);
+    return () => controller.abort();
+  }, [loadBoard]);
+
   const openHome = useCallback(() => setRoute({ name: 'home' }), []);
   const openNewTask = useCallback(() => setRoute({ name: 'newTask' }), []);
-  const openDefaultAssign = useCallback(() => setRoute({ name: 'assignTask', taskId: 'task-002' }), []);
-  const openAssign = useCallback((taskId?: string) => setRoute({ name: 'assignTask', taskId }), []);
+  const openAssign = useCallback((taskId: string) => setRoute({ name: 'assignTask', taskId }), []);
   const openTask = useCallback((taskId: string) => setRoute({ name: 'taskDetail', taskId }), []);
+  const retryLoadBoard = useCallback(() => {
+    void loadBoard();
+  }, [loadBoard]);
+  const updateDraftTitle = useCallback((title: string) => {
+    setDraft((current) => (current.title === title ? current : { ...current, title }));
+  }, []);
+  const updateDraftDescription = useCallback((description: string) => {
+    setDraft((current) => (current.description === description ? current : { ...current, description }));
+  }, []);
+  const updateDraftPriority = useCallback((priority: TaskPriority) => {
+    setDraft((current) => (current.priority === priority ? current : { ...current, priority }));
+  }, []);
+  const createDraftTask = useCallback(async () => {
+    const title = draft.title.trim();
+    if (saving || !title) {
+      return;
+    }
+    const description = draft.description.trim();
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await createKanbanIssueApi({
+        title,
+        description,
+        projectId: snapshot?.projectId ?? 'default',
+        status: 'backlog',
+        priority: draft.priority,
+        severity: 'medium'
+      });
+      setSnapshot((current) => applyKanbanChangeResult(current, result));
+      setDraft(createEmptyTaskDraft());
+      const nextTaskId = result.issue?.id ?? result.issues?.[0]?.id;
+      setRoute(nextTaskId ? { name: 'assignTask', taskId: nextTaskId } : { name: 'home' });
+    } catch (createError) {
+      setError(messageFromError(createError, genericError));
+      setRoute({ name: 'home' });
+    } finally {
+      setSaving(false);
+    }
+  }, [draft.description, draft.priority, draft.title, genericError, saving, snapshot?.projectId]);
+  const assignTask = useCallback(
+    async (taskId: string, agent: AgentOption) => {
+      if (saving) {
+        return;
+      }
+      const task = taskById.get(taskId);
+      setSaving(true);
+      setError(null);
+      try {
+        const result = await updateKanbanIssueApi(
+          taskId,
+          {
+            assigneeAgentKey: agent.key,
+            status: 'todo',
+            baseIssueRevision: task?.revision
+          },
+          snapshot?.projectId ?? 'default'
+        );
+        setSnapshot((current) => applyKanbanChangeResult(current, result));
+        setRoute({ name: 'taskDetail', taskId });
+      } catch (assignError) {
+        setError(messageFromError(assignError, genericError));
+        setRoute({ name: 'home' });
+      } finally {
+        setSaving(false);
+      }
+    },
+    [genericError, saving, snapshot?.projectId, taskById]
+  );
+  const completeReview = useCallback(
+    async (task: BoardTask) => {
+      if (saving) {
+        return;
+      }
+      setSaving(true);
+      setError(null);
+      try {
+        const result = await moveKanbanIssueApi(
+          task.id,
+          'completed',
+          nextIssuePosition(tasks, 'completed'),
+          task.revision,
+          snapshot?.projectId ?? 'default'
+        );
+        setSnapshot((current) => applyKanbanChangeResult(current, result));
+        setRoute({ name: 'taskDetail', taskId: task.id });
+      } catch (completeError) {
+        setError(messageFromError(completeError, genericError));
+        setRoute({ name: 'home' });
+      } finally {
+        setSaving(false);
+      }
+    },
+    [genericError, saving, snapshot?.projectId, tasks]
+  );
   const headerActions = useMemo(
     () =>
       [<HeaderActionButton key="add" usage="chatHome.add" onPress={openNewTask} />] as const satisfies readonly [
@@ -871,33 +1011,60 @@ export function AgentTaskBoardScreen() {
   if (route.name === 'newTask') {
     return (
       <NewTaskPage
+        draft={draft}
         contentBottomPadding={contentBottomPadding}
         onBack={openHome}
-        onOpenAssign={openDefaultAssign}
+        onChangeDescription={updateDraftDescription}
+        onChangePriority={updateDraftPriority}
+        onChangeTitle={updateDraftTitle}
+        onCreateDraft={createDraftTask}
+        saving={saving}
       />
     );
   }
 
   if (route.name === 'assignTask') {
-    const task = getTaskById(route.taskId);
+    const task = taskById.get(route.taskId);
+    if (!task) {
+      return (
+        <SecondaryPage title={t('tasks.page.assignTask')} contentBottomPadding={contentBottomPadding} onBack={openHome}>
+          <View style={styles.stateBlock}>
+            <Text style={styles.stateTitle}>{t('tasks.emptyHint')}</Text>
+          </View>
+        </SecondaryPage>
+      );
+    }
     return (
       <AssignTaskPage
         task={task}
+        agents={agents}
         contentBottomPadding={contentBottomPadding}
+        saving={saving}
         onBack={openHome}
-        onOpenTask={openTask}
+        onAssign={assignTask}
       />
     );
   }
 
   if (route.name === 'taskDetail') {
-    const task = getTaskById(route.taskId);
+    const task = taskById.get(route.taskId);
+    if (!task) {
+      return (
+        <SecondaryPage title={t('tasks.page.taskDetail')} contentBottomPadding={contentBottomPadding} onBack={openHome}>
+          <View style={styles.stateBlock}>
+            <Text style={styles.stateTitle}>{t('tasks.emptyHint')}</Text>
+          </View>
+        </SecondaryPage>
+      );
+    }
     return (
       <TaskDetailPage
         task={task}
         contentBottomPadding={contentBottomPadding}
+        saving={saving}
         onBack={openHome}
         onOpenAssign={openAssign}
+        onCompleteReview={completeReview}
       />
     );
   }
@@ -909,12 +1076,17 @@ export function AgentTaskBoardScreen() {
       </SafeAreaView>
 
       <HomeScreen
+        tasks={tasks}
+        agents={agents}
         selectedQueue={selectedQueue}
         contentBottomPadding={contentBottomPadding}
+        loading={loading}
+        error={error}
         onSelectQueue={setSelectedQueue}
         onOpenNewTask={openNewTask}
         onOpenAssign={openAssign}
         onOpenTask={openTask}
+        onRetry={retryLoadBoard}
       />
     </View>
   );
@@ -952,6 +1124,9 @@ function createStyles(theme: AppThemeTokens) {
     },
     pressed: {
       opacity: 0.62
+    },
+    disabled: {
+      opacity: 0.45
     },
     headerActionButton: {
       width: 40,
@@ -1115,6 +1290,21 @@ function createStyles(theme: AppThemeTokens) {
     sectionMeta: {
       fontSize: 12,
       lineHeight: 16,
+      color: theme.colors.textSecondary
+    },
+    stateBlock: {
+      gap: appVisualTokens.spacing.sm,
+      paddingVertical: appVisualTokens.spacing.lg
+    },
+    stateTitle: {
+      fontSize: 15,
+      lineHeight: 21,
+      fontWeight: '800',
+      color: theme.colors.textPrimary
+    },
+    stateBody: {
+      fontSize: 13,
+      lineHeight: 19,
       color: theme.colors.textSecondary
     },
     taskRow: {
@@ -1281,10 +1471,49 @@ function createStyles(theme: AppThemeTokens) {
       fontWeight: '800',
       color: theme.colors.brandBlue
     },
-    fieldValue: {
+    textInput: {
+      minHeight: 44,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.lineStrong,
+      borderRadius: appVisualTokens.radii.sm,
+      paddingHorizontal: appVisualTokens.spacing.md,
+      paddingVertical: appVisualTokens.spacing.sm,
       fontSize: 15,
       lineHeight: 22,
-      color: theme.colors.textPrimary
+      color: theme.colors.textPrimary,
+      backgroundColor: theme.colors.surface
+    },
+    textAreaInput: {
+      minHeight: 108
+    },
+    priorityChoiceRow: {
+      flexDirection: 'row',
+      gap: appVisualTokens.spacing.sm
+    },
+    priorityChoice: {
+      flex: 1,
+      minHeight: 42,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: appVisualTokens.spacing.xs,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.colors.lineStrong,
+      borderRadius: appVisualTokens.radii.sm,
+      backgroundColor: theme.colors.surface
+    },
+    priorityChoiceSelected: {
+      borderColor: theme.colors.brandBlue,
+      backgroundColor: theme.colors.brandBlueSoft
+    },
+    priorityChoiceText: {
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '800',
+      color: theme.colors.textSecondary
+    },
+    priorityChoiceTextSelected: {
+      color: theme.colors.brandBlue
     },
     optionRow: {
       minHeight: 42,

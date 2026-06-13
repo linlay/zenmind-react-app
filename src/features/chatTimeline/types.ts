@@ -237,6 +237,7 @@ export type ChatTimelineUsageSummary = {
 export type ChatTimelineAssistantReplyFooter = {
   copyText: string;
   timestamp: number;
+  durationMs: number | null;
   errorReason: string | null;
 };
 

@@ -27,7 +27,7 @@ import {
   type ChatTimelineTextNode,
   type ChatTimelineState
 } from '../../chatTimeline/index.ts';
-import { formatChatDetailTimestamp } from '../chatDetailFormatters';
+import { formatChatDetailDuration, formatChatDetailTimestamp } from '../chatDetailFormatters';
 import { ChatAttachmentStrip } from './ChatAttachmentStrip';
 import { ChatTimelineRail } from './ChatTimelineRail';
 import { RuntimeTimelineRow } from './RuntimeTimelineRow';
@@ -249,6 +249,8 @@ const AssistantContentRow = memo(function AssistantContentRow({
   const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
   const timestamp = footer ? formatChatDetailTimestamp(footer.timestamp) : '';
+  const duration = footer ? formatChatDetailDuration(footer.durationMs) : '';
+  const footerMeta = timestamp && duration ? `${timestamp} · ${duration}` : timestamp || duration;
 
   return (
     <View style={styles.timelineRow}>
@@ -264,7 +266,7 @@ const AssistantContentRow = memo(function AssistantContentRow({
         {footer ? (
           <MessageFooter
             text={footer.copyText}
-            timestamp={timestamp}
+            timestamp={footerMeta}
             errorReason={footer.errorReason}
             onCopyText={onCopyText}
           />
@@ -379,6 +381,7 @@ function areAssistantReplyFootersEqual(previous: ChatTimelineDisplayItem, next: 
   return (
     previousFooter?.copyText === nextFooter?.copyText &&
     previousFooter?.timestamp === nextFooter?.timestamp &&
+    previousFooter?.durationMs === nextFooter?.durationMs &&
     previousFooter?.errorReason === nextFooter?.errorReason
   );
 }
@@ -692,9 +695,10 @@ function createStyles(theme: AppThemeTokens) {
     userMessageStack: {
       maxWidth: '78%',
       alignSelf: 'flex-end',
-      alignItems: 'stretch'
+      alignItems: 'flex-end'
     },
     userBubble: {
+      maxWidth: '100%',
       borderRadius: 16,
       borderBottomRightRadius: 8,
       backgroundColor: theme.colors.brandBlueAction,
@@ -786,6 +790,7 @@ function createStyles(theme: AppThemeTokens) {
       gap: appVisualTokens.spacing.sm
     },
     messageFooterEnd: {
+      alignSelf: 'flex-end',
       justifyContent: 'flex-end'
     },
     copyButton: {
