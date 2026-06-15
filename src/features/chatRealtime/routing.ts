@@ -1,4 +1,5 @@
 export {
+  buildFallbackAssistantMessageId,
   buildAssistantMessageId,
   classifyChatProtocolEvent,
   extractAgentKey,

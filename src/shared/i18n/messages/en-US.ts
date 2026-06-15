@@ -424,7 +424,5 @@ export const enUS: Record<I18nKey, string> = {
   'usage.section.compact': 'Context compaction',
   'usage.unknownModel': 'Unknown model',
   'usage.title': 'Usage stats',
-  'usage.close': 'Close usage stats',
-  'usage.open': 'Open usage stats',
-  'usage.openWithTotal': 'Open usage stats, total {total} tokens'
+  'usage.close': 'Close usage stats'
 };

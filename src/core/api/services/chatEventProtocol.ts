@@ -187,6 +187,10 @@ export function buildAssistantMessageId(
   return `assistant:${conversationId}:${runId || 'run'}:${contentId}`;
 }
 
+export function buildFallbackAssistantMessageId(conversationId: string, runId: unknown): string {
+  return `assistant:${conversationId}:${toText(runId) || 'run'}:content`;
+}
+
 export function classifyChatProtocolEvent(event: Record<string, unknown>): ChatProtocolEventFamily {
   const type = normalizeEventType(event.type);
   if (!type) {

@@ -13,7 +13,7 @@ import type {
   ChatTimelineUsageSummary
 } from '../../chatTimeline/index.ts';
 
-type ChatUsageStatsButtonProps = {
+type ChatUsageHeaderBadgeProps = {
   usageLabel: string;
   usageSummary: ChatTimelineUsageSummary | null;
 };
@@ -31,6 +31,7 @@ type UsageMetric = {
   value: number | null;
 };
 
+const USAGE_HEADER_BADGE_WIDTH = 72;
 const USAGE_SHEET_ANIMATION_DURATION = 150;
 const USAGE_SHEET_MAX_HEIGHT = 580;
 const USAGE_SHEET_ENTER_OFFSET = USAGE_SHEET_MAX_HEIGHT + appVisualTokens.spacing.xl;
@@ -54,6 +55,22 @@ function formatUsageNumber(value: number | null | undefined): string {
 
 function trimTrailingZeros(value: string): string {
   return value.replace(/\.?0+$/, '');
+}
+
+function formatCompactUsageNumber(value: number | null): string {
+  if (value === null) {
+    return '-';
+  }
+
+  const absoluteValue = Math.abs(value);
+  if (absoluteValue >= 1_000_000) {
+    return `${trimTrailingZeros((value / 1_000_000).toFixed(1))}m`;
+  }
+  if (absoluteValue >= 1_000) {
+    return `${trimTrailingZeros((value / 1_000).toFixed(1))}k`;
+  }
+
+  return String(value);
 }
 
 function formatMoneyAmount(value: number): string {
@@ -426,21 +443,20 @@ const ChatUsageStatsDrawer = memo(function ChatUsageStatsDrawer({
   );
 });
 
-export const ChatUsageStatsButton = memo(function ChatUsageStatsButton({
+export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
   usageLabel,
   usageSummary
-}: ChatUsageStatsButtonProps) {
+}: ChatUsageHeaderBadgeProps) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const normalizedUsageLabel = usageLabel.trim();
   const hasUsageStats = Boolean(normalizedUsageLabel || usageSummary);
-  const total = useMemo(
-    () => resolveDisplayTotal(usageSummary, normalizedUsageLabel),
-    [normalizedUsageLabel, usageSummary]
-  );
-  const accessibilityLabel = total ? t('usage.openWithTotal', { total: formatUsageNumber(total) }) : t('usage.open');
+  const total = resolveDisplayTotal(usageSummary, normalizedUsageLabel);
+  const compactTotal = formatCompactUsageNumber(total);
+  const accessibilityLabel =
+    total !== null ? `${t('usage.title')}, ${t('usage.metric.total')} ${formatUsageNumber(total)}` : t('usage.title');
   const handleOpen = useCallback(() => {
     Keyboard.dismiss();
     setMounted(true);
@@ -463,10 +479,15 @@ export const ChatUsageStatsButton = memo(function ChatUsageStatsButton({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         onPress={handleOpen}
-        hitSlop={8}
-        style={({ pressed }) => [styles.usageButton, pressed && styles.usageButtonPressed]}
+        hitSlop={6}
+        style={({ pressed }) => [styles.usageHeaderBadge, pressed && styles.usageButtonPressed]}
       >
-        <UsageRing percent={usageSummary?.contextWindow.percent ?? null} />
+        <UsageRing percent={usageSummary?.contextWindow.percent ?? null} size={26} />
+        <View style={styles.usageHeaderTextBlock}>
+          <Text allowFontScaling={false} numberOfLines={1} style={styles.usageHeaderValue}>
+            {compactTotal}
+          </Text>
+        </View>
       </Pressable>
 
       {mounted ? (
@@ -483,19 +504,36 @@ export const ChatUsageStatsButton = memo(function ChatUsageStatsButton({
 
 function createStyles(theme: AppThemeTokens) {
   return StyleSheet.create({
-    usageButton: {
-      width: 34,
+    usageHeaderBadge: {
+      width: USAGE_HEADER_BADGE_WIDTH,
       height: 34,
       borderRadius: appVisualTokens.radii.pill,
       borderWidth: 1,
       borderColor: theme.colors.lineStrong,
       backgroundColor: theme.colors.surface,
+      paddingLeft: 4,
+      paddingRight: 7,
+      flexDirection: 'row',
       alignItems: 'center',
       justifyContent: 'center',
+      gap: 5,
       flexShrink: 0
     },
     usageButtonPressed: {
       opacity: 0.68
+    },
+    usageHeaderTextBlock: {
+      minWidth: 0,
+      flex: 1,
+      alignItems: 'flex-start',
+      justifyContent: 'center'
+    },
+    usageHeaderValue: {
+      maxWidth: '100%',
+      fontSize: 11,
+      lineHeight: 14,
+      fontWeight: '800',
+      color: theme.colors.textPrimary
     },
     usageRing: {
       position: 'relative',

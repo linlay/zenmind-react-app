@@ -6,6 +6,7 @@ import {
   buildToolPillRecords,
   formatToolArgumentsInline,
 } from '../../src/features/chatPersistence/components/runtimePayloadDescriptor.ts';
+import { createTranslator } from '../../src/shared/i18n/translate.ts';
 import type {
   ChatTimelineAwaitingNode,
   ChatTimelineRunNode,
@@ -79,20 +80,41 @@ test('runtime descriptor keeps reasoning markdown lightweight and nowrap by defa
   assert.equal(descriptor.copyText, 'Let me inspect the context.');
 });
 
-test('runtime descriptor normalizes generic reasoning titles for display', () => {
+test('runtime descriptor normalizes backend reasoning titles for display', () => {
   const node: ChatTimelineTextNode = {
     ...baseNode,
     id: 'reasoning-1',
     kind: 'reasoning',
-    title: 'Thinking',
+    title: 'Computing',
     body: 'Let me inspect the context.',
     status: 'complete',
     streaming: false,
   };
 
   const descriptor = buildRuntimePayloadDescriptor(node);
+  const enDescriptor = buildRuntimePayloadDescriptor(node, createTranslator('en-US'));
 
   assert.equal(descriptor.title, '思考过程');
+  assert.equal(enDescriptor.title, 'Thinking process');
+});
+
+test('runtime descriptor keeps backend reasoning title while active', () => {
+  const node: ChatTimelineTextNode = {
+    ...baseNode,
+    id: 'reasoning-1',
+    kind: 'reasoning',
+    title: 'Computing',
+    body: 'Let me inspect the context.',
+    status: '更新中',
+    lifecycle: 'active',
+    streaming: true,
+  };
+
+  const descriptor = buildRuntimePayloadDescriptor(node);
+  const enDescriptor = buildRuntimePayloadDescriptor(node, createTranslator('en-US'));
+
+  assert.equal(descriptor.title, 'Computing');
+  assert.equal(enDescriptor.title, 'Computing');
 });
 
 test('runtime descriptor builds grouped tool records with per-call status', () => {
@@ -148,6 +170,7 @@ test('runtime descriptor builds grouped tool records with per-call status', () =
   assert.equal(descriptor.renderer, 'tool');
   assert.equal(descriptor.title, '日期时间');
   assert.equal(descriptor.canExpand, true);
+  assert.equal(descriptor.activeToolStartedAt, null);
   assert.deepEqual(
     records.map((record) => [record.title, record.status, record.statusLabel]),
     [
@@ -159,6 +182,85 @@ test('runtime descriptor builds grouped tool records with per-call status', () =
   assert.deepEqual(records[0].argsRows, [{ key: 'timezone', valueText: 'Asia/Shanghai' }]);
   assert.equal(records[0].resultText, '{"date":"2026-06-03"}');
   assert.equal(formatToolArgumentsInline('line 1\n  line 2'), 'line 1 line 2');
+});
+
+test('runtime descriptor exposes active tool start time only while running', () => {
+  const runningNode: ChatTimelineToolNode = {
+    ...baseNode,
+    id: 'tool-running',
+    kind: 'tool',
+    toolId: 'tool-running',
+    toolName: 'search',
+    toolLabel: '搜索',
+    description: '',
+    title: '搜索',
+    status: '运行中',
+    argsText: '{"query":"expo"}',
+    resultText: '',
+    body: '',
+    streaming: true,
+    lifecycle: 'active',
+    createdAt: 4_000,
+    updatedAt: 4_000,
+  };
+  const completedNode: ChatTimelineToolNode = {
+    ...runningNode,
+    id: 'tool-completed',
+    toolId: 'tool-completed',
+    status: '结果返回',
+    resultText: '{"ok":true}',
+    streaming: false,
+    lifecycle: 'complete',
+    updatedAt: 5_000,
+  };
+
+  assert.equal(buildRuntimePayloadDescriptor(runningNode).activeToolStartedAt, 4_000);
+  assert.equal(buildRuntimePayloadDescriptor(completedNode).activeToolStartedAt, null);
+});
+
+test('runtime descriptor uses the latest running call in a tool group', () => {
+  const completedNode: ChatTimelineToolNode = {
+    ...baseNode,
+    id: 'tool-1',
+    kind: 'tool',
+    toolId: 'tool-1',
+    toolName: 'search',
+    toolLabel: '搜索',
+    description: '',
+    title: '搜索',
+    status: '结果返回',
+    argsText: '{"query":"expo"}',
+    resultText: '{"ok":true}',
+    body: '',
+    streaming: false,
+  };
+  const runningNode: ChatTimelineToolNode = {
+    ...completedNode,
+    id: 'tool-2',
+    toolId: 'tool-2',
+    status: '运行中',
+    resultText: '',
+    streaming: true,
+    lifecycle: 'active',
+    createdAt: 6_000,
+    updatedAt: 6_000,
+  };
+  const group: ChatTimelineToolGroupDisplayItem = {
+    key: 'tool-group:tool-1',
+    kind: 'tool-group',
+    node: completedNode,
+    nodes: [completedNode, runningNode],
+    nodeId: completedNode.id,
+    runId: completedNode.runId,
+    isFirstInRun: false,
+    isLastInRun: false,
+    groupIndex: 1,
+    toolName: completedNode.toolName,
+    toolLabel: completedNode.toolLabel,
+    count: 2,
+  };
+
+  assert.equal(buildRuntimePayloadDescriptor(group).activeToolStartedAt, 6_000);
 });
 
 test('runtime descriptor expands awaiting plan payloads with prompt options and answer', () => {

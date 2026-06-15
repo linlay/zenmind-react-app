@@ -283,19 +283,18 @@ function createStyles(theme: AppThemeTokens) {
       gap: 3,
     },
     toolArgumentRow: {
-      minHeight: 20,
-      flexDirection: 'row',
-      alignItems: 'baseline',
-      gap: 12,
+      minWidth: 0,
+      gap: 2,
     },
     toolArgumentKey: {
-      minWidth: 76,
       fontFamily: 'monospace',
       fontSize: 12,
       lineHeight: 18,
       color: theme.colors.success,
     },
     toolArgumentValue: {
+      minWidth: 0,
+      marginLeft: appVisualTokens.spacing.lg,
       fontFamily: 'monospace',
       fontSize: 12,
       lineHeight: 18,

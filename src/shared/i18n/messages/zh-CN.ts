@@ -414,9 +414,7 @@ export const zhCN = {
   'usage.section.compact': '上下文压缩',
   'usage.unknownModel': '未知模型',
   'usage.title': '用量统计',
-  'usage.close': '关闭用量统计',
-  'usage.open': '打开用量统计',
-  'usage.openWithTotal': '打开用量统计，总计 {total} tokens'
+  'usage.close': '关闭用量统计'
 } as const;
 
 export type I18nKey = keyof typeof zhCN;

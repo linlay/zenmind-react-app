@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   formatChatDetailDuration,
+  formatChatDetailRunningDuration,
   formatChatDetailTimestamp,
 } from '../../src/features/chatPersistence/chatDetailFormatters.ts';
 
@@ -31,4 +32,12 @@ test('formats chat detail durations from the largest unit down to seconds', () =
   assert.equal(formatChatDetailDuration(3_723_400), '1时2分3.4秒');
   assert.equal(formatChatDetailDuration(null), '');
   assert.equal(formatChatDetailDuration(-1), '');
+});
+
+test('formats running tool duration in whole seconds after the first second', () => {
+  assert.equal(formatChatDetailRunningDuration(1_000, 1_999), '');
+  assert.equal(formatChatDetailRunningDuration(1_000, 2_000), '1s');
+  assert.equal(formatChatDetailRunningDuration(1_000, 3_400), '2s');
+  assert.equal(formatChatDetailRunningDuration(null, 3_400), '');
+  assert.equal(formatChatDetailRunningDuration(3_400, 3_400), '');
 });

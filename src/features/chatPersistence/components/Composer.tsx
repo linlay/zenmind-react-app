@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppIcon, type AppIconUsage } from '../../../shared/icons/AppIcon';
@@ -26,7 +26,6 @@ type ComposerProps = {
   onSelectAttachment: (type: ComposerAttachmentType) => void;
   onRemoveAttachment: (attachmentId: string) => void;
   onRetryAttachment: (attachmentId: string) => void;
-  rightAccessory?: ReactNode;
   disabled?: boolean;
   placeholder?: string;
 };
@@ -67,7 +66,6 @@ export const Composer = memo(function Composer({
   onSelectAttachment,
   onRemoveAttachment,
   onRetryAttachment,
-  rightAccessory = null,
   disabled = false,
   placeholder
 }: ComposerProps) {
@@ -206,8 +204,6 @@ export const Composer = memo(function Composer({
           editable={!disabled}
         />
 
-        {rightAccessory ? <View style={styles.rightAccessory}>{rightAccessory}</View> : null}
-
         <Pressable
           onPress={handlePrimaryPress}
           disabled={primaryDisabled}
@@ -283,11 +279,6 @@ function createStyles(theme: AppThemeTokens) {
       lineHeight: 20,
       color: theme.colors.textPrimary,
       includeFontPadding: false
-    },
-    rightAccessory: {
-      flexShrink: 0,
-      alignItems: 'center',
-      justifyContent: 'center'
     },
     iconButton: {
       width: 34,

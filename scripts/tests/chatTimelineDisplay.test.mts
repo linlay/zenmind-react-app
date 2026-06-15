@@ -209,6 +209,57 @@ test('timeline display hides request echoes produced after awaiting answers', ()
   );
 });
 
+test('timeline display deduplicates persisted reasoning rows with the same run body', () => {
+  const baseState = deriveChatTimelineState('chat-1', [
+    {
+      type: 'reasoning.snapshot',
+      runId: 'run-1',
+      reasoningId: 'reason-1',
+      reasoningLabel: '思考过程',
+      text: 'Simple greeting, just respond briefly.',
+      timestamp: 100,
+    },
+    {
+      type: 'content.snapshot',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      text: '仙尊大人好。',
+      timestamp: 120,
+    },
+  ]);
+  const firstReasoningId = 'reasoning:chat-1:run-1:reason-1';
+  const duplicateReasoningId = 'reasoning:chat-1:run-1:reason-2';
+  const firstReasoningNode = baseState.nodesById[firstReasoningId];
+  if (!firstReasoningNode || firstReasoningNode.kind !== 'reasoning') {
+    throw new Error('expected reasoning node');
+  }
+  const state = {
+    ...baseState,
+    orderedNodeIds: [firstReasoningId, duplicateReasoningId, ...baseState.orderedNodeIds.slice(1)],
+    nodesById: {
+      ...baseState.nodesById,
+      [duplicateReasoningId]: {
+        ...firstReasoningNode,
+        id: duplicateReasoningId,
+        title: 'Computing',
+        updatedAt: 110,
+        order: firstReasoningNode.order + 1,
+      },
+    },
+    revision: baseState.revision + 1,
+  };
+
+  const items = buildChatTimelineDisplayItems(state);
+  const reasoningItems = items.filter((item) => item.kind === 'reasoning');
+
+  assert.deepEqual(
+    items.map((item) => item.kind),
+    ['reasoning', 'assistant-content']
+  );
+  assert.equal(reasoningItems.length, 1);
+  assert.equal(reasoningItems[0]?.node.body, 'Simple greeting, just respond briefly.');
+});
+
 test('timeline display puts one assistant footer on the final content item per reply', () => {
   const state = deriveChatTimelineState('chat-1', [
     {

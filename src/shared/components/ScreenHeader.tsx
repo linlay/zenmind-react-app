@@ -88,7 +88,7 @@ function createStyles(theme: AppThemeTokens) {
       justifyContent: 'flex-end',
     },
     actionSlot: {
-      width: ACTION_SLOT_SIZE,
+      minWidth: ACTION_SLOT_SIZE,
       height: ACTION_SLOT_SIZE,
       alignItems: 'center',
       justifyContent: 'center',

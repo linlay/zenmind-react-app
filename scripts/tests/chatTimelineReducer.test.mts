@@ -241,6 +241,125 @@ test('timeline reducer ignores empty content starts until real assistant text ar
   assert.equal(projectTimelineMessages(afterDelta)[0]?.content, 'hello');
 });
 
+test('timeline reducer merges assistant content when server message id arrives late', () => {
+  let state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'content.delta',
+      runId: 'run-1',
+      delta: 'hel',
+      timestamp: 110,
+    },
+  ]);
+
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'content.end',
+    runId: 'run-1',
+    serverMessageId: 'server-assistant-1',
+    text: 'hello',
+    timestamp: 120,
+  });
+
+  const assistantNodes = state.orderedNodeIds
+    .map((id) => state.nodesById[id])
+    .filter((node) => node?.kind === 'message' && node.role === 'assistant');
+  const messages = projectTimelineMessages(state);
+
+  assert.equal(assistantNodes.length, 1);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0]?.content, 'hello');
+  assert.equal(messages[0]?.serverMessageId, 'server-assistant-1');
+  assert.equal(messages[0]?.messageId, 'assistant:chat-1:run-1:content');
+  assert.equal(assistantNodes[0]?.lifecycle, 'complete');
+});
+
+test('timeline reducer merges run-scoped reasoning events with late stable ids and unstable labels', () => {
+  let state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      reasoningLabel: 'Computing',
+      delta: 'Simple greeting, just respond briefly.',
+      timestamp: 110,
+    },
+  ]);
+  let runtime = projectTimelineRuntimeState(state);
+  let reasoningNodes = Object.values(state.nodesById).filter((node) => node.kind === 'reasoning');
+  let reasoningNode = reasoningNodes[0];
+
+  assert.equal(reasoningNodes.length, 1);
+  assert.equal(reasoningNode?.title, 'Computing');
+  assert.equal(runtime.entries.find((entry) => entry.kind === 'reasoning')?.title, 'Computing');
+
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'reasoning.snapshot',
+    runId: 'run-1',
+    contentId: 'reasoning-1',
+    reasoningLabel: '正在思考',
+    text: 'Simple greeting, just respond briefly.',
+    timestamp: 120,
+  });
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'run.complete',
+    runId: 'run-1',
+    timestamp: 130,
+  });
+
+  const displayItems = buildChatTimelineDisplayItems(state);
+  runtime = projectTimelineRuntimeState(state);
+  reasoningNodes = Object.values(state.nodesById).filter((node) => node.kind === 'reasoning');
+  reasoningNode = reasoningNodes[0];
+
+  assert.equal(reasoningNodes.length, 1);
+  assert.deepEqual(displayItems.map((item) => item.kind), ['reasoning']);
+  assert.equal(reasoningNode?.kind, 'reasoning');
+  assert.equal(reasoningNode?.title, '思考过程');
+  assert.equal(reasoningNode?.body, 'Simple greeting, just respond briefly.');
+  assert.equal(reasoningNode?.lifecycle, 'complete');
+  assert.equal(runtime.entries.find((entry) => entry.kind === 'reasoning')?.title, '思考过程');
+  assert.equal(state.activeRunId, '');
+});
+
+test('timeline reducer normalizes active reasoning titles when only the run completes', () => {
+  const state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      reasoningLabel: 'Computing',
+      delta: 'Simple greeting, just respond briefly.',
+      timestamp: 110,
+    },
+    {
+      type: 'run.complete',
+      runId: 'run-1',
+      timestamp: 120,
+    },
+  ]);
+
+  const runtime = projectTimelineRuntimeState(state);
+  const reasoningNodes = Object.values(state.nodesById).filter((node) => node.kind === 'reasoning');
+  const reasoningNode = reasoningNodes[0];
+
+  assert.equal(reasoningNodes.length, 1);
+  assert.equal(reasoningNode?.title, '思考过程');
+  assert.equal(reasoningNode?.lifecycle, 'complete');
+  assert.equal(runtime.entries.find((entry) => entry.kind === 'reasoning')?.title, '思考过程');
+});
+
 test('timeline reducer closes active run children when the run reaches a terminal state', () => {
   const state = deriveChatTimelineState('chat-1', [
     {

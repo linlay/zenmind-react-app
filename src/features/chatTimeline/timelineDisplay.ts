@@ -140,12 +140,38 @@ function shouldHideAwaitingAnswerRequestNode(
   );
 }
 
+function shouldHideDuplicateReasoningNode(
+  node: ChatTimelineDisplayNode,
+  seenBodiesByRun: Map<string, Set<string>>
+): boolean {
+  if (node.kind !== 'reasoning') {
+    return false;
+  }
+  const body = node.body.trim();
+  if (!body) {
+    return false;
+  }
+
+  const runId = runIdForNode(node);
+  const seenBodies = seenBodiesByRun.get(runId);
+  if (seenBodies?.has(body)) {
+    return true;
+  }
+  if (seenBodies) {
+    seenBodies.add(body);
+  } else {
+    seenBodiesByRun.set(runId, new Set([body]));
+  }
+  return false;
+}
+
 function buildPendingDisplayEntries(
   visibleNodes: readonly ChatTimelineDisplayNode[]
 ): PendingDisplayEntry[] {
   const entries: PendingDisplayEntry[] = [];
   let pendingToolNodes: ChatTimelineToolNode[] = [];
   let previousNode: ChatTimelineDisplayNode | null = null;
+  const seenReasoningBodiesByRun = new Map<string, Set<string>>();
 
   const flushPendingTools = () => {
     if (pendingToolNodes.length === 0) {
@@ -163,6 +189,10 @@ function buildPendingDisplayEntries(
 
   visibleNodes.forEach((node) => {
     if (shouldHideAwaitingAnswerRequestNode(node, previousNode)) {
+      return;
+    }
+
+    if (shouldHideDuplicateReasoningNode(node, seenReasoningBodiesByRun)) {
       return;
     }
 

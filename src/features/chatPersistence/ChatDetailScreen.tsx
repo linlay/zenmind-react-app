@@ -210,6 +210,8 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                         : t('chatDetail.status.idle')
                   }
                   statusTone={headerRuntimeState.statusTone}
+                  usageLabel={headerRuntimeState.usageLabel}
+                  usageSummary={headerRuntimeState.usageSummary}
                   onBack={handleGoBack}
                   onStartNewConversation={handleStartNewConversation}
                   onOpenMenu={handleOpenHistoryDrawer}
@@ -240,8 +242,6 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                       attachments={composerAttachments}
                       errorText={errorText}
                       primaryAction={composerAction}
-                      usageLabel={headerRuntimeState.usageLabel}
-                      usageSummary={headerRuntimeState.usageSummary}
                       onChangeDraft={setDraft}
                       onSubmit={handleSend}
                       onStop={handleStop}

@@ -3,10 +3,8 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
-import type { ChatTimelineUsageSummary } from '../../chatTimeline/index.ts';
 import type { ChatComposerAttachment } from '../types';
 import { Composer, type ComposerAttachmentType } from './Composer';
-import { ChatUsageStatsButton } from './ChatUsageStats';
 import type { ChatComposerPrimaryAction } from '../chatDetailViewModel';
 
 type ChatDetailComposerCardProps = {
@@ -14,8 +12,6 @@ type ChatDetailComposerCardProps = {
   attachments: ChatComposerAttachment[];
   errorText: string;
   primaryAction: ChatComposerPrimaryAction;
-  usageLabel: string;
-  usageSummary: ChatTimelineUsageSummary | null;
   onChangeDraft: (value: string) => void;
   onSubmit: () => void;
   onStop: () => void;
@@ -30,8 +26,6 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
   attachments,
   errorText,
   primaryAction,
-  usageLabel,
-  usageSummary,
   onChangeDraft,
   onSubmit,
   onStop,
@@ -41,11 +35,6 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
   onRetryAttachment,
 }: ChatDetailComposerCardProps) {
   const styles = useAppThemeStyles(createStyles);
-  const normalizedUsageLabel = usageLabel.trim();
-  const usageAccessory =
-    normalizedUsageLabel || usageSummary ? (
-      <ChatUsageStatsButton usageLabel={normalizedUsageLabel} usageSummary={usageSummary} />
-    ) : null;
 
   return (
     <View style={styles.composerWrap}>
@@ -60,7 +49,6 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
         onSelectAttachment={onSelectAttachment}
         onRemoveAttachment={onRemoveAttachment}
         onRetryAttachment={onRetryAttachment}
-        rightAccessory={usageAccessory}
       />
       {errorText ? (
         <Text allowFontScaling={false} style={styles.errorText}>

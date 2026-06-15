@@ -4,6 +4,7 @@ import type { ChatMessageItem } from './types';
 
 const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
+const MILLISECONDS_PER_SECOND = 1000;
 const TENTHS_PER_SECOND = 10;
 
 function pad2(value: number): string {
@@ -70,6 +71,17 @@ export function formatChatDetailDuration(value: number | null | undefined): stri
     return `${minutes}分${seconds}秒`;
   }
   return `${seconds}秒`;
+}
+
+export function formatChatDetailRunningDuration(startedAt: number | null | undefined, now: number = Date.now()): string {
+  const startTime = Number(startedAt);
+  const currentTime = Number(now);
+  if (!Number.isFinite(startTime) || startTime <= 0 || !Number.isFinite(currentTime) || currentTime <= startTime) {
+    return '';
+  }
+
+  const elapsedSeconds = Math.floor((currentTime - startTime) / MILLISECONDS_PER_SECOND);
+  return elapsedSeconds >= 1 ? `${elapsedSeconds}s` : '';
 }
 
 export function formatChatStatusLabel(status: ChatSocketStatus, t: TFunction = defaultT): string {

@@ -1,5 +1,6 @@
 import {
   buildAssistantMessageId,
+  buildFallbackAssistantMessageId,
   classifyChatProtocolEvent,
   extractEventText,
   normalizeEventType,
@@ -34,6 +35,8 @@ import { buildChatTimelineUsageSummary, chatTimelineUsageSummaryEquals } from '.
 export type MergeChatTimelineStateOptions = {
   preserveTerminalRunIds?: readonly string[];
 };
+
+const REASONING_PROCESS_TITLE = '思考过程';
 
 function normalizeConversationId(conversationId: string): string {
   return String(conversationId || '').trim();
@@ -736,8 +739,79 @@ function nodeKey(
   return `${kind}:${conversationId}:${runId || 'run'}:${stableId}`;
 }
 
+function reasoningStableId(event: Record<string, unknown>): string {
+  return toText(event.contentId) || toText(event.reasoningId);
+}
+
+function reasoningRunNodeKey(conversationId: string, event: Record<string, unknown>): string {
+  const runId = toText(event.runId);
+  return `reasoning:${conversationId}:${runId || 'run'}:reasoning`;
+}
+
+function reasoningNodeKey(conversationId: string, event: Record<string, unknown>): string {
+  const runId = toText(event.runId);
+  return `reasoning:${conversationId}:${runId || 'run'}:${reasoningStableId(event) || 'reasoning'}`;
+}
+
+function findReasoningNodeIdForEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>,
+  eventBody: string
+): string {
+  const id = reasoningNodeKey(conversationId, event);
+  const direct = state.nodesById[id];
+  if (direct?.kind === 'reasoning') {
+    return id;
+  }
+
+  const runScopedId = reasoningRunNodeKey(conversationId, event);
+  const runScoped = state.nodesById[runScopedId];
+  if (runScoped?.kind === 'reasoning') {
+    return runScopedId;
+  }
+
+  const runId = resolveEventRunId(event, state);
+  const body = eventBody.trim();
+  if (!runId || !body) {
+    return id;
+  }
+
+  for (const nodeId of state.orderedNodeIds) {
+    const node = state.nodesById[nodeId];
+    if (node?.kind === 'reasoning' && node.runId === runId && node.body.trim() === body) {
+      return nodeId;
+    }
+  }
+
+  return id;
+}
+
+function reasoningTitleForEvent(
+  event: Record<string, unknown>,
+  lifecycle: ChatTimelineLifecycle,
+  current?: ChatTimelineTextNode
+): string {
+  if (lifecycle !== 'active') {
+    return REASONING_PROCESS_TITLE;
+  }
+  return (
+    toText(event.reasoningLabel) ||
+    toText(event.title || event.name) ||
+    current?.title ||
+    REASONING_PROCESS_TITLE
+  );
+}
+
 function contentNodeKey(conversationId: string, event: Record<string, unknown>): string {
   return `message:${conversationId}:local:${buildAssistantMessageId(conversationId, event)}`;
+}
+
+function contentNodeFallbackKey(conversationId: string, event: Record<string, unknown>): string {
+  return `message:${conversationId}:local:${buildFallbackAssistantMessageId(
+    conversationId,
+    event.runId
+  )}`;
 }
 
 function toolNodeKey(conversationId: string, event: Record<string, unknown>): string {
@@ -850,6 +924,60 @@ function findMatchingTimelineNodeId(
     }
   }
   return '';
+}
+
+function findSingletonActiveAssistantContentNode(
+  state: ChatTimelineState,
+  runId: string
+): ChatTimelineMessageNode | undefined {
+  let candidate: ChatTimelineMessageNode | undefined;
+
+  for (const nodeId of state.orderedNodeIds) {
+    const node = state.nodesById[nodeId];
+    if (
+      node?.kind !== 'message' ||
+      node.role !== 'assistant' ||
+      node.runId !== runId ||
+      !isActiveTimelineNode(node)
+    ) {
+      continue;
+    }
+
+    if (candidate) {
+      return undefined;
+    }
+    candidate = node;
+  }
+
+  return candidate;
+}
+
+function findContentMessageNode(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>
+): ChatTimelineMessageNode | undefined {
+  const direct = state.nodesById[contentNodeKey(conversationId, event)];
+  if (direct?.kind === 'message' && direct.role === 'assistant') {
+    return direct;
+  }
+
+  const identityMatchId = findMessageNodeIdByIdentity(state, {
+    messageId: buildAssistantMessageId(conversationId, event),
+    serverMessageId: toText(event.serverMessageId),
+  });
+  const identityMatch = identityMatchId ? state.nodesById[identityMatchId] : undefined;
+  if (identityMatch?.kind === 'message' && identityMatch.role === 'assistant') {
+    return identityMatch;
+  }
+
+  const fallback = state.nodesById[contentNodeFallbackKey(conversationId, event)];
+  if (fallback?.kind === 'message' && fallback.role === 'assistant') {
+    return fallback;
+  }
+
+  const runId = toText(event.runId);
+  return runId ? findSingletonActiveAssistantContentNode(state, runId) : undefined;
 }
 
 function getTimelineNodeContentLength(node: ChatTimelineNode): number {
@@ -1254,6 +1382,7 @@ function closeTimelineNodeForRun(
 
   return {
     ...node,
+    title: node.kind === 'reasoning' ? REASONING_PROCESS_TITLE : node.title,
     status: terminalStatusFromLifecycle(lifecycle),
     streaming: false,
     lifecycle,
@@ -1506,9 +1635,9 @@ function applyContentEvent(
   const type = normalizeEventType(event.type);
   const lifecycle = resolveLifecycle(type);
   const createdAt = resolveTimestamp(event, Date.now() + state.nextOrder);
-  const id = contentNodeKey(conversationId, event);
-  const current = state.nodesById[id] as ChatTimelineMessageNode | undefined;
-  const messageId = buildAssistantMessageId(conversationId, event);
+  const current = findContentMessageNode(state, conversationId, event);
+  const id = current?.id ?? contentNodeKey(conversationId, event);
+  const messageId = current?.messageId ?? buildAssistantMessageId(conversationId, event);
   const text = extractEventText(event);
   const snapshot =
     type === 'content.snapshot' || type === 'content.end' || type === 'content.start'
@@ -1553,19 +1682,23 @@ function applyRuntimeTextEvent(
 ): ChatTimelineState {
   const type = normalizeEventType(event.type);
   const updatedAt = resolveTimestamp(event, Date.now() + state.nextOrder);
-  const id = nodeKey(conversationId, event, kind, kind);
+  const eventBody = bodyFromEvent(event);
+  const id =
+    kind === 'reasoning'
+      ? findReasoningNodeIdForEvent(state, conversationId, event, eventBody)
+      : nodeKey(conversationId, event, kind, kind);
   const current = state.nodesById[id] as ChatTimelineTextNode | undefined;
   const lifecycle = resolveLifecycle(type);
-  const delta = type.endsWith('.delta') ? bodyFromEvent(event) : '';
+  const delta = type.endsWith('.delta') ? eventBody : '';
   const snapshot =
     type.endsWith('.snapshot') || type.endsWith('.end') || type.endsWith('.result')
-      ? bodyFromEvent(event)
+      ? eventBody
       : undefined;
-  const body = current ? appendText(current.body, delta, snapshot) : bodyFromEvent(event);
+  const body = current ? appendText(current.body, delta, snapshot) : eventBody;
   const suffix = type.split('.').at(-1) || '';
   const title =
     kind === 'reasoning'
-      ? toText(event.reasoningLabel) || '思考'
+      ? reasoningTitleForEvent(event, lifecycle, current)
       : kind === 'planning'
         ? '规划'
         : kind === 'usage'
@@ -2064,30 +2197,24 @@ export function mergeChatTimelineState(
 
   const preserveNode = (node: ChatTimelineNode, matchedIncomingId: string) => {
     ensureWritableState();
-    if (!orderedNodeIdSet) {
-      orderedNodeIdSet = new Set(orderedNodeIds);
-    }
-    if (!orderedNodeIndexById) {
-      orderedNodeIndexById = new Map(
-        orderedNodeIds.map((orderedNodeId, index) => [orderedNodeId, index])
-      );
-    }
+    const nodeIdSet = orderedNodeIdSet!;
+    const nodeIndexById = orderedNodeIndexById!;
 
     if (matchedIncomingId && matchedIncomingId !== node.id) {
-      const matchedIndex = orderedNodeIndexById.get(matchedIncomingId) ?? -1;
+      const matchedIndex = nodeIndexById.get(matchedIncomingId) ?? -1;
       if (matchedIndex >= 0) {
         orderedNodeIds[matchedIndex] = node.id;
-        orderedNodeIdSet.delete(matchedIncomingId);
-        orderedNodeIndexById.delete(matchedIncomingId);
-        orderedNodeIndexById.set(node.id, matchedIndex);
+        nodeIdSet.delete(matchedIncomingId);
+        nodeIndexById.delete(matchedIncomingId);
+        nodeIndexById.set(node.id, matchedIndex);
       }
       delete nodesById[matchedIncomingId];
     }
 
-    if (!orderedNodeIdSet.has(node.id)) {
-      orderedNodeIndexById.set(node.id, orderedNodeIds.length);
+    if (!nodeIdSet.has(node.id)) {
+      nodeIndexById.set(node.id, orderedNodeIds.length);
       orderedNodeIds.push(node.id);
-      orderedNodeIdSet.add(node.id);
+      nodeIdSet.add(node.id);
     }
     nodesById[node.id] = node;
   };

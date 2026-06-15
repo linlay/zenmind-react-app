@@ -76,6 +76,7 @@ export type RuntimePayloadDescriptor = {
   copyText: string;
   sections: RuntimePayloadSection[];
   toolRecords: RuntimeToolRecord[];
+  activeToolStartedAt?: number | null;
 };
 
 function compactJoin(values: readonly (string | null | undefined)[], separator = '\n'): string {
@@ -124,12 +125,10 @@ function resolveToolLabel(
 
 function titleForNode(node: ChatTimelineNode, t: TFunction): string {
   if (node.kind === 'reasoning') {
-    const title = String(node.title || '').trim();
-    const normalized = title.toLowerCase();
-    if (!title || normalized === 'thinking' || normalized === 'reasoning' || title === '思考') {
-      return t('runtime.reasoningProcess');
+    if (node.lifecycle === 'active' || node.streaming) {
+      return String(node.title || '').trim() || t('runtime.reasoningProcess');
     }
-    return title;
+    return t('runtime.reasoningProcess');
   }
   if (node.kind === 'awaiting') {
     return node.mode === 'approval'
@@ -423,6 +422,21 @@ export function getExpandableToolPillRecords(
   return records.filter((record) => record.hasDetails);
 }
 
+function getActiveToolStartedAt(
+  nodes: readonly ChatTimelineToolNode[],
+  records: readonly RuntimeToolRecord[]
+): number | null {
+  for (let index = records.length - 1; index >= 0; index -= 1) {
+    if (records[index]?.status !== 'running') {
+      continue;
+    }
+    const startedAt = Number(nodes[index]?.createdAt);
+    return Number.isFinite(startedAt) && startedAt > 0 ? startedAt : null;
+  }
+
+  return null;
+}
+
 function iconForKind(kind: RuntimePayloadKind): {
   iconUsage: AppIconUsage;
   tone: RuntimePayloadTone;
@@ -531,6 +545,7 @@ export function buildRuntimePayloadDescriptor(
       copyText: '',
       sections: [],
       toolRecords: records,
+      activeToolStartedAt: getActiveToolStartedAt(source.nodes, records),
     };
   }
 
@@ -592,5 +607,6 @@ export function buildRuntimePayloadDescriptor(
     copyText: sectionCopyText(sections),
     sections,
     toolRecords,
+    activeToolStartedAt: kind === 'tool' ? getActiveToolStartedAt([source], toolRecords) : null,
   };
 }

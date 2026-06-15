@@ -7,17 +7,23 @@ import type { AppIconUsage } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
 import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
+import type { ChatTimelineUsageSummary } from '../../chatTimeline/index.ts';
 import type { ChatDetailHeaderStatusTone } from '../chatDetailViewModel';
+import { ChatUsageHeaderBadge } from './ChatUsageHeaderBadge';
 
 type ChatDetailHeaderProps = {
   title: string;
   subtitle: string;
   statusLabel: string;
   statusTone: ChatDetailHeaderStatusTone;
+  usageLabel: string;
+  usageSummary: ChatTimelineUsageSummary | null;
   onBack: () => void;
   onStartNewConversation: () => void;
   onOpenMenu: () => void;
 };
+
+const CHAT_DETAIL_USAGE_ACTION_RAIL_WIDTH = 120;
 
 function getStatusPillStyle(styles: ReturnType<typeof createStyles>, statusTone: ChatDetailHeaderStatusTone) {
   switch (statusTone) {
@@ -111,6 +117,8 @@ export const ChatDetailHeader = memo(function ChatDetailHeader({
   subtitle,
   statusLabel,
   statusTone,
+  usageLabel,
+  usageSummary,
   onBack,
   onStartNewConversation,
   onOpenMenu
@@ -135,17 +143,28 @@ export const ChatDetailHeader = memo(function ChatDetailHeader({
       ] as const,
     [onBack, onStartNewConversation, t]
   );
+  const usageAction = useMemo(() => {
+    const normalizedUsageLabel = usageLabel.trim();
+    if (!normalizedUsageLabel && !usageSummary) {
+      return null;
+    }
+
+    return <ChatUsageHeaderBadge key="usage" usageLabel={normalizedUsageLabel} usageSummary={usageSummary} />;
+  }, [usageLabel, usageSummary]);
   const rightActions = useMemo(
-    () =>
-      [
+    () => {
+      const historyAction = (
         <HeaderIconButton
           key="menu"
           usage="chatDetail.openHistory"
           accessibilityLabel={t('chatDetail.openHistory')}
           onPress={onOpenMenu}
         />
-      ] as const,
-    [onOpenMenu, t]
+      );
+
+      return usageAction ? ([usageAction, historyAction] as const) : ([historyAction] as const);
+    },
+    [onOpenMenu, t, usageAction]
   );
   const headerTitle = useMemo(
     () => <ChatDetailHeaderTitle title={title} subtitle={subtitle} statusLabel={statusLabel} statusTone={statusTone} />,
@@ -159,6 +178,7 @@ export const ChatDetailHeader = memo(function ChatDetailHeader({
       leftActions={leftActions}
       title={headerTitle}
       rightActions={rightActions}
+      actionRailWidth={usageAction ? CHAT_DETAIL_USAGE_ACTION_RAIL_WIDTH : undefined}
     />
   );
 });

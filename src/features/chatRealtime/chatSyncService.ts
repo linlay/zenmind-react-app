@@ -62,6 +62,7 @@ import type {
 } from '../chatPersistence/types';
 import {
   buildAssistantMessageId,
+  buildFallbackAssistantMessageId,
   classifyChatProtocolEvent,
   extractAgentKey,
   extractConversationId,
@@ -111,6 +112,7 @@ type StreamBuffer = {
   key: string;
   conversationId: string;
   messageId: string;
+  runId: string;
   createdAt: number;
   content: string;
   serverMessageId: string | null;
@@ -191,6 +193,26 @@ function buildFallbackSummary(summary: ChatHomeItem | null) {
     read: summary.read,
     unreadRunCount: summary.unreadCount,
   };
+}
+
+function findSingleStreamBufferByRun(
+  buffers: Iterable<StreamBuffer>,
+  conversationId: string,
+  runId: string
+): StreamBuffer | undefined {
+  let candidate: StreamBuffer | undefined;
+
+  for (const buffer of buffers) {
+    if (buffer.conversationId !== conversationId || buffer.runId !== runId) {
+      continue;
+    }
+    if (candidate) {
+      return undefined;
+    }
+    candidate = buffer;
+  }
+
+  return candidate;
 }
 
 function createAwaitingSubmitId(): string {
@@ -1702,18 +1724,32 @@ class ChatSyncService {
       event.timestamp || event.ts || event.time || event.createdAt || event.updatedAt,
       Date.now()
     );
-    const messageId = buildAssistantMessageId(conversationId, event);
+    const eventMessageId = buildAssistantMessageId(conversationId, event);
+    const runId = toText(event.runId);
     const text = extractEventText(event);
     const title = extractTitle(event);
     const serverMessageId = toText(event.serverMessageId) || null;
-    let buffer = this.streamBuffers.get(messageId);
+    let shouldPatchServerMessageId = false;
+    let buffer = this.streamBuffers.get(eventMessageId);
+    if (!buffer) {
+      const fallbackMessageId = buildFallbackAssistantMessageId(conversationId, runId);
+      const fallbackBuffer =
+        fallbackMessageId === eventMessageId ? undefined : this.streamBuffers.get(fallbackMessageId);
+      buffer =
+        fallbackBuffer ||
+        (runId
+          ? findSingleStreamBufferByRun(this.streamBuffers.values(), conversationId, runId)
+          : undefined);
+    }
 
     if (!buffer) {
       const initialContent = type === 'content.delta' ? text : text || '';
+      const messageId = eventMessageId;
       buffer = {
         key: messageId,
         conversationId,
         messageId,
+        runId,
         createdAt,
         content: initialContent,
         serverMessageId,
@@ -1740,11 +1776,25 @@ class ChatSyncService {
     } else {
       buffer.reason = reason;
       buffer.createdAt = Math.max(buffer.createdAt, createdAt);
+      shouldPatchServerMessageId =
+        Boolean(serverMessageId) && buffer.serverMessageId !== serverMessageId;
       if (serverMessageId) {
         buffer.serverMessageId = serverMessageId;
       }
       if (title) {
         buffer.title = title;
+      }
+
+      if (shouldPatchServerMessageId && buffer.publishedToTimeline && type !== 'content.end') {
+        const patch = { serverMessageId };
+        this.emit({
+          type: 'conversation.message.patch',
+          conversationId,
+          reason,
+          messageId: buffer.messageId,
+          patch,
+        });
+        this.publishTimelineMessagePatch(conversationId, reason, buffer.messageId, patch);
       }
 
       if (type === 'content.delta') {
@@ -1781,26 +1831,27 @@ class ChatSyncService {
       await this.flushStreamBufferToDb(buffer.key);
       this.streamBuffers.delete(buffer.key);
       if (buffer.publishedToTimeline) {
-        if (buffer.publishedStreamStatus !== 'done') {
+        const shouldPatchStreamDone = buffer.publishedStreamStatus !== 'done';
+        if (shouldPatchServerMessageId || shouldPatchStreamDone) {
+          const patch = {
+            ...(shouldPatchServerMessageId ? { serverMessageId } : {}),
+            ...(shouldPatchStreamDone ? { streamStatus: 'done' as const } : {}),
+          };
           this.emit({
             type: 'conversation.message.patch',
             conversationId,
             reason,
-            messageId,
-            patch: {
-              streamStatus: 'done',
-            },
+            messageId: buffer.messageId,
+            patch,
           });
-          this.publishTimelineMessagePatch(conversationId, reason, messageId, {
-            streamStatus: 'done',
-          });
+          this.publishTimelineMessagePatch(conversationId, reason, buffer.messageId, patch);
         }
         await this.emitHomePatchFromConversation(conversationId, {
           shouldMoveToTop: true,
         });
         if (this.activeConversationId === conversationId) {
           await this.requestConversationReadConfirmation(conversationId, {
-            confirmMarker: `stream:${messageId}`,
+            confirmMarker: `stream:${buffer.messageId}`,
           });
         }
       }
