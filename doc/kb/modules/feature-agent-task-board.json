@@ -62,12 +62,28 @@
     }
   ],
   "generated": {
-    "fileCount": 1,
-    "files": ["src/features/agentTaskBoard/AgentTaskBoardScreen.tsx"],
+    "fileCount": 2,
+    "files": ["src/features/agentTaskBoard/AgentTaskBoardScreen.tsx", "src/features/agentTaskBoard/kanbanViewModel.ts"],
     "exportedSymbolsByFile": {
-      "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": ["AgentTaskBoardScreen"]
+      "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": ["AgentTaskBoardScreen"],
+      "src/features/agentTaskBoard/kanbanViewModel.ts": [
+        "AgentOption",
+        "BoardQueue",
+        "BoardSummary",
+        "BoardTask",
+        "BoardViewText",
+        "TaskPriority",
+        "TaskStage",
+        "applyKanbanChangeResult",
+        "createBoardTaskIndex",
+        "deriveAgentOptions",
+        "deriveBoardSummary",
+        "deriveBoardTasks",
+        "getAgentPreview",
+        "nextIssuePosition"
+      ]
     },
-    "actualDependsOn": ["shared-i18n", "shared-screen-header", "shared-visual-foundation"],
+    "actualDependsOn": ["core-api-client", "shared-i18n", "shared-screen-header", "shared-visual-foundation"],
     "actualDependedBy": ["app-shell-navigation"]
   }
 }

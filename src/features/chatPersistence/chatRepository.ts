@@ -3,6 +3,7 @@ import { and, asc, count, desc, eq, gt, inArray, notInArray, sql } from 'drizzle
 import { getApiBaseUrl } from '../../core/api/apiClient';
 import { normalizeAgentAvatarIcon } from '../../shared/visual/agentAvatarIcon.ts';
 import { chatDb, ensureChatDatabase } from './database';
+import { createChatConversationTarget } from './chatConversationTarget';
 import { normalizeChatConversationHistoryScope } from './chatHistoryScope';
 import { clearChatDirectorySnapshot, writeChatDirectorySnapshot } from './homeSnapshot';
 import {
@@ -43,6 +44,7 @@ import {
   ChatComposerAttachment,
   ChatConversationHistoryPage,
   ChatConversationHistoryScope,
+  ChatConversationTarget,
   ChatDirectoryItem,
   ChatDirectoryPage,
   ChatConversationSummaryProjection,
@@ -2430,6 +2432,33 @@ export async function getConversationDetail(conversationId: string): Promise<Cha
   }
 
   return mapChatHomeItem(conversation);
+}
+
+export async function getConversationTarget(conversationId: string): Promise<ChatConversationTarget | null> {
+  await ensureChatDatabase();
+
+  const keys = await getConversationDirectoryKeys(conversationId);
+  const scopeValue = keys?.teamId || keys?.agentKey || '';
+  if (!scopeValue) {
+    return null;
+  }
+
+  const scopeColumn = keys?.teamId ? chatDirectoryItems.teamId : chatDirectoryItems.agentKey;
+  const rows = await chatDb
+    .select({
+      kind: chatDirectoryItems.kind,
+      title: chatDirectoryItems.title,
+      subtitle: chatDirectoryItems.subtitle,
+      agentKey: chatDirectoryItems.agentKey,
+      teamId: chatDirectoryItems.teamId,
+      defaultAgentKey: chatDirectoryItems.defaultAgentKey
+    })
+    .from(chatDirectoryItems)
+    .where(eq(scopeColumn, scopeValue))
+    .orderBy(...CHAT_DIRECTORY_STABLE_ORDER)
+    .limit(1);
+
+  return createChatConversationTarget(rows[0]);
 }
 
 export async function getConversationMessages(

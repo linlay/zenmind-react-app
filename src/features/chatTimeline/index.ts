@@ -32,13 +32,16 @@ export type {
   ChatTimelineUsageStats,
   ChatTimelineUsageSummary,
 } from './types.ts';
+export type { MergeChatTimelineStateOptions } from './timelineReducer.ts';
 export {
   applyChatTimelineEvent,
+  applyChatTimelineLocalCancel,
   applyChatTimelineMessage,
   applyChatTimelineStreamDelta,
   createChatTimelineState,
   deriveChatTimelineState,
   deriveChatTimelineStateFromMessages,
+  getChatTimelineActiveRunId,
   mergeChatTimelineState,
   patchChatTimelineMessage,
 } from './timelineReducer.ts';

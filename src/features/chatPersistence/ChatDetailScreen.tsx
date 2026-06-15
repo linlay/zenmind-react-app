@@ -1,7 +1,16 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
-import { Animated, KeyboardAvoidingView, Platform, StyleSheet, View } from 'react-native';
+import {
+  Animated,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '../../shared/i18n';
@@ -27,6 +36,46 @@ import { useChatDetailConversationController } from './useChatDetailConversation
 import { useChatDetailLocalUiState } from './useChatDetailLocalUiState';
 
 type ChatDetailScreenProps = NativeStackScreenProps<{ ChatDetail: ChatDetailRouteParams }, 'ChatDetail'>;
+const IS_IOS = Platform.OS === 'ios';
+const KEYBOARD_SHOW_EVENT = IS_IOS ? 'keyboardWillShow' : 'keyboardDidShow';
+const KEYBOARD_HIDE_EVENT = IS_IOS ? 'keyboardWillHide' : 'keyboardDidHide';
+
+function useKeyboardVisibility() {
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(() => Keyboard.isVisible());
+
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(KEYBOARD_SHOW_EVENT, () => setIsKeyboardVisible(true));
+    const hideSubscription = Keyboard.addListener(KEYBOARD_HIDE_EVENT, () => setIsKeyboardVisible(false));
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
+  return isKeyboardVisible;
+}
+
+type ChatDetailKeyboardAvoiderProps = {
+  children: ReactNode;
+  keyboardVerticalOffset: number;
+  style: StyleProp<ViewStyle>;
+};
+
+function ChatDetailKeyboardAvoider({ children, keyboardVerticalOffset, style }: ChatDetailKeyboardAvoiderProps) {
+  const isKeyboardVisible = useKeyboardVisibility();
+
+  return (
+    <KeyboardAvoidingView
+      style={style}
+      behavior="padding"
+      enabled={isKeyboardVisible}
+      keyboardVerticalOffset={keyboardVerticalOffset}
+    >
+      {children}
+    </KeyboardAvoidingView>
+  );
+}
 
 export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   const t = useT();
@@ -35,6 +84,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   const {
     conversationId,
     conversationSubtitle = '',
+    conversationTarget: routeConversationTarget = null,
     initialConversation = null,
     historyScope: routeHistoryScope,
     serverMessageId = '',
@@ -43,6 +93,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   } = route.params;
   const {
     summary,
+    conversationTarget,
     timelineState,
     runtimeState,
     headerRuntimeState,
@@ -58,6 +109,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     handleSend,
     handleStop,
     handleResume,
+    handleReaskMessage,
     handleStartNewConversation,
     handleSelectAttachment,
     handleRemoveAttachment,
@@ -68,6 +120,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     navigation,
     conversationId,
     conversationSubtitle,
+    routeConversationTarget,
     initialConversation,
     routeHistoryScope,
     serverMessageId,
@@ -129,11 +182,12 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
       navigation.replace('ChatDetail', {
         conversationId: item.conversationId,
         conversationSubtitle,
+        ...(conversationTarget ? { conversationTarget } : {}),
         initialConversation: item,
         ...(historyScope ? { historyScope } : {})
       });
     },
-    [conversationId, conversationSubtitle, handleCloseHistoryDrawer, historyScope, navigation]
+    [conversationId, conversationSubtitle, conversationTarget, handleCloseHistoryDrawer, historyScope, navigation]
   );
 
   return (
@@ -141,15 +195,13 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
       {isInitialContentReady ? (
         summary ? (
           <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-            <KeyboardAvoidingView
-              style={styles.keyboardRoot}
-              behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-              keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-            >
+            <ChatDetailKeyboardAvoider style={styles.keyboardRoot} keyboardVerticalOffset={IS_IOS ? insets.top : 0}>
               <View style={styles.screen}>
                 <ChatDetailHeader
-                  title={summary.title}
-                  subtitle={conversationSubtitle || formatChatStatusLabel(socketStatus, t)}
+                  title={conversationTarget?.title || summary.title}
+                  subtitle={
+                    conversationTarget?.subtitle || conversationSubtitle || formatChatStatusLabel(socketStatus, t)
+                  }
                   statusLabel={
                     headerRuntimeState.statusTone === 'running'
                       ? t('chatDetail.status.running')
@@ -163,7 +215,15 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                   onOpenMenu={handleOpenHistoryDrawer}
                 />
 
-                <ChatTimelineList timelineState={timelineState} onCopyText={handleCopyMessage} />
+                <ChatTimelineList
+                  timelineState={timelineState}
+                  onCopyText={handleCopyMessage}
+                  onReaskMessage={handleReaskMessage}
+                  reaskCurrentDisabled={composerAction === 'sending' || Boolean(headerRuntimeState.runAction)}
+                  reaskNewConversationDisabled={
+                    composerAction === 'sending' || Boolean(headerRuntimeState.runAction) || !historyScope
+                  }
+                />
 
                 {questionAwaiting ? (
                   <ChatAwaitingDock awaiting={questionAwaiting} onSubmit={handleSubmitAwaiting} />
@@ -210,7 +270,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                   onSelectConversation={handleSelectHistoryConversation}
                 />
               </View>
-            </KeyboardAvoidingView>
+            </ChatDetailKeyboardAvoider>
           </SafeAreaView>
         ) : (
           <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>

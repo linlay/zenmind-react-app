@@ -7,7 +7,7 @@
     "提供纯函数 timeline reducer，把 request.query、content.*、run.*、reasoning/planning/tool/awaiting/artifact/action/plan/task/usage/context 等事件归并为单会话有序节点。",
     "作为详情页消息、头部运行态、输入区结构化用量摘要、输入区主操作、awaiting question 交互数据、streaming 判断、历史抽屉和 FlashList 展示数据的统一投影源，避免页面层和 sync service 各自维护重复的 message/runtime/usage 派生逻辑。",
     "显示派生层区分 request.query 用户消息与 request.* 控制输入，并按 run 内连续同名同标签工具调用生成 tool-group 展示项，供详情页用单行工具 pill 与多状态点渲染多次调用；高频流式尾节点更新通过 display model 做保守增量派生。",
-    "支持从 SQLite ChatMessageItem 构建 fallback timeline，并支持本地消息 patch、stream delta 和远端 event history replay 的结构共享更新。",
+    "支持从 SQLite ChatMessageItem 构建 fallback timeline，并支持本地消息 patch、stream delta、本地停止当前可见生成 scope 和远端 event history replay 的结构共享更新；合并远端 detail 时可按 runId 保护本地 terminal 状态，避免 stale active replay 复活已终止运行。",
     "提供纯序列化/反序列化能力，把 ChatTimelineState 转换为 normalized meta/node rows，供 repository 高性能持久化 rich timeline snapshot；usage 节点 payload 可恢复完整 usageSummary，awaiting question 可恢复结构化 interactive payload，旧 usageLabel 仍可在反序列化时恢复最小 usageSummary。",
     "只处理内存投影、显示派生和纯数据序列化，不直接访问 SQLite、MMKV、WebSocket 或 React UI。"
   ],
@@ -40,7 +40,7 @@
       "file": "src/features/chatTimeline/index.ts",
       "symbol": "mergeChatTimelineState",
       "kind": "reducer-helper",
-      "description": "把远端 detail replay 得到的 timeline 与当前内存 timeline 合并，避免 reconcile 用旧投影回退正在展示的本地尾部节点。"
+      "description": "把远端 detail replay 得到的 timeline 与当前内存 timeline 合并，避免 reconcile 用旧投影回退正在展示的本地尾部节点；可按 preserveTerminalRunIds 保护本地 terminal run，防止 stale active detail 复活同 run。"
     },
     {
       "file": "src/features/chatTimeline/index.ts",
@@ -91,7 +91,7 @@
     "timeline reducer 和 serializer 保持纯函数，不 import repository、sync service、database、schema 或 ws transport。",
     "awaiting question 的后端 payload 只在 timeline 层做结构化归一，不在页面层重复解析后端协议字段。",
     "运行态事件先进入内存 timeline/runtime 投影；需要首屏恢复时只允许 repository 写 normalized rich timeline snapshot，不保存原始 event history。",
-    "本地发送、ack、incoming、assistant stream delta 和 reconcile 都应复用同一套 timeline patch/replay 入口，避免页面层重复维护消息和运行态。",
+    "本地发送、ack、incoming、assistant stream delta、停止生成本地 cancel 和 reconcile 都应复用同一套 timeline patch/replay/merge 入口；本地停止只收敛当前可见生成 scope，不创建 ghost run、不改写历史 completed duration；reconcile 合并同 run stale active detail 时要尊重本地 terminal guard，避免页面层重复维护消息和运行态。",
     "display item 必须保持 flat list 和稳定 key；run 状态由详情 Header 消费、usage 节点由输入区用量入口消费，不进入主列表；连续同名工具只能在 display 层生成 tool-group，不写回 timeline state；输入区用量统计从 timeline usageSummary 派生，列表行 memo 和 display model 缓存应基于 node 引用和分组元数据，避免单个流式节点更新带动无关行重渲染。"
   ],
   "readNext": [

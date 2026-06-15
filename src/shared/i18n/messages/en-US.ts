@@ -337,6 +337,10 @@ export const enUS: Record<I18nKey, string> = {
   'timeline.empty.title': 'No messages',
   'timeline.empty.body': 'Send the first message from the input below',
   'timeline.copy': 'Copy content',
+  'timeline.reask': 'Ask again',
+  'timeline.reaskCurrent': 'Ask in this chat',
+  'timeline.reaskNewConversation': 'Ask in new chat',
+  'timeline.closeReaskMenu': 'Close ask again menu',
   'timeline.answerSubmitted': 'Answer submitted',
   'timeline.collapseAnswer': 'Collapse answer',
   'timeline.expandAnswer': 'Expand answer',
@@ -348,6 +352,7 @@ export const enUS: Record<I18nKey, string> = {
   'copyToast.default': 'Copied to clipboard',
 
   'runtime.duration': 'Duration {duration}',
+  'runtime.reasoningProcess': 'Thinking process',
   'runtime.toolCall': 'Tool call',
   'runtime.message': 'Message',
   'runtime.awaiting.approval': 'Waiting for approval',

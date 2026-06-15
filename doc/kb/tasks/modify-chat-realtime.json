@@ -75,7 +75,7 @@
     "conversation.timeline.replace/reset 和 conversation.runtime.replace/reset 要从同一个 ChatTimelineState 派生，不维护两套运行态 reducer。",
     "sync service 发给 UI 的 scoped event 要让首页只 patch 目标目录项 preview、详情页只 patch 命中消息或命中会话 runtime state，不回读整页 SQLite。",
     "chat.deleted / chat.archived 要清理 conversation、messages、outbox、sync state 和 runtime state，并刷新目录投影。",
-    "详情页停止/继续生成和 awaiting question 提交继续走 chatSyncService：停止要清理 active outgoing/attach stream 并发出 timeline run.cancel，继续要复用 attach 和单会话 reconcile，submit awaiting 要调用 /ap/api/submit 并回写 awaiting.answer 本地 timeline 事件，不在页面直接操作 WebSocket 或 HTTP submit。"
+    "详情页停止/继续生成和 awaiting question 提交继续走 chatSyncService：停止要清理 active outgoing/attach stream、调用 /api/interrupt、通过 timeline 本地 cancel 收敛当前会话当前可见生成 scope 的 active/streaming 节点并清空 activeRunId，不创建 ghost run、不改写历史 run duration；记录短期本地终止 run guard，reconcile 合并 stale detail 时不能复活同 run active 状态；run_not_found/404 视为服务端已停止，不触发失败式即时 reconcile；继续要复用 attach 和单会话 reconcile，submit awaiting 要调用 /ap/api/submit 并回写 awaiting.answer 本地 timeline 事件，不在页面直接操作 WebSocket 或 HTTP submit。"
   ],
   "acceptanceChecks": [
     "connection.status 能正确向 UI 发出 connected、connecting、reconnecting、disconnected、error。",
@@ -87,7 +87,7 @@
     "收到 chat.deleted 或 chat.archived 后，会话详情会清空并提示不可用，首页目录投影同步刷新。",
     "WS 连接失败、重连和单会话 reconcile 路径都仍可工作。",
     "详情页不会因其他会话的 outgoing、ack、incoming 或 stream 事件而重复查询 SQLite；首页普通 home.item.patch 不会回读整页目录切片。",
-    "详情页输入区无内容显示灰色发送，有内容显示蓝色发送，运行中显示红色停止，中断后显示绿色继续，且这些状态从 ChatTimelineState 派生。"
+    "详情页输入区无内容显示灰色发送 disabled，有内容显示蓝色发送，运行中显示红色停止，终止后头部回到空闲且输入区回到初始发送态；连续点击终止不会重复触发同一会话 interrupt，也不会让回复底部 duration 抖动；这些状态从 ChatTimelineState 派生。"
   ],
   "generated": {
     "mustReadCount": 10,

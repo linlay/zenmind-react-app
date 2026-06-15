@@ -104,7 +104,7 @@ export function deriveChatDetailHeaderRuntimeState(
     'idle',
     usageLabel,
     usageSummary,
-    latestRunLifecycle === 'cancelled' ? 'resume' : null
+    null
   );
 }
 

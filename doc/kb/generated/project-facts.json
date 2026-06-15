@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-11T09:49:14.027Z",
+  "generatedAt": "2026-06-15T06:39:04.142Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -21,6 +21,7 @@
     "src/core/api/apiClient.ts",
     "src/core/api/services/chatApi.ts",
     "src/core/api/services/chatEventProtocol.ts",
+    "src/core/api/services/kanbanApi.ts",
     "src/core/api/services/notificationApi.ts",
     "src/core/api/services/templateApi.ts",
     "src/core/api/services/uploadApi.ts",
@@ -32,11 +33,13 @@
     "src/core/config/runtimeEnv.ts",
     "src/core/debug/httpDebugLogger.ts",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+    "src/features/agentTaskBoard/kanbanViewModel.ts",
     "src/features/auth/LoginScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
     "src/features/chatPersistence/cacheScope.ts",
     "src/features/chatPersistence/chatAttachmentModels.ts",
+    "src/features/chatPersistence/chatConversationTarget.ts",
     "src/features/chatPersistence/chatDetailAsyncScope.ts",
     "src/features/chatPersistence/chatDetailFormatters.ts",
     "src/features/chatPersistence/chatDetailViewModel.ts",
@@ -247,6 +250,10 @@
                         "type": "file"
                       },
                       {
+                        "name": "kanbanApi.ts",
+                        "type": "file"
+                      },
+                      {
                         "name": "notificationApi.ts",
                         "type": "file"
                       },
@@ -324,6 +331,10 @@
                 "children": [
                   {
                     "name": "AgentTaskBoardScreen.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "kanbanViewModel.ts",
                     "type": "file"
                   }
                 ]
@@ -440,6 +451,10 @@
                   },
                   {
                     "name": "chatAttachmentModels.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatConversationTarget.ts",
                     "type": "file"
                   },
                   {
@@ -868,6 +883,7 @@
       "src/core/api/apiClient.ts",
       "src/core/api/services/chatApi.ts",
       "src/core/api/services/chatEventProtocol.ts",
+      "src/core/api/services/kanbanApi.ts",
       "src/core/api/services/notificationApi.ts",
       "src/core/api/services/templateApi.ts",
       "src/core/api/services/uploadApi.ts"
@@ -880,13 +896,17 @@
     ],
     "core-debug-logging": ["src/core/debug/httpDebugLogger.ts"],
     "core-runtime-config": ["src/core/config/endpoint.ts", "src/core/config/runtimeEnv.ts"],
-    "feature-agent-task-board": ["src/features/agentTaskBoard/AgentTaskBoardScreen.tsx"],
+    "feature-agent-task-board": [
+      "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+      "src/features/agentTaskBoard/kanbanViewModel.ts"
+    ],
     "feature-auth-login": ["src/features/auth/LoginScreen.tsx"],
     "feature-chat-persistence": [
       "src/features/chatPersistence/ChatDetailScreen.tsx",
       "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatDetailAsyncScope.ts",
       "src/features/chatPersistence/chatDetailFormatters.ts",
       "src/features/chatPersistence/chatDetailViewModel.ts",
@@ -1005,6 +1025,7 @@
     "src/core/api/apiClient.ts": "core-api-client",
     "src/core/api/services/chatApi.ts": "core-api-client",
     "src/core/api/services/chatEventProtocol.ts": "core-api-client",
+    "src/core/api/services/kanbanApi.ts": "core-api-client",
     "src/core/api/services/notificationApi.ts": "core-api-client",
     "src/core/api/services/templateApi.ts": "core-api-client",
     "src/core/api/services/uploadApi.ts": "core-api-client",
@@ -1016,11 +1037,13 @@
     "src/core/config/runtimeEnv.ts": "core-runtime-config",
     "src/core/debug/httpDebugLogger.ts": "core-debug-logging",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": "feature-agent-task-board",
+    "src/features/agentTaskBoard/kanbanViewModel.ts": "feature-agent-task-board",
     "src/features/auth/LoginScreen.tsx": "feature-auth-login",
     "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/ChatHomeStorageDemo.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/cacheScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatAttachmentModels.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatConversationTarget.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailAsyncScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailFormatters.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailViewModel.ts": "feature-chat-persistence",
@@ -1132,6 +1155,7 @@
       "dependedBy": [
         "app-development-debug",
         "app-shell-navigation",
+        "feature-agent-task-board",
         "feature-chat-persistence",
         "feature-chat-realtime",
         "feature-chat-timeline",
@@ -1151,7 +1175,7 @@
       "dependedBy": ["core-auth-session", "feature-auth-login", "feature-chat-realtime"]
     },
     "feature-agent-task-board": {
-      "dependsOn": ["shared-i18n", "shared-screen-header", "shared-visual-foundation"],
+      "dependsOn": ["core-api-client", "shared-i18n", "shared-screen-header", "shared-visual-foundation"],
       "dependedBy": ["app-shell-navigation"]
     },
     "feature-auth-login": {
@@ -1302,6 +1326,26 @@
       "toFiniteNumber",
       "toText"
     ],
+    "src/core/api/services/kanbanApi.ts": [
+      "KanbanAgent",
+      "KanbanChangeResult",
+      "KanbanDesktopAgentOption",
+      "KanbanDesktopSession",
+      "KanbanDesktopStatus",
+      "KanbanIssue",
+      "KanbanIssueInput",
+      "KanbanIssueUpdateInput",
+      "KanbanPriority",
+      "KanbanRunState",
+      "KanbanSnapshot",
+      "KanbanStatus",
+      "createKanbanIssueApi",
+      "deleteKanbanIssueApi",
+      "getKanbanSnapshotApi",
+      "kanbanRpcApi",
+      "moveKanbanIssueApi",
+      "updateKanbanIssueApi"
+    ],
     "src/core/api/services/notificationApi.ts": [
       "NotificationMessageDetailResponse",
       "PushTokenPlatform",
@@ -1368,6 +1412,22 @@
     "src/core/config/runtimeEnv.ts": ["readPublicEnv"],
     "src/core/debug/httpDebugLogger.ts": ["logHttpError", "logHttpRequest", "logHttpResponse"],
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": ["AgentTaskBoardScreen"],
+    "src/features/agentTaskBoard/kanbanViewModel.ts": [
+      "AgentOption",
+      "BoardQueue",
+      "BoardSummary",
+      "BoardTask",
+      "BoardViewText",
+      "TaskPriority",
+      "TaskStage",
+      "applyKanbanChangeResult",
+      "createBoardTaskIndex",
+      "deriveAgentOptions",
+      "deriveBoardSummary",
+      "deriveBoardTasks",
+      "getAgentPreview",
+      "nextIssuePosition"
+    ],
     "src/features/auth/LoginScreen.tsx": ["AuthBootstrapScreen", "LoginScreen"],
     "src/features/chatPersistence/ChatDetailScreen.tsx": ["ChatDetailScreen"],
     "src/features/chatPersistence/ChatHomeStorageDemo.tsx": ["ChatHomeStorageDemo"],
@@ -1392,8 +1452,10 @@
       "parseChatAttachmentReferencesJson",
       "serializeChatAttachmentReferences"
     ],
+    "src/features/chatPersistence/chatConversationTarget.ts": ["createChatConversationTarget"],
     "src/features/chatPersistence/chatDetailAsyncScope.ts": ["shouldApplyChatDetailAsyncResult"],
     "src/features/chatPersistence/chatDetailFormatters.ts": [
+      "formatChatDetailDuration",
       "formatChatDetailTimestamp",
       "formatChatStatusLabel",
       "formatMessageDeliveryStatusLabel",
@@ -1472,6 +1534,7 @@
       "getConversationInitialTimelineState",
       "getConversationMessages",
       "getConversationSyncState",
+      "getConversationTarget",
       "getMessageByClientMessageId",
       "getMessageByServerMessageId",
       "getOrCreateConversationForDirectoryItem",
@@ -1612,6 +1675,7 @@
       "ChatConversationHistoryPage",
       "ChatConversationHistoryScope",
       "ChatConversationSummaryProjection",
+      "ChatConversationTarget",
       "ChatDetailRouteParams",
       "ChatDirectoryIcon",
       "ChatDirectoryItem",
@@ -1708,6 +1772,7 @@
     "src/features/chatRealtime/wsDebugRecorder.ts": ["WsDebugDirection", "WsDebugRecord", "wsDebugRecorder"],
     "src/features/chatTimeline/index.ts": [
       "applyChatTimelineEvent",
+      "applyChatTimelineLocalCancel",
       "applyChatTimelineMessage",
       "applyChatTimelineStreamDelta",
       "buildChatTimelineDisplayItems",
@@ -1716,6 +1781,7 @@
       "deriveChatTimelineState",
       "deriveChatTimelineStateFromMessages",
       "deserializeChatTimelineState",
+      "getChatTimelineActiveRunId",
       "getChatTimelineDisplayItemType",
       "mergeChatTimelineState",
       "patchChatTimelineMessage",
@@ -1741,12 +1807,15 @@
       "timelinePersistenceInternals"
     ],
     "src/features/chatTimeline/timelineReducer.ts": [
+      "MergeChatTimelineStateOptions",
       "applyChatTimelineEvent",
+      "applyChatTimelineLocalCancel",
       "applyChatTimelineMessage",
       "applyChatTimelineStreamDelta",
       "createChatTimelineState",
       "deriveChatTimelineState",
       "deriveChatTimelineStateFromMessages",
+      "getChatTimelineActiveRunId",
       "mergeChatTimelineState",
       "patchChatTimelineMessage"
     ],
@@ -2029,6 +2098,7 @@
     ],
     "src/core/api/services/chatApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/chatEventProtocol.ts": [],
+    "src/core/api/services/kanbanApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/notificationApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/templateApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/uploadApi.ts": ["src/core/api/apiClient.ts"],
@@ -2046,6 +2116,8 @@
     "src/core/config/runtimeEnv.ts": [],
     "src/core/debug/httpDebugLogger.ts": [],
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": [
+      "src/core/api/services/kanbanApi.ts",
+      "src/features/agentTaskBoard/kanbanViewModel.ts",
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
@@ -2053,6 +2125,7 @@
       "src/shared/visual/foundation.ts",
       "src/shared/visual/useAppTabBarHeight.ts"
     ],
+    "src/features/agentTaskBoard/kanbanViewModel.ts": ["src/core/api/services/kanbanApi.ts"],
     "src/features/auth/LoginScreen.tsx": [
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
@@ -2088,6 +2161,7 @@
     ],
     "src/features/chatPersistence/ChatHomeStorageDemo.tsx": [
       "src/app/navigation/types.ts",
+      "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatRealtimeUiState.ts",
       "src/features/chatPersistence/chatRepository.ts",
       "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
@@ -2109,12 +2183,12 @@
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/translate.ts"
     ],
+    "src/features/chatPersistence/chatConversationTarget.ts": ["src/features/chatPersistence/types.ts"],
     "src/features/chatPersistence/chatDetailAsyncScope.ts": [],
     "src/features/chatPersistence/chatDetailFormatters.ts": [
       "src/features/chatPersistence/types.ts",
       "src/features/chatRealtime/types.ts",
-      "src/shared/i18n/translate.ts",
-      "src/shared/visual/foundation.ts"
+      "src/shared/i18n/translate.ts"
     ],
     "src/features/chatPersistence/chatDetailViewModel.ts": ["src/features/chatTimeline/index.ts"],
     "src/features/chatPersistence/chatDirectoryProjector.ts": [
@@ -2141,6 +2215,7 @@
     "src/features/chatPersistence/chatRepository.ts": [
       "src/core/api/apiClient.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatHistoryScope.ts",
       "src/features/chatPersistence/chatReadState.ts",
       "src/features/chatPersistence/database.ts",
@@ -2316,6 +2391,7 @@
     "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": ["src/features/chatRealtime/types.ts"],
     "src/features/chatPersistence/useChatDetailConversationController.ts": [
       "src/core/api/services/notificationApi.ts",
+      "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatDetailAsyncScope.ts",
       "src/features/chatPersistence/chatDetailViewModel.ts",
       "src/features/chatPersistence/chatHistoryScope.ts",

@@ -84,10 +84,12 @@ import {
 } from './chatWsTransport';
 import { ChatHomeItemPatch, ChatSocketStatus, ChatSyncEvent, ChatSyncReason } from './types';
 import {
+  applyChatTimelineLocalCancel,
   applyChatTimelineEvent,
   applyChatTimelineMessage,
   applyChatTimelineStreamDelta,
   createChatTimelineState,
+  getChatTimelineActiveRunId,
   mergeChatTimelineState,
   patchChatTimelineMessage,
   projectTimelineMessages,
@@ -96,6 +98,14 @@ import {
 import type { ChatTimelineState } from '../chatTimeline/index.ts';
 
 type SyncListener = (event: ChatSyncEvent) => void;
+
+type ChatSendMessageOptions = {
+  dispatchErrorMode?: 'throw' | 'return';
+};
+
+type ChatSendMessageResult = Awaited<ReturnType<typeof createOutgoingMessage>> & {
+  dispatchError: Error | null;
+};
 
 type StreamBuffer = {
   key: string;
@@ -140,12 +150,32 @@ type ReadMarkState = {
   marker: string;
 };
 
+type LocalTerminatedRunState = {
+  runId: string;
+  terminatedAt: number;
+};
+
+type StoppingConversationState = {
+  runId: string;
+  startedAt: number;
+};
+
+type InterruptChatResponse = {
+  accepted?: boolean;
+  status?: string;
+  detail?: string;
+  [key: string]: unknown;
+};
+
 const STREAM_UI_FLUSH_MS = 64;
 const STREAM_DB_FLUSH_MS = 320;
 const RUNTIME_EMIT_FLUSH_MS = 48;
 const TIMELINE_PERSIST_DEBOUNCE_MS = 420;
 const RECONCILE_DEBOUNCE_MS = 180;
 const READ_MARK_DEBOUNCE_MS = 1_500;
+const LOCAL_TERMINATED_RUN_TTL_MS = 120_000;
+const STOPPING_CONVERSATION_TTL_MS = 8_000;
+const CHAT_INTERRUPT_TRANSPORT_TYPE = '/api/interrupt';
 
 function buildFallbackSummary(summary: ChatHomeItem | null) {
   if (!summary) {
@@ -165,6 +195,29 @@ function buildFallbackSummary(summary: ChatHomeItem | null) {
 
 function createAwaitingSubmitId(): string {
   return `submit_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function createRunControlRequestId(kind: string): string {
+  return `${kind}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function buildInterruptChatPayload(input: {
+  requestId: string;
+  chatId: string;
+  runId: string;
+  agentKey?: string;
+  teamId?: string;
+}) {
+  const agentKey = toText(input.agentKey);
+  const teamId = toText(input.teamId);
+  return {
+    requestId: toText(input.requestId),
+    chatId: toText(input.chatId),
+    runId: toText(input.runId),
+    ...(agentKey ? { agentKey } : {}),
+    ...(teamId ? { teamId } : {}),
+    message: '',
+  };
 }
 
 function isMissingAgentKeyError(error: Error): boolean {
@@ -189,6 +242,80 @@ function isApiStatusError(error: unknown, status: number): boolean {
 
 function isRecoverableReconcileError(error: unknown): boolean {
   return isApiStatusError(error, 401) || isApiStatusError(error, 404);
+}
+
+function isInactiveInterruptResponse(response: InterruptChatResponse | null | undefined): boolean {
+  if (response?.accepted !== false) {
+    return false;
+  }
+
+  const status = toText(response.status).toLowerCase();
+  const detail = toText(response.detail).toLowerCase();
+  return (
+    status === 'unmatched' &&
+    (!detail ||
+      detail.includes('no longer active') ||
+      detail.includes('not active') ||
+      detail.includes('inactive'))
+  );
+}
+
+function getUnknownErrorText(error: unknown): string {
+  if (error instanceof Error) {
+    const record = error as Error & {
+      code?: unknown;
+      data?: unknown;
+      payload?: unknown;
+      status?: unknown;
+    };
+    return [error.message, record.status, record.code, record.data, record.payload]
+      .map((value) => {
+        if (typeof value === 'string') {
+          return value;
+        }
+        if (value == null) {
+          return '';
+        }
+        try {
+          return JSON.stringify(value);
+        } catch {
+          return String(value);
+        }
+      })
+      .join(' ');
+  }
+  if (!error || typeof error !== 'object') {
+    return String(error || '');
+  }
+
+  const record = error as { code?: unknown; data?: unknown; payload?: unknown; status?: unknown };
+  return [record.status, record.code, record.data, record.payload]
+    .map((value) => {
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (value == null) {
+        return '';
+      }
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    })
+    .join(' ');
+}
+
+function isInactiveInterruptError(error: unknown): boolean {
+  const text = getUnknownErrorText(error).toLowerCase();
+  return (
+    isApiStatusError(error, 404) ||
+    text.includes('run_not_found') ||
+    text.includes('run not found') ||
+    text.includes('no longer active') ||
+    text.includes('not active') ||
+    text.includes('inactive')
+  );
 }
 
 function findTimelineRunAgentKey(state: ChatTimelineState, runId: string): string {
@@ -220,6 +347,16 @@ function findTimelineAwaitingAgentKey(state: ChatTimelineState, runId: string): 
   return '';
 }
 
+function hasTerminalTimelineRun(state: ChatTimelineState, runId: string): boolean {
+  if (!runId) {
+    return false;
+  }
+  return state.orderedNodeIds.some((nodeId) => {
+    const node = state.nodesById[nodeId];
+    return node?.kind === 'run' && node.runId === runId && node.lifecycle !== 'active';
+  });
+}
+
 class ChatSyncService {
   private readonly listeners = new Set<SyncListener>();
   private status: ChatSocketStatus = getChatTransportStatus();
@@ -235,6 +372,8 @@ class ChatSyncService {
   private readonly lastReadMarks = new Map<string, ReadMarkState>();
   private readonly readConfirmations = new Map<string, Promise<void>>();
   private readonly timelineStates = new Map<string, ChatTimelineState>();
+  private readonly locallyTerminatedRuns = new Map<string, LocalTerminatedRunState>();
+  private readonly stoppingConversations = new Map<string, StoppingConversationState>();
   private readonly runtimeEmitTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly timelinePersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly pendingRuntimeEmitReasons = new Map<string, ChatSyncReason>();
@@ -251,13 +390,19 @@ class ChatSyncService {
       return;
     }
 
+    const timelineState = this.getConversationTimelineState(normalizedConversationId);
     const attachedRunId = this.activeAttaches.get(normalizedConversationId)?.runId ?? '';
+    const interruptRunId = getChatTimelineActiveRunId(timelineState) || attachedRunId;
+    const alreadyStopping = this.isStoppingConversation(normalizedConversationId, interruptRunId);
     this.stopAttachedRun(normalizedConversationId);
     const stoppedOutgoingIds = this.stopOutgoingStreams(normalizedConversationId);
-    this.publishLocalRunCancel(
-      normalizedConversationId,
-      attachedRunId || stoppedOutgoingIds[0] || ''
-    );
+    this.rememberStoppingConversation(normalizedConversationId, interruptRunId);
+    this.rememberLocalTerminatedRun(normalizedConversationId, interruptRunId);
+    this.publishLocalRunCancel(normalizedConversationId, interruptRunId);
+    void this.clearConversationActiveRun(normalizedConversationId);
+    if (interruptRunId && !alreadyStopping) {
+      void this.requestConversationInterrupt(normalizedConversationId, interruptRunId);
+    }
     void this.finishStoppedOutgoingStreams(normalizedConversationId, stoppedOutgoingIds);
   }
 
@@ -267,6 +412,8 @@ class ChatSyncService {
       return;
     }
 
+    this.clearLocalTerminatedRun(normalizedConversationId);
+    this.clearStoppingConversation(normalizedConversationId);
     void this.attachActiveConversationRun(normalizedConversationId, 'attach');
     void this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', true);
   }
@@ -285,6 +432,105 @@ class ChatSyncService {
       this.timelineStates.get(normalizedConversationId) ??
       createChatTimelineState(normalizedConversationId)
     );
+  }
+
+  private rememberLocalTerminatedRun(conversationId: string, runId: string) {
+    const normalizedConversationId = toText(conversationId);
+    const normalizedRunId = toText(runId);
+    if (!normalizedConversationId || !normalizedRunId) {
+      return;
+    }
+
+    this.locallyTerminatedRuns.set(normalizedConversationId, {
+      runId: normalizedRunId,
+      terminatedAt: Date.now(),
+    });
+  }
+
+  private rememberStoppingConversation(conversationId: string, runId: string) {
+    const normalizedConversationId = toText(conversationId);
+    if (!normalizedConversationId) {
+      return;
+    }
+
+    this.stoppingConversations.set(normalizedConversationId, {
+      runId: toText(runId),
+      startedAt: Date.now(),
+    });
+  }
+
+  private isStoppingConversation(conversationId: string, runId: string): boolean {
+    const normalizedConversationId = toText(conversationId);
+    if (!normalizedConversationId) {
+      return false;
+    }
+
+    const state = this.stoppingConversations.get(normalizedConversationId);
+    if (!state) {
+      return false;
+    }
+    if (Date.now() - state.startedAt > STOPPING_CONVERSATION_TTL_MS) {
+      this.stoppingConversations.delete(normalizedConversationId);
+      return false;
+    }
+
+    const normalizedRunId = toText(runId);
+    return !normalizedRunId || !state.runId || state.runId === normalizedRunId;
+  }
+
+  private clearStoppingConversation(conversationId: string) {
+    const normalizedConversationId = toText(conversationId);
+    if (normalizedConversationId) {
+      this.stoppingConversations.delete(normalizedConversationId);
+    }
+  }
+
+  private getLocalTerminatedRun(conversationId: string): LocalTerminatedRunState | null {
+    const normalizedConversationId = toText(conversationId);
+    if (!normalizedConversationId) {
+      return null;
+    }
+
+    const state = this.locallyTerminatedRuns.get(normalizedConversationId);
+    if (!state) {
+      return null;
+    }
+    if (Date.now() - state.terminatedAt > LOCAL_TERMINATED_RUN_TTL_MS) {
+      this.locallyTerminatedRuns.delete(normalizedConversationId);
+      return null;
+    }
+    return state;
+  }
+
+  private clearLocalTerminatedRun(conversationId: string, runId?: string) {
+    const normalizedConversationId = toText(conversationId);
+    if (!normalizedConversationId) {
+      return;
+    }
+
+    const normalizedRunId = toText(runId);
+    const state = this.locallyTerminatedRuns.get(normalizedConversationId);
+    if (!normalizedRunId || state?.runId === normalizedRunId) {
+      this.locallyTerminatedRuns.delete(normalizedConversationId);
+    }
+  }
+
+  private refreshLocalTerminatedRunAfterReconcile(
+    conversationId: string,
+    remoteState: ChatTimelineState,
+    mergedState: ChatTimelineState
+  ) {
+    const terminatedRun = this.getLocalTerminatedRun(conversationId);
+    if (!terminatedRun) {
+      return;
+    }
+
+    if (
+      hasTerminalTimelineRun(remoteState, terminatedRun.runId) ||
+      (mergedState.activeRunId && mergedState.activeRunId !== terminatedRun.runId)
+    ) {
+      this.clearLocalTerminatedRun(conversationId, terminatedRun.runId);
+    }
   }
 
   subscribe(listener: SyncListener) {
@@ -385,6 +631,8 @@ class ChatSyncService {
     this.timelinePersistTimers.clear();
     this.readConfirmations.clear();
     this.inFlightOutgoingIds.clear();
+    this.locallyTerminatedRuns.clear();
+    this.stoppingConversations.clear();
   }
 
   setActiveConversationId(conversationId: string | null) {
@@ -562,13 +810,17 @@ class ChatSyncService {
   async sendMessage(
     conversationId: string,
     content: string,
-    attachments: readonly ChatComposerAttachment[] = []
-  ) {
+    attachments: readonly ChatComposerAttachment[] = [],
+    options: ChatSendMessageOptions = {}
+  ): Promise<ChatSendMessageResult> {
     const normalizedConversationId = toText(conversationId);
     const normalizedContent = String(content || '').trim();
     if (!normalizedConversationId || (!normalizedContent && attachments.length === 0)) {
       throw new Error('Conversation id and message content or attachments are required');
     }
+
+    this.clearLocalTerminatedRun(normalizedConversationId);
+    this.clearStoppingConversation(normalizedConversationId);
 
     const created = await createOutgoingMessage(
       normalizedConversationId,
@@ -606,11 +858,15 @@ class ChatSyncService {
         content: created.message.content,
         attachments: created.message.attachments,
       });
+      return {
+        ...created,
+        dispatchError: null,
+      };
     } catch (error) {
-      const errorText = error instanceof Error ? error.message : String(error);
+      const dispatchError = error instanceof Error ? error : new Error(String(error));
       const patched = await patchMessageByClientMessageId(created.clientMessageId, {
         deliveryStatus: 'failed',
-        errorReason: errorText,
+        errorReason: dispatchError.message,
       });
 
       if (patched) {
@@ -635,6 +891,12 @@ class ChatSyncService {
       await this.emitHomePatchFromConversation(normalizedConversationId, {
         shouldMoveToTop: true,
       });
+      if (options.dispatchErrorMode === 'return') {
+        return {
+          ...created,
+          dispatchError,
+        };
+      }
       throw error;
     }
   }
@@ -1691,6 +1953,8 @@ class ChatSyncService {
       this.timelinePersistTimers.delete(normalizedConversationId);
     }
     this.pendingRuntimeEmitReasons.delete(normalizedConversationId);
+    this.locallyTerminatedRuns.delete(normalizedConversationId);
+    this.stoppingConversations.delete(normalizedConversationId);
     const hadTimelineState = this.timelineStates.delete(normalizedConversationId);
     if (!hadTimelineState) {
       return;
@@ -2038,9 +2302,20 @@ class ChatSyncService {
     const read = projection.hasExplicitReadState ? projection.read : undefined;
     const unreadCount = read ? (read.isRead ? 0 : 1) : undefined;
     const currentTimelineState = this.timelineStates.get(projection.conversationId);
+    const terminatedRun = this.getLocalTerminatedRun(projection.conversationId);
     const nextTimelineState = mergeChatTimelineState(
       currentTimelineState,
-      projection.timelineState
+      projection.timelineState,
+      terminatedRun
+        ? {
+            preserveTerminalRunIds: [terminatedRun.runId],
+          }
+        : undefined
+    );
+    this.refreshLocalTerminatedRunAfterReconcile(
+      projection.conversationId,
+      projection.timelineState,
+      nextTimelineState
     );
     const nextMessages = projectTimelineMessages(nextTimelineState);
 
@@ -2110,13 +2385,59 @@ class ChatSyncService {
     return stoppedClientMessageIds;
   }
 
+  private async requestConversationInterrupt(conversationId: string, runId: string) {
+    const normalizedConversationId = toText(conversationId);
+    const normalizedRunId = toText(runId);
+    if (!normalizedConversationId || !normalizedRunId) {
+      return;
+    }
+
+    try {
+      const scope = await this.resolveRunControlScope(normalizedConversationId, normalizedRunId);
+      const response = await this.requestChatApi<InterruptChatResponse>(
+        CHAT_INTERRUPT_TRANSPORT_TYPE,
+        buildInterruptChatPayload({
+          requestId: createRunControlRequestId('interrupt'),
+          chatId: normalizedConversationId,
+          runId: normalizedRunId,
+          agentKey: scope.agentKey,
+          teamId: scope.teamId,
+        })
+      );
+      if (response?.accepted === false) {
+        if (isInactiveInterruptResponse(response)) {
+          return;
+        }
+        this.clearLocalTerminatedRun(normalizedConversationId, normalizedRunId);
+        throw new Error(toText(response.detail) || toText(response.status) || 'interrupt rejected');
+      }
+    } catch (error) {
+      if (isInactiveInterruptError(error)) {
+        return;
+      }
+      this.clearLocalTerminatedRun(normalizedConversationId, normalizedRunId);
+      this.clearStoppingConversation(normalizedConversationId);
+      await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
+    }
+  }
+
+  private async clearConversationActiveRun(conversationId: string) {
+    const normalizedConversationId = toText(conversationId);
+    if (!normalizedConversationId) {
+      return;
+    }
+
+    try {
+      await setConversationActiveRunId(normalizedConversationId, '');
+    } catch {
+      await markConversationDirty(normalizedConversationId, 'stop');
+    }
+  }
+
   private publishLocalRunCancel(conversationId: string, fallbackRunId: string) {
     const currentState = this.getConversationTimelineState(conversationId);
-    const runId =
-      currentState.activeRunId || this.activeAttaches.get(conversationId)?.runId || fallbackRunId;
-    const nextState = applyChatTimelineEvent(currentState, conversationId, {
-      type: 'run.cancel',
-      runId,
+    const nextState = applyChatTimelineLocalCancel(currentState, conversationId, {
+      runId: fallbackRunId,
       reason: '用户已停止生成',
       timestamp: Date.now(),
     });
@@ -2223,16 +2544,21 @@ class ChatSyncService {
   }
 
   private async resolveActiveRunAgentKey(conversationId: string, runId: string) {
+    const scope = await this.resolveRunControlScope(conversationId, runId);
+    return scope.agentKey;
+  }
+
+  private async resolveRunControlScope(conversationId: string, runId: string) {
     const currentState = this.getConversationTimelineState(conversationId);
     const timelineAgentKey =
       findTimelineRunAgentKey(currentState, runId) ||
       findTimelineAwaitingAgentKey(currentState, runId);
-    if (timelineAgentKey) {
-      return timelineAgentKey;
-    }
-
     const historyScope = await getConversationHistoryScope(conversationId);
-    return toText(historyScope?.agentKey);
+
+    return {
+      agentKey: timelineAgentKey || toText(historyScope?.agentKey),
+      teamId: toText(historyScope?.teamId),
+    };
   }
 
   private async handleStreamSideError(conversationId: string, error: Error) {

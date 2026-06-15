@@ -27,6 +27,7 @@ import {
   prewarmChatHomeDirectory,
   setChatDirectoryItemPinned
 } from './chatRepository';
+import { createChatConversationTarget } from './chatConversationTarget';
 import { ChatDirectoryPickerDrawer } from './components/ChatDirectoryPickerDrawer';
 import { patchDirectoryListPreviewByConversation, type ChatDirectoryListState } from './chatRealtimeUiState';
 import { readChatDirectorySnapshot } from './homeSnapshot';
@@ -53,6 +54,17 @@ function getDirectoryHistoryScope(item: ChatDirectoryItem): ChatConversationHist
   return {
     agentKey: agentKey || null,
     teamId: teamId || null
+  };
+}
+
+function getChatDetailTargetParams(
+  item: ChatDirectoryItem
+): Pick<ChatDetailRouteParams, 'conversationSubtitle' | 'conversationTarget'> {
+  const conversationTarget = createChatConversationTarget(item);
+
+  return {
+    conversationSubtitle: conversationTarget?.subtitle ?? item.subtitle,
+    ...(conversationTarget ? { conversationTarget } : {})
   };
 }
 
@@ -377,7 +389,7 @@ export function ChatHomeStorageDemo() {
 
             navigation.navigate('ChatDetail', {
               conversationId: result.conversation.conversationId,
-              conversationSubtitle: item.subtitle,
+              ...getChatDetailTargetParams(item),
               initialConversation: result.conversation,
               ...(result.historyScope ? { historyScope: result.historyScope } : {}),
               skipInitialReconcile: result.isLocalDraft
@@ -388,7 +400,7 @@ export function ChatHomeStorageDemo() {
           const historyScope = getDirectoryHistoryScope(item);
           const params: ChatDetailRouteParams = {
             conversationId: item.latestConversationId,
-            conversationSubtitle: item.subtitle,
+            ...getChatDetailTargetParams(item),
             ...(historyScope ? { historyScope } : {}),
             initialConversation: {
               conversationId: item.latestConversationId,
@@ -513,7 +525,7 @@ export function ChatHomeStorageDemo() {
           setIsDirectoryPickerOpen(false);
           navigation.navigate('ChatDetail', {
             conversationId: result.conversation.conversationId,
-            conversationSubtitle: item.subtitle,
+            ...getChatDetailTargetParams(item),
             initialConversation: result.conversation,
             ...(result.historyScope ? { historyScope: result.historyScope } : {}),
             skipInitialReconcile: result.isLocalDraft

@@ -98,6 +98,8 @@ export const appIconUsages = {
     sizeRole: 'rail',
   },
   'timeline.copy': { glyph: 'copy', colorRole: 'secondary', sizeRole: 'toolbar' },
+  'timeline.reask': { glyph: 'history', colorRole: 'secondary', sizeRole: 'toolbar' },
+  'timeline.reaskNewConversation': { glyph: 'chat-add', colorRole: 'primary', sizeRole: 'toolbar' },
   'timeline.scrollToEnd': {
     glyph: 'arrow-down',
     colorRole: 'primary',

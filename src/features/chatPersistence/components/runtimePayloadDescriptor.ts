@@ -123,6 +123,14 @@ function resolveToolLabel(
 }
 
 function titleForNode(node: ChatTimelineNode, t: TFunction): string {
+  if (node.kind === 'reasoning') {
+    const title = String(node.title || '').trim();
+    const normalized = title.toLowerCase();
+    if (!title || normalized === 'thinking' || normalized === 'reasoning' || title === '思考') {
+      return t('runtime.reasoningProcess');
+    }
+    return title;
+  }
   if (node.kind === 'awaiting') {
     return node.mode === 'approval'
       ? t('runtime.awaiting.approval')

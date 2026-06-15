@@ -79,6 +79,22 @@ test('runtime descriptor keeps reasoning markdown lightweight and nowrap by defa
   assert.equal(descriptor.copyText, 'Let me inspect the context.');
 });
 
+test('runtime descriptor normalizes generic reasoning titles for display', () => {
+  const node: ChatTimelineTextNode = {
+    ...baseNode,
+    id: 'reasoning-1',
+    kind: 'reasoning',
+    title: 'Thinking',
+    body: 'Let me inspect the context.',
+    status: 'complete',
+    streaming: false,
+  };
+
+  const descriptor = buildRuntimePayloadDescriptor(node);
+
+  assert.equal(descriptor.title, '思考过程');
+});
+
 test('runtime descriptor builds grouped tool records with per-call status', () => {
   const firstNode: ChatTimelineToolNode = {
     ...baseNode,

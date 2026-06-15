@@ -31,6 +31,10 @@ import type {
 } from './types.ts';
 import { buildChatTimelineUsageSummary, chatTimelineUsageSummaryEquals } from './usageSummary.ts';
 
+export type MergeChatTimelineStateOptions = {
+  preserveTerminalRunIds?: readonly string[];
+};
+
 function normalizeConversationId(conversationId: string): string {
   return String(conversationId || '').trim();
 }
@@ -884,6 +888,35 @@ function isActiveTimelineNode(node: ChatTimelineNode): boolean {
   return node.lifecycle === 'active' || ('streaming' in node && Boolean(node.streaming));
 }
 
+function isTerminalRunNode(node: ChatTimelineNode | undefined, runId: string): boolean {
+  return Boolean(
+    runId &&
+      node?.kind === 'run' &&
+      node.runId === runId &&
+      node.lifecycle !== 'active'
+  );
+}
+
+function isTerminalTimelineNodeForRun(
+  node: ChatTimelineNode | undefined,
+  runId: string
+): boolean {
+  return Boolean(runId && node?.runId === runId && !isActiveTimelineNode(node));
+}
+
+function closeTimelineNodeForLocalStop(node: ChatTimelineNode, updatedAt: number): ChatTimelineNode {
+  const nextUpdatedAt = Math.max(node.updatedAt, updatedAt);
+  if (node.kind === 'run') {
+    return {
+      ...node,
+      status: '已取消',
+      lifecycle: 'cancelled',
+      updatedAt: nextUpdatedAt,
+    };
+  }
+  return closeTimelineNodeForRun(node, 'cancelled', updatedAt);
+}
+
 function hasIncomingMessageAtOrAfter(
   incomingState: ChatTimelineState,
   current: ChatTimelineMessageNode
@@ -968,6 +1001,83 @@ function hasActiveRunNode(
     const node = nodesById[nodeId];
     return node?.runId === runId && isActiveTimelineNode(node);
   });
+}
+
+function findLatestActiveTimelineRunId(state: ChatTimelineState): string {
+  for (let index = state.orderedNodeIds.length - 1; index >= 0; index -= 1) {
+    const node = state.nodesById[state.orderedNodeIds[index]];
+    if (!node || !isActiveTimelineNode(node) || !node.runId) {
+      continue;
+    }
+    return node.runId;
+  }
+  return '';
+}
+
+function hasTerminalRunNode(state: ChatTimelineState, runId: string): boolean {
+  if (!runId) {
+    return false;
+  }
+  return state.orderedNodeIds.some((nodeId) => isTerminalRunNode(state.nodesById[nodeId], runId));
+}
+
+function hasTerminalTimelineNodeForRun(state: ChatTimelineState, runId: string): boolean {
+  if (!runId) {
+    return false;
+  }
+  return state.orderedNodeIds.some((nodeId) =>
+    isTerminalTimelineNodeForRun(state.nodesById[nodeId], runId)
+  );
+}
+
+function getTerminalRunUpdatedAt(state: ChatTimelineState, runId: string): number {
+  let updatedAt = 0;
+  state.orderedNodeIds.forEach((nodeId) => {
+    const node = state.nodesById[nodeId];
+    if (isTerminalTimelineNodeForRun(node, runId)) {
+      updatedAt = Math.max(updatedAt, node.updatedAt);
+    }
+  });
+  return updatedAt || state.updatedAt;
+}
+
+function buildProtectedTerminalRunIds(
+  currentState: ChatTimelineState,
+  incomingState: ChatTimelineState,
+  options: MergeChatTimelineStateOptions | undefined
+): Set<string> | null {
+  const runIds = options?.preserveTerminalRunIds;
+  if (!runIds?.length) {
+    return null;
+  }
+
+  let protectedRunIds: Set<string> | null = null;
+  runIds.forEach((runIdInput) => {
+    const runId = toText(runIdInput);
+    if (
+      runId &&
+      (hasTerminalTimelineNodeForRun(currentState, runId) ||
+        !hasActiveRunNode(currentState.orderedNodeIds, currentState.nodesById, runId)) &&
+      !hasTerminalRunNode(incomingState, runId)
+    ) {
+      protectedRunIds ??= new Set<string>();
+      protectedRunIds.add(runId);
+    }
+  });
+  return protectedRunIds;
+}
+
+function shouldPreserveProtectedTerminalNode(
+  current: ChatTimelineNode,
+  incoming: ChatTimelineNode | undefined,
+  protectedRunIds: ReadonlySet<string> | null
+): boolean {
+  return Boolean(
+    current.runId &&
+      protectedRunIds?.has(current.runId) &&
+      !isActiveTimelineNode(current) &&
+      (!incoming || isActiveTimelineNode(incoming))
+  );
 }
 
 function resolveMergedAwaiting(
@@ -1196,6 +1306,15 @@ function closeActiveNodesForRun(
     return state;
   }
 
+  return closeActiveTimelineNodes(state, runId, lifecycle, updatedAt);
+}
+
+function closeActiveTimelineNodes(
+  state: ChatTimelineState,
+  runId: string,
+  lifecycle: Exclude<ChatTimelineLifecycle, 'active'>,
+  updatedAt: number
+): ChatTimelineState {
   let nextNodesById: ChatTimelineState['nodesById'] | null = null;
   let nextUpdatedAt = state.updatedAt;
 
@@ -1204,7 +1323,7 @@ function closeActiveNodesForRun(
     if (
       !node ||
       node.kind === 'run' ||
-      node.runId !== runId ||
+      (runId && node.runId !== runId) ||
       (node.lifecycle !== 'active' && !isStreamingTimelineNode(node))
     ) {
       return;
@@ -1230,6 +1349,82 @@ function closeActiveNodesForRun(
     ...state,
     nodesById: nextNodesById,
     updatedAt: nextUpdatedAt,
+    revision: state.revision + 1,
+  };
+}
+
+function closeActiveTimelineNodesForLocalStop(
+  state: ChatTimelineState,
+  runId: string,
+  updatedAt: number
+): ChatTimelineState {
+  let nextNodesById: ChatTimelineState['nodesById'] | null = null;
+  let nextUpdatedAt = state.updatedAt;
+
+  state.orderedNodeIds.forEach((nodeId) => {
+    const node = state.nodesById[nodeId];
+    if (
+      !node ||
+      (runId ? node.runId !== runId : Boolean(node.runId)) ||
+      !isActiveTimelineNode(node)
+    ) {
+      return;
+    }
+
+    const nextNode = closeTimelineNodeForLocalStop(node, updatedAt);
+    if (!didNodeChange(node, nextNode)) {
+      return;
+    }
+
+    if (!nextNodesById) {
+      nextNodesById = { ...state.nodesById };
+    }
+    nextNodesById[nodeId] = nextNode;
+    nextUpdatedAt = Math.max(nextUpdatedAt, nextNode.updatedAt);
+  });
+
+  if (!nextNodesById) {
+    return state;
+  }
+
+  return {
+    ...state,
+    nodesById: nextNodesById,
+    updatedAt: nextUpdatedAt,
+    revision: state.revision + 1,
+  };
+}
+
+export function getChatTimelineActiveRunId(state: ChatTimelineState): string {
+  return findLatestActiveTimelineRunId(state) || state.activeRunId;
+}
+
+function hasActiveTimelineNodes(state: ChatTimelineState): boolean {
+  return state.orderedNodeIds.some((nodeId) => {
+    const node = state.nodesById[nodeId];
+    return Boolean(node && isActiveTimelineNode(node));
+  });
+}
+
+function resolveLocalStopRunId(state: ChatTimelineState, requestedRunId: string): string {
+  if (requestedRunId && hasActiveRunNode(state.orderedNodeIds, state.nodesById, requestedRunId)) {
+    return requestedRunId;
+  }
+  return findLatestActiveTimelineRunId(state);
+}
+
+function clearActiveRunIdForLocalStop(
+  state: ChatTimelineState,
+  updatedAt: number
+): ChatTimelineState {
+  if (!state.activeRunId) {
+    return state;
+  }
+
+  return {
+    ...state,
+    activeRunId: '',
+    updatedAt: Math.max(state.updatedAt, updatedAt),
     revision: state.revision + 1,
   };
 }
@@ -1595,7 +1790,7 @@ function applyRunEvent(
           : type === 'run.cancel'
             ? '已取消'
             : '出错',
-    agentKey: toText(event.agentKey),
+    agentKey: toText(event.agentKey) || current?.agentKey || '',
     runId,
     startedAt,
     completedAt,
@@ -1622,6 +1817,34 @@ function applyRunEvent(
         lifecycle,
         updatedAt
       );
+}
+
+export function applyChatTimelineLocalCancel(
+  currentStateInput: ChatTimelineState | null | undefined,
+  conversationIdInput: string,
+  input: {
+    runId?: string | null;
+    reason?: string;
+    timestamp?: number;
+  } = {}
+): ChatTimelineState {
+  const conversationId = normalizeConversationId(conversationIdInput);
+  const state =
+    currentStateInput && currentStateInput.conversationId === conversationId
+      ? currentStateInput
+      : createChatTimelineState(conversationId);
+  const updatedAt = Number.isFinite(Number(input.timestamp)) ? Number(input.timestamp) : Date.now();
+  const requestedRunId = toText(input.runId);
+  const runId = resolveLocalStopRunId(state, requestedRunId);
+
+  if (!runId && !requestedRunId && !hasActiveTimelineNodes(state)) {
+    return state;
+  }
+
+  return clearActiveRunIdForLocalStop(
+    closeActiveTimelineNodesForLocalStop(state, runId, updatedAt),
+    updatedAt
+  );
 }
 
 export function applyChatTimelineEvent(
@@ -1804,16 +2027,22 @@ export function applyChatTimelineStreamDelta(
 
 export function mergeChatTimelineState(
   currentStateInput: ChatTimelineState | null | undefined,
-  incomingState: ChatTimelineState
+  incomingState: ChatTimelineState,
+  options?: MergeChatTimelineStateOptions
 ): ChatTimelineState {
   if (
     !currentStateInput ||
     currentStateInput.conversationId !== incomingState.conversationId ||
-    currentStateInput.orderedNodeIds.length <= 0
+    (currentStateInput.orderedNodeIds.length <= 0 && !options?.preserveTerminalRunIds?.length)
   ) {
     return incomingState;
   }
 
+  const protectedTerminalRunIds = buildProtectedTerminalRunIds(
+    currentStateInput,
+    incomingState,
+    options
+  );
   const incomingIndex = buildTimelineNodeIdentityIndex(incomingState);
   let orderedNodeIds = incomingState.orderedNodeIds;
   let orderedNodeIdSet: Set<string> | null = null;
@@ -1871,24 +2100,56 @@ export function mergeChatTimelineState(
 
     const matchedIncomingId = findMatchingTimelineNodeId(incomingIndex, currentNode);
     const incomingNode = matchedIncomingId ? incomingState.nodesById[matchedIncomingId] : undefined;
-    const shouldPreserve = incomingNode
-      ? shouldPreferCurrentTimelineNode(currentNode, incomingNode)
-      : shouldPreserveUnmatchedTimelineNode(currentNode, incomingState);
+    const shouldPreserve =
+      shouldPreserveProtectedTerminalNode(currentNode, incomingNode, protectedTerminalRunIds) ||
+      (incomingNode
+        ? shouldPreferCurrentTimelineNode(currentNode, incomingNode)
+        : shouldPreserveUnmatchedTimelineNode(currentNode, incomingState));
 
     if (shouldPreserve) {
       preserveNode(currentNode, matchedIncomingId);
     }
   });
 
+  protectedTerminalRunIds?.forEach((runId) => {
+    const closedAt = getTerminalRunUpdatedAt(currentStateInput, runId);
+    orderedNodeIds.forEach((nodeId) => {
+      const node = nodesById[nodeId];
+      if (
+        !node ||
+        node.runId !== runId ||
+        !isActiveTimelineNode(node)
+      ) {
+        return;
+      }
+
+      ensureWritableState();
+      const writableNode = nodesById[nodeId] ?? node;
+      const nextNode = closeTimelineNodeForLocalStop(
+        writableNode,
+        Math.max(closedAt, writableNode.updatedAt)
+      );
+      if (didNodeChange(writableNode, nextNode)) {
+        nodesById[nodeId] = nextNode;
+      }
+    });
+  });
+
   if (!changed) {
     return incomingState;
   }
 
+  const incomingActiveRunId = toText(incomingState.activeRunId);
+  const currentActiveRunId = toText(currentStateInput.activeRunId);
+  const canUseCurrentActiveRunId =
+    currentActiveRunId &&
+    !protectedTerminalRunIds?.has(currentActiveRunId) &&
+    hasActiveRunNode(orderedNodeIds, nodesById, currentActiveRunId);
   const activeRunId =
-    incomingState.activeRunId ||
-    (hasActiveRunNode(orderedNodeIds, nodesById, currentStateInput.activeRunId)
-      ? currentStateInput.activeRunId
-      : '');
+    (incomingActiveRunId && !protectedTerminalRunIds?.has(incomingActiveRunId)
+      ? incomingActiveRunId
+      : '') ||
+    (canUseCurrentActiveRunId ? currentActiveRunId : '');
   const usageSummary = incomingState.usageSummary ?? currentStateInput.usageSummary;
   const usageLabel =
     incomingState.usageLabel || usageSummary?.label || currentStateInput.usageLabel;

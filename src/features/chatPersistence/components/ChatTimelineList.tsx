@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import {
   type LayoutChangeEvent,
@@ -35,9 +35,36 @@ import { RuntimeTimelineRow } from './RuntimeTimelineRow';
 type ChatTimelineListProps = {
   timelineState: ChatTimelineState;
   onCopyText: (text: string) => void;
+  onReaskMessage?: (target: ChatTimelineReaskTarget, node: ChatTimelineMessageNode) => void;
+  reaskCurrentDisabled?: boolean;
+  reaskNewConversationDisabled?: boolean;
 };
 
 const SCROLL_TO_END_BUTTON_THRESHOLD = 96;
+const REASK_MENU_WIDTH = 188;
+const REASK_MENU_HEIGHT = 100;
+const REASK_MENU_MARGIN = 8;
+const REASK_MENU_GAP = 6;
+
+type ChatTimelineReaskTarget = 'current' | 'new';
+
+type ReaskAnchorMetrics = {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  viewportWidth: number;
+  viewportHeight: number;
+};
+
+type ReaskMenuState = {
+  node: ChatTimelineMessageNode;
+  anchor: ReaskAnchorMetrics;
+};
+
+type ReaskAnchorRef = RefObject<View | null>;
+
+type OpenReaskMenu = (node: ChatTimelineMessageNode, anchorRef: ReaskAnchorRef) => void;
 
 const keyExtractor = (item: ChatTimelineDisplayItem) => item.key;
 
@@ -80,6 +107,17 @@ function didTimelineTailAdvance(
 
 function isTimelineScrollable(metrics: TimelineScrollMetrics): boolean {
   return metrics.viewportHeight > 0 && metrics.contentHeight > metrics.viewportHeight;
+}
+
+function getReaskMenuPosition(anchor: ReaskAnchorMetrics) {
+  const maxLeft = Math.max(REASK_MENU_MARGIN, anchor.viewportWidth - REASK_MENU_WIDTH - REASK_MENU_MARGIN);
+  const left = Math.min(Math.max(REASK_MENU_MARGIN, anchor.x + anchor.width - REASK_MENU_WIDTH), maxLeft);
+  const belowTop = anchor.y + anchor.height + REASK_MENU_GAP;
+  const maxTop = Math.max(REASK_MENU_MARGIN, anchor.viewportHeight - REASK_MENU_HEIGHT - REASK_MENU_MARGIN);
+  const aboveTop = anchor.y - REASK_MENU_HEIGHT - REASK_MENU_GAP;
+  const top = belowTop <= maxTop ? belowTop : Math.max(REASK_MENU_MARGIN, Math.min(aboveTop, maxTop));
+
+  return { left, top };
 }
 
 function ThreadEmptyState() {
@@ -136,24 +174,74 @@ const MessageCopyButton = memo(function MessageCopyButton({
   );
 });
 
+const MessageReaskButton = memo(function MessageReaskButton({
+  node,
+  onOpenMenu
+}: {
+  node: ChatTimelineMessageNode;
+  onOpenMenu?: OpenReaskMenu;
+}) {
+  const t = useT();
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
+  const buttonRef = useRef<View | null>(null);
+  const disabled =
+    !onOpenMenu ||
+    node.deliveryStatus === 'pending' ||
+    (!String(node.content || '').trim() && (node.attachments || []).length === 0);
+  const handlePress = useCallback(() => {
+    if (!disabled && onOpenMenu) {
+      onOpenMenu(node, buttonRef);
+    }
+  }, [disabled, node, onOpenMenu]);
+
+  return (
+    <Pressable
+      ref={buttonRef}
+      accessibilityLabel={t('timeline.reask')}
+      accessibilityRole="button"
+      disabled={disabled}
+      hitSlop={8}
+      onPress={handlePress}
+      style={({ pressed }) => [
+        styles.copyButton,
+        disabled && styles.copyButtonDisabled,
+        pressed && styles.copyButtonPressed
+      ]}
+    >
+      <AppIcon
+        usage="timeline.reask"
+        color={disabled ? theme.colors.textTertiary : theme.colors.textSecondary}
+      />
+    </Pressable>
+  );
+});
+
 const MessageFooter = memo(function MessageFooter({
   text,
   timestamp,
   errorReason = '',
   align = 'spread',
-  onCopyText
+  onCopyText,
+  reaskNode,
+  onOpenReaskMenu
 }: {
   text: string;
   timestamp: string;
   errorReason?: string | null;
   align?: 'end' | 'spread';
   onCopyText: (text: string) => void;
+  reaskNode?: ChatTimelineMessageNode;
+  onOpenReaskMenu?: OpenReaskMenu;
 }) {
   const styles = useAppThemeStyles(createStyles);
 
   return (
     <View style={[styles.messageFooter, align === 'end' && styles.messageFooterEnd]}>
-      <MessageCopyButton text={text} onCopyText={onCopyText} />
+      <View style={styles.footerActions}>
+        <MessageCopyButton text={text} onCopyText={onCopyText} />
+        {reaskNode ? <MessageReaskButton node={reaskNode} onOpenMenu={onOpenReaskMenu} /> : null}
+      </View>
       <View style={[styles.footerMeta, align === 'end' && styles.footerMetaEnd]}>
         {timestamp ? (
           <Text allowFontScaling={false} style={styles.metaText}>
@@ -172,10 +260,12 @@ const MessageFooter = memo(function MessageFooter({
 
 const UserQueryRow = memo(function UserQueryRow({
   node,
-  onCopyText
+  onCopyText,
+  onOpenReaskMenu
 }: {
   node: ChatTimelineMessageNode;
   onCopyText: (text: string) => void;
+  onOpenReaskMenu?: OpenReaskMenu;
 }) {
   const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
@@ -195,7 +285,14 @@ const UserQueryRow = memo(function UserQueryRow({
           ) : null}
           <ChatAttachmentStrip attachments={node.attachments || []} variant="message" />
         </View>
-        <MessageFooter text={node.content} timestamp={timestamp} align="end" onCopyText={onCopyText} />
+        <MessageFooter
+          text={node.content}
+          timestamp={timestamp}
+          align="end"
+          onCopyText={onCopyText}
+          reaskNode={node}
+          onOpenReaskMenu={onOpenReaskMenu}
+        />
       </View>
     </View>
   );
@@ -365,6 +462,84 @@ const AwaitingAnswerTimelineRow = memo(function AwaitingAnswerTimelineRow({
   );
 });
 
+const ReaskMenuOption = memo(function ReaskMenuOption({
+  label,
+  iconUsage,
+  disabled,
+  onPress
+}: {
+  label: string;
+  iconUsage: 'timeline.reask' | 'timeline.reaskNewConversation';
+  disabled?: boolean;
+  onPress: () => void;
+}) {
+  const { theme } = useAppTheme();
+  const styles = useAppThemeStyles(createStyles);
+
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.reaskMenuOption,
+        disabled ? styles.reaskMenuOptionDisabled : null,
+        pressed && !disabled ? styles.reaskMenuOptionPressed : null
+      ]}
+    >
+      <AppIcon usage={iconUsage} color={disabled ? theme.colors.textTertiary : theme.colors.textPrimary} />
+      <Text
+        allowFontScaling={false}
+        numberOfLines={1}
+        style={[styles.reaskMenuOptionText, disabled ? styles.reaskMenuOptionTextDisabled : null]}
+      >
+        {label}
+      </Text>
+    </Pressable>
+  );
+});
+
+const ReaskMenuOverlay = memo(function ReaskMenuOverlay({
+  menu,
+  currentDisabled,
+  newConversationDisabled,
+  onClose,
+  onCurrent,
+  onNewConversation
+}: {
+  menu: ReaskMenuState;
+  currentDisabled: boolean;
+  newConversationDisabled: boolean;
+  onClose: () => void;
+  onCurrent: () => void;
+  onNewConversation: () => void;
+}) {
+  const t = useT();
+  const styles = useAppThemeStyles(createStyles);
+  const position = getReaskMenuPosition(menu.anchor);
+
+  return (
+    <View pointerEvents="box-none" style={styles.reaskMenuOverlay}>
+      <Pressable accessibilityLabel={t('timeline.closeReaskMenu')} style={styles.reaskMenuBackdrop} onPress={onClose} />
+      <View style={[styles.reaskMenu, position]}>
+        <ReaskMenuOption
+          label={t('timeline.reaskCurrent')}
+          iconUsage="timeline.reask"
+          disabled={currentDisabled}
+          onPress={onCurrent}
+        />
+        <ReaskMenuOption
+          label={t('timeline.reaskNewConversation')}
+          iconUsage="timeline.reaskNewConversation"
+          disabled={newConversationDisabled}
+          onPress={onNewConversation}
+        />
+      </View>
+    </View>
+  );
+});
+
 function areToolGroupNodesEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
   if (previous.kind !== 'tool-group' || next.kind !== 'tool-group') {
     return true;
@@ -390,17 +565,19 @@ const TimelineRow = memo(
   function TimelineRow({
     item,
     onCopyText,
+    onOpenReaskMenu,
     getInitialRuntimeExpanded,
     onRuntimeExpandedChange
   }: {
     item: ChatTimelineDisplayItem;
     onCopyText: (text: string) => void;
+    onOpenReaskMenu?: OpenReaskMenu;
     getInitialRuntimeExpanded: (nodeId: string, fallback: boolean) => boolean;
     onRuntimeExpandedChange: (nodeId: string, expanded: boolean) => void;
   }) {
     const node = item.node;
     if (item.kind === 'user-query' && node.kind === 'message') {
-      return <UserQueryRow node={node} onCopyText={onCopyText} />;
+      return <UserQueryRow node={node} onCopyText={onCopyText} onOpenReaskMenu={onOpenReaskMenu} />;
     }
     if (item.kind === 'assistant-content' && node.kind === 'message') {
       return (
@@ -436,6 +613,7 @@ const TimelineRow = memo(
   },
   (prev, next) =>
     prev.onCopyText === next.onCopyText &&
+    prev.onOpenReaskMenu === next.onOpenReaskMenu &&
     prev.getInitialRuntimeExpanded === next.getInitialRuntimeExpanded &&
     prev.onRuntimeExpandedChange === next.onRuntimeExpandedChange &&
     prev.item.key === next.item.key &&
@@ -448,9 +626,16 @@ const TimelineRow = memo(
     prev.item.groupIndex === next.item.groupIndex
 );
 
-export const ChatTimelineList = memo(function ChatTimelineList({ timelineState, onCopyText }: ChatTimelineListProps) {
+export const ChatTimelineList = memo(function ChatTimelineList({
+  timelineState,
+  onCopyText,
+  onReaskMessage,
+  reaskCurrentDisabled = false,
+  reaskNewConversationDisabled = false
+}: ChatTimelineListProps) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
+  const threadRef = useRef<View | null>(null);
   const listRef = useRef<FlashListRef<ChatTimelineDisplayItem>>(null);
   const displayModelRef = useRef<ChatTimelineDisplayModel | null>(null);
   const expandedRuntimeNodesRef = useRef(new Map<string, boolean>());
@@ -466,7 +651,9 @@ export const ChatTimelineList = memo(function ChatTimelineList({ timelineState, 
   const pendingScrollFrameRef = useRef<number | null>(null);
   const showScrollToEndRef = useRef(false);
   const tailSignatureRef = useRef<ChatTimelineDisplayTailSignature | null>(null);
+  const reaskMenuRef = useRef<ReaskMenuState | null>(null);
   const [showScrollToEnd, setShowScrollToEnd] = useState(false);
+  const [reaskMenu, setReaskMenuState] = useState<ReaskMenuState | null>(null);
   const displayModel = useMemo(() => {
     const nextModel = buildChatTimelineDisplayModel(timelineState, displayModelRef.current);
     displayModelRef.current = nextModel;
@@ -480,6 +667,63 @@ export const ChatTimelineList = memo(function ChatTimelineList({ timelineState, 
       setShowScrollToEnd(visible);
     }
   }, []);
+  const closeReaskMenu = useCallback(() => {
+    if (!reaskMenuRef.current) {
+      return;
+    }
+    reaskMenuRef.current = null;
+    setReaskMenuState(null);
+  }, []);
+  const handleOpenReaskMenu = useCallback(
+    (node: ChatTimelineMessageNode, anchorRef: ReaskAnchorRef) => {
+      if (!onReaskMessage || !anchorRef.current || !threadRef.current) {
+        return;
+      }
+
+      const root = threadRef.current;
+      const anchor = anchorRef.current;
+      root.measureInWindow((rootX, rootY, rootWidth, rootHeight) => {
+        if (rootWidth <= 0 || rootHeight <= 0) {
+          return;
+        }
+
+        anchor.measureInWindow((x, y, width, height) => {
+          if (width <= 0 || height <= 0) {
+            return;
+          }
+
+          const nextMenu = {
+            node,
+            anchor: {
+              x: x - rootX,
+              y: y - rootY,
+              width,
+              height,
+              viewportWidth: rootWidth,
+              viewportHeight: rootHeight
+            }
+          };
+          reaskMenuRef.current = nextMenu;
+          setReaskMenuState(nextMenu);
+        });
+      });
+    },
+    [onReaskMessage]
+  );
+  const handleCurrentReask = useCallback(() => {
+    const node = reaskMenu?.node;
+    closeReaskMenu();
+    if (node && onReaskMessage && !reaskCurrentDisabled) {
+      onReaskMessage('current', node);
+    }
+  }, [closeReaskMenu, onReaskMessage, reaskCurrentDisabled, reaskMenu]);
+  const handleNewConversationReask = useCallback(() => {
+    const node = reaskMenu?.node;
+    closeReaskMenu();
+    if (node && onReaskMessage && !reaskNewConversationDisabled) {
+      onReaskMessage('new', node);
+    }
+  }, [closeReaskMenu, onReaskMessage, reaskMenu, reaskNewConversationDisabled]);
   const updateScrollToEndVisibility = useCallback(() => {
     const metrics = scrollMetricsRef.current;
     const distanceFromEnd = getDistanceFromEnd(scrollMetricsRef.current);
@@ -537,16 +781,18 @@ export const ChatTimelineList = memo(function ChatTimelineList({ timelineState, 
       <TimelineRow
         item={item}
         onCopyText={onCopyText}
+        onOpenReaskMenu={onReaskMessage ? handleOpenReaskMenu : undefined}
         getInitialRuntimeExpanded={getInitialRuntimeExpanded}
         onRuntimeExpandedChange={handleRuntimeExpandedChange}
       />
     ),
-    [getInitialRuntimeExpanded, handleRuntimeExpandedChange, onCopyText]
+    [getInitialRuntimeExpanded, handleOpenReaskMenu, handleRuntimeExpandedChange, onCopyText, onReaskMessage]
   );
   const handleScrollToEnd = useCallback(() => {
+    closeReaskMenu();
     pendingAutoFollowRef.current = true;
     followTimelineEnd(true);
-  }, [followTimelineEnd]);
+  }, [closeReaskMenu, followTimelineEnd]);
   const updateMetricsFromScrollEvent = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = event.nativeEvent;
@@ -562,10 +808,11 @@ export const ChatTimelineList = memo(function ChatTimelineList({ timelineState, 
   );
   const handleScroll = useCallback(
     (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      closeReaskMenu();
       hasUserScrolledRef.current = true;
       updateMetricsFromScrollEvent(event);
     },
-    [updateMetricsFromScrollEvent]
+    [closeReaskMenu, updateMetricsFromScrollEvent]
   );
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
@@ -624,7 +871,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({ timelineState, 
   }, [clearPendingAutoFollowSchedule]);
 
   return (
-    <View style={styles.thread}>
+    <View ref={threadRef} style={styles.thread}>
       <FlashList
         ref={listRef}
         data={items}
@@ -655,6 +902,17 @@ export const ChatTimelineList = memo(function ChatTimelineList({ timelineState, 
         >
           <AppIcon usage="timeline.scrollToEnd" />
         </Pressable>
+      ) : null}
+
+      {reaskMenu && onReaskMessage ? (
+        <ReaskMenuOverlay
+          menu={reaskMenu}
+          currentDisabled={reaskCurrentDisabled}
+          newConversationDisabled={reaskNewConversationDisabled}
+          onClose={closeReaskMenu}
+          onCurrent={handleCurrentReask}
+          onNewConversation={handleNewConversationReask}
+        />
       ) : null}
     </View>
   );
@@ -793,6 +1051,11 @@ function createStyles(theme: AppThemeTokens) {
       alignSelf: 'flex-end',
       justifyContent: 'flex-end'
     },
+    footerActions: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 2
+    },
     copyButton: {
       width: 28,
       height: 28,
@@ -805,6 +1068,55 @@ function createStyles(theme: AppThemeTokens) {
     },
     copyButtonPressed: {
       opacity: 0.7
+    },
+    reaskMenuOverlay: {
+      ...StyleSheet.absoluteFill,
+      zIndex: 60
+    },
+    reaskMenuBackdrop: {
+      ...StyleSheet.absoluteFill
+    },
+    reaskMenu: {
+      position: 'absolute',
+      width: REASK_MENU_WIDTH,
+      minHeight: REASK_MENU_HEIGHT,
+      paddingVertical: 6,
+      borderRadius: appVisualTokens.radii.md,
+      backgroundColor: theme.colors.surface,
+      borderWidth: 1,
+      borderColor: theme.colors.line,
+      shadowColor: theme.colors.shadow,
+      shadowOffset: {
+        width: 0,
+        height: 10
+      },
+      shadowOpacity: 0.12,
+      shadowRadius: 18,
+      elevation: 4
+    },
+    reaskMenuOption: {
+      minHeight: 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 10,
+      paddingHorizontal: 14
+    },
+    reaskMenuOptionDisabled: {
+      opacity: 0.45
+    },
+    reaskMenuOptionPressed: {
+      backgroundColor: theme.colors.surfaceMuted
+    },
+    reaskMenuOptionText: {
+      flex: 1,
+      minWidth: 0,
+      fontSize: 16,
+      lineHeight: 22,
+      fontWeight: '700',
+      color: theme.colors.textPrimary
+    },
+    reaskMenuOptionTextDisabled: {
+      color: theme.colors.textTertiary
     },
     footerMeta: {
       flex: 1,

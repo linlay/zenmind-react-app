@@ -6,7 +6,12 @@ import { getNotificationMessageDetailApi } from '../../core/api/services/notific
 import { useT } from '../../shared/i18n';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
 import type { ChatSocketStatus } from '../chatRealtime/types';
-import { createChatTimelineState, projectTimelineRuntimeState, type ChatTimelineState } from '../chatTimeline/index.ts';
+import {
+  createChatTimelineState,
+  projectTimelineRuntimeState,
+  type ChatTimelineMessageNode,
+  type ChatTimelineState
+} from '../chatTimeline/index.ts';
 import { shouldApplyChatDetailAsyncResult } from './chatDetailAsyncScope';
 import { deriveChatDetailHeaderRuntimeState, deriveChatComposerPrimaryAction } from './chatDetailViewModel';
 import {
@@ -14,12 +19,19 @@ import {
   getConversationDetail,
   getConversationHistoryScope,
   getConversationInitialTimelineState,
+  getConversationTarget,
   getMessageByServerMessageId,
   upsertServerMessageDetail
 } from './chatRepository';
+import { createChatConversationTarget } from './chatConversationTarget';
 import { normalizeChatConversationHistoryScope } from './chatHistoryScope';
 import { patchDetailFromHomeEvent } from './chatRealtimeUiState';
-import type { ChatConversationHistoryScope, ChatDetailRouteParams, ChatHomeItem } from './types';
+import type {
+  ChatConversationHistoryScope,
+  ChatConversationTarget,
+  ChatDetailRouteParams,
+  ChatHomeItem
+} from './types';
 import { useChatComposerAttachments } from './useChatComposerAttachments';
 
 type ChatDetailNavigation = NativeStackScreenProps<{ ChatDetail: ChatDetailRouteParams }, 'ChatDetail'>['navigation'];
@@ -28,6 +40,7 @@ type UseChatDetailConversationControllerInput = {
   navigation: ChatDetailNavigation;
   conversationId: string;
   conversationSubtitle: string;
+  routeConversationTarget?: ChatConversationTarget | null;
   initialConversation: ChatHomeItem | null;
   routeHistoryScope?: ChatConversationHistoryScope;
   serverMessageId: string;
@@ -37,6 +50,7 @@ type UseChatDetailConversationControllerInput = {
 
 type ConversationRenderPayload = {
   detail: ChatHomeItem | null;
+  conversationTarget: ChatConversationTarget | null;
   historyScope: ChatConversationHistoryScope | null;
   timelineState: ChatTimelineState;
   errorText: string;
@@ -66,6 +80,7 @@ export function useChatDetailConversationController({
   navigation,
   conversationId,
   conversationSubtitle,
+  routeConversationTarget,
   initialConversation,
   routeHistoryScope,
   serverMessageId,
@@ -83,7 +98,14 @@ export function useChatDetailConversationController({
       }),
     [routeHistoryAgentKey, routeHistoryTeamId]
   );
+  const normalizedRouteConversationTarget = useMemo(
+    () => createChatConversationTarget(routeConversationTarget),
+    [routeConversationTarget]
+  );
   const [detail, setDetail] = useState<ChatHomeItem | null>(null);
+  const [conversationTarget, setConversationTarget] = useState<ChatConversationTarget | null>(
+    normalizedRouteConversationTarget
+  );
   const [historyScope, setHistoryScope] = useState<ChatConversationHistoryScope | null>(normalizedRouteHistoryScope);
   const [timelineState, setTimelineState] = useState<ChatTimelineState>(() => createChatTimelineState(conversationId));
   const [isConversationUnavailable, setIsConversationUnavailable] = useState(false);
@@ -105,6 +127,8 @@ export function useChatDetailConversationController({
   const transitionSettledRef = useRef(false);
   const activeConversationIdRef = useRef(conversationId);
   const sendRequestIdRef = useRef(0);
+  const sendingRef = useRef(false);
+  const reaskInFlightRef = useRef(false);
   const isStartingNewConversationRef = useRef(false);
   const skeletonOverlayOpacity = useRef(new Animated.Value(1)).current;
   const skeletonFadeFrameRef = useRef<number | null>(null);
@@ -115,6 +139,14 @@ export function useChatDetailConversationController({
   const runtimeState = useMemo(() => projectTimelineRuntimeState(timelineState), [timelineState]);
   const headerRuntimeState = useMemo(() => deriveChatDetailHeaderRuntimeState(timelineState), [timelineState]);
   const composerRunAction = headerRuntimeState.runAction;
+  const composerRunActionRef = useRef(composerRunAction);
+  const conversationTargetRouteParams = useMemo(
+    () => ({
+      conversationSubtitle: conversationTarget?.subtitle || conversationSubtitle,
+      ...(conversationTarget ? { conversationTarget } : {})
+    }),
+    [conversationSubtitle, conversationTarget]
+  );
   const {
     attachments: composerAttachments,
     readyAttachments,
@@ -159,6 +191,7 @@ export function useChatDetailConversationController({
     (payload: ConversationRenderPayload, markInitialContentReady: boolean) => {
       startTransition(() => {
         setDetail(payload.detail);
+        setConversationTarget(payload.conversationTarget);
         setHistoryScope(payload.historyScope);
         if (!hasReceivedTimelineEventRef.current) {
           setTimelineState(payload.timelineState);
@@ -180,9 +213,19 @@ export function useChatDetailConversationController({
     sendRequestIdRef.current += 1;
     isStartingNewConversationRef.current = false;
     hasObservedPendingSendRef.current = false;
+    sendingRef.current = false;
+    reaskInFlightRef.current = false;
     setDraft('');
     setSending(false);
   }, [conversationId]);
+
+  useEffect(() => {
+    sendingRef.current = sending;
+  }, [sending]);
+
+  useEffect(() => {
+    composerRunActionRef.current = composerRunAction;
+  }, [composerRunAction]);
 
   useEffect(() => {
     if (!sending) {
@@ -197,6 +240,7 @@ export function useChatDetailConversationController({
 
     if (composerRunAction || hasObservedPendingSendRef.current) {
       hasObservedPendingSendRef.current = false;
+      sendingRef.current = false;
       setSending(false);
     }
   }, [composerRunAction, latestUserMessagePending, sending]);
@@ -273,6 +317,7 @@ export function useChatDetailConversationController({
     setIsInitialSkeletonVisible(true);
     skeletonOverlayOpacity.setValue(1);
     setDetail(null);
+    setConversationTarget(normalizedRouteConversationTarget);
     setHistoryScope(normalizedRouteHistoryScope);
     setTimelineState(createChatTimelineState(conversationId));
     setIsConversationUnavailable(false);
@@ -345,12 +390,15 @@ export function useChatDetailConversationController({
           hydrationError = error;
         }
 
-        const [nextDetail, nextTimelineState, nextHistoryScope] = await Promise.all([
+        const [nextDetail, nextTimelineState, nextHistoryScope, nextConversationTarget] = await Promise.all([
           getConversationDetail(conversationId),
           getConversationInitialTimelineState(conversationId, 60),
           normalizedRouteHistoryScope
             ? Promise.resolve(normalizedRouteHistoryScope)
-            : getConversationHistoryScope(conversationId)
+            : getConversationHistoryScope(conversationId),
+          normalizedRouteConversationTarget
+            ? Promise.resolve(normalizedRouteConversationTarget)
+            : getConversationTarget(conversationId)
         ]);
 
         if (!mounted) {
@@ -360,6 +408,7 @@ export function useChatDetailConversationController({
         publishConversationPayload(
           {
             detail: nextDetail,
+            conversationTarget: nextConversationTarget,
             historyScope: nextHistoryScope,
             timelineState: nextTimelineState,
             errorText: hydrationError
@@ -384,6 +433,7 @@ export function useChatDetailConversationController({
         publishConversationPayload(
           {
             detail: null,
+            conversationTarget: normalizedRouteConversationTarget,
             historyScope: normalizedRouteHistoryScope,
             timelineState: createChatTimelineState(conversationId),
             errorText: nextErrorText
@@ -489,6 +539,7 @@ export function useChatDetailConversationController({
     clearSkeletonFadeSchedule,
     conversationId,
     fromNotification,
+    normalizedRouteConversationTarget,
     normalizedRouteHistoryScope,
     reloadSeed,
     skeletonOverlayOpacity,
@@ -500,7 +551,7 @@ export function useChatDetailConversationController({
   const handleSend = useCallback(async () => {
     const nextDraft = draft.trim();
     const nextAttachments = readyAttachments;
-    if ((!nextDraft && nextAttachments.length === 0) || sending) {
+    if ((!nextDraft && nextAttachments.length === 0) || sending || reaskInFlightRef.current) {
       return;
     }
 
@@ -508,6 +559,7 @@ export function useChatDetailConversationController({
     const targetConversationId = conversationId;
     sendRequestIdRef.current = requestId;
     hasObservedPendingSendRef.current = false;
+    sendingRef.current = true;
     setSending(true);
     setDraft('');
     setErrorText('');
@@ -529,9 +581,90 @@ export function useChatDetailConversationController({
       setDraft(nextDraft);
       setErrorText(error instanceof Error ? error.message : String(error));
       hasObservedPendingSendRef.current = false;
+      sendingRef.current = false;
       setSending(false);
     }
   }, [clearAttachments, conversationId, draft, readyAttachments, sending]);
+
+  const handleReaskMessage = useCallback(
+    async (target: 'current' | 'new', node: ChatTimelineMessageNode) => {
+      const nextContent = String(node.content || '').trim();
+      const nextAttachments = node.attachments || [];
+      if ((!nextContent && nextAttachments.length === 0) || node.deliveryStatus === 'pending') {
+        return;
+      }
+      if (reaskInFlightRef.current || sendingRef.current) {
+        return;
+      }
+      if (composerRunActionRef.current) {
+        return;
+      }
+
+      const targetConversationId = conversationId;
+      const requestId = sendRequestIdRef.current + 1;
+      sendRequestIdRef.current = requestId;
+      reaskInFlightRef.current = true;
+      hasObservedPendingSendRef.current = false;
+      setErrorText('');
+
+      try {
+        if (target === 'current') {
+          sendingRef.current = true;
+          setSending(true);
+          await chatSyncService.sendMessage(targetConversationId, nextContent, nextAttachments);
+          return;
+        }
+
+        const scope = historyScope;
+        if (!scope) {
+          throw new Error(t('chatDetail.error.missingConversationContext'));
+        }
+
+        const created = await createConversationForHistoryScope(scope);
+        if (activeConversationIdRef.current !== targetConversationId) {
+          return;
+        }
+        if (!created) {
+          throw new Error(t('chatDetail.error.missingConversationContext'));
+        }
+
+        await chatSyncService.sendMessage(created.conversation.conversationId, nextContent, nextAttachments, {
+          dispatchErrorMode: 'return'
+        });
+        if (activeConversationIdRef.current !== targetConversationId) {
+          return;
+        }
+
+        navigation.replace('ChatDetail', {
+          conversationId: created.conversation.conversationId,
+          ...conversationTargetRouteParams,
+          initialConversation: created.conversation,
+          ...(created.historyScope ? { historyScope: created.historyScope } : {}),
+          skipInitialReconcile: created.isLocalDraft
+        });
+      } catch (error) {
+        if (
+          !shouldApplyChatDetailAsyncResult({
+            activeConversationId: activeConversationIdRef.current,
+            targetConversationId,
+            currentRequestId: sendRequestIdRef.current,
+            requestId
+          })
+        ) {
+          return;
+        }
+        setErrorText(error instanceof Error ? error.message : String(error));
+        hasObservedPendingSendRef.current = false;
+        if (target === 'current') {
+          sendingRef.current = false;
+          setSending(false);
+        }
+      } finally {
+        reaskInFlightRef.current = false;
+      }
+    },
+    [conversationId, conversationTargetRouteParams, historyScope, navigation, t]
+  );
 
   const handleStop = useCallback(() => {
     chatSyncService.stopStreaming(conversationId);
@@ -575,7 +708,7 @@ export function useChatDetailConversationController({
 
       navigation.replace('ChatDetail', {
         conversationId: created.conversation.conversationId,
-        conversationSubtitle,
+        ...conversationTargetRouteParams,
         initialConversation: created.conversation,
         ...(created.historyScope ? { historyScope: created.historyScope } : {}),
         skipInitialReconcile: created.isLocalDraft
@@ -591,7 +724,7 @@ export function useChatDetailConversationController({
         isStartingNewConversationRef.current = false;
       }
     }
-  }, [conversationId, conversationSubtitle, historyScope, navigation, summary, t]);
+  }, [conversationId, conversationTargetRouteParams, historyScope, navigation, summary, t]);
 
   const handleRetryFromNotification = useCallback(() => {
     setReloadSeed((value) => value + 1);
@@ -599,6 +732,7 @@ export function useChatDetailConversationController({
 
   return {
     summary,
+    conversationTarget,
     historyScope,
     timelineState,
     runtimeState,
@@ -613,6 +747,7 @@ export function useChatDetailConversationController({
     composerAttachments,
     composerAction,
     handleSend,
+    handleReaskMessage,
     handleStop,
     handleResume,
     handleStartNewConversation,

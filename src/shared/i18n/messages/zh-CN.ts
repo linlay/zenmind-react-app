@@ -331,6 +331,10 @@ export const zhCN = {
   'timeline.empty.title': '暂无消息',
   'timeline.empty.body': '从下方输入框发送第一条消息',
   'timeline.copy': '复制内容',
+  'timeline.reask': '重问',
+  'timeline.reaskCurrent': '重问',
+  'timeline.reaskNewConversation': '新对话重问',
+  'timeline.closeReaskMenu': '关闭重问菜单',
   'timeline.answerSubmitted': '已提交回答',
   'timeline.collapseAnswer': '收起回答',
   'timeline.expandAnswer': '展开回答',
@@ -342,6 +346,7 @@ export const zhCN = {
   'copyToast.default': '已复制到剪贴板',
 
   'runtime.duration': '耗时 {duration}',
+  'runtime.reasoningProcess': '思考过程',
   'runtime.toolCall': '工具调用',
   'runtime.message': '消息',
   'runtime.awaiting.approval': '等待审批',

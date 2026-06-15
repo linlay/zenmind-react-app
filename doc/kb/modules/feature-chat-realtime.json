@@ -54,7 +54,7 @@
     "全局 WebSocket 连接状态单例",
     "发送中/ack/失败消息生命周期",
     "bootstrap/reconnect 时的 outbox replay",
-    "activeConversationId、active outgoing/attach stream abort handle、stream buffer、timeline state、awaiting question 本地提交投影和 per-conversation reconcile single-flight",
+    "activeConversationId、active outgoing/attach stream abort handle、stream buffer、timeline state、awaiting question 本地提交投影、短期本地终止 run guard、同会话 stop 幂等 guard 和 per-conversation reconcile single-flight",
     "开发态 resetLocalCacheForDevelopment 会停止 transport、清理内存任务并委托持久化层清缓存",
     "prewarmHome 委托 chatRepository 预热首页目录，不启动 WebSocket，也不在 service 内维护目录真源",
     "开发态 WS frame ring buffer，不写 SQLite、MMKV 或网络"
@@ -63,7 +63,7 @@
   "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime", "modify-runtime-environment"],
   "impactChecklist": [
     "transport 层只负责 /ap/ws 帧处理和 request/stream 发送，业务写入继续走 chatSyncService 和 chatRepository。",
-    "详情页停止/继续生成和 awaiting question 提交只能调用 chatSyncService；stopStreaming 要同时处理 attach stream 和 outgoing query stream，并通过同一份 ChatTimelineState 发出 run.cancel / timeline replace，resumeStreaming 复用 attach + 单会话 reconcile，awaiting submit 成功后用 awaiting.answer 本地事件更新 timeline，不让页面直接操作 WebSocket。",
+    "详情页停止/继续生成和 awaiting question 提交只能调用 chatSyncService；stopStreaming 要同时处理 attach stream 和 outgoing query stream、调用 /api/interrupt，并通过同一份 ChatTimelineState 本地 cancel 收敛当前会话当前可见生成 scope 的 active/streaming 节点、清空 activeRunId、不创建 ghost run、不改写历史 run duration，记录短期本地终止 run guard 以防 stale /api/chat detail 复活同 run；/api/interrupt 的 run_not_found/404 视为服务端已停止，不触发失败式即时 reconcile；resumeStreaming 复用 attach + 单会话 reconcile，awaiting submit 成功后用 awaiting.answer 本地事件更新 timeline，不让页面直接操作 WebSocket。",
     "WS 调试记录只能作为开发态旁路观测，不参与业务 type 路由、落库或 UI 同步事件。",
     "WS URL 默认由 getApiBaseUrl 推导到 /ap/ws，EXPO_PUBLIC_CHAT_WS_URL 只作为开发态 override。",
     "重连逻辑要继续在 bootstrap/reconnect 时 flush pending outbox，并只触发单会话 reconcile。",

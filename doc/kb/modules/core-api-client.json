@@ -139,11 +139,12 @@
     }
   ],
   "generated": {
-    "fileCount": 6,
+    "fileCount": 7,
     "files": [
       "src/core/api/apiClient.ts",
       "src/core/api/services/chatApi.ts",
       "src/core/api/services/chatEventProtocol.ts",
+      "src/core/api/services/kanbanApi.ts",
       "src/core/api/services/notificationApi.ts",
       "src/core/api/services/templateApi.ts",
       "src/core/api/services/uploadApi.ts"
@@ -201,6 +202,26 @@
         "toFiniteNumber",
         "toText"
       ],
+      "src/core/api/services/kanbanApi.ts": [
+        "KanbanAgent",
+        "KanbanChangeResult",
+        "KanbanDesktopAgentOption",
+        "KanbanDesktopSession",
+        "KanbanDesktopStatus",
+        "KanbanIssue",
+        "KanbanIssueInput",
+        "KanbanIssueUpdateInput",
+        "KanbanPriority",
+        "KanbanRunState",
+        "KanbanSnapshot",
+        "KanbanStatus",
+        "createKanbanIssueApi",
+        "deleteKanbanIssueApi",
+        "getKanbanSnapshotApi",
+        "kanbanRpcApi",
+        "moveKanbanIssueApi",
+        "updateKanbanIssueApi"
+      ],
       "src/core/api/services/notificationApi.ts": [
         "NotificationMessageDetailResponse",
         "PushTokenPlatform",
@@ -230,6 +251,7 @@
     "actualDependedBy": [
       "app-development-debug",
       "app-shell-navigation",
+      "feature-agent-task-board",
       "feature-chat-persistence",
       "feature-chat-realtime",
       "feature-chat-timeline",

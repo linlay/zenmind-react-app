@@ -22,6 +22,14 @@ export type ChatConversationHistoryScope = {
   teamId: string | null;
 };
 
+export type ChatConversationTarget = {
+  kind: ChatDirectoryKind;
+  title: string;
+  subtitle: string;
+  agentKey: string | null;
+  teamId: string | null;
+};
+
 export type ChatConversationHistoryPage = {
   items: ChatHomeItem[];
   total: number;
@@ -77,6 +85,7 @@ export type ChatHomeProjection = {
 export type ChatDetailRouteParams = {
   conversationId: string;
   conversationSubtitle?: string;
+  conversationTarget?: ChatConversationTarget | null;
   initialConversation?: ChatHomeItem;
   historyScope?: ChatConversationHistoryScope;
   serverMessageId?: string;

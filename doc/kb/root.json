@@ -66,7 +66,7 @@
     "doc/module-reference.md",
     "doc/ui-visual-theme.md"
   ],
-  "generatedAt": "2026-06-11T09:49:14.027Z",
+  "generatedAt": "2026-06-15T06:39:04.142Z",
   "catalogs": {
     "modules": "doc/kb/catalog/modules.json",
     "flows": "doc/kb/catalog/flows.json",
@@ -77,7 +77,7 @@
     "moduleCount": 17,
     "flowCount": 5,
     "taskCount": 13,
-    "sourceFileCount": 120,
+    "sourceFileCount": 123,
     "factsRef": "doc/kb/generated/project-facts.json",
     "appEntryChain": [
       {

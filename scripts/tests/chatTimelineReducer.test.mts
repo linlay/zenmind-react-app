@@ -4,11 +4,14 @@ import test from 'node:test';
 import type { ChatMessageItem } from '../../src/features/chatPersistence/types.ts';
 import {
   applyChatTimelineEvent,
+  applyChatTimelineLocalCancel,
   applyChatTimelineMessage,
   applyChatTimelineStreamDelta,
   buildChatTimelineDisplayItems,
+  createChatTimelineState,
   deriveChatTimelineState,
   deriveChatTimelineStateFromMessages,
+  getChatTimelineActiveRunId,
   mergeChatTimelineState,
   patchChatTimelineMessage,
   projectTimelineMessages,
@@ -288,6 +291,279 @@ test('timeline reducer closes active run children when the run reaches a termina
   assert.equal(activeChildren.length, 0);
   assert.equal(message?.streamStatus, 'done');
   assert.equal(runtime.awaiting, null);
+});
+
+test('timeline local cancel closes active run and streaming children', () => {
+  let state = createChatTimelineState('chat-1');
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'run.start',
+    runId: 'run-1',
+    timestamp: 100,
+  });
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'reasoning.start',
+    runId: 'run-1',
+    reasoningId: 'reason-1',
+    text: 'thinking',
+    timestamp: 105,
+  });
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'content.delta',
+    runId: 'run-1',
+    contentId: 'answer-1',
+    delta: 'partial',
+    timestamp: 110,
+  });
+
+  state = applyChatTimelineLocalCancel(state, 'chat-1', {
+    runId: 'run-1',
+    timestamp: 120,
+  });
+
+  assert.equal(state.activeRunId, '');
+  assert.equal(getChatTimelineActiveRunId(state), '');
+  for (const node of Object.values(state.nodesById)) {
+    if (node.runId !== 'run-1') {
+      continue;
+    }
+    assert.notEqual(node.lifecycle, 'active');
+    if ('streaming' in node) {
+      assert.equal(node.streaming, false);
+    }
+  }
+  const runNode = Object.values(state.nodesById).find(
+    (node) => node.kind === 'run' && node.runId === 'run-1'
+  );
+  assert.equal(runNode?.lifecycle, 'cancelled');
+});
+
+test('timeline local cancel handles active run events without a run id', () => {
+  let state = createChatTimelineState('chat-1');
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'run.start',
+    timestamp: 100,
+  });
+
+  state = applyChatTimelineLocalCancel(state, 'chat-1', {
+    timestamp: 110,
+  });
+
+  assert.equal(state.activeRunId, '');
+  assert.equal(getChatTimelineActiveRunId(state), '');
+  const runNode = Object.values(state.nodesById).find((node) => node.kind === 'run');
+  assert.equal(runNode?.lifecycle, 'cancelled');
+});
+
+test('timeline local cancel closes the visible runless scope without creating a ghost run', () => {
+  let state = createChatTimelineState('chat-1');
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'content.delta',
+    contentId: 'answer-1',
+    delta: 'partial',
+    timestamp: 100,
+  });
+  state = {
+    ...state,
+    activeRunId: 'ghost-run',
+    revision: state.revision + 1,
+  };
+
+  state = applyChatTimelineLocalCancel(state, 'chat-1', {
+    runId: 'ghost-run',
+    timestamp: 110,
+  });
+
+  assert.equal(state.activeRunId, '');
+  assert.equal(getChatTimelineActiveRunId(state), '');
+  assert.equal(
+    Object.values(state.nodesById).some(
+      (node) => node.kind === 'run' && node.runId === 'ghost-run'
+    ),
+    false
+  );
+  for (const node of Object.values(state.nodesById)) {
+    assert.notEqual(node.lifecycle, 'active');
+    if ('streaming' in node) {
+      assert.equal(node.streaming, false);
+    }
+  }
+});
+
+test('timeline local cancel does not rewrite completed run duration', () => {
+  let state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'content.delta',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      delta: 'done',
+      timestamp: 120,
+    },
+    {
+      type: 'run.complete',
+      runId: 'run-1',
+      timestamp: 180,
+    },
+  ]);
+  const runNodeBefore = Object.values(state.nodesById).find(
+    (node) => node.kind === 'run' && node.runId === 'run-1'
+  );
+  state = {
+    ...state,
+    activeRunId: 'ghost-run',
+    revision: state.revision + 1,
+  };
+
+  state = applyChatTimelineLocalCancel(state, 'chat-1', {
+    runId: 'ghost-run',
+    timestamp: 240,
+  });
+  const runNodeAfter = Object.values(state.nodesById).find(
+    (node) => node.kind === 'run' && node.runId === 'run-1'
+  );
+
+  assert.equal(state.activeRunId, '');
+  assert.equal(runNodeBefore?.durationMs, 80);
+  assert.equal(runNodeAfter?.durationMs, 80);
+  assert.equal(runNodeAfter?.lifecycle, 'complete');
+  assert.equal(
+    Object.values(state.nodesById).some(
+      (node) => node.kind === 'run' && node.runId === 'ghost-run'
+    ),
+    false
+  );
+});
+
+test('timeline merge keeps a locally cancelled run idle when remote replay is stale active', () => {
+  let current = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'content.delta',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      delta: 'partial',
+      timestamp: 110,
+    },
+  ]);
+  current = applyChatTimelineLocalCancel(current, 'chat-1', {
+    runId: 'run-1',
+    timestamp: 120,
+  });
+  const staleRemote = deriveChatTimelineState('chat-1', [
+    {
+      type: 'request.query',
+      requestId: 'req-1',
+      message: 'hello',
+      timestamp: 90,
+    },
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'content.delta',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      delta: 'partial from stale detail',
+      timestamp: 115,
+    },
+  ]);
+
+  const merged = mergeChatTimelineState(current, staleRemote, {
+    preserveTerminalRunIds: ['run-1'],
+  });
+  const activeRunNodes = Object.values(merged.nodesById).filter(
+    (node) =>
+      node.runId === 'run-1' &&
+      (node.lifecycle === 'active' || ('streaming' in node && node.streaming))
+  );
+  const runNode = Object.values(merged.nodesById).find(
+    (node) => node.kind === 'run' && node.runId === 'run-1'
+  );
+
+  assert.equal(merged.activeRunId, '');
+  assert.equal(getChatTimelineActiveRunId(merged), '');
+  assert.equal(activeRunNodes.length, 0);
+  assert.equal(runNode?.lifecycle, 'cancelled');
+});
+
+test('timeline merge still accepts a different active run after a local cancel guard', () => {
+  let current = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+  ]);
+  current = applyChatTimelineLocalCancel(current, 'chat-1', {
+    runId: 'run-1',
+    timestamp: 120,
+  });
+  const remote = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-2',
+      timestamp: 200,
+    },
+  ]);
+
+  const merged = mergeChatTimelineState(current, remote, {
+    preserveTerminalRunIds: ['run-1'],
+  });
+
+  assert.equal(merged.activeRunId, 'run-2');
+  assert.equal(getChatTimelineActiveRunId(merged), 'run-2');
+});
+
+test('timeline merge suppresses a guarded ghost run without fabricating duration', () => {
+  const current = {
+    ...createChatTimelineState('chat-1'),
+    activeRunId: '',
+    revision: 1,
+  };
+  const staleRemote = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'ghost-run',
+      timestamp: 100,
+    },
+    {
+      type: 'content.delta',
+      runId: 'ghost-run',
+      contentId: 'answer-1',
+      delta: 'partial from stale detail',
+      timestamp: 110,
+    },
+  ]);
+
+  const merged = mergeChatTimelineState(current, staleRemote, {
+    preserveTerminalRunIds: ['ghost-run'],
+  });
+
+  assert.equal(merged.activeRunId, '');
+  assert.equal(getChatTimelineActiveRunId(merged), '');
+  assert.equal(
+    Object.values(merged.nodesById).some(
+      (node) =>
+        node.runId === 'ghost-run' &&
+        (node.lifecycle === 'active' || ('streaming' in node && node.streaming))
+    ),
+    false
+  );
+  const runNode = Object.values(merged.nodesById).find(
+    (node) => node.kind === 'run' && node.runId === 'ghost-run'
+  );
+  assert.equal(runNode?.lifecycle, 'cancelled');
+  assert.equal(runNode?.durationMs, null);
 });
 
 test('timeline reducer merges tool snapshot with runless string result', () => {

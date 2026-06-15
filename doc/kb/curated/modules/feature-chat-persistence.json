@@ -11,6 +11,7 @@
     "提供 Chat 首页目录列表和详情页样例，演示冷启动、目录+会话摘要合成刷新、消息级实时 patch、固定顶部 Header、分页、整页骨架屏遮罩、轻量消息流、紧凑底部输入栏和按需历史抽屉；首页首屏先用 MMKV 快照回显，再通过 repository 预热 SQLite 目录切片。",
     "首页点击无 latest_conversation_id 的 agent/team 目录项时，通过 repository 按目录 scope 复用或创建本地空 conversation 后再进入详情；空 conversation 不抢占目录 latest_conversation_id，首条消息写入后再刷新目录投影。",
     "首页左侧新对话入口通过左侧 agents/teams 浮层分页读取目录 catalog，点击目录卡片后通过 repository 按 scope 创建全新本地空 conversation 并进入详情。",
+    "首页进入详情页时随 route 传递轻量 ChatConversationTarget 供 Header 首帧展示 agent/team 名称；通知或深链缺失 target 时，详情页 controller 再通过 repository 按 conversation agent_key/team_id 反查目录显示信息。",
     "详情页左上角新建入口通过 repository 按当前 agent/team history scope 创建本地空 conversation，并用 ChatDetail route replace 切换到新会话；空 conversation 仍不抢占目录 latest_conversation_id。",
     "详情页历史抽屉按当前 agent/team scope 读取 conversations 摘要切片，展示会话级未读蓝点、总数和未读会话数；点击历史会话通过 ChatDetail route 切换 conversationId，一键已读继续委托 chatSyncService.markScopeRead。",
     "详情页由 ChatDetailScreen 负责页面组合，加载/订阅/发送/停止/继续/awaiting question 提交/输入区主操作派生/头部运行态、输入区结构化用量派生/骨架屏入场收敛到 useChatDetailConversationController，普通 awaiting overlay 与收起后重开入口收敛到 useChatDetailAwaitingOverlay，question awaiting 使用 ChatAwaitingDock 贴底展示，历史抽屉与复制提示收敛到 useChatDetailLocalUiState；Header、Timeline 列表、Composer、ChatUsageStats、历史抽屉和骨架屏分别下沉到 components 内部展示组件。",
@@ -185,6 +186,12 @@
       "symbol": "getConversationHistoryScope",
       "kind": "query",
       "description": "按 conversationId 反查历史抽屉的 agent/team scope，供通知或深链进入详情页时补齐历史范围。"
+    },
+    {
+      "file": "src/features/chatPersistence/chatRepository.ts",
+      "symbol": "getConversationTarget",
+      "kind": "query",
+      "description": "按 conversationId 反查 agent/team 目录显示信息，供通知或深链进入详情页时补齐 Header 对话对象名称。"
     },
     {
       "file": "src/features/chatPersistence/chatHistoryScope.ts",

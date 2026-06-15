@@ -5,7 +5,7 @@
   "sourceOfTruth": [
     "消息先落 SQLite 和 outbox，再尝试发给 WebSocket。",
     "ack 或 stream done/error 由后台回调通过 repository patch 命中消息状态和会话摘要。",
-    "详情页停止/继续生成只通过 chatSyncService 管理 active outgoing/attach stream 和 timeline，不在页面层直接操作 WebSocket。"
+    "详情页停止/继续生成只通过 chatSyncService 管理 active outgoing/attach stream、/api/interrupt、activeRunId、本地终止 run guard 和 timeline，不在页面层直接操作 WebSocket。"
   ],
   "steps": [
     {
@@ -52,7 +52,7 @@
     },
     {
       "order": 7,
-      "label": "详情页停止生成调用 chatSyncService.stopStreaming，中断 active outgoing/attach stream 并通过 feature-chat-timeline 发出 run.cancel；继续生成调用 chatSyncService.resumeStreaming 复用 attach 和单会话 reconcile。",
+      "label": "详情页停止生成调用 chatSyncService.stopStreaming，中断 active outgoing/attach stream、调用 /api/interrupt，并通过 feature-chat-timeline 本地 cancel 收敛 active/streaming 节点、清空 activeRunId、记录本地终止 run guard，后续 reconcile 合并 stale /api/chat detail 时不允许同 run active 状态复活；继续生成调用 chatSyncService.resumeStreaming 复用 attach 和单会话 reconcile。",
       "moduleId": "feature-chat-realtime",
       "file": "src/features/chatRealtime/chatSyncService.ts",
       "symbol": "stopStreaming"
