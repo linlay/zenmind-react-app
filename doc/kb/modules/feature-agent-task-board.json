@@ -19,7 +19,7 @@
       "description": "Terminal/任务 Tab 挂载的任务流转看板移动端设计稿。"
     }
   ],
-  "dependsOn": ["shared-screen-header", "shared-visual-foundation", "shared-i18n"],
+  "dependsOn": ["core-api-client", "shared-screen-header", "shared-visual-foundation", "shared-i18n"],
   "dependedBy": ["app-shell-navigation"],
   "stateTouches": [
     "看板队列筛选 selectedQueue 本地 UI 状态",

@@ -1,4 +1,4 @@
-import type { AwaitingQuestionSubmitParamData, AwaitingSubmitPayloadData } from '../../../../core/api/services/chatApi';
+import type { AwaitingQuestionSubmitParamData } from '../../../../core/api/services/chatApi';
 import { defaultT, type TFunction } from '../../../../shared/i18n/translate.ts';
 import type { ChatTimelineAwaitingQuestion, ChatTimelineAwaitingQuestionOption } from '../../../chatTimeline/index.ts';
 
@@ -109,8 +109,16 @@ export function shouldAutoAdvanceAwaitingQuestion(question: ChatTimelineAwaiting
   return question.type === 'select';
 }
 
+export function isDateQuestionType(question: ChatTimelineAwaitingQuestion): boolean {
+  return question.type === 'date' || question.type === 'datetime';
+}
+
 export function getAwaitingDateFormat(question: ChatTimelineAwaitingQuestion): string {
   return question.type === 'datetime' ? 'YYYY-MM-DD HH:mm:ss' : 'YYYY-MM-DD';
+}
+
+function padDatePart(value: number): string {
+  return String(value).padStart(2, '0');
 }
 
 function isValidDateParts(year: number, month: number, day: number): boolean {
@@ -118,18 +126,54 @@ function isValidDateParts(year: number, month: number, day: number): boolean {
   return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day;
 }
 
+export function parseAwaitingDateAnswer(question: ChatTimelineAwaitingQuestion, answer: unknown): Date | null {
+  if (!isDateQuestionType(question) || typeof answer !== 'string') {
+    return null;
+  }
+
+  if (question.type === 'date') {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(answer.trim());
+    if (!match) {
+      return null;
+    }
+
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    return isValidDateParts(year, month, day) ? new Date(year, month - 1, day) : null;
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2}) ([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/.exec(answer.trim());
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hours = Number(match[4]);
+  const minutes = Number(match[5]);
+  const seconds = Number(match[6]);
+  return isValidDateParts(year, month, day) ? new Date(year, month - 1, day, hours, minutes, seconds) : null;
+}
+
+export function formatAwaitingDateAnswer(question: ChatTimelineAwaitingQuestion, date: Date): string {
+  const year = date.getFullYear();
+  const month = padDatePart(date.getMonth() + 1);
+  const day = padDatePart(date.getDate());
+  const dateText = `${year}-${month}-${day}`;
+  if (question.type !== 'datetime') {
+    return dateText;
+  }
+
+  const hours = padDatePart(date.getHours());
+  const minutes = padDatePart(date.getMinutes());
+  const seconds = padDatePart(date.getSeconds());
+  return `${dateText} ${hours}:${minutes}:${seconds}`;
+}
+
 export function isValidAwaitingDateAnswer(question: ChatTimelineAwaitingQuestion, answer: unknown): boolean {
-  if (typeof answer !== 'string') {
-    return false;
-  }
-
-  if (getAwaitingDateFormat(question) === 'YYYY-MM-DD') {
-    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(answer);
-    return match ? isValidDateParts(Number(match[1]), Number(match[2]), Number(match[3])) : false;
-  }
-
-  const match = /^(\d{4})-(\d{2})-(\d{2}) ([01]\d|2[0-3]):([0-5]\d):([0-5]\d)$/.exec(answer);
-  return match ? isValidDateParts(Number(match[1]), Number(match[2]), Number(match[3])) : false;
+  return parseAwaitingDateAnswer(question, answer) !== null;
 }
 
 export function getSelectOptionValue(option: ChatTimelineAwaitingQuestionOption): string {
@@ -263,17 +307,32 @@ export function buildQuestionSubmitParams(
   });
 }
 
-export function buildQuestionSubmitPayload(input: {
-  runId: string;
-  awaitingId: string;
-  questions: readonly ChatTimelineAwaitingQuestion[];
-  values: readonly AwaitingQuestionDraft[];
-}): AwaitingSubmitPayloadData {
-  return {
-    runId: input.runId,
-    awaitingId: input.awaitingId,
-    params: buildQuestionSubmitParams(input.questions, input.values)
-  };
+export function resolveAwaitingCountdownDeadline(input: {
+  createdAt: number | null | undefined;
+  timeout: number | null | undefined;
+  displayedAt: number;
+}): number | null {
+  const timeout = Number(input.timeout);
+  if (!Number.isFinite(timeout) || timeout <= 0) {
+    return null;
+  }
+
+  const createdAt = Number(input.createdAt);
+  const remoteDeadline = Number.isFinite(createdAt) && createdAt > 0 ? createdAt + timeout : 0;
+  return remoteDeadline > input.displayedAt ? remoteDeadline : input.displayedAt + timeout;
+}
+
+export function getAwaitingCountdownRemainingSeconds(deadline: number | null | undefined, now: number): number | null {
+  if (deadline === null || deadline === undefined) {
+    return null;
+  }
+
+  const normalizedDeadline = Number(deadline);
+  if (!Number.isFinite(normalizedDeadline)) {
+    return null;
+  }
+
+  return Math.max(0, Math.ceil((normalizedDeadline - now) / 1000));
 }
 
 export function toggleSelectAnswer(

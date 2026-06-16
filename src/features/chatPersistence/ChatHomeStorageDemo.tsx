@@ -203,33 +203,35 @@ const ChatRow = memo(function ChatRow({
       >
         <AgentAvatar type={item.kind} icon={item.icon} fallbackSeed={item.agentKey || item.teamId || item.title} />
 
-        <View style={styles.chatRowMain}>
-          <Text numberOfLines={1} style={styles.chatTitle}>
-            {item.title}
-          </Text>
-          <Text numberOfLines={1} style={styles.chatSummary}>
-            {item.lastMessagePreview}
-          </Text>
-        </View>
+        <View style={styles.chatRowBody}>
+          <View style={styles.chatRowMain}>
+            <Text numberOfLines={1} style={styles.chatTitle}>
+              {item.title}
+            </Text>
+            <Text numberOfLines={1} style={styles.chatSummary}>
+              {item.lastMessagePreview}
+            </Text>
+          </View>
 
-        <View style={styles.chatRowMeta}>
-          <Text numberOfLines={1} style={styles.chatTime}>
-            {item.lastMessageTimeLabel}
-          </Text>
-          <View style={styles.chatRowMetaBottom}>
-            {item.unreadCount > 0 ? (
-              <View style={styles.unreadBadge}>
-                <Text numberOfLines={1} style={styles.unreadBadgeText}>
-                  {item.unreadLabel}
-                </Text>
-              </View>
-            ) : null}
-            {item.pinnedAt > 0 ? (
-              <View style={styles.pinnedMarker}>
-                <AppIcon usage="chatHome.rowPinned" />
-              </View>
-            ) : null}
-            {item.unreadCount <= 0 && item.pinnedAt <= 0 ? <View style={styles.unreadBadgePlaceholder} /> : null}
+          <View style={styles.chatRowMeta}>
+            <Text numberOfLines={1} style={styles.chatTime}>
+              {item.lastMessageTimeLabel}
+            </Text>
+            <View style={styles.chatRowMetaBottom}>
+              {item.unreadCount > 0 ? (
+                <View style={styles.unreadBadge}>
+                  <Text numberOfLines={1} style={styles.unreadBadgeText}>
+                    {item.unreadLabel}
+                  </Text>
+                </View>
+              ) : null}
+              {item.pinnedAt > 0 ? (
+                <View style={styles.pinnedMarker}>
+                  <AppIcon usage="chatHome.rowPinned" />
+                </View>
+              ) : null}
+              {item.unreadCount <= 0 && item.pinnedAt <= 0 ? <View style={styles.unreadBadgePlaceholder} /> : null}
+            </View>
           </View>
         </View>
       </View>
@@ -750,6 +752,7 @@ export function ChatHomeStorageDemo() {
     []
   );
   const listBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
+  const isListEmpty = listItems.length === 0;
   const pinActionLabel = pinActionTarget?.pinnedAt ? t('chatHome.pin.cancel') : t('chatHome.pin.set');
   const pinMenuActionCount = pinActionTarget?.unreadCount ? 2 : 1;
   const pinMenuPosition = useMemo(() => {
@@ -772,7 +775,12 @@ export function ChatHomeStorageDemo() {
   return (
     <View style={styles.screen}>
       <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
-        <ScreenHeader title={t('chatHome.title')} leftActions={headerLeftActions} rightActions={headerRightActions} />
+        <ScreenHeader
+          title={t('chatHome.title')}
+          leftActions={headerLeftActions}
+          rightActions={headerRightActions}
+          style={isListEmpty ? styles.headerWithoutDivider : undefined}
+        />
       </SafeAreaView>
 
       <View style={styles.listShell}>
@@ -858,6 +866,9 @@ function createStyles(theme: AppThemeTokens) {
     headerSafeArea: {
       backgroundColor: theme.colors.surface
     },
+    headerWithoutDivider: {
+      borderBottomWidth: 0
+    },
     listShell: {
       flex: 1,
       backgroundColor: theme.colors.surface
@@ -899,12 +910,21 @@ function createStyles(theme: AppThemeTokens) {
       flex: 1,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: 12,
-      paddingHorizontal: appVisualTokens.spacing.xl,
+      gap: appVisualTokens.spacing.md,
+      paddingLeft: appVisualTokens.spacing.xl,
+      backgroundColor: theme.colors.surface
+    },
+    chatRowBody: {
+      flex: 1,
+      minWidth: 0,
+      alignSelf: 'stretch',
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: appVisualTokens.spacing.md,
+      paddingRight: appVisualTokens.spacing.xl,
       paddingVertical: 10,
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.line,
-      backgroundColor: theme.colors.surface
+      borderBottomColor: theme.colors.line
     },
     chatRowPinned: {
       backgroundColor: theme.colors.surfaceMuted
@@ -1005,9 +1025,7 @@ function createStyles(theme: AppThemeTokens) {
       alignItems: 'center',
       paddingHorizontal: 24,
       paddingVertical: 48,
-      marginHorizontal: appVisualTokens.spacing.xl,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.line
+      marginHorizontal: appVisualTokens.spacing.xl
     },
     emptyStateTitle: {
       fontSize: 18,

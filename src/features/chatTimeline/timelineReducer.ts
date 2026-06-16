@@ -4,7 +4,7 @@ import {
   classifyChatProtocolEvent,
   extractEventText,
   normalizeEventType,
-  toFiniteNumber,
+  normalizeProtocolTimestampMs,
   toText,
 } from '../../core/api/services/chatEventProtocol.ts';
 import type { ChatMessageItem } from '../chatPersistence/types.ts';
@@ -13,13 +13,10 @@ import {
   createMessageAttachmentsFromReferences,
 } from '../chatPersistence/chatAttachmentModels.ts';
 import type {
-  ChatTimelineAwaitingAnswerSummary,
   ChatTimelineAwaitingInteractive,
   ChatTimelineAwaitingMode,
   ChatTimelineAwaitingNode,
-  ChatTimelineAwaitingQuestion,
-  ChatTimelineAwaitingQuestionOption,
-  ChatTimelineAwaitingQuestionType,
+  ChatTimelineAwaitingState,
   ChatTimelineDeliveryStatus,
   ChatTimelineLifecycle,
   ChatTimelineMessageNode,
@@ -30,6 +27,16 @@ import type {
   ChatTimelineTextNode,
   ChatTimelineToolNode,
 } from './types.ts';
+import {
+  getAwaitingAnswerSummarySignature,
+  getAwaitingInteractiveSignature,
+  getAwaitingInteractiveTimeout,
+  normalizeChatTimelineAwaitingEvent,
+} from './awaitingInteraction.ts';
+import {
+  firstTimelineEventText as firstFormattedText,
+  safeTimelineJson as safeJson,
+} from './timelineEventFormat.ts';
 import { buildChatTimelineUsageSummary, chatTimelineUsageSummaryEquals } from './usageSummary.ts';
 
 export type MergeChatTimelineStateOptions = {
@@ -42,83 +49,8 @@ function normalizeConversationId(conversationId: string): string {
   return String(conversationId || '').trim();
 }
 
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return value !== null && typeof value === 'object';
-}
-
-function isPlainRecord(value: unknown): value is Record<string, unknown> {
-  return isObjectRecord(value) && !Array.isArray(value);
-}
-
-function hasValue(value: unknown): boolean {
-  if (value === null || value === undefined) {
-    return false;
-  }
-  if (typeof value === 'string') {
-    return value.trim().length > 0;
-  }
-  if (Array.isArray(value)) {
-    return value.length > 0;
-  }
-  if (isObjectRecord(value)) {
-    return Object.keys(value).length > 0;
-  }
-  return true;
-}
-
-function safeJson(value: unknown): string {
-  if (!isObjectRecord(value) && !Array.isArray(value)) {
-    return '';
-  }
-
-  try {
-    return JSON.stringify(value, null, 2);
-  } catch {
-    return '';
-  }
-}
-
-function formattedValueText(value: unknown): string {
-  if (value === null || value === undefined) {
-    return '';
-  }
-  if (typeof value === 'string') {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      return '';
-    }
-    try {
-      const parsed = JSON.parse(trimmed) as unknown;
-      return typeof parsed === 'string' ? parsed : JSON.stringify(parsed, null, 2);
-    } catch {
-      return trimmed;
-    }
-  }
-  if (typeof value === 'number' || typeof value === 'boolean') {
-    return String(value);
-  }
-  if (isObjectRecord(value) || Array.isArray(value)) {
-    try {
-      return JSON.stringify(value, null, 2);
-    } catch {
-      return '';
-    }
-  }
-  return '';
-}
-
-function firstFormattedText(...values: unknown[]): string {
-  for (const value of values) {
-    const text = formattedValueText(value);
-    if (text) {
-      return text;
-    }
-  }
-  return '';
-}
-
 function resolveTimestamp(event: Record<string, unknown>, fallback = Date.now()): number {
-  return toFiniteNumber(
+  return normalizeProtocolTimestampMs(
     event.timestamp || event.ts || event.time || event.createdAt || event.updatedAt,
     fallback
   );
@@ -128,7 +60,7 @@ function resolveOptionalTimestamp(value: unknown): number | null {
   if (value === null || value === undefined || value === '') {
     return null;
   }
-  const timestamp = toFiniteNumber(value, 0);
+  const timestamp = normalizeProtocolTimestampMs(value, 0);
   return timestamp > 0 ? timestamp : null;
 }
 
@@ -157,522 +89,6 @@ function resolveLifecycle(type: string): ChatTimelineLifecycle {
     return 'complete';
   }
   return 'active';
-}
-
-function resolveAwaitingMode(
-  event: Record<string, unknown>,
-  existingMode?: ChatTimelineAwaitingMode
-): ChatTimelineAwaitingMode {
-  const modeText = toText(event.mode).toLowerCase();
-  const kindText = toText(event.kind).toLowerCase();
-  if (modeText === 'plan' || hasValue(event.plan)) {
-    return 'plan';
-  }
-  if (modeText === 'approval' || hasValue(event.approvals)) {
-    return 'approval';
-  }
-  if (modeText === 'form' || hasValue(event.forms)) {
-    return 'form';
-  }
-  if (modeText === 'question') {
-    return 'question';
-  }
-  if (hasValue(event.fields) || hasValue(event.schema) || hasValue(event.form)) {
-    return 'form';
-  }
-  if (
-    hasValue(event.approveLabel) ||
-    hasValue(event.rejectLabel) ||
-    hasValue(event.requiresApproval) ||
-    kindText === 'approval'
-  ) {
-    return 'approval';
-  }
-  return existingMode ?? 'question';
-}
-
-const AWAITING_QUESTION_TYPES = new Set<ChatTimelineAwaitingQuestionType>([
-  'text',
-  'number',
-  'select',
-  'multi-select',
-  'password',
-  'date',
-  'datetime',
-]);
-
-function resolvePositiveNumber(value: unknown): number | null {
-  if (value === null || value === undefined || value === '') {
-    return null;
-  }
-
-  const numeric = Number(value);
-  return Number.isFinite(numeric) && numeric > 0 ? numeric : null;
-}
-
-function normalizeQuestionType(value: unknown): ChatTimelineAwaitingQuestionType | null {
-  const type = toText(value).toLowerCase();
-  return AWAITING_QUESTION_TYPES.has(type as ChatTimelineAwaitingQuestionType)
-    ? (type as ChatTimelineAwaitingQuestionType)
-    : null;
-}
-
-function readOptionalText(record: Record<string, unknown>, key: string): string {
-  return toText(record[key]);
-}
-
-function normalizeQuestionOption(value: unknown): ChatTimelineAwaitingQuestionOption | null {
-  if (!isObjectRecord(value)) {
-    return null;
-  }
-
-  const label = readOptionalText(value, 'label');
-  if (!label) {
-    return null;
-  }
-
-  const description = readOptionalText(value, 'description');
-  const previewHtml = readOptionalText(value, 'previewHtml');
-  const optionValue = readOptionalText(value, 'value');
-
-  return {
-    label,
-    ...(description ? { description } : {}),
-    ...(previewHtml ? { previewHtml } : {}),
-    ...(optionValue ? { value: optionValue } : {}),
-  };
-}
-
-function normalizeQuestion(value: unknown, index: number): ChatTimelineAwaitingQuestion | null {
-  if (!isObjectRecord(value)) {
-    return null;
-  }
-
-  const type = normalizeQuestionType(value.type);
-  const question = toText(value.question || value.header || value.title);
-  if (!type || !question) {
-    return null;
-  }
-
-  const id = readOptionalText(value, 'id') || `q${index + 1}`;
-  const header = readOptionalText(value, 'header');
-  const placeholder = readOptionalText(value, 'placeholder');
-  const freeTextPlaceholder = readOptionalText(value, 'freeTextPlaceholder');
-  const options = Array.isArray(value.options)
-    ? value.options
-        .map(normalizeQuestionOption)
-        .filter((option): option is ChatTimelineAwaitingQuestionOption => Boolean(option))
-    : [];
-
-  return {
-    id,
-    type,
-    ...(header ? { header } : {}),
-    question,
-    ...(placeholder ? { placeholder } : {}),
-    ...(options.length > 0 ? { options } : {}),
-    ...(value.allowFreeText === true ? { allowFreeText: true } : {}),
-    ...(freeTextPlaceholder ? { freeTextPlaceholder } : {}),
-  };
-}
-
-function normalizeInteractiveQuestion(value: unknown): ChatTimelineAwaitingInteractive | null {
-  if (!isObjectRecord(value) || value.kind !== 'question' || !Array.isArray(value.questions)) {
-    return null;
-  }
-
-  const questions = value.questions
-    .map(normalizeQuestion)
-    .filter((question): question is ChatTimelineAwaitingQuestion => Boolean(question));
-  if (questions.length === 0) {
-    return null;
-  }
-
-  return {
-    kind: 'question',
-    viewportType: readOptionalText(value, 'viewportType'),
-    viewportKey: readOptionalText(value, 'viewportKey'),
-    timeout: resolvePositiveNumber(value.timeout),
-    agentKey: readOptionalText(value, 'agentKey'),
-    questions,
-  };
-}
-
-function normalizeAwaitingInteractive(
-  event: Record<string, unknown>,
-  current?: ChatTimelineAwaitingNode
-): ChatTimelineAwaitingInteractive | null {
-  const direct = normalizeInteractiveQuestion(event.interactive);
-  if (direct) {
-    return direct;
-  }
-
-  if (!Array.isArray(event.questions)) {
-    return current?.interactive ?? null;
-  }
-
-  const questions = event.questions
-    .map(normalizeQuestion)
-    .filter((question): question is ChatTimelineAwaitingQuestion => Boolean(question));
-  if (questions.length === 0) {
-    return current?.interactive ?? null;
-  }
-
-  return {
-    kind: 'question',
-    viewportType: readOptionalText(event, 'viewportType'),
-    viewportKey: readOptionalText(event, 'viewportKey'),
-    timeout: resolvePositiveNumber(event.timeout),
-    agentKey: readOptionalText(event, 'agentKey'),
-    questions,
-  };
-}
-
-function formatDecisionLabel(raw: unknown): string {
-  switch (toText(raw)) {
-    case 'approve':
-      return '同意';
-    case 'approve_rule_run':
-      return '同意（本次运行同规则都放行）';
-    case 'reject':
-      return '拒绝';
-    default:
-      return toText(raw);
-  }
-}
-
-function displayTitleFromRecord(record: Record<string, unknown>, fallback: string): string {
-  return (
-    toText(record.question) ||
-    toText(record.title) ||
-    toText(record.description) ||
-    toText(record.command) ||
-    toText(record.action) ||
-    toText(record.id) ||
-    fallback
-  );
-}
-
-function formatStructuredItems(items: unknown, fallbackTitle: string): string {
-  if (!Array.isArray(items)) {
-    return formattedValueText(items);
-  }
-  return items
-    .map((item, index) => {
-      if (!isObjectRecord(item)) {
-        return formattedValueText(item);
-      }
-      const title = displayTitleFromRecord(item, `${fallbackTitle} ${index + 1}`);
-      const decision = formatDecisionLabel(item.decision);
-      const answer = firstFormattedText(
-        item.answer,
-        item.form,
-        item.value,
-        item.reason,
-        item.description
-      );
-      const details = [decision, answer].filter(Boolean).join(' · ');
-      return details ? `${title}\n${details}` : title;
-    })
-    .filter(Boolean)
-    .join('\n\n');
-}
-
-function readAwaitingPrompt(
-  event: Record<string, unknown>,
-  mode: ChatTimelineAwaitingMode,
-  current?: ChatTimelineAwaitingNode
-): string {
-  const direct = firstFormattedText(event.prompt, event.question, event.message, event.content);
-  if (direct) {
-    return direct;
-  }
-  if (mode === 'plan' && isObjectRecord(event.plan)) {
-    return toText(event.plan.title) || '实施此计划？';
-  }
-  if (mode === 'approval' && Array.isArray(event.approvals)) {
-    const firstApproval = event.approvals.find(isObjectRecord);
-    if (firstApproval) {
-      return toText(firstApproval.description) || toText(firstApproval.command) || '等待审批';
-    }
-  }
-  if (mode === 'form' && Array.isArray(event.forms)) {
-    const firstForm = event.forms.find(isObjectRecord);
-    if (firstForm) {
-      return toText(firstForm.title) || toText(firstForm.action) || '等待表单';
-    }
-  }
-  return current?.prompt || '';
-}
-
-function readAwaitingPayloadText(
-  event: Record<string, unknown>,
-  mode: ChatTimelineAwaitingMode,
-  current?: ChatTimelineAwaitingNode
-): string {
-  if (mode === 'plan' && isObjectRecord(event.plan)) {
-    const options = Array.isArray(event.plan.options)
-      ? event.plan.options
-          .map((option) => {
-            if (!isObjectRecord(option)) {
-              return formattedValueText(option);
-            }
-            return [toText(option.label), formatDecisionLabel(option.decision)]
-              .filter(Boolean)
-              .join(' · ');
-          })
-          .filter(Boolean)
-          .join('\n')
-      : '';
-    const text = [toText(event.plan.title), options].filter(Boolean).join('\n');
-    return text || current?.payloadText || '';
-  }
-  if (mode === 'approval') {
-    return formatStructuredItems(event.approvals, '审批') || current?.payloadText || '';
-  }
-  if (mode === 'form') {
-    return (
-      formatStructuredItems(event.forms, '表单') ||
-      firstFormattedText(event.form, event.fields, event.schema) ||
-      current?.payloadText ||
-      ''
-    );
-  }
-  if (mode === 'question' && Array.isArray(event.questions)) {
-    return formatStructuredItems(event.questions, '问题') || current?.payloadText || '';
-  }
-  return (
-    firstFormattedText(event.payload, event.answers, event.params) || current?.payloadText || ''
-  );
-}
-
-function getAwaitingQuestionById(
-  current: ChatTimelineAwaitingNode | undefined,
-  id: string
-): ChatTimelineAwaitingQuestion | null {
-  const questions =
-    current?.interactive?.kind === 'question' ? current.interactive.questions || [] : [];
-  if (!id) {
-    return null;
-  }
-  return questions.find((question) => question.id === id) ?? null;
-}
-
-function getAwaitingQuestionByIndex(
-  current: ChatTimelineAwaitingNode | undefined,
-  index: number
-): ChatTimelineAwaitingQuestion | null {
-  const questions =
-    current?.interactive?.kind === 'question' ? current.interactive.questions || [] : [];
-  return questions[index] ?? null;
-}
-
-function getQuestionOptionDisplayValue(
-  question: ChatTimelineAwaitingQuestion | null,
-  value: unknown
-): string {
-  const answer = formattedValueText(value);
-  if (!answer || !question?.options?.length) {
-    return answer;
-  }
-  const option = question.options.find((item) => (item.value || item.label) === answer);
-  return option?.label || answer;
-}
-
-function formatAwaitingAnswerValue(
-  item: Record<string, unknown>,
-  question: ChatTimelineAwaitingQuestion | null
-): string {
-  if (question?.type === 'password' && (item.answer !== undefined || Array.isArray(item.answers))) {
-    return '••••••';
-  }
-
-  if (typeof item.decision === 'string' && item.decision.trim()) {
-    const decisionLabel = formatDecisionLabel(item.decision);
-    const reason = toText(item.reason);
-    return [decisionLabel, reason].filter(Boolean).join(' · ');
-  }
-
-  if (item.form !== undefined) {
-    return formattedValueText(item.form) || '（无回答内容）';
-  }
-
-  if (typeof item.action === 'string' && item.action.trim()) {
-    return item.action.trim();
-  }
-
-  if (item.answer !== undefined && item.answer !== null) {
-    return getQuestionOptionDisplayValue(question, item.answer) || '（无回答内容）';
-  }
-
-  if (Array.isArray(item.answers)) {
-    const answers = item.answers
-      .map((answer) => getQuestionOptionDisplayValue(question, answer))
-      .filter(Boolean);
-    return answers.join(', ') || '（无回答内容）';
-  }
-
-  return toText(item.reason) || '（无回答内容）';
-}
-
-function formatAwaitingAnswerTitle(
-  item: Record<string, unknown>,
-  question: ChatTimelineAwaitingQuestion | null,
-  index: number
-): string {
-  return (
-    question?.question ||
-    toText(item.question) ||
-    toText(item.title) ||
-    toText(item.planningId) ||
-    toText(item.command) ||
-    toText(item.action) ||
-    toText(item.id) ||
-    `回答 ${index + 1}`
-  );
-}
-
-function readAwaitingAnswerItems(event: Record<string, unknown>): Record<string, unknown>[] {
-  const arrays = [event.answers, event.params, event.approvals, event.forms];
-  for (const value of arrays) {
-    if (Array.isArray(value)) {
-      return value.filter(isPlainRecord);
-    }
-  }
-  if (isPlainRecord(event.plan)) {
-    return [event.plan];
-  }
-  return [];
-}
-
-function awaitingAnswerErrorTitle(event: Record<string, unknown>): string {
-  const error = isPlainRecord(event.error) ? event.error : {};
-  switch (toText(error.code)) {
-    case 'user_dismissed':
-      return '已取消';
-    case 'timeout':
-      return '等待已超时';
-    case 'invalid_submit':
-      return '提交失败';
-    default:
-      return '等待异常';
-  }
-}
-
-function buildAwaitingAnswerSummary(
-  event: Record<string, unknown>,
-  current?: ChatTimelineAwaitingNode
-): ChatTimelineAwaitingAnswerSummary | null {
-  const isError = toText(event.status) === 'error';
-  if (isError) {
-    const error = isPlainRecord(event.error) ? event.error : {};
-    const title = awaitingAnswerErrorTitle(event);
-    const value = firstFormattedText(error.message, error.code, event.error) || title;
-    return {
-      status: 'error',
-      title,
-      itemCount: 1,
-      items: [{ key: `error:${toText(error.code) || 'unknown'}`, title: '状态', value }],
-      copyText: `状态\n${value}`,
-    };
-  }
-
-  const firstQuestion = getAwaitingQuestionByIndex(current, 0);
-  const rawItems = readAwaitingAnswerItems(event);
-  const normalizedItems =
-    rawItems.length > 0
-      ? rawItems
-      : firstQuestion && (event.answer !== undefined || Array.isArray(event.answers))
-        ? [
-            {
-              id: firstQuestion?.id || 'answer',
-              ...(event.answer !== undefined ? { answer: event.answer } : {}),
-              ...(Array.isArray(event.answers) ? { answers: event.answers } : {}),
-            },
-          ]
-        : [];
-  if (normalizedItems.length === 0) {
-    return null;
-  }
-  const items =
-    normalizedItems.length > 0
-      ? normalizedItems.map((item, index) => {
-          const id = toText(item.id);
-          const question =
-            getAwaitingQuestionById(current, id) ?? getAwaitingQuestionByIndex(current, index);
-          const title = formatAwaitingAnswerTitle(item, question, index);
-          return {
-            key: `${id || title}:${index}`,
-            title,
-            value: formatAwaitingAnswerValue(item, question),
-          };
-        })
-      : [];
-  const copyText = items.map((item) => `${item.title}\n${item.value}`).join('\n\n');
-
-  return {
-    status: 'answered',
-    title: `已提交 ${items.length} 项回答`,
-    itemCount: items.length,
-    items,
-    copyText,
-  };
-}
-
-function readAwaitingAnswerText(
-  event: Record<string, unknown>,
-  mode: ChatTimelineAwaitingMode,
-  current?: ChatTimelineAwaitingNode,
-  answerSummary?: ChatTimelineAwaitingAnswerSummary | null
-): string {
-  const summary = answerSummary ?? buildAwaitingAnswerSummary(event, current);
-  if (summary && (summary.copyText || summary.status === 'error')) {
-    return summary.copyText || summary.title;
-  }
-  if (toText(event.status) === 'error') {
-    const error = isObjectRecord(event.error) ? event.error : {};
-    return firstFormattedText(error.message, error.code, event.error) || '等待异常';
-  }
-  if (mode === 'plan' && isObjectRecord(event.plan)) {
-    const title = toText(event.plan.title) || '实施此计划？';
-    const decision = formatDecisionLabel(event.plan.decision);
-    return [title, decision].filter(Boolean).join('\n');
-  }
-  if (mode === 'approval') {
-    return (
-      formatStructuredItems(event.approvals, '审批') ||
-      firstFormattedText(event.answer, event.answers, event.message, event.content, event.text) ||
-      current?.answer ||
-      ''
-    );
-  }
-  if (mode === 'form') {
-    return (
-      formatStructuredItems(event.forms, '表单') ||
-      firstFormattedText(
-        event.answer,
-        event.answers,
-        event.form,
-        event.fields,
-        event.message,
-        event.text
-      ) ||
-      current?.answer ||
-      ''
-    );
-  }
-  return (
-    firstFormattedText(
-      event.answer,
-      event.answers,
-      event.params,
-      event.message,
-      event.content,
-      event.text
-    ) ||
-    current?.answer ||
-    ''
-  );
 }
 
 function bodyFromEvent(event: Record<string, unknown>): string {
@@ -881,6 +297,114 @@ function findMessageNodeIdByIdentity(
   return '';
 }
 
+function getAwaitingInteractionNodeSignature(node: ChatTimelineAwaitingNode): string {
+  return getAwaitingInteractiveSignature(node.interactive);
+}
+
+function getAwaitingTimeout(node: ChatTimelineAwaitingNode): number | null {
+  return getAwaitingInteractiveTimeout(node.interactive);
+}
+
+function getAwaitingDeadline(node: ChatTimelineAwaitingNode): number | null {
+  const timeout = getAwaitingTimeout(node);
+  if (!timeout || !Number.isFinite(node.createdAt)) {
+    return null;
+  }
+  return node.createdAt + timeout;
+}
+
+function getAwaitingIdentityMatch(
+  current: ChatTimelineAwaitingNode,
+  incoming: ChatTimelineAwaitingNode
+): { matches: boolean; interactionSignatureChanged: boolean } {
+  if (current.runId && incoming.runId && current.runId !== incoming.runId) {
+    return { matches: false, interactionSignatureChanged: false };
+  }
+  if (current.awaitingId && incoming.awaitingId && current.awaitingId !== incoming.awaitingId) {
+    return { matches: false, interactionSignatureChanged: false };
+  }
+  if (current.mode !== incoming.mode) {
+    return { matches: false, interactionSignatureChanged: false };
+  }
+
+  const currentInteractionSignature = getAwaitingInteractionNodeSignature(current);
+  const incomingInteractionSignature = getAwaitingInteractionNodeSignature(incoming);
+  const sameInteractionSignature = Boolean(
+    currentInteractionSignature &&
+      incomingInteractionSignature &&
+      currentInteractionSignature === incomingInteractionSignature
+  );
+
+  return {
+    matches: Boolean(
+      (current.awaitingId && incoming.awaitingId && current.awaitingId === incoming.awaitingId) ||
+        current.id === incoming.id ||
+        sameInteractionSignature
+    ),
+    interactionSignatureChanged: Boolean(
+      currentInteractionSignature && incomingInteractionSignature && !sameInteractionSignature
+    ),
+  };
+}
+
+function shouldPreferCurrentAwaitingNode(
+  current: ChatTimelineAwaitingNode,
+  incoming: ChatTimelineAwaitingNode
+): boolean {
+  const identityMatch = getAwaitingIdentityMatch(current, incoming);
+  if (
+    current.status !== 'ask' ||
+    incoming.status !== 'ask' ||
+    current.lifecycle !== 'active' ||
+    incoming.lifecycle !== 'active' ||
+    !identityMatch.matches
+  ) {
+    return false;
+  }
+
+  if (identityMatch.interactionSignatureChanged) {
+    return current.updatedAt > incoming.updatedAt;
+  }
+
+  const currentDeadline = getAwaitingDeadline(current);
+  const incomingDeadline = getAwaitingDeadline(incoming);
+  if (currentDeadline !== null || incomingDeadline !== null) {
+    if (currentDeadline === null) {
+      return false;
+    }
+    if (incomingDeadline === null) {
+      return true;
+    }
+    if (currentDeadline !== incomingDeadline) {
+      return currentDeadline > incomingDeadline;
+    }
+  }
+
+  return current.updatedAt >= incoming.updatedAt;
+}
+
+function getStateAwaitingNode(state: ChatTimelineState): ChatTimelineAwaitingNode | undefined {
+  const node = state.awaiting ? state.nodesById[state.awaiting.id] : undefined;
+  return node?.kind === 'awaiting' ? node : undefined;
+}
+
+function awaitingStateFromNode(node: ChatTimelineAwaitingNode): ChatTimelineAwaitingState {
+  return {
+    id: node.id,
+    awaitingId: node.awaitingId,
+    runId: node.runId,
+    createdAt: node.createdAt,
+    prompt: node.prompt,
+    answer: node.answer,
+    payloadText: node.payloadText,
+    mode: node.mode,
+    status: node.status,
+    interactive: node.interactive,
+    answerSummary: node.answerSummary ?? null,
+    updatedAt: node.updatedAt,
+  };
+}
+
 function getTimelineNodeIdentityKeys(node: ChatTimelineNode): string[] {
   const keys = [`id:${node.id}`];
   if (node.kind === 'message') {
@@ -892,6 +416,17 @@ function getTimelineNodeIdentityKeys(node: ChatTimelineNode): string[] {
     }
     if (node.clientMessageId) {
       keys.push(`client:${node.clientMessageId}`);
+    }
+  }
+  if (node.kind === 'awaiting') {
+    if (node.awaitingId) {
+      keys.push(`awaiting:${node.runId || 'run'}:${node.awaitingId}`);
+      keys.push(`awaiting:${node.awaitingId}`);
+    }
+    const interactionSignature = getAwaitingInteractionNodeSignature(node);
+    if (interactionSignature) {
+      keys.push(`awaiting-interaction:${node.runId || 'run'}:${interactionSignature}`);
+      keys.push(`awaiting-interaction:${interactionSignature}`);
     }
   }
   return keys;
@@ -1002,8 +537,8 @@ function getTimelineNodeContentLength(node: ChatTimelineNode): number {
       node.prompt.length +
       node.payloadText.length +
       node.answer.length +
-      safeJson(node.interactive).length +
-      safeJson(node.answerSummary).length
+      getAwaitingInteractiveSignature(node.interactive).length +
+      getAwaitingAnswerSummarySignature(node.answerSummary).length
     );
   }
   if (node.kind === 'run') {
@@ -1068,6 +603,10 @@ function shouldPreferCurrentTimelineNode(
     return false;
   }
 
+  if (current.kind === 'awaiting' && incoming.kind === 'awaiting') {
+    return shouldPreferCurrentAwaitingNode(current, incoming);
+  }
+
   const currentLength = getTimelineNodeContentLength(current);
   const incomingLength = getTimelineNodeContentLength(incoming);
   if (currentLength > incomingLength) {
@@ -1094,6 +633,17 @@ function shouldPreserveUnmatchedTimelineNode(
   current: ChatTimelineNode,
   incomingState: ChatTimelineState
 ): boolean {
+  if (current.kind === 'awaiting' && isActiveTimelineNode(current)) {
+    const incomingAwaiting = getStateAwaitingNode(incomingState);
+    if (!incomingAwaiting) {
+      return true;
+    }
+    return (
+      current.updatedAt > incomingAwaiting.updatedAt ||
+      shouldPreferCurrentAwaitingNode(current, incomingAwaiting)
+    );
+  }
+
   if (isActiveTimelineNode(current)) {
     return true;
   }
@@ -1213,11 +763,21 @@ function resolveMergedAwaiting(
   incomingState: ChatTimelineState,
   currentState: ChatTimelineState
 ): ChatTimelineState['awaiting'] {
-  if (incomingState.awaiting && nodesById[incomingState.awaiting.id]?.kind === 'awaiting') {
-    return incomingState.awaiting;
+  const incomingNode = incomingState.awaiting
+    ? nodesById[incomingState.awaiting.id]
+    : undefined;
+  const currentNode = currentState.awaiting ? nodesById[currentState.awaiting.id] : undefined;
+
+  if (incomingNode?.kind === 'awaiting' && currentNode?.kind === 'awaiting') {
+    return awaitingStateFromNode(
+      shouldPreferCurrentAwaitingNode(currentNode, incomingNode) ? currentNode : incomingNode
+    );
   }
-  if (currentState.awaiting && nodesById[currentState.awaiting.id]?.kind === 'awaiting') {
-    return currentState.awaiting;
+  if (incomingNode?.kind === 'awaiting') {
+    return awaitingStateFromNode(incomingNode);
+  }
+  if (currentNode?.kind === 'awaiting') {
+    return awaitingStateFromNode(currentNode);
   }
   return null;
 }
@@ -1270,8 +830,10 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
       left.payloadText !== right.payloadText ||
       left.mode !== right.mode ||
       left.status !== right.status ||
-      safeJson(left.interactive) !== safeJson(right.interactive) ||
-      safeJson(left.answerSummary) !== safeJson(right.answerSummary)
+      getAwaitingInteractiveSignature(left.interactive) !==
+        getAwaitingInteractiveSignature(right.interactive) ||
+      getAwaitingAnswerSummarySignature(left.answerSummary) !==
+        getAwaitingAnswerSummarySignature(right.answerSummary)
     );
   }
   if (left.kind === 'run' && right.kind === 'run') {
@@ -1413,7 +975,8 @@ function isDuplicateAwaitingAsk(
     current.prompt === awaiting.prompt &&
     current.payloadText === awaiting.payloadText &&
     current.mode === awaiting.mode &&
-    safeJson(current.interactive) === safeJson(awaiting.interactive) &&
+    getAwaitingInteractiveSignature(current.interactive) ===
+      getAwaitingInteractiveSignature(awaiting.interactive) &&
     state.awaiting?.id === awaiting.id &&
     state.awaiting.awaitingId === awaiting.awaitingId &&
     state.awaiting.runId === awaiting.runId &&
@@ -1421,7 +984,8 @@ function isDuplicateAwaitingAsk(
     state.awaiting.payloadText === awaiting.payloadText &&
     state.awaiting.mode === awaiting.mode &&
     state.awaiting.status === awaiting.status &&
-    safeJson(state.awaiting.interactive) === safeJson(awaiting.interactive)
+    getAwaitingInteractiveSignature(state.awaiting.interactive) ===
+      getAwaitingInteractiveSignature(awaiting.interactive)
   );
 }
 
@@ -1796,72 +1360,54 @@ function applyAwaitingEvent(
 ): ChatTimelineState {
   const type = normalizeEventType(event.type);
   const updatedAt = resolveTimestamp(event, Date.now() + state.nextOrder);
+  const candidateId = nodeKey(conversationId, event, 'awaiting', 'awaiting');
+  const activeAwaitingNode = getStateAwaitingNode(state);
+  const eventAwaitingId = toText(event.awaitingId);
+  const eventRunId = toText(event.runId);
+  const shouldUseActiveAwaiting =
+    type === 'awaiting.answer' &&
+    Boolean(activeAwaitingNode) &&
+    (!eventAwaitingId ||
+      eventAwaitingId === activeAwaitingNode?.awaitingId ||
+      eventAwaitingId === activeAwaitingNode?.id) &&
+    (!eventRunId || !activeAwaitingNode?.runId || eventRunId === activeAwaitingNode.runId);
   const id =
-    nodeKey(conversationId, event, 'awaiting', 'awaiting') ||
-    state.awaiting?.id ||
-    `awaiting:${conversationId}`;
-  const current = state.nodesById[id] as ChatTimelineAwaitingNode | undefined;
+    shouldUseActiveAwaiting && activeAwaitingNode
+      ? activeAwaitingNode.id
+      : candidateId || state.awaiting?.id || `awaiting:${conversationId}`;
+  const current = shouldUseActiveAwaiting && activeAwaitingNode
+    ? activeAwaitingNode
+    : (state.nodesById[id] as ChatTimelineAwaitingNode | undefined);
   const awaitingId =
     toText(event.awaitingId) || current?.awaitingId || state.awaiting?.awaitingId || id;
-  const mode = resolveAwaitingMode(event, current?.mode ?? state.awaiting?.mode);
-  const prompt =
-    readAwaitingPrompt(event, mode, current) ||
-    state.awaiting?.prompt ||
-    (mode === 'approval'
-      ? '等待审批'
-      : mode === 'form'
-        ? '等待表单'
-        : mode === 'plan'
-          ? '等待计划确认'
-          : '等待回复');
-  const payloadText = readAwaitingPayloadText(event, mode, current);
-  const interactive = normalizeAwaitingInteractive(event, current);
-  const status: ChatTimelineAwaitingNode['status'] = type === 'awaiting.answer' ? 'answer' : 'ask';
-  const answerSummary = status === 'answer' ? buildAwaitingAnswerSummary(event, current) : null;
-  const answer = answerSummary
-    ? answerSummary.copyText ||
-      readAwaitingAnswerText(event, mode, current, answerSummary) ||
-      state.awaiting?.answer ||
-      ''
-    : status === 'answer'
-      ? readAwaitingAnswerText(event, mode, current, answerSummary) || state.awaiting?.answer || ''
-      : current?.answer || state.awaiting?.answer || '';
+  const normalized = normalizeChatTimelineAwaitingEvent({
+    event,
+    current,
+    fallbackAnswer: state.awaiting?.answer || '',
+  });
   const runId = resolveEventRunId(event, state, current);
-  const awaiting = {
-    id,
-    awaitingId,
-    runId,
-    createdAt: current?.createdAt ?? updatedAt,
-    prompt,
-    answer,
-    payloadText,
-    mode,
-    status,
-    interactive,
-    answerSummary,
-    updatedAt,
-  };
-  if (isDuplicateAwaitingAsk(state, current, awaiting)) {
-    return state;
-  }
-
   const nextNode: ChatTimelineAwaitingNode = {
     id,
     kind: 'awaiting',
     awaitingId,
-    prompt,
-    answer,
-    payloadText,
-    mode,
-    status,
-    interactive,
-    answerSummary,
+    prompt: normalized.prompt,
+    answer: normalized.answer,
+    payloadText: normalized.payloadText,
+    mode: normalized.mode,
+    status: normalized.status,
+    interactive: normalized.interactive,
+    answerSummary: normalized.answerSummary,
     runId,
-    createdAt: awaiting.createdAt,
+    createdAt: current?.createdAt ?? updatedAt,
     updatedAt,
     order: createOrder(state, current),
-    lifecycle: status === 'answer' ? 'complete' : 'active',
+    lifecycle: normalized.status === 'answer' ? 'complete' : 'active',
   };
+  const awaiting = awaitingStateFromNode(nextNode);
+  if (isDuplicateAwaitingAsk(state, current, awaiting)) {
+    return state;
+  }
+
   const nextState = upsertNode(state, nextNode);
 
   if (
@@ -1874,8 +1420,10 @@ function applyAwaitingEvent(
     nextState.awaiting?.mode === awaiting.mode &&
     nextState.awaiting?.status === awaiting.status &&
     nextState.awaiting?.createdAt === awaiting.createdAt &&
-    safeJson(nextState.awaiting?.interactive) === safeJson(awaiting.interactive) &&
-    safeJson(nextState.awaiting?.answerSummary) === safeJson(awaiting.answerSummary) &&
+    getAwaitingInteractiveSignature(nextState.awaiting?.interactive) ===
+      getAwaitingInteractiveSignature(awaiting.interactive) &&
+    getAwaitingAnswerSummarySignature(nextState.awaiting?.answerSummary) ===
+      getAwaitingAnswerSummarySignature(awaiting.answerSummary) &&
     nextState.awaiting?.updatedAt === awaiting.updatedAt
   ) {
     return nextState;

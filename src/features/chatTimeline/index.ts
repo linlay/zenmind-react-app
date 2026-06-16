@@ -1,9 +1,20 @@
 export type {
   ChatTimelineAwaitingInteractive,
+  ChatTimelineAwaitingInteractiveApproval,
+  ChatTimelineAwaitingInteractiveForm,
+  ChatTimelineAwaitingInteractivePlan,
   ChatTimelineAwaitingInteractiveQuestion,
   ChatTimelineAwaitingMode,
   ChatTimelineAwaitingAnswerDisplayItem,
   ChatTimelineAwaitingAnswerSummary,
+  ChatTimelineAwaitingApproval,
+  ChatTimelineAwaitingApprovalDecision,
+  ChatTimelineAwaitingApprovalOption,
+  ChatTimelineAwaitingForm,
+  ChatTimelineAwaitingPlan,
+  ChatTimelineAwaitingPlanDecision,
+  ChatTimelineAwaitingPlanInput,
+  ChatTimelineAwaitingPlanOption,
   ChatTimelineAwaitingQuestion,
   ChatTimelineAwaitingQuestionOption,
   ChatTimelineAwaitingQuestionType,
@@ -45,6 +56,11 @@ export {
   mergeChatTimelineState,
   patchChatTimelineMessage,
 } from './timelineReducer.ts';
+export {
+  formatAwaitingDecisionLabel,
+  getAwaitingInteractiveSignature,
+  getAwaitingInteractiveTimeout,
+} from './awaitingInteraction.ts';
 export {
   buildChatTimelineDisplayModel,
   buildChatTimelineDisplayItems,

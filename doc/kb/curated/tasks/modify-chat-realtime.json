@@ -60,7 +60,9 @@
     "src/features/chatPersistence/chatRepository.ts",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
+    "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx",
     "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
+    "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
     "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
     "src/core/api/services/chatApi.ts",
     "src/core/api/services/chatEventProtocol.ts"
@@ -71,11 +73,11 @@
     "bootstrap 和 reconnect 时的 outbox replay 不要被误删。",
     "summary push、chat.read、chat.unread、chat.read_all 只改 repository 真源和目录投影，不在 sync service 内维护第二套最新消息；chat.updated 有新最后消息但缺失 unread 字段时，非 active conversation 默认置为未读，active conversation 只发起单会话 single-flight 服务端已读确认。",
     "reasoning / planning / tool / awaiting / artifact / plan-task / usage-context 只进内存 timeline/runtime state，不新建 SQLite 真源。",
-    "awaiting question 的 questions/options/timeout 等 payload 只在 feature-chat-timeline 结构化，详情页只消费归一后的 interactive 数据并通过 chatSyncService.submitAwaiting 提交。",
+    "awaiting question/approval/form/plan 的 questions/options/forms/plan/timeout 等 payload 只在 feature-chat-timeline 结构化，详情页只消费归一后的 interactive 数据并通过 chatSyncService.submitAwaiting 提交；form HTML viewport 只在 AwaitingFormViewport 内拉取 /ap/api/viewport 并桥接 collect/submit。",
     "conversation.timeline.replace/reset 和 conversation.runtime.replace/reset 要从同一个 ChatTimelineState 派生，不维护两套运行态 reducer。",
     "sync service 发给 UI 的 scoped event 要让首页只 patch 目标目录项 preview、详情页只 patch 命中消息或命中会话 runtime state，不回读整页 SQLite。",
     "chat.deleted / chat.archived 要清理 conversation、messages、outbox、sync state 和 runtime state，并刷新目录投影。",
-    "详情页停止/继续生成和 awaiting question 提交继续走 chatSyncService：停止要清理 active outgoing/attach stream、调用 /api/interrupt、通过 timeline 本地 cancel 收敛当前会话当前可见生成 scope 的 active/streaming 节点并清空 activeRunId，不创建 ghost run、不改写历史 run duration；记录短期本地终止 run guard，reconcile 合并 stale detail 时不能复活同 run active 状态；run_not_found/404 视为服务端已停止，不触发失败式即时 reconcile；继续要复用 attach 和单会话 reconcile，submit awaiting 要调用 /ap/api/submit 并回写 awaiting.answer 本地 timeline 事件，不在页面直接操作 WebSocket 或 HTTP submit。"
+    "详情页停止/继续生成和 awaiting question/approval/form/plan 提交继续走 chatSyncService：停止要清理 active outgoing/attach stream、调用 /api/interrupt、通过 timeline 本地 cancel 收敛当前会话当前可见生成 scope 的 active/streaming 节点并清空 activeRunId，不创建 ghost run、不改写历史 run duration；记录短期本地终止 run guard，reconcile 合并 stale detail 时不能复活同 run active 状态；run_not_found/404 视为服务端已停止，不触发失败式即时 reconcile；继续要复用 attach 和单会话 reconcile，submit awaiting 要调用 /ap/api/submit 并回写 awaiting.answer 本地 timeline 事件，不在页面直接操作 WebSocket 或 HTTP submit。"
   ],
   "acceptanceChecks": [
     "connection.status 能正确向 UI 发出 connected、connecting、reconnecting、disconnected、error。",
@@ -83,7 +85,7 @@
     "收到 chat.read、chat.unread、chat.read_all 后，单会话未读位和 agent/team 目录角标同步更新且保持幂等。",
     "收到无 unread 字段的 chat.updated 后，inactive conversation 会显示未读角标，active conversation 不本地清零，只有 /ap/ws /api/read 成功或 chat.read push 才清除未读。",
     "收到 awaiting / reasoning / planning / tool / artifact / plan/task / usage/context 事件时，详情页 timeline 区域会实时更新；reconcile 后重新打开同会话也能按 /ap/ws /api/chat detail events 重建。",
-    "收到 question awaiting 事件时，详情页展示贴底问答组件；单选、多选、文本、日期和数字输入能生成紧凑 submit params，提交成功后本地 timeline 先出现 awaiting.answer，并等待后续 WS/reconcile 接管。",
+    "收到 awaiting question/approval/form/plan 事件时，详情页展示贴底交互组件；question 输入、approval 决策、plan 决策和 form HTML viewport 都能生成紧凑 submit params，提交成功后本地 timeline 先出现 awaiting.answer，并等待后续 WS/reconcile 接管。",
     "收到 chat.deleted 或 chat.archived 后，会话详情会清空并提示不可用，首页目录投影同步刷新。",
     "WS 连接失败、重连和单会话 reconcile 路径都仍可工作。",
     "详情页不会因其他会话的 outgoing、ack、incoming 或 stream 事件而重复查询 SQLite；首页普通 home.item.patch 不会回读整页目录切片。",

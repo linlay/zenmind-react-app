@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { AppIcon, type AppIconUsage } from '../../../shared/icons/AppIcon';
@@ -12,6 +12,7 @@ import { ChatAttachmentStrip } from './ChatAttachmentStrip';
 const MIN_HEIGHT = 30;
 const MAX_HEIGHT = 82;
 const VERTICAL_PADDING = 4;
+const SINGLE_LINE_HEIGHT_TOLERANCE = 8;
 
 export type ComposerAttachmentType = 'image' | 'file';
 
@@ -74,13 +75,30 @@ export const Composer = memo(function Composer({
   const styles = useAppThemeStyles(createStyles);
   const [inputHeight, setInputHeight] = useState(MIN_HEIGHT);
   const [attachmentTrayOpen, setAttachmentTrayOpen] = useState(false);
+  const inputHeightRef = useRef(MIN_HEIGHT);
+  const singleLineContentHeightRef = useRef<number | null>(null);
   const primaryDisabled = disabled || primaryAction === 'send-disabled' || primaryAction === 'sending';
   const attachmentDisabled = disabled || primaryAction === 'stop' || primaryAction === 'sending';
 
   const handleContentSizeChange = useCallback((event: { nativeEvent: { contentSize: { height: number } } }) => {
-    const contentHeight = event.nativeEvent.contentSize.height;
-    const nextHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, contentHeight + VERTICAL_PADDING * 2));
-    setInputHeight(nextHeight);
+    const contentHeight = Math.round(event.nativeEvent.contentSize.height);
+    if (!Number.isFinite(contentHeight) || contentHeight <= 0) {
+      return;
+    }
+
+    let baseline = singleLineContentHeightRef.current;
+    if (baseline === null || contentHeight < baseline) {
+      baseline = contentHeight;
+      singleLineContentHeightRef.current = baseline;
+    }
+
+    const growth = contentHeight - baseline;
+    const nextHeight =
+      growth <= SINGLE_LINE_HEIGHT_TOLERANCE ? MIN_HEIGHT : Math.min(MAX_HEIGHT, MIN_HEIGHT + growth);
+    if (nextHeight !== inputHeightRef.current) {
+      inputHeightRef.current = nextHeight;
+      setInputHeight(nextHeight);
+    }
   }, []);
 
   const handlePrimaryPress = useCallback(() => {

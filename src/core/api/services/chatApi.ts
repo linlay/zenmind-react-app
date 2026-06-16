@@ -73,11 +73,16 @@ export type AwaitingQuestionSubmitParamData = {
   id: string;
   answer?: string | number;
   answers?: string[];
+  decision?: 'reject';
 };
+
+export type AwaitingApprovalDecision = 'approve' | 'reject' | 'approve_rule_run';
+
+export type AwaitingPlanDecision = 'approve' | 'reject';
 
 export type AwaitingApprovalSubmitParamData = {
   id: string;
-  decision: string;
+  decision: AwaitingApprovalDecision;
   reason?: string;
 };
 
@@ -90,7 +95,7 @@ export type AwaitingFormSubmitParamData = {
 
 export type AwaitingPlanSubmitParamData = {
   id?: string;
-  decision: 'approve' | 'reject';
+  decision: AwaitingPlanDecision;
   reason?: string;
   planningId?: string;
 };
@@ -120,6 +125,11 @@ export type SubmitAwaitingResponse = {
   continued?: boolean;
   runId?: string;
   chatId?: string;
+  [key: string]: unknown;
+};
+
+export type AwaitingViewportResponse = {
+  html?: string;
   [key: string]: unknown;
 };
 
@@ -200,4 +210,20 @@ export async function submitAwaitingApi(
     },
   });
   return unwrapChatApiEnvelope<SubmitAwaitingResponse>(payload) || {};
+}
+
+export async function getAwaitingViewportApi(viewportKey: string): Promise<AwaitingViewportResponse> {
+  const payload = await authenticatedApiRequest<
+    AwaitingViewportResponse | ChatApiEnvelope<AwaitingViewportResponse> | string
+  >({
+    path: '/ap/api/viewport',
+    query: {
+      viewportKey: String(viewportKey || '').trim(),
+    },
+  });
+
+  if (typeof payload === 'string') {
+    return { html: payload };
+  }
+  return unwrapChatApiEnvelope<AwaitingViewportResponse>(payload) || {};
 }

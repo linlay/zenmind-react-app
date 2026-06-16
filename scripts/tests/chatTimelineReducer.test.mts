@@ -11,12 +11,43 @@ import {
   createChatTimelineState,
   deriveChatTimelineState,
   deriveChatTimelineStateFromMessages,
+  getAwaitingInteractiveTimeout,
   getChatTimelineActiveRunId,
   mergeChatTimelineState,
   patchChatTimelineMessage,
   projectTimelineMessages,
   projectTimelineRuntimeState,
 } from '../../src/features/chatTimeline/index.ts';
+
+const feedbackQuestion = {
+  id: 'q1',
+  options: [{ label: '主动汇报' }, { label: '按需反馈' }],
+  question: '仙尊大人喜欢怎样的向上反馈节奏？',
+  type: 'select',
+};
+
+const painPointQuestion = {
+  id: 'q2',
+  options: [{ label: '需求反馈' }, { label: '技术难题' }],
+  question: '日常工作中最头疼的是什么？',
+  type: 'select',
+};
+
+function questionAwaitingAsk(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    type: 'awaiting.ask',
+    awaitingId: 'question-1',
+    mode: 'question',
+    viewportType: 'builtin',
+    viewportKey: 'question',
+    timeout: 180000,
+    runId: 'run-question',
+    agentKey: 'askUser.demo',
+    questions: [feedbackQuestion],
+    timestamp: 300000,
+    ...overrides,
+  };
+}
 
 test('timeline reducer replays mixed chat events into one flat ordered state', () => {
   const state = deriveChatTimelineState('chat-1', [
@@ -769,6 +800,11 @@ test('timeline reducer renders structured plan and approval awaiting events', ()
           id: 'cmd-1',
           command: 'npm run dev',
           description: '启动开发服务器',
+          options: [
+            { decision: 'approve', label: '同意' },
+            { decision: 'approve_rule_run', label: '同意本轮' },
+            { decision: 'reject', label: '拒绝' },
+          ],
         },
       ],
       timestamp: 130,
@@ -787,13 +823,115 @@ test('timeline reducer renders structured plan and approval awaiting events', ()
   }
   assert.equal(planNode.mode, 'plan');
   assert.equal(planNode.prompt, '实施此计划？');
+  assert.equal(planNode.interactive?.kind, 'plan');
   assert.match(planNode.payloadText, /是，实施此计划/);
   assert.match(planNode.answer, /同意/);
   assert.equal(
     displayItems.some((item) => item.kind === 'awaiting'),
     true
   );
-  assert.equal(projectTimelineRuntimeState(state).awaiting?.mode, 'approval');
+  const runtimeAwaiting = projectTimelineRuntimeState(state).awaiting;
+  assert.equal(runtimeAwaiting?.mode, 'approval');
+  assert.equal(runtimeAwaiting?.interactive?.kind, 'approval');
+  assert.equal(runtimeAwaiting?.interactive?.approvals[0]?.options?.[1]?.decision, 'approve_rule_run');
+});
+
+test('timeline reducer keeps absent awaiting options out of normalized payloads', () => {
+  const state = deriveChatTimelineState('chat-defaults', [
+    {
+      type: 'awaiting.ask',
+      runId: 'run-1',
+      awaitingId: 'approval-1',
+      mode: 'approval',
+      approvals: [{ id: 'cmd-1', command: 'npm run dev' }],
+      timestamp: 100,
+    },
+    {
+      type: 'awaiting.ask',
+      runId: 'run-1',
+      awaitingId: 'plan-1',
+      mode: 'plan',
+      plan: { id: 'confirm', title: '实施此计划？' },
+      timestamp: 110,
+    },
+  ]);
+  const awaitingNodes = state.orderedNodeIds
+    .map((id) => state.nodesById[id])
+    .filter((node) => node?.kind === 'awaiting');
+  const approvalNode = awaitingNodes[0];
+  const planNode = awaitingNodes[1];
+
+  assert.equal(approvalNode?.kind, 'awaiting');
+  assert.equal(planNode?.kind, 'awaiting');
+  if (approvalNode?.kind !== 'awaiting' || planNode?.kind !== 'awaiting') {
+    throw new Error('expected awaiting nodes');
+  }
+  assert.equal(approvalNode.interactive?.kind, 'approval');
+  assert.equal(planNode.interactive?.kind, 'plan');
+  if (approvalNode.interactive?.kind !== 'approval' || planNode.interactive?.kind !== 'plan') {
+    throw new Error('expected approval and plan interactions');
+  }
+  assert.equal(approvalNode.interactive.approvals[0]?.options, undefined);
+  assert.equal(planNode.interactive.plan.options, undefined);
+});
+
+test('timeline reducer keeps html form awaiting payload structured and handles push aliases', () => {
+  const state = deriveChatTimelineState('chat-form', [
+    {
+      type: 'awaiting.asking',
+      runId: 'run-form',
+      awaitingId: 'form-1',
+      mode: 'form',
+      viewportType: 'html',
+      viewportKey: 'leave_form',
+      forms: [
+        {
+          id: 'leave',
+          action: 'submit_leave_request',
+          title: '请假申请',
+          form: {
+            days: 1,
+          },
+        },
+      ],
+      timestamp: 100,
+    },
+    {
+      type: 'awaiting.answered',
+      runId: 'run-form',
+      awaitingId: 'form-1',
+      mode: 'form',
+      status: 'answered',
+      params: [
+        {
+          id: 'leave',
+          decision: 'approve',
+          form: {
+            days: 2,
+            reason: 'family',
+          },
+        },
+      ],
+      timestamp: 120,
+    },
+  ]);
+  const awaiting = state.orderedNodeIds
+    .map((id) => state.nodesById[id])
+    .find((node) => node?.kind === 'awaiting');
+
+  assert.equal(awaiting?.kind, 'awaiting');
+  if (awaiting?.kind !== 'awaiting') {
+    throw new Error('expected awaiting node');
+  }
+  assert.equal(awaiting.mode, 'form');
+  assert.equal(awaiting.status, 'answer');
+  assert.equal(awaiting.interactive?.kind, 'form');
+  assert.equal(awaiting.interactive?.viewportType, 'html');
+  assert.equal(awaiting.interactive?.viewportKey, 'leave_form');
+  assert.equal(awaiting.interactive?.forms[0]?.title, '请假申请');
+  assert.equal(awaiting.answerSummary?.itemCount, 1);
+  assert.match(awaiting.answerSummary?.items[0]?.value || '', /同意/);
+  assert.match(awaiting.answerSummary?.items[0]?.value || '', /family/);
 });
 
 test('timeline reducer merges request echo into the pending local user message', () => {
@@ -959,6 +1097,120 @@ test('timeline merge accepts a complete remote assistant tail when it catches up
   const merged = mergeChatTimelineState(current, remote);
 
   assert.equal(projectTimelineMessages(merged)[0]?.content, 'local and remote continuation');
+});
+
+test('timeline merge preserves active awaiting countdown source when reconcile detail is stale', () => {
+  const current = deriveChatTimelineState('chat-questions', [questionAwaitingAsk()]);
+  const staleRemote = deriveChatTimelineState('chat-questions', [
+    questionAwaitingAsk({
+      runId: '',
+      timestamp: 120000,
+    }),
+  ]);
+  const merged = mergeChatTimelineState(current, staleRemote);
+  const awaitingNode = merged.awaiting ? merged.nodesById[merged.awaiting.id] : undefined;
+
+  assert.equal(merged.awaiting?.createdAt, 300000);
+  assert.equal(merged.awaiting?.runId, 'run-question');
+  assert.equal(awaitingNode?.kind, 'awaiting');
+  if (awaitingNode?.kind !== 'awaiting') {
+    throw new Error('expected awaiting node');
+  }
+  assert.equal(awaitingNode.createdAt, 300000);
+});
+
+test('timeline reducer normalizes awaiting timeout seconds to milliseconds', () => {
+  const state = deriveChatTimelineState('chat-questions', [
+    questionAwaitingAsk({
+      timeout: 180,
+    }),
+  ]);
+  const awaitingNode = state.awaiting ? state.nodesById[state.awaiting.id] : undefined;
+
+  assert.equal(state.awaiting?.interactive?.timeout, 180000);
+  assert.equal(awaitingNode?.kind, 'awaiting');
+  if (awaitingNode?.kind !== 'awaiting') {
+    throw new Error('expected awaiting node');
+  }
+  if (!awaitingNode.interactive) {
+    throw new Error('expected awaiting interactive');
+  }
+  assert.equal(awaitingNode.interactive?.timeout, 180000);
+  assert.equal(getAwaitingInteractiveTimeout({ ...awaitingNode.interactive, timeout: 180 }), 180000);
+});
+
+test('timeline merge accepts awaiting answer over active ask', () => {
+  const current = deriveChatTimelineState('chat-questions', [questionAwaitingAsk()]);
+  const remoteAnswer = deriveChatTimelineState('chat-questions', [
+    {
+      type: 'awaiting.answer',
+      awaitingId: 'question-1',
+      mode: 'question',
+      runId: 'run-question',
+      params: [{ id: 'q1', answer: '主动汇报' }],
+      timestamp: 310000,
+    },
+  ]);
+  const merged = mergeChatTimelineState(current, remoteAnswer);
+  const awaitingNode = merged.awaiting ? merged.nodesById[merged.awaiting.id] : undefined;
+
+  assert.equal(merged.awaiting?.status, 'answer');
+  assert.equal(awaitingNode?.kind, 'awaiting');
+  if (awaitingNode?.kind !== 'awaiting') {
+    throw new Error('expected awaiting node');
+  }
+  assert.equal(awaitingNode.lifecycle, 'complete');
+});
+
+test('timeline merge switches to a different awaiting question', () => {
+  const current = deriveChatTimelineState('chat-questions', [questionAwaitingAsk()]);
+  const nextQuestion = deriveChatTimelineState('chat-questions', [
+    questionAwaitingAsk({
+      awaitingId: 'question-2',
+      questions: [painPointQuestion],
+      timestamp: 320000,
+    }),
+  ]);
+  const merged = mergeChatTimelineState(current, nextQuestion);
+
+  assert.equal(merged.awaiting?.awaitingId, 'question-2');
+  assert.equal(merged.awaiting?.interactive?.kind, 'question');
+  assert.equal(merged.awaiting?.interactive?.questions[0]?.id, 'q2');
+  assert.deepEqual(
+    buildChatTimelineDisplayItems(merged)
+      .filter((item) => item.kind === 'awaiting')
+      .map((item) => (item.node.kind === 'awaiting' ? item.node.awaitingId : '')),
+    ['question-2']
+  );
+});
+
+test('timeline merge preserves newer awaiting question shape for the same awaiting id', () => {
+  const updatedFeedbackQuestion = {
+    ...feedbackQuestion,
+    allowFreeText: true,
+    freeTextPlaceholder: '请输入其他反馈节奏',
+    options: [{ label: '每日同步' }, { label: '每周总结' }],
+  };
+  const current = deriveChatTimelineState('chat-questions', [
+    questionAwaitingAsk({
+      questions: [updatedFeedbackQuestion],
+      timestamp: 320000,
+    }),
+  ]);
+  const staleRemote = deriveChatTimelineState('chat-questions', [
+    questionAwaitingAsk({
+      timestamp: 120000,
+    }),
+  ]);
+  const merged = mergeChatTimelineState(current, staleRemote);
+  const question = merged.awaiting?.interactive?.questions[0];
+
+  assert.equal(question?.allowFreeText, true);
+  assert.equal(question?.freeTextPlaceholder, '请输入其他反馈节奏');
+  assert.deepEqual(
+    question?.options?.map((option) => option.label),
+    ['每日同步', '每周总结']
+  );
 });
 
 test('timeline reducer keeps builtin question awaiting payload structured', () => {

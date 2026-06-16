@@ -135,10 +135,19 @@ type ReconcileState = {
 };
 
 type ActiveAttachState = {
+  token: number;
   runId: string;
   agentKey: string;
   lastSeq: number;
+  phase: 'pending' | 'active';
+  promise: Promise<void>;
   abort: () => void;
+};
+
+type DuplicateAttachState = {
+  runId: string;
+  agentKey: string;
+  observedAt: number;
 };
 
 type ActiveOutgoingStreamState = {
@@ -177,6 +186,7 @@ const RECONCILE_DEBOUNCE_MS = 180;
 const READ_MARK_DEBOUNCE_MS = 1_500;
 const LOCAL_TERMINATED_RUN_TTL_MS = 120_000;
 const STOPPING_CONVERSATION_TTL_MS = 8_000;
+const DUPLICATE_ATTACH_COOLDOWN_MS = 8_000;
 const CHAT_INTERRUPT_TRANSPORT_TYPE = '/api/interrupt';
 
 function buildFallbackSummary(summary: ChatHomeItem | null) {
@@ -340,6 +350,11 @@ function isInactiveInterruptError(error: unknown): boolean {
   );
 }
 
+function isDuplicateObserveError(error: Error): boolean {
+  const text = getUnknownErrorText(error).toLowerCase();
+  return text.includes('duplicate_observe') || text.includes('already observing');
+}
+
 function findTimelineRunAgentKey(state: ChatTimelineState, runId: string): string {
   for (const nodeId of state.orderedNodeIds) {
     const node = state.nodesById[nodeId];
@@ -352,7 +367,7 @@ function findTimelineRunAgentKey(state: ChatTimelineState, runId: string): strin
 
 function findTimelineAwaitingAgentKey(state: ChatTimelineState, runId: string): string {
   const awaiting = state.awaiting;
-  if (awaiting?.runId === runId && awaiting.interactive?.kind === 'question') {
+  if (awaiting?.runId === runId && awaiting.interactive) {
     return toText(awaiting.interactive.agentKey);
   }
 
@@ -361,7 +376,7 @@ function findTimelineAwaitingAgentKey(state: ChatTimelineState, runId: string): 
     if (
       node?.kind === 'awaiting' &&
       node.runId === runId &&
-      node.interactive?.kind === 'question'
+      node.interactive
     ) {
       return toText(node.interactive.agentKey);
     }
@@ -390,6 +405,7 @@ class ChatSyncService {
   private readonly streamBuffers = new Map<string, StreamBuffer>();
   private readonly reconcileStates = new Map<string, ReconcileState>();
   private readonly activeAttaches = new Map<string, ActiveAttachState>();
+  private readonly recentDuplicateAttaches = new Map<string, DuplicateAttachState>();
   private readonly activeOutgoingStreams = new Map<string, ActiveOutgoingStreamState>();
   private readonly lastReadMarks = new Map<string, ReadMarkState>();
   private readonly readConfirmations = new Map<string, Promise<void>>();
@@ -400,6 +416,7 @@ class ChatSyncService {
   private readonly timelinePersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly pendingRuntimeEmitReasons = new Map<string, ChatSyncReason>();
   private lifecycleVersion = 0;
+  private attachTokenSeq = 0;
   private hasConnectedOnce = false;
 
   getStatus() {
@@ -624,6 +641,7 @@ class ChatSyncService {
   private clearTransientWork() {
     this.activeAttaches.forEach((attach) => attach.abort());
     this.activeAttaches.clear();
+    this.recentDuplicateAttaches.clear();
     this.activeOutgoingStreams.forEach((stream) => stream.abort());
     this.activeOutgoingStreams.clear();
 
@@ -774,7 +792,7 @@ class ChatSyncService {
     const matchesCurrentAwaiting =
       currentAwaiting?.awaitingId === awaitingId || currentAwaiting?.id === awaitingId;
     const scopedAgentKey =
-      matchesCurrentAwaiting && currentAwaiting?.interactive?.kind === 'question'
+      matchesCurrentAwaiting && currentAwaiting?.interactive
         ? currentAwaiting.interactive.agentKey || ''
         : '';
     const historyScope = scopedAgentKey
@@ -2411,6 +2429,7 @@ class ChatSyncService {
   }
 
   private stopAttachedRun(conversationId: string) {
+    this.recentDuplicateAttaches.delete(conversationId);
     const current = this.activeAttaches.get(conversationId);
     if (!current) {
       return;
@@ -2418,6 +2437,47 @@ class ChatSyncService {
 
     current.abort();
     this.activeAttaches.delete(conversationId);
+  }
+
+  private nextAttachToken(): number {
+    this.attachTokenSeq += 1;
+    return this.attachTokenSeq;
+  }
+
+  private isActiveAttachCurrent(conversationId: string, token: number): boolean {
+    return this.activeAttaches.get(conversationId)?.token === token;
+  }
+
+  private rememberDuplicateAttach(
+    conversationId: string,
+    runId: string,
+    agentKey: string
+  ) {
+    this.recentDuplicateAttaches.set(conversationId, {
+      runId,
+      agentKey,
+      observedAt: Date.now(),
+    });
+  }
+
+  private shouldSkipRecentlyDuplicatedAttach(
+    conversationId: string,
+    runId: string,
+    agentKey: string
+  ): boolean {
+    const duplicate = this.recentDuplicateAttaches.get(conversationId);
+    if (!duplicate) {
+      return false;
+    }
+    if (
+      duplicate.runId !== runId ||
+      duplicate.agentKey !== agentKey ||
+      Date.now() - duplicate.observedAt > DUPLICATE_ATTACH_COOLDOWN_MS
+    ) {
+      this.recentDuplicateAttaches.delete(conversationId);
+      return false;
+    }
+    return true;
   }
 
   private stopOutgoingStreams(conversationId: string) {
@@ -2538,29 +2598,69 @@ class ChatSyncService {
 
     const existing = this.activeAttaches.get(normalizedConversationId);
     if (existing?.runId === runId && existing.agentKey === agentKey) {
+      return existing.promise;
+    }
+
+    if (this.shouldSkipRecentlyDuplicatedAttach(normalizedConversationId, runId, agentKey)) {
       return;
     }
 
     this.stopAttachedRun(normalizedConversationId);
-    const config = await this.resolveTransportConfig();
-    if (!config) {
-      return;
-    }
-
+    const attachToken = this.nextAttachToken();
     const attachState: ActiveAttachState = {
+      token: attachToken,
       runId,
       agentKey,
       lastSeq: 0,
+      phase: 'pending',
+      promise: Promise.resolve(),
       abort: () => {},
     };
+    this.activeAttaches.set(normalizedConversationId, attachState);
+    const attachPromise = this.startAttachActiveConversationRun(
+      normalizedConversationId,
+      reason,
+      attachState
+    );
+    attachState.promise = attachPromise;
+
+    try {
+      await attachPromise;
+    } finally {
+      if (
+        this.isActiveAttachCurrent(normalizedConversationId, attachToken) &&
+        attachState.phase === 'pending'
+      ) {
+        this.activeAttaches.delete(normalizedConversationId);
+      }
+    }
+  }
+
+  private async startAttachActiveConversationRun(
+    normalizedConversationId: string,
+    reason: ChatSyncReason,
+    attachState: ActiveAttachState
+  ) {
+    const config = await this.resolveTransportConfig();
+    if (
+      !config ||
+      this.activeConversationId !== normalizedConversationId ||
+      !this.isActiveAttachCurrent(normalizedConversationId, attachState.token)
+    ) {
+      return;
+    }
+
     const handle = await attachChatRun({
       ...config,
       payload: {
-        runId,
-        agentKey,
+        runId: attachState.runId,
+        agentKey: attachState.agentKey,
         lastSeq: attachState.lastSeq,
       },
       onEvent: (event) => {
+        if (!this.isActiveAttachCurrent(normalizedConversationId, attachState.token)) {
+          return;
+        }
         const attachEvent = event as Record<string, unknown>;
         if (typeof attachEvent.seq === 'number') {
           attachState.lastSeq = attachEvent.seq;
@@ -2570,17 +2670,31 @@ class ChatSyncService {
             ...attachEvent,
             chatId: normalizedConversationId,
             conversationId: normalizedConversationId,
-            runId,
+            runId: attachState.runId,
           },
           'stream'
         );
       },
       onDone: () => {
+        if (!this.isActiveAttachCurrent(normalizedConversationId, attachState.token)) {
+          return;
+        }
         this.activeAttaches.delete(normalizedConversationId);
         void this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', true);
       },
       onError: (error) => {
+        if (!this.isActiveAttachCurrent(normalizedConversationId, attachState.token)) {
+          return;
+        }
         this.activeAttaches.delete(normalizedConversationId);
+        if (isDuplicateObserveError(error)) {
+          this.rememberDuplicateAttach(
+            normalizedConversationId,
+            attachState.runId,
+            attachState.agentKey
+          );
+          return;
+        }
         if (isMissingAgentKeyError(error)) {
           void markConversationDirty(normalizedConversationId, error.message || 'attach');
           return;
@@ -2590,7 +2704,15 @@ class ChatSyncService {
     });
 
     attachState.abort = handle.abort;
-    this.activeAttaches.set(normalizedConversationId, attachState);
+    if (
+      this.activeConversationId !== normalizedConversationId ||
+      !this.isActiveAttachCurrent(normalizedConversationId, attachState.token)
+    ) {
+      handle.abort();
+      return;
+    }
+    attachState.phase = 'active';
+    this.recentDuplicateAttaches.delete(normalizedConversationId);
     await markConversationDirty(normalizedConversationId, reason);
   }
 

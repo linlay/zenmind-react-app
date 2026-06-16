@@ -17,8 +17,21 @@ import {
   normalizeEventType,
   toFiniteNumber,
 } from '../../src/features/chatRealtime/routing.ts';
+import {
+  normalizeAwaitingTimeoutMs,
+  normalizeProtocolTimestampMs,
+} from '../../src/core/api/services/chatEventProtocol.ts';
 import { toWsPushEvent } from '../../src/features/chatRealtime/chatWsTransport.ts';
 import type { WsPushFrame } from '../../src/features/chatRealtime/wsClient.ts';
+
+test('normalizes protocol time values without changing local monotonic stamps', () => {
+  assert.equal(normalizeAwaitingTimeoutMs(180), 180_000);
+  assert.equal(normalizeAwaitingTimeoutMs(180_000), 180_000);
+  assert.equal(normalizeAwaitingTimeoutMs(null), null);
+  assert.equal(normalizeProtocolTimestampMs(1_780_023_877, 0), 1_780_023_877_000);
+  assert.equal(normalizeProtocolTimestampMs(1_780_023_877_038, 0), 1_780_023_877_038);
+  assert.equal(normalizeProtocolTimestampMs(300_000, 0), 300_000);
+});
 
 test('normalizes known backend aliases into mobile stream event names', () => {
   assert.equal(normalizeEventType('message.delta'), 'content.delta');
@@ -29,6 +42,8 @@ test('normalizes known backend aliases into mobile stream event names', () => {
   assert.equal(normalizeEventType('run.done'), 'run.complete');
   assert.equal(normalizeEventType('run.failed'), 'run.error');
   assert.equal(normalizeEventType('run.cancelled'), 'run.cancel');
+  assert.equal(normalizeEventType('awaiting.asking'), 'awaiting.ask');
+  assert.equal(normalizeEventType('awaiting.answered'), 'awaiting.answer');
   assert.equal(normalizeEventType('conversation.read'), 'chat.read');
   assert.equal(normalizeEventType('chat.mark_unread'), 'chat.unread');
   assert.equal(normalizeEventType('chat.readAll'), 'chat.read_all');
@@ -95,6 +110,8 @@ test('classifies removal and runtime protocol events', () => {
     'conversation_remove'
   );
   assert.equal(classifyChatProtocolEvent({ type: 'awaiting.ask', chatId: 'chat-1' }), 'awaiting');
+  assert.equal(classifyChatProtocolEvent({ type: 'awaiting.asking', chatId: 'chat-1' }), 'awaiting');
+  assert.equal(classifyChatProtocolEvent({ type: 'awaiting.answered', chatId: 'chat-1' }), 'awaiting');
   assert.equal(
     classifyChatProtocolEvent({ type: 'reasoning.delta', chatId: 'chat-1' }),
     'reasoning'

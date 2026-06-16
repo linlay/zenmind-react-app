@@ -14,7 +14,7 @@
     "首页进入详情页时随 route 传递轻量 ChatConversationTarget 供 Header 首帧展示 agent/team 名称；通知或深链缺失 target 时，详情页 controller 再通过 repository 按 conversation agent_key/team_id 反查目录显示信息。",
     "详情页左上角新建入口通过 repository 按当前 agent/team history scope 创建本地空 conversation，并用 ChatDetail route replace 切换到新会话；空 conversation 仍不抢占目录 latest_conversation_id。",
     "详情页历史抽屉按当前 agent/team scope 读取 conversations 摘要切片，展示会话级未读蓝点、总数和未读会话数；点击历史会话通过 ChatDetail route 切换 conversationId，一键已读继续委托 chatSyncService.markScopeRead。",
-    "详情页由 ChatDetailScreen 负责页面组合，加载/订阅/发送/停止/继续/awaiting question 提交/输入区主操作派生/头部运行态、输入区结构化用量派生/骨架屏入场收敛到 useChatDetailConversationController，普通 awaiting overlay 与收起后重开入口收敛到 useChatDetailAwaitingOverlay，question awaiting 使用 ChatAwaitingDock 贴底展示，历史抽屉与复制提示收敛到 useChatDetailLocalUiState；Header、Timeline 列表、Composer、ChatUsageStats、历史抽屉和骨架屏分别下沉到 components 内部展示组件。",
+    "详情页由 ChatDetailScreen 负责页面组合，加载/订阅/发送/停止/继续/awaiting 提交/输入区主操作派生/头部运行态、输入区结构化用量派生/骨架屏入场收敛到 useChatDetailConversationController，普通 awaiting overlay 与收起后重开入口收敛到 useChatDetailAwaitingOverlay，question/approval/form/plan awaiting 使用 ChatAwaitingDock 贴底展示；form HTML viewport 由 AwaitingFormViewport 通过 /ap/api/viewport 拉取并桥接 frontend_awaiting_submit，历史抽屉与复制提示收敛到 useChatDetailLocalUiState；Header、Timeline 列表、Composer、ChatUsageStats、历史抽屉和骨架屏分别下沉到 components 内部展示组件。",
     "Chat 首页和详情页 UI 文案通过 shared-i18n 获取，用户消息、服务端正文、runtime payload 原始文本和已持久化会话标题不做本地翻译。",
     "详情页主界面不再展示模型选择、摘要卡和独立运行态卡片；消息、reasoning、tool、awaiting 等通过 ChatTimelineList 扁平渲染，运行状态从同一份 timelineState 派生到 ChatDetailHeader，usageLabel 和 usageSummary 派生到输入区 ChatUsageStatsButton，messages/runtimeState/composer primary action 也都从 timeline 派生；首屏优先从 SQLite normalized rich timeline snapshot 恢复，usageSummary 可从 usage 节点 payload 恢复，缺失或尾签名不匹配时才回退 messages。"
   ],
@@ -41,7 +41,13 @@
       "file": "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
       "symbol": "ChatAwaitingDock",
       "kind": "component",
-      "description": "详情页 awaiting question 贴底交互组件，消费 timeline 已归一的 interactive payload，支持单选、多选、文本、日期和数字输入，并把提交参数交给 chatSyncService。"
+      "description": "详情页 awaiting 贴底交互组件，消费 timeline 已归一的 question/approval/form/plan interactive payload，统一构造 submit params 并把提交交给 chatSyncService。"
+    },
+    {
+      "file": "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx",
+      "symbol": "AwaitingFormViewport",
+      "kind": "component",
+      "description": "Native HTML form viewport 容器，使用 getAwaitingViewportApi 拉取 /ap/api/viewport HTML，小型内存缓存复用 HTML，并通过 awaiting_init/awaiting_collect/frontend_awaiting_submit 与 WebView 内表单桥接。"
     },
     {
       "file": "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
@@ -267,7 +273,7 @@
     "Drizzle conversation_timeline_meta / conversation_timeline_nodes 表保存 normalized rich timeline snapshot，用于详情页首屏恢复 reasoning/tool/awaiting/usage/run 等运行态节点；message_tail_signature 防止 snapshot 与 messages 表漂移。",
     "MMKV chat_directory_snapshot_v1 目录快照，镜像首页首屏目录和 join 后展示字段",
     "开发态 clearChatLocalCache 会清空聊天 SQLite 数据和目录快照，不参与生产业务链路",
-    "Chat 首页目录列表、详情页 timeline 视图状态和 awaiting question 局部草稿状态"
+    "Chat 首页目录列表、详情页 timeline 视图状态、awaiting question/approval/form/plan 局部交互状态和 HTML form WebView 内存缓存"
   ],
   "relatedFlows": [
     "chat-home-cold-boot",
@@ -303,7 +309,7 @@
     "首页失焦时应暂停消费实时目录事件，恢复聚焦后再补一次可见切片刷新。",
     "详情页历史抽屉展示的是 conversations 会话摘要列表，不从当前 timeline/messages 反推；未读蓝点、总数和未读数都来自 repository 返回的会话读状态统计。",
     "详情页订阅 scoped sync event 时只让 conversation.timeline.replace/reset 驱动主消息区；旧 message/runtime scoped event 只能作为兼容信号，不能再维护第二套页面状态。",
-    "详情页消息、头部运行状态、用量入口、输入区主操作、awaiting question payload 和 display items 必须从 ChatTimelineState 派生，不在页面层维护第二套 runtime/message/composer 状态拼装逻辑；question 草稿状态只允许保存在 ChatAwaitingDock 局部，提交继续交给 chatSyncService；conversation.reconcile 只刷新详情摘要，不能用 SQLite messages 覆盖远端 event history 投影出的 timeline。",
+    "详情页消息、头部运行状态、用量入口、输入区主操作、awaiting question/approval/form/plan payload 和 display items 必须从 ChatTimelineState 派生，不在页面层维护第二套 runtime/message/composer 状态拼装逻辑；awaiting 草稿和 WebView collect 状态只允许保存在 ChatAwaitingDock/AwaitingFormViewport 局部，提交继续交给 chatSyncService；conversation.reconcile 只刷新详情摘要，不能用 SQLite messages 覆盖远端 event history 投影出的 timeline。",
     "rich timeline snapshot 只能通过 timeline 序列化模块和 repository hash-diff 写入；页面不直接读写 timeline 表，service 高频事件必须 debounce 持久化。",
     "详情页首屏骨架屏要继续覆盖整页，但不要在 RootStack 入场动画中途卸掉；重消息区应先在骨架层下完成挂载，再让骨架退场。",
     "通知点击补拉必须先按 serverMessageId 查 SQLite，再用 repository 幂等 upsert，避免重复网络和重复未读计数。",

@@ -37,6 +37,7 @@ export type ChatTimelineAwaitingQuestionOption = {
   description?: string;
   previewHtml?: string;
   value?: string;
+  recommended?: boolean;
 };
 
 export type ChatTimelineAwaitingQuestion = {
@@ -50,16 +51,85 @@ export type ChatTimelineAwaitingQuestion = {
   freeTextPlaceholder?: string;
 };
 
-export type ChatTimelineAwaitingInteractiveQuestion = {
-  kind: 'question';
+export type ChatTimelineAwaitingApprovalDecision = 'approve' | 'reject' | 'approve_rule_run';
+
+export type ChatTimelineAwaitingPlanDecision = 'approve' | 'reject';
+
+export type ChatTimelineAwaitingApprovalOption = {
+  label: string;
+  description?: string;
+  decision: ChatTimelineAwaitingApprovalDecision;
+};
+
+export type ChatTimelineAwaitingApproval = {
+  id: string;
+  command: string;
+  ruleKey?: string;
+  description?: string;
+  options?: ChatTimelineAwaitingApprovalOption[];
+  allowFreeText?: boolean;
+  freeTextPlaceholder?: string;
+};
+
+export type ChatTimelineAwaitingForm = {
+  id: string;
+  action?: string;
+  form?: Record<string, unknown> | null;
+  title?: string;
+};
+
+export type ChatTimelineAwaitingPlanInput = {
+  type: 'text';
+  placeholder?: string;
+  required?: boolean;
+};
+
+export type ChatTimelineAwaitingPlanOption = {
+  label: string;
+  description?: string;
+  decision: ChatTimelineAwaitingPlanDecision;
+  input?: ChatTimelineAwaitingPlanInput;
+};
+
+export type ChatTimelineAwaitingPlan = {
+  id: string;
+  planningId?: string;
+  title?: string;
+  options?: ChatTimelineAwaitingPlanOption[];
+};
+
+export type ChatTimelineAwaitingInteractiveBase = {
   viewportType: string;
   viewportKey: string;
   timeout: number | null;
   agentKey: string;
+};
+
+export type ChatTimelineAwaitingInteractiveQuestion = ChatTimelineAwaitingInteractiveBase & {
+  kind: 'question';
   questions: ChatTimelineAwaitingQuestion[];
 };
 
-export type ChatTimelineAwaitingInteractive = ChatTimelineAwaitingInteractiveQuestion;
+export type ChatTimelineAwaitingInteractiveApproval = ChatTimelineAwaitingInteractiveBase & {
+  kind: 'approval';
+  approvals: ChatTimelineAwaitingApproval[];
+};
+
+export type ChatTimelineAwaitingInteractiveForm = ChatTimelineAwaitingInteractiveBase & {
+  kind: 'form';
+  forms: ChatTimelineAwaitingForm[];
+};
+
+export type ChatTimelineAwaitingInteractivePlan = ChatTimelineAwaitingInteractiveBase & {
+  kind: 'plan';
+  plan: ChatTimelineAwaitingPlan;
+};
+
+export type ChatTimelineAwaitingInteractive =
+  | ChatTimelineAwaitingInteractiveQuestion
+  | ChatTimelineAwaitingInteractiveApproval
+  | ChatTimelineAwaitingInteractiveForm
+  | ChatTimelineAwaitingInteractivePlan;
 
 export type ChatTimelineAwaitingAnswerDisplayItem = {
   key: string;

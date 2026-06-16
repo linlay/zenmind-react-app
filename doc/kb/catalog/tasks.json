@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-15T06:39:04.199Z",
+  "generatedAt": "2026-06-16T08:13:30.718Z",
   "items": [
     {
       "id": "add-app-startup-loading-screen",
@@ -203,6 +203,9 @@
       "likelyFiles": [
         "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
         "src/features/chatPersistence/ChatDetailScreen.tsx",
+        "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
+        "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx",
+        "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
         "src/features/chatPersistence/components/ChatDetailDrawers.tsx",
         "src/features/chatPersistence/components/ChatTimelineList.tsx",
         "src/features/chatPersistence/useChatDetailLocalUiState.ts",
@@ -245,7 +248,9 @@
         "src/features/chatPersistence/chatRepository.ts",
         "src/features/chatPersistence/ChatDetailScreen.tsx",
         "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
+        "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx",
         "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
+        "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
         "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
         "src/core/api/services/chatApi.ts",
         "src/core/api/services/chatEventProtocol.ts"

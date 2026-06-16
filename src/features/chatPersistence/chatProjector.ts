@@ -3,7 +3,10 @@ import type {
   RemoteChatEvent,
   RemoteChatSummary,
 } from '../../core/api/services/chatApi';
-import { toText } from '../../core/api/services/chatEventProtocol.ts';
+import {
+  normalizeProtocolTimestampMs,
+  toText,
+} from '../../core/api/services/chatEventProtocol.ts';
 import type { ChatConversationRuntimeState } from '../chatRealtime/types';
 import {
   deriveChatTimelineState,
@@ -54,18 +57,7 @@ function toFiniteNumber(value: unknown): number | null {
 }
 
 function parseTimestamp(value: unknown, fallback: number): number {
-  const numeric = toFiniteNumber(value);
-  if (numeric !== null && numeric > 0) {
-    return numeric >= 1_000_000_000_000 ? numeric : numeric * 1000;
-  }
-
-  const text = toText(value);
-  if (!text) {
-    return fallback;
-  }
-
-  const parsed = Date.parse(text);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  return normalizeProtocolTimestampMs(value, fallback);
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {

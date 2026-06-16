@@ -131,8 +131,8 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     runtimeState,
     conversationId
   );
-  const questionAwaiting = awaitingSummary?.interactive?.kind === 'question' ? awaitingSummary : null;
-  const passiveAwaiting = questionAwaiting ? null : awaitingSummary;
+  const interactiveAwaiting = awaitingSummary?.interactive ? awaitingSummary : null;
+  const passiveAwaiting = interactiveAwaiting ? null : awaitingSummary;
   const handleSubmitAwaiting = useCallback(
     (payload: AwaitingSubmitPayloadData) => chatSyncService.submitAwaiting(conversationId, payload),
     [conversationId]
@@ -227,8 +227,8 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                   }
                 />
 
-                {questionAwaiting ? (
-                  <ChatAwaitingDock awaiting={questionAwaiting} onSubmit={handleSubmitAwaiting} />
+                {interactiveAwaiting ? (
+                  <ChatAwaitingDock awaiting={interactiveAwaiting} onSubmit={handleSubmitAwaiting} />
                 ) : (
                   <>
                     <ChatAwaitingResumeBar

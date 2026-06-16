@@ -46,6 +46,48 @@ export function toFiniteNumber(value: unknown, fallback = Date.now()): number {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+const UNIX_SECONDS_TIMESTAMP_MIN = 1_000_000_000;
+const UNIX_MILLISECONDS_TIMESTAMP_MIN = 1_000_000_000_000;
+const AWAITING_TIMEOUT_SECONDS_MAX_EXCLUSIVE = 1000;
+
+export function normalizeProtocolTimestampMs(value: unknown, fallback = Date.now()): number {
+  if (value === null || value === undefined || value === '') {
+    return fallback;
+  }
+
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) {
+    if (numeric <= 0) {
+      return fallback;
+    }
+    if (numeric >= UNIX_MILLISECONDS_TIMESTAMP_MIN) {
+      return numeric;
+    }
+    return numeric >= UNIX_SECONDS_TIMESTAMP_MIN ? numeric * 1000 : numeric;
+  }
+
+  const text = toText(value);
+  if (!text) {
+    return fallback;
+  }
+
+  const parsed = Date.parse(text);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+export function normalizeAwaitingTimeoutMs(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return null;
+  }
+
+  return numeric < AWAITING_TIMEOUT_SECONDS_MAX_EXCLUSIVE ? numeric * 1000 : numeric;
+}
+
 export function normalizeEventType(rawType: unknown): string {
   const type = toText(rawType);
   if (!type) {
@@ -75,6 +117,8 @@ export function normalizeEventType(rawType: unknown): string {
     'run.fail': 'run.error',
     'run.canceled': 'run.cancel',
     'run.cancelled': 'run.cancel',
+    'awaiting.asking': 'awaiting.ask',
+    'awaiting.answered': 'awaiting.answer',
     'conversation.read': 'chat.read',
     'chat.mark_read': 'chat.read',
     'conversation.unread': 'chat.unread',

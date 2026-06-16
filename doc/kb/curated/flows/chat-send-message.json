@@ -5,7 +5,7 @@
   "sourceOfTruth": [
     "消息先落 SQLite 和 outbox，再尝试发给 WebSocket。",
     "ack 或 stream done/error 由后台回调通过 repository patch 命中消息状态和会话摘要。",
-    "详情页停止/继续生成只通过 chatSyncService 管理 active outgoing/attach stream、/api/interrupt、activeRunId、本地终止 run guard 和 timeline，不在页面层直接操作 WebSocket。"
+    "详情页停止/继续生成和 awaiting question/approval/form/plan 提交只通过 chatSyncService 管理 active outgoing/attach stream、/api/interrupt、activeRunId、本地终止 run guard、/ap/api/submit 本地投影和 timeline，不在页面层直接操作 WebSocket 或 HTTP submit。"
   ],
   "steps": [
     {
@@ -71,7 +71,7 @@
     "详情页输入框如果直接调用 transport，会绕过 outbox 和快照刷新。",
     "新建本地空会话发送首条消息时如果不从 repository 补齐 agentKey/teamId，服务端会缺少 agent/team 上下文。",
     "发送失败路径如果不回写 errorReason，UI 无法区分失败和待发送。",
-    "停止/继续如果在页面层维护临时状态，会导致 timeline lifecycle、输入区按钮和 reconnect/reconcile 后状态不一致。"
+    "停止/继续或 awaiting submit 如果在页面层维护临时状态或直接请求接口，会导致 timeline lifecycle、输入区按钮、awaiting answer 摘要和 reconnect/reconcile 后状态不一致。"
   ],
   "mustCheckModules": ["feature-chat-persistence", "feature-chat-realtime", "feature-chat-timeline"],
   "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime"]
