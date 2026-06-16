@@ -47,13 +47,13 @@
     "src/shared/visual/AppThemeProvider.tsx",
     "src/shared/visual/foundation.ts",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
-    "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+    "src/features/chatPersistence/ChatHomeScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx"
   ],
   "doNotMiss": [
     "Tab.Screen / RootStack.Screen 名称、component 映射和 RootTabParamList / RootStackParamList 必须保持一致。",
     "新页面如果承接业务数据，先确定 feature 边界，不把业务逻辑堆进 src/app。",
-    "当前 Chat Tab 直接指向 ChatHomeStorageDemo；详情页由 RootNavigator 的 ChatDetail stack route 承载。",
+    "当前 Chat Tab 直接指向 ChatHomeScreen；详情页由 RootNavigator 的 ChatDetail stack route 承载。",
     "原生端 Tab 由 TabsNavigator.native.tsx 承载，Web/默认平台由 TabsNavigator.tsx 承载；RootNavigator 只挂平台解析后的 TabsNavigator。",
     "一级页面和 feature 内二级滚动页底部避让统一走 useAppTabBarHeight，不能直接调用 useBottomTabBarHeight；Native Bottom Tabs 不提供 JS BottomTabBarHeightContext，Native 端用 shared tab metrics 兜底留出可滚动空间。",
     "Native Bottom Tabs 图标使用 assets/tabs 下的 tintable PNG，不直接复用 React SVG AppIcon。",

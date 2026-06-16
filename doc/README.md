@@ -34,7 +34,7 @@ pnpm kb:check-stale
 
 | Tab | 标签 | 实际入口 |
 | --- | --- | -------- |
-| `Chat` | 对话 | `src/features/chatPersistence/ChatHomeStorageDemo.tsx` |
+| `Chat` | 对话 | `src/features/chatPersistence/ChatHomeScreen.tsx` |
 | `Terminal` | 任务 | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` |
 | `Drive` | 网盘 | `src/app/screens/TabScreens.tsx` 占位页 |
 | `Me` | 用户 | `src/app/screens/TabScreens.tsx` 用户与会话信息页 |

@@ -8,6 +8,7 @@ import {
   normalizeChatReadPatch,
   normalizeChatReadState,
   normalizeConversationUnreadCount,
+  normalizePersistedConversationReadState,
 } from '../../src/features/chatPersistence/chatReadState.ts';
 
 test('normalizes structured read state with webclient defaults', () => {
@@ -46,6 +47,21 @@ test('normalizes legacy unread run count as a conversation unread flag', () => {
   assert.equal(normalizeConversationUnreadCount({ unreadRunCount: 3 }), 1);
   assert.equal(normalizeConversationUnreadCount({ unreadRunCount: 1 }), 1);
   assert.equal(normalizeConversationUnreadCount({ unreadRunCount: 0 }), 0);
+});
+
+test('normalizes persisted conversation read state with null compatibility fields', () => {
+  assert.equal(
+    normalizePersistedConversationReadState({ isRead: null, unreadCount: 0 }).isRead,
+    true
+  );
+  assert.equal(
+    normalizePersistedConversationReadState({ isRead: null, unreadCount: 1 }).isRead,
+    false
+  );
+  assert.equal(
+    normalizePersistedConversationReadState({ isRead: 1, unreadCount: 1 }).isRead,
+    true
+  );
 });
 
 test('merges partial read patches without clearing read metadata', () => {

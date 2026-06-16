@@ -3,8 +3,11 @@ import test from 'node:test';
 
 import {
   buildAwaitingSubmitPayload,
+  findMissingApprovalIndex,
+  hasAwaitingApprovalResponse,
   mergeSubmittedParamsIntoAwaitingForms,
   normalizeAwaitingSubmitParams,
+  type AwaitingApprovalDraft,
 } from '../../src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts';
 import type { ChatTimelineAwaitingInteractive, ChatTimelineAwaitingState } from '../../src/features/chatTimeline/index.ts';
 
@@ -85,6 +88,103 @@ test('awaiting submit builder creates approval and plan submit payloads', () => 
           reason: 'narrow the scope',
         },
       ],
+    }
+  );
+});
+
+test('awaiting submit builder accepts approval reason without a decision', () => {
+  const approvals = [
+    {
+      id: 'cmd-1',
+      command: 'chmod 777 ~/a.sh',
+      allowFreeText: true,
+    },
+    {
+      id: 'cmd-2',
+      command: 'chmod 777 ~/b.sh',
+      allowFreeText: true,
+    },
+    {
+      id: 'cmd-3',
+      command: 'chmod 777 ~/c.sh',
+      allowFreeText: true,
+    },
+  ];
+  const awaiting = awaitingWithInteractive({
+    kind: 'approval',
+    viewportType: 'builtin',
+    viewportKey: 'approval',
+    timeout: null,
+    agentKey: 'shell',
+    approvals,
+  });
+  const draft: AwaitingApprovalDraft = {
+    decisions: {
+      'cmd-2': 'approve',
+      'cmd-3': 'approve_rule_run',
+    },
+    reasons: {
+      'cmd-1': '测试测试',
+      'cmd-3': 'trusted rule',
+    },
+  };
+
+  assert.equal(hasAwaitingApprovalResponse(approvals[0], draft), true);
+  assert.equal(findMissingApprovalIndex(approvals, draft), -1);
+  assert.deepEqual(buildAwaitingSubmitPayload(awaiting, { kind: 'approval', ...draft }), {
+    runId: 'run-1',
+    awaitingId: 'approval-1',
+    params: [
+      { id: 'cmd-1', reason: '测试测试' },
+      { id: 'cmd-2', decision: 'approve' },
+      { id: 'cmd-3', decision: 'approve_rule_run', reason: 'trusted rule' },
+    ],
+  });
+  assert.deepEqual(normalizeAwaitingSubmitParams([{ id: 'cmd-1', reason: '测试测试' }], 'approval'), [
+    { id: 'cmd-1', reason: '测试测试' },
+  ]);
+  assert.deepEqual(normalizeAwaitingSubmitParams([{ id: 'cmd-1' }], 'approval'), []);
+});
+
+test('awaiting approval response requires a decision or allowed nonblank reason', () => {
+  const approvals = [
+    {
+      id: 'cmd-1',
+      command: 'chmod 777 ~/a.sh',
+      allowFreeText: true,
+    },
+    {
+      id: 'cmd-2',
+      command: 'chmod 777 ~/b.sh',
+    },
+  ];
+  const draft: AwaitingApprovalDraft = {
+    decisions: {},
+    reasons: {
+      'cmd-1': '   ',
+      'cmd-2': 'ignored',
+    },
+  };
+
+  assert.equal(hasAwaitingApprovalResponse(approvals[0], draft), false);
+  assert.equal(hasAwaitingApprovalResponse(approvals[1], draft), false);
+  assert.equal(findMissingApprovalIndex(approvals, draft), 0);
+  assert.deepEqual(
+    buildAwaitingSubmitPayload(
+      awaitingWithInteractive({
+        kind: 'approval',
+        viewportType: 'builtin',
+        viewportKey: 'approval',
+        timeout: null,
+        agentKey: 'shell',
+        approvals,
+      }),
+      { kind: 'approval', ...draft }
+    ),
+    {
+      runId: 'run-1',
+      awaitingId: 'approval-1',
+      params: [],
     }
   );
 });

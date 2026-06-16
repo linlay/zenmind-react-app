@@ -8,8 +8,8 @@
     "通过 repository 统一承接 SQLite、MMKV 和 patch 型写接口，实时摘要 patch 会按字段存在性更新 conversation 归属、最后消息和未读位，并返回目录物化是否变化。",
     "将远端 read/readStatus/unreadRunCount/unreadCount 统一归一为结构化 ChatReadState，以 conversations.is_read/read_at/read_run_id 为会话读状态真源，并把首页 agent/team 未读角标物化为未读会话数。",
     "在通知点击进入详情页时，先查本地 serverMessageId，必要时补拉服务端消息并幂等落库。",
-    "提供 Chat 首页目录列表和详情页样例，演示冷启动、目录+会话摘要合成刷新、消息级实时 patch、固定顶部 Header、分页、整页骨架屏遮罩、轻量消息流、紧凑底部输入栏和按需历史抽屉；首页首屏先用 MMKV 快照回显，再通过 repository 预热 SQLite 目录切片。",
-    "首页点击无 latest_conversation_id 的 agent/team 目录项时，通过 repository 按目录 scope 复用或创建本地空 conversation 后再进入详情；空 conversation 不抢占目录 latest_conversation_id，首条消息写入后再刷新目录投影。",
+    "提供 Chat 首页目录列表和详情页，承接冷启动、目录+会话摘要合成刷新、消息级实时 patch、固定顶部 Header、分页、整页骨架屏遮罩、轻量消息流、紧凑底部输入栏和按需历史抽屉；首页首屏先用 MMKV 快照回显，再通过 repository 预热 SQLite 目录切片。",
+    "首页点击 agent/team 目录项时，通过 repository 的 resolveDirectoryItemConversationOpenTarget 做单一跳转决策：latest conversation 未读、pending、active run、active awaiting 或尾节点仍 active/streaming 时打开 latest；否则直接创建本地空 conversation；空 conversation 不抢占目录 latest_conversation_id，首条消息写入后再刷新目录投影。",
     "首页左侧新对话入口通过左侧 agents/teams 浮层分页读取目录 catalog，点击目录卡片后通过 repository 按 scope 创建全新本地空 conversation 并进入详情。",
     "首页进入详情页时随 route 传递轻量 ChatConversationTarget 供 Header 首帧展示 agent/team 名称；通知或深链缺失 target 时，详情页 controller 再通过 repository 按 conversation agent_key/team_id 反查目录显示信息。",
     "详情页左上角新建入口通过 repository 按当前 agent/team history scope 创建本地空 conversation，并用 ChatDetail route replace 切换到新会话；空 conversation 仍不抢占目录 latest_conversation_id。",
@@ -20,8 +20,8 @@
   ],
   "publicEntrypoints": [
     {
-      "file": "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
-      "symbol": "ChatHomeStorageDemo",
+      "file": "src/features/chatPersistence/ChatHomeScreen.tsx",
+      "symbol": "ChatHomeScreen",
       "kind": "screen",
       "description": "Chat 首页目录入口，负责固定顶部 Header、MMKV 快照冷启动回显、交互后 SQLite 切片刷新、分页、置顶折叠控制，并按导航焦点消费 home.directory.replace 与未标记 directoryProjectionChanged 且命中当前可见 latestConversationId 的 home.item.patch。"
     },
@@ -63,15 +63,9 @@
     },
     {
       "file": "src/features/chatPersistence/chatRepository.ts",
-      "symbol": "prepareChatPersistenceSample",
-      "kind": "bootstrap",
-      "description": "初始化数据库和示例数据。"
-    },
-    {
-      "file": "src/features/chatPersistence/chatRepository.ts",
       "symbol": "prewarmChatHomeDirectory",
       "kind": "bootstrap",
-      "description": "首页目录预热入口，确保本地样例数据可用，读取 SQLite 目录首屏切片，并只在有可用目录数据时刷新 MMKV 首页快照。"
+      "description": "首页目录预热入口，确保 SQLite 已初始化，读取目录首屏切片，并只在有可用目录数据时刷新 MMKV 首页快照。"
     },
     {
       "file": "src/features/chatPersistence/chatRepository.ts",
@@ -135,9 +129,9 @@
     },
     {
       "file": "src/features/chatPersistence/chatRepository.ts",
-      "symbol": "getOrCreateConversationForDirectoryItem",
+      "symbol": "resolveDirectoryItemConversationOpenTarget",
       "kind": "write",
-      "description": "按目录 item id 读取 agent/team scope，复用该 scope 下最近 conversation 或创建本地空 conversation，供首页无对话目录项进入详情页。"
+      "description": "按目录 item id 读取 agent/team scope，基于 latest conversation 的 unread 与未结束状态做 O(1) 跳转决策；latest 不需要继续打开时直接创建本地空 conversation，供首页目录项进入详情页。"
     },
     {
       "file": "src/features/chatPersistence/chatRepository.ts",
@@ -267,7 +261,7 @@
   ],
   "dependedBy": ["app-shell-navigation", "core-auth-session", "feature-chat-realtime", "feature-chat-timeline"],
   "stateTouches": [
-    "SQLite 数据库 zenmind-chat-demo.db",
+    "SQLite 数据库 zenmind-chat-demo.db（legacy scope 历史兼容文件名；新 profile scope 使用 zenmind-chat-<scope>.db）",
     "Drizzle chat_directory_items 表，其中 pinned_at 是 Chat 首页目录置顶真源，sort_rank 是最近消息时间相同或缺失时的稳定兜底，latest_conversation_id 指向该目录项最新会话摘要，icon_name/icon_color/icon_uri 是 agent/team 目录头像展示字段",
     "Drizzle conversations/messages/outbox_messages/conversation_sync_state 表，其中 conversations 保存 chat 摘要真源、agent_key/team_id 归属、结构化 read 状态与详情消息链路，conversations.is_read/read_at/read_run_id 是会话读状态真源，旧 conversations.unread_count 只保留兼容位，conversations.pinned_at 只服务 conversation 摘要链路",
     "Drizzle conversation_timeline_meta / conversation_timeline_nodes 表保存 normalized rich timeline snapshot，用于详情页首屏恢复 reasoning/tool/awaiting/usage/run 等运行态节点；message_tail_signature 防止 snapshot 与 messages 表漂移。",
@@ -301,7 +295,7 @@
     "conversation_sync_state 只记录单会话同步状态，不承担消息历史或首页排序真源。",
     "Chat 首页的一级页面 Header 固定在滚动区外，不把标题区塞回列表头里。",
     "首页头像 icon、头像色、未读、最后消息和时间展示从 repository 返回的 `ChatDirectoryItem` 派生，页面不做跨接口合成。",
-    "首页点击无 latest_conversation_id 的目录项时，只能通过 repository 取/建 scoped conversation；空 conversation 不应写成目录 latest_conversation_id，也不应覆盖最后消息展示。",
+    "首页点击目录项时，只能通过 repository 的 resolveDirectoryItemConversationOpenTarget 决定打开 latest 或创建空 conversation；页面层不得直接判断 SQLite、timeline 或 read state，空 conversation 不应写成目录 latest_conversation_id，也不应覆盖最后消息展示。",
     "首页新对话浮层只能通过 catalog page 读取目录，通过 createConversationForDirectoryItem 创建空 conversation；浮层卡片不直接写 SQLite，也不复用首页 latest conversation。",
     "详情页继续通过 repository 或 sync service 取数和写入，不直接碰 schema/database/WebSocket transport。",
     "Chat UI 新增本地文案走 shared-i18n；不要把用户消息、服务端正文、runtime payload 原始文本或已持久化标题翻译后写回 SQLite。",

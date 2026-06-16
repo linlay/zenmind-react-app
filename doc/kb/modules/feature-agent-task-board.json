@@ -4,19 +4,19 @@
   "layer": "features",
   "paths": ["src/features/agentTaskBoard"],
   "responsibility": [
-    "承载面向 AI 智能体任务分配后的移动端任务处置 UI 设计稿。",
+    "承载面向 AI 智能体任务分配后的移动端任务处置 UI。",
     "主屏聚焦今日待处理事项、待分配/待复核/阻塞数量、三段式队列和精简任务行，避免复刻 PC 五列看板的信息密度。",
     "主任务队列使用 FlashList 虚拟化渲染，派生计数和焦点任务通过单次扫描生成，避免长列表场景下 ScrollView 一次性渲染和重复遍历。",
-    "用 feature 内部二级页面模拟新增任务、分配任务和任务详情流程，体现从创建、指派、执行、复核到完成的关键处置路径。",
-    "任务看板示例任务、队列、阶段、动作和二级页面 UI 文案通过 shared-i18n key 化，保留 mock 业务字段与翻译文案边界。",
-    "当前不接入持久化或实时 transport；后续真实数据应通过 feature service/API 边界接入，不从 app screen 直连底层存储。"
+    "用 feature 内部二级页面承载新增任务、分配任务和任务详情流程，体现从创建、指派、执行、复核到完成的关键处置路径。",
+    "通过 Kanban API/RPC 获取真实 snapshot 并提交变更，screen 只消费 feature service 与 view model 派生后的任务、队列、阶段和智能体数据。",
+    "当前不接入 SQLite、MMKV 或实时 transport；任务数据经 core API service 边界接入，不从 app screen 直连底层存储。"
   ],
   "publicEntrypoints": [
     {
       "file": "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
       "symbol": "AgentTaskBoardScreen",
       "kind": "feature-screen",
-      "description": "Terminal/任务 Tab 挂载的任务流转看板移动端设计稿。"
+      "description": "Terminal/任务 Tab 挂载的任务流转看板移动端入口。"
     }
   ],
   "dependsOn": ["core-api-client", "shared-screen-header", "shared-visual-foundation", "shared-i18n"],
@@ -25,19 +25,19 @@
     "看板队列筛选 selectedQueue 本地 UI 状态",
     "feature 内部二级页面 route 本地 UI 状态",
     "分配任务页 selectedAgent 本地 UI 状态",
-    "本地 mock 任务与智能体展示数据"
+    "Kanban snapshot、selectedQueue 本地 UI 状态和由 view model 派生的任务/智能体展示数据"
   ],
   "relatedFlows": [],
   "relatedTasks": ["add-or-edit-tab-screen", "add-internationalization"],
   "impactChecklist": [
     "保持 screen 只消费 feature 内数据模型和共享 UI，不直接操作 SQLite 或 WebSocket。",
-    "接入真实任务 API 时先新增 service/repository 边界，再让 screen 消费聚合后的 view model。",
+    "任务 API 访问继续收敛在 core service，screen 只消费聚合后的 view model。",
     "一级页面 Header 固定在滚动区外，主屏与 feature 内二级滚动页底部避让继续使用 shared visual 的 useAppTabBarHeight。",
     "Header 和任务行只保留有真实行为的操作入口，不保留空 onPress 或占位按钮。",
     "任务列表保持虚拟化渲染；接入真实数据后继续使用 FlashList 或共享分页列表，不回退到 ScrollView + map。",
-    "新增或调整任务看板静态 UI 文案时同步维护 shared-i18n messages key，不把中文/英文直接写回 mock 数据结构。",
+    "新增或调整任务看板静态 UI 文案时同步维护 shared-i18n messages key，不把中文/英文直接写回 API 数据结构。",
     "主屏只保留高频处置入口和少量关键数字，生命周期与执行记录下沉到任务详情二级页。",
-    "新增任务、分配任务这类操作先在 feature 内部二级页模拟，接入真实数据前不新增跨模块路由或底层存储依赖。"
+    "新增任务、分配任务这类操作继续通过 feature 内部二级页和 Kanban RPC 提交，不新增跨模块路由或底层存储依赖。"
   ],
   "readNext": [
     {

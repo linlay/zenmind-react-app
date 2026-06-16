@@ -34,7 +34,7 @@ Expo SDK 56 + React Native 0.85 + TypeScript 5.9。当前仓库是移动端骨�
 | ---------------- | ---------------------------------------- | --------------------------------------------- |
 | app              | `AppRoot` / `RootNavigator`              | `App.tsx`, `src/app/`                         |
 | core             | `readPublicEnv` / `apiRequest`           | `src/core/config`, `src/core/api`             |
-| chat persistence | `ChatHomeStorageDemo` / `chatRepository` | `src/features/chatPersistence/`               |
+| chat persistence | `ChatHomeScreen` / `chatRepository` | `src/features/chatPersistence/`               |
 | chat realtime    | `chatSyncService` / `chatWsManager`      | `src/features/chatRealtime/`                  |
 | shared ui        | `PaginatedCardList`                      | `src/shared/components/PaginatedCardList.tsx` |
 
@@ -42,7 +42,7 @@ Expo SDK 56 + React Native 0.85 + TypeScript 5.9。当前仓库是移动端骨�
 
 | Tab      | 实际入口                                               |
 | -------- | ------------------------------------------------------ |
-| Chat     | `src/features/chatPersistence/ChatHomeStorageDemo.tsx` |
+| Chat     | `src/features/chatPersistence/ChatHomeScreen.tsx` |
 | Terminal | `src/app/screens/TabScreens.tsx` 占位页                |
 | Drive    | `src/app/screens/TabScreens.tsx` 占位页                |
 | Me       | `src/app/screens/TabScreens.tsx` 占位页                |
@@ -117,7 +117,7 @@ Shared
 
 | 类型                   | 规范                            | 示例                                  |
 | ---------------------- | ------------------------------- | ------------------------------------- |
-| Component / Screen     | PascalCase                      | `AppRoot`, `ChatHomeStorageDemo`      |
+| Component / Screen     | PascalCase                      | `AppRoot`, `ChatHomeScreen`      |
 | Service / Manager 单例 | camelCase                       | `chatSyncService`, `chatWsManager`    |
 | Repository / API 函数  | camelCase 动词                  | `createOutgoingMessage`, `apiRequest` |
 | 类型                   | PascalCase                      | `ChatHomeItem`, `ChatSocketEvent`     |

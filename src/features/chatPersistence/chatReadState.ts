@@ -17,6 +17,13 @@ export type ChatReadStateInput =
   | null
   | undefined;
 
+export type PersistedConversationReadStateInput = {
+  unreadCount?: unknown;
+  isRead?: unknown;
+  readAt?: unknown;
+  readRunId?: unknown;
+};
+
 const READ_STATE_KEYS = ['isRead', 'read', 'unreadRunCount', 'unreadCount', 'readStatus'] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -156,6 +163,20 @@ export function normalizeChatReadState(input: ChatReadStateInput): ChatReadState
   }
 
   return readStateFromIsRead(true, readAt, readRunId);
+}
+
+export function normalizePersistedConversationReadState(
+  input: PersistedConversationReadStateInput
+): ChatReadState {
+  const hasPersistedIsRead =
+    input.isRead !== undefined && input.isRead !== null && input.isRead !== '';
+
+  return normalizeChatReadState({
+    isRead: hasPersistedIsRead ? input.isRead : undefined,
+    readAt: input.readAt ?? null,
+    readRunId: input.readRunId ?? null,
+    unreadCount: hasPersistedIsRead ? undefined : input.unreadCount,
+  });
 }
 
 export function normalizeChatReadPatch(input: ChatReadStateInput): ChatReadState | undefined {

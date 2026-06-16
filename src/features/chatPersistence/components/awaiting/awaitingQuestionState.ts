@@ -8,13 +8,6 @@ export function hasAwaitingQuestions(questions: readonly ChatTimelineAwaitingQue
   return Array.isArray(questions) && questions.length > 0;
 }
 
-export function clampAwaitingQuestionIndex(index: number, total: number): number {
-  if (total <= 0 || index <= 0) {
-    return 0;
-  }
-  return index >= total ? total - 1 : index;
-}
-
 export function createAwaitingQuestionDrafts(
   questions: readonly ChatTimelineAwaitingQuestion[] | null | undefined
 ): AwaitingQuestionDraft[] {

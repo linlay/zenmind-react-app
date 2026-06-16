@@ -1,9 +1,12 @@
-import { and, asc, count, desc, eq, gt, inArray, notInArray, sql } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
 
-import { getApiBaseUrl } from '../../core/api/apiClient';
 import { normalizeAgentAvatarIcon } from '../../shared/visual/agentAvatarIcon.ts';
 import { chatDb, ensureChatDatabase } from './database';
 import { createChatConversationTarget } from './chatConversationTarget';
+import {
+  isActiveTimelinePayload,
+  shouldOpenLatestConversationFromSummary,
+} from './chatDirectoryOpenDecision';
 import { normalizeChatConversationHistoryScope } from './chatHistoryScope';
 import { clearChatDirectorySnapshot, writeChatDirectorySnapshot } from './homeSnapshot';
 import {
@@ -31,6 +34,7 @@ import {
   normalizeChatReadPatch,
   normalizeChatReadState,
   normalizeConversationUnreadCount,
+  normalizePersistedConversationReadState,
   readStateToUnreadBit,
   type ChatReadStateInput,
 } from './chatReadState.ts';
@@ -60,140 +64,22 @@ import {
   ServerMessageDetail,
 } from './types';
 
-const DEMO_PAGE_SIZE = 6;
-const DEMO_BASE_TIME = Date.parse('2026-05-22T09:00:00.000Z');
+const CHAT_DIRECTORY_DEFAULT_PAGE_SIZE = 6;
 const TIMELINE_STALE_DELETE_BATCH_SIZE = 240;
 const DEFAULT_NEW_CONVERSATION_TITLE = '新对话';
 
-type DemoConversationSeed = {
-  id: string;
-  title: string;
-  unreadCount: number;
-  messages: string[];
-};
+function getPinnedDirectoryCountExpression() {
+  return sql<number>`coalesce(sum(case when ${chatDirectoryItems.pinnedAt} > 0 then 1 else 0 end), 0)`;
+}
 
-const DEMO_SEED: DemoConversationSeed[] = [
-  {
-    id: 'conv-1',
-    title: 'Daily standup',
-    unreadCount: 2,
-    messages: [
-      'Yesterday: shipped the first bottom-tab shell.',
-      'Today: wire storage and paging into the chat home list.',
-      'Blocker: waiting for the final persistence shape.',
-    ],
-  },
-  {
-    id: 'conv-2',
-    title: 'Planner',
-    unreadCount: 0,
-    messages: [
-      'Draft the repository split before touching screens.',
-      'Keep SQLite as the only source of truth.',
-      'Use MMKV only for the first-page startup snapshot.',
-    ],
-  },
-  {
-    id: 'conv-3',
-    title: 'Terminal',
-    unreadCount: 1,
-    messages: [
-      'A terminal session card needs reconnect status.',
-      'Track the last active workdir in the list metadata.',
-      'We also need a lightweight empty state.',
-    ],
-  },
-  {
-    id: 'conv-4',
-    title: 'Drive',
-    unreadCount: 4,
-    messages: [
-      'Preview support can stay out of the first milestone.',
-      'Focus on folders, file cards, and top-level actions.',
-      'Batch actions should reuse the same list foundation.',
-    ],
-  },
-  {
-    id: 'conv-5',
-    title: 'Auth',
-    unreadCount: 0,
-    messages: [
-      'Use the same token source for REST, WS, and webviews.',
-      'The login bridge needs a single invalid-session path.',
-      'Store the endpoint separately from the auth token.',
-    ],
-  },
-  {
-    id: 'conv-6',
-    title: 'Search',
-    unreadCount: 3,
-    messages: [
-      'Keep the first search implementation local-only.',
-      'Indexing can come from the SQLite message table later.',
-      'The list card should expose search hit context.',
-    ],
-  },
-  {
-    id: 'conv-7',
-    title: 'Release',
-    unreadCount: 0,
-    messages: [
-      'Start with a single local database file.',
-      'Do not let caches become a second data source.',
-      'Keep schema changes explicit and easy to migrate.',
-    ],
-  },
-  {
-    id: 'conv-8',
-    title: 'Voice',
-    unreadCount: 1,
-    messages: [
-      'Voice state should not block the home list rendering path.',
-      'Any active recording indicator belongs in a tiny overlay.',
-      'Persist only what the user needs after app restart.',
-    ],
-  },
-  {
-    id: 'conv-9',
-    title: 'QA',
-    unreadCount: 0,
-    messages: [
-      'Smoke test startup with no MMKV snapshot.',
-      'Smoke test snapshot present but SQLite newer.',
-      'Smoke test load-more after refresh resets the page.',
-    ],
-  },
-  {
-    id: 'conv-10',
-    title: 'Ops',
-    unreadCount: 2,
-    messages: [
-      'Keep failure surfaces obvious in the debug panel.',
-      'List storage should degrade cleanly when writes fail.',
-      'Capture only small health signals for the demo.',
-    ],
-  },
-  {
-    id: 'conv-11',
-    title: 'Design',
-    unreadCount: 0,
-    messages: [
-      'Tab icons should feel like one visual system.',
-      'The floating top button needs enough bottom clearance.',
-      'Prefer calm surfaces over noisy gradients in data screens.',
-    ],
-  },
-  {
-    id: 'conv-12',
-    title: 'Product',
-    unreadCount: 5,
-    messages: [
-      'Conversation ordering must come from updatedAt only.',
-      'Unread count belongs on the conversation summary row.',
-      'The first page should be available instantly after cold start.',
-    ],
-  },
-];
+function getUnpinnedDirectoryCountExpression() {
+  return sql<number>`coalesce(sum(case when ${chatDirectoryItems.pinnedAt} = 0 then 1 else 0 end), 0)`;
+}
+
+function normalizeCountValue(value: unknown): number {
+  const numericValue = Number(value || 0);
+  return Number.isFinite(numericValue) ? numericValue : 0;
+}
 
 let localIdCounter = 0;
 let chatHomeDirectoryPrewarmPromise: Promise<{
@@ -205,63 +91,6 @@ let chatHomeDirectoryPrewarmPromise: Promise<{
 function createLocalId(prefix: string): string {
   localIdCounter += 1;
   return `${prefix}-${Date.now()}-${localIdCounter}`;
-}
-
-function buildConversationRows() {
-  return DEMO_SEED.map((entry, index) => {
-    const lastMessageText = entry.messages[entry.messages.length - 1];
-    const updatedAt = DEMO_BASE_TIME - index * 1000 * 60 * 9;
-
-    return {
-      id: entry.id,
-      title: entry.title,
-      lastMessageText,
-      lastMessageAt: updatedAt,
-      unreadCount: entry.unreadCount > 0 ? 1 : 0,
-      isRead: entry.unreadCount > 0 ? 0 : 1,
-      readAt: null,
-      readRunId: null,
-      lastMessageStatus: 'sent' as const,
-      pinnedAt: 0,
-      updatedAt,
-    };
-  });
-}
-
-function buildMessageRows() {
-  return DEMO_SEED.flatMap((entry, conversationIndex) =>
-    entry.messages.map((content, messageIndex) => ({
-      id: `${entry.id}-message-${messageIndex + 1}`,
-      clientMessageId: null,
-      serverMessageId: `${entry.id}-server-${messageIndex + 1}`,
-      conversationId: entry.id,
-      role: messageIndex % 2 === 0 ? 'assistant' : 'user',
-      content,
-      createdAt:
-        DEMO_BASE_TIME -
-        conversationIndex * 1000 * 60 * 9 -
-        (entry.messages.length - messageIndex - 1) * 1000 * 60 * 2,
-      deliveryStatus: 'sent' as const,
-      errorReason: null,
-    }))
-  );
-}
-
-function buildDirectoryRows(): ChatDirectoryProjectionItem[] {
-  return DEMO_SEED.slice(0, 6).map((entry, index) => ({
-    id: `agent:${entry.id}`,
-    kind: 'agent',
-    title: entry.title,
-    subtitle: `${entry.messages.length} 条示例消息`,
-    icon: null,
-    unreadCount: entry.unreadCount > 0 ? 1 : 0,
-    pinnedAt: 0,
-    sortRank: index,
-    agentKey: entry.id,
-    teamId: null,
-    defaultAgentKey: null,
-    latestConversationId: entry.id,
-  }));
 }
 
 function mapChatHomeItem(row: {
@@ -295,12 +124,7 @@ function mapConversationReadState(row: {
   readAt?: number | null;
   readRunId?: string | null;
 }): ChatReadState {
-  return normalizeChatReadState({
-    isRead: row.isRead !== undefined ? Number(row.isRead) !== 0 : undefined,
-    readAt: row.readAt ?? null,
-    readRunId: row.readRunId ?? null,
-    unreadCount: row.isRead === undefined ? row.unreadCount : undefined,
-  });
+  return normalizePersistedConversationReadState(row);
 }
 
 function mapChatDirectoryItem(row: {
@@ -706,7 +530,7 @@ export type ConversationUnreadLocalResult = {
 export type DirectoryConversationOpenResult = {
   conversation: ChatHomeItem;
   historyScope: ChatConversationHistoryScope | null;
-  isLocalDraft: boolean;
+  skipInitialReconcile: boolean;
 };
 
 function areReadStatesEqual(left: ChatReadState, right: ChatReadState): boolean {
@@ -830,10 +654,6 @@ function getDirectoryConversationKeys(item: {
   };
 }
 
-function isLocalDraftConversation(summary: Pick<ChatHomeItem, 'lastMessageText'>): boolean {
-  return !String(summary.lastMessageText || '').trim();
-}
-
 function normalizeLocalConversationTitle(title: string | null | undefined): string {
   return String(title || '').trim() || DEFAULT_NEW_CONVERSATION_TITLE;
 }
@@ -902,7 +722,7 @@ async function createLocalConversationForHistoryScope(
   return {
     conversation,
     historyScope,
-    isLocalDraft: true,
+    skipInitialReconcile: true,
   };
 }
 
@@ -2028,7 +1848,7 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection) {
   await refreshChatDirectorySnapshot();
 }
 
-export async function refreshChatDirectorySnapshot(pageSize: number = DEMO_PAGE_SIZE) {
+export async function refreshChatDirectorySnapshot(pageSize: number = CHAT_DIRECTORY_DEFAULT_PAGE_SIZE) {
   const firstPage = await getChatDirectoryPage(1, pageSize);
   writeChatDirectorySnapshot(firstPage.items);
   return firstPage.items;
@@ -2071,7 +1891,78 @@ export async function setChatDirectoryItemPinned(itemId: string, pinned: boolean
   return nextRows[0] ? mapChatDirectoryItem(nextRows[0]) : null;
 }
 
-export async function getOrCreateConversationForDirectoryItem(
+async function isPersistedTimelineNodeActive(conversationId: string, nodeId: string): Promise<boolean> {
+  const rows = await chatDb
+    .select({
+      payloadJson: conversationTimelineNodes.payloadJson,
+    })
+    .from(conversationTimelineNodes)
+    .where(
+      and(
+        eq(conversationTimelineNodes.conversationId, conversationId),
+        eq(conversationTimelineNodes.nodeId, nodeId)
+      )
+    )
+    .limit(1);
+
+  return isActiveTimelinePayload(rows[0]?.payloadJson);
+}
+
+async function isPersistedTimelineTailActive(conversationId: string): Promise<boolean> {
+  const rows = await chatDb
+    .select({
+      payloadJson: conversationTimelineNodes.payloadJson,
+    })
+    .from(conversationTimelineNodes)
+    .where(eq(conversationTimelineNodes.conversationId, conversationId))
+    .orderBy(desc(conversationTimelineNodes.orderIndex))
+    .limit(1);
+
+  return isActiveTimelinePayload(rows[0]?.payloadJson);
+}
+
+async function getOpenableLatestConversation(
+  conversationId: string | null | undefined
+): Promise<ChatHomeItem | null> {
+  const normalizedConversationId = String(conversationId || '').trim();
+  if (!normalizedConversationId) {
+    return null;
+  }
+
+  const rows = await chatDb
+    .select({
+      ...CHAT_HOME_ITEM_SELECT,
+      timelineConversationId: conversationTimelineMeta.conversationId,
+      activeRunId: conversationTimelineMeta.activeRunId,
+      awaitingId: conversationTimelineMeta.awaitingId,
+    })
+    .from(conversations)
+    .leftJoin(conversationTimelineMeta, eq(conversations.id, conversationTimelineMeta.conversationId))
+    .where(eq(conversations.id, normalizedConversationId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) {
+    return null;
+  }
+
+  const conversation = mapChatHomeItem(row);
+  if (shouldOpenLatestConversationFromSummary(row)) {
+    return conversation;
+  }
+
+  const awaitingId = String(row.awaitingId || '').trim();
+  if (awaitingId && (await isPersistedTimelineNodeActive(normalizedConversationId, awaitingId))) {
+    return conversation;
+  }
+
+  if (row.timelineConversationId && (await isPersistedTimelineTailActive(normalizedConversationId))) {
+    return conversation;
+  }
+
+  return null;
+}
+
+export async function resolveDirectoryItemConversationOpenTarget(
   itemId: string
 ): Promise<DirectoryConversationOpenResult | null> {
   await ensureChatDatabase();
@@ -2082,34 +1973,12 @@ export async function getOrCreateConversationForDirectoryItem(
   }
   const { directoryItem, historyScope } = openScope;
 
-  const latestConversationId = String(directoryItem.latestConversationId || '').trim();
-  if (latestConversationId) {
-    const latestConversation = await getConversationDetail(latestConversationId);
-    if (latestConversation) {
-      return {
-        conversation: latestConversation,
-        historyScope,
-        isLocalDraft: false,
-      };
-    }
-  }
-
-  const whereClause = getConversationHistoryWhereClause(historyScope);
-  const existingRows = whereClause
-    ? await chatDb
-        .select(CHAT_HOME_ITEM_SELECT)
-        .from(conversations)
-        .where(whereClause)
-        .orderBy(...CONVERSATION_RECENCY_ORDER)
-        .limit(1)
-    : [];
-  const existing = existingRows[0];
-  if (existing) {
-    const conversation = mapChatHomeItem(existing);
+  const latestConversation = await getOpenableLatestConversation(directoryItem.latestConversationId);
+  if (latestConversation) {
     return {
-      conversation,
+      conversation: latestConversation,
       historyScope,
-      isLocalDraft: isLocalDraftConversation(conversation),
+      skipInitialReconcile: false,
     };
   }
 
@@ -2148,7 +2017,7 @@ export async function replaceChatDirectoryItems(items: ChatDirectoryProjectionIt
 
 export async function getChatDirectoryPage(
   page: number,
-  pageSize: number = DEMO_PAGE_SIZE
+  pageSize: number = CHAT_DIRECTORY_DEFAULT_PAGE_SIZE
 ): Promise<ChatDirectoryPage> {
   await ensureChatDatabase();
 
@@ -2180,18 +2049,24 @@ export async function getChatDirectorySlice(
   await ensureChatDatabase();
 
   const safeLimit = Math.max(1, limit);
-  const [firstPage, pinnedTotals] = await Promise.all([
-    getChatDirectoryPage(1, safeLimit),
+  const [rows, totals] = await Promise.all([
     chatDb
-      .select({ value: count() })
+      .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
       .from(chatDirectoryItems)
-      .where(gt(chatDirectoryItems.pinnedAt, 0)),
+      .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
+      .orderBy(...CHAT_DIRECTORY_PINNED_ORDER)
+      .limit(safeLimit),
+    chatDb.select({
+      total: count(),
+      pinnedTotal: getPinnedDirectoryCountExpression(),
+    }).from(chatDirectoryItems),
   ]);
+  const countRow = totals[0];
 
   return {
-    items: firstPage.items,
-    total: firstPage.total,
-    pinnedTotal: pinnedTotals[0]?.value ?? 0,
+    items: rows.map(mapChatDirectoryItem),
+    total: normalizeCountValue(countRow?.total),
+    pinnedTotal: normalizeCountValue(countRow?.pinnedTotal),
   };
 }
 
@@ -2201,7 +2076,7 @@ export async function getCollapsedChatDirectorySlice(
   await ensureChatDatabase();
 
   const safeLimit = Math.max(1, limit);
-  const [rows, totals, pinnedTotals] = await Promise.all([
+  const [rows, totals] = await Promise.all([
     chatDb
       .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
       .from(chatDirectoryItems)
@@ -2209,26 +2084,23 @@ export async function getCollapsedChatDirectorySlice(
       .where(eq(chatDirectoryItems.pinnedAt, 0))
       .orderBy(...CHAT_DIRECTORY_RECENCY_ORDER)
       .limit(safeLimit),
-    chatDb
-      .select({ value: count() })
-      .from(chatDirectoryItems)
-      .where(eq(chatDirectoryItems.pinnedAt, 0)),
-    chatDb
-      .select({ value: count() })
-      .from(chatDirectoryItems)
-      .where(gt(chatDirectoryItems.pinnedAt, 0)),
+    chatDb.select({
+      total: getUnpinnedDirectoryCountExpression(),
+      pinnedTotal: getPinnedDirectoryCountExpression(),
+    }).from(chatDirectoryItems),
   ]);
+  const countRow = totals[0];
 
   return {
     items: rows.map(mapChatDirectoryItem),
-    total: totals[0]?.value ?? 0,
-    pinnedTotal: pinnedTotals[0]?.value ?? 0,
+    total: normalizeCountValue(countRow?.total),
+    pinnedTotal: normalizeCountValue(countRow?.pinnedTotal),
   };
 }
 
 export async function getChatDirectoryCatalogPage(
   page: number,
-  pageSize: number = DEMO_PAGE_SIZE
+  pageSize: number = CHAT_DIRECTORY_DEFAULT_PAGE_SIZE
 ): Promise<ChatDirectoryPage> {
   await ensureChatDatabase();
 
@@ -2301,36 +2173,12 @@ export async function clearChatLocalCache() {
   clearChatDirectorySnapshot();
 }
 
-export async function prepareChatPersistenceSample() {
-  await ensureChatDatabase();
-
-  if (getApiBaseUrl()) {
-    return;
-  }
-
-  const [{ value }] = await chatDb.select({ value: count() }).from(conversations);
-  if (value <= 0) {
-    await chatDb.insert(conversations).values(buildConversationRows());
-    await chatDb.insert(messages).values(buildMessageRows());
-  }
-
-  const [{ value: directoryValue }] = await chatDb
-    .select({ value: count() })
-    .from(chatDirectoryItems);
-  if (directoryValue > 0) {
-    return;
-  }
-
-  await replaceChatDirectoryItems(buildDirectoryRows());
-}
-
-export async function prewarmChatHomeDirectory(pageSize: number = DEMO_PAGE_SIZE) {
+export async function prewarmChatHomeDirectory(pageSize: number = CHAT_DIRECTORY_DEFAULT_PAGE_SIZE) {
   if (chatHomeDirectoryPrewarmPromise) {
     return chatHomeDirectoryPrewarmPromise;
   }
 
   chatHomeDirectoryPrewarmPromise = (async () => {
-    await prepareChatPersistenceSample();
     const directory = await getChatDirectorySlice(pageSize);
 
     if (directory.items.length > 0 || directory.total > 0) {

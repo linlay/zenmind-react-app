@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-16T08:13:30.717Z",
+  "generatedAt": "2026-06-16T10:29:11.344Z",
   "items": [
     {
       "id": "app-development-debug",
@@ -111,7 +111,7 @@
       "id": "feature-agent-task-board",
       "title": "AI 任务流转看板",
       "layer": "features",
-      "summary": "承载面向 AI 智能体任务分配后的移动端任务处置 UI 设计稿。",
+      "summary": "承载面向 AI 智能体任务分配后的移动端任务处置 UI。",
       "pathHints": ["src/features/agentTaskBoard"],
       "relatedFlows": [],
       "relatedTasks": ["add-or-edit-tab-screen", "add-internationalization"],

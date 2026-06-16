@@ -1,6 +1,6 @@
 import { FlashList } from '@shopify/flash-list';
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
@@ -14,7 +14,6 @@ const DIRECTORY_PICKER_ROW_HEIGHT = 72;
 const DIRECTORY_PICKER_DRAW_DISTANCE = DIRECTORY_PICKER_ROW_HEIGHT * 8;
 const DIRECTORY_PICKER_PANEL_MAX_WIDTH = 390;
 const DIRECTORY_PICKER_ENTER_OFFSET = -72;
-const DIRECTORY_PICKER_DRAWER_OVERLAY_Z_INDEX = 120;
 
 type ChatDirectoryPickerDrawerProps = {
   visible: boolean;
@@ -167,70 +166,84 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
   }
 
   return (
-    <View pointerEvents="box-none" style={styles.drawerOverlay}>
-      <Pressable style={styles.backdrop} onPress={onClose} />
-      <Animated.View
-        style={[
-          styles.panel,
-          {
-            paddingTop: Math.max(insets.top, appVisualTokens.spacing.xs),
-            paddingBottom: Math.max(insets.bottom, appVisualTokens.spacing.md),
-            transform: [{ translateX }]
-          }
-        ]}
-      >
-        <View style={styles.header}>
-          <View style={styles.headerText}>
-            <Text numberOfLines={1} style={styles.title}>
-              {t('directoryPicker.title')}
-            </Text>
-            <Text numberOfLines={1} style={styles.subtitle}>
-              {t('directoryPicker.subtitle', { count: countLabel })}
-            </Text>
-          </View>
-          <Pressable
-            accessibilityLabel={t('directoryPicker.close')}
-            accessibilityRole="button"
-            onPress={onClose}
-            style={({ pressed }) => [styles.closeButton, pressed ? styles.closeButtonPressed : null]}
+    <Modal
+      visible
+      transparent
+      animationType="none"
+      presentationStyle="overFullScreen"
+      statusBarTranslucent
+      navigationBarTranslucent
+      hardwareAccelerated
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalRoot}>
+        <View pointerEvents="box-none" style={styles.drawerOverlay}>
+          <Pressable style={styles.backdrop} onPress={onClose} />
+          <Animated.View
+            style={[
+              styles.panel,
+              {
+                paddingTop: Math.max(insets.top, appVisualTokens.spacing.xs),
+                paddingBottom: Math.max(insets.bottom, appVisualTokens.spacing.md),
+                transform: [{ translateX }]
+              }
+            ]}
           >
-            <AppIcon usage="directoryPicker.close" />
-          </Pressable>
-        </View>
-
-        {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
-
-        <View style={styles.listFrame}>
-          {loading ? (
-            <View style={styles.stateBlock}>
-              <ActivityIndicator size="small" color={theme.colors.brandBlue} />
+            <View style={styles.header}>
+              <View style={styles.headerText}>
+                <Text numberOfLines={1} style={styles.title}>
+                  {t('directoryPicker.title')}
+                </Text>
+                <Text numberOfLines={1} style={styles.subtitle}>
+                  {t('directoryPicker.subtitle', { count: countLabel })}
+                </Text>
+              </View>
+              <Pressable
+                accessibilityLabel={t('directoryPicker.close')}
+                accessibilityRole="button"
+                onPress={onClose}
+                style={({ pressed }) => [styles.closeButton, pressed ? styles.closeButtonPressed : null]}
+              >
+                <AppIcon usage="directoryPicker.close" />
+              </Pressable>
             </View>
-          ) : (
-            <FlashList
-              data={items}
-              renderItem={renderItem}
-              keyExtractor={keyExtractor}
-              getItemType={getDirectoryItemType}
-              drawDistance={DIRECTORY_PICKER_DRAW_DISTANCE}
-              onEndReached={handleEndReached}
-              onEndReachedThreshold={0.45}
-              showsVerticalScrollIndicator={false}
-              ListEmptyComponent={<Text style={styles.emptyText}>{t('directoryPicker.empty')}</Text>}
-              ListFooterComponent={footer}
-            />
-          )}
+
+            {errorText ? <Text style={styles.errorText}>{errorText}</Text> : null}
+
+            <View style={styles.listFrame}>
+              {loading ? (
+                <View style={styles.stateBlock}>
+                  <ActivityIndicator size="small" color={theme.colors.brandBlue} />
+                </View>
+              ) : (
+                <FlashList
+                  data={items}
+                  renderItem={renderItem}
+                  keyExtractor={keyExtractor}
+                  getItemType={getDirectoryItemType}
+                  drawDistance={DIRECTORY_PICKER_DRAW_DISTANCE}
+                  onEndReached={handleEndReached}
+                  onEndReachedThreshold={0.45}
+                  showsVerticalScrollIndicator={false}
+                  ListEmptyComponent={<Text style={styles.emptyText}>{t('directoryPicker.empty')}</Text>}
+                  ListFooterComponent={footer}
+                />
+              )}
+            </View>
+          </Animated.View>
         </View>
-      </Animated.View>
-    </View>
+      </View>
+    </Modal>
   );
 });
 
 function createStyles(theme: AppThemeTokens) {
   return StyleSheet.create({
+    modalRoot: {
+      flex: 1
+    },
     drawerOverlay: {
-      ...StyleSheet.absoluteFill,
-      zIndex: DIRECTORY_PICKER_DRAWER_OVERLAY_Z_INDEX,
-      elevation: DIRECTORY_PICKER_DRAWER_OVERLAY_Z_INDEX
+      ...StyleSheet.absoluteFill
     },
     backdrop: {
       ...StyleSheet.absoluteFill,

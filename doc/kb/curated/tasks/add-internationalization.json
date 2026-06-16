@@ -42,7 +42,7 @@
     "src/app/screens/TabScreens.tsx",
     "src/features/auth/LoginScreen.tsx",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
-    "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+    "src/features/chatPersistence/ChatHomeScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/features/chatPersistence/components",
     "scripts/tests/i18n.test.mts"

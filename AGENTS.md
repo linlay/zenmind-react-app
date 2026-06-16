@@ -37,7 +37,7 @@ Expo SDK 56 + React Native 0.85 + TypeScript 6。当前仓库是迁移后的 `ze
 | ---- | -------- | ---- |
 | app | `AppRoot` / `RootNavigator` / `AppLaunchSkeleton` | `App.tsx`, `src/app/` |
 | core | `apiRequest` / `authenticatedApiRequest` / `appAuth` | `src/core/api`, `src/core/auth`, `src/core/config` |
-| chat persistence | `ChatHomeStorageDemo` / `ChatDetailScreen` / `chatRepository` | `src/features/chatPersistence/` |
+| chat persistence | `ChatHomeScreen` / `ChatDetailScreen` / `chatRepository` | `src/features/chatPersistence/` |
 | chat realtime | `chatSyncService` / `chatWsTransport` / `WsClient` | `src/features/chatRealtime/` |
 | chat timeline | `ChatTimelineState` reducer / persistence | `src/features/chatTimeline/` |
 | notifications | `notificationService` | `src/features/notifications/` |
@@ -47,7 +47,7 @@ Expo SDK 56 + React Native 0.85 + TypeScript 6。当前仓库是迁移后的 `ze
 
 | Tab | 标签 | 实际入口 |
 | --- | --- | -------- |
-| Chat | 对话 | `src/features/chatPersistence/ChatHomeStorageDemo.tsx` |
+| Chat | 对话 | `src/features/chatPersistence/ChatHomeScreen.tsx` |
 | Terminal | 任务 | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` |
 | Drive | 网盘 | `src/app/screens/TabScreens.tsx` 占位页 |
 | Me | 用户 | `src/app/screens/TabScreens.tsx` 用户与会话信息页 |

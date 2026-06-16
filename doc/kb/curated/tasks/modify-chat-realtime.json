@@ -63,7 +63,7 @@
     "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx",
     "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
     "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
-    "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+    "src/features/chatPersistence/ChatHomeScreen.tsx",
     "src/core/api/services/chatApi.ts",
     "src/core/api/services/chatEventProtocol.ts"
   ],

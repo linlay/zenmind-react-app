@@ -68,7 +68,7 @@
 - `ChatDetail: { conversationId: string; initialConversation?: ChatHomeItem }`
 
 4. 精简 Chat 入口  
-   让 `ChatScreen` / `ChatHomeStorageDemo` 只负责列表，不再持有“当前详情页是否打开”的本地 route 状态。  
+   让 `ChatScreen` / `ChatHomeScreen` 只负责列表，不再持有“当前详情页是否打开”的本地 route 状态。  
    点击列表 item 时直接 `navigate('ChatDetail', params)`。
 
 5. 详情页改成标准 route screen  
@@ -88,7 +88,7 @@
 - `isForeground` 这类为覆盖层补出来的控制逻辑
 
 7. 列表订阅改为“按导航焦点工作”  
-   `ChatHomeStorageDemo` 内部用导航焦点控制订阅和刷新，不再依赖外部覆盖层传状态。  
+   `ChatHomeScreen` 内部用导航焦点控制订阅和刷新，不再依赖外部覆盖层传状态。  
    这样 detail push 到 stack 顶层时，列表自然失焦，后台同步自动停掉。
 
 **关键配置**

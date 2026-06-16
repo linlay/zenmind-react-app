@@ -204,7 +204,7 @@
     "Settings 的外观分组只通过 useAppTheme / setThemePreference 修改 system/light/dark 主题偏好，不在设置页直接读写主题存储。",
     "新增壳层或一级页面文案时优先走 shared-i18n，不把 locale 解析、设备语言读取或翻译表散落到 screen 内。",
     "如果支持关闭登录门卫，AppRoot 与 RootNavigator 必须同时消费同一个 auth config 开关。",
-    "当前 Chat Tab 直接指向 feature 内的 ChatHomeStorageDemo；ChatDetail 由 RootNavigator 的上层 stack 承载。",
+    "当前 Chat Tab 直接指向 feature 内的 ChatHomeScreen；ChatDetail 由 RootNavigator 的上层 stack 承载。",
     "app 层可以消费 core auth 暴露的快照与 bootstrap 入口，但不要自己处理 token 存储细节。",
     "通知点击只在 app 层转成导航动作，不在 app 层读取或写入聊天 SQLite。",
     "不要在 app 层直接 import SQLite 或 WebSocket 底层实现。",

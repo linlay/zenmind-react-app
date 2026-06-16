@@ -20,18 +20,19 @@ import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
 import {
   createConversationForDirectoryItem,
+  type DirectoryConversationOpenResult,
   getCollapsedChatDirectorySlice,
   getChatDirectoryCatalogPage,
   getChatDirectorySlice,
-  getOrCreateConversationForDirectoryItem,
   prewarmChatHomeDirectory,
+  resolveDirectoryItemConversationOpenTarget,
   setChatDirectoryItemPinned
 } from './chatRepository';
 import { createChatConversationTarget } from './chatConversationTarget';
 import { ChatDirectoryPickerDrawer } from './components/ChatDirectoryPickerDrawer';
 import { patchDirectoryListPreviewByConversation, type ChatDirectoryListState } from './chatRealtimeUiState';
 import { readChatDirectorySnapshot } from './homeSnapshot';
-import { ChatConversationHistoryScope, ChatDirectoryItem, ChatDetailRouteParams } from './types';
+import { ChatDirectoryItem, ChatDetailRouteParams } from './types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../app/navigation/types';
 
@@ -43,20 +44,6 @@ const PIN_FOLD_ROW_HEIGHT = 54;
 const PIN_MENU_WIDTH = 176;
 const PIN_MENU_ROW_HEIGHT = 58;
 
-function getDirectoryHistoryScope(item: ChatDirectoryItem): ChatConversationHistoryScope | undefined {
-  const teamId = item.kind === 'team' ? item.teamId : null;
-  const agentKey = teamId ? null : item.agentKey || item.defaultAgentKey;
-
-  if (!agentKey && !teamId) {
-    return undefined;
-  }
-
-  return {
-    agentKey: agentKey || null,
-    teamId: teamId || null
-  };
-}
-
 function getChatDetailTargetParams(
   item: ChatDirectoryItem
 ): Pick<ChatDetailRouteParams, 'conversationSubtitle' | 'conversationTarget'> {
@@ -65,6 +52,19 @@ function getChatDetailTargetParams(
   return {
     conversationSubtitle: conversationTarget?.subtitle ?? item.subtitle,
     ...(conversationTarget ? { conversationTarget } : {})
+  };
+}
+
+function buildChatDetailRouteParams(
+  item: ChatDirectoryItem,
+  result: DirectoryConversationOpenResult
+): ChatDetailRouteParams {
+  return {
+    conversationId: result.conversation.conversationId,
+    ...getChatDetailTargetParams(item),
+    initialConversation: result.conversation,
+    ...(result.historyScope ? { historyScope: result.historyScope } : {}),
+    skipInitialReconcile: result.skipInitialReconcile
   };
 }
 
@@ -284,7 +284,7 @@ const ChatEmptyState = memo(function ChatEmptyState() {
 
 const CHAT_EMPTY_STATE = <ChatEmptyState />;
 
-export function ChatHomeStorageDemo() {
+export function ChatHomeScreen() {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const tabBarHeight = useAppTabBarHeight();
@@ -382,40 +382,13 @@ export function ChatHomeStorageDemo() {
         setErrorText('');
 
         try {
-          if (!item.latestConversationId) {
-            const result = await getOrCreateConversationForDirectoryItem(item.id);
-            if (!result) {
-              setErrorText(t('chatHome.error.missingDirectoryTarget'));
-              return;
-            }
-
-            navigation.navigate('ChatDetail', {
-              conversationId: result.conversation.conversationId,
-              ...getChatDetailTargetParams(item),
-              initialConversation: result.conversation,
-              ...(result.historyScope ? { historyScope: result.historyScope } : {}),
-              skipInitialReconcile: result.isLocalDraft
-            });
+          const result = await resolveDirectoryItemConversationOpenTarget(item.id);
+          if (!result) {
+            setErrorText(t('chatHome.error.missingDirectoryTarget'));
             return;
           }
 
-          const historyScope = getDirectoryHistoryScope(item);
-          const params: ChatDetailRouteParams = {
-            conversationId: item.latestConversationId,
-            ...getChatDetailTargetParams(item),
-            ...(historyScope ? { historyScope } : {}),
-            initialConversation: {
-              conversationId: item.latestConversationId,
-              title: item.title,
-              lastMessageText: item.lastMessageText,
-              lastMessageAt: item.lastMessageAt,
-              unreadCount: item.unreadCount,
-              read: undefined,
-              lastMessageStatus: 'sent',
-              pinnedAt: item.pinnedAt
-            }
-          };
-          navigation.navigate('ChatDetail', params);
+          navigation.navigate('ChatDetail', buildChatDetailRouteParams(item, result));
         } catch (error) {
           setErrorText(error instanceof Error ? error.message : String(error));
         } finally {
@@ -525,13 +498,7 @@ export function ChatHomeStorageDemo() {
           }
 
           setIsDirectoryPickerOpen(false);
-          navigation.navigate('ChatDetail', {
-            conversationId: result.conversation.conversationId,
-            ...getChatDetailTargetParams(item),
-            initialConversation: result.conversation,
-            ...(result.historyScope ? { historyScope: result.historyScope } : {}),
-            skipInitialReconcile: result.isLocalDraft
-          });
+          navigation.navigate('ChatDetail', buildChatDetailRouteParams(item, result));
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
           setDirectoryPickerErrorText(message);

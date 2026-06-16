@@ -90,14 +90,20 @@ function normalizeQuestionSubmitParam(item: Record<string, unknown>): AwaitingQu
 function normalizeApprovalSubmitParam(item: Record<string, unknown>): AwaitingApprovalSubmitParamData | null {
   const id = trimText(item.id);
   const decision = normalizeApprovalDecision(item.decision);
-  if (!id || !decision) {
+  const reason = trimText(item.reason);
+  if (!id || (!decision && !reason)) {
     return null;
   }
-  const reason = trimText(item.reason);
+  if (decision) {
+    return {
+      id,
+      decision,
+      ...(reason ? { reason } : {}),
+    };
+  }
   return {
     id,
-    decision,
-    ...(reason ? { reason } : {}),
+    reason,
   };
 }
 
@@ -201,20 +207,53 @@ function buildApprovalParams(
   approvals: readonly ChatTimelineAwaitingApproval[],
   draft: AwaitingApprovalDraft
 ): AwaitingApprovalSubmitParamData[] {
-  return approvals.flatMap((approval) => {
+  const params: AwaitingApprovalSubmitParamData[] = [];
+  for (const approval of approvals) {
     const decision = draft.decisions[approval.id];
-    if (!decision) {
-      return [];
+    const reason = getApprovalReason(approval, draft);
+    if (!decision && !reason) {
+      continue;
     }
-    const reason = approval.allowFreeText ? trimText(draft.reasons[approval.id]) : '';
-    return [
-      {
-        id: approval.id,
-        decision,
-        ...(reason ? { reason } : {}),
-      },
-    ];
-  });
+    params.push(
+      decision
+        ? {
+            id: approval.id,
+            decision,
+            ...(reason ? { reason } : {}),
+          }
+        : {
+            id: approval.id,
+            reason,
+          }
+    );
+  }
+  return params;
+}
+
+function getApprovalReason(
+  approval: ChatTimelineAwaitingApproval,
+  draft: AwaitingApprovalDraft
+): string {
+  return approval.allowFreeText ? trimText(draft.reasons[approval.id]) : '';
+}
+
+export function hasAwaitingApprovalResponse(
+  approval: ChatTimelineAwaitingApproval,
+  draft: AwaitingApprovalDraft
+): boolean {
+  return Boolean(draft.decisions[approval.id] || getApprovalReason(approval, draft));
+}
+
+export function findMissingApprovalIndex(
+  approvals: readonly ChatTimelineAwaitingApproval[],
+  draft: AwaitingApprovalDraft
+): number {
+  for (let index = 0; index < approvals.length; index += 1) {
+    if (!hasAwaitingApprovalResponse(approvals[index], draft)) {
+      return index;
+    }
+  }
+  return -1;
 }
 
 function buildFormParams(

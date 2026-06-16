@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-16T08:13:30.718Z",
+  "generatedAt": "2026-06-16T10:29:11.344Z",
   "items": [
     {
       "id": "app-startup",
@@ -28,7 +28,7 @@
     {
       "id": "chat-home-cold-boot",
       "title": "Chat 首页冷启动",
-      "trigger": "用户首次进入 Chat Tab，ChatScreen 直接渲染 ChatHomeStorageDemo 时触发。",
+      "trigger": "用户首次进入 Chat Tab，ChatScreen 直接渲染 ChatHomeScreen 时触发。",
       "mustCheckModules": [
         "app-shell-navigation",
         "feature-chat-persistence",
@@ -49,7 +49,7 @@
     {
       "id": "chat-send-message",
       "title": "发送消息与 ack 落库",
-      "trigger": "用户在 Chat 首页点击 demo send 或在 Chat 详情页输入消息时触发。",
+      "trigger": "用户在 Chat 详情页输入消息并提交时触发。",
       "mustCheckModules": ["feature-chat-persistence", "feature-chat-realtime", "feature-chat-timeline"],
       "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime"],
       "card": "doc/kb/flows/chat-send-message.json"

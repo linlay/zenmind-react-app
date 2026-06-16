@@ -1,7 +1,7 @@
 {
   "id": "chat-send-message",
   "title": "发送消息与 ack 落库",
-  "trigger": "用户在 Chat 首页点击 demo send 或在 Chat 详情页输入消息时触发。",
+  "trigger": "用户在 Chat 详情页输入消息并提交时触发。",
   "sourceOfTruth": [
     "消息先落 SQLite 和 outbox，再尝试发给 WebSocket。",
     "ack 或 stream done/error 由后台回调通过 repository patch 命中消息状态和会话摘要。",
@@ -10,7 +10,7 @@
   "steps": [
     {
       "order": 1,
-      "label": "useChatDetailConversationController.handleSend（或首页 demo send）调用 chatSyncService.sendMessage。",
+      "label": "useChatDetailConversationController.handleSend 调用 chatSyncService.sendMessage。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
       "symbol": "handleSend"

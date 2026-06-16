@@ -120,7 +120,7 @@ RootStack
 | Route / Tab | 实际入口 | 说明 |
 | ----------- | -------- | ---- |
 | `Login` | `src/features/auth/LoginScreen.tsx` | 认证冷启动和登录页 |
-| `Chat` | `src/features/chatPersistence/ChatHomeStorageDemo.tsx` | Chat 首页目录 |
+| `Chat` | `src/features/chatPersistence/ChatHomeScreen.tsx` | Chat 首页目录 |
 | `Terminal` | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` | 任务 Tab / AI 任务看板 |
 | `Drive` | `src/app/screens/TabScreens.tsx` | 网盘占位页 |
 | `Me` | `src/app/screens/TabScreens.tsx` | 用户、会话和版本信息 |
@@ -152,9 +152,9 @@ MMKV 只保存首页首屏目录快照，用于冷启动回显。它不承担完
 ## 6. Chat 首页冷启动链路
 
 ```text
-ChatHomeStorageDemo mount
+ChatHomeScreen mount
   -> readChatDirectorySnapshot()
-  -> prepareChatPersistenceSample()
+  -> prewarmChatHomeDirectory()
   -> getChatDirectorySlice()
   -> chatSyncService.start()
   -> home.directory.replace / home.item.patch

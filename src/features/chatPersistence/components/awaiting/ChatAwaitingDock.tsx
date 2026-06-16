@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -28,10 +27,11 @@ import {
 } from '../../../chatTimeline/index.ts';
 import {
   buildAwaitingSubmitPayload,
+  findMissingApprovalIndex,
+  hasAwaitingApprovalResponse,
   type AwaitingApprovalDraft,
 } from './awaitingSubmitState';
 import {
-  clampAwaitingQuestionIndex,
   createAwaitingQuestionDrafts,
   findAwaitingAnswerError,
   getAwaitingAnswerError,
@@ -144,18 +144,28 @@ function patchDraftAt(
   return values.map((item, itemIndex) => (itemIndex === index ? draft : item));
 }
 
+function clampAwaitingPageIndex(index: number, total: number): number {
+  if (total <= 0) {
+    return 0;
+  }
+  return Math.min(Math.max(index, 0), total - 1);
+}
+
 function PaginationControl({
   current,
   disabled,
+  nextLabel,
+  previousLabel,
   total,
   onMove,
 }: {
   current: number;
   disabled: boolean;
+  nextLabel: string;
+  previousLabel: string;
   total: number;
   onMove: (nextIndex: number) => void;
 }) {
-  const t = useT();
   const styles = useAppThemeStyles(createStyles);
 
   if (total <= 1) {
@@ -168,7 +178,7 @@ function PaginationControl({
   return (
     <View style={styles.pagination}>
       <Pressable
-        accessibilityLabel={t('awaiting.previousQuestion')}
+        accessibilityLabel={previousLabel}
         accessibilityRole="button"
         disabled={!canMoveBack}
         onPress={() => onMove(current - 1)}
@@ -186,7 +196,7 @@ function PaginationControl({
         {current + 1} / {total}
       </Text>
       <Pressable
-        accessibilityLabel={t('awaiting.nextQuestion')}
+        accessibilityLabel={nextLabel}
         accessibilityRole="button"
         disabled={!canMoveForward}
         onPress={() => onMove(current + 1)}
@@ -405,7 +415,7 @@ function QuestionPanel({
   useEffect(() => {
     const nextQuestions = questionsRef.current;
     setValues((current) => reconcileAwaitingQuestionDrafts(nextQuestions, current));
-    setActiveIndex((index) => clampAwaitingQuestionIndex(index, nextQuestions.length));
+    setActiveIndex((index) => clampAwaitingPageIndex(index, nextQuestions.length));
   }, [questionsSignature]);
 
   const moveToIndex = useCallback(
@@ -414,7 +424,7 @@ function QuestionPanel({
         return;
       }
       setErrorText('');
-      setActiveIndex(clampAwaitingQuestionIndex(nextIndex, questions.length));
+      setActiveIndex(clampAwaitingPageIndex(nextIndex, questions.length));
     },
     [questions.length]
   );
@@ -516,7 +526,14 @@ function QuestionPanel({
           ) : null}
         </View>
         <View style={styles.headerSide}>
-          <PaginationControl current={activeIndex} disabled={disabled} total={questions.length} onMove={moveToIndex} />
+          <PaginationControl
+            current={activeIndex}
+            disabled={disabled}
+            nextLabel={t('awaiting.nextQuestion')}
+            previousLabel={t('awaiting.previousQuestion')}
+            total={questions.length}
+            onMove={moveToIndex}
+          />
         </View>
       </View>
       <QuestionInput
@@ -542,7 +559,7 @@ function QuestionPanel({
   );
 }
 
-function ApprovalItem({
+const ApprovalItem = memo(function ApprovalItem({
   approval,
   decision,
   disabled,
@@ -563,6 +580,10 @@ function ApprovalItem({
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const options = useMemo(() => getApprovalOptions(approval, t), [approval, t]);
+  const handleDecisionPress = useCallback(
+    (value: string) => onDecision(approval.id, value as ChatTimelineAwaitingApprovalDecision),
+    [approval.id, onDecision]
+  );
 
   return (
     <View style={styles.awaitingCard}>
@@ -584,7 +605,7 @@ function ApprovalItem({
             description={option.description}
             selected={decision === option.decision}
             value={option.decision}
-            onPress={(value) => onDecision(approval.id, value as ChatTimelineAwaitingApprovalDecision)}
+            onPress={handleDecisionPress}
           />
         ))}
       </View>
@@ -605,7 +626,7 @@ function ApprovalItem({
       </Text>
     </View>
   );
-}
+});
 
 function ApprovalPanel({
   awaiting,
@@ -615,17 +636,41 @@ function ApprovalPanel({
 }: PanelProps<Extract<ChatTimelineAwaitingInteractive, { kind: 'approval' }>>) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
-  const approvals = awaiting.interactive.approvals;
+  const approvals = useMemo(() => awaiting.interactive.approvals || [], [awaiting.interactive.approvals]);
   const timeoutMs = getAwaitingInteractiveTimeout(awaiting.interactive);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [draft, setDraft] = useState<AwaitingApprovalDraft>({ decisions: {}, reasons: {} });
   const [errorText, setErrorText] = useState('');
+  const disabledRef = useRef(disabled);
+  const currentApproval = approvals[activeIndex];
+  const isLastApproval = activeIndex >= approvals.length - 1;
+  disabledRef.current = disabled;
 
   useEffect(() => {
+    setActiveIndex(0);
     setDraft({ decisions: {}, reasons: {} });
     setErrorText('');
   }, [awaiting.id]);
 
+  useEffect(() => {
+    setActiveIndex((index) => clampAwaitingPageIndex(index, approvals.length));
+  }, [approvals.length]);
+
+  const moveToIndex = useCallback(
+    (nextIndex: number) => {
+      if (disabledRef.current) {
+        return;
+      }
+      setErrorText('');
+      setActiveIndex(clampAwaitingPageIndex(nextIndex, approvals.length));
+    },
+    [approvals.length]
+  );
+
   const setDecision = useCallback((approvalId: string, decision: ChatTimelineAwaitingApprovalDecision) => {
+    if (disabledRef.current) {
+      return;
+    }
     setErrorText('');
     setDraft((current) => ({
       ...current,
@@ -634,19 +679,48 @@ function ApprovalPanel({
   }, []);
 
   const setReason = useCallback((approvalId: string, reason: string) => {
+    if (disabledRef.current) {
+      return;
+    }
+    setErrorText('');
     setDraft((current) => ({
       ...current,
       reasons: { ...current.reasons, [approvalId]: reason },
     }));
   }, []);
 
-  const submit = useCallback(() => {
-    if (approvals.some((approval) => !draft.decisions[approval.id])) {
+  const submitAll = useCallback(() => {
+    if (disabledRef.current) {
+      return;
+    }
+    const missingIndex = findMissingApprovalIndex(approvals, draft);
+    if (missingIndex >= 0) {
+      setActiveIndex(missingIndex);
       setErrorText(t('awaiting.error.approvalRequired'));
       return;
     }
     submitPayload(buildAwaitingSubmitPayload(awaiting, { kind: 'approval', ...draft }));
   }, [approvals, awaiting, draft, submitPayload, t]);
+
+  const submitCurrentOrMove = useCallback(() => {
+    if (!currentApproval || disabledRef.current) {
+      return;
+    }
+    if (!hasAwaitingApprovalResponse(currentApproval, draft)) {
+      setErrorText(t('awaiting.error.approvalRequired'));
+      return;
+    }
+    setErrorText('');
+    if (isLastApproval) {
+      submitAll();
+      return;
+    }
+    moveToIndex(activeIndex + 1);
+  }, [activeIndex, currentApproval, draft, isLastApproval, moveToIndex, submitAll, t]);
+
+  if (!currentApproval) {
+    return null;
+  }
 
   return (
     <>
@@ -661,31 +735,35 @@ function ApprovalPanel({
             </Text>
           ) : null}
         </View>
-      </View>
-      <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} style={styles.panelScroll}>
-        <View style={styles.cardList}>
-          {approvals.map((approval, index) => (
-            <ApprovalItem
-              key={approval.id}
-              approval={approval}
-              decision={draft.decisions[approval.id]}
-              disabled={disabled}
-              index={index}
-              reason={draft.reasons[approval.id] || ''}
-              onDecision={setDecision}
-              onReason={setReason}
-            />
-          ))}
+        <View style={styles.headerSide}>
+          <PaginationControl
+            current={activeIndex}
+            disabled={disabled}
+            nextLabel={t('awaiting.nextApproval')}
+            previousLabel={t('awaiting.previousApproval')}
+            total={approvals.length}
+            onMove={moveToIndex}
+          />
         </View>
-      </ScrollView>
+      </View>
+      <ApprovalItem
+        key={currentApproval.id}
+        approval={currentApproval}
+        decision={draft.decisions[currentApproval.id]}
+        disabled={disabled}
+        index={activeIndex}
+        reason={draft.reasons[currentApproval.id] || ''}
+        onDecision={setDecision}
+        onReason={setReason}
+      />
       <AwaitingPanelFooter
         awaiting={awaiting}
         disabled={disabled}
         errorText={errorText}
-        primaryLabel={t('awaiting.submit')}
+        primaryLabel={isLastApproval ? t('awaiting.submit') : t('awaiting.continue')}
         submitting={submitting}
         timeoutMs={timeoutMs}
-        onPrimary={submit}
+        onPrimary={submitCurrentOrMove}
       />
     </>
   );
@@ -939,12 +1017,6 @@ function createStyles(theme: AppThemeTokens) {
       flexShrink: 0,
       alignItems: 'flex-end',
       gap: 4,
-    },
-    panelScroll: {
-      maxHeight: 240,
-    },
-    cardList: {
-      gap: appVisualTokens.spacing.sm,
     },
     awaitingCard: {
       position: 'relative',

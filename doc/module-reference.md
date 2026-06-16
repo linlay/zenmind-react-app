@@ -56,7 +56,7 @@
 职责：
 
 - 作为 Tab 与具体页面之间的映射层。
-- `Chat` 映射到 `ChatHomeStorageDemo`。
+- `Chat` 映射到 `ChatHomeScreen`。
 - `Terminal` 映射到 `AgentTaskBoardScreen`。
 - `Drive` 暂用占位页。
 - `Me` 展示用户、会话、设备、版本和退出登录入口。
@@ -128,7 +128,7 @@
 职责：
 
 - Terminal/任务 Tab 的移动端 AI 任务看板设计稿。
-- 用本地 mock 数据展示今日处理、队列筛选、新建任务、分配任务和任务详情流程。
+- 通过 Kanban API/RPC 获取真实任务 snapshot，并展示今日处理、队列筛选、新建任务、分配任务和任务详情流程。
 - 当前不接入持久化或实时 transport。
 
 ### `chatPersistence`
@@ -141,7 +141,7 @@
 
 主要入口：
 
-- `ChatHomeStorageDemo.tsx`：Chat 首页目录、冷启动回显、分页、置顶折叠、新对话入口。
+- `ChatHomeScreen.tsx`：Chat 首页目录、冷启动回显、分页、置顶折叠、新对话入口。
 - `ChatDetailScreen.tsx`：详情页组合入口。
 - `chatRepository.ts`：本地读写唯一入口。
 - `chatDirectoryProjector.ts`：把远端 agents / teams / chats 投影为首页目录和会话摘要。
@@ -248,7 +248,7 @@ AppRoot
   -> notificationService
   -> chatSyncService
 
-ChatHomeStorageDemo
+ChatHomeScreen
   -> chatRepository
   -> chatSyncService
   -> PaginatedCardList

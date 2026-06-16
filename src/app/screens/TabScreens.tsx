@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { ChatHomeStorageDemo } from '../../features/chatPersistence/ChatHomeStorageDemo';
+import { ChatHomeScreen } from '../../features/chatPersistence/ChatHomeScreen';
 import { AgentTaskBoardScreen } from '../../features/agentTaskBoard/AgentTaskBoardScreen';
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { useT } from '../../shared/i18n';
@@ -48,7 +48,7 @@ function PreviewCard({ iconUsage, eyebrow, title, body }: PreviewCardProps) {
 }
 
 export function ChatScreen() {
-  return <ChatHomeStorageDemo />;
+  return <ChatHomeScreen />;
 }
 
 export function TerminalScreen() {

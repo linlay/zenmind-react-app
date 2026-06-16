@@ -104,7 +104,7 @@ index.js
 | Route / Tab | 实际入口 | 说明 |
 | ----------- | -------- | ---- |
 | `Login` | `src/features/auth/LoginScreen.tsx` | 认证冷启动和登录页 |
-| `Tabs > Chat` | `src/features/chatPersistence/ChatHomeStorageDemo.tsx` | Chat 首页目录 |
+| `Tabs > Chat` | `src/features/chatPersistence/ChatHomeScreen.tsx` | Chat 首页目录 |
 | `Tabs > Terminal` | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` | 移动端 AI 任务看板 |
 | `Tabs > Drive` | `src/app/screens/TabScreens.tsx` | 网盘占位页 |
 | `Tabs > Me` | `src/app/screens/TabScreens.tsx` | 用户与会话信息页 |
@@ -137,9 +137,9 @@ ChatDetail / Chat 首页
 首页冷启动链路：
 
 ```text
-ChatHomeStorageDemo mount
+ChatHomeScreen mount
   -> readChatDirectorySnapshot()
-  -> prepareChatPersistenceSample()
+  -> prewarmChatHomeDirectory()
   -> SQLite directory slice
   -> chatSyncService.start()
   -> home.directory.replace / home.item.patch scoped events

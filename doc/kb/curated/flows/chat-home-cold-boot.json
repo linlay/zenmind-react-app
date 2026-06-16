@@ -1,7 +1,7 @@
 {
   "id": "chat-home-cold-boot",
   "title": "Chat 首页冷启动",
-  "trigger": "用户首次进入 Chat Tab，ChatScreen 直接渲染 ChatHomeStorageDemo 时触发。",
+  "trigger": "用户首次进入 Chat Tab，ChatScreen 直接渲染 ChatHomeScreen 时触发。",
   "sourceOfTruth": [
     "MMKV 只提供首页目录冷启动快照回显。",
     "SQLite chat_directory_items 是最终首页目录列表与分页切片的真源，置顶状态来自 chat_directory_items.pinned_at，非置顶顺序来自 latest_conversation_id 关联的 conversations.last_message_at，sort_rank 只做稳定兜底。",
@@ -10,16 +10,16 @@
   "steps": [
     {
       "order": 1,
-      "label": "ChatScreen 将 Chat Tab 映射到 ChatHomeStorageDemo；详情页由 RootStack 上推进入。",
+      "label": "ChatScreen 将 Chat Tab 映射到 ChatHomeScreen；详情页由 RootStack 上推进入。",
       "moduleId": "app-shell-navigation",
       "file": "src/app/screens/TabScreens.tsx",
       "symbol": "ChatScreen"
     },
     {
       "order": 2,
-      "label": "ChatHomeStorageDemo 首先读取 readChatDirectorySnapshot 进行冷启动回显。",
+      "label": "ChatHomeScreen 首先读取 readChatDirectorySnapshot 进行冷启动回显。",
       "moduleId": "feature-chat-persistence",
-      "file": "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+      "file": "src/features/chatPersistence/ChatHomeScreen.tsx",
       "symbol": "readChatDirectorySnapshot"
     },
     {
@@ -31,16 +31,16 @@
     },
     {
       "order": 4,
-      "label": "prewarmChatHomeDirectory 确保 SQLite 已初始化；无远端 base URL 时补充本地目录示例数据，随后读取首页目录切片并在有可用数据时刷新 MMKV 快照。",
+      "label": "prewarmChatHomeDirectory 确保 SQLite 已初始化，随后读取首页目录切片；空库保持空态，有可用目录数据时刷新 MMKV 快照。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/chatRepository.ts",
       "symbol": "prewarmChatHomeDirectory"
     },
     {
       "order": 5,
-      "label": "ChatHomeStorageDemo 把 SQLite 首屏刷新安排到 InteractionManager.runAfterInteractions 之后；无置顶折叠时复用 prewarmChatHomeDirectory 结果，折叠/分页路径继续通过 loadVisibleSlice 回读 SQLite 真源。",
+      "label": "ChatHomeScreen 把 SQLite 首屏刷新安排到 InteractionManager.runAfterInteractions 之后；无置顶折叠时复用 prewarmChatHomeDirectory 结果，折叠/分页路径继续通过 loadVisibleSlice 回读 SQLite 真源。",
       "moduleId": "feature-chat-persistence",
-      "file": "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+      "file": "src/features/chatPersistence/ChatHomeScreen.tsx",
       "symbol": "prewarmChatHomeDirectory"
     },
     {
@@ -52,16 +52,16 @@
     },
     {
       "order": 7,
-      "label": "ChatHomeStorageDemo 聚焦时订阅 scoped sync event；收到 home.directory.replace 后回读当前可见目录切片，收到未标记 directoryProjectionChanged 且命中当前可见 latestConversationId 的 home.item.patch 后回读同一切片刷新最后消息展示。",
+      "label": "ChatHomeScreen 聚焦时订阅 scoped sync event；收到 home.directory.replace 后回读当前可见目录切片，收到未标记 directoryProjectionChanged 且命中当前可见 latestConversationId 的 home.item.patch 后回读同一切片刷新最后消息展示。",
       "moduleId": "feature-chat-realtime",
-      "file": "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+      "file": "src/features/chatPersistence/ChatHomeScreen.tsx",
       "symbol": "chatSyncService.subscribe"
     },
     {
       "order": 8,
       "label": "初始化、分页、手动刷新和失焦后恢复仍通过目录 repository 入口读取 SQLite 真源切片、置顶顺序和最近消息顺序。",
       "moduleId": "feature-chat-persistence",
-      "file": "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+      "file": "src/features/chatPersistence/ChatHomeScreen.tsx",
       "symbol": "loadVisibleSlice"
     }
   ],

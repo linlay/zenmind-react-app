@@ -30,7 +30,7 @@
   ],
   "likelyFiles": [
     "src/shared/components/ScreenHeader.tsx",
-    "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+    "src/features/chatPersistence/ChatHomeScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/app/screens/AppScreenFrame.tsx",
     "src/app/screens/TabScreens.tsx"

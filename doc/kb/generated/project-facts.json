@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-16T08:13:30.631Z",
+  "generatedAt": "2026-06-16T10:29:11.263Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -36,13 +36,14 @@
     "src/features/agentTaskBoard/kanbanViewModel.ts",
     "src/features/auth/LoginScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
-    "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+    "src/features/chatPersistence/ChatHomeScreen.tsx",
     "src/features/chatPersistence/cacheScope.ts",
     "src/features/chatPersistence/chatAttachmentModels.ts",
     "src/features/chatPersistence/chatConversationTarget.ts",
     "src/features/chatPersistence/chatDetailAsyncScope.ts",
     "src/features/chatPersistence/chatDetailFormatters.ts",
     "src/features/chatPersistence/chatDetailViewModel.ts",
+    "src/features/chatPersistence/chatDirectoryOpenDecision.ts",
     "src/features/chatPersistence/chatDirectoryProjector.ts",
     "src/features/chatPersistence/chatHistoryScope.ts",
     "src/features/chatPersistence/chatProjector.ts",
@@ -511,6 +512,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "chatDirectoryOpenDecision.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "chatDirectoryProjector.ts",
                     "type": "file"
                   },
@@ -519,7 +524,7 @@
                     "type": "file"
                   },
                   {
-                    "name": "ChatHomeStorageDemo.tsx",
+                    "name": "ChatHomeScreen.tsx",
                     "type": "file"
                   },
                   {
@@ -948,13 +953,14 @@
     "feature-auth-login": ["src/features/auth/LoginScreen.tsx"],
     "feature-chat-persistence": [
       "src/features/chatPersistence/ChatDetailScreen.tsx",
-      "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+      "src/features/chatPersistence/ChatHomeScreen.tsx",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatDetailAsyncScope.ts",
       "src/features/chatPersistence/chatDetailFormatters.ts",
       "src/features/chatPersistence/chatDetailViewModel.ts",
+      "src/features/chatPersistence/chatDirectoryOpenDecision.ts",
       "src/features/chatPersistence/chatDirectoryProjector.ts",
       "src/features/chatPersistence/chatHistoryScope.ts",
       "src/features/chatPersistence/chatProjector.ts",
@@ -1094,13 +1100,14 @@
     "src/features/agentTaskBoard/kanbanViewModel.ts": "feature-agent-task-board",
     "src/features/auth/LoginScreen.tsx": "feature-auth-login",
     "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
-    "src/features/chatPersistence/ChatHomeStorageDemo.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/ChatHomeScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/cacheScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatAttachmentModels.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatConversationTarget.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailAsyncScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailFormatters.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailViewModel.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDirectoryOpenDecision.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDirectoryProjector.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatHistoryScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatProjector.ts": "feature-chat-persistence",
@@ -1500,7 +1507,7 @@
     ],
     "src/features/auth/LoginScreen.tsx": ["AuthBootstrapScreen", "LoginScreen"],
     "src/features/chatPersistence/ChatDetailScreen.tsx": ["ChatDetailScreen"],
-    "src/features/chatPersistence/ChatHomeStorageDemo.tsx": ["ChatHomeStorageDemo"],
+    "src/features/chatPersistence/ChatHomeScreen.tsx": ["ChatHomeScreen"],
     "src/features/chatPersistence/cacheScope.ts": [
       "CHAT_LEGACY_CACHE_SCOPE_ID",
       "buildChatDatabaseName",
@@ -1540,6 +1547,11 @@
       "deriveChatComposerPrimaryAction",
       "deriveChatDetailHeaderRuntimeState"
     ],
+    "src/features/chatPersistence/chatDirectoryOpenDecision.ts": [
+      "ChatDirectoryLatestConversationSummary",
+      "isActiveTimelinePayload",
+      "shouldOpenLatestConversationFromSummary"
+    ],
     "src/features/chatPersistence/chatDirectoryProjector.ts": [
       "RemoteAgent",
       "RemoteTeam",
@@ -1560,12 +1572,14 @@
     ],
     "src/features/chatPersistence/chatReadState.ts": [
       "ChatReadStateInput",
+      "PersistedConversationReadStateInput",
       "hasChatReadStateInput",
       "isChatUnread",
       "mergeChatReadState",
       "normalizeChatReadPatch",
       "normalizeChatReadState",
       "normalizeConversationUnreadCount",
+      "normalizePersistedConversationReadState",
       "readStateToUnreadBit"
     ],
     "src/features/chatPersistence/chatRealtimeUiState.ts": [
@@ -1608,7 +1622,6 @@
       "getConversationTarget",
       "getMessageByClientMessageId",
       "getMessageByServerMessageId",
-      "getOrCreateConversationForDirectoryItem",
       "getPendingOutboxCount",
       "getPendingOutboxMessages",
       "incrementConversationUnread",
@@ -1620,7 +1633,6 @@
       "patchConversationSummary",
       "patchMessageByClientMessageId",
       "persistConversationTimelineState",
-      "prepareChatPersistenceSample",
       "prewarmChatHomeDirectory",
       "reconcileConversationDetail",
       "refreshChatDirectoryProjectionForConversation",
@@ -1629,6 +1641,7 @@
       "replaceChatDirectoryItems",
       "replaceChatHomeProjection",
       "replaceConversationProjection",
+      "resolveDirectoryItemConversationOpenTarget",
       "setChatDirectoryItemPinned",
       "setConversationActiveRunId",
       "setConversationPinned",
@@ -1666,7 +1679,6 @@
     "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts": [
       "AwaitingQuestionDraft",
       "buildQuestionSubmitParams",
-      "clampAwaitingQuestionIndex",
       "createAwaitingQuestionDrafts",
       "findAwaitingAnswerError",
       "formatAwaitingDateAnswer",
@@ -1699,6 +1711,8 @@
       "AwaitingPlanDraft",
       "AwaitingSubmitDraft",
       "buildAwaitingSubmitPayload",
+      "findMissingApprovalIndex",
+      "hasAwaitingApprovalResponse",
       "mergeSubmittedParamsIntoAwaitingForms",
       "normalizeAwaitingSubmitParams"
     ],
@@ -2207,7 +2221,7 @@
       "src/app/screens/AppScreenFrame.tsx",
       "src/app/screens/MeScreen.tsx",
       "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
-      "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+      "src/features/chatPersistence/ChatHomeScreen.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
@@ -2284,7 +2298,7 @@
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
-    "src/features/chatPersistence/ChatHomeStorageDemo.tsx": [
+    "src/features/chatPersistence/ChatHomeScreen.tsx": [
       "src/app/navigation/types.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatRealtimeUiState.ts",
@@ -2316,6 +2330,7 @@
       "src/shared/i18n/translate.ts"
     ],
     "src/features/chatPersistence/chatDetailViewModel.ts": ["src/features/chatTimeline/index.ts"],
+    "src/features/chatPersistence/chatDirectoryOpenDecision.ts": ["src/features/chatPersistence/chatReadState.ts"],
     "src/features/chatPersistence/chatDirectoryProjector.ts": [
       "src/core/api/services/chatApi.ts",
       "src/features/chatPersistence/chatReadState.ts",
@@ -2338,9 +2353,9 @@
       "src/features/chatRealtime/types.ts"
     ],
     "src/features/chatPersistence/chatRepository.ts": [
-      "src/core/api/apiClient.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
+      "src/features/chatPersistence/chatDirectoryOpenDecision.ts",
       "src/features/chatPersistence/chatHistoryScope.ts",
       "src/features/chatPersistence/chatReadState.ts",
       "src/features/chatPersistence/database.ts",

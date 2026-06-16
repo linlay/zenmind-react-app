@@ -80,11 +80,16 @@ export type AwaitingApprovalDecision = 'approve' | 'reject' | 'approve_rule_run'
 
 export type AwaitingPlanDecision = 'approve' | 'reject';
 
-export type AwaitingApprovalSubmitParamData = {
-  id: string;
-  decision: AwaitingApprovalDecision;
-  reason?: string;
-};
+export type AwaitingApprovalSubmitParamData =
+  | {
+      id: string;
+      decision: AwaitingApprovalDecision;
+      reason?: string;
+    }
+  | {
+      id: string;
+      reason: string;
+    };
 
 export type AwaitingFormSubmitParamData = {
   id: string;

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-16T08:13:30.718Z",
+  "generatedAt": "2026-06-16T10:29:11.344Z",
   "items": [
     {
       "id": "add-app-startup-loading-screen",
@@ -68,7 +68,7 @@
         "src/app/screens/TabScreens.tsx",
         "src/features/auth/LoginScreen.tsx",
         "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
-        "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+        "src/features/chatPersistence/ChatHomeScreen.tsx",
         "src/features/chatPersistence/ChatDetailScreen.tsx",
         "src/features/chatPersistence/components",
         "scripts/tests/i18n.test.mts"
@@ -95,7 +95,7 @@
         "src/shared/visual/AppThemeProvider.tsx",
         "src/shared/visual/foundation.ts",
         "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
-        "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+        "src/features/chatPersistence/ChatHomeScreen.tsx",
         "src/features/chatPersistence/ChatDetailScreen.tsx"
       ],
       "card": "doc/kb/tasks/add-or-edit-tab-screen.json"
@@ -107,7 +107,7 @@
       "entryDecision": "任务涉及新增页面顶部 Header 组件、统一左右按钮区与标题区布局时，从这张卡开始。",
       "likelyFiles": [
         "src/shared/components/ScreenHeader.tsx",
-        "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+        "src/features/chatPersistence/ChatHomeScreen.tsx",
         "src/features/chatPersistence/ChatDetailScreen.tsx",
         "src/app/screens/AppScreenFrame.tsx",
         "src/app/screens/TabScreens.tsx"
@@ -201,7 +201,7 @@
       ],
       "entryDecision": "任务涉及会话排序、消息状态、SQLite 表、MMKV 快照或 repository 行为时，先从这张卡开始。",
       "likelyFiles": [
-        "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+        "src/features/chatPersistence/ChatHomeScreen.tsx",
         "src/features/chatPersistence/ChatDetailScreen.tsx",
         "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
         "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx",
@@ -251,7 +251,7 @@
         "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx",
         "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
         "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
-        "src/features/chatPersistence/ChatHomeStorageDemo.tsx",
+        "src/features/chatPersistence/ChatHomeScreen.tsx",
         "src/core/api/services/chatApi.ts",
         "src/core/api/services/chatEventProtocol.ts"
       ],

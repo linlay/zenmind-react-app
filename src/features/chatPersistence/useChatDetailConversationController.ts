@@ -640,7 +640,7 @@ export function useChatDetailConversationController({
           ...conversationTargetRouteParams,
           initialConversation: created.conversation,
           ...(created.historyScope ? { historyScope: created.historyScope } : {}),
-          skipInitialReconcile: created.isLocalDraft
+          skipInitialReconcile: created.skipInitialReconcile
         });
       } catch (error) {
         if (
@@ -711,7 +711,7 @@ export function useChatDetailConversationController({
         ...conversationTargetRouteParams,
         initialConversation: created.conversation,
         ...(created.historyScope ? { historyScope: created.historyScope } : {}),
-        skipInitialReconcile: created.isLocalDraft
+        skipInitialReconcile: created.skipInitialReconcile
       });
       shouldReleaseStartLock = false;
     } catch (error) {

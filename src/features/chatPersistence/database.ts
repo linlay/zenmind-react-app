@@ -17,7 +17,7 @@ const READ_STATE_SCHEMA_VERSION = 1;
 const RICH_TIMELINE_SCHEMA_VERSION = 2;
 const CHAT_DIRECTORY_ICON_SCHEMA_VERSION = 3;
 const MESSAGE_ATTACHMENTS_SCHEMA_VERSION = 4;
-const CHAT_QUERY_INDEX_SCHEMA_VERSION = 5;
+const CHAT_QUERY_INDEX_SCHEMA_VERSION = 6;
 let initialized = false;
 
 export function switchChatDatabaseScope(scopeId: string) {
@@ -303,6 +303,8 @@ export async function ensureChatDatabase() {
     sqlite.execSync(`
       DROP INDEX IF EXISTS conversations_agent_last_message_idx;
       DROP INDEX IF EXISTS conversations_team_last_message_idx;
+      DROP INDEX IF EXISTS conversations_agent_draft_recency_idx;
+      DROP INDEX IF EXISTS conversations_team_draft_recency_idx;
     `);
   }
 
