@@ -1,7 +1,7 @@
 export const APP_BRAND = {
   "id": "zenmind",
-  "productName": "ZenMind",
-  "expoName": "ZenMind",
+  "productName": "Zenmind",
+  "expoName": "Zenmind",
   "slug": "zenmind-react-app",
   "version": "2.0.0",
   "storageNamespace": "zenmind-app",
