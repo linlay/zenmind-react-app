@@ -47,7 +47,7 @@ test('brand manifests expose distinct native identities', () => {
   const zenmind = loadBrandConfig(process.cwd(), 'zenmind', '9.9.9');
   const cutej = loadBrandConfig(process.cwd(), 'cutej', '9.9.9');
 
-  assert.equal(zenmind.productName, 'ZenMind');
+  assert.equal(zenmind.productName, 'Zenmind');
   assert.equal(cutej.productName, 'CuteJ');
   assert.notEqual(zenmind.android.package, cutej.android.package);
   assert.notEqual(zenmind.ios.bundleIdentifier, cutej.ios.bundleIdentifier);
