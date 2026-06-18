@@ -1,4 +1,4 @@
-import { memo, type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { memo, type ReactNode, type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { FlashList, type FlashListRef } from '@shopify/flash-list';
 import {
   type LayoutChangeEvent,
@@ -34,6 +34,7 @@ import { RuntimeTimelineRow } from './RuntimeTimelineRow';
 
 type ChatTimelineListProps = {
   timelineState: ChatTimelineState;
+  emptyState?: ReactNode;
   onCopyText: (text: string) => void;
   onReaskMessage?: (target: ChatTimelineReaskTarget, node: ChatTimelineMessageNode) => void;
   reaskCurrentDisabled?: boolean;
@@ -634,6 +635,7 @@ const TimelineRow = memo(
 
 export const ChatTimelineList = memo(function ChatTimelineList({
   timelineState,
+  emptyState = null,
   onCopyText,
   onReaskMessage,
   reaskCurrentDisabled = false,
@@ -650,6 +652,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     offsetY: 0,
     viewportHeight: 0
   });
+  const viewportHeightRef = useRef(0);
   const isFollowingEndRef = useRef(true);
   const hasUserScrolledRef = useRef(false);
   const pendingAutoFollowRef = useRef(true);
@@ -660,6 +663,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   const reaskMenuRef = useRef<ReaskMenuState | null>(null);
   const [showScrollToEnd, setShowScrollToEnd] = useState(false);
   const [reaskMenu, setReaskMenuState] = useState<ReaskMenuState | null>(null);
+  const [viewportHeight, setViewportHeight] = useState(0);
   const displayModel = useMemo(() => {
     const nextModel = buildChatTimelineDisplayModel(timelineState, displayModelRef.current);
     displayModelRef.current = nextModel;
@@ -667,6 +671,24 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   }, [timelineState]);
   const items = displayModel.items;
   const tailSignature = displayModel.tailSignature;
+  const hasCustomEmptyState = Boolean(emptyState);
+  const timelineListStyle = useMemo(
+    () => [
+      styles.timelineList,
+      hasCustomEmptyState && items.length === 0 && viewportHeight > 0
+        ? {
+            minHeight: viewportHeight,
+            justifyContent: 'center' as const,
+            paddingBottom: Math.round(viewportHeight * 0.16),
+          }
+        : null,
+    ],
+    [hasCustomEmptyState, items.length, styles.timelineList, viewportHeight]
+  );
+  const emptyStateElement = useMemo(
+    () => (emptyState ? <>{emptyState}</> : <ThreadEmptyState />),
+    [emptyState]
+  );
   const setScrollToEndVisible = useCallback((visible: boolean) => {
     if (showScrollToEndRef.current !== visible) {
       showScrollToEndRef.current = visible;
@@ -822,8 +844,14 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   );
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
+      const nextViewportHeight = event.nativeEvent.layout.height;
+      if (Math.abs(viewportHeightRef.current - nextViewportHeight) > 1) {
+        viewportHeightRef.current = nextViewportHeight;
+        setViewportHeight(nextViewportHeight);
+      }
+
       const wasFollowingEnd = isFollowingEndRef.current || isNearTimelineEnd(scrollMetricsRef.current);
-      scrollMetricsRef.current.viewportHeight = event.nativeEvent.layout.height;
+      scrollMetricsRef.current.viewportHeight = nextViewportHeight;
       if (wasFollowingEnd) {
         followTimelineEnd(false);
         return;
@@ -885,11 +913,11 @@ export const ChatTimelineList = memo(function ChatTimelineList({
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         style={styles.threadScroller}
-        contentContainerStyle={styles.timelineList}
+        contentContainerStyle={timelineListStyle}
         showsVerticalScrollIndicator={false}
         drawDistance={620}
         getItemType={getChatTimelineDisplayItemType}
-        ListEmptyComponent={ThreadEmptyState}
+        ListEmptyComponent={emptyStateElement}
         keyboardShouldPersistTaps="handled"
         onScroll={handleScroll}
         onScrollEndDrag={updateMetricsFromScrollEvent}

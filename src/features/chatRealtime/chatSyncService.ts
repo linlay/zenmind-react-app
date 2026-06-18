@@ -2,16 +2,23 @@ import { ApiError, getApiBaseUrl } from '../../core/api/apiClient';
 import { getAccessTokenForRequest } from '../../core/auth/appAuth';
 import {
   CHAT_DETAIL_TRANSPORT_TYPE,
+  CHAT_AGENT_DETAIL_TRANSPORT_TYPE,
   CHAT_READ_TRANSPORT_TYPE,
+  CHAT_SUBMIT_TRANSPORT_TYPE,
   CHAT_SUMMARIES_TRANSPORT_TYPE,
+  buildAgentDetailPayload,
   buildMarkChatReadPayload,
-  submitAwaitingApi,
+  buildSubmitAwaitingPayload,
+  projectRemoteAgentDetail,
+  type AgentDetailSnapshot,
   type AwaitingSubmitPayloadData,
   type ChatApiEnvelope,
   type MarkChatReadRequest,
   type MarkChatReadResponse,
+  type RemoteAgentDetail,
   type RemoteChatDetail,
   type RemoteChatSummary,
+  type SubmitAwaitingResponse,
   unwrapChatApiEnvelope,
 } from '../../core/api/services/chatApi';
 import {
@@ -416,6 +423,8 @@ class ChatSyncService {
   private readonly lastReadMarks = new Map<string, ReadMarkState>();
   private readonly readConfirmations = new Map<string, Promise<void>>();
   private readonly timelineStates = new Map<string, ChatTimelineState>();
+  private readonly agentDetails = new Map<string, AgentDetailSnapshot | null>();
+  private readonly agentDetailRequests = new Map<string, Promise<AgentDetailSnapshot | null>>();
   private readonly locallyTerminatedRuns = new Map<string, LocalTerminatedRunState>();
   private readonly stoppingConversations = new Map<string, StoppingConversationState>();
   private readonly runtimeEmitTimers = new Map<string, ReturnType<typeof setTimeout>>();
@@ -424,6 +433,7 @@ class ChatSyncService {
   private lifecycleVersion = 0;
   private attachTokenSeq = 0;
   private hasConnectedOnce = false;
+  private agentDetailCacheVersion = 0;
 
   getStatus() {
     return this.status;
@@ -477,6 +487,39 @@ class ChatSyncService {
       this.timelineStates.get(normalizedConversationId) ??
       createChatTimelineState(normalizedConversationId)
     );
+  }
+
+  getAgentDetailSnapshot(agentKey: string): AgentDetailSnapshot | null {
+    const normalizedAgentKey = toText(agentKey);
+    if (!normalizedAgentKey) {
+      return null;
+    }
+    return this.agentDetails.get(normalizedAgentKey) ?? null;
+  }
+
+  async ensureAgentDetail(agentKey: string): Promise<AgentDetailSnapshot | null> {
+    const normalizedAgentKey = toText(agentKey);
+    if (!normalizedAgentKey) {
+      return null;
+    }
+
+    if (this.agentDetails.has(normalizedAgentKey)) {
+      return this.agentDetails.get(normalizedAgentKey) ?? null;
+    }
+
+    const inFlight = this.agentDetailRequests.get(normalizedAgentKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const cacheVersion = this.agentDetailCacheVersion;
+    const request = this.fetchAgentDetail(normalizedAgentKey, cacheVersion).finally(() => {
+      if (this.agentDetailRequests.get(normalizedAgentKey) === request) {
+        this.agentDetailRequests.delete(normalizedAgentKey);
+      }
+    });
+    this.agentDetailRequests.set(normalizedAgentKey, request);
+    return request;
   }
 
   private rememberLocalTerminatedRun(conversationId: string, runId: string) {
@@ -623,6 +666,7 @@ class ChatSyncService {
 
   stop() {
     this.lifecycleVersion += 1;
+    this.agentDetailCacheVersion += 1;
     this.started = false;
     this.hasConnectedOnce = false;
     stopChatPushTransport();
@@ -677,6 +721,8 @@ class ChatSyncService {
     this.timelinePersistTimers.clear();
     this.readConfirmations.clear();
     this.inFlightOutgoingIds.clear();
+    this.agentDetails.clear();
+    this.agentDetailRequests.clear();
     this.locallyTerminatedRuns.clear();
     this.stoppingConversations.clear();
   }
@@ -809,14 +855,18 @@ class ChatSyncService {
       throw new Error('agentKey is required for awaiting submit');
     }
 
-    const response = await submitAwaitingApi({
-      chatId: normalizedConversationId,
-      runId,
-      agentKey,
-      awaitingId,
-      submitId: createAwaitingSubmitId(),
-      params: payload.params,
-    });
+    const response =
+      (await this.requestChatApi<SubmitAwaitingResponse>(
+        CHAT_SUBMIT_TRANSPORT_TYPE,
+        buildSubmitAwaitingPayload({
+          chatId: normalizedConversationId,
+          runId,
+          agentKey,
+          awaitingId,
+          submitId: createAwaitingSubmitId(),
+          params: payload.params,
+        })
+      )) || {};
     const accepted = Boolean(response.accepted ?? true);
     const status = toText(response.status);
     const detail = toText(response.detail) || (accepted ? 'accepted' : 'unmatched');
@@ -1125,6 +1175,29 @@ class ChatSyncService {
       includeRawMessages: true,
     });
     return response || {};
+  }
+
+  private async fetchAgentDetail(
+    agentKey: string,
+    cacheVersion: number
+  ): Promise<AgentDetailSnapshot | null> {
+    try {
+      const response = await this.requestChatApi<RemoteAgentDetail>(
+        CHAT_AGENT_DETAIL_TRANSPORT_TYPE,
+        buildAgentDetailPayload(agentKey)
+      );
+      const detail = projectRemoteAgentDetail(response, agentKey);
+      if (this.agentDetailCacheVersion !== cacheVersion) {
+        return null;
+      }
+      this.agentDetails.set(agentKey, detail);
+      return detail;
+    } catch {
+      if (this.agentDetailCacheVersion === cacheVersion) {
+        this.agentDetails.set(agentKey, null);
+      }
+      return null;
+    }
   }
 
   private async markChatReadViaTransport(

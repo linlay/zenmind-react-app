@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-17T07:29:01.840Z",
+  "generatedAt": "2026-06-18T05:32:16.262Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -19,6 +19,7 @@
     "src/app/startup/AppLaunchSkeleton.tsx",
     "src/app/startup/GeminiLogo.tsx",
     "src/core/api/apiClient.ts",
+    "src/core/api/resourceUrl.ts",
     "src/core/api/services/chatApi.ts",
     "src/core/api/services/chatEventProtocol.ts",
     "src/core/api/services/kanbanApi.ts",
@@ -59,6 +60,7 @@
     "src/features/chatPersistence/components/ChatDetailHeader.tsx",
     "src/features/chatPersistence/components/ChatDetailSkeleton.tsx",
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
+    "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
     "src/features/chatPersistence/components/ChatTimelineList.tsx",
     "src/features/chatPersistence/components/ChatTimelineRail.tsx",
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx",
@@ -75,6 +77,7 @@
     "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
     "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
     "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
+    "src/features/chatPersistence/components/chatWonderDisplay.ts",
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
@@ -281,6 +284,10 @@
                   {
                     "name": "apiClient.ts",
                     "type": "file"
+                  },
+                  {
+                    "name": "resourceUrl.ts",
+                    "type": "file"
                   }
                 ]
               },
@@ -443,6 +450,10 @@
                         "type": "file"
                       },
                       {
+                        "name": "ChatNewConversationIntro.tsx",
+                        "type": "file"
+                      },
+                      {
                         "name": "ChatTimelineList.tsx",
                         "type": "file"
                       },
@@ -452,6 +463,10 @@
                       },
                       {
                         "name": "ChatUsageHeaderBadge.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "chatWonderDisplay.ts",
                         "type": "file"
                       },
                       {
@@ -936,6 +951,7 @@
     ],
     "core-api-client": [
       "src/core/api/apiClient.ts",
+      "src/core/api/resourceUrl.ts",
       "src/core/api/services/chatApi.ts",
       "src/core/api/services/chatEventProtocol.ts",
       "src/core/api/services/kanbanApi.ts",
@@ -981,6 +997,7 @@
       "src/features/chatPersistence/components/ChatDetailHeader.tsx",
       "src/features/chatPersistence/components/ChatDetailSkeleton.tsx",
       "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
+      "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
       "src/features/chatPersistence/components/ChatTimelineList.tsx",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx",
@@ -997,6 +1014,7 @@
       "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
       "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
       "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
+      "src/features/chatPersistence/components/chatWonderDisplay.ts",
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
       "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
@@ -1089,6 +1107,7 @@
     "src/app/startup/AppLaunchSkeleton.tsx": "app-shell-navigation",
     "src/app/startup/GeminiLogo.tsx": "app-shell-navigation",
     "src/core/api/apiClient.ts": "core-api-client",
+    "src/core/api/resourceUrl.ts": "core-api-client",
     "src/core/api/services/chatApi.ts": "core-api-client",
     "src/core/api/services/chatEventProtocol.ts": "core-api-client",
     "src/core/api/services/kanbanApi.ts": "core-api-client",
@@ -1129,6 +1148,7 @@
     "src/features/chatPersistence/components/ChatDetailHeader.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatTimelineList.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": "feature-chat-persistence",
@@ -1145,6 +1165,7 @@
     "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/components/chatWonderDisplay.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": "feature-chat-persistence",
@@ -1360,7 +1381,10 @@
       "buildApiUrl",
       "getApiBaseUrl"
     ],
+    "src/core/api/resourceUrl.ts": ["normalizeApiResourcePath"],
     "src/core/api/services/chatApi.ts": [
+      "AgentDetailSnapshot",
+      "AgentWonderSuggestion",
       "AwaitingApprovalDecision",
       "AwaitingApprovalSubmitParamData",
       "AwaitingFormSubmitParamData",
@@ -1370,21 +1394,26 @@
       "AwaitingSubmitParamData",
       "AwaitingSubmitPayloadData",
       "AwaitingViewportResponse",
+      "CHAT_AGENT_DETAIL_TRANSPORT_TYPE",
       "CHAT_DETAIL_TRANSPORT_TYPE",
       "CHAT_READ_TRANSPORT_TYPE",
+      "CHAT_SUBMIT_TRANSPORT_TYPE",
       "CHAT_SUMMARIES_TRANSPORT_TYPE",
       "ChatApiEnvelope",
       "MarkChatReadPayload",
       "MarkChatReadRequest",
       "MarkChatReadResponse",
+      "RemoteAgentDetail",
       "RemoteChatDetail",
       "RemoteChatEvent",
       "RemoteChatSummary",
       "SubmitAwaitingRequest",
       "SubmitAwaitingResponse",
+      "buildAgentDetailPayload",
       "buildMarkChatReadPayload",
+      "buildSubmitAwaitingPayload",
       "getAwaitingViewportApi",
-      "submitAwaitingApi",
+      "projectRemoteAgentDetail",
       "unwrapChatApiEnvelope"
     ],
     "src/core/api/services/chatEventProtocol.ts": [
@@ -1534,6 +1563,7 @@
       "getChatAttachmentStatusLabel",
       "keepLatestChatAttachmentsByName",
       "normalizeChatAttachmentReferences",
+      "normalizeChatAttachmentResourceUrl",
       "parseChatAttachmentReferencesJson",
       "serializeChatAttachmentReferences"
     ],
@@ -1666,6 +1696,7 @@
     "src/features/chatPersistence/components/ChatDetailHeader.tsx": ["ChatDetailHeader"],
     "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": ["ChatDetailSkeleton"],
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": ["ChatDirectoryPickerDrawer"],
+    "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": ["ChatNewConversationIntro"],
     "src/features/chatPersistence/components/ChatTimelineList.tsx": ["ChatTimelineList"],
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": ["ChatTimelineRail"],
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": ["ChatUsageHeaderBadge"],
@@ -1723,6 +1754,11 @@
       "hasAwaitingApprovalResponse",
       "mergeSubmittedParamsIntoAwaitingForms",
       "normalizeAwaitingSubmitParams"
+    ],
+    "src/features/chatPersistence/components/chatWonderDisplay.ts": [
+      "ChatWonderGridConfig",
+      "pickChatWonderSuggestions",
+      "resolveChatWonderGridConfig"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "RuntimePayloadDescriptor",
@@ -1815,7 +1851,10 @@
       "ChatDetailAwaitingOverlayState",
       "useChatDetailAwaitingOverlay"
     ],
-    "src/features/chatPersistence/useChatDetailConversationController.ts": ["useChatDetailConversationController"],
+    "src/features/chatPersistence/useChatDetailConversationController.ts": [
+      "ChatNewConversationIntroState",
+      "useChatDetailConversationController"
+    ],
     "src/features/chatPersistence/useChatDetailLocalUiState.ts": ["useChatDetailLocalUiState"],
     "src/features/chatRealtime/chatSyncService.ts": ["chatSyncService"],
     "src/features/chatRealtime/chatWsTransport.ts": [
@@ -2243,12 +2282,13 @@
       "src/core/auth/authConfig.ts",
       "src/core/debug/httpDebugLogger.ts"
     ],
+    "src/core/api/resourceUrl.ts": [],
     "src/core/api/services/chatApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/chatEventProtocol.ts": [],
     "src/core/api/services/kanbanApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/notificationApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/templateApi.ts": ["src/core/api/apiClient.ts"],
-    "src/core/api/services/uploadApi.ts": ["src/core/api/apiClient.ts"],
+    "src/core/api/services/uploadApi.ts": ["src/core/api/apiClient.ts", "src/core/api/resourceUrl.ts"],
     "src/core/auth/appAuth.ts": [
       "src/core/auth/authConfig.ts",
       "src/core/auth/deviceProfiles.ts",
@@ -2293,6 +2333,7 @@
       "src/features/chatPersistence/components/ChatDetailEmptyState.tsx",
       "src/features/chatPersistence/components/ChatDetailHeader.tsx",
       "src/features/chatPersistence/components/ChatDetailSkeleton.tsx",
+      "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
       "src/features/chatPersistence/components/ChatTimelineList.tsx",
       "src/features/chatPersistence/components/CopyToast.tsx",
       "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
@@ -2328,6 +2369,7 @@
     "src/features/chatPersistence/agentMode.ts": [],
     "src/features/chatPersistence/cacheScope.ts": [],
     "src/features/chatPersistence/chatAttachmentModels.ts": [
+      "src/core/api/resourceUrl.ts",
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/translate.ts"
     ],
@@ -2438,6 +2480,14 @@
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
+    "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": [
+      "src/core/api/services/chatApi.ts",
+      "src/features/chatPersistence/components/chatWonderDisplay.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIconButton.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
     "src/features/chatPersistence/components/ChatTimelineList.tsx": [
       "src/features/chatPersistence/chatDetailFormatters.ts",
       "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
@@ -2483,7 +2533,6 @@
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": [
-      "src/features/chatPersistence/chatDetailFormatters.ts",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
@@ -2565,15 +2614,19 @@
       "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
       "src/features/chatTimeline/index.ts"
     ],
+    "src/features/chatPersistence/components/chatWonderDisplay.ts": ["src/core/api/services/chatApi.ts"],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/translate.ts",
       "src/shared/icons/AppIcon.tsx"
     ],
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": [
+      "src/features/chatPersistence/chatDetailFormatters.ts",
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
       "src/shared/components/ConversationMarkdownRenderer.tsx",
+      "src/shared/i18n/index.ts",
+      "src/shared/i18n/translate.ts",
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
@@ -2600,6 +2653,7 @@
     ],
     "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": ["src/features/chatRealtime/types.ts"],
     "src/features/chatPersistence/useChatDetailConversationController.ts": [
+      "src/core/api/services/chatApi.ts",
       "src/core/api/services/notificationApi.ts",
       "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
@@ -2633,6 +2687,7 @@
       "src/features/chatRealtime/chatWsTransport.ts",
       "src/features/chatRealtime/routing.ts",
       "src/features/chatRealtime/types.ts",
+      "src/features/chatRealtime/wsClient.ts",
       "src/features/chatTimeline/index.ts"
     ],
     "src/features/chatRealtime/chatWsTransport.ts": [

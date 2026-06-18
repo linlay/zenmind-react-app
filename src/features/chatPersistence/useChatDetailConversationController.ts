@@ -2,6 +2,7 @@ import { startTransition, useCallback, useEffect, useMemo, useRef, useState } fr
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Animated, Platform } from 'react-native';
 
+import type { AgentDetailSnapshot } from '../../core/api/services/chatApi';
 import { getNotificationMessageDetailApi } from '../../core/api/services/notificationApi';
 import { useT } from '../../shared/i18n';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
@@ -62,6 +63,12 @@ type PendingInitialPayload = {
   payload: ConversationRenderPayload;
 };
 
+export type ChatNewConversationIntroState = {
+  agentName: string;
+  description: string;
+  wonders: AgentDetailSnapshot['wonders'];
+};
+
 function getLatestUserMessagePending(timelineState: ChatTimelineState): boolean {
   for (let index = timelineState.orderedNodeIds.length - 1; index >= 0; index -= 1) {
     const node = timelineState.nodesById[timelineState.orderedNodeIds[index]];
@@ -75,6 +82,10 @@ function getLatestUserMessagePending(timelineState: ChatTimelineState): boolean 
 
 function isEmptyDraftConversation(summary: ChatHomeItem | null): boolean {
   return Boolean(summary && !String(summary.lastMessageText || '').trim());
+}
+
+function normalizeIntroAgentKey(value: string | null | undefined): string {
+  return String(value || '').trim();
 }
 
 export function useChatDetailConversationController({
@@ -118,6 +129,7 @@ export function useChatDetailConversationController({
   const [planModeEnabled, setPlanModeEnabled] = useState(false);
   const [socketStatus, setSocketStatus] = useState<ChatSocketStatus>(chatSyncService.getStatus());
   const [errorText, setErrorText] = useState('');
+  const [agentDetailSnapshot, setAgentDetailSnapshot] = useState<AgentDetailSnapshot | null>(null);
   const [reloadSeed, setReloadSeed] = useState(0);
   const hydratedNotificationMessageIdRef = useRef('');
   const pendingInitialPayloadRef = useRef<PendingInitialPayload | null>(null);
@@ -138,6 +150,39 @@ export function useChatDetailConversationController({
   const skeletonFadeAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const summary = isConversationUnavailable ? null : (detail ?? initialConversation);
+  const isNewConversationEmpty = Boolean(
+    skipInitialReconcile &&
+      summary &&
+      isEmptyDraftConversation(summary) &&
+      timelineState.orderedNodeIds.length === 0
+  );
+  const introAgentKey = useMemo(
+    () =>
+      isNewConversationEmpty
+        ? normalizeIntroAgentKey(conversationTarget?.agentKey || historyScope?.agentKey)
+        : '',
+    [conversationTarget?.agentKey, historyScope?.agentKey, isNewConversationEmpty]
+  );
+  const scopedAgentDetail =
+    introAgentKey && agentDetailSnapshot?.agentKey === introAgentKey ? agentDetailSnapshot : null;
+  const newConversationIntro = useMemo<ChatNewConversationIntroState | null>(() => {
+    if (!isNewConversationEmpty) {
+      return null;
+    }
+
+    const agentName =
+      scopedAgentDetail?.name ||
+      conversationTarget?.title ||
+      summary?.title ||
+      conversationSubtitle ||
+      t('chatDetail.newConversation.agentFallback');
+
+    return {
+      agentName,
+      description: scopedAgentDetail?.description || '',
+      wonders: scopedAgentDetail?.wonders || []
+    };
+  }, [conversationSubtitle, conversationTarget?.title, isNewConversationEmpty, scopedAgentDetail, summary?.title, t]);
   const planModeAvailable = useMemo(
     () => canUsePlanMode(conversationTarget?.agentMode),
     [conversationTarget?.agentMode]
@@ -239,6 +284,33 @@ export function useChatDetailConversationController({
       setPlanModeEnabled(false);
     }
   }, [conversationTarget, planModeAvailable, planModeEnabled]);
+
+  useEffect(() => {
+    if (!introAgentKey) {
+      setAgentDetailSnapshot(null);
+      return;
+    }
+
+    const cached = chatSyncService.getAgentDetailSnapshot(introAgentKey);
+    setAgentDetailSnapshot(cached);
+
+    let cancelled = false;
+    const targetConversationId = conversationId;
+    void chatSyncService.ensureAgentDetail(introAgentKey).then((nextDetail) => {
+      if (
+        cancelled ||
+        activeConversationIdRef.current !== targetConversationId ||
+        !nextDetail
+      ) {
+        return;
+      }
+      setAgentDetailSnapshot(nextDetail);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, introAgentKey]);
 
   useEffect(() => {
     if (!sending) {
@@ -769,11 +841,21 @@ export function useChatDetailConversationController({
     setReloadSeed((value) => value + 1);
   }, []);
 
+  const handleSelectWonder = useCallback((text: string) => {
+    const nextText = String(text || '').trim();
+    if (!nextText) {
+      return;
+    }
+    setDraft(nextText);
+    setErrorText('');
+  }, []);
+
   return {
     summary,
     conversationTarget,
     historyScope,
     timelineState,
+    newConversationIntro,
     runtimeState,
     headerRuntimeState,
     isInitialContentReady,
@@ -796,6 +878,7 @@ export function useChatDetailConversationController({
     handleSelectAttachment,
     handleRemoveAttachment,
     handleRetryAttachment,
-    handleRetryFromNotification
+    handleRetryFromNotification,
+    handleSelectWonder
   };
 }

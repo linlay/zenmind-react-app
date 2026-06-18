@@ -5,7 +5,7 @@
   "sourceOfTruth": [
     "消息先落 SQLite 和 outbox，再尝试发给 WebSocket；计划模式只作为 outbox 发送选项保存，用于 replay 时继续带 planningMode。",
     "ack 或 stream done/error 由后台回调通过 repository patch 命中消息状态和会话摘要。",
-    "详情页停止/继续生成和 awaiting question/approval/form/plan 提交只通过 chatSyncService 管理 active outgoing/attach stream、/api/interrupt、activeRunId、本地终止 run guard、/ap/api/submit 本地投影和 timeline，不在页面层直接操作 WebSocket 或 HTTP submit。"
+    "详情页停止/继续生成和 awaiting question/approval/form/plan 提交只通过 chatSyncService 管理 active outgoing/attach stream、/api/interrupt、activeRunId、本地终止 run guard、/ap/ws /api/submit 本地投影和 timeline，不在页面层直接操作 WebSocket 或 HTTP submit。"
   ],
   "steps": [
     {

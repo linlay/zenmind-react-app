@@ -299,6 +299,61 @@ test('timeline display puts one assistant footer on the final content item per r
   });
 });
 
+test('timeline display keeps one assistant footer across visible reply runs', () => {
+  const state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'request.query',
+      requestId: 'req-1',
+      runId: 'run-1',
+      message: '先了解项目结构',
+      timestamp: 90,
+    },
+    {
+      type: 'content.snapshot',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      text: '我先看看项目结构。',
+      timestamp: 100,
+    },
+    {
+      type: 'tool.snapshot',
+      runId: 'run-2',
+      toolId: 'tool-1',
+      toolName: 'find_files',
+      toolLabel: '查找文件',
+      arguments: '{"query":"theme"}',
+      timestamp: 110,
+    },
+    {
+      type: 'reasoning.snapshot',
+      runId: 'run-2',
+      reasoningId: 'reason-1',
+      text: '继续判断颜色入口。',
+      timestamp: 120,
+    },
+    {
+      type: 'content.snapshot',
+      runId: 'run-2',
+      contentId: 'answer-2',
+      text: '然后我会查看主题定义。',
+      timestamp: 130,
+    },
+  ]);
+
+  const assistantItems = buildChatTimelineDisplayItems(state).filter(
+    (item) => item.kind === 'assistant-content'
+  );
+
+  assert.equal(assistantItems.length, 2);
+  assert.equal(assistantItems[0]?.assistantReplyFooter, null);
+  assert.deepEqual(assistantItems[1]?.assistantReplyFooter, {
+    copyText: '我先看看项目结构。\n\n然后我会查看主题定义。',
+    timestamp: 130,
+    durationMs: null,
+    errorReason: null,
+  });
+});
+
 test('timeline display attaches run duration to the final assistant footer', () => {
   const state = deriveChatTimelineState('chat-1', [
     {
@@ -339,6 +394,67 @@ test('timeline display attaches run duration to the final assistant footer', () 
     durationMs: 80_000,
     errorReason: null,
   });
+});
+
+test('timeline display keeps combined reply duration tied to the final assistant run', () => {
+  const initial = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 1_000,
+    },
+    {
+      type: 'content.snapshot',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      text: '先看结构。',
+      timestamp: 2_000,
+    },
+    {
+      type: 'run.start',
+      runId: 'run-2',
+      timestamp: 12_000,
+    },
+    {
+      type: 'content.snapshot',
+      runId: 'run-2',
+      contentId: 'answer-2',
+      text: '再看主题。',
+      timestamp: 13_000,
+    },
+    {
+      type: 'run.complete',
+      runId: 'run-2',
+      timestamp: 14_000,
+    },
+  ]);
+  const initialModel = buildChatTimelineDisplayModel(initial);
+  const tailItem = initialModel.items[initialModel.items.length - 1];
+
+  assert.equal(tailItem?.kind, 'assistant-content');
+  if (!tailItem || tailItem.kind !== 'assistant-content') {
+    throw new Error('expected assistant content item');
+  }
+  assert.deepEqual(tailItem.assistantReplyFooter, {
+    copyText: '先看结构。\n\n再看主题。',
+    timestamp: 13_000,
+    durationMs: 2_000,
+    errorReason: null,
+  });
+
+  const completedEarlierRun = applyChatTimelineEvent(initial, 'chat-1', {
+    type: 'run.complete',
+    runId: 'run-1',
+    timestamp: 11_000,
+  });
+  const completedEarlierModel = buildChatTimelineDisplayModel(completedEarlierRun, initialModel);
+  const completedTailItem = completedEarlierModel.items[completedEarlierModel.items.length - 1];
+
+  assert.equal(completedTailItem?.kind, 'assistant-content');
+  if (!completedTailItem || completedTailItem.kind !== 'assistant-content') {
+    throw new Error('expected assistant content item');
+  }
+  assert.equal(completedTailItem.assistantReplyFooter?.durationMs, 2_000);
 });
 
 test('timeline display model updates only the assistant footer when a hidden run completes', () => {

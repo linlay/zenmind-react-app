@@ -53,6 +53,8 @@ export type RuntimeToolRecord = {
   title: string;
   status: RuntimeToolStatus;
   statusLabel: string;
+  startedAt: number | null;
+  durationText: string;
   hasDetails: boolean;
   description: string;
   argsText: string;
@@ -76,7 +78,6 @@ export type RuntimePayloadDescriptor = {
   copyText: string;
   sections: RuntimePayloadSection[];
   toolRecords: RuntimeToolRecord[];
-  activeToolStartedAt?: number | null;
 };
 
 function compactJoin(values: readonly (string | null | undefined)[], separator = '\n'): string {
@@ -101,6 +102,18 @@ function formatDurationMs(value: number | null | undefined): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
   return seconds ? `${minutes}m ${seconds}s` : `${minutes}m`;
+}
+
+function formatToolDurationMs(value: number | null | undefined): string {
+  if (!Number.isFinite(value) || Number(value) < 1000) {
+    return '';
+  }
+  return formatDurationMs(value);
+}
+
+function formatToolDurationText(value: number | null | undefined, t: TFunction): string {
+  const duration = formatToolDurationMs(value);
+  return duration ? t('runtime.duration', { duration }) : '';
 }
 
 function formatRunBody(node: ChatTimelineRunNode, t: TFunction): string {
@@ -389,6 +402,24 @@ function formatToolResultText(resultText: string): string {
   return inlineText || '(no output)';
 }
 
+function normalizePositiveTimestamp(value: unknown): number | null {
+  const timestamp = Number(value);
+  return Number.isFinite(timestamp) && timestamp > 0 ? timestamp : null;
+}
+
+function getCompletedToolDurationMs(node: ChatTimelineToolNode, status: RuntimeToolStatus): number | null {
+  if (status === 'running' || status === 'pending') {
+    return null;
+  }
+
+  const startedAt = normalizePositiveTimestamp(node.createdAt);
+  const endedAt = normalizePositiveTimestamp(node.updatedAt);
+  if (startedAt === null || endedAt === null || endedAt <= startedAt) {
+    return null;
+  }
+  return endedAt - startedAt;
+}
+
 export function buildToolPillRecords(
   source: ChatTimelineToolNode | ChatTimelineToolGroupDisplayItem,
   t: TFunction = defaultT
@@ -399,7 +430,11 @@ export function buildToolPillRecords(
     const argsText = node.argsText || '';
     const resultText = node.resultText || '';
     const status = resolveToolStatus(node);
-    const hasDetails = Boolean(argsText.trim()) || Boolean(resultText.trim());
+    const startedAt = status === 'running' ? normalizePositiveTimestamp(node.createdAt) : null;
+    const durationText = formatToolDurationText(getCompletedToolDurationMs(node, status), t);
+    const hasPayload = Boolean(argsText.trim()) || Boolean(resultText.trim());
+    const hasTiming = Boolean(startedAt) || Boolean(durationText);
+    const hasDetails = hasPayload || hasTiming;
     const argsInlineText = formatToolArgumentsInline(argsText);
     const argsRows = buildToolArgumentRows(argsText);
     const resultDisplayText = resultText.trim() ? formatToolResultText(resultText) : '';
@@ -409,6 +444,8 @@ export function buildToolPillRecords(
       title: t('runtime.toolAttempt', { count: index + 1 }),
       status,
       statusLabel: resolveToolStatusLabel(status, t),
+      startedAt,
+      durationText,
       hasDetails,
       description: hasDetails ? node.description || '' : '',
       argsText,
@@ -423,21 +460,6 @@ export function getExpandableToolPillRecords(
   records: readonly RuntimeToolRecord[]
 ): RuntimeToolRecord[] {
   return records.filter((record) => record.hasDetails);
-}
-
-function getActiveToolStartedAt(
-  nodes: readonly ChatTimelineToolNode[],
-  records: readonly RuntimeToolRecord[]
-): number | null {
-  for (let index = records.length - 1; index >= 0; index -= 1) {
-    if (records[index]?.status !== 'running') {
-      continue;
-    }
-    const startedAt = Number(nodes[index]?.createdAt);
-    return Number.isFinite(startedAt) && startedAt > 0 ? startedAt : null;
-  }
-
-  return null;
 }
 
 function iconForKind(kind: RuntimePayloadKind): {
@@ -554,7 +576,6 @@ export function buildRuntimePayloadDescriptor(
       copyText: '',
       sections: [],
       toolRecords: records,
-      activeToolStartedAt: getActiveToolStartedAt(source.nodes, records),
     };
   }
 
@@ -616,6 +637,5 @@ export function buildRuntimePayloadDescriptor(
     copyText: sectionCopyText(sections),
     sections,
     toolRecords,
-    activeToolStartedAt: kind === 'tool' ? getActiveToolStartedAt([source], toolRecords) : null,
   };
 }

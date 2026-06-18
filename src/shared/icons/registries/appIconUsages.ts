@@ -65,6 +65,11 @@ export const appIconUsages = {
     colorRole: 'brand',
     sizeRole: 'md',
   },
+  'chatDetail.wondersRefresh': {
+    glyph: 'refresh',
+    colorRole: 'brand',
+    sizeRole: 'sm',
+  },
 
   'settings.cache': { glyph: 'history', colorRole: 'brand', sizeRole: 'md' },
   'settings.developer': { glyph: 'tool', colorRole: 'brand', sizeRole: 'md' },

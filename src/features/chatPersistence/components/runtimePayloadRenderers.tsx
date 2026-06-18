@@ -1,9 +1,12 @@
-import { memo, type ComponentType } from 'react';
+import { memo, type ComponentType, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { ConversationMarkdownRenderer } from '../../../shared/components/ConversationMarkdownRenderer';
+import { useT } from '../../../shared/i18n';
+import type { TFunction } from '../../../shared/i18n/translate.ts';
 import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
+import { formatChatDetailRunningDuration } from '../chatDetailFormatters';
 import type {
   RuntimePayloadDescriptor,
   RuntimePayloadRendererType,
@@ -16,6 +19,66 @@ type RuntimePayloadContentProps = {
   descriptor: RuntimePayloadDescriptor;
   wrap: boolean;
 };
+
+const RUNNING_DURATION_TICK_MS = 1000;
+
+function getNextRunningDurationDelay(startedAt: number, now: number): number {
+  if (now < startedAt) {
+    return Math.max(1, startedAt + RUNNING_DURATION_TICK_MS - now);
+  }
+
+  const elapsedMs = Math.max(0, now - startedAt);
+  const remainder = elapsedMs % RUNNING_DURATION_TICK_MS;
+  return remainder === 0 ? RUNNING_DURATION_TICK_MS : RUNNING_DURATION_TICK_MS - remainder;
+}
+
+function formatRunningToolDurationText(
+  startedAt: number | null | undefined,
+  t: TFunction,
+  now: number = Date.now()
+): string {
+  const duration = formatChatDetailRunningDuration(startedAt, now);
+  return duration ? t('runtime.duration', { duration }) : '';
+}
+
+function useRunningToolDurationText(startedAt: number | null | undefined): string {
+  const t = useT();
+  const [text, setText] = useState(() => formatRunningToolDurationText(startedAt, t));
+
+  useEffect(() => {
+    const startTime = Number(startedAt);
+    if (!Number.isFinite(startTime) || startTime <= 0) {
+      setText('');
+      return;
+    }
+
+    let timeout: ReturnType<typeof setTimeout> | null = null;
+    function schedule(currentTime: number) {
+      timeout = setTimeout(tick, getNextRunningDurationDelay(startTime, currentTime));
+    }
+    function update(currentTime: number) {
+      const nextText = formatRunningToolDurationText(startTime, t, currentTime);
+      setText((currentText) => (currentText === nextText ? currentText : nextText));
+    }
+    function tick() {
+      const currentTime = Date.now();
+      update(currentTime);
+      schedule(currentTime);
+    }
+
+    const currentTime = Date.now();
+    update(currentTime);
+    schedule(currentTime);
+
+    return () => {
+      if (timeout) {
+        clearTimeout(timeout);
+      }
+    };
+  }, [startedAt, t]);
+
+  return text;
+}
 
 function SectionLabel({ text }: { text: string }) {
   const styles = useAppThemeStyles(createStyles);
@@ -114,6 +177,40 @@ function ToolArgumentRows({ record, wrap }: { record: RuntimeToolRecord; wrap: b
   );
 }
 
+const RunningToolDurationText = memo(function RunningToolDurationText({
+  startedAt,
+}: {
+  startedAt: number;
+}) {
+  const styles = useAppThemeStyles(createStyles);
+  const durationText = useRunningToolDurationText(startedAt);
+  if (!durationText) {
+    return null;
+  }
+
+  return (
+    <Text allowFontScaling={false} numberOfLines={1} style={styles.toolRecordDuration}>
+      {durationText}
+    </Text>
+  );
+});
+
+function ToolRecordDuration({ record }: { record: RuntimeToolRecord }) {
+  const styles = useAppThemeStyles(createStyles);
+
+  if (record.durationText) {
+    return (
+      <Text allowFontScaling={false} numberOfLines={1} style={styles.toolRecordDuration}>
+        {record.durationText}
+      </Text>
+    );
+  }
+  if (record.startedAt) {
+    return <RunningToolDurationText startedAt={record.startedAt} />;
+  }
+  return null;
+}
+
 function ToolRecordCard({
   grouped,
   record,
@@ -125,20 +222,25 @@ function ToolRecordCard({
 }) {
   const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
+  const showHeader = grouped || Boolean(record.durationText) || Boolean(record.startedAt);
 
   return (
     <View style={styles.toolRecordCard}>
-      {grouped ? (
+      {showHeader ? (
         <View style={styles.toolRecordHeader}>
           <Text allowFontScaling={false} style={styles.toolRecordTitle}>
             {record.title}
           </Text>
-          <Text
-            allowFontScaling={false}
-            style={[styles.toolRecordStatus, { color: getRuntimeToolStatusColor(theme.colors, record.status) }]}
-          >
-            {record.statusLabel}
-          </Text>
+          <View style={styles.toolRecordMeta}>
+            <Text
+              allowFontScaling={false}
+              numberOfLines={1}
+              style={[styles.toolRecordStatus, { color: getRuntimeToolStatusColor(theme.colors, record.status) }]}
+            >
+              {record.statusLabel}
+            </Text>
+            <ToolRecordDuration record={record} />
+          </View>
         </View>
       ) : null}
       {record.description ? (
@@ -268,11 +370,28 @@ function createStyles(theme: AppThemeTokens) {
       fontWeight: '700',
       color: theme.colors.textSecondary,
     },
+    toolRecordMeta: {
+      flex: 1,
+      minWidth: 0,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'flex-end',
+      gap: appVisualTokens.spacing.sm,
+    },
     toolRecordStatus: {
       fontFamily: 'monospace',
       fontSize: 11,
       lineHeight: 16,
       fontWeight: '700',
+    },
+    toolRecordDuration: {
+      flexShrink: 0,
+      fontFamily: 'monospace',
+      fontSize: 11,
+      lineHeight: 16,
+      fontWeight: '700',
+      color: theme.colors.textTertiary,
+      fontVariant: ['tabular-nums'],
     },
     toolDescription: {
       fontSize: 12,

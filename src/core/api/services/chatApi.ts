@@ -1,8 +1,10 @@
-import { ApiError, authenticatedApiRequest } from '../apiClient';
+import { ApiError, authenticatedApiRequest } from '../apiClient.ts';
 
 export const CHAT_SUMMARIES_TRANSPORT_TYPE = '/api/chats';
 export const CHAT_DETAIL_TRANSPORT_TYPE = '/api/chat';
+export const CHAT_AGENT_DETAIL_TRANSPORT_TYPE = '/api/agent';
 export const CHAT_READ_TRANSPORT_TYPE = '/api/read';
+export const CHAT_SUBMIT_TRANSPORT_TYPE = '/api/submit';
 
 export type RemoteChatSummary = {
   chatId?: string;
@@ -39,6 +41,33 @@ export type RemoteChatDetail = {
   updatedAt?: string | number;
   events?: RemoteChatEvent[];
   [key: string]: unknown;
+};
+
+export type RemoteAgentDetail = {
+  agentKey?: string;
+  key?: string;
+  id?: string;
+  name?: string;
+  description?: string;
+  wonders?: unknown;
+  greetings?: unknown;
+  [key: string]: unknown;
+};
+
+export type AgentWonderSuggestion = {
+  id: string;
+  title: string;
+  text: string;
+  raw: unknown;
+};
+
+export type AgentDetailSnapshot = {
+  agentKey: string;
+  name: string;
+  description: string;
+  wonders: AgentWonderSuggestion[];
+  raw: RemoteAgentDetail;
+  fetchedAt: number;
 };
 
 export type MarkChatReadRequest =
@@ -167,6 +196,96 @@ export function unwrapChatApiEnvelope<T>(payload: unknown): T {
   return (envelope.data ?? null) as T;
 }
 
+function toCleanText(value: unknown): string {
+  return String(value || '').trim();
+}
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object';
+}
+
+function buildWonderId(index: number, text: string): string {
+  return `wonder-${index}-${text.slice(0, 32)}`;
+}
+
+function normalizeWonderSuggestion(input: unknown, index: number): AgentWonderSuggestion | null {
+  if (typeof input === 'string') {
+    const text = toCleanText(input);
+    if (!text) {
+      return null;
+    }
+    return {
+      id: buildWonderId(index, text),
+      title: text,
+      text,
+      raw: input,
+    };
+  }
+
+  if (!isObjectRecord(input)) {
+    return null;
+  }
+
+  const text =
+    toCleanText(input.question) ||
+    toCleanText(input.prompt) ||
+    toCleanText(input.text) ||
+    toCleanText(input.content) ||
+    toCleanText(input.title);
+  if (!text) {
+    return null;
+  }
+
+  const title = toCleanText(input.title) || text;
+  const id = toCleanText(input.id) || toCleanText(input.key) || buildWonderId(index, text);
+  return {
+    id,
+    title,
+    text,
+    raw: input,
+  };
+}
+
+export function buildAgentDetailPayload(agentKey: string) {
+  return {
+    agentKey: toCleanText(agentKey),
+  };
+}
+
+export function projectRemoteAgentDetail(
+  detail: RemoteAgentDetail | null | undefined,
+  fallbackAgentKey = '',
+  fetchedAt = Date.now()
+): AgentDetailSnapshot | null {
+  if (!detail || typeof detail !== 'object') {
+    return null;
+  }
+
+  const agentKey =
+    toCleanText(detail.agentKey) ||
+    toCleanText(detail.key || detail.id) ||
+    toCleanText(fallbackAgentKey);
+  if (!agentKey) {
+    return null;
+  }
+
+  const wonders = Array.isArray(detail.wonders)
+    ? detail.wonders
+        .map((item, index) => normalizeWonderSuggestion(item, index))
+        .filter((item): item is AgentWonderSuggestion => Boolean(item))
+        .slice(0, 6)
+    : [];
+
+  return {
+    agentKey,
+    name: toCleanText(detail.name) || agentKey,
+    description: toCleanText(detail.description),
+    wonders,
+    raw: detail,
+    fetchedAt,
+  };
+}
+
 export function buildMarkChatReadPayload(
   request: MarkChatReadRequest,
   runId?: string
@@ -193,28 +312,26 @@ export function buildMarkChatReadPayload(
   };
 }
 
-export async function submitAwaitingApi(
+export function buildSubmitAwaitingPayload(
   request: SubmitAwaitingRequest
-): Promise<SubmitAwaitingResponse> {
-  const payload = await authenticatedApiRequest<
-    SubmitAwaitingResponse | ChatApiEnvelope<SubmitAwaitingResponse>
-  >({
-    path: '/ap/api/submit',
-    method: 'POST',
-    body: {
-      ...(String(request.chatId || '').trim()
-        ? { chatId: String(request.chatId || '').trim() }
-        : {}),
-      runId: String(request.runId || '').trim(),
-      agentKey: String(request.agentKey || '').trim(),
-      awaitingId: String(request.awaitingId || '').trim(),
-      ...(String(request.submitId || '').trim()
-        ? { submitId: String(request.submitId || '').trim() }
-        : {}),
-      params: request.params,
-    },
-  });
-  return unwrapChatApiEnvelope<SubmitAwaitingResponse>(payload) || {};
+): SubmitAwaitingRequest {
+  const chatId = String(request.chatId || '').trim();
+  const submitId = String(request.submitId || '').trim();
+  const payload: SubmitAwaitingRequest = {
+    runId: String(request.runId || '').trim(),
+    agentKey: String(request.agentKey || '').trim(),
+    awaitingId: String(request.awaitingId || '').trim(),
+    params: request.params,
+  };
+
+  if (chatId) {
+    payload.chatId = chatId;
+  }
+  if (submitId) {
+    payload.submitId = submitId;
+  }
+
+  return payload;
 }
 
 export async function getAwaitingViewportApi(viewportKey: string): Promise<AwaitingViewportResponse> {

@@ -6,7 +6,6 @@ import {
   StyleSheet,
   Text,
   type StyleProp,
-  type TextStyle,
   View,
   type ViewStyle,
 } from 'react-native';
@@ -16,7 +15,6 @@ import { useT } from '../../../shared/i18n';
 import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens, type AppVisualColors } from '../../../shared/visual/foundation';
 import type { ChatTimelineDisplayItem } from '../../chatTimeline/index.ts';
-import { formatChatDetailRunningDuration } from '../chatDetailFormatters';
 import { ChatTimelineRail } from './ChatTimelineRail';
 import { RuntimePayloadFrame } from './RuntimePayloadFrame';
 import { buildRuntimePayloadDescriptor, type RuntimePayloadDescriptor } from './runtimePayloadDescriptor';
@@ -30,8 +28,8 @@ type RuntimeTimelineRowProps = {
   onExpandedChange: (nodeId: string, expanded: boolean) => void;
 };
 
-const RUNNING_DURATION_TICK_MS = 1000;
 const TOOL_STATUS_FLASH_DURATION_MS = 1000;
+const REASONING_LOADING_DURATION_MS = 900;
 
 function getToneColor(colors: AppVisualColors, tone: RuntimePayloadDescriptor['tone']): string {
   if (tone === 'reasoning') {
@@ -45,73 +43,6 @@ function getToneColor(colors: AppVisualColors, tone: RuntimePayloadDescriptor['t
   }
   return colors.textSecondary;
 }
-
-function getNextRunningDurationDelay(startedAt: number, now: number): number {
-  if (now < startedAt) {
-    return Math.max(1, startedAt + RUNNING_DURATION_TICK_MS - now);
-  }
-
-  const elapsedMs = Math.max(0, now - startedAt);
-  const remainder = elapsedMs % RUNNING_DURATION_TICK_MS;
-  return remainder === 0 ? RUNNING_DURATION_TICK_MS : RUNNING_DURATION_TICK_MS - remainder;
-}
-
-function useActiveToolDurationLabel(startedAt: number | null | undefined): string {
-  const [label, setLabel] = useState(() => formatChatDetailRunningDuration(startedAt));
-
-  useEffect(() => {
-    const startTime = Number(startedAt);
-    if (!Number.isFinite(startTime) || startTime <= 0) {
-      setLabel('');
-      return;
-    }
-
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-    function schedule(currentTime: number) {
-      timeout = setTimeout(tick, getNextRunningDurationDelay(startTime, currentTime));
-    }
-    function update(currentTime: number) {
-      const nextLabel = formatChatDetailRunningDuration(startTime, currentTime);
-      setLabel((currentLabel) => (currentLabel === nextLabel ? currentLabel : nextLabel));
-    }
-    function tick() {
-      const currentTime = Date.now();
-      update(currentTime);
-      schedule(currentTime);
-    }
-
-    const currentTime = Date.now();
-    update(currentTime);
-    schedule(currentTime);
-
-    return () => {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-    };
-  }, [startedAt]);
-
-  return label;
-}
-
-const ActiveToolDurationText = memo(function ActiveToolDurationText({
-  startedAt,
-  style
-}: {
-  startedAt: number;
-  style: StyleProp<TextStyle>;
-}) {
-  const activeToolDuration = useActiveToolDurationLabel(startedAt);
-  if (!activeToolDuration) {
-    return null;
-  }
-
-  return (
-    <Text allowFontScaling={false} numberOfLines={1} style={style}>
-      {activeToolDuration}
-    </Text>
-  );
-});
 
 const RunningToolStatusDot = memo(function RunningToolStatusDot({
   accessibilityLabel,
@@ -156,6 +87,58 @@ const RunningToolStatusDot = memo(function RunningToolStatusDot({
   );
 });
 
+const ReasoningInlineLoading = memo(function ReasoningInlineLoading({
+  accessibilityLabel,
+  color,
+}: {
+  accessibilityLabel: string;
+  color: string;
+}) {
+  const styles = useAppThemeStyles(createStyles);
+  const progress = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    progress.setValue(0);
+    const animation = Animated.loop(
+      Animated.timing(progress, {
+        toValue: 1,
+        duration: REASONING_LOADING_DURATION_MS,
+        easing: Easing.linear,
+        useNativeDriver: true,
+      })
+    );
+
+    animation.start();
+
+    return () => {
+      animation.stop();
+      progress.setValue(0);
+    };
+  }, [progress]);
+
+  return (
+    <View accessibilityLabel={accessibilityLabel} style={styles.reasoningLoadingDots}>
+      {[0, 1, 2].map((index) => {
+        const opacity = progress.interpolate({
+          inputRange: [0, 0.33, 0.66, 1],
+          outputRange:
+            index === 0
+              ? [1, 0.35, 0.35, 1]
+              : index === 1
+                ? [0.35, 1, 0.35, 0.35]
+                : [0.35, 0.35, 1, 0.35],
+        });
+        return (
+          <Animated.View
+            key={index}
+            style={[styles.reasoningLoadingDot, { backgroundColor: color, opacity }]}
+          />
+        );
+      })}
+    </View>
+  );
+});
+
 export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
   item,
   onCopyText,
@@ -192,14 +175,18 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
     [descriptor]
   );
   const showToolStatusDots = descriptor.toolRecords.length > 0;
+  const showReasoningLoading = descriptor.kind === 'reasoning' && descriptor.statusTone === 'active' && !expanded;
   const headerContent = (
     <>
       <View style={styles.runtimeHeaderLeading}>
         <Text allowFontScaling={false} numberOfLines={1} style={styles.runtimeTitle}>
           {descriptor.title}
         </Text>
-        {descriptor.activeToolStartedAt ? (
-          <ActiveToolDurationText startedAt={descriptor.activeToolStartedAt} style={styles.toolDurationText} />
+        {showReasoningLoading ? (
+          <ReasoningInlineLoading
+            accessibilityLabel={t('chatDetail.status.running')}
+            color={theme.colors.warning}
+          />
         ) : null}
         {showToolStatusDots ? (
           <View style={styles.toolStatusDots}>
@@ -314,17 +301,20 @@ function createStyles(theme: AppThemeTokens) {
       gap: 7,
       flexShrink: 0
     },
-    toolDurationText: {
-      flexShrink: 0,
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '600',
-      color: theme.colors.textTertiary,
-      fontVariant: ['tabular-nums']
-    },
     toolStatusDot: {
       width: 7,
       height: 7,
+      borderRadius: appVisualTokens.radii.pill
+    },
+    reasoningLoadingDots: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      flexShrink: 0
+    },
+    reasoningLoadingDot: {
+      width: 4,
+      height: 4,
       borderRadius: appVisualTokens.radii.pill
     },
     foldButton: {

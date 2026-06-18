@@ -68,6 +68,22 @@ function buildChatDetailRouteParams(
   };
 }
 
+function prewarmAgentDetailForEmptyConversation(
+  item: ChatDirectoryItem,
+  result: DirectoryConversationOpenResult
+) {
+  if (!result.skipInitialReconcile || String(result.conversation.lastMessageText || '').trim()) {
+    return;
+  }
+
+  const agentKey = String(item.agentKey || result.historyScope?.agentKey || '').trim();
+  if (!agentKey) {
+    return;
+  }
+
+  void chatSyncService.ensureAgentDetail(agentKey);
+}
+
 type ChatRowComponentProps = {
   item: ChatListItem;
   index: number;
@@ -388,6 +404,7 @@ export function ChatHomeScreen() {
             return;
           }
 
+          prewarmAgentDetailForEmptyConversation(item, result);
           navigation.navigate('ChatDetail', buildChatDetailRouteParams(item, result));
         } catch (error) {
           setErrorText(error instanceof Error ? error.message : String(error));
@@ -497,6 +514,7 @@ export function ChatHomeScreen() {
             return;
           }
 
+          prewarmAgentDetailForEmptyConversation(item, result);
           setIsDirectoryPickerOpen(false);
           navigation.navigate('ChatDetail', buildChatDetailRouteParams(item, result));
         } catch (error) {

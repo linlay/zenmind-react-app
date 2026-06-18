@@ -54,8 +54,8 @@ test('runtime descriptor maps tool nodes to tool renderer with copyable sections
   assert.match(descriptor.copyText, /参数/);
   assert.match(descriptor.copyText, /sub_agent_failed/);
   assert.deepEqual(
-    descriptor.toolRecords.map((record) => [record.title, record.status, record.hasDetails]),
-    [['第 1 次', 'error', true]]
+    descriptor.toolRecords.map((record) => [record.title, record.status, record.hasDetails, record.durationText]),
+    [['第 1 次', 'error', true, '']]
   );
 });
 
@@ -192,12 +192,11 @@ test('runtime descriptor builds grouped tool records with per-call status', () =
   assert.equal(descriptor.renderer, 'tool');
   assert.equal(descriptor.title, '日期时间');
   assert.equal(descriptor.canExpand, true);
-  assert.equal(descriptor.activeToolStartedAt, null);
   assert.deepEqual(
-    records.map((record) => [record.title, record.status, record.statusLabel]),
+    records.map((record) => [record.title, record.status, record.statusLabel, record.durationText]),
     [
-      ['第 1 次', 'success', '完成'],
-      ['第 2 次', 'error', '失败'],
+      ['第 1 次', 'success', '完成', ''],
+      ['第 2 次', 'error', '失败', ''],
     ]
   );
   assert.equal(records[0].argsInlineText, '{"timezone":"Asia/Shanghai"}');
@@ -236,8 +235,13 @@ test('runtime descriptor exposes active tool start time only while running', () 
     updatedAt: 5_000,
   };
 
-  assert.equal(buildRuntimePayloadDescriptor(runningNode).activeToolStartedAt, 4_000);
-  assert.equal(buildRuntimePayloadDescriptor(completedNode).activeToolStartedAt, null);
+  const runningRecord = buildRuntimePayloadDescriptor(runningNode).toolRecords[0];
+  const completedRecord = buildRuntimePayloadDescriptor(completedNode).toolRecords[0];
+
+  assert.equal(runningRecord?.startedAt, 4_000);
+  assert.equal(runningRecord?.durationText, '');
+  assert.equal(completedRecord?.startedAt, null);
+  assert.equal(completedRecord?.durationText, '耗时 1.0s');
 });
 
 test('runtime descriptor uses the latest running call in a tool group', () => {
@@ -282,7 +286,35 @@ test('runtime descriptor uses the latest running call in a tool group', () => {
     count: 2,
   };
 
-  assert.equal(buildRuntimePayloadDescriptor(group).activeToolStartedAt, 6_000);
+  const records = buildRuntimePayloadDescriptor(group).toolRecords;
+
+  assert.equal(records[0]?.startedAt, null);
+  assert.equal(records[1]?.startedAt, 6_000);
+});
+
+test('runtime descriptor hides sub-second completed tool durations', () => {
+  const node: ChatTimelineToolNode = {
+    ...baseNode,
+    id: 'tool-fast',
+    kind: 'tool',
+    toolId: 'tool-fast',
+    toolName: 'search',
+    toolLabel: '搜索',
+    description: '',
+    title: '搜索',
+    status: '结果返回',
+    argsText: '',
+    resultText: '{"ok":true}',
+    body: '',
+    streaming: false,
+    lifecycle: 'complete',
+    createdAt: 4_000,
+    updatedAt: 4_800,
+  };
+
+  const record = buildRuntimePayloadDescriptor(node).toolRecords[0];
+
+  assert.equal(record?.durationText, '');
 });
 
 test('runtime descriptor expands awaiting plan payloads with prompt options and answer', () => {

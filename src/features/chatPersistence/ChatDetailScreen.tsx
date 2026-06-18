@@ -24,6 +24,7 @@ import { ChatDetailEmptyState } from './components/ChatDetailEmptyState';
 import { ChatDetailHeader } from './components/ChatDetailHeader';
 import { ChatTimelineList } from './components/ChatTimelineList';
 import { ChatDetailSkeleton } from './components/ChatDetailSkeleton';
+import { ChatNewConversationIntro } from './components/ChatNewConversationIntro';
 import { CopyToast } from './components/CopyToast';
 import { formatChatStatusLabel } from './chatDetailFormatters';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
@@ -95,6 +96,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     summary,
     conversationTarget,
     timelineState,
+    newConversationIntro,
     runtimeState,
     headerRuntimeState,
     isInitialContentReady,
@@ -118,6 +120,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     handleRemoveAttachment,
     handleRetryAttachment,
     handleRetryFromNotification,
+    handleSelectWonder,
     historyScope
   } = useChatDetailConversationController({
     navigation,
@@ -222,6 +225,16 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
 
                 <ChatTimelineList
                   timelineState={timelineState}
+                  emptyState={
+                    newConversationIntro ? (
+                      <ChatNewConversationIntro
+                        agentName={newConversationIntro.agentName}
+                        description={newConversationIntro.description}
+                        wonders={newConversationIntro.wonders}
+                        onSelectWonder={handleSelectWonder}
+                      />
+                    ) : null
+                  }
                   onCopyText={handleCopyMessage}
                   onReaskMessage={handleReaskMessage}
                   reaskCurrentDisabled={composerAction === 'sending' || Boolean(headerRuntimeState.runAction)}

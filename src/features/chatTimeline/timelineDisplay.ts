@@ -86,6 +86,7 @@ type PendingDisplayEntry =
 
 type AssistantReplyAccumulator = {
   copyParts: string[];
+  durationMs: number | null;
   errorReason: string | null;
   hasStreaming: boolean;
   lastNodeId: string;
@@ -220,6 +221,17 @@ function runIdForEntry(entry: PendingDisplayEntry): string {
   return runIdForNode(node);
 }
 
+function isUserQueryEntry(entry: PendingDisplayEntry): boolean {
+  return entry.kind === 'node' && entry.node.kind === 'message' && entry.node.role === 'user';
+}
+
+function assistantMessageForEntry(entry: PendingDisplayEntry): ChatTimelineMessageNode | null {
+  if (entry.kind !== 'node' || entry.node.kind !== 'message' || entry.node.role !== 'assistant') {
+    return null;
+  }
+  return entry.node;
+}
+
 function normalizeDurationMs(value: number | null | undefined): number | null {
   if (!Number.isFinite(value) || Number(value) < 0) {
     return null;
@@ -270,59 +282,85 @@ function getRunDurationMsById(state: ChatTimelineState, runId: string): number |
   return null;
 }
 
+function createAssistantReplyAccumulator(): AssistantReplyAccumulator {
+  return {
+    copyParts: [],
+    durationMs: null,
+    errorReason: null,
+    hasStreaming: false,
+    lastNodeId: '',
+    updatedAt: 0,
+  };
+}
+
+function addAssistantReplyNode(
+  reply: AssistantReplyAccumulator,
+  node: ChatTimelineMessageNode,
+  runDurationsById: ReadonlyMap<string, number>
+) {
+  if (node.content.trim()) {
+    reply.copyParts.push(node.content);
+  }
+  reply.durationMs = runDurationsById.get(runIdForNode(node)) ?? null;
+  reply.errorReason = node.errorReason || reply.errorReason;
+  reply.hasStreaming = reply.hasStreaming || node.streaming;
+  reply.lastNodeId = node.id;
+  reply.updatedAt = Math.max(reply.updatedAt, node.updatedAt);
+}
+
+function buildAssistantReplyFooter(
+  reply: AssistantReplyAccumulator
+): ChatTimelineAssistantReplyFooter | null {
+  if (!reply.lastNodeId || reply.hasStreaming || reply.copyParts.length === 0) {
+    return null;
+  }
+
+  return {
+    copyText: reply.copyParts.join('\n\n'),
+    timestamp: reply.updatedAt,
+    durationMs: reply.durationMs,
+    errorReason: reply.errorReason,
+  };
+}
+
 function collectTimelineDisplayMetadata(
   entries: readonly PendingDisplayEntry[],
   runDurationsById: ReadonlyMap<string, number>
 ): TimelineDisplayMetadata {
   const runCounts = new Map<string, number>();
-  const repliesByRunId = new Map<string, AssistantReplyAccumulator>();
+  const assistantReplyFooters = new Map<string, ChatTimelineAssistantReplyFooter>();
+  let reply = createAssistantReplyAccumulator();
+
+  const flushReply = () => {
+    const footer = buildAssistantReplyFooter(reply);
+    if (footer) {
+      assistantReplyFooters.set(reply.lastNodeId, footer);
+    }
+    reply = createAssistantReplyAccumulator();
+  };
 
   entries.forEach((entry) => {
     const runId = runIdForEntry(entry);
     runCounts.set(runId, (runCounts.get(runId) ?? 0) + 1);
 
-    if (entry.kind !== 'node') {
-      return;
-    }
-    const node = entry.node;
-    if (node.kind !== 'message' || node.role !== 'assistant') {
+    if (isUserQueryEntry(entry)) {
+      flushReply();
       return;
     }
 
-    const current = repliesByRunId.get(runId) ?? {
-      copyParts: [],
-      errorReason: null,
-      hasStreaming: false,
-      lastNodeId: '',
-      updatedAt: 0,
-    };
-    if (node.content.trim()) {
-      current.copyParts.push(node.content);
+    const node = assistantMessageForEntry(entry);
+    if (!node) {
+      return;
     }
-    current.errorReason = node.errorReason || current.errorReason;
-    current.hasStreaming = current.hasStreaming || node.streaming;
-    current.lastNodeId = node.id;
-    current.updatedAt = Math.max(current.updatedAt, node.updatedAt);
-    repliesByRunId.set(runId, current);
+
+    addAssistantReplyNode(reply, node, runDurationsById);
   });
 
-  const footersByNodeId = new Map<string, ChatTimelineAssistantReplyFooter>();
-  repliesByRunId.forEach((reply, runId) => {
-    if (!reply.lastNodeId || reply.hasStreaming || reply.copyParts.length === 0) {
-      return;
-    }
-
-    footersByNodeId.set(reply.lastNodeId, {
-      copyText: reply.copyParts.join('\n\n'),
-      timestamp: reply.updatedAt,
-      durationMs: runDurationsById.get(runId) ?? null,
-      errorReason: reply.errorReason,
-    });
-  });
+  flushReply();
 
   return {
     runCounts,
-    assistantReplyFooters: footersByNodeId,
+    assistantReplyFooters,
   };
 }
 
@@ -397,6 +435,10 @@ function getTimelineItemContentLength(item: ChatTimelineDisplayItem): number {
     return item.nodes.reduce((total, node) => total + getTimelineNodeContentLength(node), 0);
   }
   return getTimelineNodeContentLength(item.node);
+}
+
+function isUserQueryDisplayItem(item: ChatTimelineDisplayItem): boolean {
+  return item.kind === 'user-query';
 }
 
 function buildTimelineTailSignature(
@@ -494,14 +536,18 @@ function buildAssistantReplyFooterForTail(
     return null;
   }
 
-  const runId = runIdForNode(nextNode);
   const copyParts: string[] = [];
   let hasStreaming = false;
   let errorReason: string | null = null;
+  const durationMs = getDurationMs(runIdForNode(nextNode));
   let updatedAt = 0;
 
-  for (const item of items) {
-    if (item.kind !== 'assistant-content' || item.runId !== runId) {
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const item = items[index];
+    if (isUserQueryDisplayItem(item)) {
+      break;
+    }
+    if (item.kind !== 'assistant-content') {
       continue;
     }
 
@@ -509,8 +555,9 @@ function buildAssistantReplyFooterForTail(
     if (node.kind !== 'message' || node.role !== 'assistant') {
       continue;
     }
+
     if (node.content.trim()) {
-      copyParts.push(node.content);
+      copyParts.unshift(node.content);
     }
     hasStreaming = hasStreaming || node.streaming;
     errorReason = node.errorReason || errorReason;
@@ -524,7 +571,7 @@ function buildAssistantReplyFooterForTail(
   return {
     copyText: copyParts.join('\n\n'),
     timestamp: updatedAt,
-    durationMs: getDurationMs(runId),
+    durationMs,
     errorReason,
   };
 }
@@ -536,7 +583,11 @@ function updateAssistantReplyFooterDuration(
 ): ChatTimelineDisplayItem[] | null {
   for (let index = items.length - 1; index >= 0; index -= 1) {
     const item = items[index];
-    if (item.kind !== 'assistant-content' || item.runId !== runId || !item.assistantReplyFooter) {
+    if (
+      item.kind !== 'assistant-content' ||
+      item.runId !== runId ||
+      !item.assistantReplyFooter
+    ) {
       continue;
     }
     if (item.assistantReplyFooter.durationMs === durationMs) {

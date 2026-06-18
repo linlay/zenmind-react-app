@@ -12,6 +12,7 @@ export type AppLineIconName =
   | 'user'
   | 'back'
   | 'history'
+  | 'refresh'
   | 'spark'
   | 'brain'
   | 'plan-mode'
@@ -37,11 +38,12 @@ export type AppLineIconName =
 const FILLED_ICON_VIEW_BOX = '0 0 1024 1024';
 const OUTLINE_ICON_VIEW_BOX = '0 0 24 24';
 
-type AppLineIconOutlineName = 'history' | 'spark' | 'moon';
+type AppLineIconOutlineName = 'history' | 'refresh' | 'spark' | 'moon';
 type AppLineIconPathName = Exclude<AppLineIconName, AppLineIconOutlineName>;
 
 const APP_LINE_ICON_OUTLINE_NAMES = {
   history: true,
+  refresh: true,
   spark: true,
   moon: true,
 } as const satisfies Record<AppLineIconOutlineName, true>;
@@ -119,6 +121,17 @@ const renderOutlineIcon = (name: AppLineIconOutlineName, color: string, strokeWi
         <Polyline points="5.2 4.8 5.2 8.8 9.2 8.8" {...strokeProps} />
         <Line x1="12" y1="8.3" x2="12" y2="12.3" {...strokeProps} />
         <Line x1="12" y1="12.3" x2="14.8" y2="13.9" {...strokeProps} />
+      </>
+    );
+  }
+
+  if (name === 'refresh') {
+    return (
+      <>
+        <Path d="M20 6.2v4.6h-4.6" {...strokeProps} />
+        <Path d="M4.7 10.7A7.3 7.3 0 0 1 17.9 6.3L20 10.8" {...strokeProps} />
+        <Path d="M4 17.8v-4.6h4.6" {...strokeProps} />
+        <Path d="M19.3 13.3A7.3 7.3 0 0 1 6.1 17.7L4 13.2" {...strokeProps} />
       </>
     );
   }
