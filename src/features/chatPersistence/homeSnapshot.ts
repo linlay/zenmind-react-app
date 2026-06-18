@@ -23,6 +23,7 @@ function normalizeDirectorySnapshotItem(item: ChatDirectoryItem): ChatDirectoryI
     agentKey: item.agentKey ? String(item.agentKey) : null,
     teamId: item.teamId ? String(item.teamId) : null,
     defaultAgentKey: item.defaultAgentKey ? String(item.defaultAgentKey) : null,
+    agentMode: item.agentMode ? String(item.agentMode) : null,
     latestConversationId: item.latestConversationId ? String(item.latestConversationId) : null,
     lastMessageText: String(item.lastMessageText || ''),
     lastMessageAt: Number.isFinite(Number(item.lastMessageAt)) ? Number(item.lastMessageAt) : 0,

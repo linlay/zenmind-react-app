@@ -12,7 +12,7 @@
     "提供 awaiting question/approval/form/plan 提交入口，按当前会话 awaiting state 和历史 scope 补齐 chatId、runId、agentKey、awaitingId 与 submitId 后调用 /ap/api/submit，并把本地 awaiting.answer 事件归并回同一份 timeline state。",
     "通过同一条 /ap/ws 连接发送 /api/agents、/api/teams、/api/chats、/api/chat、/api/read request；详情单会话 reconcile 和已读确认优先走 WS request，避免绕到 REST 代理链路。",
     "向 UI 发出 connection.status、home.directory.replace、home.item.patch/remove、conversation.message.insert/patch、conversation.stream.delta、conversation.timeline.replace/reset、conversation.runtime.replace/reset、conversation.reconcile 事件。",
-    "在首连和重连时触发 outbox replay，并把校准范围限制在单会话 reconcile。",
+    "在首连和重连时触发 outbox replay，并保留 pending 消息的 planningMode 发送选项，把校准范围限制在单会话 reconcile。",
     "提供仅开发态启用的 wsDebugRecorder，用内存 ring buffer 旁路观测原始 WS frame。",
     "提供开发态本地缓存 reset 能力，先停止实时同步内存任务，再委托 chatRepository 清理本地缓存。"
   ],
@@ -21,7 +21,7 @@
       "file": "src/features/chatRealtime/chatSyncService.ts",
       "symbol": "chatSyncService",
       "kind": "sync-service",
-      "description": "UI 侧实时同步入口，统一发出连接状态、首页目录替换事件和带 conversationId 的数据变更事件；AppRoot 通过它预热首页目录，详情页通过它发送消息、停止/继续生成、提交 awaiting question/approval/form/plan，并向 Debug 面板暴露开发态本地缓存 reset。"
+      "description": "UI 侧实时同步入口，统一发出连接状态、首页目录替换事件和带 conversationId 的数据变更事件；AppRoot 通过它预热首页目录，详情页通过它发送消息、透传 planningMode true-only 发送选项、停止/继续生成、提交 awaiting question/approval/form/plan，并向 Debug 面板暴露开发态本地缓存 reset。"
     },
     {
       "file": "src/features/chatRealtime/wsClient.ts",
@@ -53,7 +53,7 @@
   "stateTouches": [
     "全局 WebSocket 连接状态单例",
     "发送中/ack/失败消息生命周期",
-    "bootstrap/reconnect 时的 outbox replay",
+    "bootstrap/reconnect 时的 outbox replay，包含 pending 消息的 planningMode 发送选项",
     "activeConversationId、active outgoing/attach stream abort handle、stream buffer、timeline state、awaiting question/approval/form/plan 本地提交投影、短期本地终止 run guard、同会话 stop 幂等 guard 和 per-conversation reconcile single-flight",
     "开发态 resetLocalCacheForDevelopment 会停止 transport、清理内存任务并委托持久化层清缓存",
     "prewarmHome 委托 chatRepository 预热首页目录，不启动 WebSocket，也不在 service 内维护目录真源",
@@ -66,7 +66,7 @@
     "详情页停止/继续生成和 awaiting question/approval/form/plan 提交只能调用 chatSyncService；stopStreaming 要同时处理 attach stream 和 outgoing query stream、调用 /api/interrupt，并通过同一份 ChatTimelineState 本地 cancel 收敛当前会话当前可见生成 scope 的 active/streaming 节点、清空 activeRunId、不创建 ghost run、不改写历史 run duration，记录短期本地终止 run guard 以防 stale /api/chat detail 复活同 run；/api/interrupt 的 run_not_found/404 视为服务端已停止，不触发失败式即时 reconcile；resumeStreaming 复用 attach + 单会话 reconcile，awaiting submit 成功后用 awaiting.answer 本地事件更新 timeline，不让页面直接操作 WebSocket 或 HTTP submit。",
     "WS 调试记录只能作为开发态旁路观测，不参与业务 type 路由、落库或 UI 同步事件。",
     "WS URL 默认由 getApiBaseUrl 推导到 /ap/ws，EXPO_PUBLIC_CHAT_WS_URL 只作为开发态 override。",
-    "重连逻辑要继续在 bootstrap/reconnect 时 flush pending outbox，并只触发单会话 reconcile。",
+    "重连逻辑要继续在 bootstrap/reconnect 时 flush pending outbox，并保留 planningMode true-only 发送选项，只触发单会话 reconcile。",
     "reasoning / planning / tool / artifact / awaiting / plan/task / usage/context 只写内存 timeline/runtime state，不把这些临时运行态塞进 SQLite 真源。",
     "chat.deleted / chat.archived 要同时清理消息、outbox、sync state、runtime state，并刷新目录投影。",
     "summary push 与 read/unread/read_all 事件只通过 chatRepository 更新 conversations 和目录物化，不在 service 或 UI 内维护第二套未读计数或最新消息状态；chat.updated 有新最后消息但缺失 unread 字段时，非 active conversation 默认置为未读，active conversation 只触发单会话 /ap/ws /api/read single-flight 确认，不提前改写本地 read truth；单会话 reconcile 只有在 /ap/ws /api/chat detail 明确带 read 状态时才覆盖本地读状态，缺失 read 时 projection summary 也不携带 fallback read。",

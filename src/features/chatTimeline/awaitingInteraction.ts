@@ -59,13 +59,26 @@ function cloneRecord(value: unknown): Record<string, unknown> | null {
   return isPlainRecord(value) ? { ...value } : value === null ? null : null;
 }
 
+function isPlanAwaitingRecord(record: Record<string, unknown>): boolean {
+  const modeText = toText(record.mode).toLowerCase();
+  const kindText = toText(record.kind).toLowerCase();
+  const viewportKeyText = toText(record.viewportKey).toLowerCase();
+  return (
+    modeText === 'plan' ||
+    kindText === 'plan' ||
+    viewportKeyText === 'plan' ||
+    hasTimelineEventValue(record.plan)
+  );
+}
+
 function resolveAwaitingMode(
   event: Record<string, unknown>,
   existingMode?: ChatTimelineAwaitingMode
 ): ChatTimelineAwaitingMode {
   const modeText = toText(event.mode).toLowerCase();
   const kindText = toText(event.kind).toLowerCase();
-  if (modeText === 'plan' || hasTimelineEventValue(event.plan)) {
+  const interactive = isPlainRecord(event.interactive) ? event.interactive : null;
+  if (isPlanAwaitingRecord(event) || (interactive && isPlanAwaitingRecord(interactive))) {
     return 'plan';
   }
   if (modeText === 'approval' || hasTimelineEventValue(event.approvals)) {
@@ -299,15 +312,29 @@ function normalizePlanOption(value: unknown): ChatTimelineAwaitingPlanOption | n
   };
 }
 
-function normalizePlan(value: unknown): ChatTimelineAwaitingPlan | null {
-  if (!isPlainRecord(value)) {
+function normalizePlan(
+  value: unknown,
+  fallback?: Record<string, unknown>
+): ChatTimelineAwaitingPlan | null {
+  const source = isPlainRecord(value)
+    ? value
+    : fallback &&
+        (isPlanAwaitingRecord(fallback) ||
+          hasTimelineEventValue(fallback.planningId) ||
+          hasTimelineEventValue(fallback.options) ||
+          hasTimelineEventValue(fallback.title) ||
+          hasTimelineEventValue(fallback.id))
+      ? fallback
+      : null;
+
+  if (!source) {
     return null;
   }
-  const id = readOptionalText(value, 'id') || 'confirm';
-  const planningId = readOptionalText(value, 'planningId');
-  const title = readOptionalText(value, 'title');
-  const options = Array.isArray(value.options)
-    ? value.options
+  const id = readOptionalText(source, 'id') || readOptionalText(source, 'planId') || 'confirm';
+  const planningId = readOptionalText(source, 'planningId');
+  const title = readOptionalText(source, 'title');
+  const options = Array.isArray(source.options)
+    ? source.options
         .map(normalizePlanOption)
         .filter((option): option is ChatTimelineAwaitingPlanOption => Boolean(option))
     : [];
@@ -361,7 +388,7 @@ function normalizeDirectInteractive(
     return forms.length > 0 || common.viewportKey ? { kind: 'form', ...common, forms } : null;
   }
   if (kind === 'plan') {
-    const plan = normalizePlan(value.plan);
+    const plan = normalizePlan(value.plan ?? event.plan, value);
     return plan ? { kind: 'plan', ...common, plan } : null;
   }
   return null;
@@ -412,7 +439,7 @@ function normalizeAwaitingInteractive(
   }
 
   if (mode === 'plan') {
-    const plan = normalizePlan(event.plan);
+    const plan = normalizePlan(event.plan, event);
     if (plan) {
       return { kind: 'plan', ...common, plan };
     }

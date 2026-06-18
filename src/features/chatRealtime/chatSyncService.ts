@@ -84,6 +84,7 @@ import {
   updateChatTransportAuth,
 } from './chatWsTransport';
 import { ChatHomeItemPatch, ChatSocketStatus, ChatSyncEvent, ChatSyncReason } from './types';
+import { WsClientDisconnectedError } from './wsClient';
 import {
   applyChatTimelineLocalCancel,
   applyChatTimelineEvent,
@@ -102,6 +103,7 @@ type SyncListener = (event: ChatSyncEvent) => void;
 
 type ChatSendMessageOptions = {
   dispatchErrorMode?: 'throw' | 'return';
+  planningMode?: boolean;
 };
 
 type ChatSendMessageResult = Awaited<ReturnType<typeof createOutgoingMessage>> & {
@@ -273,7 +275,11 @@ function isApiStatusError(error: unknown, status: number): boolean {
 }
 
 function isRecoverableReconcileError(error: unknown): boolean {
-  return isApiStatusError(error, 401) || isApiStatusError(error, 404);
+  return (
+    error instanceof WsClientDisconnectedError ||
+    isApiStatusError(error, 401) ||
+    isApiStatusError(error, 404)
+  );
 }
 
 function isInactiveInterruptResponse(response: InterruptChatResponse | null | undefined): boolean {
@@ -865,7 +871,10 @@ class ChatSyncService {
     const created = await createOutgoingMessage(
       normalizedConversationId,
       normalizedContent,
-      attachments
+      attachments,
+      {
+        planningMode: options.planningMode === true,
+      }
     );
     const currentSummary = await getConversationDetail(normalizedConversationId);
     this.emit({
@@ -897,6 +906,7 @@ class ChatSyncService {
         conversationId: normalizedConversationId,
         content: created.message.content,
         attachments: created.message.attachments,
+        planningMode: options.planningMode === true,
       });
       return {
         ...created,
@@ -1150,22 +1160,24 @@ class ChatSyncService {
     conversationId: string;
     content: string;
     attachments?: readonly ChatMessageAttachment[];
+    planningMode?: boolean;
   }) {
     if (this.inFlightOutgoingIds.has(input.clientMessageId)) {
       return;
     }
+    this.inFlightOutgoingIds.add(input.clientMessageId);
 
     const lifecycleVersion = this.lifecycleVersion;
-    const config = await this.resolveTransportConfig();
-    if (!config) {
-      throw new Error('Not authenticated');
-    }
-    if (!this.isLifecycleCurrent(lifecycleVersion)) {
-      return;
-    }
-
-    this.inFlightOutgoingIds.add(input.clientMessageId);
     try {
+      const config = await this.resolveTransportConfig();
+      if (!config) {
+        throw new Error('Not authenticated');
+      }
+      if (!this.isLifecycleCurrent(lifecycleVersion)) {
+        this.inFlightOutgoingIds.delete(input.clientMessageId);
+        return;
+      }
+
       const historyScope = await getConversationHistoryScope(input.conversationId);
       if (!this.isLifecycleCurrent(lifecycleVersion)) {
         this.inFlightOutgoingIds.delete(input.clientMessageId);
@@ -1188,6 +1200,7 @@ class ChatSyncService {
           ...(references.length > 0 ? { references } : {}),
           agentKey: historyScope?.agentKey,
           teamId: historyScope?.teamId,
+          planningMode: input.planningMode === true,
         },
         onEvent: (event) => {
           if (!this.isLifecycleCurrent(lifecycleVersion)) {
@@ -1221,6 +1234,7 @@ class ChatSyncService {
       });
       if (!this.isLifecycleCurrent(lifecycleVersion)) {
         handle.abort();
+        this.inFlightOutgoingIds.delete(input.clientMessageId);
         return;
       }
       this.activeOutgoingStreams.set(input.clientMessageId, {

@@ -139,6 +139,9 @@ function titleForNode(node: ChatTimelineNode, t: TFunction): string {
           ? t('runtime.awaiting.plan')
           : t('runtime.awaiting.question');
   }
+  if (node.kind === 'planning') {
+    return t('runtime.planning');
+  }
   if (node.kind === 'tool') {
     return resolveToolLabel(node, t) || node.title;
   }
@@ -482,7 +485,13 @@ function rendererForKind(kind: RuntimePayloadKind): RuntimePayloadRendererType {
 }
 
 function defaultExpandedForKind(kind: RuntimePayloadKind): boolean {
-  return kind === 'awaiting' || kind === 'run' || kind === 'usage' || kind === 'request';
+  return (
+    kind === 'awaiting' ||
+    kind === 'planning' ||
+    kind === 'run' ||
+    kind === 'usage' ||
+    kind === 'request'
+  );
 }
 
 function hasUsageStatsValue(stats: ChatTimelineUsageStats | null | undefined): boolean {

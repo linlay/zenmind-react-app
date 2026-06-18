@@ -270,21 +270,27 @@ const UserQueryRow = memo(function UserQueryRow({
   const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
   const timestamp = formatChatDetailTimestamp(node.createdAt);
+  const text = node.content.trim();
+  const attachments = node.attachments || [];
 
   return (
     <View style={styles.userRow}>
       <View style={styles.userMessageStack}>
-        <View style={styles.userBubble}>
-          {node.content.trim() ? (
+        {text ? (
+          <View style={styles.userBubble}>
             <ConversationMarkdownRenderer
               markdown={node.content}
               selectable={false}
               textColor={theme.colors.onBrandBlueAction}
               linkColor={theme.colors.onBrandBlueAction}
             />
-          ) : null}
-          <ChatAttachmentStrip attachments={node.attachments || []} variant="message" />
-        </View>
+          </View>
+        ) : null}
+        {attachments.length > 0 ? (
+          <View style={[styles.userAttachmentPanel, text ? styles.userAttachmentPanelAfterText : null]}>
+            <ChatAttachmentStrip attachments={attachments} variant="message" />
+          </View>
+        ) : null}
         <MessageFooter
           text={node.content}
           timestamp={timestamp}
@@ -962,6 +968,13 @@ function createStyles(theme: AppThemeTokens) {
       backgroundColor: theme.colors.brandBlueAction,
       paddingHorizontal: 14,
       paddingVertical: 10
+    },
+    userAttachmentPanel: {
+      maxWidth: '100%',
+      alignSelf: 'flex-end'
+    },
+    userAttachmentPanelAfterText: {
+      marginTop: 6
     },
     timelineRow: {
       flexDirection: 'row',

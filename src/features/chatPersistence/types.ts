@@ -28,6 +28,7 @@ export type ChatConversationTarget = {
   subtitle: string;
   agentKey: string | null;
   teamId: string | null;
+  agentMode: string | null;
 };
 
 export type ChatConversationHistoryPage = {
@@ -53,6 +54,7 @@ export type ChatDirectoryItem = {
   agentKey: string | null;
   teamId: string | null;
   defaultAgentKey: string | null;
+  agentMode: string | null;
   latestConversationId: string | null;
   lastMessageText: string;
   lastMessageAt: number;
@@ -171,6 +173,7 @@ export type PendingOutboxMessage = {
   conversationId: string;
   content: string;
   createdAt: number;
+  planningMode: boolean;
   attachments: ChatMessageAttachment[];
 };
 

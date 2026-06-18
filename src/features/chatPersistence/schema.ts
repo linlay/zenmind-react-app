@@ -52,6 +52,7 @@ export const chatDirectoryItems = sqliteTable(
     agentKey: text('agent_key'),
     teamId: text('team_id'),
     defaultAgentKey: text('default_agent_key'),
+    agentMode: text('agent_mode'),
     latestConversationId: text('latest_conversation_id'),
   },
   (table) => [
@@ -123,6 +124,7 @@ export const outboxMessages = sqliteTable(
       .notNull()
       .references(() => conversations.id),
     content: text('content').notNull(),
+    planningMode: integer('planning_mode').notNull().default(0),
     createdAt: integer('created_at').notNull(),
   },
   (table) => [

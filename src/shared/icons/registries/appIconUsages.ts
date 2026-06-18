@@ -74,6 +74,8 @@ export const appIconUsages = {
   'settings.selected': { glyph: 'check', colorRole: 'brand', sizeRole: 'md' },
 
   'composer.attach': { glyph: 'add', colorRole: 'secondary', sizeRole: 'md' },
+  'composer.plan': { glyph: 'plan-mode', colorRole: 'primary', sizeRole: 'md' },
+  'composer.planActive': { glyph: 'plan-mode-active', colorRole: 'brand', sizeRole: 'md' },
   'composer.attachImage': { glyph: 'image', colorRole: 'brand', sizeRole: 'sm' },
   'composer.attachFile': { glyph: 'file', colorRole: 'success', sizeRole: 'sm' },
   'composer.send': { glyph: 'arrow-up', colorRole: 'onBrandAction', sizeRole: 'md' },

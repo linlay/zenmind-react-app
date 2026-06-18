@@ -36,6 +36,7 @@ type ChatQueryPayloadInput = {
   references?: unknown[];
   agentKey?: string | null;
   teamId?: string | null;
+  planningMode?: boolean;
 };
 
 type ChatQueryPayload = {
@@ -45,6 +46,7 @@ type ChatQueryPayload = {
   references?: unknown[];
   agentKey?: string;
   teamId?: string;
+  planningMode?: true;
   role: 'user';
   stream: true;
 };
@@ -107,6 +109,7 @@ export function buildChatQueryPayload(input: ChatQueryPayloadInput): ChatQueryPa
     ...(input.references !== undefined ? { references: input.references } : {}),
     ...(teamId ? { teamId } : {}),
     ...(agentKey ? { agentKey } : {}),
+    ...(input.planningMode === true ? { planningMode: true } : {}),
     role: 'user',
     stream: true,
   };

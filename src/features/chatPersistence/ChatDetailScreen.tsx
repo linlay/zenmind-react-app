@@ -106,9 +106,12 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     setDraft,
     composerAttachments,
     composerAction,
+    planModeAvailable,
+    planModeEnabled,
     handleSend,
     handleStop,
     handleResume,
+    handleTogglePlanMode,
     handleReaskMessage,
     handleStartNewConversation,
     handleSelectAttachment,
@@ -241,11 +244,14 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                       draft={draft}
                       attachments={composerAttachments}
                       errorText={errorText}
+                      planModeAvailable={planModeAvailable}
+                      planModeEnabled={planModeEnabled}
                       primaryAction={composerAction}
                       onChangeDraft={setDraft}
                       onSubmit={handleSend}
                       onStop={handleStop}
                       onResume={handleResume}
+                      onTogglePlanMode={handleTogglePlanMode}
                       onSelectAttachment={handleSelectAttachment}
                       onRemoveAttachment={handleRemoveAttachment}
                       onRetryAttachment={handleRetryAttachment}

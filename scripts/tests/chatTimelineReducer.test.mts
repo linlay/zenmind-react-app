@@ -189,6 +189,105 @@ test('timeline reducer replays mixed chat events into one flat ordered state', (
   );
 });
 
+test('timeline normalizes builtin plan awaiting into interactive confirmation', () => {
+  const state = deriveChatTimelineState('chat-plan', [
+    {
+      type: 'run.start',
+      runId: 'run-plan',
+      timestamp: 100,
+    },
+    {
+      type: 'planning.snapshot',
+      runId: 'run-plan',
+      planningId: 'planning-1',
+      text: '# 实施计划\n\n## Summary\n\n改成红色主题。',
+      timestamp: 110,
+    },
+    {
+      type: 'awaiting.ask',
+      awaitingId: 'call-plan',
+      mode: 'plan',
+      viewportType: 'builtin',
+      viewportKey: 'plan',
+      runId: 'run-plan',
+      agentKey: 'coder-pomodoro-app',
+      plan: {
+        id: 'confirm',
+        planningId: 'planning-1',
+        title: '实施此计划？',
+        options: [
+          { decision: 'approve', label: '是，实施此计划' },
+          {
+            decision: 'reject',
+            input: {
+              placeholder: '请告知如何调整',
+              required: false,
+              type: 'text',
+            },
+            label: '否，请告知如何调整',
+          },
+        ],
+      },
+      timestamp: 120,
+    },
+  ]);
+
+  const awaiting = state.awaiting;
+  const planInteractive = awaiting?.interactive?.kind === 'plan' ? awaiting.interactive : null;
+  const runtime = projectTimelineRuntimeState(state);
+  const displayItems = buildChatTimelineDisplayItems(state);
+
+  assert.equal(awaiting?.mode, 'plan');
+  assert.equal(awaiting?.interactive?.kind, 'plan');
+  assert.equal(planInteractive?.agentKey, 'coder-pomodoro-app');
+  assert.equal(planInteractive?.plan.planningId, 'planning-1');
+  assert.deepEqual(
+    planInteractive?.plan.options?.map((option) => [option.decision, option.label]),
+    [
+      ['approve', '是，实施此计划'],
+      ['reject', '否，请告知如何调整'],
+    ]
+  );
+  assert.equal(runtime.awaiting?.interactive?.kind, 'plan');
+  assert.equal(
+    displayItems.some((item) => item.kind === 'planning' && item.node.kind === 'planning'),
+    true
+  );
+});
+
+test('timeline normalizes flattened direct plan interactive payloads', () => {
+  const state = deriveChatTimelineState('chat-plan-direct', [
+    {
+      type: 'awaiting.ask',
+      awaitingId: 'call-plan',
+      runId: 'run-plan',
+      interactive: {
+        kind: 'plan',
+        viewportType: 'builtin',
+        viewportKey: 'plan',
+        agentKey: 'coder-pomodoro-app',
+        id: 'confirm',
+        planningId: 'planning-direct',
+        title: '实施此计划？',
+        options: [{ decision: 'approve', label: '是，实施此计划' }],
+      },
+      timestamp: 120,
+    },
+  ]);
+
+  const awaiting = state.awaiting;
+  const planInteractive = awaiting?.interactive?.kind === 'plan' ? awaiting.interactive : null;
+
+  assert.equal(awaiting?.mode, 'plan');
+  assert.equal(planInteractive?.agentKey, 'coder-pomodoro-app');
+  assert.equal(planInteractive?.plan.id, 'confirm');
+  assert.equal(planInteractive?.plan.planningId, 'planning-direct');
+  assert.deepEqual(
+    planInteractive?.plan.options?.map((option) => [option.decision, option.label]),
+    [['approve', '是，实施此计划']]
+  );
+});
+
 test('timeline attachment ids are scoped to their message when upload references repeat', () => {
   const state = deriveChatTimelineState('chat-attachments', [
     {
@@ -230,6 +329,78 @@ test('timeline attachment ids are scoped to their message when upload references
   assert.equal(new Set(attachmentIds).size, 2);
   assert.match(String(attachmentIds[0]), /^remote:user:req-1:attachment:1:r01$/);
   assert.match(String(attachmentIds[1]), /^remote:user:req-2:attachment:1:r01$/);
+});
+
+test('timeline merges request echo into the local pending attachment message', () => {
+  const localMessage: ChatMessageItem = {
+    messageId: 'client-message-1',
+    clientMessageId: 'client-message-1',
+    serverMessageId: null,
+    conversationId: 'chat-attachments',
+    role: 'user',
+    content: '图中内容是什么',
+    createdAt: 100,
+    deliveryStatus: 'pending',
+    errorReason: null,
+    attachments: [
+      {
+        attachmentId: 'client-message-1:attachment:1:r01',
+        messageId: 'client-message-1',
+        conversationId: 'chat-attachments',
+        name: 'Screenshot.jpg',
+        kind: 'image',
+        mimeType: 'image/jpeg',
+        sizeBytes: 261475,
+        width: null,
+        height: null,
+        localUri: '',
+        previewUri: null,
+        resourceUrl: '/ap/api/resource?file=chat-attachments%2FScreenshot.jpg',
+        sha256: 'hash',
+        status: 'ready',
+        errorReason: null,
+        references: [
+          {
+            id: 'r01',
+            type: 'file',
+            name: 'Screenshot.jpg',
+            mimeType: 'image/jpeg',
+            sizeBytes: 261475,
+            url: '/ap/api/resource?file=chat-attachments%2FScreenshot.jpg',
+            sha256: 'hash',
+          },
+        ],
+        createdAt: 100,
+        updatedAt: 100,
+      },
+    ],
+  };
+
+  const localState = applyChatTimelineMessage(createChatTimelineState('chat-attachments'), localMessage);
+  const echoedState = applyChatTimelineEvent(localState, 'chat-attachments', {
+    type: 'request.query',
+    requestId: 'client-message-1',
+    message: '图中内容是什么',
+    references: [
+      {
+        id: 'r01',
+        type: 'file',
+        name: 'Screenshot.jpg',
+        mimeType: 'image/jpeg',
+        sizeBytes: 261475,
+        url: '/api/resource?file=chat-attachments%2FScreenshot.jpg',
+        sha256: 'hash',
+      },
+    ],
+    createdAt: 200,
+  });
+
+  const messages = projectTimelineMessages(echoedState);
+
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].clientMessageId, 'client-message-1');
+  assert.equal(messages[0].deliveryStatus, 'sent');
+  assert.equal(messages[0].attachments[0]?.resourceUrl, '/ap/api/resource?file=chat-attachments%2FScreenshot.jpg');
 });
 
 test('timeline reducer treats content snapshots as complete messages', () => {

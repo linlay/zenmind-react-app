@@ -11,11 +11,14 @@ type ChatDetailComposerCardProps = {
   draft: string;
   attachments: ChatComposerAttachment[];
   errorText: string;
+  planModeAvailable: boolean;
+  planModeEnabled: boolean;
   primaryAction: ChatComposerPrimaryAction;
   onChangeDraft: (value: string) => void;
   onSubmit: () => void;
   onStop: () => void;
   onResume: () => void;
+  onTogglePlanMode: () => void;
   onSelectAttachment: (type: ComposerAttachmentType) => void;
   onRemoveAttachment: (attachmentId: string) => void;
   onRetryAttachment: (attachmentId: string) => void;
@@ -25,11 +28,14 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
   draft,
   attachments,
   errorText,
+  planModeAvailable,
+  planModeEnabled,
   primaryAction,
   onChangeDraft,
   onSubmit,
   onStop,
   onResume,
+  onTogglePlanMode,
   onSelectAttachment,
   onRemoveAttachment,
   onRetryAttachment,
@@ -49,6 +55,9 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
         onSelectAttachment={onSelectAttachment}
         onRemoveAttachment={onRemoveAttachment}
         onRetryAttachment={onRetryAttachment}
+        planModeAvailable={planModeAvailable}
+        planModeEnabled={planModeEnabled}
+        onTogglePlanMode={onTogglePlanMode}
       />
       {errorText ? (
         <Text allowFontScaling={false} style={styles.errorText}>
@@ -62,7 +71,7 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
 function createStyles(theme: AppThemeTokens) {
   return StyleSheet.create({
     composerWrap: {
-      paddingHorizontal: appVisualTokens.spacing.lg,
+      paddingHorizontal: appVisualTokens.spacing.md,
       paddingTop: 5,
       paddingBottom: 6,
       backgroundColor: theme.colors.background,

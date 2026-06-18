@@ -66,6 +66,39 @@ test('chat query payload omits empty scope fields', () => {
   assert.equal('teamId' in payload, false);
 });
 
+test('chat query payload includes planning mode only when enabled', () => {
+  const payload = buildChatQueryPayload({
+    requestId: 'req-plan',
+    chatId: 'chat-plan',
+    message: 'draft a plan',
+    agentKey: 'coder-pomodoro-app',
+    planningMode: true,
+  });
+
+  assert.deepEqual(payload, {
+    requestId: 'req-plan',
+    chatId: 'chat-plan',
+    message: 'draft a plan',
+    agentKey: 'coder-pomodoro-app',
+    planningMode: true,
+    role: 'user',
+    stream: true,
+  });
+  assert.equal('model' in payload, false);
+});
+
+test('chat query payload omits disabled planning mode', () => {
+  const payload = buildChatQueryPayload({
+    requestId: 'req-no-plan',
+    chatId: 'chat-no-plan',
+    message: 'plain question',
+    agentKey: 'coder-pomodoro-app',
+    planningMode: false,
+  });
+
+  assert.equal('planningMode' in payload, false);
+});
+
 test('chat attach payload includes required agent scope', () => {
   const payload = buildChatAttachPayload({
     runId: ' run-1 ',

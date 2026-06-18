@@ -23,6 +23,7 @@ import {
   getMessageByServerMessageId,
   upsertServerMessageDetail
 } from './chatRepository';
+import { canUsePlanMode } from './agentMode.ts';
 import { createChatConversationTarget } from './chatConversationTarget';
 import { normalizeChatConversationHistoryScope } from './chatHistoryScope';
 import { patchDetailFromHomeEvent } from './chatRealtimeUiState';
@@ -114,6 +115,7 @@ export function useChatDetailConversationController({
   const [isTransitionSettled, setIsTransitionSettled] = useState(false);
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState('');
+  const [planModeEnabled, setPlanModeEnabled] = useState(false);
   const [socketStatus, setSocketStatus] = useState<ChatSocketStatus>(chatSyncService.getStatus());
   const [errorText, setErrorText] = useState('');
   const [reloadSeed, setReloadSeed] = useState(0);
@@ -136,6 +138,11 @@ export function useChatDetailConversationController({
   const skeletonFadeAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
 
   const summary = isConversationUnavailable ? null : (detail ?? initialConversation);
+  const planModeAvailable = useMemo(
+    () => canUsePlanMode(conversationTarget?.agentMode),
+    [conversationTarget?.agentMode]
+  );
+  const effectivePlanModeEnabled = planModeAvailable && planModeEnabled;
   const runtimeState = useMemo(() => projectTimelineRuntimeState(timelineState), [timelineState]);
   const headerRuntimeState = useMemo(() => deriveChatDetailHeaderRuntimeState(timelineState), [timelineState]);
   const composerRunAction = headerRuntimeState.runAction;
@@ -226,6 +233,12 @@ export function useChatDetailConversationController({
   useEffect(() => {
     composerRunActionRef.current = composerRunAction;
   }, [composerRunAction]);
+
+  useEffect(() => {
+    if (conversationTarget && !planModeAvailable && planModeEnabled) {
+      setPlanModeEnabled(false);
+    }
+  }, [conversationTarget, planModeAvailable, planModeEnabled]);
 
   useEffect(() => {
     if (!sending) {
@@ -390,16 +403,23 @@ export function useChatDetailConversationController({
           hydrationError = error;
         }
 
-        const [nextDetail, nextTimelineState, nextHistoryScope, nextConversationTarget] = await Promise.all([
+        const shouldLoadTargetFromStore =
+          !normalizedRouteConversationTarget ||
+          (normalizedRouteConversationTarget.kind === 'agent' && !normalizedRouteConversationTarget.agentMode);
+        const [nextDetail, nextTimelineState, nextHistoryScope, storedConversationTarget] = await Promise.all([
           getConversationDetail(conversationId),
           getConversationInitialTimelineState(conversationId, 60),
           normalizedRouteHistoryScope
             ? Promise.resolve(normalizedRouteHistoryScope)
             : getConversationHistoryScope(conversationId),
-          normalizedRouteConversationTarget
-            ? Promise.resolve(normalizedRouteConversationTarget)
-            : getConversationTarget(conversationId)
+          shouldLoadTargetFromStore ? getConversationTarget(conversationId) : Promise.resolve(null)
         ]);
+        const nextConversationTarget = normalizedRouteConversationTarget
+          ? {
+              ...normalizedRouteConversationTarget,
+              agentMode: normalizedRouteConversationTarget.agentMode || storedConversationTarget?.agentMode || null
+            }
+          : storedConversationTarget;
 
         if (!mounted) {
           return;
@@ -462,7 +482,14 @@ export function useChatDetailConversationController({
     setSocketStatus(chatSyncService.getStatus());
     void loadConversation();
     if (!skipInitialReconcile) {
-      void chatSyncService.reconcileConversation(conversationId, fromNotification ? 'notification' : 'detail_open');
+      void chatSyncService
+        .reconcileConversation(conversationId, fromNotification ? 'notification' : 'detail_open')
+        .catch((error) => {
+          if (!mounted || activeConversationIdRef.current !== conversationId) {
+            return;
+          }
+          setErrorText(error instanceof Error ? error.message : String(error));
+        });
     }
 
     const unsubscribe = chatSyncService.subscribe((event) => {
@@ -551,7 +578,7 @@ export function useChatDetailConversationController({
   const handleSend = useCallback(async () => {
     const nextDraft = draft.trim();
     const nextAttachments = readyAttachments;
-    if ((!nextDraft && nextAttachments.length === 0) || sending || reaskInFlightRef.current) {
+    if ((!nextDraft && nextAttachments.length === 0) || sendingRef.current || reaskInFlightRef.current) {
       return;
     }
 
@@ -565,7 +592,9 @@ export function useChatDetailConversationController({
     setErrorText('');
 
     try {
-      await chatSyncService.sendMessage(targetConversationId, nextDraft, nextAttachments);
+      await chatSyncService.sendMessage(targetConversationId, nextDraft, nextAttachments, {
+        planningMode: effectivePlanModeEnabled
+      });
       clearAttachments();
     } catch (error) {
       if (
@@ -584,7 +613,14 @@ export function useChatDetailConversationController({
       sendingRef.current = false;
       setSending(false);
     }
-  }, [clearAttachments, conversationId, draft, readyAttachments, sending]);
+  }, [clearAttachments, conversationId, draft, effectivePlanModeEnabled, readyAttachments]);
+
+  const handleTogglePlanMode = useCallback(() => {
+    if (!planModeAvailable) {
+      return;
+    }
+    setPlanModeEnabled((current) => !current);
+  }, [planModeAvailable]);
 
   const handleReaskMessage = useCallback(
     async (target: 'current' | 'new', node: ChatTimelineMessageNode) => {
@@ -611,7 +647,9 @@ export function useChatDetailConversationController({
         if (target === 'current') {
           sendingRef.current = true;
           setSending(true);
-          await chatSyncService.sendMessage(targetConversationId, nextContent, nextAttachments);
+          await chatSyncService.sendMessage(targetConversationId, nextContent, nextAttachments, {
+            planningMode: effectivePlanModeEnabled
+          });
           return;
         }
 
@@ -629,7 +667,8 @@ export function useChatDetailConversationController({
         }
 
         await chatSyncService.sendMessage(created.conversation.conversationId, nextContent, nextAttachments, {
-          dispatchErrorMode: 'return'
+          dispatchErrorMode: 'return',
+          planningMode: effectivePlanModeEnabled
         });
         if (activeConversationIdRef.current !== targetConversationId) {
           return;
@@ -663,7 +702,7 @@ export function useChatDetailConversationController({
         reaskInFlightRef.current = false;
       }
     },
-    [conversationId, conversationTargetRouteParams, historyScope, navigation, t]
+    [conversationId, conversationTargetRouteParams, effectivePlanModeEnabled, historyScope, navigation, t]
   );
 
   const handleStop = useCallback(() => {
@@ -746,10 +785,13 @@ export function useChatDetailConversationController({
     setDraft,
     composerAttachments,
     composerAction,
+    planModeAvailable,
+    planModeEnabled: effectivePlanModeEnabled,
     handleSend,
     handleReaskMessage,
     handleStop,
     handleResume,
+    handleTogglePlanMode,
     handleStartNewConversation,
     handleSelectAttachment,
     handleRemoveAttachment,

@@ -125,7 +125,7 @@ function getPlanOptions(plan: ChatTimelineAwaitingPlan, t: TFunction): ChatTimel
       decision: 'approve',
     },
     {
-      label: t('awaiting.plan.option.reject'),
+      label: t('awaiting.plan.reject.label'),
       decision: 'reject',
       input: {
         type: 'text',
@@ -781,85 +781,144 @@ function PlanPanel({
   const plan = awaiting.interactive.plan;
   const options = useMemo(() => getPlanOptions(plan, t), [plan, t]);
   const timeoutMs = getAwaitingInteractiveTimeout(awaiting.interactive);
-  const [decision, setDecision] = useState<ChatTimelineAwaitingPlanDecision | null>(null);
+  const [rejectActive, setRejectActive] = useState(false);
   const [reason, setReason] = useState('');
   const [errorText, setErrorText] = useState('');
+  const approveOption = options.find((option) => option.decision === 'approve');
+  const rejectOption = options.find((option) => option.decision === 'reject');
+  const title = plan.title || awaiting.prompt || t('awaiting.plan.title');
+  const prompt = awaiting.prompt && awaiting.prompt !== title ? awaiting.prompt : '';
+  const rejectPlaceholder =
+    rejectOption?.input?.placeholder || t('awaiting.plan.reject.placeholder');
 
   useEffect(() => {
-    setDecision(null);
+    setRejectActive(false);
     setReason('');
     setErrorText('');
   }, [awaiting.id]);
 
-  const submit = useCallback(() => {
-    if (!decision) {
-      setErrorText(t('awaiting.error.planRequired'));
+  const submitDecision = useCallback(
+    (nextDecision: ChatTimelineAwaitingPlanDecision, nextReason = '') => {
+      if (disabled) {
+        return;
+      }
+      const selected = options.find((option) => option.decision === nextDecision);
+      const normalizedReason = nextReason.trim();
+      if (selected?.input?.required && !normalizedReason) {
+        setErrorText(t('awaiting.error.reasonRequired'));
+        if (nextDecision === 'reject') {
+          setRejectActive(true);
+        }
+        return;
+      }
+      setErrorText('');
+      submitPayload(
+        buildAwaitingSubmitPayload(awaiting, {
+          kind: 'plan',
+          decision: nextDecision,
+          reason: normalizedReason,
+        })
+      );
+    },
+    [awaiting, disabled, options, submitPayload, t]
+  );
+
+  const submitApprove = useCallback(() => {
+    submitDecision('approve');
+  }, [submitDecision]);
+
+  const activateRejectInput = useCallback(() => {
+    if (disabled) {
       return;
     }
-    const selected = options.find((option) => option.decision === decision);
-    if (selected?.input?.required && !reason.trim()) {
-      setErrorText(t('awaiting.error.reasonRequired'));
-      return;
+    setErrorText('');
+    setRejectActive(true);
+  }, [disabled]);
+
+  const changeReason = useCallback((text: string) => {
+    setErrorText('');
+    setRejectActive(true);
+    setReason(text);
+  }, []);
+
+  const deactivateEmptyRejectInput = useCallback(() => {
+    if (!reason.trim()) {
+      setRejectActive(false);
     }
-    submitPayload(buildAwaitingSubmitPayload(awaiting, { kind: 'plan', decision, reason }));
-  }, [awaiting, decision, options, reason, submitPayload, t]);
+  }, [reason]);
+
+  const submitReject = useCallback(() => {
+    submitDecision('reject', reason);
+  }, [reason, submitDecision]);
+
+  const skipPlan = useCallback(() => {
+    submitDecision('reject', t('awaiting.plan.skipReason'));
+  }, [submitDecision, t]);
+
+  if (!approveOption && !rejectOption) {
+    return null;
+  }
 
   return (
     <>
       <View style={styles.header}>
         <View style={styles.questionText}>
           <Text allowFontScaling={false} style={styles.heading}>
-            {plan.title || awaiting.prompt || t('awaiting.plan.title')}
+            {title}
           </Text>
-          {awaiting.payloadText ? (
-            <Text allowFontScaling={false} numberOfLines={3} style={styles.prompt}>
-              {awaiting.payloadText}
+          {prompt ? (
+            <Text allowFontScaling={false} numberOfLines={2} style={styles.prompt}>
+              {prompt}
             </Text>
           ) : null}
         </View>
       </View>
       <View style={styles.optionsBlock}>
-        {options.map((option, index) => (
+        {approveOption ? (
           <ChoiceRow
-            key={`${plan.id}:${option.decision}`}
             disabled={disabled}
-            index={index}
-            label={option.label}
-            description={option.description}
-            selected={decision === option.decision}
-            value={option.decision}
-            onPress={(value) => {
-              setErrorText('');
-              setDecision(value as ChatTimelineAwaitingPlanDecision);
-            }}
+            index={0}
+            label={approveOption.label}
+            description={approveOption.description}
+            selected={false}
+            value="approve"
+            onPress={submitApprove}
           />
-        ))}
+        ) : null}
+        {rejectOption ? (
+          <View style={[styles.freeTextRow, rejectActive && styles.selectedOptionRow]}>
+            <Text allowFontScaling={false} style={styles.optionIndex}>
+              {(approveOption ? 2 : 1).toString()}.
+            </Text>
+            <Text allowFontScaling={false} style={[styles.planRejectLabel, rejectActive && styles.selectedText]}>
+              {t('awaiting.plan.reject.label')}
+            </Text>
+            <TextInput
+              value={reason}
+              editable={!disabled}
+              onBlur={deactivateEmptyRejectInput}
+              onChangeText={changeReason}
+              onFocus={activateRejectInput}
+              onSubmitEditing={disabled ? undefined : submitReject}
+              placeholder={rejectPlaceholder}
+              placeholderTextColor={theme.colors.textTertiary}
+              allowFontScaling={false}
+              returnKeyType="done"
+              style={styles.freeTextInput}
+            />
+          </View>
+        ) : null}
       </View>
-      {decision === 'reject' ? (
-        <TextInput
-          value={reason}
-          editable={!disabled}
-          onChangeText={(text) => {
-            setErrorText('');
-            setReason(text);
-          }}
-          placeholder={
-            options.find((option) => option.decision === decision)?.input?.placeholder || t('awaiting.reason.placeholder')
-          }
-          placeholderTextColor={theme.colors.textTertiary}
-          allowFontScaling={false}
-          returnKeyType="done"
-          style={styles.inputField}
-        />
-      ) : null}
       <AwaitingPanelFooter
         awaiting={awaiting}
         disabled={disabled}
         errorText={errorText}
-        primaryLabel={t('awaiting.submit')}
+        primaryLabel={rejectActive ? t('awaiting.submit') : undefined}
+        secondaryLabel={rejectOption ? t('awaiting.skip') : undefined}
         submitting={submitting}
         timeoutMs={timeoutMs}
-        onPrimary={submit}
+        onPrimary={rejectActive ? submitReject : undefined}
+        onSecondary={rejectOption ? skipPlan : undefined}
       />
     </>
   );
@@ -1148,6 +1207,13 @@ function createStyles(theme: AppThemeTokens) {
       minWidth: 0,
       fontSize: 14,
       lineHeight: 19,
+      color: theme.colors.textPrimary,
+    },
+    planRejectLabel: {
+      flexShrink: 0,
+      fontSize: 14,
+      lineHeight: 19,
+      fontWeight: '700',
       color: theme.colors.textPrimary,
     },
     fieldBlock: {

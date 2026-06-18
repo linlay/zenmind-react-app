@@ -1,4 +1,5 @@
 import type { ChatConversationTarget, ChatDirectoryKind } from './types';
+import { normalizeAgentMode } from './agentMode.ts';
 
 type ChatConversationTargetSource = {
   kind: ChatDirectoryKind | string;
@@ -7,6 +8,7 @@ type ChatConversationTargetSource = {
   agentKey?: string | null;
   teamId?: string | null;
   defaultAgentKey?: string | null;
+  agentMode?: string | null;
 };
 
 function normalizeText(value: string | null | undefined): string {
@@ -34,6 +36,7 @@ export function createChatConversationTarget(
     title,
     subtitle: normalizeText(source.subtitle),
     agentKey,
-    teamId
+    teamId,
+    agentMode: normalizeAgentMode(source.agentMode)
   };
 }

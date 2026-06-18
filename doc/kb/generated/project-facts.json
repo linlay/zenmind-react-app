@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-16T10:29:11.263Z",
+  "generatedAt": "2026-06-17T07:29:01.840Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -37,6 +37,7 @@
     "src/features/auth/LoginScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/features/chatPersistence/ChatHomeScreen.tsx",
+    "src/features/chatPersistence/agentMode.ts",
     "src/features/chatPersistence/cacheScope.ts",
     "src/features/chatPersistence/chatAttachmentModels.ts",
     "src/features/chatPersistence/chatConversationTarget.ts",
@@ -482,6 +483,10 @@
                         "type": "file"
                       }
                     ]
+                  },
+                  {
+                    "name": "agentMode.ts",
+                    "type": "file"
                   },
                   {
                     "name": "cacheScope.ts",
@@ -954,6 +959,7 @@
     "feature-chat-persistence": [
       "src/features/chatPersistence/ChatDetailScreen.tsx",
       "src/features/chatPersistence/ChatHomeScreen.tsx",
+      "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
@@ -1101,6 +1107,7 @@
     "src/features/auth/LoginScreen.tsx": "feature-auth-login",
     "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/ChatHomeScreen.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/agentMode.ts": "feature-chat-persistence",
     "src/features/chatPersistence/cacheScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatAttachmentModels.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatConversationTarget.ts": "feature-chat-persistence",
@@ -1508,6 +1515,7 @@
     "src/features/auth/LoginScreen.tsx": ["AuthBootstrapScreen", "LoginScreen"],
     "src/features/chatPersistence/ChatDetailScreen.tsx": ["ChatDetailScreen"],
     "src/features/chatPersistence/ChatHomeScreen.tsx": ["ChatHomeScreen"],
+    "src/features/chatPersistence/agentMode.ts": ["canUsePlanMode", "normalizeAgentMode"],
     "src/features/chatPersistence/cacheScope.ts": [
       "CHAT_LEGACY_CACHE_SCOPE_ID",
       "buildChatDatabaseName",
@@ -2317,12 +2325,16 @@
       "src/shared/visual/foundation.ts",
       "src/shared/visual/useAppTabBarHeight.ts"
     ],
+    "src/features/chatPersistence/agentMode.ts": [],
     "src/features/chatPersistence/cacheScope.ts": [],
     "src/features/chatPersistence/chatAttachmentModels.ts": [
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/translate.ts"
     ],
-    "src/features/chatPersistence/chatConversationTarget.ts": ["src/features/chatPersistence/types.ts"],
+    "src/features/chatPersistence/chatConversationTarget.ts": [
+      "src/features/chatPersistence/agentMode.ts",
+      "src/features/chatPersistence/types.ts"
+    ],
     "src/features/chatPersistence/chatDetailAsyncScope.ts": [],
     "src/features/chatPersistence/chatDetailFormatters.ts": [
       "src/features/chatPersistence/types.ts",
@@ -2333,6 +2345,7 @@
     "src/features/chatPersistence/chatDirectoryOpenDecision.ts": ["src/features/chatPersistence/chatReadState.ts"],
     "src/features/chatPersistence/chatDirectoryProjector.ts": [
       "src/core/api/services/chatApi.ts",
+      "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/chatReadState.ts",
       "src/features/chatPersistence/types.ts",
       "src/shared/visual/agentAvatarIcon.ts"
@@ -2353,6 +2366,7 @@
       "src/features/chatRealtime/types.ts"
     ],
     "src/features/chatPersistence/chatRepository.ts": [
+      "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatDirectoryOpenDecision.ts",
@@ -2587,6 +2601,7 @@
     "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": ["src/features/chatRealtime/types.ts"],
     "src/features/chatPersistence/useChatDetailConversationController.ts": [
       "src/core/api/services/notificationApi.ts",
+      "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatDetailAsyncScope.ts",
       "src/features/chatPersistence/chatDetailViewModel.ts",

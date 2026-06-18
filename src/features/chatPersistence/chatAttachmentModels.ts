@@ -1,3 +1,4 @@
+import { normalizeApiResourcePath } from '../../core/api/resourceUrl.ts';
 import { defaultT, type TFunction } from '../../shared/i18n/translate.ts';
 import type {
   ChatAttachmentBase,
@@ -98,6 +99,10 @@ export function keepLatestChatAttachmentsByName<T extends { name: string }>(item
   return latestItems.reverse();
 }
 
+export function normalizeChatAttachmentResourceUrl(value: unknown): string {
+  return normalizeApiResourcePath(normalizeText(value));
+}
+
 function normalizeReference(input: Record<string, unknown>): ChatAttachmentReference {
   const sizeBytes = Number(input.sizeBytes ?? input.size);
   return {
@@ -106,7 +111,7 @@ function normalizeReference(input: Record<string, unknown>): ChatAttachmentRefer
     name: normalizeText(input.name) || undefined,
     mimeType: normalizeText(input.mimeType) || undefined,
     sizeBytes: Number.isFinite(sizeBytes) && sizeBytes >= 0 ? sizeBytes : undefined,
-    url: normalizeText(input.url) || undefined,
+    url: normalizeChatAttachmentResourceUrl(input.url) || undefined,
     sha256: normalizeText(input.sha256) || undefined
   };
 }

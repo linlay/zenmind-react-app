@@ -3,6 +3,7 @@ import { and, asc, count, desc, eq, inArray, notInArray, sql } from 'drizzle-orm
 import { normalizeAgentAvatarIcon } from '../../shared/visual/agentAvatarIcon.ts';
 import { chatDb, ensureChatDatabase } from './database';
 import { createChatConversationTarget } from './chatConversationTarget';
+import { normalizeAgentMode } from './agentMode.ts';
 import {
   isActiveTimelinePayload,
   shouldOpenLatestConversationFromSummary,
@@ -141,6 +142,7 @@ function mapChatDirectoryItem(row: {
   agentKey: string | null;
   teamId: string | null;
   defaultAgentKey: string | null;
+  agentMode?: string | null;
   latestConversationId: string | null;
   lastMessageText?: string | null;
   lastMessageAt?: number | null;
@@ -161,6 +163,7 @@ function mapChatDirectoryItem(row: {
     agentKey: row.agentKey || null,
     teamId: row.teamId || null,
     defaultAgentKey: row.defaultAgentKey || null,
+    agentMode: normalizeAgentMode(row.agentMode),
     latestConversationId: row.latestConversationId || null,
     lastMessageText: String(row.lastMessageText || ''),
     lastMessageAt: Number.isFinite(Number(row.lastMessageAt)) ? Number(row.lastMessageAt) : 0,
@@ -441,6 +444,7 @@ const CHAT_DIRECTORY_ITEM_SELECT = {
   agentKey: chatDirectoryItems.agentKey,
   teamId: chatDirectoryItems.teamId,
   defaultAgentKey: chatDirectoryItems.defaultAgentKey,
+  agentMode: chatDirectoryItems.agentMode,
   latestConversationId: chatDirectoryItems.latestConversationId,
 };
 
@@ -465,6 +469,7 @@ const CONVERSATION_RECENCY_ORDER = [
   desc(conversations.updatedAt),
   asc(conversations.id),
 ];
+const CONVERSATION_HISTORY_VISIBLE_FILTER = sql<boolean>`length(trim(${conversations.lastMessageText})) > 0`;
 
 export type ConversationSyncState = {
   conversationId: string;
@@ -1457,6 +1462,7 @@ function normalizeChatDirectoryItem(
     agentKey: item.agentKey ? String(item.agentKey).trim() || null : null,
     teamId: item.teamId ? String(item.teamId).trim() || null : null,
     defaultAgentKey: item.defaultAgentKey ? String(item.defaultAgentKey).trim() || null : null,
+    agentMode: normalizeAgentMode(item.agentMode),
     latestConversationId: item.latestConversationId
       ? String(item.latestConversationId).trim() || null
       : null,
@@ -1828,6 +1834,7 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection) {
         agentKey: item.agentKey,
         teamId: item.teamId,
         defaultAgentKey: item.defaultAgentKey,
+        agentMode: item.agentMode,
         latestConversationId: item.latestConversationId,
       };
 
@@ -2243,18 +2250,20 @@ export async function getConversationHistorySlice(
     };
   }
 
+  const historyWhereClause = and(whereClause, CONVERSATION_HISTORY_VISIBLE_FILTER);
+
   const [rows, totalRows, unreadRows] = await Promise.all([
     chatDb
       .select(CHAT_HOME_ITEM_SELECT)
       .from(conversations)
-      .where(whereClause)
+      .where(historyWhereClause)
       .orderBy(...CONVERSATION_RECENCY_ORDER)
       .limit(safeLimit),
-    chatDb.select({ value: count() }).from(conversations).where(whereClause),
+    chatDb.select({ value: count() }).from(conversations).where(historyWhereClause),
     chatDb
       .select({ value: count() })
       .from(conversations)
-      .where(and(whereClause, eq(conversations.isRead, 0))),
+      .where(and(historyWhereClause, eq(conversations.isRead, 0))),
   ]);
 
   return {
@@ -2299,7 +2308,8 @@ export async function getConversationTarget(conversationId: string): Promise<Cha
       subtitle: chatDirectoryItems.subtitle,
       agentKey: chatDirectoryItems.agentKey,
       teamId: chatDirectoryItems.teamId,
-      defaultAgentKey: chatDirectoryItems.defaultAgentKey
+      defaultAgentKey: chatDirectoryItems.defaultAgentKey,
+      agentMode: chatDirectoryItems.agentMode
     })
     .from(chatDirectoryItems)
     .where(eq(scopeColumn, scopeValue))
@@ -2458,6 +2468,25 @@ export async function replaceConversationProjection(input: {
     (message) =>
       message.deliveryStatus !== 'sent' && message.clientMessageId && !message.serverMessageId
   );
+  const pendingOutboxMessages = unsyncedLocalMessages.filter(
+    (message) => message.clientMessageId && message.deliveryStatus === 'pending'
+  );
+  const pendingOutboxClientMessageIds = pendingOutboxMessages.map((message) =>
+    String(message.clientMessageId)
+  );
+  const currentOutboxRows =
+    pendingOutboxClientMessageIds.length > 0
+      ? await chatDb
+          .select({
+            clientMessageId: outboxMessages.clientMessageId,
+            planningMode: outboxMessages.planningMode,
+          })
+          .from(outboxMessages)
+          .where(inArray(outboxMessages.clientMessageId, pendingOutboxClientMessageIds))
+      : [];
+  const currentOutboxPlanningModeByClientId = new Map(
+    currentOutboxRows.map((row) => [row.clientMessageId, Number(row.planningMode) === 1])
+  );
   const summaryTime = Number(
     input.summary?.lastMessageAt ||
       input.messages[input.messages.length - 1]?.createdAt ||
@@ -2523,14 +2552,13 @@ export async function replaceConversationProjection(input: {
     })
   );
 
-  const pendingOutboxItems = unsyncedLocalMessages
-    .filter((message) => message.clientMessageId && message.deliveryStatus === 'pending')
-    .map((message) => ({
-      clientMessageId: String(message.clientMessageId),
-      conversationId: message.conversationId,
-      content: message.content,
-      createdAt: message.createdAt,
-    }));
+  const pendingOutboxItems = pendingOutboxMessages.map((message) => ({
+    clientMessageId: String(message.clientMessageId),
+    conversationId: message.conversationId,
+    content: message.content,
+    planningMode: currentOutboxPlanningModeByClientId.get(String(message.clientMessageId)) ? 1 : 0,
+    createdAt: message.createdAt,
+  }));
   const latestProjectedMessage = projectedMessages[projectedMessages.length - 1] || null;
   const messageTailSignature = latestProjectedMessage
     ? buildTailSignatureFromMessage({
@@ -3056,7 +3084,8 @@ export async function upsertServerMessageDetail(input: ServerMessageDetail) {
 export async function createOutgoingMessage(
   conversationId: string,
   content: string,
-  attachments: readonly ChatComposerAttachment[] = []
+  attachments: readonly ChatComposerAttachment[] = [],
+  options: { planningMode?: boolean } = {}
 ) {
   await ensureChatDatabase();
 
@@ -3107,6 +3136,7 @@ export async function createOutgoingMessage(
         clientMessageId,
         conversationId,
         content: normalizedContent,
+        planningMode: options.planningMode === true ? 1 : 0,
         createdAt,
       })
       .run();
@@ -3153,6 +3183,7 @@ export async function getPendingOutboxMessages(
       conversationId: outboxMessages.conversationId,
       content: outboxMessages.content,
       createdAt: outboxMessages.createdAt,
+      planningMode: outboxMessages.planningMode,
     })
     .from(outboxMessages)
     .orderBy(desc(outboxMessages.createdAt))
@@ -3162,7 +3193,11 @@ export async function getPendingOutboxMessages(
     rows.map((row) => row.clientMessageId)
   );
   return rows.map((row) => ({
-    ...row,
+    clientMessageId: row.clientMessageId,
+    conversationId: row.conversationId,
+    content: row.content,
+    createdAt: row.createdAt,
+    planningMode: Number(row.planningMode) === 1,
     attachments: attachmentsByMessageId.get(row.clientMessageId) || [],
   }));
 }

@@ -70,7 +70,7 @@
   "doNotMiss": [
     "transport 层只负责 /ap/ws 连接和帧处理，业务落库继续走 chatSyncService 和 chatRepository。",
     "正式路径不再把无 URL 当 mock fallback；开发态 override 通过 EXPO_PUBLIC_CHAT_WS_URL。",
-    "bootstrap 和 reconnect 时的 outbox replay 不要被误删。",
+    "bootstrap 和 reconnect 时的 outbox replay 不要被误删，pending 消息的 planningMode true-only 发送选项不能丢失。",
     "summary push、chat.read、chat.unread、chat.read_all 只改 repository 真源和目录投影，不在 sync service 内维护第二套最新消息；chat.updated 有新最后消息但缺失 unread 字段时，非 active conversation 默认置为未读，active conversation 只发起单会话 single-flight 服务端已读确认。",
     "reasoning / planning / tool / awaiting / artifact / plan-task / usage-context 只进内存 timeline/runtime state，不新建 SQLite 真源。",
     "awaiting question/approval/form/plan 的 questions/options/forms/plan/timeout 等 payload 只在 feature-chat-timeline 结构化，详情页只消费归一后的 interactive 数据并通过 chatSyncService.submitAwaiting 提交；form HTML viewport 只在 AwaitingFormViewport 内拉取 /ap/api/viewport 并桥接 collect/submit。",
@@ -81,7 +81,7 @@
   ],
   "acceptanceChecks": [
     "connection.status 能正确向 UI 发出 connected、connecting、reconnecting、disconnected、error。",
-    "发送消息后的 ack 持久化和收到消息后的 incoming 持久化保持正确。",
+    "发送消息后的 ack 持久化和收到消息后的 incoming 持久化保持正确；计划模式开启时 /api/query payload 只额外带 planningMode: true，不硬编码 model。",
     "收到 chat.read、chat.unread、chat.read_all 后，单会话未读位和 agent/team 目录角标同步更新且保持幂等。",
     "收到无 unread 字段的 chat.updated 后，inactive conversation 会显示未读角标，active conversation 不本地清零，只有 /ap/ws /api/read 成功或 chat.read push 才清除未读。",
     "收到 awaiting / reasoning / planning / tool / artifact / plan/task / usage/context 事件时，详情页 timeline 区域会实时更新；reconcile 后重新打开同会话也能按 /ap/ws /api/chat detail events 重建。",

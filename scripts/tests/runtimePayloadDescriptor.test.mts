@@ -98,6 +98,28 @@ test('runtime descriptor normalizes backend reasoning titles for display', () =>
   assert.equal(enDescriptor.title, 'Thinking process');
 });
 
+test('runtime descriptor presents planning markdown as an expanded implementation plan', () => {
+  const node: ChatTimelineTextNode = {
+    ...baseNode,
+    id: 'planning-1',
+    kind: 'planning',
+    title: '规划',
+    body: '# 实施计划\n\n## Summary\n\n改成红色主题。',
+    status: '已完成',
+    streaming: false,
+  };
+
+  const descriptor = buildRuntimePayloadDescriptor(node);
+  const enDescriptor = buildRuntimePayloadDescriptor(node, createTranslator('en-US'));
+
+  assert.equal(descriptor.title, '实施计划');
+  assert.equal(enDescriptor.title, 'Implementation plan');
+  assert.equal(descriptor.renderer, 'markdown');
+  assert.equal(descriptor.defaultExpanded, true);
+  assert.equal(descriptor.defaultWrap, false);
+  assert.equal(descriptor.copyText, node.body);
+});
+
 test('runtime descriptor keeps backend reasoning title while active', () => {
   const node: ChatTimelineTextNode = {
     ...baseNode,

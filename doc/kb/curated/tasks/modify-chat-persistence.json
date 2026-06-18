@@ -81,7 +81,7 @@
     "会话摘要实时更新后要通过 patchConversationSummary 保存 agent/team 归属并同步检查对应目录投影，latest_conversation_id 或聚合未读变化时发 home.directory.replace。",
     "chat.created 等空摘要 push 不应清空已有摘要，也不应让空 last_message_text 的 conversation 抢占目录 latest_conversation_id。",
     "首页目录项进入详情时，要通过 repository 的 resolveDirectoryItemConversationOpenTarget 基于 latest conversation 的 unread 与未结束状态做单一决策；latest 不需要继续打开时直接创建本地空 conversation，页面不直接写 SQLite/timeline/read state，空 conversation 不抢占目录 latest_conversation_id。",
-    "详情页历史抽屉要读取当前 agent/team scope 下的 conversations 摘要切片和未读统计，不从当前详情 messages/timeline 反推历史会话列表。",
+    "详情页历史抽屉要读取当前 agent/team scope 下的 conversations 非空摘要切片和未读统计，过滤尚未发送首条消息的本地空草稿，不从当前详情 messages/timeline 反推历史会话列表。",
     "详情页普通实时事件只通过 conversation.timeline.replace/reset 更新主消息区；message/stream/runtime 事件不能再维护第二套页面状态，conversation.reconcile 只刷新摘要，不用 SQLite messages 覆盖 timeline；头部运行状态、输入区用量统计和 awaiting question/approval/form/plan 交互继续从 timelineState 派生，提交继续交给 chatSyncService。"
   ],
   "acceptanceChecks": [
@@ -92,8 +92,8 @@
     "首页点击 agent/team 目录项时，latest conversation 未读、pending、active run、active awaiting 或尾节点仍 active/streaming 会直接进入 latest；否则直接创建空 conversation，第一条消息发送前不触发初次远端 detail reconcile。",
     "read.isRead=false、readStatus=0 或 unreadRunCount 大于 0 的 chat 只贡献 1 个未读会话，重复 incoming 或 chat.unread 不会重复增加目录角标。",
     "outgoing、ack 和 incoming 三条链路的持久化行为仍然正确。",
-    "首页目录列表、详情页消息区、历史抽屉和 outbox 数量各自走对应 repository 边界。",
-    "详情页历史抽屉展示会话级未读蓝点、总数和未读会话数；点击历史会话切换 ChatDetail conversationId 并加载对应内容，一键已读通过 chatSyncService.markScopeRead 批量同步。",
+    "首页目录列表、详情页消息区、历史抽屉和 outbox 数量各自走对应 repository 边界；outbox 发送选项如 planning_mode 只用于 pending replay，不参与首页排序或消息真源。",
+    "详情页历史抽屉展示非空摘要会话的未读蓝点、总数和未读会话数，空本地草稿不进入列表或计数；点击历史会话切换 ChatDetail conversationId 并加载对应内容，一键已读通过 chatSyncService.markScopeRead 批量同步。",
     "详情页 timelineState 可由 SQLite messages 冷启动 fallback、实时 patch 和 /ap/ws /api/chat detail event history replay 统一派生，不出现重复消息或重复运行态节点；主消息区 messages、头部运行状态、输入区结构化用量统计、runtimeState、streaming 和 awaiting question/approval/form/plan 交互从 timelineState 派生，历史抽屉从 repository 的 conversations 摘要切片派生。",
     "影响首页目录的 replace/pin 写入后目录 MMKV 快照仍同步刷新；conversation 摘要的 patch、delta checkpoint 和 reconcile 只更新 SQLite。"
   ]

@@ -25,6 +25,8 @@ test('chat persistence database keeps query-shape indexes for hot paths', () => 
     'conversations_team_recency_idx',
     'conversations_agent_non_empty_recency_idx',
     'conversations_team_non_empty_recency_idx',
+    'conversations_agent_non_empty_count_idx',
+    'conversations_team_non_empty_count_idx',
     'chat_directory_items_agent_idx',
     'chat_directory_items_team_idx',
     'chat_directory_items_stable_order_idx',
@@ -50,6 +52,40 @@ test('chat persistence database keeps query-shape indexes for hot paths', () => 
     databaseSource,
     /CREATE INDEX IF NOT EXISTS conversations_team_draft_recency_idx\b/
   );
+  assert.doesNotMatch(databaseSource, /outbox_messages_planning_mode_idx\b/);
+});
+
+test('chat outbox keeps planning mode replayable without new query shape', () => {
+  const replaceProjectionSource = extractSourceSection(
+    repositorySource,
+    'export async function replaceConversationProjection',
+    'export async function markConversationDirty'
+  );
+  const planningModeLookupSource = extractSourceSection(
+    replaceProjectionSource,
+    'const currentOutboxRows =',
+    'const currentOutboxPlanningModeByClientId'
+  );
+  const createOutgoingSource = extractSourceSection(
+    repositorySource,
+    'export async function createOutgoingMessage',
+    'export async function getPendingOutboxMessages'
+  );
+  const pendingOutboxSource = extractSourceSection(
+    repositorySource,
+    'export async function getPendingOutboxMessages',
+    'export async function getPendingOutboxCount'
+  );
+
+  assert.match(databaseSource, /planning_mode INTEGER NOT NULL DEFAULT 0/);
+  assert.match(createOutgoingSource, /planningMode: options\.planningMode === true \? 1 : 0/);
+  assert.match(pendingOutboxSource, /planningMode: outboxMessages\.planningMode/);
+  assert.match(pendingOutboxSource, /planningMode: Number\(row\.planningMode\) === 1/);
+  assert.match(planningModeLookupSource, /inArray\(outboxMessages\.clientMessageId/);
+  assert.doesNotMatch(
+    planningModeLookupSource,
+    /where\(eq\(outboxMessages\.conversationId, conversationId\)\)/
+  );
 });
 
 test('chat directory projection refresh stays batched by scope', () => {
@@ -59,6 +95,25 @@ test('chat directory projection refresh stays batched by scope', () => {
   assert.doesNotMatch(repositorySource, /refreshTeamDirectoryProjection/);
   assert.doesNotMatch(repositorySource, /for \(const agentKey of agentKeys\)/);
   assert.doesNotMatch(repositorySource, /for \(const teamId of teamIds\)/);
+});
+
+test('chat history uses indexed non-empty summaries and skips local empty drafts', () => {
+  const historySource = extractSourceSection(
+    repositorySource,
+    'export async function getConversationHistorySlice',
+    'export async function getConversationDetail'
+  );
+
+  assert.match(repositorySource, /CONVERSATION_HISTORY_VISIBLE_FILTER/);
+  assert.match(
+    repositorySource,
+    /CONVERSATION_HISTORY_VISIBLE_FILTER = sql<boolean>`length\(trim\(\$\{conversations\.lastMessageText\}\)\) > 0`/
+  );
+  assert.match(historySource, /const historyWhereClause = and\(whereClause, CONVERSATION_HISTORY_VISIBLE_FILTER\)/);
+  assert.match(historySource, /\.where\(historyWhereClause\)/);
+  assert.match(historySource, /\.where\(and\(historyWhereClause, eq\(conversations\.isRead, 0\)\)\)/);
+  assert.doesNotMatch(historySource, /\.from\(messages\)/);
+  assert.doesNotMatch(historySource, /getConversationMessages/);
 });
 
 test('chat directory open target keeps timeline probes bounded', () => {

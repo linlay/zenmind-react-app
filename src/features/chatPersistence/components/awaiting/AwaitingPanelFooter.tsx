@@ -14,11 +14,11 @@ type AwaitingPanelFooterProps = {
   awaiting: ChatConversationAwaitingState;
   disabled: boolean;
   errorText: string;
-  primaryLabel: string;
+  primaryLabel?: string;
   secondaryLabel?: string;
   submitting: boolean;
   timeoutMs: number | null;
-  onPrimary: () => void;
+  onPrimary?: () => void;
   onSecondary?: () => void;
 };
 
@@ -154,6 +154,7 @@ export const AwaitingPanelFooter = memo(function AwaitingPanelFooter({
   const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
   const actionDisabled = disabled || submitting;
+  const hasPrimaryAction = Boolean(primaryLabel && onPrimary);
 
   return (
     <View style={styles.footer}>
@@ -188,25 +189,27 @@ export const AwaitingPanelFooter = memo(function AwaitingPanelFooter({
             </Text>
           </Pressable>
         ) : null}
-        <Pressable
-          accessibilityLabel={primaryLabel}
-          accessibilityRole="button"
-          disabled={actionDisabled}
-          onPress={onPrimary}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            disabled && !submitting && styles.disabledButton,
-            pressed && !actionDisabled && styles.primaryPressed,
-          ]}
-        >
-          {submitting ? (
-            <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
-          ) : (
-            <Text allowFontScaling={false} style={styles.primaryText}>
-              {primaryLabel}
-            </Text>
-          )}
-        </Pressable>
+        {hasPrimaryAction ? (
+          <Pressable
+            accessibilityLabel={primaryLabel}
+            accessibilityRole="button"
+            disabled={actionDisabled}
+            onPress={onPrimary}
+            style={({ pressed }) => [
+              styles.primaryButton,
+              disabled && !submitting && styles.disabledButton,
+              pressed && !actionDisabled && styles.primaryPressed,
+            ]}
+          >
+            {submitting ? (
+              <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
+            ) : (
+              <Text allowFontScaling={false} style={styles.primaryText}>
+                {primaryLabel}
+              </Text>
+            )}
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );

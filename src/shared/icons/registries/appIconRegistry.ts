@@ -13,6 +13,8 @@ export const appIconRegistry = {
   history: true,
   spark: true,
   brain: true,
+  'plan-mode': true,
+  'plan-mode-active': true,
   question: true,
   steer: true,
   pin: true,

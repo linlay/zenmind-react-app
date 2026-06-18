@@ -6,7 +6,11 @@ import { useT } from '../../../shared/i18n';
 import { AppLineIcon } from '../../../shared/visual/AppLineIcon';
 import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
-import { formatChatAttachmentSize, getChatAttachmentStatusLabel } from '../chatAttachmentModels';
+import {
+  formatChatAttachmentSize,
+  getChatAttachmentStatusLabel,
+  normalizeChatAttachmentResourceUrl
+} from '../chatAttachmentModels';
 import type { ChatAttachmentBase } from '../types';
 
 type ChatAttachmentStripProps = {
@@ -16,36 +20,59 @@ type ChatAttachmentStripProps = {
   onRetryAttachment?: (attachmentId: string) => void;
 };
 
-function resolveImageUri(attachment: ChatAttachmentBase, variant: 'composer' | 'message'): string {
-  const localUri = attachment.previewUri || attachment.localUri;
-  const uri =
-    variant === 'message' ? localUri || attachment.resourceUrl || '' : localUri || attachment.resourceUrl || '';
-  if (!uri || /^(file|content|data|https?):\/\//.test(uri)) {
-    return uri;
+type ChatAttachmentStripStyles = ReturnType<typeof createStyles>;
+type ChatAttachmentVariant = ChatAttachmentStripProps['variant'];
+type ChatAttachmentTranslate = ReturnType<typeof useT>;
+
+function resolveImageUri({
+  localUri,
+  previewUri,
+  resourceUrl,
+  variant
+}: Pick<ChatAttachmentBase, 'localUri' | 'previewUri' | 'resourceUrl'> & {
+  variant: ChatAttachmentVariant;
+}): string {
+  const localPreviewUri = previewUri || localUri;
+  const uri = variant === 'message' ? resourceUrl || localPreviewUri || '' : localPreviewUri || resourceUrl || '';
+  const normalizedUri = normalizeChatAttachmentResourceUrl(uri);
+  if (!normalizedUri || /^(file|content|data|https?):\/\//.test(normalizedUri)) {
+    return normalizedUri;
   }
-  if (uri.startsWith('/')) {
+  if (normalizedUri.startsWith('/')) {
     try {
-      return buildApiUrl(uri);
+      return buildApiUrl(normalizedUri);
     } catch {
-      return uri;
+      return normalizedUri;
     }
   }
-  return uri;
+  return normalizedUri;
 }
 
 const AttachmentImageTile = memo(function AttachmentImageTile({
   attachment,
-  variant
+  variant,
+  styles,
+  theme,
+  t
 }: {
   attachment: ChatAttachmentBase;
-  variant: 'composer' | 'message';
+  variant: ChatAttachmentVariant;
+  styles: ChatAttachmentStripStyles;
+  theme: AppThemeTokens;
+  t: ChatAttachmentTranslate;
 }) {
-  const t = useT();
-  const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const [loadState, setLoadState] = useState<'loading' | 'loaded' | 'failed'>('loading');
   const [retrySeed, setRetrySeed] = useState(0);
-  const imageUri = resolveImageUri(attachment, variant);
+  const imageUri = useMemo(
+    () =>
+      resolveImageUri({
+        localUri: attachment.localUri,
+        previewUri: attachment.previewUri,
+        resourceUrl: attachment.resourceUrl,
+        variant
+      }),
+    [attachment.localUri, attachment.previewUri, attachment.resourceUrl, variant]
+  );
   const imageSource = useMemo(() => (imageUri ? { uri: imageUri } : null), [imageUri]);
   const isMessage = variant === 'message';
   const frameStyle = isMessage ? styles.messageImageFrame : styles.composerImageFrame;
@@ -98,14 +125,17 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
 
 const AttachmentFileTile = memo(function AttachmentFileTile({
   attachment,
-  variant
+  variant,
+  styles,
+  theme,
+  t
 }: {
   attachment: ChatAttachmentBase;
-  variant: 'composer' | 'message';
+  variant: ChatAttachmentVariant;
+  styles: ChatAttachmentStripStyles;
+  theme: AppThemeTokens;
+  t: ChatAttachmentTranslate;
 }) {
-  const t = useT();
-  const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const sizeText = formatChatAttachmentSize(attachment.sizeBytes);
   const statusText =
     variant === 'composer' && attachment.status !== 'ready' ? getChatAttachmentStatusLabel(attachment.status, t) : '';
@@ -123,6 +153,52 @@ const AttachmentFileTile = memo(function AttachmentFileTile({
         </Text>
       </View>
     </View>
+  );
+});
+
+const ComposerAttachmentActions = memo(function ComposerAttachmentActions({
+  attachment,
+  onRemoveAttachment,
+  onRetryAttachment,
+  styles,
+  theme,
+  t
+}: {
+  attachment: ChatAttachmentBase;
+  onRemoveAttachment?: (attachmentId: string) => void;
+  onRetryAttachment?: (attachmentId: string) => void;
+  styles: ChatAttachmentStripStyles;
+  theme: AppThemeTokens;
+  t: ChatAttachmentTranslate;
+}) {
+  return (
+    <>
+      {attachment.status === 'uploading' ? (
+        <View style={styles.statusBadge}>
+          <ActivityIndicator size="small" color={theme.colors.brandBlue} />
+        </View>
+      ) : null}
+      {attachment.status === 'failed' ? (
+        <Pressable
+          onPress={() => onRetryAttachment?.(attachment.attachmentId)}
+          style={styles.retryButton}
+          accessibilityRole="button"
+          accessibilityLabel={t('attachment.retryUpload', { name: attachment.name })}
+        >
+          <Text allowFontScaling={false} style={styles.retryText}>
+            {t('attachment.retry')}
+          </Text>
+        </Pressable>
+      ) : null}
+      <Pressable
+        onPress={() => onRemoveAttachment?.(attachment.attachmentId)}
+        style={styles.removeButton}
+        accessibilityRole="button"
+        accessibilityLabel={t('attachment.remove', { name: attachment.name })}
+      >
+        <AppLineIcon name="close" size={12} color={theme.colors.textPrimary} />
+      </Pressable>
+    </>
   );
 });
 
@@ -149,7 +225,6 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
       contentContainerStyle={[styles.stripContent, variant === 'message' && styles.messageStripContent]}
     >
       {attachments.map((attachment) => {
-        const showActions = variant === 'composer';
         return (
           <View
             key={attachment.attachmentId}
@@ -160,36 +235,19 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
             ]}
           >
             {attachment.kind === 'image' ? (
-              <AttachmentImageTile attachment={attachment} variant={variant} />
+              <AttachmentImageTile attachment={attachment} variant={variant} styles={styles} theme={theme} t={t} />
             ) : (
-              <AttachmentFileTile attachment={attachment} variant={variant} />
+              <AttachmentFileTile attachment={attachment} variant={variant} styles={styles} theme={theme} t={t} />
             )}
-            {showActions && attachment.status === 'uploading' ? (
-              <View style={styles.statusBadge}>
-                <ActivityIndicator size="small" color={theme.colors.brandBlue} />
-              </View>
-            ) : null}
-            {showActions && attachment.status === 'failed' ? (
-              <Pressable
-                onPress={() => onRetryAttachment?.(attachment.attachmentId)}
-                style={styles.retryButton}
-                accessibilityRole="button"
-                accessibilityLabel={t('attachment.retryUpload', { name: attachment.name })}
-              >
-                <Text allowFontScaling={false} style={styles.retryText}>
-                  {t('attachment.retry')}
-                </Text>
-              </Pressable>
-            ) : null}
-            {showActions ? (
-              <Pressable
-                onPress={() => onRemoveAttachment?.(attachment.attachmentId)}
-                style={styles.removeButton}
-                accessibilityRole="button"
-                accessibilityLabel={t('attachment.remove', { name: attachment.name })}
-              >
-                <AppLineIcon name="close" size={12} color={theme.colors.textPrimary} />
-              </Pressable>
+            {variant === 'composer' ? (
+              <ComposerAttachmentActions
+                attachment={attachment}
+                onRemoveAttachment={onRemoveAttachment}
+                onRetryAttachment={onRetryAttachment}
+                styles={styles}
+                theme={theme}
+                t={t}
+              />
             ) : null}
           </View>
         );
@@ -207,7 +265,7 @@ function createStyles(theme: AppThemeTokens) {
     },
     messageStripContent: {
       paddingHorizontal: 0,
-      paddingTop: appVisualTokens.spacing.sm
+      paddingTop: 0
     },
     attachmentShell: {
       position: 'relative',

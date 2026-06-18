@@ -5,6 +5,7 @@ import {
   projectRemoteDirectory,
   projectRemoteHomeDirectory,
 } from '../../src/features/chatPersistence/chatDirectoryProjector.ts';
+import { canUsePlanMode } from '../../src/features/chatPersistence/agentMode.ts';
 
 test('projects remote agents and teams into stable directory items', () => {
   const items = projectRemoteDirectory(
@@ -13,6 +14,7 @@ test('projects remote agents and teams into stable directory items', () => {
         key: 'planner',
         name: 'Planner',
         icon: { name: 'flux' },
+        mode: 'CODER',
         meta: { role: 'Planning agent' },
         stats: { unreadCount: '2' },
       },
@@ -20,6 +22,7 @@ test('projects remote agents and teams into stable directory items', () => {
         id: 'terminal',
         name: 'Terminal',
         icon: '/assets/terminal.svg',
+        mode: 'REACT',
         role: 'Ops agent',
       },
       {
@@ -49,13 +52,19 @@ test('projects remote agents and teams into stable directory items', () => {
     [0, 1, 2]
   );
   assert.equal(items[0].subtitle, 'Planning agent');
+  assert.equal(items[0].agentMode, 'CODER');
+  assert.equal(canUsePlanMode(items[0].agentMode), true);
+  assert.equal(canUsePlanMode(' coder '), true);
   assert.deepEqual(items[0].icon, { name: 'flux', color: null, uri: null });
   assert.equal(items[0].unreadCount, 2);
   assert.equal(items[1].agentKey, 'terminal');
+  assert.equal(items[1].agentMode, 'REACT');
+  assert.equal(canUsePlanMode(items[1].agentMode), false);
   assert.deepEqual(items[1].icon, { name: null, color: null, uri: '/assets/terminal.svg' });
   assert.equal(items[2].kind, 'team');
   assert.deepEqual(items[2].icon, { name: null, color: '#2f6df6', uri: null });
   assert.equal(items[2].defaultAgentKey, 'planner');
+  assert.equal(items[2].agentMode, null);
   assert.equal(items[2].subtitle, '默认 planner');
 });
 

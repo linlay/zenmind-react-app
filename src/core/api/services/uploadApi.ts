@@ -1,6 +1,7 @@
 import { File as ExpoFile } from 'expo-file-system';
 
 import { ApiError, authenticatedFormDataRequest } from '../apiClient';
+import { normalizeApiResourcePath } from '../resourceUrl';
 
 export const CHAT_UPLOAD_API_PATH = '/ap/api/upload';
 
@@ -92,7 +93,7 @@ function normalizeReference(input: Record<string, unknown>): ChatUploadReference
     name: normalizeText(input.name) || undefined,
     mimeType: normalizeText(input.mimeType) || undefined,
     sizeBytes: Number.isFinite(sizeBytes) && sizeBytes >= 0 ? sizeBytes : undefined,
-    url: normalizeText(input.url) || undefined,
+    url: normalizeApiResourcePath(normalizeText(input.url)) || undefined,
     sha256: normalizeText(input.sha256) || undefined,
   };
 }

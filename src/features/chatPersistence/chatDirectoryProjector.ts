@@ -5,6 +5,7 @@ import type {
   ChatDirectoryProjectionItem,
   ChatHomeProjection,
 } from './types';
+import { normalizeAgentMode } from './agentMode.ts';
 import { normalizeChatReadPatch, readStateToUnreadBit } from './chatReadState.ts';
 
 export type RemoteAgent = {
@@ -12,6 +13,7 @@ export type RemoteAgent = {
   id?: string;
   name?: string;
   icon?: unknown;
+  mode?: string;
   role?: string;
   meta?: {
     role?: string;
@@ -109,6 +111,7 @@ export function projectRemoteAgent(
     agentKey,
     teamId: null,
     defaultAgentKey: null,
+    agentMode: normalizeAgentMode(agent.mode),
     latestConversationId: null,
   };
 }
@@ -121,6 +124,7 @@ export function projectRemoteTeam(
   if (!teamId) {
     return null;
   }
+  const defaultAgentKey = toText(team.meta?.defaultAgentKey);
 
   return {
     id: `team:${teamId}`,
@@ -134,7 +138,8 @@ export function projectRemoteTeam(
     sortRank: index,
     agentKey: null,
     teamId,
-    defaultAgentKey: toText(team.meta?.defaultAgentKey) || null,
+    defaultAgentKey: defaultAgentKey || null,
+    agentMode: null,
     latestConversationId: null,
   };
 }
