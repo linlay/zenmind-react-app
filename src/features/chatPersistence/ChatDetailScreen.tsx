@@ -218,6 +218,8 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                   statusTone={headerRuntimeState.statusTone}
                   usageLabel={headerRuntimeState.usageLabel}
                   usageSummary={headerRuntimeState.usageSummary}
+                  modelKey={conversationTarget?.modelKey ?? null}
+                  reasoningEffort={conversationTarget?.reasoningEffort ?? null}
                   onBack={handleGoBack}
                   onStartNewConversation={handleStartNewConversation}
                   onOpenMenu={handleOpenHistoryDrawer}

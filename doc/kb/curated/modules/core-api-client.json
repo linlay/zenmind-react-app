@@ -9,6 +9,7 @@
     "提供 authenticatedApiRequest，把当前认证 access token 注入业务接口请求，并在 401 时强制刷新后重试一次。",
     "在开发态通过 core-debug-logging 打印非 WS HTTP 请求、响应和错误。",
     "把业务请求实现收口到 core/api/services，避免 feature 到处散写 fetch。",
+    "提供 activeWsTransport，把 active HTTP/Desktop WS profile 解析成 core-ws-transport 可消费的 WsTransportConfig。",
     "提供 chatApi 的聊天 WS request type 常量、envelope 解包、agent detail payload 与投影 helper、已读 payload 构造 helper、awaiting 提交和 HTML viewport 拉取入口，避免 feature 层重复拼协议字段。",
     "提供 chatEventProtocol 这类纯协议 helper，统一 REST/WS 聊天事件的 type alias、字段提取和分类。"
   ],
@@ -42,6 +43,12 @@
       "symbol": "ApiError",
       "kind": "error",
       "description": "统一接口错误模型。"
+    },
+    {
+      "file": "src/core/api/activeWsTransport.ts",
+      "symbol": "resolveActiveWsTransportConfig",
+      "kind": "transport-config-resolver",
+      "description": "按 active device profile 生成 agent-platform 或 desktop-ws transport config，供 chatSyncService 请求 AP namespace。"
     },
     {
       "file": "src/core/api/services/chatApi.ts",
@@ -140,7 +147,7 @@
       "description": "通知点击后按 serverMessageId 精确补拉聊天消息详情。"
     }
   ],
-  "dependsOn": ["core-auth-session", "core-debug-logging"],
+  "dependsOn": ["core-auth-session", "core-debug-logging", "core-ws-transport"],
   "dependedBy": [
     "app-development-debug",
     "app-shell-navigation",
@@ -163,6 +170,7 @@
     "需要认证的业务接口优先使用 authenticatedApiRequest，不在 service 里重复手写 access token 注入或 401 重试。",
     "authenticatedApiRequest 只允许对 401 做一次强制刷新重试，非 401 错误不自动重试。",
     "协议归一化 helper 保持纯函数，不直接依赖 SQLite、UI state 或 transport 单例。",
+    "activeWsTransport 只解析 active profile 到 transport config，不持久化 token、不持有 socket，也不做业务 payload 归一。",
     "URL 归一化和 query 过滤逻辑要保持一致，不把空字符串参数无意透传。",
     "错误解析兼容 data.error、data.msg、data.message 三种常见字段。",
     "开发态 HTTP 日志不得打印明文 Authorization、password、secret 或 token。"

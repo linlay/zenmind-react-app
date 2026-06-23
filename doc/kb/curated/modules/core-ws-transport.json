@@ -1,0 +1,74 @@
+{
+  "id": "core-ws-transport",
+  "title": "核心 WebSocket 传输",
+  "layer": "core",
+  "paths": ["src/core/ws"],
+  "responsibility": [
+    "提供与业务无关的 WebSocket transport config、底层 WsClient 和生产 sharedWsTransport 单例。",
+    "同时支持 HTTP/AP profile 的 agent-platform `/ap/ws` 连接，以及 Desktop WS profile 的精确 `/ws` endpoint、query/subprotocol token mode 和 `ap` / `d` namespace。",
+    "维护 request、stream、push、连接状态、心跳、重连和 endpoint 复用策略；endpoint 不变时更新 token 或 namespace 不重连。",
+    "只处理 URL、token 注入、frame 收发和 socket 生命周期，不读取 active auth profile、不持久化 token、不做聊天业务 payload 归一或落库。"
+  ],
+  "publicEntrypoints": [
+    {
+      "file": "src/core/ws/wsTransportConfig.ts",
+      "symbol": "WsTransportConfig",
+      "kind": "transport-types",
+      "description": "定义 agent-platform 与 desktop-ws 两种 WebSocket transport config。"
+    },
+    {
+      "file": "src/core/ws/wsClient.ts",
+      "symbol": "WsClient",
+      "kind": "transport-client",
+      "description": "底层 WebSocket client，负责连接解析、request、stream、push、状态、心跳、重连和 namespace 注入。"
+    },
+    {
+      "file": "src/core/ws/sharedWsTransport.ts",
+      "symbol": "createSharedWsTransport",
+      "kind": "transport-factory",
+      "description": "为测试创建隔离的 shared WS transport，复用同一 endpoint 的 socket。"
+    },
+    {
+      "file": "src/core/ws/sharedWsTransport.ts",
+      "symbol": "sharedWsTransport",
+      "kind": "transport-singleton",
+      "description": "生产共享 WebSocket 单例，向 feature adapter 暴露 request、stream、push/status subscription、updateTransport 和 stop。"
+    }
+  ],
+  "dependsOn": ["core-debug-logging", "core-runtime-config"],
+  "dependedBy": ["core-api-client", "feature-chat-realtime"],
+  "stateTouches": [
+    "共享 WebSocket client 与 endpoint key",
+    "pending request / active stream maps",
+    "push 与 status subscriber sets",
+    "开发态 WS frame recorder"
+  ],
+  "relatedFlows": ["chat-receive-message", "chat-send-message"],
+  "relatedTasks": ["add-auth-login-screen", "modify-chat-realtime"],
+  "impactChecklist": [
+    "core/ws 不读取 active device profile；profile 到 transport config 的解析留在 core/api/activeWsTransport。",
+    "core/ws 不持久化 refreshed token；Desktop WS refresh 后的 profile 写入留在 core auth。",
+    "endpoint key 只包含稳定连接身份：agent-platform 的 normalized backendUrl，或 desktop-ws 的 exact wsUrl + tokenMode；不能包含 accessToken、namespace、payload 或 request type。",
+    "agent-platform 连接继续从 backend URL 推导 `/ap/ws`，默认不发送 namespace；Desktop WS 连接使用 profile 保存的 exact wsUrl，并按请求 namespace 发送 `ns`。",
+    "业务 payload 归一、chat envelope 解包、timeline 更新和 SQLite/MMKV 写入都留在 feature-chat-realtime 与 chatRepository。",
+    "开发态 `EXPO_PUBLIC_CHAT_WS_URL` 只覆盖 agent-platform 连接，不能覆盖 Desktop WS profile 的 QR endpoint。"
+  ],
+  "readNext": [
+    {
+      "type": "module",
+      "ref": "core-auth-session"
+    },
+    {
+      "type": "module",
+      "ref": "feature-chat-realtime"
+    },
+    {
+      "type": "code",
+      "ref": "src/core/ws/sharedWsTransport.ts"
+    },
+    {
+      "type": "code",
+      "ref": "src/core/ws/wsClient.ts"
+    }
+  ]
+}

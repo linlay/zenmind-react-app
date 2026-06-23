@@ -1,13 +1,15 @@
 {
   "id": "core-auth-session",
-  "title": "认证会话与设备令牌",
+  "title": "认证会话与设备 Profile",
   "layer": "core",
   "paths": ["src/core/auth"],
   "responsibility": [
-    "维护设备登录后的会话状态、设备令牌缓存、设备 profile、聊天缓存 scope 切换、冷启动恢复和前台预刷新逻辑。",
-    "提供 login、hard refresh、soft refresh、logout 和 useSyncExternalStore 订阅入口，不把认证细节散落到页面层。",
+    "维护设备登录后的会话状态、HTTP device token、Desktop WS token、设备 profile、聊天缓存 scope 切换、冷启动恢复和前台预刷新逻辑。",
+    "支持 HTTP profile 与 Desktop WS profile 两条认证 transport：HTTP 使用 /api/auth/refresh，Desktop WS 使用保存的 wsUrl/tokenMode/accessToken 和 Desktop WS auth.refresh。",
+    "提供 master password login、legacy pairing、Desktop WS v2 pairing、hard refresh、soft refresh、logout、profile 激活和 useSyncExternalStore 订阅入口，不把认证细节散落到页面层。",
+    "解析 legacy pairing JSON 与 zmpair:v2:<base64url-json> Desktop WS payload；Desktop WS 登录会短连接发送 session.hello 并校验 desktopDeviceId。",
     "在开发态通过 core-debug-logging 打印认证 HTTP 请求、响应和错误。",
-    "让 app shell 只消费认证快照，不直接处理 token 解析、持久化和刷新单飞。"
+    "让 app shell 只消费认证快照，并通过 configureAuthCacheRuntime 注入聊天缓存 scope 操作，不让 core/auth 直接 import feature 持久化实现。"
   ],
   "publicEntrypoints": [
     {
@@ -26,25 +28,49 @@
       "file": "src/core/auth/appAuth.ts",
       "symbol": "bootstrapAuth",
       "kind": "session-bootstrap",
-      "description": "冷启动时尝试用设备令牌恢复会话。"
+      "description": "冷启动时按 active profile 分支恢复会话：HTTP profile 刷新 device token，Desktop WS profile 校验 session.hello 并按需 auth.refresh。"
     },
     {
       "file": "src/core/auth/appAuth.ts",
       "symbol": "getAccessTokenForRequest",
       "kind": "token-provider",
-      "description": "给认证 API 请求获取可用 access token，支持强制刷新并在 hard 失败时清理会话。"
+      "description": "给 HTTP 认证 API 请求获取可用 access token，支持强制刷新并在 hard 失败时清理会话。"
     },
     {
       "file": "src/core/auth/appAuth.ts",
       "symbol": "ensureFreshAccessToken",
       "kind": "token-prefetch",
-      "description": "给前台保活等软刷新场景获取足够新鲜的 access token，网络失败不清理会话。"
+      "description": "按 active profile 获取足够新鲜的 access token；HTTP 使用 /api/auth/refresh，Desktop WS 使用 auth.refresh。"
     },
     {
       "file": "src/core/auth/appAuth.ts",
       "symbol": "loginWithMasterPassword",
       "kind": "login",
       "description": "用主密码为当前设备换取会话令牌。"
+    },
+    {
+      "file": "src/core/auth/appAuth.ts",
+      "symbol": "loginWithPairingPayload",
+      "kind": "login",
+      "description": "解析 legacy HTTP pairing 或 Desktop WS v2 pairing payload，并写入对应 transportKind 的设备 profile。"
+    },
+    {
+      "file": "src/core/auth/appAuth.ts",
+      "symbol": "configureAuthCacheRuntime",
+      "kind": "runtime-injection",
+      "description": "接收 app shell 注入的聊天缓存 scope 切换、目录快照清理和旧 scope 删除函数。"
+    },
+    {
+      "file": "src/core/auth/appAuth.ts",
+      "symbol": "activateProfile",
+      "kind": "profile-switch",
+      "description": "切换 active device profile，应用 profile runtime 并清空当前 session 等待 bootstrap。"
+    },
+    {
+      "file": "src/core/auth/appAuth.ts",
+      "symbol": "applyActiveDesktopWsRefreshPayload",
+      "kind": "token-persist",
+      "description": "把 Desktop WS auth.refresh 响应持久化回 active desktop-ws profile，并更新当前 session。"
     },
     {
       "file": "src/core/auth/appAuth.ts",
@@ -57,27 +83,47 @@
       "symbol": "useAuthSession",
       "kind": "store-hook",
       "description": "订阅全局认证快照，驱动根路由切换。"
+    },
+    {
+      "file": "src/core/auth/deviceProfiles.ts",
+      "symbol": "DeviceProfile",
+      "kind": "profile-model",
+      "description": "设备 profile 模型，使用 transportKind 区分 http 与 desktop-ws，并维护 cacheScopeId。"
+    },
+    {
+      "file": "src/core/auth/deviceProfiles.ts",
+      "symbol": "getActiveDeviceProfile",
+      "kind": "profile-reader",
+      "description": "读取当前 active device profile，供 auth、UI 展示和 active WS transport resolver 使用。"
+    },
+    {
+      "file": "src/core/auth/desktopWsProtocol.ts",
+      "symbol": "parsePairingPayload",
+      "kind": "protocol-helper",
+      "description": "兼容解析 legacy pairing JSON 与 zmpair:v2 Desktop WS pairing payload。"
     }
   ],
-  "dependsOn": ["core-debug-logging", "core-runtime-config", "feature-chat-persistence"],
+  "dependsOn": ["core-debug-logging", "core-runtime-config"],
   "dependedBy": ["app-shell-navigation", "core-api-client", "feature-auth-login", "feature-chat-realtime"],
   "stateTouches": [
-    "MMKV device token",
+    "MMKV legacy HTTP device token",
     "MMKV preferred device name",
-    "本机设备 profile 与聊天缓存 scope",
+    "MMKV device profile registry，包含 transportKind、Desktop WS token 与 cacheScopeId",
+    "本机设备 profile 与聊天缓存 scope runtime",
     "内存态 access token 和会话快照"
   ],
   "relatedFlows": ["app-startup", "notification-open-chat-message"],
-  "relatedTasks": ["add-auth-login-screen", "add-system-notifications"],
+  "relatedTasks": ["add-auth-login-screen", "add-system-notifications", "modify-chat-realtime"],
   "impactChecklist": [
-    "认证缓存继续只放设备令牌、设备名和内存态 session，不把业务数据下沉到 auth 模块。",
-    "设备 profile 切换或淘汰只通过 chatPersistence 暴露的 scope 边界切换/清理聊天缓存，不在 auth 内直接读写聊天业务数据。",
+    "HTTP profile 的 deviceToken 继续只服务 /api/auth/refresh；Desktop WS token 不得写入旧 auth_device_token_v1 key。",
+    "Desktop WS profile 必须保存 wsUrl、tokenMode、accessToken 和 accessExpireAtMs，并通过 session.hello 校验 desktopDeviceId。",
+    "设备 profile 切换或淘汰只通过 AppRoot 注入的 cache runtime 切换/清理聊天缓存，不在 auth 内直接 import feature-chat-persistence。",
     "是否强制登录的开关只保留一个集中入口，避免 app shell、screen 和 service 各自维护状态。",
     "如果登录页允许编辑后端地址，要同步维护本地 endpoint override 与环境变量回退顺序。",
     "根路由只根据认证快照切屏，不在 screen 里重复写会话恢复逻辑。",
-    "业务 API 需要 access token 时走 getAccessTokenForRequest，前台预刷新走 ensureFreshAccessToken，避免多个模块各自实现刷新逻辑。",
-    "hard refresh 失败必须清理 device token 和内存 session；soft refresh 失败必须保留当前 session。",
-    "修改登录接口字段时，同时检查 login、refresh 和过期时间解析逻辑。",
+    "HTTP 业务 API 需要 access token 时走 getAccessTokenForRequest；profile-agnostic 或前台预刷新场景走 ensureFreshAccessToken，避免多个模块各自实现刷新逻辑。",
+    "HTTP hard refresh 失败必须清理 device token 和内存 session；Desktop WS hard refresh 失败要区分 transport 临时失败与协议失败；soft refresh 失败必须保留当前 session。",
+    "修改登录接口、Desktop WS session.hello/auth.refresh 或过期时间字段时，同时检查 login、bootstrap、refresh 和 logout 链路。",
     "认证 HTTP 日志必须脱敏 masterPassword、deviceToken 和 accessToken。"
   ],
   "readNext": [
@@ -96,13 +142,21 @@
     {
       "type": "module",
       "ref": "feature-auth-login"
+    },
+    {
+      "type": "module",
+      "ref": "core-ws-transport"
     }
   ],
   "generated": {
-    "fileCount": 4,
+    "fileCount": 8,
     "files": [
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
+      "src/core/auth/authRequestModel.ts",
+      "src/core/auth/desktopWsProtocol.ts",
+      "src/core/auth/desktopWsTransport.ts",
+      "src/core/auth/deviceProfileModel.ts",
       "src/core/auth/deviceProfiles.ts",
       "src/core/auth/useAuthSession.ts"
     ],
@@ -113,7 +167,9 @@
         "RefreshFailureMode",
         "SessionState",
         "activateProfile",
+        "applyActiveDesktopWsRefreshPayload",
         "bootstrapAuth",
+        "configureAuthCacheRuntime",
         "ensureFreshAccessToken",
         "getAccessTokenForRequest",
         "getAuthSnapshot",
@@ -132,10 +188,49 @@
         "readStoredApiBaseUrl",
         "saveStoredApiBaseUrl"
       ],
-      "src/core/auth/deviceProfiles.ts": [
+      "src/core/auth/authRequestModel.ts": [
+        "MASTER_PASSWORD_LOGIN_PATH",
+        "MasterPasswordLoginRequest",
+        "PAIRING_CLAIM_PATH",
+        "PairingClaimRequest",
+        "buildMasterPasswordLoginRequest",
+        "buildPairingClaimRequest"
+      ],
+      "src/core/auth/desktopWsProtocol.ts": [
+        "DesktopBusinessFrame",
+        "DesktopTokenTransport",
+        "DesktopWsNamespace",
+        "DesktopWsPairingPayload",
+        "DesktopWsTokenMode",
+        "LegacyPairingPayload",
+        "PairingTargetMode",
+        "ParsedPairingPayload",
+        "applyDesktopTokenToUrl",
+        "buildDesktopBusinessFrame",
+        "buildDesktopTokenTransport",
+        "encodePairingPayloadV2",
+        "normalizeDesktopWsTokenMode",
+        "normalizeDesktopWsUrlInput",
+        "parsePairingPayload"
+      ],
+      "src/core/auth/desktopWsTransport.ts": ["normalizeDesktopWsStorageUrl", "normalizeDesktopWsTokenMode"],
+      "src/core/auth/deviceProfileModel.ts": [
+        "DesktopWsProfileTransport",
         "DeviceProfile",
+        "DeviceProfileInput",
         "DeviceProfileRegistrySnapshot",
+        "DeviceProfileTransportKind",
         "DeviceProfileWriteResult",
+        "createCacheScopeId",
+        "legacyDeviceTokenForProfile",
+        "normalizeDesktopWsProfileTransport",
+        "normalizeDeviceProfile",
+        "normalizeDeviceProfileTransportKind",
+        "normalizeDisplayName",
+        "normalizeText"
+      ],
+      "src/core/auth/deviceProfiles.ts": [
+        "clearActiveDeviceProfileAuth",
         "getActiveDeviceProfile",
         "listDeviceProfiles",
         "markActiveDeviceProfileNeedsRelink",
@@ -146,7 +241,7 @@
       ],
       "src/core/auth/useAuthSession.ts": ["useAuthSession"]
     },
-    "actualDependsOn": ["core-debug-logging", "core-runtime-config", "feature-chat-persistence"],
+    "actualDependsOn": ["core-debug-logging", "core-runtime-config"],
     "actualDependedBy": ["app-shell-navigation", "core-api-client", "feature-auth-login", "feature-chat-realtime"]
   }
 }

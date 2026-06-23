@@ -31,7 +31,7 @@ test('detail reconcile treats disconnected websocket as recoverable background w
     'const unsubscribe = chatSyncService.subscribe'
   );
 
-  assert.match(chatSyncServiceSource, /import \{ WsClientDisconnectedError \} from '\.\/wsClient'/);
+  assert.match(chatSyncServiceSource, /import \{ WsClientDisconnectedError \} from '\.\.\/\.\.\/core\/ws\/wsClient'/);
   assert.match(recoverableSource, /error instanceof WsClientDisconnectedError/);
   assert.match(detailOpenSource, /\.reconcileConversation\(/);
   assert.match(detailOpenSource, /\.catch\(\(error\) =>/);

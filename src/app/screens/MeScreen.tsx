@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getApiBaseUrl } from '../../core/api/apiClient';
 import { logoutCurrentDevice } from '../../core/auth/appAuth';
 import { isAuthRequired } from '../../core/auth/authConfig';
+import { getActiveDeviceProfile } from '../../core/auth/deviceProfiles';
 import { useAuthSession } from '../../core/auth/useAuthSession';
 import { notificationService } from '../../features/notifications/notificationService';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
@@ -32,11 +33,15 @@ function getDevelopmentDebugPanelEnabledSnapshot() {
   return getDevelopmentDebugPanelSnapshot().enabled;
 }
 
-type RowAccessory =
-  | { kind: 'badge'; label: string }
-  | { kind: 'check' }
-  | { kind: 'copy' }
-  | { kind: 'chevron' };
+function getActiveConnectionUrl(apiBaseUrl: string): string {
+  const profile = getActiveDeviceProfile();
+  if (profile?.transportKind === 'desktop-ws') {
+    return profile.desktopWs?.wsUrl || '';
+  }
+  return apiBaseUrl.trim();
+}
+
+type RowAccessory = { kind: 'badge'; label: string } | { kind: 'check' } | { kind: 'copy' } | { kind: 'chevron' };
 
 type MeRowModel = {
   key: string;
@@ -298,9 +303,11 @@ export function MeScreen() {
   const currentSession = session;
   const showLogout = authRequired && Boolean(currentSession);
   const apiBaseUrl = getApiBaseUrl();
-  const normalizedApiBaseUrl = apiBaseUrl.trim();
+  const normalizedApiBaseUrl = getActiveConnectionUrl(apiBaseUrl);
   const handleVersionPress = useDevelopmentDebugVersionTrigger();
-  const accountName = authRequired ? currentSession?.username || t('me.accountName.loggedOut') : t('common.localAccess');
+  const accountName = authRequired
+    ? currentSession?.username || t('me.accountName.loggedOut')
+    : t('common.localAccess');
   const deviceName = currentSession?.deviceName || t('common.currentDevice');
   const avatarTone = getAvatarTone(accountName);
   const sessionStateText = authRequired
@@ -473,7 +480,9 @@ export function MeScreen() {
       >
         <View style={styles.profileHero}>
           <View style={[styles.avatar, { backgroundColor: avatarTone.backgroundColor }]}>
-            <Text style={[styles.avatarText, { color: avatarTone.foregroundColor }]}>{getAvatarLabel(accountName)}</Text>
+            <Text style={[styles.avatarText, { color: avatarTone.foregroundColor }]}>
+              {getAvatarLabel(accountName)}
+            </Text>
           </View>
           <Text style={styles.profileName} numberOfLines={1}>
             {accountName}
@@ -511,7 +520,9 @@ export function MeScreen() {
             ))}
           </MeSection>
 
-          {showLogout ? <LogoutButton disabled={isSubmittingLogout} title={t('me.logout')} onPress={handleLogout} /> : null}
+          {showLogout ? (
+            <LogoutButton disabled={isSubmittingLogout} title={t('me.logout')} onPress={handleLogout} />
+          ) : null}
         </View>
       </ScrollView>
     </View>

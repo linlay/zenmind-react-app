@@ -6,6 +6,7 @@ import {
   projectRemoteHomeDirectory,
 } from '../../src/features/chatPersistence/chatDirectoryProjector.ts';
 import { canUsePlanMode } from '../../src/features/chatPersistence/agentMode.ts';
+import { createChatConversationTarget } from '../../src/features/chatPersistence/chatConversationTarget.ts';
 
 test('projects remote agents and teams into stable directory items', () => {
   const items = projectRemoteDirectory(
@@ -15,7 +16,20 @@ test('projects remote agents and teams into stable directory items', () => {
         name: 'Planner',
         icon: { name: 'flux' },
         mode: 'CODER',
-        meta: { role: 'Planning agent' },
+        meta: {
+          modelKey: 'th-minimax-m2_7-highspeed',
+          role: 'Planning agent',
+          stageSettings: {
+            execute: {
+              modelConfig: {
+                reasoning: {
+                  enabled: true,
+                  effort: 'HIGH',
+                },
+              },
+            },
+          },
+        },
         stats: { unreadCount: '2' },
       },
       {
@@ -53,6 +67,8 @@ test('projects remote agents and teams into stable directory items', () => {
   );
   assert.equal(items[0].subtitle, 'Planning agent');
   assert.equal(items[0].agentMode, 'CODER');
+  assert.equal(items[0].modelKey, 'th-minimax-m2_7-highspeed');
+  assert.equal(items[0].reasoningEffort, 'HIGH');
   assert.equal(canUsePlanMode(items[0].agentMode), true);
   assert.equal(canUsePlanMode(' coder '), true);
   assert.deepEqual(items[0].icon, { name: 'flux', color: null, uri: null });
@@ -65,7 +81,19 @@ test('projects remote agents and teams into stable directory items', () => {
   assert.deepEqual(items[2].icon, { name: null, color: '#2f6df6', uri: null });
   assert.equal(items[2].defaultAgentKey, 'planner');
   assert.equal(items[2].agentMode, null);
+  assert.equal(items[2].modelKey, 'th-minimax-m2_7-highspeed');
+  assert.equal(items[2].reasoningEffort, 'HIGH');
   assert.equal(items[2].subtitle, '默认 planner');
+  assert.deepEqual(createChatConversationTarget(items[0]), {
+    kind: 'agent',
+    title: 'Planner',
+    subtitle: 'Planning agent',
+    agentKey: 'planner',
+    teamId: null,
+    agentMode: 'CODER',
+    modelKey: 'th-minimax-m2_7-highspeed',
+    reasoningEffort: 'HIGH',
+  });
 });
 
 test('projects chat summaries into latest directory conversations without duplicating message text', () => {

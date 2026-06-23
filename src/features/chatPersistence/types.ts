@@ -22,6 +22,8 @@ export type ChatConversationHistoryScope = {
   teamId: string | null;
 };
 
+export type ChatReasoningEffort = 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
+
 export type ChatConversationTarget = {
   kind: ChatDirectoryKind;
   title: string;
@@ -29,6 +31,8 @@ export type ChatConversationTarget = {
   agentKey: string | null;
   teamId: string | null;
   agentMode: string | null;
+  modelKey: string | null;
+  reasoningEffort: ChatReasoningEffort | null;
 };
 
 export type ChatConversationHistoryPage = {
@@ -55,6 +59,8 @@ export type ChatDirectoryItem = {
   teamId: string | null;
   defaultAgentKey: string | null;
   agentMode: string | null;
+  modelKey: string | null;
+  reasoningEffort: ChatReasoningEffort | null;
   latestConversationId: string | null;
   lastMessageText: string;
   lastMessageAt: number;

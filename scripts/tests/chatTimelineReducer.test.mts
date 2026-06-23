@@ -110,11 +110,12 @@ test('timeline reducer replays mixed chat events into one flat ordered state', (
     {
       type: 'usage.snapshot',
       runId: 'run-1',
-      model: { key: 'gpt-5-mini' },
       contextWindow: {
         currentSize: 14,
         maxSize: 100,
         estimatedNextCallSize: 18,
+        modelKey: 'gpt-5-mini',
+        reasoningEffort: 'MEDIUM',
       },
       usage: {
         current: {
@@ -181,6 +182,7 @@ test('timeline reducer replays mixed chat events into one flat ordered state', (
   assert.equal(runtime.usageLabel, '输入 10 · 输出 4 · 总计 14');
   assert.equal(state.usageSummary?.modelKey, 'gpt-5-mini');
   assert.equal(state.usageSummary?.contextWindow.percent, 14);
+  assert.equal(state.usageSummary?.contextWindow.reasoningEffort, 'MEDIUM');
   assert.equal(state.usageSummary?.current.reasoningTokens, 1);
   assert.equal(state.usageSummary?.chat.cacheHitTokens, 2);
   assert.deepEqual(

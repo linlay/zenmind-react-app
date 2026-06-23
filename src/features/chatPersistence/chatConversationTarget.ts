@@ -1,5 +1,6 @@
 import type { ChatConversationTarget, ChatDirectoryKind } from './types';
 import { normalizeAgentMode } from './agentMode.ts';
+import { normalizeChatReasoningEffort } from './agentModelSettings.ts';
 
 type ChatConversationTargetSource = {
   kind: ChatDirectoryKind | string;
@@ -9,6 +10,8 @@ type ChatConversationTargetSource = {
   teamId?: string | null;
   defaultAgentKey?: string | null;
   agentMode?: string | null;
+  modelKey?: string | null;
+  reasoningEffort?: string | null;
 };
 
 function normalizeText(value: string | null | undefined): string {
@@ -37,6 +40,8 @@ export function createChatConversationTarget(
     subtitle: normalizeText(source.subtitle),
     agentKey,
     teamId,
-    agentMode: normalizeAgentMode(source.agentMode)
+    agentMode: normalizeAgentMode(source.agentMode),
+    modelKey: normalizeKey(source.modelKey),
+    reasoningEffort: normalizeChatReasoningEffort(source.reasoningEffort)
   };
 }

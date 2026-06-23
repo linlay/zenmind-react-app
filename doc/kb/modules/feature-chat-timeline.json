@@ -176,6 +176,7 @@
         "patchChatTimelineMessage",
         "projectTimelineMessages",
         "projectTimelineRuntimeState",
+        "resolveChatTimelineUsageModelKey",
         "serializeChatTimelineState",
         "timelinePersistenceInternals"
       ],
@@ -265,7 +266,8 @@
       "src/features/chatTimeline/usageSummary.ts": [
         "buildChatTimelineUsageSummary",
         "buildChatTimelineUsageSummaryFromLabel",
-        "chatTimelineUsageSummaryEquals"
+        "chatTimelineUsageSummaryEquals",
+        "resolveChatTimelineUsageModelKey"
       ]
     },
     "actualDependsOn": ["core-api-client", "feature-chat-persistence"],

@@ -265,7 +265,7 @@
     "shared-visual-foundation",
     "shared-screen-header"
   ],
-  "dependedBy": ["app-shell-navigation", "core-auth-session", "feature-chat-realtime", "feature-chat-timeline"],
+  "dependedBy": ["app-shell-navigation", "feature-chat-realtime", "feature-chat-timeline"],
   "stateTouches": [
     "SQLite 数据库 zenmind-chat-demo.db（legacy scope 历史兼容文件名；新 profile scope 使用 zenmind-chat-<scope>.db）",
     "Drizzle chat_directory_items 表，其中 pinned_at 是 Chat 首页目录置顶真源，sort_rank 是最近消息时间相同或缺失时的稳定兜底，latest_conversation_id 指向该目录项最新会话摘要，icon_name/icon_color/icon_uri 是 agent/team 目录头像展示字段",
@@ -352,11 +352,12 @@
     }
   ],
   "generated": {
-    "fileCount": 53,
+    "fileCount": 54,
     "files": [
       "src/features/chatPersistence/ChatDetailScreen.tsx",
       "src/features/chatPersistence/ChatHomeScreen.tsx",
       "src/features/chatPersistence/agentMode.ts",
+      "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
@@ -412,6 +413,11 @@
       "src/features/chatPersistence/ChatDetailScreen.tsx": ["ChatDetailScreen"],
       "src/features/chatPersistence/ChatHomeScreen.tsx": ["ChatHomeScreen"],
       "src/features/chatPersistence/agentMode.ts": ["canUsePlanMode", "normalizeAgentMode"],
+      "src/features/chatPersistence/agentModelSettings.ts": [
+        "AgentModelSettings",
+        "normalizeChatReasoningEffort",
+        "resolveAgentModelSettings"
+      ],
       "src/features/chatPersistence/cacheScope.ts": [
         "CHAT_LEGACY_CACHE_SCOPE_ID",
         "buildChatDatabaseName",
@@ -713,6 +719,7 @@
         "ChatMessageStatus",
         "ChatMessageStreamStatus",
         "ChatReadState",
+        "ChatReasoningEffort",
         "PendingOutboxMessage",
         "ServerMessageDetail"
       ],
@@ -738,6 +745,6 @@
       "shared-screen-header",
       "shared-visual-foundation"
     ],
-    "actualDependedBy": ["app-shell-navigation", "core-auth-session", "feature-chat-realtime", "feature-chat-timeline"]
+    "actualDependedBy": ["app-shell-navigation", "feature-chat-realtime", "feature-chat-timeline"]
   }
 }

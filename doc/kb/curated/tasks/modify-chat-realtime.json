@@ -13,6 +13,10 @@
     },
     {
       "type": "module",
+      "ref": "core-ws-transport"
+    },
+    {
+      "type": "module",
       "ref": "feature-chat-timeline"
     },
     {
@@ -37,7 +41,11 @@
     },
     {
       "type": "code",
-      "ref": "src/features/chatRealtime/wsClient.ts"
+      "ref": "src/core/ws/wsClient.ts"
+    },
+    {
+      "type": "code",
+      "ref": "src/core/ws/sharedWsTransport.ts"
     },
     {
       "type": "code",
@@ -51,7 +59,10 @@
   "likelyFiles": [
     "src/features/chatRealtime/chatSyncService.ts",
     "src/features/chatRealtime/chatWsTransport.ts",
-    "src/features/chatRealtime/wsClient.ts",
+    "src/core/api/activeWsTransport.ts",
+    "src/core/ws/sharedWsTransport.ts",
+    "src/core/ws/wsClient.ts",
+    "src/core/ws/wsTransportConfig.ts",
     "src/features/chatRealtime/routing.ts",
     "src/features/chatRealtime/runtimeState.ts",
     "src/features/chatRealtime/types.ts",
@@ -69,7 +80,9 @@
     "src/core/api/services/chatEventProtocol.ts"
   ],
   "doNotMiss": [
-    "transport 层只负责 /ap/ws 连接和帧处理，业务落库继续走 chatSyncService 和 chatRepository。",
+    "底层 transport 只负责 AP/Desktop WS 连接、namespace 和帧处理；聊天协议 adapter 留在 chatWsTransport，业务落库继续走 chatSyncService 和 chatRepository。",
+    "profile 到 transport config 的解析走 core/api/activeWsTransport；core/ws 不读取 active profile、不持久化 token。",
+    "Desktop WS profile 的 AP 请求必须用 exact wsUrl + ns='ap'；auth.expiring ns='d' 只触发 auth.refresh 和 core auth profile 更新。",
     "正式路径不再把无 URL 当 mock fallback；开发态 override 通过 EXPO_PUBLIC_CHAT_WS_URL。",
     "bootstrap 和 reconnect 时的 outbox replay 不要被误删，pending 消息的 planningMode true-only 发送选项不能丢失。",
     "summary push、chat.read、chat.unread、chat.read_all 只改 repository 真源和目录投影，不在 sync service 内维护第二套最新消息；chat.updated 有新最后消息但缺失 unread 字段时，非 active conversation 默认置为未读，active conversation 只发起单会话 single-flight 服务端已读确认。",
@@ -89,7 +102,7 @@
     "收到 awaiting / reasoning / planning / tool / artifact / plan/task / usage/context 事件时，详情页 timeline 区域会实时更新；reconcile 后重新打开同会话也能按 /ap/ws /api/chat detail events 重建。",
     "收到 awaiting question/approval/form/plan 事件时，详情页展示贴底交互组件；question 输入、approval 决策、plan 决策和 form HTML viewport 都能生成紧凑 submit params，提交成功后本地 timeline 先出现 awaiting.answer，并等待后续 WS/reconcile 接管。",
     "收到 chat.deleted 或 chat.archived 后，会话详情会清空并提示不可用，首页目录投影同步刷新。",
-    "WS 连接失败、重连和单会话 reconcile 路径都仍可工作。",
+    "WS 连接失败、重连和单会话 reconcile 路径都仍可工作；同 endpoint token/namespace 变化不能额外创建 socket。",
     "详情页不会因其他会话的 outgoing、ack、incoming 或 stream 事件而重复查询 SQLite；首页普通 home.item.patch 不会回读整页目录切片。",
     "空新对话首次进入对应 agent 时最多自动请求一次 /api/agent，后续同 App 生命周期内再次进入直接用内存结果；请求失败或无 wonders 时仍展示与 agentName 对话。",
     "详情页输入区无内容显示灰色发送 disabled，有内容显示蓝色发送，运行中显示红色停止，终止后头部回到空闲且输入区回到初始发送态；连续点击终止不会重复触发同一会话 interrupt，也不会让回复底部 duration 抖动；这些状态从 ChatTimelineState 派生。"

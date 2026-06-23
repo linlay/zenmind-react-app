@@ -37,28 +37,29 @@
     },
     {
       "type": "code",
-      "ref": "src/features/chatRealtime/wsClient.ts"
+      "ref": "src/core/ws/wsClient.ts"
     }
   ],
   "likelyFiles": [
     "src/app/debug/DevelopmentDebugPanelHost.tsx",
     "src/core/api/apiClient.ts",
     "src/core/config/runtimeEnv.ts",
+    "src/core/ws/wsClient.ts",
     "src/features/chatRealtime/chatWsTransport.ts",
-    "src/features/chatRealtime/wsClient.ts"
+    "src/core/api/activeWsTransport.ts"
   ],
   "doNotMiss": [
-    "改变量名时同时检查 REST、WebSocket 和开发态调试面板。",
-    "getApiBaseUrl 的归一化逻辑和 /ap/ws 推导逻辑要继续兼容空值。",
+    "改变量名时同时检查 REST、HTTP profile WebSocket 和开发态调试面板；Desktop WS profile 的 wsUrl 来自 pairing profile。",
+    "getApiBaseUrl 的归一化逻辑和 HTTP profile /ap/ws 推导逻辑要继续兼容空值。",
     "读取层保持 string 返回，空值分支由调用方处理。"
   ],
   "acceptanceChecks": [
     "API base URL 仍能正确归一化，空值时报错行为不变。",
-    "WS URL 显式配置和从 API base URL 推导两条路径都仍正确。",
+    "HTTP profile 的 WS URL 显式配置和从 API base URL 推导两条路径都仍正确；Desktop WS profile 不被 EXPO_PUBLIC_CHAT_WS_URL 覆盖。",
     "开发态调试面板展示的 API Base URL 与真实读取结果一致。"
   ],
   "generated": {
     "mustReadCount": 8,
-    "likelyFileCount": 5
+    "likelyFileCount": 6
   }
 }

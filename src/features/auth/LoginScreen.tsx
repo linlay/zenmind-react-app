@@ -30,6 +30,10 @@ import { useT } from '../../shared/i18n';
 import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens } from '../../shared/visual/foundation';
 
+function getDeviceProfileEndpoint(profile: DeviceProfile): string {
+  return profile.transportKind === 'desktop-ws' ? profile.desktopWs?.wsUrl || 'Desktop WS' : profile.apiBaseUrl;
+}
+
 export function AuthBootstrapScreen() {
   const t = useT();
   const { theme } = useAppTheme();
@@ -66,7 +70,9 @@ export function LoginScreen() {
   const normalizedEndpoint = useMemo(() => normalizeApiBaseUrl(endpointDraft), [endpointDraft]);
   const normalizedDeviceName = useMemo(() => String(deviceName || '').trim(), [deviceName]);
   const normalizedPassword = useMemo(() => String(masterPassword || '').trim(), [masterPassword]);
-  const recentProfiles = listDeviceProfiles().filter((profile) => !profile.needsRelink).slice(0, 3);
+  const recentProfiles = listDeviceProfiles()
+    .filter((profile) => !profile.needsRelink)
+    .slice(0, 3);
   const canSubmit =
     loginMode === 'pairing'
       ? Boolean(normalizedDeviceName && !isSubmitting)
@@ -246,12 +252,7 @@ export function LoginScreen() {
                   pressed ? styles.modeTabPressed : null
                 ]}
               >
-                <Text
-                  style={[
-                    styles.modeTabText,
-                    loginMode === 'pairing' ? styles.modeTabTextActive : null
-                  ]}
-                >
+                <Text style={[styles.modeTabText, loginMode === 'pairing' ? styles.modeTabTextActive : null]}>
                   {t('auth.mode.pairing')}
                 </Text>
               </Pressable>
@@ -263,12 +264,7 @@ export function LoginScreen() {
                   pressed ? styles.modeTabPressed : null
                 ]}
               >
-                <Text
-                  style={[
-                    styles.modeTabText,
-                    loginMode === 'manual' ? styles.modeTabTextActive : null
-                  ]}
-                >
+                <Text style={[styles.modeTabText, loginMode === 'manual' ? styles.modeTabTextActive : null]}>
                   {t('auth.mode.manual')}
                 </Text>
               </Pressable>
@@ -292,7 +288,7 @@ export function LoginScreen() {
                       {profile.displayName}
                     </Text>
                     <Text style={styles.recentProfileMeta} numberOfLines={1}>
-                      {profile.apiBaseUrl}
+                      {getDeviceProfileEndpoint(profile)}
                     </Text>
                   </Pressable>
                 ))}

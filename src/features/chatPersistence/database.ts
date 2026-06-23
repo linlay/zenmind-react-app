@@ -18,6 +18,7 @@ const RICH_TIMELINE_SCHEMA_VERSION = 2;
 const CHAT_DIRECTORY_ICON_SCHEMA_VERSION = 3;
 const MESSAGE_ATTACHMENTS_SCHEMA_VERSION = 4;
 const CHAT_QUERY_INDEX_SCHEMA_VERSION = 6;
+const CHAT_DIRECTORY_MODEL_SETTINGS_SCHEMA_VERSION = 7;
 let initialized = false;
 
 export function switchChatDatabaseScope(scopeId: string) {
@@ -107,6 +108,8 @@ export async function ensureChatDatabase() {
       team_id TEXT,
       default_agent_key TEXT,
       agent_mode TEXT,
+      model_key TEXT,
+      reasoning_effort TEXT,
       latest_conversation_id TEXT
     );
 
@@ -275,6 +278,18 @@ export async function ensureChatDatabase() {
   }
 
   try {
+    sqlite.execSync('ALTER TABLE chat_directory_items ADD COLUMN model_key TEXT;');
+  } catch (error) {
+    ignoreDuplicateColumn(error);
+  }
+
+  try {
+    sqlite.execSync('ALTER TABLE chat_directory_items ADD COLUMN reasoning_effort TEXT;');
+  } catch (error) {
+    ignoreDuplicateColumn(error);
+  }
+
+  try {
     sqlite.execSync('ALTER TABLE outbox_messages ADD COLUMN planning_mode INTEGER NOT NULL DEFAULT 0;');
   } catch (error) {
     ignoreDuplicateColumn(error);
@@ -381,6 +396,10 @@ export async function ensureChatDatabase() {
 
   if (getDatabaseUserVersion() < CHAT_QUERY_INDEX_SCHEMA_VERSION) {
     sqlite.execSync(`PRAGMA user_version = ${CHAT_QUERY_INDEX_SCHEMA_VERSION};`);
+  }
+
+  if (getDatabaseUserVersion() < CHAT_DIRECTORY_MODEL_SETTINGS_SCHEMA_VERSION) {
+    sqlite.execSync(`PRAGMA user_version = ${CHAT_DIRECTORY_MODEL_SETTINGS_SCHEMA_VERSION};`);
   }
 
   initialized = true;

@@ -1,19 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  DefaultTheme,
-  NavigationContainer,
-  createNavigationContainerRef,
-} from '@react-navigation/native';
+import { DefaultTheme, NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { AppState, StatusBar, StyleSheet, View } from 'react-native';
 
 import { getApiBaseUrl } from '../core/api/apiClient';
-import { bootstrapAuth, ensureFreshAccessToken } from '../core/auth/appAuth';
+import { bootstrapAuth, configureAuthCacheRuntime, ensureFreshAccessToken } from '../core/auth/appAuth';
 import { isAuthRequired } from '../core/auth/authConfig';
 import { useAuthSession } from '../core/auth/useAuthSession';
-import {
-  ChatNotificationPayload,
-  notificationService,
-} from '../features/notifications/notificationService';
+import { deleteChatDatabaseScope, switchChatDatabaseScope } from '../features/chatPersistence/database';
+import { clearChatDirectorySnapshotForScope } from '../features/chatPersistence/homeSnapshot';
+import { ChatNotificationPayload, notificationService } from '../features/notifications/notificationService';
 import { chatSyncService } from '../features/chatRealtime/chatSyncService';
 import { useAppTheme } from '../shared/visual/AppThemeProvider';
 import type { AppThemeTokens } from '../shared/visual/foundation';
@@ -31,6 +26,12 @@ const PREFRESH_JITTER_MS = 8_000;
 const ACTIVE_REFRESH_DEBOUNCE_MS = 20_000;
 const FOREGROUND_REFRESH_INTERVAL_MS = 60_000;
 
+configureAuthCacheRuntime({
+  switchScope: switchChatDatabaseScope,
+  clearDirectorySnapshotForScope: clearChatDirectorySnapshotForScope,
+  deleteScope: deleteChatDatabaseScope
+});
+
 function createNavigationTheme(theme: AppThemeTokens) {
   return {
     ...DefaultTheme,
@@ -42,8 +43,8 @@ function createNavigationTheme(theme: AppThemeTokens) {
       card: theme.colors.surface,
       text: theme.colors.textPrimary,
       border: theme.colors.line,
-      notification: theme.colors.badge,
-    },
+      notification: theme.colors.badge
+    }
   };
 }
 
@@ -69,9 +70,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
   const hasSession = Boolean(session);
   const sessionUsername = session?.username || '';
   const sessionDeviceId = session?.deviceId || '';
-  const sessionIdentityKey = sessionDeviceId
-    ? JSON.stringify([apiBaseUrl, sessionUsername, sessionDeviceId])
-    : '';
+  const sessionIdentityKey = sessionDeviceId ? JSON.stringify([apiBaseUrl, sessionUsername, sessionDeviceId]) : '';
   const sessionAccessToken = session?.accessToken || '';
   const [isNavigationReady, setIsNavigationReady] = useState(false);
   const [currentRouteName, setCurrentRouteName] = useState<string | null>(null);
@@ -89,7 +88,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
       navigationRef.navigate('ChatDetail', {
         conversationId: payload.conversationId,
         serverMessageId: payload.serverMessageId,
-        fromNotification: true,
+        fromNotification: true
       });
     },
     [authRequired, hasSession]
@@ -108,7 +107,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
     return ensureFreshAccessToken(apiBaseUrl, {
       minValidityMs: PREFRESH_MIN_VALIDITY_MS,
       jitterMs: PREFRESH_JITTER_MS,
-      failureMode: 'soft',
+      failureMode: 'soft'
     });
   }, [apiBaseUrl, authRequired, hasSession, isBootstrapping]);
 
@@ -131,10 +130,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
       const previousState = appStateRef.current;
       appStateRef.current = nextState;
 
-      if (
-        (previousState === 'background' || previousState === 'inactive') &&
-        nextState === 'active'
-      ) {
+      if ((previousState === 'background' || previousState === 'inactive') && nextState === 'active') {
         const now = Date.now();
         if (now - lastActiveRefreshAtRef.current < ACTIVE_REFRESH_DEBOUNCE_MS) {
           return;
@@ -186,12 +182,14 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
       return;
     }
 
-    notificationService.registerForSession({
-      username: sessionUsername,
-      deviceId: sessionDeviceId,
-    }).catch(() => {
-      // Push token registration is best-effort and must not block app startup.
-    });
+    notificationService
+      .registerForSession({
+        username: sessionUsername,
+        deviceId: sessionDeviceId
+      })
+      .catch(() => {
+        // Push token registration is best-effort and must not block app startup.
+      });
     chatSyncService.start().catch(() => {
       // Real-time bootstrap is best-effort; SQLite still serves the current UI.
     });
@@ -210,8 +208,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
   }, [authRequired, isBootstrapping, sessionAccessToken, sessionIdentityKey]);
 
   useEffect(() => {
-    const canRouteNotification =
-      isNavigationReady && (!authRequired || (!isBootstrapping && hasSession));
+    const canRouteNotification = isNavigationReady && (!authRequired || (!isBootstrapping && hasSession));
     if (!canRouteNotification || !pendingNotificationPayloadRef.current) {
       return;
     }
@@ -240,15 +237,13 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
       >
         <RootNavigator />
       </NavigationContainer>
-      {showDevelopmentDebugPanel ? (
-        <DevelopmentDebugPanelHost isChatDetailRoute={isChatDetailRoute} />
-      ) : null}
+      {showDevelopmentDebugPanel ? <DevelopmentDebugPanelHost isChatDetailRoute={isChatDetailRoute} /> : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-  },
+    flex: 1
+  }
 });

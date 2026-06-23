@@ -1,5 +1,6 @@
-import { ApiError, getApiBaseUrl } from '../../core/api/apiClient';
-import { getAccessTokenForRequest } from '../../core/auth/appAuth';
+import { ApiError } from '../../core/api/apiClient';
+import { resolveActiveWsTransportConfig } from '../../core/api/activeWsTransport';
+import { applyActiveDesktopWsRefreshPayload } from '../../core/auth/appAuth';
 import {
   CHAT_DETAIL_TRANSPORT_TYPE,
   CHAT_AGENT_DETAIL_TRANSPORT_TYPE,
@@ -19,7 +20,7 @@ import {
   type RemoteChatDetail,
   type RemoteChatSummary,
   type SubmitAwaitingResponse,
-  unwrapChatApiEnvelope,
+  unwrapChatApiEnvelope
 } from '../../core/api/services/chatApi';
 import {
   appendAssistantDelta,
@@ -44,28 +45,25 @@ import {
   replaceChatHomeProjection,
   setConversationActiveRunId,
   setConversationReadStateLocal,
-  upsertProjectedMessage,
+  upsertProjectedMessage
 } from '../chatPersistence/chatRepository';
 import { hasChatReadStateInput, normalizeChatReadState } from '../chatPersistence/chatReadState';
 import {
   projectRemoteHomeDirectory,
   type RemoteAgent,
-  type RemoteTeam,
+  type RemoteTeam
 } from '../chatPersistence/chatDirectoryProjector';
-import {
-  projectRemoteChatDetail,
-  projectRemoteChatSummary,
-} from '../chatPersistence/chatProjector';
+import { projectRemoteChatDetail, projectRemoteChatSummary } from '../chatPersistence/chatProjector';
 import {
   createMessageAttachmentsFromReferences,
   formatChatAttachmentsMessageText,
-  normalizeChatAttachmentReferences,
+  normalizeChatAttachmentReferences
 } from '../chatPersistence/chatAttachmentModels';
 import type {
   ChatComposerAttachment,
   ChatHomeItem,
   ChatMessageAttachment,
-  ChatMessageItem,
+  ChatMessageItem
 } from '../chatPersistence/types';
 import {
   buildAssistantMessageId,
@@ -79,7 +77,7 @@ import {
   extractTitle,
   normalizeEventType,
   toFiniteNumber,
-  toText,
+  toText
 } from './routing';
 import {
   attachChatRun,
@@ -89,9 +87,11 @@ import {
   stopChatPushTransport,
   streamChatQuery,
   updateChatTransportAuth,
+  type ChatTransportConfig
 } from './chatWsTransport';
 import { ChatHomeItemPatch, ChatSocketStatus, ChatSyncEvent, ChatSyncReason } from './types';
-import { WsClientDisconnectedError } from './wsClient';
+import { WsClientDisconnectedError } from '../../core/ws/wsClient';
+import { sharedWsTransport } from '../../core/ws/sharedWsTransport';
 import {
   applyChatTimelineLocalCancel,
   applyChatTimelineEvent,
@@ -102,7 +102,7 @@ import {
   mergeChatTimelineState,
   patchChatTimelineMessage,
   projectTimelineMessages,
-  projectTimelineRuntimeState,
+  projectTimelineRuntimeState
 } from '../chatTimeline/index.ts';
 import type { ChatTimelineState } from '../chatTimeline/index.ts';
 
@@ -210,7 +210,7 @@ function buildFallbackSummary(summary: ChatHomeItem | null) {
     lastRunContent: summary.lastMessageText,
     updatedAt: summary.lastMessageAt,
     read: summary.read,
-    unreadRunCount: summary.unreadCount,
+    unreadRunCount: summary.unreadCount
   };
 }
 
@@ -257,7 +257,7 @@ function buildInterruptChatPayload(input: {
     runId: toText(input.runId),
     ...(agentKey ? { agentKey } : {}),
     ...(teamId ? { teamId } : {}),
-    message: '',
+    message: ''
   };
 }
 
@@ -282,11 +282,7 @@ function isApiStatusError(error: unknown, status: number): boolean {
 }
 
 function isRecoverableReconcileError(error: unknown): boolean {
-  return (
-    error instanceof WsClientDisconnectedError ||
-    isApiStatusError(error, 401) ||
-    isApiStatusError(error, 404)
-  );
+  return error instanceof WsClientDisconnectedError || isApiStatusError(error, 401) || isApiStatusError(error, 404);
 }
 
 function isInactiveInterruptResponse(response: InterruptChatResponse | null | undefined): boolean {
@@ -298,10 +294,7 @@ function isInactiveInterruptResponse(response: InterruptChatResponse | null | un
   const detail = toText(response.detail).toLowerCase();
   return (
     status === 'unmatched' &&
-    (!detail ||
-      detail.includes('no longer active') ||
-      detail.includes('not active') ||
-      detail.includes('inactive'))
+    (!detail || detail.includes('no longer active') || detail.includes('not active') || detail.includes('inactive'))
   );
 }
 
@@ -386,11 +379,7 @@ function findTimelineAwaitingAgentKey(state: ChatTimelineState, runId: string): 
 
   for (const nodeId of state.orderedNodeIds) {
     const node = state.nodesById[nodeId];
-    if (
-      node?.kind === 'awaiting' &&
-      node.runId === runId &&
-      node.interactive
-    ) {
+    if (node?.kind === 'awaiting' && node.runId === runId && node.interactive) {
       return toText(node.interactive.agentKey);
     }
   }
@@ -434,6 +423,7 @@ class ChatSyncService {
   private attachTokenSeq = 0;
   private hasConnectedOnce = false;
   private agentDetailCacheVersion = 0;
+  private activeTransportConfig: ChatTransportConfig | null = null;
 
   getStatus() {
     return this.status;
@@ -483,10 +473,7 @@ class ChatSyncService {
       return createChatTimelineState('');
     }
 
-    return (
-      this.timelineStates.get(normalizedConversationId) ??
-      createChatTimelineState(normalizedConversationId)
-    );
+    return this.timelineStates.get(normalizedConversationId) ?? createChatTimelineState(normalizedConversationId);
   }
 
   getAgentDetailSnapshot(agentKey: string): AgentDetailSnapshot | null {
@@ -531,7 +518,7 @@ class ChatSyncService {
 
     this.locallyTerminatedRuns.set(normalizedConversationId, {
       runId: normalizedRunId,
-      terminatedAt: Date.now(),
+      terminatedAt: Date.now()
     });
   }
 
@@ -543,7 +530,7 @@ class ChatSyncService {
 
     this.stoppingConversations.set(normalizedConversationId, {
       runId: toText(runId),
-      startedAt: Date.now(),
+      startedAt: Date.now()
     });
   }
 
@@ -625,7 +612,7 @@ class ChatSyncService {
     this.listeners.add(listener);
     listener({
       type: 'connection.status',
-      status: this.status,
+      status: this.status
     });
 
     return () => {
@@ -660,6 +647,34 @@ class ChatSyncService {
     }
   }
 
+  private async refreshDesktopTransportAuth() {
+    const config = this.activeTransportConfig;
+    if (!config || config.kind !== 'desktop-ws') {
+      await this.refreshAuth();
+      return;
+    }
+
+    try {
+      const payload = await requestChatTransport<unknown>({
+        ...config,
+        namespace: 'd',
+        type: 'auth.refresh'
+      });
+      const nextToken = applyActiveDesktopWsRefreshPayload(payload);
+      if (!nextToken) {
+        await this.refreshAuth();
+        return;
+      }
+      const nextConfig = await resolveActiveWsTransportConfig('ap');
+      if (nextConfig) {
+        this.activeTransportConfig = nextConfig;
+        updateChatTransportAuth(nextConfig);
+      }
+    } catch {
+      await this.refreshAuth();
+    }
+  }
+
   async prewarmHome() {
     await prewarmChatHomeDirectory();
   }
@@ -669,7 +684,9 @@ class ChatSyncService {
     this.agentDetailCacheVersion += 1;
     this.started = false;
     this.hasConnectedOnce = false;
+    this.activeTransportConfig = null;
     stopChatPushTransport();
+    sharedWsTransport.stop();
     this.clearTransientWork();
     this.setStatus('disconnected');
   }
@@ -745,7 +762,7 @@ class ChatSyncService {
     }
 
     void this.requestConversationReadConfirmation(normalizedConversationId, {
-      onlyIfUnread: true,
+      onlyIfUnread: true
     });
     void this.attachActiveConversationRun(normalizedConversationId, 'attach');
   }
@@ -765,16 +782,16 @@ class ChatSyncService {
       const [remoteAgents, remoteTeams, remoteChats] = await Promise.all([
         requestChatTransport<RemoteAgent[]>({
           ...config,
-          type: '/api/agents',
+          type: '/api/agents'
         }),
         requestChatTransport<RemoteTeam[]>({
           ...config,
-          type: '/api/teams',
+          type: '/api/teams'
         }),
         requestChatTransport<RemoteChatSummary[]>({
           ...config,
-          type: CHAT_SUMMARIES_TRANSPORT_TYPE,
-        }),
+          type: CHAT_SUMMARIES_TRANSPORT_TYPE
+        })
       ]);
       if (!this.isLifecycleCurrent(lifecycleVersion)) {
         return;
@@ -783,7 +800,7 @@ class ChatSyncService {
       const projection = projectRemoteHomeDirectory({
         agents: Array.isArray(remoteAgents) ? remoteAgents : [],
         teams: Array.isArray(remoteTeams) ? remoteTeams : [],
-        chats: Array.isArray(remoteChats) ? remoteChats : [],
+        chats: Array.isArray(remoteChats) ? remoteChats : []
       });
       await replaceChatHomeProjection(projection);
       if (!this.isLifecycleCurrent(lifecycleVersion)) {
@@ -791,7 +808,7 @@ class ChatSyncService {
       }
 
       this.emit({
-        type: 'home.directory.replace',
+        type: 'home.directory.replace'
       });
     })().finally(() => {
       this.homeRefreshPromise = null;
@@ -810,18 +827,18 @@ class ChatSyncService {
     const result = await markConversationReadScopeLocal({
       agentKey: agentKey || null,
       teamId: teamId || null,
-      activeConversationId: this.activeConversationId,
+      activeConversationId: this.activeConversationId
     });
     if (result.directoryChanged) {
       this.emit({
-        type: 'home.directory.replace',
+        type: 'home.directory.replace'
       });
     }
 
     try {
       await this.markChatReadViaTransport({
         ...(agentKey ? { agentKey } : {}),
-        ...(teamId ? { teamId } : {}),
+        ...(teamId ? { teamId } : {})
       });
     } catch {
       await this.refreshHome('manual_refresh');
@@ -841,15 +858,10 @@ class ChatSyncService {
     }
 
     const currentAwaiting = this.getConversationTimelineState(normalizedConversationId).awaiting;
-    const matchesCurrentAwaiting =
-      currentAwaiting?.awaitingId === awaitingId || currentAwaiting?.id === awaitingId;
+    const matchesCurrentAwaiting = currentAwaiting?.awaitingId === awaitingId || currentAwaiting?.id === awaitingId;
     const scopedAgentKey =
-      matchesCurrentAwaiting && currentAwaiting?.interactive
-        ? currentAwaiting.interactive.agentKey || ''
-        : '';
-    const historyScope = scopedAgentKey
-      ? null
-      : await getConversationHistoryScope(normalizedConversationId);
+      matchesCurrentAwaiting && currentAwaiting?.interactive ? currentAwaiting.interactive.agentKey || '' : '';
+    const historyScope = scopedAgentKey ? null : await getConversationHistoryScope(normalizedConversationId);
     const agentKey = scopedAgentKey || historyScope?.agentKey || '';
     if (!agentKey) {
       throw new Error('agentKey is required for awaiting submit');
@@ -864,7 +876,7 @@ class ChatSyncService {
           agentKey,
           awaitingId,
           submitId: createAwaitingSubmitId(),
-          params: payload.params,
+          params: payload.params
         })
       )) || {};
     const accepted = Boolean(response.accepted ?? true);
@@ -887,7 +899,7 @@ class ChatSyncService {
         awaitingId,
         runId,
         params: payload.params,
-        timestamp: Date.now(),
+        timestamp: Date.now()
       },
       'awaiting_submit',
       true
@@ -918,20 +930,15 @@ class ChatSyncService {
     this.clearLocalTerminatedRun(normalizedConversationId);
     this.clearStoppingConversation(normalizedConversationId);
 
-    const created = await createOutgoingMessage(
-      normalizedConversationId,
-      normalizedContent,
-      attachments,
-      {
-        planningMode: options.planningMode === true,
-      }
-    );
+    const created = await createOutgoingMessage(normalizedConversationId, normalizedContent, attachments, {
+      planningMode: options.planningMode === true
+    });
     const currentSummary = await getConversationDetail(normalizedConversationId);
     this.emit({
       type: 'conversation.message.insert',
       conversationId: normalizedConversationId,
       reason: 'local_send',
-      message: created.message,
+      message: created.message
     });
     this.publishTimelineMessage(created.message, 'local_send');
     await this.emitHomePatchFromSummary(
@@ -943,10 +950,10 @@ class ChatSyncService {
         unreadCount: 0,
         read: normalizeChatReadState({ read: { isRead: true } }),
         lastMessageStatus: 'pending',
-        pinnedAt: currentSummary?.pinnedAt || 0,
+        pinnedAt: currentSummary?.pinnedAt || 0
       },
       {
-        shouldMoveToTop: true,
+        shouldMoveToTop: true
       }
     );
 
@@ -956,45 +963,40 @@ class ChatSyncService {
         conversationId: normalizedConversationId,
         content: created.message.content,
         attachments: created.message.attachments,
-        planningMode: options.planningMode === true,
+        planningMode: options.planningMode === true
       });
       return {
         ...created,
-        dispatchError: null,
+        dispatchError: null
       };
     } catch (error) {
       const dispatchError = error instanceof Error ? error : new Error(String(error));
       const patched = await patchMessageByClientMessageId(created.clientMessageId, {
         deliveryStatus: 'failed',
-        errorReason: dispatchError.message,
+        errorReason: dispatchError.message
       });
 
       if (patched) {
         const patch = {
           deliveryStatus: patched.deliveryStatus,
-          errorReason: patched.errorReason,
+          errorReason: patched.errorReason
         };
         this.emit({
           type: 'conversation.message.patch',
           conversationId: normalizedConversationId,
           reason: 'local_send',
           messageId: patched.messageId,
-          patch,
-        });
-        this.publishTimelineMessagePatch(
-          normalizedConversationId,
-          'local_send',
-          patched.messageId,
           patch
-        );
+        });
+        this.publishTimelineMessagePatch(normalizedConversationId, 'local_send', patched.messageId, patch);
       }
       await this.emitHomePatchFromConversation(normalizedConversationId, {
-        shouldMoveToTop: true,
+        shouldMoveToTop: true
       });
       if (options.dispatchErrorMode === 'return') {
         return {
           ...created,
-          dispatchError,
+          dispatchError
         };
       }
       throw error;
@@ -1045,7 +1047,7 @@ class ChatSyncService {
         type: 'conversation.runtime.replace',
         conversationId,
         reason,
-        state: projectTimelineRuntimeState(state),
+        state: projectTimelineRuntimeState(state)
       });
     }
   }
@@ -1091,7 +1093,7 @@ class ChatSyncService {
     this.status = status;
     this.emit({
       type: 'connection.status',
-      status,
+      status
     });
   }
 
@@ -1122,7 +1124,7 @@ class ChatSyncService {
           return;
         }
         void this.handleTransportStatusChange(status);
-      },
+      }
     });
 
     if (!this.isLifecycleCurrent(lifecycleVersion)) {
@@ -1139,20 +1141,9 @@ class ChatSyncService {
   }
 
   private async resolveTransportConfig() {
-    const backendUrl = getApiBaseUrl();
-    if (!backendUrl) {
-      return null;
-    }
-
-    const accessToken = await getAccessTokenForRequest(backendUrl);
-    if (!accessToken) {
-      return null;
-    }
-
-    return {
-      backendUrl,
-      accessToken,
-    };
+    const config = await resolveActiveWsTransportConfig('ap');
+    this.activeTransportConfig = config;
+    return config;
   }
 
   private async requestChatApi<T>(type: string, payload?: unknown): Promise<T> {
@@ -1164,7 +1155,7 @@ class ChatSyncService {
     const response = await requestChatTransport<T | ChatApiEnvelope<T>>({
       ...config,
       type,
-      payload,
+      payload
     });
     return unwrapChatApiEnvelope<T>(response);
   }
@@ -1172,15 +1163,12 @@ class ChatSyncService {
   private async getChatDetailViaTransport(chatId: string): Promise<RemoteChatDetail> {
     const response = await this.requestChatApi<RemoteChatDetail>(CHAT_DETAIL_TRANSPORT_TYPE, {
       chatId: String(chatId || '').trim(),
-      includeRawMessages: true,
+      includeRawMessages: true
     });
     return response || {};
   }
 
-  private async fetchAgentDetail(
-    agentKey: string,
-    cacheVersion: number
-  ): Promise<AgentDetailSnapshot | null> {
+  private async fetchAgentDetail(agentKey: string, cacheVersion: number): Promise<AgentDetailSnapshot | null> {
     try {
       const response = await this.requestChatApi<RemoteAgentDetail>(
         CHAT_AGENT_DETAIL_TRANSPORT_TYPE,
@@ -1200,10 +1188,7 @@ class ChatSyncService {
     }
   }
 
-  private async markChatReadViaTransport(
-    request: MarkChatReadRequest,
-    runId?: string
-  ): Promise<MarkChatReadResponse> {
+  private async markChatReadViaTransport(request: MarkChatReadRequest, runId?: string): Promise<MarkChatReadResponse> {
     return this.requestChatApi<MarkChatReadResponse>(
       CHAT_READ_TRANSPORT_TYPE,
       buildMarkChatReadPayload(request, runId)
@@ -1273,7 +1258,7 @@ class ChatSyncService {
           ...(references.length > 0 ? { references } : {}),
           agentKey: historyScope?.agentKey,
           teamId: historyScope?.teamId,
-          planningMode: input.planningMode === true,
+          planningMode: input.planningMode === true
         },
         onEvent: (event) => {
           if (!this.isLifecycleCurrent(lifecycleVersion)) {
@@ -1285,7 +1270,7 @@ class ChatSyncService {
               ...streamEvent,
               chatId: input.conversationId,
               conversationId: input.conversationId,
-              requestId: toText(streamEvent.requestId) || input.clientMessageId,
+              requestId: toText(streamEvent.requestId) || input.clientMessageId
             },
             'stream'
           );
@@ -1303,7 +1288,7 @@ class ChatSyncService {
             return;
           }
           void this.handleOutgoingStreamError(input, error);
-        },
+        }
       });
       if (!this.isLifecycleCurrent(lifecycleVersion)) {
         handle.abort();
@@ -1313,7 +1298,7 @@ class ChatSyncService {
       this.activeOutgoingStreams.set(input.clientMessageId, {
         conversationId: input.conversationId,
         clientMessageId: input.clientMessageId,
-        abort: handle.abort,
+        abort: handle.abort
       });
     } catch (error) {
       this.inFlightOutgoingIds.delete(input.clientMessageId);
@@ -1325,10 +1310,7 @@ class ChatSyncService {
     }
   }
 
-  private async markOutgoingSentIfPending(input: {
-    clientMessageId: string;
-    conversationId: string;
-  }) {
+  private async markOutgoingSentIfPending(input: { clientMessageId: string; conversationId: string }) {
     const current = await getMessageByClientMessageId(input.clientMessageId);
     if (!current || current.deliveryStatus !== 'pending') {
       return;
@@ -1338,34 +1320,29 @@ class ChatSyncService {
       input.clientMessageId,
       {
         deliveryStatus: 'sent',
-        errorReason: null,
+        errorReason: null
       },
       {
-        removeOutbox: true,
+        removeOutbox: true
       }
     );
 
     if (patched) {
       const patch = {
         deliveryStatus: patched.deliveryStatus,
-        errorReason: patched.errorReason,
+        errorReason: patched.errorReason
       };
       this.emit({
         type: 'conversation.message.patch',
         conversationId: input.conversationId,
         reason: 'local_send',
         messageId: patched.messageId,
-        patch,
-      });
-      this.publishTimelineMessagePatch(
-        input.conversationId,
-        'local_send',
-        patched.messageId,
         patch
-      );
+      });
+      this.publishTimelineMessagePatch(input.conversationId, 'local_send', patched.messageId, patch);
     }
     await this.emitHomePatchFromConversation(input.conversationId, {
-      shouldMoveToTop: true,
+      shouldMoveToTop: true
     });
   }
 
@@ -1383,37 +1360,29 @@ class ChatSyncService {
 
     const patched = await patchMessageByClientMessageId(input.clientMessageId, {
       deliveryStatus: 'failed',
-      errorReason: error.message || 'Stream failed',
+      errorReason: error.message || 'Stream failed'
     });
 
     if (patched) {
       const patch = {
         deliveryStatus: patched.deliveryStatus,
-        errorReason: patched.errorReason,
+        errorReason: patched.errorReason
       };
       this.emit({
         type: 'conversation.message.patch',
         conversationId: input.conversationId,
         reason: 'local_send',
         messageId: patched.messageId,
-        patch,
-      });
-      this.publishTimelineMessagePatch(
-        input.conversationId,
-        'local_send',
-        patched.messageId,
         patch
-      );
+      });
+      this.publishTimelineMessagePatch(input.conversationId, 'local_send', patched.messageId, patch);
     }
     await this.emitHomePatchFromConversation(input.conversationId, {
-      shouldMoveToTop: true,
+      shouldMoveToTop: true
     });
   }
 
-  private async handleOutgoingStreamDone(input: {
-    clientMessageId: string;
-    conversationId: string;
-  }) {
+  private async handleOutgoingStreamDone(input: { clientMessageId: string; conversationId: string }) {
     try {
       await this.flushConversationStreamBuffers(input.conversationId);
       await this.markOutgoingSentIfPending(input);
@@ -1459,9 +1428,14 @@ class ChatSyncService {
   ) {
     const event: Record<string, unknown> = {
       ...rawEvent,
-      type: normalizeEventType(rawEvent.type),
+      type: normalizeEventType(rawEvent.type)
     };
     const type = toText(event.type);
+    if (type === 'auth.expiring' && toText(event.ns) === 'd') {
+      void this.refreshDesktopTransportAuth();
+      return;
+    }
+
     const conversationId = extractConversationId(event);
     const family = classifyChatProtocolEvent(event);
 
@@ -1514,7 +1488,7 @@ class ChatSyncService {
       await this.scheduleConversationReconcile(conversationId, 'reconcile', true);
       if (this.activeConversationId === conversationId) {
         await this.requestConversationReadConfirmation(conversationId, {
-          confirmMarker: `run:${toText(event.runId) || conversationId}`,
+          confirmMarker: `run:${toText(event.runId) || conversationId}`
         });
       }
       return;
@@ -1528,8 +1502,7 @@ class ChatSyncService {
     if (family === 'summary') {
       const projected = projectRemoteChatSummary(event);
       if (projected) {
-        const hasLatestMessage =
-          projected.lastMessageText !== undefined && projected.lastMessageAt !== undefined;
+        const hasLatestMessage = projected.lastMessageText !== undefined && projected.lastMessageAt !== undefined;
         const projectedRead =
           projected.read !== undefined
             ? projected.read
@@ -1543,27 +1516,27 @@ class ChatSyncService {
             ? {
                 lastMessageText: projected.lastMessageText,
                 lastMessageAt: projected.lastMessageAt,
-                lastMessageStatus: projected.lastMessageStatus,
+                lastMessageStatus: projected.lastMessageStatus
               }
             : {}),
           ...(projectedRead !== undefined ? { read: projectedRead } : {}),
           shouldMoveToTop: hasLatestMessage,
           agentKey: projected.agentKey,
-          teamId: projected.teamId,
+          teamId: projected.teamId
         });
 
         if (patchResult?.changed || patchResult?.directoryChanged) {
           this.emitHomePatch(
             patchResult.summary,
             {
-              shouldMoveToTop: true,
+              shouldMoveToTop: true
             },
             patchResult.directoryChanged
           );
         }
         if (this.activeConversationId === projected.conversationId && hasLatestMessage) {
           await this.requestConversationReadConfirmation(projected.conversationId, {
-            confirmMarker: `summary:${projected.lastMessageAt}`,
+            confirmMarker: `summary:${projected.lastMessageAt}`
           });
         }
         return;
@@ -1616,17 +1589,14 @@ class ChatSyncService {
     this.resetConversationRuntimeState(conversationId, reason);
     this.emit({
       type: 'home.item.remove',
-      conversationId,
+      conversationId
     });
     this.emit({
-      type: 'home.directory.replace',
+      type: 'home.directory.replace'
     });
   }
 
-  private async handleConversationUnreadStateEvent(
-    event: Record<string, unknown>,
-    unreadCount: number
-  ) {
+  private async handleConversationUnreadStateEvent(event: Record<string, unknown>, unreadCount: number) {
     const conversationId = extractConversationId(event);
     if (!conversationId) {
       if (unreadCount <= 0) {
@@ -1640,25 +1610,25 @@ class ChatSyncService {
       read: {
         isRead: unreadCount <= 0,
         readAt: event.readAt,
-        readRunId: event.readRunId || event.runId,
-      },
+        readRunId: event.readRunId || event.runId
+      }
     });
     const result = await setConversationReadStateLocal(conversationId, serverRead, {
       agentKey: extractAgentKey(event) || null,
-      teamId: extractTeamId(event) || null,
+      teamId: extractTeamId(event) || null
     });
     if (result?.changed) {
       this.emitHomePatch(
         result.summary,
         {
-          shouldMoveToTop: false,
+          shouldMoveToTop: false
         },
         result.directoryChanged
       );
     }
     if (this.activeConversationId === conversationId && unreadCount > 0) {
       await this.requestConversationReadConfirmation(conversationId, {
-        confirmMarker: `read-event:${toText(event.readRunId || event.runId) || conversationId}`,
+        confirmMarker: `read-event:${toText(event.readRunId || event.runId) || conversationId}`
       });
     }
   }
@@ -1677,12 +1647,12 @@ class ChatSyncService {
 
     const result = await markConversationReadScopeLocal({
       agentKey: agentKey || null,
-      teamId: teamId || null,
+      teamId: teamId || null
     });
 
     if (result.directoryChanged) {
       this.emit({
-        type: 'home.directory.replace',
+        type: 'home.directory.replace'
       });
     }
 
@@ -1706,10 +1676,10 @@ class ChatSyncService {
         serverMessageId: toText(event.serverMessageId) || undefined,
         createdAt: toFiniteNumber(event.createdAt, Date.now()),
         deliveryStatus: 'sent',
-        errorReason: null,
+        errorReason: null
       },
       {
-        removeOutbox: true,
+        removeOutbox: true
       }
     );
 
@@ -1721,18 +1691,18 @@ class ChatSyncService {
       createdAt: patched.createdAt,
       deliveryStatus: patched.deliveryStatus,
       errorReason: patched.errorReason,
-      serverMessageId: patched.serverMessageId,
+      serverMessageId: patched.serverMessageId
     };
     this.emit({
       type: 'conversation.message.patch',
       conversationId: patched.conversationId,
       reason: 'push',
       messageId: patched.messageId,
-      patch,
+      patch
     });
     this.publishTimelineMessagePatch(patched.conversationId, 'push', patched.messageId, patch);
     await this.emitHomePatchFromConversation(patched.conversationId, {
-      shouldMoveToTop: true,
+      shouldMoveToTop: true
     });
   }
 
@@ -1745,7 +1715,7 @@ class ChatSyncService {
       conversationId,
       messageId: serverMessageId,
       references: event.references,
-      createdAt,
+      createdAt
     });
     const messageContent = content || formatChatAttachmentsMessageText(incomingAttachments);
     if (!conversationId || !serverMessageId || !messageContent) {
@@ -1770,10 +1740,10 @@ class ChatSyncService {
         deliveryStatus: 'sent',
         errorReason: null,
         attachments: incomingAttachments,
-        title: extractTitle(event),
+        title: extractTitle(event)
       },
       {
-        suppressUnread: active,
+        suppressUnread: active
       }
     );
 
@@ -1784,14 +1754,14 @@ class ChatSyncService {
         deliveryStatus: message.deliveryStatus,
         errorReason: message.errorReason,
         serverMessageId: message.serverMessageId,
-        attachments: message.attachments,
+        attachments: message.attachments
       };
       this.emit({
         type: 'conversation.message.patch',
         conversationId,
         reason,
         messageId: message.messageId,
-        patch,
+        patch
       });
       this.publishTimelineMessagePatch(conversationId, reason, message.messageId, patch);
     } else {
@@ -1799,26 +1769,23 @@ class ChatSyncService {
         type: 'conversation.message.insert',
         conversationId,
         reason,
-        message,
+        message
       });
       this.publishTimelineMessage(message, reason);
     }
 
     await this.emitHomePatchFromConversation(conversationId, {
-      shouldMoveToTop: true,
+      shouldMoveToTop: true
     });
 
     if (active && message.role === 'assistant') {
       await this.requestConversationReadConfirmation(conversationId, {
-        confirmMarker: `message:${serverMessageId}`,
+        confirmMarker: `message:${serverMessageId}`
       });
     }
   }
 
-  private async handleAssistantContentEvent(
-    event: Record<string, unknown>,
-    reason: ChatSyncReason
-  ) {
+  private async handleAssistantContentEvent(event: Record<string, unknown>, reason: ChatSyncReason) {
     const conversationId = extractConversationId(event);
     if (!conversationId) {
       return;
@@ -1842,9 +1809,7 @@ class ChatSyncService {
         fallbackMessageId === eventMessageId ? undefined : this.streamBuffers.get(fallbackMessageId);
       buffer =
         fallbackBuffer ||
-        (runId
-          ? findSingleStreamBufferByRun(this.streamBuffers.values(), conversationId, runId)
-          : undefined);
+        (runId ? findSingleStreamBufferByRun(this.streamBuffers.values(), conversationId, runId) : undefined);
     }
 
     if (!buffer) {
@@ -1863,26 +1828,21 @@ class ChatSyncService {
         pendingUiDelta: '',
         pendingUiSnapshotText: undefined,
         pendingDbDelta: type === 'content.delta' ? text : '',
-        pendingDbSnapshotText:
-          type !== 'content.delta' && initialContent ? initialContent : undefined,
+        pendingDbSnapshotText: type !== 'content.delta' && initialContent ? initialContent : undefined,
         publishedToTimeline: false,
         publishedStreamStatus: undefined,
         uiTimer: null,
-        dbTimer: null,
+        dbTimer: null
       };
       this.streamBuffers.set(messageId, buffer);
 
       if (initialContent) {
-        this.publishStreamBufferInitialMessage(
-          buffer,
-          type === 'content.end' ? 'done' : 'streaming'
-        );
+        this.publishStreamBufferInitialMessage(buffer, type === 'content.end' ? 'done' : 'streaming');
       }
     } else {
       buffer.reason = reason;
       buffer.createdAt = Math.max(buffer.createdAt, createdAt);
-      shouldPatchServerMessageId =
-        Boolean(serverMessageId) && buffer.serverMessageId !== serverMessageId;
+      shouldPatchServerMessageId = Boolean(serverMessageId) && buffer.serverMessageId !== serverMessageId;
       if (serverMessageId) {
         buffer.serverMessageId = serverMessageId;
       }
@@ -1897,7 +1857,7 @@ class ChatSyncService {
           conversationId,
           reason,
           messageId: buffer.messageId,
-          patch,
+          patch
         });
         this.publishTimelineMessagePatch(conversationId, reason, buffer.messageId, patch);
       }
@@ -1923,8 +1883,7 @@ class ChatSyncService {
       this.publishStreamBufferInitialMessage(buffer, type === 'content.end' ? 'done' : 'streaming');
     }
 
-    const hasPendingUiPatch =
-      buffer.pendingUiSnapshotText !== undefined || Boolean(buffer.pendingUiDelta);
+    const hasPendingUiPatch = buffer.pendingUiSnapshotText !== undefined || Boolean(buffer.pendingUiDelta);
     if (hasPendingUiPatch && !buffer.uiTimer) {
       buffer.uiTimer = setTimeout(() => {
         void this.flushStreamBufferToUi(buffer!.key);
@@ -1940,31 +1899,30 @@ class ChatSyncService {
         if (shouldPatchServerMessageId || shouldPatchStreamDone) {
           const patch = {
             ...(shouldPatchServerMessageId ? { serverMessageId } : {}),
-            ...(shouldPatchStreamDone ? { streamStatus: 'done' as const } : {}),
+            ...(shouldPatchStreamDone ? { streamStatus: 'done' as const } : {})
           };
           this.emit({
             type: 'conversation.message.patch',
             conversationId,
             reason,
             messageId: buffer.messageId,
-            patch,
+            patch
           });
           this.publishTimelineMessagePatch(conversationId, reason, buffer.messageId, patch);
         }
         await this.emitHomePatchFromConversation(conversationId, {
-          shouldMoveToTop: true,
+          shouldMoveToTop: true
         });
         if (this.activeConversationId === conversationId) {
           await this.requestConversationReadConfirmation(conversationId, {
-            confirmMarker: `stream:${buffer.messageId}`,
+            confirmMarker: `stream:${buffer.messageId}`
           });
         }
       }
       return;
     }
 
-    const hasPendingDbPatch =
-      buffer.pendingDbSnapshotText !== undefined || Boolean(buffer.pendingDbDelta);
+    const hasPendingDbPatch = buffer.pendingDbSnapshotText !== undefined || Boolean(buffer.pendingDbDelta);
     if (hasPendingDbPatch && !buffer.dbTimer) {
       buffer.dbTimer = setTimeout(() => {
         void this.flushStreamBufferToDb(buffer!.key);
@@ -1972,10 +1930,7 @@ class ChatSyncService {
     }
   }
 
-  private publishStreamBufferInitialMessage(
-    buffer: StreamBuffer,
-    streamStatus: ChatMessageItem['streamStatus']
-  ) {
+  private publishStreamBufferInitialMessage(buffer: StreamBuffer, streamStatus: ChatMessageItem['streamStatus']) {
     if (buffer.publishedToTimeline || !buffer.content) {
       return;
     }
@@ -1991,7 +1946,7 @@ class ChatSyncService {
       deliveryStatus: 'sent',
       streamStatus,
       errorReason: null,
-      attachments: [],
+      attachments: []
     };
     buffer.publishedToTimeline = true;
     buffer.publishedStreamStatus = streamStatus;
@@ -2001,7 +1956,7 @@ class ChatSyncService {
       type: 'conversation.message.insert',
       conversationId: buffer.conversationId,
       reason: buffer.reason,
-      message: initialMessage,
+      message: initialMessage
     });
     this.publishTimelineMessage(initialMessage, buffer.reason);
   }
@@ -2030,13 +1985,13 @@ class ChatSyncService {
       messageId: buffer.messageId,
       createdAt: buffer.createdAt,
       delta: buffer.pendingUiDelta,
-      snapshotText: buffer.pendingUiSnapshotText,
+      snapshotText: buffer.pendingUiSnapshotText
     });
     this.publishTimelineStreamDelta(buffer.conversationId, buffer.reason, {
       messageId: buffer.messageId,
       createdAt: buffer.createdAt,
       delta: buffer.pendingUiDelta,
-      snapshotText: buffer.pendingUiSnapshotText,
+      snapshotText: buffer.pendingUiSnapshotText
     });
 
     buffer.pendingUiDelta = '';
@@ -2068,10 +2023,10 @@ class ChatSyncService {
         snapshotText: buffer.pendingDbSnapshotText,
         createdAt: buffer.createdAt,
         serverMessageId: buffer.serverMessageId,
-        title: buffer.title,
+        title: buffer.title
       },
       {
-        suppressUnread: this.activeConversationId === buffer.conversationId,
+        suppressUnread: this.activeConversationId === buffer.conversationId
       }
     );
 
@@ -2119,12 +2074,12 @@ class ChatSyncService {
     this.emit({
       type: 'conversation.runtime.reset',
       conversationId: normalizedConversationId,
-      reason,
+      reason
     });
     this.emit({
       type: 'conversation.timeline.reset',
       conversationId: normalizedConversationId,
-      reason,
+      reason
     });
   }
 
@@ -2147,16 +2102,12 @@ class ChatSyncService {
       type: 'conversation.runtime.replace',
       conversationId: normalizedConversationId,
       reason,
-      state,
+      state
     });
     this.emitConversationTimelineState(normalizedConversationId, reason, timelineState);
   }
 
-  private emitConversationTimelineState(
-    conversationId: string,
-    reason: ChatSyncReason,
-    state?: ChatTimelineState
-  ) {
+  private emitConversationTimelineState(conversationId: string, reason: ChatSyncReason, state?: ChatTimelineState) {
     const normalizedConversationId = toText(conversationId);
     if (!normalizedConversationId) {
       return;
@@ -2166,15 +2117,11 @@ class ChatSyncService {
       type: 'conversation.timeline.replace',
       conversationId: normalizedConversationId,
       reason,
-      state: state ?? this.getConversationTimelineState(normalizedConversationId),
+      state: state ?? this.getConversationTimelineState(normalizedConversationId)
     });
   }
 
-  private scheduleConversationRuntimeEmit(
-    conversationId: string,
-    reason: ChatSyncReason,
-    immediate: boolean
-  ) {
+  private scheduleConversationRuntimeEmit(conversationId: string, reason: ChatSyncReason, immediate: boolean) {
     const normalizedConversationId = toText(conversationId);
     if (!normalizedConversationId) {
       return;
@@ -2208,10 +2155,7 @@ class ChatSyncService {
       return;
     }
 
-    if (
-      this.activeConversationId !== normalizedConversationId &&
-      !this.timelineStates.has(normalizedConversationId)
-    ) {
+    if (this.activeConversationId !== normalizedConversationId && !this.timelineStates.has(normalizedConversationId)) {
       await markConversationDirty(normalizedConversationId, toText(event.type) || reason);
       return;
     }
@@ -2253,41 +2197,30 @@ class ChatSyncService {
     const now = Date.now();
     const syncState = await getConversationSyncState(normalizedConversationId);
     const readRunId = syncState?.activeRunId ? syncState.activeRunId : null;
-    const confirmMarker =
-      String(options?.confirmMarker || '').trim() || `run:${readRunId || 'none'}`;
+    const confirmMarker = String(options?.confirmMarker || '').trim() || `run:${readRunId || 'none'}`;
     const lastMark = this.lastReadMarks.get(normalizedConversationId);
-    if (
-      lastMark &&
-      lastMark.marker === confirmMarker &&
-      now - lastMark.markedAt < READ_MARK_DEBOUNCE_MS
-    ) {
+    if (lastMark && lastMark.marker === confirmMarker && now - lastMark.markedAt < READ_MARK_DEBOUNCE_MS) {
       return;
     }
 
     this.lastReadMarks.set(normalizedConversationId, {
       markedAt: now,
-      marker: confirmMarker,
+      marker: confirmMarker
     });
-    const confirmation = this.confirmConversationReadWithServer(
-      normalizedConversationId,
-      readRunId,
-      now
-    ).finally(() => {
-      this.readConfirmations.delete(normalizedConversationId);
-    });
+    const confirmation = this.confirmConversationReadWithServer(normalizedConversationId, readRunId, now).finally(
+      () => {
+        this.readConfirmations.delete(normalizedConversationId);
+      }
+    );
     this.readConfirmations.set(normalizedConversationId, confirmation);
     void confirmation;
   }
 
-  private async confirmConversationReadWithServer(
-    conversationId: string,
-    readRunId: string | null,
-    readAt: number
-  ) {
+  private async confirmConversationReadWithServer(conversationId: string, readRunId: string | null, readAt: number) {
     try {
       const response = await this.markChatReadViaTransport({
         chatId: conversationId,
-        ...(readRunId ? { runId: readRunId } : {}),
+        ...(readRunId ? { runId: readRunId } : {})
       });
       const result = await setConversationReadStateLocal(
         conversationId,
@@ -2297,15 +2230,15 @@ class ChatSyncService {
               read: {
                 isRead: true,
                 readAt: response?.readAt ?? readAt,
-                readRunId: response?.readRunId ?? readRunId,
-              },
+                readRunId: response?.readRunId ?? readRunId
+              }
             }
       );
       if (result?.changed) {
         this.emitHomePatch(
           result.summary,
           {
-            shouldMoveToTop: false,
+            shouldMoveToTop: false
           },
           result.directoryChanged
         );
@@ -2322,7 +2255,7 @@ class ChatSyncService {
   ) {
     if (directoryProjectionChanged) {
       this.emit({
-        type: 'home.directory.replace',
+        type: 'home.directory.replace'
       });
     }
 
@@ -2338,25 +2271,17 @@ class ChatSyncService {
         lastMessageStatus: summary.lastMessageStatus,
         pinnedAt: summary.pinnedAt,
         shouldMoveToTop: extra?.shouldMoveToTop,
-        directoryProjectionChanged,
-      },
+        directoryProjectionChanged
+      }
     });
   }
 
-  private async emitHomePatchFromSummary(
-    summary: ChatHomeItem,
-    extra?: Partial<ChatHomeItemPatch>
-  ) {
-    const directoryChanged = await refreshChatDirectoryProjectionForConversation(
-      summary.conversationId
-    );
+  private async emitHomePatchFromSummary(summary: ChatHomeItem, extra?: Partial<ChatHomeItemPatch>) {
+    const directoryChanged = await refreshChatDirectoryProjectionForConversation(summary.conversationId);
     this.emitHomePatch(summary, extra, directoryChanged);
   }
 
-  private async emitHomePatchFromConversation(
-    conversationId: string,
-    extra?: Partial<ChatHomeItemPatch>
-  ) {
+  private async emitHomePatchFromConversation(conversationId: string, extra?: Partial<ChatHomeItemPatch>) {
     const summary = await getConversationDetail(conversationId);
     if (!summary) {
       return;
@@ -2365,20 +2290,16 @@ class ChatSyncService {
     await this.emitHomePatchFromSummary(summary, extra);
   }
 
-  private async scheduleConversationReconcile(
-    conversationId: string,
-    reason: ChatSyncReason,
-    immediate: boolean
-  ) {
+  private async scheduleConversationReconcile(conversationId: string, reason: ChatSyncReason, immediate: boolean) {
     const normalizedConversationId = toText(conversationId);
-    if (!normalizedConversationId || !getApiBaseUrl()) {
+    if (!normalizedConversationId) {
       return;
     }
 
     const current = this.reconcileStates.get(normalizedConversationId) || {
       inFlight: null,
       timer: null,
-      trailingReason: null,
+      trailingReason: null
     };
     this.reconcileStates.set(normalizedConversationId, current);
     current.trailingReason = reason;
@@ -2391,10 +2312,7 @@ class ChatSyncService {
 
       const nextReason = current.trailingReason || reason;
       current.trailingReason = null;
-      current.inFlight = this.runConversationReconcile(
-        normalizedConversationId,
-        nextReason
-      )
+      current.inFlight = this.runConversationReconcile(normalizedConversationId, nextReason)
         .catch((error) => {
           if (!isRecoverableReconcileError(error)) {
             throw error;
@@ -2403,11 +2321,7 @@ class ChatSyncService {
         .finally(() => {
           current.inFlight = null;
           if (current.trailingReason) {
-            void this.scheduleConversationReconcile(
-              normalizedConversationId,
-              current.trailingReason,
-              true
-            );
+            void this.scheduleConversationReconcile(normalizedConversationId, current.trailingReason, true);
           }
         });
       return current.inFlight;
@@ -2440,12 +2354,12 @@ class ChatSyncService {
     });
     const [remoteDetail, localSummary] = await Promise.all([
       remoteDetailPromise,
-      getConversationDetail(conversationId),
+      getConversationDetail(conversationId)
     ]);
     if (!remoteDetail) {
       if (localSummary) {
         await this.emitHomePatchFromConversation(conversationId, {
-          shouldMoveToTop: false,
+          shouldMoveToTop: false
         });
       }
       return;
@@ -2464,7 +2378,7 @@ class ChatSyncService {
       projection.timelineState,
       terminatedRun
         ? {
-            preserveTerminalRunIds: [terminatedRun.runId],
+            preserveTerminalRunIds: [terminatedRun.runId]
           }
         : undefined
     );
@@ -2484,34 +2398,34 @@ class ChatSyncService {
       summary: {
         ...projection.summary,
         ...(unreadCount !== undefined ? { unreadCount } : {}),
-        ...(read ? { read } : {}),
+        ...(read ? { read } : {})
       },
       messages: nextMessages,
-      timelineState: nextTimelineState,
+      timelineState: nextTimelineState
     });
     this.timelineStates.set(projection.conversationId, nextTimelineState);
     this.emitConversationRuntimeState(projection.conversationId, reason);
     await markConversationSynced(conversationId, {
-      activeRunId: nextTimelineState.activeRunId,
+      activeRunId: nextTimelineState.activeRunId
     });
 
     if (this.activeConversationId === conversationId) {
       if (projection.hasExplicitReadState && !projection.read.isRead) {
         await this.requestConversationReadConfirmation(conversationId, {
-          confirmMarker: `reconcile:${nextTimelineState.activeRunId || projection.summary.lastMessageAt}`,
+          confirmMarker: `reconcile:${nextTimelineState.activeRunId || projection.summary.lastMessageAt}`
         });
       }
       await this.attachActiveConversationRun(conversationId, 'attach');
     } else {
       await this.emitHomePatchFromConversation(conversationId, {
-        shouldMoveToTop: false,
+        shouldMoveToTop: false
       });
     }
 
     this.emit({
       type: 'conversation.reconcile',
       conversationId,
-      reason,
+      reason
     });
   }
 
@@ -2535,23 +2449,15 @@ class ChatSyncService {
     return this.activeAttaches.get(conversationId)?.token === token;
   }
 
-  private rememberDuplicateAttach(
-    conversationId: string,
-    runId: string,
-    agentKey: string
-  ) {
+  private rememberDuplicateAttach(conversationId: string, runId: string, agentKey: string) {
     this.recentDuplicateAttaches.set(conversationId, {
       runId,
       agentKey,
-      observedAt: Date.now(),
+      observedAt: Date.now()
     });
   }
 
-  private shouldSkipRecentlyDuplicatedAttach(
-    conversationId: string,
-    runId: string,
-    agentKey: string
-  ): boolean {
+  private shouldSkipRecentlyDuplicatedAttach(conversationId: string, runId: string, agentKey: string): boolean {
     const duplicate = this.recentDuplicateAttaches.get(conversationId);
     if (!duplicate) {
       return false;
@@ -2599,7 +2505,7 @@ class ChatSyncService {
           chatId: normalizedConversationId,
           runId: normalizedRunId,
           agentKey: scope.agentKey,
-          teamId: scope.teamId,
+          teamId: scope.teamId
         })
       );
       if (response?.accepted === false) {
@@ -2637,7 +2543,7 @@ class ChatSyncService {
     const nextState = applyChatTimelineLocalCancel(currentState, conversationId, {
       runId: fallbackRunId,
       reason: '用户已停止生成',
-      timestamp: Date.now(),
+      timestamp: Date.now()
     });
     if (nextState === currentState) {
       return;
@@ -2648,16 +2554,13 @@ class ChatSyncService {
     this.scheduleConversationRuntimeEmit(conversationId, 'stream', true);
   }
 
-  private async finishStoppedOutgoingStreams(
-    conversationId: string,
-    clientMessageIds: readonly string[]
-  ) {
+  private async finishStoppedOutgoingStreams(conversationId: string, clientMessageIds: readonly string[]) {
     try {
       await this.flushConversationStreamBuffers(conversationId);
       for (const clientMessageId of clientMessageIds) {
         await this.markOutgoingSentIfPending({
           clientMessageId,
-          conversationId,
+          conversationId
         });
       }
       await markConversationDirty(conversationId, 'stop');
@@ -2701,23 +2604,16 @@ class ChatSyncService {
       lastSeq: 0,
       phase: 'pending',
       promise: Promise.resolve(),
-      abort: () => {},
+      abort: () => {}
     };
     this.activeAttaches.set(normalizedConversationId, attachState);
-    const attachPromise = this.startAttachActiveConversationRun(
-      normalizedConversationId,
-      reason,
-      attachState
-    );
+    const attachPromise = this.startAttachActiveConversationRun(normalizedConversationId, reason, attachState);
     attachState.promise = attachPromise;
 
     try {
       await attachPromise;
     } finally {
-      if (
-        this.isActiveAttachCurrent(normalizedConversationId, attachToken) &&
-        attachState.phase === 'pending'
-      ) {
+      if (this.isActiveAttachCurrent(normalizedConversationId, attachToken) && attachState.phase === 'pending') {
         this.activeAttaches.delete(normalizedConversationId);
       }
     }
@@ -2742,7 +2638,7 @@ class ChatSyncService {
       payload: {
         runId: attachState.runId,
         agentKey: attachState.agentKey,
-        lastSeq: attachState.lastSeq,
+        lastSeq: attachState.lastSeq
       },
       onEvent: (event) => {
         if (!this.isActiveAttachCurrent(normalizedConversationId, attachState.token)) {
@@ -2757,7 +2653,7 @@ class ChatSyncService {
             ...attachEvent,
             chatId: normalizedConversationId,
             conversationId: normalizedConversationId,
-            runId: attachState.runId,
+            runId: attachState.runId
           },
           'stream'
         );
@@ -2775,11 +2671,7 @@ class ChatSyncService {
         }
         this.activeAttaches.delete(normalizedConversationId);
         if (isDuplicateObserveError(error)) {
-          this.rememberDuplicateAttach(
-            normalizedConversationId,
-            attachState.runId,
-            attachState.agentKey
-          );
+          this.rememberDuplicateAttach(normalizedConversationId, attachState.runId, attachState.agentKey);
           return;
         }
         if (isMissingAgentKeyError(error)) {
@@ -2787,7 +2679,7 @@ class ChatSyncService {
           return;
         }
         void this.handleStreamSideError(normalizedConversationId, error);
-      },
+      }
     });
 
     attachState.abort = handle.abort;
@@ -2811,13 +2703,12 @@ class ChatSyncService {
   private async resolveRunControlScope(conversationId: string, runId: string) {
     const currentState = this.getConversationTimelineState(conversationId);
     const timelineAgentKey =
-      findTimelineRunAgentKey(currentState, runId) ||
-      findTimelineAwaitingAgentKey(currentState, runId);
+      findTimelineRunAgentKey(currentState, runId) || findTimelineAwaitingAgentKey(currentState, runId);
     const historyScope = await getConversationHistoryScope(conversationId);
 
     return {
       agentKey: timelineAgentKey || toText(historyScope?.agentKey),
-      teamId: toText(historyScope?.teamId),
+      teamId: toText(historyScope?.teamId)
     };
   }
 

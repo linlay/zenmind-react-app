@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Circle, Svg } from 'react-native-svg';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
-import { type TFunction, useT } from '../../../shared/i18n';
+import { type I18nKey, type TFunction, useT } from '../../../shared/i18n';
 import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import type {
@@ -12,15 +12,21 @@ import type {
   ChatTimelineUsageStats,
   ChatTimelineUsageSummary
 } from '../../chatTimeline/index.ts';
+import { normalizeChatReasoningEffort } from '../agentModelSettings.ts';
+import type { ChatReasoningEffort } from '../types';
 
 type ChatUsageHeaderBadgeProps = {
   usageLabel: string;
   usageSummary: ChatTimelineUsageSummary | null;
+  modelKey: string | null;
+  reasoningEffort: ChatReasoningEffort | null;
 };
 
 type ChatUsageStatsDrawerProps = {
   visible: boolean;
   usageSummary: ChatTimelineUsageSummary | null;
+  modelKey: string | null;
+  reasoningEffort: ChatReasoningEffort | null;
   onClose: () => void;
   onDismissed: () => void;
 };
@@ -41,6 +47,13 @@ const USAGE_SHEET_SPRING_CONFIG = {
   damping: 20,
   stiffness: 230,
   mass: 0.9
+};
+
+const USAGE_REASONING_LABEL_KEYS: Record<ChatReasoningEffort, I18nKey> = {
+  HIGH: 'usage.reasoning.HIGH',
+  MEDIUM: 'usage.reasoning.MEDIUM',
+  LOW: 'usage.reasoning.LOW',
+  NONE: 'usage.reasoning.NONE'
 };
 
 function readLegacyUsageTotalFromLabel(usageLabel: string): number | null {
@@ -110,6 +123,24 @@ function resolveDisplayTotal(summary: ChatTimelineUsageSummary | null, usageLabe
     summary?.compact?.totalTokens ??
     readLegacyUsageTotalFromLabel(usageLabel)
   );
+}
+
+function resolveUsageModelLabel({
+  usageSummary,
+  modelKey,
+  reasoningEffort,
+  t
+}: {
+  usageSummary: ChatTimelineUsageSummary | null;
+  modelKey: string | null;
+  reasoningEffort: ChatReasoningEffort | null;
+  t: TFunction;
+}): string {
+  const displayModelKey = usageSummary?.modelKey || modelKey || t('usage.unknownModel');
+  const displayReasoningEffort =
+    normalizeChatReasoningEffort(usageSummary?.contextWindow.reasoningEffort) || reasoningEffort;
+  const reasoningLabel = displayReasoningEffort ? t(USAGE_REASONING_LABEL_KEYS[displayReasoningEffort]) : '';
+  return reasoningLabel ? `${displayModelKey} · ${reasoningLabel}` : displayModelKey;
 }
 
 function resolveUsageEstimatedCost(
@@ -341,6 +372,8 @@ const ChatUsageStatsContent = memo(function ChatUsageStatsContent({
 const ChatUsageStatsDrawer = memo(function ChatUsageStatsDrawer({
   visible,
   usageSummary,
+  modelKey,
+  reasoningEffort,
   onClose,
   onDismissed
 }: ChatUsageStatsDrawerProps) {
@@ -350,7 +383,10 @@ const ChatUsageStatsDrawer = memo(function ChatUsageStatsDrawer({
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(USAGE_SHEET_ENTER_OFFSET)).current;
   const closeAnimationRef = useRef<Animated.CompositeAnimation | null>(null);
-  const modelLabel = usageSummary?.modelKey || t('usage.unknownModel');
+  const modelLabel = useMemo(
+    () => resolveUsageModelLabel({ usageSummary, modelKey, reasoningEffort, t }),
+    [modelKey, reasoningEffort, t, usageSummary]
+  );
 
   useEffect(() => {
     closeAnimationRef.current?.stop();
@@ -445,7 +481,9 @@ const ChatUsageStatsDrawer = memo(function ChatUsageStatsDrawer({
 
 export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
   usageLabel,
-  usageSummary
+  usageSummary,
+  modelKey,
+  reasoningEffort
 }: ChatUsageHeaderBadgeProps) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
@@ -494,6 +532,8 @@ export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
         <ChatUsageStatsDrawer
           visible={visible}
           usageSummary={usageSummary}
+          modelKey={modelKey}
+          reasoningEffort={reasoningEffort}
           onClose={handleClose}
           onDismissed={handleDismissed}
         />

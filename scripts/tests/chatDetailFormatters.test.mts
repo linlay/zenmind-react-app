@@ -7,13 +7,25 @@ import {
   formatChatDetailTimestamp,
 } from '../../src/features/chatPersistence/chatDetailFormatters.ts';
 
-test('formats chat detail timestamps with full date for non-today messages', () => {
+test('formats chat detail timestamps for timeline footers and history rows', () => {
   const now = new Date(2026, 5, 11, 12, 0).getTime();
 
   assert.equal(formatChatDetailTimestamp(new Date(2026, 5, 11, 8, 5).getTime(), now), '08:05');
+  assert.equal(formatChatDetailTimestamp(new Date(2026, 5, 10, 8, 5).getTime(), now), '昨天 08:05');
   assert.equal(
-    formatChatDetailTimestamp(new Date(2026, 5, 10, 8, 5).getTime(), now),
-    '2026/06/10 08:05'
+    formatChatDetailTimestamp(new Date(2026, 5, 10, 8, 5).getTime(), now, 'Yesterday'),
+    'Yesterday 08:05'
+  );
+  assert.equal(
+    formatChatDetailTimestamp(
+      new Date(2025, 11, 31, 23, 59).getTime(),
+      new Date(2026, 0, 1, 1, 0).getTime()
+    ),
+    '昨天 23:59'
+  );
+  assert.equal(
+    formatChatDetailTimestamp(new Date(2026, 5, 9, 8, 5).getTime(), now),
+    '06/09 08:05'
   );
   assert.equal(
     formatChatDetailTimestamp(new Date(2025, 11, 21, 8, 5).getTime(), now),

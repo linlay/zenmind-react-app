@@ -6,6 +6,7 @@ import type {
   ChatHomeProjection,
 } from './types';
 import { normalizeAgentMode } from './agentMode.ts';
+import { resolveAgentModelSettings, type AgentModelSettings } from './agentModelSettings.ts';
 import { normalizeChatReadPatch, readStateToUnreadBit } from './chatReadState.ts';
 
 export type RemoteAgent = {
@@ -14,9 +15,14 @@ export type RemoteAgent = {
   name?: string;
   icon?: unknown;
   mode?: string;
+  model?: unknown;
+  modelKey?: unknown;
   role?: string;
   meta?: {
+    model?: unknown;
+    modelKey?: unknown;
     role?: string;
+    stageSettings?: unknown;
   };
   stats?: {
     unreadCount?: number | string;
@@ -97,6 +103,7 @@ export function projectRemoteAgent(
     return null;
   }
   const explicitUnread = agent.stats?.unreadCount ?? agent.unreadCount;
+  const modelSettings = resolveAgentModelSettings(agent);
 
   return {
     id: `agent:${agentKey}`,
@@ -112,19 +119,23 @@ export function projectRemoteAgent(
     teamId: null,
     defaultAgentKey: null,
     agentMode: normalizeAgentMode(agent.mode),
+    modelKey: modelSettings.modelKey,
+    reasoningEffort: modelSettings.reasoningEffort,
     latestConversationId: null,
   };
 }
 
 export function projectRemoteTeam(
   team: RemoteTeam,
-  index: number
+  index: number,
+  agentModelSettingsByKey?: ReadonlyMap<string, AgentModelSettings> | null
 ): ChatDirectoryProjectionItem | null {
   const teamId = toText(team.teamId);
   if (!teamId) {
     return null;
   }
   const defaultAgentKey = toText(team.meta?.defaultAgentKey);
+  const modelSettings = defaultAgentKey ? agentModelSettingsByKey?.get(defaultAgentKey) : null;
 
   return {
     id: `team:${teamId}`,
@@ -140,6 +151,8 @@ export function projectRemoteTeam(
     teamId,
     defaultAgentKey: defaultAgentKey || null,
     agentMode: null,
+    modelKey: modelSettings?.modelKey ?? null,
+    reasoningEffort: modelSettings?.reasoningEffort ?? null,
     latestConversationId: null,
   };
 }
@@ -150,11 +163,15 @@ export function projectRemoteDirectory(
 ): ChatDirectoryProjectionItem[] {
   const seenIds = new Set<string>();
   const items: ChatDirectoryProjectionItem[] = [];
+  const agentModelSettingsByKey = teams.length > 0 ? new Map<string, AgentModelSettings>() : null;
 
   agents.forEach((agent, index) => {
     const projected = projectRemoteAgent(agent, index);
     if (!projected || seenIds.has(projected.id)) {
       return;
+    }
+    if (agentModelSettingsByKey && projected.agentKey) {
+      agentModelSettingsByKey.set(projected.agentKey, projected);
     }
     seenIds.add(projected.id);
     items.push(projected);
@@ -162,7 +179,7 @@ export function projectRemoteDirectory(
 
   const teamRankOffset = items.length;
   teams.forEach((team, index) => {
-    const projected = projectRemoteTeam(team, teamRankOffset + index);
+    const projected = projectRemoteTeam(team, teamRankOffset + index, agentModelSettingsByKey);
     if (!projected || seenIds.has(projected.id)) {
       return;
     }

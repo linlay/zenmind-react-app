@@ -2,7 +2,7 @@
   "kbVersion": 1,
   "project": {
     "name": "zenmind-react-app",
-    "summary": "基于 Expo 56 / React Native 0.85 的迁移后移动端应用，当前重点是认证门卫、Chat 首页与详情页、SQLite 本地真源、MMKV 冷启动目录快照、/ap/ws 实时同步、系统通知和开发态调试能力。",
+    "summary": "基于 Expo 56 / React Native 0.85 的迁移后移动端应用，当前重点是认证门卫、HTTP/Desktop WS 设备 profile、Chat 首页与详情页、SQLite 本地真源、MMKV 冷启动目录快照、共享 WebSocket 实时同步、系统通知和开发态调试能力。",
     "primaryGoal": "让模型先靠索引定位任务入口、影响模块和关键链路，再下钻到具体代码。"
   },
   "readPath": [
@@ -31,8 +31,14 @@
     },
     {
       "layer": "core",
-      "role": "运行时配置、统一 API、认证会话与 HTTP debug logging 能力。",
-      "moduleIds": ["core-api-client", "core-auth-session", "core-debug-logging", "core-runtime-config"]
+      "role": "运行时配置、统一 API、认证会话、HTTP/WS debug logging 与共享 WebSocket transport 能力。",
+      "moduleIds": [
+        "core-api-client",
+        "core-auth-session",
+        "core-debug-logging",
+        "core-runtime-config",
+        "core-ws-transport"
+      ]
     },
     {
       "layer": "features",
@@ -66,7 +72,7 @@
     "doc/module-reference.md",
     "doc/ui-visual-theme.md"
   ],
-  "generatedAt": "2026-06-18T05:32:16.262Z",
+  "generatedAt": "2026-06-23T09:53:24.954Z",
   "catalogs": {
     "modules": "doc/kb/catalog/modules.json",
     "flows": "doc/kb/catalog/flows.json",
@@ -74,10 +80,10 @@
   },
   "rulesRef": "doc/kb/rules.json",
   "generated": {
-    "moduleCount": 17,
+    "moduleCount": 18,
     "flowCount": 5,
     "taskCount": 13,
-    "sourceFileCount": 137,
+    "sourceFileCount": 145,
     "factsRef": "doc/kb/generated/project-facts.json",
     "appEntryChain": [
       {

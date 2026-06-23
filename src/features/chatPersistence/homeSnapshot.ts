@@ -7,6 +7,7 @@ import {
   getChatCacheScopeId,
   normalizeChatCacheScopeId,
 } from './cacheScope';
+import { normalizeChatReasoningEffort } from './agentModelSettings.ts';
 import { ChatDirectoryItem, ChatDirectorySnapshot } from './types';
 
 const storage = new MMKV({ id: 'zenmind-chat-home-snapshot' });
@@ -24,6 +25,8 @@ function normalizeDirectorySnapshotItem(item: ChatDirectoryItem): ChatDirectoryI
     teamId: item.teamId ? String(item.teamId) : null,
     defaultAgentKey: item.defaultAgentKey ? String(item.defaultAgentKey) : null,
     agentMode: item.agentMode ? String(item.agentMode) : null,
+    modelKey: item.modelKey ? String(item.modelKey) : null,
+    reasoningEffort: normalizeChatReasoningEffort(item.reasoningEffort),
     latestConversationId: item.latestConversationId ? String(item.latestConversationId) : null,
     lastMessageText: String(item.lastMessageText || ''),
     lastMessageAt: Number.isFinite(Number(item.lastMessageAt)) ? Number(item.lastMessageAt) : 0,

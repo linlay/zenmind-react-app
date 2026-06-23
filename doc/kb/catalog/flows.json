@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-18T05:32:16.354Z",
+  "generatedAt": "2026-06-23T09:53:25.022Z",
   "items": [
     {
       "id": "app-startup",
@@ -9,6 +9,7 @@
         "app-development-debug",
         "app-shell-navigation",
         "core-auth-session",
+        "core-ws-transport",
         "feature-auth-login",
         "feature-notifications",
         "shared-i18n"
@@ -42,7 +43,12 @@
       "id": "chat-receive-message",
       "title": "收到服务端消息",
       "trigger": "WebSocket 收到 push / stream / run complete 等聊天实时事件时触发。",
-      "mustCheckModules": ["feature-chat-persistence", "feature-chat-realtime", "feature-chat-timeline"],
+      "mustCheckModules": [
+        "core-ws-transport",
+        "feature-chat-persistence",
+        "feature-chat-realtime",
+        "feature-chat-timeline"
+      ],
       "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime"],
       "card": "doc/kb/flows/chat-receive-message.json"
     },

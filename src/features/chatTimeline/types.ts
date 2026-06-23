@@ -291,6 +291,7 @@ export type ChatTimelineUsageContextWindow = {
   maxSize: number | null;
   estimatedNextCallSize: number | null;
   percent: number | null;
+  reasoningEffort: string;
 };
 
 export type ChatTimelineUsageSummary = {

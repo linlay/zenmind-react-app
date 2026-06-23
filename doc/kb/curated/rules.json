@@ -15,11 +15,11 @@
       "id": "screen-no-direct-websocket",
       "title": "页面层不直接操作 WebSocket",
       "statement": "页面组件不直接 connect、send 或处理 socket 事件；UI 只订阅 sync service 暴露的状态和数据。",
-      "appliesTo": ["app-shell-navigation", "feature-chat-persistence", "feature-chat-realtime"],
-      "protectedModules": ["feature-chat-realtime"],
+      "appliesTo": ["app-shell-navigation", "core-ws-transport", "feature-chat-persistence", "feature-chat-realtime"],
+      "protectedModules": ["core-ws-transport", "feature-chat-realtime"],
       "checkHints": [
         "如果页面要触发实时动作，优先扩展 chatSyncService。",
-        "不要把 WebSocket transport 直接下沉到 screen 层。"
+        "不要把 WebSocket transport 或 sharedWsTransport 直接下沉到 screen 层。"
       ]
     },
     {
@@ -47,12 +47,29 @@
     {
       "id": "realtime-write-through-repository",
       "title": "实时层通过 service 或 repository 落库",
-      "statement": "实时链路的 ack、incoming 和 outbox replay 必须继续通过 chatSyncService 与 chatRepository 落库，不直连 UI。",
-      "appliesTo": ["feature-chat-persistence", "feature-chat-realtime"],
-      "protectedModules": ["feature-chat-persistence", "feature-chat-realtime"],
+      "statement": "实时链路的 ack、incoming 和 outbox replay 必须继续通过 chatSyncService 与 chatRepository 落库，不直连 UI；底层 core/ws 只做 transport。",
+      "appliesTo": ["core-ws-transport", "feature-chat-persistence", "feature-chat-realtime"],
+      "protectedModules": ["core-ws-transport", "feature-chat-persistence", "feature-chat-realtime"],
       "checkHints": [
-        "chatWsTransport / wsClient 只做 transport，业务写入走 repository。",
+        "core/ws 只做 socket、namespace、request/stream/push 和状态；chatWsTransport 只做聊天 adapter，业务写入走 repository。",
         "修改 WebSocket 事件类型时同步检查 ack 和 incoming 的 repository 回写路径。"
+      ]
+    },
+    {
+      "id": "core-no-feature-import",
+      "title": "core 层不反向依赖 feature",
+      "statement": "src/core/** 只能提供基础能力和纯协议 helper，不能 import src/features/**；需要 feature 侧资源时由 app shell 注入回调或由 feature 调用 core。",
+      "appliesTo": [
+        "core-api-client",
+        "core-auth-session",
+        "core-debug-logging",
+        "core-runtime-config",
+        "core-ws-transport"
+      ],
+      "protectedModules": ["core-api-client", "core-auth-session", "core-ws-transport"],
+      "checkHints": [
+        "auth 需要切换或清理聊天缓存 scope 时，通过 configureAuthCacheRuntime 由 AppRoot 注入，不在 core/auth import chatPersistence。",
+        "core/ws 不读取 active profile、不持久化 token、不处理聊天 payload；profile 解析在 core/api/activeWsTransport，业务归一在 feature-chat-realtime。"
       ]
     },
     {
@@ -99,6 +116,7 @@
         "core-api-client",
         "core-auth-session",
         "core-runtime-config",
+        "core-ws-transport",
         "feature-auth-login",
         "feature-notifications",
         "shared-i18n",
@@ -109,6 +127,7 @@
         "core-api-client",
         "core-auth-session",
         "core-runtime-config",
+        "core-ws-transport",
         "feature-auth-login",
         "feature-notifications",
         "shared-i18n",

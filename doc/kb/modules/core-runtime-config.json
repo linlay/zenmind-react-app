@@ -17,13 +17,13 @@
     }
   ],
   "dependsOn": [],
-  "dependedBy": ["core-auth-session", "feature-auth-login", "feature-chat-realtime"],
+  "dependedBy": ["core-auth-session", "core-debug-logging", "core-ws-transport", "feature-auth-login"],
   "stateTouches": ["process.env / Expo public env bridge"],
   "relatedFlows": [],
   "relatedTasks": ["add-business-api-service", "modify-runtime-environment"],
   "impactChecklist": [
     "这里只读公开变量，不混入 token 等私密态。",
-    "改变量名时同时检查 REST、WebSocket 和开发态调试面板。",
+    "改变量名时同时检查 REST、HTTP profile WebSocket 和开发态调试面板；Desktop WS profile 的 wsUrl 来自 pairing profile，不走环境变量。",
     "调用方仍需自行处理空值分支。"
   ],
   "readNext": [
@@ -33,7 +33,7 @@
     },
     {
       "type": "module",
-      "ref": "feature-chat-realtime"
+      "ref": "core-ws-transport"
     },
     {
       "type": "code",
@@ -48,6 +48,6 @@
       "src/core/config/runtimeEnv.ts": ["readPublicEnv"]
     },
     "actualDependsOn": [],
-    "actualDependedBy": ["core-auth-session", "feature-auth-login", "feature-chat-realtime"]
+    "actualDependedBy": ["core-auth-session", "core-debug-logging", "core-ws-transport", "feature-auth-login"]
   }
 }

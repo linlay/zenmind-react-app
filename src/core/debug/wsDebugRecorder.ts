@@ -1,4 +1,4 @@
-import { readPublicEnv } from '../../core/config/runtimeEnv.ts';
+import { readPublicEnv } from '../config/runtimeEnv.ts';
 
 export type WsDebugDirection = 'incoming' | 'outgoing' | 'status' | 'parse_error';
 

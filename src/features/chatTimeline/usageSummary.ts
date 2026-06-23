@@ -22,6 +22,7 @@ const EMPTY_CONTEXT_WINDOW: ChatTimelineUsageContextWindow = {
   maxSize: null,
   estimatedNextCallSize: null,
   percent: null,
+  reasoningEffort: '',
 };
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -77,6 +78,36 @@ function firstUsageText(...values: unknown[]): string {
     }
   }
   return '';
+}
+
+export function resolveChatTimelineUsageModelKey(value: unknown): string {
+  if (!isObjectRecord(value)) {
+    return '';
+  }
+
+  const contextWindow = value.contextWindow;
+  if (isObjectRecord(contextWindow)) {
+    const key = toText(contextWindow.modelKey) || toText(contextWindow.model_key);
+    if (key) {
+      return key;
+    }
+  }
+
+  const model = value.model;
+  if (isObjectRecord(model)) {
+    const key = toText(model.key) || toText(model.modelKey) || toText(model.model_key);
+    if (key) {
+      return key;
+    }
+  }
+  if (typeof model === 'string') {
+    const key = model.trim();
+    if (key) {
+      return key;
+    }
+  }
+
+  return toText(value.modelKey) || toText(value.model_key);
 }
 
 function hasRecordUsageNumber(record: Record<string, unknown>, key: string): boolean {
@@ -243,6 +274,7 @@ function buildContextWindow(source: Record<string, unknown>): ChatTimelineUsageC
     maxSize,
     estimatedNextCallSize,
     percent,
+    reasoningEffort: firstUsageText(source.reasoningEffort, source.reasoning_effort),
   };
 }
 
@@ -287,8 +319,6 @@ export function buildChatTimelineUsageSummary(
     readOptionalRecord(event, 'compactionUsage') ??
     readOptionalRecord(event, 'compactUsage') ??
     null;
-  const eventModel = isObjectRecord(event.model) ? event.model : null;
-  const model = eventModel ?? readOptionalRecord(usage, 'model') ?? {};
   const contextWindow =
     (isObjectRecord(event.contextWindow) ? event.contextWindow : null) ??
     readOptionalRecord(usage, 'contextWindow') ??
@@ -306,20 +336,16 @@ export function buildChatTimelineUsageSummary(
         : compact && hasStatsValue(compact)
           ? compact
           : EMPTY_USAGE_STATS;
+  const modelKey =
+    resolveChatTimelineUsageModelKey(event) ||
+    resolveChatTimelineUsageModelKey(usage) ||
+    resolveChatTimelineUsageModelKey(currentRecord) ||
+    resolveChatTimelineUsageModelKey(runRecord) ||
+    resolveChatTimelineUsageModelKey(chatRecord);
 
   return {
     label: formatUsageLabel(fallbackStats),
-    modelKey: firstUsageText(
-      event.modelKey,
-      model.key,
-      model.modelKey,
-      currentRecord.modelKey,
-      currentRecord.model_key,
-      runRecord.modelKey,
-      runRecord.model_key,
-      chatRecord.modelKey,
-      chatRecord.model_key
-    ),
+    modelKey,
     contextWindow: buildContextWindow(contextWindow),
     current,
     run,
@@ -402,7 +428,8 @@ function contextWindowEqual(
     left.currentSize === right.currentSize &&
     left.maxSize === right.maxSize &&
     left.estimatedNextCallSize === right.estimatedNextCallSize &&
-    left.percent === right.percent
+    left.percent === right.percent &&
+    left.reasoningEffort === right.reasoningEffort
   );
 }
 

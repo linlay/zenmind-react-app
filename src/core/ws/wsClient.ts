@@ -1,9 +1,11 @@
-import { readPublicEnv } from '../../core/config/runtimeEnv.ts';
+import { readPublicEnv } from '../config/runtimeEnv.ts';
+import { wsDebugRecorder } from '../debug/wsDebugRecorder.ts';
+import type { WsTransportConfig, WsTransportNamespace } from './wsTransportConfig.ts';
 
-import type { ChatSocketStatus } from './types.ts';
-import { wsDebugRecorder } from './wsDebugRecorder.ts';
+export type WsSocketStatus = 'idle' | 'connecting' | 'connected' | 'reconnecting' | 'disconnected' | 'error';
 
 type WsRequestFrame = {
+  ns?: WsTransportNamespace;
   frame: 'request';
   type: string;
   id: string;
@@ -11,6 +13,7 @@ type WsRequestFrame = {
 };
 
 type WsResponseFrame = {
+  ns?: string;
   frame: 'response';
   id?: string;
   code?: number | string;
@@ -27,6 +30,7 @@ type WsStreamEventFrame = {
 };
 
 type WsStreamFrame = {
+  ns?: string;
   frame: 'stream';
   id?: string;
   event?: WsStreamEventFrame;
@@ -35,6 +39,7 @@ type WsStreamFrame = {
 };
 
 export type WsPushFrame = {
+  ns?: string;
   frame: 'push';
   type?: string;
   payload?: unknown;
@@ -43,6 +48,7 @@ export type WsPushFrame = {
 };
 
 type WsErrorFrame = {
+  ns?: string;
   frame: 'error';
   id?: string;
   code?: number | string;
@@ -89,16 +95,20 @@ type ActiveStream = {
 };
 
 type WsClientOptions = {
-  backendUrl: string;
-  accessToken: string;
+  transport: WsTransportConfig;
   onPush?: (frame: WsPushFrame) => void;
-  onStatusChange?: (status: ChatSocketStatus) => void;
-  createWebSocket?: (url: string) => WebSocketLike;
+  onStatusChange?: (status: WsSocketStatus) => void;
+  createWebSocket?: (url: string, protocols?: string | string[]) => WebSocketLike;
   heartbeatTimeoutMs?: number;
   healthCheckIntervalMs?: number;
   reconnectBaseDelayMs?: number;
   reconnectMaxDelayMs?: number;
   requestTimeoutMs?: number;
+};
+
+type ResolvedWsConnection = {
+  url: string;
+  protocols?: string | string[];
 };
 
 export class WsClientDisconnectedError extends Error {
@@ -134,15 +144,16 @@ function normalizeBackendUrl(raw: string): string {
     .replace(/\/+$/, '');
 }
 
-function resolveWsTransportUrl(backendUrlInput: string, accessTokenInput: string): string {
+function resolveAgentPlatformWsConnection(
+  backendUrlInput: string,
+  accessTokenInput: string
+): ResolvedWsConnection | null {
   const backendUrl = normalizeBackendUrl(backendUrlInput);
   const explicitDevUrl =
-    typeof __DEV__ !== 'undefined' && __DEV__
-      ? String(readPublicEnv('EXPO_PUBLIC_CHAT_WS_URL') || '').trim()
-      : '';
+    typeof __DEV__ !== 'undefined' && __DEV__ ? String(readPublicEnv('EXPO_PUBLIC_CHAT_WS_URL') || '').trim() : '';
   const baseUrl = explicitDevUrl || backendUrl;
   if (!baseUrl) {
-    return '';
+    return null;
   }
 
   try {
@@ -157,10 +168,44 @@ function resolveWsTransportUrl(backendUrlInput: string, accessTokenInput: string
     if (accessToken) {
       url.searchParams.set('token', accessToken);
     }
-    return url.toString();
+    return { url: url.toString() };
   } catch {
-    return '';
+    return null;
   }
+}
+
+function resolveDesktopWsConnection(
+  config: Extract<WsTransportConfig, { kind: 'desktop-ws' }>
+): ResolvedWsConnection | null {
+  const accessToken = String(config.accessToken || '').trim();
+  if (!accessToken) {
+    return null;
+  }
+
+  try {
+    const url = new URL(String(config.wsUrl || '').trim());
+    if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
+      return null;
+    }
+    url.hash = '';
+    url.searchParams.delete('token');
+    if (config.tokenMode === 'query') {
+      url.searchParams.set('token', accessToken);
+    }
+    return {
+      url: url.toString(),
+      protocols: config.tokenMode === 'subprotocol' ? [`bearer.${accessToken}`] : undefined
+    };
+  } catch {
+    return null;
+  }
+}
+
+function resolveWsConnection(config: WsTransportConfig): ResolvedWsConnection | null {
+  if (config.kind === 'desktop-ws') {
+    return resolveDesktopWsConnection(config);
+  }
+  return resolveAgentPlatformWsConnection(config.backendUrl, config.accessToken);
 }
 
 function createFrameId(kind: 'request' | 'stream'): string {
@@ -182,8 +227,7 @@ function normalizeFrameCode(frame: WsResponseFrame | WsErrorFrame): number {
 function toFrameError(frame: WsResponseFrame | WsErrorFrame): Error {
   const message = String(frame.msg || ('error' in frame ? frame.error : '') || '').trim();
   const error = new Error(
-    message ||
-      (frame.status ? `WebSocket request failed (${frame.status})` : 'WebSocket request failed')
+    message || (frame.status ? `WebSocket request failed (${frame.status})` : 'WebSocket request failed')
   ) as Error & {
     status?: number;
     code?: number | string;
@@ -214,14 +258,13 @@ function toStreamEvent(frameEvent: WsStreamEventFrame): Record<string, unknown> 
         ? frameEvent.seq
         : Number.isFinite(Number(payload.seq))
           ? Number(payload.seq)
-          : undefined,
+          : undefined
   };
 }
 
 export class WsClient {
-  private backendUrl: string;
-  private accessToken: string;
-  private readonly createWebSocket: (url: string) => WebSocketLike;
+  private transport: WsTransportConfig;
+  private readonly createWebSocket: (url: string, protocols?: string | string[]) => WebSocketLike;
   private socket: WebSocketLike | null = null;
   private connectPromise: Promise<void> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -231,9 +274,9 @@ export class WsClient {
   private expectedClose = false;
   private reconnectAttempt = 0;
   private lastSeenAt = 0;
-  private status: ChatSocketStatus = 'idle';
+  private status: WsSocketStatus = 'idle';
   private onPush?: (frame: WsPushFrame) => void;
-  private onStatusChange?: (status: ChatSocketStatus) => void;
+  private onStatusChange?: (status: WsSocketStatus) => void;
   private readonly heartbeatTimeoutMs: number;
   private readonly healthCheckIntervalMs: number;
   private readonly reconnectBaseDelayMs: number;
@@ -241,32 +284,25 @@ export class WsClient {
   private readonly requestTimeoutMs: number;
 
   constructor(options: WsClientOptions) {
-    this.backendUrl = normalizeBackendUrl(options.backendUrl);
-    this.accessToken = String(options.accessToken || '').trim();
+    this.transport = options.transport;
     this.createWebSocket =
-      options.createWebSocket || ((url) => new WebSocket(url) as unknown as WebSocketLike);
+      options.createWebSocket ||
+      ((url, protocols) =>
+        protocols
+          ? (new WebSocket(url, protocols) as unknown as WebSocketLike)
+          : (new WebSocket(url) as unknown as WebSocketLike));
     this.onPush = options.onPush;
     this.onStatusChange = options.onStatusChange;
     this.heartbeatTimeoutMs = Math.max(1_000, options.heartbeatTimeoutMs ?? 45_000);
     this.healthCheckIntervalMs = Math.max(1_000, options.healthCheckIntervalMs ?? 5_000);
     this.reconnectBaseDelayMs = Math.max(100, options.reconnectBaseDelayMs ?? 1_000);
-    this.reconnectMaxDelayMs = Math.max(
-      this.reconnectBaseDelayMs,
-      options.reconnectMaxDelayMs ?? 30_000
-    );
+    this.reconnectMaxDelayMs = Math.max(this.reconnectBaseDelayMs, options.reconnectMaxDelayMs ?? 30_000);
     this.requestTimeoutMs = Math.max(1, options.requestTimeoutMs ?? 30_000);
   }
 
-  updateOptions(
-    options: Partial<
-      Pick<WsClientOptions, 'backendUrl' | 'accessToken' | 'onPush' | 'onStatusChange'>
-    >
-  ) {
-    if ('backendUrl' in options) {
-      this.backendUrl = normalizeBackendUrl(options.backendUrl || '');
-    }
-    if ('accessToken' in options) {
-      this.accessToken = String(options.accessToken || '').trim();
+  updateOptions(options: Partial<Pick<WsClientOptions, 'transport' | 'onPush' | 'onStatusChange'>>) {
+    if ('transport' in options && options.transport) {
+      this.transport = options.transport;
     }
     if ('onPush' in options) {
       this.onPush = options.onPush;
@@ -310,7 +346,12 @@ export class WsClient {
     this.setStatus('disconnected');
   }
 
-  async request<T>(opts: { type: string; payload?: unknown; signal?: AbortSignal }): Promise<T> {
+  async request<T>(opts: {
+    type: string;
+    payload?: unknown;
+    signal?: AbortSignal;
+    namespace?: WsTransportNamespace;
+  }): Promise<T> {
     await this.ensureConnected(opts.signal);
     const id = createFrameId('request');
 
@@ -353,16 +394,19 @@ export class WsClient {
         timer: setTimeout(() => {
           cleanup();
           reject(new WsClientRequestTimeoutError(`WebSocket request timeout: ${opts.type}`));
-        }, this.requestTimeoutMs),
+        }, this.requestTimeoutMs)
       });
 
       try {
-        this.sendFrame({
-          frame: 'request',
-          type: opts.type,
-          id,
-          payload: opts.payload,
-        });
+        this.sendFrame(
+          {
+            frame: 'request',
+            type: opts.type,
+            id,
+            payload: opts.payload
+          },
+          opts.namespace
+        );
       } catch (error) {
         cleanup();
         reject(error);
@@ -378,6 +422,7 @@ export class WsClient {
     onDone?: (reason: string, lastSeq: number) => void;
     onError?: (error: Error) => void;
     requestId?: string;
+    namespace?: WsTransportNamespace;
   }) {
     const id = opts.requestId || createFrameId('stream');
     let aborted = false;
@@ -405,7 +450,7 @@ export class WsClient {
       onDone: opts.onDone,
       onError: opts.onError,
       signal: opts.signal,
-      abortHandler,
+      abortHandler
     });
 
     if (opts.signal) {
@@ -418,12 +463,15 @@ export class WsClient {
           return;
         }
         try {
-          this.sendFrame({
-            frame: 'request',
-            type: opts.type,
-            id,
-            payload: opts.payload,
-          });
+          this.sendFrame(
+            {
+              frame: 'request',
+              type: opts.type,
+              id,
+              payload: opts.payload
+            },
+            opts.namespace
+          );
         } catch (error) {
           this.cleanupStream(id, opts.signal);
           opts.onError?.(toError(error));
@@ -450,8 +498,8 @@ export class WsClient {
       return this.waitForConnection(signal);
     }
 
-    const wsUrl = resolveWsTransportUrl(this.backendUrl, this.accessToken);
-    if (!wsUrl) {
+    const connection = resolveWsConnection(this.transport);
+    if (!connection) {
       this.setStatus('disconnected');
       throw new WsClientDisconnectedError('WebSocket transport is not initialized');
     }
@@ -461,7 +509,7 @@ export class WsClient {
     this.setStatus(this.status === 'reconnecting' ? 'reconnecting' : 'connecting');
 
     this.connectPromise = new Promise<void>((resolve, reject) => {
-      const socket = this.createWebSocket(wsUrl);
+      const socket = this.createWebSocket(connection.url, connection.protocols);
       this.socket = socket;
       let opened = false;
 
@@ -639,16 +687,22 @@ export class WsClient {
     this.setStatus('error');
   };
 
-  private sendFrame(frame: WsRequestFrame) {
+  private getDefaultNamespace(): WsTransportNamespace | undefined {
+    return this.transport.kind === 'desktop-ws' ? this.transport.namespace : undefined;
+  }
+
+  private sendFrame(frame: WsRequestFrame, namespace?: WsTransportNamespace) {
     if (!this.socket || this.socket.readyState !== 1) {
       throw new WsClientDisconnectedError('WebSocket transport is not connected');
     }
-    const payload = JSON.stringify(frame);
-    wsDebugRecorder.recordOutgoingFrame(frame, payload);
+    const resolvedNamespace = namespace || this.getDefaultNamespace();
+    const outgoingFrame = resolvedNamespace ? { ...frame, ns: resolvedNamespace } : frame;
+    const payload = JSON.stringify(outgoingFrame);
+    wsDebugRecorder.recordOutgoingFrame(outgoingFrame, payload);
     this.socket.send(payload);
   }
 
-  private setStatus(status: ChatSocketStatus) {
+  private setStatus(status: WsSocketStatus) {
     if (this.status === status) {
       return;
     }
@@ -685,10 +739,7 @@ export class WsClient {
       return;
     }
 
-    const delay = Math.min(
-      this.reconnectBaseDelayMs * 2 ** this.reconnectAttempt,
-      this.reconnectMaxDelayMs
-    );
+    const delay = Math.min(this.reconnectBaseDelayMs * 2 ** this.reconnectAttempt, this.reconnectMaxDelayMs);
     this.reconnectAttempt += 1;
     this.setStatus('reconnecting');
     this.reconnectTimer = setTimeout(() => {

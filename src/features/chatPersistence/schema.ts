@@ -53,6 +53,8 @@ export const chatDirectoryItems = sqliteTable(
     teamId: text('team_id'),
     defaultAgentKey: text('default_agent_key'),
     agentMode: text('agent_mode'),
+    modelKey: text('model_key'),
+    reasoningEffort: text('reasoning_effort'),
     latestConversationId: text('latest_conversation_id'),
   },
   (table) => [

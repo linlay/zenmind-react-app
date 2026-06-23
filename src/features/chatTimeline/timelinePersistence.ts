@@ -81,15 +81,31 @@ function isTimelineNode(value: unknown): value is ChatTimelineNode {
   );
 }
 
-function isUsageSummary(value: unknown): value is ChatTimelineUsageSummary {
-  return (
-    isRecord(value) &&
-    typeof value.label === 'string' &&
-    isRecord(value.contextWindow) &&
-    isRecord(value.current) &&
-    isRecord(value.run) &&
-    isRecord(value.chat)
-  );
+function normalizePersistedUsageSummary(value: unknown): ChatTimelineUsageSummary | null {
+  if (
+    !isRecord(value) ||
+    typeof value.label !== 'string' ||
+    !isRecord(value.contextWindow) ||
+    !isRecord(value.current) ||
+    !isRecord(value.run) ||
+    !isRecord(value.chat)
+  ) {
+    return null;
+  }
+
+  const summary = value as ChatTimelineUsageSummary;
+  return {
+    ...summary,
+    modelKey: typeof value.modelKey === 'string' ? value.modelKey : '',
+    compact: isRecord(value.compact) ? summary.compact : null,
+    contextWindow: {
+      ...summary.contextWindow,
+      reasoningEffort:
+        typeof value.contextWindow.reasoningEffort === 'string'
+          ? value.contextWindow.reasoningEffort
+          : ''
+    }
+  };
 }
 
 function readLatestUsageSummaryFromNodes(
@@ -98,8 +114,11 @@ function readLatestUsageSummaryFromNodes(
 ): ChatTimelineUsageSummary | null {
   for (let index = orderedNodeIds.length - 1; index >= 0; index -= 1) {
     const node = nodesById[orderedNodeIds[index]];
-    if (node?.kind === 'usage' && isUsageSummary(node.usageSummary)) {
-      return node.usageSummary;
+    if (node?.kind === 'usage') {
+      const usageSummary = normalizePersistedUsageSummary(node.usageSummary);
+      if (usageSummary) {
+        return usageSummary;
+      }
     }
   }
 

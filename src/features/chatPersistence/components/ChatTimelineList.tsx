@@ -269,8 +269,13 @@ const UserQueryRow = memo(function UserQueryRow({
   onOpenReaskMenu?: OpenReaskMenu;
 }) {
   const { theme } = useAppTheme();
+  const t = useT();
   const styles = useAppThemeStyles(createStyles);
-  const timestamp = formatChatDetailTimestamp(node.createdAt);
+  const timestamp = formatChatDetailTimestamp(
+    node.createdAt,
+    Date.now(),
+    t('chatDetail.timestamp.yesterday')
+  );
   const text = node.content.trim();
   const attachments = node.attachments || [];
 
@@ -351,8 +356,11 @@ const AssistantContentRow = memo(function AssistantContentRow({
   onCopyText: (text: string) => void;
 }) {
   const { theme } = useAppTheme();
+  const t = useT();
   const styles = useAppThemeStyles(createStyles);
-  const timestamp = footer ? formatChatDetailTimestamp(footer.timestamp) : '';
+  const timestamp = footer
+    ? formatChatDetailTimestamp(footer.timestamp, Date.now(), t('chatDetail.timestamp.yesterday'))
+    : '';
   const duration = footer ? formatChatDetailDuration(footer.durationMs) : '';
   const footerMeta = timestamp && duration ? `${timestamp} · ${duration}` : timestamp || duration;
 

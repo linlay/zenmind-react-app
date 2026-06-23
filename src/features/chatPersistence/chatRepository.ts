@@ -4,6 +4,7 @@ import { normalizeAgentAvatarIcon } from '../../shared/visual/agentAvatarIcon.ts
 import { chatDb, ensureChatDatabase } from './database';
 import { createChatConversationTarget } from './chatConversationTarget';
 import { normalizeAgentMode } from './agentMode.ts';
+import { normalizeChatReasoningEffort } from './agentModelSettings.ts';
 import {
   isActiveTimelinePayload,
   shouldOpenLatestConversationFromSummary,
@@ -143,6 +144,8 @@ function mapChatDirectoryItem(row: {
   teamId: string | null;
   defaultAgentKey: string | null;
   agentMode?: string | null;
+  modelKey?: string | null;
+  reasoningEffort?: string | null;
   latestConversationId: string | null;
   lastMessageText?: string | null;
   lastMessageAt?: number | null;
@@ -164,6 +167,8 @@ function mapChatDirectoryItem(row: {
     teamId: row.teamId || null,
     defaultAgentKey: row.defaultAgentKey || null,
     agentMode: normalizeAgentMode(row.agentMode),
+    modelKey: row.modelKey || null,
+    reasoningEffort: normalizeChatReasoningEffort(row.reasoningEffort),
     latestConversationId: row.latestConversationId || null,
     lastMessageText: String(row.lastMessageText || ''),
     lastMessageAt: Number.isFinite(Number(row.lastMessageAt)) ? Number(row.lastMessageAt) : 0,
@@ -445,6 +450,8 @@ const CHAT_DIRECTORY_ITEM_SELECT = {
   teamId: chatDirectoryItems.teamId,
   defaultAgentKey: chatDirectoryItems.defaultAgentKey,
   agentMode: chatDirectoryItems.agentMode,
+  modelKey: chatDirectoryItems.modelKey,
+  reasoningEffort: chatDirectoryItems.reasoningEffort,
   latestConversationId: chatDirectoryItems.latestConversationId,
 };
 
@@ -1463,6 +1470,8 @@ function normalizeChatDirectoryItem(
     teamId: item.teamId ? String(item.teamId).trim() || null : null,
     defaultAgentKey: item.defaultAgentKey ? String(item.defaultAgentKey).trim() || null : null,
     agentMode: normalizeAgentMode(item.agentMode),
+    modelKey: item.modelKey ? String(item.modelKey).trim() || null : null,
+    reasoningEffort: normalizeChatReasoningEffort(item.reasoningEffort),
     latestConversationId: item.latestConversationId
       ? String(item.latestConversationId).trim() || null
       : null,
@@ -1835,6 +1844,8 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection) {
         teamId: item.teamId,
         defaultAgentKey: item.defaultAgentKey,
         agentMode: item.agentMode,
+        modelKey: item.modelKey,
+        reasoningEffort: item.reasoningEffort,
         latestConversationId: item.latestConversationId,
       };
 
@@ -2309,7 +2320,9 @@ export async function getConversationTarget(conversationId: string): Promise<Cha
       agentKey: chatDirectoryItems.agentKey,
       teamId: chatDirectoryItems.teamId,
       defaultAgentKey: chatDirectoryItems.defaultAgentKey,
-      agentMode: chatDirectoryItems.agentMode
+      agentMode: chatDirectoryItems.agentMode,
+      modelKey: chatDirectoryItems.modelKey,
+      reasoningEffort: chatDirectoryItems.reasoningEffort
     })
     .from(chatDirectoryItems)
     .where(eq(scopeColumn, scopeValue))

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-18T05:32:16.355Z",
+  "generatedAt": "2026-06-23T09:53:25.022Z",
   "items": [
     {
       "id": "add-app-startup-loading-screen",
@@ -41,6 +41,10 @@
         "src/app/navigation/types.ts",
         "src/features/auth/LoginScreen.tsx",
         "src/core/auth/appAuth.ts",
+        "src/core/auth/deviceProfiles.ts",
+        "src/core/auth/deviceProfileModel.ts",
+        "src/core/auth/desktopWsProtocol.ts",
+        "src/core/auth/desktopWsTransport.ts",
         "src/core/auth/useAuthSession.ts"
       ],
       "card": "doc/kb/tasks/add-auth-login-screen.json"
@@ -241,7 +245,10 @@
       "likelyFiles": [
         "src/features/chatRealtime/chatSyncService.ts",
         "src/features/chatRealtime/chatWsTransport.ts",
-        "src/features/chatRealtime/wsClient.ts",
+        "src/core/api/activeWsTransport.ts",
+        "src/core/ws/sharedWsTransport.ts",
+        "src/core/ws/wsClient.ts",
+        "src/core/ws/wsTransportConfig.ts",
         "src/features/chatRealtime/routing.ts",
         "src/features/chatRealtime/runtimeState.ts",
         "src/features/chatRealtime/types.ts",
@@ -269,8 +276,9 @@
         "src/app/debug/DevelopmentDebugPanelHost.tsx",
         "src/core/api/apiClient.ts",
         "src/core/config/runtimeEnv.ts",
+        "src/core/ws/wsClient.ts",
         "src/features/chatRealtime/chatWsTransport.ts",
-        "src/features/chatRealtime/wsClient.ts"
+        "src/core/api/activeWsTransport.ts"
       ],
       "card": "doc/kb/tasks/modify-runtime-environment.json"
     },

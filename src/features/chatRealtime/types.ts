@@ -12,14 +12,9 @@ import type {
   ChatTimelineRuntimeState,
   ChatTimelineState,
 } from '../chatTimeline/index.ts';
+import type { WsSocketStatus } from '../../core/ws/wsClient.ts';
 
-export type ChatSocketStatus =
-  | 'idle'
-  | 'connecting'
-  | 'connected'
-  | 'reconnecting'
-  | 'disconnected'
-  | 'error';
+export type ChatSocketStatus = WsSocketStatus;
 
 export type ChatSyncReason =
   | 'bootstrap'

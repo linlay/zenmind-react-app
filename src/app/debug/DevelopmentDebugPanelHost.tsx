@@ -13,7 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getApiBaseUrl } from '../../core/api/apiClient';
 import { chatSyncService } from '../../features/chatRealtime/chatSyncService';
-import { wsDebugRecorder, type WsDebugRecord } from '../../features/chatRealtime/wsDebugRecorder';
+import { wsDebugRecorder, type WsDebugRecord } from '../../core/debug/wsDebugRecorder';
 import {
   closeDevelopmentDebugPanel,
   disableDevelopmentDebugPanel,

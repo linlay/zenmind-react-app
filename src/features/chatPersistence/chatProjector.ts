@@ -12,6 +12,7 @@ import {
   deriveChatTimelineState,
   projectTimelineMessages,
   projectTimelineRuntimeState,
+  resolveChatTimelineUsageModelKey,
 } from '../chatTimeline/index.ts';
 import type { ChatTimelineState } from '../chatTimeline/index.ts';
 import type { ChatHomeItem, ChatMessageItem, ChatMessageStatus, ChatReadState } from './types';
@@ -189,33 +190,11 @@ function getRunId(value: unknown): string {
   return isObjectRecord(value) ? toText(value.runId) : '';
 }
 
-function getModelKey(value: unknown): string {
-  if (!isObjectRecord(value)) {
-    return '';
-  }
-
-  const model = value.model;
-  if (isObjectRecord(model)) {
-    const key = toText(model.key || model.modelKey);
-    if (key) {
-      return key;
-    }
-  }
-  if (typeof model === 'string') {
-    const key = model.trim();
-    if (key) {
-      return key;
-    }
-  }
-
-  return toText(value.modelKey || value.model_key);
-}
-
 function getRunModelKey(run: Record<string, unknown> | null): string {
   if (!run) {
     return '';
   }
-  return getModelKey(run) || getModelKey(run.usage);
+  return resolveChatTimelineUsageModelKey(run) || resolveChatTimelineUsageModelKey(run.usage);
 }
 
 function resolveRunUsageSources(runs: readonly Record<string, unknown>[]): DetailRunUsageSources {
@@ -320,17 +299,22 @@ function buildDetailUsageSnapshotEvent(
     getRunId(runWithUsage) ||
     getRunId(latestRun) ||
     getRunId(latestUsageSnapshot?.event);
+  const latestUsageEventModelKey = resolveChatTimelineUsageModelKey(latestUsageSnapshot?.event);
   const modelKey =
-    getModelKey(activeRun) ||
+    resolveChatTimelineUsageModelKey(activeRun) ||
     getRunModelKey(runWithUsage) ||
     getRunModelKey(latestRun) ||
-    getModelKey(latestUsageSnapshot?.event) ||
-    getModelKey(detail);
+    latestUsageEventModelKey ||
+    resolveChatTimelineUsageModelKey(detail);
+  const enrichedContextWindow =
+    contextWindow && modelKey && toText(contextWindow.modelKey) !== modelKey
+      ? { ...contextWindow, modelKey }
+      : contextWindow;
   const hasContextEnrichment =
     compactPostTokens !== null ||
     (Boolean(baseContextWindow) && !isObjectRecord(latestUsageSnapshot?.event.contextWindow));
   const hasModelEnrichment =
-    Boolean(modelKey) && modelKey !== getModelKey(latestUsageSnapshot?.event);
+    Boolean(modelKey) && modelKey !== latestUsageEventModelKey;
   const shouldAppend =
     Boolean(
       detailUsage || runUsage || compactUsage || hasContextEnrichment || hasModelEnrichment
@@ -345,7 +329,7 @@ function buildDetailUsageSnapshotEvent(
     chatId: conversationId,
     ...(runId ? { runId } : {}),
     ...(modelKey ? { model: { key: modelKey } } : {}),
-    ...(contextWindow ? { contextWindow } : {}),
+    ...(enrichedContextWindow ? { contextWindow: enrichedContextWindow } : {}),
     ...(usage ? { usage } : {}),
     timestamp,
   };

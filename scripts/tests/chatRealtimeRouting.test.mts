@@ -15,14 +15,14 @@ import {
   isChatUnreadEvent,
   isSummaryLikeEvent,
   normalizeEventType,
-  toFiniteNumber,
+  toFiniteNumber
 } from '../../src/features/chatRealtime/routing.ts';
 import {
   normalizeAwaitingTimeoutMs,
-  normalizeProtocolTimestampMs,
+  normalizeProtocolTimestampMs
 } from '../../src/core/api/services/chatEventProtocol.ts';
 import { toWsPushEvent } from '../../src/features/chatRealtime/chatWsTransport.ts';
-import type { WsPushFrame } from '../../src/features/chatRealtime/wsClient.ts';
+import type { WsPushFrame } from '../../src/core/ws/wsClient.ts';
 
 test('normalizes protocol time values without changing local monotonic stamps', () => {
   assert.equal(normalizeAwaitingTimeoutMs(180), 180_000);
@@ -54,7 +54,7 @@ test('extracts scoped routing fields from common backend payload shapes', () => 
   const event = {
     chatId: 'chat-1',
     delta: 'partial answer',
-    role: 'assistant',
+    role: 'assistant'
   };
 
   assert.equal(extractConversationId(event), 'chat-1');
@@ -80,8 +80,8 @@ test('flattens nested push data before realtime routing', () => {
       chatId: 'chat-1',
       agentKey: 'zenmi',
       lastRunContent: 'done',
-      updatedAt: 1_780_023_877_038,
-    },
+      updatedAt: 1_780_023_877_038
+    }
   } as WsPushFrame);
 
   assert.equal(event.type, 'chat.updated');
@@ -101,40 +101,28 @@ test('identifies chat read state events', () => {
 });
 
 test('classifies removal and runtime protocol events', () => {
-  assert.equal(
-    classifyChatProtocolEvent({ type: 'chat.deleted', chatId: 'chat-1' }),
-    'conversation_remove'
-  );
-  assert.equal(
-    classifyChatProtocolEvent({ type: 'chat.archived', chatId: 'chat-1' }),
-    'conversation_remove'
-  );
+  assert.equal(classifyChatProtocolEvent({ type: 'chat.deleted', chatId: 'chat-1' }), 'conversation_remove');
+  assert.equal(classifyChatProtocolEvent({ type: 'chat.archived', chatId: 'chat-1' }), 'conversation_remove');
   assert.equal(classifyChatProtocolEvent({ type: 'awaiting.ask', chatId: 'chat-1' }), 'awaiting');
   assert.equal(classifyChatProtocolEvent({ type: 'awaiting.asking', chatId: 'chat-1' }), 'awaiting');
   assert.equal(classifyChatProtocolEvent({ type: 'awaiting.answered', chatId: 'chat-1' }), 'awaiting');
-  assert.equal(
-    classifyChatProtocolEvent({ type: 'reasoning.delta', chatId: 'chat-1' }),
-    'reasoning'
-  );
+  assert.equal(classifyChatProtocolEvent({ type: 'reasoning.delta', chatId: 'chat-1' }), 'reasoning');
   assert.equal(classifyChatProtocolEvent({ type: 'tool.result', chatId: 'chat-1' }), 'tool');
-  assert.equal(
-    classifyChatProtocolEvent({ type: 'context.compact.done', chatId: 'chat-1' }),
-    'context'
-  );
+  assert.equal(classifyChatProtocolEvent({ type: 'context.compact.done', chatId: 'chat-1' }), 'context');
 });
 
 test('builds stable assistant message ids from run and content identifiers', () => {
   assert.equal(
     buildAssistantMessageId('chat-1', {
       runId: 'run-1',
-      contentId: 'content-1',
+      contentId: 'content-1'
     }),
     'assistant:chat-1:run-1:content-1'
   );
 
   assert.equal(
     buildAssistantMessageId('chat-1', {
-      serverMessageId: 'server-1',
+      serverMessageId: 'server-1'
     }),
     'assistant:chat-1:run:server-1'
   );
@@ -142,9 +130,6 @@ test('builds stable assistant message ids from run and content identifiers', () 
 
 test('parses numeric and ISO timestamps with a fallback', () => {
   assert.equal(toFiniteNumber(1700000000000, 1), 1700000000000);
-  assert.equal(
-    toFiniteNumber('2026-05-26T00:00:00.000Z', 1),
-    Date.parse('2026-05-26T00:00:00.000Z')
-  );
+  assert.equal(toFiniteNumber('2026-05-26T00:00:00.000Z', 1), Date.parse('2026-05-26T00:00:00.000Z'));
   assert.equal(toFiniteNumber('', 7), 7);
 });

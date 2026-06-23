@@ -3,7 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, Vie
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getActiveDeviceProfile, listDeviceProfiles } from '../../core/auth/deviceProfiles';
+import { getActiveDeviceProfile, listDeviceProfiles, type DeviceProfile } from '../../core/auth/deviceProfiles';
 import { useAuthSession } from '../../core/auth/useAuthSession';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
@@ -16,13 +16,17 @@ import {
   getDevelopmentDebugPanelSnapshot,
   openDevelopmentDebugPanel,
   setDevelopmentDebugPanelEnabled,
-  subscribeDevelopmentDebugPanel,
+  subscribeDevelopmentDebugPanel
 } from '../debug/developmentDebugPanel';
 import { clearSettingsLocalCache } from '../settings/settingsActions';
 import type { RootStackParamList } from '../navigation/types';
 
 type SettingsScreenProps = NativeStackScreenProps<RootStackParamList, 'Settings'>;
 type CacheActionState = 'idle' | 'clearing' | 'success' | 'error';
+
+function getDeviceProfileEndpoint(profile: DeviceProfile): string {
+  return profile.transportKind === 'desktop-ws' ? profile.desktopWs?.wsUrl || 'Desktop WS' : profile.apiBaseUrl;
+}
 
 type SettingsSectionProps = {
   title: string;
@@ -55,36 +59,36 @@ const THEME_OPTIONS = [
   {
     preference: 'system',
     titleKey: 'settings.theme.system',
-    detailKey: 'settings.theme.systemDetail',
+    detailKey: 'settings.theme.systemDetail'
   },
   {
     preference: 'light',
     titleKey: 'settings.theme.light',
-    detailKey: 'settings.theme.lightDetail',
+    detailKey: 'settings.theme.lightDetail'
   },
   {
     preference: 'dark',
     titleKey: 'settings.theme.dark',
-    detailKey: 'settings.theme.darkDetail',
-  },
+    detailKey: 'settings.theme.darkDetail'
+  }
 ] as const satisfies readonly ThemeOption[];
 
 const LANGUAGE_OPTIONS = [
   {
     preference: 'system',
     titleKey: 'settings.language.system',
-    detailKey: 'settings.language.systemDetail',
+    detailKey: 'settings.language.systemDetail'
   },
   {
     preference: 'zh-CN',
     titleKey: 'settings.language.zhCN',
-    detailKey: 'settings.language.zhCNDetail',
+    detailKey: 'settings.language.zhCNDetail'
   },
   {
     preference: 'en-US',
     titleKey: 'settings.language.enUS',
-    detailKey: 'settings.language.enUSDetail',
-  },
+    detailKey: 'settings.language.enUSDetail'
+  }
 ] as const satisfies readonly LanguageOption[];
 
 function SettingsSection({ title, children }: SettingsSectionProps) {
@@ -98,15 +102,7 @@ function SettingsSection({ title, children }: SettingsSectionProps) {
   );
 }
 
-function SettingsRow({
-  iconUsage,
-  title,
-  detail,
-  value,
-  disabled = false,
-  rightAccessory,
-  onPress,
-}: SettingsRowProps) {
+function SettingsRow({ iconUsage, title, detail, value, disabled = false, rightAccessory, onPress }: SettingsRowProps) {
   const styles = useAppThemeStyles(createStyles);
 
   const content = (
@@ -145,7 +141,7 @@ function SettingsRow({
       style={({ pressed }) => [
         styles.row,
         disabled ? styles.rowDisabled : null,
-        pressed && !disabled ? styles.rowPressed : null,
+        pressed && !disabled ? styles.rowPressed : null
       ]}
     >
       {content}
@@ -190,7 +186,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
           hitSlop={10}
           style={styles.headerActionButton}
           pressedStyle={styles.headerActionPressed}
-        />,
+        />
       ] as const,
     [navigation, styles, t]
   );
@@ -257,16 +253,14 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
             detail={cacheDetail}
             disabled={isClearingCache}
             onPress={handleClearCache}
-            rightAccessory={
-              isClearingCache ? <ActivityIndicator size="small" color={theme.colors.brandBlue} /> : null
-            }
+            rightAccessory={isClearingCache ? <ActivityIndicator size="small" color={theme.colors.brandBlue} /> : null}
           />
           {deviceProfiles.map((profile) => (
             <SettingsRow
               key={profile.desktopDeviceId}
               iconUsage="tab.me"
               title={profile.displayName}
-              detail={`${profile.apiBaseUrl} · ${profile.desktopDeviceId.slice(0, 8)}`}
+              detail={`${getDeviceProfileEndpoint(profile)} · ${profile.desktopDeviceId.slice(0, 8)}`}
               value={
                 activeProfile?.desktopDeviceId === profile.desktopDeviceId
                   ? t('settings.cache.currentDevice')
@@ -291,7 +285,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                 onValueChange={handleDeveloperToggle}
                 trackColor={{
                   false: theme.colors.lineStrong,
-                  true: theme.colors.brandBlueSoft,
+                  true: theme.colors.brandBlueSoft
                 }}
                 thumbColor={developerModeEnabled ? theme.colors.brandBlue : theme.colors.surface}
               />
@@ -312,7 +306,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
             const value =
               option.preference === 'system' && selected
                 ? t('settings.theme.current', {
-                    theme: t(resolvedPreference === 'dark' ? 'settings.theme.dark' : 'settings.theme.light'),
+                    theme: t(resolvedPreference === 'dark' ? 'settings.theme.dark' : 'settings.theme.light')
                   })
                 : undefined;
             return (
@@ -324,11 +318,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                 value={value}
                 onPress={selected ? undefined : () => handleThemeSelect(option.preference)}
                 rightAccessory={
-                  selected ? (
-                    <AppIcon usage="settings.selected" />
-                  ) : (
-                    <View style={styles.selectionPlaceholder} />
-                  )
+                  selected ? <AppIcon usage="settings.selected" /> : <View style={styles.selectionPlaceholder} />
                 }
               />
             );
@@ -339,9 +329,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
           {LANGUAGE_OPTIONS.map((option) => {
             const selected = localePreference === option.preference;
             const value =
-              option.preference === 'system' && selected
-                ? t('settings.language.current', { locale })
-                : undefined;
+              option.preference === 'system' && selected ? t('settings.language.current', { locale }) : undefined;
             return (
               <SettingsRow
                 key={option.preference}
@@ -351,11 +339,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                 value={value}
                 onPress={selected ? undefined : () => handleLanguageSelect(option.preference)}
                 rightAccessory={
-                  selected ? (
-                    <AppIcon usage="settings.selected" />
-                  ) : (
-                    <View style={styles.selectionPlaceholder} />
-                  )
+                  selected ? <AppIcon usage="settings.selected" /> : <View style={styles.selectionPlaceholder} />
                 }
               />
             );
@@ -370,44 +354,44 @@ function createStyles(theme: AppThemeTokens) {
   return StyleSheet.create({
     screen: {
       flex: 1,
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surface
     },
     headerSafeArea: {
-      backgroundColor: theme.colors.surface,
+      backgroundColor: theme.colors.surface
     },
     headerActionButton: {
       width: 40,
       height: 40,
       borderRadius: appVisualTokens.radii.pill,
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'center'
     },
     headerActionPressed: {
-      opacity: 0.64,
+      opacity: 0.64
     },
     scrollView: {
-      flex: 1,
+      flex: 1
     },
     content: {
       paddingHorizontal: appVisualTokens.spacing.xl,
       paddingTop: appVisualTokens.spacing.lg,
-      gap: appVisualTokens.spacing.xl,
+      gap: appVisualTokens.spacing.xl
     },
     section: {
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: theme.colors.line,
-      paddingTop: appVisualTokens.spacing.lg,
+      paddingTop: appVisualTokens.spacing.lg
     },
     sectionTitle: {
       marginBottom: appVisualTokens.spacing.md,
       fontSize: 12,
       lineHeight: 16,
       fontWeight: '700',
-      color: theme.colors.brandBlue,
+      color: theme.colors.brandBlue
     },
     sectionRows: {
       borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line,
+      borderBottomColor: theme.colors.line
     },
     row: {
       minHeight: 62,
@@ -416,13 +400,13 @@ function createStyles(theme: AppThemeTokens) {
       gap: appVisualTokens.spacing.md,
       paddingVertical: appVisualTokens.spacing.md,
       borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: theme.colors.line,
+      borderTopColor: theme.colors.line
     },
     rowPressed: {
-      opacity: 0.66,
+      opacity: 0.66
     },
     rowDisabled: {
-      opacity: 0.58,
+      opacity: 0.58
     },
     rowIconShell: {
       width: 36,
@@ -430,26 +414,26 @@ function createStyles(theme: AppThemeTokens) {
       borderRadius: appVisualTokens.radii.pill,
       backgroundColor: theme.colors.brandBlueSoft,
       alignItems: 'center',
-      justifyContent: 'center',
+      justifyContent: 'center'
     },
     rowIconShellDisabled: {
-      backgroundColor: theme.colors.surfaceMuted,
+      backgroundColor: theme.colors.surfaceMuted
     },
     rowTextBlock: {
       flex: 1,
       minWidth: 0,
-      gap: 2,
+      gap: 2
     },
     rowTitle: {
       fontSize: 15,
       lineHeight: 21,
       fontWeight: '700',
-      color: theme.colors.textPrimary,
+      color: theme.colors.textPrimary
     },
     rowDetail: {
       fontSize: 13,
       lineHeight: 19,
-      color: theme.colors.textSecondary,
+      color: theme.colors.textSecondary
     },
     rowValue: {
       maxWidth: 96,
@@ -457,14 +441,14 @@ function createStyles(theme: AppThemeTokens) {
       fontSize: 13,
       lineHeight: 19,
       fontWeight: '600',
-      color: theme.colors.textSecondary,
+      color: theme.colors.textSecondary
     },
     rowTextDisabled: {
-      color: theme.colors.textTertiary,
+      color: theme.colors.textTertiary
     },
     selectionPlaceholder: {
       width: appVisualTokens.iconSizes.md,
-      height: appVisualTokens.iconSizes.md,
-    },
+      height: appVisualTokens.iconSizes.md
+    }
   });
 }

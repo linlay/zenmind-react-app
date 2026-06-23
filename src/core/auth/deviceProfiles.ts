@@ -1,93 +1,35 @@
 import { MMKV } from 'react-native-mmkv';
 
 import { normalizeApiBaseUrl } from '../config/endpoint';
+import {
+  createCacheScopeId,
+  normalizeDesktopWsProfileTransport,
+  normalizeDeviceProfile,
+  normalizeDeviceProfileTransportKind,
+  normalizeDisplayName,
+  normalizeText,
+  type DesktopWsProfileTransport,
+  type DeviceProfile,
+  type DeviceProfileInput,
+  type DeviceProfileRegistrySnapshot,
+  type DeviceProfileWriteResult
+} from './deviceProfileModel.ts';
 
 const MAX_RETAINED_DEVICE_CACHE_PROFILES = 3;
 
-export interface DeviceProfile {
-  desktopDeviceId: string;
-  displayName: string;
-  apiBaseUrl: string;
-  deviceToken: string;
-  serverDeviceId: string;
-  cacheScopeId: string;
-  lastUsedAt: number;
-  needsRelink: boolean;
-  identityCreatedAt: string;
-  hostname: string;
-  appServerPublicKeySha256: string;
-}
-
-export interface DeviceProfileRegistrySnapshot {
-  version: 1;
-  activeDesktopDeviceId: string;
-  profiles: DeviceProfile[];
-}
-
-export interface DeviceProfileWriteResult {
-  profile: DeviceProfile;
-  evictedCacheScopeIds: string[];
-}
-
-type DeviceProfileInput = {
-  desktopDeviceId: string;
-  defaultDisplayName: string;
-  apiBaseUrl: string;
-  deviceToken: string;
-  serverDeviceId: string;
-  identityCreatedAt?: string;
-  hostname?: string;
-  appServerPublicKeySha256?: string;
-  cacheScopeId?: string;
-};
+export type {
+  DesktopWsProfileTransport,
+  DesktopWsTokenMode,
+  DeviceProfile,
+  DeviceProfileRegistrySnapshot,
+  DeviceProfileTransportKind,
+  DeviceProfileWriteResult
+} from './deviceProfileModel.ts';
 
 const profileStorage = new MMKV({ id: 'zenmind-device-profiles' });
 const REGISTRY_KEY = 'device_profile_registry_v1';
 const MANUAL_PROFILE_PREFIX = 'manual:';
 const LEGACY_CACHE_SCOPE_ID = 'legacy';
-
-function normalizeText(value: unknown): string {
-  return String(value || '').trim();
-}
-
-function createCacheScopeId(): string {
-  const timePart = Date.now().toString(36);
-  const randomPart = Math.random().toString(36).slice(2, 10);
-  return `cs_${timePart}_${randomPart}`;
-}
-
-function normalizeDisplayName(value: string): string {
-  return normalizeText(value) || 'Desktop';
-}
-
-function normalizeProfile(raw: unknown): DeviceProfile | null {
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    return null;
-  }
-  const record = raw as Record<string, unknown>;
-  const desktopDeviceId = normalizeText(record.desktopDeviceId);
-  const displayName = normalizeDisplayName(normalizeText(record.displayName));
-  const apiBaseUrl = normalizeApiBaseUrl(normalizeText(record.apiBaseUrl));
-  const deviceToken = normalizeText(record.deviceToken);
-  const serverDeviceId = normalizeText(record.serverDeviceId);
-  const cacheScopeId = normalizeText(record.cacheScopeId) || createCacheScopeId();
-  if (!desktopDeviceId || !apiBaseUrl || !deviceToken || !serverDeviceId) {
-    return null;
-  }
-  return {
-    desktopDeviceId,
-    displayName,
-    apiBaseUrl,
-    deviceToken,
-    serverDeviceId,
-    cacheScopeId,
-    lastUsedAt: Number(record.lastUsedAt || 0) || 0,
-    needsRelink: Boolean(record.needsRelink),
-    identityCreatedAt: normalizeText(record.identityCreatedAt),
-    hostname: normalizeText(record.hostname),
-    appServerPublicKeySha256: normalizeText(record.appServerPublicKeySha256),
-  };
-}
 
 function readRegistry(): DeviceProfileRegistrySnapshot {
   const raw = profileStorage.getString(REGISTRY_KEY);
@@ -97,7 +39,7 @@ function readRegistry(): DeviceProfileRegistrySnapshot {
   try {
     const parsed = JSON.parse(raw) as Partial<DeviceProfileRegistrySnapshot>;
     const profiles = Array.isArray(parsed.profiles)
-      ? parsed.profiles.map(normalizeProfile).filter((profile): profile is DeviceProfile => Boolean(profile))
+      ? parsed.profiles.map(normalizeDeviceProfile).filter((profile): profile is DeviceProfile => Boolean(profile))
       : [];
     const activeDesktopDeviceId = normalizeText(parsed.activeDesktopDeviceId);
     return {
@@ -105,7 +47,7 @@ function readRegistry(): DeviceProfileRegistrySnapshot {
       activeDesktopDeviceId: profiles.some((profile) => profile.desktopDeviceId === activeDesktopDeviceId)
         ? activeDesktopDeviceId
         : profiles[0]?.desktopDeviceId || '',
-      profiles,
+      profiles
     };
   } catch {
     return { version: 1, activeDesktopDeviceId: '', profiles: [] };
@@ -125,9 +67,7 @@ function writeRegistry(snapshot: DeviceProfileRegistrySnapshot): DeviceProfile[]
     .sort((left, right) => right.lastUsedAt - left.lastUsedAt);
   const profiles = uniqueProfiles.slice(0, MAX_RETAINED_DEVICE_CACHE_PROFILES);
   const evictedProfiles = uniqueProfiles.slice(MAX_RETAINED_DEVICE_CACHE_PROFILES);
-  const activeDesktopDeviceId = profiles.some(
-    (profile) => profile.desktopDeviceId === snapshot.activeDesktopDeviceId
-  )
+  const activeDesktopDeviceId = profiles.some((profile) => profile.desktopDeviceId === snapshot.activeDesktopDeviceId)
     ? snapshot.activeDesktopDeviceId
     : profiles[0]?.desktopDeviceId || '';
 
@@ -136,7 +76,7 @@ function writeRegistry(snapshot: DeviceProfileRegistrySnapshot): DeviceProfile[]
     JSON.stringify({
       version: 1,
       activeDesktopDeviceId,
-      profiles,
+      profiles
     })
   );
   return evictedProfiles;
@@ -187,7 +127,7 @@ export function setActiveDeviceProfileId(desktopDeviceId: string): DeviceProfile
     activeDesktopDeviceId: profile.desktopDeviceId,
     profiles: snapshot.profiles.map((item) =>
       item.desktopDeviceId === profile.desktopDeviceId ? { ...item, lastUsedAt: now } : item
-    ),
+    )
   });
   return { ...profile, lastUsedAt: now };
 }
@@ -201,18 +141,34 @@ export function upsertDeviceProfile(input: DeviceProfileInput): DeviceProfileWri
   const now = Date.now();
   const existing = snapshot.profiles.find((profile) => profile.desktopDeviceId === desktopDeviceId);
   const defaultDisplayName = normalizeDisplayName(input.defaultDisplayName);
+  const transportKind = normalizeDeviceProfileTransportKind(input.transportKind);
+  const desktopWs = transportKind === 'desktop-ws' ? normalizeDesktopWsProfileTransport(input.desktopWs) : undefined;
+  const apiBaseUrl = transportKind === 'http' ? normalizeApiBaseUrl(normalizeText(input.apiBaseUrl)) : '';
+  const deviceToken = transportKind === 'http' ? normalizeText(input.deviceToken) : '';
+  const serverDeviceId = normalizeText(input.serverDeviceId);
+  if (!serverDeviceId) {
+    throw new Error('serverDeviceId is required');
+  }
+  if (transportKind === 'http' && (!apiBaseUrl || !deviceToken)) {
+    throw new Error('HTTP device profile requires apiBaseUrl and deviceToken');
+  }
+  if (transportKind === 'desktop-ws' && !desktopWs) {
+    throw new Error('Desktop WS device profile requires transport credentials');
+  }
   const nextProfile: DeviceProfile = {
+    transportKind,
     desktopDeviceId,
     displayName: existing?.displayName || resolveUniqueDisplayName(defaultDisplayName, snapshot.profiles),
-    apiBaseUrl: normalizeApiBaseUrl(input.apiBaseUrl),
-    deviceToken: normalizeText(input.deviceToken),
-    serverDeviceId: normalizeText(input.serverDeviceId),
+    apiBaseUrl,
+    deviceToken,
+    serverDeviceId,
     cacheScopeId: existing?.cacheScopeId || normalizeText(input.cacheScopeId) || createCacheScopeId(),
     lastUsedAt: now,
     needsRelink: false,
     identityCreatedAt: normalizeText(input.identityCreatedAt),
     hostname: normalizeText(input.hostname),
     appServerPublicKeySha256: normalizeText(input.appServerPublicKeySha256),
+    desktopWs
   };
   const profiles = existing
     ? snapshot.profiles.map((profile) => (profile.desktopDeviceId === desktopDeviceId ? nextProfile : profile))
@@ -220,11 +176,11 @@ export function upsertDeviceProfile(input: DeviceProfileInput): DeviceProfileWri
   const evictedProfiles = writeRegistry({
     version: 1,
     activeDesktopDeviceId: desktopDeviceId,
-    profiles,
+    profiles
   });
   return {
     profile: nextProfile,
-    evictedCacheScopeIds: evictedProfiles.map((profile) => profile.cacheScopeId),
+    evictedCacheScopeIds: evictedProfiles.map((profile) => profile.cacheScopeId)
   };
 }
 
@@ -243,15 +199,55 @@ export function upsertManualDeviceProfile(input: {
     apiBaseUrl: input.apiBaseUrl,
     deviceToken: input.deviceToken,
     serverDeviceId: input.serverDeviceId,
-    cacheScopeId: useLegacyScope ? LEGACY_CACHE_SCOPE_ID : undefined,
+    cacheScopeId: useLegacyScope ? LEGACY_CACHE_SCOPE_ID : undefined
   });
 }
 
 export function updateActiveDeviceProfileAuth(input: {
-  deviceToken: string;
+  deviceToken?: string;
   serverDeviceId?: string;
   apiBaseUrl?: string;
+  desktopWs?: DesktopWsProfileTransport;
 }): DeviceProfileWriteResult | null {
+  const snapshot = readRegistry();
+  const activeId = snapshot.activeDesktopDeviceId;
+  if (!activeId) {
+    return null;
+  }
+  let updated: DeviceProfile | null = null;
+  const profiles = snapshot.profiles.map((profile) => {
+    if (profile.desktopDeviceId !== activeId) {
+      return profile;
+    }
+    const desktopWs =
+      profile.transportKind === 'desktop-ws'
+        ? normalizeDesktopWsProfileTransport(input.desktopWs) || profile.desktopWs
+        : undefined;
+    updated = {
+      ...profile,
+      deviceToken: profile.transportKind === 'http' ? normalizeText(input.deviceToken) || profile.deviceToken : '',
+      serverDeviceId: normalizeText(input.serverDeviceId) || profile.serverDeviceId,
+      apiBaseUrl:
+        profile.transportKind === 'http' && input.apiBaseUrl
+          ? normalizeApiBaseUrl(input.apiBaseUrl)
+          : profile.apiBaseUrl,
+      desktopWs,
+      lastUsedAt: Date.now(),
+      needsRelink: false
+    };
+    return updated;
+  });
+  if (!updated) {
+    return null;
+  }
+  const evictedProfiles = writeRegistry({ ...snapshot, profiles });
+  return {
+    profile: updated,
+    evictedCacheScopeIds: evictedProfiles.map((profile) => profile.cacheScopeId)
+  };
+}
+
+export function clearActiveDeviceProfileAuth() {
   const snapshot = readRegistry();
   const activeId = snapshot.activeDesktopDeviceId;
   if (!activeId) {
@@ -264,36 +260,11 @@ export function updateActiveDeviceProfileAuth(input: {
     }
     updated = {
       ...profile,
-      deviceToken: normalizeText(input.deviceToken) || profile.deviceToken,
-      serverDeviceId: normalizeText(input.serverDeviceId) || profile.serverDeviceId,
-      apiBaseUrl: input.apiBaseUrl ? normalizeApiBaseUrl(input.apiBaseUrl) : profile.apiBaseUrl,
-      lastUsedAt: Date.now(),
-      needsRelink: false,
+      deviceToken: '',
+      desktopWs: undefined,
+      needsRelink: true,
+      lastUsedAt: Date.now()
     };
-    return updated;
-  });
-  if (!updated) {
-    return null;
-  }
-  const evictedProfiles = writeRegistry({ ...snapshot, profiles });
-  return {
-    profile: updated,
-    evictedCacheScopeIds: evictedProfiles.map((profile) => profile.cacheScopeId),
-  };
-}
-
-export function markActiveDeviceProfileNeedsRelink() {
-  const snapshot = readRegistry();
-  const activeId = snapshot.activeDesktopDeviceId;
-  if (!activeId) {
-    return null;
-  }
-  let updated: DeviceProfile | null = null;
-  const profiles = snapshot.profiles.map((profile) => {
-    if (profile.desktopDeviceId !== activeId) {
-      return profile;
-    }
-    updated = { ...profile, needsRelink: true, lastUsedAt: Date.now() };
     return updated;
   });
   if (updated) {
@@ -301,3 +272,5 @@ export function markActiveDeviceProfileNeedsRelink() {
   }
   return updated;
 }
+
+export const markActiveDeviceProfileNeedsRelink = clearActiveDeviceProfileAuth;

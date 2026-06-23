@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-18T05:32:16.262Z",
+  "generatedAt": "2026-06-23T09:53:24.954Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -18,6 +18,7 @@
     "src/app/settings/settingsActions.ts",
     "src/app/startup/AppLaunchSkeleton.tsx",
     "src/app/startup/GeminiLogo.tsx",
+    "src/core/api/activeWsTransport.ts",
     "src/core/api/apiClient.ts",
     "src/core/api/resourceUrl.ts",
     "src/core/api/services/chatApi.ts",
@@ -28,17 +29,26 @@
     "src/core/api/services/uploadApi.ts",
     "src/core/auth/appAuth.ts",
     "src/core/auth/authConfig.ts",
+    "src/core/auth/authRequestModel.ts",
+    "src/core/auth/desktopWsProtocol.ts",
+    "src/core/auth/desktopWsTransport.ts",
+    "src/core/auth/deviceProfileModel.ts",
     "src/core/auth/deviceProfiles.ts",
     "src/core/auth/useAuthSession.ts",
     "src/core/config/endpoint.ts",
     "src/core/config/runtimeEnv.ts",
     "src/core/debug/httpDebugLogger.ts",
+    "src/core/debug/wsDebugRecorder.ts",
+    "src/core/ws/sharedWsTransport.ts",
+    "src/core/ws/wsClient.ts",
+    "src/core/ws/wsTransportConfig.ts",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
     "src/features/agentTaskBoard/kanbanViewModel.ts",
     "src/features/auth/LoginScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/features/chatPersistence/ChatHomeScreen.tsx",
     "src/features/chatPersistence/agentMode.ts",
+    "src/features/chatPersistence/agentModelSettings.ts",
     "src/features/chatPersistence/cacheScope.ts",
     "src/features/chatPersistence/chatAttachmentModels.ts",
     "src/features/chatPersistence/chatConversationTarget.ts",
@@ -94,8 +104,6 @@
     "src/features/chatRealtime/routing.ts",
     "src/features/chatRealtime/runtimeState.ts",
     "src/features/chatRealtime/types.ts",
-    "src/features/chatRealtime/wsClient.ts",
-    "src/features/chatRealtime/wsDebugRecorder.ts",
     "src/features/chatTimeline/awaitingInteraction.ts",
     "src/features/chatTimeline/index.ts",
     "src/features/chatTimeline/messageProjection.ts",
@@ -282,6 +290,10 @@
                     ]
                   },
                   {
+                    "name": "activeWsTransport.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "apiClient.ts",
                     "type": "file"
                   },
@@ -301,6 +313,22 @@
                   },
                   {
                     "name": "authConfig.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "authRequestModel.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "desktopWsProtocol.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "desktopWsTransport.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "deviceProfileModel.ts",
                     "type": "file"
                   },
                   {
@@ -333,6 +361,28 @@
                 "children": [
                   {
                     "name": "httpDebugLogger.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "wsDebugRecorder.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "ws",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "sharedWsTransport.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "wsClient.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "wsTransportConfig.ts",
                     "type": "file"
                   }
                 ]
@@ -504,6 +554,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "agentModelSettings.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "cacheScope.ts",
                     "type": "file"
                   },
@@ -619,14 +673,6 @@
                   },
                   {
                     "name": "types.ts",
-                    "type": "file"
-                  },
-                  {
-                    "name": "wsClient.ts",
-                    "type": "file"
-                  },
-                  {
-                    "name": "wsDebugRecorder.ts",
                     "type": "file"
                   }
                 ]
@@ -950,6 +996,7 @@
       "src/types/assets.d.ts"
     ],
     "core-api-client": [
+      "src/core/api/activeWsTransport.ts",
       "src/core/api/apiClient.ts",
       "src/core/api/resourceUrl.ts",
       "src/core/api/services/chatApi.ts",
@@ -962,11 +1009,20 @@
     "core-auth-session": [
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
+      "src/core/auth/authRequestModel.ts",
+      "src/core/auth/desktopWsProtocol.ts",
+      "src/core/auth/desktopWsTransport.ts",
+      "src/core/auth/deviceProfileModel.ts",
       "src/core/auth/deviceProfiles.ts",
       "src/core/auth/useAuthSession.ts"
     ],
-    "core-debug-logging": ["src/core/debug/httpDebugLogger.ts"],
+    "core-debug-logging": ["src/core/debug/httpDebugLogger.ts", "src/core/debug/wsDebugRecorder.ts"],
     "core-runtime-config": ["src/core/config/endpoint.ts", "src/core/config/runtimeEnv.ts"],
+    "core-ws-transport": [
+      "src/core/ws/sharedWsTransport.ts",
+      "src/core/ws/wsClient.ts",
+      "src/core/ws/wsTransportConfig.ts"
+    ],
     "feature-agent-task-board": [
       "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
       "src/features/agentTaskBoard/kanbanViewModel.ts"
@@ -976,6 +1032,7 @@
       "src/features/chatPersistence/ChatDetailScreen.tsx",
       "src/features/chatPersistence/ChatHomeScreen.tsx",
       "src/features/chatPersistence/agentMode.ts",
+      "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
@@ -1032,9 +1089,7 @@
       "src/features/chatRealtime/chatWsTransport.ts",
       "src/features/chatRealtime/routing.ts",
       "src/features/chatRealtime/runtimeState.ts",
-      "src/features/chatRealtime/types.ts",
-      "src/features/chatRealtime/wsClient.ts",
-      "src/features/chatRealtime/wsDebugRecorder.ts"
+      "src/features/chatRealtime/types.ts"
     ],
     "feature-chat-timeline": [
       "src/features/chatTimeline/awaitingInteraction.ts",
@@ -1106,6 +1161,7 @@
     "src/app/settings/settingsActions.ts": "app-shell-navigation",
     "src/app/startup/AppLaunchSkeleton.tsx": "app-shell-navigation",
     "src/app/startup/GeminiLogo.tsx": "app-shell-navigation",
+    "src/core/api/activeWsTransport.ts": "core-api-client",
     "src/core/api/apiClient.ts": "core-api-client",
     "src/core/api/resourceUrl.ts": "core-api-client",
     "src/core/api/services/chatApi.ts": "core-api-client",
@@ -1116,17 +1172,26 @@
     "src/core/api/services/uploadApi.ts": "core-api-client",
     "src/core/auth/appAuth.ts": "core-auth-session",
     "src/core/auth/authConfig.ts": "core-auth-session",
+    "src/core/auth/authRequestModel.ts": "core-auth-session",
+    "src/core/auth/desktopWsProtocol.ts": "core-auth-session",
+    "src/core/auth/desktopWsTransport.ts": "core-auth-session",
+    "src/core/auth/deviceProfileModel.ts": "core-auth-session",
     "src/core/auth/deviceProfiles.ts": "core-auth-session",
     "src/core/auth/useAuthSession.ts": "core-auth-session",
     "src/core/config/endpoint.ts": "core-runtime-config",
     "src/core/config/runtimeEnv.ts": "core-runtime-config",
     "src/core/debug/httpDebugLogger.ts": "core-debug-logging",
+    "src/core/debug/wsDebugRecorder.ts": "core-debug-logging",
+    "src/core/ws/sharedWsTransport.ts": "core-ws-transport",
+    "src/core/ws/wsClient.ts": "core-ws-transport",
+    "src/core/ws/wsTransportConfig.ts": "core-ws-transport",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": "feature-agent-task-board",
     "src/features/agentTaskBoard/kanbanViewModel.ts": "feature-agent-task-board",
     "src/features/auth/LoginScreen.tsx": "feature-auth-login",
     "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/ChatHomeScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/agentMode.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/agentModelSettings.ts": "feature-chat-persistence",
     "src/features/chatPersistence/cacheScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatAttachmentModels.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatConversationTarget.ts": "feature-chat-persistence",
@@ -1182,8 +1247,6 @@
     "src/features/chatRealtime/routing.ts": "feature-chat-realtime",
     "src/features/chatRealtime/runtimeState.ts": "feature-chat-realtime",
     "src/features/chatRealtime/types.ts": "feature-chat-realtime",
-    "src/features/chatRealtime/wsClient.ts": "feature-chat-realtime",
-    "src/features/chatRealtime/wsDebugRecorder.ts": "feature-chat-realtime",
     "src/features/chatTimeline/awaitingInteraction.ts": "feature-chat-timeline",
     "src/features/chatTimeline/index.ts": "feature-chat-timeline",
     "src/features/chatTimeline/messageProjection.ts": "feature-chat-timeline",
@@ -1229,7 +1292,7 @@
   },
   "moduleGraph": {
     "app-development-debug": {
-      "dependsOn": ["core-api-client", "feature-chat-realtime"],
+      "dependsOn": ["core-api-client", "core-debug-logging", "feature-chat-realtime"],
       "dependedBy": ["app-shell-navigation"]
     },
     "app-shell-navigation": {
@@ -1249,7 +1312,7 @@
       "dependedBy": ["feature-chat-persistence"]
     },
     "core-api-client": {
-      "dependsOn": ["core-auth-session", "core-debug-logging"],
+      "dependsOn": ["core-auth-session", "core-debug-logging", "core-ws-transport"],
       "dependedBy": [
         "app-development-debug",
         "app-shell-navigation",
@@ -1261,16 +1324,20 @@
       ]
     },
     "core-auth-session": {
-      "dependsOn": ["core-debug-logging", "core-runtime-config", "feature-chat-persistence"],
+      "dependsOn": ["core-debug-logging", "core-runtime-config"],
       "dependedBy": ["app-shell-navigation", "core-api-client", "feature-auth-login", "feature-chat-realtime"]
     },
     "core-debug-logging": {
-      "dependsOn": [],
-      "dependedBy": ["core-api-client", "core-auth-session"]
+      "dependsOn": ["core-runtime-config"],
+      "dependedBy": ["app-development-debug", "core-api-client", "core-auth-session", "core-ws-transport"]
     },
     "core-runtime-config": {
       "dependsOn": [],
-      "dependedBy": ["core-auth-session", "feature-auth-login", "feature-chat-realtime"]
+      "dependedBy": ["core-auth-session", "core-debug-logging", "core-ws-transport", "feature-auth-login"]
+    },
+    "core-ws-transport": {
+      "dependsOn": ["core-debug-logging", "core-runtime-config"],
+      "dependedBy": ["core-api-client", "feature-chat-realtime"]
     },
     "feature-agent-task-board": {
       "dependsOn": ["core-api-client", "shared-i18n", "shared-screen-header", "shared-visual-foundation"],
@@ -1292,13 +1359,13 @@
         "shared-screen-header",
         "shared-visual-foundation"
       ],
-      "dependedBy": ["app-shell-navigation", "core-auth-session", "feature-chat-realtime", "feature-chat-timeline"]
+      "dependedBy": ["app-shell-navigation", "feature-chat-realtime", "feature-chat-timeline"]
     },
     "feature-chat-realtime": {
       "dependsOn": [
         "core-api-client",
         "core-auth-session",
-        "core-runtime-config",
+        "core-ws-transport",
         "feature-chat-persistence",
         "feature-chat-timeline"
       ],
@@ -1372,6 +1439,7 @@
     "src/app/settings/settingsActions.ts": ["clearSettingsLocalCache"],
     "src/app/startup/AppLaunchSkeleton.tsx": ["AppLaunchSkeleton"],
     "src/app/startup/GeminiLogo.tsx": ["GeminiLogo"],
+    "src/core/api/activeWsTransport.ts": ["resolveActiveWsTransportConfig"],
     "src/core/api/apiClient.ts": [
       "ApiError",
       "ApiRequestOptions",
@@ -1489,7 +1557,9 @@
       "RefreshFailureMode",
       "SessionState",
       "activateProfile",
+      "applyActiveDesktopWsRefreshPayload",
       "bootstrapAuth",
+      "configureAuthCacheRuntime",
       "ensureFreshAccessToken",
       "getAccessTokenForRequest",
       "getAuthSnapshot",
@@ -1508,10 +1578,49 @@
       "readStoredApiBaseUrl",
       "saveStoredApiBaseUrl"
     ],
-    "src/core/auth/deviceProfiles.ts": [
+    "src/core/auth/authRequestModel.ts": [
+      "MASTER_PASSWORD_LOGIN_PATH",
+      "MasterPasswordLoginRequest",
+      "PAIRING_CLAIM_PATH",
+      "PairingClaimRequest",
+      "buildMasterPasswordLoginRequest",
+      "buildPairingClaimRequest"
+    ],
+    "src/core/auth/desktopWsProtocol.ts": [
+      "DesktopBusinessFrame",
+      "DesktopTokenTransport",
+      "DesktopWsNamespace",
+      "DesktopWsPairingPayload",
+      "DesktopWsTokenMode",
+      "LegacyPairingPayload",
+      "PairingTargetMode",
+      "ParsedPairingPayload",
+      "applyDesktopTokenToUrl",
+      "buildDesktopBusinessFrame",
+      "buildDesktopTokenTransport",
+      "encodePairingPayloadV2",
+      "normalizeDesktopWsTokenMode",
+      "normalizeDesktopWsUrlInput",
+      "parsePairingPayload"
+    ],
+    "src/core/auth/desktopWsTransport.ts": ["normalizeDesktopWsStorageUrl", "normalizeDesktopWsTokenMode"],
+    "src/core/auth/deviceProfileModel.ts": [
+      "DesktopWsProfileTransport",
       "DeviceProfile",
+      "DeviceProfileInput",
       "DeviceProfileRegistrySnapshot",
+      "DeviceProfileTransportKind",
       "DeviceProfileWriteResult",
+      "createCacheScopeId",
+      "legacyDeviceTokenForProfile",
+      "normalizeDesktopWsProfileTransport",
+      "normalizeDeviceProfile",
+      "normalizeDeviceProfileTransportKind",
+      "normalizeDisplayName",
+      "normalizeText"
+    ],
+    "src/core/auth/deviceProfiles.ts": [
+      "clearActiveDeviceProfileAuth",
       "getActiveDeviceProfile",
       "listDeviceProfiles",
       "markActiveDeviceProfileNeedsRelink",
@@ -1524,6 +1633,28 @@
     "src/core/config/endpoint.ts": ["looksLikeLocalAddress", "normalizeApiBaseUrl"],
     "src/core/config/runtimeEnv.ts": ["readPublicEnv"],
     "src/core/debug/httpDebugLogger.ts": ["logHttpError", "logHttpRequest", "logHttpResponse"],
+    "src/core/debug/wsDebugRecorder.ts": ["WsDebugDirection", "WsDebugRecord", "wsDebugRecorder"],
+    "src/core/ws/sharedWsTransport.ts": [
+      "SharedWsRequestOptions",
+      "SharedWsStreamHandle",
+      "SharedWsStreamOptions",
+      "SharedWsSubscription",
+      "createSharedWsTransport",
+      "sharedWsTransport"
+    ],
+    "src/core/ws/wsClient.ts": [
+      "WsClient",
+      "WsClientDisconnectedError",
+      "WsClientRequestTimeoutError",
+      "WsPushFrame",
+      "WsSocketStatus"
+    ],
+    "src/core/ws/wsTransportConfig.ts": [
+      "AgentPlatformWsTransportConfig",
+      "DesktopWsTransportConfig",
+      "WsTransportConfig",
+      "WsTransportNamespace"
+    ],
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": ["AgentTaskBoardScreen"],
     "src/features/agentTaskBoard/kanbanViewModel.ts": [
       "AgentOption",
@@ -1545,6 +1676,11 @@
     "src/features/chatPersistence/ChatDetailScreen.tsx": ["ChatDetailScreen"],
     "src/features/chatPersistence/ChatHomeScreen.tsx": ["ChatHomeScreen"],
     "src/features/chatPersistence/agentMode.ts": ["canUsePlanMode", "normalizeAgentMode"],
+    "src/features/chatPersistence/agentModelSettings.ts": [
+      "AgentModelSettings",
+      "normalizeChatReasoningEffort",
+      "resolveAgentModelSettings"
+    ],
     "src/features/chatPersistence/cacheScope.ts": [
       "CHAT_LEGACY_CACHE_SCOPE_ID",
       "buildChatDatabaseName",
@@ -1843,6 +1979,7 @@
       "ChatMessageStatus",
       "ChatMessageStreamStatus",
       "ChatReadState",
+      "ChatReasoningEffort",
       "PendingOutboxMessage",
       "ServerMessageDetail"
     ],
@@ -1858,6 +1995,7 @@
     "src/features/chatPersistence/useChatDetailLocalUiState.ts": ["useChatDetailLocalUiState"],
     "src/features/chatRealtime/chatSyncService.ts": ["chatSyncService"],
     "src/features/chatRealtime/chatWsTransport.ts": [
+      "ChatTransportConfig",
       "attachChatRun",
       "buildChatAttachPayload",
       "buildChatQueryPayload",
@@ -1919,13 +2057,6 @@
       "ChatSyncEvent",
       "ChatSyncReason"
     ],
-    "src/features/chatRealtime/wsClient.ts": [
-      "WsClient",
-      "WsClientDisconnectedError",
-      "WsClientRequestTimeoutError",
-      "WsPushFrame"
-    ],
-    "src/features/chatRealtime/wsDebugRecorder.ts": ["WsDebugDirection", "WsDebugRecord", "wsDebugRecorder"],
     "src/features/chatTimeline/awaitingInteraction.ts": [
       "NormalizedChatTimelineAwaitingEvent",
       "formatAwaitingDecisionLabel",
@@ -1954,6 +2085,7 @@
       "patchChatTimelineMessage",
       "projectTimelineMessages",
       "projectTimelineRuntimeState",
+      "resolveChatTimelineUsageModelKey",
       "serializeChatTimelineState",
       "timelinePersistenceInternals"
     ],
@@ -2043,7 +2175,8 @@
     "src/features/chatTimeline/usageSummary.ts": [
       "buildChatTimelineUsageSummary",
       "buildChatTimelineUsageSummaryFromLabel",
-      "chatTimelineUsageSummaryEquals"
+      "chatTimelineUsageSummaryEquals",
+      "resolveChatTimelineUsageModelKey"
     ],
     "src/features/notifications/notificationService.ts": ["notificationService"],
     "src/shared/components/ConversationMarkdownRenderer.tsx": ["ConversationMarkdownRenderer"],
@@ -2179,6 +2312,8 @@
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
       "src/core/auth/useAuthSession.ts",
+      "src/features/chatPersistence/database.ts",
+      "src/features/chatPersistence/homeSnapshot.ts",
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/notifications/notificationService.ts",
       "src/shared/visual/AppThemeProvider.tsx",
@@ -2187,8 +2322,8 @@
     "src/app/debug/DevelopmentDebugPanelHost.tsx": [
       "src/app/debug/developmentDebugPanel.ts",
       "src/core/api/apiClient.ts",
-      "src/features/chatRealtime/chatSyncService.ts",
-      "src/features/chatRealtime/wsDebugRecorder.ts"
+      "src/core/debug/wsDebugRecorder.ts",
+      "src/features/chatRealtime/chatSyncService.ts"
     ],
     "src/app/debug/developmentDebugPanel.ts": [],
     "src/app/navigation/RootNavigator.tsx": [
@@ -2239,6 +2374,7 @@
       "src/core/api/apiClient.ts",
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
+      "src/core/auth/deviceProfiles.ts",
       "src/core/auth/useAuthSession.ts",
       "src/features/notifications/notificationService.ts",
       "src/shared/components/ScreenHeader.tsx",
@@ -2277,6 +2413,12 @@
     "src/app/settings/settingsActions.ts": ["src/features/chatRealtime/chatSyncService.ts"],
     "src/app/startup/AppLaunchSkeleton.tsx": ["src/app/startup/GeminiLogo.tsx", "src/shared/generated/brand.ts"],
     "src/app/startup/GeminiLogo.tsx": ["src/shared/icons/brandAssets.ts"],
+    "src/core/api/activeWsTransport.ts": [
+      "src/core/api/apiClient.ts",
+      "src/core/auth/appAuth.ts",
+      "src/core/auth/deviceProfiles.ts",
+      "src/core/ws/wsTransportConfig.ts"
+    ],
     "src/core/api/apiClient.ts": [
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
@@ -2291,17 +2433,30 @@
     "src/core/api/services/uploadApi.ts": ["src/core/api/apiClient.ts", "src/core/api/resourceUrl.ts"],
     "src/core/auth/appAuth.ts": [
       "src/core/auth/authConfig.ts",
+      "src/core/auth/authRequestModel.ts",
+      "src/core/auth/desktopWsProtocol.ts",
+      "src/core/auth/deviceProfileModel.ts",
       "src/core/auth/deviceProfiles.ts",
-      "src/core/debug/httpDebugLogger.ts",
-      "src/features/chatPersistence/database.ts",
-      "src/features/chatPersistence/homeSnapshot.ts"
+      "src/core/debug/httpDebugLogger.ts"
     ],
     "src/core/auth/authConfig.ts": ["src/core/config/endpoint.ts", "src/core/config/runtimeEnv.ts"],
-    "src/core/auth/deviceProfiles.ts": ["src/core/config/endpoint.ts"],
+    "src/core/auth/authRequestModel.ts": [],
+    "src/core/auth/desktopWsProtocol.ts": [],
+    "src/core/auth/desktopWsTransport.ts": ["src/core/auth/desktopWsProtocol.ts"],
+    "src/core/auth/deviceProfileModel.ts": ["src/core/auth/desktopWsTransport.ts", "src/core/config/endpoint.ts"],
+    "src/core/auth/deviceProfiles.ts": ["src/core/auth/deviceProfileModel.ts", "src/core/config/endpoint.ts"],
     "src/core/auth/useAuthSession.ts": ["src/core/auth/appAuth.ts"],
     "src/core/config/endpoint.ts": [],
     "src/core/config/runtimeEnv.ts": [],
     "src/core/debug/httpDebugLogger.ts": [],
+    "src/core/debug/wsDebugRecorder.ts": ["src/core/config/runtimeEnv.ts"],
+    "src/core/ws/sharedWsTransport.ts": ["src/core/ws/wsClient.ts", "src/core/ws/wsTransportConfig.ts"],
+    "src/core/ws/wsClient.ts": [
+      "src/core/config/runtimeEnv.ts",
+      "src/core/debug/wsDebugRecorder.ts",
+      "src/core/ws/wsTransportConfig.ts"
+    ],
+    "src/core/ws/wsTransportConfig.ts": [],
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": [
       "src/core/api/services/kanbanApi.ts",
       "src/features/agentTaskBoard/kanbanViewModel.ts",
@@ -2367,6 +2522,7 @@
       "src/shared/visual/useAppTabBarHeight.ts"
     ],
     "src/features/chatPersistence/agentMode.ts": [],
+    "src/features/chatPersistence/agentModelSettings.ts": ["src/features/chatPersistence/types.ts"],
     "src/features/chatPersistence/cacheScope.ts": [],
     "src/features/chatPersistence/chatAttachmentModels.ts": [
       "src/core/api/resourceUrl.ts",
@@ -2375,6 +2531,7 @@
     ],
     "src/features/chatPersistence/chatConversationTarget.ts": [
       "src/features/chatPersistence/agentMode.ts",
+      "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/types.ts"
     ],
     "src/features/chatPersistence/chatDetailAsyncScope.ts": [],
@@ -2388,6 +2545,7 @@
     "src/features/chatPersistence/chatDirectoryProjector.ts": [
       "src/core/api/services/chatApi.ts",
       "src/features/chatPersistence/agentMode.ts",
+      "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/chatReadState.ts",
       "src/features/chatPersistence/types.ts",
       "src/shared/visual/agentAvatarIcon.ts"
@@ -2409,6 +2567,7 @@
     ],
     "src/features/chatPersistence/chatRepository.ts": [
       "src/features/chatPersistence/agentMode.ts",
+      "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatDirectoryOpenDecision.ts",
@@ -2460,6 +2619,7 @@
     "src/features/chatPersistence/components/ChatDetailHeader.tsx": [
       "src/features/chatPersistence/chatDetailViewModel.ts",
       "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx",
+      "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/index.ts",
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
@@ -2506,6 +2666,8 @@
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": [
+      "src/features/chatPersistence/agentModelSettings.ts",
+      "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
@@ -2639,6 +2801,7 @@
       "src/features/chatPersistence/schema.ts"
     ],
     "src/features/chatPersistence/homeSnapshot.ts": [
+      "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/types.ts",
       "src/shared/visual/agentAvatarIcon.ts"
@@ -2675,9 +2838,12 @@
       "src/features/chatRealtime/types.ts"
     ],
     "src/features/chatRealtime/chatSyncService.ts": [
+      "src/core/api/activeWsTransport.ts",
       "src/core/api/apiClient.ts",
       "src/core/api/services/chatApi.ts",
       "src/core/auth/appAuth.ts",
+      "src/core/ws/sharedWsTransport.ts",
+      "src/core/ws/wsClient.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatDirectoryProjector.ts",
       "src/features/chatPersistence/chatProjector.ts",
@@ -2687,13 +2853,14 @@
       "src/features/chatRealtime/chatWsTransport.ts",
       "src/features/chatRealtime/routing.ts",
       "src/features/chatRealtime/types.ts",
-      "src/features/chatRealtime/wsClient.ts",
       "src/features/chatTimeline/index.ts"
     ],
     "src/features/chatRealtime/chatWsTransport.ts": [
       "src/core/api/services/chatEventProtocol.ts",
-      "src/features/chatRealtime/types.ts",
-      "src/features/chatRealtime/wsClient.ts"
+      "src/core/ws/sharedWsTransport.ts",
+      "src/core/ws/wsClient.ts",
+      "src/core/ws/wsTransportConfig.ts",
+      "src/features/chatRealtime/types.ts"
     ],
     "src/features/chatRealtime/routing.ts": ["src/core/api/services/chatEventProtocol.ts"],
     "src/features/chatRealtime/runtimeState.ts": [
@@ -2701,15 +2868,10 @@
       "src/features/chatTimeline/index.ts"
     ],
     "src/features/chatRealtime/types.ts": [
+      "src/core/ws/wsClient.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/index.ts"
     ],
-    "src/features/chatRealtime/wsClient.ts": [
-      "src/core/config/runtimeEnv.ts",
-      "src/features/chatRealtime/types.ts",
-      "src/features/chatRealtime/wsDebugRecorder.ts"
-    ],
-    "src/features/chatRealtime/wsDebugRecorder.ts": ["src/core/config/runtimeEnv.ts"],
     "src/features/chatTimeline/awaitingInteraction.ts": [
       "src/core/api/services/chatEventProtocol.ts",
       "src/features/chatTimeline/timelineEventFormat.ts",
@@ -2721,7 +2883,8 @@
       "src/features/chatTimeline/timelineDisplay.ts",
       "src/features/chatTimeline/timelinePersistence.ts",
       "src/features/chatTimeline/timelineReducer.ts",
-      "src/features/chatTimeline/types.ts"
+      "src/features/chatTimeline/types.ts",
+      "src/features/chatTimeline/usageSummary.ts"
     ],
     "src/features/chatTimeline/messageProjection.ts": [
       "src/features/chatPersistence/types.ts",
@@ -2809,7 +2972,7 @@
     "src/types/assets.d.ts": []
   },
   "cardCounts": {
-    "modules": 17,
+    "modules": 18,
     "flows": 5,
     "tasks": 13
   }

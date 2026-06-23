@@ -59,6 +59,7 @@ test('timeline persistence roundtrips rich runtime nodes without replaying event
         currentSize: 120,
         maxSize: 1000,
         estimatedNextCallSize: 150,
+        reasoningEffort: 'LOW',
       },
       usage: {
         current: {
@@ -117,6 +118,7 @@ test('timeline persistence roundtrips rich runtime nodes without replaying event
   assert.equal(restored?.usageSummary?.chat.totalTokens, 15);
   assert.equal(restored?.usageSummary?.modelKey, 'gpt-5-mini');
   assert.equal(restored?.usageSummary?.contextWindow.percent, 12);
+  assert.equal(restored?.usageSummary?.contextWindow.reasoningEffort, 'LOW');
   assert.equal(restored?.usageSummary?.current.reasoningTokens, 2);
   assert.equal(restored?.usageSummary?.chat.cacheHitTokens, 4);
   assert.equal(restored?.usageSummary?.chat.estimatedCost?.total, 0.02);
@@ -124,6 +126,59 @@ test('timeline persistence roundtrips rich runtime nodes without replaying event
     restored?.orderedNodeIds.map((id) => restored.nodesById[id]?.kind),
     ['message', 'run', 'reasoning', 'tool', 'message', 'awaiting', 'usage']
   );
+});
+
+test('timeline persistence normalizes legacy usage summaries without reasoning effort', () => {
+  const state = deriveChatTimelineState('chat-legacy-usage', [
+    {
+      type: 'usage.snapshot',
+      runId: 'run-legacy',
+      model: { key: 'gpt-5-mini' },
+      contextWindow: {
+        currentSize: 120,
+        maxSize: 1000,
+        estimatedNextCallSize: 150,
+        reasoningEffort: 'HIGH',
+      },
+      usage: {
+        current: {
+          promptTokens: 12,
+          completionTokens: 3,
+          totalTokens: 15,
+        },
+        run: {
+          promptTokens: 12,
+          completionTokens: 3,
+          totalTokens: 15,
+        },
+        chat: {
+          promptTokens: 12,
+          completionTokens: 3,
+          totalTokens: 15,
+        },
+      },
+      timestamp: 160,
+    },
+  ]);
+  const serialized = serializeChatTimelineState(state);
+  const legacyRows = serialized.nodes.map((row) => {
+    if (row.kind !== 'usage') {
+      return row;
+    }
+    const payload = JSON.parse(row.payloadJson);
+    delete payload.usageSummary.contextWindow.reasoningEffort;
+    const payloadJson = timelinePersistenceInternals.stableStringify(payload);
+    return {
+      ...row,
+      payloadJson,
+      payloadHash: timelinePersistenceInternals.hashText(payloadJson),
+    };
+  });
+
+  const restored = deserializeChatTimelineState(serialized.meta, legacyRows);
+
+  assert.equal(restored?.usageSummary?.modelKey, 'gpt-5-mini');
+  assert.equal(restored?.usageSummary?.contextWindow.reasoningEffort, '');
 });
 
 test('timeline persistence roundtrips structured question awaiting payloads', () => {

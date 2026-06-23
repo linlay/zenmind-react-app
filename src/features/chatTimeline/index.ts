@@ -66,6 +66,7 @@ export {
   buildChatTimelineDisplayItems,
   getChatTimelineDisplayItemType,
 } from './timelineDisplay.ts';
+export { resolveChatTimelineUsageModelKey } from './usageSummary.ts';
 export type {
   ChatTimelineDisplayModel,
   ChatTimelineDisplayTailSignature,

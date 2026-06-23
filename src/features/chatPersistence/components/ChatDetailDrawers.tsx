@@ -10,6 +10,7 @@ import { formatChatDetailTimestamp } from '../chatDetailFormatters';
 import type { ChatHomeItem } from '../types';
 
 const HISTORY_ROW_HEIGHT = 66;
+const HISTORY_TIME_COLUMN_WIDTH = 112;
 const HISTORY_DRAW_DISTANCE = HISTORY_ROW_HEIGHT * 8;
 const HISTORY_DRAWER_OVERLAY_Z_INDEX = 120;
 const HISTORY_DRAWER_VERTICAL_PADDING = appVisualTokens.spacing.xs;
@@ -53,6 +54,11 @@ const HistoryRow = memo(function HistoryRow({ item, active, onSelect }: HistoryR
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const unread = item.unreadCount > 0;
+  const timestamp = formatChatDetailTimestamp(
+    item.lastMessageAt,
+    Date.now(),
+    t('chatDetail.timestamp.yesterday')
+  );
   const handlePress = useCallback(() => {
     onSelect(item);
   }, [item, onSelect]);
@@ -76,8 +82,8 @@ const HistoryRow = memo(function HistoryRow({ item, active, onSelect }: HistoryR
           {item.lastMessageText || t('history.noMessage')}
         </Text>
       </View>
-      <Text numberOfLines={1} style={styles.historyTime}>
-        {formatChatDetailTimestamp(item.lastMessageAt)}
+      <Text allowFontScaling={false} numberOfLines={1} style={styles.historyTime}>
+        {timestamp}
       </Text>
     </Pressable>
   );
@@ -386,11 +392,13 @@ function createStyles(theme: AppThemeTokens) {
       color: theme.colors.textSecondary
     },
     historyTime: {
-      width: 44,
+      width: HISTORY_TIME_COLUMN_WIDTH,
+      flexShrink: 0,
       textAlign: 'right',
       fontSize: 12,
       lineHeight: 18,
       fontWeight: '600',
+      fontVariant: ['tabular-nums'],
       color: theme.colors.textSecondary
     },
     historyFooterText: {

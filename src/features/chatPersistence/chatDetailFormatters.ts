@@ -6,6 +6,7 @@ const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const MILLISECONDS_PER_SECOND = 1000;
 const TENTHS_PER_SECOND = 10;
+const DEFAULT_YESTERDAY_LABEL = defaultT('chatDetail.timestamp.yesterday');
 
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
@@ -19,13 +20,26 @@ function isSameLocalDay(left: Date, right: Date): boolean {
   );
 }
 
+function isSameLocalYear(left: Date, right: Date): boolean {
+  return left.getFullYear() === right.getFullYear();
+}
+
+function isYesterdayLocalDay(value: Date, current: Date): boolean {
+  const yesterday = new Date(current.getFullYear(), current.getMonth(), current.getDate() - 1);
+  return isSameLocalDay(value, yesterday);
+}
+
 function formatSecondTenths(value: number): string {
   const wholeSeconds = Math.floor(value / TENTHS_PER_SECOND);
   const tenths = value % TENTHS_PER_SECOND;
   return tenths === 0 ? String(wholeSeconds) : `${wholeSeconds}.${tenths}`;
 }
 
-export function formatChatDetailTimestamp(value: number, now: number = Date.now()): string {
+export function formatChatDetailTimestamp(
+  value: number,
+  now: number = Date.now(),
+  yesterdayLabel: string = DEFAULT_YESTERDAY_LABEL
+): string {
   const numericValue = Number(value);
   const numericNow = Number(now);
   if (!Number.isFinite(numericValue) || numericValue <= 0 || !Number.isFinite(numericNow)) {
@@ -43,7 +57,16 @@ export function formatChatDetailTimestamp(value: number, now: number = Date.now(
     return timeText;
   }
 
-  return `${timestamp.getFullYear()}/${pad2(timestamp.getMonth() + 1)}/${pad2(timestamp.getDate())} ${timeText}`;
+  if (isYesterdayLocalDay(timestamp, current)) {
+    return `${yesterdayLabel} ${timeText}`;
+  }
+
+  const dateText = `${pad2(timestamp.getMonth() + 1)}/${pad2(timestamp.getDate())}`;
+  if (isSameLocalYear(timestamp, current)) {
+    return `${dateText} ${timeText}`;
+  }
+
+  return `${timestamp.getFullYear()}/${dateText} ${timeText}`;
 }
 
 export function formatChatDetailDuration(value: number | null | undefined): string {

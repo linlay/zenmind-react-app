@@ -37,7 +37,7 @@
   "responsibility": [
     "挂载 SafeAreaProvider、I18nProvider、AppThemeProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
     "通过 BRAND 环境变量、brands/<id>/brand.json、app.config.js 和品牌同步脚本，把同一移动端项目输出为不同原生包名、bundle id、图标、启动图和 EAS channel 的品牌包。",
-    "决定认证前后的 RootStack / Tab 结构、登录门卫开关、任务看板、设置二级页、占位页映射以及 Chat 首页与详情页的导航层级；原生端底部 Tab 通过 Native Bottom Tabs 承载，Web 继续使用 JS Bottom Tabs。",
+    "决定认证前后的 RootStack / Tab 结构、登录门卫开关、设备 profile endpoint 展示、任务看板、设置二级页、占位页映射以及 Chat 首页与详情页的导航层级；原生端底部 Tab 通过 Native Bottom Tabs 承载，Web 继续使用 JS Bottom Tabs。",
     "为一级 Tab 页面提供固定顶部 Header 与滚动内容分离的壳层布局。",
     "承接共享视觉 token、运行时 system/light/dark 主题偏好、共享国际化文案、native PNG Tab 图标、描边 JS Tab 图标和 locale 感知标签映射，统一一级页面的轻量聊天风格。",
     "让 ChatDetail 作为 Tabs 之上的上层 route 覆盖首页，避免在 feature 内手写 tab 显隐和页面覆盖动画。",
@@ -103,7 +103,7 @@
       "file": "src/app/AppRoot.tsx",
       "symbol": "AppRoot",
       "kind": "app-shell",
-      "description": "导航容器、认证冷启动恢复、运行时导航主题、系统通知接入与开发态入口的壳层，并向 App 暴露导航 ready 时机。"
+      "description": "导航容器、认证冷启动恢复、auth cache runtime 注入、运行时导航主题、系统通知接入与开发态入口的壳层，并向 App 暴露导航 ready 时机。"
     },
     {
       "file": "src/app/startup/AppLaunchSkeleton.tsx",
@@ -163,7 +163,8 @@
     "平台解析的底部 Tab 容器、native tab 图标资产和共享底部避让 hook/metrics",
     "Settings root route 与 Me 页操作入口",
     "system/light/dark 主题偏好驱动的 NavigationContainer、StatusBar、TabBar 与 Settings 外观分组",
-    "认证快照驱动的 Root stack 与 bottom tab 路由编排"
+    "认证快照驱动的 Root stack 与 bottom tab 路由编排",
+    "core auth cache runtime 注入的聊天缓存 scope 切换与清理函数"
   ],
   "relatedFlows": ["app-startup", "chat-home-cold-boot", "notification-open-chat-message"],
   "relatedTasks": [
@@ -205,7 +206,8 @@
     "新增壳层或一级页面文案时优先走 shared-i18n，不把 locale 解析、设备语言读取或翻译表散落到 screen 内。",
     "如果支持关闭登录门卫，AppRoot 与 RootNavigator 必须同时消费同一个 auth config 开关。",
     "当前 Chat Tab 直接指向 feature 内的 ChatHomeScreen；ChatDetail 由 RootNavigator 的上层 stack 承载。",
-    "app 层可以消费 core auth 暴露的快照与 bootstrap 入口，但不要自己处理 token 存储细节。",
+    "app 层可以消费 core auth 暴露的快照、bootstrap 入口和 cache runtime 注入点，但不要自己处理 token 存储细节。",
+    "AppRoot 注入给 core auth 的 cache runtime 只能转接聊天缓存 scope 切换/清理，不把认证 token 逻辑放回 app 层。",
     "通知点击只在 app 层转成导航动作，不在 app 层读取或写入聊天 SQLite。",
     "不要在 app 层直接 import SQLite 或 WebSocket 底层实现。",
     "除非任务明确要求，否则保持当前 Chat initialRouteName 不变。"

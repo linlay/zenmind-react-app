@@ -1,11 +1,14 @@
 import type { ChatSocketStatus } from './types.ts';
-import { WsClient, type WsPushFrame } from './wsClient.ts';
 import { normalizeEventType } from '../../core/api/services/chatEventProtocol.ts';
+import {
+  sharedWsTransport,
+  type SharedWsStreamHandle,
+  type SharedWsSubscription
+} from '../../core/ws/sharedWsTransport.ts';
+import type { WsPushFrame } from '../../core/ws/wsClient.ts';
+import type { WsTransportConfig, WsTransportNamespace } from '../../core/ws/wsTransportConfig.ts';
 
-type ChatTransportConfig = {
-  backendUrl: string;
-  accessToken: string;
-};
+export type ChatTransportConfig = WsTransportConfig;
 
 type ChatTransportCallbacks = {
   onPush?: (event: Record<string, unknown>) => void;
@@ -13,21 +16,17 @@ type ChatTransportCallbacks = {
 };
 
 type StreamOptions = {
-  backendUrl: string;
-  accessToken: string;
   signal?: AbortSignal;
   onEvent: (event: Record<string, unknown>) => void;
   onDone?: (reason: string, lastSeq: number) => void;
   onError?: (error: Error) => void;
-};
+} & ChatTransportConfig;
 
 type RequestOptions = {
-  backendUrl: string;
-  accessToken: string;
   type: string;
   payload?: unknown;
   signal?: AbortSignal;
-};
+} & ChatTransportConfig;
 
 type ChatQueryPayloadInput = {
   requestId: string;
@@ -63,18 +62,11 @@ type ChatAttachPayload = {
   lastSeq: number;
 };
 
-let client: WsClient | null = null;
-let clientBackendUrl = '';
-let clientAccessToken = '';
-let pushCallbacks: ChatTransportCallbacks = {};
+let unsubscribePush: SharedWsSubscription | null = null;
+let unsubscribeStatus: SharedWsSubscription | null = null;
 
-function normalizeConfig(config: ChatTransportConfig): ChatTransportConfig {
-  return {
-    backendUrl: String(config.backendUrl || '')
-      .trim()
-      .replace(/\/+$/, ''),
-    accessToken: String(config.accessToken || '').trim(),
-  };
+function getTransportNamespace(config: ChatTransportConfig): WsTransportNamespace | undefined {
+  return config.kind === 'desktop-ws' ? config.namespace : undefined;
 }
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -84,14 +76,14 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
 function normalizeTransportEvent(input: Record<string, unknown>): Record<string, unknown> {
   const normalized: Record<string, unknown> = {
     ...input,
-    type: normalizeEventType(input.type),
+    type: normalizeEventType(input.type)
   };
 
   if (isObjectRecord(normalized.payload)) {
     return {
       ...normalized.payload,
       ...normalized,
-      type: normalizeEventType(normalized.type || normalized.payload.type),
+      type: normalizeEventType(normalized.type || normalized.payload.type)
     };
   }
 
@@ -111,7 +103,7 @@ export function buildChatQueryPayload(input: ChatQueryPayloadInput): ChatQueryPa
     ...(agentKey ? { agentKey } : {}),
     ...(input.planningMode === true ? { planningMode: true } : {}),
     role: 'user',
-    stream: true,
+    stream: true
   };
 }
 
@@ -119,16 +111,12 @@ export function buildChatAttachPayload(input: ChatAttachPayloadInput): ChatAttac
   return {
     runId: String(input.runId || '').trim(),
     agentKey: String(input.agentKey || '').trim(),
-    lastSeq: Number.isFinite(Number(input.lastSeq)) ? Number(input.lastSeq) : 0,
+    lastSeq: Number.isFinite(Number(input.lastSeq)) ? Number(input.lastSeq) : 0
   };
 }
 
 export function toWsPushEvent(frame: WsPushFrame): Record<string, unknown> {
-  const nestedRecord = isObjectRecord(frame.payload)
-    ? frame.payload
-    : isObjectRecord(frame.data)
-      ? frame.data
-      : {};
+  const nestedRecord = isObjectRecord(frame.payload) ? frame.payload : isObjectRecord(frame.data) ? frame.data : {};
   const topLevel: Record<string, unknown> = { ...frame };
   delete topLevel.frame;
   delete topLevel.payload;
@@ -136,119 +124,83 @@ export function toWsPushEvent(frame: WsPushFrame): Record<string, unknown> {
   return normalizeTransportEvent({
     ...nestedRecord,
     ...topLevel,
-    type: frame.type || nestedRecord.type,
+    type: frame.type || nestedRecord.type
   });
 }
 
-function ensureClient(configInput: ChatTransportConfig): WsClient {
-  const config = normalizeConfig(configInput);
-  if (
-    client &&
-    clientBackendUrl === config.backendUrl &&
-    clientAccessToken === config.accessToken
-  ) {
-    client.updateOptions({
-      onPush: pushCallbacks.onPush
-        ? (frame) => {
-            pushCallbacks.onPush?.(toWsPushEvent(frame));
-          }
-        : undefined,
-      onStatusChange: pushCallbacks.onStatusChange,
-    });
-    return client;
-  }
-
-  if (client) {
-    client.disconnect();
-  }
-
-  client = new WsClient({
-    backendUrl: config.backendUrl,
-    accessToken: config.accessToken,
-    onPush: (frame) => {
-      pushCallbacks.onPush?.(toWsPushEvent(frame));
-    },
-    onStatusChange: (status) => {
-      pushCallbacks.onStatusChange?.(status);
-    },
-  });
-  clientBackendUrl = config.backendUrl;
-  clientAccessToken = config.accessToken;
-  return client;
+function clearChatSubscriptions() {
+  unsubscribePush?.();
+  unsubscribeStatus?.();
+  unsubscribePush = null;
+  unsubscribeStatus = null;
 }
 
 export function getChatTransportStatus(): ChatSocketStatus {
-  return client?.getStatus() ?? 'idle';
+  return sharedWsTransport.getStatus();
 }
 
 export function updateChatTransportAuth(configInput: ChatTransportConfig): boolean {
-  const config = normalizeConfig(configInput);
-  if (!client || clientBackendUrl !== config.backendUrl) {
-    return false;
-  }
-
-  clientAccessToken = config.accessToken;
-  client.updateOptions({ accessToken: config.accessToken });
-  return true;
+  return sharedWsTransport.updateTransport(configInput);
 }
 
 export async function startChatPushTransport(
   config: ChatTransportConfig,
   callbacks: ChatTransportCallbacks = {}
 ): Promise<void> {
-  pushCallbacks = callbacks;
-  const nextClient = ensureClient(config);
-  await nextClient.connect();
+  clearChatSubscriptions();
+  if (callbacks.onPush) {
+    unsubscribePush = sharedWsTransport.subscribePush((frame) => {
+      callbacks.onPush?.(toWsPushEvent(frame as WsPushFrame));
+    });
+  }
+  if (callbacks.onStatusChange) {
+    unsubscribeStatus = sharedWsTransport.subscribeStatus(callbacks.onStatusChange);
+  }
+  await sharedWsTransport.connect(config);
 }
 
 export async function requestChatTransport<T>(options: RequestOptions): Promise<T> {
-  const nextClient = ensureClient(options);
-  return nextClient.request<T>({
+  return sharedWsTransport.request<T>({
+    transport: options,
     type: options.type,
     payload: options.payload,
     signal: options.signal,
+    namespace: getTransportNamespace(options)
   });
 }
 
 export function stopChatPushTransport() {
-  pushCallbacks = {};
-  if (!client) {
-    return;
-  }
-  client.disconnect();
-  client = null;
-  clientBackendUrl = '';
-  clientAccessToken = '';
+  clearChatSubscriptions();
 }
 
 export async function streamChatQuery(
   options: StreamOptions & {
     payload: ChatQueryPayloadInput;
   }
-) {
-  const nextClient = ensureClient(options);
-  await nextClient.connect(options.signal);
-  return nextClient.stream({
+): Promise<SharedWsStreamHandle> {
+  return sharedWsTransport.startStream<Record<string, unknown>>({
+    transport: options,
     type: '/api/query',
     payload: buildChatQueryPayload(options.payload),
     signal: options.signal,
+    namespace: getTransportNamespace(options),
     onEvent: (event) => options.onEvent(normalizeTransportEvent(event)),
     onDone: options.onDone,
-    onError: options.onError,
+    onError: options.onError
   });
 }
 
 export async function attachChatRun(
   options: StreamOptions & { payload: { runId: string; agentKey: string; lastSeq?: number } }
-) {
-  const nextClient = ensureClient(options);
-  await nextClient.connect(options.signal);
-  return nextClient.stream({
+): Promise<SharedWsStreamHandle> {
+  return sharedWsTransport.startStream<Record<string, unknown>>({
+    transport: options,
     type: '/api/attach',
     payload: buildChatAttachPayload(options.payload),
     signal: options.signal,
+    namespace: getTransportNamespace(options),
     onEvent: (event) => options.onEvent(normalizeTransportEvent(event)),
     onDone: options.onDone,
-    onError: options.onError,
+    onError: options.onError
   });
 }

@@ -26,8 +26,8 @@ pnpm kb:check-stale
 当前项目是 Expo 56 / React Native 0.85 的跨平台移动应用，主结构为 `app / core / features / shared`：
 
 - `app`：启动遮罩、认证门卫、React Navigation root stack / bottom tabs、开发态 Debug 面板。
-- `core`：API client、认证会话、运行时配置、HTTP debug logging。
-- `features`：Chat 首页与详情页、聊天持久化、`/ap/ws` 实时同步、rich timeline、通知、AI 任务看板、登录页。
+- `core`：API client、认证会话与设备 profile、运行时配置、HTTP/WS debug logging、共享 WebSocket transport。
+- `features`：Chat 首页与详情页、聊天持久化、通过 core WS transport 的实时同步、rich timeline、通知、AI 任务看板、登录页。
 - `shared`：共享 Header、分页列表、图标、Markdown 渲染和视觉 token。
 
 当前底部 Tab：
@@ -47,5 +47,7 @@ pnpm kb:check-stale
 - SQLite 是聊天目录、会话摘要、消息、outbox、read state 和 rich timeline snapshot 的本地真源。
 - MMKV 只保存首页首屏目录冷启动快照。
 - 实时业务写入继续走 `chatSyncService` / `chatRepository`。
-- `chatWsTransport` 和 `WsClient` 只负责 `/ap/ws` transport。
+- HTTP 认证 profile 继续走 `deviceToken` + `/api/auth/refresh`；Desktop WS profile 只保存 Desktop WS token、`wsUrl` 和 token mode，不写入旧 device token key。
+- `src/core/ws` 只负责 AP `/ap/ws` 与 Desktop `/ws` 的底层 WebSocket transport、namespace、重连、pending request / stream 和 push/status 订阅。
+- `chatWsTransport` 只做聊天协议 adapter，业务写入继续走 `chatSyncService` / `chatRepository`。
 - 新 UI 默认继承 `doc/ui-visual-theme.md` 与 `src/shared/visual/foundation.ts`。

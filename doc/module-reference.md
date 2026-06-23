@@ -7,6 +7,7 @@
 职责：
 
 - 创建 `NavigationContainer` 并注入统一导航主题。
+- 把聊天缓存 scope 的切换、目录快照清理和旧 scope 删除能力注入 core auth。
 - 启动认证 bootstrap，按前台状态预刷新 access token。
 - 根据 session 注册通知并启停 `chatSyncService`。
 - 接收通知点击 payload，必要时先缓存，待认证与导航 ready 后进入 `ChatDetail`。
@@ -26,7 +27,7 @@
 
 - 开发态调试面板宿主，默认隐藏。
 - Me 页版本信息三连点通过 `developmentDebugPanel.ts` 打开。
-- 展示 API Base URL、reload、本地聊天缓存 reset、WS frame ring buffer 等调试能力。
+- 展示 API Base URL、reload、本地聊天缓存 reset、core WS frame ring buffer 等调试能力。
 - 通过 `chatSyncService` 暴露的开发态入口清缓存，不直接读写 SQLite、MMKV 或 WebSocket。
 
 ### `navigation/RootNavigator.tsx`
@@ -91,13 +92,37 @@
 - 按业务能力组织 API 函数。
 - 当前包含 chat、chat event protocol、notification、upload 和 template。
 
+### `api/activeWsTransport.ts`
+
+职责：
+
+- 按 active device profile 解析聊天/AP 请求所需的 `WsTransportConfig`。
+- HTTP profile 使用 `getApiBaseUrl()` 和 `getAccessTokenForRequest()` 生成 agent-platform transport。
+- Desktop WS profile 使用保存的 `wsUrl`、`tokenMode` 和 `ensureFreshAccessToken()` 生成带 namespace 的 desktop-ws transport。
+
 ### `auth/appAuth.ts`
 
 职责：
 
-- 登录、登出、刷新 access token。
-- 持久化 device token 与 session snapshot。
-- 为请求侧提供 `getAccessTokenForRequest()`。
+- 登录、登出、刷新 access token，并按 profile 分支处理 HTTP refresh 与 Desktop WS `auth.refresh`。
+- 持久化 legacy HTTP device token、Desktop WS profile token、设备 profile registry 与 session snapshot。
+- 解析 legacy pairing 与 v2 Desktop WS pairing payload，Desktop WS 登录会短连接校验 `session.hello`。
+- 为请求侧提供 `getAccessTokenForRequest()` 和 `ensureFreshAccessToken()`。
+- 通过 `configureAuthCacheRuntime()` 接收 app 层注入的聊天缓存 scope 操作，不直接 import feature 持久化实现。
+
+### `auth/deviceProfiles.ts`
+
+职责：
+
+- 管理最近设备 profile registry、active profile、manual HTTP profile 和 Desktop WS profile。
+- `transportKind: "http"` 保存 `apiBaseUrl` 与 `deviceToken`；`transportKind: "desktop-ws"` 保存 `wsUrl`、`tokenMode`、Desktop access token 和过期时间。
+- profile 淘汰时返回需要清理的聊天缓存 scope。
+
+### `auth/desktopWsProtocol.ts`
+
+职责：
+
+- 提供 Desktop WS v2 pairing payload 编解码、legacy v1 payload 兼容解析、Desktop WS URL/token mode 归一化和 namespace frame helper。
 
 ### `auth/authConfig.ts`
 
@@ -113,6 +138,15 @@
 - 订阅认证 session snapshot。
 - 供 `AppRoot`、`RootNavigator`、Me 页等 UI 使用。
 
+### `ws/*`
+
+职责：
+
+- `wsTransportConfig.ts` 定义 agent-platform 与 desktop-ws 两种 transport config。
+- `wsClient.ts` 负责底层 WebSocket URL/token 解析、request、stream、push、状态、心跳、重连和 namespace 注入。
+- `sharedWsTransport.ts` 维护生产唯一 shared socket，endpoint 不变时更新 token/namespace 而不重连，并向 chat adapter 暴露 request、stream、push/status subscription。
+- 不读取 active profile、不持久化 token、不做聊天业务 payload 归一。
+
 ## 3. 功能模块 `src/features`
 
 ### `auth/LoginScreen.tsx`
@@ -120,8 +154,8 @@
 职责：
 
 - 认证 bootstrap 页面和登录页。
-- 收集后端域名/IP、用户名、主密码和设备名。
-- 成功后保存 API base URL 并建立 session。
+- 收集设备名、扫码/粘贴 pairing payload，或手动输入后端 endpoint 与主密码。
+- 成功后交给 core auth 建立 HTTP 或 Desktop WS session；页面不解析 QR、不保存 token。
 
 ### `agentTaskBoard/AgentTaskBoardScreen.tsx`
 
@@ -176,21 +210,20 @@
 
 职责：
 
-- 管理 `/ap/ws` 连接、request、stream、push、重连、outbox replay 和 scoped sync event。
+- 管理聊天实时业务同步、request、stream、push、outbox replay 和 scoped sync event。
+- 通过 `core/ws/sharedWsTransport` 复用 HTTP `/ap/ws` 或 Desktop `/ws` 连接。
 - 把实时帧转成 timeline state 与 repository patch / upsert / reconcile。
 - 提供发送、停止、继续、awaiting question submit、mark read 和开发态 reset 入口。
 
 主要入口：
 
 - `chatSyncService.ts`：UI 侧业务同步入口。
-- `chatWsTransport.ts`：把 API base URL 和 access token 适配到 `/ap/ws`。
-- `wsClient.ts`：底层 WebSocket client。
+- `chatWsTransport.ts`：聊天协议 adapter，委托 core shared WS transport 并归一 chat push / stream event。
 - `runtimeState.ts`：运行态归一辅助。
-- `wsDebugRecorder.ts`：开发态 WS frame ring buffer。
 
 边界：
 
-- `chatWsTransport` 和 `WsClient` 不读写 SQLite、MMKV 或 UI 状态。
+- `chatWsTransport` 和 core `WsClient` 不读写 SQLite、MMKV 或 UI 状态。
 - 所有业务写入继续走 `chatSyncService` 和 `chatRepository`。
 
 ### `notifications/notificationService.ts`
@@ -261,7 +294,8 @@ ChatDetailScreen
   -> ChatAwaitingDock
 
 chatSyncService
-  -> chatWsTransport / WsClient
+  -> chatWsTransport
+  -> core/ws/sharedWsTransport
   -> chatRepository
   -> feature-chat-timeline
 

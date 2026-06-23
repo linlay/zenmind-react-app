@@ -88,6 +88,43 @@ function normalizeIntroAgentKey(value: string | null | undefined): string {
   return String(value || '').trim();
 }
 
+function shouldLoadStoredConversationTarget(target: ChatConversationTarget | null): boolean {
+  if (!target) {
+    return true;
+  }
+  return (target.kind === 'agent' && !target.agentMode) || !target.modelKey;
+}
+
+function mergeConversationTargetFallback(
+  target: ChatConversationTarget | null,
+  fallback: ChatConversationTarget | null
+): ChatConversationTarget | null {
+  if (!target) {
+    return fallback;
+  }
+  if (!fallback) {
+    return target;
+  }
+
+  const agentMode = target.agentMode || fallback.agentMode || null;
+  const modelKey = target.modelKey || fallback.modelKey || null;
+  const reasoningEffort = target.reasoningEffort || fallback.reasoningEffort || null;
+  if (
+    agentMode === target.agentMode &&
+    modelKey === target.modelKey &&
+    reasoningEffort === target.reasoningEffort
+  ) {
+    return target;
+  }
+
+  return {
+    ...target,
+    agentMode,
+    modelKey,
+    reasoningEffort
+  };
+}
+
 export function useChatDetailConversationController({
   navigation,
   conversationId,
@@ -475,9 +512,7 @@ export function useChatDetailConversationController({
           hydrationError = error;
         }
 
-        const shouldLoadTargetFromStore =
-          !normalizedRouteConversationTarget ||
-          (normalizedRouteConversationTarget.kind === 'agent' && !normalizedRouteConversationTarget.agentMode);
+        const shouldLoadTargetFromStore = shouldLoadStoredConversationTarget(normalizedRouteConversationTarget);
         const [nextDetail, nextTimelineState, nextHistoryScope, storedConversationTarget] = await Promise.all([
           getConversationDetail(conversationId),
           getConversationInitialTimelineState(conversationId, 60),
@@ -486,12 +521,10 @@ export function useChatDetailConversationController({
             : getConversationHistoryScope(conversationId),
           shouldLoadTargetFromStore ? getConversationTarget(conversationId) : Promise.resolve(null)
         ]);
-        const nextConversationTarget = normalizedRouteConversationTarget
-          ? {
-              ...normalizedRouteConversationTarget,
-              agentMode: normalizedRouteConversationTarget.agentMode || storedConversationTarget?.agentMode || null
-            }
-          : storedConversationTarget;
+        const nextConversationTarget = mergeConversationTargetFallback(
+          normalizedRouteConversationTarget,
+          storedConversationTarget
+        );
 
         if (!mounted) {
           return;

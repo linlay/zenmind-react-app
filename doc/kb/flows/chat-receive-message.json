@@ -3,15 +3,15 @@
   "title": "收到服务端消息",
   "trigger": "WebSocket 收到 push / stream / run complete 等聊天实时事件时触发。",
   "sourceOfTruth": [
-    "wsClient / chatWsTransport 只处理 /ap/ws 帧，不直接写 UI 或数据库。",
+    "core/ws WsClient 只处理 AP/Desktop WS 帧和 namespace，chatWsTransport 只做聊天事件归一，不直接写 UI 或数据库。",
     "收到消息、流式 delta 和单会话校准后的持久化、去重和摘要更新都通过 chatRepository 完成。"
   ],
   "steps": [
     {
       "order": 1,
-      "label": "WsClient 解析 /ap/ws request / stream / push / error 帧，chatWsTransport 归一化事件类型。",
-      "moduleId": "feature-chat-realtime",
-      "file": "src/features/chatRealtime/wsClient.ts",
+      "label": "core WsClient 解析 HTTP /ap/ws 或 Desktop /ws request / stream / push / error 帧，chatWsTransport 归一化聊天事件类型。",
+      "moduleId": "core-ws-transport",
+      "file": "src/core/ws/wsClient.ts",
       "symbol": "WsClient"
     },
     {
@@ -65,17 +65,27 @@
     "chat.created 这类无最后消息的 summary push 如果覆盖 last_message_text 或抢占 latest_conversation_id，会让列表错误显示暂无对话。",
     "chat.updated 有最后消息但缺失 unread 字段时，如果按缺失值清零，会让非 active 会话漏掉未读角标。"
   ],
-  "mustCheckModules": ["feature-chat-persistence", "feature-chat-realtime", "feature-chat-timeline"],
+  "mustCheckModules": [
+    "core-ws-transport",
+    "feature-chat-persistence",
+    "feature-chat-realtime",
+    "feature-chat-timeline"
+  ],
   "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime"],
   "generated": {
     "stepCount": 6,
     "files": [
+      "src/core/ws/wsClient.ts",
       "src/features/chatPersistence/chatRepository.ts",
       "src/features/chatPersistence/useChatDetailConversationController.ts",
       "src/features/chatRealtime/chatSyncService.ts",
-      "src/features/chatRealtime/wsClient.ts",
       "src/features/chatTimeline/timelineReducer.ts"
     ],
-    "resolvedModules": ["feature-chat-persistence", "feature-chat-realtime", "feature-chat-timeline"]
+    "resolvedModules": [
+      "core-ws-transport",
+      "feature-chat-persistence",
+      "feature-chat-realtime",
+      "feature-chat-timeline"
+    ]
   }
 }

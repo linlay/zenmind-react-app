@@ -4,17 +4,19 @@
   "layer": "features",
   "paths": ["src/features/chatRealtime"],
   "responsibility": [
-    "管理全局唯一聊天 WebSocket 连接、连接状态、重连、pending stream 清理、首页目录预热入口，以及详情页停止/继续生成入口。",
+    "管理聊天实时业务同步、连接状态投递、pending stream 清理、首页目录预热入口，以及详情页停止/继续生成入口。",
+    "通过 core-ws-transport 的 sharedWsTransport 复用 HTTP `/ap/ws` 或 Desktop `/ws` socket；feature 内只保留聊天协议 adapter，不拥有底层 WsClient 单例。",
     "把 push / stream / request 帧转成 scoped sync event，并通过 repository 做 patch 型落库；summary push 会携带 agent/team 归属写入 conversation 真源，且缺失字段不覆盖已有摘要。",
     "显式处理 chat.read、chat.unread、chat.read_all 及等价事件，把未读状态写回 repository 并发出 scoped UI 事件。",
     "为 awaiting / reasoning / planning / tool / artifact / plan / task / usage / context 维护会话级内存 timeline state，并以 timeline/runtime scoped event 推给详情页。",
     "运行态条目会由 feature-chat-timeline 补齐 lifecycle（active/complete/error/cancelled），awaiting 会补齐 question/approval/form/plan mode 和对应 interactive payload，供详情页直接渲染而不再猜测 status 文案。",
     "提供 awaiting question/approval/form/plan 提交入口，按当前会话 awaiting state 和历史 scope 补齐 chatId、runId、agentKey、awaitingId 与 submitId 后通过 /ap/ws 发送 /api/submit request，并把本地 awaiting.answer 事件归并回同一份 timeline state。",
     "为新对话空态提供单 agent detail 的 App 生命周期内内存缓存，按 agentKey 通过 /ap/ws /api/agent 最多自动补拉一次，保留原始 response data 并归一 wonders 供详情页欢迎态消费。",
-    "通过同一条 /ap/ws 连接发送 /api/agents、/api/teams、/api/chats、/api/chat、/api/agent、/api/read request；详情单会话 reconcile、agent detail 和已读确认优先走 WS request，避免绕到 REST 代理链路。",
+    "通过同一条 active AP transport 发送 /api/agents、/api/teams、/api/chats、/api/chat、/api/agent、/api/read request；HTTP profile 走 /ap/ws，Desktop WS profile 走 ns='ap'，详情单会话 reconcile、agent detail 和已读确认优先走 WS request，避免绕到 REST 代理链路。",
+    "监听 Desktop WS `ns='d'` 的 auth.expiring push，通过 shared transport 调用 auth.refresh，并交给 core auth 持久化刷新后的 Desktop token。",
     "向 UI 发出 connection.status、home.directory.replace、home.item.patch/remove、conversation.message.insert/patch、conversation.stream.delta、conversation.timeline.replace/reset、conversation.runtime.replace/reset、conversation.reconcile 事件。",
     "在首连和重连时触发 outbox replay，并保留 pending 消息的 planningMode 发送选项，把校准范围限制在单会话 reconcile。",
-    "提供仅开发态启用的 wsDebugRecorder，用内存 ring buffer 旁路观测原始 WS frame。",
+    "通过 core-debug-logging 的 wsDebugRecorder 在开发态旁路观测原始 WS frame。",
     "提供开发态本地缓存 reset 能力，先停止实时同步内存任务，再委托 chatRepository 清理本地缓存。"
   ],
   "publicEntrypoints": [
@@ -25,49 +27,38 @@
       "description": "UI 侧实时同步入口，统一发出连接状态、首页目录替换事件和带 conversationId 的数据变更事件；AppRoot 通过它预热首页目录，详情页通过它发送消息、透传 planningMode true-only 发送选项、停止/继续生成、提交 awaiting question/approval/form/plan，并通过 getAgentDetailSnapshot / ensureAgentDetail 消费 App 生命周期内单 agent detail 缓存，向 Debug 面板暴露开发态本地缓存 reset。"
     },
     {
-      "file": "src/features/chatRealtime/wsClient.ts",
-      "symbol": "WsClient",
-      "kind": "transport-client",
-      "description": "底层 /ap/ws request、stream、push、error 帧处理与自动重连客户端。"
-    },
-    {
       "file": "src/features/chatRealtime/chatWsTransport.ts",
       "symbol": "startChatPushTransport",
       "kind": "transport-adapter",
-      "description": "把统一 API base URL 和 access token 适配到 /ap/ws 连接、/api/agents、/api/teams、/api/chats、/api/chat、/api/read request，以及 query/attach stream。"
-    },
-    {
-      "file": "src/features/chatRealtime/wsDebugRecorder.ts",
-      "symbol": "wsDebugRecorder",
-      "kind": "dev-recorder",
-      "description": "开发态内存 WS frame recorder，用于 Debug 面板查看收发帧、解析失败和连接状态。"
+      "description": "聊天协议 adapter，委托 core sharedWsTransport，并归一 chat push、/api/query stream、/api/attach stream 和普通 request。"
     }
   ],
   "dependsOn": [
     "core-api-client",
     "core-auth-session",
-    "core-runtime-config",
+    "core-ws-transport",
     "feature-chat-persistence",
     "feature-chat-timeline"
   ],
   "dependedBy": ["app-development-debug", "app-shell-navigation", "feature-chat-persistence"],
   "stateTouches": [
-    "全局 WebSocket 连接状态单例",
+    "core shared WebSocket 连接状态快照",
     "发送中/ack/失败消息生命周期",
     "bootstrap/reconnect 时的 outbox replay，包含 pending 消息的 planningMode 发送选项",
     "activeConversationId、active outgoing/attach stream abort handle、stream buffer、timeline state、awaiting question/approval/form/plan 本地提交投影、短期本地终止 run guard、同会话 stop 幂等 guard 和 per-conversation reconcile single-flight",
     "agent detail 内存缓存和 per-agent single-flight，请求成功、空结果或失败后本 App 生命周期内不再自动重复请求同一 agent；stop/reset 后清空，App 重启会重新请求。",
     "开发态 resetLocalCacheForDevelopment 会停止 transport、清理内存任务并委托持久化层清缓存",
     "prewarmHome 委托 chatRepository 预热首页目录，不启动 WebSocket，也不在 service 内维护目录真源",
-    "开发态 WS frame ring buffer，不写 SQLite、MMKV 或网络"
+    "Desktop WS token 临期 push 的刷新协调，不在 feature 内持久化 token"
   ],
   "relatedFlows": ["chat-home-cold-boot", "chat-receive-message", "chat-send-message"],
   "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime", "modify-runtime-environment"],
   "impactChecklist": [
-    "transport 层只负责 /ap/ws 帧处理和 request/stream 发送，业务写入继续走 chatSyncService 和 chatRepository。",
+    "feature 内 transport adapter 只负责聊天协议归一和 request/stream 发送，底层 socket 生命周期留在 core-ws-transport，业务写入继续走 chatSyncService 和 chatRepository。",
     "详情页停止/继续生成和 awaiting question/approval/form/plan 提交只能调用 chatSyncService；stopStreaming 要同时处理 attach stream 和 outgoing query stream、调用 /api/interrupt，并通过同一份 ChatTimelineState 本地 cancel 收敛当前会话当前可见生成 scope 的 active/streaming 节点、清空 activeRunId、不创建 ghost run、不改写历史 run duration，记录短期本地终止 run guard 以防 stale /api/chat detail 复活同 run；/api/interrupt 的 run_not_found/404 视为服务端已停止，不触发失败式即时 reconcile；resumeStreaming 复用 attach + 单会话 reconcile，awaiting submit 成功后用 awaiting.answer 本地事件更新 timeline，不让页面直接操作 WebSocket 或 HTTP submit。",
     "WS 调试记录只能作为开发态旁路观测，不参与业务 type 路由、落库或 UI 同步事件。",
-    "WS URL 默认由 getApiBaseUrl 推导到 /ap/ws，EXPO_PUBLIC_CHAT_WS_URL 只作为开发态 override。",
+    "HTTP profile 的 WS URL 默认由 getApiBaseUrl 推导到 /ap/ws，EXPO_PUBLIC_CHAT_WS_URL 只作为开发态 override；Desktop WS profile 必须使用 active profile 保存的 exact wsUrl。",
+    "Desktop WS auth.expiring 只触发 auth.refresh 与 core auth profile 更新，不在 chatSyncService 内直接写 token storage。",
     "重连逻辑要继续在 bootstrap/reconnect 时 flush pending outbox，并保留 planningMode true-only 发送选项，只触发单会话 reconcile。",
     "reasoning / planning / tool / artifact / awaiting / plan/task / usage/context 只写内存 timeline/runtime state，不把这些临时运行态塞进 SQLite 真源。",
     "新对话空态需要的 /api/agent detail 只进 chatSyncService 内存缓存，不写 SQLite/MMKV，不影响首页目录热查询；同一 agent 只允许 single-flight 自动补拉一次，失败也要记录为本生命周期已尝试。",
@@ -78,15 +69,15 @@
   "readNext": [
     {
       "type": "module",
-      "ref": "core-runtime-config"
-    },
-    {
-      "type": "module",
       "ref": "feature-chat-persistence"
     },
     {
       "type": "module",
       "ref": "feature-chat-timeline"
+    },
+    {
+      "type": "module",
+      "ref": "core-ws-transport"
     },
     {
       "type": "flow",
@@ -99,22 +90,25 @@
     {
       "type": "code",
       "ref": "src/features/chatRealtime/chatSyncService.ts"
+    },
+    {
+      "type": "code",
+      "ref": "src/features/chatRealtime/chatWsTransport.ts"
     }
   ],
   "generated": {
-    "fileCount": 7,
+    "fileCount": 5,
     "files": [
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatRealtime/chatWsTransport.ts",
       "src/features/chatRealtime/routing.ts",
       "src/features/chatRealtime/runtimeState.ts",
-      "src/features/chatRealtime/types.ts",
-      "src/features/chatRealtime/wsClient.ts",
-      "src/features/chatRealtime/wsDebugRecorder.ts"
+      "src/features/chatRealtime/types.ts"
     ],
     "exportedSymbolsByFile": {
       "src/features/chatRealtime/chatSyncService.ts": ["chatSyncService"],
       "src/features/chatRealtime/chatWsTransport.ts": [
+        "ChatTransportConfig",
         "attachChatRun",
         "buildChatAttachPayload",
         "buildChatQueryPayload",
@@ -175,19 +169,12 @@
         "ChatSocketStatus",
         "ChatSyncEvent",
         "ChatSyncReason"
-      ],
-      "src/features/chatRealtime/wsClient.ts": [
-        "WsClient",
-        "WsClientDisconnectedError",
-        "WsClientRequestTimeoutError",
-        "WsPushFrame"
-      ],
-      "src/features/chatRealtime/wsDebugRecorder.ts": ["WsDebugDirection", "WsDebugRecord", "wsDebugRecorder"]
+      ]
     },
     "actualDependsOn": [
       "core-api-client",
       "core-auth-session",
-      "core-runtime-config",
+      "core-ws-transport",
       "feature-chat-persistence",
       "feature-chat-timeline"
     ],

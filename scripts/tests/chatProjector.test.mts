@@ -296,6 +296,31 @@ test('merges current usage events with historical detail cumulative usage', () =
   assert.equal(usage?.chat.toolCallCount, 15);
 });
 
+test('projects usage model from detail context window metadata', () => {
+  const projected = projectRemoteChatDetail({
+    chatId: 'chat-context-model',
+    contextWindow: {
+      currentSize: 10_127,
+      estimatedNextCallSize: 10_954,
+      maxSize: 196_608,
+      modelKey: 'th-minimax-m2_7-highspeed',
+      reasoningEffort: 'HIGH',
+    },
+    usage: {
+      promptTokens: 25_534,
+      completionTokens: 1_353,
+      totalTokens: 26_887,
+    },
+    updatedAt: 1_000,
+  });
+
+  const usage = projected?.timelineState.usageSummary;
+  assert.equal(usage?.modelKey, 'th-minimax-m2_7-highspeed');
+  assert.equal(usage?.contextWindow.percent, 5);
+  assert.equal(usage?.contextWindow.reasoningEffort, 'HIGH');
+  assert.equal(usage?.chat.totalTokens, 26_887);
+});
+
 test('projects context compaction usage into the usage summary', () => {
   const projected = projectRemoteChatDetail({
     chatId: 'chat-compact',
