@@ -155,7 +155,7 @@
     "shared-visual-foundation",
     "shared-screen-header"
   ],
-  "dependedBy": ["feature-chat-persistence"],
+  "dependedBy": ["feature-agent-task-board", "feature-chat-persistence"],
   "stateTouches": [
     "Safe area provider 树",
     "启动加载遮罩可见性",
@@ -297,6 +297,6 @@
       "shared-screen-header",
       "shared-visual-foundation"
     ],
-    "actualDependedBy": ["feature-chat-persistence"]
+    "actualDependedBy": ["feature-agent-task-board", "feature-chat-persistence"]
   }
 }

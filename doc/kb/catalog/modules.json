@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-06-23T09:53:25.022Z",
+  "generatedAt": "2026-06-24T02:47:48.333Z",
   "items": [
     {
       "id": "app-development-debug",
       "title": "开发态调试入口",
       "layer": "app",
-      "summary": "提供 __DEV__ 下隐藏挂载的开发调试面板；默认不显示浮动入口，Me 页版本信息三连点通过 controller 启用 Debug 模式并打开面板，设置页可切换 Debug 模式开关，普通关闭后保留右下角 Debug 浮动按钮，ChatDetail 也挂载面板宿主并上移浮动入口以避开聊天详情输入区。",
+      "summary": "提供 __DEV__ 下隐藏挂载的开发调试面板，展示 HTTP record 与 WS frame 观测数据，并保留本地缓存清理和 reload 能力。",
       "pathHints": ["src/app/debug"],
       "relatedFlows": ["app-startup"],
       "relatedTasks": ["modify-runtime-environment", "remove-development-debug-entry"],
@@ -66,7 +66,7 @@
       "id": "core-api-client",
       "title": "统一 API 客户端",
       "layer": "core",
-      "summary": "统一拼接 API base URL、path 和 query。",
+      "summary": "统一拼接 API base URL、path、query，并为认证 HTTP 请求与同源资源 URL 注入 access token。",
       "pathHints": ["src/core/api"],
       "relatedFlows": ["notification-open-chat-message"],
       "relatedTasks": [
@@ -81,7 +81,7 @@
       "id": "core-auth-session",
       "title": "认证会话与设备 Profile",
       "layer": "core",
-      "summary": "维护设备登录后的会话状态、HTTP device token、Desktop WS token、设备 profile、聊天缓存 scope 切换、冷启动恢复和前台预刷新逻辑。",
+      "summary": "维护设备登录后的会话状态、HTTP device token、Desktop WS token、Desktop 同源 HTTP base URL、设备 profile、聊天缓存 scope 切换、冷启动恢复和前台预刷新逻辑。",
       "pathHints": ["src/core/auth"],
       "relatedFlows": ["app-startup", "notification-open-chat-message"],
       "relatedTasks": ["add-auth-login-screen", "add-system-notifications", "modify-chat-realtime"],
@@ -91,7 +91,7 @@
       "id": "core-debug-logging",
       "title": "核心调试日志",
       "layer": "core",
-      "summary": "提供开发态 HTTP 请求、响应、错误日志和 WebSocket frame ring buffer 观测能力。",
+      "summary": "提供开发态 HTTP 请求、响应、错误日志、HTTP record ring buffer 和 WebSocket frame ring buffer 观测能力。",
       "pathHints": ["src/core/debug"],
       "relatedFlows": ["app-startup", "chat-receive-message", "chat-send-message", "notification-open-chat-message"],
       "relatedTasks": [

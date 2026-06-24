@@ -1,18 +1,39 @@
 import type {
   ChatTimelineAssistantReplyFooter,
+  ChatTimelineAwaitingNode,
   ChatTimelineDisplayItem,
   ChatTimelineDisplayItemKind,
   ChatTimelineMessageNode,
   ChatTimelineNode,
   ChatTimelineNodeDisplayItem,
   ChatTimelineState,
+  ChatTimelineTextNode,
   ChatTimelineToolGroupDisplayItem,
   ChatTimelineToolNode,
 } from './types.ts';
+import { CHAT_TIMELINE_REASONING_PROCESS_TITLE } from './timelineConstants.ts';
 
-type ChatTimelineDisplayNode = ChatTimelineNode & {
-  kind: Exclude<ChatTimelineNode['kind'], 'run' | 'usage'>;
+type ChatTimelineDisplayTextNode = ChatTimelineTextNode & {
+  kind: Exclude<ChatTimelineTextNode['kind'], 'usage'>;
 };
+
+type ChatTimelineDisplayNode =
+  | ChatTimelineMessageNode
+  | ChatTimelineDisplayTextNode
+  | ChatTimelineToolNode
+  | ChatTimelineAwaitingNode;
+
+type ChatTimelineReasoningDisplayNode = ChatTimelineDisplayTextNode & {
+  kind: 'reasoning';
+};
+
+function isTimelineDisplayNode(node: ChatTimelineNode | null | undefined): node is ChatTimelineDisplayNode {
+  return Boolean(node && node.kind !== 'run' && node.kind !== 'usage');
+}
+
+function isReasoningDisplayNode(node: ChatTimelineNode | null | undefined): node is ChatTimelineReasoningDisplayNode {
+  return isTimelineDisplayNode(node) && node.kind === 'reasoning';
+}
 
 function displayKindForNode(
   node: ChatTimelineDisplayNode
@@ -56,20 +77,20 @@ function canMergeToolNode(
 function isVisibleTimelineNode(
   node: ChatTimelineNode | undefined
 ): node is ChatTimelineDisplayNode {
-  if (!node) {
+  if (!isTimelineDisplayNode(node)) {
     return false;
   }
   if (node.kind === 'message') {
     return node.content.trim().length > 0 || node.role === 'user';
-  }
-  if (node.kind === 'run' || node.kind === 'usage') {
-    return false;
   }
   if (node.kind === 'awaiting') {
     return Boolean(node.prompt || node.answer);
   }
   if (node.kind === 'tool') {
     return Boolean(node.title || node.body || node.argsText || node.resultText);
+  }
+  if (node.kind === 'reasoning' && !node.body.trim() && isDefaultReasoningTitle(node.title)) {
+    return isActiveTimelineDisplayNode(node);
   }
   return Boolean(node.body || node.title);
 }
@@ -141,6 +162,61 @@ function shouldHideAwaitingAnswerRequestNode(
   );
 }
 
+function isActiveTimelineDisplayNode(node: ChatTimelineDisplayNode): boolean {
+  return node.lifecycle === 'active' || ('streaming' in node && Boolean(node.streaming));
+}
+
+function isDefaultReasoningTitle(title: string): boolean {
+  return String(title || '').trim() === CHAT_TIMELINE_REASONING_PROCESS_TITLE;
+}
+
+function isReasoningStatusNode(node: ChatTimelineDisplayNode): boolean {
+  if (node.kind !== 'reasoning') {
+    return false;
+  }
+
+  const title = node.title.trim();
+  const body = node.body.trim();
+  return Boolean(title && !isDefaultReasoningTitle(title) && (!body || body === title));
+}
+
+function getReasoningStatusPair(
+  node: ChatTimelineDisplayNode,
+  statusNode: ChatTimelineDisplayNode | null | undefined
+): { node: ChatTimelineReasoningDisplayNode; statusNode: ChatTimelineReasoningDisplayNode } | null {
+  if (
+    !isReasoningDisplayNode(node) ||
+    !isReasoningDisplayNode(statusNode) ||
+    runIdForNode(node) !== runIdForNode(statusNode) ||
+    !isReasoningStatusNode(statusNode) ||
+    !isActiveTimelineDisplayNode(statusNode) ||
+    !isDefaultReasoningTitle(node.title)
+  ) {
+    return null;
+  }
+
+  return { node, statusNode };
+}
+
+function withReasoningStatusTitle(
+  node: ChatTimelineDisplayNode,
+  statusNode: ChatTimelineDisplayNode | null | undefined
+): ChatTimelineDisplayNode {
+  const pair = getReasoningStatusPair(node, statusNode);
+  if (!pair) {
+    return node;
+  }
+
+  return {
+    ...pair.node,
+    title: pair.statusNode.title,
+    status: pair.statusNode.status || pair.node.status,
+    streaming: pair.node.streaming || pair.statusNode.streaming,
+    lifecycle: 'active',
+    updatedAt: Math.max(pair.node.updatedAt, pair.statusNode.updatedAt),
+  };
+}
+
 function shouldHideDuplicateReasoningNode(
   node: ChatTimelineDisplayNode,
   seenBodiesByRun: Map<string, Set<string>>
@@ -173,6 +249,7 @@ function buildPendingDisplayEntries(
   let pendingToolNodes: ChatTimelineToolNode[] = [];
   let previousNode: ChatTimelineDisplayNode | null = null;
   const seenReasoningBodiesByRun = new Map<string, Set<string>>();
+  const pendingReasoningStatusNodes = new Map<string, ChatTimelineDisplayNode>();
 
   const flushPendingTools = () => {
     if (pendingToolNodes.length === 0) {
@@ -188,30 +265,84 @@ function buildPendingDisplayEntries(
     pendingToolNodes = [];
   };
 
-  visibleNodes.forEach((node) => {
-    if (shouldHideAwaitingAnswerRequestNode(node, previousNode)) {
-      return;
-    }
-
-    if (shouldHideDuplicateReasoningNode(node, seenReasoningBodiesByRun)) {
-      return;
-    }
-
-    if (node.kind !== 'tool') {
-      flushPendingTools();
-      entries.push({ kind: 'node', node });
-      previousNode = node;
-      return;
-    }
-
-    if (!canMergeToolNode(pendingToolNodes, node)) {
-      flushPendingTools();
-    }
-
-    pendingToolNodes.push(node);
+  const pushNodeEntry = (node: ChatTimelineDisplayNode) => {
+    entries.push({ kind: 'node', node });
     previousNode = node;
-  });
+  };
 
+  const flushPendingReasoningStatusNodes = () => {
+    if (pendingReasoningStatusNodes.size === 0) {
+      return;
+    }
+
+    flushPendingTools();
+    for (const node of pendingReasoningStatusNodes.values()) {
+      pushNodeEntry(node);
+    }
+    pendingReasoningStatusNodes.clear();
+  };
+
+  const applyReasoningStatusToPreviousEntry = (statusNode: ChatTimelineDisplayNode): boolean => {
+    const lastEntry = entries[entries.length - 1];
+    if (!lastEntry || lastEntry.kind !== 'node') {
+      return false;
+    }
+
+    const node = withReasoningStatusTitle(lastEntry.node, statusNode);
+    if (node === lastEntry.node) {
+      return false;
+    }
+
+    entries[entries.length - 1] = { kind: 'node', node };
+    if (previousNode?.id === lastEntry.node.id) {
+      previousNode = node;
+    }
+    return true;
+  };
+
+  for (const node of visibleNodes) {
+    if (node.kind !== 'reasoning') {
+      flushPendingReasoningStatusNodes();
+    }
+
+    if (shouldHideAwaitingAnswerRequestNode(node, previousNode)) {
+      continue;
+    }
+
+    if (isReasoningStatusNode(node)) {
+      flushPendingTools();
+      if (!applyReasoningStatusToPreviousEntry(node)) {
+        pendingReasoningStatusNodes.set(runIdForNode(node), node);
+      }
+      continue;
+    }
+
+    const pendingReasoningStatusNode =
+      node.kind === 'reasoning' ? pendingReasoningStatusNodes.get(runIdForNode(node)) : null;
+    if (pendingReasoningStatusNode) {
+      pendingReasoningStatusNodes.delete(runIdForNode(node));
+    }
+    const displayNode = withReasoningStatusTitle(node, pendingReasoningStatusNode);
+
+    if (shouldHideDuplicateReasoningNode(displayNode, seenReasoningBodiesByRun)) {
+      continue;
+    }
+
+    if (displayNode.kind !== 'tool') {
+      flushPendingTools();
+      pushNodeEntry(displayNode);
+      continue;
+    }
+
+    if (!canMergeToolNode(pendingToolNodes, displayNode)) {
+      flushPendingTools();
+    }
+
+    pendingToolNodes.push(displayNode);
+    previousNode = displayNode;
+  }
+
+  flushPendingReasoningStatusNodes();
   flushPendingTools();
   return entries;
 }
@@ -230,6 +361,20 @@ function assistantMessageForEntry(entry: PendingDisplayEntry): ChatTimelineMessa
     return null;
   }
   return entry.node;
+}
+
+function isActiveRuntimeNode(node: ChatTimelineNode | undefined): boolean {
+  return (
+    isTimelineDisplayNode(node) &&
+    node.kind !== 'message' &&
+    isActiveTimelineDisplayNode(node)
+  );
+}
+
+function hasActiveRuntimeNode(item: PendingDisplayEntry | ChatTimelineDisplayItem): boolean {
+  return item.kind === 'tool-group'
+    ? item.nodes.some((node) => isActiveRuntimeNode(node))
+    : isActiveRuntimeNode(item.node);
 }
 
 function normalizeDurationMs(value: number | null | undefined): number | null {
@@ -280,6 +425,32 @@ function getRunDurationMsById(state: ChatTimelineState, runId: string): number |
   }
 
   return null;
+}
+
+function resolveTailDisplayNode(
+  previousTail: ChatTimelineDisplayItem,
+  node: ChatTimelineDisplayNode
+): ChatTimelineDisplayNode {
+  if (
+    node.kind !== 'reasoning' ||
+    previousTail.kind !== 'reasoning' ||
+    !isReasoningDisplayNode(previousTail.node) ||
+    runIdForNode(node) !== runIdForNode(previousTail.node) ||
+    !isActiveTimelineDisplayNode(previousTail.node) ||
+    !isDefaultReasoningTitle(node.title) ||
+    isDefaultReasoningTitle(previousTail.node.title)
+  ) {
+    return node;
+  }
+
+  return {
+    ...node,
+    title: previousTail.node.title,
+    status: previousTail.node.status || node.status,
+    streaming: node.streaming || previousTail.node.streaming,
+    lifecycle: 'active',
+    updatedAt: Math.max(node.updatedAt, previousTail.node.updatedAt),
+  };
 }
 
 function createAssistantReplyAccumulator(): AssistantReplyAccumulator {
@@ -350,6 +521,9 @@ function collectTimelineDisplayMetadata(
 
     const node = assistantMessageForEntry(entry);
     if (!node) {
+      if (hasActiveRuntimeNode(entry)) {
+        reply.hasStreaming = true;
+      }
       return;
     }
 
@@ -526,6 +700,16 @@ function getTimelineModelChange(
   };
 }
 
+function didRuntimeActivityChange(
+  previousNode: ChatTimelineDisplayNode | undefined,
+  nextNode: ChatTimelineDisplayNode
+): boolean {
+  if (!previousNode || nextNode.kind === 'message') {
+    return false;
+  }
+  return isActiveTimelineDisplayNode(previousNode) !== isActiveTimelineDisplayNode(nextNode);
+}
+
 function buildAssistantReplyFooterForTail(
   items: readonly ChatTimelineDisplayItem[],
   tailItem: ChatTimelineDisplayItem,
@@ -533,6 +717,9 @@ function buildAssistantReplyFooterForTail(
   getDurationMs: (runId: string) => number | null
 ): ChatTimelineAssistantReplyFooter | null {
   if (nextNode.kind !== 'message' || nextNode.role !== 'assistant') {
+    return null;
+  }
+  if (nextNode.streaming) {
     return null;
   }
 
@@ -548,6 +735,9 @@ function buildAssistantReplyFooterForTail(
       break;
     }
     if (item.kind !== 'assistant-content') {
+      if (hasActiveRuntimeNode(item)) {
+        hasStreaming = true;
+      }
       continue;
     }
 
@@ -642,22 +832,31 @@ function updateTailDisplayModel(
     return null;
   }
 
-  const nextKind = displayKindForNode(nextNode);
+  const previousNode = previous.nodesById[change.visibleNodeId];
+  if (
+    isVisibleTimelineNode(previousNode) &&
+    didRuntimeActivityChange(previousNode, nextNode)
+  ) {
+    return null;
+  }
+
+  const nextDisplayNode = resolveTailDisplayNode(previousTail, nextNode);
+  const nextKind = displayKindForNode(nextDisplayNode);
   if (nextKind !== previousTail.kind) {
     return null;
   }
 
   const nextTail = {
     ...previousTail,
-    key: `${nextKind}:${nextNode.id}`,
+    key: `${nextKind}:${nextDisplayNode.id}`,
     kind: nextKind,
-    node: nextNode,
-    nodeId: nextNode.id,
-    runId: runIdForNode(nextNode),
+    node: nextDisplayNode,
+    nodeId: nextDisplayNode.id,
+    runId: runIdForNode(nextDisplayNode),
     assistantReplyFooter: buildAssistantReplyFooterForTail(
       previous.items,
       previousTail,
-      nextNode,
+      nextDisplayNode,
       (runId) => getRunDurationMsById(state, runId)
     ),
   } as ChatTimelineDisplayItem;

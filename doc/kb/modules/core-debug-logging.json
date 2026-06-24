@@ -4,7 +4,7 @@
   "layer": "core",
   "paths": ["src/core/debug"],
   "responsibility": [
-    "提供开发态 HTTP 请求、响应、错误日志和 WebSocket frame ring buffer 观测能力。",
+    "提供开发态 HTTP 请求、响应、错误日志、HTTP record ring buffer 和 WebSocket frame ring buffer 观测能力。",
     "统一脱敏认证、密码和 token 类字段，避免各模块重复实现调试打印。",
     "保持调试日志只作为旁路观测，不参与业务状态、请求重试或错误决策。"
   ],
@@ -28,6 +28,12 @@
       "description": "开发态打印非 WS HTTP 网络异常和耗时。"
     },
     {
+      "file": "src/core/debug/httpDebugLogger.ts",
+      "symbol": "httpDebugRecorder",
+      "kind": "dev-recorder",
+      "description": "开发态内存 HTTP record recorder，用于 Debug 面板查看请求、响应和预检失败。"
+    },
+    {
       "file": "src/core/debug/wsDebugRecorder.ts",
       "symbol": "wsDebugRecorder",
       "kind": "dev-recorder",
@@ -36,7 +42,7 @@
   ],
   "dependsOn": ["core-runtime-config"],
   "dependedBy": ["app-development-debug", "core-api-client", "core-auth-session", "core-ws-transport"],
-  "stateTouches": ["开发态 console 输出", "开发态 WS frame ring buffer"],
+  "stateTouches": ["开发态 console 输出", "开发态 HTTP record ring buffer", "开发态 WS frame ring buffer"],
   "relatedFlows": ["app-startup", "chat-receive-message", "chat-send-message", "notification-open-chat-message"],
   "relatedTasks": [
     "add-business-api-service",
@@ -47,7 +53,8 @@
   "impactChecklist": [
     "HTTP 调试日志必须只在 __DEV__ 输出，生产环境不打印。",
     "日志必须脱敏 Authorization、password、secret、token 等字段。",
-    "HTTP 日志只覆盖 HTTP/API 请求；WebSocket 帧由 wsDebugRecorder 观测。",
+    "HTTP 日志覆盖 HTTP/API 请求、响应、网络错误和发请求前的认证预检失败；WebSocket 帧由 wsDebugRecorder 观测。",
+    "HTTP record recorder 只能作为开发态旁路观测，不参与业务路由、重试、token 刷新或落库。",
     "WS frame recorder 只能作为开发态旁路观测，不参与业务路由、重试、token 刷新或落库。",
     "日志不得影响请求重试、错误抛出、认证清理或业务落库行为。"
   ],
@@ -73,7 +80,14 @@
     "fileCount": 2,
     "files": ["src/core/debug/httpDebugLogger.ts", "src/core/debug/wsDebugRecorder.ts"],
     "exportedSymbolsByFile": {
-      "src/core/debug/httpDebugLogger.ts": ["logHttpError", "logHttpRequest", "logHttpResponse"],
+      "src/core/debug/httpDebugLogger.ts": [
+        "HttpDebugDirection",
+        "HttpDebugRecord",
+        "httpDebugRecorder",
+        "logHttpError",
+        "logHttpRequest",
+        "logHttpResponse"
+      ],
       "src/core/debug/wsDebugRecorder.ts": ["WsDebugDirection", "WsDebugRecord", "wsDebugRecorder"]
     },
     "actualDependsOn": ["core-runtime-config"],

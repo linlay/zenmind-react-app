@@ -38,12 +38,11 @@ import {
   safeTimelineJson as safeJson,
 } from './timelineEventFormat.ts';
 import { buildChatTimelineUsageSummary, chatTimelineUsageSummaryEquals } from './usageSummary.ts';
+import { CHAT_TIMELINE_REASONING_PROCESS_TITLE } from './timelineConstants.ts';
 
 export type MergeChatTimelineStateOptions = {
   preserveTerminalRunIds?: readonly string[];
 };
-
-const REASONING_PROCESS_TITLE = '思考过程';
 
 function normalizeConversationId(conversationId: string): string {
   return String(conversationId || '').trim();
@@ -91,6 +90,45 @@ function resolveLifecycle(type: string): ChatTimelineLifecycle {
   return 'active';
 }
 
+const BODY_FALLBACK_FIELD_NAMES = [
+  'summary',
+  'details',
+  'reason',
+  'error',
+  'prompt',
+  'answer',
+  'path',
+  'url',
+] as const;
+
+const BODY_WITH_LABEL_FALLBACK_FIELD_NAMES = [
+  ...BODY_FALLBACK_FIELD_NAMES,
+  'name',
+  'title',
+  'toolName',
+] as const;
+
+function firstEventStringField(
+  event: Record<string, unknown>,
+  fieldNames: readonly string[]
+): string {
+  for (const fieldName of fieldNames) {
+    const value = event[fieldName];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+  return '';
+}
+
+function fallbackBodyFromEvent(
+  event: Record<string, unknown>,
+  fieldNames: readonly string[]
+): string {
+  const payloadJson = safeJson(event.payload);
+  return payloadJson || firstEventStringField(event, fieldNames);
+}
+
 function bodyFromEvent(event: Record<string, unknown>): string {
   const text = extractEventText(event);
   if (text) {
@@ -107,26 +145,28 @@ function bodyFromEvent(event: Record<string, unknown>): string {
     return resultJson;
   }
 
-  const payloadJson = safeJson(event.payload);
-  if (payloadJson) {
-    return payloadJson;
+  return fallbackBodyFromEvent(event, BODY_WITH_LABEL_FALLBACK_FIELD_NAMES);
+}
+
+function reasoningLabelCandidateForEvent(event: Record<string, unknown>): string {
+  return toText(event.reasoningLabel) || toText(event.title || event.name);
+}
+
+function bodyFromReasoningEvent(event: Record<string, unknown>): string {
+  const text = extractEventText(event);
+  const label = reasoningLabelCandidateForEvent(event);
+  if (text) {
+    return label && text === label ? '' : text;
   }
 
-  const fallbackFields = [
-    event.summary,
-    event.details,
-    event.reason,
-    event.error,
-    event.prompt,
-    event.answer,
-    event.path,
-    event.url,
-    event.name,
-    event.title,
-    event.toolName,
-  ];
-  const firstScalar = fallbackFields.find((value) => typeof value === 'string' && value.trim());
-  return typeof firstScalar === 'string' ? firstScalar.trim() : '';
+  return fallbackBodyFromEvent(event, BODY_FALLBACK_FIELD_NAMES);
+}
+
+function bodyFromRuntimeTextEvent(
+  event: Record<string, unknown>,
+  kind: ChatTimelineTextNode['kind']
+): string {
+  return kind === 'reasoning' ? bodyFromReasoningEvent(event) : bodyFromEvent(event);
 }
 
 function nodeKey(
@@ -209,13 +249,13 @@ function reasoningTitleForEvent(
   current?: ChatTimelineTextNode
 ): string {
   if (lifecycle !== 'active') {
-    return REASONING_PROCESS_TITLE;
+    return CHAT_TIMELINE_REASONING_PROCESS_TITLE;
   }
   return (
     toText(event.reasoningLabel) ||
     toText(event.title || event.name) ||
     current?.title ||
-    REASONING_PROCESS_TITLE
+    CHAT_TIMELINE_REASONING_PROCESS_TITLE
   );
 }
 
@@ -944,7 +984,7 @@ function closeTimelineNodeForRun(
 
   return {
     ...node,
-    title: node.kind === 'reasoning' ? REASONING_PROCESS_TITLE : node.title,
+    title: node.kind === 'reasoning' ? CHAT_TIMELINE_REASONING_PROCESS_TITLE : node.title,
     status: terminalStatusFromLifecycle(lifecycle),
     streaming: false,
     lifecycle,
@@ -1246,7 +1286,7 @@ function applyRuntimeTextEvent(
 ): ChatTimelineState {
   const type = normalizeEventType(event.type);
   const updatedAt = resolveTimestamp(event, Date.now() + state.nextOrder);
-  const eventBody = bodyFromEvent(event);
+  const eventBody = bodyFromRuntimeTextEvent(event, kind);
   const id =
     kind === 'reasoning'
       ? findReasoningNodeIdForEvent(state, conversationId, event, eventBody)

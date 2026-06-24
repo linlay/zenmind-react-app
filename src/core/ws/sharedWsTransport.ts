@@ -270,8 +270,7 @@ export function createSharedWsTransport() {
     }
     client = null;
     endpointKey = '';
-    pushListeners.clear();
-    statusListeners.clear();
+    dispatchStatus('idle');
   };
 
   return {

@@ -1,191 +1,76 @@
-import { ApiError, authenticatedApiRequest } from '../apiClient';
+import { getActiveDeviceProfile } from '../../auth/deviceProfiles';
+import { sharedWsTransport } from '../../ws/sharedWsTransport';
+import { resolveActiveWsTransportConfig } from '../activeWsTransport';
+import { ensureKanbanInvalidationSubscribed } from './kanbanInvalidation.ts';
+import {
+  createKanbanIssueProtocol,
+  createRequiredDesktopKanbanRequester,
+  deleteKanbanIssueProtocol,
+  getKanbanSnapshotProtocol,
+  moveKanbanIssueProtocol,
+  startKanbanIssueRunProtocol,
+  updateKanbanIssueProtocol
+} from './kanbanProtocol';
+import type {
+  KanbanChangeResult,
+  KanbanIssueInput,
+  KanbanIssueUpdateInput,
+  KanbanSnapshot,
+  KanbanStatus,
+  StartKanbanIssueRunApiInput
+} from './kanbanTypes.ts';
 
-export type KanbanStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'completed';
-export type KanbanPriority = 'high' | 'medium' | 'low';
-export type KanbanRunState = 'running' | 'completed' | 'failed' | 'cancelled';
+export { KanbanIssueRunUpdateError, isKanbanIssueRunUpdateError } from './kanbanProtocol';
+export { subscribeKanbanInvalidation } from './kanbanInvalidation.ts';
+export type { KanbanDesktopRequester } from './kanbanProtocol';
+export type { KanbanInvalidationListener } from './kanbanInvalidation.ts';
+export type {
+  KanbanAgent,
+  KanbanChangeResult,
+  KanbanDesktopAgentOption,
+  KanbanDesktopSession,
+  KanbanDesktopStatus,
+  KanbanIssue,
+  KanbanIssueAttachment,
+  KanbanIssueInput,
+  KanbanIssueRunResult,
+  KanbanIssueUpdateInput,
+  KanbanPriority,
+  KanbanRunState,
+  KanbanSnapshot,
+  KanbanStatus,
+  StartKanbanIssueRunApiInput
+} from './kanbanTypes.ts';
 
-export type KanbanIssue = {
-  id: string;
-  boardId: string;
-  projectId: string;
-  title: string;
-  description: string;
-  status: KanbanStatus;
-  priority: KanbanPriority;
-  severity?: string;
-  assigneeAgentKey?: string | null;
-  assigneeId?: string | null;
-  workerAgent?: string | null;
-  workerId?: string | null;
-  reviewRequired?: boolean;
-  activeReviewId?: string | null;
-  activeRunId?: string | null;
-  runState?: KanbanRunState | null;
-  automationId?: string | null;
-  automationEnabled?: boolean;
-  automationCron?: string | null;
-  automationMessage?: string | null;
-  automationTimezone?: string | null;
-  position: number;
-  createdAt: string;
-  updatedAt: string;
-  revision: number;
-};
-
-export type KanbanAgent = {
-  id?: string;
-  agentKey: string;
-  name: string;
-  description?: string;
-  role?: string;
-  enabled?: boolean;
-};
-
-export type KanbanDesktopAgentOption = {
-  agentKey: string;
-  displayName: string;
-  role?: string;
-};
-
-export type KanbanDesktopSession = {
-  sessionId: string;
-  deviceName?: string;
-  deviceAlias?: string;
-  hostname?: string;
-  username?: string;
-  selectedProjectId?: string;
-  capabilities?: string[];
-  agents?: KanbanDesktopAgentOption[];
-  lastSeenAt?: string;
-};
-
-export type KanbanDesktopStatus = {
-  online: boolean;
-  sessionId?: string;
-  capabilities?: string[];
-  selectedProjectId?: string;
-  sessions?: KanbanDesktopSession[];
-};
-
-export type KanbanSnapshot = {
-  ok: boolean;
-  message?: string;
-  boardId: string;
-  projectId: string;
-  revision: number;
-  issues: KanbanIssue[];
-  agents?: KanbanAgent[];
-  desktopStatus?: KanbanDesktopStatus;
-};
-
-export type KanbanChangeResult = {
-  ok: boolean;
-  code?: string;
-  message?: string;
-  boardId: string;
-  projectId: string;
-  revision: number;
-  issue?: KanbanIssue | null;
-  issues?: KanbanIssue[];
-  deletedIssueId?: string;
-};
-
-export type KanbanIssueInput = {
-  title: string;
-  projectId?: string;
-  description?: string;
-  status?: KanbanStatus;
-  priority?: KanbanPriority;
-  severity?: string;
-  assigneeAgentKey?: string | null;
-  automationEnabled?: boolean;
-  automationCron?: string | null;
-  automationMessage?: string | null;
-  automationTimezone?: string | null;
-};
-
-export type KanbanIssueUpdateInput = Partial<Omit<KanbanIssueInput, 'projectId'>> & {
-  runState?: KanbanRunState | null;
-  baseIssueRevision?: number;
-};
-
-type KanbanRpcEnvelope<T> = {
-  v: number;
-  type: string;
-  id?: string;
-  op?: string;
-  ok?: boolean;
-  error?: {
-    code?: string;
-    message?: string;
-  };
-  payload?: T;
-};
-
-const DEFAULT_BOARD_ID = 'default';
 const DEFAULT_PROJECT_ID = 'default';
+const KANBAN_DESKTOP_NAMESPACE = 'd';
+const DESKTOP_REQUIRED_MESSAGE =
+  'Desktop Kanban requires an active Desktop WS profile. Pair this device with ZenMind Desktop and try again.';
+const DESKTOP_UNAVAILABLE_MESSAGE = 'Desktop is not connected. Open ZenMind Desktop and try again.';
 
-function rpcId(): string {
-  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function assertRPCPayload<T>(envelope: KanbanRpcEnvelope<T>): T {
-  if (envelope.ok === false) {
-    throw new ApiError(envelope.error?.message || 'Kanban RPC failed', 200, envelope);
-  }
-  if (envelope.payload && typeof envelope.payload === 'object' && 'ok' in envelope.payload) {
-    const payload = envelope.payload as { ok?: boolean; message?: string };
-    if (payload.ok === false) {
-      throw new ApiError(payload.message || 'Kanban operation failed', 200, envelope.payload);
-    }
-  }
-  if (envelope.payload === undefined) {
-    throw new ApiError('Kanban RPC returned empty payload', 200, envelope);
-  }
-  return envelope.payload;
-}
+const requestDesktopKanbanRequired = createRequiredDesktopKanbanRequester({
+  getActiveProfile: getActiveDeviceProfile,
+  resolveTransport: resolveActiveWsTransportConfig,
+  request: (options) => sharedWsTransport.request(options),
+  namespace: KANBAN_DESKTOP_NAMESPACE,
+  requiredMessage: DESKTOP_REQUIRED_MESSAGE,
+  unavailableMessage: DESKTOP_UNAVAILABLE_MESSAGE
+});
 
 export async function getKanbanSnapshotApi(
   projectId = DEFAULT_PROJECT_ID,
   signal?: AbortSignal
 ): Promise<KanbanSnapshot> {
-  return authenticatedApiRequest<KanbanSnapshot>({
-    path: '/kanban/api/snapshot',
-    query: { projectId },
-    signal
-  });
-}
-
-export async function kanbanRpcApi<T>(
-  op: string,
-  payload: unknown,
-  projectId = DEFAULT_PROJECT_ID,
-  boardId = DEFAULT_BOARD_ID,
-  signal?: AbortSignal
-): Promise<T> {
-  const envelope = await authenticatedApiRequest<KanbanRpcEnvelope<T>>({
-    path: '/kanban/api/rpc',
-    method: 'POST',
-    body: {
-      v: 1,
-      type: 'rpc.req',
-      id: rpcId(),
-      role: 'web',
-      boardId,
-      projectId,
-      op,
-      payload
-    },
-    signal
-  });
-  return assertRPCPayload(envelope);
+  const snapshot = await getKanbanSnapshotProtocol(requestDesktopKanbanRequired, projectId, signal);
+  ensureKanbanInvalidationSubscribed(requestDesktopKanbanRequired);
+  return snapshot;
 }
 
 export function createKanbanIssueApi(
   input: KanbanIssueInput,
   projectId = DEFAULT_PROJECT_ID
 ): Promise<KanbanChangeResult> {
-  return kanbanRpcApi<KanbanChangeResult>('kanban.issue.create', input, projectId);
+  return createKanbanIssueProtocol(requestDesktopKanbanRequired, input, projectId);
 }
 
 export function updateKanbanIssueApi(
@@ -193,7 +78,7 @@ export function updateKanbanIssueApi(
   input: KanbanIssueUpdateInput,
   projectId = DEFAULT_PROJECT_ID
 ): Promise<KanbanChangeResult> {
-  return kanbanRpcApi<KanbanChangeResult>('kanban.issue.update', { id, input }, projectId);
+  return updateKanbanIssueProtocol(requestDesktopKanbanRequired, id, input, projectId);
 }
 
 export function moveKanbanIssueApi(
@@ -203,7 +88,7 @@ export function moveKanbanIssueApi(
   baseIssueRevision?: number,
   projectId = DEFAULT_PROJECT_ID
 ): Promise<KanbanChangeResult> {
-  return kanbanRpcApi<KanbanChangeResult>('kanban.issue.move', { id, status, position, baseIssueRevision }, projectId);
+  return moveKanbanIssueProtocol(requestDesktopKanbanRequired, id, status, position, baseIssueRevision, projectId);
 }
 
 export function deleteKanbanIssueApi(
@@ -211,5 +96,15 @@ export function deleteKanbanIssueApi(
   baseIssueRevision?: number,
   projectId = DEFAULT_PROJECT_ID
 ): Promise<KanbanChangeResult> {
-  return kanbanRpcApi<KanbanChangeResult>('kanban.issue.delete', { id, baseIssueRevision }, projectId);
+  return deleteKanbanIssueProtocol(requestDesktopKanbanRequired, id, baseIssueRevision, projectId);
+}
+
+export async function startKanbanIssueRunApi({
+  issue,
+  agentKey,
+  message,
+  projectId = DEFAULT_PROJECT_ID,
+  signal
+}: StartKanbanIssueRunApiInput): Promise<KanbanChangeResult> {
+  return startKanbanIssueRunProtocol(requestDesktopKanbanRequired, { issue, agentKey, message, projectId, signal });
 }

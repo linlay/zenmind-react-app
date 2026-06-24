@@ -7,8 +7,8 @@
     "提供 __DEV__ 下隐藏挂载的开发调试面板；默认不显示浮动入口，Me 页版本信息三连点通过 controller 启用 Debug 模式并打开面板，设置页可切换 Debug 模式开关，普通关闭后保留右下角 Debug 浮动按钮，ChatDetail 也挂载面板宿主并上移浮动入口以避开聊天详情输入区。",
     "展示当前 API Base URL，并在原生端提供手动 reload 入口。",
     "提供开发态清理聊天本地 SQLite 数据和 MMKV 首页目录快照的入口。",
-    "展示 core-debug-logging 提供的开发态 WS frame ring buffer，并提供捕获、清空和 console 镜像开关。",
-    "提供彻底关闭入口，移除激活后的浮动按钮、关闭面板并停止 WS 捕获、关闭 console 镜像、清空 frame 缓冲。",
+    "展示 core-debug-logging 提供的开发态 HTTP record ring buffer 和 WS frame ring buffer；HTTP 提供捕获和清空，WS 提供捕获、清空和 console 镜像开关。",
+    "提供彻底关闭入口，移除激活后的浮动按钮、关闭面板并停止 HTTP/WS 捕获、关闭 WS console 镜像、清空调试缓冲。",
     "不参与正式业务数据流，只服务开发态排查。"
   ],
   "publicEntrypoints": [
@@ -38,6 +38,7 @@
     "手动 reload 动作",
     "当前 API Base URL 展示",
     "通过 chatSyncService 触发开发态本地缓存 reset，不直接读写 SQLite、MMKV 或 WebSocket",
+    "开发态 HTTP record recorder 显示和开关状态",
     "开发态 WS frame recorder 显示和开关状态"
   ],
   "relatedFlows": ["app-startup"],
@@ -45,7 +46,7 @@
   "impactChecklist": [
     "改动前确认入口只在 __DEV__ 下渲染，不把调试能力泄漏到生产。",
     "清理本地缓存时只调用 chatSyncService 暴露的开发态 reset，不在 Debug 面板直接 import repository、database 或 snapshot storage。",
-    "WS frame 展示只在面板可见时订阅 wsDebugRecorder 快照，不直接 connect、send 或处理业务 socket 事件；面板关闭后不保留组件内 records 副本。",
+    "HTTP record 和 WS frame 展示只在面板可见时订阅对应 recorder 快照，不直接 connect、send、fetch 或处理业务 socket 事件；面板关闭后不保留组件内 records 副本。",
     "如果只是隐藏入口，优先检查 AppRoot 的挂载条件、Me 页版本触发和 controller enabled/visible 语义，不要顺手删掉 API 环境展示逻辑；ChatDetail 上保留面板宿主时要继续避开聊天详情输入区。",
     "面板展示的是 getApiBaseUrl 结果，改运行时环境变量时要一并检查。"
   ],

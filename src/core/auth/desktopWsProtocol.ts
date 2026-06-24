@@ -1,3 +1,5 @@
+import { normalizeApiBaseUrl } from '../config/endpoint.ts';
+
 export type DesktopWsNamespace = 'd' | 'ap' | 'wa';
 export type PairingTargetMode = 'local' | 'lan' | 'tunnel';
 export type DesktopWsTokenMode = 'query' | 'subprotocol';
@@ -33,6 +35,7 @@ export type DesktopWsPairingPayload = {
   v: 2;
   kind: 'desktop-ws';
   targetMode: PairingTargetMode;
+  apiBaseUrl: string;
   wsUrl: string;
   tokenMode: DesktopWsTokenMode;
   token: string;
@@ -68,7 +71,7 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function normalizeHttpBaseUrl(value: unknown): string {
-  return readText(value).replace(/\/+$/u, '');
+  return normalizeApiBaseUrl(readText(value));
 }
 
 function encodeBase64Url(text: string): string {
@@ -128,6 +131,24 @@ export function normalizeDesktopWsUrlInput(value: unknown, fallback = ''): strin
     return url.toString();
   } catch {
     return fallback;
+  }
+}
+
+export function deriveDesktopApiBaseUrlFromWsUrl(value: unknown): string {
+  const normalizedWsUrl = normalizeDesktopWsUrlInput(value);
+  if (!normalizedWsUrl) {
+    return '';
+  }
+
+  try {
+    const url = new URL(normalizedWsUrl);
+    url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
+    url.pathname = '';
+    url.search = '';
+    url.hash = '';
+    return url.toString().replace(/\/+$/u, '');
+  } catch {
+    return '';
   }
 }
 
@@ -216,11 +237,13 @@ function parseLegacyPairingPayload(record: Record<string, unknown>): LegacyPairi
 
 function parseDesktopWsPairingPayload(record: Record<string, unknown>): DesktopWsPairingPayload {
   const expiresAtMs = Number(record.expiresAtMs);
+  const wsUrl = normalizeDesktopWsUrlInput(record.wsUrl);
   const payload: DesktopWsPairingPayload = {
     v: 2,
     kind: 'desktop-ws',
     targetMode: record.targetMode === 'lan' || record.targetMode === 'tunnel' ? record.targetMode : 'local',
-    wsUrl: normalizeDesktopWsUrlInput(record.wsUrl),
+    apiBaseUrl: deriveDesktopApiBaseUrlFromWsUrl(wsUrl) || normalizeHttpBaseUrl(record.apiBaseUrl),
+    wsUrl,
     tokenMode: normalizeDesktopWsTokenMode(record.tokenMode),
     token: readText(record.token),
     expiresAtMs,
@@ -229,6 +252,7 @@ function parseDesktopWsPairingPayload(record: Record<string, unknown>): DesktopW
 
   if (
     !payload.wsUrl ||
+    !payload.apiBaseUrl ||
     !payload.token ||
     !payload.desktopDeviceId ||
     !Number.isFinite(payload.expiresAtMs) ||

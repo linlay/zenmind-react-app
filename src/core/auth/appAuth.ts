@@ -246,9 +246,10 @@ function isCurrentProfile(profile: DeviceProfile): boolean {
 
 function applyDeviceProfileRuntime(profile: DeviceProfile) {
   currentProfile = profile;
+  currentBaseUrl = normalizeBaseUrl(profile.apiBaseUrl);
   authCacheRuntime.switchScope(profile.cacheScopeId);
-  if (profile.transportKind === 'http') {
-    saveStoredApiBaseUrl(profile.apiBaseUrl);
+  if (currentBaseUrl) {
+    saveStoredApiBaseUrl(currentBaseUrl);
   } else {
     saveStoredApiBaseUrl('');
   }
@@ -1054,6 +1055,15 @@ export function getCurrentSession(): SessionState | null {
 }
 
 export async function getAccessTokenForRequest(baseUrl: string, forceRefresh = false): Promise<string | null> {
+  const activeProfile = currentProfile;
+  if (activeProfile?.transportKind === 'desktop-ws') {
+    const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+    if (!normalizedBaseUrl || normalizeBaseUrl(activeProfile.apiBaseUrl) !== normalizedBaseUrl) {
+      return null;
+    }
+    return refreshDesktopWsAccessToken(activeProfile, forceRefresh, 'hard');
+  }
+
   return refreshAccessToken(baseUrl, forceRefresh, 'hard');
 }
 
@@ -1278,6 +1288,7 @@ async function loginWithDesktopWsPairingPayload(
       transportKind: 'desktop-ws',
       desktopDeviceId: pairing.desktopDeviceId,
       defaultDisplayName: 'Desktop',
+      apiBaseUrl: pairing.apiBaseUrl,
       serverDeviceId: hello.deviceId,
       desktopWs: transport
     });
@@ -1303,7 +1314,6 @@ export function activateProfile(desktopDeviceId: string): DeviceProfile {
     throw new Error('profile not found');
   }
   applyDeviceProfileRuntime(profile);
-  currentBaseUrl = profile.transportKind === 'http' ? profile.apiBaseUrl : '';
   currentSession = null;
   refreshInFlightByKey.clear();
   bootstrapPromise = null;

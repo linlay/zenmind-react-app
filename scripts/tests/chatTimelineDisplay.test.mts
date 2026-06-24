@@ -8,6 +8,25 @@ import {
   buildChatTimelineDisplayItems,
   deriveChatTimelineState,
 } from '../../src/features/chatTimeline/index.ts';
+import type { ChatTimelineDisplayItem } from '../../src/features/chatTimeline/index.ts';
+
+type AssistantContentDisplayItem = ChatTimelineDisplayItem & { kind: 'assistant-content' };
+
+function displayKinds(items: readonly ChatTimelineDisplayItem[]): string[] {
+  return items.map((item) => item.kind);
+}
+
+function assistantContentItems(items: readonly ChatTimelineDisplayItem[]): AssistantContentDisplayItem[] {
+  return items.filter((item): item is AssistantContentDisplayItem => item.kind === 'assistant-content');
+}
+
+function expectAssistantContentItem(item: ChatTimelineDisplayItem | undefined): AssistantContentDisplayItem {
+  assert.equal(item?.kind, 'assistant-content');
+  if (item?.kind !== 'assistant-content') {
+    throw new Error('expected assistant content item');
+  }
+  return item;
+}
 
 test('timeline display groups consecutive matching tool calls in one render item', () => {
   const state = deriveChatTimelineState('chat-1', [
@@ -258,6 +277,82 @@ test('timeline display deduplicates persisted reasoning rows with the same run b
   );
   assert.equal(reasoningItems.length, 1);
   assert.equal(reasoningItems[0]?.node.body, 'Simple greeting, just respond briefly.');
+});
+
+test('timeline display folds active backend reasoning titles into one visible row', () => {
+  let state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      contentId: 'reasoning-title',
+      reasoningLabel: 'Thinking',
+      delta: 'Thinking',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      reasoningId: 'reasoning-body',
+      delta: 'Simple greeting, just respond briefly.',
+      timestamp: 110,
+    },
+  ]);
+
+  let items = buildChatTimelineDisplayItems(state);
+  assert.deepEqual(displayKinds(items), ['reasoning']);
+  assert.equal(items[0]?.node.kind, 'reasoning');
+  assert.equal(items[0]?.node.title, 'Thinking');
+  assert.equal(items[0]?.node.body, 'Simple greeting, just respond briefly.');
+  assert.equal('streaming' in items[0]!.node ? items[0]!.node.streaming : false, true);
+
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'run.complete',
+    runId: 'run-1',
+    timestamp: 120,
+  });
+
+  items = buildChatTimelineDisplayItems(state);
+  assert.deepEqual(displayKinds(items), ['reasoning']);
+  assert.equal(items[0]?.node.kind, 'reasoning');
+  assert.equal(items[0]?.node.title, '思考过程');
+  assert.equal(items[0]?.node.body, 'Simple greeting, just respond briefly.');
+  assert.equal('streaming' in items[0]!.node ? items[0]!.node.streaming : true, false);
+});
+
+test('timeline display does not fold later reasoning titles across runtime rows', () => {
+  const state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'reasoning.snapshot',
+      runId: 'run-1',
+      reasoningId: 'reasoning-1',
+      text: '先判断日期。',
+      timestamp: 100,
+    },
+    {
+      type: 'tool.snapshot',
+      runId: 'run-1',
+      toolCallId: 'tool-1',
+      toolName: 'date_time',
+      toolLabel: '日期时间',
+      result: { date: '2026-06-24' },
+      timestamp: 110,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      contentId: 'reasoning-title',
+      reasoningLabel: 'Pondering',
+      delta: 'Pondering',
+      timestamp: 120,
+    },
+  ]);
+
+  const items = buildChatTimelineDisplayItems(state);
+  assert.deepEqual(displayKinds(items), ['reasoning', 'tool', 'reasoning']);
+  assert.equal(items[0]?.node.kind, 'reasoning');
+  assert.equal(items[0]?.node.title, '思考过程');
+  assert.equal(items[2]?.node.kind, 'reasoning');
+  assert.equal(items[2]?.node.title, 'Pondering');
 });
 
 test('timeline display puts one assistant footer on the final content item per reply', () => {
@@ -537,4 +632,117 @@ test('timeline display model replaces only the visible tail item for stream delt
   assert.equal(streamedModel.items[1].node.content, '第一句，第二句');
   assert.equal(streamedModel.items[1].assistantReplyFooter, null);
   assert.equal(streamedModel.tailSignature?.key, initialModel.tailSignature?.key);
+});
+
+test('timeline display suppresses assistant footer while following runtime is active', () => {
+  const active = deriveChatTimelineState('chat-1', [
+    {
+      type: 'content.snapshot',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      text: '八月十四，那中秋是 9月12日，再验证：',
+      timestamp: 100,
+    },
+    {
+      type: 'tool.args',
+      runId: 'run-2',
+      toolCallId: 'tool-1',
+      toolName: 'date_time',
+      toolLabel: '日期时间',
+      args: { timezone: 'Asia/Shanghai' },
+      timestamp: 110,
+    },
+  ]);
+  const activeModel = buildChatTimelineDisplayModel(active);
+  const activeAssistantItems = assistantContentItems(activeModel.items);
+
+  assert.equal(activeAssistantItems.length, 1);
+  assert.equal(activeAssistantItems[0]?.assistantReplyFooter, null);
+
+  const completed = applyChatTimelineEvent(active, 'chat-1', {
+    type: 'tool.result',
+    toolCallId: 'tool-1',
+    result: { ok: true },
+    timestamp: 120,
+  });
+  const completedModel = buildChatTimelineDisplayModel(completed, activeModel);
+  const completedAssistantItems = assistantContentItems(completedModel.items);
+
+  assert.equal(completedAssistantItems.length, 1);
+  assert.deepEqual(completedAssistantItems[0]?.assistantReplyFooter, {
+    copyText: '八月十四，那中秋是 9月12日，再验证：',
+    timestamp: 100,
+    durationMs: null,
+    errorReason: null,
+  });
+});
+
+test('timeline display suppresses assistant footer while preceding runtime is active', () => {
+  const state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'tool.args',
+      runId: 'run-1',
+      toolCallId: 'tool-1',
+      toolName: 'date_time',
+      toolLabel: '日期时间',
+      args: { timezone: 'Asia/Shanghai' },
+      timestamp: 100,
+    },
+    {
+      type: 'content.snapshot',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      text: '继续验证。',
+      timestamp: 110,
+    },
+  ]);
+
+  const assistantItems = assistantContentItems(buildChatTimelineDisplayItems(state));
+
+  assert.equal(assistantItems.length, 1);
+  assert.equal(assistantItems[0]?.assistantReplyFooter, null);
+});
+
+test('timeline display keeps assistant footer suppressed on tail completion with prior active runtime', () => {
+  const initial = deriveChatTimelineState('chat-1', [
+    {
+      type: 'content.snapshot',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      text: '先算到八月十四。',
+      timestamp: 100,
+    },
+    {
+      type: 'tool.args',
+      runId: 'run-2',
+      toolCallId: 'tool-1',
+      toolName: 'date_time',
+      toolLabel: '日期时间',
+      args: { timezone: 'Asia/Shanghai' },
+      timestamp: 110,
+    },
+    {
+      type: 'content.delta',
+      runId: 'run-2',
+      contentId: 'answer-2',
+      delta: '再验证：',
+      timestamp: 120,
+    },
+  ]);
+  const initialModel = buildChatTimelineDisplayModel(initial);
+  const initialTail = expectAssistantContentItem(initialModel.items[initialModel.items.length - 1]);
+  assert.equal(initialTail.assistantReplyFooter, null);
+
+  const completedTail = applyChatTimelineEvent(initial, 'chat-1', {
+    type: 'content.end',
+    runId: 'run-2',
+    contentId: 'answer-2',
+    text: '再验证：',
+    timestamp: 130,
+  });
+  const completedTailModel = buildChatTimelineDisplayModel(completedTail, initialModel);
+  const completedTailItem = expectAssistantContentItem(
+    completedTailModel.items[completedTailModel.items.length - 1]
+  );
+  assert.equal(completedTailItem.assistantReplyFooter, null);
 });

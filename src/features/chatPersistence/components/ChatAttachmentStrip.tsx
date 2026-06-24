@@ -1,7 +1,10 @@
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-import { buildApiUrl } from '../../../core/api/apiClient';
+import {
+  buildAuthenticatedApiUriSource,
+  type ApiUriSource,
+} from '../../../core/api/apiClient';
 import { useT } from '../../../shared/i18n';
 import { AppLineIcon } from '../../../shared/visual/AppLineIcon';
 import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
@@ -34,18 +37,7 @@ function resolveImageUri({
 }): string {
   const localPreviewUri = previewUri || localUri;
   const uri = variant === 'message' ? resourceUrl || localPreviewUri || '' : localPreviewUri || resourceUrl || '';
-  const normalizedUri = normalizeChatAttachmentResourceUrl(uri);
-  if (!normalizedUri || /^(file|content|data|https?):\/\//.test(normalizedUri)) {
-    return normalizedUri;
-  }
-  if (normalizedUri.startsWith('/')) {
-    try {
-      return buildApiUrl(normalizedUri);
-    } catch {
-      return normalizedUri;
-    }
-  }
-  return normalizedUri;
+  return normalizeChatAttachmentResourceUrl(uri);
 }
 
 const AttachmentImageTile = memo(function AttachmentImageTile({
@@ -63,6 +55,7 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
 }) {
   const [loadState, setLoadState] = useState<'loading' | 'loaded' | 'failed'>('loading');
   const [retrySeed, setRetrySeed] = useState(0);
+  const [imageSource, setImageSource] = useState<ApiUriSource | null>(null);
   const imageUri = useMemo(
     () =>
       resolveImageUri({
@@ -73,9 +66,42 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
       }),
     [attachment.localUri, attachment.previewUri, attachment.resourceUrl, variant]
   );
-  const imageSource = useMemo(() => (imageUri ? { uri: imageUri } : null), [imageUri]);
   const isMessage = variant === 'message';
   const frameStyle = isMessage ? styles.messageImageFrame : styles.composerImageFrame;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveSource() {
+      if (!imageUri) {
+        if (!cancelled) {
+          setImageSource(null);
+          setLoadState('failed');
+        }
+        return;
+      }
+
+      if (!cancelled) {
+        setLoadState('loading');
+      }
+
+      try {
+        const source = await buildAuthenticatedApiUriSource(imageUri);
+        if (!cancelled) {
+          setImageSource(source);
+        }
+      } catch {
+        if (!cancelled) {
+          setImageSource({ uri: imageUri });
+        }
+      }
+    }
+
+    void resolveSource();
+    return () => {
+      cancelled = true;
+    };
+  }, [imageUri, retrySeed]);
 
   return (
     <Pressable
@@ -92,7 +118,7 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
     >
       {imageSource ? (
         <Image
-          key={`${imageUri}:${retrySeed}`}
+          key={`${imageSource.uri}:${retrySeed}`}
           source={imageSource}
           resizeMode="cover"
           style={styles.image}

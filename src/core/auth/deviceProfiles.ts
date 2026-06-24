@@ -3,6 +3,7 @@ import { MMKV } from 'react-native-mmkv';
 import { normalizeApiBaseUrl } from '../config/endpoint';
 import {
   createCacheScopeId,
+  normalizeDesktopApiBaseUrl,
   normalizeDesktopWsProfileTransport,
   normalizeDeviceProfile,
   normalizeDeviceProfileTransportKind,
@@ -143,7 +144,10 @@ export function upsertDeviceProfile(input: DeviceProfileInput): DeviceProfileWri
   const defaultDisplayName = normalizeDisplayName(input.defaultDisplayName);
   const transportKind = normalizeDeviceProfileTransportKind(input.transportKind);
   const desktopWs = transportKind === 'desktop-ws' ? normalizeDesktopWsProfileTransport(input.desktopWs) : undefined;
-  const apiBaseUrl = transportKind === 'http' ? normalizeApiBaseUrl(normalizeText(input.apiBaseUrl)) : '';
+  const apiBaseUrl =
+    transportKind === 'desktop-ws'
+      ? normalizeDesktopApiBaseUrl(input.apiBaseUrl, desktopWs)
+      : normalizeApiBaseUrl(normalizeText(input.apiBaseUrl));
   const deviceToken = transportKind === 'http' ? normalizeText(input.deviceToken) : '';
   const serverDeviceId = normalizeText(input.serverDeviceId);
   if (!serverDeviceId) {
@@ -152,8 +156,8 @@ export function upsertDeviceProfile(input: DeviceProfileInput): DeviceProfileWri
   if (transportKind === 'http' && (!apiBaseUrl || !deviceToken)) {
     throw new Error('HTTP device profile requires apiBaseUrl and deviceToken');
   }
-  if (transportKind === 'desktop-ws' && !desktopWs) {
-    throw new Error('Desktop WS device profile requires transport credentials');
+  if (transportKind === 'desktop-ws' && (!desktopWs || !apiBaseUrl)) {
+    throw new Error('Desktop WS device profile requires transport credentials and apiBaseUrl');
   }
   const nextProfile: DeviceProfile = {
     transportKind,
@@ -223,14 +227,17 @@ export function updateActiveDeviceProfileAuth(input: {
       profile.transportKind === 'desktop-ws'
         ? normalizeDesktopWsProfileTransport(input.desktopWs) || profile.desktopWs
         : undefined;
+    const apiBaseUrl =
+      profile.transportKind === 'desktop-ws'
+        ? normalizeDesktopApiBaseUrl(input.apiBaseUrl, desktopWs) || profile.apiBaseUrl
+        : input.apiBaseUrl
+          ? normalizeApiBaseUrl(input.apiBaseUrl)
+          : profile.apiBaseUrl;
     updated = {
       ...profile,
       deviceToken: profile.transportKind === 'http' ? normalizeText(input.deviceToken) || profile.deviceToken : '',
       serverDeviceId: normalizeText(input.serverDeviceId) || profile.serverDeviceId,
-      apiBaseUrl:
-        profile.transportKind === 'http' && input.apiBaseUrl
-          ? normalizeApiBaseUrl(input.apiBaseUrl)
-          : profile.apiBaseUrl,
+      apiBaseUrl,
       desktopWs,
       lastUsedAt: Date.now(),
       needsRelink: false

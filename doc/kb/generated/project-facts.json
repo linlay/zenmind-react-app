@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-23T09:53:24.954Z",
+  "generatedAt": "2026-06-24T02:47:48.262Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -20,10 +20,14 @@
     "src/app/startup/GeminiLogo.tsx",
     "src/core/api/activeWsTransport.ts",
     "src/core/api/apiClient.ts",
+    "src/core/api/apiError.ts",
     "src/core/api/resourceUrl.ts",
     "src/core/api/services/chatApi.ts",
     "src/core/api/services/chatEventProtocol.ts",
     "src/core/api/services/kanbanApi.ts",
+    "src/core/api/services/kanbanInvalidation.ts",
+    "src/core/api/services/kanbanProtocol.ts",
+    "src/core/api/services/kanbanTypes.ts",
     "src/core/api/services/notificationApi.ts",
     "src/core/api/services/templateApi.ts",
     "src/core/api/services/uploadApi.ts",
@@ -43,7 +47,11 @@
     "src/core/ws/wsClient.ts",
     "src/core/ws/wsTransportConfig.ts",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+    "src/features/agentTaskBoard/kanbanAssistantPrompt.ts",
+    "src/features/agentTaskBoard/kanbanChatRoute.ts",
+    "src/features/agentTaskBoard/kanbanRunGuards.ts",
     "src/features/agentTaskBoard/kanbanViewModel.ts",
+    "src/features/agentTaskBoard/useDesktopKanbanBoard.ts",
     "src/features/auth/LoginScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/features/chatPersistence/ChatHomeScreen.tsx",
@@ -276,6 +284,18 @@
                         "type": "file"
                       },
                       {
+                        "name": "kanbanInvalidation.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "kanbanProtocol.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "kanbanTypes.ts",
+                        "type": "file"
+                      },
+                      {
                         "name": "notificationApi.ts",
                         "type": "file"
                       },
@@ -295,6 +315,10 @@
                   },
                   {
                     "name": "apiClient.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "apiError.ts",
                     "type": "file"
                   },
                   {
@@ -402,7 +426,23 @@
                     "type": "file"
                   },
                   {
+                    "name": "kanbanAssistantPrompt.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "kanbanChatRoute.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "kanbanRunGuards.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "kanbanViewModel.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "useDesktopKanbanBoard.ts",
                     "type": "file"
                   }
                 ]
@@ -998,10 +1038,14 @@
     "core-api-client": [
       "src/core/api/activeWsTransport.ts",
       "src/core/api/apiClient.ts",
+      "src/core/api/apiError.ts",
       "src/core/api/resourceUrl.ts",
       "src/core/api/services/chatApi.ts",
       "src/core/api/services/chatEventProtocol.ts",
       "src/core/api/services/kanbanApi.ts",
+      "src/core/api/services/kanbanInvalidation.ts",
+      "src/core/api/services/kanbanProtocol.ts",
+      "src/core/api/services/kanbanTypes.ts",
       "src/core/api/services/notificationApi.ts",
       "src/core/api/services/templateApi.ts",
       "src/core/api/services/uploadApi.ts"
@@ -1025,7 +1069,11 @@
     ],
     "feature-agent-task-board": [
       "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
-      "src/features/agentTaskBoard/kanbanViewModel.ts"
+      "src/features/agentTaskBoard/kanbanAssistantPrompt.ts",
+      "src/features/agentTaskBoard/kanbanChatRoute.ts",
+      "src/features/agentTaskBoard/kanbanRunGuards.ts",
+      "src/features/agentTaskBoard/kanbanViewModel.ts",
+      "src/features/agentTaskBoard/useDesktopKanbanBoard.ts"
     ],
     "feature-auth-login": ["src/features/auth/LoginScreen.tsx"],
     "feature-chat-persistence": [
@@ -1163,10 +1211,14 @@
     "src/app/startup/GeminiLogo.tsx": "app-shell-navigation",
     "src/core/api/activeWsTransport.ts": "core-api-client",
     "src/core/api/apiClient.ts": "core-api-client",
+    "src/core/api/apiError.ts": "core-api-client",
     "src/core/api/resourceUrl.ts": "core-api-client",
     "src/core/api/services/chatApi.ts": "core-api-client",
     "src/core/api/services/chatEventProtocol.ts": "core-api-client",
     "src/core/api/services/kanbanApi.ts": "core-api-client",
+    "src/core/api/services/kanbanInvalidation.ts": "core-api-client",
+    "src/core/api/services/kanbanProtocol.ts": "core-api-client",
+    "src/core/api/services/kanbanTypes.ts": "core-api-client",
     "src/core/api/services/notificationApi.ts": "core-api-client",
     "src/core/api/services/templateApi.ts": "core-api-client",
     "src/core/api/services/uploadApi.ts": "core-api-client",
@@ -1186,7 +1238,11 @@
     "src/core/ws/wsClient.ts": "core-ws-transport",
     "src/core/ws/wsTransportConfig.ts": "core-ws-transport",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": "feature-agent-task-board",
+    "src/features/agentTaskBoard/kanbanAssistantPrompt.ts": "feature-agent-task-board",
+    "src/features/agentTaskBoard/kanbanChatRoute.ts": "feature-agent-task-board",
+    "src/features/agentTaskBoard/kanbanRunGuards.ts": "feature-agent-task-board",
     "src/features/agentTaskBoard/kanbanViewModel.ts": "feature-agent-task-board",
+    "src/features/agentTaskBoard/useDesktopKanbanBoard.ts": "feature-agent-task-board",
     "src/features/auth/LoginScreen.tsx": "feature-auth-login",
     "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/ChatHomeScreen.tsx": "feature-chat-persistence",
@@ -1309,7 +1365,7 @@
         "shared-screen-header",
         "shared-visual-foundation"
       ],
-      "dependedBy": ["feature-chat-persistence"]
+      "dependedBy": ["feature-agent-task-board", "feature-chat-persistence"]
     },
     "core-api-client": {
       "dependsOn": ["core-auth-session", "core-debug-logging", "core-ws-transport"],
@@ -1340,7 +1396,14 @@
       "dependedBy": ["core-api-client", "feature-chat-realtime"]
     },
     "feature-agent-task-board": {
-      "dependsOn": ["core-api-client", "shared-i18n", "shared-screen-header", "shared-visual-foundation"],
+      "dependsOn": [
+        "app-shell-navigation",
+        "core-api-client",
+        "feature-chat-persistence",
+        "shared-i18n",
+        "shared-screen-header",
+        "shared-visual-foundation"
+      ],
       "dependedBy": ["app-shell-navigation"]
     },
     "feature-auth-login": {
@@ -1359,7 +1422,12 @@
         "shared-screen-header",
         "shared-visual-foundation"
       ],
-      "dependedBy": ["app-shell-navigation", "feature-chat-realtime", "feature-chat-timeline"]
+      "dependedBy": [
+        "app-shell-navigation",
+        "feature-agent-task-board",
+        "feature-chat-realtime",
+        "feature-chat-timeline"
+      ]
     },
     "feature-chat-realtime": {
       "dependsOn": [
@@ -1449,6 +1517,7 @@
       "buildApiUrl",
       "getApiBaseUrl"
     ],
+    "src/core/api/apiError.ts": ["ApiError"],
     "src/core/api/resourceUrl.ts": ["normalizeApiResourcePath"],
     "src/core/api/services/chatApi.ts": [
       "AgentDetailSnapshot",
@@ -1508,24 +1577,49 @@
       "toText"
     ],
     "src/core/api/services/kanbanApi.ts": [
+      "KanbanIssueRunUpdateError",
+      "createKanbanIssueApi",
+      "deleteKanbanIssueApi",
+      "getKanbanSnapshotApi",
+      "isKanbanIssueRunUpdateError",
+      "moveKanbanIssueApi",
+      "startKanbanIssueRunApi",
+      "subscribeKanbanInvalidation",
+      "updateKanbanIssueApi"
+    ],
+    "src/core/api/services/kanbanInvalidation.ts": [
+      "KanbanInvalidationListener",
+      "ensureKanbanInvalidationSubscribed",
+      "shouldHandleKanbanInvalidation",
+      "subscribeKanbanInvalidation"
+    ],
+    "src/core/api/services/kanbanProtocol.ts": [
+      "KanbanDesktopRequester",
+      "KanbanIssueRunUpdateError",
+      "isKanbanAbortError",
+      "isKanbanIssueRunUpdateError",
+      "normalizeKanbanChangeResult",
+      "normalizeKanbanSnapshot",
+      "readKanbanText",
+      "startKanbanIssueRunProtocol",
+      "withKanbanProjectId"
+    ],
+    "src/core/api/services/kanbanTypes.ts": [
       "KanbanAgent",
       "KanbanChangeResult",
       "KanbanDesktopAgentOption",
       "KanbanDesktopSession",
       "KanbanDesktopStatus",
       "KanbanIssue",
+      "KanbanIssueAttachment",
       "KanbanIssueInput",
+      "KanbanIssueRunResult",
       "KanbanIssueUpdateInput",
       "KanbanPriority",
       "KanbanRunState",
       "KanbanSnapshot",
       "KanbanStatus",
-      "createKanbanIssueApi",
-      "deleteKanbanIssueApi",
-      "getKanbanSnapshotApi",
-      "kanbanRpcApi",
-      "moveKanbanIssueApi",
-      "updateKanbanIssueApi"
+      "StartKanbanIssueRunApiInput"
     ],
     "src/core/api/services/notificationApi.ts": [
       "NotificationMessageDetailResponse",
@@ -1656,6 +1750,15 @@
       "WsTransportNamespace"
     ],
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": ["AgentTaskBoardScreen"],
+    "src/features/agentTaskBoard/kanbanAssistantPrompt.ts": ["buildKanbanAssistantPrompt"],
+    "src/features/agentTaskBoard/kanbanChatRoute.ts": ["buildKanbanChatDetailParams"],
+    "src/features/agentTaskBoard/kanbanRunGuards.ts": [
+      "issueHasRunRecord",
+      "nextAppliedSnapshotRevision",
+      "nextIssueIdSet",
+      "reconcileStartedRunIssueIds",
+      "shouldApplySnapshotRevision"
+    ],
     "src/features/agentTaskBoard/kanbanViewModel.ts": [
       "AgentOption",
       "BoardQueue",
@@ -1671,6 +1774,13 @@
       "deriveBoardTasks",
       "getAgentPreview",
       "nextIssuePosition"
+    ],
+    "src/features/agentTaskBoard/useDesktopKanbanBoard.ts": [
+      "DesktopKanbanBoardState",
+      "TaskDraftForm",
+      "UseDesktopKanbanBoardOptions",
+      "createEmptyTaskDraft",
+      "useDesktopKanbanBoard"
     ],
     "src/features/auth/LoginScreen.tsx": ["AuthBootstrapScreen", "LoginScreen"],
     "src/features/chatPersistence/ChatDetailScreen.tsx": ["ChatDetailScreen"],
@@ -2420,14 +2530,27 @@
       "src/core/ws/wsTransportConfig.ts"
     ],
     "src/core/api/apiClient.ts": [
+      "src/core/api/apiError.ts",
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
       "src/core/debug/httpDebugLogger.ts"
     ],
+    "src/core/api/apiError.ts": [],
     "src/core/api/resourceUrl.ts": [],
     "src/core/api/services/chatApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/chatEventProtocol.ts": [],
-    "src/core/api/services/kanbanApi.ts": ["src/core/api/apiClient.ts"],
+    "src/core/api/services/kanbanApi.ts": [
+      "src/core/api/activeWsTransport.ts",
+      "src/core/api/apiClient.ts",
+      "src/core/api/services/kanbanInvalidation.ts",
+      "src/core/api/services/kanbanProtocol.ts",
+      "src/core/api/services/kanbanTypes.ts",
+      "src/core/auth/deviceProfiles.ts",
+      "src/core/ws/sharedWsTransport.ts"
+    ],
+    "src/core/api/services/kanbanInvalidation.ts": ["src/core/ws/sharedWsTransport.ts"],
+    "src/core/api/services/kanbanProtocol.ts": ["src/core/api/apiError.ts", "src/core/api/services/kanbanTypes.ts"],
+    "src/core/api/services/kanbanTypes.ts": [],
     "src/core/api/services/notificationApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/templateApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/uploadApi.ts": ["src/core/api/apiClient.ts", "src/core/api/resourceUrl.ts"],
@@ -2458,8 +2581,11 @@
     ],
     "src/core/ws/wsTransportConfig.ts": [],
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": [
+      "src/app/navigation/types.ts",
       "src/core/api/services/kanbanApi.ts",
+      "src/features/agentTaskBoard/kanbanChatRoute.ts",
       "src/features/agentTaskBoard/kanbanViewModel.ts",
+      "src/features/agentTaskBoard/useDesktopKanbanBoard.ts",
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
@@ -2467,7 +2593,19 @@
       "src/shared/visual/foundation.ts",
       "src/shared/visual/useAppTabBarHeight.ts"
     ],
+    "src/features/agentTaskBoard/kanbanAssistantPrompt.ts": ["src/core/api/services/kanbanApi.ts"],
+    "src/features/agentTaskBoard/kanbanChatRoute.ts": [
+      "src/core/api/services/kanbanApi.ts",
+      "src/features/chatPersistence/types.ts"
+    ],
+    "src/features/agentTaskBoard/kanbanRunGuards.ts": ["src/core/api/services/kanbanApi.ts"],
     "src/features/agentTaskBoard/kanbanViewModel.ts": ["src/core/api/services/kanbanApi.ts"],
+    "src/features/agentTaskBoard/useDesktopKanbanBoard.ts": [
+      "src/core/api/services/kanbanApi.ts",
+      "src/features/agentTaskBoard/kanbanAssistantPrompt.ts",
+      "src/features/agentTaskBoard/kanbanRunGuards.ts",
+      "src/features/agentTaskBoard/kanbanViewModel.ts"
+    ],
     "src/features/auth/LoginScreen.tsx": [
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",

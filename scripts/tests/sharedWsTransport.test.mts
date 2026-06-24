@@ -286,14 +286,16 @@ test('desktop kanban request does not replace chat push listener', async () => {
   }
 });
 
-test('shared transport stop clears socket state and subscribers', async () => {
+test('shared transport stop clears socket state and keeps subscribers reusable', async () => {
   const sockets: FakeSocket[] = [];
   const restoreWebSocket = installFakeWebSocket(sockets);
   const transport = createSharedWsTransport();
   const pushEvents: unknown[] = [];
+  const statuses: string[] = [];
 
   try {
     transport.subscribePush((frame) => pushEvents.push(frame));
+    transport.subscribeStatus((status) => statuses.push(status));
     await transport.connect({
       kind: 'desktop-ws',
       wsUrl: 'ws://127.0.0.1:7082/ws',
@@ -313,7 +315,8 @@ test('shared transport stop clears socket state and subscribers', async () => {
       namespace: 'ap'
     });
     sockets[1].receive({ frame: 'push', type: 'chat.updated', payload: { chatId: 'chat-1' } });
-    assert.equal(pushEvents.length, 0);
+    assert.equal(pushEvents.length, 1);
+    assert.equal(statuses.includes('idle'), true);
   } finally {
     transport.stop();
     restoreWebSocket();

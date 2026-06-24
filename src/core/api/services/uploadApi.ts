@@ -2,6 +2,7 @@ import { File as ExpoFile } from 'expo-file-system';
 
 import { ApiError, authenticatedFormDataRequest } from '../apiClient';
 import { normalizeApiResourcePath } from '../resourceUrl';
+import { logHttpError, logHttpRequest } from '../../debug/httpDebugLogger';
 
 export const CHAT_UPLOAD_API_PATH = '/ap/api/upload';
 
@@ -135,21 +136,49 @@ export async function uploadChatAttachmentApi(
     throw new Error('Upload request id and file uri are required');
   }
 
-  const formData = new FormData();
-  formData.append('requestId', requestId);
-
   const chatId = normalizeText(input.chatId);
-  if (chatId) {
-    formData.append('chatId', chatId);
-  }
-
   const sha256 = normalizeText(input.sha256);
-  if (sha256) {
-    formData.append('sha256', sha256);
-  }
-
   const mimeType = normalizeText(input.mimeType) || 'application/octet-stream';
-  formData.append('file', createExpoFetchFilePart(uri, name, mimeType) as unknown as Blob);
+  const startedAt = Date.now();
+
+  logHttpRequest({
+    url: CHAT_UPLOAD_API_PATH,
+    method: 'POST',
+    body: {
+      stage: 'upload.prepare',
+      requestId,
+      ...(chatId ? { chatId } : {}),
+      ...(sha256 ? { sha256 } : {}),
+      file: {
+        name,
+        type: mimeType,
+        content: '[omitted]',
+      },
+    },
+  });
+
+  const formData = new FormData();
+  try {
+    formData.append('requestId', requestId);
+
+    if (chatId) {
+      formData.append('chatId', chatId);
+    }
+
+    if (sha256) {
+      formData.append('sha256', sha256);
+    }
+
+    formData.append('file', createExpoFetchFilePart(uri, name, mimeType) as unknown as Blob);
+  } catch (error) {
+    logHttpError({
+      url: CHAT_UPLOAD_API_PATH,
+      method: 'POST',
+      durationMs: Date.now() - startedAt,
+      error,
+    });
+    throw error;
+  }
 
   const payload = await authenticatedFormDataRequest<
     ChatUploadResponseData | ApiEnvelope<ChatUploadResponseData>

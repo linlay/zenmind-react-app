@@ -7,6 +7,7 @@ import {
   applyDesktopTokenToUrl,
   buildDesktopBusinessFrame,
   buildDesktopTokenTransport,
+  deriveDesktopApiBaseUrlFromWsUrl,
   encodePairingPayloadV2,
   normalizeDesktopWsUrlInput,
   parsePairingPayload,
@@ -36,6 +37,7 @@ test('zmpair v2 payload parses into Desktop WS transport input', () => {
     v: 2,
     kind: 'desktop-ws',
     targetMode: 'local',
+    apiBaseUrl: 'https://stale-http.example.test',
     wsUrl: 'ws://127.0.0.1:7082/debug?token=old&source=qr#debug',
     tokenMode: 'query',
     token: 'desktop-token',
@@ -48,6 +50,7 @@ test('zmpair v2 payload parses into Desktop WS transport input', () => {
   assert.equal(parsed.transportKind, 'desktop-ws');
   assert.equal(parsed.payload.kind, 'desktop-ws');
   assert.equal(parsed.payload.wsUrl, 'ws://127.0.0.1:7082/ws');
+  assert.equal(parsed.payload.apiBaseUrl, 'http://127.0.0.1:7082');
   assert.equal(parsed.payload.tokenMode, 'query');
   assert.equal(parsed.payload.token, 'desktop-token');
   assert.equal(parsed.payload.desktopDeviceId, 'desktop-device-1');
@@ -82,6 +85,10 @@ test('Desktop WS URL and token helpers are deterministic', () => {
   assert.equal(
     normalizeDesktopWsUrlInput('ws://127.0.0.1:7082/ws?token=old&source=mobile#debug'),
     'ws://127.0.0.1:7082/ws'
+  );
+  assert.equal(
+    deriveDesktopApiBaseUrlFromWsUrl('wss://desktop.example.test/ws?token=old'),
+    'https://desktop.example.test'
   );
   assert.equal(
     applyDesktopTokenToUrl('ws://127.0.0.1:7082/ws?source=mobile&token=old', 'query', 'desktop-token'),
@@ -128,7 +135,7 @@ test('Desktop WS profile rules never expose Desktop token as legacy device token
 
   assert.ok(profile);
   assert.equal(profile.transportKind, 'desktop-ws');
-  assert.equal(profile.apiBaseUrl, '');
+  assert.equal(profile.apiBaseUrl, 'http://127.0.0.1:7082');
   assert.equal(profile.deviceToken, '');
   assert.equal(profile.desktopWs?.wsUrl, 'ws://127.0.0.1:7082/ws');
   assert.equal(legacyDeviceTokenForProfile(profile), '');

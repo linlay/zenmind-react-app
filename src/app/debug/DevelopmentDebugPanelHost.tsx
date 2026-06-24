@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getApiBaseUrl } from '../../core/api/apiClient';
 import { chatSyncService } from '../../features/chatRealtime/chatSyncService';
+import { httpDebugRecorder, type HttpDebugRecord } from '../../core/debug/httpDebugLogger';
 import { wsDebugRecorder, type WsDebugRecord } from '../../core/debug/wsDebugRecorder';
 import {
   closeDevelopmentDebugPanel,
@@ -23,6 +24,7 @@ import {
 } from './developmentDebugPanel';
 
 type WsDebugSnapshot = ReturnType<typeof wsDebugRecorder.getSnapshot>;
+type HttpDebugSnapshot = ReturnType<typeof httpDebugRecorder.getSnapshot>;
 
 type DevelopmentDebugPanelHostProps = {
   isChatDetailRoute?: boolean;
@@ -31,6 +33,10 @@ type DevelopmentDebugPanelHostProps = {
 const EMPTY_WS_DEBUG_SNAPSHOT: WsDebugSnapshot = {
   enabled: false,
   mirrorToConsole: false,
+  records: [],
+};
+const EMPTY_HTTP_DEBUG_SNAPSHOT: HttpDebugSnapshot = {
+  enabled: false,
   records: [],
 };
 const DEFAULT_FLOATING_BUTTON_BOTTOM = 96;
@@ -55,13 +61,20 @@ function formatFrameLabel(record: WsDebugRecord) {
   return `${record.direction} / ${frame} / ${type}`;
 }
 
+function formatHttpLabel(record: HttpDebugRecord) {
+  const status = record.status === null ? '-' : String(record.status);
+  return `${record.direction} / ${record.method} / ${status}`;
+}
+
 export function DevelopmentDebugPanelHost({
   isChatDetailRoute = false,
 }: DevelopmentDebugPanelHostProps) {
   const insets = useSafeAreaInsets();
   const [panelSnapshot, setPanelSnapshot] = useState(() => getDevelopmentDebugPanelSnapshot());
   const [wsSnapshot, setWsSnapshot] = useState<WsDebugSnapshot>(EMPTY_WS_DEBUG_SNAPSHOT);
+  const [httpSnapshot, setHttpSnapshot] = useState<HttpDebugSnapshot>(EMPTY_HTTP_DEBUG_SNAPSHOT);
   const [selectedRecordId, setSelectedRecordId] = useState<number | null>(null);
+  const [selectedHttpRecordId, setSelectedHttpRecordId] = useState<number | null>(null);
   const [isResettingCache, setIsResettingCache] = useState(false);
   const [cacheResetErrorText, setCacheResetErrorText] = useState('');
   const { enabled, visible } = panelSnapshot;
@@ -81,6 +94,26 @@ export function DevelopmentDebugPanelHost({
     return wsDebugRecorder.subscribe((nextSnapshot) => {
       setWsSnapshot(nextSnapshot);
       setSelectedRecordId((currentRecordId) => {
+        if (!currentRecordId) {
+          return null;
+        }
+
+        return nextSnapshot.records.some((record) => record.id === currentRecordId)
+          ? currentRecordId
+          : null;
+      });
+    });
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) {
+      setHttpSnapshot(EMPTY_HTTP_DEBUG_SNAPSHOT);
+      return;
+    }
+
+    return httpDebugRecorder.subscribe((nextSnapshot) => {
+      setHttpSnapshot(nextSnapshot);
+      setSelectedHttpRecordId((currentRecordId) => {
         if (!currentRecordId) {
           return null;
         }
@@ -121,11 +154,18 @@ export function DevelopmentDebugPanelHost({
     Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'Android' : 'Web';
   const apiBaseUrl = getApiBaseUrl() || '(not configured)';
   const wsRecords = [...wsSnapshot.records].reverse();
+  const httpRecords = [...httpSnapshot.records].reverse();
   const selectedRecord =
     (selectedRecordId
       ? wsSnapshot.records.find((record) => record.id === selectedRecordId)
       : null) ||
     wsRecords[0] ||
+    null;
+  const selectedHttpRecord =
+    (selectedHttpRecordId
+      ? httpSnapshot.records.find((record) => record.id === selectedHttpRecordId)
+      : null) ||
+    httpRecords[0] ||
     null;
   const primaryHint =
     Platform.OS === 'android'
@@ -153,10 +193,13 @@ export function DevelopmentDebugPanelHost({
   };
 
   const handleFullClose = () => {
+    httpDebugRecorder.setEnabled(false);
+    httpDebugRecorder.clear();
     wsDebugRecorder.setEnabled(false);
     wsDebugRecorder.setMirrorToConsole(false);
     wsDebugRecorder.clear();
     setSelectedRecordId(null);
+    setSelectedHttpRecordId(null);
     setCacheResetErrorText('');
     disableDevelopmentDebugPanel();
   };
@@ -169,8 +212,10 @@ export function DevelopmentDebugPanelHost({
     setCacheResetErrorText('');
     setIsResettingCache(true);
     try {
+      httpDebugRecorder.clear();
       wsDebugRecorder.clear();
       setSelectedRecordId(null);
+      setSelectedHttpRecordId(null);
       await chatSyncService.resetLocalCacheForDevelopment();
       if (!reloadDevelopmentRuntime()) {
         setIsResettingCache(false);
@@ -227,6 +272,79 @@ export function DevelopmentDebugPanelHost({
               {cacheResetErrorText ? (
                 <Text style={styles.debugErrorText}>清理失败：{cacheResetErrorText}</Text>
               ) : null}
+            </View>
+            <View style={styles.debugSection}>
+              <View style={styles.debugSectionHeader}>
+                <Text style={styles.debugSectionTitle}>HTTP Requests</Text>
+                <Text style={styles.debugSectionMeta}>
+                  {httpSnapshot.enabled ? '捕获中' : '已停止'} · {httpSnapshot.records.length}/200
+                </Text>
+              </View>
+
+              <View style={styles.debugControls}>
+                <Pressable
+                  style={[
+                    styles.debugControlButton,
+                    httpSnapshot.enabled ? styles.debugStopButton : styles.debugStartButton,
+                  ]}
+                  onPress={() => httpDebugRecorder.setEnabled(!httpSnapshot.enabled)}
+                >
+                  <Text
+                    style={[
+                      styles.debugControlText,
+                      httpSnapshot.enabled ? styles.debugStopText : styles.debugStartText,
+                    ]}
+                  >
+                    {httpSnapshot.enabled ? '停止捕获' : '开始捕获'}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.debugControlButton, styles.debugNeutralButton]}
+                  onPress={() => {
+                    httpDebugRecorder.clear();
+                    setSelectedHttpRecordId(null);
+                  }}
+                >
+                  <Text style={[styles.debugControlText, styles.debugNeutralText]}>清空</Text>
+                </Pressable>
+              </View>
+
+              {httpRecords.length <= 0 ? (
+                <Text style={styles.debugEmptyText}>
+                  暂无 HTTP 记录。上传图片、刷新列表或触发接口请求后即可看到数据。
+                </Text>
+              ) : (
+                <View style={styles.frameList}>
+                  {httpRecords.map((record) => {
+                    const selected = selectedHttpRecord?.id === record.id;
+                    return (
+                      <Pressable
+                        key={record.id}
+                        style={[styles.frameRow, selected ? styles.frameRowSelected : null]}
+                        onPress={() => setSelectedHttpRecordId(record.id)}
+                      >
+                        <Text style={styles.frameRowTitle} numberOfLines={1}>
+                          {formatFrameTime(record.timestamp)} · {formatHttpLabel(record)}
+                        </Text>
+                        <Text style={styles.frameRowMeta} numberOfLines={1}>
+                          {record.url}
+                          {record.durationMs === null ? '' : ` · ${record.durationMs}ms`}
+                          {record.attempt && record.attempt > 1 ? ` · attempt ${record.attempt}` : ''}
+                          {record.truncated ? ' · truncated' : ''}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              )}
+
+              <View style={styles.frameJsonBox}>
+                <ScrollView nestedScrollEnabled>
+                  <Text selectable style={styles.frameJsonText}>
+                    {selectedHttpRecord ? selectedHttpRecord.json : 'No selected HTTP record.'}
+                  </Text>
+                </ScrollView>
+              </View>
             </View>
             <View style={styles.debugSection}>
               <View style={styles.debugSectionHeader}>

@@ -1,5 +1,6 @@
 import { normalizeApiBaseUrl } from '../config/endpoint.ts';
 import {
+  deriveDesktopApiBaseUrlFromWsUrl,
   normalizeDesktopWsStorageUrl,
   normalizeDesktopWsTokenMode,
   type DesktopWsTokenMode,
@@ -95,6 +96,13 @@ export function normalizeDesktopWsProfileTransport(raw: unknown): DesktopWsProfi
   };
 }
 
+export function normalizeDesktopApiBaseUrl(
+  value: unknown,
+  desktopWs?: Pick<DesktopWsProfileTransport, 'wsUrl'>
+): string {
+  return deriveDesktopApiBaseUrlFromWsUrl(desktopWs?.wsUrl) || normalizeApiBaseUrl(normalizeText(value));
+}
+
 export function normalizeDeviceProfile(raw: unknown): DeviceProfile | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
     return null;
@@ -103,12 +111,15 @@ export function normalizeDeviceProfile(raw: unknown): DeviceProfile | null {
   const transportKind = normalizeDeviceProfileTransportKind(record.transportKind);
   const desktopDeviceId = normalizeText(record.desktopDeviceId);
   const displayName = normalizeDisplayName(normalizeText(record.displayName));
-  const apiBaseUrl = transportKind === 'http' ? normalizeApiBaseUrl(normalizeText(record.apiBaseUrl)) : '';
+  const desktopWs = normalizeDesktopWsProfileTransport(record.desktopWs);
+  const apiBaseUrl =
+    transportKind === 'desktop-ws'
+      ? normalizeDesktopApiBaseUrl(record.apiBaseUrl, desktopWs)
+      : normalizeApiBaseUrl(normalizeText(record.apiBaseUrl));
   const deviceToken = transportKind === 'http' ? normalizeText(record.deviceToken) : '';
   const serverDeviceId = normalizeText(record.serverDeviceId);
   const cacheScopeId = normalizeText(record.cacheScopeId) || createCacheScopeId();
   const needsRelink = Boolean(record.needsRelink);
-  const desktopWs = normalizeDesktopWsProfileTransport(record.desktopWs);
 
   if (!desktopDeviceId || !serverDeviceId) {
     return null;
@@ -118,7 +129,7 @@ export function normalizeDeviceProfile(raw: unknown): DeviceProfile | null {
     return null;
   }
 
-  if (transportKind === 'desktop-ws' && !desktopWs && !needsRelink) {
+  if (transportKind === 'desktop-ws' && (!desktopWs || !apiBaseUrl) && !needsRelink) {
     return null;
   }
 

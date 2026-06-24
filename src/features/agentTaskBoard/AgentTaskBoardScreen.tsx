@@ -1,29 +1,23 @@
 import { FlashList } from '@shopify/flash-list';
-import { memo, ReactElement, useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { memo, ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import type { RootStackParamList } from '../../app/navigation/types';
+import type { KanbanIssue } from '../../core/api/services/kanbanApi';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { type I18nKey, type TFunction, useT } from '../../shared/i18n';
 import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
 import { appVisualTokens, getAvatarLabel, getAvatarTone, type AppThemeTokens } from '../../shared/visual/foundation';
 import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
+import { buildKanbanChatDetailParams } from './kanbanChatRoute';
+import { createEmptyTaskDraft, useDesktopKanbanBoard, type TaskDraftForm } from './useDesktopKanbanBoard';
 import {
-  createKanbanIssueApi,
-  getKanbanSnapshotApi,
-  moveKanbanIssueApi,
-  updateKanbanIssueApi,
-  type KanbanSnapshot
-} from '../../core/api/services/kanbanApi';
-import {
-  applyKanbanChangeResult,
-  createBoardTaskIndex,
-  deriveAgentOptions,
   deriveBoardSummary,
-  deriveBoardTasks,
   getAgentPreview,
-  nextIssuePosition,
   type AgentOption,
   type BoardViewText,
   type BoardQueue,
@@ -72,20 +66,6 @@ const STAGE_LABEL_KEYS: Record<TaskStage, I18nKey> = {
 };
 
 const TASK_PRIORITIES = ['high', 'medium', 'low'] as const satisfies readonly TaskPriority[];
-
-type TaskDraftForm = {
-  title: string;
-  description: string;
-  priority: TaskPriority;
-};
-
-function createEmptyTaskDraft(): TaskDraftForm {
-  return {
-    title: '',
-    description: '',
-    priority: 'medium'
-  };
-}
 
 function createBoardViewText(t: TFunction): BoardViewText {
   return {
@@ -169,7 +149,7 @@ const HeaderActionButton = memo(function HeaderActionButton({ usage, onPress }: 
 type PlainButtonProps = {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary';
+  variant?: 'primary' | 'secondary' | 'danger';
   disabled?: boolean;
 };
 
@@ -181,6 +161,7 @@ const PlainButton = memo(function PlainButton({
 }: PlainButtonProps) {
   const styles = useAppThemeStyles(createStyles);
   const isPrimary = variant === 'primary';
+  const isDanger = variant === 'danger';
 
   return (
     <Pressable
@@ -189,12 +170,21 @@ const PlainButton = memo(function PlainButton({
       style={({ pressed }) => [
         styles.button,
         isPrimary ? styles.buttonPrimary : styles.buttonSecondary,
+        isDanger ? styles.buttonDanger : null,
         disabled ? styles.disabled : null,
         pressed ? styles.pressed : null
       ]}
       onPress={onPress}
     >
-      <Text style={[styles.buttonText, isPrimary ? styles.buttonTextPrimary : null]}>{label}</Text>
+      <Text
+        style={[
+          styles.buttonText,
+          isPrimary ? styles.buttonTextPrimary : null,
+          isDanger ? styles.buttonTextDanger : null
+        ]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 });
@@ -478,7 +468,7 @@ type SecondaryPageProps = {
   title: string;
   contentBottomPadding: number;
   onBack: () => void;
-  children: ReactElement | readonly ReactElement[];
+  children: ReactNode;
 };
 
 function SecondaryPage({ title, contentBottomPadding, onBack, children }: SecondaryPageProps) {
@@ -506,6 +496,7 @@ function SecondaryPage({ title, contentBottomPadding, onBack, children }: Second
 type NewTaskPageProps = {
   draft: TaskDraftForm;
   contentBottomPadding: number;
+  error: string | null;
   onBack: () => void;
   onChangeDescription: (description: string) => void;
   onChangePriority: (priority: TaskPriority) => void;
@@ -517,6 +508,7 @@ type NewTaskPageProps = {
 function NewTaskPage({
   draft,
   contentBottomPadding,
+  error,
   onBack,
   onChangeDescription,
   onChangePriority,
@@ -592,6 +584,12 @@ function NewTaskPage({
         <OptionRow label={t('tasks.form.initialStage')} value={t('tasks.stage.intake')} />
       </View>
 
+      {error ? (
+        <View style={styles.stateBlock}>
+          <Text style={styles.stateTitle}>{error}</Text>
+        </View>
+      ) : null}
+
       <View style={styles.stickyActionBlock}>
         <PlainButton
           label={saving ? t('common.loading') : t('tasks.action.createTask')}
@@ -625,30 +623,84 @@ type AssignTaskPageProps = {
   task: BoardTask;
   agents: readonly AgentOption[];
   contentBottomPadding: number;
-  saving: boolean;
+  error: string | null;
+  pending: boolean;
+  running: boolean;
   onBack: () => void;
   onAssign: (taskId: string, agent: AgentOption) => void;
 };
 
-function AssignTaskPage({ task, agents, contentBottomPadding, saving, onBack, onAssign }: AssignTaskPageProps) {
+type AgentSelection = {
+  selectedAgent: AgentOption | undefined;
+  selectedAgentKey: string;
+};
+
+function resolveAgentSelection(
+  agents: readonly AgentOption[],
+  taskAgentName: string,
+  selectedAgentKey: string
+): AgentSelection {
+  let firstAgent: AgentOption | undefined;
+  let preferredAgent: AgentOption | undefined;
+  let selectedAgent: AgentOption | undefined;
+
+  for (const agent of agents) {
+    firstAgent ??= agent;
+    if (!preferredAgent && (agent.key === taskAgentName || agent.name === taskAgentName)) {
+      preferredAgent = agent;
+    }
+    if (!selectedAgent && agent.key === selectedAgentKey) {
+      selectedAgent = agent;
+    }
+    if (preferredAgent && selectedAgent) {
+      break;
+    }
+  }
+
+  const resolvedAgent = selectedAgent ?? preferredAgent ?? firstAgent;
+  return {
+    selectedAgent: resolvedAgent,
+    selectedAgentKey: resolvedAgent?.key ?? ''
+  };
+}
+
+function AssignTaskPage({
+  task,
+  agents,
+  contentBottomPadding,
+  error,
+  pending,
+  running,
+  onBack,
+  onAssign
+}: AssignTaskPageProps) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
-  const [selectedAgentKey, setSelectedAgentKey] = useState<string>(agents[0]?.key ?? '');
-  const selectedAgent = useMemo(
-    () => agents.find((agent) => agent.key === selectedAgentKey) ?? agents[0],
-    [agents, selectedAgentKey]
+  const [selectedAgentKey, setSelectedAgentKey] = useState<string>('');
+  const agentSelection = useMemo(
+    () => resolveAgentSelection(agents, task.agentName, selectedAgentKey),
+    [agents, selectedAgentKey, task.agentName]
   );
+  const selectedAgent = agentSelection.selectedAgent;
 
   useEffect(() => {
-    if (!selectedAgent || selectedAgent.key !== selectedAgentKey) {
-      setSelectedAgentKey(selectedAgent?.key ?? '');
+    if (selectedAgentKey !== agentSelection.selectedAgentKey) {
+      setSelectedAgentKey(agentSelection.selectedAgentKey);
     }
-  }, [selectedAgent, selectedAgentKey]);
+  }, [agentSelection.selectedAgentKey, selectedAgentKey]);
+  const handleSelectAgent = useCallback((agentKey: string) => {
+    setSelectedAgentKey((current) => (current === agentKey ? current : agentKey));
+  }, []);
+  const handleAssignSelectedAgent = useCallback(() => {
+    if (selectedAgent) {
+      onAssign(task.id, selectedAgent);
+    }
+  }, [onAssign, selectedAgent, task.id]);
 
   return (
     <SecondaryPage title={t('tasks.page.assignTask')} contentBottomPadding={contentBottomPadding} onBack={onBack}>
       <View style={styles.assignmentSummary}>
-        <Text style={styles.assignmentEyebrow}>{t('tasks.stage.intake')}</Text>
+        <Text style={styles.assignmentEyebrow}>{t(STAGE_LABEL_KEYS[task.stage])}</Text>
         <Text style={styles.assignmentTitle}>{task.title}</Text>
         <Text style={styles.assignmentBody}>{task.outcome}</Text>
       </View>
@@ -665,7 +717,7 @@ function AssignTaskPage({ task, agents, contentBottomPadding, saving, onBack, on
                 key={agent.key}
                 agent={agent}
                 selected={selectedAgent?.key === agent.key}
-                onSelect={() => setSelectedAgentKey(agent.key)}
+                onSelect={handleSelectAgent}
               />
             ))
           ) : (
@@ -676,21 +728,25 @@ function AssignTaskPage({ task, agents, contentBottomPadding, saving, onBack, on
 
       <View style={styles.formBlock}>
         <Text style={styles.formTitle}>{t('tasks.form.afterAssign')}</Text>
-        <OptionRow label={t('tasks.form.enterStage')} value={t('tasks.stage.assigned')} />
+        <OptionRow label={t('tasks.form.enterStage')} value={t('tasks.stage.running')} />
         <OptionRow label={t('tasks.form.notifyBy')} value={t('tasks.form.notifyByValue')} />
         <OptionRow label={t('tasks.form.manualReview')} value={t('tasks.form.manualReviewValue')} />
       </View>
 
+      {error ? (
+        <View style={styles.stateBlock}>
+          <Text style={styles.stateTitle}>{error}</Text>
+        </View>
+      ) : null}
+
       <View style={styles.stickyActionBlock}>
         <PlainButton
-          label={selectedAgent ? t('tasks.action.assignTo', { name: selectedAgent.name }) : t('tasks.action.assign')}
+          label={
+            pending ? t('common.loading') : running ? t('tasks.action.alreadyRunning') : t('tasks.action.assignAndRun')
+          }
           variant="primary"
-          disabled={!selectedAgent || saving}
-          onPress={() => {
-            if (selectedAgent) {
-              onAssign(task.id, selectedAgent);
-            }
-          }}
+          disabled={!selectedAgent || pending || running}
+          onPress={handleAssignSelectedAgent}
         />
       </View>
     </SecondaryPage>
@@ -700,14 +756,17 @@ function AssignTaskPage({ task, agents, contentBottomPadding, saving, onBack, on
 type AgentChoiceProps = {
   agent: AgentOption;
   selected: boolean;
-  onSelect: () => void;
+  onSelect: (agentKey: string) => void;
 };
 
-function AgentChoice({ agent, selected, onSelect }: AgentChoiceProps) {
+const AgentChoice = memo(function AgentChoice({ agent, selected, onSelect }: AgentChoiceProps) {
   const { theme } = useAppTheme();
   const styles = useAppThemeStyles(createStyles);
   const tone = getAvatarTone(agent.name);
   const statusColor = getAgentStatusColor(theme, agent.status);
+  const handleSelect = useCallback(() => {
+    onSelect(agent.key);
+  }, [agent.key, onSelect]);
 
   return (
     <Pressable
@@ -716,7 +775,7 @@ function AgentChoice({ agent, selected, onSelect }: AgentChoiceProps) {
         selected ? styles.agentChoiceSelected : null,
         pressed ? styles.pressed : null
       ]}
-      onPress={onSelect}
+      onPress={handleSelect}
     >
       <View style={[styles.agentAvatar, { backgroundColor: tone.backgroundColor }]}>
         <Text style={[styles.agentAvatarText, { color: tone.foregroundColor }]}>{getAvatarLabel(agent.name)}</Text>
@@ -735,36 +794,61 @@ function AgentChoice({ agent, selected, onSelect }: AgentChoiceProps) {
       </View>
     </Pressable>
   );
-}
+});
 
 type TaskDetailPageProps = {
   task: BoardTask;
+  issue: KanbanIssue;
   contentBottomPadding: number;
-  saving: boolean;
+  error: string | null;
+  pending: boolean;
   onBack: () => void;
   onOpenAssign: (taskId: string) => void;
+  onOpenChat: (issue: KanbanIssue, agentName: string) => void;
   onCompleteReview: (task: BoardTask) => void;
+  onDeleteTask: (task: BoardTask, issue: KanbanIssue) => void;
 };
 
 function TaskDetailPage({
   task,
+  issue,
   contentBottomPadding,
-  saving,
+  error,
+  pending,
   onBack,
   onOpenAssign,
-  onCompleteReview
+  onOpenChat,
+  onCompleteReview,
+  onDeleteTask
 }: TaskDetailPageProps) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const activeIndex = LIFECYCLE.findIndex((step) => step.stage === task.stage);
   const progress = clampProgress(task.progress);
+  const canOpenChat = Boolean(String(issue.chatId || '').trim());
+  const canRestart = issue.runState === 'failed' || issue.runState === 'cancelled';
+  const canAssignAndRun = !canRestart && (task.stage === 'intake' || task.stage === 'assigned');
+  const canCompleteReview = !canRestart && task.stage === 'review';
+  const showPrimaryAction = canRestart || canAssignAndRun || canCompleteReview;
+  const primaryActionLabel = canRestart
+    ? t('tasks.action.restart')
+    : canCompleteReview
+      ? t('tasks.action.completeReview')
+      : t('tasks.action.assignAndRun');
+  const chatActionIsPrimary = canOpenChat && !showPrimaryAction;
   const handlePrimaryAction = useCallback(() => {
-    if (task.stage === 'review') {
+    if (canCompleteReview) {
       onCompleteReview(task);
       return;
     }
     onOpenAssign(task.id);
-  }, [onCompleteReview, onOpenAssign, task]);
+  }, [canCompleteReview, onCompleteReview, onOpenAssign, task]);
+  const handleOpenChat = useCallback(() => {
+    onOpenChat(issue, task.agentName);
+  }, [issue, onOpenChat, task.agentName]);
+  const handleDeleteTask = useCallback(() => {
+    onDeleteTask(task, issue);
+  }, [issue, onDeleteTask, task]);
 
   return (
     <SecondaryPage title={t('tasks.page.taskDetail')} contentBottomPadding={contentBottomPadding} onBack={onBack}>
@@ -806,108 +890,81 @@ function TaskDetailPage({
         </View>
       </View>
 
-      <View style={styles.formBlock}>
-        <Text style={styles.formTitle}>{t('tasks.section.recentRecords')}</Text>
-        <TimelineRow time="13:20" text={t('tasks.record.firstPlan')} />
-        <TimelineRow time="13:42" text={t('tasks.record.waitingOwner')} />
-        <TimelineRow time="14:10" text={t('tasks.record.readyForReview')} />
-      </View>
+      {error ? (
+        <View style={styles.stateBlock}>
+          <Text style={styles.stateTitle}>{error}</Text>
+        </View>
+      ) : null}
 
       <View style={styles.stickyActionBlock}>
         <PlainButton
-          label={
-            saving
-              ? t('common.loading')
-              : task.stage === 'intake'
-                ? t('tasks.action.goAssign')
-                : task.stage === 'review'
-                  ? t('tasks.action.passReview')
-                  : t('tasks.action.reassign')
-          }
-          variant="primary"
-          disabled={saving}
-          onPress={handlePrimaryAction}
+          label={canOpenChat ? t('tasks.action.openChat') : t('tasks.action.chatUnavailable')}
+          variant={chatActionIsPrimary ? 'primary' : 'secondary'}
+          disabled={!canOpenChat}
+          onPress={handleOpenChat}
+        />
+        {showPrimaryAction ? (
+          <PlainButton
+            label={pending ? t('common.loading') : primaryActionLabel}
+            variant={chatActionIsPrimary ? 'secondary' : 'primary'}
+            disabled={pending}
+            onPress={handlePrimaryAction}
+          />
+        ) : null}
+        <PlainButton
+          label={t('tasks.action.deleteTask')}
+          variant="danger"
+          disabled={pending}
+          onPress={handleDeleteTask}
         />
       </View>
     </SecondaryPage>
   );
 }
 
-type TimelineRowProps = {
-  time: string;
-  text: string;
-};
-
-const TimelineRow = memo(function TimelineRow({ time, text }: TimelineRowProps) {
-  const styles = useAppThemeStyles(createStyles);
-
-  return (
-    <View style={styles.timelineRow}>
-      <Text style={styles.timelineTime}>{time}</Text>
-      <Text style={styles.timelineText}>{text}</Text>
-    </View>
-  );
-});
-
-function messageFromError(error: unknown, fallback: string): string {
-  if (error instanceof Error && error.message.trim()) {
-    return error.message;
-  }
-  return fallback;
-}
-
 export function AgentTaskBoardScreen() {
   const t = useT();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const styles = useAppThemeStyles(createStyles);
   const [route, setRoute] = useState<BoardRoute>({ name: 'home' });
   const [selectedQueue, setSelectedQueue] = useState<BoardQueue>('focus');
-  const [snapshot, setSnapshot] = useState<KanbanSnapshot | null>(null);
   const [draft, setDraft] = useState<TaskDraftForm>(createEmptyTaskDraft);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
   const tabBarHeight = useAppTabBarHeight();
   const contentBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
-  const genericError = t('tasks.error.generic');
   const boardText = useMemo(() => createBoardViewText(t), [t]);
-  const tasks = useMemo(() => deriveBoardTasks(snapshot, boardText), [boardText, snapshot]);
-  const taskById = useMemo(() => createBoardTaskIndex(tasks), [tasks]);
-  const agents = useMemo(() => deriveAgentOptions(snapshot, tasks, boardText), [boardText, snapshot, tasks]);
-
-  const loadBoard = useCallback(
-    async (signal?: AbortSignal) => {
-      setLoading(true);
-      setError(null);
-      try {
-        const nextSnapshot = await getKanbanSnapshotApi('default', signal);
-        setSnapshot(nextSnapshot);
-      } catch (loadError) {
-        if ((loadError as { name?: string }).name === 'AbortError') {
-          return;
-        }
-        setError(messageFromError(loadError, genericError));
-      } finally {
-        if (!signal?.aborted) {
-          setLoading(false);
-        }
-      }
-    },
-    [genericError]
-  );
-
-  useEffect(() => {
-    const controller = new AbortController();
-    void loadBoard(controller.signal);
-    return () => controller.abort();
-  }, [loadBoard]);
+  const {
+    tasks,
+    taskById,
+    issueById,
+    agents,
+    loading,
+    error,
+    creating,
+    pendingIssueIds,
+    refresh,
+    createTask,
+    assignAndRunTask: assignAndRunBoardTask,
+    completeReview: completeReviewTask,
+    deleteTask: deleteBoardTask
+  } = useDesktopKanbanBoard({
+    projectId: 'default',
+    text: boardText,
+    errorFallback: t('tasks.error.generic'),
+    missingTaskFallback: t('tasks.emptyHint'),
+    runStartedSyncPendingFallback: t('tasks.error.runStartedSyncPending')
+  });
 
   const openHome = useCallback(() => setRoute({ name: 'home' }), []);
   const openNewTask = useCallback(() => setRoute({ name: 'newTask' }), []);
   const openAssign = useCallback((taskId: string) => setRoute({ name: 'assignTask', taskId }), []);
   const openTask = useCallback((taskId: string) => setRoute({ name: 'taskDetail', taskId }), []);
+  const routeTaskId = route.name === 'assignTask' || route.name === 'taskDetail' ? route.taskId : null;
+  const routeTask = useMemo(() => (routeTaskId ? taskById.get(routeTaskId) : undefined), [routeTaskId, taskById]);
+  const routeIssue = useMemo(() => (routeTaskId ? issueById.get(routeTaskId) : undefined), [routeTaskId, issueById]);
+  const routePending = routeTaskId ? pendingIssueIds.has(routeTaskId) : false;
   const retryLoadBoard = useCallback(() => {
-    void loadBoard();
-  }, [loadBoard]);
+    void refresh();
+  }, [refresh]);
   const updateDraftTitle = useCallback((title: string) => {
     setDraft((current) => (current.title === title ? current : { ...current, title }));
   }, []);
@@ -918,87 +975,70 @@ export function AgentTaskBoardScreen() {
     setDraft((current) => (current.priority === priority ? current : { ...current, priority }));
   }, []);
   const createDraftTask = useCallback(async () => {
-    const title = draft.title.trim();
-    if (saving || !title) {
-      return;
-    }
-    const description = draft.description.trim();
-    setSaving(true);
-    setError(null);
-    try {
-      const result = await createKanbanIssueApi({
-        title,
-        description,
-        projectId: snapshot?.projectId ?? 'default',
-        status: 'backlog',
-        priority: draft.priority,
-        severity: 'medium'
-      });
-      setSnapshot((current) => applyKanbanChangeResult(current, result));
+    const nextTaskId = await createTask(draft);
+    if (nextTaskId) {
       setDraft(createEmptyTaskDraft());
-      const nextTaskId = result.issue?.id ?? result.issues?.[0]?.id;
-      setRoute(nextTaskId ? { name: 'assignTask', taskId: nextTaskId } : { name: 'home' });
-    } catch (createError) {
-      setError(messageFromError(createError, genericError));
-      setRoute({ name: 'home' });
-    } finally {
-      setSaving(false);
+      setRoute({ name: 'assignTask', taskId: nextTaskId });
     }
-  }, [draft.description, draft.priority, draft.title, genericError, saving, snapshot?.projectId]);
-  const assignTask = useCallback(
+  }, [createTask, draft]);
+  const handleAssignAndRunTask = useCallback(
     async (taskId: string, agent: AgentOption) => {
-      if (saving) {
-        return;
-      }
-      const task = taskById.get(taskId);
-      setSaving(true);
-      setError(null);
       try {
-        const result = await updateKanbanIssueApi(
-          taskId,
-          {
-            assigneeAgentKey: agent.key,
-            status: 'todo',
-            baseIssueRevision: task?.revision
-          },
-          snapshot?.projectId ?? 'default'
-        );
-        setSnapshot((current) => applyKanbanChangeResult(current, result));
+        await assignAndRunBoardTask(taskId, agent);
         setRoute({ name: 'taskDetail', taskId });
-      } catch (assignError) {
-        setError(messageFromError(assignError, genericError));
-        setRoute({ name: 'home' });
-      } finally {
-        setSaving(false);
+      } catch {
+        // The hook keeps the user-facing error; stay on the current page.
       }
     },
-    [genericError, saving, snapshot?.projectId, taskById]
+    [assignAndRunBoardTask]
   );
-  const completeReview = useCallback(
-    async (task: BoardTask) => {
-      if (saving) {
-        return;
-      }
-      setSaving(true);
-      setError(null);
-      try {
-        const result = await moveKanbanIssueApi(
-          task.id,
-          'completed',
-          nextIssuePosition(tasks, 'completed'),
-          task.revision,
-          snapshot?.projectId ?? 'default'
-        );
-        setSnapshot((current) => applyKanbanChangeResult(current, result));
-        setRoute({ name: 'taskDetail', taskId: task.id });
-      } catch (completeError) {
-        setError(messageFromError(completeError, genericError));
-        setRoute({ name: 'home' });
-      } finally {
-        setSaving(false);
+  const openKanbanChat = useCallback(
+    (issue: KanbanIssue, agentName: string) => {
+      const params = buildKanbanChatDetailParams(issue, agentName);
+      if (params) {
+        navigation.navigate('ChatDetail', params);
       }
     },
-    [genericError, saving, snapshot?.projectId, tasks]
+    [navigation]
+  );
+  const handleCompleteReview = useCallback(
+    async (task: BoardTask) => {
+      try {
+        await completeReviewTask(task);
+        setRoute({ name: 'taskDetail', taskId: task.id });
+      } catch {
+        // The hook keeps the user-facing error; stay on the current page.
+      }
+    },
+    [completeReviewTask]
+  );
+  const handleDeleteTask = useCallback(
+    (task: BoardTask, issue: KanbanIssue) => {
+      const isRunningTask = issue.runState === 'running' || (task.stage === 'running' && !issue.runState);
+      Alert.alert(
+        isRunningTask ? t('tasks.delete.runningTitle') : t('tasks.delete.title'),
+        isRunningTask
+          ? t('tasks.delete.runningBody', { title: task.title })
+          : t('tasks.delete.body', { title: task.title }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('tasks.action.deleteTask'),
+            style: 'destructive',
+            onPress: () => {
+              void deleteBoardTask(task)
+                .then(() => {
+                  setRoute({ name: 'home' });
+                })
+                .catch(() => {
+                  // The hook keeps the Desktop error visible on the detail page.
+                });
+            }
+          }
+        ]
+      );
+    },
+    [deleteBoardTask, t]
   );
   const headerActions = useMemo(
     () =>
@@ -1013,19 +1053,19 @@ export function AgentTaskBoardScreen() {
       <NewTaskPage
         draft={draft}
         contentBottomPadding={contentBottomPadding}
+        error={error}
         onBack={openHome}
         onChangeDescription={updateDraftDescription}
         onChangePriority={updateDraftPriority}
         onChangeTitle={updateDraftTitle}
         onCreateDraft={createDraftTask}
-        saving={saving}
+        saving={creating}
       />
     );
   }
 
   if (route.name === 'assignTask') {
-    const task = taskById.get(route.taskId);
-    if (!task) {
+    if (!routeTask) {
       return (
         <SecondaryPage title={t('tasks.page.assignTask')} contentBottomPadding={contentBottomPadding} onBack={openHome}>
           <View style={styles.stateBlock}>
@@ -1036,19 +1076,20 @@ export function AgentTaskBoardScreen() {
     }
     return (
       <AssignTaskPage
-        task={task}
+        task={routeTask}
         agents={agents}
         contentBottomPadding={contentBottomPadding}
-        saving={saving}
+        error={error}
+        pending={routePending}
+        running={routeIssue?.runState === 'running'}
         onBack={openHome}
-        onAssign={assignTask}
+        onAssign={handleAssignAndRunTask}
       />
     );
   }
 
   if (route.name === 'taskDetail') {
-    const task = taskById.get(route.taskId);
-    if (!task) {
+    if (!routeTask || !routeIssue) {
       return (
         <SecondaryPage title={t('tasks.page.taskDetail')} contentBottomPadding={contentBottomPadding} onBack={openHome}>
           <View style={styles.stateBlock}>
@@ -1059,12 +1100,16 @@ export function AgentTaskBoardScreen() {
     }
     return (
       <TaskDetailPage
-        task={task}
+        task={routeTask}
+        issue={routeIssue}
         contentBottomPadding={contentBottomPadding}
-        saving={saving}
+        error={error}
+        pending={routePending}
         onBack={openHome}
         onOpenAssign={openAssign}
-        onCompleteReview={completeReview}
+        onOpenChat={openKanbanChat}
+        onCompleteReview={handleCompleteReview}
+        onDeleteTask={handleDeleteTask}
       />
     );
   }
@@ -1208,6 +1253,10 @@ function createStyles(theme: AppThemeTokens) {
       borderColor: theme.colors.lineStrong,
       backgroundColor: theme.colors.surface
     },
+    buttonDanger: {
+      borderColor: theme.colors.dangerLine,
+      backgroundColor: theme.colors.dangerSoft
+    },
     buttonText: {
       fontSize: 14,
       lineHeight: 20,
@@ -1216,6 +1265,9 @@ function createStyles(theme: AppThemeTokens) {
     },
     buttonTextPrimary: {
       color: theme.colors.onBrandBlueAction
+    },
+    buttonTextDanger: {
+      color: theme.colors.danger
     },
     statusRow: {
       flexDirection: 'row',
@@ -1652,25 +1704,6 @@ function createStyles(theme: AppThemeTokens) {
     },
     lifecycleTextReached: {
       fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    timelineRow: {
-      flexDirection: 'row',
-      gap: appVisualTokens.spacing.md,
-      paddingVertical: appVisualTokens.spacing.sm
-    },
-    timelineTime: {
-      width: 46,
-      fontSize: 12,
-      lineHeight: 17,
-      fontWeight: '800',
-      color: theme.colors.textSecondary
-    },
-    timelineText: {
-      flex: 1,
-      minWidth: 0,
-      fontSize: 14,
-      lineHeight: 21,
       color: theme.colors.textPrimary
     }
   });

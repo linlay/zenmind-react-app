@@ -9,6 +9,7 @@
     "主任务队列使用 FlashList 虚拟化渲染，派生计数和焦点任务通过单次扫描生成，避免长列表场景下 ScrollView 一次性渲染和重复遍历。",
     "用 feature 内部二级页面承载新增任务、分配任务和任务详情流程，体现从创建、指派、执行、复核到完成的关键处置路径。",
     "通过 Kanban API/RPC 获取真实 snapshot 并提交变更，screen 只消费 feature service 与 view model 派生后的任务、队列、阶段和智能体数据。",
+    "任务启动后只按 ChatDetail route contract 生成导航参数并跳转既有聊天详情页，不直接读取或写入聊天 SQLite、MMKV 或 realtime runtime。",
     "当前不接入 SQLite、MMKV 或实时 transport；任务数据经 core API service 边界接入，不从 app screen 直连底层存储。"
   ],
   "publicEntrypoints": [
@@ -19,7 +20,14 @@
       "description": "Terminal/任务 Tab 挂载的任务流转看板移动端入口。"
     }
   ],
-  "dependsOn": ["core-api-client", "shared-screen-header", "shared-visual-foundation", "shared-i18n"],
+  "dependsOn": [
+    "app-shell-navigation",
+    "core-api-client",
+    "feature-chat-persistence",
+    "shared-screen-header",
+    "shared-visual-foundation",
+    "shared-i18n"
+  ],
   "dependedBy": ["app-shell-navigation"],
   "stateTouches": [
     "看板队列筛选 selectedQueue 本地 UI 状态",
@@ -37,7 +45,7 @@
     "任务列表保持虚拟化渲染；接入真实数据后继续使用 FlashList 或共享分页列表，不回退到 ScrollView + map。",
     "新增或调整任务看板静态 UI 文案时同步维护 shared-i18n messages key，不把中文/英文直接写回 API 数据结构。",
     "主屏只保留高频处置入口和少量关键数字，生命周期与执行记录下沉到任务详情二级页。",
-    "新增任务、分配任务这类操作继续通过 feature 内部二级页和 Kanban RPC 提交，不新增跨模块路由或底层存储依赖。"
+    "新增任务、分配任务这类操作继续通过 feature 内部二级页和 Kanban RPC 提交；打开任务对话只使用 app shell 的 ChatDetail route 类型和 feature-chat-persistence 的 route params 类型，不直接依赖聊天 screen 内部实现或底层存储。"
   ],
   "readNext": [
     {

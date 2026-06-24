@@ -6,7 +6,8 @@
   "responsibility": [
     "统一拼接 API base URL、path 和 query。",
     "提供 apiRequest、ApiError 以及业务 service 目录约定。",
-    "提供 authenticatedApiRequest，把当前认证 access token 注入业务接口请求，并在 401 时强制刷新后重试一次。",
+    "提供 authenticatedApiRequest，把当前认证 access token 注入业务接口请求；HTTP profile 与 Desktop WS 同源 HTTP 接口共用统一 token provider，并在 401 时强制刷新后重试一次。",
+    "提供 buildAuthenticatedApiUriSource，为 Image/资源下载这类非 fetch 调用生成同源 URL 与 Authorization header。",
     "在开发态通过 core-debug-logging 打印非 WS HTTP 请求、响应和错误。",
     "把业务请求实现收口到 core/api/services，避免 feature 到处散写 fetch。",
     "提供 activeWsTransport，把 active HTTP/Desktop WS profile 解析成 core-ws-transport 可消费的 WsTransportConfig。",
@@ -25,6 +26,12 @@
       "symbol": "buildApiUrl",
       "kind": "url-builder",
       "description": "统一拼接完整接口 URL。"
+    },
+    {
+      "file": "src/core/api/apiClient.ts",
+      "symbol": "buildAuthenticatedApiUriSource",
+      "kind": "authenticated-resource-source",
+      "description": "为同源 API 资源 URL 生成可直接交给 Image/下载组件的 uri 与 Authorization header。"
     },
     {
       "file": "src/core/api/apiClient.ts",
@@ -157,7 +164,12 @@
     "feature-chat-timeline",
     "feature-notifications"
   ],
-  "stateTouches": ["归一化后的 API base URL", "HTTP 请求头与 payload 规范", "接口错误消息解析"],
+  "stateTouches": [
+    "归一化后的 API base URL",
+    "HTTP 请求头与 payload 规范",
+    "同源资源 URL 的 Authorization header",
+    "接口错误消息解析"
+  ],
   "relatedFlows": ["notification-open-chat-message"],
   "relatedTasks": [
     "add-business-api-service",
@@ -168,6 +180,7 @@
   "impactChecklist": [
     "新增 service 文件统一放在 src/core/api/services，并通过 apiRequest 发请求。",
     "需要认证的业务接口优先使用 authenticatedApiRequest，不在 service 里重复手写 access token 注入或 401 重试。",
+    "Image/文件下载这类非 fetch 资源请求需要访问同源 API 时使用 buildAuthenticatedApiUriSource，不在组件里手写 Authorization header。",
     "authenticatedApiRequest 只允许对 401 做一次强制刷新重试，非 401 错误不自动重试。",
     "协议归一化 helper 保持纯函数，不直接依赖 SQLite、UI state 或 transport 单例。",
     "activeWsTransport 只解析 active profile 到 transport config，不持久化 token、不持有 socket，也不做业务 payload 归一。",

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { KanbanSnapshot } from '../../src/core/api/services/kanbanApi.ts';
+import { normalizeKanbanChangeResult } from '../../src/core/api/services/kanbanProtocol.ts';
 import {
   applyKanbanChangeResult,
   createBoardTaskIndex,
@@ -128,6 +129,110 @@ test('kanban view model derives agents and merges change results', () => {
   assert.equal(updated?.revision, 4);
   assert.deepEqual(
     updated?.issues.map((issue) => issue.id),
+    ['backlog-1']
+  );
+});
+
+test('kanban change result applies updates, inserts, deletes, and list replacements', () => {
+  const updatedBacklog = {
+    ...snapshot.issues[1],
+    title: 'Updated backlog task',
+    revision: 4
+  };
+  const insertedIssue = {
+    ...snapshot.issues[1],
+    id: 'new-1',
+    title: 'Inserted task',
+    position: 30,
+    revision: 1
+  };
+
+  const afterUpdate = applyKanbanChangeResult(snapshot, {
+    ok: true,
+    boardId: 'default',
+    projectId: 'default',
+    revision: 4,
+    issue: updatedBacklog
+  });
+  assert.equal(afterUpdate?.issues.find((issue) => issue.id === 'backlog-1')?.title, 'Updated backlog task');
+
+  const afterInsert = applyKanbanChangeResult(afterUpdate, {
+    ok: true,
+    boardId: 'default',
+    projectId: 'default',
+    revision: 5,
+    issue: insertedIssue
+  });
+  assert.deepEqual(
+    afterInsert?.issues.map((issue) => issue.id),
+    ['review-1', 'backlog-1', 'new-1']
+  );
+
+  const afterDelete = applyKanbanChangeResult(afterInsert, {
+    ok: true,
+    boardId: 'default',
+    projectId: 'default',
+    revision: 6,
+    deletedIssueId: 'review-1'
+  });
+  assert.deepEqual(
+    afterDelete?.issues.map((issue) => issue.id),
+    ['backlog-1', 'new-1']
+  );
+
+  const afterReplace = applyKanbanChangeResult(afterDelete, {
+    ok: true,
+    boardId: 'default',
+    projectId: 'default',
+    revision: 7,
+    issues: [insertedIssue]
+  });
+  assert.deepEqual(
+    afterReplace?.issues.map((issue) => issue.id),
+    ['new-1']
+  );
+});
+
+test('kanban change normalization does not synthesize empty issue lists for deltas', () => {
+  const updatedBacklog = {
+    ...snapshot.issues[1],
+    title: 'Updated by Desktop delta',
+    revision: 8
+  };
+  const normalizedUpdate = normalizeKanbanChangeResult(
+    {
+      ok: true,
+      boardId: 'default',
+      projectId: 'default',
+      revision: 8,
+      issue: updatedBacklog
+    },
+    'default'
+  );
+
+  assert.equal('issues' in normalizedUpdate, false);
+  const afterUpdate = applyKanbanChangeResult(snapshot, normalizedUpdate);
+  assert.deepEqual(
+    afterUpdate?.issues.map((issue) => issue.id),
+    ['review-1', 'backlog-1']
+  );
+  assert.equal(afterUpdate?.issues.find((issue) => issue.id === 'backlog-1')?.title, 'Updated by Desktop delta');
+
+  const normalizedDelete = normalizeKanbanChangeResult(
+    {
+      ok: true,
+      boardId: 'default',
+      projectId: 'default',
+      revision: 9,
+      deletedIssueId: 'review-1'
+    },
+    'default'
+  );
+
+  assert.equal('issues' in normalizedDelete, false);
+  const afterDelete = applyKanbanChangeResult(afterUpdate, normalizedDelete);
+  assert.deepEqual(
+    afterDelete?.issues.map((issue) => issue.id),
     ['backlog-1']
   );
 });
