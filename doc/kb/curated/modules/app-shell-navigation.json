@@ -37,7 +37,7 @@
   "responsibility": [
     "挂载 SafeAreaProvider、I18nProvider、AppThemeProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
     "通过 BRAND 环境变量、brands/<id>/brand.json、app.config.js 和品牌同步脚本，把同一移动端项目输出为不同原生包名、bundle id、图标、启动图和 EAS channel 的品牌包。",
-    "决定认证前后的 RootStack / Tab 结构、登录门卫开关、设备 profile endpoint 展示、任务看板、设置二级页、占位页映射以及 Chat 首页与详情页的导航层级；原生端底部 Tab 通过 Native Bottom Tabs 承载，Web 继续使用 JS Bottom Tabs。",
+    "决定认证前后的 RootStack / Tab 结构、登录门卫开关、设备 profile endpoint 展示、任务看板、设置二级页以及 Chat 首页与详情页的导航层级；网盘保留 src/app/screens/DriveScreen.tsx 预留页组件但当前不挂底部 Tab，待后期实现；原生端底部 Tab 通过 Native Bottom Tabs 承载，Web 继续使用 JS Bottom Tabs。",
     "为一级 Tab 页面提供固定顶部 Header 与滚动内容分离的壳层布局。",
     "承接共享视觉 token、运行时 system/light/dark 主题偏好、共享国际化文案、native PNG Tab 图标、描边 JS Tab 图标和 locale 感知标签映射，统一一级页面的轻量聊天风格。",
     "让 ChatDetail 作为 Tabs 之上的上层 route 覆盖首页，避免在 feature 内手写 tab 显隐和页面覆盖动画。",

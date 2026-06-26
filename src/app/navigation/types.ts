@@ -5,7 +5,6 @@ import { ChatDetailRouteParams } from '../../features/chatPersistence/types';
 export type RootTabParamList = {
   Chat: undefined;
   Terminal: undefined;
-  Drive: undefined;
   Me: undefined;
 };
 

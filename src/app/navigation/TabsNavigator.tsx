@@ -7,7 +7,7 @@ import { useT } from '../../shared/i18n';
 import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens } from '../../shared/visual/foundation';
 import { getAppTabBarMetrics } from '../../shared/visual/tabBarMetrics';
-import { ChatScreen, DriveScreen, MeScreen, TerminalScreen } from '../screens/TabScreens';
+import { ChatScreen, MeScreen, TerminalScreen } from '../screens/TabScreens';
 import { AppTabIcon, TAB_LABEL_KEYS } from './TabIcon';
 import { RootTabParamList } from './types';
 
@@ -64,7 +64,7 @@ export function TabsNavigator() {
     >
       <Tab.Screen name="Chat" component={ChatScreen} />
       <Tab.Screen name="Terminal" component={TerminalScreen} />
-      <Tab.Screen name="Drive" component={DriveScreen} />
+      {/* Drive tab is temporarily hidden until the module ships. */}
       <Tab.Screen name="Me" component={MeScreen} />
     </Tab.Navigator>
   );

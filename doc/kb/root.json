@@ -72,7 +72,7 @@
     "doc/module-reference.md",
     "doc/ui-visual-theme.md"
   ],
-  "generatedAt": "2026-06-24T02:47:48.262Z",
+  "generatedAt": "2026-06-25T01:15:38.497Z",
   "catalogs": {
     "modules": "doc/kb/catalog/modules.json",
     "flows": "doc/kb/catalog/flows.json",
@@ -83,7 +83,7 @@
     "moduleCount": 18,
     "flowCount": 5,
     "taskCount": 13,
-    "sourceFileCount": 153,
+    "sourceFileCount": 155,
     "factsRef": "doc/kb/generated/project-facts.json",
     "appEntryChain": [
       {
@@ -108,11 +108,6 @@
       {
         "routeName": "Terminal",
         "component": "TerminalScreen",
-        "file": "src/app/navigation/TabsNavigator.tsx"
-      },
-      {
-        "routeName": "Drive",
-        "component": "DriveScreen",
         "file": "src/app/navigation/TabsNavigator.tsx"
       },
       {

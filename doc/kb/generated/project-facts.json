@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-24T02:47:48.262Z",
+  "generatedAt": "2026-06-25T01:15:38.497Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -12,6 +12,7 @@
     "src/app/navigation/TabsNavigator.tsx",
     "src/app/navigation/types.ts",
     "src/app/screens/AppScreenFrame.tsx",
+    "src/app/screens/DriveScreen.tsx",
     "src/app/screens/MeScreen.tsx",
     "src/app/screens/SettingsScreen.tsx",
     "src/app/screens/TabScreens.tsx",
@@ -115,6 +116,7 @@
     "src/features/chatTimeline/awaitingInteraction.ts",
     "src/features/chatTimeline/index.ts",
     "src/features/chatTimeline/messageProjection.ts",
+    "src/features/chatTimeline/timelineConstants.ts",
     "src/features/chatTimeline/timelineDisplay.ts",
     "src/features/chatTimeline/timelineEventFormat.ts",
     "src/features/chatTimeline/timelinePersistence.ts",
@@ -213,6 +215,10 @@
                 "children": [
                   {
                     "name": "AppScreenFrame.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "DriveScreen.tsx",
                     "type": "file"
                   },
                   {
@@ -734,6 +740,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "timelineConstants.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "timelineDisplay.ts",
                     "type": "file"
                   },
@@ -1004,11 +1014,6 @@
         "file": "src/app/navigation/TabsNavigator.tsx"
       },
       {
-        "routeName": "Drive",
-        "component": "DriveScreen",
-        "file": "src/app/navigation/TabsNavigator.tsx"
-      },
-      {
         "routeName": "Me",
         "component": "MeScreen",
         "file": "src/app/navigation/TabsNavigator.tsx"
@@ -1027,6 +1032,7 @@
       "src/app/navigation/TabsNavigator.tsx",
       "src/app/navigation/types.ts",
       "src/app/screens/AppScreenFrame.tsx",
+      "src/app/screens/DriveScreen.tsx",
       "src/app/screens/MeScreen.tsx",
       "src/app/screens/SettingsScreen.tsx",
       "src/app/screens/TabScreens.tsx",
@@ -1143,6 +1149,7 @@
       "src/features/chatTimeline/awaitingInteraction.ts",
       "src/features/chatTimeline/index.ts",
       "src/features/chatTimeline/messageProjection.ts",
+      "src/features/chatTimeline/timelineConstants.ts",
       "src/features/chatTimeline/timelineDisplay.ts",
       "src/features/chatTimeline/timelineEventFormat.ts",
       "src/features/chatTimeline/timelinePersistence.ts",
@@ -1203,6 +1210,7 @@
     "src/app/navigation/TabsNavigator.tsx": "app-shell-navigation",
     "src/app/navigation/types.ts": "app-shell-navigation",
     "src/app/screens/AppScreenFrame.tsx": "app-shell-navigation",
+    "src/app/screens/DriveScreen.tsx": "app-shell-navigation",
     "src/app/screens/MeScreen.tsx": "app-shell-navigation",
     "src/app/screens/SettingsScreen.tsx": "app-shell-navigation",
     "src/app/screens/TabScreens.tsx": "app-shell-navigation",
@@ -1306,6 +1314,7 @@
     "src/features/chatTimeline/awaitingInteraction.ts": "feature-chat-timeline",
     "src/features/chatTimeline/index.ts": "feature-chat-timeline",
     "src/features/chatTimeline/messageProjection.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelineConstants.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineDisplay.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineEventFormat.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelinePersistence.ts": "feature-chat-timeline",
@@ -1501,9 +1510,10 @@
     "src/app/navigation/TabsNavigator.tsx": ["TabsNavigator"],
     "src/app/navigation/types.ts": ["RootStackParamList", "RootTabParamList"],
     "src/app/screens/AppScreenFrame.tsx": ["AppScreenFrame"],
+    "src/app/screens/DriveScreen.tsx": ["DriveScreen"],
     "src/app/screens/MeScreen.tsx": ["MeScreen"],
     "src/app/screens/SettingsScreen.tsx": ["SettingsScreen"],
-    "src/app/screens/TabScreens.tsx": ["ChatScreen", "DriveScreen", "MeScreen", "TerminalScreen"],
+    "src/app/screens/TabScreens.tsx": ["ChatScreen", "MeScreen", "TerminalScreen"],
     "src/app/settings/settingsActions.ts": ["clearSettingsLocalCache"],
     "src/app/startup/AppLaunchSkeleton.tsx": ["AppLaunchSkeleton"],
     "src/app/startup/GeminiLogo.tsx": ["GeminiLogo"],
@@ -1511,10 +1521,12 @@
     "src/core/api/apiClient.ts": [
       "ApiError",
       "ApiRequestOptions",
+      "ApiUriSource",
       "apiRequest",
       "authenticatedApiRequest",
       "authenticatedFormDataRequest",
       "buildApiUrl",
+      "buildAuthenticatedApiUriSource",
       "getApiBaseUrl"
     ],
     "src/core/api/apiError.ts": ["ApiError"],
@@ -1594,14 +1606,24 @@
       "subscribeKanbanInvalidation"
     ],
     "src/core/api/services/kanbanProtocol.ts": [
+      "KanbanDesktopProfileSnapshot",
       "KanbanDesktopRequester",
+      "KanbanDesktopSharedRequester",
+      "KanbanDesktopTransportResolver",
       "KanbanIssueRunUpdateError",
+      "RequiredDesktopKanbanRequesterOptions",
+      "createKanbanIssueProtocol",
+      "createRequiredDesktopKanbanRequester",
+      "deleteKanbanIssueProtocol",
+      "getKanbanSnapshotProtocol",
       "isKanbanAbortError",
       "isKanbanIssueRunUpdateError",
+      "moveKanbanIssueProtocol",
       "normalizeKanbanChangeResult",
       "normalizeKanbanSnapshot",
       "readKanbanText",
       "startKanbanIssueRunProtocol",
+      "updateKanbanIssueProtocol",
       "withKanbanProjectId"
     ],
     "src/core/api/services/kanbanTypes.ts": [
@@ -1692,12 +1714,17 @@
       "applyDesktopTokenToUrl",
       "buildDesktopBusinessFrame",
       "buildDesktopTokenTransport",
+      "deriveDesktopApiBaseUrlFromWsUrl",
       "encodePairingPayloadV2",
       "normalizeDesktopWsTokenMode",
       "normalizeDesktopWsUrlInput",
       "parsePairingPayload"
     ],
-    "src/core/auth/desktopWsTransport.ts": ["normalizeDesktopWsStorageUrl", "normalizeDesktopWsTokenMode"],
+    "src/core/auth/desktopWsTransport.ts": [
+      "deriveDesktopApiBaseUrlFromWsUrl",
+      "normalizeDesktopWsStorageUrl",
+      "normalizeDesktopWsTokenMode"
+    ],
     "src/core/auth/deviceProfileModel.ts": [
       "DesktopWsProfileTransport",
       "DeviceProfile",
@@ -1707,6 +1734,7 @@
       "DeviceProfileWriteResult",
       "createCacheScopeId",
       "legacyDeviceTokenForProfile",
+      "normalizeDesktopApiBaseUrl",
       "normalizeDesktopWsProfileTransport",
       "normalizeDeviceProfile",
       "normalizeDeviceProfileTransportKind",
@@ -1726,7 +1754,14 @@
     "src/core/auth/useAuthSession.ts": ["useAuthSession"],
     "src/core/config/endpoint.ts": ["looksLikeLocalAddress", "normalizeApiBaseUrl"],
     "src/core/config/runtimeEnv.ts": ["readPublicEnv"],
-    "src/core/debug/httpDebugLogger.ts": ["logHttpError", "logHttpRequest", "logHttpResponse"],
+    "src/core/debug/httpDebugLogger.ts": [
+      "HttpDebugDirection",
+      "HttpDebugRecord",
+      "httpDebugRecorder",
+      "logHttpError",
+      "logHttpRequest",
+      "logHttpResponse"
+    ],
     "src/core/debug/wsDebugRecorder.ts": ["WsDebugDirection", "WsDebugRecord", "wsDebugRecorder"],
     "src/core/ws/sharedWsTransport.ts": [
       "SharedWsRequestOptions",
@@ -2200,6 +2235,7 @@
       "timelinePersistenceInternals"
     ],
     "src/features/chatTimeline/messageProjection.ts": ["projectTimelineMessages", "projectTimelineRuntimeState"],
+    "src/features/chatTimeline/timelineConstants.ts": ["CHAT_TIMELINE_REASONING_PROCESS_TITLE"],
     "src/features/chatTimeline/timelineDisplay.ts": [
       "ChatTimelineDisplayModel",
       "ChatTimelineDisplayTailSignature",
@@ -2432,6 +2468,7 @@
     "src/app/debug/DevelopmentDebugPanelHost.tsx": [
       "src/app/debug/developmentDebugPanel.ts",
       "src/core/api/apiClient.ts",
+      "src/core/debug/httpDebugLogger.ts",
       "src/core/debug/wsDebugRecorder.ts",
       "src/features/chatRealtime/chatSyncService.ts"
     ],
@@ -2452,7 +2489,6 @@
     ],
     "src/app/navigation/TabsNavigator.native.tsx": [
       "assets/tabs/tab-chat.png",
-      "assets/tabs/tab-drive.png",
       "assets/tabs/tab-me.png",
       "assets/tabs/tab-terminal.png",
       "src/app/navigation/TabIcon.tsx",
@@ -2477,6 +2513,13 @@
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts",
       "src/shared/visual/useAppTabBarHeight.ts"
+    ],
+    "src/app/screens/DriveScreen.tsx": [
+      "src/app/screens/AppScreenFrame.tsx",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/foundation.ts"
     ],
     "src/app/screens/MeScreen.tsx": [
       "src/app/debug/developmentDebugPanel.ts",
@@ -2511,14 +2554,9 @@
       "src/shared/visual/themePreference.ts"
     ],
     "src/app/screens/TabScreens.tsx": [
-      "src/app/screens/AppScreenFrame.tsx",
       "src/app/screens/MeScreen.tsx",
       "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
-      "src/features/chatPersistence/ChatHomeScreen.tsx",
-      "src/shared/i18n/index.ts",
-      "src/shared/icons/AppIcon.tsx",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/features/chatPersistence/ChatHomeScreen.tsx"
     ],
     "src/app/settings/settingsActions.ts": ["src/features/chatRealtime/chatSyncService.ts"],
     "src/app/startup/AppLaunchSkeleton.tsx": ["src/app/startup/GeminiLogo.tsx", "src/shared/generated/brand.ts"],
@@ -2541,7 +2579,6 @@
     "src/core/api/services/chatEventProtocol.ts": [],
     "src/core/api/services/kanbanApi.ts": [
       "src/core/api/activeWsTransport.ts",
-      "src/core/api/apiClient.ts",
       "src/core/api/services/kanbanInvalidation.ts",
       "src/core/api/services/kanbanProtocol.ts",
       "src/core/api/services/kanbanTypes.ts",
@@ -2549,11 +2586,20 @@
       "src/core/ws/sharedWsTransport.ts"
     ],
     "src/core/api/services/kanbanInvalidation.ts": ["src/core/ws/sharedWsTransport.ts"],
-    "src/core/api/services/kanbanProtocol.ts": ["src/core/api/apiError.ts", "src/core/api/services/kanbanTypes.ts"],
+    "src/core/api/services/kanbanProtocol.ts": [
+      "src/core/api/apiError.ts",
+      "src/core/api/services/kanbanTypes.ts",
+      "src/core/ws/sharedWsTransport.ts",
+      "src/core/ws/wsTransportConfig.ts"
+    ],
     "src/core/api/services/kanbanTypes.ts": [],
     "src/core/api/services/notificationApi.ts": ["src/core/api/apiClient.ts"],
     "src/core/api/services/templateApi.ts": ["src/core/api/apiClient.ts"],
-    "src/core/api/services/uploadApi.ts": ["src/core/api/apiClient.ts", "src/core/api/resourceUrl.ts"],
+    "src/core/api/services/uploadApi.ts": [
+      "src/core/api/apiClient.ts",
+      "src/core/api/resourceUrl.ts",
+      "src/core/debug/httpDebugLogger.ts"
+    ],
     "src/core/auth/appAuth.ts": [
       "src/core/auth/authConfig.ts",
       "src/core/auth/authRequestModel.ts",
@@ -2564,7 +2610,7 @@
     ],
     "src/core/auth/authConfig.ts": ["src/core/config/endpoint.ts", "src/core/config/runtimeEnv.ts"],
     "src/core/auth/authRequestModel.ts": [],
-    "src/core/auth/desktopWsProtocol.ts": [],
+    "src/core/auth/desktopWsProtocol.ts": ["src/core/config/endpoint.ts"],
     "src/core/auth/desktopWsTransport.ts": ["src/core/auth/desktopWsProtocol.ts"],
     "src/core/auth/deviceProfileModel.ts": ["src/core/auth/desktopWsTransport.ts", "src/core/config/endpoint.ts"],
     "src/core/auth/deviceProfiles.ts": ["src/core/auth/deviceProfileModel.ts", "src/core/config/endpoint.ts"],
@@ -3028,7 +3074,11 @@
       "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/types.ts"
     ],
-    "src/features/chatTimeline/timelineDisplay.ts": ["src/features/chatTimeline/types.ts"],
+    "src/features/chatTimeline/timelineConstants.ts": [],
+    "src/features/chatTimeline/timelineDisplay.ts": [
+      "src/features/chatTimeline/timelineConstants.ts",
+      "src/features/chatTimeline/types.ts"
+    ],
     "src/features/chatTimeline/timelineEventFormat.ts": [],
     "src/features/chatTimeline/timelinePersistence.ts": [
       "src/features/chatTimeline/types.ts",
@@ -3039,6 +3089,7 @@
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/awaitingInteraction.ts",
+      "src/features/chatTimeline/timelineConstants.ts",
       "src/features/chatTimeline/timelineEventFormat.ts",
       "src/features/chatTimeline/types.ts",
       "src/features/chatTimeline/usageSummary.ts"

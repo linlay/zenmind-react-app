@@ -228,8 +228,8 @@
         "apiRequest",
         "authenticatedApiRequest",
         "authenticatedFormDataRequest",
-        "buildAuthenticatedApiUriSource",
         "buildApiUrl",
+        "buildAuthenticatedApiUriSource",
         "getApiBaseUrl"
       ],
       "src/core/api/apiError.ts": ["ApiError"],
@@ -309,14 +309,24 @@
         "subscribeKanbanInvalidation"
       ],
       "src/core/api/services/kanbanProtocol.ts": [
+        "KanbanDesktopProfileSnapshot",
         "KanbanDesktopRequester",
+        "KanbanDesktopSharedRequester",
+        "KanbanDesktopTransportResolver",
         "KanbanIssueRunUpdateError",
+        "RequiredDesktopKanbanRequesterOptions",
+        "createKanbanIssueProtocol",
+        "createRequiredDesktopKanbanRequester",
+        "deleteKanbanIssueProtocol",
+        "getKanbanSnapshotProtocol",
         "isKanbanAbortError",
         "isKanbanIssueRunUpdateError",
+        "moveKanbanIssueProtocol",
         "normalizeKanbanChangeResult",
         "normalizeKanbanSnapshot",
         "readKanbanText",
         "startKanbanIssueRunProtocol",
+        "updateKanbanIssueProtocol",
         "withKanbanProjectId"
       ],
       "src/core/api/services/kanbanTypes.ts": [

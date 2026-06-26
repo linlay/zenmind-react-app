@@ -1,11 +1,11 @@
 {
-  "generatedAt": "2026-06-24T02:47:48.333Z",
+  "generatedAt": "2026-06-25T01:15:38.613Z",
   "items": [
     {
       "id": "app-development-debug",
       "title": "开发态调试入口",
       "layer": "app",
-      "summary": "提供 __DEV__ 下隐藏挂载的开发调试面板，展示 HTTP record 与 WS frame 观测数据，并保留本地缓存清理和 reload 能力。",
+      "summary": "提供 __DEV__ 下隐藏挂载的开发调试面板；默认不显示浮动入口，Me 页版本信息三连点通过 controller 启用 Debug 模式并打开面板，设置页可切换 Debug 模式开关，普通关闭后保留右下角 Debug 浮动按钮，ChatDetail 也挂载面板宿主并上移浮动入口以避开聊天详情输入区。",
       "pathHints": ["src/app/debug"],
       "relatedFlows": ["app-startup"],
       "relatedTasks": ["modify-runtime-environment", "remove-development-debug-entry"],
@@ -66,7 +66,7 @@
       "id": "core-api-client",
       "title": "统一 API 客户端",
       "layer": "core",
-      "summary": "统一拼接 API base URL、path、query，并为认证 HTTP 请求与同源资源 URL 注入 access token。",
+      "summary": "统一拼接 API base URL、path 和 query。",
       "pathHints": ["src/core/api"],
       "relatedFlows": ["notification-open-chat-message"],
       "relatedTasks": [

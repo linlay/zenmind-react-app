@@ -1,22 +1,22 @@
 export const APP_BRAND = {
-  "id": "zenmind",
-  "productName": "Zenmind",
-  "expoName": "Zenmind",
-  "slug": "zenmind-react-app",
+  "id": "cutej",
+  "productName": "CuteJ",
+  "expoName": "CuteJ",
+  "slug": "cutej-react-app",
   "version": "2.0.0",
   "storageNamespace": "zenmind-app",
   "splash": {
-    "backgroundColor": "#EDF1F5",
+    "backgroundColor": "#F5F7FA",
     "imageWidth": 220
   },
   "i18n": {
     "zh-CN": {
-      "app.name": "ZenMind",
-      "app.productName": "ZenMind"
+      "app.name": "CuteJ",
+      "app.productName": "CuteJ"
     },
     "en-US": {
-      "app.name": "ZenMind",
-      "app.productName": "ZenMind"
+      "app.name": "CuteJ",
+      "app.productName": "CuteJ"
     }
   }
 } as const;

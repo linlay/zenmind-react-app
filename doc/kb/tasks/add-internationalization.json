@@ -57,7 +57,7 @@
   "acceptanceChecks": [
     "pnpm typecheck 通过，新增 key 不会造成 en-US 缺项。",
     "pnpm test 至少覆盖 locale fallback、插值和消息表 key parity。",
-    "Tab label、登录页、Me/Drive、任务看板、Chat 首页和 Chat 详情主路径能随 locale 变化更新 UI 文案。",
+    "Tab label、登录页、Me、网盘预留页、任务看板、Chat 首页和 Chat 详情主路径能随 locale 变化更新 UI 文案。",
     "纯函数测试不会因为加载 MMKV 或 expo-localization native 模块失败。",
     "KB build/validate/check-stale 通过。"
   ],

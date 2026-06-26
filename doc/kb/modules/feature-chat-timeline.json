@@ -135,11 +135,12 @@
     }
   ],
   "generated": {
-    "fileCount": 9,
+    "fileCount": 10,
     "files": [
       "src/features/chatTimeline/awaitingInteraction.ts",
       "src/features/chatTimeline/index.ts",
       "src/features/chatTimeline/messageProjection.ts",
+      "src/features/chatTimeline/timelineConstants.ts",
       "src/features/chatTimeline/timelineDisplay.ts",
       "src/features/chatTimeline/timelineEventFormat.ts",
       "src/features/chatTimeline/timelinePersistence.ts",
@@ -181,6 +182,7 @@
         "timelinePersistenceInternals"
       ],
       "src/features/chatTimeline/messageProjection.ts": ["projectTimelineMessages", "projectTimelineRuntimeState"],
+      "src/features/chatTimeline/timelineConstants.ts": ["CHAT_TIMELINE_REASONING_PROCESS_TITLE"],
       "src/features/chatTimeline/timelineDisplay.ts": [
         "ChatTimelineDisplayModel",
         "ChatTimelineDisplayTailSignature",

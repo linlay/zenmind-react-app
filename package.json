@@ -7,6 +7,7 @@
     "start": "node ./scripts/sync-brand.js && node ./scripts/worklets/pregenerate.js && expo start",
     "android": "node ./scripts/sync-brand.js && node ./scripts/worklets/pregenerate.js && expo run:android",
     "android:device": "node ./scripts/sync-brand.js && node ./scripts/worklets/pregenerate.js && expo run:android --device",
+    "android:device:cutej": "BRAND=cutej pnpm android:device",
     "ios": "node ./scripts/sync-brand.js && expo run:ios --device",
     "web": "node ./scripts/sync-brand.js && node ./scripts/worklets/pregenerate.js && expo start --web",
     "typecheck": "node ./scripts/sync-brand.js && tsc --noEmit",

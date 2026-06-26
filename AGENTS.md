@@ -49,8 +49,13 @@ Expo SDK 56 + React Native 0.85 + TypeScript 6。当前仓库是迁移后的 `ze
 | --- | --- | -------- |
 | Chat | 对话 | `src/features/chatPersistence/ChatHomeScreen.tsx` |
 | Terminal | 任务 | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` |
-| Drive | 网盘 | `src/app/screens/TabScreens.tsx` 占位页 |
 | Me | 用户 | `src/app/screens/TabScreens.tsx` 用户与会话信息页 |
+
+待后期实现：
+
+| 模块 | 状态 | 预留入口 |
+| ---- | ---- | -------- |
+| Drive / 网盘 | 当前不挂底部 Tab，待后期接入真实同步、上传和引用链路 | `src/app/screens/DriveScreen.tsx` |
 
 `ChatDetail` 由 root stack 承载，入口是 `src/features/chatPersistence/ChatDetailScreen.tsx`。
 
