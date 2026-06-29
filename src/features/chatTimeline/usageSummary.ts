@@ -17,14 +17,6 @@ const EMPTY_USAGE_STATS: ChatTimelineUsageStats = {
   estimatedCost: null,
 };
 
-const EMPTY_CONTEXT_WINDOW: ChatTimelineUsageContextWindow = {
-  currentSize: null,
-  maxSize: null,
-  estimatedNextCallSize: null,
-  percent: null,
-  reasoningEffort: '',
-};
-
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -249,17 +241,6 @@ function buildUsageStats(
   };
 }
 
-function formatUsageLabel(stats: ChatTimelineUsageStats): string {
-  const parts = [
-    stats.promptTokens !== null && stats.promptTokens > 0 ? `输入 ${stats.promptTokens}` : '',
-    stats.completionTokens !== null && stats.completionTokens > 0
-      ? `输出 ${stats.completionTokens}`
-      : '',
-    stats.totalTokens !== null && stats.totalTokens > 0 ? `总计 ${stats.totalTokens}` : '',
-  ].filter(Boolean);
-  return parts.join(' · ');
-}
-
 function buildContextWindow(source: Record<string, unknown>): ChatTimelineUsageContextWindow {
   const currentSize = firstUsageNumber(source.currentSize);
   const maxSize = firstUsageNumber(source.maxSize);
@@ -275,23 +256,6 @@ function buildContextWindow(source: Record<string, unknown>): ChatTimelineUsageC
     estimatedNextCallSize,
     percent,
     reasoningEffort: firstUsageText(source.reasoningEffort, source.reasoning_effort),
-  };
-}
-
-function parseStatsFromLabel(label: string): ChatTimelineUsageStats {
-  const promptTokens = readUsageNumber(label.match(/输入\s*([\d,.]+)/)?.[1]?.replace(/,/g, ''));
-  const completionTokens = readUsageNumber(label.match(/输出\s*([\d,.]+)/)?.[1]?.replace(/,/g, ''));
-  const totalTokens = readUsageNumber(label.match(/总计\s*([\d,.]+)/)?.[1]?.replace(/,/g, ''));
-
-  return {
-    ...EMPTY_USAGE_STATS,
-    promptTokens,
-    completionTokens,
-    totalTokens:
-      totalTokens ??
-      (promptTokens !== null || completionTokens !== null
-        ? (promptTokens ?? 0) + (completionTokens ?? 0)
-        : null),
   };
 }
 
@@ -327,15 +291,6 @@ export function buildChatTimelineUsageSummary(
   const run = buildUsageStats(runRecord);
   const chat = buildUsageStats(chatRecord);
   const compact = compactRecord ? buildUsageStats(compactRecord) : null;
-  const fallbackStats = hasStatsValue(current)
-    ? current
-    : hasStatsValue(run)
-      ? run
-      : hasStatsValue(chat)
-        ? chat
-        : compact && hasStatsValue(compact)
-          ? compact
-          : EMPTY_USAGE_STATS;
   const modelKey =
     resolveChatTimelineUsageModelKey(event) ||
     resolveChatTimelineUsageModelKey(usage) ||
@@ -344,35 +299,20 @@ export function buildChatTimelineUsageSummary(
     resolveChatTimelineUsageModelKey(chatRecord);
 
   return {
-    label: formatUsageLabel(fallbackStats),
+    label: firstUsageText(
+      event.usageLabel,
+      event.usage_label,
+      usage.usageLabel,
+      usage.usage_label,
+      usage.label,
+      event.label
+    ),
     modelKey,
     contextWindow: buildContextWindow(contextWindow),
     current,
     run,
     chat,
     compact: compact && hasStatsValue(compact) ? compact : null,
-    updatedAt,
-  };
-}
-
-export function buildChatTimelineUsageSummaryFromLabel(
-  usageLabel: string,
-  updatedAt = 0
-): ChatTimelineUsageSummary | null {
-  const label = usageLabel.trim();
-  if (!label) {
-    return null;
-  }
-  const stats = parseStatsFromLabel(label);
-
-  return {
-    label,
-    modelKey: '',
-    contextWindow: EMPTY_CONTEXT_WINDOW,
-    current: stats,
-    run: stats,
-    chat: stats,
-    compact: null,
     updatedAt,
   };
 }

@@ -29,6 +29,7 @@ import {
 } from '../../chatTimeline/index.ts';
 import { formatChatDetailDuration, formatChatDetailTimestamp } from '../chatDetailFormatters';
 import { ChatAttachmentStrip } from './ChatAttachmentStrip';
+import { ChatSystemAlert } from './ChatSystemAlert';
 import { ChatTimelineRail } from './ChatTimelineRail';
 import { RuntimeTimelineRow } from './RuntimeTimelineRow';
 
@@ -459,13 +460,13 @@ const AwaitingAnswerTimelineRow = memo(function AwaitingAnswerTimelineRow({
 
           {expanded && canExpand ? (
             <View style={styles.awaitingAnswerDetails}>
-              {summary?.items.map((item) => (
+              {summary?.items.map((item, index) => (
                 <View key={item.key} style={styles.awaitingAnswerItem}>
                   <Text allowFontScaling={false} style={styles.awaitingAnswerQuestion}>
-                    {item.title}
+                    {item.title || t('awaiting.answer.fallbackTitle', { count: index + 1 })}
                   </Text>
                   <Text allowFontScaling={false} style={styles.awaitingAnswerValue}>
-                    {item.value}
+                    {item.value || t('awaiting.answer.empty')}
                   </Text>
                 </View>
               ))}
@@ -616,6 +617,9 @@ const TimelineRow = memo(
     }
     if (item.kind === 'request' && node.kind === 'request') {
       return <RequestInputRow node={node} isLastInRun={item.isLastInRun} />;
+    }
+    if (item.kind === 'system-message' && node.kind === 'message') {
+      return <ChatSystemAlert node={node} isLastInRun={item.isLastInRun} />;
     }
     return (
       <RuntimeTimelineRow

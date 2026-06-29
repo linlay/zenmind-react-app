@@ -8,6 +8,7 @@ import {
   CHAT_SUBMIT_TRANSPORT_TYPE,
   CHAT_SUMMARIES_TRANSPORT_TYPE,
   buildAgentDetailPayload,
+  buildChatDetailPayload,
   buildMarkChatReadPayload,
   buildSubmitAwaitingPayload,
   projectRemoteAgentDetail,
@@ -116,6 +117,8 @@ type ChatSendMessageOptions = {
 type ChatSendMessageResult = Awaited<ReturnType<typeof createOutgoingMessage>> & {
   dispatchError: Error | null;
 };
+
+type TimelineRunContextOptions = NonNullable<Parameters<typeof applyChatTimelineMessage>[2]>;
 
 type StreamBuffer = {
   key: string;
@@ -359,6 +362,11 @@ function isInactiveInterruptError(error: unknown): boolean {
 function isDuplicateObserveError(error: Error): boolean {
   const text = getUnknownErrorText(error).toLowerCase();
   return text.includes('duplicate_observe') || text.includes('already observing');
+}
+
+function normalizeAttachLastSeq(value: unknown): number {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : 0;
 }
 
 function findTimelineRunAgentKey(state: ChatTimelineState, runId: string): string {
@@ -1052,9 +1060,13 @@ class ChatSyncService {
     }
   }
 
-  private publishTimelineMessage(message: ChatMessageItem, reason: ChatSyncReason) {
+  private publishTimelineMessage(
+    message: ChatMessageItem,
+    reason: ChatSyncReason,
+    options: TimelineRunContextOptions = {}
+  ) {
     const currentState = this.getConversationTimelineState(message.conversationId);
-    const nextState = applyChatTimelineMessage(currentState, message);
+    const nextState = applyChatTimelineMessage(currentState, message, options);
     if (nextState !== currentState) {
       this.publishTimelineState(message.conversationId, reason, nextState);
     }
@@ -1064,10 +1076,11 @@ class ChatSyncService {
     conversationId: string,
     reason: ChatSyncReason,
     messageId: string,
-    patch: Parameters<typeof patchChatTimelineMessage>[2]
+    patch: Parameters<typeof patchChatTimelineMessage>[2],
+    options: TimelineRunContextOptions = {}
   ) {
     const currentState = this.getConversationTimelineState(conversationId);
-    const nextState = patchChatTimelineMessage(currentState, messageId, patch);
+    const nextState = patchChatTimelineMessage(currentState, messageId, patch, options);
     if (nextState !== currentState) {
       this.publishTimelineState(conversationId, reason, nextState);
     }
@@ -1161,10 +1174,10 @@ class ChatSyncService {
   }
 
   private async getChatDetailViaTransport(chatId: string): Promise<RemoteChatDetail> {
-    const response = await this.requestChatApi<RemoteChatDetail>(CHAT_DETAIL_TRANSPORT_TYPE, {
-      chatId: String(chatId || '').trim(),
-      includeRawMessages: true
-    });
+    const response = await this.requestChatApi<RemoteChatDetail>(
+      CHAT_DETAIL_TRANSPORT_TYPE,
+      buildChatDetailPayload(chatId)
+    );
     return response || {};
   }
 
@@ -1270,6 +1283,7 @@ class ChatSyncService {
               ...streamEvent,
               chatId: input.conversationId,
               conversationId: input.conversationId,
+              clientMessageId: input.clientMessageId,
               requestId: toText(streamEvent.requestId) || input.clientMessageId
             },
             'stream'
@@ -1728,6 +1742,7 @@ class ChatSyncService {
 
     const existing = await getMessageByServerMessageId(serverMessageId);
     const active = this.activeConversationId === conversationId;
+    const incomingRunId = toText(event.runId);
     const message = await upsertProjectedMessage(
       {
         messageId: existing?.messageId || serverMessageId,
@@ -1746,6 +1761,8 @@ class ChatSyncService {
         suppressUnread: active
       }
     );
+    const timelineRunContext =
+      message.role === 'assistant' && incomingRunId ? { runId: incomingRunId } : undefined;
 
     if (existing) {
       const patch = {
@@ -1763,7 +1780,7 @@ class ChatSyncService {
         messageId: message.messageId,
         patch
       });
-      this.publishTimelineMessagePatch(conversationId, reason, message.messageId, patch);
+      this.publishTimelineMessagePatch(conversationId, reason, message.messageId, patch, timelineRunContext);
     } else {
       this.emit({
         type: 'conversation.message.insert',
@@ -1771,7 +1788,7 @@ class ChatSyncService {
         reason,
         message
       });
-      this.publishTimelineMessage(message, reason);
+      this.publishTimelineMessage(message, reason, timelineRunContext);
     }
 
     await this.emitHomePatchFromConversation(conversationId, {
@@ -1859,7 +1876,9 @@ class ChatSyncService {
           messageId: buffer.messageId,
           patch
         });
-        this.publishTimelineMessagePatch(conversationId, reason, buffer.messageId, patch);
+        this.publishTimelineMessagePatch(conversationId, reason, buffer.messageId, patch, {
+          runId: buffer.runId
+        });
       }
 
       if (type === 'content.delta') {
@@ -1908,7 +1927,9 @@ class ChatSyncService {
             messageId: buffer.messageId,
             patch
           });
-          this.publishTimelineMessagePatch(conversationId, reason, buffer.messageId, patch);
+          this.publishTimelineMessagePatch(conversationId, reason, buffer.messageId, patch, {
+            runId: buffer.runId
+          });
         }
         await this.emitHomePatchFromConversation(conversationId, {
           shouldMoveToTop: true
@@ -1958,7 +1979,7 @@ class ChatSyncService {
       reason: buffer.reason,
       message: initialMessage
     });
-    this.publishTimelineMessage(initialMessage, buffer.reason);
+    this.publishTimelineMessage(initialMessage, buffer.reason, { runId: buffer.runId });
   }
 
   private async flushStreamBufferToUi(bufferKey: string) {
@@ -1991,7 +2012,8 @@ class ChatSyncService {
       messageId: buffer.messageId,
       createdAt: buffer.createdAt,
       delta: buffer.pendingUiDelta,
-      snapshotText: buffer.pendingUiSnapshotText
+      snapshotText: buffer.pendingUiSnapshotText,
+      runId: buffer.runId
     });
 
     buffer.pendingUiDelta = '';
@@ -2415,7 +2437,11 @@ class ChatSyncService {
           confirmMarker: `reconcile:${nextTimelineState.activeRunId || projection.summary.lastMessageAt}`
         });
       }
-      await this.attachActiveConversationRun(conversationId, 'attach');
+      const attachLastSeq =
+        projection.activeRun?.runId === nextTimelineState.activeRunId
+          ? projection.activeRun.lastSeq
+          : 0;
+      await this.attachActiveConversationRun(conversationId, 'attach', attachLastSeq);
     } else {
       await this.emitHomePatchFromConversation(conversationId, {
         shouldMoveToTop: false
@@ -2569,7 +2595,11 @@ class ChatSyncService {
     }
   }
 
-  private async attachActiveConversationRun(conversationId: string, reason: ChatSyncReason) {
+  private async attachActiveConversationRun(
+    conversationId: string,
+    reason: ChatSyncReason,
+    initialLastSeq = 0
+  ) {
     const normalizedConversationId = toText(conversationId);
     if (!normalizedConversationId || this.activeConversationId !== normalizedConversationId) {
       return;
@@ -2601,7 +2631,7 @@ class ChatSyncService {
       token: attachToken,
       runId,
       agentKey,
-      lastSeq: 0,
+      lastSeq: normalizeAttachLastSeq(initialLastSeq),
       phase: 'pending',
       promise: Promise.resolve(),
       abort: () => {}

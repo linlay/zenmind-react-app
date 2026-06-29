@@ -8,7 +8,7 @@ function assetPath(relativePath) {
 module.exports = () => {
   const brand = syncBrandArtifacts({
     rootDir: __dirname,
-    brandId: resolveBrandId(),
+    brandId: resolveBrandId(process.argv.slice(2), process.env, __dirname, { allowPositional: false }),
     appVersion: packageJson.version,
   });
 

@@ -38,6 +38,7 @@ export type TaskDraftForm = {
 };
 
 export type UseDesktopKanbanBoardOptions = {
+  enabled?: boolean;
   projectId?: string;
   text: BoardViewText;
   errorFallback?: string;
@@ -152,6 +153,7 @@ function updateIssueIdSet(ref: MutableRefObject<ReadonlySet<string>>, issueId: s
 }
 
 export function useDesktopKanbanBoard({
+  enabled = true,
   projectId,
   text,
   errorFallback = 'Kanban operation failed',
@@ -188,7 +190,9 @@ export function useDesktopKanbanBoard({
   const creatingRef = useRef(false);
   const activePendingIssueIdsRef = useRef<ReadonlySet<string>>(EMPTY_PENDING_ISSUE_IDS);
   const syncPendingIssueIdsRef = useRef<ReadonlySet<string>>(EMPTY_PENDING_ISSUE_IDS);
+  const enabledRef = useRef(enabled);
 
+  enabledRef.current = enabled;
   projectIdRef.current = normalizedProjectId;
   errorFallbackRef.current = errorFallback;
   missingTaskFallbackRef.current = missingTaskFallback;
@@ -300,6 +304,9 @@ export function useDesktopKanbanBoard({
 
   const runRefresh = useCallback(
     async ({ abortPrevious }: { abortPrevious: boolean }) => {
+      if (!enabledRef.current) {
+        return;
+      }
       if (abortPrevious) {
         activeControllerRef.current?.abort();
       }
@@ -345,7 +352,7 @@ export function useDesktopKanbanBoard({
 
   const scheduleRefresh = useCallback(
     (_reason: string) => {
-      if (!mountedRef.current) {
+      if (!mountedRef.current || !enabledRef.current) {
         return;
       }
 
@@ -374,12 +381,36 @@ export function useDesktopKanbanBoard({
 
   useEffect(() => {
     lastAppliedRevisionRef.current = -1;
+  }, [normalizedProjectId]);
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     void refresh();
-  }, [normalizedProjectId, refresh]);
+  }, [enabled, normalizedProjectId, refresh]);
+
+  useEffect(() => {
+    if (enabled) {
+      return;
+    }
+    activeControllerRef.current?.abort();
+    activeControllerRef.current = null;
+    if (refreshTimerRef.current) {
+      clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = null;
+    }
+    setBoardState((current) => (current.refreshing ? { ...current, refreshing: false } : current));
+  }, [enabled, setBoardState]);
 
   useEffect(
-    () => subscribeKanbanInvalidation(() => scheduleRefresh('desktop-push'), normalizedProjectId),
-    [normalizedProjectId, scheduleRefresh]
+    () => {
+      if (!enabled) {
+        return undefined;
+      }
+      return subscribeKanbanInvalidation(() => scheduleRefresh('desktop-push'), normalizedProjectId);
+    },
+    [enabled, normalizedProjectId, scheduleRefresh]
   );
 
   useEffect(() => {

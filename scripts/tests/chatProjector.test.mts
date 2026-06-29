@@ -183,7 +183,7 @@ test('uses top-level runs planning and usage as detail timeline fallback', () =>
   assert.equal(projected?.messages.length, 2);
   assert.equal(projected?.messages[0].content, 'change the theme');
   assert.equal(projected?.messages[1].content, 'done');
-  assert.equal(projected?.runtimeState.usageLabel, '输入 10 · 输出 5 · 总计 15');
+  assert.equal(projected?.runtimeState.usageLabel, '');
   assert.equal(
     projected?.runtimeState.entries.some((entry) => entry.kind === 'planning'),
     true
@@ -192,6 +192,64 @@ test('uses top-level runs planning and usage as detail timeline fallback', () =>
     projected?.runtimeState.entries.some((entry) => entry.kind === 'run'),
     true
   );
+});
+
+test('uses active run snapshot as timeline and attach cursor fallback', () => {
+  const projected = projectRemoteChatDetail({
+    chatId: 'chat-active-run',
+    activeRun: {
+      runId: 'run-live',
+      agentKey: 'coder',
+      lastSeq: 42,
+      startedAt: 1_000,
+    },
+    events: [],
+  });
+
+  assert.equal(projected?.activeRunId, 'run-live');
+  assert.deepEqual(projected?.activeRun, {
+    runId: 'run-live',
+    agentKey: 'coder',
+    lastSeq: 42,
+  });
+  assert.equal(
+    projected?.timelineState.orderedNodeIds.some(
+      (nodeId) => projected.timelineState.nodesById[nodeId]?.runId === 'run-live'
+    ),
+    true
+  );
+});
+
+test('uses top-level plan and artifact snapshots as timeline event fallback', () => {
+  const projected = projectRemoteChatDetail({
+    chatId: 'chat-runtime-snapshots',
+    plan: {
+      planId: 'plan-1',
+      title: 'Implement detail contract',
+      status: 'active',
+      tasks: [{ id: 'task-1', title: 'type api detail' }],
+    },
+    artifact: {
+      items: [
+        {
+          artifactId: 'artifact-1',
+          name: 'report.md',
+          mimeType: 'text/markdown',
+          url: 'https://example.test/report.md',
+          sizeBytes: 128,
+        },
+      ],
+    },
+    events: [],
+  });
+
+  const nodes = projected?.timelineState.orderedNodeIds.map(
+    (nodeId) => projected.timelineState.nodesById[nodeId]
+  );
+  assert.equal(nodes?.some((node) => node?.kind === 'plan'), true);
+  assert.equal(nodes?.some((node) => node?.kind === 'artifact'), true);
+  assert.equal(projected?.runtimeState.entries.some((entry) => entry.kind === 'plan'), true);
+  assert.equal(projected?.runtimeState.entries.some((entry) => entry.kind === 'artifact'), true);
 });
 
 test('merges current usage events with historical detail cumulative usage', () => {

@@ -1,36 +1,35 @@
 import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { memo, ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { RootStackParamList } from '../../app/navigation/types';
 import type { KanbanIssue } from '../../core/api/services/kanbanApi';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
-import { type I18nKey, type TFunction, useT } from '../../shared/i18n';
+import { type I18nKey, useT } from '../../shared/i18n';
 import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
 import { appVisualTokens, getAvatarLabel, getAvatarTone, type AppThemeTokens } from '../../shared/visual/foundation';
 import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
+import { useAgentTaskBoard } from './AgentTaskBoardProvider';
 import { buildKanbanChatDetailParams } from './kanbanChatRoute';
-import { createEmptyTaskDraft, useDesktopKanbanBoard, type TaskDraftForm } from './useDesktopKanbanBoard';
+import type { AgentTaskBoardStackParamList } from './navigationTypes';
+import { createEmptyTaskDraft, type TaskDraftForm } from './useDesktopKanbanBoard';
 import {
   deriveBoardSummary,
   getAgentPreview,
   type AgentOption,
-  type BoardViewText,
   type BoardQueue,
   type BoardTask,
   type TaskPriority,
   type TaskStage
 } from './kanbanViewModel';
 
-type BoardRoute =
-  | { name: 'home' }
-  | { name: 'newTask' }
-  | { name: 'assignTask'; taskId: string }
-  | { name: 'taskDetail'; taskId: string };
+type AgentTaskBoardNewTaskScreenProps = NativeStackScreenProps<AgentTaskBoardStackParamList, 'NewTask'>;
+type AgentTaskBoardAssignTaskScreenProps = NativeStackScreenProps<AgentTaskBoardStackParamList, 'AssignTask'>;
+type AgentTaskBoardTaskDetailScreenProps = NativeStackScreenProps<AgentTaskBoardStackParamList, 'TaskDetail'>;
 
 type LifecycleStep = {
   stage: TaskStage;
@@ -66,29 +65,6 @@ const STAGE_LABEL_KEYS: Record<TaskStage, I18nKey> = {
 };
 
 const TASK_PRIORITIES = ['high', 'medium', 'low'] as const satisfies readonly TaskPriority[];
-
-function createBoardViewText(t: TFunction): BoardViewText {
-  return {
-    noDescription: t('tasks.fallback.noDescription'),
-    completedDue: t('tasks.fallback.completedDue'),
-    unscheduledDue: t('tasks.fallback.unscheduledDue'),
-    untitledTask: t('tasks.fallback.untitledTask'),
-    unassignedAgent: t('tasks.agent.unassigned'),
-    actionRunFailed: t('tasks.action.runFailed'),
-    actionRunCancelled: t('tasks.action.runCancelled'),
-    actionAssignAgent: t('tasks.action.assignAgent'),
-    actionWaitingRun: t('tasks.action.waitingRun'),
-    actionTrackRun: t('tasks.action.trackRun'),
-    actionReview: t('tasks.action.reviewOrReturn'),
-    actionArchive: t('tasks.action.archive'),
-    blockerRunFailed: t('tasks.blocker.runFailed'),
-    blockerRunCancelled: t('tasks.blocker.runCancelled'),
-    blockerReviewRequired: t('tasks.blocker.reviewRequired'),
-    catalogAgentFallback: t('tasks.agent.catalogFallback'),
-    desktopOnline: t('tasks.agent.desktopOnline'),
-    existingAssignee: t('tasks.agent.existingAssignee')
-  };
-}
 
 function getPriorityColor(theme: AppThemeTokens, priority: TaskPriority): string {
   if (priority === 'high') {
@@ -466,16 +442,20 @@ const AgentCompactRow = memo(function AgentCompactRow({ agent }: AgentCompactRow
 
 type SecondaryPageProps = {
   title: string;
-  contentBottomPadding: number;
   onBack: () => void;
   children: ReactNode;
 };
 
-function SecondaryPage({ title, contentBottomPadding, onBack, children }: SecondaryPageProps) {
+function SecondaryPage({ title, onBack, children }: SecondaryPageProps) {
+  const insets = useSafeAreaInsets();
   const styles = useAppThemeStyles(createStyles);
-  const backAction = [
-    <HeaderActionButton key="back" usage="chatDetail.back" onPress={onBack} />
-  ] as const satisfies readonly [ReactElement];
+  const contentBottomPadding = insets.bottom + appVisualTokens.spacing.xxl;
+  const backAction = useMemo(
+    () => [<HeaderActionButton key="back" usage="chatDetail.back" onPress={onBack} />] as const satisfies readonly [
+      ReactElement
+    ],
+    [onBack]
+  );
 
   return (
     <View style={styles.screen}>
@@ -495,7 +475,6 @@ function SecondaryPage({ title, contentBottomPadding, onBack, children }: Second
 
 type NewTaskPageProps = {
   draft: TaskDraftForm;
-  contentBottomPadding: number;
   error: string | null;
   onBack: () => void;
   onChangeDescription: (description: string) => void;
@@ -507,7 +486,6 @@ type NewTaskPageProps = {
 
 function NewTaskPage({
   draft,
-  contentBottomPadding,
   error,
   onBack,
   onChangeDescription,
@@ -522,7 +500,7 @@ function NewTaskPage({
   const canSubmit = draft.title.trim().length > 0 && !saving;
 
   return (
-    <SecondaryPage title={t('tasks.page.newTask')} contentBottomPadding={contentBottomPadding} onBack={onBack}>
+    <SecondaryPage title={t('tasks.page.newTask')} onBack={onBack}>
       <View style={styles.formBlock}>
         <Text style={styles.formTitle}>{t('tasks.form.draft')}</Text>
         <View style={styles.draftField}>
@@ -622,7 +600,6 @@ function OptionRow({ label, value }: OptionRowProps) {
 type AssignTaskPageProps = {
   task: BoardTask;
   agents: readonly AgentOption[];
-  contentBottomPadding: number;
   error: string | null;
   pending: boolean;
   running: boolean;
@@ -667,7 +644,6 @@ function resolveAgentSelection(
 function AssignTaskPage({
   task,
   agents,
-  contentBottomPadding,
   error,
   pending,
   running,
@@ -698,7 +674,7 @@ function AssignTaskPage({
   }, [onAssign, selectedAgent, task.id]);
 
   return (
-    <SecondaryPage title={t('tasks.page.assignTask')} contentBottomPadding={contentBottomPadding} onBack={onBack}>
+    <SecondaryPage title={t('tasks.page.assignTask')} onBack={onBack}>
       <View style={styles.assignmentSummary}>
         <Text style={styles.assignmentEyebrow}>{t(STAGE_LABEL_KEYS[task.stage])}</Text>
         <Text style={styles.assignmentTitle}>{task.title}</Text>
@@ -799,7 +775,6 @@ const AgentChoice = memo(function AgentChoice({ agent, selected, onSelect }: Age
 type TaskDetailPageProps = {
   task: BoardTask;
   issue: KanbanIssue;
-  contentBottomPadding: number;
   error: string | null;
   pending: boolean;
   onBack: () => void;
@@ -812,7 +787,6 @@ type TaskDetailPageProps = {
 function TaskDetailPage({
   task,
   issue,
-  contentBottomPadding,
   error,
   pending,
   onBack,
@@ -851,7 +825,7 @@ function TaskDetailPage({
   }, [issue, onDeleteTask, task]);
 
   return (
-    <SecondaryPage title={t('tasks.page.taskDetail')} contentBottomPadding={contentBottomPadding} onBack={onBack}>
+    <SecondaryPage title={t('tasks.page.taskDetail')} onBack={onBack}>
       <View style={styles.detailHero}>
         <View style={styles.detailTitleRow}>
           <Text style={styles.detailStage}>{t(STAGE_LABEL_KEYS[task.stage])}</Text>
@@ -926,120 +900,29 @@ export function AgentTaskBoardScreen() {
   const t = useT();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const styles = useAppThemeStyles(createStyles);
-  const [route, setRoute] = useState<BoardRoute>({ name: 'home' });
   const [selectedQueue, setSelectedQueue] = useState<BoardQueue>('focus');
-  const [draft, setDraft] = useState<TaskDraftForm>(createEmptyTaskDraft);
   const tabBarHeight = useAppTabBarHeight();
   const contentBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
-  const boardText = useMemo(() => createBoardViewText(t), [t]);
-  const {
-    tasks,
-    taskById,
-    issueById,
-    agents,
-    loading,
-    error,
-    creating,
-    pendingIssueIds,
-    refresh,
-    createTask,
-    assignAndRunTask: assignAndRunBoardTask,
-    completeReview: completeReviewTask,
-    deleteTask: deleteBoardTask
-  } = useDesktopKanbanBoard({
-    projectId: 'default',
-    text: boardText,
-    errorFallback: t('tasks.error.generic'),
-    missingTaskFallback: t('tasks.emptyHint'),
-    runStartedSyncPendingFallback: t('tasks.error.runStartedSyncPending')
-  });
+  const { tasks, agents, loading, error, refresh } = useAgentTaskBoard();
 
-  const openHome = useCallback(() => setRoute({ name: 'home' }), []);
-  const openNewTask = useCallback(() => setRoute({ name: 'newTask' }), []);
-  const openAssign = useCallback((taskId: string) => setRoute({ name: 'assignTask', taskId }), []);
-  const openTask = useCallback((taskId: string) => setRoute({ name: 'taskDetail', taskId }), []);
-  const routeTaskId = route.name === 'assignTask' || route.name === 'taskDetail' ? route.taskId : null;
-  const routeTask = useMemo(() => (routeTaskId ? taskById.get(routeTaskId) : undefined), [routeTaskId, taskById]);
-  const routeIssue = useMemo(() => (routeTaskId ? issueById.get(routeTaskId) : undefined), [routeTaskId, issueById]);
-  const routePending = routeTaskId ? pendingIssueIds.has(routeTaskId) : false;
-  const retryLoadBoard = useCallback(() => {
-    void refresh();
-  }, [refresh]);
-  const updateDraftTitle = useCallback((title: string) => {
-    setDraft((current) => (current.title === title ? current : { ...current, title }));
-  }, []);
-  const updateDraftDescription = useCallback((description: string) => {
-    setDraft((current) => (current.description === description ? current : { ...current, description }));
-  }, []);
-  const updateDraftPriority = useCallback((priority: TaskPriority) => {
-    setDraft((current) => (current.priority === priority ? current : { ...current, priority }));
-  }, []);
-  const createDraftTask = useCallback(async () => {
-    const nextTaskId = await createTask(draft);
-    if (nextTaskId) {
-      setDraft(createEmptyTaskDraft());
-      setRoute({ name: 'assignTask', taskId: nextTaskId });
-    }
-  }, [createTask, draft]);
-  const handleAssignAndRunTask = useCallback(
-    async (taskId: string, agent: AgentOption) => {
-      try {
-        await assignAndRunBoardTask(taskId, agent);
-        setRoute({ name: 'taskDetail', taskId });
-      } catch {
-        // The hook keeps the user-facing error; stay on the current page.
-      }
-    },
-    [assignAndRunBoardTask]
-  );
-  const openKanbanChat = useCallback(
-    (issue: KanbanIssue, agentName: string) => {
-      const params = buildKanbanChatDetailParams(issue, agentName);
-      if (params) {
-        navigation.navigate('ChatDetail', params);
-      }
+  const openNewTask = useCallback(() => {
+    navigation.navigate('TaskBoardFlow', { screen: 'NewTask' });
+  }, [navigation]);
+  const openAssign = useCallback(
+    (taskId: string) => {
+      navigation.navigate('TaskBoardFlow', { screen: 'AssignTask', params: { taskId } });
     },
     [navigation]
   );
-  const handleCompleteReview = useCallback(
-    async (task: BoardTask) => {
-      try {
-        await completeReviewTask(task);
-        setRoute({ name: 'taskDetail', taskId: task.id });
-      } catch {
-        // The hook keeps the user-facing error; stay on the current page.
-      }
+  const openTask = useCallback(
+    (taskId: string) => {
+      navigation.navigate('TaskBoardFlow', { screen: 'TaskDetail', params: { taskId } });
     },
-    [completeReviewTask]
+    [navigation]
   );
-  const handleDeleteTask = useCallback(
-    (task: BoardTask, issue: KanbanIssue) => {
-      const isRunningTask = issue.runState === 'running' || (task.stage === 'running' && !issue.runState);
-      Alert.alert(
-        isRunningTask ? t('tasks.delete.runningTitle') : t('tasks.delete.title'),
-        isRunningTask
-          ? t('tasks.delete.runningBody', { title: task.title })
-          : t('tasks.delete.body', { title: task.title }),
-        [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('tasks.action.deleteTask'),
-            style: 'destructive',
-            onPress: () => {
-              void deleteBoardTask(task)
-                .then(() => {
-                  setRoute({ name: 'home' });
-                })
-                .catch(() => {
-                  // The hook keeps the Desktop error visible on the detail page.
-                });
-            }
-          }
-        ]
-      );
-    },
-    [deleteBoardTask, t]
-  );
+  const retryLoadBoard = useCallback(() => {
+    void refresh();
+  }, [refresh]);
   const headerActions = useMemo(
     () =>
       [<HeaderActionButton key="add" usage="chatHome.add" onPress={openNewTask} />] as const satisfies readonly [
@@ -1047,72 +930,6 @@ export function AgentTaskBoardScreen() {
       ],
     [openNewTask]
   );
-
-  if (route.name === 'newTask') {
-    return (
-      <NewTaskPage
-        draft={draft}
-        contentBottomPadding={contentBottomPadding}
-        error={error}
-        onBack={openHome}
-        onChangeDescription={updateDraftDescription}
-        onChangePriority={updateDraftPriority}
-        onChangeTitle={updateDraftTitle}
-        onCreateDraft={createDraftTask}
-        saving={creating}
-      />
-    );
-  }
-
-  if (route.name === 'assignTask') {
-    if (!routeTask) {
-      return (
-        <SecondaryPage title={t('tasks.page.assignTask')} contentBottomPadding={contentBottomPadding} onBack={openHome}>
-          <View style={styles.stateBlock}>
-            <Text style={styles.stateTitle}>{t('tasks.emptyHint')}</Text>
-          </View>
-        </SecondaryPage>
-      );
-    }
-    return (
-      <AssignTaskPage
-        task={routeTask}
-        agents={agents}
-        contentBottomPadding={contentBottomPadding}
-        error={error}
-        pending={routePending}
-        running={routeIssue?.runState === 'running'}
-        onBack={openHome}
-        onAssign={handleAssignAndRunTask}
-      />
-    );
-  }
-
-  if (route.name === 'taskDetail') {
-    if (!routeTask || !routeIssue) {
-      return (
-        <SecondaryPage title={t('tasks.page.taskDetail')} contentBottomPadding={contentBottomPadding} onBack={openHome}>
-          <View style={styles.stateBlock}>
-            <Text style={styles.stateTitle}>{t('tasks.emptyHint')}</Text>
-          </View>
-        </SecondaryPage>
-      );
-    }
-    return (
-      <TaskDetailPage
-        task={routeTask}
-        issue={routeIssue}
-        contentBottomPadding={contentBottomPadding}
-        error={error}
-        pending={routePending}
-        onBack={openHome}
-        onOpenAssign={openAssign}
-        onOpenChat={openKanbanChat}
-        onCompleteReview={handleCompleteReview}
-        onDeleteTask={handleDeleteTask}
-      />
-    );
-  }
 
   return (
     <View style={styles.screen}>
@@ -1134,6 +951,183 @@ export function AgentTaskBoardScreen() {
         onRetry={retryLoadBoard}
       />
     </View>
+  );
+}
+
+export function AgentTaskBoardNewTaskScreen({ navigation }: AgentTaskBoardNewTaskScreenProps) {
+  const { createTask, creating, error } = useAgentTaskBoard();
+  const [draft, setDraft] = useState<TaskDraftForm>(createEmptyTaskDraft);
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const updateDraftTitle = useCallback((title: string) => {
+    setDraft((current) => (current.title === title ? current : { ...current, title }));
+  }, []);
+  const updateDraftDescription = useCallback((description: string) => {
+    setDraft((current) => (current.description === description ? current : { ...current, description }));
+  }, []);
+  const updateDraftPriority = useCallback((priority: TaskPriority) => {
+    setDraft((current) => (current.priority === priority ? current : { ...current, priority }));
+  }, []);
+  const createDraftTask = useCallback(async () => {
+    const nextTaskId = await createTask(draft);
+    if (nextTaskId) {
+      setDraft(createEmptyTaskDraft());
+      navigation.replace('AssignTask', { taskId: nextTaskId });
+    }
+  }, [createTask, draft, navigation]);
+
+  return (
+    <NewTaskPage
+      draft={draft}
+      error={error}
+      onBack={handleGoBack}
+      onChangeDescription={updateDraftDescription}
+      onChangePriority={updateDraftPriority}
+      onChangeTitle={updateDraftTitle}
+      onCreateDraft={createDraftTask}
+      saving={creating}
+    />
+  );
+}
+
+export function AgentTaskBoardAssignTaskScreen({ navigation, route }: AgentTaskBoardAssignTaskScreenProps) {
+  const t = useT();
+  const styles = useAppThemeStyles(createStyles);
+  const { taskById, issueById, agents, loading, error, pendingIssueIds, assignAndRunTask } = useAgentTaskBoard();
+  const taskId = route.params.taskId;
+  const task = taskById.get(taskId);
+  const issue = issueById.get(taskId);
+  const pending = pendingIssueIds.has(taskId);
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleAssignAndRunTask = useCallback(
+    async (nextTaskId: string, agent: AgentOption) => {
+      try {
+        await assignAndRunTask(nextTaskId, agent);
+        if (navigation.getState().routes.length > 1) {
+          navigation.goBack();
+          return;
+        }
+        navigation.replace('TaskDetail', { taskId: nextTaskId });
+      } catch {
+        // The hook keeps the user-facing error; stay on the current page.
+      }
+    },
+    [assignAndRunTask, navigation]
+  );
+
+  if (!task) {
+    return (
+      <SecondaryPage title={t('tasks.page.assignTask')} onBack={handleGoBack}>
+        <View style={styles.stateBlock}>
+          <Text style={styles.stateTitle}>{loading ? t('common.loading') : t('tasks.emptyHint')}</Text>
+        </View>
+      </SecondaryPage>
+    );
+  }
+
+  return (
+    <AssignTaskPage
+      task={task}
+      agents={agents}
+      error={error}
+      pending={pending}
+      running={issue?.runState === 'running'}
+      onBack={handleGoBack}
+      onAssign={handleAssignAndRunTask}
+    />
+  );
+}
+
+export function AgentTaskBoardTaskDetailScreen({ navigation, route }: AgentTaskBoardTaskDetailScreenProps) {
+  const t = useT();
+  const styles = useAppThemeStyles(createStyles);
+  const { taskById, issueById, loading, error, pendingIssueIds, completeReview, deleteTask } = useAgentTaskBoard();
+  const taskId = route.params.taskId;
+  const task = taskById.get(taskId);
+  const issue = issueById.get(taskId);
+  const pending = pendingIssueIds.has(taskId);
+  const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const openAssign = useCallback(
+    (nextTaskId: string) => {
+      navigation.navigate('AssignTask', { taskId: nextTaskId });
+    },
+    [navigation]
+  );
+  const openKanbanChat = useCallback(
+    (nextIssue: KanbanIssue, agentName: string) => {
+      const params = buildKanbanChatDetailParams(nextIssue, agentName);
+      if (params) {
+        navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('ChatDetail', params);
+      }
+    },
+    [navigation]
+  );
+  const handleCompleteReview = useCallback(
+    async (nextTask: BoardTask) => {
+      try {
+        await completeReview(nextTask);
+      } catch {
+        // The hook keeps the user-facing error; stay on the current page.
+      }
+    },
+    [completeReview]
+  );
+  const closeTaskBoardFlow = useCallback(() => {
+    const parentNavigation = navigation.getParent<NativeStackNavigationProp<RootStackParamList>>();
+    if (parentNavigation?.canGoBack()) {
+      parentNavigation.goBack();
+      return;
+    }
+    navigation.goBack();
+  }, [navigation]);
+  const handleDeleteTask = useCallback(
+    (nextTask: BoardTask, nextIssue: KanbanIssue) => {
+      const isRunningTask = nextIssue.runState === 'running' || (nextTask.stage === 'running' && !nextIssue.runState);
+      Alert.alert(
+        isRunningTask ? t('tasks.delete.runningTitle') : t('tasks.delete.title'),
+        isRunningTask
+          ? t('tasks.delete.runningBody', { title: nextTask.title })
+          : t('tasks.delete.body', { title: nextTask.title }),
+        [
+          { text: t('common.cancel'), style: 'cancel' },
+          {
+            text: t('tasks.action.deleteTask'),
+            style: 'destructive',
+            onPress: () => {
+              void deleteTask(nextTask)
+                .then(closeTaskBoardFlow)
+                .catch(() => {
+                  // The hook keeps the Desktop error visible on the detail page.
+                });
+            }
+          }
+        ]
+      );
+    },
+    [closeTaskBoardFlow, deleteTask, t]
+  );
+
+  if (!task || !issue) {
+    return (
+      <SecondaryPage title={t('tasks.page.taskDetail')} onBack={handleGoBack}>
+        <View style={styles.stateBlock}>
+          <Text style={styles.stateTitle}>{loading ? t('common.loading') : t('tasks.emptyHint')}</Text>
+        </View>
+      </SecondaryPage>
+    );
+  }
+
+  return (
+    <TaskDetailPage
+      task={task}
+      issue={issue}
+      error={error}
+      pending={pending}
+      onBack={handleGoBack}
+      onOpenAssign={openAssign}
+      onOpenChat={openKanbanChat}
+      onCompleteReview={handleCompleteReview}
+      onDeleteTask={handleDeleteTask}
+    />
   );
 }
 

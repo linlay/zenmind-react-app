@@ -11,6 +11,7 @@ import type {
 import {
   deriveChatComposerPrimaryAction,
   deriveChatDetailHeaderRuntimeState,
+  hasDisplayableChatTimelineUsageSummary,
 } from '../../src/features/chatPersistence/chatDetailViewModel.ts';
 import { useChatDetailAwaitingOverlay } from '../../src/features/chatPersistence/useChatDetailAwaitingOverlay.ts';
 import {
@@ -18,6 +19,7 @@ import {
   applyChatTimelineLocalCancel,
   createChatTimelineState,
 } from '../../src/features/chatTimeline/index.ts';
+import type { ChatTimelineUsageStats, ChatTimelineUsageSummary } from '../../src/features/chatTimeline/index.ts';
 
 type AwaitingHookSnapshot = ReturnType<typeof useChatDetailAwaitingOverlay>;
 
@@ -41,6 +43,40 @@ const baseRuntimeState: ChatConversationRuntimeState = {
   usageLabel: '',
   updatedAt: 0,
 };
+
+const emptyUsageStats: ChatTimelineUsageStats = {
+  promptTokens: null,
+  completionTokens: null,
+  totalTokens: null,
+  reasoningTokens: null,
+  cacheHitTokens: null,
+  cacheMissTokens: null,
+  llmChatCompletionCount: null,
+  toolCallCount: null,
+  estimatedCost: null,
+};
+
+function createUsageSummary(
+  patch: Partial<ChatTimelineUsageSummary> = {}
+): ChatTimelineUsageSummary {
+  return {
+    label: '',
+    modelKey: '',
+    contextWindow: {
+      currentSize: null,
+      maxSize: null,
+      estimatedNextCallSize: null,
+      percent: null,
+      reasoningEffort: '',
+    },
+    current: emptyUsageStats,
+    run: emptyUsageStats,
+    chat: emptyUsageStats,
+    compact: null,
+    updatedAt: 1,
+    ...patch,
+  };
+}
 
 function AwaitingHookHarness({
   resetKey,
@@ -92,6 +128,42 @@ test('awaiting overlay auto-opens unseen awaiting ids and supports manual reopen
     latest?.handleOpenAwaitingOverlay();
   });
   assert.equal(latest?.awaitingSummary?.isOverlayVisible, true);
+});
+
+test('usage summary display guard ignores label-only legacy usage', () => {
+  assert.equal(hasDisplayableChatTimelineUsageSummary(null), false);
+  assert.equal(
+    hasDisplayableChatTimelineUsageSummary(createUsageSummary({ label: '总计 1,024' })),
+    false
+  );
+});
+
+test('usage summary display guard accepts structured zero values', () => {
+  assert.equal(
+    hasDisplayableChatTimelineUsageSummary(
+      createUsageSummary({
+        current: {
+          ...emptyUsageStats,
+          totalTokens: 0,
+        },
+      })
+    ),
+    true
+  );
+  assert.equal(
+    hasDisplayableChatTimelineUsageSummary(
+      createUsageSummary({
+        contextWindow: {
+          currentSize: 0,
+          maxSize: null,
+          estimatedNextCallSize: null,
+          percent: null,
+          reasoningEffort: '',
+        },
+      })
+    ),
+    true
+  );
 });
 
 test('awaiting overlay ignores runtime state from a different conversation', async () => {
@@ -170,7 +242,7 @@ test('detail header runtime state is derived from the timeline in one place', ()
   let headerState = deriveChatDetailHeaderRuntimeState(state);
   assert.equal(headerState.statusTone, 'running');
   assert.equal(headerState.statusLabel, '运行中');
-  assert.equal(headerState.usageLabel, '输入 10 · 输出 4 · 总计 14');
+  assert.equal(headerState.usageLabel, '');
   assert.equal(headerState.usageSummary?.current.promptTokens, 10);
   assert.equal(headerState.runAction, 'stop');
 
@@ -182,7 +254,7 @@ test('detail header runtime state is derived from the timeline in one place', ()
   headerState = deriveChatDetailHeaderRuntimeState(state);
   assert.equal(headerState.statusTone, 'error');
   assert.equal(headerState.statusLabel, '异常');
-  assert.equal(headerState.usageLabel, '输入 10 · 输出 4 · 总计 14');
+  assert.equal(headerState.usageLabel, '');
   assert.equal(headerState.usageSummary?.current.totalTokens, 14);
   assert.equal(headerState.runAction, 'resume');
 
@@ -199,7 +271,7 @@ test('detail header runtime state is derived from the timeline in one place', ()
   headerState = deriveChatDetailHeaderRuntimeState(state);
   assert.equal(headerState.statusTone, 'error');
   assert.equal(headerState.statusLabel, '异常');
-  assert.equal(headerState.usageLabel, '输入 10 · 输出 4 · 总计 14');
+  assert.equal(headerState.usageLabel, '');
   assert.equal(headerState.runAction, null);
 });
 

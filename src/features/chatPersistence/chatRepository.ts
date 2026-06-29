@@ -23,6 +23,7 @@ import {
 } from './schema';
 import {
   applyChatTimelineMessage,
+  compactChatTimelineRequestEchoes,
   deriveChatTimelineStateFromMessages,
   deserializeChatTimelineState,
   projectTimelineMessages,
@@ -2410,7 +2411,7 @@ export async function getConversationInitialTimelineState(
       nodeRows.map(mapSerializedTimelineNodeRow)
     );
     if (snapshot) {
-      return snapshot;
+      return compactChatTimelineRequestEchoes(snapshot) ?? snapshot;
     }
   }
 

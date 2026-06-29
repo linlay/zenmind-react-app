@@ -180,6 +180,44 @@ test('timeline display keeps request control events as left-side request items',
   );
 });
 
+test('timeline display keeps system errors as standalone alert items', () => {
+  const state = deriveChatTimelineState('chat-error', [
+    {
+      type: 'request.query',
+      requestId: 'req-1',
+      runId: 'run-error',
+      message: '启动任务',
+      timestamp: 100,
+    },
+    {
+      type: 'run.error',
+      runId: 'run-error',
+      error: {
+        code: 'stream_failed',
+        category: 'chat_run',
+        scope: 'run',
+        status: 500,
+        retryable: false,
+        message: 'provider deepseek has empty apiKey',
+      },
+      timestamp: 120,
+    },
+  ]);
+
+  const items = buildChatTimelineDisplayItems(state);
+  assert.deepEqual(displayKinds(items), ['user-query', 'system-message']);
+
+  const alertItem = items[1];
+  assert.equal(alertItem.kind, 'system-message');
+  if (alertItem.kind !== 'system-message' || alertItem.node.kind !== 'message') {
+    throw new Error('expected system alert display item');
+  }
+  assert.equal(alertItem.isLastInRun, true);
+  assert.equal(alertItem.assistantReplyFooter, null);
+  assert.equal(alertItem.node.role, 'system');
+  assert.equal(alertItem.node.errorDetail?.code, 'stream_failed');
+});
+
 test('timeline display hides request echoes produced after awaiting answers', () => {
   const state = deriveChatTimelineState('chat-1', [
     {
@@ -314,8 +352,60 @@ test('timeline display folds active backend reasoning titles into one visible ro
   items = buildChatTimelineDisplayItems(state);
   assert.deepEqual(displayKinds(items), ['reasoning']);
   assert.equal(items[0]?.node.kind, 'reasoning');
-  assert.equal(items[0]?.node.title, '思考过程');
+  assert.equal(items[0]?.node.title, '');
   assert.equal(items[0]?.node.body, 'Simple greeting, just respond briefly.');
+  assert.equal('streaming' in items[0]!.node ? items[0]!.node.streaming : true, false);
+});
+
+test('timeline display keeps completed reasoning body complete when an active backend title row remains', () => {
+  const base = deriveChatTimelineState('chat-1', [
+    {
+      type: 'reasoning.snapshot',
+      runId: 'run-1',
+      reasoningId: 'reasoning-body',
+      text: 'Simple greeting, just respond briefly.',
+      timestamp: 110,
+    },
+  ]);
+  const bodyId = 'reasoning:chat-1:run-1:reasoning-body';
+  const titleId = 'reasoning:chat-1:run-1:reasoning-title';
+  const bodyNode = base.nodesById[bodyId];
+  if (!bodyNode || bodyNode.kind !== 'reasoning') {
+    throw new Error('expected reasoning body node');
+  }
+  const state = {
+    ...base,
+    orderedNodeIds: [titleId, bodyId],
+    nodesById: {
+      ...base.nodesById,
+      [titleId]: {
+        ...bodyNode,
+        id: titleId,
+        title: 'Thinking',
+        body: '',
+        status: 'updating',
+        streaming: true,
+        lifecycle: 'active',
+        createdAt: 100,
+        updatedAt: 100,
+        order: 0,
+      },
+      [bodyId]: {
+        ...bodyNode,
+        order: 1,
+      },
+    },
+    nextOrder: 2,
+    revision: base.revision + 1,
+  };
+
+  const items = buildChatTimelineDisplayItems(state);
+
+  assert.deepEqual(displayKinds(items), ['reasoning']);
+  assert.equal(items[0]?.node.kind, 'reasoning');
+  assert.equal(items[0]?.node.title, '');
+  assert.equal(items[0]?.node.body, 'Simple greeting, just respond briefly.');
+  assert.equal(items[0]?.node.lifecycle, 'complete');
   assert.equal('streaming' in items[0]!.node ? items[0]!.node.streaming : true, false);
 });
 
@@ -350,7 +440,7 @@ test('timeline display does not fold later reasoning titles across runtime rows'
   const items = buildChatTimelineDisplayItems(state);
   assert.deepEqual(displayKinds(items), ['reasoning', 'tool', 'reasoning']);
   assert.equal(items[0]?.node.kind, 'reasoning');
-  assert.equal(items[0]?.node.title, '思考过程');
+  assert.equal(items[0]?.node.title, '');
   assert.equal(items[2]?.node.kind, 'reasoning');
   assert.equal(items[2]?.node.title, 'Pondering');
 });

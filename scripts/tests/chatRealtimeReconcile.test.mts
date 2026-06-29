@@ -37,3 +37,16 @@ test('detail reconcile treats disconnected websocket as recoverable background w
   assert.match(detailOpenSource, /\.catch\(\(error\) =>/);
   assert.doesNotMatch(detailOpenSource, /void chatSyncService\.reconcileConversation\([^;]+;/);
 });
+
+test('incoming assistant messages keep their run id when projected into timeline', () => {
+  const incomingSource = extractSourceSection(
+    chatSyncServiceSource,
+    'private async handleIncomingMessageEvent',
+    'private async handleAssistantContentEvent'
+  );
+
+  assert.match(incomingSource, /const incomingRunId = toText\(event\.runId\);/);
+  assert.match(incomingSource, /message\.role === 'assistant' && incomingRunId/);
+  assert.match(incomingSource, /publishTimelineMessagePatch\([^;]+timelineRunContext\)/s);
+  assert.match(incomingSource, /publishTimelineMessage\([^;]+timelineRunContext\)/s);
+});

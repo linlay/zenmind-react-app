@@ -11,7 +11,7 @@ import type {
   ChatTimelineToolGroupDisplayItem,
   ChatTimelineToolNode,
 } from './types.ts';
-import { CHAT_TIMELINE_REASONING_PROCESS_TITLE } from './timelineConstants.ts';
+import { getChatTimelineErrorDetailSignature } from './timelinePlatformError.ts';
 
 type ChatTimelineDisplayTextNode = ChatTimelineTextNode & {
   kind: Exclude<ChatTimelineTextNode['kind'], 'usage'>;
@@ -81,15 +81,19 @@ function isVisibleTimelineNode(
     return false;
   }
   if (node.kind === 'message') {
-    return node.content.trim().length > 0 || node.role === 'user';
+    return (
+      node.content.trim().length > 0 ||
+      node.role === 'user' ||
+      Boolean(node.errorDetail)
+    );
   }
   if (node.kind === 'awaiting') {
-    return Boolean(node.prompt || node.answer);
+    return Boolean(node.prompt || node.payloadText || node.answer || node.interactive);
   }
   if (node.kind === 'tool') {
     return Boolean(node.title || node.body || node.argsText || node.resultText);
   }
-  if (node.kind === 'reasoning' && !node.body.trim() && isDefaultReasoningTitle(node.title)) {
+  if (node.kind === 'reasoning' && !node.body.trim() && isDefaultReasoningNode(node)) {
     return isActiveTimelineDisplayNode(node);
   }
   return Boolean(node.body || node.title);
@@ -166,8 +170,8 @@ function isActiveTimelineDisplayNode(node: ChatTimelineDisplayNode): boolean {
   return node.lifecycle === 'active' || ('streaming' in node && Boolean(node.streaming));
 }
 
-function isDefaultReasoningTitle(title: string): boolean {
-  return String(title || '').trim() === CHAT_TIMELINE_REASONING_PROCESS_TITLE;
+function isDefaultReasoningNode(node: ChatTimelineDisplayNode): boolean {
+  return node.kind === 'reasoning' && !String(node.title || '').trim();
 }
 
 function isReasoningStatusNode(node: ChatTimelineDisplayNode): boolean {
@@ -177,7 +181,7 @@ function isReasoningStatusNode(node: ChatTimelineDisplayNode): boolean {
 
   const title = node.title.trim();
   const body = node.body.trim();
-  return Boolean(title && !isDefaultReasoningTitle(title) && (!body || body === title));
+  return Boolean(title && !isDefaultReasoningNode(node) && (!body || body === title));
 }
 
 function getReasoningStatusPair(
@@ -190,7 +194,8 @@ function getReasoningStatusPair(
     runIdForNode(node) !== runIdForNode(statusNode) ||
     !isReasoningStatusNode(statusNode) ||
     !isActiveTimelineDisplayNode(statusNode) ||
-    !isDefaultReasoningTitle(node.title)
+    !isActiveTimelineDisplayNode(node) ||
+    !isDefaultReasoningNode(node)
   ) {
     return null;
   }
@@ -437,8 +442,9 @@ function resolveTailDisplayNode(
     !isReasoningDisplayNode(previousTail.node) ||
     runIdForNode(node) !== runIdForNode(previousTail.node) ||
     !isActiveTimelineDisplayNode(previousTail.node) ||
-    !isDefaultReasoningTitle(node.title) ||
-    isDefaultReasoningTitle(previousTail.node.title)
+    !isActiveTimelineDisplayNode(node) ||
+    !isDefaultReasoningNode(node) ||
+    isDefaultReasoningNode(previousTail.node)
   ) {
     return node;
   }
@@ -583,7 +589,9 @@ function buildToolGroupDisplayItem(
 function getTimelineNodeContentLength(node: ChatTimelineDisplayItem['node']): number {
   if (node.kind === 'message') {
     return (
-      node.content.length + (node.attachments || []).reduce((total, attachment) => total + attachment.name.length, 0)
+      node.content.length +
+      getChatTimelineErrorDetailSignature(node.errorDetail).length +
+      (node.attachments || []).reduce((total, attachment) => total + attachment.name.length, 0)
     );
   }
   if (node.kind === 'tool') {

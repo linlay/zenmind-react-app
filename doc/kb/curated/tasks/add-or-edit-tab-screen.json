@@ -47,6 +47,9 @@
     "src/shared/visual/AppThemeProvider.tsx",
     "src/shared/visual/foundation.ts",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+    "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx",
+    "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx",
+    "src/features/agentTaskBoard/navigationTypes.ts",
     "src/features/chatPersistence/ChatHomeScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx"
   ],
@@ -59,7 +62,8 @@
     "Native Bottom Tabs 图标使用 assets/tabs 下的 tintable PNG，不直接复用 React SVG AppIcon。",
     "一级页面如果接入共享 Header，标题区要固定在滚动区外，不跟随 ScrollView 或列表滚动。",
     "如果改设置入口、外观偏好或运行时主题，必须同步检查 shared-visual-foundation 和 app-startup，主题 Provider 要位于 NavigationContainer 上层。",
-    "详情页如果有整页骨架屏，不要在 stack push 动画中途卸掉；重内容应先在骨架层下完成挂载，再在过渡稳定后揭开。"
+    "详情页如果有整页骨架屏，不要在 stack push 动画中途卸掉；重内容应先在骨架层下完成挂载，再在过渡稳定后揭开。",
+    "任务看板二级页如果要覆盖底部 Tab，使用 RootStack 的 TaskBoardFlow + feature 子栈，不在 AgentTaskBoardScreen 内手写本地 route 状态或 tab 显隐。"
   ],
   "acceptanceChecks": [
     "新或修改后的 Tab、设置页和上层 route 能从 RootNavigator 正常进入，类型没有漂移。",
@@ -67,6 +71,7 @@
     "一级页面顶部 Header 固定可见，滚动内容从 Header 下方开始，底部操作区不被 TabBar 覆盖且可点击。",
     "设置页外观偏好、底部 Tab、Header、任务看板和聊天主路径能随 system/light/dark 主题偏好同步更新。",
     "初始路由、tab icon 和占位布局行为符合预期。",
-    "详情页进入动画期间整页骨架屏保持稳定，不出现骨架中途消失导致的明显卡顿。"
+    "详情页进入动画期间整页骨架屏保持稳定，不出现骨架中途消失导致的明显卡顿。",
+    "任务二级页进入后底部 Tab 不展示，首页与二级页共享同一份 Kanban provider；Kanban 订阅只在任务页面聚焦时 retain，失焦后不重复拉取或后台空转。"
   ]
 }

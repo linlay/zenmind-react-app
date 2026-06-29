@@ -16,15 +16,14 @@ import { normalizeChatReasoningEffort } from '../agentModelSettings.ts';
 import type { ChatReasoningEffort } from '../types';
 
 type ChatUsageHeaderBadgeProps = {
-  usageLabel: string;
-  usageSummary: ChatTimelineUsageSummary | null;
+  usageSummary: ChatTimelineUsageSummary;
   modelKey: string | null;
   reasoningEffort: ChatReasoningEffort | null;
 };
 
 type ChatUsageStatsDrawerProps = {
   visible: boolean;
-  usageSummary: ChatTimelineUsageSummary | null;
+  usageSummary: ChatTimelineUsageSummary;
   modelKey: string | null;
   reasoningEffort: ChatReasoningEffort | null;
   onClose: () => void;
@@ -55,12 +54,6 @@ const USAGE_REASONING_LABEL_KEYS: Record<ChatReasoningEffort, I18nKey> = {
   LOW: 'usage.reasoning.LOW',
   NONE: 'usage.reasoning.NONE'
 };
-
-function readLegacyUsageTotalFromLabel(usageLabel: string): number | null {
-  const match = usageLabel.match(/总计\s*([\d,.]+)/);
-  const numberValue = match ? Number(match[1].replace(/,/g, '')) : NaN;
-  return Number.isFinite(numberValue) ? numberValue : null;
-}
 
 function formatUsageNumber(value: number | null | undefined): string {
   return value === null || value === undefined ? '-' : value.toLocaleString();
@@ -115,13 +108,13 @@ function formatUsagePercent(value: number | null | undefined): string {
   return value === null || value === undefined ? '--%' : `${value.toFixed(2)}%`;
 }
 
-function resolveDisplayTotal(summary: ChatTimelineUsageSummary | null, usageLabel: string): number | null {
+function resolveDisplayTotal(summary: ChatTimelineUsageSummary): number | null {
   return (
-    summary?.chat.totalTokens ??
-    summary?.current.totalTokens ??
-    summary?.run.totalTokens ??
-    summary?.compact?.totalTokens ??
-    readLegacyUsageTotalFromLabel(usageLabel)
+    summary.chat.totalTokens ??
+    summary.current.totalTokens ??
+    summary.run.totalTokens ??
+    summary.compact?.totalTokens ??
+    null
   );
 }
 
@@ -131,14 +124,14 @@ function resolveUsageModelLabel({
   reasoningEffort,
   t
 }: {
-  usageSummary: ChatTimelineUsageSummary | null;
+  usageSummary: ChatTimelineUsageSummary;
   modelKey: string | null;
   reasoningEffort: ChatReasoningEffort | null;
   t: TFunction;
 }): string {
-  const displayModelKey = usageSummary?.modelKey || modelKey || t('usage.unknownModel');
+  const displayModelKey = usageSummary.modelKey || modelKey || t('usage.unknownModel');
   const displayReasoningEffort =
-    normalizeChatReasoningEffort(usageSummary?.contextWindow.reasoningEffort) || reasoningEffort;
+    normalizeChatReasoningEffort(usageSummary.contextWindow.reasoningEffort) || reasoningEffort;
   const reasoningLabel = displayReasoningEffort ? t(USAGE_REASONING_LABEL_KEYS[displayReasoningEffort]) : '';
   return reasoningLabel ? `${displayModelKey} · ${reasoningLabel}` : displayModelKey;
 }
@@ -161,9 +154,9 @@ function resolveUsageEstimatedCost(
       };
 }
 
-function resolveChatCacheHitPercent(summary: ChatTimelineUsageSummary | null): number | null {
-  const hitTokens = summary?.chat.cacheHitTokens;
-  const missTokens = summary?.chat.cacheMissTokens;
+function resolveChatCacheHitPercent(summary: ChatTimelineUsageSummary): number | null {
+  const hitTokens = summary.chat.cacheHitTokens;
+  const missTokens = summary.chat.cacheMissTokens;
   if (hitTokens === null || hitTokens === undefined || missTokens === null || missTokens === undefined) {
     return null;
   }
@@ -308,27 +301,27 @@ const UsageSection = memo(function UsageSection({
   );
 });
 
-const UsageContextWindow = memo(function UsageContextWindow({ summary }: { summary: ChatTimelineUsageSummary | null }) {
+const UsageContextWindow = memo(function UsageContextWindow({ summary }: { summary: ChatTimelineUsageSummary }) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const cacheHitLabel = formatUsagePercent(resolveChatCacheHitPercent(summary));
-  const estimatedCostLabel = formatChatEstimatedCost(resolveUsageEstimatedCost(summary?.chat));
+  const estimatedCostLabel = formatChatEstimatedCost(resolveUsageEstimatedCost(summary.chat));
 
   return (
     <View style={styles.usageContextWindow}>
       <View style={styles.usageContextMain}>
-        <UsageRing percent={summary?.contextWindow.percent ?? null} size={40} />
+        <UsageRing percent={summary.contextWindow.percent ?? null} size={40} />
         <View style={styles.usageContextCopy}>
           <Text allowFontScaling={false} numberOfLines={1} style={styles.usageContextLabel}>
             {t('usage.context.title')}
           </Text>
           <Text allowFontScaling={false} numberOfLines={1} style={styles.usageContextValue}>
-            {formatUsageNumber(summary?.contextWindow.currentSize)} /{' '}
-            {formatUsageNumber(summary?.contextWindow.maxSize)}
+            {formatUsageNumber(summary.contextWindow.currentSize)} /{' '}
+            {formatUsageNumber(summary.contextWindow.maxSize)}
           </Text>
           <Text allowFontScaling={false} numberOfLines={1} style={styles.usageContextHint}>
             {t('usage.context.nextCall', {
-              count: formatUsageNumber(summary?.contextWindow.estimatedNextCallSize)
+              count: formatUsageNumber(summary.contextWindow.estimatedNextCallSize)
             })}
           </Text>
         </View>
@@ -348,7 +341,7 @@ const UsageContextWindow = memo(function UsageContextWindow({ summary }: { summa
 const ChatUsageStatsContent = memo(function ChatUsageStatsContent({
   usageSummary
 }: {
-  usageSummary: ChatTimelineUsageSummary | null;
+  usageSummary: ChatTimelineUsageSummary;
 }) {
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
@@ -361,10 +354,10 @@ const ChatUsageStatsContent = memo(function ChatUsageStatsContent({
       contentContainerStyle={styles.usageDrawerContent}
     >
       <UsageContextWindow summary={usageSummary} />
-      <UsageSection title={t('usage.section.current')} stats={usageSummary?.current} />
-      <UsageSection title={t('usage.section.run')} stats={usageSummary?.run} />
-      <UsageSection title={t('usage.section.chat')} stats={usageSummary?.chat} />
-      {usageSummary?.compact ? <UsageSection title={t('usage.section.compact')} stats={usageSummary.compact} /> : null}
+      <UsageSection title={t('usage.section.current')} stats={usageSummary.current} />
+      <UsageSection title={t('usage.section.run')} stats={usageSummary.run} />
+      <UsageSection title={t('usage.section.chat')} stats={usageSummary.chat} />
+      {usageSummary.compact ? <UsageSection title={t('usage.section.compact')} stats={usageSummary.compact} /> : null}
     </ScrollView>
   );
 });
@@ -480,7 +473,6 @@ const ChatUsageStatsDrawer = memo(function ChatUsageStatsDrawer({
 });
 
 export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
-  usageLabel,
   usageSummary,
   modelKey,
   reasoningEffort
@@ -489,9 +481,7 @@ export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
   const styles = useAppThemeStyles(createStyles);
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
-  const normalizedUsageLabel = usageLabel.trim();
-  const hasUsageStats = Boolean(normalizedUsageLabel || usageSummary);
-  const total = resolveDisplayTotal(usageSummary, normalizedUsageLabel);
+  const total = resolveDisplayTotal(usageSummary);
   const compactTotal = formatCompactUsageNumber(total);
   const accessibilityLabel =
     total !== null ? `${t('usage.title')}, ${t('usage.metric.total')} ${formatUsageNumber(total)}` : t('usage.title');
@@ -507,10 +497,6 @@ export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
     setMounted(false);
   }, []);
 
-  if (!hasUsageStats) {
-    return null;
-  }
-
   return (
     <>
       <Pressable
@@ -520,7 +506,7 @@ export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
         hitSlop={6}
         style={({ pressed }) => [styles.usageHeaderBadge, pressed && styles.usageButtonPressed]}
       >
-        <UsageRing percent={usageSummary?.contextWindow.percent ?? null} size={26} />
+        <UsageRing percent={usageSummary.contextWindow.percent ?? null} size={26} />
         <View style={styles.usageHeaderTextBlock}>
           <Text allowFontScaling={false} numberOfLines={1} style={styles.usageHeaderValue}>
             {compactTotal}

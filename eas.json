@@ -15,26 +15,26 @@
       "env": { "BRAND": "cutej" }
     },
     "preview-zenmind": {
-      "channel": "zenmind-preview",
+      "channel": "shared-preview",
       "autoIncrement": true,
       "distribution": "internal",
       "android": { "buildType": "apk" },
       "env": { "BRAND": "zenmind" }
     },
     "preview-cutej": {
-      "channel": "cutej-preview",
+      "channel": "shared-preview",
       "autoIncrement": true,
       "distribution": "internal",
       "android": { "buildType": "apk" },
       "env": { "BRAND": "cutej" }
     },
     "production-zenmind": {
-      "channel": "zenmind-production",
+      "channel": "shared-production",
       "autoIncrement": true,
       "env": { "BRAND": "zenmind" }
     },
     "production-cutej": {
-      "channel": "cutej-production",
+      "channel": "shared-production",
       "autoIncrement": true,
       "env": { "BRAND": "cutej" }
     }

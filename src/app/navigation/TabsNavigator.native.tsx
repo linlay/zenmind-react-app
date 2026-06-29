@@ -38,6 +38,7 @@ export function TabsNavigator() {
       screenOptions={({ route }) => ({
         headerShown: false,
         lazy: true,
+        freezeOnBlur: true,
         popToTopOnBlur: false,
         tabBarActiveTintColor: theme.colors.brandBlue,
         tabBarInactiveTintColor: theme.colors.textTertiary,

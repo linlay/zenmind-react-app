@@ -1,4 +1,5 @@
 import type {
+  RemoteChatActiveRun,
   RemoteChatDetail,
   RemoteChatEvent,
   RemoteChatSummary,
@@ -27,6 +28,12 @@ type ProjectedConversationSummary = Omit<ChatHomeItem, 'read' | 'unreadCount'> &
   unreadCount?: number;
 };
 
+export type ProjectedDetailActiveRun = {
+  runId: string;
+  agentKey: string;
+  lastSeq: number;
+};
+
 export type ProjectedConversationDetail = {
   conversationId: string;
   title: string;
@@ -34,6 +41,7 @@ export type ProjectedConversationDetail = {
   read: ChatReadState;
   hasExplicitReadState: boolean;
   activeRunId: string;
+  activeRun: ProjectedDetailActiveRun | null;
   timelineState: ChatTimelineState;
   runtimeState: ChatConversationRuntimeState;
   summary: ProjectedConversationSummary;
@@ -73,6 +81,7 @@ type DetailUsageSnapshotRef = {
 type DetailTimelineEventIndex = {
   hasAnyRequestQuery: boolean;
   hasPlanningEvent: boolean;
+  hasPlanEvent: boolean;
   latestUsageSnapshot: DetailUsageSnapshotRef | null;
   latestCompactUsage: Record<string, unknown> | null;
   latestCompactPostTokensAfterUsage: number | null;
@@ -81,12 +90,14 @@ type DetailTimelineEventIndex = {
   requestQueryRunIds: Set<string>;
   runCompleteIds: Set<string>;
   runStartIds: Set<string>;
+  artifactKeys: Set<string>;
 };
 
 function createDetailTimelineEventIndex(): DetailTimelineEventIndex {
   return {
     hasAnyRequestQuery: false,
     hasPlanningEvent: false,
+    hasPlanEvent: false,
     latestUsageSnapshot: null,
     latestCompactUsage: null,
     latestCompactPostTokensAfterUsage: null,
@@ -95,7 +106,25 @@ function createDetailTimelineEventIndex(): DetailTimelineEventIndex {
     requestQueryRunIds: new Set(),
     runCompleteIds: new Set(),
     runStartIds: new Set(),
+    artifactKeys: new Set(),
   };
+}
+
+function getPlanSnapshotKey(value: unknown): string {
+  if (!isObjectRecord(value)) {
+    return '';
+  }
+  return toText(value.planId || value.id || value.title || value.name);
+}
+
+function getArtifactSnapshotKey(value: unknown, fallbackIndex = -1): string {
+  if (!isObjectRecord(value)) {
+    return fallbackIndex >= 0 ? `artifact-${fallbackIndex}` : '';
+  }
+  return (
+    toText(value.artifactId || value.id || value.url || value.name || value.path || value.sandboxPath) ||
+    (fallbackIndex >= 0 ? `artifact-${fallbackIndex}` : '')
+  );
 }
 
 function addDetailTimelineEventIndex(
@@ -113,6 +142,15 @@ function addDetailTimelineEventIndex(
 
   if (type.startsWith('planning.')) {
     index.hasPlanningEvent = true;
+  }
+  if (type.startsWith('plan.')) {
+    index.hasPlanEvent = true;
+  }
+  if (type === 'artifact.publish') {
+    const artifactKey = getArtifactSnapshotKey(event);
+    if (artifactKey) {
+      index.artifactKeys.add(artifactKey);
+    }
   }
   if (type === 'usage.snapshot') {
     index.latestUsageSnapshot = {
@@ -170,6 +208,68 @@ function hasRequestQueryForRun(index: DetailTimelineEventIndex, runId: string): 
   return runId ? index.requestQueryRunIds.has(runId) : index.hasAnyRequestQuery;
 }
 
+function appendDetailPlanSnapshotEvent(
+  events: RemoteChatEvent[],
+  index: DetailTimelineEventIndex,
+  detail: RemoteChatDetail,
+  conversationId: string,
+  timestamp: number
+): void {
+  const plan = isObjectRecord(detail.plan) ? detail.plan : null;
+  if (!plan || index.hasPlanEvent) {
+    return;
+  }
+
+  appendDetailTimelineEvent(events, index, {
+    type: 'plan.update',
+    chatId: conversationId,
+    runId: toText(plan.runId),
+    planId: getPlanSnapshotKey(plan) || 'plan',
+    title: toText(plan.title || plan.name) || '计划',
+    status: toText(plan.status),
+    text: toText(plan.text || plan.summary || plan.title),
+    payload: plan,
+    timestamp,
+  });
+}
+
+function appendDetailArtifactSnapshotEvents(
+  events: RemoteChatEvent[],
+  index: DetailTimelineEventIndex,
+  detail: RemoteChatDetail,
+  conversationId: string,
+  timestamp: number
+): void {
+  const artifact = isObjectRecord(detail.artifact) ? detail.artifact : null;
+  const items = Array.isArray(artifact?.items)
+    ? artifact.items.filter((item): item is Record<string, unknown> => isObjectRecord(item))
+    : [];
+  items.forEach((item, itemIndex) => {
+    const artifactKey = getArtifactSnapshotKey(item, itemIndex);
+    if (index.artifactKeys.has(artifactKey)) {
+      return;
+    }
+
+    appendDetailTimelineEvent(events, index, {
+      type: 'artifact.publish',
+      chatId: conversationId,
+      runId: toText(item.runId),
+      artifactId: artifactKey,
+      name: toText(item.name),
+      title: toText(item.name) || toText(item.title) || artifactKey,
+      mimeType: toText(item.mimeType),
+      url: toText(item.url),
+      sha256: toText(item.sha256),
+      sizeBytes: toFiniteNumber(item.sizeBytes) ?? toFiniteNumber(item.size) ?? undefined,
+      payload: item,
+      timestamp: parseTimestamp(
+        item.timestamp || item.createdAt || item.updatedAt,
+        timestamp + itemIndex
+      ),
+    });
+  });
+}
+
 type DetailRunUsageSources = {
   latestRun: Record<string, unknown> | null;
   runWithUsage: Record<string, unknown> | null;
@@ -188,6 +288,43 @@ function hasNestedUsageSections(usage: Record<string, unknown>): boolean {
 
 function getRunId(value: unknown): string {
   return isObjectRecord(value) ? toText(value.runId) : '';
+}
+
+function toNonNegativeInteger(value: unknown): number {
+  const numeric = toFiniteNumber(value);
+  return numeric !== null && numeric > 0 ? Math.floor(numeric) : 0;
+}
+
+function isTerminalActiveRunState(value: unknown): boolean {
+  const state = toText(value).toLowerCase();
+  return (
+    state === 'complete' ||
+    state === 'completed' ||
+    state === 'done' ||
+    state === 'error' ||
+    state === 'failed' ||
+    state === 'cancelled' ||
+    state === 'canceled'
+  );
+}
+
+function readDetailActiveRun(
+  detail: RemoteChatDetail
+): (RemoteChatActiveRun & Record<string, unknown>) | null {
+  return isObjectRecord(detail.activeRun) ? detail.activeRun : null;
+}
+
+function projectDetailActiveRun(detail: RemoteChatDetail): ProjectedDetailActiveRun | null {
+  const activeRun = readDetailActiveRun(detail);
+  const runId = getRunId(activeRun);
+  if (!activeRun || !runId || isTerminalActiveRunState(activeRun.state)) {
+    return null;
+  }
+  return {
+    runId,
+    agentKey: toText(activeRun.agentKey),
+    lastSeq: toNonNegativeInteger(activeRun.lastSeq),
+  };
 }
 
 function getRunModelKey(run: Record<string, unknown> | null): string {
@@ -338,7 +475,8 @@ function buildDetailUsageSnapshotEvent(
 function buildDetailTimelineEvents(
   detail: RemoteChatDetail,
   conversationId: string,
-  title: string
+  title: string,
+  activeRun: ProjectedDetailActiveRun | null
 ): RemoteChatEvent[] {
   const events = Array.isArray(detail.events) ? [...detail.events] : [];
   const eventIndex = indexDetailTimelineEvents(events);
@@ -417,6 +555,39 @@ function buildDetailTimelineEvents(
       });
     }
   });
+
+  if (
+    activeRun &&
+    !eventIndex.runStartIds.has(activeRun.runId) &&
+    !eventIndex.runCompleteIds.has(activeRun.runId)
+  ) {
+    const activeRunRecord = readDetailActiveRun(detail);
+    appendDetailTimelineEvent(events, eventIndex, {
+      type: 'run.start',
+      chatId: conversationId,
+      runId: activeRun.runId,
+      agentKey: activeRun.agentKey,
+      timestamp: parseTimestamp(
+        activeRunRecord?.startedAt,
+        (eventIndex.lastTimestamp || baseTimestamp) + 1
+      ),
+    });
+  }
+
+  appendDetailPlanSnapshotEvent(
+    events,
+    eventIndex,
+    detail,
+    conversationId,
+    (eventIndex.lastTimestamp || baseTimestamp) + 1
+  );
+  appendDetailArtifactSnapshotEvents(
+    events,
+    eventIndex,
+    detail,
+    conversationId,
+    (eventIndex.lastTimestamp || baseTimestamp) + 1
+  );
 
   const usageSnapshot = buildDetailUsageSnapshotEvent(
     detail,
@@ -504,8 +675,10 @@ export function projectRemoteChatDetail(
   const read = hasExplicitReadState
     ? normalizeChatReadState(detail)
     : normalizeChatReadState(fallbackSummary);
-  const events = buildDetailTimelineEvents(detail, conversationId, title);
+  const detailActiveRun = projectDetailActiveRun(detail);
+  const events = buildDetailTimelineEvents(detail, conversationId, title, detailActiveRun);
   const timelineState = deriveChatTimelineState(conversationId, events);
+  const activeRun = detailActiveRun?.runId === timelineState.activeRunId ? detailActiveRun : null;
   const runtimeState = projectTimelineRuntimeState(timelineState);
   const messages = projectTimelineMessages(timelineState);
 
@@ -528,6 +701,7 @@ export function projectRemoteChatDetail(
     read,
     hasExplicitReadState,
     activeRunId: timelineState.activeRunId,
+    activeRun,
     timelineState,
     runtimeState,
     summary,

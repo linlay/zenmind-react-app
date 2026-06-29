@@ -1,19 +1,8 @@
 import type { AgentWonderSuggestion } from '../../../core/api/services/chatApi';
 
-export type ChatWonderGridConfig = {
-  columnCount: 2 | 3;
-  visibleCount: 3 | 4;
-};
-
-const CHAT_WONDER_THREE_COLUMN_MIN_WIDTH = 390;
+export const CHAT_WONDER_VISIBLE_COUNT = 3;
 const HASH_OFFSET = 2166136261;
 const HASH_PRIME = 16777619;
-
-export function resolveChatWonderGridConfig(width: number): ChatWonderGridConfig {
-  return width >= CHAT_WONDER_THREE_COLUMN_MIN_WIDTH
-    ? { columnCount: 3, visibleCount: 3 }
-    : { columnCount: 2, visibleCount: 4 };
-}
 
 function hashWonderKey(value: string, seed: number): number {
   let hash = (HASH_OFFSET ^ seed) >>> 0;
@@ -25,18 +14,13 @@ function hashWonderKey(value: string, seed: number): number {
 
 export function pickChatWonderSuggestions(
   wonders: readonly AgentWonderSuggestion[],
-  visibleCount: number,
   seed: number
 ): AgentWonderSuggestion[] {
-  const count = Math.max(0, Math.trunc(visibleCount));
-  if (count <= 0) {
-    return [];
-  }
-  if (wonders.length <= count) {
+  if (wonders.length <= CHAT_WONDER_VISIBLE_COUNT) {
     return [...wonders];
   }
   if (seed <= 0) {
-    return wonders.slice(0, count);
+    return wonders.slice(0, CHAT_WONDER_VISIBLE_COUNT);
   }
 
   return wonders
@@ -46,6 +30,6 @@ export function pickChatWonderSuggestions(
       wonder,
     }))
     .sort((left, right) => left.score - right.score || left.index - right.index)
-    .slice(0, count)
+    .slice(0, CHAT_WONDER_VISIBLE_COUNT)
     .map((item) => item.wonder);
 }

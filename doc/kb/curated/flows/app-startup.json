@@ -3,11 +3,11 @@
   "title": "应用启动与导航挂载",
   "trigger": "Expo 启动应用并注册根组件时触发。",
   "sourceOfTruth": [
-    "app.config.js 通过 brands/<id>/brand.json 和 scripts/lib/brand-config.js 决定 expo-splash-screen 的原生启动图资源、背景色、imageWidth、包名和 EAS updates 入口。",
+    "app.config.js 通过 --brand 或 BRAND 选择 brands/<id>/brand.json，并合成 brands/shared.json 决定 expo-splash-screen 的原生启动图资源、背景色、imageWidth、展示名称、共享包名 / bundle id、EAS updates 入口和安装壳 embedded brand id。",
     "App.tsx 和 AppRoot.tsx 决定根 provider 树、I18nProvider、AppThemeProvider 与导航挂载顺序。",
     "src/core/auth/appAuth.ts 决定冷启动时的认证恢复、HTTP/Desktop WS 设备 profile、token 缓存、前台预刷新和登录态切换。",
     "notificationService 决定登录后的系统通知权限、原生 push token 注册和冷启动通知点击缓存。",
-    "AppLaunchSkeleton.tsx 和 src/shared/icons/brandAssets.ts 决定应用冷启动期间的加载遮罩展示效果与 generated brand logo 入口。",
+    "src/shared/branding/installedBrand.ts 从安装壳 embedded app.config.extra.brand.id 解析 INSTALLED_BRAND_ID；AppLaunchSkeleton.tsx 和 src/shared/icons/brandAssets.ts 决定应用冷启动期间的加载遮罩展示效果与 generated brand logo 入口。",
     "AndroidManifest.xml、MainActivity.kt、MainApplication.kt 和 res/values/styles.xml 决定 React 挂载前的原生启动窗口外观与 ReactHost 创建方式。",
     "RootNavigator.tsx 决定 root stack 与底部 Tab 的真实路由结构。"
   ],
@@ -56,7 +56,7 @@
     },
     {
       "order": 7,
-      "label": "RootNavigator 根据认证快照切到 AuthBootstrapScreen、LoginScreen 或 Tabs；已登录时 ChatDetail 继续作为上层路由覆盖 Tabs。",
+      "label": "RootNavigator 根据认证快照切到 AuthBootstrapScreen、LoginScreen 或 Tabs；已登录时 ChatDetail 与 TaskBoardFlow 继续作为上层路由覆盖 Tabs。",
       "moduleId": "app-shell-navigation",
       "file": "src/app/navigation/RootNavigator.tsx",
       "symbol": "RootNavigator"
@@ -85,7 +85,7 @@
     "Theme.App.SplashScreen 和 AppTheme 背景不连续时，会在 React loading 出现前露出白屏或占位底图。",
     "AppThemeProvider 没有挂在 NavigationContainer 上层时，导航背景、StatusBar 和底部 Tab 不会随主题偏好同步更新。",
     "native splash 使用的 logo 与 React loading 首帧不一致时，会在 hideAsync() 接棒瞬间出现明显跳变。",
-    "BRAND 环境变量、brand manifest 或 generated 资源不同步时，会出现原生包信息、启动图和运行时显示名不一致。",
+    "BRAND 环境变量、brands/shared.json、brand manifest、安装壳 embedded brand id、generated registry、generated 资源或本地 native active manifest 不同步时，会出现原生展示名、启动图和运行时显示名不一致；android package / iOS bundle id 不应随展示品牌漂移。",
     "启动加载遮罩没有在 ready 后退场会导致整个应用不可交互。",
     "通知点击在认证或导航 ready 前不缓存，会导致冷启动点击丢失。",
     "误删 __DEV__ 守卫会把调试入口暴露到生产。",

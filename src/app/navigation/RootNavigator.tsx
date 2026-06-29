@@ -2,6 +2,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useAuthSession } from '../../core/auth/useAuthSession';
 import { isAuthRequired } from '../../core/auth/authConfig';
+import { AgentTaskBoardFlowNavigator } from '../../features/agentTaskBoard/AgentTaskBoardFlowNavigator';
+import { AgentTaskBoardProvider } from '../../features/agentTaskBoard/AgentTaskBoardProvider';
 import { AuthBootstrapScreen, LoginScreen } from '../../features/auth/LoginScreen';
 import { ChatDetailScreen } from '../../features/chatPersistence/ChatDetailScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
@@ -31,26 +33,37 @@ export function RootNavigator() {
   }
 
   return (
-    <RootStack.Navigator initialRouteName="Tabs" screenOptions={{ headerShown: false }}>
-      <RootStack.Screen name="Tabs" component={TabsNavigator} />
-      <RootStack.Screen
-        name="ChatDetail"
-        component={ChatDetailScreen}
-        options={{
-          animation: 'slide_from_right',
-          animationDuration: 100,
-          gestureEnabled: true
-        }}
-      />
-      <RootStack.Screen
-        name="Settings"
-        component={SettingsScreen}
-        options={{
-          animation: 'slide_from_right',
-          animationDuration: 100,
-          gestureEnabled: true
-        }}
-      />
-    </RootStack.Navigator>
+    <AgentTaskBoardProvider>
+      <RootStack.Navigator initialRouteName="Tabs" screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="Tabs" component={TabsNavigator} options={{ freezeOnBlur: true }} />
+        <RootStack.Screen
+          name="TaskBoardFlow"
+          component={AgentTaskBoardFlowNavigator}
+          options={{
+            animation: 'slide_from_right',
+            animationDuration: 100,
+            gestureEnabled: true
+          }}
+        />
+        <RootStack.Screen
+          name="ChatDetail"
+          component={ChatDetailScreen}
+          options={{
+            animation: 'slide_from_right',
+            animationDuration: 100,
+            gestureEnabled: true
+          }}
+        />
+        <RootStack.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{
+            animation: 'slide_from_right',
+            animationDuration: 100,
+            gestureEnabled: true
+          }}
+        />
+      </RootStack.Navigator>
+    </AgentTaskBoardProvider>
   );
 }

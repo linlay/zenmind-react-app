@@ -39,6 +39,7 @@ export function TabsNavigator() {
         headerShown: false,
         animation: 'fade',
         lazy: true,
+        freezeOnBlur: true,
         tabBarHideOnKeyboard: true,
         tabBarShowLabel: true,
         tabBarLabel: t(TAB_LABEL_KEYS[route.name]),

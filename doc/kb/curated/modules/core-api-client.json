@@ -11,7 +11,7 @@
     "在开发态通过 core-debug-logging 打印非 WS HTTP 请求、响应和错误。",
     "把业务请求实现收口到 core/api/services，避免 feature 到处散写 fetch。",
     "提供 activeWsTransport，把 active HTTP/Desktop WS profile 解析成 core-ws-transport 可消费的 WsTransportConfig。",
-    "提供 chatApi 的聊天 WS request type 常量、envelope 解包、agent detail payload 与投影 helper、已读 payload 构造 helper、awaiting 提交和 HTML viewport 拉取入口，避免 feature 层重复拼协议字段。",
+    "提供 chatApi 的聊天 WS request type 常量、/api/chat detail payload、envelope 解包、agent detail payload 与投影 helper、已读 payload 构造 helper、awaiting 提交和 HTML viewport 拉取入口，避免 feature 层重复拼协议字段。",
     "提供 chatEventProtocol 这类纯协议 helper，统一 REST/WS 聊天事件的 type alias、字段提取和分类。"
   ],
   "publicEntrypoints": [
@@ -98,6 +98,12 @@
       "symbol": "buildAgentDetailPayload",
       "kind": "protocol-helper",
       "description": "集中构造 /api/agent payload，只透传归一后的 agentKey。"
+    },
+    {
+      "file": "src/core/api/services/chatApi.ts",
+      "symbol": "buildChatDetailPayload",
+      "kind": "protocol-helper",
+      "description": "集中构造 /api/chat detail payload，默认只拉 event history，不拉未消费的 rawMessages。"
     },
     {
       "file": "src/core/api/services/chatApi.ts",

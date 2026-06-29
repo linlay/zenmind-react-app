@@ -1,0 +1,11 @@
+{
+  "storageNamespace": "zenmind-app",
+  "nativeIdentity": {
+    "androidPackage": "com.zqfrank.agentterminalapp",
+    "iosBundleIdentifier": "cc.zenmind.ios"
+  },
+  "updates": {
+    "projectId": "e6cc69ea-7449-44f2-ae7c-69831be52d5c",
+    "url": "https://u.expo.dev/e6cc69ea-7449-44f2-ae7c-69831be52d5c"
+  }
+}

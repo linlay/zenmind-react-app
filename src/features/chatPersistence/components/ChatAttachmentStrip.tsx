@@ -5,8 +5,8 @@ import {
   buildAuthenticatedApiUriSource,
   type ApiUriSource,
 } from '../../../core/api/apiClient';
+import { AppIcon, type AppIconUsage } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
-import { AppLineIcon } from '../../../shared/visual/AppLineIcon';
 import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import {
@@ -26,6 +26,58 @@ type ChatAttachmentStripProps = {
 type ChatAttachmentStripStyles = ReturnType<typeof createStyles>;
 type ChatAttachmentVariant = ChatAttachmentStripProps['variant'];
 type ChatAttachmentTranslate = ReturnType<typeof useT>;
+
+const PDF_FILE_EXTENSION_RE = /\.pdf$/i;
+const SHEET_FILE_EXTENSION_RE = /\.(csv|tsv|xls|xlsx)$/i;
+const PRESENTATION_FILE_EXTENSION_RE = /\.(key|ppt|pptx)$/i;
+const ARCHIVE_FILE_EXTENSION_RE = /\.(7z|gz|rar|tar|tgz|zip)$/i;
+const DOCUMENT_FILE_EXTENSION_RE = /\.(doc|docx|rtf)$/i;
+const TEXT_FILE_EXTENSION_RE = /\.(json|log|md|txt|xml|ya?ml)$/i;
+
+function resolveAttachmentFileIconUsage(
+  attachment: Pick<ChatAttachmentBase, 'mimeType' | 'name'>
+): AppIconUsage {
+  const mimeType = String(attachment.mimeType || '').toLowerCase();
+  const fileName = String(attachment.name || '').toLowerCase();
+
+  if (mimeType.includes('pdf') || PDF_FILE_EXTENSION_RE.test(fileName)) {
+    return 'attachment.filePdf';
+  }
+  if (
+    mimeType.includes('spreadsheet') ||
+    mimeType.includes('excel') ||
+    mimeType.includes('csv') ||
+    SHEET_FILE_EXTENSION_RE.test(fileName)
+  ) {
+    return 'attachment.fileSheet';
+  }
+  if (
+    mimeType.includes('presentation') ||
+    mimeType.includes('powerpoint') ||
+    PRESENTATION_FILE_EXTENSION_RE.test(fileName)
+  ) {
+    return 'attachment.filePresentation';
+  }
+  if (
+    mimeType.includes('zip') ||
+    mimeType.includes('compressed') ||
+    mimeType.includes('tar') ||
+    ARCHIVE_FILE_EXTENSION_RE.test(fileName)
+  ) {
+    return 'attachment.fileArchive';
+  }
+  if (
+    mimeType.includes('word') ||
+    mimeType.includes('document') ||
+    DOCUMENT_FILE_EXTENSION_RE.test(fileName)
+  ) {
+    return 'attachment.fileDocument';
+  }
+  if (mimeType.startsWith('text/') || TEXT_FILE_EXTENSION_RE.test(fileName)) {
+    return 'attachment.fileText';
+  }
+  return 'attachment.fileGeneric';
+}
 
 function resolveImageUri({
   localUri,
@@ -133,8 +185,8 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
             <ActivityIndicator size="small" color={theme.colors.brandBlue} />
           ) : (
             <>
-              <AppLineIcon
-                name="image"
+              <AppIcon
+                usage="attachment.image"
                 size={appVisualTokens.iconSizes.md}
                 color={theme.colors.textSecondary}
               />
@@ -168,7 +220,11 @@ const AttachmentFileTile = memo(function AttachmentFileTile({
   return (
     <View style={[styles.fileTile, variant === 'message' && styles.messageFileTile]}>
       <View style={styles.fileIconWrap}>
-        <AppLineIcon name="file" size={appVisualTokens.iconSizes.sm} color={theme.colors.brandBlue} />
+        <AppIcon
+          usage={resolveAttachmentFileIconUsage(attachment)}
+          size={appVisualTokens.iconSizes.sm}
+          color={theme.colors.brandBlue}
+        />
       </View>
       <View style={styles.fileTextWrap}>
         <Text allowFontScaling={false} numberOfLines={1} style={styles.fileName}>
@@ -222,7 +278,7 @@ const ComposerAttachmentActions = memo(function ComposerAttachmentActions({
         accessibilityRole="button"
         accessibilityLabel={t('attachment.remove', { name: attachment.name })}
       >
-        <AppLineIcon name="close" size={12} color={theme.colors.textPrimary} />
+        <AppIcon usage="attachment.remove" size={12} color={theme.colors.textPrimary} />
       </Pressable>
     </>
   );

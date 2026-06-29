@@ -14,9 +14,9 @@ import type {
   ChatTimelineToolNode,
 } from './types.ts';
 
-function statusForNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): string {
+function runtimeStatusForProjectedNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): string {
   if (node.kind === 'awaiting') {
-    return node.status === 'answer' ? '已回答' : '等待响应';
+    return node.status === 'answer' ? 'answered' : 'waiting';
   }
   return node.status;
 }
@@ -33,13 +33,7 @@ function bodyForNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): 
 
 function titleForNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): string {
   if (node.kind === 'awaiting') {
-    return node.mode === 'approval'
-      ? '等待审批'
-      : node.mode === 'form'
-        ? '等待表单'
-        : node.mode === 'plan'
-          ? '等待计划确认'
-          : '向用户提问';
+    return `awaiting.${node.mode}`;
   }
   return node.title;
 }
@@ -55,7 +49,7 @@ function runtimeEntryFromNode(
     kind: node.kind,
     title: titleForNode(node),
     body: bodyForNode(node),
-    status: statusForNode(node),
+    status: runtimeStatusForProjectedNode(node),
     lifecycle: node.lifecycle,
     updatedAt: node.updatedAt,
     streaming:

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-25T01:15:38.613Z",
+  "generatedAt": "2026-06-29T05:35:20.111Z",
   "items": [
     {
       "id": "add-app-startup-loading-screen",
@@ -99,6 +99,9 @@
         "src/shared/visual/AppThemeProvider.tsx",
         "src/shared/visual/foundation.ts",
         "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+        "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx",
+        "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx",
+        "src/features/agentTaskBoard/navigationTypes.ts",
         "src/features/chatPersistence/ChatHomeScreen.tsx",
         "src/features/chatPersistence/ChatDetailScreen.tsx"
       ],
@@ -174,18 +177,21 @@
         "android package",
         "EAS profile"
       ],
-      "entryDecision": "任务涉及同一移动端项目输出多个品牌、修改品牌 manifest、包名、bundle id、图标、启动图、EAS profile 或构建期品牌同步时，从这张卡开始。",
+      "entryDecision": "任务涉及同一移动端项目输出多个展示品牌、修改品牌 manifest、名称、图标、启动图、EAS profile、共享包名约束或构建期品牌同步时，从这张卡开始。",
       "likelyFiles": [
         "brands",
         "app.config.js",
         "eas.json",
         "package.json",
+        "brands/shared.json",
         "scripts/lib/brand-config.js",
         "scripts/sync-brand.js",
         "scripts/tests/brandConfig.test.mts",
+        ".generated/brand",
         "assets/brands",
         "src/shared/generated/brand.ts",
         "src/shared/generated/brandAssets.ts",
+        "src/shared/branding/installedBrand.ts",
         "src/shared/icons/brandAssets.ts",
         "src/app/screens/TabScreens.tsx"
       ],

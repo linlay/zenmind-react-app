@@ -2,12 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import type { ChatMessageItem } from '../../src/features/chatPersistence/types.ts';
+import type { ChatTimelineState } from '../../src/features/chatTimeline/index.ts';
 import {
   applyChatTimelineEvent,
   applyChatTimelineLocalCancel,
   applyChatTimelineMessage,
   applyChatTimelineStreamDelta,
   buildChatTimelineDisplayItems,
+  compactChatTimelineRequestEchoes,
   createChatTimelineState,
   deriveChatTimelineState,
   deriveChatTimelineStateFromMessages,
@@ -46,6 +48,39 @@ function questionAwaitingAsk(overrides: Record<string, unknown> = {}): Record<st
     questions: [feedbackQuestion],
     timestamp: 300000,
     ...overrides,
+  };
+}
+
+function createActiveReasoningState(): ChatTimelineState {
+  let state = createChatTimelineState('chat-1');
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'run.start',
+    runId: 'run-1',
+    timestamp: 100,
+  });
+  return applyChatTimelineEvent(state, 'chat-1', {
+    type: 'reasoning.delta',
+    runId: 'run-1',
+    reasoningId: 'reason-1',
+    reasoningLabel: 'Computing',
+    delta: 'Need a short answer.',
+    timestamp: 110,
+  });
+}
+
+function assistantStreamMessage(content: string, createdAt: number): ChatMessageItem {
+  return {
+    messageId: 'assistant:chat-1:run-1:content',
+    clientMessageId: null,
+    serverMessageId: null,
+    conversationId: 'chat-1',
+    role: 'assistant',
+    content,
+    createdAt,
+    deliveryStatus: 'sent',
+    streamStatus: 'streaming',
+    errorReason: null,
+    attachments: [],
   };
 }
 
@@ -179,7 +214,7 @@ test('timeline reducer replays mixed chat events into one flat ordered state', (
     true
   );
   assert.equal(runtime.awaiting, null);
-  assert.equal(runtime.usageLabel, '输入 10 · 输出 4 · 总计 14');
+  assert.equal(runtime.usageLabel, '');
   assert.equal(state.usageSummary?.modelKey, 'gpt-5-mini');
   assert.equal(state.usageSummary?.contextWindow.percent, 14);
   assert.equal(state.usageSummary?.contextWindow.reasoningEffort, 'MEDIUM');
@@ -189,6 +224,92 @@ test('timeline reducer replays mixed chat events into one flat ordered state', (
     displayItems.map((item) => item.kind),
     ['user-query', 'reasoning', 'tool', 'assistant-content', 'awaiting']
   );
+});
+
+test('timeline reducer projects run errors as system alert messages', () => {
+  const state = deriveChatTimelineState('chat-error', [
+    {
+      type: 'run.start',
+      runId: 'run-error',
+      timestamp: 100,
+    },
+    {
+      type: 'run.error',
+      runId: 'run-error',
+      error: {
+        code: 'stream_failed',
+        category: 'chat_run',
+        scope: 'run',
+        status: 500,
+        retryable: false,
+        message: 'provider deepseek has empty apiKey',
+      },
+      timestamp: 120,
+    },
+  ]);
+
+  const systemNode = state.orderedNodeIds
+    .map((nodeId) => state.nodesById[nodeId])
+    .find((node) => node?.kind === 'message' && node.role === 'system');
+  const displayItems = buildChatTimelineDisplayItems(state);
+  const messages = projectTimelineMessages(state);
+
+  assert.equal(state.activeRunId, '');
+  assert.equal(systemNode?.kind, 'message');
+  if (!systemNode || systemNode.kind !== 'message') {
+    throw new Error('expected system message node');
+  }
+  assert.equal(systemNode.role, 'system');
+  assert.equal(systemNode.content, 'provider deepseek has empty apiKey');
+  assert.equal(systemNode.lifecycle, 'error');
+  assert.equal(systemNode.errorDetail?.code, 'stream_failed');
+  assert.equal(systemNode.errorDetail?.status, 500);
+  assert.equal(systemNode.errorDetail?.message, 'provider deepseek has empty apiKey');
+  assert.deepEqual(messages, []);
+  assert.deepEqual(displayItems.map((item) => item.kind), ['system-message']);
+});
+
+test('timeline reducer keeps repeated run errors as distinct system alerts', () => {
+  const state = deriveChatTimelineState('chat-error-repeat', [
+    {
+      type: 'run.start',
+      runId: 'run-error',
+      timestamp: 100,
+    },
+    {
+      type: 'run.error',
+      runId: 'run-error',
+      error: {
+        code: 'stream_failed',
+        message: 'first provider error',
+      },
+      timestamp: 120,
+    },
+    {
+      type: 'run.error',
+      runId: 'run-error',
+      error: {
+        code: 'stream_failed',
+        message: 'second provider error',
+      },
+      timestamp: 140,
+    },
+  ]);
+
+  const systemNodes = state.orderedNodeIds
+    .map((nodeId) => state.nodesById[nodeId])
+    .filter((node) => node?.kind === 'message' && node.role === 'system');
+
+  assert.equal(systemNodes.length, 2);
+  assert.equal(systemNodes[0]?.kind, 'message');
+  assert.equal(systemNodes[1]?.kind, 'message');
+  if (systemNodes[0]?.kind !== 'message' || systemNodes[1]?.kind !== 'message') {
+    throw new Error('expected repeated system message nodes');
+  }
+  assert.notEqual(systemNodes[0].id, systemNodes[1].id);
+  assert.notEqual(systemNodes[0].messageId, systemNodes[1].messageId);
+  assert.equal(systemNodes[0].errorDetail?.message, 'first provider error');
+  assert.equal(systemNodes[1].errorDetail?.message, 'second provider error');
 });
 
 test('timeline normalizes builtin plan awaiting into interactive confirmation', () => {
@@ -526,11 +647,119 @@ test('timeline reducer merges run-scoped reasoning events with late stable ids a
   assert.equal(reasoningNodes.length, 1);
   assert.deepEqual(displayItems.map((item) => item.kind), ['reasoning']);
   assert.equal(reasoningNode?.kind, 'reasoning');
-  assert.equal(reasoningNode?.title, '思考过程');
+  assert.equal(reasoningNode?.title, '');
   assert.equal(reasoningNode?.body, 'Simple greeting, just respond briefly.');
   assert.equal(reasoningNode?.lifecycle, 'complete');
-  assert.equal(runtime.entries.find((entry) => entry.kind === 'reasoning')?.title, '思考过程');
+  assert.equal(runtime.entries.find((entry) => entry.kind === 'reasoning')?.title, '');
   assert.equal(state.activeRunId, '');
+});
+
+test('timeline reducer keeps reasoning in one node when run id appears after the first delta', () => {
+  let state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      reasoningId: 'reason-1',
+      delta: 'first half ',
+      timestamp: 110,
+    },
+  ]);
+
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'reasoning.delta',
+    runId: 'run-1',
+    reasoningId: 'reason-1',
+    delta: 'second half',
+    timestamp: 120,
+  });
+
+  const reasoningNodes = Object.values(state.nodesById).filter((node) => node.kind === 'reasoning');
+  const reasoningDisplayItems = buildChatTimelineDisplayItems(state).filter(
+    (item) => item.kind === 'reasoning'
+  );
+
+  assert.equal(reasoningNodes.length, 1);
+  assert.equal(reasoningNodes[0]?.body, 'first half second half');
+  assert.equal(reasoningNodes[0]?.runId, 'run-1');
+  assert.equal(reasoningDisplayItems.length, 1);
+  assert.equal(reasoningDisplayItems[0]?.node.kind, 'reasoning');
+  assert.equal(reasoningDisplayItems[0]?.node.body, 'first half second half');
+});
+
+test('timeline reducer keeps reasoning in one node when later deltas omit run id', () => {
+  let state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      reasoningId: 'reason-1',
+      delta: 'first half ',
+      timestamp: 110,
+    },
+  ]);
+
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'reasoning.delta',
+    reasoningId: 'reason-1',
+    delta: 'second half',
+    timestamp: 120,
+  });
+
+  const reasoningNodes = Object.values(state.nodesById).filter((node) => node.kind === 'reasoning');
+  const reasoningDisplayItems = buildChatTimelineDisplayItems(state).filter(
+    (item) => item.kind === 'reasoning'
+  );
+
+  assert.equal(reasoningNodes.length, 1);
+  assert.equal(reasoningNodes[0]?.body, 'first half second half');
+  assert.equal(reasoningNodes[0]?.runId, 'run-1');
+  assert.equal(reasoningDisplayItems.length, 1);
+  assert.equal(reasoningDisplayItems[0]?.node.kind, 'reasoning');
+  assert.equal(reasoningDisplayItems[0]?.node.body, 'first half second half');
+});
+
+test('timeline reducer attaches pre-run reasoning to the run once run id arrives', () => {
+  let state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'reasoning.delta',
+      reasoningId: 'reason-1',
+      delta: 'first half ',
+      timestamp: 90,
+    },
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+  ]);
+
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'reasoning.delta',
+    runId: 'run-1',
+    reasoningId: 'reason-1',
+    delta: 'second half',
+    timestamp: 110,
+  });
+
+  const reasoningNodes = Object.values(state.nodesById).filter((node) => node.kind === 'reasoning');
+  const reasoningDisplayItems = buildChatTimelineDisplayItems(state).filter(
+    (item) => item.kind === 'reasoning'
+  );
+
+  assert.equal(reasoningNodes.length, 1);
+  assert.equal(reasoningNodes[0]?.body, 'first half second half');
+  assert.equal(reasoningNodes[0]?.runId, 'run-1');
+  assert.equal(reasoningDisplayItems.length, 1);
+  assert.equal(reasoningDisplayItems[0]?.node.kind, 'reasoning');
+  assert.equal(reasoningDisplayItems[0]?.node.body, 'first half second half');
 });
 
 test('timeline reducer normalizes active reasoning titles when only the run completes', () => {
@@ -559,9 +788,423 @@ test('timeline reducer normalizes active reasoning titles when only the run comp
   const reasoningNode = reasoningNodes[0];
 
   assert.equal(reasoningNodes.length, 1);
-  assert.equal(reasoningNode?.title, '思考过程');
+  assert.equal(reasoningNode?.title, '');
   assert.equal(reasoningNode?.lifecycle, 'complete');
-  assert.equal(runtime.entries.find((entry) => entry.kind === 'reasoning')?.title, '思考过程');
+  assert.equal(runtime.entries.find((entry) => entry.kind === 'reasoning')?.title, '');
+});
+
+test('timeline reducer completes active reasoning as soon as assistant content starts', () => {
+  const state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      reasoningId: 'reason-1',
+      reasoningLabel: 'Computing',
+      delta: 'Need a short answer.',
+      timestamp: 110,
+    },
+    {
+      type: 'content.delta',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      delta: 'Final answer begins.',
+      timestamp: 120,
+    },
+  ]);
+
+  const reasoningNode = Object.values(state.nodesById).find((node) => node.kind === 'reasoning');
+  const assistantNode = Object.values(state.nodesById).find(
+    (node) => node.kind === 'message' && node.role === 'assistant'
+  );
+
+  assert.equal(reasoningNode?.kind, 'reasoning');
+  assert.equal(reasoningNode?.title, '');
+  assert.equal(reasoningNode?.lifecycle, 'complete');
+  assert.equal('streaming' in reasoningNode! ? reasoningNode.streaming : true, false);
+  assert.equal(assistantNode?.kind, 'message');
+  assert.equal(assistantNode?.lifecycle, 'active');
+  assert.equal(assistantNode?.runId, 'run-1');
+});
+
+test('timeline reducer keeps idless reasoning deltas attached after tool display close', () => {
+  const expectedBody =
+    '现在我需要找到各个农历节日的公历日期。， datetime 工具会输出 lunarDate，格式为 "干支年农历月日"。';
+  const state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      reasoningId: 'reason-1',
+      reasoningLabel: 'Computing',
+      delta: '现在我需要找到各个农历节日的公历日期。',
+      timestamp: 110,
+    },
+    {
+      type: 'tool.args',
+      runId: 'run-1',
+      toolCallId: 'tool-1',
+      toolName: 'datetime',
+      toolLabel: '日期时间',
+      args: {},
+      timestamp: 120,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      delta: '， datetime 工具会输出 lunarDate，格式为 "干支年农历月日"。',
+      timestamp: 130,
+    },
+  ]);
+
+  const reasoningNodes = Object.values(state.nodesById).filter((node) => node.kind === 'reasoning');
+  const reasoningNode = reasoningNodes[0];
+  const reasoningDisplayItems = buildChatTimelineDisplayItems(state).filter(
+    (item) => item.kind === 'reasoning'
+  );
+
+  assert.equal(reasoningNodes.length, 1);
+  assert.equal(reasoningNode?.kind, 'reasoning');
+  assert.equal(reasoningNode?.body, expectedBody);
+  assert.equal(reasoningNode?.lifecycle, 'active');
+  assert.equal('streaming' in reasoningNode! ? reasoningNode.streaming : false, true);
+  assert.equal(reasoningDisplayItems.length, 1);
+  assert.equal(reasoningDisplayItems[0]?.node.kind, 'reasoning');
+  assert.equal(reasoningDisplayItems[0]?.node.body, expectedBody);
+});
+
+test('timeline reducer starts new idless reasoning after explicit reasoning snapshot', () => {
+  const state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      reasoningId: 'reason-1',
+      delta: 'first reasoning',
+      timestamp: 110,
+    },
+    {
+      type: 'reasoning.snapshot',
+      runId: 'run-1',
+      reasoningId: 'reason-1',
+      text: 'first reasoning',
+      timestamp: 120,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      delta: 'second reasoning',
+      timestamp: 130,
+    },
+  ]);
+
+  const reasoningNodes = state.orderedNodeIds
+    .map((nodeId) => state.nodesById[nodeId])
+    .filter((node) => node?.kind === 'reasoning');
+
+  assert.equal(reasoningNodes.length, 2);
+  assert.equal(reasoningNodes[0]?.kind, 'reasoning');
+  assert.equal(reasoningNodes[0]?.body, 'first reasoning');
+  assert.equal(reasoningNodes[0]?.lifecycle, 'complete');
+  assert.equal(reasoningNodes[1]?.kind, 'reasoning');
+  assert.equal(reasoningNodes[1]?.id, 'reasoning:chat-1:run-1:reasoning');
+  assert.equal(reasoningNodes[1]?.body, 'second reasoning');
+  assert.equal(reasoningNodes[1]?.lifecycle, 'active');
+});
+
+test('timeline reducer starts new idless reasoning after terminal idless reasoning', () => {
+  const state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      delta: 'first reasoning',
+      timestamp: 110,
+    },
+    {
+      type: 'reasoning.snapshot',
+      runId: 'run-1',
+      text: 'first reasoning',
+      timestamp: 120,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      delta: 'second reasoning',
+      timestamp: 130,
+    },
+  ]);
+
+  const reasoningNodes = state.orderedNodeIds
+    .map((nodeId) => state.nodesById[nodeId])
+    .filter((node) => node?.kind === 'reasoning');
+
+  assert.equal(reasoningNodes.length, 2);
+  assert.equal(reasoningNodes[0]?.kind, 'reasoning');
+  assert.equal(reasoningNodes[0]?.body, 'first reasoning');
+  assert.equal(reasoningNodes[0]?.lifecycle, 'complete');
+  assert.equal(reasoningNodes[1]?.kind, 'reasoning');
+  assert.notEqual(reasoningNodes[1]?.id, reasoningNodes[0]?.id);
+  assert.equal(reasoningNodes[1]?.body, 'second reasoning');
+  assert.equal(reasoningNodes[1]?.lifecycle, 'active');
+});
+
+test('timeline reducer attaches late stable id to the active idless reasoning segment', () => {
+  const state = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      delta: 'first reasoning',
+      timestamp: 110,
+    },
+    {
+      type: 'reasoning.snapshot',
+      runId: 'run-1',
+      text: 'first reasoning',
+      timestamp: 120,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      delta: 'second reasoning',
+      timestamp: 130,
+    },
+    {
+      type: 'reasoning.snapshot',
+      runId: 'run-1',
+      contentId: 'reasoning-2',
+      text: 'second reasoning',
+      timestamp: 140,
+    },
+  ]);
+
+  const reasoningNodes = state.orderedNodeIds
+    .map((nodeId) => state.nodesById[nodeId])
+    .filter((node) => node?.kind === 'reasoning');
+
+  assert.equal(reasoningNodes.length, 2);
+  assert.equal(reasoningNodes[0]?.kind, 'reasoning');
+  assert.equal(reasoningNodes[0]?.body, 'first reasoning');
+  assert.equal(reasoningNodes[0]?.lifecycle, 'complete');
+  assert.equal(reasoningNodes[1]?.kind, 'reasoning');
+  assert.equal(reasoningNodes[1]?.body, 'second reasoning');
+  assert.equal(reasoningNodes[1]?.lifecycle, 'complete');
+});
+
+test('timeline merge does not revive current reasoning identity after incoming snapshot ends it', () => {
+  const current = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      reasoningId: 'reason-1',
+      delta: 'first reasoning',
+      timestamp: 110,
+    },
+    {
+      type: 'content.delta',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      delta: 'partial answer',
+      timestamp: 125,
+    },
+  ]);
+  const incoming = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      reasoningId: 'reason-1',
+      delta: 'first reasoning',
+      timestamp: 110,
+    },
+    {
+      type: 'reasoning.snapshot',
+      runId: 'run-1',
+      reasoningId: 'reason-1',
+      text: 'first reasoning',
+      timestamp: 120,
+    },
+  ]);
+
+  const merged = mergeChatTimelineState(current, incoming);
+  const afterDelta = applyChatTimelineEvent(merged, 'chat-1', {
+    type: 'reasoning.delta',
+    runId: 'run-1',
+    delta: 'second reasoning',
+    timestamp: 130,
+  });
+  const reasoningNodes = afterDelta.orderedNodeIds
+    .map((nodeId) => afterDelta.nodesById[nodeId])
+    .filter((node) => node?.kind === 'reasoning');
+
+  assert.equal(reasoningNodes.length, 2);
+  assert.equal(reasoningNodes[0]?.body, 'first reasoning');
+  assert.equal(reasoningNodes[0]?.lifecycle, 'complete');
+  assert.equal(reasoningNodes[1]?.id, 'reasoning:chat-1:run-1:reasoning');
+  assert.equal(reasoningNodes[1]?.body, 'second reasoning');
+});
+
+test('timeline merge drops stale incoming reasoning identity after local cancel closes it', () => {
+  let current = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      reasoningId: 'reason-1',
+      delta: 'first reasoning',
+      timestamp: 110,
+    },
+  ]);
+  current = applyChatTimelineLocalCancel(current, 'chat-1', {
+    runId: 'run-1',
+    timestamp: 125,
+  });
+  const incoming = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      reasoningId: 'reason-1',
+      delta: 'first reasoning',
+      timestamp: 110,
+    },
+  ]);
+
+  const merged = mergeChatTimelineState(current, incoming, {
+    preserveTerminalRunIds: ['run-1'],
+  });
+  const afterDelta = applyChatTimelineEvent(merged, 'chat-1', {
+    type: 'reasoning.delta',
+    runId: 'run-1',
+    delta: 'second reasoning',
+    timestamp: 130,
+  });
+  const reasoningNodes = afterDelta.orderedNodeIds
+    .map((nodeId) => afterDelta.nodesById[nodeId])
+    .filter((node) => node?.kind === 'reasoning');
+
+  assert.deepEqual(merged.activeReasoningNodeIdsByRun, {});
+  assert.equal(reasoningNodes.length, 2);
+  assert.equal(reasoningNodes[0]?.body, 'first reasoning');
+  assert.equal(reasoningNodes[0]?.lifecycle, 'cancelled');
+  assert.equal(reasoningNodes[1]?.id, 'reasoning:chat-1:run-1:reasoning');
+  assert.equal(reasoningNodes[1]?.body, 'second reasoning');
+});
+
+test('timeline reducer completes active reasoning when realtime assistant message carries run id', () => {
+  let state = createActiveReasoningState();
+  const message = assistantStreamMessage('Final answer begins.', 120);
+  state = applyChatTimelineMessage(state, message, { runId: 'run-1' });
+
+  const reasoningNode = Object.values(state.nodesById).find((node) => node.kind === 'reasoning');
+  const assistantNode = Object.values(state.nodesById).find(
+    (node) => node.kind === 'message' && node.role === 'assistant'
+  );
+
+  assert.equal(reasoningNode?.kind, 'reasoning');
+  assert.equal(reasoningNode?.title, '');
+  assert.equal(reasoningNode?.lifecycle, 'complete');
+  assert.equal('streaming' in reasoningNode! ? reasoningNode.streaming : true, false);
+  assert.equal(assistantNode?.kind, 'message');
+  assert.equal(assistantNode?.runId, 'run-1');
+  assert.equal(assistantNode?.lifecycle, 'active');
+});
+
+test('timeline reducer waits for first assistant stream delta before closing reasoning', () => {
+  let state = createActiveReasoningState();
+  const message = assistantStreamMessage('', 115);
+  state = applyChatTimelineMessage(state, message, { runId: 'run-1' });
+
+  let reasoningNode = Object.values(state.nodesById).find((node) => node.kind === 'reasoning');
+  assert.equal(reasoningNode?.kind, 'reasoning');
+  assert.equal(reasoningNode?.title, 'Computing');
+  assert.equal(reasoningNode?.lifecycle, 'active');
+
+  state = applyChatTimelineStreamDelta(state, {
+    messageId: message.messageId,
+    createdAt: 120,
+    delta: 'Final answer begins.',
+    runId: 'run-1',
+  });
+
+  reasoningNode = Object.values(state.nodesById).find((node) => node.kind === 'reasoning');
+  const assistantNode = Object.values(state.nodesById).find(
+    (node) => node.kind === 'message' && node.role === 'assistant'
+  );
+
+  assert.equal(reasoningNode?.kind, 'reasoning');
+  assert.equal(reasoningNode?.title, '');
+  assert.equal(reasoningNode?.lifecycle, 'complete');
+  assert.equal('streaming' in reasoningNode! ? reasoningNode.streaming : true, false);
+  assert.equal(assistantNode?.kind, 'message');
+  assert.equal(assistantNode?.content, 'Final answer begins.');
+  assert.equal(assistantNode?.runId, 'run-1');
+});
+
+test('timeline reducer closes reasoning when an assistant placeholder is patched with content', () => {
+  let state = createActiveReasoningState();
+  const message = assistantStreamMessage('', 115);
+  state = applyChatTimelineMessage(state, message, { runId: 'run-1' });
+  state = patchChatTimelineMessage(
+    state,
+    message.messageId,
+    {
+      content: 'Final answer begins.',
+      createdAt: 120,
+    },
+    { runId: 'run-1' }
+  );
+
+  const reasoningNode = Object.values(state.nodesById).find((node) => node.kind === 'reasoning');
+  const assistantNode = Object.values(state.nodesById).find(
+    (node) => node.kind === 'message' && node.role === 'assistant'
+  );
+
+  assert.equal(reasoningNode?.kind, 'reasoning');
+  assert.equal(reasoningNode?.title, '');
+  assert.equal(reasoningNode?.lifecycle, 'complete');
+  assert.equal('streaming' in reasoningNode! ? reasoningNode.streaming : true, false);
+  assert.equal(assistantNode?.kind, 'message');
+  assert.equal(assistantNode?.content, 'Final answer begins.');
+  assert.equal(assistantNode?.runId, 'run-1');
 });
 
 test('timeline reducer closes active run children when the run reaches a terminal state', () => {
@@ -998,7 +1641,7 @@ test('timeline reducer renders structured plan and approval awaiting events', ()
   assert.equal(planNode.prompt, '实施此计划？');
   assert.equal(planNode.interactive?.kind, 'plan');
   assert.match(planNode.payloadText, /是，实施此计划/);
-  assert.match(planNode.answer, /同意/);
+  assert.match(planNode.answer, /approve/);
   assert.equal(
     displayItems.some((item) => item.kind === 'awaiting'),
     true
@@ -1103,7 +1746,7 @@ test('timeline reducer keeps html form awaiting payload structured and handles p
   assert.equal(awaiting.interactive?.viewportKey, 'leave_form');
   assert.equal(awaiting.interactive?.forms[0]?.title, '请假申请');
   assert.equal(awaiting.answerSummary?.itemCount, 1);
-  assert.match(awaiting.answerSummary?.items[0]?.value || '', /同意/);
+  assert.match(awaiting.answerSummary?.items[0]?.value || '', /approve/);
   assert.match(awaiting.answerSummary?.items[0]?.value || '', /family/);
 });
 
@@ -1136,13 +1779,223 @@ test('timeline reducer merges request echo into the pending local user message',
 
   assert.equal(userNodes.length, 1);
   assert.equal(displayItems.filter((item) => item.kind === 'user-query').length, 1);
+  assert.equal(userNodes[0]?.messageId, 'client-message-1');
+  assert.equal(userNodes[0]?.clientMessageId, 'client-message-1');
+  assert.equal(userNodes[0]?.runId, 'run-1');
   assert.equal(messages.length, 1);
   assert.equal(messages[0]?.messageId, 'client-message-1');
   assert.equal(messages[0]?.clientMessageId, 'client-message-1');
   assert.equal(messages[0]?.serverMessageId, 'server-user-1');
   assert.equal(messages[0]?.deliveryStatus, 'sent');
   assert.equal(userNodes[0]?.id, 'message:chat-1:local:client-message-1');
+});
+
+test('timeline reducer merges request echo when backend rewrites request id', () => {
+  const localMessage: ChatMessageItem = {
+    messageId: 'client-message-1',
+    clientMessageId: 'client-message-1',
+    serverMessageId: null,
+    conversationId: 'chat-1',
+    role: 'user',
+    content: 'hello',
+    createdAt: 100,
+    deliveryStatus: 'pending',
+    errorReason: null,
+  };
+  const withLocalMessage = applyChatTimelineMessage(null, localMessage);
+  const withRequestEcho = applyChatTimelineEvent(withLocalMessage, 'chat-1', {
+    type: 'request.query',
+    requestId: 'backend-request-1',
+    runId: 'run-1',
+    message: 'hello',
+    createdAt: 140,
+  });
+  const displayItems = buildChatTimelineDisplayItems(withRequestEcho);
+  const messages = projectTimelineMessages(withRequestEcho);
+  const userNodes = withRequestEcho.orderedNodeIds
+    .map((id) => withRequestEcho.nodesById[id])
+    .filter((node) => node?.kind === 'message' && node.role === 'user');
+
+  assert.equal(userNodes.length, 1);
+  assert.equal(displayItems.filter((item) => item.kind === 'user-query').length, 1);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0]?.messageId, 'client-message-1');
+  assert.equal(messages[0]?.clientMessageId, 'client-message-1');
+  assert.equal(messages[0]?.deliveryStatus, 'sent');
+});
+
+test('timeline reducer merges request echo into a sent local user message without a server id', () => {
+  const localMessage: ChatMessageItem = {
+    messageId: 'client-message-1',
+    clientMessageId: 'client-message-1',
+    serverMessageId: null,
+    conversationId: 'chat-1',
+    role: 'user',
+    content: 'hello',
+    createdAt: 140,
+    deliveryStatus: 'sent',
+    errorReason: null,
+  };
+  const withLocalMessage = applyChatTimelineMessage(null, localMessage);
+  const withRequestEcho = applyChatTimelineEvent(withLocalMessage, 'chat-1', {
+    type: 'request.query',
+    requestId: 'backend-request-1',
+    runId: 'run-1',
+    message: 'hello',
+    createdAt: 100,
+  });
+  const displayItems = buildChatTimelineDisplayItems(withRequestEcho);
+  const messages = projectTimelineMessages(withRequestEcho);
+  const userNodes = withRequestEcho.orderedNodeIds
+    .map((id) => withRequestEcho.nodesById[id])
+    .filter((node) => node?.kind === 'message' && node.role === 'user');
+
+  assert.equal(userNodes.length, 1);
+  assert.equal(displayItems.filter((item) => item.kind === 'user-query').length, 1);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0]?.messageId, 'client-message-1');
+  assert.equal(messages[0]?.clientMessageId, 'client-message-1');
+  assert.equal(messages[0]?.deliveryStatus, 'sent');
+});
+
+test('timeline merge keeps one local user message after error reconcile request replay', () => {
+  const current = applyChatTimelineMessage(null, {
+    messageId: 'client-message-1',
+    clientMessageId: 'client-message-1',
+    serverMessageId: null,
+    conversationId: 'chat-1',
+    role: 'user',
+    content: 'hello',
+    createdAt: 100,
+    deliveryStatus: 'failed',
+    errorReason: 'provider_quota_exhausted',
+  });
+  const remoteReplay = deriveChatTimelineState('chat-1', [
+    {
+      type: 'request.query',
+      requestId: 'backend-request-1',
+      runId: 'run-1',
+      message: 'hello',
+      createdAt: 140,
+    },
+    {
+      type: 'run.error',
+      runId: 'run-1',
+      error: {
+        code: 'provider_quota_exhausted',
+        status: 429,
+        message: 'quota exhausted',
+      },
+      timestamp: 150,
+    },
+  ]);
+  const merged = mergeChatTimelineState(current, remoteReplay);
+  const displayItems = buildChatTimelineDisplayItems(merged);
+  const messages = projectTimelineMessages(merged);
+  const userNodes = merged.orderedNodeIds
+    .map((id) => merged.nodesById[id])
+    .filter((node) => node?.kind === 'message' && node.role === 'user');
+  const systemErrorNodes = merged.orderedNodeIds
+    .map((id) => merged.nodesById[id])
+    .filter((node) => node?.kind === 'message' && node.role === 'system');
+
+  assert.equal(userNodes.length, 1);
+  assert.equal(systemErrorNodes.length, 1);
+  assert.equal(displayItems.filter((item) => item.kind === 'user-query').length, 1);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0]?.messageId, 'client-message-1');
+  assert.equal(messages[0]?.clientMessageId, 'client-message-1');
+  assert.equal(messages[0]?.deliveryStatus, 'failed');
+  assert.equal(messages[0]?.errorReason, 'provider_quota_exhausted');
+});
+
+test('timeline merge keeps one sent local user message after error reconcile request replay', () => {
+  const current = applyChatTimelineMessage(null, {
+    messageId: 'client-message-1',
+    clientMessageId: 'client-message-1',
+    serverMessageId: null,
+    conversationId: 'chat-1',
+    role: 'user',
+    content: 'hello',
+    createdAt: 140,
+    deliveryStatus: 'sent',
+    errorReason: null,
+  });
+  const remoteReplay = deriveChatTimelineState('chat-1', [
+    {
+      type: 'request.query',
+      requestId: 'backend-request-1',
+      runId: 'run-1',
+      message: 'hello',
+      createdAt: 100,
+    },
+    {
+      type: 'run.error',
+      runId: 'run-1',
+      error: {
+        code: 'provider_quota_exhausted',
+        status: 429,
+        message: 'quota exhausted',
+      },
+      timestamp: 150,
+    },
+  ]);
+  const merged = mergeChatTimelineState(current, remoteReplay);
+  const displayItems = buildChatTimelineDisplayItems(merged);
+  const userNodes = merged.orderedNodeIds
+    .map((id) => merged.nodesById[id])
+    .filter((node) => node?.kind === 'message' && node.role === 'user');
+
+  assert.equal(userNodes.length, 1);
+  assert.equal(displayItems.filter((item) => item.kind === 'user-query').length, 1);
+  assert.equal(userNodes[0]?.messageId, 'client-message-1');
+  assert.equal(userNodes[0]?.clientMessageId, 'client-message-1');
   assert.equal(userNodes[0]?.runId, 'run-1');
+});
+
+test('timeline compaction removes persisted remote request echo when local client message exists', () => {
+  const remoteReplay = deriveChatTimelineState('chat-1', [
+    {
+      type: 'request.query',
+      requestId: 'backend-request-1',
+      runId: 'run-1',
+      message: 'hello',
+      createdAt: 100,
+    },
+    {
+      type: 'run.error',
+      runId: 'run-1',
+      error: {
+        code: 'provider_quota_exhausted',
+        status: 429,
+        message: 'quota exhausted',
+      },
+      timestamp: 150,
+    },
+  ]);
+  const dirtyState = applyChatTimelineMessage(remoteReplay, {
+    messageId: 'client-message-1',
+    clientMessageId: 'client-message-1',
+    serverMessageId: null,
+    conversationId: 'chat-1',
+    role: 'user',
+    content: 'hello',
+    createdAt: 140,
+    deliveryStatus: 'sent',
+    errorReason: null,
+  });
+  const compacted = compactChatTimelineRequestEchoes(dirtyState)!;
+  const displayItems = buildChatTimelineDisplayItems(compacted);
+  const messages = projectTimelineMessages(compacted);
+  const userNodes = compacted.orderedNodeIds
+    .map((id) => compacted.nodesById[id])
+    .filter((node) => node?.kind === 'message' && node.role === 'user');
+
+  assert.equal(userNodes.length, 1);
+  assert.equal(displayItems.filter((item) => item.kind === 'user-query').length, 1);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0]?.messageId, 'client-message-1');
+  assert.equal(messages[0]?.clientMessageId, 'client-message-1');
 });
 
 test('timeline state uses structural sharing for unchanged messages and streaming deltas', () => {
@@ -1499,7 +2352,7 @@ test('timeline reducer builds structured awaiting answer summaries with labels a
   if (awaiting?.kind !== 'awaiting') {
     throw new Error('expected awaiting node');
   }
-  assert.equal(awaiting.answerSummary?.title, '已提交 3 项回答');
+  assert.equal(awaiting.answerSummary?.title, '');
   assert.deepEqual(
     awaiting.answerSummary?.items.map((item) => [item.title, item.value]),
     [

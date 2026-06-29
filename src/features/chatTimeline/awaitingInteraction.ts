@@ -449,31 +449,21 @@ function normalizeAwaitingInteractive(
 }
 
 export function formatAwaitingDecisionLabel(raw: unknown): string {
-  switch (toText(raw)) {
-    case 'approve':
-      return '同意';
-    case 'approve_rule_run':
-      return '同意（本次运行同规则都放行）';
-    case 'reject':
-      return '拒绝';
-    default:
-      return toText(raw);
-  }
+  return toText(raw);
 }
 
-function displayTitleFromRecord(record: Record<string, unknown>, fallback: string): string {
+function displayTitleFromRecord(record: Record<string, unknown>): string {
   return (
     toText(record.question) ||
     toText(record.title) ||
     toText(record.description) ||
     toText(record.command) ||
     toText(record.action) ||
-    toText(record.id) ||
-    fallback
+    toText(record.id)
   );
 }
 
-function formatStructuredItems(items: unknown, fallbackTitle: string): string {
+function formatStructuredItems(items: unknown): string {
   if (!Array.isArray(items)) {
     return formatTimelineEventValue(items);
   }
@@ -482,7 +472,7 @@ function formatStructuredItems(items: unknown, fallbackTitle: string): string {
       if (!isTimelineObjectRecord(item)) {
         return formatTimelineEventValue(item);
       }
-      const title = displayTitleFromRecord(item, `${fallbackTitle} ${index + 1}`);
+      const title = displayTitleFromRecord(item);
       const decision = formatAwaitingDecisionLabel(item.decision);
       const answer = firstTimelineEventText(
         item.answer,
@@ -492,7 +482,10 @@ function formatStructuredItems(items: unknown, fallbackTitle: string): string {
         item.description
       );
       const details = [decision, answer].filter(Boolean).join(' · ');
-      return details ? `${title}\n${details}` : title;
+      if (title && details) {
+        return `${title}\n${details}`;
+      }
+      return title || details || formatTimelineEventValue(item);
     })
     .filter(Boolean)
     .join('\n\n');
@@ -508,18 +501,18 @@ function readAwaitingPrompt(
     return direct;
   }
   if (mode === 'plan' && isPlainRecord(event.plan)) {
-    return toText(event.plan.title) || '实施此计划？';
+    return toText(event.plan.title) || current?.prompt || '';
   }
   if (mode === 'approval' && Array.isArray(event.approvals)) {
     const firstApproval = event.approvals.find(isTimelineObjectRecord);
     if (firstApproval) {
-      return toText(firstApproval.description) || toText(firstApproval.command) || '等待审批';
+      return toText(firstApproval.description) || toText(firstApproval.command) || current?.prompt || '';
     }
   }
   if (mode === 'form' && Array.isArray(event.forms)) {
     const firstForm = event.forms.find(isTimelineObjectRecord);
     if (firstForm) {
-      return toText(firstForm.title) || toText(firstForm.action) || '等待表单';
+      return toText(firstForm.title) || toText(firstForm.action) || current?.prompt || '';
     }
   }
   return current?.prompt || '';
@@ -548,18 +541,18 @@ function readAwaitingPayloadText(
     return text || current?.payloadText || '';
   }
   if (mode === 'approval') {
-    return formatStructuredItems(event.approvals, '审批') || current?.payloadText || '';
+    return formatStructuredItems(event.approvals) || current?.payloadText || '';
   }
   if (mode === 'form') {
     return (
-      formatStructuredItems(event.forms, '表单') ||
+      formatStructuredItems(event.forms) ||
       firstTimelineEventText(event.form, event.fields, event.schema) ||
       current?.payloadText ||
       ''
     );
   }
   if (mode === 'question' && Array.isArray(event.questions)) {
-    return formatStructuredItems(event.questions, '问题') || current?.payloadText || '';
+    return formatStructuredItems(event.questions) || current?.payloadText || '';
   }
   return firstTimelineEventText(event.payload, event.answers, event.params) || current?.payloadText || '';
 }
@@ -626,8 +619,7 @@ function getAwaitingItemTitle(
     toText(item.planningId) ||
     toText(item.command) ||
     toText(item.action) ||
-    id ||
-    `回答 ${index + 1}`
+    id
   );
 }
 
@@ -647,7 +639,7 @@ function formatAwaitingAnswerValue(
   }
 
   if (item.form !== undefined) {
-    return formatTimelineEventValue(item.form) || '（无回答内容）';
+    return formatTimelineEventValue(item.form);
   }
 
   if (typeof item.action === 'string' && item.action.trim()) {
@@ -655,17 +647,17 @@ function formatAwaitingAnswerValue(
   }
 
   if (item.answer !== undefined && item.answer !== null) {
-    return getQuestionOptionDisplayValue(question, item.answer) || '（无回答内容）';
+    return getQuestionOptionDisplayValue(question, item.answer);
   }
 
   if (Array.isArray(item.answers)) {
     const answers = item.answers
       .map((answer) => getQuestionOptionDisplayValue(question, answer))
       .filter(Boolean);
-    return answers.join(', ') || '（无回答内容）';
+    return answers.join(', ');
   }
 
-  return toText(item.reason) || '（无回答内容）';
+  return toText(item.reason);
 }
 
 function readAwaitingAnswerItems(event: Record<string, unknown>): Record<string, unknown>[] {
@@ -681,20 +673,6 @@ function readAwaitingAnswerItems(event: Record<string, unknown>): Record<string,
   return [];
 }
 
-function awaitingAnswerErrorTitle(event: Record<string, unknown>): string {
-  const error = isPlainRecord(event.error) ? event.error : {};
-  switch (toText(error.code)) {
-    case 'user_dismissed':
-      return '已取消';
-    case 'timeout':
-      return '等待已超时';
-    case 'invalid_submit':
-      return '提交失败';
-    default:
-      return '等待异常';
-  }
-}
-
 function buildAwaitingAnswerSummary(
   event: Record<string, unknown>,
   current?: ChatTimelineAwaitingNode
@@ -702,14 +680,14 @@ function buildAwaitingAnswerSummary(
   const isError = toText(event.status) === 'error';
   if (isError) {
     const error = isPlainRecord(event.error) ? event.error : {};
-    const title = awaitingAnswerErrorTitle(event);
-    const value = firstTimelineEventText(error.message, error.code, event.error) || title;
+    const code = toText(error.code);
+    const value = firstTimelineEventText(error.message, error.code, event.error);
     return {
       status: 'error',
-      title,
+      title: code,
       itemCount: 1,
-      items: [{ key: `error:${toText(error.code) || 'unknown'}`, title: '状态', value }],
-      copyText: `状态\n${value}`,
+      items: [{ key: `error:${code || 'unknown'}`, title: code, value }],
+      copyText: '',
     };
   }
 
@@ -735,20 +713,34 @@ function buildAwaitingAnswerSummary(
     const question = getQuestionById(current, id) ?? getQuestionByIndex(current, index);
     const title = getAwaitingItemTitle(current, item, index);
     return {
-      key: `${id || title}:${index}`,
+      key: `${id || title || 'item'}:${index}`,
       title,
       value: formatAwaitingAnswerValue(item, question),
     };
   });
-  const copyText = items.map((item) => `${item.title}\n${item.value}`).join('\n\n');
 
   return {
     status: 'answered',
-    title: `已提交 ${items.length} 项回答`,
+    title: '',
     itemCount: items.length,
     items,
-    copyText,
+    copyText: '',
   };
+}
+
+function answerTextFromSummary(summary: ChatTimelineAwaitingAnswerSummary | null): string {
+  if (!summary?.items.length) {
+    return '';
+  }
+  return summary.items
+    .map((item) => {
+      if (item.title && item.value) {
+        return `${item.title}\n${item.value}`;
+      }
+      return item.title || item.value;
+    })
+    .filter(Boolean)
+    .join('\n\n');
 }
 
 function readAwaitingAnswerText(
@@ -758,24 +750,27 @@ function readAwaitingAnswerText(
   answerSummary?: ChatTimelineAwaitingAnswerSummary | null
 ): string {
   const summary = answerSummary ?? buildAwaitingAnswerSummary(event, current);
-  if (summary && (summary.copyText || summary.status === 'error')) {
-    return summary.copyText || summary.title;
+  if (summary?.copyText) {
+    return summary.copyText;
+  }
+  const summaryText = answerTextFromSummary(summary ?? null);
+  if (summaryText) {
+    return summaryText;
   }
   if (toText(event.status) === 'error') {
     const error = isTimelineObjectRecord(event.error) ? event.error : {};
-    return firstTimelineEventText(error.message, error.code, event.error) || '等待异常';
+    return firstTimelineEventText(error.message, error.code, event.error);
   }
   if (mode === 'plan' && isPlainRecord(event.plan)) {
     const title =
       toText(event.plan.title) ||
-      (current?.interactive?.kind === 'plan' ? current.interactive.plan.title : '') ||
-      '实施此计划？';
+      (current?.interactive?.kind === 'plan' ? current.interactive.plan.title : '');
     const decision = formatAwaitingDecisionLabel(event.plan.decision);
     return [title, decision].filter(Boolean).join('\n');
   }
   if (mode === 'approval') {
     return (
-      formatStructuredItems(event.approvals, '审批') ||
+      formatStructuredItems(event.approvals) ||
       firstTimelineEventText(event.answer, event.answers, event.message, event.content, event.text) ||
       current?.answer ||
       ''
@@ -783,7 +778,7 @@ function readAwaitingAnswerText(
   }
   if (mode === 'form') {
     return (
-      formatStructuredItems(event.forms, '表单') ||
+      formatStructuredItems(event.forms) ||
       firstTimelineEventText(
         event.answer,
         event.answers,
@@ -819,15 +814,7 @@ export function normalizeChatTimelineAwaitingEvent(input: {
   const type = normalizeEventType(event.type);
   const mode = resolveAwaitingMode(event, current?.mode);
   const status: ChatTimelineAwaitingNode['status'] = type === 'awaiting.answer' ? 'answer' : 'ask';
-  const prompt =
-    readAwaitingPrompt(event, mode, current) ||
-    (mode === 'approval'
-      ? '等待审批'
-      : mode === 'form'
-        ? '等待表单'
-        : mode === 'plan'
-          ? '等待计划确认'
-          : '等待回复');
+  const prompt = readAwaitingPrompt(event, mode, current);
   const payloadText = readAwaitingPayloadText(event, mode, current);
   const interactive = normalizeAwaitingInteractive(event, mode, current);
   const answerSummary = status === 'answer' ? buildAwaitingAnswerSummary(event, current) : null;

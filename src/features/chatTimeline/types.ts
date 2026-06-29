@@ -23,6 +23,27 @@ export type ChatTimelineAwaitingMode = 'question' | 'approval' | 'form' | 'plan'
 
 export type ChatTimelineDeliveryStatus = 'pending' | 'sent' | 'failed';
 
+export type ChatTimelineRuntimeStatus =
+  | 'generating'
+  | 'updating'
+  | 'running'
+  | 'completed'
+  | 'cancelled'
+  | 'error'
+  | 'tool_result';
+
+export type ChatTimelineErrorDetail = {
+  code: string;
+  category: string;
+  scope: string;
+  status: number | null;
+  retryable: boolean | null;
+  message: string;
+  diagnostics: unknown;
+  raw: unknown;
+  technicalText: string;
+};
+
 export type ChatTimelineAwaitingQuestionType =
   | 'text'
   | 'number'
@@ -164,6 +185,7 @@ export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
   serverMessageId: string | null;
   deliveryStatus: ChatTimelineDeliveryStatus;
   errorReason: string | null;
+  errorDetail?: ChatTimelineErrorDetail | null;
   streaming: boolean;
   attachments: ChatMessageAttachment[];
 };
@@ -181,7 +203,7 @@ export type ChatTimelineTextNode = ChatTimelineBaseNode & {
     | 'context';
   title: string;
   body: string;
-  status: string;
+  status: ChatTimelineRuntimeStatus | string;
   streaming: boolean;
   usageSummary?: ChatTimelineUsageSummary | null;
 };
@@ -193,7 +215,7 @@ export type ChatTimelineToolNode = ChatTimelineBaseNode & {
   toolLabel: string;
   description: string;
   title: string;
-  status: string;
+  status: ChatTimelineRuntimeStatus | string;
   argsText: string;
   resultText: string;
   body: string;
@@ -216,7 +238,7 @@ export type ChatTimelineRunNode = ChatTimelineBaseNode & {
   kind: 'run';
   title: string;
   body: string;
-  status: string;
+  status: ChatTimelineRuntimeStatus | string;
   agentKey: string;
   startedAt: number | null;
   completedAt: number | null;
@@ -317,6 +339,7 @@ export type ChatTimelineState = {
   orderedNodeIds: string[];
   nodesById: Record<string, ChatTimelineNode>;
   activeRunId: string;
+  activeReasoningNodeIdsByRun: Record<string, string>;
   awaiting: ChatTimelineAwaitingState | null;
   usageLabel: string;
   usageSummary: ChatTimelineUsageSummary | null;

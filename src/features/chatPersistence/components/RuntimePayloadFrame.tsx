@@ -74,7 +74,7 @@ export const RuntimePayloadFrame = memo(function RuntimePayloadFrame({
           ]}
         >
           <AppIcon
-            usage="runtime.wrap"
+            usage={wrap ? 'runtime.wrapEnabled' : 'runtime.wrapDisabled'}
             color={wrap ? theme.colors.brandBlue : theme.colors.textSecondary}
           />
         </Pressable>

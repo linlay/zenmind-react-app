@@ -1,20 +1,12 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import {
-  Pressable,
-  StyleSheet,
-  Text,
-  type LayoutChangeEvent,
-  type StyleProp,
-  View,
-  type ViewStyle,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { AgentWonderSuggestion } from '../../../core/api/services/chatApi';
 import { AppIconButton } from '../../../shared/icons/AppIconButton';
 import { useT } from '../../../shared/i18n';
 import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
-import { pickChatWonderSuggestions, resolveChatWonderGridConfig } from './chatWonderDisplay';
+import { CHAT_WONDER_VISIBLE_COUNT, pickChatWonderSuggestions } from './chatWonderDisplay';
 
 type ChatNewConversationIntroProps = {
   agentName: string;
@@ -28,15 +20,11 @@ type WonderCardProps = {
   label: string;
   onPress: (text: string) => void;
   styles: ReturnType<typeof createStyles>;
-  layoutStyle: StyleProp<ViewStyle>;
 };
 
-const WONDERS_GRID_GAP = appVisualTokens.spacing.sm;
-const WONDER_CARD_HEIGHT_RATIO = 0.66;
-const WONDER_CARD_MIN_HEIGHT = 124;
-const WONDER_CARD_MAX_HEIGHT = 148;
+const WONDER_CARD_MIN_HEIGHT = 82;
 
-const WonderCard = memo(function WonderCard({ wonder, label, onPress, styles, layoutStyle }: WonderCardProps) {
+const WonderCard = memo(function WonderCard({ wonder, label, onPress, styles }: WonderCardProps) {
   const handlePress = useCallback(() => {
     onPress(wonder.text);
   }, [onPress, wonder.text]);
@@ -45,12 +33,12 @@ const WonderCard = memo(function WonderCard({ wonder, label, onPress, styles, la
     <Pressable
       accessibilityRole="button"
       onPress={handlePress}
-      style={({ pressed }) => [styles.wonderCard, layoutStyle, pressed && styles.wonderCardPressed]}
+      style={({ pressed }) => [styles.wonderCard, pressed && styles.wonderCardPressed]}
     >
       <Text allowFontScaling={false} numberOfLines={1} style={styles.wonderLabel}>
         {label}
       </Text>
-      <Text allowFontScaling={false} numberOfLines={4} style={styles.wonderText}>
+      <Text allowFontScaling={false} ellipsizeMode="tail" numberOfLines={2} style={styles.wonderText}>
         {wonder.text}
       </Text>
     </Pressable>
@@ -66,32 +54,11 @@ export const ChatNewConversationIntro = memo(function ChatNewConversationIntro({
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const [refreshSeed, setRefreshSeed] = useState(0);
-  const [wondersWidth, setWondersWidth] = useState(0);
-  const gridConfig = resolveChatWonderGridConfig(wondersWidth);
   const visibleWonders = useMemo(
-    () => pickChatWonderSuggestions(wonders, gridConfig.visibleCount, refreshSeed),
-    [gridConfig.visibleCount, refreshSeed, wonders]
+    () => pickChatWonderSuggestions(wonders, refreshSeed),
+    [refreshSeed, wonders]
   );
-  const canRefreshWonders = wonders.length > gridConfig.visibleCount;
-  const wonderCardLayoutStyle = useMemo(() => {
-    if (wondersWidth <= 0) {
-      return null;
-    }
-    const width = Math.floor(
-      (wondersWidth - WONDERS_GRID_GAP * (gridConfig.columnCount - 1)) / gridConfig.columnCount
-    );
-    return {
-      width,
-      height: Math.min(
-        WONDER_CARD_MAX_HEIGHT,
-        Math.max(WONDER_CARD_MIN_HEIGHT, Math.round(width * WONDER_CARD_HEIGHT_RATIO))
-      ),
-    };
-  }, [gridConfig.columnCount, wondersWidth]);
-  const handleWondersLayout = useCallback((event: LayoutChangeEvent) => {
-    const width = Math.round(event.nativeEvent.layout.width);
-    setWondersWidth((current) => (Math.abs(current - width) > 1 ? width : current));
-  }, []);
+  const canRefreshWonders = wonders.length > CHAT_WONDER_VISIBLE_COUNT;
   const handleRefreshWonders = useCallback(() => {
     if (!canRefreshWonders) {
       return;
@@ -113,7 +80,7 @@ export const ChatNewConversationIntro = memo(function ChatNewConversationIntro({
       </View>
 
       {visibleWonders.length > 0 ? (
-        <View style={styles.wonders} onLayout={handleWondersLayout}>
+        <View style={styles.wonders}>
           <View style={styles.wondersHeader}>
             <Text allowFontScaling={false} style={styles.wondersTitle}>
               {t('chatDetail.wonders.title')}
@@ -129,7 +96,7 @@ export const ChatNewConversationIntro = memo(function ChatNewConversationIntro({
               pressedStyle={styles.refreshButtonPressed}
             />
           </View>
-          <View style={styles.wonderGrid}>
+          <View style={styles.wonderList}>
             {visibleWonders.map((wonder, index) => (
               <WonderCard
                 key={`${wonder.id}:${index}`}
@@ -141,7 +108,6 @@ export const ChatNewConversationIntro = memo(function ChatNewConversationIntro({
                 }
                 onPress={onSelectWonder}
                 styles={styles}
-                layoutStyle={wonderCardLayoutStyle || styles.wonderCardFallback}
               />
             ))}
           </View>
@@ -207,25 +173,21 @@ function createStyles(theme: AppThemeTokens) {
     refreshButtonDisabled: {
       opacity: 0.38,
     },
-    wonderGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: WONDERS_GRID_GAP,
+    wonderList: {
+      gap: appVisualTokens.spacing.sm,
     },
     wonderCard: {
+      width: '100%',
+      minHeight: WONDER_CARD_MIN_HEIGHT,
       borderWidth: 1,
       borderColor: theme.colors.line,
       borderRadius: appVisualTokens.radii.sm,
       backgroundColor: theme.colors.surface,
-      paddingHorizontal: appVisualTokens.spacing.sm,
+      paddingHorizontal: appVisualTokens.spacing.md,
       paddingVertical: appVisualTokens.spacing.sm,
       gap: appVisualTokens.spacing.xs,
       justifyContent: 'flex-start',
       overflow: 'hidden',
-    },
-    wonderCardFallback: {
-      width: '48%',
-      minHeight: WONDER_CARD_MIN_HEIGHT,
     },
     wonderCardPressed: {
       backgroundColor: theme.colors.brandBlueSoft,

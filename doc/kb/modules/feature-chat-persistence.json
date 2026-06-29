@@ -16,7 +16,7 @@
     "详情页历史抽屉按当前 agent/team scope 读取 conversations 非空摘要切片，空本地草稿不进入历史列表、总数或未读数；点击历史会话通过 ChatDetail route 切换 conversationId，一键已读继续委托 chatSyncService.markScopeRead。",
     "详情页由 ChatDetailScreen 负责页面组合，加载/订阅/发送/停止/继续/awaiting 提交/输入区主操作派生、空新对话欢迎态、头部运行态、输入区结构化用量派生/骨架屏入场收敛到 useChatDetailConversationController，普通 awaiting overlay 与收起后重开入口收敛到 useChatDetailAwaitingOverlay，question/approval/form/plan awaiting 使用 ChatAwaitingDock 贴底展示；form HTML viewport 由 AwaitingFormViewport 通过 /ap/api/viewport 拉取并桥接 frontend_awaiting_submit，历史抽屉与复制提示收敛到 useChatDetailLocalUiState；Header、Timeline 列表、Composer、ChatUsageStats、历史抽屉、空态欢迎组件和骨架屏分别下沉到 components 内部展示组件。",
     "Chat 首页和详情页 UI 文案通过 shared-i18n 获取，用户消息、服务端正文、runtime payload 原始文本和已持久化会话标题不做本地翻译。",
-    "详情页主界面不再展示模型选择、摘要卡和独立运行态卡片；消息、reasoning、tool、awaiting 等通过 ChatTimelineList 扁平渲染，运行状态从同一份 timelineState 派生到 ChatDetailHeader，usageLabel 和 usageSummary 派生到输入区 ChatUsageStatsButton，messages/runtimeState/composer primary action 也都从 timeline 派生；首屏优先从 SQLite normalized rich timeline snapshot 恢复，usageSummary 可从 usage 节点 payload 恢复，缺失或尾签名不匹配时才回退 messages。"
+    "详情页主界面不再展示模型选择、摘要卡和独立运行态卡片；消息、reasoning、tool、awaiting 等通过 ChatTimelineList 扁平渲染，运行状态从同一份 timelineState 派生到 ChatDetailHeader，结构化 usageSummary 派生到头部和输入区用量入口，usageLabel 仅作为后端旧字段原文保留，messages/runtimeState/composer primary action 也都从 timeline 派生；首屏优先从 SQLite normalized rich timeline snapshot 恢复，usageSummary 可从 usage 节点 payload 恢复，缺失或尾签名不匹配时才回退 messages。"
   ],
   "publicEntrypoints": [
     {
@@ -41,7 +41,7 @@
       "file": "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
       "symbol": "ChatNewConversationIntro",
       "kind": "component",
-      "description": "详情页空新对话欢迎组件，展示与 agentName 对话；若 chatSyncService 的 agent detail 内存快照包含 wonders，则按移动端宽度显示 2x2 或 1x3 方块妙问网格，右侧刷新按钮只在本地随机切换展示窗口，点击卡片只填入输入框不自动发送。"
+      "description": "详情页空新对话欢迎组件，展示与 agentName 对话；若 chatSyncService 的 agent detail 内存快照包含 wonders，则最多竖向展示 3 条妙问，标题保留单行、问题描述最多两行省略，右侧刷新按钮只在本地随机切换展示窗口，点击卡片只填入输入框不自动发送。"
     },
     {
       "file": "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
@@ -352,7 +352,7 @@
     }
   ],
   "generated": {
-    "fileCount": 54,
+    "fileCount": 55,
     "files": [
       "src/features/chatPersistence/ChatDetailScreen.tsx",
       "src/features/chatPersistence/ChatHomeScreen.tsx",
@@ -380,6 +380,7 @@
       "src/features/chatPersistence/components/ChatDetailSkeleton.tsx",
       "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
       "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
+      "src/features/chatPersistence/components/ChatSystemAlert.tsx",
       "src/features/chatPersistence/components/ChatTimelineList.tsx",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx",
@@ -573,6 +574,7 @@
       "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": ["ChatDetailSkeleton"],
       "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": ["ChatDirectoryPickerDrawer"],
       "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": ["ChatNewConversationIntro"],
+      "src/features/chatPersistence/components/ChatSystemAlert.tsx": ["ChatSystemAlert"],
       "src/features/chatPersistence/components/ChatTimelineList.tsx": ["ChatTimelineList"],
       "src/features/chatPersistence/components/ChatTimelineRail.tsx": ["ChatTimelineRail"],
       "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": ["ChatUsageHeaderBadge"],
@@ -632,9 +634,8 @@
         "normalizeAwaitingSubmitParams"
       ],
       "src/features/chatPersistence/components/chatWonderDisplay.ts": [
-        "ChatWonderGridConfig",
-        "pickChatWonderSuggestions",
-        "resolveChatWonderGridConfig"
+        "CHAT_WONDER_VISIBLE_COUNT",
+        "pickChatWonderSuggestions"
       ],
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
         "RuntimePayloadDescriptor",

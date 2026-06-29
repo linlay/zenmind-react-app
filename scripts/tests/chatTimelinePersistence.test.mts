@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  applyChatTimelineEvent,
   deserializeChatTimelineState,
   deriveChatTimelineState,
   serializeChatTimelineState,
@@ -113,7 +114,7 @@ test('timeline persistence roundtrips rich runtime nodes without replaying event
   assert.notEqual(restored, null);
   assert.deepEqual(restored?.orderedNodeIds, state.orderedNodeIds);
   assert.equal(restored?.awaiting?.mode, 'approval');
-  assert.equal(restored?.usageLabel, '输入 12 · 输出 3 · 总计 15');
+  assert.equal(restored?.usageLabel, '');
   assert.equal(restored?.usageSummary?.current.promptTokens, 12);
   assert.equal(restored?.usageSummary?.chat.totalTokens, 15);
   assert.equal(restored?.usageSummary?.modelKey, 'gpt-5-mini');
@@ -126,6 +127,136 @@ test('timeline persistence roundtrips rich runtime nodes without replaying event
     restored?.orderedNodeIds.map((id) => restored.nodesById[id]?.kind),
     ['message', 'run', 'reasoning', 'tool', 'message', 'awaiting', 'usage']
   );
+});
+
+test('timeline persistence roundtrips system error detail nodes', () => {
+  const state = deriveChatTimelineState('chat-error', [
+    {
+      type: 'run.start',
+      runId: 'run-error',
+      timestamp: 100,
+    },
+    {
+      type: 'run.error',
+      runId: 'run-error',
+      error: {
+        code: 'stream_failed',
+        category: 'chat_run',
+        scope: 'run',
+        status: 500,
+        retryable: false,
+        message: 'provider deepseek has empty apiKey',
+        diagnostics: {
+          provider: 'deepseek',
+        },
+      },
+      timestamp: 120,
+    },
+  ]);
+
+  const serialized = serializeChatTimelineState(state);
+  const restored = deserializeChatTimelineState(serialized.meta, serialized.nodes);
+  assert.notEqual(restored, null);
+  if (!restored) {
+    throw new Error('expected restored timeline state');
+  }
+  const systemNode = restored.orderedNodeIds
+    .map((nodeId) => restored.nodesById[nodeId])
+    .find((node) => node?.kind === 'message' && node.role === 'system');
+  assert.equal(systemNode?.kind, 'message');
+  if (!systemNode || systemNode.kind !== 'message') {
+    throw new Error('expected restored system message');
+  }
+  assert.equal(systemNode.content, 'provider deepseek has empty apiKey');
+  assert.equal(systemNode.errorDetail?.code, 'stream_failed');
+  assert.deepEqual(systemNode.errorDetail?.diagnostics, { provider: 'deepseek' });
+  assert.match(systemNode.errorDetail?.technicalText || '', /stream_failed/);
+});
+
+test('timeline persistence restores reasoning continuation identity after display close', () => {
+  const state = deriveChatTimelineState('chat-reasoning-continuation', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'reasoning.delta',
+      runId: 'run-1',
+      reasoningId: 'reason-1',
+      delta: 'first reasoning',
+      timestamp: 110,
+    },
+    {
+      type: 'tool.args',
+      runId: 'run-1',
+      toolCallId: 'tool-1',
+      toolName: 'datetime',
+      args: {},
+      timestamp: 120,
+    },
+  ]);
+  const serialized = serializeChatTimelineState(state);
+  const restored = deserializeChatTimelineState(serialized.meta, serialized.nodes);
+
+  assert.notEqual(restored, null);
+  assert.equal(
+    restored?.nodesById['reasoning:chat-reasoning-continuation:run-1:reason-1']?.kind,
+    'reasoning'
+  );
+  assert.equal(
+    restored?.activeReasoningNodeIdsByRun['run-1'],
+    'reasoning:chat-reasoning-continuation:run-1:reason-1'
+  );
+
+  const afterDelta = applyChatTimelineEvent(restored, 'chat-reasoning-continuation', {
+    type: 'reasoning.delta',
+    runId: 'run-1',
+    delta: ' continued',
+    timestamp: 130,
+  });
+  const reasoningNodes = Object.values(afterDelta.nodesById).filter(
+    (node) => node.kind === 'reasoning'
+  );
+
+  assert.equal(reasoningNodes.length, 1);
+  assert.equal(reasoningNodes[0]?.body, 'first reasoning continued');
+});
+
+test('timeline persistence keeps restored reasoning attached when run id arrives later', () => {
+  const state = deriveChatTimelineState('chat-reasoning-run-drift', [
+    {
+      type: 'reasoning.delta',
+      reasoningId: 'reason-1',
+      delta: 'first reasoning ',
+      timestamp: 90,
+    },
+  ]);
+  const serialized = serializeChatTimelineState(state);
+  const restored = deserializeChatTimelineState(serialized.meta, serialized.nodes);
+
+  assert.notEqual(restored, null);
+
+  const afterRunStart = applyChatTimelineEvent(restored, 'chat-reasoning-run-drift', {
+    type: 'run.start',
+    runId: 'run-1',
+    timestamp: 100,
+  });
+  const afterDelta = applyChatTimelineEvent(afterRunStart, 'chat-reasoning-run-drift', {
+    type: 'reasoning.delta',
+    runId: 'run-1',
+    reasoningId: 'reason-1',
+    delta: 'continued',
+    timestamp: 110,
+  });
+  const reasoningNodes = Object.values(afterDelta.nodesById).filter(
+    (node) => node.kind === 'reasoning'
+  );
+
+  assert.equal(reasoningNodes.length, 1);
+  assert.equal(reasoningNodes[0]?.body, 'first reasoning continued');
+  assert.equal(reasoningNodes[0]?.runId, 'run-1');
+  assert.deepEqual(Object.keys(afterDelta.activeReasoningNodeIdsByRun), ['run-1']);
 });
 
 test('timeline persistence normalizes legacy usage summaries without reasoning effort', () => {

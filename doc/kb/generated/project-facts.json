@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-25T01:15:38.497Z",
+  "generatedAt": "2026-06-29T05:35:20.033Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -47,11 +47,15 @@
     "src/core/ws/sharedWsTransport.ts",
     "src/core/ws/wsClient.ts",
     "src/core/ws/wsTransportConfig.ts",
+    "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx",
+    "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+    "src/features/agentTaskBoard/agentTaskBoardText.ts",
     "src/features/agentTaskBoard/kanbanAssistantPrompt.ts",
     "src/features/agentTaskBoard/kanbanChatRoute.ts",
     "src/features/agentTaskBoard/kanbanRunGuards.ts",
     "src/features/agentTaskBoard/kanbanViewModel.ts",
+    "src/features/agentTaskBoard/navigationTypes.ts",
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts",
     "src/features/auth/LoginScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
@@ -80,6 +84,7 @@
     "src/features/chatPersistence/components/ChatDetailSkeleton.tsx",
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
+    "src/features/chatPersistence/components/ChatSystemAlert.tsx",
     "src/features/chatPersistence/components/ChatTimelineList.tsx",
     "src/features/chatPersistence/components/ChatTimelineRail.tsx",
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx",
@@ -116,14 +121,16 @@
     "src/features/chatTimeline/awaitingInteraction.ts",
     "src/features/chatTimeline/index.ts",
     "src/features/chatTimeline/messageProjection.ts",
-    "src/features/chatTimeline/timelineConstants.ts",
     "src/features/chatTimeline/timelineDisplay.ts",
     "src/features/chatTimeline/timelineEventFormat.ts",
     "src/features/chatTimeline/timelinePersistence.ts",
+    "src/features/chatTimeline/timelinePlatformError.ts",
+    "src/features/chatTimeline/timelineReasoningIdentity.ts",
     "src/features/chatTimeline/timelineReducer.ts",
     "src/features/chatTimeline/types.ts",
     "src/features/chatTimeline/usageSummary.ts",
     "src/features/notifications/notificationService.ts",
+    "src/shared/branding/installedBrand.ts",
     "src/shared/components/ConversationMarkdownRenderer.tsx",
     "src/shared/components/PaginatedCardList.tsx",
     "src/shared/components/ScreenHeader.tsx",
@@ -150,6 +157,7 @@
     "src/shared/visual/AppThemeProvider.tsx",
     "src/shared/visual/agentAvatarIcon.ts",
     "src/shared/visual/agentAvatarTypes.ts",
+    "src/shared/visual/appLineIconRegistry.ts",
     "src/shared/visual/foundation.ts",
     "src/shared/visual/tabBarMetrics.ts",
     "src/shared/visual/themePreference.ts",
@@ -428,7 +436,19 @@
                 "type": "directory",
                 "children": [
                   {
+                    "name": "AgentTaskBoardFlowNavigator.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "AgentTaskBoardProvider.tsx",
+                    "type": "file"
+                  },
+                  {
                     "name": "AgentTaskBoardScreen.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "agentTaskBoardText.ts",
                     "type": "file"
                   },
                   {
@@ -445,6 +465,10 @@
                   },
                   {
                     "name": "kanbanViewModel.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "navigationTypes.ts",
                     "type": "file"
                   },
                   {
@@ -547,6 +571,10 @@
                       },
                       {
                         "name": "ChatNewConversationIntro.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatSystemAlert.tsx",
                         "type": "file"
                       },
                       {
@@ -740,10 +768,6 @@
                     "type": "file"
                   },
                   {
-                    "name": "timelineConstants.ts",
-                    "type": "file"
-                  },
-                  {
                     "name": "timelineDisplay.ts",
                     "type": "file"
                   },
@@ -753,6 +777,14 @@
                   },
                   {
                     "name": "timelinePersistence.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "timelinePlatformError.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "timelineReasoningIdentity.ts",
                     "type": "file"
                   },
                   {
@@ -785,6 +817,16 @@
             "name": "shared",
             "type": "directory",
             "children": [
+              {
+                "name": "branding",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "installedBrand.ts",
+                    "type": "file"
+                  }
+                ]
+              },
               {
                 "name": "components",
                 "type": "directory",
@@ -938,6 +980,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "appLineIconRegistry.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "AppThemeProvider.tsx",
                     "type": "file"
                   },
@@ -1074,11 +1120,15 @@
       "src/core/ws/wsTransportConfig.ts"
     ],
     "feature-agent-task-board": [
+      "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx",
+      "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx",
       "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+      "src/features/agentTaskBoard/agentTaskBoardText.ts",
       "src/features/agentTaskBoard/kanbanAssistantPrompt.ts",
       "src/features/agentTaskBoard/kanbanChatRoute.ts",
       "src/features/agentTaskBoard/kanbanRunGuards.ts",
       "src/features/agentTaskBoard/kanbanViewModel.ts",
+      "src/features/agentTaskBoard/navigationTypes.ts",
       "src/features/agentTaskBoard/useDesktopKanbanBoard.ts"
     ],
     "feature-auth-login": ["src/features/auth/LoginScreen.tsx"],
@@ -1109,6 +1159,7 @@
       "src/features/chatPersistence/components/ChatDetailSkeleton.tsx",
       "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
       "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
+      "src/features/chatPersistence/components/ChatSystemAlert.tsx",
       "src/features/chatPersistence/components/ChatTimelineList.tsx",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx",
@@ -1149,10 +1200,11 @@
       "src/features/chatTimeline/awaitingInteraction.ts",
       "src/features/chatTimeline/index.ts",
       "src/features/chatTimeline/messageProjection.ts",
-      "src/features/chatTimeline/timelineConstants.ts",
       "src/features/chatTimeline/timelineDisplay.ts",
       "src/features/chatTimeline/timelineEventFormat.ts",
       "src/features/chatTimeline/timelinePersistence.ts",
+      "src/features/chatTimeline/timelinePlatformError.ts",
+      "src/features/chatTimeline/timelineReasoningIdentity.ts",
       "src/features/chatTimeline/timelineReducer.ts",
       "src/features/chatTimeline/types.ts",
       "src/features/chatTimeline/usageSummary.ts"
@@ -1178,6 +1230,7 @@
       "src/shared/components/__tests__/ScreenHeader.test.tsx"
     ],
     "shared-visual-foundation": [
+      "src/shared/branding/installedBrand.ts",
       "src/shared/generated/brand.ts",
       "src/shared/generated/brandAssets.ts",
       "src/shared/icons/AppIcon.tsx",
@@ -1191,6 +1244,7 @@
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/agentAvatarIcon.ts",
       "src/shared/visual/agentAvatarTypes.ts",
+      "src/shared/visual/appLineIconRegistry.ts",
       "src/shared/visual/foundation.ts",
       "src/shared/visual/tabBarMetrics.ts",
       "src/shared/visual/themePreference.ts",
@@ -1245,11 +1299,15 @@
     "src/core/ws/sharedWsTransport.ts": "core-ws-transport",
     "src/core/ws/wsClient.ts": "core-ws-transport",
     "src/core/ws/wsTransportConfig.ts": "core-ws-transport",
+    "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx": "feature-agent-task-board",
+    "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx": "feature-agent-task-board",
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": "feature-agent-task-board",
+    "src/features/agentTaskBoard/agentTaskBoardText.ts": "feature-agent-task-board",
     "src/features/agentTaskBoard/kanbanAssistantPrompt.ts": "feature-agent-task-board",
     "src/features/agentTaskBoard/kanbanChatRoute.ts": "feature-agent-task-board",
     "src/features/agentTaskBoard/kanbanRunGuards.ts": "feature-agent-task-board",
     "src/features/agentTaskBoard/kanbanViewModel.ts": "feature-agent-task-board",
+    "src/features/agentTaskBoard/navigationTypes.ts": "feature-agent-task-board",
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts": "feature-agent-task-board",
     "src/features/auth/LoginScreen.tsx": "feature-auth-login",
     "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
@@ -1278,6 +1336,7 @@
     "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatSystemAlert.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatTimelineList.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": "feature-chat-persistence",
@@ -1314,14 +1373,16 @@
     "src/features/chatTimeline/awaitingInteraction.ts": "feature-chat-timeline",
     "src/features/chatTimeline/index.ts": "feature-chat-timeline",
     "src/features/chatTimeline/messageProjection.ts": "feature-chat-timeline",
-    "src/features/chatTimeline/timelineConstants.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineDisplay.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineEventFormat.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelinePersistence.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelinePlatformError.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelineReasoningIdentity.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineReducer.ts": "feature-chat-timeline",
     "src/features/chatTimeline/types.ts": "feature-chat-timeline",
     "src/features/chatTimeline/usageSummary.ts": "feature-chat-timeline",
     "src/features/notifications/notificationService.ts": "feature-notifications",
+    "src/shared/branding/installedBrand.ts": "shared-visual-foundation",
     "src/shared/components/ConversationMarkdownRenderer.tsx": "shared-conversation-content-renderer",
     "src/shared/components/PaginatedCardList.tsx": "shared-paginated-list",
     "src/shared/components/ScreenHeader.tsx": "shared-screen-header",
@@ -1348,6 +1409,7 @@
     "src/shared/visual/AppThemeProvider.tsx": "shared-visual-foundation",
     "src/shared/visual/agentAvatarIcon.ts": "shared-visual-foundation",
     "src/shared/visual/agentAvatarTypes.ts": "shared-visual-foundation",
+    "src/shared/visual/appLineIconRegistry.ts": "shared-visual-foundation",
     "src/shared/visual/foundation.ts": "shared-visual-foundation",
     "src/shared/visual/tabBarMetrics.ts": "shared-visual-foundation",
     "src/shared/visual/themePreference.ts": "shared-visual-foundation",
@@ -1784,7 +1846,15 @@
       "WsTransportConfig",
       "WsTransportNamespace"
     ],
-    "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": ["AgentTaskBoardScreen"],
+    "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx": ["AgentTaskBoardFlowNavigator"],
+    "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx": ["AgentTaskBoardProvider", "useAgentTaskBoard"],
+    "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": [
+      "AgentTaskBoardAssignTaskScreen",
+      "AgentTaskBoardNewTaskScreen",
+      "AgentTaskBoardScreen",
+      "AgentTaskBoardTaskDetailScreen"
+    ],
+    "src/features/agentTaskBoard/agentTaskBoardText.ts": ["createBoardViewText"],
     "src/features/agentTaskBoard/kanbanAssistantPrompt.ts": ["buildKanbanAssistantPrompt"],
     "src/features/agentTaskBoard/kanbanChatRoute.ts": ["buildKanbanChatDetailParams"],
     "src/features/agentTaskBoard/kanbanRunGuards.ts": [
@@ -1810,6 +1880,7 @@
       "getAgentPreview",
       "nextIssuePosition"
     ],
+    "src/features/agentTaskBoard/navigationTypes.ts": ["AgentTaskBoardStackParamList"],
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts": [
       "DesktopKanbanBoardState",
       "TaskDraftForm",
@@ -1978,6 +2049,7 @@
     "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": ["ChatDetailSkeleton"],
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": ["ChatDirectoryPickerDrawer"],
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": ["ChatNewConversationIntro"],
+    "src/features/chatPersistence/components/ChatSystemAlert.tsx": ["ChatSystemAlert"],
     "src/features/chatPersistence/components/ChatTimelineList.tsx": ["ChatTimelineList"],
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": ["ChatTimelineRail"],
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": ["ChatUsageHeaderBadge"],
@@ -2037,9 +2109,8 @@
       "normalizeAwaitingSubmitParams"
     ],
     "src/features/chatPersistence/components/chatWonderDisplay.ts": [
-      "ChatWonderGridConfig",
-      "pickChatWonderSuggestions",
-      "resolveChatWonderGridConfig"
+      "CHAT_WONDER_VISIBLE_COUNT",
+      "pickChatWonderSuggestions"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "RuntimePayloadDescriptor",
@@ -2217,6 +2288,7 @@
       "applyChatTimelineStreamDelta",
       "buildChatTimelineDisplayItems",
       "buildChatTimelineDisplayModel",
+      "compactChatTimelineRequestEchoes",
       "createChatTimelineState",
       "deriveChatTimelineState",
       "deriveChatTimelineStateFromMessages",
@@ -2235,7 +2307,6 @@
       "timelinePersistenceInternals"
     ],
     "src/features/chatTimeline/messageProjection.ts": ["projectTimelineMessages", "projectTimelineRuntimeState"],
-    "src/features/chatTimeline/timelineConstants.ts": ["CHAT_TIMELINE_REASONING_PROCESS_TITLE"],
     "src/features/chatTimeline/timelineDisplay.ts": [
       "ChatTimelineDisplayModel",
       "ChatTimelineDisplayTailSignature",
@@ -2258,12 +2329,26 @@
       "serializeChatTimelineState",
       "timelinePersistenceInternals"
     ],
+    "src/features/chatTimeline/timelinePlatformError.ts": [
+      "formatChatTimelinePlatformErrorForDisplay",
+      "getChatTimelineErrorDetailSignature"
+    ],
+    "src/features/chatTimeline/timelineReasoningIdentity.ts": [
+      "activeReasoningRunKey",
+      "buildActiveReasoningNodeIdsByRun",
+      "clearActiveReasoningNodeIdForRun",
+      "copyActiveReasoningNodeIdsByRun",
+      "copyPreservedReasoningNodeIdsByRun",
+      "getActiveReasoningNodeIdForRun",
+      "setActiveReasoningNodeIdForRun"
+    ],
     "src/features/chatTimeline/timelineReducer.ts": [
       "MergeChatTimelineStateOptions",
       "applyChatTimelineEvent",
       "applyChatTimelineLocalCancel",
       "applyChatTimelineMessage",
       "applyChatTimelineStreamDelta",
+      "compactChatTimelineRequestEchoes",
       "createChatTimelineState",
       "deriveChatTimelineState",
       "deriveChatTimelineStateFromMessages",
@@ -2299,6 +2384,7 @@
       "ChatTimelineDeliveryStatus",
       "ChatTimelineDisplayItem",
       "ChatTimelineDisplayItemKind",
+      "ChatTimelineErrorDetail",
       "ChatTimelineLifecycle",
       "ChatTimelineMessageNode",
       "ChatTimelineMessageRole",
@@ -2309,6 +2395,7 @@
       "ChatTimelineRuntimeEntry",
       "ChatTimelineRuntimeEntryKind",
       "ChatTimelineRuntimeState",
+      "ChatTimelineRuntimeStatus",
       "ChatTimelineState",
       "ChatTimelineTextNode",
       "ChatTimelineToolGroupDisplayItem",
@@ -2320,11 +2407,11 @@
     ],
     "src/features/chatTimeline/usageSummary.ts": [
       "buildChatTimelineUsageSummary",
-      "buildChatTimelineUsageSummaryFromLabel",
       "chatTimelineUsageSummaryEquals",
       "resolveChatTimelineUsageModelKey"
     ],
     "src/features/notifications/notificationService.ts": ["notificationService"],
+    "src/shared/branding/installedBrand.ts": ["resolveInstalledBrandId"],
     "src/shared/components/ConversationMarkdownRenderer.tsx": ["ConversationMarkdownRenderer"],
     "src/shared/components/PaginatedCardList.tsx": [
       "ListPaginationConfig",
@@ -2335,16 +2422,20 @@
     "src/shared/components/__tests__/ScreenHeader.test.tsx": [],
     "src/shared/generated/brand.ts": [
       "APP_BRAND",
+      "APP_BRANDS",
       "APP_SLUG",
       "APP_VERSION",
+      "AppBrandId",
       "BRAND_ID",
       "BRAND_SPLASH_BACKGROUND_COLOR",
       "BRAND_SPLASH_IMAGE_WIDTH",
+      "DEFAULT_BRAND_ID",
       "EXPO_NAME",
+      "INSTALLED_BRAND_ID",
       "PRODUCT_NAME",
       "STORAGE_NAMESPACE"
     ],
-    "src/shared/generated/brandAssets.ts": ["BRAND_LOGO"],
+    "src/shared/generated/brandAssets.ts": ["BRAND_LOGO", "BRAND_LOGOS", "getBrandLogo"],
     "src/shared/i18n/I18nProvider.tsx": ["I18nProvider", "useI18n", "useT"],
     "src/shared/i18n/formatters.ts": ["formatAccessExpiryLabel"],
     "src/shared/i18n/index.ts": [
@@ -2400,7 +2491,7 @@
     ],
     "src/shared/visual/AgentAvatar.tsx": ["AGENT_ICON_NAMES", "AgentAvatar", "AgentAvatarProps"],
     "src/shared/visual/AgentBuiltinIcon.tsx": ["AgentBuiltinIcon", "AgentBuiltinIconKey", "AgentBuiltinIconProps"],
-    "src/shared/visual/AppLineIcon.tsx": ["AppLineIcon", "AppLineIconName", "AppLineIconProps"],
+    "src/shared/visual/AppLineIcon.tsx": ["AppLineIcon", "AppLineIconProps"],
     "src/shared/visual/AppThemeProvider.tsx": ["AppThemeProvider", "useAppTheme", "useAppThemeStyles"],
     "src/shared/visual/agentAvatarIcon.ts": [
       "AGENT_ICON_NAMES",
@@ -2411,6 +2502,16 @@
       "resolveAgentBuiltinIconName"
     ],
     "src/shared/visual/agentAvatarTypes.ts": ["AgentAvatarIcon", "AgentAvatarKind"],
+    "src/shared/visual/appLineIconRegistry.ts": [
+      "APP_LINE_ICON_OUTLINE_NAMES",
+      "APP_LINE_ICON_PATHS",
+      "AppLineIconName",
+      "AppLineIconOutlineName",
+      "AppLineIconPathDefinition",
+      "AppLineIconPathName",
+      "OUTLINE_ICON_VIEW_BOX",
+      "appLineIconRegistry"
+    ],
     "src/shared/visual/foundation.ts": [
       "AppThemeTokens",
       "AppVisualColors",
@@ -2479,6 +2580,8 @@
       "src/app/screens/SettingsScreen.tsx",
       "src/core/auth/authConfig.ts",
       "src/core/auth/useAuthSession.ts",
+      "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx",
+      "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx",
       "src/features/auth/LoginScreen.tsx",
       "src/features/chatPersistence/ChatDetailScreen.tsx"
     ],
@@ -2506,7 +2609,10 @@
       "src/shared/visual/foundation.ts",
       "src/shared/visual/tabBarMetrics.ts"
     ],
-    "src/app/navigation/types.ts": ["src/features/chatPersistence/types.ts"],
+    "src/app/navigation/types.ts": [
+      "src/features/agentTaskBoard/navigationTypes.ts",
+      "src/features/chatPersistence/types.ts"
+    ],
     "src/app/screens/AppScreenFrame.tsx": [
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
@@ -2626,11 +2732,22 @@
       "src/core/ws/wsTransportConfig.ts"
     ],
     "src/core/ws/wsTransportConfig.ts": [],
+    "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx": [
+      "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+      "src/features/agentTaskBoard/navigationTypes.ts"
+    ],
+    "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx": [
+      "src/features/agentTaskBoard/agentTaskBoardText.ts",
+      "src/features/agentTaskBoard/useDesktopKanbanBoard.ts",
+      "src/shared/i18n/index.ts"
+    ],
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": [
       "src/app/navigation/types.ts",
       "src/core/api/services/kanbanApi.ts",
+      "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx",
       "src/features/agentTaskBoard/kanbanChatRoute.ts",
       "src/features/agentTaskBoard/kanbanViewModel.ts",
+      "src/features/agentTaskBoard/navigationTypes.ts",
       "src/features/agentTaskBoard/useDesktopKanbanBoard.ts",
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
@@ -2639,6 +2756,10 @@
       "src/shared/visual/foundation.ts",
       "src/shared/visual/useAppTabBarHeight.ts"
     ],
+    "src/features/agentTaskBoard/agentTaskBoardText.ts": [
+      "src/features/agentTaskBoard/kanbanViewModel.ts",
+      "src/shared/i18n/index.ts"
+    ],
     "src/features/agentTaskBoard/kanbanAssistantPrompt.ts": ["src/core/api/services/kanbanApi.ts"],
     "src/features/agentTaskBoard/kanbanChatRoute.ts": [
       "src/core/api/services/kanbanApi.ts",
@@ -2646,6 +2767,7 @@
     ],
     "src/features/agentTaskBoard/kanbanRunGuards.ts": ["src/core/api/services/kanbanApi.ts"],
     "src/features/agentTaskBoard/kanbanViewModel.ts": ["src/core/api/services/kanbanApi.ts"],
+    "src/features/agentTaskBoard/navigationTypes.ts": [],
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts": [
       "src/core/api/services/kanbanApi.ts",
       "src/features/agentTaskBoard/kanbanAssistantPrompt.ts",
@@ -2769,7 +2891,7 @@
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/index.ts",
-      "src/shared/visual/AppLineIcon.tsx",
+      "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
@@ -2832,9 +2954,18 @@
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
+    "src/features/chatPersistence/components/ChatSystemAlert.tsx": [
+      "src/features/chatPersistence/components/ChatTimelineRail.tsx",
+      "src/features/chatTimeline/index.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/foundation.ts"
+    ],
     "src/features/chatPersistence/components/ChatTimelineList.tsx": [
       "src/features/chatPersistence/chatDetailFormatters.ts",
       "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
+      "src/features/chatPersistence/components/ChatSystemAlert.tsx",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
       "src/features/chatTimeline/index.ts",
@@ -3058,6 +3189,7 @@
     ],
     "src/features/chatTimeline/awaitingInteraction.ts": [
       "src/core/api/services/chatEventProtocol.ts",
+      "src/shared/i18n/translate.ts",
       "src/features/chatTimeline/timelineEventFormat.ts",
       "src/features/chatTimeline/types.ts"
     ],
@@ -3074,29 +3206,39 @@
       "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/types.ts"
     ],
-    "src/features/chatTimeline/timelineConstants.ts": [],
     "src/features/chatTimeline/timelineDisplay.ts": [
-      "src/features/chatTimeline/timelineConstants.ts",
+      "src/features/chatTimeline/timelinePlatformError.ts",
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineEventFormat.ts": [],
     "src/features/chatTimeline/timelinePersistence.ts": [
+      "src/features/chatTimeline/timelineReasoningIdentity.ts",
       "src/features/chatTimeline/types.ts",
       "src/features/chatTimeline/usageSummary.ts"
     ],
+    "src/features/chatTimeline/timelinePlatformError.ts": [
+      "src/features/chatTimeline/types.ts",
+      "src/shared/i18n/translate.ts"
+    ],
+    "src/features/chatTimeline/timelineReasoningIdentity.ts": ["src/features/chatTimeline/types.ts"],
     "src/features/chatTimeline/timelineReducer.ts": [
       "src/core/api/services/chatEventProtocol.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/awaitingInteraction.ts",
-      "src/features/chatTimeline/timelineConstants.ts",
       "src/features/chatTimeline/timelineEventFormat.ts",
+      "src/features/chatTimeline/timelinePlatformError.ts",
+      "src/features/chatTimeline/timelineReasoningIdentity.ts",
       "src/features/chatTimeline/types.ts",
       "src/features/chatTimeline/usageSummary.ts"
     ],
     "src/features/chatTimeline/types.ts": ["src/features/chatPersistence/types.ts"],
-    "src/features/chatTimeline/usageSummary.ts": ["src/features/chatTimeline/types.ts"],
+    "src/features/chatTimeline/usageSummary.ts": [
+      "src/shared/i18n/translate.ts",
+      "src/features/chatTimeline/types.ts"
+    ],
     "src/features/notifications/notificationService.ts": ["src/core/api/services/notificationApi.ts"],
+    "src/shared/branding/installedBrand.ts": [],
     "src/shared/components/ConversationMarkdownRenderer.tsx": [
       "src/shared/markdown/preprocess.ts",
       "src/shared/visual/AppThemeProvider.tsx"
@@ -3111,8 +3253,12 @@
       "src/shared/visual/foundation.ts"
     ],
     "src/shared/components/__tests__/ScreenHeader.test.tsx": ["src/shared/components/ScreenHeader.tsx"],
-    "src/shared/generated/brand.ts": [],
-    "src/shared/generated/brandAssets.ts": ["assets/brands/zenmind/logo.png"],
+    "src/shared/generated/brand.ts": ["src/shared/branding/installedBrand.ts"],
+    "src/shared/generated/brandAssets.ts": [
+      "assets/brands/cutej/logo.png",
+      "assets/brands/zenmind/logo.png",
+      "src/shared/generated/brand.ts"
+    ],
     "src/shared/i18n/I18nProvider.tsx": ["src/shared/i18n/locales.ts", "src/shared/i18n/translate.ts"],
     "src/shared/i18n/formatters.ts": ["src/shared/i18n/locales.ts", "src/shared/i18n/translate.ts"],
     "src/shared/i18n/index.ts": [
@@ -3134,7 +3280,7 @@
     ],
     "src/shared/icons/AppIconButton.tsx": ["src/shared/icons/AppIcon.tsx"],
     "src/shared/icons/brandAssets.ts": ["src/shared/generated/brandAssets.ts"],
-    "src/shared/icons/registries/appIconRegistry.ts": ["src/shared/visual/AppLineIcon.tsx"],
+    "src/shared/icons/registries/appIconRegistry.ts": ["src/shared/visual/appLineIconRegistry.ts"],
     "src/shared/icons/registries/appIconUsages.ts": ["src/shared/icons/registries/appIconRegistry.ts"],
     "src/shared/markdown/preprocess.ts": [],
     "src/shared/visual/AgentAvatar.tsx": [
@@ -3146,13 +3292,14 @@
       "src/shared/visual/foundation.ts"
     ],
     "src/shared/visual/AgentBuiltinIcon.tsx": ["src/shared/visual/agentAvatarIcon.ts"],
-    "src/shared/visual/AppLineIcon.tsx": [],
+    "src/shared/visual/AppLineIcon.tsx": ["src/shared/visual/appLineIconRegistry.ts"],
     "src/shared/visual/AppThemeProvider.tsx": [
       "src/shared/visual/foundation.ts",
       "src/shared/visual/themePreference.ts"
     ],
     "src/shared/visual/agentAvatarIcon.ts": ["src/shared/visual/agentAvatarTypes.ts"],
     "src/shared/visual/agentAvatarTypes.ts": [],
+    "src/shared/visual/appLineIconRegistry.ts": [],
     "src/shared/visual/foundation.ts": ["src/shared/visual/themePreference.ts"],
     "src/shared/visual/tabBarMetrics.ts": ["src/shared/visual/foundation.ts"],
     "src/shared/visual/themePreference.ts": [],

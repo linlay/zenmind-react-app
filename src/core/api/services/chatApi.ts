@@ -27,19 +27,147 @@ export type RemoteChatSummary = {
   [key: string]: unknown;
 };
 
-export type RemoteChatEvent = Record<string, unknown>;
+export type RemoteChatEvent = Record<string, unknown> & {
+  seq?: number;
+  type?: string;
+  timestamp?: string | number;
+  chatId?: string;
+  runId?: string;
+};
+
+export type ChatDetailRequest = {
+  chatId: string;
+  includeRawMessages: boolean;
+};
+
+export type RemoteChatUsageStats = Record<string, unknown>;
+
+export type RemoteChatUsageData = RemoteChatUsageStats & {
+  current?: RemoteChatUsageStats;
+  run?: RemoteChatUsageStats;
+  lastRun?: RemoteChatUsageStats;
+  chat?: RemoteChatUsageStats;
+  compact?: RemoteChatUsageStats;
+  compactionUsage?: RemoteChatUsageStats;
+};
+
+export type RemoteChatContextWindow = {
+  maxSize?: number;
+  currentSize?: number;
+  estimatedNextCallSize?: number;
+  percent?: number;
+  modelKey?: string;
+  reasoningEffort?: string;
+  [key: string]: unknown;
+};
+
+export type RemoteChatRunSummary = {
+  runId?: string;
+  chatId?: string;
+  requestId?: string;
+  agentKey?: string;
+  initialMessage?: string;
+  assistantText?: string;
+  finishReason?: string;
+  startedAt?: string | number | null;
+  completedAt?: string | number | null;
+  usage?: RemoteChatUsageData | RemoteChatUsageStats | null;
+  feedbackType?: string | null;
+  feedbackComment?: string | null;
+  feedbackAt?: string | number | null;
+  [key: string]: unknown;
+};
+
+export type RemoteChatActiveRun = {
+  runId?: string;
+  state?: string;
+  lastSeq?: number;
+  oldestSeq?: number;
+  startedAt?: string | number | null;
+  planningMode?: boolean;
+  agentKey?: string;
+  modelKey?: string;
+  [key: string]: unknown;
+};
+
+export type RemoteChatPlanningSnapshot = {
+  runId?: string;
+  planningId?: string;
+  planningFile?: string;
+  text?: string;
+  [key: string]: unknown;
+};
+
+export type RemoteChatPlanSnapshot = {
+  planId?: string;
+  runId?: string;
+  title?: string;
+  status?: string;
+  tasks?: unknown[];
+  [key: string]: unknown;
+};
+
+export type RemoteChatArtifactFile = {
+  artifactId?: string;
+  name?: string;
+  mimeType?: string;
+  sha256?: string;
+  sizeBytes?: number;
+  size?: number;
+  url?: string;
+  timestamp?: string | number;
+  createdAt?: string | number;
+  updatedAt?: string | number;
+  [key: string]: unknown;
+};
+
+export type RemoteChatArtifactSnapshot = {
+  items?: RemoteChatArtifactFile[];
+  [key: string]: unknown;
+};
+
+export type RemoteChatReference = {
+  id?: string;
+  type?: string;
+  name?: string;
+  mimeType?: string;
+  sizeBytes?: number;
+  url?: string;
+  sha256?: string;
+  sandboxPath?: string;
+  meta?: Record<string, unknown>;
+  [key: string]: unknown;
+};
+
+export type RemoteChatRawMessage = Record<string, unknown>;
 
 export type RemoteChatDetail = {
   chatId?: string;
   chatName?: string;
+  title?: string;
+  name?: string;
   chatImageToken?: string;
+  firstAgentKey?: string;
+  agentKey?: string;
+  teamId?: string;
   read?: unknown;
   unreadRunCount?: number;
   readStatus?: number;
   readAt?: string | number | null;
   readRunId?: string | null;
   updatedAt?: string | number;
+  createdAt?: string | number;
+  resourceTicket?: string;
+  rawMessages?: RemoteChatRawMessage[];
   events?: RemoteChatEvent[];
+  runs?: RemoteChatRunSummary[];
+  activeRun?: RemoteChatActiveRun | null;
+  plan?: RemoteChatPlanSnapshot | null;
+  planning?: RemoteChatPlanningSnapshot | null;
+  artifact?: RemoteChatArtifactSnapshot | null;
+  references?: RemoteChatReference[];
+  usage?: RemoteChatUsageData | RemoteChatUsageStats | null;
+  contextWindow?: RemoteChatContextWindow | null;
   [key: string]: unknown;
 };
 
@@ -168,6 +296,7 @@ export type AwaitingViewportResponse = {
 };
 
 export type ChatApiEnvelope<T> = {
+  status?: string | number;
   code?: number;
   msg?: string;
   error?: string;
@@ -249,6 +378,16 @@ function normalizeWonderSuggestion(input: unknown, index: number): AgentWonderSu
 export function buildAgentDetailPayload(agentKey: string) {
   return {
     agentKey: toCleanText(agentKey),
+  };
+}
+
+export function buildChatDetailPayload(
+  request: string | { chatId?: string; includeRawMessages?: boolean }
+): ChatDetailRequest {
+  const source = typeof request === 'string' ? { chatId: request } : request;
+  return {
+    chatId: toCleanText(source.chatId),
+    includeRawMessages: source.includeRawMessages === true,
   };
 }
 

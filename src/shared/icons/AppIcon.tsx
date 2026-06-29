@@ -33,29 +33,19 @@ const APP_ICON_SIZE_BY_ROLE: Record<AppIconSizeRole, number> = {
   tab: 24,
 };
 
+const APP_ICON_COLOR_KEY_BY_ROLE: Record<AppIconColorRole, keyof AppVisualColors> = {
+  brand: 'brandBlue',
+  brandStrong: 'brandBlueStrong',
+  primary: 'textPrimary',
+  secondary: 'textSecondary',
+  tertiary: 'textTertiary',
+  onBrandAction: 'onBrandBlueAction',
+  success: 'success',
+  warning: 'warning',
+};
+
 function getAppIconColorByRole(colors: AppVisualColors, role: AppIconColorRole): string {
-  if (role === 'brand') {
-    return colors.brandBlue;
-  }
-  if (role === 'brandStrong') {
-    return colors.brandBlueStrong;
-  }
-  if (role === 'primary') {
-    return colors.textPrimary;
-  }
-  if (role === 'secondary') {
-    return colors.textSecondary;
-  }
-  if (role === 'tertiary') {
-    return colors.textTertiary;
-  }
-  if (role === 'onBrandAction') {
-    return colors.onBrandBlueAction;
-  }
-  if (role === 'success') {
-    return colors.success;
-  }
-  return colors.warning;
+  return colors[APP_ICON_COLOR_KEY_BY_ROLE[role]];
 }
 
 export const AppIcon = memo(function AppIcon({ usage, color, size, strokeWidth }: AppIconProps) {

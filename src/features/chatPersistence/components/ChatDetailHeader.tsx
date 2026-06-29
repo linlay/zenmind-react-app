@@ -8,7 +8,10 @@ import { useT } from '../../../shared/i18n';
 import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import type { ChatTimelineUsageSummary } from '../../chatTimeline/index.ts';
-import type { ChatDetailHeaderStatusTone } from '../chatDetailViewModel';
+import {
+  hasDisplayableChatTimelineUsageSummary,
+  type ChatDetailHeaderStatusTone
+} from '../chatDetailViewModel';
 import type { ChatReasoningEffort } from '../types';
 import { ChatUsageHeaderBadge } from './ChatUsageHeaderBadge';
 
@@ -17,7 +20,6 @@ type ChatDetailHeaderProps = {
   subtitle: string;
   statusLabel: string;
   statusTone: ChatDetailHeaderStatusTone;
-  usageLabel: string;
   usageSummary: ChatTimelineUsageSummary | null;
   modelKey: string | null;
   reasoningEffort: ChatReasoningEffort | null;
@@ -120,7 +122,6 @@ export const ChatDetailHeader = memo(function ChatDetailHeader({
   subtitle,
   statusLabel,
   statusTone,
-  usageLabel,
   usageSummary,
   modelKey,
   reasoningEffort,
@@ -149,21 +150,19 @@ export const ChatDetailHeader = memo(function ChatDetailHeader({
     [onBack, onStartNewConversation, t]
   );
   const usageAction = useMemo(() => {
-    const normalizedUsageLabel = usageLabel.trim();
-    if (!normalizedUsageLabel && !usageSummary) {
+    if (!hasDisplayableChatTimelineUsageSummary(usageSummary)) {
       return null;
     }
 
     return (
       <ChatUsageHeaderBadge
         key="usage"
-        usageLabel={normalizedUsageLabel}
         usageSummary={usageSummary}
         modelKey={modelKey}
         reasoningEffort={reasoningEffort}
       />
     );
-  }, [modelKey, reasoningEffort, usageLabel, usageSummary]);
+  }, [modelKey, reasoningEffort, usageSummary]);
   const rightActions = useMemo(
     () => {
       const historyAction = (

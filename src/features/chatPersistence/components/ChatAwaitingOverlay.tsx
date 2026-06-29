@@ -54,6 +54,20 @@ function getModeHint(mode: ChatConversationAwaitingState['mode'], t: TFunction):
   }
 }
 
+function getModePromptTitle(mode: ChatConversationAwaitingState['mode'], t: TFunction): string {
+  switch (mode) {
+    case 'plan':
+      return t('awaiting.plan.title');
+    case 'approval':
+      return t('awaiting.approval.title');
+    case 'form':
+      return t('awaiting.form.title');
+    case 'question':
+    default:
+      return t('runtime.awaiting.waiting');
+  }
+}
+
 export const ChatAwaitingResumeBar = memo(function ChatAwaitingResumeBar({
   awaiting,
   visible,
@@ -90,6 +104,7 @@ export const ChatAwaitingOverlay = memo(function ChatAwaitingOverlay({
   const t = useT();
   const styles = useAppThemeStyles(createStyles);
   const insets = useSafeAreaInsets();
+  const promptText = awaiting.prompt || getModePromptTitle(awaiting.mode, t);
   const maskOpacity = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(600)).current;
 
@@ -151,7 +166,7 @@ export const ChatAwaitingOverlay = memo(function ChatAwaitingOverlay({
             </Text>
           </View>
           <Text allowFontScaling={false} style={styles.promptText}>
-            {awaiting.prompt}
+            {promptText}
           </Text>
           {awaiting.payloadText ? (
             <View style={styles.payloadCard}>

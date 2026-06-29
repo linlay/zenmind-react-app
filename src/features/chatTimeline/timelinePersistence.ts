@@ -4,7 +4,7 @@ import type {
   ChatTimelineState,
   ChatTimelineUsageSummary,
 } from './types.ts';
-import { buildChatTimelineUsageSummaryFromLabel } from './usageSummary.ts';
+import { buildActiveReasoningNodeIdsByRun } from './timelineReasoningIdentity.ts';
 
 export type SerializedTimelineMeta = {
   conversationId: string;
@@ -204,9 +204,7 @@ export function deserializeChatTimelineState(
       : null;
   const metaUsageLabel = String(meta.usageLabel || '');
   const updatedAt = toFiniteNumber(meta.updatedAt, 0);
-  const usageSummary =
-    readLatestUsageSummaryFromNodes(orderedNodeIds, nodesById) ??
-    buildChatTimelineUsageSummaryFromLabel(metaUsageLabel, updatedAt);
+  const usageSummary = readLatestUsageSummaryFromNodes(orderedNodeIds, nodesById);
   const usageLabel = metaUsageLabel || usageSummary?.label || '';
 
   return {
@@ -214,6 +212,7 @@ export function deserializeChatTimelineState(
     orderedNodeIds,
     nodesById,
     activeRunId: String(meta.activeRunId || ''),
+    activeReasoningNodeIdsByRun: buildActiveReasoningNodeIdsByRun(orderedNodeIds, nodesById),
     awaiting: awaitingNode
       ? {
           id: awaitingNode.id,

@@ -49,9 +49,9 @@
   "dependsOn": [],
   "dependedBy": [
     "app-shell-navigation",
+    "feature-agent-task-board",
     "feature-auth-login",
     "feature-chat-persistence",
-    "feature-agent-task-board",
     "shared-paginated-list"
   ],
   "stateTouches": [

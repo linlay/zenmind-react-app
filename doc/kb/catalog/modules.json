@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-25T01:15:38.613Z",
+  "generatedAt": "2026-06-29T05:35:20.111Z",
   "items": [
     {
       "id": "app-development-debug",
@@ -24,6 +24,7 @@
         "assets/brands",
         "assets/tabs",
         "brands",
+        ".generated/brand",
         "eas.json",
         "package.json",
         "babel.config.js",
@@ -243,6 +244,7 @@
         "src/shared/visual",
         "src/shared/icons",
         "src/shared/generated",
+        "src/shared/branding",
         "assets/brands",
         "doc/ui-visual-theme.md"
       ],

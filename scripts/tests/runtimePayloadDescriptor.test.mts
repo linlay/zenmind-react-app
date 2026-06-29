@@ -47,10 +47,7 @@ test('runtime descriptor maps tool nodes to tool renderer with copyable sections
   assert.equal(descriptor.tone, 'tool');
   assert.equal(descriptor.statusTone, 'error');
   assert.equal(descriptor.defaultWrap, false);
-  assert.deepEqual(
-    descriptor.sections.map((section) => section.label),
-    ['参数', '结果']
-  );
+  assert.deepEqual(descriptor.sections, []);
   assert.match(descriptor.copyText, /参数/);
   assert.match(descriptor.copyText, /sub_agent_failed/);
   assert.deepEqual(
@@ -66,7 +63,7 @@ test('runtime descriptor keeps reasoning markdown lightweight and nowrap by defa
     kind: 'reasoning',
     title: '思考过程',
     body: 'Let me inspect the context.',
-    status: 'complete',
+    status: 'completed',
     streaming: false,
   };
 
@@ -87,7 +84,7 @@ test('runtime descriptor normalizes backend reasoning titles for display', () =>
     kind: 'reasoning',
     title: 'Computing',
     body: 'Let me inspect the context.',
-    status: 'complete',
+    status: 'completed',
     streaming: false,
   };
 
@@ -103,9 +100,9 @@ test('runtime descriptor presents planning markdown as an expanded implementatio
     ...baseNode,
     id: 'planning-1',
     kind: 'planning',
-    title: '规划',
+    title: '',
     body: '# 实施计划\n\n## Summary\n\n改成红色主题。',
-    status: '已完成',
+    status: 'completed',
     streaming: false,
   };
 
@@ -127,7 +124,7 @@ test('runtime descriptor keeps backend reasoning title while active', () => {
     kind: 'reasoning',
     title: 'Computing',
     body: 'Let me inspect the context.',
-    status: '更新中',
+    status: 'updating',
     lifecycle: 'active',
     streaming: true,
   };
@@ -149,7 +146,7 @@ test('runtime descriptor builds grouped tool records with per-call status', () =
     toolLabel: '日期时间',
     description: '',
     title: '日期时间',
-    status: '结果返回',
+    status: 'tool_result',
     argsText: '{\n  "timezone": "Asia/Shanghai"\n}',
     resultText: '{\n  "date": "2026-06-03"\n}',
     body: '',
@@ -164,7 +161,7 @@ test('runtime descriptor builds grouped tool records with per-call status', () =
     toolLabel: '日期时间',
     description: '',
     title: '日期时间',
-    status: '出错',
+    status: 'error',
     argsText: '{"offset":"+1D"}',
     resultText: '{"error":"invalid offset"}',
     body: '',
@@ -215,7 +212,7 @@ test('runtime descriptor exposes active tool start time only while running', () 
     toolLabel: '搜索',
     description: '',
     title: '搜索',
-    status: '运行中',
+    status: 'running',
     argsText: '{"query":"expo"}',
     resultText: '',
     body: '',
@@ -228,7 +225,7 @@ test('runtime descriptor exposes active tool start time only while running', () 
     ...runningNode,
     id: 'tool-completed',
     toolId: 'tool-completed',
-    status: '结果返回',
+    status: 'tool_result',
     resultText: '{"ok":true}',
     streaming: false,
     lifecycle: 'complete',
@@ -254,7 +251,7 @@ test('runtime descriptor uses the latest running call in a tool group', () => {
     toolLabel: '搜索',
     description: '',
     title: '搜索',
-    status: '结果返回',
+    status: 'tool_result',
     argsText: '{"query":"expo"}',
     resultText: '{"ok":true}',
     body: '',
@@ -264,7 +261,7 @@ test('runtime descriptor uses the latest running call in a tool group', () => {
     ...completedNode,
     id: 'tool-2',
     toolId: 'tool-2',
-    status: '运行中',
+    status: 'running',
     resultText: '',
     streaming: true,
     lifecycle: 'active',
@@ -302,7 +299,7 @@ test('runtime descriptor hides sub-second completed tool durations', () => {
     toolLabel: '搜索',
     description: '',
     title: '搜索',
-    status: '结果返回',
+    status: 'tool_result',
     argsText: '',
     resultText: '{"ok":true}',
     body: '',
@@ -347,9 +344,9 @@ test('runtime descriptor includes run duration in plain payload', () => {
     ...baseNode,
     id: 'run-1',
     kind: 'run',
-    title: '运行',
+    title: '',
     body: '已完成',
-    status: 'complete',
+    status: 'completed',
     agentKey: 'coder',
     startedAt: 1_000,
     completedAt: 3_500,

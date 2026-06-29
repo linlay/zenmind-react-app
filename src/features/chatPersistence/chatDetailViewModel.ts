@@ -1,6 +1,7 @@
 import type {
   ChatTimelineNode,
   ChatTimelineState,
+  ChatTimelineUsageStats,
   ChatTimelineUsageSummary,
 } from '../chatTimeline/index.ts';
 
@@ -45,6 +46,52 @@ function buildHeaderRuntimeState(
     usageSummary,
     runAction,
   };
+}
+
+function hasUsageNumber(value: number | null | undefined): boolean {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function hasDisplayableEstimatedCost(stats: ChatTimelineUsageStats): boolean {
+  const estimatedCost = stats.estimatedCost;
+  return Boolean(
+    estimatedCost &&
+      (hasUsageNumber(estimatedCost.inputCacheHit) ||
+        hasUsageNumber(estimatedCost.inputCacheMiss) ||
+        hasUsageNumber(estimatedCost.output) ||
+        hasUsageNumber(estimatedCost.total))
+  );
+}
+
+function hasDisplayableUsageStats(stats: ChatTimelineUsageStats | null): boolean {
+  return Boolean(
+    stats &&
+      (hasUsageNumber(stats.promptTokens) ||
+        hasUsageNumber(stats.completionTokens) ||
+        hasUsageNumber(stats.totalTokens) ||
+        hasUsageNumber(stats.reasoningTokens) ||
+        hasUsageNumber(stats.cacheHitTokens) ||
+        hasUsageNumber(stats.cacheMissTokens) ||
+        hasUsageNumber(stats.llmChatCompletionCount) ||
+        hasUsageNumber(stats.toolCallCount) ||
+        hasDisplayableEstimatedCost(stats))
+  );
+}
+
+export function hasDisplayableChatTimelineUsageSummary(
+  usageSummary: ChatTimelineUsageSummary | null | undefined
+): usageSummary is ChatTimelineUsageSummary {
+  return Boolean(
+    usageSummary &&
+      (hasUsageNumber(usageSummary.contextWindow.currentSize) ||
+        hasUsageNumber(usageSummary.contextWindow.maxSize) ||
+        hasUsageNumber(usageSummary.contextWindow.estimatedNextCallSize) ||
+        hasUsageNumber(usageSummary.contextWindow.percent) ||
+        hasDisplayableUsageStats(usageSummary.current) ||
+        hasDisplayableUsageStats(usageSummary.run) ||
+        hasDisplayableUsageStats(usageSummary.chat) ||
+        hasDisplayableUsageStats(usageSummary.compact))
+  );
 }
 
 export function deriveChatDetailHeaderRuntimeState(

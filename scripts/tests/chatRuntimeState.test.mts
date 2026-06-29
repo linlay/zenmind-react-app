@@ -136,5 +136,5 @@ test('runtime state can be rebuilt from remote detail event history', () => {
     state.entries.some((entry) => entry.kind === 'task'),
     true
   );
-  assert.equal(state.usageLabel, '输入 100 · 输出 40 · 总计 140');
+  assert.equal(state.usageLabel, '');
 });

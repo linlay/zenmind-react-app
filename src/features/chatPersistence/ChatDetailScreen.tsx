@@ -216,7 +216,6 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                         : t('chatDetail.status.idle')
                   }
                   statusTone={headerRuntimeState.statusTone}
-                  usageLabel={headerRuntimeState.usageLabel}
                   usageSummary={headerRuntimeState.usageSummary}
                   modelKey={conversationTarget?.modelKey ?? null}
                   reasoningEffort={conversationTarget?.reasoningEffort ?? null}
