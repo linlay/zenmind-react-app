@@ -14,7 +14,10 @@ import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
 import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens, type AppThemeTokens, type AppVisualColors } from '../../../shared/visual/foundation';
-import type { ChatTimelineDisplayItem } from '../../chatTimeline/index.ts';
+import type {
+  ChatTimelineAssistantReplyFooterDisplayItem,
+  ChatTimelineDisplayItem,
+} from '../../chatTimeline/index.ts';
 import { ChatTimelineRail } from './ChatTimelineRail';
 import { RuntimePayloadFrame } from './RuntimePayloadFrame';
 import { buildRuntimePayloadDescriptor, type RuntimePayloadDescriptor } from './runtimePayloadDescriptor';
@@ -22,7 +25,7 @@ import { RuntimePayloadContent } from './runtimePayloadRenderers';
 import { getRuntimeToolStatusColor } from './runtimeToolStatusVisual';
 
 type RuntimeTimelineRowProps = {
-  item: ChatTimelineDisplayItem;
+  item: Exclude<ChatTimelineDisplayItem, ChatTimelineAssistantReplyFooterDisplayItem>;
   onCopyText: (text: string) => void;
   getInitialExpanded: (nodeId: string, fallback: boolean) => boolean;
   onExpandedChange: (nodeId: string, expanded: boolean) => void;

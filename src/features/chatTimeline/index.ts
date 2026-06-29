@@ -21,6 +21,7 @@ export type {
   ChatTimelineAwaitingNode,
   ChatTimelineAwaitingState,
   ChatTimelineAssistantReplyFooter,
+  ChatTimelineAssistantReplyFooterDisplayItem,
   ChatTimelineDeliveryStatus,
   ChatTimelineDisplayItem,
   ChatTimelineDisplayItemKind,

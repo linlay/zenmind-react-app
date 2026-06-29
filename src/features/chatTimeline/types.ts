@@ -351,6 +351,7 @@ export type ChatTimelineState = {
 export type ChatTimelineDisplayItemKind =
   | 'user-query'
   | 'assistant-content'
+  | 'assistant-reply-footer'
   | 'reasoning'
   | 'planning'
   | 'tool'
@@ -366,14 +367,13 @@ export type ChatTimelineDisplayItemKind =
 
 export type ChatTimelineNodeDisplayItem = {
   key: string;
-  kind: Exclude<ChatTimelineDisplayItemKind, 'tool-group'>;
+  kind: Exclude<ChatTimelineDisplayItemKind, 'tool-group' | 'assistant-reply-footer'>;
   node: ChatTimelineNode;
   nodeId: string;
   runId: string;
   isFirstInRun: boolean;
   isLastInRun: boolean;
   groupIndex: number;
-  assistantReplyFooter?: ChatTimelineAssistantReplyFooter | null;
 };
 
 export type ChatTimelineToolGroupDisplayItem = {
@@ -389,9 +389,16 @@ export type ChatTimelineToolGroupDisplayItem = {
   toolName: string;
   toolLabel: string;
   count: number;
-  assistantReplyFooter?: ChatTimelineAssistantReplyFooter | null;
+};
+
+export type ChatTimelineAssistantReplyFooterDisplayItem = {
+  key: string;
+  kind: 'assistant-reply-footer';
+  runId: string;
+  footer: ChatTimelineAssistantReplyFooter;
 };
 
 export type ChatTimelineDisplayItem =
   | ChatTimelineNodeDisplayItem
-  | ChatTimelineToolGroupDisplayItem;
+  | ChatTimelineToolGroupDisplayItem
+  | ChatTimelineAssistantReplyFooterDisplayItem;

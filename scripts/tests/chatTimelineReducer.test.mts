@@ -222,7 +222,7 @@ test('timeline reducer replays mixed chat events into one flat ordered state', (
   assert.equal(state.usageSummary?.chat.cacheHitTokens, 2);
   assert.deepEqual(
     displayItems.map((item) => item.kind),
-    ['user-query', 'reasoning', 'tool', 'assistant-content', 'awaiting']
+    ['user-query', 'reasoning', 'tool', 'assistant-content', 'awaiting', 'assistant-reply-footer']
   );
 });
 

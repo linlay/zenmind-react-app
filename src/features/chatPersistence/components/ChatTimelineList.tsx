@@ -18,7 +18,7 @@ import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/fou
 import {
   buildChatTimelineDisplayModel,
   getChatTimelineDisplayItemType,
-  type ChatTimelineAssistantReplyFooter,
+  type ChatTimelineAssistantReplyFooterDisplayItem,
   type ChatTimelineAwaitingNode,
   type ChatTimelineDisplayModel,
   type ChatTimelineDisplayItem,
@@ -347,23 +347,13 @@ const RequestInputRow = memo(function RequestInputRow({
 
 const AssistantContentRow = memo(function AssistantContentRow({
   node,
-  footer,
-  isLastInRun,
-  onCopyText
+  isLastInRun
 }: {
   node: ChatTimelineMessageNode;
-  footer?: ChatTimelineAssistantReplyFooter | null;
   isLastInRun: boolean;
-  onCopyText: (text: string) => void;
 }) {
   const { theme } = useAppTheme();
-  const t = useT();
   const styles = useAppThemeStyles(createStyles);
-  const timestamp = footer
-    ? formatChatDetailTimestamp(footer.timestamp, Date.now(), t('chatDetail.timestamp.yesterday'))
-    : '';
-  const duration = footer ? formatChatDetailDuration(footer.durationMs) : '';
-  const footerMeta = timestamp && duration ? `${timestamp} · ${duration}` : timestamp || duration;
 
   return (
     <View style={styles.timelineRow}>
@@ -376,14 +366,39 @@ const AssistantContentRow = memo(function AssistantContentRow({
         <View style={styles.contentBlock}>
           <ConversationMarkdownRenderer markdown={node.content} streaming={node.streaming} />
         </View>
-        {footer ? (
-          <MessageFooter
-            text={footer.copyText}
-            timestamp={footerMeta}
-            errorReason={footer.errorReason}
-            onCopyText={onCopyText}
-          />
-        ) : null}
+      </View>
+    </View>
+  );
+});
+
+const AssistantReplyFooterRow = memo(function AssistantReplyFooterRow({
+  item,
+  onCopyText
+}: {
+  item: ChatTimelineAssistantReplyFooterDisplayItem;
+  onCopyText: (text: string) => void;
+}) {
+  const t = useT();
+  const styles = useAppThemeStyles(createStyles);
+  const footer = item.footer;
+  const timestamp = formatChatDetailTimestamp(
+    footer.timestamp,
+    Date.now(),
+    t('chatDetail.timestamp.yesterday')
+  );
+  const duration = formatChatDetailDuration(footer.durationMs);
+  const footerMeta = timestamp && duration ? `${timestamp} · ${duration}` : timestamp || duration;
+
+  return (
+    <View style={styles.assistantFooterRow}>
+      <View style={styles.assistantFooterRailSpacer} />
+      <View style={styles.timelineBody}>
+        <MessageFooter
+          text={footer.copyText}
+          timestamp={footerMeta}
+          errorReason={footer.errorReason}
+          onCopyText={onCopyText}
+        />
       </View>
     </View>
   );
@@ -566,14 +581,36 @@ function areToolGroupNodesEqual(previous: ChatTimelineDisplayItem, next: ChatTim
   return previous.nodes.every((node, index) => node === next.nodes[index]);
 }
 
-function areAssistantReplyFootersEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
-  const previousFooter = previous.assistantReplyFooter;
-  const nextFooter = next.assistantReplyFooter;
+function areDisplayItemNodesEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
+  if (previous.kind === 'assistant-reply-footer' || next.kind === 'assistant-reply-footer') {
+    return previous.kind === next.kind;
+  }
+  return previous.node === next.node;
+}
+
+function areAssistantReplyFooterItemsEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
+  if (previous.kind !== 'assistant-reply-footer' || next.kind !== 'assistant-reply-footer') {
+    return true;
+  }
+  const previousFooter = previous.footer;
+  const nextFooter = next.footer;
   return (
-    previousFooter?.copyText === nextFooter?.copyText &&
-    previousFooter?.timestamp === nextFooter?.timestamp &&
-    previousFooter?.durationMs === nextFooter?.durationMs &&
-    previousFooter?.errorReason === nextFooter?.errorReason
+    previous.runId === next.runId &&
+    previousFooter.copyText === nextFooter.copyText &&
+    previousFooter.timestamp === nextFooter.timestamp &&
+    previousFooter.durationMs === nextFooter.durationMs &&
+    previousFooter.errorReason === nextFooter.errorReason
+  );
+}
+
+function areDisplayItemGroupFieldsEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
+  if (previous.kind === 'assistant-reply-footer' || next.kind === 'assistant-reply-footer') {
+    return previous.kind === next.kind;
+  }
+  return (
+    previous.isFirstInRun === next.isFirstInRun &&
+    previous.isLastInRun === next.isLastInRun &&
+    previous.groupIndex === next.groupIndex
   );
 }
 
@@ -591,6 +628,9 @@ const TimelineRow = memo(
     getInitialRuntimeExpanded: (nodeId: string, fallback: boolean) => boolean;
     onRuntimeExpandedChange: (nodeId: string, expanded: boolean) => void;
   }) {
+    if (item.kind === 'assistant-reply-footer') {
+      return <AssistantReplyFooterRow item={item} onCopyText={onCopyText} />;
+    }
     const node = item.node;
     if (item.kind === 'user-query' && node.kind === 'message') {
       return <UserQueryRow node={node} onCopyText={onCopyText} onOpenReaskMenu={onOpenReaskMenu} />;
@@ -599,9 +639,7 @@ const TimelineRow = memo(
       return (
         <AssistantContentRow
           node={node}
-          footer={item.assistantReplyFooter}
           isLastInRun={item.isLastInRun}
-          onCopyText={onCopyText}
         />
       );
     }
@@ -637,12 +675,10 @@ const TimelineRow = memo(
     prev.onRuntimeExpandedChange === next.onRuntimeExpandedChange &&
     prev.item.key === next.item.key &&
     prev.item.kind === next.item.kind &&
-    prev.item.node === next.item.node &&
+    areDisplayItemNodesEqual(prev.item, next.item) &&
     areToolGroupNodesEqual(prev.item, next.item) &&
-    areAssistantReplyFootersEqual(prev.item, next.item) &&
-    prev.item.isFirstInRun === next.item.isFirstInRun &&
-    prev.item.isLastInRun === next.item.isLastInRun &&
-    prev.item.groupIndex === next.item.groupIndex
+    areAssistantReplyFooterItemsEqual(prev.item, next.item) &&
+    areDisplayItemGroupFieldsEqual(prev.item, next.item)
 );
 
 export const ChatTimelineList = memo(function ChatTimelineList({
@@ -1021,6 +1057,16 @@ function createStyles(theme: AppThemeTokens) {
       alignItems: 'stretch',
       gap: 8,
       marginBottom: 16
+    },
+    assistantFooterRow: {
+      flexDirection: 'row',
+      alignItems: 'stretch',
+      gap: 8,
+      marginTop: -16,
+      marginBottom: 16
+    },
+    assistantFooterRailSpacer: {
+      width: 18
     },
     timelineBody: {
       flex: 1,

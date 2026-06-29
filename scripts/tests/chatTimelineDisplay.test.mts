@@ -11,6 +11,7 @@ import {
 import type { ChatTimelineDisplayItem } from '../../src/features/chatTimeline/index.ts';
 
 type AssistantContentDisplayItem = ChatTimelineDisplayItem & { kind: 'assistant-content' };
+type AssistantReplyFooterDisplayItem = ChatTimelineDisplayItem & { kind: 'assistant-reply-footer' };
 
 function displayKinds(items: readonly ChatTimelineDisplayItem[]): string[] {
   return items.map((item) => item.kind);
@@ -20,10 +21,26 @@ function assistantContentItems(items: readonly ChatTimelineDisplayItem[]): Assis
   return items.filter((item): item is AssistantContentDisplayItem => item.kind === 'assistant-content');
 }
 
+function assistantReplyFooterItems(items: readonly ChatTimelineDisplayItem[]): AssistantReplyFooterDisplayItem[] {
+  return items.filter(
+    (item): item is AssistantReplyFooterDisplayItem => item.kind === 'assistant-reply-footer'
+  );
+}
+
 function expectAssistantContentItem(item: ChatTimelineDisplayItem | undefined): AssistantContentDisplayItem {
   assert.equal(item?.kind, 'assistant-content');
   if (item?.kind !== 'assistant-content') {
     throw new Error('expected assistant content item');
+  }
+  return item;
+}
+
+function expectAssistantReplyFooterItem(
+  item: ChatTimelineDisplayItem | undefined
+): AssistantReplyFooterDisplayItem {
+  assert.equal(item?.kind, 'assistant-reply-footer');
+  if (item?.kind !== 'assistant-reply-footer') {
+    throw new Error('expected assistant footer item');
   }
   return item;
 }
@@ -79,7 +96,7 @@ test('timeline display groups consecutive matching tool calls in one render item
   const items = buildChatTimelineDisplayItems(state);
   assert.deepEqual(
     items.map((item) => item.kind),
-    ['user-query', 'tool-group', 'assistant-content']
+    ['user-query', 'tool-group', 'assistant-content', 'assistant-reply-footer']
   );
 
   const toolGroup = items[1];
@@ -213,7 +230,6 @@ test('timeline display keeps system errors as standalone alert items', () => {
     throw new Error('expected system alert display item');
   }
   assert.equal(alertItem.isLastInRun, true);
-  assert.equal(alertItem.assistantReplyFooter, null);
   assert.equal(alertItem.node.role, 'system');
   assert.equal(alertItem.node.errorDetail?.code, 'stream_failed');
 });
@@ -311,7 +327,7 @@ test('timeline display deduplicates persisted reasoning rows with the same run b
 
   assert.deepEqual(
     items.map((item) => item.kind),
-    ['reasoning', 'assistant-content']
+    ['reasoning', 'assistant-content', 'assistant-reply-footer']
   );
   assert.equal(reasoningItems.length, 1);
   assert.equal(reasoningItems[0]?.node.body, 'Simple greeting, just respond briefly.');
@@ -445,7 +461,7 @@ test('timeline display does not fold later reasoning titles across runtime rows'
   assert.equal(items[2]?.node.title, 'Pondering');
 });
 
-test('timeline display puts one assistant footer on the final content item per reply', () => {
+test('timeline display appends one assistant footer item per completed reply', () => {
   const state = deriveChatTimelineState('chat-1', [
     {
       type: 'content.snapshot',
@@ -470,13 +486,19 @@ test('timeline display puts one assistant footer on the final content item per r
     },
   ]);
 
-  const assistantItems = buildChatTimelineDisplayItems(state).filter(
-    (item) => item.kind === 'assistant-content'
-  );
+  const items = buildChatTimelineDisplayItems(state);
+  const assistantItems = assistantContentItems(items);
+  const footerItems = assistantReplyFooterItems(items);
 
+  assert.deepEqual(displayKinds(items), [
+    'assistant-content',
+    'reasoning',
+    'assistant-content',
+    'assistant-reply-footer',
+  ]);
   assert.equal(assistantItems.length, 2);
-  assert.equal(assistantItems[0]?.assistantReplyFooter, null);
-  assert.deepEqual(assistantItems[1]?.assistantReplyFooter, {
+  assert.equal(footerItems.length, 1);
+  assert.deepEqual(footerItems[0]?.footer, {
     copyText: '第一段回复\n\n第二段回复',
     timestamp: 120,
     durationMs: null,
@@ -484,7 +506,7 @@ test('timeline display puts one assistant footer on the final content item per r
   });
 });
 
-test('timeline display keeps one assistant footer across visible reply runs', () => {
+test('timeline display keeps one assistant footer item across visible reply runs', () => {
   const state = deriveChatTimelineState('chat-1', [
     {
       type: 'request.query',
@@ -525,13 +547,14 @@ test('timeline display keeps one assistant footer across visible reply runs', ()
     },
   ]);
 
-  const assistantItems = buildChatTimelineDisplayItems(state).filter(
-    (item) => item.kind === 'assistant-content'
-  );
+  const items = buildChatTimelineDisplayItems(state);
+  const assistantItems = assistantContentItems(items);
+  const footerItems = assistantReplyFooterItems(items);
 
   assert.equal(assistantItems.length, 2);
-  assert.equal(assistantItems[0]?.assistantReplyFooter, null);
-  assert.deepEqual(assistantItems[1]?.assistantReplyFooter, {
+  assert.equal(footerItems.length, 1);
+  assert.equal(items[items.length - 1]?.kind, 'assistant-reply-footer');
+  assert.deepEqual(footerItems[0]?.footer, {
     copyText: '我先看看项目结构。\n\n然后我会查看主题定义。',
     timestamp: 130,
     durationMs: null,
@@ -539,7 +562,7 @@ test('timeline display keeps one assistant footer across visible reply runs', ()
   });
 });
 
-test('timeline display attaches run duration to the final assistant footer', () => {
+test('timeline display attaches run duration to the assistant footer item', () => {
   const state = deriveChatTimelineState('chat-1', [
     {
       type: 'run.start',
@@ -567,13 +590,12 @@ test('timeline display attaches run duration to the final assistant footer', () 
     },
   ]);
 
-  const assistantItems = buildChatTimelineDisplayItems(state).filter(
-    (item) => item.kind === 'assistant-content'
-  );
+  const items = buildChatTimelineDisplayItems(state);
+  const assistantItems = assistantContentItems(items);
+  const footerItem = expectAssistantReplyFooterItem(items[items.length - 1]);
 
   assert.equal(assistantItems.length, 2);
-  assert.equal(assistantItems[0]?.assistantReplyFooter, null);
-  assert.deepEqual(assistantItems[1]?.assistantReplyFooter, {
+  assert.deepEqual(footerItem.footer, {
     copyText: '第一段回复\n\n第二段回复',
     timestamp: 80_000,
     durationMs: 80_000,
@@ -581,7 +603,7 @@ test('timeline display attaches run duration to the final assistant footer', () 
   });
 });
 
-test('timeline display keeps combined reply duration tied to the final assistant run', () => {
+test('timeline display appends combined reply footer after all visible reply runs finish', () => {
   const initial = deriveChatTimelineState('chat-1', [
     {
       type: 'run.start',
@@ -620,12 +642,7 @@ test('timeline display keeps combined reply duration tied to the final assistant
   if (!tailItem || tailItem.kind !== 'assistant-content') {
     throw new Error('expected assistant content item');
   }
-  assert.deepEqual(tailItem.assistantReplyFooter, {
-    copyText: '先看结构。\n\n再看主题。',
-    timestamp: 13_000,
-    durationMs: 2_000,
-    errorReason: null,
-  });
+  assert.equal(assistantReplyFooterItems(initialModel.items).length, 0);
 
   const completedEarlierRun = applyChatTimelineEvent(initial, 'chat-1', {
     type: 'run.complete',
@@ -634,15 +651,17 @@ test('timeline display keeps combined reply duration tied to the final assistant
   });
   const completedEarlierModel = buildChatTimelineDisplayModel(completedEarlierRun, initialModel);
   const completedTailItem = completedEarlierModel.items[completedEarlierModel.items.length - 1];
+  const footerItem = expectAssistantReplyFooterItem(completedTailItem);
 
-  assert.equal(completedTailItem?.kind, 'assistant-content');
-  if (!completedTailItem || completedTailItem.kind !== 'assistant-content') {
-    throw new Error('expected assistant content item');
-  }
-  assert.equal(completedTailItem.assistantReplyFooter?.durationMs, 2_000);
+  assert.deepEqual(footerItem.footer, {
+    copyText: '先看结构。\n\n再看主题。',
+    timestamp: 13_000,
+    durationMs: 2_000,
+    errorReason: null,
+  });
 });
 
-test('timeline display model updates only the assistant footer when a hidden run completes', () => {
+test('timeline display model appends assistant footer when a hidden run completes', () => {
   const initial = deriveChatTimelineState('chat-1', [
     {
       type: 'run.start',
@@ -662,7 +681,7 @@ test('timeline display model updates only the assistant footer when a hidden run
   if (initialModel.items[0]?.kind !== 'assistant-content') {
     throw new Error('expected assistant content item');
   }
-  assert.equal(initialModel.items[0].assistantReplyFooter?.durationMs, null);
+  assert.equal(assistantReplyFooterItems(initialModel.items).length, 0);
 
   const completed = applyChatTimelineEvent(initial, 'chat-1', {
     type: 'run.complete',
@@ -670,15 +689,21 @@ test('timeline display model updates only the assistant footer when a hidden run
     timestamp: 81_000,
   });
   const completedModel = buildChatTimelineDisplayModel(completed, initialModel);
+  const footerItem = expectAssistantReplyFooterItem(completedModel.items[completedModel.items.length - 1]);
 
-  assert.equal(completedModel.items.length, initialModel.items.length);
-  assert.notEqual(completedModel.items[0], initialModel.items[0]);
+  assert.equal(completedModel.items.length, initialModel.items.length + 1);
+  assert.deepEqual(completedModel.items[0], initialModel.items[0]);
   assert.equal(completedModel.items[0]?.kind, 'assistant-content');
   if (completedModel.items[0]?.kind !== 'assistant-content') {
     throw new Error('expected assistant content item');
   }
-  assert.equal(completedModel.items[0].assistantReplyFooter?.durationMs, 80_000);
-  assert.equal(completedModel.tailSignature, initialModel.tailSignature);
+  assert.deepEqual(footerItem.footer, {
+    copyText: '第一句',
+    timestamp: 30_000,
+    durationMs: 80_000,
+    errorReason: null,
+  });
+  assert.notEqual(completedModel.tailSignature?.key, initialModel.tailSignature?.key);
 });
 
 test('timeline display model replaces only the visible tail item for stream deltas', () => {
@@ -691,10 +716,10 @@ test('timeline display model replaces only the visible tail item for stream delt
       timestamp: 100,
     },
     {
-      type: 'content.snapshot',
+      type: 'content.delta',
       runId: 'run-1',
       contentId: 'answer-1',
-      text: '第一句',
+      delta: '第一句',
       timestamp: 120,
     },
   ]);
@@ -720,7 +745,6 @@ test('timeline display model replaces only the visible tail item for stream delt
     throw new Error('expected assistant content item');
   }
   assert.equal(streamedModel.items[1].node.content, '第一句，第二句');
-  assert.equal(streamedModel.items[1].assistantReplyFooter, null);
   assert.equal(streamedModel.tailSignature?.key, initialModel.tailSignature?.key);
 });
 
@@ -747,7 +771,7 @@ test('timeline display suppresses assistant footer while following runtime is ac
   const activeAssistantItems = assistantContentItems(activeModel.items);
 
   assert.equal(activeAssistantItems.length, 1);
-  assert.equal(activeAssistantItems[0]?.assistantReplyFooter, null);
+  assert.equal(assistantReplyFooterItems(activeModel.items).length, 0);
 
   const completed = applyChatTimelineEvent(active, 'chat-1', {
     type: 'tool.result',
@@ -757,9 +781,10 @@ test('timeline display suppresses assistant footer while following runtime is ac
   });
   const completedModel = buildChatTimelineDisplayModel(completed, activeModel);
   const completedAssistantItems = assistantContentItems(completedModel.items);
+  const footerItem = expectAssistantReplyFooterItem(completedModel.items[completedModel.items.length - 1]);
 
   assert.equal(completedAssistantItems.length, 1);
-  assert.deepEqual(completedAssistantItems[0]?.assistantReplyFooter, {
+  assert.deepEqual(footerItem.footer, {
     copyText: '八月十四，那中秋是 9月12日，再验证：',
     timestamp: 100,
     durationMs: null,
@@ -787,10 +812,61 @@ test('timeline display suppresses assistant footer while preceding runtime is ac
     },
   ]);
 
-  const assistantItems = assistantContentItems(buildChatTimelineDisplayItems(state));
+  const items = buildChatTimelineDisplayItems(state);
+  const assistantItems = assistantContentItems(items);
 
   assert.equal(assistantItems.length, 1);
-  assert.equal(assistantItems[0]?.assistantReplyFooter, null);
+  assert.equal(assistantReplyFooterItems(items).length, 0);
+});
+
+test('timeline display keeps assistant footer hidden between content end and run completion', () => {
+  const initial = deriveChatTimelineState('chat-1', [
+    {
+      type: 'run.start',
+      runId: 'run-1',
+      timestamp: 100,
+    },
+    {
+      type: 'content.delta',
+      runId: 'run-1',
+      contentId: 'answer-1',
+      delta: '第一句',
+      timestamp: 120,
+    },
+  ]);
+  const initialModel = buildChatTimelineDisplayModel(initial);
+
+  assert.equal(assistantReplyFooterItems(initialModel.items).length, 0);
+
+  const contentEnded = applyChatTimelineEvent(initial, 'chat-1', {
+    type: 'content.end',
+    runId: 'run-1',
+    contentId: 'answer-1',
+    text: '第一句完成',
+    timestamp: 140,
+  });
+  const contentEndedModel = buildChatTimelineDisplayModel(contentEnded, initialModel);
+  const contentEndedTail = expectAssistantContentItem(
+    contentEndedModel.items[contentEndedModel.items.length - 1]
+  );
+
+  assert.equal(contentEndedTail.node.streaming, false);
+  assert.equal(assistantReplyFooterItems(contentEndedModel.items).length, 0);
+
+  const completed = applyChatTimelineEvent(contentEnded, 'chat-1', {
+    type: 'run.complete',
+    runId: 'run-1',
+    timestamp: 180,
+  });
+  const completedModel = buildChatTimelineDisplayModel(completed, contentEndedModel);
+  const footerItem = expectAssistantReplyFooterItem(completedModel.items[completedModel.items.length - 1]);
+
+  assert.deepEqual(footerItem.footer, {
+    copyText: '第一句完成',
+    timestamp: 140,
+    durationMs: 80,
+    errorReason: null,
+  });
 });
 
 test('timeline display keeps assistant footer suppressed on tail completion with prior active runtime', () => {
@@ -821,7 +897,8 @@ test('timeline display keeps assistant footer suppressed on tail completion with
   ]);
   const initialModel = buildChatTimelineDisplayModel(initial);
   const initialTail = expectAssistantContentItem(initialModel.items[initialModel.items.length - 1]);
-  assert.equal(initialTail.assistantReplyFooter, null);
+  assert.equal(initialTail.node.streaming, true);
+  assert.equal(assistantReplyFooterItems(initialModel.items).length, 0);
 
   const completedTail = applyChatTimelineEvent(initial, 'chat-1', {
     type: 'content.end',
@@ -834,5 +911,6 @@ test('timeline display keeps assistant footer suppressed on tail completion with
   const completedTailItem = expectAssistantContentItem(
     completedTailModel.items[completedTailModel.items.length - 1]
   );
-  assert.equal(completedTailItem.assistantReplyFooter, null);
+  assert.equal(completedTailItem.node.streaming, false);
+  assert.equal(assistantReplyFooterItems(completedTailModel.items).length, 0);
 });
