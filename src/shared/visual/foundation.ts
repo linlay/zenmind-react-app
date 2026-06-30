@@ -5,7 +5,7 @@ export type VisualAvatarTone = {
   foregroundColor: string;
 };
 
-// Keep this theme source aligned with doc/ui-visual-theme.md.
+// Keep this theme source aligned with .doc/reference/ui-visual-theme.md.
 export const appLightColors = {
   brandBlue: '#2f6df6',
   brandBlueStrong: '#255fef',

@@ -3,13 +3,14 @@ module.exports = function (api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
+      'nativewind/babel',
       [
         'react-native-worklets/plugin',
         {
           bundleMode: true,
-          workletizableModules: ['remend'],
-        },
-      ],
-    ],
+          workletizableModules: ['remend']
+        }
+      ]
+    ]
   };
 };

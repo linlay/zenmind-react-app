@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "1.0",
+  "items": [
+    {
+      "id": "app-startup",
+      "title": "应用启动与导航挂载",
+      "trigger": "Expo 启动应用并注册根组件时触发。",
+      "mustCheckModules": [
+        "app-development-debug",
+        "app-shell-navigation",
+        "core-auth-session",
+        "core-ws-transport",
+        "feature-auth-login",
+        "feature-notifications",
+        "shared-i18n"
+      ],
+      "card": ".doc/flows/app-startup.json"
+    },
+    {
+      "id": "chat-home-cold-boot",
+      "title": "Chat 首页冷启动",
+      "trigger": "用户首次进入 Chat Tab，ChatScreen 直接渲染 ChatHomeScreen 时触发。",
+      "mustCheckModules": [
+        "app-shell-navigation",
+        "feature-chat-persistence",
+        "feature-chat-realtime",
+        "shared-paginated-list"
+      ],
+      "card": ".doc/flows/chat-home-cold-boot.json"
+    },
+    {
+      "id": "chat-receive-message",
+      "title": "收到服务端消息",
+      "trigger": "WebSocket 收到 push / stream / run complete 等聊天实时事件时触发。",
+      "mustCheckModules": [
+        "core-ws-transport",
+        "feature-chat-persistence",
+        "feature-chat-realtime",
+        "feature-chat-timeline"
+      ],
+      "card": ".doc/flows/chat-receive-message.json"
+    },
+    {
+      "id": "chat-send-message",
+      "title": "发送消息与 ack 落库",
+      "trigger": "用户在 Chat 详情页输入消息并提交时触发。",
+      "mustCheckModules": [
+        "feature-chat-persistence",
+        "feature-chat-realtime",
+        "feature-chat-timeline"
+      ],
+      "card": ".doc/flows/chat-send-message.json"
+    },
+    {
+      "id": "code-change-sync",
+      "title": "Code change sync",
+      "trigger": "A code change should refresh XGraph deterministic context.",
+      "mustCheckModules": [
+        "change-tracking",
+        "cli"
+      ],
+      "card": ".doc/flows/code-change-sync.json"
+    },
+    {
+      "id": "context-initialization",
+      "title": "Context initialization",
+      "trigger": "A repository is connected to XGraph for the first time.",
+      "mustCheckModules": [
+        "xgraph",
+        "agent-rules",
+        "cli"
+      ],
+      "card": ".doc/flows/context-initialization.json"
+    },
+    {
+      "id": "notification-open-chat-message",
+      "title": "系统通知打开聊天消息",
+      "trigger": "用户点击远程 Push 中的 chat.message 通知时触发。",
+      "mustCheckModules": [
+        "app-shell-navigation",
+        "core-api-client",
+        "core-auth-session",
+        "feature-chat-persistence",
+        "feature-notifications"
+      ],
+      "card": ".doc/flows/notification-open-chat-message.json"
+    }
+  ]
+}

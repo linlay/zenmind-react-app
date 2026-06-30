@@ -1,0 +1,105 @@
+{
+  "schemaVersion": "1.0",
+  "module": "shared-i18n",
+  "status": "confirmed",
+  "paths": [
+    "src/shared/i18n"
+  ],
+  "summary": {
+    "purpose": "共享国际化能力: 提供轻量 typed i18n 能力，包含静态消息表、locale 解析、翻译函数、根 Provider 和缓存后的日期 formatter。",
+    "ownedConcepts": [
+      "提供轻量 typed i18n 能力，包含静态消息表、locale 解析、翻译函数、根 Provider 和缓存后的日期 formatter。",
+      "通过 expo-localization 同步读取设备语言，通过 MMKV 仅保存用户 locale 偏好，默认随系统语言解析到项目支持语言。",
+      "为 app shell、shared UI、认证界面和聊天主路径提供统一 UI 文案来源，不翻译用户消息、服务端返回内容或已持久化历史摘要。",
+      "Public entry I18nProvider (provider): 应用根部挂载的国际化上下文 Provider。",
+      "Public entry useI18n (hook): 读取当前 locale、locale preference、翻译函数和 preference setter。",
+      "Public entry useT (hook): 读取当前 locale 下稳定 memo 的翻译函数。",
+      "Public entry createTranslator (pure-helper): 按 locale 创建纯翻译函数，供不应加载 Provider/native 模块的 formatter 和测试使用。",
+      "Public entry resolveLocale (pure-helper): 把设备或用户输入 locale tag 归一到受支持语言。",
+      "Public entry formatAccessExpiryLabel (pure-helper): 按 locale 和 t() 生成账号访问有效期展示文案。",
+      "State/data touch: I18nProvider React context",
+      "State/data touch: expo-localization 当前设备语言快照",
+      "State/data touch: MMKV zenmind-i18n / locale_preference_v1 用户语言偏好",
+      "State/data touch: Intl.DateTimeFormat 的 locale 级缓存",
+      "Related flow: app-startup",
+      "Related task: add-internationalization"
+    ],
+    "nonGoals": []
+  },
+  "facts": {
+    "entrypoints": [],
+    "publicApi": [
+      "AppLocale",
+      "DEFAULT_LOCALE",
+      "I18nKey",
+      "I18nParams",
+      "I18nProvider",
+      "LocalePreference",
+      "SUPPORTED_LOCALES",
+      "TFunction",
+      "createTranslator",
+      "defaultT",
+      "enUS",
+      "formatAccessExpiryLabel",
+      "isSupportedLocale",
+      "messages",
+      "resolveLocale",
+      "resolveLocalePreference",
+      "translate",
+      "type AppLocale",
+      "type I18nKey",
+      "type I18nParams",
+      "type LocalePreference",
+      "type TFunction",
+      "useI18n",
+      "useT",
+      "zhCN"
+    ],
+    "dependencies": [],
+    "dependents": [
+      "app-shell-navigation",
+      "feature-agent-task-board",
+      "feature-auth-login",
+      "feature-chat-persistence",
+      "shared-paginated-list"
+    ],
+    "tests": [],
+    "lastScannedAt": ""
+  },
+  "readHints": {
+    "alwaysRead": [
+      "src/shared/i18n/index.ts"
+    ],
+    "readFor": [
+      {
+        "refs": [
+          {
+            "ref": "app-shell-navigation",
+            "type": "module"
+          },
+          {
+            "ref": "feature-auth-login",
+            "type": "module"
+          },
+          {
+            "ref": "feature-chat-persistence",
+            "type": "module"
+          },
+          {
+            "ref": "src/shared/i18n/index.ts",
+            "type": "code"
+          }
+        ],
+        "when": "legacy readNext"
+      }
+    ]
+  },
+  "riskRules": [
+    "新增 UI 文案优先加入 messages/zh-CN.ts，并让 en-US.ts 通过 Record\u003cI18nKey, string\u003e 保持 key 完整。",
+    "列表行、timeline 行和高频渲染路径不要在 render 内创建日期 formatter；统一走 formatters.ts 的缓存入口。",
+    "纯 formatter、reducer 或 node:test 覆盖的 helper 如需默认翻译，只能 import src/shared/i18n/translate.ts，避免加载 Provider、MMKV 或 expo-localization。",
+    "不要翻译用户输入、服务端返回正文、智能体消息、已持久化标题或 runtime payload 原始文本；UI 壳层文案才走 t()。",
+    "语言切换只应触发 Provider 下游 UI 重渲染，不应改写 SQLite、WebSocket、outbox 或聊天目录 MMKV 快照。"
+  ],
+  "recentChanges": []
+}

@@ -1,0 +1,76 @@
+{
+  "schemaVersion": "1.0",
+  "module": "shared-paginated-list",
+  "status": "confirmed",
+  "paths": [
+    "src/shared/components/PaginatedCardList.tsx"
+  ],
+  "summary": {
+    "purpose": "复用型分页列表组件: 提供基于 FlashList 的通用分页列表容器。",
+    "ownedConcepts": [
+      "提供基于 FlashList 的通用分页列表容器。",
+      "统一处理刷新、自动加载更多、底部 loading 国际化文案、返回顶部按钮、item type hint、按 item 覆盖高度和轻量展示控制。",
+      "通过 CardComponent 注入业务卡片，避免复制列表骨架。",
+      "Public entry PaginatedCardList (component): 通用分页卡片列表组件。",
+      "Public entry ListPaginationConfig (type): 分页行为配置。",
+      "Public entry PaginatedCardListProps (type): 列表组件入参类型。",
+      "State/data touch: FlashList viewport 和 drawDistance 配置",
+      "State/data touch: 下拉刷新与加载更多状态",
+      "State/data touch: 滚动超过一屏后的返回顶部按钮状态",
+      "Related flow: chat-home-cold-boot",
+      "Related task: add-reusable-list-screen",
+      "Related task: add-internationalization",
+      "Related task: modify-chat-persistence"
+    ],
+    "nonGoals": []
+  },
+  "facts": {
+    "entrypoints": [],
+    "publicApi": [],
+    "dependencies": [
+      "shared-i18n",
+      "shared-visual-foundation"
+    ],
+    "dependents": [
+      "feature-chat-persistence"
+    ],
+    "tests": [],
+    "lastScannedAt": ""
+  },
+  "readHints": {
+    "alwaysRead": [
+      "src/shared/components/PaginatedCardList.tsx"
+    ],
+    "readFor": [
+      {
+        "when": "legacy readNext",
+        "refs": [
+          {
+            "type": "module",
+            "ref": "shared-visual-foundation"
+          },
+          {
+            "type": "module",
+            "ref": "feature-chat-persistence"
+          },
+          {
+            "type": "code",
+            "ref": "src/shared/components/PaginatedCardList.tsx"
+          }
+        ]
+      }
+    ]
+  },
+  "riskRules": [
+    "列表组件保持通用，不夹带聊天专属字段和仓储逻辑。",
+    "通用 loading 文案走 shared-i18n，不在列表组件内硬编码语言。",
+    "改动 itemHeight、getItemHeight、drawDistance 或 onEndReached 时要回归 Chat 首页现有行为。",
+    "新增展示控制只承载通用 UI 行为，比如 scroll-top 可见性和 item type hint，不下沉业务字段。",
+    "新页面优先复用 CardComponent 注入差异，不要轻易 fork 一份新列表。"
+  ],
+  "recentChanges": [],
+  "legacy": {
+    "title": "复用型分页列表组件",
+    "layer": "shared"
+  }
+}

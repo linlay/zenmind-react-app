@@ -39,3 +39,10 @@ Thumbs.db
 # generated native folders
 /ios
 /android
+
+<!-- xgraph:start -->
+# xgraph local state
+.doc/.cache/
+.doc/local/
+.doc/tmp/
+<!-- xgraph:end -->

@@ -1,0 +1,128 @@
+{
+  "schemaVersion": "1.0",
+  "id": "modify-chat-realtime",
+  "title": "修改聊天实时同步逻辑",
+  "intentKeywords": [
+    "修改 websocket",
+    "修改实时同步",
+    "修改 ack",
+    "修改 reconnect",
+    "修改 mock mode",
+    "修改 ws 事件",
+    "修改聊天实时同步逻辑",
+    "修改聊天实时同步",
+    "聊天实时同步",
+    "WebSocket同步",
+    "实时消息同步",
+    "modify chat realtime"
+  ],
+  "entryDecision": [
+    "任务涉及 WebSocket 连接、发送、ack、incoming、mock 或 reconnect 时，从这张卡开始。",
+    "如果改动会连带影响 SQLite、outbox 或首页目录快照，同时补读 modify-chat-persistence。"
+  ],
+  "mustRead": [
+    {
+      "type": "module",
+      "ref": "feature-chat-realtime"
+    },
+    {
+      "type": "module",
+      "ref": "core-ws-transport"
+    },
+    {
+      "type": "module",
+      "ref": "feature-chat-timeline"
+    },
+    {
+      "type": "module",
+      "ref": "feature-chat-persistence"
+    },
+    {
+      "type": "flow",
+      "ref": "chat-send-message"
+    },
+    {
+      "type": "flow",
+      "ref": "chat-receive-message"
+    },
+    {
+      "type": "code",
+      "ref": "src/features/chatRealtime/chatSyncService.ts"
+    },
+    {
+      "type": "code",
+      "ref": "src/features/chatRealtime/chatWsTransport.ts"
+    },
+    {
+      "type": "code",
+      "ref": "src/core/ws/wsClient.ts"
+    },
+    {
+      "type": "code",
+      "ref": "src/core/ws/sharedWsTransport.ts"
+    },
+    {
+      "type": "code",
+      "ref": "src/features/chatRealtime/runtimeState.ts"
+    },
+    {
+      "type": "code",
+      "ref": "src/features/chatRealtime/types.ts"
+    }
+  ],
+  "likelyFiles": [
+    "src/core/api/activeWsTransport.ts",
+    "src/core/api/services/chatApi.ts",
+    "src/core/api/services/chatEventProtocol.ts",
+    "src/core/ws/sharedWsTransport.ts",
+    "src/core/ws/wsClient.ts",
+    "src/core/ws/wsTransportConfig.ts",
+    "src/features/chatPersistence/ChatDetailScreen.tsx",
+    "src/features/chatPersistence/ChatHomeScreen.tsx",
+    "src/features/chatPersistence/chatRepository.ts",
+    "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
+    "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx",
+    "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
+    "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
+    "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
+    "src/features/chatRealtime/chatSyncService.ts",
+    "src/features/chatRealtime/chatWsTransport.ts",
+    "src/features/chatRealtime/routing.ts",
+    "src/features/chatRealtime/runtimeState.ts",
+    "src/features/chatRealtime/types.ts",
+    "src/features/chatTimeline/messageProjection.ts",
+    "src/features/chatTimeline/timelineReducer.ts"
+  ],
+  "acceptanceChecks": [
+    "connection.status 能正确向 UI 发出 connected、connecting、reconnecting、disconnected、error。",
+    "发送消息后的 ack 持久化和收到消息后的 incoming 持久化保持正确；计划模式开启时 /api/query payload 只额外带 planningMode: true，不硬编码 model。",
+    "收到 chat.read、chat.unread、chat.read_all 后，单会话未读位和 agent/team 目录角标同步更新且保持幂等。",
+    "收到无 unread 字段的 chat.updated 后，inactive conversation 会显示未读角标，active conversation 不本地清零，只有 /ap/ws /api/read 成功或 chat.read push 才清除未读。",
+    "收到 awaiting / reasoning / planning / tool / artifact / plan/task / usage/context 事件时，详情页 timeline 区域会实时更新；reconcile 后重新打开同会话也能按 /ap/ws /api/chat detail events 重建。",
+    "收到 awaiting question/approval/form/plan 事件时，详情页展示贴底交互组件；question 输入、approval 决策、plan 决策和 form HTML viewport 都能生成紧凑 submit params，提交成功后本地 timeline 先出现 awaiting.answer，并等待后续 WS/reconcile 接管。",
+    "收到 chat.deleted 或 chat.archived 后，会话详情会清空并提示不可用，首页目录投影同步刷新。",
+    "WS 连接失败、重连和单会话 reconcile 路径都仍可工作；同 endpoint token/namespace 变化不能额外创建 socket。",
+    "详情页不会因其他会话的 outgoing、ack、incoming 或 stream 事件而重复查询 SQLite；首页普通 home.item.patch 不会回读整页目录切片。",
+    "空新对话首次进入对应 agent 时最多自动请求一次 /api/agent，后续同 App 生命周期内再次进入直接用内存结果；请求失败或无 wonders 时仍展示与 agentName 对话。",
+    "详情页输入区无内容显示灰色发送 disabled，有内容显示蓝色发送，运行中显示红色停止，终止后头部回到空闲且输入区回到初始发送态；连续点击终止不会重复触发同一会话 interrupt，也不会让回复底部 duration 抖动；这些状态从 ChatTimelineState 派生。"
+  ],
+  "doNotMiss": [
+    "底层 transport 只负责 AP/Desktop WS 连接、namespace 和帧处理；聊天协议 adapter 留在 chatWsTransport，业务落库继续走 chatSyncService 和 chatRepository。",
+    "profile 到 transport config 的解析走 core/api/activeWsTransport；core/ws 不读取 active profile、不持久化 token。",
+    "Desktop WS profile 的 AP 请求必须用 exact wsUrl + ns='ap'；auth.expiring ns='d' 只触发 auth.refresh 和 core auth profile 更新。",
+    "正式路径不再把无 URL 当 mock fallback；开发态 override 通过 EXPO_PUBLIC_CHAT_WS_URL。",
+    "bootstrap 和 reconnect 时的 outbox replay 不要被误删，pending 消息的 planningMode true-only 发送选项不能丢失。",
+    "summary push、chat.read、chat.unread、chat.read_all 只改 repository 真源和目录投影，不在 sync service 内维护第二套最新消息；chat.updated 有新最后消息但缺失 unread 字段时，非 active conversation 默认置为未读，active conversation 只发起单会话 single-flight 服务端已读确认。",
+    "reasoning / planning / tool / awaiting / artifact / plan-task / usage-context 只进内存 timeline/runtime state，不新建 SQLite 真源。",
+    "awaiting question/approval/form/plan 的 questions/options/forms/plan/timeout 等 payload 只在 feature-chat-timeline 结构化，详情页只消费归一后的 interactive 数据并通过 chatSyncService.submitAwaiting 提交；form HTML viewport 只在 AwaitingFormViewport 内拉取 /ap/api/viewport 并桥接 collect/submit。",
+    "conversation.timeline.replace/reset 和 conversation.runtime.replace/reset 要从同一个 ChatTimelineState 派生，不维护两套运行态 reducer。",
+    "新对话空态的 /api/agent detail 补拉只能走 chatSyncService，按 agentKey 做 App 生命周期内内存缓存和 single-flight；成功、空结果或失败后同一 agent 不自动重复请求，App 重启后可重新请求。",
+    "sync service 发给 UI 的 scoped event 要让首页只 patch 目标目录项 preview、详情页只 patch 命中消息或命中会话 runtime state，不回读整页 SQLite。",
+    "chat.deleted / chat.archived 要清理 conversation、messages、outbox、sync state 和 runtime state，并刷新目录投影。",
+    "详情页停止/继续生成和 awaiting question/approval/form/plan 提交继续走 chatSyncService：停止要清理 active outgoing/attach stream、调用 /api/interrupt、通过 timeline 本地 cancel 收敛当前会话当前可见生成 scope 的 active/streaming 节点并清空 activeRunId，不创建 ghost run、不改写历史 run duration；记录短期本地终止 run guard，reconcile 合并 stale detail 时不能复活同 run active 状态；run_not_found/404 视为服务端已停止，不触发失败式即时 reconcile；继续要复用 attach 和单会话 reconcile，submit awaiting 要通过 /ap/ws 发送 /api/submit request 并回写 awaiting.answer 本地 timeline 事件，不在页面直接操作 WebSocket 或 HTTP submit。"
+  ],
+  "generated": {
+    "mustReadCount": 12,
+    "likelyFileCount": 21
+  }
+}

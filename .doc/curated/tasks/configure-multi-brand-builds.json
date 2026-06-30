@@ -1,0 +1,89 @@
+{
+  "schemaVersion": "1.0",
+  "id": "configure-multi-brand-builds",
+  "title": "配置多品牌打包",
+  "intentKeywords": [
+    "多品牌",
+    "品牌打包",
+    "brand build",
+    "BRAND",
+    "CuteJ",
+    "ZenMind",
+    "bundle id",
+    "android package",
+    "EAS profile",
+    "配置多品牌打包",
+    "多品牌打包",
+    "品牌构建",
+    "品牌配置",
+    "configure multi brand builds"
+  ],
+  "entryDecision": [
+    "任务涉及同一移动端项目输出多个展示品牌、修改品牌 manifest、名称、图标、启动图、EAS profile、共享包名约束或构建期品牌同步时，从这张卡开始。",
+    "如果只改启动遮罩视觉但不涉及品牌配置，转到 add-app-startup-loading-screen。"
+  ],
+  "mustRead": [
+    {
+      "type": "module",
+      "ref": "app-shell-navigation"
+    },
+    {
+      "type": "module",
+      "ref": "shared-visual-foundation"
+    },
+    {
+      "type": "flow",
+      "ref": "app-startup"
+    },
+    {
+      "type": "code",
+      "ref": "app.config.js"
+    },
+    {
+      "type": "code",
+      "ref": "scripts/lib/brand-config.js"
+    },
+    {
+      "type": "code",
+      "ref": "brands"
+    }
+  ],
+  "likelyFiles": [
+    "brands",
+    "app.config.js",
+    "eas.json",
+    "package.json",
+    "brands/shared.json",
+    "scripts/lib/brand-config.js",
+    "scripts/sync-brand.js",
+    "scripts/tests/brandConfig.test.mts",
+    ".generated/brand",
+    "assets/brands",
+    "src/shared/generated/brand.ts",
+    "src/shared/generated/brandAssets.ts",
+    "src/shared/branding/installedBrand.ts",
+    "src/shared/icons/brandAssets.ts",
+    "src/app/screens/TabScreens.tsx"
+  ],
+  "acceptanceChecks": [
+    "BRAND=zenmind 和 BRAND=cutej 生成的 Expo config 在 name、icon、splash 和通知色上可区分，但 slug、android.package、ios.bundleIdentifier、EAS projectId 和 EAS channel 保持共享。",
+    "切换品牌壳不改变 src/shared/generated/brand.ts 的 active 选择，生成物不能包含 ACTIVE_BRAND_ID；共享 OTA 由安装壳 embedded app.config.extra.brand.id 决定展示品牌。",
+    "切换品牌后 Android APK 的 package 与 launchable-activity 仍指向同一原生内核，避免 Expo/adb 按品牌包名推断不存在的 MainActivity。",
+    "Login、React 启动遮罩和原生 splash 使用同一 assets/brands/<id>/logo.png 入口。",
+    "重复执行同一品牌 sync 不重画 PNG，非视觉字段变更也不触发 PNG 读写。",
+    "显式 BRAND=cutej 的 sync / app.config.js 只影响本次命令；无参 sync / app.config.js 回到默认 zenmind。",
+    "pnpm typecheck、pnpm test、`xgraph index`、`xgraph status` 通过。"
+  ],
+  "doNotMiss": [
+    "品牌展示差异必须集中在 brands/<id>/brand.json；共享 storage namespace、Android package、iOS bundle id、EAS project slug 和 EAS updates 必须集中在 brands/shared.json；不在业务 screen 或 feature 内散落 brand 分支。",
+    "app.config.js 必须通过同步脚本生成图标、启动图和运行时常量，保证 EAS / expo config 直接读取时也有资源；但 config evaluation 不直接写 native project 文本资源，避免 Expo prebuild 中间态 AndroidManifest 缺少插件 meta-data 时失败。",
+    "当前品牌模式共享 Android applicationId、iOS bundleIdentifier、Expo slug、EAS projectId 和 EAS preview/production channel，不追求并排安装；品牌差异只覆盖名称、logo、启动图、图标、通知色和少量环境配置。",
+    "共享 OTA JS bundle 只能包含全量 APP_BRANDS / BRAND_LOGOS registry，不能生成 ACTIVE_BRAND_ID；运行时由 src/shared/branding/installedBrand.ts 从安装壳 embedded app.config.extra.brand.id 解析 INSTALLED_BRAND_ID。",
+    "运行时代码只 import 静态 generated registry、generated PNG 和 installed brand resolver，不在启动期间读取品牌 JSON 或扫描文件系统。",
+    "品牌同步缓存拆分 runtimeFingerprint、assetFingerprint、active native splash image、active native launcher image 与 active native text fingerprint；assets/brands/<id>/logo.png 是必需派生资产源文件，icon、adaptive-icon、favicon、Android launcher、iOS AppIcon 和 native splash 资源从它生成；文案、版本、通知和 updates 等非视觉变更只更新 generated registry、manifest 和 native text，不重画 PNG。",
+    "本地调试切品牌优先使用单命令入口 pnpm android:device:<id> / pnpm android:<id> / pnpm ios:<id>；无参 sync/start/android/app.config.js 固定使用默认 zenmind，避免隐藏的本地品牌状态影响构建。",
+    "显式 scripts/sync-brand.js 的原生文本同步必须命中 Android Manifest / Gradle / iOS project / Info.plist 的必需字段，缺失时直接失败，不写入 active native manifest 假装成功；app.config.js 读取配置时只生成 registry / PNG，不写 native 文本。",
+    "多品牌改造不进入聊天 SQLite、MMKV 真源、WebSocket transport 或 repository 写入链路。",
+    "新增品牌后要跑 BRAND=<id> node ./scripts/sync-brand.js、expo config 和 APK badging 检查共享 native identity 与品牌展示是否同时正确。"
+  ]
+}

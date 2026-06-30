@@ -4,12 +4,12 @@
 
 ## 行为准则
 
-1. **先索引，再下钻** — 先读 `doc/kb/root.json`，再从 `doc/kb/catalog/tasks.json` 选择最接近当前任务的 task card。
+1. **先索引，再下钻** — 先运行 `xgraph context "<task>" --budget small`，再按返回的 `.doc` 路径读取；CLI 不可用时从 `.doc/index.json` 和 `.doc/catalog/tasks.json` 下钻。
 2. **简单优先** — 不加需求外能力，不提前抽象，不顺手重构无关模块。
 3. **外科手术式修改** — 只动当前任务要求的文件和链路，每处改动都要能追溯到需求。
 4. **先看影响面** — 改动前先确认相关 module card、flow card、rules，避免头痛医头脚痛医脚。
 5. **禁止绕过边界** — 页面不直接操作 SQLite / MMKV / WebSocket；实时写入继续走 `chatSyncService` / `chatRepository`。
-6. **知识库同步更新** — 只要改了模块职责、公共入口、运行链路、任务入口或规则，同一任务里同步更新 `doc/kb`。
+6. **上下文同步更新** — 只要改了模块职责、公共入口、运行链路、任务入口或规则，同一任务里同步更新 `.doc/curated`，并运行 `xgraph index` / `xgraph status`。
 
 ## 常用命令
 
@@ -24,9 +24,9 @@ pnpm lint             # ESLint
 pnpm test             # node:test 脚本
 pnpm build            # Expo 导出构建
 pnpm build:android    # EAS Android preview 构建
-pnpm kb:build         # 重建知识库 JSON
-pnpm kb:validate      # 校验知识库结构和引用
-pnpm kb:check-stale   # 检查索引是否过期
+xgraph context "<task>" --budget small  # 获取任务上下文
+xgraph index                         # 重建 .doc 派生索引
+xgraph status                        # 检查上下文状态
 ```
 
 ## 项目概要
@@ -59,7 +59,7 @@ Expo SDK 56 + React Native 0.85 + TypeScript 6。当前仓库是迁移后的 `ze
 
 `ChatDetail` 由 root stack 承载，入口是 `src/features/chatPersistence/ChatDetailScreen.tsx`。
 
-知识库主入口：`doc/kb/root.json`
+XGraph 上下文主入口：`.doc/index.json`
 
 ## 边界与约束
 
@@ -68,7 +68,7 @@ Expo SDK 56 + React Native 0.85 + TypeScript 6。当前仓库是迁移后的 `ze
 - 单个 screen / component
 - `chatRepository`、`chatSyncService` 这类局部 service / repository
 - `src/shared/components`、`src/shared/icons`、`src/shared/visual` 内的通用 UI
-- `doc/kb/curated/*` 和 `scripts/kb/*`
+- `.doc/curated/*`、`.doc/reference/*` 和 XGraph 索引文件
 - 同模块类型定义、文档、校验脚本
 
 跨模块入口，触碰前必须先看对应 flow / task card 并说明影响面：
@@ -130,7 +130,7 @@ Shared
 
 ## UI 主题约定
 
-- 新 UI 或视觉改造默认继承 `doc/ui-visual-theme.md` 与 `src/shared/visual/foundation.ts`，不要为单个页面另起一套主题。
+- 新 UI 或视觉改造默认继承 `.doc/reference/ui-visual-theme.md` 与 `src/shared/visual/foundation.ts`，不要为单个页面另起一套主题。
 - 一级页面继续使用白底、平面列表、蓝色主强调、弱灰辅助信息、固定 Header 和贴底式底部导航。
 - 优先复用 `ScreenHeader`、`AppScreenFrame`、`PaginatedCardList`、`AppIcon`、`AppIconButton`，避免重复造视觉壳层。
 - 长列表项默认保持平面，不为每一行叠阴影；阴影只在确实需要抬升的浮层里少量使用。
@@ -154,10 +154,25 @@ Shared
 
 | 关键词 | 触发动作 | 说明 |
 | ------ | -------- | ---- |
-| `#知识库` | 读取 `doc/kb/root.json` + `doc/kb/catalog/tasks.json` | 任务入口和阅读路径 |
-| `#模块` | 读取 `doc/kb/modules/*.json` + `doc/module-reference.md` | 模块职责、入口、影响清单 |
-| `#链路` | 读取 `doc/kb/flows/*.json` + `doc/project-architecture.md` | 冷启动、发送、接收等运行链路 |
-| `#规则` | 读取 `doc/kb/rules.json` | 当前机器可读边界约束 |
-| `#索引更新` | 读取 `scripts/kb/*.js` 并运行 kb 命令 | 知识库构建、校验、过期检查 |
+| `#知识库` | 运行 `xgraph context "<task>" --budget small`，必要时读取 `.doc/index.json` + `.doc/catalog/tasks.json` | 任务入口和阅读路径 |
+| `#模块` | 读取 `.doc/modules/*.json` + `.doc/reference/module-reference.md` | 模块职责、入口、影响清单 |
+| `#链路` | 读取 `.doc/flows/*.json` + `.doc/reference/project-architecture.md` | 冷启动、发送、接收等运行链路 |
+| `#规则` | 读取 `.doc/rules.json` | 当前机器可读边界约束 |
+| `#索引更新` | 运行 `xgraph index`、`xgraph status`，必要时检查 `.doc/curated` | 知识库构建、校验、过期检查 |
 
-未触发时不要先读取全部 `doc/kb/modules/*` 和 `doc/kb/flows/*`，先走 `root -> task -> module/flow -> code`。
+未触发时不要先读取全部 `.doc/modules/*` 和 `.doc/flows/*`，先走 `xgraph context -> task -> module/flow -> code`。
+
+<!-- xgraph:start -->
+## Project Context
+
+Before work, run `xgraph context "<task>" --budget small` when the CLI is available, then read only the returned paths.
+
+If the task is already tied to files, use `xgraph context --file <path>` or `xgraph affected --file <path>` before broad searching.
+
+Fallback: read `.doc/index.json` and follow its `readOrder` progressively. Start from `.doc/catalog.json` or the catalog paths declared by the index, then inspect related module cards only as needed.
+
+Keep this entry file short; use `.doc/rules/agent.md` for detailed behavior.
+
+Before finishing, run `xgraph status`; when an agent lifecycle hook is installed, let it run `xgraph finish`, otherwise run `xgraph sync`.
+
+<!-- xgraph:end -->

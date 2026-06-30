@@ -25,14 +25,17 @@ pnpm build
 
 ## 知识库
 
-模型优先知识库入口：[`doc/kb/root.json`](./doc/kb/root.json)
-
-知识库由 `doc/kb/curated` 和源码静态事实生成，修改模块职责、公共入口、运行链路、任务入口或规则时，先改 curated 文件再重建：
+模型优先上下文入口：
 
 ```bash
-pnpm kb:build
-pnpm kb:validate
-pnpm kb:check-stale
+xgraph context "<task>" --budget small
+```
+
+长期上下文由 `.doc/curated`、`.doc/reference` 和源码静态事实生成。修改模块职责、公共入口、运行链路、任务入口或规则时，先改 curated/reference 文件，再重建并检查：
+
+```bash
+xgraph index
+xgraph status
 ```
 
 ## 技术栈
@@ -69,15 +72,16 @@ zenmind-react-app/
 ├── index.js                        # Expo registerRootComponent
 ├── package.json
 ├── scripts/
-│   ├── kb/                         # 知识库 build / validate / stale check
 │   ├── lib/brand-config.js         # 品牌配置校验与 generated 产物同步
 │   ├── tests/                      # node:test 脚本
 │   └── worklets/                   # Metro 启动前预生成 worklets bundle
-├── doc/
-│   ├── kb/                         # 生成后的模型知识库
-│   ├── project-architecture.md
-│   ├── module-reference.md
-│   └── ui-visual-theme.md
+├── .doc/                           # XGraph 项目上下文、知识卡片和参考文档
+│   ├── index.json
+│   ├── curated/
+│   ├── modules/
+│   ├── flows/
+│   ├── tasks/
+│   └── reference/
 └── src/
     ├── app/                        # 应用壳层、导航、启动遮罩、开发态 Debug 面板
     ├── core/                       # API、认证、运行时配置、HTTP debug logging
@@ -192,10 +196,11 @@ adb uninstall com.zqfrank.agentterminalapp
 
 ## 文档
 
-- [文档入口](./doc/README.md)
-- [项目架构总览](./doc/project-architecture.md)
-- [模块说明清单](./doc/module-reference.md)
-- [移动端视觉主题](./doc/ui-visual-theme.md)
+- [XGraph 上下文入口](./.doc/index.json)
+- [参考文档入口](./.doc/reference/README.md)
+- [项目架构总览](./.doc/reference/project-architecture.md)
+- [模块说明清单](./.doc/reference/module-reference.md)
+- [移动端视觉主题](./.doc/reference/ui-visual-theme.md)
 
 ## License
 

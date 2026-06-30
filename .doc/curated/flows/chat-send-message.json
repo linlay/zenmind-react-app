@@ -1,0 +1,86 @@
+{
+  "schemaVersion": "1.0",
+  "id": "chat-send-message",
+  "title": "发送消息与 ack 落库",
+  "trigger": "用户在 Chat 详情页输入消息并提交时触发。",
+  "sourceOfTruth": [
+    "消息先落 SQLite 和 outbox，再尝试发给 WebSocket；计划模式只作为 outbox 发送选项保存，用于 replay 时继续带 planningMode。",
+    "ack 或 stream done/error 由后台回调通过 repository patch 命中消息状态和会话摘要。",
+    "详情页停止/继续生成和 awaiting question/approval/form/plan 提交只通过 chatSyncService 管理 active outgoing/attach stream、/api/interrupt、activeRunId、本地终止 run guard、/ap/ws /api/submit 本地投影和 timeline，不在页面层直接操作 WebSocket 或 HTTP submit。"
+  ],
+  "steps": [
+    {
+      "order": 1,
+      "label": "useChatDetailConversationController.handleSend 读取受控计划模式状态，并调用 chatSyncService.sendMessage。",
+      "moduleId": "feature-chat-persistence",
+      "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
+      "symbol": "handleSend"
+    },
+    {
+      "order": 2,
+      "label": "chatSyncService.sendMessage 先调用 createOutgoingMessage 写入本地 pending 消息和 planningMode 发送选项，并通过 feature-chat-timeline 更新内存 timeline，再发出 conversation.message.insert / conversation.timeline.replace 和 conversation 摘要 home.item.patch。",
+      "moduleId": "feature-chat-realtime",
+      "file": "src/features/chatRealtime/chatSyncService.ts",
+      "symbol": "sendMessage"
+    },
+    {
+      "order": 3,
+      "label": "feature-chat-timeline 用 applyChatTimelineMessage / patchChatTimelineMessage 维护本地发送、ack 和失败状态的同一份 timeline 节点。",
+      "moduleId": "feature-chat-timeline",
+      "file": "src/features/chatTimeline/timelineReducer.ts",
+      "symbol": "applyChatTimelineMessage"
+    },
+    {
+      "order": 4,
+      "label": "createOutgoingMessage 写 messages、outbox_messages、conversation 摘要并刷新 MMKV 快照；outbox_messages.planning_mode 仅用于 pending replay，不参与排序查询。",
+      "moduleId": "feature-chat-persistence",
+      "file": "src/features/chatPersistence/chatRepository.ts",
+      "symbol": "createOutgoingMessage"
+    },
+    {
+      "order": 5,
+      "label": "chatSyncService.dispatchOutgoingMessage 按 conversationId 从 repository 读取 agent/team scope，并通过 chatWsTransport.streamChatQuery 使用 /ap/ws 发送带 agentKey 或 teamId 的 /api/query stream 请求；计划模式开启时只额外发送 planningMode: true，缺少 scope 的旧会话保持只带 chatId。",
+      "moduleId": "feature-chat-realtime",
+      "file": "src/features/chatRealtime/chatWsTransport.ts",
+      "symbol": "streamChatQuery"
+    },
+    {
+      "order": 6,
+      "label": "chatSyncService 发起 stream 后立即返回；ack 或 stream done 成功后再调用 patchMessageByClientMessageId 更新命中消息状态并移除 outbox。",
+      "moduleId": "feature-chat-realtime",
+      "file": "src/features/chatRealtime/chatSyncService.ts",
+      "symbol": "dispatchOutgoingMessage"
+    },
+    {
+      "order": 7,
+      "label": "详情页停止生成调用 chatSyncService.stopStreaming，中断 active outgoing/attach stream、调用 /api/interrupt，并通过 feature-chat-timeline 本地 cancel 收敛 active/streaming 节点、清空 activeRunId、记录本地终止 run guard，后续 reconcile 合并 stale /api/chat detail 时不允许同 run active 状态复活；继续生成调用 chatSyncService.resumeStreaming 复用 attach 和单会话 reconcile。",
+      "moduleId": "feature-chat-realtime",
+      "file": "src/features/chatRealtime/chatSyncService.ts",
+      "symbol": "stopStreaming"
+    },
+    {
+      "order": 8,
+      "label": "详情页消费 conversation.timeline.replace 和 conversation.message.patch；Chat 首页目录不消费 conversation 摘要 patch，普通发送路径不回读整页消息列表。",
+      "moduleId": "feature-chat-persistence",
+      "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
+      "symbol": "useChatDetailConversationController"
+    }
+  ],
+  "failureModes": [
+    "如果先发 socket 再落库，应用重启后会丢待发送消息；如果 planningMode 不随 outbox 保存，reconnect/restart replay 会静默降级为普通模式。",
+    "ack、stream done/error 不经过 repository 会导致 pending 状态和 conversation 摘要不一致。",
+    "详情页输入框如果直接调用 transport，会绕过 outbox 和快照刷新。",
+    "新建本地空会话发送首条消息时如果不从 repository 补齐 agentKey/teamId，服务端会缺少 agent/team 上下文。",
+    "发送失败路径如果不回写 errorReason，UI 无法区分失败和待发送。",
+    "停止/继续或 awaiting submit 如果在页面层维护临时状态或直接请求接口，会导致 timeline lifecycle、输入区按钮、awaiting answer 摘要和 reconnect/reconcile 后状态不一致。"
+  ],
+  "mustCheckModules": [
+    "feature-chat-persistence",
+    "feature-chat-realtime",
+    "feature-chat-timeline"
+  ],
+  "relatedTasks": [
+    "modify-chat-persistence",
+    "modify-chat-realtime"
+  ]
+}

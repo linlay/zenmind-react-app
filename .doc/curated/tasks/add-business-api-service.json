@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "id": "add-business-api-service",
+  "title": "新增业务 API service",
+  "intentKeywords": [
+    "新增接口",
+    "新增 service",
+    "新增 API 文件",
+    "新增请求封装",
+    "新增 fetch 能力",
+    "新增业务 API service",
+    "业务API服务",
+    "新增业务接口",
+    "新增API服务",
+    "请求封装",
+    "add business api service"
+  ],
+  "entryDecision": [
+    "只要任务涉及新接口、新 service 文件或请求封装方式，先从这张 task card 开始。",
+    "如果任务只是修改环境变量名，先看 modify-runtime-environment。"
+  ],
+  "mustRead": [
+    {
+      "type": "module",
+      "ref": "core-api-client"
+    },
+    {
+      "type": "module",
+      "ref": "core-runtime-config"
+    },
+    {
+      "type": "code",
+      "ref": "src/core/api/apiClient.ts"
+    },
+    {
+      "type": "doc",
+      "ref": "src/core/api/services/README.md"
+    },
+    {
+      "type": "code",
+      "ref": "src/core/api/services/templateApi.ts"
+    }
+  ],
+  "likelyFiles": [
+    "src/core/api/apiClient.ts",
+    "src/core/api/services/templateApi.ts"
+  ],
+  "acceptanceChecks": [
+    "新接口文件按 README 约定放在 src/core/api/services。",
+    "请求逻辑继续通过 apiRequest 发起，错误走 ApiError。",
+    "base URL、path 和 query 的拼接行为与现有 service 保持一致。"
+  ],
+  "doNotMiss": [
+    "业务请求统一走 src/core/api/services，不在 feature 目录里散写 fetch。",
+    "新 service 继续复用 apiRequest、ApiError 和统一 URL 归一化逻辑。",
+    "如果接口依赖新的 EXPO_PUBLIC_* 变量，记得同时检查 runtimeEnv 和调试面板展示。"
+  ]
+}

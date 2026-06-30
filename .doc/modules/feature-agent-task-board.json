@@ -1,0 +1,140 @@
+{
+  "schemaVersion": "1.0",
+  "module": "feature-agent-task-board",
+  "status": "confirmed",
+  "paths": [
+    "src/features/agentTaskBoard"
+  ],
+  "summary": {
+    "purpose": "AI 任务流转看板: 承载面向 AI 智能体任务分配后的移动端任务处置 UI。",
+    "ownedConcepts": [
+      "承载面向 AI 智能体任务分配后的移动端任务处置 UI。",
+      "主屏聚焦今日待处理事项、待分配/待复核/阻塞数量、三段式队列和精简任务行，避免复刻 PC 五列看板的信息密度。",
+      "主任务队列使用 FlashList 虚拟化渲染，派生计数和焦点任务通过单次扫描生成，避免长列表场景下 ScrollView 一次性渲染和重复遍历。",
+      "用 feature 自有的 TaskBoardFlow 子栈承载新增任务、分配任务和任务详情流程，RootStack 覆盖 Tabs 展示二级页，体现从创建、指派、执行、复核到完成的关键处置路径。",
+      "通过 AgentTaskBoardProvider 按聚焦任务页面懒启动并复用同一份 Kanban snapshot、索引和 pending 状态；任务页失焦后释放 Kanban invalidation 订阅和防抖刷新，避免首页与二级页重复请求或后台空转。",
+      "通过 Kanban API/RPC 获取真实 snapshot 并提交变更，screen 只消费 feature service 与 view model 派生后的任务、队列、阶段和智能体数据。",
+      "任务启动后只按 ChatDetail route contract 生成导航参数并跳转既有聊天详情页，不直接读取或写入聊天 SQLite、MMKV 或 realtime runtime。",
+      "当前不接入 SQLite、MMKV 或实时 transport；任务数据经 core API service 边界接入，不从 app screen 直连底层存储。",
+      "Public entry AgentTaskBoardScreen (feature-screen): Terminal/任务 Tab 挂载的任务流转看板移动端入口。",
+      "Public entry AgentTaskBoardFlowNavigator (feature-navigator): RootStack TaskBoardFlow 挂载的任务二级页子栈，承载新增任务、分配任务和任务详情。",
+      "Public entry AgentTaskBoardProvider (feature-provider): 登录后 RootStack 包裹的任务看板共享数据 Provider，有任务页面聚焦时懒启动 Kanban snapshot 获取与 invalidation 订阅，任务页失焦后释放后台刷新。",
+      "State/data touch: 看板队列筛选 selectedQueue 本地 UI 状态",
+      "State/data touch: TaskBoardFlow RootStack 上层 route 与 feature 子栈 route",
+      "State/data touch: 分配任务页 selectedAgent 本地 UI 状态",
+      "State/data touch: Kanban snapshot、selectedQueue 本地 UI 状态、聚焦页面 retain 计数和由 view model 派生的任务/智能体展示数据",
+      "Related task: add-or-edit-tab-screen",
+      "Related task: add-internationalization"
+    ],
+    "nonGoals": []
+  },
+  "facts": {
+    "entrypoints": [],
+    "publicApi": [
+      "AgentOption",
+      "AgentTaskBoardAssignTaskScreen",
+      "AgentTaskBoardFlowNavigator",
+      "AgentTaskBoardNewTaskScreen",
+      "AgentTaskBoardProvider",
+      "AgentTaskBoardScreen",
+      "AgentTaskBoardStackParamList",
+      "AgentTaskBoardTaskDetailScreen",
+      "BoardQueue",
+      "BoardSummary",
+      "BoardTask",
+      "BoardViewText",
+      "DesktopKanbanBoardState",
+      "TaskDraftForm",
+      "TaskPriority",
+      "TaskStage",
+      "UseDesktopKanbanBoardOptions",
+      "applyKanbanChangeResult",
+      "buildKanbanAssistantPrompt",
+      "buildKanbanChatDetailParams",
+      "createBoardTaskIndex",
+      "createBoardViewText",
+      "createEmptyTaskDraft",
+      "deriveAgentOptions",
+      "deriveBoardSummary",
+      "deriveBoardTasks",
+      "getAgentPreview",
+      "issueHasRunRecord",
+      "nextAppliedSnapshotRevision",
+      "nextIssueIdSet",
+      "nextIssuePosition",
+      "reconcileStartedRunIssueIds",
+      "shouldApplySnapshotRevision",
+      "useAgentTaskBoard",
+      "useDesktopKanbanBoard"
+    ],
+    "dependencies": [
+      "app-shell-navigation",
+      "core-api-client",
+      "feature-chat-persistence",
+      "shared-i18n",
+      "shared-screen-header",
+      "shared-visual-foundation"
+    ],
+    "dependents": [
+      "app-shell-navigation"
+    ],
+    "tests": [],
+    "lastScannedAt": ""
+  },
+  "readHints": {
+    "alwaysRead": [
+      "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx",
+      "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx",
+      "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx"
+    ],
+    "readFor": [
+      {
+        "refs": [
+          {
+            "ref": "app-shell-navigation",
+            "type": "module"
+          },
+          {
+            "ref": "shared-screen-header",
+            "type": "module"
+          },
+          {
+            "ref": "shared-visual-foundation",
+            "type": "module"
+          },
+          {
+            "ref": "shared-i18n",
+            "type": "module"
+          },
+          {
+            "ref": "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx",
+            "type": "code"
+          },
+          {
+            "ref": "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx",
+            "type": "code"
+          },
+          {
+            "ref": "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
+            "type": "code"
+          }
+        ],
+        "when": "legacy readNext"
+      }
+    ]
+  },
+  "riskRules": [
+    "保持 screen 只消费 feature 内数据模型和共享 UI，不直接操作 SQLite 或 WebSocket。",
+    "任务 API 访问继续收敛在 core service，screen 只消费聚合后的 view model。",
+    "一级页面 Header 固定在滚动区外，主屏底部避让继续使用 shared visual 的 useAppTabBarHeight；TaskBoardFlow 二级页由 RootStack 覆盖 Tabs，只使用 safe area bottom 避让。",
+    "Header 和任务行只保留有真实行为的操作入口，不保留空 onPress 或占位按钮。",
+    "任务列表保持虚拟化渲染；接入真实数据后继续使用 FlashList 或共享分页列表，不回退到 ScrollView + map。",
+    "新增或调整任务看板静态 UI 文案时同步维护 shared-i18n messages key，不把中文/英文直接写回 API 数据结构。",
+    "主屏只保留高频处置入口和少量关键数字，生命周期与执行记录下沉到任务详情二级页。",
+    "新增任务、分配任务这类操作继续通过 feature 子栈页面和 Kanban RPC 提交；打开任务对话只使用 app shell 的 ChatDetail route 类型和 feature-chat-persistence 的 route params 类型，不直接依赖聊天 screen 内部实现或底层存储。",
+    "任务首页与 TaskBoardFlow 子页共享 AgentTaskBoardProvider，避免在多个 screen 中重复调用 useDesktopKanbanBoard。",
+    "AgentTaskBoardProvider 只能在任务 screen 聚焦时 retain Kanban 订阅；失焦时停止防抖刷新并 abort 正在进行的 snapshot refresh，不让隐藏任务页后台空转。",
+    "TaskBoardFlow 子栈页面失焦时要冻结，避免被覆盖的任务详情或分配页继续跟随共享 Kanban 状态重渲染。"
+  ],
+  "recentChanges": []
+}

@@ -1,0 +1,235 @@
+{
+  "schemaVersion": "1.0",
+  "profile": "knowledge",
+  "project": {
+    "name": "zenmind-app",
+    "type": [
+      "javascript-project"
+    ],
+    "primaryLanguages": [
+      "javascript",
+      "typescript"
+    ],
+    "summary": "基于 Expo 56 / React Native 0.85 的迁移后移动端应用，当前重点是认证门卫、HTTP/Desktop WS 设备 profile、Chat 首页与详情页、SQLite 本地真源、MMKV 冷启动目录快照、共享 WebSocket 实时同步、系统通知和开发态调试能力。\n主要目标：让模型先靠索引定位任务入口、影响模块和关键链路，再下钻到具体代码。"
+  },
+  "readOrder": [
+    {
+      "when": "always",
+      "files": [
+        ".doc/project.json",
+        ".doc/rules/agent.md",
+        ".doc/catalog/tasks.json"
+      ]
+    },
+    {
+      "when": "choosing task",
+      "resolve": ".doc/tasks/{task}.json"
+    },
+    {
+      "when": "editing module",
+      "resolve": ".doc/modules/{module}.json"
+    },
+    {
+      "when": "changing behavior",
+      "files": [
+        ".doc/rules.json",
+        ".doc/catalog/flows.json"
+      ]
+    }
+  ],
+  "moduleMap": {
+    "app-development-debug": {
+      "paths": [
+        "src/app/debug"
+      ],
+      "context": ".doc/modules/app-development-debug.json",
+      "confidence": "confirmed"
+    },
+    "app-shell-navigation": {
+      "paths": [
+        ".generated/brand",
+        "App.tsx",
+        "android/app/src/main/java",
+        "android/app/src/main/res/drawable",
+        "android/app/src/main/res/drawable-hdpi",
+        "android/app/src/main/res/drawable-mdpi",
+        "android/app/src/main/res/drawable-xhdpi",
+        "android/app/src/main/res/drawable-xxhdpi",
+        "android/app/src/main/res/drawable-xxxhdpi",
+        "android/app/src/main/res/values",
+        "android/settings.gradle",
+        "app.config.js",
+        "assets",
+        "assets/brands",
+        "assets/tabs",
+        "babel.config.js",
+        "brands",
+        "eas.json",
+        "global.css",
+        "index.js",
+        "metro.config.js",
+        "nativewind-env.d.ts",
+        "package.json",
+        "plugins/withAndroidAutolinkingCacheGuard.js",
+        "scripts",
+        "scripts/lib/brand-config.js",
+        "scripts/sync-brand.js",
+        "scripts/worklets",
+        "src/app/AppRoot.tsx",
+        "src/app/navigation",
+        "src/app/screens",
+        "src/app/settings",
+        "src/app/startup",
+        "src/types/assets.d.ts",
+        "tailwind.config.js"
+      ],
+      "context": ".doc/modules/app-shell-navigation.json",
+      "confidence": "confirmed"
+    },
+    "core-api-client": {
+      "paths": [
+        "src/core/api"
+      ],
+      "context": ".doc/modules/core-api-client.json",
+      "confidence": "confirmed"
+    },
+    "core-auth-session": {
+      "paths": [
+        "src/core/auth"
+      ],
+      "context": ".doc/modules/core-auth-session.json",
+      "confidence": "confirmed"
+    },
+    "core-debug-logging": {
+      "paths": [
+        "src/core/debug"
+      ],
+      "context": ".doc/modules/core-debug-logging.json",
+      "confidence": "confirmed"
+    },
+    "core-runtime-config": {
+      "paths": [
+        "src/core/config"
+      ],
+      "context": ".doc/modules/core-runtime-config.json",
+      "confidence": "confirmed"
+    },
+    "core-ws-transport": {
+      "paths": [
+        "src/core/ws"
+      ],
+      "context": ".doc/modules/core-ws-transport.json",
+      "confidence": "confirmed"
+    },
+    "feature-agent-task-board": {
+      "paths": [
+        "src/features/agentTaskBoard"
+      ],
+      "context": ".doc/modules/feature-agent-task-board.json",
+      "confidence": "confirmed"
+    },
+    "feature-auth-login": {
+      "paths": [
+        "src/features/auth"
+      ],
+      "context": ".doc/modules/feature-auth-login.json",
+      "confidence": "confirmed"
+    },
+    "feature-chat-persistence": {
+      "paths": [
+        "src/features/chatPersistence"
+      ],
+      "context": ".doc/modules/feature-chat-persistence.json",
+      "confidence": "confirmed"
+    },
+    "feature-chat-realtime": {
+      "paths": [
+        "src/features/chatRealtime"
+      ],
+      "context": ".doc/modules/feature-chat-realtime.json",
+      "confidence": "confirmed"
+    },
+    "feature-chat-timeline": {
+      "paths": [
+        "src/features/chatTimeline"
+      ],
+      "context": ".doc/modules/feature-chat-timeline.json",
+      "confidence": "confirmed"
+    },
+    "feature-notifications": {
+      "paths": [
+        "src/features/notifications"
+      ],
+      "context": ".doc/modules/feature-notifications.json",
+      "confidence": "confirmed"
+    },
+    "shared-conversation-content-renderer": {
+      "paths": [
+        "src/shared/components/ConversationMarkdownRenderer.tsx",
+        "src/shared/markdown/preprocess.ts"
+      ],
+      "context": ".doc/modules/shared-conversation-content-renderer.json",
+      "confidence": "confirmed"
+    },
+    "shared-i18n": {
+      "paths": [
+        "src/shared/i18n"
+      ],
+      "context": ".doc/modules/shared-i18n.json",
+      "confidence": "confirmed"
+    },
+    "shared-paginated-list": {
+      "paths": [
+        "src/shared/components/PaginatedCardList.tsx"
+      ],
+      "context": ".doc/modules/shared-paginated-list.json",
+      "confidence": "confirmed"
+    },
+    "shared-screen-header": {
+      "paths": [
+        "src/shared/components/ScreenHeader.tsx",
+        "src/shared/components/__tests__/ScreenHeader.test.tsx"
+      ],
+      "context": ".doc/modules/shared-screen-header.json",
+      "confidence": "confirmed"
+    },
+    "shared-visual-foundation": {
+      "paths": [
+        "src/shared/visual",
+        "src/shared/icons",
+        "src/shared/generated",
+        "src/shared/branding",
+        "assets/brands",
+        "tailwind.config.js",
+        "global.css",
+        ".doc/reference/ui-visual-theme.md"
+      ],
+      "context": ".doc/modules/shared-visual-foundation.json",
+      "confidence": "confirmed"
+    }
+  },
+  "curated": {
+    "modules": ".doc/curated/modules",
+    "flows": ".doc/curated/flows",
+    "tasks": ".doc/curated/tasks",
+    "rules": ".doc/curated/rules.json"
+  },
+  "catalogs": {
+    "modules": ".doc/catalog/modules.json",
+    "flows": ".doc/catalog/flows.json",
+    "tasks": ".doc/catalog/tasks.json"
+  },
+  "rulesRef": ".doc/rules.json",
+  "generated": {
+    "moduleCount": 18,
+    "flowCount": 7,
+    "taskCount": 16,
+    "sourceFileCount": 2092,
+    "factsRef": ".doc/generated/project-facts.json",
+    "contextIndexRef": ".doc/generated/context-index.json",
+    "entrypoints": [
+      "App.tsx",
+      "index.js"
+    ]
+  }
+}

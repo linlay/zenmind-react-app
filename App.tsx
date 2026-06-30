@@ -1,3 +1,5 @@
+import './global.css';
+
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';

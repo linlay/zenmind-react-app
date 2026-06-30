@@ -2,15 +2,11 @@ const { getDefaultConfig } = require('expo/metro-config');
 const fs = require('fs');
 const path = require('path');
 const { getBundleModeMetroConfig } = require('react-native-worklets/bundleMode');
+const { withNativeWind } = require('nativewind/metro');
 
 let config = getDefaultConfig(__dirname);
 const generatedWorkletsModulePrefix = 'react-native-worklets/.worklets/';
-const generatedWorkletsDir = path.resolve(
-  __dirname,
-  '.generated',
-  'react-native-worklets',
-  '.worklets'
-);
+const generatedWorkletsDir = path.resolve(__dirname, '.generated', 'react-native-worklets', '.worklets');
 const workspaceNodeModulesDir = path.resolve(__dirname, '..', 'node_modules');
 
 fs.mkdirSync(generatedWorkletsDir, { recursive: true });
@@ -36,7 +32,7 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
     if (fs.existsSync(generatedWorkletPath)) {
       return {
         type: 'sourceFile',
-        filePath: generatedWorkletPath,
+        filePath: generatedWorkletPath
       };
     }
   }
@@ -49,4 +45,4 @@ config.resolver.resolveRequest = (context, moduleName, platform) => {
   return context.resolveRequest(context, moduleName, platform);
 };
 
-module.exports = config;
+module.exports = withNativeWind(config, { input: './global.css' });

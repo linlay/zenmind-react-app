@@ -21,6 +21,6 @@
     "skipLibCheck": true,
     "types": ["react", "react-native"]
   },
-  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts"],
+  "include": ["**/*.ts", "**/*.tsx", "**/*.d.ts", "nativewind-env.d.ts"],
   "exclude": ["node_modules", "dist"]
 }

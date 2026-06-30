@@ -1,0 +1,210 @@
+{
+  "schemaVersion": "1.0",
+  "items": [
+    {
+      "id": "app-development-debug",
+      "title": "app-development-debug",
+      "summary": "开发态调试入口: 提供 __DEV__ 下隐藏挂载的开发调试面板；默认不显示浮动入口，Me 页版本信息三连点通过 controller 启用 Debug 模式并打开面板，设置页可切换 Debug 模式开关，普通关闭后保留右下角 Debug 浮动按钮，ChatDetail 也挂载面板宿主并上移浮动入口以避开聊天详情输入区。",
+      "pathHints": [
+        "src/app/debug"
+      ],
+      "card": ".doc/modules/app-development-debug.json"
+    },
+    {
+      "id": "app-shell-navigation",
+      "title": "app-shell-navigation",
+      "summary": "应用壳层与底部导航: 挂载 SafeAreaProvider、I18nProvider、AppThemeProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
+      "pathHints": [
+        ".generated/brand",
+        "App.tsx",
+        "android/app/src/main/java",
+        "android/app/src/main/res/drawable",
+        "android/app/src/main/res/drawable-hdpi",
+        "android/app/src/main/res/drawable-mdpi",
+        "android/app/src/main/res/drawable-xhdpi",
+        "android/app/src/main/res/drawable-xxhdpi",
+        "android/app/src/main/res/drawable-xxxhdpi",
+        "android/app/src/main/res/values",
+        "android/settings.gradle",
+        "app.config.js",
+        "assets",
+        "assets/brands",
+        "assets/tabs",
+        "babel.config.js",
+        "brands",
+        "eas.json",
+        "global.css",
+        "index.js",
+        "metro.config.js",
+        "nativewind-env.d.ts",
+        "package.json",
+        "plugins/withAndroidAutolinkingCacheGuard.js",
+        "scripts",
+        "scripts/lib/brand-config.js",
+        "scripts/sync-brand.js",
+        "scripts/worklets",
+        "src/app/AppRoot.tsx",
+        "src/app/navigation",
+        "src/app/screens",
+        "src/app/settings",
+        "src/app/startup",
+        "src/types/assets.d.ts",
+        "tailwind.config.js"
+      ],
+      "card": ".doc/modules/app-shell-navigation.json"
+    },
+    {
+      "id": "core-api-client",
+      "title": "core-api-client",
+      "summary": "统一 API 客户端: 统一拼接 API base URL、path 和 query。",
+      "pathHints": [
+        "src/core/api"
+      ],
+      "card": ".doc/modules/core-api-client.json"
+    },
+    {
+      "id": "core-auth-session",
+      "title": "core-auth-session",
+      "summary": "认证会话与设备 Profile: 维护设备登录后的会话状态、HTTP device token、Desktop WS token、Desktop 同源 HTTP base URL、设备 profile、聊天缓存 scope 切换、冷启动恢复和前台预刷新逻辑。",
+      "pathHints": [
+        "src/core/auth"
+      ],
+      "card": ".doc/modules/core-auth-session.json"
+    },
+    {
+      "id": "core-debug-logging",
+      "title": "core-debug-logging",
+      "summary": "核心调试日志: 提供开发态 HTTP 请求、响应、错误日志、HTTP record ring buffer 和 WebSocket frame ring buffer 观测能力。",
+      "pathHints": [
+        "src/core/debug"
+      ],
+      "card": ".doc/modules/core-debug-logging.json"
+    },
+    {
+      "id": "core-runtime-config",
+      "title": "core-runtime-config",
+      "summary": "运行时环境变量读取: 提供公开环境变量读取入口。",
+      "pathHints": [
+        "src/core/config"
+      ],
+      "card": ".doc/modules/core-runtime-config.json"
+    },
+    {
+      "id": "core-ws-transport",
+      "title": "core-ws-transport",
+      "summary": "核心 WebSocket 传输: 提供与业务无关的 WebSocket transport config、底层 WsClient 和生产 sharedWsTransport 单例。",
+      "pathHints": [
+        "src/core/ws"
+      ],
+      "card": ".doc/modules/core-ws-transport.json"
+    },
+    {
+      "id": "feature-agent-task-board",
+      "title": "feature-agent-task-board",
+      "summary": "AI 任务流转看板: 承载面向 AI 智能体任务分配后的移动端任务处置 UI。",
+      "pathHints": [
+        "src/features/agentTaskBoard"
+      ],
+      "card": ".doc/modules/feature-agent-task-board.json"
+    },
+    {
+      "id": "feature-auth-login",
+      "title": "feature-auth-login",
+      "summary": "登录页与认证门卫界面: 承载设备登录表单、Desktop 二维码扫码配对、粘贴配对内容备用入口、最近 profile 快捷入口、启动恢复中的认证占位屏和最小会话交互。",
+      "pathHints": [
+        "src/features/auth"
+      ],
+      "card": ".doc/modules/feature-auth-login.json"
+    },
+    {
+      "id": "feature-chat-persistence",
+      "title": "feature-chat-persistence",
+      "summary": "聊天持久化与首页数据读取: 维护 Chat 首页 agent/team 目录、目录 icon 展示字段、远端 chat 摘要投影、聊天会话、置顶状态、消息、outbox、conversation_sync_state、conversation_timeline_meta/nodes、本地数据库和目录快照。",
+      "pathHints": [
+        "src/features/chatPersistence"
+      ],
+      "card": ".doc/modules/feature-chat-persistence.json"
+    },
+    {
+      "id": "feature-chat-realtime",
+      "title": "feature-chat-realtime",
+      "summary": "聊天实时同步: 管理聊天实时业务同步、连接状态投递、pending stream 清理、首页目录预热入口，以及详情页停止/继续生成入口。",
+      "pathHints": [
+        "src/features/chatRealtime"
+      ],
+      "card": ".doc/modules/feature-chat-realtime.json"
+    },
+    {
+      "id": "feature-chat-timeline",
+      "title": "feature-chat-timeline",
+      "summary": "聊天详情 Timeline 投影: 提供纯函数 timeline reducer，把 request.query、content.*、run.*、reasoning/planning/tool/awaiting/artifact/action/plan/task/usage/context 等事件归并为单会话有序节点。",
+      "pathHints": [
+        "src/features/chatTimeline"
+      ],
+      "card": ".doc/modules/feature-chat-timeline.json"
+    },
+    {
+      "id": "feature-notifications",
+      "title": "feature-notifications",
+      "summary": "系统级通知接入: 管理系统通知权限、Android channel、原生 FCM/APNs token 获取和注册指纹缓存。",
+      "pathHints": [
+        "src/features/notifications"
+      ],
+      "card": ".doc/modules/feature-notifications.json"
+    },
+    {
+      "id": "shared-conversation-content-renderer",
+      "title": "shared-conversation-content-renderer",
+      "summary": "对话内容渲染组件: 提供纯共享的对话内容渲染管线，普通 Markdown 热路径由原生 GFM renderer 承接，不保留 JS 自绘 Markdown AST fallback。",
+      "pathHints": [
+        "src/shared/components/ConversationMarkdownRenderer.tsx",
+        "src/shared/markdown/preprocess.ts"
+      ],
+      "card": ".doc/modules/shared-conversation-content-renderer.json"
+    },
+    {
+      "id": "shared-i18n",
+      "title": "shared-i18n",
+      "summary": "共享国际化能力: 提供轻量 typed i18n 能力，包含静态消息表、locale 解析、翻译函数、根 Provider 和缓存后的日期 formatter。",
+      "pathHints": [
+        "src/shared/i18n"
+      ],
+      "card": ".doc/modules/shared-i18n.json"
+    },
+    {
+      "id": "shared-paginated-list",
+      "title": "shared-paginated-list",
+      "summary": "复用型分页列表组件: 提供基于 FlashList 的通用分页列表容器。",
+      "pathHints": [
+        "src/shared/components/PaginatedCardList.tsx"
+      ],
+      "card": ".doc/modules/shared-paginated-list.json"
+    },
+    {
+      "id": "shared-screen-header",
+      "title": "shared-screen-header",
+      "summary": "复用型页面 Header 组件: 提供纯 UI 的三栏页面 Header 布局，统一承接左按钮区、标题区和右按钮区。",
+      "pathHints": [
+        "src/shared/components/ScreenHeader.tsx",
+        "src/shared/components/__tests__/ScreenHeader.test.tsx"
+      ],
+      "card": ".doc/modules/shared-screen-header.json"
+    },
+    {
+      "id": "shared-visual-foundation",
+      "title": "shared-visual-foundation",
+      "summary": "共享视觉 token 与统一图标基础: 提供共享视觉 token、运行时 light/dark 主题 Provider、system 偏好解析、底部 Tab 指标与避让 hook、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
+      "pathHints": [
+        "src/shared/visual",
+        "src/shared/icons",
+        "src/shared/generated",
+        "src/shared/branding",
+        "assets/brands",
+        "tailwind.config.js",
+        "global.css",
+        ".doc/reference/ui-visual-theme.md"
+      ],
+      "card": ".doc/modules/shared-visual-foundation.json"
+    }
+  ]
+}

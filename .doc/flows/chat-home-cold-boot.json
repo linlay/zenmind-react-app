@@ -1,0 +1,102 @@
+{
+  "schemaVersion": "1.0",
+  "id": "chat-home-cold-boot",
+  "title": "Chat 首页冷启动",
+  "trigger": "用户首次进入 Chat Tab，ChatScreen 直接渲染 ChatHomeScreen 时触发。",
+  "sourceOfTruth": [
+    "MMKV 只提供首页目录冷启动快照回显。",
+    "SQLite chat_directory_items 是最终首页目录列表与分页切片的真源，置顶状态来自 chat_directory_items.pinned_at，非置顶顺序来自 latest_conversation_id 关联的 conversations.last_message_at，sort_rank 只做稳定兜底。",
+    "SQLite conversations 是最后消息正文、最后消息时间和 chat 摘要归属真源，首页目录只通过 latest_conversation_id 关联读取。"
+  ],
+  "steps": [
+    {
+      "order": 1,
+      "label": "ChatScreen 将 Chat Tab 映射到 ChatHomeScreen；详情页由 RootStack 上推进入。",
+      "moduleId": "app-shell-navigation",
+      "file": "src/app/screens/TabScreens.tsx",
+      "symbol": "ChatScreen"
+    },
+    {
+      "order": 2,
+      "label": "ChatHomeScreen 首先读取 readChatDirectorySnapshot 进行冷启动回显。",
+      "moduleId": "feature-chat-persistence",
+      "file": "src/features/chatPersistence/ChatHomeScreen.tsx",
+      "symbol": "readChatDirectorySnapshot"
+    },
+    {
+      "order": 3,
+      "label": "AppRoot 在认证允许后调用 chatSyncService.prewarmHome，委托 repository 提前初始化 SQLite 和首页目录首屏切片，不让页面切换路径承担预热成本。",
+      "moduleId": "feature-chat-realtime",
+      "file": "src/app/AppRoot.tsx",
+      "symbol": "chatSyncService.prewarmHome"
+    },
+    {
+      "order": 4,
+      "label": "prewarmChatHomeDirectory 确保 SQLite 已初始化，随后读取首页目录切片；空库保持空态，有可用目录数据时刷新 MMKV 快照。",
+      "moduleId": "feature-chat-persistence",
+      "file": "src/features/chatPersistence/chatRepository.ts",
+      "symbol": "prewarmChatHomeDirectory"
+    },
+    {
+      "order": 5,
+      "label": "ChatHomeScreen 把 SQLite 首屏刷新安排到 InteractionManager.runAfterInteractions 之后；无置顶折叠时复用 prewarmChatHomeDirectory 结果，折叠/分页路径继续通过 loadVisibleSlice 回读 SQLite 真源。",
+      "moduleId": "feature-chat-persistence",
+      "file": "src/features/chatPersistence/ChatHomeScreen.tsx",
+      "symbol": "prewarmChatHomeDirectory"
+    },
+    {
+      "order": 6,
+      "label": "AppRoot 在认证就绪后全局启动 chatSyncService.start，通过同一条 /ap/ws 连接并发发送 /api/agents、/api/teams 与 /api/chats request，投影后单事务写入 conversations 与 chat_directory_items，并保持 outbox flush 不挂在首页生命周期。",
+      "moduleId": "app-shell-navigation",
+      "file": "src/app/AppRoot.tsx",
+      "symbol": "chatSyncService.start"
+    },
+    {
+      "order": 7,
+      "label": "ChatHomeScreen 聚焦时订阅 scoped sync event；收到 home.directory.replace 后回读当前可见目录切片，收到未标记 directoryProjectionChanged 且命中当前可见 latestConversationId 的 home.item.patch 后回读同一切片刷新最后消息展示。",
+      "moduleId": "feature-chat-realtime",
+      "file": "src/features/chatPersistence/ChatHomeScreen.tsx",
+      "symbol": "chatSyncService.subscribe"
+    },
+    {
+      "order": 8,
+      "label": "初始化、分页、手动刷新和失焦后恢复仍通过目录 repository 入口读取 SQLite 真源切片、置顶顺序和最近消息顺序。",
+      "moduleId": "feature-chat-persistence",
+      "file": "src/features/chatPersistence/ChatHomeScreen.tsx",
+      "symbol": "loadVisibleSlice"
+    }
+  ],
+  "failureModes": [
+    "把 MMKV 当真源会导致冷启动后目录列表和真实 SQLite 状态不一致。",
+    "页面直接读写 database 或 schema 会让持久化边界失控。",
+    "详情页如果绕过 repository 或 sync service 直接读写 socket / SQLite，会破坏首页与详情的一致性。",
+    "省略 AppRoot 的 chatSyncService.start 会导致实时刷新与 outbox flush 缺失。",
+    "远端目录刷新失败时如果用空数组覆盖 SQLite/MMKV，会丢失本地可用快照。",
+    "把 agent/team 目录硬塞入 conversations，或把 lastMessageText/lastMessageAt 冗余进 chat_directory_items，会混淆目录入口与聊天摘要真源。"
+  ],
+  "mustCheckModules": [
+    "app-shell-navigation",
+    "feature-chat-persistence",
+    "feature-chat-realtime",
+    "shared-paginated-list"
+  ],
+  "relatedTasks": [
+    "add-reusable-list-screen",
+    "modify-chat-persistence",
+    "modify-chat-realtime"
+  ],
+  "generated": {
+    "stepCount": 8,
+    "files": [
+      "src/app/AppRoot.tsx",
+      "src/app/screens/TabScreens.tsx",
+      "src/features/chatPersistence/ChatHomeScreen.tsx",
+      "src/features/chatPersistence/chatRepository.ts"
+    ],
+    "resolvedModules": [
+      "app-shell-navigation",
+      "feature-chat-persistence",
+      "feature-chat-realtime"
+    ]
+  }
+}

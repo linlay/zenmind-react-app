@@ -1,0 +1,95 @@
+{
+  "schemaVersion": "1.0",
+  "module": "core-debug-logging",
+  "status": "confirmed",
+  "paths": [
+    "src/core/debug"
+  ],
+  "summary": {
+    "purpose": "核心调试日志: 提供开发态 HTTP 请求、响应、错误日志、HTTP record ring buffer 和 WebSocket frame ring buffer 观测能力。",
+    "ownedConcepts": [
+      "提供开发态 HTTP 请求、响应、错误日志、HTTP record ring buffer 和 WebSocket frame ring buffer 观测能力。",
+      "统一脱敏认证、密码和 token 类字段，避免各模块重复实现调试打印。",
+      "保持调试日志只作为旁路观测，不参与业务状态、请求重试或错误决策。",
+      "Public entry logHttpRequest (debug-logger): 开发态打印非 WS HTTP 请求方法、接口和脱敏后的 body。",
+      "Public entry logHttpResponse (debug-logger): 开发态打印非 WS HTTP 响应状态、耗时和脱敏后的 payload。",
+      "Public entry logHttpError (debug-logger): 开发态打印非 WS HTTP 网络异常和耗时。",
+      "Public entry httpDebugRecorder (dev-recorder): 开发态内存 HTTP record recorder，用于 Debug 面板查看请求、响应和预检失败。",
+      "Public entry wsDebugRecorder (dev-recorder): 开发态内存 WS frame recorder，用于 Debug 面板查看收发帧、解析失败和连接状态。",
+      "State/data touch: 开发态 console 输出",
+      "State/data touch: 开发态 HTTP record ring buffer",
+      "State/data touch: 开发态 WS frame ring buffer",
+      "Related flow: app-startup",
+      "Related flow: chat-receive-message",
+      "Related flow: chat-send-message",
+      "Related flow: notification-open-chat-message",
+      "Related task: add-business-api-service",
+      "Related task: add-auth-login-screen",
+      "Related task: add-system-notifications",
+      "Related task: modify-chat-realtime"
+    ],
+    "nonGoals": []
+  },
+  "facts": {
+    "entrypoints": [],
+    "publicApi": [
+      "HttpDebugDirection",
+      "HttpDebugRecord",
+      "WsDebugDirection",
+      "WsDebugRecord",
+      "httpDebugRecorder",
+      "logHttpError",
+      "logHttpRequest",
+      "logHttpResponse",
+      "wsDebugRecorder"
+    ],
+    "dependencies": [
+      "core-runtime-config"
+    ],
+    "dependents": [
+      "app-development-debug",
+      "core-api-client",
+      "core-auth-session",
+      "core-ws-transport"
+    ],
+    "tests": [],
+    "lastScannedAt": ""
+  },
+  "readHints": {
+    "alwaysRead": [
+      "src/core/debug/httpDebugLogger.ts"
+    ],
+    "readFor": [
+      {
+        "refs": [
+          {
+            "ref": "src/core/debug/httpDebugLogger.ts",
+            "type": "code"
+          },
+          {
+            "ref": "core-api-client",
+            "type": "module"
+          },
+          {
+            "ref": "core-auth-session",
+            "type": "module"
+          },
+          {
+            "ref": "core-ws-transport",
+            "type": "module"
+          }
+        ],
+        "when": "legacy readNext"
+      }
+    ]
+  },
+  "riskRules": [
+    "HTTP 调试日志必须只在 __DEV__ 输出，生产环境不打印。",
+    "日志必须脱敏 Authorization、password、secret、token 等字段。",
+    "HTTP 日志覆盖 HTTP/API 请求、响应、网络错误和发请求前的认证预检失败；WebSocket 帧由 wsDebugRecorder 观测。",
+    "HTTP record recorder 只能作为开发态旁路观测，不参与业务路由、重试、token 刷新或落库。",
+    "WS frame recorder 只能作为开发态旁路观测，不参与业务路由、重试、token 刷新或落库。",
+    "日志不得影响请求重试、错误抛出、认证清理或业务落库行为。"
+  ],
+  "recentChanges": []
+}

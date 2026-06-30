@@ -1,0 +1,67 @@
+{
+  "schemaVersion": "1.0",
+  "id": "remove-development-debug-entry",
+  "title": "删除开发态 Debug 入口",
+  "intentKeywords": [
+    "删除 debug 按钮",
+    "移除开发调试入口",
+    "关闭 debug overlay",
+    "删除开发态按钮",
+    "删除开发态 Debug 入口",
+    "移除调试入口",
+    "开发调试入口",
+    "关闭调试入口",
+    "remove development debug entry"
+  ],
+  "entryDecision": [
+    "任务明确要求删除或隐藏右下角 Debug 按钮时，从这张卡开始。",
+    "如果只是改环境变量展示文案，同时补读 modify-runtime-environment。"
+  ],
+  "mustRead": [
+    {
+      "type": "module",
+      "ref": "app-development-debug"
+    },
+    {
+      "type": "module",
+      "ref": "app-shell-navigation"
+    },
+    {
+      "type": "flow",
+      "ref": "app-startup"
+    },
+    {
+      "type": "code",
+      "ref": "src/app/AppRoot.tsx"
+    },
+    {
+      "type": "code",
+      "ref": "src/app/debug/DevelopmentDebugPanelHost.tsx"
+    },
+    {
+      "type": "code",
+      "ref": "src/app/debug/developmentDebugPanel.ts"
+    },
+    {
+      "type": "code",
+      "ref": "src/app/screens/TabScreens.tsx"
+    }
+  ],
+  "likelyFiles": [
+    "src/app/AppRoot.tsx",
+    "src/app/debug/DevelopmentDebugPanelHost.tsx",
+    "src/app/debug/developmentDebugPanel.ts",
+    "src/app/screens/TabScreens.tsx"
+  ],
+  "acceptanceChecks": [
+    "Debug 浮动入口按任务要求移除或隐藏，但 AppRoot 仍正常挂载导航。",
+    "如果改为隐藏触发，Me 页版本信息触发、普通关闭后的右下角 Debug 按钮、彻底关闭后的入口移除行为符合需求。",
+    "生产态行为没有回归，开发态其他流程不被意外影响。",
+    "若保留调试组件文件，其引用关系和条件渲染仍清晰。"
+  ],
+  "doNotMiss": [
+    "如果只是去掉或隐藏入口，优先先看 AppRoot 的挂载条件、Debug 面板控制器 enabled/visible 语义和 Me 页版本触发，不要顺手破坏导航壳层。",
+    "删除按钮不等于一定要删除 API Base URL 读取逻辑，先看任务范围。",
+    "保留 __DEV__ 语义清晰的边界，避免引入生产态行为回归。"
+  ]
+}

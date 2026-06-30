@@ -1,0 +1,7 @@
+interface:
+  display_name: "XGraph zenmind-app Context"
+  short_description: "Use XGraph context for this repo"
+  default_prompt: "Use $xgraph-zenmind-app to make a focused change in this repository."
+
+policy:
+  allow_implicit_invocation: true

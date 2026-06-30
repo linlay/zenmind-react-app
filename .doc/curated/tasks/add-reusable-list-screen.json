@@ -1,0 +1,58 @@
+{
+  "schemaVersion": "1.0",
+  "id": "add-reusable-list-screen",
+  "title": "新增复用型列表页",
+  "intentKeywords": [
+    "新增列表页",
+    "复用分页列表",
+    "新增 card list",
+    "新增 load more 页面",
+    "新增刷新列表",
+    "新增复用型列表页",
+    "复用列表页",
+    "分页列表",
+    "刷新列表",
+    "add reusable list screen"
+  ],
+  "entryDecision": [
+    "任务目标是新增一个带刷新、分页或返回顶部行为的列表页时，从这张卡开始。",
+    "如果还要新增 Tab 入口，同时补读 add-or-edit-tab-screen。"
+  ],
+  "mustRead": [
+    {
+      "type": "module",
+      "ref": "shared-paginated-list"
+    },
+    {
+      "type": "module",
+      "ref": "app-shell-navigation"
+    },
+    {
+      "type": "flow",
+      "ref": "chat-home-cold-boot"
+    },
+    {
+      "type": "code",
+      "ref": "src/shared/components/PaginatedCardList.tsx"
+    },
+    {
+      "type": "code",
+      "ref": "src/app/screens/AppScreenFrame.tsx"
+    }
+  ],
+  "likelyFiles": [
+    "src/app/screens/AppScreenFrame.tsx",
+    "src/app/screens/TabScreens.tsx",
+    "src/shared/components/PaginatedCardList.tsx"
+  ],
+  "acceptanceChecks": [
+    "共享列表组件仍保持通用，不引入聊天专属字段。",
+    "新页面自己管理 fetch 或 repository 调用，不把业务状态塞回 shared。",
+    "下拉刷新、加载更多和返回顶部行为仍然可用。"
+  ],
+  "doNotMiss": [
+    "优先复用 PaginatedCardList，而不是复制一份新的列表骨架。",
+    "列表数据加载、分页和错误处理属于 feature screen，不属于 shared/components。",
+    "如果新列表页最终作为 Tab，同一改动里同步更新 RootNavigator 和 TabScreens。"
+  ]
+}
