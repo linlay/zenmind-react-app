@@ -180,6 +180,7 @@ function normalizeSharedBrandConfig(config) {
     requireNestedString(config, 'nativeIdentity', 'iosBundleIdentifier')
   );
   const updatesProjectId = requireNestedString(config, 'updates', 'projectId');
+  const updatesProjectSlug = validateSlug(requireNestedString(config, 'updates', 'projectSlug'));
   const updatesUrl = requireNestedString(config, 'updates', 'url');
 
   return {
@@ -188,6 +189,7 @@ function normalizeSharedBrandConfig(config) {
     bundleIdentifier,
     updates: {
       projectId: updatesProjectId,
+      projectSlug: updatesProjectSlug,
       url: updatesUrl
     }
   };
@@ -212,7 +214,6 @@ function normalizeManifest(rootDir, brandRoot, manifest, sharedConfig, i18n, app
 
   const productName = requireString(manifest, 'productName');
   const expoName = requireString(manifest, 'expoName');
-  const slug = validateSlug(requireString(manifest, 'slug'));
   const notificationChannel = requireNestedString(manifest, 'notification', 'channel');
   const splashImageWidth = Number(manifest.splash?.imageWidth);
   if (!Number.isFinite(splashImageWidth) || splashImageWidth <= 0) {
@@ -231,7 +232,7 @@ function normalizeManifest(rootDir, brandRoot, manifest, sharedConfig, i18n, app
     id,
     productName,
     expoName,
-    slug,
+    slug: sharedConfig.updates.projectSlug,
     version: appVersion,
     storageNamespace: sharedConfig.storageNamespace,
     android: {
@@ -1584,7 +1585,8 @@ function syncBrandArtifacts({
   rootDir = process.cwd(),
   brandId = resolveBrandId(process.argv.slice(2), process.env, rootDir),
   appVersion = readPackageVersion(rootDir),
-  force = false
+  force = false,
+  syncNativeProject = true
 } = {}) {
   const brand = loadBrandConfig(rootDir, brandId, appVersion);
   const brands = loadAllBrandConfigs(rootDir, appVersion);
@@ -1598,7 +1600,7 @@ function syncBrandArtifacts({
   };
   const manifest = readGeneratedManifest(rootDir, brand);
   const activeNativeManifest = readActiveNativeManifest(rootDir);
-  const shouldSyncNativeProject = nativeProjectExists(rootDir);
+  const shouldSyncNativeProject = syncNativeProject && nativeProjectExists(rootDir);
   writeGeneratedBrandFiles(rootDir, brands);
   const shouldWriteGeneratedAssets = force || !areGeneratedAssetsCurrent(manifest, rootDir, brand, fingerprints.asset);
   const shouldWriteNativeSplashImages = shouldSyncNativeProject

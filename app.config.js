@@ -10,6 +10,7 @@ module.exports = () => {
     rootDir: __dirname,
     brandId: resolveBrandId(process.argv.slice(2), process.env, __dirname, { allowPositional: false }),
     appVersion: packageJson.version,
+    syncNativeProject: false,
   });
 
   return {

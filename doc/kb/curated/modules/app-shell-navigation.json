@@ -37,7 +37,7 @@
   ],
   "responsibility": [
     "挂载 SafeAreaProvider、I18nProvider、AppThemeProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
-    "通过 BRAND 环境变量、brands/<id>/brand.json、app.config.js 和品牌同步脚本，在固定 Android applicationId / iOS bundle id 与共享 EAS channel 下切换产品名称、图标、启动图、通知色和运行时品牌展示。",
+    "通过 BRAND 环境变量、brands/<id>/brand.json、app.config.js 和品牌同步脚本，在固定 Android applicationId / iOS bundle id、共享 Expo slug 与共享 EAS channel 下切换产品名称、图标、启动图、通知色和运行时品牌展示。",
     "决定认证前后的 RootStack / Tab 结构、登录门卫开关、设备 profile endpoint 展示、任务看板、TaskBoardFlow 二级任务流、设置二级页以及 Chat 首页与详情页的导航层级；网盘保留 src/app/screens/DriveScreen.tsx 预留页组件但当前不挂底部 Tab，待后期实现；原生端底部 Tab 通过 Native Bottom Tabs 承载，Web 继续使用 JS Bottom Tabs。",
     "为一级 Tab 页面提供固定顶部 Header 与滚动内容分离的壳层布局。",
     "承接共享视觉 token、运行时 system/light/dark 主题偏好、共享国际化文案、native PNG Tab 图标、描边 JS Tab 图标和 locale 感知标签映射，统一一级页面的轻量聊天风格。",
@@ -56,7 +56,7 @@
       "file": "app.config.js",
       "symbol": null,
       "kind": "expo-dynamic-config",
-      "description": "按 --brand 或 BRAND 读取 brands/<id>/brand.json，并合成 brands/shared.json 的共享 storage namespace、updates 和 native identity，生成 Expo name / slug / icon / splash / notification / embedded brand id 配置；Android package 和 iOS bundle id 保持共享。"
+      "description": "按 --brand 或 BRAND 读取 brands/<id>/brand.json，并合成 brands/shared.json 的共享 storage namespace、updates、Expo slug 和 native identity，生成 Expo name / slug / icon / splash / notification / embedded brand id 配置；slug、Android package 和 iOS bundle id 保持共享；config evaluation 只确保 generated registry 和 Expo 消费的 PNG 资源存在，不直接写 prebuild 中间态 native project。"
     },
     {
       "file": "scripts/lib/brand-config.js",
@@ -188,7 +188,7 @@
     "Metro watchFolders 必须限制在 workspace 根 node_modules 和项目内 .generated/react-native-worklets/.worklets，不要继承 Expo 自动发现的 sibling frontend workspace；否则 pan-webclient 等其他项目的 node_modules 变化会污染移动端 Metro file map。",
     "Worklets bundle mode 生成物必须同步到项目内 .generated/react-native-worklets/.worklets，并让 Metro 只 watch/resolve 这个项目内稳定目录；预生成时要同时覆盖 node_modules symlink 路径和 pnpm 当前 .pnpm realpath，因为 Worklets hash 会受源码 filename 影响。",
     "Expo 运行和导出脚本必须先执行 scripts/worklets/pregenerate.js，提前生成并同步 Reanimated、Streamdown、Worklets、remend 和二级 Worklets bundle 文件；预生成要覆盖 development / production 环境和 android / web 平台，避免 Metro 建图后才出现新 .worklets 文件导致 SHA-1 缺失。",
-    "Expo 运行、导出和 EAS post install 脚本必须先执行 scripts/sync-brand.js，保证 app.config.js、React loading、Login 和 Me 页消费的 generated 品牌资源一致。",
+    "Expo 运行、导出和 EAS post install 脚本必须先执行 scripts/sync-brand.js，保证 app.config.js、React loading、Login 和 Me 页消费的 generated 品牌资源一致；app.config.js 读取配置时必须跳过 native project 文本同步，避免 Expo prebuild 刚创建 AndroidManifest 但插件尚未写入 meta-data 时失败。",
     "scripts/sync-brand.js 必须按品牌目录使用 assetFingerprint 缓存派生 PNG，并使用 .generated/brand/native-active-manifest.json 按显式 brand 拆分缓存 native splash image、launcher image 和 native text；文本字段变化不读写 PNG，重复同步同一品牌不重画 PNG。",
     "src/shared/generated/brand.ts 只能包含全量 APP_BRANDS registry、DEFAULT_BRAND_ID 与 INSTALLED_BRAND_ID resolver 调用，不能重新生成 ACTIVE_BRAND_ID；共享 OTA 展示品牌必须来自安装壳 embedded app.config.extra.brand.id。",
     "本地调试和打包切品牌必须通过显式 --brand 或 BRAND；无参 sync、start、android、web、test 和 app.config.js 使用默认 zenmind，避免隐藏的本地品牌状态影响构建。",

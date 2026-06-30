@@ -3,7 +3,7 @@
   "title": "应用启动与导航挂载",
   "trigger": "Expo 启动应用并注册根组件时触发。",
   "sourceOfTruth": [
-    "app.config.js 通过 --brand 或 BRAND 选择 brands/<id>/brand.json，并合成 brands/shared.json 决定 expo-splash-screen 的原生启动图资源、背景色、imageWidth、展示名称、共享包名 / bundle id、EAS updates 入口和安装壳 embedded brand id。",
+    "app.config.js 通过 --brand 或 BRAND 选择 brands/<id>/brand.json，并合成 brands/shared.json 决定 expo-splash-screen 的原生启动图资源、背景色、imageWidth、展示名称、共享 Expo slug、共享包名 / bundle id、EAS updates 入口和安装壳 embedded brand id。",
     "App.tsx 和 AppRoot.tsx 决定根 provider 树、I18nProvider、AppThemeProvider 与导航挂载顺序。",
     "src/core/auth/appAuth.ts 决定冷启动时的认证恢复、HTTP/Desktop WS 设备 profile、token 缓存、前台预刷新和登录态切换。",
     "notificationService 决定登录后的系统通知权限、原生 push token 注册和冷启动通知点击缓存。",

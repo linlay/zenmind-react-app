@@ -177,9 +177,12 @@ pnpm build
 pnpm build:android
 pnpm build:android:zenmind
 pnpm build:android:cutej
+pnpm build:ios
+pnpm build:ios:zenmind
+pnpm build:ios:cutej
 ```
 
-默认 Android/iOS 品牌为 ZenMind，包名和 bundle id 为 `com.zqfrank.agentterminalapp`；CuteJ 使用 `cc.cutej.app`，可与默认包并排安装。`BRAND=<id> pnpm brand:sync` 会校验 `brands/<id>/brand.json`，生成运行时品牌常量，并把 PNG 缓存在 `assets/generated/brand/<id>/` 下。
+默认品牌为 ZenMind；当前多品牌共享 native identity，Android package 为 `com.zqfrank.agentterminalapp`，iOS bundle id 为 `cc.zenmind.ios`。CuteJ 通过 `BRAND=cutej` 切换展示名称、图标、启动图和通知色。`BRAND=<id> pnpm brand:sync` 会校验 `brands/<id>/brand.json`，生成运行时品牌常量，并把 PNG 缓存在 `assets/generated/brand/<id>/` 下。
 
 如果安装新 ZenMind APK 时遇到覆盖问题，可先卸载旧包：
 

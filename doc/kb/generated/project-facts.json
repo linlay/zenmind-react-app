@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-29T05:35:20.033Z",
+  "generatedAt": "2026-06-30T00:48:18.182Z",
   "sourceFiles": [
     "App.tsx",
     "index.js",
@@ -1611,16 +1611,29 @@
       "CHAT_SUBMIT_TRANSPORT_TYPE",
       "CHAT_SUMMARIES_TRANSPORT_TYPE",
       "ChatApiEnvelope",
+      "ChatDetailRequest",
       "MarkChatReadPayload",
       "MarkChatReadRequest",
       "MarkChatReadResponse",
       "RemoteAgentDetail",
+      "RemoteChatActiveRun",
+      "RemoteChatArtifactFile",
+      "RemoteChatArtifactSnapshot",
+      "RemoteChatContextWindow",
       "RemoteChatDetail",
       "RemoteChatEvent",
+      "RemoteChatPlanSnapshot",
+      "RemoteChatPlanningSnapshot",
+      "RemoteChatRawMessage",
+      "RemoteChatReference",
+      "RemoteChatRunSummary",
       "RemoteChatSummary",
+      "RemoteChatUsageData",
+      "RemoteChatUsageStats",
       "SubmitAwaitingRequest",
       "SubmitAwaitingResponse",
       "buildAgentDetailPayload",
+      "buildChatDetailPayload",
       "buildMarkChatReadPayload",
       "buildSubmitAwaitingPayload",
       "getAwaitingViewportApi",
@@ -1935,7 +1948,8 @@
       "ChatDetailHeaderRuntimeState",
       "ChatDetailHeaderStatusTone",
       "deriveChatComposerPrimaryAction",
-      "deriveChatDetailHeaderRuntimeState"
+      "deriveChatDetailHeaderRuntimeState",
+      "hasDisplayableChatTimelineUsageSummary"
     ],
     "src/features/chatPersistence/chatDirectoryOpenDecision.ts": [
       "ChatDirectoryLatestConversationSummary",
@@ -1957,6 +1971,7 @@
     "src/features/chatPersistence/chatProjector.ts": [
       "ProjectedChatSummaryPatch",
       "ProjectedConversationDetail",
+      "ProjectedDetailActiveRun",
       "projectRemoteChatDetail",
       "projectRemoteChatSummary"
     ],
@@ -2358,6 +2373,7 @@
     ],
     "src/features/chatTimeline/types.ts": [
       "ChatTimelineAssistantReplyFooter",
+      "ChatTimelineAssistantReplyFooterDisplayItem",
       "ChatTimelineAwaitingAnswerDisplayItem",
       "ChatTimelineAwaitingAnswerSummary",
       "ChatTimelineAwaitingApproval",
@@ -3189,7 +3205,6 @@
     ],
     "src/features/chatTimeline/awaitingInteraction.ts": [
       "src/core/api/services/chatEventProtocol.ts",
-      "src/shared/i18n/translate.ts",
       "src/features/chatTimeline/timelineEventFormat.ts",
       "src/features/chatTimeline/types.ts"
     ],
@@ -3213,13 +3228,9 @@
     "src/features/chatTimeline/timelineEventFormat.ts": [],
     "src/features/chatTimeline/timelinePersistence.ts": [
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
-      "src/features/chatTimeline/types.ts",
-      "src/features/chatTimeline/usageSummary.ts"
+      "src/features/chatTimeline/types.ts"
     ],
-    "src/features/chatTimeline/timelinePlatformError.ts": [
-      "src/features/chatTimeline/types.ts",
-      "src/shared/i18n/translate.ts"
-    ],
+    "src/features/chatTimeline/timelinePlatformError.ts": ["src/features/chatTimeline/types.ts"],
     "src/features/chatTimeline/timelineReasoningIdentity.ts": ["src/features/chatTimeline/types.ts"],
     "src/features/chatTimeline/timelineReducer.ts": [
       "src/core/api/services/chatEventProtocol.ts",
@@ -3233,10 +3244,7 @@
       "src/features/chatTimeline/usageSummary.ts"
     ],
     "src/features/chatTimeline/types.ts": ["src/features/chatPersistence/types.ts"],
-    "src/features/chatTimeline/usageSummary.ts": [
-      "src/shared/i18n/translate.ts",
-      "src/features/chatTimeline/types.ts"
-    ],
+    "src/features/chatTimeline/usageSummary.ts": ["src/features/chatTimeline/types.ts"],
     "src/features/notifications/notificationService.ts": ["src/core/api/services/notificationApi.ts"],
     "src/shared/branding/installedBrand.ts": [],
     "src/shared/components/ConversationMarkdownRenderer.tsx": [

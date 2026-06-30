@@ -35,7 +35,7 @@
       "file": "src/features/chatPersistence/components/ChatTimelineList.tsx",
       "symbol": "ChatTimelineList",
       "kind": "component",
-      "description": "详情页 FlashList timeline 展示组件，消费 ChatTimelineState 并扁平渲染用户消息、左侧 request 控制输入气泡、assistant 内容、terminal reply footer 独立行和可展开运行内容节点；工具调用支持 tool-group pill、多次调用状态点和按需详情，run 状态和 usage 节点不进主列表，空新对话可注入居中偏上的欢迎态，行级 memo 基于节点引用和分组元数据避免无关行重渲染。"
+      "description": "详情页 FlashList timeline 展示组件，消费 ChatTimelineState 并扁平渲染用户消息、左侧 request 控制输入气泡、assistant 内容和可展开运行内容节点；工具调用支持 tool-group pill、多次调用状态点和按需详情，run 状态和 usage 节点不进主列表，空新对话可注入居中偏上的欢迎态，行级 memo 基于节点引用和分组元数据避免无关行重渲染。"
     },
     {
       "file": "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
@@ -457,7 +457,8 @@
         "ChatDetailHeaderRuntimeState",
         "ChatDetailHeaderStatusTone",
         "deriveChatComposerPrimaryAction",
-        "deriveChatDetailHeaderRuntimeState"
+        "deriveChatDetailHeaderRuntimeState",
+        "hasDisplayableChatTimelineUsageSummary"
       ],
       "src/features/chatPersistence/chatDirectoryOpenDecision.ts": [
         "ChatDirectoryLatestConversationSummary",
@@ -479,6 +480,7 @@
       "src/features/chatPersistence/chatProjector.ts": [
         "ProjectedChatSummaryPatch",
         "ProjectedConversationDetail",
+        "ProjectedDetailActiveRun",
         "projectRemoteChatDetail",
         "projectRemoteChatSummary"
       ],

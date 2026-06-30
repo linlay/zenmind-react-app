@@ -2,7 +2,6 @@
   "id": "zenmind",
   "productName": "Zenmind",
   "expoName": "Zenmind",
-  "slug": "zenmind-react-app",
   "android": {
     "adaptiveIconBackgroundColor": "#031722"
   },

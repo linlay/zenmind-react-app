@@ -162,7 +162,7 @@ test('brand config resolves argv and env brand ids', () => {
   }
 });
 
-test('brand manifests share native identity but keep presentation distinct', () => {
+test('brand manifests share native identity and EAS project but keep presentation distinct', () => {
   const shared = loadSharedBrandConfig(process.cwd());
   const zenmind = loadBrandConfig(process.cwd(), 'zenmind', '9.9.9');
   const cutej = loadBrandConfig(process.cwd(), 'cutej', '9.9.9');
@@ -178,7 +178,13 @@ test('brand manifests share native identity but keep presentation distinct', () 
   assert.equal(zenmind.ios.bundleIdentifier, shared.bundleIdentifier);
   assert.equal(cutej.ios.bundleIdentifier, shared.bundleIdentifier);
   assert.equal(zenmind.storageNamespace, shared.storageNamespace);
+  assert.equal(zenmind.slug, shared.updates.projectSlug);
+  assert.equal(cutej.slug, shared.updates.projectSlug);
+  assert.equal(zenmind.updates.projectId, shared.updates.projectId);
+  assert.equal(cutej.updates.projectId, shared.updates.projectId);
   assert.equal(cutej.updates.url, shared.updates.url);
+  assert.equal(zenmindManifest.slug, undefined);
+  assert.equal(cutejManifest.slug, undefined);
   assert.equal(zenmindManifest.android.package, undefined);
   assert.equal(cutejManifest.ios, undefined);
   assert.equal(cutejManifest.updates, undefined);
@@ -453,6 +459,37 @@ test('brand sync fails instead of caching stale native text when required fields
     );
 
     assert.throws(() => syncBrandArtifacts({ rootDir, brandId: 'cutej' }), /EXPO_UPDATE_URL/);
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('brand sync can skip native project writes during Expo config evaluation', () => {
+  const rootDir = createBrandFixtureRoot();
+  createNativeSplashFixture(rootDir);
+
+  try {
+    const manifestPath = path.join(rootDir, 'android', 'app', 'src', 'main', 'AndroidManifest.xml');
+    fs.writeFileSync(
+      manifestPath,
+      fs
+        .readFileSync(manifestPath, 'utf8')
+        .replace(
+          /^\s*<meta-data android:name="com\.google\.firebase\.messaging\.default_notification_channel_id" android:value="chat-messages"\/>\n/mu,
+          ''
+        )
+    );
+
+    const brand = syncBrandArtifacts({ rootDir, brandId: 'cutej', syncNativeProject: false });
+    assert.equal(brand.id, 'cutej');
+    assert.equal(
+      fs.existsSync(path.join(rootDir, '.generated', 'brand', 'native-active-manifest.json')),
+      false
+    );
+    assert.match(
+      fs.readFileSync(path.join(rootDir, 'src', 'shared', 'generated', 'brand.ts'), 'utf8'),
+      /"cutej": \{/
+    );
   } finally {
     fs.rmSync(rootDir, { recursive: true, force: true });
   }

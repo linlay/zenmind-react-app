@@ -7,7 +7,7 @@ export const APP_BRANDS = {
     "id": "cutej",
     "productName": "CuteJ",
     "expoName": "CuteJ",
-    "slug": "cutej-react-app",
+    "slug": "zenmind-react-app",
     "version": "2.0.0",
     "storageNamespace": "zenmind-app",
     "splash": {
