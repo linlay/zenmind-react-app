@@ -36,6 +36,7 @@ specifiers:
   react: 19.2.3
   react-dom: 19.2.3
   react-native: 0.85.3
+  react-native-css-interop: 0.2.6
   react-native-enriched-markdown: 0.6.0
   react-native-mmkv: 3.3.3
   react-native-reanimated: 4.3.1
@@ -74,6 +75,7 @@ dependencies:
   react: 19.2.3
   react-dom: 19.2.3_react@19.2.3
   react-native: 0.85.3_duoncxq23czldf2ikltubzpp54
+  react-native-css-interop: 0.2.6_aigj5k3qe2zsjvg6dtuefzelzy
   react-native-enriched-markdown: 0.6.0_qhpoml2kvyegfzjuztzhlfjk6q
   react-native-mmkv: 3.3.3_kfekua6of5fiixqu3hrtcousqm
   react-native-reanimated: 4.3.1_c4z6rjeq7uf5papgsg73pcnwii
