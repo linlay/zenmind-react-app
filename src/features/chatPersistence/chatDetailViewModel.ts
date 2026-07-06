@@ -11,7 +11,6 @@ export type ChatDetailHeaderStatusTone = 'idle' | 'running' | 'error';
 
 export type ChatDetailHeaderRuntimeState = {
   statusTone: ChatDetailHeaderStatusTone;
-  statusLabel: string;
   usageLabel: string;
   usageSummary: ChatTimelineUsageSummary | null;
   runAction: ChatComposerRunAction | null;
@@ -41,7 +40,6 @@ function buildHeaderRuntimeState(
 ): ChatDetailHeaderRuntimeState {
   return {
     statusTone,
-    statusLabel: statusTone === 'running' ? '运行中' : statusTone === 'error' ? '异常' : '空闲',
     usageLabel,
     usageSummary,
     runAction,
@@ -129,7 +127,10 @@ export function deriveChatDetailHeaderRuntimeState(
       continue;
     }
 
-    if (isStreamingTimelineNode(node) || node.lifecycle === 'active') {
+    if (
+      node.kind !== 'awaiting' &&
+      (isStreamingTimelineNode(node) || node.lifecycle === 'active')
+    ) {
       const runScopeKey = getRunScopeKey(node.runId);
       if (terminalRunScopes.has(runScopeKey) || (!node.runId && terminalRunScopes.size > 0)) {
         continue;

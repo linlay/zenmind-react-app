@@ -29,6 +29,7 @@ import {
   createOutgoingMessage,
   getConversationDetail,
   getConversationHistoryScope,
+  getConversationInitialTimelineState,
   getConversationSyncState,
   getMessageByClientMessageId,
   getMessageByServerMessageId,
@@ -97,6 +98,7 @@ import {
   applyChatTimelineLocalCancel,
   applyChatTimelineEvent,
   applyChatTimelineMessage,
+  applyChatTimelineRunUnavailable,
   applyChatTimelineStreamDelta,
   createChatTimelineState,
   getChatTimelineActiveRunId,
@@ -183,6 +185,11 @@ type StoppingConversationState = {
   startedAt: number;
 };
 
+type UnavailableAttachRunState = {
+  runId: string;
+  markedAt: number;
+};
+
 type InterruptChatResponse = {
   accepted?: boolean;
   status?: string;
@@ -199,6 +206,7 @@ const READ_MARK_DEBOUNCE_MS = 1_500;
 const LOCAL_TERMINATED_RUN_TTL_MS = 120_000;
 const STOPPING_CONVERSATION_TTL_MS = 8_000;
 const DUPLICATE_ATTACH_COOLDOWN_MS = 8_000;
+const UNAVAILABLE_ATTACH_RUN_TTL_MS = 30 * 60_000;
 const CHAT_INTERRUPT_TRANSPORT_TYPE = '/api/interrupt';
 
 function buildFallbackSummary(summary: ChatHomeItem | null) {
@@ -352,7 +360,7 @@ function getUnknownErrorText(error: unknown): string {
     .join(' ');
 }
 
-function isInactiveInterruptError(error: unknown): boolean {
+function isInactiveRunError(error: unknown): boolean {
   const text = getUnknownErrorText(error).toLowerCase();
   return (
     isApiStatusError(error, 404) ||
@@ -429,6 +437,7 @@ class ChatSyncService {
   private readonly agentDetailRequests = new Map<string, Promise<AgentDetailSnapshot | null>>();
   private readonly locallyTerminatedRuns = new Map<string, LocalTerminatedRunState>();
   private readonly stoppingConversations = new Map<string, StoppingConversationState>();
+  private readonly unavailableAttachRuns = new Map<string, UnavailableAttachRunState>();
   private readonly runtimeEmitTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly timelinePersistTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private readonly pendingRuntimeEmitReasons = new Map<string, ChatSyncReason>();
@@ -603,6 +612,29 @@ class ChatSyncService {
     }
   }
 
+  private getUnavailableAttachRun(conversationId: string): UnavailableAttachRunState | null {
+    const normalizedConversationId = toText(conversationId);
+    if (!normalizedConversationId) {
+      return null;
+    }
+
+    const state = this.unavailableAttachRuns.get(normalizedConversationId);
+    if (!state) {
+      return null;
+    }
+    if (Date.now() - state.markedAt > UNAVAILABLE_ATTACH_RUN_TTL_MS) {
+      this.unavailableAttachRuns.delete(normalizedConversationId);
+      return null;
+    }
+    return state;
+  }
+
+  private isUnavailableAttachRun(conversationId: string, runId: string): boolean {
+    const normalizedRunId = toText(runId);
+    const state = this.getUnavailableAttachRun(conversationId);
+    return Boolean(normalizedRunId && state?.runId === normalizedRunId);
+  }
+
   private refreshLocalTerminatedRunAfterReconcile(
     conversationId: string,
     remoteState: ChatTimelineState,
@@ -755,6 +787,7 @@ class ChatSyncService {
     this.agentDetailRequests.clear();
     this.locallyTerminatedRuns.clear();
     this.stoppingConversations.clear();
+    this.unavailableAttachRuns.clear();
   }
 
   setActiveConversationId(conversationId: string | null) {
@@ -918,8 +951,12 @@ class ChatSyncService {
       true
     );
 
-    const continuedRunId = toText(response.runId) || runId;
-    if (response.continued && continuedRunId) {
+    const continuedRunId = toText(response.continuationRunId) || toText(response.runId) || runId;
+    if (
+      response.continued &&
+      continuedRunId &&
+      !this.isUnavailableAttachRun(normalizedConversationId, continuedRunId)
+    ) {
       await setConversationActiveRunId(normalizedConversationId, continuedRunId);
       await this.attachActiveConversationRun(normalizedConversationId, 'attach');
     }
@@ -1495,7 +1532,9 @@ class ChatSyncService {
     if (family === 'run' && conversationId) {
       await this.applyRuntimeConversationEvent(conversationId, event, source, true);
       if (type === 'run.start') {
-        await setConversationActiveRunId(conversationId, toText(event.runId));
+        const runId = toText(event.runId);
+        this.unavailableAttachRuns.delete(conversationId);
+        await setConversationActiveRunId(conversationId, runId);
         if (this.activeConversationId === conversationId) {
           await this.attachActiveConversationRun(conversationId, 'attach');
         }
@@ -2093,6 +2132,7 @@ class ChatSyncService {
     this.pendingRuntimeEmitReasons.delete(normalizedConversationId);
     this.locallyTerminatedRuns.delete(normalizedConversationId);
     this.stoppingConversations.delete(normalizedConversationId);
+    this.unavailableAttachRuns.delete(normalizedConversationId);
     const hadTimelineState = this.timelineStates.delete(normalizedConversationId);
     if (!hadTimelineState) {
       return;
@@ -2400,7 +2440,7 @@ class ChatSyncService {
     const unreadCount = read ? (read.isRead ? 0 : 1) : undefined;
     const currentTimelineState = this.timelineStates.get(projection.conversationId);
     const terminatedRun = this.getLocalTerminatedRun(projection.conversationId);
-    const nextTimelineState = mergeChatTimelineState(
+    const mergedTimelineState = mergeChatTimelineState(
       currentTimelineState,
       projection.timelineState,
       terminatedRun
@@ -2409,6 +2449,16 @@ class ChatSyncService {
           }
         : undefined
     );
+    const unavailableRun = this.getUnavailableAttachRun(projection.conversationId);
+    const nextTimelineState =
+      unavailableRun &&
+      (mergedTimelineState.activeRunId === unavailableRun.runId ||
+        projection.timelineState.activeRunId === unavailableRun.runId)
+        ? applyChatTimelineRunUnavailable(mergedTimelineState, projection.conversationId, {
+            runId: unavailableRun.runId,
+            timestamp: unavailableRun.markedAt
+          })
+        : mergedTimelineState;
     this.refreshLocalTerminatedRunAfterReconcile(
       projection.conversationId,
       projection.timelineState,
@@ -2446,7 +2496,12 @@ class ChatSyncService {
         projection.activeRun?.runId === nextTimelineState.activeRunId
           ? projection.activeRun.lastSeq
           : 0;
-      await this.attachActiveConversationRun(conversationId, 'attach', attachLastSeq);
+      if (
+        nextTimelineState.activeRunId &&
+        !this.isUnavailableAttachRun(conversationId, nextTimelineState.activeRunId)
+      ) {
+        await this.attachActiveConversationRun(conversationId, 'attach', attachLastSeq);
+      }
     } else {
       await this.emitHomePatchFromConversation(conversationId, {
         shouldMoveToTop: false
@@ -2547,7 +2602,7 @@ class ChatSyncService {
         throw new Error(toText(response.detail) || toText(response.status) || 'interrupt rejected');
       }
     } catch (error) {
-      if (isInactiveInterruptError(error)) {
+      if (isInactiveRunError(error)) {
         return;
       }
       this.clearLocalTerminatedRun(normalizedConversationId, normalizedRunId);
@@ -2613,6 +2668,9 @@ class ChatSyncService {
     const syncState = await getConversationSyncState(normalizedConversationId);
     const runId = toText(syncState?.activeRunId);
     if (!runId) {
+      return;
+    }
+    if (this.isUnavailableAttachRun(normalizedConversationId, runId)) {
       return;
     }
 
@@ -2713,6 +2771,10 @@ class ChatSyncService {
           void markConversationDirty(normalizedConversationId, error.message || 'attach');
           return;
         }
+        if (isInactiveRunError(error)) {
+          void this.handleUnavailableAttachRun(normalizedConversationId, attachState.runId);
+          return;
+        }
         void this.handleStreamSideError(normalizedConversationId, error);
       }
     });
@@ -2745,6 +2807,38 @@ class ChatSyncService {
       agentKey: timelineAgentKey || toText(historyScope?.agentKey),
       teamId: toText(historyScope?.teamId)
     };
+  }
+
+  private async handleUnavailableAttachRun(conversationId: string, runId: string) {
+    const normalizedConversationId = toText(conversationId);
+    const normalizedRunId = toText(runId);
+    if (!normalizedConversationId || !normalizedRunId) {
+      return;
+    }
+
+    const unavailableRun: UnavailableAttachRunState = {
+      runId: normalizedRunId,
+      markedAt: Date.now()
+    };
+    this.unavailableAttachRuns.set(normalizedConversationId, unavailableRun);
+    const cachedState = this.timelineStates.get(normalizedConversationId);
+    const currentState =
+      cachedState ?? (await getConversationInitialTimelineState(normalizedConversationId, 60));
+    const nextState = applyChatTimelineRunUnavailable(currentState, normalizedConversationId, {
+      runId: normalizedRunId,
+      timestamp: unavailableRun.markedAt
+    });
+    if (nextState !== currentState || !cachedState) {
+      this.publishTimelineState(normalizedConversationId, 'attach', nextState, {
+        emitRuntime: true
+      });
+    }
+
+    try {
+      await setConversationActiveRunId(normalizedConversationId, '');
+    } catch {
+      await markConversationDirty(normalizedConversationId, 'attach');
+    }
   }
 
   private async handleStreamSideError(conversationId: string, error: Error) {

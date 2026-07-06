@@ -275,6 +275,9 @@ export const zhCN = {
   'chatDetail.error.missingConversationContext': '无法发起新对话：当前会话缺少智能体或团队上下文。',
   'chatDetail.timestamp.today': '今天',
   'chatDetail.timestamp.yesterday': '昨天',
+  'chatDetail.duration.hours': '{hours}时{minutes}分{seconds}秒',
+  'chatDetail.duration.minutes': '{minutes}分{seconds}秒',
+  'chatDetail.duration.seconds': '{seconds}秒',
 
   'history.title': '历史会话',
   'history.close': '关闭历史会话',

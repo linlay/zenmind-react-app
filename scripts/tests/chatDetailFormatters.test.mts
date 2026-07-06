@@ -6,6 +6,7 @@ import {
   formatChatDetailRunningDuration,
   formatChatDetailTimestamp,
 } from '../../src/features/chatPersistence/chatDetailFormatters.ts';
+import { createTranslator } from '../../src/shared/i18n/translate.ts';
 
 test('formats chat detail timestamps for timeline footers and history rows', () => {
   const now = new Date(2026, 5, 11, 12, 0).getTime();
@@ -43,6 +44,8 @@ test('formats chat detail timestamps for timeline footers and history rows', () 
 });
 
 test('formats chat detail durations from the largest unit down to seconds', () => {
+  const enT = createTranslator('en-US');
+
   assert.equal(formatChatDetailDuration(0), '0秒');
   assert.equal(formatChatDetailDuration(800), '0.8秒');
   assert.equal(formatChatDetailDuration(59_000), '59秒');
@@ -50,6 +53,7 @@ test('formats chat detail durations from the largest unit down to seconds', () =
   assert.equal(formatChatDetailDuration(80_000), '1分20秒');
   assert.equal(formatChatDetailDuration(80_100), '1分20.1秒');
   assert.equal(formatChatDetailDuration(3_723_400), '1时2分3.4秒');
+  assert.equal(formatChatDetailDuration(3_723_400, enT), '1h 2m 3.4s');
   assert.equal(formatChatDetailDuration(null), '');
   assert.equal(formatChatDetailDuration(-1), '');
 });

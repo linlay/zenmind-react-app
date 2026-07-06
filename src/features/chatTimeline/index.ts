@@ -50,6 +50,7 @@ export {
   applyChatTimelineEvent,
   applyChatTimelineLocalCancel,
   applyChatTimelineMessage,
+  applyChatTimelineRunUnavailable,
   applyChatTimelineStreamDelta,
   compactChatTimelineRequestEchoes,
   createChatTimelineState,

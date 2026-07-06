@@ -51,6 +51,7 @@
     "scripts/tests/chatTimelineDisplay.test.mts",
     "scripts/tests/chatTimelinePersistence.test.mts",
     "scripts/tests/chatTimelineReducer.test.mts",
+    "scripts/tests/chatTimelineRunUnavailable.test.mts",
     "scripts/tests/chatWonderDisplay.test.mts",
     "scripts/tests/chatWsTransportPayload.test.mts",
     "scripts/tests/desktopWsProtocol.test.mts",
@@ -65,6 +66,7 @@
     "scripts/tests/markdownPipeline.test.mts",
     "scripts/tests/runtimePayloadDescriptor.test.mts",
     "scripts/tests/sharedWsTransport.test.mts",
+    "scripts/tests/submitIosIpaScript.test.mts",
     "scripts/tests/tabIconAssets.test.mts",
     "scripts/tests/visualFoundation.test.mts",
     "scripts/tests/wsClientTransport.test.mts",
@@ -2010,6 +2012,7 @@
     "scripts/dev-proxy.mjs",
     "scripts/generate-zenmind-assets.js",
     "scripts/lib/brand-config.js",
+    "scripts/submit-ios-ipa.js",
     "scripts/sync-brand.js",
     "scripts/worklets/pregenerate.js",
     "src/app/AppRoot.tsx",
@@ -10013,6 +10016,10 @@
             "type": "file"
           },
           {
+            "name": "submit-ios-ipa.js",
+            "type": "file"
+          },
+          {
             "name": "sync-brand.js",
             "type": "file"
           }
@@ -10940,6 +10947,7 @@
       "scripts/dev-proxy.mjs",
       "scripts/generate-zenmind-assets.js",
       "scripts/lib/brand-config.js",
+      "scripts/submit-ios-ipa.js",
       "scripts/sync-brand.js",
       "scripts/worklets/pregenerate.js",
       "src/app/AppRoot.tsx",
@@ -11151,6 +11159,7 @@
     "scripts/dev-proxy.mjs": "app-shell-navigation",
     "scripts/generate-zenmind-assets.js": "app-shell-navigation",
     "scripts/lib/brand-config.js": "app-shell-navigation",
+    "scripts/submit-ios-ipa.js": "app-shell-navigation",
     "scripts/sync-brand.js": "app-shell-navigation",
     "scripts/worklets/pregenerate.js": "app-shell-navigation",
     "src/app/AppRoot.tsx": "app-shell-navigation",
@@ -17318,6 +17327,7 @@
       "STORAGE_NAMESPACE",
       "getBrandLogo"
     ],
+    "scripts/submit-ios-ipa.js": null,
     "scripts/sync-brand.js": null,
     "scripts/worklets/pregenerate.js": null,
     "src/app/AppRoot.tsx": [
@@ -17365,8 +17375,7 @@
     ],
     "src/app/screens/TabScreens.tsx": [
       "ChatScreen",
-      "MeScreen",
-      "TerminalScreen"
+      "MeScreen"
     ],
     "src/app/settings/settingsActions.ts": [
       "clearSettingsLocalCache"
@@ -18206,6 +18215,7 @@
       "applyChatTimelineEvent",
       "applyChatTimelineLocalCancel",
       "applyChatTimelineMessage",
+      "applyChatTimelineRunUnavailable",
       "applyChatTimelineStreamDelta",
       "buildChatTimelineDisplayItems",
       "buildChatTimelineDisplayModel",
@@ -18271,6 +18281,7 @@
       "applyChatTimelineEvent",
       "applyChatTimelineLocalCancel",
       "applyChatTimelineMessage",
+      "applyChatTimelineRunUnavailable",
       "applyChatTimelineStreamDelta",
       "compactChatTimelineRequestEchoes",
       "createChatTimelineState",
@@ -21002,6 +21013,12 @@
       "path",
       "zlib"
     ],
+    "scripts/submit-ios-ipa.js": [
+      "child_process",
+      "fs",
+      "os",
+      "path"
+    ],
     "scripts/sync-brand.js": [
       "./lib/brand-config"
     ],
@@ -21063,7 +21080,6 @@
     "src/app/navigation/TabsNavigator.native.tsx": [
       "../../../assets/tabs/tab-chat.png",
       "../../../assets/tabs/tab-me.png",
-      "../../../assets/tabs/tab-terminal.png",
       "../../shared/i18n",
       "../../shared/visual/AppThemeProvider",
       "../screens/TabScreens",
@@ -21150,7 +21166,6 @@
       "react-native-safe-area-context"
     ],
     "src/app/screens/TabScreens.tsx": [
-      "../../features/agentTaskBoard/AgentTaskBoardScreen",
       "../../features/chatPersistence/ChatHomeScreen",
       "./MeScreen"
     ],
@@ -21581,7 +21596,7 @@
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": [
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AppThemeProvider",
-      "../../../shared/visual/className",
+      "../../../shared/visual/foundation",
       "react",
       "react-native"
     ],
@@ -24105,6 +24120,7 @@
     "scripts/dev-proxy.mjs": null,
     "scripts/generate-zenmind-assets.js": null,
     "scripts/lib/brand-config.js": null,
+    "scripts/submit-ios-ipa.js": null,
     "scripts/sync-brand.js": [
       "scripts/lib/brand-config.js"
     ],
@@ -24152,7 +24168,6 @@
     "src/app/navigation/TabsNavigator.native.tsx": [
       "assets/tabs/tab-chat.png",
       "assets/tabs/tab-me.png",
-      "assets/tabs/tab-terminal.png",
       "src/app/navigation/TabIcon.tsx",
       "src/app/navigation/types.ts",
       "src/app/screens/TabScreens.tsx",
@@ -24220,7 +24235,6 @@
     ],
     "src/app/screens/TabScreens.tsx": [
       "src/app/screens/MeScreen.tsx",
-      "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx",
       "src/features/chatPersistence/ChatHomeScreen.tsx"
     ],
     "src/app/settings/settingsActions.ts": [
@@ -24587,7 +24601,7 @@
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": [
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/className.ts"
+      "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": [
       "src/features/chatPersistence/agentModelSettings.ts",

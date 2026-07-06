@@ -224,6 +224,7 @@
         "scripts/tests/chatTimelineDisplay.test.mts",
         "scripts/tests/chatTimelinePersistence.test.mts",
         "scripts/tests/chatTimelineReducer.test.mts",
+        "scripts/tests/chatTimelineRunUnavailable.test.mts",
         "scripts/tests/chatWonderDisplay.test.mts",
         "scripts/tests/chatWsTransportPayload.test.mts",
         "scripts/tests/desktopWsProtocol.test.mts",
@@ -238,6 +239,7 @@
         "scripts/tests/markdownPipeline.test.mts",
         "scripts/tests/runtimePayloadDescriptor.test.mts",
         "scripts/tests/sharedWsTransport.test.mts",
+        "scripts/tests/submitIosIpaScript.test.mts",
         "scripts/tests/tabIconAssets.test.mts",
         "scripts/tests/visualFoundation.test.mts",
         "scripts/tests/wsClientTransport.test.mts"
@@ -316,11 +318,13 @@
         "components",
         "config",
         "configure",
+        "connect",
         "container",
         "content",
         "context",
         "core",
         "css",
+        "cute",
         "dark",
         "data",
         "debug",
@@ -352,6 +356,7 @@
         "file",
         "filename",
         "fingerprint",
+        "flight",
         "flow",
         "folders",
         "font",
@@ -395,12 +400,14 @@
         "interop",
         "invalidation",
         "ios",
+        "ipa",
         "java",
         "json",
         "kanban",
         "key",
         "keys",
         "label",
+        "latest",
         "launch",
         "launcher",
         "lib",
@@ -424,6 +431,7 @@
         "meta",
         "metrics",
         "metro",
+        "mind",
         "mjs",
         "mmkv",
         "mode",
@@ -452,6 +460,7 @@
         "package",
         "pan",
         "param",
+        "path",
         "payload",
         "peer",
         "pending",
@@ -492,6 +501,7 @@
         "reducer",
         "registry",
         "related",
+        "release",
         "remend",
         "remove",
         "repository",
@@ -538,6 +548,7 @@
         "state",
         "status",
         "storage",
+        "store",
         "streamdown",
         "submit",
         "svg",
@@ -562,6 +573,7 @@
         "transport",
         "tsx",
         "types",
+        "unavailable",
         "update",
         "updates",
         "url",
@@ -587,10 +599,12 @@
         "xhdpi",
         "xxhdpi",
         "xxxhdpi",
+        "zen",
         "zenmind",
         "zqfrank",
         "一级",
         "一级页面和",
+        "一键构建提交用",
         "上层",
         "下切换产品名称",
         "下同时校验",
@@ -608,6 +622,7 @@
         "不直接写",
         "不直接承载业务状态和底层存储细节",
         "不直接调用",
+        "不确定最新构建品牌时用",
         "不能直接传",
         "不能重新生成",
         "不要在",
@@ -629,11 +644,10 @@
         "主题切换和语言设置",
         "之上的上层",
         "之前出现空白窗口",
-        "二级任务流",
+        "二级任务流待后续接口对接后恢复",
         "以",
-        "任务",
         "任务二级页通过",
-        "任务看板",
+        "任务看板入口当前暂不挂底部",
         "任务看板数据订阅由",
         "会受源码",
         "但不要自己处理",
@@ -646,6 +660,7 @@
         "依赖和",
         "保持",
         "保持共享",
+        "保留",
         "保留自定义",
         "保证",
         "修改",
@@ -654,6 +669,7 @@
         "允许",
         "入口和",
         "共享",
+        "共享同一个",
         "共享国际化文案",
         "内",
         "内二级滚动页只能通过",
@@ -672,8 +688,12 @@
         "副作用",
         "动画",
         "包装既有配置",
+        "包装本地",
+        "原生图标和",
         "原生端",
         "原生端底部",
+        "参数解析",
+        "发布到",
         "变化会污染移动端",
         "只",
         "只切换名称",
@@ -688,8 +708,8 @@
         "同步",
         "同步必须同时覆盖",
         "同步检查",
-        "名称要同步",
         "后同步到项目内",
+        "后续恢复时再通过",
         "后驱动未来",
         "否则",
         "否则保持当前",
@@ -752,6 +772,7 @@
         "并使用",
         "并保留显式",
         "并合成",
+        "并同步",
         "并向",
         "并在",
         "并在认证和导航",
@@ -772,7 +793,6 @@
         "引用",
         "当前",
         "当前多品牌模式不要求并排安装",
-        "当前通过",
         "影响",
         "待后期实现",
         "必需字段缺失时直接失败",
@@ -804,6 +824,8 @@
         "接收系统通知点击后的聊天导航意图",
         "描边",
         "描边图标和颜色语义继续由共享层统一提供",
+        "提交",
+        "提交本地",
         "提前生成并同步",
         "插件和",
         "插件沿",
@@ -834,6 +856,7 @@
         "本地调试和打包切品牌必须通过显式",
         "构建加载",
         "构建如果依赖",
+        "构建时用",
         "树",
         "样式的",
         "根",
@@ -867,6 +890,7 @@
         "的文案",
         "目录",
         "直接指向",
+        "确认对应品牌是最新远端",
         "等",
         "等其他项目的",
         "系统通知接入与开发态入口的壳层",
@@ -885,7 +909,6 @@
         "脚本必须先执行",
         "自动发现的",
         "自有子栈",
-        "若改",
         "范围",
         "范围内",
         "获取底部避让",
@@ -923,10 +946,10 @@
         "输入",
         "边界执行",
         "运行",
+        "运行与发布脚本",
         "运行和导出脚本必须先执行",
         "运行时",
         "运行时导航主题",
-        "运行脚本",
         "这个项目内稳定目录",
         "通知点击只在",
         "通知色和可配置环境字段",
@@ -2074,7 +2097,6 @@
         "tabs",
         "task",
         "tasks",
-        "terminal",
         "text",
         "touch",
         "transport",
@@ -2109,6 +2131,7 @@
         "任务启动后只按",
         "任务数据经",
         "任务流转看板",
+        "任务流转看板移动端主屏",
         "任务页失焦后释放",
         "任务页失焦后释放后台刷新",
         "任务首页与",
@@ -2137,7 +2160,9 @@
         "展示二级页",
         "并提交变更",
         "当前不接入",
+        "当前暂不挂底部",
         "待分配",
+        "待后续接口对接后恢复入口",
         "待复核",
         "或",
         "或共享分页列表",
@@ -2148,7 +2173,6 @@
         "承载新增任务",
         "承载面向",
         "挂载的任务二级页子栈",
-        "挂载的任务流转看板移动端入口",
         "指派",
         "按聚焦任务页面懒启动并复用同一份",
         "接入真实数据后继续使用",
@@ -3188,6 +3212,7 @@
         "approval",
         "archived",
         "artifact",
+        "ask",
         "assistant",
         "attach",
         "auth",
@@ -3258,8 +3283,10 @@
         "kind",
         "lifecycle",
         "like",
+        "liveness",
         "local",
         "logging",
+        "longer",
         "message",
         "mmkv",
         "mode",
@@ -3350,6 +3377,7 @@
         "truth",
         "type",
         "types",
+        "unavailable",
         "unread",
         "update",
         "updated",
@@ -3391,9 +3419,11 @@
         "供详情页直接渲染而不再猜测",
         "侧实时同步入口",
         "保存的",
+        "保留",
         "保留原始",
         "修改聊天实时同步",
         "做",
+        "做本地",
         "停止",
         "先停止实时同步内存任务",
         "内",
@@ -3446,6 +3476,7 @@
         "委托",
         "字段时",
         "实时消息同步",
+        "对",
         "帧转成",
         "幂等",
         "并交给",
@@ -3455,12 +3486,16 @@
         "并发出",
         "并归一",
         "并把本地",
+        "并用短期",
         "并通过",
         "并通过同一份",
         "底层",
         "开发态",
         "归属写入",
+        "循环",
+        "循环重试",
         "必须使用",
+        "必须本地清空",
         "成功后用",
         "或",
         "把",
@@ -3476,6 +3511,8 @@
         "提交只能调用",
         "提供",
         "提供开发态本地缓存",
+        "收口",
+        "收口非",
         "收敛当前会话当前可见生成",
         "文案",
         "新对话空态需要的",
@@ -3495,6 +3532,7 @@
         "清理内存任务并委托持久化层清缓存",
         "清理本地缓存",
         "清空",
+        "清空可",
         "状态时才覆盖本地读状态",
         "生命周期内不再自动重复请求同一",
         "生命周期内内存缓存",
@@ -3506,6 +3544,7 @@
         "的数据变更事件",
         "监听",
         "真源",
+        "短期",
         "短期本地终止",
         "确认",
         "空结果或失败后本",
@@ -3527,6 +3566,7 @@
         "补齐",
         "要同时处理",
         "要同时清理消息",
+        "视为",
         "视为服务端已停止",
         "记录短期本地终止",
         "详情单会话",
@@ -3539,15 +3579,18 @@
         "走",
         "路由",
         "运行态条目会由",
+        "返回",
         "连接状态快照",
         "连接状态投递",
         "透传",
         "通过",
         "通过同一条",
         "通过它预热首页目录",
+        "避免",
         "避免绕到",
         "重启会重新请求",
         "重连逻辑要继续在",
+        "阻止",
         "非",
         "面板暴露开发态本地缓存",
         "预热首页目录",
@@ -3589,6 +3632,7 @@
         "ask",
         "asking",
         "assistant",
+        "attach",
         "awaiting",
         "base",
         "build",
@@ -3664,6 +3708,7 @@
         "label",
         "lifecycle",
         "list",
+        "liveness",
         "local",
         "locale",
         "memo",
@@ -3755,6 +3800,7 @@
         "transport",
         "type",
         "types",
+        "unavailable",
         "usage",
         "value",
         "view",
@@ -3764,8 +3810,10 @@
         "不",
         "不从本地化文案反向解析",
         "不保存原始",
+        "不关闭",
         "不写回",
         "不创建",
+        "不可",
         "不在页面层重复解析后端协议字段",
         "不改写历史",
         "不生成本地默认文案",
@@ -3778,6 +3826,7 @@
         "中投影兼容旧",
         "中投影可落库",
         "为结构化",
+        "交互供用户继续提交",
         "交互数据",
         "仅保留后端旧字段原文",
         "从",
@@ -3807,6 +3856,7 @@
         "只保留语义值",
         "只在",
         "只处理内存投影",
+        "只清理可",
         "可恢复完整",
         "可恢复结构化",
         "可按",
@@ -3817,11 +3867,11 @@
         "合并和结构共享判断",
         "合并和详情页交互",
         "合并远端",
+        "同时保留",
         "后端原始文本和结构化数据",
         "后端旧字段原文",
         "和",
         "和稳定",
-        "和远端",
         "回显的",
         "复活同",
         "复活已终止运行",
@@ -3831,14 +3881,17 @@
         "展示层再按",
         "展示数据的统一投影源",
         "展示项",
+        "已不可",
         "并为节点",
         "并在展示层生成",
         "并按",
         "并按节点稳定",
         "并支持本地消息",
+        "并收口同",
         "底部浮层数据",
         "引用和分组元数据",
         "归一为语义",
+        "当服务端确认",
         "得到完整",
         "得到的",
         "必须保持",
@@ -3854,6 +3907,7 @@
         "提供纯函数",
         "提供纯序列化",
         "支持从",
+        "时",
         "时可按",
         "时要尊重本地",
         "显示派生和纯数据序列化",
@@ -3862,6 +3916,8 @@
         "本地停止只收敛当前可见生成",
         "本地停止当前可见生成",
         "本地发送",
+        "本地收口和",
+        "本地收口和远端",
         "构建",
         "构建详情页",
         "毫秒单位",
@@ -3869,6 +3925,7 @@
         "派生逻辑",
         "消息投影和",
         "消费",
+        "清空",
         "状态",
         "状态由详情",
         "生成人可读文案",
@@ -3882,6 +3939,7 @@
         "的毫秒值",
         "的空",
         "的结构共享更新",
+        "的非",
         "的默认展示文案不写入",
         "直接恢复",
         "等事件归并为单会话有序节点",
@@ -9291,6 +9349,7 @@
     "scripts/dev-proxy.mjs",
     "scripts/generate-zenmind-assets.js",
     "scripts/lib/brand-config.js",
+    "scripts/submit-ios-ipa.js",
     "scripts/sync-brand.js",
     "scripts/worklets/pregenerate.js",
     "src/app/AppRoot.tsx",
@@ -9472,6 +9531,7 @@
     "scripts/dev-proxy.mjs": "app-shell-navigation",
     "scripts/generate-zenmind-assets.js": "app-shell-navigation",
     "scripts/lib/brand-config.js": "app-shell-navigation",
+    "scripts/submit-ios-ipa.js": "app-shell-navigation",
     "scripts/sync-brand.js": "app-shell-navigation",
     "scripts/worklets/pregenerate.js": "app-shell-navigation",
     "src/app/AppRoot.tsx": "app-shell-navigation",
@@ -10812,6 +10872,11 @@
     "ask": [
       {
         "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
       },
@@ -10957,6 +11022,11 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
       }
     ],
     "attachment": [
@@ -12627,6 +12697,11 @@
         "path": ".doc/modules/app-development-debug.json"
       },
       {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
         "kind": "rule",
         "id": "screen-no-direct-websocket",
         "path": ".doc/rules.json"
@@ -13132,6 +13207,11 @@
       }
     ],
     "cute": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
       {
         "kind": "task",
         "id": "configure-multi-brand-builds",
@@ -15221,6 +15301,11 @@
     "flight": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
       }
@@ -16997,6 +17082,13 @@
         "path": ".doc/tasks/add-auth-login-screen.json"
       }
     ],
+    "ipa": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
     "issue": [
       {
         "kind": "module",
@@ -17355,6 +17447,11 @@
       },
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
       }
@@ -17561,6 +17658,18 @@
         "kind": "module",
         "id": "core-api-client",
         "path": ".doc/modules/core-api-client.json"
+      }
+    ],
+    "liveness": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
       }
     ],
     "load": [
@@ -17836,6 +17945,13 @@
         "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
+      }
+    ],
+    "longer": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
     "looks": [
@@ -18239,6 +18355,11 @@
       }
     ],
     "mind": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
       {
         "kind": "task",
         "id": "configure-multi-brand-builds",
@@ -19822,6 +19943,11 @@
       }
     ],
     "path": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
       {
         "kind": "module",
         "id": "core-api-client",
@@ -21833,6 +21959,13 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
+    "release": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "relink": [
@@ -24914,6 +25047,11 @@
     "store": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
       }
@@ -25783,11 +25921,6 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
-      },
-      {
-        "kind": "module",
-        "id": "feature-agent-task-board",
-        "path": ".doc/modules/feature-agent-task-board.json"
       },
       {
         "kind": "module",
@@ -26749,6 +26882,21 @@
       }
     ],
     "unavailable": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
+      },
       {
         "kind": "rule",
         "id": "agent-starts-from-context-cli",
@@ -27725,6 +27873,11 @@
     ],
     "zen": [
       {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
         "kind": "task",
         "id": "configure-multi-brand-builds",
         "path": ".doc/tasks/configure-multi-brand-builds.json"
@@ -27844,6 +27997,13 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "一键构建提交用": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "三个展示字段": [
@@ -28087,6 +28247,13 @@
         "path": ".doc/modules/core-ws-transport.json"
       }
     ],
+    "不关闭": [
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
     "不冗余": [
       {
         "kind": "module",
@@ -28186,6 +28353,13 @@
         "kind": "module",
         "id": "core-ws-transport",
         "path": ".doc/modules/core-ws-transport.json"
+      }
+    ],
+    "不可": [
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
       }
     ],
     "不同品牌必须共享": [
@@ -28801,6 +28975,13 @@
         "kind": "rule",
         "id": "realtime-write-through-repository",
         "path": ".doc/rules.json"
+      }
+    ],
+    "不确定最新构建品牌时用": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "不等下一次全量": [
@@ -29796,7 +29977,7 @@
         "path": ".doc/rules.json"
       }
     ],
-    "二级任务流": [
+    "二级任务流待后续接口对接后恢复": [
       {
         "kind": "module",
         "id": "app-shell-navigation",
@@ -29829,6 +30010,13 @@
         "kind": "module",
         "id": "feature-agent-task-board",
         "path": ".doc/modules/feature-agent-task-board.json"
+      }
+    ],
+    "交互供用户继续提交": [
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
       }
     ],
     "交互后": [
@@ -30049,11 +30237,6 @@
     "任务": [
       {
         "kind": "module",
-        "id": "app-shell-navigation",
-        "path": ".doc/modules/app-shell-navigation.json"
-      },
-      {
-        "kind": "module",
         "id": "feature-agent-task-board",
         "path": ".doc/modules/feature-agent-task-board.json"
       }
@@ -30101,6 +30284,13 @@
       }
     ],
     "任务流转看板": [
+      {
+        "kind": "module",
+        "id": "feature-agent-task-board",
+        "path": ".doc/modules/feature-agent-task-board.json"
+      }
+    ],
+    "任务流转看板移动端主屏": [
       {
         "kind": "module",
         "id": "feature-agent-task-board",
@@ -30180,7 +30370,7 @@
         "path": ".doc/tasks/add-reusable-list-screen.json"
       }
     ],
-    "任务看板": [
+    "任务看板入口当前暂不挂底部": [
       {
         "kind": "module",
         "id": "app-shell-navigation",
@@ -31017,6 +31207,16 @@
     ],
     "保留": [
       {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
+      },
+      {
         "kind": "rule",
         "id": "ui-static-style-tailwind-first",
         "path": ".doc/rules.json"
@@ -31325,6 +31525,13 @@
         "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
+    "做本地": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
     "做结构共享更新": [
       {
         "kind": "module",
@@ -31527,6 +31734,13 @@
         "kind": "task",
         "id": "configure-multi-brand-builds",
         "path": ".doc/tasks/configure-multi-brand-builds.json"
+      }
+    ],
+    "共享同一个": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "共享国际化文案": [
@@ -32648,6 +32862,13 @@
         "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
+    "包装本地": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
     "包裹的任务看板共享数据": [
       {
         "kind": "module",
@@ -32813,6 +33034,13 @@
         "path": ".doc/tasks/add-system-notifications.json"
       }
     ],
+    "原生图标和": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
     "原生流式": [
       {
         "kind": "module",
@@ -32853,6 +33081,13 @@
         "kind": "flow",
         "id": "chat-receive-message",
         "path": ".doc/flows/chat-receive-message.json"
+      }
+    ],
+    "参数解析": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "及等价事件": [
@@ -32902,6 +33137,13 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "发布到": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "发给": [
@@ -33343,6 +33585,13 @@
         "path": ".doc/modules/core-auth-session.json"
       }
     ],
+    "只清理可": [
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
     "只用于判断单个": [
       {
         "kind": "module",
@@ -33703,6 +33952,13 @@
         "path": ".doc/modules/shared-screen-header.json"
       }
     ],
+    "同时保留": [
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
     "同时托住": [
       {
         "kind": "module",
@@ -33875,13 +34131,6 @@
         "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
-    "名称要同步": [
-      {
-        "kind": "module",
-        "id": "app-shell-navigation",
-        "path": ".doc/modules/app-shell-navigation.json"
-      }
-    ],
     "后": [
       {
         "kind": "flow",
@@ -33957,6 +34206,13 @@
         "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
+    "后续恢复时再通过": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "后续扩展": [
@@ -34542,13 +34798,6 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
-      }
-    ],
-    "和远端": [
-      {
-        "kind": "module",
-        "id": "feature-chat-timeline",
-        "path": ".doc/modules/feature-chat-timeline.json"
       }
     ],
     "和项目内": [
@@ -35696,6 +35945,13 @@
         "path": ".doc/modules/core-debug-logging.json"
       }
     ],
+    "对": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
     "对话": [
       {
         "kind": "module",
@@ -36085,6 +36341,13 @@
         "path": ".doc/tasks/add-reusable-header-component.json"
       }
     ],
+    "已不可": [
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
     "已初始化": [
       {
         "kind": "module",
@@ -36403,6 +36666,11 @@
     "并同步": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
       }
@@ -36604,6 +36872,13 @@
         "path": ".doc/modules/feature-chat-timeline.json"
       }
     ],
+    "并收口同": [
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
     "并更新": [
       {
         "kind": "module",
@@ -36637,6 +36912,13 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "并用短期": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
     "并维护": [
@@ -37185,18 +37467,18 @@
         "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
+    "当前暂不挂底部": [
+      {
+        "kind": "module",
+        "id": "feature-agent-task-board",
+        "path": ".doc/modules/feature-agent-task-board.json"
+      }
+    ],
     "当前设备语言快照": [
       {
         "kind": "module",
         "id": "shared-i18n",
         "path": ".doc/modules/shared-i18n.json"
-      }
-    ],
-    "当前通过": [
-      {
-        "kind": "module",
-        "id": "app-shell-navigation",
-        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "当天": [
@@ -37218,6 +37500,13 @@
         "kind": "flow",
         "id": "app-startup",
         "path": ".doc/flows/app-startup.json"
+      }
+    ],
+    "当服务端确认": [
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
       }
     ],
     "当真源会导致冷启动后目录列表和真实": [
@@ -37255,6 +37544,13 @@
         "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
+    "待后续接口对接后恢复入口": [
+      {
+        "kind": "module",
+        "id": "feature-agent-task-board",
+        "path": ".doc/modules/feature-agent-task-board.json"
+      }
+    ],
     "待复核": [
       {
         "kind": "module",
@@ -37288,6 +37584,20 @@
         "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
+    "循环": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "循环重试": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
     "心跳": [
@@ -37389,6 +37699,13 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "必须本地清空": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
     "必须继续通过": [
@@ -38318,13 +38635,6 @@
         "path": ".doc/modules/feature-agent-task-board.json"
       }
     ],
-    "挂载的任务流转看板移动端入口": [
-      {
-        "kind": "module",
-        "id": "feature-agent-task-board",
-        "path": ".doc/modules/feature-agent-task-board.json"
-      }
-    ],
     "指向": [
       {
         "kind": "module",
@@ -38716,6 +39026,11 @@
     "提交": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "core-api-client",
         "path": ".doc/modules/core-api-client.json"
       },
@@ -38761,6 +39076,13 @@
         "kind": "module",
         "id": "core-api-client",
         "path": ".doc/modules/core-api-client.json"
+      }
+    ],
+    "提交本地": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "提交等待态结果": [
@@ -39111,6 +39433,20 @@
         "kind": "module",
         "id": "core-ws-transport",
         "path": ".doc/modules/core-ws-transport.json"
+      }
+    ],
+    "收口": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "收口非": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
     "收敛当前会话当前可见生成": [
@@ -39762,6 +40098,11 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
       },
       {
         "kind": "module",
@@ -40516,6 +40857,20 @@
         "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
+    "本地收口和": [
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
+    "本地收口和远端": [
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
     "本地数据库和目录快照": [
       {
         "kind": "module",
@@ -40587,6 +40942,13 @@
       }
     ],
     "构建如果依赖": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "构建时用": [
       {
         "kind": "module",
         "id": "app-shell-navigation",
@@ -41320,6 +41682,18 @@
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
       },
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
+    "清空可": [
       {
         "kind": "module",
         "id": "feature-chat-realtime",
@@ -42377,6 +42751,13 @@
         "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
+    "的非": [
+      {
+        "kind": "module",
+        "id": "feature-chat-timeline",
+        "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
     "的默认展示文案不写入": [
       {
         "kind": "module",
@@ -42597,6 +42978,13 @@
         "path": ".doc/rules.json"
       }
     ],
+    "短期": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
     "短期本地终止": [
       {
         "kind": "module",
@@ -42616,6 +43004,13 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "确认对应品牌是最新远端": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "移动端只处理权限": [
@@ -43859,13 +44254,6 @@
         "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
-    "若改": [
-      {
-        "kind": "module",
-        "id": "app-shell-navigation",
-        "path": ".doc/modules/app-shell-navigation.json"
-      }
-    ],
     "若未改变目录投影": [
       {
         "kind": "module",
@@ -44235,6 +44623,13 @@
         "kind": "module",
         "id": "core-api-client",
         "path": ".doc/modules/core-api-client.json"
+      }
+    ],
+    "视为": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
     "视为服务端已停止": [
@@ -45445,6 +45840,13 @@
         "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
+    "运行与发布脚本": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
     "运行和导出脚本必须先执行": [
       {
         "kind": "module",
@@ -45546,18 +45948,16 @@
         "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
-    "运行脚本": [
-      {
-        "kind": "module",
-        "id": "app-shell-navigation",
-        "path": ".doc/modules/app-shell-navigation.json"
-      }
-    ],
     "返回": [
       {
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
     "返回当前是否启用登录门卫": [
@@ -45983,6 +46383,11 @@
         "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       },
       {
         "kind": "module",
@@ -46590,6 +46995,13 @@
         "kind": "module",
         "id": "feature-agent-task-board",
         "path": ".doc/modules/feature-agent-task-board.json"
+      }
+    ],
+    "阻止": [
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
     "降级": [
@@ -47492,6 +47904,6 @@
     "taskCount": 16,
     "flowCount": 7,
     "ruleCount": 13,
-    "sourceFileCount": 2099
+    "sourceFileCount": 2100
   }
 }

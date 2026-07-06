@@ -49,6 +49,14 @@
         "ascApiKeyId": "5A6QSMNYH8"
       }
     },
-    "production-cutej": {}
+    "production-cutej": {
+      "ios": {
+        "ascAppId": "6781630649",
+        "appleTeamId": "438M7TU3H8",
+        "ascApiKeyPath": "/Users/Ther/.appstoreconnect/AuthKey_5A6QSMNYH8.p8",
+        "ascApiKeyIssuerId": "06d410f3-bcee-4672-a63d-2165ee0705c8",
+        "ascApiKeyId": "5A6QSMNYH8"
+      }
+    }
   }
 }

@@ -78,7 +78,7 @@ export function formatChatDetailTimestamp(
   return `${timestamp.getFullYear()}/${dateText} ${timeText}`;
 }
 
-export function formatChatDetailDuration(value: number | null | undefined): string {
+export function formatChatDetailDuration(value: number | null | undefined, t: TFunction = defaultT): string {
   if (value === null || value === undefined) {
     return '';
   }
@@ -97,12 +97,12 @@ export function formatChatDetailDuration(value: number | null | undefined): stri
   );
 
   if (hours > 0) {
-    return `${hours}时${minutes}分${seconds}秒`;
+    return t('chatDetail.duration.hours', { hours, minutes, seconds });
   }
   if (minutes > 0) {
-    return `${minutes}分${seconds}秒`;
+    return t('chatDetail.duration.minutes', { minutes, seconds });
   }
-  return `${seconds}秒`;
+  return t('chatDetail.duration.seconds', { seconds });
 }
 
 export function formatChatDetailRunningDuration(startedAt: number | null | undefined, now: number = Date.now()): string {

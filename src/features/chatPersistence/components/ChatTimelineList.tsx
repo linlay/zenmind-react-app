@@ -5,6 +5,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
   Pressable,
+  StyleSheet,
   Text,
   View,
   type ViewStyle
@@ -66,22 +67,11 @@ const THREAD_EMPTY_STATE_TITLE_CLASS = 'text-[18px] font-bold text-app-primary';
 const THREAD_EMPTY_STATE_BODY_CLASS = 'text-[15px] leading-[22px] text-app-secondary';
 const ICON_BUTTON_CLASS = 'h-[28px] w-[28px] items-center justify-center rounded-app-sm active:opacity-[0.7]';
 const ICON_BUTTON_DISABLED_CLASS = 'opacity-[0.45]';
-const MESSAGE_FOOTER_CLASS = 'mt-[6px] min-h-[28px] flex-row items-center justify-between gap-app-sm';
-const MESSAGE_FOOTER_END_CLASS = 'self-end justify-end';
-const FOOTER_ACTIONS_CLASS = 'flex-row items-center gap-[2px]';
-const FOOTER_META_CLASS = 'min-w-0 flex-1 flex-row justify-end gap-app-sm';
-const FOOTER_META_END_CLASS = 'grow-0 shrink-0 basis-auto';
 const META_TEXT_CLASS = 'text-[12px] font-medium text-app-tertiary';
 const ERROR_TEXT_CLASS = 'shrink text-[12px] font-semibold text-app-danger';
-const USER_ROW_CLASS = 'mb-5 items-end';
-const USER_MESSAGE_STACK_CLASS = 'max-w-[78%] items-end self-end';
 const USER_BUBBLE_CLASS = 'max-w-full rounded-[16px] rounded-br-[8px] bg-app-action px-[14px] py-[10px]';
 const USER_ATTACHMENT_PANEL_CLASS = 'max-w-full self-end';
 const USER_ATTACHMENT_PANEL_AFTER_TEXT_CLASS = 'mt-[6px]';
-const TIMELINE_ROW_CLASS = 'mb-4 flex-row items-stretch gap-2';
-const ASSISTANT_FOOTER_ROW_CLASS = '-mt-4 mb-4 flex-row items-stretch gap-2';
-const ASSISTANT_FOOTER_RAIL_SPACER_CLASS = 'w-[18px]';
-const TIMELINE_BODY_CLASS = 'min-w-0 flex-1';
 const CONTENT_BLOCK_CLASS = 'self-stretch';
 const AWAITING_ANSWER_BLOCK_CLASS = 'self-stretch';
 const AWAITING_ANSWER_HEADER_CLASS = 'min-h-[28px] flex-row items-center gap-[7px]';
@@ -124,6 +114,72 @@ const SCROLL_TO_END_ELEVATION_STYLE = {
   shadowRadius: 16,
   elevation: 3,
 } satisfies ViewStyle;
+const TIMELINE_LAYOUT_STYLES = StyleSheet.create({
+  userRow: {
+    alignItems: 'flex-end',
+    marginBottom: 20,
+  },
+  userMessageStack: {
+    maxWidth: '78%',
+    alignSelf: 'flex-end',
+    alignItems: 'flex-end',
+  },
+  timelineRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 8,
+    marginBottom: 16,
+  },
+  assistantFooterRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 8,
+    marginTop: -16,
+    marginBottom: 16,
+  },
+  assistantFooterRailSpacer: {
+    width: 18,
+  },
+  timelineBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  messageFooter: {
+    minHeight: 28,
+    marginTop: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: appVisualTokens.spacing.sm,
+  },
+  messageFooterEnd: {
+    alignSelf: 'flex-end',
+    justifyContent: 'flex-end',
+  },
+  footerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  footerMeta: {
+    flex: 1,
+    minWidth: 0,
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: appVisualTokens.spacing.sm,
+  },
+  footerMetaEnd: {
+    flex: 0,
+  },
+});
+const MESSAGE_FOOTER_END_STYLE = StyleSheet.compose(
+  TIMELINE_LAYOUT_STYLES.messageFooter,
+  TIMELINE_LAYOUT_STYLES.messageFooterEnd
+);
+const FOOTER_META_END_STYLE = StyleSheet.compose(
+  TIMELINE_LAYOUT_STYLES.footerMeta,
+  TIMELINE_LAYOUT_STYLES.footerMetaEnd
+);
 
 type ChatTimelineReaskTarget = 'current' | 'new';
 
@@ -313,20 +369,23 @@ const MessageFooter = memo(function MessageFooter({
   reaskNode?: ChatTimelineMessageNode;
   onOpenReaskMenu?: OpenReaskMenu;
 }) {
+  const messageFooterStyle = align === 'end' ? MESSAGE_FOOTER_END_STYLE : TIMELINE_LAYOUT_STYLES.messageFooter;
+  const footerMetaStyle = align === 'end' ? FOOTER_META_END_STYLE : TIMELINE_LAYOUT_STYLES.footerMeta;
+
   return (
-    <View className={cn(MESSAGE_FOOTER_CLASS, align === 'end' ? MESSAGE_FOOTER_END_CLASS : null)}>
-      <View className={FOOTER_ACTIONS_CLASS}>
+    <View style={messageFooterStyle}>
+      <View style={TIMELINE_LAYOUT_STYLES.footerActions}>
         <MessageCopyButton text={text} onCopyText={onCopyText} />
         {reaskNode ? <MessageReaskButton node={reaskNode} onOpenMenu={onOpenReaskMenu} /> : null}
       </View>
-      <View className={cn(FOOTER_META_CLASS, align === 'end' ? FOOTER_META_END_CLASS : null)}>
+      <View style={footerMetaStyle}>
         {timestamp ? (
-          <Text allowFontScaling={false} className={META_TEXT_CLASS}>
+          <Text allowFontScaling={false} className={META_TEXT_CLASS} ellipsizeMode="tail" numberOfLines={1}>
             {timestamp}
           </Text>
         ) : null}
         {errorReason ? (
-          <Text allowFontScaling={false} numberOfLines={1} className={ERROR_TEXT_CLASS}>
+          <Text allowFontScaling={false} className={ERROR_TEXT_CLASS} ellipsizeMode="tail" numberOfLines={1}>
             {errorReason}
           </Text>
         ) : null}
@@ -356,8 +415,8 @@ const UserQueryRow = memo(function UserQueryRow({
   const attachments = node.attachments || [];
 
   return (
-    <View className={USER_ROW_CLASS}>
-      <View className={USER_MESSAGE_STACK_CLASS}>
+    <View style={TIMELINE_LAYOUT_STYLES.userRow}>
+      <View style={TIMELINE_LAYOUT_STYLES.userMessageStack}>
         {text ? (
           <View className={USER_BUBBLE_CLASS}>
             <ConversationMarkdownRenderer
@@ -397,13 +456,13 @@ const RequestInputRow = memo(function RequestInputRow({
   const text = node.body || node.title;
 
   return (
-    <View className={TIMELINE_ROW_CLASS}>
+    <View style={TIMELINE_LAYOUT_STYLES.timelineRow}>
       <ChatTimelineRail
         iconUsage="timeline.requestRail"
         terminal={isLastInRun}
         toneColor={theme.colors.brandBlue}
       />
-      <View className={TIMELINE_BODY_CLASS}>
+      <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <View className={REQUEST_MESSAGE_STACK_CLASS}>
           <View className={REQUEST_BUBBLE_CLASS} style={[REQUEST_BUBBLE_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}>
             <ConversationMarkdownRenderer
@@ -429,13 +488,13 @@ const AssistantContentRow = memo(function AssistantContentRow({
   const { theme } = useAppTheme();
 
   return (
-    <View className={TIMELINE_ROW_CLASS}>
+    <View style={TIMELINE_LAYOUT_STYLES.timelineRow}>
       <ChatTimelineRail
         iconUsage="timeline.assistantContentRail"
         terminal={isLastInRun}
         toneColor={theme.colors.success}
       />
-      <View className={TIMELINE_BODY_CLASS}>
+      <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <View className={CONTENT_BLOCK_CLASS}>
           <ConversationMarkdownRenderer markdown={node.content} streaming={node.streaming} />
         </View>
@@ -459,13 +518,13 @@ const AssistantReplyFooterRow = memo(function AssistantReplyFooterRow({
     t('chatDetail.timestamp.today'),
     t('chatDetail.timestamp.yesterday')
   );
-  const duration = formatChatDetailDuration(footer.durationMs);
+  const duration = formatChatDetailDuration(footer.durationMs, t);
   const footerMeta = timestamp && duration ? `${timestamp} · ${duration}` : timestamp || duration;
 
   return (
-    <View className={ASSISTANT_FOOTER_ROW_CLASS}>
-      <View className={ASSISTANT_FOOTER_RAIL_SPACER_CLASS} />
-      <View className={TIMELINE_BODY_CLASS}>
+    <View style={TIMELINE_LAYOUT_STYLES.assistantFooterRow}>
+      <View style={TIMELINE_LAYOUT_STYLES.assistantFooterRailSpacer} />
+      <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <MessageFooter
           text={footer.copyText}
           timestamp={footerMeta}
@@ -524,13 +583,13 @@ const AwaitingAnswerTimelineRow = memo(function AwaitingAnswerTimelineRow({
   );
 
   return (
-    <View className={TIMELINE_ROW_CLASS}>
+    <View style={TIMELINE_LAYOUT_STYLES.timelineRow}>
       <ChatTimelineRail
         iconUsage="runtime.awaiting"
         terminal={isLastInRun}
         toneColor={theme.colors.warning}
       />
-      <View className={TIMELINE_BODY_CLASS}>
+      <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <View className={AWAITING_ANSWER_BLOCK_CLASS}>
           {canExpand ? (
             <Pressable

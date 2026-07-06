@@ -219,7 +219,6 @@ test('detail header runtime state is derived from the timeline in one place', ()
 
   assert.deepEqual(deriveChatDetailHeaderRuntimeState(state), {
     statusTone: 'idle',
-    statusLabel: '空闲',
     usageLabel: '',
     usageSummary: null,
     runAction: null,
@@ -241,7 +240,6 @@ test('detail header runtime state is derived from the timeline in one place', ()
 
   let headerState = deriveChatDetailHeaderRuntimeState(state);
   assert.equal(headerState.statusTone, 'running');
-  assert.equal(headerState.statusLabel, '运行中');
   assert.equal(headerState.usageLabel, '');
   assert.equal(headerState.usageSummary?.current.promptTokens, 10);
   assert.equal(headerState.runAction, 'stop');
@@ -253,7 +251,6 @@ test('detail header runtime state is derived from the timeline in one place', ()
   });
   headerState = deriveChatDetailHeaderRuntimeState(state);
   assert.equal(headerState.statusTone, 'error');
-  assert.equal(headerState.statusLabel, '异常');
   assert.equal(headerState.usageLabel, '');
   assert.equal(headerState.usageSummary?.current.totalTokens, 14);
   assert.equal(headerState.runAction, 'resume');
@@ -270,8 +267,24 @@ test('detail header runtime state is derived from the timeline in one place', ()
   });
   headerState = deriveChatDetailHeaderRuntimeState(state);
   assert.equal(headerState.statusTone, 'error');
-  assert.equal(headerState.statusLabel, '异常');
   assert.equal(headerState.usageLabel, '');
+  assert.equal(headerState.runAction, null);
+});
+
+test('detail header does not treat standalone awaiting as a live run', () => {
+  let state = createChatTimelineState('chat-1');
+  state = applyChatTimelineEvent(state, 'chat-1', {
+    type: 'awaiting.ask',
+    awaitingId: 'awaiting-1',
+    mode: 'question',
+    runId: 'run-1',
+    prompt: 'Need reply',
+    timestamp: 100,
+  });
+
+  const headerState = deriveChatDetailHeaderRuntimeState(state);
+
+  assert.equal(headerState.statusTone, 'idle');
   assert.equal(headerState.runAction, null);
 });
 
@@ -298,7 +311,6 @@ test('detail header ignores stale active child nodes after a terminal run event'
   const headerState = deriveChatDetailHeaderRuntimeState(state);
 
   assert.equal(headerState.statusTone, 'idle');
-  assert.equal(headerState.statusLabel, '空闲');
   assert.equal(headerState.runAction, null);
 });
 
@@ -324,7 +336,6 @@ test('local run cancel returns detail header and composer to idle send state', (
   const headerState = deriveChatDetailHeaderRuntimeState(state);
 
   assert.equal(headerState.statusTone, 'idle');
-  assert.equal(headerState.statusLabel, '空闲');
   assert.equal(headerState.runAction, null);
   assert.equal(
     deriveChatComposerPrimaryAction({

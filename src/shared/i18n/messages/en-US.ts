@@ -282,6 +282,9 @@ export const enUS: Record<I18nKey, string> = {
     'Cannot start a new chat: the current conversation has no agent or team context.',
   'chatDetail.timestamp.today': 'Today',
   'chatDetail.timestamp.yesterday': 'Yesterday',
+  'chatDetail.duration.hours': '{hours}h {minutes}m {seconds}s',
+  'chatDetail.duration.minutes': '{minutes}m {seconds}s',
+  'chatDetail.duration.seconds': '{seconds}s',
 
   'history.title': 'History',
   'history.close': 'Close history',

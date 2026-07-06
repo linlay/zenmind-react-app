@@ -4,10 +4,9 @@ import {
 } from '@react-navigation/bottom-tabs/unstable';
 import chatIcon from '../../../assets/tabs/tab-chat.png';
 import meIcon from '../../../assets/tabs/tab-me.png';
-import terminalIcon from '../../../assets/tabs/tab-terminal.png';
 import { useT } from '../../shared/i18n';
 import { useAppTheme } from '../../shared/visual/AppThemeProvider';
-import { ChatScreen, MeScreen, TerminalScreen } from '../screens/TabScreens';
+import { ChatScreen, MeScreen } from '../screens/TabScreens';
 import { TAB_LABEL_KEYS } from './TabIcon';
 import { RootTabParamList } from './types';
 
@@ -17,10 +16,6 @@ const NATIVE_TAB_ICONS: Record<keyof RootTabParamList, NativeBottomTabIcon> = {
   Chat: {
     type: 'image',
     source: chatIcon
-  },
-  Terminal: {
-    type: 'image',
-    source: terminalIcon
   },
   Me: {
     type: 'image',
@@ -56,7 +51,7 @@ export function TabsNavigator() {
       })}
     >
       <Tab.Screen name="Chat" component={ChatScreen} />
-      <Tab.Screen name="Terminal" component={TerminalScreen} />
+      {/* Task board tab is temporarily hidden until the API integration resumes. */}
       {/* Drive tab is temporarily hidden until the module ships. */}
       <Tab.Screen name="Me" component={MeScreen} />
     </Tab.Navigator>

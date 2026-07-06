@@ -2134,6 +2134,76 @@ export function applyChatTimelineLocalCancel(
   );
 }
 
+export function applyChatTimelineRunUnavailable(
+  currentStateInput: ChatTimelineState | null | undefined,
+  conversationIdInput: string,
+  input: {
+    runId?: string | null;
+    timestamp?: number;
+  } = {}
+): ChatTimelineState {
+  const conversationId = normalizeConversationId(conversationIdInput);
+  const state =
+    currentStateInput && currentStateInput.conversationId === conversationId
+      ? currentStateInput
+      : createChatTimelineState(conversationId);
+  const runId = toText(input.runId);
+  if (!runId) {
+    return state;
+  }
+
+  const updatedAt = Number.isFinite(Number(input.timestamp)) ? Number(input.timestamp) : Date.now();
+  let nextNodesById: ChatTimelineState['nodesById'] | null = null;
+  let nextUpdatedAt = state.updatedAt;
+
+  state.orderedNodeIds.forEach((nodeId) => {
+    const node = state.nodesById[nodeId];
+    if (
+      !node ||
+      node.runId !== runId ||
+      !isActiveTimelineNode(node) ||
+      node.kind === 'awaiting'
+    ) {
+      return;
+    }
+
+    const nodeUpdatedAt = Math.max(node.updatedAt, updatedAt);
+    const nextNode: ChatTimelineNode =
+      node.kind === 'run'
+        ? {
+            ...node,
+            status: 'completed',
+            lifecycle: 'complete',
+            updatedAt: nodeUpdatedAt,
+          }
+        : closeTimelineNodeForRun(node, 'complete', updatedAt);
+    if (!didNodeChange(node, nextNode)) {
+      return;
+    }
+
+    if (!nextNodesById) {
+      nextNodesById = { ...state.nodesById };
+    }
+    nextNodesById[nodeId] = nextNode;
+    nextUpdatedAt = Math.max(nextUpdatedAt, nextNode.updatedAt);
+  });
+
+  let nextState = nextNodesById
+    ? replaceTimelineNodes(state, nextNodesById, nextUpdatedAt)
+    : state;
+  nextState = clearActiveReasoningNodeIdForRun(nextState, runId);
+  if (nextState.activeRunId !== runId) {
+    return nextState;
+  }
+
+  return {
+    ...nextState,
+    activeRunId: '',
+    updatedAt: Math.max(nextState.updatedAt, updatedAt),
+    revision: nextState.revision + 1,
+  };
+}
+
 export function applyChatTimelineEvent(
   currentStateInput: ChatTimelineState | null | undefined,
   conversationIdInput: string,

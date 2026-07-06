@@ -119,6 +119,6 @@
     "新对话空态的 /api/agent detail 补拉只能走 chatSyncService，按 agentKey 做 App 生命周期内内存缓存和 single-flight；成功、空结果或失败后同一 agent 不自动重复请求，App 重启后可重新请求。",
     "sync service 发给 UI 的 scoped event 要让首页只 patch 目标目录项 preview、详情页只 patch 命中消息或命中会话 runtime state，不回读整页 SQLite。",
     "chat.deleted / chat.archived 要清理 conversation、messages、outbox、sync state 和 runtime state，并刷新目录投影。",
-    "详情页停止/继续生成和 awaiting question/approval/form/plan 提交继续走 chatSyncService：停止要清理 active outgoing/attach stream、调用 /api/interrupt、通过 timeline 本地 cancel 收敛当前会话当前可见生成 scope 的 active/streaming 节点并清空 activeRunId，不创建 ghost run、不改写历史 run duration；记录短期本地终止 run guard，reconcile 合并 stale detail 时不能复活同 run active 状态；run_not_found/404 视为服务端已停止，不触发失败式即时 reconcile；继续要复用 attach 和单会话 reconcile，submit awaiting 要通过 /ap/ws 发送 /api/submit request 并回写 awaiting.answer 本地 timeline 事件，不在页面直接操作 WebSocket 或 HTTP submit。"
+    "详情页停止/继续生成和 awaiting question/approval/form/plan 提交继续走 chatSyncService：停止要清理 active outgoing/attach stream、调用 /api/interrupt、通过 timeline 本地 cancel 收敛当前会话当前可见生成 scope 的 active/streaming 节点并清空 activeRunId，不创建 ghost run、不改写历史 run duration；记录短期本地终止 run guard，reconcile 合并 stale detail 时不能复活同 run active 状态；/api/interrupt 的 run_not_found/404 视为服务端已停止，不触发失败式即时 reconcile；/api/attach 的 run_not_found/404/no longer active 视为 stale activeRunId，要本地清空 activeRunId、收口非 awaiting active 节点、保留 awaiting ask，并用短期 unavailable run guard 防止 reconcile/attach 循环；继续要复用 attach 和单会话 reconcile，submit awaiting 要通过 /ap/ws 发送 /api/submit request 并回写 awaiting.answer 本地 timeline 事件，不在页面直接操作 WebSocket 或 HTTP submit。"
   ]
 }

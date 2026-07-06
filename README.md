@@ -184,9 +184,46 @@ pnpm build:android:cutej
 pnpm build:ios
 pnpm build:ios:zenmind
 pnpm build:ios:cutej
+pnpm submit:ios
+pnpm submit:ios:zenmind
+pnpm submit:ios:cutej
+pnpm release:ios
+pnpm release:ios:zenmind
+pnpm release:ios:cutej
 ```
 
 默认品牌为 ZenMind；当前多品牌共享 native identity，Android package 为 `com.zqfrank.agentterminalapp`，iOS bundle id 为 `cc.zenmind.ios`。CuteJ 通过 `BRAND=cutej` 切换展示名称、图标、启动图和通知色。`BRAND=<id> pnpm brand:sync` 会校验 `brands/<id>/brand.json`，生成运行时品牌常量，并把 PNG 缓存在 `assets/generated/brand/<id>/` 下。
+
+### iOS 发布到 TestFlight
+
+ZenMind / CuteJ 当前共享 iOS bundle id 和同一个 App Store Connect app。两者都提交到同一个 TestFlight 应用，只是构建包内展示名称、图标、启动图和运行时品牌不同。
+
+已有远端 EAS iOS 构建时，提交最新构建：
+
+```bash
+pnpm submit:ios:zenmind
+pnpm submit:ios:cutej
+```
+
+`submit:ios:*` 适合刚完成对应品牌 EAS build、确认它就是最新 iOS 构建的场景；如果不确定最新远端构建属于哪个品牌，优先使用本地 `.ipa` 路径提交。
+
+如果手上是已下载的本地 `.ipa` 文件，提交指定文件：
+
+```bash
+pnpm submit:ios:zenmind:ipa -- /Users/ther/project/git/zenmind/app.ipa
+pnpm submit:ios:cutej:ipa -- /Users/ther/project/git/zenmind/app.ipa
+```
+
+如果使用 `~`，不要再额外写用户名；`~/project/...` 会展开到 `/Users/ther/project/...`，`~/ther/project/...` 会变成 `/Users/ther/ther/project/...`。
+
+需要一键构建并提交到 App Store Connect 时：
+
+```bash
+pnpm release:ios:zenmind
+pnpm release:ios:cutej
+```
+
+提交完成后，在 App Store Connect 的 ZenMind 应用里进入 TestFlight，等待构建处理完成，再添加内部测试员、外部测试组或分享测试邀请。当前模式下不要期待 ZenMind 和 CuteJ 在 TestFlight 中作为两个独立应用并存；需要独立应用时再拆独立 bundle id、App Store Connect app 和发布 profile。
 
 如果安装新 ZenMind APK 时遇到覆盖问题，可先卸载旧包：
 
