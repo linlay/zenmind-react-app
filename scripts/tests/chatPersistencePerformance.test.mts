@@ -116,6 +116,24 @@ test('chat history uses indexed non-empty summaries and skips local empty drafts
   assert.doesNotMatch(historySource, /getConversationMessages/);
 });
 
+test('chat directory search stays scoped to directory summaries', () => {
+  const searchSource = extractSourceSection(
+    repositorySource,
+    'export async function searchChatDirectoryItems',
+    'export async function removeConversation'
+  );
+
+  assert.match(searchSource, /getChatDirectorySearchTokens/);
+  assert.match(
+    searchSource,
+    /\.leftJoin\(conversations, eq\(chatDirectoryItems\.latestConversationId, conversations\.id\)\)/
+  );
+  assert.match(searchSource, /\.limit\(safePageSize \+ 1\)/);
+  assert.match(searchSource, /rows\.slice\(0, safePageSize\)/);
+  assert.doesNotMatch(searchSource, /\.from\(messages\)/);
+  assert.doesNotMatch(searchSource, /count\(\)/);
+});
+
 test('chat directory open target keeps timeline probes bounded', () => {
   const resolverSource = extractSourceSection(
     repositorySource,

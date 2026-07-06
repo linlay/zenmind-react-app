@@ -2095,6 +2095,8 @@
     "src/features/chatPersistence/components/ChatDetailHeader.tsx",
     "src/features/chatPersistence/components/ChatDetailSkeleton.tsx",
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
+    "src/features/chatPersistence/components/ChatDirectoryRow.tsx",
+    "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx",
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
     "src/features/chatPersistence/components/ChatSystemAlert.tsx",
     "src/features/chatPersistence/components/ChatTimelineList.tsx",
@@ -10426,6 +10428,14 @@
                         "type": "file"
                       },
                       {
+                        "name": "ChatDirectoryRow.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatDirectorySearchOverlay.tsx",
+                        "type": "file"
+                      },
+                      {
                         "name": "ChatNewConversationIntro.tsx",
                         "type": "file"
                       },
@@ -11045,6 +11055,8 @@
       "src/features/chatPersistence/components/ChatDetailHeader.tsx",
       "src/features/chatPersistence/components/ChatDetailSkeleton.tsx",
       "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
+      "src/features/chatPersistence/components/ChatDirectoryRow.tsx",
+      "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx",
       "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
       "src/features/chatPersistence/components/ChatSystemAlert.tsx",
       "src/features/chatPersistence/components/ChatTimelineList.tsx",
@@ -11242,6 +11254,8 @@
     "src/features/chatPersistence/components/ChatDetailHeader.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatDirectoryRow.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatSystemAlert.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatTimelineList.tsx": "feature-chat-persistence",
@@ -17898,6 +17912,7 @@
       "replaceChatHomeProjection",
       "replaceConversationProjection",
       "resolveDirectoryItemConversationOpenTarget",
+      "searchChatDirectoryItems",
       "setChatDirectoryItemPinned",
       "setConversationActiveRunId",
       "setConversationPinned",
@@ -17930,6 +17945,16 @@
     ],
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": [
       "ChatDirectoryPickerDrawer"
+    ],
+    "src/features/chatPersistence/components/ChatDirectoryRow.tsx": [
+      "CHAT_DIRECTORY_ROW_HEIGHT",
+      "ChatDirectoryDisplayItem",
+      "ChatDirectoryRow",
+      "ChatDirectoryRowActionAnchor",
+      "createChatDirectoryDisplayItem"
+    ],
+    "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx": [
+      "ChatDirectorySearchOverlay"
     ],
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": [
       "ChatNewConversationIntro"
@@ -18110,6 +18135,7 @@
       "ChatDirectoryKind",
       "ChatDirectoryPage",
       "ChatDirectoryProjectionItem",
+      "ChatDirectorySearchPage",
       "ChatDirectorySnapshot",
       "ChatHomeItem",
       "ChatHomeProjection",
@@ -21391,9 +21417,7 @@
       "../../shared/i18n",
       "../../shared/icons/AppIcon",
       "../../shared/icons/AppIconButton",
-      "../../shared/visual/AgentAvatar",
       "../../shared/visual/AppThemeProvider",
-      "../../shared/visual/className",
       "../../shared/visual/foundation",
       "../../shared/visual/hairline",
       "../../shared/visual/useAppTabBarHeight",
@@ -21402,6 +21426,8 @@
       "./chatRealtimeUiState",
       "./chatRepository",
       "./components/ChatDirectoryPickerDrawer",
+      "./components/ChatDirectoryRow",
+      "./components/ChatDirectorySearchOverlay",
       "./homeSnapshot",
       "./types",
       "@react-navigation/native",
@@ -21552,6 +21578,30 @@
       "../../../shared/visual/foundation",
       "../../../shared/visual/hairline",
       "../types",
+      "@shopify/flash-list",
+      "react",
+      "react-native",
+      "react-native-safe-area-context"
+    ],
+    "src/features/chatPersistence/components/ChatDirectoryRow.tsx": [
+      "../../../shared/icons/AppIcon",
+      "../../../shared/visual/AgentAvatar",
+      "../../../shared/visual/className",
+      "../../../shared/visual/foundation",
+      "../../../shared/visual/hairline",
+      "../types",
+      "react",
+      "react-native"
+    ],
+    "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx": [
+      "../../../shared/i18n",
+      "../../../shared/icons/AppIcon",
+      "../../../shared/visual/AppThemeProvider",
+      "../../../shared/visual/foundation",
+      "../../../shared/visual/hairline",
+      "../chatRepository",
+      "../types",
+      "./ChatDirectoryRow",
       "@shopify/flash-list",
       "react",
       "react-native",
@@ -24427,6 +24477,8 @@
       "src/features/chatPersistence/chatRealtimeUiState.ts",
       "src/features/chatPersistence/chatRepository.ts",
       "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
+      "src/features/chatPersistence/components/ChatDirectoryRow.tsx",
+      "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx",
       "src/features/chatPersistence/homeSnapshot.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatRealtime/chatSyncService.ts",
@@ -24435,9 +24487,7 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/icons/AppIconButton.tsx",
-      "src/shared/visual/AgentAvatar.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/className.ts",
       "src/shared/visual/foundation.ts",
       "src/shared/visual/hairline.ts",
       "src/shared/visual/useAppTabBarHeight.ts"
@@ -24566,6 +24616,24 @@
       "src/shared/visual/AgentAvatar.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/className.ts",
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/hairline.ts"
+    ],
+    "src/features/chatPersistence/components/ChatDirectoryRow.tsx": [
+      "src/features/chatPersistence/types.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AgentAvatar.tsx",
+      "src/shared/visual/className.ts",
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/hairline.ts"
+    ],
+    "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx": [
+      "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/components/ChatDirectoryRow.tsx",
+      "src/features/chatPersistence/types.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts",
       "src/shared/visual/hairline.ts"
     ],

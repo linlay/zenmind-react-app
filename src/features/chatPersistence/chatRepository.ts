@@ -54,6 +54,7 @@ import {
   ChatConversationTarget,
   ChatDirectoryItem,
   ChatDirectoryPage,
+  ChatDirectorySearchPage,
   ChatConversationSummaryProjection,
   ChatDirectoryProjectionItem,
   ChatHomeProjection,
@@ -478,6 +479,8 @@ const CONVERSATION_RECENCY_ORDER = [
   asc(conversations.id),
 ];
 const CONVERSATION_HISTORY_VISIBLE_FILTER = sql<boolean>`length(trim(${conversations.lastMessageText})) > 0`;
+const CHAT_DIRECTORY_SEARCH_QUERY_MAX_LENGTH = 80;
+const CHAT_DIRECTORY_SEARCH_TOKEN_MAX_COUNT = 4;
 
 export type ConversationSyncState = {
   conversationId: string;
@@ -527,6 +530,31 @@ export type ConversationSummaryPatchResult = {
   changed: boolean;
   directoryChanged: boolean;
 };
+
+function normalizeChatDirectorySearchQuery(query: string): string {
+  return String(query || '')
+    .trim()
+    .replace(/\s+/gu, ' ')
+    .slice(0, CHAT_DIRECTORY_SEARCH_QUERY_MAX_LENGTH)
+    .toLowerCase();
+}
+
+function getChatDirectorySearchTokens(normalizedQuery: string): string[] {
+  return normalizedQuery
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, CHAT_DIRECTORY_SEARCH_TOKEN_MAX_COUNT);
+}
+
+function getChatDirectorySearchTextExpression() {
+  return sql<string>`lower(
+    coalesce(${chatDirectoryItems.title}, '') || ' ' ||
+    coalesce(${chatDirectoryItems.subtitle}, '') || ' ' ||
+    coalesce(${chatDirectoryItems.agentKey}, '') || ' ' ||
+    coalesce(${chatDirectoryItems.teamId}, '') || ' ' ||
+    coalesce(${conversations.lastMessageText}, '')
+  )`;
+}
 
 export type ConversationReadScope = {
   agentKey?: string | null;
@@ -2142,6 +2170,49 @@ export async function getChatDirectoryCatalogPage(
     total: totals[0]?.value ?? 0,
     page: safePage,
     pageSize: safePageSize,
+  };
+}
+
+export async function searchChatDirectoryItems(
+  query: string,
+  offset: number = 0,
+  pageSize: number = 24
+): Promise<ChatDirectorySearchPage> {
+  await ensureChatDatabase();
+
+  const normalizedQuery = normalizeChatDirectorySearchQuery(query);
+  const tokens = getChatDirectorySearchTokens(normalizedQuery);
+  const safePageSize = Math.max(1, Math.min(50, Math.trunc(Number(pageSize) || 24)));
+  const safeOffset = Math.max(0, Math.trunc(Number(offset) || 0));
+
+  if (tokens.length <= 0) {
+    return {
+      items: [],
+      query: normalizedQuery,
+      offset: safeOffset,
+      pageSize: safePageSize,
+      hasMore: false,
+    };
+  }
+
+  const searchText = getChatDirectorySearchTextExpression();
+  const whereClause = and(...tokens.map((token) => sql<boolean>`instr(${searchText}, ${token}) > 0`));
+  const rows = await chatDb
+    .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
+    .from(chatDirectoryItems)
+    .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
+    .where(whereClause)
+    .orderBy(...CHAT_DIRECTORY_PINNED_ORDER)
+    .limit(safePageSize + 1)
+    .offset(safeOffset);
+  const pageRows = rows.slice(0, safePageSize);
+
+  return {
+    items: pageRows.map(mapChatDirectoryItem),
+    query: normalizedQuery,
+    offset: safeOffset,
+    pageSize: safePageSize,
+    hasMore: rows.length > safePageSize,
   };
 }
 

@@ -239,9 +239,17 @@ export const zhCN = {
   'chatHome.noConversation': '暂无对话',
   'chatHome.error.missingDirectoryTarget': '无法创建对话：目录项缺少智能体或团队标识。',
   'chatHome.error.readFailed': '读取失败：{message}',
+  'chatHome.search.open': '搜索对话',
   'chatHome.pin.cancel': '取消置顶',
   'chatHome.pin.set': '置顶聊天',
   'chatHome.markAllRead': '全部已读',
+
+  'chatSearch.placeholder': '搜索智能体、团队或最近对话',
+  'chatSearch.clear': '清空搜索',
+  'chatSearch.close': '关闭搜索',
+  'chatSearch.empty.initial': '输入关键词搜索智能体、团队或最近对话。',
+  'chatSearch.empty.noResults': '没有找到“{query}”相关结果。',
+  'chatSearch.error.readFailed': '搜索失败：{message}',
 
   'directoryPicker.title': '新对话',
   'directoryPicker.subtitle': 'Agents / Teams · {count}',

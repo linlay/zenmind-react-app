@@ -245,9 +245,17 @@ export const enUS: Record<I18nKey, string> = {
   'chatHome.error.missingDirectoryTarget':
     'Cannot create conversation: this directory item has no agent or team identifier.',
   'chatHome.error.readFailed': 'Read failed: {message}',
+  'chatHome.search.open': 'Search chats',
   'chatHome.pin.cancel': 'Unpin chat',
   'chatHome.pin.set': 'Pin chat',
   'chatHome.markAllRead': 'Mark all read',
+
+  'chatSearch.placeholder': 'Search agents, teams, or recent chats',
+  'chatSearch.clear': 'Clear search',
+  'chatSearch.close': 'Close search',
+  'chatSearch.empty.initial': 'Type to search agents, teams, or recent chats.',
+  'chatSearch.empty.noResults': 'No results for "{query}".',
+  'chatSearch.error.readFailed': 'Search failed: {message}',
 
   'directoryPicker.title': 'New chat',
   'directoryPicker.subtitle': 'Agents / Teams · {count}',

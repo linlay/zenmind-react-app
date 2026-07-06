@@ -1,0 +1,604 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ZenMind SVG Icon Gallery</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fb;
+      --surface: #ffffff;
+      --surface-strong: #eef4ff;
+      --line: #dbe2ef;
+      --text: #172033;
+      --muted: #667085;
+      --brand: #1f6feb;
+      --brand-soft: #dbeafe;
+      --accent: #0f766e;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+    }
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 3;
+      border-bottom: 1px solid var(--line);
+      background: rgba(247, 248, 251, 0.94);
+      backdrop-filter: blur(14px);
+    }
+    .header-inner {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 22px 20px 18px;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    .summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .summary span {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      padding: 4px 10px;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    input {
+      width: min(420px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      padding: 10px 12px;
+      outline: none;
+    }
+    input:focus {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.12);
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .menu-callout {
+      display: grid;
+      grid-template-columns: 104px minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+      margin-bottom: 18px;
+      border: 1px solid #bfdbfe;
+      border-radius: 8px;
+      background: var(--surface-strong);
+      padding: 16px;
+    }
+    .menu-callout .preview {
+      width: 88px;
+      height: 88px;
+      color: var(--brand);
+      background: #fff;
+    }
+    .menu-callout h2 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+    .menu-callout p {
+      margin: 0 0 10px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.45;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(238px, 1fr));
+      gap: 12px;
+    }
+    .icon-card {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr);
+      gap: 12px;
+      min-height: 104px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      padding: 12px;
+    }
+    .icon-card.is-menu {
+      border-color: var(--brand);
+      box-shadow: 0 0 0 3px rgba(31, 111, 235, 0.12);
+    }
+    .preview {
+      display: grid;
+      place-items: center;
+      width: 72px;
+      height: 72px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #f9fafb;
+      color: var(--text);
+    }
+    .preview svg {
+      width: 42px;
+      height: 42px;
+      display: block;
+    }
+    .meta { min-width: 0; }
+    .meta h2 {
+      margin: 2px 0 4px;
+      font-size: 15px;
+      line-height: 1.25;
+      letter-spacing: 0;
+      overflow-wrap: anywhere;
+    }
+    .meta p {
+      margin: 0 0 8px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+    .usages {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    code, .muted {
+      border-radius: 6px;
+      padding: 3px 6px;
+      font-size: 11px;
+      line-height: 1.25;
+    }
+    code {
+      background: var(--brand-soft);
+      color: #1e40af;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .muted {
+      background: #f3f4f6;
+      color: var(--muted);
+    }
+    .hidden { display: none; }
+    @media (max-width: 640px) {
+      .header-inner, main { padding-inline: 14px; }
+      .menu-callout { grid-template-columns: 1fr; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <h1>ZenMind SVG Icon Gallery</h1>
+      <p class="summary">
+        <span>47 total glyphs</span>
+        <span>7 legacy paths</span>
+        <span>37 material paths</span>
+        <span>3 outline strokes</span>
+        <span>generated 2026-07-06T11:08:52.964Z</span>
+      </p>
+      <div class="toolbar">
+        <input id="search" type="search" placeholder="Search icon or AppIcon usage" autocomplete="off" />
+      </div>
+    </div>
+  </header>
+  <main>
+    <section class="menu-callout">
+      <div class="preview"><svg aria-hidden="true" viewBox="0 0 1024 1024" fill="none"><path d="M128 170.666667h768v85.333333H128V170.666667z m0 298.666666h512v85.333334H128v-85.333334z m0 298.666667h768v85.333333H128v-85.333333z" fill="currentColor"/></svg></div>
+      <div>
+        <h2>menu glyph is available</h2>
+        <p>当前底层图标库包含 <code>menu</code>，是三横线图标。已映射的业务 usage: <code>chatHome.openDirectory</code> <code>chatDetail.openHistory</code></p>
+        <p>Source: <code>src/shared/visual/appLineIconRegistry.ts</code> and <code>src/shared/icons/registries/appIconUsages.ts</code></p>
+      </div>
+    </section>
+    <section class="grid" id="grid">
+      
+      <article class="icon-card is-menu" data-search="menu legacy path 0 0 1024 1024 chathome.opendirectory chatdetail.openhistory">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 1024 1024" fill="none"><path d="M128 170.666667h768v85.333333H128V170.666667z m0 298.666666h512v85.333334H128v-85.333334z m0 298.666667h768v85.333333H128v-85.333333z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>menu</h2>
+          <p>legacy path · 0 0 1024 1024</p>
+          <div class="usages"><code>chatHome.openDirectory</code><code>chatDetail.openHistory</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="chat legacy path 0 0 1024 1024 tab.chat preview.drivereference settings.language">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 1024 1024" fill="none"><path d="M245.888 725.333333H853.333333V213.333333H170.666667v571.093334L245.888 725.333333z m29.525333 85.333334L85.333333 960V170.666667a42.666667 42.666667 0 0 1 42.666667-42.666667h768a42.666667 42.666667 0 0 1 42.666667 42.666667v597.333333a42.666667 42.666667 0 0 1-42.666667 42.666667H275.413333z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>chat</h2>
+          <p>legacy path · 0 0 1024 1024</p>
+          <div class="usages"><code>tab.chat</code><code>preview.driveReference</code><code>settings.language</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="apps legacy path 0 0 1024 1024 tab.terminal preview.terminalworkbench">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 1024 1024" fill="none"><path d="M288 106.666667A181.333333 181.333333 0 0 1 469.333333 288V469.333333H288a181.333333 181.333333 0 1 1 0-362.666666zM384 384V288A96 96 0 1 0 288 384H384z m-96 170.666667H469.333333v181.333333A181.333333 181.333333 0 1 1 288 554.666667z m0 85.333333A96 96 0 1 0 384 736V640H288z m448-533.333333a181.333333 181.333333 0 1 1 0 362.666666H554.666667V288a181.333333 181.333333 0 0 1 181.333333-181.333333z m0 277.333333A96 96 0 1 0 640 288V384h96zM554.666667 554.666667h181.333333A181.333333 181.333333 0 1 1 554.666667 736V554.666667z m85.333333 85.333333v96A96 96 0 1 0 736 640H640z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>apps</h2>
+          <p>legacy path · 0 0 1024 1024</p>
+          <div class="usages"><code>tab.terminal</code><code>preview.terminalWorkbench</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="drive legacy path 0 0 1024 1024 tab.drive preview.drivefiles">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 1024 1024" fill="none"><path d="M529.664 213.333333H896a42.666667 42.666667 0 0 1 42.666667 42.666667v597.333333a42.666667 42.666667 0 0 1-42.666667 42.666667H128a42.666667 42.666667 0 0 1-42.666667-42.666667V170.666667a42.666667 42.666667 0 0 1 42.666667-42.666667h316.330667l85.333333 85.333333zM853.333333 469.333333H170.666667v341.333334h682.666666v-341.333334z m0-85.333333V298.666667h-358.997333l-85.333333-85.333334H170.666667v170.666667h682.666666z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>drive</h2>
+          <p>legacy path · 0 0 1024 1024</p>
+          <div class="usages"><code>tab.drive</code><code>preview.driveFiles</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="user legacy path 0 0 1024 1024 tab.me">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 1024 1024" fill="none"><path d="M170.666667 938.666667a341.333333 341.333333 0 1 1 682.666666 0h-85.333333a256 256 0 1 0-512 0H170.666667z m341.333333-384c-141.44 0-256-114.56-256-256s114.56-256 256-256 256 114.56 256 256-114.56 256-256 256z m0-85.333334c94.293333 0 170.666667-76.373333 170.666667-170.666666s-76.373333-170.666667-170.666667-170.666667-170.666667 76.373333-170.666667 170.666667 76.373333 170.666667 170.666667 170.666666z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>user</h2>
+          <p>legacy path · 0 0 1024 1024</p>
+          <div class="usages"><code>tab.me</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="pin legacy path 0 0 1024 1024 chathome.rowpinned chathome.pinmenu.toggle">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 1024 1024" fill="none"><path d="M589.994667 71.936l362.069333 362.069333-60.373333 60.330667-30.165334-30.165333-180.992 180.992-30.165333 150.869333-60.373333 60.330667-180.992-181.034667-211.2 211.2-60.330667-60.330667 211.2-211.2-181.034667-180.992 60.330667-60.373333L378.88 343.466667l180.992-180.992-30.165333-30.165334 60.330666-60.373333z m30.208 150.869333l-199.296 199.253334-120.405334 24.106666 277.333334 277.333334 24.064-120.405334 199.296-199.253333-180.992-181.034667z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>pin</h2>
+          <p>legacy path · 0 0 1024 1024</p>
+          <div class="usages"><code>chatHome.rowPinned</code><code>chatHome.pinMenu.toggle</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="tool legacy path 0 0 1024 1024 settings.developer">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 1024 1024" fill="none"><path d="M227.413333 139.562667a149.333333 149.333333 0 0 1 190.805334 190.890666L880.938667 793.173333l-90.538667 90.496L327.68 420.992a149.333333 149.333333 0 0 1-190.805333-190.890667L232.277333 325.546667a64 64 0 1 0 90.496-90.496L227.370667 139.52z m442.325334 80.384l135.765333-75.434667 60.330667 60.330667-75.434667 135.765333-75.434667 15.104-90.453333 90.496-60.373333-60.330667 90.496-90.496 15.104-75.434666z m-301.696 331.861333l90.496 90.538667-211.2 211.2A64 64 0 0 1 152.746667 767.573333l4.138666-4.565333 211.2-211.2z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>tool</h2>
+          <p>legacy path · 0 0 1024 1024</p>
+          <div class="usages"><code>settings.developer</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="add material path 0 0 960 960 composer.attach">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M440 520H240Q223 520 211.5 508.5Q200 497 200 480Q200 463 211.5 451.5Q223 440 240 440H440V240Q440 223 451.5 211.5Q463 200 480 200Q497 200 508.5 211.5Q520 223 520 240V440H720Q737 440 748.5 451.5Q760 463 760 480Q760 497 748.5 508.5Q737 520 720 520H520V720Q520 737 508.5 748.5Q497 760 480 760Q463 760 451.5 748.5Q440 737 440 720Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>add</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>composer.attach</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="arrow_upward material path 0 0 960 960 composer.send">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M440 313L244 509Q232 521 216 520.5Q200 520 188 508Q177 496 176.5 480Q176 464 188 452L452 188Q458 182 465 179.5Q472 177 480 177Q488 177 495 179.5Q502 182 508 188L772 452Q783 463 783 479.5Q783 496 772 508Q760 520 743.5 520Q727 520 715 508L520 313V760Q520 777 508.5 788.5Q497 800 480 800Q463 800 451.5 788.5Q440 777 440 760Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>arrow_upward</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>composer.send</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="article material path 0 0 960 960 attachment.filedocument">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M200 840Q167 840 143.5 816.5Q120 793 120 760V200Q120 167 143.5 143.5Q167 120 200 120H760Q793 120 816.5 143.5Q840 167 840 200V760Q840 793 816.5 816.5Q793 840 760 840ZM200 760H760V200H200V760M320 680H520Q537 680 548.5 668.5Q560 657 560 640Q560 623 548.5 611.5Q537 600 520 600H320Q303 600 291.5 611.5Q280 623 280 640Q280 657 291.5 668.5Q303 680 320 680M320 520H640Q657 520 668.5 508.5Q680 497 680 480Q680 463 668.5 451.5Q657 440 640 440H320Q303 440 291.5 451.5Q280 463 280 480Q280 497 291.5 508.5Q303 520 320 520M320 360H640Q657 360 668.5 348.5Q680 337 680 320Q680 303 668.5 291.5Q657 280 640 280H320Q303 280 291.5 291.5Q280 303 280 320Q280 337 291.5 348.5Q303 360 320 360" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>article</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>attachment.fileDocument</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="assignment material path 0 0 960 960 runtime.planning">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M200 840Q167 840 143.5 816.5Q120 793 120 760V200Q120 167 143.5 143.5Q167 120 200 120H368Q381 84 411.5 62Q442 40 480 40Q518 40 548.5 62Q579 84 592 120H760Q793 120 816.5 143.5Q840 167 840 200V760Q840 793 816.5 816.5Q793 840 760 840ZM200 760H760V200H200V760M320 680H520Q537 680 548.5 668.5Q560 657 560 640Q560 623 548.5 611.5Q537 600 520 600H320Q303 600 291.5 611.5Q280 623 280 640Q280 657 291.5 668.5Q303 680 320 680M320 520H640Q657 520 668.5 508.5Q680 497 680 480Q680 463 668.5 451.5Q657 440 640 440H320Q303 440 291.5 451.5Q280 463 280 480Q280 497 291.5 508.5Q303 520 320 520M320 360H640Q657 360 668.5 348.5Q680 337 680 320Q680 303 668.5 291.5Q657 280 640 280H320Q303 280 291.5 291.5Q280 303 280 320Q280 337 291.5 348.5Q303 360 320 360M480 170Q493 170 501.5 161.5Q510 153 510 140Q510 127 501.5 118.5Q493 110 480 110Q467 110 458.5 118.5Q450 127 450 140Q450 153 458.5 161.5Q467 170 480 170" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>assignment</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>runtime.planning</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="build material path 0 0 960 960 runtime.tool">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M360 600Q260 600 190 530Q120 460 120 360Q120 340 123 320Q126 300 134 282Q139 272 146.5 267Q154 262 163 260Q172 258 181.5 260.5Q191 263 199 271L304 376L376 304L271 199Q263 191 260.5 181.5Q258 172 260 163Q262 154 267 146.5Q272 139 282 134Q300 126 320 123Q340 120 360 120Q460 120 530 190Q600 260 600 360Q600 383 596 403.5Q592 424 584 444L786 644Q815 673 815 715Q815 757 786 786Q757 815 715 815Q673 815 644 785L444 584Q424 592 403.5 596Q383 600 360 600M360 520Q386 520 412 512Q438 504 459 487L702 730Q707 735 715.5 734.5Q724 734 729 729Q734 724 734 715.5Q734 707 729 702L486 460Q504 440 512 413.5Q520 387 520 360Q520 300 481.5 255.5Q443 211 386 202L460 276Q472 288 472 304Q472 320 460 332L332 460Q320 472 304 472Q288 472 276 460L202 386Q211 443 255.5 481.5Q300 520 360 520" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>build</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>runtime.tool</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="check material path 0 0 960 960 settings.selected">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M382 606L721 267Q733 255 749 255Q765 255 777 267Q789 279 789 295.5Q789 312 777 324L410 692Q398 704 382 704Q366 704 354 692L182 520Q170 508 170.5 491.5Q171 475 183 463Q195 451 211.5 451Q228 451 240 463Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>check</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>settings.selected</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="checklist material path 0 0 960 960 composer.plan composer.planactive">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M221 647L363 505Q375 493 391 493.5Q407 494 419 506Q430 518 430 534Q430 550 419 562L250 732Q238 744 222 744Q206 744 194 732L108 646Q97 635 97 618Q97 601 108 590Q119 579 136 579Q153 579 164 590ZM221 327L363 185Q375 173 391 173.5Q407 174 419 186Q430 198 430 214Q430 230 419 242L250 412Q238 424 222 424Q206 424 194 412L108 326Q97 315 97 298Q97 281 108 270Q119 259 136 259Q153 259 164 270ZM560 680Q543 680 531.5 668.5Q520 657 520 640Q520 623 531.5 611.5Q543 600 560 600H840Q857 600 868.5 611.5Q880 623 880 640Q880 657 868.5 668.5Q857 680 840 680ZM560 360Q543 360 531.5 348.5Q520 337 520 320Q520 303 531.5 291.5Q543 280 560 280H840Q857 280 868.5 291.5Q880 303 880 320Q880 337 868.5 348.5Q857 360 840 360Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>checklist</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>composer.plan</code><code>composer.planActive</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="chevron_left material path 0 0 960 960 chatdetail.back">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M432 480L588 636Q599 647 599 664Q599 681 588 692Q577 703 560 703Q543 703 532 692L348 508Q342 502 339.5 495Q337 488 337 480Q337 472 339.5 465Q342 458 348 452L532 268Q543 257 560 257Q577 257 588 268Q599 279 599 296Q599 313 588 324Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>chevron_left</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>chatDetail.back</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="chevron_right material path 0 0 960 960 runtime.expand">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M504 480L348 324Q337 313 337 296Q337 279 348 268Q359 257 376 257Q393 257 404 268L588 452Q594 458 596.5 465Q599 472 599 480Q599 488 596.5 495Q594 502 588 508L404 692Q393 703 376 703Q359 703 348 692Q337 681 337 664Q337 647 348 636Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>chevron_right</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>runtime.expand</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="close material path 0 0 960 960 directorypicker.close chatsearch.clear chatsearch.close historydrawer.close attachment.remove usage.close">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M480 536L284 732Q273 743 256 743Q239 743 228 732Q217 721 217 704Q217 687 228 676L424 480L228 284Q217 273 217 256Q217 239 228 228Q239 217 256 217Q273 217 284 228L480 424L676 228Q687 217 704 217Q721 217 732 228Q743 239 743 256Q743 273 732 284L536 480L732 676Q743 687 743 704Q743 721 732 732Q721 743 704 743Q687 743 676 732Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>close</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>directoryPicker.close</code><code>chatSearch.clear</code><code>chatSearch.close</code><code>historyDrawer.close</code><code>attachment.remove</code><code>usage.close</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="content_copy material path 0 0 960 960 timeline.copy runtime.copy">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M360 720Q327 720 303.5 696.5Q280 673 280 640V160Q280 127 303.5 103.5Q327 80 360 80H720Q753 80 776.5 103.5Q800 127 800 160V640Q800 673 776.5 696.5Q753 720 720 720ZM360 640H720V160H360V640M200 880Q167 880 143.5 856.5Q120 833 120 800V280Q120 263 131.5 251.5Q143 240 160 240Q177 240 188.5 251.5Q200 263 200 280V800H600Q617 800 628.5 811.5Q640 823 640 840Q640 857 628.5 868.5Q617 880 600 880Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>content_copy</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>timeline.copy</code><code>runtime.copy</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="description material path 0 0 960 960 timeline.assistantcontentrail runtime.file attachment.filetext">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M360 720H600Q617 720 628.5 708.5Q640 697 640 680Q640 663 628.5 651.5Q617 640 600 640H360Q343 640 331.5 651.5Q320 663 320 680Q320 697 331.5 708.5Q343 720 360 720M360 560H600Q617 560 628.5 548.5Q640 537 640 520Q640 503 628.5 491.5Q617 480 600 480H360Q343 480 331.5 491.5Q320 503 320 520Q320 537 331.5 548.5Q343 560 360 560M240 880Q207 880 183.5 856.5Q160 833 160 800V160Q160 127 183.5 103.5Q207 80 240 80H527Q543 80 557.5 86Q572 92 583 103L777 297Q788 308 794 322.5Q800 337 800 353V800Q800 833 776.5 856.5Q753 880 720 880ZM520 320V160H240V800H720V360H560Q543 360 531.5 348.5Q520 337 520 320" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>description</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>timeline.assistantContentRail</code><code>runtime.file</code><code>attachment.fileText</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="done_all material path 0 0 960 960 chathome.pinmenu.markread historydrawer.markallread">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M70 522Q58 510 58.5 494Q59 478 71 466Q83 455 99 454.5Q115 454 127 466L269 608Q276 615 283 622Q290 629 297 636Q309 648 308.5 664Q308 680 296 692Q284 703 268 703.5Q252 704 240 692ZM494 607L834 267Q846 255 862 255.5Q878 256 890 268Q901 280 901.5 296Q902 312 890 324L522 692Q510 704 494 704Q478 704 466 692L296 522Q285 511 285 494.5Q285 478 296 466Q308 454 324.5 454Q341 454 353 466ZM663 325L522 466Q511 477 494.5 477Q478 477 466 466Q454 454 454 437.5Q454 421 466 409L607 268Q618 257 634.5 257Q651 257 663 268Q675 280 675 296.5Q675 313 663 325" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>done_all</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>chatHome.pinMenu.markRead</code><code>historyDrawer.markAllRead</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="draft material path 0 0 960 960 composer.attachfile attachment.filegeneric">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M521 64L842 256Q860 267 870 286Q880 305 880 326V760Q880 793 856.5 816.5Q833 840 800 840H160Q127 840 103.5 816.5Q80 793 80 760V326Q80 305 90 286Q100 267 118 256L439 64Q458 53 480 53Q502 53 521 64M480 506L792 320L480 134L168 320L480 506M439 575L160 408V760H800V408L521 575Q502 586 480 586Q458 586 439 575" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>draft</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>composer.attachFile</code><code>attachment.fileGeneric</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="edit_square material path 0 0 960 960 chathome.add chatdetail.newconversation directorypicker.startconversation">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M200 840Q167 840 143.5 816.5Q120 793 120 760V200Q120 167 143.5 143.5Q167 120 200 120H461Q481 120 491 132.5Q501 145 501 160Q501 175 490.5 187.5Q480 200 460 200H200V760H760V499Q760 479 772.5 469Q785 459 800 459Q815 459 827.5 469Q840 479 840 499V760Q840 793 816.5 816.5Q793 840 760 840ZM360 560V463Q360 447 366 432.5Q372 418 383 407L727 63Q739 51 754 45Q769 39 784 39Q800 39 814.5 45Q829 51 841 63L897 120Q908 132 914 146.5Q920 161 920 176Q920 191 914.5 205.5Q909 220 897 232L553 576Q542 587 527.5 593.5Q513 600 497 600H400Q383 600 371.5 588.5Q360 577 360 560M841 176L785 120ZM440 520H496L728 288L700 260L671 232L440 463ZM700 260L671 232L700 260L728 288Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>edit_square</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>chatHome.add</code><code>chatDetail.newConversation</code><code>directoryPicker.startConversation</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="expand_more material path 0 0 960 960 runtime.collapse">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M452 587L268 403Q257 392 257 375Q257 358 268 347Q279 336 296 336Q313 336 324 347L480 503L636 347Q647 336 664 336Q681 336 692 347Q703 358 703 375Q703 392 692 403L508 587Q502 593 495 595.5Q488 598 480 598Q472 598 465 595.5Q458 593 452 587" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>expand_more</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>runtime.collapse</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="folder_zip material path 0 0 960 960 attachment.filearchive">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M640 480V400H720V480ZM640 560H560V480H640ZM640 640V560H720V640ZM447 320L367 240H160V720H560V640H640V720H800V320H640V400H560V320ZM160 800Q127 800 103.5 776.5Q80 753 80 720V240Q80 207 103.5 183.5Q127 160 160 160H367Q383 160 397.5 166Q412 172 423 183L480 240H800Q833 240 856.5 263.5Q880 287 880 320V720Q880 753 856.5 776.5Q833 800 800 800Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>folder_zip</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>attachment.fileArchive</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="format_text_overflow material path 0 0 960 960 runtime.wrapdisabled">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M160 760V200Q160 183 171.5 171.5Q183 160 200 160Q217 160 228.5 171.5Q240 183 240 200V760Q240 777 228.5 788.5Q217 800 200 800Q183 800 171.5 788.5Q160 777 160 760M480 320V200Q480 183 491.5 171.5Q503 160 520 160Q537 160 548.5 171.5Q560 183 560 200V320Q560 337 548.5 348.5Q537 360 520 360Q503 360 491.5 348.5Q480 337 480 320M687 593Q675 605 658.5 605Q642 605 630 593Q618 581 618 565Q618 549 630 537L647 520H360Q343 520 331.5 508.5Q320 497 320 480Q320 463 331.5 451.5Q343 440 360 440H647L630 423Q618 411 618 395Q618 379 630 367Q642 355 658.5 355Q675 355 687 367L772 452Q784 464 784 480Q784 496 772 508ZM480 760V640Q480 623 491.5 611.5Q503 600 520 600Q537 600 548.5 611.5Q560 623 560 640V760Q560 777 548.5 788.5Q537 800 520 800Q503 800 491.5 788.5Q480 777 480 760" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>format_text_overflow</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>runtime.wrapDisabled</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="format_text_wrap material path 0 0 960 960 runtime.wrapenabled">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M160 760V200Q160 183 171.5 171.5Q183 160 200 160Q217 160 228.5 171.5Q240 183 240 200V760Q240 777 228.5 788.5Q217 800 200 800Q183 800 171.5 788.5Q160 777 160 760M720 760V200Q720 183 731.5 171.5Q743 160 760 160Q777 160 788.5 171.5Q800 183 800 200V760Q800 777 788.5 788.5Q777 800 760 800Q743 800 731.5 788.5Q720 777 720 760M395 673L310 588Q298 576 298 560Q298 544 310 532L396 447Q407 436 423.5 435.5Q440 435 452 447Q463 458 463 475Q463 492 452 503L435 520H520Q553 520 576.5 496.5Q600 473 600 440Q600 407 576.5 383.5Q553 360 520 360H320Q303 360 291.5 348.5Q280 337 280 320Q280 303 291.5 291.5Q303 280 320 280H520Q586 280 633 327Q680 374 680 440Q680 506 633 553Q586 600 520 600H435L452 617Q463 628 463 644.5Q463 661 452 673Q440 685 423.5 685Q407 685 395 673" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>format_text_wrap</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>runtime.wrapEnabled</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="history material path 0 0 960 960 settings.cache">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M480 840Q354 840 257 763.5Q160 687 131 568Q127 553 137 540.5Q147 528 164 526Q180 524 193 532Q206 540 211 556Q235 646 310 703Q385 760 480 760Q597 760 678.5 678.5Q760 597 760 480Q760 363 678.5 281.5Q597 200 480 200Q411 200 351 232Q291 264 250 320H320Q337 320 348.5 331.5Q360 343 360 360Q360 377 348.5 388.5Q337 400 320 400H160Q143 400 131.5 388.5Q120 377 120 360V200Q120 183 131.5 171.5Q143 160 160 160Q177 160 188.5 171.5Q200 183 200 200V254Q251 190 324.5 155Q398 120 480 120Q555 120 620.5 148.5Q686 177 734.5 225.5Q783 274 811.5 339.5Q840 405 840 480Q840 555 811.5 620.5Q783 686 734.5 734.5Q686 783 620.5 811.5Q555 840 480 840M520 464L620 564Q631 575 631 592Q631 609 620 620Q609 631 592 631Q575 631 564 620L452 508Q446 502 443 494.5Q440 487 440 479V320Q440 303 451.5 291.5Q463 280 480 280Q497 280 508.5 291.5Q520 303 520 320Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>history</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>settings.cache</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="image material path 0 0 960 960 composer.attachimage attachment.image">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M200 840Q167 840 143.5 816.5Q120 793 120 760V200Q120 167 143.5 143.5Q167 120 200 120H760Q793 120 816.5 143.5Q840 167 840 200V760Q840 793 816.5 816.5Q793 840 760 840ZM200 760H760V200H200V760M280 680H680Q692 680 698 669Q704 658 696 648L586 501Q580 493 570 493Q560 493 554 501L450 640L376 541Q370 533 360 533Q350 533 344 541L264 648Q256 658 262 669Q268 680 280 680" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>image</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>composer.attachImage</code><code>attachment.image</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="keyboard_arrow_down material path 0 0 960 960 chathome.pinnedfold.expand timeline.scrolltoend runtime.planexpand">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M452 588L268 404Q257 393 257 376Q257 359 268 348Q279 337 296 337Q313 337 324 348L480 504L636 348Q647 337 664 337Q681 337 692 348Q703 359 703 376Q703 393 692 404L508 588Q502 594 495 596.5Q488 599 480 599Q472 599 465 596.5Q458 594 452 588" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>keyboard_arrow_down</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>chatHome.pinnedFold.expand</code><code>timeline.scrollToEnd</code><code>runtime.planExpand</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="keyboard_arrow_up material path 0 0 960 960 chathome.pinnedfold.collapse runtime.plancollapse">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M480 432L324 588Q313 599 296 599Q279 599 268 588Q257 577 257 560Q257 543 268 532L452 348Q464 336 480 336Q496 336 508 348L692 532Q703 543 703 560Q703 577 692 588Q681 599 664 599Q647 599 636 588Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>keyboard_arrow_up</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>chatHome.pinnedFold.collapse</code><code>runtime.planCollapse</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="list_arrow material path 0 0 960 960 chathome.pinnedfold.leading">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M212 772L108 668Q97 657 96.5 640.5Q96 624 108 612Q119 601 135.5 600.5Q152 600 164 611L200 646V240Q200 223 211.5 211.5Q223 200 240 200Q257 200 268.5 211.5Q280 223 280 240V646L316 611Q327 600 343.5 600Q360 600 372 612Q383 623 383 640Q383 657 372 668L268 772Q262 778 255 780.5Q248 783 240 783Q232 783 225 780.5Q218 778 212 772M520 760Q503 760 491.5 748.5Q480 737 480 720Q480 703 491.5 691.5Q503 680 520 680H840Q857 680 868.5 691.5Q880 703 880 720Q880 737 868.5 748.5Q857 760 840 760ZM520 520Q503 520 491.5 508.5Q480 497 480 480Q480 463 491.5 451.5Q503 440 520 440H840Q857 440 868.5 451.5Q880 463 880 480Q880 497 868.5 508.5Q857 520 840 520ZM520 280Q503 280 491.5 268.5Q480 257 480 240Q480 223 491.5 211.5Q503 200 520 200H840Q857 200 868.5 211.5Q880 223 880 240Q880 257 868.5 268.5Q857 280 840 280Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>list_arrow</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>chatHome.pinnedFold.leading</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="open_in_new material path 0 0 960 960 timeline.reasknewconversation">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M200 840Q167 840 143.5 816.5Q120 793 120 760V200Q120 167 143.5 143.5Q167 120 200 120H440Q457 120 468.5 131.5Q480 143 480 160Q480 177 468.5 188.5Q457 200 440 200H200V760H760V520Q760 503 771.5 491.5Q783 480 800 480Q817 480 828.5 491.5Q840 503 840 520V760Q840 793 816.5 816.5Q793 840 760 840ZM760 256L416 600Q405 611 388 611Q371 611 360 600Q349 589 349 572Q349 555 360 544L704 200H600Q583 200 571.5 188.5Q560 177 560 160Q560 143 571.5 131.5Q583 120 600 120H800Q817 120 828.5 131.5Q840 143 840 160V360Q840 377 828.5 388.5Q817 400 800 400Q783 400 771.5 388.5Q760 377 760 360Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>open_in_new</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>timeline.reaskNewConversation</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="person material path 0 0 960 960 team.avatarfallback">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M480 480Q414 480 367 433Q320 386 320 320Q320 254 367 207Q414 160 480 160Q546 160 593 207Q640 254 640 320Q640 386 593 433Q546 480 480 480M160 720V688Q160 654 177.5 625.5Q195 597 224 582Q286 551 350 535.5Q414 520 480 520Q546 520 610 535.5Q674 551 736 582Q765 597 782.5 625.5Q800 654 800 688V720Q800 753 776.5 776.5Q753 800 720 800H240Q207 800 183.5 776.5Q160 753 160 720M240 720H720V688Q720 677 714.5 668Q709 659 700 654Q646 627 591 613.5Q536 600 480 600Q424 600 369 613.5Q314 627 260 654Q251 659 245.5 668Q240 677 240 688ZM480 400Q513 400 536.5 376.5Q560 353 560 320Q560 287 536.5 263.5Q513 240 480 240Q447 240 423.5 263.5Q400 287 400 320Q400 353 423.5 376.5Q447 400 480 400" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>person</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>team.avatarFallback</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="picture_as_pdf material path 0 0 960 960 attachment.filepdf">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M400 420H440Q457 420 468.5 408.5Q480 397 480 380V340Q480 323 468.5 311.5Q457 300 440 300H380Q372 300 366 306Q360 312 360 320V480Q360 488 366 494Q372 500 380 500Q388 500 394 494Q400 488 400 480ZM400 380V340H440V380ZM600 500Q617 500 628.5 488.5Q640 477 640 460V340Q640 323 628.5 311.5Q617 300 600 300H540Q532 300 526 306Q520 312 520 320V480Q520 488 526 494Q532 500 540 500ZM560 460V340H600V460ZM720 420H740Q748 420 754 414Q760 408 760 400Q760 392 754 386Q748 380 740 380H720V340H740Q748 340 754 334Q760 328 760 320Q760 312 754 306Q748 300 740 300H700Q692 300 686 306Q680 312 680 320V480Q680 488 686 494Q692 500 700 500Q708 500 714 494Q720 488 720 480ZM320 720Q287 720 263.5 696.5Q240 673 240 640V160Q240 127 263.5 103.5Q287 80 320 80H800Q833 80 856.5 103.5Q880 127 880 160V640Q880 673 856.5 696.5Q833 720 800 720ZM320 640H800V160H320V640M160 880Q127 880 103.5 856.5Q80 833 80 800V280Q80 263 91.5 251.5Q103 240 120 240Q137 240 148.5 251.5Q160 263 160 280V800H680Q697 800 708.5 811.5Q720 823 720 840Q720 857 708.5 868.5Q697 880 680 880Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>picture_as_pdf</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>attachment.filePdf</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="play_circle material path 0 0 960 960 composer.resume">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M426 630L621 505Q635 496 635 480Q635 464 621 455L426 330Q411 320 395.5 328.5Q380 337 380 355V605Q380 623 395.5 631.5Q411 640 426 630M480 880Q397 880 324 848.5Q251 817 197 763Q143 709 111.5 636Q80 563 80 480Q80 397 111.5 324Q143 251 197 197Q251 143 324 111.5Q397 80 480 80Q563 80 636 111.5Q709 143 763 197Q817 251 848.5 324Q880 397 880 480Q880 563 848.5 636Q817 709 763 763Q709 817 636 848.5Q563 880 480 880M480 800Q614 800 707 707Q800 614 800 480Q800 346 707 253Q614 160 480 160Q346 160 253 253Q160 346 160 480Q160 614 253 707Q346 800 480 800" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>play_circle</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>composer.resume</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="psychology material path 0 0 960 960 runtime.reasoning">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M434 550L438 582Q439 590 444.5 595Q450 600 458 600H502Q510 600 515.5 595Q521 590 522 582L526 550Q534 547 540.5 543Q547 539 552 534L582 547Q589 550 596 548Q603 546 607 539L629 501Q633 494 631.5 487Q630 480 624 475L598 456Q600 448 600 440Q600 432 598 424L624 405Q630 400 631.5 393Q633 386 629 379L607 341Q603 334 596 332Q589 330 582 333L552 346Q547 341 540.5 337Q534 333 526 330L522 298Q521 290 515.5 285Q510 280 502 280H458Q450 280 444.5 285Q439 290 438 298L434 330Q426 333 419.5 337Q413 341 408 346L378 333Q371 330 364 332Q357 334 353 341L331 379Q327 386 328.5 393Q330 400 336 405L362 424Q360 432 360 440Q360 448 362 456L336 475Q330 480 328.5 487Q327 494 331 501L353 539Q357 546 364 548Q371 550 378 547L408 534Q413 539 419.5 543Q426 547 434 550M480 500Q455 500 437.5 482.5Q420 465 420 440Q420 415 437.5 397.5Q455 380 480 380Q505 380 522.5 397.5Q540 415 540 440Q540 465 522.5 482.5Q505 500 480 500M240 708Q183 656 151.5 586.5Q120 517 120 440Q120 290 225 185Q330 80 480 80Q605 80 701.5 153.5Q798 227 827 345L879 550Q884 569 872 584.5Q860 600 840 600H760V720Q760 753 736.5 776.5Q713 800 680 800H600V840Q600 857 588.5 868.5Q577 880 560 880Q543 880 531.5 868.5Q520 857 520 840V760Q520 743 531.5 731.5Q543 720 560 720H680V560Q680 543 691.5 531.5Q703 520 720 520H788L750 365Q727 274 652 217Q577 160 480 160Q364 160 282 241Q200 322 200 438Q200 498 224.5 552Q249 606 294 648L320 672V840Q320 857 308.5 868.5Q297 880 280 880Q263 880 251.5 868.5Q240 857 240 840Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>psychology</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>runtime.reasoning</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="question_answer material path 0 0 960 960 runtime.awaiting">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M840 824Q832 824 825 821Q818 818 812 812L720 720H320Q287 720 263.5 696.5Q240 673 240 640V600H680Q713 600 736.5 576.5Q760 553 760 520V240H800Q833 240 856.5 263.5Q880 287 880 320V783Q880 801 868 812.5Q856 824 840 824M160 487L207 440H600V160H160ZM120 624Q104 624 92 612.5Q80 601 80 583V160Q80 127 103.5 103.5Q127 80 160 80H600Q633 80 656.5 103.5Q680 127 680 160V440Q680 473 656.5 496.5Q633 520 600 520H240L148 612Q142 618 135 621Q128 624 120 624" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>question_answer</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>runtime.awaiting</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="refresh material path 0 0 960 960 chatdetail.wondersrefresh timeline.reask">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M480 800Q346 800 253 707Q160 614 160 480Q160 346 253 253Q346 160 480 160Q549 160 612 188.5Q675 217 720 270V200Q720 183 731.5 171.5Q743 160 760 160Q777 160 788.5 171.5Q800 183 800 200V400Q800 417 788.5 428.5Q777 440 760 440H560Q543 440 531.5 428.5Q520 417 520 400Q520 383 531.5 371.5Q543 360 560 360H688Q656 304 600.5 272Q545 240 480 240Q380 240 310 310Q240 380 240 480Q240 580 310 650Q380 720 480 720Q548 720 604.5 685.5Q661 651 692 593Q700 579 714.5 573.5Q729 568 744 573Q760 578 767 594Q774 610 766 624Q725 704 649 752Q573 800 480 800" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>refresh</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>chatDetail.wondersRefresh</code><code>timeline.reask</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="reply material path 0 -960 960 960 timeline.requestrail">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 -960 960 960" fill="none"><path d="M760-200v-160q0-50-35-85t-85-35H273l144 144-57 56-240-240 240-240 57 56-144 144h367q83 0 141.5 58.5T840-360v160h-80Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>reply</h2>
+          <p>material path · 0 -960 960 960</p>
+          <div class="usages"><code>timeline.requestRail</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="search material path 0 0 960 960 chathome.search">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M380 640Q271 640 195.5 564.5Q120 489 120 380Q120 271 195.5 195.5Q271 120 380 120Q489 120 564.5 195.5Q640 271 640 380Q640 424 626 463Q612 502 588 532L812 756Q823 767 823 784Q823 801 812 812Q801 823 784 823Q767 823 756 812L532 588Q502 612 463 626Q424 640 380 640M380 560Q455 560 507.5 507.5Q560 455 560 380Q560 305 507.5 252.5Q455 200 380 200Q305 200 252.5 252.5Q200 305 200 380Q200 455 252.5 507.5Q305 560 380 560" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>search</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>chatHome.search</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="slideshow material path 0 0 960 960 attachment.filepresentation">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M634 497Q643 491 643 480Q643 469 634 463L411 320Q401 313 390.5 319Q380 325 380 337V623Q380 635 390.5 641Q401 647 411 640ZM200 840Q167 840 143.5 816.5Q120 793 120 760V200Q120 167 143.5 143.5Q167 120 200 120H760Q793 120 816.5 143.5Q840 167 840 200V760Q840 793 816.5 816.5Q793 840 760 840ZM200 760H760V200H200V760" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>slideshow</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>attachment.filePresentation</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="smart_toy material path 0 0 960 960 timeline.defaultrail runtime.neutral">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M160 600Q110 600 75 565Q40 530 40 480Q40 430 75 395Q110 360 160 360V280Q160 247 183.5 223.5Q207 200 240 200H360Q360 150 395 115Q430 80 480 80Q530 80 565 115Q600 150 600 200H720Q753 200 776.5 223.5Q800 247 800 280V360Q850 360 885 395Q920 430 920 480Q920 530 885 565Q850 600 800 600V760Q800 793 776.5 816.5Q753 840 720 840H240Q207 840 183.5 816.5Q160 793 160 760ZM360 520Q385 520 402.5 502.5Q420 485 420 460Q420 435 402.5 417.5Q385 400 360 400Q335 400 317.5 417.5Q300 435 300 460Q300 485 317.5 502.5Q335 520 360 520M600 520Q625 520 642.5 502.5Q660 485 660 460Q660 435 642.5 417.5Q625 400 600 400Q575 400 557.5 417.5Q540 435 540 460Q540 485 557.5 502.5Q575 520 600 520M360 680H600Q617 680 628.5 668.5Q640 657 640 640Q640 623 628.5 611.5Q617 600 600 600H360Q343 600 331.5 611.5Q320 623 320 640Q320 657 331.5 668.5Q343 680 360 680M240 760H720V280H240V760" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>smart_toy</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>timeline.defaultRail</code><code>runtime.neutral</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="stop_circle material path 0 0 960 960 composer.stop">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M360 640H600Q617 640 628.5 628.5Q640 617 640 600V360Q640 343 628.5 331.5Q617 320 600 320H360Q343 320 331.5 331.5Q320 343 320 360V600Q320 617 331.5 628.5Q343 640 360 640M480 880Q397 880 324 848.5Q251 817 197 763Q143 709 111.5 636Q80 563 80 480Q80 397 111.5 324Q143 251 197 197Q251 143 324 111.5Q397 80 480 80Q563 80 636 111.5Q709 143 763 197Q817 251 848.5 324Q880 397 880 480Q880 563 848.5 636Q817 709 763 763Q709 817 636 848.5Q563 880 480 880M480 800Q614 800 707 707Q800 614 800 480Q800 346 707 253Q614 160 480 160Q346 160 253 253Q160 346 160 480Q160 614 253 707Q346 800 480 800" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>stop_circle</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>composer.stop</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="table_chart material path 0 0 960 960 attachment.filesheet">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 960 960" fill="none"><path d="M760 840H200Q167 840 143.5 816.5Q120 793 120 760V200Q120 167 143.5 143.5Q167 120 200 120H760Q793 120 816.5 143.5Q840 167 840 200V760Q840 793 816.5 816.5Q793 840 760 840M200 320H760V200H200ZM300 400H200V760H300ZM660 400V760H760V400ZM580 400H380V760H580Z" fill="currentColor"/></svg></div>
+        <div class="meta">
+          <h2>table_chart</h2>
+          <p>material path · 0 0 960 960</p>
+          <div class="usages"><code>attachment.fileSheet</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="spark outline stroke 0 0 24 24 preview.terminalaction settings.openpanel awaiting.resume">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 4.7 13.7 9l4.3 1.7-4.3 1.7-1.7 4.3-1.7-4.3L6 10.7 10.3 9 12 4.7Z" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="meta">
+          <h2>spark</h2>
+          <p>outline stroke · 0 0 24 24</p>
+          <div class="usages"><code>preview.terminalAction</code><code>settings.openPanel</code><code>awaiting.resume</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="moon outline stroke 0 0 24 24 settings.theme">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M17.8 15.4A7.4 7.4 0 0 1 8.6 6.2 7.4 7.4 0 1 0 17.8 15.4Z" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="meta">
+          <h2>moon</h2>
+          <p>outline stroke · 0 0 24 24</p>
+          <div class="usages"><code>settings.theme</code></div>
+        </div>
+      </article>
+      <article class="icon-card" data-search="warning outline stroke 0 0 24 24 timeline.systemalertrail">
+        <div class="preview"><svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><path d="M12 3.8 21 19.2H3L12 3.8Z" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 9.2v4.2" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 16.6h.01" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+        <div class="meta">
+          <h2>warning</h2>
+          <p>outline stroke · 0 0 24 24</p>
+          <div class="usages"><code>timeline.systemAlertRail</code></div>
+        </div>
+      </article>
+    </section>
+  </main>
+  <script>
+    const searchInput = document.getElementById('search');
+    const cards = Array.from(document.querySelectorAll('.icon-card'));
+    searchInput.addEventListener('input', () => {
+      const query = searchInput.value.trim().toLowerCase();
+      for (const card of cards) {
+        card.classList.toggle('hidden', query && !card.dataset.search.includes(query));
+      }
+    });
+  </script>
+</body>
+</html>

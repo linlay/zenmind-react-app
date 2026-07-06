@@ -108,6 +108,14 @@ export type ChatDirectoryPage = {
   pageSize: number;
 };
 
+export type ChatDirectorySearchPage = {
+  items: ChatDirectoryItem[];
+  query: string;
+  offset: number;
+  pageSize: number;
+  hasMore: boolean;
+};
+
 export type ChatDirectorySnapshot = {
   version: 1;
   updatedAt: number;

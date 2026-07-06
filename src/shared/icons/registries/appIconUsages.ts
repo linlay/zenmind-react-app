@@ -40,7 +40,7 @@ export const appIconUsages = {
   'preview.driveFiles': { glyph: 'drive', colorRole: 'brand', sizeRole: 'md' },
   'preview.driveReference': { glyph: 'chat', colorRole: 'brand', sizeRole: 'md' },
 
-  'chatHome.openDirectory': { glyph: 'folder_open', colorRole: 'brand', sizeRole: 'lg' },
+  'chatHome.openDirectory': { glyph: 'menu', colorRole: 'brand', sizeRole: 'lg' },
   'chatHome.search': { glyph: 'search', colorRole: 'brand', sizeRole: 'lg' },
   'chatHome.add': { glyph: 'edit_square', colorRole: 'brand', sizeRole: 'md' },
   'chatHome.rowPinned': {
@@ -93,6 +93,9 @@ export const appIconUsages = {
     sizeRole: 'md',
   },
   'directoryPicker.close': { glyph: 'close', colorRole: 'primary', sizeRole: 'md' },
+
+  'chatSearch.clear': { glyph: 'close', colorRole: 'secondary', sizeRole: 'sm' },
+  'chatSearch.close': { glyph: 'close', colorRole: 'primary', sizeRole: 'md' },
 
   'historyDrawer.markAllRead': { glyph: 'done_all', colorRole: 'brand', sizeRole: 'sm' },
   'historyDrawer.close': { glyph: 'close', colorRole: 'primary', sizeRole: 'md' },
