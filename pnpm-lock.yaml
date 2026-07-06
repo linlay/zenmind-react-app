@@ -2,6 +2,7 @@ lockfileVersion: 5.4
 
 specifiers:
   '@babel/core': 7.29.7
+  '@babel/plugin-transform-react-jsx': 7.29.7
   '@babel/preset-typescript': 7.29.7
   '@babel/runtime': 7.29.7
   '@react-native/metro-config': 0.85.3
@@ -90,6 +91,7 @@ dependencies:
 
 devDependencies:
   '@babel/core': 7.29.7
+  '@babel/plugin-transform-react-jsx': 7.29.7_@babel+core@7.29.7
   '@babel/preset-typescript': 7.29.7_@babel+core@7.29.7
   '@babel/runtime': 7.29.7
   '@react-native/metro-config': 0.85.3_@babel+core@7.29.7
