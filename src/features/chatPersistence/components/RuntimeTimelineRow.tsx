@@ -3,22 +3,24 @@ import {
   Animated,
   Easing,
   Pressable,
-  StyleSheet,
   Text,
-  type StyleProp,
   View,
-  type ViewStyle,
 } from 'react-native';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens, type AppVisualColors } from '../../../shared/visual/foundation';
+import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
+import { type AppVisualColors } from '../../../shared/visual/foundation';
 import type {
   ChatTimelineAssistantReplyFooterDisplayItem,
   ChatTimelineDisplayItem,
 } from '../../chatTimeline/index.ts';
 import { ChatTimelineRail } from './ChatTimelineRail';
+import {
+  RuntimePlanningBlock,
+  type RuntimePlanningBlockMode,
+  type RuntimePlanningCollapseOverlayRequest,
+} from './RuntimePlanningBlock';
 import { RuntimePayloadFrame } from './RuntimePayloadFrame';
 import { buildRuntimePayloadDescriptor, type RuntimePayloadDescriptor } from './runtimePayloadDescriptor';
 import { RuntimePayloadContent } from './runtimePayloadRenderers';
@@ -29,10 +31,25 @@ type RuntimeTimelineRowProps = {
   onCopyText: (text: string) => void;
   getInitialExpanded: (nodeId: string, fallback: boolean) => boolean;
   onExpandedChange: (nodeId: string, expanded: boolean) => void;
+  getInitialPlanningMode: (nodeId: string) => RuntimePlanningBlockMode;
+  onPlanningCollapseOverlayChange: (nodeId: string, overlay: RuntimePlanningCollapseOverlayRequest | null) => void;
+  onPlanningModeChange: (nodeId: string, mode: RuntimePlanningBlockMode) => void;
 };
 
 const TOOL_STATUS_FLASH_DURATION_MS = 1000;
 const REASONING_LOADING_DURATION_MS = 900;
+const TIMELINE_ROW_CLASS = 'mb-4 flex-row items-stretch gap-2';
+const TIMELINE_BODY_CLASS = 'min-w-0 flex-1';
+const RUNTIME_BLOCK_CLASS = 'self-stretch';
+const RUNTIME_HEADER_CLASS = 'min-h-[28px] flex-row items-center gap-[7px]';
+const RUNTIME_HEADER_PRESSABLE_CLASS = 'min-h-[28px] flex-row items-center gap-[7px] active:opacity-[0.72]';
+const RUNTIME_HEADER_LEADING_CLASS = 'min-w-0 flex-1 flex-row items-center gap-[7px]';
+const RUNTIME_TITLE_CLASS = 'min-w-0 shrink text-[14px] font-bold leading-5 text-app-primary';
+const TOOL_STATUS_DOTS_CLASS = 'shrink-0 flex-row items-center gap-[7px]';
+const TOOL_STATUS_DOT_CLASS = 'h-[7px] w-[7px] rounded-app-pill';
+const REASONING_LOADING_DOTS_CLASS = 'shrink-0 flex-row items-center gap-1';
+const REASONING_LOADING_DOT_CLASS = 'h-1 w-1 rounded-app-pill';
+const FOLD_BUTTON_CLASS = 'h-[28px] w-[28px] items-center justify-center rounded-app-sm';
 
 function getToneColor(colors: AppVisualColors, tone: RuntimePayloadDescriptor['tone']): string {
   if (tone === 'reasoning') {
@@ -50,11 +67,9 @@ function getToneColor(colors: AppVisualColors, tone: RuntimePayloadDescriptor['t
 const RunningToolStatusDot = memo(function RunningToolStatusDot({
   accessibilityLabel,
   color,
-  baseStyle
 }: {
   accessibilityLabel: string;
   color: string;
-  baseStyle: StyleProp<ViewStyle>;
 }) {
   const progress = useRef(new Animated.Value(0)).current;
 
@@ -85,7 +100,8 @@ const RunningToolStatusDot = memo(function RunningToolStatusDot({
   return (
     <Animated.View
       accessibilityLabel={accessibilityLabel}
-      style={[baseStyle, { backgroundColor: color }, { opacity }]}
+      className={TOOL_STATUS_DOT_CLASS}
+      style={[{ backgroundColor: color }, { opacity }]}
     />
   );
 });
@@ -97,7 +113,6 @@ const ReasoningInlineLoading = memo(function ReasoningInlineLoading({
   accessibilityLabel: string;
   color: string;
 }) {
-  const styles = useAppThemeStyles(createStyles);
   const progress = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -120,7 +135,7 @@ const ReasoningInlineLoading = memo(function ReasoningInlineLoading({
   }, [progress]);
 
   return (
-    <View accessibilityLabel={accessibilityLabel} style={styles.reasoningLoadingDots}>
+    <View accessibilityLabel={accessibilityLabel} className={REASONING_LOADING_DOTS_CLASS}>
       {[0, 1, 2].map((index) => {
         const opacity = progress.interpolate({
           inputRange: [0, 0.33, 0.66, 1],
@@ -134,7 +149,8 @@ const ReasoningInlineLoading = memo(function ReasoningInlineLoading({
         return (
           <Animated.View
             key={index}
-            style={[styles.reasoningLoadingDot, { backgroundColor: color, opacity }]}
+            className={REASONING_LOADING_DOT_CLASS}
+            style={[{ backgroundColor: color, opacity }]}
           />
         );
       })}
@@ -146,11 +162,13 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
   item,
   onCopyText,
   getInitialExpanded,
-  onExpandedChange
+  onExpandedChange,
+  getInitialPlanningMode,
+  onPlanningCollapseOverlayChange,
+  onPlanningModeChange,
 }: RuntimeTimelineRowProps) {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const descriptor = useMemo(
     () => buildRuntimePayloadDescriptor(item.kind === 'tool-group' ? item : item.node, t),
     [item, t]
@@ -177,12 +195,26 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
     (wrap: boolean) => <RuntimePayloadContent descriptor={descriptor} wrap={wrap} />,
     [descriptor]
   );
+
+  if (descriptor.kind === 'planning') {
+    return (
+      <RuntimePlanningBlock
+        descriptor={descriptor}
+        isLastInRun={item.isLastInRun}
+        getInitialMode={getInitialPlanningMode}
+        onCopyText={onCopyText}
+        onCollapseOverlayChange={onPlanningCollapseOverlayChange}
+        onModeChange={onPlanningModeChange}
+      />
+    );
+  }
+
   const showToolStatusDots = descriptor.toolRecords.length > 0;
   const showReasoningLoading = descriptor.kind === 'reasoning' && descriptor.statusTone === 'active' && !expanded;
   const headerContent = (
     <>
-      <View style={styles.runtimeHeaderLeading}>
-        <Text allowFontScaling={false} numberOfLines={1} style={styles.runtimeTitle}>
+      <View className={RUNTIME_HEADER_LEADING_CLASS}>
+        <Text allowFontScaling={false} numberOfLines={1} className={RUNTIME_TITLE_CLASS}>
           {descriptor.title}
         </Text>
         {showReasoningLoading ? (
@@ -192,7 +224,7 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
           />
         ) : null}
         {showToolStatusDots ? (
-          <View style={styles.toolStatusDots}>
+          <View className={TOOL_STATUS_DOTS_CLASS}>
             {descriptor.toolRecords.map((record) => {
               const color = getRuntimeToolStatusColor(theme.colors, record.status);
               const accessibilityLabel = `${record.title}${record.statusLabel}`;
@@ -201,7 +233,6 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
                   <RunningToolStatusDot
                     key={record.key}
                     accessibilityLabel={accessibilityLabel}
-                    baseStyle={styles.toolStatusDot}
                     color={color}
                   />
                 );
@@ -210,7 +241,8 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
                 <View
                   key={record.key}
                   accessibilityLabel={accessibilityLabel}
-                  style={[styles.toolStatusDot, { backgroundColor: color }]}
+                  className={TOOL_STATUS_DOT_CLASS}
+                  style={{ backgroundColor: color }}
                 />
               );
             })}
@@ -218,7 +250,7 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
         ) : null}
       </View>
       {descriptor.canExpand ? (
-        <View style={styles.foldButton}>
+        <View className={FOLD_BUTTON_CLASS}>
           <AppIcon usage={expanded ? 'runtime.collapse' : 'runtime.expand'} />
         </View>
       ) : null}
@@ -226,25 +258,25 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
   );
 
   return (
-    <View style={styles.timelineRow}>
+    <View className={TIMELINE_ROW_CLASS}>
       <ChatTimelineRail
         iconUsage={descriptor.iconUsage}
         terminal={item.isLastInRun}
         toneColor={getToneColor(theme.colors, descriptor.tone)}
       />
-      <View style={styles.timelineBody}>
-        <View style={styles.runtimeBlock}>
+      <View className={TIMELINE_BODY_CLASS}>
+        <View className={RUNTIME_BLOCK_CLASS}>
           {descriptor.canExpand ? (
             <Pressable
               accessibilityLabel={expanded ? t('timeline.collapseContent') : t('timeline.expandContent')}
               accessibilityRole="button"
               onPress={handleToggle}
-              style={({ pressed }) => [styles.runtimeHeader, pressed && styles.rowPressed]}
+              className={RUNTIME_HEADER_PRESSABLE_CLASS}
             >
               {headerContent}
             </Pressable>
           ) : (
-            <View style={styles.runtimeHeader}>{headerContent}</View>
+            <View className={RUNTIME_HEADER_CLASS}>{headerContent}</View>
           )}
 
           {expanded && descriptor.canExpand ? (
@@ -261,74 +293,3 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
     </View>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    timelineRow: {
-      flexDirection: 'row',
-      alignItems: 'stretch',
-      gap: 8,
-      marginBottom: 16
-    },
-    timelineBody: {
-      flex: 1,
-      minWidth: 0
-    },
-    runtimeBlock: {
-      alignSelf: 'stretch'
-    },
-    runtimeHeader: {
-      minHeight: 28,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 7
-    },
-    runtimeHeaderLeading: {
-      flex: 1,
-      minWidth: 0,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 7
-    },
-    runtimeTitle: {
-      flexShrink: 1,
-      minWidth: 0,
-      fontSize: 14,
-      lineHeight: 20,
-      fontWeight: '700',
-      color: theme.colors.textPrimary
-    },
-    toolStatusDots: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 7,
-      flexShrink: 0
-    },
-    toolStatusDot: {
-      width: 7,
-      height: 7,
-      borderRadius: appVisualTokens.radii.pill
-    },
-    reasoningLoadingDots: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-      flexShrink: 0
-    },
-    reasoningLoadingDot: {
-      width: 4,
-      height: 4,
-      borderRadius: appVisualTokens.radii.pill
-    },
-    foldButton: {
-      width: 28,
-      height: 28,
-      borderRadius: appVisualTokens.radii.sm,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    rowPressed: {
-      opacity: 0.72
-    }
-  });
-}

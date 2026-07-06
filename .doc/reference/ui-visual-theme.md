@@ -37,7 +37,7 @@
 | 辅助文本 | `textSecondary` | `#c1c6d7` | 描述、详情 |
 | 弱文本 | `textTertiary` | `#8b90a0` | 时间、占位、禁用 |
 
-唯一主题 token 来源：`src/shared/visual/foundation.ts`。运行时主题入口是 `src/shared/visual/AppThemeProvider.tsx`，偏好支持 `system` / `light` / `dark`；`system` 只解析为当前系统的 light/dark 生效主题，不新增第三套颜色 token，并通过 MMKV 同步读取用户偏好以避免首帧闪烁。
+唯一主题 token 来源：`src/shared/visual/foundation.tokens.json`，`src/shared/visual/foundation.ts` 从该 JSON 派生运行时 token，`tailwind.config.js` 从同一份 JSON 派生 NativeWind/Tailwind 语义 class token。运行时主题入口是 `src/shared/visual/AppThemeProvider.tsx`，偏好支持 `system` / `light` / `dark`；`system` 只解析为当前系统的 light/dark 生效主题，不新增第三套颜色 token，并通过 MMKV 同步读取用户偏好以避免首帧闪烁，同时同步 NativeWind color scheme 让未来 Tailwind 静态样式跟随主题切换。
 
 ## 2. 布局
 
@@ -60,7 +60,8 @@
 - 高频长列表默认平面化，不给每一行叠阴影、渐变或厚重 elevation。
 - 列表容器优先复用 `PaginatedCardList`，保持固定项高和统一分页行为。
 - 视觉层次优先落在头像色块、标题粗细、摘要灰度和右侧时间/未读区，不靠每个 item 单独造重层级。
-- 高频组件必须使用 `useAppThemeStyles(createStyles)` 复用 StyleSheet 缓存；不要在列表 item render 内临时拼整套样式对象。
+- 静态样式默认优先使用 NativeWind/Tailwind `className` 常量；保留 `style` 时必须能归因为真实动态值、动画值、运行时测量、safe area / tab bar / keyboard inset、服务端/品牌/头像动态颜色、WebView/CameraView/FlashList/公开 `style` API 或阴影 `shadowColor` / elevation。
+- 高频组件不要在列表 item render 内临时拼整套样式对象；有限状态用稳定 className 分支或 `cn(...)` 合并，动态 style 保持最小对象。
 - 主题切换只换 token 引用，不新增跨 screen 的主题状态和订阅，不触碰 SQLite、WebSocket 或业务缓存。
 
 ## 5. 复用入口
@@ -68,6 +69,7 @@
 改 UI 时优先从这些入口收口：
 
 - `src/shared/visual/foundation.ts`
+- `src/shared/visual/foundation.tokens.json`
 - `src/shared/visual/AppThemeProvider.tsx`
 - `src/shared/visual/themePreference.ts`
 - `src/shared/visual/AppLineIcon.tsx`
@@ -85,7 +87,8 @@
 
 ## 7. 改 UI 时的快速检查
 
-- 是否先复用了 `appVisualTokens` / `appThemeTokens` / `useAppThemeStyles`，而不是直接写颜色字面量？
+- 静态样式是否优先使用 NativeWind/Tailwind `className`，而不是新增 `StyleSheet.create`？
+- 是否先复用了 `appVisualTokens` / `appThemeTokens` / Tailwind 语义 class token，而不是直接写颜色字面量？
 - 实心主操作是否使用 `brandBlueAction` / `onBrandBlueAction`，而不是把 `brandBlue` 同时当按钮底色？
 - Header 是否固定在滚动区外？
 - 底部留白是否来自真实 `tab bar height` / `safe area`？

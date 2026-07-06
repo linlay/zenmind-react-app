@@ -1,9 +1,8 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { useT } from '../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../shared/visual/foundation';
+import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { AppScreenFrame } from './AppScreenFrame';
 
 type PreviewCardProps = {
@@ -13,19 +12,25 @@ type PreviewCardProps = {
   body: string;
 };
 
-function PreviewCard({ iconUsage, eyebrow, title, body }: PreviewCardProps) {
-  const styles = useAppThemeStyles(createStyles);
+const PREVIEW_STACK_CLASS = 'border-t border-app-line';
+const PREVIEW_CARD_CLASS = 'flex-row items-start gap-app-lg border-b border-app-line py-app-lg';
+const PREVIEW_ICON_SHELL_CLASS = 'h-11 w-11 items-center justify-center rounded-app-pill bg-app-brand-blue-soft';
+const PREVIEW_TEXT_BLOCK_CLASS = 'flex-1 gap-0.5 pt-0.5';
+const PREVIEW_EYEBROW_CLASS = 'text-app-caption font-semibold text-app-brand-blue';
+const PREVIEW_TITLE_CLASS = 'text-app-title-sm font-bold text-app-primary';
+const PREVIEW_BODY_CLASS = 'text-[14px] leading-[21px] text-app-secondary';
 
+function PreviewCard({ iconUsage, eyebrow, title, body }: PreviewCardProps) {
   return (
-    <View style={styles.previewCard}>
-      <View style={styles.previewIconShell}>
+    <View className={PREVIEW_CARD_CLASS}>
+      <View className={PREVIEW_ICON_SHELL_CLASS}>
         <AppIcon usage={iconUsage} />
       </View>
 
-      <View style={styles.previewTextBlock}>
-        <Text style={styles.previewEyebrow}>{eyebrow}</Text>
-        <Text style={styles.previewTitle}>{title}</Text>
-        <Text style={styles.previewBody}>{body}</Text>
+      <View className={PREVIEW_TEXT_BLOCK_CLASS}>
+        <Text className={PREVIEW_EYEBROW_CLASS}>{eyebrow}</Text>
+        <Text className={PREVIEW_TITLE_CLASS}>{title}</Text>
+        <Text className={PREVIEW_BODY_CLASS}>{body}</Text>
       </View>
     </View>
   );
@@ -34,7 +39,6 @@ function PreviewCard({ iconUsage, eyebrow, title, body }: PreviewCardProps) {
 export function DriveScreen() {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
 
   return (
     <AppScreenFrame
@@ -43,7 +47,7 @@ export function DriveScreen() {
       description={t('drive.description')}
       accentColor={theme.colors.brandBlue}
     >
-      <View style={styles.previewStack}>
+      <View className={PREVIEW_STACK_CLASS}>
         <PreviewCard
           iconUsage="preview.driveFiles"
           eyebrow={t('drive.files.eyebrow')}
@@ -59,50 +63,4 @@ export function DriveScreen() {
       </View>
     </AppScreenFrame>
   );
-}
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    previewStack: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: theme.colors.line
-    },
-    previewCard: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: appVisualTokens.spacing.lg,
-      paddingVertical: appVisualTokens.spacing.lg,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line
-    },
-    previewIconShell: {
-      width: 44,
-      height: 44,
-      borderRadius: appVisualTokens.radii.pill,
-      backgroundColor: theme.colors.brandBlueSoft,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    previewTextBlock: {
-      flex: 1,
-      gap: 2,
-      paddingTop: 2
-    },
-    previewEyebrow: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: theme.colors.brandBlue
-    },
-    previewTitle: {
-      fontSize: 17,
-      lineHeight: 23,
-      fontWeight: '700',
-      color: theme.colors.textPrimary
-    },
-    previewBody: {
-      fontSize: 14,
-      lineHeight: 21,
-      color: theme.colors.textSecondary
-    }
-  });
 }

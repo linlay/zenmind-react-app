@@ -2,7 +2,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { memo, ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, TextInput, View, type ViewStyle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { RootStackParamList } from '../../app/navigation/types';
@@ -10,8 +10,9 @@ import type { KanbanIssue } from '../../core/api/services/kanbanApi';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { type I18nKey, useT } from '../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
-import { appVisualTokens, getAvatarLabel, getAvatarTone, type AppThemeTokens } from '../../shared/visual/foundation';
+import { useAppTheme } from '../../shared/visual/AppThemeProvider';
+import { cn } from '../../shared/visual/className';
+import { appVisualTokens, getAvatarLabel, getAvatarTone } from '../../shared/visual/foundation';
 import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
 import { useAgentTaskBoard } from './AgentTaskBoardProvider';
 import { buildKanbanChatDetailParams } from './kanbanChatRoute';
@@ -66,38 +67,155 @@ const STAGE_LABEL_KEYS: Record<TaskStage, I18nKey> = {
 
 const TASK_PRIORITIES = ['high', 'medium', 'low'] as const satisfies readonly TaskPriority[];
 
-function getPriorityColor(theme: AppThemeTokens, priority: TaskPriority): string {
-  if (priority === 'high') {
-    return theme.colors.danger;
-  }
-  if (priority === 'medium') {
-    return theme.colors.warning;
-  }
-  return theme.colors.success;
-}
+type StatusPillTone = 'brand' | 'warning' | 'danger';
 
-function getStageColor(theme: AppThemeTokens, stage: TaskStage): string {
-  if (stage === 'intake') {
-    return theme.colors.textSecondary;
-  }
-  if (stage === 'assigned' || stage === 'running') {
-    return theme.colors.brandBlue;
-  }
-  if (stage === 'review') {
-    return theme.colors.warning;
-  }
-  return theme.colors.success;
-}
+const SCREEN_CLASS = 'flex-1 bg-app-surface';
+const HEADER_SAFE_AREA_CLASS = 'bg-app-surface';
+const SCROLL_VIEW_CLASS = 'flex-1';
+const HOME_LIST_CONTENT_STYLE = {
+  paddingHorizontal: appVisualTokens.spacing.xl,
+  paddingTop: appVisualTokens.spacing.lg
+} satisfies ViewStyle;
+const SECONDARY_CONTENT_CLASS = 'gap-app-xl px-app-xl pt-app-lg';
+const ACTIVE_OPACITY_CLASS = 'active:opacity-[0.62]';
+const DISABLED_CLASS = 'opacity-[0.45]';
+const HEADER_ACTION_BUTTON_CLASS = `h-10 w-10 items-center justify-center rounded-app-pill ${ACTIVE_OPACITY_CLASS}`;
+const HOME_HEADER_CLASS = 'gap-app-xl';
+const HERO_BLOCK_CLASS = 'gap-app-lg border-b border-app-line pb-app-lg';
+const HERO_TITLE_ROW_CLASS = 'flex-row items-start gap-app-lg';
+const HERO_TEXT_BLOCK_CLASS = 'min-w-0 flex-1 gap-app-sm';
+const HERO_EYEBROW_CLASS = 'text-app-caption font-bold text-app-brand-blue';
+const HERO_TITLE_CLASS = 'text-app-display-sm font-extrabold text-app-primary';
+const HERO_BODY_CLASS = 'text-app-body text-app-secondary';
+const HERO_COUNT_BLOCK_CLASS =
+  'min-h-[74px] w-[74px] items-center justify-center rounded-app-sm bg-app-brand-blue-soft';
+const HERO_COUNT_VALUE_CLASS = 'text-app-display font-extrabold text-app-brand-blue';
+const HERO_COUNT_LABEL_CLASS = 'text-app-caption font-bold text-app-brand-blue';
+const HERO_ACTION_ROW_CLASS = 'flex-row gap-app-sm';
+const BUTTON_CLASS =
+  'min-h-[42px] flex-1 items-center justify-center rounded-app-md px-app-md active:opacity-[0.62]';
+const BUTTON_PRIMARY_CLASS = 'bg-app-action';
+const BUTTON_SECONDARY_CLASS = 'border border-app-line-strong bg-app-surface';
+const BUTTON_DANGER_CLASS = 'border border-app-danger-line bg-app-danger-soft';
+const BUTTON_TEXT_CLASS = 'text-app-body-sm font-extrabold text-app-primary';
+const BUTTON_TEXT_PRIMARY_CLASS = 'text-app-on-action';
+const BUTTON_TEXT_DANGER_CLASS = 'text-app-danger';
+const STATUS_ROW_CLASS = 'flex-row gap-app-sm';
+const STATUS_PILL_CLASS =
+  'min-h-[38px] flex-1 flex-row items-center justify-center gap-app-xs rounded-app-pill bg-app-surface-muted';
+const STATUS_DOT_CLASS = 'h-[7px] w-[7px] rounded-app-pill';
+const STATUS_PILL_LABEL_CLASS = 'text-app-caption text-app-secondary';
+const STATUS_PILL_VALUE_CLASS = 'text-app-footnote font-extrabold text-app-primary';
+const QUEUE_SWITCH_CLASS = 'flex-row rounded-app-md bg-app-surface-muted p-[3px]';
+const QUEUE_SWITCH_ITEM_CLASS =
+  'min-h-9 flex-1 items-center justify-center rounded-app-sm active:opacity-[0.62]';
+const QUEUE_SWITCH_ITEM_SELECTED_CLASS = 'bg-app-surface';
+const QUEUE_SWITCH_TEXT_CLASS = 'text-app-footnote font-extrabold text-app-secondary';
+const QUEUE_SWITCH_TEXT_SELECTED_CLASS = 'text-app-brand-blue';
+const SECTION_BLOCK_CLASS = 'gap-app-md';
+const SECTION_HEADER_CLASS = 'flex-row items-center justify-between gap-app-md';
+const SECTION_TITLE_CLASS = 'text-app-title-sm font-extrabold text-app-primary';
+const SECTION_META_CLASS = 'text-app-caption text-app-secondary';
+const STATE_BLOCK_CLASS = 'gap-app-sm py-app-lg';
+const STATE_TITLE_CLASS = 'text-app-body font-extrabold text-app-primary';
+const STATE_BODY_CLASS = 'text-[13px] leading-[19px] text-app-secondary';
+const TASK_ROW_CLASS = 'min-h-[104px] flex-row items-stretch gap-app-md border-b border-app-line py-app-md';
+const TASK_STAGE_BAR_CLASS = 'w-1 rounded-app-pill';
+const TASK_ROW_MAIN_CLASS = 'min-w-0 flex-1 justify-center gap-app-xs rounded-app-sm active:bg-app-surface-muted';
+const TASK_ROW_TITLE_LINE_CLASS = 'flex-row items-center gap-app-sm';
+const TASK_ROW_TITLE_CLASS = 'min-w-0 flex-1 text-app-body-lg font-extrabold text-app-primary';
+const PRIORITY_MINI_CLASS =
+  'min-h-6 flex-row items-center gap-app-xs rounded-app-pill bg-app-surface-muted px-app-sm';
+const PRIORITY_DOT_CLASS = 'h-[6px] w-[6px] rounded-app-pill';
+const PRIORITY_MINI_TEXT_CLASS = 'text-app-caption font-extrabold';
+const TASK_OUTCOME_CLASS = 'text-[14px] leading-[21px] text-app-primary';
+const TASK_ROW_META_CLASS = 'flex-row items-center justify-between gap-app-md';
+const TASK_META_TEXT_CLASS = 'shrink text-[12px] leading-[17px] text-app-secondary';
+const ROW_ACTION_BUTTON_CLASS =
+  'min-h-[34px] min-w-[54px] items-center justify-center self-center rounded-app-pill bg-app-brand-blue-soft active:opacity-[0.62]';
+const ROW_ACTION_TEXT_CLASS = 'text-app-footnote font-extrabold text-app-brand-blue';
+const AGENT_SUMMARY_LIST_CLASS = 'border-t border-app-line';
+const AGENT_FOOTER_CLASS = 'gap-app-md pt-app-xl';
+const AGENT_COMPACT_ROW_CLASS = 'min-h-[66px] flex-row items-center gap-app-md border-b border-app-line';
+const AGENT_AVATAR_CLASS = 'h-10 w-10 items-center justify-center rounded-app-pill';
+const AGENT_AVATAR_TEXT_CLASS = 'text-[17px] font-extrabold leading-[22px]';
+const AGENT_COMPACT_TEXT_CLASS = 'min-w-0 flex-1 gap-[2px]';
+const AGENT_NAME_CLASS = 'text-[15px] font-extrabold leading-5 text-app-primary';
+const AGENT_FIT_CLASS = 'text-[12px] leading-[17px] text-app-secondary';
+const AGENT_LOAD_BLOCK_CLASS = 'flex-row items-center gap-app-xs';
+const AGENT_LOAD_TEXT_CLASS = 'text-[12px] font-extrabold leading-[17px] text-app-secondary';
+const FORM_BLOCK_CLASS = 'gap-app-md border-b border-app-line pb-app-lg';
+const FORM_TITLE_CLASS = 'text-app-title-sm font-extrabold text-app-primary';
+const DRAFT_FIELD_CLASS = 'gap-app-xs py-app-sm';
+const FIELD_LABEL_CLASS = 'text-app-caption font-extrabold text-app-brand-blue';
+const TEXT_INPUT_CLASS =
+  'min-h-11 rounded-app-sm border border-app-line-strong bg-app-surface px-app-md py-app-sm text-app-body text-app-primary';
+const TEXT_AREA_INPUT_CLASS = 'min-h-[108px]';
+const PRIORITY_CHOICE_ROW_CLASS = 'flex-row gap-app-sm';
+const PRIORITY_CHOICE_CLASS =
+  'min-h-[42px] flex-1 flex-row items-center justify-center gap-app-xs rounded-app-sm border border-app-line-strong bg-app-surface active:opacity-[0.62]';
+const PRIORITY_CHOICE_SELECTED_CLASS = 'border-app-brand-blue bg-app-brand-blue-soft';
+const PRIORITY_CHOICE_TEXT_CLASS = 'text-app-body-sm font-extrabold text-app-secondary';
+const PRIORITY_CHOICE_TEXT_SELECTED_CLASS = 'text-app-brand-blue';
+const OPTION_ROW_CLASS = 'min-h-[42px] flex-row items-center justify-between gap-app-md';
+const OPTION_LABEL_CLASS = 'text-[14px] leading-[21px] text-app-secondary';
+const OPTION_VALUE_CLASS = 'shrink text-right text-app-body font-extrabold text-app-primary';
+const STICKY_ACTION_BLOCK_CLASS = 'gap-app-sm';
+const ASSIGNMENT_SUMMARY_CLASS = 'gap-app-sm border-b border-app-line pb-app-lg';
+const ASSIGNMENT_EYEBROW_CLASS = 'text-app-caption font-extrabold text-app-brand-blue';
+const ASSIGNMENT_TITLE_CLASS = 'text-[22px] font-extrabold leading-7 text-app-primary';
+const ASSIGNMENT_BODY_CLASS = 'text-app-body text-app-secondary';
+const AGENT_CHOICE_LIST_CLASS = 'gap-app-sm';
+const AGENT_CHOICE_CLASS =
+  'min-h-[72px] flex-row items-center gap-app-md rounded-app-sm border border-app-line-strong bg-app-surface p-app-md active:opacity-[0.62]';
+const AGENT_CHOICE_SELECTED_CLASS = 'border-app-brand-blue bg-app-brand-blue-soft';
+const DETAIL_HERO_CLASS = 'gap-app-md border-b border-app-line pb-app-lg';
+const DETAIL_TITLE_ROW_CLASS = 'flex-row items-center justify-between gap-app-md';
+const DETAIL_STAGE_CLASS = 'text-app-caption font-extrabold text-app-brand-blue';
+const DETAIL_DUE_CLASS = 'text-app-caption text-app-secondary';
+const DETAIL_TITLE_CLASS = 'text-[22px] font-extrabold leading-7 text-app-primary';
+const DETAIL_BODY_CLASS = 'text-app-body text-app-secondary';
+const PROGRESS_TRACK_CLASS = 'h-[6px] overflow-hidden rounded-app-pill bg-app-surface-muted';
+const PROGRESS_FILL_CLASS = 'h-[6px] rounded-app-pill bg-app-brand-blue';
+const LIFECYCLE_CLASS = 'flex-row justify-between gap-app-sm';
+const LIFECYCLE_ITEM_CLASS = 'flex-1 items-center gap-app-sm';
+const LIFECYCLE_DOT_CLASS = 'h-[18px] w-[18px] rounded-app-pill';
+const LIFECYCLE_DOT_REACHED_CLASS = 'bg-app-brand-blue';
+const LIFECYCLE_DOT_PENDING_CLASS = 'bg-app-line-strong';
+const LIFECYCLE_TEXT_CLASS = 'text-app-caption text-app-secondary';
+const LIFECYCLE_TEXT_REACHED_CLASS = 'font-extrabold text-app-primary';
 
-function getAgentStatusColor(theme: AppThemeTokens, status: AgentOption['status']): string {
-  if (status === 'ready') {
-    return theme.colors.success;
-  }
-  if (status === 'waiting') {
-    return theme.colors.warning;
-  }
-  return theme.colors.textTertiary;
-}
+const STATUS_PILL_DOT_CLASS_BY_TONE = {
+  brand: 'bg-app-brand-blue',
+  warning: 'bg-app-warning',
+  danger: 'bg-app-danger'
+} as const satisfies Record<StatusPillTone, string>;
+
+const PRIORITY_DOT_CLASS_BY_PRIORITY = {
+  high: 'bg-app-danger',
+  medium: 'bg-app-warning',
+  low: 'bg-app-success'
+} as const satisfies Record<TaskPriority, string>;
+
+const PRIORITY_TEXT_CLASS_BY_PRIORITY = {
+  high: 'text-app-danger',
+  medium: 'text-app-warning',
+  low: 'text-app-success'
+} as const satisfies Record<TaskPriority, string>;
+
+const STAGE_BAR_CLASS_BY_STAGE = {
+  intake: 'bg-app-secondary',
+  assigned: 'bg-app-brand-blue',
+  running: 'bg-app-brand-blue',
+  review: 'bg-app-warning',
+  done: 'bg-app-success'
+} as const satisfies Record<TaskStage, string>;
+
+const AGENT_STATUS_DOT_CLASS_BY_STATUS = {
+  ready: 'bg-app-success',
+  waiting: 'bg-app-warning',
+  busy: 'bg-app-tertiary'
+} as const satisfies Record<AgentOption['status'], string>;
 
 function clampProgress(value: number): number {
   return Math.min(100, Math.max(0, value));
@@ -109,15 +227,9 @@ type HeaderActionButtonProps = {
 };
 
 const HeaderActionButton = memo(function HeaderActionButton({ usage, onPress }: HeaderActionButtonProps) {
-  const styles = useAppThemeStyles(createStyles);
-
   return (
-    <Pressable
-      accessibilityRole="button"
-      style={({ pressed }) => [styles.headerActionButton, pressed ? styles.pressed : null]}
-      onPress={onPress}
-    >
-      <AppIcon usage={usage} size={22} />
+    <Pressable accessibilityRole="button" className={HEADER_ACTION_BUTTON_CLASS} onPress={onPress}>
+      <AppIcon usage={usage} />
     </Pressable>
   );
 });
@@ -135,32 +247,23 @@ const PlainButton = memo(function PlainButton({
   variant = 'secondary',
   disabled = false
 }: PlainButtonProps) {
-  const styles = useAppThemeStyles(createStyles);
   const isPrimary = variant === 'primary';
   const isDanger = variant === 'danger';
+  const buttonClass = cn(
+    BUTTON_CLASS,
+    isPrimary ? BUTTON_PRIMARY_CLASS : BUTTON_SECONDARY_CLASS,
+    isDanger ? BUTTON_DANGER_CLASS : null,
+    disabled ? DISABLED_CLASS : null
+  );
+  const textClass = cn(
+    BUTTON_TEXT_CLASS,
+    isPrimary ? BUTTON_TEXT_PRIMARY_CLASS : null,
+    isDanger ? BUTTON_TEXT_DANGER_CLASS : null
+  );
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={disabled}
-      style={({ pressed }) => [
-        styles.button,
-        isPrimary ? styles.buttonPrimary : styles.buttonSecondary,
-        isDanger ? styles.buttonDanger : null,
-        disabled ? styles.disabled : null,
-        pressed ? styles.pressed : null
-      ]}
-      onPress={onPress}
-    >
-      <Text
-        style={[
-          styles.buttonText,
-          isPrimary ? styles.buttonTextPrimary : null,
-          isDanger ? styles.buttonTextDanger : null
-        ]}
-      >
-        {label}
-      </Text>
+    <Pressable accessibilityRole="button" disabled={disabled} className={buttonClass} onPress={onPress}>
+      <Text className={textClass}>{label}</Text>
     </Pressable>
   );
 });
@@ -168,19 +271,17 @@ const PlainButton = memo(function PlainButton({
 type StatusPillProps = {
   label: string;
   value: string;
-  tone?: string;
+  tone?: StatusPillTone;
 };
 
 const StatusPill = memo(function StatusPill({ label, value, tone }: StatusPillProps) {
-  const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
-  const resolvedTone = tone ?? theme.colors.brandBlue;
+  const dotClass = cn(STATUS_DOT_CLASS, STATUS_PILL_DOT_CLASS_BY_TONE[tone ?? 'brand']);
 
   return (
-    <View style={styles.statusPill}>
-      <View style={[styles.statusDot, { backgroundColor: resolvedTone }]} />
-      <Text style={styles.statusPillLabel}>{label}</Text>
-      <Text style={styles.statusPillValue}>{value}</Text>
+    <View className={STATUS_PILL_CLASS}>
+      <View className={dotClass} />
+      <Text className={STATUS_PILL_LABEL_CLASS}>{label}</Text>
+      <Text className={STATUS_PILL_VALUE_CLASS}>{value}</Text>
     </View>
   );
 });
@@ -213,12 +314,14 @@ const HomeScreen = memo(function HomeScreen({
   onRetry
 }: HomeScreenProps) {
   const t = useT();
-  const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const summary = useMemo(() => deriveBoardSummary(tasks, selectedQueue), [selectedQueue, tasks]);
   const agentPreview = useMemo(() => getAgentPreview(agents), [agents]);
   const focusTask = summary.focusTask;
   const focusTaskId = focusTask?.id;
+  const contentContainerStyle = useMemo(
+    () => [HOME_LIST_CONTENT_STYLE, { paddingBottom: contentBottomPadding }],
+    [contentBottomPadding]
+  );
   const renderTask = useCallback(
     ({ item }: { item: BoardTask }) => <TaskRow task={item} onOpenTask={onOpenTask} onOpenAssign={onOpenAssign} />,
     [onOpenAssign, onOpenTask]
@@ -235,13 +338,13 @@ const HomeScreen = memo(function HomeScreen({
       keyExtractor={(task) => task.id}
       renderItem={renderTask}
       ListHeaderComponent={
-        <View style={styles.homeHeader}>
-          <View style={styles.heroBlock}>
-            <View style={styles.heroTitleRow}>
-              <View style={styles.heroTextBlock}>
-                <Text style={styles.heroEyebrow}>{t('tasks.hero.todayFocus')}</Text>
-                <Text style={styles.heroTitle}>{focusTask ? focusTask.title : t('tasks.hero.stable')}</Text>
-                <Text style={styles.heroBody}>
+        <View className={HOME_HEADER_CLASS}>
+          <View className={HERO_BLOCK_CLASS}>
+            <View className={HERO_TITLE_ROW_CLASS}>
+              <View className={HERO_TEXT_BLOCK_CLASS}>
+                <Text className={HERO_EYEBROW_CLASS}>{t('tasks.hero.todayFocus')}</Text>
+                <Text className={HERO_TITLE_CLASS}>{focusTask ? focusTask.title : t('tasks.hero.stable')}</Text>
+                <Text className={HERO_BODY_CLASS}>
                   {focusTask?.blocker
                     ? focusTask.blocker
                     : focusTask
@@ -249,13 +352,13 @@ const HomeScreen = memo(function HomeScreen({
                       : t('tasks.hero.noIntervention')}
                 </Text>
               </View>
-              <View style={styles.heroCountBlock}>
-                <Text style={styles.heroCountValue}>{summary.intakeCount + summary.reviewCount}</Text>
-                <Text style={styles.heroCountLabel}>{t('tasks.hero.pending')}</Text>
+              <View className={HERO_COUNT_BLOCK_CLASS}>
+                <Text className={HERO_COUNT_VALUE_CLASS}>{summary.intakeCount + summary.reviewCount}</Text>
+                <Text className={HERO_COUNT_LABEL_CLASS}>{t('tasks.hero.pending')}</Text>
               </View>
             </View>
 
-            <View style={styles.heroActionRow}>
+            <View className={HERO_ACTION_ROW_CLASS}>
               <PlainButton
                 label={t('tasks.action.assignTask')}
                 variant="primary"
@@ -266,30 +369,26 @@ const HomeScreen = memo(function HomeScreen({
             </View>
           </View>
 
-          <View style={styles.statusRow}>
+          <View className={STATUS_ROW_CLASS}>
             <StatusPill label={t('tasks.stage.intake')} value={`${summary.intakeCount}`} />
-            <StatusPill label={t('tasks.stage.review')} value={`${summary.reviewCount}`} tone={theme.colors.warning} />
+            <StatusPill label={t('tasks.stage.review')} value={`${summary.reviewCount}`} tone="warning" />
             <StatusPill
               label={t('tasks.status.blocked')}
               value={`${summary.blockedCount}`}
-              tone={theme.colors.danger}
+              tone="danger"
             />
           </View>
 
-          <View style={styles.queueSwitch}>
+          <View className={QUEUE_SWITCH_CLASS}>
             {QUEUES.map((queue) => {
               const selected = selectedQueue === queue.id;
               return (
                 <Pressable
                   key={queue.id}
-                  style={({ pressed }) => [
-                    styles.queueSwitchItem,
-                    selected ? styles.queueSwitchItemSelected : null,
-                    pressed ? styles.pressed : null
-                  ]}
+                  className={cn(QUEUE_SWITCH_ITEM_CLASS, selected ? QUEUE_SWITCH_ITEM_SELECTED_CLASS : null)}
                   onPress={() => onSelectQueue(queue.id)}
                 >
-                  <Text style={[styles.queueSwitchText, selected ? styles.queueSwitchTextSelected : null]}>
+                  <Text className={cn(QUEUE_SWITCH_TEXT_CLASS, selected ? QUEUE_SWITCH_TEXT_SELECTED_CLASS : null)}>
                     {t(queue.labelKey)}
                   </Text>
                 </Pressable>
@@ -297,22 +396,22 @@ const HomeScreen = memo(function HomeScreen({
             })}
           </View>
 
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('tasks.section.tasks')}</Text>
-            <Text style={styles.sectionMeta}>{t('tasks.countItems', { count: summary.visibleTasks.length })}</Text>
+          <View className={SECTION_HEADER_CLASS}>
+            <Text className={SECTION_TITLE_CLASS}>{t('tasks.section.tasks')}</Text>
+            <Text className={SECTION_META_CLASS}>{t('tasks.countItems', { count: summary.visibleTasks.length })}</Text>
           </View>
           {error ? (
-            <View style={styles.stateBlock}>
-              <Text style={styles.stateTitle}>{error}</Text>
+            <View className={STATE_BLOCK_CLASS}>
+              <Text className={STATE_TITLE_CLASS}>{error}</Text>
               <PlainButton label={t('common.retry')} onPress={onRetry} />
             </View>
           ) : null}
         </View>
       }
       ListEmptyComponent={
-        <View style={styles.stateBlock}>
-          <Text style={styles.stateTitle}>{loading ? t('common.loading') : t('tasks.hero.stable')}</Text>
-          <Text style={styles.stateBody}>
+        <View className={STATE_BLOCK_CLASS}>
+          <Text className={STATE_TITLE_CLASS}>{loading ? t('common.loading') : t('tasks.hero.stable')}</Text>
+          <Text className={STATE_BODY_CLASS}>
             {loading
               ? t('tasks.loadingHint')
               : tasks.length > 0
@@ -322,21 +421,21 @@ const HomeScreen = memo(function HomeScreen({
         </View>
       }
       ListFooterComponent={
-        <View style={styles.agentFooter}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>{t('tasks.section.availableAgents')}</Text>
-            <Text style={styles.sectionMeta}>{t('tasks.section.availableAgentsHint')}</Text>
+        <View className={AGENT_FOOTER_CLASS}>
+          <View className={SECTION_HEADER_CLASS}>
+            <Text className={SECTION_TITLE_CLASS}>{t('tasks.section.availableAgents')}</Text>
+            <Text className={SECTION_META_CLASS}>{t('tasks.section.availableAgentsHint')}</Text>
           </View>
-          <View style={styles.agentSummaryList}>
+          <View className={AGENT_SUMMARY_LIST_CLASS}>
             {agentPreview.length > 0 ? (
               agentPreview.map((agent) => <AgentCompactRow key={agent.key} agent={agent} />)
             ) : (
-              <Text style={styles.stateBody}>{t('tasks.agent.empty')}</Text>
+              <Text className={STATE_BODY_CLASS}>{t('tasks.agent.empty')}</Text>
             )}
           </View>
         </View>
       }
-      contentContainerStyle={[styles.homeListContent, { paddingBottom: contentBottomPadding }]}
+      contentContainerStyle={contentContainerStyle}
       showsVerticalScrollIndicator={false}
       drawDistance={420}
     />
@@ -351,10 +450,9 @@ type TaskRowProps = {
 
 const TaskRow = memo(function TaskRow({ task, onOpenTask, onOpenAssign }: TaskRowProps) {
   const t = useT();
-  const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
-  const priorityColor = getPriorityColor(theme, task.priority);
-  const stageColor = getStageColor(theme, task.stage);
+  const priorityDotClass = cn(PRIORITY_DOT_CLASS, PRIORITY_DOT_CLASS_BY_PRIORITY[task.priority]);
+  const priorityTextClass = cn(PRIORITY_MINI_TEXT_CLASS, PRIORITY_TEXT_CLASS_BY_PRIORITY[task.priority]);
+  const stageBarClass = cn(TASK_STAGE_BAR_CLASS, STAGE_BAR_CLASS_BY_STAGE[task.stage]);
   const shouldAssign = task.stage === 'intake';
   const actionLabel = shouldAssign
     ? t('tasks.action.assign')
@@ -370,40 +468,34 @@ const TaskRow = memo(function TaskRow({ task, onOpenTask, onOpenAssign }: TaskRo
   const actionHandler = shouldAssign ? handleOpenAssign : handleOpenTask;
 
   return (
-    <View style={styles.taskRow}>
-      <View style={[styles.taskStageBar, { backgroundColor: stageColor }]} />
+    <View className={TASK_ROW_CLASS}>
+      <View className={stageBarClass} />
       <Pressable
         accessibilityRole="button"
-        style={({ pressed }) => [styles.taskRowMain, pressed ? styles.rowPressed : null]}
+        className={TASK_ROW_MAIN_CLASS}
         onPress={handleOpenTask}
       >
-        <View style={styles.taskRowTitleLine}>
-          <Text numberOfLines={1} style={styles.taskRowTitle}>
+        <View className={TASK_ROW_TITLE_LINE_CLASS}>
+          <Text numberOfLines={1} className={TASK_ROW_TITLE_CLASS}>
             {task.title}
           </Text>
-          <View style={styles.priorityMini}>
-            <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
-            <Text style={[styles.priorityMiniText, { color: priorityColor }]}>
-              {t(PRIORITY_LABEL_KEYS[task.priority])}
-            </Text>
+          <View className={PRIORITY_MINI_CLASS}>
+            <View className={priorityDotClass} />
+            <Text className={priorityTextClass}>{t(PRIORITY_LABEL_KEYS[task.priority])}</Text>
           </View>
         </View>
-        <Text numberOfLines={2} style={styles.taskOutcome}>
+        <Text numberOfLines={2} className={TASK_OUTCOME_CLASS}>
           {task.outcome}
         </Text>
-        <View style={styles.taskRowMeta}>
-          <Text numberOfLines={1} style={styles.taskMetaText}>
+        <View className={TASK_ROW_META_CLASS}>
+          <Text numberOfLines={1} className={TASK_META_TEXT_CLASS}>
             {t(STAGE_LABEL_KEYS[task.stage])} · {task.agentName}
           </Text>
-          <Text style={styles.taskMetaText}>{task.dueLabel}</Text>
+          <Text className={TASK_META_TEXT_CLASS}>{task.dueLabel}</Text>
         </View>
       </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        style={({ pressed }) => [styles.rowActionButton, pressed ? styles.pressed : null]}
-        onPress={actionHandler}
-      >
-        <Text style={styles.rowActionText}>{actionLabel}</Text>
+      <Pressable accessibilityRole="button" className={ROW_ACTION_BUTTON_CLASS} onPress={actionHandler}>
+        <Text className={ROW_ACTION_TEXT_CLASS}>{actionLabel}</Text>
       </Pressable>
     </View>
   );
@@ -414,27 +506,27 @@ type AgentCompactRowProps = {
 };
 
 const AgentCompactRow = memo(function AgentCompactRow({ agent }: AgentCompactRowProps) {
-  const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const tone = getAvatarTone(agent.name);
-  const statusColor = getAgentStatusColor(theme, agent.status);
+  const statusDotClass = cn(STATUS_DOT_CLASS, AGENT_STATUS_DOT_CLASS_BY_STATUS[agent.status]);
 
   return (
-    <View style={styles.agentCompactRow}>
-      <View style={[styles.agentAvatar, { backgroundColor: tone.backgroundColor }]}>
-        <Text style={[styles.agentAvatarText, { color: tone.foregroundColor }]}>{getAvatarLabel(agent.name)}</Text>
+    <View className={AGENT_COMPACT_ROW_CLASS}>
+      <View className={AGENT_AVATAR_CLASS} style={{ backgroundColor: tone.backgroundColor }}>
+        <Text className={AGENT_AVATAR_TEXT_CLASS} style={{ color: tone.foregroundColor }}>
+          {getAvatarLabel(agent.name)}
+        </Text>
       </View>
-      <View style={styles.agentCompactText}>
-        <Text numberOfLines={1} style={styles.agentName}>
+      <View className={AGENT_COMPACT_TEXT_CLASS}>
+        <Text numberOfLines={1} className={AGENT_NAME_CLASS}>
           {agent.name}
         </Text>
-        <Text numberOfLines={1} style={styles.agentFit}>
+        <Text numberOfLines={1} className={AGENT_FIT_CLASS}>
           {agent.fitText}
         </Text>
       </View>
-      <View style={styles.agentLoadBlock}>
-        <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-        <Text style={styles.agentLoadText}>{agent.load}</Text>
+      <View className={AGENT_LOAD_BLOCK_CLASS}>
+        <View className={statusDotClass} />
+        <Text className={AGENT_LOAD_TEXT_CLASS}>{agent.load}</Text>
       </View>
     </View>
   );
@@ -448,8 +540,8 @@ type SecondaryPageProps = {
 
 function SecondaryPage({ title, onBack, children }: SecondaryPageProps) {
   const insets = useSafeAreaInsets();
-  const styles = useAppThemeStyles(createStyles);
   const contentBottomPadding = insets.bottom + appVisualTokens.spacing.xxl;
+  const contentBottomStyle = useMemo(() => ({ paddingBottom: contentBottomPadding }), [contentBottomPadding]);
   const backAction = useMemo(
     () => [<HeaderActionButton key="back" usage="chatDetail.back" onPress={onBack} />] as const satisfies readonly [
       ReactElement
@@ -458,16 +550,17 @@ function SecondaryPage({ title, onBack, children }: SecondaryPageProps) {
   );
 
   return (
-    <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
+    <View className={SCREEN_CLASS}>
+      <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
         <ScreenHeader title={title} leftActions={backAction} />
       </SafeAreaView>
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.secondaryContent, { paddingBottom: contentBottomPadding }]}
+        className={SCROLL_VIEW_CLASS}
         showsVerticalScrollIndicator={false}
       >
-        {children}
+        <View className={SECONDARY_CONTENT_CLASS} style={contentBottomStyle}>
+          {children}
+        </View>
       </ScrollView>
     </View>
   );
@@ -496,34 +589,33 @@ function NewTaskPage({
 }: NewTaskPageProps) {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const canSubmit = draft.title.trim().length > 0 && !saving;
 
   return (
     <SecondaryPage title={t('tasks.page.newTask')} onBack={onBack}>
-      <View style={styles.formBlock}>
-        <Text style={styles.formTitle}>{t('tasks.form.draft')}</Text>
-        <View style={styles.draftField}>
-          <Text style={styles.fieldLabel}>{t('tasks.form.title')}</Text>
+      <View className={FORM_BLOCK_CLASS}>
+        <Text className={FORM_TITLE_CLASS}>{t('tasks.form.draft')}</Text>
+        <View className={DRAFT_FIELD_CLASS}>
+          <Text className={FIELD_LABEL_CLASS}>{t('tasks.form.title')}</Text>
           <TextInput
             accessibilityLabel={t('tasks.form.title')}
             autoCapitalize="sentences"
             placeholder={t('tasks.form.titlePlaceholder')}
             placeholderTextColor={theme.colors.textTertiary}
             returnKeyType="next"
-            style={styles.textInput}
+            className={TEXT_INPUT_CLASS}
             value={draft.title}
             onChangeText={onChangeTitle}
           />
         </View>
-        <View style={styles.draftField}>
-          <Text style={styles.fieldLabel}>{t('tasks.form.description')}</Text>
+        <View className={DRAFT_FIELD_CLASS}>
+          <Text className={FIELD_LABEL_CLASS}>{t('tasks.form.description')}</Text>
           <TextInput
             accessibilityLabel={t('tasks.form.description')}
             multiline
             placeholder={t('tasks.form.descriptionPlaceholder')}
             placeholderTextColor={theme.colors.textTertiary}
-            style={[styles.textInput, styles.textAreaInput]}
+            className={cn(TEXT_INPUT_CLASS, TEXT_AREA_INPUT_CLASS)}
             textAlignVertical="top"
             value={draft.description}
             onChangeText={onChangeDescription}
@@ -531,27 +623,23 @@ function NewTaskPage({
         </View>
       </View>
 
-      <View style={styles.formBlock}>
-        <Text style={styles.formTitle}>{t('tasks.form.execution')}</Text>
-        <View style={styles.draftField}>
-          <Text style={styles.fieldLabel}>{t('tasks.form.priority')}</Text>
-          <View style={styles.priorityChoiceRow}>
+      <View className={FORM_BLOCK_CLASS}>
+        <Text className={FORM_TITLE_CLASS}>{t('tasks.form.execution')}</Text>
+        <View className={DRAFT_FIELD_CLASS}>
+          <Text className={FIELD_LABEL_CLASS}>{t('tasks.form.priority')}</Text>
+          <View className={PRIORITY_CHOICE_ROW_CLASS}>
             {TASK_PRIORITIES.map((priority) => {
               const selected = draft.priority === priority;
-              const priorityColor = getPriorityColor(theme, priority);
+              const priorityDotClass = cn(PRIORITY_DOT_CLASS, PRIORITY_DOT_CLASS_BY_PRIORITY[priority]);
               return (
                 <Pressable
                   key={priority}
                   accessibilityRole="button"
-                  style={({ pressed }) => [
-                    styles.priorityChoice,
-                    selected ? styles.priorityChoiceSelected : null,
-                    pressed ? styles.pressed : null
-                  ]}
+                  className={cn(PRIORITY_CHOICE_CLASS, selected ? PRIORITY_CHOICE_SELECTED_CLASS : null)}
                   onPress={() => onChangePriority(priority)}
                 >
-                  <View style={[styles.priorityDot, { backgroundColor: priorityColor }]} />
-                  <Text style={[styles.priorityChoiceText, selected ? styles.priorityChoiceTextSelected : null]}>
+                  <View className={priorityDotClass} />
+                  <Text className={cn(PRIORITY_CHOICE_TEXT_CLASS, selected ? PRIORITY_CHOICE_TEXT_SELECTED_CLASS : null)}>
                     {t(PRIORITY_LABEL_KEYS[priority])}
                   </Text>
                 </Pressable>
@@ -563,12 +651,12 @@ function NewTaskPage({
       </View>
 
       {error ? (
-        <View style={styles.stateBlock}>
-          <Text style={styles.stateTitle}>{error}</Text>
+        <View className={STATE_BLOCK_CLASS}>
+          <Text className={STATE_TITLE_CLASS}>{error}</Text>
         </View>
       ) : null}
 
-      <View style={styles.stickyActionBlock}>
+      <View className={STICKY_ACTION_BLOCK_CLASS}>
         <PlainButton
           label={saving ? t('common.loading') : t('tasks.action.createTask')}
           variant="primary"
@@ -587,12 +675,10 @@ type OptionRowProps = {
 };
 
 function OptionRow({ label, value }: OptionRowProps) {
-  const styles = useAppThemeStyles(createStyles);
-
   return (
-    <View style={styles.optionRow}>
-      <Text style={styles.optionLabel}>{label}</Text>
-      <Text style={styles.optionValue}>{value}</Text>
+    <View className={OPTION_ROW_CLASS}>
+      <Text className={OPTION_LABEL_CLASS}>{label}</Text>
+      <Text className={OPTION_VALUE_CLASS}>{value}</Text>
     </View>
   );
 }
@@ -651,7 +737,6 @@ function AssignTaskPage({
   onAssign
 }: AssignTaskPageProps) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const [selectedAgentKey, setSelectedAgentKey] = useState<string>('');
   const agentSelection = useMemo(
     () => resolveAgentSelection(agents, task.agentName, selectedAgentKey),
@@ -675,18 +760,18 @@ function AssignTaskPage({
 
   return (
     <SecondaryPage title={t('tasks.page.assignTask')} onBack={onBack}>
-      <View style={styles.assignmentSummary}>
-        <Text style={styles.assignmentEyebrow}>{t(STAGE_LABEL_KEYS[task.stage])}</Text>
-        <Text style={styles.assignmentTitle}>{task.title}</Text>
-        <Text style={styles.assignmentBody}>{task.outcome}</Text>
+      <View className={ASSIGNMENT_SUMMARY_CLASS}>
+        <Text className={ASSIGNMENT_EYEBROW_CLASS}>{t(STAGE_LABEL_KEYS[task.stage])}</Text>
+        <Text className={ASSIGNMENT_TITLE_CLASS}>{task.title}</Text>
+        <Text className={ASSIGNMENT_BODY_CLASS}>{task.outcome}</Text>
       </View>
 
-      <View style={styles.sectionBlock}>
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>{t('tasks.section.selectAgent')}</Text>
-          <Text style={styles.sectionMeta}>{t('tasks.section.sortByFit')}</Text>
+      <View className={SECTION_BLOCK_CLASS}>
+        <View className={SECTION_HEADER_CLASS}>
+          <Text className={SECTION_TITLE_CLASS}>{t('tasks.section.selectAgent')}</Text>
+          <Text className={SECTION_META_CLASS}>{t('tasks.section.sortByFit')}</Text>
         </View>
-        <View style={styles.agentChoiceList}>
+        <View className={AGENT_CHOICE_LIST_CLASS}>
           {agents.length > 0 ? (
             agents.map((agent) => (
               <AgentChoice
@@ -697,25 +782,25 @@ function AssignTaskPage({
               />
             ))
           ) : (
-            <Text style={styles.stateBody}>{t('tasks.agent.empty')}</Text>
+            <Text className={STATE_BODY_CLASS}>{t('tasks.agent.empty')}</Text>
           )}
         </View>
       </View>
 
-      <View style={styles.formBlock}>
-        <Text style={styles.formTitle}>{t('tasks.form.afterAssign')}</Text>
+      <View className={FORM_BLOCK_CLASS}>
+        <Text className={FORM_TITLE_CLASS}>{t('tasks.form.afterAssign')}</Text>
         <OptionRow label={t('tasks.form.enterStage')} value={t('tasks.stage.running')} />
         <OptionRow label={t('tasks.form.notifyBy')} value={t('tasks.form.notifyByValue')} />
         <OptionRow label={t('tasks.form.manualReview')} value={t('tasks.form.manualReviewValue')} />
       </View>
 
       {error ? (
-        <View style={styles.stateBlock}>
-          <Text style={styles.stateTitle}>{error}</Text>
+        <View className={STATE_BLOCK_CLASS}>
+          <Text className={STATE_TITLE_CLASS}>{error}</Text>
         </View>
       ) : null}
 
-      <View style={styles.stickyActionBlock}>
+      <View className={STICKY_ACTION_BLOCK_CLASS}>
         <PlainButton
           label={
             pending ? t('common.loading') : running ? t('tasks.action.alreadyRunning') : t('tasks.action.assignAndRun')
@@ -736,37 +821,33 @@ type AgentChoiceProps = {
 };
 
 const AgentChoice = memo(function AgentChoice({ agent, selected, onSelect }: AgentChoiceProps) {
-  const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const tone = getAvatarTone(agent.name);
-  const statusColor = getAgentStatusColor(theme, agent.status);
+  const statusDotClass = cn(STATUS_DOT_CLASS, AGENT_STATUS_DOT_CLASS_BY_STATUS[agent.status]);
   const handleSelect = useCallback(() => {
     onSelect(agent.key);
   }, [agent.key, onSelect]);
 
   return (
     <Pressable
-      style={({ pressed }) => [
-        styles.agentChoice,
-        selected ? styles.agentChoiceSelected : null,
-        pressed ? styles.pressed : null
-      ]}
+      className={cn(AGENT_CHOICE_CLASS, selected ? AGENT_CHOICE_SELECTED_CLASS : null)}
       onPress={handleSelect}
     >
-      <View style={[styles.agentAvatar, { backgroundColor: tone.backgroundColor }]}>
-        <Text style={[styles.agentAvatarText, { color: tone.foregroundColor }]}>{getAvatarLabel(agent.name)}</Text>
+      <View className={AGENT_AVATAR_CLASS} style={{ backgroundColor: tone.backgroundColor }}>
+        <Text className={AGENT_AVATAR_TEXT_CLASS} style={{ color: tone.foregroundColor }}>
+          {getAvatarLabel(agent.name)}
+        </Text>
       </View>
-      <View style={styles.agentCompactText}>
-        <Text numberOfLines={1} style={styles.agentName}>
+      <View className={AGENT_COMPACT_TEXT_CLASS}>
+        <Text numberOfLines={1} className={AGENT_NAME_CLASS}>
           {agent.name}
         </Text>
-        <Text numberOfLines={2} style={styles.agentFit}>
+        <Text numberOfLines={2} className={AGENT_FIT_CLASS}>
           {agent.fitText}
         </Text>
       </View>
-      <View style={styles.agentLoadBlock}>
-        <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
-        <Text style={styles.agentLoadText}>{agent.load}</Text>
+      <View className={AGENT_LOAD_BLOCK_CLASS}>
+        <View className={statusDotClass} />
+        <Text className={AGENT_LOAD_TEXT_CLASS}>{agent.load}</Text>
       </View>
     </Pressable>
   );
@@ -796,7 +877,6 @@ function TaskDetailPage({
   onDeleteTask
 }: TaskDetailPageProps) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const activeIndex = LIFECYCLE.findIndex((step) => step.stage === task.stage);
   const progress = clampProgress(task.progress);
   const canOpenChat = Boolean(String(issue.chatId || '').trim());
@@ -826,36 +906,39 @@ function TaskDetailPage({
 
   return (
     <SecondaryPage title={t('tasks.page.taskDetail')} onBack={onBack}>
-      <View style={styles.detailHero}>
-        <View style={styles.detailTitleRow}>
-          <Text style={styles.detailStage}>{t(STAGE_LABEL_KEYS[task.stage])}</Text>
-          <Text style={styles.detailDue}>{task.dueLabel}</Text>
+      <View className={DETAIL_HERO_CLASS}>
+        <View className={DETAIL_TITLE_ROW_CLASS}>
+          <Text className={DETAIL_STAGE_CLASS}>{t(STAGE_LABEL_KEYS[task.stage])}</Text>
+          <Text className={DETAIL_DUE_CLASS}>{task.dueLabel}</Text>
         </View>
-        <Text style={styles.detailTitle}>{task.title}</Text>
-        <Text style={styles.detailBody}>{task.outcome}</Text>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
+        <Text className={DETAIL_TITLE_CLASS}>{task.title}</Text>
+        <Text className={DETAIL_BODY_CLASS}>{task.outcome}</Text>
+        <View className={PROGRESS_TRACK_CLASS}>
+          <View className={PROGRESS_FILL_CLASS} style={{ width: `${progress}%` }} />
         </View>
       </View>
 
-      <View style={styles.formBlock}>
-        <Text style={styles.formTitle}>{t('tasks.form.nextStep')}</Text>
+      <View className={FORM_BLOCK_CLASS}>
+        <Text className={FORM_TITLE_CLASS}>{t('tasks.form.nextStep')}</Text>
         <OptionRow label={t('tasks.form.action')} value={task.nextAction} />
         <OptionRow label={t('tasks.form.owner')} value={task.agentName} />
         <OptionRow label={t('tasks.form.risk')} value={task.blocker ?? t('tasks.risk.none')} />
       </View>
 
-      <View style={styles.sectionBlock}>
-        <Text style={styles.sectionTitle}>{t('tasks.section.lifecycle')}</Text>
-        <View style={styles.lifecycle}>
+      <View className={SECTION_BLOCK_CLASS}>
+        <Text className={SECTION_TITLE_CLASS}>{t('tasks.section.lifecycle')}</Text>
+        <View className={LIFECYCLE_CLASS}>
           {LIFECYCLE.map((step, index) => {
             const reached = index <= activeIndex;
             return (
-              <View key={step.stage} style={styles.lifecycleItem}>
+              <View key={step.stage} className={LIFECYCLE_ITEM_CLASS}>
                 <View
-                  style={[styles.lifecycleDot, reached ? styles.lifecycleDotReached : styles.lifecycleDotPending]}
+                  className={cn(
+                    LIFECYCLE_DOT_CLASS,
+                    reached ? LIFECYCLE_DOT_REACHED_CLASS : LIFECYCLE_DOT_PENDING_CLASS
+                  )}
                 />
-                <Text style={[styles.lifecycleText, reached ? styles.lifecycleTextReached : null]}>
+                <Text className={cn(LIFECYCLE_TEXT_CLASS, reached ? LIFECYCLE_TEXT_REACHED_CLASS : null)}>
                   {t(step.labelKey)}
                 </Text>
               </View>
@@ -865,12 +948,12 @@ function TaskDetailPage({
       </View>
 
       {error ? (
-        <View style={styles.stateBlock}>
-          <Text style={styles.stateTitle}>{error}</Text>
+        <View className={STATE_BLOCK_CLASS}>
+          <Text className={STATE_TITLE_CLASS}>{error}</Text>
         </View>
       ) : null}
 
-      <View style={styles.stickyActionBlock}>
+      <View className={STICKY_ACTION_BLOCK_CLASS}>
         <PlainButton
           label={canOpenChat ? t('tasks.action.openChat') : t('tasks.action.chatUnavailable')}
           variant={chatActionIsPrimary ? 'primary' : 'secondary'}
@@ -899,7 +982,6 @@ function TaskDetailPage({
 export function AgentTaskBoardScreen() {
   const t = useT();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const styles = useAppThemeStyles(createStyles);
   const [selectedQueue, setSelectedQueue] = useState<BoardQueue>('focus');
   const tabBarHeight = useAppTabBarHeight();
   const contentBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
@@ -932,8 +1014,8 @@ export function AgentTaskBoardScreen() {
   );
 
   return (
-    <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
+    <View className={SCREEN_CLASS}>
+      <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
         <ScreenHeader title={t('tabs.tasks')} rightActions={headerActions} />
       </SafeAreaView>
 
@@ -991,7 +1073,6 @@ export function AgentTaskBoardNewTaskScreen({ navigation }: AgentTaskBoardNewTas
 
 export function AgentTaskBoardAssignTaskScreen({ navigation, route }: AgentTaskBoardAssignTaskScreenProps) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const { taskById, issueById, agents, loading, error, pendingIssueIds, assignAndRunTask } = useAgentTaskBoard();
   const taskId = route.params.taskId;
   const task = taskById.get(taskId);
@@ -1017,8 +1098,8 @@ export function AgentTaskBoardAssignTaskScreen({ navigation, route }: AgentTaskB
   if (!task) {
     return (
       <SecondaryPage title={t('tasks.page.assignTask')} onBack={handleGoBack}>
-        <View style={styles.stateBlock}>
-          <Text style={styles.stateTitle}>{loading ? t('common.loading') : t('tasks.emptyHint')}</Text>
+        <View className={STATE_BLOCK_CLASS}>
+          <Text className={STATE_TITLE_CLASS}>{loading ? t('common.loading') : t('tasks.emptyHint')}</Text>
         </View>
       </SecondaryPage>
     );
@@ -1039,7 +1120,6 @@ export function AgentTaskBoardAssignTaskScreen({ navigation, route }: AgentTaskB
 
 export function AgentTaskBoardTaskDetailScreen({ navigation, route }: AgentTaskBoardTaskDetailScreenProps) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const { taskById, issueById, loading, error, pendingIssueIds, completeReview, deleteTask } = useAgentTaskBoard();
   const taskId = route.params.taskId;
   const task = taskById.get(taskId);
@@ -1109,8 +1189,8 @@ export function AgentTaskBoardTaskDetailScreen({ navigation, route }: AgentTaskB
   if (!task || !issue) {
     return (
       <SecondaryPage title={t('tasks.page.taskDetail')} onBack={handleGoBack}>
-        <View style={styles.stateBlock}>
-          <Text style={styles.stateTitle}>{loading ? t('common.loading') : t('tasks.emptyHint')}</Text>
+        <View className={STATE_BLOCK_CLASS}>
+          <Text className={STATE_TITLE_CLASS}>{loading ? t('common.loading') : t('tasks.emptyHint')}</Text>
         </View>
       </SecondaryPage>
     );
@@ -1129,576 +1209,4 @@ export function AgentTaskBoardTaskDetailScreen({ navigation, route }: AgentTaskB
       onDeleteTask={handleDeleteTask}
     />
   );
-}
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: theme.colors.surface
-    },
-    headerSafeArea: {
-      backgroundColor: theme.colors.surface
-    },
-    scrollView: {
-      flex: 1
-    },
-    content: {
-      paddingHorizontal: appVisualTokens.spacing.xl,
-      paddingTop: appVisualTokens.spacing.lg,
-      gap: appVisualTokens.spacing.xl
-    },
-    homeListContent: {
-      paddingHorizontal: appVisualTokens.spacing.xl,
-      paddingTop: appVisualTokens.spacing.lg
-    },
-    homeHeader: {
-      gap: appVisualTokens.spacing.xl
-    },
-    secondaryContent: {
-      paddingHorizontal: appVisualTokens.spacing.xl,
-      paddingTop: appVisualTokens.spacing.lg,
-      paddingBottom: appVisualTokens.spacing.xxl,
-      gap: appVisualTokens.spacing.xl
-    },
-    pressed: {
-      opacity: 0.62
-    },
-    disabled: {
-      opacity: 0.45
-    },
-    headerActionButton: {
-      width: 40,
-      height: 40,
-      borderRadius: appVisualTokens.radii.pill,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    heroBlock: {
-      gap: appVisualTokens.spacing.lg,
-      paddingBottom: appVisualTokens.spacing.lg,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line
-    },
-    heroTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: appVisualTokens.spacing.lg
-    },
-    heroTextBlock: {
-      flex: 1,
-      minWidth: 0,
-      gap: appVisualTokens.spacing.sm
-    },
-    heroEyebrow: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '700',
-      color: theme.colors.brandBlue
-    },
-    heroTitle: {
-      fontSize: 24,
-      lineHeight: 30,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    heroBody: {
-      fontSize: 15,
-      lineHeight: 22,
-      color: theme.colors.textSecondary
-    },
-    heroCountBlock: {
-      width: 74,
-      minHeight: 74,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.brandBlueSoft
-    },
-    heroCountValue: {
-      fontSize: 28,
-      lineHeight: 34,
-      fontWeight: '800',
-      color: theme.colors.brandBlue
-    },
-    heroCountLabel: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '700',
-      color: theme.colors.brandBlue
-    },
-    heroActionRow: {
-      flexDirection: 'row',
-      gap: appVisualTokens.spacing.sm
-    },
-    button: {
-      minHeight: 42,
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: appVisualTokens.radii.md,
-      paddingHorizontal: appVisualTokens.spacing.md
-    },
-    buttonPrimary: {
-      backgroundColor: theme.colors.brandBlueAction
-    },
-    buttonSecondary: {
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.lineStrong,
-      backgroundColor: theme.colors.surface
-    },
-    buttonDanger: {
-      borderColor: theme.colors.dangerLine,
-      backgroundColor: theme.colors.dangerSoft
-    },
-    buttonText: {
-      fontSize: 14,
-      lineHeight: 20,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    buttonTextPrimary: {
-      color: theme.colors.onBrandBlueAction
-    },
-    buttonTextDanger: {
-      color: theme.colors.danger
-    },
-    statusRow: {
-      flexDirection: 'row',
-      gap: appVisualTokens.spacing.sm
-    },
-    statusPill: {
-      flex: 1,
-      minHeight: 38,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: appVisualTokens.spacing.xs,
-      borderRadius: appVisualTokens.radii.pill,
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    statusDot: {
-      width: 7,
-      height: 7,
-      borderRadius: appVisualTokens.radii.pill
-    },
-    statusPillLabel: {
-      fontSize: 12,
-      lineHeight: 16,
-      color: theme.colors.textSecondary
-    },
-    statusPillValue: {
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    queueSwitch: {
-      flexDirection: 'row',
-      padding: 3,
-      borderRadius: appVisualTokens.radii.md,
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    queueSwitchItem: {
-      flex: 1,
-      minHeight: 36,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: appVisualTokens.radii.sm
-    },
-    queueSwitchItemSelected: {
-      backgroundColor: theme.colors.surface
-    },
-    queueSwitchText: {
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '800',
-      color: theme.colors.textSecondary
-    },
-    queueSwitchTextSelected: {
-      color: theme.colors.brandBlue
-    },
-    sectionBlock: {
-      gap: appVisualTokens.spacing.md
-    },
-    sectionHeader: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: appVisualTokens.spacing.md
-    },
-    sectionTitle: {
-      fontSize: 17,
-      lineHeight: 23,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    sectionMeta: {
-      fontSize: 12,
-      lineHeight: 16,
-      color: theme.colors.textSecondary
-    },
-    stateBlock: {
-      gap: appVisualTokens.spacing.sm,
-      paddingVertical: appVisualTokens.spacing.lg
-    },
-    stateTitle: {
-      fontSize: 15,
-      lineHeight: 21,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    stateBody: {
-      fontSize: 13,
-      lineHeight: 19,
-      color: theme.colors.textSecondary
-    },
-    taskRow: {
-      minHeight: 104,
-      flexDirection: 'row',
-      alignItems: 'stretch',
-      gap: appVisualTokens.spacing.md,
-      paddingVertical: appVisualTokens.spacing.md,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line
-    },
-    rowPressed: {
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    taskStageBar: {
-      width: 4,
-      borderRadius: appVisualTokens.radii.pill
-    },
-    taskRowMain: {
-      flex: 1,
-      minWidth: 0,
-      gap: appVisualTokens.spacing.xs,
-      justifyContent: 'center',
-      borderRadius: appVisualTokens.radii.sm
-    },
-    taskRowTitleLine: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.sm
-    },
-    taskRowTitle: {
-      flex: 1,
-      minWidth: 0,
-      fontSize: 16,
-      lineHeight: 22,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    priorityMini: {
-      minHeight: 24,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.xs,
-      paddingHorizontal: appVisualTokens.spacing.sm,
-      borderRadius: appVisualTokens.radii.pill,
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    priorityDot: {
-      width: 6,
-      height: 6,
-      borderRadius: appVisualTokens.radii.pill
-    },
-    priorityMiniText: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '800'
-    },
-    taskOutcome: {
-      fontSize: 14,
-      lineHeight: 21,
-      color: theme.colors.textPrimary
-    },
-    taskRowMeta: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: appVisualTokens.spacing.md
-    },
-    taskMetaText: {
-      flexShrink: 1,
-      fontSize: 12,
-      lineHeight: 17,
-      color: theme.colors.textSecondary
-    },
-    rowActionButton: {
-      alignSelf: 'center',
-      minWidth: 54,
-      minHeight: 34,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: appVisualTokens.radii.pill,
-      backgroundColor: theme.colors.brandBlueSoft
-    },
-    rowActionText: {
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '800',
-      color: theme.colors.brandBlue
-    },
-    agentSummaryList: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: theme.colors.line
-    },
-    agentFooter: {
-      gap: appVisualTokens.spacing.md,
-      paddingTop: appVisualTokens.spacing.xl
-    },
-    agentCompactRow: {
-      minHeight: 66,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.md,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line
-    },
-    agentAvatar: {
-      width: 40,
-      height: 40,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: appVisualTokens.radii.pill
-    },
-    agentAvatarText: {
-      fontSize: 17,
-      lineHeight: 22,
-      fontWeight: '800'
-    },
-    agentCompactText: {
-      flex: 1,
-      minWidth: 0,
-      gap: 2
-    },
-    agentName: {
-      fontSize: 15,
-      lineHeight: 20,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    agentFit: {
-      fontSize: 12,
-      lineHeight: 17,
-      color: theme.colors.textSecondary
-    },
-    agentLoadBlock: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.xs
-    },
-    agentLoadText: {
-      fontSize: 12,
-      lineHeight: 17,
-      fontWeight: '800',
-      color: theme.colors.textSecondary
-    },
-    formBlock: {
-      gap: appVisualTokens.spacing.md,
-      paddingBottom: appVisualTokens.spacing.lg,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line
-    },
-    formTitle: {
-      fontSize: 17,
-      lineHeight: 23,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    draftField: {
-      gap: appVisualTokens.spacing.xs,
-      paddingVertical: appVisualTokens.spacing.sm
-    },
-    fieldLabel: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '800',
-      color: theme.colors.brandBlue
-    },
-    textInput: {
-      minHeight: 44,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.lineStrong,
-      borderRadius: appVisualTokens.radii.sm,
-      paddingHorizontal: appVisualTokens.spacing.md,
-      paddingVertical: appVisualTokens.spacing.sm,
-      fontSize: 15,
-      lineHeight: 22,
-      color: theme.colors.textPrimary,
-      backgroundColor: theme.colors.surface
-    },
-    textAreaInput: {
-      minHeight: 108
-    },
-    priorityChoiceRow: {
-      flexDirection: 'row',
-      gap: appVisualTokens.spacing.sm
-    },
-    priorityChoice: {
-      flex: 1,
-      minHeight: 42,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: appVisualTokens.spacing.xs,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.lineStrong,
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.surface
-    },
-    priorityChoiceSelected: {
-      borderColor: theme.colors.brandBlue,
-      backgroundColor: theme.colors.brandBlueSoft
-    },
-    priorityChoiceText: {
-      fontSize: 14,
-      lineHeight: 20,
-      fontWeight: '800',
-      color: theme.colors.textSecondary
-    },
-    priorityChoiceTextSelected: {
-      color: theme.colors.brandBlue
-    },
-    optionRow: {
-      minHeight: 42,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: appVisualTokens.spacing.md
-    },
-    optionLabel: {
-      fontSize: 14,
-      lineHeight: 21,
-      color: theme.colors.textSecondary
-    },
-    optionValue: {
-      flexShrink: 1,
-      fontSize: 15,
-      lineHeight: 22,
-      fontWeight: '800',
-      color: theme.colors.textPrimary,
-      textAlign: 'right'
-    },
-    stickyActionBlock: {
-      gap: appVisualTokens.spacing.sm
-    },
-    assignmentSummary: {
-      gap: appVisualTokens.spacing.sm,
-      paddingBottom: appVisualTokens.spacing.lg,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line
-    },
-    assignmentEyebrow: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '800',
-      color: theme.colors.brandBlue
-    },
-    assignmentTitle: {
-      fontSize: 22,
-      lineHeight: 28,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    assignmentBody: {
-      fontSize: 15,
-      lineHeight: 22,
-      color: theme.colors.textSecondary
-    },
-    agentChoiceList: {
-      gap: appVisualTokens.spacing.sm
-    },
-    agentChoice: {
-      minHeight: 72,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.md,
-      padding: appVisualTokens.spacing.md,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.lineStrong,
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.surface
-    },
-    agentChoiceSelected: {
-      borderColor: theme.colors.brandBlue,
-      backgroundColor: theme.colors.brandBlueSoft
-    },
-    detailHero: {
-      gap: appVisualTokens.spacing.md,
-      paddingBottom: appVisualTokens.spacing.lg,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line
-    },
-    detailTitleRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: appVisualTokens.spacing.md
-    },
-    detailStage: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '800',
-      color: theme.colors.brandBlue
-    },
-    detailDue: {
-      fontSize: 12,
-      lineHeight: 16,
-      color: theme.colors.textSecondary
-    },
-    detailTitle: {
-      fontSize: 22,
-      lineHeight: 28,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    detailBody: {
-      fontSize: 15,
-      lineHeight: 22,
-      color: theme.colors.textSecondary
-    },
-    progressTrack: {
-      height: 6,
-      overflow: 'hidden',
-      borderRadius: appVisualTokens.radii.pill,
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    progressFill: {
-      height: 6,
-      borderRadius: appVisualTokens.radii.pill,
-      backgroundColor: theme.colors.brandBlue
-    },
-    lifecycle: {
-      flexDirection: 'row',
-      justifyContent: 'space-between',
-      gap: appVisualTokens.spacing.sm
-    },
-    lifecycleItem: {
-      flex: 1,
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.sm
-    },
-    lifecycleDot: {
-      width: 18,
-      height: 18,
-      borderRadius: appVisualTokens.radii.pill
-    },
-    lifecycleDotReached: {
-      backgroundColor: theme.colors.brandBlue
-    },
-    lifecycleDotPending: {
-      backgroundColor: theme.colors.lineStrong
-    },
-    lifecycleText: {
-      fontSize: 12,
-      lineHeight: 16,
-      color: theme.colors.textSecondary
-    },
-    lifecycleTextReached: {
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    }
-  });
 }

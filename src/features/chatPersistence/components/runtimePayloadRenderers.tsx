@@ -1,11 +1,11 @@
 import { memo, type ComponentType, useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { ConversationMarkdownRenderer } from '../../../shared/components/ConversationMarkdownRenderer';
 import { useT } from '../../../shared/i18n';
 import type { TFunction } from '../../../shared/i18n/translate.ts';
-import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
+import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
+import { cn } from '../../../shared/visual/className';
 import { formatChatDetailRunningDuration } from '../chatDetailFormatters';
 import type {
   RuntimePayloadDescriptor,
@@ -21,6 +21,31 @@ type RuntimePayloadContentProps = {
 };
 
 const RUNNING_DURATION_TICK_MS = 1000;
+const STACK_CLASS = 'gap-[9px]';
+const SECTION_CLASS = 'gap-[5px]';
+const TOOL_SECTION_CLASS = 'gap-[5px]';
+const TOOL_RECORD_CARD_CLASS = 'gap-[7px] rounded-app-sm bg-app-surface px-[10px] py-[9px]';
+const TOOL_RECORD_HEADER_CLASS = 'min-h-[18px] flex-row items-center gap-app-sm';
+const TOOL_RECORD_TITLE_CLASS = 'font-mono text-[11px] font-bold leading-4 text-app-secondary';
+const TOOL_RECORD_META_CLASS = 'min-w-0 flex-1 flex-row items-center justify-end gap-app-sm';
+const TOOL_RECORD_STATUS_CLASS = 'font-mono text-[11px] font-bold leading-4';
+const TOOL_RECORD_DURATION_CLASS = 'shrink-0 font-mono text-[11px] font-bold leading-4 tabular-nums text-app-tertiary';
+const TOOL_DESCRIPTION_CLASS = 'text-[12px] leading-[18px] text-app-secondary';
+const TOOL_ARGUMENT_ROWS_CLASS = 'gap-[3px]';
+const TOOL_ARGUMENT_ROW_CLASS = 'min-w-0 gap-[2px]';
+const TOOL_ARGUMENT_KEY_CLASS = 'font-mono text-[12px] leading-[18px] text-app-success';
+const TOOL_ARGUMENT_VALUE_CLASS = 'ml-app-lg min-w-0 font-mono text-[12px] leading-[18px] text-app-primary';
+const TOOL_INLINE_TEXT_CLASS = 'font-mono text-[12px] leading-[18px] text-app-primary';
+const TOOL_RESULT_TEXT_CLASS = 'font-mono text-[12px] leading-[18px] text-app-secondary';
+const SECTION_LABEL_CLASS = 'text-[11px] font-bold leading-[15px] text-app-success';
+const SECTION_TEXT_CLASS = 'text-[13px] leading-5 text-app-primary';
+const CODE_TEXT_CLASS = 'rounded-app-sm bg-app-surface p-[10px] font-mono text-[12px] leading-[18px] text-app-primary';
+const TOOL_TEXT_CLASS = 'rounded-app-sm bg-app-surface p-[10px] font-mono text-[12px] leading-[18px] text-app-primary';
+const NOWRAP_TEXT_CLASS = 'min-w-[680px]';
+const NOWRAP_TOOL_VALUE_CLASS = 'min-w-[560px]';
+const NOWRAP_MARKDOWN_CLASS = 'min-w-[680px]';
+const METRIC_BOX_CLASS = 'rounded-app-sm bg-app-surface px-[10px] py-[9px]';
+const METRIC_TEXT_CLASS = 'text-[13px] font-bold leading-[19px] text-app-primary';
 
 function getNextRunningDurationDelay(startedAt: number, now: number): number {
   if (now < startedAt) {
@@ -81,41 +106,33 @@ function useRunningToolDurationText(startedAt: number | null | undefined): strin
 }
 
 function SectionLabel({ text }: { text: string }) {
-  const styles = useAppThemeStyles(createStyles);
-
   if (!text) {
     return null;
   }
   return (
-    <Text allowFontScaling={false} style={styles.sectionLabel}>
+    <Text allowFontScaling={false} className={SECTION_LABEL_CLASS}>
       {text}
     </Text>
   );
 }
 
 function TextSection({ section, wrap }: { section: RuntimePayloadSection; wrap: boolean }) {
-  const styles = useAppThemeStyles(createStyles);
-
   if (!section.text) {
     return null;
   }
 
   return (
-    <View style={styles.section}>
+    <View className={SECTION_CLASS}>
       <SectionLabel text={section.label} />
       {section.mode === 'markdown' ? (
-        <View style={!wrap && styles.nowrapMarkdown}>
+        <View className={!wrap ? NOWRAP_MARKDOWN_CLASS : undefined}>
           <ConversationMarkdownRenderer markdown={section.text} />
         </View>
       ) : (
         <Text
           allowFontScaling={false}
           selectable
-          style={[
-            styles.sectionText,
-            section.mode === 'code' && styles.codeText,
-            !wrap && styles.nowrapText,
-          ]}
+          className={cn(section.mode === 'code' ? CODE_TEXT_CLASS : SECTION_TEXT_CLASS, !wrap ? NOWRAP_TEXT_CLASS : null)}
         >
           {section.text}
         </Text>
@@ -125,10 +142,8 @@ function TextSection({ section, wrap }: { section: RuntimePayloadSection; wrap: 
 }
 
 function SectionStackPayload({ descriptor, wrap }: RuntimePayloadContentProps) {
-  const styles = useAppThemeStyles(createStyles);
-
   return (
-    <View style={styles.stack}>
+    <View className={STACK_CLASS}>
       {descriptor.sections.map((section) => (
         <TextSection key={section.id} section={section} wrap={wrap} />
       ))}
@@ -139,20 +154,18 @@ function SectionStackPayload({ descriptor, wrap }: RuntimePayloadContentProps) {
 const MarkdownPayload = memo(SectionStackPayload);
 
 function ToolArgumentRows({ record, wrap }: { record: RuntimeToolRecord; wrap: boolean }) {
-  const styles = useAppThemeStyles(createStyles);
-
   if (record.argsRows.length > 0) {
     return (
-      <View style={styles.toolArgumentRows}>
+      <View className={TOOL_ARGUMENT_ROWS_CLASS}>
         {record.argsRows.map((row) => (
-          <View key={row.key} style={styles.toolArgumentRow}>
-            <Text allowFontScaling={false} style={styles.toolArgumentKey}>
+          <View key={row.key} className={TOOL_ARGUMENT_ROW_CLASS}>
+            <Text allowFontScaling={false} className={TOOL_ARGUMENT_KEY_CLASS}>
               {row.key}
             </Text>
             <Text
               allowFontScaling={false}
               selectable
-              style={[styles.toolArgumentValue, !wrap && styles.nowrapToolValue]}
+              className={cn(TOOL_ARGUMENT_VALUE_CLASS, !wrap ? NOWRAP_TOOL_VALUE_CLASS : null)}
             >
               {row.valueText}
             </Text>
@@ -170,7 +183,7 @@ function ToolArgumentRows({ record, wrap }: { record: RuntimeToolRecord; wrap: b
     <Text
       allowFontScaling={false}
       selectable
-      style={[styles.toolInlineText, !wrap && styles.nowrapText]}
+      className={cn(TOOL_INLINE_TEXT_CLASS, !wrap ? NOWRAP_TEXT_CLASS : null)}
     >
       {record.argsInlineText}
     </Text>
@@ -182,25 +195,22 @@ const RunningToolDurationText = memo(function RunningToolDurationText({
 }: {
   startedAt: number;
 }) {
-  const styles = useAppThemeStyles(createStyles);
   const durationText = useRunningToolDurationText(startedAt);
   if (!durationText) {
     return null;
   }
 
   return (
-    <Text allowFontScaling={false} numberOfLines={1} style={styles.toolRecordDuration}>
+    <Text allowFontScaling={false} numberOfLines={1} className={TOOL_RECORD_DURATION_CLASS}>
       {durationText}
     </Text>
   );
 });
 
 function ToolRecordDuration({ record }: { record: RuntimeToolRecord }) {
-  const styles = useAppThemeStyles(createStyles);
-
   if (record.durationText) {
     return (
-      <Text allowFontScaling={false} numberOfLines={1} style={styles.toolRecordDuration}>
+      <Text allowFontScaling={false} numberOfLines={1} className={TOOL_RECORD_DURATION_CLASS}>
         {record.durationText}
       </Text>
     );
@@ -221,21 +231,21 @@ function ToolRecordCard({
   wrap: boolean;
 }) {
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const showHeader = grouped || Boolean(record.durationText) || Boolean(record.startedAt);
 
   return (
-    <View style={styles.toolRecordCard}>
+    <View className={TOOL_RECORD_CARD_CLASS}>
       {showHeader ? (
-        <View style={styles.toolRecordHeader}>
-          <Text allowFontScaling={false} style={styles.toolRecordTitle}>
+        <View className={TOOL_RECORD_HEADER_CLASS}>
+          <Text allowFontScaling={false} className={TOOL_RECORD_TITLE_CLASS}>
             {record.title}
           </Text>
-          <View style={styles.toolRecordMeta}>
+          <View className={TOOL_RECORD_META_CLASS}>
             <Text
               allowFontScaling={false}
               numberOfLines={1}
-              style={[styles.toolRecordStatus, { color: getRuntimeToolStatusColor(theme.colors, record.status) }]}
+              className={TOOL_RECORD_STATUS_CLASS}
+              style={{ color: getRuntimeToolStatusColor(theme.colors, record.status) }}
             >
               {record.statusLabel}
             </Text>
@@ -244,7 +254,7 @@ function ToolRecordCard({
         </View>
       ) : null}
       {record.description ? (
-        <Text allowFontScaling={false} style={styles.toolDescription}>
+        <Text allowFontScaling={false} className={TOOL_DESCRIPTION_CLASS}>
           {record.description}
         </Text>
       ) : null}
@@ -253,7 +263,7 @@ function ToolRecordCard({
         <Text
           allowFontScaling={false}
           selectable
-          style={[styles.toolResultText, !wrap && styles.nowrapText]}
+          className={cn(TOOL_RESULT_TEXT_CLASS, !wrap ? NOWRAP_TEXT_CLASS : null)}
         >
           {record.resultText}
         </Text>
@@ -263,12 +273,11 @@ function ToolRecordCard({
 }
 
 const ToolPayload = memo(function ToolPayload({ descriptor, wrap }: RuntimePayloadContentProps) {
-  const styles = useAppThemeStyles(createStyles);
   const records = descriptor.toolRecords.filter((record) => record.hasDetails);
   if (records.length > 0) {
     const grouped = descriptor.toolRecords.length > 1;
     return (
-      <View style={styles.stack}>
+      <View className={STACK_CLASS}>
         {records.map((record) => (
           <ToolRecordCard key={record.key} grouped={grouped} record={record} wrap={wrap} />
         ))}
@@ -277,14 +286,14 @@ const ToolPayload = memo(function ToolPayload({ descriptor, wrap }: RuntimePaylo
   }
 
   return (
-    <View style={styles.stack}>
+    <View className={STACK_CLASS}>
       {descriptor.sections.map((section) => (
-        <View key={section.id} style={styles.toolSection}>
+        <View key={section.id} className={TOOL_SECTION_CLASS}>
           <SectionLabel text={section.label} />
           <Text
             allowFontScaling={false}
             selectable
-            style={[styles.toolText, !wrap && styles.nowrapText]}
+            className={cn(TOOL_TEXT_CLASS, !wrap ? NOWRAP_TEXT_CLASS : null)}
           >
             {section.text}
           </Text>
@@ -304,16 +313,14 @@ const MetricPayload = memo(function MetricPayload({
   descriptor,
   wrap,
 }: RuntimePayloadContentProps) {
-  const styles = useAppThemeStyles(createStyles);
-
   return (
-    <View style={styles.metricBox}>
+    <View className={METRIC_BOX_CLASS}>
       {descriptor.sections.map((section) => (
         <Text
           key={section.id}
           allowFontScaling={false}
           selectable
-          style={[styles.metricText, !wrap && styles.nowrapText]}
+          className={cn(METRIC_TEXT_CLASS, !wrap ? NOWRAP_TEXT_CLASS : null)}
         >
           {section.text}
         </Text>
@@ -338,148 +345,3 @@ const PAYLOAD_RENDERERS = {
   plain: PlainPayload,
   metric: MetricPayload,
 } satisfies Record<RuntimePayloadRendererType, ComponentType<RuntimePayloadContentProps>>;
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    stack: {
-      gap: 9,
-    },
-    section: {
-      gap: 5,
-    },
-    toolSection: {
-      gap: 5,
-    },
-    toolRecordCard: {
-      gap: 7,
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: 10,
-      paddingVertical: 9,
-    },
-    toolRecordHeader: {
-      minHeight: 18,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.sm,
-    },
-    toolRecordTitle: {
-      fontFamily: 'monospace',
-      fontSize: 11,
-      lineHeight: 16,
-      fontWeight: '700',
-      color: theme.colors.textSecondary,
-    },
-    toolRecordMeta: {
-      flex: 1,
-      minWidth: 0,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'flex-end',
-      gap: appVisualTokens.spacing.sm,
-    },
-    toolRecordStatus: {
-      fontFamily: 'monospace',
-      fontSize: 11,
-      lineHeight: 16,
-      fontWeight: '700',
-    },
-    toolRecordDuration: {
-      flexShrink: 0,
-      fontFamily: 'monospace',
-      fontSize: 11,
-      lineHeight: 16,
-      fontWeight: '700',
-      color: theme.colors.textTertiary,
-      fontVariant: ['tabular-nums'],
-    },
-    toolDescription: {
-      fontSize: 12,
-      lineHeight: 18,
-      color: theme.colors.textSecondary,
-    },
-    toolArgumentRows: {
-      gap: 3,
-    },
-    toolArgumentRow: {
-      minWidth: 0,
-      gap: 2,
-    },
-    toolArgumentKey: {
-      fontFamily: 'monospace',
-      fontSize: 12,
-      lineHeight: 18,
-      color: theme.colors.success,
-    },
-    toolArgumentValue: {
-      minWidth: 0,
-      marginLeft: appVisualTokens.spacing.lg,
-      fontFamily: 'monospace',
-      fontSize: 12,
-      lineHeight: 18,
-      color: theme.colors.textPrimary,
-    },
-    toolInlineText: {
-      fontFamily: 'monospace',
-      fontSize: 12,
-      lineHeight: 18,
-      color: theme.colors.textPrimary,
-    },
-    toolResultText: {
-      fontFamily: 'monospace',
-      fontSize: 12,
-      lineHeight: 18,
-      color: theme.colors.textSecondary,
-    },
-    sectionLabel: {
-      fontSize: 11,
-      lineHeight: 15,
-      fontWeight: '700',
-      color: theme.colors.success,
-    },
-    sectionText: {
-      fontSize: 13,
-      lineHeight: 20,
-      color: theme.colors.textPrimary,
-    },
-    codeText: {
-      padding: 10,
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.surface,
-      fontFamily: 'monospace',
-      fontSize: 12,
-      lineHeight: 18,
-      color: theme.colors.textPrimary,
-    },
-    toolText: {
-      padding: 10,
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.surface,
-      fontFamily: 'monospace',
-      fontSize: 12,
-      lineHeight: 18,
-      color: theme.colors.textPrimary,
-    },
-    nowrapText: {
-      minWidth: 680,
-    },
-    nowrapToolValue: {
-      minWidth: 560,
-    },
-    nowrapMarkdown: {
-      minWidth: 680,
-    },
-    metricBox: {
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: 10,
-      paddingVertical: 9,
-    },
-    metricText: {
-      fontSize: 13,
-      lineHeight: 19,
-      fontWeight: '700',
-      color: theme.colors.textPrimary,
-    },
-  });
-}

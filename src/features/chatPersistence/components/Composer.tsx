@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Keyboard, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, Pressable, Text, TextInput, View, type TextStyle } from 'react-native';
 import Animated, {
   Easing,
   Extrapolation,
@@ -12,8 +12,9 @@ import Animated, {
 
 import { AppIcon, type AppIconUsage } from '../../../shared/icons/AppIcon';
 import { type TFunction, useT } from '../../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
+import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
+import { cn } from '../../../shared/visual/className';
+import { appVisualTokens } from '../../../shared/visual/foundation';
 import type { ChatComposerPrimaryAction } from '../chatDetailViewModel';
 import type { ChatComposerAttachment } from '../types';
 import { ChatAttachmentStrip } from './ChatAttachmentStrip';
@@ -21,10 +22,7 @@ import { ChatAttachmentStrip } from './ChatAttachmentStrip';
 const COLLAPSED_INPUT_HEIGHT = 30;
 const EXPANDED_INPUT_MIN_HEIGHT = 48;
 const MAX_HEIGHT = 82;
-const VERTICAL_PADDING = 4;
-const INPUT_FONT_SIZE = 15;
 const INPUT_LINE_HEIGHT = 22;
-const INPUT_HORIZONTAL_PADDING = 10;
 const COLLAPSED_PLACEHOLDER_TOP = (COLLAPSED_INPUT_HEIGHT - INPUT_LINE_HEIGHT) / 2;
 const CONTENT_HEIGHT_STABLE_TOLERANCE = 4;
 const COMPOSER_HORIZONTAL_PADDING = 12;
@@ -35,7 +33,6 @@ const COMPOSER_COLLAPSED_INPUT_TOP = (COMPOSER_COLLAPSED_HEIGHT - COLLAPSED_INPU
 const COMPOSER_EXPANDED_INPUT_TOP = appVisualTokens.spacing.md;
 const COMPOSER_EXPANDED_INPUT_SIDE_INSET = appVisualTokens.spacing.md;
 const COMPOSER_EXPANDED_INPUT_GAP = 5;
-const COMPOSER_CONTAINER_RADIUS = 22;
 const PRIMARY_ACTION_SLOT_WIDTH = 38;
 const PRIMARY_ACTION_SLOT_GAP = appVisualTokens.spacing.sm;
 const PLAN_COLLAPSED_WIDTH = 34;
@@ -47,6 +44,38 @@ const COMPOSER_ANIMATION_CONFIG = {
   duration: 180,
   easing: Easing.out(Easing.cubic)
 };
+const ROOT_CLASS = 'gap-app-xs';
+const ATTACHMENT_TRAY_CLASS = 'flex-row gap-app-sm px-app-xs';
+const ATTACHMENT_OPTION_CLASS =
+  'h-[34px] flex-row items-center gap-app-xs rounded-app-pill border border-app-line bg-app-surface px-app-md active:opacity-[0.72]';
+const ATTACHMENT_OPTION_TEXT_CLASS = 'text-[13px] font-semibold text-app-primary';
+const CONTAINER_CLASS =
+  'relative justify-end overflow-hidden rounded-[22px] bg-[#f5f5f5] px-[12px] py-[5px] dark:bg-app-surface-muted';
+const INPUT_FRAME_CLASS = 'absolute overflow-hidden';
+const INPUT_CLASS =
+  'min-h-[30px] min-w-0 flex-1 max-h-[82px] px-[10px] py-1 text-[15px] leading-[22px] text-app-primary';
+const INPUT_EXPANDED_CLASS = 'pt-0';
+const INPUT_PLACEHOLDER_CLASS =
+  'absolute left-[10px] right-[10px] text-[15px] leading-[22px] text-app-secondary';
+const INPUT_PLACEHOLDER_HIDDEN_CLASS = 'opacity-0';
+const TOOLBAR_ROW_CLASS = 'h-[34px] flex-row items-center';
+const TOOLBAR_SPACER_CLASS = 'min-w-app-sm flex-1';
+const ICON_BUTTON_CLASS =
+  'h-[34px] w-[34px] items-center justify-center rounded-app-pill border border-app-line active:opacity-[0.72]';
+const ICON_BUTTON_DISABLED_CLASS = 'opacity-[0.54]';
+const PLAN_BUTTON_FRAME_CLASS = 'h-[34px] overflow-hidden';
+const PLAN_BUTTON_CLASS =
+  'h-[34px] min-w-[34px] flex-1 flex-row items-center justify-start gap-app-xs rounded-app-pill px-[6px] active:opacity-[0.72]';
+const PLAN_BUTTON_ENABLED_CLASS = 'bg-app-brand-blue-soft';
+const PLAN_BUTTON_TEXT_CLASS = 'shrink-0 text-[16px] leading-5 text-app-primary';
+const PRIMARY_SLOT_CLASS = 'h-[34px] overflow-hidden';
+const PRIMARY_BUTTON_CLASS = 'h-[34px] w-[34px] items-center justify-center rounded-app-pill active:opacity-[0.72]';
+const PRIMARY_BUTTON_DISABLED_CLASS = 'bg-app-background-muted';
+const PRIMARY_BUTTON_SEND_CLASS = 'bg-app-action';
+const PRIMARY_BUTTON_SENDING_CLASS = 'bg-app-action';
+const PRIMARY_BUTTON_STOP_CLASS = 'bg-app-danger';
+const PRIMARY_BUTTON_RESUME_CLASS = 'bg-app-success';
+const INPUT_INCLUDE_FONT_PADDING_STYLE = { includeFontPadding: false } satisfies TextStyle;
 
 type ComposerProgressValue = {
   readonly value: number;
@@ -114,17 +143,11 @@ const ComposerIconButton = memo(function ComposerIconButton({
   onPress,
   strokeWidth
 }: ComposerIconButtonProps) {
-  const styles = useAppThemeStyles(createStyles);
-
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={({ pressed }) => [
-        styles.iconButton,
-        disabled && styles.iconButtonDisabled,
-        pressed && !disabled && styles.pressed
-      ]}
+      className={cn(ICON_BUTTON_CLASS, disabled ? ICON_BUTTON_DISABLED_CLASS : null)}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
     >
@@ -142,7 +165,6 @@ type PlanModeButtonProps = {
 const PlanModeButton = memo(function PlanModeButton({ expandedProgress, enabled, onPress }: PlanModeButtonProps) {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const planButtonStyle = useAnimatedStyle(() => ({
     width: interpolate(
       expandedProgress.value,
@@ -161,14 +183,10 @@ const PlanModeButton = memo(function PlanModeButton({ expandedProgress, enabled,
   }));
 
   return (
-    <Animated.View style={[styles.planButtonFrame, planButtonStyle]}>
+    <Animated.View className={PLAN_BUTTON_FRAME_CLASS} style={planButtonStyle}>
       <Pressable
         onPress={onPress}
-        style={({ pressed }) => [
-          styles.planButton,
-          enabled && styles.planButtonEnabled,
-          pressed && styles.pressed
-        ]}
+        className={cn(PLAN_BUTTON_CLASS, enabled ? PLAN_BUTTON_ENABLED_CLASS : null)}
         accessibilityLabel={t('composer.planMode')}
         accessibilityRole="switch"
         accessibilityState={{ checked: enabled }}
@@ -179,7 +197,12 @@ const PlanModeButton = memo(function PlanModeButton({ expandedProgress, enabled,
           color={enabled ? theme.colors.brandBlueAction : theme.colors.textPrimary}
           strokeWidth={2.1}
         />
-        <Animated.Text allowFontScaling={false} numberOfLines={1} style={[styles.planButtonText, planLabelStyle]}>
+        <Animated.Text
+          allowFontScaling={false}
+          numberOfLines={1}
+          className={PLAN_BUTTON_TEXT_CLASS}
+          style={planLabelStyle}
+        >
           {t('composer.planMode')}
         </Animated.Text>
       </Pressable>
@@ -210,7 +233,6 @@ const PrimaryActionSlot = memo(function PrimaryActionSlot({
 }: PrimaryActionSlotProps) {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const slotStyle = useAnimatedStyle(() => ({
     width: interpolate(progress.value, [0, 1], [0, PRIMARY_ACTION_SLOT_WIDTH], Extrapolation.CLAMP),
     marginLeft: interpolate(progress.value, [0, 1], [0, PRIMARY_ACTION_SLOT_GAP], Extrapolation.CLAMP),
@@ -225,20 +247,19 @@ const PrimaryActionSlot = memo(function PrimaryActionSlot({
   }));
 
   return (
-    <Animated.View pointerEvents={visible ? 'auto' : 'none'} style={[styles.primarySlot, slotStyle]}>
+    <Animated.View pointerEvents={visible ? 'auto' : 'none'} className={PRIMARY_SLOT_CLASS} style={slotStyle}>
       <Animated.View style={buttonStyle}>
         <Pressable
           onPress={onPress}
           disabled={disabled}
-          style={({ pressed }) => [
-            styles.primaryButton,
-            primaryAction === 'send-disabled' && styles.primaryButtonDisabled,
-            primaryAction === 'send' && styles.primaryButtonSend,
-            primaryAction === 'sending' && styles.primaryButtonSending,
-            primaryAction === 'stop' && styles.primaryButtonStop,
-            primaryAction === 'resume' && styles.primaryButtonResume,
-            pressed && !disabled && styles.pressed
-          ]}
+          className={cn(
+            PRIMARY_BUTTON_CLASS,
+            primaryAction === 'send-disabled' ? PRIMARY_BUTTON_DISABLED_CLASS : null,
+            primaryAction === 'send' ? PRIMARY_BUTTON_SEND_CLASS : null,
+            primaryAction === 'sending' ? PRIMARY_BUTTON_SENDING_CLASS : null,
+            primaryAction === 'stop' ? PRIMARY_BUTTON_STOP_CLASS : null,
+            primaryAction === 'resume' ? PRIMARY_BUTTON_RESUME_CLASS : null
+          )}
           accessibilityLabel={getPrimaryAccessibilityLabel(primaryAction, t)}
           accessibilityRole="button"
         >
@@ -272,7 +293,6 @@ export const Composer = memo(function Composer({
 }: ComposerProps) {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const [inputHeight, setInputHeight] = useState(COLLAPSED_INPUT_HEIGHT);
   const [attachmentTrayOpen, setAttachmentTrayOpen] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -443,30 +463,30 @@ export const Composer = memo(function Composer({
   }, [primaryTranslateX, showPrimaryAction]);
 
   return (
-    <View style={styles.root}>
+    <View className={ROOT_CLASS}>
       {attachmentTrayOpen ? (
-        <View style={styles.attachmentTray}>
+        <View className={ATTACHMENT_TRAY_CLASS}>
           <Pressable
             onPress={handleSelectImageAttachment}
             disabled={attachmentDisabled}
-            style={({ pressed }) => [styles.attachmentOption, pressed && styles.pressed]}
+            className={ATTACHMENT_OPTION_CLASS}
             accessibilityLabel={t('composer.uploadImage')}
             accessibilityRole="button"
           >
             <AppIcon usage="composer.attachImage" />
-            <Text allowFontScaling={false} style={styles.attachmentOptionText}>
+            <Text allowFontScaling={false} className={ATTACHMENT_OPTION_TEXT_CLASS}>
               {t('composer.image')}
             </Text>
           </Pressable>
           <Pressable
             onPress={handleSelectFileAttachment}
             disabled={attachmentDisabled}
-            style={({ pressed }) => [styles.attachmentOption, pressed && styles.pressed]}
+            className={ATTACHMENT_OPTION_CLASS}
             accessibilityLabel={t('composer.uploadFile')}
             accessibilityRole="button"
           >
             <AppIcon usage="composer.attachFile" />
-            <Text allowFontScaling={false} style={styles.attachmentOptionText}>
+            <Text allowFontScaling={false} className={ATTACHMENT_OPTION_TEXT_CLASS}>
               {t('composer.file')}
             </Text>
           </Pressable>
@@ -481,22 +501,17 @@ export const Composer = memo(function Composer({
       />
 
       <Animated.View
-        style={[
-          styles.container,
-          containerAnimatedStyle
-        ]}
+        className={CONTAINER_CLASS}
+        style={containerAnimatedStyle}
       >
-        <Animated.View style={[styles.inputFrame, inputFrameStyle]}>
+        <Animated.View className={INPUT_FRAME_CLASS} style={inputFrameStyle}>
           <Animated.Text
             pointerEvents="none"
             accessible={false}
             allowFontScaling={false}
             numberOfLines={1}
-            style={[
-              styles.inputPlaceholder,
-              placeholderStyle,
-              !isPlaceholderVisible && styles.inputPlaceholderHidden
-            ]}
+            className={cn(INPUT_PLACEHOLDER_CLASS, !isPlaceholderVisible ? INPUT_PLACEHOLDER_HIDDEN_CLASS : null)}
+            style={[INPUT_INCLUDE_FONT_PADDING_STYLE, placeholderStyle]}
           >
             {placeholderText}
           </Animated.Text>
@@ -507,7 +522,8 @@ export const Composer = memo(function Composer({
             allowFontScaling={false}
             multiline
             maxLength={480}
-            style={[styles.input, isExpanded && styles.inputExpanded]}
+            className={cn(INPUT_CLASS, isExpanded ? INPUT_EXPANDED_CLASS : null)}
+            style={INPUT_INCLUDE_FONT_PADDING_STYLE}
             textAlignVertical={isExpanded ? 'top' : 'center'}
             onContentSizeChange={handleContentSizeChange}
             onFocus={handleInputFocus}
@@ -516,7 +532,7 @@ export const Composer = memo(function Composer({
             accessibilityLabel={placeholderText}
           />
         </Animated.View>
-        <View pointerEvents="box-none" style={styles.toolbarRow}>
+        <View pointerEvents="box-none" className={TOOLBAR_ROW_CLASS}>
           {planModeAvailable ? (
             <PlanModeButton
               expandedProgress={expandedProgress}
@@ -524,7 +540,7 @@ export const Composer = memo(function Composer({
               onPress={handleTogglePlanMode}
             />
           ) : null}
-          <View pointerEvents="none" style={styles.toolbarSpacer} />
+          <View pointerEvents="none" className={TOOLBAR_SPACER_CLASS} />
           <ComposerIconButton
             onPress={handleToggleAttachmentTray}
             disabled={attachmentDisabled}
@@ -548,146 +564,3 @@ export const Composer = memo(function Composer({
     </View>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    root: {
-      gap: appVisualTokens.spacing.xs
-    },
-    attachmentTray: {
-      flexDirection: 'row',
-      gap: appVisualTokens.spacing.sm,
-      paddingHorizontal: appVisualTokens.spacing.xs
-    },
-    attachmentOption: {
-      height: 34,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.xs,
-      borderRadius: appVisualTokens.radii.pill,
-      borderWidth: 1,
-      borderColor: theme.colors.line,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: appVisualTokens.spacing.md
-    },
-    attachmentOptionText: {
-      fontSize: 13,
-      fontWeight: '600',
-      color: theme.colors.textPrimary
-    },
-    container: {
-      justifyContent: 'flex-end',
-      overflow: 'hidden',
-      position: 'relative',
-      borderRadius: COMPOSER_CONTAINER_RADIUS,
-      backgroundColor: theme.isDark ? theme.colors.surfaceMuted : '#f5f5f5',
-      paddingHorizontal: COMPOSER_HORIZONTAL_PADDING,
-      paddingVertical: COMPOSER_VERTICAL_PADDING
-    },
-    inputFrame: {
-      position: 'absolute',
-      overflow: 'hidden'
-    },
-    input: {
-      flex: 1,
-      minWidth: 0,
-      minHeight: COLLAPSED_INPUT_HEIGHT,
-      maxHeight: MAX_HEIGHT,
-      paddingHorizontal: INPUT_HORIZONTAL_PADDING,
-      paddingVertical: VERTICAL_PADDING,
-      fontSize: INPUT_FONT_SIZE,
-      lineHeight: INPUT_LINE_HEIGHT,
-      color: theme.colors.textPrimary,
-      includeFontPadding: false
-    },
-    inputExpanded: {
-      paddingTop: 0
-    },
-    inputPlaceholder: {
-      position: 'absolute',
-      left: INPUT_HORIZONTAL_PADDING,
-      right: INPUT_HORIZONTAL_PADDING,
-      fontSize: INPUT_FONT_SIZE,
-      lineHeight: INPUT_LINE_HEIGHT,
-      color: theme.colors.textSecondary,
-      includeFontPadding: false
-    },
-    inputPlaceholderHidden: {
-      opacity: 0
-    },
-    toolbarRow: {
-      height: COMPOSER_TOOLBAR_HEIGHT,
-      flexDirection: 'row',
-      alignItems: 'center'
-    },
-    toolbarSpacer: {
-      flex: 1,
-      minWidth: appVisualTokens.spacing.sm
-    },
-    iconButton: {
-      width: 34,
-      height: 34,
-      borderRadius: appVisualTokens.radii.pill,
-      borderWidth: 1,
-      borderColor: theme.colors.line,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    iconButtonDisabled: {
-      opacity: 0.54
-    },
-    planButtonFrame: {
-      height: COMPOSER_TOOLBAR_HEIGHT,
-      overflow: 'hidden'
-    },
-    planButton: {
-      flex: 1,
-      minWidth: 34,
-      height: COMPOSER_TOOLBAR_HEIGHT,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'flex-start',
-      gap: appVisualTokens.spacing.xs,
-      borderRadius: appVisualTokens.radii.pill,
-      paddingHorizontal: 6
-    },
-    planButtonEnabled: {
-      backgroundColor: theme.colors.brandBlueSoft
-    },
-    planButtonText: {
-      flexShrink: 0,
-      fontSize: 16,
-      lineHeight: 20,
-      color: theme.colors.textPrimary
-    },
-    primarySlot: {
-      height: COMPOSER_TOOLBAR_HEIGHT,
-      overflow: 'hidden'
-    },
-    primaryButton: {
-      width: 34,
-      height: 34,
-      borderRadius: appVisualTokens.radii.pill,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    primaryButtonDisabled: {
-      backgroundColor: theme.colors.backgroundMuted
-    },
-    primaryButtonSend: {
-      backgroundColor: theme.colors.brandBlueAction
-    },
-    primaryButtonSending: {
-      backgroundColor: theme.colors.brandBlueAction
-    },
-    primaryButtonStop: {
-      backgroundColor: theme.colors.danger
-    },
-    primaryButtonResume: {
-      backgroundColor: theme.colors.success
-    },
-    pressed: {
-      opacity: 0.72
-    }
-  });
-}

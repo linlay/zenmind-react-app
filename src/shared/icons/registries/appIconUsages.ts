@@ -42,7 +42,7 @@ export const appIconUsages = {
 
   'chatHome.openDirectory': { glyph: 'folder_open', colorRole: 'brand', sizeRole: 'lg' },
   'chatHome.search': { glyph: 'search', colorRole: 'brand', sizeRole: 'lg' },
-  'chatHome.add': { glyph: 'edit_square', colorRole: 'brand', sizeRole: 'xxl' },
+  'chatHome.add': { glyph: 'edit_square', colorRole: 'brand', sizeRole: 'md' },
   'chatHome.rowPinned': {
     glyph: 'pin',
     colorRole: 'tertiary',
@@ -117,6 +117,7 @@ export const appIconUsages = {
   'runtime.reasoning': { glyph: 'psychology', colorRole: 'warning', sizeRole: 'rail' },
   'runtime.awaiting': { glyph: 'question_answer', colorRole: 'warning', sizeRole: 'rail' },
   'runtime.tool': { glyph: 'build', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.planning': { glyph: 'assignment', colorRole: 'brand', sizeRole: 'rail' },
   'runtime.file': { glyph: 'description', colorRole: 'success', sizeRole: 'rail' },
   'runtime.neutral': { glyph: 'smart_toy', colorRole: 'secondary', sizeRole: 'rail' },
   'runtime.expand': {
@@ -132,6 +133,8 @@ export const appIconUsages = {
   'runtime.wrapEnabled': { glyph: 'format_text_wrap', colorRole: 'secondary', sizeRole: 'toolbar' },
   'runtime.wrapDisabled': { glyph: 'format_text_overflow', colorRole: 'secondary', sizeRole: 'toolbar' },
   'runtime.copy': { glyph: 'content_copy', colorRole: 'secondary', sizeRole: 'toolbar' },
+  'runtime.planExpand': { glyph: 'keyboard_arrow_down', colorRole: 'secondary', sizeRole: 'toolbar' },
+  'runtime.planCollapse': { glyph: 'keyboard_arrow_up', colorRole: 'secondary', sizeRole: 'toolbar' },
 
   'awaiting.resume': { glyph: 'spark', colorRole: 'brandStrong', sizeRole: 'sm', strokeWidth: 2.1 },
   'attachment.image': { glyph: 'image', colorRole: 'secondary', sizeRole: 'md' },

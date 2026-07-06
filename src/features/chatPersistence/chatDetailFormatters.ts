@@ -6,6 +6,7 @@ const SECONDS_PER_MINUTE = 60;
 const SECONDS_PER_HOUR = 60 * SECONDS_PER_MINUTE;
 const MILLISECONDS_PER_SECOND = 1000;
 const TENTHS_PER_SECOND = 10;
+const DEFAULT_TODAY_LABEL = defaultT('chatDetail.timestamp.today');
 const DEFAULT_YESTERDAY_LABEL = defaultT('chatDetail.timestamp.yesterday');
 
 function pad2(value: number): string {
@@ -38,8 +39,16 @@ function formatSecondTenths(value: number): string {
 export function formatChatDetailTimestamp(
   value: number,
   now: number = Date.now(),
-  yesterdayLabel: string = DEFAULT_YESTERDAY_LABEL
+  todayLabelOrYesterdayLabel?: string,
+  yesterdayLabel?: string
 ): string {
+  const hasTodayLabel = yesterdayLabel !== undefined;
+  const todayLabel = hasTodayLabel
+    ? todayLabelOrYesterdayLabel || DEFAULT_TODAY_LABEL
+    : DEFAULT_TODAY_LABEL;
+  const resolvedYesterdayLabel = hasTodayLabel
+    ? yesterdayLabel || DEFAULT_YESTERDAY_LABEL
+    : todayLabelOrYesterdayLabel || DEFAULT_YESTERDAY_LABEL;
   const numericValue = Number(value);
   const numericNow = Number(now);
   if (!Number.isFinite(numericValue) || numericValue <= 0 || !Number.isFinite(numericNow)) {
@@ -54,11 +63,11 @@ export function formatChatDetailTimestamp(
 
   const timeText = `${pad2(timestamp.getHours())}:${pad2(timestamp.getMinutes())}`;
   if (isSameLocalDay(timestamp, current)) {
-    return timeText;
+    return `${todayLabel} ${timeText}`;
   }
 
   if (isYesterdayLocalDay(timestamp, current)) {
-    return `${yesterdayLabel} ${timeText}`;
+    return `${resolvedYesterdayLabel} ${timeText}`;
   }
 
   const dateText = `${pad2(timestamp.getMonth() + 1)}/${pad2(timestamp.getDate())}`;

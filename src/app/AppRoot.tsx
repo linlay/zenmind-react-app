@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
-import { AppState, StatusBar, StyleSheet, View } from 'react-native';
+import { AppState, StatusBar, View } from 'react-native';
 
 import { getApiBaseUrl } from '../core/api/apiClient';
 import { bootstrapAuth, configureAuthCacheRuntime, ensureFreshAccessToken } from '../core/auth/appAuth';
@@ -25,6 +25,7 @@ const PREFRESH_MIN_VALIDITY_MS = 120_000;
 const PREFRESH_JITTER_MS = 8_000;
 const ACTIVE_REFRESH_DEBOUNCE_MS = 20_000;
 const FOREGROUND_REFRESH_INTERVAL_MS = 60_000;
+const APP_ROOT_CLASS = 'flex-1 bg-app-background';
 
 configureAuthCacheRuntime({
   switchScope: switchChatDatabaseScope,
@@ -223,7 +224,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
   const navigationTheme = useMemo(() => createNavigationTheme(theme), [theme]);
 
   return (
-    <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+    <View className={APP_ROOT_CLASS}>
       <StatusBar barStyle={theme.isDark ? 'light-content' : 'dark-content'} backgroundColor={theme.colors.surface} />
       <NavigationContainer
         ref={navigationRef}
@@ -241,9 +242,3 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1
-  }
-});

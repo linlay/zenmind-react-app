@@ -1,9 +1,9 @@
 import { memo, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { type TFunction, useT } from '../../../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../../shared/visual/foundation';
+import { useAppTheme } from '../../../../shared/visual/AppThemeProvider';
+import { cn } from '../../../../shared/visual/className';
 import type { ChatConversationAwaitingState } from '../../../chatRealtime/types';
 import {
   getAwaitingCountdownRemainingSeconds,
@@ -23,6 +23,18 @@ type AwaitingPanelFooterProps = {
 };
 
 const COUNTDOWN_TICK_MS = 1000;
+const FOOTER_CLASS = 'min-h-9 flex-row items-center justify-between gap-app-md';
+const FOOTER_STATUS_CLASS = 'min-w-0 flex-1 gap-[2px]';
+const COUNTDOWN_CLASS = 'max-w-[128px] text-[12px] font-bold leading-4 text-app-secondary';
+const ACTIONS_CLASS = 'flex-row items-center gap-app-sm';
+const SKIP_BUTTON_CLASS =
+  'min-h-[34px] min-w-[62px] items-center justify-center rounded-app-md bg-app-surface-muted px-app-md active:opacity-[0.72]';
+const SKIP_TEXT_CLASS = 'text-[13px] font-extrabold leading-[18px] text-app-secondary';
+const PRIMARY_BUTTON_CLASS =
+  'min-h-[34px] min-w-[72px] items-center justify-center rounded-app-md bg-app-brand-blue px-app-md active:bg-app-brand-blue-strong';
+const PRIMARY_TEXT_CLASS = 'text-[13px] font-black leading-[18px] text-app-on-action';
+const ERROR_TEXT_CLASS = 'text-[12px] font-bold leading-4 text-app-danger';
+const DISABLED_BUTTON_CLASS = 'opacity-[0.38]';
 
 type CountdownState = {
   deadline: number | null;
@@ -127,14 +139,13 @@ const AwaitingCountdownText = memo(function AwaitingCountdownText({
   id: string;
   timeoutMs: number | null;
 }) {
-  const styles = useAppThemeStyles(createStyles);
   const countdownLabel = useCountdownLabel({ awaitingId, createdAt, id, timeoutMs });
   if (!countdownLabel) {
     return null;
   }
 
   return (
-    <Text allowFontScaling={false} numberOfLines={1} style={styles.countdown}>
+    <Text allowFontScaling={false} numberOfLines={1} className={COUNTDOWN_CLASS}>
       {countdownLabel}
     </Text>
   );
@@ -152,15 +163,14 @@ export const AwaitingPanelFooter = memo(function AwaitingPanelFooter({
   onSecondary,
 }: AwaitingPanelFooterProps) {
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const actionDisabled = disabled || submitting;
   const hasPrimaryAction = Boolean(primaryLabel && onPrimary);
 
   return (
-    <View style={styles.footer}>
-      <View style={styles.footerStatus}>
+    <View className={FOOTER_CLASS}>
+      <View className={FOOTER_STATUS_CLASS}>
         {errorText ? (
-          <Text allowFontScaling={false} numberOfLines={1} style={styles.errorText}>
+          <Text allowFontScaling={false} numberOfLines={1} className={ERROR_TEXT_CLASS}>
             {errorText}
           </Text>
         ) : null}
@@ -171,20 +181,16 @@ export const AwaitingPanelFooter = memo(function AwaitingPanelFooter({
           timeoutMs={timeoutMs}
         />
       </View>
-      <View style={styles.actions}>
+      <View className={ACTIONS_CLASS}>
         {secondaryLabel && onSecondary ? (
           <Pressable
             accessibilityLabel={secondaryLabel}
             accessibilityRole="button"
             disabled={actionDisabled}
             onPress={onSecondary}
-            style={({ pressed }) => [
-              styles.skipButton,
-              actionDisabled && styles.disabledButton,
-              pressed && !actionDisabled && styles.pressed,
-            ]}
+            className={cn(SKIP_BUTTON_CLASS, actionDisabled ? DISABLED_BUTTON_CLASS : null)}
           >
-            <Text allowFontScaling={false} style={styles.skipText}>
+            <Text allowFontScaling={false} className={SKIP_TEXT_CLASS}>
               {secondaryLabel}
             </Text>
           </Pressable>
@@ -195,16 +201,12 @@ export const AwaitingPanelFooter = memo(function AwaitingPanelFooter({
             accessibilityRole="button"
             disabled={actionDisabled}
             onPress={onPrimary}
-            style={({ pressed }) => [
-              styles.primaryButton,
-              disabled && !submitting && styles.disabledButton,
-              pressed && !actionDisabled && styles.primaryPressed,
-            ]}
+            className={cn(PRIMARY_BUTTON_CLASS, disabled && !submitting ? DISABLED_BUTTON_CLASS : null)}
           >
             {submitting ? (
               <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
             ) : (
-              <Text allowFontScaling={false} style={styles.primaryText}>
+              <Text allowFontScaling={false} className={PRIMARY_TEXT_CLASS}>
                 {primaryLabel}
               </Text>
             )}
@@ -214,77 +216,3 @@ export const AwaitingPanelFooter = memo(function AwaitingPanelFooter({
     </View>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    footer: {
-      minHeight: 36,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: appVisualTokens.spacing.md,
-    },
-    footerStatus: {
-      flex: 1,
-      minWidth: 0,
-      gap: 2,
-    },
-    countdown: {
-      maxWidth: 128,
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '700',
-      color: theme.colors.textSecondary,
-    },
-    actions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.sm,
-    },
-    skipButton: {
-      minWidth: 62,
-      minHeight: 34,
-      borderRadius: appVisualTokens.radii.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.surfaceMuted,
-      paddingHorizontal: appVisualTokens.spacing.md,
-    },
-    skipText: {
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '800',
-      color: theme.colors.textSecondary,
-    },
-    primaryButton: {
-      minWidth: 72,
-      minHeight: 34,
-      borderRadius: appVisualTokens.radii.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.brandBlue,
-      paddingHorizontal: appVisualTokens.spacing.md,
-    },
-    primaryText: {
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '900',
-      color: theme.colors.onBrandBlueAction,
-    },
-    errorText: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '700',
-      color: theme.colors.danger,
-    },
-    disabledButton: {
-      opacity: 0.38,
-    },
-    pressed: {
-      opacity: 0.72,
-    },
-    primaryPressed: {
-      backgroundColor: theme.colors.brandBlueStrong,
-    },
-  });
-}

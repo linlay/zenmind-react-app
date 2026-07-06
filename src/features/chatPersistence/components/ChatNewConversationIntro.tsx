@@ -1,11 +1,10 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import type { AgentWonderSuggestion } from '../../../core/api/services/chatApi';
 import { AppIconButton } from '../../../shared/icons/AppIconButton';
 import { useT } from '../../../shared/i18n';
-import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
+import { cn } from '../../../shared/visual/className';
 import { CHAT_WONDER_VISIBLE_COUNT, pickChatWonderSuggestions } from './chatWonderDisplay';
 
 type ChatNewConversationIntroProps = {
@@ -19,12 +18,25 @@ type WonderCardProps = {
   wonder: AgentWonderSuggestion;
   label: string;
   onPress: (text: string) => void;
-  styles: ReturnType<typeof createStyles>;
 };
 
-const WONDER_CARD_MIN_HEIGHT = 82;
+const ROOT_CLASS = 'w-full max-w-[420px] self-center gap-app-xl px-app-sm';
+const HEADING_CLASS = 'items-center gap-app-sm';
+const TITLE_CLASS = 'text-center text-app-title-lg font-bold text-app-primary';
+const DESCRIPTION_CLASS = 'text-center text-[14px] leading-[21px] text-app-secondary';
+const WONDERS_CLASS = 'gap-app-sm';
+const WONDERS_HEADER_CLASS = 'min-h-8 flex-row items-center justify-between gap-app-sm';
+const WONDERS_TITLE_CLASS = 'text-app-footnote font-bold text-app-action';
+const WONDER_LIST_CLASS = 'gap-app-sm';
+const WONDER_CARD_CLASS =
+  'min-h-[82px] w-full justify-start gap-app-xs overflow-hidden rounded-app-sm border border-app-line bg-app-surface px-app-md py-app-sm active:border-app-brand-blue active:bg-app-brand-blue-soft';
+const WONDER_LABEL_CLASS = 'text-app-micro font-bold text-app-brand-blue';
+const WONDER_TEXT_CLASS = 'text-app-footnote font-semibold text-app-primary';
+const REFRESH_BUTTON_CLASS =
+  'h-8 w-8 items-center justify-center rounded-app-pill bg-app-surface-muted active:bg-app-brand-blue-soft';
+const REFRESH_BUTTON_DISABLED_CLASS = 'opacity-[0.38]';
 
-const WonderCard = memo(function WonderCard({ wonder, label, onPress, styles }: WonderCardProps) {
+const WonderCard = memo(function WonderCard({ wonder, label, onPress }: WonderCardProps) {
   const handlePress = useCallback(() => {
     onPress(wonder.text);
   }, [onPress, wonder.text]);
@@ -33,12 +45,12 @@ const WonderCard = memo(function WonderCard({ wonder, label, onPress, styles }: 
     <Pressable
       accessibilityRole="button"
       onPress={handlePress}
-      style={({ pressed }) => [styles.wonderCard, pressed && styles.wonderCardPressed]}
+      className={WONDER_CARD_CLASS}
     >
-      <Text allowFontScaling={false} numberOfLines={1} style={styles.wonderLabel}>
+      <Text allowFontScaling={false} numberOfLines={1} className={WONDER_LABEL_CLASS}>
         {label}
       </Text>
-      <Text allowFontScaling={false} ellipsizeMode="tail" numberOfLines={2} style={styles.wonderText}>
+      <Text allowFontScaling={false} ellipsizeMode="tail" numberOfLines={2} className={WONDER_TEXT_CLASS}>
         {wonder.text}
       </Text>
     </Pressable>
@@ -52,7 +64,6 @@ export const ChatNewConversationIntro = memo(function ChatNewConversationIntro({
   onSelectWonder,
 }: ChatNewConversationIntroProps) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const [refreshSeed, setRefreshSeed] = useState(0);
   const visibleWonders = useMemo(
     () => pickChatWonderSuggestions(wonders, refreshSeed),
@@ -67,22 +78,22 @@ export const ChatNewConversationIntro = memo(function ChatNewConversationIntro({
   }, [canRefreshWonders]);
 
   return (
-    <View style={styles.root}>
-      <View style={styles.heading}>
-        <Text allowFontScaling={false} numberOfLines={2} style={styles.title}>
+    <View className={ROOT_CLASS}>
+      <View className={HEADING_CLASS}>
+        <Text allowFontScaling={false} numberOfLines={2} className={TITLE_CLASS}>
           {t('chatDetail.newConversation.title', { agentName })}
         </Text>
         {description ? (
-          <Text allowFontScaling={false} numberOfLines={3} style={styles.description}>
+          <Text allowFontScaling={false} numberOfLines={3} className={DESCRIPTION_CLASS}>
             {description}
           </Text>
         ) : null}
       </View>
 
       {visibleWonders.length > 0 ? (
-        <View style={styles.wonders}>
-          <View style={styles.wondersHeader}>
-            <Text allowFontScaling={false} style={styles.wondersTitle}>
+        <View className={WONDERS_CLASS}>
+          <View className={WONDERS_HEADER_CLASS}>
+            <Text allowFontScaling={false} className={WONDERS_TITLE_CLASS}>
               {t('chatDetail.wonders.title')}
             </Text>
             <AppIconButton
@@ -92,11 +103,10 @@ export const ChatNewConversationIntro = memo(function ChatNewConversationIntro({
               hitSlop={8}
               onPress={handleRefreshWonders}
               size={16}
-              style={[styles.refreshButton, !canRefreshWonders && styles.refreshButtonDisabled]}
-              pressedStyle={styles.refreshButtonPressed}
+              className={cn(REFRESH_BUTTON_CLASS, !canRefreshWonders && REFRESH_BUTTON_DISABLED_CLASS)}
             />
           </View>
-          <View style={styles.wonderList}>
+          <View className={WONDER_LIST_CLASS}>
             {visibleWonders.map((wonder, index) => (
               <WonderCard
                 key={`${wonder.id}:${index}`}
@@ -107,7 +117,6 @@ export const ChatNewConversationIntro = memo(function ChatNewConversationIntro({
                     : t('chatDetail.wonders.cardLabel', { index: index + 1 })
                 }
                 onPress={onSelectWonder}
-                styles={styles}
               />
             ))}
           </View>
@@ -116,94 +125,3 @@ export const ChatNewConversationIntro = memo(function ChatNewConversationIntro({
     </View>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    root: {
-      width: '100%',
-      maxWidth: 420,
-      alignSelf: 'center',
-      gap: appVisualTokens.spacing.xl,
-      paddingHorizontal: appVisualTokens.spacing.sm,
-    },
-    heading: {
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.sm,
-    },
-    title: {
-      fontSize: 22,
-      lineHeight: 30,
-      fontWeight: '700',
-      textAlign: 'center',
-      color: theme.colors.textPrimary,
-    },
-    description: {
-      fontSize: 14,
-      lineHeight: 21,
-      textAlign: 'center',
-      color: theme.colors.textSecondary,
-    },
-    wonders: {
-      gap: appVisualTokens.spacing.sm,
-    },
-    wondersHeader: {
-      minHeight: 32,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: appVisualTokens.spacing.sm,
-    },
-    wondersTitle: {
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '700',
-      color: theme.colors.brandBlueAction,
-    },
-    refreshButton: {
-      width: 32,
-      height: 32,
-      borderRadius: 16,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.surfaceMuted,
-    },
-    refreshButtonPressed: {
-      backgroundColor: theme.colors.brandBlueSoft,
-    },
-    refreshButtonDisabled: {
-      opacity: 0.38,
-    },
-    wonderList: {
-      gap: appVisualTokens.spacing.sm,
-    },
-    wonderCard: {
-      width: '100%',
-      minHeight: WONDER_CARD_MIN_HEIGHT,
-      borderWidth: 1,
-      borderColor: theme.colors.line,
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: appVisualTokens.spacing.md,
-      paddingVertical: appVisualTokens.spacing.sm,
-      gap: appVisualTokens.spacing.xs,
-      justifyContent: 'flex-start',
-      overflow: 'hidden',
-    },
-    wonderCardPressed: {
-      backgroundColor: theme.colors.brandBlueSoft,
-      borderColor: theme.colors.brandBlue,
-    },
-    wonderLabel: {
-      fontSize: 11,
-      lineHeight: 15,
-      fontWeight: '700',
-      color: theme.colors.brandBlue,
-    },
-    wonderText: {
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '600',
-      color: theme.colors.textPrimary,
-    },
-  });
-}

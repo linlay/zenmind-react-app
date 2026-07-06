@@ -27,6 +27,9 @@ const primitiveTitleProps: ScreenHeaderProps = {
   title: 42,
   rightActions: [],
   actionRailWidth: 112,
+  className: 'h-[58px] bg-app-background',
+  titleContainerClassName: 'h-[58px]',
+  titleTextClassName: 'text-app-primary',
 };
 
 void [titleOnly, oneLeftAction, twoRightActions, asymmetricalActions, primitiveTitleProps];

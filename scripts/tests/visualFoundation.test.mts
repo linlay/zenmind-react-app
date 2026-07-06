@@ -1,13 +1,18 @@
 import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
 import test from 'node:test';
 
 import { appThemeTokens, appVisualTokens, formatConversationTimestamp } from '../../src/shared/visual/foundation.ts';
+import { cn } from '../../src/shared/visual/className.ts';
 import {
   DEFAULT_APP_RESOLVED_THEME_PREFERENCE,
   DEFAULT_APP_THEME_PREFERENCE,
   isAppResolvedThemePreference,
   resolveAppThemePreference,
 } from '../../src/shared/visual/themePreference.ts';
+
+const require = createRequire(import.meta.url);
+const tailwindConfig = require('../../tailwind.config.js');
 
 test('formats chat list timestamps by day and year boundaries', () => {
   const now = new Date(2026, 4, 28, 12, 0).getTime();
@@ -39,4 +44,23 @@ test('light and dark theme tokens keep the same semantic color keys', () => {
   assert.equal(appVisualTokens.colors.surface, appThemeTokens.light.colors.surface);
   assert.equal(appThemeTokens.light.spacing, appThemeTokens.dark.spacing);
   assert.equal(appThemeTokens.light.radii, appThemeTokens.dark.radii);
+  assert.equal(appThemeTokens.light.fontSizes, appThemeTokens.dark.fontSizes);
+});
+
+test('tailwind config exposes shared visual token aliases', () => {
+  assert.equal(tailwindConfig.darkMode, 'class');
+  assert.equal(tailwindConfig.theme.extend.colors.app.background, 'rgb(var(--color-app-background) / <alpha-value>)');
+  assert.equal(tailwindConfig.theme.extend.colors.app.overlay, 'rgb(var(--color-app-overlay) / var(--color-app-overlay-alpha))');
+  assert.equal(tailwindConfig.theme.extend.spacing['app-md'], `${appVisualTokens.spacing.md}px`);
+  assert.equal(tailwindConfig.theme.extend.borderRadius['app-pill'], `${appVisualTokens.radii.pill}px`);
+  assert.deepEqual(tailwindConfig.theme.extend.fontSize['app-body'], [
+    `${appVisualTokens.fontSizes.body.fontSize}px`,
+    { lineHeight: `${appVisualTokens.fontSizes.body.lineHeight}px` },
+  ]);
+  assert.ok(tailwindConfig.plugins.length > 0);
+});
+
+test('cn joins stable class name branches', () => {
+  assert.equal(cn('flex-1', false, null, undefined, 'bg-app-background'), 'flex-1 bg-app-background');
+  assert.equal(cn('', 'text-app-primary'), 'text-app-primary');
 });

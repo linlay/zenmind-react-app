@@ -36,6 +36,10 @@ function isReasoningDisplayNode(node: ChatTimelineNode | null | undefined): node
   return isTimelineDisplayNode(node) && node.kind === 'reasoning';
 }
 
+function isActivePlanAwaitingNode(node: ChatTimelineDisplayNode): boolean {
+  return node.kind === 'awaiting' && node.status === 'ask' && node.interactive?.kind === 'plan';
+}
+
 function displayKindForNode(
   node: ChatTimelineDisplayNode
 ): Exclude<ChatTimelineDisplayItemKind, 'tool-group' | 'assistant-reply-footer'> {
@@ -89,6 +93,9 @@ function isVisibleTimelineNode(
     );
   }
   if (node.kind === 'awaiting') {
+    if (isActivePlanAwaitingNode(node)) {
+      return false;
+    }
     return Boolean(node.prompt || node.payloadText || node.answer || node.interactive);
   }
   if (node.kind === 'tool') {

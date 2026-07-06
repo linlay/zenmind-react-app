@@ -12,6 +12,7 @@ import { AppIcon, type AppIconUsage } from './AppIcon';
 export type AppIconButtonProps = Omit<PressableProps, 'children' | 'hitSlop' | 'style'> & {
   usage: AppIconUsage;
   accessibilityLabel: string;
+  className?: string;
   color?: string;
   size?: number;
   strokeWidth?: number;
@@ -22,6 +23,7 @@ export type AppIconButtonProps = Omit<PressableProps, 'children' | 'hitSlop' | '
 
 export const AppIconButton = memo(function AppIconButton({
   usage,
+  className,
   color,
   size,
   strokeWidth,
@@ -33,7 +35,8 @@ export const AppIconButton = memo(function AppIconButton({
     <Pressable
       {...pressableProps}
       accessibilityRole={pressableProps.accessibilityRole ?? 'button'}
-      style={({ pressed }) => [style, pressed && pressedStyle]}
+      className={className}
+      style={style || pressedStyle ? ({ pressed }) => [style, pressed && pressedStyle] : undefined}
     >
       <AppIcon usage={usage} color={color} size={size} strokeWidth={strokeWidth} />
     </Pressable>

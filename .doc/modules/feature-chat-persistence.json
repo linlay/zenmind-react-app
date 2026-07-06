@@ -179,6 +179,7 @@
       "OutboxMessageRow",
       "PendingOutboxMessage",
       "PersistedConversationReadStateInput",
+      "PlanningActionPill",
       "ProjectedChatSummaryPatch",
       "ProjectedConversationDetail",
       "ProjectedDetailActiveRun",
@@ -194,6 +195,9 @@
       "RuntimePayloadSectionMode",
       "RuntimePayloadSource",
       "RuntimePayloadTone",
+      "RuntimePlanningBlock",
+      "RuntimePlanningBlockMode",
+      "RuntimePlanningCollapseOverlayRequest",
       "RuntimeStatusTone",
       "RuntimeTimelineRow",
       "RuntimeToolArgumentRow",
@@ -381,7 +385,7 @@
       "feature-chat-timeline"
     ],
     "tests": [],
-    "lastScannedAt": ""
+    "lastScannedAt": "2026-07-03T10:07:35Z"
   },
   "readHints": {
     "alwaysRead": [

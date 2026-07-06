@@ -1,14 +1,26 @@
 import { memo, useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { type I18nKey, type TFunction, useT } from '../../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
+import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import type { ChatTimelineMessageNode } from '../../chatTimeline/index.ts';
 import { ChatTimelineRail } from './ChatTimelineRail';
 
-const SYSTEM_ALERT_DIAGNOSTICS_MAX_HEIGHT = 220;
+const TIMELINE_ROW_CLASS = 'mb-4 flex-row items-stretch gap-2';
+const TIMELINE_BODY_CLASS = 'min-w-0 flex-1';
+const SYSTEM_ALERT_CLASS =
+  'self-stretch rounded-app-sm border border-app-danger-line bg-app-danger-soft px-[10px] py-2';
+const SYSTEM_ALERT_MESSAGE_CLASS = 'text-[13px] font-bold leading-[19px] text-app-danger';
+const DETAILS_HEADER_CLASS = 'mt-2 min-h-6 flex-row items-center gap-1 self-start active:opacity-[0.72]';
+const DETAILS_TITLE_CLASS = 'text-[12px] leading-4 text-app-secondary';
+const DETAILS_CLASS = 'mt-[6px] gap-[5px]';
+const DETAIL_ROW_CLASS = 'flex-row items-start gap-2';
+const DETAIL_LABEL_CLASS = 'w-[58px] shrink-0 text-[12px] leading-[18px] text-app-secondary';
+const DETAIL_VALUE_CLASS = 'min-w-0 flex-1 font-mono text-[12px] leading-[18px] text-app-primary';
+const DIAGNOSTICS_SCROLL_CLASS = 'mt-[5px] max-h-[220px] rounded-app-sm border border-app-line bg-app-surface';
+const DIAGNOSTICS_CONTENT_CLASS = 'p-2';
+const DIAGNOSTICS_TEXT_CLASS = 'font-mono text-[12px] leading-[18px] text-app-primary';
 
 type ChatSystemAlertProps = {
   node: ChatTimelineMessageNode;
@@ -142,7 +154,6 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
 }: ChatSystemAlertProps) {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const [expanded, setExpanded] = useState(false);
   const errorDetail = node.errorDetail ?? null;
   const canExpand = hasTechnicalDetail(errorDetail);
@@ -175,15 +186,15 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
   }, [canExpand]);
 
   return (
-    <View style={styles.timelineRow}>
+    <View className={TIMELINE_ROW_CLASS}>
       <ChatTimelineRail
         iconUsage="timeline.systemAlertRail"
         terminal={isLastInRun}
         toneColor={theme.colors.danger}
       />
-      <View style={styles.timelineBody}>
-        <View style={styles.systemAlert}>
-          <Text allowFontScaling={false} selectable style={styles.systemAlertMessage}>
+      <View className={TIMELINE_BODY_CLASS}>
+        <View className={SYSTEM_ALERT_CLASS}>
+          <Text allowFontScaling={false} selectable className={SYSTEM_ALERT_MESSAGE_CLASS}>
             {message}
           </Text>
           {canExpand ? (
@@ -193,12 +204,9 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
               }
               accessibilityRole="button"
               onPress={handleToggle}
-              style={({ pressed }) => [
-                styles.systemAlertDetailsHeader,
-                pressed && styles.rowPressed,
-              ]}
+              className={DETAILS_HEADER_CLASS}
             >
-              <Text allowFontScaling={false} style={styles.systemAlertDetailsTitle}>
+              <Text allowFontScaling={false} className={DETAILS_TITLE_CLASS}>
                 {t('platformError.technicalDetails')}
               </Text>
               <AppIcon
@@ -208,16 +216,16 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
             </Pressable>
           ) : null}
           {expanded ? (
-            <View style={styles.systemAlertDetails}>
+            <View className={DETAILS_CLASS}>
               {rows.map((row) => (
-                <View key={row.key} style={styles.systemAlertDetailRow}>
-                  <Text allowFontScaling={false} style={styles.systemAlertDetailLabel}>
+                <View key={row.key} className={DETAIL_ROW_CLASS}>
+                  <Text allowFontScaling={false} className={DETAIL_LABEL_CLASS}>
                     {row.label}
                   </Text>
                   <Text
                     allowFontScaling={false}
                     selectable
-                    style={styles.systemAlertDetailValue}
+                    className={DETAIL_VALUE_CLASS}
                   >
                     {row.value}
                   </Text>
@@ -227,13 +235,13 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
                 <ScrollView
                   nestedScrollEnabled
                   showsVerticalScrollIndicator
-                  style={styles.systemAlertDiagnosticsScroll}
-                  contentContainerStyle={styles.systemAlertDiagnosticsContent}
+                  className={DIAGNOSTICS_SCROLL_CLASS}
+                  contentContainerClassName={DIAGNOSTICS_CONTENT_CLASS}
                 >
                   <Text
                     allowFontScaling={false}
                     selectable
-                    style={styles.systemAlertDiagnosticsText}
+                    className={DIAGNOSTICS_TEXT_CLASS}
                   >
                     {diagnosticsText}
                   </Text>
@@ -246,90 +254,3 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
     </View>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    timelineRow: {
-      flexDirection: 'row',
-      alignItems: 'stretch',
-      gap: 8,
-      marginBottom: 16,
-    },
-    timelineBody: {
-      flex: 1,
-      minWidth: 0,
-    },
-    systemAlert: {
-      alignSelf: 'stretch',
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.dangerLine,
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.dangerSoft,
-      paddingHorizontal: 10,
-      paddingVertical: 8,
-    },
-    systemAlertMessage: {
-      fontSize: 13,
-      lineHeight: 19,
-      fontWeight: '700',
-      color: theme.colors.danger,
-    },
-    systemAlertDetailsHeader: {
-      marginTop: 8,
-      minHeight: 24,
-      alignSelf: 'flex-start',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    systemAlertDetailsTitle: {
-      fontSize: 12,
-      lineHeight: 16,
-      color: theme.colors.textSecondary,
-    },
-    systemAlertDetails: {
-      marginTop: 6,
-      gap: 5,
-    },
-    systemAlertDetailRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 8,
-    },
-    systemAlertDetailLabel: {
-      width: 58,
-      flexShrink: 0,
-      fontSize: 12,
-      lineHeight: 18,
-      color: theme.colors.textSecondary,
-    },
-    systemAlertDetailValue: {
-      flex: 1,
-      minWidth: 0,
-      fontFamily: 'monospace',
-      fontSize: 12,
-      lineHeight: 18,
-      color: theme.colors.textPrimary,
-    },
-    systemAlertDiagnosticsScroll: {
-      marginTop: 5,
-      maxHeight: SYSTEM_ALERT_DIAGNOSTICS_MAX_HEIGHT,
-      borderRadius: appVisualTokens.radii.sm,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.line,
-      backgroundColor: theme.colors.surface,
-    },
-    systemAlertDiagnosticsContent: {
-      padding: 8,
-    },
-    systemAlertDiagnosticsText: {
-      fontFamily: 'monospace',
-      fontSize: 12,
-      lineHeight: 18,
-      color: theme.colors.textPrimary,
-    },
-    rowPressed: {
-      opacity: 0.72,
-    },
-  });
-}

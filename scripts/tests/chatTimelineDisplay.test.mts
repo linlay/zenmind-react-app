@@ -282,6 +282,46 @@ test('timeline display hides request echoes produced after awaiting answers', ()
   );
 });
 
+test('timeline display keeps active plan confirmation out of the main list', () => {
+  const state = deriveChatTimelineState('chat-plan', [
+    {
+      type: 'run.start',
+      runId: 'run-plan',
+      timestamp: 100,
+    },
+    {
+      type: 'planning.snapshot',
+      runId: 'run-plan',
+      planningId: 'planning-1',
+      text: '# 实施计划\n\n改成红色主题。',
+      timestamp: 110,
+    },
+    {
+      type: 'awaiting.ask',
+      awaitingId: 'call-plan',
+      mode: 'plan',
+      viewportType: 'builtin',
+      viewportKey: 'plan',
+      runId: 'run-plan',
+      plan: {
+        id: 'confirm',
+        planningId: 'planning-1',
+        title: '实施此计划？',
+        options: [
+          { decision: 'approve', label: '是，实施此计划' },
+          { decision: 'reject', label: '否，请告知如何调整' },
+        ],
+      },
+      timestamp: 120,
+    },
+  ]);
+
+  const items = buildChatTimelineDisplayItems(state);
+
+  assert.equal(state.awaiting?.interactive?.kind, 'plan');
+  assert.deepEqual(displayKinds(items), ['planning']);
+});
+
 test('timeline display deduplicates persisted reasoning rows with the same run body', () => {
   const baseState = deriveChatTimelineState('chat-1', [
     {

@@ -280,6 +280,7 @@ export const enUS: Record<I18nKey, string> = {
   'chatDetail.error.conversationGone': 'This conversation has been deleted or archived.',
   'chatDetail.error.missingConversationContext':
     'Cannot start a new chat: the current conversation has no agent or team context.',
+  'chatDetail.timestamp.today': 'Today',
   'chatDetail.timestamp.yesterday': 'Yesterday',
 
   'history.title': 'History',
@@ -376,6 +377,11 @@ export const enUS: Record<I18nKey, string> = {
   'runtime.duration': 'Duration {duration}',
   'runtime.reasoningProcess': 'Thinking process',
   'runtime.planning': 'Implementation plan',
+  'runtime.planning.writing': 'Writing plan',
+  'runtime.planning.expand': 'Expand plan',
+  'runtime.planning.collapse': 'Collapse plan',
+  'runtime.planning.collapseToLine': 'Collapse plan',
+  'runtime.planning.empty': 'Waiting for plan content',
   'runtime.toolCall': 'Tool call',
   'runtime.runStatus': 'Run status',
   'runtime.message': 'Message',

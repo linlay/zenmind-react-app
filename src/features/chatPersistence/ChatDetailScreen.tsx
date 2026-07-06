@@ -6,16 +6,11 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Platform,
-  StyleSheet,
   View,
-  type StyleProp,
-  type ViewStyle
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '../../shared/i18n';
-import { useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
-import type { AppThemeTokens } from '../../shared/visual/foundation';
 import { ChatAwaitingOverlay, ChatAwaitingResumeBar } from './components/ChatAwaitingOverlay';
 import { ChatAwaitingDock } from './components/awaiting/ChatAwaitingDock';
 import { ChatDetailComposerCard } from './components/ChatDetailComposerCard';
@@ -40,6 +35,10 @@ type ChatDetailScreenProps = NativeStackScreenProps<{ ChatDetail: ChatDetailRout
 const IS_IOS = Platform.OS === 'ios';
 const KEYBOARD_SHOW_EVENT = IS_IOS ? 'keyboardWillShow' : 'keyboardDidShow';
 const KEYBOARD_HIDE_EVENT = IS_IOS ? 'keyboardWillHide' : 'keyboardDidHide';
+const SAFE_AREA_CLASS = 'flex-1 bg-app-background';
+const KEYBOARD_ROOT_CLASS = 'flex-1';
+const SCREEN_CLASS = 'flex-1 bg-app-background';
+const INITIAL_SKELETON_OVERLAY_CLASS = 'absolute inset-0';
 
 function useKeyboardVisibility() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(() => Keyboard.isVisible());
@@ -60,15 +59,15 @@ function useKeyboardVisibility() {
 type ChatDetailKeyboardAvoiderProps = {
   children: ReactNode;
   keyboardVerticalOffset: number;
-  style: StyleProp<ViewStyle>;
+  className: string;
 };
 
-function ChatDetailKeyboardAvoider({ children, keyboardVerticalOffset, style }: ChatDetailKeyboardAvoiderProps) {
+function ChatDetailKeyboardAvoider({ children, keyboardVerticalOffset, className }: ChatDetailKeyboardAvoiderProps) {
   const isKeyboardVisible = useKeyboardVisibility();
 
   return (
     <KeyboardAvoidingView
-      style={style}
+      className={className}
       behavior="padding"
       enabled={isKeyboardVisible}
       keyboardVerticalOffset={keyboardVerticalOffset}
@@ -80,7 +79,6 @@ function ChatDetailKeyboardAvoider({ children, keyboardVerticalOffset, style }: 
 
 export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const insets = useSafeAreaInsets();
   const {
     conversationId,
@@ -197,12 +195,12 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   );
 
   return (
-    <View style={styles.safeArea}>
+    <View className={SAFE_AREA_CLASS}>
       {isInitialContentReady ? (
         summary ? (
-          <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-            <ChatDetailKeyboardAvoider style={styles.keyboardRoot} keyboardVerticalOffset={IS_IOS ? insets.top : 0}>
-              <View style={styles.screen}>
+          <SafeAreaView edges={['top', 'bottom']} className={SAFE_AREA_CLASS}>
+            <ChatDetailKeyboardAvoider className={KEYBOARD_ROOT_CLASS} keyboardVerticalOffset={IS_IOS ? insets.top : 0}>
+              <View className={SCREEN_CLASS}>
                 <ChatDetailHeader
                   title={conversationTarget?.title || summary.title}
                   subtitle={
@@ -293,7 +291,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
             </ChatDetailKeyboardAvoider>
           </SafeAreaView>
         ) : (
-          <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+          <SafeAreaView edges={['top', 'bottom']} className={SAFE_AREA_CLASS}>
             <ChatDetailEmptyState
               errorText={errorText}
               onBack={handleGoBack}
@@ -304,8 +302,8 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
       ) : null}
 
       {isInitialSkeletonVisible ? (
-        <Animated.View style={[styles.initialSkeletonOverlay, { opacity: skeletonOverlayOpacity }]}>
-          <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+        <Animated.View className={INITIAL_SKELETON_OVERLAY_CLASS} style={{ opacity: skeletonOverlayOpacity }}>
+          <SafeAreaView edges={['top', 'bottom']} className={SAFE_AREA_CLASS}>
             <ChatDetailSkeleton />
           </SafeAreaView>
         </Animated.View>
@@ -317,23 +315,4 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
       ) : null}
     </View>
   );
-}
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    safeArea: {
-      flex: 1,
-      backgroundColor: theme.colors.background
-    },
-    keyboardRoot: {
-      flex: 1
-    },
-    screen: {
-      flex: 1,
-      backgroundColor: theme.colors.background
-    },
-    initialSkeletonOverlay: {
-      ...StyleSheet.absoluteFill
-    }
-  });
 }

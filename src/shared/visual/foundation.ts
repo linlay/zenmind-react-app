@@ -1,121 +1,38 @@
 import type { AppResolvedThemePreference } from './themePreference';
+import foundationTokens from './foundation.tokens.json' with { type: 'json' };
 
 export type VisualAvatarTone = {
   backgroundColor: string;
   foregroundColor: string;
 };
 
-// Keep this theme source aligned with .doc/reference/ui-visual-theme.md.
-export const appLightColors = {
-  brandBlue: '#2f6df6',
-  brandBlueStrong: '#255fef',
-  brandBlueSoft: '#edf3ff',
-  brandBlueAction: '#1677ff',
-  onBrandBlueAction: '#ffffff',
-  textPrimary: '#17233a',
-  textSecondary: '#8b96a9',
-  textTertiary: '#b8c0ce',
-  line: '#eceff4',
-  lineStrong: '#dfe5ee',
-  surface: '#ffffff',
-  surfaceMuted: '#f6f8fc',
-  surfaceRaised: '#ffffff',
-  background: '#ffffff',
-  backgroundMuted: '#f4f7fb',
-  badge: '#2f6df6',
-  success: '#2b9a60',
-  warning: '#eb8a19',
-  danger: '#ef6464',
-  dangerSoft: '#fff5f5',
-  dangerLine: '#ffd6d6',
-  overlay: 'rgba(23, 35, 58, 0.18)',
-  shadow: '#0f1728',
-} as const;
+export type VisualFontSize = {
+  fontSize: number;
+  lineHeight: number;
+};
 
+// Keep this theme source aligned with .doc/reference/ui-visual-theme.md.
+export const appLightColors = foundationTokens.colors.light;
 type AppVisualColorName = keyof typeof appLightColors;
 
 export type AppVisualColors = Readonly<Record<AppVisualColorName, string>>;
 
-export const appDarkColors = {
-  brandBlue: '#afc6ff',
-  brandBlueStrong: '#d9e2ff',
-  brandBlueSoft: '#17315f',
-  brandBlueAction: '#1677ff',
-  onBrandBlueAction: '#ffffff',
-  textPrimary: '#e0e2ed',
-  textSecondary: '#c1c6d7',
-  textTertiary: '#8b90a0',
-  line: '#272a32',
-  lineStrong: '#414755',
-  surface: '#181b23',
-  surfaceMuted: '#1c1f28',
-  surfaceRaised: '#272a32',
-  background: '#0b0e16',
-  backgroundMuted: '#10131b',
-  badge: '#1677ff',
-  success: '#6bd897',
-  warning: '#ffb695',
-  danger: '#ffb4ab',
-  dangerSoft: '#2a1115',
-  dangerLine: '#7a343b',
-  overlay: 'rgba(0, 0, 0, 0.62)',
-  shadow: '#000000',
-} as const satisfies AppVisualColors;
+export const appDarkColors = foundationTokens.colors.dark satisfies AppVisualColors;
 
 export const appThemeColors = {
   light: appLightColors,
   dark: appDarkColors,
 } as const satisfies Record<AppResolvedThemePreference, AppVisualColors>;
 
+const appAvatarPalette = foundationTokens.avatarPalette satisfies readonly VisualAvatarTone[];
+const appFontSizes = foundationTokens.fontSizes satisfies Readonly<Record<string, VisualFontSize>>;
+
 export const appVisualFoundation = {
-  spacing: {
-    xs: 4,
-    sm: 8,
-    md: 12,
-    lg: 16,
-    xl: 20,
-    xxl: 24,
-  },
-  radii: {
-    sm: 8,
-    md: 12,
-    lg: 16,
-    xl: 18,
-    pill: 999,
-  },
-  iconSizes: {
-    sm: 18,
-    md: 22,
-    lg: 24,
-    xl: 26,
-    xxl: 28,
-  },
-  avatarPalette: [
-    {
-      backgroundColor: '#f08200',
-      foregroundColor: '#ffffff',
-    },
-    {
-      backgroundColor: '#34915a',
-      foregroundColor: '#ffffff',
-    },
-    {
-      backgroundColor: '#2c9bd8',
-      foregroundColor: '#ffffff',
-    },
-    {
-      backgroundColor: '#4a78f2',
-      foregroundColor: '#ffffff',
-    },
-    {
-      backgroundColor: '#ff7d63',
-      foregroundColor: '#ffffff',
-    },
-    {
-      backgroundColor: '#1faf8a',
-      foregroundColor: '#ffffff',
-    },
-  ] satisfies readonly VisualAvatarTone[],
+  spacing: foundationTokens.spacing,
+  radii: foundationTokens.radii,
+  fontSizes: appFontSizes,
+  iconSizes: foundationTokens.iconSizes,
+  avatarPalette: appAvatarPalette,
 } as const;
 
 export type AppThemeTokens = typeof appVisualFoundation & {

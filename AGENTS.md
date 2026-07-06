@@ -131,6 +131,7 @@ Shared
 ## UI 主题约定
 
 - 新 UI 或视觉改造默认继承 `.doc/reference/ui-visual-theme.md` 与 `src/shared/visual/foundation.ts`，不要为单个页面另起一套主题。
+- 静态样式默认优先使用 NativeWind/Tailwind `className` 常量表达；只有真实动态值、动画值、运行时测量尺寸/位置、safe area / tab bar / keyboard inset、服务端/品牌/头像动态颜色、WebView/CameraView/FlashList/公开 `style` API 或阴影 `shadowColor` / elevation 这类场景，才保留最小 `style`。
 - 一级页面继续使用白底、平面列表、蓝色主强调、弱灰辅助信息、固定 Header 和贴底式底部导航。
 - 优先复用 `ScreenHeader`、`AppScreenFrame`、`PaginatedCardList`、`AppIcon`、`AppIconButton`，避免重复造视觉壳层。
 - 长列表项默认保持平面，不为每一行叠阴影；阴影只在确实需要抬升的浮层里少量使用。

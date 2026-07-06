@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, Easing, useWindowDimensions, View } from 'react-native';
 
 import { BRAND_SPLASH_BACKGROUND_COLOR, BRAND_SPLASH_IMAGE_WIDTH } from '../../shared/generated/brand';
 import { GeminiLogo } from './GeminiLogo';
@@ -13,6 +13,17 @@ type AppLaunchSkeletonProps = {
 
 const DECORATION_REVEAL_DURATION_MS = 280;
 const FADE_OUT_DURATION_MS = 320;
+const OVERLAY_CLASS = 'absolute inset-0 z-20 items-center justify-center overflow-hidden';
+const DECORATION_LAYER_CLASS = 'absolute inset-0';
+const AMBIENT_ORB_CLASS = 'absolute rounded-app-pill bg-white/80';
+const AMBIENT_ORB_TOP_LEFT_CLASS = `${AMBIENT_ORB_CLASS} left-[-36px] top-[-84px] h-[240px] w-[240px]`;
+const AMBIENT_ORB_BOTTOM_RIGHT_CLASS =
+  `${AMBIENT_ORB_CLASS} bottom-[-104px] right-[-72px] h-[280px] w-[280px] bg-[#dfe5ec]/90`;
+const FROST_SHEET_CLASS = 'absolute border border-white/70 bg-white/35';
+const FROST_SHEET_TOP_CLASS =
+  `${FROST_SHEET_CLASS} left-[-86px] top-[96px] h-[180px] w-[420px] rounded-[56px] -rotate-[18deg]`;
+const FROST_SHEET_BOTTOM_CLASS =
+  `${FROST_SHEET_CLASS} bottom-[104px] right-[-94px] h-[180px] w-[380px] rounded-[56px] rotate-[16deg]`;
 
 export function AppLaunchSkeleton({
   dismiss,
@@ -63,7 +74,8 @@ export function AppLaunchSkeleton({
 
   return (
     <Animated.View
-      style={[styles.overlay, { opacity, backgroundColor: BRAND_SPLASH_BACKGROUND_COLOR }]}
+      className={OVERLAY_CLASS}
+      style={{ opacity, backgroundColor: BRAND_SPLASH_BACKGROUND_COLOR }}
       onLayout={() => {
         if (hasReportedReady.current) {
           return;
@@ -75,68 +87,16 @@ export function AppLaunchSkeleton({
     >
       <Animated.View
         pointerEvents="none"
-        style={[styles.decorationLayer, { opacity: decorationOpacity }]}
+        className={DECORATION_LAYER_CLASS}
+        style={{ opacity: decorationOpacity }}
       >
-        <View style={[styles.ambientOrb, styles.ambientOrbTopLeft]} />
-        <View style={[styles.ambientOrb, styles.ambientOrbBottomRight]} />
-        <View style={[styles.frostSheet, styles.frostSheetTop]} />
-        <View style={[styles.frostSheet, styles.frostSheetBottom]} />
+        <View className={AMBIENT_ORB_TOP_LEFT_CLASS} />
+        <View className={AMBIENT_ORB_BOTTOM_RIGHT_CLASS} />
+        <View className={FROST_SHEET_TOP_CLASS} />
+        <View className={FROST_SHEET_BOTTOM_CLASS} />
       </Animated.View>
 
       <GeminiLogo animated={motionEnabled} size={logoSize} />
     </Animated.View>
   );
 }
-
-const styles = StyleSheet.create({
-  overlay: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  decorationLayer: {
-    ...StyleSheet.absoluteFill,
-  },
-  ambientOrb: {
-    position: 'absolute',
-    borderRadius: 999,
-    backgroundColor: 'rgba(255, 255, 255, 0.78)',
-  },
-  ambientOrbTopLeft: {
-    width: 240,
-    height: 240,
-    top: -84,
-    left: -36,
-  },
-  ambientOrbBottomRight: {
-    width: 280,
-    height: 280,
-    right: -72,
-    bottom: -104,
-    backgroundColor: 'rgba(223, 229, 236, 0.9)',
-  },
-  frostSheet: {
-    position: 'absolute',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.68)',
-    backgroundColor: 'rgba(255, 255, 255, 0.34)',
-  },
-  frostSheetTop: {
-    width: 420,
-    height: 180,
-    top: 96,
-    left: -86,
-    borderRadius: 56,
-    transform: [{ rotate: '-18deg' }],
-  },
-  frostSheetBottom: {
-    width: 380,
-    height: 180,
-    right: -94,
-    bottom: 104,
-    borderRadius: 56,
-    transform: [{ rotate: '16deg' }],
-  },
-});

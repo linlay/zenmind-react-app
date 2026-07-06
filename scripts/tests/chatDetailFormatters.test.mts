@@ -10,10 +10,18 @@ import {
 test('formats chat detail timestamps for timeline footers and history rows', () => {
   const now = new Date(2026, 5, 11, 12, 0).getTime();
 
-  assert.equal(formatChatDetailTimestamp(new Date(2026, 5, 11, 8, 5).getTime(), now), '08:05');
+  assert.equal(formatChatDetailTimestamp(new Date(2026, 5, 11, 8, 5).getTime(), now), '今天 08:05');
   assert.equal(formatChatDetailTimestamp(new Date(2026, 5, 10, 8, 5).getTime(), now), '昨天 08:05');
   assert.equal(
+    formatChatDetailTimestamp(new Date(2026, 5, 11, 8, 5).getTime(), now, 'Today', 'Yesterday'),
+    'Today 08:05'
+  );
+  assert.equal(
     formatChatDetailTimestamp(new Date(2026, 5, 10, 8, 5).getTime(), now, 'Yesterday'),
+    'Yesterday 08:05'
+  );
+  assert.equal(
+    formatChatDetailTimestamp(new Date(2026, 5, 10, 8, 5).getTime(), now, 'Today', 'Yesterday'),
     'Yesterday 08:05'
   );
   assert.equal(

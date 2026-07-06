@@ -8,14 +8,12 @@ import {
   NativeSyntheticEvent,
   Pressable,
   StyleProp,
-  StyleSheet,
   Text,
   View,
   ViewStyle
 } from 'react-native';
 
-import { useAppTheme, useAppThemeStyles } from '../visual/AppThemeProvider';
-import type { AppThemeTokens } from '../visual/foundation';
+import { useAppTheme } from '../visual/AppThemeProvider';
 import { useT } from '../i18n';
 
 type CardComponentProps<ItemT> = {
@@ -25,6 +23,15 @@ type CardComponentProps<ItemT> = {
 };
 
 const ITEM_SPACING = 14;
+const CONTAINER_CLASS = 'flex-1';
+const ITEM_SHELL_CLASS = 'w-full';
+const FOOTER_CLASS = 'flex-row items-center justify-center gap-[10px] pb-[18px] pt-app-sm';
+const FOOTER_TEXT_CLASS = 'text-[14px] font-semibold text-app-secondary';
+const FOOTER_SPACER_CLASS = 'h-3';
+const SCROLL_TOP_BUTTON_CLASS =
+  'absolute right-4 h-11 w-11 items-center justify-center rounded-app-pill border border-app-line bg-app-surface';
+const SCROLL_TOP_BUTTON_TEXT_CLASS = '-mt-0.5 text-[20px] font-extrabold text-app-brand-blue';
+const CONTENT_CONTAINER_STYLE = { paddingBottom: 18 } satisfies ViewStyle;
 
 export type ListPaginationConfig = {
   hasMore: boolean;
@@ -72,7 +79,6 @@ export function PaginatedCardList<ItemT>({
 }: PaginatedCardListProps<ItemT>) {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const listRef = useRef<FlashListRef<ItemT>>(null);
   const loadMoreLockedRef = useRef(false);
   const [viewportHeight, setViewportHeight] = useState(0);
@@ -107,7 +113,7 @@ export function PaginatedCardList<ItemT>({
   const headerComponent = ListHeaderComponent ? <View>{ListHeaderComponent}</View> : null;
 
   return (
-    <View style={styles.container}>
+    <View className={CONTAINER_CLASS}>
       <FlashList
         ref={listRef}
         data={data}
@@ -117,7 +123,10 @@ export function PaginatedCardList<ItemT>({
           const resolvedItemHeight = getItemHeight?.(item, index) ?? itemHeight;
 
           return (
-            <View style={[styles.itemShell, { height: resolvedItemHeight + itemSpacing, paddingBottom: itemSpacing }]}>
+            <View
+              className={ITEM_SHELL_CLASS}
+              style={{ height: resolvedItemHeight + itemSpacing, paddingBottom: itemSpacing }}
+            >
               <CardComponent item={item} index={index} itemHeight={resolvedItemHeight} />
             </View>
           );
@@ -134,76 +143,28 @@ export function PaginatedCardList<ItemT>({
         ListEmptyComponent={ListEmptyComponent as BaseFlashListProps<ItemT>['ListEmptyComponent']}
         ListFooterComponent={
           pagination.loadingMore ? (
-            <View style={styles.footer}>
+            <View className={FOOTER_CLASS}>
               <ActivityIndicator size="small" color={theme.colors.brandBlue} />
-              <Text style={styles.footerText}>{t('common.loading')}</Text>
+              <Text className={FOOTER_TEXT_CLASS}>{t('common.loading')}</Text>
             </View>
           ) : (
-            <View style={styles.footerSpacer} />
+            <View className={FOOTER_SPACER_CLASS} />
           )
         }
-        contentContainerStyle={[styles.contentContainer, contentContainerStyle]}
+        contentContainerStyle={[CONTENT_CONTAINER_STYLE, contentContainerStyle]}
         drawDistance={(itemHeight + itemSpacing) * 4}
         maintainVisibleContentPosition={maintainVisibleContentPosition}
       />
 
       {showScrollTop && showScrollTopButton ? (
         <Pressable
-          style={[styles.scrollTopButton, { bottom: scrollTopBottomInset }]}
+          className={SCROLL_TOP_BUTTON_CLASS}
+          style={{ bottom: scrollTopBottomInset }}
           onPress={() => listRef.current?.scrollToOffset({ offset: 0, animated: true })}
         >
-          <Text style={styles.scrollTopButtonText}>↑</Text>
+          <Text className={SCROLL_TOP_BUTTON_TEXT_CLASS}>↑</Text>
         </Pressable>
       ) : null}
     </View>
   );
-}
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    container: {
-      flex: 1
-    },
-    contentContainer: {
-      paddingBottom: 18
-    },
-    itemShell: {
-      width: '100%'
-    },
-    footer: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 10,
-      paddingTop: 8,
-      paddingBottom: 18
-    },
-    footerText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.colors.textSecondary
-    },
-    footerSpacer: {
-      height: 12
-    },
-    scrollTopButton: {
-      position: 'absolute',
-      right: 16,
-      bottom: 20,
-      width: 44,
-      height: 44,
-      borderRadius: 999,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.surface,
-      borderWidth: 1,
-      borderColor: theme.colors.line
-    },
-    scrollTopButtonText: {
-      marginTop: -2,
-      color: theme.colors.brandBlue,
-      fontSize: 20,
-      fontWeight: '800'
-    }
-  });
 }

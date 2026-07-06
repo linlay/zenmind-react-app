@@ -1,11 +1,12 @@
 import { memo, useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, Text, View } from 'react-native';
 
 import { useT } from '../../../shared/i18n';
-import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import type { AppThemeTokens } from '../../../shared/visual/foundation';
 
 const DISMISS_DELAY_MS = 1200;
+const CONTAINER_CLASS = 'absolute bottom-[140px] left-0 right-0 z-[999] items-center';
+const TOAST_CLASS = 'rounded-[24px] bg-app-primary px-app-xl py-app-md';
+const TOAST_TEXT_CLASS = 'text-app-body-sm font-semibold text-app-surface';
 
 type CopyToastProps = {
   trigger: number;
@@ -14,7 +15,6 @@ type CopyToastProps = {
 
 export const CopyToast = memo(function CopyToast({ trigger, message }: CopyToastProps) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const opacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -45,34 +45,10 @@ export const CopyToast = memo(function CopyToast({ trigger, message }: CopyToast
   }
 
   return (
-    <Animated.View style={[styles.container, { opacity }]} pointerEvents="none">
-      <View style={styles.toast}>
-        <Text style={styles.toastText}>{message || t('copyToast.default')}</Text>
+    <Animated.View className={CONTAINER_CLASS} style={{ opacity }} pointerEvents="none">
+      <View className={TOAST_CLASS}>
+        <Text className={TOAST_TEXT_CLASS}>{message || t('copyToast.default')}</Text>
       </View>
     </Animated.View>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    container: {
-      position: 'absolute',
-      bottom: 140,
-      left: 0,
-      right: 0,
-      alignItems: 'center',
-      zIndex: 999
-    },
-    toast: {
-      backgroundColor: theme.colors.textPrimary,
-      borderRadius: 24,
-      paddingHorizontal: 20,
-      paddingVertical: 12
-    },
-    toastText: {
-      fontSize: 14,
-      fontWeight: '600',
-      color: theme.colors.surface
-    }
-  });
-}

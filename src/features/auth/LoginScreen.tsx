@@ -8,10 +8,10 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
-  View
+  View,
+  type ViewStyle
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -27,8 +27,80 @@ import { readResolvedApiBaseUrl } from '../../core/auth/authConfig';
 import { normalizeApiBaseUrl } from '../../core/config/endpoint';
 import { brandAssets } from '../../shared/icons/brandAssets';
 import { useT } from '../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../shared/visual/foundation';
+import { useAppTheme } from '../../shared/visual/AppThemeProvider';
+import { cn } from '../../shared/visual/className';
+
+const SAFE_AREA_CLASS = 'flex-1 bg-app-background';
+const BOOTSTRAP_SHELL_CLASS = 'flex-1 items-center justify-center px-app-xl';
+const BOOTSTRAP_CARD_CLASS =
+  'flex-row items-center gap-[10px] rounded-app-lg border border-app-line-strong bg-app-surface px-[18px] py-app-lg';
+const BOOTSTRAP_TEXT_CLASS = 'text-app-body-sm text-app-secondary';
+const KEYBOARD_SHELL_CLASS = 'flex-1';
+const SCROLL_CONTENT_STYLE = {
+  flexGrow: 1,
+  paddingHorizontal: 20,
+  gap: 18
+} satisfies ViewStyle;
+const LOGO_WRAP_CLASS = 'items-center justify-center pb-app-xs pt-[6px]';
+const LOGO_CLASS = 'h-[88px] w-[88px]';
+const FORM_CARD_CLASS =
+  'gap-[14px] rounded-app-lg border border-app-line-strong bg-app-surface px-app-xl py-app-xl';
+const MODE_TABS_CLASS =
+  'h-11 flex-row gap-[3px] rounded-app-md border border-app-line-strong bg-app-surface-muted p-[3px]';
+const MODE_TAB_CLASS = 'flex-1 items-center justify-center rounded-app-sm active:opacity-[0.82]';
+const MODE_TAB_ACTIVE_CLASS = 'bg-app-surface';
+const MODE_TAB_TEXT_CLASS = 'text-app-body-sm font-bold text-app-secondary';
+const MODE_TAB_TEXT_ACTIVE_CLASS = 'text-app-primary';
+const RECENT_PROFILES_CLASS = 'overflow-hidden rounded-app-md border border-app-line-strong';
+const RECENT_PROFILE_ROW_CLASS =
+  'min-h-[52px] justify-center border-b border-app-line px-[14px] py-[9px] active:bg-app-surface-muted';
+const RECENT_PROFILE_NAME_CLASS = 'text-app-body-sm font-extrabold text-app-primary';
+const RECENT_PROFILE_META_CLASS = 'mt-0.5 text-app-caption text-app-tertiary';
+const INPUT_GROUP_CLASS = 'gap-app-sm';
+const INPUT_LABEL_ROW_CLASS = 'min-h-7 flex-row flex-wrap items-center justify-between gap-app-md';
+const INPUT_LABEL_CLASS = 'text-app-footnote font-bold text-app-primary';
+const SCAN_ACTIONS_CLASS = 'flex-row items-center gap-app-sm';
+const INLINE_ACTION_BUTTON_CLASS =
+  'min-h-7 items-center justify-center rounded-app-sm bg-app-surface-muted px-[10px] active:opacity-[0.78]';
+const INLINE_ACTION_BUTTON_TEXT_CLASS = 'text-app-caption font-extrabold text-app-action';
+const INPUT_CLASS =
+  'h-[52px] rounded-app-md border border-app-line-strong bg-app-surface-muted px-app-lg text-[16px] text-app-primary';
+const SCAN_PLACEHOLDER_CLASS =
+  'min-h-[188px] items-center justify-center gap-[14px] rounded-app-lg border border-dashed border-app-line-strong bg-app-surface-muted px-[18px] py-app-xl active:bg-app-surface-raised';
+const SCAN_PLACEHOLDER_DISABLED_CLASS = 'opacity-[0.48]';
+const SCAN_PLACEHOLDER_ICON_CLASS = 'relative h-[86px] w-[86px]';
+const SCAN_CORNER_CLASS = 'absolute h-7 w-7 border-app-action';
+const SCAN_CORNER_TOP_LEFT_CLASS = 'left-0 top-0 border-l-[3px] border-t-[3px]';
+const SCAN_CORNER_TOP_RIGHT_CLASS = 'right-0 top-0 border-r-[3px] border-t-[3px]';
+const SCAN_CORNER_BOTTOM_LEFT_CLASS = 'bottom-0 left-0 border-b-[3px] border-l-[3px]';
+const SCAN_CORNER_BOTTOM_RIGHT_CLASS = 'bottom-0 right-0 border-b-[3px] border-r-[3px]';
+const SCAN_PLACEHOLDER_TEXT_CLASS = 'max-w-[260px] text-center text-app-body-sm text-app-secondary';
+const SCANNER_SHELL_CLASS = 'h-[262px] overflow-hidden rounded-app-lg border border-app-line-strong bg-gray-900';
+const ABSOLUTE_FILL_STYLE = {
+  position: 'absolute',
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0
+} satisfies ViewStyle;
+const SCANNER_OVERLAY_CLASS = 'absolute inset-0 items-center justify-center bg-slate-900/15';
+const SCANNER_FRAME_CLASS = 'h-[168px] w-[168px] rounded-app-md border-2 border-white/90 bg-white/[0.04]';
+const SCANNER_BUSY_PILL_CLASS =
+  'absolute bottom-app-lg min-h-[38px] flex-row items-center justify-center gap-app-sm rounded-app-pill bg-app-action px-[14px]';
+const SCANNER_BUSY_TEXT_CLASS = 'text-app-footnote font-extrabold text-app-on-action';
+const PASSWORD_INPUT_SHELL_CLASS =
+  'h-[52px] flex-row items-center rounded-app-md border border-app-line-strong bg-app-surface-muted pl-app-lg pr-app-sm';
+const PASSWORD_INPUT_CLASS = 'h-full flex-1 text-[16px] text-app-primary';
+const EYE_BUTTON_CLASS = 'h-10 w-10 items-center justify-center rounded-app-md active:bg-app-surface-raised';
+const EYE_ICON_CLASS = 'h-4 w-[22px] items-center justify-center';
+const EYE_OUTLINE_CLASS = 'absolute h-3 w-5 rounded-[20px] border-[1.6px] border-app-tertiary';
+const EYE_PUPIL_CLASS = 'h-[5px] w-[5px] rounded-app-pill bg-app-tertiary';
+const EYE_SLASH_CLASS = 'absolute h-[1.8px] w-[22px] rotate-[-32deg] rounded-app-pill bg-app-tertiary';
+const ERROR_TEXT_CLASS = 'text-app-body-sm text-app-danger';
+const SUBMIT_BUTTON_CLASS =
+  'mt-app-xs min-h-[54px] items-center justify-center rounded-app-lg bg-app-action active:opacity-[0.86]';
+const SUBMIT_BUTTON_DISABLED_CLASS = 'opacity-[0.48]';
+const SUBMIT_BUTTON_TEXT_CLASS = 'text-[16px] font-extrabold text-app-on-action';
 
 function getDeviceProfileEndpoint(profile: DeviceProfile): string {
   return profile.transportKind === 'desktop-ws' ? profile.desktopWs?.wsUrl || 'Desktop WS' : profile.apiBaseUrl;
@@ -37,14 +109,13 @@ function getDeviceProfileEndpoint(profile: DeviceProfile): string {
 export function AuthBootstrapScreen() {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-      <View style={styles.bootstrapShell}>
-        <View style={styles.bootstrapCard}>
+    <SafeAreaView edges={['top', 'bottom']} className={SAFE_AREA_CLASS}>
+      <View className={BOOTSTRAP_SHELL_CLASS}>
+        <View className={BOOTSTRAP_CARD_CLASS}>
           <ActivityIndicator size="small" color={theme.colors.brandBlueAction} />
-          <Text style={styles.bootstrapText}>{t('auth.bootstrap.restoring')}</Text>
+          <Text className={BOOTSTRAP_TEXT_CLASS}>{t('auth.bootstrap.restoring')}</Text>
         </View>
       </View>
     </SafeAreaView>
@@ -55,7 +126,6 @@ export function LoginScreen() {
   const t = useT();
   const insets = useSafeAreaInsets();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
   const [endpointDraft, setEndpointDraft] = useState(() => readResolvedApiBaseUrl());
   const [deviceName, setDeviceName] = useState(() => readPreferredDeviceName());
@@ -218,17 +288,17 @@ export function LoginScreen() {
   }
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
+    <SafeAreaView edges={['top', 'bottom']} className={SAFE_AREA_CLASS}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
-        style={styles.keyboardShell}
+        className={KEYBOARD_SHELL_CLASS}
       >
         <ScrollView
           automaticallyAdjustKeyboardInsets
           bounces={false}
           contentContainerStyle={[
-            styles.scrollContent,
+            SCROLL_CONTENT_STYLE,
             {
               paddingTop: Math.max(24, insets.top + 8),
               paddingBottom: Math.max(32, insets.bottom + 20)
@@ -238,40 +308,32 @@ export function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.logoWrap}>
-            <Image source={brandAssets.logo} style={styles.logo} resizeMode="contain" />
+          <View className={LOGO_WRAP_CLASS}>
+            <Image source={brandAssets.logo} className={LOGO_CLASS} resizeMode="contain" />
           </View>
 
-          <View style={styles.formCard}>
-            <View style={styles.modeTabs}>
+          <View className={FORM_CARD_CLASS}>
+            <View className={MODE_TABS_CLASS}>
               <Pressable
                 onPress={() => setLoginMode('pairing')}
-                style={({ pressed }) => [
-                  styles.modeTab,
-                  loginMode === 'pairing' ? styles.modeTabActive : null,
-                  pressed ? styles.modeTabPressed : null
-                ]}
+                className={cn(MODE_TAB_CLASS, loginMode === 'pairing' && MODE_TAB_ACTIVE_CLASS)}
               >
-                <Text style={[styles.modeTabText, loginMode === 'pairing' ? styles.modeTabTextActive : null]}>
+                <Text className={cn(MODE_TAB_TEXT_CLASS, loginMode === 'pairing' && MODE_TAB_TEXT_ACTIVE_CLASS)}>
                   {t('auth.mode.pairing')}
                 </Text>
               </Pressable>
               <Pressable
                 onPress={() => setLoginMode('manual')}
-                style={({ pressed }) => [
-                  styles.modeTab,
-                  loginMode === 'manual' ? styles.modeTabActive : null,
-                  pressed ? styles.modeTabPressed : null
-                ]}
+                className={cn(MODE_TAB_CLASS, loginMode === 'manual' && MODE_TAB_ACTIVE_CLASS)}
               >
-                <Text style={[styles.modeTabText, loginMode === 'manual' ? styles.modeTabTextActive : null]}>
+                <Text className={cn(MODE_TAB_TEXT_CLASS, loginMode === 'manual' && MODE_TAB_TEXT_ACTIVE_CLASS)}>
                   {t('auth.mode.manual')}
                 </Text>
               </Pressable>
             </View>
 
             {recentProfiles.length > 0 ? (
-              <View style={styles.recentProfiles}>
+              <View className={RECENT_PROFILES_CLASS}>
                 {recentProfiles.map((profile) => (
                   <Pressable
                     key={profile.desktopDeviceId}
@@ -279,15 +341,12 @@ export function LoginScreen() {
                     onPress={() => {
                       handleQuickProfile(profile).catch(() => {});
                     }}
-                    style={({ pressed }) => [
-                      styles.recentProfileRow,
-                      pressed && !isSubmitting ? styles.recentProfileRowPressed : null
-                    ]}
+                    className={RECENT_PROFILE_ROW_CLASS}
                   >
-                    <Text style={styles.recentProfileName} numberOfLines={1}>
+                    <Text className={RECENT_PROFILE_NAME_CLASS} numberOfLines={1}>
                       {profile.displayName}
                     </Text>
-                    <Text style={styles.recentProfileMeta} numberOfLines={1}>
+                    <Text className={RECENT_PROFILE_META_CLASS} numberOfLines={1}>
                       {getDeviceProfileEndpoint(profile)}
                     </Text>
                   </Pressable>
@@ -295,24 +354,24 @@ export function LoginScreen() {
               </View>
             ) : null}
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>{t('auth.device.label')}</Text>
+            <View className={INPUT_GROUP_CLASS}>
+              <Text className={INPUT_LABEL_CLASS}>{t('auth.device.label')}</Text>
               <TextInput
                 autoCapitalize="words"
                 autoCorrect={false}
                 onChangeText={setDeviceName}
                 placeholder={t('auth.device.placeholder')}
                 placeholderTextColor={theme.colors.textTertiary}
-                style={styles.input}
+                className={INPUT_CLASS}
                 value={deviceName}
               />
             </View>
 
             {loginMode === 'pairing' ? (
-              <View style={styles.inputGroup}>
-                <View style={styles.inputLabelRow}>
-                  <Text style={styles.inputLabel}>{t('auth.scan.label')}</Text>
-                  <View style={styles.scanActions}>
+              <View className={INPUT_GROUP_CLASS}>
+                <View className={INPUT_LABEL_ROW_CLASS}>
+                  <Text className={INPUT_LABEL_CLASS}>{t('auth.scan.label')}</Text>
+                  <View className={SCAN_ACTIONS_CLASS}>
                     <Pressable
                       disabled={isSubmitting}
                       hitSlop={8}
@@ -321,12 +380,9 @@ export function LoginScreen() {
                           setErrorMessage(String((error as Error)?.message || t('auth.error.loginFailed')));
                         });
                       }}
-                      style={({ pressed }) => [
-                        styles.inlineActionButton,
-                        pressed && !isSubmitting ? styles.inlineActionButtonPressed : null
-                      ]}
+                      className={INLINE_ACTION_BUTTON_CLASS}
                     >
-                      <Text style={styles.inlineActionButtonText}>{t('auth.pairingPayload.paste')}</Text>
+                      <Text className={INLINE_ACTION_BUTTON_TEXT_CLASS}>{t('auth.pairingPayload.paste')}</Text>
                     </Pressable>
                     {isScannerVisible ? (
                       <Pressable
@@ -335,18 +391,15 @@ export function LoginScreen() {
                         onPress={() => {
                           setIsScannerVisible(false);
                         }}
-                        style={({ pressed }) => [
-                          styles.inlineActionButton,
-                          pressed && !isSubmitting ? styles.inlineActionButtonPressed : null
-                        ]}
+                        className={INLINE_ACTION_BUTTON_CLASS}
                       >
-                        <Text style={styles.inlineActionButtonText}>{t('auth.scan.close')}</Text>
+                        <Text className={INLINE_ACTION_BUTTON_TEXT_CLASS}>{t('auth.scan.close')}</Text>
                       </Pressable>
                     ) : null}
                   </View>
                 </View>
                 {isScannerVisible ? (
-                  <View style={styles.scannerShell}>
+                  <View className={SCANNER_SHELL_CLASS}>
                     <CameraView
                       active={!isSubmitting}
                       barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
@@ -356,14 +409,14 @@ export function LoginScreen() {
                         setErrorMessage(event.message || t('auth.scan.mountFailed'));
                         setIsScannerVisible(false);
                       }}
-                      style={styles.cameraPreview}
+                      style={ABSOLUTE_FILL_STYLE}
                     />
-                    <View pointerEvents="none" style={styles.scannerOverlay}>
-                      <View style={styles.scannerFrame} />
+                    <View pointerEvents="none" className={SCANNER_OVERLAY_CLASS}>
+                      <View className={SCANNER_FRAME_CLASS} />
                       {isSubmitting ? (
-                        <View style={styles.scannerBusyPill}>
+                        <View className={SCANNER_BUSY_PILL_CLASS}>
                           <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
-                          <Text style={styles.scannerBusyText}>{t('auth.scan.connecting')}</Text>
+                          <Text className={SCANNER_BUSY_TEXT_CLASS}>{t('auth.scan.connecting')}</Text>
                         </View>
                       ) : null}
                     </View>
@@ -376,26 +429,22 @@ export function LoginScreen() {
                         setErrorMessage(String((error as Error)?.message || t('auth.error.loginFailed')));
                       });
                     }}
-                    style={({ pressed }) => [
-                      styles.scanPlaceholder,
-                      !canSubmit ? styles.scanPlaceholderDisabled : null,
-                      pressed && canSubmit ? styles.scanPlaceholderPressed : null
-                    ]}
+                    className={cn(SCAN_PLACEHOLDER_CLASS, !canSubmit && SCAN_PLACEHOLDER_DISABLED_CLASS)}
                   >
-                    <View style={styles.scanPlaceholderIcon}>
-                      <View style={[styles.scanCorner, styles.scanCornerTopLeft]} />
-                      <View style={[styles.scanCorner, styles.scanCornerTopRight]} />
-                      <View style={[styles.scanCorner, styles.scanCornerBottomLeft]} />
-                      <View style={[styles.scanCorner, styles.scanCornerBottomRight]} />
+                    <View className={SCAN_PLACEHOLDER_ICON_CLASS}>
+                      <View className={cn(SCAN_CORNER_CLASS, SCAN_CORNER_TOP_LEFT_CLASS)} />
+                      <View className={cn(SCAN_CORNER_CLASS, SCAN_CORNER_TOP_RIGHT_CLASS)} />
+                      <View className={cn(SCAN_CORNER_CLASS, SCAN_CORNER_BOTTOM_LEFT_CLASS)} />
+                      <View className={cn(SCAN_CORNER_CLASS, SCAN_CORNER_BOTTOM_RIGHT_CLASS)} />
                     </View>
-                    <Text style={styles.scanPlaceholderText}>{t('auth.scan.hint')}</Text>
+                    <Text className={SCAN_PLACEHOLDER_TEXT_CLASS}>{t('auth.scan.hint')}</Text>
                   </Pressable>
                 )}
               </View>
             ) : (
               <>
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>{t('auth.endpoint.label')}</Text>
+                <View className={INPUT_GROUP_CLASS}>
+                  <Text className={INPUT_LABEL_CLASS}>{t('auth.endpoint.label')}</Text>
                   <TextInput
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -403,14 +452,14 @@ export function LoginScreen() {
                     onChangeText={setEndpointDraft}
                     placeholder={t('auth.endpoint.placeholder')}
                     placeholderTextColor={theme.colors.textTertiary}
-                    style={styles.input}
+                    className={INPUT_CLASS}
                     value={endpointDraft}
                   />
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>{t('auth.password.label')}</Text>
-                  <View style={styles.passwordInputShell}>
+                <View className={INPUT_GROUP_CLASS}>
+                  <Text className={INPUT_LABEL_CLASS}>{t('auth.password.label')}</Text>
+                  <View className={PASSWORD_INPUT_SHELL_CLASS}>
                     <TextInput
                       autoCapitalize="none"
                       autoCorrect={false}
@@ -421,7 +470,7 @@ export function LoginScreen() {
                       placeholder={t('auth.password.placeholder')}
                       placeholderTextColor={theme.colors.textTertiary}
                       secureTextEntry={!isPasswordVisible}
-                      style={styles.passwordInput}
+                      className={PASSWORD_INPUT_CLASS}
                       value={masterPassword}
                     />
                     <Pressable
@@ -430,12 +479,12 @@ export function LoginScreen() {
                       onPress={() => {
                         setIsPasswordVisible((current) => !current);
                       }}
-                      style={({ pressed }) => [styles.eyeButton, pressed ? styles.eyeButtonPressed : null]}
+                      className={EYE_BUTTON_CLASS}
                     >
-                      <View style={styles.eyeIcon}>
-                        <View style={styles.eyeOutline} />
-                        <View style={styles.eyePupil} />
-                        {!isPasswordVisible ? <View style={styles.eyeSlash} /> : null}
+                      <View className={EYE_ICON_CLASS}>
+                        <View className={EYE_OUTLINE_CLASS} />
+                        <View className={EYE_PUPIL_CLASS} />
+                        {!isPasswordVisible ? <View className={EYE_SLASH_CLASS} /> : null}
                       </View>
                     </Pressable>
                   </View>
@@ -443,23 +492,19 @@ export function LoginScreen() {
               </>
             )}
 
-            {errorMessage ? <Text style={styles.errorText}>{errorMessage}</Text> : null}
+            {errorMessage ? <Text className={ERROR_TEXT_CLASS}>{errorMessage}</Text> : null}
 
             <Pressable
               disabled={!canSubmit}
               onPress={() => {
                 handleSubmit().catch(() => {});
               }}
-              style={({ pressed }) => [
-                styles.submitButton,
-                !canSubmit ? styles.submitButtonDisabled : null,
-                pressed && canSubmit ? styles.submitButtonPressed : null
-              ]}
+              className={cn(SUBMIT_BUTTON_CLASS, !canSubmit && SUBMIT_BUTTON_DISABLED_CLASS)}
             >
               {isSubmitting ? (
                 <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
               ) : (
-                <Text style={styles.submitButtonText}>
+                <Text className={SUBMIT_BUTTON_TEXT_CLASS}>
                   {loginMode === 'pairing' ? t('auth.scan.open') : t('auth.submit')}
                 </Text>
               )}
@@ -469,347 +514,4 @@ export function LoginScreen() {
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
-}
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    safeArea: {
-      flex: 1,
-      backgroundColor: theme.colors.background
-    },
-    keyboardShell: {
-      flex: 1
-    },
-    scrollContent: {
-      flexGrow: 1,
-      paddingHorizontal: 20,
-      gap: 18
-    },
-    logoWrap: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingTop: 6,
-      paddingBottom: 4
-    },
-    logo: {
-      width: 88,
-      height: 88
-    },
-    formCard: {
-      borderRadius: appVisualTokens.radii.lg,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: 20,
-      paddingVertical: 20,
-      borderWidth: 1,
-      borderColor: theme.colors.lineStrong,
-      gap: 14
-    },
-    modeTabs: {
-      height: 44,
-      borderRadius: appVisualTokens.radii.md,
-      backgroundColor: theme.colors.surfaceMuted,
-      borderWidth: 1,
-      borderColor: theme.colors.lineStrong,
-      flexDirection: 'row',
-      padding: 3,
-      gap: 3
-    },
-    modeTab: {
-      flex: 1,
-      borderRadius: appVisualTokens.radii.sm,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    modeTabActive: {
-      backgroundColor: theme.colors.surface
-    },
-    modeTabPressed: {
-      opacity: 0.82
-    },
-    modeTabText: {
-      fontSize: 14,
-      fontWeight: '700',
-      color: theme.colors.textSecondary
-    },
-    modeTabTextActive: {
-      color: theme.colors.textPrimary
-    },
-    recentProfiles: {
-      borderRadius: appVisualTokens.radii.md,
-      borderWidth: 1,
-      borderColor: theme.colors.lineStrong,
-      overflow: 'hidden'
-    },
-    recentProfileRow: {
-      minHeight: 52,
-      paddingHorizontal: 14,
-      paddingVertical: 9,
-      justifyContent: 'center',
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line
-    },
-    recentProfileRowPressed: {
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    recentProfileName: {
-      fontSize: 14,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    recentProfileMeta: {
-      marginTop: 2,
-      fontSize: 12,
-      color: theme.colors.textTertiary
-    },
-    inputGroup: {
-      gap: 8
-    },
-    inputLabelRow: {
-      minHeight: 28,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 12,
-      flexWrap: 'wrap'
-    },
-    inputLabel: {
-      fontSize: 13,
-      fontWeight: '700',
-      color: theme.colors.textPrimary
-    },
-    inlineActionButton: {
-      minHeight: 28,
-      borderRadius: appVisualTokens.radii.sm,
-      paddingHorizontal: 10,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    inlineActionButtonPressed: {
-      opacity: 0.78
-    },
-    inlineActionButtonText: {
-      fontSize: 12,
-      fontWeight: '800',
-      color: theme.colors.brandBlueAction
-    },
-    scanActions: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 8
-    },
-    input: {
-      height: 52,
-      borderRadius: appVisualTokens.radii.md,
-      backgroundColor: theme.colors.surfaceMuted,
-      borderWidth: 1,
-      borderColor: theme.colors.lineStrong,
-      paddingHorizontal: 16,
-      fontSize: 16,
-      color: theme.colors.textPrimary
-    },
-    scanPlaceholder: {
-      minHeight: 188,
-      borderRadius: appVisualTokens.radii.lg,
-      backgroundColor: theme.colors.surfaceMuted,
-      borderWidth: 1,
-      borderStyle: 'dashed',
-      borderColor: theme.colors.lineStrong,
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 14,
-      paddingHorizontal: 18,
-      paddingVertical: 20
-    },
-    scanPlaceholderPressed: {
-      backgroundColor: theme.colors.surfaceRaised
-    },
-    scanPlaceholderDisabled: {
-      opacity: 0.48
-    },
-    scanPlaceholderIcon: {
-      width: 86,
-      height: 86,
-      position: 'relative'
-    },
-    scanCorner: {
-      position: 'absolute',
-      width: 28,
-      height: 28,
-      borderColor: theme.colors.brandBlueAction
-    },
-    scanCornerTopLeft: {
-      top: 0,
-      left: 0,
-      borderTopWidth: 3,
-      borderLeftWidth: 3
-    },
-    scanCornerTopRight: {
-      top: 0,
-      right: 0,
-      borderTopWidth: 3,
-      borderRightWidth: 3
-    },
-    scanCornerBottomLeft: {
-      bottom: 0,
-      left: 0,
-      borderBottomWidth: 3,
-      borderLeftWidth: 3
-    },
-    scanCornerBottomRight: {
-      bottom: 0,
-      right: 0,
-      borderBottomWidth: 3,
-      borderRightWidth: 3
-    },
-    scanPlaceholderText: {
-      maxWidth: 260,
-      textAlign: 'center',
-      fontSize: 14,
-      lineHeight: 20,
-      color: theme.colors.textSecondary
-    },
-    scannerShell: {
-      height: 262,
-      borderRadius: appVisualTokens.radii.lg,
-      overflow: 'hidden',
-      backgroundColor: '#111827',
-      borderWidth: 1,
-      borderColor: theme.colors.lineStrong
-    },
-    cameraPreview: {
-      ...StyleSheet.absoluteFill
-    },
-    scannerOverlay: {
-      ...StyleSheet.absoluteFill,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: 'rgba(15, 23, 42, 0.16)'
-    },
-    scannerFrame: {
-      width: 168,
-      height: 168,
-      borderRadius: appVisualTokens.radii.md,
-      borderWidth: 2,
-      borderColor: 'rgba(255, 255, 255, 0.92)',
-      backgroundColor: 'rgba(255, 255, 255, 0.04)'
-    },
-    scannerBusyPill: {
-      position: 'absolute',
-      bottom: 16,
-      minHeight: 38,
-      borderRadius: 999,
-      paddingHorizontal: 14,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 8,
-      backgroundColor: theme.colors.brandBlueAction
-    },
-    scannerBusyText: {
-      fontSize: 13,
-      fontWeight: '800',
-      color: theme.colors.onBrandBlueAction
-    },
-    passwordInputShell: {
-      height: 52,
-      borderRadius: appVisualTokens.radii.md,
-      backgroundColor: theme.colors.surfaceMuted,
-      borderWidth: 1,
-      borderColor: theme.colors.lineStrong,
-      paddingLeft: 16,
-      paddingRight: 8,
-      flexDirection: 'row',
-      alignItems: 'center'
-    },
-    passwordInput: {
-      flex: 1,
-      height: '100%',
-      fontSize: 16,
-      color: theme.colors.textPrimary
-    },
-    eyeButton: {
-      width: 40,
-      height: 40,
-      borderRadius: appVisualTokens.radii.md,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    eyeButtonPressed: {
-      backgroundColor: theme.colors.surfaceRaised
-    },
-    eyeIcon: {
-      width: 22,
-      height: 16,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    eyeOutline: {
-      position: 'absolute',
-      width: 20,
-      height: 12,
-      borderWidth: 1.6,
-      borderColor: theme.colors.textTertiary,
-      borderRadius: 20
-    },
-    eyePupil: {
-      width: 5,
-      height: 5,
-      borderRadius: 999,
-      backgroundColor: theme.colors.textTertiary
-    },
-    eyeSlash: {
-      position: 'absolute',
-      width: 22,
-      height: 1.8,
-      borderRadius: 999,
-      backgroundColor: theme.colors.textTertiary,
-      transform: [{ rotate: '-32deg' }]
-    },
-    errorText: {
-      fontSize: 14,
-      lineHeight: 20,
-      color: theme.colors.danger
-    },
-    submitButton: {
-      marginTop: 4,
-      minHeight: 54,
-      borderRadius: appVisualTokens.radii.lg,
-      backgroundColor: theme.colors.brandBlueAction,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    submitButtonDisabled: {
-      opacity: 0.48
-    },
-    submitButtonPressed: {
-      opacity: 0.86
-    },
-    submitButtonText: {
-      fontSize: 16,
-      fontWeight: '800',
-      color: theme.colors.onBrandBlueAction
-    },
-    bootstrapShell: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 20
-    },
-    bootstrapCard: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 10,
-      borderRadius: appVisualTokens.radii.lg,
-      backgroundColor: theme.colors.surface,
-      borderWidth: 1,
-      borderColor: theme.colors.lineStrong,
-      paddingHorizontal: 18,
-      paddingVertical: 16
-    },
-    bootstrapText: {
-      fontSize: 14,
-      color: theme.colors.textSecondary
-    }
-  });
 }

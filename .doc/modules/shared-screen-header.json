@@ -12,8 +12,9 @@
       "提供纯 UI 的三栏页面 Header 布局，统一承接左按钮区、标题区和右按钮区。",
       "支持标题区传入字符串、数字或自定义组件，同时约束左右操作区各自最多 2 个元素；可按页面需要对称配置左右 action rail 宽度，避免宽按钮外溢压到标题区。",
       "消费共享视觉 token 保持标题、分隔线和操作区的统一观感，同时保持零业务状态和零导航耦合。",
+      "支持 root / title container / primitive title 的 NativeWind className 覆盖，用于页面级静态样式迁移；原 style props 仍保留给运行时测量、外部 API 和少量动态覆盖。",
       "Public entry ScreenHeader (component): 纯共享的三栏 Header 组件。",
-      "Public entry ScreenHeaderProps (type): Header 组件入参类型，包含左右 action、标题样式和可选 actionRailWidth。",
+      "Public entry ScreenHeaderProps (type): Header 组件入参类型，包含左右 action、标题 className/style、root className/style 和可选 actionRailWidth。",
       "State/data touch: 左右操作槽位的纯布局渲染",
       "State/data touch: 标题容器的样式承载与单行文本省略",
       "Related task: add-reusable-header-component",
@@ -38,7 +39,7 @@
     "tests": [
       "src/shared/components/__tests__/ScreenHeader.test.tsx"
     ],
-    "lastScannedAt": ""
+    "lastScannedAt": "2026-07-03T10:07:35Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -69,6 +70,7 @@
     "左右操作区数量约束继续由类型系统保证，不退化成任意长度数组；自定义 actionRailWidth 必须左右对称生效，避免标题视觉中心偏移。",
     "标题区支持自定义 ReactNode 时，不在组件内部强制包裹 Text。",
     "视觉语义继续从共享视觉层读取，不把颜色和图标尺寸重新散落到业务页面。",
+    "静态 header 外观优先通过 className 表达；style props 只用于运行时动态值、外部调用兼容或无法由 NativeWind 表达的组件 API。",
     "一级页面接入时，Header 继续放在滚动区外，而不是作为列表或 ScrollView 的内容头。"
   ],
   "recentChanges": []

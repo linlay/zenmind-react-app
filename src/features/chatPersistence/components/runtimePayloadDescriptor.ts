@@ -159,6 +159,9 @@ function titleForNode(node: ChatTimelineNode, t: TFunction): string {
           : t('runtime.awaiting.question');
   }
   if (node.kind === 'planning') {
+    if (node.lifecycle === 'active' || node.streaming) {
+      return t('runtime.planning.writing');
+    }
     return t('runtime.planning');
   }
   if (node.kind === 'usage') {
@@ -524,7 +527,10 @@ function iconForKind(kind: RuntimePayloadKind): {
   if (kind === 'tool' || kind === 'tool-group' || kind === 'action') {
     return { iconUsage: 'runtime.tool', tone: 'tool' };
   }
-  if (kind === 'artifact' || kind === 'plan' || kind === 'task' || kind === 'planning') {
+  if (kind === 'planning') {
+    return { iconUsage: 'runtime.planning', tone: 'tool' };
+  }
+  if (kind === 'artifact' || kind === 'plan' || kind === 'task') {
     return { iconUsage: 'runtime.file', tone: 'file' };
   }
   return { iconUsage: 'runtime.neutral', tone: 'neutral' };

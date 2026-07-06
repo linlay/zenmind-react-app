@@ -2,17 +2,17 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
   Pressable,
-  StyleSheet,
   Text,
   TextInput,
   View,
+  type ViewStyle,
 } from 'react-native';
 
 import type { AwaitingSubmitPayloadData } from '../../../../core/api/services/chatApi';
 import { AppIcon } from '../../../../shared/icons/AppIcon';
 import { type TFunction, useT } from '../../../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../../shared/visual/foundation';
+import { useAppTheme } from '../../../../shared/visual/AppThemeProvider';
+import { cn } from '../../../../shared/visual/className';
 import type { ChatConversationAwaitingState } from '../../../chatRealtime/types';
 import {
   type ChatTimelineAwaitingApproval,
@@ -72,6 +72,49 @@ type PanelProps<T extends ChatTimelineAwaitingInteractive> = {
   submitting: boolean;
   submitPayload: (payload: AwaitingSubmitPayloadData) => void;
 };
+const DOCK_WRAP_CLASS = 'bg-app-background px-app-md pb-[6px] pt-1';
+const PANEL_CLASS =
+  'gap-app-md rounded-app-lg border border-app-line-strong bg-app-surface px-app-lg pb-app-md pt-app-lg';
+const HEADER_CLASS = 'min-h-8 flex-row items-start justify-between gap-app-md';
+const QUESTION_TEXT_CLASS = 'min-w-0 flex-1 gap-1';
+const HEADING_CLASS = 'text-[15px] font-extrabold leading-[21px] text-app-primary';
+const PROMPT_CLASS = 'text-[12px] leading-[17px] text-app-secondary';
+const HEADER_SIDE_CLASS = 'shrink-0 items-end gap-1';
+const AWAITING_CARD_CLASS = 'relative gap-app-sm rounded-app-md border border-app-line bg-app-background p-app-md';
+const ITEM_TITLE_CLASS = 'pr-[22px] text-[14px] font-extrabold leading-[19px] text-app-primary';
+const ITEM_INDEX_CLASS = 'absolute right-[10px] top-[10px] text-[11px] font-extrabold leading-[14px] text-app-tertiary';
+const MONO_PAYLOAD_CLASS =
+  'rounded-app-sm bg-app-surface-muted px-2 py-[7px] text-[12px] leading-[17px] text-app-secondary';
+const PAGINATION_CLASS = 'h-[28px] flex-row items-center gap-[5px]';
+const PAGINATION_BUTTON_CLASS = 'h-[28px] w-[28px] items-center justify-center rounded-app-sm active:opacity-[0.72]';
+const PAGINATION_ARROW_CLASS = 'text-[26px] leading-[28px] text-app-primary';
+const PAGINATION_TEXT_CLASS = 'min-w-[34px] text-center text-[13px] font-extrabold leading-[18px] text-app-primary';
+const OPTIONS_BLOCK_CLASS = 'gap-app-sm';
+const OPTION_ROW_CLASS =
+  'min-h-10 flex-row items-center gap-app-sm rounded-app-md border border-app-line bg-app-background px-app-md py-[9px] active:opacity-[0.72]';
+const SELECTED_OPTION_ROW_CLASS = 'border-app-brand-blue bg-app-brand-blue-soft';
+const OPTION_INDEX_CLASS = 'w-[22px] text-[13px] font-extrabold leading-[18px] text-app-secondary';
+const OPTION_TEXT_CLASS = 'min-w-0 flex-1 gap-[2px]';
+const OPTION_LABEL_CLASS = 'text-[14px] font-bold leading-[19px] text-app-primary';
+const OPTION_DESCRIPTION_CLASS = 'text-[12px] leading-4 text-app-secondary';
+const SELECTED_TEXT_CLASS = 'text-app-brand-blue-strong';
+const SELECTED_MARK_CLASS = 'h-[18px] w-[18px] items-center justify-center rounded-app-pill bg-app-brand-blue';
+const FREE_TEXT_ROW_CLASS =
+  'min-h-10 flex-row items-center gap-app-sm rounded-app-md border border-app-line px-app-md py-1';
+const FREE_TEXT_INPUT_CLASS = 'min-h-9 min-w-0 flex-1 text-[14px] leading-[19px] text-app-primary';
+const PLAN_REJECT_LABEL_CLASS = 'shrink-0 text-[14px] font-bold leading-[19px] text-app-primary';
+const FIELD_BLOCK_CLASS = 'min-h-[46px] justify-center';
+const INPUT_FIELD_CLASS =
+  'min-h-[44px] rounded-app-sm border-[1.5px] border-app-brand-blue px-app-md py-2 text-[15px] leading-5 text-app-primary';
+const OUTER_ERROR_TEXT_CLASS = '-mt-[2px] text-[12px] font-bold leading-4 text-app-danger';
+const DISABLED_BUTTON_CLASS = 'opacity-[0.38]';
+const DISABLED_TEXT_CLASS = 'text-app-tertiary';
+const PANEL_ELEVATION_STYLE = {
+  shadowOffset: { width: 0, height: 6 },
+  shadowOpacity: 0.08,
+  shadowRadius: 16,
+  elevation: 2,
+} satisfies ViewStyle;
 
 function getAwaitingDecisionLabel(
   decision: ChatTimelineAwaitingApprovalDecision | ChatTimelineAwaitingPlanDecision,
@@ -166,8 +209,6 @@ function PaginationControl({
   total: number;
   onMove: (nextIndex: number) => void;
 }) {
-  const styles = useAppThemeStyles(createStyles);
-
   if (total <= 1) {
     return null;
   }
@@ -176,23 +217,19 @@ function PaginationControl({
   const canMoveForward = !disabled && current < total - 1;
 
   return (
-    <View style={styles.pagination}>
+    <View className={PAGINATION_CLASS}>
       <Pressable
         accessibilityLabel={previousLabel}
         accessibilityRole="button"
         disabled={!canMoveBack}
         onPress={() => onMove(current - 1)}
-        style={({ pressed }) => [
-          styles.paginationButton,
-          !canMoveBack && styles.disabledButton,
-          pressed && canMoveBack && styles.pressed,
-        ]}
+        className={cn(PAGINATION_BUTTON_CLASS, !canMoveBack ? DISABLED_BUTTON_CLASS : null)}
       >
-        <Text allowFontScaling={false} style={[styles.paginationArrow, !canMoveBack && styles.disabledText]}>
+        <Text allowFontScaling={false} className={cn(PAGINATION_ARROW_CLASS, !canMoveBack ? DISABLED_TEXT_CLASS : null)}>
           ‹
         </Text>
       </Pressable>
-      <Text allowFontScaling={false} style={styles.paginationText}>
+      <Text allowFontScaling={false} className={PAGINATION_TEXT_CLASS}>
         {current + 1} / {total}
       </Text>
       <Pressable
@@ -200,13 +237,9 @@ function PaginationControl({
         accessibilityRole="button"
         disabled={!canMoveForward}
         onPress={() => onMove(current + 1)}
-        style={({ pressed }) => [
-          styles.paginationButton,
-          !canMoveForward && styles.disabledButton,
-          pressed && canMoveForward && styles.pressed,
-        ]}
+        className={cn(PAGINATION_BUTTON_CLASS, !canMoveForward ? DISABLED_BUTTON_CLASS : null)}
       >
-        <Text allowFontScaling={false} style={[styles.paginationArrow, !canMoveForward && styles.disabledText]}>
+        <Text allowFontScaling={false} className={cn(PAGINATION_ARROW_CLASS, !canMoveForward ? DISABLED_TEXT_CLASS : null)}>
           ›
         </Text>
       </Pressable>
@@ -232,7 +265,6 @@ const ChoiceRow = memo(function ChoiceRow({
   onPress: (value: string) => void;
 }) {
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const handlePress = useCallback(() => onPress(value), [onPress, value]);
 
   return (
@@ -241,28 +273,23 @@ const ChoiceRow = memo(function ChoiceRow({
       accessibilityState={{ disabled, selected }}
       disabled={disabled}
       onPress={handlePress}
-      style={({ pressed }) => [
-        styles.optionRow,
-        disabled && styles.disabledButton,
-        selected && styles.selectedOptionRow,
-        pressed && !disabled && styles.pressed,
-      ]}
+      className={cn(OPTION_ROW_CLASS, disabled ? DISABLED_BUTTON_CLASS : null, selected ? SELECTED_OPTION_ROW_CLASS : null)}
     >
-      <Text allowFontScaling={false} style={styles.optionIndex}>
+      <Text allowFontScaling={false} className={OPTION_INDEX_CLASS}>
         {index + 1}.
       </Text>
-      <View style={styles.optionText}>
-        <Text allowFontScaling={false} style={[styles.optionLabel, selected && styles.selectedText]}>
+      <View className={OPTION_TEXT_CLASS}>
+        <Text allowFontScaling={false} className={cn(OPTION_LABEL_CLASS, selected ? SELECTED_TEXT_CLASS : null)}>
           {label}
         </Text>
         {description ? (
-          <Text allowFontScaling={false} numberOfLines={2} style={styles.optionDescription}>
+          <Text allowFontScaling={false} numberOfLines={2} className={OPTION_DESCRIPTION_CLASS}>
             {description}
           </Text>
         ) : null}
       </View>
       {selected ? (
-        <View style={styles.selectedMark}>
+        <View className={SELECTED_MARK_CLASS}>
           <AppIcon usage="historyDrawer.markAllRead" size={12} color={theme.colors.onBrandBlueAction} />
         </View>
       ) : null}
@@ -286,7 +313,6 @@ function QuestionInput({
   onSubmitCurrent: () => void;
 }) {
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const placeholder = getAwaitingQuestionPlaceholder(question);
   const handleSelectOptionPress = useCallback(
     (optionValue: string) => {
@@ -306,7 +332,7 @@ function QuestionInput({
     const freeTextAnswer = getSelectFreeTextAnswer(question, value);
 
     return (
-      <View style={styles.optionsBlock}>
+      <View className={OPTIONS_BLOCK_CLASS}>
         {options.map((option, index) => {
           const optionValue = getSelectOptionValue(option);
           return (
@@ -323,8 +349,8 @@ function QuestionInput({
           );
         })}
         {question.allowFreeText ? (
-          <View style={styles.freeTextRow}>
-            <Text allowFontScaling={false} style={styles.optionIndex}>
+          <View className={FREE_TEXT_ROW_CLASS}>
+            <Text allowFontScaling={false} className={OPTION_INDEX_CLASS}>
               {options.length + 1}.
             </Text>
             <TextInput
@@ -336,7 +362,7 @@ function QuestionInput({
               placeholderTextColor={theme.colors.textTertiary}
               allowFontScaling={false}
               returnKeyType="done"
-              style={styles.freeTextInput}
+              className={FREE_TEXT_INPUT_CLASS}
             />
           </View>
         ) : null}
@@ -362,7 +388,7 @@ function QuestionInput({
   const secureTextEntry = question.type === 'password';
 
   return (
-    <View style={styles.fieldBlock}>
+    <View className={FIELD_BLOCK_CLASS}>
       <TextInput
         value={textValue}
         editable={!disabled}
@@ -374,7 +400,7 @@ function QuestionInput({
         keyboardType={keyboardType}
         secureTextEntry={secureTextEntry}
         returnKeyType="done"
-        style={styles.inputField}
+        className={INPUT_FIELD_CLASS}
       />
     </View>
   );
@@ -387,7 +413,6 @@ function QuestionPanel({
   submitPayload,
 }: PanelProps<Extract<ChatTimelineAwaitingInteractive, { kind: 'question' }>>) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const questions = useMemo(() => awaiting.interactive.questions || [], [awaiting.interactive.questions]);
   const questionsRef = useRef(questions);
   const questionsSignature = useMemo(() => getAwaitingQuestionsSignature(questions), [questions]);
@@ -514,18 +539,18 @@ function QuestionPanel({
 
   return (
     <>
-      <View style={styles.header}>
-        <View style={styles.questionText}>
-          <Text allowFontScaling={false} style={styles.heading}>
+      <View className={HEADER_CLASS}>
+        <View className={QUESTION_TEXT_CLASS}>
+          <Text allowFontScaling={false} className={HEADING_CLASS}>
             {heading}
           </Text>
           {prompt ? (
-            <Text allowFontScaling={false} style={styles.prompt}>
+            <Text allowFontScaling={false} className={PROMPT_CLASS}>
               {prompt}
             </Text>
           ) : null}
         </View>
-        <View style={styles.headerSide}>
+        <View className={HEADER_SIDE_CLASS}>
           <PaginationControl
             current={activeIndex}
             disabled={disabled}
@@ -578,7 +603,6 @@ const ApprovalItem = memo(function ApprovalItem({
 }) {
   const { theme } = useAppTheme();
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const options = useMemo(() => getApprovalOptions(approval, t), [approval, t]);
   const handleDecisionPress = useCallback(
     (value: string) => onDecision(approval.id, value as ChatTimelineAwaitingApprovalDecision),
@@ -586,16 +610,16 @@ const ApprovalItem = memo(function ApprovalItem({
   );
 
   return (
-    <View style={styles.awaitingCard}>
-      <Text allowFontScaling={false} style={styles.itemTitle}>
+    <View className={AWAITING_CARD_CLASS}>
+      <Text allowFontScaling={false} className={ITEM_TITLE_CLASS}>
         {approval.description || approval.command}
       </Text>
       {approval.description && approval.command !== approval.description ? (
-        <Text allowFontScaling={false} selectable style={styles.monoPayload}>
+        <Text allowFontScaling={false} selectable className={MONO_PAYLOAD_CLASS}>
           {approval.command}
         </Text>
       ) : null}
-      <View style={styles.optionsBlock}>
+      <View className={OPTIONS_BLOCK_CLASS}>
         {options.map((option, optionIndex) => (
           <ChoiceRow
             key={`${approval.id}:${option.decision}`}
@@ -618,10 +642,10 @@ const ApprovalItem = memo(function ApprovalItem({
           placeholderTextColor={theme.colors.textTertiary}
           allowFontScaling={false}
           returnKeyType="done"
-          style={styles.inputField}
+          className={INPUT_FIELD_CLASS}
         />
       ) : null}
-      <Text allowFontScaling={false} style={styles.itemIndex}>
+      <Text allowFontScaling={false} className={ITEM_INDEX_CLASS}>
         {index + 1}
       </Text>
     </View>
@@ -635,7 +659,6 @@ function ApprovalPanel({
   submitPayload,
 }: PanelProps<Extract<ChatTimelineAwaitingInteractive, { kind: 'approval' }>>) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const approvals = useMemo(() => awaiting.interactive.approvals || [], [awaiting.interactive.approvals]);
   const timeoutMs = getAwaitingInteractiveTimeout(awaiting.interactive);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -724,18 +747,18 @@ function ApprovalPanel({
 
   return (
     <>
-      <View style={styles.header}>
-        <View style={styles.questionText}>
-          <Text allowFontScaling={false} style={styles.heading}>
+      <View className={HEADER_CLASS}>
+        <View className={QUESTION_TEXT_CLASS}>
+          <Text allowFontScaling={false} className={HEADING_CLASS}>
             {t('awaiting.approval.title')}
           </Text>
           {awaiting.prompt ? (
-            <Text allowFontScaling={false} style={styles.prompt}>
+            <Text allowFontScaling={false} className={PROMPT_CLASS}>
               {awaiting.prompt}
             </Text>
           ) : null}
         </View>
-        <View style={styles.headerSide}>
+        <View className={HEADER_SIDE_CLASS}>
           <PaginationControl
             current={activeIndex}
             disabled={disabled}
@@ -777,7 +800,6 @@ function PlanPanel({
 }: PanelProps<Extract<ChatTimelineAwaitingInteractive, { kind: 'plan' }>>) {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const plan = awaiting.interactive.plan;
   const options = useMemo(() => getPlanOptions(plan, t), [plan, t]);
   const timeoutMs = getAwaitingInteractiveTimeout(awaiting.interactive);
@@ -861,19 +883,19 @@ function PlanPanel({
 
   return (
     <>
-      <View style={styles.header}>
-        <View style={styles.questionText}>
-          <Text allowFontScaling={false} style={styles.heading}>
+      <View className={HEADER_CLASS}>
+        <View className={QUESTION_TEXT_CLASS}>
+          <Text allowFontScaling={false} className={HEADING_CLASS}>
             {title}
           </Text>
           {prompt ? (
-            <Text allowFontScaling={false} numberOfLines={2} style={styles.prompt}>
+            <Text allowFontScaling={false} numberOfLines={2} className={PROMPT_CLASS}>
               {prompt}
             </Text>
           ) : null}
         </View>
       </View>
-      <View style={styles.optionsBlock}>
+      <View className={OPTIONS_BLOCK_CLASS}>
         {approveOption ? (
           <ChoiceRow
             disabled={disabled}
@@ -886,11 +908,11 @@ function PlanPanel({
           />
         ) : null}
         {rejectOption ? (
-          <View style={[styles.freeTextRow, rejectActive && styles.selectedOptionRow]}>
-            <Text allowFontScaling={false} style={styles.optionIndex}>
+          <View className={cn(FREE_TEXT_ROW_CLASS, rejectActive ? SELECTED_OPTION_ROW_CLASS : null)}>
+            <Text allowFontScaling={false} className={OPTION_INDEX_CLASS}>
               {(approveOption ? 2 : 1).toString()}.
             </Text>
-            <Text allowFontScaling={false} style={[styles.planRejectLabel, rejectActive && styles.selectedText]}>
+            <Text allowFontScaling={false} className={cn(PLAN_REJECT_LABEL_CLASS, rejectActive ? SELECTED_TEXT_CLASS : null)}>
               {t('awaiting.plan.reject.label')}
             </Text>
             <TextInput
@@ -904,7 +926,7 @@ function PlanPanel({
               placeholderTextColor={theme.colors.textTertiary}
               allowFontScaling={false}
               returnKeyType="done"
-              style={styles.freeTextInput}
+              className={FREE_TEXT_INPUT_CLASS}
             />
           </View>
         ) : null}
@@ -925,7 +947,7 @@ function PlanPanel({
 }
 
 export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSubmit }: ChatAwaitingDockProps) {
-  const styles = useAppThemeStyles(createStyles);
+  const { theme } = useAppTheme();
   const interaction = awaiting.interactive;
   const [submitState, setSubmitState] = useState<SubmitState | null>(null);
   const [errorText, setErrorText] = useState('');
@@ -985,8 +1007,8 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSub
   const normalizedAwaiting = awaiting as ChatConversationAwaitingState & { interactive: ChatTimelineAwaitingInteractive };
 
   return (
-    <View style={styles.dockWrap}>
-      <View style={styles.panel}>
+    <View className={DOCK_WRAP_CLASS}>
+      <View className={PANEL_CLASS} style={[PANEL_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}>
         {interaction.kind === 'question' ? (
           <QuestionPanel
             awaiting={normalizedAwaiting as ChatConversationAwaitingState & { interactive: Extract<ChatTimelineAwaitingInteractive, { kind: 'question' }> }}
@@ -1017,7 +1039,7 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSub
           />
         )}
         {errorText ? (
-          <Text allowFontScaling={false} numberOfLines={1} style={styles.outerErrorText}>
+          <Text allowFontScaling={false} numberOfLines={1} className={OUTER_ERROR_TEXT_CLASS}>
             {errorText}
           </Text>
         ) : null}
@@ -1025,227 +1047,3 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSub
     </View>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    dockWrap: {
-      backgroundColor: theme.colors.background,
-      paddingHorizontal: appVisualTokens.spacing.md,
-      paddingTop: 4,
-      paddingBottom: 6,
-    },
-    panel: {
-      gap: appVisualTokens.spacing.md,
-      borderRadius: appVisualTokens.radii.lg,
-      borderWidth: 1,
-      borderColor: theme.colors.lineStrong,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: appVisualTokens.spacing.lg,
-      paddingTop: appVisualTokens.spacing.lg,
-      paddingBottom: appVisualTokens.spacing.md,
-      shadowColor: theme.colors.shadow,
-      shadowOffset: { width: 0, height: 6 },
-      shadowOpacity: 0.08,
-      shadowRadius: 16,
-      elevation: 2,
-    },
-    header: {
-      minHeight: 32,
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      gap: appVisualTokens.spacing.md,
-    },
-    questionText: {
-      flex: 1,
-      minWidth: 0,
-      gap: 4,
-    },
-    heading: {
-      fontSize: 15,
-      lineHeight: 21,
-      fontWeight: '800',
-      color: theme.colors.textPrimary,
-    },
-    prompt: {
-      fontSize: 12,
-      lineHeight: 17,
-      color: theme.colors.textSecondary,
-    },
-    headerSide: {
-      flexShrink: 0,
-      alignItems: 'flex-end',
-      gap: 4,
-    },
-    awaitingCard: {
-      position: 'relative',
-      gap: appVisualTokens.spacing.sm,
-      borderRadius: appVisualTokens.radii.md,
-      borderWidth: 1,
-      borderColor: theme.colors.line,
-      backgroundColor: theme.colors.background,
-      padding: appVisualTokens.spacing.md,
-    },
-    itemTitle: {
-      paddingRight: 22,
-      fontSize: 14,
-      lineHeight: 19,
-      fontWeight: '800',
-      color: theme.colors.textPrimary,
-    },
-    itemIndex: {
-      position: 'absolute',
-      top: 10,
-      right: 10,
-      fontSize: 11,
-      lineHeight: 14,
-      fontWeight: '800',
-      color: theme.colors.textTertiary,
-    },
-    monoPayload: {
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.surfaceMuted,
-      paddingHorizontal: 8,
-      paddingVertical: 7,
-      fontSize: 12,
-      lineHeight: 17,
-      color: theme.colors.textSecondary,
-    },
-    pagination: {
-      height: 28,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 5,
-    },
-    paginationButton: {
-      width: 28,
-      height: 28,
-      borderRadius: appVisualTokens.radii.sm,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    paginationArrow: {
-      fontSize: 26,
-      lineHeight: 28,
-      color: theme.colors.textPrimary,
-    },
-    paginationText: {
-      minWidth: 34,
-      textAlign: 'center',
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '800',
-      color: theme.colors.textPrimary,
-    },
-    optionsBlock: {
-      gap: appVisualTokens.spacing.sm,
-    },
-    optionRow: {
-      minHeight: 40,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.sm,
-      borderRadius: appVisualTokens.radii.md,
-      borderWidth: 1,
-      borderColor: theme.colors.line,
-      backgroundColor: theme.colors.background,
-      paddingHorizontal: appVisualTokens.spacing.md,
-      paddingVertical: 9,
-    },
-    selectedOptionRow: {
-      borderColor: theme.colors.brandBlue,
-      backgroundColor: theme.colors.brandBlueSoft,
-    },
-    optionIndex: {
-      width: 22,
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '800',
-      color: theme.colors.textSecondary,
-    },
-    optionText: {
-      flex: 1,
-      minWidth: 0,
-      gap: 2,
-    },
-    optionLabel: {
-      fontSize: 14,
-      lineHeight: 19,
-      fontWeight: '700',
-      color: theme.colors.textPrimary,
-    },
-    optionDescription: {
-      fontSize: 12,
-      lineHeight: 16,
-      color: theme.colors.textSecondary,
-    },
-    selectedText: {
-      color: theme.colors.brandBlueStrong,
-    },
-    selectedMark: {
-      width: 18,
-      height: 18,
-      borderRadius: appVisualTokens.radii.pill,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.brandBlue,
-    },
-    freeTextRow: {
-      minHeight: 40,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.sm,
-      borderRadius: appVisualTokens.radii.md,
-      borderWidth: 1,
-      borderColor: theme.colors.line,
-      paddingHorizontal: appVisualTokens.spacing.md,
-      paddingVertical: 4,
-    },
-    freeTextInput: {
-      flex: 1,
-      minHeight: 36,
-      minWidth: 0,
-      fontSize: 14,
-      lineHeight: 19,
-      color: theme.colors.textPrimary,
-    },
-    planRejectLabel: {
-      flexShrink: 0,
-      fontSize: 14,
-      lineHeight: 19,
-      fontWeight: '700',
-      color: theme.colors.textPrimary,
-    },
-    fieldBlock: {
-      minHeight: 46,
-      justifyContent: 'center',
-    },
-    inputField: {
-      minHeight: 44,
-      borderRadius: appVisualTokens.radii.sm,
-      borderWidth: 1.5,
-      borderColor: theme.colors.brandBlue,
-      paddingHorizontal: appVisualTokens.spacing.md,
-      paddingVertical: 8,
-      fontSize: 15,
-      lineHeight: 20,
-      color: theme.colors.textPrimary,
-    },
-    outerErrorText: {
-      marginTop: -2,
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '700',
-      color: theme.colors.danger,
-    },
-    disabledButton: {
-      opacity: 0.38,
-    },
-    disabledText: {
-      color: theme.colors.textTertiary,
-    },
-    pressed: {
-      opacity: 0.72,
-    },
-  });
-}

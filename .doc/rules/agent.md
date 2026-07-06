@@ -19,3 +19,7 @@ After `xgraph status`, when an agent lifecycle hook is installed, let it run `xg
 `xgraph sync` refreshes deterministic context, including the committed context index. In governed profile it also records changed files and writes active-agent task files.
 
 Prefer finer modules around real workflows when a coarse module hides unrelated concepts.
+
+## Style Migration Rule
+
+For UI work, prefer NativeWind/Tailwind `className` constants for static styles. Keep `style` only for real dynamic values, animations, runtime measurements, safe-area/tab-bar/keyboard insets, server/brand/avatar dynamic colors, WebView/CameraView/FlashList/public style APIs, or shadow/elevation values that cannot be represented statically.

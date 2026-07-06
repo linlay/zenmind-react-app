@@ -5,9 +5,10 @@ import {
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   View,
+  type TextStyle,
+  type ViewStyle,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -15,6 +16,7 @@ import { getApiBaseUrl } from '../../core/api/apiClient';
 import { chatSyncService } from '../../features/chatRealtime/chatSyncService';
 import { httpDebugRecorder, type HttpDebugRecord } from '../../core/debug/httpDebugLogger';
 import { wsDebugRecorder, type WsDebugRecord } from '../../core/debug/wsDebugRecorder';
+import { cn } from '../../shared/visual/className';
 import {
   closeDevelopmentDebugPanel,
   disableDevelopmentDebugPanel,
@@ -43,6 +45,67 @@ const DEFAULT_FLOATING_BUTTON_BOTTOM = 96;
 const CHAT_DETAIL_FLOATING_BUTTON_BOTTOM = 176;
 const DEFAULT_FLOATING_BUTTON_SAFE_GAP = 72;
 const CHAT_DETAIL_FLOATING_BUTTON_SAFE_GAP = 152;
+const FLOATING_LAYER_CLASS = 'absolute right-4';
+const FLOATING_BUTTON_CLASS = 'min-w-[72px] items-center justify-center rounded-app-pill bg-gray-900 px-4 py-3';
+const FLOATING_BUTTON_SHADOW_STYLE = {
+  shadowColor: '#000000',
+  shadowOffset: {
+    width: 0,
+    height: 8,
+  },
+  shadowOpacity: 0.18,
+  shadowRadius: 16,
+  elevation: 8,
+} satisfies ViewStyle;
+const FLOATING_BUTTON_TEXT_CLASS = 'text-[15px] font-bold text-white';
+const BACKDROP_CLASS = 'flex-1 justify-end bg-[rgba(17,24,39,0.28)] p-4';
+const BACKDROP_PRESS_AREA_CLASS = 'flex-1';
+const PANEL_CLASS = 'max-h-[78%] rounded-[24px] bg-white px-5 pb-[18px] pt-5';
+const PANEL_TITLE_CLASS = 'text-[22px] font-bold text-gray-900';
+const PANEL_META_CLASS = 'mt-1.5 text-[13px] text-gray-500';
+const HINT_LIST_CLASS = 'mt-4';
+const HINT_LIST_CONTENT_CLASS = 'gap-3';
+const HINT_TEXT_CLASS = 'text-[15px] leading-[22px] text-gray-700';
+const DEBUG_SECTION_CLASS = 'gap-3 border-t border-gray-300 pt-4';
+const DEBUG_SECTION_HEADER_CLASS = 'flex-row items-center justify-between gap-3';
+const DEBUG_SECTION_TITLE_CLASS = 'text-[16px] font-bold text-gray-900';
+const DEBUG_SECTION_META_CLASS = 'text-app-caption font-semibold text-gray-500';
+const DEBUG_CONTROLS_CLASS = 'flex-row flex-wrap gap-2';
+const DEBUG_CONTROL_BUTTON_CLASS = 'rounded-[10px] px-3 py-[9px]';
+const DEBUG_START_BUTTON_CLASS = 'bg-blue-100';
+const DEBUG_STOP_BUTTON_CLASS = 'bg-red-100';
+const DEBUG_NEUTRAL_BUTTON_CLASS = 'bg-gray-100';
+const DEBUG_DISABLED_BUTTON_CLASS = 'opacity-[0.55]';
+const DEBUG_CONTROL_TEXT_CLASS = 'text-[13px] font-bold';
+const DEBUG_START_TEXT_CLASS = 'text-blue-700';
+const DEBUG_STOP_TEXT_CLASS = 'text-red-700';
+const DEBUG_NEUTRAL_TEXT_CLASS = 'text-gray-700';
+const DEBUG_EMPTY_TEXT_CLASS = 'rounded-[10px] bg-gray-50 px-3 py-3 text-[13px] leading-[18px] text-gray-500';
+const DEBUG_ERROR_TEXT_CLASS = 'text-[13px] leading-[18px] text-red-700';
+const CACHE_RESET_BUTTON_CLASS = 'items-center rounded-[10px] bg-red-100 px-3 py-[11px]';
+const CACHE_RESET_BUTTON_TEXT_CLASS = 'text-[14px] font-bold text-red-700';
+const FRAME_LIST_CLASS = 'gap-1.5';
+const FRAME_ROW_CLASS = 'rounded-[10px] border border-transparent bg-gray-50 px-2.5 py-[9px]';
+const FRAME_ROW_SELECTED_CLASS = 'border-blue-300 bg-blue-50';
+const FRAME_ROW_TITLE_CLASS = 'text-app-caption font-bold text-gray-900';
+const FRAME_ROW_META_CLASS = 'mt-[3px] text-[11px] text-gray-500';
+const FRAME_JSON_BOX_CLASS = 'min-h-[140px] max-h-[260px] rounded-[10px] bg-gray-900 p-3';
+const FRAME_JSON_TEXT_CLASS = 'text-[11px] leading-4 text-gray-200';
+const FRAME_JSON_TEXT_STYLE = {
+  fontFamily: Platform.select({
+    ios: 'Menlo',
+    android: 'monospace',
+    default: 'monospace',
+  }),
+} satisfies TextStyle;
+const ACTIONS_CLASS = 'mt-5 flex-row gap-3';
+const ACTION_BUTTON_CLASS = 'flex-1 items-center justify-center rounded-[14px] py-[14px]';
+const SECONDARY_BUTTON_CLASS = 'bg-gray-100';
+const SECONDARY_BUTTON_TEXT_CLASS = 'text-[15px] font-semibold text-gray-900';
+const DANGER_BUTTON_CLASS = 'bg-red-100';
+const DANGER_BUTTON_TEXT_CLASS = 'text-[15px] font-bold text-red-700';
+const PRIMARY_BUTTON_CLASS = 'bg-gray-900';
+const PRIMARY_BUTTON_TEXT_CLASS = 'text-[15px] font-bold text-white';
 
 function padTimePart(value: number) {
   return String(value).padStart(2, '0');
@@ -141,10 +204,15 @@ export function DevelopmentDebugPanelHost({
     return (
       <View
         pointerEvents="box-none"
-        style={[styles.floatingLayer, { bottom: floatingButtonBottom }]}
+        className={FLOATING_LAYER_CLASS}
+        style={{ bottom: floatingButtonBottom }}
       >
-        <Pressable style={styles.floatingButton} onPress={openDevelopmentDebugPanel}>
-          <Text style={styles.floatingButtonText}>Debug</Text>
+        <Pressable
+          className={FLOATING_BUTTON_CLASS}
+          style={FLOATING_BUTTON_SHADOW_STYLE}
+          onPress={openDevelopmentDebugPanel}
+        >
+          <Text className={FLOATING_BUTTON_TEXT_CLASS}>Debug</Text>
         </Pressable>
       </View>
     );
@@ -233,34 +301,32 @@ export function DevelopmentDebugPanelHost({
       animationType="fade"
       onRequestClose={closeDevelopmentDebugPanel}
     >
-      <View style={styles.backdrop}>
-        <Pressable style={styles.backdropPressArea} onPress={closeDevelopmentDebugPanel} />
-        <View style={styles.panel}>
-          <Text style={styles.panelTitle}>开发调试</Text>
-          <Text style={styles.panelMeta}>当前平台：{platformLabel}</Text>
-          <Text style={styles.panelMeta}>API Base URL：{apiBaseUrl}</Text>
+      <View className={BACKDROP_CLASS}>
+        <Pressable className={BACKDROP_PRESS_AREA_CLASS} onPress={closeDevelopmentDebugPanel} />
+        <View className={PANEL_CLASS}>
+          <Text className={PANEL_TITLE_CLASS}>开发调试</Text>
+          <Text className={PANEL_META_CLASS}>当前平台：{platformLabel}</Text>
+          <Text className={PANEL_META_CLASS}>API Base URL：{apiBaseUrl}</Text>
 
-          <ScrollView style={styles.hintList} contentContainerStyle={styles.hintListContent}>
-            <Text style={styles.hintText}>{primaryHint}</Text>
-            <Text style={styles.hintText}>{secondaryHint}</Text>
-            <Text style={styles.hintText}>
-              如果你是通过 `expo start` 启动，终端里按 `j` 可以直接打开电脑上的 DevTools。
-            </Text>
-            <View style={styles.debugSection}>
-              <View style={styles.debugSectionHeader}>
-                <Text style={styles.debugSectionTitle}>Local Cache</Text>
-                <Text style={styles.debugSectionMeta}>SQLite + MMKV</Text>
-              </View>
+          <ScrollView className={HINT_LIST_CLASS}>
+            <View className={HINT_LIST_CONTENT_CLASS}>
+              <Text className={HINT_TEXT_CLASS}>{primaryHint}</Text>
+              <Text className={HINT_TEXT_CLASS}>{secondaryHint}</Text>
+              <Text className={HINT_TEXT_CLASS}>
+                如果你是通过 `expo start` 启动，终端里按 `j` 可以直接打开电脑上的 DevTools。
+              </Text>
+              <View className={DEBUG_SECTION_CLASS}>
+                <View className={DEBUG_SECTION_HEADER_CLASS}>
+                  <Text className={DEBUG_SECTION_TITLE_CLASS}>Local Cache</Text>
+                  <Text className={DEBUG_SECTION_META_CLASS}>SQLite + MMKV</Text>
+                </View>
 
               <Pressable
                 disabled={isResettingCache}
-                style={[
-                  styles.cacheResetButton,
-                  isResettingCache ? styles.debugDisabledButton : null,
-                ]}
+                className={cn(CACHE_RESET_BUTTON_CLASS, isResettingCache && DEBUG_DISABLED_BUTTON_CLASS)}
                 onPress={handleResetLocalCache}
               >
-                <Text style={styles.cacheResetButtonText}>
+                <Text className={CACHE_RESET_BUTTON_TEXT_CLASS}>
                   {isResettingCache
                     ? '清理中...'
                     : Platform.OS === 'web'
@@ -270,63 +336,63 @@ export function DevelopmentDebugPanelHost({
               </Pressable>
 
               {cacheResetErrorText ? (
-                <Text style={styles.debugErrorText}>清理失败：{cacheResetErrorText}</Text>
+                <Text className={DEBUG_ERROR_TEXT_CLASS}>清理失败：{cacheResetErrorText}</Text>
               ) : null}
             </View>
-            <View style={styles.debugSection}>
-              <View style={styles.debugSectionHeader}>
-                <Text style={styles.debugSectionTitle}>HTTP Requests</Text>
-                <Text style={styles.debugSectionMeta}>
+              <View className={DEBUG_SECTION_CLASS}>
+              <View className={DEBUG_SECTION_HEADER_CLASS}>
+                <Text className={DEBUG_SECTION_TITLE_CLASS}>HTTP Requests</Text>
+                <Text className={DEBUG_SECTION_META_CLASS}>
                   {httpSnapshot.enabled ? '捕获中' : '已停止'} · {httpSnapshot.records.length}/200
                 </Text>
               </View>
 
-              <View style={styles.debugControls}>
+              <View className={DEBUG_CONTROLS_CLASS}>
                 <Pressable
-                  style={[
-                    styles.debugControlButton,
-                    httpSnapshot.enabled ? styles.debugStopButton : styles.debugStartButton,
-                  ]}
+                  className={cn(
+                    DEBUG_CONTROL_BUTTON_CLASS,
+                    httpSnapshot.enabled ? DEBUG_STOP_BUTTON_CLASS : DEBUG_START_BUTTON_CLASS
+                  )}
                   onPress={() => httpDebugRecorder.setEnabled(!httpSnapshot.enabled)}
                 >
                   <Text
-                    style={[
-                      styles.debugControlText,
-                      httpSnapshot.enabled ? styles.debugStopText : styles.debugStartText,
-                    ]}
+                    className={cn(
+                      DEBUG_CONTROL_TEXT_CLASS,
+                      httpSnapshot.enabled ? DEBUG_STOP_TEXT_CLASS : DEBUG_START_TEXT_CLASS
+                    )}
                   >
                     {httpSnapshot.enabled ? '停止捕获' : '开始捕获'}
                   </Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.debugControlButton, styles.debugNeutralButton]}
+                  className={cn(DEBUG_CONTROL_BUTTON_CLASS, DEBUG_NEUTRAL_BUTTON_CLASS)}
                   onPress={() => {
                     httpDebugRecorder.clear();
                     setSelectedHttpRecordId(null);
                   }}
                 >
-                  <Text style={[styles.debugControlText, styles.debugNeutralText]}>清空</Text>
+                  <Text className={cn(DEBUG_CONTROL_TEXT_CLASS, DEBUG_NEUTRAL_TEXT_CLASS)}>清空</Text>
                 </Pressable>
               </View>
 
               {httpRecords.length <= 0 ? (
-                <Text style={styles.debugEmptyText}>
+                <Text className={DEBUG_EMPTY_TEXT_CLASS}>
                   暂无 HTTP 记录。上传图片、刷新列表或触发接口请求后即可看到数据。
                 </Text>
               ) : (
-                <View style={styles.frameList}>
+                <View className={FRAME_LIST_CLASS}>
                   {httpRecords.map((record) => {
                     const selected = selectedHttpRecord?.id === record.id;
                     return (
                       <Pressable
                         key={record.id}
-                        style={[styles.frameRow, selected ? styles.frameRowSelected : null]}
+                        className={cn(FRAME_ROW_CLASS, selected && FRAME_ROW_SELECTED_CLASS)}
                         onPress={() => setSelectedHttpRecordId(record.id)}
                       >
-                        <Text style={styles.frameRowTitle} numberOfLines={1}>
+                        <Text className={FRAME_ROW_TITLE_CLASS} numberOfLines={1}>
                           {formatFrameTime(record.timestamp)} · {formatHttpLabel(record)}
                         </Text>
-                        <Text style={styles.frameRowMeta} numberOfLines={1}>
+                        <Text className={FRAME_ROW_META_CLASS} numberOfLines={1}>
                           {record.url}
                           {record.durationMs === null ? '' : ` · ${record.durationMs}ms`}
                           {record.attempt && record.attempt > 1 ? ` · attempt ${record.attempt}` : ''}
@@ -338,86 +404,84 @@ export function DevelopmentDebugPanelHost({
                 </View>
               )}
 
-              <View style={styles.frameJsonBox}>
+              <View className={FRAME_JSON_BOX_CLASS}>
                 <ScrollView nestedScrollEnabled>
-                  <Text selectable style={styles.frameJsonText}>
+                  <Text selectable className={FRAME_JSON_TEXT_CLASS} style={FRAME_JSON_TEXT_STYLE}>
                     {selectedHttpRecord ? selectedHttpRecord.json : 'No selected HTTP record.'}
                   </Text>
                 </ScrollView>
               </View>
             </View>
-            <View style={styles.debugSection}>
-              <View style={styles.debugSectionHeader}>
-                <Text style={styles.debugSectionTitle}>WS Frames</Text>
-                <Text style={styles.debugSectionMeta}>
+              <View className={DEBUG_SECTION_CLASS}>
+              <View className={DEBUG_SECTION_HEADER_CLASS}>
+                <Text className={DEBUG_SECTION_TITLE_CLASS}>WS Frames</Text>
+                <Text className={DEBUG_SECTION_META_CLASS}>
                   {wsSnapshot.enabled ? '捕获中' : '已停止'} · {wsSnapshot.records.length}/200
                 </Text>
               </View>
 
-              <View style={styles.debugControls}>
+              <View className={DEBUG_CONTROLS_CLASS}>
                 <Pressable
-                  style={[
-                    styles.debugControlButton,
-                    wsSnapshot.enabled ? styles.debugStopButton : styles.debugStartButton,
-                  ]}
+                  className={cn(
+                    DEBUG_CONTROL_BUTTON_CLASS,
+                    wsSnapshot.enabled ? DEBUG_STOP_BUTTON_CLASS : DEBUG_START_BUTTON_CLASS
+                  )}
                   onPress={() => wsDebugRecorder.setEnabled(!wsSnapshot.enabled)}
                 >
                   <Text
-                    style={[
-                      styles.debugControlText,
-                      wsSnapshot.enabled ? styles.debugStopText : styles.debugStartText,
-                    ]}
+                    className={cn(
+                      DEBUG_CONTROL_TEXT_CLASS,
+                      wsSnapshot.enabled ? DEBUG_STOP_TEXT_CLASS : DEBUG_START_TEXT_CLASS
+                    )}
                   >
                     {wsSnapshot.enabled ? '停止捕获' : '开始捕获'}
                   </Text>
                 </Pressable>
                 <Pressable
-                  style={[
-                    styles.debugControlButton,
-                    wsSnapshot.mirrorToConsole
-                      ? styles.debugStartButton
-                      : styles.debugNeutralButton,
-                  ]}
+                  className={cn(
+                    DEBUG_CONTROL_BUTTON_CLASS,
+                    wsSnapshot.mirrorToConsole ? DEBUG_START_BUTTON_CLASS : DEBUG_NEUTRAL_BUTTON_CLASS
+                  )}
                   onPress={() => wsDebugRecorder.setMirrorToConsole(!wsSnapshot.mirrorToConsole)}
                 >
                   <Text
-                    style={[
-                      styles.debugControlText,
-                      wsSnapshot.mirrorToConsole ? styles.debugStartText : styles.debugNeutralText,
-                    ]}
+                    className={cn(
+                      DEBUG_CONTROL_TEXT_CLASS,
+                      wsSnapshot.mirrorToConsole ? DEBUG_START_TEXT_CLASS : DEBUG_NEUTRAL_TEXT_CLASS
+                    )}
                   >
                     Console
                   </Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.debugControlButton, styles.debugNeutralButton]}
+                  className={cn(DEBUG_CONTROL_BUTTON_CLASS, DEBUG_NEUTRAL_BUTTON_CLASS)}
                   onPress={() => {
                     wsDebugRecorder.clear();
                     setSelectedRecordId(null);
                   }}
                 >
-                  <Text style={[styles.debugControlText, styles.debugNeutralText]}>清空</Text>
+                  <Text className={cn(DEBUG_CONTROL_TEXT_CLASS, DEBUG_NEUTRAL_TEXT_CLASS)}>清空</Text>
                 </Pressable>
               </View>
 
               {wsRecords.length <= 0 ? (
-                <Text style={styles.debugEmptyText}>
+                <Text className={DEBUG_EMPTY_TEXT_CLASS}>
                   暂无 frame。开启捕获后发送消息、等待 push 或触发重连即可看到数据。
                 </Text>
               ) : (
-                <View style={styles.frameList}>
+                <View className={FRAME_LIST_CLASS}>
                   {wsRecords.map((record) => {
                     const selected = selectedRecord?.id === record.id;
                     return (
                       <Pressable
                         key={record.id}
-                        style={[styles.frameRow, selected ? styles.frameRowSelected : null]}
+                        className={cn(FRAME_ROW_CLASS, selected && FRAME_ROW_SELECTED_CLASS)}
                         onPress={() => setSelectedRecordId(record.id)}
                       >
-                        <Text style={styles.frameRowTitle} numberOfLines={1}>
+                        <Text className={FRAME_ROW_TITLE_CLASS} numberOfLines={1}>
                           {formatFrameTime(record.timestamp)} · {formatFrameLabel(record)}
                         </Text>
-                        <Text style={styles.frameRowMeta} numberOfLines={1}>
+                        <Text className={FRAME_ROW_META_CLASS} numberOfLines={1}>
                           {record.requestId ? `${record.requestId} · ` : ''}
                           {record.payloadBytes} bytes{record.truncated ? ' · truncated' : ''}
                         </Text>
@@ -427,28 +491,29 @@ export function DevelopmentDebugPanelHost({
                 </View>
               )}
 
-              <View style={styles.frameJsonBox}>
+              <View className={FRAME_JSON_BOX_CLASS}>
                 <ScrollView nestedScrollEnabled>
-                  <Text selectable style={styles.frameJsonText}>
+                  <Text selectable className={FRAME_JSON_TEXT_CLASS} style={FRAME_JSON_TEXT_STYLE}>
                     {selectedRecord ? selectedRecord.json : 'No selected WS frame.'}
                   </Text>
                 </ScrollView>
               </View>
             </View>
+            </View>
           </ScrollView>
 
-          <View style={styles.actions}>
+          <View className={ACTIONS_CLASS}>
             <Pressable
-              style={[styles.actionButton, styles.secondaryButton]}
+              className={cn(ACTION_BUTTON_CLASS, SECONDARY_BUTTON_CLASS)}
               onPress={closeDevelopmentDebugPanel}
             >
-              <Text style={styles.secondaryButtonText}>关闭</Text>
+              <Text className={SECONDARY_BUTTON_TEXT_CLASS}>关闭</Text>
             </Pressable>
-            <Pressable style={[styles.actionButton, styles.dangerButton]} onPress={handleFullClose}>
-              <Text style={styles.dangerButtonText}>彻底关闭</Text>
+            <Pressable className={cn(ACTION_BUTTON_CLASS, DANGER_BUTTON_CLASS)} onPress={handleFullClose}>
+              <Text className={DANGER_BUTTON_TEXT_CLASS}>彻底关闭</Text>
             </Pressable>
-            <Pressable style={[styles.actionButton, styles.primaryButton]} onPress={handleReload}>
-              <Text style={styles.primaryButtonText}>
+            <Pressable className={cn(ACTION_BUTTON_CLASS, PRIMARY_BUTTON_CLASS)} onPress={handleReload}>
+              <Text className={PRIMARY_BUTTON_TEXT_CLASS}>
                 {Platform.OS === 'web' ? '知道了' : '重新加载'}
               </Text>
             </Pressable>
@@ -458,231 +523,3 @@ export function DevelopmentDebugPanelHost({
     </Modal>
   );
 }
-
-const styles = StyleSheet.create({
-  floatingLayer: {
-    position: 'absolute',
-    right: 16,
-  },
-  floatingButton: {
-    minWidth: 72,
-    borderRadius: 999,
-    backgroundColor: '#111827',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.18,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  floatingButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  backdrop: {
-    flex: 1,
-    backgroundColor: 'rgba(17, 24, 39, 0.28)',
-    justifyContent: 'flex-end',
-    padding: 16,
-  },
-  backdropPressArea: {
-    flex: 1,
-  },
-  panel: {
-    maxHeight: '78%',
-    borderRadius: 24,
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 18,
-  },
-  panelTitle: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  panelMeta: {
-    marginTop: 6,
-    fontSize: 13,
-    color: '#6b7280',
-  },
-  hintList: {
-    marginTop: 16,
-  },
-  hintListContent: {
-    gap: 12,
-  },
-  hintText: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#374151',
-  },
-  debugSection: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#d1d5db',
-    paddingTop: 16,
-    gap: 12,
-  },
-  debugSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  debugSectionTitle: {
-    color: '#111827',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  debugSectionMeta: {
-    color: '#6b7280',
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  debugControls: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  debugControlButton: {
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  debugStartButton: {
-    backgroundColor: '#dbeafe',
-  },
-  debugStopButton: {
-    backgroundColor: '#fee2e2',
-  },
-  debugNeutralButton: {
-    backgroundColor: '#f3f4f6',
-  },
-  debugDisabledButton: {
-    opacity: 0.55,
-  },
-  debugControlText: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  debugStartText: {
-    color: '#1d4ed8',
-  },
-  debugStopText: {
-    color: '#b91c1c',
-  },
-  debugNeutralText: {
-    color: '#374151',
-  },
-  debugEmptyText: {
-    borderRadius: 10,
-    backgroundColor: '#f9fafb',
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    color: '#6b7280',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  debugErrorText: {
-    color: '#b91c1c',
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  cacheResetButton: {
-    borderRadius: 10,
-    backgroundColor: '#fee2e2',
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    alignItems: 'center',
-  },
-  cacheResetButtonText: {
-    color: '#b91c1c',
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  frameList: {
-    gap: 6,
-  },
-  frameRow: {
-    borderRadius: 10,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'transparent',
-    backgroundColor: '#f9fafb',
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-  },
-  frameRowSelected: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#93c5fd',
-  },
-  frameRowTitle: {
-    color: '#111827',
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  frameRowMeta: {
-    marginTop: 3,
-    color: '#6b7280',
-    fontSize: 11,
-  },
-  frameJsonBox: {
-    minHeight: 140,
-    maxHeight: 260,
-    borderRadius: 10,
-    backgroundColor: '#111827',
-    padding: 12,
-  },
-  frameJsonText: {
-    color: '#e5e7eb',
-    fontSize: 11,
-    lineHeight: 16,
-    fontFamily: Platform.select({
-      ios: 'Menlo',
-      android: 'monospace',
-      default: 'monospace',
-    }),
-  },
-  actions: {
-    marginTop: 20,
-    flexDirection: 'row',
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryButton: {
-    backgroundColor: '#f3f4f6',
-  },
-  secondaryButtonText: {
-    color: '#111827',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  dangerButton: {
-    backgroundColor: '#fee2e2',
-  },
-  dangerButtonText: {
-    color: '#b91c1c',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  primaryButton: {
-    backgroundColor: '#111827',
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
-  },
-});

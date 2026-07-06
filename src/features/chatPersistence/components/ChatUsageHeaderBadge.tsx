@@ -1,12 +1,12 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Keyboard, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Animated, Keyboard, Modal, Pressable, ScrollView, Text, View, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Circle, Svg } from 'react-native-svg';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { type I18nKey, type TFunction, useT } from '../../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
+import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
+import { appVisualTokens } from '../../../shared/visual/foundation';
 import type {
   ChatTimelineUsageEstimatedCost,
   ChatTimelineUsageStats,
@@ -36,11 +36,56 @@ type UsageMetric = {
   value: number | null;
 };
 
-const USAGE_HEADER_BADGE_WIDTH = 72;
 const USAGE_SHEET_ANIMATION_DURATION = 150;
 const USAGE_SHEET_MAX_HEIGHT = 580;
 const USAGE_SHEET_ENTER_OFFSET = USAGE_SHEET_MAX_HEIGHT + appVisualTokens.spacing.xl;
-const USAGE_METRIC_CELL_BASIS = '31%';
+const USAGE_HEADER_BADGE_CLASS =
+  'h-[34px] w-[72px] shrink-0 flex-row items-center justify-center gap-[5px] rounded-app-pill border border-app-line-strong bg-app-surface pb-0 pl-1 pr-[7px] active:opacity-[0.68]';
+const USAGE_HEADER_TEXT_BLOCK_CLASS = 'min-w-0 flex-1 items-start justify-center';
+const USAGE_HEADER_VALUE_CLASS = 'max-w-full text-[11px] font-extrabold leading-[14px] text-app-primary';
+const USAGE_RING_CLASS = 'relative shrink-0 items-center justify-center';
+const USAGE_RING_LABEL_CLASS = 'absolute inset-0 items-center justify-center';
+const USAGE_RING_TEXT_CLASS = 'text-center text-[7px] font-extrabold leading-[9px] text-app-primary';
+const USAGE_MODAL_ROOT_CLASS = 'flex-1 justify-end';
+const USAGE_BACKDROP_CLASS = 'absolute inset-0 bg-app-overlay';
+const USAGE_BACKDROP_PRESSABLE_CLASS = 'flex-1';
+const USAGE_DRAWER_PANEL_CLASS = 'rounded-t-[16px] bg-app-surface px-app-lg pt-app-sm';
+const USAGE_DRAWER_HANDLE_CLASS = 'mb-app-md h-[5px] w-9 self-center rounded-[3px] bg-app-line-strong';
+const USAGE_DRAWER_HEADER_CLASS = 'min-h-[38px] flex-row items-start justify-between gap-app-md pb-app-sm';
+const USAGE_DRAWER_TITLE_BLOCK_CLASS = 'min-w-0 flex-1 gap-[2px]';
+const USAGE_DRAWER_TITLE_CLASS = 'text-[17px] font-extrabold leading-[22px] text-app-primary';
+const USAGE_DRAWER_MODEL_CLASS = 'text-[12px] font-bold leading-4 text-app-secondary';
+const USAGE_DRAWER_CLOSE_CLASS =
+  'h-[30px] w-[30px] items-center justify-center rounded-app-pill bg-app-surface-muted active:opacity-[0.68]';
+const USAGE_DRAWER_SCROLL_CLASS = 'grow-0';
+const USAGE_DRAWER_CONTENT_CLASS = 'gap-app-md pb-app-sm';
+const USAGE_CONTEXT_WINDOW_CLASS =
+  'flex-row flex-wrap items-center gap-app-sm rounded-app-sm bg-app-brand-blue-soft px-[10px] py-[10px]';
+const USAGE_CONTEXT_MAIN_CLASS = 'min-w-0 flex-1 flex-row items-center gap-app-sm';
+const USAGE_CONTEXT_COPY_CLASS = 'min-w-0 flex-1 gap-[1px]';
+const USAGE_CONTEXT_LABEL_CLASS = 'text-[11px] font-bold leading-[14px] text-app-secondary';
+const USAGE_CONTEXT_VALUE_CLASS = 'text-[13px] font-extrabold leading-4 text-app-primary';
+const USAGE_CONTEXT_HINT_CLASS = 'text-[11px] font-semibold leading-[14px] text-app-secondary';
+const USAGE_CONTEXT_SIDE_CLASS = 'min-w-[126px] shrink-0 items-end gap-1';
+const USAGE_CONTEXT_SIDE_TEXT_CLASS = 'text-right text-[11px] font-bold leading-[14px] text-app-secondary';
+const USAGE_CONTEXT_SIDE_VALUE_CLASS = 'font-extrabold text-app-primary';
+const USAGE_SECTION_CLASS = 'gap-[7px]';
+const USAGE_SECTION_HEADER_CLASS = 'min-h-[18px] flex-row items-center justify-between gap-app-sm';
+const USAGE_SECTION_TITLE_CLASS = 'text-[13px] font-extrabold leading-[17px] text-app-primary';
+const USAGE_CALL_COUNTS_CLASS = 'min-w-0 shrink flex-row justify-end gap-app-sm';
+const USAGE_CALL_COUNT_TEXT_CLASS = 'text-[11px] font-bold leading-[14px] text-app-secondary';
+const USAGE_CALL_COUNT_VALUE_CLASS = 'font-extrabold text-app-primary';
+const USAGE_METRIC_GRID_CLASS = 'flex-row flex-wrap gap-[7px]';
+const USAGE_METRIC_CELL_CLASS =
+  'h-[34px] grow shrink basis-[31%] flex-row items-center justify-between gap-[5px] rounded-app-sm border border-app-line-strong bg-app-surface px-[9px]';
+const USAGE_METRIC_LABEL_CLASS = 'shrink text-[11px] font-bold leading-[14px] text-app-secondary';
+const USAGE_METRIC_VALUE_CLASS = 'shrink-0 text-right text-[13px] font-extrabold leading-4 text-app-primary';
+const USAGE_DRAWER_PANEL_ELEVATION_STYLE = {
+  shadowOffset: { width: 0, height: -10 },
+  shadowOpacity: 0.14,
+  shadowRadius: 24,
+  elevation: 12,
+} satisfies ViewStyle;
 
 const USAGE_SHEET_SPRING_CONFIG = {
   damping: 20,
@@ -190,7 +235,6 @@ const UsageRing = memo(function UsageRing({
   size?: number;
 }) {
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const progress = percent === null || percent === undefined ? 0 : Math.max(0, Math.min(100, percent));
   const strokeWidth = size >= 36 ? 3.6 : 3.2;
   const radius = (size - strokeWidth) / 2;
@@ -199,7 +243,7 @@ const UsageRing = memo(function UsageRing({
   const label = percent === null || percent === undefined ? '--' : `${Math.round(percent)}%`;
 
   return (
-    <View style={[styles.usageRing, { width: size, height: size }]}>
+    <View className={USAGE_RING_CLASS} style={{ width: size, height: size }}>
       <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
         <Circle
           cx={center}
@@ -222,8 +266,8 @@ const UsageRing = memo(function UsageRing({
           transform={`rotate(-90 ${center} ${center})`}
         />
       </Svg>
-      <View pointerEvents="none" style={styles.usageRingLabel}>
-        <Text allowFontScaling={false} numberOfLines={1} style={styles.usageRingText}>
+      <View pointerEvents="none" className={USAGE_RING_LABEL_CLASS}>
+        <Text allowFontScaling={false} numberOfLines={1} className={USAGE_RING_TEXT_CLASS}>
           {label}
         </Text>
       </View>
@@ -232,14 +276,12 @@ const UsageRing = memo(function UsageRing({
 });
 
 const UsageMetricCell = memo(function UsageMetricCell({ metric }: { metric: UsageMetric }) {
-  const styles = useAppThemeStyles(createStyles);
-
   return (
-    <View style={styles.usageMetricCell}>
-      <Text allowFontScaling={false} numberOfLines={1} style={styles.usageMetricLabel}>
+    <View className={USAGE_METRIC_CELL_CLASS}>
+      <Text allowFontScaling={false} numberOfLines={1} className={USAGE_METRIC_LABEL_CLASS}>
         {metric.label}
       </Text>
-      <Text allowFontScaling={false} numberOfLines={1} style={styles.usageMetricValue}>
+      <Text allowFontScaling={false} numberOfLines={1} className={USAGE_METRIC_VALUE_CLASS}>
         {formatUsageNumber(metric.value)}
       </Text>
     </View>
@@ -248,7 +290,6 @@ const UsageMetricCell = memo(function UsageMetricCell({ metric }: { metric: Usag
 
 const UsageCallCounts = memo(function UsageCallCounts({ stats }: { stats: ChatTimelineUsageStats | null | undefined }) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const counts = useMemo(
     () =>
       [
@@ -263,10 +304,10 @@ const UsageCallCounts = memo(function UsageCallCounts({ stats }: { stats: ChatTi
   }
 
   return (
-    <View style={styles.usageCallCounts}>
+    <View className={USAGE_CALL_COUNTS_CLASS}>
       {counts.map((count) => (
-        <Text allowFontScaling={false} numberOfLines={1} key={count.key} style={styles.usageCallCountText}>
-          {count.label} <Text style={styles.usageCallCountValue}>{formatUsageNumber(count.value)}</Text>
+        <Text allowFontScaling={false} numberOfLines={1} key={count.key} className={USAGE_CALL_COUNT_TEXT_CLASS}>
+          {count.label} <Text className={USAGE_CALL_COUNT_VALUE_CLASS}>{formatUsageNumber(count.value)}</Text>
         </Text>
       ))}
     </View>
@@ -281,18 +322,17 @@ const UsageSection = memo(function UsageSection({
   stats: ChatTimelineUsageStats | null | undefined;
 }) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const metrics = useMemo(() => buildUsageMetrics(stats, t), [stats, t]);
 
   return (
-    <View style={styles.usageSection}>
-      <View style={styles.usageSectionHeader}>
-        <Text allowFontScaling={false} numberOfLines={1} style={styles.usageSectionTitle}>
+    <View className={USAGE_SECTION_CLASS}>
+      <View className={USAGE_SECTION_HEADER_CLASS}>
+        <Text allowFontScaling={false} numberOfLines={1} className={USAGE_SECTION_TITLE_CLASS}>
           {title}
         </Text>
         <UsageCallCounts stats={stats} />
       </View>
-      <View style={styles.usageMetricGrid}>
+      <View className={USAGE_METRIC_GRID_CLASS}>
         {metrics.map((metric) => (
           <UsageMetricCell key={metric.key} metric={metric} />
         ))}
@@ -303,35 +343,34 @@ const UsageSection = memo(function UsageSection({
 
 const UsageContextWindow = memo(function UsageContextWindow({ summary }: { summary: ChatTimelineUsageSummary }) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const cacheHitLabel = formatUsagePercent(resolveChatCacheHitPercent(summary));
   const estimatedCostLabel = formatChatEstimatedCost(resolveUsageEstimatedCost(summary.chat));
 
   return (
-    <View style={styles.usageContextWindow}>
-      <View style={styles.usageContextMain}>
+    <View className={USAGE_CONTEXT_WINDOW_CLASS}>
+      <View className={USAGE_CONTEXT_MAIN_CLASS}>
         <UsageRing percent={summary.contextWindow.percent ?? null} size={40} />
-        <View style={styles.usageContextCopy}>
-          <Text allowFontScaling={false} numberOfLines={1} style={styles.usageContextLabel}>
+        <View className={USAGE_CONTEXT_COPY_CLASS}>
+          <Text allowFontScaling={false} numberOfLines={1} className={USAGE_CONTEXT_LABEL_CLASS}>
             {t('usage.context.title')}
           </Text>
-          <Text allowFontScaling={false} numberOfLines={1} style={styles.usageContextValue}>
+          <Text allowFontScaling={false} numberOfLines={1} className={USAGE_CONTEXT_VALUE_CLASS}>
             {formatUsageNumber(summary.contextWindow.currentSize)} /{' '}
             {formatUsageNumber(summary.contextWindow.maxSize)}
           </Text>
-          <Text allowFontScaling={false} numberOfLines={1} style={styles.usageContextHint}>
+          <Text allowFontScaling={false} numberOfLines={1} className={USAGE_CONTEXT_HINT_CLASS}>
             {t('usage.context.nextCall', {
               count: formatUsageNumber(summary.contextWindow.estimatedNextCallSize)
             })}
           </Text>
         </View>
       </View>
-      <View style={styles.usageContextSide}>
-        <Text allowFontScaling={false} numberOfLines={1} style={styles.usageContextSideText}>
-          {t('usage.context.cacheHitRate')} <Text style={styles.usageContextSideValue}>{cacheHitLabel}</Text>
+      <View className={USAGE_CONTEXT_SIDE_CLASS}>
+        <Text allowFontScaling={false} numberOfLines={1} className={USAGE_CONTEXT_SIDE_TEXT_CLASS}>
+          {t('usage.context.cacheHitRate')} <Text className={USAGE_CONTEXT_SIDE_VALUE_CLASS}>{cacheHitLabel}</Text>
         </Text>
-        <Text allowFontScaling={false} numberOfLines={1} style={styles.usageContextSideText}>
-          {t('usage.context.totalCost')} <Text style={styles.usageContextSideValue}>{estimatedCostLabel}</Text>
+        <Text allowFontScaling={false} numberOfLines={1} className={USAGE_CONTEXT_SIDE_TEXT_CLASS}>
+          {t('usage.context.totalCost')} <Text className={USAGE_CONTEXT_SIDE_VALUE_CLASS}>{estimatedCostLabel}</Text>
         </Text>
       </View>
     </View>
@@ -344,14 +383,13 @@ const ChatUsageStatsContent = memo(function ChatUsageStatsContent({
   usageSummary: ChatTimelineUsageSummary;
 }) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
 
   return (
     <ScrollView
       bounces={false}
       showsVerticalScrollIndicator={false}
-      style={styles.usageDrawerScroll}
-      contentContainerStyle={styles.usageDrawerContent}
+      className={USAGE_DRAWER_SCROLL_CLASS}
+      contentContainerClassName={USAGE_DRAWER_CONTENT_CLASS}
     >
       <UsageContextWindow summary={usageSummary} />
       <UsageSection title={t('usage.section.current')} stats={usageSummary.current} />
@@ -371,7 +409,7 @@ const ChatUsageStatsDrawer = memo(function ChatUsageStatsDrawer({
   onDismissed
 }: ChatUsageStatsDrawerProps) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
+  const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(USAGE_SHEET_ENTER_OFFSET)).current;
@@ -425,19 +463,21 @@ const ChatUsageStatsDrawer = memo(function ChatUsageStatsDrawer({
 
   return (
     <Modal transparent visible animationType="none" statusBarTranslucent onRequestClose={onClose}>
-      <View style={styles.usageModalRoot}>
-        <Animated.View style={[styles.usageBackdrop, { opacity: backdropOpacity }]}>
+      <View className={USAGE_MODAL_ROOT_CLASS}>
+        <Animated.View className={USAGE_BACKDROP_CLASS} style={{ opacity: backdropOpacity }}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={t('usage.close')}
-            style={styles.usageBackdropPressable}
+            className={USAGE_BACKDROP_PRESSABLE_CLASS}
             onPress={onClose}
           />
         </Animated.View>
         <Animated.View
+          className={USAGE_DRAWER_PANEL_CLASS}
           style={[
-            styles.usageDrawerPanel,
+            USAGE_DRAWER_PANEL_ELEVATION_STYLE,
             {
+              shadowColor: theme.colors.shadow,
               maxHeight: USAGE_SHEET_MAX_HEIGHT,
               paddingBottom: Math.max(insets.bottom, appVisualTokens.spacing.md),
               transform: [{ translateY }]
@@ -445,13 +485,13 @@ const ChatUsageStatsDrawer = memo(function ChatUsageStatsDrawer({
           ]}
           onStartShouldSetResponder={shouldCaptureUsageDrawerTouch}
         >
-          <View style={styles.usageDrawerHandle} />
-          <View style={styles.usageDrawerHeader}>
-            <View style={styles.usageDrawerTitleBlock}>
-              <Text allowFontScaling={false} numberOfLines={1} style={styles.usageDrawerTitle}>
+          <View className={USAGE_DRAWER_HANDLE_CLASS} />
+          <View className={USAGE_DRAWER_HEADER_CLASS}>
+            <View className={USAGE_DRAWER_TITLE_BLOCK_CLASS}>
+              <Text allowFontScaling={false} numberOfLines={1} className={USAGE_DRAWER_TITLE_CLASS}>
                 {t('usage.title')}
               </Text>
-              <Text allowFontScaling={false} numberOfLines={1} style={styles.usageDrawerModel}>
+              <Text allowFontScaling={false} numberOfLines={1} className={USAGE_DRAWER_MODEL_CLASS}>
                 {modelLabel}
               </Text>
             </View>
@@ -460,7 +500,7 @@ const ChatUsageStatsDrawer = memo(function ChatUsageStatsDrawer({
               accessibilityLabel={t('usage.close')}
               onPress={onClose}
               hitSlop={8}
-              style={({ pressed }) => [styles.usageDrawerClose, pressed && styles.usageButtonPressed]}
+              className={USAGE_DRAWER_CLOSE_CLASS}
             >
               <AppIcon usage="usage.close" />
             </Pressable>
@@ -478,7 +518,6 @@ export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
   reasoningEffort
 }: ChatUsageHeaderBadgeProps) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
   const total = resolveDisplayTotal(usageSummary);
@@ -504,11 +543,11 @@ export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
         accessibilityLabel={accessibilityLabel}
         onPress={handleOpen}
         hitSlop={6}
-        style={({ pressed }) => [styles.usageHeaderBadge, pressed && styles.usageButtonPressed]}
+        className={USAGE_HEADER_BADGE_CLASS}
       >
         <UsageRing percent={usageSummary.contextWindow.percent ?? null} size={26} />
-        <View style={styles.usageHeaderTextBlock}>
-          <Text allowFontScaling={false} numberOfLines={1} style={styles.usageHeaderValue}>
+        <View className={USAGE_HEADER_TEXT_BLOCK_CLASS}>
+          <Text allowFontScaling={false} numberOfLines={1} className={USAGE_HEADER_VALUE_CLASS}>
             {compactTotal}
           </Text>
         </View>
@@ -527,256 +566,3 @@ export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
     </>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    usageHeaderBadge: {
-      width: USAGE_HEADER_BADGE_WIDTH,
-      height: 34,
-      borderRadius: appVisualTokens.radii.pill,
-      borderWidth: 1,
-      borderColor: theme.colors.lineStrong,
-      backgroundColor: theme.colors.surface,
-      paddingLeft: 4,
-      paddingRight: 7,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 5,
-      flexShrink: 0
-    },
-    usageButtonPressed: {
-      opacity: 0.68
-    },
-    usageHeaderTextBlock: {
-      minWidth: 0,
-      flex: 1,
-      alignItems: 'flex-start',
-      justifyContent: 'center'
-    },
-    usageHeaderValue: {
-      maxWidth: '100%',
-      fontSize: 11,
-      lineHeight: 14,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    usageRing: {
-      position: 'relative',
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexShrink: 0
-    },
-    usageRingLabel: {
-      ...StyleSheet.absoluteFill,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    usageRingText: {
-      fontSize: 7,
-      lineHeight: 9,
-      fontWeight: '800',
-      color: theme.colors.textPrimary,
-      textAlign: 'center'
-    },
-    usageModalRoot: {
-      flex: 1,
-      justifyContent: 'flex-end'
-    },
-    usageBackdrop: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: theme.colors.overlay
-    },
-    usageBackdropPressable: {
-      flex: 1
-    },
-    usageDrawerPanel: {
-      borderTopLeftRadius: appVisualTokens.radii.lg,
-      borderTopRightRadius: appVisualTokens.radii.lg,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: appVisualTokens.spacing.lg,
-      paddingTop: appVisualTokens.spacing.sm,
-      shadowColor: theme.colors.shadow,
-      shadowOffset: {
-        width: 0,
-        height: -10
-      },
-      shadowOpacity: 0.14,
-      shadowRadius: 24,
-      elevation: 12
-    },
-    usageDrawerHandle: {
-      width: 36,
-      height: 5,
-      borderRadius: 3,
-      backgroundColor: theme.colors.lineStrong,
-      alignSelf: 'center',
-      marginBottom: appVisualTokens.spacing.md
-    },
-    usageDrawerHeader: {
-      minHeight: 38,
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      gap: appVisualTokens.spacing.md,
-      paddingBottom: appVisualTokens.spacing.sm
-    },
-    usageDrawerTitleBlock: {
-      minWidth: 0,
-      flex: 1,
-      gap: 2
-    },
-    usageDrawerTitle: {
-      fontSize: 17,
-      lineHeight: 22,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    usageDrawerModel: {
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '700',
-      color: theme.colors.textSecondary
-    },
-    usageDrawerClose: {
-      width: 30,
-      height: 30,
-      borderRadius: appVisualTokens.radii.pill,
-      backgroundColor: theme.colors.surfaceMuted,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    usageDrawerScroll: {
-      flexGrow: 0
-    },
-    usageDrawerContent: {
-      gap: appVisualTokens.spacing.md,
-      paddingBottom: appVisualTokens.spacing.sm
-    },
-    usageContextWindow: {
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.brandBlueSoft,
-      paddingHorizontal: 10,
-      paddingVertical: 10,
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.sm
-    },
-    usageContextMain: {
-      minWidth: 0,
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.sm
-    },
-    usageContextCopy: {
-      minWidth: 0,
-      flex: 1,
-      gap: 1
-    },
-    usageContextLabel: {
-      fontSize: 11,
-      lineHeight: 14,
-      fontWeight: '700',
-      color: theme.colors.textSecondary
-    },
-    usageContextValue: {
-      fontSize: 13,
-      lineHeight: 16,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    usageContextHint: {
-      fontSize: 11,
-      lineHeight: 14,
-      fontWeight: '600',
-      color: theme.colors.textSecondary
-    },
-    usageContextSide: {
-      minWidth: 126,
-      flexShrink: 0,
-      alignItems: 'flex-end',
-      gap: 4
-    },
-    usageContextSideText: {
-      fontSize: 11,
-      lineHeight: 14,
-      fontWeight: '700',
-      color: theme.colors.textSecondary,
-      textAlign: 'right'
-    },
-    usageContextSideValue: {
-      color: theme.colors.textPrimary,
-      fontWeight: '800'
-    },
-    usageSection: {
-      gap: 7
-    },
-    usageSectionHeader: {
-      minHeight: 18,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: appVisualTokens.spacing.sm
-    },
-    usageSectionTitle: {
-      fontSize: 13,
-      lineHeight: 17,
-      fontWeight: '800',
-      color: theme.colors.textPrimary
-    },
-    usageCallCounts: {
-      minWidth: 0,
-      flexShrink: 1,
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      gap: appVisualTokens.spacing.sm
-    },
-    usageCallCountText: {
-      fontSize: 11,
-      lineHeight: 14,
-      fontWeight: '700',
-      color: theme.colors.textSecondary
-    },
-    usageCallCountValue: {
-      color: theme.colors.textPrimary,
-      fontWeight: '800'
-    },
-    usageMetricGrid: {
-      flexDirection: 'row',
-      flexWrap: 'wrap',
-      gap: 7
-    },
-    usageMetricCell: {
-      flexBasis: USAGE_METRIC_CELL_BASIS,
-      flexGrow: 1,
-      flexShrink: 1,
-      height: 34,
-      borderRadius: appVisualTokens.radii.sm,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.lineStrong,
-      backgroundColor: theme.colors.surface,
-      paddingHorizontal: 9,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      gap: 5
-    },
-    usageMetricLabel: {
-      flexShrink: 1,
-      fontSize: 11,
-      lineHeight: 14,
-      fontWeight: '700',
-      color: theme.colors.textSecondary
-    },
-    usageMetricValue: {
-      flexShrink: 0,
-      fontSize: 13,
-      lineHeight: 16,
-      fontWeight: '800',
-      color: theme.colors.textPrimary,
-      textAlign: 'right'
-    }
-  });
-}

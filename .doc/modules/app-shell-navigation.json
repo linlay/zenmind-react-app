@@ -46,7 +46,7 @@
       "通过 BRAND 环境变量、brands/\u003cid\u003e/brand.json、app.config.js 和品牌同步脚本，在固定 Android applicationId / iOS bundle id、共享 Expo slug 与共享 EAS channel 下切换产品名称、图标、启动图、通知色和运行时品牌展示。",
       "决定认证前后的 RootStack / Tab 结构、登录门卫开关、设备 profile endpoint 展示、任务看板、TaskBoardFlow 二级任务流、设置二级页以及 Chat 首页与详情页的导航层级；网盘保留 src/app/screens/DriveScreen.tsx 预留页组件但当前不挂底部 Tab，待后期实现；原生端底部 Tab 通过 Native Bottom Tabs 承载，Web 继续使用 JS Bottom Tabs。",
       "为一级 Tab 页面提供固定顶部 Header 与滚动内容分离的壳层布局。",
-      "承接共享视觉 token、运行时 system/light/dark 主题偏好、NativeWind/Tailwind 样式编译入口、共享国际化文案、native PNG Tab 图标、描边 JS Tab 图标和 locale 感知标签映射，统一一级页面的轻量聊天风格。",
+      "承接共享视觉 token、运行时 system/light/dark 主题偏好、NativeWind/Tailwind 语义 class token 与样式编译入口、共享国际化文案、native PNG Tab 图标、描边 JS Tab 图标和 locale 感知标签映射，统一一级页面的轻量聊天风格。",
       "让 ChatDetail 和 TaskBoardFlow 作为 Tabs 之上的上层 route 覆盖首页，避免在 feature 内手写 tab 显隐和页面覆盖动画。",
       "接收系统通知点击后的聊天导航意图，并在认证和导航 ready 前缓存 pending payload。",
       "保持 app 层只做壳层编排，不直接承载业务状态和底层存储细节。",
@@ -54,8 +54,8 @@
       "Public entry app.config.js (expo-dynamic-config): 按 --brand 或 BRAND 读取 brands/\u003cid\u003e/brand.json，并合成 brands/shared.json 的共享 storage namespace、updates、Expo slug 和 native identity，生成 Expo name / slug / icon / splash / notification / embedded brand id 配置；slug、Android package 和 iOS bundle id 保持共享；config evaluation 只确保 generated registry 和 Expo 消费的 PNG 资源存在，不直接写 prebuild 中间态 native project。",
       "Public entry syncBrandArtifacts (brand-build-config): 合成 brands/shared.json 与 brands/\u003cid\u003e/brand.json，生成不包含 active brand 常量的全量品牌 registry、logo map 和 assets/brands/\u003cid\u003e 静态 PNG 资源，并按显式 brand 与 active native manifest 高性能同步本地 Android / iOS 展示面。",
       "Public entry metro.config.js (metro-config): 扩展 Expo Metro 配置，允许 Web 构建加载 expo-sqlite 的 wasm 资源，收窄 monorepo watch 范围，让 Worklets bundle mode 生成文件处于 Metro watch 范围内，并通过 NativeWind 处理 global.css。",
-      "Public entry babel.config.js (babel-config): 挂载 NativeWind Babel 插件以启用 React Native className 转换，并保持 react-native-worklets/plugin 在插件列表末尾。",
-      "Public entry tailwind.config.js (tailwind-config): 声明 NativeWind preset 与 App/src content 扫描范围，供 Metro 的 NativeWind 编译入口消费。",
+      "Public entry babel.config.js (babel-config): 以 NativeWind Babel preset 启用 React Native className 转换，并保留显式 react-native-worklets/plugin bundleMode 配置。",
+      "Public entry tailwind.config.js (tailwind-config): 声明 NativeWind preset、darkMode class、App/src content 扫描范围，并从 shared visual token 源派生 app 语义颜色变量、spacing、radius 与 font size alias，供 Metro 的 NativeWind 编译入口消费。",
       "Public entry global.css (nativewind-input): NativeWind 输入 CSS，只承载 Tailwind base/components/utilities 层，由 App.tsx 副作用 import 并交给 Metro 按平台转换。",
       "Public entry plugins/withAndroidAutolinkingCacheGuard.js (expo-config-plugin): 在 Expo prebuild 阶段向 Android settings.gradle 注入 autolinking cache guard，使 pnpm workspace lock 和 cached Android sourceDir 存在性参与缓存失效判断。",
       "Public entry android/settings.gradle (android-gradle-settings): 配置 React Native / Expo Android settings 插件和 autolinking 缓存失效输入；pnpm workspace 下同时校验 cached Android sourceDir 是否仍存在，避免重装依赖后 include 旧 .pnpm 物理路径。",
@@ -75,6 +75,7 @@
       "State/data touch: 平台解析的底部 Tab 容器、native tab 图标资产和共享底部避让 hook/metrics",
       "State/data touch: Settings root route 与 Me 页操作入口",
       "State/data touch: system/light/dark 主题偏好驱动的 NavigationContainer、StatusBar、TabBar 与 Settings 外观分组",
+      "State/data touch: AppThemeProvider 同步 NativeWind colorScheme 后驱动未来 Tailwind class 样式的 light/dark 切换",
       "State/data touch: 认证快照驱动的 Root stack、TaskBoardFlow 与 bottom tab 路由编排",
       "State/data touch: core auth cache runtime 注入的聊天缓存 scope 切换与清理函数",
       "Related flow: app-startup",
@@ -197,7 +198,7 @@
       "scripts/tests/visualFoundation.test.mts",
       "scripts/tests/wsClientTransport.test.mts"
     ],
-    "lastScannedAt": "2026-06-30T05:38:54Z"
+    "lastScannedAt": "2026-07-03T10:07:35Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -250,9 +251,9 @@
     "Web 构建如果依赖 expo-sqlite，要保持 metro.config.js 中 wasm assetExts 配置可用。",
     "Android settings 的 autolinking 缓存必须通过 withAndroidAutolinkingCacheGuard 跟踪 pnpm workspace lock，并在 cached Android sourceDir 不存在时删除 autolinking.json 触发重扫，避免 pnpm peer-hash 物理路径过期导致 native module include 失败。",
     "Metro watchFolders 必须限制在 workspace 根 node_modules 和项目内 .generated/react-native-worklets/.worklets，不要继承 Expo 自动发现的 sibling frontend workspace；否则 pan-webclient 等其他项目的 node_modules 变化会污染移动端 Metro file map。",
-    "NativeWind 接入必须保持 global.css 通过 App.tsx 副作用 import，metro.config.js 通过 withNativeWind(config, { input: './global.css' }) 包装既有配置，babel.config.js 中 nativewind/babel 放在 react-native-worklets/plugin 之前。",
+    "NativeWind 接入必须保持 global.css 通过 App.tsx 副作用 import，metro.config.js 通过 withNativeWind(config, { input: './global.css' }) 包装既有配置，babel.config.js 中 nativewind/babel 作为 preset 接入，并保留显式 react-native-worklets/plugin bundleMode 配置。",
     "Worklets bundle mode 生成物必须同步到项目内 .generated/react-native-worklets/.worklets，并让 Metro 只 watch/resolve 这个项目内稳定目录；预生成时要同时覆盖 node_modules symlink 路径和 pnpm 当前 .pnpm realpath，因为 Worklets hash 会受源码 filename 影响。",
-    "Expo 运行和导出脚本必须先执行 scripts/worklets/pregenerate.js，提前生成并同步 Reanimated、Streamdown、Worklets、remend 和二级 Worklets bundle 文件；预生成要覆盖 development / production 环境和 android / web 平台，避免 Metro 建图后才出现新 .worklets 文件导致 SHA-1 缺失。",
+    "Expo 运行和导出脚本必须先执行 scripts/worklets/pregenerate.js，提前生成并同步 Reanimated、Streamdown、Worklets、remend、NativeWind css-interop 和二级 Worklets bundle 文件；预生成要覆盖 development / production 环境和 android / web 平台，避免 Metro 建图后才出现新 .worklets 文件导致 SHA-1 缺失。",
     "Expo 运行、导出和 EAS post install 脚本必须先执行 scripts/sync-brand.js，保证 app.config.js、React loading、Login 和 Me 页消费的 generated 品牌资源一致；app.config.js 读取配置时必须跳过 native project 文本同步，避免 Expo prebuild 刚创建 AndroidManifest 但插件尚未写入 meta-data 时失败。",
     "scripts/sync-brand.js 必须按品牌目录使用 assetFingerprint 缓存派生 PNG，并使用 .generated/brand/native-active-manifest.json 按显式 brand 拆分缓存 native splash image、launcher image 和 native text；文本字段变化不读写 PNG，重复同步同一品牌不重画 PNG。",
     "src/shared/generated/brand.ts 只能包含全量 APP_BRANDS registry、DEFAULT_BRAND_ID 与 INSTALLED_BRAND_ID resolver 调用，不能重新生成 ACTIVE_BRAND_ID；共享 OTA 展示品牌必须来自安装壳 embedded app.config.extra.brand.id。",

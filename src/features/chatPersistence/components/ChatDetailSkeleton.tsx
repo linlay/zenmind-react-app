@@ -1,24 +1,35 @@
 import { useEffect, useRef } from 'react';
-import { Animated, DimensionValue, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Animated, DimensionValue, View } from 'react-native';
 
-import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
+import { cn } from '../../../shared/visual/className';
+
+const SKELETON_SCREEN_CLASS = 'flex-1 bg-app-background';
+const SKELETON_HEADER_CLASS = 'h-[58px] flex-row items-center justify-between px-app-lg';
+const SKELETON_HEADER_CENTER_CLASS = 'items-center';
+const SKELETON_HEADER_META_CLASS = 'mt-2';
+const SKELETON_THREAD_CLASS = 'flex-1 px-app-md pt-app-sm';
+const SKELETON_ASSISTANT_ROW_CLASS = 'mb-[22px] flex-row items-start gap-2';
+const SKELETON_ASSISTANT_TEXT_CLASS = 'flex-1 pt-[2px]';
+const SKELETON_LINE_GAP_CLASS = 'mt-2';
+const SKELETON_BUBBLE_USER_CLASS = 'mb-5 self-end rounded-[18px]';
+const SKELETON_COMPOSER_CLASS = 'px-app-lg pb-[6px] pt-[5px]';
+const SKELETON_COMPOSER_INPUT_CLASS = 'rounded-app-pill';
+const SKELETON_ROUND_CLASS = 'rounded-app-pill';
+const SKELETON_BLOCK_CLASS = 'bg-app-background-muted';
 
 function SkeletonBlock({
   width = '100%',
   height,
-  style,
+  className,
 }: {
   width?: DimensionValue;
   height: number;
-  style?: StyleProp<ViewStyle>;
+  className?: string;
 }) {
-  const styles = useAppThemeStyles(createStyles);
-  return <View style={[styles.skeletonBlock, { width, height }, style]} />;
+  return <View className={cn(SKELETON_BLOCK_CLASS, className)} style={{ width, height }} />;
 }
 
 export function ChatDetailSkeleton() {
-  const styles = useAppThemeStyles(createStyles);
   const opacity = useRef(new Animated.Value(0.55)).current;
 
   useEffect(() => {
@@ -44,98 +55,39 @@ export function ChatDetailSkeleton() {
   }, [opacity]);
 
   return (
-    <Animated.View style={[styles.skeletonScreen, { opacity }]}>
-      <View style={styles.skeletonHeader}>
-        <SkeletonBlock width={22} height={22} style={styles.skeletonRound} />
-        <View style={styles.skeletonHeaderCenter}>
+    <Animated.View className={SKELETON_SCREEN_CLASS} style={{ opacity }}>
+      <View className={SKELETON_HEADER_CLASS}>
+        <SkeletonBlock width={22} height={22} className={SKELETON_ROUND_CLASS} />
+        <View className={SKELETON_HEADER_CENTER_CLASS}>
           <SkeletonBlock width={78} height={18} />
-          <SkeletonBlock width={58} height={12} style={styles.skeletonHeaderMeta} />
+          <SkeletonBlock width={58} height={12} className={SKELETON_HEADER_META_CLASS} />
         </View>
-        <SkeletonBlock width={22} height={22} style={styles.skeletonRound} />
+        <SkeletonBlock width={22} height={22} className={SKELETON_ROUND_CLASS} />
       </View>
 
-      <View style={styles.skeletonThread}>
-        <SkeletonBlock width="54%" height={44} style={styles.skeletonBubbleUser} />
-        <View style={styles.skeletonAssistantRow}>
-          <SkeletonBlock width={18} height={18} style={styles.skeletonRound} />
-          <View style={styles.skeletonAssistantText}>
+      <View className={SKELETON_THREAD_CLASS}>
+        <SkeletonBlock width="54%" height={44} className={SKELETON_BUBBLE_USER_CLASS} />
+        <View className={SKELETON_ASSISTANT_ROW_CLASS}>
+          <SkeletonBlock width={18} height={18} className={SKELETON_ROUND_CLASS} />
+          <View className={SKELETON_ASSISTANT_TEXT_CLASS}>
             <SkeletonBlock width="94%" height={15} />
-            <SkeletonBlock width="88%" height={15} style={styles.skeletonLineGap} />
-            <SkeletonBlock width="62%" height={15} style={styles.skeletonLineGap} />
+            <SkeletonBlock width="88%" height={15} className={SKELETON_LINE_GAP_CLASS} />
+            <SkeletonBlock width="62%" height={15} className={SKELETON_LINE_GAP_CLASS} />
           </View>
         </View>
-        <SkeletonBlock width="34%" height={40} style={styles.skeletonBubbleUser} />
-        <View style={styles.skeletonAssistantRow}>
-          <SkeletonBlock width={18} height={18} style={styles.skeletonRound} />
-          <View style={styles.skeletonAssistantText}>
+        <SkeletonBlock width="34%" height={40} className={SKELETON_BUBBLE_USER_CLASS} />
+        <View className={SKELETON_ASSISTANT_ROW_CLASS}>
+          <SkeletonBlock width={18} height={18} className={SKELETON_ROUND_CLASS} />
+          <View className={SKELETON_ASSISTANT_TEXT_CLASS}>
             <SkeletonBlock width="76%" height={15} />
-            <SkeletonBlock width="52%" height={15} style={styles.skeletonLineGap} />
+            <SkeletonBlock width="52%" height={15} className={SKELETON_LINE_GAP_CLASS} />
           </View>
         </View>
       </View>
 
-      <View style={styles.skeletonComposer}>
-        <SkeletonBlock width="100%" height={50} style={styles.skeletonComposerInput} />
+      <View className={SKELETON_COMPOSER_CLASS}>
+        <SkeletonBlock width="100%" height={50} className={SKELETON_COMPOSER_INPUT_CLASS} />
       </View>
     </Animated.View>
   );
-}
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    skeletonScreen: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-    skeletonHeader: {
-      height: 58,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: appVisualTokens.spacing.lg,
-    },
-    skeletonHeaderCenter: {
-      alignItems: 'center',
-    },
-    skeletonHeaderMeta: {
-      marginTop: 8,
-    },
-    skeletonThread: {
-      flex: 1,
-      paddingHorizontal: appVisualTokens.spacing.md,
-      paddingTop: appVisualTokens.spacing.sm,
-    },
-    skeletonAssistantRow: {
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      gap: 8,
-      marginBottom: 22,
-    },
-    skeletonAssistantText: {
-      flex: 1,
-      paddingTop: 2,
-    },
-    skeletonLineGap: {
-      marginTop: 8,
-    },
-    skeletonBubbleUser: {
-      alignSelf: 'flex-end',
-      marginBottom: 20,
-      borderRadius: 18,
-    },
-    skeletonComposer: {
-      paddingHorizontal: appVisualTokens.spacing.lg,
-      paddingTop: 5,
-      paddingBottom: 6,
-    },
-    skeletonComposerInput: {
-      borderRadius: appVisualTokens.radii.pill,
-    },
-    skeletonRound: {
-      borderRadius: appVisualTokens.radii.pill,
-    },
-    skeletonBlock: {
-      backgroundColor: theme.colors.backgroundMuted,
-    },
-  });
 }

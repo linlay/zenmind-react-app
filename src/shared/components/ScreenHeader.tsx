@@ -1,8 +1,8 @@
 import { memo, ReactElement, ReactNode } from 'react';
-import { StyleProp, StyleSheet, Text, TextStyle, View, ViewStyle } from 'react-native';
+import { StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
 
-import { useAppThemeStyles } from '../visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../visual/foundation';
+import { cn } from '../visual/className';
+import { appHairlineStyles } from '../visual/hairline';
 
 type ScreenHeaderActions =
   | readonly []
@@ -10,16 +10,24 @@ type ScreenHeaderActions =
   | readonly [ReactElement, ReactElement];
 
 const EMPTY_ACTIONS = [] as const satisfies ScreenHeaderActions;
-const HEADER_HEIGHT = 56;
-const ACTION_SLOT_SIZE = 40;
-const ACTION_RAIL_WIDTH = ACTION_SLOT_SIZE * 2 + appVisualTokens.spacing.sm;
-const HEADER_HORIZONTAL_PADDING = appVisualTokens.spacing.md;
+const HEADER_CONTAINER_BASE_CLASS = 'flex-row items-center px-app-md';
+const HEADER_CONTAINER_DEFAULT_CLASS = 'h-14 border-app-line bg-app-surface';
+const ACTION_RAIL_CLASS = 'h-14 w-[88px] flex-row items-center gap-app-sm';
+const LEFT_ACTION_RAIL_CLASS = `${ACTION_RAIL_CLASS} justify-start`;
+const RIGHT_ACTION_RAIL_CLASS = `${ACTION_RAIL_CLASS} justify-end`;
+const ACTION_SLOT_CLASS = 'h-10 min-w-10 items-center justify-center';
+const TITLE_CONTAINER_BASE_CLASS = 'min-w-0 flex-1 items-center justify-center overflow-hidden px-app-xs';
+const TITLE_CONTAINER_DEFAULT_CLASS = 'h-14';
+const TITLE_TEXT_CLASS = 'text-center text-app-title font-bold text-app-primary';
 
 export type ScreenHeaderProps = {
   title: ReactNode;
   leftActions?: ScreenHeaderActions;
   rightActions?: ScreenHeaderActions;
   actionRailWidth?: number;
+  className?: string;
+  titleContainerClassName?: string;
+  titleTextClassName?: string;
   style?: StyleProp<ViewStyle>;
   titleContainerStyle?: StyleProp<ViewStyle>;
   titleTextStyle?: StyleProp<TextStyle>;
@@ -30,24 +38,32 @@ export const ScreenHeader = memo(function ScreenHeader({
   leftActions = EMPTY_ACTIONS,
   rightActions = EMPTY_ACTIONS,
   actionRailWidth,
+  className,
+  titleContainerClassName,
+  titleTextClassName,
   style,
   titleContainerStyle,
   titleTextStyle,
 }: ScreenHeaderProps) {
-  const styles = useAppThemeStyles(createStyles);
   const isPrimitiveTitle = typeof title === 'string' || typeof title === 'number';
   const actionRailWidthStyle = actionRailWidth ? { width: actionRailWidth } : null;
 
   return (
-    <View style={[styles.container, style]}>
-      <View style={[styles.actionRail, actionRailWidthStyle, styles.leftRail]}>
-        {leftActions[0] ? <View style={styles.actionSlot}>{leftActions[0]}</View> : null}
-        {leftActions[1] ? <View style={styles.actionSlot}>{leftActions[1]}</View> : null}
+    <View
+      className={cn(HEADER_CONTAINER_BASE_CLASS, className ?? HEADER_CONTAINER_DEFAULT_CLASS)}
+      style={className === undefined ? [appHairlineStyles.borderBottom, style] : style}
+    >
+      <View className={LEFT_ACTION_RAIL_CLASS} style={actionRailWidthStyle}>
+        {leftActions[0] ? <View className={ACTION_SLOT_CLASS}>{leftActions[0]}</View> : null}
+        {leftActions[1] ? <View className={ACTION_SLOT_CLASS}>{leftActions[1]}</View> : null}
       </View>
 
-      <View style={[styles.titleContainer, titleContainerStyle]}>
+      <View
+        className={cn(TITLE_CONTAINER_BASE_CLASS, titleContainerClassName ?? TITLE_CONTAINER_DEFAULT_CLASS)}
+        style={titleContainerStyle}
+      >
         {isPrimitiveTitle ? (
-          <Text numberOfLines={1} style={[styles.titleText, titleTextStyle]}>
+          <Text numberOfLines={1} className={cn(TITLE_TEXT_CLASS, titleTextClassName)} style={titleTextStyle}>
             {title}
           </Text>
         ) : (
@@ -55,59 +71,10 @@ export const ScreenHeader = memo(function ScreenHeader({
         )}
       </View>
 
-      <View style={[styles.actionRail, actionRailWidthStyle, styles.rightRail]}>
-        {rightActions[0] ? <View style={styles.actionSlot}>{rightActions[0]}</View> : null}
-        {rightActions[1] ? <View style={styles.actionSlot}>{rightActions[1]}</View> : null}
+      <View className={RIGHT_ACTION_RAIL_CLASS} style={actionRailWidthStyle}>
+        {rightActions[0] ? <View className={ACTION_SLOT_CLASS}>{rightActions[0]}</View> : null}
+        {rightActions[1] ? <View className={ACTION_SLOT_CLASS}>{rightActions[1]}</View> : null}
       </View>
     </View>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    container: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      height: HEADER_HEIGHT,
-      paddingHorizontal: HEADER_HORIZONTAL_PADDING,
-      backgroundColor: theme.colors.surface,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line,
-    },
-    actionRail: {
-      width: ACTION_RAIL_WIDTH,
-      height: HEADER_HEIGHT,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.sm,
-    },
-    leftRail: {
-      justifyContent: 'flex-start',
-    },
-    rightRail: {
-      justifyContent: 'flex-end',
-    },
-    actionSlot: {
-      minWidth: ACTION_SLOT_SIZE,
-      height: ACTION_SLOT_SIZE,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    titleContainer: {
-      flex: 1,
-      minWidth: 0,
-      height: HEADER_HEIGHT,
-      justifyContent: 'center',
-      alignItems: 'center',
-      paddingHorizontal: appVisualTokens.spacing.xs,
-      overflow: 'hidden',
-    },
-    titleText: {
-      fontSize: 18,
-      lineHeight: 24,
-      fontWeight: '700',
-      color: theme.colors.textPrimary,
-      textAlign: 'center',
-    },
-  });
-}

@@ -1,8 +1,7 @@
 import { memo } from 'react';
-import { StyleSheet, TextInput, View } from 'react-native';
+import { TextInput, View } from 'react-native';
 
-import { useAppTheme, useAppThemeStyles } from '../../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../../shared/visual/foundation';
+import { useAppTheme } from '../../../../shared/visual/AppThemeProvider';
 import type { ChatTimelineAwaitingQuestion } from '../../../chatTimeline/index.ts';
 import {
   getAwaitingDateFormat,
@@ -17,6 +16,9 @@ type AwaitingDateTimeInputProps = {
   onChange: (draft: AwaitingQuestionDraft) => void;
   onSubmitCurrent: () => void;
 };
+const FIELD_BLOCK_CLASS = 'min-h-[46px] justify-center';
+const INPUT_FIELD_CLASS =
+  'min-h-[44px] rounded-app-sm border-[1.5px] border-app-brand-blue px-app-md py-2 text-[15px] leading-5 text-app-primary';
 
 function getAnswerText(value: AwaitingQuestionDraft | undefined): string {
   return typeof value?.answer === 'string'
@@ -34,12 +36,11 @@ export const AwaitingDateTimeInput = memo(function AwaitingDateTimeInput({
   onSubmitCurrent
 }: AwaitingDateTimeInputProps) {
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const answerText = getAnswerText(value);
   const placeholder = getAwaitingQuestionPlaceholder(question) || getAwaitingDateFormat(question);
 
   return (
-    <View style={styles.fieldBlock}>
+    <View className={FIELD_BLOCK_CLASS}>
       <TextInput
         value={answerText}
         editable={!disabled}
@@ -49,28 +50,8 @@ export const AwaitingDateTimeInput = memo(function AwaitingDateTimeInput({
         placeholderTextColor={theme.colors.textTertiary}
         allowFontScaling={false}
         returnKeyType="done"
-        style={styles.inputField}
+        className={INPUT_FIELD_CLASS}
       />
     </View>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    fieldBlock: {
-      minHeight: 46,
-      justifyContent: 'center'
-    },
-    inputField: {
-      minHeight: 44,
-      borderRadius: appVisualTokens.radii.sm,
-      borderWidth: 1.5,
-      borderColor: theme.colors.brandBlue,
-      paddingHorizontal: appVisualTokens.spacing.md,
-      paddingVertical: 8,
-      fontSize: 15,
-      lineHeight: 20,
-      color: theme.colors.textPrimary
-    }
-  });
-}

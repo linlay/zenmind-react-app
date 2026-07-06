@@ -1,11 +1,10 @@
 import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Text, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
 import { getAwaitingViewportApi, type AwaitingSubmitParamData } from '../../../../core/api/services/chatApi';
 import { useT } from '../../../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../../shared/visual/foundation';
+import { useAppTheme } from '../../../../shared/visual/AppThemeProvider';
 import type { ChatTimelineAwaitingForm } from '../../../chatTimeline/index.ts';
 import { normalizeAwaitingSubmitParams } from './awaitingSubmitState';
 import type {
@@ -20,6 +19,11 @@ const COLLECT_TIMEOUT_MS = 5_000;
 const DEFAULT_VIEWPORT_HEIGHT = 260;
 const MIN_VIEWPORT_HEIGHT = 180;
 const MAX_VIEWPORT_HEIGHT = 380;
+const STATUS_BOX_CLASS =
+  'min-h-28 items-center justify-center gap-app-sm rounded-app-md border border-app-line bg-app-surface-muted p-app-md';
+const STATUS_TEXT_CLASS = 'text-center text-[13px] leading-[18px] text-app-secondary';
+const ERROR_TEXT_CLASS = 'text-center text-[13px] font-bold leading-[18px] text-app-danger';
+const WEB_VIEW_FRAME_CLASS = 'overflow-hidden rounded-app-md border border-app-line bg-app-background';
 
 type CachedViewportHtml = {
   html: string;
@@ -172,7 +176,6 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
   ) {
     const t = useT();
     const { theme } = useAppTheme();
-    const styles = useAppThemeStyles(createStyles);
     const webViewRef = useRef<WebView>(null);
     const pendingCollectRef = useRef<PendingCollect | null>(null);
     const activeViewportKeyRef = useRef(viewportKey);
@@ -359,9 +362,9 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
 
     if (loading) {
       return (
-        <View style={styles.statusBox}>
+        <View className={STATUS_BOX_CLASS}>
           <ActivityIndicator size="small" color={theme.colors.brandBlue} />
-          <Text allowFontScaling={false} style={styles.statusText}>
+          <Text allowFontScaling={false} className={STATUS_TEXT_CLASS}>
             {t('awaiting.form.loading')}
           </Text>
         </View>
@@ -370,8 +373,8 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
 
     if (loadError) {
       return (
-        <View style={styles.statusBox}>
-          <Text allowFontScaling={false} style={styles.errorText}>
+        <View className={STATUS_BOX_CLASS}>
+          <Text allowFontScaling={false} className={ERROR_TEXT_CLASS}>
             {loadError}
           </Text>
         </View>
@@ -380,8 +383,8 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
 
     if (!html) {
       return (
-        <View style={styles.statusBox}>
-          <Text allowFontScaling={false} style={styles.statusText}>
+        <View className={STATUS_BOX_CLASS}>
+          <Text allowFontScaling={false} className={STATUS_TEXT_CLASS}>
             {t('awaiting.form.viewportUnavailable')}
           </Text>
         </View>
@@ -389,7 +392,7 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
     }
 
     return (
-      <View style={[styles.webViewFrame, { height }]}>
+      <View className={WEB_VIEW_FRAME_CLASS} style={{ height }}>
         <WebView
           ref={webViewRef}
           originWhitelist={['*']}
@@ -401,7 +404,7 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
           injectedJavaScriptBeforeContentLoaded={AWAITING_FORM_VIEWPORT_BRIDGE_SCRIPT}
           onLoadEnd={() => postToFrame('awaiting_init')}
           onMessage={handleMessage}
-          style={styles.webView}
+          style={{ flex: 1, backgroundColor: theme.colors.background }}
         />
       </View>
     );
@@ -409,43 +412,3 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
 );
 
 export const AwaitingFormViewport = memo(AwaitingFormViewportInner);
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    statusBox: {
-      minHeight: 112,
-      gap: appVisualTokens.spacing.sm,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: appVisualTokens.radii.md,
-      borderWidth: 1,
-      borderColor: theme.colors.line,
-      backgroundColor: theme.colors.surfaceMuted,
-      padding: appVisualTokens.spacing.md,
-    },
-    statusText: {
-      textAlign: 'center',
-      fontSize: 13,
-      lineHeight: 18,
-      color: theme.colors.textSecondary,
-    },
-    errorText: {
-      textAlign: 'center',
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '700',
-      color: theme.colors.danger,
-    },
-    webViewFrame: {
-      overflow: 'hidden',
-      borderRadius: appVisualTokens.radii.md,
-      borderWidth: 1,
-      borderColor: theme.colors.line,
-      backgroundColor: theme.colors.background,
-    },
-    webView: {
-      flex: 1,
-      backgroundColor: theme.colors.background,
-    },
-  });
-}

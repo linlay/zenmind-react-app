@@ -11,7 +11,8 @@
       "dependsOn": [
         "core-api-client",
         "core-debug-logging",
-        "feature-chat-realtime"
+        "feature-chat-realtime",
+        "shared-visual-foundation"
       ],
       "dependedBy": [
         "app-shell-navigation"
@@ -268,6 +269,7 @@
         "add",
         "agent",
         "agentterminalapp",
+        "alias",
         "and",
         "android",
         "api",
@@ -352,6 +354,7 @@
         "fingerprint",
         "flow",
         "folders",
+        "font",
         "for",
         "formatters",
         "foundation",
@@ -389,6 +392,7 @@
         "install",
         "installed",
         "internationalization",
+        "interop",
         "invalidation",
         "ios",
         "java",
@@ -477,6 +481,7 @@
         "proxy",
         "public",
         "question",
+        "radius",
         "react",
         "read",
         "ready",
@@ -518,10 +523,12 @@
         "shared",
         "shell",
         "sibling",
+        "size",
         "skeleton",
         "slug",
         "socket",
         "source",
+        "spacing",
         "splash",
         "sqlite",
         "src",
@@ -609,6 +616,7 @@
         "不让页面直接读写底层存储",
         "与",
         "与共享",
+        "与样式编译入口",
         "与滚动内容分离的壳层布局",
         "两套",
         "中",
@@ -620,9 +628,9 @@
         "主题切换只改变",
         "主题切换和语言设置",
         "之上的上层",
-        "之前",
         "之前出现空白窗口",
         "二级任务流",
+        "以",
         "任务",
         "任务二级页通过",
         "任务看板",
@@ -677,10 +685,12 @@
         "可见的项目路径和",
         "合成",
         "同时托住",
+        "同步",
         "同步必须同时覆盖",
         "同步检查",
         "名称要同步",
         "后同步到项目内",
+        "后驱动未来",
         "否则",
         "否则保持当前",
         "启动前同步品牌资源和预生成",
@@ -690,6 +700,7 @@
         "启动加载层需要有明确退场信号",
         "启动加载遮罩可见性",
         "启动图",
+        "启用",
         "和",
         "和二级",
         "和各",
@@ -706,7 +717,6 @@
         "图标资产和共享底部避让",
         "在",
         "在固定",
-        "在插件列表末尾",
         "声明",
         "处理",
         "外观分组",
@@ -738,8 +748,9 @@
         "平台",
         "平台解析的底部",
         "并交给",
+        "并从",
         "并使用",
-        "并保持",
+        "并保留显式",
         "并合成",
         "并向",
         "并在",
@@ -788,18 +799,17 @@
         "按平台转换",
         "按显式",
         "按聚焦页面",
+        "接入",
         "接入必须保持",
         "接收系统通知点击后的聊天导航意图",
         "描边",
         "描边图标和颜色语义继续由共享层统一提供",
         "提前生成并同步",
-        "插件以启用",
         "插件和",
         "插件沿",
         "插件配置",
         "插件配置一致",
         "收窄",
-        "放在",
         "文件",
         "文件导致",
         "文本同步",
@@ -825,7 +835,7 @@
         "构建加载",
         "构建如果依赖",
         "树",
-        "样式编译入口",
+        "样式的",
         "根",
         "根入口",
         "根组件",
@@ -837,6 +847,7 @@
         "注册",
         "消费的",
         "清理",
+        "源派生",
         "物理路径",
         "物理路径过期导致",
         "环境变量",
@@ -896,7 +907,9 @@
         "设置二级页以及",
         "设置页或上层",
         "设置页清除本地缓存的",
+        "语义",
         "语义色",
+        "语义颜色变量",
         "读取",
         "读取配置时必须跳过",
         "调用",
@@ -2388,6 +2401,7 @@
         "bar",
         "base",
         "bit",
+        "block",
         "boot",
         "bootstrap",
         "build",
@@ -2401,6 +2415,7 @@
         "clear",
         "client",
         "cold",
+        "collapse",
         "collapsed",
         "collect",
         "color",
@@ -4414,14 +4429,20 @@
       "tokens": [
         "action",
         "add",
+        "api",
         "area",
+        "class",
         "component",
         "components",
+        "container",
         "data",
         "edit",
         "entry",
         "header",
+        "name",
+        "native",
         "node",
+        "primitive",
         "props",
         "public",
         "rail",
@@ -4429,6 +4450,7 @@
         "related",
         "repository",
         "reusable",
+        "root",
         "safe",
         "screen",
         "scroll",
@@ -4436,11 +4458,13 @@
         "socket",
         "src",
         "state",
+        "style",
         "tab",
         "task",
         "test",
         "tests",
         "text",
+        "title",
         "token",
         "touch",
         "tsx",
@@ -4448,20 +4472,29 @@
         "view",
         "web",
         "width",
+        "wind",
         "一级页面接入时",
         "不在组件内部强制包裹",
         "不引入导航",
         "不把颜色和图标尺寸重新散落到业务页面",
         "不退化成任意长度数组",
         "个元素",
+        "仍保留给运行时测量",
         "依赖",
         "保持标题",
         "分隔线和操作区的统一观感",
         "包含左右",
+        "原",
+        "只用于运行时动态值",
         "可按页面需要对称配置左右",
         "同时保持零业务状态和零导航耦合",
         "同时约束左右操作区各自最多",
+        "和可选",
+        "和少量动态覆盖",
         "复用型页面",
+        "外观优先通过",
+        "外部",
+        "外部调用兼容或无法由",
         "宽度",
         "左右操作区数量约束继续由类型系统保证",
         "左右操作槽位的纯布局渲染",
@@ -4469,14 +4502,17 @@
         "必须左右对称生效",
         "或",
         "提供纯",
+        "支持",
         "支持标题区传入字符串",
         "数字或自定义组件",
         "时",
+        "标题",
         "标题区和右按钮区",
         "标题区支持自定义",
         "标题容器的样式承载与单行文本省略",
-        "标题样式和可选",
         "消费共享视觉",
+        "用于页面级静态样式迁移",
+        "的",
         "的三栏页面",
         "的内容头",
         "纯共享的三栏",
@@ -4487,9 +4523,13 @@
         "继续放在滚动区外",
         "而不是作为列表或",
         "自定义",
+        "表达",
+        "表达的组件",
+        "覆盖",
         "视觉语义继续从共享视觉层读取",
         "避免宽按钮外溢压到标题区",
-        "避免标题视觉中心偏移"
+        "避免标题视觉中心偏移",
+        "静态"
       ]
     },
     {
@@ -4508,6 +4548,7 @@
       "tests": [],
       "dependsOn": [],
       "dependedBy": [
+        "app-development-debug",
         "app-shell-navigation",
         "feature-agent-task-board",
         "feature-auth-login",
@@ -4523,6 +4564,8 @@
         "28px",
         "add",
         "agent",
+        "alias",
+        "api",
         "app",
         "area",
         "asset",
@@ -4553,12 +4596,12 @@
         "context",
         "conversation",
         "count",
-        "create",
         "css",
         "dark",
         "data",
         "default",
         "definition",
+        "disabled",
         "doc",
         "edit",
         "embedded",
@@ -4568,12 +4611,14 @@
         "fallback",
         "feature",
         "flow",
+        "font",
         "format",
         "foundation",
         "generated",
         "get",
         "global",
         "glyph",
+        "hairline",
         "header",
         "height",
         "helper",
@@ -4601,6 +4646,7 @@
         "map",
         "metrics",
         "mmkv",
+        "mode",
         "multi",
         "name",
         "names",
@@ -4619,10 +4665,12 @@
         "preferences",
         "preset",
         "pressable",
+        "pressed",
         "product",
         "props",
         "provider",
         "public",
+        "radius",
         "react",
         "reference",
         "registries",
@@ -4639,16 +4687,20 @@
         "row",
         "runtime",
         "safe",
+        "scheme",
         "screen",
         "scripts",
         "search",
         "seed",
         "set",
+        "shadow",
         "shared",
         "sheet",
         "shell",
         "size",
         "slug",
+        "source",
+        "spacing",
         "splash",
         "src",
         "startup",
@@ -4680,6 +4732,7 @@
         "usages",
         "use",
         "utility",
+        "value",
         "version",
         "view",
         "visual",
@@ -4694,6 +4747,7 @@
         "不在",
         "不在运行时解析品牌",
         "不夹带业务状态或",
+        "不引入外部依赖",
         "不承载业务状态",
         "不承载单页私有主题规则",
         "不提供",
@@ -4720,14 +4774,18 @@
         "主题偏好与",
         "主题偏好只保存",
         "仅保留少量未替换",
+        "仅保留给公开",
         "从安装壳",
+        "以",
         "优先用静态",
         "会话列表紧凑时间展示",
         "会话头像展示派生",
         "但语义色",
+        "作为视觉",
         "使用",
         "使用团队符号和稳定色板",
         "供",
+        "供运行时视觉",
         "偏好",
         "偏好只解析到",
         "偏好在",
@@ -4736,10 +4794,11 @@
         "允许后续逐屏迁移样式代码",
         "允许调用方覆盖动态颜色",
         "共享",
-        "共享组件和",
+        "共享组件",
         "共享视觉",
         "共享视觉主题",
         "兼容入口",
+        "兼容和真实动态样式",
         "内临时构造整套样式对象",
         "内二级滚动页只能通过",
         "内二级滚动页读取底部",
@@ -4754,10 +4813,15 @@
         "分隔线",
         "到",
         "到底层",
+        "动画值",
+        "单源",
+        "变量",
         "只做",
         "只做格式化",
         "只包含",
         "只封装",
+        "只拼接稳定静态",
+        "合并",
         "同步更新",
         "同步缓存",
         "同步读取",
@@ -4769,8 +4833,9 @@
         "向导航",
         "命中内置静态图标",
         "和",
+        "和头像色板的共享",
         "和底部",
-        "和抽屉组件使用",
+        "和抽屉组件的静态样式优先使用稳定",
         "品牌",
         "品牌差异从",
         "品牌常量和",
@@ -4786,14 +4851,20 @@
         "基于",
         "基础层声明",
         "填充",
+        "外观",
         "多品牌打包",
         "失败时回退默认品牌",
         "头像组件",
         "头像色板",
         "如果主题规则变更",
+        "字符串和有限状态分支",
+        "对象",
         "尺寸和",
         "展示",
+        "布局和",
         "常规图标尺寸角色覆盖",
+        "常量",
+        "并同步",
         "并按",
         "并提供内置",
         "应用级主题",
@@ -4808,7 +4879,9 @@
         "得到",
         "或",
         "或扫描文件系统",
-        "扫描入口",
+        "才保留最小",
+        "扫描入口与从",
+        "承载静态按钮尺寸",
         "把业务语义映射到底层",
         "把远端或持久化",
         "指向",
@@ -4827,20 +4900,27 @@
         "新增颜色",
         "时不能绕过",
         "时回落",
-        "时应和",
+        "时应先更新共享",
         "时重建样式",
         "是跨平台底部高度的唯一公式入口",
         "暴露当前",
         "未知值回落",
+        "极小",
         "校验后返回",
         "校验并兜底",
         "样式与",
+        "样式和",
         "样式的项目级入口",
         "格式化",
         "沉淀当前移动端扁平简约主题规范",
+        "派生",
         "派生头像色板",
+        "派生的",
+        "派生运行时",
+        "测量值或公开",
         "渲染",
         "渲染统一线性风格图标",
+        "源",
         "灰色辅助信息",
         "生成物必须包含静态",
         "生成的全量品牌",
@@ -4853,7 +4933,6 @@
         "的共享",
         "的变更要同步检查",
         "的描边",
-        "的语义主题保持一致",
         "的集中映射",
         "的静态注册表",
         "相关",
@@ -4866,16 +4945,18 @@
         "统一图标按钮外壳",
         "统一管理",
         "统一语义图标入口和",
-        "缓存",
         "缺失或未知",
         "而不是在单个",
         "聊天数据或",
         "聊天首页和详情页的一致性",
         "色板派生和",
+        "若确有运行时",
         "获取底部避让",
         "落地约束",
         "蓝色主强调",
         "语义",
+        "语义色",
+        "语义颜色变量",
         "资产入口",
         "跨年",
         "输入",
@@ -4892,11 +4973,14 @@
         "避免代码与文档脱节",
         "避免列表头像运行时解析",
         "避免列表行和高频组件在每次",
+        "避免手抄两份主题值",
         "避让高度的兼容入口",
+        "配置共同消费",
         "重卡片或逐项阴影",
         "间距",
         "间距和底部避让仍以",
         "间距或暗色规则要先沉淀到",
+        "静态",
         "静态查表后渲染底层",
         "静态查表和当前",
         "静态组件集合",
@@ -7175,6 +7259,103 @@
         "长列表默认平面化",
         "阴影只在必要浮层"
       ]
+    },
+    {
+      "id": "ui-static-style-tailwind-first",
+      "path": ".doc/rules.json",
+      "modules": [
+        "app-shell-navigation",
+        "app-shell-navigation",
+        "feature-agent-task-board",
+        "feature-agent-task-board",
+        "feature-auth-login",
+        "feature-auth-login",
+        "feature-chat-persistence",
+        "feature-chat-persistence",
+        "shared-conversation-content-renderer",
+        "shared-paginated-list",
+        "shared-paginated-list",
+        "shared-screen-header",
+        "shared-screen-header",
+        "shared-visual-foundation",
+        "shared-visual-foundation"
+      ],
+      "tokens": [
+        "api",
+        "area",
+        "bar",
+        "camera",
+        "class",
+        "color",
+        "config",
+        "create",
+        "elevation",
+        "first",
+        "flash",
+        "foundation",
+        "image",
+        "inset",
+        "json",
+        "keyboard",
+        "list",
+        "name",
+        "native",
+        "pressable",
+        "safe",
+        "shadow",
+        "shared",
+        "sheet",
+        "src",
+        "static",
+        "style",
+        "tab",
+        "tailwind",
+        "text",
+        "tokens",
+        "view",
+        "visual",
+        "web",
+        "wind",
+        "不新增",
+        "不要动态拼接未知",
+        "作为默认路径",
+        "保留",
+        "公开",
+        "分支或",
+        "动态颜色",
+        "动画",
+        "动画值",
+        "只有真实动态值",
+        "合并",
+        "和",
+        "品牌",
+        "圆角",
+        "圆角或字号语义先沉淀到",
+        "外观优先抽成稳定",
+        "头像动态颜色",
+        "字号",
+        "常量",
+        "常量表达",
+        "或阴影",
+        "才保留最小",
+        "新增或改造",
+        "新增颜色",
+        "时",
+        "时应能归因为动态",
+        "有限状态用显式",
+        "服务端",
+        "测量",
+        "第三方",
+        "等场景",
+        "类名",
+        "边框和有限状态外观默认用",
+        "运行时测量值",
+        "间距",
+        "静态",
+        "静态布局",
+        "静态样式优先使用",
+        "颜色"
+      ]
     }
   ],
   "sourceFiles": [
@@ -8318,6 +8499,7 @@
     ".generated/react-native-worklets/.worklets/3796851510421.js",
     ".generated/react-native-worklets/.worklets/3802887966048.js",
     ".generated/react-native-worklets/.worklets/3804326125319.js",
+    ".generated/react-native-worklets/.worklets/3812827726569.js",
     ".generated/react-native-worklets/.worklets/3829620526333.js",
     ".generated/react-native-worklets/.worklets/3843804944633.js",
     ".generated/react-native-worklets/.worklets/3846245719320.js",
@@ -8638,6 +8820,7 @@
     ".generated/react-native-worklets/.worklets/6377905670264.js",
     ".generated/react-native-worklets/.worklets/6395724719418.js",
     ".generated/react-native-worklets/.worklets/6398033576128.js",
+    ".generated/react-native-worklets/.worklets/639934121359.js",
     ".generated/react-native-worklets/.worklets/6415608556631.js",
     ".generated/react-native-worklets/.worklets/6429571220286.js",
     ".generated/react-native-worklets/.worklets/6431469011262.js",
@@ -8757,6 +8940,7 @@
     ".generated/react-native-worklets/.worklets/7408795235493.js",
     ".generated/react-native-worklets/.worklets/7416569510607.js",
     ".generated/react-native-worklets/.worklets/7425392373496.js",
+    ".generated/react-native-worklets/.worklets/7437761805778.js",
     ".generated/react-native-worklets/.worklets/7438857771706.js",
     ".generated/react-native-worklets/.worklets/7452974515017.js",
     ".generated/react-native-worklets/.worklets/7453628012605.js",
@@ -9005,6 +9189,7 @@
     ".generated/react-native-worklets/.worklets/9384167588849.js",
     ".generated/react-native-worklets/.worklets/939797622579.js",
     ".generated/react-native-worklets/.worklets/9403201589246.js",
+    ".generated/react-native-worklets/.worklets/9412473557172.js",
     ".generated/react-native-worklets/.worklets/9414140936817.js",
     ".generated/react-native-worklets/.worklets/9417124215224.js",
     ".generated/react-native-worklets/.worklets/9419609223755.js",
@@ -9196,6 +9381,7 @@
     "src/features/chatPersistence/components/Composer.tsx",
     "src/features/chatPersistence/components/CopyToast.tsx",
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
+    "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx",
     "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx",
@@ -9263,7 +9449,9 @@
     "src/shared/visual/agentAvatarIcon.ts",
     "src/shared/visual/agentAvatarTypes.ts",
     "src/shared/visual/appLineIconRegistry.ts",
+    "src/shared/visual/className.ts",
     "src/shared/visual/foundation.ts",
+    "src/shared/visual/hairline.ts",
     "src/shared/visual/tabBarMetrics.ts",
     "src/shared/visual/themePreference.ts",
     "src/shared/visual/useAppTabBarHeight.native.ts",
@@ -9374,6 +9562,7 @@
     "src/features/chatPersistence/components/Composer.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/CopyToast.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/RuntimePlanningBlock.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx": "feature-chat-persistence",
@@ -9441,7 +9630,9 @@
     "src/shared/visual/agentAvatarIcon.ts": "shared-visual-foundation",
     "src/shared/visual/agentAvatarTypes.ts": "shared-visual-foundation",
     "src/shared/visual/appLineIconRegistry.ts": "shared-visual-foundation",
+    "src/shared/visual/className.ts": "shared-visual-foundation",
     "src/shared/visual/foundation.ts": "shared-visual-foundation",
+    "src/shared/visual/hairline.ts": "shared-visual-foundation",
     "src/shared/visual/tabBarMetrics.ts": "shared-visual-foundation",
     "src/shared/visual/themePreference.ts": "shared-visual-foundation",
     "src/shared/visual/useAppTabBarHeight.native.ts": "shared-visual-foundation",
@@ -10012,6 +10203,11 @@
     "alias": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "core-api-client",
         "path": ".doc/modules/core-api-client.json"
       },
@@ -10019,6 +10215,11 @@
         "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "all": [
@@ -10207,8 +10408,23 @@
         "path": ".doc/modules/feature-notifications.json"
       },
       {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
         "kind": "rule",
         "id": "core-no-feature-import",
+        "path": ".doc/rules.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
         "path": ".doc/rules.json"
       },
       {
@@ -10533,6 +10749,11 @@
       {
         "kind": "rule",
         "id": "ui-follow-shared-visual-theme",
+        "path": ".doc/rules.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
         "path": ".doc/rules.json"
       }
     ],
@@ -10990,6 +11211,11 @@
         "path": ".doc/rules.json"
       },
       {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      },
+      {
         "kind": "task",
         "id": "add-or-edit-tab-screen",
         "path": ".doc/tasks/add-or-edit-tab-screen.json"
@@ -11076,6 +11302,11 @@
       }
     ],
     "block": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      },
       {
         "kind": "task",
         "id": "update-agent-protocol",
@@ -11534,6 +11765,11 @@
         "kind": "module",
         "id": "feature-auth-login",
         "path": ".doc/modules/feature-auth-login.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "can": [
@@ -11850,8 +12086,18 @@
       },
       {
         "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "classify": [
@@ -12030,6 +12276,13 @@
         "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
+    "collapse": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
     "collapsed": [
       {
         "kind": "module",
@@ -12064,6 +12317,11 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "colors": [
@@ -12276,6 +12534,11 @@
         "path": ".doc/modules/shared-visual-foundation.json"
       },
       {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      },
+      {
         "kind": "task",
         "id": "add-app-startup-loading-screen",
         "path": ".doc/tasks/add-app-startup-loading-screen.json"
@@ -12424,6 +12687,11 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
       }
     ],
     "content": [
@@ -12820,9 +13088,9 @@
         "path": ".doc/modules/shared-i18n.json"
       },
       {
-        "kind": "module",
-        "id": "shared-visual-foundation",
-        "path": ".doc/modules/shared-visual-foundation.json"
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "created": [
@@ -13612,6 +13880,13 @@
         "path": ".doc/modules/app-development-debug.json"
       }
     ],
+    "disabled": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
     "discard": [
       {
         "kind": "rule",
@@ -13917,6 +14192,13 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "elevation": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "embedded": [
@@ -14885,6 +15167,11 @@
         "path": ".doc/modules/feature-chat-timeline.json"
       },
       {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      },
+      {
         "kind": "task",
         "id": "initialize-project-context",
         "path": ".doc/tasks/initialize-project-context.json"
@@ -14917,6 +15204,11 @@
         "kind": "module",
         "id": "shared-paginated-list",
         "path": ".doc/modules/shared-paginated-list.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "flat": [
@@ -15044,8 +15336,18 @@
     "font": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-conversation-content-renderer",
         "path": ".doc/modules/shared-conversation-content-renderer.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "footer": [
@@ -15235,6 +15537,11 @@
       {
         "kind": "rule",
         "id": "ui-follow-shared-visual-theme",
+        "path": ".doc/rules.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
         "path": ".doc/rules.json"
       },
       {
@@ -15576,6 +15883,13 @@
         "kind": "module",
         "id": "feature-agent-task-board",
         "path": ".doc/modules/feature-agent-task-board.json"
+      }
+    ],
+    "hairline": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "handle": [
@@ -16207,6 +16521,11 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "imageset": [
@@ -16468,6 +16787,11 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "inside": [
@@ -16592,6 +16916,13 @@
         "kind": "task",
         "id": "add-internationalization",
         "path": ".doc/tasks/add-internationalization.json"
+      }
+    ],
+    "interop": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "interrupt": [
@@ -16798,6 +17129,11 @@
         "path": ".doc/rules.json"
       },
       {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      },
+      {
         "kind": "task",
         "id": "add-auth-login-screen",
         "path": ".doc/tasks/add-auth-login-screen.json"
@@ -16912,6 +17248,13 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
+    "keyboard": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "keys": [
@@ -17186,6 +17529,11 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       },
       {
         "kind": "task",
@@ -18059,6 +18407,11 @@
         "path": ".doc/modules/shared-conversation-content-renderer.json"
       },
       {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
         "kind": "task",
         "id": "modify-chat-realtime",
         "path": ".doc/tasks/modify-chat-realtime.json"
@@ -18376,8 +18729,18 @@
       },
       {
         "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       },
       {
         "kind": "task",
@@ -18467,8 +18830,18 @@
       },
       {
         "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       },
       {
         "kind": "task",
@@ -20075,6 +20448,18 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
+    "pressed": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "preview": [
@@ -20116,6 +20501,13 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "primitive": [
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
       }
     ],
     "priority": [
@@ -20710,6 +21102,18 @@
         "kind": "rule",
         "id": "notification-no-mobile-queue",
         "path": ".doc/rules.json"
+      }
+    ],
+    "radius": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "rail": [
@@ -22201,6 +22605,11 @@
         "path": ".doc/modules/feature-chat-realtime.json"
       },
       {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      },
+      {
         "kind": "rule",
         "id": "core-no-feature-import",
         "path": ".doc/rules.json"
@@ -22494,6 +22903,11 @@
         "kind": "rule",
         "id": "ui-follow-shared-visual-theme",
         "path": ".doc/rules.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "save": [
@@ -22549,6 +22963,11 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "scope": [
@@ -23267,6 +23686,18 @@
         "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
+    "shadow": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
     "shape": [
       {
         "kind": "module",
@@ -23356,6 +23787,11 @@
         "path": ".doc/rules.json"
       },
       {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      },
+      {
         "kind": "task",
         "id": "add-internationalization",
         "path": ".doc/tasks/add-internationalization.json"
@@ -23391,6 +23827,11 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "shell": [
@@ -23488,6 +23929,11 @@
       }
     ],
     "size": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
       {
         "kind": "module",
         "id": "feature-chat-persistence",
@@ -23767,6 +24213,11 @@
         "path": ".doc/modules/feature-chat-persistence.json"
       },
       {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
         "kind": "rule",
         "id": "sqlite-source-of-truth",
         "path": ".doc/rules.json"
@@ -23775,8 +24226,18 @@
     "spacing": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-conversation-content-renderer",
         "path": ".doc/modules/shared-conversation-content-renderer.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "special": [
@@ -24021,6 +24482,11 @@
       {
         "kind": "rule",
         "id": "ui-follow-shared-visual-theme",
+        "path": ".doc/rules.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
         "path": ".doc/rules.json"
       },
       {
@@ -24340,6 +24806,13 @@
         "path": ".doc/tasks/modify-chat-realtime.json"
       }
     ],
+    "static": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
     "stats": [
       {
         "kind": "module",
@@ -24557,8 +25030,18 @@
     "style": [
       {
         "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "styles": [
@@ -24966,6 +25449,11 @@
         "path": ".doc/rules.json"
       },
       {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      },
+      {
         "kind": "task",
         "id": "add-app-startup-loading-screen",
         "path": ".doc/tasks/add-app-startup-loading-screen.json"
@@ -25081,6 +25569,11 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "target": [
@@ -25406,6 +25899,11 @@
         "kind": "rule",
         "id": "managed-blocks-only",
         "path": ".doc/rules.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "tfunction": [
@@ -25637,6 +26135,11 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
       }
     ],
     "toast": [
@@ -25740,6 +26243,11 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "tone": [
@@ -26588,6 +27096,11 @@
         "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "values": [
@@ -26649,6 +27162,11 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "viewport": [
@@ -26724,6 +27242,11 @@
       {
         "kind": "rule",
         "id": "ui-follow-shared-visual-theme",
+        "path": ".doc/rules.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
         "path": ".doc/rules.json"
       },
       {
@@ -26833,6 +27356,11 @@
         "path": ".doc/rules.json"
       },
       {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      },
+      {
         "kind": "task",
         "id": "add-system-notifications",
         "path": ".doc/tasks/add-system-notifications.json"
@@ -26933,8 +27461,18 @@
       },
       {
         "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "window": [
@@ -27865,6 +28403,13 @@
         "path": ".doc/flows/app-startup.json"
       }
     ],
+    "不引入外部依赖": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
     "不引入导航": [
       {
         "kind": "module",
@@ -28084,6 +28629,11 @@
         "kind": "module",
         "id": "shared-conversation-content-renderer",
         "path": ".doc/modules/shared-conversation-content-renderer.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "不新增本地通知队列表": [
@@ -28334,6 +28884,13 @@
       {
         "kind": "rule",
         "id": "dependency-change-package-json-only",
+        "path": ".doc/rules.json"
+      }
+    ],
+    "不要动态拼接未知": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
         "path": ".doc/rules.json"
       }
     ],
@@ -28695,6 +29252,13 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "与样式编译入口": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "与滚动内容分离的壳层布局": [
@@ -29098,13 +29662,6 @@
         "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
-    "之前": [
-      {
-        "kind": "module",
-        "id": "app-shell-navigation",
-        "path": ".doc/modules/app-shell-navigation.json"
-      }
-    ],
     "之前出现空白窗口": [
       {
         "kind": "module",
@@ -29316,6 +29873,13 @@
         "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
+    "仅保留给公开": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
     "仅对同源": [
       {
         "kind": "module",
@@ -29335,6 +29899,13 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "仍保留给运行时测量": [
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
       }
     ],
     "仍是聊天": [
@@ -29426,8 +29997,18 @@
     "以": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "以及": [
@@ -30049,11 +30630,25 @@
         "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
+    "作为视觉": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
     "作为详情页消息": [
       {
         "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
+    "作为默认路径": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "使": [
@@ -30204,6 +30799,13 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "供运行时视觉": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "供通知或深链进入详情页时补齐": [
@@ -30411,6 +31013,13 @@
         "kind": "module",
         "id": "core-runtime-config",
         "path": ".doc/modules/core-runtime-config.json"
+      }
+    ],
+    "保留": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "保留为": [
@@ -30877,6 +31486,13 @@
         "path": ".doc/tasks/add-app-startup-loading-screen.json"
       }
     ],
+    "公开": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
     "共享": [
       {
         "kind": "flow",
@@ -30934,7 +31550,7 @@
         "path": ".doc/modules/core-api-client.json"
       }
     ],
-    "共享组件和": [
+    "共享组件": [
       {
         "kind": "module",
         "id": "shared-visual-foundation",
@@ -31026,6 +31642,13 @@
         "kind": "module",
         "id": "core-api-client",
         "path": ".doc/modules/core-api-client.json"
+      }
+    ],
+    "兼容和真实动态样式": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "兼容归一为毫秒": [
@@ -31550,6 +32173,13 @@
         "path": ".doc/modules/core-auth-session.json"
       }
     ],
+    "分支或": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
     "分配任务和任务详情": [
       {
         "kind": "module",
@@ -31944,6 +32574,13 @@
         "path": ".doc/modules/app-development-debug.json"
       }
     ],
+    "动态颜色": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
     "动画": [
       {
         "kind": "module",
@@ -31951,9 +32588,26 @@
         "path": ".doc/modules/app-shell-navigation.json"
       },
       {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      },
+      {
         "kind": "task",
         "id": "add-app-startup-loading-screen",
         "path": ".doc/tasks/add-app-startup-loading-screen.json"
+      }
+    ],
+    "动画值": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "包含": [
@@ -32046,6 +32700,13 @@
         "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
+    "单源": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
     "占位页或底部导航": [
       {
         "kind": "task",
@@ -32093,6 +32754,13 @@
         "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
+    "原": [
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
       }
     ],
     "原始": [
@@ -32359,6 +33027,11 @@
         "kind": "module",
         "id": "core-runtime-config",
         "path": ".doc/modules/core-runtime-config.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "变量名": [
@@ -32586,6 +33259,13 @@
         "path": ".doc/modules/feature-auth-login.json"
       }
     ],
+    "只拼接稳定静态": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
     "只接受": [
       {
         "kind": "module",
@@ -32619,6 +33299,13 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "只有真实动态值": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "只服务": [
@@ -32661,6 +33348,13 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "只用于运行时动态值": [
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
       }
     ],
     "只确保": [
@@ -32934,6 +33628,16 @@
         "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "合并同": [
@@ -33054,6 +33758,13 @@
         "kind": "task",
         "id": "add-reusable-header-component",
         "path": ".doc/tasks/add-reusable-header-component.json"
+      }
+    ],
+    "同步": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "同步事件": [
@@ -33269,6 +33980,13 @@
         "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
+    "后驱动未来": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
     "向": [
       {
         "kind": "module",
@@ -33431,6 +34149,11 @@
         "kind": "module",
         "id": "app-development-debug",
         "path": ".doc/modules/app-development-debug.json"
+      },
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "命中内置静态图标": [
@@ -33552,6 +34275,11 @@
         "kind": "rule",
         "id": "ui-follow-shared-visual-theme",
         "path": ".doc/rules.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "和二级": [
@@ -33603,6 +34331,13 @@
         "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
+    "和可选": [
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      }
+    ],
     "和各": [
       {
         "kind": "module",
@@ -33631,6 +34366,13 @@
         "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
+    "和头像色板的共享": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
     "和安全": [
       {
         "kind": "module",
@@ -33643,6 +34385,13 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "和少量动态覆盖": [
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
       }
     ],
     "和已读确认优先走": [
@@ -33690,7 +34439,7 @@
         "path": ".doc/flows/chat-send-message.json"
       }
     ],
-    "和抽屉组件使用": [
+    "和抽屉组件的静态样式优先使用稳定": [
       {
         "kind": "module",
         "id": "shared-visual-foundation",
@@ -33819,6 +34568,11 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       },
       {
         "kind": "task",
@@ -34057,6 +34811,18 @@
         "kind": "rule",
         "id": "ui-follow-shared-visual-theme",
         "path": ".doc/rules.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
+    "圆角或字号语义先沉淀到": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "在": [
@@ -34109,13 +34875,6 @@
         "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
-      }
-    ],
-    "在插件列表末尾": [
-      {
-        "kind": "module",
-        "id": "app-shell-navigation",
-        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "在通知点击进入详情页时": [
@@ -34323,11 +35082,46 @@
         "path": ".doc/modules/core-ws-transport.json"
       }
     ],
+    "外观": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
+    "外观优先抽成稳定": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
+    "外观优先通过": [
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      }
+    ],
     "外观分组": [
       {
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "外部": [
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      }
+    ],
+    "外部调用兼容或无法由": [
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
       }
     ],
     "多品牌": [
@@ -34431,6 +35225,13 @@
         "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
+      }
+    ],
+    "头像动态颜色": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "头像组件": [
@@ -34721,6 +35522,13 @@
         "path": ".doc/modules/feature-agent-task-board.json"
       }
     ],
+    "字号": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
     "字段提取和分类": [
       {
         "kind": "module",
@@ -34745,6 +35553,13 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "字符串和有限状态分支": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "存储细节": [
@@ -34900,6 +35715,13 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "对象": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "对非": [
@@ -35312,6 +36134,13 @@
         "path": ".doc/modules/shared-screen-header.json"
       }
     ],
+    "布局和": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
     "带当前": [
       {
         "kind": "module",
@@ -35352,6 +36181,16 @@
         "kind": "module",
         "id": "core-api-client",
         "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "常量的全量品牌": [
@@ -35359,6 +36198,13 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "常量表达": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "常驻挡住导航和": [
@@ -35437,6 +36283,11 @@
     "并从": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
       }
@@ -35455,13 +36306,6 @@
         "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
-    "并保持": [
-      {
-        "kind": "module",
-        "id": "app-shell-navigation",
-        "path": ".doc/modules/app-shell-navigation.json"
-      }
-    ],
     "并保留": [
       {
         "kind": "module",
@@ -35472,6 +36316,13 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "并保留显式": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "并保留目录": [
@@ -35547,6 +36398,13 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "并同步": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "并向": [
@@ -36960,6 +37818,13 @@
         "path": ".doc/modules/core-auth-session.json"
       }
     ],
+    "或阴影": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
     "或首页目录快照": [
       {
         "kind": "task",
@@ -36979,6 +37844,18 @@
         "kind": "module",
         "id": "app-development-debug",
         "path": ".doc/modules/app-development-debug.json"
+      }
+    ],
+    "才保留最小": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "才能同步消费同一个": [
@@ -37058,7 +37935,7 @@
         "path": ".doc/tasks/add-internationalization.json"
       }
     ],
-    "扫描入口": [
+    "扫描入口与从": [
       {
         "kind": "module",
         "id": "shared-visual-foundation",
@@ -37154,6 +38031,13 @@
         "kind": "module",
         "id": "feature-auth-login",
         "path": ".doc/modules/feature-auth-login.json"
+      }
+    ],
+    "承载静态按钮尺寸": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "承载面向": [
@@ -37644,6 +38528,13 @@
         "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
+    "接入": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
     "接入必须保持": [
       {
         "kind": "module",
@@ -38044,13 +38935,6 @@
         "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
-    "插件以启用": [
-      {
-        "kind": "module",
-        "id": "app-shell-navigation",
-        "path": ".doc/modules/app-shell-navigation.json"
-      }
-    ],
     "插件和": [
       {
         "kind": "module",
@@ -38171,6 +39055,11 @@
       },
       {
         "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
       }
@@ -38285,13 +39174,6 @@
         "kind": "rule",
         "id": "sqlite-source-of-truth",
         "path": ".doc/rules.json"
-      }
-    ],
-    "放在": [
-      {
-        "kind": "module",
-        "id": "app-shell-navigation",
-        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "放完整消息正文会扩大敏感数据暴露面": [
@@ -38663,6 +39545,13 @@
         "path": ".doc/tasks/add-internationalization.json"
       }
     ],
+    "新增或改造": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
     "新增或调整任务看板静态": [
       {
         "kind": "module",
@@ -38755,6 +39644,11 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "新对话空态补拉单个": [
@@ -38880,6 +39774,11 @@
         "path": ".doc/rules.json"
       },
       {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      },
+      {
         "kind": "task",
         "id": "add-internationalization",
         "path": ".doc/tasks/add-internationalization.json"
@@ -38951,11 +39850,18 @@
         "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
-    "时应和": [
+    "时应先更新共享": [
       {
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
+    "时应能归因为动态": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "时强制刷新": [
@@ -39411,6 +40317,20 @@
         "path": ".doc/flows/chat-receive-message.json"
       }
     ],
+    "有限状态用显式": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
+    "服务端": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
     "服务端会缺少": [
       {
         "kind": "flow",
@@ -39645,6 +40565,13 @@
         "path": ".doc/modules/core-runtime-config.json"
       }
     ],
+    "极小": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
     "构建": [
       {
         "kind": "module",
@@ -39706,6 +40633,11 @@
         "kind": "module",
         "id": "shared-conversation-content-renderer",
         "path": ".doc/modules/shared-conversation-content-renderer.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
       }
     ],
     "标题保留单行": [
@@ -39730,13 +40662,6 @@
       }
     ],
     "标题容器的样式承载与单行文本省略": [
-      {
-        "kind": "module",
-        "id": "shared-screen-header",
-        "path": ".doc/modules/shared-screen-header.json"
-      }
-    ],
-    "标题样式和可选": [
       {
         "kind": "module",
         "id": "shared-screen-header",
@@ -39797,18 +40722,25 @@
         "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
-    "样式的项目级入口": [
+    "样式和": [
       {
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
-    "样式编译入口": [
+    "样式的": [
       {
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "样式的项目级入口": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "核心": [
@@ -40117,6 +41049,11 @@
         "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "派生到": [
@@ -40147,6 +41084,13 @@
         "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
+    "派生的": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
     "派生的任务": [
       {
         "kind": "module",
@@ -40159,6 +41103,13 @@
         "kind": "module",
         "id": "feature-agent-task-board",
         "path": ".doc/modules/feature-agent-task-board.json"
+      }
+    ],
+    "派生运行时": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "派生逻辑": [
@@ -40180,6 +41131,20 @@
         "kind": "module",
         "id": "shared-conversation-content-renderer",
         "path": ".doc/modules/shared-conversation-content-renderer.json"
+      }
+    ],
+    "测量": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
+    "测量值或公开": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "浮动按钮": [
@@ -40392,6 +41357,20 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
+    "源": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
+    "源派生": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "滚动超过一屏后的返回顶部按钮状态": [
@@ -40841,6 +41820,13 @@
         "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
+    "用于页面级静态样式迁移": [
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      }
+    ],
     "用户": [
       {
         "kind": "module",
@@ -41115,6 +42101,11 @@
       },
       {
         "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
       },
@@ -41363,13 +42354,6 @@
         "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
-      }
-    ],
-    "的语义主题保持一致": [
-      {
-        "kind": "module",
-        "id": "shared-visual-foundation",
-        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "的通用分页列表容器": [
@@ -41767,6 +42751,13 @@
         "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
+    "第三方": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
     "等": [
       {
         "kind": "module",
@@ -41791,6 +42782,13 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "等场景": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "等字段": [
@@ -41859,6 +42857,13 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "类名": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "类型": [
@@ -42422,11 +43427,6 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
-      },
-      {
-        "kind": "module",
-        "id": "shared-visual-foundation",
-        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "缓存失效输入": [
@@ -42873,6 +43873,13 @@
         "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
+    "若确有运行时": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
     "英文直接写回": [
       {
         "kind": "module",
@@ -43092,6 +44099,20 @@
         "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
+    "表达": [
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      }
+    ],
+    "表达的组件": [
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      }
+    ],
     "要保持": [
       {
         "kind": "module",
@@ -43146,6 +44167,11 @@
         "kind": "module",
         "id": "feature-agent-task-board",
         "path": ".doc/modules/feature-agent-task-board.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
       }
     ],
     "覆盖的": [
@@ -43742,6 +44768,11 @@
       },
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
       }
@@ -43751,6 +44782,23 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
+    "语义颜色变量": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "语言切换": [
@@ -44313,6 +45361,13 @@
         "path": ".doc/modules/core-debug-logging.json"
       }
     ],
+    "边框和有限状态外观默认用": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
     "边界内读写": [
       {
         "kind": "module",
@@ -44456,6 +45511,13 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "运行时测量值": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "运行时环境变量读取": [
@@ -45024,6 +46086,13 @@
         "path": ".doc/modules/shared-screen-header.json"
       }
     ],
+    "避免手抄两份主题值": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
     "避免把复杂初始化逻辑塞进登录": [
       {
         "kind": "module",
@@ -45205,6 +46274,13 @@
         "kind": "module",
         "id": "feature-auth-login",
         "path": ".doc/modules/feature-auth-login.json"
+      }
+    ],
+    "配置共同消费": [
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
     "配置可用": [
@@ -45448,6 +46524,11 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "间距和底部避让仍以": [
@@ -45584,6 +46665,28 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-screen-header",
+        "path": ".doc/modules/shared-screen-header.json"
+      },
+      {
+        "kind": "module",
+        "id": "shared-visual-foundation",
+        "path": ".doc/modules/shared-visual-foundation.json"
+      },
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
+      }
+    ],
+    "静态布局": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "静态查表后渲染底层": [
@@ -45598,6 +46701,13 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
+    "静态样式优先使用": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "静态组件集合": [
@@ -45937,6 +47047,13 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "颜色": [
+      {
+        "kind": "rule",
+        "id": "ui-static-style-tailwind-first",
+        "path": ".doc/rules.json"
       }
     ],
     "首屏优先从": [
@@ -46374,7 +47491,7 @@
     "moduleCount": 18,
     "taskCount": 16,
     "flowCount": 7,
-    "ruleCount": 12,
-    "sourceFileCount": 2092
+    "ruleCount": 13,
+    "sourceFileCount": 2099
   }
 }

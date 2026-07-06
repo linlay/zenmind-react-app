@@ -91,7 +91,7 @@ import {
   type ChatTransportConfig
 } from './chatWsTransport';
 import { ChatHomeItemPatch, ChatSocketStatus, ChatSyncEvent, ChatSyncReason } from './types';
-import { WsClientDisconnectedError } from '../../core/ws/wsClient';
+import { WsClientDisconnectedError, WsClientRequestTimeoutError } from '../../core/ws/wsClient';
 import { sharedWsTransport } from '../../core/ws/sharedWsTransport';
 import {
   applyChatTimelineLocalCancel,
@@ -285,7 +285,12 @@ function isApiStatusError(error: unknown, status: number): boolean {
 }
 
 function isRecoverableReconcileError(error: unknown): boolean {
-  return error instanceof WsClientDisconnectedError || isApiStatusError(error, 401) || isApiStatusError(error, 404);
+  return (
+    error instanceof WsClientDisconnectedError ||
+    error instanceof WsClientRequestTimeoutError ||
+    isApiStatusError(error, 401) ||
+    isApiStatusError(error, 404)
+  );
 }
 
 function isInactiveInterruptResponse(response: InterruptChatResponse | null | undefined): boolean {

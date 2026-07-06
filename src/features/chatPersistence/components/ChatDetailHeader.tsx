@@ -1,12 +1,11 @@
 import { memo, useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
 import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import { AppIconButton } from '../../../shared/icons/AppIconButton';
 import type { AppIconUsage } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
-import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
+import { cn } from '../../../shared/visual/className';
 import type { ChatTimelineUsageSummary } from '../../chatTimeline/index.ts';
 import {
   hasDisplayableChatTimelineUsageSummary,
@@ -29,26 +28,42 @@ type ChatDetailHeaderProps = {
 };
 
 const CHAT_DETAIL_USAGE_ACTION_RAIL_WIDTH = 120;
+const DETAIL_HEADER_CLASS = 'relative z-20 h-[58px] border-b-0 bg-app-background';
+const DETAIL_TITLE_CONTAINER_CLASS = 'h-[58px]';
+const HEADER_ACTION_BUTTON_CLASS = 'h-[34px] w-[34px] items-center justify-center active:opacity-[0.58]';
+const HEADER_TITLE_BLOCK_CLASS = 'w-full items-center gap-[2px]';
+const HEADER_TITLE_TEXT_CLASS = 'text-center text-[18px] font-semibold leading-[22px] text-app-primary';
+const HEADER_META_ROW_CLASS = 'min-h-[18px] max-w-full flex-row items-center justify-center gap-[6px]';
+const HEADER_SUBTITLE_TEXT_CLASS =
+  'shrink text-center text-[12px] font-medium leading-[16px] text-app-secondary';
+const STATUS_PILL_CLASS = 'h-[18px] items-center justify-center rounded-app-pill px-[7px]';
+const STATUS_PILL_IDLE_CLASS = 'bg-app-surface-muted';
+const STATUS_PILL_RUNNING_CLASS = 'bg-app-brand-blue-soft';
+const STATUS_PILL_ERROR_CLASS = 'bg-app-danger-soft';
+const STATUS_PILL_TEXT_CLASS = 'text-[10px] font-bold leading-[13px]';
+const STATUS_PILL_TEXT_IDLE_CLASS = 'text-app-secondary';
+const STATUS_PILL_TEXT_RUNNING_CLASS = 'text-app-brand-blue-strong';
+const STATUS_PILL_TEXT_ERROR_CLASS = 'text-app-danger';
 
-function getStatusPillStyle(styles: ReturnType<typeof createStyles>, statusTone: ChatDetailHeaderStatusTone) {
+function getStatusPillClass(statusTone: ChatDetailHeaderStatusTone) {
   switch (statusTone) {
     case 'running':
-      return styles.statusPill_running;
+      return STATUS_PILL_RUNNING_CLASS;
     case 'error':
-      return styles.statusPill_error;
+      return STATUS_PILL_ERROR_CLASS;
     default:
-      return styles.statusPill_idle;
+      return STATUS_PILL_IDLE_CLASS;
   }
 }
 
-function getStatusPillTextStyle(styles: ReturnType<typeof createStyles>, statusTone: ChatDetailHeaderStatusTone) {
+function getStatusPillTextClass(statusTone: ChatDetailHeaderStatusTone) {
   switch (statusTone) {
     case 'running':
-      return styles.statusPillText_running;
+      return STATUS_PILL_TEXT_RUNNING_CLASS;
     case 'error':
-      return styles.statusPillText_error;
+      return STATUS_PILL_TEXT_ERROR_CLASS;
     default:
-      return styles.statusPillText_idle;
+      return STATUS_PILL_TEXT_IDLE_CLASS;
   }
 }
 
@@ -61,16 +76,13 @@ const HeaderIconButton = memo(function HeaderIconButton({
   accessibilityLabel: string;
   onPress: () => void;
 }) {
-  const styles = useAppThemeStyles(createStyles);
-
   return (
     <AppIconButton
       usage={usage}
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
       hitSlop={10}
-      style={styles.headerActionButton}
-      pressedStyle={styles.headerActionPressed}
+      className={HEADER_ACTION_BUTTON_CLASS}
     />
   );
 });
@@ -86,26 +98,24 @@ const ChatDetailHeaderTitle = memo(function ChatDetailHeaderTitle({
   statusLabel: string;
   statusTone: ChatDetailHeaderStatusTone;
 }) {
-  const styles = useAppThemeStyles(createStyles);
-
   return (
-    <View style={styles.headerTitleBlock}>
-      <Text allowFontScaling={false} numberOfLines={1} style={styles.headerTitleText}>
+    <View className={HEADER_TITLE_BLOCK_CLASS}>
+      <Text allowFontScaling={false} numberOfLines={1} className={HEADER_TITLE_TEXT_CLASS}>
         {title}
       </Text>
       {subtitle || statusLabel ? (
-        <View style={styles.headerMetaRow}>
+        <View className={HEADER_META_ROW_CLASS}>
           {subtitle ? (
-            <Text allowFontScaling={false} numberOfLines={1} style={styles.headerSubtitleText}>
+            <Text allowFontScaling={false} numberOfLines={1} className={HEADER_SUBTITLE_TEXT_CLASS}>
               {subtitle}
             </Text>
           ) : null}
           {statusLabel ? (
-            <View style={[styles.statusPill, getStatusPillStyle(styles, statusTone)]}>
+            <View className={cn(STATUS_PILL_CLASS, getStatusPillClass(statusTone))}>
               <Text
                 allowFontScaling={false}
                 numberOfLines={1}
-                style={[styles.statusPillText, getStatusPillTextStyle(styles, statusTone)]}
+                className={cn(STATUS_PILL_TEXT_CLASS, getStatusPillTextClass(statusTone))}
               >
                 {statusLabel}
               </Text>
@@ -130,7 +140,6 @@ export const ChatDetailHeader = memo(function ChatDetailHeader({
   onOpenMenu
 }: ChatDetailHeaderProps) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const leftActions = useMemo(
     () =>
       [
@@ -185,8 +194,8 @@ export const ChatDetailHeader = memo(function ChatDetailHeader({
 
   return (
     <ScreenHeader
-      style={styles.detailHeader}
-      titleContainerStyle={styles.titleContainer}
+      className={DETAIL_HEADER_CLASS}
+      titleContainerClassName={DETAIL_TITLE_CONTAINER_CLASS}
       leftActions={leftActions}
       title={headerTitle}
       rightActions={rightActions}
@@ -194,85 +203,3 @@ export const ChatDetailHeader = memo(function ChatDetailHeader({
     />
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    detailHeader: {
-      position: 'relative',
-      height: 58,
-      backgroundColor: theme.colors.background,
-      borderBottomWidth: 0,
-      zIndex: 20
-    },
-    titleContainer: {
-      height: 58
-    },
-    headerActionButton: {
-      width: 34,
-      height: 34,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    headerActionPressed: {
-      opacity: 0.58
-    },
-    headerTitleBlock: {
-      width: '100%',
-      alignItems: 'center',
-      gap: 2
-    },
-    headerTitleText: {
-      fontSize: 18,
-      lineHeight: 22,
-      fontWeight: '600',
-      color: theme.colors.textPrimary,
-      textAlign: 'center'
-    },
-    headerSubtitleText: {
-      flexShrink: 1,
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '500',
-      color: theme.colors.textSecondary,
-      textAlign: 'center'
-    },
-    headerMetaRow: {
-      maxWidth: '100%',
-      minHeight: 18,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 6
-    },
-    statusPill: {
-      height: 18,
-      borderRadius: appVisualTokens.radii.pill,
-      paddingHorizontal: 7,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    statusPill_idle: {
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    statusPill_running: {
-      backgroundColor: theme.colors.brandBlueSoft
-    },
-    statusPill_error: {
-      backgroundColor: theme.colors.dangerSoft
-    },
-    statusPillText: {
-      fontSize: 10,
-      lineHeight: 13,
-      fontWeight: '700'
-    },
-    statusPillText_idle: {
-      color: theme.colors.textSecondary
-    },
-    statusPillText_running: {
-      color: theme.colors.brandBlueStrong
-    },
-    statusPillText_error: {
-      color: theme.colors.danger
-    }
-  });
-}

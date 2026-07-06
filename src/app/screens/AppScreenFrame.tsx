@@ -1,11 +1,10 @@
 import { ReactNode } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { useT } from '../../shared/i18n';
-import { useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../shared/visual/foundation';
+import { appVisualTokens } from '../../shared/visual/foundation';
 import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
 
 type AppScreenFrameProps = {
@@ -16,114 +15,60 @@ type AppScreenFrameProps = {
   children?: ReactNode;
 };
 
+const SCREEN_CLASS = 'flex-1 bg-app-surface';
+const HEADER_SAFE_AREA_CLASS = 'bg-app-surface';
+const SCROLL_VIEW_CLASS = 'flex-1';
+const CONTENT_CLASS = 'w-full gap-app-xl px-app-xl pt-app-lg';
+const INTRO_SECTION_CLASS = 'gap-app-sm';
+const EYEBROW_ROW_CLASS = 'flex-row items-center self-start gap-app-sm';
+const ACCENT_DOT_CLASS = 'h-[6px] w-[6px] rounded-app-pill';
+const EYEBROW_CLASS = 'text-app-caption font-semibold';
+const SECTION_TITLE_CLASS = 'text-app-display-sm font-bold text-app-primary';
+const DESCRIPTION_CLASS = 'text-[16px] leading-6 text-app-secondary';
+const PLACEHOLDER_BLOCK_CLASS = 'gap-app-sm border-t border-app-line pt-app-lg';
+const CARD_EYEBROW_CLASS = 'text-app-caption font-semibold text-app-brand-blue';
+const CARD_TITLE_CLASS = 'text-app-title font-bold text-app-primary';
+const CARD_BODY_CLASS = 'text-app-body text-app-secondary';
+
 export function AppScreenFrame({ eyebrow, title, description, accentColor, children }: AppScreenFrameProps) {
-  const styles = useAppThemeStyles(createStyles);
   const tabBarHeight = useAppTabBarHeight();
   const t = useT();
   const hasChildren = children !== undefined && children !== null;
   const contentBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
 
   return (
-    <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
+    <View className={SCREEN_CLASS}>
+      <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
         <ScreenHeader title={title} />
       </SafeAreaView>
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
+        className={SCROLL_VIEW_CLASS}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.introSection}>
-          <View style={styles.eyebrowRow}>
-            <View style={[styles.accentDot, { backgroundColor: accentColor }]} />
-            <Text style={[styles.eyebrow, { color: accentColor }]}>{eyebrow}</Text>
+        <View className={CONTENT_CLASS} style={{ paddingBottom: contentBottomPadding }}>
+          <View className={INTRO_SECTION_CLASS}>
+            <View className={EYEBROW_ROW_CLASS}>
+              <View className={ACCENT_DOT_CLASS} style={{ backgroundColor: accentColor }} />
+              <Text className={EYEBROW_CLASS} style={{ color: accentColor }}>
+                {eyebrow}
+              </Text>
+            </View>
+            <Text className={SECTION_TITLE_CLASS}>{title}</Text>
+            <Text className={DESCRIPTION_CLASS}>{description}</Text>
           </View>
-          <Text style={styles.sectionTitle}>{title}</Text>
-          <Text style={styles.description}>{description}</Text>
-        </View>
 
-        {hasChildren ? (
-          children
-        ) : (
-          <View style={styles.placeholderBlock}>
-            <Text style={styles.cardEyebrow}>{t('app.placeholder.eyebrow')}</Text>
-            <Text style={styles.cardTitle}>{t('app.placeholder.title')}</Text>
-            <Text style={styles.cardBody}>{t('app.placeholder.body')}</Text>
-          </View>
-        )}
+          {hasChildren ? (
+            children
+          ) : (
+            <View className={PLACEHOLDER_BLOCK_CLASS}>
+              <Text className={CARD_EYEBROW_CLASS}>{t('app.placeholder.eyebrow')}</Text>
+              <Text className={CARD_TITLE_CLASS}>{t('app.placeholder.title')}</Text>
+              <Text className={CARD_BODY_CLASS}>{t('app.placeholder.body')}</Text>
+            </View>
+          )}
+        </View>
       </ScrollView>
     </View>
   );
-}
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: theme.colors.surface
-    },
-    headerSafeArea: {
-      backgroundColor: theme.colors.surface
-    },
-    scrollView: {
-      flex: 1
-    },
-    content: {
-      paddingHorizontal: appVisualTokens.spacing.xl,
-      paddingTop: appVisualTokens.spacing.lg,
-      gap: appVisualTokens.spacing.xl
-    },
-    introSection: {
-      gap: appVisualTokens.spacing.sm
-    },
-    eyebrowRow: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      alignSelf: 'flex-start',
-      gap: appVisualTokens.spacing.sm
-    },
-    accentDot: {
-      width: 6,
-      height: 6,
-      borderRadius: appVisualTokens.radii.pill
-    },
-    eyebrow: {
-      fontSize: 12,
-      fontWeight: '600'
-    },
-    sectionTitle: {
-      fontSize: 24,
-      lineHeight: 30,
-      fontWeight: '700',
-      color: theme.colors.textPrimary
-    },
-    description: {
-      fontSize: 16,
-      lineHeight: 24,
-      color: theme.colors.textSecondary
-    },
-    placeholderBlock: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: theme.colors.line,
-      paddingTop: appVisualTokens.spacing.lg,
-      gap: appVisualTokens.spacing.sm
-    },
-    cardEyebrow: {
-      fontSize: 12,
-      fontWeight: '600',
-      color: theme.colors.brandBlue
-    },
-    cardTitle: {
-      fontSize: 18,
-      lineHeight: 24,
-      fontWeight: '700',
-      color: theme.colors.textPrimary
-    },
-    cardBody: {
-      fontSize: 15,
-      lineHeight: 22,
-      color: theme.colors.textSecondary
-    }
-  });
 }

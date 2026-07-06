@@ -1,9 +1,9 @@
 import { memo } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { View } from 'react-native';
 
 import { AppIcon, type AppIconUsage } from '../../../shared/icons/AppIcon';
-import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
+import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
+import { cn } from '../../../shared/visual/className';
 
 type ChatTimelineRailProps = {
   iconUsage?: AppIconUsage;
@@ -12,7 +12,10 @@ type ChatTimelineRailProps = {
 };
 
 const RAIL_ICON_SIZE = 16;
-const RAIL_ICON_TOP_OFFSET = 3;
+const RAIL_CLASS = 'w-[18px] items-center';
+const RAIL_LINE_CLASS = 'absolute -top-app-lg -bottom-app-xl w-px bg-app-line-strong';
+const RAIL_LINE_TERMINAL_CLASS = 'bottom-[9px]';
+const ICON_SLOT_CLASS = 'mt-[3px] h-[18px] w-[18px] items-center justify-center bg-app-surface';
 
 export const ChatTimelineRail = memo(function ChatTimelineRail({
   iconUsage = 'timeline.defaultRail',
@@ -20,42 +23,14 @@ export const ChatTimelineRail = memo(function ChatTimelineRail({
   toneColor,
 }: ChatTimelineRailProps) {
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const resolvedToneColor = toneColor ?? theme.colors.brandBlue;
 
   return (
-    <View style={styles.rail}>
-      <View style={[styles.railLine, terminal && styles.railLineTerminal]} />
-      <View style={styles.iconSlot}>
+    <View className={RAIL_CLASS}>
+      <View className={cn(RAIL_LINE_CLASS, terminal ? RAIL_LINE_TERMINAL_CLASS : null)} />
+      <View className={ICON_SLOT_CLASS}>
         <AppIcon usage={iconUsage} size={RAIL_ICON_SIZE} color={resolvedToneColor} />
       </View>
     </View>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    rail: {
-      width: 18,
-      alignItems: 'center',
-    },
-    railLine: {
-      position: 'absolute',
-      top: -appVisualTokens.spacing.lg,
-      bottom: -appVisualTokens.spacing.xl,
-      width: StyleSheet.hairlineWidth,
-      backgroundColor: theme.colors.lineStrong,
-    },
-    railLineTerminal: {
-      bottom: 9,
-    },
-    iconSlot: {
-      width: 18,
-      height: 18,
-      marginTop: RAIL_ICON_TOP_OFFSET,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.surface,
-    },
-  });
-}

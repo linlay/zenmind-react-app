@@ -1,6 +1,15 @@
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { InteractionManager, Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import {
+  InteractionManager,
+  Modal,
+  Pressable,
+  Text,
+  View,
+  useWindowDimensions,
+  type StyleProp,
+  type ViewStyle
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PaginatedCardList } from '../../shared/components/PaginatedCardList';
@@ -9,13 +18,10 @@ import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { AppIconButton } from '../../shared/icons/AppIconButton';
 import { useT } from '../../shared/i18n';
 import { AgentAvatar } from '../../shared/visual/AgentAvatar';
-import { useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
-import {
-  appVisualTokens,
-  formatConversationTimestamp,
-  formatUnreadCount,
-  type AppThemeTokens
-} from '../../shared/visual/foundation';
+import { useAppTheme } from '../../shared/visual/AppThemeProvider';
+import { cn } from '../../shared/visual/className';
+import { appVisualTokens, formatConversationTimestamp, formatUnreadCount } from '../../shared/visual/foundation';
+import { appHairlineStyles } from '../../shared/visual/hairline';
 import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
 import {
@@ -41,8 +47,51 @@ const DIRECTORY_PICKER_PAGE_SIZE = 18;
 const CHAT_ROW_HEIGHT = 84;
 const CHAT_HOME_AUTOSCROLL_TO_TOP_THRESHOLD = CHAT_ROW_HEIGHT;
 const PIN_FOLD_ROW_HEIGHT = 54;
-const PIN_MENU_WIDTH = 176;
 const PIN_MENU_ROW_HEIGHT = 58;
+const SCREEN_CLASS = 'flex-1 bg-app-surface';
+const HEADER_SAFE_AREA_CLASS = 'bg-app-surface';
+const HEADER_ICON_GLYPH_CLASS = 'h-10 w-10 items-center justify-center';
+const HEADER_ICON_BUTTON_CLASS = 'h-10 w-10 items-center justify-center active:opacity-[0.68]';
+const HEADER_WITHOUT_DIVIDER_CLASS = 'h-14 bg-app-surface';
+const LIST_SHELL_CLASS = 'flex-1 bg-app-surface';
+const FEEDBACK_CARD_CLASS =
+  'mx-app-xl mb-app-sm border-app-danger-line bg-app-danger-soft px-app-lg py-app-sm';
+const ERROR_TEXT_CLASS = 'text-[13px] leading-[20px] text-app-danger';
+const CHAT_ROW_PRESSABLE_CLASS = 'flex-1 active:opacity-[0.72]';
+const CHAT_ROW_CLASS = 'flex-1 flex-row items-center gap-app-md bg-app-surface pl-app-xl';
+const CHAT_ROW_PINNED_CLASS = 'bg-app-surface-muted';
+const CHAT_ROW_MENU_TARGET_CLASS = 'bg-app-background-muted';
+const CHAT_ROW_BODY_CLASS =
+  'min-w-0 flex-1 self-stretch flex-row items-center gap-app-md border-app-line py-[10px] pr-app-xl';
+const CHAT_ROW_MAIN_CLASS = 'min-w-0 flex-1 gap-app-xs';
+const CHAT_TITLE_CLASS = 'shrink text-app-body-lg font-medium text-app-primary';
+const CHAT_SUMMARY_CLASS = 'text-app-footnote text-app-tertiary';
+const CHAT_ROW_META_CLASS = 'min-h-[46px] min-w-[74px] items-end justify-between gap-app-xs';
+const CHAT_ROW_META_BOTTOM_CLASS = 'min-h-[26px] flex-row items-center justify-end gap-[6px]';
+const CHAT_TIME_CLASS = 'text-[12px] font-normal leading-[14px] text-app-tertiary';
+const UNREAD_BADGE_CLASS = 'h-[26px] min-w-[26px] items-center justify-center rounded-app-pill bg-app-badge px-[6px]';
+const UNREAD_BADGE_TEXT_CLASS = 'text-[11px] font-bold text-app-on-action';
+const UNREAD_BADGE_PLACEHOLDER_CLASS = 'h-[26px] w-[26px]';
+const PINNED_MARKER_CLASS = 'h-6 w-6 items-center justify-center';
+const PINNED_FOLD_ROW_CLASS =
+  'min-h-[54px] flex-1 flex-row items-center justify-between border-app-line bg-app-surface-muted px-app-xl active:bg-app-background-muted';
+const PINNED_FOLD_LEFT_CLASS = 'min-w-0 flex-1 flex-row items-center gap-app-lg';
+const PINNED_FOLD_TEXT_CLASS = 'shrink text-[15px] leading-[20px] text-app-secondary';
+const EMPTY_STATE_CLASS = 'mx-app-xl items-center px-app-xxl py-[48px]';
+const EMPTY_STATE_TITLE_CLASS = 'text-app-title font-bold text-app-primary';
+const EMPTY_STATE_BODY_CLASS = 'mt-app-sm text-center text-[14px] leading-[21px] text-app-secondary';
+const MENU_BACKDROP_CLASS = 'flex-1 bg-transparent';
+const PIN_MENU_CLASS = 'absolute w-[176px] overflow-hidden rounded-app-lg border border-app-line bg-app-surface';
+const PIN_MENU_ACTION_CLASS =
+  'min-h-[58px] flex-row items-center gap-app-md px-app-xl active:bg-app-surface-muted';
+const PIN_MENU_ACTION_TEXT_CLASS = 'shrink text-app-title-sm font-medium text-app-primary';
+const CHAT_LIST_CONTENT_STYLE = { paddingTop: appVisualTokens.spacing.xs } satisfies ViewStyle;
+const PIN_MENU_ELEVATION_STYLE = {
+  shadowOffset: { width: 0, height: 12 },
+  shadowOpacity: 0.14,
+  shadowRadius: 18,
+  elevation: 8
+} satisfies ViewStyle;
 
 function getChatDetailTargetParams(
   item: ChatDirectoryItem
@@ -152,10 +201,8 @@ function appendDirectoryListState(
 }
 
 const HeaderIconGlyph = memo(function HeaderIconGlyph({ usage }: { usage: AppIconUsage }) {
-  const styles = useAppThemeStyles(createStyles);
-
   return (
-    <View style={styles.headerIconGlyph}>
+    <View className={HEADER_ICON_GLYPH_CLASS}>
       <AppIcon usage={usage} />
     </View>
   );
@@ -170,16 +217,13 @@ const HeaderIconButton = memo(function HeaderIconButton({
   accessibilityLabel: string;
   onPress: () => void;
 }) {
-  const styles = useAppThemeStyles(createStyles);
-
   return (
     <AppIconButton
       usage={usage}
       accessibilityLabel={accessibilityLabel}
       hitSlop={10}
       onPress={onPress}
-      style={styles.headerIconGlyph}
-      pressedStyle={styles.headerIconButtonPressed}
+      className={HEADER_ICON_BUTTON_CLASS}
     />
   );
 });
@@ -195,7 +239,6 @@ const ChatRow = memo(function ChatRow({
   onLongPress: (item: ChatDirectoryItem, anchor: RowActionAnchor) => void;
   isMenuTarget: boolean;
 }) {
-  const styles = useAppThemeStyles(createStyles);
   const rowRef = useRef<View>(null);
   const handlePress = useCallback(() => {
     onPress(item);
@@ -212,41 +255,45 @@ const ChatRow = memo(function ChatRow({
       accessibilityRole="button"
       onPress={handlePress}
       onLongPress={handleLongPress}
-      style={({ pressed }) => [styles.chatRowPressable, pressed && styles.chatRowPressed]}
+      className={CHAT_ROW_PRESSABLE_CLASS}
     >
       <View
-        style={[styles.chatRow, item.pinnedAt > 0 && styles.chatRowPinned, isMenuTarget && styles.chatRowMenuTarget]}
+        className={cn(
+          CHAT_ROW_CLASS,
+          item.pinnedAt > 0 ? CHAT_ROW_PINNED_CLASS : null,
+          isMenuTarget ? CHAT_ROW_MENU_TARGET_CLASS : null
+        )}
       >
         <AgentAvatar type={item.kind} icon={item.icon} fallbackSeed={item.agentKey || item.teamId || item.title} />
 
-        <View style={styles.chatRowBody}>
-          <View style={styles.chatRowMain}>
-            <Text numberOfLines={1} style={styles.chatTitle}>
+        <View className={CHAT_ROW_BODY_CLASS} style={appHairlineStyles.borderBottom}>
+          <View className={CHAT_ROW_MAIN_CLASS}>
+            <Text numberOfLines={1} className={CHAT_TITLE_CLASS}>
               {item.title}
             </Text>
-            <Text numberOfLines={1} style={styles.chatSummary}>
+            <Text numberOfLines={1} className={CHAT_SUMMARY_CLASS}>
               {item.lastMessagePreview}
             </Text>
           </View>
 
-          <View style={styles.chatRowMeta}>
-            <Text numberOfLines={1} style={styles.chatTime}>
+          <View className={CHAT_ROW_META_CLASS}>
+            <Text numberOfLines={1} className={CHAT_TIME_CLASS}>
               {item.lastMessageTimeLabel}
             </Text>
-            <View style={styles.chatRowMetaBottom}>
+            <View className={CHAT_ROW_META_BOTTOM_CLASS}>
               {item.unreadCount > 0 ? (
-                <View style={styles.unreadBadge}>
-                  <Text numberOfLines={1} style={styles.unreadBadgeText}>
+                <View className={UNREAD_BADGE_CLASS}>
+                  <Text numberOfLines={1} className={UNREAD_BADGE_TEXT_CLASS}>
                     {item.unreadLabel}
                   </Text>
                 </View>
               ) : null}
               {item.pinnedAt > 0 ? (
-                <View style={styles.pinnedMarker}>
+                <View className={PINNED_MARKER_CLASS}>
                   <AppIcon usage="chatHome.rowPinned" />
                 </View>
               ) : null}
-              {item.unreadCount <= 0 && item.pinnedAt <= 0 ? <View style={styles.unreadBadgePlaceholder} /> : null}
+              {item.unreadCount <= 0 && item.pinnedAt <= 0 ? <View className={UNREAD_BADGE_PLACEHOLDER_CLASS} /> : null}
             </View>
           </View>
         </View>
@@ -262,7 +309,6 @@ const PinnedFoldRow = memo(function PinnedFoldRow({
   item: PinnedFoldDisplayItem;
   onPress: () => void;
 }) {
-  const styles = useAppThemeStyles(createStyles);
   const t = useT();
   const label = item.collapsed
     ? t('chatHome.pinned.expand', { count: item.pinnedCount })
@@ -273,11 +319,12 @@ const PinnedFoldRow = memo(function PinnedFoldRow({
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
-      style={({ pressed }) => [styles.pinnedFoldRow, pressed && styles.pinnedFoldRowPressed]}
+      className={PINNED_FOLD_ROW_CLASS}
+      style={appHairlineStyles.borderTopBottom}
     >
-      <View style={styles.pinnedFoldLeft}>
+      <View className={PINNED_FOLD_LEFT_CLASS}>
         <AppIcon usage="chatHome.pinnedFold.leading" />
-        <Text numberOfLines={1} style={styles.pinnedFoldText}>
+        <Text numberOfLines={1} className={PINNED_FOLD_TEXT_CLASS}>
           {label}
         </Text>
       </View>
@@ -288,12 +335,11 @@ const PinnedFoldRow = memo(function PinnedFoldRow({
 
 const ChatEmptyState = memo(function ChatEmptyState() {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
 
   return (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyStateTitle}>{t('chatHome.empty.title')}</Text>
-      <Text style={styles.emptyStateBody}>{t('chatHome.empty.body')}</Text>
+    <View className={EMPTY_STATE_CLASS}>
+      <Text className={EMPTY_STATE_TITLE_CLASS}>{t('chatHome.empty.title')}</Text>
+      <Text className={EMPTY_STATE_BODY_CLASS}>{t('chatHome.empty.body')}</Text>
     </View>
   );
 });
@@ -302,7 +348,7 @@ const CHAT_EMPTY_STATE = <ChatEmptyState />;
 
 export function ChatHomeScreen() {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
+  const { theme } = useAppTheme();
   const tabBarHeight = useAppTabBarHeight();
   const windowDimensions = useWindowDimensions();
   const isFocused = useIsFocused();
@@ -737,9 +783,17 @@ export function ChatHomeScreen() {
     []
   );
   const listBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
+  const listContentStyle = useMemo<StyleProp<ViewStyle>>(
+    () => [CHAT_LIST_CONTENT_STYLE, { paddingBottom: listBottomPadding }],
+    [listBottomPadding]
+  );
   const isListEmpty = listItems.length === 0;
   const pinActionLabel = pinActionTarget?.pinnedAt ? t('chatHome.pin.cancel') : t('chatHome.pin.set');
   const pinMenuActionCount = pinActionTarget?.unreadCount ? 2 : 1;
+  const pinMenuShadowColorStyle = useMemo<ViewStyle>(
+    () => ({ shadowColor: theme.colors.shadow }),
+    [theme.colors.shadow]
+  );
   const pinMenuPosition = useMemo(() => {
     const bottomLimit =
       windowDimensions.height - tabBarHeight - PIN_MENU_ROW_HEIGHT * pinMenuActionCount - appVisualTokens.spacing.xl;
@@ -758,17 +812,17 @@ export function ChatHomeScreen() {
   }, [pinActionAnchor, pinMenuActionCount, tabBarHeight, windowDimensions.height]);
 
   return (
-    <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
+    <View className={SCREEN_CLASS}>
+      <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
         <ScreenHeader
           title={t('chatHome.title')}
           leftActions={headerLeftActions}
           rightActions={headerRightActions}
-          style={isListEmpty ? styles.headerWithoutDivider : undefined}
+          className={isListEmpty ? HEADER_WITHOUT_DIVIDER_CLASS : undefined}
         />
       </SafeAreaView>
 
-      <View style={styles.listShell}>
+      <View className={LIST_SHELL_CLASS}>
         <PaginatedCardList
           data={listItems}
           CardComponent={CardComponent}
@@ -783,13 +837,13 @@ export function ChatHomeScreen() {
           itemHeight={CHAT_ROW_HEIGHT}
           ListHeaderComponent={
             errorText ? (
-              <View style={styles.feedbackCard}>
-                <Text style={styles.errorText}>{t('chatHome.error.readFailed', { message: errorText })}</Text>
+              <View className={FEEDBACK_CARD_CLASS} style={appHairlineStyles.borderTopBottom}>
+                <Text className={ERROR_TEXT_CLASS}>{t('chatHome.error.readFailed', { message: errorText })}</Text>
               </View>
             ) : null
           }
           ListEmptyComponent={CHAT_EMPTY_STATE}
-          contentContainerStyle={[styles.listContent, { paddingBottom: listBottomPadding }]}
+          contentContainerStyle={listContentStyle}
           showScrollTopButton={false}
           itemSpacing={0}
           maintainVisibleContentPosition={{
@@ -815,24 +869,28 @@ export function ChatHomeScreen() {
       />
 
       <Modal visible={Boolean(pinActionTarget)} transparent animationType="fade" onRequestClose={handleClosePinMenu}>
-        <Pressable style={styles.menuBackdrop} onPress={handleClosePinMenu}>
-          <Pressable style={[styles.pinMenu, pinMenuPosition]} onPress={(event) => event.stopPropagation()}>
+        <Pressable className={MENU_BACKDROP_CLASS} onPress={handleClosePinMenu}>
+          <Pressable
+            className={PIN_MENU_CLASS}
+            style={[PIN_MENU_ELEVATION_STYLE, pinMenuShadowColorStyle, pinMenuPosition]}
+            onPress={(event) => event.stopPropagation()}
+          >
             <Pressable
               accessibilityRole="button"
-              style={({ pressed }) => [styles.pinMenuAction, pressed && styles.pinMenuActionPressed]}
+              className={PIN_MENU_ACTION_CLASS}
               onPress={() => void handleTogglePin()}
             >
               <AppIcon usage="chatHome.pinMenu.toggle" />
-              <Text style={styles.pinMenuActionText}>{pinActionLabel}</Text>
+              <Text className={PIN_MENU_ACTION_TEXT_CLASS}>{pinActionLabel}</Text>
             </Pressable>
             {pinActionTarget?.unreadCount ? (
               <Pressable
                 accessibilityRole="button"
-                style={({ pressed }) => [styles.pinMenuAction, pressed && styles.pinMenuActionPressed]}
+                className={PIN_MENU_ACTION_CLASS}
                 onPress={() => void handleMarkScopeRead()}
               >
                 <AppIcon usage="chatHome.pinMenu.markRead" />
-                <Text style={styles.pinMenuActionText}>{t('chatHome.markAllRead')}</Text>
+                <Text className={PIN_MENU_ACTION_TEXT_CLASS}>{t('chatHome.markAllRead')}</Text>
               </Pressable>
             ) : null}
           </Pressable>
@@ -840,224 +898,4 @@ export function ChatHomeScreen() {
       </Modal>
     </View>
   );
-}
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: theme.colors.surface
-    },
-    headerSafeArea: {
-      backgroundColor: theme.colors.surface
-    },
-    headerWithoutDivider: {
-      borderBottomWidth: 0
-    },
-    listShell: {
-      flex: 1,
-      backgroundColor: theme.colors.surface
-    },
-    listContent: {
-      paddingTop: appVisualTokens.spacing.xs
-    },
-    feedbackCard: {
-      marginHorizontal: appVisualTokens.spacing.xl,
-      marginBottom: appVisualTokens.spacing.sm,
-      backgroundColor: theme.colors.dangerSoft,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.dangerLine,
-      paddingHorizontal: appVisualTokens.spacing.lg,
-      paddingVertical: appVisualTokens.spacing.sm
-    },
-    errorText: {
-      fontSize: 13,
-      lineHeight: 20,
-      color: theme.colors.danger
-    },
-    headerIconGlyph: {
-      width: 40,
-      height: 40,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    headerIconButtonPressed: {
-      opacity: 0.68
-    },
-    chatRowPressable: {
-      flex: 1
-    },
-    chatRowPressed: {
-      opacity: 0.72
-    },
-    chatRow: {
-      flex: 1,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.md,
-      paddingLeft: appVisualTokens.spacing.xl,
-      backgroundColor: theme.colors.surface
-    },
-    chatRowBody: {
-      flex: 1,
-      minWidth: 0,
-      alignSelf: 'stretch',
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.md,
-      paddingRight: appVisualTokens.spacing.xl,
-      paddingVertical: 10,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line
-    },
-    chatRowPinned: {
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    chatRowMenuTarget: {
-      backgroundColor: theme.colors.backgroundMuted
-    },
-    chatRowMain: {
-      flex: 1,
-      minWidth: 0,
-      gap: 4
-    },
-    chatTitle: {
-      flexShrink: 1,
-      fontSize: 16,
-      lineHeight: 22,
-      fontWeight: '500',
-      color: theme.colors.textPrimary
-    },
-    chatSummary: {
-      fontSize: 13,
-      lineHeight: 18,
-      color: theme.colors.textTertiary
-    },
-    chatRowMeta: {
-      alignItems: 'flex-end',
-      justifyContent: 'space-between',
-      minHeight: 46,
-      minWidth: 74,
-      gap: 4
-    },
-    chatRowMetaBottom: {
-      minHeight: 26,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'flex-end',
-      gap: 6
-    },
-    chatTime: {
-      fontSize: 12,
-      lineHeight: 14,
-      fontWeight: '400',
-      color: theme.colors.textTertiary
-    },
-    unreadBadge: {
-      minWidth: 26,
-      height: 26,
-      borderRadius: appVisualTokens.radii.pill,
-      backgroundColor: theme.colors.badge,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 6
-    },
-    unreadBadgeText: {
-      fontSize: 11,
-      fontWeight: '700',
-      color: theme.colors.onBrandBlueAction
-    },
-    unreadBadgePlaceholder: {
-      width: 26,
-      height: 26
-    },
-    pinnedMarker: {
-      width: 24,
-      height: 24,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    pinnedFoldRow: {
-      flex: 1,
-      minHeight: PIN_FOLD_ROW_HEIGHT,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      paddingHorizontal: appVisualTokens.spacing.xl,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.line,
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    pinnedFoldRowPressed: {
-      backgroundColor: theme.colors.backgroundMuted
-    },
-    pinnedFoldLeft: {
-      flex: 1,
-      minWidth: 0,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.lg
-    },
-    pinnedFoldText: {
-      flexShrink: 1,
-      fontSize: 15,
-      lineHeight: 20,
-      color: theme.colors.textSecondary
-    },
-    emptyState: {
-      alignItems: 'center',
-      paddingHorizontal: 24,
-      paddingVertical: 48,
-      marginHorizontal: appVisualTokens.spacing.xl
-    },
-    emptyStateTitle: {
-      fontSize: 18,
-      fontWeight: '700',
-      color: theme.colors.textPrimary
-    },
-    emptyStateBody: {
-      marginTop: 8,
-      fontSize: 14,
-      lineHeight: 21,
-      color: theme.colors.textSecondary,
-      textAlign: 'center'
-    },
-    menuBackdrop: {
-      flex: 1,
-      backgroundColor: 'transparent'
-    },
-    pinMenu: {
-      position: 'absolute',
-      width: PIN_MENU_WIDTH,
-      borderRadius: appVisualTokens.radii.lg,
-      backgroundColor: theme.colors.surface,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.line,
-      overflow: 'hidden',
-      shadowColor: theme.colors.shadow,
-      shadowOffset: { width: 0, height: 12 },
-      shadowOpacity: 0.14,
-      shadowRadius: 18,
-      elevation: 8
-    },
-    pinMenuAction: {
-      minHeight: PIN_MENU_ROW_HEIGHT,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.md,
-      paddingHorizontal: appVisualTokens.spacing.xl
-    },
-    pinMenuActionPressed: {
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    pinMenuActionText: {
-      flexShrink: 1,
-      fontSize: 17,
-      lineHeight: 24,
-      fontWeight: '500',
-      color: theme.colors.textPrimary
-    }
-  });
 }

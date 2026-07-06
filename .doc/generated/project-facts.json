@@ -1218,6 +1218,7 @@
     ".generated/react-native-worklets/.worklets/3796851510421.js",
     ".generated/react-native-worklets/.worklets/3802887966048.js",
     ".generated/react-native-worklets/.worklets/3804326125319.js",
+    ".generated/react-native-worklets/.worklets/3812827726569.js",
     ".generated/react-native-worklets/.worklets/3829620526333.js",
     ".generated/react-native-worklets/.worklets/3843804944633.js",
     ".generated/react-native-worklets/.worklets/3846245719320.js",
@@ -1538,6 +1539,7 @@
     ".generated/react-native-worklets/.worklets/6377905670264.js",
     ".generated/react-native-worklets/.worklets/6395724719418.js",
     ".generated/react-native-worklets/.worklets/6398033576128.js",
+    ".generated/react-native-worklets/.worklets/639934121359.js",
     ".generated/react-native-worklets/.worklets/6415608556631.js",
     ".generated/react-native-worklets/.worklets/6429571220286.js",
     ".generated/react-native-worklets/.worklets/6431469011262.js",
@@ -1657,6 +1659,7 @@
     ".generated/react-native-worklets/.worklets/7408795235493.js",
     ".generated/react-native-worklets/.worklets/7416569510607.js",
     ".generated/react-native-worklets/.worklets/7425392373496.js",
+    ".generated/react-native-worklets/.worklets/7437761805778.js",
     ".generated/react-native-worklets/.worklets/7438857771706.js",
     ".generated/react-native-worklets/.worklets/7452974515017.js",
     ".generated/react-native-worklets/.worklets/7453628012605.js",
@@ -1905,6 +1908,7 @@
     ".generated/react-native-worklets/.worklets/9384167588849.js",
     ".generated/react-native-worklets/.worklets/939797622579.js",
     ".generated/react-native-worklets/.worklets/9403201589246.js",
+    ".generated/react-native-worklets/.worklets/9412473557172.js",
     ".generated/react-native-worklets/.worklets/9414140936817.js",
     ".generated/react-native-worklets/.worklets/9417124215224.js",
     ".generated/react-native-worklets/.worklets/9419609223755.js",
@@ -2096,6 +2100,7 @@
     "src/features/chatPersistence/components/Composer.tsx",
     "src/features/chatPersistence/components/CopyToast.tsx",
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
+    "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx",
     "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx",
@@ -2163,7 +2168,9 @@
     "src/shared/visual/agentAvatarIcon.ts",
     "src/shared/visual/agentAvatarTypes.ts",
     "src/shared/visual/appLineIconRegistry.ts",
+    "src/shared/visual/className.ts",
     "src/shared/visual/foundation.ts",
+    "src/shared/visual/hairline.ts",
     "src/shared/visual/tabBarMetrics.ts",
     "src/shared/visual/themePreference.ts",
     "src/shared/visual/useAppTabBarHeight.native.ts",
@@ -6748,6 +6755,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "3812827726569.js",
+                    "type": "file"
+                  },
+                  {
                     "name": "3829620526333.js",
                     "type": "file"
                   },
@@ -8028,6 +8039,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "639934121359.js",
+                    "type": "file"
+                  },
+                  {
                     "name": "6415608556631.js",
                     "type": "file"
                   },
@@ -8501,6 +8516,10 @@
                   },
                   {
                     "name": "7425392373496.js",
+                    "type": "file"
+                  },
+                  {
+                    "name": "7437761805778.js",
                     "type": "file"
                   },
                   {
@@ -9496,6 +9515,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "9412473557172.js",
+                    "type": "file"
+                  },
+                  {
                     "name": "9414140936817.js",
                     "type": "file"
                   },
@@ -10428,6 +10451,10 @@
                         "type": "file"
                       },
                       {
+                        "name": "RuntimePlanningBlock.tsx",
+                        "type": "file"
+                      },
+                      {
                         "name": "RuntimeTimelineRow.tsx",
                         "type": "file"
                       },
@@ -10814,7 +10841,15 @@
                     "type": "file"
                   },
                   {
+                    "name": "className.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "foundation.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "hairline.ts",
                     "type": "file"
                   },
                   {
@@ -11010,6 +11045,7 @@
       "src/features/chatPersistence/components/Composer.tsx",
       "src/features/chatPersistence/components/CopyToast.tsx",
       "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
+      "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
       "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx",
       "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx",
@@ -11093,7 +11129,9 @@
       "src/shared/visual/agentAvatarIcon.ts",
       "src/shared/visual/agentAvatarTypes.ts",
       "src/shared/visual/appLineIconRegistry.ts",
+      "src/shared/visual/className.ts",
       "src/shared/visual/foundation.ts",
+      "src/shared/visual/hairline.ts",
       "src/shared/visual/tabBarMetrics.ts",
       "src/shared/visual/themePreference.ts",
       "src/shared/visual/useAppTabBarHeight.native.ts",
@@ -11203,6 +11241,7 @@
     "src/features/chatPersistence/components/Composer.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/CopyToast.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/RuntimePlanningBlock.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx": "feature-chat-persistence",
@@ -11270,7 +11309,9 @@
     "src/shared/visual/agentAvatarIcon.ts": "shared-visual-foundation",
     "src/shared/visual/agentAvatarTypes.ts": "shared-visual-foundation",
     "src/shared/visual/appLineIconRegistry.ts": "shared-visual-foundation",
+    "src/shared/visual/className.ts": "shared-visual-foundation",
     "src/shared/visual/foundation.ts": "shared-visual-foundation",
+    "src/shared/visual/hairline.ts": "shared-visual-foundation",
     "src/shared/visual/tabBarMetrics.ts": "shared-visual-foundation",
     "src/shared/visual/themePreference.ts": "shared-visual-foundation",
     "src/shared/visual/useAppTabBarHeight.native.ts": "shared-visual-foundation",
@@ -11282,7 +11323,8 @@
       "dependsOn": [
         "core-api-client",
         "core-debug-logging",
-        "feature-chat-realtime"
+        "feature-chat-realtime",
+        "shared-visual-foundation"
       ],
       "dependedBy": [
         "app-shell-navigation"
@@ -11480,6 +11522,7 @@
     "shared-visual-foundation": {
       "dependsOn": [],
       "dependedBy": [
+        "app-development-debug",
         "app-shell-navigation",
         "feature-agent-task-board",
         "feature-auth-login",
@@ -14911,6 +14954,9 @@
     ".generated/react-native-worklets/.worklets/3804326125319.js": [
       "default"
     ],
+    ".generated/react-native-worklets/.worklets/3812827726569.js": [
+      "default"
+    ],
     ".generated/react-native-worklets/.worklets/3829620526333.js": [
       "default"
     ],
@@ -15871,6 +15917,9 @@
     ".generated/react-native-worklets/.worklets/6398033576128.js": [
       "default"
     ],
+    ".generated/react-native-worklets/.worklets/639934121359.js": [
+      "default"
+    ],
     ".generated/react-native-worklets/.worklets/6415608556631.js": [
       "default"
     ],
@@ -16226,6 +16275,9 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/7425392373496.js": [
+      "default"
+    ],
+    ".generated/react-native-worklets/.worklets/7437761805778.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/7438857771706.js": [
@@ -16970,6 +17022,9 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/9403201589246.js": [
+      "default"
+    ],
+    ".generated/react-native-worklets/.worklets/9412473557172.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/9414140936817.js": [
@@ -17892,6 +17947,12 @@
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": [
       "RuntimePayloadFrame"
     ],
+    "src/features/chatPersistence/components/RuntimePlanningBlock.tsx": [
+      "PlanningActionPill",
+      "RuntimePlanningBlock",
+      "RuntimePlanningBlockMode",
+      "RuntimePlanningCollapseOverlayRequest"
+    ],
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": [
       "RuntimeTimelineRow"
     ],
@@ -18437,10 +18498,15 @@
       "OUTLINE_ICON_VIEW_BOX",
       "appLineIconRegistry"
     ],
+    "src/shared/visual/className.ts": [
+      "ClassNameValue",
+      "cn"
+    ],
     "src/shared/visual/foundation.ts": [
       "AppThemeTokens",
       "AppVisualColors",
       "VisualAvatarTone",
+      "VisualFontSize",
       "appDarkColors",
       "appLightColors",
       "appThemeColors",
@@ -18451,6 +18517,9 @@
       "formatUnreadCount",
       "getAvatarLabel",
       "getAvatarTone"
+    ],
+    "src/shared/visual/hairline.ts": [
+      "appHairlineStyles"
     ],
     "src/shared/visual/tabBarMetrics.ts": [
       "getAppTabBarMetrics"
@@ -19913,6 +19982,7 @@
       "react-native-worklets/.worklets/12572076258850.js",
       "react-native-worklets/.worklets/16553735205395.js"
     ],
+    ".generated/react-native-worklets/.worklets/3812827726569.js": null,
     ".generated/react-native-worklets/.worklets/3829620526333.js": null,
     ".generated/react-native-worklets/.worklets/3843804944633.js": null,
     ".generated/react-native-worklets/.worklets/3846245719320.js": null,
@@ -20314,6 +20384,7 @@
     ".generated/react-native-worklets/.worklets/6377905670264.js": null,
     ".generated/react-native-worklets/.worklets/6395724719418.js": null,
     ".generated/react-native-worklets/.worklets/6398033576128.js": null,
+    ".generated/react-native-worklets/.worklets/639934121359.js": null,
     ".generated/react-native-worklets/.worklets/6415608556631.js": null,
     ".generated/react-native-worklets/.worklets/6429571220286.js": null,
     ".generated/react-native-worklets/.worklets/6431469011262.js": null,
@@ -20456,6 +20527,7 @@
     ],
     ".generated/react-native-worklets/.worklets/7416569510607.js": null,
     ".generated/react-native-worklets/.worklets/7425392373496.js": null,
+    ".generated/react-native-worklets/.worklets/7437761805778.js": null,
     ".generated/react-native-worklets/.worklets/7438857771706.js": null,
     ".generated/react-native-worklets/.worklets/7452974515017.js": null,
     ".generated/react-native-worklets/.worklets/7453628012605.js": null,
@@ -20758,6 +20830,7 @@
       "react-native-worklets/.worklets/1106971096143.js"
     ],
     ".generated/react-native-worklets/.worklets/9403201589246.js": null,
+    ".generated/react-native-worklets/.worklets/9412473557172.js": null,
     ".generated/react-native-worklets/.worklets/9414140936817.js": null,
     ".generated/react-native-worklets/.worklets/9417124215224.js": null,
     ".generated/react-native-worklets/.worklets/9419609223755.js": null,
@@ -20962,6 +21035,7 @@
       "../../core/debug/httpDebugLogger",
       "../../core/debug/wsDebugRecorder",
       "../../features/chatRealtime/chatSyncService",
+      "../../shared/visual/className",
       "./developmentDebugPanel",
       "react",
       "react-native",
@@ -21018,7 +21092,6 @@
     "src/app/screens/AppScreenFrame.tsx": [
       "../../shared/components/ScreenHeader",
       "../../shared/i18n",
-      "../../shared/visual/AppThemeProvider",
       "../../shared/visual/foundation",
       "../../shared/visual/useAppTabBarHeight",
       "react",
@@ -21029,7 +21102,6 @@
       "../../shared/i18n",
       "../../shared/icons/AppIcon",
       "../../shared/visual/AppThemeProvider",
-      "../../shared/visual/foundation",
       "./AppScreenFrame",
       "react-native"
     ],
@@ -21045,6 +21117,7 @@
       "../../shared/i18n",
       "../../shared/icons/AppIcon",
       "../../shared/visual/AppThemeProvider",
+      "../../shared/visual/className",
       "../../shared/visual/foundation",
       "../../shared/visual/themePreference",
       "../../shared/visual/useAppTabBarHeight",
@@ -21065,6 +21138,7 @@
       "../../shared/icons/AppIcon",
       "../../shared/icons/AppIconButton",
       "../../shared/visual/AppThemeProvider",
+      "../../shared/visual/className",
       "../../shared/visual/foundation",
       "../../shared/visual/themePreference",
       "../debug/developmentDebugPanel",
@@ -21213,6 +21287,7 @@
       "../../shared/i18n",
       "../../shared/icons/AppIcon",
       "../../shared/visual/AppThemeProvider",
+      "../../shared/visual/className",
       "../../shared/visual/foundation",
       "../../shared/visual/useAppTabBarHeight",
       "./AgentTaskBoardProvider",
@@ -21260,7 +21335,7 @@
       "../../shared/i18n",
       "../../shared/icons/brandAssets",
       "../../shared/visual/AppThemeProvider",
-      "../../shared/visual/foundation",
+      "../../shared/visual/className",
       "expo-camera",
       "expo-clipboard",
       "react",
@@ -21270,8 +21345,6 @@
     "src/features/chatPersistence/ChatDetailScreen.tsx": [
       "../../core/api/services/chatApi",
       "../../shared/i18n",
-      "../../shared/visual/AppThemeProvider",
-      "../../shared/visual/foundation",
       "../chatRealtime/chatSyncService",
       "../chatRealtime/types",
       "./chatDetailFormatters",
@@ -21305,7 +21378,9 @@
       "../../shared/icons/AppIconButton",
       "../../shared/visual/AgentAvatar",
       "../../shared/visual/AppThemeProvider",
+      "../../shared/visual/className",
       "../../shared/visual/foundation",
+      "../../shared/visual/hairline",
       "../../shared/visual/useAppTabBarHeight",
       "../chatRealtime/chatSyncService",
       "./chatConversationTarget",
@@ -21395,6 +21470,7 @@
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AppThemeProvider",
+      "../../../shared/visual/className",
       "../../../shared/visual/foundation",
       "../chatAttachmentModels",
       "../types",
@@ -21404,7 +21480,6 @@
     "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": [
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
-      "../../../shared/visual/AppThemeProvider",
       "../../../shared/visual/foundation",
       "../../chatRealtime/types",
       "react",
@@ -21412,8 +21487,6 @@
       "react-native-safe-area-context"
     ],
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": [
-      "../../../shared/visual/AppThemeProvider",
-      "../../../shared/visual/foundation",
       "../chatDetailViewModel",
       "../types",
       "./Composer",
@@ -21424,7 +21497,9 @@
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AppThemeProvider",
+      "../../../shared/visual/className",
       "../../../shared/visual/foundation",
+      "../../../shared/visual/hairline",
       "../chatDetailFormatters",
       "../types",
       "@shopify/flash-list",
@@ -21433,8 +21508,6 @@
     ],
     "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": [
       "../../../shared/i18n",
-      "../../../shared/visual/AppThemeProvider",
-      "../../../shared/visual/foundation",
       "react-native"
     ],
     "src/features/chatPersistence/components/ChatDetailHeader.tsx": [
@@ -21442,8 +21515,7 @@
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
       "../../../shared/icons/AppIconButton",
-      "../../../shared/visual/AppThemeProvider",
-      "../../../shared/visual/foundation",
+      "../../../shared/visual/className",
       "../../chatTimeline/index.ts",
       "../chatDetailViewModel",
       "../types",
@@ -21452,8 +21524,7 @@
       "react-native"
     ],
     "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": [
-      "../../../shared/visual/AppThemeProvider",
-      "../../../shared/visual/foundation",
+      "../../../shared/visual/className",
       "react",
       "react-native"
     ],
@@ -21462,7 +21533,9 @@
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AgentAvatar",
       "../../../shared/visual/AppThemeProvider",
+      "../../../shared/visual/className",
       "../../../shared/visual/foundation",
+      "../../../shared/visual/hairline",
       "../types",
       "@shopify/flash-list",
       "react",
@@ -21473,8 +21546,7 @@
       "../../../core/api/services/chatApi",
       "../../../shared/i18n",
       "../../../shared/icons/AppIconButton",
-      "../../../shared/visual/AppThemeProvider",
-      "../../../shared/visual/foundation",
+      "../../../shared/visual/className",
       "./chatWonderDisplay",
       "react",
       "react-native"
@@ -21483,7 +21555,6 @@
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AppThemeProvider",
-      "../../../shared/visual/foundation",
       "../../chatTimeline/index.ts",
       "./ChatTimelineRail",
       "react",
@@ -21494,12 +21565,14 @@
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AppThemeProvider",
+      "../../../shared/visual/className",
       "../../../shared/visual/foundation",
       "../../chatTimeline/index.ts",
       "../chatDetailFormatters",
       "./ChatAttachmentStrip",
       "./ChatSystemAlert",
       "./ChatTimelineRail",
+      "./RuntimePlanningBlock",
       "./RuntimeTimelineRow",
       "@shopify/flash-list",
       "react",
@@ -21508,7 +21581,7 @@
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": [
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AppThemeProvider",
-      "../../../shared/visual/foundation",
+      "../../../shared/visual/className",
       "react",
       "react-native"
     ],
@@ -21529,6 +21602,7 @@
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AppThemeProvider",
+      "../../../shared/visual/className",
       "../../../shared/visual/foundation",
       "../chatDetailViewModel",
       "../types",
@@ -21539,8 +21613,6 @@
     ],
     "src/features/chatPersistence/components/CopyToast.tsx": [
       "../../../shared/i18n",
-      "../../../shared/visual/AppThemeProvider",
-      "../../../shared/visual/foundation",
       "react",
       "react-native"
     ],
@@ -21548,9 +21620,21 @@
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AppThemeProvider",
-      "../../../shared/visual/foundation",
+      "../../../shared/visual/className",
       "react",
       "react-native"
+    ],
+    "src/features/chatPersistence/components/RuntimePlanningBlock.tsx": [
+      "../../../shared/i18n",
+      "../../../shared/icons/AppIcon",
+      "../../../shared/visual/AppThemeProvider",
+      "../../../shared/visual/className",
+      "./ChatTimelineRail",
+      "./runtimePayloadDescriptor",
+      "./runtimePayloadRenderers",
+      "react",
+      "react-native",
+      "react-native-svg"
     ],
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": [
       "../../../shared/i18n",
@@ -21560,6 +21644,7 @@
       "../../chatTimeline/index.ts",
       "./ChatTimelineRail",
       "./RuntimePayloadFrame",
+      "./RuntimePlanningBlock",
       "./runtimePayloadDescriptor",
       "./runtimePayloadRenderers",
       "./runtimeToolStatusVisual",
@@ -21568,7 +21653,6 @@
     ],
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx": [
       "../../../../shared/visual/AppThemeProvider",
-      "../../../../shared/visual/foundation",
       "../../../chatTimeline/index.ts",
       "./awaitingQuestionState",
       "react",
@@ -21577,8 +21661,7 @@
     "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx": [
       "../../../../core/api/services/chatApi",
       "../../../../shared/i18n",
-      "../../../../shared/visual/AppThemeProvider",
-      "../../../../shared/visual/foundation",
+      "../../../../shared/visual/className",
       "../../../chatRealtime/types",
       "../../../chatTimeline/index.ts",
       "./AwaitingFormViewport",
@@ -21592,7 +21675,6 @@
       "../../../../core/api/services/chatApi",
       "../../../../shared/i18n",
       "../../../../shared/visual/AppThemeProvider",
-      "../../../../shared/visual/foundation",
       "../../../chatTimeline/index.ts",
       "./AwaitingFormViewportTypes",
       "./awaitingSubmitState",
@@ -21603,8 +21685,6 @@
     "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.tsx": [
       "../../../../core/api/services/chatApi",
       "../../../../shared/i18n",
-      "../../../../shared/visual/AppThemeProvider",
-      "../../../../shared/visual/foundation",
       "./AwaitingFormViewportTypes",
       "react",
       "react-native"
@@ -21617,7 +21697,7 @@
     "src/features/chatPersistence/components/awaiting/AwaitingPanelFooter.tsx": [
       "../../../../shared/i18n",
       "../../../../shared/visual/AppThemeProvider",
-      "../../../../shared/visual/foundation",
+      "../../../../shared/visual/className",
       "../../../chatRealtime/types",
       "./awaitingQuestionState",
       "react",
@@ -21628,7 +21708,7 @@
       "../../../../shared/i18n",
       "../../../../shared/icons/AppIcon",
       "../../../../shared/visual/AppThemeProvider",
-      "../../../../shared/visual/foundation",
+      "../../../../shared/visual/className",
       "../../../chatRealtime/types",
       "../../../chatTimeline/index.ts",
       "./AwaitingDateTimeInput",
@@ -21662,7 +21742,7 @@
       "../../../shared/i18n",
       "../../../shared/i18n/translate.ts",
       "../../../shared/visual/AppThemeProvider",
-      "../../../shared/visual/foundation",
+      "../../../shared/visual/className",
       "../chatDetailFormatters",
       "./runtimePayloadDescriptor",
       "./runtimeToolStatusVisual",
@@ -21839,14 +21919,13 @@
     "src/shared/components/PaginatedCardList.tsx": [
       "../i18n",
       "../visual/AppThemeProvider",
-      "../visual/foundation",
       "@shopify/flash-list",
       "react",
       "react-native"
     ],
     "src/shared/components/ScreenHeader.tsx": [
-      "../visual/AppThemeProvider",
-      "../visual/foundation",
+      "../visual/className",
+      "../visual/hairline",
       "react",
       "react-native"
     ],
@@ -21918,7 +21997,6 @@
     "src/shared/visual/AgentAvatar.tsx": [
       "../icons/AppIcon",
       "./AgentBuiltinIcon",
-      "./AppThemeProvider",
       "./agentAvatarIcon.ts",
       "./agentAvatarTypes.ts",
       "./foundation",
@@ -21939,6 +22017,7 @@
     "src/shared/visual/AppThemeProvider.tsx": [
       "./foundation",
       "./themePreference",
+      "nativewind",
       "react",
       "react-native",
       "react-native-mmkv"
@@ -21948,8 +22027,13 @@
     ],
     "src/shared/visual/agentAvatarTypes.ts": null,
     "src/shared/visual/appLineIconRegistry.ts": null,
+    "src/shared/visual/className.ts": null,
     "src/shared/visual/foundation.ts": [
+      "./foundation.tokens.json",
       "./themePreference"
+    ],
+    "src/shared/visual/hairline.ts": [
+      "react-native"
     ],
     "src/shared/visual/tabBarMetrics.ts": [
       "./foundation"
@@ -21964,7 +22048,9 @@
     ],
     "src/types/assets.d.ts": null,
     "tailwind.config.js": [
-      "nativewind/preset"
+      "./src/shared/visual/foundation.tokens.json",
+      "nativewind/preset",
+      "tailwindcss/plugin"
     ]
   },
   "resolvedImportsByFile": {
@@ -23172,6 +23258,7 @@
     ".generated/react-native-worklets/.worklets/3796851510421.js": null,
     ".generated/react-native-worklets/.worklets/3802887966048.js": null,
     ".generated/react-native-worklets/.worklets/3804326125319.js": null,
+    ".generated/react-native-worklets/.worklets/3812827726569.js": null,
     ".generated/react-native-worklets/.worklets/3829620526333.js": null,
     ".generated/react-native-worklets/.worklets/3843804944633.js": null,
     ".generated/react-native-worklets/.worklets/3846245719320.js": null,
@@ -23511,6 +23598,7 @@
     ".generated/react-native-worklets/.worklets/6377905670264.js": null,
     ".generated/react-native-worklets/.worklets/6395724719418.js": null,
     ".generated/react-native-worklets/.worklets/6398033576128.js": null,
+    ".generated/react-native-worklets/.worklets/639934121359.js": null,
     ".generated/react-native-worklets/.worklets/6415608556631.js": null,
     ".generated/react-native-worklets/.worklets/6429571220286.js": null,
     ".generated/react-native-worklets/.worklets/6431469011262.js": null,
@@ -23635,6 +23723,7 @@
     ".generated/react-native-worklets/.worklets/7408795235493.js": null,
     ".generated/react-native-worklets/.worklets/7416569510607.js": null,
     ".generated/react-native-worklets/.worklets/7425392373496.js": null,
+    ".generated/react-native-worklets/.worklets/7437761805778.js": null,
     ".generated/react-native-worklets/.worklets/7438857771706.js": null,
     ".generated/react-native-worklets/.worklets/7452974515017.js": null,
     ".generated/react-native-worklets/.worklets/7453628012605.js": null,
@@ -23894,6 +23983,7 @@
     ".generated/react-native-worklets/.worklets/9384167588849.js": null,
     ".generated/react-native-worklets/.worklets/939797622579.js": null,
     ".generated/react-native-worklets/.worklets/9403201589246.js": null,
+    ".generated/react-native-worklets/.worklets/9412473557172.js": null,
     ".generated/react-native-worklets/.worklets/9414140936817.js": null,
     ".generated/react-native-worklets/.worklets/9417124215224.js": null,
     ".generated/react-native-worklets/.worklets/9419609223755.js": null,
@@ -24039,7 +24129,8 @@
       "src/core/api/apiClient.ts",
       "src/core/debug/httpDebugLogger.ts",
       "src/core/debug/wsDebugRecorder.ts",
-      "src/features/chatRealtime/chatSyncService.ts"
+      "src/features/chatRealtime/chatSyncService.ts",
+      "src/shared/visual/className.ts"
     ],
     "src/app/debug/developmentDebugPanel.ts": null,
     "src/app/navigation/RootNavigator.tsx": [
@@ -24084,7 +24175,6 @@
     "src/app/screens/AppScreenFrame.tsx": [
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
-      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts",
       "src/shared/visual/useAppTabBarHeight.ts"
     ],
@@ -24092,8 +24182,7 @@
       "src/app/screens/AppScreenFrame.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/app/screens/MeScreen.tsx": [
       "src/app/debug/developmentDebugPanel.ts",
@@ -24109,6 +24198,7 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts",
       "src/shared/visual/foundation.ts",
       "src/shared/visual/themePreference.ts",
       "src/shared/visual/useAppTabBarHeight.ts"
@@ -24124,6 +24214,7 @@
       "src/shared/icons/AppIcon.tsx",
       "src/shared/icons/AppIconButton.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts",
       "src/shared/visual/foundation.ts",
       "src/shared/visual/themePreference.ts"
     ],
@@ -24256,6 +24347,7 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts",
       "src/shared/visual/foundation.ts",
       "src/shared/visual/useAppTabBarHeight.ts"
     ],
@@ -24291,7 +24383,7 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/brandAssets.ts",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/ChatDetailScreen.tsx": [
       "src/core/api/services/chatApi.ts",
@@ -24313,9 +24405,7 @@
       "src/features/chatPersistence/useChatDetailLocalUiState.ts",
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatRealtime/types.ts",
-      "src/shared/i18n/index.ts",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/ChatHomeScreen.tsx": [
       "src/app/navigation/types.ts",
@@ -24333,7 +24423,9 @@
       "src/shared/icons/AppIconButton.tsx",
       "src/shared/visual/AgentAvatar.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts",
       "src/shared/visual/foundation.ts",
+      "src/shared/visual/hairline.ts",
       "src/shared/visual/useAppTabBarHeight.ts"
     ],
     "src/features/chatPersistence/agentMode.ts": null,
@@ -24412,21 +24504,19 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": [
       "src/features/chatRealtime/types.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
-      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": [
       "src/features/chatPersistence/chatDetailViewModel.ts",
       "src/features/chatPersistence/components/Composer.tsx",
-      "src/features/chatPersistence/types.ts",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/features/chatPersistence/types.ts"
     ],
     "src/features/chatPersistence/components/ChatDetailDrawers.tsx": [
       "src/features/chatPersistence/chatDetailFormatters.ts",
@@ -24434,12 +24524,12 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts",
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/hairline.ts"
     ],
     "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": [
-      "src/shared/i18n/index.ts",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/components/ChatDetailHeader.tsx": [
       "src/features/chatPersistence/chatDetailViewModel.ts",
@@ -24450,12 +24540,10 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/icons/AppIconButton.tsx",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/ChatDetailSkeleton.tsx": [
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": [
       "src/features/chatPersistence/types.ts",
@@ -24463,41 +24551,43 @@
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AgentAvatar.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts",
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/hairline.ts"
     ],
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": [
       "src/core/api/services/chatApi.ts",
       "src/features/chatPersistence/components/chatWonderDisplay.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIconButton.tsx",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/ChatSystemAlert.tsx": [
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/ChatTimelineList.tsx": [
       "src/features/chatPersistence/chatDetailFormatters.ts",
       "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
       "src/features/chatPersistence/components/ChatSystemAlert.tsx",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
+      "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
       "src/features/chatTimeline/index.ts",
       "src/shared/components/ConversationMarkdownRenderer.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": [
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": [
       "src/features/chatPersistence/agentModelSettings.ts",
@@ -24515,22 +24605,31 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts",
       "src/shared/visual/foundation.ts"
     ],
     "src/features/chatPersistence/components/CopyToast.tsx": [
-      "src/shared/i18n/index.ts",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": [
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts"
+    ],
+    "src/features/chatPersistence/components/RuntimePlanningBlock.tsx": [
+      "src/features/chatPersistence/components/ChatTimelineRail.tsx",
+      "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
+      "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": [
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
+      "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
       "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
@@ -24543,8 +24642,7 @@
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx": [
       "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
       "src/features/chatTimeline/index.ts",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx": [
       "src/core/api/services/chatApi.ts",
@@ -24555,8 +24653,7 @@
       "src/features/chatRealtime/types.ts",
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/index.ts",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx": [
       "src/core/api/services/chatApi.ts",
@@ -24564,15 +24661,12 @@
       "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/index.ts",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.tsx": [
       "src/core/api/services/chatApi.ts",
       "src/features/chatPersistence/components/awaiting/AwaitingFormViewportTypes.ts",
-      "src/shared/i18n/index.ts",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/components/awaiting/AwaitingFormViewportTypes.ts": [
       "src/core/api/services/chatApi.ts",
@@ -24584,7 +24678,7 @@
       "src/features/chatRealtime/types.ts",
       "src/shared/i18n/index.ts",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx": [
       "src/core/api/services/chatApi.ts",
@@ -24598,7 +24692,7 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts": [
       "src/core/api/services/chatApi.ts",
@@ -24626,7 +24720,7 @@
       "src/shared/i18n/index.ts",
       "src/shared/i18n/translate.ts",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": [
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
@@ -24774,12 +24868,11 @@
     ],
     "src/shared/components/PaginatedCardList.tsx": [
       "src/shared/i18n/index.ts",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/shared/components/ScreenHeader.tsx": [
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts",
+      "src/shared/visual/hairline.ts"
     ],
     "src/shared/components/__tests__/ScreenHeader.test.tsx": [
       "src/shared/components/ScreenHeader.tsx"
@@ -24841,7 +24934,6 @@
     "src/shared/visual/AgentAvatar.tsx": [
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AgentBuiltinIcon.tsx",
-      "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/agentAvatarIcon.ts",
       "src/shared/visual/agentAvatarTypes.ts",
       "src/shared/visual/foundation.ts"
@@ -24861,9 +24953,12 @@
     ],
     "src/shared/visual/agentAvatarTypes.ts": null,
     "src/shared/visual/appLineIconRegistry.ts": null,
+    "src/shared/visual/className.ts": null,
     "src/shared/visual/foundation.ts": [
+      "src/shared/visual/foundation.tokens.json",
       "src/shared/visual/themePreference.ts"
     ],
+    "src/shared/visual/hairline.ts": null,
     "src/shared/visual/tabBarMetrics.ts": [
       "src/shared/visual/foundation.ts"
     ],
@@ -24873,7 +24968,9 @@
     ],
     "src/shared/visual/useAppTabBarHeight.ts": null,
     "src/types/assets.d.ts": null,
-    "tailwind.config.js": null
+    "tailwind.config.js": [
+      "src/shared/visual/foundation.tokens.json"
+    ]
   },
   "ownershipAmbiguities": [
     {
@@ -26031,6 +26128,7 @@
     ".generated/react-native-worklets/.worklets/3796851510421.js",
     ".generated/react-native-worklets/.worklets/3802887966048.js",
     ".generated/react-native-worklets/.worklets/3804326125319.js",
+    ".generated/react-native-worklets/.worklets/3812827726569.js",
     ".generated/react-native-worklets/.worklets/3829620526333.js",
     ".generated/react-native-worklets/.worklets/3843804944633.js",
     ".generated/react-native-worklets/.worklets/3846245719320.js",
@@ -26351,6 +26449,7 @@
     ".generated/react-native-worklets/.worklets/6377905670264.js",
     ".generated/react-native-worklets/.worklets/6395724719418.js",
     ".generated/react-native-worklets/.worklets/6398033576128.js",
+    ".generated/react-native-worklets/.worklets/639934121359.js",
     ".generated/react-native-worklets/.worklets/6415608556631.js",
     ".generated/react-native-worklets/.worklets/6429571220286.js",
     ".generated/react-native-worklets/.worklets/6431469011262.js",
@@ -26470,6 +26569,7 @@
     ".generated/react-native-worklets/.worklets/7408795235493.js",
     ".generated/react-native-worklets/.worklets/7416569510607.js",
     ".generated/react-native-worklets/.worklets/7425392373496.js",
+    ".generated/react-native-worklets/.worklets/7437761805778.js",
     ".generated/react-native-worklets/.worklets/7438857771706.js",
     ".generated/react-native-worklets/.worklets/7452974515017.js",
     ".generated/react-native-worklets/.worklets/7453628012605.js",
@@ -26718,6 +26818,7 @@
     ".generated/react-native-worklets/.worklets/9384167588849.js",
     ".generated/react-native-worklets/.worklets/939797622579.js",
     ".generated/react-native-worklets/.worklets/9403201589246.js",
+    ".generated/react-native-worklets/.worklets/9412473557172.js",
     ".generated/react-native-worklets/.worklets/9414140936817.js",
     ".generated/react-native-worklets/.worklets/9417124215224.js",
     ".generated/react-native-worklets/.worklets/9419609223755.js",

@@ -113,6 +113,14 @@ Shared
 - `wsManager` 直接处理 UI 状态
 - 用 MMKV 替代 SQLite 作为排序、状态或消息真源
 
+## UI 主题约定
+
+- 新 UI 或视觉改造默认继承 `.doc/reference/ui-visual-theme.md` 与 `src/shared/visual/foundation.ts`，不要为单个页面另起一套主题。
+- 静态样式默认优先使用 NativeWind/Tailwind `className` 常量表达；只有真实动态值、动画值、运行时测量尺寸/位置、safe area / tab bar / keyboard inset、服务端/品牌/头像动态颜色、WebView/CameraView/FlashList/公开 `style` API 或阴影 `shadowColor` / elevation 这类场景，才保留最小 `style`。
+- 优先复用 `ScreenHeader`、`AppScreenFrame`、`PaginatedCardList`、`AppIcon`、`AppIconButton`，避免重复造视觉壳层。
+- 长列表项默认保持平面，不为每一行叠阴影；阴影只在确实需要抬升的浮层里少量使用。
+- 底部 Tab 避让必须基于真实 `safe area` / `tab bar height`，禁止在页面内硬编码 `paddingBottom` 猜底栏高度。
+
 ## 命名约定
 
 | 类型                   | 规范                            | 示例                                  |

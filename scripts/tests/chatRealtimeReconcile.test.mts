@@ -31,11 +31,22 @@ test('detail reconcile treats disconnected websocket as recoverable background w
     'const unsubscribe = chatSyncService.subscribe'
   );
 
-  assert.match(chatSyncServiceSource, /import \{ WsClientDisconnectedError \} from '\.\.\/\.\.\/core\/ws\/wsClient'/);
+  assert.match(chatSyncServiceSource, /import \{[^}]*WsClientDisconnectedError[^}]*\} from '\.\.\/\.\.\/core\/ws\/wsClient'/);
   assert.match(recoverableSource, /error instanceof WsClientDisconnectedError/);
   assert.match(detailOpenSource, /\.reconcileConversation\(/);
   assert.match(detailOpenSource, /\.catch\(\(error\) =>/);
   assert.doesNotMatch(detailOpenSource, /void chatSyncService\.reconcileConversation\([^;]+;/);
+});
+
+test('detail reconcile treats websocket request timeout as recoverable background work', () => {
+  const recoverableSource = extractSourceSection(
+    chatSyncServiceSource,
+    'function isRecoverableReconcileError',
+    'function isInactiveInterruptResponse'
+  );
+
+  assert.match(chatSyncServiceSource, /WsClientRequestTimeoutError/);
+  assert.match(recoverableSource, /error instanceof WsClientRequestTimeoutError/);
 });
 
 test('incoming assistant messages keep their run id when projected into timeline', () => {

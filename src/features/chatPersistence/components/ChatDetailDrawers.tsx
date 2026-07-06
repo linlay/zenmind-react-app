@@ -1,19 +1,49 @@
 import { FlashList } from '@shopify/flash-list';
 import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, Animated, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Pressable, Text, View, type ViewStyle } from 'react-native';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { type TFunction, useT } from '../../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
+import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
+import { cn } from '../../../shared/visual/className';
+import { appVisualTokens } from '../../../shared/visual/foundation';
+import { appHairlineStyles } from '../../../shared/visual/hairline';
 import { formatChatDetailTimestamp } from '../chatDetailFormatters';
 import type { ChatHomeItem } from '../types';
 
 const HISTORY_ROW_HEIGHT = 66;
-const HISTORY_TIME_COLUMN_WIDTH = 112;
 const HISTORY_DRAW_DISTANCE = HISTORY_ROW_HEIGHT * 8;
 const HISTORY_DRAWER_OVERLAY_Z_INDEX = 120;
 const HISTORY_DRAWER_VERTICAL_PADDING = appVisualTokens.spacing.xs;
+const HISTORY_DRAWER_BOTTOM_PADDING = appVisualTokens.spacing.md;
+const DRAWER_OVERLAY_CLASS = 'absolute inset-0 justify-center z-[120]';
+const DRAWER_OVERLAY_ELEVATION_STYLE = { elevation: HISTORY_DRAWER_OVERLAY_Z_INDEX } satisfies ViewStyle;
+const DRAWER_BACKDROP_CLASS = 'absolute inset-0 bg-app-overlay';
+const DRAWER_PANEL_CLASS = 'absolute bottom-0 right-0 top-0 w-[84%] max-w-[360px] border-app-line bg-app-surface';
+const DRAWER_HEADER_CLASS = 'min-h-[58px] flex-row items-center gap-app-sm border-app-line px-app-md pb-app-sm';
+const DRAWER_HEADER_TEXT_CLASS = 'min-w-0 flex-1';
+const DRAWER_TITLE_CLASS = 'text-app-title-sm font-bold text-app-primary';
+const DRAWER_SUBTITLE_CLASS = 'mt-[2px] text-[12px] font-semibold leading-[17px] text-app-secondary';
+const DRAWER_CLOSE_BUTTON_CLASS = 'h-[34px] w-[34px] items-center justify-center rounded-app-pill';
+const MARK_READ_BUTTON_CLASS =
+  'h-8 min-w-[86px] flex-row items-center justify-center gap-app-xs rounded-app-pill bg-app-brand-blue-soft px-app-sm active:opacity-[0.7]';
+const MARK_READ_TEXT_CLASS = 'text-[12px] font-bold leading-[17px] text-app-brand-blue';
+const DRAWER_ERROR_TEXT_CLASS = 'px-app-md py-app-sm text-[12px] leading-[17px] text-app-danger';
+const HISTORY_LIST_FRAME_CLASS = 'flex-1 px-app-sm';
+const HISTORY_STATE_BLOCK_CLASS = 'flex-1 items-center justify-center';
+const DRAWER_EMPTY_TEXT_CLASS = 'px-app-sm py-app-lg text-[14px] leading-[21px] text-app-secondary';
+const HISTORY_ROW_CLASS = 'h-[66px] flex-row items-center gap-app-sm border-app-line px-app-sm active:bg-app-surface-muted';
+const HISTORY_ROW_ACTIVE_CLASS = 'bg-app-brand-blue-soft';
+const HISTORY_UNREAD_SLOT_CLASS = 'w-[10px] items-center';
+const HISTORY_UNREAD_DOT_CLASS = 'h-2 w-2 rounded-app-pill bg-app-badge';
+const HISTORY_TEXT_BLOCK_CLASS = 'min-w-0 flex-1 justify-center';
+const HISTORY_TITLE_CLASS = 'text-app-body-sm font-bold text-app-primary';
+const HISTORY_PREVIEW_CLASS = 'mt-[2px] text-app-footnote font-medium text-app-secondary';
+const HISTORY_TIME_CLASS =
+  'w-[112px] shrink-0 text-right text-app-caption font-semibold tabular-nums text-app-secondary';
+const HISTORY_FOOTER_TEXT_CLASS = 'py-app-md text-center text-app-footnote font-semibold text-app-tertiary';
+const LOAD_MORE_BUTTON_CLASS = 'min-h-[44px] items-center justify-center active:opacity-[0.7]';
+const LOAD_MORE_TEXT_CLASS = 'text-app-footnote font-bold text-app-secondary';
 
 type ChatDetailHistoryDrawerProps = {
   visible: boolean;
@@ -52,11 +82,11 @@ function getHistoryItemType() {
 
 const HistoryRow = memo(function HistoryRow({ item, active, onSelect }: HistoryRowProps) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const unread = item.unreadCount > 0;
   const timestamp = formatChatDetailTimestamp(
     item.lastMessageAt,
     Date.now(),
+    t('chatDetail.timestamp.today'),
     t('chatDetail.timestamp.yesterday')
   );
   const handlePress = useCallback(() => {
@@ -67,22 +97,19 @@ const HistoryRow = memo(function HistoryRow({ item, active, onSelect }: HistoryR
     <Pressable
       accessibilityRole="button"
       onPress={handlePress}
-      style={({ pressed }) => [
-        styles.historyRow,
-        active ? styles.historyRowActive : null,
-        pressed ? styles.historyRowPressed : null
-      ]}
+      className={cn(HISTORY_ROW_CLASS, active ? HISTORY_ROW_ACTIVE_CLASS : null)}
+      style={appHairlineStyles.borderBottom}
     >
-      <View style={styles.historyUnreadSlot}>{unread ? <View style={styles.historyUnreadDot} /> : null}</View>
-      <View style={styles.historyTextBlock}>
-        <Text numberOfLines={1} style={styles.historyTitle}>
+      <View className={HISTORY_UNREAD_SLOT_CLASS}>{unread ? <View className={HISTORY_UNREAD_DOT_CLASS} /> : null}</View>
+      <View className={HISTORY_TEXT_BLOCK_CLASS}>
+        <Text numberOfLines={1} className={HISTORY_TITLE_CLASS}>
           {item.title || item.conversationId}
         </Text>
-        <Text numberOfLines={1} style={styles.historyPreview}>
+        <Text numberOfLines={1} className={HISTORY_PREVIEW_CLASS}>
           {item.lastMessageText || t('history.noMessage')}
         </Text>
       </View>
-      <Text allowFontScaling={false} numberOfLines={1} style={styles.historyTime}>
+      <Text allowFontScaling={false} numberOfLines={1} className={HISTORY_TIME_CLASS}>
         {timestamp}
       </Text>
     </Pressable>
@@ -107,7 +134,6 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
 }: ChatDetailHistoryDrawerProps) {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const translateX = useRef(new Animated.Value(48)).current;
   const countLabel = useMemo(() => formatHistoryCountLabel(total, unreadTotal, t), [total, unreadTotal, t]);
   const renderHistoryItem = useCallback(
@@ -123,7 +149,7 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
     }
 
     if (!hasMore) {
-      return <Text style={styles.historyFooterText}>{countLabel}</Text>;
+      return <Text className={HISTORY_FOOTER_TEXT_CLASS}>{countLabel}</Text>;
     }
 
     return (
@@ -131,29 +157,16 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
         accessibilityRole="button"
         disabled={loadingMore}
         onPress={onLoadMore}
-        style={({ pressed }) => [styles.loadMoreButton, pressed && !loadingMore ? styles.loadMoreButtonPressed : null]}
+        className={LOAD_MORE_BUTTON_CLASS}
       >
         {loadingMore ? (
           <ActivityIndicator size="small" color={theme.colors.brandBlue} />
         ) : (
-          <Text style={styles.loadMoreText}>{t('history.loadMore', { count: countLabel })}</Text>
+          <Text className={LOAD_MORE_TEXT_CLASS}>{t('history.loadMore', { count: countLabel })}</Text>
         )}
       </Pressable>
     );
-  }, [
-    countLabel,
-    hasMore,
-    historyItems.length,
-    loading,
-    loadingMore,
-    onLoadMore,
-    styles.historyFooterText,
-    styles.loadMoreButton,
-    styles.loadMoreButtonPressed,
-    styles.loadMoreText,
-    t,
-    theme.colors.brandBlue
-  ]);
+  }, [countLabel, hasMore, historyItems.length, loading, loadingMore, onLoadMore, t, theme.colors.brandBlue]);
 
   useEffect(() => {
     if (!visible) {
@@ -175,22 +188,23 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
   }
 
   return (
-    <View pointerEvents="box-none" style={styles.drawerOverlay}>
-      <Pressable style={styles.drawerBackdrop} onPress={onClose} />
+    <View pointerEvents="box-none" className={DRAWER_OVERLAY_CLASS} style={DRAWER_OVERLAY_ELEVATION_STYLE}>
+      <Pressable className={DRAWER_BACKDROP_CLASS} onPress={onClose} />
       <Animated.View
+        className={DRAWER_PANEL_CLASS}
         style={[
-          styles.drawerPanel,
+          appHairlineStyles.borderLeft,
           {
             paddingTop: HISTORY_DRAWER_VERTICAL_PADDING,
-            paddingBottom: appVisualTokens.spacing.md,
+            paddingBottom: HISTORY_DRAWER_BOTTOM_PADDING,
             transform: [{ translateX }]
           }
         ]}
       >
-        <View style={styles.drawerHeader}>
-          <View style={styles.drawerHeaderText}>
-            <Text style={styles.drawerTitle}>{t('history.title')}</Text>
-            <Text style={styles.drawerSubtitle}>{countLabel}</Text>
+        <View className={DRAWER_HEADER_CLASS} style={appHairlineStyles.borderBottom}>
+          <View className={DRAWER_HEADER_TEXT_CLASS}>
+            <Text className={DRAWER_TITLE_CLASS}>{t('history.title')}</Text>
+            <Text className={DRAWER_SUBTITLE_CLASS}>{countLabel}</Text>
           </View>
           {unreadTotal > 0 ? (
             <Pressable
@@ -198,17 +212,14 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
               accessibilityRole="button"
               disabled={markingRead}
               onPress={onMarkAllRead}
-              style={({ pressed }) => [
-                styles.markReadButton,
-                pressed && !markingRead ? styles.markReadButtonPressed : null
-              ]}
+              className={MARK_READ_BUTTON_CLASS}
             >
               {markingRead ? (
                 <ActivityIndicator size="small" color={theme.colors.brandBlue} />
               ) : (
                 <>
                   <AppIcon usage="historyDrawer.markAllRead" />
-                  <Text style={styles.markReadText}>{t('history.markAllRead')}</Text>
+                  <Text className={MARK_READ_TEXT_CLASS}>{t('history.markAllRead')}</Text>
                 </>
               )}
             </Pressable>
@@ -217,17 +228,17 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
             accessibilityLabel={t('history.close')}
             accessibilityRole="button"
             onPress={onClose}
-            style={styles.drawerCloseButton}
+            className={DRAWER_CLOSE_BUTTON_CLASS}
           >
             <AppIcon usage="historyDrawer.close" />
           </Pressable>
         </View>
 
-        {errorText ? <Text style={styles.drawerErrorText}>{errorText}</Text> : null}
+        {errorText ? <Text className={DRAWER_ERROR_TEXT_CLASS}>{errorText}</Text> : null}
 
-        <View style={styles.historyListFrame}>
+        <View className={HISTORY_LIST_FRAME_CLASS}>
           {loading ? (
-            <View style={styles.historyStateBlock}>
+            <View className={HISTORY_STATE_BLOCK_CLASS}>
               <ActivityIndicator size="small" color={theme.colors.brandBlue} />
             </View>
           ) : (
@@ -238,7 +249,7 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
               drawDistance={HISTORY_DRAW_DISTANCE}
               getItemType={getHistoryItemType}
               showsVerticalScrollIndicator={false}
-              ListEmptyComponent={<Text style={styles.drawerEmptyText}>{t('history.empty')}</Text>}
+              ListEmptyComponent={<Text className={DRAWER_EMPTY_TEXT_CLASS}>{t('history.empty')}</Text>}
               ListFooterComponent={footer}
             />
           )}
@@ -247,181 +258,3 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
     </View>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    drawerOverlay: {
-      ...StyleSheet.absoluteFill,
-      justifyContent: 'center',
-      zIndex: HISTORY_DRAWER_OVERLAY_Z_INDEX,
-      elevation: HISTORY_DRAWER_OVERLAY_Z_INDEX
-    },
-    drawerBackdrop: {
-      ...StyleSheet.absoluteFill,
-      backgroundColor: theme.colors.overlay
-    },
-    drawerPanel: {
-      position: 'absolute',
-      top: 0,
-      right: 0,
-      bottom: 0,
-      width: '84%',
-      maxWidth: 360,
-      backgroundColor: theme.colors.surface,
-      borderLeftWidth: StyleSheet.hairlineWidth,
-      borderLeftColor: theme.colors.line
-    },
-    drawerHeader: {
-      minHeight: 58,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.sm,
-      paddingHorizontal: appVisualTokens.spacing.md,
-      paddingBottom: appVisualTokens.spacing.sm,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line
-    },
-    drawerHeaderText: {
-      flex: 1,
-      minWidth: 0
-    },
-    drawerTitle: {
-      fontSize: 17,
-      lineHeight: 23,
-      fontWeight: '700',
-      color: theme.colors.textPrimary
-    },
-    drawerSubtitle: {
-      marginTop: 2,
-      fontSize: 12,
-      lineHeight: 17,
-      fontWeight: '600',
-      color: theme.colors.textSecondary
-    },
-    drawerCloseButton: {
-      width: 34,
-      height: 34,
-      borderRadius: appVisualTokens.radii.pill,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    markReadButton: {
-      height: 32,
-      minWidth: 86,
-      borderRadius: appVisualTokens.radii.pill,
-      paddingHorizontal: appVisualTokens.spacing.sm,
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'center',
-      gap: 4,
-      backgroundColor: theme.colors.brandBlueSoft
-    },
-    markReadButtonPressed: {
-      opacity: 0.7
-    },
-    markReadText: {
-      fontSize: 12,
-      lineHeight: 17,
-      fontWeight: '700',
-      color: theme.colors.brandBlue
-    },
-    drawerErrorText: {
-      paddingHorizontal: appVisualTokens.spacing.md,
-      paddingVertical: appVisualTokens.spacing.sm,
-      fontSize: 12,
-      lineHeight: 17,
-      color: theme.colors.danger
-    },
-    historyListFrame: {
-      flex: 1,
-      paddingHorizontal: appVisualTokens.spacing.sm
-    },
-    historyStateBlock: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    drawerEmptyText: {
-      paddingHorizontal: appVisualTokens.spacing.sm,
-      paddingVertical: appVisualTokens.spacing.lg,
-      fontSize: 14,
-      lineHeight: 21,
-      color: theme.colors.textSecondary
-    },
-    historyRow: {
-      height: HISTORY_ROW_HEIGHT,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.sm,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line,
-      paddingHorizontal: appVisualTokens.spacing.sm
-    },
-    historyRowActive: {
-      backgroundColor: theme.colors.brandBlueSoft
-    },
-    historyRowPressed: {
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    historyUnreadSlot: {
-      width: 10,
-      alignItems: 'center'
-    },
-    historyUnreadDot: {
-      width: 8,
-      height: 8,
-      borderRadius: appVisualTokens.radii.pill,
-      backgroundColor: theme.colors.badge
-    },
-    historyTextBlock: {
-      flex: 1,
-      minWidth: 0,
-      justifyContent: 'center'
-    },
-    historyTitle: {
-      fontSize: 14,
-      lineHeight: 20,
-      fontWeight: '700',
-      color: theme.colors.textPrimary
-    },
-    historyPreview: {
-      marginTop: 2,
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '500',
-      color: theme.colors.textSecondary
-    },
-    historyTime: {
-      width: HISTORY_TIME_COLUMN_WIDTH,
-      flexShrink: 0,
-      textAlign: 'right',
-      fontSize: 12,
-      lineHeight: 18,
-      fontWeight: '600',
-      fontVariant: ['tabular-nums'],
-      color: theme.colors.textSecondary
-    },
-    historyFooterText: {
-      paddingVertical: appVisualTokens.spacing.md,
-      textAlign: 'center',
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '600',
-      color: theme.colors.textTertiary
-    },
-    loadMoreButton: {
-      minHeight: 44,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    loadMoreButtonPressed: {
-      opacity: 0.7
-    },
-    loadMoreText: {
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '700',
-      color: theme.colors.textSecondary
-    }
-  });
-}

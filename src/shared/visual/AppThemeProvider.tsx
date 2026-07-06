@@ -1,4 +1,5 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
+import { colorScheme as nativeWindColorScheme } from 'nativewind';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Appearance, useColorScheme, type ColorSchemeName } from 'react-native';
 import { MMKV } from 'react-native-mmkv';
@@ -70,6 +71,10 @@ export function AppThemeProvider({ children }: { children: ReactNode }) {
   const systemColorScheme = useColorScheme() ?? Appearance.getColorScheme();
   const resolvedPreference = resolveEffectiveThemePreference(preference, systemColorScheme);
   const theme = appThemeTokens[resolvedPreference];
+
+  useEffect(() => {
+    nativeWindColorScheme.set(preference);
+  }, [preference]);
 
   const setThemePreference = useCallback(
     (nextPreference: AppThemePreference) => {

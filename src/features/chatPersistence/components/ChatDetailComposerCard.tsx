@@ -1,11 +1,12 @@
 import { memo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Text, View } from 'react-native';
 
-import { useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
 import type { ChatComposerAttachment } from '../types';
 import { Composer, type ComposerAttachmentType } from './Composer';
 import type { ChatComposerPrimaryAction } from '../chatDetailViewModel';
+
+const COMPOSER_WRAP_CLASS = 'bg-app-background px-app-md pb-[6px] pt-[5px]';
+const ERROR_TEXT_CLASS = 'mt-app-sm px-app-md text-[13px] leading-[20px] text-app-danger';
 
 type ChatDetailComposerCardProps = {
   draft: string;
@@ -40,10 +41,8 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
   onRemoveAttachment,
   onRetryAttachment,
 }: ChatDetailComposerCardProps) {
-  const styles = useAppThemeStyles(createStyles);
-
   return (
-    <View style={styles.composerWrap}>
+    <View className={COMPOSER_WRAP_CLASS}>
       <Composer
         value={draft}
         attachments={attachments}
@@ -60,28 +59,10 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
         onTogglePlanMode={onTogglePlanMode}
       />
       {errorText ? (
-        <Text allowFontScaling={false} style={styles.errorText}>
+        <Text allowFontScaling={false} className={ERROR_TEXT_CLASS}>
           {errorText}
         </Text>
       ) : null}
     </View>
   );
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    composerWrap: {
-      paddingHorizontal: appVisualTokens.spacing.md,
-      paddingTop: 5,
-      paddingBottom: 6,
-      backgroundColor: theme.colors.background,
-    },
-    errorText: {
-      marginTop: appVisualTokens.spacing.sm,
-      paddingHorizontal: appVisualTokens.spacing.md,
-      fontSize: 13,
-      lineHeight: 20,
-      color: theme.colors.danger,
-    },
-  });
-}

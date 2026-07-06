@@ -1,10 +1,10 @@
 import { memo, type ReactNode, useCallback, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, View } from 'react-native';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
+import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
+import { cn } from '../../../shared/visual/className';
 
 type RuntimePayloadFrameProps = {
   descriptorId: string;
@@ -23,7 +23,6 @@ const RuntimeCopyButton = memo(function RuntimeCopyButton({
 }) {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const handleCopy = useCallback(() => {
     onCopyText(copyText);
   }, [copyText, onCopyText]);
@@ -33,7 +32,7 @@ const RuntimeCopyButton = memo(function RuntimeCopyButton({
       accessibilityLabel={t('timeline.copy')}
       accessibilityRole="button"
       onPress={handleCopy}
-      style={({ pressed }) => [styles.iconButton, pressed && styles.iconButtonPressed]}
+      className={ICON_BUTTON_CLASS}
     >
       <AppIcon usage="runtime.copy" color={theme.colors.textSecondary} />
     </Pressable>
@@ -49,7 +48,6 @@ export const RuntimePayloadFrame = memo(function RuntimePayloadFrame({
 }: RuntimePayloadFrameProps) {
   const t = useT();
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const [wrap, setWrap] = useState(defaultWrap);
 
   useEffect(() => {
@@ -61,17 +59,13 @@ export const RuntimePayloadFrame = memo(function RuntimePayloadFrame({
   const content = renderContent(wrap);
 
   return (
-    <View style={styles.frame}>
-      <View style={styles.toolbar}>
+    <View className={FRAME_CLASS}>
+      <View className={TOOLBAR_CLASS}>
         <Pressable
           accessibilityLabel={wrap ? t('timeline.wrapOff') : t('timeline.wrapOn')}
           accessibilityRole="button"
           onPress={handleToggleWrap}
-          style={({ pressed }) => [
-            styles.iconButton,
-            wrap && styles.iconButtonActive,
-            pressed && styles.iconButtonPressed
-          ]}
+          className={cn(ICON_BUTTON_CLASS, wrap ? ICON_BUTTON_ACTIVE_CLASS : null)}
         >
           <AppIcon
             usage={wrap ? 'runtime.wrapEnabled' : 'runtime.wrapDisabled'}
@@ -82,55 +76,20 @@ export const RuntimePayloadFrame = memo(function RuntimePayloadFrame({
       </View>
 
       {wrap ? (
-        <View style={styles.wrapContent}>{content}</View>
+        <View className={WRAP_CONTENT_CLASS}>{content}</View>
       ) : (
-        <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator style={styles.nowrapScroller}>
-          <View style={styles.nowrapContent}>{content}</View>
+        <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator className={NOWRAP_SCROLLER_CLASS}>
+          <View className={NOWRAP_CONTENT_CLASS}>{content}</View>
         </ScrollView>
       )}
     </View>
   );
 });
 
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    frame: {
-      marginTop: 8,
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.surfaceMuted,
-      paddingHorizontal: 10,
-      paddingTop: 7,
-      paddingBottom: 10
-    },
-    toolbar: {
-      minHeight: 22,
-      flexDirection: 'row',
-      justifyContent: 'flex-end',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.xs,
-      marginBottom: 5
-    },
-    iconButton: {
-      width: 24,
-      height: 24,
-      borderRadius: appVisualTokens.radii.sm,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    iconButtonActive: {
-      backgroundColor: theme.colors.brandBlueSoft
-    },
-    iconButtonPressed: {
-      opacity: 0.7
-    },
-    wrapContent: {
-      minWidth: 0
-    },
-    nowrapScroller: {
-      alignSelf: 'stretch'
-    },
-    nowrapContent: {
-      minWidth: 720
-    }
-  });
-}
+const FRAME_CLASS = 'mt-2 rounded-app-sm bg-app-surface-muted px-[10px] pb-[10px] pt-[7px]';
+const TOOLBAR_CLASS = 'mb-[5px] min-h-[22px] flex-row items-center justify-end gap-app-xs';
+const ICON_BUTTON_CLASS = 'h-6 w-6 items-center justify-center rounded-app-sm active:opacity-[0.7]';
+const ICON_BUTTON_ACTIVE_CLASS = 'bg-app-brand-blue-soft';
+const WRAP_CONTENT_CLASS = 'min-w-0';
+const NOWRAP_SCROLLER_CLASS = 'self-stretch';
+const NOWRAP_CONTENT_CLASS = 'min-w-[720px]';

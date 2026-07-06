@@ -2,7 +2,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
 import { memo, ReactNode, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getApiBaseUrl } from '../../core/api/apiClient';
@@ -15,8 +15,9 @@ import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { APP_VERSION, PRODUCT_NAME } from '../../shared/generated/brand';
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { type AppLocale, formatAccessExpiryLabel, type TFunction, useI18n } from '../../shared/i18n';
-import { useAppTheme, useAppThemeStyles } from '../../shared/visual/AppThemeProvider';
-import { appVisualTokens, getAvatarLabel, getAvatarTone, type AppThemeTokens } from '../../shared/visual/foundation';
+import { useAppTheme } from '../../shared/visual/AppThemeProvider';
+import { cn } from '../../shared/visual/className';
+import { appVisualTokens, getAvatarLabel, getAvatarTone } from '../../shared/visual/foundation';
 import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
 import type { AppThemePreference } from '../../shared/visual/themePreference';
 import {
@@ -28,6 +29,40 @@ import type { RootStackParamList } from '../navigation/types';
 
 const DEBUG_TRIGGER_TAP_COUNT = 3;
 const DEBUG_TRIGGER_RESET_MS = 1200;
+const SCREEN_CLASS = 'flex-1 bg-app-background-muted';
+const HEADER_SAFE_AREA_CLASS = 'bg-app-surface';
+const SCROLL_VIEW_CLASS = 'flex-1';
+const CONTENT_CLASS = 'pb-app-xxl';
+const PROFILE_HERO_CLASS = 'items-center border-b border-app-line bg-app-surface px-app-xl pb-app-xxl pt-app-xxl';
+const AVATAR_CLASS = 'mb-app-lg h-[82px] w-[82px] items-center justify-center rounded-app-pill';
+const AVATAR_TEXT_CLASS = 'text-app-hero font-extrabold';
+const PROFILE_NAME_CLASS = 'max-w-full text-center text-app-display-sm font-extrabold text-app-primary';
+const PROFILE_META_CLASS = 'mt-app-xs text-center text-[15px] font-semibold leading-[21px] text-app-secondary';
+const PROFILE_SUMMARY_CLASS = 'mt-app-xs max-w-[300px] text-center text-[13px] leading-[19px] text-app-tertiary';
+const SECTION_STACK_CLASS = 'gap-app-lg px-app-xl pt-app-lg';
+const SECTION_CLASS = 'gap-app-sm';
+const SECTION_TITLE_CLASS = 'ml-app-xs text-app-footnote font-bold text-app-secondary';
+const SECTION_CARD_CLASS = 'overflow-hidden rounded-app-lg border border-app-line bg-app-surface';
+const ROW_CLASS = 'min-h-[62px] flex-row items-center gap-app-md bg-app-surface px-app-lg py-app-md';
+const ROW_PRESSABLE_CLASS = `${ROW_CLASS} active:bg-app-surface-muted`;
+const ROW_DIVIDER_CLASS = 'border-t border-app-line';
+const ROW_ICON_SHELL_CLASS = 'h-10 w-10 items-center justify-center rounded-app-md bg-app-surface-muted';
+const ROW_TEXT_BLOCK_CLASS = 'min-w-0 flex-1 gap-0.5';
+const ROW_TITLE_CLASS = 'text-[15px] font-bold leading-[21px] text-app-primary';
+const ROW_DETAIL_CLASS = 'text-[13px] leading-[19px] text-app-secondary';
+const ROW_DETAIL_LINK_CLASS = 'text-app-brand-blue';
+const ROW_VALUE_CLASS = 'max-w-[132px] shrink text-right text-[15px] font-semibold leading-[21px] text-app-primary';
+const ROW_VALUE_LINK_CLASS = 'text-app-brand-blue';
+const ROW_VALUE_MUTED_CLASS = 'text-app-secondary';
+const BADGE_CLASS =
+  'min-h-[28px] justify-center rounded-app-sm border border-app-line-strong bg-app-brand-blue-soft px-app-sm';
+const BADGE_TEXT_CLASS = 'text-app-footnote font-bold text-app-brand-blue';
+const CHECK_CIRCLE_CLASS = 'h-[22px] w-[22px] items-center justify-center rounded-app-pill';
+const CHEVRON_RIGHT_CLASS = 'rotate-180';
+const LOGOUT_BUTTON_CLASS =
+  'mb-app-lg min-h-[52px] items-center justify-center rounded-app-lg border border-app-danger-line bg-app-surface active:bg-app-danger-soft';
+const LOGOUT_BUTTON_DISABLED_CLASS = 'opacity-[0.58]';
+const LOGOUT_BUTTON_TEXT_CLASS = 'text-[16px] font-extrabold leading-[22px] text-app-danger';
 
 function getDevelopmentDebugPanelEnabledSnapshot() {
   return getDevelopmentDebugPanelSnapshot().enabled;
@@ -153,19 +188,16 @@ function useDevelopmentDebugVersionTrigger() {
 }
 
 const MeSection = memo(function MeSection({ title, children }: MeSectionProps) {
-  const styles = useAppThemeStyles(createStyles);
-
   return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      <View style={styles.sectionCard}>{children}</View>
+    <View className={SECTION_CLASS}>
+      <Text className={SECTION_TITLE_CLASS}>{title}</Text>
+      <View className={SECTION_CARD_CLASS}>{children}</View>
     </View>
   );
 });
 
 function RowAccessoryView({ accessory }: { accessory?: RowAccessory }) {
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
 
   if (!accessory) {
     return null;
@@ -173,15 +205,15 @@ function RowAccessoryView({ accessory }: { accessory?: RowAccessory }) {
 
   if (accessory.kind === 'badge') {
     return (
-      <View style={styles.badge}>
-        <Text style={styles.badgeText}>{accessory.label}</Text>
+      <View className={BADGE_CLASS}>
+        <Text className={BADGE_TEXT_CLASS}>{accessory.label}</Text>
       </View>
     );
   }
 
   if (accessory.kind === 'check') {
     return (
-      <View style={styles.checkCircle}>
+      <View className={CHECK_CIRCLE_CLASS}>
         <AppIcon usage="settings.selected" color={theme.colors.success} size={16} />
       </View>
     );
@@ -192,7 +224,7 @@ function RowAccessoryView({ accessory }: { accessory?: RowAccessory }) {
   }
 
   return (
-    <View style={styles.chevronRight}>
+    <View className={CHEVRON_RIGHT_CLASS}>
       <AppIcon usage="chatDetail.back" color={theme.colors.textTertiary} size={20} />
     </View>
   );
@@ -209,32 +241,32 @@ const MeRow = memo(function MeRow({
   isFirst = false
 }: MeRowProps) {
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
+  const rowClass = cn(onPress ? ROW_PRESSABLE_CLASS : ROW_CLASS, !isFirst && ROW_DIVIDER_CLASS);
 
   const content = (
     <>
       {iconUsage ? (
-        <View style={styles.rowIconShell}>
+        <View className={ROW_ICON_SHELL_CLASS}>
           <AppIcon usage={iconUsage} color={theme.colors.textSecondary} size={22} />
         </View>
       ) : null}
-      <View style={styles.rowTextBlock}>
-        <Text style={styles.rowTitle} numberOfLines={1}>
+      <View className={ROW_TEXT_BLOCK_CLASS}>
+        <Text className={ROW_TITLE_CLASS} numberOfLines={1}>
           {title}
         </Text>
         {detail ? (
-          <Text style={[styles.rowDetail, valueTone === 'link' ? styles.rowDetailLink : null]} numberOfLines={2}>
+          <Text className={cn(ROW_DETAIL_CLASS, valueTone === 'link' && ROW_DETAIL_LINK_CLASS)} numberOfLines={2}>
             {detail}
           </Text>
         ) : null}
       </View>
       {value ? (
         <Text
-          style={[
-            styles.rowValue,
-            valueTone === 'link' ? styles.rowValueLink : null,
-            valueTone === 'muted' ? styles.rowValueMuted : null
-          ]}
+          className={cn(
+            ROW_VALUE_CLASS,
+            valueTone === 'link' && ROW_VALUE_LINK_CLASS,
+            valueTone === 'muted' && ROW_VALUE_MUTED_CLASS
+          )}
           numberOfLines={1}
         >
           {value}
@@ -243,10 +275,9 @@ const MeRow = memo(function MeRow({
       <RowAccessoryView accessory={accessory} />
     </>
   );
-  const rowStyle = [styles.row, isFirst ? null : styles.rowDivider];
 
   if (!onPress) {
-    return <View style={rowStyle}>{content}</View>;
+    return <View className={rowClass}>{content}</View>;
   }
 
   return (
@@ -254,7 +285,7 @@ const MeRow = memo(function MeRow({
       accessibilityRole="button"
       accessibilityLabel={title}
       onPress={onPress}
-      style={({ pressed }) => [rowStyle, pressed ? styles.rowPressed : null]}
+      className={rowClass}
     >
       {content}
     </Pressable>
@@ -263,23 +294,18 @@ const MeRow = memo(function MeRow({
 
 const LogoutButton = memo(function LogoutButton({ disabled, title, onPress }: LogoutButtonProps) {
   const { theme } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
 
   return (
     <Pressable
       accessibilityRole="button"
       disabled={disabled}
       onPress={onPress}
-      style={({ pressed }) => [
-        styles.logoutButton,
-        pressed && !disabled ? styles.logoutButtonPressed : null,
-        disabled ? styles.logoutButtonDisabled : null
-      ]}
+      className={cn(LOGOUT_BUTTON_CLASS, disabled && LOGOUT_BUTTON_DISABLED_CLASS)}
     >
       {disabled ? (
         <ActivityIndicator size="small" color={theme.colors.danger} />
       ) : (
-        <Text style={styles.logoutButtonText}>{title}</Text>
+        <Text className={LOGOUT_BUTTON_TEXT_CLASS}>{title}</Text>
       )}
     </Pressable>
   );
@@ -288,7 +314,6 @@ const LogoutButton = memo(function LogoutButton({ disabled, title, onPress }: Lo
 export function MeScreen() {
   const { locale, t } = useI18n();
   const { preference: themePreference } = useAppTheme();
-  const styles = useAppThemeStyles(createStyles);
   const { session } = useAuthSession();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const tabBarHeight = useAppTabBarHeight();
@@ -468,254 +493,64 @@ export function MeScreen() {
   );
 
   return (
-    <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafeArea}>
+    <View className={SCREEN_CLASS}>
+      <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
         <ScreenHeader title={t('me.title')} />
       </SafeAreaView>
 
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.content, { paddingBottom: contentBottomPadding }]}
+        className={SCROLL_VIEW_CLASS}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.profileHero}>
-          <View style={[styles.avatar, { backgroundColor: avatarTone.backgroundColor }]}>
-            <Text style={[styles.avatarText, { color: avatarTone.foregroundColor }]}>
-              {getAvatarLabel(accountName)}
+        <View className={CONTENT_CLASS} style={{ paddingBottom: contentBottomPadding }}>
+          <View className={PROFILE_HERO_CLASS}>
+            <View className={AVATAR_CLASS} style={{ backgroundColor: avatarTone.backgroundColor }}>
+              <Text className={AVATAR_TEXT_CLASS} style={{ color: avatarTone.foregroundColor }}>
+                {getAvatarLabel(accountName)}
+              </Text>
+            </View>
+            <Text className={PROFILE_NAME_CLASS} numberOfLines={1}>
+              {accountName}
+            </Text>
+            <Text className={PROFILE_META_CLASS} numberOfLines={2}>
+              {sessionStateText} · {modeLabel}
+            </Text>
+            <Text className={PROFILE_SUMMARY_CLASS} numberOfLines={2}>
+              {sessionSummary}
             </Text>
           </View>
-          <Text style={styles.profileName} numberOfLines={1}>
-            {accountName}
-          </Text>
-          <Text style={styles.profileMeta} numberOfLines={2}>
-            {sessionStateText} · {modeLabel}
-          </Text>
-          <Text style={styles.profileSummary} numberOfLines={2}>
-            {sessionSummary}
-          </Text>
-        </View>
 
-        <View style={styles.sectionStack}>
-          <MeSection title={t('me.section.session')}>
-            {sessionRows.map(({ key, ...row }, index) => (
-              <MeRow key={key} {...row} isFirst={index === 0} />
-            ))}
-          </MeSection>
+          <View className={SECTION_STACK_CLASS}>
+            <MeSection title={t('me.section.session')}>
+              {sessionRows.map(({ key, ...row }, index) => (
+                <MeRow key={key} {...row} isFirst={index === 0} />
+              ))}
+            </MeSection>
 
-          <MeSection title={t('me.section.device')}>
-            {deviceRows.map(({ key, ...row }, index) => (
-              <MeRow key={key} {...row} isFirst={index === 0} />
-            ))}
-          </MeSection>
+            <MeSection title={t('me.section.device')}>
+              {deviceRows.map(({ key, ...row }, index) => (
+                <MeRow key={key} {...row} isFirst={index === 0} />
+              ))}
+            </MeSection>
 
-          <MeSection title={t('me.section.about')}>
-            {aboutRows.map(({ key, ...row }, index) => (
-              <MeRow key={key} {...row} isFirst={index === 0} />
-            ))}
-          </MeSection>
+            <MeSection title={t('me.section.about')}>
+              {aboutRows.map(({ key, ...row }, index) => (
+                <MeRow key={key} {...row} isFirst={index === 0} />
+              ))}
+            </MeSection>
 
-          <MeSection title={t('me.section.actions')}>
-            {actionRows.map(({ key, ...row }, index) => (
-              <MeRow key={key} {...row} isFirst={index === 0} />
-            ))}
-          </MeSection>
+            <MeSection title={t('me.section.actions')}>
+              {actionRows.map(({ key, ...row }, index) => (
+                <MeRow key={key} {...row} isFirst={index === 0} />
+              ))}
+            </MeSection>
 
-          {showLogout ? (
-            <LogoutButton disabled={isSubmittingLogout} title={t('me.logout')} onPress={handleLogout} />
-          ) : null}
+            {showLogout ? (
+              <LogoutButton disabled={isSubmittingLogout} title={t('me.logout')} onPress={handleLogout} />
+            ) : null}
+          </View>
         </View>
       </ScrollView>
     </View>
   );
-}
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    screen: {
-      flex: 1,
-      backgroundColor: theme.colors.backgroundMuted
-    },
-    headerSafeArea: {
-      backgroundColor: theme.colors.surface
-    },
-    scrollView: {
-      flex: 1
-    },
-    content: {
-      paddingBottom: appVisualTokens.spacing.xxl
-    },
-    profileHero: {
-      alignItems: 'center',
-      paddingHorizontal: appVisualTokens.spacing.xl,
-      paddingTop: appVisualTokens.spacing.xxl,
-      paddingBottom: appVisualTokens.spacing.xxl,
-      backgroundColor: theme.colors.surface,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: theme.colors.line
-    },
-    avatar: {
-      width: 82,
-      height: 82,
-      borderRadius: appVisualTokens.radii.pill,
-      alignItems: 'center',
-      justifyContent: 'center',
-      marginBottom: appVisualTokens.spacing.lg
-    },
-    avatarText: {
-      fontSize: 32,
-      lineHeight: 38,
-      fontWeight: '800'
-    },
-    profileName: {
-      maxWidth: '100%',
-      fontSize: 24,
-      lineHeight: 30,
-      fontWeight: '800',
-      color: theme.colors.textPrimary,
-      textAlign: 'center'
-    },
-    profileMeta: {
-      marginTop: appVisualTokens.spacing.xs,
-      fontSize: 15,
-      lineHeight: 21,
-      fontWeight: '600',
-      color: theme.colors.textSecondary,
-      textAlign: 'center'
-    },
-    profileSummary: {
-      maxWidth: 300,
-      marginTop: appVisualTokens.spacing.xs,
-      fontSize: 13,
-      lineHeight: 19,
-      color: theme.colors.textTertiary,
-      textAlign: 'center'
-    },
-    sectionStack: {
-      paddingHorizontal: appVisualTokens.spacing.xl,
-      paddingTop: appVisualTokens.spacing.lg,
-      gap: appVisualTokens.spacing.lg
-    },
-    section: {
-      gap: appVisualTokens.spacing.sm
-    },
-    sectionTitle: {
-      marginLeft: appVisualTokens.spacing.xs,
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '700',
-      color: theme.colors.textSecondary
-    },
-    sectionCard: {
-      overflow: 'hidden',
-      borderRadius: appVisualTokens.radii.lg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.line,
-      backgroundColor: theme.colors.surface
-    },
-    row: {
-      minHeight: 62,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: appVisualTokens.spacing.md,
-      paddingHorizontal: appVisualTokens.spacing.lg,
-      paddingVertical: appVisualTokens.spacing.md,
-      backgroundColor: theme.colors.surface
-    },
-    rowDivider: {
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderTopColor: theme.colors.line
-    },
-    rowPressed: {
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    rowIconShell: {
-      width: 40,
-      height: 40,
-      borderRadius: appVisualTokens.radii.md,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.surfaceMuted
-    },
-    rowTextBlock: {
-      flex: 1,
-      minWidth: 0,
-      gap: 2
-    },
-    rowTitle: {
-      fontSize: 15,
-      lineHeight: 21,
-      fontWeight: '700',
-      color: theme.colors.textPrimary
-    },
-    rowDetail: {
-      fontSize: 13,
-      lineHeight: 19,
-      color: theme.colors.textSecondary
-    },
-    rowDetailLink: {
-      color: theme.colors.brandBlue
-    },
-    rowValue: {
-      maxWidth: 132,
-      flexShrink: 1,
-      fontSize: 15,
-      lineHeight: 21,
-      fontWeight: '600',
-      color: theme.colors.textPrimary,
-      textAlign: 'right'
-    },
-    rowValueLink: {
-      color: theme.colors.brandBlue
-    },
-    rowValueMuted: {
-      color: theme.colors.textSecondary
-    },
-    badge: {
-      minHeight: 28,
-      justifyContent: 'center',
-      paddingHorizontal: appVisualTokens.spacing.sm,
-      borderRadius: appVisualTokens.radii.sm,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.lineStrong,
-      backgroundColor: theme.colors.brandBlueSoft
-    },
-    badgeText: {
-      fontSize: 13,
-      lineHeight: 18,
-      fontWeight: '700',
-      color: theme.colors.brandBlue
-    },
-    checkCircle: {
-      width: 22,
-      height: 22,
-      borderRadius: appVisualTokens.radii.pill,
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    chevronRight: {
-      transform: [{ rotate: '180deg' }]
-    },
-    logoutButton: {
-      minHeight: 52,
-      marginBottom: appVisualTokens.spacing.lg,
-      alignItems: 'center',
-      justifyContent: 'center',
-      borderRadius: appVisualTokens.radii.lg,
-      borderWidth: 1,
-      borderColor: theme.colors.dangerLine,
-      backgroundColor: theme.colors.surface
-    },
-    logoutButtonPressed: {
-      backgroundColor: theme.colors.dangerSoft
-    },
-    logoutButtonDisabled: {
-      opacity: 0.58
-    },
-    logoutButtonText: {
-      fontSize: 16,
-      lineHeight: 22,
-      fontWeight: '800',
-      color: theme.colors.danger
-    }
-  });
 }

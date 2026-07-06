@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Image, StyleProp, StyleSheet, View, ViewStyle } from 'react-native';
+import { Image, StyleProp, View, ViewStyle } from 'react-native';
 import { SvgUri } from 'react-native-svg';
 
 import { AppIcon } from '../icons/AppIcon';
@@ -10,10 +10,13 @@ import {
   resolveAgentBuiltinIconName,
 } from './agentAvatarIcon.ts';
 import type { AgentAvatarIcon, AgentAvatarKind } from './agentAvatarTypes.ts';
-import { useAppThemeStyles } from './AppThemeProvider';
-import { appVisualTokens, getAvatarTone, type AppThemeTokens } from './foundation';
+import { appVisualTokens, getAvatarTone } from './foundation';
 
 export { AGENT_ICON_NAMES };
+
+const SHELL_CLASS = 'items-center justify-center overflow-hidden';
+const ICON_SHELL_CLASS = 'items-center justify-center overflow-hidden border border-app-line bg-app-surface-muted';
+const REMOTE_IMAGE_CLASS = 'h-full w-full';
 
 export type AgentAvatarProps = {
   icon?: AgentAvatarIcon | null;
@@ -30,7 +33,6 @@ export const AgentAvatar = memo(function AgentAvatar({
   size = 46,
   style,
 }: AgentAvatarProps) {
-  const styles = useAppThemeStyles(createStyles);
   const uri = resolveAgentAvatarUri(icon);
   const shellSizeStyle = {
     width: size,
@@ -41,10 +43,10 @@ export const AgentAvatar = memo(function AgentAvatar({
 
   if (uri) {
     return (
-      <View style={[styles.shell, styles.iconShell, shellSizeStyle, style]}>
+      <View className={ICON_SHELL_CLASS} style={[shellSizeStyle, style]}>
         {uri.type === 'svg' ? <SvgUri uri={uri.uri} width={innerSize} height={innerSize} /> : null}
         {uri.type === 'image' ? (
-          <Image source={{ uri: uri.uri }} resizeMode="cover" style={styles.remoteImage} />
+          <Image source={{ uri: uri.uri }} resizeMode="cover" className={REMOTE_IMAGE_CLASS} />
         ) : null}
       </View>
     );
@@ -54,7 +56,7 @@ export const AgentAvatar = memo(function AgentAvatar({
     const builtinName = resolveAgentBuiltinIconName(icon?.name);
     const iconName: AgentBuiltinIconKey = builtinName || 'default';
     return (
-      <View style={[styles.shell, styles.iconShell, shellSizeStyle, style]}>
+      <View className={ICON_SHELL_CLASS} style={[shellSizeStyle, style]}>
         <AgentBuiltinIcon name={iconName} size={innerSize} />
       </View>
     );
@@ -64,8 +66,8 @@ export const AgentAvatar = memo(function AgentAvatar({
   if (type === 'team') {
     return (
       <View
+        className={SHELL_CLASS}
         style={[
-          styles.shell,
           shellSizeStyle,
           { backgroundColor: icon?.color || tone.backgroundColor },
           style,
@@ -82,22 +84,3 @@ export const AgentAvatar = memo(function AgentAvatar({
 
   return null;
 });
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    shell: {
-      alignItems: 'center',
-      justifyContent: 'center',
-      overflow: 'hidden',
-    },
-    iconShell: {
-      backgroundColor: theme.colors.surfaceMuted,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.colors.line,
-    },
-    remoteImage: {
-      width: '100%',
-      height: '100%',
-    },
-  });
-}

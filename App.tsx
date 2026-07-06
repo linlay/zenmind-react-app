@@ -13,6 +13,7 @@ import { AppThemeProvider } from './src/shared/visual/AppThemeProvider';
 const NATIVE_SPLASH_FADE_DURATION_MS = 220;
 // Increase this value to keep the React-side launch animation visible longer after handoff.
 const APP_LAUNCH_OVERLAY_MIN_VISIBLE_MS = 1400;
+const APP_ROOT_CLASS = 'flex-1';
 
 SplashScreen.preventAutoHideAsync().catch(() => {
   // Ignore repeated or unsupported calls; the app still boots normally.
@@ -46,7 +47,7 @@ export default function App() {
     <SafeAreaProvider>
       <AppThemeProvider>
         <I18nProvider>
-          <View style={{ flex: 1 }}>
+          <View className={APP_ROOT_CLASS}>
             <AppRoot onNavigationReady={() => setIsNavigationReady(true)} />
             {shouldRenderLaunchSkeleton ? (
               <AppLaunchSkeleton

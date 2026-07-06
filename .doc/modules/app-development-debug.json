@@ -43,13 +43,14 @@
     "dependencies": [
       "core-api-client",
       "core-debug-logging",
-      "feature-chat-realtime"
+      "feature-chat-realtime",
+      "shared-visual-foundation"
     ],
     "dependents": [
       "app-shell-navigation"
     ],
     "tests": [],
-    "lastScannedAt": ""
+    "lastScannedAt": "2026-07-03T10:07:35Z"
   },
   "readHints": {
     "alwaysRead": [

@@ -6,6 +6,7 @@ const { functionMapBabelPlugin } = require('metro-source-map');
 const { importLocationsPlugin } = require('metro/private/ModuleGraph/worker/importLocationsPlugin');
 
 const projectRoot = path.resolve(__dirname, '..', '..');
+const workspaceNodeModulesDir = path.resolve(projectRoot, '..', 'node_modules');
 const metroConfig = getDefaultConfig(projectRoot);
 const metroBabelTransformer = require(metroConfig.transformer.babelTransformerPath);
 const metroBabelPlugins = [functionMapBabelPlugin, importLocationsPlugin];
@@ -20,6 +21,7 @@ const projectGeneratedWorkletsDir = path.join(
   '.worklets'
 );
 const projectWorkletsPackageDir = path.join(projectRoot, 'node_modules', 'react-native-worklets');
+const cssInteropPackageDir = path.dirname(require.resolve('react-native-css-interop/package.json'));
 
 const sourceRoots = [
   'App.tsx',
@@ -32,6 +34,10 @@ const sourceRoots = [
   'node_modules/react-native-worklets/src',
   'node_modules/react-native-worklets/lib/module',
   'node_modules/remend',
+  path.join(workspaceNodeModulesDir, 'react-native-css-interop', 'src'),
+  path.join(workspaceNodeModulesDir, 'react-native-css-interop', 'dist'),
+  path.join(cssInteropPackageDir, 'src'),
+  path.join(cssInteropPackageDir, 'dist'),
 ];
 
 const sourceExtensions = new Set(['.js', '.jsx', '.mjs', '.ts', '.tsx']);
@@ -376,11 +382,14 @@ void (() => {
 function main() {
   const deletedPackageGeneratedCount = clearGeneratedJsFiles(packageGeneratedWorkletsDir);
   const sourceCandidates = new Set();
-  for (const relativeRoot of sourceRoots) {
+  for (const sourceRoot of sourceRoots) {
     // Keep both paths: Metro can transform either the project node_modules
     // symlink path or pnpm's real .pnpm path, and filenames participate in the
     // Worklets hash.
-    collectSourceRoot(path.join(projectRoot, relativeRoot), sourceCandidates);
+    collectSourceRoot(
+      path.isAbsolute(sourceRoot) ? sourceRoot : path.join(projectRoot, sourceRoot),
+      sourceCandidates
+    );
   }
 
   let copiedCount = 0;

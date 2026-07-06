@@ -1,10 +1,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { AwaitingSubmitParamData, AwaitingSubmitPayloadData } from '../../../../core/api/services/chatApi';
 import { useT } from '../../../../shared/i18n';
-import { useAppThemeStyles } from '../../../../shared/visual/AppThemeProvider';
-import { appVisualTokens, type AppThemeTokens } from '../../../../shared/visual/foundation';
+import { cn } from '../../../../shared/visual/className';
 import type { ChatConversationAwaitingState } from '../../../chatRealtime/types';
 import {
   type ChatTimelineAwaitingForm,
@@ -28,6 +27,22 @@ type AwaitingFormPanelProps = {
   submitting: boolean;
   submitPayload: (payload: AwaitingSubmitPayloadData) => void;
 };
+const HEADER_CLASS = 'min-h-8 flex-row items-start justify-between gap-app-md';
+const QUESTION_TEXT_CLASS = 'min-w-0 flex-1 gap-1';
+const HEADING_CLASS = 'text-[15px] font-extrabold leading-[21px] text-app-primary';
+const PROMPT_CLASS = 'text-[12px] leading-[17px] text-app-secondary';
+const FORM_SWITCHER_CLASS = 'h-[28px] shrink-0 flex-row items-center gap-1';
+const FORM_SWITCH_BUTTON_CLASS =
+  'h-[28px] w-[28px] items-center justify-center rounded-app-sm bg-app-surface-muted active:opacity-[0.72]';
+const FORM_SWITCH_ARROW_CLASS = 'text-[24px] font-extrabold leading-[26px] text-app-primary';
+const FORM_SWITCH_TEXT_CLASS = 'min-w-9 text-center text-[12px] font-extrabold leading-4 text-app-secondary';
+const PANEL_SCROLL_CLASS = 'max-h-[240px]';
+const CARD_LIST_CLASS = 'gap-app-sm';
+const AWAITING_CARD_CLASS = 'relative gap-app-sm rounded-app-md border border-app-line bg-app-background p-app-md';
+const ITEM_TITLE_CLASS = 'pr-[22px] text-[14px] font-extrabold leading-[19px] text-app-primary';
+const MONO_PAYLOAD_CLASS =
+  'rounded-app-sm bg-app-surface-muted px-2 py-[7px] text-[12px] leading-[17px] text-app-secondary';
+const DISABLED_BUTTON_CLASS = 'opacity-[0.38]';
 
 function formatFormValue(form: ChatTimelineAwaitingForm): string {
   if (form.form === null || form.form === undefined) {
@@ -54,16 +69,15 @@ function clampFormIndex(index: number, formsLength: number): number {
 }
 
 const FormFallbackItem = memo(function FormFallbackItem({ form }: { form: ChatTimelineAwaitingForm }) {
-  const styles = useAppThemeStyles(createStyles);
   const formatted = useMemo(() => formatFormValue(form), [form]);
 
   return (
-    <View style={styles.awaitingCard}>
-      <Text allowFontScaling={false} style={styles.itemTitle}>
+    <View className={AWAITING_CARD_CLASS}>
+      <Text allowFontScaling={false} className={ITEM_TITLE_CLASS}>
         {form.title || form.action || form.id}
       </Text>
       {formatted ? (
-        <Text allowFontScaling={false} selectable style={styles.monoPayload}>
+        <Text allowFontScaling={false} selectable className={MONO_PAYLOAD_CLASS}>
           {formatted}
         </Text>
       ) : null}
@@ -73,7 +87,6 @@ const FormFallbackItem = memo(function FormFallbackItem({ form }: { form: ChatTi
 
 export function AwaitingFormPanel({ awaiting, disabled, submitting, submitPayload }: AwaitingFormPanelProps) {
   const t = useT();
-  const styles = useAppThemeStyles(createStyles);
   const sourceForms = awaiting.interactive.forms;
   const sourceFormsRef = useRef(sourceForms);
   const sourceFormsSignature = useMemo(() => getFormsSignature(sourceForms), [sourceForms]);
@@ -214,35 +227,34 @@ export function AwaitingFormPanel({ awaiting, disabled, submitting, submitPayloa
 
   return (
     <>
-      <View style={styles.header}>
-        <View style={styles.questionText}>
-          <Text allowFontScaling={false} style={styles.heading}>
+      <View className={HEADER_CLASS}>
+        <View className={QUESTION_TEXT_CLASS}>
+          <Text allowFontScaling={false} className={HEADING_CLASS}>
             {activeForm?.title || activeForm?.action || awaiting.prompt || t('awaiting.form.title')}
           </Text>
           {awaiting.payloadText ? (
-            <Text allowFontScaling={false} numberOfLines={2} style={styles.prompt}>
+            <Text allowFontScaling={false} numberOfLines={2} className={PROMPT_CLASS}>
               {awaiting.payloadText}
             </Text>
           ) : null}
         </View>
         {hasHtmlViewport && forms.length > 1 ? (
-          <View style={styles.formSwitcher}>
+          <View className={FORM_SWITCHER_CLASS}>
             <Pressable
               accessibilityRole="button"
               accessibilityState={{ disabled: switchDisabled || resolvedActiveFormIndex <= 0 }}
               disabled={switchDisabled || resolvedActiveFormIndex <= 0}
               onPress={() => void switchForm(resolvedActiveFormIndex - 1)}
-              style={({ pressed }) => [
-                styles.formSwitchButton,
-                (switchDisabled || resolvedActiveFormIndex <= 0) && styles.disabledButton,
-                pressed && styles.pressed,
-              ]}
+              className={cn(
+                FORM_SWITCH_BUTTON_CLASS,
+                switchDisabled || resolvedActiveFormIndex <= 0 ? DISABLED_BUTTON_CLASS : null
+              )}
             >
-              <Text allowFontScaling={false} style={styles.formSwitchArrow}>
+              <Text allowFontScaling={false} className={FORM_SWITCH_ARROW_CLASS}>
                 ‹
               </Text>
             </Pressable>
-            <Text allowFontScaling={false} numberOfLines={1} style={styles.formSwitchText}>
+            <Text allowFontScaling={false} numberOfLines={1} className={FORM_SWITCH_TEXT_CLASS}>
               {resolvedActiveFormIndex + 1}/{forms.length}
             </Text>
             <Pressable
@@ -250,13 +262,12 @@ export function AwaitingFormPanel({ awaiting, disabled, submitting, submitPayloa
               accessibilityState={{ disabled: switchDisabled || resolvedActiveFormIndex >= forms.length - 1 }}
               disabled={switchDisabled || resolvedActiveFormIndex >= forms.length - 1}
               onPress={() => void switchForm(resolvedActiveFormIndex + 1)}
-              style={({ pressed }) => [
-                styles.formSwitchButton,
-                (switchDisabled || resolvedActiveFormIndex >= forms.length - 1) && styles.disabledButton,
-                pressed && styles.pressed,
-              ]}
+              className={cn(
+                FORM_SWITCH_BUTTON_CLASS,
+                switchDisabled || resolvedActiveFormIndex >= forms.length - 1 ? DISABLED_BUTTON_CLASS : null
+              )}
             >
-              <Text allowFontScaling={false} style={styles.formSwitchArrow}>
+              <Text allowFontScaling={false} className={FORM_SWITCH_ARROW_CLASS}>
                 ›
               </Text>
             </Pressable>
@@ -276,8 +287,8 @@ export function AwaitingFormPanel({ awaiting, disabled, submitting, submitPayloa
           onError={setErrorText}
         />
       ) : (
-        <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} style={styles.panelScroll}>
-          <View style={styles.cardList}>
+        <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={false} className={PANEL_SCROLL_CLASS}>
+          <View className={CARD_LIST_CLASS}>
             {forms.map((form) => (
               <FormFallbackItem key={form.id} form={form} />
             ))}
@@ -297,98 +308,4 @@ export function AwaitingFormPanel({ awaiting, disabled, submitting, submitPayloa
       />
     </>
   );
-}
-
-function createStyles(theme: AppThemeTokens) {
-  return StyleSheet.create({
-    header: {
-      minHeight: 32,
-      flexDirection: 'row',
-      alignItems: 'flex-start',
-      justifyContent: 'space-between',
-      gap: appVisualTokens.spacing.md,
-    },
-    questionText: {
-      flex: 1,
-      minWidth: 0,
-      gap: 4,
-    },
-    heading: {
-      fontSize: 15,
-      lineHeight: 21,
-      fontWeight: '800',
-      color: theme.colors.textPrimary,
-    },
-    prompt: {
-      fontSize: 12,
-      lineHeight: 17,
-      color: theme.colors.textSecondary,
-    },
-    formSwitcher: {
-      height: 28,
-      flexShrink: 0,
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: 4,
-    },
-    formSwitchButton: {
-      width: 28,
-      height: 28,
-      borderRadius: appVisualTokens.radii.sm,
-      alignItems: 'center',
-      justifyContent: 'center',
-      backgroundColor: theme.colors.surfaceMuted,
-    },
-    formSwitchArrow: {
-      fontSize: 24,
-      lineHeight: 26,
-      fontWeight: '800',
-      color: theme.colors.textPrimary,
-    },
-    formSwitchText: {
-      minWidth: 36,
-      textAlign: 'center',
-      fontSize: 12,
-      lineHeight: 16,
-      fontWeight: '800',
-      color: theme.colors.textSecondary,
-    },
-    panelScroll: {
-      maxHeight: 240,
-    },
-    cardList: {
-      gap: appVisualTokens.spacing.sm,
-    },
-    awaitingCard: {
-      position: 'relative',
-      gap: appVisualTokens.spacing.sm,
-      borderRadius: appVisualTokens.radii.md,
-      borderWidth: 1,
-      borderColor: theme.colors.line,
-      backgroundColor: theme.colors.background,
-      padding: appVisualTokens.spacing.md,
-    },
-    itemTitle: {
-      paddingRight: 22,
-      fontSize: 14,
-      lineHeight: 19,
-      fontWeight: '800',
-      color: theme.colors.textPrimary,
-    },
-    monoPayload: {
-      borderRadius: appVisualTokens.radii.sm,
-      backgroundColor: theme.colors.surfaceMuted,
-      paddingHorizontal: 8,
-      paddingVertical: 7,
-      fontSize: 12,
-      lineHeight: 17,
-      color: theme.colors.textSecondary,
-    },
-    disabledButton: {
-      opacity: 0.38,
-    },
-    pressed: {
-      opacity: 0.72,
-    },
-  });
 }

@@ -184,6 +184,36 @@
       ]
     },
     {
+      "id": "ui-static-style-tailwind-first",
+      "title": "静态样式优先使用 Tailwind className",
+      "statement": "新增或改造 UI 时，静态布局、颜色、字号、间距、圆角、边框和有限状态外观默认用 NativeWind/Tailwind className 常量表达；只有真实动态值、动画值、运行时测量值、safe area/tab bar/keyboard inset、服务端/品牌/头像动态颜色、WebView/CameraView/FlashList/公开 style API 或阴影 shadowColor/elevation 等场景，才保留最小 style。",
+      "appliesTo": [
+        "app-shell-navigation",
+        "feature-agent-task-board",
+        "feature-auth-login",
+        "feature-chat-persistence",
+        "shared-conversation-content-renderer",
+        "shared-paginated-list",
+        "shared-screen-header",
+        "shared-visual-foundation"
+      ],
+      "protectedModules": [
+        "app-shell-navigation",
+        "feature-agent-task-board",
+        "feature-auth-login",
+        "feature-chat-persistence",
+        "shared-paginated-list",
+        "shared-screen-header",
+        "shared-visual-foundation"
+      ],
+      "checkHints": [
+        "静态 View/Text/Pressable/Image 外观优先抽成稳定 className 常量，不新增 StyleSheet.create 作为默认路径。",
+        "不要动态拼接未知 Tailwind 类名；有限状态用显式 className 分支或 cn(...) 合并。",
+        "保留 style 时应能归因为动态 inset、动画、测量、动态颜色、第三方/公开 API 或阴影/elevation。",
+        "新增颜色、间距、圆角或字号语义先沉淀到 src/shared/visual/foundation.tokens.json 和 tailwind.config.js。"
+      ]
+    },
+    {
       "id": "dependency-change-package-json-only",
       "title": "依赖变更只改 package.json",
       "statement": "涉及 npm / pnpm / yarn / bun 依赖新增、升级、降级、移除或版本声明调整时，AI 只能修改 package.json，不修改 lock 文件、不运行安装命令。",
