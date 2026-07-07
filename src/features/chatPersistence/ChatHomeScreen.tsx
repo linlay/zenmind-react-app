@@ -22,17 +22,16 @@ import { appVisualTokens } from '../../shared/visual/foundation';
 import { appHairlineStyles } from '../../shared/visual/hairline';
 import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
+import { buildChatDetailRouteParams } from './chatDetailNavigation';
+import { prewarmAgentDetailForEmptyConversation } from './chatDetailPrefetch';
 import {
   createConversationForDirectoryItem,
-  type DirectoryConversationOpenResult,
   getCollapsedChatDirectorySlice,
-  getChatDirectoryCatalogPage,
   getChatDirectorySlice,
   prewarmChatHomeDirectory,
   resolveDirectoryItemConversationOpenTarget,
   setChatDirectoryItemPinned
 } from './chatRepository';
-import { createChatConversationTarget } from './chatConversationTarget';
 import {
   CHAT_DIRECTORY_ROW_HEIGHT,
   ChatDirectoryRow,
@@ -40,22 +39,23 @@ import {
   type ChatDirectoryDisplayItem,
   type ChatDirectoryRowActionAnchor,
 } from './components/ChatDirectoryRow';
-import { ChatDirectoryPickerDrawer } from './components/ChatDirectoryPickerDrawer';
 import { ChatDirectorySearchOverlay } from './components/ChatDirectorySearchOverlay';
-import { patchDirectoryListPreviewByConversation, type ChatDirectoryListState } from './chatRealtimeUiState';
+import {
+  buildDirectoryListState,
+  patchDirectoryListPreviewByConversation,
+  type ChatDirectoryListState,
+} from './chatRealtimeUiState';
 import { readChatDirectorySnapshot } from './homeSnapshot';
-import { ChatDirectoryItem, ChatDetailRouteParams } from './types';
+import type { ChatDirectoryItem } from './types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../app/navigation/types';
 
 const CHAT_PAGE_SIZE = 6;
-const DIRECTORY_PICKER_PAGE_SIZE = 18;
 const CHAT_HOME_AUTOSCROLL_TO_TOP_THRESHOLD = CHAT_DIRECTORY_ROW_HEIGHT;
 const PIN_FOLD_ROW_HEIGHT = 54;
 const PIN_MENU_ROW_HEIGHT = 58;
 const SCREEN_CLASS = 'flex-1 bg-app-surface';
 const HEADER_SAFE_AREA_CLASS = 'bg-app-surface';
-const HEADER_ICON_GLYPH_CLASS = 'h-10 w-10 items-center justify-center';
 const HEADER_ICON_BUTTON_CLASS = 'h-10 w-10 items-center justify-center active:opacity-[0.68]';
 const HEADER_WITHOUT_DIVIDER_CLASS = 'h-14 bg-app-surface';
 const LIST_SHELL_CLASS = 'flex-1 bg-app-surface';
@@ -82,46 +82,6 @@ const PIN_MENU_ELEVATION_STYLE = {
   elevation: 8
 } satisfies ViewStyle;
 
-function getChatDetailTargetParams(
-  item: ChatDirectoryItem
-): Pick<ChatDetailRouteParams, 'conversationSubtitle' | 'conversationTarget'> {
-  const conversationTarget = createChatConversationTarget(item);
-
-  return {
-    conversationSubtitle: conversationTarget?.subtitle ?? item.subtitle,
-    ...(conversationTarget ? { conversationTarget } : {})
-  };
-}
-
-function buildChatDetailRouteParams(
-  item: ChatDirectoryItem,
-  result: DirectoryConversationOpenResult
-): ChatDetailRouteParams {
-  return {
-    conversationId: result.conversation.conversationId,
-    ...getChatDetailTargetParams(item),
-    initialConversation: result.conversation,
-    ...(result.historyScope ? { historyScope: result.historyScope } : {}),
-    skipInitialReconcile: result.skipInitialReconcile
-  };
-}
-
-function prewarmAgentDetailForEmptyConversation(
-  item: ChatDirectoryItem,
-  result: DirectoryConversationOpenResult
-) {
-  if (!result.skipInitialReconcile || String(result.conversation.lastMessageText || '').trim()) {
-    return;
-  }
-
-  const agentKey = String(item.agentKey || result.historyScope?.agentKey || '').trim();
-  if (!agentKey) {
-    return;
-  }
-
-  void chatSyncService.ensureAgentDetail(agentKey);
-}
-
 type ChatRowComponentProps = {
   item: ChatListItem;
   index: number;
@@ -136,52 +96,6 @@ type PinnedFoldDisplayItem = {
 };
 
 type ChatListItem = ChatDirectoryDisplayItem | PinnedFoldDisplayItem;
-
-function buildDirectoryListState(items: ChatDirectoryItem[], total: number): ChatDirectoryListState {
-  const itemsById: Record<string, ChatDirectoryItem> = {};
-  const orderedIds: string[] = [];
-
-  items.forEach((item) => {
-    itemsById[item.id] = item;
-    orderedIds.push(item.id);
-  });
-
-  return {
-    orderedIds,
-    itemsById,
-    total
-  };
-}
-
-function appendDirectoryListState(
-  current: ChatDirectoryListState,
-  items: ChatDirectoryItem[],
-  total: number
-): ChatDirectoryListState {
-  const itemsById: Record<string, ChatDirectoryItem> = { ...current.itemsById };
-  const orderedIds = [...current.orderedIds];
-
-  items.forEach((item) => {
-    if (!itemsById[item.id]) {
-      orderedIds.push(item.id);
-    }
-    itemsById[item.id] = item;
-  });
-
-  return {
-    orderedIds,
-    itemsById,
-    total
-  };
-}
-
-const HeaderIconGlyph = memo(function HeaderIconGlyph({ usage }: { usage: AppIconUsage }) {
-  return (
-    <View className={HEADER_ICON_GLYPH_CLASS}>
-      <AppIcon usage={usage} />
-    </View>
-  );
-});
 
 const HeaderIconButton = memo(function HeaderIconButton({
   usage,
@@ -255,18 +169,10 @@ export function ChatHomeScreen() {
   const isFocused = useIsFocused();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [homeState, setHomeState] = useState<ChatDirectoryListState>(() => buildDirectoryListState([], 0));
-  const [directoryPickerState, setDirectoryPickerState] = useState<ChatDirectoryListState>(() =>
-    buildDirectoryListState([], 0)
-  );
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [errorText, setErrorText] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
-  const [isDirectoryPickerOpen, setIsDirectoryPickerOpen] = useState(false);
-  const [directoryPickerLoading, setDirectoryPickerLoading] = useState(false);
-  const [directoryPickerLoadingMore, setDirectoryPickerLoadingMore] = useState(false);
-  const [directoryPickerErrorText, setDirectoryPickerErrorText] = useState('');
-  const [openingPickerItemId, setOpeningPickerItemId] = useState<string | null>(null);
   const [isBootstrapReady, setIsBootstrapReady] = useState(false);
   const [pinActionTarget, setPinActionTarget] = useState<ChatDirectoryItem | null>(null);
   const [pinActionAnchor, setPinActionAnchor] = useState<ChatDirectoryRowActionAnchor | null>(null);
@@ -274,7 +180,6 @@ export function ChatHomeScreen() {
   const [pinnedTotal, setPinnedTotal] = useState(0);
 
   const currentPageRef = useRef(1);
-  const directoryPickerPageRef = useRef(1);
   const previousFocusRef = useRef(isFocused);
   const visibleConversationIdsRef = useRef<Set<string>>(new Set());
   const openingDirectoryItemIdRef = useRef<string | null>(null);
@@ -285,17 +190,9 @@ export function ChatHomeScreen() {
         .filter((item): item is ChatDirectoryItem => Boolean(item)),
     [homeState.itemsById, homeState.orderedIds]
   );
-  const directoryPickerItems = useMemo(
-    () =>
-      directoryPickerState.orderedIds
-        .map((id) => directoryPickerState.itemsById[id])
-        .filter((item): item is ChatDirectoryItem => Boolean(item)),
-    [directoryPickerState.itemsById, directoryPickerState.orderedIds]
-  );
   const total = homeState.total;
   const hasMore = items.length < total;
-  const directoryPickerTotal = directoryPickerState.total;
-  const directoryPickerHasMore = directoryPickerItems.length < directoryPickerTotal;
+  const firstVisibleAgent = useMemo(() => items.find((item) => item.kind === 'agent') ?? null, [items]);
 
   useEffect(() => {
     visibleConversationIdsRef.current = new Set(
@@ -369,17 +266,6 @@ export function ChatHomeScreen() {
     currentPageRef.current = pageCount;
   }, []);
 
-  const loadDirectoryPickerPage = useCallback(async (pageCount: number) => {
-    const directory = await getChatDirectoryCatalogPage(pageCount, DIRECTORY_PICKER_PAGE_SIZE);
-
-    setDirectoryPickerState((current) =>
-      directory.page <= 1
-        ? buildDirectoryListState(directory.items, directory.total)
-        : appendDirectoryListState(current, directory.items, directory.total)
-    );
-    directoryPickerPageRef.current = directory.page;
-  }, []);
-
   const handleTogglePinnedCollapse = useCallback(() => {
     const nextCollapsed = !arePinnedItemsCollapsed;
     setArePinnedItemsCollapsed(nextCollapsed);
@@ -388,35 +274,8 @@ export function ChatHomeScreen() {
   }, [arePinnedItemsCollapsed, loadVisibleSlice]);
 
   const handleOpenDirectoryPicker = useCallback(() => {
-    if (isDirectoryPickerOpen || directoryPickerLoading) {
-      return;
-    }
-
-    setIsDirectoryPickerOpen(true);
-    setDirectoryPickerErrorText('');
-    setDirectoryPickerLoading(true);
-    directoryPickerPageRef.current = 1;
-
-    const openDirectoryPicker = async () => {
-      try {
-        await loadDirectoryPickerPage(1);
-      } catch (error) {
-        setDirectoryPickerErrorText(error instanceof Error ? error.message : String(error));
-      } finally {
-        setDirectoryPickerLoading(false);
-      }
-    };
-
-    void openDirectoryPicker();
-  }, [directoryPickerLoading, isDirectoryPickerOpen, loadDirectoryPickerPage]);
-
-  const handleCloseDirectoryPicker = useCallback(() => {
-    if (openingPickerItemId) {
-      return;
-    }
-
-    setIsDirectoryPickerOpen(false);
-  }, [openingPickerItemId]);
+    navigation.navigate('ChatDirectoryPickerOverlay');
+  }, [navigation]);
 
   const handleOpenSearch = useCallback(() => {
     setIsSearchOpen(true);
@@ -434,61 +293,41 @@ export function ChatHomeScreen() {
     [handleItemPress]
   );
 
-  const handleLoadMoreDirectoryPicker = useCallback(async () => {
-    if (!directoryPickerHasMore || directoryPickerLoading || directoryPickerLoadingMore) {
-      return;
-    }
-
-    setDirectoryPickerLoadingMore(true);
-    setDirectoryPickerErrorText('');
-
-    try {
-      await loadDirectoryPickerPage(directoryPickerPageRef.current + 1);
-    } catch (error) {
-      setDirectoryPickerErrorText(error instanceof Error ? error.message : String(error));
-    } finally {
-      setDirectoryPickerLoadingMore(false);
-    }
-  }, [directoryPickerHasMore, directoryPickerLoading, directoryPickerLoadingMore, loadDirectoryPickerPage]);
-
-  const handleDirectoryPickerItemPress = useCallback(
-    (item: ChatDirectoryItem) => {
+  const openNewConversationForDirectoryItem = useCallback(
+    async (item: ChatDirectoryItem) => {
       if (openingDirectoryItemIdRef.current) {
         return;
       }
 
-      const openNewDirectoryConversation = async () => {
-        openingDirectoryItemIdRef.current = item.id;
-        setOpeningPickerItemId(item.id);
-        setDirectoryPickerErrorText('');
-        setErrorText('');
+      openingDirectoryItemIdRef.current = item.id;
+      setErrorText('');
 
-        try {
-          const result = await createConversationForDirectoryItem(item.id);
-          if (!result) {
-            const message = t('chatHome.error.missingDirectoryTarget');
-            setDirectoryPickerErrorText(message);
-            setErrorText(message);
-            return;
-          }
-
-          prewarmAgentDetailForEmptyConversation(item, result);
-          setIsDirectoryPickerOpen(false);
-          navigation.navigate('ChatDetail', buildChatDetailRouteParams(item, result));
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          setDirectoryPickerErrorText(message);
-          setErrorText(message);
-        } finally {
-          openingDirectoryItemIdRef.current = null;
-          setOpeningPickerItemId(null);
+      try {
+        const result = await createConversationForDirectoryItem(item.id);
+        if (!result) {
+          setErrorText(t('chatHome.error.missingDirectoryTarget'));
+          return;
         }
-      };
 
-      void openNewDirectoryConversation();
+        prewarmAgentDetailForEmptyConversation(item, result);
+        navigation.navigate('ChatDetail', buildChatDetailRouteParams(item, result));
+      } catch (error) {
+        setErrorText(error instanceof Error ? error.message : String(error));
+      } finally {
+        openingDirectoryItemIdRef.current = null;
+      }
     },
     [navigation, t]
   );
+
+  const handleAddConversationPress = useCallback(() => {
+    if (!firstVisibleAgent) {
+      handleOpenDirectoryPicker();
+      return;
+    }
+
+    void openNewConversationForDirectoryItem(firstVisibleAgent);
+  }, [firstVisibleAgent, handleOpenDirectoryPicker, openNewConversationForDirectoryItem]);
 
   const CardComponent = useCallback(
     ({ item }: ChatRowComponentProps) =>
@@ -695,9 +534,14 @@ export function ChatHomeScreen() {
           accessibilityLabel={t('chatHome.search.open')}
           onPress={handleOpenSearch}
         />,
-        <HeaderIconGlyph key="add" usage="chatHome.add" />
+        <HeaderIconButton
+          key="add"
+          usage="chatHome.add"
+          accessibilityLabel={t('chatHome.add')}
+          onPress={handleAddConversationPress}
+        />
       ] as const,
-    [handleOpenSearch, t]
+    [handleAddConversationPress, handleOpenSearch, t]
   );
   const listBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
   const listContentStyle = useMemo<StyleProp<ViewStyle>>(
@@ -770,20 +614,6 @@ export function ChatHomeScreen() {
           getItemType={(item) => item.kind}
         />
       </View>
-
-      <ChatDirectoryPickerDrawer
-        visible={isDirectoryPickerOpen}
-        items={directoryPickerItems}
-        total={directoryPickerTotal}
-        loading={directoryPickerLoading}
-        loadingMore={directoryPickerLoadingMore}
-        errorText={directoryPickerErrorText}
-        hasMore={directoryPickerHasMore}
-        openingItemId={openingPickerItemId}
-        onClose={handleCloseDirectoryPicker}
-        onLoadMore={handleLoadMoreDirectoryPicker}
-        onSelectItem={handleDirectoryPickerItemPress}
-      />
 
       <ChatDirectorySearchOverlay
         visible={isSearchOpen}

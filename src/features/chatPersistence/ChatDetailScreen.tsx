@@ -270,23 +270,6 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                     />
                   </>
                 )}
-
-                <ChatDetailHistoryDrawer
-                  visible={isHistoryDrawerOpen}
-                  activeConversationId={conversationId}
-                  historyItems={historyItems}
-                  total={historyTotal}
-                  unreadTotal={historyUnreadTotal}
-                  loading={isHistoryLoading}
-                  loadingMore={isHistoryLoadingMore}
-                  markingRead={isHistoryMarkingRead}
-                  errorText={historyErrorText}
-                  hasMore={hasMoreHistory}
-                  onClose={handleCloseHistoryDrawer}
-                  onLoadMore={handleLoadMoreHistory}
-                  onMarkAllRead={handleMarkAllHistoryRead}
-                  onSelectConversation={handleSelectHistoryConversation}
-                />
               </View>
             </ChatDetailKeyboardAvoider>
           </SafeAreaView>
@@ -308,6 +291,23 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
           </SafeAreaView>
         </Animated.View>
       ) : null}
+
+      <ChatDetailHistoryDrawer
+        visible={isHistoryDrawerOpen}
+        activeConversationId={conversationId}
+        historyItems={historyItems}
+        total={historyTotal}
+        unreadTotal={historyUnreadTotal}
+        loading={isHistoryLoading}
+        loadingMore={isHistoryLoadingMore}
+        markingRead={isHistoryMarkingRead}
+        errorText={historyErrorText}
+        hasMore={hasMoreHistory}
+        onClose={handleCloseHistoryDrawer}
+        onLoadMore={handleLoadMoreHistory}
+        onMarkAllRead={handleMarkAllHistoryRead}
+        onSelectConversation={handleSelectHistoryConversation}
+      />
 
       <CopyToast trigger={copyToastTrigger} />
       {passiveAwaiting?.isOverlayVisible && isInitialContentReady ? (

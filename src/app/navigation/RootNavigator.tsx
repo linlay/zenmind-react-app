@@ -6,6 +6,8 @@ import { AgentTaskBoardFlowNavigator } from '../../features/agentTaskBoard/Agent
 import { AgentTaskBoardProvider } from '../../features/agentTaskBoard/AgentTaskBoardProvider';
 import { AuthBootstrapScreen, LoginScreen } from '../../features/auth/LoginScreen';
 import { ChatDetailScreen } from '../../features/chatPersistence/ChatDetailScreen';
+import { ChatDirectoryPickerOverlayScreen } from '../../features/chatPersistence/ChatDirectoryPickerOverlayScreen';
+import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { TabsNavigator } from './TabsNavigator';
 import { RootStackParamList } from './types';
@@ -13,6 +15,7 @@ import { RootStackParamList } from './types';
 const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
+  const { theme } = useAppTheme();
   const { isBootstrapping, session } = useAuthSession();
   const authRequired = isAuthRequired();
 
@@ -52,6 +55,16 @@ export function RootNavigator() {
             animation: 'slide_from_right',
             animationDuration: 100,
             gestureEnabled: true
+          }}
+        />
+        <RootStack.Screen
+          name="ChatDirectoryPickerOverlay"
+          component={ChatDirectoryPickerOverlayScreen}
+          options={{
+            animation: 'none',
+            contentStyle: { backgroundColor: theme.colors.overlay },
+            gestureEnabled: false,
+            presentation: 'transparentModal'
           }}
         />
         <RootStack.Screen

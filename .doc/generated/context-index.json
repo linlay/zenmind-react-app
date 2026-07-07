@@ -209,10 +209,14 @@
         "scripts/tests/chatCacheScope.test.mts",
         "scripts/tests/chatDetailAsyncScope.test.mts",
         "scripts/tests/chatDetailFormatters.test.mts",
+        "scripts/tests/chatDetailHistoryDrawerPlacement.test.mts",
         "scripts/tests/chatDetailLocalUiState.test.mts",
+        "scripts/tests/chatDetailNavigation.test.mts",
         "scripts/tests/chatDetailViewModel.test.mts",
         "scripts/tests/chatDirectoryOpenDecision.test.mts",
+        "scripts/tests/chatDirectoryPickerOverlayState.test.mts",
         "scripts/tests/chatDirectoryProjector.test.mts",
+        "scripts/tests/chatDrawerOverlayGeometry.test.mts",
         "scripts/tests/chatHistoryScope.test.mts",
         "scripts/tests/chatPersistencePerformance.test.mts",
         "scripts/tests/chatProjector.test.mts",
@@ -340,6 +344,7 @@
         "directory",
         "display",
         "drawable",
+        "drawer",
         "drive",
         "dynamic",
         "eas",
@@ -369,6 +374,7 @@
         "gemini",
         "generate",
         "generated",
+        "geometry",
         "get",
         "global",
         "gradle",
@@ -467,7 +473,9 @@
         "performance",
         "persistence",
         "phrase",
+        "picker",
         "pipeline",
+        "placement",
         "platform",
         "plugin",
         "plugins",
@@ -2507,6 +2515,8 @@
         "free",
         "from",
         "frontend",
+        "gate",
+        "geometry",
         "get",
         "group",
         "handle",
@@ -2516,6 +2526,7 @@
         "heading",
         "height",
         "helper",
+        "hidden",
         "history",
         "home",
         "hook",
@@ -2544,6 +2555,7 @@
         "latest",
         "legacy",
         "list",
+        "load",
         "loading",
         "local",
         "maintenance",
@@ -2563,6 +2575,7 @@
         "multi",
         "name",
         "native",
+        "navigation",
         "new",
         "node",
         "nodes",
@@ -2570,6 +2583,7 @@
         "normalized",
         "notification",
         "notifications",
+        "offset",
         "only",
         "open",
         "option",
@@ -2595,6 +2609,7 @@
         "placeholder",
         "plan",
         "planning",
+        "prefetch",
         "preview",
         "prewarm",
         "primary",
@@ -2665,6 +2680,7 @@
         "shape",
         "shared",
         "should",
+        "side",
         "signature",
         "size",
         "skeleton",
@@ -2724,6 +2740,7 @@
         "visible",
         "visual",
         "web",
+        "width",
         "wonder",
         "wonders",
         "write",
@@ -9445,6 +9462,7 @@
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts",
     "src/features/auth/LoginScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
+    "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx",
     "src/features/chatPersistence/ChatHomeScreen.tsx",
     "src/features/chatPersistence/agentMode.ts",
     "src/features/chatPersistence/agentModelSettings.ts",
@@ -9453,9 +9471,13 @@
     "src/features/chatPersistence/chatConversationTarget.ts",
     "src/features/chatPersistence/chatDetailAsyncScope.ts",
     "src/features/chatPersistence/chatDetailFormatters.ts",
+    "src/features/chatPersistence/chatDetailNavigation.ts",
+    "src/features/chatPersistence/chatDetailPrefetch.ts",
     "src/features/chatPersistence/chatDetailViewModel.ts",
     "src/features/chatPersistence/chatDirectoryOpenDecision.ts",
+    "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts",
     "src/features/chatPersistence/chatDirectoryProjector.ts",
+    "src/features/chatPersistence/chatDrawerOverlayGeometry.ts",
     "src/features/chatPersistence/chatHistoryScope.ts",
     "src/features/chatPersistence/chatProjector.ts",
     "src/features/chatPersistence/chatReadState.ts",
@@ -9629,6 +9651,7 @@
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts": "feature-agent-task-board",
     "src/features/auth/LoginScreen.tsx": "feature-auth-login",
     "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/ChatHomeScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/agentMode.ts": "feature-chat-persistence",
     "src/features/chatPersistence/agentModelSettings.ts": "feature-chat-persistence",
@@ -9637,9 +9660,13 @@
     "src/features/chatPersistence/chatConversationTarget.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailAsyncScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailFormatters.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDetailNavigation.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDetailPrefetch.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailViewModel.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDirectoryOpenDecision.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDirectoryProjector.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDrawerOverlayGeometry.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatHistoryScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatProjector.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatReadState.ts": "feature-chat-persistence",
@@ -14157,6 +14184,11 @@
     "drawer": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
       }
@@ -15797,6 +15829,11 @@
     ],
     "gate": [
       {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      },
+      {
         "kind": "task",
         "id": "add-auth-login-screen",
         "path": ".doc/tasks/add-auth-login-screen.json"
@@ -15861,6 +15898,18 @@
         "kind": "task",
         "id": "configure-multi-brand-builds",
         "path": ".doc/tasks/configure-multi-brand-builds.json"
+      }
+    ],
+    "geometry": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
     "get": [
@@ -16255,6 +16304,13 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "hidden": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
     "hide": [
@@ -17727,6 +17783,11 @@
     ],
     "load": [
       {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      },
+      {
         "kind": "task",
         "id": "add-reusable-list-screen",
         "path": ".doc/tasks/add-reusable-list-screen.json"
@@ -19079,6 +19140,11 @@
         "path": ".doc/modules/feature-agent-task-board.json"
       },
       {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      },
+      {
         "kind": "task",
         "id": "add-auth-login-screen",
         "path": ".doc/tasks/add-auth-login-screen.json"
@@ -19437,6 +19503,13 @@
         "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
+    "offset": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
     "omits": [
@@ -20332,6 +20405,11 @@
     "picker": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
       }
@@ -20372,6 +20450,13 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "placement": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "plan": [
@@ -20571,6 +20656,11 @@
         "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
     "pregenerate": [
@@ -24096,6 +24186,13 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "side": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
     "signature": [
@@ -27652,6 +27749,11 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       },
       {
         "kind": "module",
@@ -48190,6 +48292,6 @@
     "taskCount": 16,
     "flowCount": 7,
     "ruleCount": 13,
-    "sourceFileCount": 2102
+    "sourceFileCount": 2107
   }
 }

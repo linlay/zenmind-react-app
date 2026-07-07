@@ -13,5 +13,6 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<RootTabParamList>;
   TaskBoardFlow: NavigatorScreenParams<AgentTaskBoardStackParamList>;
   ChatDetail: ChatDetailRouteParams;
+  ChatDirectoryPickerOverlay: undefined;
   Settings: undefined;
 };

@@ -1,6 +1,16 @@
 import { FlashList } from '@shopify/flash-list';
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, Animated, Pressable, Text, View, type ViewStyle } from 'react-native';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Pressable,
+  Text,
+  View,
+  type ViewStyle,
+  useWindowDimensions,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { type TFunction, useT } from '../../../shared/i18n';
@@ -8,18 +18,24 @@ import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../shared/visual/className';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 import { appHairlineStyles } from '../../../shared/visual/hairline';
+import {
+  CHAT_HISTORY_DRAWER_GEOMETRY,
+  getChatDrawerHiddenOffset,
+  getChatDrawerPanelWidth,
+} from '../chatDrawerOverlayGeometry.ts';
 import { formatChatDetailTimestamp } from '../chatDetailFormatters';
 import type { ChatHomeItem } from '../types';
 
 const HISTORY_ROW_HEIGHT = 66;
 const HISTORY_DRAW_DISTANCE = HISTORY_ROW_HEIGHT * 8;
-const HISTORY_DRAWER_OVERLAY_Z_INDEX = 120;
+const HISTORY_DRAWER_OVERLAY_Z_INDEX = 1000;
 const HISTORY_DRAWER_VERTICAL_PADDING = appVisualTokens.spacing.xs;
 const HISTORY_DRAWER_BOTTOM_PADDING = appVisualTokens.spacing.md;
-const DRAWER_OVERLAY_CLASS = 'absolute inset-0 justify-center z-[120]';
+const HISTORY_DRAWER_EXIT_DURATION_MS = 150;
+const DRAWER_OVERLAY_CLASS = 'absolute inset-0 z-[1000]';
 const DRAWER_OVERLAY_ELEVATION_STYLE = { elevation: HISTORY_DRAWER_OVERLAY_Z_INDEX } satisfies ViewStyle;
 const DRAWER_BACKDROP_CLASS = 'absolute inset-0 bg-app-overlay';
-const DRAWER_PANEL_CLASS = 'absolute bottom-0 right-0 top-0 w-[84%] max-w-[360px] border-app-line bg-app-surface';
+const DRAWER_PANEL_CLASS = 'absolute bottom-0 right-0 top-0 border-app-line bg-app-surface';
 const DRAWER_HEADER_CLASS = 'min-h-[58px] flex-row items-center gap-app-sm border-app-line px-app-md pb-app-sm';
 const DRAWER_HEADER_TEXT_CLASS = 'min-w-0 flex-1';
 const DRAWER_TITLE_CLASS = 'text-app-title-sm font-bold text-app-primary';
@@ -134,7 +150,12 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
 }: ChatDetailHistoryDrawerProps) {
   const t = useT();
   const { theme } = useAppTheme();
-  const translateX = useRef(new Animated.Value(48)).current;
+  const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
+  const hiddenTranslateX = getChatDrawerHiddenOffset(windowWidth, 'right', CHAT_HISTORY_DRAWER_GEOMETRY);
+  const panelWidth = getChatDrawerPanelWidth(windowWidth, CHAT_HISTORY_DRAWER_GEOMETRY);
+  const translateX = useRef(new Animated.Value(hiddenTranslateX)).current;
+  const [shouldRender, setShouldRender] = useState(visible);
   const countLabel = useMemo(() => formatHistoryCountLabel(total, unreadTotal, t), [total, unreadTotal, t]);
   const renderHistoryItem = useCallback(
     ({ item }: { item: ChatHomeItem }) => (
@@ -169,21 +190,46 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
   }, [countLabel, hasMore, historyItems.length, loading, loadingMore, onLoadMore, t, theme.colors.brandBlue]);
 
   useEffect(() => {
-    if (!visible) {
+    if (visible) {
+      setShouldRender(true);
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (!shouldRender) {
       return;
     }
 
-    translateX.setValue(48);
-    Animated.spring(translateX, {
-      toValue: 0,
-      damping: 18,
-      stiffness: 220,
-      mass: 0.9,
-      useNativeDriver: true
-    }).start();
-  }, [translateX, visible]);
+    if (visible) {
+      translateX.setValue(hiddenTranslateX);
+      const animation = Animated.spring(translateX, {
+        toValue: 0,
+        damping: 20,
+        stiffness: 230,
+        mass: 0.9,
+        useNativeDriver: true
+      });
 
-  if (!visible) {
+      animation.start();
+      return () => animation.stop();
+    }
+
+    const animation = Animated.timing(translateX, {
+      toValue: hiddenTranslateX,
+      duration: HISTORY_DRAWER_EXIT_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    });
+
+    animation.start(({ finished }) => {
+      if (finished) {
+        setShouldRender(false);
+      }
+    });
+    return () => animation.stop();
+  }, [hiddenTranslateX, shouldRender, translateX, visible]);
+
+  if (!shouldRender) {
     return null;
   }
 
@@ -195,8 +241,9 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
         style={[
           appHairlineStyles.borderLeft,
           {
-            paddingTop: HISTORY_DRAWER_VERTICAL_PADDING,
-            paddingBottom: HISTORY_DRAWER_BOTTOM_PADDING,
+            paddingTop: Math.max(insets.top, HISTORY_DRAWER_VERTICAL_PADDING),
+            paddingBottom: Math.max(insets.bottom, HISTORY_DRAWER_BOTTOM_PADDING),
+            width: panelWidth,
             transform: [{ translateX }]
           }
         ]}

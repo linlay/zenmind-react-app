@@ -232,6 +232,7 @@ export const zhCN = {
 
   'chatHome.title': '对话',
   'chatHome.openDirectory': '打开智能体和团队列表',
+  'chatHome.add': '发起新对话',
   'chatHome.pinned.expand': '展开置顶项目 ({count})',
   'chatHome.pinned.collapse': '折叠置顶项目',
   'chatHome.empty.title': '暂无智能体或团队',

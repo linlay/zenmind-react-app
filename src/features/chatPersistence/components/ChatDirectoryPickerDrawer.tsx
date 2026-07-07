@@ -1,6 +1,6 @@
 import { FlashList } from '@shopify/flash-list';
-import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
-import { ActivityIndicator, Animated, Modal, Pressable, Text, View } from 'react-native';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Animated, Easing, Pressable, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
@@ -10,17 +10,17 @@ import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../shared/visual/className';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 import { appHairlineStyles } from '../../../shared/visual/hairline';
+import { getDirectoryPickerHiddenOffset, getDirectoryPickerPanelWidth } from '../chatDirectoryPickerOverlayState';
 import type { ChatDirectoryItem } from '../types';
 
 const DIRECTORY_PICKER_ROW_HEIGHT = 72;
 const DIRECTORY_PICKER_DRAW_DISTANCE = DIRECTORY_PICKER_ROW_HEIGHT * 8;
-const DIRECTORY_PICKER_ENTER_OFFSET = -72;
+const DIRECTORY_PICKER_EXIT_DURATION_MS = 150;
 const DIRECTORY_PICKER_TOP_PADDING_MIN = appVisualTokens.spacing.xs;
 const DIRECTORY_PICKER_BOTTOM_PADDING_MIN = appVisualTokens.spacing.md;
-const MODAL_ROOT_CLASS = 'flex-1';
 const DRAWER_OVERLAY_CLASS = 'absolute inset-0';
-const BACKDROP_CLASS = 'absolute inset-0 bg-app-overlay';
-const PANEL_CLASS = 'absolute bottom-0 left-0 top-0 w-[86%] max-w-[390px] border-app-line bg-app-surface';
+const BACKDROP_CLASS = 'absolute inset-0';
+const PANEL_CLASS = 'absolute bottom-0 left-0 top-0 border-app-line bg-app-surface';
 const HEADER_CLASS = 'min-h-[58px] flex-row items-center gap-app-sm border-app-line px-app-md pb-app-sm';
 const HEADER_TEXT_CLASS = 'min-w-0 flex-1';
 const TITLE_CLASS = 'text-app-title-sm font-bold text-app-primary';
@@ -50,6 +50,7 @@ type ChatDirectoryPickerDrawerProps = {
   hasMore: boolean;
   openingItemId: string | null;
   onClose: () => void;
+  onDismissed?: () => void;
   onLoadMore: () => void;
   onSelectItem: (item: ChatDirectoryItem) => void;
 };
@@ -128,13 +129,18 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
   hasMore,
   openingItemId,
   onClose,
+  onDismissed,
   onLoadMore,
   onSelectItem
 }: ChatDirectoryPickerDrawerProps) {
   const t = useT();
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
-  const translateX = useRef(new Animated.Value(DIRECTORY_PICKER_ENTER_OFFSET)).current;
+  const { width: windowWidth } = useWindowDimensions();
+  const hiddenTranslateX = getDirectoryPickerHiddenOffset(windowWidth);
+  const panelWidth = getDirectoryPickerPanelWidth(windowWidth);
+  const translateX = useRef(new Animated.Value(hiddenTranslateX)).current;
+  const [shouldRender, setShouldRender] = useState(visible);
   const countLabel = useMemo(() => formatDirectoryPickerCount(items.length, total, t), [items.length, total, t]);
   const renderItem = useCallback(
     ({ item }: { item: ChatDirectoryItem }) => (
@@ -167,93 +173,107 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
   }, [countLabel, items.length, loading, loadingMore, theme.colors.brandBlue]);
 
   useEffect(() => {
-    if (!visible) {
+    if (visible) {
+      setShouldRender(true);
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (!shouldRender) {
       return;
     }
 
-    translateX.setValue(DIRECTORY_PICKER_ENTER_OFFSET);
-    Animated.spring(translateX, {
-      toValue: 0,
-      damping: 20,
-      stiffness: 230,
-      mass: 0.9,
-      useNativeDriver: true
-    }).start();
-  }, [translateX, visible]);
+    if (visible) {
+      translateX.setValue(hiddenTranslateX);
+      const animation = Animated.spring(translateX, {
+        toValue: 0,
+        damping: 20,
+        stiffness: 230,
+        mass: 0.9,
+        useNativeDriver: true
+      });
 
-  if (!visible) {
+      animation.start();
+      return () => animation.stop();
+    }
+
+    const animation = Animated.timing(translateX, {
+      toValue: hiddenTranslateX,
+      duration: DIRECTORY_PICKER_EXIT_DURATION_MS,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true
+    });
+
+    animation.start(({ finished }) => {
+      if (finished) {
+        setShouldRender(false);
+        onDismissed?.();
+      }
+    });
+    return () => animation.stop();
+  }, [hiddenTranslateX, onDismissed, shouldRender, translateX, visible]);
+
+  if (!shouldRender) {
     return null;
   }
 
   return (
-    <Modal
-      visible
-      transparent
-      animationType="none"
-      presentationStyle="overFullScreen"
-      statusBarTranslucent
-      navigationBarTranslucent
-      hardwareAccelerated
-      onRequestClose={onClose}
-    >
-      <View className={MODAL_ROOT_CLASS}>
-        <View pointerEvents="box-none" className={DRAWER_OVERLAY_CLASS}>
-          <Pressable className={BACKDROP_CLASS} onPress={onClose} />
-          <Animated.View
-            className={PANEL_CLASS}
-            style={[
-              appHairlineStyles.borderRight,
-              {
-                paddingTop: Math.max(insets.top, DIRECTORY_PICKER_TOP_PADDING_MIN),
-                paddingBottom: Math.max(insets.bottom, DIRECTORY_PICKER_BOTTOM_PADDING_MIN),
-                transform: [{ translateX }]
-              }
-            ]}
+    <View pointerEvents="box-none" className={DRAWER_OVERLAY_CLASS}>
+      <Pressable className={BACKDROP_CLASS} onPress={onClose} />
+      <Animated.View
+        className={PANEL_CLASS}
+        style={[
+          appHairlineStyles.borderRight,
+          {
+            paddingTop: Math.max(insets.top, DIRECTORY_PICKER_TOP_PADDING_MIN),
+            paddingBottom: Math.max(insets.bottom, DIRECTORY_PICKER_BOTTOM_PADDING_MIN),
+            width: panelWidth,
+            transform: [{ translateX }]
+          }
+        ]}
+      >
+        <View className={HEADER_CLASS} style={appHairlineStyles.borderBottom}>
+          <View className={HEADER_TEXT_CLASS}>
+            <Text numberOfLines={1} className={TITLE_CLASS}>
+              {t('directoryPicker.title')}
+            </Text>
+            <Text numberOfLines={1} className={SUBTITLE_CLASS}>
+              {t('directoryPicker.subtitle', { count: countLabel })}
+            </Text>
+          </View>
+          <Pressable
+            accessibilityLabel={t('directoryPicker.close')}
+            accessibilityRole="button"
+            onPress={onClose}
+            className={CLOSE_BUTTON_CLASS}
           >
-            <View className={HEADER_CLASS} style={appHairlineStyles.borderBottom}>
-              <View className={HEADER_TEXT_CLASS}>
-                <Text numberOfLines={1} className={TITLE_CLASS}>
-                  {t('directoryPicker.title')}
-                </Text>
-                <Text numberOfLines={1} className={SUBTITLE_CLASS}>
-                  {t('directoryPicker.subtitle', { count: countLabel })}
-                </Text>
-              </View>
-              <Pressable
-                accessibilityLabel={t('directoryPicker.close')}
-                accessibilityRole="button"
-                onPress={onClose}
-                className={CLOSE_BUTTON_CLASS}
-              >
-                <AppIcon usage="directoryPicker.close" />
-              </Pressable>
-            </View>
-
-            {errorText ? <Text className={ERROR_TEXT_CLASS}>{errorText}</Text> : null}
-
-            <View className={LIST_FRAME_CLASS}>
-              {loading ? (
-                <View className={STATE_BLOCK_CLASS}>
-                  <ActivityIndicator size="small" color={theme.colors.brandBlue} />
-                </View>
-              ) : (
-                <FlashList
-                  data={items}
-                  renderItem={renderItem}
-                  keyExtractor={keyExtractor}
-                  getItemType={getDirectoryItemType}
-                  drawDistance={DIRECTORY_PICKER_DRAW_DISTANCE}
-                  onEndReached={handleEndReached}
-                  onEndReachedThreshold={0.45}
-                  showsVerticalScrollIndicator={false}
-                  ListEmptyComponent={<Text className={EMPTY_TEXT_CLASS}>{t('directoryPicker.empty')}</Text>}
-                  ListFooterComponent={footer}
-                />
-              )}
-            </View>
-          </Animated.View>
+            <AppIcon usage="directoryPicker.close" />
+          </Pressable>
         </View>
-      </View>
-    </Modal>
+
+        {errorText ? <Text className={ERROR_TEXT_CLASS}>{errorText}</Text> : null}
+
+        <View className={LIST_FRAME_CLASS}>
+          {loading ? (
+            <View className={STATE_BLOCK_CLASS}>
+              <ActivityIndicator size="small" color={theme.colors.brandBlue} />
+            </View>
+          ) : (
+            <FlashList
+              data={items}
+              renderItem={renderItem}
+              keyExtractor={keyExtractor}
+              getItemType={getDirectoryItemType}
+              drawDistance={DIRECTORY_PICKER_DRAW_DISTANCE}
+              onEndReached={handleEndReached}
+              onEndReachedThreshold={0.45}
+              showsVerticalScrollIndicator={false}
+              ListEmptyComponent={<Text className={EMPTY_TEXT_CLASS}>{t('directoryPicker.empty')}</Text>}
+              ListFooterComponent={footer}
+            />
+          )}
+        </View>
+      </Animated.View>
+    </View>
   );
 });

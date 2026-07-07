@@ -237,6 +237,7 @@ export const enUS: Record<I18nKey, string> = {
 
   'chatHome.title': 'Chat',
   'chatHome.openDirectory': 'Open agents and teams',
+  'chatHome.add': 'Start new chat',
   'chatHome.pinned.expand': 'Expand pinned items ({count})',
   'chatHome.pinned.collapse': 'Collapse pinned items',
   'chatHome.empty.title': 'No agents or teams',

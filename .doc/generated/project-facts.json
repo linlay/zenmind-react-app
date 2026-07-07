@@ -36,10 +36,14 @@
     "scripts/tests/chatCacheScope.test.mts",
     "scripts/tests/chatDetailAsyncScope.test.mts",
     "scripts/tests/chatDetailFormatters.test.mts",
+    "scripts/tests/chatDetailHistoryDrawerPlacement.test.mts",
     "scripts/tests/chatDetailLocalUiState.test.mts",
+    "scripts/tests/chatDetailNavigation.test.mts",
     "scripts/tests/chatDetailViewModel.test.mts",
     "scripts/tests/chatDirectoryOpenDecision.test.mts",
+    "scripts/tests/chatDirectoryPickerOverlayState.test.mts",
     "scripts/tests/chatDirectoryProjector.test.mts",
+    "scripts/tests/chatDrawerOverlayGeometry.test.mts",
     "scripts/tests/chatHistoryScope.test.mts",
     "scripts/tests/chatPersistencePerformance.test.mts",
     "scripts/tests/chatProjector.test.mts",
@@ -2071,6 +2075,7 @@
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts",
     "src/features/auth/LoginScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
+    "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx",
     "src/features/chatPersistence/ChatHomeScreen.tsx",
     "src/features/chatPersistence/agentMode.ts",
     "src/features/chatPersistence/agentModelSettings.ts",
@@ -2079,9 +2084,13 @@
     "src/features/chatPersistence/chatConversationTarget.ts",
     "src/features/chatPersistence/chatDetailAsyncScope.ts",
     "src/features/chatPersistence/chatDetailFormatters.ts",
+    "src/features/chatPersistence/chatDetailNavigation.ts",
+    "src/features/chatPersistence/chatDetailPrefetch.ts",
     "src/features/chatPersistence/chatDetailViewModel.ts",
     "src/features/chatPersistence/chatDirectoryOpenDecision.ts",
+    "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts",
     "src/features/chatPersistence/chatDirectoryProjector.ts",
+    "src/features/chatPersistence/chatDrawerOverlayGeometry.ts",
     "src/features/chatPersistence/chatHistoryScope.ts",
     "src/features/chatPersistence/chatProjector.ts",
     "src/features/chatPersistence/chatReadState.ts",
@@ -10498,6 +10507,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "ChatDirectoryPickerOverlayScreen.tsx",
+                    "type": "file"
+                  },
+                  {
                     "name": "ChatHomeScreen.tsx",
                     "type": "file"
                   },
@@ -10530,6 +10543,14 @@
                     "type": "file"
                   },
                   {
+                    "name": "chatDetailNavigation.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatDetailPrefetch.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "chatDetailViewModel.ts",
                     "type": "file"
                   },
@@ -10538,7 +10559,15 @@
                     "type": "file"
                   },
                   {
+                    "name": "chatDirectoryPickerOverlayState.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "chatDirectoryProjector.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatDrawerOverlayGeometry.ts",
                     "type": "file"
                   },
                   {
@@ -11031,6 +11060,7 @@
     ],
     "feature-chat-persistence": [
       "src/features/chatPersistence/ChatDetailScreen.tsx",
+      "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx",
       "src/features/chatPersistence/ChatHomeScreen.tsx",
       "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/agentModelSettings.ts",
@@ -11039,9 +11069,13 @@
       "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatDetailAsyncScope.ts",
       "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/chatDetailNavigation.ts",
+      "src/features/chatPersistence/chatDetailPrefetch.ts",
       "src/features/chatPersistence/chatDetailViewModel.ts",
       "src/features/chatPersistence/chatDirectoryOpenDecision.ts",
+      "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts",
       "src/features/chatPersistence/chatDirectoryProjector.ts",
+      "src/features/chatPersistence/chatDrawerOverlayGeometry.ts",
       "src/features/chatPersistence/chatHistoryScope.ts",
       "src/features/chatPersistence/chatProjector.ts",
       "src/features/chatPersistence/chatReadState.ts",
@@ -11230,6 +11264,7 @@
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts": "feature-agent-task-board",
     "src/features/auth/LoginScreen.tsx": "feature-auth-login",
     "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/ChatHomeScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/agentMode.ts": "feature-chat-persistence",
     "src/features/chatPersistence/agentModelSettings.ts": "feature-chat-persistence",
@@ -11238,9 +11273,13 @@
     "src/features/chatPersistence/chatConversationTarget.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailAsyncScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailFormatters.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDetailNavigation.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDetailPrefetch.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailViewModel.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDirectoryOpenDecision.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDirectoryProjector.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatDrawerOverlayGeometry.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatHistoryScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatProjector.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatReadState.ts": "feature-chat-persistence",
@@ -17759,6 +17798,9 @@
     "src/features/chatPersistence/ChatDetailScreen.tsx": [
       "ChatDetailScreen"
     ],
+    "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx": [
+      "ChatDirectoryPickerOverlayScreen"
+    ],
     "src/features/chatPersistence/ChatHomeScreen.tsx": [
       "ChatHomeScreen"
     ],
@@ -17807,6 +17849,13 @@
       "formatMessageDeliveryStatusLabel",
       "formatMessageRoleLabel"
     ],
+    "src/features/chatPersistence/chatDetailNavigation.ts": [
+      "buildChatDetailRouteParams",
+      "getAgentDetailPrewarmKeyForEmptyConversation"
+    ],
+    "src/features/chatPersistence/chatDetailPrefetch.ts": [
+      "prewarmAgentDetailForEmptyConversation"
+    ],
     "src/features/chatPersistence/chatDetailViewModel.ts": [
       "ChatComposerPrimaryAction",
       "ChatComposerRunAction",
@@ -17821,6 +17870,12 @@
       "isActiveTimelinePayload",
       "shouldOpenLatestConversationFromSummary"
     ],
+    "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts": [
+      "DirectoryPickerLoadGate",
+      "createDirectoryPickerLoadGate",
+      "getDirectoryPickerHiddenOffset",
+      "getDirectoryPickerPanelWidth"
+    ],
     "src/features/chatPersistence/chatDirectoryProjector.ts": [
       "RemoteAgent",
       "RemoteTeam",
@@ -17828,6 +17883,14 @@
       "projectRemoteDirectory",
       "projectRemoteHomeDirectory",
       "projectRemoteTeam"
+    ],
+    "src/features/chatPersistence/chatDrawerOverlayGeometry.ts": [
+      "CHAT_DIRECTORY_PICKER_DRAWER_GEOMETRY",
+      "CHAT_HISTORY_DRAWER_GEOMETRY",
+      "ChatDrawerGeometry",
+      "ChatDrawerSide",
+      "getChatDrawerHiddenOffset",
+      "getChatDrawerPanelWidth"
     ],
     "src/features/chatPersistence/chatHistoryScope.ts": [
       "getChatConversationHistoryScopeKey",
@@ -17855,7 +17918,9 @@
     "src/features/chatPersistence/chatRealtimeUiState.ts": [
       "ChatDirectoryListState",
       "ChatHomeListState",
+      "appendDirectoryListState",
       "applyConversationStreamDelta",
+      "buildDirectoryListState",
       "buildHomeListState",
       "patchConversationMessage",
       "patchDetailFromHomeEvent",
@@ -21092,6 +21157,8 @@
       "../../features/agentTaskBoard/AgentTaskBoardProvider",
       "../../features/auth/LoginScreen",
       "../../features/chatPersistence/ChatDetailScreen",
+      "../../features/chatPersistence/ChatDirectoryPickerOverlayScreen",
+      "../../shared/visual/AppThemeProvider",
       "../screens/SettingsScreen",
       "./TabsNavigator",
       "./types",
@@ -21410,6 +21477,18 @@
       "react-native",
       "react-native-safe-area-context"
     ],
+    "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx": [
+      "../../shared/i18n",
+      "./chatDetailNavigation",
+      "./chatDetailPrefetch",
+      "./chatDirectoryPickerOverlayState",
+      "./chatRealtimeUiState",
+      "./chatRepository",
+      "./components/ChatDirectoryPickerDrawer",
+      "./types",
+      "react",
+      "react-native"
+    ],
     "src/features/chatPersistence/ChatHomeScreen.tsx": [
       "../../app/navigation/types",
       "../../shared/components/PaginatedCardList",
@@ -21422,10 +21501,10 @@
       "../../shared/visual/hairline",
       "../../shared/visual/useAppTabBarHeight",
       "../chatRealtime/chatSyncService",
-      "./chatConversationTarget",
+      "./chatDetailNavigation",
+      "./chatDetailPrefetch",
       "./chatRealtimeUiState",
       "./chatRepository",
-      "./components/ChatDirectoryPickerDrawer",
       "./components/ChatDirectoryRow",
       "./components/ChatDirectorySearchOverlay",
       "./homeSnapshot",
@@ -21457,11 +21536,25 @@
       "../chatRealtime/types",
       "./types"
     ],
+    "src/features/chatPersistence/chatDetailNavigation.ts": [
+      "./chatConversationTarget.ts",
+      "./chatRepository",
+      "./types"
+    ],
+    "src/features/chatPersistence/chatDetailPrefetch.ts": [
+      "../chatRealtime/chatSyncService",
+      "./chatDetailNavigation",
+      "./chatRepository",
+      "./types"
+    ],
     "src/features/chatPersistence/chatDetailViewModel.ts": [
       "../chatTimeline/index.ts"
     ],
     "src/features/chatPersistence/chatDirectoryOpenDecision.ts": [
       "./chatReadState.ts"
+    ],
+    "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts": [
+      "./chatDrawerOverlayGeometry.ts"
     ],
     "src/features/chatPersistence/chatDirectoryProjector.ts": [
       "../../core/api/services/chatApi",
@@ -21471,6 +21564,7 @@
       "./chatReadState.ts",
       "./types"
     ],
+    "src/features/chatPersistence/chatDrawerOverlayGeometry.ts": null,
     "src/features/chatPersistence/chatHistoryScope.ts": [
       "./types.ts"
     ],
@@ -21542,10 +21636,12 @@
       "../../../shared/visual/foundation",
       "../../../shared/visual/hairline",
       "../chatDetailFormatters",
+      "../chatDrawerOverlayGeometry.ts",
       "../types",
       "@shopify/flash-list",
       "react",
-      "react-native"
+      "react-native",
+      "react-native-safe-area-context"
     ],
     "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": [
       "../../../shared/i18n",
@@ -21577,6 +21673,7 @@
       "../../../shared/visual/className",
       "../../../shared/visual/foundation",
       "../../../shared/visual/hairline",
+      "../chatDirectoryPickerOverlayState",
       "../types",
       "@shopify/flash-list",
       "react",
@@ -24208,7 +24305,9 @@
       "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx",
       "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx",
       "src/features/auth/LoginScreen.tsx",
-      "src/features/chatPersistence/ChatDetailScreen.tsx"
+      "src/features/chatPersistence/ChatDetailScreen.tsx",
+      "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx",
+      "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/app/navigation/TabIcon.tsx": [
       "src/app/navigation/types.ts",
@@ -24471,12 +24570,22 @@
       "src/features/chatRealtime/types.ts",
       "src/shared/i18n/index.ts"
     ],
-    "src/features/chatPersistence/ChatHomeScreen.tsx": [
-      "src/app/navigation/types.ts",
-      "src/features/chatPersistence/chatConversationTarget.ts",
+    "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx": [
+      "src/features/chatPersistence/chatDetailNavigation.ts",
+      "src/features/chatPersistence/chatDetailPrefetch.ts",
+      "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts",
       "src/features/chatPersistence/chatRealtimeUiState.ts",
       "src/features/chatPersistence/chatRepository.ts",
       "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
+      "src/features/chatPersistence/types.ts",
+      "src/shared/i18n/index.ts"
+    ],
+    "src/features/chatPersistence/ChatHomeScreen.tsx": [
+      "src/app/navigation/types.ts",
+      "src/features/chatPersistence/chatDetailNavigation.ts",
+      "src/features/chatPersistence/chatDetailPrefetch.ts",
+      "src/features/chatPersistence/chatRealtimeUiState.ts",
+      "src/features/chatPersistence/chatRepository.ts",
       "src/features/chatPersistence/components/ChatDirectoryRow.tsx",
       "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx",
       "src/features/chatPersistence/homeSnapshot.ts",
@@ -24513,11 +24622,25 @@
       "src/features/chatRealtime/types.ts",
       "src/shared/i18n/translate.ts"
     ],
+    "src/features/chatPersistence/chatDetailNavigation.ts": [
+      "src/features/chatPersistence/chatConversationTarget.ts",
+      "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/types.ts"
+    ],
+    "src/features/chatPersistence/chatDetailPrefetch.ts": [
+      "src/features/chatPersistence/chatDetailNavigation.ts",
+      "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/types.ts",
+      "src/features/chatRealtime/chatSyncService.ts"
+    ],
     "src/features/chatPersistence/chatDetailViewModel.ts": [
       "src/features/chatTimeline/index.ts"
     ],
     "src/features/chatPersistence/chatDirectoryOpenDecision.ts": [
       "src/features/chatPersistence/chatReadState.ts"
+    ],
+    "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts": [
+      "src/features/chatPersistence/chatDrawerOverlayGeometry.ts"
     ],
     "src/features/chatPersistence/chatDirectoryProjector.ts": [
       "src/core/api/services/chatApi.ts",
@@ -24527,6 +24650,7 @@
       "src/features/chatPersistence/types.ts",
       "src/shared/visual/agentAvatarIcon.ts"
     ],
+    "src/features/chatPersistence/chatDrawerOverlayGeometry.ts": null,
     "src/features/chatPersistence/chatHistoryScope.ts": [
       "src/features/chatPersistence/types.ts"
     ],
@@ -24584,6 +24708,7 @@
     ],
     "src/features/chatPersistence/components/ChatDetailDrawers.tsx": [
       "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/chatDrawerOverlayGeometry.ts",
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
@@ -24610,6 +24735,7 @@
       "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx": [
+      "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts",
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",

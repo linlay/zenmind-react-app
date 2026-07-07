@@ -193,6 +193,44 @@ export type ChatDirectoryListState = {
   total: number;
 };
 
+export function buildDirectoryListState(items: ChatDirectoryItem[], total: number): ChatDirectoryListState {
+  const itemsById: Record<string, ChatDirectoryItem> = {};
+  const orderedIds: string[] = [];
+
+  items.forEach((item) => {
+    itemsById[item.id] = item;
+    orderedIds.push(item.id);
+  });
+
+  return {
+    orderedIds,
+    itemsById,
+    total,
+  };
+}
+
+export function appendDirectoryListState(
+  current: ChatDirectoryListState,
+  items: ChatDirectoryItem[],
+  total: number
+): ChatDirectoryListState {
+  const itemsById: Record<string, ChatDirectoryItem> = { ...current.itemsById };
+  const orderedIds = [...current.orderedIds];
+
+  items.forEach((item) => {
+    if (!itemsById[item.id]) {
+      orderedIds.push(item.id);
+    }
+    itemsById[item.id] = item;
+  });
+
+  return {
+    orderedIds,
+    itemsById,
+    total,
+  };
+}
+
 export function patchDirectoryListPreviewByConversation(
   state: ChatDirectoryListState,
   patch: ChatHomeItemPatch
