@@ -235,7 +235,7 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
 
   return (
     <View pointerEvents="box-none" className={DRAWER_OVERLAY_CLASS} style={DRAWER_OVERLAY_ELEVATION_STYLE}>
-      <Pressable className={DRAWER_BACKDROP_CLASS} onPress={onClose} />
+      <Pressable className={DRAWER_BACKDROP_CLASS} onPressIn={onClose} onPress={onClose} />
       <Animated.View
         className={DRAWER_PANEL_CLASS}
         style={[
@@ -274,6 +274,7 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
           <Pressable
             accessibilityLabel={t('history.close')}
             accessibilityRole="button"
+            onPressIn={onClose}
             onPress={onClose}
             className={DRAWER_CLOSE_BUTTON_CLASS}
           >

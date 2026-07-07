@@ -219,7 +219,7 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
 
   return (
     <View pointerEvents="box-none" className={DRAWER_OVERLAY_CLASS}>
-      <Pressable className={BACKDROP_CLASS} onPress={onClose} />
+      <Pressable className={BACKDROP_CLASS} onPressIn={onClose} onPress={onClose} />
       <Animated.View
         className={PANEL_CLASS}
         style={[
@@ -244,6 +244,7 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
           <Pressable
             accessibilityLabel={t('directoryPicker.close')}
             accessibilityRole="button"
+            onPressIn={onClose}
             onPress={onClose}
             className={CLOSE_BUTTON_CLASS}
           >

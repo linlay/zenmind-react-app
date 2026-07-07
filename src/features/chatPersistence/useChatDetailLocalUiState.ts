@@ -56,6 +56,7 @@ export function useChatDetailLocalUiState(
   const [isHistoryMarkingRead, setIsHistoryMarkingRead] = useState(false);
   const [historyErrorText, setHistoryErrorText] = useState('');
   const [copyToastTrigger, setCopyToastTrigger] = useState(0);
+  const isHistoryDrawerOpenRef = useRef(false);
   const historyRequestIdRef = useRef(0);
   const historyLimitRef = useRef(HISTORY_PAGE_SIZE);
   const historyReloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -81,6 +82,7 @@ export function useChatDetailLocalUiState(
   }, [clearHistoryReloadTimer]);
 
   useEffect(() => {
+    isHistoryDrawerOpenRef.current = false;
     setIsHistoryDrawerOpen(false);
     setCopyToastTrigger(0);
     resetHistoryState();
@@ -186,10 +188,23 @@ export function useChatDetailLocalUiState(
   );
 
   const handleOpenHistoryDrawer = useCallback(() => {
+    if (isHistoryDrawerOpenRef.current) {
+      return;
+    }
+
+    isHistoryDrawerOpenRef.current = true;
     setIsHistoryDrawerOpen(true);
     void loadHistorySlice(HISTORY_PAGE_SIZE, 'initial');
   }, [loadHistorySlice]);
-  const handleCloseHistoryDrawer = useCallback(() => setIsHistoryDrawerOpen(false), []);
+  const handleCloseHistoryDrawer = useCallback(() => {
+    if (!isHistoryDrawerOpenRef.current) {
+      return;
+    }
+
+    isHistoryDrawerOpenRef.current = false;
+    setIsHistoryDrawerOpen(false);
+    resetHistoryState();
+  }, [resetHistoryState]);
   const handleLoadMoreHistory = useCallback(() => {
     if (historyItems.length >= historyTotal || isHistoryLoadingMore) {
       return;

@@ -13,6 +13,15 @@ import { useChatDetailLocalUiState } from '../../src/features/chatPersistence/us
 
 type HookSnapshot = ReturnType<typeof useChatDetailLocalUiState>;
 
+function createDeferred<T>() {
+  let resolve!: (value: T) => void;
+  const promise = new Promise<T>((innerResolve) => {
+    resolve = innerResolve;
+  });
+
+  return { promise, resolve };
+}
+
 const historyScope: ChatConversationHistoryScope = {
   agentKey: 'agent-a',
   teamId: null,
@@ -139,6 +148,109 @@ test('local ui state loads history lazily and resets drawer on conversation swit
 
   assert.equal(latest?.isHistoryDrawerOpen, false);
   assert.equal(latest?.historyItems.length, 0);
+});
+
+test('local ui state ignores pending history load after drawer closes', async () => {
+  let latest: HookSnapshot | null = null;
+  const handleValue = (value: HookSnapshot) => {
+    latest = value;
+  };
+  const copyText = async (_text: string) => undefined;
+  const pendingPage = createDeferred<ChatConversationHistoryPage>();
+  const loadHistory = async (
+    _scope: ChatConversationHistoryScope,
+    _limit: number
+  ): Promise<ChatConversationHistoryPage> => pendingPage.promise;
+  const markHistoryScopeRead = async (_scope: ChatConversationHistoryScope) => undefined;
+
+  await act(async () => {
+    create(
+      React.createElement(HookHarness, {
+        resetKey: 'chat-1',
+        scope: historyScope,
+        copyText,
+        loadHistory,
+        markHistoryScopeRead,
+        onValue: handleValue,
+      })
+    );
+  });
+
+  assert.ok(latest);
+  await act(async () => {
+    latest?.handleOpenHistoryDrawer();
+  });
+  assert.equal(latest?.isHistoryDrawerOpen, true);
+  assert.equal(latest?.isHistoryLoading, true);
+
+  await act(async () => {
+    latest?.handleCloseHistoryDrawer();
+  });
+  assert.equal(latest?.isHistoryDrawerOpen, false);
+  assert.equal(latest?.isHistoryLoading, false);
+
+  await act(async () => {
+    pendingPage.resolve({
+      items: historyRows,
+      total: historyRows.length,
+      unreadTotal: 1,
+      limit: historyRows.length,
+    });
+    await pendingPage.promise;
+  });
+
+  assert.equal(latest?.isHistoryDrawerOpen, false);
+  assert.equal(latest?.historyItems.length, 0);
+  assert.equal(latest?.historyTotal, 0);
+  assert.equal(latest?.historyUnreadTotal, 0);
+});
+
+test('local ui state does not start duplicate history loads while drawer is already open', async () => {
+  let latest: HookSnapshot | null = null;
+  const handleValue = (value: HookSnapshot) => {
+    latest = value;
+  };
+  const copyText = async (_text: string) => undefined;
+  const pendingPage = createDeferred<ChatConversationHistoryPage>();
+  let loadCount = 0;
+  const loadHistory = async (
+    _scope: ChatConversationHistoryScope,
+    _limit: number
+  ): Promise<ChatConversationHistoryPage> => {
+    loadCount += 1;
+    return pendingPage.promise;
+  };
+  const markHistoryScopeRead = async (_scope: ChatConversationHistoryScope) => undefined;
+
+  await act(async () => {
+    create(
+      React.createElement(HookHarness, {
+        resetKey: 'chat-1',
+        scope: historyScope,
+        copyText,
+        loadHistory,
+        markHistoryScopeRead,
+        onValue: handleValue,
+      })
+    );
+  });
+
+  await act(async () => {
+    latest?.handleOpenHistoryDrawer();
+    latest?.handleOpenHistoryDrawer();
+  });
+
+  assert.equal(loadCount, 1);
+
+  await act(async () => {
+    pendingPage.resolve({
+      items: historyRows,
+      total: historyRows.length,
+      unreadTotal: 1,
+      limit: historyRows.length,
+    });
+    await pendingPage.promise;
+  });
 });
 
 test('local ui state marks the current history scope read and reloads the visible slice', async () => {

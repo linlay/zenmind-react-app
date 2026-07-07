@@ -43,6 +43,7 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
   const [errorText, setErrorText] = useState('');
   const [openingItemId, setOpeningItemId] = useState<string | null>(null);
   const pageRef = useRef(1);
+  const directoryRequestIdRef = useRef(0);
   const mountedRef = useRef(true);
   const closingRequestedRef = useRef(false);
   const openingItemIdRef = useRef<string | null>(null);
@@ -58,9 +59,25 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
   const total = directoryState.total;
   const hasMore = items.length < total;
 
-  const loadPage = useCallback(async (pageCount: number) => {
+  const isDirectoryRequestActive = useCallback(
+    (requestId: number) =>
+      mountedRef.current &&
+      !closingRequestedRef.current &&
+      !pendingDetailParamsRef.current &&
+      directoryRequestIdRef.current === requestId,
+    []
+  );
+
+  const invalidateDirectoryRequests = useCallback(() => {
+    directoryRequestIdRef.current += 1;
+    loadMoreGate.reset();
+    setLoading(false);
+    setLoadingMore(false);
+  }, [loadMoreGate]);
+
+  const loadPage = useCallback(async (pageCount: number, requestId: number) => {
     const directory = await getChatDirectoryCatalogPage(pageCount, DIRECTORY_PICKER_PAGE_SIZE);
-    if (!mountedRef.current) {
+    if (!isDirectoryRequestActive(requestId)) {
       return;
     }
 
@@ -70,7 +87,7 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
         : appendDirectoryListState(current, directory.items, directory.total)
     );
     pageRef.current = directory.page;
-  }, []);
+  }, [isDirectoryRequestActive]);
 
   useEffect(() => {
     return () => {
@@ -80,25 +97,27 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
 
   useEffect(() => {
     const loadInitialPage = async () => {
+      const requestId = directoryRequestIdRef.current + 1;
+      directoryRequestIdRef.current = requestId;
       setLoading(true);
       setErrorText('');
       loadMoreGate.reset();
 
       try {
-        await loadPage(1);
+        await loadPage(1, requestId);
       } catch (error) {
-        if (mountedRef.current) {
+        if (isDirectoryRequestActive(requestId)) {
           setErrorText(error instanceof Error ? error.message : String(error));
         }
       } finally {
-        if (mountedRef.current) {
+        if (isDirectoryRequestActive(requestId)) {
           setLoading(false);
         }
       }
     };
 
     void loadInitialPage();
-  }, [loadMoreGate, loadPage]);
+  }, [isDirectoryRequestActive, loadMoreGate, loadPage]);
 
   const closeDrawer = useCallback(() => {
     if (openingItemIdRef.current || closingRequestedRef.current || pendingDetailParamsRef.current) {
@@ -106,8 +125,9 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
     }
 
     closingRequestedRef.current = true;
+    invalidateDirectoryRequests();
     setDrawerVisible(false);
-  }, []);
+  }, [invalidateDirectoryRequests]);
 
   useEffect(
     () =>
@@ -140,20 +160,22 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
 
     setLoadingMore(true);
     setErrorText('');
+    const requestId = directoryRequestIdRef.current + 1;
+    directoryRequestIdRef.current = requestId;
 
     try {
-      await loadPage(pageRef.current + 1);
+      await loadPage(pageRef.current + 1, requestId);
     } catch (error) {
-      if (mountedRef.current) {
+      if (isDirectoryRequestActive(requestId)) {
         setErrorText(error instanceof Error ? error.message : String(error));
       }
     } finally {
       loadMoreGate.release();
-      if (mountedRef.current) {
+      if (isDirectoryRequestActive(requestId)) {
         setLoadingMore(false);
       }
     }
-  }, [hasMore, loadMoreGate, loadPage, loading, loadingMore]);
+  }, [hasMore, isDirectoryRequestActive, loadMoreGate, loadPage, loading, loadingMore]);
 
   const handleSelectItem = useCallback(
     (item: ChatDirectoryItem) => {
@@ -175,6 +197,7 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
 
           prewarmAgentDetailForEmptyConversation(item, result);
           pendingDetailParamsRef.current = buildChatDetailRouteParams(item, result);
+          invalidateDirectoryRequests();
           setDrawerVisible(false);
         } catch (error) {
           setErrorText(error instanceof Error ? error.message : String(error));
@@ -186,7 +209,7 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
 
       void openConversation();
     },
-    [t]
+    [invalidateDirectoryRequests, t]
   );
 
   return (
