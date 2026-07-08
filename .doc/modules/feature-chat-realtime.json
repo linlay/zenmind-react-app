@@ -62,6 +62,10 @@
       "ChatHomeItemPatch",
       "ChatHomeItemPatchEvent",
       "ChatHomeItemRemoveEvent",
+      "ChatQueryAccessLevel",
+      "ChatQueryModelOverride",
+      "ChatQueryReasoningEffort",
+      "ChatQueryServiceTier",
       "ChatRuntimeEntry",
       "ChatRuntimeEntryKind",
       "ChatRuntimeLifecycle",
@@ -116,7 +120,7 @@
       "feature-chat-persistence"
     ],
     "tests": [],
-    "lastScannedAt": "2026-07-06T10:34:57Z"
+    "lastScannedAt": "2026-07-08T02:08:25Z"
   },
   "readHints": {
     "alwaysRead": [

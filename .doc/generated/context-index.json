@@ -207,6 +207,8 @@
         "scripts/tests/chatApiDetail.test.mts",
         "scripts/tests/chatAttachmentResourceUrl.test.mts",
         "scripts/tests/chatCacheScope.test.mts",
+        "scripts/tests/chatComposerNativePlaceholder.test.mts",
+        "scripts/tests/chatComposerOptionsLayout.test.mts",
         "scripts/tests/chatDetailAsyncScope.test.mts",
         "scripts/tests/chatDetailFormatters.test.mts",
         "scripts/tests/chatDetailHistoryDrawerPlacement.test.mts",
@@ -216,8 +218,10 @@
         "scripts/tests/chatDirectoryOpenDecision.test.mts",
         "scripts/tests/chatDirectoryPickerOverlayState.test.mts",
         "scripts/tests/chatDirectoryProjector.test.mts",
+        "scripts/tests/chatDrawerCloseInteraction.test.mts",
         "scripts/tests/chatDrawerOverlayGeometry.test.mts",
         "scripts/tests/chatHistoryScope.test.mts",
+        "scripts/tests/chatModelOptions.test.mts",
         "scripts/tests/chatPersistencePerformance.test.mts",
         "scripts/tests/chatProjector.test.mts",
         "scripts/tests/chatReadState.test.mts",
@@ -314,12 +318,14 @@
         "class",
         "clear",
         "client",
+        "close",
         "cold",
         "color",
         "colors",
         "com",
         "component",
         "components",
+        "composer",
         "config",
         "configure",
         "connect",
@@ -402,6 +408,7 @@
         "input",
         "install",
         "installed",
+        "interaction",
         "internationalization",
         "interop",
         "invalidation",
@@ -416,6 +423,7 @@
         "latest",
         "launch",
         "launcher",
+        "layout",
         "lib",
         "light",
         "list",
@@ -458,6 +466,7 @@
         "notifications",
         "npm",
         "open",
+        "options",
         "ota",
         "outbox",
         "overlay",
@@ -475,6 +484,7 @@
         "phrase",
         "picker",
         "pipeline",
+        "placeholder",
         "placement",
         "platform",
         "plugin",
@@ -1067,6 +1077,7 @@
         "desktop",
         "detail",
         "device",
+        "effort",
         "ensure",
         "entry",
         "envelope",
@@ -1095,14 +1106,17 @@
         "input",
         "invalidation",
         "issue",
+        "item",
         "kanban",
         "key",
+        "level",
         "like",
         "listener",
         "logging",
         "mark",
         "message",
         "messages",
+        "model",
         "modify",
         "move",
         "msg",
@@ -1115,6 +1129,7 @@
         "open",
         "option",
         "options",
+        "override",
         "param",
         "params",
         "password",
@@ -1137,6 +1152,7 @@
         "read",
         "reader",
         "realtime",
+        "reasoning",
         "reconcile",
         "reference",
         "references",
@@ -1185,6 +1201,7 @@
         "team",
         "template",
         "text",
+        "tier",
         "timeout",
         "timestamp",
         "title",
@@ -3253,6 +3270,7 @@
       "tokens": [
         "404",
         "abort",
+        "access",
         "ack",
         "active",
         "adapter",
@@ -3302,6 +3320,7 @@
         "development",
         "directory",
         "duration",
+        "effort",
         "ensure",
         "entry",
         "environment",
@@ -3335,6 +3354,7 @@
         "item",
         "key",
         "kind",
+        "level",
         "lifecycle",
         "like",
         "liveness",
@@ -3344,6 +3364,7 @@
         "message",
         "mmkv",
         "mode",
+        "model",
         "modify",
         "normalize",
         "not",
@@ -3421,6 +3442,7 @@
         "team",
         "teams",
         "text",
+        "tier",
         "timeline",
         "title",
         "token",
@@ -7671,7 +7693,6 @@
     ".generated/react-native-worklets/.worklets/11706789657221.js",
     ".generated/react-native-worklets/.worklets/11710229424229.js",
     ".generated/react-native-worklets/.worklets/11712932777694.js",
-    ".generated/react-native-worklets/.worklets/11713718453580.js",
     ".generated/react-native-worklets/.worklets/11727464299963.js",
     ".generated/react-native-worklets/.worklets/11735874909254.js",
     ".generated/react-native-worklets/.worklets/11743596386357.js",
@@ -8437,7 +8458,6 @@
     ".generated/react-native-worklets/.worklets/2368545800113.js",
     ".generated/react-native-worklets/.worklets/2374207350737.js",
     ".generated/react-native-worklets/.worklets/23758491403.js",
-    ".generated/react-native-worklets/.worklets/2378172197193.js",
     ".generated/react-native-worklets/.worklets/2378442992660.js",
     ".generated/react-native-worklets/.worklets/2391666952023.js",
     ".generated/react-native-worklets/.worklets/2404071636720.js",
@@ -9259,6 +9279,7 @@
     ".generated/react-native-worklets/.worklets/9047825557105.js",
     ".generated/react-native-worklets/.worklets/9065322621897.js",
     ".generated/react-native-worklets/.worklets/908368800052.js",
+    ".generated/react-native-worklets/.worklets/9097856890761.js",
     ".generated/react-native-worklets/.worklets/9097937941768.js",
     ".generated/react-native-worklets/.worklets/9106575257510.js",
     ".generated/react-native-worklets/.worklets/9117239802023.js",
@@ -9432,6 +9453,8 @@
     "src/core/api/services/kanbanInvalidation.ts",
     "src/core/api/services/kanbanProtocol.ts",
     "src/core/api/services/kanbanTypes.ts",
+    "src/core/api/services/modelOptionsApi.ts",
+    "src/core/api/services/modelOptionsProtocol.ts",
     "src/core/api/services/notificationApi.ts",
     "src/core/api/services/templateApi.ts",
     "src/core/api/services/uploadApi.ts",
@@ -9485,6 +9508,7 @@
     "src/features/chatPersistence/chatRepository.ts",
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
     "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
+    "src/features/chatPersistence/components/ChatComposerOptionRow.tsx",
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx",
     "src/features/chatPersistence/components/ChatDetailDrawers.tsx",
     "src/features/chatPersistence/components/ChatDetailEmptyState.tsx",
@@ -9621,6 +9645,8 @@
     "src/core/api/services/kanbanInvalidation.ts": "core-api-client",
     "src/core/api/services/kanbanProtocol.ts": "core-api-client",
     "src/core/api/services/kanbanTypes.ts": "core-api-client",
+    "src/core/api/services/modelOptionsApi.ts": "core-api-client",
+    "src/core/api/services/modelOptionsProtocol.ts": "core-api-client",
     "src/core/api/services/notificationApi.ts": "core-api-client",
     "src/core/api/services/templateApi.ts": "core-api-client",
     "src/core/api/services/uploadApi.ts": "core-api-client",
@@ -9674,6 +9700,7 @@
     "src/features/chatPersistence/chatRepository.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatComposerOptionRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDetailDrawers.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": "feature-chat-persistence",
@@ -9835,6 +9862,11 @@
         "kind": "module",
         "id": "core-ws-transport",
         "path": ".doc/modules/core-ws-transport.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       },
       {
         "kind": "module",
@@ -12360,6 +12392,11 @@
         "kind": "module",
         "id": "app-development-debug",
         "path": ".doc/modules/app-development-debug.json"
+      },
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "code": [
@@ -12616,6 +12653,11 @@
       }
     ],
     "composer": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
       {
         "kind": "module",
         "id": "feature-chat-persistence",
@@ -14350,8 +14392,18 @@
     "effort": [
       {
         "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
     "elevation": [
@@ -17037,6 +17089,11 @@
     "interaction": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
       }
@@ -17211,6 +17268,11 @@
       }
     ],
     "item": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
       {
         "kind": "module",
         "id": "feature-chat-persistence",
@@ -17592,6 +17654,11 @@
     "layout": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
       }
@@ -17611,6 +17678,18 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "level": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
     "lib": [
@@ -18665,6 +18744,11 @@
       },
       {
         "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
       },
@@ -18677,6 +18761,11 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       },
       {
         "kind": "module",
@@ -19630,6 +19719,11 @@
     "options": [
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "core-api-client",
         "path": ".doc/modules/core-api-client.json"
       },
@@ -19823,6 +19917,11 @@
       }
     ],
     "override": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
       {
         "kind": "module",
         "id": "core-auth-session",
@@ -20446,6 +20545,11 @@
       }
     ],
     "placeholder": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
       {
         "kind": "module",
         "id": "feature-chat-persistence",
@@ -21676,6 +21780,11 @@
         "kind": "flow",
         "id": "chat-receive-message",
         "path": ".doc/flows/chat-receive-message.json"
+      },
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       },
       {
         "kind": "module",
@@ -26296,6 +26405,18 @@
         "kind": "rule",
         "id": "realtime-write-through-repository",
         "path": ".doc/rules.json"
+      }
+    ],
+    "tier": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-realtime",
+        "path": ".doc/modules/feature-chat-realtime.json"
       }
     ],
     "time": [
@@ -48292,6 +48413,6 @@
     "taskCount": 16,
     "flowCount": 7,
     "ruleCount": 13,
-    "sourceFileCount": 2107
+    "sourceFileCount": 2109
   }
 }

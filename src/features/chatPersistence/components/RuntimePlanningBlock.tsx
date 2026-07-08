@@ -1,19 +1,37 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import type { ComponentProps } from 'react';
 import {
-  Animated as RNAnimated,
-  Easing,
+  AccessibilityInfo,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
+import Svg, { Defs, LinearGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
+import {
+  cancelAnimation,
+  createAnimatedComponent,
+  Easing,
+  useAnimatedProps,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../shared/visual/className';
 import { ChatTimelineRail } from './ChatTimelineRail';
+import {
+  PLANNING_WRITING_GRADIENT_STOPS,
+  PLANNING_WRITING_SHIMMER_DURATION_MS,
+  PLANNING_WRITING_TEXT_BASELINE_Y,
+  PLANNING_WRITING_TEXT_FONT_SIZE,
+  PLANNING_WRITING_TEXT_FONT_WEIGHT,
+  PLANNING_WRITING_TEXT_HEIGHT,
+  resolvePlanningWritingGradientWindow,
+} from './planningWritingShimmerConfig';
 import type { RuntimePayloadDescriptor } from './runtimePayloadDescriptor';
 import { RuntimePayloadContent } from './runtimePayloadRenderers';
 
@@ -33,7 +51,6 @@ type RuntimePlanningBlockProps = {
   onModeChange: (nodeId: string, mode: RuntimePlanningBlockMode) => void;
 };
 
-const WRITING_SHIMMER_DURATION_MS = 1200;
 const TIMELINE_ROW_CLASS = 'mb-4 flex-row items-stretch gap-2';
 const TIMELINE_BODY_CLASS = 'min-w-0 flex-1';
 const CARD_CLASS = 'overflow-hidden rounded-[18px] bg-app-surface-muted px-app-lg pb-app-lg pt-app-md';
@@ -55,45 +72,120 @@ const EXPAND_BUTTON_CLASS =
   'min-h-9 flex-row items-center gap-[5px] rounded-app-pill bg-app-action px-app-lg py-[7px] active:opacity-[0.78]';
 const EXPAND_BUTTON_TEXT_CLASS = 'text-[14px] font-extrabold leading-5 text-app-on-action';
 const EMPTY_CONTENT_CLASS = 'mt-app-sm text-[13px] leading-5 text-app-tertiary';
-const SHIMMER_CLASS = 'absolute -left-1/3 top-0 h-full w-1/3 rounded-app-pill bg-app-surface opacity-[0.55]';
+
+type SvgLinearGradientProps = ComponentProps<typeof LinearGradient>;
+
+const AnimatedLinearGradient = createAnimatedComponent(LinearGradient);
+
+function useReduceMotionEnabled(): boolean {
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    AccessibilityInfo.isReduceMotionEnabled()
+      .then((enabled) => {
+        if (isMounted) {
+          setReduceMotionEnabled(enabled);
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setReduceMotionEnabled(false);
+        }
+      });
+
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotionEnabled);
+
+    return () => {
+      isMounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  return reduceMotionEnabled;
+}
 
 function gradientIdForDescriptor(descriptorId: string): string {
   return `runtimePlanningFade-${descriptorId.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
 }
 
-const PlanningWritingTitle = memo(function PlanningWritingTitle({ title }: { title: string }) {
-  const progress = useRef(new RNAnimated.Value(0)).current;
+function writingGradientIdForDescriptor(descriptorId: string): string {
+  return `runtimePlanningWriting-${descriptorId.replace(/[^a-zA-Z0-9_-]/g, '-')}`;
+}
 
-  useEffect(() => {
-    progress.setValue(0);
-    const animation = RNAnimated.loop(
-      RNAnimated.timing(progress, {
-        toValue: 1,
-        duration: WRITING_SHIMMER_DURATION_MS,
-        easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: true,
-      })
-    );
+const PlanningWritingTitle = memo(function PlanningWritingTitle({
+  gradientId,
+  title,
+}: {
+  gradientId: string;
+  title: string;
+}) {
+  const { theme } = useAppTheme();
+  const reduceMotionEnabled = useReduceMotionEnabled();
+  const progress = useSharedValue(0);
 
-    animation.start();
+  const animatedGradientProps = useAnimatedProps<SvgLinearGradientProps>(() => {
+    const gradientWindow = resolvePlanningWritingGradientWindow(progress.value);
 
-    return () => {
-      animation.stop();
-      progress.setValue(0);
+    return {
+      x1: gradientWindow.x1,
+      x2: gradientWindow.x2,
     };
-  }, [progress]);
-
-  const translateX = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [-48, 168],
   });
 
+  useEffect(() => {
+    if (reduceMotionEnabled) {
+      cancelAnimation(progress);
+      progress.value = 0;
+      return;
+    }
+
+    progress.value = 0;
+    progress.value = withRepeat(
+      withTiming(1, {
+        duration: PLANNING_WRITING_SHIMMER_DURATION_MS,
+        easing: Easing.linear,
+      }),
+      -1,
+      false
+    );
+
+    return () => {
+      cancelAnimation(progress);
+      progress.value = 0;
+    };
+  }, [progress, reduceMotionEnabled]);
+
+  if (reduceMotionEnabled) {
+    return (
+      <View accessibilityLabel={title} className={HEADER_TITLE_WRAP_CLASS}>
+        <Text allowFontScaling={false} numberOfLines={1} className={cn(TITLE_CLASS, WRITING_TITLE_CLASS)}>
+          {title}
+        </Text>
+      </View>
+    );
+  }
+
   return (
-    <View className={HEADER_TITLE_WRAP_CLASS}>
-      <Text allowFontScaling={false} numberOfLines={1} className={cn(TITLE_CLASS, WRITING_TITLE_CLASS)}>
-        {title}
-      </Text>
-      <RNAnimated.View pointerEvents="none" className={SHIMMER_CLASS} style={{ transform: [{ translateX }] }} />
+    <View accessibilityLabel={title} className={HEADER_TITLE_WRAP_CLASS}>
+      <Svg pointerEvents="none" width="100%" height={PLANNING_WRITING_TEXT_HEIGHT}>
+        <Defs>
+          <AnimatedLinearGradient id={gradientId} animatedProps={animatedGradientProps} y1="0" y2="0">
+            {PLANNING_WRITING_GRADIENT_STOPS.map((stop) => (
+              <Stop key={stop.offset} offset={stop.offset} stopColor={theme.colors[stop.colorRole]} />
+            ))}
+          </AnimatedLinearGradient>
+        </Defs>
+        <SvgText
+          fill={`url(#${gradientId})`}
+          fontSize={PLANNING_WRITING_TEXT_FONT_SIZE}
+          fontWeight={PLANNING_WRITING_TEXT_FONT_WEIGHT}
+          x={0}
+          y={PLANNING_WRITING_TEXT_BASELINE_Y}
+        >
+          {title}
+        </SvgText>
+      </Svg>
     </View>
   );
 });
@@ -166,6 +258,7 @@ export const RuntimePlanningBlock = memo(function RuntimePlanningBlock({
   const isExpanded = mode === 'expanded';
   const isCompact = mode === 'compact';
   const gradientId = useMemo(() => gradientIdForDescriptor(descriptor.id), [descriptor.id]);
+  const writingGradientId = useMemo(() => writingGradientIdForDescriptor(descriptor.id), [descriptor.id]);
   const expandLabel = t('runtime.planning.expand');
   const collapseLabel = t('runtime.planning.collapse');
 
@@ -226,7 +319,7 @@ export const RuntimePlanningBlock = memo(function RuntimePlanningBlock({
         >
           <View className={HEADER_CLASS}>
             {isStreaming ? (
-              <PlanningWritingTitle title={descriptor.title} />
+              <PlanningWritingTitle gradientId={writingGradientId} title={descriptor.title} />
             ) : (
               <View className={HEADER_TITLE_WRAP_CLASS}>
                 <Text allowFontScaling={false} numberOfLines={1} className={TITLE_CLASS}>

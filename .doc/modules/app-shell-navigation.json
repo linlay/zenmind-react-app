@@ -162,6 +162,8 @@
       "scripts/tests/chatApiDetail.test.mts",
       "scripts/tests/chatAttachmentResourceUrl.test.mts",
       "scripts/tests/chatCacheScope.test.mts",
+      "scripts/tests/chatComposerNativePlaceholder.test.mts",
+      "scripts/tests/chatComposerOptionsLayout.test.mts",
       "scripts/tests/chatDetailAsyncScope.test.mts",
       "scripts/tests/chatDetailFormatters.test.mts",
       "scripts/tests/chatDetailHistoryDrawerPlacement.test.mts",
@@ -171,8 +173,10 @@
       "scripts/tests/chatDirectoryOpenDecision.test.mts",
       "scripts/tests/chatDirectoryPickerOverlayState.test.mts",
       "scripts/tests/chatDirectoryProjector.test.mts",
+      "scripts/tests/chatDrawerCloseInteraction.test.mts",
       "scripts/tests/chatDrawerOverlayGeometry.test.mts",
       "scripts/tests/chatHistoryScope.test.mts",
+      "scripts/tests/chatModelOptions.test.mts",
       "scripts/tests/chatPersistencePerformance.test.mts",
       "scripts/tests/chatProjector.test.mts",
       "scripts/tests/chatReadState.test.mts",
@@ -203,7 +207,7 @@
       "scripts/tests/visualFoundation.test.mts",
       "scripts/tests/wsClientTransport.test.mts"
     ],
-    "lastScannedAt": "2026-07-07T03:48:08Z"
+    "lastScannedAt": "2026-07-08T02:08:25Z"
   },
   "readHints": {
     "alwaysRead": [

@@ -858,7 +858,8 @@ function buildTimelineUserRequestEchoIndex(
 function findRequestEchoTimelineNodeId(
   state: ChatTimelineState,
   index: ReadonlyMap<string, readonly string[]>,
-  node: ChatTimelineNode
+  node: ChatTimelineNode,
+  consumedNodeIds?: ReadonlySet<string>
 ): string {
   if (node.kind !== 'message' || node.role !== 'user') {
     return '';
@@ -871,7 +872,13 @@ function findRequestEchoTimelineNodeId(
   }
 
   let matchedNodeId = '';
+  let matchedDistance = Number.POSITIVE_INFINITY;
+  let matchedOrder = Number.POSITIVE_INFINITY;
   for (const nodeId of nodeIds) {
+    if (consumedNodeIds?.has(nodeId)) {
+      continue;
+    }
+
     const candidate = state.nodesById[nodeId];
     if (
       candidate?.kind !== 'message' ||
@@ -881,10 +888,16 @@ function findRequestEchoTimelineNodeId(
       continue;
     }
 
-    if (matchedNodeId) {
-      return '';
+    const distance = Math.abs(node.createdAt - candidate.createdAt);
+    if (
+      !matchedNodeId ||
+      distance < matchedDistance ||
+      (distance === matchedDistance && candidate.order < matchedOrder)
+    ) {
+      matchedNodeId = nodeId;
+      matchedDistance = distance;
+      matchedOrder = candidate.order;
     }
-    matchedNodeId = nodeId;
   }
 
   return matchedNodeId;
@@ -2436,6 +2449,7 @@ export function mergeChatTimelineState(
   );
   const incomingIndex = buildTimelineNodeIdentityIndex(incomingState);
   let incomingRequestEchoIndex: Map<string, string[]> | null = null;
+  const consumedIncomingRequestEchoNodeIds = new Set<string>();
   let orderedNodeIds = incomingState.orderedNodeIds;
   let orderedNodeIdSet: Set<string> | null = null;
   let orderedNodeIndexById: Map<string, number> | null = null;
@@ -2489,7 +2503,8 @@ export function mergeChatTimelineState(
     return findRequestEchoTimelineNodeId(
       incomingState,
       incomingRequestEchoIndex,
-      currentNode
+      currentNode,
+      consumedIncomingRequestEchoNodeIds
     );
   };
 
@@ -2501,6 +2516,10 @@ export function mergeChatTimelineState(
 
     const matchedIncomingId = findMatchedIncomingNodeId(currentNode);
     const incomingNode = matchedIncomingId ? incomingState.nodesById[matchedIncomingId] : undefined;
+    // Claim request echoes even for exact matches so later local repeats cannot reuse them.
+    if (matchedIncomingId && isRemoteUserRequestEchoNode(incomingNode)) {
+      consumedIncomingRequestEchoNodeIds.add(matchedIncomingId);
+    }
     const shouldPreserve =
       shouldPreserveProtectedTerminalNode(currentNode, incomingNode, protectedTerminalRunIds) ||
       (incomingNode
@@ -2623,6 +2642,7 @@ export function compactChatTimelineRequestEchoes(
   }
 
   const nodeIdsToDrop = new Set<string>();
+  const consumedLocalRequestEchoNodeIds = new Set<string>();
   for (const nodeId of stateInput.orderedNodeIds) {
     const node = stateInput.nodesById[nodeId];
     if (!isRemoteUserRequestEchoNode(node)) {
@@ -2631,9 +2651,11 @@ export function compactChatTimelineRequestEchoes(
     const matchedLocalNodeId = findRequestEchoTimelineNodeId(
       stateInput,
       localRequestEchoIndex,
-      node
+      node,
+      consumedLocalRequestEchoNodeIds
     );
     if (matchedLocalNodeId) {
+      consumedLocalRequestEchoNodeIds.add(matchedLocalNodeId);
       nodeIdsToDrop.add(nodeId);
     }
   }

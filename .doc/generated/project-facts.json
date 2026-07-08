@@ -34,6 +34,8 @@
     "scripts/tests/chatApiDetail.test.mts",
     "scripts/tests/chatAttachmentResourceUrl.test.mts",
     "scripts/tests/chatCacheScope.test.mts",
+    "scripts/tests/chatComposerNativePlaceholder.test.mts",
+    "scripts/tests/chatComposerOptionsLayout.test.mts",
     "scripts/tests/chatDetailAsyncScope.test.mts",
     "scripts/tests/chatDetailFormatters.test.mts",
     "scripts/tests/chatDetailHistoryDrawerPlacement.test.mts",
@@ -43,8 +45,10 @@
     "scripts/tests/chatDirectoryOpenDecision.test.mts",
     "scripts/tests/chatDirectoryPickerOverlayState.test.mts",
     "scripts/tests/chatDirectoryProjector.test.mts",
+    "scripts/tests/chatDrawerCloseInteraction.test.mts",
     "scripts/tests/chatDrawerOverlayGeometry.test.mts",
     "scripts/tests/chatHistoryScope.test.mts",
+    "scripts/tests/chatModelOptions.test.mts",
     "scripts/tests/chatPersistencePerformance.test.mts",
     "scripts/tests/chatProjector.test.mts",
     "scripts/tests/chatReadState.test.mts",
@@ -284,7 +288,6 @@
     ".generated/react-native-worklets/.worklets/11706789657221.js",
     ".generated/react-native-worklets/.worklets/11710229424229.js",
     ".generated/react-native-worklets/.worklets/11712932777694.js",
-    ".generated/react-native-worklets/.worklets/11713718453580.js",
     ".generated/react-native-worklets/.worklets/11727464299963.js",
     ".generated/react-native-worklets/.worklets/11735874909254.js",
     ".generated/react-native-worklets/.worklets/11743596386357.js",
@@ -1050,7 +1053,6 @@
     ".generated/react-native-worklets/.worklets/2368545800113.js",
     ".generated/react-native-worklets/.worklets/2374207350737.js",
     ".generated/react-native-worklets/.worklets/23758491403.js",
-    ".generated/react-native-worklets/.worklets/2378172197193.js",
     ".generated/react-native-worklets/.worklets/2378442992660.js",
     ".generated/react-native-worklets/.worklets/2391666952023.js",
     ".generated/react-native-worklets/.worklets/2404071636720.js",
@@ -1872,6 +1874,7 @@
     ".generated/react-native-worklets/.worklets/9047825557105.js",
     ".generated/react-native-worklets/.worklets/9065322621897.js",
     ".generated/react-native-worklets/.worklets/908368800052.js",
+    ".generated/react-native-worklets/.worklets/9097856890761.js",
     ".generated/react-native-worklets/.worklets/9097937941768.js",
     ".generated/react-native-worklets/.worklets/9106575257510.js",
     ".generated/react-native-worklets/.worklets/9117239802023.js",
@@ -2045,6 +2048,8 @@
     "src/core/api/services/kanbanInvalidation.ts",
     "src/core/api/services/kanbanProtocol.ts",
     "src/core/api/services/kanbanTypes.ts",
+    "src/core/api/services/modelOptionsApi.ts",
+    "src/core/api/services/modelOptionsProtocol.ts",
     "src/core/api/services/notificationApi.ts",
     "src/core/api/services/templateApi.ts",
     "src/core/api/services/uploadApi.ts",
@@ -2098,6 +2103,7 @@
     "src/features/chatPersistence/chatRepository.ts",
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
     "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
+    "src/features/chatPersistence/components/ChatComposerOptionRow.tsx",
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx",
     "src/features/chatPersistence/components/ChatDetailDrawers.tsx",
     "src/features/chatPersistence/components/ChatDetailEmptyState.tsx",
@@ -3006,10 +3012,6 @@
                   },
                   {
                     "name": "11712932777694.js",
-                    "type": "file"
-                  },
-                  {
-                    "name": "11713718453580.js",
                     "type": "file"
                   },
                   {
@@ -6070,10 +6072,6 @@
                   },
                   {
                     "name": "23758491403.js",
-                    "type": "file"
-                  },
-                  {
-                    "name": "2378172197193.js",
                     "type": "file"
                   },
                   {
@@ -9361,6 +9359,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "9097856890761.js",
+                    "type": "file"
+                  },
+                  {
                     "name": "9097937941768.js",
                     "type": "file"
                   },
@@ -10177,6 +10179,14 @@
                         "type": "file"
                       },
                       {
+                        "name": "modelOptionsApi.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "modelOptionsProtocol.ts",
+                        "type": "file"
+                      },
+                      {
                         "name": "notificationApi.ts",
                         "type": "file"
                       },
@@ -10410,6 +10420,10 @@
                       },
                       {
                         "name": "ChatAwaitingOverlay.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatComposerOptionRow.tsx",
                         "type": "file"
                       },
                       {
@@ -11016,6 +11030,8 @@
       "src/core/api/services/kanbanInvalidation.ts",
       "src/core/api/services/kanbanProtocol.ts",
       "src/core/api/services/kanbanTypes.ts",
+      "src/core/api/services/modelOptionsApi.ts",
+      "src/core/api/services/modelOptionsProtocol.ts",
       "src/core/api/services/notificationApi.ts",
       "src/core/api/services/templateApi.ts",
       "src/core/api/services/uploadApi.ts"
@@ -11083,6 +11099,7 @@
       "src/features/chatPersistence/chatRepository.ts",
       "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
       "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
+      "src/features/chatPersistence/components/ChatComposerOptionRow.tsx",
       "src/features/chatPersistence/components/ChatDetailComposerCard.tsx",
       "src/features/chatPersistence/components/ChatDetailDrawers.tsx",
       "src/features/chatPersistence/components/ChatDetailEmptyState.tsx",
@@ -11234,6 +11251,8 @@
     "src/core/api/services/kanbanInvalidation.ts": "core-api-client",
     "src/core/api/services/kanbanProtocol.ts": "core-api-client",
     "src/core/api/services/kanbanTypes.ts": "core-api-client",
+    "src/core/api/services/modelOptionsApi.ts": "core-api-client",
+    "src/core/api/services/modelOptionsProtocol.ts": "core-api-client",
     "src/core/api/services/notificationApi.ts": "core-api-client",
     "src/core/api/services/templateApi.ts": "core-api-client",
     "src/core/api/services/uploadApi.ts": "core-api-client",
@@ -11287,6 +11306,7 @@
     "src/features/chatPersistence/chatRepository.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatComposerOptionRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDetailDrawers.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": "feature-chat-persistence",
@@ -12194,9 +12214,6 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/11712932777694.js": [
-      "default"
-    ],
-    ".generated/react-native-worklets/.worklets/11713718453580.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/11727464299963.js": [
@@ -14492,9 +14509,6 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/23758491403.js": [
-      "default"
-    ],
-    ".generated/react-native-worklets/.worklets/2378172197193.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/2378442992660.js": [
@@ -16960,6 +16974,9 @@
     ".generated/react-native-worklets/.worklets/908368800052.js": [
       "default"
     ],
+    ".generated/react-native-worklets/.worklets/9097856890761.js": [
+      "default"
+    ],
     ".generated/react-native-worklets/.worklets/9097937941768.js": [
       "default"
     ],
@@ -17584,6 +17601,29 @@
       "KanbanStatus",
       "StartKanbanIssueRunApiInput"
     ],
+    "src/core/api/services/modelOptionsApi.ts": [
+      "getModelOptionsApi",
+      "updateAgentModelConfigApi"
+    ],
+    "src/core/api/services/modelOptionsProtocol.ts": [
+      "MODEL_CONFIG_API_PATH",
+      "MODEL_OPTIONS_API_PATH",
+      "ModelOptionItem",
+      "ModelOptionReasoningEffort",
+      "ModelOptionServiceTier",
+      "ModelOptionsSnapshot",
+      "QueryAccessLevel",
+      "QueryModelOverride",
+      "ReasoningEffortOption",
+      "ServiceTierOption",
+      "buildAgentModelConfigPayload",
+      "buildModelOptionsPayload",
+      "normalizeModelOptionReasoningEffort",
+      "normalizeModelOptionServiceTier",
+      "normalizeModelOptionsAgentKey",
+      "normalizeModelOptionsResponse",
+      "unwrapModelOptionsApiEnvelope"
+    ],
     "src/core/api/services/notificationApi.ts": [
       "NotificationMessageDetailResponse",
       "PushTokenPlatform",
@@ -17993,6 +18033,9 @@
       "ChatAwaitingOverlay",
       "ChatAwaitingResumeBar"
     ],
+    "src/features/chatPersistence/components/ChatComposerOptionRow.tsx": [
+      "ChatComposerOptionRow"
+    ],
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": [
       "ChatDetailComposerCard"
     ],
@@ -18232,6 +18275,10 @@
       "chatSyncService"
     ],
     "src/features/chatRealtime/chatWsTransport.ts": [
+      "ChatQueryAccessLevel",
+      "ChatQueryModelOverride",
+      "ChatQueryReasoningEffort",
+      "ChatQueryServiceTier",
       "ChatTransportConfig",
       "attachChatRun",
       "buildChatAttachPayload",
@@ -18897,7 +18944,6 @@
     ],
     ".generated/react-native-worklets/.worklets/11710229424229.js": null,
     ".generated/react-native-worklets/.worklets/11712932777694.js": null,
-    ".generated/react-native-worklets/.worklets/11713718453580.js": null,
     ".generated/react-native-worklets/.worklets/11727464299963.js": null,
     ".generated/react-native-worklets/.worklets/11735874909254.js": null,
     ".generated/react-native-worklets/.worklets/11743596386357.js": null,
@@ -19855,7 +19901,6 @@
     ".generated/react-native-worklets/.worklets/2368545800113.js": null,
     ".generated/react-native-worklets/.worklets/2374207350737.js": null,
     ".generated/react-native-worklets/.worklets/23758491403.js": null,
-    ".generated/react-native-worklets/.worklets/2378172197193.js": null,
     ".generated/react-native-worklets/.worklets/2378442992660.js": null,
     ".generated/react-native-worklets/.worklets/2391666952023.js": null,
     ".generated/react-native-worklets/.worklets/2404071636720.js": null,
@@ -20876,6 +20921,7 @@
     ".generated/react-native-worklets/.worklets/9047825557105.js": null,
     ".generated/react-native-worklets/.worklets/9065322621897.js": null,
     ".generated/react-native-worklets/.worklets/908368800052.js": null,
+    ".generated/react-native-worklets/.worklets/9097856890761.js": null,
     ".generated/react-native-worklets/.worklets/9097937941768.js": null,
     ".generated/react-native-worklets/.worklets/9106575257510.js": null,
     ".generated/react-native-worklets/.worklets/9117239802023.js": [
@@ -21313,6 +21359,15 @@
       "./kanbanTypes.ts"
     ],
     "src/core/api/services/kanbanTypes.ts": null,
+    "src/core/api/services/modelOptionsApi.ts": [
+      "../../ws/sharedWsTransport.ts",
+      "../activeWsTransport",
+      "../apiError.ts",
+      "./modelOptionsProtocol.ts"
+    ],
+    "src/core/api/services/modelOptionsProtocol.ts": [
+      "../apiError.ts"
+    ],
     "src/core/api/services/notificationApi.ts": [
       "../apiClient"
     ],
@@ -21621,9 +21676,21 @@
       "react-native",
       "react-native-safe-area-context"
     ],
+    "src/features/chatPersistence/components/ChatComposerOptionRow.tsx": [
+      "../../../core/api/services/modelOptionsProtocol",
+      "../../../shared/i18n",
+      "../../../shared/icons/AppIcon",
+      "../../../shared/visual/AppThemeProvider",
+      "../../../shared/visual/className",
+      "../../../shared/visual/foundation",
+      "react",
+      "react-native"
+    ],
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": [
+      "../../../core/api/services/modelOptionsProtocol",
       "../chatDetailViewModel",
       "../types",
+      "./ChatComposerOptionRow",
       "./Composer",
       "react",
       "react-native"
@@ -21950,6 +22017,7 @@
     ],
     "src/features/chatPersistence/useChatDetailConversationController.ts": [
       "../../core/api/services/chatApi",
+      "../../core/api/services/modelOptionsProtocol",
       "../../core/api/services/notificationApi",
       "../../shared/i18n",
       "../chatRealtime/chatSyncService",
@@ -21978,6 +22046,8 @@
       "../../core/api/activeWsTransport",
       "../../core/api/apiClient",
       "../../core/api/services/chatApi",
+      "../../core/api/services/modelOptionsApi",
+      "../../core/api/services/modelOptionsProtocol",
       "../../core/auth/appAuth",
       "../../core/ws/sharedWsTransport",
       "../../core/ws/wsClient",
@@ -21994,6 +22064,7 @@
     ],
     "src/features/chatRealtime/chatWsTransport.ts": [
       "../../core/api/services/chatEventProtocol.ts",
+      "../../core/api/services/modelOptionsProtocol.ts",
       "../../core/ws/sharedWsTransport.ts",
       "../../core/ws/wsClient.ts",
       "../../core/ws/wsTransportConfig.ts",
@@ -22420,7 +22491,6 @@
     ".generated/react-native-worklets/.worklets/11706789657221.js": null,
     ".generated/react-native-worklets/.worklets/11710229424229.js": null,
     ".generated/react-native-worklets/.worklets/11712932777694.js": null,
-    ".generated/react-native-worklets/.worklets/11713718453580.js": null,
     ".generated/react-native-worklets/.worklets/11727464299963.js": null,
     ".generated/react-native-worklets/.worklets/11735874909254.js": null,
     ".generated/react-native-worklets/.worklets/11743596386357.js": null,
@@ -23233,7 +23303,6 @@
     ".generated/react-native-worklets/.worklets/2368545800113.js": null,
     ".generated/react-native-worklets/.worklets/2374207350737.js": null,
     ".generated/react-native-worklets/.worklets/23758491403.js": null,
-    ".generated/react-native-worklets/.worklets/2378172197193.js": null,
     ".generated/react-native-worklets/.worklets/2378442992660.js": null,
     ".generated/react-native-worklets/.worklets/2391666952023.js": null,
     ".generated/react-native-worklets/.worklets/2404071636720.js": null,
@@ -24103,6 +24172,7 @@
     ".generated/react-native-worklets/.worklets/9047825557105.js": null,
     ".generated/react-native-worklets/.worklets/9065322621897.js": null,
     ".generated/react-native-worklets/.worklets/908368800052.js": null,
+    ".generated/react-native-worklets/.worklets/9097856890761.js": null,
     ".generated/react-native-worklets/.worklets/9097937941768.js": null,
     ".generated/react-native-worklets/.worklets/9106575257510.js": null,
     ".generated/react-native-worklets/.worklets/9117239802023.js": null,
@@ -24432,6 +24502,15 @@
       "src/core/ws/wsTransportConfig.ts"
     ],
     "src/core/api/services/kanbanTypes.ts": null,
+    "src/core/api/services/modelOptionsApi.ts": [
+      "src/core/api/activeWsTransport.ts",
+      "src/core/api/apiError.ts",
+      "src/core/api/services/modelOptionsProtocol.ts",
+      "src/core/ws/sharedWsTransport.ts"
+    ],
+    "src/core/api/services/modelOptionsProtocol.ts": [
+      "src/core/api/apiError.ts"
+    ],
     "src/core/api/services/notificationApi.ts": [
       "src/core/api/apiClient.ts"
     ],
@@ -24701,8 +24780,18 @@
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
+    "src/features/chatPersistence/components/ChatComposerOptionRow.tsx": [
+      "src/core/api/services/modelOptionsProtocol.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts",
+      "src/shared/visual/foundation.ts"
+    ],
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": [
+      "src/core/api/services/modelOptionsProtocol.ts",
       "src/features/chatPersistence/chatDetailViewModel.ts",
+      "src/features/chatPersistence/components/ChatComposerOptionRow.tsx",
       "src/features/chatPersistence/components/Composer.tsx",
       "src/features/chatPersistence/types.ts"
     ],
@@ -24959,6 +25048,7 @@
     ],
     "src/features/chatPersistence/useChatDetailConversationController.ts": [
       "src/core/api/services/chatApi.ts",
+      "src/core/api/services/modelOptionsProtocol.ts",
       "src/core/api/services/notificationApi.ts",
       "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
@@ -24983,6 +25073,8 @@
       "src/core/api/activeWsTransport.ts",
       "src/core/api/apiClient.ts",
       "src/core/api/services/chatApi.ts",
+      "src/core/api/services/modelOptionsApi.ts",
+      "src/core/api/services/modelOptionsProtocol.ts",
       "src/core/auth/appAuth.ts",
       "src/core/ws/sharedWsTransport.ts",
       "src/core/ws/wsClient.ts",
@@ -24999,6 +25091,7 @@
     ],
     "src/features/chatRealtime/chatWsTransport.ts": [
       "src/core/api/services/chatEventProtocol.ts",
+      "src/core/api/services/modelOptionsProtocol.ts",
       "src/core/ws/sharedWsTransport.ts",
       "src/core/ws/wsClient.ts",
       "src/core/ws/wsTransportConfig.ts",
@@ -25396,7 +25489,6 @@
     ".generated/react-native-worklets/.worklets/11706789657221.js",
     ".generated/react-native-worklets/.worklets/11710229424229.js",
     ".generated/react-native-worklets/.worklets/11712932777694.js",
-    ".generated/react-native-worklets/.worklets/11713718453580.js",
     ".generated/react-native-worklets/.worklets/11727464299963.js",
     ".generated/react-native-worklets/.worklets/11735874909254.js",
     ".generated/react-native-worklets/.worklets/11743596386357.js",
@@ -26162,7 +26254,6 @@
     ".generated/react-native-worklets/.worklets/2368545800113.js",
     ".generated/react-native-worklets/.worklets/2374207350737.js",
     ".generated/react-native-worklets/.worklets/23758491403.js",
-    ".generated/react-native-worklets/.worklets/2378172197193.js",
     ".generated/react-native-worklets/.worklets/2378442992660.js",
     ".generated/react-native-worklets/.worklets/2391666952023.js",
     ".generated/react-native-worklets/.worklets/2404071636720.js",
@@ -26984,6 +27075,7 @@
     ".generated/react-native-worklets/.worklets/9047825557105.js",
     ".generated/react-native-worklets/.worklets/9065322621897.js",
     ".generated/react-native-worklets/.worklets/908368800052.js",
+    ".generated/react-native-worklets/.worklets/9097856890761.js",
     ".generated/react-native-worklets/.worklets/9097937941768.js",
     ".generated/react-native-worklets/.worklets/9106575257510.js",
     ".generated/react-native-worklets/.worklets/9117239802023.js",

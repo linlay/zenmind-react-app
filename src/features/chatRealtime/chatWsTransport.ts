@@ -1,6 +1,10 @@
 import type { ChatSocketStatus } from './types.ts';
 import { normalizeEventType } from '../../core/api/services/chatEventProtocol.ts';
 import {
+  normalizeModelOptionReasoningEffort,
+  normalizeModelOptionServiceTier
+} from '../../core/api/services/modelOptionsProtocol.ts';
+import {
   sharedWsTransport,
   type SharedWsStreamHandle,
   type SharedWsSubscription
@@ -28,6 +32,16 @@ type RequestOptions = {
   signal?: AbortSignal;
 } & ChatTransportConfig;
 
+export type ChatQueryAccessLevel = 'default' | 'auto_approve' | 'full_access';
+export type ChatQueryReasoningEffort = 'NONE' | 'LOW' | 'MEDIUM' | 'HIGH' | 'XHIGH' | 'MAX';
+export type ChatQueryServiceTier = string;
+
+export type ChatQueryModelOverride = {
+  key?: string;
+  reasoningEffort?: ChatQueryReasoningEffort;
+  serviceTier?: ChatQueryServiceTier;
+};
+
 type ChatQueryPayloadInput = {
   requestId: string;
   chatId?: string | null;
@@ -36,6 +50,8 @@ type ChatQueryPayloadInput = {
   agentKey?: string | null;
   teamId?: string | null;
   planningMode?: boolean;
+  accessLevel?: ChatQueryAccessLevel;
+  model?: ChatQueryModelOverride;
 };
 
 type ChatQueryPayload = {
@@ -46,6 +62,8 @@ type ChatQueryPayload = {
   agentKey?: string;
   teamId?: string;
   planningMode?: true;
+  accessLevel?: Exclude<ChatQueryAccessLevel, 'default'>;
+  model?: ChatQueryModelOverride;
   role: 'user';
   stream: true;
 };
@@ -90,9 +108,33 @@ function normalizeTransportEvent(input: Record<string, unknown>): Record<string,
   return normalized;
 }
 
+function normalizeQueryAccessLevel(value: unknown): Exclude<ChatQueryAccessLevel, 'default'> | undefined {
+  const text = String(value || '').trim();
+  return text === 'auto_approve' || text === 'full_access' ? text : undefined;
+}
+
+function normalizeQueryServiceTier(value: unknown): ChatQueryServiceTier | undefined {
+  const tier = normalizeModelOptionServiceTier(value);
+  return tier === 'STANDARD' ? undefined : tier;
+}
+
+function compactQueryModelOverride(model: ChatQueryModelOverride | undefined): ChatQueryModelOverride | undefined {
+  const key = String(model?.key || '').trim();
+  const reasoningEffort = normalizeModelOptionReasoningEffort(model?.reasoningEffort);
+  const serviceTier = normalizeQueryServiceTier(model?.serviceTier);
+  const next: ChatQueryModelOverride = {
+    ...(key ? { key } : {}),
+    ...(reasoningEffort ? { reasoningEffort } : {}),
+    ...(serviceTier ? { serviceTier } : {})
+  };
+  return next.key || next.reasoningEffort || next.serviceTier ? next : undefined;
+}
+
 export function buildChatQueryPayload(input: ChatQueryPayloadInput): ChatQueryPayload {
   const teamId = String(input.teamId || '').trim();
   const agentKey = teamId ? '' : String(input.agentKey || '').trim();
+  const accessLevel = normalizeQueryAccessLevel(input.accessLevel);
+  const model = compactQueryModelOverride(input.model);
 
   return {
     requestId: String(input.requestId || '').trim(),
@@ -102,6 +144,8 @@ export function buildChatQueryPayload(input: ChatQueryPayloadInput): ChatQueryPa
     ...(teamId ? { teamId } : {}),
     ...(agentKey ? { agentKey } : {}),
     ...(input.planningMode === true ? { planningMode: true } : {}),
+    ...(accessLevel ? { accessLevel } : {}),
+    ...(model ? { model } : {}),
     role: 'user',
     stream: true
   };

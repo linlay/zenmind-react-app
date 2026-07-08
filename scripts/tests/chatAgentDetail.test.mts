@@ -10,6 +10,10 @@ const chatSyncServiceSource = readFileSync(
   new URL('../../src/features/chatRealtime/chatSyncService.ts', import.meta.url),
   'utf8'
 );
+const chatDetailControllerSource = readFileSync(
+  new URL('../../src/features/chatPersistence/useChatDetailConversationController.ts', import.meta.url),
+  'utf8'
+);
 
 test('agent detail request uses /api/agent with agentKey payload', () => {
   assert.match(chatApiSource, /CHAT_AGENT_DETAIL_TRANSPORT_TYPE = '\/api\/agent'/);
@@ -24,6 +28,17 @@ test('agent detail projection preserves raw response and normalizes wonders', ()
   assert.match(chatApiSource, /function normalizeWonderSuggestion/);
   assert.match(chatApiSource, /\.slice\(0, 6\)/);
   assert.match(chatApiSource, /raw: detail/);
+});
+
+test('agent detail projection does not expose agent key as missing display name', () => {
+  assert.match(chatApiSource, /name: toCleanText\(detail\.name\),/);
+  assert.doesNotMatch(chatApiSource, /name: toCleanText\(detail\.name\) \|\| agentKey/);
+});
+
+test('new conversation intro filters agent-key-only display fields', () => {
+  assert.match(chatDetailControllerSource, /function getDisplayTextUnlessAgentKey/);
+  assert.match(chatDetailControllerSource, /getIntroAgentDisplayName/);
+  assert.match(chatDetailControllerSource, /description: getDisplayTextUnlessAgentKey\(\s*scopedAgentDetail\?\.description,\s*introAgentKey\s*\)/s);
 });
 
 test('chat sync service caches agent details for the app lifetime', () => {

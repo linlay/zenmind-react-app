@@ -115,6 +115,7 @@
       "ChatAwaitingOverlay",
       "ChatAwaitingResumeBar",
       "ChatComposerAttachment",
+      "ChatComposerOptionRow",
       "ChatComposerPrimaryAction",
       "ChatComposerRunAction",
       "ChatConversationHistoryPage",
@@ -413,7 +414,7 @@
       "feature-chat-timeline"
     ],
     "tests": [],
-    "lastScannedAt": "2026-07-07T03:48:08Z"
+    "lastScannedAt": "2026-07-08T02:08:25Z"
   },
   "readHints": {
     "alwaysRead": [

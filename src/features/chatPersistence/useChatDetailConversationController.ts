@@ -3,6 +3,13 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { Animated, Platform } from 'react-native';
 
 import type { AgentDetailSnapshot } from '../../core/api/services/chatApi';
+import {
+  buildAgentModelConfigPayload,
+  type
+  ModelOptionsSnapshot,
+  QueryAccessLevel,
+  QueryModelOverride
+} from '../../core/api/services/modelOptionsProtocol';
 import { getNotificationMessageDetailApi } from '../../core/api/services/notificationApi';
 import { useT } from '../../shared/i18n';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
@@ -88,6 +95,48 @@ function normalizeIntroAgentKey(value: string | null | undefined): string {
   return String(value || '').trim();
 }
 
+function getDisplayTextUnlessAgentKey(value: string | null | undefined, agentKey: string): string {
+  const text = String(value || '').trim();
+  return text && text !== agentKey ? text : '';
+}
+
+function getIntroAgentDisplayName(
+  candidates: readonly (string | null | undefined)[],
+  agentKey: string,
+  fallback: string
+): string {
+  for (const candidate of candidates) {
+    const text = getDisplayTextUnlessAgentKey(candidate, agentKey);
+    if (text) {
+      return text;
+    }
+  }
+
+  return fallback;
+}
+
+function hasQueryModelOverride(value: QueryModelOverride): boolean {
+  return Boolean(value.key || value.reasoningEffort || value.serviceTier);
+}
+
+function getQueryModelOverrideSignature(value: QueryModelOverride): string {
+  const payload = buildAgentModelConfigPayload('', value);
+  return `${payload.modelKey || ''}\n${payload.reasoningEffort || ''}\n${payload.serviceTier || ''}`;
+}
+
+function getDefaultQueryModelOverride(snapshot: ModelOptionsSnapshot | null): QueryModelOverride {
+  if (!snapshot) {
+    return {};
+  }
+  return {
+    ...(snapshot.defaultModelKey ? { key: snapshot.defaultModelKey } : {}),
+    ...(snapshot.defaultReasoningEffort ? { reasoningEffort: snapshot.defaultReasoningEffort } : {}),
+    ...(snapshot.defaultServiceTier && snapshot.defaultServiceTier !== 'STANDARD'
+      ? { serviceTier: snapshot.defaultServiceTier }
+      : {})
+  };
+}
+
 function shouldLoadStoredConversationTarget(target: ChatConversationTarget | null): boolean {
   if (!target) {
     return true;
@@ -164,6 +213,10 @@ export function useChatDetailConversationController({
   const [sending, setSending] = useState(false);
   const [draft, setDraft] = useState('');
   const [planModeEnabled, setPlanModeEnabled] = useState(false);
+  const [accessLevel, setAccessLevel] = useState<QueryAccessLevel>('default');
+  const [modelOverride, setModelOverride] = useState<QueryModelOverride>({});
+  const [modelOptionsSnapshot, setModelOptionsSnapshot] = useState<ModelOptionsSnapshot | null>(null);
+  const [modelOptionsLoading, setModelOptionsLoading] = useState(false);
   const [socketStatus, setSocketStatus] = useState<ChatSocketStatus>(chatSyncService.getStatus());
   const [errorText, setErrorText] = useState('');
   const [agentDetailSnapshot, setAgentDetailSnapshot] = useState<AgentDetailSnapshot | null>(null);
@@ -178,6 +231,7 @@ export function useChatDetailConversationController({
   const transitionSettledRef = useRef(false);
   const activeConversationIdRef = useRef(conversationId);
   const sendRequestIdRef = useRef(0);
+  const modelConfigUpdateIdRef = useRef(0);
   const sendingRef = useRef(false);
   const reaskInFlightRef = useRef(false);
   const isStartingNewConversationRef = useRef(false);
@@ -200,6 +254,20 @@ export function useChatDetailConversationController({
         : '',
     [conversationTarget?.agentKey, historyScope?.agentKey, isNewConversationEmpty]
   );
+  const composerAgentKey = useMemo(
+    () => normalizeIntroAgentKey(conversationTarget?.agentKey || historyScope?.agentKey),
+    [conversationTarget?.agentKey, historyScope?.agentKey]
+  );
+  const composerOptions = useMemo(
+    () => ({
+      accessLevel,
+      agentKey: composerAgentKey,
+      modelOverride,
+      modelOptionsLoading,
+      modelOptionsSnapshot
+    }),
+    [accessLevel, composerAgentKey, modelOptionsLoading, modelOptionsSnapshot, modelOverride]
+  );
   const scopedAgentDetail =
     introAgentKey && agentDetailSnapshot?.agentKey === introAgentKey ? agentDetailSnapshot : null;
   const newConversationIntro = useMemo<ChatNewConversationIntroState | null>(() => {
@@ -207,19 +275,29 @@ export function useChatDetailConversationController({
       return null;
     }
 
-    const agentName =
-      scopedAgentDetail?.name ||
-      conversationTarget?.title ||
-      summary?.title ||
-      conversationSubtitle ||
-      t('chatDetail.newConversation.agentFallback');
+    const agentName = getIntroAgentDisplayName(
+      [scopedAgentDetail?.name, conversationTarget?.title, summary?.title, conversationSubtitle],
+      introAgentKey,
+      t('chatDetail.newConversation.agentFallback')
+    );
 
     return {
       agentName,
-      description: scopedAgentDetail?.description || '',
+      description: getDisplayTextUnlessAgentKey(
+        scopedAgentDetail?.description,
+        introAgentKey
+      ),
       wonders: scopedAgentDetail?.wonders || []
     };
-  }, [conversationSubtitle, conversationTarget?.title, isNewConversationEmpty, scopedAgentDetail, summary?.title, t]);
+  }, [
+    conversationSubtitle,
+    conversationTarget?.title,
+    introAgentKey,
+    isNewConversationEmpty,
+    scopedAgentDetail,
+    summary?.title,
+    t
+  ]);
   const planModeAvailable = useMemo(
     () => canUsePlanMode(conversationTarget?.agentMode),
     [conversationTarget?.agentMode]
@@ -300,12 +378,15 @@ export function useChatDetailConversationController({
   useEffect(() => {
     activeConversationIdRef.current = conversationId;
     sendRequestIdRef.current += 1;
+    modelConfigUpdateIdRef.current += 1;
     isStartingNewConversationRef.current = false;
     hasObservedPendingSendRef.current = false;
     sendingRef.current = false;
     reaskInFlightRef.current = false;
     setDraft('');
     setSending(false);
+    setAccessLevel('default');
+    setModelOverride({});
   }, [conversationId]);
 
   useEffect(() => {
@@ -315,6 +396,10 @@ export function useChatDetailConversationController({
   useEffect(() => {
     composerRunActionRef.current = composerRunAction;
   }, [composerRunAction]);
+
+  useEffect(() => {
+    modelConfigUpdateIdRef.current += 1;
+  }, [composerAgentKey]);
 
   useEffect(() => {
     if (conversationTarget && !planModeAvailable && planModeEnabled) {
@@ -350,6 +435,40 @@ export function useChatDetailConversationController({
   }, [conversationId, introAgentKey]);
 
   useEffect(() => {
+    if (!composerAgentKey) {
+      setModelOptionsSnapshot(null);
+      setModelOptionsLoading(false);
+      setModelOverride({});
+      return;
+    }
+
+    const cached = chatSyncService.getAgentModelOptionsSnapshot(composerAgentKey);
+    setModelOptionsSnapshot(cached);
+    setModelOptionsLoading(!cached);
+
+    if (cached) {
+      setModelOverride((current) => (hasQueryModelOverride(current) ? current : getDefaultQueryModelOverride(cached)));
+    }
+
+    let cancelled = false;
+    const targetConversationId = conversationId;
+    void chatSyncService.ensureAgentModelOptions(composerAgentKey).then((snapshot) => {
+      if (cancelled || activeConversationIdRef.current !== targetConversationId) {
+        return;
+      }
+      setModelOptionsSnapshot(snapshot);
+      setModelOptionsLoading(false);
+      setModelOverride((current) =>
+        hasQueryModelOverride(current) ? current : getDefaultQueryModelOverride(snapshot)
+      );
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [composerAgentKey, conversationId]);
+
+  useEffect(() => {
     if (!sending) {
       hasObservedPendingSendRef.current = false;
       return;
@@ -366,6 +485,48 @@ export function useChatDetailConversationController({
       setSending(false);
     }
   }, [composerRunAction, latestUserMessagePending, sending]);
+
+  const handleModelOverrideChange = useCallback(
+    (nextOverride: QueryModelOverride) => {
+      if (getQueryModelOverrideSignature(modelOverride) === getQueryModelOverrideSignature(nextOverride)) {
+        return;
+      }
+
+      const targetAgentKey = composerAgentKey;
+      const nextModelKey = String(nextOverride.key || '').trim();
+      if (!targetAgentKey || !nextModelKey) {
+        return;
+      }
+
+      const targetConversationId = conversationId;
+      const updateId = modelConfigUpdateIdRef.current + 1;
+      modelConfigUpdateIdRef.current = updateId;
+      void chatSyncService
+        .updateAgentModelConfig(targetAgentKey, nextOverride)
+        .then((snapshot) => {
+          if (
+            activeConversationIdRef.current !== targetConversationId ||
+            modelConfigUpdateIdRef.current !== updateId
+          ) {
+            return;
+          }
+          if (snapshot) {
+            setModelOptionsSnapshot(snapshot);
+          }
+          setModelOverride(nextOverride);
+        })
+        .catch((error) => {
+          if (
+            activeConversationIdRef.current !== targetConversationId ||
+            modelConfigUpdateIdRef.current !== updateId
+          ) {
+            return;
+          }
+          setErrorText(error instanceof Error ? error.message : String(error));
+        });
+    },
+    [composerAgentKey, conversationId, modelOverride]
+  );
 
   useEffect(() => {
     transitionSettledRef.current = isTransitionSettled;
@@ -698,6 +859,8 @@ export function useChatDetailConversationController({
 
     try {
       await chatSyncService.sendMessage(targetConversationId, nextDraft, nextAttachments, {
+        accessLevel,
+        model: modelOverride,
         planningMode: effectivePlanModeEnabled
       });
       clearAttachments();
@@ -718,7 +881,7 @@ export function useChatDetailConversationController({
       sendingRef.current = false;
       setSending(false);
     }
-  }, [clearAttachments, conversationId, draft, effectivePlanModeEnabled, readyAttachments]);
+  }, [accessLevel, clearAttachments, conversationId, draft, effectivePlanModeEnabled, modelOverride, readyAttachments]);
 
   const handleTogglePlanMode = useCallback(() => {
     if (!planModeAvailable) {
@@ -753,6 +916,8 @@ export function useChatDetailConversationController({
           sendingRef.current = true;
           setSending(true);
           await chatSyncService.sendMessage(targetConversationId, nextContent, nextAttachments, {
+            accessLevel,
+            model: modelOverride,
             planningMode: effectivePlanModeEnabled
           });
           return;
@@ -772,7 +937,9 @@ export function useChatDetailConversationController({
         }
 
         await chatSyncService.sendMessage(created.conversation.conversationId, nextContent, nextAttachments, {
+          accessLevel,
           dispatchErrorMode: 'return',
+          model: modelOverride,
           planningMode: effectivePlanModeEnabled
         });
         if (activeConversationIdRef.current !== targetConversationId) {
@@ -807,7 +974,16 @@ export function useChatDetailConversationController({
         reaskInFlightRef.current = false;
       }
     },
-    [conversationId, conversationTargetRouteParams, effectivePlanModeEnabled, historyScope, navigation, t]
+    [
+      accessLevel,
+      conversationId,
+      conversationTargetRouteParams,
+      effectivePlanModeEnabled,
+      historyScope,
+      modelOverride,
+      navigation,
+      t
+    ]
   );
 
   const handleStop = useCallback(() => {
@@ -899,6 +1075,9 @@ export function useChatDetailConversationController({
     draft,
     setDraft,
     composerAttachments,
+    composerOptions,
+    setAccessLevel,
+    setModelOverride: handleModelOverrideChange,
     composerAction,
     planModeAvailable,
     planModeEnabled: effectivePlanModeEnabled,

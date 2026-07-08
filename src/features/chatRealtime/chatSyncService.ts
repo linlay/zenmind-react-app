@@ -24,6 +24,13 @@ import {
   unwrapChatApiEnvelope
 } from '../../core/api/services/chatApi';
 import {
+  buildAgentModelConfigPayload,
+  normalizeModelOptionsAgentKey,
+  type ModelOptionsSnapshot,
+  type QueryModelOverride
+} from '../../core/api/services/modelOptionsProtocol';
+import { getModelOptionsApi, updateAgentModelConfigApi } from '../../core/api/services/modelOptionsApi';
+import {
   appendAssistantDelta,
   clearChatLocalCache,
   createOutgoingMessage,
@@ -89,6 +96,8 @@ import {
   stopChatPushTransport,
   streamChatQuery,
   updateChatTransportAuth,
+  type ChatQueryAccessLevel,
+  type ChatQueryModelOverride,
   type ChatTransportConfig
 } from './chatWsTransport';
 import { ChatHomeItemPatch, ChatSocketStatus, ChatSyncEvent, ChatSyncReason } from './types';
@@ -112,7 +121,9 @@ import type { ChatTimelineState } from '../chatTimeline/index.ts';
 type SyncListener = (event: ChatSyncEvent) => void;
 
 type ChatSendMessageOptions = {
+  accessLevel?: ChatQueryAccessLevel;
   dispatchErrorMode?: 'throw' | 'return';
+  model?: ChatQueryModelOverride;
   planningMode?: boolean;
 };
 
@@ -435,6 +446,8 @@ class ChatSyncService {
   private readonly timelineStates = new Map<string, ChatTimelineState>();
   private readonly agentDetails = new Map<string, AgentDetailSnapshot | null>();
   private readonly agentDetailRequests = new Map<string, Promise<AgentDetailSnapshot | null>>();
+  private readonly agentModelOptions = new Map<string, ModelOptionsSnapshot>();
+  private readonly agentModelOptionRequests = new Map<string, Promise<ModelOptionsSnapshot | null>>();
   private readonly locallyTerminatedRuns = new Map<string, LocalTerminatedRunState>();
   private readonly stoppingConversations = new Map<string, StoppingConversationState>();
   private readonly unavailableAttachRuns = new Map<string, UnavailableAttachRunState>();
@@ -529,6 +542,65 @@ class ChatSyncService {
     });
     this.agentDetailRequests.set(normalizedAgentKey, request);
     return request;
+  }
+
+  getAgentModelOptionsSnapshot(agentKey: string): ModelOptionsSnapshot | null {
+    const normalizedAgentKey = normalizeModelOptionsAgentKey(agentKey);
+    if (!normalizedAgentKey) {
+      return null;
+    }
+    return this.agentModelOptions.get(normalizedAgentKey) ?? null;
+  }
+
+  async ensureAgentModelOptions(agentKey: string): Promise<ModelOptionsSnapshot | null> {
+    const normalizedAgentKey = normalizeModelOptionsAgentKey(agentKey);
+    if (!normalizedAgentKey) {
+      return null;
+    }
+
+    if (this.agentModelOptions.has(normalizedAgentKey)) {
+      return this.agentModelOptions.get(normalizedAgentKey) ?? null;
+    }
+
+    const inFlight = this.agentModelOptionRequests.get(normalizedAgentKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const cacheVersion = this.agentDetailCacheVersion;
+    const request = this.fetchAgentModelOptions(normalizedAgentKey, cacheVersion).finally(() => {
+      if (this.agentModelOptionRequests.get(normalizedAgentKey) === request) {
+        this.agentModelOptionRequests.delete(normalizedAgentKey);
+      }
+    });
+    this.agentModelOptionRequests.set(normalizedAgentKey, request);
+    return request;
+  }
+
+  async updateAgentModelConfig(agentKey: string, modelOverride: QueryModelOverride): Promise<ModelOptionsSnapshot | null> {
+    const normalizedAgentKey = normalizeModelOptionsAgentKey(agentKey);
+    const normalizedPayload = buildAgentModelConfigPayload(normalizedAgentKey, modelOverride);
+    const nextModelKey = String(normalizedPayload.modelKey || '').trim();
+    if (!normalizedAgentKey || !nextModelKey) {
+      return normalizedAgentKey ? this.agentModelOptions.get(normalizedAgentKey) ?? null : null;
+    }
+
+    await updateAgentModelConfigApi(normalizedAgentKey, modelOverride);
+
+    const currentSnapshot = this.agentModelOptions.get(normalizedAgentKey) ?? null;
+    if (!currentSnapshot) {
+      return null;
+    }
+    const defaultReasoningEffort = normalizedPayload.reasoningEffort || currentSnapshot.defaultReasoningEffort;
+    const nextSnapshot: ModelOptionsSnapshot = {
+      ...currentSnapshot,
+      defaultModelKey: nextModelKey,
+      ...(defaultReasoningEffort ? { defaultReasoningEffort } : {}),
+      defaultServiceTier: normalizedPayload.serviceTier || 'STANDARD',
+      fetchedAt: Date.now()
+    };
+    this.agentModelOptions.set(normalizedAgentKey, nextSnapshot);
+    return nextSnapshot;
   }
 
   private rememberLocalTerminatedRun(conversationId: string, runId: string) {
@@ -785,6 +857,8 @@ class ChatSyncService {
     this.inFlightOutgoingIds.clear();
     this.agentDetails.clear();
     this.agentDetailRequests.clear();
+    this.agentModelOptions.clear();
+    this.agentModelOptionRequests.clear();
     this.locallyTerminatedRuns.clear();
     this.stoppingConversations.clear();
     this.unavailableAttachRuns.clear();
@@ -1013,6 +1087,8 @@ class ChatSyncService {
         conversationId: normalizedConversationId,
         content: created.message.content,
         attachments: created.message.attachments,
+        accessLevel: options.accessLevel,
+        model: options.model,
         planningMode: options.planningMode === true
       });
       return {
@@ -1243,6 +1319,19 @@ class ChatSyncService {
     }
   }
 
+  private async fetchAgentModelOptions(agentKey: string, cacheVersion: number): Promise<ModelOptionsSnapshot | null> {
+    try {
+      const options = await getModelOptionsApi(agentKey);
+      if (this.agentDetailCacheVersion !== cacheVersion) {
+        return null;
+      }
+      this.agentModelOptions.set(agentKey, options);
+      return options;
+    } catch {
+      return null;
+    }
+  }
+
   private async markChatReadViaTransport(request: MarkChatReadRequest, runId?: string): Promise<MarkChatReadResponse> {
     return this.requestChatApi<MarkChatReadResponse>(
       CHAT_READ_TRANSPORT_TYPE,
@@ -1273,6 +1362,8 @@ class ChatSyncService {
     conversationId: string;
     content: string;
     attachments?: readonly ChatMessageAttachment[];
+    accessLevel?: ChatQueryAccessLevel;
+    model?: ChatQueryModelOverride;
     planningMode?: boolean;
   }) {
     if (this.inFlightOutgoingIds.has(input.clientMessageId)) {
@@ -1313,6 +1404,8 @@ class ChatSyncService {
           ...(references.length > 0 ? { references } : {}),
           agentKey: historyScope?.agentKey,
           teamId: historyScope?.teamId,
+          accessLevel: input.accessLevel,
+          model: input.model,
           planningMode: input.planningMode === true
         },
         onEvent: (event) => {

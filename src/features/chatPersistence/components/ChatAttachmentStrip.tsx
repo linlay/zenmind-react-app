@@ -27,7 +27,7 @@ type ChatAttachmentStripProps = {
 type ChatAttachmentVariant = ChatAttachmentStripProps['variant'];
 type ChatAttachmentTranslate = ReturnType<typeof useT>;
 
-const STRIP_CONTENT_CLASS = 'gap-app-sm px-app-xs py-[2px]';
+const STRIP_CONTENT_CLASS = 'gap-app-sm px-0 py-0';
 const MESSAGE_STRIP_CONTENT_CLASS = 'px-0 pt-0';
 const ATTACHMENT_SHELL_CLASS = 'relative rounded-app-md';
 const MESSAGE_ATTACHMENT_SHELL_CLASS = 'max-w-[210px]';
@@ -49,7 +49,7 @@ const STATUS_BADGE_CLASS = 'absolute bottom-[4px] right-[4px] h-6 w-6 items-cent
 const RETRY_BUTTON_CLASS = 'absolute bottom-[6px] left-[6px] rounded-app-pill bg-app-surface px-app-sm py-[3px]';
 const RETRY_TEXT_CLASS = 'text-[11px] font-bold text-app-brand-blue';
 const REMOVE_BUTTON_CLASS =
-  'absolute -right-[5px] -top-[5px] h-5 w-5 items-center justify-center rounded-app-pill border border-app-line bg-app-surface';
+  'absolute right-[3px] top-[3px] h-5 w-5 items-center justify-center rounded-app-pill border border-app-line bg-app-surface';
 
 const PDF_FILE_EXTENSION_RE = /\.pdf$/i;
 const SHEET_FILE_EXTENSION_RE = /\.(csv|tsv|xls|xlsx)$/i;

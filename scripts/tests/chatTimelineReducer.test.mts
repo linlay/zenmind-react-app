@@ -1953,6 +1953,149 @@ test('timeline merge keeps one sent local user message after error reconcile req
   assert.equal(userNodes[0]?.runId, 'run-1');
 });
 
+test('timeline merge pairs repeated request echoes with repeated local user messages in order', () => {
+  let current = applyChatTimelineMessage(
+    null,
+    {
+      messageId: 'client-message-1',
+      clientMessageId: 'client-message-1',
+      serverMessageId: null,
+      conversationId: 'chat-1',
+      role: 'user',
+      content: 'hello',
+      createdAt: 100,
+      deliveryStatus: 'sent',
+      errorReason: null,
+    },
+    { runId: 'run-1' }
+  );
+  current = applyChatTimelineMessage(current, {
+    messageId: 'client-message-2',
+    clientMessageId: 'client-message-2',
+    serverMessageId: null,
+    conversationId: 'chat-1',
+    role: 'user',
+    content: 'hello',
+    createdAt: 200,
+    deliveryStatus: 'pending',
+    errorReason: null,
+  });
+  const remoteReplay = deriveChatTimelineState('chat-1', [
+    {
+      type: 'request.query',
+      requestId: 'backend-request-1',
+      runId: 'run-1',
+      message: 'hello',
+      createdAt: 110,
+    },
+    {
+      type: 'run.cancel',
+      runId: 'run-1',
+      timestamp: 150,
+    },
+    {
+      type: 'request.query',
+      requestId: 'backend-request-2',
+      runId: 'run-2',
+      message: 'hello',
+      createdAt: 210,
+    },
+    {
+      type: 'run.start',
+      runId: 'run-2',
+      timestamp: 220,
+    },
+  ]);
+
+  const merged = mergeChatTimelineState(current, remoteReplay);
+  const displayItems = buildChatTimelineDisplayItems(merged);
+  const messages = projectTimelineMessages(merged);
+  const userNodes = merged.orderedNodeIds
+    .map((id) => merged.nodesById[id])
+    .filter((node) => node?.kind === 'message' && node.role === 'user');
+
+  assert.equal(userNodes.length, 2);
+  assert.equal(displayItems.filter((item) => item.kind === 'user-query').length, 2);
+  assert.equal(messages.length, 2);
+  assert.equal(messages[0]?.messageId, 'client-message-1');
+  assert.equal(messages[0]?.clientMessageId, 'client-message-1');
+  assert.equal(userNodes[0]?.runId, 'run-1');
+  assert.equal(messages[1]?.messageId, 'client-message-2');
+  assert.equal(messages[1]?.clientMessageId, 'client-message-2');
+  assert.equal(messages[1]?.deliveryStatus, 'pending');
+  assert.equal(userNodes[1]?.runId, 'run-2');
+});
+
+test('timeline merge does not reuse an exact remote request echo for a later local repeat', () => {
+  let current = deriveChatTimelineState('chat-1', [
+    {
+      type: 'request.query',
+      requestId: 'backend-request-1',
+      runId: 'run-1',
+      message: 'hello',
+      createdAt: 190,
+    },
+    {
+      type: 'run.cancel',
+      runId: 'run-1',
+      timestamp: 195,
+    },
+  ]);
+  current = applyChatTimelineMessage(current, {
+    messageId: 'client-message-2',
+    clientMessageId: 'client-message-2',
+    serverMessageId: null,
+    conversationId: 'chat-1',
+    role: 'user',
+    content: 'hello',
+    createdAt: 200,
+    deliveryStatus: 'pending',
+    errorReason: null,
+  });
+  const remoteReplay = deriveChatTimelineState('chat-1', [
+    {
+      type: 'request.query',
+      requestId: 'backend-request-1',
+      runId: 'run-1',
+      message: 'hello',
+      createdAt: 190,
+    },
+    {
+      type: 'run.cancel',
+      runId: 'run-1',
+      timestamp: 195,
+    },
+    {
+      type: 'request.query',
+      requestId: 'backend-request-2',
+      runId: 'run-2',
+      message: 'hello',
+      createdAt: 210,
+    },
+    {
+      type: 'run.start',
+      runId: 'run-2',
+      timestamp: 220,
+    },
+  ]);
+
+  const merged = mergeChatTimelineState(current, remoteReplay);
+  const displayItems = buildChatTimelineDisplayItems(merged);
+  const messages = projectTimelineMessages(merged);
+  const userNodes = merged.orderedNodeIds
+    .map((id) => merged.nodesById[id])
+    .filter((node) => node?.kind === 'message' && node.role === 'user');
+
+  assert.equal(userNodes.length, 2);
+  assert.equal(displayItems.filter((item) => item.kind === 'user-query').length, 2);
+  assert.equal(messages.length, 2);
+  assert.equal(userNodes[0]?.messageId, 'remote:user:backend-request-1');
+  assert.equal(userNodes[0]?.runId, 'run-1');
+  assert.equal(messages[1]?.messageId, 'client-message-2');
+  assert.equal(messages[1]?.clientMessageId, 'client-message-2');
+  assert.equal(userNodes[1]?.runId, 'run-2');
+});
+
 test('timeline compaction removes persisted remote request echo when local client message exists', () => {
   const remoteReplay = deriveChatTimelineState('chat-1', [
     {

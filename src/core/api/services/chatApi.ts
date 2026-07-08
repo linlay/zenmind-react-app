@@ -417,7 +417,7 @@ export function projectRemoteAgentDetail(
 
   return {
     agentKey,
-    name: toCleanText(detail.name) || agentKey,
+    name: toCleanText(detail.name),
     description: toCleanText(detail.description),
     wonders,
     raw: detail,

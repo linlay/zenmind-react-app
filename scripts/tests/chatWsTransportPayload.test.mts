@@ -87,6 +87,54 @@ test('chat query payload includes planning mode only when enabled', () => {
   assert.equal('model' in payload, false);
 });
 
+test('chat query payload includes access level and compact model override', () => {
+  const payload = buildChatQueryPayload({
+    requestId: 'req-model',
+    chatId: 'chat-model',
+    message: 'use a stronger model',
+    agentKey: 'coder-pomodoro-app',
+    accessLevel: 'auto_approve',
+    model: {
+      key: 'qwen-max',
+      reasoningEffort: 'HIGH',
+      serviceTier: 'FLEX',
+    },
+  });
+
+  assert.deepEqual(payload, {
+    requestId: 'req-model',
+    chatId: 'chat-model',
+    message: 'use a stronger model',
+    agentKey: 'coder-pomodoro-app',
+    accessLevel: 'auto_approve',
+    model: {
+      key: 'qwen-max',
+      reasoningEffort: 'HIGH',
+      serviceTier: 'FLEX',
+    },
+    role: 'user',
+    stream: true,
+  });
+});
+
+test('chat query payload omits default access level and empty model override', () => {
+  const payload = buildChatQueryPayload({
+    requestId: 'req-default-model',
+    chatId: 'chat-default-model',
+    message: 'plain question',
+    agentKey: 'coder-pomodoro-app',
+    accessLevel: 'default',
+    model: {
+      key: ' ',
+      reasoningEffort: undefined,
+      serviceTier: undefined,
+    },
+  });
+
+  assert.equal('accessLevel' in payload, false);
+  assert.equal('model' in payload, false);
+});
+
 test('chat query payload omits disabled planning mode', () => {
   const payload = buildChatQueryPayload({
     requestId: 'req-no-plan',

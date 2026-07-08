@@ -22,8 +22,6 @@ import { ChatAttachmentStrip } from './ChatAttachmentStrip';
 const COLLAPSED_INPUT_HEIGHT = 30;
 const EXPANDED_INPUT_MIN_HEIGHT = 48;
 const MAX_HEIGHT = 82;
-const INPUT_LINE_HEIGHT = 22;
-const COLLAPSED_PLACEHOLDER_TOP = (COLLAPSED_INPUT_HEIGHT - INPUT_LINE_HEIGHT) / 2;
 const CONTENT_HEIGHT_STABLE_TOLERANCE = 4;
 const COMPOSER_HORIZONTAL_PADDING = 12;
 const COMPOSER_VERTICAL_PADDING = 5;
@@ -33,6 +31,8 @@ const COMPOSER_COLLAPSED_INPUT_TOP = (COMPOSER_COLLAPSED_HEIGHT - COLLAPSED_INPU
 const COMPOSER_EXPANDED_INPUT_TOP = appVisualTokens.spacing.md;
 const COMPOSER_EXPANDED_INPUT_SIDE_INSET = appVisualTokens.spacing.md;
 const COMPOSER_EXPANDED_INPUT_GAP = 5;
+const COMPOSER_ATTACHMENT_TILE_HEIGHT = 58;
+const COMPOSER_ATTACHMENT_INPUT_GAP = COMPOSER_EXPANDED_INPUT_TOP;
 const PRIMARY_ACTION_SLOT_WIDTH = 38;
 const PRIMARY_ACTION_SLOT_GAP = appVisualTokens.spacing.sm;
 const PLAN_COLLAPSED_WIDTH = 34;
@@ -51,13 +51,11 @@ const ATTACHMENT_OPTION_CLASS =
 const ATTACHMENT_OPTION_TEXT_CLASS = 'text-[13px] font-semibold text-app-primary';
 const CONTAINER_CLASS =
   'relative justify-end overflow-hidden rounded-[22px] bg-[#f5f5f5] px-[12px] py-[5px] dark:bg-app-surface-muted';
+const ATTACHMENT_STRIP_FRAME_CLASS = 'absolute left-app-md right-app-md top-app-md h-[58px]';
 const INPUT_FRAME_CLASS = 'absolute overflow-hidden';
 const INPUT_CLASS =
-  'min-h-[30px] min-w-0 flex-1 max-h-[82px] px-[10px] py-1 text-[15px] leading-[22px] text-app-primary';
+  'min-h-[30px] min-w-0 flex-1 max-h-[82px] px-[10px] py-1 text-[15px] text-app-primary';
 const INPUT_EXPANDED_CLASS = 'pt-0';
-const INPUT_PLACEHOLDER_CLASS =
-  'absolute left-[10px] right-[10px] text-[15px] leading-[22px] text-app-secondary';
-const INPUT_PLACEHOLDER_HIDDEN_CLASS = 'opacity-0';
 const TOOLBAR_ROW_CLASS = 'h-[34px] flex-row items-center';
 const TOOLBAR_SPACER_CLASS = 'min-w-app-sm flex-1';
 const ICON_BUTTON_CLASS =
@@ -299,7 +297,6 @@ export const Composer = memo(function Composer({
   const inputHeightRef = useRef(COLLAPSED_INPUT_HEIGHT);
   const hasComposerContent = Boolean(value.trim()) || attachments.length > 0;
   const placeholderText = placeholder ?? t('composer.placeholder');
-  const isPlaceholderVisible = value.length === 0;
   const isExpanded = isFocused || hasComposerContent;
   const showPrimaryAction =
     primaryAction === 'stop' ||
@@ -319,8 +316,11 @@ export const Composer = memo(function Composer({
   );
   const primaryTranslateX = useSharedValue(showPrimaryAction ? 0 : 10);
   const expandedInputHeight = Math.max(EXPANDED_INPUT_MIN_HEIGHT, inputHeight);
+  const attachmentStripHeight = attachments.length > 0 ? COMPOSER_ATTACHMENT_TILE_HEIGHT : 0;
+  const attachmentInputGap = attachments.length > 0 ? COMPOSER_ATTACHMENT_INPUT_GAP : 0;
+  const expandedInputTop = COMPOSER_EXPANDED_INPUT_TOP + attachmentStripHeight + attachmentInputGap;
   const expandedContainerHeight =
-    COMPOSER_EXPANDED_INPUT_TOP +
+    expandedInputTop +
     expandedInputHeight +
     COMPOSER_EXPANDED_INPUT_GAP +
     COMPOSER_TOOLBAR_HEIGHT +
@@ -425,7 +425,7 @@ export const Composer = memo(function Composer({
         top: interpolate(
           expandedProgress.value,
           [0, 1],
-          [COMPOSER_COLLAPSED_INPUT_TOP, COMPOSER_EXPANDED_INPUT_TOP],
+          [COMPOSER_COLLAPSED_INPUT_TOP, expandedInputTop],
           Extrapolation.CLAMP
         ),
         height: interpolate(
@@ -436,16 +436,8 @@ export const Composer = memo(function Composer({
         )
       };
     },
-    [expandedInputHeight, planModeAvailable]
+    [expandedInputHeight, expandedInputTop, planModeAvailable]
   );
-  const placeholderStyle = useAnimatedStyle(() => ({
-    top: interpolate(
-      expandedProgress.value,
-      [0, 1],
-      [COLLAPSED_PLACEHOLDER_TOP, 0],
-      Extrapolation.CLAMP
-    )
-  }));
   useEffect(() => {
     if (attachmentDisabled) {
       setAttachmentTrayOpen(false);
@@ -493,32 +485,26 @@ export const Composer = memo(function Composer({
         </View>
       ) : null}
 
-      <ChatAttachmentStrip
-        attachments={attachments}
-        variant="composer"
-        onRemoveAttachment={onRemoveAttachment}
-        onRetryAttachment={onRetryAttachment}
-      />
-
       <Animated.View
         className={CONTAINER_CLASS}
         style={containerAnimatedStyle}
       >
+        {attachments.length > 0 ? (
+          <View className={ATTACHMENT_STRIP_FRAME_CLASS}>
+            <ChatAttachmentStrip
+              attachments={attachments}
+              variant="composer"
+              onRemoveAttachment={onRemoveAttachment}
+              onRetryAttachment={onRetryAttachment}
+            />
+          </View>
+        ) : null}
         <Animated.View className={INPUT_FRAME_CLASS} style={inputFrameStyle}>
-          <Animated.Text
-            pointerEvents="none"
-            accessible={false}
-            allowFontScaling={false}
-            numberOfLines={1}
-            className={cn(INPUT_PLACEHOLDER_CLASS, !isPlaceholderVisible ? INPUT_PLACEHOLDER_HIDDEN_CLASS : null)}
-            style={[INPUT_INCLUDE_FONT_PADDING_STYLE, placeholderStyle]}
-          >
-            {placeholderText}
-          </Animated.Text>
           <TextInput
             value={value}
             onChangeText={onChangeText}
-            placeholder=""
+            placeholder={placeholderText}
+            placeholderTextColor={theme.colors.textSecondary}
             allowFontScaling={false}
             multiline
             maxLength={480}

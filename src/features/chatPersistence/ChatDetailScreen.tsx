@@ -105,7 +105,10 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     draft,
     setDraft,
     composerAttachments,
+    composerOptions,
     composerAction,
+    setAccessLevel,
+    setModelOverride,
     planModeAvailable,
     planModeEnabled,
     handleSend,
@@ -267,6 +270,9 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                       onSelectAttachment={handleSelectAttachment}
                       onRemoveAttachment={handleRemoveAttachment}
                       onRetryAttachment={handleRetryAttachment}
+                      composerOptions={composerOptions}
+                      onAccessLevelChange={setAccessLevel}
+                      onModelOverrideChange={setModelOverride}
                     />
                   </>
                 )}
