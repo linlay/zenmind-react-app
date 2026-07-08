@@ -1,6 +1,15 @@
 import { FlashList } from '@shopify/flash-list';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Pressable,
+  Text,
+  View,
+  type Insets,
+  useWindowDimensions,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
@@ -39,6 +48,7 @@ const DIRECTORY_ROW_SUBTITLE_CLASS = 'mt-[2px] text-app-footnote font-medium tex
 const DIRECTORY_ROW_ACTION_CLASS = 'h-[34px] w-[34px] items-center justify-center';
 const FOOTER_CLASS = 'min-h-[42px] items-center justify-center';
 const FOOTER_TEXT_CLASS = 'py-app-md text-center text-app-footnote font-semibold text-app-tertiary';
+const ROW_PRESS_RETENTION_VERTICAL_OFFSET = 20;
 
 type ChatDirectoryPickerDrawerProps = {
   visible: boolean;
@@ -58,6 +68,7 @@ type ChatDirectoryPickerDrawerProps = {
 type DirectoryPickerRowProps = {
   item: ChatDirectoryItem;
   opening: boolean;
+  pressRetentionOffset: Insets;
   onSelect: (item: ChatDirectoryItem) => void;
 };
 
@@ -78,7 +89,12 @@ function getDirectoryItemType(item: ChatDirectoryItem) {
   return item.kind;
 }
 
-const DirectoryPickerRow = memo(function DirectoryPickerRow({ item, opening, onSelect }: DirectoryPickerRowProps) {
+const DirectoryPickerRow = memo(function DirectoryPickerRow({
+  item,
+  opening,
+  pressRetentionOffset,
+  onSelect
+}: DirectoryPickerRowProps) {
   const t = useT();
   const { theme } = useAppTheme();
   const handlePress = useCallback(() => {
@@ -90,6 +106,7 @@ const DirectoryPickerRow = memo(function DirectoryPickerRow({ item, opening, onS
     <Pressable
       accessibilityRole="button"
       disabled={opening}
+      pressRetentionOffset={pressRetentionOffset}
       onPress={handlePress}
       className={cn(DIRECTORY_ROW_CLASS, opening ? DIRECTORY_ROW_OPENING_CLASS : null)}
       style={appHairlineStyles.borderBottom}
@@ -142,11 +159,25 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
   const translateX = useRef(new Animated.Value(hiddenTranslateX)).current;
   const [shouldRender, setShouldRender] = useState(visible);
   const countLabel = useMemo(() => formatDirectoryPickerCount(items.length, total, t), [items.length, total, t]);
+  const rowPressRetentionOffset = useMemo(
+    () => ({
+      bottom: ROW_PRESS_RETENTION_VERTICAL_OFFSET,
+      left: panelWidth,
+      right: panelWidth,
+      top: ROW_PRESS_RETENTION_VERTICAL_OFFSET,
+    }),
+    [panelWidth]
+  );
   const renderItem = useCallback(
     ({ item }: { item: ChatDirectoryItem }) => (
-      <DirectoryPickerRow item={item} opening={openingItemId === item.id} onSelect={onSelectItem} />
+      <DirectoryPickerRow
+        item={item}
+        opening={openingItemId === item.id}
+        pressRetentionOffset={rowPressRetentionOffset}
+        onSelect={onSelectItem}
+      />
     ),
-    [onSelectItem, openingItemId]
+    [onSelectItem, openingItemId, rowPressRetentionOffset]
   );
   const keyExtractor = useCallback((item: ChatDirectoryItem) => item.id, []);
   const handleEndReached = useCallback(() => {

@@ -246,6 +246,7 @@
         "scripts/tests/kanbanViewModel.test.mts",
         "scripts/tests/markdownPipeline.test.mts",
         "scripts/tests/runtimePayloadDescriptor.test.mts",
+        "scripts/tests/runtimePlanningShimmer.test.mts",
         "scripts/tests/sharedWsTransport.test.mts",
         "scripts/tests/submitIosIpaScript.test.mts",
         "scripts/tests/tabIconAssets.test.mts",
@@ -486,6 +487,7 @@
         "pipeline",
         "placeholder",
         "placement",
+        "planning",
         "platform",
         "plugin",
         "plugins",
@@ -550,6 +552,7 @@
         "sha",
         "shared",
         "shell",
+        "shimmer",
         "sibling",
         "size",
         "skeleton",
@@ -2450,6 +2453,7 @@
         "badge",
         "bar",
         "base",
+        "baseline",
         "bit",
         "block",
         "boot",
@@ -2472,6 +2476,7 @@
         "component",
         "components",
         "composer",
+        "config",
         "content",
         "controller",
         "conversation",
@@ -2522,6 +2527,7 @@
         "find",
         "flash",
         "flow",
+        "font",
         "footer",
         "for",
         "form",
@@ -2535,6 +2541,7 @@
         "gate",
         "geometry",
         "get",
+        "gradient",
         "group",
         "handle",
         "has",
@@ -2696,6 +2703,7 @@
         "settings",
         "shape",
         "shared",
+        "shimmer",
         "should",
         "side",
         "signature",
@@ -2713,6 +2721,7 @@
         "state",
         "stats",
         "status",
+        "stops",
         "stream",
         "streaming",
         "strip",
@@ -2757,10 +2766,13 @@
         "visible",
         "visual",
         "web",
+        "weight",
         "width",
+        "window",
         "wonder",
         "wonders",
         "write",
+        "writing",
         "zenmind",
         "一次投影为",
         "一键已读继续委托",
@@ -8188,6 +8200,7 @@
     ".generated/react-native-worklets/.worklets/16138758307157.js",
     ".generated/react-native-worklets/.worklets/1613943935211.js",
     ".generated/react-native-worklets/.worklets/16142128309260.js",
+    ".generated/react-native-worklets/.worklets/16144647319202.js",
     ".generated/react-native-worklets/.worklets/16168993968671.js",
     ".generated/react-native-worklets/.worklets/16199289461184.js",
     ".generated/react-native-worklets/.worklets/16202475470532.js",
@@ -9030,6 +9043,7 @@
     ".generated/react-native-worklets/.worklets/6958101807759.js",
     ".generated/react-native-worklets/.worklets/6971782587951.js",
     ".generated/react-native-worklets/.worklets/6986517754834.js",
+    ".generated/react-native-worklets/.worklets/6996927406247.js",
     ".generated/react-native-worklets/.worklets/7015317220097.js",
     ".generated/react-native-worklets/.worklets/7025632856435.js",
     ".generated/react-native-worklets/.worklets/7030831354781.js",
@@ -9537,6 +9551,7 @@
     "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
     "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
     "src/features/chatPersistence/components/chatWonderDisplay.ts",
+    "src/features/chatPersistence/components/planningWritingShimmerConfig.ts",
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
@@ -9729,6 +9744,7 @@
     "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/chatWonderDisplay.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/components/planningWritingShimmerConfig.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": "feature-chat-persistence",
@@ -11452,6 +11468,13 @@
         "path": ".doc/modules/core-auth-session.json"
       }
     ],
+    "baseline": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
     "before": [
       {
         "kind": "rule",
@@ -12704,6 +12727,11 @@
         "kind": "module",
         "id": "feature-auth-login",
         "path": ".doc/modules/feature-auth-login.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       },
       {
         "kind": "module",
@@ -15558,6 +15586,11 @@
       },
       {
         "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      },
+      {
+        "kind": "module",
         "id": "shared-conversation-content-renderer",
         "path": ".doc/modules/shared-conversation-content-renderer.json"
       },
@@ -16069,6 +16102,13 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
+    "gradient": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
     "gradle": [
@@ -20598,6 +20638,11 @@
       },
       {
         "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
         "id": "core-api-client",
         "path": ".doc/modules/core-api-client.json"
       },
@@ -24261,6 +24306,18 @@
         "path": ".doc/rules.json"
       }
     ],
+    "shimmer": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
     "short": [
       {
         "kind": "rule",
@@ -25279,6 +25336,13 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "stops": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
     "storage": [
@@ -27829,6 +27893,13 @@
         "path": ".doc/tasks/modify-chat-realtime.json"
       }
     ],
+    "weight": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
     "when": [
       {
         "kind": "rule",
@@ -27919,6 +27990,11 @@
         "kind": "module",
         "id": "core-api-client",
         "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       },
       {
         "kind": "module",
@@ -28054,6 +28130,13 @@
         "kind": "rule",
         "id": "realtime-write-through-repository",
         "path": ".doc/rules.json"
+      }
+    ],
+    "writing": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
     "xgraph": [
@@ -48413,6 +48496,6 @@
     "taskCount": 16,
     "flowCount": 7,
     "ruleCount": 13,
-    "sourceFileCount": 2109
+    "sourceFileCount": 2112
   }
 }

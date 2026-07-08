@@ -7,6 +7,7 @@ import {
   Pressable,
   Text,
   View,
+  type Insets,
   type ViewStyle,
   useWindowDimensions,
 } from 'react-native';
@@ -60,6 +61,7 @@ const HISTORY_TIME_CLASS =
 const HISTORY_FOOTER_TEXT_CLASS = 'py-app-md text-center text-app-footnote font-semibold text-app-tertiary';
 const LOAD_MORE_BUTTON_CLASS = 'min-h-[44px] items-center justify-center active:opacity-[0.7]';
 const LOAD_MORE_TEXT_CLASS = 'text-app-footnote font-bold text-app-secondary';
+const ROW_PRESS_RETENTION_VERTICAL_OFFSET = 20;
 
 type ChatDetailHistoryDrawerProps = {
   visible: boolean;
@@ -81,6 +83,7 @@ type ChatDetailHistoryDrawerProps = {
 type HistoryRowProps = {
   item: ChatHomeItem;
   active: boolean;
+  pressRetentionOffset: Insets;
   onSelect: (item: ChatHomeItem) => void;
 };
 
@@ -96,7 +99,7 @@ function getHistoryItemType() {
   return 'history-row';
 }
 
-const HistoryRow = memo(function HistoryRow({ item, active, onSelect }: HistoryRowProps) {
+const HistoryRow = memo(function HistoryRow({ item, active, pressRetentionOffset, onSelect }: HistoryRowProps) {
   const t = useT();
   const unread = item.unreadCount > 0;
   const timestamp = formatChatDetailTimestamp(
@@ -112,6 +115,7 @@ const HistoryRow = memo(function HistoryRow({ item, active, onSelect }: HistoryR
   return (
     <Pressable
       accessibilityRole="button"
+      pressRetentionOffset={pressRetentionOffset}
       onPress={handlePress}
       className={cn(HISTORY_ROW_CLASS, active ? HISTORY_ROW_ACTIVE_CLASS : null)}
       style={appHairlineStyles.borderBottom}
@@ -157,11 +161,25 @@ export const ChatDetailHistoryDrawer = memo(function ChatDetailHistoryDrawer({
   const translateX = useRef(new Animated.Value(hiddenTranslateX)).current;
   const [shouldRender, setShouldRender] = useState(visible);
   const countLabel = useMemo(() => formatHistoryCountLabel(total, unreadTotal, t), [total, unreadTotal, t]);
+  const rowPressRetentionOffset = useMemo(
+    () => ({
+      bottom: ROW_PRESS_RETENTION_VERTICAL_OFFSET,
+      left: panelWidth,
+      right: panelWidth,
+      top: ROW_PRESS_RETENTION_VERTICAL_OFFSET,
+    }),
+    [panelWidth]
+  );
   const renderHistoryItem = useCallback(
     ({ item }: { item: ChatHomeItem }) => (
-      <HistoryRow item={item} active={item.conversationId === activeConversationId} onSelect={onSelectConversation} />
+      <HistoryRow
+        item={item}
+        active={item.conversationId === activeConversationId}
+        pressRetentionOffset={rowPressRetentionOffset}
+        onSelect={onSelectConversation}
+      />
     ),
-    [activeConversationId, onSelectConversation]
+    [activeConversationId, onSelectConversation, rowPressRetentionOffset]
   );
   const keyExtractor = useCallback((item: ChatHomeItem) => item.conversationId, []);
   const footer = useMemo(() => {

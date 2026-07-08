@@ -1,0 +1,835 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ChatDetail WS Type Map</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f7f8fb;
+      --panel: #ffffff;
+      --ink: #17202a;
+      --muted: #5d6675;
+      --line: #d9e0ea;
+      --soft: #eef3f8;
+      --blue: #2563eb;
+      --green: #0f766e;
+      --amber: #b45309;
+      --red: #b42318;
+      --purple: #6d28d9;
+      --shadow: 0 12px 28px rgba(22, 33, 48, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.58;
+    }
+
+    header {
+      background: #ffffff;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .wrap {
+      width: min(1180px, calc(100vw - 36px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      padding: 38px 0 30px;
+    }
+
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--green);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 980px;
+      font-size: clamp(30px, 5vw, 54px);
+      line-height: 1.08;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 920px;
+      margin: 18px 0 0;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 22px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 30px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 4px 12px;
+      background: var(--soft);
+      color: #334155;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    main {
+      padding: 28px 0 48px;
+    }
+
+    section {
+      margin: 28px 0;
+    }
+
+    h2 {
+      margin: 0 0 12px;
+      font-size: 22px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 16px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+    }
+
+    code {
+      border: 1px solid #d7dee9;
+      border-radius: 6px;
+      padding: 1px 5px;
+      background: #f4f7fb;
+      color: #0f172a;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid.three {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    .grid.two {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+      padding: 18px;
+    }
+
+    .card p {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .step {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      padding: 14px;
+      min-height: 112px;
+      position: relative;
+    }
+
+    .step:not(:last-child)::after {
+      content: ">";
+      position: absolute;
+      right: -11px;
+      top: 42px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--blue);
+      display: grid;
+      place-items: center;
+      font-size: 13px;
+      font-weight: 800;
+      z-index: 2;
+    }
+
+    .step strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+
+    .step span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .toolbar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      margin: 18px 0 12px;
+      flex-wrap: wrap;
+    }
+
+    input[type="search"] {
+      width: min(420px, 100%);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--ink);
+      font: inherit;
+      padding: 10px 12px;
+      outline: none;
+    }
+
+    input[type="search"]:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    table {
+      width: 100%;
+      min-width: 960px;
+      border-collapse: collapse;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      padding: 13px 14px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f1f5f9;
+      color: #334155;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    .type {
+      color: #0f172a;
+      font-weight: 750;
+      white-space: nowrap;
+    }
+
+    .tag {
+      display: inline-flex;
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-size: 12px;
+      font-weight: 750;
+      color: #fff;
+      background: var(--blue);
+      white-space: nowrap;
+    }
+
+    .tag.stream { background: var(--green); }
+    .tag.push { background: var(--amber); }
+    .tag.internal { background: var(--purple); }
+    .tag.guard { background: var(--red); }
+    .tag.request { background: var(--blue); }
+
+    .refs {
+      display: grid;
+      gap: 6px;
+    }
+
+    .refs code {
+      width: fit-content;
+    }
+
+    .note {
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 14px 16px;
+      color: var(--muted);
+    }
+
+    .note strong {
+      color: var(--ink);
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    footer {
+      padding: 24px 0 38px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 920px) {
+      .grid.three,
+      .grid.two,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      .step:not(:last-child)::after {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap hero">
+      <p class="eyebrow">ZenMind React App / ChatDetail WebSocket Map</p>
+      <h1>对话详情页 WS 协议 type 使用索引</h1>
+      <p class="lead">
+        这份 HTML 把当前项目里对话详情页相关的 WebSocket <code>type</code> 拆成三层：
+        传输 request type、后端聊天事件 <code>event.type</code>、以及 app 内部同步事件 <code>ChatSyncEvent.type</code>。
+        每一项都标出使用地址和在详情页里的作用。
+      </p>
+      <div class="meta">
+        <span class="pill">生成日期: 2026-07-08</span>
+        <span class="pill">本地说明: AGENTS.md 已读取</span>
+        <span class="pill">上下文: xgraph context small</span>
+        <span class="pill">范围: 不修改运行时代码</span>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section>
+      <h2>一眼看链路</h2>
+      <div class="flow">
+        <div class="step">
+          <strong>ChatDetailScreen</strong>
+          <span>组合 Header、Timeline、Composer、AwaitingDock。页面只调用 <code>chatSyncService</code>。</span>
+        </div>
+        <div class="step">
+          <strong>Conversation Controller</strong>
+          <span>订阅 scoped sync event，发送、停止、继续、reconcile 都在这里接入。</span>
+        </div>
+        <div class="step">
+          <strong>chatSyncService</strong>
+          <span>业务中枢。处理 request、stream、push，落库并投影 timeline。</span>
+        </div>
+        <div class="step">
+          <strong>chatWsTransport</strong>
+          <span>聊天协议 adapter。封装 <code>/api/query</code>、<code>/api/attach</code> 和 push 归一化。</span>
+        </div>
+        <div class="step">
+          <strong>sharedWsTransport / WsClient</strong>
+          <span>底层 socket。负责 endpoint、namespace、frame、心跳、重连、request/stream/push。</span>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>传输地址与 frame 规则</h2>
+      <div class="grid three">
+        <article class="card">
+          <h3>HTTP / agent-platform profile</h3>
+          <p>
+            active HTTP profile 使用 <code>getApiBaseUrl()</code>，在非开发 override 时自动推导到
+            <code>ws(s)://&lt;base&gt;/ap/ws?token=&lt;accessToken&gt;</code>。此模式默认不发送 namespace。
+          </p>
+          <p class="small"><code>src/core/ws/wsClient.ts:147</code>、<code>src/core/api/activeWsTransport.ts:37</code></p>
+        </article>
+        <article class="card">
+          <h3>Desktop WS profile</h3>
+          <p>
+            使用 profile 保存的精确 <code>wsUrl</code>，token 可走 query 或 subprotocol。
+            聊天业务 namespace 为 <code>ap</code>，桌面会话/认证事件 namespace 为 <code>d</code>。
+          </p>
+          <p class="small"><code>src/core/ws/wsClient.ts:177</code>、<code>src/core/ws/wsTransportConfig.ts:1</code></p>
+        </article>
+        <article class="card">
+          <h3>统一 frame</h3>
+          <p>
+            出站统一发送 <code>{ frame: "request", type, id, payload, ns? }</code>。
+            普通 request 等 <code>response</code>；stream request 等 <code>stream</code>；订阅消息走 <code>push</code>。
+          </p>
+          <p class="small"><code>src/core/ws/wsClient.ts:400</code>、<code>src/core/ws/wsClient.ts:609</code></p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>排查提示</h2>
+      <div class="note">
+        <strong>不要把三种 type 混在一起。</strong>
+        <code>/api/query</code> 这类是 WS request type；
+        <code>content.delta</code> 这类是后端聊天协议事件 type；
+        <code>conversation.timeline.replace</code> 这类只是 app 内部发给 UI 的同步事件。
+        对话详情页当前以 <code>conversation.timeline.replace</code> 作为主消费面，旧的 message/runtime delta 事件仍会发出，但详情页会跳过它们。
+      </div>
+    </section>
+
+    <section id="requests">
+      <div class="toolbar">
+        <h2>WS Request Type</h2>
+        <input id="filter" type="search" placeholder="过滤 type、简介或文件路径">
+      </div>
+      <div class="legend">
+        <span class="tag request">request</span>
+        <span class="tag stream">stream</span>
+        <span class="tag guard">desktop auth</span>
+      </div>
+      <div class="table-wrap">
+        <table data-filterable>
+          <thead>
+            <tr>
+              <th>type</th>
+              <th>通道</th>
+              <th>使用地址</th>
+              <th>详情页触发/影响</th>
+              <th>简介</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="type"><code>/api/query</code></td>
+              <td><span class="tag stream">stream</span></td>
+              <td class="refs">
+                <code>src/features/chatRealtime/chatWsTransport.ts:220</code>
+                <code>src/features/chatRealtime/chatSyncService.ts:1398</code>
+                <code>src/features/chatPersistence/useChatDetailConversationController.ts:844</code>
+              </td>
+              <td>Composer 发送、重新提问当前会话或新会话。</td>
+              <td>发送用户消息并持续接收本次 run 的 stream event。payload 包含 <code>requestId</code>、<code>chatId</code>、<code>message</code>、附件 references、agent/team scope、plan mode、access level 和 model override。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>/api/attach</code></td>
+              <td><span class="tag stream">stream</span></td>
+              <td class="refs">
+                <code>src/features/chatRealtime/chatWsTransport.ts:237</code>
+                <code>src/features/chatRealtime/chatSyncService.ts:2751</code>
+                <code>src/features/chatPersistence/useChatDetailConversationController.ts:993</code>
+              </td>
+              <td>打开详情、重连、继续生成时附着 active run。</td>
+              <td>按 <code>runId</code>、<code>agentKey</code>、<code>lastSeq</code> 续接正在运行的 run，stream event 继续进入 <code>handlePushEvent</code>。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>/api/chat</code></td>
+              <td><span class="tag request">request</span></td>
+              <td class="refs">
+                <code>src/core/api/services/chatApi.ts:4</code>
+                <code>src/features/chatRealtime/chatSyncService.ts:1294</code>
+                <code>src/features/chatPersistence/useChatDetailConversationController.ts:750</code>
+              </td>
+              <td>进入详情页、通知进入、stream 结束、未知事件兜底时单会话 reconcile。</td>
+              <td>拉取单个 chat detail，默认只拉 event history，不拉 raw messages。返回 detail 会被投影成 summary、messages、runtime 和 rich timeline snapshot。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>/api/chats</code></td>
+              <td><span class="tag request">request</span></td>
+              <td class="refs">
+                <code>src/core/api/services/chatApi.ts:3</code>
+                <code>src/features/chatRealtime/chatSyncService.ts:890</code>
+              </td>
+              <td>影响首页目录、详情页 Header 摘要和历史抽屉的源摘要。</td>
+              <td>刷新远端 chat summary 列表，与 agents/teams 合成首页目录投影，写入 repository 后广播 <code>home.directory.replace</code>。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>/api/agents</code></td>
+              <td><span class="tag request">request</span></td>
+              <td class="refs"><code>src/features/chatRealtime/chatSyncService.ts:902</code></td>
+              <td>为首页 agent 目录和新对话 scope 提供目录基础数据。</td>
+              <td>刷新 agent catalog，和 chat summary 一起投影到本地目录。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>/api/teams</code></td>
+              <td><span class="tag request">request</span></td>
+              <td class="refs"><code>src/features/chatRealtime/chatSyncService.ts:907</code></td>
+              <td>为首页 team 目录和 team 会话历史 scope 提供基础数据。</td>
+              <td>刷新 team catalog，和 chat summary 一起投影到本地目录。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>/api/agent</code></td>
+              <td><span class="tag request">request</span></td>
+              <td class="refs">
+                <code>src/core/api/services/chatApi.ts:5</code>
+                <code>src/features/chatRealtime/chatSyncService.ts:1302</code>
+                <code>src/features/chatPersistence/useChatDetailConversationController.ts:416</code>
+              </td>
+              <td>空新对话欢迎态展示 agent 名称、描述和 wonders。</td>
+              <td>按 <code>agentKey</code> 拉单个 agent detail，进入 App 生命周期内内存缓存，不写 SQLite/MMKV。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>/api/read</code></td>
+              <td><span class="tag request">request</span></td>
+              <td class="refs">
+                <code>src/core/api/services/chatApi.ts:6</code>
+                <code>src/features/chatRealtime/chatSyncService.ts:940</code>
+                <code>src/features/chatRealtime/chatSyncService.ts:1335</code>
+                <code>src/features/chatPersistence/ChatDetailScreen.tsx:152</code>
+              </td>
+              <td>详情页打开后自动确认已读，历史抽屉一键已读也走这里。</td>
+              <td>标记单会话、agent scope 或 team scope 已读。失败时会回退刷新 home projection。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>/api/submit</code></td>
+              <td><span class="tag request">request</span></td>
+              <td class="refs">
+                <code>src/core/api/services/chatApi.ts:7</code>
+                <code>src/features/chatRealtime/chatSyncService.ts:972</code>
+                <code>src/features/chatPersistence/ChatDetailScreen.tsx:144</code>
+              </td>
+              <td>AwaitingDock 提交 question、approval、form、plan 的用户决策。</td>
+              <td>提交当前 awaiting 的 <code>runId</code>、<code>agentKey</code>、<code>awaitingId</code> 和 params。成功后本地投影一条 <code>awaiting.answer</code>，再 reconcile。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>/api/interrupt</code></td>
+              <td><span class="tag request">request</span></td>
+              <td class="refs">
+                <code>src/features/chatRealtime/chatSyncService.ts:221</code>
+                <code>src/features/chatRealtime/chatSyncService.ts:2671</code>
+                <code>src/features/chatPersistence/useChatDetailConversationController.ts:989</code>
+              </td>
+              <td>Composer 的停止生成按钮。</td>
+              <td>请求中断 active run。页面先做本地 cancel 收敛，再发 interrupt；run 不存在或已结束时视作已停止。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>/api/model-options</code></td>
+              <td><span class="tag request">request</span></td>
+              <td class="refs">
+                <code>src/core/api/services/modelOptionsProtocol.ts:3</code>
+                <code>src/core/api/services/modelOptionsApi.ts:32</code>
+                <code>src/features/chatPersistence/useChatDetailConversationController.ts:445</code>
+              </td>
+              <td>详情页 composer 的模型、reasoning effort、service tier 选项。</td>
+              <td>按 agent 拉模型选项，走 AP namespace 的 shared WS request。属于详情 composer 辅助链路，不是消息流。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>/api/agent/model-config</code></td>
+              <td><span class="tag request">request</span></td>
+              <td class="refs">
+                <code>src/core/api/services/modelOptionsProtocol.ts:4</code>
+                <code>src/core/api/services/modelOptionsApi.ts:37</code>
+              </td>
+              <td>用户在详情页 composer 改模型配置后更新 agent 默认配置。</td>
+              <td>提交 agent model override，成功后刷新/保留本地 composer 配置快照。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>auth.refresh</code></td>
+              <td><span class="tag guard">request ns=d</span></td>
+              <td class="refs">
+                <code>src/features/chatRealtime/chatSyncService.ts:767</code>
+                <code>src/features/chatRealtime/chatSyncService.ts:1583</code>
+              </td>
+              <td>Desktop WS token 临期时后台刷新，不直接改变详情 UI。</td>
+              <td>只用于 Desktop WS <code>ns="d"</code> 认证刷新。收到 <code>auth.expiring</code> push 后发出，刷新后的 profile 由 core auth 持久化。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="protocol-events">
+      <h2>后端聊天 event.type</h2>
+      <div class="table-wrap">
+        <table data-filterable>
+          <thead>
+            <tr>
+              <th>event.type / family</th>
+              <th>入口地址</th>
+              <th>详情页效果</th>
+              <th>简介</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="type"><code>chat.message.ack</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:250</code><code>chatSyncService.ts:1595</code></td>
+              <td>本地 pending 用户消息变成 sent，失败时 patch 错误。</td>
+              <td>发送消息的 ack family。一般跟 <code>/api/query</code> 的 requestId/clientMessageId 对应。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>chat.message.received</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:253</code><code>chatSyncService.ts:1600</code></td>
+              <td>插入或更新一条服务端消息，并刷新摘要/已读。</td>
+              <td>服务端推来的完整 message 事件，和 assistant stream delta 是两条不同路径。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>chat.read</code> / <code>chat.unread</code> / <code>chat.read_all</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:203</code><code>chatSyncService.ts:1605</code></td>
+              <td>更新本地 read truth 与目录未读角标。</td>
+              <td>支持多个 alias：如 <code>conversation.read</code>、<code>chat.mark_read</code>、<code>agent.read_all</code> 会先归一。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>chat.deleted</code> / <code>chat.archived</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:215</code><code>chatSyncService.ts:1620</code></td>
+              <td>当前会话被移除时详情页进入 conversation gone 空态。</td>
+              <td>清理 conversation、messages、outbox、sync state、runtime state，并刷新目录投影。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>run.start</code> / <code>run.complete</code> / <code>run.cancel</code> / <code>run.error</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:268</code><code>chatSyncService.ts:1625</code><code>timelineReducer.ts:2246</code></td>
+              <td>驱动 Header run 状态、Composer stop/resume 状态、activeRunId 和 reconcile。</td>
+              <td>run lifecycle。别名如 <code>run.started</code>、<code>run.done</code>、<code>run.failed</code>、<code>run.cancelled</code> 会归一。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>content.start</code> / <code>content.delta</code> / <code>content.snapshot</code> / <code>content.end</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:181</code><code>chatSyncService.ts:1648</code><code>timelineReducer.ts:2243</code></td>
+              <td>详情页插入/流式更新 assistant 气泡。</td>
+              <td>assistant 内容主通路。<code>message.*</code>、<code>answer.*</code>、<code>response.*</code> 等 alias 会归一到 content family。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>request.query</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:309</code><code>timelineReducer.ts:2237</code></td>
+              <td>远端用户输入 echo，会和本地 pending 用户气泡去重合并。</td>
+              <td>timeline 中特殊处理为用户消息节点，不作为普通 runtime text 节点。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>request.*</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:309</code><code>timelineReducer.ts:2240</code></td>
+              <td>展示为 request runtime 文本节点。</td>
+              <td>除 <code>request.query</code> 外的请求控制或元信息。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>awaiting.ask</code> / <code>awaiting.answer</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:279</code><code>chatSyncService.ts:1697</code><code>timelineReducer.ts:2249</code></td>
+              <td>生成 AwaitingDock 或 AwaitingOverlay；answer 后收口等待态。</td>
+              <td>等待用户输入。支持 question、approval、form、plan 四种 interactive payload；alias <code>awaiting.asking</code>/<code>awaiting.answered</code> 会归一。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>reasoning.*</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:282</code><code>timelineReducer.ts:2255</code></td>
+              <td>详情 timeline 中展示推理过程，并参与 Header runtime 派生。</td>
+              <td>支持 start/delta/snapshot/end/error 等后缀，reducer 按生命周期合并为 reasoning 节点。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>planning.*</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:285</code><code>timelineReducer.ts:2255</code></td>
+              <td>展示计划编写/更新的 runtime 节点。</td>
+              <td>和 reasoning 使用同一类 runtime text reducer，但节点 kind 是 planning。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>tool.*</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:288</code><code>timelineReducer.ts:2252</code></td>
+              <td>详情 timeline 中显示工具 pill 和可展开详情。</td>
+              <td>按 toolCallId/toolId 合并 args、result、error；display 层会把连续同名工具折成 tool-group。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>artifact.publish</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:291</code><code>timelineReducer.ts:2258</code></td>
+              <td>展示 artifact runtime 行，不直接写入消息正文。</td>
+              <td>发布文件或产物时的运行态事件，后续统一 artifact pipeline 可从这里接。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>action.*</code> / <code>plan.*</code> / <code>task.*</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:294</code><code>chatEventProtocol.ts:297</code><code>timelineReducer.ts:2258</code></td>
+              <td>展示为 action/plan/task runtime text 节点。</td>
+              <td>用于更细粒度的 agent 过程可视化，进入内存 timeline 和 rich snapshot，不作为 SQLite messages 真源。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>usage.snapshot</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:303</code><code>timelineReducer.ts:2268</code></td>
+              <td>详情 Header 与 composer 用量入口展示 token/cost/context 信息。</td>
+              <td>构建结构化 <code>usageSummary</code>，<code>usageLabel</code> 只保留后端旧字段原文。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>context.compact.*</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:306</code><code>timelineReducer.ts:2258</code></td>
+              <td>展示上下文压缩相关 runtime 行。</td>
+              <td>归为 context family，作为运行态信息进入 timeline。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>heartbeat</code> / <code>live.connected</code></td>
+              <td class="refs"><code>chatEventProtocol.ts:244</code><code>chatSyncService.ts:1591</code></td>
+              <td>不改变详情页数据。</td>
+              <td>连接存活事件，业务层直接忽略。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>auth.expiring</code> with <code>ns="d"</code></td>
+              <td class="refs"><code>chatSyncService.ts:1583</code><code>chatSyncService.ts:775</code></td>
+              <td>详情页无直接展示，保证 Desktop WS 后续请求可继续认证。</td>
+              <td>Desktop WS 的桌面 namespace 认证临期 push，触发 <code>auth.refresh</code>。</td>
+            </tr>
+            <tr>
+              <td class="type">summary-like event</td>
+              <td class="refs"><code>chatEventProtocol.ts:190</code><code>chatSyncService.ts:1653</code></td>
+              <td>更新详情 Header 摘要、首页目录 preview 和未读状态。</td>
+              <td>没有固定 type 也可能被当作 summary，只要带 <code>lastRunContent</code>、<code>lastMessageText</code>、<code>unreadCount</code>、<code>readStatus</code>、<code>chatName</code> 或 <code>title</code> 等字段。</td>
+            </tr>
+            <tr>
+              <td class="type">unknown + conversationId</td>
+              <td class="refs"><code>chatSyncService.ts:1720</code></td>
+              <td>标记会话 dirty，当前详情页会触发单会话 reconcile。</td>
+              <td>保守兜底，避免新协议 type 被静默丢掉导致详情页长期陈旧。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="internal-events">
+      <h2>App 内部 ChatSyncEvent.type</h2>
+      <div class="table-wrap">
+        <table data-filterable>
+          <thead>
+            <tr>
+              <th>内部 type</th>
+              <th>定义/发布地址</th>
+              <th>详情页消费地址</th>
+              <th>简介</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="type"><code>connection.status</code></td>
+              <td class="refs"><code>src/features/chatRealtime/types.ts:49</code><code>chatSyncService.ts:1224</code></td>
+              <td><code>useChatDetailConversationController.ts:766</code></td>
+              <td>socket 状态投递。详情页用于 Header subtitle/status label。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>home.item.patch</code></td>
+              <td class="refs"><code>src/features/chatRealtime/types.ts:54</code><code>chatSyncService.ts:2423</code></td>
+              <td><code>useChatDetailConversationController.ts:771</code></td>
+              <td>首页目录项局部 patch。若命中当前 conversation，会 patch 详情页 summary。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>home.item.remove</code></td>
+              <td class="refs"><code>src/features/chatRealtime/types.ts:59</code><code>chatSyncService.ts:1742</code></td>
+              <td><code>useChatDetailConversationController.ts:782</code></td>
+              <td>当前会话被删除/归档时，详情页清空 timeline 并显示不可用错误。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>home.directory.replace</code></td>
+              <td class="refs"><code>src/features/chatRealtime/types.ts:64</code><code>chatSyncService.ts:930</code></td>
+              <td><code>useChatDetailConversationController.ts:778</code></td>
+              <td>首页目录全量替换。详情页收到后忽略，由首页和历史抽屉按需回读。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>conversation.timeline.replace</code></td>
+              <td class="refs"><code>src/features/chatRealtime/types.ts:131</code><code>chatSyncService.ts:1162</code><code>chatSyncService.ts:2262</code></td>
+              <td><code>useChatDetailConversationController.ts:806</code></td>
+              <td>详情页核心消费事件。传入完整 <code>ChatTimelineState</code>，驱动 Timeline、Header runtime、usage、awaiting 和 composer run action。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>conversation.timeline.reset</code></td>
+              <td class="refs"><code>src/features/chatRealtime/types.ts:138</code><code>chatSyncService.ts:2235</code></td>
+              <td><code>useChatDetailConversationController.ts:815</code></td>
+              <td>清空当前会话运行态 timeline，详情页回到空 timeline state。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>conversation.reconcile</code></td>
+              <td class="refs"><code>src/features/chatRealtime/types.ts:104</code><code>chatSyncService.ts:2605</code></td>
+              <td><code>useChatDetailConversationController.ts:821</code></td>
+              <td>提示详情页重新读取 conversation summary，通常发生在 detail reconcile 完成后。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>conversation.message.insert</code> / <code>patch</code> / <code>stream.delta</code></td>
+              <td class="refs"><code>src/features/chatRealtime/types.ts:68</code><code>src/features/chatRealtime/types.ts:75</code><code>src/features/chatRealtime/types.ts:94</code></td>
+              <td><code>useChatDetailConversationController.ts:796</code></td>
+              <td>兼容旧 UI 的 message/delta 事件仍发布，但当前详情页直接返回，避免和 timeline replace 重复维护消息状态。</td>
+            </tr>
+            <tr>
+              <td class="type"><code>conversation.runtime.replace</code> / <code>reset</code></td>
+              <td class="refs"><code>src/features/chatRealtime/types.ts:118</code><code>src/features/chatRealtime/types.ts:125</code></td>
+              <td><code>useChatDetailConversationController.ts:796</code></td>
+              <td>兼容旧 runtime hook 的事件仍发布，但当前详情页 runtime 从 timeline 派生，因此直接跳过。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2>推荐阅读入口</h2>
+      <div class="grid two">
+        <article class="card">
+          <h3>要查“发出去的 type”</h3>
+          <p>
+            从 <code>src/features/chatRealtime/chatWsTransport.ts</code> 和
+            <code>src/features/chatRealtime/chatSyncService.ts</code> 开始。
+            前者能看到 <code>/api/query</code>/<code>/api/attach</code> 的固定 type，
+            后者能看到 <code>/api/chat</code>、<code>/api/read</code>、<code>/api/submit</code> 等业务 request。
+          </p>
+        </article>
+        <article class="card">
+          <h3>要查“收到的 event.type 怎么渲染”</h3>
+          <p>
+            先看 <code>src/core/api/services/chatEventProtocol.ts</code> 的 alias 和 family 分类，
+            再看 <code>src/features/chatRealtime/chatSyncService.ts</code> 的 <code>handlePushEvent</code>，
+            最后看 <code>src/features/chatTimeline/timelineReducer.ts</code> 的 <code>applyChatTimelineEvent</code>。
+          </p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      数据源来自当前工作区源码与 XGraph 模块卡片；报告文件仅用于梳理协议，不参与运行时代码。
+    </div>
+  </footer>
+
+  <script>
+    const input = document.querySelector('#filter');
+    const rows = Array.from(document.querySelectorAll('table[data-filterable] tbody tr'));
+    input?.addEventListener('input', () => {
+      const query = input.value.trim().toLowerCase();
+      rows.forEach((row) => {
+        row.style.display = row.textContent.toLowerCase().includes(query) ? '' : 'none';
+      });
+    });
+  </script>
+</body>
+</html>

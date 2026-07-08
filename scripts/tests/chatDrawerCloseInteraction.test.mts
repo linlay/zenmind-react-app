@@ -6,11 +6,13 @@ const drawerSources = [
   {
     backdropNeedle: 'className={BACKDROP_CLASS}',
     closeLabel: "t('directoryPicker.close')",
+    name: 'directory',
     source: readFileSync('src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx', 'utf8'),
   },
   {
     backdropNeedle: 'className={DRAWER_BACKDROP_CLASS}',
     closeLabel: "t('history.close')",
+    name: 'history',
     source: readFileSync('src/features/chatPersistence/components/ChatDetailDrawers.tsx', 'utf8'),
   },
 ];
@@ -44,5 +46,19 @@ test('chat drawer close affordances close on press-in and keep press fallback', 
     assert.match(closeButton, /onPress=\{onClose\}/);
     assert.match(backdrop, /onPressIn=\{onClose\}/);
     assert.match(backdrop, /onPress=\{onClose\}/);
+  }
+});
+
+test('chat drawer rows retain presses during horizontal drawer animation without press-in selection', () => {
+  for (const { name, source } of drawerSources) {
+    assert.equal(source.includes('selectedOnPressInRef'), false, `${name} row must not need press-in dedupe state`);
+    assert.equal(source.includes('onPressIn={handlePressIn}'), false, `${name} row must not select on press-in`);
+    assert.match(source, /pressRetentionOffset=\{pressRetentionOffset\}/, `${name} row must widen press retention`);
+    assert.match(source, /pressRetentionOffset=\{rowPressRetentionOffset\}/, `${name} list must pass retention to rows`);
+    assert.match(
+      source,
+      /const rowPressRetentionOffset = useMemo\([\s\S]*left: panelWidth,[\s\S]*right: panelWidth,[\s\S]*\[panelWidth\]/,
+      `${name} row retention offset must be tied to panel width`
+    );
   }
 });

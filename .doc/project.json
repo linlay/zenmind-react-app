@@ -68,6 +68,7 @@
       "scripts/tests/kanbanViewModel.test.mts",
       "scripts/tests/markdownPipeline.test.mts",
       "scripts/tests/runtimePayloadDescriptor.test.mts",
+      "scripts/tests/runtimePlanningShimmer.test.mts",
       "scripts/tests/sharedWsTransport.test.mts",
       "scripts/tests/submitIosIpaScript.test.mts",
       "scripts/tests/tabIconAssets.test.mts",

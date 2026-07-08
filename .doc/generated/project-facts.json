@@ -73,6 +73,7 @@
     "scripts/tests/kanbanViewModel.test.mts",
     "scripts/tests/markdownPipeline.test.mts",
     "scripts/tests/runtimePayloadDescriptor.test.mts",
+    "scripts/tests/runtimePlanningShimmer.test.mts",
     "scripts/tests/sharedWsTransport.test.mts",
     "scripts/tests/submitIosIpaScript.test.mts",
     "scripts/tests/tabIconAssets.test.mts",
@@ -783,6 +784,7 @@
     ".generated/react-native-worklets/.worklets/16138758307157.js",
     ".generated/react-native-worklets/.worklets/1613943935211.js",
     ".generated/react-native-worklets/.worklets/16142128309260.js",
+    ".generated/react-native-worklets/.worklets/16144647319202.js",
     ".generated/react-native-worklets/.worklets/16168993968671.js",
     ".generated/react-native-worklets/.worklets/16199289461184.js",
     ".generated/react-native-worklets/.worklets/16202475470532.js",
@@ -1625,6 +1627,7 @@
     ".generated/react-native-worklets/.worklets/6958101807759.js",
     ".generated/react-native-worklets/.worklets/6971782587951.js",
     ".generated/react-native-worklets/.worklets/6986517754834.js",
+    ".generated/react-native-worklets/.worklets/6996927406247.js",
     ".generated/react-native-worklets/.worklets/7015317220097.js",
     ".generated/react-native-worklets/.worklets/7025632856435.js",
     ".generated/react-native-worklets/.worklets/7030831354781.js",
@@ -2132,6 +2135,7 @@
     "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
     "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
     "src/features/chatPersistence/components/chatWonderDisplay.ts",
+    "src/features/chatPersistence/components/planningWritingShimmerConfig.ts",
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
@@ -4992,6 +4996,10 @@
                   },
                   {
                     "name": "16142128309260.js",
+                    "type": "file"
+                  },
+                  {
+                    "name": "16144647319202.js",
                     "type": "file"
                   },
                   {
@@ -8363,6 +8371,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "6996927406247.js",
+                    "type": "file"
+                  },
+                  {
                     "name": "7015317220097.js",
                     "type": "file"
                   },
@@ -10503,6 +10515,10 @@
                         "type": "file"
                       },
                       {
+                        "name": "planningWritingShimmerConfig.ts",
+                        "type": "file"
+                      },
+                      {
                         "name": "runtimePayloadDescriptor.ts",
                         "type": "file"
                       },
@@ -11128,6 +11144,7 @@
       "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
       "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
       "src/features/chatPersistence/components/chatWonderDisplay.ts",
+      "src/features/chatPersistence/components/planningWritingShimmerConfig.ts",
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
       "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
@@ -11335,6 +11352,7 @@
     "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/chatWonderDisplay.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/components/planningWritingShimmerConfig.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": "feature-chat-persistence",
@@ -13699,6 +13717,9 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/16142128309260.js": [
+      "default"
+    ],
+    ".generated/react-native-worklets/.worklets/16144647319202.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/16168993968671.js": [
@@ -16227,6 +16248,9 @@
     ".generated/react-native-worklets/.worklets/6986517754834.js": [
       "default"
     ],
+    ".generated/react-native-worklets/.worklets/6996927406247.js": [
+      "default"
+    ],
     ".generated/react-native-worklets/.worklets/7015317220097.js": [
       "default"
     ],
@@ -18165,6 +18189,16 @@
       "CHAT_WONDER_VISIBLE_COUNT",
       "pickChatWonderSuggestions"
     ],
+    "src/features/chatPersistence/components/planningWritingShimmerConfig.ts": [
+      "PLANNING_WRITING_GRADIENT_STOPS",
+      "PLANNING_WRITING_SHIMMER_DURATION_MS",
+      "PLANNING_WRITING_TEXT_BASELINE_Y",
+      "PLANNING_WRITING_TEXT_FONT_SIZE",
+      "PLANNING_WRITING_TEXT_FONT_WEIGHT",
+      "PLANNING_WRITING_TEXT_HEIGHT",
+      "PlanningWritingGradientWindow",
+      "resolvePlanningWritingGradientWindow"
+    ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "RuntimePayloadDescriptor",
       "RuntimePayloadKind",
@@ -19560,6 +19594,7 @@
     ".generated/react-native-worklets/.worklets/16138758307157.js": null,
     ".generated/react-native-worklets/.worklets/1613943935211.js": null,
     ".generated/react-native-worklets/.worklets/16142128309260.js": null,
+    ".generated/react-native-worklets/.worklets/16144647319202.js": null,
     ".generated/react-native-worklets/.worklets/16168993968671.js": null,
     ".generated/react-native-worklets/.worklets/16199289461184.js": null,
     ".generated/react-native-worklets/.worklets/16202475470532.js": null,
@@ -20619,6 +20654,7 @@
     ".generated/react-native-worklets/.worklets/6958101807759.js": null,
     ".generated/react-native-worklets/.worklets/6971782587951.js": null,
     ".generated/react-native-worklets/.worklets/6986517754834.js": null,
+    ".generated/react-native-worklets/.worklets/6996927406247.js": null,
     ".generated/react-native-worklets/.worklets/7015317220097.js": null,
     ".generated/react-native-worklets/.worklets/7025632856435.js": [
       "../../../node_modules/react-native-worklets/src/debug/WorkletsError",
@@ -21859,10 +21895,12 @@
       "../../../shared/visual/AppThemeProvider",
       "../../../shared/visual/className",
       "./ChatTimelineRail",
+      "./planningWritingShimmerConfig",
       "./runtimePayloadDescriptor",
       "./runtimePayloadRenderers",
       "react",
       "react-native",
+      "react-native-reanimated",
       "react-native-svg"
     ],
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": [
@@ -21961,6 +21999,7 @@
     "src/features/chatPersistence/components/chatWonderDisplay.ts": [
       "../../../core/api/services/chatApi"
     ],
+    "src/features/chatPersistence/components/planningWritingShimmerConfig.ts": null,
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "../../../shared/i18n/translate.ts",
       "../../../shared/icons/AppIcon",
@@ -23012,6 +23051,7 @@
     ".generated/react-native-worklets/.worklets/16138758307157.js": null,
     ".generated/react-native-worklets/.worklets/1613943935211.js": null,
     ".generated/react-native-worklets/.worklets/16142128309260.js": null,
+    ".generated/react-native-worklets/.worklets/16144647319202.js": null,
     ".generated/react-native-worklets/.worklets/16168993968671.js": null,
     ".generated/react-native-worklets/.worklets/16199289461184.js": null,
     ".generated/react-native-worklets/.worklets/16202475470532.js": null,
@@ -23909,6 +23949,7 @@
     ".generated/react-native-worklets/.worklets/6958101807759.js": null,
     ".generated/react-native-worklets/.worklets/6971782587951.js": null,
     ".generated/react-native-worklets/.worklets/6986517754834.js": null,
+    ".generated/react-native-worklets/.worklets/6996927406247.js": null,
     ".generated/react-native-worklets/.worklets/7015317220097.js": null,
     ".generated/react-native-worklets/.worklets/7025632856435.js": [
       "node_modules/react-native-worklets/src/debug/WorkletsError.ts",
@@ -24916,6 +24957,7 @@
     ],
     "src/features/chatPersistence/components/RuntimePlanningBlock.tsx": [
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
+      "src/features/chatPersistence/components/planningWritingShimmerConfig.ts",
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
       "src/shared/i18n/index.ts",
@@ -25004,6 +25046,7 @@
     "src/features/chatPersistence/components/chatWonderDisplay.ts": [
       "src/core/api/services/chatApi.ts"
     ],
+    "src/features/chatPersistence/components/planningWritingShimmerConfig.ts": null,
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/translate.ts",
@@ -25984,6 +26027,7 @@
     ".generated/react-native-worklets/.worklets/16138758307157.js",
     ".generated/react-native-worklets/.worklets/1613943935211.js",
     ".generated/react-native-worklets/.worklets/16142128309260.js",
+    ".generated/react-native-worklets/.worklets/16144647319202.js",
     ".generated/react-native-worklets/.worklets/16168993968671.js",
     ".generated/react-native-worklets/.worklets/16199289461184.js",
     ".generated/react-native-worklets/.worklets/16202475470532.js",
@@ -26826,6 +26870,7 @@
     ".generated/react-native-worklets/.worklets/6958101807759.js",
     ".generated/react-native-worklets/.worklets/6971782587951.js",
     ".generated/react-native-worklets/.worklets/6986517754834.js",
+    ".generated/react-native-worklets/.worklets/6996927406247.js",
     ".generated/react-native-worklets/.worklets/7015317220097.js",
     ".generated/react-native-worklets/.worklets/7025632856435.js",
     ".generated/react-native-worklets/.worklets/7030831354781.js",

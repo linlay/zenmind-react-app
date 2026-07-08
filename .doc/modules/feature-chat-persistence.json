@@ -194,9 +194,16 @@
       "NewMessageRow",
       "NewOutboxMessageRow",
       "OutboxMessageRow",
+      "PLANNING_WRITING_GRADIENT_STOPS",
+      "PLANNING_WRITING_SHIMMER_DURATION_MS",
+      "PLANNING_WRITING_TEXT_BASELINE_Y",
+      "PLANNING_WRITING_TEXT_FONT_SIZE",
+      "PLANNING_WRITING_TEXT_FONT_WEIGHT",
+      "PLANNING_WRITING_TEXT_HEIGHT",
       "PendingOutboxMessage",
       "PersistedConversationReadStateInput",
       "PlanningActionPill",
+      "PlanningWritingGradientWindow",
       "ProjectedChatSummaryPatch",
       "ProjectedConversationDetail",
       "ProjectedDetailActiveRun",
@@ -373,6 +380,7 @@
       "resolveAgentModelSettings",
       "resolveAwaitingCountdownDeadline",
       "resolveDirectoryItemConversationOpenTarget",
+      "resolvePlanningWritingGradientWindow",
       "searchChatDirectoryItems",
       "serializeChatAttachmentReferences",
       "setChatCacheScopeId",
@@ -414,7 +422,7 @@
       "feature-chat-timeline"
     ],
     "tests": [],
-    "lastScannedAt": "2026-07-08T02:08:25Z"
+    "lastScannedAt": "2026-07-08T06:53:48Z"
   },
   "readHints": {
     "alwaysRead": [
