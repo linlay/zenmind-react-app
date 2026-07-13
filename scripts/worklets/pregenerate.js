@@ -1,6 +1,8 @@
 const fs = require('fs');
 const path = require('path');
 
+const { rewriteGeneratedWorkletImports } = require('./generated-import-paths');
+
 const { getDefaultConfig } = require('expo/metro-config');
 const { functionMapBabelPlugin } = require('metro-source-map');
 const { importLocationsPlugin } = require('metro/private/ModuleGraph/worker/importLocationsPlugin');
@@ -14,13 +16,7 @@ const packageGeneratedWorkletsDir = path.join(
   path.dirname(require.resolve('react-native-worklets/package.json')),
   '.worklets'
 );
-const projectGeneratedWorkletsDir = path.join(
-  projectRoot,
-  '.generated',
-  'react-native-worklets',
-  '.worklets'
-);
-const projectWorkletsPackageDir = path.join(projectRoot, 'node_modules', 'react-native-worklets');
+const projectGeneratedWorkletsDir = path.join(projectRoot, '.generated', 'react-native-worklets', '.worklets');
 const cssInteropPackageDir = path.dirname(require.resolve('react-native-css-interop/package.json'));
 
 const sourceRoots = [
@@ -37,7 +33,7 @@ const sourceRoots = [
   path.join(workspaceNodeModulesDir, 'react-native-css-interop', 'src'),
   path.join(workspaceNodeModulesDir, 'react-native-css-interop', 'dist'),
   path.join(cssInteropPackageDir, 'src'),
-  path.join(cssInteropPackageDir, 'dist'),
+  path.join(cssInteropPackageDir, 'dist')
 ];
 
 const sourceExtensions = new Set(['.js', '.jsx', '.mjs', '.ts', '.tsx']);
@@ -54,7 +50,7 @@ const ignoredDirectoryNames = new Set([
   'build',
   'builds',
   'dist',
-  'typescript',
+  'typescript'
 ]);
 const MAX_GENERATED_PASSES = 10;
 const buildEnvironments = [
@@ -62,14 +58,14 @@ const buildEnvironments = [
     label: 'development',
     babelEnv: 'development',
     nodeEnv: 'development',
-    dev: true,
+    dev: true
   },
   {
     label: 'production',
     babelEnv: 'production',
     nodeEnv: 'production',
-    dev: false,
-  },
+    dev: false
+  }
 ];
 const buildPlatforms = ['android', 'web'];
 const productionBuildEnvironment = buildEnvironments.find(
@@ -137,20 +133,6 @@ function clearGeneratedJsFiles(directoryPath) {
   return deletedCount;
 }
 
-function toImportPath(filePath) {
-  return filePath.split(path.sep).join('/');
-}
-
-function rewriteGeneratedWorkletImports(content) {
-  const workletsPackageImportPath = toImportPath(
-    path.relative(projectGeneratedWorkletsDir, projectWorkletsPackageDir)
-  );
-  return content.replace(
-    /(["'])\.\.\/(src|lib\/module)\//g,
-    (_match, quote, packageSubpath) => `${quote}${workletsPackageImportPath}/${packageSubpath}/`
-  );
-}
-
 function syncPackageGeneratedWorkletsToProject() {
   fs.rmSync(projectGeneratedWorkletsDir, { recursive: true, force: true });
   fs.mkdirSync(projectGeneratedWorkletsDir, { recursive: true });
@@ -159,7 +141,11 @@ function syncPackageGeneratedWorkletsToProject() {
   for (const filePath of listGeneratedWorkletFiles(packageGeneratedWorkletsDir)) {
     fs.writeFileSync(
       path.join(projectGeneratedWorkletsDir, path.basename(filePath)),
-      rewriteGeneratedWorkletImports(fs.readFileSync(filePath, 'utf8'))
+      rewriteGeneratedWorkletImports(
+        fs.readFileSync(filePath, 'utf8'),
+        packageGeneratedWorkletsDir,
+        projectGeneratedWorkletsDir
+      )
     );
     copiedCount += 1;
   }
@@ -196,7 +182,7 @@ function transformSourceText(filename, src, buildEnvironment, platform) {
     src,
     options: {
       customTransformOptions: {
-        routerRoot: 'src/app',
+        routerRoot: 'src/app'
       },
       dev: buildEnvironment.dev,
       enableBabelRCLookup: true,
@@ -204,9 +190,9 @@ function transformSourceText(filename, src, buildEnvironment, platform) {
       hermesParser: false,
       platform,
       projectRoot,
-      type: 'module',
+      type: 'module'
     },
-    plugins: metroBabelPlugins,
+    plugins: metroBabelPlugins
   });
 }
 
@@ -247,14 +233,12 @@ function transformGeneratedFilesUntilStable(buildEnvironment, platform) {
     if (transformedInPass === 0) {
       return {
         copiedCount,
-        transformedGeneratedCount,
+        transformedGeneratedCount
       };
     }
   }
 
-  throw new Error(
-    `Worklets pregeneration did not stabilize after ${MAX_GENERATED_PASSES} generated passes.`
-  );
+  throw new Error(`Worklets pregeneration did not stabilize after ${MAX_GENERATED_PASSES} generated passes.`);
 }
 
 function pregenerateReanimatedKeyframeProductionVariants() {
@@ -276,9 +260,7 @@ function pregenerateReanimatedKeyframeProductionVariants() {
   }
 
   const before = new Set(
-    listGeneratedWorkletFiles(packageGeneratedWorkletsDir).map((filePath) =>
-      path.basename(filePath)
-    )
+    listGeneratedWorkletFiles(packageGeneratedWorkletsDir).map((filePath) => path.basename(filePath))
   );
 
   // Metro can later emit these Reanimated Keyframe production hashes from the
@@ -365,12 +347,7 @@ void (() => {
 
   withBuildEnvironment(productionBuildEnvironment, () => {
     for (const platform of buildPlatforms) {
-      transformSourceText(
-        fs.realpathSync(keyframeSourcePath),
-        source,
-        productionBuildEnvironment,
-        platform
-      );
+      transformSourceText(fs.realpathSync(keyframeSourcePath), source, productionBuildEnvironment, platform);
     }
   });
 
@@ -386,10 +363,7 @@ function main() {
     // Keep both paths: Metro can transform either the project node_modules
     // symlink path or pnpm's real .pnpm path, and filenames participate in the
     // Worklets hash.
-    collectSourceRoot(
-      path.isAbsolute(sourceRoot) ? sourceRoot : path.join(projectRoot, sourceRoot),
-      sourceCandidates
-    );
+    collectSourceRoot(path.isAbsolute(sourceRoot) ? sourceRoot : path.join(projectRoot, sourceRoot), sourceCandidates);
   }
 
   let copiedCount = 0;
@@ -397,16 +371,12 @@ function main() {
   for (const buildEnvironment of buildEnvironments) {
     for (const platform of buildPlatforms) {
       const summary = withBuildEnvironment(buildEnvironment, () => {
-        const transformedSourceCount = transformSourceFiles(
-          sourceCandidates,
-          buildEnvironment,
-          platform
-        );
+        const transformedSourceCount = transformSourceFiles(sourceCandidates, buildEnvironment, platform);
         const generatedSummary = transformGeneratedFilesUntilStable(buildEnvironment, platform);
         return {
           ...generatedSummary,
           label: `${buildEnvironment.label}/${platform}`,
-          transformedSourceCount,
+          transformedSourceCount
         };
       });
 
@@ -429,7 +399,7 @@ function main() {
         )
         .join('; ')}.`,
       `Seeded ${keyframeVariantCount} Reanimated Keyframe production variants.`,
-      `Deleted ${deletedPackageGeneratedCount} stale package files; copied ${copiedCount} files to ${path.relative(projectRoot, projectGeneratedWorkletsDir)}.`,
+      `Deleted ${deletedPackageGeneratedCount} stale package files; copied ${copiedCount} files to ${path.relative(projectRoot, projectGeneratedWorkletsDir)}.`
     ].join(' ') + '\n'
   );
 }

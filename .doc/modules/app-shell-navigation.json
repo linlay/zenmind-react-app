@@ -26,6 +26,7 @@
     "metro.config.js",
     "nativewind-env.d.ts",
     "package.json",
+    "patches",
     "plugins/withAndroidAutolinkingCacheGuard.js",
     "scripts",
     "scripts/lib/brand-config.js",
@@ -59,8 +60,9 @@
       "Public entry global.css (nativewind-input): NativeWind 输入 CSS，只承载 Tailwind base/components/utilities 层，由 App.tsx 副作用 import 并交给 Metro 按平台转换。",
       "Public entry plugins/withAndroidAutolinkingCacheGuard.js (expo-config-plugin): 在 Expo prebuild 阶段向 Android settings.gradle 注入 autolinking cache guard，使 pnpm workspace lock 和 cached Android sourceDir 存在性参与缓存失效判断。",
       "Public entry android/settings.gradle (android-gradle-settings): 配置 React Native / Expo Android settings 插件和 autolinking 缓存失效输入；pnpm workspace 下同时校验 cached Android sourceDir 是否仍存在，避免重装依赖后 include 旧 .pnpm 物理路径。",
-      "Public entry package.json (npm-scripts): 声明 brand:sync、android / android:device / web、EAS build、iOS submit 和 iOS release 等 Expo 运行与发布脚本，并通过 scripts/submit-ios-ipa.js 包装本地 IPA submit 参数解析；Metro 启动前同步品牌资源和预生成 Worklets bundle 文件。",
-      "Public entry scripts/worklets/pregenerate.js (worklets-pregenerate-script): 在 Android/Web 打包前用 Expo Metro transformer 与 Metro worker 插件沿 Metro 可见的项目路径和 pnpm 当前 realpath 预生成 development / production 两套 react-native-worklets/.worklets 文件，重写包内相对 import 后同步到项目内 .generated 目录。",
+      "Public entry package.json (npm-scripts): 声明 brand:sync、android / android:device / web、EAS build、iOS submit 和 iOS release 等 Expo 运行与发布脚本，并通过 scripts/submit-ios-ipa.js 包装本地 IPA submit 参数解析；Metro 启动前同步品牌资源和预生成 Worklets bundle 文件；通过 pnpm.patchedDependencies 注册 Worklets Bundle Mode 路径边界补丁。",
+      "Public entry patches/react-native-worklets@0.8.3.patch (dependency-patch): 修正 Worklets Babel 插件对允许转发相对 import 的模块路径判断，只接受真实路径边界，避免 pnpm Reanimated peer suffix 中的 react-native-worklets 字样造成误判。",
+      "Public entry scripts/worklets/pregenerate.js (worklets-pregenerate-script): 在 Android/Web 打包前用 Expo Metro transformer 与 Metro worker 插件沿 Metro 可见的项目路径和 pnpm 当前 realpath 预生成 development / production 两套 react-native-worklets/.worklets 文件；同步到项目内 .generated 目录时，将每条静态相对 import 从 package .worklets 原目录重新定基到项目目标目录。",
       "Public entry default (react-entry): 应用 UI 根入口，挂载 SafeAreaProvider、I18nProvider 与 AppThemeProvider，同时托住 native splash，并编排 React 启动加载层的接棒与退场时机。",
       "Public entry AppRoot (app-shell): 导航容器、认证冷启动恢复、auth cache runtime 注入、运行时导航主题、系统通知接入与开发态入口的壳层，并向 App 暴露导航 ready 时机。",
       "Public entry AppLaunchSkeleton (startup-loading-overlay): 应用冷启动期间的毛玻璃启动加载层与品牌 logo 动画。",
@@ -206,9 +208,11 @@
       "scripts/tests/submitIosIpaScript.test.mts",
       "scripts/tests/tabIconAssets.test.mts",
       "scripts/tests/visualFoundation.test.mts",
+      "scripts/tests/workletsPluginPatch.test.mts",
+      "scripts/tests/workletsPregenerate.test.mts",
       "scripts/tests/wsClientTransport.test.mts"
     ],
-    "lastScannedAt": "2026-07-08T06:53:48Z"
+    "lastScannedAt": "2026-07-10T06:31:19Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -262,7 +266,8 @@
     "Android settings 的 autolinking 缓存必须通过 withAndroidAutolinkingCacheGuard 跟踪 pnpm workspace lock，并在 cached Android sourceDir 不存在时删除 autolinking.json 触发重扫，避免 pnpm peer-hash 物理路径过期导致 native module include 失败。",
     "Metro watchFolders 必须限制在 workspace 根 node_modules 和项目内 .generated/react-native-worklets/.worklets，不要继承 Expo 自动发现的 sibling frontend workspace；否则 pan-webclient 等其他项目的 node_modules 变化会污染移动端 Metro file map。",
     "NativeWind 接入必须保持 global.css 通过 App.tsx 副作用 import，metro.config.js 通过 withNativeWind(config, { input: './global.css' }) 包装既有配置，babel.config.js 中 nativewind/babel 作为 preset 接入，并保留显式 react-native-worklets/plugin bundleMode 配置。",
-    "Worklets bundle mode 生成物必须同步到项目内 .generated/react-native-worklets/.worklets，并让 Metro 只 watch/resolve 这个项目内稳定目录；预生成时要同时覆盖 node_modules symlink 路径和 pnpm 当前 .pnpm realpath，因为 Worklets hash 会受源码 filename 影响。",
+    "Worklets bundle mode 生成物必须同步到项目内 .generated/react-native-worklets/.worklets，并让 Metro 只 watch/resolve 这个项目内稳定目录；预生成时要同时覆盖 node_modules symlink 路径和 pnpm 当前 .pnpm realpath，因为 Worklets hash 会受源码 filename 影响；复制生成文件时必须保持 path.resolve(packageGeneratedDir, oldSpecifier) 与 path.resolve(projectGeneratedDir, newSpecifier) 指向同一目标，并兼容 POSIX 与 Windows 路径分隔符。",
+    "Worklets Bundle Mode 允许转发包内相对 import 时必须按规范化后的真实模块路径边界匹配，禁止用 filename.includes(packageName) 这类普通子串判断；pnpm peer suffix 只能影响物理目录名，不能让 Reanimated 被误判成 react-native-worklets 包内代码。",
     "Expo 运行和导出脚本必须先执行 scripts/worklets/pregenerate.js，提前生成并同步 Reanimated、Streamdown、Worklets、remend、NativeWind css-interop 和二级 Worklets bundle 文件；预生成要覆盖 development / production 环境和 android / web 平台，避免 Metro 建图后才出现新 .worklets 文件导致 SHA-1 缺失。",
     "Expo 运行、导出和 EAS post install 脚本必须先执行 scripts/sync-brand.js，保证 app.config.js、React loading、Login 和 Me 页消费的 generated 品牌资源一致；app.config.js 读取配置时必须跳过 native project 文本同步，避免 Expo prebuild 刚创建 AndroidManifest 但插件尚未写入 meta-data 时失败。",
     "ZenMind / CuteJ iOS 发布到 TestFlight 共享同一个 App Store Connect app 和 iOS bundle id；确认对应品牌是最新远端 EAS iOS 构建时用 submit:ios:\u003cbrand\u003e 提交 latest build，不确定最新构建品牌时用 submit:ios:\u003cbrand\u003e:ipa -- \u003cpath\u003e 通过 scripts/submit-ios-ipa.js 提交本地 IPA，一键构建提交用 release:ios:\u003cbrand\u003e。",

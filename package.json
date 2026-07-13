@@ -95,5 +95,10 @@
     "tailwindcss": "3.4.19",
     "typescript": "6.0.3"
   },
+  "pnpm": {
+    "patchedDependencies": {
+      "react-native-worklets@0.8.3": "patches/react-native-worklets@0.8.3.patch"
+    }
+  },
   "private": true
 }

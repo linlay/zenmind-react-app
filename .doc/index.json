@@ -70,6 +70,7 @@
         "metro.config.js",
         "nativewind-env.d.ts",
         "package.json",
+        "patches",
         "plugins/withAndroidAutolinkingCacheGuard.js",
         "scripts",
         "scripts/lib/brand-config.js",
@@ -224,7 +225,7 @@
     "moduleCount": 18,
     "flowCount": 7,
     "taskCount": 16,
-    "sourceFileCount": 2112,
+    "sourceFileCount": 2113,
     "factsRef": ".doc/generated/project-facts.json",
     "contextIndexRef": ".doc/generated/context-index.json",
     "entrypoints": [

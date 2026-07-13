@@ -1,0 +1,17 @@
+--- a/plugin/index.js
++++ b/plugin/index.js
+@@ -639,8 +639,13 @@
+     function isImportRelative(imported) {
+       return imported.path.parentPath.node.source.value.startsWith(".");
+     }
++    function isModulePath(filename, moduleName) {
++      const normalizedFilename = filename.replace(/\\/g, "/");
++      const modulePath = `/${moduleName}`;
++      return normalizedFilename.includes(`${modulePath}/`) || normalizedFilename.includes(`${modulePath}.`) || normalizedFilename.endsWith(modulePath);
++    }
+     function isAllowedForRelativeImports(filename, workletizableModules) {
+-      return !!filename && (alwaysAllowed.some((module3) => filename.includes(module3)) || !!(workletizableModules === null || workletizableModules === void 0 ? void 0 : workletizableModules.some((module3) => filename.includes(module3))));
++      return !!filename && (alwaysAllowed.some((module3) => isModulePath(filename, module3)) || !!(workletizableModules === null || workletizableModules === void 0 ? void 0 : workletizableModules.some((module3) => isModulePath(filename, module3))));
+     }
+     function isWorkletizableModule(source, workletizableModules) {
+       return alwaysAllowed.some((module3) => source.startsWith(module3)) || !!(workletizableModules === null || workletizableModules === void 0 ? void 0 : workletizableModules.some((module3) => source.startsWith(module3)));

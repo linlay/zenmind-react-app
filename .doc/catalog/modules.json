@@ -38,6 +38,7 @@
         "metro.config.js",
         "nativewind-env.d.ts",
         "package.json",
+        "patches",
         "plugins/withAndroidAutolinkingCacheGuard.js",
         "scripts",
         "scripts/lib/brand-config.js",

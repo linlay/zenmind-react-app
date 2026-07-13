@@ -73,6 +73,8 @@
       "scripts/tests/submitIosIpaScript.test.mts",
       "scripts/tests/tabIconAssets.test.mts",
       "scripts/tests/visualFoundation.test.mts",
+      "scripts/tests/workletsPluginPatch.test.mts",
+      "scripts/tests/workletsPregenerate.test.mts",
       "scripts/tests/wsClientTransport.test.mts",
       "src/shared/components/__tests__/ScreenHeader.test.tsx"
     ],
