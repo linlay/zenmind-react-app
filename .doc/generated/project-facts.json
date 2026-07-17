@@ -36,6 +36,7 @@
     "scripts/tests/chatCacheScope.test.mts",
     "scripts/tests/chatComposerNativePlaceholder.test.mts",
     "scripts/tests/chatComposerOptionsLayout.test.mts",
+    "scripts/tests/chatConversationDiagnostic.test.mts",
     "scripts/tests/chatDetailAsyncScope.test.mts",
     "scripts/tests/chatDetailFormatters.test.mts",
     "scripts/tests/chatDetailHistoryDrawerPlacement.test.mts",
@@ -72,12 +73,19 @@
     "scripts/tests/kanbanInvalidation.test.mts",
     "scripts/tests/kanbanViewModel.test.mts",
     "scripts/tests/markdownPipeline.test.mts",
+    "scripts/tests/markdownPreview.test.mts",
     "scripts/tests/runtimePayloadDescriptor.test.mts",
     "scripts/tests/runtimePlanningShimmer.test.mts",
+    "scripts/tests/settingsProfileCache.test.mts",
     "scripts/tests/sharedWsTransport.test.mts",
     "scripts/tests/submitIosIpaScript.test.mts",
     "scripts/tests/tabIconAssets.test.mts",
     "scripts/tests/visualFoundation.test.mts",
+    "scripts/tests/webAppsDesktopProtocol.test.mts",
+    "scripts/tests/webAppsGateway.test.mts",
+    "scripts/tests/webAppsNavigation.test.mts",
+    "scripts/tests/webAppsRuntimeModel.test.mts",
+    "scripts/tests/webAppsScreen.test.mts",
     "scripts/tests/workletsPluginPatch.test.mts",
     "scripts/tests/workletsPregenerate.test.mts",
     "scripts/tests/wsClientTransport.test.mts",
@@ -2017,6 +2025,9 @@
     "babel.config.js",
     "eslint.config.mjs",
     "index.js",
+    "ios/CuteJ/AppDelegate.swift",
+    "ios/Pods/ReachabilitySwift/Sources/Reachability.swift",
+    "ios/Pods/Target Support Files/Pods-CuteJ/ExpoModulesProvider.swift",
     "metro.config.js",
     "nativewind-env.d.ts",
     "plugins/withAndroidAutolinkingCacheGuard.js",
@@ -2024,6 +2035,7 @@
     "scripts/dev-proxy.mjs",
     "scripts/generate-zenmind-assets.js",
     "scripts/lib/brand-config.js",
+    "scripts/markdown-preview/pregenerate.js",
     "scripts/submit-ios-ipa.js",
     "scripts/sync-brand.js",
     "scripts/worklets/generated-import-paths.js",
@@ -2092,6 +2104,7 @@
     "src/features/chatPersistence/agentModelSettings.ts",
     "src/features/chatPersistence/cacheScope.ts",
     "src/features/chatPersistence/chatAttachmentModels.ts",
+    "src/features/chatPersistence/chatConversationDiagnostic.ts",
     "src/features/chatPersistence/chatConversationTarget.ts",
     "src/features/chatPersistence/chatDetailAsyncScope.ts",
     "src/features/chatPersistence/chatDetailFormatters.ts",
@@ -2110,6 +2123,7 @@
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
     "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
     "src/features/chatPersistence/components/ChatComposerOptionRow.tsx",
+    "src/features/chatPersistence/components/ChatConversationDiagnosticCard.tsx",
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx",
     "src/features/chatPersistence/components/ChatDetailDrawers.tsx",
     "src/features/chatPersistence/components/ChatDetailEmptyState.tsx",
@@ -2167,11 +2181,35 @@
     "src/features/chatTimeline/types.ts",
     "src/features/chatTimeline/usageSummary.ts",
     "src/features/notifications/notificationService.ts",
+    "src/features/webApps/WebAppDetailScreen.tsx",
+    "src/features/webApps/WebAppsRuntimeHost.native.tsx",
+    "src/features/webApps/WebAppsRuntimeHost.tsx",
+    "src/features/webApps/WebAppsRuntimeHost.types.ts",
+    "src/features/webApps/WebAppsRuntimeProvider.tsx",
+    "src/features/webApps/WebAppsScreen.tsx",
+    "src/features/webApps/types.ts",
+    "src/features/webApps/webAppsDesktopProtocol.ts",
+    "src/features/webApps/webAppsGateway.ts",
+    "src/features/webApps/webAppsGatewayCore.ts",
+    "src/features/webApps/webAppsRuntimeModel.ts",
     "src/shared/branding/installedBrand.ts",
     "src/shared/components/ConversationMarkdownRenderer.tsx",
     "src/shared/components/PaginatedCardList.tsx",
     "src/shared/components/ScreenHeader.tsx",
     "src/shared/components/__tests__/ScreenHeader.test.tsx",
+    "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
+    "src/shared/components/conversationPreview/PreviewCodeBlock.tsx",
+    "src/shared/components/conversationPreview/PreviewErrorPanel.tsx",
+    "src/shared/components/conversationPreview/PreviewSurface.native.tsx",
+    "src/shared/components/conversationPreview/PreviewSurface.tsx",
+    "src/shared/components/conversationPreview/PreviewSurface.web.tsx",
+    "src/shared/components/conversationPreview/previewCache.ts",
+    "src/shared/components/conversationPreview/runtimeBridge.ts",
+    "src/shared/components/conversationPreview/runtimeLoader.ts",
+    "src/shared/components/conversationPreview/types.ts",
+    "src/shared/components/conversationPreview/useConversationPreviewRuntime.ts",
+    "src/shared/components/conversationPreview/usePreviewExecutionState.ts",
+    "src/shared/components/conversationPreview/visibilityStore.ts",
     "src/shared/generated/brand.ts",
     "src/shared/generated/brandAssets.ts",
     "src/shared/i18n/I18nProvider.tsx",
@@ -2188,6 +2226,8 @@
     "src/shared/icons/registries/appIconRegistry.ts",
     "src/shared/icons/registries/appIconUsages.ts",
     "src/shared/markdown/preprocess.ts",
+    "src/shared/markdown/previewRegistry.ts",
+    "src/shared/markdown/previewSegments.ts",
     "src/shared/visual/AgentAvatar.tsx",
     "src/shared/visual/AgentBuiltinIcon.tsx",
     "src/shared/visual/AppLineIcon.tsx",
@@ -9956,6 +9996,60 @@
         ]
       },
       {
+        "name": "ios",
+        "type": "directory",
+        "children": [
+          {
+            "name": "CuteJ",
+            "type": "directory",
+            "children": [
+              {
+                "name": "AppDelegate.swift",
+                "type": "file"
+              }
+            ]
+          },
+          {
+            "name": "Pods",
+            "type": "directory",
+            "children": [
+              {
+                "name": "ReachabilitySwift",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "Sources",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "Reachability.swift",
+                        "type": "file"
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "name": "Target Support Files",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "Pods-CuteJ",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "ExpoModulesProvider.swift",
+                        "type": "file"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
         "name": "plugins",
         "type": "directory",
         "children": [
@@ -9979,6 +10073,16 @@
             "children": [
               {
                 "name": "brand-config.js",
+                "type": "file"
+              }
+            ]
+          },
+          {
+            "name": "markdown-preview",
+            "type": "directory",
+            "children": [
+              {
+                "name": "pregenerate.js",
                 "type": "file"
               }
             ]
@@ -10404,6 +10508,10 @@
                         "type": "file"
                       },
                       {
+                        "name": "ChatConversationDiagnosticCard.tsx",
+                        "type": "file"
+                      },
+                      {
                         "name": "ChatDetailComposerCard.tsx",
                         "type": "file"
                       },
@@ -10523,6 +10631,10 @@
                   },
                   {
                     "name": "chatAttachmentModels.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatConversationDiagnostic.ts",
                     "type": "file"
                   },
                   {
@@ -10704,6 +10816,56 @@
                     "type": "file"
                   }
                 ]
+              },
+              {
+                "name": "webApps",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "WebAppDetailScreen.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "WebAppsRuntimeHost.native.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "WebAppsRuntimeHost.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "WebAppsRuntimeHost.types.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "WebAppsRuntimeProvider.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "WebAppsScreen.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "types.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "webAppsDesktopProtocol.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "webAppsGateway.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "webAppsGatewayCore.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "webAppsRuntimeModel.ts",
+                    "type": "file"
+                  }
+                ]
               }
             ]
           },
@@ -10731,6 +10893,64 @@
                     "children": [
                       {
                         "name": "ScreenHeader.test.tsx",
+                        "type": "file"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "conversationPreview",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "ConversationPreviewProvider.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "PreviewCodeBlock.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "PreviewErrorPanel.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "PreviewSurface.native.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "PreviewSurface.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "PreviewSurface.web.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "previewCache.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "runtimeBridge.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "runtimeLoader.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "types.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "useConversationPreviewRuntime.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "usePreviewExecutionState.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "visibilityStore.ts",
                         "type": "file"
                       }
                     ]
@@ -10845,6 +11065,14 @@
                 "children": [
                   {
                     "name": "preprocess.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "previewRegistry.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "previewSegments.ts",
                     "type": "file"
                   }
                 ]
@@ -10981,6 +11209,7 @@
       "scripts/dev-proxy.mjs",
       "scripts/generate-zenmind-assets.js",
       "scripts/lib/brand-config.js",
+      "scripts/markdown-preview/pregenerate.js",
       "scripts/submit-ios-ipa.js",
       "scripts/sync-brand.js",
       "scripts/worklets/generated-import-paths.js",
@@ -11064,6 +11293,7 @@
       "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/chatConversationDiagnostic.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatDetailAsyncScope.ts",
       "src/features/chatPersistence/chatDetailFormatters.ts",
@@ -11082,6 +11312,7 @@
       "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
       "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
       "src/features/chatPersistence/components/ChatComposerOptionRow.tsx",
+      "src/features/chatPersistence/components/ChatConversationDiagnosticCard.tsx",
       "src/features/chatPersistence/components/ChatDetailComposerCard.tsx",
       "src/features/chatPersistence/components/ChatDetailDrawers.tsx",
       "src/features/chatPersistence/components/ChatDetailEmptyState.tsx",
@@ -11146,9 +11377,37 @@
     "feature-notifications": [
       "src/features/notifications/notificationService.ts"
     ],
+    "feature-web-apps": [
+      "src/features/webApps/WebAppDetailScreen.tsx",
+      "src/features/webApps/WebAppsRuntimeHost.native.tsx",
+      "src/features/webApps/WebAppsRuntimeHost.tsx",
+      "src/features/webApps/WebAppsRuntimeHost.types.ts",
+      "src/features/webApps/WebAppsRuntimeProvider.tsx",
+      "src/features/webApps/WebAppsScreen.tsx",
+      "src/features/webApps/types.ts",
+      "src/features/webApps/webAppsDesktopProtocol.ts",
+      "src/features/webApps/webAppsGateway.ts",
+      "src/features/webApps/webAppsGatewayCore.ts",
+      "src/features/webApps/webAppsRuntimeModel.ts"
+    ],
     "shared-conversation-content-renderer": [
       "src/shared/components/ConversationMarkdownRenderer.tsx",
-      "src/shared/markdown/preprocess.ts"
+      "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
+      "src/shared/components/conversationPreview/PreviewCodeBlock.tsx",
+      "src/shared/components/conversationPreview/PreviewErrorPanel.tsx",
+      "src/shared/components/conversationPreview/PreviewSurface.native.tsx",
+      "src/shared/components/conversationPreview/PreviewSurface.tsx",
+      "src/shared/components/conversationPreview/PreviewSurface.web.tsx",
+      "src/shared/components/conversationPreview/previewCache.ts",
+      "src/shared/components/conversationPreview/runtimeBridge.ts",
+      "src/shared/components/conversationPreview/runtimeLoader.ts",
+      "src/shared/components/conversationPreview/types.ts",
+      "src/shared/components/conversationPreview/useConversationPreviewRuntime.ts",
+      "src/shared/components/conversationPreview/usePreviewExecutionState.ts",
+      "src/shared/components/conversationPreview/visibilityStore.ts",
+      "src/shared/markdown/preprocess.ts",
+      "src/shared/markdown/previewRegistry.ts",
+      "src/shared/markdown/previewSegments.ts"
     ],
     "shared-i18n": [
       "src/shared/i18n/I18nProvider.tsx",
@@ -11205,6 +11464,7 @@
     "scripts/dev-proxy.mjs": "app-shell-navigation",
     "scripts/generate-zenmind-assets.js": "app-shell-navigation",
     "scripts/lib/brand-config.js": "app-shell-navigation",
+    "scripts/markdown-preview/pregenerate.js": "app-shell-navigation",
     "scripts/submit-ios-ipa.js": "app-shell-navigation",
     "scripts/sync-brand.js": "app-shell-navigation",
     "scripts/worklets/generated-import-paths.js": "app-shell-navigation",
@@ -11273,6 +11533,7 @@
     "src/features/chatPersistence/agentModelSettings.ts": "feature-chat-persistence",
     "src/features/chatPersistence/cacheScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatAttachmentModels.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatConversationDiagnostic.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatConversationTarget.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailAsyncScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatDetailFormatters.ts": "feature-chat-persistence",
@@ -11291,6 +11552,7 @@
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatComposerOptionRow.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatConversationDiagnosticCard.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDetailDrawers.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDetailEmptyState.tsx": "feature-chat-persistence",
@@ -11348,11 +11610,35 @@
     "src/features/chatTimeline/types.ts": "feature-chat-timeline",
     "src/features/chatTimeline/usageSummary.ts": "feature-chat-timeline",
     "src/features/notifications/notificationService.ts": "feature-notifications",
+    "src/features/webApps/WebAppDetailScreen.tsx": "feature-web-apps",
+    "src/features/webApps/WebAppsRuntimeHost.native.tsx": "feature-web-apps",
+    "src/features/webApps/WebAppsRuntimeHost.tsx": "feature-web-apps",
+    "src/features/webApps/WebAppsRuntimeHost.types.ts": "feature-web-apps",
+    "src/features/webApps/WebAppsRuntimeProvider.tsx": "feature-web-apps",
+    "src/features/webApps/WebAppsScreen.tsx": "feature-web-apps",
+    "src/features/webApps/types.ts": "feature-web-apps",
+    "src/features/webApps/webAppsDesktopProtocol.ts": "feature-web-apps",
+    "src/features/webApps/webAppsGateway.ts": "feature-web-apps",
+    "src/features/webApps/webAppsGatewayCore.ts": "feature-web-apps",
+    "src/features/webApps/webAppsRuntimeModel.ts": "feature-web-apps",
     "src/shared/branding/installedBrand.ts": "shared-visual-foundation",
     "src/shared/components/ConversationMarkdownRenderer.tsx": "shared-conversation-content-renderer",
     "src/shared/components/PaginatedCardList.tsx": "shared-paginated-list",
     "src/shared/components/ScreenHeader.tsx": "shared-screen-header",
     "src/shared/components/__tests__/ScreenHeader.test.tsx": "shared-screen-header",
+    "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx": "shared-conversation-content-renderer",
+    "src/shared/components/conversationPreview/PreviewCodeBlock.tsx": "shared-conversation-content-renderer",
+    "src/shared/components/conversationPreview/PreviewErrorPanel.tsx": "shared-conversation-content-renderer",
+    "src/shared/components/conversationPreview/PreviewSurface.native.tsx": "shared-conversation-content-renderer",
+    "src/shared/components/conversationPreview/PreviewSurface.tsx": "shared-conversation-content-renderer",
+    "src/shared/components/conversationPreview/PreviewSurface.web.tsx": "shared-conversation-content-renderer",
+    "src/shared/components/conversationPreview/previewCache.ts": "shared-conversation-content-renderer",
+    "src/shared/components/conversationPreview/runtimeBridge.ts": "shared-conversation-content-renderer",
+    "src/shared/components/conversationPreview/runtimeLoader.ts": "shared-conversation-content-renderer",
+    "src/shared/components/conversationPreview/types.ts": "shared-conversation-content-renderer",
+    "src/shared/components/conversationPreview/useConversationPreviewRuntime.ts": "shared-conversation-content-renderer",
+    "src/shared/components/conversationPreview/usePreviewExecutionState.ts": "shared-conversation-content-renderer",
+    "src/shared/components/conversationPreview/visibilityStore.ts": "shared-conversation-content-renderer",
     "src/shared/generated/brand.ts": "shared-visual-foundation",
     "src/shared/generated/brandAssets.ts": "shared-visual-foundation",
     "src/shared/i18n/I18nProvider.tsx": "shared-i18n",
@@ -11369,6 +11655,8 @@
     "src/shared/icons/registries/appIconRegistry.ts": "shared-visual-foundation",
     "src/shared/icons/registries/appIconUsages.ts": "shared-visual-foundation",
     "src/shared/markdown/preprocess.ts": "shared-conversation-content-renderer",
+    "src/shared/markdown/previewRegistry.ts": "shared-conversation-content-renderer",
+    "src/shared/markdown/previewSegments.ts": "shared-conversation-content-renderer",
     "src/shared/visual/AgentAvatar.tsx": "shared-visual-foundation",
     "src/shared/visual/AgentBuiltinIcon.tsx": "shared-visual-foundation",
     "src/shared/visual/AppLineIcon.tsx": "shared-visual-foundation",
@@ -11407,13 +11695,15 @@
         "feature-chat-persistence",
         "feature-chat-realtime",
         "feature-notifications",
+        "feature-web-apps",
         "shared-i18n",
         "shared-screen-header",
         "shared-visual-foundation"
       ],
       "dependedBy": [
         "feature-agent-task-board",
-        "feature-chat-persistence"
+        "feature-chat-persistence",
+        "feature-web-apps"
       ]
     },
     "core-api-client": {
@@ -11429,7 +11719,8 @@
         "feature-chat-persistence",
         "feature-chat-realtime",
         "feature-chat-timeline",
-        "feature-notifications"
+        "feature-notifications",
+        "feature-web-apps"
       ]
     },
     "core-auth-session": {
@@ -11441,7 +11732,8 @@
         "app-shell-navigation",
         "core-api-client",
         "feature-auth-login",
-        "feature-chat-realtime"
+        "feature-chat-realtime",
+        "feature-web-apps"
       ]
     },
     "core-debug-logging": {
@@ -11471,7 +11763,8 @@
       ],
       "dependedBy": [
         "core-api-client",
-        "feature-chat-realtime"
+        "feature-chat-realtime",
+        "feature-web-apps"
       ]
     },
     "feature-agent-task-board": {
@@ -11523,7 +11816,8 @@
         "core-auth-session",
         "core-ws-transport",
         "feature-chat-persistence",
-        "feature-chat-timeline"
+        "feature-chat-timeline",
+        "shared-visual-foundation"
       ],
       "dependedBy": [
         "app-development-debug",
@@ -11549,8 +11843,23 @@
         "app-shell-navigation"
       ]
     },
+    "feature-web-apps": {
+      "dependsOn": [
+        "app-shell-navigation",
+        "core-api-client",
+        "core-auth-session",
+        "core-ws-transport",
+        "shared-i18n",
+        "shared-screen-header",
+        "shared-visual-foundation"
+      ],
+      "dependedBy": [
+        "app-shell-navigation"
+      ]
+    },
     "shared-conversation-content-renderer": {
       "dependsOn": [
+        "shared-i18n",
         "shared-visual-foundation"
       ],
       "dependedBy": [
@@ -11564,6 +11873,8 @@
         "feature-agent-task-board",
         "feature-auth-login",
         "feature-chat-persistence",
+        "feature-web-apps",
+        "shared-conversation-content-renderer",
         "shared-paginated-list"
       ]
     },
@@ -11583,7 +11894,8 @@
       "dependedBy": [
         "app-shell-navigation",
         "feature-agent-task-board",
-        "feature-chat-persistence"
+        "feature-chat-persistence",
+        "feature-web-apps"
       ]
     },
     "shared-visual-foundation": {
@@ -11594,6 +11906,8 @@
         "feature-agent-task-board",
         "feature-auth-login",
         "feature-chat-persistence",
+        "feature-chat-realtime",
+        "feature-web-apps",
         "shared-conversation-content-renderer",
         "shared-paginated-list",
         "shared-screen-header"
@@ -17368,6 +17682,9 @@
       "default"
     ],
     "index.js": null,
+    "ios/CuteJ/AppDelegate.swift": [],
+    "ios/Pods/ReachabilitySwift/Sources/Reachability.swift": [],
+    "ios/Pods/Target Support Files/Pods-CuteJ/ExpoModulesProvider.swift": [],
     "metro.config.js": null,
     "nativewind-env.d.ts": null,
     "plugins/withAndroidAutolinkingCacheGuard.js": [
@@ -17394,6 +17711,7 @@
       "STORAGE_NAMESPACE",
       "getBrandLogo"
     ],
+    "scripts/markdown-preview/pregenerate.js": null,
     "scripts/submit-ios-ipa.js": null,
     "scripts/sync-brand.js": null,
     "scripts/worklets/generated-import-paths.js": null,
@@ -17446,7 +17764,9 @@
       "MeScreen"
     ],
     "src/app/settings/settingsActions.ts": [
-      "clearSettingsLocalCache"
+      "SETTINGS_LEGACY_CACHE_SCOPE_ID",
+      "clearSettingsProfileCache",
+      "hasSettingsLegacyLocalCache"
     ],
     "src/app/startup/AppLaunchSkeleton.tsx": [
       "AppLaunchSkeleton"
@@ -17873,6 +18193,16 @@
       "parseChatAttachmentReferencesJson",
       "serializeChatAttachmentReferences"
     ],
+    "src/features/chatPersistence/chatConversationDiagnostic.ts": [
+      "CHAT_CONVERSATION_DIAGNOSTIC_COMMAND",
+      "ChatConversationDiagnosticReport",
+      "ChatConversationDiagnosticSection",
+      "ChatConversationDiagnosticSectionId",
+      "ChatConversationDiagnosticSource",
+      "ChatConversationDiagnosticState",
+      "buildChatConversationDiagnosticReport",
+      "isChatConversationDiagnosticCommand"
+    ],
     "src/features/chatPersistence/chatConversationTarget.ts": [
       "createChatConversationTarget"
     ],
@@ -17968,6 +18298,9 @@
       "upsertConversationMessage"
     ],
     "src/features/chatPersistence/chatRepository.ts": [
+      "ChatConversationMessagesDiagnosticSnapshot",
+      "ChatConversationTimelineDiagnosticSnapshot",
+      "ChatLocalCacheScopeClearResult",
       "ConversationReadScope",
       "ConversationSummaryPatch",
       "ConversationSummaryPatchResult",
@@ -17979,6 +18312,7 @@
       "appendAssistantDelta",
       "applyConversationSummaryPatch",
       "clearChatLocalCache",
+      "clearChatLocalCacheForScope",
       "createConversationForDirectoryItem",
       "createConversationForHistoryScope",
       "createOutgoingMessage",
@@ -17991,12 +18325,15 @@
       "getConversationHistorySlice",
       "getConversationInitialTimelineState",
       "getConversationMessages",
+      "getConversationMessagesDiagnosticSnapshot",
       "getConversationSyncState",
       "getConversationTarget",
+      "getConversationTimelineDiagnosticSnapshot",
       "getMessageByClientMessageId",
       "getMessageByServerMessageId",
       "getPendingOutboxCount",
       "getPendingOutboxMessages",
+      "hasChatLocalConversations",
       "incrementConversationUnread",
       "markConversationDirty",
       "markConversationReadLocal",
@@ -18033,6 +18370,9 @@
     ],
     "src/features/chatPersistence/components/ChatComposerOptionRow.tsx": [
       "ChatComposerOptionRow"
+    ],
+    "src/features/chatPersistence/components/ChatConversationDiagnosticCard.tsx": [
+      "ChatConversationDiagnosticCard"
     ],
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": [
       "ChatDetailComposerCard"
@@ -18198,8 +18538,10 @@
       "getRuntimeToolStatusColor"
     ],
     "src/features/chatPersistence/database.ts": [
+      "ChatDatabaseScopeDeleteStatus",
       "chatDb",
       "deleteChatDatabaseScope",
+      "deleteChatDatabaseScopeIfExists",
       "ensureChatDatabase",
       "switchChatDatabaseScope"
     ],
@@ -18280,6 +18622,7 @@
       "useChatDetailLocalUiState"
     ],
     "src/features/chatRealtime/chatSyncService.ts": [
+      "ChatCacheScopeClearResult",
       "chatSyncService"
     ],
     "src/features/chatRealtime/chatWsTransport.ts": [
@@ -18495,6 +18838,70 @@
     "src/features/notifications/notificationService.ts": [
       "notificationService"
     ],
+    "src/features/webApps/WebAppDetailScreen.tsx": [
+      "WebAppDetailScreen"
+    ],
+    "src/features/webApps/WebAppsRuntimeHost.native.tsx": [
+      "WebAppsRuntimeHost"
+    ],
+    "src/features/webApps/WebAppsRuntimeHost.tsx": [
+      "WebAppsRuntimeHost"
+    ],
+    "src/features/webApps/WebAppsRuntimeHost.types.ts": [
+      "WebAppsRuntimeHostProps"
+    ],
+    "src/features/webApps/WebAppsRuntimeProvider.tsx": [
+      "WebAppsRuntimeProvider",
+      "useWebAppsRuntime"
+    ],
+    "src/features/webApps/WebAppsScreen.tsx": [
+      "WebAppsScreen"
+    ],
+    "src/features/webApps/types.ts": [
+      "OpenableWebApp",
+      "WebAppAvailability",
+      "WebAppCatalog",
+      "WebAppItem",
+      "WebAppPublishStatus",
+      "WebAppResident",
+      "WebAppResidentLoadState",
+      "WebAppRuntimeStatus",
+      "WebAppsConnectionStatus",
+      "WebAppsGateway",
+      "WebAppsGatewayCapabilities",
+      "WebAppsGatewayError",
+      "WebAppsGatewayErrorCode",
+      "WebAppsGatewayEvent"
+    ],
+    "src/features/webApps/webAppsDesktopProtocol.ts": [
+      "WebAppChanged",
+      "WebAppChangedReason",
+      "applyWebAppChanged",
+      "normalizeWebAppPublicUrl",
+      "parseWebAppCatalog",
+      "parseWebAppChanged",
+      "parseWebAppChangedFrame",
+      "parseWebAppItem",
+      "sortWebAppItems"
+    ],
+    "src/features/webApps/webAppsGateway.ts": [
+      "webAppsGateway"
+    ],
+    "src/features/webApps/webAppsGatewayCore.ts": [
+      "WebAppsGatewayDependencies",
+      "createDesktopWebAppsGateway"
+    ],
+    "src/features/webApps/webAppsRuntimeModel.ts": [
+      "INITIAL_WEB_APPS_RUNTIME_STATE",
+      "MAX_RESIDENT_WEB_APPS",
+      "WebAppsRuntimeAction",
+      "WebAppsRuntimeState",
+      "getOpenableWebApps",
+      "isOpenableWebApp",
+      "normalizeWebAppUrl",
+      "shouldRetainWebAppResident",
+      "webAppsRuntimeReducer"
+    ],
     "src/shared/branding/installedBrand.ts": [
       "resolveInstalledBrandId"
     ],
@@ -18511,6 +18918,63 @@
       "ScreenHeaderProps"
     ],
     "src/shared/components/__tests__/ScreenHeader.test.tsx": null,
+    "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx": [
+      "ConversationPreviewProvider",
+      "ConversationPreviewRowScope",
+      "useConversationPreviewActions",
+      "useConversationPreviewRowActive"
+    ],
+    "src/shared/components/conversationPreview/PreviewCodeBlock.tsx": [
+      "PreviewCodeBlock"
+    ],
+    "src/shared/components/conversationPreview/PreviewErrorPanel.tsx": [
+      "PreviewErrorPanel"
+    ],
+    "src/shared/components/conversationPreview/PreviewSurface.native.tsx": [
+      "PreviewSurface"
+    ],
+    "src/shared/components/conversationPreview/PreviewSurface.tsx": [
+      "PreviewSurface"
+    ],
+    "src/shared/components/conversationPreview/PreviewSurface.web.tsx": [
+      "PreviewSurface"
+    ],
+    "src/shared/components/conversationPreview/previewCache.ts": [
+      "clampConversationPreviewHeight",
+      "conversationPreviewHeightCacheInternals",
+      "createConversationPreviewHeightCacheKey",
+      "getConversationPreviewHeight",
+      "setConversationPreviewHeight"
+    ],
+    "src/shared/components/conversationPreview/runtimeBridge.ts": [
+      "CONVERSATION_PREVIEW_CHANNEL",
+      "CONVERSATION_PREVIEW_MAX_SOURCE_BYTES",
+      "CONVERSATION_PREVIEW_TIMEOUT_MS",
+      "createConversationPreviewRequestId",
+      "getConversationPreviewSourceByteLength",
+      "parseConversationPreviewEvent",
+      "serializeConversationPreviewRequest"
+    ],
+    "src/shared/components/conversationPreview/runtimeLoader.ts": [
+      "conversationPreviewRuntimeLoaderInternals",
+      "loadConversationPreviewRuntime"
+    ],
+    "src/shared/components/conversationPreview/types.ts": [
+      "ConversationPreviewEvent",
+      "ConversationPreviewRequest",
+      "ConversationPreviewSurfaceProps",
+      "ConversationPreviewTheme"
+    ],
+    "src/shared/components/conversationPreview/useConversationPreviewRuntime.ts": [
+      "useConversationPreviewRuntime"
+    ],
+    "src/shared/components/conversationPreview/usePreviewExecutionState.ts": [
+      "usePreviewExecutionState"
+    ],
+    "src/shared/components/conversationPreview/visibilityStore.ts": [
+      "ConversationPreviewVisibilityStore",
+      "createConversationPreviewVisibilityStore"
+    ],
     "src/shared/generated/brand.ts": [
       "APP_BRAND",
       "APP_BRANDS",
@@ -18613,6 +19077,21 @@
       "preprocessMarkdownContent",
       "removeEmptyMarkdownTables",
       "stripPendingSpecialFenceTail"
+    ],
+    "src/shared/markdown/previewRegistry.ts": [
+      "CONVERSATION_PREVIEW_MAX_ALIAS_LENGTH",
+      "CONVERSATION_PREVIEW_REGISTRY",
+      "ConversationPreviewDefinition",
+      "ConversationPreviewKind",
+      "ConversationPreviewRenderer",
+      "getConversationPreviewKind"
+    ],
+    "src/shared/markdown/previewSegments.ts": [
+      "ConversationMarkdownSegment",
+      "ConversationMarkdownSegmentCache",
+      "createConversationMarkdownSegmentCache",
+      "hashConversationPreviewSource",
+      "parseConversationMarkdownSegments"
     ],
     "src/shared/visual/AgentAvatar.tsx": [
       "AGENT_ICON_NAMES",
@@ -21601,6 +22080,9 @@
       "./App",
       "expo"
     ],
+    "ios/CuteJ/AppDelegate.swift": [],
+    "ios/Pods/ReachabilitySwift/Sources/Reachability.swift": [],
+    "ios/Pods/Target Support Files/Pods-CuteJ/ExpoModulesProvider.swift": [],
     "metro.config.js": [
       "expo/metro-config",
       "fs",
@@ -21633,6 +22115,11 @@
       "fs",
       "path",
       "zlib"
+    ],
+    "scripts/markdown-preview/pregenerate.js": [
+      "node:crypto",
+      "node:fs",
+      "node:path"
     ],
     "scripts/submit-ios-ipa.js": [
       "child_process",
@@ -21685,6 +22172,7 @@
     ],
     "src/app/debug/developmentDebugPanel.ts": null,
     "src/app/navigation/RootNavigator.tsx": [
+      "../../core/api/apiClient",
       "../../core/auth/authConfig",
       "../../core/auth/useAuthSession",
       "../../features/agentTaskBoard/AgentTaskBoardFlowNavigator",
@@ -21692,6 +22180,8 @@
       "../../features/auth/LoginScreen",
       "../../features/chatPersistence/ChatDetailScreen",
       "../../features/chatPersistence/ChatDirectoryPickerOverlayScreen",
+      "../../features/webApps/WebAppDetailScreen",
+      "../../features/webApps/WebAppsRuntimeProvider",
       "../../shared/visual/AppThemeProvider",
       "../screens/SettingsScreen",
       "./TabsNavigator",
@@ -21707,6 +22197,8 @@
     "src/app/navigation/TabsNavigator.native.tsx": [
       "../../../assets/tabs/tab-chat.png",
       "../../../assets/tabs/tab-me.png",
+      "../../../assets/tabs/tab-terminal.png",
+      "../../features/webApps/WebAppsScreen",
       "../../shared/i18n",
       "../../shared/visual/AppThemeProvider",
       "../screens/TabScreens",
@@ -21715,6 +22207,7 @@
       "@react-navigation/bottom-tabs/unstable"
     ],
     "src/app/navigation/TabsNavigator.tsx": [
+      "../../features/webApps/WebAppsScreen",
       "../../shared/i18n",
       "../../shared/visual/AppThemeProvider",
       "../../shared/visual/foundation",
@@ -21797,6 +22290,7 @@
       "./MeScreen"
     ],
     "src/app/settings/settingsActions.ts": [
+      "../../features/chatPersistence/cacheScope",
       "../../features/chatRealtime/chatSyncService"
     ],
     "src/app/startup/AppLaunchSkeleton.tsx": [
@@ -22001,6 +22495,7 @@
       "./chatDetailFormatters",
       "./chatRepository",
       "./components/ChatAwaitingOverlay",
+      "./components/ChatConversationDiagnosticCard",
       "./components/ChatDetailComposerCard",
       "./components/ChatDetailDrawers",
       "./components/ChatDetailEmptyState",
@@ -22068,6 +22563,7 @@
       "../../shared/i18n/translate.ts",
       "./types"
     ],
+    "src/features/chatPersistence/chatConversationDiagnostic.ts": null,
     "src/features/chatPersistence/chatConversationTarget.ts": [
       "./agentMode.ts",
       "./agentModelSettings.ts",
@@ -22132,6 +22628,7 @@
       "../chatTimeline/index.ts",
       "./agentMode.ts",
       "./agentModelSettings.ts",
+      "./cacheScope",
       "./chatAttachmentModels.ts",
       "./chatConversationTarget",
       "./chatDirectoryOpenDecision",
@@ -22171,6 +22668,13 @@
       "../../../shared/visual/AppThemeProvider",
       "../../../shared/visual/className",
       "../../../shared/visual/foundation",
+      "react",
+      "react-native"
+    ],
+    "src/features/chatPersistence/components/ChatConversationDiagnosticCard.tsx": [
+      "../../../shared/i18n",
+      "../../../shared/visual/AppThemeProvider",
+      "../chatConversationDiagnostic",
       "react",
       "react-native"
     ],
@@ -22279,6 +22783,8 @@
     ],
     "src/features/chatPersistence/components/ChatTimelineList.tsx": [
       "../../../shared/components/ConversationMarkdownRenderer",
+      "../../../shared/components/conversationPreview/ConversationPreviewProvider",
+      "../../../shared/components/conversationPreview/visibilityStore",
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AppThemeProvider",
@@ -22515,6 +23021,7 @@
       "../chatRealtime/types",
       "../chatTimeline/index.ts",
       "./agentMode.ts",
+      "./chatConversationDiagnostic",
       "./chatConversationTarget",
       "./chatDetailAsyncScope",
       "./chatDetailViewModel",
@@ -22540,9 +23047,13 @@
       "../../core/api/services/modelOptionsApi",
       "../../core/api/services/modelOptionsProtocol",
       "../../core/auth/appAuth",
+      "../../core/auth/deviceProfiles",
       "../../core/ws/sharedWsTransport",
       "../../core/ws/wsClient",
+      "../../shared/generated/brand",
+      "../chatPersistence/cacheScope",
       "../chatPersistence/chatAttachmentModels",
+      "../chatPersistence/chatConversationDiagnostic",
       "../chatPersistence/chatDirectoryProjector",
       "../chatPersistence/chatProjector",
       "../chatPersistence/chatReadState",
@@ -22551,7 +23062,8 @@
       "../chatTimeline/index.ts",
       "./chatWsTransport",
       "./routing",
-      "./types"
+      "./types",
+      "react-native"
     ],
     "src/features/chatRealtime/chatWsTransport.ts": [
       "../../core/api/services/chatEventProtocol.ts",
@@ -22629,12 +23141,98 @@
       "react-native",
       "react-native-mmkv"
     ],
+    "src/features/webApps/WebAppDetailScreen.tsx": [
+      "../../app/navigation/types",
+      "./WebAppsRuntimeProvider",
+      "@react-navigation/native-stack",
+      "react",
+      "react-native"
+    ],
+    "src/features/webApps/WebAppsRuntimeHost.native.tsx": [
+      "../../shared/components/ScreenHeader",
+      "../../shared/i18n",
+      "../../shared/icons/AppIcon",
+      "../../shared/icons/AppIconButton",
+      "../../shared/visual/AppThemeProvider",
+      "../../shared/visual/className",
+      "../../shared/visual/foundation",
+      "../../shared/visual/hairline",
+      "./WebAppsRuntimeHost.types",
+      "./types",
+      "./webAppsRuntimeModel",
+      "@shopify/flash-list",
+      "react",
+      "react-native",
+      "react-native-safe-area-context",
+      "react-native-webview"
+    ],
+    "src/features/webApps/WebAppsRuntimeHost.tsx": [
+      "../../shared/components/ScreenHeader",
+      "../../shared/i18n",
+      "../../shared/icons/AppIconButton",
+      "./WebAppsRuntimeHost.types",
+      "react",
+      "react-native",
+      "react-native-safe-area-context"
+    ],
+    "src/features/webApps/WebAppsRuntimeHost.types.ts": [
+      "./types"
+    ],
+    "src/features/webApps/WebAppsRuntimeProvider.tsx": [
+      "./WebAppsRuntimeHost",
+      "./types",
+      "./webAppsGateway",
+      "./webAppsRuntimeModel",
+      "react",
+      "react-native"
+    ],
+    "src/features/webApps/WebAppsScreen.tsx": [
+      "../../app/navigation/types",
+      "../../shared/components/ScreenHeader",
+      "../../shared/i18n",
+      "../../shared/icons/AppIcon",
+      "../../shared/visual/AppThemeProvider",
+      "../../shared/visual/className",
+      "../../shared/visual/foundation",
+      "../../shared/visual/hairline",
+      "../../shared/visual/useAppTabBarHeight",
+      "./WebAppsRuntimeProvider",
+      "./types",
+      "@react-navigation/native",
+      "@react-navigation/native-stack",
+      "@shopify/flash-list",
+      "react",
+      "react-native",
+      "react-native-safe-area-context"
+    ],
+    "src/features/webApps/types.ts": null,
+    "src/features/webApps/webAppsDesktopProtocol.ts": [
+      "./types"
+    ],
+    "src/features/webApps/webAppsGateway.ts": [
+      "../../core/api/activeWsTransport",
+      "../../core/auth/deviceProfiles",
+      "../../core/ws/sharedWsTransport",
+      "./webAppsGatewayCore"
+    ],
+    "src/features/webApps/webAppsGatewayCore.ts": [
+      "../../core/ws/wsClient",
+      "../../core/ws/wsTransportConfig",
+      "./types",
+      "./webAppsDesktopProtocol.ts"
+    ],
+    "src/features/webApps/webAppsRuntimeModel.ts": [
+      "./types",
+      "./webAppsDesktopProtocol.ts"
+    ],
     "src/shared/branding/installedBrand.ts": [
       "expo-modules-core"
     ],
     "src/shared/components/ConversationMarkdownRenderer.tsx": [
       "../markdown/preprocess",
+      "../markdown/previewSegments",
       "../visual/AppThemeProvider",
+      "./conversationPreview/PreviewCodeBlock",
       "react",
       "react-native",
       "react-native-enriched-markdown",
@@ -22657,6 +23255,91 @@
       "../ScreenHeader",
       "react-native"
     ],
+    "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx": [
+      "../../i18n",
+      "../../icons/AppIcon",
+      "../../visual/AppThemeProvider",
+      "./PreviewErrorPanel",
+      "./PreviewSurface",
+      "./previewCache",
+      "./usePreviewExecutionState",
+      "./visibilityStore",
+      "react",
+      "react-native",
+      "react-native-safe-area-context"
+    ],
+    "src/shared/components/conversationPreview/PreviewCodeBlock.tsx": [
+      "../../i18n",
+      "../../icons/AppIcon",
+      "../../markdown/previewRegistry",
+      "../../visual/AppThemeProvider",
+      "./ConversationPreviewProvider",
+      "./PreviewErrorPanel",
+      "./PreviewSurface",
+      "./previewCache",
+      "./usePreviewExecutionState",
+      "react",
+      "react-native"
+    ],
+    "src/shared/components/conversationPreview/PreviewErrorPanel.tsx": [
+      "../../i18n",
+      "../../icons/AppIcon",
+      "../../visual/className",
+      "react",
+      "react-native"
+    ],
+    "src/shared/components/conversationPreview/PreviewSurface.native.tsx": [
+      "../../i18n",
+      "../../visual/AppThemeProvider",
+      "./types",
+      "./useConversationPreviewRuntime",
+      "react",
+      "react-native",
+      "react-native-webview"
+    ],
+    "src/shared/components/conversationPreview/PreviewSurface.tsx": [
+      "../../i18n",
+      "./types",
+      "react",
+      "react-native"
+    ],
+    "src/shared/components/conversationPreview/PreviewSurface.web.tsx": [
+      "../../visual/AppThemeProvider",
+      "./types",
+      "./useConversationPreviewRuntime",
+      "react",
+      "react-native"
+    ],
+    "src/shared/components/conversationPreview/previewCache.ts": [
+      "./types"
+    ],
+    "src/shared/components/conversationPreview/runtimeBridge.ts": [
+      "./types"
+    ],
+    "src/shared/components/conversationPreview/runtimeLoader.ts": [
+      "../../../../.generated/conversation-preview/echarts.runtime.html",
+      "../../../../.generated/conversation-preview/html.runtime.html",
+      "../../../../.generated/conversation-preview/mermaid.runtime.html",
+      "./types",
+      "expo-asset",
+      "expo-file-system",
+      "react-native"
+    ],
+    "src/shared/components/conversationPreview/types.ts": [
+      "../../markdown/previewRegistry"
+    ],
+    "src/shared/components/conversationPreview/useConversationPreviewRuntime.ts": [
+      "../../i18n",
+      "./previewCache",
+      "./runtimeBridge",
+      "./runtimeLoader",
+      "./types",
+      "react"
+    ],
+    "src/shared/components/conversationPreview/usePreviewExecutionState.ts": [
+      "react"
+    ],
+    "src/shared/components/conversationPreview/visibilityStore.ts": null,
     "src/shared/generated/brand.ts": [
       "../branding/installedBrand"
     ],
@@ -22718,6 +23401,11 @@
       "./appIconRegistry"
     ],
     "src/shared/markdown/preprocess.ts": null,
+    "src/shared/markdown/previewRegistry.ts": null,
+    "src/shared/markdown/previewSegments.ts": [
+      "./previewRegistry",
+      "./previewRegistry.ts"
+    ],
     "src/shared/visual/AgentAvatar.tsx": [
       "../icons/AppIcon",
       "./AgentBuiltinIcon",
@@ -25433,6 +26121,9 @@
     "index.js": [
       "App.tsx"
     ],
+    "ios/CuteJ/AppDelegate.swift": null,
+    "ios/Pods/ReachabilitySwift/Sources/Reachability.swift": null,
+    "ios/Pods/Target Support Files/Pods-CuteJ/ExpoModulesProvider.swift": null,
     "metro.config.js": null,
     "nativewind-env.d.ts": null,
     "plugins/withAndroidAutolinkingCacheGuard.js": null,
@@ -25440,6 +26131,7 @@
     "scripts/dev-proxy.mjs": null,
     "scripts/generate-zenmind-assets.js": null,
     "scripts/lib/brand-config.js": null,
+    "scripts/markdown-preview/pregenerate.js": null,
     "scripts/submit-ios-ipa.js": null,
     "scripts/sync-brand.js": [
       "scripts/lib/brand-config.js"
@@ -25476,6 +26168,7 @@
       "src/app/navigation/TabsNavigator.tsx",
       "src/app/navigation/types.ts",
       "src/app/screens/SettingsScreen.tsx",
+      "src/core/api/apiClient.ts",
       "src/core/auth/authConfig.ts",
       "src/core/auth/useAuthSession.ts",
       "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx",
@@ -25483,6 +26176,8 @@
       "src/features/auth/LoginScreen.tsx",
       "src/features/chatPersistence/ChatDetailScreen.tsx",
       "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx",
+      "src/features/webApps/WebAppDetailScreen.tsx",
+      "src/features/webApps/WebAppsRuntimeProvider.tsx",
       "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/app/navigation/TabIcon.tsx": [
@@ -25493,9 +26188,11 @@
     "src/app/navigation/TabsNavigator.native.tsx": [
       "assets/tabs/tab-chat.png",
       "assets/tabs/tab-me.png",
+      "assets/tabs/tab-terminal.png",
       "src/app/navigation/TabIcon.tsx",
       "src/app/navigation/types.ts",
       "src/app/screens/TabScreens.tsx",
+      "src/features/webApps/WebAppsScreen.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/visual/AppThemeProvider.tsx"
     ],
@@ -25503,6 +26200,7 @@
       "src/app/navigation/TabIcon.tsx",
       "src/app/navigation/types.ts",
       "src/app/screens/TabScreens.tsx",
+      "src/features/webApps/WebAppsScreen.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts",
@@ -25563,6 +26261,7 @@
       "src/features/chatPersistence/ChatHomeScreen.tsx"
     ],
     "src/app/settings/settingsActions.ts": [
+      "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatRealtime/chatSyncService.ts"
     ],
     "src/app/startup/AppLaunchSkeleton.tsx": [
@@ -25738,6 +26437,7 @@
       "src/features/chatPersistence/chatDetailFormatters.ts",
       "src/features/chatPersistence/chatRepository.ts",
       "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
+      "src/features/chatPersistence/components/ChatConversationDiagnosticCard.tsx",
       "src/features/chatPersistence/components/ChatDetailComposerCard.tsx",
       "src/features/chatPersistence/components/ChatDetailDrawers.tsx",
       "src/features/chatPersistence/components/ChatDetailEmptyState.tsx",
@@ -25796,6 +26496,7 @@
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/translate.ts"
     ],
+    "src/features/chatPersistence/chatConversationDiagnostic.ts": null,
     "src/features/chatPersistence/chatConversationTarget.ts": [
       "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/agentModelSettings.ts",
@@ -25858,6 +26559,7 @@
     "src/features/chatPersistence/chatRepository.ts": [
       "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/agentModelSettings.ts",
+      "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatDirectoryOpenDecision.ts",
@@ -25893,6 +26595,11 @@
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/className.ts",
       "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatConversationDiagnosticCard.tsx": [
+      "src/features/chatPersistence/chatConversationDiagnostic.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/ChatDetailComposerCard.tsx": [
       "src/core/api/services/modelOptionsProtocol.ts",
@@ -25981,6 +26688,8 @@
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
       "src/features/chatTimeline/index.ts",
       "src/shared/components/ConversationMarkdownRenderer.tsx",
+      "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
+      "src/shared/components/conversationPreview/visibilityStore.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
@@ -26159,6 +26868,7 @@
       "src/core/api/services/modelOptionsProtocol.ts",
       "src/core/api/services/notificationApi.ts",
       "src/features/chatPersistence/agentMode.ts",
+      "src/features/chatPersistence/chatConversationDiagnostic.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatDetailAsyncScope.ts",
       "src/features/chatPersistence/chatDetailViewModel.ts",
@@ -26184,9 +26894,12 @@
       "src/core/api/services/modelOptionsApi.ts",
       "src/core/api/services/modelOptionsProtocol.ts",
       "src/core/auth/appAuth.ts",
+      "src/core/auth/deviceProfiles.ts",
       "src/core/ws/sharedWsTransport.ts",
       "src/core/ws/wsClient.ts",
+      "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/chatConversationDiagnostic.ts",
       "src/features/chatPersistence/chatDirectoryProjector.ts",
       "src/features/chatPersistence/chatProjector.ts",
       "src/features/chatPersistence/chatReadState.ts",
@@ -26195,7 +26908,8 @@
       "src/features/chatRealtime/chatWsTransport.ts",
       "src/features/chatRealtime/routing.ts",
       "src/features/chatRealtime/types.ts",
-      "src/features/chatTimeline/index.ts"
+      "src/features/chatTimeline/index.ts",
+      "src/shared/generated/brand.ts"
     ],
     "src/features/chatRealtime/chatWsTransport.ts": [
       "src/core/api/services/chatEventProtocol.ts",
@@ -26270,9 +26984,76 @@
     "src/features/notifications/notificationService.ts": [
       "src/core/api/services/notificationApi.ts"
     ],
+    "src/features/webApps/WebAppDetailScreen.tsx": [
+      "src/app/navigation/types.ts",
+      "src/features/webApps/WebAppsRuntimeProvider.tsx"
+    ],
+    "src/features/webApps/WebAppsRuntimeHost.native.tsx": [
+      "src/features/webApps/WebAppsRuntimeHost.types.ts",
+      "src/features/webApps/types.ts",
+      "src/features/webApps/webAppsRuntimeModel.ts",
+      "src/shared/components/ScreenHeader.tsx",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/icons/AppIconButton.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts",
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/hairline.ts"
+    ],
+    "src/features/webApps/WebAppsRuntimeHost.tsx": [
+      "src/features/webApps/WebAppsRuntimeHost.types.ts",
+      "src/shared/components/ScreenHeader.tsx",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIconButton.tsx"
+    ],
+    "src/features/webApps/WebAppsRuntimeHost.types.ts": [
+      "src/features/webApps/types.ts"
+    ],
+    "src/features/webApps/WebAppsRuntimeProvider.tsx": [
+      "src/features/webApps/WebAppsRuntimeHost.tsx",
+      "src/features/webApps/types.ts",
+      "src/features/webApps/webAppsGateway.ts",
+      "src/features/webApps/webAppsRuntimeModel.ts"
+    ],
+    "src/features/webApps/WebAppsScreen.tsx": [
+      "src/app/navigation/types.ts",
+      "src/features/webApps/WebAppsRuntimeProvider.tsx",
+      "src/features/webApps/types.ts",
+      "src/shared/components/ScreenHeader.tsx",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts",
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/hairline.ts",
+      "src/shared/visual/useAppTabBarHeight.ts"
+    ],
+    "src/features/webApps/types.ts": null,
+    "src/features/webApps/webAppsDesktopProtocol.ts": [
+      "src/features/webApps/types.ts"
+    ],
+    "src/features/webApps/webAppsGateway.ts": [
+      "src/core/api/activeWsTransport.ts",
+      "src/core/auth/deviceProfiles.ts",
+      "src/core/ws/sharedWsTransport.ts",
+      "src/features/webApps/webAppsGatewayCore.ts"
+    ],
+    "src/features/webApps/webAppsGatewayCore.ts": [
+      "src/core/ws/wsClient.ts",
+      "src/core/ws/wsTransportConfig.ts",
+      "src/features/webApps/types.ts",
+      "src/features/webApps/webAppsDesktopProtocol.ts"
+    ],
+    "src/features/webApps/webAppsRuntimeModel.ts": [
+      "src/features/webApps/types.ts",
+      "src/features/webApps/webAppsDesktopProtocol.ts"
+    ],
     "src/shared/branding/installedBrand.ts": null,
     "src/shared/components/ConversationMarkdownRenderer.tsx": [
+      "src/shared/components/conversationPreview/PreviewCodeBlock.tsx",
       "src/shared/markdown/preprocess.ts",
+      "src/shared/markdown/previewSegments.ts",
       "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/shared/components/PaginatedCardList.tsx": [
@@ -26286,6 +27067,71 @@
     "src/shared/components/__tests__/ScreenHeader.test.tsx": [
       "src/shared/components/ScreenHeader.tsx"
     ],
+    "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx": [
+      "src/shared/components/conversationPreview/PreviewErrorPanel.tsx",
+      "src/shared/components/conversationPreview/PreviewSurface.tsx",
+      "src/shared/components/conversationPreview/previewCache.ts",
+      "src/shared/components/conversationPreview/usePreviewExecutionState.ts",
+      "src/shared/components/conversationPreview/visibilityStore.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
+    "src/shared/components/conversationPreview/PreviewCodeBlock.tsx": [
+      "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
+      "src/shared/components/conversationPreview/PreviewErrorPanel.tsx",
+      "src/shared/components/conversationPreview/PreviewSurface.tsx",
+      "src/shared/components/conversationPreview/previewCache.ts",
+      "src/shared/components/conversationPreview/usePreviewExecutionState.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/markdown/previewRegistry.ts",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
+    "src/shared/components/conversationPreview/PreviewErrorPanel.tsx": [
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/className.ts"
+    ],
+    "src/shared/components/conversationPreview/PreviewSurface.native.tsx": [
+      "src/shared/components/conversationPreview/types.ts",
+      "src/shared/components/conversationPreview/useConversationPreviewRuntime.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
+    "src/shared/components/conversationPreview/PreviewSurface.tsx": [
+      "src/shared/components/conversationPreview/types.ts",
+      "src/shared/i18n/index.ts"
+    ],
+    "src/shared/components/conversationPreview/PreviewSurface.web.tsx": [
+      "src/shared/components/conversationPreview/types.ts",
+      "src/shared/components/conversationPreview/useConversationPreviewRuntime.ts",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
+    "src/shared/components/conversationPreview/previewCache.ts": [
+      "src/shared/components/conversationPreview/types.ts"
+    ],
+    "src/shared/components/conversationPreview/runtimeBridge.ts": [
+      "src/shared/components/conversationPreview/types.ts"
+    ],
+    "src/shared/components/conversationPreview/runtimeLoader.ts": [
+      ".generated/conversation-preview/echarts.runtime.html",
+      ".generated/conversation-preview/html.runtime.html",
+      ".generated/conversation-preview/mermaid.runtime.html",
+      "src/shared/components/conversationPreview/types.ts"
+    ],
+    "src/shared/components/conversationPreview/types.ts": [
+      "src/shared/markdown/previewRegistry.ts"
+    ],
+    "src/shared/components/conversationPreview/useConversationPreviewRuntime.ts": [
+      "src/shared/components/conversationPreview/previewCache.ts",
+      "src/shared/components/conversationPreview/runtimeBridge.ts",
+      "src/shared/components/conversationPreview/runtimeLoader.ts",
+      "src/shared/components/conversationPreview/types.ts",
+      "src/shared/i18n/index.ts"
+    ],
+    "src/shared/components/conversationPreview/usePreviewExecutionState.ts": null,
+    "src/shared/components/conversationPreview/visibilityStore.ts": null,
     "src/shared/generated/brand.ts": [
       "src/shared/branding/installedBrand.ts"
     ],
@@ -26340,6 +27186,10 @@
       "src/shared/icons/registries/appIconRegistry.ts"
     ],
     "src/shared/markdown/preprocess.ts": null,
+    "src/shared/markdown/previewRegistry.ts": null,
+    "src/shared/markdown/previewSegments.ts": [
+      "src/shared/markdown/previewRegistry.ts"
+    ],
     "src/shared/visual/AgentAvatar.tsx": [
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AgentBuiltinIcon.tsx",
@@ -28317,6 +29167,9 @@
     ".generated/react-native-worklets/.worklets/9994948343595.js",
     ".prettierrc.js",
     "eslint.config.mjs",
+    "ios/CuteJ/AppDelegate.swift",
+    "ios/Pods/ReachabilitySwift/Sources/Reachability.swift",
+    "ios/Pods/Target Support Files/Pods-CuteJ/ExpoModulesProvider.swift",
     "plugins/withAndroidNdkVersionForSubprojects.js"
   ]
 }

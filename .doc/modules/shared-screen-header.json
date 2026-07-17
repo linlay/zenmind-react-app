@@ -34,7 +34,8 @@
     "dependents": [
       "app-shell-navigation",
       "feature-agent-task-board",
-      "feature-chat-persistence"
+      "feature-chat-persistence",
+      "feature-web-apps"
     ],
     "tests": [
       "src/shared/components/__tests__/ScreenHeader.test.tsx"

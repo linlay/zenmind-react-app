@@ -5,13 +5,14 @@
   "trigger": "用户在 Chat 详情页输入消息并提交时触发。",
   "sourceOfTruth": [
     "消息先落 SQLite 和 outbox，再尝试发给 WebSocket；计划模式只作为 outbox 发送选项保存，用于 replay 时继续带 planningMode。",
+    "开发态无附件输入精确等于“输出当前会话全部相关数据”时，在 createOutgoingMessage 之前拦截并生成页面 footer 临时诊断卡；该分支不创建消息、不写 outbox/timeline SQLite、不发 query，正式包和相似文本继续走普通发送。",
     "ack 或 stream done/error 由后台回调通过 repository patch 命中消息状态和会话摘要。",
     "详情页停止/继续生成和 awaiting question/approval/form/plan 提交只通过 chatSyncService 管理 active outgoing/attach stream、/api/interrupt、activeRunId、本地终止 run guard、/ap/ws /api/submit 本地投影和 timeline，不在页面层直接操作 WebSocket 或 HTTP submit。"
   ],
   "steps": [
     {
       "order": 1,
-      "label": "useChatDetailConversationController.handleSend 读取受控计划模式状态，并调用 chatSyncService.sendMessage。",
+      "label": "useChatDetailConversationController.handleSend 先识别开发态无附件会话诊断指令；命中时调用 collectConversationDiagnosticData 并更新临时 footer state 后返回，未命中时读取受控计划模式状态并调用 chatSyncService.sendMessage。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
       "symbol": "handleSend"
@@ -70,6 +71,7 @@
     "如果先发 socket 再落库，应用重启后会丢待发送消息；如果 planningMode 不随 outbox 保存，reconnect/restart replay 会静默降级为普通模式。",
     "ack、stream done/error 不经过 repository 会导致 pending 状态和 conversation 摘要不一致。",
     "详情页输入框如果直接调用 transport，会绕过 outbox 和快照刷新。",
+    "诊断指令如果在 createOutgoingMessage 之后识别，或复用 timeline message 节点展示，会污染 messages/outbox、触发发送或在重进会话后残留。",
     "新建本地空会话发送首条消息时如果不从 repository 补齐 agentKey/teamId，服务端会缺少 agent/team 上下文。",
     "发送失败路径如果不回写 errorReason，UI 无法区分失败和待发送。",
     "停止/继续或 awaiting submit 如果在页面层维护临时状态或直接请求接口，会导致 timeline lifecycle、输入区按钮、awaiting answer 摘要和 reconnect/reconcile 后状态不一致。"

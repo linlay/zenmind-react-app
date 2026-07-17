@@ -33,31 +33,35 @@ xgraph status                        # 检查上下文状态
 
 Expo SDK 56 + React Native 0.85 + TypeScript 6。当前仓库是迁移后的 `zenmind-react-app`，主结构为 `app / core / features / shared`。
 
-| 区域 | 当前入口 | 路径 |
-| ---- | -------- | ---- |
-| app | `AppRoot` / `RootNavigator` / `AppLaunchSkeleton` | `App.tsx`, `src/app/` |
-| core | `apiRequest` / `authenticatedApiRequest` / `appAuth` | `src/core/api`, `src/core/auth`, `src/core/config` |
-| chat persistence | `ChatHomeScreen` / `ChatDetailScreen` / `chatRepository` | `src/features/chatPersistence/` |
-| chat realtime | `chatSyncService` / `chatWsTransport` / `WsClient` | `src/features/chatRealtime/` |
-| chat timeline | `ChatTimelineState` reducer / persistence | `src/features/chatTimeline/` |
-| notifications | `notificationService` | `src/features/notifications/` |
-| shared ui | `ScreenHeader` / `PaginatedCardList` / `ConversationMarkdownRenderer` / `AppIcon` | `src/shared/` |
+| 区域             | 当前入口                                                                          | 路径                                               |
+| ---------------- | --------------------------------------------------------------------------------- | -------------------------------------------------- |
+| app              | `AppRoot` / `RootNavigator` / `AppLaunchSkeleton`                                 | `App.tsx`, `src/app/`                              |
+| core             | `apiRequest` / `authenticatedApiRequest` / `appAuth`                              | `src/core/api`, `src/core/auth`, `src/core/config` |
+| chat persistence | `ChatHomeScreen` / `ChatDetailScreen` / `chatRepository`                          | `src/features/chatPersistence/`                    |
+| chat realtime    | `chatSyncService` / `chatWsTransport` / `WsClient`                                | `src/features/chatRealtime/`                       |
+| chat timeline    | `ChatTimelineState` reducer / persistence                                         | `src/features/chatTimeline/`                       |
+| webapps          | `WebAppsScreen` / `WebAppDetailScreen` / `WebAppsRuntimeProvider`                 | `src/features/webApps/`                            |
+| notifications    | `notificationService`                                                             | `src/features/notifications/`                      |
+| shared ui        | `ScreenHeader` / `PaginatedCardList` / `ConversationMarkdownRenderer` / `AppIcon` | `src/shared/`                                      |
 
 当前底部 Tab：
 
-| Tab | 标签 | 实际入口 |
-| --- | --- | -------- |
-| Chat | 对话 | `src/features/chatPersistence/ChatHomeScreen.tsx` |
-| Terminal | 任务 | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` |
-| Me | 用户 | `src/app/screens/TabScreens.tsx` 用户与会话信息页 |
+| Tab     | 标签 | 实际入口                                          |
+| ------- | ---- | ------------------------------------------------- |
+| Chat    | 对话 | `src/features/chatPersistence/ChatHomeScreen.tsx` |
+| WebApps | 应用 | `src/features/webApps/WebAppsScreen.tsx`          |
+| Me      | 用户 | `src/app/screens/TabScreens.tsx` 用户与会话信息页 |
 
 待后期实现：
 
-| 模块 | 状态 | 预留入口 |
-| ---- | ---- | -------- |
-| Drive / 网盘 | 当前不挂底部 Tab，待后期接入真实同步、上传和引用链路 | `src/app/screens/DriveScreen.tsx` |
+| 模块         | 状态                                                   | 预留入口                          |
+| ------------ | ------------------------------------------------------ | --------------------------------- |
+| Drive / 网盘 | 当前不挂底部 Tab，待后期接入真实同步、上传和引用链路   | `src/app/screens/DriveScreen.tsx` |
+| 任务看板     | 当前隐藏底部入口，保留 `TaskBoardFlow` 与 feature 实现 | `src/features/agentTaskBoard/`    |
 
 `ChatDetail` 由 root stack 承载，入口是 `src/features/chatPersistence/ChatDetailScreen.tsx`。
+`WebAppDetail` 由 root stack 承载导航语义，常驻 WebView 池由登录态根层的 `WebAppsRuntimeProvider` 持有。
+WebApps 目录只同步活动 Desktop WS Profile：登录后立即通过 `sharedWsTransport` 订阅 `webapp.changed` 并读取 `web.webapp.list`；页面不得直连 WebSocket 或调用通用 `action.call`。
 
 XGraph 上下文主入口：`.doc/index.json`
 
@@ -92,6 +96,7 @@ XGraph 上下文主入口：`.doc/index.json`
 - SQLite 是聊天目录、会话摘要、消息、outbox、read state 和 rich timeline snapshot 的本地真源
 - MMKV 只保存首页冷启动目录快照
 - `chatWsTransport` / `WsClient` 只负责 transport，不直接写 UI 或 SQLite
+- WebApps 必须复用 `sharedWsTransport`；关闭 WebApps 会话不得停止共享 Socket 或移除其他 feature 的监听
 - 实时业务写入必须继续走 `chatSyncService` / `chatRepository`
 - 影响首页目录的持久化改动必须继续刷新 MMKV 目录快照
 
@@ -139,31 +144,32 @@ Shared
 
 ## 命名约定
 
-| 类型 | 规范 | 示例 |
-| ---- | ---- | ---- |
-| Component / Screen | PascalCase | `AppRoot`, `ChatDetailScreen` |
-| Service / Manager 单例 | camelCase | `chatSyncService`, `notificationService` |
-| Repository / API 函数 | camelCase 动词 | `createOutgoingMessage`, `authenticatedApiRequest` |
-| 类型 | PascalCase | `ChatHomeItem`, `ChatTimelineState` |
-| 常量 | UPPER_SNAKE_CASE | `CHAT_PAGE_SIZE` |
-| 知识库卡片 id | kebab-case | `feature-chat-persistence` |
-| 测试 | `__tests__/原文件名.test.ts(x)` 或脚本测试 | `ScreenHeader.test.tsx`, `scripts/tests/*.test.mts` |
+| 类型                   | 规范                                       | 示例                                                |
+| ---------------------- | ------------------------------------------ | --------------------------------------------------- |
+| Component / Screen     | PascalCase                                 | `AppRoot`, `ChatDetailScreen`                       |
+| Service / Manager 单例 | camelCase                                  | `chatSyncService`, `notificationService`            |
+| Repository / API 函数  | camelCase 动词                             | `createOutgoingMessage`, `authenticatedApiRequest`  |
+| 类型                   | PascalCase                                 | `ChatHomeItem`, `ChatTimelineState`                 |
+| 常量                   | UPPER_SNAKE_CASE                           | `CHAT_PAGE_SIZE`                                    |
+| 知识库卡片 id          | kebab-case                                 | `feature-chat-persistence`                          |
+| 测试                   | `__tests__/原文件名.test.ts(x)` 或脚本测试 | `ScreenHeader.test.tsx`, `scripts/tests/*.test.mts` |
 
 ## 按需深度上下文
 
 日常任务不要先通读整个仓库，按知识库入口逐层下钻。
 
-| 关键词 | 触发动作 | 说明 |
-| ------ | -------- | ---- |
-| `#知识库` | 运行 `xgraph context "<task>" --budget small`，必要时读取 `.doc/index.json` + `.doc/catalog/tasks.json` | 任务入口和阅读路径 |
-| `#模块` | 读取 `.doc/modules/*.json` + `.doc/reference/module-reference.md` | 模块职责、入口、影响清单 |
-| `#链路` | 读取 `.doc/flows/*.json` + `.doc/reference/project-architecture.md` | 冷启动、发送、接收等运行链路 |
-| `#规则` | 读取 `.doc/rules.json` | 当前机器可读边界约束 |
-| `#索引更新` | 运行 `xgraph index`、`xgraph status`，必要时检查 `.doc/curated` | 知识库构建、校验、过期检查 |
+| 关键词      | 触发动作                                                                                                | 说明                         |
+| ----------- | ------------------------------------------------------------------------------------------------------- | ---------------------------- |
+| `#知识库`   | 运行 `xgraph context "<task>" --budget small`，必要时读取 `.doc/index.json` + `.doc/catalog/tasks.json` | 任务入口和阅读路径           |
+| `#模块`     | 读取 `.doc/modules/*.json` + `.doc/reference/module-reference.md`                                       | 模块职责、入口、影响清单     |
+| `#链路`     | 读取 `.doc/flows/*.json` + `.doc/reference/project-architecture.md`                                     | 冷启动、发送、接收等运行链路 |
+| `#规则`     | 读取 `.doc/rules.json`                                                                                  | 当前机器可读边界约束         |
+| `#索引更新` | 运行 `xgraph index`、`xgraph status`，必要时检查 `.doc/curated`                                         | 知识库构建、校验、过期检查   |
 
 未触发时不要先读取全部 `.doc/modules/*` 和 `.doc/flows/*`，先走 `xgraph context -> task -> module/flow -> code`。
 
 <!-- xgraph:start -->
+
 ## Project Context
 
 Before work, run `xgraph context "<task>" --budget small` when the CLI is available, then read only the returned paths.

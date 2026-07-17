@@ -52,7 +52,8 @@
     ],
     "dependents": [
       "core-api-client",
-      "feature-chat-realtime"
+      "feature-chat-realtime",
+      "feature-web-apps"
     ],
     "tests": [],
     "lastScannedAt": ""

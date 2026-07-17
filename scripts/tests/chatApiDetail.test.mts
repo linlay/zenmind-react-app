@@ -27,5 +27,18 @@ test('chat detail request defaults to event history without raw messages', () =>
   assert.match(chatApiSource, /function buildChatDetailPayload/);
   assert.match(chatApiSource, /includeRawMessages: source\.includeRawMessages === true/);
   assert.match(chatSyncServiceSource, /buildChatDetailPayload\(chatId\)/);
-  assert.doesNotMatch(chatSyncServiceSource, /includeRawMessages: true/);
+  const normalDetailRequest = chatSyncServiceSource.slice(
+    chatSyncServiceSource.indexOf('private async getChatDetailViaTransport'),
+    chatSyncServiceSource.indexOf('private async fetchAgentDetail')
+  );
+  assert.doesNotMatch(normalDetailRequest, /includeRawMessages: true/);
+});
+
+test('development diagnostics explicitly request raw chat messages without changing normal detail requests', () => {
+  const diagnosticRequest = chatSyncServiceSource.slice(
+    chatSyncServiceSource.indexOf('async collectConversationDiagnosticData'),
+    chatSyncServiceSource.indexOf('private clearTransientWork')
+  );
+  assert.match(diagnosticRequest, /includeRawMessages: true/);
+  assert.match(diagnosticRequest, /requestRawChatApi/);
 });

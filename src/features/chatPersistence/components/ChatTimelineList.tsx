@@ -12,6 +12,11 @@ import {
 } from 'react-native';
 
 import { ConversationMarkdownRenderer } from '../../../shared/components/ConversationMarkdownRenderer';
+import {
+  ConversationPreviewProvider,
+  ConversationPreviewRowScope,
+} from '../../../shared/components/conversationPreview/ConversationPreviewProvider';
+import { createConversationPreviewVisibilityStore } from '../../../shared/components/conversationPreview/visibilityStore';
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
@@ -43,6 +48,8 @@ import { RuntimeTimelineRow } from './RuntimeTimelineRow';
 type ChatTimelineListProps = {
   timelineState: ChatTimelineState;
   emptyState?: ReactNode;
+  diagnosticCard?: ReactNode;
+  diagnosticVersion?: string;
   onCopyText: (text: string) => void;
   onReaskMessage?: (target: ChatTimelineReaskTarget, node: ChatTimelineMessageNode) => void;
   reaskCurrentDisabled?: boolean;
@@ -65,6 +72,7 @@ const TIMELINE_LIST_STYLE = {
 const THREAD_EMPTY_STATE_CLASS = 'items-center gap-app-sm pt-[88px]';
 const THREAD_EMPTY_STATE_TITLE_CLASS = 'text-[18px] font-bold text-app-primary';
 const THREAD_EMPTY_STATE_BODY_CLASS = 'text-[15px] leading-[22px] text-app-secondary';
+const DIAGNOSTIC_FOOTER_CLASS = 'pt-app-sm';
 const ICON_BUTTON_CLASS = 'h-[28px] w-[28px] items-center justify-center rounded-app-sm active:opacity-[0.7]';
 const ICON_BUTTON_DISABLED_CLASS = 'opacity-[0.45]';
 const META_TEXT_CLASS = 'text-[12px] font-medium text-app-tertiary';
@@ -313,7 +321,6 @@ const MessageCopyButton = memo(function MessageCopyButton({
     </Pressable>
   );
 });
-
 const MessageReaskButton = memo(function MessageReaskButton({
   node,
   onOpenMenu
@@ -822,6 +829,8 @@ const TimelineRow = memo(
 export const ChatTimelineList = memo(function ChatTimelineList({
   timelineState,
   emptyState = null,
+  diagnosticCard = null,
+  diagnosticVersion = '',
   onCopyText,
   onReaskMessage,
   reaskCurrentDisabled = false,
@@ -832,6 +841,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   const threadRef = useRef<View | null>(null);
   const listRef = useRef<FlashListRef<ChatTimelineDisplayItem>>(null);
   const displayModelRef = useRef<ChatTimelineDisplayModel | null>(null);
+  const previewVisibilityStore = useMemo(() => createConversationPreviewVisibilityStore(), []);
   const expandedRuntimeNodesRef = useRef(new Map<string, boolean>());
   const planningBlockModesRef = useRef(new Map<string, RuntimePlanningBlockMode>());
   const planningCollapseOverlayRef = useRef<PlanningCollapseOverlayState | null>(null);
@@ -879,6 +889,14 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   const emptyStateElement = useMemo(
     () => (emptyState ? <>{emptyState}</> : <ThreadEmptyState />),
     [emptyState]
+  );
+  const diagnosticFooter = useMemo(
+    () => (diagnosticCard ? <View className={DIAGNOSTIC_FOOTER_CLASS}>{diagnosticCard}</View> : null),
+    [diagnosticCard]
+  );
+  const listExtraData = useMemo(
+    () => ({ revision: timelineState.revision, diagnosticVersion }),
+    [diagnosticVersion, timelineState.revision]
   );
   const setScrollToEndVisible = useCallback((visible: boolean) => {
     if (showScrollToEndRef.current !== visible) {
@@ -1028,16 +1046,18 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   );
   const renderItem = useCallback(
     ({ item }: { item: ChatTimelineDisplayItem }) => (
-      <TimelineRow
-        item={item}
-        onCopyText={onCopyText}
-        onOpenReaskMenu={onReaskMessage ? handleOpenReaskMenu : undefined}
-        getInitialRuntimeExpanded={getInitialRuntimeExpanded}
-        onRuntimeExpandedChange={handleRuntimeExpandedChange}
-        getInitialPlanningMode={getInitialPlanningMode}
-        onPlanningCollapseOverlayChange={handlePlanningCollapseOverlayChange}
-        onPlanningModeChange={handlePlanningModeChange}
-      />
+      <ConversationPreviewRowScope rowKey={item.key}>
+        <TimelineRow
+          item={item}
+          onCopyText={onCopyText}
+          onOpenReaskMenu={onReaskMessage ? handleOpenReaskMenu : undefined}
+          getInitialRuntimeExpanded={getInitialRuntimeExpanded}
+          onRuntimeExpandedChange={handleRuntimeExpandedChange}
+          getInitialPlanningMode={getInitialPlanningMode}
+          onPlanningCollapseOverlayChange={handlePlanningCollapseOverlayChange}
+          onPlanningModeChange={handlePlanningModeChange}
+        />
+      </ConversationPreviewRowScope>
     ),
     [
       getInitialPlanningMode,
@@ -1113,12 +1133,17 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   const handleViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken<ChatTimelineDisplayItem>[] }) => {
       const nextViewablePlanningNodeIds = new Set<string>();
+      const nextViewablePreviewRowKeys = new Set<string>();
       viewableItems.forEach((token) => {
+        if (token.isViewable && token.item?.key) {
+          nextViewablePreviewRowKeys.add(token.item.key);
+        }
         const nodeId = getPlanningNodeIdFromItem(token.item);
         if (nodeId) {
           nextViewablePlanningNodeIds.add(nodeId);
         }
       });
+      previewVisibilityStore.replaceVisibleRows(nextViewablePreviewRowKeys);
       viewablePlanningNodeIdsRef.current = nextViewablePlanningNodeIds;
 
       const activeNodeId = planningCollapseOverlayRef.current?.nodeId;
@@ -1127,7 +1152,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
         currentVisible === nextVisible ? currentVisible : nextVisible
       );
     },
-    []
+    [previewVisibilityStore]
   );
 
   useLayoutEffect(() => {
@@ -1142,6 +1167,14 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     }
     tailSignatureRef.current = tailSignature;
   }, [schedulePendingAutoFollowReset, tailSignature]);
+
+  useLayoutEffect(() => {
+    if (!diagnosticVersion) {
+      return;
+    }
+    pendingAutoFollowRef.current = true;
+    schedulePendingAutoFollowReset();
+  }, [diagnosticVersion, schedulePendingAutoFollowReset]);
 
   useEffect(() => {
     updateScrollToEndVisibility();
@@ -1158,11 +1191,12 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   }, [clearPendingAutoFollowSchedule]);
 
   return (
-    <View ref={threadRef} className={THREAD_CLASS}>
+    <ConversationPreviewProvider store={previewVisibilityStore} onCopyText={onCopyText}>
+      <View ref={threadRef} className={THREAD_CLASS}>
       <FlashList
         ref={listRef}
         data={items}
-        extraData={timelineState.revision}
+        extraData={listExtraData}
         renderItem={renderItem}
         keyExtractor={keyExtractor}
         style={THREAD_SCROLLER_STYLE}
@@ -1171,6 +1205,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
         drawDistance={620}
         getItemType={getChatTimelineDisplayItemType}
         ListEmptyComponent={emptyStateElement}
+        ListFooterComponent={diagnosticFooter}
         keyboardShouldPersistTaps="handled"
         onScroll={handleScroll}
         onScrollEndDrag={updateMetricsFromScrollEvent}
@@ -1216,6 +1251,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
           onNewConversation={handleNewConversationReask}
         />
       ) : null}
-    </View>
+      </View>
+    </ConversationPreviewProvider>
   );
 });

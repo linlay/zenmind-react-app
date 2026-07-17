@@ -1,7 +1,8 @@
 import { and, asc, count, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
 
 import { normalizeAgentAvatarIcon } from '../../shared/visual/agentAvatarIcon.ts';
-import { chatDb, ensureChatDatabase } from './database';
+import { chatDb, deleteChatDatabaseScopeIfExists, ensureChatDatabase } from './database';
+import { getChatCacheScopeId, normalizeChatCacheScopeId } from './cacheScope';
 import { createChatConversationTarget } from './chatConversationTarget';
 import { normalizeAgentMode } from './agentMode.ts';
 import { normalizeChatReasoningEffort } from './agentModelSettings.ts';
@@ -10,7 +11,11 @@ import {
   shouldOpenLatestConversationFromSummary,
 } from './chatDirectoryOpenDecision';
 import { normalizeChatConversationHistoryScope } from './chatHistoryScope';
-import { clearChatDirectorySnapshot, writeChatDirectorySnapshot } from './homeSnapshot';
+import {
+  clearChatDirectorySnapshot,
+  clearChatDirectorySnapshotForScope,
+  writeChatDirectorySnapshot,
+} from './homeSnapshot';
 import {
   chatDirectoryItems,
   conversationTimelineMeta,
@@ -2263,6 +2268,45 @@ export async function clearChatLocalCache() {
   clearChatDirectorySnapshot();
 }
 
+export async function hasChatLocalConversations(): Promise<boolean> {
+  await ensureChatDatabase();
+  const rows = await chatDb.select({ value: count() }).from(conversations);
+  return (rows[0]?.value ?? 0) > 0;
+}
+
+export type ChatLocalCacheScopeClearResult = {
+  scopeId: string;
+  active: boolean;
+  database: 'cleared' | 'deleted' | 'missing';
+};
+
+export async function clearChatLocalCacheForScope(
+  scopeId: string
+): Promise<ChatLocalCacheScopeClearResult> {
+  const rawScopeId = String(scopeId || '').trim();
+  const normalizedScopeId = normalizeChatCacheScopeId(rawScopeId);
+  if (!rawScopeId || normalizedScopeId !== rawScopeId) {
+    throw new Error('Invalid chat cache scope id');
+  }
+
+  if (normalizedScopeId === getChatCacheScopeId()) {
+    await clearChatLocalCache();
+    return {
+      scopeId: normalizedScopeId,
+      active: true,
+      database: 'cleared',
+    };
+  }
+
+  const database = deleteChatDatabaseScopeIfExists(normalizedScopeId);
+  clearChatDirectorySnapshotForScope(normalizedScopeId);
+  return {
+    scopeId: normalizedScopeId,
+    active: false,
+    database,
+  };
+}
+
 export async function prewarmChatHomeDirectory(pageSize: number = CHAT_DIRECTORY_DEFAULT_PAGE_SIZE) {
   if (chatHomeDirectoryPrewarmPromise) {
     return chatHomeDirectoryPrewarmPromise;
@@ -2428,6 +2472,122 @@ export async function getConversationMessages(
     .limit(limit);
 
   return attachMessageAttachments(rows.map(mapChatMessageItem));
+}
+
+export type ChatConversationMessagesDiagnosticSnapshot = {
+  items: ChatMessageItem[];
+  total: number;
+  limit: number;
+  truncated: boolean;
+  order: 'newest-first';
+};
+
+export async function getConversationMessagesDiagnosticSnapshot(
+  conversationId: string,
+  limit: number = 500
+): Promise<ChatConversationMessagesDiagnosticSnapshot> {
+  await ensureChatDatabase();
+  const normalizedConversationId = String(conversationId || '').trim();
+  const safeLimit = Math.max(1, Math.min(500, Math.trunc(Number(limit) || 500)));
+  if (!normalizedConversationId) {
+    return {
+      items: [],
+      total: 0,
+      limit: safeLimit,
+      truncated: false,
+      order: 'newest-first',
+    };
+  }
+
+  const [items, totalRows] = await Promise.all([
+    getConversationMessages(normalizedConversationId, safeLimit),
+    chatDb
+      .select({ value: count() })
+      .from(messages)
+      .where(eq(messages.conversationId, normalizedConversationId)),
+  ]);
+  const total = totalRows[0]?.value ?? 0;
+  return {
+    items,
+    total,
+    limit: safeLimit,
+    truncated: total > items.length,
+    order: 'newest-first',
+  };
+}
+
+export type ChatConversationTimelineDiagnosticSnapshot = {
+  meta: SerializedTimelineMeta | null;
+  nodes: SerializedTimelineNode[];
+  total: number;
+  limit: number;
+  truncated: boolean;
+  order: 'oldest-first';
+};
+
+export async function getConversationTimelineDiagnosticSnapshot(
+  conversationId: string,
+  limit: number = 500
+): Promise<ChatConversationTimelineDiagnosticSnapshot> {
+  await ensureChatDatabase();
+  const normalizedConversationId = String(conversationId || '').trim();
+  const safeLimit = Math.max(1, Math.min(500, Math.trunc(Number(limit) || 500)));
+  if (!normalizedConversationId) {
+    return {
+      meta: null,
+      nodes: [],
+      total: 0,
+      limit: safeLimit,
+      truncated: false,
+      order: 'oldest-first',
+    };
+  }
+
+  const [metaRows, nodeRows, totalRows] = await Promise.all([
+    chatDb
+      .select({
+        conversationId: conversationTimelineMeta.conversationId,
+        activeRunId: conversationTimelineMeta.activeRunId,
+        awaitingId: conversationTimelineMeta.awaitingId,
+        usageLabel: conversationTimelineMeta.usageLabel,
+        updatedAt: conversationTimelineMeta.updatedAt,
+        revision: conversationTimelineMeta.revision,
+        nextOrder: conversationTimelineMeta.nextOrder,
+        messageTailSignature: conversationTimelineMeta.messageTailSignature,
+      })
+      .from(conversationTimelineMeta)
+      .where(eq(conversationTimelineMeta.conversationId, normalizedConversationId))
+      .limit(1),
+    chatDb
+      .select({
+        conversationId: conversationTimelineNodes.conversationId,
+        nodeId: conversationTimelineNodes.nodeId,
+        kind: conversationTimelineNodes.kind,
+        runId: conversationTimelineNodes.runId,
+        orderIndex: conversationTimelineNodes.orderIndex,
+        createdAt: conversationTimelineNodes.createdAt,
+        updatedAt: conversationTimelineNodes.updatedAt,
+        payloadHash: conversationTimelineNodes.payloadHash,
+        payloadJson: conversationTimelineNodes.payloadJson,
+      })
+      .from(conversationTimelineNodes)
+      .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId))
+      .orderBy(desc(conversationTimelineNodes.orderIndex))
+      .limit(safeLimit),
+    chatDb
+      .select({ value: count() })
+      .from(conversationTimelineNodes)
+      .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId)),
+  ]);
+  const total = totalRows[0]?.value ?? 0;
+  return {
+    meta: metaRows[0] ? mapSerializedTimelineMetaRow(metaRows[0]) : null,
+    nodes: nodeRows.reverse().map(mapSerializedTimelineNodeRow),
+    total,
+    limit: safeLimit,
+    truncated: total > nodeRows.length,
+    order: 'oldest-first',
+  };
 }
 
 export async function getConversationInitialTimelineState(

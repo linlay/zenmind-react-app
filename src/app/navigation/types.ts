@@ -5,6 +5,7 @@ import { ChatDetailRouteParams } from '../../features/chatPersistence/types';
 
 export type RootTabParamList = {
   Chat: undefined;
+  WebApps: undefined;
   Me: undefined;
 };
 
@@ -13,6 +14,7 @@ export type RootStackParamList = {
   Tabs: NavigatorScreenParams<RootTabParamList>;
   TaskBoardFlow: NavigatorScreenParams<AgentTaskBoardStackParamList>;
   ChatDetail: ChatDetailRouteParams;
+  WebAppDetail: { initialAppId: string };
   ChatDirectoryPickerOverlay: undefined;
   Settings: undefined;
 };

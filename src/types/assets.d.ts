@@ -4,3 +4,8 @@ declare module '*.png' {
 }
 
 declare module '*.css';
+
+declare module '*.html' {
+  const value: number;
+  export default value;
+}

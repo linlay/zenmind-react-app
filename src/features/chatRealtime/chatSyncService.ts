@@ -1,6 +1,10 @@
+import { Platform } from 'react-native';
+
 import { ApiError } from '../../core/api/apiClient';
 import { resolveActiveWsTransportConfig } from '../../core/api/activeWsTransport';
 import { applyActiveDesktopWsRefreshPayload } from '../../core/auth/appAuth';
+import { getActiveDeviceProfile } from '../../core/auth/deviceProfiles';
+import { APP_VERSION } from '../../shared/generated/brand';
 import {
   CHAT_DETAIL_TRANSPORT_TYPE,
   CHAT_AGENT_DETAIL_TRANSPORT_TYPE,
@@ -32,12 +36,16 @@ import {
 import { getModelOptionsApi, updateAgentModelConfigApi } from '../../core/api/services/modelOptionsApi';
 import {
   appendAssistantDelta,
-  clearChatLocalCache,
+  clearChatLocalCacheForScope,
   createOutgoingMessage,
   getConversationDetail,
   getConversationHistoryScope,
   getConversationInitialTimelineState,
+  getConversationMessagesDiagnosticSnapshot,
   getConversationSyncState,
+  getConversationTarget,
+  getConversationTimelineDiagnosticSnapshot,
+  hasChatLocalConversations,
   getMessageByClientMessageId,
   getMessageByServerMessageId,
   getPendingOutboxMessages,
@@ -56,6 +64,8 @@ import {
   setConversationReadStateLocal,
   upsertProjectedMessage
 } from '../chatPersistence/chatRepository';
+import { getChatCacheScopeId, normalizeChatCacheScopeId } from '../chatPersistence/cacheScope';
+import type { ChatConversationDiagnosticSource } from '../chatPersistence/chatConversationDiagnostic';
 import { hasChatReadStateInput, normalizeChatReadState } from '../chatPersistence/chatReadState';
 import {
   projectRemoteHomeDirectory,
@@ -131,7 +141,36 @@ type ChatSendMessageResult = Awaited<ReturnType<typeof createOutgoingMessage>> &
   dispatchError: Error | null;
 };
 
+export type ChatCacheScopeClearResult = {
+  scopeId: string;
+  currentScope: boolean;
+  status: 'success' | 'error';
+  databaseStatus: 'cleared' | 'deleted' | 'missing' | null;
+  errorMessage: string | null;
+};
+
 type TimelineRunContextOptions = NonNullable<Parameters<typeof applyChatTimelineMessage>[2]>;
+
+function describeConversationDiagnosticError(error: unknown) {
+  if (error instanceof ApiError) {
+    return {
+      name: error.name,
+      message: error.message,
+      status: error.status,
+      payload: error.payload,
+    };
+  }
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+    };
+  }
+  return {
+    name: 'UnknownError',
+    message: String(error),
+  };
+}
 
 type StreamBuffer = {
   key: string;
@@ -809,17 +848,125 @@ class ChatSyncService {
   }
 
   async resetLocalCacheForDevelopment() {
-    this.stop();
-    this.startPromise = null;
-    this.homeRefreshPromise = null;
-    this.activeConversationId = null;
-    this.hasConnectedOnce = false;
-    this.inFlightOutgoingIds.clear();
-    this.lastReadMarks.clear();
-    this.readConfirmations.clear();
-    this.timelineStates.clear();
-    this.pendingRuntimeEmitReasons.clear();
-    await clearChatLocalCache();
+    const result = await this.clearLocalCacheScope(getChatCacheScopeId());
+    if (result.status === 'error') {
+      throw new Error(result.errorMessage || 'Failed to clear local cache');
+    }
+  }
+
+  async hasActiveLocalConversations() {
+    return hasChatLocalConversations();
+  }
+
+  async clearLocalCacheScope(scopeId: string): Promise<ChatCacheScopeClearResult> {
+    const rawScopeId = String(scopeId || '').trim();
+    const normalizedScopeId = normalizeChatCacheScopeId(rawScopeId);
+    const active = rawScopeId === normalizedScopeId && normalizedScopeId === getChatCacheScopeId();
+    if (!rawScopeId || normalizedScopeId !== rawScopeId) {
+      return {
+        scopeId: rawScopeId,
+        currentScope: false,
+        status: 'error',
+        databaseStatus: null,
+        errorMessage: 'Invalid chat cache scope id',
+      };
+    }
+    if (active) {
+      this.stop();
+      this.startPromise = null;
+      this.homeRefreshPromise = null;
+      this.activeConversationId = null;
+      this.hasConnectedOnce = false;
+      this.inFlightOutgoingIds.clear();
+      this.lastReadMarks.clear();
+      this.readConfirmations.clear();
+      this.timelineStates.clear();
+      this.pendingRuntimeEmitReasons.clear();
+    }
+    try {
+      const result = await clearChatLocalCacheForScope(normalizedScopeId);
+      return {
+        scopeId: result.scopeId,
+        currentScope: result.active,
+        status: 'success',
+        databaseStatus: result.database,
+        errorMessage: null,
+      };
+    } catch (error) {
+      return {
+        scopeId: normalizedScopeId,
+        currentScope: active,
+        status: 'error',
+        databaseStatus: null,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  async collectConversationDiagnosticData(
+    conversationId: string
+  ): Promise<ChatConversationDiagnosticSource> {
+    if (!__DEV__) {
+      throw new Error('Conversation diagnostics are only available in development builds');
+    }
+    const normalizedConversationId = toText(conversationId);
+    if (!normalizedConversationId) {
+      throw new Error('Conversation id is required');
+    }
+
+    const generatedAt = Date.now();
+    const profile = getActiveDeviceProfile();
+    const request = buildChatDetailPayload({
+      chatId: normalizedConversationId,
+      includeRawMessages: true,
+    });
+    const remotePromise = this.requestRawChatApi(CHAT_DETAIL_TRANSPORT_TYPE, request)
+      .then((response) => ({ response, error: null }))
+      .catch((error) => ({
+        response: null,
+        error: describeConversationDiagnosticError(error),
+      }));
+    const [remote, summary, target, messages, syncState, persistedTimelineState] = await Promise.all([
+      remotePromise,
+      getConversationDetail(normalizedConversationId),
+      getConversationTarget(normalizedConversationId),
+      getConversationMessagesDiagnosticSnapshot(normalizedConversationId, 500),
+      getConversationSyncState(normalizedConversationId),
+      getConversationTimelineDiagnosticSnapshot(normalizedConversationId, 500),
+    ]);
+
+    return {
+      generatedAt,
+      environment: {
+        platform: Platform.OS,
+        appVersion: APP_VERSION,
+        generatedAt,
+        generatedAtIso: new Date(generatedAt).toISOString(),
+        profile: profile
+          ? {
+              desktopDeviceId: profile.desktopDeviceId,
+              displayName: profile.displayName,
+              transportKind: profile.transportKind,
+              endpoint: profile.transportKind === 'desktop-ws' ? profile.desktopWs?.wsUrl || '' : profile.apiBaseUrl,
+              cacheScopeId: profile.cacheScopeId,
+              needsRelink: profile.needsRelink,
+            }
+          : null,
+      },
+      remote: {
+        transportType: CHAT_DETAIL_TRANSPORT_TYPE,
+        request,
+        response: remote.response,
+        error: remote.error,
+      },
+      local: {
+        summary,
+        target,
+        messages,
+        syncState,
+        persistedTimelineState,
+      },
+    };
   }
 
   private clearTransientWork() {
@@ -1289,6 +1436,18 @@ class ChatSyncService {
       payload
     });
     return unwrapChatApiEnvelope<T>(response);
+  }
+
+  private async requestRawChatApi(type: string, payload?: unknown): Promise<unknown> {
+    const config = await this.resolveTransportConfig();
+    if (!config) {
+      throw new ApiError('Not authenticated', 401, null);
+    }
+    return requestChatTransport<unknown>({
+      ...config,
+      type,
+      payload,
+    });
   }
 
   private async getChatDetailViaTransport(chatId: string): Promise<RemoteChatDetail> {

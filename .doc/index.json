@@ -164,9 +164,19 @@
       "context": ".doc/modules/feature-notifications.json",
       "confidence": "confirmed"
     },
+    "feature-web-apps": {
+      "paths": [
+        "src/features/webApps"
+      ],
+      "context": ".doc/modules/feature-web-apps.json",
+      "confidence": "confirmed"
+    },
     "shared-conversation-content-renderer": {
       "paths": [
         "src/shared/components/ConversationMarkdownRenderer.tsx",
+        "src/shared/components/conversationPreview",
+        "src/shared/markdown/previewRegistry.ts",
+        "src/shared/markdown/previewSegments.ts",
         "src/shared/markdown/preprocess.ts"
       ],
       "context": ".doc/modules/shared-conversation-content-renderer.json",
@@ -222,10 +232,10 @@
   },
   "rulesRef": ".doc/rules.json",
   "generated": {
-    "moduleCount": 18,
-    "flowCount": 7,
+    "moduleCount": 19,
+    "flowCount": 8,
     "taskCount": 16,
-    "sourceFileCount": 2113,
+    "sourceFileCount": 2145,
     "factsRef": ".doc/generated/project-facts.json",
     "contextIndexRef": ".doc/generated/context-index.json",
     "entrypoints": [

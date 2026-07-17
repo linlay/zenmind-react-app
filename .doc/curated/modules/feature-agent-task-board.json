@@ -2,9 +2,7 @@
   "schemaVersion": "1.0",
   "module": "feature-agent-task-board",
   "status": "confirmed",
-  "paths": [
-    "src/features/agentTaskBoard"
-  ],
+  "paths": ["src/features/agentTaskBoard"],
   "summary": {
     "purpose": "AI 任务流转看板: 承载面向 AI 智能体任务分配后的移动端任务处置 UI。",
     "ownedConcepts": [
@@ -16,7 +14,7 @@
       "通过 Kanban API/RPC 获取真实 snapshot 并提交变更，screen 只消费 feature service 与 view model 派生后的任务、队列、阶段和智能体数据。",
       "任务启动后只按 ChatDetail route contract 生成导航参数并跳转既有聊天详情页，不直接读取或写入聊天 SQLite、MMKV 或 realtime runtime。",
       "当前不接入 SQLite、MMKV 或实时 transport；任务数据经 core API service 边界接入，不从 app screen 直连底层存储。",
-      "Public entry AgentTaskBoardScreen (feature-screen): 任务流转看板移动端主屏，当前暂不挂底部 Tab，待后续接口对接后恢复入口。",
+      "Public entry AgentTaskBoardScreen (feature-screen): 任务流转看板移动端主屏；当前底部入口隐藏，保留给后续恢复入口或 TaskBoardFlow 内部流程使用。",
       "Public entry AgentTaskBoardFlowNavigator (feature-navigator): RootStack TaskBoardFlow 挂载的任务二级页子栈，承载新增任务、分配任务和任务详情。",
       "Public entry AgentTaskBoardProvider (feature-provider): 登录后 RootStack 包裹的任务看板共享数据 Provider，有任务页面聚焦时懒启动 Kanban snapshot 获取与 invalidation 订阅，任务页失焦后释放后台刷新。",
       "State/data touch: 看板队列筛选 selectedQueue 本地 UI 状态",
@@ -39,9 +37,7 @@
       "shared-visual-foundation",
       "shared-i18n"
     ],
-    "dependents": [
-      "app-shell-navigation"
-    ],
+    "dependents": ["app-shell-navigation"],
     "tests": [],
     "lastScannedAt": ""
   },
@@ -88,6 +84,7 @@
     ]
   },
   "riskRules": [
+    "当前任务看板底部入口保持隐藏；恢复入口必须由明确需求驱动，不与 WebApps Tab 复用 route 或图标语义。",
     "保持 screen 只消费 feature 内数据模型和共享 UI，不直接操作 SQLite 或 WebSocket。",
     "任务 API 访问继续收敛在 core service，screen 只消费聚合后的 view model。",
     "一级页面 Header 固定在滚动区外，主屏底部避让继续使用 shared visual 的 useAppTabBarHeight；TaskBoardFlow 二级页由 RootStack 覆盖 Tabs，只使用 safe area bottom 避让。",

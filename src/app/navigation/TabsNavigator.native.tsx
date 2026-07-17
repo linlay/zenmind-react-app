@@ -1,9 +1,8 @@
-import {
-  createNativeBottomTabNavigator,
-  type NativeBottomTabIcon
-} from '@react-navigation/bottom-tabs/unstable';
+import { createNativeBottomTabNavigator, type NativeBottomTabIcon } from '@react-navigation/bottom-tabs/unstable';
 import chatIcon from '../../../assets/tabs/tab-chat.png';
 import meIcon from '../../../assets/tabs/tab-me.png';
+import webAppsIcon from '../../../assets/tabs/tab-terminal.png';
+import { WebAppsScreen } from '../../features/webApps/WebAppsScreen';
 import { useT } from '../../shared/i18n';
 import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { ChatScreen, MeScreen } from '../screens/TabScreens';
@@ -16,6 +15,10 @@ const NATIVE_TAB_ICONS: Record<keyof RootTabParamList, NativeBottomTabIcon> = {
   Chat: {
     type: 'image',
     source: chatIcon
+  },
+  WebApps: {
+    type: 'image',
+    source: webAppsIcon
   },
   Me: {
     type: 'image',
@@ -51,7 +54,7 @@ export function TabsNavigator() {
       })}
     >
       <Tab.Screen name="Chat" component={ChatScreen} />
-      {/* Task board tab is temporarily hidden until the API integration resumes. */}
+      <Tab.Screen name="WebApps" component={WebAppsScreen} />
       {/* Drive tab is temporarily hidden until the module ships. */}
       <Tab.Screen name="Me" component={MeScreen} />
     </Tab.Navigator>

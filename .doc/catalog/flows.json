@@ -12,6 +12,7 @@
         "core-ws-transport",
         "feature-auth-login",
         "feature-notifications",
+        "feature-web-apps",
         "shared-i18n"
       ],
       "card": ".doc/flows/app-startup.json"
@@ -84,6 +85,21 @@
         "feature-notifications"
       ],
       "card": ".doc/flows/notification-open-chat-message.json"
+    },
+    {
+      "id": "webapps-runtime",
+      "title": "WebApps Desktop WS 目录同步与常驻 WebView 运行时",
+      "trigger": "认证会话挂载、Desktop WS 重连、App 回前台、进入 WebAppDetail、切换运行项或系统终止 WebContent 进程时触发。",
+      "mustCheckModules": [
+        "app-shell-navigation",
+        "core-auth-session",
+        "core-ws-transport",
+        "feature-web-apps",
+        "shared-i18n",
+        "shared-screen-header",
+        "shared-visual-foundation"
+      ],
+      "card": ".doc/flows/webapps-runtime.json"
     }
   ]
 }

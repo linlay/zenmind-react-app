@@ -13,6 +13,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useT } from '../../shared/i18n';
 import { ChatAwaitingOverlay, ChatAwaitingResumeBar } from './components/ChatAwaitingOverlay';
 import { ChatAwaitingDock } from './components/awaiting/ChatAwaitingDock';
+import { ChatConversationDiagnosticCard } from './components/ChatConversationDiagnosticCard';
 import { ChatDetailComposerCard } from './components/ChatDetailComposerCard';
 import { ChatDetailHistoryDrawer } from './components/ChatDetailDrawers';
 import { ChatDetailEmptyState } from './components/ChatDetailEmptyState';
@@ -102,6 +103,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     skeletonOverlayOpacity,
     socketStatus,
     errorText,
+    diagnosticState,
     draft,
     setDraft,
     composerAttachments,
@@ -227,6 +229,16 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
 
                 <ChatTimelineList
                   timelineState={timelineState}
+                  diagnosticCard={
+                    diagnosticState.status === 'idle' ? null : (
+                      <ChatConversationDiagnosticCard state={diagnosticState} />
+                    )
+                  }
+                  diagnosticVersion={
+                    diagnosticState.status === 'idle'
+                      ? ''
+                      : `${diagnosticState.requestId}:${diagnosticState.status}`
+                  }
                   emptyState={
                     newConversationIntro ? (
                       <ChatNewConversationIntro

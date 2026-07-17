@@ -10,17 +10,7 @@ export type AppIconColorRole =
   | 'success'
   | 'warning';
 
-export type AppIconSizeRole =
-  | 'rail'
-  | 'pinMarker'
-  | 'toolbar'
-  | 'fold'
-  | 'sm'
-  | 'md'
-  | 'lg'
-  | 'xl'
-  | 'xxl'
-  | 'tab';
+export type AppIconSizeRole = 'rail' | 'pinMarker' | 'toolbar' | 'fold' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'tab';
 
 export type AppIconUsageConfig = {
   glyph: AppIconGlyphName;
@@ -31,9 +21,15 @@ export type AppIconUsageConfig = {
 
 export const appIconUsages = {
   'tab.chat': { glyph: 'chat', colorRole: 'brand', sizeRole: 'tab' },
-  'tab.terminal': { glyph: 'apps', colorRole: 'brand', sizeRole: 'tab' },
+  'tab.webApps': { glyph: 'apps', colorRole: 'brand', sizeRole: 'tab' },
   'tab.drive': { glyph: 'drive', colorRole: 'brand', sizeRole: 'tab' },
   'tab.me': { glyph: 'user', colorRole: 'brand', sizeRole: 'tab' },
+
+  'webApps.openContainer': { glyph: 'apps', colorRole: 'brand', sizeRole: 'lg' },
+  'webApps.navigate': { glyph: 'chevron_right', colorRole: 'tertiary', sizeRole: 'md' },
+  'webApps.back': { glyph: 'chevron_left', colorRole: 'brand', sizeRole: 'xxl' },
+  'webApps.openSelector': { glyph: 'apps', colorRole: 'brand', sizeRole: 'md' },
+  'webApps.selected': { glyph: 'check', colorRole: 'brand', sizeRole: 'sm' },
 
   'preview.terminalWorkbench': { glyph: 'apps', colorRole: 'brand', sizeRole: 'md' },
   'preview.terminalAction': { glyph: 'spark', colorRole: 'brand', sizeRole: 'md' },
@@ -46,7 +42,7 @@ export const appIconUsages = {
   'chatHome.rowPinned': {
     glyph: 'pin',
     colorRole: 'tertiary',
-    sizeRole: 'pinMarker',
+    sizeRole: 'pinMarker'
   },
   'chatHome.pinnedFold.leading': { glyph: 'list_arrow', colorRole: 'tertiary', sizeRole: 'md' },
   'chatHome.pinnedFold.expand': { glyph: 'keyboard_arrow_down', colorRole: 'tertiary', sizeRole: 'md' },
@@ -58,17 +54,17 @@ export const appIconUsages = {
   'chatDetail.newConversation': {
     glyph: 'edit_square',
     colorRole: 'brand',
-    sizeRole: 'md',
+    sizeRole: 'md'
   },
   'chatDetail.openHistory': {
     glyph: 'menu',
     colorRole: 'brand',
-    sizeRole: 'md',
+    sizeRole: 'md'
   },
   'chatDetail.wondersRefresh': {
     glyph: 'refresh',
     colorRole: 'brand',
-    sizeRole: 'sm',
+    sizeRole: 'sm'
   },
 
   'settings.cache': { glyph: 'history', colorRole: 'brand', sizeRole: 'md' },
@@ -100,7 +96,7 @@ export const appIconUsages = {
   'directoryPicker.startConversation': {
     glyph: 'edit_square',
     colorRole: 'brand',
-    sizeRole: 'md',
+    sizeRole: 'md'
   },
   'directoryPicker.close': { glyph: 'close', colorRole: 'primary', sizeRole: 'md' },
 
@@ -115,7 +111,7 @@ export const appIconUsages = {
   'timeline.assistantContentRail': {
     glyph: 'description',
     colorRole: 'success',
-    sizeRole: 'rail',
+    sizeRole: 'rail'
   },
   'timeline.systemAlertRail': { glyph: 'warning', colorRole: 'warning', sizeRole: 'rail' },
   'timeline.copy': { glyph: 'content_copy', colorRole: 'secondary', sizeRole: 'toolbar' },
@@ -124,8 +120,15 @@ export const appIconUsages = {
   'timeline.scrollToEnd': {
     glyph: 'keyboard_arrow_down',
     colorRole: 'primary',
-    sizeRole: 'md',
+    sizeRole: 'md'
   },
+
+  'markdownPreview.copy': { glyph: 'content_copy', colorRole: 'secondary', sizeRole: 'toolbar' },
+  'markdownPreview.expand': { glyph: 'keyboard_arrow_down', colorRole: 'secondary', sizeRole: 'toolbar' },
+  'markdownPreview.collapse': { glyph: 'keyboard_arrow_up', colorRole: 'secondary', sizeRole: 'toolbar' },
+  'markdownPreview.open': { glyph: 'open_in_new', colorRole: 'brand', sizeRole: 'toolbar' },
+  'markdownPreview.retry': { glyph: 'refresh', colorRole: 'brand', sizeRole: 'toolbar' },
+  'markdownPreview.close': { glyph: 'close', colorRole: 'primary', sizeRole: 'md' },
 
   'runtime.reasoning': { glyph: 'psychology', colorRole: 'warning', sizeRole: 'rail' },
   'runtime.awaiting': { glyph: 'question_answer', colorRole: 'warning', sizeRole: 'rail' },
@@ -136,12 +139,12 @@ export const appIconUsages = {
   'runtime.expand': {
     glyph: 'chevron_right',
     colorRole: 'secondary',
-    sizeRole: 'fold',
+    sizeRole: 'fold'
   },
   'runtime.collapse': {
     glyph: 'expand_more',
     colorRole: 'secondary',
-    sizeRole: 'fold',
+    sizeRole: 'fold'
   },
   'runtime.wrapEnabled': { glyph: 'format_text_wrap', colorRole: 'secondary', sizeRole: 'toolbar' },
   'runtime.wrapDisabled': { glyph: 'format_text_overflow', colorRole: 'secondary', sizeRole: 'toolbar' },
@@ -160,7 +163,7 @@ export const appIconUsages = {
   'attachment.fileText': { glyph: 'description', colorRole: 'brand', sizeRole: 'sm' },
   'attachment.remove': { glyph: 'close', colorRole: 'primary', sizeRole: 'sm' },
   'team.avatarFallback': { glyph: 'person', colorRole: 'onBrandAction', sizeRole: 'md' },
-  'usage.close': { glyph: 'close', colorRole: 'secondary', sizeRole: 'sm' },
+  'usage.close': { glyph: 'close', colorRole: 'secondary', sizeRole: 'sm' }
 } as const satisfies Record<string, AppIconUsageConfig>;
 
 export type AppIconUsage = keyof typeof appIconUsages;

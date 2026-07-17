@@ -42,17 +42,39 @@ export function switchChatDatabaseScope(scopeId: string) {
 }
 
 export function deleteChatDatabaseScope(scopeId: string): boolean {
+  try {
+    return deleteChatDatabaseScopeIfExists(scopeId) === 'deleted';
+  } catch {
+    return false;
+  }
+}
+
+export type ChatDatabaseScopeDeleteStatus = 'deleted' | 'missing';
+
+function isDatabaseNotFoundError(error: unknown): boolean {
+  return String(error instanceof Error ? error.message : error)
+    .toLowerCase()
+    .includes('not found');
+}
+
+export function deleteChatDatabaseScopeIfExists(scopeId: string): ChatDatabaseScopeDeleteStatus {
   const rawScopeId = String(scopeId || '').trim();
   const normalizedScopeId = normalizeChatCacheScopeId(rawScopeId);
-  if (!rawScopeId || normalizedScopeId !== rawScopeId || normalizedScopeId === getChatCacheScopeId()) {
-    return false;
+  if (!rawScopeId || normalizedScopeId !== rawScopeId) {
+    throw new Error('Invalid chat cache scope id');
+  }
+  if (normalizedScopeId === getChatCacheScopeId()) {
+    throw new Error('Cannot delete the active chat cache scope');
   }
 
   try {
     deleteDatabaseSync(buildChatDatabaseName(normalizedScopeId));
-    return true;
-  } catch {
-    return false;
+    return 'deleted';
+  } catch (error) {
+    if (isDatabaseNotFoundError(error)) {
+      return 'missing';
+    }
+    throw error;
   }
 }
 

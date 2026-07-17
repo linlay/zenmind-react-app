@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "1.0",
+  "module": "feature-web-apps",
+  "status": "confirmed",
+  "paths": [
+    "src/features/webApps"
+  ],
+  "summary": {
+    "purpose": "移动端 WebApps Desktop WS 只读目录与常驻多 WebView 容器：登录后同步真实列表和增量状态，并在一级 Apps 列表与 WebAppDetail 二级容器之间复用登录会话级 resident。",
+    "ownedConcepts": [
+      "webAppsDesktopProtocol 是 DesktopMobileWebappCatalog 与 webapp.changed 的纯解析层，完整校验 runtimeStatus、publishStatus、availability、目录元数据、重复 ID 和设备边界；非 HTTPS publicUrl 不进入可打开域模型。",
+      "WebAppsGateway 只接受活动 Desktop WS Profile，复用 resolveActiveWsTransportConfig、JWT 刷新和 sharedWsTransport；HTTP Profile 不向 Agent Platform 发送 WebApp 请求。",
+      "Gateway open 后先挂本地 push/status 监听，再确认 event.subscribe，缓存同步窗口内的 push，读取 web.webapp.list，校验 desktopDeviceId，以快照覆盖并顺序重放缓存；实时阶段按 webappId upsert/remove 并按 order 稳定排序。",
+      "Desktop WS 重连后 Gateway 使用 single-flight 与 generation 重新订阅和读取快照；close 只移除自身监听并尽力 event.unsubscribe，不停止共享 Socket，不影响 Chat 或 Kanban 监听。",
+      "WebAppsRuntimeProvider 在登录会话挂载时立即 open Gateway，统一维护 catalog、连接状态、当前 App、最近 URL、resident LRU 与详情/选择框可见性；App 回前台只做一次去重快照补偿，不轮询、不写 SQLite 或 MMKV。",
+      "新建 WebView 仅允许 runtimeStatus=running、availability=available 且 publicUrl 为 HTTPS；stopped、unpublished、removed 会卸载 resident，desktop-offline、publish-error 等瞬态保留已挂载页面并显示连接异常。",
+      "WebAppsScreen 使用 FlashList 展示真实目录和单一启动/暂停按钮；首期 Gateway capabilities 均为 false，按钮统一禁用，禁止通过 action.call 绕过脱敏控制边界。",
+      "WebAppsRuntimeHost 在登录态 RootStack 外层常驻，最多保留 6 个 WebView；WebAppDetail route 只负责导航与返回语义，离开详情或切换 Tab 不卸载 resident。",
+      "后台 WebView 只关闭触摸、可见性与无障碍，不条件卸载；系统终止 WebContent 进程后当前项优先、其余按 LRU 串行恢复，连续终止时停止自动重试并允许手动重载。",
+      "Public entry WebAppsScreen (feature-screen): WebApps 一级 Tab 页面。",
+      "Public entry WebAppDetailScreen (feature-screen): WebAppDetail RootStack 导航控制页。",
+      "Public entry WebAppsRuntimeProvider (feature-provider): 登录会话级目录状态与常驻 WebView Host。",
+      "Public entry WebAppsGateway (feature-gateway): Desktop WebApps 订阅、快照、重连和连接事件边界。",
+      "Public entry WebAppsGatewayEvent (feature-contract): snapshot/upsert/remove/connection/error 领域事件。",
+      "Related flow: webapps-runtime",
+      "Related task: add-or-edit-tab-screen",
+      "Related task: add-internationalization"
+    ],
+    "nonGoals": [
+      "不修改 Desktop 项目，不调用通用 action.call，不在移动端推断本地端口、PID、targetUrl、routeId、安装路径或 Tunnel 凭据。",
+      "Desktop 提供 web.webapp.activate/web.webapp.pause 脱敏请求前，不启用启动/暂停按钮。",
+      "首期不提供 WebView token 注入、通用 native bridge、跨应用共享 cookie、定时轮询或本地目录持久化。"
+    ]
+  },
+  "facts": {
+    "entrypoints": [],
+    "publicApi": [
+      "INITIAL_WEB_APPS_RUNTIME_STATE",
+      "MAX_RESIDENT_WEB_APPS",
+      "OpenableWebApp",
+      "WebAppAvailability",
+      "WebAppCatalog",
+      "WebAppChanged",
+      "WebAppChangedReason",
+      "WebAppDetailScreen",
+      "WebAppItem",
+      "WebAppPublishStatus",
+      "WebAppResident",
+      "WebAppResidentLoadState",
+      "WebAppRuntimeStatus",
+      "WebAppsConnectionStatus",
+      "WebAppsGateway",
+      "WebAppsGatewayCapabilities",
+      "WebAppsGatewayDependencies",
+      "WebAppsGatewayError",
+      "WebAppsGatewayErrorCode",
+      "WebAppsGatewayEvent",
+      "WebAppsRuntimeAction",
+      "WebAppsRuntimeHost",
+      "WebAppsRuntimeHostProps",
+      "WebAppsRuntimeProvider",
+      "WebAppsRuntimeState",
+      "WebAppsScreen",
+      "applyWebAppChanged",
+      "createDesktopWebAppsGateway",
+      "getOpenableWebApps",
+      "isOpenableWebApp",
+      "normalizeWebAppPublicUrl",
+      "normalizeWebAppUrl",
+      "parseWebAppCatalog",
+      "parseWebAppChanged",
+      "parseWebAppChangedFrame",
+      "parseWebAppItem",
+      "shouldRetainWebAppResident",
+      "sortWebAppItems",
+      "useWebAppsRuntime",
+      "webAppsGateway",
+      "webAppsRuntimeReducer"
+    ],
+    "dependencies": [
+      "app-shell-navigation",
+      "core-api-client",
+      "core-auth-session",
+      "core-ws-transport",
+      "shared-i18n",
+      "shared-screen-header",
+      "shared-visual-foundation"
+    ],
+    "dependents": [
+      "app-shell-navigation"
+    ],
+    "tests": [],
+    "lastScannedAt": "2026-07-17T11:02:39Z"
+  },
+  "readHints": {
+    "alwaysRead": [
+      "src/features/webApps/webAppsDesktopProtocol.ts",
+      "src/features/webApps/webAppsGatewayCore.ts",
+      "src/features/webApps/WebAppsRuntimeProvider.tsx",
+      "src/features/webApps/webAppsRuntimeModel.ts",
+      "src/features/webApps/WebAppsScreen.tsx",
+      "src/features/webApps/WebAppsRuntimeHost.native.tsx"
+    ],
+    "readFor": [
+      {
+        "refs": [
+          {
+            "ref": "webapps-runtime",
+            "type": "flow"
+          },
+          {
+            "ref": "core-ws-transport",
+            "type": "module"
+          },
+          {
+            "ref": "app-shell-navigation",
+            "type": "module"
+          },
+          {
+            "ref": "src/features/webApps/webAppsGatewayCore.ts",
+            "type": "code"
+          }
+        ],
+        "when": "legacy readNext"
+      }
+    ]
+  },
+  "riskRules": [
+    "Screen 只消费 WebAppsRuntimeProvider，不直接连接 HTTP、WebSocket、SQLite 或 MMKV。",
+    "WebApps 必须复用 sharedWsTransport；close 不得调用 sharedWsTransport.stop 或移除其他 feature 的 push/status listener。",
+    "同步顺序固定为本地监听、event.subscribe 确认、push 缓存、web.webapp.list、设备校验、快照覆盖、缓存重放、实时增量。",
+    "活动 Profile 不是 desktop-ws 时必须返回需要连接 Desktop，不得把 WebApp 请求发往 Agent Platform。",
+    "removed + item=null 删除条目；其他 webapp.changed 必须校验 item.id 与 webappId 一致并按 order 稳定排序。",
+    "只有 running + available + HTTPS 可以创建或选择 WebView；连接断开时保留 resident，但禁止创建新实例。",
+    "stopped、unpublished、removed 必须卸载 resident；Tunnel 离线或发布失败不得无必要销毁已加载页面。",
+    "publicUrl 真正变化时才递增 WebView generation；列表刷新和等价 upsert 不得重复重建。",
+    "常驻池上限保持 6，列表、push 和 WebView 导航不得重复创建同一 appId 的实例。",
+    "WebView 保持 mixed content、第三方 cookie、多窗口和通用 bridge 关闭。",
+    "启动/暂停能力只能由脱敏直连协议开启，禁止临时调用 action.call。"
+  ],
+  "recentChanges": []
+}

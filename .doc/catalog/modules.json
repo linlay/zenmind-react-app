@@ -154,11 +154,23 @@
       "card": ".doc/modules/feature-notifications.json"
     },
     {
+      "id": "feature-web-apps",
+      "title": "feature-web-apps",
+      "summary": "移动端 WebApps Desktop WS 只读目录与常驻多 WebView 容器：登录后同步真实列表和增量状态，并在一级 Apps 列表与 WebAppDetail 二级容器之间复用登录会话级 resident。",
+      "pathHints": [
+        "src/features/webApps"
+      ],
+      "card": ".doc/modules/feature-web-apps.json"
+    },
+    {
       "id": "shared-conversation-content-renderer",
       "title": "shared-conversation-content-renderer",
       "summary": "对话内容渲染组件: 提供纯共享的对话内容渲染管线，普通 Markdown 热路径由原生 GFM renderer 承接，不保留 JS 自绘 Markdown AST fallback。",
       "pathHints": [
         "src/shared/components/ConversationMarkdownRenderer.tsx",
+        "src/shared/components/conversationPreview",
+        "src/shared/markdown/previewRegistry.ts",
+        "src/shared/markdown/previewSegments.ts",
         "src/shared/markdown/preprocess.ts"
       ],
       "card": ".doc/modules/shared-conversation-content-renderer.json"
