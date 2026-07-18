@@ -49,7 +49,7 @@ export function toFiniteNumber(value: unknown, fallback = Date.now()): number {
 
 const UNIX_SECONDS_TIMESTAMP_MIN = 1_000_000_000;
 const UNIX_MILLISECONDS_TIMESTAMP_MIN = 1_000_000_000_000;
-const AWAITING_TIMEOUT_SECONDS_MAX_EXCLUSIVE = 1000;
+const PROTOCOL_TIMEOUT_SECONDS_MAX_EXCLUSIVE = 1000;
 
 export function normalizeProtocolTimestampMs(value: unknown, fallback = Date.now()): number {
   if (value === null || value === undefined || value === '') {
@@ -76,7 +76,7 @@ export function normalizeProtocolTimestampMs(value: unknown, fallback = Date.now
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export function normalizeAwaitingTimeoutMs(value: unknown): number | null {
+export function normalizeProtocolTimeoutMs(value: unknown): number | null {
   if (value === null || value === undefined || value === '') {
     return null;
   }
@@ -86,7 +86,11 @@ export function normalizeAwaitingTimeoutMs(value: unknown): number | null {
     return null;
   }
 
-  return numeric < AWAITING_TIMEOUT_SECONDS_MAX_EXCLUSIVE ? numeric * 1000 : numeric;
+  return numeric < PROTOCOL_TIMEOUT_SECONDS_MAX_EXCLUSIVE ? numeric * 1000 : numeric;
+}
+
+export function normalizeAwaitingTimeoutMs(value: unknown): number | null {
+  return normalizeProtocolTimeoutMs(value);
 }
 
 export function normalizeEventType(rawType: unknown): string {

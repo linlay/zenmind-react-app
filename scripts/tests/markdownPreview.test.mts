@@ -20,6 +20,7 @@ import {
 } from '../../src/shared/components/conversationPreview/previewCache.ts';
 import {
   CONVERSATION_PREVIEW_CHANNEL,
+  CONVERSATION_PREVIEW_MAX_BRIDGE_PARAMS_BYTES,
   CONVERSATION_PREVIEW_MAX_SOURCE_BYTES,
   getConversationPreviewSourceByteLength,
   parseConversationPreviewEvent
@@ -476,13 +477,12 @@ test('html runtime preserves full documents, forwards initial data, and relays b
     }
   ]);
 
-  const capabilityToken = JSON.parse(frame.srcdoc.match(/const token=("[^"]+")/)?.[1] || '""');
-  assert.ok(capabilityToken);
+  assert.match(frame.srcdoc, /Object\.defineProperty\(window,"ReactNativeWebView"/);
+  assert.doesNotMatch(frame.srcdoc, /const token=/);
   handleMessage({
     source: childWindow,
     data: {
       channel: CONVERSATION_PREVIEW_CHANNEL,
-      token: capabilityToken,
       event: { type: 'resize', requestId: 'viewport-request', height: 320 }
     }
   });
@@ -490,6 +490,98 @@ test('html runtime preserves full documents, forwards initial data, and relays b
     channel: CONVERSATION_PREVIEW_CHANNEL,
     event: { type: 'resize', requestId: 'viewport-request', height: 320 }
   });
+
+  handleMessage({
+    source: childWindow,
+    data: { type: 'frontend_submit', params: { ignored: true } }
+  });
+  assert.equal(emitted.length, 2);
+
+  handleMessage({
+    source: {},
+    data: {
+      channel: CONVERSATION_PREVIEW_CHANNEL,
+      request: {
+        requestId: 'tool-request',
+        kind: 'html',
+        source: '<main>tool</main>',
+        theme: 'dark',
+        mode: 'inline',
+        bridge: 'frontend-tool',
+        initialData: { type: 'tool_init', data: { toolId: 'tool-1' } }
+      }
+    }
+  });
+  frame.onload?.();
+  handleMessage({
+    source: childWindow,
+    data: JSON.stringify({ type: 'frontend_submit', params: { approved: true } })
+  });
+  handleMessage({ source: childWindow, data: { type: 'unknown', params: {} } });
+  handleMessage({ source: childWindow, data: { type: 'close' } });
+  assert.deepEqual(emitted.slice(-2), [
+    {
+      channel: CONVERSATION_PREVIEW_CHANNEL,
+      event: {
+        type: 'frontend_submit',
+        requestId: 'tool-request',
+        params: { approved: true }
+      }
+    },
+    {
+      channel: CONVERSATION_PREVIEW_CHANNEL,
+      event: { type: 'close', requestId: 'tool-request' }
+    }
+  ]);
+});
+
+test('app bridge only parses bounded frontend tool messages for the active request', () => {
+  const requestId = 'tool-request';
+  assert.deepEqual(
+    parseConversationPreviewEvent(
+      {
+        channel: CONVERSATION_PREVIEW_CHANNEL,
+        event: { type: 'frontend_submit', requestId, params: { decision: 'approve' } }
+      },
+      requestId
+    ),
+    {
+      type: 'frontend_submit',
+      requestId,
+      params: { decision: 'approve' }
+    }
+  );
+  assert.deepEqual(
+    parseConversationPreviewEvent(
+      { channel: CONVERSATION_PREVIEW_CHANNEL, event: { type: 'done', requestId } },
+      requestId
+    ),
+    { type: 'done', requestId }
+  );
+  assert.equal(
+    parseConversationPreviewEvent(
+      {
+        channel: CONVERSATION_PREVIEW_CHANNEL,
+        event: { type: 'frontend_submit', requestId: 'stale', params: {} }
+      },
+      requestId
+    ),
+    null
+  );
+  assert.equal(
+    parseConversationPreviewEvent(
+      {
+        channel: CONVERSATION_PREVIEW_CHANNEL,
+        event: {
+          type: 'frontend_submit',
+          requestId,
+          params: { payload: 'x'.repeat(CONVERSATION_PREVIEW_MAX_BRIDGE_PARAMS_BYTES) }
+        }
+      },
+      requestId
+    ),
+    null
+  );
 });
 
 test('runtime bridge rejects forged child tokens and accepts the active capability only', () => {

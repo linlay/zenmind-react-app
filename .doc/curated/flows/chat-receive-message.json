@@ -24,7 +24,7 @@
     },
     {
       "order": 3,
-      "label": "feature-chat-timeline 统一处理运行态事件、assistant stream delta、SQLite message fallback、远端 event history replay、awaiting question/approval/form/plan interactive 归一和 normalized timeline 序列化，向 service / projector / 详情页提供 messages、runtimeState、awaiting interactive payload、display items 和 rich snapshot rows。",
+      "label": "feature-chat-timeline 统一处理运行态事件、assistant stream delta、SQLite message fallback、远端 event history replay、awaiting question/approval/form/plan interactive、html/qlc frontend tool 元数据与本地 resolution 归一和 normalized timeline 序列化，向 service / projector / 详情页提供 messages、runtimeState、interactive selector、display items 和 rich snapshot rows。",
       "moduleId": "feature-chat-timeline",
       "file": "src/features/chatTimeline/timelineReducer.ts",
       "symbol": "applyChatTimelineEvent"
@@ -38,7 +38,7 @@
     },
     {
       "order": 5,
-      "label": "Chat 首页目录只在 directoryProjectionChanged 或 home.directory.replace 时回读目录切片；普通 home.item.patch 只 patch 当前可见目录项 preview。useChatDetailConversationController 只用 conversation.timeline.replace/reset 驱动详情主消息区，question/approval/form/plan awaiting 由 ChatAwaitingDock 消费 timeline awaiting.interactive 并调用 chatSyncService.submitAwaiting；form HTML viewport 由 AwaitingFormViewport 拉取 /ap/api/viewport 并桥接 frontend_awaiting_submit，message/stream/runtime scoped event 保留兼容但不再维护页面第二套状态，避免无关会话触发全量 reload。",
+      "label": "Chat 首页目录只在 directoryProjectionChanged 或 home.directory.replace 时回读目录切片；普通 home.item.patch 只 patch 当前可见目录项 preview。useChatDetailConversationController 只用 conversation.timeline.replace/reset 驱动详情主消息区；awaiting 与 active frontend tool 都从 timeline 派生，分别由 ChatAwaitingDock / FrontendToolDock 消费并调用 chatSyncService 提交；FrontendToolDock 复用安全 HTML runtime 发送 tool_init，只接收 frontend_submit/close/done 白名单，message/stream/runtime scoped event 保留兼容但不再维护页面第二套状态。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
       "symbol": "useChatDetailConversationController"

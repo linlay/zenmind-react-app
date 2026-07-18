@@ -14,17 +14,20 @@ import {
   buildAgentDetailPayload,
   buildChatDetailPayload,
   buildMarkChatReadPayload,
+  buildSubmitFrontendToolPayload,
   buildSubmitAwaitingPayload,
   projectRemoteAgentDetail,
   type AgentDetailSnapshot,
   type AwaitingSubmitPayloadData,
   type ChatApiEnvelope,
+  type FrontendToolSubmitPayloadData,
   type MarkChatReadRequest,
   type MarkChatReadResponse,
   type RemoteAgentDetail,
   type RemoteChatDetail,
   type RemoteChatSummary,
   type SubmitAwaitingResponse,
+  type SubmitFrontendToolResponse,
   unwrapChatApiEnvelope
 } from '../../core/api/services/chatApi';
 import {
@@ -120,11 +123,14 @@ import {
   applyChatTimelineRunUnavailable,
   applyChatTimelineStreamDelta,
   createChatTimelineState,
+  getActiveChatTimelineFrontendTool,
   getChatTimelineActiveRunId,
   mergeChatTimelineState,
   patchChatTimelineMessage,
   projectTimelineMessages,
-  projectTimelineRuntimeState
+  projectTimelineRuntimeState,
+  resolveChatTimelineFrontendTool,
+  type ChatTimelineFrontendToolResolution
 } from '../chatTimeline/index.ts';
 import type { ChatTimelineState } from '../chatTimeline/index.ts';
 
@@ -297,6 +303,14 @@ function findSingleStreamBufferByRun(
 
 function createAwaitingSubmitId(): string {
   return `submit_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function createRunControlRequestId(kind: string): string {
@@ -482,6 +496,7 @@ class ChatSyncService {
   private readonly activeOutgoingStreams = new Map<string, ActiveOutgoingStreamState>();
   private readonly lastReadMarks = new Map<string, ReadMarkState>();
   private readonly readConfirmations = new Map<string, Promise<void>>();
+  private readonly frontendToolSubmitRequests = new Map<string, Promise<SubmitFrontendToolResponse>>();
   private readonly timelineStates = new Map<string, ChatTimelineState>();
   private readonly agentDetails = new Map<string, AgentDetailSnapshot | null>();
   private readonly agentDetailRequests = new Map<string, Promise<AgentDetailSnapshot | null>>();
@@ -880,6 +895,7 @@ class ChatSyncService {
       this.inFlightOutgoingIds.clear();
       this.lastReadMarks.clear();
       this.readConfirmations.clear();
+      this.frontendToolSubmitRequests.clear();
       this.timelineStates.clear();
       this.pendingRuntimeEmitReasons.clear();
     }
@@ -1001,6 +1017,7 @@ class ChatSyncService {
     });
     this.timelinePersistTimers.clear();
     this.readConfirmations.clear();
+    this.frontendToolSubmitRequests.clear();
     this.inFlightOutgoingIds.clear();
     this.agentDetails.clear();
     this.agentDetailRequests.clear();
@@ -1114,6 +1131,113 @@ class ChatSyncService {
 
   async reconcileConversation(conversationId: string, reason: ChatSyncReason = 'reconcile') {
     return this.scheduleConversationReconcile(conversationId, reason, true);
+  }
+
+  resolveFrontendTool(
+    conversationId: string,
+    toolKey: string,
+    reason: ChatTimelineFrontendToolResolution
+  ): boolean {
+    const normalizedConversationId = toText(conversationId);
+    const normalizedToolKey = toText(toolKey);
+    if (!normalizedConversationId || !normalizedToolKey) {
+      return false;
+    }
+
+    const currentState = this.getConversationTimelineState(normalizedConversationId);
+    if (getActiveChatTimelineFrontendTool(currentState)?.key !== normalizedToolKey) {
+      return false;
+    }
+    const nextState = resolveChatTimelineFrontendTool(
+      currentState,
+      normalizedToolKey,
+      reason
+    );
+    if (nextState === currentState) {
+      return false;
+    }
+    this.publishTimelineState(normalizedConversationId, 'frontend_tool', nextState);
+    return true;
+  }
+
+  submitFrontendTool(
+    conversationId: string,
+    payload: FrontendToolSubmitPayloadData
+  ): Promise<SubmitFrontendToolResponse> {
+    const normalizedConversationId = toText(conversationId);
+    const toolKey = toText(payload.toolKey);
+    const runId = toText(payload.runId);
+    const toolId = toText(payload.toolId);
+    if (!normalizedConversationId || !toolKey || !runId || !toolId || !isPlainRecord(payload.params)) {
+      return Promise.reject(new Error('Conversation id, tool key, run id, tool id and params are required'));
+    }
+
+    const activeTool = getActiveChatTimelineFrontendTool(
+      this.getConversationTimelineState(normalizedConversationId)
+    );
+    if (
+      !activeTool ||
+      activeTool.key !== toolKey ||
+      activeTool.runId !== runId ||
+      activeTool.toolId !== toolId
+    ) {
+      return Promise.reject(new Error('Frontend tool is no longer active'));
+    }
+
+    const requestKey = JSON.stringify([normalizedConversationId, toolKey]);
+    const pendingRequest = this.frontendToolSubmitRequests.get(requestKey);
+    if (pendingRequest) {
+      return pendingRequest;
+    }
+
+    const request: Promise<SubmitFrontendToolResponse> = (async () => {
+      const scope = await this.resolveRunControlScope(normalizedConversationId, runId);
+      const currentTool = getActiveChatTimelineFrontendTool(
+        this.getConversationTimelineState(normalizedConversationId)
+      );
+      if (
+        !currentTool ||
+        currentTool.key !== toolKey ||
+        currentTool.runId !== runId ||
+        currentTool.toolId !== toolId
+      ) {
+        throw new Error('Frontend tool is no longer active');
+      }
+
+      const teamId = toText(scope.teamId);
+      const agentKey = teamId ? '' : currentTool.agentKey || toText(scope.agentKey);
+      if (!agentKey && !teamId) {
+        throw new Error('agentKey or teamId is required for frontend tool submit');
+      }
+
+      const response =
+        (await this.requestChatApi<SubmitFrontendToolResponse>(
+          CHAT_SUBMIT_TRANSPORT_TYPE,
+          buildSubmitFrontendToolPayload({
+            chatId: normalizedConversationId,
+            runId,
+            ...(teamId ? { teamId } : { agentKey }),
+            toolId,
+            params: payload.params,
+          })
+        )) || {};
+      const accepted = Boolean(response.accepted);
+      const detail = toText(response.detail) || (accepted ? 'accepted' : 'unmatched');
+      if (!accepted) {
+        await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
+        throw new Error(detail);
+      }
+
+      this.resolveFrontendTool(normalizedConversationId, toolKey, 'submitted');
+      await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
+      return response;
+    })().finally(() => {
+      if (this.frontendToolSubmitRequests.get(requestKey) === request) {
+        this.frontendToolSubmitRequests.delete(requestKey);
+      }
+    });
+    this.frontendToolSubmitRequests.set(requestKey, request);
+    return request;
   }
 
   async submitAwaiting(conversationId: string, payload: AwaitingSubmitPayloadData) {

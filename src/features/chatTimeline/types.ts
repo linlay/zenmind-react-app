@@ -243,9 +243,15 @@ export type ChatTimelineTextNode = ChatTimelineBaseNode & {
 
 export type ChatTimelineToolNode = ChatTimelineBaseNode & {
   kind: 'tool';
+  agentKey: string;
   toolId: string;
   toolName: string;
   toolLabel: string;
+  toolType: string;
+  viewportKey: string;
+  toolTimeoutMs: number | null;
+  toolParams: Record<string, unknown>;
+  frontendToolState: ChatTimelineFrontendToolState | null;
   description: string;
   title: string;
   status: ChatTimelineRuntimeStatus | string;
@@ -253,6 +259,32 @@ export type ChatTimelineToolNode = ChatTimelineBaseNode & {
   resultText: string;
   body: string;
   streaming: boolean;
+};
+
+export type ChatTimelineFrontendToolResolution = 'submitted' | 'close' | 'done' | 'timeout';
+
+export type ChatTimelineFrontendToolState =
+  | { status: 'active' }
+  | {
+      status: 'resolved';
+      reason: ChatTimelineFrontendToolResolution;
+      resolvedAt: number;
+    };
+
+export type ChatTimelineActiveFrontendTool = {
+  key: string;
+  conversationId: string;
+  runId: string;
+  agentKey: string;
+  toolId: string;
+  toolName: string;
+  toolLabel: string;
+  toolType: 'html' | 'qlc';
+  viewportKey: string;
+  toolTimeoutMs: number | null;
+  toolParams: Record<string, unknown>;
+  description: string;
+  createdAt: number;
 };
 
 export type ChatTimelineSourceNode = ChatTimelineBaseNode & {

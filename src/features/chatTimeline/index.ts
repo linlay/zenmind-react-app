@@ -25,6 +25,9 @@ export type {
   ChatTimelineDeliveryStatus,
   ChatTimelineDisplayItem,
   ChatTimelineDisplayItemKind,
+  ChatTimelineActiveFrontendTool,
+  ChatTimelineFrontendToolResolution,
+  ChatTimelineFrontendToolState,
   ChatTimelineLifecycle,
   ChatTimelineMessageNode,
   ChatTimelineMessageRole,
@@ -74,6 +77,13 @@ export {
   getChatTimelineDisplayItemType,
 } from './timelineDisplay.ts';
 export { resolveChatTimelineUsageModelKey } from './usageSummary.ts';
+export {
+  getActiveChatTimelineFrontendTool,
+  normalizeFrontendToolParams,
+  normalizeFrontendToolType,
+  parseFrontendToolArgs,
+  resolveChatTimelineFrontendTool,
+} from './timelineFrontendTool.ts';
 export type {
   ChatTimelineDisplayModel,
   ChatTimelineDisplayTailSignature,

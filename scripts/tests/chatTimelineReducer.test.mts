@@ -13,12 +13,14 @@ import {
   createChatTimelineState,
   deriveChatTimelineState,
   deriveChatTimelineStateFromMessages,
+  getActiveChatTimelineFrontendTool,
   getAwaitingInteractiveTimeout,
   getChatTimelineActiveRunId,
   mergeChatTimelineState,
   patchChatTimelineMessage,
   projectTimelineMessages,
   projectTimelineRuntimeState,
+  resolveChatTimelineFrontendTool,
 } from '../../src/features/chatTimeline/index.ts';
 
 const feedbackQuestion = {
@@ -1570,6 +1572,121 @@ test('timeline reducer merges tool snapshot with runless string result', () => {
   assert.equal(tool.runId, 'run-1');
   assert.match(tool.argsText, /file_path/);
   assert.match(tool.resultText, /export const ok/);
+});
+
+test('timeline derives one active frontend tool and incrementally parses its params', () => {
+  const started = deriveChatTimelineState('chat-tool', [
+    {
+      type: 'run.start',
+      runId: 'run-tool',
+      agentKey: 'agent.demo',
+      timestamp: 1_700_000_000_000,
+    },
+    {
+      type: 'tool.start',
+      runId: 'run-tool',
+      toolId: 'tool-form',
+      agentKey: 'agent.demo',
+      toolName: 'leave_form',
+      toolLabel: '请假申请',
+      toolType: 'HTML',
+      viewportKey: 'leave-form',
+      toolTimeout: 60,
+      timestamp: 1_700_000_000_100,
+    },
+    {
+      type: 'tool.args',
+      runId: 'run-tool',
+      toolId: 'tool-form',
+      delta: '{"days":',
+      timestamp: 1_700_000_000_110,
+    },
+    {
+      type: 'tool.args',
+      runId: 'run-tool',
+      toolId: 'tool-form',
+      delta: '2}',
+      timestamp: 1_700_000_000_120,
+    },
+  ]);
+
+  const active = getActiveChatTimelineFrontendTool(started);
+  assert.equal(active?.toolId, 'tool-form');
+  assert.equal(active?.toolType, 'html');
+  assert.equal(active?.toolTimeoutMs, 60_000);
+  assert.deepEqual(active?.toolParams, { days: 2 });
+  assert.equal(
+    started.orderedNodeIds.filter((nodeId) => started.nodesById[nodeId]?.kind === 'tool').length,
+    1
+  );
+
+  const completed = applyChatTimelineEvent(started, 'chat-tool', {
+    type: 'tool.result',
+    runId: 'run-tool',
+    toolId: 'tool-form',
+    result: { accepted: true },
+    timestamp: 1_700_000_000_200,
+  });
+  assert.equal(getActiveChatTimelineFrontendTool(completed), null);
+});
+
+test('timeline only resolves the current frontend tool without completing its server lifecycle', () => {
+  const started = deriveChatTimelineState('chat-tool', [
+    {
+      type: 'tool.start',
+      runId: 'run-tool',
+      toolId: 'tool-form',
+      toolType: 'qlc',
+      viewportKey: 'tool-form',
+      timestamp: 1_700_000_000_000,
+    },
+  ]);
+  const active = getActiveChatTimelineFrontendTool(started);
+  assert.ok(active);
+
+  const stale = resolveChatTimelineFrontendTool(started, 'wrong-key', 'close');
+  assert.equal(stale, started);
+  const resolved = resolveChatTimelineFrontendTool(
+    started,
+    active.key,
+    'done',
+    1_700_000_000_100
+  );
+  assert.equal(getActiveChatTimelineFrontendTool(resolved), null);
+  const toolNode = resolved.nodesById[active.key];
+  assert.equal(toolNode?.lifecycle, 'active');
+  assert.equal(toolNode?.kind === 'tool' ? toolNode.frontendToolState?.status : '', 'resolved');
+});
+
+test('timeline does not resurrect an older frontend tool after the latest one resolves', () => {
+  const state = deriveChatTimelineState('chat-tool', [
+    {
+      type: 'tool.start',
+      runId: 'run-tool',
+      toolId: 'tool-old',
+      toolType: 'html',
+      viewportKey: 'tool-old',
+      timestamp: 1_700_000_000_000,
+    },
+    {
+      type: 'tool.start',
+      runId: 'run-tool',
+      toolId: 'tool-latest',
+      toolType: 'html',
+      viewportKey: 'tool-latest',
+      timestamp: 1_700_000_000_100,
+    },
+  ]);
+  const latest = getActiveChatTimelineFrontendTool(state);
+  assert.equal(latest?.toolId, 'tool-latest');
+
+  const resolved = resolveChatTimelineFrontendTool(
+    state,
+    latest?.key || '',
+    'close',
+    1_700_000_000_200
+  );
+  assert.equal(getActiveChatTimelineFrontendTool(resolved), null);
 });
 
 test('timeline reducer renders structured plan and approval awaiting events', () => {

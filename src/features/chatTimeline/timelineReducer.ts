@@ -4,6 +4,7 @@ import {
   classifyChatProtocolEvent,
   extractEventText,
   normalizeEventType,
+  normalizeProtocolTimeoutMs,
   normalizeProtocolTimestampMs,
   toText,
 } from '../../core/api/services/chatEventProtocol.ts';
@@ -59,6 +60,11 @@ import {
   normalizeChatTimelineSourceEvent,
 } from './timelineSource.ts';
 import { buildChatTimelineUsageSummary, chatTimelineUsageSummaryEquals } from './usageSummary.ts';
+import {
+  normalizeFrontendToolParams,
+  normalizeFrontendToolType,
+  parseFrontendToolArgs,
+} from './timelineFrontendTool.ts';
 
 export type MergeChatTimelineStateOptions = {
   preserveTerminalRunIds?: readonly string[];
@@ -1287,9 +1293,17 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
   }
   if (left.kind === 'tool' && right.kind === 'tool') {
     return (
+      left.agentKey !== right.agentKey ||
       left.toolId !== right.toolId ||
       left.toolName !== right.toolName ||
       left.toolLabel !== right.toolLabel ||
+      left.toolType !== right.toolType ||
+      left.viewportKey !== right.viewportKey ||
+      left.toolTimeoutMs !== right.toolTimeoutMs ||
+      (left.toolParams !== right.toolParams &&
+        safeJson(left.toolParams) !== safeJson(right.toolParams)) ||
+      (left.frontendToolState !== right.frontendToolState &&
+        safeJson(left.frontendToolState) !== safeJson(right.frontendToolState)) ||
       left.description !== right.description ||
       left.title !== right.title ||
       left.status !== right.status ||
@@ -1896,10 +1910,30 @@ function applyToolEvent(
   const toolId = toText(event.toolCallId || event.toolId) || current?.toolId || '';
   const toolName = toText(event.toolName || event.name) || current?.toolName || '';
   const toolLabel = toText(event.toolLabel || event.title) || current?.toolLabel || '';
+  const agentKey = toText(event.agentKey) || current?.agentKey || '';
+  const toolType = normalizeFrontendToolType(event.toolType) || current?.toolType || '';
+  const viewportKey = toText(event.viewportKey) || current?.viewportKey || '';
+  const toolTimeoutMs = Object.prototype.hasOwnProperty.call(event, 'toolTimeout')
+    ? normalizeProtocolTimeoutMs(event.toolTimeout)
+    : current?.toolTimeoutMs ?? null;
   const description = toText(event.description) || current?.description || '';
-  const argsText =
-    firstFormattedText(event.args, event.arguments, event.input, event.params) ||
-    (type.endsWith('.args') ? bodyFromEvent(event) : current?.argsText || '');
+  const directParams =
+    normalizeFrontendToolParams(event.toolParams) ||
+    normalizeFrontendToolParams(event.params) ||
+    normalizeFrontendToolParams(event.args) ||
+    normalizeFrontendToolParams(event.arguments) ||
+    normalizeFrontendToolParams(event.input);
+  const argsDelta = type.endsWith('.args') ? String(event.delta || '') : '';
+  const argsText = directParams
+    ? safeJson(directParams)
+    : argsDelta
+      ? `${current?.argsText || ''}${argsDelta}`
+      : firstFormattedText(event.args, event.arguments, event.input, event.params, event.toolParams) ||
+        (type.endsWith('.args') ? bodyFromEvent(event) : current?.argsText || '');
+  const toolParams = directParams || parseFrontendToolArgs(argsText) || current?.toolParams || {};
+  const frontendToolState =
+    current?.frontendToolState ||
+    (type === 'tool.start' && toolType && viewportKey ? { status: 'active' as const } : null);
   const resultText =
     firstFormattedText(event.result, event.output, event.error) ||
     (type.endsWith('.result') || type.endsWith('.end')
@@ -1917,9 +1951,15 @@ function applyToolEvent(
   return upsertNode(baseState, {
     id,
     kind: 'tool',
+    agentKey,
     toolId,
     toolName,
     toolLabel,
+    toolType,
+    viewportKey,
+    toolTimeoutMs,
+    toolParams,
+    frontendToolState,
     description,
     title: toolLabel || toolName || current?.title || '',
     status:

@@ -1,5 +1,10 @@
 import { ApiError, authenticatedApiRequest } from '../apiClient.ts';
 
+export {
+  buildSubmitFrontendToolPayload,
+  type SubmitFrontendToolRequest,
+} from './frontendToolSubmitProtocol.ts';
+
 export const CHAT_SUMMARIES_TRANSPORT_TYPE = '/api/chats';
 export const CHAT_DETAIL_TRANSPORT_TYPE = '/api/chat';
 export const CHAT_AGENT_DETAIL_TRANSPORT_TYPE = '/api/agent';
@@ -289,6 +294,15 @@ export type SubmitAwaitingResponse = {
   chatId?: string;
   [key: string]: unknown;
 };
+
+export type FrontendToolSubmitPayloadData = {
+  toolKey: string;
+  runId: string;
+  toolId: string;
+  params: Record<string, unknown>;
+};
+
+export type SubmitFrontendToolResponse = SubmitAwaitingResponse;
 
 export type ChatViewportResponse = {
   html?: string;

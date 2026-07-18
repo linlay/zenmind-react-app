@@ -5,9 +5,41 @@ import {
   applyChatTimelineEvent,
   deserializeChatTimelineState,
   deriveChatTimelineState,
+  getActiveChatTimelineFrontendTool,
+  mergeChatTimelineState,
+  resolveChatTimelineFrontendTool,
   serializeChatTimelineState,
   timelinePersistenceInternals,
 } from '../../src/features/chatTimeline/index.ts';
+
+test('timeline persistence keeps frontend tool dismissal across restore and stale replay', () => {
+  const toolEvent = {
+    type: 'tool.start',
+    runId: 'run-tool',
+    toolId: 'tool-form',
+    toolType: 'html',
+    viewportKey: 'leave-form',
+    toolParams: { days: 1 },
+    timestamp: 1_700_000_000_000,
+  };
+  const active = deriveChatTimelineState('chat-tool', [toolEvent]);
+  const tool = getActiveChatTimelineFrontendTool(active);
+  assert.ok(tool);
+  const dismissed = resolveChatTimelineFrontendTool(
+    active,
+    tool.key,
+    'close',
+    1_700_000_000_100
+  );
+  const serialized = serializeChatTimelineState(dismissed);
+  const restored = deserializeChatTimelineState(serialized.meta, serialized.nodes);
+  assert.ok(restored);
+  assert.equal(getActiveChatTimelineFrontendTool(restored), null);
+
+  const staleReplay = deriveChatTimelineState('chat-tool', [toolEvent]);
+  const merged = mergeChatTimelineState(restored, staleReplay);
+  assert.equal(getActiveChatTimelineFrontendTool(merged), null);
+});
 import { parseConversationMarkdownSegments } from '../../src/shared/markdown/previewSegments.ts';
 import {
   CONVERSATION_VIEWPORT_FENCE_EXTENSIONS,

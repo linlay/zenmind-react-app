@@ -15,11 +15,13 @@ import type { ConversationPreviewRequest, ConversationPreviewSurfaceProps } from
 
 export function useConversationPreviewRuntime({
   active,
+  bridge,
   cacheKey,
   heightBounds,
   initialData,
   kind,
   mode,
+  onBridgeEvent,
   retryNonce,
   source,
   theme,
@@ -32,8 +34,16 @@ export function useConversationPreviewRuntime({
   const [loaded, setLoaded] = useState(false);
   const requestId = useMemo(() => createConversationPreviewRequestId(cacheKey, retryNonce), [cacheKey, retryNonce]);
   const request = useMemo<ConversationPreviewRequest>(
-    () => ({ requestId, kind, source, theme, mode, ...(initialData !== undefined ? { initialData } : {}) }),
-    [initialData, kind, mode, requestId, source, theme]
+    () => ({
+      requestId,
+      kind,
+      source,
+      theme,
+      mode,
+      ...(initialData !== undefined ? { initialData } : {}),
+      ...(bridge ? { bridge } : {})
+    }),
+    [bridge, initialData, kind, mode, requestId, source, theme]
   );
   const serializedRequest = useMemo(() => serializeConversationPreviewRequest(request), [request]);
 
@@ -94,9 +104,15 @@ export function useConversationPreviewRuntime({
       } else if (previewEvent.type === 'error') {
         setLoaded(false);
         onError(previewEvent.message);
+      } else if (
+        previewEvent.type === 'frontend_submit' ||
+        previewEvent.type === 'close' ||
+        previewEvent.type === 'done'
+      ) {
+        onBridgeEvent?.(previewEvent);
       }
     },
-    [cacheKey, heightBounds, kind, mode, onError, onReady, requestId]
+    [cacheKey, heightBounds, kind, mode, onBridgeEvent, onError, onReady, requestId]
   );
 
   return {

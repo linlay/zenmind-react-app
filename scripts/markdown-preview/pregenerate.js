@@ -207,7 +207,7 @@ function createOuterRuntime(kind, childDocument = '') {
       const renderHtml = (request) => {
         const generation = ++htmlLoadGeneration;
         const csp = ${JSON.stringify(`<meta http-equiv="Content-Security-Policy" content="${CHILD_CSP.html}">`)};
-        const guard = '<script>(()=>{const channel=' + JSON.stringify(CHANNEL) + ';const token=' + JSON.stringify(capabilityToken) + ';const requestId=' + JSON.stringify(request.requestId) + ';const emit=event=>parent.postMessage({channel,token,event:{...event,requestId}},"*");const reportHeight=()=>emit({type:"resize",height:Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0,1)});addEventListener("click",event=>{const target=event.target;target&&target.closest&&target.closest("a")&&event.preventDefault()},true);addEventListener("submit",event=>event.preventDefault(),true);addEventListener("error",event=>emit({type:"error",message:String(event.message||"Viewport failed.").slice(0,2000)}));addEventListener("unhandledrejection",event=>emit({type:"error",message:String(event.reason||"Viewport failed.").slice(0,2000)}));addEventListener("load",()=>requestAnimationFrame(reportHeight));if(typeof ResizeObserver!=="undefined")new ResizeObserver(reportHeight).observe(document.documentElement);window.open=()=>null;})();<\\/script>';
+        const guard = '<script>(()=>{const channel=' + JSON.stringify(CHANNEL) + ';const requestId=' + JSON.stringify(request.requestId) + ';const emit=event=>parent.postMessage({channel,event:{...event,requestId}},"*");try{delete window.ReactNativeWebView;Object.defineProperty(window,"ReactNativeWebView",{value:undefined,writable:false,configurable:false})}catch{}const reportHeight=()=>emit({type:"resize",height:Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0,1)});addEventListener("click",event=>{const target=event.target;target&&target.closest&&target.closest("a")&&event.preventDefault()},true);addEventListener("submit",event=>event.preventDefault(),true);addEventListener("error",event=>emit({type:"error",message:String(event.message||"Viewport failed.").slice(0,2000)}));addEventListener("unhandledrejection",event=>emit({type:"error",message:String(event.reason||"Viewport failed.").slice(0,2000)}));addEventListener("load",()=>requestAnimationFrame(reportHeight));if(typeof ResizeObserver!=="undefined")new ResizeObserver(reportHeight).observe(document.documentElement);window.open=()=>null;})();<\\/script>';
         frame.onload = () => {
           if (generation !== htmlLoadGeneration) return;
           if (Object.prototype.hasOwnProperty.call(request, 'initialData')) {
@@ -232,11 +232,41 @@ function createOuterRuntime(kind, childDocument = '') {
       };
       const handleParentMessage = (event) => {
         if (event.source === frame.contentWindow) {
-          const payload = event.data;
-          if (!payload || payload.channel !== CHANNEL || payload.token !== capabilityToken || !activeRequest) return;
-          const childEvent = payload.event;
-          if (!childEvent || childEvent.requestId !== activeRequest.requestId) return;
-          emit(childEvent);
+          if (!activeRequest) return;
+          let payload = event.data;
+          if (typeof payload === 'string') {
+            try { payload = JSON.parse(payload); } catch { return; }
+          }
+          if (!payload || typeof payload !== 'object') return;
+          const childEvent = payload.channel === CHANNEL ? payload.event : null;
+          if (
+            payload.token === capabilityToken &&
+            childEvent &&
+            childEvent.requestId === activeRequest.requestId
+          ) {
+            emit(childEvent);
+            return;
+          }
+          if (KIND !== 'html') return;
+          if (childEvent && childEvent.requestId === activeRequest.requestId) {
+            if (childEvent.type === 'resize' && typeof childEvent.height === 'number' && Number.isFinite(childEvent.height)) {
+              emit({ type: 'resize', requestId: activeRequest.requestId, height: childEvent.height });
+            } else if (childEvent.type === 'error' && typeof childEvent.message === 'string') {
+              emit({ type: 'error', requestId: activeRequest.requestId, message: childEvent.message.slice(0, 2000) });
+            }
+            return;
+          }
+          if (activeRequest.bridge !== 'frontend-tool') return;
+          if (payload.type === 'close' || payload.type === 'done') {
+            emit({ type: payload.type, requestId: activeRequest.requestId });
+            return;
+          }
+          if (payload.type !== 'frontend_submit' || !payload.params || typeof payload.params !== 'object' || Array.isArray(payload.params)) return;
+          try {
+            const serializedParams = JSON.stringify(payload.params);
+            if (serializedParams.length > 65536) return;
+            emit({ type: 'frontend_submit', requestId: activeRequest.requestId, params: JSON.parse(serializedParams) });
+          } catch {}
           return;
         }
         let payload = event.data;

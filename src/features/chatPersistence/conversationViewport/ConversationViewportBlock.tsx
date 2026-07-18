@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { PreviewErrorPanel } from '../../../shared/components/conversationPreview/PreviewErrorPanel';
@@ -10,7 +10,7 @@ import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
 import { hashConversationPreviewSource } from '../../../shared/markdown/previewSegments';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
-import { conversationViewportDocumentStore } from './viewportDocument';
+import { useConversationViewportDocument } from './useConversationViewportDocument';
 
 const VIEWPORT_HEIGHT_BOUNDS: ConversationPreviewHeightBounds = {
   initial: 260,
@@ -38,13 +38,7 @@ export const ConversationViewportBlock = memo(function ConversationViewportBlock
   const t = useT();
   const active = useConversationPreviewRowActive();
   const { resolvedPreference, theme } = useAppTheme();
-  const requestGenerationRef = useRef(0);
-  const attemptedLoadNonceRef = useRef(-1);
-  const [html, setHtml] = useState(() => conversationViewportDocumentStore.getCached(viewportKey));
-  const hasDocumentRef = useRef(Boolean(html));
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState('');
-  const [refreshNonce, setRefreshNonce] = useState(0);
+  const { html, loading, error: documentError, reload } = useConversationViewportDocument(viewportKey, active);
   const {
     error: executionError,
     handleError,
@@ -53,61 +47,19 @@ export const ConversationViewportBlock = memo(function ConversationViewportBlock
     retryNonce
   } = usePreviewExecutionState();
 
-  useEffect(() => {
-    if (!active || attemptedLoadNonceRef.current === refreshNonce) {
-      return;
-    }
-    attemptedLoadNonceRef.current = refreshNonce;
-    if (hasDocumentRef.current && refreshNonce === 0) {
-      return;
-    }
-    const generation = requestGenerationRef.current + 1;
-    requestGenerationRef.current = generation;
-    let disposed = false;
-    let completed = false;
-    setLoading(true);
-    setLoadError('');
-    conversationViewportDocumentStore
-      .load(viewportKey, { force: refreshNonce > 0 })
-      .then((nextHtml) => {
-        if (!disposed && requestGenerationRef.current === generation) {
-          hasDocumentRef.current = true;
-          setHtml(nextHtml);
-        }
-      })
-      .catch((error: unknown) => {
-        if (!disposed && requestGenerationRef.current === generation) {
-          setLoadError(
-            t('timeline.viewport.loadFailed', {
-              detail: error instanceof Error ? error.message : String(error)
-            })
-          );
-        }
-      })
-      .finally(() => {
-        completed = true;
-        if (!disposed && requestGenerationRef.current === generation) {
-          setLoading(false);
-        }
-      });
-    return () => {
-      disposed = true;
-      if (!completed && requestGenerationRef.current === generation) {
-        attemptedLoadNonceRef.current = -1;
-      }
-    };
-  }, [active, refreshNonce, t, viewportKey]);
-
   const handleRefresh = useCallback(() => {
     handleRetry();
-    setLoadError('');
-    setRefreshNonce((current) => current + 1);
-  }, [handleRetry]);
+    reload();
+  }, [handleRetry, reload]);
   const cacheKey = useMemo(
     () => `viewport:${hashConversationPreviewSource(viewportKey)}:${hashConversationPreviewSource(html)}:${sourceHash}:${resolvedPreference}`,
     [html, resolvedPreference, sourceHash, viewportKey]
   );
+  const loadError = documentError
+    ? t('timeline.viewport.loadFailed', { detail: documentError })
+    : '';
   const error = loadError || executionError;
+  const handleErrorRetry = loadError ? reload : handleRetry;
 
   return (
     <View className={CONTAINER_CLASS}>
@@ -134,7 +86,7 @@ export const ConversationViewportBlock = memo(function ConversationViewportBlock
           )}
         </Pressable>
       </View>
-      {error ? <PreviewErrorPanel message={error} onRetry={handleRefresh} placement="inline" /> : null}
+      {error ? <PreviewErrorPanel message={error} onRetry={handleErrorRetry} placement="inline" /> : null}
       {!html && !error ? (
         <View className={STATUS_CLASS}>
           <Text allowFontScaling={false} className={STATUS_TEXT_CLASS}>

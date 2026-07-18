@@ -2,6 +2,7 @@ import type { ConversationPreviewEvent, ConversationPreviewRequest } from './typ
 
 export const CONVERSATION_PREVIEW_CHANNEL = 'zenmind-conversation-preview';
 export const CONVERSATION_PREVIEW_MAX_SOURCE_BYTES = 256 * 1024;
+export const CONVERSATION_PREVIEW_MAX_BRIDGE_PARAMS_BYTES = 64 * 1024;
 export const CONVERSATION_PREVIEW_TIMEOUT_MS = 8_000;
 
 export function createConversationPreviewRequestId(cacheKey: string, retryNonce: number): string {
@@ -43,7 +44,13 @@ export function parseConversationPreviewEvent(
   if (envelope.channel !== CONVERSATION_PREVIEW_CHANNEL || !envelope.event || typeof envelope.event !== 'object') {
     return null;
   }
-  const event = envelope.event as { type?: unknown; requestId?: unknown; height?: unknown; message?: unknown };
+  const event = envelope.event as {
+    type?: unknown;
+    requestId?: unknown;
+    height?: unknown;
+    message?: unknown;
+    params?: unknown;
+  };
   if (event.requestId !== expectedRequestId) {
     return null;
   }
@@ -56,5 +63,33 @@ export function parseConversationPreviewEvent(
   if (event.type === 'error' && typeof event.message === 'string') {
     return { type: 'error', requestId: expectedRequestId, message: event.message.slice(0, 2_000) };
   }
+  if (event.type === 'close' || event.type === 'done') {
+    return { type: event.type, requestId: expectedRequestId };
+  }
+  if (event.type === 'frontend_submit' && isPlainRecord(event.params)) {
+    try {
+      const serializedParams = JSON.stringify(event.params);
+      if (
+        getConversationPreviewSourceByteLength(serializedParams) >
+        CONVERSATION_PREVIEW_MAX_BRIDGE_PARAMS_BYTES
+      ) {
+        return null;
+      }
+      const params = JSON.parse(serializedParams);
+      return isPlainRecord(params)
+        ? { type: 'frontend_submit', requestId: expectedRequestId, params }
+        : null;
+    } catch {
+      return null;
+    }
+  }
   return null;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }

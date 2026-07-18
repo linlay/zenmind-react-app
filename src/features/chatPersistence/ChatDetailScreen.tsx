@@ -22,10 +22,16 @@ import { ChatTimelineList } from './components/ChatTimelineList';
 import { ChatDetailSkeleton } from './components/ChatDetailSkeleton';
 import { ChatNewConversationIntro } from './components/ChatNewConversationIntro';
 import { CopyToast } from './components/CopyToast';
+import { FrontendToolDock } from './frontendTool/FrontendToolDock';
 import { formatChatStatusLabel } from './chatDetailFormatters';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
 import type { ChatSyncEvent } from '../chatRealtime/types';
-import type { AwaitingSubmitPayloadData } from '../../core/api/services/chatApi';
+import type {
+  AwaitingSubmitPayloadData,
+  FrontendToolSubmitPayloadData,
+  SubmitFrontendToolResponse,
+} from '../../core/api/services/chatApi';
+import type { ChatTimelineFrontendToolResolution } from '../chatTimeline/index.ts';
 import { getConversationHistorySlice } from './chatRepository';
 import type { ChatConversationHistoryScope, ChatDetailRouteParams, ChatHomeItem } from './types';
 import { useChatDetailAwaitingOverlay } from './useChatDetailAwaitingOverlay';
@@ -95,6 +101,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     summary,
     conversationTarget,
     timelineState,
+    activeFrontendTool,
     newConversationIntro,
     runtimeState,
     headerRuntimeState,
@@ -144,6 +151,17 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   const passiveAwaiting = interactiveAwaiting ? null : awaitingSummary;
   const handleSubmitAwaiting = useCallback(
     (payload: AwaitingSubmitPayloadData) => chatSyncService.submitAwaiting(conversationId, payload),
+    [conversationId]
+  );
+  const handleSubmitFrontendTool = useCallback(
+    (payload: FrontendToolSubmitPayloadData): Promise<SubmitFrontendToolResponse> =>
+      chatSyncService.submitFrontendTool(conversationId, payload),
+    [conversationId]
+  );
+  const handleResolveFrontendTool = useCallback(
+    (toolKey: string, reason: ChatTimelineFrontendToolResolution) => {
+      chatSyncService.resolveFrontendTool(conversationId, toolKey, reason);
+    },
     [conversationId]
   );
   const handleLoadHistory = useCallback(
@@ -256,6 +274,15 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                     composerAction === 'sending' || Boolean(headerRuntimeState.runAction) || !historyScope
                   }
                 />
+
+                {activeFrontendTool ? (
+                  <FrontendToolDock
+                    key={activeFrontendTool.key}
+                    tool={activeFrontendTool}
+                    onResolve={handleResolveFrontendTool}
+                    onSubmit={handleSubmitFrontendTool}
+                  />
+                ) : null}
 
                 {interactiveAwaiting ? (
                   <ChatAwaitingDock awaiting={interactiveAwaiting} onSubmit={handleSubmitAwaiting} />

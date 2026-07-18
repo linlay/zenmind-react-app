@@ -441,6 +441,12 @@ export const enUS: Record<I18nKey, string> = {
   'timeline.viewport.deferred': 'The viewport will load when visible',
   'timeline.viewport.refresh': 'Refresh viewport',
   'timeline.viewport.loadFailed': 'Failed to load viewport: {detail}',
+  'frontendTool.title': 'Interactive tool',
+  'frontendTool.loading': 'Loading tool viewport',
+  'frontendTool.close': 'Close tool viewport',
+  'frontendTool.submitting': 'Submitting tool data',
+  'frontendTool.loadFailed': 'Failed to load tool viewport: {detail}',
+  'frontendTool.submitFailed': 'Failed to submit tool: {detail}',
   'copyToast.default': 'Copied to clipboard',
 
   'markdownPreview.mermaid': 'Mermaid diagram',

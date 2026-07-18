@@ -16,6 +16,7 @@ import { chatSyncService } from '../chatRealtime/chatSyncService';
 import type { ChatSocketStatus } from '../chatRealtime/types';
 import {
   createChatTimelineState,
+  getActiveChatTimelineFrontendTool,
   projectTimelineRuntimeState,
   type ChatTimelineMessageNode,
   type ChatTimelineState
@@ -315,6 +316,10 @@ export function useChatDetailConversationController({
   );
   const effectivePlanModeEnabled = planModeAvailable && planModeEnabled;
   const runtimeState = useMemo(() => projectTimelineRuntimeState(timelineState), [timelineState]);
+  const activeFrontendTool = useMemo(
+    () => getActiveChatTimelineFrontendTool(timelineState),
+    [timelineState]
+  );
   const headerRuntimeState = useMemo(() => deriveChatDetailHeaderRuntimeState(timelineState), [timelineState]);
   const composerRunAction = headerRuntimeState.runAction;
   const composerRunActionRef = useRef(composerRunAction);
@@ -1162,6 +1167,7 @@ export function useChatDetailConversationController({
     conversationTarget,
     historyScope,
     timelineState,
+    activeFrontendTool,
     newConversationIntro,
     runtimeState,
     headerRuntimeState,

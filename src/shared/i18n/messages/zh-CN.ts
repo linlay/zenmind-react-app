@@ -431,6 +431,12 @@ export const zhCN = {
   'timeline.viewport.deferred': '视图将在可见时加载',
   'timeline.viewport.refresh': '刷新视图',
   'timeline.viewport.loadFailed': '视图加载失败：{detail}',
+  'frontendTool.title': '交互工具',
+  'frontendTool.loading': '正在加载工具视图',
+  'frontendTool.close': '关闭工具视图',
+  'frontendTool.submitting': '正在提交工具数据',
+  'frontendTool.loadFailed': '工具视图加载失败：{detail}',
+  'frontendTool.submitFailed': '工具提交失败：{detail}',
   'copyToast.default': '已复制到剪贴板',
 
   'markdownPreview.mermaid': 'Mermaid 图表',

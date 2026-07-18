@@ -2062,6 +2062,7 @@
     "src/core/api/resourceUrl.ts",
     "src/core/api/services/chatApi.ts",
     "src/core/api/services/chatEventProtocol.ts",
+    "src/core/api/services/frontendToolSubmitProtocol.ts",
     "src/core/api/services/kanbanApi.ts",
     "src/core/api/services/kanbanInvalidation.ts",
     "src/core/api/services/kanbanProtocol.ts",
@@ -2160,9 +2161,11 @@
     "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx",
     "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx",
     "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts",
+    "src/features/chatPersistence/conversationViewport/useConversationViewportDocument.ts",
     "src/features/chatPersistence/conversationViewport/viewportDocument.ts",
     "src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts",
     "src/features/chatPersistence/database.ts",
+    "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx",
     "src/features/chatPersistence/homeSnapshot.ts",
     "src/features/chatPersistence/schema.ts",
     "src/features/chatPersistence/types.ts",
@@ -2180,6 +2183,7 @@
     "src/features/chatTimeline/messageProjection.ts",
     "src/features/chatTimeline/timelineDisplay.ts",
     "src/features/chatTimeline/timelineEventFormat.ts",
+    "src/features/chatTimeline/timelineFrontendTool.ts",
     "src/features/chatTimeline/timelinePersistence.ts",
     "src/features/chatTimeline/timelinePlatformError.ts",
     "src/features/chatTimeline/timelineReasoningIdentity.ts",
@@ -10251,6 +10255,10 @@
                         "type": "file"
                       },
                       {
+                        "name": "frontendToolSubmitProtocol.ts",
+                        "type": "file"
+                      },
+                      {
                         "name": "kanbanApi.ts",
                         "type": "file"
                       },
@@ -10633,11 +10641,25 @@
                         "type": "file"
                       },
                       {
+                        "name": "useConversationViewportDocument.ts",
+                        "type": "file"
+                      },
+                      {
                         "name": "viewportDocument.ts",
                         "type": "file"
                       },
                       {
                         "name": "viewportDocumentStore.ts",
+                        "type": "file"
+                      }
+                    ]
+                  },
+                  {
+                    "name": "frontendTool",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "FrontendToolDock.tsx",
                         "type": "file"
                       }
                     ]
@@ -10816,6 +10838,10 @@
                   },
                   {
                     "name": "timelineEventFormat.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "timelineFrontendTool.ts",
                     "type": "file"
                   },
                   {
@@ -11278,6 +11304,7 @@
       "src/core/api/resourceUrl.ts",
       "src/core/api/services/chatApi.ts",
       "src/core/api/services/chatEventProtocol.ts",
+      "src/core/api/services/frontendToolSubmitProtocol.ts",
       "src/core/api/services/kanbanApi.ts",
       "src/core/api/services/kanbanInvalidation.ts",
       "src/core/api/services/kanbanProtocol.ts",
@@ -11390,9 +11417,11 @@
       "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx",
       "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx",
       "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts",
+      "src/features/chatPersistence/conversationViewport/useConversationViewportDocument.ts",
       "src/features/chatPersistence/conversationViewport/viewportDocument.ts",
       "src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts",
       "src/features/chatPersistence/database.ts",
+      "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx",
       "src/features/chatPersistence/homeSnapshot.ts",
       "src/features/chatPersistence/schema.ts",
       "src/features/chatPersistence/types.ts",
@@ -11414,6 +11443,7 @@
       "src/features/chatTimeline/messageProjection.ts",
       "src/features/chatTimeline/timelineDisplay.ts",
       "src/features/chatTimeline/timelineEventFormat.ts",
+      "src/features/chatTimeline/timelineFrontendTool.ts",
       "src/features/chatTimeline/timelinePersistence.ts",
       "src/features/chatTimeline/timelinePlatformError.ts",
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
@@ -11539,6 +11569,7 @@
     "src/core/api/resourceUrl.ts": "core-api-client",
     "src/core/api/services/chatApi.ts": "core-api-client",
     "src/core/api/services/chatEventProtocol.ts": "core-api-client",
+    "src/core/api/services/frontendToolSubmitProtocol.ts": "core-api-client",
     "src/core/api/services/kanbanApi.ts": "core-api-client",
     "src/core/api/services/kanbanInvalidation.ts": "core-api-client",
     "src/core/api/services/kanbanProtocol.ts": "core-api-client",
@@ -11637,9 +11668,11 @@
     "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/conversationViewport/useConversationViewportDocument.ts": "feature-chat-persistence",
     "src/features/chatPersistence/conversationViewport/viewportDocument.ts": "feature-chat-persistence",
     "src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts": "feature-chat-persistence",
     "src/features/chatPersistence/database.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/homeSnapshot.ts": "feature-chat-persistence",
     "src/features/chatPersistence/schema.ts": "feature-chat-persistence",
     "src/features/chatPersistence/types.ts": "feature-chat-persistence",
@@ -11657,6 +11690,7 @@
     "src/features/chatTimeline/messageProjection.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineDisplay.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineEventFormat.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelineFrontendTool.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelinePersistence.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelinePlatformError.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineReasoningIdentity.ts": "feature-chat-timeline",
@@ -17868,6 +17902,7 @@
       "ChatApiEnvelope",
       "ChatDetailRequest",
       "ChatViewportResponse",
+      "FrontendToolSubmitPayloadData",
       "MarkChatReadPayload",
       "MarkChatReadRequest",
       "MarkChatReadResponse",
@@ -17888,12 +17923,15 @@
       "RemoteChatUsageStats",
       "SubmitAwaitingRequest",
       "SubmitAwaitingResponse",
+      "SubmitFrontendToolResponse",
       "buildAgentDetailPayload",
       "buildChatDetailPayload",
       "buildMarkChatReadPayload",
       "buildSubmitAwaitingPayload",
+      "buildSubmitFrontendToolPayload",
       "getChatViewportApi",
       "projectRemoteAgentDetail",
+      "type SubmitFrontendToolRequest",
       "unwrapChatApiEnvelope"
     ],
     "src/core/api/services/chatEventProtocol.ts": [
@@ -17915,9 +17953,14 @@
       "isSummaryLikeEvent",
       "normalizeAwaitingTimeoutMs",
       "normalizeEventType",
+      "normalizeProtocolTimeoutMs",
       "normalizeProtocolTimestampMs",
       "toFiniteNumber",
       "toText"
+    ],
+    "src/core/api/services/frontendToolSubmitProtocol.ts": [
+      "SubmitFrontendToolRequest",
+      "buildSubmitFrontendToolPayload"
     ],
     "src/core/api/services/kanbanApi.ts": [
       "KanbanIssueRunUpdateError",
@@ -18608,6 +18651,9 @@
       "isConversationViewportFenceData",
       "parseConversationViewportFence"
     ],
+    "src/features/chatPersistence/conversationViewport/useConversationViewportDocument.ts": [
+      "useConversationViewportDocument"
+    ],
     "src/features/chatPersistence/conversationViewport/viewportDocument.ts": [
       "conversationViewportDocumentStore"
     ],
@@ -18622,6 +18668,9 @@
       "deleteChatDatabaseScopeIfExists",
       "ensureChatDatabase",
       "switchChatDatabaseScope"
+    ],
+    "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx": [
+      "FrontendToolDock"
     ],
     "src/features/chatPersistence/homeSnapshot.ts": [
       "clearChatDirectorySnapshot",
@@ -18792,14 +18841,19 @@
       "deriveChatTimelineStateFromMessages",
       "deserializeChatTimelineState",
       "formatAwaitingDecisionLabel",
+      "getActiveChatTimelineFrontendTool",
       "getAwaitingInteractiveSignature",
       "getAwaitingInteractiveTimeout",
       "getChatTimelineActiveRunId",
       "getChatTimelineDisplayItemType",
       "mergeChatTimelineState",
+      "normalizeFrontendToolParams",
+      "normalizeFrontendToolType",
+      "parseFrontendToolArgs",
       "patchChatTimelineMessage",
       "projectTimelineMessages",
       "projectTimelineRuntimeState",
+      "resolveChatTimelineFrontendTool",
       "resolveChatTimelineUsageModelKey",
       "serializeChatTimelineState",
       "timelinePersistenceInternals"
@@ -18821,6 +18875,13 @@
       "hasTimelineEventValue",
       "isTimelineObjectRecord",
       "safeTimelineJson"
+    ],
+    "src/features/chatTimeline/timelineFrontendTool.ts": [
+      "getActiveChatTimelineFrontendTool",
+      "normalizeFrontendToolParams",
+      "normalizeFrontendToolType",
+      "parseFrontendToolArgs",
+      "resolveChatTimelineFrontendTool"
     ],
     "src/features/chatTimeline/timelinePersistence.ts": [
       "SerializedTimelineMeta",
@@ -18865,6 +18926,7 @@
       "normalizeChatTimelineSourceEvent"
     ],
     "src/features/chatTimeline/types.ts": [
+      "ChatTimelineActiveFrontendTool",
       "ChatTimelineAssistantReplyFooter",
       "ChatTimelineAssistantReplyFooterDisplayItem",
       "ChatTimelineAwaitingAnswerDisplayItem",
@@ -18894,6 +18956,8 @@
       "ChatTimelineDisplayItem",
       "ChatTimelineDisplayItemKind",
       "ChatTimelineErrorDetail",
+      "ChatTimelineFrontendToolResolution",
+      "ChatTimelineFrontendToolState",
       "ChatTimelineLifecycle",
       "ChatTimelineMessageNode",
       "ChatTimelineMessageRole",
@@ -19035,6 +19099,7 @@
     ],
     "src/shared/components/conversationPreview/runtimeBridge.ts": [
       "CONVERSATION_PREVIEW_CHANNEL",
+      "CONVERSATION_PREVIEW_MAX_BRIDGE_PARAMS_BYTES",
       "CONVERSATION_PREVIEW_MAX_SOURCE_BYTES",
       "CONVERSATION_PREVIEW_TIMEOUT_MS",
       "createConversationPreviewRequestId",
@@ -19047,6 +19112,8 @@
       "loadConversationPreviewRuntime"
     ],
     "src/shared/components/conversationPreview/types.ts": [
+      "ConversationPreviewBridge",
+      "ConversationPreviewBridgeEvent",
       "ConversationPreviewEvent",
       "ConversationPreviewHeightBounds",
       "ConversationPreviewRequest",
@@ -22411,9 +22478,11 @@
     "src/core/api/apiError.ts": null,
     "src/core/api/resourceUrl.ts": null,
     "src/core/api/services/chatApi.ts": [
-      "../apiClient.ts"
+      "../apiClient.ts",
+      "./frontendToolSubmitProtocol.ts"
     ],
     "src/core/api/services/chatEventProtocol.ts": null,
+    "src/core/api/services/frontendToolSubmitProtocol.ts": null,
     "src/core/api/services/kanbanApi.ts": [
       "../../auth/deviceProfiles",
       "../../ws/sharedWsTransport",
@@ -22583,6 +22652,7 @@
       "../../shared/i18n",
       "../chatRealtime/chatSyncService",
       "../chatRealtime/types",
+      "../chatTimeline/index.ts",
       "./chatDetailFormatters",
       "./chatRepository",
       "./components/ChatAwaitingOverlay",
@@ -22596,6 +22666,7 @@
       "./components/ChatTimelineList",
       "./components/CopyToast",
       "./components/awaiting/ChatAwaitingDock",
+      "./frontendTool/FrontendToolDock",
       "./types",
       "./useChatDetailAwaitingOverlay",
       "./useChatDetailConversationController",
@@ -23099,13 +23170,17 @@
       "../../../shared/icons/AppIcon",
       "../../../shared/markdown/previewSegments",
       "../../../shared/visual/AppThemeProvider",
-      "./viewportDocument",
+      "./useConversationViewportDocument",
       "react",
       "react-native"
     ],
     "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts": [
       "../../../shared/components/conversationPreview/runtimeBridge.ts",
       "../../../shared/markdown/previewSegments.ts"
+    ],
+    "src/features/chatPersistence/conversationViewport/useConversationViewportDocument.ts": [
+      "./viewportDocument",
+      "react"
     ],
     "src/features/chatPersistence/conversationViewport/viewportDocument.ts": [
       "../../../core/api/services/chatApi.ts",
@@ -23119,6 +23194,21 @@
       "./schema",
       "drizzle-orm/expo-sqlite",
       "expo-sqlite"
+    ],
+    "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx": [
+      "../../../core/api/services/chatApi",
+      "../../../shared/components/conversationPreview/PreviewErrorPanel",
+      "../../../shared/components/conversationPreview/PreviewSurface",
+      "../../../shared/components/conversationPreview/types",
+      "../../../shared/components/conversationPreview/usePreviewExecutionState",
+      "../../../shared/i18n",
+      "../../../shared/icons/AppIcon",
+      "../../../shared/markdown/previewSegments",
+      "../../../shared/visual/AppThemeProvider",
+      "../../chatTimeline/index.ts",
+      "../conversationViewport/useConversationViewportDocument",
+      "react",
+      "react-native"
     ],
     "src/features/chatPersistence/homeSnapshot.ts": [
       "../../shared/visual/agentAvatarIcon.ts",
@@ -23229,6 +23319,7 @@
       "./awaitingInteraction.ts",
       "./messageProjection.ts",
       "./timelineDisplay.ts",
+      "./timelineFrontendTool.ts",
       "./timelinePersistence.ts",
       "./timelineReducer.ts",
       "./types.ts",
@@ -23244,6 +23335,9 @@
       "./types.ts"
     ],
     "src/features/chatTimeline/timelineEventFormat.ts": null,
+    "src/features/chatTimeline/timelineFrontendTool.ts": [
+      "./types.ts"
+    ],
     "src/features/chatTimeline/timelinePersistence.ts": [
       "./timelineReasoningIdentity.ts",
       "./types.ts"
@@ -23260,6 +23354,7 @@
       "../chatPersistence/types.ts",
       "./awaitingInteraction.ts",
       "./timelineEventFormat.ts",
+      "./timelineFrontendTool.ts",
       "./timelinePlatformError.ts",
       "./timelineReasoningIdentity.ts",
       "./timelineSource.ts",
@@ -26428,9 +26523,11 @@
     "src/core/api/apiError.ts": null,
     "src/core/api/resourceUrl.ts": null,
     "src/core/api/services/chatApi.ts": [
-      "src/core/api/apiClient.ts"
+      "src/core/api/apiClient.ts",
+      "src/core/api/services/frontendToolSubmitProtocol.ts"
     ],
     "src/core/api/services/chatEventProtocol.ts": null,
+    "src/core/api/services/frontendToolSubmitProtocol.ts": null,
     "src/core/api/services/kanbanApi.ts": [
       "src/core/api/activeWsTransport.ts",
       "src/core/api/services/kanbanInvalidation.ts",
@@ -26589,12 +26686,14 @@
       "src/features/chatPersistence/components/ChatTimelineList.tsx",
       "src/features/chatPersistence/components/CopyToast.tsx",
       "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
+      "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx",
       "src/features/chatPersistence/types.ts",
       "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts",
       "src/features/chatPersistence/useChatDetailConversationController.ts",
       "src/features/chatPersistence/useChatDetailLocalUiState.ts",
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatRealtime/types.ts",
+      "src/features/chatTimeline/index.ts",
       "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx": [
@@ -26999,7 +27098,7 @@
       "src/shared/markdown/previewSegments.ts"
     ],
     "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx": [
-      "src/features/chatPersistence/conversationViewport/viewportDocument.ts",
+      "src/features/chatPersistence/conversationViewport/useConversationViewportDocument.ts",
       "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
       "src/shared/components/conversationPreview/PreviewErrorPanel.tsx",
       "src/shared/components/conversationPreview/PreviewSurface.tsx",
@@ -27014,6 +27113,9 @@
       "src/shared/components/conversationPreview/runtimeBridge.ts",
       "src/shared/markdown/previewSegments.ts"
     ],
+    "src/features/chatPersistence/conversationViewport/useConversationViewportDocument.ts": [
+      "src/features/chatPersistence/conversationViewport/viewportDocument.ts"
+    ],
     "src/features/chatPersistence/conversationViewport/viewportDocument.ts": [
       "src/core/api/services/chatApi.ts",
       "src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts"
@@ -27024,6 +27126,19 @@
     "src/features/chatPersistence/database.ts": [
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/schema.ts"
+    ],
+    "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx": [
+      "src/core/api/services/chatApi.ts",
+      "src/features/chatPersistence/conversationViewport/useConversationViewportDocument.ts",
+      "src/features/chatTimeline/index.ts",
+      "src/shared/components/conversationPreview/PreviewErrorPanel.tsx",
+      "src/shared/components/conversationPreview/PreviewSurface.tsx",
+      "src/shared/components/conversationPreview/types.ts",
+      "src/shared/components/conversationPreview/usePreviewExecutionState.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/markdown/previewSegments.ts",
+      "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/homeSnapshot.ts": [
       "src/features/chatPersistence/agentModelSettings.ts",
@@ -27121,6 +27236,7 @@
       "src/features/chatTimeline/awaitingInteraction.ts",
       "src/features/chatTimeline/messageProjection.ts",
       "src/features/chatTimeline/timelineDisplay.ts",
+      "src/features/chatTimeline/timelineFrontendTool.ts",
       "src/features/chatTimeline/timelinePersistence.ts",
       "src/features/chatTimeline/timelineReducer.ts",
       "src/features/chatTimeline/types.ts",
@@ -27136,6 +27252,9 @@
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineEventFormat.ts": null,
+    "src/features/chatTimeline/timelineFrontendTool.ts": [
+      "src/features/chatTimeline/types.ts"
+    ],
     "src/features/chatTimeline/timelinePersistence.ts": [
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
       "src/features/chatTimeline/types.ts"
@@ -27152,6 +27271,7 @@
       "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/awaitingInteraction.ts",
       "src/features/chatTimeline/timelineEventFormat.ts",
+      "src/features/chatTimeline/timelineFrontendTool.ts",
       "src/features/chatTimeline/timelinePlatformError.ts",
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
       "src/features/chatTimeline/timelineSource.ts",

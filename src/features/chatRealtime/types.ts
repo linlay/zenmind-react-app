@@ -23,6 +23,7 @@ export type ChatSyncReason =
   | 'notification'
   | 'local_send'
   | 'awaiting_submit'
+  | 'frontend_tool'
   | 'attach'
   | 'push'
   | 'reconcile'
