@@ -38,8 +38,10 @@ export type {
   ChatTimelineFrontendToolResolution,
   ChatTimelineFrontendToolState,
   ChatTimelineLifecycle,
+  ChatTimelineCommandMessageVariant,
   ChatTimelineMessageNode,
   ChatTimelineMessageRole,
+  ChatTimelineMessageVariant,
   ChatTimelineNodeDisplayItem,
   ChatTimelineNode,
   ChatTimelineNodeKind,
@@ -67,6 +69,12 @@ export type {
   ChatTimelineUsageStats,
   ChatTimelineUsageSummary,
 } from './types.ts';
+export {
+  isChatTimelineCommandMessageVariant,
+  migratePersistedChatTimelineMessageNode,
+  normalizeChatTimelineMessageVariant,
+  normalizeChatTimelineRequestMessageVariant,
+} from './timelineRequest.ts';
 export type { MergeChatTimelineStateOptions } from './timelineReducer.ts';
 export {
   applyChatTimelineEvent,

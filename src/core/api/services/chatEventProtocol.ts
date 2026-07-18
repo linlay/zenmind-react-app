@@ -24,6 +24,14 @@ export type ChatProtocolEventFamily =
   | 'live'
   | 'unknown';
 
+export type ChatRequestMessageVariant = 'steer' | 'remember' | 'learn';
+
+const CHAT_REQUEST_MESSAGE_VARIANTS = new Set<ChatRequestMessageVariant>([
+  'steer',
+  'remember',
+  'learn',
+]);
+
 export function toText(value: unknown): string {
   return String(value || '').trim();
 }
@@ -136,6 +144,20 @@ export function normalizeEventType(rawType: unknown): string {
   };
 
   return aliasMap[type] || type;
+}
+
+export function isChatRequestMessageVariant(value: unknown): value is ChatRequestMessageVariant {
+  return CHAT_REQUEST_MESSAGE_VARIANTS.has(String(value || '').trim() as ChatRequestMessageVariant);
+}
+
+export function normalizeChatRequestMessageVariant(rawType: unknown): ChatRequestMessageVariant | null {
+  const type = normalizeEventType(rawType).toLowerCase();
+  if (!type.startsWith('request.')) {
+    return null;
+  }
+
+  const variant = type.split('.')[1];
+  return isChatRequestMessageVariant(variant) ? variant : null;
 }
 
 export function extractConversationId(event: Record<string, unknown>): string {

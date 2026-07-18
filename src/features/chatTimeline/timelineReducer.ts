@@ -20,6 +20,7 @@ import type {
   ChatTimelineAwaitingNode,
   ChatTimelineAwaitingState,
   ChatTimelineArtifactNode,
+  ChatTimelineCommandMessageVariant,
   ChatTimelineContextCompactNode,
   ChatTimelineDeliveryStatus,
   ChatTimelineLifecycle,
@@ -35,6 +36,7 @@ import type {
   ChatTimelineTextNode,
   ChatTimelineToolNode,
 } from './types.ts';
+import { normalizeChatTimelineRequestMessageVariant } from './timelineRequest.ts';
 import {
   chatTimelineActionNodePayloadEquals,
   closeChatTimelineActionNode,
@@ -568,7 +570,12 @@ function toolNodeKey(conversationId: string, event: Record<string, unknown>): st
 }
 
 function requestNodeKey(conversationId: string, event: Record<string, unknown>): string {
-  const requestId = toText(event.requestId) || toText(event.messageId) || 'request';
+  const requestId =
+    toText(event.steerId) ||
+    toText(event.requestId) ||
+    toText(event.messageId) ||
+    toText(event.id) ||
+    'request';
   return `message:${conversationId}:request:${requestId}`;
 }
 
@@ -637,6 +644,7 @@ function isLocalUserMessageWithoutServerId(
   return Boolean(
     node?.kind === 'message' &&
       node.role === 'user' &&
+      node.messageVariant === 'default' &&
       node.clientMessageId &&
       !node.serverMessageId
   );
@@ -648,6 +656,7 @@ function isRemoteUserRequestEchoNode(
   return Boolean(
     node?.kind === 'message' &&
       node.role === 'user' &&
+      node.messageVariant === 'default' &&
       !node.clientMessageId &&
       !node.serverMessageId &&
       (node.id.includes(':request:') || node.messageId.startsWith('remote:user:'))
@@ -671,6 +680,7 @@ function findLocalUserMessageNodeByRequestId(
     if (
       node?.kind === 'message' &&
       node.role === 'user' &&
+      node.messageVariant === 'default' &&
       (node.clientMessageId === requestId || node.messageId === requestId)
     ) {
       return node;
@@ -1142,6 +1152,7 @@ function hasIncomingMessageAtOrAfter(
     return (
       node?.kind === 'message' &&
       node.role === current.role &&
+      node.messageVariant === current.messageVariant &&
       node.createdAt >= current.createdAt &&
       node.content.trim().length > 0
     );
@@ -1376,6 +1387,7 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
   if (left.kind === 'message' && right.kind === 'message') {
     return (
       left.role !== right.role ||
+      left.messageVariant !== right.messageVariant ||
       left.content !== right.content ||
       left.messageId !== right.messageId ||
       left.clientMessageId !== right.clientMessageId ||
@@ -1904,6 +1916,7 @@ function applyRequestEvent(
     id: current?.id ?? id,
     kind: 'message',
     role: 'user',
+    messageVariant: 'default',
     content,
     messageId,
     clientMessageId: current?.clientMessageId ?? null,
@@ -1916,6 +1929,58 @@ function applyRequestEvent(
     createdAt: current?.createdAt ?? createdAt,
     updatedAt: Math.max(current?.updatedAt ?? 0, createdAt),
     order: createOrder(state, current),
+    lifecycle: 'complete',
+  });
+}
+
+function applyRequestCommandEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>,
+  messageVariant: ChatTimelineCommandMessageVariant
+): ChatTimelineState {
+  const id = requestNodeKey(conversationId, event);
+  const currentNode = state.nodesById[id];
+  const current =
+    currentNode?.kind === 'message' && currentNode.role === 'user'
+      ? currentNode
+      : undefined;
+  const createdAt = resolveTimestamp(event, Date.now() + state.nextOrder);
+  const content = toText(
+    event.message || event.content || event.text || event.query || event.prompt
+  );
+  if (!content || (current && createdAt < current.updatedAt)) {
+    return state;
+  }
+
+  const runId = toText(event.runId) || current?.runId || state.activeRunId;
+  const baseState = current
+    ? state
+    : closeActiveReasoningNodesForRun(state, runId, createdAt);
+  const stableRequestId =
+    toText(event.steerId) ||
+    toText(event.requestId) ||
+    toText(event.messageId) ||
+    toText(event.id) ||
+    id;
+
+  return upsertNode(baseState, {
+    id,
+    kind: 'message',
+    role: 'user',
+    messageVariant,
+    content,
+    messageId: current?.messageId ?? `remote:user:${messageVariant}:${stableRequestId}`,
+    clientMessageId: null,
+    serverMessageId: toText(event.serverMessageId) || current?.serverMessageId || null,
+    deliveryStatus: 'sent',
+    errorReason: null,
+    streaming: false,
+    attachments: [],
+    runId,
+    createdAt: current?.createdAt ?? createdAt,
+    updatedAt: Math.max(current?.updatedAt ?? 0, createdAt),
+    order: createOrder(baseState, current),
     lifecycle: 'complete',
   });
 }
@@ -1955,6 +2020,7 @@ function applyContentEvent(
     id,
     kind: 'message',
     role: 'assistant',
+    messageVariant: 'default',
     content: nextContent,
     messageId,
     clientMessageId: null,
@@ -2632,6 +2698,7 @@ function applySystemErrorEvent(
     id,
     kind: 'message',
     role: 'system',
+    messageVariant: 'default',
     content: display.message,
     messageId: `system-error:${conversationId}:${stableId}`,
     clientMessageId: null,
@@ -2843,6 +2910,10 @@ export function applyChatTimelineEvent(
     return applyRequestEvent(state, conversationId, event);
   }
   if (family === 'request') {
+    const messageVariant = normalizeChatTimelineRequestMessageVariant(type);
+    if (messageVariant) {
+      return applyRequestCommandEvent(state, conversationId, event, messageVariant);
+    }
     return applyRuntimeTextEvent(state, conversationId, event, 'request');
   }
   if (family === 'assistant_content') {
@@ -2931,6 +3002,7 @@ export function applyChatTimelineMessage(
     id,
     kind: 'message',
     role: message.role,
+    messageVariant: 'default',
     content: message.content,
     messageId: message.messageId,
     clientMessageId: message.clientMessageId,

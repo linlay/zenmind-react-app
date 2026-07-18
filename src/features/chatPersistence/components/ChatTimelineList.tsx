@@ -17,7 +17,7 @@ import {
   ConversationPreviewRowScope,
 } from '../../../shared/components/conversationPreview/ConversationPreviewProvider';
 import { createConversationPreviewVisibilityStore } from '../../../shared/components/conversationPreview/visibilityStore';
-import { AppIcon } from '../../../shared/icons/AppIcon';
+import { AppIcon, type AppIconUsage } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../shared/visual/className';
@@ -31,6 +31,7 @@ import {
   type ChatTimelineDisplayItem,
   type ChatTimelineDisplayTailSignature,
   type ChatTimelineMessageNode,
+  type ChatTimelineMessageVariant,
   type ChatTimelineTextNode,
   type ChatTimelineState
 } from '../../chatTimeline/index.ts';
@@ -98,6 +99,8 @@ const AWAITING_ANSWER_ITEM_CLASS = 'gap-1';
 const AWAITING_ANSWER_QUESTION_CLASS = 'text-[14px] font-bold leading-5 text-app-secondary';
 const AWAITING_ANSWER_VALUE_CLASS = 'text-[15px] font-extrabold leading-[22px] text-app-primary';
 const REQUEST_MESSAGE_STACK_CLASS = 'max-w-[82%] items-stretch self-start';
+const REQUEST_COMMAND_LABEL_CLASS =
+  'mb-[6px] font-mono text-[11px] font-bold leading-4 uppercase tracking-[0.4px] text-app-action';
 const REQUEST_BUBBLE_CLASS = 'rounded-[16px] rounded-tl-[8px] bg-app-action px-[14px] py-[10px]';
 const REASK_MENU_OVERLAY_CLASS = 'absolute inset-0 z-[60]';
 const REASK_MENU_BACKDROP_CLASS = 'absolute inset-0';
@@ -195,6 +198,16 @@ const FOOTER_META_END_STYLE = StyleSheet.compose(
   TIMELINE_LAYOUT_STYLES.footerMeta,
   TIMELINE_LAYOUT_STYLES.footerMetaEnd
 );
+
+const REQUEST_PRESENTATION_BY_VARIANT = {
+  default: { iconUsage: 'timeline.requestRail', label: '' },
+  steer: { iconUsage: 'timeline.requestCommandRail', label: '' },
+  remember: { iconUsage: 'timeline.requestCommandRail', label: '/remember' },
+  learn: { iconUsage: 'timeline.requestCommandRail', label: '/learn' },
+} as const satisfies Record<
+  ChatTimelineMessageVariant,
+  { iconUsage: AppIconUsage; label: string }
+>;
 
 type ChatTimelineReaskTarget = 'current' | 'new';
 
@@ -463,21 +476,28 @@ const RequestInputRow = memo(function RequestInputRow({
   node,
   isLastInRun
 }: {
-  node: ChatTimelineTextNode;
+  node: ChatTimelineTextNode | ChatTimelineMessageNode;
   isLastInRun: boolean;
 }) {
   const { theme } = useAppTheme();
-  const text = node.body || node.title;
+  const variant = node.kind === 'message' ? node.messageVariant : 'default';
+  const presentation = REQUEST_PRESENTATION_BY_VARIANT[variant];
+  const text = node.kind === 'message' ? node.content : node.body || node.title;
 
   return (
     <View style={TIMELINE_LAYOUT_STYLES.timelineRow}>
       <ChatTimelineRail
-        iconUsage="timeline.requestRail"
+        iconUsage={presentation.iconUsage}
         terminal={isLastInRun}
         toneColor={theme.colors.brandBlue}
       />
       <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <View className={REQUEST_MESSAGE_STACK_CLASS}>
+          {presentation.label ? (
+            <Text allowFontScaling={false} className={REQUEST_COMMAND_LABEL_CLASS}>
+              {presentation.label}
+            </Text>
+          ) : null}
           <View className={REQUEST_BUBBLE_CLASS} style={[REQUEST_BUBBLE_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}>
             <ConversationMarkdownRenderer
               markdown={text}
@@ -875,7 +895,10 @@ const TimelineRow = memo(
         />
       );
     }
-    if (item.kind === 'request' && node.kind === 'request') {
+    if (
+      item.kind === 'request' &&
+      (node.kind === 'request' || (node.kind === 'message' && node.role === 'user'))
+    ) {
       return <RequestInputRow node={node} isLastInRun={item.isLastInRun} />;
     }
     if (item.kind === 'system-message' && node.kind === 'message') {

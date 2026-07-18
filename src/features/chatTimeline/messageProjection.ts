@@ -14,6 +14,7 @@ import type {
   ChatTimelineTextNode,
   ChatTimelineToolNode,
 } from './types.ts';
+import { isChatTimelineCommandMessageVariant } from './timelineRequest.ts';
 
 type ProjectedRuntimeNode = Exclude<
   ChatTimelineNode,
@@ -113,7 +114,8 @@ export function projectTimelineMessages(state: ChatTimelineState): ChatMessageIt
       (node): node is ChatTimelineMessageNode & { role: ChatMessageRole } =>
         Boolean(node) &&
         node.kind === 'message' &&
-        (node.role === 'user' || node.role === 'assistant')
+        (node.role === 'user' || node.role === 'assistant') &&
+        !isChatTimelineCommandMessageVariant(node.messageVariant)
     )
     .map((node) => {
       const streamStatus: ChatMessageStreamStatus = node.streaming ? 'streaming' : 'done';

@@ -108,6 +108,7 @@ export const appIconUsages = {
 
   'timeline.defaultRail': { glyph: 'smart_toy', colorRole: 'brand', sizeRole: 'rail' },
   'timeline.requestRail': { glyph: 'reply', colorRole: 'brand', sizeRole: 'rail' },
+  'timeline.requestCommandRail': { glyph: 'reply', colorRole: 'brand', sizeRole: 'rail' },
   'timeline.assistantContentRail': {
     glyph: 'description',
     colorRole: 'success',

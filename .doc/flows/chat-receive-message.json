@@ -24,7 +24,7 @@
     },
     {
       "order": 3,
-      "label": "feature-chat-timeline 统一处理运行态事件、assistant stream delta、SQLite message fallback、远端 event history replay、awaiting question/approval/form/plan interactive、html/qlc frontend tool 元数据、本地 resolution、typed action 参数/结果/策略及 typed context compact 状态/token/usage 归一和 normalized timeline 序列化，向 service / projector / 详情页提供 messages、runtimeState、interactive selector、display items 和 rich snapshot rows。",
+      "label": "feature-chat-timeline 统一处理运行态事件、assistant stream delta、SQLite message fallback、远端 event history replay、request.steer/remember/learn canonical messageVariant、awaiting question/approval/form/plan interactive、html/qlc frontend tool 元数据、本地 resolution、typed action 参数/结果/策略及 typed context compact 状态/token/usage 归一和 normalized timeline 序列化；命令 request 只进入 rich snapshot/display，普通 query 与未知 request 保持既有路径，并向 service / projector / 详情页提供 messages、runtimeState、interactive selector、display items 和 rich snapshot rows。",
       "moduleId": "feature-chat-timeline",
       "file": "src/features/chatTimeline/timelineReducer.ts",
       "symbol": "applyChatTimelineEvent"
@@ -38,7 +38,7 @@
     },
     {
       "order": 5,
-      "label": "Chat 首页目录只在 directoryProjectionChanged 或 home.directory.replace 时回读目录切片；普通 home.item.patch 只 patch 当前可见目录项 preview。useChatDetailConversationController 只用 conversation.timeline.replace/reset 驱动详情主消息区；awaiting 与 active frontend tool 都从 timeline 派生，分别由 ChatAwaitingDock / FrontendToolDock 消费并调用 chatSyncService 提交；ActionTimelineRow 展示 typed action，ContextCompactTimelineRow 展示 typed compact 语义且 Header 消费同一 usageSummary；useConversationActionRuntime 只消费命中当前会话的实时 action protocol 并交给有界幂等 conversationActionService；FrontendToolDock 复用安全 HTML runtime 发送 tool_init，只接收 frontend_submit/close/done 白名单，message/stream/runtime scoped event 保留兼容但不再维护页面第二套状态。",
+      "label": "Chat 首页目录只在 directoryProjectionChanged 或 home.directory.replace 时回读目录切片；普通 home.item.patch 只 patch 当前可见目录项 preview。useChatDetailConversationController 只用 conversation.timeline.replace/reset 驱动详情主消息区；ChatTimelineList 通过单一 variant registry 把 steer/remember/learn 显示为带专用图标和命令标签的左侧 request 行；awaiting 与 active frontend tool 都从 timeline 派生，分别由 ChatAwaitingDock / FrontendToolDock 消费并调用 chatSyncService 提交；ActionTimelineRow 展示 typed action，ContextCompactTimelineRow 展示 typed compact 语义且 Header 消费同一 usageSummary；useConversationActionRuntime 只消费命中当前会话的实时 action protocol 并交给有界幂等 conversationActionService；FrontendToolDock 复用安全 HTML runtime 发送 tool_init，只接收 frontend_submit/close/done 白名单，message/stream/runtime scoped event 保留兼容但不再维护页面第二套状态。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
       "symbol": "useChatDetailConversationController"

@@ -25,6 +25,7 @@ import { getChatTimelineActionContentLength } from './timelineAction.ts';
 import { getChatTimelineContextCompactContentLength } from './timelineContextCompact.ts';
 import { getChatTimelineErrorDetailSignature } from './timelinePlatformError.ts';
 import { getChatTimelinePlanContentLength } from './timelinePlan.ts';
+import { isChatTimelineCommandMessageVariant } from './timelineRequest.ts';
 import { getChatTimelineSourceContentLength } from './timelineSource.ts';
 import { getChatTimelineTaskContentLength } from './timelineTask.ts';
 
@@ -65,7 +66,9 @@ function displayKindForNode(
 ): Exclude<ChatTimelineDisplayItemKind, 'tool-group' | 'assistant-reply-footer'> {
   if (node.kind === 'message') {
     if (node.role === 'user') {
-      return 'user-query';
+      return isChatTimelineCommandMessageVariant(node.messageVariant)
+        ? 'request'
+        : 'user-query';
     }
     if (node.role === 'assistant') {
       return 'assistant-content';
@@ -444,7 +447,12 @@ function runIdForEntry(entry: PendingDisplayEntry): string {
 }
 
 function isUserQueryEntry(entry: PendingDisplayEntry): boolean {
-  return entry.kind === 'node' && entry.node.kind === 'message' && entry.node.role === 'user';
+  return (
+    entry.kind === 'node' &&
+    entry.node.kind === 'message' &&
+    entry.node.role === 'user' &&
+    !isChatTimelineCommandMessageVariant(entry.node.messageVariant)
+  );
 }
 
 function assistantMessageForEntry(entry: PendingDisplayEntry): ChatTimelineMessageNode | null {

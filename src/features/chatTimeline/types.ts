@@ -1,3 +1,4 @@
+import type { ChatRequestMessageVariant } from '../../core/api/services/chatEventProtocol.ts';
 import type { ChatMessageAttachment } from '../chatPersistence/types.ts';
 
 export type ChatTimelineLifecycle = 'active' | 'complete' | 'error' | 'cancelled';
@@ -19,6 +20,10 @@ export type ChatTimelineNodeKind =
   | 'context';
 
 export type ChatTimelineMessageRole = 'user' | 'assistant' | 'system';
+
+export type ChatTimelineMessageVariant = 'default' | ChatRequestMessageVariant;
+
+export type ChatTimelineCommandMessageVariant = Exclude<ChatTimelineMessageVariant, 'default'>;
 
 export type ChatTimelineAwaitingMode = 'question' | 'approval' | 'form' | 'plan';
 
@@ -243,6 +248,7 @@ export type ChatTimelineBaseNode = {
 export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
   kind: 'message';
   role: ChatTimelineMessageRole;
+  messageVariant: ChatTimelineMessageVariant;
   content: string;
   messageId: string;
   clientMessageId: string | null;

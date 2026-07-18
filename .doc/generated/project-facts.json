@@ -64,6 +64,7 @@
     "scripts/tests/chatTimelinePersistence.test.mts",
     "scripts/tests/chatTimelinePlan.test.mts",
     "scripts/tests/chatTimelineReducer.test.mts",
+    "scripts/tests/chatTimelineRequestVariant.test.mts",
     "scripts/tests/chatTimelineRunUnavailable.test.mts",
     "scripts/tests/chatTimelineTask.test.mts",
     "scripts/tests/chatWonderDisplay.test.mts",
@@ -2218,6 +2219,7 @@
     "src/features/chatTimeline/timelinePlatformError.ts",
     "src/features/chatTimeline/timelineReasoningIdentity.ts",
     "src/features/chatTimeline/timelineReducer.ts",
+    "src/features/chatTimeline/timelineRequest.ts",
     "src/features/chatTimeline/timelineSource.ts",
     "src/features/chatTimeline/timelineTask.ts",
     "src/features/chatTimeline/types.ts",
@@ -10998,6 +11000,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "timelineRequest.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "timelineSource.ts",
                     "type": "file"
                   },
@@ -11614,6 +11620,7 @@
       "src/features/chatTimeline/timelinePlatformError.ts",
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
       "src/features/chatTimeline/timelineReducer.ts",
+      "src/features/chatTimeline/timelineRequest.ts",
       "src/features/chatTimeline/timelineSource.ts",
       "src/features/chatTimeline/timelineTask.ts",
       "src/features/chatTimeline/types.ts",
@@ -11887,6 +11894,7 @@
     "src/features/chatTimeline/timelinePlatformError.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineReasoningIdentity.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineReducer.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelineRequest.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineSource.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineTask.ts": "feature-chat-timeline",
     "src/features/chatTimeline/types.ts": "feature-chat-timeline",
@@ -18154,6 +18162,7 @@
     ],
     "src/core/api/services/chatEventProtocol.ts": [
       "ChatProtocolEventFamily",
+      "ChatRequestMessageVariant",
       "buildAssistantMessageId",
       "buildFallbackAssistantMessageId",
       "classifyChatProtocolEvent",
@@ -18166,10 +18175,12 @@
       "isAssistantContentEvent",
       "isChatReadAllEvent",
       "isChatReadEvent",
+      "isChatRequestMessageVariant",
       "isChatUnreadEvent",
       "isConversationRemovalEvent",
       "isSummaryLikeEvent",
       "normalizeAwaitingTimeoutMs",
+      "normalizeChatRequestMessageVariant",
       "normalizeEventType",
       "normalizeProtocolTimeoutMs",
       "normalizeProtocolTimestampMs",
@@ -19127,13 +19138,17 @@
       "getChatTimelineContextCompactContentLength",
       "getChatTimelineDisplayItemType",
       "getConversationActionWhitelist",
+      "isChatTimelineCommandMessageVariant",
       "mergeChatTimelineContextCompactValues",
       "mergeChatTimelineState",
+      "migratePersistedChatTimelineMessageNode",
       "normalizeChatTimelineActionEvent",
       "normalizeChatTimelineArtifactEvent",
       "normalizeChatTimelineContextCompactEvent",
+      "normalizeChatTimelineMessageVariant",
       "normalizeChatTimelinePlanEvent",
       "normalizeChatTimelinePlanStatus",
+      "normalizeChatTimelineRequestMessageVariant",
       "normalizeChatTimelineTaskEvent",
       "normalizeConversationActionArguments",
       "normalizeFrontendToolParams",
@@ -19270,6 +19285,12 @@
       "mergeChatTimelineState",
       "patchChatTimelineMessage"
     ],
+    "src/features/chatTimeline/timelineRequest.ts": [
+      "isChatTimelineCommandMessageVariant",
+      "migratePersistedChatTimelineMessageNode",
+      "normalizeChatTimelineMessageVariant",
+      "normalizeChatTimelineRequestMessageVariant"
+    ],
     "src/features/chatTimeline/timelineSource.ts": [
       "NormalizedChatTimelineSourceEvent",
       "chatTimelineSourceNodePayloadEquals",
@@ -19323,6 +19344,7 @@
       "ChatTimelineAwaitingQuestionType",
       "ChatTimelineAwaitingState",
       "ChatTimelineBaseNode",
+      "ChatTimelineCommandMessageVariant",
       "ChatTimelineContextCompactNode",
       "ChatTimelineContextCompactStatus",
       "ChatTimelineDeliveryStatus",
@@ -19334,6 +19356,7 @@
       "ChatTimelineLifecycle",
       "ChatTimelineMessageNode",
       "ChatTimelineMessageRole",
+      "ChatTimelineMessageVariant",
       "ChatTimelineNode",
       "ChatTimelineNodeDisplayItem",
       "ChatTimelineNodeKind",
@@ -23854,12 +23877,14 @@
       "./timelinePersistence.ts",
       "./timelinePlan.ts",
       "./timelineReducer.ts",
+      "./timelineRequest.ts",
       "./timelineTask.ts",
       "./types.ts",
       "./usageSummary.ts"
     ],
     "src/features/chatTimeline/messageProjection.ts": [
       "../chatPersistence/types.ts",
+      "./timelineRequest.ts",
       "./types.ts"
     ],
     "src/features/chatTimeline/timelineAction.ts": [
@@ -23880,6 +23905,7 @@
       "./timelineContextCompact.ts",
       "./timelinePlan.ts",
       "./timelinePlatformError.ts",
+      "./timelineRequest.ts",
       "./timelineSource.ts",
       "./timelineTask.ts",
       "./types.ts"
@@ -23893,6 +23919,7 @@
       "./timelineContextCompact.ts",
       "./timelinePlan.ts",
       "./timelineReasoningIdentity.ts",
+      "./timelineRequest.ts",
       "./timelineTask.ts",
       "./types.ts"
     ],
@@ -23919,10 +23946,15 @@
       "./timelinePlan.ts",
       "./timelinePlatformError.ts",
       "./timelineReasoningIdentity.ts",
+      "./timelineRequest.ts",
       "./timelineSource.ts",
       "./timelineTask.ts",
       "./types.ts",
       "./usageSummary.ts"
+    ],
+    "src/features/chatTimeline/timelineRequest.ts": [
+      "../../core/api/services/chatEventProtocol.ts",
+      "./types.ts"
     ],
     "src/features/chatTimeline/timelineSource.ts": [
       "../../core/api/services/chatEventProtocol.ts",
@@ -23935,6 +23967,7 @@
       "./types.ts"
     ],
     "src/features/chatTimeline/types.ts": [
+      "../../core/api/services/chatEventProtocol.ts",
       "../chatPersistence/types.ts"
     ],
     "src/features/chatTimeline/usageSummary.ts": [
@@ -27929,12 +27962,14 @@
       "src/features/chatTimeline/timelinePersistence.ts",
       "src/features/chatTimeline/timelinePlan.ts",
       "src/features/chatTimeline/timelineReducer.ts",
+      "src/features/chatTimeline/timelineRequest.ts",
       "src/features/chatTimeline/timelineTask.ts",
       "src/features/chatTimeline/types.ts",
       "src/features/chatTimeline/usageSummary.ts"
     ],
     "src/features/chatTimeline/messageProjection.ts": [
       "src/features/chatPersistence/types.ts",
+      "src/features/chatTimeline/timelineRequest.ts",
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineAction.ts": [
@@ -27955,6 +27990,7 @@
       "src/features/chatTimeline/timelineContextCompact.ts",
       "src/features/chatTimeline/timelinePlan.ts",
       "src/features/chatTimeline/timelinePlatformError.ts",
+      "src/features/chatTimeline/timelineRequest.ts",
       "src/features/chatTimeline/timelineSource.ts",
       "src/features/chatTimeline/timelineTask.ts",
       "src/features/chatTimeline/types.ts"
@@ -27968,6 +28004,7 @@
       "src/features/chatTimeline/timelineContextCompact.ts",
       "src/features/chatTimeline/timelinePlan.ts",
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
+      "src/features/chatTimeline/timelineRequest.ts",
       "src/features/chatTimeline/timelineTask.ts",
       "src/features/chatTimeline/types.ts"
     ],
@@ -27994,10 +28031,15 @@
       "src/features/chatTimeline/timelinePlan.ts",
       "src/features/chatTimeline/timelinePlatformError.ts",
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
+      "src/features/chatTimeline/timelineRequest.ts",
       "src/features/chatTimeline/timelineSource.ts",
       "src/features/chatTimeline/timelineTask.ts",
       "src/features/chatTimeline/types.ts",
       "src/features/chatTimeline/usageSummary.ts"
+    ],
+    "src/features/chatTimeline/timelineRequest.ts": [
+      "src/core/api/services/chatEventProtocol.ts",
+      "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineSource.ts": [
       "src/core/api/services/chatEventProtocol.ts",
@@ -28010,6 +28052,7 @@
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/types.ts": [
+      "src/core/api/services/chatEventProtocol.ts",
       "src/features/chatPersistence/types.ts"
     ],
     "src/features/chatTimeline/usageSummary.ts": [

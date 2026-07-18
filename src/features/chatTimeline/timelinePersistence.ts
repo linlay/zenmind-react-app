@@ -8,6 +8,7 @@ import { buildActiveReasoningNodeIdsByRun } from './timelineReasoningIdentity.ts
 import { migratePersistedChatTimelineActionNode } from './timelineAction.ts';
 import { migratePersistedChatTimelineContextCompactNode } from './timelineContextCompact.ts';
 import { migratePersistedChatTimelinePlanNode } from './timelinePlan.ts';
+import { migratePersistedChatTimelineMessageNode } from './timelineRequest.ts';
 import { migratePersistedChatTimelineTaskNode } from './timelineTask.ts';
 
 export type SerializedTimelineMeta = {
@@ -199,16 +200,11 @@ export function deserializeChatTimelineState(
       return null;
     }
 
-    const node = migratePersistedChatTimelineContextCompactNode(
-      migratePersistedChatTimelineActionNode(
-        migratePersistedChatTimelineTaskNode(
-          migratePersistedChatTimelinePlanNode(parsed, conversationId),
-          conversationId
-        ),
-        conversationId
-      ),
-      conversationId
-    );
+    let node = migratePersistedChatTimelinePlanNode(parsed, conversationId);
+    node = migratePersistedChatTimelineTaskNode(node, conversationId);
+    node = migratePersistedChatTimelineActionNode(node, conversationId);
+    node = migratePersistedChatTimelineContextCompactNode(node, conversationId);
+    node = migratePersistedChatTimelineMessageNode(node);
     const current = nodesById[node.id];
     if (!current || node.updatedAt >= current.updatedAt) {
       nodesById[node.id] = node;
