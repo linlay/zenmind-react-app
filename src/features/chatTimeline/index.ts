@@ -37,6 +37,9 @@ export type {
   ChatTimelineNodeDisplayItem,
   ChatTimelineNode,
   ChatTimelineNodeKind,
+  ChatTimelinePlanNode,
+  ChatTimelinePlanStatus,
+  ChatTimelinePlanStep,
   ChatTimelineRuntimeEntry,
   ChatTimelineRuntimeEntryKind,
   ChatTimelineRuntimeState,
@@ -85,6 +88,11 @@ export {
   resolveChatTimelineArtifactPreviewKind,
   type NormalizedChatTimelineArtifact,
 } from './timelineArtifact.ts';
+export {
+  createChatTimelinePlanNodeId,
+  normalizeChatTimelinePlanEvent,
+  normalizeChatTimelinePlanStatus,
+} from './timelinePlan.ts';
 export {
   getActiveChatTimelineFrontendTool,
   normalizeFrontendToolParams,

@@ -45,6 +45,7 @@ import {
   type RuntimePlanningBlockMode,
   type RuntimePlanningCollapseOverlayRequest,
 } from './RuntimePlanningBlock';
+import { PlanTimelineRow } from './PlanTimelineRow.tsx';
 import { RuntimeTimelineRow } from './RuntimeTimelineRow';
 import { SourceTimelineRow } from './SourceTimelineRow';
 
@@ -807,6 +808,16 @@ const TimelineRow = memo(
     }
     if (item.kind === 'artifact' && node.kind === 'artifact') {
       return <ArtifactTimelineRow node={node} isLastInRun={item.isLastInRun} />;
+    }
+    if (item.kind === 'plan' && node.kind === 'plan') {
+      return (
+        <PlanTimelineRow
+          node={node}
+          isLastInRun={item.isLastInRun}
+          getInitialExpanded={getInitialRuntimeExpanded}
+          onExpandedChange={onRuntimeExpandedChange}
+        />
+      );
     }
     if (item.kind === 'request' && node.kind === 'request') {
       return <RequestInputRow node={node} isLastInRun={item.isLastInRun} />;

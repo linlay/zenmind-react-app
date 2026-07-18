@@ -3,6 +3,7 @@ import { defaultT, type TFunction } from '../../../shared/i18n/translate.ts';
 import type {
   ChatTimelineArtifactNode,
   ChatTimelineNode,
+  ChatTimelinePlanNode,
   ChatTimelineRunNode,
   ChatTimelineSourceNode,
   ChatTimelineTextNode,
@@ -26,11 +27,14 @@ export type RuntimeStatusTone = 'active' | 'complete' | 'error' | 'cancelled' | 
 export type RuntimePayloadSectionMode = 'markdown' | 'plain' | 'code';
 
 export type RuntimePayloadSource =
-  | Exclude<ChatTimelineNode, ChatTimelineArtifactNode | ChatTimelineSourceNode>
+  | Exclude<
+      ChatTimelineNode,
+      ChatTimelineArtifactNode | ChatTimelinePlanNode | ChatTimelineSourceNode
+    >
   | ChatTimelineToolGroupDisplayItem;
 
 export type RuntimePayloadKind =
-  | Exclude<ChatTimelineNode['kind'], 'artifact' | 'message' | 'source'>
+  | Exclude<ChatTimelineNode['kind'], 'artifact' | 'message' | 'plan' | 'source'>
   | 'tool-group';
 
 export type RuntimeToolStatus =
@@ -536,7 +540,7 @@ function iconForKind(kind: RuntimePayloadKind): {
   if (kind === 'planning') {
     return { iconUsage: 'runtime.planning', tone: 'tool' };
   }
-  if (kind === 'plan' || kind === 'task') {
+  if (kind === 'task') {
     return { iconUsage: 'runtime.file', tone: 'file' };
   }
   return { iconUsage: 'runtime.neutral', tone: 'neutral' };
@@ -557,7 +561,6 @@ function rendererForKind(kind: RuntimePayloadKind): RuntimePayloadRendererType {
   }
   if (
     kind === 'action' ||
-    kind === 'plan' ||
     kind === 'task' ||
     kind === 'context'
   ) {

@@ -55,6 +55,7 @@
       "scripts/tests/chatTimelineArtifact.test.mts",
       "scripts/tests/chatTimelineDisplay.test.mts",
       "scripts/tests/chatTimelinePersistence.test.mts",
+      "scripts/tests/chatTimelinePlan.test.mts",
       "scripts/tests/chatTimelineReducer.test.mts",
       "scripts/tests/chatTimelineRunUnavailable.test.mts",
       "scripts/tests/chatWonderDisplay.test.mts",

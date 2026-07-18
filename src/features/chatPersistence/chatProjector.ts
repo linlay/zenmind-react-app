@@ -233,7 +233,7 @@ function appendDetailPlanSnapshotEvent(
     chatId: conversationId,
     runId: toText(plan.runId),
     planId: getPlanSnapshotKey(plan) || 'plan',
-    title: toText(plan.title || plan.name) || '计划',
+    title: toText(plan.title || plan.name),
     status: toText(plan.status),
     text: toText(plan.text || plan.summary || plan.title),
     payload: plan,

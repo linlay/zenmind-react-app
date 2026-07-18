@@ -5,6 +5,7 @@ import type {
   ChatTimelineUsageSummary,
 } from './types.ts';
 import { buildActiveReasoningNodeIdsByRun } from './timelineReasoningIdentity.ts';
+import { migratePersistedChatTimelinePlanNode } from './timelinePlan.ts';
 
 export type SerializedTimelineMeta = {
   conversationId: string;
@@ -174,6 +175,7 @@ export function deserializeChatTimelineState(
   const orderedRows = [...rows].sort((left, right) => left.orderIndex - right.orderIndex);
   const nodesById: Record<string, ChatTimelineNode> = {};
   const orderedNodeIds: string[] = [];
+  const orderedNodeIdSet = new Set<string>();
 
   for (const row of orderedRows) {
     if (row.conversationId !== conversationId || !row.nodeId || !row.payloadJson) {
@@ -194,8 +196,15 @@ export function deserializeChatTimelineState(
       return null;
     }
 
-    nodesById[parsed.id] = parsed;
-    orderedNodeIds.push(parsed.id);
+    const node = migratePersistedChatTimelinePlanNode(parsed, conversationId);
+    const current = nodesById[node.id];
+    if (!current || node.updatedAt >= current.updatedAt) {
+      nodesById[node.id] = node;
+    }
+    if (!orderedNodeIdSet.has(node.id)) {
+      orderedNodeIdSet.add(node.id);
+      orderedNodeIds.push(node.id);
+    }
   }
 
   const awaitingNode =

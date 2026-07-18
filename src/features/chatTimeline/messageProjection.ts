@@ -37,6 +37,15 @@ function bodyForNode(node: ProjectedRuntimeNode): string {
   if (node.kind === 'artifact') {
     return node.errorReason || node.summary || node.resourceUrl;
   }
+  if (node.kind === 'plan') {
+    return [
+      node.summary,
+      ...node.steps.map((step) => `${step.status}: ${step.description}`),
+      node.errorReason,
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
   return node.body;
 }
 
@@ -46,6 +55,9 @@ function titleForNode(node: ProjectedRuntimeNode): string {
   }
   if (node.kind === 'artifact') {
     return node.name;
+  }
+  if (node.kind === 'plan') {
+    return node.title || node.planId;
   }
   return node.title;
 }

@@ -37,6 +37,18 @@ export type ChatTimelineArtifactPreviewKind = 'image' | 'text' | 'pdf' | 'unsupp
 
 export type ChatTimelineArtifactStatus = 'processing' | 'ready' | 'failed';
 
+export type ChatTimelinePlanStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+export type ChatTimelinePlanStep = {
+  taskId: string;
+  description: string;
+  status: ChatTimelinePlanStatus;
+  startedAt: number | null;
+  completedAt: number | null;
+  durationMs: number | null;
+  errorReason: string;
+};
+
 export type ChatTimelineErrorDetail = {
   code: string;
   category: string;
@@ -228,15 +240,7 @@ export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
 };
 
 export type ChatTimelineTextNode = ChatTimelineBaseNode & {
-  kind:
-    | 'reasoning'
-    | 'planning'
-    | 'request'
-    | 'action'
-    | 'plan'
-    | 'task'
-    | 'usage'
-    | 'context';
+  kind: 'reasoning' | 'planning' | 'request' | 'action' | 'task' | 'usage' | 'context';
   title: string;
   body: string;
   status: ChatTimelineRuntimeStatus | string;
@@ -255,6 +259,19 @@ export type ChatTimelineArtifactNode = ChatTimelineBaseNode & {
   previewKind: ChatTimelineArtifactPreviewKind;
   status: ChatTimelineArtifactStatus;
   summary: string;
+  errorReason: string;
+};
+
+export type ChatTimelinePlanNode = ChatTimelineBaseNode & {
+  kind: 'plan';
+  planId: string;
+  title: string;
+  summary: string;
+  status: ChatTimelinePlanStatus;
+  steps: ChatTimelinePlanStep[];
+  startedAt: number | null;
+  completedAt: number | null;
+  durationMs: number | null;
   errorReason: string;
 };
 
@@ -343,6 +360,7 @@ export type ChatTimelineNode =
   | ChatTimelineMessageNode
   | ChatTimelineTextNode
   | ChatTimelineArtifactNode
+  | ChatTimelinePlanNode
   | ChatTimelineToolNode
   | ChatTimelineSourceNode
   | ChatTimelineAwaitingNode

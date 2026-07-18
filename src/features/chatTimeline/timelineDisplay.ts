@@ -8,6 +8,7 @@ import type {
   ChatTimelineMessageNode,
   ChatTimelineNode,
   ChatTimelineNodeDisplayItem,
+  ChatTimelinePlanNode,
   ChatTimelineState,
   ChatTimelineSourceNode,
   ChatTimelineTextNode,
@@ -16,6 +17,7 @@ import type {
 } from './types.ts';
 import { getChatTimelineArtifactContentLength } from './timelineArtifact.ts';
 import { getChatTimelineErrorDetailSignature } from './timelinePlatformError.ts';
+import { getChatTimelinePlanContentLength } from './timelinePlan.ts';
 import { getChatTimelineSourceContentLength } from './timelineSource.ts';
 
 type ChatTimelineDisplayTextNode = ChatTimelineTextNode & {
@@ -26,6 +28,7 @@ type ChatTimelineDisplayNode =
   | ChatTimelineMessageNode
   | ChatTimelineDisplayTextNode
   | ChatTimelineArtifactNode
+  | ChatTimelinePlanNode
   | ChatTimelineToolNode
   | ChatTimelineSourceNode
   | ChatTimelineAwaitingNode;
@@ -111,6 +114,9 @@ function isVisibleTimelineNode(
     return true;
   }
   if (node.kind === 'artifact') {
+    return true;
+  }
+  if (node.kind === 'plan') {
     return true;
   }
   if (node.kind === 'reasoning' && !node.body.trim() && isDefaultReasoningNode(node)) {
@@ -635,6 +641,9 @@ function getTimelineNodeContentLength(node: ChatTimelineNode): number {
   if (node.kind === 'artifact') {
     return getChatTimelineArtifactContentLength(node);
   }
+  if (node.kind === 'plan') {
+    return getChatTimelinePlanContentLength(node);
+  }
   return node.title.length + node.body.length + node.status.length;
 }
 
@@ -774,7 +783,63 @@ function didAssistantMessageStreamingComplete(
   );
 }
 
-function updateTailDisplayModel(
+function isPatchableStructuredNode(node: ChatTimelineDisplayNode): boolean {
+  return node.kind === 'source' || node.kind === 'artifact' || node.kind === 'plan';
+}
+
+function patchStructuredDisplayItem(
+  state: ChatTimelineState,
+  previous: ChatTimelineDisplayModel,
+  nodeId: string
+): ChatTimelineDisplayModel | null {
+  const previousNode = previous.nodesById[nodeId];
+  const nextNode = state.nodesById[nodeId];
+  if (
+    !isTimelineDisplayNode(previousNode) ||
+    !isTimelineDisplayNode(nextNode) ||
+    !isPatchableStructuredNode(previousNode) ||
+    previousNode.kind !== nextNode.kind ||
+    runIdForNode(previousNode) !== runIdForNode(nextNode) ||
+    didRuntimeActivityChange(previousNode, nextNode)
+  ) {
+    return null;
+  }
+
+  const itemIndex = previous.items.findIndex(
+    (item) => item.kind !== 'tool-group' && item.kind !== 'assistant-reply-footer' && item.nodeId === nodeId
+  );
+  const previousItem = previous.items[itemIndex];
+  if (
+    itemIndex < 0 ||
+    !previousItem ||
+    previousItem.kind === 'tool-group' ||
+    previousItem.kind === 'assistant-reply-footer'
+  ) {
+    return null;
+  }
+
+  const nextKind = displayKindForNode(nextNode);
+  if (nextKind !== previousItem.kind) {
+    return null;
+  }
+  const nextItem = {
+    ...previousItem,
+    node: nextNode,
+    runId: runIdForNode(nextNode),
+  } as ChatTimelineDisplayItem;
+  const items = [...previous.items];
+  items[itemIndex] = nextItem;
+  return {
+    revision: state.revision,
+    orderedNodeIds: state.orderedNodeIds,
+    nodesById: state.nodesById,
+    items,
+    tailSignature:
+      itemIndex === items.length - 1 ? buildTimelineTailSignature(items) : previous.tailSignature,
+  };
+}
+
+function updateIncrementalDisplayModel(
   state: ChatTimelineState,
   previous: ChatTimelineDisplayModel
 ): ChatTimelineDisplayModel | null {
@@ -791,6 +856,15 @@ function updateTailDisplayModel(
       revision: state.revision,
       nodesById: state.nodesById,
     };
+  }
+
+  const structuredUpdate = patchStructuredDisplayItem(
+    state,
+    previous,
+    change.visibleNodeId
+  );
+  if (structuredUpdate) {
+    return structuredUpdate;
   }
 
   const previousTail = previous.items[previous.items.length - 1];
@@ -893,7 +967,7 @@ export function buildChatTimelineDisplayModel(
   previous?: ChatTimelineDisplayModel | null
 ): ChatTimelineDisplayModel {
   if (previous && previous.items.length > 0) {
-    const updated = updateTailDisplayModel(state, previous);
+    const updated = updateIncrementalDisplayModel(state, previous);
     if (updated) {
       return updated;
     }

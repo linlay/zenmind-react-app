@@ -1,12 +1,12 @@
-import { memo, type ComponentType, useEffect, useState } from 'react';
+import { memo, type ComponentType } from 'react';
 import { Text, View } from 'react-native';
 
 import { ConversationMarkdownRenderer } from '../../../shared/components/ConversationMarkdownRenderer';
 import { useT } from '../../../shared/i18n';
-import type { TFunction } from '../../../shared/i18n/translate.ts';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../shared/visual/className';
 import { formatChatDetailRunningDuration } from '../chatDetailFormatters';
+import { useRunningElapsedMs } from './useRunningElapsedMs.ts';
 import type {
   RuntimePayloadDescriptor,
   RuntimePayloadRendererType,
@@ -20,7 +20,6 @@ type RuntimePayloadContentProps = {
   wrap: boolean;
 };
 
-const RUNNING_DURATION_TICK_MS = 1000;
 const STACK_CLASS = 'gap-[9px]';
 const SECTION_CLASS = 'gap-[5px]';
 const TOOL_SECTION_CLASS = 'gap-[5px]';
@@ -47,62 +46,15 @@ const NOWRAP_MARKDOWN_CLASS = 'min-w-[680px]';
 const METRIC_BOX_CLASS = 'rounded-app-sm bg-app-surface px-[10px] py-[9px]';
 const METRIC_TEXT_CLASS = 'text-[13px] font-bold leading-[19px] text-app-primary';
 
-function getNextRunningDurationDelay(startedAt: number, now: number): number {
-  if (now < startedAt) {
-    return Math.max(1, startedAt + RUNNING_DURATION_TICK_MS - now);
-  }
-
-  const elapsedMs = Math.max(0, now - startedAt);
-  const remainder = elapsedMs % RUNNING_DURATION_TICK_MS;
-  return remainder === 0 ? RUNNING_DURATION_TICK_MS : RUNNING_DURATION_TICK_MS - remainder;
-}
-
-function formatRunningToolDurationText(
-  startedAt: number | null | undefined,
-  t: TFunction,
-  now: number = Date.now()
-): string {
-  const duration = formatChatDetailRunningDuration(startedAt, now);
-  return duration ? t('runtime.duration', { duration }) : '';
-}
-
 function useRunningToolDurationText(startedAt: number | null | undefined): string {
   const t = useT();
-  const [text, setText] = useState(() => formatRunningToolDurationText(startedAt, t));
-
-  useEffect(() => {
-    const startTime = Number(startedAt);
-    if (!Number.isFinite(startTime) || startTime <= 0) {
-      setText('');
-      return;
-    }
-
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-    function schedule(currentTime: number) {
-      timeout = setTimeout(tick, getNextRunningDurationDelay(startTime, currentTime));
-    }
-    function update(currentTime: number) {
-      const nextText = formatRunningToolDurationText(startTime, t, currentTime);
-      setText((currentText) => (currentText === nextText ? currentText : nextText));
-    }
-    function tick() {
-      const currentTime = Date.now();
-      update(currentTime);
-      schedule(currentTime);
-    }
-
-    const currentTime = Date.now();
-    update(currentTime);
-    schedule(currentTime);
-
-    return () => {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-    };
-  }, [startedAt, t]);
-
-  return text;
+  const elapsedMs = useRunningElapsedMs(startedAt);
+  const startTime = Number(startedAt);
+  const duration =
+    elapsedMs === null || !Number.isFinite(startTime)
+      ? ''
+      : formatChatDetailRunningDuration(startTime, startTime + elapsedMs);
+  return duration ? t('runtime.duration', { duration }) : '';
 }
 
 function SectionLabel({ text }: { text: string }) {
