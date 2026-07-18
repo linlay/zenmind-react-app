@@ -114,6 +114,7 @@ export const appIconUsages = {
     sizeRole: 'rail'
   },
   'timeline.systemAlertRail': { glyph: 'warning', colorRole: 'warning', sizeRole: 'rail' },
+  'timeline.contextCompactRail': { glyph: 'history', colorRole: 'secondary', sizeRole: 'rail' },
   'timeline.copy': { glyph: 'content_copy', colorRole: 'secondary', sizeRole: 'toolbar' },
   'timeline.reask': { glyph: 'refresh', colorRole: 'secondary', sizeRole: 'toolbar' },
   'timeline.reaskNewConversation': { glyph: 'open_in_new', colorRole: 'primary', sizeRole: 'toolbar' },

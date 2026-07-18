@@ -9,6 +9,10 @@ const TENTHS_PER_SECOND = 10;
 const DEFAULT_TODAY_LABEL = defaultT('chatDetail.timestamp.today');
 const DEFAULT_YESTERDAY_LABEL = defaultT('chatDetail.timestamp.yesterday');
 
+export function formatChatUsageNumber(value: number | null | undefined): string {
+  return value === null || value === undefined ? '-' : value.toLocaleString();
+}
+
 function pad2(value: number): string {
   return String(value).padStart(2, '0');
 }

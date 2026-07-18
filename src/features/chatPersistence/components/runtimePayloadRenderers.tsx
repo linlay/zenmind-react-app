@@ -257,8 +257,6 @@ const ToolPayload = memo(function ToolPayload({ descriptor, wrap }: RuntimePaylo
 
 const AwaitingPayload = memo(SectionStackPayload);
 
-const RecordPayload = memo(SectionStackPayload);
-
 const PlainPayload = memo(SectionStackPayload);
 
 const MetricPayload = memo(function MetricPayload({
@@ -293,7 +291,6 @@ const PAYLOAD_RENDERERS = {
   markdown: MarkdownPayload,
   tool: ToolPayload,
   awaiting: AwaitingPayload,
-  record: RecordPayload,
   plain: PlainPayload,
   metric: MetricPayload,
 } satisfies Record<RuntimePayloadRendererType, ComponentType<RuntimePayloadContentProps>>;

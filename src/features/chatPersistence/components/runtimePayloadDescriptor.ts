@@ -3,6 +3,7 @@ import { defaultT, type TFunction } from '../../../shared/i18n/translate.ts';
 import type {
   ChatTimelineActionNode,
   ChatTimelineArtifactNode,
+  ChatTimelineContextCompactNode,
   ChatTimelineNode,
   ChatTimelinePlanNode,
   ChatTimelineRunNode,
@@ -18,7 +19,6 @@ export type RuntimePayloadRendererType =
   | 'markdown'
   | 'tool'
   | 'awaiting'
-  | 'record'
   | 'plain'
   | 'metric';
 
@@ -33,6 +33,7 @@ export type RuntimePayloadSource =
       ChatTimelineNode,
       | ChatTimelineActionNode
       | ChatTimelineArtifactNode
+      | ChatTimelineContextCompactNode
       | ChatTimelinePlanNode
       | ChatTimelineSourceNode
       | ChatTimelineTaskNode
@@ -40,7 +41,10 @@ export type RuntimePayloadSource =
   | ChatTimelineToolGroupDisplayItem;
 
 export type RuntimePayloadKind =
-  | Exclude<ChatTimelineNode['kind'], 'action' | 'artifact' | 'message' | 'plan' | 'source' | 'task'>
+  | Exclude<
+      ChatTimelineNode['kind'],
+      'action' | 'artifact' | 'context' | 'message' | 'plan' | 'source' | 'task'
+    >
   | 'tool-group';
 
 export type RuntimeToolStatus =
@@ -562,9 +566,6 @@ function rendererForKind(kind: RuntimePayloadKind): RuntimePayloadRendererType {
   if (kind === 'usage') {
     return 'metric';
   }
-  if (kind === 'context') {
-    return 'record';
-  }
   return 'plain';
 }
 
@@ -676,7 +677,7 @@ export function buildRuntimePayloadDescriptor(
               : kind === 'usage'
                 ? formatUsageBody(source, t)
                 : source.body,
-            renderer === 'markdown' ? 'markdown' : renderer === 'record' ? 'code' : 'plain'
+            renderer === 'markdown' ? 'markdown' : 'plain'
           );
   const canExpand =
     kind === 'tool' ? getExpandableToolPillRecords(toolRecords).length > 0 : sections.length > 0;

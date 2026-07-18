@@ -17,14 +17,14 @@
     },
     {
       "order": 2,
-      "label": "chatSyncService.handlePushEvent 识别 incoming / content.delta / run.* / summary push / read-unread push / delete-archive push，并把 reasoning / planning / tool / awaiting / artifact / action / plan-task / usage-context 归并进内存 timeline state；action.* 只有实时 push/stream 额外发出 conversation.action.protocol，history reconcile 不发可执行事件；awaiting.asking / awaiting.answered 会先归一到 awaiting.ask / awaiting.answer，question/approval/form/plan payload 由 timeline reducer 结构化后给详情页交互组件消费；summary push 保留 agentKey/teamId 给 repository，缺失最后消息或 unread 字段时不伪造清空值。",
+      "label": "chatSyncService.handlePushEvent 识别 incoming / content.delta / run.* / summary push / read-unread push / delete-archive push，并把 reasoning / planning / tool / awaiting / artifact / action / plan-task / usage-context 归并进内存 timeline state；context.compact.* 经同一 runtime 入口归一，complete 同步修正 timeline usage summary；action.* 只有实时 push/stream 额外发出 conversation.action.protocol，history reconcile 不发可执行事件；awaiting.asking / awaiting.answered 会先归一到 awaiting.ask / awaiting.answer，question/approval/form/plan payload 由 timeline reducer 结构化后给详情页交互组件消费；summary push 保留 agentKey/teamId 给 repository，缺失最后消息或 unread 字段时不伪造清空值。",
       "moduleId": "feature-chat-realtime",
       "file": "src/features/chatRealtime/chatSyncService.ts",
       "symbol": "handlePushEvent"
     },
     {
       "order": 3,
-      "label": "feature-chat-timeline 统一处理运行态事件、assistant stream delta、SQLite message fallback、远端 event history replay、awaiting question/approval/form/plan interactive、html/qlc frontend tool 元数据、本地 resolution 与 typed action 参数/结果/策略归一和 normalized timeline 序列化，向 service / projector / 详情页提供 messages、runtimeState、interactive selector、display items 和 rich snapshot rows。",
+      "label": "feature-chat-timeline 统一处理运行态事件、assistant stream delta、SQLite message fallback、远端 event history replay、awaiting question/approval/form/plan interactive、html/qlc frontend tool 元数据、本地 resolution、typed action 参数/结果/策略及 typed context compact 状态/token/usage 归一和 normalized timeline 序列化，向 service / projector / 详情页提供 messages、runtimeState、interactive selector、display items 和 rich snapshot rows。",
       "moduleId": "feature-chat-timeline",
       "file": "src/features/chatTimeline/timelineReducer.ts",
       "symbol": "applyChatTimelineEvent"
@@ -38,7 +38,7 @@
     },
     {
       "order": 5,
-      "label": "Chat 首页目录只在 directoryProjectionChanged 或 home.directory.replace 时回读目录切片；普通 home.item.patch 只 patch 当前可见目录项 preview。useChatDetailConversationController 只用 conversation.timeline.replace/reset 驱动详情主消息区；awaiting 与 active frontend tool 都从 timeline 派生，分别由 ChatAwaitingDock / FrontendToolDock 消费并调用 chatSyncService 提交；ActionTimelineRow 展示 typed action，useConversationActionRuntime 只消费命中当前会话的实时 action protocol 并交给有界幂等 conversationActionService；FrontendToolDock 复用安全 HTML runtime 发送 tool_init，只接收 frontend_submit/close/done 白名单，message/stream/runtime scoped event 保留兼容但不再维护页面第二套状态。",
+      "label": "Chat 首页目录只在 directoryProjectionChanged 或 home.directory.replace 时回读目录切片；普通 home.item.patch 只 patch 当前可见目录项 preview。useChatDetailConversationController 只用 conversation.timeline.replace/reset 驱动详情主消息区；awaiting 与 active frontend tool 都从 timeline 派生，分别由 ChatAwaitingDock / FrontendToolDock 消费并调用 chatSyncService 提交；ActionTimelineRow 展示 typed action，ContextCompactTimelineRow 展示 typed compact 语义且 Header 消费同一 usageSummary；useConversationActionRuntime 只消费命中当前会话的实时 action protocol 并交给有界幂等 conversationActionService；FrontendToolDock 复用安全 HTML runtime 发送 tool_init，只接收 frontend_submit/close/done 白名单，message/stream/runtime scoped event 保留兼容但不再维护页面第二套状态。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
       "symbol": "useChatDetailConversationController"
@@ -60,6 +60,7 @@
     "把普通 push 扩大成目录全量刷新会破坏首页 agent/team 目录的性能边界。",
     "把原始 reasoning / tool / awaiting event history 直接写进 SQLite，或绕过 normalized timeline snapshot/hash-diff，会把详情页热路径和落库链路无意义放大。",
     "timeline 和 runtime 使用两套 reducer 会导致 reconnect/reconcile 后 UI 顺序和运行态状态漂移。",
+    "context.compact.complete 如果只更新列表节点或只更新顶层 Header usage，会让实时态与 SQLite snapshot 恢复态的 token 数漂移；两者必须由同一 typed context 节点和 ChatTimelineState.usageSummary 派生。",
     "在 reducer、ActionTimelineRow 或 history/snapshot 恢复阶段直接执行 action 会重放副作用；动作只能由实时 scoped event 驱动，并由移动端白名单 service 再次复核，未知与平台不支持项只展示拒绝原因。",
     "页面层重新解析 awaiting payload 或直接调用 submit 接口，会让 WS/detail replay、首屏快照恢复和本地提交投影产生分叉；HTML form 只能在 AwaitingFormViewport 内桥接 collect/submit，最终仍交给 chatSyncService.submitAwaiting。",
     "chat.deleted / chat.archived 如果只删 conversation 不清理 messages/outbox/sync state，会留下脏外键和错误目录投影。",

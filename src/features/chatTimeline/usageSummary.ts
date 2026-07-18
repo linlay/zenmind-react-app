@@ -5,18 +5,6 @@ import type {
   ChatTimelineUsageSummary,
 } from './types.ts';
 
-const EMPTY_USAGE_STATS: ChatTimelineUsageStats = {
-  promptTokens: null,
-  completionTokens: null,
-  totalTokens: null,
-  reasoningTokens: null,
-  cacheHitTokens: null,
-  cacheMissTokens: null,
-  llmChatCompletionCount: null,
-  toolCallCount: null,
-  estimatedCost: null,
-};
-
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -313,6 +301,53 @@ export function buildChatTimelineUsageSummary(
     run,
     chat,
     compact: compact && hasStatsValue(compact) ? compact : null,
+    updatedAt,
+  };
+}
+
+export function mergeChatTimelineUsageSummaryForContextCompact(
+  current: ChatTimelineUsageSummary | null,
+  event: Record<string, unknown>,
+  updatedAt: number
+): ChatTimelineUsageSummary | null {
+  const payload = isObjectRecord(event.payload) ? event.payload : {};
+  const postCompactTokens = firstUsageNumber(
+    event.postCompactEstimatedTokens,
+    event.postCompactTokens,
+    event.afterTokens,
+    payload.postCompactEstimatedTokens,
+    payload.postCompactTokens,
+    payload.afterTokens
+  );
+  const incoming = buildChatTimelineUsageSummary(event, updatedAt);
+  const compact = incoming.compact ?? current?.compact ?? null;
+  if (!current && postCompactTokens === null && !compact) {
+    return null;
+  }
+
+  const contextWindow = current?.contextWindow ?? incoming.contextWindow;
+  return {
+    label: current?.label || incoming.label,
+    modelKey: current?.modelKey || incoming.modelKey,
+    contextWindow:
+      postCompactTokens === null
+        ? contextWindow
+        : {
+            ...contextWindow,
+            currentSize: postCompactTokens,
+            estimatedNextCallSize: postCompactTokens,
+            percent:
+              contextWindow.maxSize !== null && contextWindow.maxSize > 0
+                ? Math.max(
+                    0,
+                    Math.min(100, Math.round((postCompactTokens / contextWindow.maxSize) * 100))
+                  )
+                : null,
+          },
+    current: current?.current ?? incoming.current,
+    run: current?.run ?? incoming.run,
+    chat: current?.chat ?? incoming.chat,
+    compact,
     updatedAt,
   };
 }

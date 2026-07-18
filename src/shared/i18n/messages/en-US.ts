@@ -689,6 +689,14 @@ export const enUS: Record<I18nKey, string> = {
   'awaiting.answer.status': 'Status',
   'awaiting.answer.submitted': 'Submitted {count} answers',
 
+  'contextCompact.running': 'Compacting context',
+  'contextCompact.completed': 'Context compacted',
+  'contextCompact.failed': 'Context compaction failed',
+  'contextCompact.tokenChange': 'Tokens {before} → {after}',
+  'contextCompact.savedTokens': 'Saved {count}',
+  'contextCompact.savedTokensWithPercent': 'Saved {count} ({percent}%)',
+  'contextCompact.unknownError': 'Unknown error',
+
   'usage.metric.prompt': 'Input',
   'usage.metric.completion': 'Output',
   'usage.metric.total': 'Total',

@@ -668,6 +668,14 @@ export const zhCN = {
   'awaiting.answer.status': '状态',
   'awaiting.answer.submitted': '已提交 {count} 项回答',
 
+  'contextCompact.running': '正在压缩上下文',
+  'contextCompact.completed': '上下文已压缩',
+  'contextCompact.failed': '上下文压缩失败',
+  'contextCompact.tokenChange': 'Token {before} → {after}',
+  'contextCompact.savedTokens': '节省 {count}',
+  'contextCompact.savedTokensWithPercent': '节省 {count}（{percent}%）',
+  'contextCompact.unknownError': '未知错误',
+
   'usage.metric.prompt': '输入',
   'usage.metric.completion': '输出',
   'usage.metric.total': '总计',

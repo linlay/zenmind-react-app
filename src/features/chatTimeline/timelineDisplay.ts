@@ -4,6 +4,7 @@ import type {
   ChatTimelineActionNode,
   ChatTimelineArtifactNode,
   ChatTimelineAwaitingNode,
+  ChatTimelineContextCompactNode,
   ChatTimelineDisplayItem,
   ChatTimelineDisplayItemKind,
   ChatTimelineMessageNode,
@@ -21,6 +22,7 @@ import type {
 } from './types.ts';
 import { getChatTimelineArtifactContentLength } from './timelineArtifact.ts';
 import { getChatTimelineActionContentLength } from './timelineAction.ts';
+import { getChatTimelineContextCompactContentLength } from './timelineContextCompact.ts';
 import { getChatTimelineErrorDetailSignature } from './timelinePlatformError.ts';
 import { getChatTimelinePlanContentLength } from './timelinePlan.ts';
 import { getChatTimelineSourceContentLength } from './timelineSource.ts';
@@ -33,6 +35,7 @@ type ChatTimelineDisplayTextNode = ChatTimelineTextNode & {
 type ChatTimelineDisplayNode =
   | ChatTimelineMessageNode
   | ChatTimelineDisplayTextNode
+  | ChatTimelineContextCompactNode
   | ChatTimelineActionNode
   | ChatTimelineArtifactNode
   | ChatTimelinePlanNode
@@ -131,6 +134,9 @@ function isVisibleTimelineNode(
     return true;
   }
   if (node.kind === 'action') {
+    return true;
+  }
+  if (node.kind === 'context') {
     return true;
   }
   if (node.kind === 'reasoning' && !node.body.trim() && isDefaultReasoningNode(node)) {
@@ -812,6 +818,9 @@ function getTimelineNodeContentLength(node: ChatTimelineNode): number {
   if (node.kind === 'action') {
     return getChatTimelineActionContentLength(node);
   }
+  if (node.kind === 'context') {
+    return getChatTimelineContextCompactContentLength(node);
+  }
   return node.title.length + node.body.length + node.status.length;
 }
 
@@ -972,7 +981,12 @@ function didAssistantMessageStreamingComplete(
 }
 
 function isPatchableStructuredNode(node: ChatTimelineDisplayNode): boolean {
-  return node.kind === 'source' || node.kind === 'artifact' || node.kind === 'plan';
+  return (
+    node.kind === 'source' ||
+    node.kind === 'artifact' ||
+    node.kind === 'plan' ||
+    node.kind === 'context'
+  );
 }
 
 function patchStructuredDisplayItem(
@@ -988,7 +1002,7 @@ function patchStructuredDisplayItem(
     !isPatchableStructuredNode(previousNode) ||
     previousNode.kind !== nextNode.kind ||
     runIdForNode(previousNode) !== runIdForNode(nextNode) ||
-    didRuntimeActivityChange(previousNode, nextNode)
+    (nextNode.kind !== 'context' && didRuntimeActivityChange(previousNode, nextNode))
   ) {
     return null;
   }

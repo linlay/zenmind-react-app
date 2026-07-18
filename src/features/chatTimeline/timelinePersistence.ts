@@ -6,6 +6,7 @@ import type {
 } from './types.ts';
 import { buildActiveReasoningNodeIdsByRun } from './timelineReasoningIdentity.ts';
 import { migratePersistedChatTimelineActionNode } from './timelineAction.ts';
+import { migratePersistedChatTimelineContextCompactNode } from './timelineContextCompact.ts';
 import { migratePersistedChatTimelinePlanNode } from './timelinePlan.ts';
 import { migratePersistedChatTimelineTaskNode } from './timelineTask.ts';
 
@@ -117,7 +118,7 @@ function readLatestUsageSummaryFromNodes(
 ): ChatTimelineUsageSummary | null {
   for (let index = orderedNodeIds.length - 1; index >= 0; index -= 1) {
     const node = nodesById[orderedNodeIds[index]];
-    if (node?.kind === 'usage') {
+    if (node?.kind === 'usage' || node?.kind === 'context') {
       const usageSummary = normalizePersistedUsageSummary(node.usageSummary);
       if (usageSummary) {
         return usageSummary;
@@ -198,9 +199,12 @@ export function deserializeChatTimelineState(
       return null;
     }
 
-    const node = migratePersistedChatTimelineActionNode(
-      migratePersistedChatTimelineTaskNode(
-        migratePersistedChatTimelinePlanNode(parsed, conversationId),
+    const node = migratePersistedChatTimelineContextCompactNode(
+      migratePersistedChatTimelineActionNode(
+        migratePersistedChatTimelineTaskNode(
+          migratePersistedChatTimelinePlanNode(parsed, conversationId),
+          conversationId
+        ),
         conversationId
       ),
       conversationId

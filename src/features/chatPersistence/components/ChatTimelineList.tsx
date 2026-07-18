@@ -41,6 +41,7 @@ import { ChatAttachmentStrip } from './ChatAttachmentStrip';
 import { ConversationContentRenderer } from '../conversationViewport/ConversationContentRenderer';
 import { ChatSystemAlert } from './ChatSystemAlert';
 import { ChatTimelineRail } from './ChatTimelineRail';
+import { ContextCompactTimelineRow } from './ContextCompactTimelineRow.tsx';
 import {
   PlanningActionPill,
   type RuntimePlanningBlockMode,
@@ -863,6 +864,14 @@ const TimelineRow = memo(
           isLastInRun={item.isLastInRun}
           getInitialExpanded={getInitialRuntimeExpanded}
           onExpandedChange={onRuntimeExpandedChange}
+        />
+      );
+    }
+    if (item.kind === 'context' && node.kind === 'context') {
+      return (
+        <ContextCompactTimelineRow
+          node={node}
+          isLastInRun={item.isLastInRun}
         />
       );
     }

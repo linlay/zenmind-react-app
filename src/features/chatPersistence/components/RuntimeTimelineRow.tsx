@@ -76,6 +76,7 @@ function getRuntimePayloadSource(
     source.kind === 'source' ||
     source.kind === 'action' ||
     source.kind === 'artifact' ||
+    source.kind === 'context' ||
     source.kind === 'plan' ||
     source.kind === 'task'
   ) {

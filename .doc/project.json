@@ -54,6 +54,7 @@
       "scripts/tests/chatRuntimeState.test.mts",
       "scripts/tests/chatTimelineAction.test.mts",
       "scripts/tests/chatTimelineArtifact.test.mts",
+      "scripts/tests/chatTimelineContextCompact.test.mts",
       "scripts/tests/chatTimelineDisplay.test.mts",
       "scripts/tests/chatTimelinePersistence.test.mts",
       "scripts/tests/chatTimelinePlan.test.mts",

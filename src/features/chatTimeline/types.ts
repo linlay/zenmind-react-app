@@ -52,6 +52,8 @@ export type ChatTimelineActionStatus =
   | 'failed'
   | 'blocked';
 
+export type ChatTimelineContextCompactStatus = 'running' | 'completed' | 'failed';
+
 export type ChatTimelinePlanStep = {
   taskId: string;
   description: string;
@@ -253,12 +255,25 @@ export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
 };
 
 export type ChatTimelineTextNode = ChatTimelineBaseNode & {
-  kind: 'reasoning' | 'planning' | 'request' | 'usage' | 'context';
+  kind: 'reasoning' | 'planning' | 'request' | 'usage';
   title: string;
   body: string;
   status: ChatTimelineRuntimeStatus | string;
   streaming: boolean;
   usageSummary?: ChatTimelineUsageSummary | null;
+};
+
+export type ChatTimelineContextCompactNode = ChatTimelineBaseNode & {
+  kind: 'context';
+  compactId: string;
+  requestId: string;
+  status: ChatTimelineContextCompactStatus;
+  preCompactTokens: number | null;
+  postCompactTokens: number | null;
+  savedTokens: number | null;
+  savedPercent: number | null;
+  errorReason: string;
+  usageSummary: ChatTimelineUsageSummary | null;
 };
 
 export type ChatTimelineArtifactNode = ChatTimelineBaseNode & {
@@ -406,6 +421,7 @@ export type ChatTimelineRunNode = ChatTimelineBaseNode & {
 export type ChatTimelineNode =
   | ChatTimelineMessageNode
   | ChatTimelineTextNode
+  | ChatTimelineContextCompactNode
   | ChatTimelineActionNode
   | ChatTimelineArtifactNode
   | ChatTimelinePlanNode

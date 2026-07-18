@@ -13,6 +13,7 @@ import type {
   ChatTimelineUsageSummary
 } from '../../chatTimeline/index.ts';
 import { normalizeChatReasoningEffort } from '../agentModelSettings.ts';
+import { formatChatUsageNumber } from '../chatDetailFormatters.ts';
 import type { ChatReasoningEffort } from '../types';
 
 type ChatUsageHeaderBadgeProps = {
@@ -99,10 +100,6 @@ const USAGE_REASONING_LABEL_KEYS: Record<ChatReasoningEffort, I18nKey> = {
   LOW: 'usage.reasoning.LOW',
   NONE: 'usage.reasoning.NONE'
 };
-
-function formatUsageNumber(value: number | null | undefined): string {
-  return value === null || value === undefined ? '-' : value.toLocaleString();
-}
 
 function trimTrailingZeros(value: string): string {
   return value.replace(/\.?0+$/, '');
@@ -282,7 +279,7 @@ const UsageMetricCell = memo(function UsageMetricCell({ metric }: { metric: Usag
         {metric.label}
       </Text>
       <Text allowFontScaling={false} numberOfLines={1} className={USAGE_METRIC_VALUE_CLASS}>
-        {formatUsageNumber(metric.value)}
+        {formatChatUsageNumber(metric.value)}
       </Text>
     </View>
   );
@@ -307,7 +304,7 @@ const UsageCallCounts = memo(function UsageCallCounts({ stats }: { stats: ChatTi
     <View className={USAGE_CALL_COUNTS_CLASS}>
       {counts.map((count) => (
         <Text allowFontScaling={false} numberOfLines={1} key={count.key} className={USAGE_CALL_COUNT_TEXT_CLASS}>
-          {count.label} <Text className={USAGE_CALL_COUNT_VALUE_CLASS}>{formatUsageNumber(count.value)}</Text>
+          {count.label} <Text className={USAGE_CALL_COUNT_VALUE_CLASS}>{formatChatUsageNumber(count.value)}</Text>
         </Text>
       ))}
     </View>
@@ -355,12 +352,12 @@ const UsageContextWindow = memo(function UsageContextWindow({ summary }: { summa
             {t('usage.context.title')}
           </Text>
           <Text allowFontScaling={false} numberOfLines={1} className={USAGE_CONTEXT_VALUE_CLASS}>
-            {formatUsageNumber(summary.contextWindow.currentSize)} /{' '}
-            {formatUsageNumber(summary.contextWindow.maxSize)}
+            {formatChatUsageNumber(summary.contextWindow.currentSize)} /{' '}
+            {formatChatUsageNumber(summary.contextWindow.maxSize)}
           </Text>
           <Text allowFontScaling={false} numberOfLines={1} className={USAGE_CONTEXT_HINT_CLASS}>
             {t('usage.context.nextCall', {
-              count: formatUsageNumber(summary.contextWindow.estimatedNextCallSize)
+              count: formatChatUsageNumber(summary.contextWindow.estimatedNextCallSize)
             })}
           </Text>
         </View>
@@ -523,7 +520,7 @@ export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
   const total = resolveDisplayTotal(usageSummary);
   const compactTotal = formatCompactUsageNumber(total);
   const accessibilityLabel =
-    total !== null ? `${t('usage.title')}, ${t('usage.metric.total')} ${formatUsageNumber(total)}` : t('usage.title');
+    total !== null ? `${t('usage.title')}, ${t('usage.metric.total')} ${formatChatUsageNumber(total)}` : t('usage.title');
   const handleOpen = useCallback(() => {
     Keyboard.dismiss();
     setMounted(true);

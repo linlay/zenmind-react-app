@@ -52,6 +52,16 @@ function bodyForNode(node: ProjectedRuntimeNode): string {
   if (node.kind === 'action') {
     return [node.target, node.argsText, node.resultText, node.errorReason].filter(Boolean).join('\n');
   }
+  if (node.kind === 'context') {
+    return [
+      node.preCompactTokens !== null ? `before:${node.preCompactTokens}` : '',
+      node.postCompactTokens !== null ? `after:${node.postCompactTokens}` : '',
+      node.savedTokens !== null ? `saved:${node.savedTokens}` : '',
+      node.errorReason,
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
   return node.body;
 }
 
@@ -70,6 +80,9 @@ function titleForNode(node: ProjectedRuntimeNode): string {
   }
   if (node.kind === 'action') {
     return node.actionName || node.actionId;
+  }
+  if (node.kind === 'context') {
+    return 'context.compact';
   }
   return node.title;
 }

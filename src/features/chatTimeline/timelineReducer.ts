@@ -20,6 +20,7 @@ import type {
   ChatTimelineAwaitingNode,
   ChatTimelineAwaitingState,
   ChatTimelineArtifactNode,
+  ChatTimelineContextCompactNode,
   ChatTimelineDeliveryStatus,
   ChatTimelineLifecycle,
   ChatTimelineMessageNode,
@@ -50,6 +51,15 @@ import {
   getChatTimelineArtifactContentLength,
   normalizeChatTimelineArtifactEvent,
 } from './timelineArtifact.ts';
+import {
+  chatTimelineContextCompactNodePayloadEquals,
+  closeChatTimelineContextCompactNode,
+  createChatTimelineContextCompactNodeId,
+  getChatTimelineContextCompactContentLength,
+  mergeChatTimelineContextCompactValues,
+  normalizeChatTimelineContextCompactEvent,
+  type NormalizedChatTimelineContextCompact,
+} from './timelineContextCompact.ts';
 import {
   chatTimelinePlanNodePayloadEquals,
   closeChatTimelinePlanNode,
@@ -95,7 +105,11 @@ import {
   getChatTimelineSourceContentLength,
   normalizeChatTimelineSourceEvent,
 } from './timelineSource.ts';
-import { buildChatTimelineUsageSummary, chatTimelineUsageSummaryEquals } from './usageSummary.ts';
+import {
+  buildChatTimelineUsageSummary,
+  chatTimelineUsageSummaryEquals,
+  mergeChatTimelineUsageSummaryForContextCompact,
+} from './usageSummary.ts';
 import {
   normalizeFrontendToolParams,
   normalizeFrontendToolType,
@@ -869,6 +883,14 @@ function getTimelineNodeIdentityKeys(node: ChatTimelineNode): string[] {
   if (node.kind === 'action' && node.actionId) {
     keys.push(`action:${node.actionId}`);
   }
+  if (node.kind === 'context') {
+    if (node.requestId) {
+      keys.push(`context-compact-request:${node.requestId}`);
+    }
+    if (node.compactId) {
+      keys.push(`context-compact:${node.compactId}`);
+    }
+  }
   return keys;
 }
 
@@ -1072,6 +1094,9 @@ function getTimelineNodeContentLength(node: ChatTimelineNode): number {
   if (node.kind === 'action') {
     return getChatTimelineActionContentLength(node);
   }
+  if (node.kind === 'context') {
+    return getChatTimelineContextCompactContentLength(node);
+  }
   return node.title.length + node.body.length + node.status.length;
 }
 
@@ -1147,6 +1172,9 @@ function shouldPreferCurrentTimelineNode(
     return current.updatedAt > incoming.updatedAt;
   }
   if (current.kind === 'action' && incoming.kind === 'action') {
+    return current.updatedAt > incoming.updatedAt;
+  }
+  if (current.kind === 'context' && incoming.kind === 'context') {
     return current.updatedAt > incoming.updatedAt;
   }
 
@@ -1421,6 +1449,12 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
   if (left.kind === 'action' && right.kind === 'action') {
     return !chatTimelineActionNodePayloadEquals(left, right);
   }
+  if (left.kind === 'context' && right.kind === 'context') {
+    return (
+      !chatTimelineContextCompactNodePayloadEquals(left, right) ||
+      !chatTimelineUsageSummaryEquals(left.usageSummary, right.usageSummary)
+    );
+  }
   if (
     left.kind !== 'message' &&
     left.kind !== 'tool' &&
@@ -1431,6 +1465,7 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
     left.kind !== 'plan' &&
     left.kind !== 'task' &&
     left.kind !== 'action' &&
+    left.kind !== 'context' &&
     right.kind !== 'message' &&
     right.kind !== 'tool' &&
     right.kind !== 'awaiting' &&
@@ -1439,7 +1474,8 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
     right.kind !== 'artifact' &&
     right.kind !== 'plan' &&
     right.kind !== 'task' &&
-    right.kind !== 'action'
+    right.kind !== 'action' &&
+    right.kind !== 'context'
   ) {
     return (
       left.title !== right.title ||
@@ -1564,6 +1600,10 @@ function closeTimelineNodeForRun(
 
   if (node.kind === 'action') {
     return closeChatTimelineActionNode(node, lifecycle, nextUpdatedAt);
+  }
+
+  if (node.kind === 'context') {
+    return closeChatTimelineContextCompactNode(node, lifecycle, nextUpdatedAt);
   }
 
   const nextNode = {
@@ -2001,6 +2041,117 @@ function applyRuntimeTextEvent(
     closeActiveReasoningNodesForRun(nextState, runId, updatedAt),
     runId
   );
+}
+
+function findContextCompactNode(
+  state: ChatTimelineState,
+  conversationId: string,
+  normalized: NormalizedChatTimelineContextCompact,
+  runId: string
+): ChatTimelineContextCompactNode | undefined {
+  const candidateIds = [
+    normalized.requestId
+      ? createChatTimelineContextCompactNodeId(
+          conversationId,
+          { requestId: normalized.requestId, compactId: '' },
+          normalized.requestId
+        )
+      : '',
+    normalized.compactId
+      ? createChatTimelineContextCompactNodeId(
+          conversationId,
+          { requestId: '', compactId: normalized.compactId },
+          normalized.compactId
+        )
+      : '',
+  ];
+  for (const candidateId of candidateIds) {
+    const candidate = candidateId ? state.nodesById[candidateId] : undefined;
+    if (candidate?.kind === 'context') {
+      return candidate;
+    }
+  }
+
+  for (let index = state.orderedNodeIds.length - 1; index >= 0; index -= 1) {
+    const node = state.nodesById[state.orderedNodeIds[index]];
+    if (node?.kind !== 'context') {
+      continue;
+    }
+    if (
+      (normalized.requestId && node.requestId === normalized.requestId) ||
+      (normalized.compactId && node.compactId === normalized.compactId)
+    ) {
+      return node;
+    }
+    if (node.status === 'running' && (!runId || node.runId === runId)) {
+      return node;
+    }
+  }
+  return undefined;
+}
+
+function applyContextCompactEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>
+): ChatTimelineState {
+  const normalized = normalizeChatTimelineContextCompactEvent(event);
+  const updatedAt = resolveTimestamp(event, Date.now() + state.nextOrder);
+  const eventRunId = toText(event.runId) || state.activeRunId;
+  const current = findContextCompactNode(state, conversationId, normalized, eventRunId);
+  if (
+    current &&
+    (updatedAt < current.updatedAt ||
+      (current.status !== 'running' && normalized.status === 'running'))
+  ) {
+    return state;
+  }
+
+  const values = mergeChatTimelineContextCompactValues(current, normalized);
+  const runId = resolveEventRunId(event, state, current);
+  const lifecycle: ChatTimelineLifecycle =
+    values.status === 'running'
+      ? 'active'
+      : values.status === 'failed'
+        ? 'error'
+        : 'complete';
+  const fallbackId =
+    toText(event.runId) ||
+    toText(event.timestamp || event.ts || event.time) ||
+    String(state.nextOrder);
+  const id =
+    current?.id ?? createChatTimelineContextCompactNodeId(conversationId, values, fallbackId);
+  const baseState = current
+    ? state
+    : closeActiveReasoningNodesForRun(state, runId, updatedAt);
+  const usageSummary =
+    values.status === 'completed'
+      ? mergeChatTimelineUsageSummaryForContextCompact(state.usageSummary, event, updatedAt)
+      : current?.usageSummary ?? null;
+  const nextState = upsertNode(baseState, {
+    id,
+    kind: 'context',
+    ...values,
+    runId,
+    createdAt: current?.createdAt ?? updatedAt,
+    updatedAt,
+    order: createOrder(baseState, current),
+    lifecycle,
+    usageSummary,
+  });
+
+  if (values.status !== 'completed') {
+    return nextState;
+  }
+  if (chatTimelineUsageSummaryEquals(nextState.usageSummary, usageSummary)) {
+    return nextState;
+  }
+  return {
+    ...nextState,
+    usageLabel: usageSummary?.label || nextState.usageLabel,
+    usageSummary,
+    revision: nextState.revision + 1,
+  };
 }
 
 function applyToolEvent(
@@ -2725,7 +2876,7 @@ export function applyChatTimelineEvent(
     return applyRuntimeTextEvent(state, conversationId, event, family);
   }
   if (family === 'context') {
-    return applyRuntimeTextEvent(state, conversationId, event, 'context');
+    return applyContextCompactEvent(state, conversationId, event);
   }
   if (family === 'usage') {
     const updatedAt = resolveTimestamp(event, Date.now() + state.nextOrder);

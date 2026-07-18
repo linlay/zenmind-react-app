@@ -29,6 +29,8 @@ export type {
   ChatTimelineArtifactStatus,
   ChatTimelineAssistantReplyFooter,
   ChatTimelineAssistantReplyFooterDisplayItem,
+  ChatTimelineContextCompactNode,
+  ChatTimelineContextCompactStatus,
   ChatTimelineDeliveryStatus,
   ChatTimelineDisplayItem,
   ChatTimelineDisplayItemKind,
@@ -91,6 +93,13 @@ export {
   getChatTimelineDisplayItemType,
 } from './timelineDisplay.ts';
 export { resolveChatTimelineUsageModelKey } from './usageSummary.ts';
+export {
+  createChatTimelineContextCompactNodeId,
+  getChatTimelineContextCompactContentLength,
+  mergeChatTimelineContextCompactValues,
+  normalizeChatTimelineContextCompactEvent,
+  type NormalizedChatTimelineContextCompact,
+} from './timelineContextCompact.ts';
 export {
   createChatTimelineActionNodeId,
   getConversationActionWhitelist,
