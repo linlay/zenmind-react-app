@@ -84,6 +84,7 @@
     "scripts/tests/markdownPreview.test.mts",
     "scripts/tests/runtimePayloadDescriptor.test.mts",
     "scripts/tests/runtimePlanningShimmer.test.mts",
+    "scripts/tests/runtimeStructuredPayload.test.mts",
     "scripts/tests/settingsProfileCache.test.mts",
     "scripts/tests/sharedWsTransport.test.mts",
     "scripts/tests/submitIosIpaScript.test.mts",
@@ -2164,6 +2165,7 @@
     "src/features/chatPersistence/components/PlanTimelineRow.tsx",
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
     "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
+    "src/features/chatPersistence/components/RuntimeStructuredPayloadBlock.tsx",
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
     "src/features/chatPersistence/components/SourceTimelineRow.tsx",
     "src/features/chatPersistence/components/TaskTimelineContent.tsx",
@@ -2188,6 +2190,7 @@
     "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts",
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
+    "src/features/chatPersistence/components/runtimeStructuredPayload.ts",
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
     "src/features/chatPersistence/components/useRunningElapsedMs.ts",
     "src/features/chatPersistence/conversationActionService.ts",
@@ -10716,6 +10719,10 @@
                         "type": "file"
                       },
                       {
+                        "name": "RuntimeStructuredPayloadBlock.tsx",
+                        "type": "file"
+                      },
+                      {
                         "name": "RuntimeTimelineRow.tsx",
                         "type": "file"
                       },
@@ -10745,6 +10752,10 @@
                       },
                       {
                         "name": "runtimePayloadRenderers.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "runtimeStructuredPayload.ts",
                         "type": "file"
                       },
                       {
@@ -11607,6 +11618,7 @@
       "src/features/chatPersistence/components/PlanTimelineRow.tsx",
       "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
       "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
+      "src/features/chatPersistence/components/RuntimeStructuredPayloadBlock.tsx",
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
       "src/features/chatPersistence/components/SourceTimelineRow.tsx",
       "src/features/chatPersistence/components/TaskTimelineContent.tsx",
@@ -11631,6 +11643,7 @@
       "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts",
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
+      "src/features/chatPersistence/components/runtimeStructuredPayload.ts",
       "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
       "src/features/chatPersistence/components/useRunningElapsedMs.ts",
       "src/features/chatPersistence/conversationActionService.ts",
@@ -11893,6 +11906,7 @@
     "src/features/chatPersistence/components/PlanTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimePlanningBlock.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/RuntimeStructuredPayloadBlock.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/SourceTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/TaskTimelineContent.tsx": "feature-chat-persistence",
@@ -11917,6 +11931,7 @@
     "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/runtimeStructuredPayload.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/useRunningElapsedMs.ts": "feature-chat-persistence",
     "src/features/chatPersistence/conversationActionService.ts": "feature-chat-persistence",
@@ -18860,6 +18875,9 @@
       "RuntimePlanningBlockMode",
       "RuntimePlanningCollapseOverlayRequest"
     ],
+    "src/features/chatPersistence/components/RuntimeStructuredPayloadBlock.tsx": [
+      "RuntimeStructuredPayloadBlock"
+    ],
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": [
       "RuntimeTimelineRow"
     ],
@@ -18976,6 +18994,7 @@
       "useAuthenticatedResourceSource"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
+      "RuntimePayloadCopyText",
       "RuntimePayloadDescriptor",
       "RuntimePayloadKind",
       "RuntimePayloadRendererType",
@@ -18984,17 +19003,37 @@
       "RuntimePayloadSource",
       "RuntimePayloadTone",
       "RuntimeStatusTone",
-      "RuntimeToolArgumentRow",
       "RuntimeToolRecord",
       "RuntimeToolStatus",
       "buildRuntimePayloadDescriptor",
       "buildToolPillRecords",
-      "formatToolArgumentsInline",
       "formatToolPillTitle",
-      "getExpandableToolPillRecords"
+      "getExpandableToolPillRecords",
+      "resolveRuntimePayloadCopyText"
     ],
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": [
       "RuntimePayloadContent"
+    ],
+    "src/features/chatPersistence/components/runtimeStructuredPayload.ts": [
+      "RUNTIME_STRUCTURED_LEAF_INITIAL_CHARS",
+      "RUNTIME_STRUCTURED_MAX_CHILDREN",
+      "RUNTIME_STRUCTURED_MAX_DEPTH",
+      "RUNTIME_STRUCTURED_MAX_LEAF_RENDER_CHARS",
+      "RUNTIME_STRUCTURED_MAX_NODES",
+      "RUNTIME_STRUCTURED_MAX_PARSE_CHARS",
+      "RUNTIME_STRUCTURED_MAX_TOTAL_LEAF_CHARS",
+      "RUNTIME_TEXT_INITIAL_CHARS",
+      "RUNTIME_TEXT_MAX_RENDER_CHARS",
+      "RUNTIME_TEXT_PAGE_CHARS",
+      "RuntimeStructuredLeafTone",
+      "RuntimeStructuredNotice",
+      "RuntimeStructuredPayloadNode",
+      "RuntimeStructuredPayloadTone",
+      "RuntimeStructuredPayloadView",
+      "buildRuntimeStructuredPayload",
+      "buildRuntimeStructuredPayloadValue",
+      "isRuntimeStructuredSensitiveKey",
+      "sanitizeRuntimeStructuredPayloadForCopy"
     ],
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": [
       "getRuntimeToolStatusColor"
@@ -23607,6 +23646,7 @@
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AppThemeProvider",
       "../../../shared/visual/className",
+      "./runtimePayloadDescriptor.ts",
       "react",
       "react-native"
     ],
@@ -23623,6 +23663,14 @@
       "react-native",
       "react-native-reanimated",
       "react-native-svg"
+    ],
+    "src/features/chatPersistence/components/RuntimeStructuredPayloadBlock.tsx": [
+      "../../../shared/i18n",
+      "../../../shared/icons/AppIcon",
+      "../../../shared/visual/className",
+      "./runtimeStructuredPayload.ts",
+      "react",
+      "react-native"
     ],
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": [
       "../../../shared/i18n",
@@ -23803,7 +23851,8 @@
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "../../../shared/i18n/translate.ts",
       "../../../shared/icons/AppIcon",
-      "../../chatTimeline/index.ts"
+      "../../chatTimeline/index.ts",
+      "./runtimeStructuredPayload.ts"
     ],
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": [
       "../../../shared/i18n",
@@ -23811,12 +23860,14 @@
       "../../../shared/visual/className",
       "../chatDetailFormatters",
       "../markdownLinks/ChatConversationMarkdownRenderer.tsx",
+      "./RuntimeStructuredPayloadBlock.tsx",
       "./runtimePayloadDescriptor",
       "./runtimeToolStatusVisual",
       "./useRunningElapsedMs.ts",
       "react",
       "react-native"
     ],
+    "src/features/chatPersistence/components/runtimeStructuredPayload.ts": null,
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": [
       "../../../shared/visual/foundation",
       "./runtimePayloadDescriptor"
@@ -27795,6 +27846,7 @@
       "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": [
+      "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
@@ -27808,6 +27860,12 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts"
+    ],
+    "src/features/chatPersistence/components/RuntimeStructuredPayloadBlock.tsx": [
+      "src/features/chatPersistence/components/runtimeStructuredPayload.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": [
@@ -27953,12 +28011,14 @@
       "src/core/api/services/authenticatedResource.ts"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
+      "src/features/chatPersistence/components/runtimeStructuredPayload.ts",
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/translate.ts",
       "src/shared/icons/AppIcon.tsx"
     ],
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": [
       "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/components/RuntimeStructuredPayloadBlock.tsx",
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
       "src/features/chatPersistence/components/useRunningElapsedMs.ts",
@@ -27967,6 +28027,7 @@
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/className.ts"
     ],
+    "src/features/chatPersistence/components/runtimeStructuredPayload.ts": null,
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": [
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/shared/visual/foundation.ts"

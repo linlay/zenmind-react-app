@@ -5,10 +5,11 @@ import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../shared/visual/className';
+import { resolveRuntimePayloadCopyText, type RuntimePayloadCopyText } from './runtimePayloadDescriptor.ts';
 
 type RuntimePayloadFrameProps = {
   descriptorId: string;
-  copyText: string;
+  copyText: RuntimePayloadCopyText;
   defaultWrap: boolean;
   onCopyText: (text: string) => void;
   renderContent: (wrap: boolean) => ReactNode;
@@ -18,13 +19,16 @@ const RuntimeCopyButton = memo(function RuntimeCopyButton({
   copyText,
   onCopyText
 }: {
-  copyText: string;
+  copyText: RuntimePayloadCopyText;
   onCopyText: (text: string) => void;
 }) {
   const t = useT();
   const { theme } = useAppTheme();
   const handleCopy = useCallback(() => {
-    onCopyText(copyText);
+    const resolvedText = resolveRuntimePayloadCopyText(copyText);
+    if (resolvedText) {
+      onCopyText(resolvedText);
+    }
   }, [copyText, onCopyText]);
 
   return (

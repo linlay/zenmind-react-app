@@ -4,7 +4,7 @@ import test from 'node:test';
 import {
   buildRuntimePayloadDescriptor,
   buildToolPillRecords,
-  formatToolArgumentsInline,
+  resolveRuntimePayloadCopyText
 } from '../../src/features/chatPersistence/components/runtimePayloadDescriptor.ts';
 import { createTranslator } from '../../src/shared/i18n/translate.ts';
 import type {
@@ -12,7 +12,7 @@ import type {
   ChatTimelineRunNode,
   ChatTimelineTextNode,
   ChatTimelineToolGroupDisplayItem,
-  ChatTimelineToolNode,
+  ChatTimelineToolNode
 } from '../../src/features/chatTimeline/index.ts';
 
 const baseNode = {
@@ -20,7 +20,7 @@ const baseNode = {
   createdAt: 1_000,
   updatedAt: 1_000,
   order: 1,
-  lifecycle: 'complete' as const,
+  lifecycle: 'complete' as const
 };
 
 test('runtime descriptor maps tool nodes to tool renderer with copyable sections', () => {
@@ -37,7 +37,7 @@ test('runtime descriptor maps tool nodes to tool renderer with copyable sections
     argsText: '{ "task": "plan trip" }',
     resultText: '{ "error": "sub_agent_failed" }',
     body: '',
-    streaming: false,
+    streaming: false
   };
 
   const descriptor = buildRuntimePayloadDescriptor(node);
@@ -48,12 +48,48 @@ test('runtime descriptor maps tool nodes to tool renderer with copyable sections
   assert.equal(descriptor.statusTone, 'error');
   assert.equal(descriptor.defaultWrap, false);
   assert.deepEqual(descriptor.sections, []);
-  assert.match(descriptor.copyText, /参数/);
-  assert.match(descriptor.copyText, /sub_agent_failed/);
+  assert.equal(typeof descriptor.copyText, 'function');
+  assert.match(resolveRuntimePayloadCopyText(descriptor.copyText), /参数/);
+  assert.match(resolveRuntimePayloadCopyText(descriptor.copyText), /sub_agent_failed/);
   assert.deepEqual(
     descriptor.toolRecords.map((record) => [record.title, record.status, record.hasDetails, record.durationText]),
     [['第 1 次', 'error', true, '']]
   );
+});
+
+test('runtime descriptor defers tool payload parsing and redaction until copy is requested', () => {
+  const node: ChatTimelineToolNode = {
+    ...baseNode,
+    id: 'tool-lazy',
+    kind: 'tool',
+    toolId: 'tool-lazy',
+    toolName: 'request',
+    toolLabel: '请求',
+    description: '',
+    title: '请求',
+    status: 'tool_result',
+    argsText: '{"password":"secret-password","nested":{"value":1}}',
+    resultText: '{"authorization":"Bearer secret-token","ok":true}',
+    body: '',
+    streaming: false
+  };
+  const originalParse = JSON.parse;
+  let descriptor: ReturnType<typeof buildRuntimePayloadDescriptor>;
+
+  JSON.parse = () => {
+    throw new Error('descriptor must not parse collapsed payloads');
+  };
+  try {
+    descriptor = buildRuntimePayloadDescriptor(node);
+  } finally {
+    JSON.parse = originalParse;
+  }
+
+  assert.equal(typeof descriptor.copyText, 'function');
+  const copied = resolveRuntimePayloadCopyText(descriptor.copyText);
+  assert.equal(copied.includes('secret-password'), false);
+  assert.equal(copied.includes('secret-token'), false);
+  assert.match(copied, /\[redacted\]/);
 });
 
 test('runtime descriptor keeps reasoning markdown lightweight and nowrap by default', () => {
@@ -64,7 +100,7 @@ test('runtime descriptor keeps reasoning markdown lightweight and nowrap by defa
     title: '思考过程',
     body: 'Let me inspect the context.',
     status: 'completed',
-    streaming: false,
+    streaming: false
   };
 
   const descriptor = buildRuntimePayloadDescriptor(node);
@@ -85,7 +121,7 @@ test('runtime descriptor normalizes backend reasoning titles for display', () =>
     title: 'Computing',
     body: 'Let me inspect the context.',
     status: 'completed',
-    streaming: false,
+    streaming: false
   };
 
   const descriptor = buildRuntimePayloadDescriptor(node);
@@ -103,7 +139,7 @@ test('runtime descriptor presents planning markdown as an expanded implementatio
     title: '',
     body: '# 实施计划\n\n## Summary\n\n改成红色主题。',
     status: 'completed',
-    streaming: false,
+    streaming: false
   };
 
   const descriptor = buildRuntimePayloadDescriptor(node);
@@ -126,7 +162,7 @@ test('runtime descriptor keeps backend reasoning title while active', () => {
     body: 'Let me inspect the context.',
     status: 'updating',
     lifecycle: 'active',
-    streaming: true,
+    streaming: true
   };
 
   const descriptor = buildRuntimePayloadDescriptor(node);
@@ -150,7 +186,7 @@ test('runtime descriptor builds grouped tool records with per-call status', () =
     argsText: '{\n  "timezone": "Asia/Shanghai"\n}',
     resultText: '{\n  "date": "2026-06-03"\n}',
     body: '',
-    streaming: false,
+    streaming: false
   };
   const secondNode: ChatTimelineToolNode = {
     ...baseNode,
@@ -166,7 +202,7 @@ test('runtime descriptor builds grouped tool records with per-call status', () =
     resultText: '{"error":"invalid offset"}',
     body: '',
     streaming: false,
-    lifecycle: 'error',
+    lifecycle: 'error'
   };
   const group: ChatTimelineToolGroupDisplayItem = {
     key: 'tool-group:tool-1',
@@ -180,7 +216,7 @@ test('runtime descriptor builds grouped tool records with per-call status', () =
     groupIndex: 1,
     toolName: firstNode.toolName,
     toolLabel: firstNode.toolLabel,
-    count: 2,
+    count: 2
   };
 
   const descriptor = buildRuntimePayloadDescriptor(group);
@@ -193,13 +229,13 @@ test('runtime descriptor builds grouped tool records with per-call status', () =
     records.map((record) => [record.title, record.status, record.statusLabel, record.durationText]),
     [
       ['第 1 次', 'success', '完成', ''],
-      ['第 2 次', 'error', '失败', ''],
+      ['第 2 次', 'error', '失败', '']
     ]
   );
-  assert.equal(records[0].argsInlineText, '{"timezone":"Asia/Shanghai"}');
-  assert.deepEqual(records[0].argsRows, [{ key: 'timezone', valueText: 'Asia/Shanghai' }]);
-  assert.equal(records[0].resultText, '{"date":"2026-06-03"}');
-  assert.equal(formatToolArgumentsInline('line 1\n  line 2'), 'line 1 line 2');
+  assert.equal(records[0].argsText, firstNode.argsText);
+  assert.equal(records[0].resultText, firstNode.resultText);
+  assert.equal('argsRows' in records[0], false);
+  assert.equal('argsInlineText' in records[0], false);
 });
 
 test('runtime descriptor exposes active tool start time only while running', () => {
@@ -219,7 +255,7 @@ test('runtime descriptor exposes active tool start time only while running', () 
     streaming: true,
     lifecycle: 'active',
     createdAt: 4_000,
-    updatedAt: 4_000,
+    updatedAt: 4_000
   };
   const completedNode: ChatTimelineToolNode = {
     ...runningNode,
@@ -229,7 +265,7 @@ test('runtime descriptor exposes active tool start time only while running', () 
     resultText: '{"ok":true}',
     streaming: false,
     lifecycle: 'complete',
-    updatedAt: 5_000,
+    updatedAt: 5_000
   };
 
   const runningRecord = buildRuntimePayloadDescriptor(runningNode).toolRecords[0];
@@ -255,7 +291,7 @@ test('runtime descriptor uses the latest running call in a tool group', () => {
     argsText: '{"query":"expo"}',
     resultText: '{"ok":true}',
     body: '',
-    streaming: false,
+    streaming: false
   };
   const runningNode: ChatTimelineToolNode = {
     ...completedNode,
@@ -266,7 +302,7 @@ test('runtime descriptor uses the latest running call in a tool group', () => {
     streaming: true,
     lifecycle: 'active',
     createdAt: 6_000,
-    updatedAt: 6_000,
+    updatedAt: 6_000
   };
   const group: ChatTimelineToolGroupDisplayItem = {
     key: 'tool-group:tool-1',
@@ -280,7 +316,7 @@ test('runtime descriptor uses the latest running call in a tool group', () => {
     groupIndex: 1,
     toolName: completedNode.toolName,
     toolLabel: completedNode.toolLabel,
-    count: 2,
+    count: 2
   };
 
   const records = buildRuntimePayloadDescriptor(group).toolRecords;
@@ -306,7 +342,7 @@ test('runtime descriptor hides sub-second completed tool durations', () => {
     streaming: false,
     lifecycle: 'complete',
     createdAt: 4_000,
-    updatedAt: 4_800,
+    updatedAt: 4_800
   };
 
   const record = buildRuntimePayloadDescriptor(node).toolRecords[0];
@@ -324,7 +360,7 @@ test('runtime descriptor expands awaiting plan payloads with prompt options and 
     answer: '同意',
     mode: 'plan',
     status: 'answer',
-    interactive: null,
+    interactive: null
   };
 
   const descriptor = buildRuntimePayloadDescriptor(node);
@@ -350,7 +386,7 @@ test('runtime descriptor includes run duration in plain payload', () => {
     agentKey: 'coder',
     startedAt: 1_000,
     completedAt: 3_500,
-    durationMs: 2_500,
+    durationMs: 2_500
   };
 
   const descriptor = buildRuntimePayloadDescriptor(node);

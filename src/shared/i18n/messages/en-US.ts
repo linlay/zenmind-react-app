@@ -603,6 +603,18 @@ export const enUS: Record<I18nKey, string> = {
   'runtime.section.args': 'Arguments',
   'runtime.section.result': 'Result',
   'runtime.toolAttempt': 'Attempt {count}',
+  'runtime.structured.redacted': '[redacted]',
+  'runtime.structured.circular': '[circular reference]',
+  'runtime.structured.maxDepth': '[maximum display depth reached; {count} items hidden]',
+  'runtime.structured.maxNodes': '[node display limit reached; {count} items hidden]',
+  'runtime.structured.moreChildren': '[{count} more items hidden]',
+  'runtime.structured.tooLarge': 'Structured content exceeds the safe parse limit and is shown as text.',
+  'runtime.structured.showMore': 'Show {count} more characters',
+  'runtime.structured.collapseLongText': 'Collapse long text',
+  'runtime.structured.fieldRenderLimit':
+    'This field is long, so only the first {count} characters are rendered. Copy the full content from the toolbar.',
+  'runtime.structured.renderLimit':
+    'For smooth rendering, only the first {count} characters are shown. Copy the full content from the toolbar.',
 
   'action.title': 'Client action',
   'action.expand': 'Expand action details',
