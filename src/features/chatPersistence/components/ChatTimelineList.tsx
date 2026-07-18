@@ -11,7 +11,6 @@ import {
   type ViewStyle
 } from 'react-native';
 
-import { ConversationMarkdownRenderer } from '../../../shared/components/ConversationMarkdownRenderer';
 import {
   ConversationPreviewProvider,
   ConversationPreviewRowScope,
@@ -36,6 +35,8 @@ import {
   type ChatTimelineState
 } from '../../chatTimeline/index.ts';
 import { formatChatDetailDuration, formatChatDetailTimestamp } from '../chatDetailFormatters';
+import { ChatConversationMarkdownRenderer } from '../markdownLinks/ChatConversationMarkdownRenderer.tsx';
+import { ConversationMarkdownLinkProvider } from '../markdownLinks/ConversationMarkdownLinkProvider.tsx';
 import { ArtifactTimelineRow } from './ArtifactTimelineRow.tsx';
 import { ActionTimelineRow } from './ActionTimelineRow.tsx';
 import { ChatAttachmentStrip } from './ChatAttachmentStrip';
@@ -59,10 +60,31 @@ type ChatTimelineListProps = {
   diagnosticCard?: ReactNode;
   diagnosticVersion?: string;
   onCopyText: (text: string) => void;
+  workspaceAgentKey?: string | null;
   onReaskMessage?: (target: ChatTimelineReaskTarget, node: ChatTimelineMessageNode) => void;
   reaskCurrentDisabled?: boolean;
   reaskNewConversationDisabled?: boolean;
 };
+
+function ChatTimelineProviders({
+  workspaceAgentKey,
+  previewStore,
+  onCopyText,
+  children
+}: {
+  workspaceAgentKey: string | null;
+  previewStore: ReturnType<typeof createConversationPreviewVisibilityStore>;
+  onCopyText: (text: string) => void;
+  children: ReactNode;
+}) {
+  return (
+    <ConversationMarkdownLinkProvider agentKey={workspaceAgentKey}>
+      <ConversationPreviewProvider store={previewStore} onCopyText={onCopyText}>
+        {children}
+      </ConversationPreviewProvider>
+    </ConversationMarkdownLinkProvider>
+  );
+}
 
 const SCROLL_TO_END_BUTTON_THRESHOLD = 96;
 const REASK_MENU_WIDTH = 188;
@@ -446,7 +468,7 @@ const UserQueryRow = memo(function UserQueryRow({
       <View style={TIMELINE_LAYOUT_STYLES.userMessageStack}>
         {text ? (
           <View className={USER_BUBBLE_CLASS}>
-            <ConversationMarkdownRenderer
+            <ChatConversationMarkdownRenderer
               markdown={node.content}
               selectable={false}
               textColor={theme.colors.onBrandBlueAction}
@@ -499,7 +521,7 @@ const RequestInputRow = memo(function RequestInputRow({
             </Text>
           ) : null}
           <View className={REQUEST_BUBBLE_CLASS} style={[REQUEST_BUBBLE_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}>
-            <ConversationMarkdownRenderer
+            <ChatConversationMarkdownRenderer
               markdown={text}
               selectable={false}
               textColor={theme.colors.onBrandBlueAction}
@@ -939,6 +961,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   diagnosticCard = null,
   diagnosticVersion = '',
   onCopyText,
+  workspaceAgentKey = '',
   onReaskMessage,
   reaskCurrentDisabled = false,
   reaskNewConversationDisabled = false
@@ -1298,7 +1321,11 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   }, [clearPendingAutoFollowSchedule]);
 
   return (
-    <ConversationPreviewProvider store={previewVisibilityStore} onCopyText={onCopyText}>
+    <ChatTimelineProviders
+      workspaceAgentKey={workspaceAgentKey}
+      previewStore={previewVisibilityStore}
+      onCopyText={onCopyText}
+    >
       <View ref={threadRef} className={THREAD_CLASS}>
       <FlashList
         ref={listRef}
@@ -1359,6 +1386,6 @@ export const ChatTimelineList = memo(function ChatTimelineList({
         />
       ) : null}
       </View>
-    </ConversationPreviewProvider>
+    </ChatTimelineProviders>
   );
 });

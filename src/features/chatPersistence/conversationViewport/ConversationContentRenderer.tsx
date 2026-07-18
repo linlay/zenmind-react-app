@@ -1,8 +1,8 @@
 import { memo } from 'react';
 
-import { ConversationMarkdownRenderer } from '../../../shared/components/ConversationMarkdownRenderer';
 import type { ConversationMarkdownFenceExtensionSegment } from '../../../shared/markdown/previewSegments';
 import { ConversationViewportBlock } from './ConversationViewportBlock';
+import { ChatConversationMarkdownRenderer } from '../markdownLinks/ChatConversationMarkdownRenderer.tsx';
 import {
   CONVERSATION_VIEWPORT_FENCE_EXTENSIONS,
   isConversationViewportFenceData
@@ -29,7 +29,7 @@ export const ConversationContentRenderer = memo(function ConversationContentRend
   streaming?: boolean;
 }) {
   return (
-    <ConversationMarkdownRenderer
+    <ChatConversationMarkdownRenderer
       fenceExtensions={CONVERSATION_VIEWPORT_FENCE_EXTENSIONS}
       markdown={markdown}
       renderFenceExtension={renderConversationFence}

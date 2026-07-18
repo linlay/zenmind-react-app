@@ -2,7 +2,7 @@ import { memo, useEffect, useState, type CSSProperties } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { useAppTheme } from '../../../../shared/visual/AppThemeProvider.tsx';
-import type { ArtifactPdfPreviewProps } from './ArtifactPdfPreview.tsx';
+import type { AuthenticatedResourcePdfPreviewProps } from './AuthenticatedResourcePdfPreview.tsx';
 
 const MAX_PDF_PREVIEW_BYTES = 20 * 1024 * 1024;
 const IFRAME_STYLE: CSSProperties = {
@@ -13,11 +13,11 @@ const IFRAME_STYLE: CSSProperties = {
   background: 'transparent'
 };
 
-export const ArtifactPdfPreview = memo(function ArtifactPdfPreview({
+export const AuthenticatedResourcePdfPreview = memo(function AuthenticatedResourcePdfPreview({
   source,
   unavailableLabel,
   onError
-}: ArtifactPdfPreviewProps) {
+}: AuthenticatedResourcePdfPreviewProps) {
   const { theme } = useAppTheme();
   const [objectUrl, setObjectUrl] = useState('');
 

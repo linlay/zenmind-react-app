@@ -69,6 +69,7 @@
     "scripts/tests/chatTimelineTask.test.mts",
     "scripts/tests/chatWonderDisplay.test.mts",
     "scripts/tests/chatWsTransportPayload.test.mts",
+    "scripts/tests/conversationMarkdownLinks.test.mts",
     "scripts/tests/desktopWsProtocol.test.mts",
     "scripts/tests/desktopWsTransport.test.mts",
     "scripts/tests/httpDebugLogger.test.mts",
@@ -2083,6 +2084,7 @@
     "src/core/api/services/notificationApi.ts",
     "src/core/api/services/templateApi.ts",
     "src/core/api/services/uploadApi.ts",
+    "src/core/api/services/workspaceResource.ts",
     "src/core/auth/appAuth.ts",
     "src/core/auth/authConfig.ts",
     "src/core/auth/authRequestModel.ts",
@@ -2114,6 +2116,7 @@
     "src/features/chatPersistence/ChatHomeScreen.tsx",
     "src/features/chatPersistence/agentMode.ts",
     "src/features/chatPersistence/agentModelSettings.ts",
+    "src/features/chatPersistence/authenticatedResourcePreview.ts",
     "src/features/chatPersistence/cacheScope.ts",
     "src/features/chatPersistence/chatAttachmentIcon.ts",
     "src/features/chatPersistence/chatAttachmentModels.ts",
@@ -2163,11 +2166,6 @@
     "src/features/chatPersistence/components/SourceTimelineRow.tsx",
     "src/features/chatPersistence/components/TaskTimelineContent.tsx",
     "src/features/chatPersistence/components/TaskTimelineRow.tsx",
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.native.tsx",
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.tsx",
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.web.tsx",
-    "src/features/chatPersistence/components/artifact/ArtifactPreviewModal.tsx",
-    "src/features/chatPersistence/components/artifact/useAuthenticatedResourceSource.ts",
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx",
     "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx",
     "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx",
@@ -2179,6 +2177,12 @@
     "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
     "src/features/chatPersistence/components/chatWonderDisplay.ts",
     "src/features/chatPersistence/components/planningWritingShimmerConfig.ts",
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.native.tsx",
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.tsx",
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.web.tsx",
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePreviewModal.tsx",
+    "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts",
+    "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts",
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
@@ -2193,6 +2197,9 @@
     "src/features/chatPersistence/database.ts",
     "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx",
     "src/features/chatPersistence/homeSnapshot.ts",
+    "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx",
+    "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx",
+    "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts",
     "src/features/chatPersistence/schema.ts",
     "src/features/chatPersistence/types.ts",
     "src/features/chatPersistence/useChatComposerAttachments.ts",
@@ -10346,6 +10353,10 @@
                       {
                         "name": "uploadApi.ts",
                         "type": "file"
+                      },
+                      {
+                        "name": "workspaceResource.ts",
+                        "type": "file"
                       }
                     ]
                   },
@@ -10522,32 +10533,6 @@
                     "type": "directory",
                     "children": [
                       {
-                        "name": "artifact",
-                        "type": "directory",
-                        "children": [
-                          {
-                            "name": "ArtifactPdfPreview.native.tsx",
-                            "type": "file"
-                          },
-                          {
-                            "name": "ArtifactPdfPreview.tsx",
-                            "type": "file"
-                          },
-                          {
-                            "name": "ArtifactPdfPreview.web.tsx",
-                            "type": "file"
-                          },
-                          {
-                            "name": "ArtifactPreviewModal.tsx",
-                            "type": "file"
-                          },
-                          {
-                            "name": "useAuthenticatedResourceSource.ts",
-                            "type": "file"
-                          }
-                        ]
-                      },
-                      {
                         "name": "awaiting",
                         "type": "directory",
                         "children": [
@@ -10585,6 +10570,36 @@
                           },
                           {
                             "name": "awaitingSubmitState.ts",
+                            "type": "file"
+                          }
+                        ]
+                      },
+                      {
+                        "name": "resource",
+                        "type": "directory",
+                        "children": [
+                          {
+                            "name": "AuthenticatedResourcePdfPreview.native.tsx",
+                            "type": "file"
+                          },
+                          {
+                            "name": "AuthenticatedResourcePdfPreview.tsx",
+                            "type": "file"
+                          },
+                          {
+                            "name": "AuthenticatedResourcePdfPreview.web.tsx",
+                            "type": "file"
+                          },
+                          {
+                            "name": "AuthenticatedResourcePreviewModal.tsx",
+                            "type": "file"
+                          },
+                          {
+                            "name": "useAuthenticatedResourceDownload.ts",
+                            "type": "file"
+                          },
+                          {
+                            "name": "useAuthenticatedResourceSource.ts",
                             "type": "file"
                           }
                         ]
@@ -10776,6 +10791,24 @@
                     ]
                   },
                   {
+                    "name": "markdownLinks",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "ChatConversationMarkdownRenderer.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ConversationMarkdownLinkProvider.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "conversationMarkdownLinks.ts",
+                        "type": "file"
+                      }
+                    ]
+                  },
+                  {
                     "name": "ChatDetailScreen.tsx",
                     "type": "file"
                   },
@@ -10793,6 +10826,10 @@
                   },
                   {
                     "name": "agentModelSettings.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "authenticatedResourcePreview.ts",
                     "type": "file"
                   },
                   {
@@ -11465,7 +11502,8 @@
       "src/core/api/services/modelOptionsProtocol.ts",
       "src/core/api/services/notificationApi.ts",
       "src/core/api/services/templateApi.ts",
-      "src/core/api/services/uploadApi.ts"
+      "src/core/api/services/uploadApi.ts",
+      "src/core/api/services/workspaceResource.ts"
     ],
     "core-auth-session": [
       "src/core/auth/appAuth.ts",
@@ -11511,6 +11549,7 @@
       "src/features/chatPersistence/ChatHomeScreen.tsx",
       "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/agentModelSettings.ts",
+      "src/features/chatPersistence/authenticatedResourcePreview.ts",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentIcon.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
@@ -11560,11 +11599,6 @@
       "src/features/chatPersistence/components/SourceTimelineRow.tsx",
       "src/features/chatPersistence/components/TaskTimelineContent.tsx",
       "src/features/chatPersistence/components/TaskTimelineRow.tsx",
-      "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.native.tsx",
-      "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.tsx",
-      "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.web.tsx",
-      "src/features/chatPersistence/components/artifact/ArtifactPreviewModal.tsx",
-      "src/features/chatPersistence/components/artifact/useAuthenticatedResourceSource.ts",
       "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx",
       "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx",
       "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx",
@@ -11576,6 +11610,12 @@
       "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
       "src/features/chatPersistence/components/chatWonderDisplay.ts",
       "src/features/chatPersistence/components/planningWritingShimmerConfig.ts",
+      "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.native.tsx",
+      "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.tsx",
+      "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.web.tsx",
+      "src/features/chatPersistence/components/resource/AuthenticatedResourcePreviewModal.tsx",
+      "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts",
+      "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts",
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
       "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
@@ -11590,6 +11630,9 @@
       "src/features/chatPersistence/database.ts",
       "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx",
       "src/features/chatPersistence/homeSnapshot.ts",
+      "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx",
+      "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx",
+      "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts",
       "src/features/chatPersistence/schema.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatPersistence/useChatComposerAttachments.ts",
@@ -11758,6 +11801,7 @@
     "src/core/api/services/notificationApi.ts": "core-api-client",
     "src/core/api/services/templateApi.ts": "core-api-client",
     "src/core/api/services/uploadApi.ts": "core-api-client",
+    "src/core/api/services/workspaceResource.ts": "core-api-client",
     "src/core/auth/appAuth.ts": "core-auth-session",
     "src/core/auth/authConfig.ts": "core-auth-session",
     "src/core/auth/authRequestModel.ts": "core-auth-session",
@@ -11789,6 +11833,7 @@
     "src/features/chatPersistence/ChatHomeScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/agentMode.ts": "feature-chat-persistence",
     "src/features/chatPersistence/agentModelSettings.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/authenticatedResourcePreview.ts": "feature-chat-persistence",
     "src/features/chatPersistence/cacheScope.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatAttachmentIcon.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatAttachmentModels.ts": "feature-chat-persistence",
@@ -11838,11 +11883,6 @@
     "src/features/chatPersistence/components/SourceTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/TaskTimelineContent.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/TaskTimelineRow.tsx": "feature-chat-persistence",
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.native.tsx": "feature-chat-persistence",
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.tsx": "feature-chat-persistence",
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.web.tsx": "feature-chat-persistence",
-    "src/features/chatPersistence/components/artifact/ArtifactPreviewModal.tsx": "feature-chat-persistence",
-    "src/features/chatPersistence/components/artifact/useAuthenticatedResourceSource.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx": "feature-chat-persistence",
@@ -11854,6 +11894,12 @@
     "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/chatWonderDisplay.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/planningWritingShimmerConfig.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.native.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.web.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePreviewModal.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": "feature-chat-persistence",
@@ -11868,6 +11914,9 @@
     "src/features/chatPersistence/database.ts": "feature-chat-persistence",
     "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/homeSnapshot.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts": "feature-chat-persistence",
     "src/features/chatPersistence/schema.ts": "feature-chat-persistence",
     "src/features/chatPersistence/types.ts": "feature-chat-persistence",
     "src/features/chatPersistence/useChatComposerAttachments.ts": "feature-chat-persistence",
@@ -18293,6 +18342,10 @@
       "extractUploadReferences",
       "uploadChatAttachmentApi"
     ],
+    "src/core/api/services/workspaceResource.ts": [
+      "WorkspaceFileResourceRequest",
+      "buildWorkspaceFileResourceUrl"
+    ],
     "src/core/auth/appAuth.ts": [
       "AuthStoreSnapshot",
       "EnsureFreshAccessTokenOptions",
@@ -18497,6 +18550,13 @@
       "AgentModelSettings",
       "normalizeChatReasoningEffort",
       "resolveAgentModelSettings"
+    ],
+    "src/features/chatPersistence/authenticatedResourcePreview.ts": [
+      "AuthenticatedResourcePreviewKind",
+      "AuthenticatedResourceTextSections",
+      "isAuthenticatedResourceTextFileName",
+      "resolveAuthenticatedResourcePreviewKind",
+      "splitAuthenticatedResourceTextAtLine"
     ],
     "src/features/chatPersistence/cacheScope.ts": [
       "CHAT_LEGACY_CACHE_SCOPE_ID",
@@ -18793,22 +18853,6 @@
     "src/features/chatPersistence/components/TaskTimelineRow.tsx": [
       "TaskTimelineRow"
     ],
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.native.tsx": [
-      "ArtifactPdfPreview"
-    ],
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.tsx": [
-      "ArtifactPdfPreview",
-      "ArtifactPdfPreviewProps"
-    ],
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.web.tsx": [
-      "ArtifactPdfPreview"
-    ],
-    "src/features/chatPersistence/components/artifact/ArtifactPreviewModal.tsx": [
-      "ArtifactPreviewModal"
-    ],
-    "src/features/chatPersistence/components/artifact/useAuthenticatedResourceSource.ts": [
-      "useAuthenticatedResourceSource"
-    ],
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx": [
       "AwaitingDateTimeInput"
     ],
@@ -18886,6 +18930,27 @@
       "PlanningWritingGradientWindow",
       "resolvePlanningWritingGradientWindow"
     ],
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.native.tsx": [
+      "AuthenticatedResourcePdfPreview"
+    ],
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.tsx": [
+      "AuthenticatedResourcePdfPreview",
+      "AuthenticatedResourcePdfPreviewProps"
+    ],
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.web.tsx": [
+      "AuthenticatedResourcePdfPreview"
+    ],
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePreviewModal.tsx": [
+      "AuthenticatedResourcePreviewModal",
+      "AuthenticatedResourcePreviewTarget"
+    ],
+    "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts": [
+      "AuthenticatedResourceDownloadState",
+      "useAuthenticatedResourceDownload"
+    ],
+    "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts": [
+      "useAuthenticatedResourceSource"
+    ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "RuntimePayloadDescriptor",
       "RuntimePayloadKind",
@@ -18958,6 +19023,19 @@
       "clearChatDirectorySnapshotForScope",
       "readChatDirectorySnapshot",
       "writeChatDirectorySnapshot"
+    ],
+    "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx": [
+      "ChatConversationMarkdownRenderer"
+    ],
+    "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx": [
+      "ConversationMarkdownLinkProvider",
+      "useConversationMarkdownLinkPress"
+    ],
+    "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts": [
+      "ConversationMarkdownInternalLink",
+      "ConversationMarkdownLinkPreview",
+      "parseConversationMarkdownInternalLink",
+      "resolveConversationMarkdownLinkPreview"
     ],
     "src/features/chatPersistence/schema.ts": [
       "ChatDirectoryItemRow",
@@ -19461,7 +19539,8 @@
       "resolveInstalledBrandId"
     ],
     "src/shared/components/ConversationMarkdownRenderer.tsx": [
-      "ConversationMarkdownRenderer"
+      "ConversationMarkdownRenderer",
+      "ConversationMarkdownRendererProps"
     ],
     "src/shared/components/PaginatedCardList.tsx": [
       "ListPaginationConfig",
@@ -22941,6 +23020,7 @@
       "../resourceUrl",
       "expo-file-system"
     ],
+    "src/core/api/services/workspaceResource.ts": null,
     "src/core/auth/appAuth.ts": [
       "../debug/httpDebugLogger",
       "./authConfig",
@@ -23139,6 +23219,9 @@
     "src/features/chatPersistence/agentModelSettings.ts": [
       "./types"
     ],
+    "src/features/chatPersistence/authenticatedResourcePreview.ts": [
+      "./chatAttachmentModels.ts"
+    ],
     "src/features/chatPersistence/cacheScope.ts": null,
     "src/features/chatPersistence/chatAttachmentIcon.ts": [
       "../../shared/icons/AppIcon.tsx"
@@ -23235,7 +23318,6 @@
       "react-native"
     ],
     "src/features/chatPersistence/components/ArtifactTimelineRow.tsx": [
-      "../../../core/api/services/authenticatedResourceDownload.ts",
       "../../../shared/components/conversationPreview/ConversationPreviewProvider.tsx",
       "../../../shared/i18n/index.ts",
       "../../../shared/icons/AppIcon.tsx",
@@ -23245,8 +23327,9 @@
       "../chatAttachmentIcon.ts",
       "../chatAttachmentModels.ts",
       "./ChatTimelineRail.tsx",
-      "./artifact/ArtifactPreviewModal.tsx",
-      "./artifact/useAuthenticatedResourceSource.ts",
+      "./resource/AuthenticatedResourcePreviewModal.tsx",
+      "./resource/useAuthenticatedResourceDownload.ts",
+      "./resource/useAuthenticatedResourceSource.ts",
       "react",
       "react-native"
     ],
@@ -23393,7 +23476,6 @@
       "react-native"
     ],
     "src/features/chatPersistence/components/ChatTimelineList.tsx": [
-      "../../../shared/components/ConversationMarkdownRenderer",
       "../../../shared/components/conversationPreview/ConversationPreviewProvider",
       "../../../shared/components/conversationPreview/visibilityStore",
       "../../../shared/i18n",
@@ -23404,6 +23486,8 @@
       "../../chatTimeline/index.ts",
       "../chatDetailFormatters",
       "../conversationViewport/ConversationContentRenderer",
+      "../markdownLinks/ChatConversationMarkdownRenderer.tsx",
+      "../markdownLinks/ConversationMarkdownLinkProvider.tsx",
       "./ActionTimelineRow.tsx",
       "./ArtifactTimelineRow.tsx",
       "./ChatAttachmentStrip",
@@ -23553,41 +23637,6 @@
       "react",
       "react-native"
     ],
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.native.tsx": [
-      "./ArtifactPdfPreview.tsx",
-      "react",
-      "react-native",
-      "react-native-webview"
-    ],
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.tsx": [
-      "../../../../core/api/apiClient.ts",
-      "react",
-      "react-native"
-    ],
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.web.tsx": [
-      "../../../../shared/visual/AppThemeProvider.tsx",
-      "./ArtifactPdfPreview.tsx",
-      "react",
-      "react-native"
-    ],
-    "src/features/chatPersistence/components/artifact/ArtifactPreviewModal.tsx": [
-      "../../../../core/api/apiClient.ts",
-      "../../../../core/api/services/authenticatedResource.ts",
-      "../../../../shared/i18n/index.ts",
-      "../../../../shared/icons/AppIcon.tsx",
-      "../../../../shared/visual/AppThemeProvider.tsx",
-      "../../../chatTimeline/index.ts",
-      "./ArtifactPdfPreview.tsx",
-      "./useAuthenticatedResourceSource.ts",
-      "react",
-      "react-native",
-      "react-native-safe-area-context"
-    ],
-    "src/features/chatPersistence/components/artifact/useAuthenticatedResourceSource.ts": [
-      "../../../../core/api/apiClient.ts",
-      "../../../../core/api/services/authenticatedResource.ts",
-      "react"
-    ],
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx": [
       "../../../../shared/visual/AppThemeProvider",
       "../../../chatTimeline/index.ts",
@@ -23671,17 +23720,57 @@
       "../../../core/api/services/chatApi"
     ],
     "src/features/chatPersistence/components/planningWritingShimmerConfig.ts": null,
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.native.tsx": [
+      "./AuthenticatedResourcePdfPreview.tsx",
+      "react",
+      "react-native",
+      "react-native-webview"
+    ],
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.tsx": [
+      "../../../../core/api/apiClient.ts",
+      "react",
+      "react-native"
+    ],
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.web.tsx": [
+      "../../../../shared/visual/AppThemeProvider.tsx",
+      "./AuthenticatedResourcePdfPreview.tsx",
+      "react",
+      "react-native"
+    ],
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePreviewModal.tsx": [
+      "../../../../core/api/apiClient.ts",
+      "../../../../core/api/services/authenticatedResource.ts",
+      "../../../../shared/i18n/index.ts",
+      "../../../../shared/icons/AppIcon.tsx",
+      "../../../../shared/visual/AppThemeProvider.tsx",
+      "../../authenticatedResourcePreview.ts",
+      "./AuthenticatedResourcePdfPreview.tsx",
+      "./useAuthenticatedResourceDownload.ts",
+      "./useAuthenticatedResourceSource.ts",
+      "react",
+      "react-native",
+      "react-native-safe-area-context"
+    ],
+    "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts": [
+      "../../../../core/api/services/authenticatedResourceDownload.ts",
+      "react"
+    ],
+    "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts": [
+      "../../../../core/api/apiClient.ts",
+      "../../../../core/api/services/authenticatedResource.ts",
+      "react"
+    ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "../../../shared/i18n/translate.ts",
       "../../../shared/icons/AppIcon",
       "../../chatTimeline/index.ts"
     ],
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": [
-      "../../../shared/components/ConversationMarkdownRenderer",
       "../../../shared/i18n",
       "../../../shared/visual/AppThemeProvider",
       "../../../shared/visual/className",
       "../chatDetailFormatters",
+      "../markdownLinks/ChatConversationMarkdownRenderer.tsx",
       "./runtimePayloadDescriptor",
       "./runtimeToolStatusVisual",
       "./useRunningElapsedMs.ts",
@@ -23699,8 +23788,8 @@
       "../chatTimeline/index.ts"
     ],
     "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx": [
-      "../../../shared/components/ConversationMarkdownRenderer",
       "../../../shared/markdown/previewSegments",
+      "../markdownLinks/ChatConversationMarkdownRenderer.tsx",
       "./ConversationViewportBlock",
       "./conversationViewportFence",
       "react"
@@ -23761,6 +23850,22 @@
       "./cacheScope",
       "./types",
       "react-native-mmkv"
+    ],
+    "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx": [
+      "../../../shared/components/ConversationMarkdownRenderer.tsx",
+      "./ConversationMarkdownLinkProvider.tsx",
+      "react"
+    ],
+    "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx": [
+      "../../../shared/i18n/index.ts",
+      "../components/resource/AuthenticatedResourcePreviewModal.tsx",
+      "../components/resource/useAuthenticatedResourceDownload.ts",
+      "./conversationMarkdownLinks.ts",
+      "react"
+    ],
+    "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts": [
+      "../../../core/api/services/workspaceResource.ts",
+      "../authenticatedResourcePreview.ts"
     ],
     "src/features/chatPersistence/schema.ts": [
       "drizzle-orm",
@@ -23893,6 +23998,7 @@
     ],
     "src/features/chatTimeline/timelineArtifact.ts": [
       "../../core/api/services/chatEventProtocol.ts",
+      "../chatPersistence/authenticatedResourcePreview.ts",
       "../chatPersistence/chatAttachmentModels.ts",
       "./types.ts"
     ],
@@ -23968,6 +24074,7 @@
     ],
     "src/features/chatTimeline/types.ts": [
       "../../core/api/services/chatEventProtocol.ts",
+      "../chatPersistence/authenticatedResourcePreview.ts",
       "../chatPersistence/types.ts"
     ],
     "src/features/chatTimeline/usageSummary.ts": [
@@ -27181,6 +27288,7 @@
       "src/core/api/resourceUrl.ts",
       "src/core/debug/httpDebugLogger.ts"
     ],
+    "src/core/api/services/workspaceResource.ts": null,
     "src/core/auth/appAuth.ts": [
       "src/core/auth/authConfig.ts",
       "src/core/auth/authRequestModel.ts",
@@ -27347,6 +27455,9 @@
     "src/features/chatPersistence/agentModelSettings.ts": [
       "src/features/chatPersistence/types.ts"
     ],
+    "src/features/chatPersistence/authenticatedResourcePreview.ts": [
+      "src/features/chatPersistence/chatAttachmentModels.ts"
+    ],
     "src/features/chatPersistence/cacheScope.ts": null,
     "src/features/chatPersistence/chatAttachmentIcon.ts": [
       "src/shared/icons/AppIcon.tsx"
@@ -27440,12 +27551,12 @@
       "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/ArtifactTimelineRow.tsx": [
-      "src/core/api/services/authenticatedResourceDownload.ts",
       "src/features/chatPersistence/chatAttachmentIcon.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
-      "src/features/chatPersistence/components/artifact/ArtifactPreviewModal.tsx",
-      "src/features/chatPersistence/components/artifact/useAuthenticatedResourceSource.ts",
+      "src/features/chatPersistence/components/resource/AuthenticatedResourcePreviewModal.tsx",
+      "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts",
+      "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts",
       "src/features/chatTimeline/index.ts",
       "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
       "src/shared/i18n/index.ts",
@@ -27575,8 +27686,9 @@
       "src/features/chatPersistence/components/SourceTimelineRow.tsx",
       "src/features/chatPersistence/components/TaskTimelineRow.tsx",
       "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx",
+      "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx",
+      "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx",
       "src/features/chatTimeline/index.ts",
-      "src/shared/components/ConversationMarkdownRenderer.tsx",
       "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
       "src/shared/components/conversationPreview/visibilityStore.ts",
       "src/shared/i18n/index.ts",
@@ -27688,30 +27800,6 @@
       "src/shared/i18n/index.ts",
       "src/shared/visual/AppThemeProvider.tsx"
     ],
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.native.tsx": [
-      "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.tsx"
-    ],
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.tsx": [
-      "src/core/api/apiClient.ts"
-    ],
-    "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.web.tsx": [
-      "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.tsx",
-      "src/shared/visual/AppThemeProvider.tsx"
-    ],
-    "src/features/chatPersistence/components/artifact/ArtifactPreviewModal.tsx": [
-      "src/core/api/apiClient.ts",
-      "src/core/api/services/authenticatedResource.ts",
-      "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.tsx",
-      "src/features/chatPersistence/components/artifact/useAuthenticatedResourceSource.ts",
-      "src/features/chatTimeline/index.ts",
-      "src/shared/i18n/index.ts",
-      "src/shared/icons/AppIcon.tsx",
-      "src/shared/visual/AppThemeProvider.tsx"
-    ],
-    "src/features/chatPersistence/components/artifact/useAuthenticatedResourceSource.ts": [
-      "src/core/api/apiClient.ts",
-      "src/core/api/services/authenticatedResource.ts"
-    ],
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx": [
       "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
       "src/features/chatTimeline/index.ts",
@@ -27782,6 +27870,34 @@
       "src/core/api/services/chatApi.ts"
     ],
     "src/features/chatPersistence/components/planningWritingShimmerConfig.ts": null,
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.native.tsx": [
+      "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.tsx"
+    ],
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.tsx": [
+      "src/core/api/apiClient.ts"
+    ],
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.web.tsx": [
+      "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.tsx",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
+    "src/features/chatPersistence/components/resource/AuthenticatedResourcePreviewModal.tsx": [
+      "src/core/api/apiClient.ts",
+      "src/core/api/services/authenticatedResource.ts",
+      "src/features/chatPersistence/authenticatedResourcePreview.ts",
+      "src/features/chatPersistence/components/resource/AuthenticatedResourcePdfPreview.tsx",
+      "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts",
+      "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
+    "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts": [
+      "src/core/api/services/authenticatedResourceDownload.ts"
+    ],
+    "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts": [
+      "src/core/api/apiClient.ts",
+      "src/core/api/services/authenticatedResource.ts"
+    ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/translate.ts",
@@ -27792,7 +27908,7 @@
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
       "src/features/chatPersistence/components/useRunningElapsedMs.ts",
-      "src/shared/components/ConversationMarkdownRenderer.tsx",
+      "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/className.ts"
@@ -27808,7 +27924,7 @@
     "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx": [
       "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx",
       "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts",
-      "src/shared/components/ConversationMarkdownRenderer.tsx",
+      "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx",
       "src/shared/markdown/previewSegments.ts"
     ],
     "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx": [
@@ -27859,6 +27975,20 @@
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/types.ts",
       "src/shared/visual/agentAvatarIcon.ts"
+    ],
+    "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx": [
+      "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx",
+      "src/shared/components/ConversationMarkdownRenderer.tsx"
+    ],
+    "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx": [
+      "src/features/chatPersistence/components/resource/AuthenticatedResourcePreviewModal.tsx",
+      "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts",
+      "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts",
+      "src/shared/i18n/index.ts"
+    ],
+    "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts": [
+      "src/core/api/services/workspaceResource.ts",
+      "src/features/chatPersistence/authenticatedResourcePreview.ts"
     ],
     "src/features/chatPersistence/schema.ts": null,
     "src/features/chatPersistence/types.ts": [
@@ -27978,6 +28108,7 @@
     ],
     "src/features/chatTimeline/timelineArtifact.ts": [
       "src/core/api/services/chatEventProtocol.ts",
+      "src/features/chatPersistence/authenticatedResourcePreview.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatTimeline/types.ts"
     ],
@@ -28053,6 +28184,7 @@
     ],
     "src/features/chatTimeline/types.ts": [
       "src/core/api/services/chatEventProtocol.ts",
+      "src/features/chatPersistence/authenticatedResourcePreview.ts",
       "src/features/chatPersistence/types.ts"
     ],
     "src/features/chatTimeline/usageSummary.ts": [

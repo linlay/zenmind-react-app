@@ -1,7 +1,6 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native';
 
-import { downloadAuthenticatedResource } from '../../../core/api/services/authenticatedResourceDownload.ts';
 import { useConversationPreviewRowActive } from '../../../shared/components/conversationPreview/ConversationPreviewProvider.tsx';
 import { AppIcon } from '../../../shared/icons/AppIcon.tsx';
 import { useT, type I18nKey } from '../../../shared/i18n/index.ts';
@@ -14,16 +13,15 @@ import type {
 } from '../../chatTimeline/index.ts';
 import { resolveChatAttachmentFileIconUsage } from '../chatAttachmentIcon.ts';
 import { formatChatAttachmentSize } from '../chatAttachmentModels.ts';
-import { ArtifactPreviewModal } from './artifact/ArtifactPreviewModal.tsx';
-import { useAuthenticatedResourceSource } from './artifact/useAuthenticatedResourceSource.ts';
+import { AuthenticatedResourcePreviewModal } from './resource/AuthenticatedResourcePreviewModal.tsx';
+import { useAuthenticatedResourceDownload } from './resource/useAuthenticatedResourceDownload.ts';
+import { useAuthenticatedResourceSource } from './resource/useAuthenticatedResourceSource.ts';
 import { ChatTimelineRail } from './ChatTimelineRail.tsx';
 
 type ArtifactTimelineRowProps = {
   node: ChatTimelineArtifactNode;
   isLastInRun: boolean;
 };
-
-type DownloadState = 'idle' | 'loading' | 'success' | 'error';
 
 const STATUS_KEYS: Record<ChatTimelineArtifactStatus, I18nKey> = {
   processing: 'artifact.status.processing',
@@ -74,28 +72,17 @@ export const ArtifactTimelineRow = memo(function ArtifactTimelineRow({ node, isL
   const { theme } = useAppTheme();
   const rowActive = useConversationPreviewRowActive();
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [downloadState, setDownloadState] = useState<DownloadState>('idle');
-  const [downloadedName, setDownloadedName] = useState('');
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
-  const mountedRef = useRef(true);
-  const downloadRequestRef = useRef(0);
   const canAccessResource = node.status === 'ready' && Boolean(node.resourceUrl);
   const canPreview = canAccessResource && node.previewKind !== 'unsupported';
+  const resourceDownload = useAuthenticatedResourceDownload(node.resourceUrl, node.name);
+  const downloadState = resourceDownload.state;
   const thumbnailSource = useAuthenticatedResourceSource(
     node.resourceUrl,
     rowActive && node.previewKind === 'image' && canAccessResource
   );
 
   useEffect(() => {
-    return () => {
-      mountedRef.current = false;
-      downloadRequestRef.current += 1;
-    };
-  }, []);
-  useEffect(() => {
-    downloadRequestRef.current += 1;
-    setDownloadState('idle');
-    setDownloadedName('');
     setThumbnailFailed(false);
   }, [node.resourceUrl]);
 
@@ -108,7 +95,7 @@ export const ArtifactTimelineRow = memo(function ArtifactTimelineRow({ node, isL
   );
   const downloadFeedback =
     downloadState === 'success'
-      ? t('artifact.downloaded', { name: downloadedName || node.name })
+      ? t('artifact.downloaded', { name: resourceDownload.downloadedName || node.name })
       : downloadState === 'error'
         ? t('artifact.downloadFailed')
         : '';
@@ -119,30 +106,7 @@ export const ArtifactTimelineRow = memo(function ArtifactTimelineRow({ node, isL
     }
   }, [canPreview]);
   const handleClosePreview = useCallback(() => setPreviewVisible(false), []);
-  const handleDownload = useCallback(() => {
-    if (!canAccessResource || downloadState === 'loading') {
-      return;
-    }
-    setDownloadState('loading');
-    setDownloadedName('');
-    const requestId = downloadRequestRef.current + 1;
-    downloadRequestRef.current = requestId;
-    void downloadAuthenticatedResource({
-      resourceUrl: node.resourceUrl,
-      fileName: node.name
-    })
-      .then((result) => {
-        if (mountedRef.current && downloadRequestRef.current === requestId) {
-          setDownloadedName(result.fileName);
-          setDownloadState('success');
-        }
-      })
-      .catch(() => {
-        if (mountedRef.current && downloadRequestRef.current === requestId) {
-          setDownloadState('error');
-        }
-      });
-  }, [canAccessResource, downloadState, node.name, node.resourceUrl]);
+  const handleDownload = resourceDownload.download;
 
   const iconUsage = resolveChatAttachmentFileIconUsage(node);
   const showThumbnail = Boolean(thumbnailSource.source && !thumbnailFailed);
@@ -259,10 +223,15 @@ export const ArtifactTimelineRow = memo(function ArtifactTimelineRow({ node, isL
       </View>
 
       {previewVisible ? (
-        <ArtifactPreviewModal
-          node={node}
+        <AuthenticatedResourcePreviewModal
+          target={{
+            key: node.id,
+            name: node.name,
+            resourceUrl: node.resourceUrl,
+            previewKind: node.previewKind
+          }}
           visible
-          downloadBusy={downloadState === 'loading'}
+          downloadState={downloadState}
           downloadFeedback={downloadFeedback}
           onClose={handleClosePreview}
           onDownload={handleDownload}

@@ -14,7 +14,7 @@ import {
 } from '../markdown/previewSegments';
 import { useAppTheme } from '../visual/AppThemeProvider';
 
-type ConversationMarkdownRendererProps = {
+export type ConversationMarkdownRendererProps = {
   markdown: string;
   streaming?: boolean;
   selectable?: boolean;

@@ -420,6 +420,8 @@ export const enUS: Record<I18nKey, string> = {
   'artifact.previewFailed': 'Preview failed to load',
   'artifact.previewTooLarge': 'The text exceeds 512 KiB. Download it to view.',
   'artifact.previewTimedOut': 'Preview timed out. Try again or download it to view.',
+  'markdownLink.invalid': 'This resource or workspace file link is invalid.',
+  'markdownLink.workspaceScopeMissing': 'This workspace file cannot be opened without an agent scope.',
   'artifact.pdfUnavailable': 'This platform cannot safely preview the PDF. Download it to view.',
   'artifact.unsupportedPreview': 'This format cannot be previewed yet. Download it to view.',
   'artifact.missingResource': 'The resource URL is not ready yet.',

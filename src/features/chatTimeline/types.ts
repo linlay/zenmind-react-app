@@ -1,4 +1,5 @@
 import type { ChatRequestMessageVariant } from '../../core/api/services/chatEventProtocol.ts';
+import type { AuthenticatedResourcePreviewKind } from '../chatPersistence/authenticatedResourcePreview.ts';
 import type { ChatMessageAttachment } from '../chatPersistence/types.ts';
 
 export type ChatTimelineLifecycle = 'active' | 'complete' | 'error' | 'cancelled';
@@ -38,7 +39,7 @@ export type ChatTimelineRuntimeStatus =
   | 'error'
   | 'tool_result';
 
-export type ChatTimelineArtifactPreviewKind = 'image' | 'text' | 'pdf' | 'unsupported';
+export type ChatTimelineArtifactPreviewKind = AuthenticatedResourcePreviewKind;
 
 export type ChatTimelineArtifactStatus = 'processing' | 'ready' | 'failed';
 

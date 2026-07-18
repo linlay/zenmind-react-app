@@ -206,6 +206,7 @@
       "scripts/tests/chatTimelineTask.test.mts",
       "scripts/tests/chatWonderDisplay.test.mts",
       "scripts/tests/chatWsTransportPayload.test.mts",
+      "scripts/tests/conversationMarkdownLinks.test.mts",
       "scripts/tests/desktopWsProtocol.test.mts",
       "scripts/tests/desktopWsTransport.test.mts",
       "scripts/tests/httpDebugLogger.test.mts",

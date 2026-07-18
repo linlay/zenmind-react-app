@@ -270,6 +270,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                     ) : null
                   }
                   onCopyText={handleCopyMessage}
+                  workspaceAgentKey={composerOptions.agentKey}
                   onReaskMessage={handleReaskMessage}
                   reaskCurrentDisabled={composerAction === 'sending' || Boolean(headerRuntimeState.runAction)}
                   reaskNewConversationDisabled={

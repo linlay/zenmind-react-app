@@ -1,7 +1,7 @@
 import { memo, type ComponentType } from 'react';
 import { Text, View } from 'react-native';
 
-import { ConversationMarkdownRenderer } from '../../../shared/components/ConversationMarkdownRenderer';
+import { ChatConversationMarkdownRenderer } from '../markdownLinks/ChatConversationMarkdownRenderer.tsx';
 import { useT } from '../../../shared/i18n';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../shared/visual/className';
@@ -78,7 +78,7 @@ function TextSection({ section, wrap }: { section: RuntimePayloadSection; wrap: 
       <SectionLabel text={section.label} />
       {section.mode === 'markdown' ? (
         <View className={!wrap ? NOWRAP_MARKDOWN_CLASS : undefined}>
-          <ConversationMarkdownRenderer markdown={section.text} />
+          <ChatConversationMarkdownRenderer markdown={section.text} />
         </View>
       ) : (
         <Text

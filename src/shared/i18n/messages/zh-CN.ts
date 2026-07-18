@@ -410,6 +410,8 @@ export const zhCN = {
   'artifact.previewFailed': '预览加载失败',
   'artifact.previewTooLarge': '文本超过 512 KiB，已停止预览，请下载后查看。',
   'artifact.previewTimedOut': '预览加载超时，请重试或下载后查看。',
+  'markdownLink.invalid': '资源或工作区文件链接无效。',
+  'markdownLink.workspaceScopeMissing': '缺少 Agent 范围，无法打开该工作区文件。',
   'artifact.pdfUnavailable': '当前平台无法安全预览此 PDF，请下载后查看。',
   'artifact.unsupportedPreview': '此格式暂不支持预览，请下载后查看。',
   'artifact.missingResource': '资源地址尚未就绪。',

@@ -1,9 +1,8 @@
 import { normalizeProtocolTimestampMs, toText } from '../../core/api/services/chatEventProtocol.ts';
 import {
-  getChatAttachmentExtension,
-  getChatAttachmentKind,
   normalizeChatAttachmentResourceUrl
 } from '../chatPersistence/chatAttachmentModels.ts';
+import { resolveAuthenticatedResourcePreviewKind } from '../chatPersistence/authenticatedResourcePreview.ts';
 import type { ChatTimelineArtifactNode, ChatTimelineArtifactPreviewKind, ChatTimelineArtifactStatus } from './types.ts';
 
 export type NormalizedChatTimelineArtifact = {
@@ -21,29 +20,6 @@ export type NormalizedChatTimelineArtifact = {
   timestamp: number;
 };
 
-const TEXT_EXTENSIONS = new Set([
-  'css',
-  'csv',
-  'html',
-  'htm',
-  'ini',
-  'js',
-  'json',
-  'jsx',
-  'log',
-  'md',
-  'mjs',
-  'py',
-  'sql',
-  'toml',
-  'ts',
-  'tsx',
-  'txt',
-  'xml',
-  'yaml',
-  'yml'
-]);
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -58,31 +34,9 @@ function firstText(...values: unknown[]): string {
   return '';
 }
 
-export function resolveChatTimelineArtifactPreviewKind(input: {
-  name?: string | null;
-  mimeType?: string | null;
-}): ChatTimelineArtifactPreviewKind {
-  const mimeType = toText(input.mimeType).toLowerCase().split(';', 1)[0];
-  const extension = getChatAttachmentExtension(input.name);
-  if (mimeType === 'application/pdf' || extension === 'pdf') {
-    return 'pdf';
-  }
-  if (getChatAttachmentKind({ name: input.name, mimeType }) === 'image') {
-    return 'image';
-  }
-  if (
-    mimeType.startsWith('text/') ||
-    mimeType === 'application/json' ||
-    mimeType === 'application/javascript' ||
-    mimeType === 'application/xml' ||
-    mimeType.endsWith('+json') ||
-    mimeType.endsWith('+xml') ||
-    TEXT_EXTENSIONS.has(extension)
-  ) {
-    return 'text';
-  }
-  return 'unsupported';
-}
+export {
+  resolveAuthenticatedResourcePreviewKind as resolveChatTimelineArtifactPreviewKind
+};
 
 function normalizeArtifactStatus(value: unknown, resourceUrl: string): ChatTimelineArtifactStatus {
   const status = toText(value).toLowerCase();
@@ -168,7 +122,7 @@ function normalizeArtifactItem(
     resourceUrl,
     sha256,
     sizeBytes: Number.isFinite(rawSize) && rawSize >= 0 ? Math.floor(rawSize) : 0,
-    previewKind: resolveChatTimelineArtifactPreviewKind({ name, mimeType }),
+    previewKind: resolveAuthenticatedResourcePreviewKind({ name, mimeType }),
     status,
     summary: firstText(item.summary, item.description, event.summary, event.description),
     errorReason:

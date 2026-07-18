@@ -2,17 +2,17 @@ import { memo, useCallback } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 
-import type { ArtifactPdfPreviewProps } from './ArtifactPdfPreview.tsx';
+import type { AuthenticatedResourcePdfPreviewProps } from './AuthenticatedResourcePdfPreview.tsx';
 
 function isAllowedPdfNavigation(targetUrl: string, navigation: WebViewNavigation): boolean {
   return navigation.url === targetUrl || navigation.url === 'about:blank';
 }
 
-export const ArtifactPdfPreview = memo(function ArtifactPdfPreview({
+export const AuthenticatedResourcePdfPreview = memo(function AuthenticatedResourcePdfPreview({
   source,
   unavailableLabel,
   onError
-}: ArtifactPdfPreviewProps) {
+}: AuthenticatedResourcePdfPreviewProps) {
   const handleShouldStart = useCallback(
     (navigation: WebViewNavigation) => isAllowedPdfNavigation(source.uri, navigation),
     [source.uri]
