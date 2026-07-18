@@ -48,6 +48,7 @@ import {
 import { PlanTimelineRow } from './PlanTimelineRow.tsx';
 import { RuntimeTimelineRow } from './RuntimeTimelineRow';
 import { SourceTimelineRow } from './SourceTimelineRow';
+import { TaskTimelineRow } from './TaskTimelineRow.tsx';
 
 type ChatTimelineListProps = {
   timelineState: ChatTimelineState;
@@ -718,6 +719,29 @@ function areToolGroupNodesEqual(previous: ChatTimelineDisplayItem, next: ChatTim
   return previous.nodes.every((node, index) => node === next.nodes[index]);
 }
 
+function areStructuredTaskNodesEqual(
+  previous: ChatTimelineDisplayItem,
+  next: ChatTimelineDisplayItem
+): boolean {
+  if (previous.kind === 'task' || next.kind === 'task') {
+    return (
+      previous.kind === 'task' &&
+      next.kind === 'task' &&
+      previous.nodes.length === next.nodes.length &&
+      previous.nodes.every((node, index) => node === next.nodes[index])
+    );
+  }
+  if (previous.kind === 'plan' || next.kind === 'plan') {
+    return (
+      previous.kind === 'plan' &&
+      next.kind === 'plan' &&
+      previous.tasks.length === next.tasks.length &&
+      previous.tasks.every((node, index) => node === next.tasks[index])
+    );
+  }
+  return true;
+}
+
 function areDisplayItemNodesEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
   if (previous.kind === 'assistant-reply-footer' || next.kind === 'assistant-reply-footer') {
     return previous.kind === next.kind;
@@ -813,6 +837,17 @@ const TimelineRow = memo(
       return (
         <PlanTimelineRow
           node={node}
+          tasks={item.tasks}
+          isLastInRun={item.isLastInRun}
+          getInitialExpanded={getInitialRuntimeExpanded}
+          onExpandedChange={onRuntimeExpandedChange}
+        />
+      );
+    }
+    if (item.kind === 'task' && node.kind === 'task') {
+      return (
+        <TaskTimelineRow
+          nodes={item.nodes}
           isLastInRun={item.isLastInRun}
           getInitialExpanded={getInitialRuntimeExpanded}
           onExpandedChange={onRuntimeExpandedChange}
@@ -849,6 +884,7 @@ const TimelineRow = memo(
     prev.item.kind === next.item.kind &&
     areDisplayItemNodesEqual(prev.item, next.item) &&
     areToolGroupNodesEqual(prev.item, next.item) &&
+    areStructuredTaskNodesEqual(prev.item, next.item) &&
     areAssistantReplyFooterItemsEqual(prev.item, next.item) &&
     areDisplayItemGroupFieldsEqual(prev.item, next.item)
 );

@@ -6,6 +6,7 @@ import type {
   ChatTimelinePlanNode,
   ChatTimelineRunNode,
   ChatTimelineSourceNode,
+  ChatTimelineTaskNode,
   ChatTimelineTextNode,
   ChatTimelineToolGroupDisplayItem,
   ChatTimelineToolNode,
@@ -29,12 +30,15 @@ export type RuntimePayloadSectionMode = 'markdown' | 'plain' | 'code';
 export type RuntimePayloadSource =
   | Exclude<
       ChatTimelineNode,
-      ChatTimelineArtifactNode | ChatTimelinePlanNode | ChatTimelineSourceNode
+      | ChatTimelineArtifactNode
+      | ChatTimelinePlanNode
+      | ChatTimelineSourceNode
+      | ChatTimelineTaskNode
     >
   | ChatTimelineToolGroupDisplayItem;
 
 export type RuntimePayloadKind =
-  | Exclude<ChatTimelineNode['kind'], 'artifact' | 'message' | 'plan' | 'source'>
+  | Exclude<ChatTimelineNode['kind'], 'artifact' | 'message' | 'plan' | 'source' | 'task'>
   | 'tool-group';
 
 export type RuntimeToolStatus =
@@ -540,9 +544,6 @@ function iconForKind(kind: RuntimePayloadKind): {
   if (kind === 'planning') {
     return { iconUsage: 'runtime.planning', tone: 'tool' };
   }
-  if (kind === 'task') {
-    return { iconUsage: 'runtime.file', tone: 'file' };
-  }
   return { iconUsage: 'runtime.neutral', tone: 'neutral' };
 }
 
@@ -559,11 +560,7 @@ function rendererForKind(kind: RuntimePayloadKind): RuntimePayloadRendererType {
   if (kind === 'usage') {
     return 'metric';
   }
-  if (
-    kind === 'action' ||
-    kind === 'task' ||
-    kind === 'context'
-  ) {
+  if (kind === 'action' || kind === 'context') {
     return 'record';
   }
   return 'plain';

@@ -29,6 +29,7 @@ import type {
   ChatTimelineRuntimeStatus,
   ChatTimelineRunNode,
   ChatTimelineSourceNode,
+  ChatTimelineTaskNode,
   ChatTimelineState,
   ChatTimelineTextNode,
   ChatTimelineToolNode,
@@ -47,6 +48,14 @@ import {
   normalizeChatTimelinePlanEvent,
   resolveChatTimelinePlanId,
 } from './timelinePlan.ts';
+import {
+  chatTimelineTaskNodePayloadEquals,
+  closeChatTimelineTaskNode,
+  createChatTimelineTaskNodeId,
+  getChatTimelineTaskContentLength,
+  normalizeChatTimelineTaskEvent,
+  resolveChatTimelineTaskId,
+} from './timelineTask.ts';
 import {
   getAwaitingAnswerSummarySignature,
   getAwaitingInteractiveSignature,
@@ -843,6 +852,9 @@ function getTimelineNodeIdentityKeys(node: ChatTimelineNode): string[] {
   if (node.kind === 'plan' && node.planId) {
     keys.push(`plan:${node.planId}`);
   }
+  if (node.kind === 'task' && node.taskId) {
+    keys.push(`task:${node.taskId}`);
+  }
   return keys;
 }
 
@@ -1040,6 +1052,9 @@ function getTimelineNodeContentLength(node: ChatTimelineNode): number {
   if (node.kind === 'plan') {
     return getChatTimelinePlanContentLength(node);
   }
+  if (node.kind === 'task') {
+    return getChatTimelineTaskContentLength(node);
+  }
   return node.title.length + node.body.length + node.status.length;
 }
 
@@ -1109,6 +1124,9 @@ function shouldPreferCurrentTimelineNode(
     return current.updatedAt > incoming.updatedAt;
   }
   if (current.kind === 'plan' && incoming.kind === 'plan') {
+    return current.updatedAt > incoming.updatedAt;
+  }
+  if (current.kind === 'task' && incoming.kind === 'task') {
     return current.updatedAt > incoming.updatedAt;
   }
 
@@ -1377,6 +1395,9 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
   if (left.kind === 'plan' && right.kind === 'plan') {
     return !chatTimelinePlanNodePayloadEquals(left, right);
   }
+  if (left.kind === 'task' && right.kind === 'task') {
+    return !chatTimelineTaskNodePayloadEquals(left, right);
+  }
   if (
     left.kind !== 'message' &&
     left.kind !== 'tool' &&
@@ -1385,13 +1406,15 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
     left.kind !== 'source' &&
     left.kind !== 'artifact' &&
     left.kind !== 'plan' &&
+    left.kind !== 'task' &&
     right.kind !== 'message' &&
     right.kind !== 'tool' &&
     right.kind !== 'awaiting' &&
     right.kind !== 'run' &&
     right.kind !== 'source' &&
     right.kind !== 'artifact' &&
-    right.kind !== 'plan'
+    right.kind !== 'plan' &&
+    right.kind !== 'task'
   ) {
     return (
       left.title !== right.title ||
@@ -1508,6 +1531,10 @@ function closeTimelineNodeForRun(
 
   if (node.kind === 'plan') {
     return closeChatTimelinePlanNode(node, lifecycle, nextUpdatedAt);
+  }
+
+  if (node.kind === 'task') {
+    return closeChatTimelineTaskNode(node, lifecycle, nextUpdatedAt);
   }
 
   const nextNode = {
@@ -2172,6 +2199,106 @@ function applyPlanEvent(
   return upsertNode(baseState, node);
 }
 
+function resolveTaskEventFallback(
+  state: ChatTimelineState,
+  event: Record<string, unknown>,
+  taskId: string,
+  current: ChatTimelineTaskNode | undefined
+) {
+  const parentTaskId =
+    toText(event.parentTaskId || event.parentId) || current?.parentTaskId || '';
+  const parentNode = parentTaskId
+    ? state.nodesById[createChatTimelineTaskNodeId(state.conversationId, parentTaskId)]
+    : undefined;
+  const parentTask = parentNode?.kind === 'task' ? parentNode : undefined;
+  const runId =
+    toText(event.runId) || current?.runId || parentTask?.runId || state.activeRunId || '';
+  const explicitPlanId = toText(event.planId);
+  const matchingPlans = state.orderedNodeIds
+    .map((nodeId) => state.nodesById[nodeId])
+    .filter(
+      (node): node is ChatTimelinePlanNode =>
+        node?.kind === 'plan' && (!runId || !node.runId || node.runId === runId)
+    );
+  const planId =
+    explicitPlanId ||
+    current?.planId ||
+    parentTask?.planId ||
+    (matchingPlans.length === 1 ? matchingPlans[0].planId : '');
+  const matchingPlan = matchingPlans.find((plan) => plan.planId === planId);
+  const taskName =
+    matchingPlan?.steps.find((step) => step.taskId === taskId)?.description ||
+    matchingPlans
+      .flatMap((plan) => plan.steps)
+      .find((step) => step.taskId === taskId)?.description ||
+    '';
+  const activeGroupIds = new Set<string>();
+  state.orderedNodeIds.forEach((nodeId) => {
+    const node = state.nodesById[nodeId];
+    if (
+      node?.kind !== 'task' ||
+      node.id === current?.id ||
+      node.status !== 'running' ||
+      (runId && node.runId && node.runId !== runId) ||
+      (parentTaskId && node.parentTaskId !== parentTaskId) ||
+      (planId && node.planId && node.planId !== planId)
+    ) {
+      return;
+    }
+    if (node.taskGroupId) {
+      activeGroupIds.add(node.taskGroupId);
+    }
+  });
+
+  return {
+    parentTaskId,
+    planId,
+    runId,
+    taskGroupId:
+      current?.taskGroupId ||
+      (activeGroupIds.size === 1 ? Array.from(activeGroupIds)[0] : undefined),
+    taskName,
+  };
+}
+
+function applyTaskEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>
+): ChatTimelineState {
+  const taskId = resolveChatTimelineTaskId(event);
+  if (!taskId) {
+    return state;
+  }
+  const id = createChatTimelineTaskNodeId(conversationId, taskId);
+  const existing = state.nodesById[id];
+  const current = existing?.kind === 'task' ? existing : undefined;
+  const updatedAt = resolveTimestamp(event, current?.updatedAt ?? Date.now() + state.nextOrder);
+  if (current && updatedAt < current.updatedAt) {
+    return state;
+  }
+
+  const normalized = normalizeChatTimelineTaskEvent(
+    event,
+    updatedAt,
+    current,
+    resolveTaskEventFallback(state, event, taskId, current)
+  );
+  const baseState = current
+    ? state
+    : closeActiveReasoningNodesForRun(state, normalized.runId, updatedAt);
+  const node: ChatTimelineTaskNode = {
+    id,
+    kind: 'task',
+    ...normalized,
+    createdAt: current?.createdAt ?? updatedAt,
+    updatedAt,
+    order: createOrder(baseState, current),
+    lifecycle: getChatTimelinePlanLifecycle(normalized.status),
+  };
+  return upsertNode(baseState, node);
+}
+
 function applyAwaitingEvent(
   state: ChatTimelineState,
   conversationId: string,
@@ -2512,12 +2639,14 @@ export function applyChatTimelineEvent(
   if (family === 'plan') {
     return applyPlanEvent(state, conversationId, event);
   }
+  if (family === 'task') {
+    return applyTaskEvent(state, conversationId, event);
+  }
   if (family === 'reasoning' || family === 'planning') {
     return applyRuntimeTextEvent(state, conversationId, event, family);
   }
   if (
     family === 'action' ||
-    family === 'task' ||
     family === 'context'
   ) {
     const kind = family === 'context' ? 'context' : family;

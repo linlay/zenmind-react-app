@@ -63,6 +63,7 @@
     "scripts/tests/chatTimelinePlan.test.mts",
     "scripts/tests/chatTimelineReducer.test.mts",
     "scripts/tests/chatTimelineRunUnavailable.test.mts",
+    "scripts/tests/chatTimelineTask.test.mts",
     "scripts/tests/chatWonderDisplay.test.mts",
     "scripts/tests/chatWsTransportPayload.test.mts",
     "scripts/tests/desktopWsProtocol.test.mts",
@@ -2149,11 +2150,14 @@
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx",
     "src/features/chatPersistence/components/Composer.tsx",
     "src/features/chatPersistence/components/CopyToast.tsx",
+    "src/features/chatPersistence/components/ExecutionTimelineRow.tsx",
     "src/features/chatPersistence/components/PlanTimelineRow.tsx",
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
     "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
     "src/features/chatPersistence/components/SourceTimelineRow.tsx",
+    "src/features/chatPersistence/components/TaskTimelineContent.tsx",
+    "src/features/chatPersistence/components/TaskTimelineRow.tsx",
     "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.native.tsx",
     "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.tsx",
     "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.web.tsx",
@@ -2207,6 +2211,7 @@
     "src/features/chatTimeline/timelineReasoningIdentity.ts",
     "src/features/chatTimeline/timelineReducer.ts",
     "src/features/chatTimeline/timelineSource.ts",
+    "src/features/chatTimeline/timelineTask.ts",
     "src/features/chatTimeline/types.ts",
     "src/features/chatTimeline/usageSummary.ts",
     "src/features/notifications/notificationService.ts",
@@ -10655,6 +10660,10 @@
                         "type": "file"
                       },
                       {
+                        "name": "ExecutionTimelineRow.tsx",
+                        "type": "file"
+                      },
+                      {
                         "name": "PlanTimelineRow.tsx",
                         "type": "file"
                       },
@@ -10672,6 +10681,14 @@
                       },
                       {
                         "name": "SourceTimelineRow.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "TaskTimelineContent.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "TaskTimelineRow.tsx",
                         "type": "file"
                       },
                       {
@@ -10950,6 +10967,10 @@
                   },
                   {
                     "name": "timelineSource.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "timelineTask.ts",
                     "type": "file"
                   },
                   {
@@ -11491,11 +11512,14 @@
       "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx",
       "src/features/chatPersistence/components/Composer.tsx",
       "src/features/chatPersistence/components/CopyToast.tsx",
+      "src/features/chatPersistence/components/ExecutionTimelineRow.tsx",
       "src/features/chatPersistence/components/PlanTimelineRow.tsx",
       "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
       "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
       "src/features/chatPersistence/components/SourceTimelineRow.tsx",
+      "src/features/chatPersistence/components/TaskTimelineContent.tsx",
+      "src/features/chatPersistence/components/TaskTimelineRow.tsx",
       "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.native.tsx",
       "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.tsx",
       "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.web.tsx",
@@ -11553,6 +11577,7 @@
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
       "src/features/chatTimeline/timelineReducer.ts",
       "src/features/chatTimeline/timelineSource.ts",
+      "src/features/chatTimeline/timelineTask.ts",
       "src/features/chatTimeline/types.ts",
       "src/features/chatTimeline/usageSummary.ts"
     ],
@@ -11758,11 +11783,14 @@
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/Composer.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/CopyToast.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ExecutionTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/PlanTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimePlanningBlock.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/SourceTimelineRow.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/TaskTimelineContent.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/TaskTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.native.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.web.tsx": "feature-chat-persistence",
@@ -11816,6 +11844,7 @@
     "src/features/chatTimeline/timelineReasoningIdentity.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineReducer.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineSource.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelineTask.ts": "feature-chat-timeline",
     "src/features/chatTimeline/types.ts": "feature-chat-timeline",
     "src/features/chatTimeline/usageSummary.ts": "feature-chat-timeline",
     "src/features/notifications/notificationService.ts": "feature-notifications",
@@ -18673,6 +18702,9 @@
     "src/features/chatPersistence/components/CopyToast.tsx": [
       "CopyToast"
     ],
+    "src/features/chatPersistence/components/ExecutionTimelineRow.tsx": [
+      "ExecutionTimelineRow"
+    ],
     "src/features/chatPersistence/components/PlanTimelineRow.tsx": [
       "PlanTimelineRow"
     ],
@@ -18690,6 +18722,14 @@
     ],
     "src/features/chatPersistence/components/SourceTimelineRow.tsx": [
       "SourceTimelineRow"
+    ],
+    "src/features/chatPersistence/components/TaskTimelineContent.tsx": [
+      "TASK_TIMELINE_CARD_CLASS",
+      "TaskTimelineContent",
+      "getTimelineExecutionStatusColor"
+    ],
+    "src/features/chatPersistence/components/TaskTimelineRow.tsx": [
+      "TaskTimelineRow"
     ],
     "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.native.tsx": [
       "ArtifactPdfPreview"
@@ -19008,9 +19048,11 @@
       "applyChatTimelineStreamDelta",
       "buildChatTimelineDisplayItems",
       "buildChatTimelineDisplayModel",
+      "buildChatTimelineTaskView",
       "compactChatTimelineRequestEchoes",
       "createChatTimelinePlanNodeId",
       "createChatTimelineState",
+      "createChatTimelineTaskNodeId",
       "deriveChatTimelineState",
       "deriveChatTimelineStateFromMessages",
       "deserializeChatTimelineState",
@@ -19024,6 +19066,7 @@
       "normalizeChatTimelineArtifactEvent",
       "normalizeChatTimelinePlanEvent",
       "normalizeChatTimelinePlanStatus",
+      "normalizeChatTimelineTaskEvent",
       "normalizeFrontendToolParams",
       "normalizeFrontendToolType",
       "parseFrontendToolArgs",
@@ -19032,10 +19075,14 @@
       "projectTimelineRuntimeState",
       "resolveChatTimelineArtifactPreviewKind",
       "resolveChatTimelineFrontendTool",
+      "resolveChatTimelineTaskId",
       "resolveChatTimelineUsageModelKey",
       "serializeChatTimelineState",
       "timelinePersistenceInternals",
-      "type NormalizedChatTimelineArtifact"
+      "type ChatTimelineTaskFallback",
+      "type ChatTimelineTaskViewItem",
+      "type NormalizedChatTimelineArtifact",
+      "type NormalizedChatTimelineTask"
     ],
     "src/features/chatTimeline/messageProjection.ts": [
       "projectTimelineMessages",
@@ -19086,6 +19133,7 @@
       "migratePersistedChatTimelinePlanNode",
       "normalizeChatTimelinePlanEvent",
       "normalizeChatTimelinePlanStatus",
+      "parseChatTimelinePlanStatus",
       "resolveChatTimelinePlanId"
     ],
     "src/features/chatTimeline/timelinePlatformError.ts": [
@@ -19121,6 +19169,19 @@
       "chatTimelineSourceNodePayloadEquals",
       "getChatTimelineSourceContentLength",
       "normalizeChatTimelineSourceEvent"
+    ],
+    "src/features/chatTimeline/timelineTask.ts": [
+      "ChatTimelineTaskFallback",
+      "ChatTimelineTaskViewItem",
+      "NormalizedChatTimelineTask",
+      "buildChatTimelineTaskView",
+      "chatTimelineTaskNodePayloadEquals",
+      "closeChatTimelineTaskNode",
+      "createChatTimelineTaskNodeId",
+      "getChatTimelineTaskContentLength",
+      "migratePersistedChatTimelineTaskNode",
+      "normalizeChatTimelineTaskEvent",
+      "resolveChatTimelineTaskId"
     ],
     "src/features/chatTimeline/types.ts": [
       "ChatTimelineActiveFrontendTool",
@@ -19164,6 +19225,7 @@
       "ChatTimelineNode",
       "ChatTimelineNodeDisplayItem",
       "ChatTimelineNodeKind",
+      "ChatTimelinePlanDisplayItem",
       "ChatTimelinePlanNode",
       "ChatTimelinePlanStatus",
       "ChatTimelinePlanStep",
@@ -19176,6 +19238,9 @@
       "ChatTimelineSourceChunk",
       "ChatTimelineSourceNode",
       "ChatTimelineState",
+      "ChatTimelineTaskDisplayItem",
+      "ChatTimelineTaskNode",
+      "ChatTimelineTaskStatus",
       "ChatTimelineTextNode",
       "ChatTimelineToolGroupDisplayItem",
       "ChatTimelineToolNode",
@@ -23201,6 +23266,7 @@
       "./RuntimePlanningBlock",
       "./RuntimeTimelineRow",
       "./SourceTimelineRow",
+      "./TaskTimelineRow.tsx",
       "@shopify/flash-list",
       "react",
       "react-native"
@@ -23243,16 +23309,20 @@
       "react",
       "react-native"
     ],
+    "src/features/chatPersistence/components/ExecutionTimelineRow.tsx": [
+      "../../../shared/icons/AppIcon.tsx",
+      "./ChatTimelineRail.tsx",
+      "react",
+      "react-native"
+    ],
     "src/features/chatPersistence/components/PlanTimelineRow.tsx": [
       "../../../shared/components/conversationPreview/ConversationPreviewProvider.tsx",
       "../../../shared/i18n/index.ts",
-      "../../../shared/icons/AppIcon.tsx",
       "../../../shared/visual/AppThemeProvider.tsx",
-      "../../../shared/visual/className.ts",
-      "../../../shared/visual/foundation.ts",
       "../../chatTimeline/index.ts",
       "../chatDetailFormatters.ts",
-      "./ChatTimelineRail.tsx",
+      "./ExecutionTimelineRow.tsx",
+      "./TaskTimelineContent.tsx",
       "./useRunningElapsedMs.ts",
       "react",
       "react-native"
@@ -23300,6 +23370,28 @@
       "../../../shared/visual/AppThemeProvider",
       "../../chatTimeline/index.ts",
       "./ChatTimelineRail",
+      "react",
+      "react-native"
+    ],
+    "src/features/chatPersistence/components/TaskTimelineContent.tsx": [
+      "../../../shared/i18n/index.ts",
+      "../../../shared/visual/AppThemeProvider.tsx",
+      "../../../shared/visual/className.ts",
+      "../../../shared/visual/foundation.ts",
+      "../../chatTimeline/index.ts",
+      "../chatDetailFormatters.ts",
+      "react",
+      "react-native"
+    ],
+    "src/features/chatPersistence/components/TaskTimelineRow.tsx": [
+      "../../../shared/components/conversationPreview/ConversationPreviewProvider.tsx",
+      "../../../shared/i18n/index.ts",
+      "../../../shared/visual/AppThemeProvider.tsx",
+      "../../chatTimeline/index.ts",
+      "../chatDetailFormatters.ts",
+      "./ExecutionTimelineRow.tsx",
+      "./TaskTimelineContent.tsx",
+      "./useRunningElapsedMs.ts",
       "react",
       "react-native"
     ],
@@ -23616,6 +23708,7 @@
       "./timelinePersistence.ts",
       "./timelinePlan.ts",
       "./timelineReducer.ts",
+      "./timelineTask.ts",
       "./types.ts",
       "./usageSummary.ts"
     ],
@@ -23633,6 +23726,7 @@
       "./timelinePlan.ts",
       "./timelinePlatformError.ts",
       "./timelineSource.ts",
+      "./timelineTask.ts",
       "./types.ts"
     ],
     "src/features/chatTimeline/timelineEventFormat.ts": null,
@@ -23642,6 +23736,7 @@
     "src/features/chatTimeline/timelinePersistence.ts": [
       "./timelinePlan.ts",
       "./timelineReasoningIdentity.ts",
+      "./timelineTask.ts",
       "./types.ts"
     ],
     "src/features/chatTimeline/timelinePlan.ts": [
@@ -23666,12 +23761,18 @@
       "./timelinePlatformError.ts",
       "./timelineReasoningIdentity.ts",
       "./timelineSource.ts",
+      "./timelineTask.ts",
       "./types.ts",
       "./usageSummary.ts"
     ],
     "src/features/chatTimeline/timelineSource.ts": [
       "../../core/api/services/chatEventProtocol.ts",
       "./timelinePlatformError.ts",
+      "./types.ts"
+    ],
+    "src/features/chatTimeline/timelineTask.ts": [
+      "../../core/api/services/chatEventProtocol.ts",
+      "./timelinePlan.ts",
       "./types.ts"
     ],
     "src/features/chatTimeline/types.ts": [
@@ -27270,6 +27371,7 @@
       "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
       "src/features/chatPersistence/components/SourceTimelineRow.tsx",
+      "src/features/chatPersistence/components/TaskTimelineRow.tsx",
       "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx",
       "src/features/chatTimeline/index.ts",
       "src/shared/components/ConversationMarkdownRenderer.tsx",
@@ -27308,17 +27410,19 @@
     "src/features/chatPersistence/components/CopyToast.tsx": [
       "src/shared/i18n/index.ts"
     ],
+    "src/features/chatPersistence/components/ExecutionTimelineRow.tsx": [
+      "src/features/chatPersistence/components/ChatTimelineRail.tsx",
+      "src/shared/icons/AppIcon.tsx"
+    ],
     "src/features/chatPersistence/components/PlanTimelineRow.tsx": [
       "src/features/chatPersistence/chatDetailFormatters.ts",
-      "src/features/chatPersistence/components/ChatTimelineRail.tsx",
+      "src/features/chatPersistence/components/ExecutionTimelineRow.tsx",
+      "src/features/chatPersistence/components/TaskTimelineContent.tsx",
       "src/features/chatPersistence/components/useRunningElapsedMs.ts",
       "src/features/chatTimeline/index.ts",
       "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
       "src/shared/i18n/index.ts",
-      "src/shared/icons/AppIcon.tsx",
-      "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/className.ts",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": [
       "src/shared/i18n/index.ts",
@@ -27354,6 +27458,24 @@
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
+    "src/features/chatPersistence/components/TaskTimelineContent.tsx": [
+      "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatTimeline/index.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts",
+      "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/TaskTimelineRow.tsx": [
+      "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/components/ExecutionTimelineRow.tsx",
+      "src/features/chatPersistence/components/TaskTimelineContent.tsx",
+      "src/features/chatPersistence/components/useRunningElapsedMs.ts",
+      "src/features/chatTimeline/index.ts",
+      "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
+      "src/shared/i18n/index.ts",
       "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/artifact/ArtifactPdfPreview.native.tsx": [
@@ -27620,6 +27742,7 @@
       "src/features/chatTimeline/timelinePersistence.ts",
       "src/features/chatTimeline/timelinePlan.ts",
       "src/features/chatTimeline/timelineReducer.ts",
+      "src/features/chatTimeline/timelineTask.ts",
       "src/features/chatTimeline/types.ts",
       "src/features/chatTimeline/usageSummary.ts"
     ],
@@ -27637,6 +27760,7 @@
       "src/features/chatTimeline/timelinePlan.ts",
       "src/features/chatTimeline/timelinePlatformError.ts",
       "src/features/chatTimeline/timelineSource.ts",
+      "src/features/chatTimeline/timelineTask.ts",
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineEventFormat.ts": null,
@@ -27646,6 +27770,7 @@
     "src/features/chatTimeline/timelinePersistence.ts": [
       "src/features/chatTimeline/timelinePlan.ts",
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
+      "src/features/chatTimeline/timelineTask.ts",
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelinePlan.ts": [
@@ -27670,12 +27795,18 @@
       "src/features/chatTimeline/timelinePlatformError.ts",
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
       "src/features/chatTimeline/timelineSource.ts",
+      "src/features/chatTimeline/timelineTask.ts",
       "src/features/chatTimeline/types.ts",
       "src/features/chatTimeline/usageSummary.ts"
     ],
     "src/features/chatTimeline/timelineSource.ts": [
       "src/core/api/services/chatEventProtocol.ts",
       "src/features/chatTimeline/timelinePlatformError.ts",
+      "src/features/chatTimeline/types.ts"
+    ],
+    "src/features/chatTimeline/timelineTask.ts": [
+      "src/core/api/services/chatEventProtocol.ts",
+      "src/features/chatTimeline/timelinePlan.ts",
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/types.ts": [

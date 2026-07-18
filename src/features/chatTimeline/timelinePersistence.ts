@@ -6,6 +6,7 @@ import type {
 } from './types.ts';
 import { buildActiveReasoningNodeIdsByRun } from './timelineReasoningIdentity.ts';
 import { migratePersistedChatTimelinePlanNode } from './timelinePlan.ts';
+import { migratePersistedChatTimelineTaskNode } from './timelineTask.ts';
 
 export type SerializedTimelineMeta = {
   conversationId: string;
@@ -196,7 +197,10 @@ export function deserializeChatTimelineState(
       return null;
     }
 
-    const node = migratePersistedChatTimelinePlanNode(parsed, conversationId);
+    const node = migratePersistedChatTimelineTaskNode(
+      migratePersistedChatTimelinePlanNode(parsed, conversationId),
+      conversationId
+    );
     const current = nodesById[node.id];
     if (!current || node.updatedAt >= current.updatedAt) {
       nodesById[node.id] = node;

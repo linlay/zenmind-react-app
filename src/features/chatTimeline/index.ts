@@ -40,6 +40,7 @@ export type {
   ChatTimelinePlanNode,
   ChatTimelinePlanStatus,
   ChatTimelinePlanStep,
+  ChatTimelinePlanDisplayItem,
   ChatTimelineRuntimeEntry,
   ChatTimelineRuntimeEntryKind,
   ChatTimelineRuntimeState,
@@ -49,6 +50,9 @@ export type {
   ChatTimelineSourceChunk,
   ChatTimelineSourceNode,
   ChatTimelineTextNode,
+  ChatTimelineTaskDisplayItem,
+  ChatTimelineTaskNode,
+  ChatTimelineTaskStatus,
   ChatTimelineToolGroupDisplayItem,
   ChatTimelineToolNode,
   ChatTimelineState,
@@ -93,6 +97,15 @@ export {
   normalizeChatTimelinePlanEvent,
   normalizeChatTimelinePlanStatus,
 } from './timelinePlan.ts';
+export {
+  buildChatTimelineTaskView,
+  createChatTimelineTaskNodeId,
+  normalizeChatTimelineTaskEvent,
+  resolveChatTimelineTaskId,
+  type ChatTimelineTaskFallback,
+  type NormalizedChatTimelineTask,
+  type ChatTimelineTaskViewItem,
+} from './timelineTask.ts';
 export {
   getActiveChatTimelineFrontendTool,
   normalizeFrontendToolParams,

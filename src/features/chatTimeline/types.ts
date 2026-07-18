@@ -39,6 +39,8 @@ export type ChatTimelineArtifactStatus = 'processing' | 'ready' | 'failed';
 
 export type ChatTimelinePlanStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
+export type ChatTimelineTaskStatus = ChatTimelinePlanStatus;
+
 export type ChatTimelinePlanStep = {
   taskId: string;
   description: string;
@@ -240,7 +242,7 @@ export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
 };
 
 export type ChatTimelineTextNode = ChatTimelineBaseNode & {
-  kind: 'reasoning' | 'planning' | 'request' | 'action' | 'task' | 'usage' | 'context';
+  kind: 'reasoning' | 'planning' | 'request' | 'action' | 'usage' | 'context';
   title: string;
   body: string;
   status: ChatTimelineRuntimeStatus | string;
@@ -269,6 +271,22 @@ export type ChatTimelinePlanNode = ChatTimelineBaseNode & {
   summary: string;
   status: ChatTimelinePlanStatus;
   steps: ChatTimelinePlanStep[];
+  startedAt: number | null;
+  completedAt: number | null;
+  durationMs: number | null;
+  errorReason: string;
+};
+
+export type ChatTimelineTaskNode = ChatTimelineBaseNode & {
+  kind: 'task';
+  taskId: string;
+  planId: string;
+  parentTaskId: string;
+  taskGroupId: string;
+  taskName: string;
+  agentKey: string;
+  subAgentKey: string;
+  status: ChatTimelineTaskStatus;
   startedAt: number | null;
   completedAt: number | null;
   durationMs: number | null;
@@ -361,6 +379,7 @@ export type ChatTimelineNode =
   | ChatTimelineTextNode
   | ChatTimelineArtifactNode
   | ChatTimelinePlanNode
+  | ChatTimelineTaskNode
   | ChatTimelineToolNode
   | ChatTimelineSourceNode
   | ChatTimelineAwaitingNode
@@ -482,13 +501,28 @@ export type ChatTimelineDisplayItemKind =
 
 export type ChatTimelineNodeDisplayItem = {
   key: string;
-  kind: Exclude<ChatTimelineDisplayItemKind, 'tool-group' | 'assistant-reply-footer'>;
+  kind: Exclude<
+    ChatTimelineDisplayItemKind,
+    'tool-group' | 'assistant-reply-footer' | 'plan' | 'task'
+  >;
   node: ChatTimelineNode;
   nodeId: string;
   runId: string;
   isFirstInRun: boolean;
   isLastInRun: boolean;
   groupIndex: number;
+};
+
+export type ChatTimelinePlanDisplayItem = Omit<ChatTimelineNodeDisplayItem, 'kind' | 'node'> & {
+  kind: 'plan';
+  node: ChatTimelinePlanNode;
+  tasks: ChatTimelineTaskNode[];
+};
+
+export type ChatTimelineTaskDisplayItem = Omit<ChatTimelineNodeDisplayItem, 'kind' | 'node'> & {
+  kind: 'task';
+  node: ChatTimelineTaskNode;
+  nodes: ChatTimelineTaskNode[];
 };
 
 export type ChatTimelineToolGroupDisplayItem = {
@@ -515,5 +549,7 @@ export type ChatTimelineAssistantReplyFooterDisplayItem = {
 
 export type ChatTimelineDisplayItem =
   | ChatTimelineNodeDisplayItem
+  | ChatTimelinePlanDisplayItem
+  | ChatTimelineTaskDisplayItem
   | ChatTimelineToolGroupDisplayItem
   | ChatTimelineAssistantReplyFooterDisplayItem;

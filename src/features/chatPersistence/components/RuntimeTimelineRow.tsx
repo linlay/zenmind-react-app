@@ -72,7 +72,12 @@ function getRuntimePayloadSource(
   item: Exclude<ChatTimelineDisplayItem, ChatTimelineAssistantReplyFooterDisplayItem>
 ): RuntimePayloadSource {
   const source = item.kind === 'tool-group' ? item : item.node;
-  if (source.kind === 'source' || source.kind === 'artifact' || source.kind === 'plan') {
+  if (
+    source.kind === 'source' ||
+    source.kind === 'artifact' ||
+    source.kind === 'plan' ||
+    source.kind === 'task'
+  ) {
     throw new Error('structured timeline items must use their dedicated row');
   }
   return source;

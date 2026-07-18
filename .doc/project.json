@@ -58,6 +58,7 @@
       "scripts/tests/chatTimelinePlan.test.mts",
       "scripts/tests/chatTimelineReducer.test.mts",
       "scripts/tests/chatTimelineRunUnavailable.test.mts",
+      "scripts/tests/chatTimelineTask.test.mts",
       "scripts/tests/chatWonderDisplay.test.mts",
       "scripts/tests/chatWsTransportPayload.test.mts",
       "scripts/tests/desktopWsProtocol.test.mts",

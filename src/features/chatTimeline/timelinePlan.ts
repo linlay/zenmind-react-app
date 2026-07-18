@@ -76,7 +76,7 @@ function readDuration(
   return Number.isFinite(value) && value >= 0 ? value : null;
 }
 
-function parsePlanStatus(value: unknown): ChatTimelinePlanStatus | null {
+export function parseChatTimelinePlanStatus(value: unknown): ChatTimelinePlanStatus | null {
   const status = toText(value).toLowerCase();
   if (['completed', 'complete', 'done', 'success', 'succeeded', 'ok'].includes(status)) {
     return 'completed';
@@ -104,7 +104,7 @@ export function normalizeChatTimelinePlanStatus(
   value: unknown,
   fallback: ChatTimelinePlanStatus = 'pending',
 ): ChatTimelinePlanStatus {
-  return parsePlanStatus(value) ?? fallback;
+  return parseChatTimelinePlanStatus(value) ?? fallback;
 }
 
 export function getChatTimelinePlanLifecycle(
@@ -167,7 +167,9 @@ function normalizeStep(
     current?.description ||
     taskId;
   const status =
-    parsePlanStatus(readValue([value], ['status', 'state'])) ?? current?.status ?? 'pending';
+    parseChatTimelinePlanStatus(readValue([value], ['status', 'state'])) ??
+    current?.status ??
+    'pending';
   const startedAt =
     readTimestamp([value], ['startedAt', 'startTime', 'startAt']) ??
     current?.startedAt ??
@@ -251,7 +253,7 @@ function resolvePlanStatus(
   steps: readonly ChatTimelinePlanStep[],
   current: ChatTimelinePlanNode | undefined,
 ): ChatTimelinePlanStatus {
-  const explicit = parsePlanStatus(readValue(sources, ['status', 'state']));
+  const explicit = parseChatTimelinePlanStatus(readValue(sources, ['status', 'state']));
   if (explicit) {
     return explicit;
   }
