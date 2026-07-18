@@ -35,6 +35,7 @@ import {
   type ChatTimelineState
 } from '../../chatTimeline/index.ts';
 import { formatChatDetailDuration, formatChatDetailTimestamp } from '../chatDetailFormatters';
+import { ArtifactTimelineRow } from './ArtifactTimelineRow.tsx';
 import { ChatAttachmentStrip } from './ChatAttachmentStrip';
 import { ConversationContentRenderer } from '../conversationViewport/ConversationContentRenderer';
 import { ChatSystemAlert } from './ChatSystemAlert';
@@ -803,6 +804,9 @@ const TimelineRow = memo(
           onExpandedChange={onRuntimeExpandedChange}
         />
       );
+    }
+    if (item.kind === 'artifact' && node.kind === 'artifact') {
+      return <ArtifactTimelineRow node={node} isLastInRun={item.isLastInRun} />;
     }
     if (item.kind === 'request' && node.kind === 'request') {
       return <RequestInputRow node={node} isLastInRun={item.isLastInRun} />;

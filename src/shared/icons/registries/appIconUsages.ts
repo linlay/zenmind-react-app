@@ -163,6 +163,10 @@ export const appIconUsages = {
   'attachment.fileDocument': { glyph: 'article', colorRole: 'brand', sizeRole: 'sm' },
   'attachment.fileText': { glyph: 'description', colorRole: 'brand', sizeRole: 'sm' },
   'attachment.remove': { glyph: 'close', colorRole: 'primary', sizeRole: 'sm' },
+  'artifact.preview': { glyph: 'open_in_new', colorRole: 'brand', sizeRole: 'toolbar' },
+  'artifact.download': { glyph: 'download', colorRole: 'brand', sizeRole: 'toolbar' },
+  'artifact.close': { glyph: 'close', colorRole: 'primary', sizeRole: 'md' },
+  'artifact.retry': { glyph: 'refresh', colorRole: 'brand', sizeRole: 'toolbar' },
   'team.avatarFallback': { glyph: 'person', colorRole: 'onBrandAction', sizeRole: 'md' },
   'usage.close': { glyph: 'close', colorRole: 'secondary', sizeRole: 'sm' }
 } as const satisfies Record<string, AppIconUsageConfig>;

@@ -1,6 +1,7 @@
 import type { AppIconUsage } from '../../../shared/icons/AppIcon';
 import { defaultT, type TFunction } from '../../../shared/i18n/translate.ts';
 import type {
+  ChatTimelineArtifactNode,
   ChatTimelineNode,
   ChatTimelineRunNode,
   ChatTimelineSourceNode,
@@ -25,10 +26,12 @@ export type RuntimeStatusTone = 'active' | 'complete' | 'error' | 'cancelled' | 
 export type RuntimePayloadSectionMode = 'markdown' | 'plain' | 'code';
 
 export type RuntimePayloadSource =
-  | Exclude<ChatTimelineNode, ChatTimelineSourceNode>
+  | Exclude<ChatTimelineNode, ChatTimelineArtifactNode | ChatTimelineSourceNode>
   | ChatTimelineToolGroupDisplayItem;
 
-export type RuntimePayloadKind = Exclude<ChatTimelineNode['kind'], 'message' | 'source'> | 'tool-group';
+export type RuntimePayloadKind =
+  | Exclude<ChatTimelineNode['kind'], 'artifact' | 'message' | 'source'>
+  | 'tool-group';
 
 export type RuntimeToolStatus =
   | 'pending'
@@ -533,7 +536,7 @@ function iconForKind(kind: RuntimePayloadKind): {
   if (kind === 'planning') {
     return { iconUsage: 'runtime.planning', tone: 'tool' };
   }
-  if (kind === 'artifact' || kind === 'plan' || kind === 'task') {
+  if (kind === 'plan' || kind === 'task') {
     return { iconUsage: 'runtime.file', tone: 'file' };
   }
   return { iconUsage: 'runtime.neutral', tone: 'neutral' };
@@ -553,7 +556,6 @@ function rendererForKind(kind: RuntimePayloadKind): RuntimePayloadRendererType {
     return 'metric';
   }
   if (
-    kind === 'artifact' ||
     kind === 'action' ||
     kind === 'plan' ||
     kind === 'task' ||

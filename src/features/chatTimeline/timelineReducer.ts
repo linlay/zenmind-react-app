@@ -19,6 +19,7 @@ import type {
   ChatTimelineAwaitingMode,
   ChatTimelineAwaitingNode,
   ChatTimelineAwaitingState,
+  ChatTimelineArtifactNode,
   ChatTimelineDeliveryStatus,
   ChatTimelineLifecycle,
   ChatTimelineMessageNode,
@@ -31,6 +32,11 @@ import type {
   ChatTimelineTextNode,
   ChatTimelineToolNode,
 } from './types.ts';
+import {
+  chatTimelineArtifactNodePayloadEquals,
+  getChatTimelineArtifactContentLength,
+  normalizeChatTimelineArtifactEvent,
+} from './timelineArtifact.ts';
 import {
   getAwaitingAnswerSummarySignature,
   getAwaitingInteractiveSignature,
@@ -1015,6 +1021,9 @@ function getTimelineNodeContentLength(node: ChatTimelineNode): number {
   if (node.kind === 'source') {
     return getChatTimelineSourceContentLength(node);
   }
+  if (node.kind === 'artifact') {
+    return getChatTimelineArtifactContentLength(node);
+  }
   return node.title.length + node.body.length + node.status.length;
 }
 
@@ -1078,6 +1087,9 @@ function shouldPreferCurrentTimelineNode(
     return shouldPreferCurrentAwaitingNode(current, incoming);
   }
   if (current.kind === 'source' && incoming.kind === 'source') {
+    return current.updatedAt > incoming.updatedAt;
+  }
+  if (current.kind === 'artifact' && incoming.kind === 'artifact') {
     return current.updatedAt > incoming.updatedAt;
   }
 
@@ -1340,17 +1352,22 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
   if (left.kind === 'source' && right.kind === 'source') {
     return !chatTimelineSourceNodePayloadEquals(left, right);
   }
+  if (left.kind === 'artifact' && right.kind === 'artifact') {
+    return !chatTimelineArtifactNodePayloadEquals(left, right);
+  }
   if (
     left.kind !== 'message' &&
     left.kind !== 'tool' &&
     left.kind !== 'awaiting' &&
     left.kind !== 'run' &&
     left.kind !== 'source' &&
+    left.kind !== 'artifact' &&
     right.kind !== 'message' &&
     right.kind !== 'tool' &&
     right.kind !== 'awaiting' &&
     right.kind !== 'run' &&
-    right.kind !== 'source'
+    right.kind !== 'source' &&
+    right.kind !== 'artifact'
   ) {
     return (
       left.title !== right.title ||
@@ -1454,6 +1471,15 @@ function closeTimelineNodeForRun(
 
   if (node.kind === 'source') {
     return node;
+  }
+
+  if (node.kind === 'artifact') {
+    return {
+      ...node,
+      status: lifecycle === 'complete' ? 'ready' : 'failed',
+      lifecycle,
+      updatedAt: nextUpdatedAt,
+    };
   }
 
   const nextNode = {
@@ -2026,6 +2052,58 @@ function applySourceEvent(
   return upsertNode(baseState, node);
 }
 
+function artifactLifecycle(
+  status: ChatTimelineArtifactNode['status']
+): ChatTimelineLifecycle {
+  if (status === 'failed') {
+    return 'error';
+  }
+  return status === 'ready' ? 'complete' : 'active';
+}
+
+function applyArtifactEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>
+): ChatTimelineState {
+  const fallbackTimestamp = resolveTimestamp(event, Date.now() + state.nextOrder);
+  const artifacts = normalizeChatTimelineArtifactEvent(event, fallbackTimestamp);
+
+  return artifacts.reduce((nextState, artifact) => {
+    const id = `artifact:${conversationId}:${artifact.artifactId}`;
+    const existing = nextState.nodesById[id];
+    const current = existing?.kind === 'artifact' ? existing : undefined;
+    if (current && artifact.timestamp < current.updatedAt) {
+      return nextState;
+    }
+
+    const runId = artifact.runId || current?.runId || nextState.activeRunId;
+    const baseState = current
+      ? nextState
+      : closeActiveReasoningNodesForRun(nextState, runId, artifact.timestamp);
+    const node: ChatTimelineArtifactNode = {
+      id,
+      kind: 'artifact',
+      artifactId: artifact.artifactId,
+      name: artifact.name,
+      mimeType: artifact.mimeType,
+      resourceUrl: artifact.resourceUrl,
+      sha256: artifact.sha256,
+      sizeBytes: artifact.sizeBytes,
+      previewKind: artifact.previewKind,
+      status: artifact.status,
+      summary: artifact.summary,
+      errorReason: artifact.errorReason,
+      runId,
+      createdAt: current?.createdAt ?? artifact.timestamp,
+      updatedAt: artifact.timestamp,
+      order: createOrder(baseState, current),
+      lifecycle: artifactLifecycle(artifact.status),
+    };
+    return upsertNode(baseState, node);
+  }, state);
+}
+
 function applyAwaitingEvent(
   state: ChatTimelineState,
   conversationId: string,
@@ -2360,11 +2438,13 @@ export function applyChatTimelineEvent(
   if (family === 'source') {
     return applySourceEvent(state, conversationId, event);
   }
+  if (family === 'artifact') {
+    return applyArtifactEvent(state, conversationId, event);
+  }
   if (family === 'reasoning' || family === 'planning') {
     return applyRuntimeTextEvent(state, conversationId, event, family);
   }
   if (
-    family === 'artifact' ||
     family === 'action' ||
     family === 'plan' ||
     family === 'task' ||

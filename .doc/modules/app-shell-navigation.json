@@ -194,6 +194,7 @@
       "scripts/tests/chatRealtimeRouting.test.mts",
       "scripts/tests/chatRealtimeUiState.test.mts",
       "scripts/tests/chatRuntimeState.test.mts",
+      "scripts/tests/chatTimelineArtifact.test.mts",
       "scripts/tests/chatTimelineDisplay.test.mts",
       "scripts/tests/chatTimelinePersistence.test.mts",
       "scripts/tests/chatTimelineReducer.test.mts",

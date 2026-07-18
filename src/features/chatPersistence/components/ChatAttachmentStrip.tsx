@@ -5,7 +5,7 @@ import {
   buildAuthenticatedApiUriSource,
   type ApiUriSource,
 } from '../../../core/api/apiClient';
-import { AppIcon, type AppIconUsage } from '../../../shared/icons/AppIcon';
+import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../shared/visual/className';
@@ -15,6 +15,7 @@ import {
   getChatAttachmentStatusLabel,
   normalizeChatAttachmentResourceUrl
 } from '../chatAttachmentModels';
+import { resolveChatAttachmentFileIconUsage } from '../chatAttachmentIcon.ts';
 import type { ChatAttachmentBase } from '../types';
 
 type ChatAttachmentStripProps = {
@@ -50,58 +51,6 @@ const RETRY_BUTTON_CLASS = 'absolute bottom-[6px] left-[6px] rounded-app-pill bg
 const RETRY_TEXT_CLASS = 'text-[11px] font-bold text-app-brand-blue';
 const REMOVE_BUTTON_CLASS =
   'absolute right-[3px] top-[3px] h-5 w-5 items-center justify-center rounded-app-pill border border-app-line bg-app-surface';
-
-const PDF_FILE_EXTENSION_RE = /\.pdf$/i;
-const SHEET_FILE_EXTENSION_RE = /\.(csv|tsv|xls|xlsx)$/i;
-const PRESENTATION_FILE_EXTENSION_RE = /\.(key|ppt|pptx)$/i;
-const ARCHIVE_FILE_EXTENSION_RE = /\.(7z|gz|rar|tar|tgz|zip)$/i;
-const DOCUMENT_FILE_EXTENSION_RE = /\.(doc|docx|rtf)$/i;
-const TEXT_FILE_EXTENSION_RE = /\.(json|log|md|txt|xml|ya?ml)$/i;
-
-function resolveAttachmentFileIconUsage(
-  attachment: Pick<ChatAttachmentBase, 'mimeType' | 'name'>
-): AppIconUsage {
-  const mimeType = String(attachment.mimeType || '').toLowerCase();
-  const fileName = String(attachment.name || '').toLowerCase();
-
-  if (mimeType.includes('pdf') || PDF_FILE_EXTENSION_RE.test(fileName)) {
-    return 'attachment.filePdf';
-  }
-  if (
-    mimeType.includes('spreadsheet') ||
-    mimeType.includes('excel') ||
-    mimeType.includes('csv') ||
-    SHEET_FILE_EXTENSION_RE.test(fileName)
-  ) {
-    return 'attachment.fileSheet';
-  }
-  if (
-    mimeType.includes('presentation') ||
-    mimeType.includes('powerpoint') ||
-    PRESENTATION_FILE_EXTENSION_RE.test(fileName)
-  ) {
-    return 'attachment.filePresentation';
-  }
-  if (
-    mimeType.includes('zip') ||
-    mimeType.includes('compressed') ||
-    mimeType.includes('tar') ||
-    ARCHIVE_FILE_EXTENSION_RE.test(fileName)
-  ) {
-    return 'attachment.fileArchive';
-  }
-  if (
-    mimeType.includes('word') ||
-    mimeType.includes('document') ||
-    DOCUMENT_FILE_EXTENSION_RE.test(fileName)
-  ) {
-    return 'attachment.fileDocument';
-  }
-  if (mimeType.startsWith('text/') || TEXT_FILE_EXTENSION_RE.test(fileName)) {
-    return 'attachment.fileText';
-  }
-  return 'attachment.fileGeneric';
-}
 
 function resolveImageUri({
   localUri,
@@ -241,7 +190,7 @@ const AttachmentFileTile = memo(function AttachmentFileTile({
     <View className={cn(FILE_TILE_CLASS, variant === 'message' ? MESSAGE_FILE_TILE_CLASS : null)}>
       <View className={FILE_ICON_WRAP_CLASS}>
         <AppIcon
-          usage={resolveAttachmentFileIconUsage(attachment)}
+          usage={resolveChatAttachmentFileIconUsage(attachment)}
           size={appVisualTokens.iconSizes.sm}
           color={theme.colors.brandBlue}
         />

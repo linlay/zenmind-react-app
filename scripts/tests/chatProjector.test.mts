@@ -526,3 +526,59 @@ test('projects source publish history into the same structured timeline node use
     false
   );
 });
+
+test('projects live and detail artifact resources through one typed timeline model without duplicates', () => {
+  const projected = projectRemoteChatDetail({
+    chatId: 'chat-artifact-history',
+    events: [
+      {
+        type: 'artifact.publish',
+        runId: 'run-artifact',
+        timestamp: 100,
+        artifacts: [
+          {
+            artifactId: 'artifact-live',
+            name: 'live.png',
+            mimeType: 'image/png',
+            sizeBytes: 1024,
+            url: '/api/resource?id=artifact-live',
+          },
+        ],
+      },
+    ],
+    artifact: {
+      items: [
+        {
+          artifactId: 'artifact-live',
+          name: 'live.png',
+          mimeType: 'image/png',
+          sizeBytes: 1024,
+          url: '/api/resource?id=artifact-live',
+          timestamp: 100,
+        },
+        {
+          artifactId: 'artifact-snapshot',
+          name: 'snapshot.txt',
+          mimeType: 'text/plain',
+          sizeBytes: 32,
+          url: '/api/resource?id=artifact-snapshot',
+          summary: 'Recovered from detail snapshot',
+          timestamp: 110,
+        },
+      ],
+    },
+  });
+  const artifacts = projected?.timelineState.orderedNodeIds
+    .map((nodeId) => projected.timelineState.nodesById[nodeId])
+    .filter((node) => node?.kind === 'artifact');
+
+  assert.equal(artifacts?.length, 2);
+  assert.deepEqual(
+    artifacts?.map((node) => (node.kind === 'artifact' ? node.artifactId : '')),
+    ['artifact-live', 'artifact-snapshot']
+  );
+  assert.equal(
+    artifacts?.[1]?.kind === 'artifact' ? artifacts[1].summary : '',
+    'Recovered from detail snapshot'
+  );
+});

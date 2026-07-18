@@ -33,6 +33,10 @@ export type ChatTimelineRuntimeStatus =
   | 'error'
   | 'tool_result';
 
+export type ChatTimelineArtifactPreviewKind = 'image' | 'text' | 'pdf' | 'unsupported';
+
+export type ChatTimelineArtifactStatus = 'processing' | 'ready' | 'failed';
+
 export type ChatTimelineErrorDetail = {
   code: string;
   category: string;
@@ -228,7 +232,6 @@ export type ChatTimelineTextNode = ChatTimelineBaseNode & {
     | 'reasoning'
     | 'planning'
     | 'request'
-    | 'artifact'
     | 'action'
     | 'plan'
     | 'task'
@@ -239,6 +242,20 @@ export type ChatTimelineTextNode = ChatTimelineBaseNode & {
   status: ChatTimelineRuntimeStatus | string;
   streaming: boolean;
   usageSummary?: ChatTimelineUsageSummary | null;
+};
+
+export type ChatTimelineArtifactNode = ChatTimelineBaseNode & {
+  kind: 'artifact';
+  artifactId: string;
+  name: string;
+  mimeType: string;
+  resourceUrl: string;
+  sha256: string;
+  sizeBytes: number;
+  previewKind: ChatTimelineArtifactPreviewKind;
+  status: ChatTimelineArtifactStatus;
+  summary: string;
+  errorReason: string;
 };
 
 export type ChatTimelineToolNode = ChatTimelineBaseNode & {
@@ -325,6 +342,7 @@ export type ChatTimelineRunNode = ChatTimelineBaseNode & {
 export type ChatTimelineNode =
   | ChatTimelineMessageNode
   | ChatTimelineTextNode
+  | ChatTimelineArtifactNode
   | ChatTimelineToolNode
   | ChatTimelineSourceNode
   | ChatTimelineAwaitingNode

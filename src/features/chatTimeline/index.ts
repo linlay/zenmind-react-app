@@ -20,6 +20,9 @@ export type {
   ChatTimelineAwaitingQuestionType,
   ChatTimelineAwaitingNode,
   ChatTimelineAwaitingState,
+  ChatTimelineArtifactNode,
+  ChatTimelineArtifactPreviewKind,
+  ChatTimelineArtifactStatus,
   ChatTimelineAssistantReplyFooter,
   ChatTimelineAssistantReplyFooterDisplayItem,
   ChatTimelineDeliveryStatus,
@@ -77,6 +80,11 @@ export {
   getChatTimelineDisplayItemType,
 } from './timelineDisplay.ts';
 export { resolveChatTimelineUsageModelKey } from './usageSummary.ts';
+export {
+  normalizeChatTimelineArtifactEvent,
+  resolveChatTimelineArtifactPreviewKind,
+  type NormalizedChatTimelineArtifact,
+} from './timelineArtifact.ts';
 export {
   getActiveChatTimelineFrontendTool,
   normalizeFrontendToolParams,

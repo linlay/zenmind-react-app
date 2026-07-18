@@ -11,6 +11,7 @@ import {
 import type { ChatConversationRuntimeState } from '../chatRealtime/types';
 import {
   deriveChatTimelineState,
+  normalizeChatTimelineArtifactEvent,
   projectTimelineMessages,
   projectTimelineRuntimeState,
   resolveChatTimelineUsageModelKey,
@@ -122,7 +123,15 @@ function getArtifactSnapshotKey(value: unknown, fallbackIndex = -1): string {
     return fallbackIndex >= 0 ? `artifact-${fallbackIndex}` : '';
   }
   return (
-    toText(value.artifactId || value.id || value.url || value.name || value.path || value.sandboxPath) ||
+    toText(
+      value.artifactId ||
+        value.id ||
+        value.sha256 ||
+        value.url ||
+        value.name ||
+        value.path ||
+        value.sandboxPath
+    ) ||
     (fallbackIndex >= 0 ? `artifact-${fallbackIndex}` : '')
   );
 }
@@ -147,10 +156,9 @@ function addDetailTimelineEventIndex(
     index.hasPlanEvent = true;
   }
   if (type === 'artifact.publish') {
-    const artifactKey = getArtifactSnapshotKey(event);
-    if (artifactKey) {
-      index.artifactKeys.add(artifactKey);
-    }
+    normalizeChatTimelineArtifactEvent(event, timestamp || eventOrder).forEach((artifact) => {
+      index.artifactKeys.add(artifact.artifactId);
+    });
   }
   if (type === 'usage.snapshot') {
     index.latestUsageSnapshot = {

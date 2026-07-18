@@ -34,12 +34,18 @@ function bodyForNode(node: ProjectedRuntimeNode): string {
   if (node.kind === 'tool') {
     return node.body;
   }
+  if (node.kind === 'artifact') {
+    return node.errorReason || node.summary || node.resourceUrl;
+  }
   return node.body;
 }
 
 function titleForNode(node: ProjectedRuntimeNode): string {
   if (node.kind === 'awaiting') {
     return `awaiting.${node.mode}`;
+  }
+  if (node.kind === 'artifact') {
+    return node.name;
   }
   return node.title;
 }

@@ -491,6 +491,33 @@ test('timeline persistence roundtrips structured source nodes without replay', (
   assert.equal(source?.kind === 'source' ? source.sources[0].chunks[0].score : null, 0.91);
 });
 
+test('timeline persistence roundtrips typed artifact resource nodes without replay', () => {
+  const state = deriveChatTimelineState('chat-artifact', [
+    {
+      type: 'artifact.publish',
+      runId: 'run-artifact',
+      artifactId: 'artifact-1',
+      name: 'report.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 8192,
+      url: '/api/resource?id=artifact-1',
+      sha256: 'abc123',
+      summary: 'Quarterly report',
+      timestamp: 100,
+    },
+  ]);
+  const serialized = serializeChatTimelineState(state);
+  const restored = deserializeChatTimelineState(serialized.meta, serialized.nodes);
+  const artifact = restored?.orderedNodeIds
+    .map((nodeId) => restored.nodesById[nodeId])
+    .find((node) => node?.kind === 'artifact');
+
+  assert.deepEqual(restored, state);
+  assert.equal(artifact?.kind, 'artifact');
+  assert.equal(artifact?.kind === 'artifact' ? artifact.previewKind : '', 'pdf');
+  assert.equal(artifact?.kind === 'artifact' ? artifact.resourceUrl : '', '/ap/api/resource?id=artifact-1');
+});
+
 test('timeline persistence derives the same viewport segments from restored assistant content', () => {
   const content = [
     '天气如下：',

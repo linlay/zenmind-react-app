@@ -1,6 +1,7 @@
 import type {
   ChatTimelineAssistantReplyFooter,
   ChatTimelineAssistantReplyFooterDisplayItem,
+  ChatTimelineArtifactNode,
   ChatTimelineAwaitingNode,
   ChatTimelineDisplayItem,
   ChatTimelineDisplayItemKind,
@@ -13,6 +14,7 @@ import type {
   ChatTimelineToolGroupDisplayItem,
   ChatTimelineToolNode,
 } from './types.ts';
+import { getChatTimelineArtifactContentLength } from './timelineArtifact.ts';
 import { getChatTimelineErrorDetailSignature } from './timelinePlatformError.ts';
 import { getChatTimelineSourceContentLength } from './timelineSource.ts';
 
@@ -23,6 +25,7 @@ type ChatTimelineDisplayTextNode = ChatTimelineTextNode & {
 type ChatTimelineDisplayNode =
   | ChatTimelineMessageNode
   | ChatTimelineDisplayTextNode
+  | ChatTimelineArtifactNode
   | ChatTimelineToolNode
   | ChatTimelineSourceNode
   | ChatTimelineAwaitingNode;
@@ -105,6 +108,9 @@ function isVisibleTimelineNode(
     return Boolean(node.title || node.body || node.argsText || node.resultText);
   }
   if (node.kind === 'source') {
+    return true;
+  }
+  if (node.kind === 'artifact') {
     return true;
   }
   if (node.kind === 'reasoning' && !node.body.trim() && isDefaultReasoningNode(node)) {
@@ -625,6 +631,9 @@ function getTimelineNodeContentLength(node: ChatTimelineNode): number {
   }
   if (node.kind === 'source') {
     return getChatTimelineSourceContentLength(node);
+  }
+  if (node.kind === 'artifact') {
+    return getChatTimelineArtifactContentLength(node);
   }
   return node.title.length + node.body.length + node.status.length;
 }
