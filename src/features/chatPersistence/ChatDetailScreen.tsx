@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
 import {
@@ -11,6 +11,8 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '../../shared/i18n';
+import { ConversationPreviewProvider } from '../../shared/components/conversationPreview/ConversationPreviewProvider';
+import { createConversationPreviewVisibilityStore } from '../../shared/components/conversationPreview/visibilityStore';
 import { ChatAwaitingOverlay, ChatAwaitingResumeBar } from './components/ChatAwaitingOverlay';
 import { ChatAwaitingDock } from './components/awaiting/ChatAwaitingDock';
 import { ChatConversationDiagnosticCard } from './components/ChatConversationDiagnosticCard';
@@ -99,6 +101,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     fromNotification = false,
     skipInitialReconcile = false
   } = route.params;
+  const conversationPreviewStore = useMemo(() => createConversationPreviewVisibilityStore(), []);
   useConversationActionRuntime(conversationId);
   const {
     summary,
@@ -271,6 +274,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                     ) : null
                   }
                   onCopyText={handleCopyMessage}
+                  previewStore={conversationPreviewStore}
                   workspaceAgentKey={composerOptions.agentKey}
                   onReaskMessage={handleReaskMessage}
                   reaskCurrentDisabled={composerAction === 'sending' || Boolean(headerRuntimeState.runAction)}
@@ -365,6 +369,12 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     </View>
   );
   return (
-    <AuthenticatedResourcePreviewProvider key={conversationId}>{content}</AuthenticatedResourcePreviewProvider>
+    <ConversationPreviewProvider
+      scopeKey={conversationId}
+      store={conversationPreviewStore}
+      onCopyText={handleCopyMessage}
+    >
+      <AuthenticatedResourcePreviewProvider key={conversationId}>{content}</AuthenticatedResourcePreviewProvider>
+    </ConversationPreviewProvider>
   );
 }

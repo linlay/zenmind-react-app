@@ -171,6 +171,7 @@
         "src/shared/components/conversationPreview",
         "src/shared/markdown/previewRegistry.ts",
         "src/shared/markdown/previewSegments.ts",
+        "src/shared/markdown/previewSourceHash.ts",
         "src/shared/markdown/preprocess.ts"
       ],
       "card": ".doc/modules/shared-conversation-content-renderer.json"

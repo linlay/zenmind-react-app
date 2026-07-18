@@ -12,10 +12,9 @@ import {
 } from 'react-native';
 
 import {
-  ConversationPreviewProvider,
   ConversationPreviewRowScope,
 } from '../../../shared/components/conversationPreview/ConversationPreviewProvider';
-import { createConversationPreviewVisibilityStore } from '../../../shared/components/conversationPreview/visibilityStore';
+import type { ConversationPreviewVisibilityStore } from '../../../shared/components/conversationPreview/visibilityStore';
 import { AppIcon, type AppIconUsage } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
@@ -60,31 +59,12 @@ type ChatTimelineListProps = {
   diagnosticCard?: ReactNode;
   diagnosticVersion?: string;
   onCopyText: (text: string) => void;
+  previewStore: ConversationPreviewVisibilityStore;
   workspaceAgentKey?: string | null;
   onReaskMessage?: (target: ChatTimelineReaskTarget, node: ChatTimelineMessageNode) => void;
   reaskCurrentDisabled?: boolean;
   reaskNewConversationDisabled?: boolean;
 };
-
-function ChatTimelineProviders({
-  workspaceAgentKey,
-  previewStore,
-  onCopyText,
-  children
-}: {
-  workspaceAgentKey: string | null;
-  previewStore: ReturnType<typeof createConversationPreviewVisibilityStore>;
-  onCopyText: (text: string) => void;
-  children: ReactNode;
-}) {
-  return (
-    <ConversationMarkdownLinkProvider agentKey={workspaceAgentKey}>
-      <ConversationPreviewProvider store={previewStore} onCopyText={onCopyText}>
-        {children}
-      </ConversationPreviewProvider>
-    </ConversationMarkdownLinkProvider>
-  );
-}
 
 const SCROLL_TO_END_BUTTON_THRESHOLD = 96;
 const REASK_MENU_WIDTH = 188;
@@ -961,6 +941,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   diagnosticCard = null,
   diagnosticVersion = '',
   onCopyText,
+  previewStore,
   workspaceAgentKey = '',
   onReaskMessage,
   reaskCurrentDisabled = false,
@@ -971,7 +952,6 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   const threadRef = useRef<View | null>(null);
   const listRef = useRef<FlashListRef<ChatTimelineDisplayItem>>(null);
   const displayModelRef = useRef<ChatTimelineDisplayModel | null>(null);
-  const previewVisibilityStore = useMemo(() => createConversationPreviewVisibilityStore(), []);
   const expandedRuntimeNodesRef = useRef(new Map<string, boolean>());
   const planningBlockModesRef = useRef(new Map<string, RuntimePlanningBlockMode>());
   const planningCollapseOverlayRef = useRef<PlanningCollapseOverlayState | null>(null);
@@ -1273,7 +1253,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
           nextViewablePlanningNodeIds.add(nodeId);
         }
       });
-      previewVisibilityStore.replaceVisibleRows(nextViewablePreviewRowKeys);
+      previewStore.replaceVisibleRows(nextViewablePreviewRowKeys);
       viewablePlanningNodeIdsRef.current = nextViewablePlanningNodeIds;
 
       const activeNodeId = planningCollapseOverlayRef.current?.nodeId;
@@ -1282,7 +1262,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
         currentVisible === nextVisible ? currentVisible : nextVisible
       );
     },
-    [previewVisibilityStore]
+    [previewStore]
   );
 
   useLayoutEffect(() => {
@@ -1321,11 +1301,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   }, [clearPendingAutoFollowSchedule]);
 
   return (
-    <ChatTimelineProviders
-      workspaceAgentKey={workspaceAgentKey}
-      previewStore={previewVisibilityStore}
-      onCopyText={onCopyText}
-    >
+    <ConversationMarkdownLinkProvider agentKey={workspaceAgentKey}>
       <View ref={threadRef} className={THREAD_CLASS}>
       <FlashList
         ref={listRef}
@@ -1386,6 +1362,6 @@ export const ChatTimelineList = memo(function ChatTimelineList({
         />
       ) : null}
       </View>
-    </ChatTimelineProviders>
+    </ConversationMarkdownLinkProvider>
   );
 });

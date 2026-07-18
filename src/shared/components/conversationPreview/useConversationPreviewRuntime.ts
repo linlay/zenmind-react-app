@@ -6,7 +6,7 @@ import {
   CONVERSATION_PREVIEW_MAX_SOURCE_BYTES,
   CONVERSATION_PREVIEW_TIMEOUT_MS,
   createConversationPreviewRequestId,
-  getConversationPreviewSourceByteLength,
+  exceedsConversationPreviewByteLimit,
   parseConversationPreviewEvent,
   serializeConversationPreviewRequest
 } from './runtimeBridge';
@@ -61,7 +61,7 @@ export function useConversationPreviewRuntime({
       setRuntimeHtml('');
       return;
     }
-    if (getConversationPreviewSourceByteLength(source) > CONVERSATION_PREVIEW_MAX_SOURCE_BYTES) {
+    if (exceedsConversationPreviewByteLimit(source, CONVERSATION_PREVIEW_MAX_SOURCE_BYTES)) {
       onError(t('markdownPreview.tooLarge'));
       return;
     }

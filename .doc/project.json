@@ -22,6 +22,7 @@
     ],
     "testFiles": [
       "scripts/tests/appIconRegistry.test.mts",
+      "scripts/tests/awaitingOptionPreview.test.mts",
       "scripts/tests/awaitingQuestionState.test.mts",
       "scripts/tests/awaitingSubmitState.test.mts",
       "scripts/tests/brandConfig.test.mts",

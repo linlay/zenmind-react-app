@@ -635,6 +635,7 @@ export const zhCN = {
   'awaiting.plan.title': '等待计划确认',
   'awaiting.plan.confirmPrompt': '实施此计划？',
   'awaiting.form.title': '等待表单',
+  'awaiting.option.preview': '预览“{label}”',
   'awaiting.decision.approve': '同意',
   'awaiting.decision.approveRuleRun': '同意（本次运行同规则都放行）',
   'awaiting.decision.reject': '拒绝',

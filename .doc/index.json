@@ -177,6 +177,7 @@
         "src/shared/components/conversationPreview",
         "src/shared/markdown/previewRegistry.ts",
         "src/shared/markdown/previewSegments.ts",
+        "src/shared/markdown/previewSourceHash.ts",
         "src/shared/markdown/preprocess.ts"
       ],
       "context": ".doc/modules/shared-conversation-content-renderer.json",
@@ -235,7 +236,7 @@
     "moduleCount": 19,
     "flowCount": 8,
     "taskCount": 16,
-    "sourceFileCount": 2193,
+    "sourceFileCount": 2194,
     "factsRef": ".doc/generated/project-facts.json",
     "contextIndexRef": ".doc/generated/context-index.json",
     "entrypoints": [

@@ -8,7 +8,7 @@ import type { ConversationPreviewHeightBounds } from '../../../shared/components
 import { usePreviewExecutionState } from '../../../shared/components/conversationPreview/usePreviewExecutionState';
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
-import { hashConversationPreviewSource } from '../../../shared/markdown/previewSegments';
+import { hashConversationPreviewSource } from '../../../shared/markdown/previewSourceHash';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { useConversationViewportDocument } from './useConversationViewportDocument';
 

@@ -657,6 +657,7 @@ export const enUS: Record<I18nKey, string> = {
   'awaiting.plan.title': 'Waiting for plan confirmation',
   'awaiting.plan.confirmPrompt': 'Implement this plan?',
   'awaiting.form.title': 'Waiting for form',
+  'awaiting.option.preview': 'Preview {label}',
   'awaiting.decision.approve': 'Approve',
   'awaiting.decision.approveRuleRun': 'Approve matching rule for this run',
   'awaiting.decision.reject': 'Reject',

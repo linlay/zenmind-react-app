@@ -7,7 +7,8 @@
     "src/shared/components/conversationPreview",
     "src/shared/markdown/preprocess.ts",
     "src/shared/markdown/previewRegistry.ts",
-    "src/shared/markdown/previewSegments.ts"
+    "src/shared/markdown/previewSegments.ts",
+    "src/shared/markdown/previewSourceHash.ts"
   ],
   "summary": {
     "purpose": "对话内容渲染组件: 提供纯共享的对话内容渲染管线，普通 Markdown 热路径由原生 GFM renderer 承接，不保留 JS 自绘 Markdown AST fallback。",
@@ -22,7 +23,7 @@
       "不夹带业务仓储、鉴权或下载逻辑；链接只把原始 href 交给可选 onLinkPress，未处理的 http(s)/mailto/tel 继续系统外部打开；预处理只处理通用 Markdown 归一、空 table 和尚未接入 segment 的 tts-voice 尾部，避免页面层复制格式化逻辑。",
       "Public entry ConversationMarkdownRenderer (component): 原生 Markdown 渲染 wrapper，完成 preprocess、native markdown 样式、streaming Markdown、安全 link open，并通过 onLinkPress、fenceExtensions/renderFenceExtension 向 feature 提供纯注入点；onLinkPress 返回 true 时 shared 不再执行默认外链行为。",
       "Public entry CONVERSATION_PREVIEW_REGISTRY (preview-registry): 集中声明语言别名、标题、默认源码展开状态和 inline/overlay renderer，parser 与 UI 不再维护重复映射。",
-      "Public entry PreviewCodeBlock / ConversationPreviewProvider (preview-ui): 数据驱动的特殊代码块标题栏、复制、源码折叠、共享执行错误/重试状态、HTML overlay 和 row 可见性 scope。",
+      "Public entry PreviewCodeBlock / ConversationPreviewProvider (preview-ui): 数据驱动的特殊代码块标题栏、复制、源码折叠、共享执行错误/重试状态、页面级单例 HTML overlay 和 row 可见性 scope；overlay request 绑定调用方 scope，切换 scope 时旧预览立即停止渲染。",
       "Public entry parseConversationMarkdownSegments / createConversationMarkdownSegmentCache (segment-parser): 支持反引号/波浪线、流式逐字符 append-only 扫描、CRLF 跨 chunk、稳定 sourceHash、feature extension 解析与内容重写回退的 fence 分段器。",
       "Public entry loadConversationPreviewRuntime (preview-runtime-loader): 通过 expo-asset 延迟读取 app build 阶段生成的离线 runtime，并按 kind 使用模块级 Promise 缓存。",
       "Public entry PreviewSurface frontend-tool bridge (preview-runtime): 仅在调用方显式启用时转发 frontend_submit/close/done；App 侧再次校验 requestId、plain-record params 与 64 KiB 上限，shared 不解释或提交业务 payload。",
@@ -74,6 +75,7 @@
       "createConversationPreviewHeightCacheKey",
       "createConversationPreviewRequestId",
       "createConversationPreviewVisibilityStore",
+      "exceedsConversationPreviewByteLimit",
       "getConversationPreviewHeight",
       "getConversationPreviewKind",
       "getConversationPreviewSourceByteLength",

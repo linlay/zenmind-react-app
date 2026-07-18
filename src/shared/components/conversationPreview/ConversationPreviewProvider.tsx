@@ -14,23 +14,39 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppIcon } from '../../icons/AppIcon';
 import { useT } from '../../i18n';
+import { hashConversationPreviewSource } from '../../markdown/previewSourceHash';
 import { useAppTheme } from '../../visual/AppThemeProvider';
 import { createConversationPreviewHeightCacheKey } from './previewCache';
 import { PreviewErrorPanel } from './PreviewErrorPanel';
 import { PreviewSurface } from './PreviewSurface';
+import { CONVERSATION_PREVIEW_MAX_SOURCE_BYTES } from './runtimeBridge';
 import { createConversationPreviewVisibilityStore, type ConversationPreviewVisibilityStore } from './visibilityStore';
 import { usePreviewExecutionState } from './usePreviewExecutionState';
 
-type HtmlOverlayRequest = {
+type HtmlOverlayRequestInput = {
   source: string;
+  sourceHash?: string;
+};
+
+type HtmlOverlayRequest = HtmlOverlayRequestInput & {
+  scopeKey?: string;
   sourceHash: string;
 };
 
 type ConversationPreviewContextValue = {
   copyText: (text: string) => void;
-  openHtmlPreview: (request: HtmlOverlayRequest) => void;
+  openHtmlPreview: (request: HtmlOverlayRequestInput) => void;
   store: ConversationPreviewVisibilityStore | null;
 };
+
+function resolveHtmlOverlaySourceHash(request: HtmlOverlayRequestInput): string {
+  if (request.sourceHash) {
+    return request.sourceHash;
+  }
+  return request.source.length > CONVERSATION_PREVIEW_MAX_SOURCE_BYTES
+    ? `oversized:${request.source.length}`
+    : hashConversationPreviewSource(request.source);
+}
 
 const ConversationPreviewContext = createContext<ConversationPreviewContextValue>({
   copyText: () => {},
@@ -109,27 +125,38 @@ const HtmlPreviewOverlay = memo(function HtmlPreviewOverlay({
 export function ConversationPreviewProvider({
   children,
   onCopyText,
+  scopeKey,
   store
 }: {
   children: ReactNode;
   onCopyText: (text: string) => void;
+  scopeKey?: string;
   store?: ConversationPreviewVisibilityStore;
 }) {
   const resolvedStore = useMemo(() => store ?? createConversationPreviewVisibilityStore(), [store]);
   const [htmlOverlay, setHtmlOverlay] = useState<HtmlOverlayRequest | null>(null);
-  const openHtmlPreview = useCallback((request: HtmlOverlayRequest) => setHtmlOverlay(request), []);
+  const openHtmlPreview = useCallback(
+    (request: HtmlOverlayRequestInput) =>
+      setHtmlOverlay({
+        ...request,
+        scopeKey,
+        sourceHash: resolveHtmlOverlaySourceHash(request)
+      }),
+    [scopeKey]
+  );
   const closeHtmlPreview = useCallback(() => setHtmlOverlay(null), []);
   const value = useMemo(
     () => ({ copyText: onCopyText, openHtmlPreview, store: resolvedStore }),
     [onCopyText, openHtmlPreview, resolvedStore]
   );
 
+  useEffect(() => setHtmlOverlay(null), [scopeKey]);
   useEffect(() => () => resolvedStore.dispose(), [resolvedStore]);
 
   return (
     <ConversationPreviewContext.Provider value={value}>
       {children}
-      {htmlOverlay ? (
+      {htmlOverlay && htmlOverlay.scopeKey === scopeKey ? (
         <HtmlPreviewOverlay request={htmlOverlay} onClose={closeHtmlPreview} onCopyText={onCopyText} />
       ) : null}
     </ConversationPreviewContext.Provider>

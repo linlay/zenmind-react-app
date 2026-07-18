@@ -21,6 +21,10 @@ export function getConversationPreviewSourceByteLength(source: string): number {
   return byteLength;
 }
 
+export function exceedsConversationPreviewByteLimit(source: string, byteLimit: number): boolean {
+  return source.length > byteLimit || getConversationPreviewSourceByteLength(source) > byteLimit;
+}
+
 export function serializeConversationPreviewRequest(request: ConversationPreviewRequest): string {
   return JSON.stringify({ channel: CONVERSATION_PREVIEW_CHANNEL, request });
 }
@@ -69,10 +73,7 @@ export function parseConversationPreviewEvent(
   if (event.type === 'frontend_submit' && isPlainRecord(event.params)) {
     try {
       const serializedParams = JSON.stringify(event.params);
-      if (
-        getConversationPreviewSourceByteLength(serializedParams) >
-        CONVERSATION_PREVIEW_MAX_BRIDGE_PARAMS_BYTES
-      ) {
+      if (exceedsConversationPreviewByteLimit(serializedParams, CONVERSATION_PREVIEW_MAX_BRIDGE_PARAMS_BYTES)) {
         return null;
       }
       const params = JSON.parse(serializedParams);

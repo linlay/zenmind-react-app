@@ -27,6 +27,7 @@
   ],
   "testFiles": [
     "scripts/tests/appIconRegistry.test.mts",
+    "scripts/tests/awaitingOptionPreview.test.mts",
     "scripts/tests/awaitingQuestionState.test.mts",
     "scripts/tests/awaitingSubmitState.test.mts",
     "scripts/tests/brandConfig.test.mts",
@@ -2285,6 +2286,7 @@
     "src/shared/markdown/preprocess.ts",
     "src/shared/markdown/previewRegistry.ts",
     "src/shared/markdown/previewSegments.ts",
+    "src/shared/markdown/previewSourceHash.ts",
     "src/shared/visual/AgentAvatar.tsx",
     "src/shared/visual/AgentBuiltinIcon.tsx",
     "src/shared/visual/AppLineIcon.tsx",
@@ -11347,6 +11349,10 @@
                   {
                     "name": "previewSegments.ts",
                     "type": "file"
+                  },
+                  {
+                    "name": "previewSourceHash.ts",
+                    "type": "file"
                   }
                 ]
               },
@@ -11728,7 +11734,8 @@
       "src/shared/components/conversationPreview/visibilityStore.ts",
       "src/shared/markdown/preprocess.ts",
       "src/shared/markdown/previewRegistry.ts",
-      "src/shared/markdown/previewSegments.ts"
+      "src/shared/markdown/previewSegments.ts",
+      "src/shared/markdown/previewSourceHash.ts"
     ],
     "shared-i18n": [
       "src/shared/i18n/I18nProvider.tsx",
@@ -12026,6 +12033,7 @@
     "src/shared/markdown/preprocess.ts": "shared-conversation-content-renderer",
     "src/shared/markdown/previewRegistry.ts": "shared-conversation-content-renderer",
     "src/shared/markdown/previewSegments.ts": "shared-conversation-content-renderer",
+    "src/shared/markdown/previewSourceHash.ts": "shared-conversation-content-renderer",
     "src/shared/visual/AgentAvatar.tsx": "shared-visual-foundation",
     "src/shared/visual/AgentBuiltinIcon.tsx": "shared-visual-foundation",
     "src/shared/visual/AppLineIcon.tsx": "shared-visual-foundation",
@@ -19649,6 +19657,7 @@
       "CONVERSATION_PREVIEW_MAX_SOURCE_BYTES",
       "CONVERSATION_PREVIEW_TIMEOUT_MS",
       "createConversationPreviewRequestId",
+      "exceedsConversationPreviewByteLimit",
       "getConversationPreviewSourceByteLength",
       "parseConversationPreviewEvent",
       "serializeConversationPreviewRequest"
@@ -19794,8 +19803,10 @@
       "ConversationMarkdownSegmentCache",
       "ConversationMarkdownSegmentParserOptions",
       "createConversationMarkdownSegmentCache",
-      "hashConversationPreviewSource",
       "parseConversationMarkdownSegments"
+    ],
+    "src/shared/markdown/previewSourceHash.ts": [
+      "hashConversationPreviewSource"
     ],
     "src/shared/visual/AgentAvatar.tsx": [
       "AGENT_ICON_NAMES",
@@ -23211,6 +23222,8 @@
     ],
     "src/features/chatPersistence/ChatDetailScreen.tsx": [
       "../../core/api/services/chatApi",
+      "../../shared/components/conversationPreview/ConversationPreviewProvider",
+      "../../shared/components/conversationPreview/visibilityStore",
       "../../shared/i18n",
       "../chatRealtime/chatSyncService",
       "../chatRealtime/types",
@@ -23773,6 +23786,7 @@
     ],
     "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx": [
       "../../../../core/api/services/chatApi",
+      "../../../../shared/components/conversationPreview/ConversationPreviewProvider",
       "../../../../shared/i18n",
       "../../../../shared/icons/AppIcon",
       "../../../../shared/visual/AppThemeProvider",
@@ -23893,7 +23907,7 @@
       "../../../shared/components/conversationPreview/usePreviewExecutionState",
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
-      "../../../shared/markdown/previewSegments",
+      "../../../shared/markdown/previewSourceHash",
       "../../../shared/visual/AppThemeProvider",
       "./useConversationViewportDocument",
       "react",
@@ -23928,7 +23942,7 @@
       "../../../shared/components/conversationPreview/usePreviewExecutionState",
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
-      "../../../shared/markdown/previewSegments",
+      "../../../shared/markdown/previewSourceHash",
       "../../../shared/visual/AppThemeProvider",
       "../../chatTimeline/index.ts",
       "../conversationViewport/useConversationViewportDocument",
@@ -24293,10 +24307,12 @@
     "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx": [
       "../../i18n",
       "../../icons/AppIcon",
+      "../../markdown/previewSourceHash",
       "../../visual/AppThemeProvider",
       "./PreviewErrorPanel",
       "./PreviewSurface",
       "./previewCache",
+      "./runtimeBridge",
       "./usePreviewExecutionState",
       "./visibilityStore",
       "react",
@@ -24439,8 +24455,10 @@
     "src/shared/markdown/previewRegistry.ts": null,
     "src/shared/markdown/previewSegments.ts": [
       "./previewRegistry",
-      "./previewRegistry.ts"
+      "./previewRegistry.ts",
+      "./previewSourceHash.ts"
     ],
+    "src/shared/markdown/previewSourceHash.ts": null,
     "src/shared/visual/AgentAvatar.tsx": [
       "../icons/AppIcon",
       "./AgentBuiltinIcon",
@@ -27509,6 +27527,8 @@
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatRealtime/types.ts",
       "src/features/chatTimeline/index.ts",
+      "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
+      "src/shared/components/conversationPreview/visibilityStore.ts",
       "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx": [
@@ -27957,6 +27977,7 @@
       "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
       "src/features/chatRealtime/types.ts",
       "src/features/chatTimeline/index.ts",
+      "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
@@ -28051,7 +28072,7 @@
       "src/shared/components/conversationPreview/usePreviewExecutionState.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
-      "src/shared/markdown/previewSegments.ts",
+      "src/shared/markdown/previewSourceHash.ts",
       "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts": [
@@ -28082,7 +28103,7 @@
       "src/shared/components/conversationPreview/usePreviewExecutionState.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
-      "src/shared/markdown/previewSegments.ts",
+      "src/shared/markdown/previewSourceHash.ts",
       "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/homeSnapshot.ts": [
@@ -28394,10 +28415,12 @@
       "src/shared/components/conversationPreview/PreviewErrorPanel.tsx",
       "src/shared/components/conversationPreview/PreviewSurface.tsx",
       "src/shared/components/conversationPreview/previewCache.ts",
+      "src/shared/components/conversationPreview/runtimeBridge.ts",
       "src/shared/components/conversationPreview/usePreviewExecutionState.ts",
       "src/shared/components/conversationPreview/visibilityStore.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
+      "src/shared/markdown/previewSourceHash.ts",
       "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/shared/components/conversationPreview/PreviewCodeBlock.tsx": [
@@ -28511,8 +28534,10 @@
     "src/shared/markdown/preprocess.ts": null,
     "src/shared/markdown/previewRegistry.ts": null,
     "src/shared/markdown/previewSegments.ts": [
-      "src/shared/markdown/previewRegistry.ts"
+      "src/shared/markdown/previewRegistry.ts",
+      "src/shared/markdown/previewSourceHash.ts"
     ],
+    "src/shared/markdown/previewSourceHash.ts": null,
     "src/shared/visual/AgentAvatar.tsx": [
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AgentBuiltinIcon.tsx",

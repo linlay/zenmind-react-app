@@ -22,6 +22,7 @@ import {
   CONVERSATION_PREVIEW_CHANNEL,
   CONVERSATION_PREVIEW_MAX_BRIDGE_PARAMS_BYTES,
   CONVERSATION_PREVIEW_MAX_SOURCE_BYTES,
+  exceedsConversationPreviewByteLimit,
   getConversationPreviewSourceByteLength,
   parseConversationPreviewEvent
 } from '../../src/shared/components/conversationPreview/runtimeBridge.ts';
@@ -377,6 +378,13 @@ test('bridge rejects malformed envelopes and wrong request ids', () => {
     { type: 'resize', requestId: expected, height: 321 }
   );
   assert.equal(getConversationPreviewSourceByteLength('图'), 3);
+  assert.equal(
+    exceedsConversationPreviewByteLimit(
+      '图'.repeat(CONVERSATION_PREVIEW_MAX_SOURCE_BYTES),
+      CONVERSATION_PREVIEW_MAX_SOURCE_BYTES
+    ),
+    true
+  );
   assert.equal(
     getConversationPreviewSourceByteLength('a'.repeat(CONVERSATION_PREVIEW_MAX_SOURCE_BYTES + 1)) >
       CONVERSATION_PREVIEW_MAX_SOURCE_BYTES,

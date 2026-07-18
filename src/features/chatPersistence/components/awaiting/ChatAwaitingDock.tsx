@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 
 import type { AwaitingSubmitPayloadData } from '../../../../core/api/services/chatApi';
+import { useConversationPreviewActions } from '../../../../shared/components/conversationPreview/ConversationPreviewProvider';
 import { AppIcon } from '../../../../shared/icons/AppIcon';
 import { type TFunction, useT } from '../../../../shared/i18n';
 import { useAppTheme } from '../../../../shared/visual/AppThemeProvider';
@@ -91,7 +92,11 @@ const PAGINATION_ARROW_CLASS = 'text-[26px] leading-[28px] text-app-primary';
 const PAGINATION_TEXT_CLASS = 'min-w-[34px] text-center text-[13px] font-extrabold leading-[18px] text-app-primary';
 const OPTIONS_BLOCK_CLASS = 'gap-app-sm';
 const OPTION_ROW_CLASS =
-  'min-h-10 flex-row items-center gap-app-sm rounded-app-md border border-app-line bg-app-background px-app-md py-[9px] active:opacity-[0.72]';
+  'min-h-10 flex-row items-center rounded-app-md border border-app-line bg-app-background';
+const OPTION_SELECT_ACTION_CLASS =
+  'min-h-10 min-w-0 flex-1 flex-row items-center gap-app-sm px-app-md py-[9px] active:opacity-[0.72]';
+const OPTION_PREVIEW_ACTION_CLASS =
+  'mr-1 h-9 w-9 shrink-0 items-center justify-center rounded-app-sm active:bg-app-surface-muted';
 const SELECTED_OPTION_ROW_CLASS = 'border-app-brand-blue bg-app-brand-blue-soft';
 const OPTION_INDEX_CLASS = 'w-[22px] text-[13px] font-extrabold leading-[18px] text-app-secondary';
 const OPTION_TEXT_CLASS = 'min-w-0 flex-1 gap-[2px]';
@@ -247,11 +252,38 @@ function PaginationControl({
   );
 }
 
+const ChoicePreviewButton = memo(function ChoicePreviewButton({
+  disabled,
+  label,
+  source,
+}: {
+  disabled: boolean;
+  label: string;
+  source: string;
+}) {
+  const t = useT();
+  const { openHtmlPreview } = useConversationPreviewActions();
+  const handlePress = useCallback(() => openHtmlPreview({ source }), [openHtmlPreview, source]);
+
+  return (
+    <Pressable
+      accessibilityLabel={t('awaiting.option.preview', { label })}
+      accessibilityRole="button"
+      disabled={disabled}
+      onPress={handlePress}
+      className={OPTION_PREVIEW_ACTION_CLASS}
+    >
+      <AppIcon usage="markdownPreview.open" />
+    </Pressable>
+  );
+});
+
 const ChoiceRow = memo(function ChoiceRow({
   description,
   disabled,
   index,
   label,
+  previewHtml,
   selected,
   value,
   onPress,
@@ -260,6 +292,7 @@ const ChoiceRow = memo(function ChoiceRow({
   disabled: boolean;
   index: number;
   label: string;
+  previewHtml?: string;
   selected: boolean;
   value: string;
   onPress: (value: string) => void;
@@ -268,32 +301,39 @@ const ChoiceRow = memo(function ChoiceRow({
   const handlePress = useCallback(() => onPress(value), [onPress, value]);
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled, selected }}
-      disabled={disabled}
-      onPress={handlePress}
+    <View
       className={cn(OPTION_ROW_CLASS, disabled ? DISABLED_BUTTON_CLASS : null, selected ? SELECTED_OPTION_ROW_CLASS : null)}
     >
-      <Text allowFontScaling={false} className={OPTION_INDEX_CLASS}>
-        {index + 1}.
-      </Text>
-      <View className={OPTION_TEXT_CLASS}>
-        <Text allowFontScaling={false} className={cn(OPTION_LABEL_CLASS, selected ? SELECTED_TEXT_CLASS : null)}>
-          {label}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityState={{ disabled, selected }}
+        disabled={disabled}
+        onPress={handlePress}
+        className={OPTION_SELECT_ACTION_CLASS}
+      >
+        <Text allowFontScaling={false} className={OPTION_INDEX_CLASS}>
+          {index + 1}.
         </Text>
-        {description ? (
-          <Text allowFontScaling={false} numberOfLines={2} className={OPTION_DESCRIPTION_CLASS}>
-            {description}
+        <View className={OPTION_TEXT_CLASS}>
+          <Text allowFontScaling={false} className={cn(OPTION_LABEL_CLASS, selected ? SELECTED_TEXT_CLASS : null)}>
+            {label}
           </Text>
-        ) : null}
-      </View>
-      {selected ? (
-        <View className={SELECTED_MARK_CLASS}>
-          <AppIcon usage="historyDrawer.markAllRead" size={12} color={theme.colors.onBrandBlueAction} />
+          {description ? (
+            <Text allowFontScaling={false} numberOfLines={2} className={OPTION_DESCRIPTION_CLASS}>
+              {description}
+            </Text>
+          ) : null}
         </View>
+        {selected ? (
+          <View className={SELECTED_MARK_CLASS}>
+            <AppIcon usage="historyDrawer.markAllRead" size={12} color={theme.colors.onBrandBlueAction} />
+          </View>
+        ) : null}
+      </Pressable>
+      {previewHtml ? (
+        <ChoicePreviewButton disabled={disabled} label={label} source={previewHtml} />
       ) : null}
-    </Pressable>
+    </View>
   );
 });
 
@@ -342,6 +382,7 @@ function QuestionInput({
               index={index}
               label={option.label}
               description={option.description}
+              previewHtml={option.previewHtml}
               selected={selected.has(optionValue)}
               value={optionValue}
               onPress={handleSelectOptionPress}
