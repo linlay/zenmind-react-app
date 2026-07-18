@@ -412,3 +412,44 @@ test('timeline persistence hashes are stable and isolate changed nodes', () => {
     ['message']
   );
 });
+
+test('timeline persistence roundtrips structured source nodes without replay', () => {
+  const state = deriveChatTimelineState('chat-source', [
+    {
+      type: 'source.publish',
+      publishId: 'source-1',
+      runId: 'run-1',
+      kind: 'workspace',
+      query: '架构说明',
+      sourceCount: 1,
+      sources: [
+        {
+          id: 'architecture.md',
+          title: '/docs/architecture.md',
+          url: 'https://example.test/architecture',
+          chunks: [
+            {
+              chunkId: 'architecture-1',
+              index: 1,
+              content: '模块边界说明',
+              startLine: 20,
+              endLine: 28,
+              score: 0.91,
+            },
+          ],
+        },
+      ],
+      timestamp: 100,
+    },
+  ]);
+  const serialized = serializeChatTimelineState(state);
+  const restored = deserializeChatTimelineState(serialized.meta, serialized.nodes);
+  const source = restored?.orderedNodeIds
+    .map((nodeId) => restored.nodesById[nodeId])
+    .find((node) => node?.kind === 'source');
+
+  assert.notEqual(restored, null);
+  assert.deepEqual(restored, state);
+  assert.equal(source?.kind, 'source');
+  assert.equal(source?.kind === 'source' ? source.sources[0].chunks[0].score : null, 0.91);
+});

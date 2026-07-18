@@ -3,6 +3,7 @@ import { defaultT, type TFunction } from '../../../shared/i18n/translate.ts';
 import type {
   ChatTimelineNode,
   ChatTimelineRunNode,
+  ChatTimelineSourceNode,
   ChatTimelineTextNode,
   ChatTimelineToolGroupDisplayItem,
   ChatTimelineToolNode,
@@ -23,9 +24,11 @@ export type RuntimeStatusTone = 'active' | 'complete' | 'error' | 'cancelled' | 
 
 export type RuntimePayloadSectionMode = 'markdown' | 'plain' | 'code';
 
-export type RuntimePayloadSource = ChatTimelineNode | ChatTimelineToolGroupDisplayItem;
+export type RuntimePayloadSource =
+  | Exclude<ChatTimelineNode, ChatTimelineSourceNode>
+  | ChatTimelineToolGroupDisplayItem;
 
-export type RuntimePayloadKind = Exclude<ChatTimelineNode['kind'], 'message'> | 'tool-group';
+export type RuntimePayloadKind = Exclude<ChatTimelineNode['kind'], 'message' | 'source'> | 'tool-group';
 
 export type RuntimeToolStatus =
   | 'pending'

@@ -1859,6 +1859,7 @@ class ChatSyncService {
         family === 'reasoning' ||
         family === 'planning' ||
         family === 'tool' ||
+        family === 'source' ||
         family === 'artifact' ||
         family === 'action' ||
         family === 'plan' ||

@@ -483,3 +483,46 @@ test('detail fallback reuses indexed run events without duplicating nodes', () =
     1
   );
 });
+
+test('projects source publish history into the same structured timeline node used by realtime', () => {
+  const projected = projectRemoteChatDetail({
+    chatId: 'chat-source-history',
+    events: [
+      {
+        type: 'source.publish',
+        publishId: 'source-history-1',
+        runId: 'run-source',
+        kind: 'kbase',
+        query: '费用报销',
+        sourceCount: 1,
+        chunkCount: 1,
+        sources: [
+          {
+            id: 'expense.md',
+            title: '费用报销制度',
+            chunks: [
+              {
+                chunkId: 'expense-1',
+                index: 1,
+                content: '报销单需在当月提交。',
+                pageStart: 2,
+              },
+            ],
+          },
+        ],
+        timestamp: 100,
+      },
+    ],
+  });
+  const source = projected?.timelineState.orderedNodeIds
+    .map((nodeId) => projected.timelineState.nodesById[nodeId])
+    .find((node) => node?.kind === 'source');
+
+  assert.equal(source?.kind, 'source');
+  assert.equal(source?.kind === 'source' ? source.query : '', '费用报销');
+  assert.equal(source?.kind === 'source' ? source.sources[0].chunks[0].pageStart : null, 2);
+  assert.equal(
+    projected?.runtimeState.entries.some((entry) => entry.id === source?.id),
+    false
+  );
+});

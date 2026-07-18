@@ -133,6 +133,7 @@ export const appIconUsages = {
   'runtime.reasoning': { glyph: 'psychology', colorRole: 'warning', sizeRole: 'rail' },
   'runtime.awaiting': { glyph: 'question_answer', colorRole: 'warning', sizeRole: 'rail' },
   'runtime.tool': { glyph: 'build', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.source': { glyph: 'article', colorRole: 'success', sizeRole: 'rail' },
   'runtime.planning': { glyph: 'assignment', colorRole: 'brand', sizeRole: 'rail' },
   'runtime.file': { glyph: 'description', colorRole: 'success', sizeRole: 'rail' },
   'runtime.neutral': { glyph: 'smart_toy', colorRole: 'secondary', sizeRole: 'rail' },

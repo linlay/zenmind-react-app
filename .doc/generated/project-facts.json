@@ -2142,6 +2142,7 @@
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
     "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
+    "src/features/chatPersistence/components/SourceTimelineRow.tsx",
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx",
     "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx",
     "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx",
@@ -2178,6 +2179,7 @@
     "src/features/chatTimeline/timelinePlatformError.ts",
     "src/features/chatTimeline/timelineReasoningIdentity.ts",
     "src/features/chatTimeline/timelineReducer.ts",
+    "src/features/chatTimeline/timelineSource.ts",
     "src/features/chatTimeline/types.ts",
     "src/features/chatTimeline/usageSummary.ts",
     "src/features/notifications/notificationService.ts",
@@ -10584,6 +10586,10 @@
                         "type": "file"
                       },
                       {
+                        "name": "SourceTimelineRow.tsx",
+                        "type": "file"
+                      },
+                      {
                         "name": "chatWonderDisplay.ts",
                         "type": "file"
                       },
@@ -10795,6 +10801,10 @@
                   },
                   {
                     "name": "timelineReducer.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "timelineSource.ts",
                     "type": "file"
                   },
                   {
@@ -11331,6 +11341,7 @@
       "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
       "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
+      "src/features/chatPersistence/components/SourceTimelineRow.tsx",
       "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx",
       "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx",
       "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx",
@@ -11371,6 +11382,7 @@
       "src/features/chatTimeline/timelinePlatformError.ts",
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
       "src/features/chatTimeline/timelineReducer.ts",
+      "src/features/chatTimeline/timelineSource.ts",
       "src/features/chatTimeline/types.ts",
       "src/features/chatTimeline/usageSummary.ts"
     ],
@@ -11571,6 +11583,7 @@
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimePlanningBlock.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/SourceTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/awaiting/AwaitingFormViewport.native.tsx": "feature-chat-persistence",
@@ -11607,6 +11620,7 @@
     "src/features/chatTimeline/timelinePlatformError.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineReasoningIdentity.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineReducer.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelineSource.ts": "feature-chat-timeline",
     "src/features/chatTimeline/types.ts": "feature-chat-timeline",
     "src/features/chatTimeline/usageSummary.ts": "feature-chat-timeline",
     "src/features/notifications/notificationService.ts": "feature-notifications",
@@ -18436,6 +18450,9 @@
     "src/features/chatPersistence/components/RuntimeTimelineRow.tsx": [
       "RuntimeTimelineRow"
     ],
+    "src/features/chatPersistence/components/SourceTimelineRow.tsx": [
+      "SourceTimelineRow"
+    ],
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx": [
       "AwaitingDateTimeInput"
     ],
@@ -18780,6 +18797,12 @@
       "mergeChatTimelineState",
       "patchChatTimelineMessage"
     ],
+    "src/features/chatTimeline/timelineSource.ts": [
+      "NormalizedChatTimelineSourceEvent",
+      "chatTimelineSourceNodePayloadEquals",
+      "getChatTimelineSourceContentLength",
+      "normalizeChatTimelineSourceEvent"
+    ],
     "src/features/chatTimeline/types.ts": [
       "ChatTimelineAssistantReplyFooter",
       "ChatTimelineAssistantReplyFooterDisplayItem",
@@ -18821,6 +18844,9 @@
       "ChatTimelineRuntimeEntryKind",
       "ChatTimelineRuntimeState",
       "ChatTimelineRuntimeStatus",
+      "ChatTimelineSource",
+      "ChatTimelineSourceChunk",
+      "ChatTimelineSourceNode",
       "ChatTimelineState",
       "ChatTimelineTextNode",
       "ChatTimelineToolGroupDisplayItem",
@@ -22797,6 +22823,7 @@
       "./ChatTimelineRail",
       "./RuntimePlanningBlock",
       "./RuntimeTimelineRow",
+      "./SourceTimelineRow",
       "@shopify/flash-list",
       "react",
       "react-native"
@@ -22873,6 +22900,15 @@
       "./runtimePayloadDescriptor",
       "./runtimePayloadRenderers",
       "./runtimeToolStatusVisual",
+      "react",
+      "react-native"
+    ],
+    "src/features/chatPersistence/components/SourceTimelineRow.tsx": [
+      "../../../shared/i18n",
+      "../../../shared/icons/AppIcon",
+      "../../../shared/visual/AppThemeProvider",
+      "../../chatTimeline/index.ts",
+      "./ChatTimelineRail",
       "react",
       "react-native"
     ],
@@ -23105,6 +23141,7 @@
     ],
     "src/features/chatTimeline/timelineDisplay.ts": [
       "./timelinePlatformError.ts",
+      "./timelineSource.ts",
       "./types.ts"
     ],
     "src/features/chatTimeline/timelineEventFormat.ts": null,
@@ -23126,8 +23163,14 @@
       "./timelineEventFormat.ts",
       "./timelinePlatformError.ts",
       "./timelineReasoningIdentity.ts",
+      "./timelineSource.ts",
       "./types.ts",
       "./usageSummary.ts"
+    ],
+    "src/features/chatTimeline/timelineSource.ts": [
+      "../../core/api/services/chatEventProtocol.ts",
+      "./timelinePlatformError.ts",
+      "./types.ts"
     ],
     "src/features/chatTimeline/types.ts": [
       "../chatPersistence/types.ts"
@@ -26686,6 +26729,7 @@
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
+      "src/features/chatPersistence/components/SourceTimelineRow.tsx",
       "src/features/chatTimeline/index.ts",
       "src/shared/components/ConversationMarkdownRenderer.tsx",
       "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
@@ -26751,6 +26795,13 @@
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/SourceTimelineRow.tsx": [
+      "src/features/chatPersistence/components/ChatTimelineRail.tsx",
+      "src/features/chatTimeline/index.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx": [
       "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
@@ -26951,6 +27002,7 @@
     ],
     "src/features/chatTimeline/timelineDisplay.ts": [
       "src/features/chatTimeline/timelinePlatformError.ts",
+      "src/features/chatTimeline/timelineSource.ts",
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineEventFormat.ts": null,
@@ -26972,8 +27024,14 @@
       "src/features/chatTimeline/timelineEventFormat.ts",
       "src/features/chatTimeline/timelinePlatformError.ts",
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
+      "src/features/chatTimeline/timelineSource.ts",
       "src/features/chatTimeline/types.ts",
       "src/features/chatTimeline/usageSummary.ts"
+    ],
+    "src/features/chatTimeline/timelineSource.ts": [
+      "src/core/api/services/chatEventProtocol.ts",
+      "src/features/chatTimeline/timelinePlatformError.ts",
+      "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/types.ts": [
       "src/features/chatPersistence/types.ts"

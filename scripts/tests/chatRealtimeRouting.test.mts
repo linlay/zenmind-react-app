@@ -108,6 +108,7 @@ test('classifies removal and runtime protocol events', () => {
   assert.equal(classifyChatProtocolEvent({ type: 'awaiting.answered', chatId: 'chat-1' }), 'awaiting');
   assert.equal(classifyChatProtocolEvent({ type: 'reasoning.delta', chatId: 'chat-1' }), 'reasoning');
   assert.equal(classifyChatProtocolEvent({ type: 'tool.result', chatId: 'chat-1' }), 'tool');
+  assert.equal(classifyChatProtocolEvent({ type: 'source.publish', chatId: 'chat-1' }), 'source');
   assert.equal(classifyChatProtocolEvent({ type: 'context.compact.done', chatId: 'chat-1' }), 'context');
 });
 

@@ -25,6 +25,7 @@ import type {
   ChatTimelineNodeKind,
   ChatTimelineRuntimeStatus,
   ChatTimelineRunNode,
+  ChatTimelineSourceNode,
   ChatTimelineState,
   ChatTimelineTextNode,
   ChatTimelineToolNode,
@@ -52,6 +53,11 @@ import {
   formatChatTimelinePlatformErrorForDisplay,
   getChatTimelineErrorDetailSignature,
 } from './timelinePlatformError.ts';
+import {
+  chatTimelineSourceNodePayloadEquals,
+  getChatTimelineSourceContentLength,
+  normalizeChatTimelineSourceEvent,
+} from './timelineSource.ts';
 import { buildChatTimelineUsageSummary, chatTimelineUsageSummaryEquals } from './usageSummary.ts';
 
 export type MergeChatTimelineStateOptions = {
@@ -1000,6 +1006,9 @@ function getTimelineNodeContentLength(node: ChatTimelineNode): number {
   if (node.kind === 'run') {
     return node.title.length + node.body.length + node.status.length;
   }
+  if (node.kind === 'source') {
+    return getChatTimelineSourceContentLength(node);
+  }
   return node.title.length + node.body.length + node.status.length;
 }
 
@@ -1061,6 +1070,9 @@ function shouldPreferCurrentTimelineNode(
 
   if (current.kind === 'awaiting' && incoming.kind === 'awaiting') {
     return shouldPreferCurrentAwaitingNode(current, incoming);
+  }
+  if (current.kind === 'source' && incoming.kind === 'source') {
+    return current.updatedAt > incoming.updatedAt;
   }
 
   const currentLength = getTimelineNodeContentLength(current);
@@ -1311,15 +1323,20 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
       left.durationMs !== right.durationMs
     );
   }
+  if (left.kind === 'source' && right.kind === 'source') {
+    return !chatTimelineSourceNodePayloadEquals(left, right);
+  }
   if (
     left.kind !== 'message' &&
     left.kind !== 'tool' &&
     left.kind !== 'awaiting' &&
     left.kind !== 'run' &&
+    left.kind !== 'source' &&
     right.kind !== 'message' &&
     right.kind !== 'tool' &&
     right.kind !== 'awaiting' &&
-    right.kind !== 'run'
+    right.kind !== 'run' &&
+    right.kind !== 'source'
   ) {
     return (
       left.title !== right.title ||
@@ -1418,6 +1435,10 @@ function closeTimelineNodeForRun(
   }
 
   if (node.kind === 'run') {
+    return node;
+  }
+
+  if (node.kind === 'source') {
     return node;
   }
 
@@ -1921,6 +1942,50 @@ function applyToolEvent(
   });
 }
 
+function applySourceEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>
+): ChatTimelineState {
+  const normalized = normalizeChatTimelineSourceEvent(event);
+  const identity = normalized.publishId
+    ? normalized.stableId
+    : `${toText(event.runId) || 'run'}:${normalized.stableId}`;
+  const id = `source:${conversationId}:${identity}`;
+  const existing = state.nodesById[id];
+  const current = existing?.kind === 'source' ? existing : undefined;
+  const updatedAt = resolveTimestamp(
+    event,
+    current?.updatedAt ?? Date.now() + state.nextOrder
+  );
+  if (current && updatedAt < current.updatedAt) {
+    return state;
+  }
+
+  const runId = resolveEventRunId(event, state, current);
+  const baseState = current
+    ? state
+    : closeActiveReasoningNodesForRun(state, runId, updatedAt);
+  const node: ChatTimelineSourceNode = {
+    id,
+    kind: 'source',
+    publishId: normalized.publishId,
+    sourceKind: normalized.sourceKind,
+    query: normalized.query,
+    sourceCount: normalized.sourceCount,
+    chunkCount: normalized.chunkCount,
+    sources: normalized.sources,
+    errorDetail: normalized.errorDetail,
+    malformed: normalized.malformed,
+    runId,
+    createdAt: current?.createdAt ?? updatedAt,
+    updatedAt,
+    order: createOrder(baseState, current),
+    lifecycle: normalized.errorDetail ? 'error' : 'complete',
+  };
+  return upsertNode(baseState, node);
+}
+
 function applyAwaitingEvent(
   state: ChatTimelineState,
   conversationId: string,
@@ -2251,6 +2316,9 @@ export function applyChatTimelineEvent(
   }
   if (family === 'tool') {
     return applyToolEvent(state, conversationId, event);
+  }
+  if (family === 'source') {
+    return applySourceEvent(state, conversationId, event);
   }
   if (family === 'reasoning' || family === 'planning') {
     return applyRuntimeTextEvent(state, conversationId, event, family);

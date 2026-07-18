@@ -954,3 +954,44 @@ test('timeline display keeps assistant footer suppressed on tail completion with
   assert.equal(completedTailItem.node.streaming, false);
   assert.equal(assistantReplyFooterItems(completedTailModel.items).length, 0);
 });
+
+test('timeline display emits one stable source item and preserves empty results', () => {
+  const event = {
+    type: 'source.publish',
+    publishId: 'source-1',
+    runId: 'run-1',
+    query: '退款流程',
+    sources: [
+      {
+        id: 'refund.md',
+        title: '退款流程',
+        chunks: [{ chunkId: 'chunk-1', index: 1, content: '先提交申请' }],
+      },
+    ],
+    timestamp: 100,
+  };
+  const initial = deriveChatTimelineState('chat-source', [
+    event,
+    {
+      type: 'source.publish',
+      publishId: 'source-empty',
+      runId: 'run-1',
+      query: '不存在',
+      sourceCount: 0,
+      sources: [],
+      timestamp: 110,
+    },
+  ]);
+  const initialModel = buildChatTimelineDisplayModel(initial);
+  const repeated = applyChatTimelineEvent(initial, 'chat-source', event);
+  const repeatedModel = buildChatTimelineDisplayModel(repeated, initialModel);
+
+  assert.deepEqual(displayKinds(initialModel.items), ['source', 'source']);
+  assert.equal(initialModel.items[0].key, repeatedModel.items[0].key);
+  assert.equal(initialModel.items[0].node, repeatedModel.items[0].node);
+  assert.equal(initialModel.items[1].node.kind, 'source');
+  assert.equal(
+    initialModel.items[1].node.kind === 'source' ? initialModel.items[1].node.sources.length : -1,
+    0
+  );
+});

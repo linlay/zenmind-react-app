@@ -22,7 +22,11 @@ import {
   type RuntimePlanningCollapseOverlayRequest,
 } from './RuntimePlanningBlock';
 import { RuntimePayloadFrame } from './RuntimePayloadFrame';
-import { buildRuntimePayloadDescriptor, type RuntimePayloadDescriptor } from './runtimePayloadDescriptor';
+import {
+  buildRuntimePayloadDescriptor,
+  type RuntimePayloadDescriptor,
+  type RuntimePayloadSource,
+} from './runtimePayloadDescriptor';
 import { RuntimePayloadContent } from './runtimePayloadRenderers';
 import { getRuntimeToolStatusColor } from './runtimeToolStatusVisual';
 
@@ -62,6 +66,16 @@ function getToneColor(colors: AppVisualColors, tone: RuntimePayloadDescriptor['t
     return colors.success;
   }
   return colors.textSecondary;
+}
+
+function getRuntimePayloadSource(
+  item: Exclude<ChatTimelineDisplayItem, ChatTimelineAssistantReplyFooterDisplayItem>
+): RuntimePayloadSource {
+  const source = item.kind === 'tool-group' ? item : item.node;
+  if (source.kind === 'source') {
+    throw new Error('source timeline items must use SourceTimelineRow');
+  }
+  return source;
 }
 
 const RunningToolStatusDot = memo(function RunningToolStatusDot({
@@ -170,7 +184,7 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
   const t = useT();
   const { theme } = useAppTheme();
   const descriptor = useMemo(
-    () => buildRuntimePayloadDescriptor(item.kind === 'tool-group' ? item : item.node, t),
+    () => buildRuntimePayloadDescriptor(getRuntimePayloadSource(item), t),
     [item, t]
   );
   const [expanded, setExpanded] = useState(() => getInitialExpanded(descriptor.id, descriptor.defaultExpanded));

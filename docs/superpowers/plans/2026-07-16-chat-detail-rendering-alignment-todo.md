@@ -35,7 +35,7 @@
 
 | 状态 | ID | 优先级 | 差异分类 | 类型 / 范围 | 当前实现与差距 | `agent-webclient` 基准 | 完成定义 | 主要落点 / 依赖 |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| [ ] | TODO-01 | P1 | 未接入专用渲染 | `source.publish` 来源结果 | 当前事件分类和 timeline kind 没有 `source`，来源事件会丢失或落入非专用路径。 | `eventProcessorSource.ts`、`SourceBlock.tsx` | `source.publish` 在实时 push、detail replay 和 SQLite snapshot 中生成稳定 source 节点；列表显示查询词、结果数和来源摘要；可展开查看 URL、标题、片段与元数据；空结果和异常有降级。 | `chatEventProtocol.ts`、`types.ts`、`timelineReducer.ts`、`timelineDisplay.ts`、新增 Source row；需协议、reducer、display、snapshot/replay 测试。 |
+| [x] | TODO-01 | P1 | 未接入专用渲染 | `source.publish` 来源结果 | 当前事件分类和 timeline kind 没有 `source`，来源事件会丢失或落入非专用路径。 | `eventProcessorSource.ts`、`SourceBlock.tsx` | `source.publish` 在实时 push、detail replay 和 SQLite snapshot 中生成稳定 source 节点；列表显示查询词、结果数和来源摘要；可展开查看 URL、标题、片段与元数据；空结果和异常有降级。 | `chatEventProtocol.ts`、`types.ts`、`timelineReducer.ts`、`timelineDisplay.ts`、新增 Source row；需协议、reducer、display、snapshot/replay 测试。 |
 | [ ] | TODO-02 | P1 | 未接入专用渲染 | 消息内 `viewport` fence | 当前 Markdown 将 `viewport` 当普通代码块；只有 awaiting form 有 viewport WebView，普通助手内容没有 segment 模型。 | `contentSegments.ts`、`ContentBlock.tsx`、`ViewportEmbed.tsx` | 流式内容能安全识别完整/未完整 fence；完整 viewport 与文本按原顺序混排；通过 feature service 获取 HTML；支持 loading、error、刷新和高度边界；普通代码块不被误判。 | 先扩展 timeline content segment 与 snapshot schema，再复用/抽取现有 awaiting viewport 基础设施；不得让 shared Markdown 反向依赖 chat feature。 |
 | [ ] | TODO-03 | P1 | 未接入专用渲染 | Frontend Tool 交互视口 | 当前仅实现 awaiting form 的 `frontend_awaiting_submit`，没有 active frontend tool 生命周期和工具提交桥接。 | `FrontendToolContainer.tsx`、conversation `activeFrontendTool` 状态 | 能从工具事件建立 active tool；加载对应 viewport；完成 `tool_init` 与允许的前端提交消息桥接；提交经 `chatSyncService`；正确处理 done、关闭、切换会话、超时和加载失败；未知消息不执行。 | 建议在 chat timeline/realtime 持有 active 状态，feature UI 承载 WebView；可复用 TODO-02 的安全 viewport 容器。 |
 | [ ] | TODO-04 | P1 | 已接入但有差距 | `artifact.publish` 资源卡 | 当前协议已归到 artifact，最终由 runtime descriptor 以通用 record / code 行展示，资源语义和操作丢失。 | `ArtifactPanel.tsx`、`AttachmentCard.tsx`、artifact processor | artifact item 归一为有类型的资源模型；显示名称、类型、大小、生成状态和摘要；支持受认证的预览/下载；图片、文本、PDF、未知格式均有明确策略；实时和回放一致。 | `chatEventProtocol.ts`、`types.ts`、`timelineReducer.ts`、`runtimePayloadDescriptor.ts` 或新增 Artifact row；资源请求走 core API/service。 |
@@ -86,6 +86,7 @@
 
 | TODO ID | 完成日期 | 主要变更 | 验证结果 | 备注 |
 | --- | --- | --- | --- | --- |
+| TODO-01 | 2026-07-18 | `source.publish` 协议分类、结构化 source/chunk 归一、幂等/乱序/reconcile 合并、rich snapshot/history replay、分页展开 Source row 与空结果/异常/畸形数据降级 | 聚焦测试 114/114、typecheck、lint（0 error，2 条既有 warning）、全量 test 381/381、三平台 export build、`xgraph status` 通过 | 未新增依赖或数据库表；source 不写入 legacy runtimeState，避免重复状态与重复渲染 |
 | TODO-10 | 2026-07-17 | 统一 fence segment、Mermaid 离线 sandbox runtime、源码折叠/复制、缩放/重置/平移、可见性与高度缓存 | 聚焦测试 10/10、typecheck、lint、三平台 export build 与 Web 三类 runtime smoke 通过；全量 test 337/340，3 项为既有 Worklets patch/node_modules 基线不一致 | 只修改 `package.json` 依赖声明，未修改 lock；需手动安装依赖 |
 | TODO-11 | 2026-07-17 | ECharts 离线 sandbox runtime、PC JavaScript option/function 兼容、resize/dispose、错误重试 | 同 TODO-10 | `Function` 仅存在于 opaque-origin 内层 sandbox runtime |
 | TODO-12 | 2026-07-17 | HTML 默认源码展开、显式独立预览层、CSP/sandbox/bridge/导航限制 | 同 TODO-10 | HTML 允许内联脚本，禁止外部网络和 App bridge |

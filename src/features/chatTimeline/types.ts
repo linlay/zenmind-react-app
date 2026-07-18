@@ -11,6 +11,7 @@ export type ChatTimelineNodeKind =
   | 'run'
   | 'request'
   | 'artifact'
+  | 'source'
   | 'action'
   | 'plan'
   | 'task'
@@ -42,6 +43,38 @@ export type ChatTimelineErrorDetail = {
   diagnostics: unknown;
   raw: unknown;
   technicalText: string;
+};
+
+export type ChatTimelineSourceChunk = {
+  chunkId: string;
+  index: number;
+  content: string;
+  score?: number;
+  timestamp?: number;
+  path?: string;
+  heading?: string;
+  startLine?: number;
+  endLine?: number;
+  pageStart?: number;
+  pageEnd?: number;
+  slideStart?: number;
+  slideEnd?: number;
+  sourceType?: string;
+  matchType?: string;
+};
+
+export type ChatTimelineSource = {
+  id: string;
+  name: string;
+  title?: string;
+  icon?: string;
+  url?: string;
+  link?: string;
+  collectionId?: string;
+  collectionName?: string;
+  chunkIndexes: number[];
+  minIndex: number;
+  chunks: ChatTimelineSourceChunk[];
 };
 
 export type ChatTimelineAwaitingQuestionType =
@@ -222,6 +255,18 @@ export type ChatTimelineToolNode = ChatTimelineBaseNode & {
   streaming: boolean;
 };
 
+export type ChatTimelineSourceNode = ChatTimelineBaseNode & {
+  kind: 'source';
+  publishId: string;
+  sourceKind: string;
+  query: string;
+  sourceCount: number;
+  chunkCount: number;
+  sources: ChatTimelineSource[];
+  errorDetail: ChatTimelineErrorDetail | null;
+  malformed: boolean;
+};
+
 export type ChatTimelineAwaitingNode = ChatTimelineBaseNode & {
   kind: 'awaiting';
   awaitingId: string;
@@ -249,6 +294,7 @@ export type ChatTimelineNode =
   | ChatTimelineMessageNode
   | ChatTimelineTextNode
   | ChatTimelineToolNode
+  | ChatTimelineSourceNode
   | ChatTimelineAwaitingNode
   | ChatTimelineRunNode;
 
@@ -267,7 +313,7 @@ export type ChatTimelineAwaitingState = {
   updatedAt: number;
 };
 
-export type ChatTimelineRuntimeEntryKind = Exclude<ChatTimelineNodeKind, 'message'>;
+export type ChatTimelineRuntimeEntryKind = Exclude<ChatTimelineNodeKind, 'message' | 'source'>;
 
 export type ChatTimelineRuntimeEntry = {
   id: string;
@@ -358,6 +404,7 @@ export type ChatTimelineDisplayItemKind =
   | 'tool-group'
   | 'awaiting'
   | 'artifact'
+  | 'source'
   | 'action'
   | 'plan'
   | 'task'

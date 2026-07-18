@@ -12,6 +12,7 @@ export type ChatProtocolEventFamily =
   | 'reasoning'
   | 'planning'
   | 'tool'
+  | 'source'
   | 'artifact'
   | 'action'
   | 'plan'
@@ -287,6 +288,9 @@ export function classifyChatProtocolEvent(event: Record<string, unknown>): ChatP
   }
   if (type.startsWith('tool.')) {
     return 'tool';
+  }
+  if (type === 'source.publish') {
+    return 'source';
   }
   if (type === 'artifact.publish') {
     return 'artifact';

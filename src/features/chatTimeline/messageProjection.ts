@@ -10,18 +10,24 @@ import type {
   ChatTimelineRuntimeEntry,
   ChatTimelineRuntimeState,
   ChatTimelineState,
+  ChatTimelineSourceNode,
   ChatTimelineTextNode,
   ChatTimelineToolNode,
 } from './types.ts';
 
-function runtimeStatusForProjectedNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): string {
+type ProjectedRuntimeNode = Exclude<
+  ChatTimelineNode,
+  ChatTimelineMessageNode | ChatTimelineSourceNode
+>;
+
+function runtimeStatusForProjectedNode(node: ProjectedRuntimeNode): string {
   if (node.kind === 'awaiting') {
     return node.status === 'answer' ? 'answered' : 'waiting';
   }
   return node.status;
 }
 
-function bodyForNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): string {
+function bodyForNode(node: ProjectedRuntimeNode): string {
   if (node.kind === 'awaiting') {
     return [node.prompt, node.payloadText, node.answer].filter(Boolean).join('\n');
   }
@@ -31,16 +37,14 @@ function bodyForNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): 
   return node.body;
 }
 
-function titleForNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): string {
+function titleForNode(node: ProjectedRuntimeNode): string {
   if (node.kind === 'awaiting') {
     return `awaiting.${node.mode}`;
   }
   return node.title;
 }
 
-function runtimeEntryFromNode(
-  node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>
-): ChatTimelineRuntimeEntry | null {
+function runtimeEntryFromNode(node: ProjectedRuntimeNode): ChatTimelineRuntimeEntry | null {
   if (node.kind === 'run' && node.lifecycle === 'active') {
     return null;
   }
@@ -91,8 +95,8 @@ export function projectTimelineRuntimeState(state: ChatTimelineState): ChatTimel
   const entries = state.orderedNodeIds
     .map((id) => state.nodesById[id])
     .filter(
-      (node): node is Exclude<ChatTimelineNode, ChatTimelineMessageNode> =>
-        Boolean(node) && node.kind !== 'message'
+      (node): node is ProjectedRuntimeNode =>
+        Boolean(node) && node.kind !== 'message' && node.kind !== 'source'
     )
     .map(runtimeEntryFromNode)
     .filter((entry): entry is ChatTimelineRuntimeEntry => Boolean(entry))

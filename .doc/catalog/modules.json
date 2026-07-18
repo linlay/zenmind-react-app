@@ -138,7 +138,7 @@
     {
       "id": "feature-chat-timeline",
       "title": "feature-chat-timeline",
-      "summary": "聊天详情 Timeline 投影: 提供纯函数 timeline reducer，把 request.query、content.*、run.*、reasoning/planning/tool/awaiting/artifact/action/plan/task/usage/context 等事件归并为单会话有序节点。",
+      "summary": "聊天详情 Timeline 投影: 提供纯函数 timeline reducer，把 request.query、content.*、run.*、reasoning/planning/tool/source/awaiting/artifact/action/plan/task/usage/context 等事件归并为单会话有序节点。",
       "pathHints": [
         "src/features/chatTimeline"
       ],

@@ -8,11 +8,13 @@ import type {
   ChatTimelineNode,
   ChatTimelineNodeDisplayItem,
   ChatTimelineState,
+  ChatTimelineSourceNode,
   ChatTimelineTextNode,
   ChatTimelineToolGroupDisplayItem,
   ChatTimelineToolNode,
 } from './types.ts';
 import { getChatTimelineErrorDetailSignature } from './timelinePlatformError.ts';
+import { getChatTimelineSourceContentLength } from './timelineSource.ts';
 
 type ChatTimelineDisplayTextNode = ChatTimelineTextNode & {
   kind: Exclude<ChatTimelineTextNode['kind'], 'usage'>;
@@ -22,6 +24,7 @@ type ChatTimelineDisplayNode =
   | ChatTimelineMessageNode
   | ChatTimelineDisplayTextNode
   | ChatTimelineToolNode
+  | ChatTimelineSourceNode
   | ChatTimelineAwaitingNode;
 
 type ChatTimelineReasoningDisplayNode = ChatTimelineDisplayTextNode & {
@@ -100,6 +103,9 @@ function isVisibleTimelineNode(
   }
   if (node.kind === 'tool') {
     return Boolean(node.title || node.body || node.argsText || node.resultText);
+  }
+  if (node.kind === 'source') {
+    return true;
   }
   if (node.kind === 'reasoning' && !node.body.trim() && isDefaultReasoningNode(node)) {
     return isActiveTimelineDisplayNode(node);
@@ -616,6 +622,9 @@ function getTimelineNodeContentLength(node: ChatTimelineNode): number {
   }
   if (node.kind === 'run') {
     return node.title.length + node.body.length + node.status.length;
+  }
+  if (node.kind === 'source') {
+    return getChatTimelineSourceContentLength(node);
   }
   return node.title.length + node.body.length + node.status.length;
 }

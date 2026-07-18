@@ -44,6 +44,7 @@ import {
   type RuntimePlanningCollapseOverlayRequest,
 } from './RuntimePlanningBlock';
 import { RuntimeTimelineRow } from './RuntimeTimelineRow';
+import { SourceTimelineRow } from './SourceTimelineRow';
 
 type ChatTimelineListProps = {
   timelineState: ChatTimelineState;
@@ -785,6 +786,16 @@ const TimelineRow = memo(
     if (item.kind === 'awaiting' && node.kind === 'awaiting' && node.answerSummary) {
       return (
         <AwaitingAnswerTimelineRow
+          node={node}
+          isLastInRun={item.isLastInRun}
+          getInitialExpanded={getInitialRuntimeExpanded}
+          onExpandedChange={onRuntimeExpandedChange}
+        />
+      );
+    }
+    if (item.kind === 'source' && node.kind === 'source') {
+      return (
+        <SourceTimelineRow
           node={node}
           isLastInRun={item.isLastInRun}
           getInitialExpanded={getInitialRuntimeExpanded}
