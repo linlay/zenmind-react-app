@@ -8,6 +8,11 @@ import {
   serializeChatTimelineState,
   timelinePersistenceInternals,
 } from '../../src/features/chatTimeline/index.ts';
+import { parseConversationMarkdownSegments } from '../../src/shared/markdown/previewSegments.ts';
+import {
+  CONVERSATION_VIEWPORT_FENCE_EXTENSIONS,
+  type ConversationViewportFenceData
+} from '../../src/features/chatPersistence/conversationViewport/conversationViewportFence.ts';
 
 test('timeline persistence roundtrips rich runtime nodes without replaying events', () => {
   const state = deriveChatTimelineState('chat-rich', [
@@ -452,4 +457,43 @@ test('timeline persistence roundtrips structured source nodes without replay', (
   assert.deepEqual(restored, state);
   assert.equal(source?.kind, 'source');
   assert.equal(source?.kind === 'source' ? source.sources[0].chunks[0].score : null, 0.91);
+});
+
+test('timeline persistence derives the same viewport segments from restored assistant content', () => {
+  const content = [
+    '天气如下：',
+    '```viewport',
+    'type=html,key=weather-card',
+    '{"city":"Shanghai"}',
+    '```',
+    '以上为实时结果。'
+  ].join('\n');
+  const state = deriveChatTimelineState('chat-viewport', [
+    {
+      type: 'content.snapshot',
+      contentId: 'content-viewport',
+      runId: 'run-viewport',
+      text: content,
+      timestamp: 100
+    }
+  ]);
+  const serialized = serializeChatTimelineState(state);
+  const restored = deserializeChatTimelineState(serialized.meta, serialized.nodes);
+  const message = restored?.orderedNodeIds
+    .map((nodeId) => restored.nodesById[nodeId])
+    .find((node) => node?.kind === 'message');
+
+  assert.equal(message?.kind, 'message');
+  const segments = parseConversationMarkdownSegments(
+    message?.kind === 'message' ? message.content : '',
+    { extensions: CONVERSATION_VIEWPORT_FENCE_EXTENSIONS }
+  );
+  assert.deepEqual(segments.map((segment) => segment.type), ['markdown', 'extension', 'markdown']);
+  const viewport = segments[1];
+  assert.equal(
+    viewport?.type === 'extension'
+      ? (viewport.data as ConversationViewportFenceData).viewportKey
+      : '',
+    'weather-card'
+  );
 });

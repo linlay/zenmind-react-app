@@ -2157,6 +2157,11 @@
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
+    "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx",
+    "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx",
+    "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts",
+    "src/features/chatPersistence/conversationViewport/viewportDocument.ts",
+    "src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts",
     "src/features/chatPersistence/database.ts",
     "src/features/chatPersistence/homeSnapshot.ts",
     "src/features/chatPersistence/schema.ts",
@@ -10612,6 +10617,32 @@
                     ]
                   },
                   {
+                    "name": "conversationViewport",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "ConversationContentRenderer.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ConversationViewportBlock.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "conversationViewportFence.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "viewportDocument.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "viewportDocumentStore.ts",
+                        "type": "file"
+                      }
+                    ]
+                  },
+                  {
                     "name": "ChatDetailScreen.tsx",
                     "type": "file"
                   },
@@ -11356,6 +11387,11 @@
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/features/chatPersistence/components/runtimePayloadRenderers.tsx",
       "src/features/chatPersistence/components/runtimeToolStatusVisual.ts",
+      "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx",
+      "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx",
+      "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts",
+      "src/features/chatPersistence/conversationViewport/viewportDocument.ts",
+      "src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts",
       "src/features/chatPersistence/database.ts",
       "src/features/chatPersistence/homeSnapshot.ts",
       "src/features/chatPersistence/schema.ts",
@@ -11598,6 +11634,11 @@
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/conversationViewport/viewportDocument.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts": "feature-chat-persistence",
     "src/features/chatPersistence/database.ts": "feature-chat-persistence",
     "src/features/chatPersistence/homeSnapshot.ts": "feature-chat-persistence",
     "src/features/chatPersistence/schema.ts": "feature-chat-persistence",
@@ -17819,7 +17860,6 @@
       "AwaitingQuestionSubmitParamData",
       "AwaitingSubmitParamData",
       "AwaitingSubmitPayloadData",
-      "AwaitingViewportResponse",
       "CHAT_AGENT_DETAIL_TRANSPORT_TYPE",
       "CHAT_DETAIL_TRANSPORT_TYPE",
       "CHAT_READ_TRANSPORT_TYPE",
@@ -17827,6 +17867,7 @@
       "CHAT_SUMMARIES_TRANSPORT_TYPE",
       "ChatApiEnvelope",
       "ChatDetailRequest",
+      "ChatViewportResponse",
       "MarkChatReadPayload",
       "MarkChatReadRequest",
       "MarkChatReadResponse",
@@ -17851,7 +17892,7 @@
       "buildChatDetailPayload",
       "buildMarkChatReadPayload",
       "buildSubmitAwaitingPayload",
-      "getAwaitingViewportApi",
+      "getChatViewportApi",
       "projectRemoteAgentDetail",
       "unwrapChatApiEnvelope"
     ],
@@ -18554,6 +18595,26 @@
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": [
       "getRuntimeToolStatusColor"
     ],
+    "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx": [
+      "ConversationContentRenderer"
+    ],
+    "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx": [
+      "ConversationViewportBlock"
+    ],
+    "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts": [
+      "CONVERSATION_VIEWPORT_FENCE_EXTENSION",
+      "CONVERSATION_VIEWPORT_FENCE_EXTENSIONS",
+      "ConversationViewportFenceData",
+      "isConversationViewportFenceData",
+      "parseConversationViewportFence"
+    ],
+    "src/features/chatPersistence/conversationViewport/viewportDocument.ts": [
+      "conversationViewportDocumentStore"
+    ],
+    "src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts": [
+      "ConversationViewportDocumentStore",
+      "createConversationViewportDocumentStore"
+    ],
     "src/features/chatPersistence/database.ts": [
       "ChatDatabaseScopeDeleteStatus",
       "chatDb",
@@ -18987,6 +19048,7 @@
     ],
     "src/shared/components/conversationPreview/types.ts": [
       "ConversationPreviewEvent",
+      "ConversationPreviewHeightBounds",
       "ConversationPreviewRequest",
       "ConversationPreviewSurfaceProps",
       "ConversationPreviewTheme"
@@ -19113,8 +19175,11 @@
       "getConversationPreviewKind"
     ],
     "src/shared/markdown/previewSegments.ts": [
+      "ConversationMarkdownFenceExtension",
+      "ConversationMarkdownFenceExtensionSegment",
       "ConversationMarkdownSegment",
       "ConversationMarkdownSegmentCache",
+      "ConversationMarkdownSegmentParserOptions",
       "createConversationMarkdownSegmentCache",
       "hashConversationPreviewSource",
       "parseConversationMarkdownSegments"
@@ -22818,6 +22883,7 @@
       "../../../shared/visual/foundation",
       "../../chatTimeline/index.ts",
       "../chatDetailFormatters",
+      "../conversationViewport/ConversationContentRenderer",
       "./ChatAttachmentStrip",
       "./ChatSystemAlert",
       "./ChatTimelineRail",
@@ -22937,6 +23003,7 @@
       "../../../../shared/i18n",
       "../../../../shared/visual/AppThemeProvider",
       "../../../chatTimeline/index.ts",
+      "../../conversationViewport/viewportDocument",
       "./AwaitingFormViewportTypes",
       "./awaitingSubmitState",
       "react",
@@ -23014,6 +23081,38 @@
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": [
       "../../../shared/visual/foundation",
       "./runtimePayloadDescriptor"
+    ],
+    "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx": [
+      "../../../shared/components/ConversationMarkdownRenderer",
+      "../../../shared/markdown/previewSegments",
+      "./ConversationViewportBlock",
+      "./conversationViewportFence",
+      "react"
+    ],
+    "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx": [
+      "../../../shared/components/conversationPreview/ConversationPreviewProvider",
+      "../../../shared/components/conversationPreview/PreviewErrorPanel",
+      "../../../shared/components/conversationPreview/PreviewSurface",
+      "../../../shared/components/conversationPreview/types",
+      "../../../shared/components/conversationPreview/usePreviewExecutionState",
+      "../../../shared/i18n",
+      "../../../shared/icons/AppIcon",
+      "../../../shared/markdown/previewSegments",
+      "../../../shared/visual/AppThemeProvider",
+      "./viewportDocument",
+      "react",
+      "react-native"
+    ],
+    "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts": [
+      "../../../shared/components/conversationPreview/runtimeBridge.ts",
+      "../../../shared/markdown/previewSegments.ts"
+    ],
+    "src/features/chatPersistence/conversationViewport/viewportDocument.ts": [
+      "../../../core/api/services/chatApi.ts",
+      "./viewportDocumentStore"
+    ],
+    "src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts": [
+      "../../../shared/components/conversationPreview/runtimeBridge.ts"
     ],
     "src/features/chatPersistence/database.ts": [
       "./cacheScope",
@@ -26730,6 +26829,7 @@
       "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
       "src/features/chatPersistence/components/SourceTimelineRow.tsx",
+      "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx",
       "src/features/chatTimeline/index.ts",
       "src/shared/components/ConversationMarkdownRenderer.tsx",
       "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
@@ -26823,6 +26923,7 @@
       "src/core/api/services/chatApi.ts",
       "src/features/chatPersistence/components/awaiting/AwaitingFormViewportTypes.ts",
       "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
+      "src/features/chatPersistence/conversationViewport/viewportDocument.ts",
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/index.ts",
       "src/shared/visual/AppThemeProvider.tsx"
@@ -26890,6 +26991,35 @@
     "src/features/chatPersistence/components/runtimeToolStatusVisual.ts": [
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
       "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/conversationViewport/ConversationContentRenderer.tsx": [
+      "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx",
+      "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts",
+      "src/shared/components/ConversationMarkdownRenderer.tsx",
+      "src/shared/markdown/previewSegments.ts"
+    ],
+    "src/features/chatPersistence/conversationViewport/ConversationViewportBlock.tsx": [
+      "src/features/chatPersistence/conversationViewport/viewportDocument.ts",
+      "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
+      "src/shared/components/conversationPreview/PreviewErrorPanel.tsx",
+      "src/shared/components/conversationPreview/PreviewSurface.tsx",
+      "src/shared/components/conversationPreview/types.ts",
+      "src/shared/components/conversationPreview/usePreviewExecutionState.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/markdown/previewSegments.ts",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
+    "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts": [
+      "src/shared/components/conversationPreview/runtimeBridge.ts",
+      "src/shared/markdown/previewSegments.ts"
+    ],
+    "src/features/chatPersistence/conversationViewport/viewportDocument.ts": [
+      "src/core/api/services/chatApi.ts",
+      "src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts"
+    ],
+    "src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts": [
+      "src/shared/components/conversationPreview/runtimeBridge.ts"
     ],
     "src/features/chatPersistence/database.ts": [
       "src/features/chatPersistence/cacheScope.ts",

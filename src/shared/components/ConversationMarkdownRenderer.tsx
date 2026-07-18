@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
+import { Fragment, memo, useCallback, useMemo, type ReactNode } from 'react';
 import { Linking, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import type { MarkdownStyle } from 'react-native-enriched-markdown';
 import { EnrichedMarkdownText } from 'react-native-enriched-markdown';
@@ -8,6 +8,8 @@ import { PreviewCodeBlock } from './conversationPreview/PreviewCodeBlock';
 import { preprocessMarkdownContent } from '../markdown/preprocess';
 import {
   createConversationMarkdownSegmentCache,
+  type ConversationMarkdownFenceExtension,
+  type ConversationMarkdownFenceExtensionSegment,
   type ConversationMarkdownSegmentCache
 } from '../markdown/previewSegments';
 import { useAppTheme } from '../visual/AppThemeProvider';
@@ -21,6 +23,8 @@ type ConversationMarkdownRendererProps = {
   textColor?: string;
   linkColor?: string;
   onLinkPress?: (url: string) => boolean | void;
+  fenceExtensions?: readonly ConversationMarkdownFenceExtension[];
+  renderFenceExtension?: (segment: ConversationMarkdownFenceExtensionSegment) => ReactNode | undefined;
 };
 
 const MONO_FONT_FAMILY = 'monospace';
@@ -33,7 +37,9 @@ export const ConversationMarkdownRenderer = memo(function ConversationMarkdownRe
   style,
   textColor,
   linkColor,
-  onLinkPress
+  onLinkPress,
+  fenceExtensions,
+  renderFenceExtension
 }: ConversationMarkdownRendererProps) {
   const { theme } = useAppTheme();
   const resolvedTextColor = textColor ?? theme.colors.textPrimary;
@@ -42,11 +48,10 @@ export const ConversationMarkdownRenderer = memo(function ConversationMarkdownRe
     () => (streaming ? String(markdown || '') : preprocessMarkdownContent(markdown)),
     [markdown, streaming]
   );
-  const segmentCacheRef = useRef<ConversationMarkdownSegmentCache | null>(null);
-  if (!segmentCacheRef.current) {
-    segmentCacheRef.current = createConversationMarkdownSegmentCache();
-  }
-  const segmentCache = segmentCacheRef.current;
+  const segmentCache = useMemo<ConversationMarkdownSegmentCache>(
+    () => createConversationMarkdownSegmentCache({ extensions: fenceExtensions }),
+    [fenceExtensions]
+  );
   const segments = useMemo(() => segmentCache.parse(renderedMarkdown), [renderedMarkdown, segmentCache]);
   const containerStyle = useMemo(() => StyleSheet.flatten(style), [style]);
   const markdownStyle = useMemo<MarkdownStyle>(
@@ -182,6 +187,22 @@ export const ConversationMarkdownRenderer = memo(function ConversationMarkdownRe
   return (
     <View style={containerStyle}>
       {segments.map((segment) => {
+        if (segment.type === 'extension') {
+          const rendered = renderFenceExtension?.(segment);
+          if (rendered !== undefined) {
+            return <Fragment key={segment.key}>{rendered}</Fragment>;
+          }
+          return streaming ? (
+            <StreamdownText
+              key={segment.key}
+              {...commonProps}
+              markdown={segment.rawMarkdown}
+              streamingConfig={{ tableMode: 'progressive' }}
+            />
+          ) : (
+            <EnrichedMarkdownText key={segment.key} {...commonProps} markdown={segment.rawMarkdown} />
+          );
+        }
         if (segment.type !== 'markdown') {
           return (
             <PreviewCodeBlock

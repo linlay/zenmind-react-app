@@ -1,4 +1,8 @@
-import type { ConversationPreviewKind, ConversationPreviewTheme } from './types';
+import type {
+  ConversationPreviewHeightBounds,
+  ConversationPreviewKind,
+  ConversationPreviewTheme
+} from './types';
 
 const MAX_HEIGHT_CACHE_ENTRIES = 64;
 
@@ -24,23 +28,38 @@ export function createConversationPreviewHeightCacheKey(
   return `${kind}:${sourceHash}:${theme}`;
 }
 
-export function clampConversationPreviewHeight(kind: ConversationPreviewKind, height: number): number {
-  const [minimum, maximum] = HEIGHT_RANGE_BY_KIND[kind];
+export function clampConversationPreviewHeight(
+  kind: ConversationPreviewKind,
+  height: number,
+  bounds?: ConversationPreviewHeightBounds
+): number {
+  const [defaultMinimum, defaultMaximum] = HEIGHT_RANGE_BY_KIND[kind];
+  const minimum = bounds?.minimum ?? defaultMinimum;
+  const maximum = bounds?.maximum ?? defaultMaximum;
   return Math.min(maximum, Math.max(minimum, Math.round(height)));
 }
 
-export function getConversationPreviewHeight(kind: ConversationPreviewKind, cacheKey: string): number {
+export function getConversationPreviewHeight(
+  kind: ConversationPreviewKind,
+  cacheKey: string,
+  bounds?: ConversationPreviewHeightBounds
+): number {
   const cached = heightCache.get(cacheKey);
   if (cached === undefined) {
-    return INITIAL_HEIGHT_BY_KIND[kind];
+    return bounds?.initial ?? INITIAL_HEIGHT_BY_KIND[kind];
   }
   heightCache.delete(cacheKey);
   heightCache.set(cacheKey, cached);
   return cached;
 }
 
-export function setConversationPreviewHeight(kind: ConversationPreviewKind, cacheKey: string, height: number): number {
-  const clamped = clampConversationPreviewHeight(kind, height);
+export function setConversationPreviewHeight(
+  kind: ConversationPreviewKind,
+  cacheKey: string,
+  height: number,
+  bounds?: ConversationPreviewHeightBounds
+): number {
+  const clamped = clampConversationPreviewHeight(kind, height, bounds);
   heightCache.delete(cacheKey);
   heightCache.set(cacheKey, clamped);
   while (heightCache.size > MAX_HEIGHT_CACHE_ENTRIES) {

@@ -436,6 +436,11 @@ export const enUS: Record<I18nKey, string> = {
   'timeline.source.score': 'score {score}',
   'timeline.source.showMoreSources': 'Show {count} more sources',
   'timeline.source.showMoreChunks': 'Show {count} more chunks',
+  'timeline.viewport.title': 'Interactive viewport',
+  'timeline.viewport.loading': 'Loading viewport',
+  'timeline.viewport.deferred': 'The viewport will load when visible',
+  'timeline.viewport.refresh': 'Refresh viewport',
+  'timeline.viewport.loadFailed': 'Failed to load viewport: {detail}',
   'copyToast.default': 'Copied to clipboard',
 
   'markdownPreview.mermaid': 'Mermaid diagram',

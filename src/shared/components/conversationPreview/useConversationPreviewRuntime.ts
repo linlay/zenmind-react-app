@@ -16,6 +16,8 @@ import type { ConversationPreviewRequest, ConversationPreviewSurfaceProps } from
 export function useConversationPreviewRuntime({
   active,
   cacheKey,
+  heightBounds,
+  initialData,
   kind,
   mode,
   retryNonce,
@@ -26,12 +28,12 @@ export function useConversationPreviewRuntime({
 }: ConversationPreviewSurfaceProps) {
   const t = useT();
   const [runtimeHtml, setRuntimeHtml] = useState('');
-  const [height, setHeight] = useState(() => getConversationPreviewHeight(kind, cacheKey));
+  const [height, setHeight] = useState(() => getConversationPreviewHeight(kind, cacheKey, heightBounds));
   const [loaded, setLoaded] = useState(false);
   const requestId = useMemo(() => createConversationPreviewRequestId(cacheKey, retryNonce), [cacheKey, retryNonce]);
   const request = useMemo<ConversationPreviewRequest>(
-    () => ({ requestId, kind, source, theme, mode }),
-    [kind, mode, requestId, source, theme]
+    () => ({ requestId, kind, source, theme, mode, ...(initialData !== undefined ? { initialData } : {}) }),
+    [initialData, kind, mode, requestId, source, theme]
   );
   const serializedRequest = useMemo(() => serializeConversationPreviewRequest(request), [request]);
 
@@ -40,8 +42,8 @@ export function useConversationPreviewRuntime({
   }, [requestId]);
 
   useEffect(() => {
-    setHeight(getConversationPreviewHeight(kind, cacheKey));
-  }, [cacheKey, kind]);
+    setHeight(getConversationPreviewHeight(kind, cacheKey, heightBounds));
+  }, [cacheKey, heightBounds, kind]);
 
   useEffect(() => {
     if (!active) {
@@ -88,13 +90,13 @@ export function useConversationPreviewRuntime({
         setLoaded(true);
         onReady();
       } else if (previewEvent.type === 'resize' && mode === 'inline') {
-        setHeight(setConversationPreviewHeight(kind, cacheKey, previewEvent.height));
+        setHeight(setConversationPreviewHeight(kind, cacheKey, previewEvent.height, heightBounds));
       } else if (previewEvent.type === 'error') {
         setLoaded(false);
         onError(previewEvent.message);
       }
     },
-    [cacheKey, kind, mode, onError, onReady, requestId]
+    [cacheKey, heightBounds, kind, mode, onError, onReady, requestId]
   );
 
   return {

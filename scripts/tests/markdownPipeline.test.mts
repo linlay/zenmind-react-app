@@ -82,3 +82,8 @@ test('markdown preprocess normalizes ordered list markers outside fenced code', 
     ].join('\n')
   );
 });
+
+test('markdown preprocess leaves incomplete viewport fences to the incremental segment parser', () => {
+  const markdown = ['before', '```viewport', 'type=html,key=pending'].join('\n');
+  assert.equal(preprocessMarkdownContent(markdown), markdown);
+});

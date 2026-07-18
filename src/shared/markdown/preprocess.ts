@@ -1,4 +1,4 @@
-const SPECIAL_FENCE_HEADERS = ['```viewport', '```tts-voice'] as const;
+const SPECIAL_FENCE_HEADERS = ['```tts-voice'] as const;
 
 export function normalizeMarkdownContent(content: string): string {
   return String(content || '').replace(/\r\n?/g, '\n');

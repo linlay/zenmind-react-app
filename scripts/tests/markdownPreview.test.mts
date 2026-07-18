@@ -26,6 +26,11 @@ import {
 } from '../../src/shared/components/conversationPreview/runtimeBridge.ts';
 import { createConversationPreviewVisibilityStore } from '../../src/shared/components/conversationPreview/visibilityStore.ts';
 import { usePreviewExecutionState } from '../../src/shared/components/conversationPreview/usePreviewExecutionState.ts';
+import {
+  CONVERSATION_VIEWPORT_FENCE_EXTENSIONS,
+  type ConversationViewportFenceData
+} from '../../src/features/chatPersistence/conversationViewport/conversationViewportFence.ts';
+import { createConversationViewportDocumentStore } from '../../src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts';
 
 const require = createRequire(import.meta.url);
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -93,10 +98,12 @@ test('incremental parser preserves completed preview keys and falls back after a
 
 test('incremental parser scans appended characters once and fully reparses only after rewrites', () => {
   const metrics = { fullParseCount: 0, scannedCharacters: 0 };
-  const cache = createConversationMarkdownSegmentCache((scannedCharacters, fullParse) => {
-    metrics.scannedCharacters += scannedCharacters;
-    if (fullParse) {
-      metrics.fullParseCount += 1;
+  const cache = createConversationMarkdownSegmentCache({
+    onScan: (scannedCharacters, fullParse) => {
+      metrics.scannedCharacters += scannedCharacters;
+      if (fullParse) {
+        metrics.fullParseCount += 1;
+      }
     }
   });
   let markdown = '';
@@ -167,6 +174,86 @@ test('incremental parser rescans when appended text extends a closing fence line
   assert.equal(extendedClosingLine[0]?.type, 'markdown');
 });
 
+test('viewport fence extension preserves order and only extracts complete valid blocks', () => {
+  const options = { extensions: CONVERSATION_VIEWPORT_FENCE_EXTENSIONS };
+  const closed = [
+    'before',
+    '~~~VIEWPORT optional',
+    'type=html, key=weather-card',
+    '{"city":"Shanghai"}',
+    '~~~',
+    'after'
+  ].join('\n');
+  const segments = parseConversationMarkdownSegments(closed, options);
+
+  assert.deepEqual(segments.map((segment) => segment.type), ['markdown', 'extension', 'markdown']);
+  const viewport = segments[1];
+  assert.equal(viewport?.type === 'extension' ? viewport.extensionKey : '', 'viewport');
+  assert.deepEqual(
+    viewport?.type === 'extension' ? (viewport.data as ConversationViewportFenceData).payload : null,
+    { city: 'Shanghai' }
+  );
+  assert.equal(
+    viewport?.type === 'extension' ? (viewport.data as ConversationViewportFenceData).viewportKey : '',
+    'weather-card'
+  );
+
+  const invalid = ['```viewport', 'type=html', '{}', '```'].join('\n');
+  const unclosed = ['```viewport', 'type=html,key=pending', '{}'].join('\n');
+  assert.equal(parseConversationMarkdownSegments(invalid, options)[0]?.type, 'markdown');
+  assert.equal(parseConversationMarkdownSegments(unclosed, options)[0]?.type, 'markdown');
+});
+
+test('viewport fence extension remains append-only and switches after the closing fence', () => {
+  const metrics = { fullParseCount: 0, scannedCharacters: 0 };
+  const cache = createConversationMarkdownSegmentCache({
+    extensions: CONVERSATION_VIEWPORT_FENCE_EXTENSIONS,
+    onScan: (scannedCharacters, fullParse) => {
+      metrics.scannedCharacters += scannedCharacters;
+      metrics.fullParseCount += Number(fullParse);
+    }
+  });
+  const chunks = ['prefix\n```view', 'port\ntype=html,key=map\n', '{"zoom":8}\n', '```'];
+  let content = '';
+  let segments = cache.parse(content);
+  chunks.forEach((chunk) => {
+    content += chunk;
+    segments = cache.parse(content);
+  });
+  assert.equal(segments.some((segment) => segment.type === 'extension'), true);
+  assert.deepEqual(metrics, { fullParseCount: 1, scannedCharacters: content.length });
+});
+
+test('viewport document store shares requests, expires LRU entries, and refreshes explicitly', async () => {
+  let now = 100;
+  let calls = 0;
+  const store = createConversationViewportDocumentStore(
+    async (viewportKey) => {
+      calls += 1;
+      return { html: `<main>${viewportKey}-${calls}</main>` };
+    },
+    { cacheLimit: 2, cacheTtlMs: 50, now: () => now }
+  );
+
+  const first = store.load('alpha');
+  const duplicate = store.load('alpha');
+  assert.equal(first, duplicate);
+  assert.equal(await first, '<main>alpha-1</main>');
+  assert.equal(await store.load('alpha'), '<main>alpha-1</main>');
+  assert.equal(calls, 1);
+
+  assert.equal(await store.load('alpha', { force: true }), '<main>alpha-2</main>');
+  await store.load('beta');
+  await store.load('gamma');
+  assert.equal(store.getCached('alpha'), '');
+  assert.equal(store.getCached('gamma'), '<main>gamma-4</main>');
+
+  now += 51;
+  assert.equal(store.getCached('beta'), '');
+  store.clear();
+  assert.equal(store.getCached('gamma'), '');
+});
+
 test('visibility store delays release and cancels it when a row returns quickly', async () => {
   const store = createConversationPreviewVisibilityStore(15);
   let notifications = 0;
@@ -213,6 +300,14 @@ test('height cache clamps values and remains bounded to 64 entries', () => {
   assert.equal(getConversationPreviewHeight('mermaid', 'missing'), 220);
   assert.equal(setConversationPreviewHeight('mermaid', 'small', 10), 160);
   assert.equal(setConversationPreviewHeight('echarts', 'large', 900), 480);
+  assert.equal(
+    setConversationPreviewHeight('html', 'viewport', 900, {
+      initial: 260,
+      minimum: 180,
+      maximum: 380
+    }),
+    380
+  );
   for (let index = 0; index < 80; index += 1) {
     setConversationPreviewHeight('mermaid', `entry-${index}`, 220 + index);
   }
@@ -305,6 +400,8 @@ test('generated runtimes are deterministic, offline, and isolate executable cont
   assert.match(echartsChild, /disposeChart/);
   assert.match(echartsRuntime, /script-src 'unsafe-inline' 'unsafe-eval'/);
   assert.match(htmlRuntime, /sandbox="allow-scripts"/);
+  assert.match(htmlRuntime, /initialData/);
+  assert.match(htmlRuntime, /ResizeObserver/);
   assert.doesNotMatch(htmlRuntime, /unsafe-eval/);
   assert.doesNotMatch(htmlRuntime, /allow-same-origin/);
   assert.match(htmlRuntime, /connect-src 'none'/);
@@ -321,6 +418,78 @@ test('generated runtimes are deterministic, offline, and isolate executable cont
     assert.equal(childScripts.length, 2);
     childScripts.forEach((script) => assert.doesNotThrow(() => Function(script)));
   }
+});
+
+test('html runtime preserves full documents, forwards initial data, and relays bounded events', () => {
+  const { createOuterRuntime } = require('../markdown-preview/pregenerate.js');
+  const runtime = createOuterRuntime('html');
+  const outerScript = runtime.match(/<script>([\s\S]*)<\/script>/)?.[1];
+  assert.ok(outerScript);
+
+  const windowListeners = new Map<string, (event: { data: unknown; source: unknown }) => void>();
+  const emitted: unknown[] = [];
+  const childMessages: unknown[] = [];
+  const childWindow = { postMessage: (message: unknown) => childMessages.push(message) };
+  const frame = {
+    contentWindow: childWindow,
+    dataset: {} as Record<string, string>,
+    onload: null as null | (() => void),
+    srcdoc: ''
+  };
+  const fakeWindow = {
+    ReactNativeWebView: {
+      postMessage: (payload: string) => emitted.push(JSON.parse(payload))
+    },
+    addEventListener: (type: string, listener: (event: { data: unknown; source: unknown }) => void) =>
+      windowListeners.set(type, listener),
+    parent: { postMessage: () => {} }
+  };
+  const fakeDocument = { addEventListener: () => {}, getElementById: () => frame };
+  const fakeGlobal = { crypto: { getRandomValues: (bytes: Uint8Array) => bytes.fill(9) } };
+  Function('window', 'document', 'globalThis', outerScript)(fakeWindow, fakeDocument, fakeGlobal);
+  const handleMessage = windowListeners.get('message');
+  assert.ok(handleMessage);
+
+  const initialData = { city: 'Shanghai' };
+  handleMessage({
+    source: {},
+    data: {
+      channel: CONVERSATION_PREVIEW_CHANNEL,
+      request: {
+        requestId: 'viewport-request',
+        kind: 'html',
+        source: '<!doctype html><html lang="en"><head data-app="viewport"><title>Viewport</title></head><body>ok</body></html>',
+        theme: 'light',
+        mode: 'inline',
+        initialData
+      }
+    }
+  });
+  assert.match(frame.srcdoc, /<title>Viewport<\/title>/);
+  assert.match(frame.srcdoc, /Content-Security-Policy/);
+  frame.onload?.();
+  assert.deepEqual(childMessages, [initialData]);
+  assert.deepEqual(emitted, [
+    {
+      channel: CONVERSATION_PREVIEW_CHANNEL,
+      event: { type: 'ready', requestId: 'viewport-request' }
+    }
+  ]);
+
+  const capabilityToken = JSON.parse(frame.srcdoc.match(/const token=("[^"]+")/)?.[1] || '""');
+  assert.ok(capabilityToken);
+  handleMessage({
+    source: childWindow,
+    data: {
+      channel: CONVERSATION_PREVIEW_CHANNEL,
+      token: capabilityToken,
+      event: { type: 'resize', requestId: 'viewport-request', height: 320 }
+    }
+  });
+  assert.deepEqual(emitted[1], {
+    channel: CONVERSATION_PREVIEW_CHANNEL,
+    event: { type: 'resize', requestId: 'viewport-request', height: 320 }
+  });
 });
 
 test('runtime bridge rejects forged child tokens and accepts the active capability only', () => {

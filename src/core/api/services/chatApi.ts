@@ -290,7 +290,7 @@ export type SubmitAwaitingResponse = {
   [key: string]: unknown;
 };
 
-export type AwaitingViewportResponse = {
+export type ChatViewportResponse = {
   html?: string;
   [key: string]: unknown;
 };
@@ -473,9 +473,9 @@ export function buildSubmitAwaitingPayload(
   return payload;
 }
 
-export async function getAwaitingViewportApi(viewportKey: string): Promise<AwaitingViewportResponse> {
+export async function getChatViewportApi(viewportKey: string): Promise<ChatViewportResponse> {
   const payload = await authenticatedApiRequest<
-    AwaitingViewportResponse | ChatApiEnvelope<AwaitingViewportResponse> | string
+    ChatViewportResponse | ChatApiEnvelope<ChatViewportResponse> | string
   >({
     path: '/ap/api/viewport',
     query: {
@@ -486,5 +486,5 @@ export async function getAwaitingViewportApi(viewportKey: string): Promise<Await
   if (typeof payload === 'string') {
     return { html: payload };
   }
-  return unwrapChatApiEnvelope<AwaitingViewportResponse>(payload) || {};
+  return unwrapChatApiEnvelope<ChatViewportResponse>(payload) || {};
 }

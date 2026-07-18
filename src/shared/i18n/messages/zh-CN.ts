@@ -426,6 +426,11 @@ export const zhCN = {
   'timeline.source.score': '分数 {score}',
   'timeline.source.showMoreSources': '再显示 {count} 个来源',
   'timeline.source.showMoreChunks': '再显示 {count} 个片段',
+  'timeline.viewport.title': '交互视图',
+  'timeline.viewport.loading': '正在加载视图',
+  'timeline.viewport.deferred': '视图将在可见时加载',
+  'timeline.viewport.refresh': '刷新视图',
+  'timeline.viewport.loadFailed': '视图加载失败：{detail}',
   'copyToast.default': '已复制到剪贴板',
 
   'markdownPreview.mermaid': 'Mermaid 图表',

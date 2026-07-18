@@ -36,6 +36,7 @@ import {
 } from '../../chatTimeline/index.ts';
 import { formatChatDetailDuration, formatChatDetailTimestamp } from '../chatDetailFormatters';
 import { ChatAttachmentStrip } from './ChatAttachmentStrip';
+import { ConversationContentRenderer } from '../conversationViewport/ConversationContentRenderer';
 import { ChatSystemAlert } from './ChatSystemAlert';
 import { ChatTimelineRail } from './ChatTimelineRail';
 import {
@@ -504,7 +505,7 @@ const AssistantContentRow = memo(function AssistantContentRow({
       />
       <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <View className={CONTENT_BLOCK_CLASS}>
-          <ConversationMarkdownRenderer markdown={node.content} streaming={node.streaming} />
+          <ConversationContentRenderer markdown={node.content} streaming={node.streaming} />
         </View>
       </View>
     </View>

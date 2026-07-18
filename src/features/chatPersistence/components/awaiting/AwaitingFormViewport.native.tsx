@@ -2,10 +2,11 @@ import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo,
 import { ActivityIndicator, Text, View } from 'react-native';
 import { WebView, type WebViewMessageEvent } from 'react-native-webview';
 
-import { getAwaitingViewportApi, type AwaitingSubmitParamData } from '../../../../core/api/services/chatApi';
+import type { AwaitingSubmitParamData } from '../../../../core/api/services/chatApi';
 import { useT } from '../../../../shared/i18n';
 import { useAppTheme } from '../../../../shared/visual/AppThemeProvider';
 import type { ChatTimelineAwaitingForm } from '../../../chatTimeline/index.ts';
+import { conversationViewportDocumentStore } from '../../conversationViewport/viewportDocument';
 import { normalizeAwaitingSubmitParams } from './awaitingSubmitState';
 import type {
   AwaitingFormCollectDecision,
@@ -13,8 +14,6 @@ import type {
   AwaitingFormViewportProps,
 } from './AwaitingFormViewportTypes';
 
-const VIEWPORT_CACHE_LIMIT = 8;
-const VIEWPORT_CACHE_TTL_MS = 5 * 60_000;
 const COLLECT_TIMEOUT_MS = 5_000;
 const DEFAULT_VIEWPORT_HEIGHT = 260;
 const MIN_VIEWPORT_HEIGHT = 180;
@@ -25,45 +24,12 @@ const STATUS_TEXT_CLASS = 'text-center text-[13px] leading-[18px] text-app-secon
 const ERROR_TEXT_CLASS = 'text-center text-[13px] font-bold leading-[18px] text-app-danger';
 const WEB_VIEW_FRAME_CLASS = 'overflow-hidden rounded-app-md border border-app-line bg-app-background';
 
-type CachedViewportHtml = {
-  html: string;
-  cachedAt: number;
-};
-
-const viewportHtmlCache = new Map<string, CachedViewportHtml>();
-
 type PendingCollect = {
   id: number;
   resolve: (params: AwaitingSubmitParamData[]) => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
 };
-
-function readCachedHtml(viewportKey: string): string {
-  const cached = viewportHtmlCache.get(viewportKey);
-  if (!cached) {
-    return '';
-  }
-  if (Date.now() - cached.cachedAt > VIEWPORT_CACHE_TTL_MS) {
-    viewportHtmlCache.delete(viewportKey);
-    return '';
-  }
-  viewportHtmlCache.delete(viewportKey);
-  viewportHtmlCache.set(viewportKey, cached);
-  return cached.html;
-}
-
-function writeCachedHtml(viewportKey: string, html: string): void {
-  viewportHtmlCache.delete(viewportKey);
-  viewportHtmlCache.set(viewportKey, { html, cachedAt: Date.now() });
-  while (viewportHtmlCache.size > VIEWPORT_CACHE_LIMIT) {
-    const [oldestKey] = viewportHtmlCache.keys();
-    if (!oldestKey) {
-      return;
-    }
-    viewportHtmlCache.delete(oldestKey);
-  }
-}
 
 function cloneFormData(form: ChatTimelineAwaitingForm | undefined): Record<string, unknown> | null {
   return form?.form ? { ...form.form } : null;
@@ -184,7 +150,7 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
       () => buildViewportData({ activeFormIndex, awaiting, forms, timeoutMs, viewportKey }),
       [activeFormIndex, awaiting, forms, timeoutMs, viewportKey]
     );
-    const [initialHtml] = useState(() => readCachedHtml(viewportKey));
+    const [initialHtml] = useState(() => conversationViewportDocumentStore.getCached(viewportKey));
     const [html, setHtml] = useState(initialHtml);
     const [loading, setLoading] = useState(!initialHtml);
     const [loadError, setLoadError] = useState('');
@@ -214,7 +180,7 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
     }, [viewportData]);
 
     useEffect(() => {
-      const cached = readCachedHtml(viewportKey);
+      const cached = conversationViewportDocumentStore.getCached(viewportKey);
       if (cached) {
         setHtml(cached);
         setLoading(false);
@@ -226,16 +192,12 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
       setHtml('');
       setLoading(true);
       setLoadError('');
-      getAwaitingViewportApi(viewportKey)
-        .then((response) => {
+      conversationViewportDocumentStore
+        .load(viewportKey)
+        .then((nextHtml) => {
           if (disposed || activeViewportKeyRef.current !== viewportKey) {
             return;
           }
-          const nextHtml = String(response.html || '').trim();
-          if (!nextHtml) {
-            throw new Error('Viewport response does not contain html');
-          }
-          writeCachedHtml(viewportKey, nextHtml);
           setHtml(nextHtml);
           setLoadError('');
         })

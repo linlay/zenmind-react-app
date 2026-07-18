@@ -6,6 +6,27 @@ import {
 
 export type { ConversationPreviewKind } from './previewRegistry';
 
+export type ConversationMarkdownFenceExtension = {
+  key: string;
+  aliases: readonly string[];
+  parse: (input: {
+    language: string;
+    source: string;
+    sourceHash: string;
+  }) => unknown | null;
+};
+
+export type ConversationMarkdownFenceExtensionSegment = {
+  type: 'extension';
+  key: string;
+  extensionKey: string;
+  language: string;
+  source: string;
+  sourceHash: string;
+  rawMarkdown: string;
+  data: unknown;
+};
+
 export type ConversationMarkdownSegment =
   | {
       type: 'markdown';
@@ -18,13 +39,15 @@ export type ConversationMarkdownSegment =
       language: string;
       source: string;
       sourceHash: string;
-    };
+    }
+  | ConversationMarkdownFenceExtensionSegment;
 
 type ActiveFence = {
   start: number;
   bodyStart: number;
   marker: '`' | '~';
   minimumLength: number;
+  extension: ConversationMarkdownFenceExtension | null;
   previewKind: ConversationPreviewKind | null;
   language: string;
 };
@@ -33,7 +56,7 @@ type ParserState = {
   activeFence: ActiveFence | null;
   completedSegments: ConversationMarkdownSegment[];
   markdownStart: number;
-  occurrences: Record<ConversationPreviewKind, number>;
+  occurrences: Record<string, number>;
 };
 
 type FenceLineCandidate = {
@@ -50,7 +73,9 @@ type FenceLineCandidate = {
 
 type ScannerState = {
   candidate: FenceLineCandidate;
+  extensionByAlias: ReadonlyMap<string, ConversationMarkdownFenceExtension>;
   lineStart: number;
+  maximumAliasLength: number;
   parser: ParserState;
   pendingCarriageReturn: number | null;
   scanOffset: number;
@@ -61,7 +86,7 @@ function createParserState(): ParserState {
     activeFence: null,
     completedSegments: [],
     markdownStart: 0,
-    occurrences: { mermaid: 0, echarts: 0, html: 0 }
+    occurrences: {}
   };
 }
 
@@ -97,7 +122,11 @@ export function hashConversationPreviewSource(source: string): string {
   return (hash >>> 0).toString(36);
 }
 
-function updateOpeningLanguage(candidate: FenceLineCandidate, character: string): void {
+function updateOpeningLanguage(
+  candidate: FenceLineCandidate,
+  character: string,
+  maximumAliasLength: number
+): void {
   if (candidate.languageComplete) {
     return;
   }
@@ -109,12 +138,17 @@ function updateOpeningLanguage(candidate: FenceLineCandidate, character: string)
   }
   candidate.languageStarted = true;
   candidate.language += character.toLowerCase();
-  if (candidate.language.length > CONVERSATION_PREVIEW_MAX_ALIAS_LENGTH) {
+  if (candidate.language.length > maximumAliasLength) {
     candidate.languageComplete = true;
   }
 }
 
-function updateFenceLineCandidate(candidate: FenceLineCandidate, character: string, insideFence: boolean): void {
+function updateFenceLineCandidate(
+  candidate: FenceLineCandidate,
+  character: string,
+  insideFence: boolean,
+  maximumAliasLength: number
+): void {
   if (candidate.invalid) {
     return;
   }
@@ -148,7 +182,7 @@ function updateFenceLineCandidate(candidate: FenceLineCandidate, character: stri
     }
     return;
   }
-  updateOpeningLanguage(candidate, character);
+  updateOpeningLanguage(candidate, character, maximumAliasLength);
 }
 
 function isClosingCandidate(candidate: FenceLineCandidate, fence: ActiveFence): boolean {
@@ -177,26 +211,51 @@ function applyCompletedLine(
   candidate: FenceLineCandidate,
   content: string,
   lineStart: number,
-  lineNext: number
+  lineNext: number,
+  extensionByAlias: ReadonlyMap<string, ConversationMarkdownFenceExtension>
 ): void {
   const activeFence = state.activeFence;
   if (activeFence) {
     if (!isClosingCandidate(candidate, activeFence)) {
       return;
     }
-    if (activeFence.previewKind) {
-      appendCompletedMarkdown(state, content, activeFence.start);
-      const source = content.slice(activeFence.bodyStart, lineStart).replace(/(?:\r\n|\r|\n)$/, '');
-      const sourceHash = hashConversationPreviewSource(source);
-      const occurrence = state.occurrences[activeFence.previewKind];
-      state.occurrences[activeFence.previewKind] += 1;
-      state.completedSegments.push({
-        type: activeFence.previewKind,
-        key: `${activeFence.previewKind}:${occurrence}:${sourceHash}`,
+    const source = content.slice(activeFence.bodyStart, lineStart).replace(/(?:\r\n|\r|\n)$/, '');
+    const sourceHash = hashConversationPreviewSource(source);
+    let extensionData: unknown = null;
+    try {
+      extensionData = activeFence.extension?.parse({
         language: activeFence.language,
         source,
         sourceHash
       });
+    } catch {
+      extensionData = null;
+    }
+    if (activeFence.previewKind || (activeFence.extension && extensionData != null)) {
+      appendCompletedMarkdown(state, content, activeFence.start);
+      const segmentKind = activeFence.previewKind ?? activeFence.extension!.key;
+      const occurrence = state.occurrences[segmentKind] ?? 0;
+      state.occurrences[segmentKind] = occurrence + 1;
+      if (activeFence.extension) {
+        state.completedSegments.push({
+          type: 'extension',
+          key: `extension:${segmentKind}:${occurrence}:${sourceHash}`,
+          extensionKey: activeFence.extension.key,
+          language: activeFence.language,
+          source,
+          sourceHash,
+          rawMarkdown: content.slice(activeFence.start, lineNext),
+          data: extensionData
+        });
+      } else {
+        state.completedSegments.push({
+          type: activeFence.previewKind!,
+          key: `${activeFence.previewKind!}:${occurrence}:${sourceHash}`,
+          language: activeFence.language,
+          source,
+          sourceHash
+        });
+      }
       state.markdownStart = lineNext;
     }
     state.activeFence = null;
@@ -207,13 +266,15 @@ function applyCompletedLine(
     return;
   }
   const previewKind = getConversationPreviewKind(candidate.language);
+  const extension = previewKind ? null : extensionByAlias.get(candidate.language) ?? null;
   state.activeFence = {
     start: lineStart,
     bodyStart: lineNext,
     marker: candidate.marker,
     minimumLength: candidate.markerCount,
+    extension,
     previewKind,
-    language: candidate.language || previewKind || ''
+    language: candidate.language || previewKind || extension?.key || ''
   };
 }
 
@@ -223,7 +284,14 @@ function resetLine(scanner: ScannerState, lineStart: number): void {
 }
 
 function finishCommittedLine(scanner: ScannerState, content: string, lineNext: number): void {
-  applyCompletedLine(scanner.parser, scanner.candidate, content, scanner.lineStart, lineNext);
+  applyCompletedLine(
+    scanner.parser,
+    scanner.candidate,
+    content,
+    scanner.lineStart,
+    lineNext,
+    scanner.extensionByAlias
+  );
   resetLine(scanner, lineNext);
 }
 
@@ -248,7 +316,12 @@ function scanAppendedContent(scanner: ScannerState, content: string, startOffset
       finishCommittedLine(scanner, content, index + 1);
       continue;
     }
-    updateFenceLineCandidate(scanner.candidate, character, scanner.parser.activeFence !== null);
+    updateFenceLineCandidate(
+      scanner.candidate,
+      character,
+      scanner.parser.activeFence !== null,
+      scanner.maximumAliasLength
+    );
   }
   scanner.scanOffset = content.length;
 }
@@ -256,7 +329,14 @@ function scanAppendedContent(scanner: ScannerState, content: string, startOffset
 function materializeSegments(scanner: ScannerState, content: string): ConversationMarkdownSegment[] {
   const displayState = cloneParserState(scanner.parser);
   if (scanner.lineStart < content.length) {
-    applyCompletedLine(displayState, scanner.candidate, content, scanner.lineStart, content.length);
+    applyCompletedLine(
+      displayState,
+      scanner.candidate,
+      content,
+      scanner.lineStart,
+      content.length,
+      scanner.extensionByAlias
+    );
   }
   const segments = [...displayState.completedSegments];
   if (displayState.markdownStart < content.length) {
@@ -269,10 +349,15 @@ function materializeSegments(scanner: ScannerState, content: string): Conversati
   return segments;
 }
 
-function createScannerState(): ScannerState {
+function createScannerState(
+  extensionByAlias: ReadonlyMap<string, ConversationMarkdownFenceExtension>,
+  maximumAliasLength: number
+): ScannerState {
   return {
     candidate: createFenceLineCandidate(),
+    extensionByAlias,
     lineStart: 0,
+    maximumAliasLength,
     parser: createParserState(),
     pendingCarriageReturn: null,
     scanOffset: 0
@@ -286,12 +371,34 @@ export type ConversationMarkdownSegmentCache = {
 
 type ConversationMarkdownSegmentScanObserver = (scannedCharacters: number, fullParse: boolean) => void;
 
+export type ConversationMarkdownSegmentParserOptions = {
+  extensions?: readonly ConversationMarkdownFenceExtension[];
+  onScan?: ConversationMarkdownSegmentScanObserver;
+};
+
+function buildExtensionConfiguration(extensions: readonly ConversationMarkdownFenceExtension[]) {
+  const extensionByAlias = new Map<string, ConversationMarkdownFenceExtension>();
+  let maximumAliasLength = CONVERSATION_PREVIEW_MAX_ALIAS_LENGTH;
+  extensions.forEach((extension) => {
+    extension.aliases.forEach((rawAlias) => {
+      const alias = rawAlias.trim().toLowerCase();
+      if (!alias || getConversationPreviewKind(alias)) {
+        return;
+      }
+      extensionByAlias.set(alias, extension);
+      maximumAliasLength = Math.max(maximumAliasLength, alias.length);
+    });
+  });
+  return { extensionByAlias, maximumAliasLength };
+}
+
 export function createConversationMarkdownSegmentCache(
-  onScan?: ConversationMarkdownSegmentScanObserver
+  options: ConversationMarkdownSegmentParserOptions = {}
 ): ConversationMarkdownSegmentCache {
+  const { extensionByAlias, maximumAliasLength } = buildExtensionConfiguration(options.extensions ?? []);
   let hasPreviousContent = false;
   let previousContent = '';
-  let scanner = createScannerState();
+  let scanner = createScannerState(extensionByAlias, maximumAliasLength);
   let previousSegments: ConversationMarkdownSegment[] = [];
   const cache: ConversationMarkdownSegmentCache = {
     parse(input: string) {
@@ -302,11 +409,11 @@ export function createConversationMarkdownSegmentCache(
       const appended =
         hasPreviousContent && content.length >= previousContent.length && content.startsWith(previousContent);
       if (!appended) {
-        scanner = createScannerState();
+        scanner = createScannerState(extensionByAlias, maximumAliasLength);
       }
       const scanStart = scanner.scanOffset;
       scanAppendedContent(scanner, content, scanStart);
-      onScan?.(content.length - scanStart, !appended);
+      options.onScan?.(content.length - scanStart, !appended);
       previousContent = content;
       hasPreviousContent = true;
       previousSegments = materializeSegments(scanner, content);
@@ -316,12 +423,15 @@ export function createConversationMarkdownSegmentCache(
       hasPreviousContent = false;
       previousContent = '';
       previousSegments = [];
-      scanner = createScannerState();
+      scanner = createScannerState(extensionByAlias, maximumAliasLength);
     }
   };
   return cache;
 }
 
-export function parseConversationMarkdownSegments(content: string): ConversationMarkdownSegment[] {
-  return createConversationMarkdownSegmentCache().parse(content);
+export function parseConversationMarkdownSegments(
+  content: string,
+  options: ConversationMarkdownSegmentParserOptions = {}
+): ConversationMarkdownSegment[] {
+  return createConversationMarkdownSegmentCache(options).parse(content);
 }

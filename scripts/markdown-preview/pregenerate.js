@@ -207,12 +207,22 @@ function createOuterRuntime(kind, childDocument = '') {
       const renderHtml = (request) => {
         const generation = ++htmlLoadGeneration;
         const csp = ${JSON.stringify(`<meta http-equiv="Content-Security-Policy" content="${CHILD_CSP.html}">`)};
-        const guard = '<script>addEventListener("click",e=>{const t=e.target;t&&t.closest&&t.closest("a")&&e.preventDefault()},true);addEventListener("submit",e=>e.preventDefault(),true);window.open=()=>null;<\\/script>';
+        const guard = '<script>(()=>{const channel=' + JSON.stringify(CHANNEL) + ';const token=' + JSON.stringify(capabilityToken) + ';const requestId=' + JSON.stringify(request.requestId) + ';const emit=event=>parent.postMessage({channel,token,event:{...event,requestId}},"*");const reportHeight=()=>emit({type:"resize",height:Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0,1)});addEventListener("click",event=>{const target=event.target;target&&target.closest&&target.closest("a")&&event.preventDefault()},true);addEventListener("submit",event=>event.preventDefault(),true);addEventListener("error",event=>emit({type:"error",message:String(event.message||"Viewport failed.").slice(0,2000)}));addEventListener("unhandledrejection",event=>emit({type:"error",message:String(event.reason||"Viewport failed.").slice(0,2000)}));addEventListener("load",()=>requestAnimationFrame(reportHeight));if(typeof ResizeObserver!=="undefined")new ResizeObserver(reportHeight).observe(document.documentElement);window.open=()=>null;})();<\\/script>';
         frame.onload = () => {
           if (generation !== htmlLoadGeneration) return;
+          if (Object.prototype.hasOwnProperty.call(request, 'initialData')) {
+            frame.contentWindow.postMessage(request.initialData, '*');
+          }
           emit({ type: 'ready', requestId: request.requestId });
         };
-        frame.srcdoc = '<!doctype html><html><head><meta charset="utf-8">' + csp + guard + '</head><body>' + request.source + '</body></html>';
+        const source = String(request.source || '');
+        if (/<html(?:\\s|>)/i.test(source)) {
+          frame.srcdoc = /<head(?:\\s|>)/i.test(source)
+            ? source.replace(/<head(?:\\s[^>]*)?>/i, (head) => head + csp + guard)
+            : source.replace(/<html(?:\\s[^>]*)?>/i, (html) => html + '<head>' + csp + guard + '</head>');
+        } else {
+          frame.srcdoc = '<!doctype html><html><head><meta charset="utf-8">' + csp + guard + '</head><body>' + source + '</body></html>';
+        }
       };
       const renderTrusted = (request) => {
         const send = () => frame.contentWindow.postMessage({ channel: CHANNEL, type: 'render', token: capabilityToken, request }, '*');

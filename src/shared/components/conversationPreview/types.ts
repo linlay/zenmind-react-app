@@ -10,6 +10,7 @@ export type ConversationPreviewRequest = {
   source: string;
   theme: ConversationPreviewTheme;
   mode: 'inline' | 'overlay';
+  initialData?: unknown;
 };
 
 export type ConversationPreviewEvent =
@@ -20,6 +21,8 @@ export type ConversationPreviewEvent =
 export type ConversationPreviewSurfaceProps = {
   active: boolean;
   cacheKey: string;
+  heightBounds?: ConversationPreviewHeightBounds;
+  initialData?: unknown;
   kind: ConversationPreviewKind;
   mode: 'inline' | 'overlay';
   retryNonce: number;
@@ -27,4 +30,10 @@ export type ConversationPreviewSurfaceProps = {
   theme: ConversationPreviewTheme;
   onError: (message: string) => void;
   onReady: () => void;
+};
+
+export type ConversationPreviewHeightBounds = {
+  initial: number;
+  minimum: number;
+  maximum: number;
 };
