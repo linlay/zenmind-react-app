@@ -5,6 +5,7 @@ import type {
   ChatTimelineUsageSummary,
 } from './types.ts';
 import { buildActiveReasoningNodeIdsByRun } from './timelineReasoningIdentity.ts';
+import { migratePersistedChatTimelineActionNode } from './timelineAction.ts';
 import { migratePersistedChatTimelinePlanNode } from './timelinePlan.ts';
 import { migratePersistedChatTimelineTaskNode } from './timelineTask.ts';
 
@@ -197,8 +198,11 @@ export function deserializeChatTimelineState(
       return null;
     }
 
-    const node = migratePersistedChatTimelineTaskNode(
-      migratePersistedChatTimelinePlanNode(parsed, conversationId),
+    const node = migratePersistedChatTimelineActionNode(
+      migratePersistedChatTimelineTaskNode(
+        migratePersistedChatTimelinePlanNode(parsed, conversationId),
+        conversationId
+      ),
       conversationId
     );
     const current = nodesById[node.id];

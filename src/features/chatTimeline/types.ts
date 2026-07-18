@@ -41,6 +41,17 @@ export type ChatTimelinePlanStatus = 'pending' | 'running' | 'completed' | 'fail
 
 export type ChatTimelineTaskStatus = ChatTimelinePlanStatus;
 
+export type ChatTimelineActionPolicy = 'allowed' | 'unsupported' | 'unknown';
+
+export type ChatTimelineActionExecutorKind = 'theme';
+
+export type ChatTimelineActionStatus =
+  | 'collecting'
+  | 'ready'
+  | 'completed'
+  | 'failed'
+  | 'blocked';
+
 export type ChatTimelinePlanStep = {
   taskId: string;
   description: string;
@@ -242,7 +253,7 @@ export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
 };
 
 export type ChatTimelineTextNode = ChatTimelineBaseNode & {
-  kind: 'reasoning' | 'planning' | 'request' | 'action' | 'usage' | 'context';
+  kind: 'reasoning' | 'planning' | 'request' | 'usage' | 'context';
   title: string;
   body: string;
   status: ChatTimelineRuntimeStatus | string;
@@ -291,6 +302,24 @@ export type ChatTimelineTaskNode = ChatTimelineBaseNode & {
   completedAt: number | null;
   durationMs: number | null;
   errorReason: string;
+};
+
+export type ChatTimelineActionNode = ChatTimelineBaseNode & {
+  kind: 'action';
+  actionId: string;
+  actionName: string;
+  target: string;
+  status: ChatTimelineActionStatus;
+  policy: ChatTimelineActionPolicy;
+  policyReason: string;
+  executorKind: ChatTimelineActionExecutorKind | null;
+  args: Record<string, unknown> | null;
+  argsText: string;
+  result: unknown;
+  resultText: string;
+  errorReason: string;
+  lastSequence: number | null;
+  lastEventSignature: string;
 };
 
 export type ChatTimelineToolNode = ChatTimelineBaseNode & {
@@ -377,6 +406,7 @@ export type ChatTimelineRunNode = ChatTimelineBaseNode & {
 export type ChatTimelineNode =
   | ChatTimelineMessageNode
   | ChatTimelineTextNode
+  | ChatTimelineActionNode
   | ChatTimelineArtifactNode
   | ChatTimelinePlanNode
   | ChatTimelineTaskNode

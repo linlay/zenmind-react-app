@@ -36,6 +36,7 @@ import {
 } from '../../chatTimeline/index.ts';
 import { formatChatDetailDuration, formatChatDetailTimestamp } from '../chatDetailFormatters';
 import { ArtifactTimelineRow } from './ArtifactTimelineRow.tsx';
+import { ActionTimelineRow } from './ActionTimelineRow.tsx';
 import { ChatAttachmentStrip } from './ChatAttachmentStrip';
 import { ConversationContentRenderer } from '../conversationViewport/ConversationContentRenderer';
 import { ChatSystemAlert } from './ChatSystemAlert';
@@ -832,6 +833,17 @@ const TimelineRow = memo(
     }
     if (item.kind === 'artifact' && node.kind === 'artifact') {
       return <ArtifactTimelineRow node={node} isLastInRun={item.isLastInRun} />;
+    }
+    if (item.kind === 'action' && node.kind === 'action') {
+      return (
+        <ActionTimelineRow
+          node={node}
+          isLastInRun={item.isLastInRun}
+          onCopyText={onCopyText}
+          getInitialExpanded={getInitialRuntimeExpanded}
+          onExpandedChange={onRuntimeExpandedChange}
+        />
+      );
     }
     if (item.kind === 'plan' && node.kind === 'plan') {
       return (

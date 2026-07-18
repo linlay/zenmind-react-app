@@ -1,6 +1,7 @@
 import type { AppIconUsage } from '../../../shared/icons/AppIcon';
 import { defaultT, type TFunction } from '../../../shared/i18n/translate.ts';
 import type {
+  ChatTimelineActionNode,
   ChatTimelineArtifactNode,
   ChatTimelineNode,
   ChatTimelinePlanNode,
@@ -30,6 +31,7 @@ export type RuntimePayloadSectionMode = 'markdown' | 'plain' | 'code';
 export type RuntimePayloadSource =
   | Exclude<
       ChatTimelineNode,
+      | ChatTimelineActionNode
       | ChatTimelineArtifactNode
       | ChatTimelinePlanNode
       | ChatTimelineSourceNode
@@ -38,7 +40,7 @@ export type RuntimePayloadSource =
   | ChatTimelineToolGroupDisplayItem;
 
 export type RuntimePayloadKind =
-  | Exclude<ChatTimelineNode['kind'], 'artifact' | 'message' | 'plan' | 'source' | 'task'>
+  | Exclude<ChatTimelineNode['kind'], 'action' | 'artifact' | 'message' | 'plan' | 'source' | 'task'>
   | 'tool-group';
 
 export type RuntimeToolStatus =
@@ -538,7 +540,7 @@ function iconForKind(kind: RuntimePayloadKind): {
   if (kind === 'awaiting') {
     return { iconUsage: 'runtime.awaiting', tone: 'reasoning' };
   }
-  if (kind === 'tool' || kind === 'tool-group' || kind === 'action') {
+  if (kind === 'tool' || kind === 'tool-group') {
     return { iconUsage: 'runtime.tool', tone: 'tool' };
   }
   if (kind === 'planning') {
@@ -560,7 +562,7 @@ function rendererForKind(kind: RuntimePayloadKind): RuntimePayloadRendererType {
   if (kind === 'usage') {
     return 'metric';
   }
-  if (kind === 'action' || kind === 'context') {
+  if (kind === 'context') {
     return 'record';
   }
   return 'plain';

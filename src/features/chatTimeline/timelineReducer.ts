@@ -35,6 +35,17 @@ import type {
   ChatTimelineToolNode,
 } from './types.ts';
 import {
+  chatTimelineActionNodePayloadEquals,
+  closeChatTimelineActionNode,
+  createChatTimelineActionNodeId,
+  getChatTimelineActionContentLength,
+  getChatTimelineActionEventSequence,
+  getChatTimelineActionEventSignature,
+  getChatTimelineActionLifecycle,
+  normalizeChatTimelineActionEvent,
+  resolveChatTimelineActionId,
+} from './timelineAction.ts';
+import {
   chatTimelineArtifactNodePayloadEquals,
   getChatTimelineArtifactContentLength,
   normalizeChatTimelineArtifactEvent,
@@ -855,6 +866,9 @@ function getTimelineNodeIdentityKeys(node: ChatTimelineNode): string[] {
   if (node.kind === 'task' && node.taskId) {
     keys.push(`task:${node.taskId}`);
   }
+  if (node.kind === 'action' && node.actionId) {
+    keys.push(`action:${node.actionId}`);
+  }
   return keys;
 }
 
@@ -1055,6 +1069,9 @@ function getTimelineNodeContentLength(node: ChatTimelineNode): number {
   if (node.kind === 'task') {
     return getChatTimelineTaskContentLength(node);
   }
+  if (node.kind === 'action') {
+    return getChatTimelineActionContentLength(node);
+  }
   return node.title.length + node.body.length + node.status.length;
 }
 
@@ -1127,6 +1144,9 @@ function shouldPreferCurrentTimelineNode(
     return current.updatedAt > incoming.updatedAt;
   }
   if (current.kind === 'task' && incoming.kind === 'task') {
+    return current.updatedAt > incoming.updatedAt;
+  }
+  if (current.kind === 'action' && incoming.kind === 'action') {
     return current.updatedAt > incoming.updatedAt;
   }
 
@@ -1398,6 +1418,9 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
   if (left.kind === 'task' && right.kind === 'task') {
     return !chatTimelineTaskNodePayloadEquals(left, right);
   }
+  if (left.kind === 'action' && right.kind === 'action') {
+    return !chatTimelineActionNodePayloadEquals(left, right);
+  }
   if (
     left.kind !== 'message' &&
     left.kind !== 'tool' &&
@@ -1407,6 +1430,7 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
     left.kind !== 'artifact' &&
     left.kind !== 'plan' &&
     left.kind !== 'task' &&
+    left.kind !== 'action' &&
     right.kind !== 'message' &&
     right.kind !== 'tool' &&
     right.kind !== 'awaiting' &&
@@ -1414,7 +1438,8 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
     right.kind !== 'source' &&
     right.kind !== 'artifact' &&
     right.kind !== 'plan' &&
-    right.kind !== 'task'
+    right.kind !== 'task' &&
+    right.kind !== 'action'
   ) {
     return (
       left.title !== right.title ||
@@ -1535,6 +1560,10 @@ function closeTimelineNodeForRun(
 
   if (node.kind === 'task') {
     return closeChatTimelineTaskNode(node, lifecycle, nextUpdatedAt);
+  }
+
+  if (node.kind === 'action') {
+    return closeChatTimelineActionNode(node, lifecycle, nextUpdatedAt);
   }
 
   const nextNode = {
@@ -2299,6 +2328,53 @@ function applyTaskEvent(
   return upsertNode(baseState, node);
 }
 
+function applyActionEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>
+): ChatTimelineState {
+  const actionId = resolveChatTimelineActionId(event);
+  if (!actionId) {
+    return state;
+  }
+  const id = createChatTimelineActionNodeId(conversationId, actionId);
+  const existing = state.nodesById[id];
+  const current = existing?.kind === 'action' ? existing : undefined;
+  const updatedAt = resolveTimestamp(event, current?.updatedAt ?? Date.now() + state.nextOrder);
+  const sequence = getChatTimelineActionEventSequence(event);
+  const signature = getChatTimelineActionEventSignature(event);
+  const type = normalizeEventType(event.type);
+  if (
+    current &&
+    (updatedAt < current.updatedAt ||
+      (sequence !== null && current.lastSequence !== null && sequence <= current.lastSequence) ||
+      signature === current.lastEventSignature ||
+      (['completed', 'failed', 'blocked'].includes(current.status) &&
+        !type.endsWith('.result') &&
+        !type.endsWith('.complete') &&
+        !type.endsWith('.error') &&
+        !type.endsWith('.fail')))
+  ) {
+    return state;
+  }
+
+  const normalized = normalizeChatTimelineActionEvent(event, current);
+  const runId = resolveEventRunId(event, state, current);
+  const baseState = current
+    ? state
+    : closeActiveReasoningNodesForRun(state, runId, updatedAt);
+  return upsertNode(baseState, {
+    id,
+    kind: 'action',
+    ...normalized,
+    runId,
+    createdAt: current?.createdAt ?? updatedAt,
+    updatedAt,
+    order: createOrder(baseState, current),
+    lifecycle: getChatTimelineActionLifecycle(normalized.status),
+  });
+}
+
 function applyAwaitingEvent(
   state: ChatTimelineState,
   conversationId: string,
@@ -2642,15 +2718,14 @@ export function applyChatTimelineEvent(
   if (family === 'task') {
     return applyTaskEvent(state, conversationId, event);
   }
+  if (family === 'action') {
+    return applyActionEvent(state, conversationId, event);
+  }
   if (family === 'reasoning' || family === 'planning') {
     return applyRuntimeTextEvent(state, conversationId, event, family);
   }
-  if (
-    family === 'action' ||
-    family === 'context'
-  ) {
-    const kind = family === 'context' ? 'context' : family;
-    return applyRuntimeTextEvent(state, conversationId, event, kind);
+  if (family === 'context') {
+    return applyRuntimeTextEvent(state, conversationId, event, 'context');
   }
   if (family === 'usage') {
     const updatedAt = resolveTimestamp(event, Date.now() + state.nextOrder);

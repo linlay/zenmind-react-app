@@ -37,6 +37,7 @@ import type { ChatConversationHistoryScope, ChatDetailRouteParams, ChatHomeItem 
 import { useChatDetailAwaitingOverlay } from './useChatDetailAwaitingOverlay';
 import { useChatDetailConversationController } from './useChatDetailConversationController';
 import { useChatDetailLocalUiState } from './useChatDetailLocalUiState';
+import { useConversationActionRuntime } from './useConversationActionRuntime.ts';
 
 type ChatDetailScreenProps = NativeStackScreenProps<{ ChatDetail: ChatDetailRouteParams }, 'ChatDetail'>;
 const IS_IOS = Platform.OS === 'ios';
@@ -97,6 +98,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     fromNotification = false,
     skipInitialReconcile = false
   } = route.params;
+  useConversationActionRuntime(conversationId);
   const {
     summary,
     conversationTarget,

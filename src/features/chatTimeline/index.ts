@@ -20,6 +20,10 @@ export type {
   ChatTimelineAwaitingQuestionType,
   ChatTimelineAwaitingNode,
   ChatTimelineAwaitingState,
+  ChatTimelineActionExecutorKind,
+  ChatTimelineActionNode,
+  ChatTimelineActionPolicy,
+  ChatTimelineActionStatus,
   ChatTimelineArtifactNode,
   ChatTimelineArtifactPreviewKind,
   ChatTimelineArtifactStatus,
@@ -87,6 +91,18 @@ export {
   getChatTimelineDisplayItemType,
 } from './timelineDisplay.ts';
 export { resolveChatTimelineUsageModelKey } from './usageSummary.ts';
+export {
+  createChatTimelineActionNodeId,
+  getConversationActionWhitelist,
+  normalizeChatTimelineActionEvent,
+  normalizeConversationActionArguments,
+  readConversationActionEventArguments,
+  resolveConversationActionEventName,
+  resolveChatTimelineActionId,
+  resolveConversationActionDefinition,
+  type ConversationActionDefinition,
+  type NormalizedChatTimelineAction,
+} from './timelineAction.ts';
 export {
   normalizeChatTimelineArtifactEvent,
   resolveChatTimelineArtifactPreviewKind,

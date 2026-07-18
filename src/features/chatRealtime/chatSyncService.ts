@@ -122,6 +122,7 @@ import {
   applyChatTimelineMessage,
   applyChatTimelineRunUnavailable,
   applyChatTimelineStreamDelta,
+  createChatTimelineActionNodeId,
   createChatTimelineState,
   getActiveChatTimelineFrontendTool,
   getChatTimelineActiveRunId,
@@ -1160,6 +1161,52 @@ class ChatSyncService {
     return true;
   }
 
+  recordActionExecution(
+    conversationId: string,
+    outcome: {
+      actionId: string;
+      actionName: string;
+      status: 'executed' | 'failed';
+      result: Record<string, unknown> | null;
+      reason: string;
+    }
+  ): boolean {
+    const normalizedConversationId = toText(conversationId);
+    const actionId = toText(outcome.actionId);
+    const actionName = toText(outcome.actionName).toLowerCase();
+    if (!normalizedConversationId || !actionId || !actionName) {
+      return false;
+    }
+    const currentState = this.getConversationTimelineState(normalizedConversationId);
+    const node = currentState.nodesById[
+      createChatTimelineActionNodeId(normalizedConversationId, actionId)
+    ];
+    if (
+      node?.kind !== 'action' ||
+      node.actionName !== actionName ||
+      node.policy !== 'allowed' ||
+      node.status === 'completed'
+    ) {
+      return false;
+    }
+    const nextState = applyChatTimelineEvent(currentState, normalizedConversationId, {
+      type: outcome.status === 'executed' ? 'action.result' : 'action.fail',
+      actionId,
+      actionName,
+      runId: node.runId,
+      ...(outcome.status === 'executed'
+        ? { result: outcome.result ?? {} }
+        : { error: outcome.reason || 'Action execution failed' }),
+      executionSource: 'mobile',
+      timestamp: Math.max(Date.now(), node.updatedAt + 1),
+    });
+    if (nextState === currentState) {
+      return false;
+    }
+    this.publishTimelineState(normalizedConversationId, 'action', nextState, { emitRuntime: true });
+    return true;
+  }
+
   submitFrontendTool(
     conversationId: string,
     payload: FrontendToolSubmitPayloadData
@@ -1933,6 +1980,22 @@ class ChatSyncService {
       return;
     }
 
+    if (family === 'action' && conversationId) {
+      await this.applyRuntimeConversationEvent(
+        conversationId,
+        event,
+        source,
+        !type.endsWith('.args')
+      );
+      this.emit({
+        type: 'conversation.action.protocol',
+        conversationId,
+        reason: source,
+        event
+      });
+      return;
+    }
+
     if (family === 'summary') {
       const projected = projectRemoteChatSummary(event);
       if (projected) {
@@ -1985,7 +2048,6 @@ class ChatSyncService {
         family === 'tool' ||
         family === 'source' ||
         family === 'artifact' ||
-        family === 'action' ||
         family === 'plan' ||
         family === 'task' ||
         family === 'usage' ||

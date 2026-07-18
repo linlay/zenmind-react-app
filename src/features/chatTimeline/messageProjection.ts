@@ -49,6 +49,9 @@ function bodyForNode(node: ProjectedRuntimeNode): string {
   if (node.kind === 'task') {
     return [node.status, node.errorReason].filter(Boolean).join('\n');
   }
+  if (node.kind === 'action') {
+    return [node.target, node.argsText, node.resultText, node.errorReason].filter(Boolean).join('\n');
+  }
   return node.body;
 }
 
@@ -64,6 +67,9 @@ function titleForNode(node: ProjectedRuntimeNode): string {
   }
   if (node.kind === 'task') {
     return node.taskName || node.taskId;
+  }
+  if (node.kind === 'action') {
+    return node.actionName || node.actionId;
   }
   return node.title;
 }

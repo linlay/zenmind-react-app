@@ -74,6 +74,7 @@ function getRuntimePayloadSource(
   const source = item.kind === 'tool-group' ? item : item.node;
   if (
     source.kind === 'source' ||
+    source.kind === 'action' ||
     source.kind === 'artifact' ||
     source.kind === 'plan' ||
     source.kind === 'task'
