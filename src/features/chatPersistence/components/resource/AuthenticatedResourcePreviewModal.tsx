@@ -21,20 +21,11 @@ import { useT } from '../../../../shared/i18n/index.ts';
 import { useAppTheme } from '../../../../shared/visual/AppThemeProvider.tsx';
 import {
   splitAuthenticatedResourceTextAtLine,
-  type AuthenticatedResourcePreviewKind
+  type AuthenticatedResourcePreviewTarget
 } from '../../authenticatedResourcePreview.ts';
 import { AuthenticatedResourcePdfPreview } from './AuthenticatedResourcePdfPreview.tsx';
 import type { AuthenticatedResourceDownloadState } from './useAuthenticatedResourceDownload.ts';
 import { useAuthenticatedResourceSource } from './useAuthenticatedResourceSource.ts';
-
-export type AuthenticatedResourcePreviewTarget = {
-  key: string;
-  name: string;
-  resourceUrl: string;
-  previewKind: AuthenticatedResourcePreviewKind;
-  sourcePath?: string;
-  line?: number;
-};
 
 type AuthenticatedResourcePreviewModalProps = {
   target: AuthenticatedResourcePreviewTarget;

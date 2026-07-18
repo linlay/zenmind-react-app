@@ -13,7 +13,7 @@ import type {
 } from '../../chatTimeline/index.ts';
 import { resolveChatAttachmentFileIconUsage } from '../chatAttachmentIcon.ts';
 import { formatChatAttachmentSize } from '../chatAttachmentModels.ts';
-import { AuthenticatedResourcePreviewModal } from './resource/AuthenticatedResourcePreviewModal.tsx';
+import { useAuthenticatedResourcePreview } from './resource/AuthenticatedResourcePreviewProvider.tsx';
 import { useAuthenticatedResourceDownload } from './resource/useAuthenticatedResourceDownload.ts';
 import { useAuthenticatedResourceSource } from './resource/useAuthenticatedResourceSource.ts';
 import { ChatTimelineRail } from './ChatTimelineRail.tsx';
@@ -70,8 +70,8 @@ function artifactStatusClass(status: ChatTimelineArtifactStatus): string {
 export const ArtifactTimelineRow = memo(function ArtifactTimelineRow({ node, isLastInRun }: ArtifactTimelineRowProps) {
   const t = useT();
   const { theme } = useAppTheme();
+  const { openPreview } = useAuthenticatedResourcePreview();
   const rowActive = useConversationPreviewRowActive();
-  const [previewVisible, setPreviewVisible] = useState(false);
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
   const canAccessResource = node.status === 'ready' && Boolean(node.resourceUrl);
   const canPreview = canAccessResource && node.previewKind !== 'unsupported';
@@ -102,10 +102,14 @@ export const ArtifactTimelineRow = memo(function ArtifactTimelineRow({ node, isL
 
   const handleOpenPreview = useCallback(() => {
     if (canPreview) {
-      setPreviewVisible(true);
+      openPreview({
+        key: node.id,
+        name: node.name,
+        resourceUrl: node.resourceUrl,
+        previewKind: node.previewKind
+      });
     }
-  }, [canPreview]);
-  const handleClosePreview = useCallback(() => setPreviewVisible(false), []);
+  }, [canPreview, node.id, node.name, node.previewKind, node.resourceUrl, openPreview]);
   const handleDownload = resourceDownload.download;
 
   const iconUsage = resolveChatAttachmentFileIconUsage(node);
@@ -221,22 +225,6 @@ export const ArtifactTimelineRow = memo(function ArtifactTimelineRow({ node, isL
           ) : null}
         </View>
       </View>
-
-      {previewVisible ? (
-        <AuthenticatedResourcePreviewModal
-          target={{
-            key: node.id,
-            name: node.name,
-            resourceUrl: node.resourceUrl,
-            previewKind: node.previewKind
-          }}
-          visible
-          downloadState={downloadState}
-          downloadFeedback={downloadFeedback}
-          onClose={handleClosePreview}
-          onDownload={handleDownload}
-        />
-      ) : null}
     </View>
   );
 });

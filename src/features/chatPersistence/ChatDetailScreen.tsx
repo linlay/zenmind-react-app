@@ -22,6 +22,7 @@ import { ChatTimelineList } from './components/ChatTimelineList';
 import { ChatDetailSkeleton } from './components/ChatDetailSkeleton';
 import { ChatNewConversationIntro } from './components/ChatNewConversationIntro';
 import { CopyToast } from './components/CopyToast';
+import { AuthenticatedResourcePreviewProvider } from './components/resource/AuthenticatedResourcePreviewProvider.tsx';
 import { FrontendToolDock } from './frontendTool/FrontendToolDock';
 import { formatChatStatusLabel } from './chatDetailFormatters';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
@@ -219,7 +220,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     [conversationId, conversationSubtitle, conversationTarget, handleCloseHistoryDrawer, historyScope, navigation]
   );
 
-  return (
+  const content = (
     <View className={SAFE_AREA_CLASS}>
       {isInitialContentReady ? (
         summary ? (
@@ -362,5 +363,8 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
         <ChatAwaitingOverlay awaiting={passiveAwaiting} onDismiss={handleDismissAwaitingOverlay} />
       ) : null}
     </View>
+  );
+  return (
+    <AuthenticatedResourcePreviewProvider key={conversationId}>{content}</AuthenticatedResourcePreviewProvider>
   );
 }

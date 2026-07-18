@@ -1,12 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useRef, type ReactNode } from 'react';
 
 import { useT } from '../../../shared/i18n/index.ts';
-import { AuthenticatedResourcePreviewModal } from '../components/resource/AuthenticatedResourcePreviewModal.tsx';
-import { useAuthenticatedResourceDownload } from '../components/resource/useAuthenticatedResourceDownload.ts';
+import { useAuthenticatedResourcePreview } from '../components/resource/AuthenticatedResourcePreviewProvider.tsx';
 import {
   parseConversationMarkdownInternalLink,
-  resolveConversationMarkdownLinkPreview,
-  type ConversationMarkdownLinkPreview
+  resolveConversationMarkdownLinkPreview
 } from './conversationMarkdownLinks.ts';
 
 type ConversationMarkdownLinkPress = (href: string) => boolean;
@@ -25,53 +23,33 @@ export function ConversationMarkdownLinkProvider({
   children: ReactNode;
 }) {
   const t = useT();
+  const { openPreview } = useAuthenticatedResourcePreview();
   const normalizedAgentKey = String(agentKey || '').trim();
   const agentKeyRef = useRef(normalizedAgentKey);
   agentKeyRef.current = normalizedAgentKey;
-  const [preview, setPreview] = useState<ConversationMarkdownLinkPreview | null>(null);
-  const resourceDownload = useAuthenticatedResourceDownload(preview?.resourceUrl || '', preview?.name || '');
 
-  useEffect(() => {
-    setPreview(null);
-  }, [normalizedAgentKey]);
-
-  const handleLinkPress = useCallback<ConversationMarkdownLinkPress>((href) => {
-    const link = parseConversationMarkdownInternalLink(href);
-    if (!link) {
-      return false;
-    }
-    setPreview(resolveConversationMarkdownLinkPreview(link, agentKeyRef.current));
-    return true;
-  }, []);
-  const handleClose = useCallback(() => setPreview(null), []);
-  const initialError =
-    preview?.errorCode === 'missing_agent_scope'
-      ? t('markdownLink.workspaceScopeMissing')
-      : preview?.errorCode === 'invalid'
-        ? t('markdownLink.invalid')
-        : '';
-  const downloadFeedback =
-    resourceDownload.state === 'success'
-      ? t('artifact.downloaded', { name: resourceDownload.downloadedName || preview?.name || '' })
-      : resourceDownload.state === 'error'
-        ? t('artifact.downloadFailed')
-        : '';
+  const handleLinkPress = useCallback<ConversationMarkdownLinkPress>(
+    (href) => {
+      const link = parseConversationMarkdownInternalLink(href);
+      if (!link) {
+        return false;
+      }
+      const preview = resolveConversationMarkdownLinkPreview(link, agentKeyRef.current);
+      const initialError =
+        preview.errorCode === 'missing_agent_scope'
+          ? t('markdownLink.workspaceScopeMissing')
+          : preview.errorCode === 'invalid'
+            ? t('markdownLink.invalid')
+            : '';
+      openPreview(preview, initialError);
+      return true;
+    },
+    [openPreview, t]
+  );
 
   return (
     <ConversationMarkdownLinkContext.Provider value={handleLinkPress}>
       {children}
-      {preview ? (
-        <AuthenticatedResourcePreviewModal
-          key={preview.key}
-          target={preview}
-          visible
-          initialError={initialError}
-          downloadState={resourceDownload.state}
-          downloadFeedback={downloadFeedback}
-          onClose={handleClose}
-          onDownload={resourceDownload.download}
-        />
-      ) : null}
     </ConversationMarkdownLinkContext.Provider>
   );
 }

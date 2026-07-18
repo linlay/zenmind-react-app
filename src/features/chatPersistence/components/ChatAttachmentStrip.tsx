@@ -1,22 +1,18 @@
-import { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
-import {
-  buildAuthenticatedApiUriSource,
-  type ApiUriSource,
-} from '../../../core/api/apiClient';
+import { buildAuthenticatedApiUriSource, type ApiUriSource } from '../../../core/api/apiClient';
+import { useConversationPreviewRowActive } from '../../../shared/components/conversationPreview/ConversationPreviewProvider.tsx';
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../shared/visual/className';
 import { appVisualTokens, type AppThemeTokens } from '../../../shared/visual/foundation';
-import {
-  formatChatAttachmentSize,
-  getChatAttachmentStatusLabel,
-  normalizeChatAttachmentResourceUrl
-} from '../chatAttachmentModels';
+import { formatChatAttachmentSize, getChatAttachmentStatusLabel } from '../chatAttachmentModels';
+import { resolveChatAttachmentImageUri, resolveChatAttachmentPreview } from '../chatAttachmentPreview.ts';
 import { resolveChatAttachmentFileIconUsage } from '../chatAttachmentIcon.ts';
 import type { ChatAttachmentBase } from '../types';
+import { useAuthenticatedResourcePreview } from './resource/AuthenticatedResourcePreviewProvider.tsx';
 
 type ChatAttachmentStripProps = {
   attachments: readonly ChatAttachmentBase[];
@@ -46,49 +42,31 @@ const FILE_ICON_WRAP_CLASS = 'h-8 w-8 items-center justify-center rounded-app-pi
 const FILE_TEXT_WRAP_CLASS = 'min-w-0 flex-1';
 const FILE_NAME_CLASS = 'text-app-footnote font-semibold text-app-primary';
 const FILE_META_CLASS = 'mt-[2px] text-[11px] text-app-tertiary';
-const STATUS_BADGE_CLASS = 'absolute bottom-[4px] right-[4px] h-6 w-6 items-center justify-center rounded-app-pill bg-app-surface';
+const STATUS_BADGE_CLASS =
+  'absolute bottom-[4px] right-[4px] h-6 w-6 items-center justify-center rounded-app-pill bg-app-surface';
 const RETRY_BUTTON_CLASS = 'absolute bottom-[6px] left-[6px] rounded-app-pill bg-app-surface px-app-sm py-[3px]';
 const RETRY_TEXT_CLASS = 'text-[11px] font-bold text-app-brand-blue';
 const REMOVE_BUTTON_CLASS =
   'absolute right-[3px] top-[3px] h-5 w-5 items-center justify-center rounded-app-pill border border-app-line bg-app-surface';
 
-function resolveImageUri({
-  localUri,
-  previewUri,
-  resourceUrl,
-  variant
-}: Pick<ChatAttachmentBase, 'localUri' | 'previewUri' | 'resourceUrl'> & {
-  variant: ChatAttachmentVariant;
-}): string {
-  const localPreviewUri = previewUri || localUri;
-  const uri = variant === 'message' ? resourceUrl || localPreviewUri || '' : localPreviewUri || resourceUrl || '';
-  return normalizeChatAttachmentResourceUrl(uri);
-}
-
 const AttachmentImageTile = memo(function AttachmentImageTile({
   attachment,
+  active,
+  onActivate,
   variant,
   theme,
   t
 }: {
   attachment: ChatAttachmentBase;
+  active: boolean;
+  onActivate: (attachment: ChatAttachmentBase) => void;
   variant: ChatAttachmentVariant;
   theme: AppThemeTokens;
   t: ChatAttachmentTranslate;
 }) {
   const [loadState, setLoadState] = useState<'loading' | 'loaded' | 'failed'>('loading');
-  const [retrySeed, setRetrySeed] = useState(0);
   const [imageSource, setImageSource] = useState<ApiUriSource | null>(null);
-  const imageUri = useMemo(
-    () =>
-      resolveImageUri({
-        localUri: attachment.localUri,
-        previewUri: attachment.previewUri,
-        resourceUrl: attachment.resourceUrl,
-        variant
-      }),
-    [attachment.localUri, attachment.previewUri, attachment.resourceUrl, variant]
-  );
+  const imageUri = resolveChatAttachmentImageUri(attachment, variant);
   const isMessage = variant === 'message';
   const frameClass = isMessage ? MESSAGE_IMAGE_FRAME_CLASS : COMPOSER_IMAGE_FRAME_CLASS;
 
@@ -96,6 +74,13 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
     let cancelled = false;
 
     async function resolveSource() {
+      if (!active) {
+        if (!cancelled) {
+          setImageSource(null);
+          setLoadState('loading');
+        }
+        return;
+      }
       if (!imageUri) {
         if (!cancelled) {
           setImageSource(null);
@@ -124,24 +109,21 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
     return () => {
       cancelled = true;
     };
-  }, [imageUri, retrySeed]);
+  }, [active, imageUri]);
+
+  const canActivate = attachment.status !== 'uploading' && loadState !== 'loading';
 
   return (
     <Pressable
-      onPress={() => {
-        if (loadState === 'failed') {
-          setLoadState('loading');
-          setRetrySeed((value) => value + 1);
-        }
-      }}
-      disabled={loadState !== 'failed'}
+      onPress={() => onActivate(attachment)}
+      disabled={!canActivate}
       className={cn(IMAGE_TILE_CLASS, frameClass)}
-      accessibilityRole={loadState === 'failed' ? 'button' : 'image'}
-      accessibilityLabel={attachment.name}
+      accessibilityRole={canActivate ? 'button' : 'image'}
+      accessibilityLabel={canActivate ? t('attachment.openPreview', { name: attachment.name }) : attachment.name}
     >
       {imageSource ? (
         <Image
-          key={`${imageSource.uri}:${retrySeed}`}
+          key={imageSource.uri}
           source={imageSource}
           resizeMode="cover"
           className={IMAGE_CLASS}
@@ -174,20 +156,27 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
 
 const AttachmentFileTile = memo(function AttachmentFileTile({
   attachment,
+  onActivate,
   variant,
   theme,
   t
 }: {
   attachment: ChatAttachmentBase;
+  onActivate: (attachment: ChatAttachmentBase) => void;
   variant: ChatAttachmentVariant;
   theme: AppThemeTokens;
   t: ChatAttachmentTranslate;
 }) {
   const sizeText = formatChatAttachmentSize(attachment.sizeBytes);
-  const statusText =
-    variant === 'composer' && attachment.status !== 'ready' ? getChatAttachmentStatusLabel(attachment.status, t) : '';
+  const statusText = attachment.status !== 'ready' ? getChatAttachmentStatusLabel(attachment.status, t) : '';
   return (
-    <View className={cn(FILE_TILE_CLASS, variant === 'message' ? MESSAGE_FILE_TILE_CLASS : null)}>
+    <Pressable
+      disabled={attachment.status === 'uploading'}
+      onPress={() => onActivate(attachment)}
+      accessibilityRole="button"
+      accessibilityLabel={t('attachment.openPreview', { name: attachment.name })}
+      className={cn(FILE_TILE_CLASS, variant === 'message' ? MESSAGE_FILE_TILE_CLASS : null)}
+    >
       <View className={FILE_ICON_WRAP_CLASS}>
         <AppIcon
           usage={resolveChatAttachmentFileIconUsage(attachment)}
@@ -203,7 +192,7 @@ const AttachmentFileTile = memo(function AttachmentFileTile({
           {[statusText, sizeText].filter(Boolean).join(' · ') || t('attachment.file')}
         </Text>
       </View>
-    </View>
+    </Pressable>
   );
 });
 
@@ -259,6 +248,24 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
 }: ChatAttachmentStripProps) {
   const t = useT();
   const { theme } = useAppTheme();
+  const rowActive = useConversationPreviewRowActive();
+  const { openPreview } = useAuthenticatedResourcePreview();
+
+  const handleActivate = useCallback(
+    (attachment: ChatAttachmentBase) => {
+      const resolution = resolveChatAttachmentPreview(attachment);
+      if (resolution.kind === 'blocked') {
+        return;
+      }
+      const initialError =
+        resolution.kind === 'error'
+          ? resolution.detail ||
+            (resolution.reason === 'failed' ? t('attachment.status.failed') : t('artifact.missingResource'))
+          : '';
+      openPreview(resolution.target, initialError);
+    },
+    [openPreview, t]
+  );
 
   if (attachments.length === 0) {
     return null;
@@ -283,9 +290,22 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
             )}
           >
             {attachment.kind === 'image' ? (
-              <AttachmentImageTile attachment={attachment} variant={variant} theme={theme} t={t} />
+              <AttachmentImageTile
+                attachment={attachment}
+                active={rowActive}
+                onActivate={handleActivate}
+                variant={variant}
+                theme={theme}
+                t={t}
+              />
             ) : (
-              <AttachmentFileTile attachment={attachment} variant={variant} theme={theme} t={t} />
+              <AttachmentFileTile
+                attachment={attachment}
+                onActivate={handleActivate}
+                variant={variant}
+                theme={theme}
+                t={t}
+              />
             )}
             {variant === 'composer' ? (
               <ComposerAttachmentActions

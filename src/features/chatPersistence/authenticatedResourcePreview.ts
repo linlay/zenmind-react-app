@@ -2,6 +2,15 @@ import { getChatAttachmentExtension, getChatAttachmentKind } from './chatAttachm
 
 export type AuthenticatedResourcePreviewKind = 'image' | 'text' | 'pdf' | 'unsupported';
 
+export type AuthenticatedResourcePreviewTarget = {
+  key: string;
+  name: string;
+  resourceUrl: string;
+  previewKind: AuthenticatedResourcePreviewKind;
+  sourcePath?: string;
+  line?: number;
+};
+
 export type AuthenticatedResourceTextSections = {
   before: string;
   target: string;
