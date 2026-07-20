@@ -1,18 +1,33 @@
 import type {
   ChatTimelineAssistantReplyFooter,
   ChatTimelineAssistantReplyFooterDisplayItem,
+  ChatTimelineActionNode,
+  ChatTimelineArtifactNode,
   ChatTimelineAwaitingNode,
+  ChatTimelineContextCompactNode,
   ChatTimelineDisplayItem,
   ChatTimelineDisplayItemKind,
   ChatTimelineMessageNode,
   ChatTimelineNode,
   ChatTimelineNodeDisplayItem,
+  ChatTimelinePlanDisplayItem,
+  ChatTimelinePlanNode,
   ChatTimelineState,
+  ChatTimelineSourceNode,
+  ChatTimelineTaskDisplayItem,
+  ChatTimelineTaskNode,
   ChatTimelineTextNode,
   ChatTimelineToolGroupDisplayItem,
   ChatTimelineToolNode,
 } from './types.ts';
+import { getChatTimelineArtifactContentLength } from './timelineArtifact.ts';
+import { getChatTimelineActionContentLength } from './timelineAction.ts';
+import { getChatTimelineContextCompactContentLength } from './timelineContextCompact.ts';
 import { getChatTimelineErrorDetailSignature } from './timelinePlatformError.ts';
+import { getChatTimelinePlanContentLength } from './timelinePlan.ts';
+import { isChatTimelineCommandMessageVariant } from './timelineRequest.ts';
+import { getChatTimelineSourceContentLength } from './timelineSource.ts';
+import { getChatTimelineTaskContentLength } from './timelineTask.ts';
 
 type ChatTimelineDisplayTextNode = ChatTimelineTextNode & {
   kind: Exclude<ChatTimelineTextNode['kind'], 'usage'>;
@@ -21,7 +36,13 @@ type ChatTimelineDisplayTextNode = ChatTimelineTextNode & {
 type ChatTimelineDisplayNode =
   | ChatTimelineMessageNode
   | ChatTimelineDisplayTextNode
+  | ChatTimelineContextCompactNode
+  | ChatTimelineActionNode
+  | ChatTimelineArtifactNode
+  | ChatTimelinePlanNode
+  | ChatTimelineTaskNode
   | ChatTimelineToolNode
+  | ChatTimelineSourceNode
   | ChatTimelineAwaitingNode;
 
 type ChatTimelineReasoningDisplayNode = ChatTimelineDisplayTextNode & {
@@ -45,7 +66,9 @@ function displayKindForNode(
 ): Exclude<ChatTimelineDisplayItemKind, 'tool-group' | 'assistant-reply-footer'> {
   if (node.kind === 'message') {
     if (node.role === 'user') {
-      return 'user-query';
+      return isChatTimelineCommandMessageVariant(node.messageVariant)
+        ? 'request'
+        : 'user-query';
     }
     if (node.role === 'assistant') {
       return 'assistant-content';
@@ -101,6 +124,24 @@ function isVisibleTimelineNode(
   if (node.kind === 'tool') {
     return Boolean(node.title || node.body || node.argsText || node.resultText);
   }
+  if (node.kind === 'source') {
+    return true;
+  }
+  if (node.kind === 'artifact') {
+    return true;
+  }
+  if (node.kind === 'plan') {
+    return true;
+  }
+  if (node.kind === 'task') {
+    return true;
+  }
+  if (node.kind === 'action') {
+    return true;
+  }
+  if (node.kind === 'context') {
+    return true;
+  }
   if (node.kind === 'reasoning' && !node.body.trim() && isDefaultReasoningNode(node)) {
     return isActiveTimelineDisplayNode(node);
   }
@@ -115,6 +156,10 @@ type PendingDisplayEntry =
   | {
       kind: 'tool-group';
       nodes: ChatTimelineToolNode[];
+    }
+  | {
+      kind: 'task-group';
+      nodes: ChatTimelineTaskNode[];
     };
 
 type AssistantReplyAccumulator = {
@@ -148,6 +193,7 @@ type TimelineRunDisplayState = {
 type TimelineDisplaySource = {
   visibleNodes: ChatTimelineDisplayNode[];
   runStatesById: Map<string, TimelineRunDisplayState>;
+  tasksByPlanNodeId: Map<string, ChatTimelineTaskNode[]>;
 };
 
 export type ChatTimelineDisplayTailSignature = {
@@ -267,6 +313,27 @@ function buildPendingDisplayEntries(
   let previousNode: ChatTimelineDisplayNode | null = null;
   const seenReasoningBodiesByRun = new Map<string, Set<string>>();
   const pendingReasoningStatusNodes = new Map<string, ChatTimelineDisplayNode>();
+  const taskGroupsByKey = new Map<string, ChatTimelineTaskNode[]>();
+
+  const taskGroupKey = (node: ChatTimelineTaskNode) =>
+    JSON.stringify([
+      runIdForNode(node),
+      node.planId,
+      node.parentTaskId,
+      node.taskGroupId || node.taskId,
+    ]);
+  visibleNodes.forEach((node) => {
+    if (node.kind !== 'task') {
+      return;
+    }
+    const key = taskGroupKey(node);
+    const group = taskGroupsByKey.get(key);
+    if (group) {
+      group.push(node);
+    } else {
+      taskGroupsByKey.set(key, [node]);
+    }
+  });
 
   const flushPendingTools = () => {
     if (pendingToolNodes.length === 0) {
@@ -345,6 +412,16 @@ function buildPendingDisplayEntries(
       continue;
     }
 
+    if (displayNode.kind === 'task') {
+      flushPendingTools();
+      const group = taskGroupsByKey.get(taskGroupKey(displayNode)) ?? [displayNode];
+      if (group[0]?.id === displayNode.id) {
+        entries.push({ kind: 'task-group', nodes: group });
+      }
+      previousNode = displayNode;
+      continue;
+    }
+
     if (displayNode.kind !== 'tool') {
       flushPendingTools();
       pushNodeEntry(displayNode);
@@ -365,12 +442,17 @@ function buildPendingDisplayEntries(
 }
 
 function runIdForEntry(entry: PendingDisplayEntry): string {
-  const node = entry.kind === 'tool-group' ? entry.nodes[0] : entry.node;
+  const node = entry.kind === 'node' ? entry.node : entry.nodes[0];
   return runIdForNode(node);
 }
 
 function isUserQueryEntry(entry: PendingDisplayEntry): boolean {
-  return entry.kind === 'node' && entry.node.kind === 'message' && entry.node.role === 'user';
+  return (
+    entry.kind === 'node' &&
+    entry.node.kind === 'message' &&
+    entry.node.role === 'user' &&
+    !isChatTimelineCommandMessageVariant(entry.node.messageVariant)
+  );
 }
 
 function assistantMessageForEntry(entry: PendingDisplayEntry): ChatTimelineMessageNode | null {
@@ -389,7 +471,7 @@ function isActiveRuntimeNode(node: ChatTimelineNode | undefined): boolean {
 }
 
 function hasActiveRuntimeNode(item: PendingDisplayEntry): boolean {
-  return item.kind === 'tool-group'
+  return item.kind !== 'node'
     ? item.nodes.some((node) => isActiveRuntimeNode(node))
     : isActiveRuntimeNode(item.node);
 }
@@ -401,9 +483,88 @@ function normalizeDurationMs(value: number | null | undefined): number | null {
   return Number(value);
 }
 
+function resolveTaskPlanNode(
+  task: ChatTimelineTaskNode,
+  plansById: ReadonlyMap<string, ChatTimelinePlanNode>,
+  plansByRunId: ReadonlyMap<string, readonly ChatTimelinePlanNode[]>,
+  tasksById: ReadonlyMap<string, ChatTimelineTaskNode>,
+  visited = new Set<string>()
+): ChatTimelinePlanNode | null {
+  if (visited.has(task.taskId)) {
+    return null;
+  }
+  visited.add(task.taskId);
+
+  if (task.planId) {
+    const explicit = plansById.get(task.planId);
+    if (explicit) {
+      return explicit;
+    }
+  }
+
+  if (task.parentTaskId) {
+    const parent = tasksById.get(task.parentTaskId);
+    if (parent) {
+      const parentPlan = resolveTaskPlanNode(
+        parent,
+        plansById,
+        plansByRunId,
+        tasksById,
+        visited
+      );
+      if (parentPlan) {
+        return parentPlan;
+      }
+    }
+  }
+
+  const runPlans = task.runId ? plansByRunId.get(task.runId) ?? [] : [];
+  return runPlans.length === 1 ? runPlans[0] : null;
+}
+
 function collectTimelineDisplaySource(state: ChatTimelineState): TimelineDisplaySource {
   const visibleNodes: ChatTimelineDisplayNode[] = [];
   const runStatesById = new Map<string, TimelineRunDisplayState>();
+  const plans: ChatTimelinePlanNode[] = [];
+  const tasks: ChatTimelineTaskNode[] = [];
+  state.orderedNodeIds.forEach((nodeId) => {
+    const node = state.nodesById[nodeId];
+    if (node?.kind === 'plan') {
+      plans.push(node);
+    } else if (node?.kind === 'task') {
+      tasks.push(node);
+    }
+  });
+  const tasksById = new Map(tasks.map((task) => [task.taskId, task]));
+  const plansById = new Map(plans.map((plan) => [plan.planId, plan]));
+  const plansByRunId = new Map<string, ChatTimelinePlanNode[]>();
+  plans.forEach((plan) => {
+    if (!plan.runId) {
+      return;
+    }
+    const runPlans = plansByRunId.get(plan.runId);
+    if (runPlans) {
+      runPlans.push(plan);
+    } else {
+      plansByRunId.set(plan.runId, [plan]);
+    }
+  });
+  const tasksByPlanNodeId = new Map<string, ChatTimelineTaskNode[]>();
+  const associatedTaskNodeIds = new Set<string>();
+  tasks.forEach((task) => {
+    const plan = resolveTaskPlanNode(task, plansById, plansByRunId, tasksById);
+    if (!plan) {
+      return;
+    }
+    const planTasks = tasksByPlanNodeId.get(plan.id);
+    if (planTasks) {
+      planTasks.push(task);
+    } else {
+      tasksByPlanNodeId.set(plan.id, [task]);
+    }
+    associatedTaskNodeIds.add(task.id);
+  });
+
   state.orderedNodeIds.forEach((nodeId) => {
     const node = state.nodesById[nodeId];
 
@@ -418,7 +579,7 @@ function collectTimelineDisplaySource(state: ChatTimelineState): TimelineDisplay
       });
     }
 
-    if (isVisibleTimelineNode(node)) {
+    if (isVisibleTimelineNode(node) && !associatedTaskNodeIds.has(node.id)) {
       visibleNodes.push(node);
     }
   });
@@ -434,6 +595,7 @@ function collectTimelineDisplaySource(state: ChatTimelineState): TimelineDisplay
   return {
     visibleNodes,
     runStatesById,
+    tasksByPlanNodeId,
   };
 }
 
@@ -557,10 +719,11 @@ function collectTimelineDisplayMetadata(
 function buildNodeDisplayItem(
   node: ChatTimelineDisplayNode,
   groupIndex: number,
-  groupCount: number
-): ChatTimelineNodeDisplayItem {
+  groupCount: number,
+  tasksByPlanNodeId: ReadonlyMap<string, ChatTimelineTaskNode[]>
+): ChatTimelineNodeDisplayItem | ChatTimelinePlanDisplayItem {
   const kind = displayKindForNode(node);
-  return {
+  const item = {
     key: `${kind}:${node.id}`,
     kind,
     node,
@@ -570,6 +733,18 @@ function buildNodeDisplayItem(
     isLastInRun: groupIndex === groupCount - 1,
     groupIndex,
   };
+  if (node.kind === 'plan') {
+    return {
+      ...item,
+      kind: 'plan',
+      node,
+      tasks: [...(tasksByPlanNodeId.get(node.id) ?? [])],
+    };
+  }
+  if (node.kind === 'task') {
+    throw new Error('task nodes must be emitted through task display groups');
+  }
+  return item as ChatTimelineNodeDisplayItem;
 }
 
 function buildToolGroupDisplayItem(
@@ -591,6 +766,25 @@ function buildToolGroupDisplayItem(
     toolName: firstNode.toolName,
     toolLabel: firstNode.toolLabel,
     count: nodes.length,
+  };
+}
+
+function buildTaskDisplayItem(
+  nodes: readonly ChatTimelineTaskNode[],
+  groupIndex: number,
+  groupCount: number
+): ChatTimelineTaskDisplayItem {
+  const firstNode = nodes[0];
+  return {
+    key: `task-group:${firstNode.id}`,
+    kind: 'task',
+    node: firstNode,
+    nodes: [...nodes],
+    nodeId: firstNode.id,
+    runId: runIdForNode(firstNode),
+    isFirstInRun: groupIndex === 0,
+    isLastInRun: groupIndex === groupCount - 1,
+    groupIndex,
   };
 }
 
@@ -617,6 +811,24 @@ function getTimelineNodeContentLength(node: ChatTimelineNode): number {
   if (node.kind === 'run') {
     return node.title.length + node.body.length + node.status.length;
   }
+  if (node.kind === 'source') {
+    return getChatTimelineSourceContentLength(node);
+  }
+  if (node.kind === 'artifact') {
+    return getChatTimelineArtifactContentLength(node);
+  }
+  if (node.kind === 'plan') {
+    return getChatTimelinePlanContentLength(node);
+  }
+  if (node.kind === 'task') {
+    return getChatTimelineTaskContentLength(node);
+  }
+  if (node.kind === 'action') {
+    return getChatTimelineActionContentLength(node);
+  }
+  if (node.kind === 'context') {
+    return getChatTimelineContextCompactContentLength(node);
+  }
   return node.title.length + node.body.length + node.status.length;
 }
 
@@ -631,6 +843,15 @@ function getTimelineItemContentLength(item: ChatTimelineDisplayItem): number {
   }
   if (item.kind === 'tool-group') {
     return item.nodes.reduce((total, node) => total + getTimelineNodeContentLength(node), 0);
+  }
+  if (item.kind === 'task') {
+    return item.nodes.reduce((total, node) => total + getTimelineNodeContentLength(node), 0);
+  }
+  if (item.kind === 'plan') {
+    return (
+      getTimelineNodeContentLength(item.node) +
+      item.tasks.reduce((total, task) => total + getTimelineNodeContentLength(task), 0)
+    );
   }
   return getTimelineNodeContentLength(item.node);
 }
@@ -653,18 +874,29 @@ function buildTimelineTailSignature(
     };
   }
 
-  const node = tail.kind === 'tool-group' ? tail.nodes[tail.nodes.length - 1] : tail.node;
+  const groupedNodes =
+    tail.kind === 'tool-group' || tail.kind === 'task' ? tail.nodes : null;
+  const node = groupedNodes ? groupedNodes[groupedNodes.length - 1] : tail.node;
+  const planTasks = tail.kind === 'plan' ? tail.tasks : null;
   return {
     key: tail.key,
     contentLength: getTimelineItemContentLength(tail),
-    lifecycle: tail.kind === 'tool-group' ? tail.nodes.map((item) => item.lifecycle).join('|') : node.lifecycle,
+    lifecycle: groupedNodes
+      ? groupedNodes.map((item) => item.lifecycle).join('|')
+      : planTasks && planTasks.length > 0
+        ? [node.lifecycle, ...planTasks.map((task) => task.lifecycle)].join('|')
+      : node.lifecycle,
     streaming:
       tail.kind === 'tool-group'
         ? tail.nodes.some((item) => item.streaming)
         : 'streaming' in node
           ? Boolean(node.streaming)
           : false,
-    updatedAt: tail.kind === 'tool-group' ? Math.max(...tail.nodes.map((item) => item.updatedAt)) : node.updatedAt,
+    updatedAt: groupedNodes
+      ? Math.max(...groupedNodes.map((item) => item.updatedAt))
+      : planTasks && planTasks.length > 0
+        ? Math.max(node.updatedAt, ...planTasks.map((task) => task.updatedAt))
+      : node.updatedAt,
   };
 }
 
@@ -756,7 +988,68 @@ function didAssistantMessageStreamingComplete(
   );
 }
 
-function updateTailDisplayModel(
+function isPatchableStructuredNode(node: ChatTimelineDisplayNode): boolean {
+  return (
+    node.kind === 'source' ||
+    node.kind === 'artifact' ||
+    node.kind === 'plan' ||
+    node.kind === 'context'
+  );
+}
+
+function patchStructuredDisplayItem(
+  state: ChatTimelineState,
+  previous: ChatTimelineDisplayModel,
+  nodeId: string
+): ChatTimelineDisplayModel | null {
+  const previousNode = previous.nodesById[nodeId];
+  const nextNode = state.nodesById[nodeId];
+  if (
+    !isTimelineDisplayNode(previousNode) ||
+    !isTimelineDisplayNode(nextNode) ||
+    !isPatchableStructuredNode(previousNode) ||
+    previousNode.kind !== nextNode.kind ||
+    runIdForNode(previousNode) !== runIdForNode(nextNode) ||
+    (nextNode.kind !== 'context' && didRuntimeActivityChange(previousNode, nextNode))
+  ) {
+    return null;
+  }
+
+  const itemIndex = previous.items.findIndex(
+    (item) => item.kind !== 'tool-group' && item.kind !== 'assistant-reply-footer' && item.nodeId === nodeId
+  );
+  const previousItem = previous.items[itemIndex];
+  if (
+    itemIndex < 0 ||
+    !previousItem ||
+    previousItem.kind === 'tool-group' ||
+    previousItem.kind === 'assistant-reply-footer'
+  ) {
+    return null;
+  }
+
+  const nextKind = displayKindForNode(nextNode);
+  if (nextKind !== previousItem.kind) {
+    return null;
+  }
+  const nextItem = {
+    ...previousItem,
+    node: nextNode,
+    runId: runIdForNode(nextNode),
+  } as ChatTimelineDisplayItem;
+  const items = [...previous.items];
+  items[itemIndex] = nextItem;
+  return {
+    revision: state.revision,
+    orderedNodeIds: state.orderedNodeIds,
+    nodesById: state.nodesById,
+    items,
+    tailSignature:
+      itemIndex === items.length - 1 ? buildTimelineTailSignature(items) : previous.tailSignature,
+  };
+}
+
+function updateIncrementalDisplayModel(
   state: ChatTimelineState,
   previous: ChatTimelineDisplayModel
 ): ChatTimelineDisplayModel | null {
@@ -775,10 +1068,20 @@ function updateTailDisplayModel(
     };
   }
 
+  const structuredUpdate = patchStructuredDisplayItem(
+    state,
+    previous,
+    change.visibleNodeId
+  );
+  if (structuredUpdate) {
+    return structuredUpdate;
+  }
+
   const previousTail = previous.items[previous.items.length - 1];
   if (
     !previousTail ||
     previousTail.kind === 'tool-group' ||
+    previousTail.kind === 'task' ||
     previousTail.kind === 'assistant-reply-footer' ||
     previousTail.nodeId !== change.visibleNodeId
   ) {
@@ -825,7 +1128,8 @@ function updateTailDisplayModel(
 }
 
 export function buildChatTimelineDisplayItems(state: ChatTimelineState): ChatTimelineDisplayItem[] {
-  const { visibleNodes, runStatesById } = collectTimelineDisplaySource(state);
+  const { visibleNodes, runStatesById, tasksByPlanNodeId } =
+    collectTimelineDisplaySource(state);
   const entries = buildPendingDisplayEntries(visibleNodes);
   const { runCounts } = collectTimelineDisplayMetadata(entries);
   const runIndexes = new Map<string, number>();
@@ -855,7 +1159,14 @@ export function buildChatTimelineDisplayItems(state: ChatTimelineState): ChatTim
     items.push(
       entry.kind === 'tool-group'
         ? buildToolGroupDisplayItem(entry.nodes, groupIndex, groupCount)
-        : buildNodeDisplayItem(entry.node, groupIndex, groupCount)
+        : entry.kind === 'task-group'
+          ? buildTaskDisplayItem(entry.nodes, groupIndex, groupCount)
+          : buildNodeDisplayItem(
+              entry.node,
+              groupIndex,
+              groupCount,
+              tasksByPlanNodeId
+            )
     );
 
     const node = assistantMessageForEntry(entry);
@@ -870,18 +1181,93 @@ export function buildChatTimelineDisplayItems(state: ChatTimelineState): ChatTim
   return items;
 }
 
+function sameNodeReferences(
+  left: readonly ChatTimelineNode[],
+  right: readonly ChatTimelineNode[]
+): boolean {
+  return (
+    left.length === right.length && left.every((node, index) => node === right[index])
+  );
+}
+
+function hasSameDisplayFrame(
+  left: Exclude<ChatTimelineDisplayItem, ChatTimelineAssistantReplyFooterDisplayItem>,
+  right: Exclude<ChatTimelineDisplayItem, ChatTimelineAssistantReplyFooterDisplayItem>
+): boolean {
+  return (
+    left.node === right.node &&
+    left.nodeId === right.nodeId &&
+    left.runId === right.runId &&
+    left.isFirstInRun === right.isFirstInRun &&
+    left.isLastInRun === right.isLastInRun &&
+    left.groupIndex === right.groupIndex
+  );
+}
+
+function canReuseDisplayItem(
+  previous: ChatTimelineDisplayItem,
+  next: ChatTimelineDisplayItem
+): boolean {
+  if (previous.key !== next.key || previous.kind !== next.kind) {
+    return false;
+  }
+  if (previous.kind === 'assistant-reply-footer') {
+    return (
+      next.kind === 'assistant-reply-footer' &&
+      previous.runId === next.runId &&
+      previous.footer.copyText === next.footer.copyText &&
+      previous.footer.timestamp === next.footer.timestamp &&
+      previous.footer.durationMs === next.footer.durationMs &&
+      previous.footer.errorReason === next.footer.errorReason
+    );
+  }
+  if (next.kind === 'assistant-reply-footer' || !hasSameDisplayFrame(previous, next)) {
+    return false;
+  }
+  if (previous.kind === 'tool-group') {
+    return (
+      next.kind === 'tool-group' &&
+      previous.toolName === next.toolName &&
+      previous.toolLabel === next.toolLabel &&
+      previous.count === next.count &&
+      sameNodeReferences(previous.nodes, next.nodes)
+    );
+  }
+  if (previous.kind === 'task') {
+    return next.kind === 'task' && sameNodeReferences(previous.nodes, next.nodes);
+  }
+  if (previous.kind === 'plan') {
+    return next.kind === 'plan' && sameNodeReferences(previous.tasks, next.tasks);
+  }
+  return true;
+}
+
+function reuseStableDisplayItems(
+  items: ChatTimelineDisplayItem[],
+  previous: ChatTimelineDisplayModel | null | undefined
+): ChatTimelineDisplayItem[] {
+  if (!previous || previous.items.length === 0) {
+    return items;
+  }
+  const previousByKey = new Map(previous.items.map((item) => [item.key, item]));
+  return items.map((item) => {
+    const candidate = previousByKey.get(item.key);
+    return candidate && canReuseDisplayItem(candidate, item) ? candidate : item;
+  });
+}
+
 export function buildChatTimelineDisplayModel(
   state: ChatTimelineState,
   previous?: ChatTimelineDisplayModel | null
 ): ChatTimelineDisplayModel {
   if (previous && previous.items.length > 0) {
-    const updated = updateTailDisplayModel(state, previous);
+    const updated = updateIncrementalDisplayModel(state, previous);
     if (updated) {
       return updated;
     }
   }
 
-  const items = buildChatTimelineDisplayItems(state);
+  const items = reuseStableDisplayItems(buildChatTimelineDisplayItems(state), previous);
   return {
     revision: state.revision,
     orderedNodeIds: state.orderedNodeIds,

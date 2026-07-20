@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
 import {
@@ -11,8 +11,12 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '../../shared/i18n';
+import { ConversationPreviewProvider } from '../../shared/components/conversationPreview/ConversationPreviewProvider';
+import { createConversationPreviewVisibilityStore } from '../../shared/components/conversationPreview/visibilityStore';
 import { ChatAwaitingOverlay, ChatAwaitingResumeBar } from './components/ChatAwaitingOverlay';
 import { ChatAwaitingDock } from './components/awaiting/ChatAwaitingDock';
+import { ChatArtifactDrawer } from './components/ChatArtifactDrawer.tsx';
+import { ChatConversationDiagnosticCard } from './components/ChatConversationDiagnosticCard';
 import { ChatDetailComposerCard } from './components/ChatDetailComposerCard';
 import { ChatDetailHistoryDrawer } from './components/ChatDetailDrawers';
 import { ChatDetailEmptyState } from './components/ChatDetailEmptyState';
@@ -21,15 +25,24 @@ import { ChatTimelineList } from './components/ChatTimelineList';
 import { ChatDetailSkeleton } from './components/ChatDetailSkeleton';
 import { ChatNewConversationIntro } from './components/ChatNewConversationIntro';
 import { CopyToast } from './components/CopyToast';
+import { AuthenticatedResourcePreviewProvider } from './components/resource/AuthenticatedResourcePreviewProvider.tsx';
+import { FrontendToolDock } from './frontendTool/FrontendToolDock';
 import { formatChatStatusLabel } from './chatDetailFormatters';
 import { chatSyncService } from '../chatRealtime/chatSyncService';
 import type { ChatSyncEvent } from '../chatRealtime/types';
-import type { AwaitingSubmitPayloadData } from '../../core/api/services/chatApi';
+import type {
+  AwaitingSubmitPayloadData,
+  FrontendToolSubmitPayloadData,
+  SubmitFrontendToolResponse,
+} from '../../core/api/services/chatApi';
+import type { ChatTimelineFrontendToolResolution } from '../chatTimeline/index.ts';
 import { getConversationHistorySlice } from './chatRepository';
+import { selectChatTimelineArtifacts } from './chatArtifactPresentation.ts';
 import type { ChatConversationHistoryScope, ChatDetailRouteParams, ChatHomeItem } from './types';
 import { useChatDetailAwaitingOverlay } from './useChatDetailAwaitingOverlay';
 import { useChatDetailConversationController } from './useChatDetailConversationController';
 import { useChatDetailLocalUiState } from './useChatDetailLocalUiState';
+import { useConversationActionRuntime } from './useConversationActionRuntime.ts';
 
 type ChatDetailScreenProps = NativeStackScreenProps<{ ChatDetail: ChatDetailRouteParams }, 'ChatDetail'>;
 const IS_IOS = Platform.OS === 'ios';
@@ -80,6 +93,7 @@ function ChatDetailKeyboardAvoider({ children, keyboardVerticalOffset, className
 export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   const t = useT();
   const insets = useSafeAreaInsets();
+  const [isArtifactDrawerOpen, setIsArtifactDrawerOpen] = useState(false);
   const {
     conversationId,
     conversationSubtitle = '',
@@ -90,10 +104,13 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     fromNotification = false,
     skipInitialReconcile = false
   } = route.params;
+  const conversationPreviewStore = useMemo(() => createConversationPreviewVisibilityStore(), []);
+  useConversationActionRuntime(conversationId);
   const {
     summary,
     conversationTarget,
     timelineState,
+    activeFrontendTool,
     newConversationIntro,
     runtimeState,
     headerRuntimeState,
@@ -102,6 +119,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     skeletonOverlayOpacity,
     socketStatus,
     errorText,
+    diagnosticState,
     draft,
     setDraft,
     composerAttachments,
@@ -134,6 +152,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     fromNotification,
     skipInitialReconcile
   });
+  const artifacts = useMemo(() => selectChatTimelineArtifacts(timelineState), [timelineState]);
   const { awaitingSummary, handleOpenAwaitingOverlay, handleDismissAwaitingOverlay } = useChatDetailAwaitingOverlay(
     runtimeState,
     conversationId
@@ -142,6 +161,17 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   const passiveAwaiting = interactiveAwaiting ? null : awaitingSummary;
   const handleSubmitAwaiting = useCallback(
     (payload: AwaitingSubmitPayloadData) => chatSyncService.submitAwaiting(conversationId, payload),
+    [conversationId]
+  );
+  const handleSubmitFrontendTool = useCallback(
+    (payload: FrontendToolSubmitPayloadData): Promise<SubmitFrontendToolResponse> =>
+      chatSyncService.submitFrontendTool(conversationId, payload),
+    [conversationId]
+  );
+  const handleResolveFrontendTool = useCallback(
+    (toolKey: string, reason: ChatTimelineFrontendToolResolution) => {
+      chatSyncService.resolveFrontendTool(conversationId, toolKey, reason);
+    },
     [conversationId]
   );
   const handleLoadHistory = useCallback(
@@ -179,6 +209,8 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     subscribeHistoryEvents: handleSubscribeHistoryEvents
   });
   const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleOpenArtifactDrawer = useCallback(() => setIsArtifactDrawerOpen(true), []);
+  const handleCloseArtifactDrawer = useCallback(() => setIsArtifactDrawerOpen(false), []);
   const handleSelectHistoryConversation = useCallback(
     (item: ChatHomeItem) => {
       handleCloseHistoryDrawer();
@@ -197,7 +229,17 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     [conversationId, conversationSubtitle, conversationTarget, handleCloseHistoryDrawer, historyScope, navigation]
   );
 
-  return (
+  useEffect(() => {
+    setIsArtifactDrawerOpen(false);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (artifacts.length === 0) {
+      setIsArtifactDrawerOpen(false);
+    }
+  }, [artifacts.length]);
+
+  const content = (
     <View className={SAFE_AREA_CLASS}>
       {isInitialContentReady ? (
         summary ? (
@@ -227,6 +269,16 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
 
                 <ChatTimelineList
                   timelineState={timelineState}
+                  diagnosticCard={
+                    diagnosticState.status === 'idle' ? null : (
+                      <ChatConversationDiagnosticCard state={diagnosticState} />
+                    )
+                  }
+                  diagnosticVersion={
+                    diagnosticState.status === 'idle'
+                      ? ''
+                      : `${diagnosticState.requestId}:${diagnosticState.status}`
+                  }
                   emptyState={
                     newConversationIntro ? (
                       <ChatNewConversationIntro
@@ -238,12 +290,25 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                     ) : null
                   }
                   onCopyText={handleCopyMessage}
+                  previewStore={conversationPreviewStore}
+                  workspaceAgentKey={composerOptions.agentKey}
                   onReaskMessage={handleReaskMessage}
                   reaskCurrentDisabled={composerAction === 'sending' || Boolean(headerRuntimeState.runAction)}
                   reaskNewConversationDisabled={
                     composerAction === 'sending' || Boolean(headerRuntimeState.runAction) || !historyScope
                   }
+                  artifactCount={artifacts.length}
+                  onOpenArtifacts={handleOpenArtifactDrawer}
                 />
+
+                {activeFrontendTool ? (
+                  <FrontendToolDock
+                    key={activeFrontendTool.key}
+                    tool={activeFrontendTool}
+                    onResolve={handleResolveFrontendTool}
+                    onSubmit={handleSubmitFrontendTool}
+                  />
+                ) : null}
 
                 {interactiveAwaiting ? (
                   <ChatAwaitingDock awaiting={interactiveAwaiting} onSubmit={handleSubmitAwaiting} />
@@ -315,10 +380,26 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
         onSelectConversation={handleSelectHistoryConversation}
       />
 
+      <ChatArtifactDrawer
+        key={conversationId}
+        visible={isArtifactDrawerOpen}
+        artifacts={artifacts}
+        onClose={handleCloseArtifactDrawer}
+      />
+
       <CopyToast trigger={copyToastTrigger} />
       {passiveAwaiting?.isOverlayVisible && isInitialContentReady ? (
         <ChatAwaitingOverlay awaiting={passiveAwaiting} onDismiss={handleDismissAwaitingOverlay} />
       ) : null}
     </View>
+  );
+  return (
+    <ConversationPreviewProvider
+      scopeKey={conversationId}
+      store={conversationPreviewStore}
+      onCopyText={handleCopyMessage}
+    >
+      <AuthenticatedResourcePreviewProvider key={conversationId}>{content}</AuthenticatedResourcePreviewProvider>
+    </ConversationPreviewProvider>
   );
 }

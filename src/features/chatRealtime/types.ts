@@ -23,6 +23,8 @@ export type ChatSyncReason =
   | 'notification'
   | 'local_send'
   | 'awaiting_submit'
+  | 'frontend_tool'
+  | 'action'
   | 'attach'
   | 'push'
   | 'reconcile'
@@ -141,6 +143,13 @@ export type ChatConversationTimelineResetEvent = {
   reason: ChatSyncReason;
 };
 
+export type ChatConversationActionProtocolEvent = {
+  type: 'conversation.action.protocol';
+  conversationId: string;
+  reason: Extract<ChatSyncReason, 'push' | 'stream'>;
+  event: Record<string, unknown>;
+};
+
 export type ChatSyncEvent =
   | ChatConnectionStatusEvent
   | ChatHomeItemPatchEvent
@@ -153,4 +162,5 @@ export type ChatSyncEvent =
   | ChatConversationRuntimeReplaceEvent
   | ChatConversationRuntimeResetEvent
   | ChatConversationTimelineReplaceEvent
-  | ChatConversationTimelineResetEvent;
+  | ChatConversationTimelineResetEvent
+  | ChatConversationActionProtocolEvent;

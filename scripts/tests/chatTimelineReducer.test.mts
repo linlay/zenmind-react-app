@@ -13,12 +13,14 @@ import {
   createChatTimelineState,
   deriveChatTimelineState,
   deriveChatTimelineStateFromMessages,
+  getActiveChatTimelineFrontendTool,
   getAwaitingInteractiveTimeout,
   getChatTimelineActiveRunId,
   mergeChatTimelineState,
   patchChatTimelineMessage,
   projectTimelineMessages,
   projectTimelineRuntimeState,
+  resolveChatTimelineFrontendTool,
 } from '../../src/features/chatTimeline/index.ts';
 
 const feedbackQuestion = {
@@ -1572,6 +1574,121 @@ test('timeline reducer merges tool snapshot with runless string result', () => {
   assert.match(tool.resultText, /export const ok/);
 });
 
+test('timeline derives one active frontend tool and incrementally parses its params', () => {
+  const started = deriveChatTimelineState('chat-tool', [
+    {
+      type: 'run.start',
+      runId: 'run-tool',
+      agentKey: 'agent.demo',
+      timestamp: 1_700_000_000_000,
+    },
+    {
+      type: 'tool.start',
+      runId: 'run-tool',
+      toolId: 'tool-form',
+      agentKey: 'agent.demo',
+      toolName: 'leave_form',
+      toolLabel: '请假申请',
+      toolType: 'HTML',
+      viewportKey: 'leave-form',
+      toolTimeout: 60,
+      timestamp: 1_700_000_000_100,
+    },
+    {
+      type: 'tool.args',
+      runId: 'run-tool',
+      toolId: 'tool-form',
+      delta: '{"days":',
+      timestamp: 1_700_000_000_110,
+    },
+    {
+      type: 'tool.args',
+      runId: 'run-tool',
+      toolId: 'tool-form',
+      delta: '2}',
+      timestamp: 1_700_000_000_120,
+    },
+  ]);
+
+  const active = getActiveChatTimelineFrontendTool(started);
+  assert.equal(active?.toolId, 'tool-form');
+  assert.equal(active?.toolType, 'html');
+  assert.equal(active?.toolTimeoutMs, 60_000);
+  assert.deepEqual(active?.toolParams, { days: 2 });
+  assert.equal(
+    started.orderedNodeIds.filter((nodeId) => started.nodesById[nodeId]?.kind === 'tool').length,
+    1
+  );
+
+  const completed = applyChatTimelineEvent(started, 'chat-tool', {
+    type: 'tool.result',
+    runId: 'run-tool',
+    toolId: 'tool-form',
+    result: { accepted: true },
+    timestamp: 1_700_000_000_200,
+  });
+  assert.equal(getActiveChatTimelineFrontendTool(completed), null);
+});
+
+test('timeline only resolves the current frontend tool without completing its server lifecycle', () => {
+  const started = deriveChatTimelineState('chat-tool', [
+    {
+      type: 'tool.start',
+      runId: 'run-tool',
+      toolId: 'tool-form',
+      toolType: 'qlc',
+      viewportKey: 'tool-form',
+      timestamp: 1_700_000_000_000,
+    },
+  ]);
+  const active = getActiveChatTimelineFrontendTool(started);
+  assert.ok(active);
+
+  const stale = resolveChatTimelineFrontendTool(started, 'wrong-key', 'close');
+  assert.equal(stale, started);
+  const resolved = resolveChatTimelineFrontendTool(
+    started,
+    active.key,
+    'done',
+    1_700_000_000_100
+  );
+  assert.equal(getActiveChatTimelineFrontendTool(resolved), null);
+  const toolNode = resolved.nodesById[active.key];
+  assert.equal(toolNode?.lifecycle, 'active');
+  assert.equal(toolNode?.kind === 'tool' ? toolNode.frontendToolState?.status : '', 'resolved');
+});
+
+test('timeline does not resurrect an older frontend tool after the latest one resolves', () => {
+  const state = deriveChatTimelineState('chat-tool', [
+    {
+      type: 'tool.start',
+      runId: 'run-tool',
+      toolId: 'tool-old',
+      toolType: 'html',
+      viewportKey: 'tool-old',
+      timestamp: 1_700_000_000_000,
+    },
+    {
+      type: 'tool.start',
+      runId: 'run-tool',
+      toolId: 'tool-latest',
+      toolType: 'html',
+      viewportKey: 'tool-latest',
+      timestamp: 1_700_000_000_100,
+    },
+  ]);
+  const latest = getActiveChatTimelineFrontendTool(state);
+  assert.equal(latest?.toolId, 'tool-latest');
+
+  const resolved = resolveChatTimelineFrontendTool(
+    state,
+    latest?.key || '',
+    'close',
+    1_700_000_000_200
+  );
+  assert.equal(getActiveChatTimelineFrontendTool(resolved), null);
+});
+
 test('timeline reducer renders structured plan and approval awaiting events', () => {
   const state = deriveChatTimelineState('chat-1', [
     {
@@ -2537,4 +2654,188 @@ test('timeline reducer ignores repeated equivalent awaiting question asks', () =
   assert.equal(repeated.revision, first.revision);
   assert.equal(repeated.awaiting?.awaitingId, 'call_function_question_1');
   assert.equal(repeated.awaiting?.interactive, first.awaiting?.interactive);
+});
+
+test('timeline reducer normalizes source publishes and updates a stable node idempotently', () => {
+  const event = {
+    type: 'source.publish',
+    publishId: 'source-publish-1',
+    runId: 'run-source',
+    toolId: 'tool-search',
+    kind: 'kbase',
+    query: '退款流程',
+    sourceCount: 1,
+    chunkCount: 2,
+    sources: [
+      {
+        id: 'kbase:/docs/refund.md',
+        title: '/docs/refund.md',
+        collectionId: 'handbook',
+        collectionName: '员工手册',
+        url: 'https://example.test/refund',
+        chunks: [
+          {
+            chunkId: 'refund-1',
+            index: 1,
+            content: '退款需要先提交申请。',
+            path: '/docs/refund.md',
+            heading: '退款',
+            startLine: 12,
+            endLine: 14,
+            score: 0.82,
+          },
+          {
+            index: 2,
+            content: '审批通过后进入打款流程。',
+            pageStart: 3,
+          },
+        ],
+      },
+    ],
+    timestamp: 100,
+  };
+  const first = applyChatTimelineEvent(null, 'chat-source', event);
+  const repeated = applyChatTimelineEvent(first, 'chat-source', event);
+  const sourceId = first.orderedNodeIds.find(
+    (nodeId) => first.nodesById[nodeId]?.kind === 'source'
+  );
+  const source = sourceId ? first.nodesById[sourceId] : null;
+
+  assert.equal(source?.kind, 'source');
+  if (source?.kind !== 'source') {
+    throw new Error('expected source node');
+  }
+  assert.equal(source.publishId, 'source-publish-1');
+  assert.equal(source.sourceKind, 'kbase');
+  assert.equal(source.query, '退款流程');
+  assert.equal(source.sourceCount, 1);
+  assert.equal(source.chunkCount, 2);
+  assert.equal(source.sources[0].name, 'refund.md');
+  assert.equal(source.sources[0].chunks[0].startLine, 12);
+  assert.equal(source.sources[0].chunks[1].chunkId, '/docs/refund.md_2');
+  assert.equal(repeated, first);
+
+  const newer = applyChatTimelineEvent(first, 'chat-source', {
+    ...event,
+    sources: [
+      {
+        ...event.sources[0],
+        chunks: [{ ...event.sources[0].chunks[0], content: '请先提交退款申请。' }],
+      },
+    ],
+    sourceCount: 1,
+    chunkCount: 1,
+    timestamp: 120,
+  });
+  const ignoredOlder = applyChatTimelineEvent(newer, 'chat-source', event);
+  const updated = newer.nodesById[source.id];
+
+  assert.deepEqual(newer.orderedNodeIds, first.orderedNodeIds);
+  assert.equal(updated?.kind, 'source');
+  assert.equal(updated?.kind === 'source' ? updated.sources[0].chunks[0].content : '', '请先提交退款申请。');
+  assert.equal(ignoredOlder, newer);
+});
+
+test('timeline reducer keeps empty, malformed and failed source publishes visible', () => {
+  const state = deriveChatTimelineState('chat-source-fallback', [
+    {
+      type: 'source.publish',
+      publishId: 'empty',
+      query: '不存在的资料',
+      sourceCount: 0,
+      sources: [],
+      timestamp: 100,
+    },
+    {
+      type: 'source.publish',
+      publishId: 'malformed',
+      query: '坏数据',
+      sourceCount: 1,
+      sources: 'not-an-array',
+      timestamp: 110,
+    },
+    {
+      type: 'source.publish',
+      publishId: 'failed',
+      query: '服务失败',
+      sources: [],
+      error: { code: 'source_unavailable', message: '来源服务暂不可用' },
+      timestamp: 120,
+    },
+  ]);
+  const sources = state.orderedNodeIds
+    .map((nodeId) => state.nodesById[nodeId])
+    .filter((node) => node?.kind === 'source');
+
+  assert.equal(sources.length, 3);
+  assert.equal(sources[0].kind === 'source' ? sources[0].malformed : true, false);
+  assert.equal(sources[1].kind === 'source' ? sources[1].malformed : false, true);
+  assert.equal(
+    sources[2].kind === 'source' ? sources[2].errorDetail?.message : '',
+    '来源服务暂不可用'
+  );
+  assert.equal(sources[2].lifecycle, 'error');
+});
+
+test('timeline reducer scopes idless source sequence keys by run', () => {
+  const state = deriveChatTimelineState('chat-source-runs', [
+    {
+      type: 'source.publish',
+      runId: 'run-1',
+      seq: 1,
+      query: 'same query',
+      sources: [],
+      timestamp: 100,
+    },
+    {
+      type: 'source.publish',
+      runId: 'run-2',
+      seq: 1,
+      query: 'same query',
+      sources: [],
+      timestamp: 200,
+    },
+  ]);
+
+  assert.equal(
+    state.orderedNodeIds.filter((nodeId) => state.nodesById[nodeId]?.kind === 'source').length,
+    2
+  );
+});
+
+test('timeline merge accepts a newer source publish even when its result set shrinks', () => {
+  const sourceEvent = {
+    type: 'source.publish',
+    publishId: 'source-reconcile',
+    runId: 'run-source',
+    query: '架构',
+    sources: [
+      {
+        id: 'one',
+        chunks: [{ chunkId: 'one-1', index: 1, content: 'first result' }],
+      },
+      {
+        id: 'two',
+        chunks: [{ chunkId: 'two-1', index: 1, content: 'second result' }],
+      },
+    ],
+    timestamp: 100,
+  };
+  const current = deriveChatTimelineState('chat-source-merge', [sourceEvent]);
+  const incoming = deriveChatTimelineState('chat-source-merge', [
+    {
+      ...sourceEvent,
+      sources: [sourceEvent.sources[0]],
+      sourceCount: 1,
+      chunkCount: 1,
+      timestamp: 120,
+    },
+  ]);
+  const merged = mergeChatTimelineState(current, incoming);
+  const source = merged.orderedNodeIds
+    .map((nodeId) => merged.nodesById[nodeId])
+    .find((node) => node?.kind === 'source');
+
+  assert.equal(source?.kind === 'source' ? source.sources.length : 0, 1);
+  assert.equal(source?.updatedAt, 120);
 });

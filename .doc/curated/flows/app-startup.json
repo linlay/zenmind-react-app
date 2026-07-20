@@ -57,7 +57,7 @@
     },
     {
       "order": 7,
-      "label": "RootNavigator 根据认证快照切到 AuthBootstrapScreen、LoginScreen 或 Tabs；已登录时 ChatDetail 与 TaskBoardFlow 继续作为上层路由覆盖 Tabs。",
+      "label": "RootNavigator 根据认证快照切到 AuthBootstrapScreen、LoginScreen 或 Tabs；已登录 Tabs 挂载 Chat、WebApps 与 Me，任务 Tab 保持隐藏；WebAppsRuntimeProvider 按登录会话包裹 RootStack，立即复用 sharedWsTransport 订阅 Desktop webapp.changed、同步目录并持有常驻 WebView Host，ChatDetail、WebAppDetail 和 TaskBoardFlow 作为上层路由。",
       "moduleId": "app-shell-navigation",
       "file": "src/app/navigation/RootNavigator.tsx",
       "symbol": "RootNavigator"
@@ -99,6 +99,7 @@
     "core-ws-transport",
     "feature-auth-login",
     "feature-notifications",
+    "feature-web-apps",
     "shared-i18n"
   ],
   "relatedTasks": [

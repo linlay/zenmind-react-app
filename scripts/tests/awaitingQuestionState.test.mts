@@ -200,3 +200,34 @@ test('awaiting question state only auto-advances ordinary single select options'
   assert.equal(shouldAutoAdvanceAwaitingQuestion(questions[1]), false);
   assert.equal(shouldAutoAdvanceAwaitingQuestion(questions[2]), false);
 });
+
+test('awaiting option preview metadata changes rendering signature without changing submit value', () => {
+  const previewQuestion: ChatTimelineAwaitingQuestion = {
+    id: 'preview-question',
+    type: 'select',
+    question: 'Choose a layout',
+    options: [
+      {
+        label: 'Compact',
+        value: 'compact',
+        previewHtml: '<main data-layout="compact">Compact</main>'
+      }
+    ]
+  };
+  const draft = toggleSelectAnswer(previewQuestion, undefined, 'compact');
+  const changedPreviewQuestion = {
+    ...previewQuestion,
+    options: previewQuestion.options?.map((option) => ({
+      ...option,
+      previewHtml: '<main data-layout="compact-v2">Compact</main>'
+    }))
+  };
+
+  assert.deepEqual(buildQuestionSubmitParams([previewQuestion], [draft]), [
+    { id: 'preview-question', answer: 'compact' }
+  ]);
+  assert.notEqual(
+    getAwaitingQuestionsSignature([previewQuestion]),
+    getAwaitingQuestionsSignature([changedPreviewQuestion])
+  );
+});

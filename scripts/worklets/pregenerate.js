@@ -9,6 +9,7 @@ const { importLocationsPlugin } = require('metro/private/ModuleGraph/worker/impo
 
 const projectRoot = path.resolve(__dirname, '..', '..');
 const workspaceNodeModulesDir = path.resolve(projectRoot, '..', 'node_modules');
+const workletsPluginPath = require.resolve('react-native-worklets/plugin');
 const metroConfig = getDefaultConfig(projectRoot);
 const metroBabelTransformer = require(metroConfig.transformer.babelTransformerPath);
 const metroBabelPlugins = [functionMapBabelPlugin, importLocationsPlugin];
@@ -71,6 +72,22 @@ const buildPlatforms = ['android', 'web'];
 const productionBuildEnvironment = buildEnvironments.find(
   (buildEnvironment) => buildEnvironment.label === 'production'
 );
+
+function assertWorkletsPluginPatchApplied() {
+  const pluginSource = fs.readFileSync(workletsPluginPath, 'utf8');
+  const hasPatchedModuleBoundaryCheck = pluginSource.includes('function isModulePath(');
+  const hasUnpatchedSubstringCheck = pluginSource.includes('filename.includes(module3)');
+
+  if (!hasPatchedModuleBoundaryCheck || hasUnpatchedSubstringCheck) {
+    throw new Error(
+      [
+        `The react-native-worklets Bundle Mode path patch is not applied to ${workletsPluginPath}.`,
+        `From ${projectRoot}, run: pnpm install --ignore-workspace --frozen-lockfile --force`,
+        "The standalone install is required so this project's patchedDependencies configuration is used."
+      ].join(' ')
+    );
+  }
+}
 
 function isSourceFile(filePath) {
   return sourceExtensions.has(path.extname(filePath)) && !filePath.endsWith('.d.ts');
@@ -357,6 +374,8 @@ void (() => {
 }
 
 function main() {
+  assertWorkletsPluginPatchApplied();
+
   const deletedPackageGeneratedCount = clearGeneratedJsFiles(packageGeneratedWorkletsDir);
   const sourceCandidates = new Set();
   for (const sourceRoot of sourceRoots) {

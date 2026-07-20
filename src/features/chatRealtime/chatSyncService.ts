@@ -1,6 +1,10 @@
+import { Platform } from 'react-native';
+
 import { ApiError } from '../../core/api/apiClient';
 import { resolveActiveWsTransportConfig } from '../../core/api/activeWsTransport';
 import { applyActiveDesktopWsRefreshPayload } from '../../core/auth/appAuth';
+import { getActiveDeviceProfile } from '../../core/auth/deviceProfiles';
+import { APP_VERSION } from '../../shared/generated/brand';
 import {
   CHAT_DETAIL_TRANSPORT_TYPE,
   CHAT_AGENT_DETAIL_TRANSPORT_TYPE,
@@ -10,17 +14,20 @@ import {
   buildAgentDetailPayload,
   buildChatDetailPayload,
   buildMarkChatReadPayload,
+  buildSubmitFrontendToolPayload,
   buildSubmitAwaitingPayload,
   projectRemoteAgentDetail,
   type AgentDetailSnapshot,
   type AwaitingSubmitPayloadData,
   type ChatApiEnvelope,
+  type FrontendToolSubmitPayloadData,
   type MarkChatReadRequest,
   type MarkChatReadResponse,
   type RemoteAgentDetail,
   type RemoteChatDetail,
   type RemoteChatSummary,
   type SubmitAwaitingResponse,
+  type SubmitFrontendToolResponse,
   unwrapChatApiEnvelope
 } from '../../core/api/services/chatApi';
 import {
@@ -32,12 +39,16 @@ import {
 import { getModelOptionsApi, updateAgentModelConfigApi } from '../../core/api/services/modelOptionsApi';
 import {
   appendAssistantDelta,
-  clearChatLocalCache,
+  clearChatLocalCacheForScope,
   createOutgoingMessage,
   getConversationDetail,
   getConversationHistoryScope,
   getConversationInitialTimelineState,
+  getConversationMessagesDiagnosticSnapshot,
   getConversationSyncState,
+  getConversationTarget,
+  getConversationTimelineDiagnosticSnapshot,
+  hasChatLocalConversations,
   getMessageByClientMessageId,
   getMessageByServerMessageId,
   getPendingOutboxMessages,
@@ -56,6 +67,8 @@ import {
   setConversationReadStateLocal,
   upsertProjectedMessage
 } from '../chatPersistence/chatRepository';
+import { getChatCacheScopeId, normalizeChatCacheScopeId } from '../chatPersistence/cacheScope';
+import type { ChatConversationDiagnosticSource } from '../chatPersistence/chatConversationDiagnostic';
 import { hasChatReadStateInput, normalizeChatReadState } from '../chatPersistence/chatReadState';
 import {
   projectRemoteHomeDirectory,
@@ -109,12 +122,16 @@ import {
   applyChatTimelineMessage,
   applyChatTimelineRunUnavailable,
   applyChatTimelineStreamDelta,
+  createChatTimelineActionNodeId,
   createChatTimelineState,
+  getActiveChatTimelineFrontendTool,
   getChatTimelineActiveRunId,
   mergeChatTimelineState,
   patchChatTimelineMessage,
   projectTimelineMessages,
-  projectTimelineRuntimeState
+  projectTimelineRuntimeState,
+  resolveChatTimelineFrontendTool,
+  type ChatTimelineFrontendToolResolution
 } from '../chatTimeline/index.ts';
 import type { ChatTimelineState } from '../chatTimeline/index.ts';
 
@@ -131,7 +148,36 @@ type ChatSendMessageResult = Awaited<ReturnType<typeof createOutgoingMessage>> &
   dispatchError: Error | null;
 };
 
+export type ChatCacheScopeClearResult = {
+  scopeId: string;
+  currentScope: boolean;
+  status: 'success' | 'error';
+  databaseStatus: 'cleared' | 'deleted' | 'missing' | null;
+  errorMessage: string | null;
+};
+
 type TimelineRunContextOptions = NonNullable<Parameters<typeof applyChatTimelineMessage>[2]>;
+
+function describeConversationDiagnosticError(error: unknown) {
+  if (error instanceof ApiError) {
+    return {
+      name: error.name,
+      message: error.message,
+      status: error.status,
+      payload: error.payload,
+    };
+  }
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+    };
+  }
+  return {
+    name: 'UnknownError',
+    message: String(error),
+  };
+}
 
 type StreamBuffer = {
   key: string;
@@ -258,6 +304,14 @@ function findSingleStreamBufferByRun(
 
 function createAwaitingSubmitId(): string {
   return `submit_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
 }
 
 function createRunControlRequestId(kind: string): string {
@@ -443,6 +497,7 @@ class ChatSyncService {
   private readonly activeOutgoingStreams = new Map<string, ActiveOutgoingStreamState>();
   private readonly lastReadMarks = new Map<string, ReadMarkState>();
   private readonly readConfirmations = new Map<string, Promise<void>>();
+  private readonly frontendToolSubmitRequests = new Map<string, Promise<SubmitFrontendToolResponse>>();
   private readonly timelineStates = new Map<string, ChatTimelineState>();
   private readonly agentDetails = new Map<string, AgentDetailSnapshot | null>();
   private readonly agentDetailRequests = new Map<string, Promise<AgentDetailSnapshot | null>>();
@@ -809,17 +864,126 @@ class ChatSyncService {
   }
 
   async resetLocalCacheForDevelopment() {
-    this.stop();
-    this.startPromise = null;
-    this.homeRefreshPromise = null;
-    this.activeConversationId = null;
-    this.hasConnectedOnce = false;
-    this.inFlightOutgoingIds.clear();
-    this.lastReadMarks.clear();
-    this.readConfirmations.clear();
-    this.timelineStates.clear();
-    this.pendingRuntimeEmitReasons.clear();
-    await clearChatLocalCache();
+    const result = await this.clearLocalCacheScope(getChatCacheScopeId());
+    if (result.status === 'error') {
+      throw new Error(result.errorMessage || 'Failed to clear local cache');
+    }
+  }
+
+  async hasActiveLocalConversations() {
+    return hasChatLocalConversations();
+  }
+
+  async clearLocalCacheScope(scopeId: string): Promise<ChatCacheScopeClearResult> {
+    const rawScopeId = String(scopeId || '').trim();
+    const normalizedScopeId = normalizeChatCacheScopeId(rawScopeId);
+    const active = rawScopeId === normalizedScopeId && normalizedScopeId === getChatCacheScopeId();
+    if (!rawScopeId || normalizedScopeId !== rawScopeId) {
+      return {
+        scopeId: rawScopeId,
+        currentScope: false,
+        status: 'error',
+        databaseStatus: null,
+        errorMessage: 'Invalid chat cache scope id',
+      };
+    }
+    if (active) {
+      this.stop();
+      this.startPromise = null;
+      this.homeRefreshPromise = null;
+      this.activeConversationId = null;
+      this.hasConnectedOnce = false;
+      this.inFlightOutgoingIds.clear();
+      this.lastReadMarks.clear();
+      this.readConfirmations.clear();
+      this.frontendToolSubmitRequests.clear();
+      this.timelineStates.clear();
+      this.pendingRuntimeEmitReasons.clear();
+    }
+    try {
+      const result = await clearChatLocalCacheForScope(normalizedScopeId);
+      return {
+        scopeId: result.scopeId,
+        currentScope: result.active,
+        status: 'success',
+        databaseStatus: result.database,
+        errorMessage: null,
+      };
+    } catch (error) {
+      return {
+        scopeId: normalizedScopeId,
+        currentScope: active,
+        status: 'error',
+        databaseStatus: null,
+        errorMessage: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  async collectConversationDiagnosticData(
+    conversationId: string
+  ): Promise<ChatConversationDiagnosticSource> {
+    if (!__DEV__) {
+      throw new Error('Conversation diagnostics are only available in development builds');
+    }
+    const normalizedConversationId = toText(conversationId);
+    if (!normalizedConversationId) {
+      throw new Error('Conversation id is required');
+    }
+
+    const generatedAt = Date.now();
+    const profile = getActiveDeviceProfile();
+    const request = buildChatDetailPayload({
+      chatId: normalizedConversationId,
+      includeRawMessages: true,
+    });
+    const remotePromise = this.requestRawChatApi(CHAT_DETAIL_TRANSPORT_TYPE, request)
+      .then((response) => ({ response, error: null }))
+      .catch((error) => ({
+        response: null,
+        error: describeConversationDiagnosticError(error),
+      }));
+    const [remote, summary, target, messages, syncState, persistedTimelineState] = await Promise.all([
+      remotePromise,
+      getConversationDetail(normalizedConversationId),
+      getConversationTarget(normalizedConversationId),
+      getConversationMessagesDiagnosticSnapshot(normalizedConversationId, 500),
+      getConversationSyncState(normalizedConversationId),
+      getConversationTimelineDiagnosticSnapshot(normalizedConversationId, 500),
+    ]);
+
+    return {
+      generatedAt,
+      environment: {
+        platform: Platform.OS,
+        appVersion: APP_VERSION,
+        generatedAt,
+        generatedAtIso: new Date(generatedAt).toISOString(),
+        profile: profile
+          ? {
+              desktopDeviceId: profile.desktopDeviceId,
+              displayName: profile.displayName,
+              transportKind: profile.transportKind,
+              endpoint: profile.transportKind === 'desktop-ws' ? profile.desktopWs?.wsUrl || '' : profile.apiBaseUrl,
+              cacheScopeId: profile.cacheScopeId,
+              needsRelink: profile.needsRelink,
+            }
+          : null,
+      },
+      remote: {
+        transportType: CHAT_DETAIL_TRANSPORT_TYPE,
+        request,
+        response: remote.response,
+        error: remote.error,
+      },
+      local: {
+        summary,
+        target,
+        messages,
+        syncState,
+        persistedTimelineState,
+      },
+    };
   }
 
   private clearTransientWork() {
@@ -854,6 +1018,7 @@ class ChatSyncService {
     });
     this.timelinePersistTimers.clear();
     this.readConfirmations.clear();
+    this.frontendToolSubmitRequests.clear();
     this.inFlightOutgoingIds.clear();
     this.agentDetails.clear();
     this.agentDetailRequests.clear();
@@ -967,6 +1132,159 @@ class ChatSyncService {
 
   async reconcileConversation(conversationId: string, reason: ChatSyncReason = 'reconcile') {
     return this.scheduleConversationReconcile(conversationId, reason, true);
+  }
+
+  resolveFrontendTool(
+    conversationId: string,
+    toolKey: string,
+    reason: ChatTimelineFrontendToolResolution
+  ): boolean {
+    const normalizedConversationId = toText(conversationId);
+    const normalizedToolKey = toText(toolKey);
+    if (!normalizedConversationId || !normalizedToolKey) {
+      return false;
+    }
+
+    const currentState = this.getConversationTimelineState(normalizedConversationId);
+    if (getActiveChatTimelineFrontendTool(currentState)?.key !== normalizedToolKey) {
+      return false;
+    }
+    const nextState = resolveChatTimelineFrontendTool(
+      currentState,
+      normalizedToolKey,
+      reason
+    );
+    if (nextState === currentState) {
+      return false;
+    }
+    this.publishTimelineState(normalizedConversationId, 'frontend_tool', nextState);
+    return true;
+  }
+
+  recordActionExecution(
+    conversationId: string,
+    outcome: {
+      actionId: string;
+      actionName: string;
+      status: 'executed' | 'failed';
+      result: Record<string, unknown> | null;
+      reason: string;
+    }
+  ): boolean {
+    const normalizedConversationId = toText(conversationId);
+    const actionId = toText(outcome.actionId);
+    const actionName = toText(outcome.actionName).toLowerCase();
+    if (!normalizedConversationId || !actionId || !actionName) {
+      return false;
+    }
+    const currentState = this.getConversationTimelineState(normalizedConversationId);
+    const node = currentState.nodesById[
+      createChatTimelineActionNodeId(normalizedConversationId, actionId)
+    ];
+    if (
+      node?.kind !== 'action' ||
+      node.actionName !== actionName ||
+      node.policy !== 'allowed' ||
+      node.status === 'completed'
+    ) {
+      return false;
+    }
+    const nextState = applyChatTimelineEvent(currentState, normalizedConversationId, {
+      type: outcome.status === 'executed' ? 'action.result' : 'action.fail',
+      actionId,
+      actionName,
+      runId: node.runId,
+      ...(outcome.status === 'executed'
+        ? { result: outcome.result ?? {} }
+        : { error: outcome.reason || 'Action execution failed' }),
+      executionSource: 'mobile',
+      timestamp: Math.max(Date.now(), node.updatedAt + 1),
+    });
+    if (nextState === currentState) {
+      return false;
+    }
+    this.publishTimelineState(normalizedConversationId, 'action', nextState, { emitRuntime: true });
+    return true;
+  }
+
+  submitFrontendTool(
+    conversationId: string,
+    payload: FrontendToolSubmitPayloadData
+  ): Promise<SubmitFrontendToolResponse> {
+    const normalizedConversationId = toText(conversationId);
+    const toolKey = toText(payload.toolKey);
+    const runId = toText(payload.runId);
+    const toolId = toText(payload.toolId);
+    if (!normalizedConversationId || !toolKey || !runId || !toolId || !isPlainRecord(payload.params)) {
+      return Promise.reject(new Error('Conversation id, tool key, run id, tool id and params are required'));
+    }
+
+    const activeTool = getActiveChatTimelineFrontendTool(
+      this.getConversationTimelineState(normalizedConversationId)
+    );
+    if (
+      !activeTool ||
+      activeTool.key !== toolKey ||
+      activeTool.runId !== runId ||
+      activeTool.toolId !== toolId
+    ) {
+      return Promise.reject(new Error('Frontend tool is no longer active'));
+    }
+
+    const requestKey = JSON.stringify([normalizedConversationId, toolKey]);
+    const pendingRequest = this.frontendToolSubmitRequests.get(requestKey);
+    if (pendingRequest) {
+      return pendingRequest;
+    }
+
+    const request: Promise<SubmitFrontendToolResponse> = (async () => {
+      const scope = await this.resolveRunControlScope(normalizedConversationId, runId);
+      const currentTool = getActiveChatTimelineFrontendTool(
+        this.getConversationTimelineState(normalizedConversationId)
+      );
+      if (
+        !currentTool ||
+        currentTool.key !== toolKey ||
+        currentTool.runId !== runId ||
+        currentTool.toolId !== toolId
+      ) {
+        throw new Error('Frontend tool is no longer active');
+      }
+
+      const teamId = toText(scope.teamId);
+      const agentKey = teamId ? '' : currentTool.agentKey || toText(scope.agentKey);
+      if (!agentKey && !teamId) {
+        throw new Error('agentKey or teamId is required for frontend tool submit');
+      }
+
+      const response =
+        (await this.requestChatApi<SubmitFrontendToolResponse>(
+          CHAT_SUBMIT_TRANSPORT_TYPE,
+          buildSubmitFrontendToolPayload({
+            chatId: normalizedConversationId,
+            runId,
+            ...(teamId ? { teamId } : { agentKey }),
+            toolId,
+            params: payload.params,
+          })
+        )) || {};
+      const accepted = Boolean(response.accepted);
+      const detail = toText(response.detail) || (accepted ? 'accepted' : 'unmatched');
+      if (!accepted) {
+        await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
+        throw new Error(detail);
+      }
+
+      this.resolveFrontendTool(normalizedConversationId, toolKey, 'submitted');
+      await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
+      return response;
+    })().finally(() => {
+      if (this.frontendToolSubmitRequests.get(requestKey) === request) {
+        this.frontendToolSubmitRequests.delete(requestKey);
+      }
+    });
+    this.frontendToolSubmitRequests.set(requestKey, request);
+    return request;
   }
 
   async submitAwaiting(conversationId: string, payload: AwaitingSubmitPayloadData) {
@@ -1289,6 +1607,18 @@ class ChatSyncService {
       payload
     });
     return unwrapChatApiEnvelope<T>(response);
+  }
+
+  private async requestRawChatApi(type: string, payload?: unknown): Promise<unknown> {
+    const config = await this.resolveTransportConfig();
+    if (!config) {
+      throw new ApiError('Not authenticated', 401, null);
+    }
+    return requestChatTransport<unknown>({
+      ...config,
+      type,
+      payload,
+    });
   }
 
   private async getChatDetailViaTransport(chatId: string): Promise<RemoteChatDetail> {
@@ -1650,6 +1980,22 @@ class ChatSyncService {
       return;
     }
 
+    if (family === 'action' && conversationId) {
+      await this.applyRuntimeConversationEvent(
+        conversationId,
+        event,
+        source,
+        !type.endsWith('.args')
+      );
+      this.emit({
+        type: 'conversation.action.protocol',
+        conversationId,
+        reason: source,
+        event
+      });
+      return;
+    }
+
     if (family === 'summary') {
       const projected = projectRemoteChatSummary(event);
       if (projected) {
@@ -1700,8 +2046,8 @@ class ChatSyncService {
         family === 'reasoning' ||
         family === 'planning' ||
         family === 'tool' ||
+        family === 'source' ||
         family === 'artifact' ||
-        family === 'action' ||
         family === 'plan' ||
         family === 'task' ||
         family === 'usage' ||

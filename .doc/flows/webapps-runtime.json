@@ -1,0 +1,98 @@
+{
+  "schemaVersion": "1.0",
+  "id": "webapps-runtime",
+  "title": "WebApps Desktop WS 目录同步与常驻 WebView 运行时",
+  "trigger": "认证会话挂载、Desktop WS 重连、App 回前台、进入 WebAppDetail、切换运行项或系统终止 WebContent 进程时触发。",
+  "sourceOfTruth": [
+    "Desktop web.webapp.list 快照与 webapp.changed 增量是远端目录真源；webAppsDesktopProtocol 负责把原始 frame 转成安全领域模型。",
+    "WebAppsGateway 是共享 Desktop WS 上订阅、快照、重连和设备隔离的唯一边界，页面不解析原始 frame。",
+    "WebAppsRuntimeProvider 是登录会话内 catalog、connection、active、resident LRU 和恢复队列的唯一内存状态源。",
+    "WebAppsRuntimeHost 位于登录态 RootStack 外层；WebAppDetail route pop 只隐藏 Host，不卸载 resident WebView。"
+  ],
+  "steps": [
+    {
+      "order": 1,
+      "label": "认证 session 可用后 RootNavigator 挂载 WebAppsRuntimeProvider；Provider 立即 open Gateway，不等待 WebApps Tab 聚焦。",
+      "moduleId": "feature-web-apps",
+      "file": "src/features/webApps/WebAppsRuntimeProvider.tsx",
+      "symbol": "WebAppsRuntimeProvider"
+    },
+    {
+      "order": 2,
+      "label": "Gateway 先挂 sharedWsTransport 的 push/status 监听，只接受活动 Desktop WS Profile，复用 JWT 刷新后的 namespace=d transport，并等待 event.subscribe(webapp.changed) 成功。",
+      "moduleId": "feature-web-apps",
+      "file": "src/features/webApps/webAppsGatewayCore.ts",
+      "symbol": "createDesktopWebAppsGateway"
+    },
+    {
+      "order": 3,
+      "label": "订阅确认后读取 web.webapp.list，校验 desktopDeviceId，以快照覆盖目录，按接收顺序重放同步窗口缓存的 webapp.changed，然后进入实时 upsert/remove。",
+      "moduleId": "feature-web-apps",
+      "file": "src/features/webApps/webAppsGatewayCore.ts",
+      "symbol": "createDesktopWebAppsGateway"
+    },
+    {
+      "order": 4,
+      "label": "共享 Socket 断线后 generation 丢弃旧结果，重连成功重新订阅并读取快照；App 回前台复用同一 single-flight refresh 补偿 Tunnel 状态和排序变化。",
+      "moduleId": "feature-web-apps",
+      "file": "src/features/webApps/WebAppsRuntimeProvider.tsx",
+      "symbol": "WebAppsRuntimeProvider"
+    },
+    {
+      "order": 5,
+      "label": "Reducer 只为 running + available + HTTPS 创建 resident；stopped/unpublished/removed 卸载并回退最近可用项，desktop-offline/publish-error 等瞬态保留已挂载页面。",
+      "moduleId": "feature-web-apps",
+      "file": "src/features/webApps/webAppsRuntimeModel.ts",
+      "symbol": "webAppsRuntimeReducer"
+    },
+    {
+      "order": 6,
+      "label": "WebAppDetail 开启常驻 Host；Host 同时挂载最多 6 个 resident WebView，仅当前项可见和可交互，连接异常时覆盖提示但不销毁页面。",
+      "moduleId": "feature-web-apps",
+      "file": "src/features/webApps/WebAppsRuntimeHost.native.tsx",
+      "symbol": "WebAppsRuntimeHost"
+    },
+    {
+      "order": 7,
+      "label": "WebContent 进程终止后加入恢复队列；App active 时当前项优先，其余按 LRU 单并发恢复，连续终止则停止自动重试。",
+      "moduleId": "feature-web-apps",
+      "file": "src/features/webApps/WebAppsRuntimeProvider.tsx",
+      "symbol": "WebAppsRuntimeProvider"
+    }
+  ],
+  "failureModes": [
+    "先拉快照再订阅会丢失同步窗口内的安装、发布或删除事件。",
+    "重连后不重新 event.subscribe 会让连接恢复但目录永远不再收到增量。",
+    "不校验 desktopDeviceId 会把旧 Profile 或其他 Desktop 的目录写入当前会话。",
+    "WebApps 自建或停止 Socket 会破坏 Chat/Kanban 与 WebApps 的共享连接和监听。",
+    "把 WebView 放进 WebAppDetail screen 会在 route pop 时全部卸载，无法跨页面或 Tab 保活。",
+    "把 Tunnel 短暂离线等同 stopped 会丢失表单、滚动和前端内存状态。",
+    "不限制 resident 数量或并发恢复会造成 WebContent 内存、CPU 与网络峰值。",
+    "通过 action.call 启停会越过脱敏协议并可能暴露 Desktop 本地信息。"
+  ],
+  "mustCheckModules": [
+    "app-shell-navigation",
+    "core-auth-session",
+    "core-ws-transport",
+    "feature-web-apps",
+    "shared-i18n",
+    "shared-screen-header",
+    "shared-visual-foundation"
+  ],
+  "relatedTasks": [
+    "add-or-edit-tab-screen",
+    "add-internationalization"
+  ],
+  "generated": {
+    "stepCount": 7,
+    "files": [
+      "src/features/webApps/WebAppsRuntimeHost.native.tsx",
+      "src/features/webApps/WebAppsRuntimeProvider.tsx",
+      "src/features/webApps/webAppsGatewayCore.ts",
+      "src/features/webApps/webAppsRuntimeModel.ts"
+    ],
+    "resolvedModules": [
+      "feature-web-apps"
+    ]
+  }
+}

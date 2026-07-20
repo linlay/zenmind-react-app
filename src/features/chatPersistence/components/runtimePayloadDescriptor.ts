@@ -1,21 +1,22 @@
 import type { AppIconUsage } from '../../../shared/icons/AppIcon';
 import { defaultT, type TFunction } from '../../../shared/i18n/translate.ts';
 import type {
+  ChatTimelineActionNode,
+  ChatTimelineArtifactNode,
+  ChatTimelineContextCompactNode,
   ChatTimelineNode,
+  ChatTimelinePlanNode,
   ChatTimelineRunNode,
+  ChatTimelineSourceNode,
+  ChatTimelineTaskNode,
   ChatTimelineTextNode,
   ChatTimelineToolGroupDisplayItem,
   ChatTimelineToolNode,
-  ChatTimelineUsageStats,
+  ChatTimelineUsageStats
 } from '../../chatTimeline/index.ts';
+import { sanitizeRuntimeStructuredPayloadForCopy } from './runtimeStructuredPayload.ts';
 
-export type RuntimePayloadRendererType =
-  | 'markdown'
-  | 'tool'
-  | 'awaiting'
-  | 'record'
-  | 'plain'
-  | 'metric';
+export type RuntimePayloadRendererType = 'markdown' | 'tool' | 'awaiting' | 'plain' | 'metric';
 
 export type RuntimePayloadTone = 'reasoning' | 'tool' | 'file' | 'neutral';
 
@@ -23,23 +24,23 @@ export type RuntimeStatusTone = 'active' | 'complete' | 'error' | 'cancelled' | 
 
 export type RuntimePayloadSectionMode = 'markdown' | 'plain' | 'code';
 
-export type RuntimePayloadSource = ChatTimelineNode | ChatTimelineToolGroupDisplayItem;
+export type RuntimePayloadSource =
+  | Exclude<
+      ChatTimelineNode,
+      | ChatTimelineActionNode
+      | ChatTimelineArtifactNode
+      | ChatTimelineContextCompactNode
+      | ChatTimelinePlanNode
+      | ChatTimelineSourceNode
+      | ChatTimelineTaskNode
+    >
+  | ChatTimelineToolGroupDisplayItem;
 
-export type RuntimePayloadKind = Exclude<ChatTimelineNode['kind'], 'message'> | 'tool-group';
+export type RuntimePayloadKind =
+  | Exclude<ChatTimelineNode['kind'], 'action' | 'artifact' | 'context' | 'message' | 'plan' | 'source' | 'task'>
+  | 'tool-group';
 
-export type RuntimeToolStatus =
-  | 'pending'
-  | 'running'
-  | 'completed'
-  | 'success'
-  | 'failed'
-  | 'error'
-  | 'canceled';
-
-export type RuntimeToolArgumentRow = {
-  key: string;
-  valueText: string;
-};
+export type RuntimeToolStatus = 'pending' | 'running' | 'completed' | 'success' | 'failed' | 'error' | 'canceled';
 
 export type RuntimePayloadSection = {
   id: string;
@@ -58,10 +59,14 @@ export type RuntimeToolRecord = {
   hasDetails: boolean;
   description: string;
   argsText: string;
-  argsInlineText: string;
-  argsRows: RuntimeToolArgumentRow[];
   resultText: string;
 };
+
+export type RuntimePayloadCopyText = string | (() => string);
+
+export function resolveRuntimePayloadCopyText(copyText: RuntimePayloadCopyText): string {
+  return typeof copyText === 'function' ? copyText() : copyText;
+}
 
 export type RuntimePayloadDescriptor = {
   id: string;
@@ -75,7 +80,7 @@ export type RuntimePayloadDescriptor = {
   defaultExpanded: boolean;
   defaultWrap: boolean;
   canExpand: boolean;
-  copyText: string;
+  copyText: RuntimePayloadCopyText;
   sections: RuntimePayloadSection[];
   toolRecords: RuntimeToolRecord[];
 };
@@ -127,9 +132,7 @@ function formatRunBody(node: ChatTimelineRunNode, t: TFunction): string {
   return compactJoin([node.body, duration ? t('runtime.duration', { duration }) : '']);
 }
 
-function isToolGroupSource(
-  source: RuntimePayloadSource
-): source is ChatTimelineToolGroupDisplayItem {
+function isToolGroupSource(source: RuntimePayloadSource): source is ChatTimelineToolGroupDisplayItem {
   return source.kind === 'tool-group';
 }
 
@@ -137,9 +140,7 @@ function resolveToolLabel(
   source: Pick<ChatTimelineToolNode | ChatTimelineToolGroupDisplayItem, 'toolLabel' | 'toolName'>,
   t: TFunction
 ): string {
-  return (
-    String(source.toolLabel || '').trim() || String(source.toolName || '').trim() || t('runtime.toolCall')
-  );
+  return String(source.toolLabel || '').trim() || String(source.toolName || '').trim() || t('runtime.toolCall');
 }
 
 function titleForNode(node: ChatTimelineNode, t: TFunction): string {
@@ -231,18 +232,10 @@ function statusLabelForCode(code: string, t: TFunction): string {
 
 function statusToneForCode(node: ChatTimelineNode, code: string): RuntimeStatusTone {
   const normalized = code.toLowerCase();
-  if (
-    node.lifecycle === 'error' ||
-    normalized.includes('error') ||
-    normalized.includes('failed')
-  ) {
+  if (node.lifecycle === 'error' || normalized.includes('error') || normalized.includes('failed')) {
     return 'error';
   }
-  if (
-    node.lifecycle === 'cancelled' ||
-    normalized.includes('cancelled') ||
-    normalized.includes('canceled')
-  ) {
+  if (node.lifecycle === 'cancelled' || normalized.includes('cancelled') || normalized.includes('canceled')) {
     return 'cancelled';
   }
   if (
@@ -271,7 +264,7 @@ function resolveRuntimeStatusView(node: ChatTimelineNode, t: TFunction): Runtime
   return {
     code,
     label: statusLabelForCode(code, t),
-    tone: statusToneForCode(node, code),
+    tone: statusToneForCode(node, code)
   };
 }
 
@@ -333,10 +326,7 @@ function sectionCopyText(sections: readonly RuntimePayloadSection[]): string {
     .join('\n\n');
 }
 
-function singleSection(
-  text: string,
-  mode: RuntimePayloadSectionMode = 'plain'
-): RuntimePayloadSection[] {
+function singleSection(text: string, mode: RuntimePayloadSectionMode = 'plain'): RuntimePayloadSection[] {
   return text ? [{ id: 'body', label: '', text, mode }] : [];
 }
 
@@ -346,95 +336,30 @@ function awaitingSections(
 ): RuntimePayloadSection[] {
   const sections: RuntimePayloadSection[] = [];
   if (node.prompt) {
-    sections.push({ id: 'prompt', label: t('runtime.section.question'), text: node.prompt, mode: 'plain' });
+    sections.push({
+      id: 'prompt',
+      label: t('runtime.section.question'),
+      text: node.prompt,
+      mode: 'plain'
+    });
   }
   if (node.payloadText) {
     sections.push({
       id: 'payload',
       label: node.mode === 'plan' ? t('runtime.section.planOptions') : t('runtime.section.content'),
       text: node.payloadText,
-      mode: 'plain',
+      mode: 'plain'
     });
   }
   if (node.answer) {
-    sections.push({ id: 'answer', label: t('runtime.section.answer'), text: node.answer, mode: 'plain' });
+    sections.push({
+      id: 'answer',
+      label: t('runtime.section.answer'),
+      text: node.answer,
+      mode: 'plain'
+    });
   }
   return sections;
-}
-
-type JsonParseResult = { ok: true; value: unknown } | { ok: false };
-
-function tryParseJsonText(trimmed: string): JsonParseResult {
-  if (!trimmed) {
-    return { ok: false };
-  }
-
-  try {
-    return { ok: true, value: JSON.parse(trimmed) };
-  } catch {
-    return { ok: false };
-  }
-}
-
-function isRecordValue(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function formatInlineValue(value: unknown): string {
-  if (typeof value === 'string') {
-    return value;
-  }
-  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') {
-    return String(value);
-  }
-  if (value === null) {
-    return 'null';
-  }
-
-  try {
-    return JSON.stringify(value) || String(value);
-  } catch {
-    return String(value);
-  }
-}
-
-function formatJsonDocumentInline(value: unknown): string {
-  try {
-    return JSON.stringify(value) || String(value);
-  } catch {
-    return String(value);
-  }
-}
-
-function formatStructuredTextInline(text: string): string {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    return '';
-  }
-
-  const parsed = tryParseJsonText(trimmed);
-  if (parsed.ok) {
-    return formatJsonDocumentInline(parsed.value);
-  }
-
-  return trimmed.replace(/\s+/g, ' ');
-}
-
-export function formatToolArgumentsInline(argsText: string): string {
-  return formatStructuredTextInline(argsText);
-}
-
-function buildToolArgumentRows(argsText: string): RuntimeToolArgumentRow[] {
-  const trimmed = argsText.trim();
-  const parsed = tryParseJsonText(trimmed);
-  if (!parsed.ok || !isRecordValue(parsed.value)) {
-    return [];
-  }
-
-  return Object.entries(parsed.value).map(([key, value]) => ({
-    key,
-    valueText: formatInlineValue(value),
-  }));
 }
 
 function normalizePositiveTimestamp(value: unknown): number | null {
@@ -467,13 +392,9 @@ export function buildToolPillRecords(
     const status = resolveToolStatus(node, t);
     const startedAt = status === 'running' ? normalizePositiveTimestamp(node.createdAt) : null;
     const durationText = formatToolDurationText(getCompletedToolDurationMs(node, status), t);
-    const hasPayload = Boolean(argsText.trim()) || Boolean(resultText.trim());
+    const hasPayload = Boolean(argsText) || Boolean(resultText);
     const hasTiming = Boolean(startedAt) || Boolean(durationText);
     const hasDetails = hasPayload || hasTiming;
-    const argsInlineText = formatToolArgumentsInline(argsText);
-    const argsRows = buildToolArgumentRows(argsText);
-    const resultDisplayText = resultText.trim() ? formatStructuredTextInline(resultText) : '';
-
     return {
       key: node.id,
       title: t('runtime.toolAttempt', { count: index + 1 }),
@@ -484,34 +405,39 @@ export function buildToolPillRecords(
       hasDetails,
       description: hasDetails ? node.description || '' : '',
       argsText,
-      argsInlineText,
-      argsRows,
-      resultText: resultDisplayText,
+      resultText
     };
   });
 }
 
-export function getExpandableToolPillRecords(
-  records: readonly RuntimeToolRecord[]
-): RuntimeToolRecord[] {
+export function getExpandableToolPillRecords(records: readonly RuntimeToolRecord[]): RuntimeToolRecord[] {
   return records.filter((record) => record.hasDetails);
 }
 
-function toolRecordsCopyText(records: readonly RuntimeToolRecord[], t: TFunction): string {
+function formatToolRecordsCopyText(records: readonly RuntimeToolRecord[], t: TFunction): string {
   const includeAttemptTitle = records.length > 1;
   return records
     .map((record) =>
       compactJoin(
         [
           includeAttemptTitle ? record.title : '',
-          record.argsInlineText ? `${t('runtime.section.args')}\n${record.argsInlineText}` : '',
-          record.resultText ? `${t('runtime.section.result')}\n${record.resultText}` : '',
+          record.argsText
+            ? `${t('runtime.section.args')}\n${sanitizeRuntimeStructuredPayloadForCopy(record.argsText)}`
+            : '',
+          record.resultText
+            ? `${t('runtime.section.result')}\n${sanitizeRuntimeStructuredPayloadForCopy(record.resultText)}`
+            : ''
         ],
         '\n'
       )
     )
     .filter(Boolean)
     .join('\n\n');
+}
+
+function createToolRecordsCopyText(records: readonly RuntimeToolRecord[], t: TFunction): RuntimePayloadCopyText {
+  const hasPayload = records.some((record) => record.argsText || record.resultText);
+  return hasPayload ? () => formatToolRecordsCopyText(records, t) : '';
 }
 
 function iconForKind(kind: RuntimePayloadKind): {
@@ -524,14 +450,11 @@ function iconForKind(kind: RuntimePayloadKind): {
   if (kind === 'awaiting') {
     return { iconUsage: 'runtime.awaiting', tone: 'reasoning' };
   }
-  if (kind === 'tool' || kind === 'tool-group' || kind === 'action') {
+  if (kind === 'tool' || kind === 'tool-group') {
     return { iconUsage: 'runtime.tool', tone: 'tool' };
   }
   if (kind === 'planning') {
     return { iconUsage: 'runtime.planning', tone: 'tool' };
-  }
-  if (kind === 'artifact' || kind === 'plan' || kind === 'task') {
-    return { iconUsage: 'runtime.file', tone: 'file' };
   }
   return { iconUsage: 'runtime.neutral', tone: 'neutral' };
 }
@@ -549,34 +472,16 @@ function rendererForKind(kind: RuntimePayloadKind): RuntimePayloadRendererType {
   if (kind === 'usage') {
     return 'metric';
   }
-  if (
-    kind === 'artifact' ||
-    kind === 'action' ||
-    kind === 'plan' ||
-    kind === 'task' ||
-    kind === 'context'
-  ) {
-    return 'record';
-  }
   return 'plain';
 }
 
 function defaultExpandedForKind(kind: RuntimePayloadKind): boolean {
-  return (
-    kind === 'awaiting' ||
-    kind === 'planning' ||
-    kind === 'run' ||
-    kind === 'usage' ||
-    kind === 'request'
-  );
+  return kind === 'awaiting' || kind === 'planning' || kind === 'run' || kind === 'usage' || kind === 'request';
 }
 
 function hasUsageStatsValue(stats: ChatTimelineUsageStats | null | undefined): boolean {
   return Boolean(
-    stats &&
-      (stats.promptTokens !== null ||
-        stats.completionTokens !== null ||
-        stats.totalTokens !== null)
+    stats && (stats.promptTokens !== null || stats.completionTokens !== null || stats.totalTokens !== null)
   );
 }
 
@@ -600,7 +505,7 @@ function formatUsageBody(node: ChatTimelineTextNode, t: TFunction): string {
     [
       stats.promptTokens !== null ? `${t('usage.metric.prompt')} ${stats.promptTokens}` : '',
       stats.completionTokens !== null ? `${t('usage.metric.completion')} ${stats.completionTokens}` : '',
-      stats.totalTokens !== null ? `${t('usage.metric.total')} ${stats.totalTokens}` : '',
+      stats.totalTokens !== null ? `${t('usage.metric.total')} ${stats.totalTokens}` : ''
     ],
     ' · '
   );
@@ -628,9 +533,9 @@ export function buildRuntimePayloadDescriptor(
       defaultExpanded: false,
       defaultWrap: false,
       canExpand,
-      copyText: toolRecordsCopyText(records, t),
+      copyText: createToolRecordsCopyText(records, t),
       sections: [],
-      toolRecords: records,
+      toolRecords: records
     };
   }
 
@@ -649,7 +554,7 @@ export function buildRuntimePayloadDescriptor(
       canExpand: Boolean(source.content.trim()),
       copyText: source.content,
       sections: singleSection(source.content),
-      toolRecords: [],
+      toolRecords: []
     };
   }
 
@@ -664,15 +569,10 @@ export function buildRuntimePayloadDescriptor(
       : kind === 'awaiting'
         ? awaitingSections(source, t)
         : singleSection(
-            kind === 'run'
-              ? formatRunBody(source, t)
-              : kind === 'usage'
-                ? formatUsageBody(source, t)
-                : source.body,
-            renderer === 'markdown' ? 'markdown' : renderer === 'record' ? 'code' : 'plain'
+            kind === 'run' ? formatRunBody(source, t) : kind === 'usage' ? formatUsageBody(source, t) : source.body,
+            renderer === 'markdown' ? 'markdown' : 'plain'
           );
-  const canExpand =
-    kind === 'tool' ? getExpandableToolPillRecords(toolRecords).length > 0 : sections.length > 0;
+  const canExpand = kind === 'tool' ? getExpandableToolPillRecords(toolRecords).length > 0 : sections.length > 0;
   const latestToolRecord = toolRecords[toolRecords.length - 1];
 
   return {
@@ -687,8 +587,8 @@ export function buildRuntimePayloadDescriptor(
     defaultExpanded: defaultExpandedForKind(kind),
     defaultWrap: false,
     canExpand,
-    copyText: kind === 'tool' ? toolRecordsCopyText(toolRecords, t) : sectionCopyText(sections),
+    copyText: kind === 'tool' ? createToolRecordsCopyText(toolRecords, t) : sectionCopyText(sections),
     sections,
-    toolRecords,
+    toolRecords
   };
 }

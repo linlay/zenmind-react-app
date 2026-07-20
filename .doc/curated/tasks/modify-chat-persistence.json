@@ -92,7 +92,9 @@
     "详情页历史抽屉展示非空摘要会话的未读蓝点、总数和未读会话数，空本地草稿不进入列表或计数；点击历史会话切换 ChatDetail conversationId 并加载对应内容，一键已读通过 chatSyncService.markScopeRead 批量同步。",
     "详情页 timelineState 可由 SQLite messages 冷启动 fallback、实时 patch 和 /ap/ws /api/chat detail event history replay 统一派生，不出现重复消息或重复运行态节点；主消息区 messages、头部运行状态、输入区结构化用量统计、runtimeState、streaming 和 awaiting question/approval/form/plan 交互从 timelineState 派生，历史抽屉从 repository 的 conversations 摘要切片派生。",
     "空新对话首屏内容块垂直居中偏上；有 wonders 时最多竖向展示 3 条妙问，标题保留单行、问题描述最多两行省略，刷新按钮只在本地随机切换展示窗口，点击卡片填入输入框；无 wonders 或请求失败时展示与 agentName 对话，不阻塞输入区可用性。",
-    "影响首页目录的 replace/pin 写入后目录 MMKV 快照仍同步刷新；conversation 摘要的 patch、delta checkpoint 和 reconcile 只更新 SQLite。"
+    "影响首页目录的 replace/pin 写入后目录 MMKV 快照仍同步刷新；conversation 摘要的 patch、delta checkpoint 和 reconcile 只更新 SQLite。",
+    "按 profile cacheScopeId 清理时，当前 scope 停止同步后清表并清对应快照，非当前 scope 只删除独立数据库与快照；账号绑定、凭证和偏好保持不变，数据库缺失按幂等成功。",
+    "开发态会话诊断指令在正常发送持久化之前拦截；报告仅挂 timeline footer，远端读取不 reconcile/落库，本地 messages 与 rich timeline nodes 均带 500 条上限、总量和截断标记。"
   ],
   "doNotMiss": [
     "SQLite 继续是唯一真源，不把排序和状态判断挪到 MMKV 或页面 state。",
@@ -108,6 +110,7 @@
     "首页进入空新对话前可以通过 chatSyncService.ensureAgentDetail 非阻塞预热 agent detail，但不能等待该请求阻塞导航，也不能绕过 service 直接请求 WS。",
     "详情页历史抽屉要读取当前 agent/team scope 下的 conversations 非空摘要切片和未读统计，过滤尚未发送首条消息的本地空草稿，不从当前详情 messages/timeline 反推历史会话列表。",
     "详情页空新对话欢迎态只消费 ChatTimelineState 为空、本地摘要为空的草稿状态；agent detail 补拉通过 chatSyncService 内存缓存完成，不在页面层直接操作 WebSocket，也不把妙问写进 SQLite/MMKV。",
-    "详情页普通实时事件只通过 conversation.timeline.replace/reset 更新主消息区；message/stream/runtime 事件不能再维护第二套页面状态，conversation.reconcile 只刷新摘要，不用 SQLite messages 覆盖 timeline；头部运行状态、输入区用量统计和 awaiting question/approval/form/plan 交互继续从 timelineState 派生，提交继续交给 chatSyncService。"
+    "详情页普通实时事件只通过 conversation.timeline.replace/reset 更新主消息区；message/stream/runtime 事件不能再维护第二套页面状态，conversation.reconcile 只刷新摘要，不用 SQLite messages 覆盖 timeline；头部运行状态、输入区用量统计和 awaiting question/approval/form/plan 交互继续从 timelineState 派生，提交继续交给 chatSyncService。",
+    "会话诊断 UI 只能使用 ChatDetail controller 临时 state 和 ChatTimelineList footer，不得向 ChatTimelineState、messages、outbox 或 normalized timeline snapshot 写入诊断节点；敏感字段必须递归脱敏。"
   ]
 }

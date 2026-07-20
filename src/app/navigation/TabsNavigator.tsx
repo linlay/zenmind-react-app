@@ -7,6 +7,7 @@ import { useT } from '../../shared/i18n';
 import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { appVisualTokens } from '../../shared/visual/foundation';
 import { getAppTabBarMetrics } from '../../shared/visual/tabBarMetrics';
+import { WebAppsScreen } from '../../features/webApps/WebAppsScreen';
 import { ChatScreen, MeScreen } from '../screens/TabScreens';
 import { AppTabIcon, TAB_LABEL_KEYS } from './TabIcon';
 import { RootTabParamList } from './types';
@@ -19,18 +20,18 @@ const TAB_BAR_BASE_STYLE = {
   left: 0,
   right: 0,
   paddingHorizontal: appVisualTokens.spacing.md,
-  borderTopWidth: StyleSheet.hairlineWidth,
+  borderTopWidth: StyleSheet.hairlineWidth
 } satisfies ViewStyle;
 const TAB_ITEM_STYLE = {
   paddingTop: 2,
-  paddingBottom: 0,
+  paddingBottom: 0
 } satisfies ViewStyle;
 const TAB_ICON_STYLE = {
-  marginBottom: 1,
+  marginBottom: 1
 } satisfies ViewStyle;
 const TAB_LABEL_STYLE = {
   fontSize: 12,
-  fontWeight: '500',
+  fontWeight: '500'
 } satisfies TextStyle;
 
 function TabBarButtonWithoutRipple({
@@ -84,7 +85,7 @@ export function TabsNavigator() {
       })}
     >
       <Tab.Screen name="Chat" component={ChatScreen} />
-      {/* Task board tab is temporarily hidden until the API integration resumes. */}
+      <Tab.Screen name="WebApps" component={WebAppsScreen} />
       {/* Drive tab is temporarily hidden until the module ships. */}
       <Tab.Screen name="Me" component={MeScreen} />
     </Tab.Navigator>

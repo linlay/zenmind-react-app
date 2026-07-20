@@ -1,18 +1,19 @@
-import { memo, type ComponentType, useEffect, useState } from 'react';
+import { memo, type ComponentType } from 'react';
 import { Text, View } from 'react-native';
 
-import { ConversationMarkdownRenderer } from '../../../shared/components/ConversationMarkdownRenderer';
+import { ChatConversationMarkdownRenderer } from '../markdownLinks/ChatConversationMarkdownRenderer.tsx';
 import { useT } from '../../../shared/i18n';
-import type { TFunction } from '../../../shared/i18n/translate.ts';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../shared/visual/className';
 import { formatChatDetailRunningDuration } from '../chatDetailFormatters';
+import { useRunningElapsedMs } from './useRunningElapsedMs.ts';
 import type {
   RuntimePayloadDescriptor,
   RuntimePayloadRendererType,
   RuntimePayloadSection,
-  RuntimeToolRecord,
+  RuntimeToolRecord
 } from './runtimePayloadDescriptor';
+import { RuntimeStructuredPayloadBlock } from './RuntimeStructuredPayloadBlock.tsx';
 import { getRuntimeToolStatusColor } from './runtimeToolStatusVisual';
 
 type RuntimePayloadContentProps = {
@@ -20,7 +21,6 @@ type RuntimePayloadContentProps = {
   wrap: boolean;
 };
 
-const RUNNING_DURATION_TICK_MS = 1000;
 const STACK_CLASS = 'gap-[9px]';
 const SECTION_CLASS = 'gap-[5px]';
 const TOOL_SECTION_CLASS = 'gap-[5px]';
@@ -31,78 +31,24 @@ const TOOL_RECORD_META_CLASS = 'min-w-0 flex-1 flex-row items-center justify-end
 const TOOL_RECORD_STATUS_CLASS = 'font-mono text-[11px] font-bold leading-4';
 const TOOL_RECORD_DURATION_CLASS = 'shrink-0 font-mono text-[11px] font-bold leading-4 tabular-nums text-app-tertiary';
 const TOOL_DESCRIPTION_CLASS = 'text-[12px] leading-[18px] text-app-secondary';
-const TOOL_ARGUMENT_ROWS_CLASS = 'gap-[3px]';
-const TOOL_ARGUMENT_ROW_CLASS = 'min-w-0 gap-[2px]';
-const TOOL_ARGUMENT_KEY_CLASS = 'font-mono text-[12px] leading-[18px] text-app-success';
-const TOOL_ARGUMENT_VALUE_CLASS = 'ml-app-lg min-w-0 font-mono text-[12px] leading-[18px] text-app-primary';
-const TOOL_INLINE_TEXT_CLASS = 'font-mono text-[12px] leading-[18px] text-app-primary';
-const TOOL_RESULT_TEXT_CLASS = 'font-mono text-[12px] leading-[18px] text-app-secondary';
 const SECTION_LABEL_CLASS = 'text-[11px] font-bold leading-[15px] text-app-success';
 const SECTION_TEXT_CLASS = 'text-[13px] leading-5 text-app-primary';
 const CODE_TEXT_CLASS = 'rounded-app-sm bg-app-surface p-[10px] font-mono text-[12px] leading-[18px] text-app-primary';
 const TOOL_TEXT_CLASS = 'rounded-app-sm bg-app-surface p-[10px] font-mono text-[12px] leading-[18px] text-app-primary';
 const NOWRAP_TEXT_CLASS = 'min-w-[680px]';
-const NOWRAP_TOOL_VALUE_CLASS = 'min-w-[560px]';
 const NOWRAP_MARKDOWN_CLASS = 'min-w-[680px]';
 const METRIC_BOX_CLASS = 'rounded-app-sm bg-app-surface px-[10px] py-[9px]';
 const METRIC_TEXT_CLASS = 'text-[13px] font-bold leading-[19px] text-app-primary';
 
-function getNextRunningDurationDelay(startedAt: number, now: number): number {
-  if (now < startedAt) {
-    return Math.max(1, startedAt + RUNNING_DURATION_TICK_MS - now);
-  }
-
-  const elapsedMs = Math.max(0, now - startedAt);
-  const remainder = elapsedMs % RUNNING_DURATION_TICK_MS;
-  return remainder === 0 ? RUNNING_DURATION_TICK_MS : RUNNING_DURATION_TICK_MS - remainder;
-}
-
-function formatRunningToolDurationText(
-  startedAt: number | null | undefined,
-  t: TFunction,
-  now: number = Date.now()
-): string {
-  const duration = formatChatDetailRunningDuration(startedAt, now);
-  return duration ? t('runtime.duration', { duration }) : '';
-}
-
 function useRunningToolDurationText(startedAt: number | null | undefined): string {
   const t = useT();
-  const [text, setText] = useState(() => formatRunningToolDurationText(startedAt, t));
-
-  useEffect(() => {
-    const startTime = Number(startedAt);
-    if (!Number.isFinite(startTime) || startTime <= 0) {
-      setText('');
-      return;
-    }
-
-    let timeout: ReturnType<typeof setTimeout> | null = null;
-    function schedule(currentTime: number) {
-      timeout = setTimeout(tick, getNextRunningDurationDelay(startTime, currentTime));
-    }
-    function update(currentTime: number) {
-      const nextText = formatRunningToolDurationText(startTime, t, currentTime);
-      setText((currentText) => (currentText === nextText ? currentText : nextText));
-    }
-    function tick() {
-      const currentTime = Date.now();
-      update(currentTime);
-      schedule(currentTime);
-    }
-
-    const currentTime = Date.now();
-    update(currentTime);
-    schedule(currentTime);
-
-    return () => {
-      if (timeout) {
-        clearTimeout(timeout);
-      }
-    };
-  }, [startedAt, t]);
-
-  return text;
+  const elapsedMs = useRunningElapsedMs(startedAt);
+  const startTime = Number(startedAt);
+  const duration =
+    elapsedMs === null || !Number.isFinite(startTime)
+      ? ''
+      : formatChatDetailRunningDuration(startTime, startTime + elapsedMs);
+  return duration ? t('runtime.duration', { duration }) : '';
 }
 
 function SectionLabel({ text }: { text: string }) {
@@ -126,13 +72,16 @@ function TextSection({ section, wrap }: { section: RuntimePayloadSection; wrap: 
       <SectionLabel text={section.label} />
       {section.mode === 'markdown' ? (
         <View className={!wrap ? NOWRAP_MARKDOWN_CLASS : undefined}>
-          <ConversationMarkdownRenderer markdown={section.text} />
+          <ChatConversationMarkdownRenderer markdown={section.text} />
         </View>
       ) : (
         <Text
           allowFontScaling={false}
           selectable
-          className={cn(section.mode === 'code' ? CODE_TEXT_CLASS : SECTION_TEXT_CLASS, !wrap ? NOWRAP_TEXT_CLASS : null)}
+          className={cn(
+            section.mode === 'code' ? CODE_TEXT_CLASS : SECTION_TEXT_CLASS,
+            !wrap ? NOWRAP_TEXT_CLASS : null
+          )}
         >
           {section.text}
         </Text>
@@ -153,48 +102,7 @@ function SectionStackPayload({ descriptor, wrap }: RuntimePayloadContentProps) {
 
 const MarkdownPayload = memo(SectionStackPayload);
 
-function ToolArgumentRows({ record, wrap }: { record: RuntimeToolRecord; wrap: boolean }) {
-  if (record.argsRows.length > 0) {
-    return (
-      <View className={TOOL_ARGUMENT_ROWS_CLASS}>
-        {record.argsRows.map((row) => (
-          <View key={row.key} className={TOOL_ARGUMENT_ROW_CLASS}>
-            <Text allowFontScaling={false} className={TOOL_ARGUMENT_KEY_CLASS}>
-              {row.key}
-            </Text>
-            <Text
-              allowFontScaling={false}
-              selectable
-              className={cn(TOOL_ARGUMENT_VALUE_CLASS, !wrap ? NOWRAP_TOOL_VALUE_CLASS : null)}
-            >
-              {row.valueText}
-            </Text>
-          </View>
-        ))}
-      </View>
-    );
-  }
-
-  if (!record.argsInlineText) {
-    return null;
-  }
-
-  return (
-    <Text
-      allowFontScaling={false}
-      selectable
-      className={cn(TOOL_INLINE_TEXT_CLASS, !wrap ? NOWRAP_TEXT_CLASS : null)}
-    >
-      {record.argsInlineText}
-    </Text>
-  );
-}
-
-const RunningToolDurationText = memo(function RunningToolDurationText({
-  startedAt,
-}: {
-  startedAt: number;
-}) {
+const RunningToolDurationText = memo(function RunningToolDurationText({ startedAt }: { startedAt: number }) {
   const durationText = useRunningToolDurationText(startedAt);
   if (!durationText) {
     return null;
@@ -221,15 +129,8 @@ function ToolRecordDuration({ record }: { record: RuntimeToolRecord }) {
   return null;
 }
 
-function ToolRecordCard({
-  grouped,
-  record,
-  wrap,
-}: {
-  grouped: boolean;
-  record: RuntimeToolRecord;
-  wrap: boolean;
-}) {
+function ToolRecordCard({ grouped, record, wrap }: { grouped: boolean; record: RuntimeToolRecord; wrap: boolean }) {
+  const t = useT();
   const { theme } = useAppTheme();
   const showHeader = grouped || Boolean(record.durationText) || Boolean(record.startedAt);
 
@@ -258,15 +159,22 @@ function ToolRecordCard({
           {record.description}
         </Text>
       ) : null}
-      <ToolArgumentRows record={record} wrap={wrap} />
+      {record.argsText ? (
+        <View className={TOOL_SECTION_CLASS}>
+          <SectionLabel text={t('runtime.section.args')} />
+          <RuntimeStructuredPayloadBlock role="args" sourceText={record.argsText} wrap={wrap} />
+        </View>
+      ) : null}
       {record.resultText ? (
-        <Text
-          allowFontScaling={false}
-          selectable
-          className={cn(TOOL_RESULT_TEXT_CLASS, !wrap ? NOWRAP_TEXT_CLASS : null)}
-        >
-          {record.resultText}
-        </Text>
+        <View className={TOOL_SECTION_CLASS}>
+          <SectionLabel text={t('runtime.section.result')} />
+          <RuntimeStructuredPayloadBlock
+            role="result"
+            sourceText={record.resultText}
+            status={record.status}
+            wrap={wrap}
+          />
+        </View>
       ) : null}
     </View>
   );
@@ -290,11 +198,7 @@ const ToolPayload = memo(function ToolPayload({ descriptor, wrap }: RuntimePaylo
       {descriptor.sections.map((section) => (
         <View key={section.id} className={TOOL_SECTION_CLASS}>
           <SectionLabel text={section.label} />
-          <Text
-            allowFontScaling={false}
-            selectable
-            className={cn(TOOL_TEXT_CLASS, !wrap ? NOWRAP_TEXT_CLASS : null)}
-          >
+          <Text allowFontScaling={false} selectable className={cn(TOOL_TEXT_CLASS, !wrap ? NOWRAP_TEXT_CLASS : null)}>
             {section.text}
           </Text>
         </View>
@@ -305,14 +209,9 @@ const ToolPayload = memo(function ToolPayload({ descriptor, wrap }: RuntimePaylo
 
 const AwaitingPayload = memo(SectionStackPayload);
 
-const RecordPayload = memo(SectionStackPayload);
-
 const PlainPayload = memo(SectionStackPayload);
 
-const MetricPayload = memo(function MetricPayload({
-  descriptor,
-  wrap,
-}: RuntimePayloadContentProps) {
+const MetricPayload = memo(function MetricPayload({ descriptor, wrap }: RuntimePayloadContentProps) {
   return (
     <View className={METRIC_BOX_CLASS}>
       {descriptor.sections.map((section) => (
@@ -331,7 +230,7 @@ const MetricPayload = memo(function MetricPayload({
 
 export const RuntimePayloadContent = memo(function RuntimePayloadContent({
   descriptor,
-  wrap,
+  wrap
 }: RuntimePayloadContentProps) {
   const Renderer = PAYLOAD_RENDERERS[descriptor.renderer];
   return <Renderer descriptor={descriptor} wrap={wrap} />;
@@ -341,7 +240,6 @@ const PAYLOAD_RENDERERS = {
   markdown: MarkdownPayload,
   tool: ToolPayload,
   awaiting: AwaitingPayload,
-  record: RecordPayload,
   plain: PlainPayload,
-  metric: MetricPayload,
+  metric: MetricPayload
 } satisfies Record<RuntimePayloadRendererType, ComponentType<RuntimePayloadContentProps>>;

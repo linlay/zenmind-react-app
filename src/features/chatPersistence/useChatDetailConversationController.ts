@@ -16,6 +16,7 @@ import { chatSyncService } from '../chatRealtime/chatSyncService';
 import type { ChatSocketStatus } from '../chatRealtime/types';
 import {
   createChatTimelineState,
+  getActiveChatTimelineFrontendTool,
   projectTimelineRuntimeState,
   type ChatTimelineMessageNode,
   type ChatTimelineState
@@ -32,6 +33,11 @@ import {
   upsertServerMessageDetail
 } from './chatRepository';
 import { canUsePlanMode } from './agentMode.ts';
+import {
+  buildChatConversationDiagnosticReport,
+  isChatConversationDiagnosticCommand,
+  type ChatConversationDiagnosticState,
+} from './chatConversationDiagnostic';
 import { createChatConversationTarget } from './chatConversationTarget';
 import { normalizeChatConversationHistoryScope } from './chatHistoryScope';
 import { patchDetailFromHomeEvent } from './chatRealtimeUiState';
@@ -219,6 +225,10 @@ export function useChatDetailConversationController({
   const [modelOptionsLoading, setModelOptionsLoading] = useState(false);
   const [socketStatus, setSocketStatus] = useState<ChatSocketStatus>(chatSyncService.getStatus());
   const [errorText, setErrorText] = useState('');
+  const [diagnosticState, setDiagnosticState] = useState<ChatConversationDiagnosticState>({
+    status: 'idle',
+    requestId: 0,
+  });
   const [agentDetailSnapshot, setAgentDetailSnapshot] = useState<AgentDetailSnapshot | null>(null);
   const [reloadSeed, setReloadSeed] = useState(0);
   const hydratedNotificationMessageIdRef = useRef('');
@@ -231,6 +241,8 @@ export function useChatDetailConversationController({
   const transitionSettledRef = useRef(false);
   const activeConversationIdRef = useRef(conversationId);
   const sendRequestIdRef = useRef(0);
+  const diagnosticRequestIdRef = useRef(0);
+  const diagnosticConversationIdRef = useRef(conversationId);
   const modelConfigUpdateIdRef = useRef(0);
   const sendingRef = useRef(false);
   const reaskInFlightRef = useRef(false);
@@ -304,6 +316,10 @@ export function useChatDetailConversationController({
   );
   const effectivePlanModeEnabled = planModeAvailable && planModeEnabled;
   const runtimeState = useMemo(() => projectTimelineRuntimeState(timelineState), [timelineState]);
+  const activeFrontendTool = useMemo(
+    () => getActiveChatTimelineFrontendTool(timelineState),
+    [timelineState]
+  );
   const headerRuntimeState = useMemo(() => deriveChatDetailHeaderRuntimeState(timelineState), [timelineState]);
   const composerRunAction = headerRuntimeState.runAction;
   const composerRunActionRef = useRef(composerRunAction);
@@ -378,6 +394,8 @@ export function useChatDetailConversationController({
   useEffect(() => {
     activeConversationIdRef.current = conversationId;
     sendRequestIdRef.current += 1;
+    diagnosticRequestIdRef.current += 1;
+    diagnosticConversationIdRef.current = conversationId;
     modelConfigUpdateIdRef.current += 1;
     isStartingNewConversationRef.current = false;
     hasObservedPendingSendRef.current = false;
@@ -387,7 +405,15 @@ export function useChatDetailConversationController({
     setSending(false);
     setAccessLevel('default');
     setModelOverride({});
+    setDiagnosticState({ status: 'idle', requestId: diagnosticRequestIdRef.current });
   }, [conversationId]);
+
+  useEffect(
+    () => () => {
+      diagnosticRequestIdRef.current += 1;
+    },
+    []
+  );
 
   useEffect(() => {
     sendingRef.current = sending;
@@ -848,6 +874,65 @@ export function useChatDetailConversationController({
       return;
     }
 
+    if (isChatConversationDiagnosticCommand(nextDraft, composerAttachments.length, __DEV__)) {
+      const requestId = diagnosticRequestIdRef.current + 1;
+      const targetConversationId = conversationId;
+      const pageProjection = {
+        conversationId,
+        timeline: timelineState,
+        runtime: runtimeState,
+        header: headerRuntimeState,
+        modelConfiguration: {
+          selectedOverride: modelOverride,
+          options: modelOptionsSnapshot,
+          loading: modelOptionsLoading,
+        },
+        accessLevel,
+        planMode: {
+          available: planModeAvailable,
+          enabled: effectivePlanModeEnabled,
+        },
+        composer: {
+          action: composerAction,
+          attachments: composerAttachments,
+        },
+        socketStatus,
+        pageError: errorText || null,
+      };
+      diagnosticRequestIdRef.current = requestId;
+      diagnosticConversationIdRef.current = targetConversationId;
+      setDraft('');
+      setDiagnosticState({ status: 'loading', requestId });
+
+      try {
+        const source = await chatSyncService.collectConversationDiagnosticData(targetConversationId);
+        if (
+          activeConversationIdRef.current !== targetConversationId ||
+          diagnosticRequestIdRef.current !== requestId
+        ) {
+          return;
+        }
+        setDiagnosticState({
+          status: 'ready',
+          requestId,
+          report: buildChatConversationDiagnosticReport(source, pageProjection),
+        });
+      } catch (error) {
+        if (
+          activeConversationIdRef.current !== targetConversationId ||
+          diagnosticRequestIdRef.current !== requestId
+        ) {
+          return;
+        }
+        setDiagnosticState({
+          status: 'error',
+          requestId,
+          errorText: error instanceof Error ? error.message : String(error),
+        });
+      }
+      return;
+    }
+
     const requestId = sendRequestIdRef.current + 1;
     const targetConversationId = conversationId;
     sendRequestIdRef.current = requestId;
@@ -881,7 +966,25 @@ export function useChatDetailConversationController({
       sendingRef.current = false;
       setSending(false);
     }
-  }, [accessLevel, clearAttachments, conversationId, draft, effectivePlanModeEnabled, modelOverride, readyAttachments]);
+  }, [
+    accessLevel,
+    clearAttachments,
+    composerAction,
+    composerAttachments,
+    conversationId,
+    draft,
+    effectivePlanModeEnabled,
+    errorText,
+    headerRuntimeState,
+    modelOptionsLoading,
+    modelOptionsSnapshot,
+    modelOverride,
+    planModeAvailable,
+    readyAttachments,
+    runtimeState,
+    socketStatus,
+    timelineState,
+  ]);
 
   const handleTogglePlanMode = useCallback(() => {
     if (!planModeAvailable) {
@@ -1064,6 +1167,7 @@ export function useChatDetailConversationController({
     conversationTarget,
     historyScope,
     timelineState,
+    activeFrontendTool,
     newConversationIntro,
     runtimeState,
     headerRuntimeState,
@@ -1072,6 +1176,10 @@ export function useChatDetailConversationController({
     skeletonOverlayOpacity,
     socketStatus,
     errorText,
+    diagnosticState:
+      diagnosticConversationIdRef.current === conversationId
+        ? diagnosticState
+        : { status: 'idle' as const, requestId: diagnosticRequestIdRef.current },
     draft,
     setDraft,
     composerAttachments,

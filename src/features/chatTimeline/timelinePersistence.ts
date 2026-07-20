@@ -5,6 +5,11 @@ import type {
   ChatTimelineUsageSummary,
 } from './types.ts';
 import { buildActiveReasoningNodeIdsByRun } from './timelineReasoningIdentity.ts';
+import { migratePersistedChatTimelineActionNode } from './timelineAction.ts';
+import { migratePersistedChatTimelineContextCompactNode } from './timelineContextCompact.ts';
+import { migratePersistedChatTimelinePlanNode } from './timelinePlan.ts';
+import { migratePersistedChatTimelineMessageNode } from './timelineRequest.ts';
+import { migratePersistedChatTimelineTaskNode } from './timelineTask.ts';
 
 export type SerializedTimelineMeta = {
   conversationId: string;
@@ -114,7 +119,7 @@ function readLatestUsageSummaryFromNodes(
 ): ChatTimelineUsageSummary | null {
   for (let index = orderedNodeIds.length - 1; index >= 0; index -= 1) {
     const node = nodesById[orderedNodeIds[index]];
-    if (node?.kind === 'usage') {
+    if (node?.kind === 'usage' || node?.kind === 'context') {
       const usageSummary = normalizePersistedUsageSummary(node.usageSummary);
       if (usageSummary) {
         return usageSummary;
@@ -174,6 +179,7 @@ export function deserializeChatTimelineState(
   const orderedRows = [...rows].sort((left, right) => left.orderIndex - right.orderIndex);
   const nodesById: Record<string, ChatTimelineNode> = {};
   const orderedNodeIds: string[] = [];
+  const orderedNodeIdSet = new Set<string>();
 
   for (const row of orderedRows) {
     if (row.conversationId !== conversationId || !row.nodeId || !row.payloadJson) {
@@ -194,8 +200,19 @@ export function deserializeChatTimelineState(
       return null;
     }
 
-    nodesById[parsed.id] = parsed;
-    orderedNodeIds.push(parsed.id);
+    let node = migratePersistedChatTimelinePlanNode(parsed, conversationId);
+    node = migratePersistedChatTimelineTaskNode(node, conversationId);
+    node = migratePersistedChatTimelineActionNode(node, conversationId);
+    node = migratePersistedChatTimelineContextCompactNode(node, conversationId);
+    node = migratePersistedChatTimelineMessageNode(node);
+    const current = nodesById[node.id];
+    if (!current || node.updatedAt >= current.updatedAt) {
+      nodesById[node.id] = node;
+    }
+    if (!orderedNodeIdSet.has(node.id)) {
+      orderedNodeIdSet.add(node.id);
+      orderedNodeIds.push(node.id);
+    }
   }
 
   const awaitingNode =

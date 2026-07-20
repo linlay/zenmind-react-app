@@ -4,6 +4,7 @@ import {
   classifyChatProtocolEvent,
   extractEventText,
   normalizeEventType,
+  normalizeProtocolTimeoutMs,
   normalizeProtocolTimestampMs,
   toText,
 } from '../../core/api/services/chatEventProtocol.ts';
@@ -18,17 +19,66 @@ import type {
   ChatTimelineAwaitingMode,
   ChatTimelineAwaitingNode,
   ChatTimelineAwaitingState,
+  ChatTimelineArtifactNode,
+  ChatTimelineCommandMessageVariant,
+  ChatTimelineContextCompactNode,
   ChatTimelineDeliveryStatus,
   ChatTimelineLifecycle,
   ChatTimelineMessageNode,
   ChatTimelineNode,
   ChatTimelineNodeKind,
+  ChatTimelinePlanNode,
   ChatTimelineRuntimeStatus,
   ChatTimelineRunNode,
+  ChatTimelineSourceNode,
+  ChatTimelineTaskNode,
   ChatTimelineState,
   ChatTimelineTextNode,
   ChatTimelineToolNode,
 } from './types.ts';
+import { normalizeChatTimelineRequestMessageVariant } from './timelineRequest.ts';
+import {
+  chatTimelineActionNodePayloadEquals,
+  closeChatTimelineActionNode,
+  createChatTimelineActionNodeId,
+  getChatTimelineActionContentLength,
+  getChatTimelineActionEventSequence,
+  getChatTimelineActionEventSignature,
+  getChatTimelineActionLifecycle,
+  normalizeChatTimelineActionEvent,
+  resolveChatTimelineActionId,
+} from './timelineAction.ts';
+import {
+  chatTimelineArtifactNodePayloadEquals,
+  getChatTimelineArtifactContentLength,
+  normalizeChatTimelineArtifactEvent,
+} from './timelineArtifact.ts';
+import {
+  chatTimelineContextCompactNodePayloadEquals,
+  closeChatTimelineContextCompactNode,
+  createChatTimelineContextCompactNodeId,
+  getChatTimelineContextCompactContentLength,
+  mergeChatTimelineContextCompactValues,
+  normalizeChatTimelineContextCompactEvent,
+  type NormalizedChatTimelineContextCompact,
+} from './timelineContextCompact.ts';
+import {
+  chatTimelinePlanNodePayloadEquals,
+  closeChatTimelinePlanNode,
+  createChatTimelinePlanNodeId,
+  getChatTimelinePlanContentLength,
+  getChatTimelinePlanLifecycle,
+  normalizeChatTimelinePlanEvent,
+  resolveChatTimelinePlanId,
+} from './timelinePlan.ts';
+import {
+  chatTimelineTaskNodePayloadEquals,
+  closeChatTimelineTaskNode,
+  createChatTimelineTaskNodeId,
+  getChatTimelineTaskContentLength,
+  normalizeChatTimelineTaskEvent,
+  resolveChatTimelineTaskId,
+} from './timelineTask.ts';
 import {
   getAwaitingAnswerSummarySignature,
   getAwaitingInteractiveSignature,
@@ -52,7 +102,21 @@ import {
   formatChatTimelinePlatformErrorForDisplay,
   getChatTimelineErrorDetailSignature,
 } from './timelinePlatformError.ts';
-import { buildChatTimelineUsageSummary, chatTimelineUsageSummaryEquals } from './usageSummary.ts';
+import {
+  chatTimelineSourceNodePayloadEquals,
+  getChatTimelineSourceContentLength,
+  normalizeChatTimelineSourceEvent,
+} from './timelineSource.ts';
+import {
+  buildChatTimelineUsageSummary,
+  chatTimelineUsageSummaryEquals,
+  mergeChatTimelineUsageSummaryForContextCompact,
+} from './usageSummary.ts';
+import {
+  normalizeFrontendToolParams,
+  normalizeFrontendToolType,
+  parseFrontendToolArgs,
+} from './timelineFrontendTool.ts';
 
 export type MergeChatTimelineStateOptions = {
   preserveTerminalRunIds?: readonly string[];
@@ -506,7 +570,12 @@ function toolNodeKey(conversationId: string, event: Record<string, unknown>): st
 }
 
 function requestNodeKey(conversationId: string, event: Record<string, unknown>): string {
-  const requestId = toText(event.requestId) || toText(event.messageId) || 'request';
+  const requestId =
+    toText(event.steerId) ||
+    toText(event.requestId) ||
+    toText(event.messageId) ||
+    toText(event.id) ||
+    'request';
   return `message:${conversationId}:request:${requestId}`;
 }
 
@@ -575,6 +644,7 @@ function isLocalUserMessageWithoutServerId(
   return Boolean(
     node?.kind === 'message' &&
       node.role === 'user' &&
+      node.messageVariant === 'default' &&
       node.clientMessageId &&
       !node.serverMessageId
   );
@@ -586,6 +656,7 @@ function isRemoteUserRequestEchoNode(
   return Boolean(
     node?.kind === 'message' &&
       node.role === 'user' &&
+      node.messageVariant === 'default' &&
       !node.clientMessageId &&
       !node.serverMessageId &&
       (node.id.includes(':request:') || node.messageId.startsWith('remote:user:'))
@@ -609,6 +680,7 @@ function findLocalUserMessageNodeByRequestId(
     if (
       node?.kind === 'message' &&
       node.role === 'user' &&
+      node.messageVariant === 'default' &&
       (node.clientMessageId === requestId || node.messageId === requestId)
     ) {
       return node;
@@ -812,6 +884,23 @@ function getTimelineNodeIdentityKeys(node: ChatTimelineNode): string[] {
       keys.push(`awaiting-interaction:${interactionSignature}`);
     }
   }
+  if (node.kind === 'plan' && node.planId) {
+    keys.push(`plan:${node.planId}`);
+  }
+  if (node.kind === 'task' && node.taskId) {
+    keys.push(`task:${node.taskId}`);
+  }
+  if (node.kind === 'action' && node.actionId) {
+    keys.push(`action:${node.actionId}`);
+  }
+  if (node.kind === 'context') {
+    if (node.requestId) {
+      keys.push(`context-compact-request:${node.requestId}`);
+    }
+    if (node.compactId) {
+      keys.push(`context-compact:${node.compactId}`);
+    }
+  }
   return keys;
 }
 
@@ -1000,6 +1089,24 @@ function getTimelineNodeContentLength(node: ChatTimelineNode): number {
   if (node.kind === 'run') {
     return node.title.length + node.body.length + node.status.length;
   }
+  if (node.kind === 'source') {
+    return getChatTimelineSourceContentLength(node);
+  }
+  if (node.kind === 'artifact') {
+    return getChatTimelineArtifactContentLength(node);
+  }
+  if (node.kind === 'plan') {
+    return getChatTimelinePlanContentLength(node);
+  }
+  if (node.kind === 'task') {
+    return getChatTimelineTaskContentLength(node);
+  }
+  if (node.kind === 'action') {
+    return getChatTimelineActionContentLength(node);
+  }
+  if (node.kind === 'context') {
+    return getChatTimelineContextCompactContentLength(node);
+  }
   return node.title.length + node.body.length + node.status.length;
 }
 
@@ -1045,6 +1152,7 @@ function hasIncomingMessageAtOrAfter(
     return (
       node?.kind === 'message' &&
       node.role === current.role &&
+      node.messageVariant === current.messageVariant &&
       node.createdAt >= current.createdAt &&
       node.content.trim().length > 0
     );
@@ -1061,6 +1169,24 @@ function shouldPreferCurrentTimelineNode(
 
   if (current.kind === 'awaiting' && incoming.kind === 'awaiting') {
     return shouldPreferCurrentAwaitingNode(current, incoming);
+  }
+  if (current.kind === 'source' && incoming.kind === 'source') {
+    return current.updatedAt > incoming.updatedAt;
+  }
+  if (current.kind === 'artifact' && incoming.kind === 'artifact') {
+    return current.updatedAt > incoming.updatedAt;
+  }
+  if (current.kind === 'plan' && incoming.kind === 'plan') {
+    return current.updatedAt > incoming.updatedAt;
+  }
+  if (current.kind === 'task' && incoming.kind === 'task') {
+    return current.updatedAt > incoming.updatedAt;
+  }
+  if (current.kind === 'action' && incoming.kind === 'action') {
+    return current.updatedAt > incoming.updatedAt;
+  }
+  if (current.kind === 'context' && incoming.kind === 'context') {
+    return current.updatedAt > incoming.updatedAt;
   }
 
   const currentLength = getTimelineNodeContentLength(current);
@@ -1261,6 +1387,7 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
   if (left.kind === 'message' && right.kind === 'message') {
     return (
       left.role !== right.role ||
+      left.messageVariant !== right.messageVariant ||
       left.content !== right.content ||
       left.messageId !== right.messageId ||
       left.clientMessageId !== right.clientMessageId ||
@@ -1275,9 +1402,17 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
   }
   if (left.kind === 'tool' && right.kind === 'tool') {
     return (
+      left.agentKey !== right.agentKey ||
       left.toolId !== right.toolId ||
       left.toolName !== right.toolName ||
       left.toolLabel !== right.toolLabel ||
+      left.toolType !== right.toolType ||
+      left.viewportKey !== right.viewportKey ||
+      left.toolTimeoutMs !== right.toolTimeoutMs ||
+      (left.toolParams !== right.toolParams &&
+        safeJson(left.toolParams) !== safeJson(right.toolParams)) ||
+      (left.frontendToolState !== right.frontendToolState &&
+        safeJson(left.frontendToolState) !== safeJson(right.frontendToolState)) ||
       left.description !== right.description ||
       left.title !== right.title ||
       left.status !== right.status ||
@@ -1311,15 +1446,48 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
       left.durationMs !== right.durationMs
     );
   }
+  if (left.kind === 'source' && right.kind === 'source') {
+    return !chatTimelineSourceNodePayloadEquals(left, right);
+  }
+  if (left.kind === 'artifact' && right.kind === 'artifact') {
+    return !chatTimelineArtifactNodePayloadEquals(left, right);
+  }
+  if (left.kind === 'plan' && right.kind === 'plan') {
+    return !chatTimelinePlanNodePayloadEquals(left, right);
+  }
+  if (left.kind === 'task' && right.kind === 'task') {
+    return !chatTimelineTaskNodePayloadEquals(left, right);
+  }
+  if (left.kind === 'action' && right.kind === 'action') {
+    return !chatTimelineActionNodePayloadEquals(left, right);
+  }
+  if (left.kind === 'context' && right.kind === 'context') {
+    return (
+      !chatTimelineContextCompactNodePayloadEquals(left, right) ||
+      !chatTimelineUsageSummaryEquals(left.usageSummary, right.usageSummary)
+    );
+  }
   if (
     left.kind !== 'message' &&
     left.kind !== 'tool' &&
     left.kind !== 'awaiting' &&
     left.kind !== 'run' &&
+    left.kind !== 'source' &&
+    left.kind !== 'artifact' &&
+    left.kind !== 'plan' &&
+    left.kind !== 'task' &&
+    left.kind !== 'action' &&
+    left.kind !== 'context' &&
     right.kind !== 'message' &&
     right.kind !== 'tool' &&
     right.kind !== 'awaiting' &&
-    right.kind !== 'run'
+    right.kind !== 'run' &&
+    right.kind !== 'source' &&
+    right.kind !== 'artifact' &&
+    right.kind !== 'plan' &&
+    right.kind !== 'task' &&
+    right.kind !== 'action' &&
+    right.kind !== 'context'
   ) {
     return (
       left.title !== right.title ||
@@ -1419,6 +1587,35 @@ function closeTimelineNodeForRun(
 
   if (node.kind === 'run') {
     return node;
+  }
+
+  if (node.kind === 'source') {
+    return node;
+  }
+
+  if (node.kind === 'artifact') {
+    return {
+      ...node,
+      status: lifecycle === 'complete' ? 'ready' : 'failed',
+      lifecycle,
+      updatedAt: nextUpdatedAt,
+    };
+  }
+
+  if (node.kind === 'plan') {
+    return closeChatTimelinePlanNode(node, lifecycle, nextUpdatedAt);
+  }
+
+  if (node.kind === 'task') {
+    return closeChatTimelineTaskNode(node, lifecycle, nextUpdatedAt);
+  }
+
+  if (node.kind === 'action') {
+    return closeChatTimelineActionNode(node, lifecycle, nextUpdatedAt);
+  }
+
+  if (node.kind === 'context') {
+    return closeChatTimelineContextCompactNode(node, lifecycle, nextUpdatedAt);
   }
 
   const nextNode = {
@@ -1719,6 +1916,7 @@ function applyRequestEvent(
     id: current?.id ?? id,
     kind: 'message',
     role: 'user',
+    messageVariant: 'default',
     content,
     messageId,
     clientMessageId: current?.clientMessageId ?? null,
@@ -1731,6 +1929,58 @@ function applyRequestEvent(
     createdAt: current?.createdAt ?? createdAt,
     updatedAt: Math.max(current?.updatedAt ?? 0, createdAt),
     order: createOrder(state, current),
+    lifecycle: 'complete',
+  });
+}
+
+function applyRequestCommandEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>,
+  messageVariant: ChatTimelineCommandMessageVariant
+): ChatTimelineState {
+  const id = requestNodeKey(conversationId, event);
+  const currentNode = state.nodesById[id];
+  const current =
+    currentNode?.kind === 'message' && currentNode.role === 'user'
+      ? currentNode
+      : undefined;
+  const createdAt = resolveTimestamp(event, Date.now() + state.nextOrder);
+  const content = toText(
+    event.message || event.content || event.text || event.query || event.prompt
+  );
+  if (!content || (current && createdAt < current.updatedAt)) {
+    return state;
+  }
+
+  const runId = toText(event.runId) || current?.runId || state.activeRunId;
+  const baseState = current
+    ? state
+    : closeActiveReasoningNodesForRun(state, runId, createdAt);
+  const stableRequestId =
+    toText(event.steerId) ||
+    toText(event.requestId) ||
+    toText(event.messageId) ||
+    toText(event.id) ||
+    id;
+
+  return upsertNode(baseState, {
+    id,
+    kind: 'message',
+    role: 'user',
+    messageVariant,
+    content,
+    messageId: current?.messageId ?? `remote:user:${messageVariant}:${stableRequestId}`,
+    clientMessageId: null,
+    serverMessageId: toText(event.serverMessageId) || current?.serverMessageId || null,
+    deliveryStatus: 'sent',
+    errorReason: null,
+    streaming: false,
+    attachments: [],
+    runId,
+    createdAt: current?.createdAt ?? createdAt,
+    updatedAt: Math.max(current?.updatedAt ?? 0, createdAt),
+    order: createOrder(baseState, current),
     lifecycle: 'complete',
   });
 }
@@ -1770,6 +2020,7 @@ function applyContentEvent(
     id,
     kind: 'message',
     role: 'assistant',
+    messageVariant: 'default',
     content: nextContent,
     messageId,
     clientMessageId: null,
@@ -1858,6 +2109,117 @@ function applyRuntimeTextEvent(
   );
 }
 
+function findContextCompactNode(
+  state: ChatTimelineState,
+  conversationId: string,
+  normalized: NormalizedChatTimelineContextCompact,
+  runId: string
+): ChatTimelineContextCompactNode | undefined {
+  const candidateIds = [
+    normalized.requestId
+      ? createChatTimelineContextCompactNodeId(
+          conversationId,
+          { requestId: normalized.requestId, compactId: '' },
+          normalized.requestId
+        )
+      : '',
+    normalized.compactId
+      ? createChatTimelineContextCompactNodeId(
+          conversationId,
+          { requestId: '', compactId: normalized.compactId },
+          normalized.compactId
+        )
+      : '',
+  ];
+  for (const candidateId of candidateIds) {
+    const candidate = candidateId ? state.nodesById[candidateId] : undefined;
+    if (candidate?.kind === 'context') {
+      return candidate;
+    }
+  }
+
+  for (let index = state.orderedNodeIds.length - 1; index >= 0; index -= 1) {
+    const node = state.nodesById[state.orderedNodeIds[index]];
+    if (node?.kind !== 'context') {
+      continue;
+    }
+    if (
+      (normalized.requestId && node.requestId === normalized.requestId) ||
+      (normalized.compactId && node.compactId === normalized.compactId)
+    ) {
+      return node;
+    }
+    if (node.status === 'running' && (!runId || node.runId === runId)) {
+      return node;
+    }
+  }
+  return undefined;
+}
+
+function applyContextCompactEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>
+): ChatTimelineState {
+  const normalized = normalizeChatTimelineContextCompactEvent(event);
+  const updatedAt = resolveTimestamp(event, Date.now() + state.nextOrder);
+  const eventRunId = toText(event.runId) || state.activeRunId;
+  const current = findContextCompactNode(state, conversationId, normalized, eventRunId);
+  if (
+    current &&
+    (updatedAt < current.updatedAt ||
+      (current.status !== 'running' && normalized.status === 'running'))
+  ) {
+    return state;
+  }
+
+  const values = mergeChatTimelineContextCompactValues(current, normalized);
+  const runId = resolveEventRunId(event, state, current);
+  const lifecycle: ChatTimelineLifecycle =
+    values.status === 'running'
+      ? 'active'
+      : values.status === 'failed'
+        ? 'error'
+        : 'complete';
+  const fallbackId =
+    toText(event.runId) ||
+    toText(event.timestamp || event.ts || event.time) ||
+    String(state.nextOrder);
+  const id =
+    current?.id ?? createChatTimelineContextCompactNodeId(conversationId, values, fallbackId);
+  const baseState = current
+    ? state
+    : closeActiveReasoningNodesForRun(state, runId, updatedAt);
+  const usageSummary =
+    values.status === 'completed'
+      ? mergeChatTimelineUsageSummaryForContextCompact(state.usageSummary, event, updatedAt)
+      : current?.usageSummary ?? null;
+  const nextState = upsertNode(baseState, {
+    id,
+    kind: 'context',
+    ...values,
+    runId,
+    createdAt: current?.createdAt ?? updatedAt,
+    updatedAt,
+    order: createOrder(baseState, current),
+    lifecycle,
+    usageSummary,
+  });
+
+  if (values.status !== 'completed') {
+    return nextState;
+  }
+  if (chatTimelineUsageSummaryEquals(nextState.usageSummary, usageSummary)) {
+    return nextState;
+  }
+  return {
+    ...nextState,
+    usageLabel: usageSummary?.label || nextState.usageLabel,
+    usageSummary,
+    revision: nextState.revision + 1,
+  };
+}
+
 function applyToolEvent(
   state: ChatTimelineState,
   conversationId: string,
@@ -1875,10 +2237,30 @@ function applyToolEvent(
   const toolId = toText(event.toolCallId || event.toolId) || current?.toolId || '';
   const toolName = toText(event.toolName || event.name) || current?.toolName || '';
   const toolLabel = toText(event.toolLabel || event.title) || current?.toolLabel || '';
+  const agentKey = toText(event.agentKey) || current?.agentKey || '';
+  const toolType = normalizeFrontendToolType(event.toolType) || current?.toolType || '';
+  const viewportKey = toText(event.viewportKey) || current?.viewportKey || '';
+  const toolTimeoutMs = Object.prototype.hasOwnProperty.call(event, 'toolTimeout')
+    ? normalizeProtocolTimeoutMs(event.toolTimeout)
+    : current?.toolTimeoutMs ?? null;
   const description = toText(event.description) || current?.description || '';
-  const argsText =
-    firstFormattedText(event.args, event.arguments, event.input, event.params) ||
-    (type.endsWith('.args') ? bodyFromEvent(event) : current?.argsText || '');
+  const directParams =
+    normalizeFrontendToolParams(event.toolParams) ||
+    normalizeFrontendToolParams(event.params) ||
+    normalizeFrontendToolParams(event.args) ||
+    normalizeFrontendToolParams(event.arguments) ||
+    normalizeFrontendToolParams(event.input);
+  const argsDelta = type.endsWith('.args') ? String(event.delta || '') : '';
+  const argsText = directParams
+    ? safeJson(directParams)
+    : argsDelta
+      ? `${current?.argsText || ''}${argsDelta}`
+      : firstFormattedText(event.args, event.arguments, event.input, event.params, event.toolParams) ||
+        (type.endsWith('.args') ? bodyFromEvent(event) : current?.argsText || '');
+  const toolParams = directParams || parseFrontendToolArgs(argsText) || current?.toolParams || {};
+  const frontendToolState =
+    current?.frontendToolState ||
+    (type === 'tool.start' && toolType && viewportKey ? { status: 'active' as const } : null);
   const resultText =
     firstFormattedText(event.result, event.output, event.error) ||
     (type.endsWith('.result') || type.endsWith('.end')
@@ -1896,9 +2278,15 @@ function applyToolEvent(
   return upsertNode(baseState, {
     id,
     kind: 'tool',
+    agentKey,
     toolId,
     toolName,
     toolLabel,
+    toolType,
+    viewportKey,
+    toolTimeoutMs,
+    toolParams,
+    frontendToolState,
     description,
     title: toolLabel || toolName || current?.title || '',
     status:
@@ -1918,6 +2306,289 @@ function applyToolEvent(
     updatedAt,
     order: createOrder(baseState, current),
     lifecycle,
+  });
+}
+
+function applySourceEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>
+): ChatTimelineState {
+  const normalized = normalizeChatTimelineSourceEvent(event);
+  const identity = normalized.publishId
+    ? normalized.stableId
+    : `${toText(event.runId) || 'run'}:${normalized.stableId}`;
+  const id = `source:${conversationId}:${identity}`;
+  const existing = state.nodesById[id];
+  const current = existing?.kind === 'source' ? existing : undefined;
+  const updatedAt = resolveTimestamp(
+    event,
+    current?.updatedAt ?? Date.now() + state.nextOrder
+  );
+  if (current && updatedAt < current.updatedAt) {
+    return state;
+  }
+
+  const runId = resolveEventRunId(event, state, current);
+  const baseState = current
+    ? state
+    : closeActiveReasoningNodesForRun(state, runId, updatedAt);
+  const node: ChatTimelineSourceNode = {
+    id,
+    kind: 'source',
+    publishId: normalized.publishId,
+    sourceKind: normalized.sourceKind,
+    query: normalized.query,
+    sourceCount: normalized.sourceCount,
+    chunkCount: normalized.chunkCount,
+    sources: normalized.sources,
+    errorDetail: normalized.errorDetail,
+    malformed: normalized.malformed,
+    runId,
+    createdAt: current?.createdAt ?? updatedAt,
+    updatedAt,
+    order: createOrder(baseState, current),
+    lifecycle: normalized.errorDetail ? 'error' : 'complete',
+  };
+  return upsertNode(baseState, node);
+}
+
+function artifactLifecycle(
+  status: ChatTimelineArtifactNode['status']
+): ChatTimelineLifecycle {
+  if (status === 'failed') {
+    return 'error';
+  }
+  return status === 'ready' ? 'complete' : 'active';
+}
+
+function applyArtifactEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>
+): ChatTimelineState {
+  const fallbackTimestamp = resolveTimestamp(event, Date.now() + state.nextOrder);
+  const artifacts = normalizeChatTimelineArtifactEvent(event, fallbackTimestamp);
+
+  return artifacts.reduce((nextState, artifact) => {
+    const id = `artifact:${conversationId}:${artifact.artifactId}`;
+    const existing = nextState.nodesById[id];
+    const current = existing?.kind === 'artifact' ? existing : undefined;
+    if (current && artifact.timestamp < current.updatedAt) {
+      return nextState;
+    }
+
+    const runId = artifact.runId || current?.runId || nextState.activeRunId;
+    const baseState = current
+      ? nextState
+      : closeActiveReasoningNodesForRun(nextState, runId, artifact.timestamp);
+    const node: ChatTimelineArtifactNode = {
+      id,
+      kind: 'artifact',
+      artifactId: artifact.artifactId,
+      name: artifact.name,
+      mimeType: artifact.mimeType,
+      resourceUrl: artifact.resourceUrl,
+      sha256: artifact.sha256,
+      sizeBytes: artifact.sizeBytes,
+      previewKind: artifact.previewKind,
+      status: artifact.status,
+      summary: artifact.summary,
+      errorReason: artifact.errorReason,
+      runId,
+      createdAt: current?.createdAt ?? artifact.timestamp,
+      updatedAt: artifact.timestamp,
+      order: createOrder(baseState, current),
+      lifecycle: artifactLifecycle(artifact.status),
+    };
+    return upsertNode(baseState, node);
+  }, state);
+}
+
+function applyPlanEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>
+): ChatTimelineState {
+  const planId = resolveChatTimelinePlanId(event);
+  const id = createChatTimelinePlanNodeId(conversationId, planId);
+  const existing = state.nodesById[id];
+  const current = existing?.kind === 'plan' ? existing : undefined;
+  const updatedAt = resolveTimestamp(event, current?.updatedAt ?? Date.now() + state.nextOrder);
+  if (current && updatedAt < current.updatedAt) {
+    return state;
+  }
+
+  const normalized = normalizeChatTimelinePlanEvent(event, updatedAt, current);
+  const runId = resolveEventRunId(event, state, current);
+  const baseState = current
+    ? state
+    : closeActiveReasoningNodesForRun(state, runId, updatedAt);
+  const node: ChatTimelinePlanNode = {
+    id,
+    kind: 'plan',
+    planId: normalized.planId,
+    title: normalized.title,
+    summary: normalized.summary,
+    status: normalized.status,
+    steps: normalized.steps,
+    startedAt: normalized.startedAt,
+    completedAt: normalized.completedAt,
+    durationMs: normalized.durationMs,
+    errorReason: normalized.errorReason,
+    runId,
+    createdAt: current?.createdAt ?? updatedAt,
+    updatedAt,
+    order: createOrder(baseState, current),
+    lifecycle: getChatTimelinePlanLifecycle(normalized.status),
+  };
+  return upsertNode(baseState, node);
+}
+
+function resolveTaskEventFallback(
+  state: ChatTimelineState,
+  event: Record<string, unknown>,
+  taskId: string,
+  current: ChatTimelineTaskNode | undefined
+) {
+  const parentTaskId =
+    toText(event.parentTaskId || event.parentId) || current?.parentTaskId || '';
+  const parentNode = parentTaskId
+    ? state.nodesById[createChatTimelineTaskNodeId(state.conversationId, parentTaskId)]
+    : undefined;
+  const parentTask = parentNode?.kind === 'task' ? parentNode : undefined;
+  const runId =
+    toText(event.runId) || current?.runId || parentTask?.runId || state.activeRunId || '';
+  const explicitPlanId = toText(event.planId);
+  const matchingPlans = state.orderedNodeIds
+    .map((nodeId) => state.nodesById[nodeId])
+    .filter(
+      (node): node is ChatTimelinePlanNode =>
+        node?.kind === 'plan' && (!runId || !node.runId || node.runId === runId)
+    );
+  const planId =
+    explicitPlanId ||
+    current?.planId ||
+    parentTask?.planId ||
+    (matchingPlans.length === 1 ? matchingPlans[0].planId : '');
+  const matchingPlan = matchingPlans.find((plan) => plan.planId === planId);
+  const taskName =
+    matchingPlan?.steps.find((step) => step.taskId === taskId)?.description ||
+    matchingPlans
+      .flatMap((plan) => plan.steps)
+      .find((step) => step.taskId === taskId)?.description ||
+    '';
+  const activeGroupIds = new Set<string>();
+  state.orderedNodeIds.forEach((nodeId) => {
+    const node = state.nodesById[nodeId];
+    if (
+      node?.kind !== 'task' ||
+      node.id === current?.id ||
+      node.status !== 'running' ||
+      (runId && node.runId && node.runId !== runId) ||
+      (parentTaskId && node.parentTaskId !== parentTaskId) ||
+      (planId && node.planId && node.planId !== planId)
+    ) {
+      return;
+    }
+    if (node.taskGroupId) {
+      activeGroupIds.add(node.taskGroupId);
+    }
+  });
+
+  return {
+    parentTaskId,
+    planId,
+    runId,
+    taskGroupId:
+      current?.taskGroupId ||
+      (activeGroupIds.size === 1 ? Array.from(activeGroupIds)[0] : undefined),
+    taskName,
+  };
+}
+
+function applyTaskEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>
+): ChatTimelineState {
+  const taskId = resolveChatTimelineTaskId(event);
+  if (!taskId) {
+    return state;
+  }
+  const id = createChatTimelineTaskNodeId(conversationId, taskId);
+  const existing = state.nodesById[id];
+  const current = existing?.kind === 'task' ? existing : undefined;
+  const updatedAt = resolveTimestamp(event, current?.updatedAt ?? Date.now() + state.nextOrder);
+  if (current && updatedAt < current.updatedAt) {
+    return state;
+  }
+
+  const normalized = normalizeChatTimelineTaskEvent(
+    event,
+    updatedAt,
+    current,
+    resolveTaskEventFallback(state, event, taskId, current)
+  );
+  const baseState = current
+    ? state
+    : closeActiveReasoningNodesForRun(state, normalized.runId, updatedAt);
+  const node: ChatTimelineTaskNode = {
+    id,
+    kind: 'task',
+    ...normalized,
+    createdAt: current?.createdAt ?? updatedAt,
+    updatedAt,
+    order: createOrder(baseState, current),
+    lifecycle: getChatTimelinePlanLifecycle(normalized.status),
+  };
+  return upsertNode(baseState, node);
+}
+
+function applyActionEvent(
+  state: ChatTimelineState,
+  conversationId: string,
+  event: Record<string, unknown>
+): ChatTimelineState {
+  const actionId = resolveChatTimelineActionId(event);
+  if (!actionId) {
+    return state;
+  }
+  const id = createChatTimelineActionNodeId(conversationId, actionId);
+  const existing = state.nodesById[id];
+  const current = existing?.kind === 'action' ? existing : undefined;
+  const updatedAt = resolveTimestamp(event, current?.updatedAt ?? Date.now() + state.nextOrder);
+  const sequence = getChatTimelineActionEventSequence(event);
+  const signature = getChatTimelineActionEventSignature(event);
+  const type = normalizeEventType(event.type);
+  if (
+    current &&
+    (updatedAt < current.updatedAt ||
+      (sequence !== null && current.lastSequence !== null && sequence <= current.lastSequence) ||
+      signature === current.lastEventSignature ||
+      (['completed', 'failed', 'blocked'].includes(current.status) &&
+        !type.endsWith('.result') &&
+        !type.endsWith('.complete') &&
+        !type.endsWith('.error') &&
+        !type.endsWith('.fail')))
+  ) {
+    return state;
+  }
+
+  const normalized = normalizeChatTimelineActionEvent(event, current);
+  const runId = resolveEventRunId(event, state, current);
+  const baseState = current
+    ? state
+    : closeActiveReasoningNodesForRun(state, runId, updatedAt);
+  return upsertNode(baseState, {
+    id,
+    kind: 'action',
+    ...normalized,
+    runId,
+    createdAt: current?.createdAt ?? updatedAt,
+    updatedAt,
+    order: createOrder(baseState, current),
+    lifecycle: getChatTimelineActionLifecycle(normalized.status),
   });
 }
 
@@ -2027,6 +2698,7 @@ function applySystemErrorEvent(
     id,
     kind: 'message',
     role: 'system',
+    messageVariant: 'default',
     content: display.message,
     messageId: `system-error:${conversationId}:${stableId}`,
     clientMessageId: null,
@@ -2238,6 +2910,10 @@ export function applyChatTimelineEvent(
     return applyRequestEvent(state, conversationId, event);
   }
   if (family === 'request') {
+    const messageVariant = normalizeChatTimelineRequestMessageVariant(type);
+    if (messageVariant) {
+      return applyRequestCommandEvent(state, conversationId, event, messageVariant);
+    }
     return applyRuntimeTextEvent(state, conversationId, event, 'request');
   }
   if (family === 'assistant_content') {
@@ -2252,18 +2928,26 @@ export function applyChatTimelineEvent(
   if (family === 'tool') {
     return applyToolEvent(state, conversationId, event);
   }
+  if (family === 'source') {
+    return applySourceEvent(state, conversationId, event);
+  }
+  if (family === 'artifact') {
+    return applyArtifactEvent(state, conversationId, event);
+  }
+  if (family === 'plan') {
+    return applyPlanEvent(state, conversationId, event);
+  }
+  if (family === 'task') {
+    return applyTaskEvent(state, conversationId, event);
+  }
+  if (family === 'action') {
+    return applyActionEvent(state, conversationId, event);
+  }
   if (family === 'reasoning' || family === 'planning') {
     return applyRuntimeTextEvent(state, conversationId, event, family);
   }
-  if (
-    family === 'artifact' ||
-    family === 'action' ||
-    family === 'plan' ||
-    family === 'task' ||
-    family === 'context'
-  ) {
-    const kind = family === 'context' ? 'context' : family;
-    return applyRuntimeTextEvent(state, conversationId, event, kind);
+  if (family === 'context') {
+    return applyContextCompactEvent(state, conversationId, event);
   }
   if (family === 'usage') {
     const updatedAt = resolveTimestamp(event, Date.now() + state.nextOrder);
@@ -2318,6 +3002,7 @@ export function applyChatTimelineMessage(
     id,
     kind: 'message',
     role: message.role,
+    messageVariant: 'default',
     content: message.content,
     messageId: message.messageId,
     clientMessageId: message.clientMessageId,

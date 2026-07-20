@@ -40,10 +40,12 @@
       "statement": "页面组件不得直接读写 SQLite；页面通过 repository 或 service 拿数据和触发写入。",
       "appliesTo": [
         "app-shell-navigation",
-        "feature-chat-persistence"
+        "feature-chat-persistence",
+        "feature-web-apps"
       ],
       "protectedModules": [
-        "feature-chat-persistence"
+        "feature-chat-persistence",
+        "feature-web-apps"
       ],
       "checkHints": [
         "如果 screen 需要新数据，优先扩展 chatRepository 或 chatSyncService。",
@@ -58,11 +60,13 @@
         "app-shell-navigation",
         "core-ws-transport",
         "feature-chat-persistence",
-        "feature-chat-realtime"
+        "feature-chat-realtime",
+        "feature-web-apps"
       ],
       "protectedModules": [
         "core-ws-transport",
-        "feature-chat-realtime"
+        "feature-chat-realtime",
+        "feature-web-apps"
       ],
       "checkHints": [
         "如果页面要触发实时动作，优先扩展 chatSyncService。",
@@ -167,12 +171,14 @@
       "appliesTo": [
         "app-shell-navigation",
         "feature-chat-persistence",
+        "feature-web-apps",
         "shared-paginated-list",
         "shared-screen-header",
         "shared-visual-foundation"
       ],
       "protectedModules": [
         "app-shell-navigation",
+        "feature-web-apps",
         "shared-paginated-list",
         "shared-screen-header",
         "shared-visual-foundation"
@@ -192,6 +198,7 @@
         "feature-agent-task-board",
         "feature-auth-login",
         "feature-chat-persistence",
+        "feature-web-apps",
         "shared-conversation-content-renderer",
         "shared-paginated-list",
         "shared-screen-header",
@@ -202,6 +209,7 @@
         "feature-agent-task-board",
         "feature-auth-login",
         "feature-chat-persistence",
+        "feature-web-apps",
         "shared-paginated-list",
         "shared-screen-header",
         "shared-visual-foundation"

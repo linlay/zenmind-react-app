@@ -5,9 +5,46 @@ import {
   applyChatTimelineEvent,
   deserializeChatTimelineState,
   deriveChatTimelineState,
+  getActiveChatTimelineFrontendTool,
+  mergeChatTimelineState,
+  resolveChatTimelineFrontendTool,
   serializeChatTimelineState,
   timelinePersistenceInternals,
 } from '../../src/features/chatTimeline/index.ts';
+
+test('timeline persistence keeps frontend tool dismissal across restore and stale replay', () => {
+  const toolEvent = {
+    type: 'tool.start',
+    runId: 'run-tool',
+    toolId: 'tool-form',
+    toolType: 'html',
+    viewportKey: 'leave-form',
+    toolParams: { days: 1 },
+    timestamp: 1_700_000_000_000,
+  };
+  const active = deriveChatTimelineState('chat-tool', [toolEvent]);
+  const tool = getActiveChatTimelineFrontendTool(active);
+  assert.ok(tool);
+  const dismissed = resolveChatTimelineFrontendTool(
+    active,
+    tool.key,
+    'close',
+    1_700_000_000_100
+  );
+  const serialized = serializeChatTimelineState(dismissed);
+  const restored = deserializeChatTimelineState(serialized.meta, serialized.nodes);
+  assert.ok(restored);
+  assert.equal(getActiveChatTimelineFrontendTool(restored), null);
+
+  const staleReplay = deriveChatTimelineState('chat-tool', [toolEvent]);
+  const merged = mergeChatTimelineState(restored, staleReplay);
+  assert.equal(getActiveChatTimelineFrontendTool(merged), null);
+});
+import { parseConversationMarkdownSegments } from '../../src/shared/markdown/previewSegments.ts';
+import {
+  CONVERSATION_VIEWPORT_FENCE_EXTENSIONS,
+  type ConversationViewportFenceData
+} from '../../src/features/chatPersistence/conversationViewport/conversationViewportFence.ts';
 
 test('timeline persistence roundtrips rich runtime nodes without replaying events', () => {
   const state = deriveChatTimelineState('chat-rich', [
@@ -410,5 +447,112 @@ test('timeline persistence hashes are stable and isolate changed nodes', () => {
   assert.deepEqual(
     changedHashes.map((node) => node.kind),
     ['message']
+  );
+});
+
+test('timeline persistence roundtrips structured source nodes without replay', () => {
+  const state = deriveChatTimelineState('chat-source', [
+    {
+      type: 'source.publish',
+      publishId: 'source-1',
+      runId: 'run-1',
+      kind: 'workspace',
+      query: '架构说明',
+      sourceCount: 1,
+      sources: [
+        {
+          id: 'architecture.md',
+          title: '/docs/architecture.md',
+          url: 'https://example.test/architecture',
+          chunks: [
+            {
+              chunkId: 'architecture-1',
+              index: 1,
+              content: '模块边界说明',
+              startLine: 20,
+              endLine: 28,
+              score: 0.91,
+            },
+          ],
+        },
+      ],
+      timestamp: 100,
+    },
+  ]);
+  const serialized = serializeChatTimelineState(state);
+  const restored = deserializeChatTimelineState(serialized.meta, serialized.nodes);
+  const source = restored?.orderedNodeIds
+    .map((nodeId) => restored.nodesById[nodeId])
+    .find((node) => node?.kind === 'source');
+
+  assert.notEqual(restored, null);
+  assert.deepEqual(restored, state);
+  assert.equal(source?.kind, 'source');
+  assert.equal(source?.kind === 'source' ? source.sources[0].chunks[0].score : null, 0.91);
+});
+
+test('timeline persistence roundtrips typed artifact resource nodes without replay', () => {
+  const state = deriveChatTimelineState('chat-artifact', [
+    {
+      type: 'artifact.publish',
+      runId: 'run-artifact',
+      artifactId: 'artifact-1',
+      name: 'report.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 8192,
+      url: '/api/resource?id=artifact-1',
+      sha256: 'abc123',
+      summary: 'Quarterly report',
+      timestamp: 100,
+    },
+  ]);
+  const serialized = serializeChatTimelineState(state);
+  const restored = deserializeChatTimelineState(serialized.meta, serialized.nodes);
+  const artifact = restored?.orderedNodeIds
+    .map((nodeId) => restored.nodesById[nodeId])
+    .find((node) => node?.kind === 'artifact');
+
+  assert.deepEqual(restored, state);
+  assert.equal(artifact?.kind, 'artifact');
+  assert.equal(artifact?.kind === 'artifact' ? artifact.previewKind : '', 'pdf');
+  assert.equal(artifact?.kind === 'artifact' ? artifact.resourceUrl : '', '/ap/api/resource?id=artifact-1');
+});
+
+test('timeline persistence derives the same viewport segments from restored assistant content', () => {
+  const content = [
+    '天气如下：',
+    '```viewport',
+    'type=html,key=weather-card',
+    '{"city":"Shanghai"}',
+    '```',
+    '以上为实时结果。'
+  ].join('\n');
+  const state = deriveChatTimelineState('chat-viewport', [
+    {
+      type: 'content.snapshot',
+      contentId: 'content-viewport',
+      runId: 'run-viewport',
+      text: content,
+      timestamp: 100
+    }
+  ]);
+  const serialized = serializeChatTimelineState(state);
+  const restored = deserializeChatTimelineState(serialized.meta, serialized.nodes);
+  const message = restored?.orderedNodeIds
+    .map((nodeId) => restored.nodesById[nodeId])
+    .find((node) => node?.kind === 'message');
+
+  assert.equal(message?.kind, 'message');
+  const segments = parseConversationMarkdownSegments(
+    message?.kind === 'message' ? message.content : '',
+    { extensions: CONVERSATION_VIEWPORT_FENCE_EXTENSIONS }
+  );
+  assert.deepEqual(segments.map((segment) => segment.type), ['markdown', 'extension', 'markdown']);
+  const viewport = segments[1];
+  assert.equal(
+    viewport?.type === 'extension'
+      ? (viewport.data as ConversationViewportFenceData).viewportKey
+      : '',
+    'weather-card'
   );
 });

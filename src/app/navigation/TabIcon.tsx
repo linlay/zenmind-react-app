@@ -11,11 +11,13 @@ type AppTabIconProps = {
 
 const TAB_ICON_USAGES: Record<keyof RootTabParamList, AppIconUsage> = {
   Chat: 'tab.chat',
+  WebApps: 'tab.webApps',
   Me: 'tab.me'
 };
 
 export const TAB_LABEL_KEYS: Record<keyof RootTabParamList, I18nKey> = {
   Chat: 'tabs.chat',
+  WebApps: 'tabs.webApps',
   Me: 'tabs.me'
 };
 

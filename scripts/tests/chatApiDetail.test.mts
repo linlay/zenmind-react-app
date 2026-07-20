@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
+import { buildSubmitFrontendToolPayload } from '../../src/core/api/services/frontendToolSubmitProtocol.ts';
+
 const chatApiSource = readFileSync(
   new URL('../../src/core/api/services/chatApi.ts', import.meta.url),
   'utf8'
@@ -27,5 +29,41 @@ test('chat detail request defaults to event history without raw messages', () =>
   assert.match(chatApiSource, /function buildChatDetailPayload/);
   assert.match(chatApiSource, /includeRawMessages: source\.includeRawMessages === true/);
   assert.match(chatSyncServiceSource, /buildChatDetailPayload\(chatId\)/);
-  assert.doesNotMatch(chatSyncServiceSource, /includeRawMessages: true/);
+  const normalDetailRequest = chatSyncServiceSource.slice(
+    chatSyncServiceSource.indexOf('private async getChatDetailViaTransport'),
+    chatSyncServiceSource.indexOf('private async fetchAgentDetail')
+  );
+  assert.doesNotMatch(normalDetailRequest, /includeRawMessages: true/);
+});
+
+test('development diagnostics explicitly request raw chat messages without changing normal detail requests', () => {
+  const diagnosticRequest = chatSyncServiceSource.slice(
+    chatSyncServiceSource.indexOf('async collectConversationDiagnosticData'),
+    chatSyncServiceSource.indexOf('private clearTransientWork')
+  );
+  assert.match(diagnosticRequest, /includeRawMessages: true/);
+  assert.match(diagnosticRequest, /requestRawChatApi/);
+});
+
+test('frontend tool submit payload uses one normalized run owner and no UI key', () => {
+  assert.deepEqual(
+    buildSubmitFrontendToolPayload({
+      chatId: ' chat-1 ',
+      runId: ' run-1 ',
+      agentKey: 'ignored-agent',
+      teamId: ' team-1 ',
+      toolId: ' tool-1 ',
+      params: { approved: true },
+    }),
+    {
+      chatId: 'chat-1',
+      runId: 'run-1',
+      teamId: 'team-1',
+      toolId: 'tool-1',
+      params: { approved: true },
+    }
+  );
+  assert.match(chatSyncServiceSource, /getActiveChatTimelineFrontendTool/);
+  assert.match(chatSyncServiceSource, /frontendToolSubmitRequests/);
+  assert.match(chatSyncServiceSource, /CHAT_SUBMIT_TRANSPORT_TYPE/);
 });

@@ -1,3 +1,5 @@
+import type { ChatRequestMessageVariant } from '../../core/api/services/chatEventProtocol.ts';
+import type { AuthenticatedResourcePreviewKind } from '../chatPersistence/authenticatedResourcePreview.ts';
 import type { ChatMessageAttachment } from '../chatPersistence/types.ts';
 
 export type ChatTimelineLifecycle = 'active' | 'complete' | 'error' | 'cancelled';
@@ -11,6 +13,7 @@ export type ChatTimelineNodeKind =
   | 'run'
   | 'request'
   | 'artifact'
+  | 'source'
   | 'action'
   | 'plan'
   | 'task'
@@ -18,6 +21,10 @@ export type ChatTimelineNodeKind =
   | 'context';
 
 export type ChatTimelineMessageRole = 'user' | 'assistant' | 'system';
+
+export type ChatTimelineMessageVariant = 'default' | ChatRequestMessageVariant;
+
+export type ChatTimelineCommandMessageVariant = Exclude<ChatTimelineMessageVariant, 'default'>;
 
 export type ChatTimelineAwaitingMode = 'question' | 'approval' | 'form' | 'plan';
 
@@ -32,6 +39,37 @@ export type ChatTimelineRuntimeStatus =
   | 'error'
   | 'tool_result';
 
+export type ChatTimelineArtifactPreviewKind = AuthenticatedResourcePreviewKind;
+
+export type ChatTimelineArtifactStatus = 'processing' | 'ready' | 'failed';
+
+export type ChatTimelinePlanStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
+
+export type ChatTimelineTaskStatus = ChatTimelinePlanStatus;
+
+export type ChatTimelineActionPolicy = 'allowed' | 'unsupported' | 'unknown';
+
+export type ChatTimelineActionExecutorKind = 'theme';
+
+export type ChatTimelineActionStatus =
+  | 'collecting'
+  | 'ready'
+  | 'completed'
+  | 'failed'
+  | 'blocked';
+
+export type ChatTimelineContextCompactStatus = 'running' | 'completed' | 'failed';
+
+export type ChatTimelinePlanStep = {
+  taskId: string;
+  description: string;
+  status: ChatTimelinePlanStatus;
+  startedAt: number | null;
+  completedAt: number | null;
+  durationMs: number | null;
+  errorReason: string;
+};
+
 export type ChatTimelineErrorDetail = {
   code: string;
   category: string;
@@ -42,6 +80,38 @@ export type ChatTimelineErrorDetail = {
   diagnostics: unknown;
   raw: unknown;
   technicalText: string;
+};
+
+export type ChatTimelineSourceChunk = {
+  chunkId: string;
+  index: number;
+  content: string;
+  score?: number;
+  timestamp?: number;
+  path?: string;
+  heading?: string;
+  startLine?: number;
+  endLine?: number;
+  pageStart?: number;
+  pageEnd?: number;
+  slideStart?: number;
+  slideEnd?: number;
+  sourceType?: string;
+  matchType?: string;
+};
+
+export type ChatTimelineSource = {
+  id: string;
+  name: string;
+  title?: string;
+  icon?: string;
+  url?: string;
+  link?: string;
+  collectionId?: string;
+  collectionName?: string;
+  chunkIndexes: number[];
+  minIndex: number;
+  chunks: ChatTimelineSourceChunk[];
 };
 
 export type ChatTimelineAwaitingQuestionType =
@@ -179,6 +249,7 @@ export type ChatTimelineBaseNode = {
 export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
   kind: 'message';
   role: ChatTimelineMessageRole;
+  messageVariant: ChatTimelineMessageVariant;
   content: string;
   messageId: string;
   clientMessageId: string | null;
@@ -191,16 +262,7 @@ export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
 };
 
 export type ChatTimelineTextNode = ChatTimelineBaseNode & {
-  kind:
-    | 'reasoning'
-    | 'planning'
-    | 'request'
-    | 'artifact'
-    | 'action'
-    | 'plan'
-    | 'task'
-    | 'usage'
-    | 'context';
+  kind: 'reasoning' | 'planning' | 'request' | 'usage';
   title: string;
   body: string;
   status: ChatTimelineRuntimeStatus | string;
@@ -208,11 +270,91 @@ export type ChatTimelineTextNode = ChatTimelineBaseNode & {
   usageSummary?: ChatTimelineUsageSummary | null;
 };
 
+export type ChatTimelineContextCompactNode = ChatTimelineBaseNode & {
+  kind: 'context';
+  compactId: string;
+  requestId: string;
+  status: ChatTimelineContextCompactStatus;
+  preCompactTokens: number | null;
+  postCompactTokens: number | null;
+  savedTokens: number | null;
+  savedPercent: number | null;
+  errorReason: string;
+  usageSummary: ChatTimelineUsageSummary | null;
+};
+
+export type ChatTimelineArtifactNode = ChatTimelineBaseNode & {
+  kind: 'artifact';
+  artifactId: string;
+  name: string;
+  mimeType: string;
+  resourceUrl: string;
+  sha256: string;
+  sizeBytes: number;
+  previewKind: ChatTimelineArtifactPreviewKind;
+  status: ChatTimelineArtifactStatus;
+  summary: string;
+  errorReason: string;
+};
+
+export type ChatTimelinePlanNode = ChatTimelineBaseNode & {
+  kind: 'plan';
+  planId: string;
+  title: string;
+  summary: string;
+  status: ChatTimelinePlanStatus;
+  steps: ChatTimelinePlanStep[];
+  startedAt: number | null;
+  completedAt: number | null;
+  durationMs: number | null;
+  errorReason: string;
+};
+
+export type ChatTimelineTaskNode = ChatTimelineBaseNode & {
+  kind: 'task';
+  taskId: string;
+  planId: string;
+  parentTaskId: string;
+  taskGroupId: string;
+  taskName: string;
+  agentKey: string;
+  subAgentKey: string;
+  status: ChatTimelineTaskStatus;
+  startedAt: number | null;
+  completedAt: number | null;
+  durationMs: number | null;
+  errorReason: string;
+};
+
+export type ChatTimelineActionNode = ChatTimelineBaseNode & {
+  kind: 'action';
+  actionId: string;
+  actionName: string;
+  target: string;
+  status: ChatTimelineActionStatus;
+  policy: ChatTimelineActionPolicy;
+  policyReason: string;
+  executorKind: ChatTimelineActionExecutorKind | null;
+  args: Record<string, unknown> | null;
+  argsText: string;
+  result: unknown;
+  resultText: string;
+  errorReason: string;
+  lastSequence: number | null;
+  lastEventSignature: string;
+};
+
 export type ChatTimelineToolNode = ChatTimelineBaseNode & {
   kind: 'tool';
+  agentKey: string;
   toolId: string;
   toolName: string;
   toolLabel: string;
+  toolType: string;
+  viewportKey: string;
+  toolTimeoutMs: number | null;
+  toolParams: Record<string, unknown>;
+  frontendToolState: ChatTimelineFrontendToolState | null;
   description: string;
   title: string;
   status: ChatTimelineRuntimeStatus | string;
@@ -220,6 +362,44 @@ export type ChatTimelineToolNode = ChatTimelineBaseNode & {
   resultText: string;
   body: string;
   streaming: boolean;
+};
+
+export type ChatTimelineFrontendToolResolution = 'submitted' | 'close' | 'done' | 'timeout';
+
+export type ChatTimelineFrontendToolState =
+  | { status: 'active' }
+  | {
+      status: 'resolved';
+      reason: ChatTimelineFrontendToolResolution;
+      resolvedAt: number;
+    };
+
+export type ChatTimelineActiveFrontendTool = {
+  key: string;
+  conversationId: string;
+  runId: string;
+  agentKey: string;
+  toolId: string;
+  toolName: string;
+  toolLabel: string;
+  toolType: 'html' | 'qlc';
+  viewportKey: string;
+  toolTimeoutMs: number | null;
+  toolParams: Record<string, unknown>;
+  description: string;
+  createdAt: number;
+};
+
+export type ChatTimelineSourceNode = ChatTimelineBaseNode & {
+  kind: 'source';
+  publishId: string;
+  sourceKind: string;
+  query: string;
+  sourceCount: number;
+  chunkCount: number;
+  sources: ChatTimelineSource[];
+  errorDetail: ChatTimelineErrorDetail | null;
+  malformed: boolean;
 };
 
 export type ChatTimelineAwaitingNode = ChatTimelineBaseNode & {
@@ -248,7 +428,13 @@ export type ChatTimelineRunNode = ChatTimelineBaseNode & {
 export type ChatTimelineNode =
   | ChatTimelineMessageNode
   | ChatTimelineTextNode
+  | ChatTimelineContextCompactNode
+  | ChatTimelineActionNode
+  | ChatTimelineArtifactNode
+  | ChatTimelinePlanNode
+  | ChatTimelineTaskNode
   | ChatTimelineToolNode
+  | ChatTimelineSourceNode
   | ChatTimelineAwaitingNode
   | ChatTimelineRunNode;
 
@@ -267,7 +453,7 @@ export type ChatTimelineAwaitingState = {
   updatedAt: number;
 };
 
-export type ChatTimelineRuntimeEntryKind = Exclude<ChatTimelineNodeKind, 'message'>;
+export type ChatTimelineRuntimeEntryKind = Exclude<ChatTimelineNodeKind, 'message' | 'source'>;
 
 export type ChatTimelineRuntimeEntry = {
   id: string;
@@ -358,6 +544,7 @@ export type ChatTimelineDisplayItemKind =
   | 'tool-group'
   | 'awaiting'
   | 'artifact'
+  | 'source'
   | 'action'
   | 'plan'
   | 'task'
@@ -367,13 +554,28 @@ export type ChatTimelineDisplayItemKind =
 
 export type ChatTimelineNodeDisplayItem = {
   key: string;
-  kind: Exclude<ChatTimelineDisplayItemKind, 'tool-group' | 'assistant-reply-footer'>;
+  kind: Exclude<
+    ChatTimelineDisplayItemKind,
+    'tool-group' | 'assistant-reply-footer' | 'plan' | 'task'
+  >;
   node: ChatTimelineNode;
   nodeId: string;
   runId: string;
   isFirstInRun: boolean;
   isLastInRun: boolean;
   groupIndex: number;
+};
+
+export type ChatTimelinePlanDisplayItem = Omit<ChatTimelineNodeDisplayItem, 'kind' | 'node'> & {
+  kind: 'plan';
+  node: ChatTimelinePlanNode;
+  tasks: ChatTimelineTaskNode[];
+};
+
+export type ChatTimelineTaskDisplayItem = Omit<ChatTimelineNodeDisplayItem, 'kind' | 'node'> & {
+  kind: 'task';
+  node: ChatTimelineTaskNode;
+  nodes: ChatTimelineTaskNode[];
 };
 
 export type ChatTimelineToolGroupDisplayItem = {
@@ -400,5 +602,7 @@ export type ChatTimelineAssistantReplyFooterDisplayItem = {
 
 export type ChatTimelineDisplayItem =
   | ChatTimelineNodeDisplayItem
+  | ChatTimelinePlanDisplayItem
+  | ChatTimelineTaskDisplayItem
   | ChatTimelineToolGroupDisplayItem
   | ChatTimelineAssistantReplyFooterDisplayItem;

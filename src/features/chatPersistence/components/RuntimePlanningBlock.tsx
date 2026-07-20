@@ -32,7 +32,7 @@ import {
   PLANNING_WRITING_TEXT_HEIGHT,
   resolvePlanningWritingGradientWindow,
 } from './planningWritingShimmerConfig';
-import type { RuntimePayloadDescriptor } from './runtimePayloadDescriptor';
+import { resolveRuntimePayloadCopyText, type RuntimePayloadDescriptor } from './runtimePayloadDescriptor';
 import { RuntimePayloadContent } from './runtimePayloadRenderers';
 
 export type RuntimePlanningBlockMode = 'preview' | 'expanded' | 'compact';
@@ -275,8 +275,9 @@ export const RuntimePlanningBlock = memo(function RuntimePlanningBlock({
   );
 
   const handleCopy = useCallback(() => {
-    if (descriptor.copyText) {
-      onCopyText(descriptor.copyText);
+    const copyText = resolveRuntimePayloadCopyText(descriptor.copyText);
+    if (copyText) {
+      onCopyText(copyText);
     }
   }, [descriptor.copyText, onCopyText]);
 

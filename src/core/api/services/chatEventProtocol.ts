@@ -12,6 +12,7 @@ export type ChatProtocolEventFamily =
   | 'reasoning'
   | 'planning'
   | 'tool'
+  | 'source'
   | 'artifact'
   | 'action'
   | 'plan'
@@ -22,6 +23,14 @@ export type ChatProtocolEventFamily =
   | 'heartbeat'
   | 'live'
   | 'unknown';
+
+export type ChatRequestMessageVariant = 'steer' | 'remember' | 'learn';
+
+const CHAT_REQUEST_MESSAGE_VARIANTS = new Set<ChatRequestMessageVariant>([
+  'steer',
+  'remember',
+  'learn',
+]);
 
 export function toText(value: unknown): string {
   return String(value || '').trim();
@@ -48,7 +57,7 @@ export function toFiniteNumber(value: unknown, fallback = Date.now()): number {
 
 const UNIX_SECONDS_TIMESTAMP_MIN = 1_000_000_000;
 const UNIX_MILLISECONDS_TIMESTAMP_MIN = 1_000_000_000_000;
-const AWAITING_TIMEOUT_SECONDS_MAX_EXCLUSIVE = 1000;
+const PROTOCOL_TIMEOUT_SECONDS_MAX_EXCLUSIVE = 1000;
 
 export function normalizeProtocolTimestampMs(value: unknown, fallback = Date.now()): number {
   if (value === null || value === undefined || value === '') {
@@ -75,7 +84,7 @@ export function normalizeProtocolTimestampMs(value: unknown, fallback = Date.now
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-export function normalizeAwaitingTimeoutMs(value: unknown): number | null {
+export function normalizeProtocolTimeoutMs(value: unknown): number | null {
   if (value === null || value === undefined || value === '') {
     return null;
   }
@@ -85,7 +94,11 @@ export function normalizeAwaitingTimeoutMs(value: unknown): number | null {
     return null;
   }
 
-  return numeric < AWAITING_TIMEOUT_SECONDS_MAX_EXCLUSIVE ? numeric * 1000 : numeric;
+  return numeric < PROTOCOL_TIMEOUT_SECONDS_MAX_EXCLUSIVE ? numeric * 1000 : numeric;
+}
+
+export function normalizeAwaitingTimeoutMs(value: unknown): number | null {
+  return normalizeProtocolTimeoutMs(value);
 }
 
 export function normalizeEventType(rawType: unknown): string {
@@ -131,6 +144,20 @@ export function normalizeEventType(rawType: unknown): string {
   };
 
   return aliasMap[type] || type;
+}
+
+export function isChatRequestMessageVariant(value: unknown): value is ChatRequestMessageVariant {
+  return CHAT_REQUEST_MESSAGE_VARIANTS.has(String(value || '').trim() as ChatRequestMessageVariant);
+}
+
+export function normalizeChatRequestMessageVariant(rawType: unknown): ChatRequestMessageVariant | null {
+  const type = normalizeEventType(rawType).toLowerCase();
+  if (!type.startsWith('request.')) {
+    return null;
+  }
+
+  const variant = type.split('.')[1];
+  return isChatRequestMessageVariant(variant) ? variant : null;
 }
 
 export function extractConversationId(event: Record<string, unknown>): string {
@@ -287,6 +314,9 @@ export function classifyChatProtocolEvent(event: Record<string, unknown>): ChatP
   }
   if (type.startsWith('tool.')) {
     return 'tool';
+  }
+  if (type === 'source.publish') {
+    return 'source';
   }
   if (type === 'artifact.publish') {
     return 'artifact';

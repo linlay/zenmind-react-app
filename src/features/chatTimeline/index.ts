@@ -20,23 +20,47 @@ export type {
   ChatTimelineAwaitingQuestionType,
   ChatTimelineAwaitingNode,
   ChatTimelineAwaitingState,
+  ChatTimelineActionExecutorKind,
+  ChatTimelineActionNode,
+  ChatTimelineActionPolicy,
+  ChatTimelineActionStatus,
+  ChatTimelineArtifactNode,
+  ChatTimelineArtifactPreviewKind,
+  ChatTimelineArtifactStatus,
   ChatTimelineAssistantReplyFooter,
   ChatTimelineAssistantReplyFooterDisplayItem,
+  ChatTimelineContextCompactNode,
+  ChatTimelineContextCompactStatus,
   ChatTimelineDeliveryStatus,
   ChatTimelineDisplayItem,
   ChatTimelineDisplayItemKind,
+  ChatTimelineActiveFrontendTool,
+  ChatTimelineFrontendToolResolution,
+  ChatTimelineFrontendToolState,
   ChatTimelineLifecycle,
+  ChatTimelineCommandMessageVariant,
   ChatTimelineMessageNode,
   ChatTimelineMessageRole,
+  ChatTimelineMessageVariant,
   ChatTimelineNodeDisplayItem,
   ChatTimelineNode,
   ChatTimelineNodeKind,
+  ChatTimelinePlanNode,
+  ChatTimelinePlanStatus,
+  ChatTimelinePlanStep,
+  ChatTimelinePlanDisplayItem,
   ChatTimelineRuntimeEntry,
   ChatTimelineRuntimeEntryKind,
   ChatTimelineRuntimeState,
   ChatTimelineRuntimeStatus,
   ChatTimelineRunNode,
+  ChatTimelineSource,
+  ChatTimelineSourceChunk,
+  ChatTimelineSourceNode,
   ChatTimelineTextNode,
+  ChatTimelineTaskDisplayItem,
+  ChatTimelineTaskNode,
+  ChatTimelineTaskStatus,
   ChatTimelineToolGroupDisplayItem,
   ChatTimelineToolNode,
   ChatTimelineState,
@@ -45,6 +69,12 @@ export type {
   ChatTimelineUsageStats,
   ChatTimelineUsageSummary,
 } from './types.ts';
+export {
+  isChatTimelineCommandMessageVariant,
+  migratePersistedChatTimelineMessageNode,
+  normalizeChatTimelineMessageVariant,
+  normalizeChatTimelineRequestMessageVariant,
+} from './timelineRequest.ts';
 export type { MergeChatTimelineStateOptions } from './timelineReducer.ts';
 export {
   applyChatTimelineEvent,
@@ -71,6 +101,51 @@ export {
   getChatTimelineDisplayItemType,
 } from './timelineDisplay.ts';
 export { resolveChatTimelineUsageModelKey } from './usageSummary.ts';
+export {
+  createChatTimelineContextCompactNodeId,
+  getChatTimelineContextCompactContentLength,
+  mergeChatTimelineContextCompactValues,
+  normalizeChatTimelineContextCompactEvent,
+  type NormalizedChatTimelineContextCompact,
+} from './timelineContextCompact.ts';
+export {
+  createChatTimelineActionNodeId,
+  getConversationActionWhitelist,
+  normalizeChatTimelineActionEvent,
+  normalizeConversationActionArguments,
+  readConversationActionEventArguments,
+  resolveConversationActionEventName,
+  resolveChatTimelineActionId,
+  resolveConversationActionDefinition,
+  type ConversationActionDefinition,
+  type NormalizedChatTimelineAction,
+} from './timelineAction.ts';
+export {
+  normalizeChatTimelineArtifactEvent,
+  resolveChatTimelineArtifactPreviewKind,
+  type NormalizedChatTimelineArtifact,
+} from './timelineArtifact.ts';
+export {
+  createChatTimelinePlanNodeId,
+  normalizeChatTimelinePlanEvent,
+  normalizeChatTimelinePlanStatus,
+} from './timelinePlan.ts';
+export {
+  buildChatTimelineTaskView,
+  createChatTimelineTaskNodeId,
+  normalizeChatTimelineTaskEvent,
+  resolveChatTimelineTaskId,
+  type ChatTimelineTaskFallback,
+  type NormalizedChatTimelineTask,
+  type ChatTimelineTaskViewItem,
+} from './timelineTask.ts';
+export {
+  getActiveChatTimelineFrontendTool,
+  normalizeFrontendToolParams,
+  normalizeFrontendToolType,
+  parseFrontendToolArgs,
+  resolveChatTimelineFrontendTool,
+} from './timelineFrontendTool.ts';
 export type {
   ChatTimelineDisplayModel,
   ChatTimelineDisplayTailSignature,

@@ -1,5 +1,10 @@
 import { ApiError, authenticatedApiRequest } from '../apiClient.ts';
 
+export {
+  buildSubmitFrontendToolPayload,
+  type SubmitFrontendToolRequest,
+} from './frontendToolSubmitProtocol.ts';
+
 export const CHAT_SUMMARIES_TRANSPORT_TYPE = '/api/chats';
 export const CHAT_DETAIL_TRANSPORT_TYPE = '/api/chat';
 export const CHAT_AGENT_DETAIL_TRANSPORT_TYPE = '/api/agent';
@@ -290,7 +295,16 @@ export type SubmitAwaitingResponse = {
   [key: string]: unknown;
 };
 
-export type AwaitingViewportResponse = {
+export type FrontendToolSubmitPayloadData = {
+  toolKey: string;
+  runId: string;
+  toolId: string;
+  params: Record<string, unknown>;
+};
+
+export type SubmitFrontendToolResponse = SubmitAwaitingResponse;
+
+export type ChatViewportResponse = {
   html?: string;
   [key: string]: unknown;
 };
@@ -473,9 +487,9 @@ export function buildSubmitAwaitingPayload(
   return payload;
 }
 
-export async function getAwaitingViewportApi(viewportKey: string): Promise<AwaitingViewportResponse> {
+export async function getChatViewportApi(viewportKey: string): Promise<ChatViewportResponse> {
   const payload = await authenticatedApiRequest<
-    AwaitingViewportResponse | ChatApiEnvelope<AwaitingViewportResponse> | string
+    ChatViewportResponse | ChatApiEnvelope<ChatViewportResponse> | string
   >({
     path: '/ap/api/viewport',
     query: {
@@ -486,5 +500,5 @@ export async function getAwaitingViewportApi(viewportKey: string): Promise<Await
   if (typeof payload === 'string') {
     return { html: payload };
   }
-  return unwrapChatApiEnvelope<AwaitingViewportResponse>(payload) || {};
+  return unwrapChatApiEnvelope<ChatViewportResponse>(payload) || {};
 }

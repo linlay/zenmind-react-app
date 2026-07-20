@@ -1,5 +1,5 @@
-import { ReactNode, useCallback, useMemo, useState, useSyncExternalStore } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { ReactNode, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
+import { ActivityIndicator, Alert, Pressable, ScrollView, Switch, Text, View } from 'react-native';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,11 +19,19 @@ import {
   setDevelopmentDebugPanelEnabled,
   subscribeDevelopmentDebugPanel
 } from '../debug/developmentDebugPanel';
-import { clearSettingsLocalCache } from '../settings/settingsActions';
+import {
+  clearSettingsProfileCache,
+  hasSettingsLegacyLocalCache,
+  SETTINGS_LEGACY_CACHE_SCOPE_ID,
+} from '../settings/settingsActions';
 import type { RootStackParamList } from '../navigation/types';
 
 type SettingsScreenProps = NativeStackScreenProps<RootStackParamList, 'Settings'>;
-type CacheActionState = 'idle' | 'clearing' | 'success' | 'error';
+type CacheActionState = {
+  scopeId: string;
+  status: 'clearing' | 'success' | 'error';
+  errorText: string;
+};
 
 function getDeviceProfileEndpoint(profile: DeviceProfile): string {
   return profile.transportKind === 'desktop-ws' ? profile.desktopWs?.wsUrl || 'Desktop WS' : profile.apiBaseUrl;
@@ -74,6 +82,10 @@ const ROW_TITLE_CLASS = 'text-[15px] font-bold leading-[21px] text-app-primary';
 const ROW_DETAIL_CLASS = 'text-[13px] leading-[19px] text-app-secondary';
 const ROW_VALUE_CLASS = 'max-w-24 shrink text-[13px] font-semibold leading-[19px] text-app-secondary';
 const ROW_TEXT_DISABLED_CLASS = 'text-app-tertiary';
+const CACHE_ROW_ACTIONS_CLASS = 'flex-row items-center gap-app-sm';
+const CACHE_CLEAR_BUTTON_CLASS = 'rounded-app-pill bg-app-brand-blue-soft px-app-md py-app-sm active:opacity-[0.68]';
+const CACHE_CLEAR_BUTTON_DISABLED_CLASS = 'opacity-[0.5]';
+const CACHE_CLEAR_BUTTON_TEXT_CLASS = 'text-[13px] font-bold text-app-brand-blue';
 const SELECTION_PLACEHOLDER_CLASS = 'h-[22px] w-[22px]';
 const HEADER_ACTION_BUTTON_CLASS = 'h-10 w-10 items-center justify-center rounded-app-pill active:opacity-[0.64]';
 
@@ -180,21 +192,35 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
     getDevelopmentDebugPanelSnapshot,
     getDevelopmentDebugPanelSnapshot
   );
-  const [cacheState, setCacheState] = useState<CacheActionState>('idle');
-  const [cacheErrorText, setCacheErrorText] = useState('');
+  const [cacheAction, setCacheAction] = useState<CacheActionState | null>(null);
+  const [legacyCachePresent, setLegacyCachePresent] = useState(false);
   const deviceProfiles = listDeviceProfiles();
   const activeProfile = getActiveDeviceProfile();
-  const isClearingCache = cacheState === 'clearing';
+  const legacyCacheProfile = useMemo(
+    () => ({
+      cacheScopeId: SETTINGS_LEGACY_CACHE_SCOPE_ID,
+      desktopDeviceId: 'legacy-local-cache',
+      displayName: t('settings.cache.localConversation'),
+      endpoint: t('settings.cache.localConversationDetail'),
+      needsRelink: false,
+      current: true,
+    }),
+    [t]
+  );
+  const cacheProfiles = useMemo(
+    () =>
+      deviceProfiles.length > 0
+        ? deviceProfiles.map((profile) => ({
+            ...profile,
+            endpoint: `${getDeviceProfileEndpoint(profile)} · ${profile.desktopDeviceId.slice(0, 8)}`,
+            current: activeProfile?.desktopDeviceId === profile.desktopDeviceId,
+          }))
+        : legacyCachePresent
+          ? [legacyCacheProfile]
+          : [],
+    [activeProfile?.desktopDeviceId, deviceProfiles, legacyCachePresent, legacyCacheProfile]
+  );
   const developerModeEnabled = __DEV__ && debugSnapshot.enabled;
-  const cacheDetail = useMemo(() => {
-    if (cacheState === 'success') {
-      return t('settings.cache.success');
-    }
-    if (cacheState === 'error') {
-      return t('settings.cache.error', { message: cacheErrorText || t('common.unknown') });
-    }
-    return t('settings.cache.detail');
-  }, [cacheErrorText, cacheState, t]);
   const leftActions = useMemo(
     () =>
       [
@@ -210,22 +236,69 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
     [navigation, t]
   );
 
-  const handleClearCache = useCallback(() => {
-    if (isClearingCache) {
+  useEffect(() => {
+    if (deviceProfiles.length > 0) {
+      setLegacyCachePresent(false);
       return;
     }
 
-    setCacheState('clearing');
-    setCacheErrorText('');
-    clearSettingsLocalCache(Boolean(session))
-      .then(() => {
-        setCacheState('success');
+    let cancelled = false;
+    void hasSettingsLegacyLocalCache()
+      .then((present) => {
+        if (!cancelled) {
+          setLegacyCachePresent(present);
+        }
       })
-      .catch((error) => {
-        setCacheErrorText(error instanceof Error ? error.message : String(error));
-        setCacheState('error');
+      .catch(() => {
+        if (!cancelled) {
+          setLegacyCachePresent(false);
+        }
       });
-  }, [isClearingCache, session]);
+    return () => {
+      cancelled = true;
+    };
+  }, [deviceProfiles.length]);
+
+  const handleClearCache = useCallback(
+    (profile: (typeof cacheProfiles)[number]) => {
+      if (cacheAction?.status === 'clearing') {
+        return;
+      }
+
+      Alert.alert(
+        t('settings.cache.confirmTitle'),
+        t('settings.cache.confirmMessage', { name: profile.displayName }),
+        [
+          {
+            text: t('common.cancel'),
+            style: 'cancel',
+          },
+          {
+            text: t('settings.cache.clear'),
+            style: 'destructive',
+            onPress: () => {
+              setCacheAction({ scopeId: profile.cacheScopeId, status: 'clearing', errorText: '' });
+              clearSettingsProfileCache(profile.cacheScopeId, Boolean(session) && profile.current)
+                .then(() => {
+                  setCacheAction({ scopeId: profile.cacheScopeId, status: 'success', errorText: '' });
+                  if (profile.desktopDeviceId === 'legacy-local-cache') {
+                    setLegacyCachePresent(false);
+                  }
+                })
+                .catch((error) => {
+                  setCacheAction({
+                    scopeId: profile.cacheScopeId,
+                    status: 'error',
+                    errorText: error instanceof Error ? error.message : String(error),
+                  });
+                });
+            },
+          },
+        ]
+      );
+    },
+    [cacheAction?.status, session, t]
+  );
 
   const handleDeveloperToggle = useCallback((enabled: boolean) => {
     setDevelopmentDebugPanelEnabled(enabled);
@@ -266,28 +339,53 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
       >
         <View className={CONTENT_CLASS} style={{ paddingBottom: insets.bottom + appVisualTokens.spacing.xxl }}>
           <SettingsSection title={t('settings.section.cache')}>
-            <SettingsRow
-              iconUsage="settings.cache"
-              title={t('settings.cache.clear')}
-              detail={cacheDetail}
-              disabled={isClearingCache}
-              onPress={handleClearCache}
-              rightAccessory={isClearingCache ? <ActivityIndicator size="small" color={theme.colors.brandBlue} /> : null}
-            />
-            {deviceProfiles.map((profile) => (
-              <SettingsRow
-                key={profile.desktopDeviceId}
-                iconUsage="tab.me"
-                title={profile.displayName}
-                detail={`${getDeviceProfileEndpoint(profile)} · ${profile.desktopDeviceId.slice(0, 8)}`}
-                value={
-                  activeProfile?.desktopDeviceId === profile.desktopDeviceId
-                    ? t('settings.cache.currentDevice')
-                    : undefined
-                }
-                disabled={profile.needsRelink}
-              />
-            ))}
+            {cacheProfiles.map((profile) => {
+              const profileAction = cacheAction?.scopeId === profile.cacheScopeId ? cacheAction : null;
+              const clearing = profileAction?.status === 'clearing';
+              const feedback =
+                profileAction?.status === 'success'
+                  ? t('settings.cache.success')
+                  : profileAction?.status === 'error'
+                    ? t('settings.cache.error', {
+                        message: profileAction.errorText || t('common.unknown'),
+                      })
+                    : '';
+              return (
+                <SettingsRow
+                  key={profile.desktopDeviceId}
+                  iconUsage="tab.me"
+                  title={profile.displayName}
+                  detail={`${profile.endpoint}${feedback ? `\n${feedback}` : ''}`}
+                  rightAccessory={
+                    <View className={CACHE_ROW_ACTIONS_CLASS}>
+                      {profile.current ? (
+                        <Text className={ROW_VALUE_CLASS}>{t('settings.cache.currentDevice')}</Text>
+                      ) : (
+                        <Text className={ROW_VALUE_CLASS}>
+                          {profile.needsRelink ? t('settings.cache.needsRelink') : t('settings.cache.saved')}
+                        </Text>
+                      )}
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel={t('settings.cache.clearAccount', { name: profile.displayName })}
+                        disabled={cacheAction?.status === 'clearing'}
+                        className={cn(
+                          CACHE_CLEAR_BUTTON_CLASS,
+                          cacheAction?.status === 'clearing' && CACHE_CLEAR_BUTTON_DISABLED_CLASS
+                        )}
+                        onPress={() => handleClearCache(profile)}
+                      >
+                        {clearing ? (
+                          <ActivityIndicator size="small" color={theme.colors.brandBlue} />
+                        ) : (
+                          <Text className={CACHE_CLEAR_BUTTON_TEXT_CLASS}>{t('settings.cache.clear')}</Text>
+                        )}
+                      </Pressable>
+                    </View>
+                  }
+                />
+              );
+            })}
           </SettingsSection>
 
           <SettingsSection title={t('settings.section.developer')}>

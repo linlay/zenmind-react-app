@@ -10,37 +10,85 @@ import type {
   ChatTimelineRuntimeEntry,
   ChatTimelineRuntimeState,
   ChatTimelineState,
+  ChatTimelineSourceNode,
   ChatTimelineTextNode,
   ChatTimelineToolNode,
 } from './types.ts';
+import { isChatTimelineCommandMessageVariant } from './timelineRequest.ts';
 
-function runtimeStatusForProjectedNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): string {
+type ProjectedRuntimeNode = Exclude<
+  ChatTimelineNode,
+  ChatTimelineMessageNode | ChatTimelineSourceNode
+>;
+
+function runtimeStatusForProjectedNode(node: ProjectedRuntimeNode): string {
   if (node.kind === 'awaiting') {
     return node.status === 'answer' ? 'answered' : 'waiting';
   }
   return node.status;
 }
 
-function bodyForNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): string {
+function bodyForNode(node: ProjectedRuntimeNode): string {
   if (node.kind === 'awaiting') {
     return [node.prompt, node.payloadText, node.answer].filter(Boolean).join('\n');
   }
   if (node.kind === 'tool') {
     return node.body;
   }
+  if (node.kind === 'artifact') {
+    return node.errorReason || node.summary || node.resourceUrl;
+  }
+  if (node.kind === 'plan') {
+    return [
+      node.summary,
+      ...node.steps.map((step) => `${step.status}: ${step.description}`),
+      node.errorReason,
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
+  if (node.kind === 'task') {
+    return [node.status, node.errorReason].filter(Boolean).join('\n');
+  }
+  if (node.kind === 'action') {
+    return [node.target, node.argsText, node.resultText, node.errorReason].filter(Boolean).join('\n');
+  }
+  if (node.kind === 'context') {
+    return [
+      node.preCompactTokens !== null ? `before:${node.preCompactTokens}` : '',
+      node.postCompactTokens !== null ? `after:${node.postCompactTokens}` : '',
+      node.savedTokens !== null ? `saved:${node.savedTokens}` : '',
+      node.errorReason,
+    ]
+      .filter(Boolean)
+      .join('\n');
+  }
   return node.body;
 }
 
-function titleForNode(node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>): string {
+function titleForNode(node: ProjectedRuntimeNode): string {
   if (node.kind === 'awaiting') {
     return `awaiting.${node.mode}`;
+  }
+  if (node.kind === 'artifact') {
+    return node.name;
+  }
+  if (node.kind === 'plan') {
+    return node.title || node.planId;
+  }
+  if (node.kind === 'task') {
+    return node.taskName || node.taskId;
+  }
+  if (node.kind === 'action') {
+    return node.actionName || node.actionId;
+  }
+  if (node.kind === 'context') {
+    return 'context.compact';
   }
   return node.title;
 }
 
-function runtimeEntryFromNode(
-  node: Exclude<ChatTimelineNode, ChatTimelineMessageNode>
-): ChatTimelineRuntimeEntry | null {
+function runtimeEntryFromNode(node: ProjectedRuntimeNode): ChatTimelineRuntimeEntry | null {
   if (node.kind === 'run' && node.lifecycle === 'active') {
     return null;
   }
@@ -66,7 +114,8 @@ export function projectTimelineMessages(state: ChatTimelineState): ChatMessageIt
       (node): node is ChatTimelineMessageNode & { role: ChatMessageRole } =>
         Boolean(node) &&
         node.kind === 'message' &&
-        (node.role === 'user' || node.role === 'assistant')
+        (node.role === 'user' || node.role === 'assistant') &&
+        !isChatTimelineCommandMessageVariant(node.messageVariant)
     )
     .map((node) => {
       const streamStatus: ChatMessageStreamStatus = node.streaming ? 'streaming' : 'done';
@@ -91,8 +140,8 @@ export function projectTimelineRuntimeState(state: ChatTimelineState): ChatTimel
   const entries = state.orderedNodeIds
     .map((id) => state.nodesById[id])
     .filter(
-      (node): node is Exclude<ChatTimelineNode, ChatTimelineMessageNode> =>
-        Boolean(node) && node.kind !== 'message'
+      (node): node is ProjectedRuntimeNode =>
+        Boolean(node) && node.kind !== 'message' && node.kind !== 'source'
     )
     .map(runtimeEntryFromNode)
     .filter((entry): entry is ChatTimelineRuntimeEntry => Boolean(entry))
