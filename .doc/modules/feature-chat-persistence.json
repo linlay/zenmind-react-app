@@ -134,6 +134,8 @@
       "CHAT_WONDER_VISIBLE_COUNT",
       "CONVERSATION_VIEWPORT_FENCE_EXTENSION",
       "CONVERSATION_VIEWPORT_FENCE_EXTENSIONS",
+      "ChatArtifactDrawer",
+      "ChatArtifactShortcut",
       "ChatAttachmentBase",
       "ChatAttachmentKind",
       "ChatAttachmentPreviewResolution",
@@ -312,6 +314,7 @@
       "buildChatDatabaseName",
       "buildChatDetailRouteParams",
       "buildChatDirectorySnapshotKey",
+      "buildChatTimelineMainDisplayItems",
       "buildDirectoryListState",
       "buildHomeListState",
       "buildQuestionSubmitParams",
@@ -481,6 +484,7 @@
       "resolveRuntimePayloadCopyText",
       "sanitizeRuntimeStructuredPayloadForCopy",
       "searchChatDirectoryItems",
+      "selectChatTimelineArtifacts",
       "serializeChatAttachmentReferences",
       "setChatCacheScopeId",
       "setChatDirectoryItemPinned",
@@ -529,7 +533,7 @@
       "feature-chat-timeline"
     ],
     "tests": [],
-    "lastScannedAt": "2026-07-17T11:02:39Z"
+    "lastScannedAt": "2026-07-20T07:22:12Z"
   },
   "readHints": {
     "alwaysRead": [

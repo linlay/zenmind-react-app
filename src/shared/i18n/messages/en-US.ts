@@ -403,6 +403,11 @@ export const enUS: Record<I18nKey, string> = {
   'attachment.error.tooMany': 'You can add up to {count} attachments',
 
   'artifact.title': 'Generated resource',
+  'artifact.openDrawer': 'Open artifacts, {count} files',
+  'artifact.drawerTitle': 'Artifacts',
+  'artifact.drawerCount': '{count} files',
+  'artifact.drawerEmpty': 'No artifact files yet',
+  'artifact.closeDrawer': 'Close artifacts',
   'artifact.preview': 'Preview',
   'artifact.download': 'Download',
   'artifact.downloading': 'Downloading…',

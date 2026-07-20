@@ -15,6 +15,7 @@ import { ConversationPreviewProvider } from '../../shared/components/conversatio
 import { createConversationPreviewVisibilityStore } from '../../shared/components/conversationPreview/visibilityStore';
 import { ChatAwaitingOverlay, ChatAwaitingResumeBar } from './components/ChatAwaitingOverlay';
 import { ChatAwaitingDock } from './components/awaiting/ChatAwaitingDock';
+import { ChatArtifactDrawer } from './components/ChatArtifactDrawer.tsx';
 import { ChatConversationDiagnosticCard } from './components/ChatConversationDiagnosticCard';
 import { ChatDetailComposerCard } from './components/ChatDetailComposerCard';
 import { ChatDetailHistoryDrawer } from './components/ChatDetailDrawers';
@@ -36,6 +37,7 @@ import type {
 } from '../../core/api/services/chatApi';
 import type { ChatTimelineFrontendToolResolution } from '../chatTimeline/index.ts';
 import { getConversationHistorySlice } from './chatRepository';
+import { selectChatTimelineArtifacts } from './chatArtifactPresentation.ts';
 import type { ChatConversationHistoryScope, ChatDetailRouteParams, ChatHomeItem } from './types';
 import { useChatDetailAwaitingOverlay } from './useChatDetailAwaitingOverlay';
 import { useChatDetailConversationController } from './useChatDetailConversationController';
@@ -91,6 +93,7 @@ function ChatDetailKeyboardAvoider({ children, keyboardVerticalOffset, className
 export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   const t = useT();
   const insets = useSafeAreaInsets();
+  const [isArtifactDrawerOpen, setIsArtifactDrawerOpen] = useState(false);
   const {
     conversationId,
     conversationSubtitle = '',
@@ -149,6 +152,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     fromNotification,
     skipInitialReconcile
   });
+  const artifacts = useMemo(() => selectChatTimelineArtifacts(timelineState), [timelineState]);
   const { awaitingSummary, handleOpenAwaitingOverlay, handleDismissAwaitingOverlay } = useChatDetailAwaitingOverlay(
     runtimeState,
     conversationId
@@ -205,6 +209,8 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     subscribeHistoryEvents: handleSubscribeHistoryEvents
   });
   const handleGoBack = useCallback(() => navigation.goBack(), [navigation]);
+  const handleOpenArtifactDrawer = useCallback(() => setIsArtifactDrawerOpen(true), []);
+  const handleCloseArtifactDrawer = useCallback(() => setIsArtifactDrawerOpen(false), []);
   const handleSelectHistoryConversation = useCallback(
     (item: ChatHomeItem) => {
       handleCloseHistoryDrawer();
@@ -222,6 +228,16 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     },
     [conversationId, conversationSubtitle, conversationTarget, handleCloseHistoryDrawer, historyScope, navigation]
   );
+
+  useEffect(() => {
+    setIsArtifactDrawerOpen(false);
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (artifacts.length === 0) {
+      setIsArtifactDrawerOpen(false);
+    }
+  }, [artifacts.length]);
 
   const content = (
     <View className={SAFE_AREA_CLASS}>
@@ -281,6 +297,8 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                   reaskNewConversationDisabled={
                     composerAction === 'sending' || Boolean(headerRuntimeState.runAction) || !historyScope
                   }
+                  artifactCount={artifacts.length}
+                  onOpenArtifacts={handleOpenArtifactDrawer}
                 />
 
                 {activeFrontendTool ? (
@@ -360,6 +378,13 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
         onLoadMore={handleLoadMoreHistory}
         onMarkAllRead={handleMarkAllHistoryRead}
         onSelectConversation={handleSelectHistoryConversation}
+      />
+
+      <ChatArtifactDrawer
+        key={conversationId}
+        visible={isArtifactDrawerOpen}
+        artifacts={artifacts}
+        onClose={handleCloseArtifactDrawer}
       />
 
       <CopyToast trigger={copyToastTrigger} />

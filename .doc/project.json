@@ -28,6 +28,7 @@
       "scripts/tests/brandConfig.test.mts",
       "scripts/tests/chatAgentDetail.test.mts",
       "scripts/tests/chatApiDetail.test.mts",
+      "scripts/tests/chatArtifactDrawer.test.mts",
       "scripts/tests/chatAttachmentPreview.test.mts",
       "scripts/tests/chatAttachmentResourceUrl.test.mts",
       "scripts/tests/chatCacheScope.test.mts",

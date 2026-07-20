@@ -393,6 +393,11 @@ export const zhCN = {
   'attachment.error.tooMany': '最多只能添加 {count} 个附件',
 
   'artifact.title': '生成的资源',
+  'artifact.openDrawer': '打开产物列表，共 {count} 个文件',
+  'artifact.drawerTitle': '产物',
+  'artifact.drawerCount': '{count} 个文件',
+  'artifact.drawerEmpty': '暂无产物文件',
+  'artifact.closeDrawer': '关闭产物列表',
   'artifact.preview': '预览',
   'artifact.download': '下载',
   'artifact.downloading': '下载中…',

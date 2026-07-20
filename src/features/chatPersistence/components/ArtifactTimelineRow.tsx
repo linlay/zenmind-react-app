@@ -21,6 +21,7 @@ import { ChatTimelineRail } from './ChatTimelineRail.tsx';
 type ArtifactTimelineRowProps = {
   node: ChatTimelineArtifactNode;
   isLastInRun: boolean;
+  variant?: 'timeline' | 'card';
 };
 
 const STATUS_KEYS: Record<ChatTimelineArtifactStatus, I18nKey> = {
@@ -54,7 +55,7 @@ const ACTIONS_CLASS = 'flex-row gap-app-sm border-t border-app-line px-app-md py
 const ACTION_CLASS =
   'min-h-[36px] flex-1 flex-row items-center justify-center gap-app-xs rounded-app-sm bg-app-action px-app-sm active:opacity-[0.72]';
 const ACTION_DISABLED_CLASS = 'opacity-[0.45]';
-const ACTION_TEXT_CLASS = 'text-app-footnote font-bold text-app-brand-blue';
+const ACTION_TEXT_CLASS = 'text-app-footnote font-bold text-app-on-action';
 const FEEDBACK_CLASS = 'border-t border-app-line px-app-md py-[8px] text-center text-app-caption text-app-secondary';
 const READY_STATUS_CLASS = 'text-app-success';
 const PROCESSING_STATUS_CLASS = 'text-app-brand-blue';
@@ -67,7 +68,11 @@ function artifactStatusClass(status: ChatTimelineArtifactStatus): string {
   return status === 'ready' ? READY_STATUS_CLASS : PROCESSING_STATUS_CLASS;
 }
 
-export const ArtifactTimelineRow = memo(function ArtifactTimelineRow({ node, isLastInRun }: ArtifactTimelineRowProps) {
+export const ArtifactTimelineRow = memo(function ArtifactTimelineRow({
+  node,
+  isLastInRun,
+  variant = 'timeline'
+}: ArtifactTimelineRowProps) {
   const t = useT();
   const { theme } = useAppTheme();
   const { openPreview } = useAuthenticatedResourcePreview();
@@ -122,12 +127,16 @@ export const ArtifactTimelineRow = memo(function ArtifactTimelineRow({ node, isL
         : theme.colors.brandBlue;
 
   return (
-    <View className={ROW_CLASS}>
-      <ChatTimelineRail iconUsage="runtime.file" terminal={isLastInRun} toneColor={toneColor} />
-      <View className={BODY_CLASS}>
-        <Text allowFontScaling={false} className={ROW_TITLE_CLASS}>
-          {t('artifact.title')}
-        </Text>
+    <View className={variant === 'timeline' ? ROW_CLASS : undefined}>
+      {variant === 'timeline' ? (
+        <ChatTimelineRail iconUsage="runtime.file" terminal={isLastInRun} toneColor={toneColor} />
+      ) : null}
+      <View className={variant === 'timeline' ? BODY_CLASS : undefined}>
+        {variant === 'timeline' ? (
+          <Text allowFontScaling={false} className={ROW_TITLE_CLASS}>
+            {t('artifact.title')}
+          </Text>
+        ) : null}
         <View className={CARD_CLASS}>
           <View className={CARD_MAIN_CLASS}>
             <Pressable
@@ -194,7 +203,7 @@ export const ArtifactTimelineRow = memo(function ArtifactTimelineRow({ node, isL
                   onPress={handleOpenPreview}
                   className={ACTION_CLASS}
                 >
-                  <AppIcon usage="artifact.preview" />
+                  <AppIcon usage="artifact.preview" color={theme.colors.onBrandBlueAction} />
                   <Text allowFontScaling={false} className={ACTION_TEXT_CLASS}>
                     {t('artifact.preview')}
                   </Text>
@@ -208,9 +217,9 @@ export const ArtifactTimelineRow = memo(function ArtifactTimelineRow({ node, isL
                 className={cn(ACTION_CLASS, downloadState === 'loading' ? ACTION_DISABLED_CLASS : null)}
               >
                 {downloadState === 'loading' ? (
-                  <ActivityIndicator size="small" color={theme.colors.brandBlue} />
+                  <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
                 ) : (
-                  <AppIcon usage="artifact.download" />
+                  <AppIcon usage="artifact.download" color={theme.colors.onBrandBlueAction} />
                 )}
                 <Text allowFontScaling={false} className={ACTION_TEXT_CLASS}>
                   {downloadState === 'loading' ? t('artifact.downloading') : t('artifact.download')}

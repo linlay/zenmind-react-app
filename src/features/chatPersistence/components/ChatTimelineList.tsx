@@ -33,11 +33,12 @@ import {
   type ChatTimelineTextNode,
   type ChatTimelineState
 } from '../../chatTimeline/index.ts';
+import { buildChatTimelineMainDisplayItems } from '../chatArtifactPresentation.ts';
 import { formatChatDetailDuration, formatChatDetailTimestamp } from '../chatDetailFormatters';
 import { ChatConversationMarkdownRenderer } from '../markdownLinks/ChatConversationMarkdownRenderer.tsx';
 import { ConversationMarkdownLinkProvider } from '../markdownLinks/ConversationMarkdownLinkProvider.tsx';
-import { ArtifactTimelineRow } from './ArtifactTimelineRow.tsx';
 import { ActionTimelineRow } from './ActionTimelineRow.tsx';
+import { ChatArtifactShortcut } from './ChatArtifactDrawer.tsx';
 import { ChatAttachmentStrip } from './ChatAttachmentStrip';
 import { ConversationContentRenderer } from '../conversationViewport/ConversationContentRenderer';
 import { ChatSystemAlert } from './ChatSystemAlert';
@@ -64,6 +65,8 @@ type ChatTimelineListProps = {
   onReaskMessage?: (target: ChatTimelineReaskTarget, node: ChatTimelineMessageNode) => void;
   reaskCurrentDisabled?: boolean;
   reaskNewConversationDisabled?: boolean;
+  artifactCount?: number;
+  onOpenArtifacts?: () => void;
 };
 
 const SCROLL_TO_END_BUTTON_THRESHOLD = 96;
@@ -116,6 +119,7 @@ const REASK_MENU_OPTION_TEXT_DISABLED_CLASS = 'text-app-tertiary';
 const SCROLL_TO_END_BUTTON_CLASS =
   'absolute bottom-app-md left-1/2 -ml-[22px] h-11 w-11 items-center justify-center rounded-app-pill border border-app-line bg-app-surface active:opacity-[0.72]';
 const PLANNING_COLLAPSE_BUTTON_CLASS = 'absolute bottom-app-md right-app-md z-40';
+const PLANNING_COLLAPSE_BUTTON_WITH_ARTIFACT_CLASS = 'absolute bottom-[76px] right-app-md z-40';
 const REQUEST_BUBBLE_ELEVATION_STYLE = {
   shadowOffset: { width: 0, height: 8 },
   shadowOpacity: 0.1,
@@ -854,9 +858,6 @@ const TimelineRow = memo(
         />
       );
     }
-    if (item.kind === 'artifact' && node.kind === 'artifact') {
-      return <ArtifactTimelineRow node={node} isLastInRun={item.isLastInRun} />;
-    }
     if (item.kind === 'action' && node.kind === 'action') {
       return (
         <ActionTimelineRow
@@ -945,7 +946,9 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   workspaceAgentKey = '',
   onReaskMessage,
   reaskCurrentDisabled = false,
-  reaskNewConversationDisabled = false
+  reaskNewConversationDisabled = false,
+  artifactCount = 0,
+  onOpenArtifacts
 }: ChatTimelineListProps) {
   const t = useT();
   const { theme } = useAppTheme();
@@ -980,7 +983,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     displayModelRef.current = nextModel;
     return nextModel;
   }, [timelineState]);
-  const items = displayModel.items;
+  const items = useMemo(() => buildChatTimelineMainDisplayItems(displayModel.items), [displayModel.items]);
   const tailSignature = displayModel.tailSignature;
   const hasCustomEmptyState = Boolean(emptyState);
   const timelineListStyle = useMemo(
@@ -1339,8 +1342,17 @@ export const ChatTimelineList = memo(function ChatTimelineList({
         </Pressable>
       ) : null}
 
+      {artifactCount > 0 && onOpenArtifacts ? (
+        <ChatArtifactShortcut count={artifactCount} onPress={onOpenArtifacts} />
+      ) : null}
+
       {planningCollapseOverlay && planningCollapseOverlayVisible ? (
-        <View pointerEvents="box-none" className={PLANNING_COLLAPSE_BUTTON_CLASS}>
+        <View
+          pointerEvents="box-none"
+          className={
+            artifactCount > 0 ? PLANNING_COLLAPSE_BUTTON_WITH_ARTIFACT_CLASS : PLANNING_COLLAPSE_BUTTON_CLASS
+          }
+        >
           <PlanningActionPill
             accessibilityLabel={planningCollapseOverlay.label}
             iconColor={theme.colors.onBrandBlueAction}
