@@ -63,7 +63,6 @@
       "MasterPasswordLoginRequest",
       "PAIRING_CLAIM_PATH",
       "PairingClaimRequest",
-      "PairingTargetMode",
       "ParsedPairingPayload",
       "RefreshFailureMode",
       "SessionState",
@@ -127,7 +126,7 @@
       "feature-web-apps"
     ],
     "tests": [],
-    "lastScannedAt": ""
+    "lastScannedAt": "2026-07-22T02:48:58Z"
   },
   "readHints": {
     "alwaysRead": [

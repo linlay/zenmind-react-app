@@ -201,6 +201,7 @@
       ],
       "tests": [
         "scripts/tests/appIconRegistry.test.mts",
+        "scripts/tests/authenticatedResourceModel.test.mts",
         "scripts/tests/awaitingOptionPreview.test.mts",
         "scripts/tests/awaitingQuestionState.test.mts",
         "scripts/tests/awaitingSubmitState.test.mts",
@@ -265,6 +266,7 @@
         "scripts/tests/sharedWsTransport.test.mts",
         "scripts/tests/submitIosIpaScript.test.mts",
         "scripts/tests/tabIconAssets.test.mts",
+        "scripts/tests/uploadApiModel.test.mts",
         "scripts/tests/visualFoundation.test.mts",
         "scripts/tests/webAppsDesktopProtocol.test.mts",
         "scripts/tests/webAppsGateway.test.mts",
@@ -301,6 +303,7 @@
         "active",
         "activity",
         "adapter",
+        "adaptive",
         "add",
         "agent",
         "agentterminalapp",
@@ -321,6 +324,7 @@
         "async",
         "attachment",
         "auth",
+        "authenticated",
         "autolinking",
         "awaiting",
         "babel",
@@ -406,6 +410,7 @@
         "folders",
         "font",
         "for",
+        "foreground",
         "formatters",
         "foundation",
         "frame",
@@ -654,6 +659,7 @@
         "unavailable",
         "update",
         "updates",
+        "upload",
         "url",
         "use",
         "utilities",
@@ -702,6 +708,7 @@
         "不把认证",
         "不提供",
         "不放进会被",
+        "不替换启动图和运行时",
         "不直接写",
         "不直接承载业务状态和底层存储细节",
         "不直接调用",
@@ -746,6 +753,7 @@
         "作为",
         "使",
         "使用",
+        "使用该源",
         "使用默认",
         "供",
         "依赖和",
@@ -794,6 +802,7 @@
         "变化会污染移动端",
         "只",
         "只切换名称",
+        "只影响",
         "只承接导航与返回语义",
         "只承载",
         "只接受真实路径边界",
@@ -831,6 +840,7 @@
         "和真实",
         "和项目内",
         "和预生成",
+        "品牌可在",
         "品牌资源一致",
         "因为",
         "图标",
@@ -841,6 +851,7 @@
         "在固定",
         "在登录态根层立即启动",
         "声明",
+        "声明并留在对应品牌目录内",
         "处理",
         "复制生成文件时必须保持",
         "外观分组",
@@ -928,6 +939,7 @@
         "拆分缓存",
         "挂载",
         "指向同一目标",
+        "指向品牌目录内独立的全幅手机图标源",
         "按",
         "按平台转换",
         "按显式",
@@ -971,6 +983,7 @@
         "暴露导航",
         "暴露的快照",
         "未应用时在清理旧生成物前失败并提示使用项目独立",
+        "未配置",
         "本地",
         "本地调试和打包切品牌必须通过显式",
         "构建加载",
@@ -988,6 +1001,7 @@
         "注入的聊天缓存",
         "注入给",
         "注册",
+        "派生逻辑",
         "测试和导出脚本必须先执行",
         "消费的",
         "清理",
@@ -997,6 +1011,7 @@
         "父级",
         "物理路径",
         "物理路径过期导致",
+        "独立手机图标源必须通过",
         "环境变量",
         "环境和",
         "生成",
@@ -1012,9 +1027,11 @@
         "登录凭证与偏好不由该动作改写",
         "登录后立即复用",
         "登录门卫开关",
+        "登录页和运行时品牌展示继续使用",
         "的",
         "的上层",
         "的共享",
+        "的品牌保持原",
         "的外观分组只通过",
         "的文案",
         "的模块路径判断",
@@ -1148,6 +1165,7 @@
       "dependsOn": [
         "core-auth-session",
         "core-debug-logging",
+        "core-runtime-config",
         "core-ws-transport"
       ],
       "dependedBy": [
@@ -1194,6 +1212,7 @@
         "classify",
         "client",
         "code",
+        "compatible",
         "config",
         "constant",
         "content",
@@ -1205,6 +1224,7 @@
         "data",
         "debug",
         "decision",
+        "default",
         "delete",
         "description",
         "desktop",
@@ -1225,9 +1245,11 @@
         "fcm",
         "feature",
         "fetch",
+        "fields",
         "file",
         "finite",
         "flow",
+        "for",
         "form",
         "frontend",
         "get",
@@ -1235,13 +1257,17 @@
         "header",
         "helper",
         "history",
+        "hooks",
+        "host",
         "html",
         "http",
+        "hub",
         "image",
         "input",
         "invalidation",
         "issue",
         "item",
+        "json",
         "kanban",
         "key",
         "learn",
@@ -1255,6 +1281,7 @@
         "max",
         "message",
         "messages",
+        "mime",
         "mmkv",
         "model",
         "modify",
@@ -1271,14 +1298,17 @@
         "open",
         "option",
         "options",
+        "origin",
         "override",
         "owner",
         "param",
         "params",
+        "parse",
         "password",
         "path",
         "payload",
         "plan",
+        "plane",
         "planning",
         "platform",
         "preview",
@@ -1308,6 +1338,7 @@
         "request",
         "requester",
         "required",
+        "requires",
         "resolve",
         "resolver",
         "resource",
@@ -1315,6 +1346,7 @@
         "rest",
         "result",
         "role",
+        "route",
         "run",
         "runtime",
         "scope",
@@ -1324,6 +1356,7 @@
         "services",
         "session",
         "shared",
+        "shell",
         "should",
         "snapshot",
         "socket",
@@ -1355,10 +1388,12 @@
         "tool",
         "touch",
         "transport",
+        "tunnel",
         "type",
         "types",
         "unread",
         "unregister",
+        "unsupported",
         "unwrap",
         "update",
         "upload",
@@ -1375,14 +1410,16 @@
         "wonders",
         "workspace",
         "三种常见字段",
+        "上传服务",
+        "上限",
         "下载",
         "下载必须落到用户选择的系统目录",
         "下载目录或",
         "下载组件的",
         "不信任",
         "不写",
-        "不在",
         "不在组件里手写",
+        "不得退化为公网同源",
         "不把空字符串参数无意透传",
         "不拉未消费的",
         "不持久化",
@@ -1398,6 +1435,7 @@
         "也不做业务",
         "以及业务",
         "优先于",
+        "例外",
         "供",
         "供新对话空态展示",
         "供首页目录投影刷新集中引用",
@@ -1413,8 +1451,10 @@
         "兼容归一为毫秒",
         "兼容归一为毫秒时间戳",
         "内嵌的",
+        "分流附件上传",
         "到",
         "到处散写",
+        "刷新并重试一次",
         "前增加",
         "前缀",
         "协议归一化",
@@ -1424,21 +1464,27 @@
         "发请求",
         "只传当前对话已确认的",
         "只允许对",
+        "只对",
         "只接受",
         "只解析",
         "只透传归一后的",
         "可消费的",
         "同源",
         "同源资源",
+        "后仅重试一次",
         "和",
         "和最多",
         "和非",
+        "和非法",
+        "响应",
         "响应和错误",
+        "在",
         "在开发态通过",
         "复用",
         "字段提取和分类",
         "安全降级",
         "客户端",
+        "对相对",
         "层重复拼协议字段",
         "已读",
         "已读时集中引用",
@@ -1460,7 +1506,9 @@
         "归一",
         "归一化后的",
         "归一化和",
+        "必须固定到构建期可信",
         "必须通过",
+        "成功响应必须为",
         "或",
         "或路径时不构造请求",
         "或路径返回",
@@ -1478,17 +1526,25 @@
         "提交交互结果",
         "提交和通用",
         "提供",
+        "数据面并携带",
+        "数据面接通前显式拒绝",
+        "数据面显式返回",
         "文件下载这类非",
+        "文件数据面是唯一跨",
+        "文件数据面未提供时必须显式失败",
         "文件统一放在",
         "文件路径和可选行号的",
-        "文本读取带大小和超时上限",
+        "文本读取带大小",
+        "文本预览按目标文件拒绝错误的",
         "新增",
         "新对话空态补拉单个",
         "日志不得打印明文",
         "时使用",
+        "时刷新",
         "时强制刷新",
         "时强制刷新后重试一次",
         "时集中引用",
+        "显式失败",
         "服务端返回",
         "未知",
         "未知子类型不得猜测或吞掉通用",
@@ -1498,7 +1554,6 @@
         "标记会话或",
         "校验资源",
         "注入业务接口请求",
-        "注入或",
         "注册当前设备的原生",
         "消息或",
         "生命周期内单次缓存",
@@ -1510,15 +1565,19 @@
         "由",
         "白名单",
         "的",
+        "的相对",
         "的统一业务请求入口",
         "的聊天",
         "目前为",
         "目录约定",
+        "相对",
+        "禁止扩展为任意",
         "秒有界文本预览和安全文件名收口到",
         "移动端路径在",
         "空",
         "精确补拉聊天消息详情",
         "统一",
+        "统一使用可信",
         "统一归一化聊天",
         "统一把",
         "统一把聊天协议",
@@ -1526,8 +1585,10 @@
         "统一拼接完整接口",
         "统一接口错误模型",
         "统一解包聊天接口",
+        "继续使用同源",
         "缺少",
         "聊天事件的",
+        "获取",
         "落盘",
         "补拉",
         "规范",
@@ -1545,6 +1606,8 @@
         "资源下载这类非",
         "资源服务",
         "资源请求需要访问同源",
+        "超时和响应",
+        "转发",
         "转成",
         "过滤空",
         "过滤逻辑要保持一致",
@@ -1556,15 +1619,15 @@
         "通过认证",
         "避免",
         "避免同一请求携带两个",
-        "里重复手写",
-        "重试",
+        "避免把公网前端兜底页当作产物或下载文件",
         "错误不自动重试",
         "错误解析兼容",
         "集中构造",
         "集中构造带",
         "集中编码",
-        "需要认证的业务接口优先使用",
+        "需要认证的同源业务接口优先使用",
         "非",
+        "非法",
         "首页远端会话摘要",
         "默认只拉"
       ]
@@ -1716,7 +1779,6 @@
         "switch",
         "sync",
         "system",
-        "target",
         "task",
         "text",
         "token",
@@ -1970,6 +2032,7 @@
       "tests": [],
       "dependsOn": [],
       "dependedBy": [
+        "core-api-client",
         "core-auth-session",
         "core-debug-logging",
         "core-ws-transport",
@@ -2731,6 +2794,7 @@
         "derive",
         "desc",
         "descriptor",
+        "desktop",
         "detail",
         "dev",
         "diagnostic",
@@ -2809,6 +2873,7 @@
         "hooks",
         "href",
         "html",
+        "http",
         "hydration",
         "i18n",
         "icon",
@@ -2999,6 +3064,7 @@
         "settings",
         "shape",
         "shared",
+        "shell",
         "shimmer",
         "shortcut",
         "should",
@@ -3116,6 +3182,7 @@
         "不应写成目录",
         "不建立第二份",
         "不得复用可执行",
+        "不得把公网前端兜底页伪装成产物",
         "不得重新解析",
         "不打断当前账号",
         "不扫描",
@@ -3166,6 +3233,7 @@
         "二选一",
         "交互后",
         "交互桥接按用途白名单隔离",
+        "产物收到",
         "仅在行可见时解析和挂载",
         "仅增加独立同级预览按钮",
         "仍不抢占目录",
@@ -3319,6 +3387,8 @@
         "和卸载",
         "和安全",
         "和边缘返回手势都应回到同一份首页实例",
+        "响应不进入文本展示",
+        "响应时必须停止展示",
         "回写结果",
         "固定在滚动区外",
         "固定顶部",
@@ -3510,6 +3580,8 @@
         "数组",
         "整页骨架屏遮罩",
         "文件和",
+        "文件数据面时显示明确失败",
+        "文件数据面时显示明确提示",
         "文本",
         "文本保持",
         "文案通过",
@@ -3660,6 +3732,7 @@
         "维护",
         "缩略图",
         "缺失或空的最后消息字段不得覆盖已有",
+        "缺少",
         "置",
         "置顶折叠控制",
         "置顶状态",
@@ -3776,6 +3849,7 @@
         "限制深度",
         "随",
         "隔离陈旧",
+        "非",
         "非当前",
         "非法",
         "非法内部链接或缺",
@@ -9820,7 +9894,6 @@
     ".generated/react-native-worklets/.worklets/16649253670356.js",
     ".generated/react-native-worklets/.worklets/16654238642020.js",
     ".generated/react-native-worklets/.worklets/16669782355707.js",
-    ".generated/react-native-worklets/.worklets/1668263962153.js",
     ".generated/react-native-worklets/.worklets/16682868163038.js",
     ".generated/react-native-worklets/.worklets/16684751503669.js",
     ".generated/react-native-worklets/.worklets/16697634182419.js",
@@ -9961,7 +10034,6 @@
     ".generated/react-native-worklets/.worklets/1803948073058.js",
     ".generated/react-native-worklets/.worklets/1827291860244.js",
     ".generated/react-native-worklets/.worklets/1839555089531.js",
-    ".generated/react-native-worklets/.worklets/1842483063759.js",
     ".generated/react-native-worklets/.worklets/1850484736744.js",
     ".generated/react-native-worklets/.worklets/1865752198941.js",
     ".generated/react-native-worklets/.worklets/1900668823867.js",
@@ -10123,7 +10195,6 @@
     ".generated/react-native-worklets/.worklets/3134142024792.js",
     ".generated/react-native-worklets/.worklets/31377339073.js",
     ".generated/react-native-worklets/.worklets/3147083842861.js",
-    ".generated/react-native-worklets/.worklets/3162625050575.js",
     ".generated/react-native-worklets/.worklets/3165232963211.js",
     ".generated/react-native-worklets/.worklets/3172417130719.js",
     ".generated/react-native-worklets/.worklets/3179818672722.js",
@@ -11038,6 +11109,7 @@
     "src/core/api/services/notificationApi.ts",
     "src/core/api/services/templateApi.ts",
     "src/core/api/services/uploadApi.ts",
+    "src/core/api/services/uploadApiModel.ts",
     "src/core/api/services/workspaceResource.ts",
     "src/core/auth/appAuth.ts",
     "src/core/auth/authConfig.ts",
@@ -11312,6 +11384,7 @@
     "src/core/api/services/notificationApi.ts": "core-api-client",
     "src/core/api/services/templateApi.ts": "core-api-client",
     "src/core/api/services/uploadApi.ts": "core-api-client",
+    "src/core/api/services/uploadApiModel.ts": "core-api-client",
     "src/core/api/services/workspaceResource.ts": "core-api-client",
     "src/core/auth/appAuth.ts": "core-auth-session",
     "src/core/auth/authConfig.ts": "core-auth-session",
@@ -11910,6 +11983,13 @@
         "kind": "rule",
         "id": "realtime-write-through-repository",
         "path": ".doc/rules.json"
+      }
+    ],
+    "adaptive": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "add": [
@@ -13186,6 +13266,11 @@
       }
     ],
     "authenticated": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
       {
         "kind": "module",
         "id": "core-api-client",
@@ -14828,6 +14913,13 @@
         "path": ".doc/modules/feature-chat-timeline.json"
       }
     ],
+    "compatible": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "complete": [
       {
         "kind": "flow",
@@ -15981,6 +16073,11 @@
       },
       {
         "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
       },
@@ -16223,6 +16320,11 @@
         "kind": "module",
         "id": "feature-auth-login",
         "path": ".doc/modules/feature-auth-login.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       },
       {
         "kind": "module",
@@ -18006,6 +18108,13 @@
         "path": ".doc/tasks/add-business-api-service.json"
       }
     ],
+    "fields": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "file": [
       {
         "kind": "module",
@@ -18355,6 +18464,11 @@
       },
       {
         "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
       },
@@ -18384,6 +18498,13 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "foreground": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "fork": [
@@ -19410,6 +19531,11 @@
     "hooks": [
       {
         "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
       },
@@ -19444,6 +19570,11 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       },
       {
         "kind": "module",
@@ -19563,6 +19694,11 @@
       },
       {
         "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
       },
@@ -19582,6 +19718,13 @@
         "kind": "module",
         "id": "feature-web-apps",
         "path": ".doc/modules/feature-web-apps.json"
+      }
+    ],
+    "hub": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       }
     ],
     "hydration": [
@@ -20411,6 +20554,11 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       },
       {
         "kind": "module",
@@ -21844,6 +21992,13 @@
         "path": ".doc/modules/feature-chat-timeline.json"
       }
     ],
+    "mime": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "mind": [
       {
         "kind": "module",
@@ -23225,6 +23380,11 @@
     "origin": [
       {
         "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
       },
@@ -23621,6 +23781,11 @@
       }
     ],
     "parse": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
       {
         "kind": "module",
         "id": "core-auth-session",
@@ -24200,6 +24365,13 @@
         "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
+    "plane": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       }
     ],
     "planning": [
@@ -26527,6 +26699,13 @@
         "path": ".doc/modules/core-auth-session.json"
       }
     ],
+    "requires": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "res": [
       {
         "kind": "flow",
@@ -27050,6 +27229,11 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      },
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       },
       {
         "kind": "module",
@@ -28405,6 +28589,11 @@
       },
       {
         "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
       },
@@ -28412,6 +28601,11 @@
         "kind": "module",
         "id": "feature-agent-task-board",
         "path": ".doc/modules/feature-agent-task-board.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       },
       {
         "kind": "module",
@@ -30432,11 +30626,6 @@
     "target": [
       {
         "kind": "module",
-        "id": "core-auth-session",
-        "path": ".doc/modules/core-auth-session.json"
-      },
-      {
-        "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
       },
@@ -31632,6 +31821,11 @@
       },
       {
         "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-web-apps",
         "path": ".doc/modules/feature-web-apps.json"
       }
@@ -31872,6 +32066,11 @@
     "unsupported": [
       {
         "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
       }
@@ -31955,6 +32154,11 @@
       }
     ],
     "upload": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      },
       {
         "kind": "module",
         "id": "core-api-client",
@@ -33235,6 +33439,13 @@
         "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
+    "上传服务": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "上保留面板宿主时要继续避开聊天详情输入区": [
       {
         "kind": "module",
@@ -33269,6 +33480,11 @@
       }
     ],
     "上限": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
       {
         "kind": "module",
         "id": "shared-conversation-content-renderer",
@@ -33782,11 +33998,6 @@
       },
       {
         "kind": "module",
-        "id": "core-api-client",
-        "path": ".doc/modules/core-api-client.json"
-      },
-      {
-        "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
       },
@@ -34061,6 +34272,13 @@
         "path": ".doc/modules/feature-web-apps.json"
       }
     ],
+    "不得把公网前端兜底页伪装成产物": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
     "不得无状态复活": [
       {
         "kind": "module",
@@ -34073,6 +34291,13 @@
         "kind": "module",
         "id": "feature-web-apps",
         "path": ".doc/modules/feature-web-apps.json"
+      }
+    ],
+    "不得退化为公网同源": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       }
     ],
     "不得重复重建": [
@@ -34346,6 +34571,13 @@
         "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
+    "不替换启动图和运行时": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "不条件卸载": [
@@ -35922,6 +36154,13 @@
         "path": ".doc/modules/shared-conversation-content-renderer.json"
       }
     ],
+    "产物收到": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
     "仅保存用户": [
       {
         "kind": "module",
@@ -37019,11 +37258,25 @@
         "path": ".doc/flows/app-startup.json"
       }
     ],
+    "使用该源": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
     "使用默认": [
       {
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "例外": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       }
     ],
     "例外只存在于隔离": [
@@ -38948,6 +39201,13 @@
         "path": ".doc/modules/shared-conversation-content-renderer.json"
       }
     ],
+    "分流附件上传": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "分类": [
       {
         "kind": "module",
@@ -39350,6 +39610,13 @@
         "kind": "module",
         "id": "feature-web-apps",
         "path": ".doc/modules/feature-web-apps.json"
+      }
+    ],
+    "刷新并重试一次": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       }
     ],
     "刷新或落库": [
@@ -40417,6 +40684,13 @@
         "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
+    "只对": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "只封装": [
       {
         "kind": "module",
@@ -40429,6 +40703,13 @@
         "kind": "rule",
         "id": "mmkv-snapshot-only",
         "path": ".doc/rules.json"
+      }
+    ],
+    "只影响": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "只承接导航与返回语义": [
@@ -41333,6 +41614,13 @@
         "path": ".doc/flows/chat-receive-message.json"
       }
     ],
+    "后仅重试一次": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "后先挂本地": [
       {
         "kind": "module",
@@ -42099,6 +42387,13 @@
         "path": ".doc/modules/core-api-client.json"
       }
     ],
+    "和非法": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "和项目内": [
       {
         "kind": "module",
@@ -42133,6 +42428,13 @@
         "kind": "task",
         "id": "add-app-startup-loading-screen",
         "path": ".doc/tasks/add-app-startup-loading-screen.json"
+      }
+    ],
+    "品牌可在": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "品牌启动屏": [
@@ -42199,6 +42501,11 @@
     "响应": [
       {
         "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
         "id": "core-debug-logging",
         "path": ".doc/modules/core-debug-logging.json"
       },
@@ -42206,6 +42513,13 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "响应不进入文本展示": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
     "响应和错误": [
@@ -42239,6 +42553,13 @@
         "kind": "module",
         "id": "core-auth-session",
         "path": ".doc/modules/core-auth-session.json"
+      }
+    ],
+    "响应时必须停止展示": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
     "响应状态": [
@@ -42452,6 +42773,11 @@
       },
       {
         "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
       },
@@ -42631,6 +42957,13 @@
       }
     ],
     "声明": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "声明并留在对应品牌目录内": [
       {
         "kind": "module",
         "id": "app-shell-navigation",
@@ -43752,6 +44085,13 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "对相对": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       }
     ],
     "对话": [
@@ -45926,6 +46266,13 @@
         "path": ".doc/modules/shared-conversation-content-renderer.json"
       }
     ],
+    "必须固定到构建期可信": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "必须固定在滚动区外": [
       {
         "kind": "module",
@@ -46201,6 +46548,13 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "成功响应必须为": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       }
     ],
     "或": [
@@ -47251,6 +47605,13 @@
       }
     ],
     "指向同一目标": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "指向品牌目录内独立的全幅手机图标源": [
       {
         "kind": "module",
         "id": "app-shell-navigation",
@@ -48371,6 +48732,27 @@
         "path": ".doc/modules/feature-agent-task-board.json"
       }
     ],
+    "数据面并携带": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
+    "数据面接通前显式拒绝": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
+    "数据面显式返回": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "数据驱动的特殊代码块标题栏": [
       {
         "kind": "module",
@@ -48470,6 +48852,34 @@
         "path": ".doc/modules/feature-auth-login.json"
       }
     ],
+    "文件数据面时显示明确失败": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "文件数据面时显示明确提示": [
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "文件数据面是唯一跨": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
+    "文件数据面未提供时必须显式失败": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "文件统一放在": [
       {
         "kind": "module",
@@ -48533,7 +48943,14 @@
         "path": ".doc/modules/shared-conversation-content-renderer.json"
       }
     ],
-    "文本读取带大小和超时上限": [
+    "文本读取带大小": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
+    "文本预览按目标文件拒绝错误的": [
       {
         "kind": "module",
         "id": "core-api-client",
@@ -49110,6 +49527,13 @@
         "path": ".doc/flows/webapps-runtime.json"
       }
     ],
+    "时刷新": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "时只让": [
       {
         "kind": "module",
@@ -49480,6 +49904,13 @@
         "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
+      }
+    ],
+    "显式失败": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       }
     ],
     "显式安全失败": [
@@ -49981,6 +50412,13 @@
         "kind": "module",
         "id": "feature-chat-persistence",
         "path": ".doc/modules/feature-chat-persistence.json"
+      }
+    ],
+    "未配置": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "未闭合": [
@@ -50671,13 +51109,6 @@
         "path": ".doc/modules/shared-paginated-list.json"
       }
     ],
-    "注入或": [
-      {
-        "kind": "module",
-        "id": "core-api-client",
-        "path": ".doc/modules/core-api-client.json"
-      }
-    ],
     "注入点": [
       {
         "kind": "module",
@@ -50881,6 +51312,13 @@
         "kind": "module",
         "id": "shared-visual-foundation",
         "path": ".doc/modules/shared-visual-foundation.json"
+      }
+    ],
+    "派生逻辑": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
     "流式": [
@@ -51478,6 +51916,13 @@
         "path": ".doc/modules/feature-agent-task-board.json"
       }
     ],
+    "独立手机图标源必须通过": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
     "环境变量": [
       {
         "kind": "flow",
@@ -52032,6 +52477,13 @@
         "path": ".doc/modules/feature-auth-login.json"
       }
     ],
+    "登录页和运行时品牌展示继续使用": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
     "登录页品牌图走": [
       {
         "kind": "module",
@@ -52325,6 +52777,13 @@
         "path": ".doc/modules/feature-chat-timeline.json"
       }
     ],
+    "的品牌保持原": [
+      {
+        "kind": "module",
+        "id": "app-shell-navigation",
+        "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
     "的外观分组只通过": [
       {
         "kind": "module",
@@ -52435,6 +52894,13 @@
         "kind": "flow",
         "id": "webapps-runtime",
         "path": ".doc/flows/webapps-runtime.json"
+      }
+    ],
+    "的相对": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       }
     ],
     "的相机权限插件配置": [
@@ -52804,6 +53270,13 @@
         "path": ".doc/modules/core-runtime-config.json"
       }
     ],
+    "相对": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "相机权限与扫码面板状态": [
       {
         "kind": "module",
@@ -52931,6 +53404,13 @@
         "kind": "module",
         "id": "feature-chat-timeline",
         "path": ".doc/modules/feature-chat-timeline.json"
+      }
+    ],
+    "禁止扩展为任意": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       }
     ],
     "禁止把": [
@@ -53759,6 +54239,13 @@
         "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
+    "统一使用可信": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "统一发出连接状态": [
       {
         "kind": "module",
@@ -53972,6 +54459,13 @@
         "kind": "module",
         "id": "app-shell-navigation",
         "path": ".doc/modules/app-shell-navigation.json"
+      }
+    ],
+    "继续使用同源": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       }
     ],
     "继续只服务": [
@@ -54191,6 +54685,11 @@
         "kind": "module",
         "id": "core-api-client",
         "path": ".doc/modules/core-api-client.json"
+      },
+      {
+        "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
     "缺省或非": [
@@ -54775,6 +55274,11 @@
       }
     ],
     "获取": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
       {
         "kind": "module",
         "id": "feature-chat-persistence",
@@ -56238,6 +56742,13 @@
         "path": ".doc/modules/feature-chat-persistence.json"
       }
     ],
+    "超时和响应": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "超时状态": [
       {
         "kind": "module",
@@ -56375,6 +56886,13 @@
         "kind": "task",
         "id": "add-internationalization",
         "path": ".doc/tasks/add-internationalization.json"
+      }
+    ],
+    "转发": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
       }
     ],
     "转成": [
@@ -57461,6 +57979,13 @@
         "path": ".doc/modules/shared-visual-foundation.json"
       }
     ],
+    "避免把公网前端兜底页当作产物或下载文件": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      }
+    ],
     "避免把复杂初始化逻辑塞进登录": [
       {
         "kind": "module",
@@ -57686,13 +58211,6 @@
         "path": ".doc/modules/core-auth-session.json"
       }
     ],
-    "里重复手写": [
-      {
-        "kind": "module",
-        "id": "core-api-client",
-        "path": ".doc/modules/core-api-client.json"
-      }
-    ],
     "重卡片或逐项阴影": [
       {
         "kind": "module",
@@ -57783,11 +58301,6 @@
       }
     ],
     "重试": [
-      {
-        "kind": "module",
-        "id": "core-api-client",
-        "path": ".doc/modules/core-api-client.json"
-      },
       {
         "kind": "module",
         "id": "core-debug-logging",
@@ -58272,7 +58785,7 @@
         "path": ".doc/modules/app-shell-navigation.json"
       }
     ],
-    "需要认证的业务接口优先使用": [
+    "需要认证的同源业务接口优先使用": [
       {
         "kind": "module",
         "id": "core-api-client",
@@ -58358,6 +58871,11 @@
       },
       {
         "kind": "module",
+        "id": "feature-chat-persistence",
+        "path": ".doc/modules/feature-chat-persistence.json"
+      },
+      {
+        "kind": "module",
         "id": "feature-chat-realtime",
         "path": ".doc/modules/feature-chat-realtime.json"
       },
@@ -58380,6 +58898,11 @@
       }
     ],
     "非法": [
+      {
+        "kind": "module",
+        "id": "core-api-client",
+        "path": ".doc/modules/core-api-client.json"
+      },
       {
         "kind": "module",
         "id": "feature-chat-persistence",
@@ -59353,6 +59876,6 @@
     "taskCount": 16,
     "flowCount": 8,
     "ruleCount": 13,
-    "sourceFileCount": 2196
+    "sourceFileCount": 2194
   }
 }

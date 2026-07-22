@@ -27,6 +27,7 @@
   ],
   "testFiles": [
     "scripts/tests/appIconRegistry.test.mts",
+    "scripts/tests/authenticatedResourceModel.test.mts",
     "scripts/tests/awaitingOptionPreview.test.mts",
     "scripts/tests/awaitingQuestionState.test.mts",
     "scripts/tests/awaitingSubmitState.test.mts",
@@ -91,6 +92,7 @@
     "scripts/tests/sharedWsTransport.test.mts",
     "scripts/tests/submitIosIpaScript.test.mts",
     "scripts/tests/tabIconAssets.test.mts",
+    "scripts/tests/uploadApiModel.test.mts",
     "scripts/tests/visualFoundation.test.mts",
     "scripts/tests/webAppsDesktopProtocol.test.mts",
     "scripts/tests/webAppsGateway.test.mts",
@@ -870,7 +872,6 @@
     ".generated/react-native-worklets/.worklets/16649253670356.js",
     ".generated/react-native-worklets/.worklets/16654238642020.js",
     ".generated/react-native-worklets/.worklets/16669782355707.js",
-    ".generated/react-native-worklets/.worklets/1668263962153.js",
     ".generated/react-native-worklets/.worklets/16682868163038.js",
     ".generated/react-native-worklets/.worklets/16684751503669.js",
     ".generated/react-native-worklets/.worklets/16697634182419.js",
@@ -1011,7 +1012,6 @@
     ".generated/react-native-worklets/.worklets/1803948073058.js",
     ".generated/react-native-worklets/.worklets/1827291860244.js",
     ".generated/react-native-worklets/.worklets/1839555089531.js",
-    ".generated/react-native-worklets/.worklets/1842483063759.js",
     ".generated/react-native-worklets/.worklets/1850484736744.js",
     ".generated/react-native-worklets/.worklets/1865752198941.js",
     ".generated/react-native-worklets/.worklets/1900668823867.js",
@@ -1173,7 +1173,6 @@
     ".generated/react-native-worklets/.worklets/3134142024792.js",
     ".generated/react-native-worklets/.worklets/31377339073.js",
     ".generated/react-native-worklets/.worklets/3147083842861.js",
-    ".generated/react-native-worklets/.worklets/3162625050575.js",
     ".generated/react-native-worklets/.worklets/3165232963211.js",
     ".generated/react-native-worklets/.worklets/3172417130719.js",
     ".generated/react-native-worklets/.worklets/3179818672722.js",
@@ -2088,6 +2087,7 @@
     "src/core/api/services/notificationApi.ts",
     "src/core/api/services/templateApi.ts",
     "src/core/api/services/uploadApi.ts",
+    "src/core/api/services/uploadApiModel.ts",
     "src/core/api/services/workspaceResource.ts",
     "src/core/auth/appAuth.ts",
     "src/core/auth/authConfig.ts",
@@ -5364,10 +5364,6 @@
                     "type": "file"
                   },
                   {
-                    "name": "1668263962153.js",
-                    "type": "file"
-                  },
-                  {
                     "name": "16682868163038.js",
                     "type": "file"
                   },
@@ -5925,10 +5921,6 @@
                   },
                   {
                     "name": "1839555089531.js",
-                    "type": "file"
-                  },
-                  {
-                    "name": "1842483063759.js",
                     "type": "file"
                   },
                   {
@@ -6573,10 +6565,6 @@
                   },
                   {
                     "name": "3147083842861.js",
-                    "type": "file"
-                  },
-                  {
-                    "name": "3162625050575.js",
                     "type": "file"
                   },
                   {
@@ -10366,6 +10354,10 @@
                         "type": "file"
                       },
                       {
+                        "name": "uploadApiModel.ts",
+                        "type": "file"
+                      },
+                      {
                         "name": "workspaceResource.ts",
                         "type": "file"
                       }
@@ -11542,6 +11534,7 @@
       "src/core/api/services/notificationApi.ts",
       "src/core/api/services/templateApi.ts",
       "src/core/api/services/uploadApi.ts",
+      "src/core/api/services/uploadApiModel.ts",
       "src/core/api/services/workspaceResource.ts"
     ],
     "core-auth-session": [
@@ -11847,6 +11840,7 @@
     "src/core/api/services/notificationApi.ts": "core-api-client",
     "src/core/api/services/templateApi.ts": "core-api-client",
     "src/core/api/services/uploadApi.ts": "core-api-client",
+    "src/core/api/services/uploadApiModel.ts": "core-api-client",
     "src/core/api/services/workspaceResource.ts": "core-api-client",
     "src/core/auth/appAuth.ts": "core-auth-session",
     "src/core/auth/authConfig.ts": "core-auth-session",
@@ -12102,6 +12096,7 @@
       "dependsOn": [
         "core-auth-session",
         "core-debug-logging",
+        "core-runtime-config",
         "core-ws-transport"
       ],
       "dependedBy": [
@@ -12142,6 +12137,7 @@
     "core-runtime-config": {
       "dependsOn": [],
       "dependedBy": [
+        "core-api-client",
         "core-auth-session",
         "core-debug-logging",
         "core-ws-transport",
@@ -14587,9 +14583,6 @@
     ".generated/react-native-worklets/.worklets/16669782355707.js": [
       "default"
     ],
-    ".generated/react-native-worklets/.worklets/1668263962153.js": [
-      "default"
-    ],
     ".generated/react-native-worklets/.worklets/16682868163038.js": [
       "default"
     ],
@@ -15008,9 +15001,6 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/1839555089531.js": [
-      "default"
-    ],
-    ".generated/react-native-worklets/.worklets/1842483063759.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/1850484736744.js": [
@@ -15494,9 +15484,6 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/3147083842861.js": [
-      "default"
-    ],
-    ".generated/react-native-worklets/.worklets/3162625050575.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/3165232963211.js": [
@@ -18192,7 +18179,9 @@
       "AuthenticatedResourceError",
       "AuthenticatedResourceErrorCode",
       "fetchAuthenticatedResourceText",
+      "isAuthenticatedResourceContentTypeCompatible",
       "normalizeAuthenticatedResourceFileName",
+      "requiresAuthenticatedResourceHttpDataPlane",
       "resolveAuthenticatedResourceSource",
       "type AuthenticatedResourceDownloadRequest",
       "type AuthenticatedResourceDownloadResult"
@@ -18209,7 +18198,9 @@
     "src/core/api/services/authenticatedResourceModel.ts": [
       "AuthenticatedResourceDownloadRequest",
       "AuthenticatedResourceDownloadResult",
-      "normalizeAuthenticatedResourceFileName"
+      "isAuthenticatedResourceContentTypeCompatible",
+      "normalizeAuthenticatedResourceFileName",
+      "requiresAuthenticatedResourceHttpDataPlane"
     ],
     "src/core/api/services/chatApi.ts": [
       "AgentDetailSnapshot",
@@ -18388,12 +18379,32 @@
     ],
     "src/core/api/services/uploadApi.ts": [
       "CHAT_UPLOAD_API_PATH",
-      "ChatUploadReference",
-      "ChatUploadResponseData",
+      "ChatUploadError",
       "UploadChatAttachmentInput",
       "extractUploadChatId",
       "extractUploadReferences",
+      "type ChatUploadErrorCode",
+      "type ChatUploadReference",
+      "type ChatUploadResponseData",
       "uploadChatAttachmentApi"
+    ],
+    "src/core/api/services/uploadApiModel.ts": [
+      "CHAT_UPLOAD_API_PATH",
+      "ChatUploadError",
+      "ChatUploadErrorCode",
+      "ChatUploadFormFields",
+      "ChatUploadReference",
+      "ChatUploadResponseData",
+      "ChatUploadRoute",
+      "DEFAULT_TUNNEL_HUB_BASE_URL",
+      "TUNNEL_HUB_UPLOAD_API_PATH",
+      "TunnelHubUploadRequestHooks",
+      "createChatUploadFormData",
+      "parseTunnelHubUploadResponse",
+      "requestTunnelHubUpload",
+      "resolveChatUploadRoute",
+      "resolveTunnelHubBaseUrl",
+      "unwrapChatUploadResponse"
     ],
     "src/core/api/services/workspaceResource.ts": [
       "WorkspaceFileResourceRequest",
@@ -18441,7 +18452,6 @@
       "DesktopWsPairingPayload",
       "DesktopWsTokenMode",
       "LegacyPairingPayload",
-      "PairingTargetMode",
       "ParsedPairingPayload",
       "applyDesktopTokenToUrl",
       "buildDesktopBusinessFrame",
@@ -20867,7 +20877,6 @@
     ".generated/react-native-worklets/.worklets/16649253670356.js": null,
     ".generated/react-native-worklets/.worklets/16654238642020.js": null,
     ".generated/react-native-worklets/.worklets/16669782355707.js": null,
-    ".generated/react-native-worklets/.worklets/1668263962153.js": null,
     ".generated/react-native-worklets/.worklets/16682868163038.js": [
       "../../../node_modules/react-native-worklets/lib/module/runLoop/common/setImmediatePolyfill",
       "../../../node_modules/react-native-worklets/lib/module/runLoop/common/setIntervalPolyfill",
@@ -21052,7 +21061,6 @@
     ".generated/react-native-worklets/.worklets/1803948073058.js": null,
     ".generated/react-native-worklets/.worklets/1827291860244.js": null,
     ".generated/react-native-worklets/.worklets/1839555089531.js": null,
-    ".generated/react-native-worklets/.worklets/1842483063759.js": null,
     ".generated/react-native-worklets/.worklets/1850484736744.js": null,
     ".generated/react-native-worklets/.worklets/1865752198941.js": null,
     ".generated/react-native-worklets/.worklets/1900668823867.js": null,
@@ -21247,7 +21255,6 @@
     ".generated/react-native-worklets/.worklets/3134142024792.js": null,
     ".generated/react-native-worklets/.worklets/31377339073.js": null,
     ".generated/react-native-worklets/.worklets/3147083842861.js": null,
-    ".generated/react-native-worklets/.worklets/3162625050575.js": null,
     ".generated/react-native-worklets/.worklets/3165232963211.js": null,
     ".generated/react-native-worklets/.worklets/3172417130719.js": null,
     ".generated/react-native-worklets/.worklets/3179818672722.js": null,
@@ -22584,6 +22591,7 @@
     "src/core/api/apiError.ts": null,
     "src/core/api/resourceUrl.ts": null,
     "src/core/api/services/authenticatedResource.ts": [
+      "../../auth/deviceProfiles.ts",
       "../apiClient.ts",
       "./authenticatedResourceModel.ts"
     ],
@@ -22638,10 +22646,18 @@
       "../apiClient"
     ],
     "src/core/api/services/uploadApi.ts": [
+      "../../auth/appAuth",
+      "../../auth/deviceProfiles",
+      "../../config/runtimeEnv",
       "../../debug/httpDebugLogger",
       "../apiClient",
       "../resourceUrl",
+      "./uploadApiModel",
       "expo-file-system"
+    ],
+    "src/core/api/services/uploadApiModel.ts": [
+      "../../auth/deviceProfiles.ts",
+      "../apiError.ts"
     ],
     "src/core/api/services/workspaceResource.ts": null,
     "src/core/auth/appAuth.ts": [
@@ -23421,6 +23437,7 @@
       "react"
     ],
     "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts": [
+      "../../../../core/api/services/authenticatedResource.ts",
       "../../../../core/api/services/authenticatedResourceDownload.ts",
       "react"
     ],
@@ -24917,7 +24934,6 @@
     ".generated/react-native-worklets/.worklets/16649253670356.js": null,
     ".generated/react-native-worklets/.worklets/16654238642020.js": null,
     ".generated/react-native-worklets/.worklets/16669782355707.js": null,
-    ".generated/react-native-worklets/.worklets/1668263962153.js": null,
     ".generated/react-native-worklets/.worklets/16682868163038.js": [
       "node_modules/react-native-worklets/lib/module/runLoop/common/setImmediatePolyfill.js",
       "node_modules/react-native-worklets/lib/module/runLoop/common/setIntervalPolyfill.js",
@@ -25082,7 +25098,6 @@
     ".generated/react-native-worklets/.worklets/1803948073058.js": null,
     ".generated/react-native-worklets/.worklets/1827291860244.js": null,
     ".generated/react-native-worklets/.worklets/1839555089531.js": null,
-    ".generated/react-native-worklets/.worklets/1842483063759.js": null,
     ".generated/react-native-worklets/.worklets/1850484736744.js": null,
     ".generated/react-native-worklets/.worklets/1865752198941.js": null,
     ".generated/react-native-worklets/.worklets/1900668823867.js": null,
@@ -25264,7 +25279,6 @@
     ".generated/react-native-worklets/.worklets/3134142024792.js": null,
     ".generated/react-native-worklets/.worklets/31377339073.js": null,
     ".generated/react-native-worklets/.worklets/3147083842861.js": null,
-    ".generated/react-native-worklets/.worklets/3162625050575.js": null,
     ".generated/react-native-worklets/.worklets/3165232963211.js": null,
     ".generated/react-native-worklets/.worklets/3172417130719.js": null,
     ".generated/react-native-worklets/.worklets/3179818672722.js": null,
@@ -26405,7 +26419,8 @@
     "src/core/api/resourceUrl.ts": null,
     "src/core/api/services/authenticatedResource.ts": [
       "src/core/api/apiClient.ts",
-      "src/core/api/services/authenticatedResourceModel.ts"
+      "src/core/api/services/authenticatedResourceModel.ts",
+      "src/core/auth/deviceProfiles.ts"
     ],
     "src/core/api/services/authenticatedResourceDownload.native.ts": [
       "src/core/api/services/authenticatedResource.ts"
@@ -26459,7 +26474,15 @@
     "src/core/api/services/uploadApi.ts": [
       "src/core/api/apiClient.ts",
       "src/core/api/resourceUrl.ts",
+      "src/core/api/services/uploadApiModel.ts",
+      "src/core/auth/appAuth.ts",
+      "src/core/auth/deviceProfiles.ts",
+      "src/core/config/runtimeEnv.ts",
       "src/core/debug/httpDebugLogger.ts"
+    ],
+    "src/core/api/services/uploadApiModel.ts": [
+      "src/core/api/apiError.ts",
+      "src/core/auth/deviceProfiles.ts"
     ],
     "src/core/api/services/workspaceResource.ts": null,
     "src/core/auth/appAuth.ts": [
@@ -27104,6 +27127,7 @@
       "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts": [
+      "src/core/api/services/authenticatedResource.ts",
       "src/core/api/services/authenticatedResourceDownload.ts"
     ],
     "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts": [
@@ -28434,7 +28458,6 @@
     ".generated/react-native-worklets/.worklets/16649253670356.js",
     ".generated/react-native-worklets/.worklets/16654238642020.js",
     ".generated/react-native-worklets/.worklets/16669782355707.js",
-    ".generated/react-native-worklets/.worklets/1668263962153.js",
     ".generated/react-native-worklets/.worklets/16682868163038.js",
     ".generated/react-native-worklets/.worklets/16684751503669.js",
     ".generated/react-native-worklets/.worklets/16697634182419.js",
@@ -28575,7 +28598,6 @@
     ".generated/react-native-worklets/.worklets/1803948073058.js",
     ".generated/react-native-worklets/.worklets/1827291860244.js",
     ".generated/react-native-worklets/.worklets/1839555089531.js",
-    ".generated/react-native-worklets/.worklets/1842483063759.js",
     ".generated/react-native-worklets/.worklets/1850484736744.js",
     ".generated/react-native-worklets/.worklets/1865752198941.js",
     ".generated/react-native-worklets/.worklets/1900668823867.js",
@@ -28737,7 +28759,6 @@
     ".generated/react-native-worklets/.worklets/3134142024792.js",
     ".generated/react-native-worklets/.worklets/31377339073.js",
     ".generated/react-native-worklets/.worklets/3147083842861.js",
-    ".generated/react-native-worklets/.worklets/3162625050575.js",
     ".generated/react-native-worklets/.worklets/3165232963211.js",
     ".generated/react-native-worklets/.worklets/3172417130719.js",
     ".generated/react-native-worklets/.worklets/3179818672722.js",
