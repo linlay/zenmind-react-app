@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { downloadAuthenticatedResource } from '../../../../core/api/services/authenticatedResourceDownload.ts';
+import {
+  AuthenticatedResourceError,
+  type AuthenticatedResourceErrorCode
+} from '../../../../core/api/services/authenticatedResource.ts';
 
 export type AuthenticatedResourceDownloadState = 'idle' | 'loading' | 'success' | 'error';
 
 export function useAuthenticatedResourceDownload(resourceUrl: string, fileName: string) {
   const [state, setState] = useState<AuthenticatedResourceDownloadState>('idle');
   const [downloadedName, setDownloadedName] = useState('');
+  const [errorCode, setErrorCode] = useState<AuthenticatedResourceErrorCode | ''>('');
   const mountedRef = useRef(true);
   const requestRef = useRef(0);
   const loadingRef = useRef(false);
@@ -24,6 +29,7 @@ export function useAuthenticatedResourceDownload(resourceUrl: string, fileName: 
     loadingRef.current = false;
     setState('idle');
     setDownloadedName('');
+    setErrorCode('');
   }, [fileName, resourceUrl]);
 
   const download = useCallback(() => {
@@ -35,6 +41,7 @@ export function useAuthenticatedResourceDownload(resourceUrl: string, fileName: 
     requestRef.current = requestId;
     setState('loading');
     setDownloadedName('');
+    setErrorCode('');
     void downloadAuthenticatedResource({ resourceUrl, fileName })
       .then((result) => {
         if (mountedRef.current && requestRef.current === requestId) {
@@ -43,13 +50,14 @@ export function useAuthenticatedResourceDownload(resourceUrl: string, fileName: 
           setState('success');
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (mountedRef.current && requestRef.current === requestId) {
           loadingRef.current = false;
+          setErrorCode(error instanceof AuthenticatedResourceError ? error.code : '');
           setState('error');
         }
       });
   }, [fileName, resourceUrl]);
 
-  return { state, downloadedName, download };
+  return { state, downloadedName, errorCode, download };
 }

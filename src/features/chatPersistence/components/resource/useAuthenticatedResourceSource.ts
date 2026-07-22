@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { resolveAuthenticatedResourceSource } from '../../../../core/api/services/authenticatedResource.ts';
+import {
+  AuthenticatedResourceError,
+  resolveAuthenticatedResourceSource,
+  type AuthenticatedResourceErrorCode
+} from '../../../../core/api/services/authenticatedResource.ts';
 import type { ApiUriSource } from '../../../../core/api/apiClient.ts';
 
 type AuthenticatedResourceSourceState = {
   source: ApiUriSource | null;
   loading: boolean;
   error: string;
+  errorCode?: AuthenticatedResourceErrorCode;
 };
 
 const IDLE_STATE: AuthenticatedResourceSourceState = {
@@ -40,7 +45,8 @@ export function useAuthenticatedResourceSource(resourceUrl: string, active: bool
           setState({
             source: null,
             loading: false,
-            error: error instanceof Error ? error.message : 'Resource failed to load'
+            error: error instanceof Error ? error.message : 'Resource failed to load',
+            ...(error instanceof AuthenticatedResourceError ? { errorCode: error.code } : {})
           });
         }
       });

@@ -46,7 +46,7 @@ const CONTENT_CLASS = 'flex-1 bg-app-background';
 const CENTER_CLASS = 'flex-1 items-center justify-center gap-app-sm px-app-lg';
 const ERROR_TEXT_CLASS = 'text-center text-app-body font-semibold text-app-danger';
 const RETRY_CLASS = 'min-h-[38px] flex-row items-center gap-app-xs rounded-app-pill bg-app-action px-app-md';
-const RETRY_TEXT_CLASS = 'text-app-footnote font-bold text-app-brand-blue';
+const RETRY_TEXT_CLASS = 'text-app-footnote font-bold text-app-on-action';
 const TEXT_CONTENT_CLASS = 'font-mono text-[13px] leading-5 text-app-primary';
 const TEXT_TARGET_CLASS = 'bg-app-action font-mono text-[13px] leading-5 text-app-primary';
 const TEXT_SCROLLER_CONTENT_CLASS = 'px-app-md py-app-md';
@@ -54,16 +54,18 @@ const FOOTER_CLASS = 'gap-app-xs border-t border-app-line bg-app-surface px-app-
 const DOWNLOAD_CLASS =
   'min-h-[42px] flex-row items-center justify-center gap-app-xs rounded-app-md bg-app-action px-app-md active:opacity-[0.72]';
 const DOWNLOAD_DISABLED_CLASS = 'opacity-[0.45]';
-const DOWNLOAD_TEXT_CLASS = 'text-app-body font-bold text-app-brand-blue';
+const DOWNLOAD_TEXT_CLASS = 'text-app-body font-bold text-app-on-action';
 const FEEDBACK_CLASS = 'text-center text-app-caption text-app-secondary';
 
 const AuthenticatedResourceTextPreview = memo(function AuthenticatedResourceTextPreview({
   source,
+  name,
   line,
   retryNonce,
   onError
 }: {
   source: ApiUriSource;
+  name: string;
   line?: number;
   retryNonce: number;
   onError: (message: string) => void;
@@ -78,7 +80,10 @@ const AuthenticatedResourceTextPreview = memo(function AuthenticatedResourceText
     const controller = new AbortController();
     setText('');
     setLoading(true);
-    void fetchAuthenticatedResourceText(source, { signal: controller.signal })
+    void fetchAuthenticatedResourceText(source, {
+      expectedFileName: name,
+      signal: controller.signal
+    })
       .then((value) => {
         if (!controller.signal.aborted) {
           setText(value);
@@ -98,7 +103,7 @@ const AuthenticatedResourceTextPreview = memo(function AuthenticatedResourceText
         }
       });
     return () => controller.abort();
-  }, [onError, retryNonce, source, t]);
+  }, [name, onError, retryNonce, source, t]);
 
   const sections = useMemo(() => splitAuthenticatedResourceTextAtLine(text, line), [line, text]);
   const handleTargetLayout = useCallback((event: LayoutChangeEvent) => {
@@ -177,7 +182,13 @@ export const AuthenticatedResourcePreviewModal = memo(function AuthenticatedReso
     setRetryNonce((value) => value + 1);
   }, [retrySource, sourceState.error]);
   const sourceLocation = target.sourcePath ? `${target.sourcePath}${target.line ? `:${target.line}` : ''}` : '';
-  const errorMessage = initialError || previewError || (sourceState.error ? t('artifact.previewFailed') : '');
+  const sourceErrorMessage =
+    sourceState.errorCode === 'unsupported_transport'
+      ? t('artifact.previewUnavailableRemote')
+      : sourceState.error
+        ? t('artifact.previewFailed')
+        : '';
+  const errorMessage = initialError || previewError || sourceErrorMessage;
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
@@ -216,7 +227,7 @@ export const AuthenticatedResourcePreviewModal = memo(function AuthenticatedReso
                   onPress={handleRetry}
                   className={RETRY_CLASS}
                 >
-                  <AppIcon usage="artifact.retry" />
+                  <AppIcon usage="artifact.retry" color={theme.colors.onBrandBlueAction} />
                   <Text allowFontScaling={false} className={RETRY_TEXT_CLASS}>
                     {t('artifact.retryPreview')}
                   </Text>
@@ -247,6 +258,7 @@ export const AuthenticatedResourcePreviewModal = memo(function AuthenticatedReso
           ) : target.previewKind === 'text' ? (
             <AuthenticatedResourceTextPreview
               source={sourceState.source}
+              name={target.name}
               line={target.line}
               retryNonce={retryNonce}
               onError={handlePreviewError}
@@ -273,9 +285,9 @@ export const AuthenticatedResourcePreviewModal = memo(function AuthenticatedReso
                 .join(' ')}
             >
               {downloadState === 'loading' ? (
-                <ActivityIndicator size="small" color={theme.colors.brandBlue} />
+                <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
               ) : (
-                <AppIcon usage="artifact.download" />
+                <AppIcon usage="artifact.download" color={theme.colors.onBrandBlueAction} />
               )}
               <Text allowFontScaling={false} className={DOWNLOAD_TEXT_CLASS}>
                 {downloadState === 'loading' ? t('artifact.downloading') : t('artifact.download')}

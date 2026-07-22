@@ -44,7 +44,11 @@ export function AuthenticatedResourcePreviewProvider({ children }: { children: R
           name: resourceDownload.downloadedName || request?.target.name || ''
         })
       : resourceDownload.state === 'error'
-        ? t('artifact.downloadFailed')
+        ? t(
+            resourceDownload.errorCode === 'unsupported_transport'
+              ? 'artifact.downloadUnavailableRemote'
+              : 'artifact.downloadFailed'
+          )
         : '';
 
   return (
