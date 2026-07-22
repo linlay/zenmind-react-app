@@ -189,6 +189,8 @@ test('brand manifests share native identity and EAS project but keep presentatio
   assert.equal(cutejManifest.ios, undefined);
   assert.equal(cutejManifest.updates, undefined);
   assert.notEqual(zenmind.generatedAssets.logo, cutej.generatedAssets.logo);
+  assert.equal(zenmind.source.appIcon, 'brands/zenmind/app-icon.png');
+  assert.equal(cutej.source.appIcon, null);
   assert.equal(zenmind.version, '9.9.9');
   assert.equal(cutej.generatedAssets.logo, 'assets/brands/cutej/logo.png');
 });
@@ -198,6 +200,16 @@ test('brand sync requires a checked-in logo source', () => {
   try {
     fs.rmSync(path.join(rootDir, 'assets', 'brands', 'zenmind', 'logo.png'));
     assert.throws(() => syncBrandArtifacts({ rootDir, brandId: 'zenmind' }), /Brand logo source not found/);
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('brand sync requires a configured app icon source', () => {
+  const rootDir = createBrandFixtureRoot();
+  try {
+    fs.rmSync(path.join(rootDir, 'brands', 'zenmind', 'app-icon.png'));
+    assert.throws(() => syncBrandArtifacts({ rootDir, brandId: 'zenmind' }), /Brand app icon source not found/);
   } finally {
     fs.rmSync(rootDir, { recursive: true, force: true });
   }

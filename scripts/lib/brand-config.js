@@ -17,9 +17,9 @@ const GENERATED_BRAND_TS = 'src/shared/generated/brand.ts';
 const GENERATED_BRAND_ASSETS_TS = 'src/shared/generated/brandAssets.ts';
 const GENERATED_ASSET_MANIFEST_NAME = 'manifest.json';
 const ACTIVE_NATIVE_MANIFEST = '.generated/brand/native-active-manifest.json';
-const BRAND_ASSET_GENERATOR_VERSION = 5;
+const BRAND_ASSET_GENERATOR_VERSION = 8;
 const ICON_LOGO_SCALE = 0.76;
-const ADAPTIVE_ICON_LOGO_SCALE = 0.72;
+const ADAPTIVE_ICON_LOGO_SCALE = 0.5;
 const FAVICON_LOGO_SCALE = 0.72;
 const ANDROID_SPLASH_DENSITIES = [
   { directory: 'drawable-mdpi', multiplier: 1 },
@@ -203,6 +203,23 @@ function loadSharedBrandConfig(rootDir = process.cwd()) {
   return normalizeSharedBrandConfig(readJson(configPath));
 }
 
+function optionalBrandAssetPath(rootDir, brandRoot, manifest, key) {
+  const value = manifest[key];
+  if (value === undefined) {
+    return null;
+  }
+  if (typeof value !== 'string' || !value.trim()) {
+    throw new Error(`Brand manifest field "${key}" must be a non-empty relative file path.`);
+  }
+
+  const assetPath = path.resolve(brandRoot, value.trim());
+  const relativeToBrand = path.relative(brandRoot, assetPath);
+  if (relativeToBrand.startsWith('..') || path.isAbsolute(relativeToBrand)) {
+    throw new Error(`Brand manifest field "${key}" must stay inside ${repoRelative(rootDir, brandRoot)}.`);
+  }
+  return repoRelative(rootDir, assetPath);
+}
+
 function normalizeManifest(rootDir, brandRoot, manifest, sharedConfig, i18n, appVersion) {
   const id = requireString(manifest, 'id').toLowerCase();
   if (!BRAND_ID_PATTERN.test(id)) {
@@ -260,7 +277,8 @@ function normalizeManifest(rootDir, brandRoot, manifest, sharedConfig, i18n, app
     i18n,
     generatedAssets,
     source: {
-      brandRoot: repoRelative(rootDir, brandRoot)
+      brandRoot: repoRelative(rootDir, brandRoot),
+      appIcon: optionalBrandAssetPath(rootDir, brandRoot, manifest, 'appIcon')
     }
   };
 }
@@ -427,8 +445,27 @@ function readRequiredLogoSource(rootDir, brand) {
   };
 }
 
-function brandAssetFingerprint(brand, logoHash) {
+function readOptionalAppIconSource(rootDir, brand) {
+  if (!brand.source.appIcon) {
+    return null;
+  }
+
+  const appIconPath = path.join(rootDir, brand.source.appIcon);
+  if (!fs.existsSync(appIconPath)) {
+    throw new Error(`Brand app icon source not found: ${repoRelative(rootDir, appIconPath)}`);
+  }
+
+  const bytes = fs.readFileSync(appIconPath);
+  return {
+    bytes,
+    hash: crypto.createHash('sha256').update(bytes).digest('hex'),
+    path: appIconPath
+  };
+}
+
+function brandAssetFingerprint(brand, logoHash, appIconHash) {
   return hashStableJson({
+    appIcon: appIconHash,
     assetGenerator: BRAND_ASSET_GENERATOR_VERSION,
     logo: logoHash,
     visual: brand.visual
@@ -443,9 +480,10 @@ function brandNativeSplashImageFingerprint(brand, logoHash) {
   });
 }
 
-function brandNativeLauncherImageFingerprint(brand, logoHash) {
+function brandNativeLauncherImageFingerprint(brand, logoHash, appIconHash) {
   return hashStableJson({
     adaptiveIconBackgroundColor: brand.android.adaptiveIconBackgroundColor,
+    appIcon: appIconHash,
     assetGenerator: BRAND_ASSET_GENERATOR_VERSION,
     logo: logoHash,
     visual: brand.visual
@@ -1156,16 +1194,34 @@ function createLogoForegroundPng(logo, size, scale) {
   return encodePng(png);
 }
 
+function createFullBleedAppIconPng(appIcon, size) {
+  const png = createPng(size);
+  drawPngFit(png, appIcon, size, size);
+  return encodePng(png);
+}
+
+function createLauncherIconPng(brand, logo, appIcon, size) {
+  return appIcon
+    ? createFullBleedAppIconPng(appIcon, size)
+    : createLogoIconPng(brand, logo, size, ICON_LOGO_SCALE);
+}
+
+function createAdaptiveIconPng(logo, appIcon, size) {
+  return appIcon
+    ? createFullBleedAppIconPng(appIcon, size)
+    : createLogoForegroundPng(logo, size, ADAPTIVE_ICON_LOGO_SCALE);
+}
+
 function createLogoSplashPng(logo, canvasSize, imageSize) {
   const png = createPng(canvasSize);
   drawPngFit(png, logo, imageSize, imageSize);
   return encodePng(png);
 }
 
-function writeGeneratedAssets(rootDir, brand, logo) {
+function writeGeneratedAssets(rootDir, brand, logo, appIcon) {
   const assetRoot = path.dirname(path.join(rootDir, brand.generatedAssets.icon));
-  const icon = createLogoIconPng(brand, logo, 1024, ICON_LOGO_SCALE);
-  const adaptiveIcon = createLogoForegroundPng(logo, 1024, ADAPTIVE_ICON_LOGO_SCALE);
+  const icon = createLauncherIconPng(brand, logo, appIcon, 1024);
+  const adaptiveIcon = createAdaptiveIconPng(logo, appIcon, 1024);
   const favicon = createLogoIconPng(brand, logo, 64, FAVICON_LOGO_SCALE);
   writeFileIfChanged(path.join(assetRoot, 'icon.png'), icon);
   writeFileIfChanged(path.join(assetRoot, 'adaptive-icon.png'), adaptiveIcon);
@@ -1201,7 +1257,7 @@ function writeAndroidAdaptiveIconXml(filePath) {
   );
 }
 
-function writeAndroidLauncherImageResources(rootDir, brand, logo) {
+function writeAndroidLauncherImageResources(rootDir, brand, logo, appIcon) {
   const androidMainPath = path.join(rootDir, 'android', 'app', 'src', 'main');
   if (!fs.existsSync(androidMainPath)) {
     return;
@@ -1212,15 +1268,15 @@ function writeAndroidLauncherImageResources(rootDir, brand, logo) {
     const directory = path.join(androidMainPath, 'res', density.directory);
     writeFileIfChanged(
       path.join(directory, 'ic_launcher.webp'),
-      createLogoIconPng(brand, logo, density.iconSize, ICON_LOGO_SCALE)
+      createLauncherIconPng(brand, logo, appIcon, density.iconSize)
     );
     writeFileIfChanged(
       path.join(directory, 'ic_launcher_round.webp'),
-      createLogoIconPng(brand, logo, density.iconSize, ICON_LOGO_SCALE)
+      createLauncherIconPng(brand, logo, appIcon, density.iconSize)
     );
     writeFileIfChanged(
       path.join(directory, 'ic_launcher_foreground.webp'),
-      createLogoForegroundPng(logo, density.foregroundSize, ADAPTIVE_ICON_LOGO_SCALE)
+      createAdaptiveIconPng(logo, appIcon, density.foregroundSize)
     );
   }
 
@@ -1253,7 +1309,7 @@ function iosIconPixelSize(image) {
   return 1024;
 }
 
-function writeIosAppIconResources(rootDir, brand, logo) {
+function writeIosAppIconResources(rootDir, brand, logo, appIcon) {
   for (const assetCatalogPath of iosAppAssetCatalogDirectories(rootDir)) {
     const appIconSetPath = path.join(assetCatalogPath, 'AppIcon.appiconset');
     const contentsPath = path.join(appIconSetPath, 'Contents.json');
@@ -1269,7 +1325,7 @@ function writeIosAppIconResources(rootDir, brand, logo) {
       }
       writeFileIfChanged(
         path.join(appIconSetPath, image.filename),
-        createLogoIconPng(brand, logo, iosIconPixelSize(image), ICON_LOGO_SCALE)
+        createLauncherIconPng(brand, logo, appIcon, iosIconPixelSize(image))
       );
     }
   }
@@ -1570,9 +1626,9 @@ function writeNativeSplashImageResources(rootDir, brand, logo) {
   writeIosSplashImageResources(rootDir, brand, logo);
 }
 
-function writeNativeLauncherImageResources(rootDir, brand, logo) {
-  writeAndroidLauncherImageResources(rootDir, brand, logo);
-  writeIosAppIconResources(rootDir, brand, logo);
+function writeNativeLauncherImageResources(rootDir, brand, logo, appIcon) {
+  writeAndroidLauncherImageResources(rootDir, brand, logo, appIcon);
+  writeIosAppIconResources(rootDir, brand, logo, appIcon);
 }
 
 function writeNativeTextResources(rootDir, brand) {
@@ -1591,11 +1647,16 @@ function syncBrandArtifacts({
   const brand = loadBrandConfig(rootDir, brandId, appVersion);
   const brands = loadAllBrandConfigs(rootDir, appVersion);
   const logoSource = readRequiredLogoSource(rootDir, brand);
+  const appIconSource = readOptionalAppIconSource(rootDir, brand);
   const fingerprints = {
     runtime: brandRuntimeFingerprint(brands),
-    asset: brandAssetFingerprint(brand, logoSource.hash),
+    asset: brandAssetFingerprint(brand, logoSource.hash, appIconSource?.hash ?? null),
     nativeSplashImage: brandNativeSplashImageFingerprint(brand, logoSource.hash),
-    nativeLauncherImage: brandNativeLauncherImageFingerprint(brand, logoSource.hash),
+    nativeLauncherImage: brandNativeLauncherImageFingerprint(
+      brand,
+      logoSource.hash,
+      appIconSource?.hash ?? null
+    ),
     nativeText: brandNativeTextFingerprint(brand)
   };
   const manifest = readGeneratedManifest(rootDir, brand);
@@ -1613,17 +1674,21 @@ function syncBrandArtifacts({
     ? force || !areNativeTextsCurrent(activeNativeManifest, rootDir, brand, fingerprints.nativeText)
     : false;
   const logo =
-    shouldWriteGeneratedAssets || shouldWriteNativeSplashImages || shouldWriteNativeLauncherImages
+    shouldWriteGeneratedAssets || shouldWriteNativeSplashImages || (shouldWriteNativeLauncherImages && !appIconSource)
       ? decodePng(logoSource.bytes, logoSource.path)
       : null;
+  const appIcon =
+    appIconSource && (shouldWriteGeneratedAssets || shouldWriteNativeLauncherImages)
+      ? decodePng(appIconSource.bytes, appIconSource.path)
+      : null;
   if (shouldWriteGeneratedAssets) {
-    writeGeneratedAssets(rootDir, brand, logo);
+    writeGeneratedAssets(rootDir, brand, logo, appIcon);
   }
   if (shouldWriteNativeSplashImages) {
     writeNativeSplashImageResources(rootDir, brand, logo);
   }
   if (shouldWriteNativeLauncherImages) {
-    writeNativeLauncherImageResources(rootDir, brand, logo);
+    writeNativeLauncherImageResources(rootDir, brand, logo, appIcon);
   }
   if (shouldWriteNativeText) {
     writeNativeTextResources(rootDir, brand);
