@@ -515,7 +515,7 @@ test('timeline persistence roundtrips typed artifact resource nodes without repl
   assert.deepEqual(restored, state);
   assert.equal(artifact?.kind, 'artifact');
   assert.equal(artifact?.kind === 'artifact' ? artifact.previewKind : '', 'pdf');
-  assert.equal(artifact?.kind === 'artifact' ? artifact.resourceUrl : '', '/ap/api/resource?id=artifact-1');
+  assert.equal(artifact?.kind === 'artifact' ? artifact.resourceUrl : '', '/api/resource?id=artifact-1');
 });
 
 test('timeline persistence derives the same viewport segments from restored assistant content', () => {

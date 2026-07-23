@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   AuthenticatedResourceError,
   resolveAuthenticatedResourceSource,
   type AuthenticatedResourceErrorCode
 } from '../../../../core/api/services/authenticatedResource.ts';
+import { resolveAuthenticatedResourceImageSource } from '../../../../core/api/services/authenticatedResourceImage';
 import type { ApiUriSource } from '../../../../core/api/apiClient.ts';
 
 type AuthenticatedResourceSourceState = {
@@ -20,28 +21,37 @@ const IDLE_STATE: AuthenticatedResourceSourceState = {
   error: ''
 };
 
-export function useAuthenticatedResourceSource(resourceUrl: string, active: boolean) {
+export function useAuthenticatedResourceSource(resourceUrl: string, active: boolean, imageFileName = '') {
   const [retryNonce, setRetryNonce] = useState(0);
   const [state, setState] = useState<AuthenticatedResourceSourceState>(IDLE_STATE);
+  const resolvedRetryNonceRef = useRef(0);
 
   useEffect(() => {
-    let cancelled = false;
     if (!active || !resourceUrl) {
       setState(IDLE_STATE);
-      return () => {
-        cancelled = true;
-      };
+      return;
     }
 
+    const controller = new AbortController();
+    const forceRefresh = retryNonce > resolvedRetryNonceRef.current;
+    resolvedRetryNonceRef.current = retryNonce;
     setState({ source: null, loading: true, error: '' });
-    void resolveAuthenticatedResourceSource(resourceUrl)
+    const resolveSource = imageFileName
+      ? resolveAuthenticatedResourceImageSource({
+          resourceUrl,
+          fileName: imageFileName,
+          forceRefresh,
+          signal: controller.signal
+        })
+      : resolveAuthenticatedResourceSource(resourceUrl);
+    void resolveSource
       .then((source) => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setState({ source, loading: false, error: '' });
         }
       })
       .catch((error: unknown) => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setState({
             source: null,
             loading: false,
@@ -52,9 +62,9 @@ export function useAuthenticatedResourceSource(resourceUrl: string, active: bool
       });
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [active, resourceUrl, retryNonce]);
+  }, [active, imageFileName, resourceUrl, retryNonce]);
 
   const retry = useCallback(() => setRetryNonce((value) => value + 1), []);
   return { ...state, retry };

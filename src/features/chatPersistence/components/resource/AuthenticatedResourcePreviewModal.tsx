@@ -162,7 +162,11 @@ export const AuthenticatedResourcePreviewModal = memo(function AuthenticatedReso
   const [retryNonce, setRetryNonce] = useState(0);
   const canPreview = target.previewKind !== 'unsupported' && !initialError;
   const canDownload = Boolean(target.resourceUrl) && !initialError;
-  const sourceState = useAuthenticatedResourceSource(target.resourceUrl, visible && canPreview);
+  const sourceState = useAuthenticatedResourceSource(
+    target.resourceUrl,
+    visible && canPreview,
+    target.previewKind === 'image' ? target.name : ''
+  );
   const retrySource = sourceState.retry;
 
   useEffect(() => {

@@ -49,3 +49,17 @@ export function normalizeAuthenticatedResourceFileName(value: string): string {
     .trim();
   return (normalized || 'artifact').slice(0, 180);
 }
+
+function hashAuthenticatedResourceIdentity(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+export function createAuthenticatedResourceImageCacheFileName(resourceUrl: string, fileName: string): string {
+  const resourceHash = hashAuthenticatedResourceIdentity(String(resourceUrl || '').trim());
+  return normalizeAuthenticatedResourceFileName(`${resourceHash}-${fileName || 'image'}`);
+}

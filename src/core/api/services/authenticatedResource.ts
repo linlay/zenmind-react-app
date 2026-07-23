@@ -6,6 +6,7 @@ import {
 } from './authenticatedResourceModel.ts';
 
 export {
+  createAuthenticatedResourceImageCacheFileName,
   isAuthenticatedResourceContentTypeCompatible,
   normalizeAuthenticatedResourceFileName,
   requiresAuthenticatedResourceHttpDataPlane,
