@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Circle, Svg } from 'react-native-svg';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
-import { type I18nKey, type TFunction, useT } from '../../../shared/i18n';
+import { type I18nKey, type TFunction, useI18n, useT } from '../../../shared/i18n';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 import type {
@@ -13,7 +13,13 @@ import type {
   ChatTimelineUsageSummary
 } from '../../chatTimeline/index.ts';
 import { normalizeChatReasoningEffort } from '../agentModelSettings.ts';
-import { formatChatUsageNumber } from '../chatDetailFormatters.ts';
+import {
+  formatChatUsageEstimatedCost,
+  formatChatUsageFirstTokenLatency,
+  formatChatUsageNumber,
+  formatChatUsageOutputSpeed,
+  resolveChatUsageToolCallCount,
+} from '../chatDetailFormatters.ts';
 import type { ChatReasoningEffort } from '../types';
 
 type ChatUsageHeaderBadgeProps = {
@@ -35,6 +41,12 @@ type UsageMetric = {
   key: string;
   label: string;
   value: number | null;
+};
+
+type UsageHeaderStat = {
+  key: string;
+  label: string;
+  value: string;
 };
 
 const USAGE_SHEET_ANIMATION_DURATION = 150;
@@ -71,9 +83,11 @@ const USAGE_CONTEXT_SIDE_CLASS = 'min-w-[126px] shrink-0 items-end gap-1';
 const USAGE_CONTEXT_SIDE_TEXT_CLASS = 'text-right text-[11px] font-bold leading-[14px] text-app-secondary';
 const USAGE_CONTEXT_SIDE_VALUE_CLASS = 'font-extrabold text-app-primary';
 const USAGE_SECTION_CLASS = 'gap-[7px]';
-const USAGE_SECTION_HEADER_CLASS = 'min-h-[18px] flex-row items-center justify-between gap-app-sm';
+const USAGE_SECTION_HEADER_CLASS =
+  'min-h-[18px] flex-row flex-wrap items-start justify-between gap-x-app-sm gap-y-[3px]';
 const USAGE_SECTION_TITLE_CLASS = 'text-[13px] font-extrabold leading-[17px] text-app-primary';
-const USAGE_CALL_COUNTS_CLASS = 'min-w-0 shrink flex-row justify-end gap-app-sm';
+const USAGE_CALL_COUNTS_CLASS =
+  'min-w-0 flex-1 flex-row flex-wrap justify-end gap-x-app-sm gap-y-[3px]';
 const USAGE_CALL_COUNT_TEXT_CLASS = 'text-[11px] font-bold leading-[14px] text-app-secondary';
 const USAGE_CALL_COUNT_VALUE_CLASS = 'font-extrabold text-app-primary';
 const USAGE_METRIC_GRID_CLASS = 'flex-row flex-wrap gap-[7px]';
@@ -119,31 +133,6 @@ function formatCompactUsageNumber(value: number | null): string {
   }
 
   return String(value);
-}
-
-function formatMoneyAmount(value: number): string {
-  if (value >= 0.01) {
-    return trimTrailingZeros(value.toFixed(3));
-  }
-  return trimTrailingZeros(value.toFixed(6));
-}
-
-function formatChatEstimatedCost(cost: ChatTimelineUsageEstimatedCost | null | undefined): string {
-  const total = cost?.total;
-  if (total === null || total === undefined || total < 0) {
-    return '--';
-  }
-  const currency = cost?.currency.toUpperCase();
-  if (currency === 'USD') {
-    return `$${formatMoneyAmount(total)}`;
-  }
-  if (currency === 'CNY' || currency === 'RMB' || currency === 'CNH') {
-    if (total <= 0.1) {
-      return `¥ ${(total * 100).toFixed(2)} 分`;
-    }
-    return `¥ ${trimTrailingZeros(total.toFixed(3))} 元`;
-  }
-  return formatMoneyAmount(total);
 }
 
 function formatUsagePercent(value: number | null | undefined): string {
@@ -285,15 +274,55 @@ const UsageMetricCell = memo(function UsageMetricCell({ metric }: { metric: Usag
   );
 });
 
-const UsageCallCounts = memo(function UsageCallCounts({ stats }: { stats: ChatTimelineUsageStats | null | undefined }) {
+const UsageCallCounts = memo(function UsageCallCounts({
+  stats,
+  showTiming
+}: {
+  stats: ChatTimelineUsageStats | null | undefined;
+  showTiming: boolean;
+}) {
   const t = useT();
   const counts = useMemo(
-    () =>
-      [
-        { key: 'llm', label: t('usage.call.llm'), value: stats?.llmChatCompletionCount ?? null },
-        { key: 'tool', label: t('usage.call.tool'), value: stats?.toolCallCount ?? null }
-      ].filter((count) => count.value !== null && count.value !== undefined),
-    [stats, t]
+    () => {
+      const headerStats: UsageHeaderStat[] = [];
+      if (showTiming) {
+        const firstTokenLatency = formatChatUsageFirstTokenLatency(stats);
+        if (firstTokenLatency) {
+          headerStats.push({
+            key: 'firstTokenLatency',
+            label: t('usage.metric.firstTokenLatency'),
+            value: firstTokenLatency,
+          });
+        }
+        const outputSpeed = formatChatUsageOutputSpeed(stats);
+        if (outputSpeed) {
+          headerStats.push({
+            key: 'outputTokensPerSecond',
+            label: t('usage.metric.outputTokensPerSecond'),
+            value: outputSpeed,
+          });
+        }
+      }
+
+      const llmCallCount = stats?.llmChatCompletionCount ?? null;
+      if (llmCallCount !== null) {
+        headerStats.push({
+          key: 'llm',
+          label: t('usage.call.llm'),
+          value: formatChatUsageNumber(llmCallCount),
+        });
+      }
+      const toolCallCount = resolveChatUsageToolCallCount(stats);
+      if (toolCallCount !== null) {
+        headerStats.push({
+          key: 'tool',
+          label: t('usage.call.tool'),
+          value: formatChatUsageNumber(toolCallCount),
+        });
+      }
+      return headerStats;
+    },
+    [showTiming, stats, t]
   );
 
   if (!counts.length) {
@@ -304,7 +333,7 @@ const UsageCallCounts = memo(function UsageCallCounts({ stats }: { stats: ChatTi
     <View className={USAGE_CALL_COUNTS_CLASS}>
       {counts.map((count) => (
         <Text allowFontScaling={false} numberOfLines={1} key={count.key} className={USAGE_CALL_COUNT_TEXT_CLASS}>
-          {count.label} <Text className={USAGE_CALL_COUNT_VALUE_CLASS}>{formatChatUsageNumber(count.value)}</Text>
+          {count.label} <Text className={USAGE_CALL_COUNT_VALUE_CLASS}>{count.value}</Text>
         </Text>
       ))}
     </View>
@@ -313,10 +342,12 @@ const UsageCallCounts = memo(function UsageCallCounts({ stats }: { stats: ChatTi
 
 const UsageSection = memo(function UsageSection({
   title,
-  stats
+  stats,
+  showTiming = true,
 }: {
   title: string;
   stats: ChatTimelineUsageStats | null | undefined;
+  showTiming?: boolean;
 }) {
   const t = useT();
   const metrics = useMemo(() => buildUsageMetrics(stats, t), [stats, t]);
@@ -327,7 +358,7 @@ const UsageSection = memo(function UsageSection({
         <Text allowFontScaling={false} numberOfLines={1} className={USAGE_SECTION_TITLE_CLASS}>
           {title}
         </Text>
-        <UsageCallCounts stats={stats} />
+        <UsageCallCounts stats={stats} showTiming={showTiming} />
       </View>
       <View className={USAGE_METRIC_GRID_CLASS}>
         {metrics.map((metric) => (
@@ -339,9 +370,9 @@ const UsageSection = memo(function UsageSection({
 });
 
 const UsageContextWindow = memo(function UsageContextWindow({ summary }: { summary: ChatTimelineUsageSummary }) {
-  const t = useT();
+  const { locale, t } = useI18n();
   const cacheHitLabel = formatUsagePercent(resolveChatCacheHitPercent(summary));
-  const estimatedCostLabel = formatChatEstimatedCost(resolveUsageEstimatedCost(summary.chat));
+  const estimatedCostLabel = formatChatUsageEstimatedCost(resolveUsageEstimatedCost(summary.chat), locale);
 
   return (
     <View className={USAGE_CONTEXT_WINDOW_CLASS}>
@@ -392,7 +423,9 @@ const ChatUsageStatsContent = memo(function ChatUsageStatsContent({
       <UsageSection title={t('usage.section.current')} stats={usageSummary.current} />
       <UsageSection title={t('usage.section.run')} stats={usageSummary.run} />
       <UsageSection title={t('usage.section.chat')} stats={usageSummary.chat} />
-      {usageSummary.compact ? <UsageSection title={t('usage.section.compact')} stats={usageSummary.compact} /> : null}
+      {usageSummary.compact ? (
+        <UsageSection title={t('usage.section.compact')} stats={usageSummary.compact} showTiming={false} />
+      ) : null}
     </ScrollView>
   );
 });

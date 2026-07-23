@@ -1,5 +1,10 @@
+import type { AppLocale } from '../../shared/i18n/locales.ts';
 import { defaultT, type TFunction } from '../../shared/i18n/translate.ts';
 import type { ChatSocketStatus } from '../chatRealtime/types';
+import type {
+  ChatTimelineUsageEstimatedCost,
+  ChatTimelineUsageStats,
+} from '../chatTimeline/index.ts';
 import type { ChatMessageItem } from './types';
 
 const SECONDS_PER_MINUTE = 60;
@@ -11,6 +16,131 @@ const DEFAULT_YESTERDAY_LABEL = defaultT('chatDetail.timestamp.yesterday');
 
 export function formatChatUsageNumber(value: number | null | undefined): string {
   return value === null || value === undefined ? '-' : value.toLocaleString();
+}
+
+function readUsageTimingNumber(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
+}
+
+function resolveChatUsageFirstTokenLatency(stats: ChatTimelineUsageStats | null | undefined): number | null {
+  const directLatency = readUsageTimingNumber(stats?.timing.firstTokenLatencyMs);
+  if (directLatency !== null) {
+    return directLatency;
+  }
+
+  const totalLatency = readUsageTimingNumber(stats?.timing.firstTokenLatencyTotalMs);
+  const count = readUsageTimingNumber(stats?.timing.firstTokenLatencyCount);
+  if (totalLatency === null || totalLatency <= 0 || count === null || count <= 0) {
+    return null;
+  }
+  return totalLatency / count;
+}
+
+export function formatChatUsageFirstTokenLatency(
+  stats: ChatTimelineUsageStats | null | undefined
+): string | null {
+  const latencyMs = resolveChatUsageFirstTokenLatency(stats);
+  if (latencyMs === null) {
+    return null;
+  }
+  return latencyMs < MILLISECONDS_PER_SECOND
+    ? `${Math.round(latencyMs)}ms`
+    : `${(latencyMs / MILLISECONDS_PER_SECOND).toFixed(1)}s`;
+}
+
+export function formatChatUsageOutputSpeed(
+  stats: ChatTimelineUsageStats | null | undefined
+): string | null {
+  const completionTokens = readUsageTimingNumber(stats?.completionTokens);
+  const generationDurationMs = readUsageTimingNumber(stats?.timing.generationDurationMs);
+  if (
+    completionTokens === null ||
+    completionTokens <= 0 ||
+    generationDurationMs === null ||
+    generationDurationMs <= 0
+  ) {
+    return null;
+  }
+  return `${((completionTokens * MILLISECONDS_PER_SECOND) / generationDurationMs).toFixed(1)}/s`;
+}
+
+function hasChatUsageEstimatedCost(cost: ChatTimelineUsageEstimatedCost | null): boolean {
+  return Boolean(
+    cost &&
+      (readUsageTimingNumber(cost.inputCacheHit) !== null ||
+        readUsageTimingNumber(cost.inputCacheMiss) !== null ||
+        readUsageTimingNumber(cost.output) !== null ||
+        readUsageTimingNumber(cost.total) !== null)
+  );
+}
+
+function hasChatUsageTiming(stats: ChatTimelineUsageStats): boolean {
+  return (
+    readUsageTimingNumber(stats.timing.firstTokenLatencyMs) !== null ||
+    readUsageTimingNumber(stats.timing.firstTokenLatencyTotalMs) !== null ||
+    readUsageTimingNumber(stats.timing.firstTokenLatencyCount) !== null ||
+    readUsageTimingNumber(stats.timing.generationDurationMs) !== null
+  );
+}
+
+export function hasChatUsageStatsData(
+  stats: ChatTimelineUsageStats | null | undefined
+): stats is ChatTimelineUsageStats {
+  return Boolean(
+    stats &&
+      (readUsageTimingNumber(stats.promptTokens) !== null ||
+        readUsageTimingNumber(stats.completionTokens) !== null ||
+        readUsageTimingNumber(stats.totalTokens) !== null ||
+        readUsageTimingNumber(stats.reasoningTokens) !== null ||
+        readUsageTimingNumber(stats.cacheHitTokens) !== null ||
+        readUsageTimingNumber(stats.cacheMissTokens) !== null ||
+        readUsageTimingNumber(stats.llmChatCompletionCount) !== null ||
+        readUsageTimingNumber(stats.toolCallCount) !== null ||
+        hasChatUsageEstimatedCost(stats.estimatedCost) ||
+        hasChatUsageTiming(stats))
+  );
+}
+
+export function resolveChatUsageToolCallCount(
+  stats: ChatTimelineUsageStats | null | undefined
+): number | null {
+  const toolCallCount = readUsageTimingNumber(stats?.toolCallCount);
+  if (toolCallCount !== null) {
+    return toolCallCount;
+  }
+  return hasChatUsageStatsData(stats) ? 0 : null;
+}
+
+export function formatChatUsageEstimatedCost(
+  cost: ChatTimelineUsageEstimatedCost | null | undefined,
+  locale: AppLocale
+): string {
+  const total = readUsageTimingNumber(cost?.total);
+  if (total === null) {
+    return '--';
+  }
+
+  const currency = cost?.currency.toUpperCase();
+  if (currency === 'USD') {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currencyDisplay: 'symbol',
+      currency: 'USD',
+    }).format(total);
+  }
+  if (currency === 'CNY' || currency === 'RMB' || currency === 'CNH') {
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currencyDisplay: 'symbol',
+      currency: 'CNY',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    }).format(total);
+  }
+  return new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+  }).format(total);
 }
 
 function pad2(value: number): string {

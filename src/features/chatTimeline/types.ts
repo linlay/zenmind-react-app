@@ -474,6 +474,13 @@ export type ChatTimelineRuntimeState = {
   updatedAt: number;
 };
 
+export type ChatTimelineUsageTiming = {
+  firstTokenLatencyMs: number | null;
+  firstTokenLatencyTotalMs: number | null;
+  firstTokenLatencyCount: number | null;
+  generationDurationMs: number | null;
+};
+
 export type ChatTimelineUsageStats = {
   promptTokens: number | null;
   completionTokens: number | null;
@@ -484,6 +491,7 @@ export type ChatTimelineUsageStats = {
   llmChatCompletionCount: number | null;
   toolCallCount: number | null;
   estimatedCost: ChatTimelineUsageEstimatedCost | null;
+  timing: ChatTimelineUsageTiming;
 };
 
 export type ChatTimelineUsageEstimatedCost = {

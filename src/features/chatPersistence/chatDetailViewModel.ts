@@ -2,9 +2,9 @@ import type {
   ChatTimelineDisplayItem,
   ChatTimelineNode,
   ChatTimelineState,
-  ChatTimelineUsageStats,
   ChatTimelineUsageSummary,
 } from '../chatTimeline/index.ts';
+import { hasChatUsageStatsData } from './chatDetailFormatters.ts';
 
 export type ChatComposerPrimaryAction = 'send-disabled' | 'sending' | 'send' | 'stop' | 'resume';
 export type ChatComposerRunAction = Extract<ChatComposerPrimaryAction, 'stop' | 'resume'>;
@@ -51,32 +51,6 @@ function hasUsageNumber(value: number | null | undefined): boolean {
   return typeof value === 'number' && Number.isFinite(value);
 }
 
-function hasDisplayableEstimatedCost(stats: ChatTimelineUsageStats): boolean {
-  const estimatedCost = stats.estimatedCost;
-  return Boolean(
-    estimatedCost &&
-      (hasUsageNumber(estimatedCost.inputCacheHit) ||
-        hasUsageNumber(estimatedCost.inputCacheMiss) ||
-        hasUsageNumber(estimatedCost.output) ||
-        hasUsageNumber(estimatedCost.total))
-  );
-}
-
-function hasDisplayableUsageStats(stats: ChatTimelineUsageStats | null): boolean {
-  return Boolean(
-    stats &&
-      (hasUsageNumber(stats.promptTokens) ||
-        hasUsageNumber(stats.completionTokens) ||
-        hasUsageNumber(stats.totalTokens) ||
-        hasUsageNumber(stats.reasoningTokens) ||
-        hasUsageNumber(stats.cacheHitTokens) ||
-        hasUsageNumber(stats.cacheMissTokens) ||
-        hasUsageNumber(stats.llmChatCompletionCount) ||
-        hasUsageNumber(stats.toolCallCount) ||
-        hasDisplayableEstimatedCost(stats))
-  );
-}
-
 export function hasDisplayableChatTimelineUsageSummary(
   usageSummary: ChatTimelineUsageSummary | null | undefined
 ): usageSummary is ChatTimelineUsageSummary {
@@ -86,10 +60,10 @@ export function hasDisplayableChatTimelineUsageSummary(
         hasUsageNumber(usageSummary.contextWindow.maxSize) ||
         hasUsageNumber(usageSummary.contextWindow.estimatedNextCallSize) ||
         hasUsageNumber(usageSummary.contextWindow.percent) ||
-        hasDisplayableUsageStats(usageSummary.current) ||
-        hasDisplayableUsageStats(usageSummary.run) ||
-        hasDisplayableUsageStats(usageSummary.chat) ||
-        hasDisplayableUsageStats(usageSummary.compact))
+        hasChatUsageStatsData(usageSummary.current) ||
+        hasChatUsageStatsData(usageSummary.run) ||
+        hasChatUsageStatsData(usageSummary.chat) ||
+        hasChatUsageStatsData(usageSummary.compact))
   );
 }
 

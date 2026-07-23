@@ -2,7 +2,9 @@ import type {
   ChatTimelineAwaitingNode,
   ChatTimelineNode,
   ChatTimelineState,
+  ChatTimelineUsageStats,
   ChatTimelineUsageSummary,
+  ChatTimelineUsageTiming,
 } from './types.ts';
 import { buildActiveReasoningNodeIdsByRun } from './timelineReasoningIdentity.ts';
 import { migratePersistedChatTimelineActionNode } from './timelineAction.ts';
@@ -86,6 +88,32 @@ function isTimelineNode(value: unknown): value is ChatTimelineNode {
   );
 }
 
+function toNullableUsageNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === '') {
+    return null;
+  }
+  const numeric = Number(value);
+  return Number.isFinite(numeric) && numeric >= 0 ? numeric : null;
+}
+
+function normalizePersistedUsageTiming(value: unknown): ChatTimelineUsageTiming {
+  const timing = isRecord(value) ? value : {};
+  return {
+    firstTokenLatencyMs: toNullableUsageNumber(timing.firstTokenLatencyMs),
+    firstTokenLatencyTotalMs: toNullableUsageNumber(timing.firstTokenLatencyTotalMs),
+    firstTokenLatencyCount: toNullableUsageNumber(timing.firstTokenLatencyCount),
+    generationDurationMs: toNullableUsageNumber(timing.generationDurationMs),
+  };
+}
+
+function normalizePersistedUsageStats(value: Record<string, unknown>): ChatTimelineUsageStats {
+  const stats = value as ChatTimelineUsageStats;
+  return {
+    ...stats,
+    timing: normalizePersistedUsageTiming(value.timing),
+  };
+}
+
 function normalizePersistedUsageSummary(value: unknown): ChatTimelineUsageSummary | null {
   if (
     !isRecord(value) ||
@@ -102,7 +130,10 @@ function normalizePersistedUsageSummary(value: unknown): ChatTimelineUsageSummar
   return {
     ...summary,
     modelKey: typeof value.modelKey === 'string' ? value.modelKey : '',
-    compact: isRecord(value.compact) ? summary.compact : null,
+    current: normalizePersistedUsageStats(value.current),
+    run: normalizePersistedUsageStats(value.run),
+    chat: normalizePersistedUsageStats(value.chat),
+    compact: isRecord(value.compact) ? normalizePersistedUsageStats(value.compact) : null,
     contextWindow: {
       ...summary.contextWindow,
       reasoningEffort:
@@ -205,6 +236,15 @@ export function deserializeChatTimelineState(
     node = migratePersistedChatTimelineActionNode(node, conversationId);
     node = migratePersistedChatTimelineContextCompactNode(node, conversationId);
     node = migratePersistedChatTimelineMessageNode(node);
+    if (node.kind === 'usage' || node.kind === 'context') {
+      const usageSummary = normalizePersistedUsageSummary(node.usageSummary);
+      if (usageSummary) {
+        node = {
+          ...node,
+          usageSummary,
+        };
+      }
+    }
     const current = nodesById[node.id];
     if (!current || node.updatedAt >= current.updatedAt) {
       nodesById[node.id] = node;

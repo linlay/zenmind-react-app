@@ -313,28 +313,50 @@ test('timeline persistence normalizes legacy usage summaries without reasoning e
           promptTokens: 12,
           completionTokens: 3,
           totalTokens: 15,
+          timing: {
+            firstTokenLatencyMs: 820,
+            generationDurationMs: 1_200,
+          },
         },
         run: {
           promptTokens: 12,
           completionTokens: 3,
           totalTokens: 15,
+          timing: {
+            firstTokenLatencyTotalMs: 1_640,
+            firstTokenLatencyCount: 2,
+            generationDurationMs: 2_400,
+          },
         },
         chat: {
           promptTokens: 12,
           completionTokens: 3,
           totalTokens: 15,
+          timing: {
+            firstTokenLatencyTotalMs: 2_460,
+            firstTokenLatencyCount: 3,
+            generationDurationMs: 3_600,
+          },
         },
       },
       timestamp: 160,
     },
   ]);
   const serialized = serializeChatTimelineState(state);
+  const roundtripped = deserializeChatTimelineState(serialized.meta, serialized.nodes);
+  assert.equal(roundtripped?.usageSummary?.current.timing.firstTokenLatencyMs, 820);
+  assert.equal(roundtripped?.usageSummary?.run.timing.firstTokenLatencyCount, 2);
+  assert.equal(roundtripped?.usageSummary?.chat.timing.generationDurationMs, 3_600);
+
   const legacyRows = serialized.nodes.map((row) => {
     if (row.kind !== 'usage') {
       return row;
     }
     const payload = JSON.parse(row.payloadJson);
     delete payload.usageSummary.contextWindow.reasoningEffort;
+    delete payload.usageSummary.current.timing;
+    delete payload.usageSummary.run.timing;
+    delete payload.usageSummary.chat.timing;
     const payloadJson = timelinePersistenceInternals.stableStringify(payload);
     return {
       ...row,
@@ -347,6 +369,24 @@ test('timeline persistence normalizes legacy usage summaries without reasoning e
 
   assert.equal(restored?.usageSummary?.modelKey, 'gpt-5-mini');
   assert.equal(restored?.usageSummary?.contextWindow.reasoningEffort, '');
+  assert.deepEqual(restored?.usageSummary?.current.timing, {
+    firstTokenLatencyMs: null,
+    firstTokenLatencyTotalMs: null,
+    firstTokenLatencyCount: null,
+    generationDurationMs: null,
+  });
+  assert.deepEqual(restored?.usageSummary?.run.timing, {
+    firstTokenLatencyMs: null,
+    firstTokenLatencyTotalMs: null,
+    firstTokenLatencyCount: null,
+    generationDurationMs: null,
+  });
+  assert.deepEqual(restored?.usageSummary?.chat.timing, {
+    firstTokenLatencyMs: null,
+    firstTokenLatencyTotalMs: null,
+    firstTokenLatencyCount: null,
+    generationDurationMs: null,
+  });
 });
 
 test('timeline persistence roundtrips structured question awaiting payloads', () => {

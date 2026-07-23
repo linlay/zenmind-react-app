@@ -54,6 +54,12 @@ const emptyUsageStats: ChatTimelineUsageStats = {
   llmChatCompletionCount: null,
   toolCallCount: null,
   estimatedCost: null,
+  timing: {
+    firstTokenLatencyMs: null,
+    firstTokenLatencyTotalMs: null,
+    firstTokenLatencyCount: null,
+    generationDurationMs: null,
+  },
 };
 
 function createUsageSummary(
@@ -159,6 +165,25 @@ test('usage summary display guard accepts structured zero values', () => {
           estimatedNextCallSize: null,
           percent: null,
           reasoningEffort: '',
+        },
+      })
+    ),
+    true
+  );
+});
+
+test('usage summary display guard accepts timing-only usage', () => {
+  assert.equal(
+    hasDisplayableChatTimelineUsageSummary(
+      createUsageSummary({
+        run: {
+          ...emptyUsageStats,
+          timing: {
+            ...emptyUsageStats.timing,
+            firstTokenLatencyTotalMs: 10_600,
+            firstTokenLatencyCount: 1,
+            generationDurationMs: 880,
+          },
         },
       })
     ),

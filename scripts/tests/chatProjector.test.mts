@@ -312,6 +312,10 @@ test('merges current usage events with historical detail cumulative usage', () =
               cacheHitTokens: 90,
               cacheMissTokens: 30,
             },
+            timing: {
+              firstTokenLatencyMs: 820,
+              generationDurationMs: 880,
+            },
             toolCallCount: 1,
           },
         },
@@ -337,6 +341,11 @@ test('merges current usage events with historical detail cumulative usage', () =
             currency: 'CNY',
             total: 0.898,
           },
+          timing: {
+            firstTokenLatencyTotalMs: 10_600,
+            firstTokenLatencyCount: 1,
+            generationDurationMs: 42_600,
+          },
           llmChatCompletionCount: 8,
           toolCallCount: 15,
         },
@@ -354,6 +363,11 @@ test('merges current usage events with historical detail cumulative usage', () =
         completionTokensDetails: {
           reasoningTokens: 1_656,
         },
+        timing: {
+          firstTokenLatencyTotalMs: 10_600,
+          firstTokenLatencyCount: 1,
+          generationDurationMs: 42_600,
+        },
         llmChatCompletionCount: 8,
         toolCallCount: 15,
       },
@@ -367,6 +381,11 @@ test('merges current usage events with historical detail cumulative usage', () =
         },
         completionTokensDetails: {
           reasoningTokens: 1_656,
+        },
+        timing: {
+          firstTokenLatencyTotalMs: 21_200,
+          firstTokenLatencyCount: 2,
+          generationDurationMs: 42_600,
         },
         estimatedCost: {
           currency: 'CNY',
@@ -382,10 +401,13 @@ test('merges current usage events with historical detail cumulative usage', () =
   assert.equal(usage?.modelKey, 'minimax-m3');
   assert.equal(usage?.contextWindow.percent, 5);
   assert.equal(usage?.current.totalTokens, 140);
+  assert.equal(usage?.current.timing.firstTokenLatencyMs, 820);
   assert.equal(usage?.current.toolCallCount, 1);
   assert.equal(usage?.run.promptTokens, 53_038);
+  assert.equal(usage?.run.timing.firstTokenLatencyTotalMs, 10_600);
   assert.equal(usage?.run.reasoningTokens, 1_656);
   assert.equal(usage?.chat.cacheHitTokens, 42_535);
+  assert.equal(usage?.chat.timing.firstTokenLatencyCount, 2);
   assert.equal(usage?.chat.estimatedCost?.currency, 'CNY');
   assert.equal(usage?.chat.estimatedCost?.total, 0.898);
   assert.equal(usage?.chat.llmChatCompletionCount, 8);

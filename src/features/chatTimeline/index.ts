@@ -68,6 +68,7 @@ export type {
   ChatTimelineUsageEstimatedCost,
   ChatTimelineUsageStats,
   ChatTimelineUsageSummary,
+  ChatTimelineUsageTiming,
 } from './types.ts';
 export {
   isChatTimelineCommandMessageVariant,
