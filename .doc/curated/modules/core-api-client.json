@@ -2,9 +2,7 @@
   "schemaVersion": "1.0",
   "module": "core-api-client",
   "status": "confirmed",
-  "paths": [
-    "src/core/api"
-  ],
+  "paths": ["src/core/api"],
   "summary": {
     "purpose": "统一 API 客户端: 统一拼接 API base URL、path 和 query。",
     "ownedConcepts": [
@@ -12,8 +10,8 @@
       "提供 apiRequest、ApiError 以及业务 service 目录约定。",
       "提供 authenticatedApiRequest，把当前认证 access token 注入业务接口请求；HTTP profile 与 Desktop WS 同源 HTTP 接口共用统一 token provider，并在 401 时强制刷新后重试一次。",
       "提供 buildAuthenticatedApiUriSource，为 Image/资源下载这类非 fetch 调用生成同源 URL 与 Authorization header。",
-      "提供 authenticatedResource 资源服务，把同源认证 source、512 KiB/8 秒有界文本预览和安全文件名收口到 core；文本预览按目标文件拒绝错误的 HTML app-shell 响应，Desktop WS profile 对相对 resource/workspace HTTP 数据面显式返回 unsupported_transport，避免把公网前端兜底页当作产物或下载文件；平台下载适配复用同一 source，Native 通过系统目录选择后带 header 下载，Web 通过认证 fetch + Blob 触发保存。",
-      "提供 uploadApi 上传服务，HTTP profile 继续使用同源 /ap/api/upload；Desktop WS profile 统一使用可信 Tunnel Hub /api/upload 数据面并携带 publicHost，401 时刷新 Desktop access token 后仅重试一次。",
+      "提供 authenticatedResource 资源服务，把同源认证 source、512 KiB/8 秒有界文本预览和安全文件名收口到 core；文本预览按目标文件拒绝错误的 HTML app-shell 响应；原生图片通过 authenticatedResourceImage 对规范化后的 GET /api/resource 发起带认证请求，由原生文件系统流式写入系统临时缓存，缓存按资源 URL 统一去重，32 MiB 上限与消费者引用计数负责取消无用下载，落盘后拒绝明显的 HTML/JSON 错误文档再交给 Image 解码；其他 Desktop WS 相对 resource/workspace 预览在 HTTP 数据面未接通时仍显式返回 unsupported_transport；平台下载适配复用同一 source，Native 通过系统目录选择后带 header 下载，Web 通过认证 fetch + Blob 触发保存。",
+      "提供 uploadApi 上传服务，HTTP profile 继续使用同源 /api/upload；Desktop WS profile 使用自身规范化 wss Host 对应的 HTTPS /api/upload 数据面，multipart 只发送 requestId、chatId 和 file，401 时刷新 Desktop access token 后仅重试一次。",
       "提供 buildWorkspaceFileResourceUrl，集中构造带 agentKey、文件路径和可选行号的 /api/workspace/file 资源 URL；空 scope 或路径返回 null，由 feature 安全降级。",
       "在开发态通过 core-debug-logging 打印非 WS HTTP 请求、响应和错误。",
       "把业务请求实现收口到 core/api/services，避免 feature 到处散写 fetch。",
@@ -24,8 +22,9 @@
       "Public entry buildApiUrl (url-builder): 统一拼接完整接口 URL。",
       "Public entry buildAuthenticatedApiUriSource (authenticated-resource-source): 为同源 API 资源 URL 生成可直接交给 Image/下载组件的 uri 与 Authorization header。",
       "Public entry resolveAuthenticatedResourceSource / fetchAuthenticatedResourceText (authenticated-resource-service): 校验资源 URL 并复用统一 token provider 生成认证 source，文本读取带大小、超时和响应 MIME 上限；Desktop WS 相对 resource/workspace URL 在 HTTP 数据面接通前显式拒绝。",
+      "Public entry resolveAuthenticatedResourceImageSource (authenticated-image-resource-service): 原生端通过认证 GET /api/resource 把图片流式写入按资源 URL 统一命名的有界临时缓存，支持调用方取消与同资源 single-flight，供行内与全屏预览复用；Web 保持认证 URI source。",
       "Public entry downloadAuthenticatedResource (platform-resource-download): Native/Web 共用的认证下载接口，平台文件只负责系统目录或浏览器 Blob 落盘。",
-      "Public entry uploadChatAttachmentApi (api-service): 按 active profile 分流附件上传；Tunnel Hub 成功响应必须为 JSON，HTML app-shell、非法 JSON 和非法 envelope 显式失败。",
+      "Public entry uploadChatAttachmentApi (api-service): 按 active profile 分流附件上传；Desktop 公网 Host 成功响应必须为 JSON，HTML app-shell、非法 JSON 和非法 envelope 显式失败。",
       "Public entry buildWorkspaceFileResourceUrl (protocol-helper): 集中编码 /api/workspace/file 的 agentKey/path/line query，缺少 agent scope 或路径时不构造请求。",
       "Public entry apiRequest (request): 统一 HTTP 请求入口。",
       "Public entry authenticatedApiRequest (authenticated-request): 带当前 access token 的统一业务请求入口，服务端返回 401 时强制刷新 token 并重试一次。",
@@ -67,11 +66,7 @@
   "facts": {
     "entrypoints": [],
     "publicApi": [],
-    "dependencies": [
-      "core-auth-session",
-      "core-debug-logging",
-      "core-ws-transport"
-    ],
+    "dependencies": ["core-auth-session", "core-debug-logging", "core-ws-transport"],
     "dependents": [
       "app-development-debug",
       "app-shell-navigation",
@@ -85,10 +80,7 @@
     "lastScannedAt": ""
   },
   "readHints": {
-    "alwaysRead": [
-      "src/core/api/apiClient.ts",
-      "src/core/api/services/README.md"
-    ],
+    "alwaysRead": ["src/core/api/apiClient.ts", "src/core/api/services/README.md"],
     "readFor": [
       {
         "when": "legacy readNext",
@@ -111,8 +103,8 @@
   },
   "riskRules": [
     "新增 service 文件统一放在 src/core/api/services，并通过 apiRequest 发请求。",
-    "需要认证的同源业务接口优先使用 authenticatedApiRequest；Tunnel Hub 文件数据面是唯一跨 origin 例外，必须固定到构建期可信 Hub、通过 getAccessTokenForRequest 获取 Desktop token、只对 401 刷新并重试一次，禁止扩展为任意 base URL token 转发。",
-    "Image/文件下载这类非 fetch 资源请求需要访问同源 API 时使用 buildAuthenticatedApiUriSource 或 authenticatedResource service，不在组件里手写 Authorization header；Desktop WS 的相对 resource/workspace URL 不得退化为公网同源 HTTP 请求，HTTP 文件数据面未提供时必须显式失败；Native 下载必须落到用户选择的系统目录，Web Blob URL 用后立即释放，不能把私有缓存路径伪装成用户可访问下载。",
+    "需要认证的同源业务接口优先使用 authenticatedApiRequest；Desktop 公网上传只允许访问 active Profile 规范化 wssUrl 派生的同 Host HTTPS /api/upload，通过 getAccessTokenForRequest 获取 Desktop token、只对 401 刷新并重试一次；目标 Desktop 只由 URL Host 确定，multipart 只发送 requestId、chatId 和 file，不得重复携带 publicHost 或客户端 sha256，也禁止扩展为任意 URL token 转发。",
+    "Image/文件下载这类资源请求需要访问同源 API 时使用 buildAuthenticatedApiUriSource 或 authenticatedResource service，不在组件里手写 Authorization header；聊天图片只允许 GET 规范化后的 /api/resource，原生端必须流式写入有界临时缓存、支持离屏取消并拒绝明显的 HTML/JSON 错误文档，禁止改用 /api/download；其他 Desktop WS 相对 resource/workspace 预览在 HTTP 数据面未提供时必须显式失败；Native 用户下载必须落到用户选择的系统目录，Web Blob URL 用后立即释放。",
     "workspace file URL 必须通过 buildWorkspaceFileResourceUrl 构造并由 authenticatedResource 访问；feature 只传当前对话已确认的 agent scope，不信任 Markdown URL 内嵌的 agentKey。",
     "authenticatedApiRequest 只允许对 401 做一次强制刷新重试，非 401 错误不自动重试。",
     "协议归一化 helper 保持纯函数，不直接依赖 SQLite、UI state 或 transport 单例；request message variant 只接受 steer/remember/learn 白名单，未知子类型不得猜测或吞掉通用 request fallback。",

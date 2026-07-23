@@ -60,11 +60,13 @@
     "scripts/tests/chatRealtimeReconcile.test.mts",
     "scripts/tests/chatRealtimeRouting.test.mts",
     "scripts/tests/chatRealtimeUiState.test.mts",
+    "scripts/tests/chatResponseWaiting.test.mts",
     "scripts/tests/chatRuntimeState.test.mts",
     "scripts/tests/chatTimelineAction.test.mts",
     "scripts/tests/chatTimelineArtifact.test.mts",
     "scripts/tests/chatTimelineContextCompact.test.mts",
     "scripts/tests/chatTimelineDisplay.test.mts",
+    "scripts/tests/chatTimelineFooterLayout.test.mts",
     "scripts/tests/chatTimelinePersistence.test.mts",
     "scripts/tests/chatTimelinePlan.test.mts",
     "scripts/tests/chatTimelineReducer.test.mts",
@@ -2074,6 +2076,8 @@
     "src/core/api/services/authenticatedResourceDownload.native.ts",
     "src/core/api/services/authenticatedResourceDownload.ts",
     "src/core/api/services/authenticatedResourceDownload.web.ts",
+    "src/core/api/services/authenticatedResourceImage.native.ts",
+    "src/core/api/services/authenticatedResourceImage.ts",
     "src/core/api/services/authenticatedResourceModel.ts",
     "src/core/api/services/chatApi.ts",
     "src/core/api/services/chatEventProtocol.ts",
@@ -2158,6 +2162,7 @@
     "src/features/chatPersistence/components/ChatDirectoryRow.tsx",
     "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx",
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
+    "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx",
     "src/features/chatPersistence/components/ChatSystemAlert.tsx",
     "src/features/chatPersistence/components/ChatTimelineList.tsx",
     "src/features/chatPersistence/components/ChatTimelineRail.tsx",
@@ -10302,6 +10307,14 @@
                         "type": "file"
                       },
                       {
+                        "name": "authenticatedResourceImage.native.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "authenticatedResourceImage.ts",
+                        "type": "file"
+                      },
+                      {
                         "name": "authenticatedResourceModel.ts",
                         "type": "file"
                       },
@@ -10673,6 +10686,10 @@
                       },
                       {
                         "name": "ChatNewConversationIntro.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatResponseWaitingIndicator.tsx",
                         "type": "file"
                       },
                       {
@@ -11521,6 +11538,8 @@
       "src/core/api/services/authenticatedResourceDownload.native.ts",
       "src/core/api/services/authenticatedResourceDownload.ts",
       "src/core/api/services/authenticatedResourceDownload.web.ts",
+      "src/core/api/services/authenticatedResourceImage.native.ts",
+      "src/core/api/services/authenticatedResourceImage.ts",
       "src/core/api/services/authenticatedResourceModel.ts",
       "src/core/api/services/chatApi.ts",
       "src/core/api/services/chatEventProtocol.ts",
@@ -11619,6 +11638,7 @@
       "src/features/chatPersistence/components/ChatDirectoryRow.tsx",
       "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx",
       "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
+      "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx",
       "src/features/chatPersistence/components/ChatSystemAlert.tsx",
       "src/features/chatPersistence/components/ChatTimelineList.tsx",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
@@ -11827,6 +11847,8 @@
     "src/core/api/services/authenticatedResourceDownload.native.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceDownload.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceDownload.web.ts": "core-api-client",
+    "src/core/api/services/authenticatedResourceImage.native.ts": "core-api-client",
+    "src/core/api/services/authenticatedResourceImage.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceModel.ts": "core-api-client",
     "src/core/api/services/chatApi.ts": "core-api-client",
     "src/core/api/services/chatEventProtocol.ts": "core-api-client",
@@ -11911,6 +11933,7 @@
     "src/features/chatPersistence/components/ChatDirectoryRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatSystemAlert.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatTimelineList.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": "feature-chat-persistence",
@@ -12096,7 +12119,6 @@
       "dependsOn": [
         "core-auth-session",
         "core-debug-logging",
-        "core-runtime-config",
         "core-ws-transport"
       ],
       "dependedBy": [
@@ -12131,13 +12153,13 @@
         "app-development-debug",
         "core-api-client",
         "core-auth-session",
-        "core-ws-transport"
+        "core-ws-transport",
+        "feature-chat-persistence"
       ]
     },
     "core-runtime-config": {
       "dependsOn": [],
       "dependedBy": [
-        "core-api-client",
         "core-auth-session",
         "core-debug-logging",
         "core-ws-transport",
@@ -12183,6 +12205,7 @@
       "dependsOn": [
         "app-shell-navigation",
         "core-api-client",
+        "core-debug-logging",
         "feature-chat-realtime",
         "feature-chat-timeline",
         "shared-conversation-content-renderer",
@@ -18178,6 +18201,7 @@
       "AUTHENTICATED_TEXT_PREVIEW_TIMEOUT_MS",
       "AuthenticatedResourceError",
       "AuthenticatedResourceErrorCode",
+      "createAuthenticatedResourceImageCacheFileName",
       "fetchAuthenticatedResourceText",
       "isAuthenticatedResourceContentTypeCompatible",
       "normalizeAuthenticatedResourceFileName",
@@ -18195,9 +18219,17 @@
     "src/core/api/services/authenticatedResourceDownload.web.ts": [
       "downloadAuthenticatedResource"
     ],
+    "src/core/api/services/authenticatedResourceImage.native.ts": [
+      "resolveAuthenticatedResourceImageSource"
+    ],
+    "src/core/api/services/authenticatedResourceImage.ts": [
+      "AuthenticatedResourceImageRequest",
+      "resolveAuthenticatedResourceImageSource"
+    ],
     "src/core/api/services/authenticatedResourceModel.ts": [
       "AuthenticatedResourceDownloadRequest",
       "AuthenticatedResourceDownloadResult",
+      "createAuthenticatedResourceImageCacheFileName",
       "isAuthenticatedResourceContentTypeCompatible",
       "normalizeAuthenticatedResourceFileName",
       "requiresAuthenticatedResourceHttpDataPlane"
@@ -18396,14 +18428,11 @@
       "ChatUploadReference",
       "ChatUploadResponseData",
       "ChatUploadRoute",
-      "DEFAULT_TUNNEL_HUB_BASE_URL",
-      "TUNNEL_HUB_UPLOAD_API_PATH",
-      "TunnelHubUploadRequestHooks",
+      "DesktopPublicUploadRequestHooks",
       "createChatUploadFormData",
-      "parseTunnelHubUploadResponse",
-      "requestTunnelHubUpload",
+      "parseDesktopPublicUploadResponse",
+      "requestDesktopPublicUpload",
       "resolveChatUploadRoute",
-      "resolveTunnelHubBaseUrl",
       "unwrapChatUploadResponse"
     ],
     "src/core/api/services/workspaceResource.ts": [
@@ -18695,7 +18724,8 @@
       "ChatDetailHeaderStatusTone",
       "deriveChatComposerPrimaryAction",
       "deriveChatDetailHeaderRuntimeState",
-      "hasDisplayableChatTimelineUsageSummary"
+      "hasDisplayableChatTimelineUsageSummary",
+      "shouldShowChatResponseWaitingIndicator"
     ],
     "src/features/chatPersistence/chatDirectoryOpenDecision.ts": [
       "ChatDirectoryLatestConversationSummary",
@@ -18878,6 +18908,9 @@
     ],
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": [
       "ChatNewConversationIntro"
+    ],
+    "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx": [
+      "ChatResponseWaitingIndicator"
     ],
     "src/features/chatPersistence/components/ChatSystemAlert.tsx": [
       "ChatSystemAlert"
@@ -22605,6 +22638,17 @@
     "src/core/api/services/authenticatedResourceDownload.web.ts": [
       "./authenticatedResource.ts"
     ],
+    "src/core/api/services/authenticatedResourceImage.native.ts": [
+      "../../debug/httpDebugLogger.ts",
+      "../apiClient.ts",
+      "./authenticatedResource.ts",
+      "./authenticatedResourceImage.ts",
+      "./authenticatedResourceModel.ts",
+      "expo-file-system"
+    ],
+    "src/core/api/services/authenticatedResourceImage.ts": [
+      "../apiClient.ts"
+    ],
     "src/core/api/services/authenticatedResourceModel.ts": null,
     "src/core/api/services/chatApi.ts": [
       "../apiClient.ts",
@@ -22648,7 +22692,6 @@
     "src/core/api/services/uploadApi.ts": [
       "../../auth/appAuth",
       "../../auth/deviceProfiles",
-      "../../config/runtimeEnv",
       "../../debug/httpDebugLogger",
       "../apiClient",
       "../resourceUrl",
@@ -22999,6 +23042,8 @@
     ],
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx": [
       "../../../core/api/apiClient",
+      "../../../core/api/services/authenticatedResourceImage",
+      "../../../core/debug/httpDebugLogger",
       "../../../shared/components/conversationPreview/ConversationPreviewProvider.tsx",
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
@@ -23133,6 +23178,12 @@
       "react",
       "react-native"
     ],
+    "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx": [
+      "../../../shared/i18n",
+      "../../../shared/visual/AppThemeProvider",
+      "react",
+      "react-native"
+    ],
     "src/features/chatPersistence/components/ChatSystemAlert.tsx": [
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
@@ -23153,12 +23204,14 @@
       "../../chatTimeline/index.ts",
       "../chatArtifactPresentation.ts",
       "../chatDetailFormatters",
+      "../chatDetailViewModel",
       "../conversationViewport/ConversationContentRenderer",
       "../markdownLinks/ChatConversationMarkdownRenderer.tsx",
       "../markdownLinks/ConversationMarkdownLinkProvider.tsx",
       "./ActionTimelineRow.tsx",
       "./ChatArtifactDrawer.tsx",
       "./ChatAttachmentStrip",
+      "./ChatResponseWaitingIndicator",
       "./ChatSystemAlert",
       "./ChatTimelineRail",
       "./ContextCompactTimelineRow.tsx",
@@ -23444,6 +23497,7 @@
     "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts": [
       "../../../../core/api/apiClient.ts",
       "../../../../core/api/services/authenticatedResource.ts",
+      "../../../../core/api/services/authenticatedResourceImage",
       "react"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
@@ -26431,6 +26485,16 @@
     "src/core/api/services/authenticatedResourceDownload.web.ts": [
       "src/core/api/services/authenticatedResource.ts"
     ],
+    "src/core/api/services/authenticatedResourceImage.native.ts": [
+      "src/core/api/apiClient.ts",
+      "src/core/api/services/authenticatedResource.ts",
+      "src/core/api/services/authenticatedResourceImage.ts",
+      "src/core/api/services/authenticatedResourceModel.ts",
+      "src/core/debug/httpDebugLogger.ts"
+    ],
+    "src/core/api/services/authenticatedResourceImage.ts": [
+      "src/core/api/apiClient.ts"
+    ],
     "src/core/api/services/authenticatedResourceModel.ts": null,
     "src/core/api/services/chatApi.ts": [
       "src/core/api/apiClient.ts",
@@ -26477,7 +26541,6 @@
       "src/core/api/services/uploadApiModel.ts",
       "src/core/auth/appAuth.ts",
       "src/core/auth/deviceProfiles.ts",
-      "src/core/config/runtimeEnv.ts",
       "src/core/debug/httpDebugLogger.ts"
     ],
     "src/core/api/services/uploadApiModel.ts": [
@@ -26783,6 +26846,8 @@
     ],
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx": [
       "src/core/api/apiClient.ts",
+      "src/core/api/services/authenticatedResourceImage.ts",
+      "src/core/debug/httpDebugLogger.ts",
       "src/features/chatPersistence/chatAttachmentIcon.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatAttachmentPreview.ts",
@@ -26885,6 +26950,10 @@
       "src/shared/icons/AppIconButton.tsx",
       "src/shared/visual/className.ts"
     ],
+    "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx": [
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
     "src/features/chatPersistence/components/ChatSystemAlert.tsx": [
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatTimeline/index.ts",
@@ -26895,9 +26964,11 @@
     "src/features/chatPersistence/components/ChatTimelineList.tsx": [
       "src/features/chatPersistence/chatArtifactPresentation.ts",
       "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/chatDetailViewModel.ts",
       "src/features/chatPersistence/components/ActionTimelineRow.tsx",
       "src/features/chatPersistence/components/ChatArtifactDrawer.tsx",
       "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
+      "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx",
       "src/features/chatPersistence/components/ChatSystemAlert.tsx",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx",
@@ -27132,7 +27203,8 @@
     ],
     "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts": [
       "src/core/api/apiClient.ts",
-      "src/core/api/services/authenticatedResource.ts"
+      "src/core/api/services/authenticatedResource.ts",
+      "src/core/api/services/authenticatedResourceImage.ts"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "src/features/chatPersistence/components/runtimeStructuredPayload.ts",

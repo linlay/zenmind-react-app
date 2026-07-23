@@ -62,7 +62,7 @@
     "启动加载层必须有明确退场条件，优先复用 NavigationContainer 的 ready 时机配合最短展示时长。",
     "如果启动动画改成 Reanimated 这类 UI 线程方案，同步检查 package.json 和 babel.config.js，避免只在本机 node_modules 碰巧能跑。",
     "如果 loading 出现前有白屏，先检查 Android splash theme、AppTheme 和 React loading 背景是否连续，不要只盯着 JS 侧动画。",
-    "如果接入 expo-splash-screen，native splash 的第一帧要和 React loading 的第一帧保持同背景、同 generated logo、同尺寸，再在接棒后启动动画。",
+    "如果接入 expo-splash-screen，native splash 的第一帧要和 React loading 的第一帧保持同背景、同 generated logo 和视觉居中；Android 原生 logo 尺寸需额外遵守系统圆形安全区，再在接棒后启动动画。",
     "加载层视觉可以放在 src/app/startup，但不要改动 Tab.Screen 映射来实现全局遮罩。"
   ],
   "generated": {

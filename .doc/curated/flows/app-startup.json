@@ -4,7 +4,7 @@
   "title": "应用启动与导航挂载",
   "trigger": "Expo 启动应用并注册根组件时触发。",
   "sourceOfTruth": [
-    "app.config.js 通过 --brand 或 BRAND 选择 brands/<id>/brand.json，并合成 brands/shared.json 决定 expo-splash-screen 的原生启动图资源、背景色、imageWidth、展示名称、共享 Expo slug、共享包名 / bundle id、EAS updates 入口和安装壳 embedded brand id。",
+    "app.config.js 通过 --brand 或 BRAND 选择 brands/<id>/brand.json，并合成 brands/shared.json 决定 expo-splash-screen 的原生启动图资源、背景色、imageWidth、展示名称、共享 Expo slug、共享包名 / bundle id、EAS updates 入口和安装壳 embedded brand id；Android 使用从品牌 imageWidth 派生的安全宽度，避免系统圆形 splash 遮罩裁切笔画。",
     "App.tsx 和 AppRoot.tsx 决定根 provider 树、I18nProvider、AppThemeProvider 与导航挂载顺序。",
     "src/core/auth/appAuth.ts 决定冷启动时的认证恢复、HTTP/Desktop WS 设备 profile、token 缓存、前台预刷新和登录态切换。",
     "notificationService 决定登录后的系统通知权限、原生 push token 注册和冷启动通知点击缓存。",
@@ -22,7 +22,7 @@
     },
     {
       "order": 2,
-      "label": "原生启动阶段先按 app.config.js 解析出的品牌 splash 配置和 Android splash theme 显示品牌背景与中心 logo；MainActivity 切换到 AppTheme 时背景仍需连续，避免 React 挂载前露白。",
+      "label": "原生启动阶段先按 app.config.js 解析出的品牌 splash 配置和 Android splash theme 显示品牌背景与中心 logo；Android logo 使用平台安全宽度适配圆形遮罩，MainActivity 切换到 AppTheme 时背景仍需连续，避免 React 挂载前露白。",
       "moduleId": "app-shell-navigation",
       "file": "android/app/src/main/res/values/styles.xml",
       "symbol": null
@@ -86,6 +86,7 @@
     "Theme.App.SplashScreen 和 AppTheme 背景不连续时，会在 React loading 出现前露出白屏或占位底图。",
     "AppThemeProvider 没有挂在 NavigationContainer 上层时，导航背景、StatusBar 和底部 Tab 不会随主题偏好同步更新。",
     "native splash 使用的 logo 与 React loading 首帧不一致时，会在 hideAsync() 接棒瞬间出现明显跳变。",
+    "Android native splash 没有为系统圆形遮罩保留安全边距时，会出现 logo 笔画被裁切。",
     "BRAND 环境变量、brands/shared.json、brand manifest、安装壳 embedded brand id、generated registry、generated 资源或本地 native active manifest 不同步时，会出现原生展示名、启动图和运行时显示名不一致；android package / iOS bundle id 不应随展示品牌漂移。",
     "启动加载遮罩没有在 ready 后退场会导致整个应用不可交互。",
     "通知点击在认证或导航 ready 前不缓存，会导致冷启动点击丢失。",

@@ -28,7 +28,6 @@
     ],
     "dependencies": [],
     "dependents": [
-      "core-api-client",
       "core-auth-session",
       "core-debug-logging",
       "core-ws-transport",

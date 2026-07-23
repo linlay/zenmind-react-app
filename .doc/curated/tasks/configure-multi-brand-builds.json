@@ -69,7 +69,7 @@
     "BRAND=zenmind 和 BRAND=cutej 生成的 Expo config 在 name、icon、splash 和通知色上可区分，但 slug、android.package、ios.bundleIdentifier、EAS projectId 和 EAS channel 保持共享。",
     "切换品牌壳不改变 src/shared/generated/brand.ts 的 active 选择，生成物不能包含 ACTIVE_BRAND_ID；共享 OTA 由安装壳 embedded app.config.extra.brand.id 决定展示品牌。",
     "切换品牌后 Android APK 的 package 与 launchable-activity 仍指向同一原生内核，避免 Expo/adb 按品牌包名推断不存在的 MainActivity。",
-    "Login、React 启动遮罩和原生 splash 使用同一 assets/brands/<id>/logo.png 入口。",
+    "Login、React 启动遮罩和原生 splash 使用同一 assets/brands/<id>/logo.png 入口；Android 原生 splash 按系统圆形安全区缩放，iOS 和 React loading 保留品牌 imageWidth。",
     "重复执行同一品牌 sync 不重画 PNG，非视觉字段变更也不触发 PNG 读写。",
     "显式 BRAND=cutej 的 sync / app.config.js 只影响本次命令；无参 sync / app.config.js 回到默认 zenmind。",
     "pnpm typecheck、pnpm test、`xgraph index`、`xgraph status` 通过。"
@@ -80,7 +80,7 @@
     "当前品牌模式共享 Android applicationId、iOS bundleIdentifier、Expo slug、EAS projectId 和 EAS preview/production channel，不追求并排安装；品牌差异只覆盖名称、logo、启动图、图标、通知色和少量环境配置。",
     "共享 OTA JS bundle 只能包含全量 APP_BRANDS / BRAND_LOGOS registry，不能生成 ACTIVE_BRAND_ID；运行时由 src/shared/branding/installedBrand.ts 从安装壳 embedded app.config.extra.brand.id 解析 INSTALLED_BRAND_ID。",
     "运行时代码只 import 静态 generated registry、generated PNG 和 installed brand resolver，不在启动期间读取品牌 JSON 或扫描文件系统。",
-    "品牌同步缓存拆分 runtimeFingerprint、assetFingerprint、active native splash image、active native launcher image 与 active native text fingerprint；assets/brands/<id>/logo.png 仍是启动图、运行时品牌图和默认图标的必需源文件；品牌可通过 brands/<id>/brand.json 的 appIcon 指向同目录独立全幅手机图标源，使 icon、adaptive-icon、Android launcher 与 iOS AppIcon 独立生成，favicon 与 native splash 继续由 logo.png 生成；文案、版本、通知和 updates 等非视觉变更只更新 generated registry、manifest 和 native text，不重画 PNG。",
+    "品牌同步缓存拆分 runtimeFingerprint、assetFingerprint、active native splash image、active native launcher image 与 active native text fingerprint；assets/brands/<id>/logo.png 仍是启动图、运行时品牌图和默认图标的必需源文件，Android native splash 在生成时应额外应用圆形安全区缩放；品牌可通过 brands/<id>/brand.json 的 appIcon 指向同目录独立全幅手机图标源，使 icon、adaptive-icon、Android launcher 与 iOS AppIcon 独立生成，favicon 与 native splash 继续由 logo.png 生成；文案、版本、通知和 updates 等非视觉变更只更新 generated registry、manifest 和 native text，不重画 PNG。",
     "本地调试切品牌优先使用单命令入口 pnpm android:device:<id> / pnpm android:<id> / pnpm ios:<id>；无参 sync/start/android/app.config.js 固定使用默认 zenmind，避免隐藏的本地品牌状态影响构建。",
     "显式 scripts/sync-brand.js 的原生文本同步必须命中 Android Manifest / Gradle / iOS project / Info.plist 的必需字段，缺失时直接失败，不写入 active native manifest 假装成功；app.config.js 读取配置时只生成 registry / PNG，不写 native 文本。",
     "多品牌改造不进入聊天 SQLite、MMKV 真源、WebSocket transport 或 repository 写入链路。",
