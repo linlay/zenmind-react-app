@@ -1,6 +1,6 @@
 {
   "name": "zenmind-app",
-  "version": "2.0.0",
+  "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "brand:sync": "node ./scripts/sync-brand.js",
