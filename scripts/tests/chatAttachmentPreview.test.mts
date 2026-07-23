@@ -96,9 +96,7 @@ test('composer images prefer local previews while persisted messages prefer serv
 
 test('conversation detail keeps one preview host while rows only dispatch preview requests', () => {
   const screenSource = readProjectFile('src/features/chatPersistence/ChatDetailScreen.tsx');
-  const attachmentSource = readProjectFile(
-    'src/features/chatPersistence/components/ChatAttachmentStrip.tsx'
-  );
+  const attachmentSource = readProjectFile('src/features/chatPersistence/components/ChatAttachmentStrip.tsx');
   const artifactSource = readProjectFile('src/features/chatPersistence/components/ArtifactTimelineRow.tsx');
   const markdownLinkSource = readProjectFile(
     'src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx'
@@ -109,4 +107,15 @@ test('conversation detail keeps one preview host while rows only dispatch previe
   assert.match(attachmentSource, /useAuthenticatedResourcePreview\(\)/);
   assert.doesNotMatch(artifactSource, /AuthenticatedResourcePreviewModal/);
   assert.doesNotMatch(markdownLinkSource, /AuthenticatedResourcePreviewModal/);
+});
+
+test('authenticated resource preview applies safe-area insets across the modal boundary', () => {
+  const modalSource = readProjectFile(
+    'src/features/chatPersistence/components/resource/AuthenticatedResourcePreviewModal.tsx'
+  );
+
+  assert.match(modalSource, /const insets = useSafeAreaInsets\(\)/);
+  assert.match(modalSource, /paddingTop: insets\.top/);
+  assert.match(modalSource, /paddingBottom: insets\.bottom/);
+  assert.doesNotMatch(modalSource, /<SafeAreaView/);
 });
