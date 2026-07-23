@@ -14,6 +14,8 @@
       "新建 WebView 仅允许 runtimeStatus=running、availability=available 且 publicUrl 为 HTTPS；stopped、unpublished、removed 会卸载 resident，desktop-offline、publish-error 等瞬态保留已挂载页面并显示连接异常。",
       "WebAppsScreen 使用 FlashList 展示真实目录和单一启动/暂停按钮；首期 Gateway capabilities 均为 false，按钮统一禁用，禁止通过 action.call 绕过脱敏控制边界。",
       "WebAppsRuntimeHost 在登录态 RootStack 外层常驻，最多保留 6 个 WebView；WebAppDetail route 只负责导航与返回语义，离开详情或切换 Tab 不卸载 resident。",
+      "webAppsMobileAccess 纯校验 `<device>-<port>.m.<domain>` 是否匹配活动 Desktop WS host，并只为合法配对地址构造带启动 token 的临时 URL；非 `.m` HTTPS 地址保持匿名直载。",
+      "ResidentWebView 每个 appId + generation 只解析一次初始地址，复用 appAuth 的现有 token 刷新与 single-flight；Tunnel Hub 303 后继续使用第一方 HttpOnly Cookie，启动 token 不写入 resident、lastUrlById 或日志。",
       "后台 WebView 只关闭触摸、可见性与无障碍，不条件卸载；系统终止 WebContent 进程后当前项优先、其余按 LRU 串行恢复，连续终止时停止自动重试并允许手动重载。",
       "Public entry WebAppsScreen (feature-screen): WebApps 一级 Tab 页面。",
       "Public entry WebAppDetailScreen (feature-screen): WebAppDetail RootStack 导航控制页。",
@@ -27,7 +29,7 @@
     "nonGoals": [
       "不修改 Desktop 项目，不调用通用 action.call，不在移动端推断本地端口、PID、targetUrl、routeId、安装路径或 Tunnel 凭据。",
       "Desktop 提供 web.webapp.activate/web.webapp.pause 脱敏请求前，不启用启动/暂停按钮。",
-      "首期不提供 WebView token 注入、通用 native bridge、跨应用共享 cookie、定时轮询或本地目录持久化。"
+      "不新增 Provider 鉴权参数、全局 WebApp token 状态、resident 鉴权字段、独立刷新机制、通用 native bridge、跨应用共享 cookie、定时轮询或本地目录持久化。"
     ]
   },
   "facts": {
@@ -77,6 +79,8 @@
     "publicUrl 真正变化时才递增 WebView generation；列表刷新和等价 upsert 不得重复重建。",
     "常驻池上限保持 6，列表、push 和 WebView 导航不得重复创建同一 appId 的实例。",
     "WebView 保持 mixed content、第三方 cookie、多窗口和通用 bridge 关闭。",
+    "只有与活动 Desktop WS 设备标签和 `.m` 域后缀一致、且端口为 1-65535 的 HTTPS 地址可以附加启动 token；不匹配的 `.m` 地址必须拒绝加载。",
+    "带启动 token 的临时导航不得写回 resident 或 lastUrlById；首次鉴权 401 最多强制刷新一次，第二次失败必须进入既有 error UI。",
     "启动/暂停能力只能由脱敏直连协议开启，禁止临时调用 action.call。"
   ],
   "recentChanges": [],

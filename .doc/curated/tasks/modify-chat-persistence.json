@@ -89,7 +89,7 @@
     "read.isRead=false、readStatus=0 或 unreadRunCount 大于 0 的 chat 只贡献 1 个未读会话，重复 incoming 或 chat.unread 不会重复增加目录角标。",
     "outgoing、ack 和 incoming 三条链路的持久化行为仍然正确。",
     "首页目录列表、详情页消息区、历史抽屉和 outbox 数量各自走对应 repository 边界；outbox 发送选项如 planning_mode 只用于 pending replay，不参与首页排序或消息真源。",
-    "详情页历史抽屉展示非空摘要会话的未读蓝点、总数和未读会话数，空本地草稿不进入列表或计数；点击历史会话切换 ChatDetail conversationId 并加载对应内容，一键已读通过 chatSyncService.markScopeRead 批量同步。",
+    "详情页历史抽屉展示非空摘要会话的归一化标题、未读蓝点、总数和未读会话数，不展示最后消息描述；标题使用首条用户消息文字，纯附件首条消息或远端 default 标题显示“新对话”；空本地草稿不进入列表或计数；点击历史会话切换 ChatDetail conversationId 并加载对应内容，一键已读通过 chatSyncService.markScopeRead 批量同步。",
     "详情页 timelineState 可由 SQLite messages 冷启动 fallback、实时 patch 和 /ap/ws /api/chat detail event history replay 统一派生，不出现重复消息或重复运行态节点；主消息区 messages、头部运行状态、输入区结构化用量统计、runtimeState、streaming 和 awaiting question/approval/form/plan 交互从 timelineState 派生，历史抽屉从 repository 的 conversations 摘要切片派生。",
     "空新对话首屏内容块垂直居中偏上；有 wonders 时最多竖向展示 3 条妙问，标题保留单行、问题描述最多两行省略，刷新按钮只在本地随机切换展示窗口，点击卡片填入输入框；无 wonders 或请求失败时展示与 agentName 对话，不阻塞输入区可用性。",
     "影响首页目录的 replace/pin 写入后目录 MMKV 快照仍同步刷新；conversation 摘要的 patch、delta checkpoint 和 reconcile 只更新 SQLite。",
