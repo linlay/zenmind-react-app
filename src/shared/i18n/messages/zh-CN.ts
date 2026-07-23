@@ -390,7 +390,7 @@ export const zhCN = {
   'attachment.status.ready': '已上传',
   'attachment.error.missingReference': '上传成功，但接口未返回可用的文件引用',
   'attachment.error.invalidTunnelProfile': 'Desktop 公网上传通道配置异常，请重新连接后重试。',
-  'attachment.error.unexpectedResponse': '上传接口返回了异常内容，请检查 Desktop 与 Tunnel Hub 连接。',
+  'attachment.error.unexpectedResponse': '上传接口返回了异常内容，请检查 Desktop 公网上传通道。',
   'attachment.error.tooLarge': '附件过大：{name}',
   'attachment.error.tooMany': '最多只能添加 {count} 个附件',
 

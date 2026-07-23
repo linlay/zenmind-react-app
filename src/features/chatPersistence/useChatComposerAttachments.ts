@@ -203,7 +203,6 @@ export function useChatComposerAttachments({
           mimeType: attachment.mimeType,
           requestId: attachment.attachmentId,
           chatId: conversationId,
-          sha256: attachment.sha256,
           signal: controller.signal
         });
         const latestAttachmentId = latestAttachmentIdByNameRef.current.get(attachment.name);

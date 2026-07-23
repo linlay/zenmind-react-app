@@ -157,7 +157,6 @@ ChatHomeScreen mount
 - `accessToken` 短期有效，`AppRoot` 在前台恢复和定时器中通过 `ensureFreshAccessToken()` 预刷新。
 - 开发态可用 `EXPO_PUBLIC_API_BASE_URL` 提供默认后端地址。
 - 开发态可用 `EXPO_PUBLIC_CHAT_WS_URL` 覆盖 WebSocket 地址；正式路径默认从 API base URL 推导到 `/ap/ws`。
-- 可用 `EXPO_PUBLIC_TUNNEL_HUB_BASE_URL` 覆盖 Desktop 公网上传 Hub；未配置时使用 `https://tunnel-hub.zenmind.cc`，正式构建只接受 HTTPS。
 
 ## 后端接口概览
 
@@ -169,7 +168,7 @@ HTTP REST 请求通过 `authenticatedApiRequest()` 自动附加 `Authorization: 
 | agents / teams / chats | `/api/agents`、`/api/teams`、`/api/chats` via `/ap/ws` request |
 | 单会话详情 | `/ap/api/chat` |
 | 标记已读 | `/ap/api/read` |
-| 附件上传 | HTTP Profile：`/ap/api/upload`；Desktop 公网 Tunnel：`https://tunnel-hub.zenmind.cc/api/upload` |
+| 附件上传 | HTTP Profile：`/api/upload`；Desktop WS Profile：`https://<Desktop publicHost>/api/upload` |
 | 通知 token 注册 | `POST /api/notifications/device-tokens`、`DELETE /api/notifications/device-tokens/:nativePushToken` |
 | WebSocket transport | `ws(s)://<host>/ap/ws?token=<accessToken>` |
 | WebSocket query / attach | `/api/query`、`/api/attach` via `/ap/ws` stream |

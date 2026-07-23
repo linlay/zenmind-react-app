@@ -1,9 +1,7 @@
 import type { DeviceProfile } from '../../auth/deviceProfiles.ts';
 import { ApiError } from '../apiError.ts';
 
-export const CHAT_UPLOAD_API_PATH = '/ap/api/upload';
-export const TUNNEL_HUB_UPLOAD_API_PATH = '/api/upload';
-export const DEFAULT_TUNNEL_HUB_BASE_URL = 'https://tunnel-hub.zenmind.cc';
+export const CHAT_UPLOAD_API_PATH = '/api/upload';
 
 export type ChatUploadReference = {
   id?: string;
@@ -47,19 +45,16 @@ export type ChatUploadRoute =
       path: typeof CHAT_UPLOAD_API_PATH;
     }
   | {
-      kind: 'tunnel-hub';
+      kind: 'desktop-public';
       endpointUrl: string;
-      publicHost: string;
     };
 
 export type ChatUploadFormFields = {
   chatId: string;
-  publicHost?: string;
   requestId: string;
-  sha256: string;
 };
 
-export type TunnelHubUploadRequestHooks = {
+export type DesktopPublicUploadRequestHooks = {
   onError?: (input: { attempt: number; durationMs: number; error: unknown }) => void;
   onRequest?: (input: { attempt: number }) => void;
   onResponse?: (input: { attempt: number; durationMs: number; responseText: string; status: number }) => void;
@@ -73,42 +68,17 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
 
-function buildTunnelHubUploadEndpoint(baseUrl: string): string {
-  return `${baseUrl}${TUNNEL_HUB_UPLOAD_API_PATH}`;
-}
-
 export function createChatUploadFormData(fields: ChatUploadFormFields, file: Blob): FormData {
   const formData = new FormData();
   formData.append('requestId', fields.requestId);
   if (fields.chatId) {
     formData.append('chatId', fields.chatId);
   }
-  if (fields.sha256) {
-    formData.append('sha256', fields.sha256);
-  }
-  if (fields.publicHost) {
-    formData.append('publicHost', fields.publicHost);
-  }
   formData.append('file', file);
   return formData;
 }
 
-export function resolveTunnelHubBaseUrl(value: unknown, isDevelopment: boolean): string {
-  const candidate = normalizeText(value) || DEFAULT_TUNNEL_HUB_BASE_URL;
-  try {
-    const url = new URL(candidate);
-    if (url.protocol !== 'https:' && !(isDevelopment && url.protocol === 'http:')) {
-      return DEFAULT_TUNNEL_HUB_BASE_URL;
-    }
-    url.search = '';
-    url.hash = '';
-    return url.toString().replace(/\/+$/u, '');
-  } catch {
-    return DEFAULT_TUNNEL_HUB_BASE_URL;
-  }
-}
-
-export function resolveChatUploadRoute(profile: DeviceProfile | null, tunnelHubBaseUrl: string): ChatUploadRoute {
+export function resolveChatUploadRoute(profile: DeviceProfile | null): ChatUploadRoute {
   if (!profile) {
     throw new ChatUploadError('invalid_tunnel_profile', 'Active device profile is unavailable');
   }
@@ -125,13 +95,16 @@ export function resolveChatUploadRoute(profile: DeviceProfile | null, tunnelHubB
   }
   try {
     const wsUrl = new URL(transport.wsUrl);
-    if ((wsUrl.protocol !== 'ws:' && wsUrl.protocol !== 'wss:') || !wsUrl.host) {
+    if (wsUrl.protocol !== 'wss:' || !wsUrl.host || wsUrl.username || wsUrl.password) {
       throw new Error('invalid Desktop WS URL');
     }
+    wsUrl.protocol = 'https:';
+    wsUrl.pathname = CHAT_UPLOAD_API_PATH;
+    wsUrl.search = '';
+    wsUrl.hash = '';
     return {
-      kind: 'tunnel-hub',
-      endpointUrl: buildTunnelHubUploadEndpoint(tunnelHubBaseUrl),
-      publicHost: wsUrl.host
+      kind: 'desktop-public',
+      endpointUrl: wsUrl.toString()
     };
   } catch {
     throw new ChatUploadError('invalid_tunnel_profile', 'Desktop tunnel profile has no public host');
@@ -189,7 +162,7 @@ export function unwrapChatUploadResponse(payload: unknown): ChatUploadResponseDa
   return envelope.data as ChatUploadResponseData;
 }
 
-export function parseTunnelHubUploadResponse(input: {
+export function parseDesktopPublicUploadResponse(input: {
   contentType: string | null | undefined;
   ok: boolean;
   status: number;
@@ -217,12 +190,12 @@ function throwIfAborted(signal: AbortSignal | undefined): void {
   throw error;
 }
 
-export async function requestTunnelHubUpload(input: {
+export async function requestDesktopPublicUpload(input: {
   createBody: () => FormData;
   endpointUrl: string;
   fetchImpl: typeof fetch;
   getAccessToken: (forceRefresh: boolean) => Promise<string | null>;
-  hooks?: TunnelHubUploadRequestHooks;
+  hooks?: DesktopPublicUploadRequestHooks;
   signal?: AbortSignal;
 }): Promise<ChatUploadResponseData> {
   for (let attempt = 1; attempt <= 2; attempt += 1) {
@@ -261,7 +234,7 @@ export async function requestTunnelHubUpload(input: {
       continue;
     }
 
-    return parseTunnelHubUploadResponse({
+    return parseDesktopPublicUploadResponse({
       contentType: response.headers.get('content-type'),
       ok: response.ok,
       status: response.status,

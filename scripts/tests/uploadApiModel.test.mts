@@ -5,12 +5,10 @@ import { ApiError } from '../../src/core/api/apiError.ts';
 import {
   CHAT_UPLOAD_API_PATH,
   ChatUploadError,
-  DEFAULT_TUNNEL_HUB_BASE_URL,
   createChatUploadFormData,
-  parseTunnelHubUploadResponse,
-  requestTunnelHubUpload,
+  parseDesktopPublicUploadResponse,
+  requestDesktopPublicUpload,
   resolveChatUploadRoute,
-  resolveTunnelHubBaseUrl,
   unwrapChatUploadResponse
 } from '../../src/core/api/services/uploadApiModel.ts';
 import type { DeviceProfile } from '../../src/core/auth/deviceProfiles.ts';
@@ -55,57 +53,45 @@ function createDesktopWsProfile(wsUrl = 'wss://zmupload.m.zenmind.cc/ws'): Devic
   };
 }
 
-test('upload route keeps HTTP profiles direct and sends Desktop WS profiles through Hub', () => {
-  assert.deepEqual(resolveChatUploadRoute(createHttpProfile(), DEFAULT_TUNNEL_HUB_BASE_URL), {
+test('upload route keeps HTTP profiles direct and uses the Desktop public host for Desktop WS', () => {
+  assert.deepEqual(resolveChatUploadRoute(createHttpProfile()), {
     kind: 'direct-http',
     path: CHAT_UPLOAD_API_PATH
   });
-  assert.deepEqual(resolveChatUploadRoute(createDesktopWsProfile(), DEFAULT_TUNNEL_HUB_BASE_URL), {
-    kind: 'tunnel-hub',
-    endpointUrl: 'https://tunnel-hub.zenmind.cc/api/upload',
-    publicHost: 'zmupload.m.zenmind.cc'
+  assert.deepEqual(resolveChatUploadRoute(createDesktopWsProfile('wss://zmupload.m.zenmind.cc/ws?token=omitted')), {
+    kind: 'desktop-public',
+    endpointUrl: 'https://zmupload.m.zenmind.cc/api/upload'
   });
 });
 
-test('Tunnel Hub base URL supports a development override and enforces HTTPS in production', () => {
-  assert.equal(resolveTunnelHubBaseUrl('', false), DEFAULT_TUNNEL_HUB_BASE_URL);
-  assert.equal(
-    resolveTunnelHubBaseUrl('https://staging-hub.example.test/base///?token=ignored#hash', false),
-    'https://staging-hub.example.test/base'
-  );
-  assert.equal(resolveTunnelHubBaseUrl('http://127.0.0.1:8080///', true), 'http://127.0.0.1:8080');
-  assert.equal(resolveTunnelHubBaseUrl('http://insecure.example.test', false), DEFAULT_TUNNEL_HUB_BASE_URL);
-  assert.equal(resolveTunnelHubBaseUrl('not a url', true), DEFAULT_TUNNEL_HUB_BASE_URL);
+test('Desktop public upload route rejects insecure or malformed WS profiles', () => {
+  for (const wsUrl of ['ws://127.0.0.1:7082/ws', 'not-a-url']) {
+    assert.throws(
+      () => resolveChatUploadRoute(createDesktopWsProfile(wsUrl)),
+      (error) => error instanceof ChatUploadError && error.code === 'invalid_tunnel_profile'
+    );
+  }
 });
 
-test('upload FormData adds publicHost only for Tunnel Hub requests', () => {
+test('upload FormData matches the /api/upload multipart contract', () => {
   const file = new Blob(['hello'], { type: 'text/plain' });
-  const direct = createChatUploadFormData({ chatId: 'chat-1', requestId: 'request-1', sha256: 'abc' }, file);
-  const tunnel = createChatUploadFormData(
-    {
-      chatId: 'chat-1',
-      requestId: 'request-1',
-      sha256: 'abc',
-      publicHost: 'zmupload.m.zenmind.cc'
-    },
-    file
-  );
+  const formData = createChatUploadFormData({ chatId: 'chat-1', requestId: 'request-1' }, file);
 
-  assert.equal(direct.get('requestId'), 'request-1');
-  assert.equal(direct.get('chatId'), 'chat-1');
-  assert.equal(direct.get('sha256'), 'abc');
-  assert.equal(direct.has('file'), true);
-  assert.equal(direct.has('publicHost'), false);
-  assert.equal(tunnel.get('publicHost'), 'zmupload.m.zenmind.cc');
+  assert.deepEqual(Array.from(formData.keys()), ['requestId', 'chatId', 'file']);
+  assert.equal(formData.get('requestId'), 'request-1');
+  assert.equal(formData.get('chatId'), 'chat-1');
+  assert.equal(formData.has('file'), true);
+  assert.equal(formData.has('publicHost'), false);
+  assert.equal(formData.has('sha256'), false);
 });
 
-test('Tunnel Hub upload refreshes once after 401 and rebuilds FormData', async () => {
+test('Desktop public upload refreshes once after 401 and rebuilds FormData', async () => {
   const forceRefreshValues: boolean[] = [];
   const authorizationValues: string[] = [];
   const bodies: FormData[] = [];
   let fetchCount = 0;
-  const result = await requestTunnelHubUpload({
-    endpointUrl: 'https://tunnel-hub.zenmind.cc/api/upload',
+  const result = await requestDesktopPublicUpload({
+    endpointUrl: 'https://zmupload.m.zenmind.cc/api/upload',
     getAccessToken: async (forceRefresh) => {
       forceRefreshValues.push(forceRefresh);
       return forceRefresh ? 'token-refreshed' : 'token-initial';
@@ -114,9 +100,7 @@ test('Tunnel Hub upload refreshes once after 401 and rebuilds FormData', async (
       createChatUploadFormData(
         {
           chatId: 'chat-1',
-          requestId: 'request-1',
-          sha256: '',
-          publicHost: 'zmupload.m.zenmind.cc'
+          requestId: 'request-1'
         },
         new Blob(['hello'])
       ),
@@ -141,16 +125,22 @@ test('Tunnel Hub upload refreshes once after 401 and rebuilds FormData', async (
   assert.deepEqual(authorizationValues, ['Bearer token-initial', 'Bearer token-refreshed']);
   assert.equal(bodies.length, 2);
   assert.notEqual(bodies[0], bodies[1]);
-  assert.equal(bodies[1]?.get('publicHost'), 'zmupload.m.zenmind.cc');
+  assert.deepEqual(
+    bodies.map((body) => Array.from(body.keys())),
+    [
+      ['requestId', 'chatId', 'file'],
+      ['requestId', 'chatId', 'file']
+    ]
+  );
   assert.equal(result.upload?.name, 'note.md');
 });
 
-test('Tunnel Hub upload does not retry non-401 HTTP failures', async () => {
-  for (const status of [403, 413, 500]) {
+test('Desktop public upload does not retry non-401 HTTP failures', async () => {
+  for (const status of [400, 403, 413, 500]) {
     let fetchCount = 0;
     await assert.rejects(
-      requestTunnelHubUpload({
-        endpointUrl: 'https://tunnel-hub.zenmind.cc/api/upload',
+      requestDesktopPublicUpload({
+        endpointUrl: 'https://zmupload.m.zenmind.cc/api/upload',
         getAccessToken: async () => 'desktop-token',
         createBody: () => new FormData(),
         fetchImpl: (async () => {
@@ -167,13 +157,13 @@ test('Tunnel Hub upload does not retry non-401 HTTP failures', async () => {
   }
 });
 
-test('Tunnel Hub upload does not start or retry after abort', async () => {
+test('Desktop public upload does not start or retry after abort', async () => {
   const controller = new AbortController();
   controller.abort(new Error('cancelled'));
   let fetchCount = 0;
   await assert.rejects(
-    requestTunnelHubUpload({
-      endpointUrl: 'https://tunnel-hub.zenmind.cc/api/upload',
+    requestDesktopPublicUpload({
+      endpointUrl: 'https://zmupload.m.zenmind.cc/api/upload',
       getAccessToken: async () => 'desktop-token',
       createBody: () => new FormData(),
       fetchImpl: (async () => {
@@ -190,7 +180,7 @@ test('Tunnel Hub upload does not start or retry after abort', async () => {
 test('upload response validation rejects HTML, invalid JSON and non-zero envelopes', () => {
   assert.throws(
     () =>
-      parseTunnelHubUploadResponse({
+      parseDesktopPublicUploadResponse({
         contentType: 'text/html',
         ok: true,
         status: 200,
@@ -200,7 +190,7 @@ test('upload response validation rejects HTML, invalid JSON and non-zero envelop
   );
   assert.throws(
     () =>
-      parseTunnelHubUploadResponse({
+      parseDesktopPublicUploadResponse({
         contentType: 'application/json',
         ok: true,
         status: 200,

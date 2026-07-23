@@ -4,14 +4,12 @@ import { authenticatedFormDataRequest } from '../apiClient';
 import { normalizeApiResourcePath } from '../resourceUrl';
 import { getAccessTokenForRequest } from '../../auth/appAuth';
 import { getActiveDeviceProfile, type DeviceProfile } from '../../auth/deviceProfiles';
-import { readPublicEnv } from '../../config/runtimeEnv';
 import { logHttpError, logHttpRequest, logHttpResponse } from '../../debug/httpDebugLogger';
 import {
   ChatUploadError,
   createChatUploadFormData,
-  requestTunnelHubUpload,
+  requestDesktopPublicUpload,
   resolveChatUploadRoute,
-  resolveTunnelHubBaseUrl,
   unwrapChatUploadResponse,
   type ChatUploadReference,
   type ChatUploadResponseData,
@@ -32,7 +30,6 @@ export type UploadChatAttachmentInput = {
   mimeType?: string | null;
   requestId: string;
   chatId?: string | null;
-  sha256?: string | null;
   signal?: AbortSignal;
 };
 
@@ -64,33 +61,23 @@ function createUploadFormData(input: {
   chatId: string;
   mimeType: string;
   name: string;
-  publicHost?: string;
   requestId: string;
-  sha256: string;
   uri: string;
 }): FormData {
   return createChatUploadFormData(
     {
       chatId: input.chatId,
-      publicHost: input.publicHost,
-      requestId: input.requestId,
-      sha256: input.sha256
+      requestId: input.requestId
     },
     createExpoFetchFilePart(input.uri, input.name, input.mimeType) as unknown as Blob
   );
-}
-
-function isDevelopmentBuild(): boolean {
-  return typeof __DEV__ !== 'undefined' && __DEV__;
 }
 
 function uploadLogBody(input: {
   chatId: string;
   mimeType: string;
   name: string;
-  publicHost?: string;
   requestId: string;
-  sha256: string;
   transport: ChatUploadRoute['kind'];
 }): Record<string, unknown> {
   return {
@@ -98,8 +85,6 @@ function uploadLogBody(input: {
     transport: input.transport,
     requestId: input.requestId,
     ...(input.chatId ? { chatId: input.chatId } : {}),
-    ...(input.sha256 ? { sha256: input.sha256 } : {}),
-    ...(input.publicHost ? { publicHost: input.publicHost } : {}),
     file: {
       name: input.name,
       type: input.mimeType,
@@ -108,15 +93,14 @@ function uploadLogBody(input: {
   };
 }
 
-async function uploadThroughTunnelHub(
+async function uploadThroughDesktopPublicHost(
   profile: DeviceProfile,
-  route: Extract<ChatUploadRoute, { kind: 'tunnel-hub' }>,
+  route: Extract<ChatUploadRoute, { kind: 'desktop-public' }>,
   input: {
     chatId: string;
     mimeType: string;
     name: string;
     requestId: string;
-    sha256: string;
     signal?: AbortSignal;
     uri: string;
   }
@@ -125,16 +109,12 @@ async function uploadThroughTunnelHub(
     throw new ChatUploadError('invalid_tunnel_profile', 'Tunnel uploads require a chat id');
   }
 
-  return requestTunnelHubUpload({
+  return requestDesktopPublicUpload({
     endpointUrl: route.endpointUrl,
     signal: input.signal,
     fetchImpl: fetch,
     getAccessToken: (forceRefresh) => getAccessTokenForRequest(profile.apiBaseUrl, forceRefresh),
-    createBody: () =>
-      createUploadFormData({
-        ...input,
-        publicHost: route.publicHost
-      }),
+    createBody: () => createUploadFormData(input),
     hooks: {
       onRequest: ({ attempt }) => {
         logHttpRequest({
@@ -143,7 +123,6 @@ async function uploadThroughTunnelHub(
           attempt,
           body: uploadLogBody({
             ...input,
-            publicHost: route.publicHost,
             transport: route.kind
           })
         });
@@ -220,14 +199,9 @@ export async function uploadChatAttachmentApi(input: UploadChatAttachmentInput):
   }
 
   const chatId = normalizeText(input.chatId);
-  const sha256 = normalizeText(input.sha256);
   const mimeType = normalizeText(input.mimeType) || 'application/octet-stream';
   const profile = getActiveDeviceProfile();
-  const tunnelHubBaseUrl = resolveTunnelHubBaseUrl(
-    readPublicEnv('EXPO_PUBLIC_TUNNEL_HUB_BASE_URL'),
-    isDevelopmentBuild()
-  );
-  const route = resolveChatUploadRoute(profile, tunnelHubBaseUrl);
+  const route = resolveChatUploadRoute(profile);
   const startedAt = Date.now();
 
   logHttpRequest({
@@ -237,23 +211,20 @@ export async function uploadChatAttachmentApi(input: UploadChatAttachmentInput):
       transport: route.kind,
       requestId,
       chatId,
-      sha256,
       name,
-      mimeType,
-      ...(route.kind === 'tunnel-hub' ? { publicHost: route.publicHost } : {})
+      mimeType
     })
   });
 
-  if (route.kind === 'tunnel-hub') {
+  if (route.kind === 'desktop-public') {
     if (!profile) {
       throw new ChatUploadError('invalid_tunnel_profile', 'Active device profile is unavailable');
     }
-    return uploadThroughTunnelHub(profile, route, {
+    return uploadThroughDesktopPublicHost(profile, route, {
       chatId,
       mimeType,
       name,
       requestId,
-      sha256,
       signal: input.signal,
       uri
     });
@@ -263,7 +234,7 @@ export async function uploadChatAttachmentApi(input: UploadChatAttachmentInput):
     const payload = await authenticatedFormDataRequest<unknown>({
       path: route.path,
       method: 'POST',
-      body: createUploadFormData({ chatId, mimeType, name, requestId, sha256, uri }),
+      body: createUploadFormData({ chatId, mimeType, name, requestId, uri }),
       signal: input.signal
     });
 

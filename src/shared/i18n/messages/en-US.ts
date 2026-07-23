@@ -402,7 +402,7 @@ export const enUS: Record<I18nKey, string> = {
   'attachment.error.invalidTunnelProfile':
     'The Desktop public upload channel is invalid. Reconnect and try again.',
   'attachment.error.unexpectedResponse':
-    'The upload endpoint returned unexpected content. Check the Desktop and Tunnel Hub connection.',
+    'The upload endpoint returned unexpected content. Check the Desktop public connection.',
   'attachment.error.tooLarge': 'Attachment is too large: {name}',
   'attachment.error.tooMany': 'You can add up to {count} attachments',
 
