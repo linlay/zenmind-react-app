@@ -11,6 +11,7 @@ import { ChatDirectoryPickerOverlayScreen } from '../../features/chatPersistence
 import { WebAppDetailScreen } from '../../features/webApps/WebAppDetailScreen';
 import { WebAppsRuntimeProvider } from '../../features/webApps/WebAppsRuntimeProvider';
 import { useAppTheme } from '../../shared/visual/AppThemeProvider';
+import { AgentWaitingDemoScreen } from '../screens/AgentWaitingDemoScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { TabsNavigator } from './TabsNavigator';
 import { RootStackParamList } from './types';
@@ -82,6 +83,15 @@ export function RootNavigator() {
           <RootStack.Screen
             name="Settings"
             component={SettingsScreen}
+            options={{
+              animation: 'slide_from_right',
+              animationDuration: 100,
+              gestureEnabled: true
+            }}
+          />
+          <RootStack.Screen
+            name="AgentWaitingDemo"
+            component={AgentWaitingDemoScreen}
             options={{
               animation: 'slide_from_right',
               animationDuration: 100,

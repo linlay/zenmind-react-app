@@ -45,6 +45,12 @@ import { ConversationContentRenderer } from '../conversationViewport/Conversatio
 import { ChatSystemAlert } from './ChatSystemAlert';
 import { ChatTimelineRail } from './ChatTimelineRail';
 import { ChatResponseWaitingIndicator } from './ChatResponseWaitingIndicator';
+import {
+  getChatResponseWaitingBaseContentHeight,
+  getChatResponseWaitingDockBottomOffset,
+  resolveChatResponseWaitingPlacement,
+  type ChatResponseWaitingPlacement
+} from './chatResponseWaitingLayout';
 import { ContextCompactTimelineRow } from './ContextCompactTimelineRow.tsx';
 import {
   PlanningActionPill,
@@ -79,6 +85,7 @@ const REASK_MENU_GAP = 6;
 const TIMELINE_VIEWABILITY_CONFIG = { itemVisiblePercentThreshold: 1, minimumViewTime: 80 };
 const THREAD_CLASS = 'flex-1';
 const THREAD_SCROLLER_STYLE = { flex: 1 } satisfies ViewStyle;
+const WAITING_DOCK_CLASS = 'w-full shrink-0';
 const TIMELINE_LIST_STYLE = {
   paddingHorizontal: appVisualTokens.spacing.md,
   paddingTop: appVisualTokens.spacing.sm,
@@ -960,6 +967,9 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   const planningBlockModesRef = useRef(new Map<string, RuntimePlanningBlockMode>());
   const planningCollapseOverlayRef = useRef<PlanningCollapseOverlayState | null>(null);
   const viewablePlanningNodeIdsRef = useRef(new Set<string>());
+  const availableTimelineHeightRef = useRef(0);
+  const baseTimelineContentHeightRef = useRef(0);
+  const waitingPlacementRef = useRef<ChatResponseWaitingPlacement>('docked');
   const scrollMetricsRef = useRef({
     contentHeight: 0,
     offsetY: 0,
@@ -979,6 +989,8 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   const [planningCollapseOverlayVisible, setPlanningCollapseOverlayVisible] = useState(false);
   const [reaskMenu, setReaskMenuState] = useState<ReaskMenuState | null>(null);
   const [viewportHeight, setViewportHeight] = useState(0);
+  const [availableTimelineHeight, setAvailableTimelineHeight] = useState(0);
+  const [waitingPlacement, setWaitingPlacement] = useState<ChatResponseWaitingPlacement>('docked');
   const displayModel = useMemo(() => {
     const nextModel = buildChatTimelineDisplayModel(timelineState, displayModelRef.current);
     displayModelRef.current = nextModel;
@@ -988,6 +1000,13 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   const showResponseWaitingIndicator = useMemo(
     () => shouldShowChatResponseWaitingIndicator(timelineState.activeRunId, displayModel.items),
     [displayModel.items, timelineState.activeRunId]
+  );
+  const waitingIndicatorInTimelineFooter =
+    showResponseWaitingIndicator && waitingPlacement === 'timeline-footer';
+  const waitingIndicatorDocked = showResponseWaitingIndicator && waitingPlacement === 'docked';
+  const waitingDockStyle = useMemo(
+    () => ({ paddingBottom: getChatResponseWaitingDockBottomOffset(availableTimelineHeight) }),
+    [availableTimelineHeight]
   );
   const tailSignature = displayModel.tailSignature;
   const hasCustomEmptyState = Boolean(emptyState);
@@ -1008,19 +1027,27 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     () => (emptyState ? <>{emptyState}</> : <ThreadEmptyState />),
     [emptyState]
   );
+  const updateWaitingPlacement = useCallback((availableHeight: number, contentHeight: number) => {
+    const nextPlacement = resolveChatResponseWaitingPlacement({ availableHeight, contentHeight });
+    if (waitingPlacementRef.current === nextPlacement) {
+      return;
+    }
+    waitingPlacementRef.current = nextPlacement;
+    setWaitingPlacement(nextPlacement);
+  }, []);
   const listFooter = useMemo(
     () =>
-      showResponseWaitingIndicator || diagnosticCard ? (
+      diagnosticCard || waitingIndicatorInTimelineFooter ? (
         <>
-          {showResponseWaitingIndicator ? <ChatResponseWaitingIndicator /> : null}
           {diagnosticCard ? <View className={DIAGNOSTIC_FOOTER_CLASS}>{diagnosticCard}</View> : null}
+          {waitingIndicatorInTimelineFooter ? <ChatResponseWaitingIndicator variant="orbit" /> : null}
         </>
       ) : null,
-    [diagnosticCard, showResponseWaitingIndicator]
+    [diagnosticCard, waitingIndicatorInTimelineFooter]
   );
   const listExtraData = useMemo(
-    () => ({ revision: timelineState.revision, diagnosticVersion, showResponseWaitingIndicator }),
-    [diagnosticVersion, showResponseWaitingIndicator, timelineState.revision]
+    () => ({ revision: timelineState.revision, diagnosticVersion, waitingPlacement }),
+    [diagnosticVersion, timelineState.revision, waitingPlacement]
   );
   const setScrollToEndVisible = useCallback((visible: boolean) => {
     if (showScrollToEndRef.current !== visible) {
@@ -1220,6 +1247,17 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     },
     [closeReaskMenu, updateMetricsFromScrollEvent]
   );
+  const handleThreadLayout = useCallback(
+    (event: LayoutChangeEvent) => {
+      const availableHeight = event.nativeEvent.layout.height;
+      if (Math.abs(availableTimelineHeightRef.current - availableHeight) > 1) {
+        setAvailableTimelineHeight(availableHeight);
+      }
+      availableTimelineHeightRef.current = availableHeight;
+      updateWaitingPlacement(availableHeight, baseTimelineContentHeightRef.current);
+    },
+    [updateWaitingPlacement]
+  );
   const handleLayout = useCallback(
     (event: LayoutChangeEvent) => {
       const nextViewportHeight = event.nativeEvent.layout.height;
@@ -1240,6 +1278,12 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   );
   const handleContentSizeChange = useCallback(
     (_width: number, height: number) => {
+      const baseContentHeight = getChatResponseWaitingBaseContentHeight(
+        height,
+        waitingIndicatorInTimelineFooter
+      );
+      baseTimelineContentHeightRef.current = baseContentHeight;
+      updateWaitingPlacement(availableTimelineHeightRef.current, baseContentHeight);
       scrollMetricsRef.current.contentHeight = height;
       const shouldAutoFollow = pendingAutoFollowRef.current;
       clearPendingAutoFollowSchedule();
@@ -1252,7 +1296,13 @@ export const ChatTimelineList = memo(function ChatTimelineList({
       isFollowingEndRef.current = isNearTimelineEnd(scrollMetricsRef.current);
       updateScrollToEndVisibility();
     },
-    [clearPendingAutoFollowSchedule, followTimelineEnd, updateScrollToEndVisibility]
+    [
+      clearPendingAutoFollowSchedule,
+      followTimelineEnd,
+      updateScrollToEndVisibility,
+      updateWaitingPlacement,
+      waitingIndicatorInTimelineFooter
+    ]
   );
   const handleViewableItemsChanged = useCallback(
     ({ viewableItems }: { viewableItems: ViewToken<ChatTimelineDisplayItem>[] }) => {
@@ -1326,7 +1376,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
 
   return (
     <ConversationMarkdownLinkProvider agentKey={workspaceAgentKey}>
-      <View ref={threadRef} className={THREAD_CLASS}>
+      <View ref={threadRef} className={THREAD_CLASS} onLayout={handleThreadLayout}>
       <FlashList
         ref={listRef}
         data={items}
@@ -1350,6 +1400,12 @@ export const ChatTimelineList = memo(function ChatTimelineList({
         viewabilityConfig={TIMELINE_VIEWABILITY_CONFIG}
         scrollEventThrottle={64}
       />
+
+      {waitingIndicatorDocked ? (
+        <View className={WAITING_DOCK_CLASS} style={waitingDockStyle}>
+          <ChatResponseWaitingIndicator variant="orbit" />
+        </View>
+      ) : null}
 
       {showScrollToEnd ? (
         <Pressable

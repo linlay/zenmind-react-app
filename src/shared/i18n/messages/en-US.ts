@@ -228,7 +228,28 @@ export const enUS: Record<I18nKey, string> = {
   'me.action.developerMode': 'Developer mode',
   'me.action.themeSettings': 'Theme',
   'me.action.languageSettings': 'Language',
+  'me.action.waitingEffects': 'Waiting animation preview',
+  'me.action.waitingEffectsDetail': 'Preview five agent response animations',
   'me.logout': 'Log out this device',
+
+  'agentWaitingDemo.title': 'Waiting Animation Lab',
+  'agentWaitingDemo.back': 'Back to Me',
+  'agentWaitingDemo.eyebrow': 'AGENT RESPONSE',
+  'agentWaitingDemo.introTitle': 'Make the wait feel intentional',
+  'agentWaitingDemo.introBody':
+    'Each animation loops live and follows the current light or dark theme. The recommended option can be used directly in chat.',
+  'agentWaitingDemo.recommended': 'Recommended',
+  'agentWaitingDemo.variant.orbit.title': 'Thinking orbit',
+  'agentWaitingDemo.variant.orbit.description':
+    'Two dots orbit an idea core for a light, continuous default waiting state.',
+  'agentWaitingDemo.variant.pulse.title': 'Idea pulse',
+  'agentWaitingDemo.variant.pulse.description': 'A soft breathing halo suggests that the agent is shaping its answer.',
+  'agentWaitingDemo.variant.wave.title': 'Reasoning wave',
+  'agentWaitingDemo.variant.wave.description': 'Staggered bars create a clear rhythm for tool use or deeper reasoning.',
+  'agentWaitingDemo.variant.typing.title': 'Reply bubble',
+  'agentWaitingDemo.variant.typing.description': 'A familiar three-dot response with the clearest conversational feel.',
+  'agentWaitingDemo.variant.scan.title': 'Content scan',
+  'agentWaitingDemo.variant.scan.description': 'A sweep moves across text lines to show the response taking shape.',
 
   'settings.title': 'Settings',
   'settings.back': 'Back from settings',

@@ -17,4 +17,5 @@ export type RootStackParamList = {
   WebAppDetail: { initialAppId: string };
   ChatDirectoryPickerOverlay: undefined;
   Settings: undefined;
+  AgentWaitingDemo: undefined;
 };
