@@ -3,6 +3,10 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 const CHAT_DETAIL_SCREEN_SOURCE = readFileSync('src/features/chatPersistence/ChatDetailScreen.tsx', 'utf8');
+const CHAT_DETAIL_DRAWERS_SOURCE = readFileSync(
+  'src/features/chatPersistence/components/ChatDetailDrawers.tsx',
+  'utf8'
+);
 
 test('chat detail history drawer is mounted outside the safe-area keyboard content', () => {
   const drawerRenderIndex = CHAT_DETAIL_SCREEN_SOURCE.lastIndexOf('<ChatDetailHistoryDrawer');
@@ -13,4 +17,12 @@ test('chat detail history drawer is mounted outside the safe-area keyboard conte
   assert.ok(drawerRenderIndex > keyboardContentEndIndex);
   assert.ok(drawerRenderIndex > skeletonOverlayEndIndex);
   assert.ok(drawerRenderIndex < copyToastIndex);
+});
+
+test('chat detail history rows only render the normalized conversation title', () => {
+  assert.match(
+    CHAT_DETAIL_DRAWERS_SOURCE,
+    /resolveChatConversationDisplayTitle\(item\.title\)/u
+  );
+  assert.doesNotMatch(CHAT_DETAIL_DRAWERS_SOURCE, /item\.lastMessageText/u);
 });

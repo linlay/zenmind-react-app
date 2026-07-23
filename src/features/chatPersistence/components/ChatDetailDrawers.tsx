@@ -24,6 +24,7 @@ import {
   getChatDrawerHiddenOffset,
   getChatDrawerPanelWidth,
 } from '../chatDrawerOverlayGeometry.ts';
+import { resolveChatConversationDisplayTitle } from '../chatConversationTitle.ts';
 import { formatChatDetailTimestamp } from '../chatDetailFormatters';
 import type { ChatHomeItem } from '../types';
 
@@ -55,7 +56,6 @@ const HISTORY_UNREAD_SLOT_CLASS = 'w-[10px] items-center';
 const HISTORY_UNREAD_DOT_CLASS = 'h-2 w-2 rounded-app-pill bg-app-badge';
 const HISTORY_TEXT_BLOCK_CLASS = 'min-w-0 flex-1 justify-center';
 const HISTORY_TITLE_CLASS = 'text-app-body-sm font-bold text-app-primary';
-const HISTORY_PREVIEW_CLASS = 'mt-[2px] text-app-footnote font-medium text-app-secondary';
 const HISTORY_TIME_CLASS =
   'w-[112px] shrink-0 text-right text-app-caption font-semibold tabular-nums text-app-secondary';
 const HISTORY_FOOTER_TEXT_CLASS = 'py-app-md text-center text-app-footnote font-semibold text-app-tertiary';
@@ -123,10 +123,7 @@ const HistoryRow = memo(function HistoryRow({ item, active, pressRetentionOffset
       <View className={HISTORY_UNREAD_SLOT_CLASS}>{unread ? <View className={HISTORY_UNREAD_DOT_CLASS} /> : null}</View>
       <View className={HISTORY_TEXT_BLOCK_CLASS}>
         <Text numberOfLines={1} className={HISTORY_TITLE_CLASS}>
-          {item.title || item.conversationId}
-        </Text>
-        <Text numberOfLines={1} className={HISTORY_PREVIEW_CLASS}>
-          {item.lastMessageText || t('history.noMessage')}
+          {resolveChatConversationDisplayTitle(item.title)}
         </Text>
       </View>
       <Text allowFontScaling={false} numberOfLines={1} className={HISTORY_TIME_CLASS}>

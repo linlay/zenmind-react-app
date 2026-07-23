@@ -53,6 +53,10 @@ import {
   serializeChatAttachmentReferences,
 } from './chatAttachmentModels.ts';
 import {
+  CHAT_CONVERSATION_FALLBACK_TITLE,
+  resolveFirstUserChatConversationTitle,
+} from './chatConversationTitle.ts';
+import {
   ChatComposerAttachment,
   ChatConversationHistoryPage,
   ChatConversationHistoryScope,
@@ -75,7 +79,6 @@ import {
 
 const CHAT_DIRECTORY_DEFAULT_PAGE_SIZE = 6;
 const TIMELINE_STALE_DELETE_BATCH_SIZE = 240;
-const DEFAULT_NEW_CONVERSATION_TITLE = '新对话';
 
 function getPinnedDirectoryCountExpression() {
   return sql<number>`coalesce(sum(case when ${chatDirectoryItems.pinnedAt} > 0 then 1 else 0 end), 0)`;
@@ -701,7 +704,7 @@ function getDirectoryConversationKeys(item: {
 }
 
 function normalizeLocalConversationTitle(title: string | null | undefined): string {
-  return String(title || '').trim() || DEFAULT_NEW_CONVERSATION_TITLE;
+  return String(title || '').trim() || CHAT_CONVERSATION_FALLBACK_TITLE;
 }
 
 async function getDirectoryItemOpenScope(itemId: string): Promise<DirectoryItemOpenScope | null> {
@@ -3341,6 +3344,13 @@ export async function createOutgoingMessage(
 
   const clientMessageId = createLocalId('client-message');
   const createdAt = Date.now();
+  const firstUserMessageRows = await chatDb
+    .select({ messageId: messages.id })
+    .from(messages)
+    .where(and(eq(messages.conversationId, conversationId), eq(messages.role, 'user')))
+    .limit(1);
+  const isFirstUserMessage = firstUserMessageRows.length === 0;
+  const firstUserConversationTitle = resolveFirstUserChatConversationTitle(content);
   const normalizedContent =
     String(content || '').trim() || formatChatAttachmentsMessageText(attachments);
   if (!normalizedContent) {
@@ -3374,6 +3384,13 @@ export async function createOutgoingMessage(
     });
     if (attachmentRows.length > 0) {
       tx.insert(messageAttachments).values(attachmentRows).run();
+    }
+
+    if (isFirstUserMessage) {
+      tx.update(conversations)
+        .set({ title: firstUserConversationTitle })
+        .where(eq(conversations.id, conversationId))
+        .run();
     }
 
     tx.insert(outboxMessages)

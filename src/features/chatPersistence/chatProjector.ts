@@ -17,6 +17,10 @@ import {
   resolveChatTimelineUsageModelKey,
 } from '../chatTimeline/index.ts';
 import type { ChatTimelineState } from '../chatTimeline/index.ts';
+import {
+  resolveFirstUserChatConversationTitle,
+  resolveRemoteChatConversationTitle,
+} from './chatConversationTitle.ts';
 import type { ChatHomeItem, ChatMessageItem, ChatMessageStatus, ChatReadState } from './types';
 import {
   hasChatReadStateInput,
@@ -639,7 +643,11 @@ export function projectRemoteChatSummary(
     return null;
   }
 
-  const title = toText(summary.chatName || summary.title || summary.name) || conversationId;
+  const title = resolveRemoteChatConversationTitle(
+    summary.chatName,
+    summary.title,
+    summary.name
+  );
   const lastMessageText = toText(summary.lastRunContent || summary.lastMessageText);
   const hasLastMessageText = Boolean(lastMessageText);
   const updatedAt = parseTimestamp(
@@ -676,19 +684,27 @@ export function projectRemoteChatDetail(
     return null;
   }
 
-  const title =
-    toText(detail.chatName || fallbackSummary?.chatName || fallbackSummary?.title) ||
-    conversationId;
+  const remoteTitle = resolveRemoteChatConversationTitle(
+    detail.chatName,
+    detail.title,
+    detail.name,
+    fallbackSummary?.chatName,
+    fallbackSummary?.title
+  );
   const hasExplicitReadState = hasChatReadStateInput(detail);
   const read = hasExplicitReadState
     ? normalizeChatReadState(detail)
     : normalizeChatReadState(fallbackSummary);
   const detailActiveRun = projectDetailActiveRun(detail);
-  const events = buildDetailTimelineEvents(detail, conversationId, title, detailActiveRun);
+  const events = buildDetailTimelineEvents(detail, conversationId, remoteTitle, detailActiveRun);
   const timelineState = deriveChatTimelineState(conversationId, events);
   const activeRun = detailActiveRun?.runId === timelineState.activeRunId ? detailActiveRun : null;
   const runtimeState = projectTimelineRuntimeState(timelineState);
   const messages = projectTimelineMessages(timelineState);
+  const firstUserMessage = messages.find((message) => message.role === 'user');
+  const title = firstUserMessage
+    ? resolveFirstUserChatConversationTitle(firstUserMessage.content)
+    : remoteTitle;
 
   const fallbackUpdatedAt = parseTimestamp(
     detail.updatedAt || fallbackSummary?.updatedAt,

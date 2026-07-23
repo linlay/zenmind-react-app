@@ -40,6 +40,15 @@ test('projects chat.created summary push without blanking latest message fields'
   assert.equal(projected?.unreadCount, undefined);
 });
 
+test('normalizes the remote default conversation title', () => {
+  const projected = projectRemoteChatSummary({
+    chatId: 'chat-default-title',
+    chatName: 'default',
+  });
+
+  assert.equal(projected?.title, '新对话');
+});
+
 test('projects chat.updated without unread fields as summary-only patch', () => {
   const projected = projectRemoteChatSummary({
     chatId: 'chat-3',
@@ -150,6 +159,35 @@ test('projects message history and runtime state in a single remote detail pass'
     projected?.runtimeState.entries.some((entry) => entry.kind === 'tool'),
     true
   );
+  assert.equal(projected?.title, 'hello');
+});
+
+test('uses the fallback title when the first user message only contains an attachment', () => {
+  const projected = projectRemoteChatDetail({
+    chatId: 'chat-attachment-title',
+    chatName: 'default',
+    events: [
+      {
+        type: 'request.query',
+        requestId: 'req-attachment',
+        message: '',
+        references: [
+          {
+            id: 'image-1',
+            type: 'image',
+            name: 'photo.png',
+            mimeType: 'image/png',
+            url: '/api/resource?file=chat-attachment-title%2Fphoto.png',
+          },
+        ],
+        createdAt: 100,
+      },
+    ],
+  });
+
+  assert.equal(projected?.messages[0]?.content, '');
+  assert.equal(projected?.messages[0]?.attachments.length, 1);
+  assert.equal(projected?.title, '新对话');
 });
 
 test('uses top-level runs planning and usage as detail timeline fallback', () => {

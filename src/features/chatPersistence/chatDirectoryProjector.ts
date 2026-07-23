@@ -7,6 +7,7 @@ import type {
 } from './types';
 import { normalizeAgentMode } from './agentMode.ts';
 import { resolveAgentModelSettings, type AgentModelSettings } from './agentModelSettings.ts';
+import { resolveRemoteChatConversationTitle } from './chatConversationTitle.ts';
 import { normalizeChatReadPatch, readStateToUnreadBit } from './chatReadState.ts';
 
 export type RemoteAgent = {
@@ -222,7 +223,7 @@ function normalizeRemoteChatSummary(
 
   return {
     conversationId,
-    title: toText(chat.chatName || chat.title) || conversationId,
+    title: resolveRemoteChatConversationTitle(chat.chatName, chat.title),
     lastMessageText: toText(chat.lastRunContent || chat.lastMessageText),
     lastMessageAt,
     ...(read ? { unreadCount: readStateToUnreadBit(read), read } : {}),
