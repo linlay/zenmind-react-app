@@ -1,9 +1,19 @@
 import { FlashList } from '@shopify/flash-list';
-import { memo, useCallback, useMemo } from 'react';
-import { ActivityIndicator, Pressable, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  Text,
+  useWindowDimensions,
+  View,
+  type StyleProp,
+  type ViewStyle
+} from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 
+import { ensureFreshAccessToken } from '../../core/auth/appAuth';
+import { getActiveDeviceProfile } from '../../core/auth/deviceProfiles';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { AppIcon } from '../../shared/icons/AppIcon';
 import { AppIconButton } from '../../shared/icons/AppIconButton';
@@ -12,7 +22,8 @@ import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { cn } from '../../shared/visual/className';
 import { appVisualTokens } from '../../shared/visual/foundation';
 import { appHairlineStyles } from '../../shared/visual/hairline';
-import type { OpenableWebApp } from './types';
+import type { OpenableWebApp, WebAppResident } from './types';
+import { addWebAppAccessToken, containsWebAppAccessToken, resolveWebAppAccessTarget } from './webAppsMobileAccess';
 import { isOpenableWebApp, normalizeWebAppUrl } from './webAppsRuntimeModel';
 import type { WebAppsRuntimeHostProps } from './WebAppsRuntimeHost.types';
 
@@ -49,6 +60,166 @@ const SELECTOR_ELEVATION_STYLE = {
 
 function isAllowedWebAppNavigation(url: string): boolean {
   return Boolean(normalizeWebAppUrl(url));
+}
+
+type ResidentWebViewProps = Pick<
+  WebAppsRuntimeHostProps,
+  'onResidentLoadState' | 'onResidentNavigation' | 'onResidentTerminated'
+> & {
+  resident: WebAppResident;
+  style: StyleProp<ViewStyle>;
+};
+
+type ResidentWebViewSource = {
+  uri: string;
+  usesPairingToken: boolean;
+  revision: number;
+};
+
+async function resolveResidentWebViewSource(
+  initialUrl: string,
+  forceRefresh: boolean
+): Promise<Omit<ResidentWebViewSource, 'revision'> | null> {
+  const activeProfile = getActiveDeviceProfile();
+  const desktopWsUrl = activeProfile?.transportKind === 'desktop-ws' ? activeProfile.desktopWs?.wsUrl : '';
+  const target = resolveWebAppAccessTarget(initialUrl, desktopWsUrl);
+  if (!target) {
+    return null;
+  }
+
+  if (target.kind === 'direct') {
+    return {
+      uri: target.uri,
+      usesPairingToken: false
+    };
+  }
+
+  const accessToken = await ensureFreshAccessToken('', {
+    failureMode: 'hard',
+    forceRefresh
+  });
+  const uri = addWebAppAccessToken(target, accessToken);
+  return uri
+    ? {
+        uri,
+        usesPairingToken: true
+      }
+    : null;
+}
+
+function ResidentWebView({
+  resident,
+  style,
+  onResidentLoadState,
+  onResidentNavigation,
+  onResidentTerminated
+}: ResidentWebViewProps) {
+  const [initialUrl] = useState(() => resident.url);
+  const [source, setSource] = useState<ResidentWebViewSource | null>(null);
+  const sourceRevisionRef = useRef(0);
+  const authRetryAttemptedRef = useRef(false);
+  const authRetryInFlightRef = useRef(false);
+  const completedInitialLoadRef = useRef(false);
+
+  const loadSource = useCallback(
+    async (forceRefresh: boolean) => {
+      const revision = sourceRevisionRef.current + 1;
+      sourceRevisionRef.current = revision;
+      completedInitialLoadRef.current = false;
+      onResidentLoadState(resident.appId, resident.generation, 'loading');
+
+      try {
+        const nextSource = await resolveResidentWebViewSource(initialUrl, forceRefresh);
+        if (sourceRevisionRef.current !== revision) {
+          return;
+        }
+        if (!nextSource) {
+          onResidentLoadState(resident.appId, resident.generation, 'error');
+          return;
+        }
+        setSource({
+          ...nextSource,
+          revision
+        });
+      } catch {
+        if (sourceRevisionRef.current === revision) {
+          onResidentLoadState(resident.appId, resident.generation, 'error');
+        }
+      }
+    },
+    [initialUrl, onResidentLoadState, resident.appId, resident.generation]
+  );
+
+  useEffect(() => {
+    void loadSource(false);
+    return () => {
+      sourceRevisionRef.current += 1;
+    };
+  }, [loadSource]);
+
+  const handleHttpError = useCallback(
+    (statusCode: number) => {
+      if (
+        statusCode === 401 &&
+        source?.usesPairingToken &&
+        !completedInitialLoadRef.current &&
+        !authRetryAttemptedRef.current
+      ) {
+        authRetryAttemptedRef.current = true;
+        authRetryInFlightRef.current = true;
+        void loadSource(true);
+        return;
+      }
+      if (statusCode === 401 && authRetryInFlightRef.current) {
+        return;
+      }
+      onResidentLoadState(resident.appId, resident.generation, 'error');
+    },
+    [loadSource, onResidentLoadState, resident.appId, resident.generation, source?.usesPairingToken]
+  );
+
+  if (!source) {
+    return null;
+  }
+
+  return (
+    <WebView
+      key={source.revision}
+      source={{ uri: source.uri }}
+      originWhitelist={['http://*', 'https://*']}
+      javaScriptEnabled
+      domStorageEnabled
+      cacheEnabled
+      incognito={false}
+      mixedContentMode="never"
+      sharedCookiesEnabled={false}
+      thirdPartyCookiesEnabled={false}
+      setSupportMultipleWindows={false}
+      allowsLinkPreview={false}
+      allowsBackForwardNavigationGestures
+      onLoadStart={() => {
+        if (source.revision > 1) {
+          authRetryInFlightRef.current = false;
+        }
+        onResidentLoadState(resident.appId, resident.generation, 'loading');
+      }}
+      onLoad={() => {
+        completedInitialLoadRef.current = true;
+        onResidentLoadState(resident.appId, resident.generation, 'ready');
+      }}
+      onError={() => onResidentLoadState(resident.appId, resident.generation, 'error')}
+      onHttpError={(event) => handleHttpError(event.nativeEvent.statusCode)}
+      onContentProcessDidTerminate={() => onResidentTerminated(resident.appId, resident.generation)}
+      onRenderProcessGone={() => onResidentTerminated(resident.appId, resident.generation)}
+      onNavigationStateChange={(navigation: WebViewNavigation) => {
+        if (!containsWebAppAccessToken(navigation.url)) {
+          onResidentNavigation(resident.appId, navigation.url);
+        }
+      }}
+      onShouldStartLoadWithRequest={(navigation) => isAllowedWebAppNavigation(navigation.url)}
+      style={style}
+    />
+  );
 }
 
 export const WebAppsRuntimeHost = memo(function WebAppsRuntimeHost({
@@ -170,30 +341,12 @@ export const WebAppsRuntimeHost = memo(function WebAppsRuntimeHost({
               className={WEBVIEW_LAYER_CLASS}
               style={{ opacity: active ? 1 : 0 }}
             >
-              <WebView
+              <ResidentWebView
                 key={`${resident.appId}:${resident.generation}`}
-                source={{ uri: resident.url }}
-                originWhitelist={['http://*', 'https://*']}
-                javaScriptEnabled
-                domStorageEnabled
-                cacheEnabled
-                incognito={false}
-                mixedContentMode="never"
-                sharedCookiesEnabled={false}
-                thirdPartyCookiesEnabled={false}
-                setSupportMultipleWindows={false}
-                allowsLinkPreview={false}
-                allowsBackForwardNavigationGestures
-                onLoadStart={() => onResidentLoadState(resident.appId, resident.generation, 'loading')}
-                onLoad={() => onResidentLoadState(resident.appId, resident.generation, 'ready')}
-                onError={() => onResidentLoadState(resident.appId, resident.generation, 'error')}
-                onHttpError={() => onResidentLoadState(resident.appId, resident.generation, 'error')}
-                onContentProcessDidTerminate={() => onResidentTerminated(resident.appId, resident.generation)}
-                onRenderProcessGone={() => onResidentTerminated(resident.appId, resident.generation)}
-                onNavigationStateChange={(navigation: WebViewNavigation) =>
-                  onResidentNavigation(resident.appId, navigation.url)
-                }
-                onShouldStartLoadWithRequest={(navigation) => isAllowedWebAppNavigation(navigation.url)}
+                resident={resident}
+                onResidentLoadState={onResidentLoadState}
+                onResidentNavigation={onResidentNavigation}
+                onResidentTerminated={onResidentTerminated}
                 style={webViewStyle}
               />
             </View>
