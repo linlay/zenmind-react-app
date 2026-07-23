@@ -311,6 +311,7 @@ export const enUS: Record<I18nKey, string> = {
   'chatDetail.status.idle': 'Idle',
   'chatDetail.status.running': 'Running',
   'chatDetail.status.error': 'Error',
+  'chatDetail.waitingForResponse': 'The agent is preparing a response…',
   'chatDetail.role.user': 'Me',
   'chatDetail.role.assistant': 'Assistant',
   'chatDetail.back': 'Back to chat list',

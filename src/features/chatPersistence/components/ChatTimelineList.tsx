@@ -34,6 +34,7 @@ import {
   type ChatTimelineState
 } from '../../chatTimeline/index.ts';
 import { buildChatTimelineMainDisplayItems } from '../chatArtifactPresentation.ts';
+import { shouldShowChatResponseWaitingIndicator } from '../chatDetailViewModel';
 import { formatChatDetailDuration, formatChatDetailTimestamp } from '../chatDetailFormatters';
 import { ChatConversationMarkdownRenderer } from '../markdownLinks/ChatConversationMarkdownRenderer.tsx';
 import { ConversationMarkdownLinkProvider } from '../markdownLinks/ConversationMarkdownLinkProvider.tsx';
@@ -43,6 +44,7 @@ import { ChatAttachmentStrip } from './ChatAttachmentStrip';
 import { ConversationContentRenderer } from '../conversationViewport/ConversationContentRenderer';
 import { ChatSystemAlert } from './ChatSystemAlert';
 import { ChatTimelineRail } from './ChatTimelineRail';
+import { ChatResponseWaitingIndicator } from './ChatResponseWaitingIndicator';
 import { ContextCompactTimelineRow } from './ContextCompactTimelineRow.tsx';
 import {
   PlanningActionPill,
@@ -92,7 +94,7 @@ const META_TEXT_CLASS = 'text-[12px] font-medium text-app-tertiary';
 const ERROR_TEXT_CLASS = 'shrink text-[12px] font-semibold text-app-danger';
 const USER_BUBBLE_CLASS = 'max-w-full rounded-[16px] rounded-br-[8px] bg-app-action px-[14px] py-[10px]';
 const USER_ATTACHMENT_PANEL_CLASS = 'max-w-full self-end';
-const USER_ATTACHMENT_PANEL_AFTER_TEXT_CLASS = 'mt-[6px]';
+const USER_ATTACHMENT_PANEL_BEFORE_TEXT_CLASS = 'mb-[6px]';
 const CONTENT_BLOCK_CLASS = 'self-stretch';
 const AWAITING_ANSWER_BLOCK_CLASS = 'self-stretch';
 const AWAITING_ANSWER_HEADER_CLASS = 'min-h-[28px] flex-row items-center gap-[7px]';
@@ -158,7 +160,6 @@ const TIMELINE_LAYOUT_STYLES = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: 8,
-    marginTop: -16,
     marginBottom: 16,
   },
   assistantFooterRailSpacer: {
@@ -170,13 +171,13 @@ const TIMELINE_LAYOUT_STYLES = StyleSheet.create({
   },
   messageFooter: {
     minHeight: 28,
-    marginTop: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: appVisualTokens.spacing.sm,
   },
   messageFooterEnd: {
+    marginTop: 6,
     alignSelf: 'flex-end',
     justifyContent: 'flex-end',
   },
@@ -450,6 +451,11 @@ const UserQueryRow = memo(function UserQueryRow({
   return (
     <View style={TIMELINE_LAYOUT_STYLES.userRow}>
       <View style={TIMELINE_LAYOUT_STYLES.userMessageStack}>
+        {attachments.length > 0 ? (
+          <View className={cn(USER_ATTACHMENT_PANEL_CLASS, text ? USER_ATTACHMENT_PANEL_BEFORE_TEXT_CLASS : null)}>
+            <ChatAttachmentStrip attachments={attachments} variant="message" />
+          </View>
+        ) : null}
         {text ? (
           <View className={USER_BUBBLE_CLASS}>
             <ChatConversationMarkdownRenderer
@@ -458,11 +464,6 @@ const UserQueryRow = memo(function UserQueryRow({
               textColor={theme.colors.onBrandBlueAction}
               linkColor={theme.colors.onBrandBlueAction}
             />
-          </View>
-        ) : null}
-        {attachments.length > 0 ? (
-          <View className={cn(USER_ATTACHMENT_PANEL_CLASS, text ? USER_ATTACHMENT_PANEL_AFTER_TEXT_CLASS : null)}>
-            <ChatAttachmentStrip attachments={attachments} variant="message" />
           </View>
         ) : null}
         <MessageFooter
@@ -984,6 +985,10 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     return nextModel;
   }, [timelineState]);
   const items = useMemo(() => buildChatTimelineMainDisplayItems(displayModel.items), [displayModel.items]);
+  const showResponseWaitingIndicator = useMemo(
+    () => shouldShowChatResponseWaitingIndicator(timelineState.activeRunId, displayModel.items),
+    [displayModel.items, timelineState.activeRunId]
+  );
   const tailSignature = displayModel.tailSignature;
   const hasCustomEmptyState = Boolean(emptyState);
   const timelineListStyle = useMemo(
@@ -1003,13 +1008,19 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     () => (emptyState ? <>{emptyState}</> : <ThreadEmptyState />),
     [emptyState]
   );
-  const diagnosticFooter = useMemo(
-    () => (diagnosticCard ? <View className={DIAGNOSTIC_FOOTER_CLASS}>{diagnosticCard}</View> : null),
-    [diagnosticCard]
+  const listFooter = useMemo(
+    () =>
+      showResponseWaitingIndicator || diagnosticCard ? (
+        <>
+          {showResponseWaitingIndicator ? <ChatResponseWaitingIndicator /> : null}
+          {diagnosticCard ? <View className={DIAGNOSTIC_FOOTER_CLASS}>{diagnosticCard}</View> : null}
+        </>
+      ) : null,
+    [diagnosticCard, showResponseWaitingIndicator]
   );
   const listExtraData = useMemo(
-    () => ({ revision: timelineState.revision, diagnosticVersion }),
-    [diagnosticVersion, timelineState.revision]
+    () => ({ revision: timelineState.revision, diagnosticVersion, showResponseWaitingIndicator }),
+    [diagnosticVersion, showResponseWaitingIndicator, timelineState.revision]
   );
   const setScrollToEndVisible = useCallback((visible: boolean) => {
     if (showScrollToEndRef.current !== visible) {
@@ -1289,6 +1300,16 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     schedulePendingAutoFollowReset();
   }, [diagnosticVersion, schedulePendingAutoFollowReset]);
 
+  useLayoutEffect(() => {
+    if (
+      showResponseWaitingIndicator &&
+      (isFollowingEndRef.current || isNearTimelineEnd(scrollMetricsRef.current) || !hasUserScrolledRef.current)
+    ) {
+      pendingAutoFollowRef.current = true;
+      schedulePendingAutoFollowReset();
+    }
+  }, [schedulePendingAutoFollowReset, showResponseWaitingIndicator]);
+
   useEffect(() => {
     updateScrollToEndVisibility();
   }, [updateScrollToEndVisibility]);
@@ -1318,7 +1339,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
         drawDistance={620}
         getItemType={getChatTimelineDisplayItemType}
         ListEmptyComponent={emptyStateElement}
-        ListFooterComponent={diagnosticFooter}
+        ListFooterComponent={listFooter}
         keyboardShouldPersistTaps="handled"
         onScroll={handleScroll}
         onScrollEndDrag={updateMetricsFromScrollEvent}

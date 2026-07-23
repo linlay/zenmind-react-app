@@ -302,6 +302,7 @@ export const zhCN = {
   'chatDetail.status.idle': '空闲',
   'chatDetail.status.running': '运行中',
   'chatDetail.status.error': '异常',
+  'chatDetail.waitingForResponse': '智能体正在准备回复…',
   'chatDetail.role.user': '我',
   'chatDetail.role.assistant': '助手',
   'chatDetail.back': '返回会话列表',
