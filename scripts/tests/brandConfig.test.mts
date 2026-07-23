@@ -190,9 +190,11 @@ test('brand manifests share native identity and EAS project but keep presentatio
   assert.equal(cutejManifest.updates, undefined);
   assert.notEqual(zenmind.generatedAssets.logo, cutej.generatedAssets.logo);
   assert.equal(zenmind.source.appIcon, 'brands/zenmind/app-icon.png');
-  assert.equal(cutej.source.appIcon, null);
+  assert.equal(cutej.source.appIcon, 'brands/cutej/app-icon.png');
   assert.equal(zenmind.version, '9.9.9');
   assert.equal(cutej.generatedAssets.logo, 'assets/brands/cutej/logo.png');
+  assert.equal(cutej.splash.imageWidth, 220);
+  assert.equal(cutej.splash.androidImageWidth, 176);
 });
 
 test('brand sync requires a checked-in logo source', () => {
@@ -231,6 +233,7 @@ test('brand sync redraws derived png assets only when visual inputs or logo sour
     assert.match(generatedBrandTs, /"cutej": \{/);
     assert.match(generatedBrandTs, /resolveInstalledBrandId\(APP_BRANDS, DEFAULT_BRAND_ID\)/);
     assert.equal(generatedBrandTs.includes('ACTIVE_BRAND_ID'), false);
+    assert.equal(generatedBrandTs.includes('androidImageWidth'), false);
     assert.match(
       fs.readFileSync(path.join(rootDir, 'src', 'shared', 'generated', 'brandAssets.ts'), 'utf8'),
       /BRAND_LOGOS = \{[\s\S]*"cutej": brandLogo_cutej/

@@ -30,6 +30,9 @@ module.exports = () => {
             image: assetPath(brand.generatedAssets.logo),
             imageWidth: brand.splash.imageWidth,
             resizeMode: 'contain',
+            android: {
+              imageWidth: brand.splash.androidImageWidth,
+            },
           },
         ],
         [

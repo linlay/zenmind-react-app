@@ -2,6 +2,7 @@
   "id": "cutej",
   "productName": "CuteJ",
   "expoName": "CuteJ",
+  "appIcon": "app-icon.png",
   "android": {
     "adaptiveIconBackgroundColor": "#172033"
   },

@@ -21,6 +21,7 @@ const BRAND_ASSET_GENERATOR_VERSION = 8;
 const ICON_LOGO_SCALE = 0.76;
 const ADAPTIVE_ICON_LOGO_SCALE = 0.5;
 const FAVICON_LOGO_SCALE = 0.72;
+const ANDROID_SPLASH_SAFE_AREA_SCALE = 0.8;
 const ANDROID_SPLASH_DENSITIES = [
   { directory: 'drawable-mdpi', multiplier: 1 },
   { directory: 'drawable-hdpi', multiplier: 1.5 },
@@ -236,6 +237,9 @@ function normalizeManifest(rootDir, brandRoot, manifest, sharedConfig, i18n, app
   if (!Number.isFinite(splashImageWidth) || splashImageWidth <= 0) {
     throw new Error('Brand manifest field "splash.imageWidth" must be a positive number.');
   }
+  const androidSplashImageWidth = Math.round(
+    splashImageWidth * ANDROID_SPLASH_SAFE_AREA_SCALE
+  );
 
   const brandAssetRoot = `${BRAND_ASSET_ROOT}/${id}`;
   const generatedAssets = {
@@ -262,7 +266,8 @@ function normalizeManifest(rootDir, brandRoot, manifest, sharedConfig, i18n, app
     updates: sharedConfig.updates,
     splash: {
       backgroundColor: requireHexColor(manifest, 'splash', 'backgroundColor'),
-      imageWidth: splashImageWidth
+      imageWidth: splashImageWidth,
+      androidImageWidth: androidSplashImageWidth
     },
     notification: {
       channel: notificationChannel,
@@ -333,7 +338,10 @@ function runtimeBrandPayload(brand) {
     slug: brand.slug,
     version: brand.version,
     storageNamespace: brand.storageNamespace,
-    splash: brand.splash,
+    splash: {
+      backgroundColor: brand.splash.backgroundColor,
+      imageWidth: brand.splash.imageWidth
+    },
     i18n: brand.i18n
   };
 }
@@ -474,6 +482,7 @@ function brandAssetFingerprint(brand, logoHash, appIconHash) {
 
 function brandNativeSplashImageFingerprint(brand, logoHash) {
   return hashStableJson({
+    androidSplashImageWidth: brand.splash.androidImageWidth,
     assetGenerator: BRAND_ASSET_GENERATOR_VERSION,
     logo: logoHash,
     splashImageWidth: brand.splash.imageWidth
@@ -1236,7 +1245,7 @@ function writeAndroidSplashImageResources(rootDir, brand, logo) {
 
   for (const density of ANDROID_SPLASH_DENSITIES) {
     const canvasSize = Math.round(288 * density.multiplier);
-    const imageSize = Math.round(brand.splash.imageWidth * density.multiplier);
+    const imageSize = Math.round(brand.splash.androidImageWidth * density.multiplier);
     writeFileIfChanged(
       path.join(androidMainPath, 'res', density.directory, 'splashscreen_logo.png'),
       createLogoSplashPng(logo, canvasSize, imageSize)
