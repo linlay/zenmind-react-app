@@ -27,6 +27,7 @@
   ],
   "testFiles": [
     "scripts/tests/appIconRegistry.test.mts",
+    "scripts/tests/authenticatedResourceModel.test.mts",
     "scripts/tests/awaitingOptionPreview.test.mts",
     "scripts/tests/awaitingQuestionState.test.mts",
     "scripts/tests/awaitingSubmitState.test.mts",
@@ -59,11 +60,13 @@
     "scripts/tests/chatRealtimeReconcile.test.mts",
     "scripts/tests/chatRealtimeRouting.test.mts",
     "scripts/tests/chatRealtimeUiState.test.mts",
+    "scripts/tests/chatResponseWaiting.test.mts",
     "scripts/tests/chatRuntimeState.test.mts",
     "scripts/tests/chatTimelineAction.test.mts",
     "scripts/tests/chatTimelineArtifact.test.mts",
     "scripts/tests/chatTimelineContextCompact.test.mts",
     "scripts/tests/chatTimelineDisplay.test.mts",
+    "scripts/tests/chatTimelineFooterLayout.test.mts",
     "scripts/tests/chatTimelinePersistence.test.mts",
     "scripts/tests/chatTimelinePlan.test.mts",
     "scripts/tests/chatTimelineReducer.test.mts",
@@ -91,6 +94,7 @@
     "scripts/tests/sharedWsTransport.test.mts",
     "scripts/tests/submitIosIpaScript.test.mts",
     "scripts/tests/tabIconAssets.test.mts",
+    "scripts/tests/uploadApiModel.test.mts",
     "scripts/tests/visualFoundation.test.mts",
     "scripts/tests/webAppsDesktopProtocol.test.mts",
     "scripts/tests/webAppsGateway.test.mts",
@@ -870,7 +874,6 @@
     ".generated/react-native-worklets/.worklets/16649253670356.js",
     ".generated/react-native-worklets/.worklets/16654238642020.js",
     ".generated/react-native-worklets/.worklets/16669782355707.js",
-    ".generated/react-native-worklets/.worklets/1668263962153.js",
     ".generated/react-native-worklets/.worklets/16682868163038.js",
     ".generated/react-native-worklets/.worklets/16684751503669.js",
     ".generated/react-native-worklets/.worklets/16697634182419.js",
@@ -1011,7 +1014,6 @@
     ".generated/react-native-worklets/.worklets/1803948073058.js",
     ".generated/react-native-worklets/.worklets/1827291860244.js",
     ".generated/react-native-worklets/.worklets/1839555089531.js",
-    ".generated/react-native-worklets/.worklets/1842483063759.js",
     ".generated/react-native-worklets/.worklets/1850484736744.js",
     ".generated/react-native-worklets/.worklets/1865752198941.js",
     ".generated/react-native-worklets/.worklets/1900668823867.js",
@@ -1173,7 +1175,6 @@
     ".generated/react-native-worklets/.worklets/3134142024792.js",
     ".generated/react-native-worklets/.worklets/31377339073.js",
     ".generated/react-native-worklets/.worklets/3147083842861.js",
-    ".generated/react-native-worklets/.worklets/3162625050575.js",
     ".generated/react-native-worklets/.worklets/3165232963211.js",
     ".generated/react-native-worklets/.worklets/3172417130719.js",
     ".generated/react-native-worklets/.worklets/3179818672722.js",
@@ -2075,6 +2076,8 @@
     "src/core/api/services/authenticatedResourceDownload.native.ts",
     "src/core/api/services/authenticatedResourceDownload.ts",
     "src/core/api/services/authenticatedResourceDownload.web.ts",
+    "src/core/api/services/authenticatedResourceImage.native.ts",
+    "src/core/api/services/authenticatedResourceImage.ts",
     "src/core/api/services/authenticatedResourceModel.ts",
     "src/core/api/services/chatApi.ts",
     "src/core/api/services/chatEventProtocol.ts",
@@ -2088,6 +2091,7 @@
     "src/core/api/services/notificationApi.ts",
     "src/core/api/services/templateApi.ts",
     "src/core/api/services/uploadApi.ts",
+    "src/core/api/services/uploadApiModel.ts",
     "src/core/api/services/workspaceResource.ts",
     "src/core/auth/appAuth.ts",
     "src/core/auth/authConfig.ts",
@@ -2158,6 +2162,7 @@
     "src/features/chatPersistence/components/ChatDirectoryRow.tsx",
     "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx",
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
+    "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx",
     "src/features/chatPersistence/components/ChatSystemAlert.tsx",
     "src/features/chatPersistence/components/ChatTimelineList.tsx",
     "src/features/chatPersistence/components/ChatTimelineRail.tsx",
@@ -5364,10 +5369,6 @@
                     "type": "file"
                   },
                   {
-                    "name": "1668263962153.js",
-                    "type": "file"
-                  },
-                  {
                     "name": "16682868163038.js",
                     "type": "file"
                   },
@@ -5925,10 +5926,6 @@
                   },
                   {
                     "name": "1839555089531.js",
-                    "type": "file"
-                  },
-                  {
-                    "name": "1842483063759.js",
                     "type": "file"
                   },
                   {
@@ -6573,10 +6570,6 @@
                   },
                   {
                     "name": "3147083842861.js",
-                    "type": "file"
-                  },
-                  {
-                    "name": "3162625050575.js",
                     "type": "file"
                   },
                   {
@@ -10314,6 +10307,14 @@
                         "type": "file"
                       },
                       {
+                        "name": "authenticatedResourceImage.native.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "authenticatedResourceImage.ts",
+                        "type": "file"
+                      },
+                      {
                         "name": "authenticatedResourceModel.ts",
                         "type": "file"
                       },
@@ -10363,6 +10364,10 @@
                       },
                       {
                         "name": "uploadApi.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "uploadApiModel.ts",
                         "type": "file"
                       },
                       {
@@ -10681,6 +10686,10 @@
                       },
                       {
                         "name": "ChatNewConversationIntro.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatResponseWaitingIndicator.tsx",
                         "type": "file"
                       },
                       {
@@ -11529,6 +11538,8 @@
       "src/core/api/services/authenticatedResourceDownload.native.ts",
       "src/core/api/services/authenticatedResourceDownload.ts",
       "src/core/api/services/authenticatedResourceDownload.web.ts",
+      "src/core/api/services/authenticatedResourceImage.native.ts",
+      "src/core/api/services/authenticatedResourceImage.ts",
       "src/core/api/services/authenticatedResourceModel.ts",
       "src/core/api/services/chatApi.ts",
       "src/core/api/services/chatEventProtocol.ts",
@@ -11542,6 +11553,7 @@
       "src/core/api/services/notificationApi.ts",
       "src/core/api/services/templateApi.ts",
       "src/core/api/services/uploadApi.ts",
+      "src/core/api/services/uploadApiModel.ts",
       "src/core/api/services/workspaceResource.ts"
     ],
     "core-auth-session": [
@@ -11626,6 +11638,7 @@
       "src/features/chatPersistence/components/ChatDirectoryRow.tsx",
       "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx",
       "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
+      "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx",
       "src/features/chatPersistence/components/ChatSystemAlert.tsx",
       "src/features/chatPersistence/components/ChatTimelineList.tsx",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
@@ -11834,6 +11847,8 @@
     "src/core/api/services/authenticatedResourceDownload.native.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceDownload.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceDownload.web.ts": "core-api-client",
+    "src/core/api/services/authenticatedResourceImage.native.ts": "core-api-client",
+    "src/core/api/services/authenticatedResourceImage.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceModel.ts": "core-api-client",
     "src/core/api/services/chatApi.ts": "core-api-client",
     "src/core/api/services/chatEventProtocol.ts": "core-api-client",
@@ -11847,6 +11862,7 @@
     "src/core/api/services/notificationApi.ts": "core-api-client",
     "src/core/api/services/templateApi.ts": "core-api-client",
     "src/core/api/services/uploadApi.ts": "core-api-client",
+    "src/core/api/services/uploadApiModel.ts": "core-api-client",
     "src/core/api/services/workspaceResource.ts": "core-api-client",
     "src/core/auth/appAuth.ts": "core-auth-session",
     "src/core/auth/authConfig.ts": "core-auth-session",
@@ -11917,6 +11933,7 @@
     "src/features/chatPersistence/components/ChatDirectoryRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatSystemAlert.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatTimelineList.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": "feature-chat-persistence",
@@ -12136,7 +12153,8 @@
         "app-development-debug",
         "core-api-client",
         "core-auth-session",
-        "core-ws-transport"
+        "core-ws-transport",
+        "feature-chat-persistence"
       ]
     },
     "core-runtime-config": {
@@ -12187,6 +12205,7 @@
       "dependsOn": [
         "app-shell-navigation",
         "core-api-client",
+        "core-debug-logging",
         "feature-chat-realtime",
         "feature-chat-timeline",
         "shared-conversation-content-renderer",
@@ -14587,9 +14606,6 @@
     ".generated/react-native-worklets/.worklets/16669782355707.js": [
       "default"
     ],
-    ".generated/react-native-worklets/.worklets/1668263962153.js": [
-      "default"
-    ],
     ".generated/react-native-worklets/.worklets/16682868163038.js": [
       "default"
     ],
@@ -15008,9 +15024,6 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/1839555089531.js": [
-      "default"
-    ],
-    ".generated/react-native-worklets/.worklets/1842483063759.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/1850484736744.js": [
@@ -15494,9 +15507,6 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/3147083842861.js": [
-      "default"
-    ],
-    ".generated/react-native-worklets/.worklets/3162625050575.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/3165232963211.js": [
@@ -18191,8 +18201,11 @@
       "AUTHENTICATED_TEXT_PREVIEW_TIMEOUT_MS",
       "AuthenticatedResourceError",
       "AuthenticatedResourceErrorCode",
+      "createAuthenticatedResourceImageCacheFileName",
       "fetchAuthenticatedResourceText",
+      "isAuthenticatedResourceContentTypeCompatible",
       "normalizeAuthenticatedResourceFileName",
+      "requiresAuthenticatedResourceHttpDataPlane",
       "resolveAuthenticatedResourceSource",
       "type AuthenticatedResourceDownloadRequest",
       "type AuthenticatedResourceDownloadResult"
@@ -18206,10 +18219,20 @@
     "src/core/api/services/authenticatedResourceDownload.web.ts": [
       "downloadAuthenticatedResource"
     ],
+    "src/core/api/services/authenticatedResourceImage.native.ts": [
+      "resolveAuthenticatedResourceImageSource"
+    ],
+    "src/core/api/services/authenticatedResourceImage.ts": [
+      "AuthenticatedResourceImageRequest",
+      "resolveAuthenticatedResourceImageSource"
+    ],
     "src/core/api/services/authenticatedResourceModel.ts": [
       "AuthenticatedResourceDownloadRequest",
       "AuthenticatedResourceDownloadResult",
-      "normalizeAuthenticatedResourceFileName"
+      "createAuthenticatedResourceImageCacheFileName",
+      "isAuthenticatedResourceContentTypeCompatible",
+      "normalizeAuthenticatedResourceFileName",
+      "requiresAuthenticatedResourceHttpDataPlane"
     ],
     "src/core/api/services/chatApi.ts": [
       "AgentDetailSnapshot",
@@ -18388,12 +18411,29 @@
     ],
     "src/core/api/services/uploadApi.ts": [
       "CHAT_UPLOAD_API_PATH",
-      "ChatUploadReference",
-      "ChatUploadResponseData",
+      "ChatUploadError",
       "UploadChatAttachmentInput",
       "extractUploadChatId",
       "extractUploadReferences",
+      "type ChatUploadErrorCode",
+      "type ChatUploadReference",
+      "type ChatUploadResponseData",
       "uploadChatAttachmentApi"
+    ],
+    "src/core/api/services/uploadApiModel.ts": [
+      "CHAT_UPLOAD_API_PATH",
+      "ChatUploadError",
+      "ChatUploadErrorCode",
+      "ChatUploadFormFields",
+      "ChatUploadReference",
+      "ChatUploadResponseData",
+      "ChatUploadRoute",
+      "DesktopPublicUploadRequestHooks",
+      "createChatUploadFormData",
+      "parseDesktopPublicUploadResponse",
+      "requestDesktopPublicUpload",
+      "resolveChatUploadRoute",
+      "unwrapChatUploadResponse"
     ],
     "src/core/api/services/workspaceResource.ts": [
       "WorkspaceFileResourceRequest",
@@ -18441,7 +18481,6 @@
       "DesktopWsPairingPayload",
       "DesktopWsTokenMode",
       "LegacyPairingPayload",
-      "PairingTargetMode",
       "ParsedPairingPayload",
       "applyDesktopTokenToUrl",
       "buildDesktopBusinessFrame",
@@ -18685,7 +18724,8 @@
       "ChatDetailHeaderStatusTone",
       "deriveChatComposerPrimaryAction",
       "deriveChatDetailHeaderRuntimeState",
-      "hasDisplayableChatTimelineUsageSummary"
+      "hasDisplayableChatTimelineUsageSummary",
+      "shouldShowChatResponseWaitingIndicator"
     ],
     "src/features/chatPersistence/chatDirectoryOpenDecision.ts": [
       "ChatDirectoryLatestConversationSummary",
@@ -18868,6 +18908,9 @@
     ],
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": [
       "ChatNewConversationIntro"
+    ],
+    "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx": [
+      "ChatResponseWaitingIndicator"
     ],
     "src/features/chatPersistence/components/ChatSystemAlert.tsx": [
       "ChatSystemAlert"
@@ -20867,7 +20910,6 @@
     ".generated/react-native-worklets/.worklets/16649253670356.js": null,
     ".generated/react-native-worklets/.worklets/16654238642020.js": null,
     ".generated/react-native-worklets/.worklets/16669782355707.js": null,
-    ".generated/react-native-worklets/.worklets/1668263962153.js": null,
     ".generated/react-native-worklets/.worklets/16682868163038.js": [
       "../../../node_modules/react-native-worklets/lib/module/runLoop/common/setImmediatePolyfill",
       "../../../node_modules/react-native-worklets/lib/module/runLoop/common/setIntervalPolyfill",
@@ -21052,7 +21094,6 @@
     ".generated/react-native-worklets/.worklets/1803948073058.js": null,
     ".generated/react-native-worklets/.worklets/1827291860244.js": null,
     ".generated/react-native-worklets/.worklets/1839555089531.js": null,
-    ".generated/react-native-worklets/.worklets/1842483063759.js": null,
     ".generated/react-native-worklets/.worklets/1850484736744.js": null,
     ".generated/react-native-worklets/.worklets/1865752198941.js": null,
     ".generated/react-native-worklets/.worklets/1900668823867.js": null,
@@ -21247,7 +21288,6 @@
     ".generated/react-native-worklets/.worklets/3134142024792.js": null,
     ".generated/react-native-worklets/.worklets/31377339073.js": null,
     ".generated/react-native-worklets/.worklets/3147083842861.js": null,
-    ".generated/react-native-worklets/.worklets/3162625050575.js": null,
     ".generated/react-native-worklets/.worklets/3165232963211.js": null,
     ".generated/react-native-worklets/.worklets/3172417130719.js": null,
     ".generated/react-native-worklets/.worklets/3179818672722.js": null,
@@ -22584,6 +22624,7 @@
     "src/core/api/apiError.ts": null,
     "src/core/api/resourceUrl.ts": null,
     "src/core/api/services/authenticatedResource.ts": [
+      "../../auth/deviceProfiles.ts",
       "../apiClient.ts",
       "./authenticatedResourceModel.ts"
     ],
@@ -22596,6 +22637,17 @@
     ],
     "src/core/api/services/authenticatedResourceDownload.web.ts": [
       "./authenticatedResource.ts"
+    ],
+    "src/core/api/services/authenticatedResourceImage.native.ts": [
+      "../../debug/httpDebugLogger.ts",
+      "../apiClient.ts",
+      "./authenticatedResource.ts",
+      "./authenticatedResourceImage.ts",
+      "./authenticatedResourceModel.ts",
+      "expo-file-system"
+    ],
+    "src/core/api/services/authenticatedResourceImage.ts": [
+      "../apiClient.ts"
     ],
     "src/core/api/services/authenticatedResourceModel.ts": null,
     "src/core/api/services/chatApi.ts": [
@@ -22638,10 +22690,17 @@
       "../apiClient"
     ],
     "src/core/api/services/uploadApi.ts": [
+      "../../auth/appAuth",
+      "../../auth/deviceProfiles",
       "../../debug/httpDebugLogger",
       "../apiClient",
       "../resourceUrl",
+      "./uploadApiModel",
       "expo-file-system"
+    ],
+    "src/core/api/services/uploadApiModel.ts": [
+      "../../auth/deviceProfiles.ts",
+      "../apiError.ts"
     ],
     "src/core/api/services/workspaceResource.ts": null,
     "src/core/auth/appAuth.ts": [
@@ -22983,6 +23042,8 @@
     ],
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx": [
       "../../../core/api/apiClient",
+      "../../../core/api/services/authenticatedResourceImage",
+      "../../../core/debug/httpDebugLogger",
       "../../../shared/components/conversationPreview/ConversationPreviewProvider.tsx",
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
@@ -23117,6 +23178,12 @@
       "react",
       "react-native"
     ],
+    "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx": [
+      "../../../shared/i18n",
+      "../../../shared/visual/AppThemeProvider",
+      "react",
+      "react-native"
+    ],
     "src/features/chatPersistence/components/ChatSystemAlert.tsx": [
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
@@ -23137,12 +23204,14 @@
       "../../chatTimeline/index.ts",
       "../chatArtifactPresentation.ts",
       "../chatDetailFormatters",
+      "../chatDetailViewModel",
       "../conversationViewport/ConversationContentRenderer",
       "../markdownLinks/ChatConversationMarkdownRenderer.tsx",
       "../markdownLinks/ConversationMarkdownLinkProvider.tsx",
       "./ActionTimelineRow.tsx",
       "./ChatArtifactDrawer.tsx",
       "./ChatAttachmentStrip",
+      "./ChatResponseWaitingIndicator",
       "./ChatSystemAlert",
       "./ChatTimelineRail",
       "./ContextCompactTimelineRow.tsx",
@@ -23421,12 +23490,14 @@
       "react"
     ],
     "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts": [
+      "../../../../core/api/services/authenticatedResource.ts",
       "../../../../core/api/services/authenticatedResourceDownload.ts",
       "react"
     ],
     "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts": [
       "../../../../core/api/apiClient.ts",
       "../../../../core/api/services/authenticatedResource.ts",
+      "../../../../core/api/services/authenticatedResourceImage",
       "react"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
@@ -24917,7 +24988,6 @@
     ".generated/react-native-worklets/.worklets/16649253670356.js": null,
     ".generated/react-native-worklets/.worklets/16654238642020.js": null,
     ".generated/react-native-worklets/.worklets/16669782355707.js": null,
-    ".generated/react-native-worklets/.worklets/1668263962153.js": null,
     ".generated/react-native-worklets/.worklets/16682868163038.js": [
       "node_modules/react-native-worklets/lib/module/runLoop/common/setImmediatePolyfill.js",
       "node_modules/react-native-worklets/lib/module/runLoop/common/setIntervalPolyfill.js",
@@ -25082,7 +25152,6 @@
     ".generated/react-native-worklets/.worklets/1803948073058.js": null,
     ".generated/react-native-worklets/.worklets/1827291860244.js": null,
     ".generated/react-native-worklets/.worklets/1839555089531.js": null,
-    ".generated/react-native-worklets/.worklets/1842483063759.js": null,
     ".generated/react-native-worklets/.worklets/1850484736744.js": null,
     ".generated/react-native-worklets/.worklets/1865752198941.js": null,
     ".generated/react-native-worklets/.worklets/1900668823867.js": null,
@@ -25264,7 +25333,6 @@
     ".generated/react-native-worklets/.worklets/3134142024792.js": null,
     ".generated/react-native-worklets/.worklets/31377339073.js": null,
     ".generated/react-native-worklets/.worklets/3147083842861.js": null,
-    ".generated/react-native-worklets/.worklets/3162625050575.js": null,
     ".generated/react-native-worklets/.worklets/3165232963211.js": null,
     ".generated/react-native-worklets/.worklets/3172417130719.js": null,
     ".generated/react-native-worklets/.worklets/3179818672722.js": null,
@@ -26405,7 +26473,8 @@
     "src/core/api/resourceUrl.ts": null,
     "src/core/api/services/authenticatedResource.ts": [
       "src/core/api/apiClient.ts",
-      "src/core/api/services/authenticatedResourceModel.ts"
+      "src/core/api/services/authenticatedResourceModel.ts",
+      "src/core/auth/deviceProfiles.ts"
     ],
     "src/core/api/services/authenticatedResourceDownload.native.ts": [
       "src/core/api/services/authenticatedResource.ts"
@@ -26415,6 +26484,16 @@
     ],
     "src/core/api/services/authenticatedResourceDownload.web.ts": [
       "src/core/api/services/authenticatedResource.ts"
+    ],
+    "src/core/api/services/authenticatedResourceImage.native.ts": [
+      "src/core/api/apiClient.ts",
+      "src/core/api/services/authenticatedResource.ts",
+      "src/core/api/services/authenticatedResourceImage.ts",
+      "src/core/api/services/authenticatedResourceModel.ts",
+      "src/core/debug/httpDebugLogger.ts"
+    ],
+    "src/core/api/services/authenticatedResourceImage.ts": [
+      "src/core/api/apiClient.ts"
     ],
     "src/core/api/services/authenticatedResourceModel.ts": null,
     "src/core/api/services/chatApi.ts": [
@@ -26459,7 +26538,14 @@
     "src/core/api/services/uploadApi.ts": [
       "src/core/api/apiClient.ts",
       "src/core/api/resourceUrl.ts",
+      "src/core/api/services/uploadApiModel.ts",
+      "src/core/auth/appAuth.ts",
+      "src/core/auth/deviceProfiles.ts",
       "src/core/debug/httpDebugLogger.ts"
+    ],
+    "src/core/api/services/uploadApiModel.ts": [
+      "src/core/api/apiError.ts",
+      "src/core/auth/deviceProfiles.ts"
     ],
     "src/core/api/services/workspaceResource.ts": null,
     "src/core/auth/appAuth.ts": [
@@ -26760,6 +26846,8 @@
     ],
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx": [
       "src/core/api/apiClient.ts",
+      "src/core/api/services/authenticatedResourceImage.ts",
+      "src/core/debug/httpDebugLogger.ts",
       "src/features/chatPersistence/chatAttachmentIcon.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatAttachmentPreview.ts",
@@ -26862,6 +26950,10 @@
       "src/shared/icons/AppIconButton.tsx",
       "src/shared/visual/className.ts"
     ],
+    "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx": [
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
     "src/features/chatPersistence/components/ChatSystemAlert.tsx": [
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatTimeline/index.ts",
@@ -26872,9 +26964,11 @@
     "src/features/chatPersistence/components/ChatTimelineList.tsx": [
       "src/features/chatPersistence/chatArtifactPresentation.ts",
       "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/chatDetailViewModel.ts",
       "src/features/chatPersistence/components/ActionTimelineRow.tsx",
       "src/features/chatPersistence/components/ChatArtifactDrawer.tsx",
       "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
+      "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx",
       "src/features/chatPersistence/components/ChatSystemAlert.tsx",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx",
@@ -27104,11 +27198,13 @@
       "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/components/resource/useAuthenticatedResourceDownload.ts": [
+      "src/core/api/services/authenticatedResource.ts",
       "src/core/api/services/authenticatedResourceDownload.ts"
     ],
     "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts": [
       "src/core/api/apiClient.ts",
-      "src/core/api/services/authenticatedResource.ts"
+      "src/core/api/services/authenticatedResource.ts",
+      "src/core/api/services/authenticatedResourceImage.ts"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "src/features/chatPersistence/components/runtimeStructuredPayload.ts",
@@ -28434,7 +28530,6 @@
     ".generated/react-native-worklets/.worklets/16649253670356.js",
     ".generated/react-native-worklets/.worklets/16654238642020.js",
     ".generated/react-native-worklets/.worklets/16669782355707.js",
-    ".generated/react-native-worklets/.worklets/1668263962153.js",
     ".generated/react-native-worklets/.worklets/16682868163038.js",
     ".generated/react-native-worklets/.worklets/16684751503669.js",
     ".generated/react-native-worklets/.worklets/16697634182419.js",
@@ -28575,7 +28670,6 @@
     ".generated/react-native-worklets/.worklets/1803948073058.js",
     ".generated/react-native-worklets/.worklets/1827291860244.js",
     ".generated/react-native-worklets/.worklets/1839555089531.js",
-    ".generated/react-native-worklets/.worklets/1842483063759.js",
     ".generated/react-native-worklets/.worklets/1850484736744.js",
     ".generated/react-native-worklets/.worklets/1865752198941.js",
     ".generated/react-native-worklets/.worklets/1900668823867.js",
@@ -28737,7 +28831,6 @@
     ".generated/react-native-worklets/.worklets/3134142024792.js",
     ".generated/react-native-worklets/.worklets/31377339073.js",
     ".generated/react-native-worklets/.worklets/3147083842861.js",
-    ".generated/react-native-worklets/.worklets/3162625050575.js",
     ".generated/react-native-worklets/.worklets/3165232963211.js",
     ".generated/react-native-worklets/.worklets/3172417130719.js",
     ".generated/react-native-worklets/.worklets/3179818672722.js",

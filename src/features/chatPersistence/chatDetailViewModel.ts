@@ -1,4 +1,5 @@
 import type {
+  ChatTimelineDisplayItem,
   ChatTimelineNode,
   ChatTimelineState,
   ChatTimelineUsageStats,
@@ -153,6 +154,20 @@ export function deriveChatDetailHeaderRuntimeState(
     usageLabel,
     usageSummary,
     null
+  );
+}
+
+export function shouldShowChatResponseWaitingIndicator(
+  activeRunId: string,
+  items: readonly ChatTimelineDisplayItem[]
+): boolean {
+  const normalizedActiveRunId = String(activeRunId || '').trim();
+  if (!normalizedActiveRunId) {
+    return false;
+  }
+
+  return !items.some(
+    (item) => item.runId === normalizedActiveRunId && item.kind !== 'user-query' && item.kind !== 'request'
   );
 }
 

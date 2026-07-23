@@ -40,7 +40,7 @@ test('artifact normalizer supports live arrays, safe resource URLs and preview s
   });
 
   assert.equal(artifacts.length, 2);
-  assert.equal(artifacts[0].resourceUrl, '/ap/api/resource?id=image-1');
+  assert.equal(artifacts[0].resourceUrl, '/api/resource?id=image-1');
   assert.equal(artifacts[0].previewKind, 'image');
   assert.equal(artifacts[0].sizeBytes, 2048);
   assert.equal(artifacts[1].previewKind, 'text');

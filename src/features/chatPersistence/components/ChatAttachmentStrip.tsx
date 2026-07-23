@@ -1,7 +1,9 @@
 import { memo, useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { buildAuthenticatedApiUriSource, type ApiUriSource } from '../../../core/api/apiClient';
+import type { ApiUriSource } from '../../../core/api/apiClient';
+import { resolveAuthenticatedResourceImageSource } from '../../../core/api/services/authenticatedResourceImage';
+import { logHttpError } from '../../../core/debug/httpDebugLogger';
 import { useConversationPreviewRowActive } from '../../../shared/components/conversationPreview/ConversationPreviewProvider.tsx';
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
@@ -26,12 +28,15 @@ type ChatAttachmentTranslate = ReturnType<typeof useT>;
 
 const STRIP_CONTENT_CLASS = 'gap-app-sm px-0 py-0';
 const MESSAGE_STRIP_CONTENT_CLASS = 'px-0 pt-0';
+const MESSAGE_STRIP_CLASS = 'flex-none self-end';
+const COMPACT_ATTACHMENT_HEIGHT_CLASS = 'h-[58px]';
+const MESSAGE_IMAGE_HEIGHT_CLASS = 'h-[118px]';
 const ATTACHMENT_SHELL_CLASS = 'relative rounded-app-md';
 const MESSAGE_ATTACHMENT_SHELL_CLASS = 'max-w-[210px]';
 const ATTACHMENT_FAILED_CLASS = 'opacity-[0.86]';
 const IMAGE_TILE_CLASS = 'overflow-hidden rounded-app-md border border-app-line bg-app-background-muted';
-const COMPOSER_IMAGE_FRAME_CLASS = 'h-[58px] w-[58px]';
-const MESSAGE_IMAGE_FRAME_CLASS = 'h-[118px] w-[168px]';
+const COMPOSER_IMAGE_FRAME_CLASS = 'w-[58px]';
+const MESSAGE_IMAGE_FRAME_CLASS = 'w-[168px]';
 const IMAGE_CLASS = 'h-full w-full';
 const IMAGE_OVERLAY_CLASS = 'absolute inset-0 items-center justify-center gap-app-xs bg-app-background-muted';
 const IMAGE_ERROR_TEXT_CLASS = 'max-w-[116px] text-[11px] text-app-secondary';
@@ -68,48 +73,45 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
   const [imageSource, setImageSource] = useState<ApiUriSource | null>(null);
   const imageUri = resolveChatAttachmentImageUri(attachment, variant);
   const isMessage = variant === 'message';
-  const frameClass = isMessage ? MESSAGE_IMAGE_FRAME_CLASS : COMPOSER_IMAGE_FRAME_CLASS;
+  const frameClass = isMessage
+    ? cn(MESSAGE_IMAGE_HEIGHT_CLASS, MESSAGE_IMAGE_FRAME_CLASS)
+    : cn(COMPACT_ATTACHMENT_HEIGHT_CLASS, COMPOSER_IMAGE_FRAME_CLASS);
 
   useEffect(() => {
-    let cancelled = false;
+    if (!active) {
+      setImageSource(null);
+      setLoadState('loading');
+      return;
+    }
+    if (!imageUri) {
+      setImageSource(null);
+      setLoadState('failed');
+      return;
+    }
 
-    async function resolveSource() {
-      if (!active) {
-        if (!cancelled) {
-          setImageSource(null);
-          setLoadState('loading');
+    const controller = new AbortController();
+    setLoadState('loading');
+    void resolveAuthenticatedResourceImageSource({
+      resourceUrl: imageUri,
+      fileName: attachment.name,
+      signal: controller.signal
+    })
+      .then((source) => {
+        if (!controller.signal.aborted) {
+          setImageSource(source);
         }
-        return;
-      }
-      if (!imageUri) {
-        if (!cancelled) {
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
           setImageSource(null);
           setLoadState('failed');
         }
-        return;
-      }
+      });
 
-      if (!cancelled) {
-        setLoadState('loading');
-      }
-
-      try {
-        const source = await buildAuthenticatedApiUriSource(imageUri);
-        if (!cancelled) {
-          setImageSource(source);
-        }
-      } catch {
-        if (!cancelled) {
-          setImageSource({ uri: imageUri });
-        }
-      }
-    }
-
-    void resolveSource();
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [active, imageUri]);
+  }, [active, attachment.name, imageUri]);
 
   const canActivate = attachment.status !== 'uploading' && loadState !== 'loading';
 
@@ -129,7 +131,18 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
           className={IMAGE_CLASS}
           onLoadStart={() => setLoadState('loading')}
           onLoad={() => setLoadState('loaded')}
-          onError={() => setLoadState('failed')}
+          onError={(event) => {
+            const sourceKind = imageSource.uri.startsWith('file:') ? 'cache' : 'remote';
+            logHttpError({
+              url: imageUri || imageSource.uri,
+              method: 'IMAGE',
+              durationMs: 0,
+              error: `[resource.image.decode] file=${attachment.name} source=${sourceKind}: ${String(
+                event.nativeEvent.error || 'Unknown image decode error'
+              )}`
+            });
+            setLoadState('failed');
+          }}
         />
       ) : null}
       {loadState !== 'loaded' ? (
@@ -271,12 +284,17 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
     return null;
   }
 
+  const messageStripHeightClass = attachments.some((attachment) => attachment.kind === 'image')
+    ? MESSAGE_IMAGE_HEIGHT_CLASS
+    : COMPACT_ATTACHMENT_HEIGHT_CLASS;
+
   return (
     <ScrollView
       horizontal
       bounces={false}
       keyboardShouldPersistTaps="handled"
       showsHorizontalScrollIndicator={false}
+      className={variant === 'message' ? cn(MESSAGE_STRIP_CLASS, messageStripHeightClass) : undefined}
       contentContainerClassName={cn(STRIP_CONTENT_CLASS, variant === 'message' ? MESSAGE_STRIP_CONTENT_CLASS : null)}
     >
       {attachments.map((attachment) => {

@@ -311,6 +311,7 @@ export const enUS: Record<I18nKey, string> = {
   'chatDetail.status.idle': 'Idle',
   'chatDetail.status.running': 'Running',
   'chatDetail.status.error': 'Error',
+  'chatDetail.waitingForResponse': 'The agent is preparing a response…',
   'chatDetail.role.user': 'Me',
   'chatDetail.role.assistant': 'Assistant',
   'chatDetail.back': 'Back to chat list',
@@ -399,6 +400,10 @@ export const enUS: Record<I18nKey, string> = {
   'attachment.status.failed': 'Upload failed',
   'attachment.status.ready': 'Uploaded',
   'attachment.error.missingReference': 'Upload succeeded, but the API returned no usable file reference',
+  'attachment.error.invalidTunnelProfile':
+    'The Desktop public upload channel is invalid. Reconnect and try again.',
+  'attachment.error.unexpectedResponse':
+    'The upload endpoint returned unexpected content. Check the Desktop public connection.',
   'attachment.error.tooLarge': 'Attachment is too large: {name}',
   'attachment.error.tooMany': 'You can add up to {count} attachments',
 
@@ -413,6 +418,7 @@ export const enUS: Record<I18nKey, string> = {
   'artifact.downloading': 'Downloading…',
   'artifact.downloaded': 'Downloaded: {name}',
   'artifact.downloadFailed': 'Download failed. The resource may have expired or your account may not have access.',
+  'artifact.downloadUnavailableRemote': 'This Desktop remote connection does not expose artifact downloads yet. View the file on Desktop.',
   'artifact.closePreview': 'Close resource preview',
   'artifact.retryPreview': 'Retry preview',
   'artifact.status.processing': 'Generating',
@@ -424,6 +430,7 @@ export const enUS: Record<I18nKey, string> = {
   'artifact.kind.unsupported': 'File',
   'artifact.previewLoading': 'Loading preview…',
   'artifact.previewFailed': 'Preview failed. The resource may have expired or your account may not have access.',
+  'artifact.previewUnavailableRemote': 'This Desktop remote connection does not expose artifact previews yet. View the file on Desktop.',
   'artifact.previewTooLarge': 'The text exceeds 512 KiB. Download it to view.',
   'artifact.previewTimedOut': 'Preview timed out. Try again or download it to view.',
   'markdownLink.invalid': 'This resource or workspace file link is invalid.',

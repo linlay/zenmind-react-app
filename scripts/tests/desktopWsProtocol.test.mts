@@ -36,7 +36,6 @@ test('zmpair v2 payload parses into Desktop WS transport input', () => {
   const payload = {
     v: 2,
     kind: 'desktop-ws',
-    targetMode: 'local',
     apiBaseUrl: 'https://stale-http.example.test',
     wsUrl: 'ws://127.0.0.1:7082/debug?token=old&source=qr#debug',
     tokenMode: 'query',

@@ -39,9 +39,9 @@ test('ready attachments resolve one deterministic authenticated preview target',
   assert.deepEqual(resolveChatAttachmentPreview(createAttachment()), {
     kind: 'preview',
     target: {
-      key: 'attachment-1:2:/ap/api/resource?file=notes.md',
+      key: 'attachment-1:2:/api/resource?file=notes.md',
       name: 'notes.md',
-      resourceUrl: '/ap/api/resource?file=notes.md',
+      resourceUrl: '/api/resource?file=notes.md',
       previewKind: 'text'
     }
   });
@@ -79,7 +79,7 @@ test('unsupported attachments retain a downloadable target instead of disappeari
   assert.equal(result.kind, 'preview');
   if (result.kind === 'preview') {
     assert.equal(result.target.previewKind, 'unsupported');
-    assert.equal(result.target.resourceUrl, '/ap/api/resource?file=notes.md');
+    assert.equal(result.target.resourceUrl, '/api/resource?file=notes.md');
   }
 });
 
@@ -91,7 +91,7 @@ test('composer images prefer local previews while persisted messages prefer serv
     resourceUrl: '/ap/api/resource?file=photo.png'
   });
   assert.equal(resolveChatAttachmentImageUri(attachment, 'composer'), 'file:///cache/preview.png');
-  assert.equal(resolveChatAttachmentImageUri(attachment, 'message'), '/ap/api/resource?file=photo.png');
+  assert.equal(resolveChatAttachmentImageUri(attachment, 'message'), '/api/resource?file=photo.png');
 });
 
 test('conversation detail keeps one preview host while rows only dispatch preview requests', () => {

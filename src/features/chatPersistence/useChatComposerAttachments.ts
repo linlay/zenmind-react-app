@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 
-import { extractUploadReferences, uploadChatAttachmentApi } from '../../core/api/services/uploadApi';
+import { ChatUploadError, extractUploadReferences, uploadChatAttachmentApi } from '../../core/api/services/uploadApi';
 import { useT } from '../../shared/i18n';
 import {
   getChatAttachmentExtension,
@@ -77,6 +77,18 @@ function inferMimeTypeFromName(name: string, fallback = 'application/octet-strea
 
 function isPickedComposerAttachment(value: PickedComposerAttachment | null): value is PickedComposerAttachment {
   return Boolean(value);
+}
+
+function getUploadErrorMessage(error: unknown, t: ReturnType<typeof useT>): string {
+  if (error instanceof ChatUploadError) {
+    if (error.code === 'invalid_tunnel_profile') {
+      return t('attachment.error.invalidTunnelProfile');
+    }
+    if (error.code === 'unexpected_response') {
+      return t('attachment.error.unexpectedResponse');
+    }
+  }
+  return error instanceof Error ? error.message : String(error);
 }
 
 function createPendingAttachment(conversationId: string, picked: PickedComposerAttachment): ChatComposerAttachment {
@@ -191,7 +203,6 @@ export function useChatComposerAttachments({
           mimeType: attachment.mimeType,
           requestId: attachment.attachmentId,
           chatId: conversationId,
-          sha256: attachment.sha256,
           signal: controller.signal
         });
         const latestAttachmentId = latestAttachmentIdByNameRef.current.get(attachment.name);
@@ -238,7 +249,8 @@ export function useChatComposerAttachments({
         if (latestAttachmentId !== attachment.attachmentId) {
           return;
         }
-        const errorText = error instanceof Error ? error.message : String(error);
+        const errorText = getUploadErrorMessage(error, t);
+        reportError(errorText);
         const now = Date.now();
         setAttachments((current) =>
           current.map((item) =>
@@ -257,7 +269,7 @@ export function useChatComposerAttachments({
         abortControllersRef.current.delete(attachment.attachmentId);
       }
     },
-    [conversationId, t]
+    [conversationId, reportError, t]
   );
 
   const drainUploadQueue = useCallback(() => {

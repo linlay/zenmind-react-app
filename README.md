@@ -168,7 +168,7 @@ HTTP REST 请求通过 `authenticatedApiRequest()` 自动附加 `Authorization: 
 | agents / teams / chats | `/api/agents`、`/api/teams`、`/api/chats` via `/ap/ws` request |
 | 单会话详情 | `/ap/api/chat` |
 | 标记已读 | `/ap/api/read` |
-| 附件上传 | `/ap/api/upload` |
+| 附件上传 | HTTP Profile：`/api/upload`；Desktop WS Profile：`https://<Desktop publicHost>/api/upload` |
 | 通知 token 注册 | `POST /api/notifications/device-tokens`、`DELETE /api/notifications/device-tokens/:nativePushToken` |
 | WebSocket transport | `ws(s)://<host>/ap/ws?token=<accessToken>` |
 | WebSocket query / attach | `/api/query`、`/api/attach` via `/ap/ws` stream |

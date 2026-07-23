@@ -1,7 +1,15 @@
 import { buildAuthenticatedApiUriSource, type ApiUriSource } from '../apiClient.ts';
+import { getActiveDeviceProfile } from '../../auth/deviceProfiles.ts';
+import {
+  isAuthenticatedResourceContentTypeCompatible,
+  requiresAuthenticatedResourceHttpDataPlane
+} from './authenticatedResourceModel.ts';
 
 export {
+  createAuthenticatedResourceImageCacheFileName,
+  isAuthenticatedResourceContentTypeCompatible,
   normalizeAuthenticatedResourceFileName,
+  requiresAuthenticatedResourceHttpDataPlane,
   type AuthenticatedResourceDownloadRequest,
   type AuthenticatedResourceDownloadResult
 } from './authenticatedResourceModel.ts';
@@ -9,7 +17,13 @@ export {
 export const AUTHENTICATED_TEXT_PREVIEW_MAX_BYTES = 512 * 1024;
 export const AUTHENTICATED_TEXT_PREVIEW_TIMEOUT_MS = 8_000;
 
-export type AuthenticatedResourceErrorCode = 'http' | 'invalid_url' | 'timed_out' | 'too_large';
+export type AuthenticatedResourceErrorCode =
+  | 'http'
+  | 'invalid_url'
+  | 'timed_out'
+  | 'too_large'
+  | 'unexpected_content_type'
+  | 'unsupported_transport';
 
 export class AuthenticatedResourceError extends Error {
   readonly code: AuthenticatedResourceErrorCode;
@@ -22,6 +36,15 @@ export class AuthenticatedResourceError extends Error {
 }
 
 export async function resolveAuthenticatedResourceSource(resourceUrl: string): Promise<ApiUriSource> {
+  if (
+    getActiveDeviceProfile()?.transportKind === 'desktop-ws' &&
+    requiresAuthenticatedResourceHttpDataPlane(resourceUrl)
+  ) {
+    throw new AuthenticatedResourceError(
+      'unsupported_transport',
+      'Desktop WS does not expose the authenticated resource HTTP data plane'
+    );
+  }
   const source = await buildAuthenticatedApiUriSource(resourceUrl);
   if (!source.uri || source.uri.startsWith('//') || !/^https?:\/\//i.test(source.uri)) {
     throw new AuthenticatedResourceError('invalid_url', 'Invalid resource URL');
@@ -33,6 +56,7 @@ export async function fetchAuthenticatedResourceText(
   resource: string | ApiUriSource,
   options: {
     maxBytes?: number;
+    expectedFileName?: string;
     signal?: AbortSignal;
     timeoutMs?: number;
   } = {}
@@ -59,6 +83,18 @@ export async function fetchAuthenticatedResourceText(
     });
     if (!response.ok) {
       throw new AuthenticatedResourceError('http', `HTTP ${response.status}`);
+    }
+    if (
+      options.expectedFileName &&
+      !isAuthenticatedResourceContentTypeCompatible(
+        options.expectedFileName,
+        response.headers.get('content-type')
+      )
+    ) {
+      throw new AuthenticatedResourceError(
+        'unexpected_content_type',
+        'Resource response content type does not match the requested file'
+      );
     }
     const declaredLength = Number(response.headers.get('content-length'));
     if (Number.isFinite(declaredLength) && declaredLength > maxBytes) {

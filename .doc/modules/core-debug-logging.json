@@ -50,7 +50,8 @@
       "app-development-debug",
       "core-api-client",
       "core-auth-session",
-      "core-ws-transport"
+      "core-ws-transport",
+      "feature-chat-persistence"
     ],
     "tests": [],
     "lastScannedAt": ""

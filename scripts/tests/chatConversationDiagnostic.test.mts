@@ -78,5 +78,6 @@ test('diagnostic command is intercepted before the normal send path and rendered
   assert.ok(normalSendIndex > interceptIndex);
   assert.match(controller.slice(interceptIndex, normalSendIndex), /collectConversationDiagnosticData/u);
   assert.doesNotMatch(controller.slice(interceptIndex, normalSendIndex), /createOutgoingMessage|outbox/u);
-  assert.match(timelineList, /ListFooterComponent=\{diagnosticFooter\}/u);
+  assert.match(timelineList, /diagnosticCard \? <View className=\{DIAGNOSTIC_FOOTER_CLASS\}>/u);
+  assert.match(timelineList, /ListFooterComponent=\{listFooter\}/u);
 });

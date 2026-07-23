@@ -525,7 +525,7 @@ test('timeline merges request echo into the local pending attachment message', (
   assert.equal(messages.length, 1);
   assert.equal(messages[0].clientMessageId, 'client-message-1');
   assert.equal(messages[0].deliveryStatus, 'sent');
-  assert.equal(messages[0].attachments[0]?.resourceUrl, '/ap/api/resource?file=chat-attachments%2FScreenshot.jpg');
+  assert.equal(messages[0].attachments[0]?.resourceUrl, '/api/resource?file=chat-attachments%2FScreenshot.jpg');
 });
 
 test('timeline reducer treats content snapshots as complete messages', () => {

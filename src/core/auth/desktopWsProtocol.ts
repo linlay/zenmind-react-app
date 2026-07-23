@@ -1,7 +1,6 @@
 import { normalizeApiBaseUrl } from '../config/endpoint.ts';
 
 export type DesktopWsNamespace = 'd' | 'ap' | 'wa';
-export type PairingTargetMode = 'local' | 'lan' | 'tunnel';
 export type DesktopWsTokenMode = 'query' | 'subprotocol';
 
 export type DesktopBusinessFrame = {
@@ -34,7 +33,6 @@ export type LegacyPairingPayload = {
 export type DesktopWsPairingPayload = {
   v: 2;
   kind: 'desktop-ws';
-  targetMode: PairingTargetMode;
   apiBaseUrl: string;
   wsUrl: string;
   tokenMode: DesktopWsTokenMode;
@@ -241,7 +239,6 @@ function parseDesktopWsPairingPayload(record: Record<string, unknown>): DesktopW
   const payload: DesktopWsPairingPayload = {
     v: 2,
     kind: 'desktop-ws',
-    targetMode: record.targetMode === 'lan' || record.targetMode === 'tunnel' ? record.targetMode : 'local',
     apiBaseUrl: deriveDesktopApiBaseUrlFromWsUrl(wsUrl) || normalizeHttpBaseUrl(record.apiBaseUrl),
     wsUrl,
     tokenMode: normalizeDesktopWsTokenMode(record.tokenMode),

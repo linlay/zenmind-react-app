@@ -2,8 +2,9 @@
   "id": "zenmind",
   "productName": "Zenmind",
   "expoName": "Zenmind",
+  "appIcon": "app-icon.png",
   "android": {
-    "adaptiveIconBackgroundColor": "#031722"
+    "adaptiveIconBackgroundColor": "#000000"
   },
   "splash": {
     "backgroundColor": "#EDF1F5",
