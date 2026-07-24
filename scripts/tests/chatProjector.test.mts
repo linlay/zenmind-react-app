@@ -40,13 +40,13 @@ test('projects chat.created summary push without blanking latest message fields'
   assert.equal(projected?.unreadCount, undefined);
 });
 
-test('normalizes the remote default conversation title', () => {
+test('omits the remote default conversation title candidate', () => {
   const projected = projectRemoteChatSummary({
     chatId: 'chat-default-title',
     chatName: 'default',
   });
 
-  assert.equal(projected?.title, '新对话');
+  assert.equal(projected?.title, undefined);
 });
 
 test('projects chat.updated without unread fields as summary-only patch', () => {
@@ -162,7 +162,7 @@ test('projects message history and runtime state in a single remote detail pass'
   assert.equal(projected?.title, 'hello');
 });
 
-test('uses the fallback title when the first user message only contains an attachment', () => {
+test('omits the title candidate when the first user message only contains an attachment', () => {
   const projected = projectRemoteChatDetail({
     chatId: 'chat-attachment-title',
     chatName: 'default',
@@ -187,7 +187,66 @@ test('uses the fallback title when the first user message only contains an attac
 
   assert.equal(projected?.messages[0]?.content, '');
   assert.equal(projected?.messages[0]?.attachments.length, 1);
-  assert.equal(projected?.title, '新对话');
+  assert.equal(projected?.title, undefined);
+});
+
+test('uses first user text as the title when the message also contains an image', () => {
+  const projected = projectRemoteChatDetail({
+    chatId: 'chat-image-text-title',
+    chatName: 'default',
+    events: [
+      {
+        type: 'request.query',
+        requestId: 'req-image-text',
+        message: '识别图片内容',
+        references: [
+          {
+            id: 'image-1',
+            type: 'image',
+            name: 'photo.png',
+            mimeType: 'image/png',
+            url: '/api/resource?file=chat-image-text-title%2Fphoto.png',
+          },
+        ],
+        createdAt: 100,
+      },
+    ],
+  });
+
+  assert.equal(projected?.messages[0]?.content, '识别图片内容');
+  assert.equal(projected?.messages[0]?.attachments.length, 1);
+  assert.equal(projected?.title, '识别图片内容');
+});
+
+test('keeps a usable fallback title for an attachment-only remote detail', () => {
+  const projected = projectRemoteChatDetail(
+    {
+      chatId: 'chat-existing-title',
+      chatName: 'default',
+      events: [
+        {
+          type: 'request.query',
+          requestId: 'req-existing-title',
+          message: '',
+          references: [
+            {
+              id: 'image-1',
+              type: 'image',
+              name: 'photo.png',
+              mimeType: 'image/png',
+            },
+          ],
+          createdAt: 100,
+        },
+      ],
+    },
+    {
+      chatId: 'chat-existing-title',
+      chatName: '已有文字标题',
+    }
+  );
+
+  assert.equal(projected?.title, '已有文字标题');
 });
 
 test('uses top-level runs planning and usage as detail timeline fallback', () => {

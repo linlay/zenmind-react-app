@@ -96,7 +96,7 @@ test('projects remote agents and teams into stable directory items', () => {
   });
 });
 
-test('normalizes a remote default chat name to the fallback conversation title', () => {
+test('omits a remote default chat title candidate', () => {
   const projection = projectRemoteHomeDirectory({
     agents: [{ key: 'planner', name: 'Planner' }],
     teams: [],
@@ -110,7 +110,7 @@ test('normalizes a remote default chat name to the fallback conversation title',
     ],
   });
 
-  assert.equal(projection.conversationSummaries[0]?.title, '新对话');
+  assert.equal(projection.conversationSummaries[0]?.title, undefined);
 });
 
 test('projects chat summaries into latest directory conversations without duplicating message text', () => {
