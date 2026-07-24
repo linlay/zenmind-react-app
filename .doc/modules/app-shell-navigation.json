@@ -181,6 +181,7 @@
       "scripts/tests/chatComposerNativePlaceholder.test.mts",
       "scripts/tests/chatComposerOptionsLayout.test.mts",
       "scripts/tests/chatConversationDiagnostic.test.mts",
+      "scripts/tests/chatConversationTitle.test.mts",
       "scripts/tests/chatDetailAsyncScope.test.mts",
       "scripts/tests/chatDetailFormatters.test.mts",
       "scripts/tests/chatDetailHistoryDrawerPlacement.test.mts",
@@ -248,7 +249,7 @@
       "scripts/tests/workletsPregenerate.test.mts",
       "scripts/tests/wsClientTransport.test.mts"
     ],
-    "lastScannedAt": "2026-07-23T10:29:12Z"
+    "lastScannedAt": "2026-07-24T02:22:23Z"
   },
   "readHints": {
     "alwaysRead": [

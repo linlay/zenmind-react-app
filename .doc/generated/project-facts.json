@@ -42,6 +42,7 @@
     "scripts/tests/chatComposerNativePlaceholder.test.mts",
     "scripts/tests/chatComposerOptionsLayout.test.mts",
     "scripts/tests/chatConversationDiagnostic.test.mts",
+    "scripts/tests/chatConversationTitle.test.mts",
     "scripts/tests/chatDetailAsyncScope.test.mts",
     "scripts/tests/chatDetailFormatters.test.mts",
     "scripts/tests/chatDetailHistoryDrawerPlacement.test.mts",
@@ -18736,8 +18737,8 @@
     "src/features/chatPersistence/chatConversationTitle.ts": [
       "CHAT_CONVERSATION_FALLBACK_TITLE",
       "resolveChatConversationDisplayTitle",
-      "resolveFirstUserChatConversationTitle",
-      "resolveRemoteChatConversationTitle"
+      "resolveChatConversationStoredTitle",
+      "resolveChatConversationTitleCandidate"
     ],
     "src/features/chatPersistence/chatDetailAsyncScope.ts": [
       "shouldApplyChatDetailAsyncResult"
