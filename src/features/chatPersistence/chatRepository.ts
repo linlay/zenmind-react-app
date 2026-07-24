@@ -53,6 +53,10 @@ import {
   serializeChatAttachmentReferences,
 } from './chatAttachmentModels.ts';
 import {
+  resolveChatConversationStoredTitle,
+  resolveChatConversationTitleCandidate,
+} from './chatConversationTitle.ts';
+import {
   ChatComposerAttachment,
   ChatConversationHistoryPage,
   ChatConversationHistoryScope,
@@ -75,7 +79,6 @@ import {
 
 const CHAT_DIRECTORY_DEFAULT_PAGE_SIZE = 6;
 const TIMELINE_STALE_DELETE_BATCH_SIZE = 240;
-const DEFAULT_NEW_CONVERSATION_TITLE = '新对话';
 
 function getPinnedDirectoryCountExpression() {
   return sql<number>`coalesce(sum(case when ${chatDirectoryItems.pinnedAt} > 0 then 1 else 0 end), 0)`;
@@ -590,8 +593,8 @@ function areReadStatesEqual(left: ChatReadState, right: ChatReadState): boolean 
 async function ensureConversationRecord(conversationId: string, createdAt: number, title?: string) {
   const existing = await getConversationRecord(conversationId);
   if (existing) {
-    const nextTitle = String(title || '').trim();
-    if (nextTitle && nextTitle !== existing.title) {
+    const nextTitle = resolveChatConversationStoredTitle(title, existing.title);
+    if (nextTitle !== existing.title) {
       await chatDb
         .update(conversations)
         .set({ title: nextTitle })
@@ -605,7 +608,7 @@ async function ensureConversationRecord(conversationId: string, createdAt: numbe
     return existing;
   }
 
-  const fallbackTitle = String(title || '').trim() || `Conversation ${conversationId.slice(0, 8)}`;
+  const fallbackTitle = resolveChatConversationStoredTitle(title);
   await chatDb.insert(conversations).values({
     id: conversationId,
     title: fallbackTitle,
@@ -701,7 +704,7 @@ function getDirectoryConversationKeys(item: {
 }
 
 function normalizeLocalConversationTitle(title: string | null | undefined): string {
-  return String(title || '').trim() || DEFAULT_NEW_CONVERSATION_TITLE;
+  return resolveChatConversationStoredTitle(title);
 }
 
 async function getDirectoryItemOpenScope(itemId: string): Promise<DirectoryItemOpenScope | null> {
@@ -1172,8 +1175,10 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
   };
   const patchAgentKey = normalizeProvidedDirectoryKey(patch.agentKey);
   const patchTeamId = normalizeProvidedDirectoryKey(patch.teamId);
-  const nextTitle =
-    String(patch.title || current?.title || ensured.title || '').trim() || conversationId;
+  const nextTitle = resolveChatConversationStoredTitle(
+    patch.title,
+    current?.title || ensured.title
+  );
   const nextLastMessageText =
     patch.lastMessageText !== undefined
       ? String(patch.lastMessageText || '')
@@ -1729,10 +1734,11 @@ function normalizeConversationSummaryProjection(
       : item.unreadCount !== undefined
         ? normalizeChatReadState({ unreadCount: item.unreadCount })
         : undefined;
+  const title = resolveChatConversationTitleCandidate(item.title);
 
   return {
     conversationId,
-    title: String(item.title || conversationId).trim() || conversationId,
+    ...(title ? { title } : {}),
     lastMessageText: String(item.lastMessageText || ''),
     lastMessageAt,
     ...(read ? { unreadCount: readStateToUnreadBit(read), read } : {}),
@@ -1777,6 +1783,7 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection) {
         ? tx
             .select({
               id: conversations.id,
+              title: conversations.title,
               pinnedAt: conversations.pinnedAt,
               unreadCount: conversations.unreadCount,
               isRead: conversations.isRead,
@@ -1787,20 +1794,17 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection) {
             .where(inArray(conversations.id, conversationIds))
             .all()
         : [];
-    const conversationPinnedById = new Map(
-      existingConversationRows.map((row) => [row.id, Number(row.pinnedAt || 0)])
-    );
-    const conversationReadById = new Map(
-      existingConversationRows.map((row) => [row.id, mapConversationReadState(row)])
+    const existingConversationById = new Map(
+      existingConversationRows.map((row) => [row.id, row])
     );
     const unreadByAgentKey = new Map<string, number>();
     const unreadByTeamId = new Map<string, number>();
 
     for (const item of normalizedConversations) {
-      const existing = conversationPinnedById.has(item.conversationId);
+      const existing = existingConversationById.get(item.conversationId);
       const read =
         normalizeChatReadPatch(item.read ?? { unreadCount: item.unreadCount }) ??
-        conversationReadById.get(item.conversationId) ??
+        (existing ? mapConversationReadState(existing) : undefined) ??
         normalizeChatReadState({ read: { isRead: true } });
       const unreadBit = readStateToUnreadBit(read);
       if (unreadBit > 0 && item.agentKey) {
@@ -1810,7 +1814,7 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection) {
         unreadByTeamId.set(item.teamId, (unreadByTeamId.get(item.teamId) || 0) + 1);
       }
       const values = {
-        title: item.title,
+        title: resolveChatConversationStoredTitle(item.title, existing?.title),
         lastMessageText: item.lastMessageText,
         lastMessageAt: item.lastMessageAt,
         unreadCount: unreadBit,
@@ -2693,7 +2697,7 @@ export async function getConversationSyncState(
 
 export async function replaceConversationProjection(input: {
   conversationId: string;
-  title: string;
+  title?: string;
   unreadCount?: number;
   read?: ChatReadStateInput;
   activeRunId?: string;
@@ -2854,7 +2858,7 @@ export async function replaceConversationProjection(input: {
 
       tx.update(conversations)
         .set({
-          title: input.title || conversationId,
+          title: conversation.title,
           lastMessageText: latestProjectedMessage.content,
           lastMessageAt: latestProjectedMessage.createdAt,
           unreadCount: readStateToUnreadBit(read),
@@ -2875,7 +2879,7 @@ export async function replaceConversationProjection(input: {
             : mapConversationReadState(conversation);
       tx.update(conversations)
         .set({
-          title: input.title || conversationId,
+          title: conversation.title,
           lastMessageText: String(input.summary?.lastMessageText || ''),
           lastMessageAt: summaryTime,
           unreadCount: readStateToUnreadBit(read),
@@ -2989,7 +2993,7 @@ export async function markConversationSynced(
 
 export async function reconcileConversationDetail(input: {
   conversationId: string;
-  title: string;
+  title?: string;
   unreadCount?: number;
   read?: ChatReadStateInput;
   activeRunId?: string;
@@ -3341,6 +3345,13 @@ export async function createOutgoingMessage(
 
   const clientMessageId = createLocalId('client-message');
   const createdAt = Date.now();
+  const firstUserMessageRows = await chatDb
+    .select({ messageId: messages.id })
+    .from(messages)
+    .where(and(eq(messages.conversationId, conversationId), eq(messages.role, 'user')))
+    .limit(1);
+  const isFirstUserMessage = firstUserMessageRows.length === 0;
+  const firstUserConversationTitle = resolveChatConversationStoredTitle(content);
   const normalizedContent =
     String(content || '').trim() || formatChatAttachmentsMessageText(attachments);
   if (!normalizedContent) {
@@ -3374,6 +3385,13 @@ export async function createOutgoingMessage(
     });
     if (attachmentRows.length > 0) {
       tx.insert(messageAttachments).values(attachmentRows).run();
+    }
+
+    if (isFirstUserMessage) {
+      tx.update(conversations)
+        .set({ title: firstUserConversationTitle })
+        .where(eq(conversations.id, conversationId))
+        .run();
     }
 
     tx.insert(outboxMessages)

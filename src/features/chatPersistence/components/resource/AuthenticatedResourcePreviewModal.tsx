@@ -9,7 +9,7 @@ import {
   Text,
   View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   AuthenticatedResourceError,
@@ -157,6 +157,7 @@ export const AuthenticatedResourcePreviewModal = memo(function AuthenticatedReso
   onDownload
 }: AuthenticatedResourcePreviewModalProps) {
   const t = useT();
+  const insets = useSafeAreaInsets();
   const { theme } = useAppTheme();
   const [previewError, setPreviewError] = useState('');
   const [retryNonce, setRetryNonce] = useState(0);
@@ -196,7 +197,7 @@ export const AuthenticatedResourcePreviewModal = memo(function AuthenticatedReso
 
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-      <SafeAreaView className="flex-1 bg-app-surface" edges={['top', 'bottom']}>
+      <View className="flex-1 bg-app-surface" style={{ paddingTop: insets.top, paddingBottom: insets.bottom }}>
         <View className={HEADER_CLASS}>
           <View className={HEADER_TEXT_CLASS}>
             <Text allowFontScaling={false} numberOfLines={1} className={TITLE_CLASS}>
@@ -304,7 +305,7 @@ export const AuthenticatedResourcePreviewModal = memo(function AuthenticatedReso
             ) : null}
           </View>
         ) : null}
-      </SafeAreaView>
+      </View>
     </Modal>
   );
 });

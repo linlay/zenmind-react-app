@@ -75,7 +75,7 @@ export type ChatDirectoryProjectionItem = Omit<
 
 export type ChatConversationSummaryProjection = {
   conversationId: string;
-  title: string;
+  title?: string;
   lastMessageText: string;
   lastMessageAt: number;
   unreadCount?: number;

@@ -3,6 +3,7 @@ import type {
   ChatTimelineUsageEstimatedCost,
   ChatTimelineUsageStats,
   ChatTimelineUsageSummary,
+  ChatTimelineUsageTiming,
 } from './types.ts';
 
 function isObjectRecord(value: unknown): value is Record<string, unknown> {
@@ -112,6 +113,15 @@ function hasEstimatedCostValue(cost: ChatTimelineUsageEstimatedCost | null): boo
   );
 }
 
+function hasUsageTimingValue(timing: ChatTimelineUsageTiming): boolean {
+  return (
+    timing.firstTokenLatencyMs !== null ||
+    timing.firstTokenLatencyTotalMs !== null ||
+    timing.firstTokenLatencyCount !== null ||
+    timing.generationDurationMs !== null
+  );
+}
+
 function hasStatsValue(stats: ChatTimelineUsageStats): boolean {
   return (
     stats.promptTokens !== null ||
@@ -122,7 +132,8 @@ function hasStatsValue(stats: ChatTimelineUsageStats): boolean {
     stats.cacheMissTokens !== null ||
     stats.llmChatCompletionCount !== null ||
     stats.toolCallCount !== null ||
-    hasEstimatedCostValue(stats.estimatedCost)
+    hasEstimatedCostValue(stats.estimatedCost) ||
+    hasUsageTimingValue(stats.timing)
   );
 }
 
@@ -130,6 +141,7 @@ function hasUsageStatsRecordValue(record: Record<string, unknown>): boolean {
   const promptDetails = readRecordField(record, 'promptTokensDetails');
   const completionDetails = readRecordField(record, 'completionTokensDetails');
   const estimatedCost = readRecordField(record, 'estimatedCost');
+  const timing = readRecordField(record, 'timing');
 
   return (
     hasRecordUsageNumber(record, 'promptTokens') ||
@@ -145,7 +157,11 @@ function hasUsageStatsRecordValue(record: Record<string, unknown>): boolean {
     hasRecordUsageNumber(record, 'estimatedCostTotal') ||
     hasUsageTokenDetailsValue(promptDetails) ||
     hasUsageTokenDetailsValue(completionDetails) ||
-    hasRecordUsageNumber(estimatedCost, 'total')
+    hasRecordUsageNumber(estimatedCost, 'total') ||
+    hasRecordUsageNumber(timing, 'firstTokenLatencyMs') ||
+    hasRecordUsageNumber(timing, 'firstTokenLatencyTotalMs') ||
+    hasRecordUsageNumber(timing, 'firstTokenLatencyCount') ||
+    hasRecordUsageNumber(timing, 'generationDurationMs')
   );
 }
 
@@ -169,6 +185,33 @@ function buildEstimatedCost(
   };
 
   return hasEstimatedCostValue(estimatedCost) ? estimatedCost : null;
+}
+
+function buildUsageTiming(
+  source: Record<string, unknown>,
+  fallback: Record<string, unknown> = {}
+): ChatTimelineUsageTiming {
+  const timing = readRecordField(source, 'timing');
+  const fallbackTiming = readRecordField(fallback, 'timing');
+
+  return {
+    firstTokenLatencyMs: firstUsageNumber(
+      timing.firstTokenLatencyMs,
+      fallbackTiming.firstTokenLatencyMs
+    ),
+    firstTokenLatencyTotalMs: firstUsageNumber(
+      timing.firstTokenLatencyTotalMs,
+      fallbackTiming.firstTokenLatencyTotalMs
+    ),
+    firstTokenLatencyCount: firstUsageNumber(
+      timing.firstTokenLatencyCount,
+      fallbackTiming.firstTokenLatencyCount
+    ),
+    generationDurationMs: firstUsageNumber(
+      timing.generationDurationMs,
+      fallbackTiming.generationDurationMs
+    ),
+  };
 }
 
 function buildUsageStats(
@@ -226,6 +269,7 @@ function buildUsageStats(
     ),
     toolCallCount: firstUsageNumber(source.toolCallCount, fallback.toolCallCount),
     estimatedCost: buildEstimatedCost(source, fallback),
+    timing: buildUsageTiming(source, fallback),
   };
 }
 
@@ -381,7 +425,11 @@ function usageStatsEqual(left: ChatTimelineUsageStats, right: ChatTimelineUsageS
     left.cacheMissTokens === right.cacheMissTokens &&
     left.llmChatCompletionCount === right.llmChatCompletionCount &&
     left.toolCallCount === right.toolCallCount &&
-    estimatedCostEqual(left.estimatedCost ?? null, right.estimatedCost ?? null)
+    estimatedCostEqual(left.estimatedCost ?? null, right.estimatedCost ?? null) &&
+    left.timing.firstTokenLatencyMs === right.timing.firstTokenLatencyMs &&
+    left.timing.firstTokenLatencyTotalMs === right.timing.firstTokenLatencyTotalMs &&
+    left.timing.firstTokenLatencyCount === right.timing.firstTokenLatencyCount &&
+    left.timing.generationDurationMs === right.timing.generationDurationMs
   );
 }
 

@@ -7,7 +7,8 @@
     "Desktop web.webapp.list 快照与 webapp.changed 增量是远端目录真源；webAppsDesktopProtocol 负责把原始 frame 转成安全领域模型。",
     "WebAppsGateway 是共享 Desktop WS 上订阅、快照、重连和设备隔离的唯一边界，页面不解析原始 frame。",
     "WebAppsRuntimeProvider 是登录会话内 catalog、connection、active、resident LRU 和恢复队列的唯一内存状态源。",
-    "WebAppsRuntimeHost 位于登录态 RootStack 外层；WebAppDetail route pop 只隐藏 Host，不卸载 resident WebView。"
+    "WebAppsRuntimeHost 位于登录态 RootStack 外层；WebAppDetail route pop 只隐藏 Host，不卸载 resident WebView。",
+    "webAppsMobileAccess 是配对 `.m` host 校验、临时启动 token URL 构造和 token 导航识别的纯函数边界；appAuth 继续提供已有 fresh token 与 single-flight 刷新。"
   ],
   "steps": [
     {
@@ -47,7 +48,7 @@
     },
     {
       "order": 6,
-      "label": "WebAppDetail 开启常驻 Host；Host 同时挂载最多 6 个 resident WebView，仅当前项可见和可交互，连接异常时覆盖提示但不销毁页面。",
+      "label": "WebAppDetail 开启常驻 Host；Host 同时挂载最多 6 个 resident WebView，仅当前项可见和可交互。每个 generation 只解析一次初始地址：非 `.m` HTTPS 匿名直载；匹配活动 Desktop WS 的 `<device>-<port>.m.<domain>` 从现有 appAuth 获取 fresh token，仅在临时 WebView source 中附加，并在 Tunnel Hub 303 后依赖第一方 HttpOnly Cookie。",
       "moduleId": "feature-web-apps",
       "file": "src/features/webApps/WebAppsRuntimeHost.native.tsx",
       "symbol": "WebAppsRuntimeHost"
@@ -68,6 +69,8 @@
     "把 WebView 放进 WebAppDetail screen 会在 route pop 时全部卸载，无法跨页面或 Tab 保活。",
     "把 Tunnel 短暂离线等同 stopped 会丢失表单、滚动和前端内存状态。",
     "不限制 resident 数量或并发恢复会造成 WebContent 内存、CPU 与网络峰值。",
+    "未按活动 Desktop WS host 校验 `.m` 地址会把访问 token 泄露给错误设备或域名。",
+    "把带 token 的启动 URL 写回 resident 或 lastUrlById 会延长凭据生命周期；首次鉴权 401 自动刷新超过一次会形成重试循环。",
     "通过 action.call 启停会越过脱敏协议并可能暴露 Desktop 本地信息。"
   ],
   "mustCheckModules": [

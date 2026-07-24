@@ -97,6 +97,43 @@ test('chat directory projection refresh stays batched by scope', () => {
   assert.doesNotMatch(repositorySource, /for \(const teamId of teamIds\)/);
 });
 
+test('chat persistence writes share the same title merge priority', () => {
+  const ensureConversationSource = extractSourceSection(
+    repositorySource,
+    'async function ensureConversationRecord',
+    'function normalizeMessageId'
+  );
+  const summaryPatchSource = extractSourceSection(
+    repositorySource,
+    'async function writeConversationSummaryPatch',
+    'export async function patchConversationSummary'
+  );
+  const detailReconcileSource = extractSourceSection(
+    repositorySource,
+    'export async function replaceConversationProjection',
+    'export async function markConversationDirty'
+  );
+
+  assert.match(
+    ensureConversationSource,
+    /resolveChatConversationStoredTitle\(title, existing\.title\)/
+  );
+  assert.match(
+    ensureConversationSource,
+    /const fallbackTitle = resolveChatConversationStoredTitle\(title\)/
+  );
+  assert.doesNotMatch(ensureConversationSource, /Conversation \$\{/);
+  assert.match(
+    summaryPatchSource,
+    /resolveChatConversationStoredTitle\(\s*patch\.title,\s*current\?\.title \|\| ensured\.title\s*\)/
+  );
+  assert.match(
+    detailReconcileSource,
+    /ensureConversationRecord\(conversationId, summaryTime, input\.title\)/
+  );
+  assert.equal(detailReconcileSource.match(/title: conversation\.title/g)?.length, 2);
+});
+
 test('chat history uses indexed non-empty summaries and skips local empty drafts', () => {
   const historySource = extractSourceSection(
     repositorySource,
@@ -114,6 +151,23 @@ test('chat history uses indexed non-empty summaries and skips local empty drafts
   assert.match(historySource, /\.where\(and\(historyWhereClause, eq\(conversations\.isRead, 0\)\)\)/);
   assert.doesNotMatch(historySource, /\.from\(messages\)/);
   assert.doesNotMatch(historySource, /getConversationMessages/);
+});
+
+test('chat home replacement merges titles in its existing batched read and transaction', () => {
+  const replaceHomeSource = extractSourceSection(
+    repositorySource,
+    'export async function replaceChatHomeProjection',
+    'export async function refreshChatDirectorySnapshot'
+  );
+
+  assert.match(replaceHomeSource, /title: conversations\.title/);
+  assert.match(replaceHomeSource, /const existingConversationById = new Map/);
+  assert.match(
+    replaceHomeSource,
+    /title: resolveChatConversationStoredTitle\(item\.title, existing\?\.title\)/
+  );
+  assert.doesNotMatch(replaceHomeSource, /\.from\(messages\)/);
+  assert.doesNotMatch(replaceHomeSource, /getConversationMessages/);
 });
 
 test('chat directory search stays scoped to directory summaries', () => {

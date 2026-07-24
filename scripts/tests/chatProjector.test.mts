@@ -40,6 +40,15 @@ test('projects chat.created summary push without blanking latest message fields'
   assert.equal(projected?.unreadCount, undefined);
 });
 
+test('omits the remote default conversation title candidate', () => {
+  const projected = projectRemoteChatSummary({
+    chatId: 'chat-default-title',
+    chatName: 'default',
+  });
+
+  assert.equal(projected?.title, undefined);
+});
+
 test('projects chat.updated without unread fields as summary-only patch', () => {
   const projected = projectRemoteChatSummary({
     chatId: 'chat-3',
@@ -150,6 +159,94 @@ test('projects message history and runtime state in a single remote detail pass'
     projected?.runtimeState.entries.some((entry) => entry.kind === 'tool'),
     true
   );
+  assert.equal(projected?.title, 'hello');
+});
+
+test('omits the title candidate when the first user message only contains an attachment', () => {
+  const projected = projectRemoteChatDetail({
+    chatId: 'chat-attachment-title',
+    chatName: 'default',
+    events: [
+      {
+        type: 'request.query',
+        requestId: 'req-attachment',
+        message: '',
+        references: [
+          {
+            id: 'image-1',
+            type: 'image',
+            name: 'photo.png',
+            mimeType: 'image/png',
+            url: '/api/resource?file=chat-attachment-title%2Fphoto.png',
+          },
+        ],
+        createdAt: 100,
+      },
+    ],
+  });
+
+  assert.equal(projected?.messages[0]?.content, '');
+  assert.equal(projected?.messages[0]?.attachments.length, 1);
+  assert.equal(projected?.title, undefined);
+});
+
+test('uses first user text as the title when the message also contains an image', () => {
+  const projected = projectRemoteChatDetail({
+    chatId: 'chat-image-text-title',
+    chatName: 'default',
+    events: [
+      {
+        type: 'request.query',
+        requestId: 'req-image-text',
+        message: '识别图片内容',
+        references: [
+          {
+            id: 'image-1',
+            type: 'image',
+            name: 'photo.png',
+            mimeType: 'image/png',
+            url: '/api/resource?file=chat-image-text-title%2Fphoto.png',
+          },
+        ],
+        createdAt: 100,
+      },
+    ],
+  });
+
+  assert.equal(projected?.messages[0]?.content, '识别图片内容');
+  assert.equal(projected?.messages[0]?.attachments.length, 1);
+  assert.equal(projected?.title, '识别图片内容');
+});
+
+test('keeps a usable fallback title for an attachment-only remote detail', () => {
+  const projected = projectRemoteChatDetail(
+    {
+      chatId: 'chat-existing-title',
+      chatName: 'default',
+      events: [
+        {
+          type: 'request.query',
+          requestId: 'req-existing-title',
+          message: '',
+          references: [
+            {
+              id: 'image-1',
+              type: 'image',
+              name: 'photo.png',
+              mimeType: 'image/png',
+            },
+          ],
+          createdAt: 100,
+        },
+      ],
+    },
+    {
+      chatId: 'chat-existing-title',
+      chatName: '已有文字标题',
+    }
+  );
+
+  assert.equal(projected?.title, '已有文字标题');
 });
 
 test('uses top-level runs planning and usage as detail timeline fallback', () => {
@@ -274,6 +371,10 @@ test('merges current usage events with historical detail cumulative usage', () =
               cacheHitTokens: 90,
               cacheMissTokens: 30,
             },
+            timing: {
+              firstTokenLatencyMs: 820,
+              generationDurationMs: 880,
+            },
             toolCallCount: 1,
           },
         },
@@ -299,6 +400,11 @@ test('merges current usage events with historical detail cumulative usage', () =
             currency: 'CNY',
             total: 0.898,
           },
+          timing: {
+            firstTokenLatencyTotalMs: 10_600,
+            firstTokenLatencyCount: 1,
+            generationDurationMs: 42_600,
+          },
           llmChatCompletionCount: 8,
           toolCallCount: 15,
         },
@@ -316,6 +422,11 @@ test('merges current usage events with historical detail cumulative usage', () =
         completionTokensDetails: {
           reasoningTokens: 1_656,
         },
+        timing: {
+          firstTokenLatencyTotalMs: 10_600,
+          firstTokenLatencyCount: 1,
+          generationDurationMs: 42_600,
+        },
         llmChatCompletionCount: 8,
         toolCallCount: 15,
       },
@@ -329,6 +440,11 @@ test('merges current usage events with historical detail cumulative usage', () =
         },
         completionTokensDetails: {
           reasoningTokens: 1_656,
+        },
+        timing: {
+          firstTokenLatencyTotalMs: 21_200,
+          firstTokenLatencyCount: 2,
+          generationDurationMs: 42_600,
         },
         estimatedCost: {
           currency: 'CNY',
@@ -344,10 +460,13 @@ test('merges current usage events with historical detail cumulative usage', () =
   assert.equal(usage?.modelKey, 'minimax-m3');
   assert.equal(usage?.contextWindow.percent, 5);
   assert.equal(usage?.current.totalTokens, 140);
+  assert.equal(usage?.current.timing.firstTokenLatencyMs, 820);
   assert.equal(usage?.current.toolCallCount, 1);
   assert.equal(usage?.run.promptTokens, 53_038);
+  assert.equal(usage?.run.timing.firstTokenLatencyTotalMs, 10_600);
   assert.equal(usage?.run.reasoningTokens, 1_656);
   assert.equal(usage?.chat.cacheHitTokens, 42_535);
+  assert.equal(usage?.chat.timing.firstTokenLatencyCount, 2);
   assert.equal(usage?.chat.estimatedCost?.currency, 'CNY');
   assert.equal(usage?.chat.estimatedCost?.total, 0.898);
   assert.equal(usage?.chat.llmChatCompletionCount, 8);

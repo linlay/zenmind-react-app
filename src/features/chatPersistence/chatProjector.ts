@@ -17,6 +17,10 @@ import {
   resolveChatTimelineUsageModelKey,
 } from '../chatTimeline/index.ts';
 import type { ChatTimelineState } from '../chatTimeline/index.ts';
+import {
+  CHAT_CONVERSATION_FALLBACK_TITLE,
+  resolveChatConversationTitleCandidate,
+} from './chatConversationTitle.ts';
 import type { ChatHomeItem, ChatMessageItem, ChatMessageStatus, ChatReadState } from './types';
 import {
   hasChatReadStateInput,
@@ -24,7 +28,8 @@ import {
   readStateToUnreadBit,
 } from './chatReadState.ts';
 
-type ProjectedConversationSummary = Omit<ChatHomeItem, 'read' | 'unreadCount'> & {
+type ProjectedConversationSummary = Omit<ChatHomeItem, 'title' | 'read' | 'unreadCount'> & {
+  title?: string;
   read?: ChatReadState;
   unreadCount?: number;
 };
@@ -37,7 +42,7 @@ export type ProjectedDetailActiveRun = {
 
 export type ProjectedConversationDetail = {
   conversationId: string;
-  title: string;
+  title?: string;
   unreadCount: number;
   read: ChatReadState;
   hasExplicitReadState: boolean;
@@ -51,7 +56,7 @@ export type ProjectedConversationDetail = {
 
 export type ProjectedChatSummaryPatch = {
   conversationId: string;
-  title: string;
+  title?: string;
   lastMessageText?: string;
   lastMessageAt?: number;
   unreadCount?: number;
@@ -613,7 +618,7 @@ function buildDetailTimelineEvents(
 
 function buildSummaryFromMessage(
   conversationId: string,
-  title: string,
+  title: string | undefined,
   read: ChatReadState | undefined,
   message: Pick<ChatMessageItem, 'content' | 'createdAt' | 'deliveryStatus'> | null,
   fallbackUpdatedAt: number
@@ -622,7 +627,7 @@ function buildSummaryFromMessage(
   const lastMessageAt = message?.createdAt || fallbackUpdatedAt || Date.now();
   return {
     conversationId,
-    title: title || conversationId,
+    ...(title ? { title } : {}),
     lastMessageText,
     lastMessageAt,
     ...(read ? { unreadCount: readStateToUnreadBit(read), read } : {}),
@@ -639,7 +644,11 @@ export function projectRemoteChatSummary(
     return null;
   }
 
-  const title = toText(summary.chatName || summary.title || summary.name) || conversationId;
+  const title = resolveChatConversationTitleCandidate(
+    summary.chatName,
+    summary.title,
+    summary.name
+  );
   const lastMessageText = toText(summary.lastRunContent || summary.lastMessageText);
   const hasLastMessageText = Boolean(lastMessageText);
   const updatedAt = parseTimestamp(
@@ -653,7 +662,7 @@ export function projectRemoteChatSummary(
 
   return {
     conversationId,
-    title,
+    ...(title ? { title } : {}),
     ...(hasLastMessageText
       ? {
           lastMessageText,
@@ -676,19 +685,31 @@ export function projectRemoteChatDetail(
     return null;
   }
 
-  const title =
-    toText(detail.chatName || fallbackSummary?.chatName || fallbackSummary?.title) ||
-    conversationId;
+  const remoteTitle = resolveChatConversationTitleCandidate(
+    detail.chatName,
+    detail.title,
+    detail.name,
+    fallbackSummary?.chatName,
+    fallbackSummary?.title
+  );
   const hasExplicitReadState = hasChatReadStateInput(detail);
   const read = hasExplicitReadState
     ? normalizeChatReadState(detail)
     : normalizeChatReadState(fallbackSummary);
   const detailActiveRun = projectDetailActiveRun(detail);
-  const events = buildDetailTimelineEvents(detail, conversationId, title, detailActiveRun);
+  const events = buildDetailTimelineEvents(
+    detail,
+    conversationId,
+    remoteTitle || CHAT_CONVERSATION_FALLBACK_TITLE,
+    detailActiveRun
+  );
   const timelineState = deriveChatTimelineState(conversationId, events);
   const activeRun = detailActiveRun?.runId === timelineState.activeRunId ? detailActiveRun : null;
   const runtimeState = projectTimelineRuntimeState(timelineState);
   const messages = projectTimelineMessages(timelineState);
+  const firstUserMessage = messages.find((message) => message.role === 'user');
+  const title =
+    resolveChatConversationTitleCandidate(firstUserMessage?.content) || remoteTitle;
 
   const fallbackUpdatedAt = parseTimestamp(
     detail.updatedAt || fallbackSummary?.updatedAt,
@@ -704,7 +725,7 @@ export function projectRemoteChatDetail(
 
   return {
     conversationId,
-    title,
+    ...(title ? { title } : {}),
     unreadCount: readStateToUnreadBit(read),
     read,
     hasExplicitReadState,

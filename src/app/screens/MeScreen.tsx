@@ -350,6 +350,9 @@ export function MeScreen() {
   const handleOpenSettings = useCallback(() => {
     navigation.navigate('Settings');
   }, [navigation]);
+  const handleOpenAgentWaitingDemo = useCallback(() => {
+    navigation.navigate('AgentWaitingDemo');
+  }, [navigation]);
   const handleCopyServiceUrl = useCallback(() => {
     if (!normalizedApiBaseUrl) {
       return;
@@ -455,6 +458,14 @@ export function MeScreen() {
     () =>
       [
         {
+          key: 'waitingEffects',
+          title: t('me.action.waitingEffects'),
+          detail: t('me.action.waitingEffectsDetail'),
+          iconUsage: 'settings.openPanel' as const,
+          accessory: { kind: 'chevron' as const },
+          onPress: handleOpenAgentWaitingDemo
+        },
+        {
           key: 'cache',
           title: t('me.action.cacheManagement'),
           iconUsage: 'settings.cache' as const,
@@ -489,7 +500,7 @@ export function MeScreen() {
           onPress: handleOpenSettings
         }
       ] satisfies MeRowModel[],
-    [debugPanelEnabled, handleOpenSettings, locale, t, themePreference]
+    [debugPanelEnabled, handleOpenAgentWaitingDemo, handleOpenSettings, locale, t, themePreference]
   );
 
   return (

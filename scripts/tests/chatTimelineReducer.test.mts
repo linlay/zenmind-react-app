@@ -166,12 +166,21 @@ test('timeline reducer replays mixed chat events into one flat ordered state', (
           completionTokensDetails: {
             reasoningTokens: 1,
           },
+          timing: {
+            firstTokenLatencyMs: 820,
+            generationDurationMs: 880,
+          },
           llmChatCompletionCount: 1,
         },
         run: {
           promptTokens: 10,
           completionTokens: 4,
           totalTokens: 14,
+          timing: {
+            firstTokenLatencyTotalMs: 10_600,
+            firstTokenLatencyCount: 1,
+            generationDurationMs: 880,
+          },
           llmChatCompletionCount: 1,
         },
         chat: {
@@ -181,6 +190,11 @@ test('timeline reducer replays mixed chat events into one flat ordered state', (
           promptTokensDetails: {
             cacheHitTokens: 2,
             cacheMissTokens: 8,
+          },
+          timing: {
+            firstTokenLatencyTotalMs: 21_200,
+            firstTokenLatencyCount: 2,
+            generationDurationMs: 1_760,
           },
           llmChatCompletionCount: 1,
         },
@@ -221,11 +235,37 @@ test('timeline reducer replays mixed chat events into one flat ordered state', (
   assert.equal(state.usageSummary?.contextWindow.percent, 14);
   assert.equal(state.usageSummary?.contextWindow.reasoningEffort, 'MEDIUM');
   assert.equal(state.usageSummary?.current.reasoningTokens, 1);
+  assert.equal(state.usageSummary?.current.timing.firstTokenLatencyMs, 820);
+  assert.equal(state.usageSummary?.run.timing.firstTokenLatencyTotalMs, 10_600);
+  assert.equal(state.usageSummary?.chat.timing.generationDurationMs, 1_760);
   assert.equal(state.usageSummary?.chat.cacheHitTokens, 2);
   assert.deepEqual(
     displayItems.map((item) => item.kind),
     ['user-query', 'reasoning', 'tool', 'assistant-content', 'awaiting', 'assistant-reply-footer']
   );
+});
+
+test('timeline reducer keeps timing-only usage snapshots', () => {
+  const state = deriveChatTimelineState('chat-timing-only', [
+    {
+      type: 'usage.snapshot',
+      runId: 'run-timing-only',
+      usage: {
+        run: {
+          timing: {
+            firstTokenLatencyTotalMs: 10_600,
+            firstTokenLatencyCount: 1,
+            generationDurationMs: 880,
+          },
+        },
+      },
+      timestamp: 160,
+    },
+  ]);
+
+  assert.equal(state.usageSummary?.run.timing.firstTokenLatencyTotalMs, 10_600);
+  assert.equal(state.usageSummary?.run.timing.firstTokenLatencyCount, 1);
+  assert.equal(state.usageSummary?.run.timing.generationDurationMs, 880);
 });
 
 test('timeline reducer projects run errors as system alert messages', () => {

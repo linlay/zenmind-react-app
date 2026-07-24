@@ -8,7 +8,7 @@ export const APP_BRANDS = {
     "productName": "CuteJ",
     "expoName": "CuteJ",
     "slug": "zenmind-react-app",
-    "version": "2.0.0",
+    "version": "1.0.0",
     "storageNamespace": "zenmind-app",
     "splash": {
       "backgroundColor": "#F5F7FA",
@@ -30,7 +30,7 @@ export const APP_BRANDS = {
     "productName": "Zenmind",
     "expoName": "Zenmind",
     "slug": "zenmind-react-app",
-    "version": "2.0.0",
+    "version": "1.0.0",
     "storageNamespace": "zenmind-app",
     "splash": {
       "backgroundColor": "#EDF1F5",

@@ -96,6 +96,23 @@ test('projects remote agents and teams into stable directory items', () => {
   });
 });
 
+test('omits a remote default chat title candidate', () => {
+  const projection = projectRemoteHomeDirectory({
+    agents: [{ key: 'planner', name: 'Planner' }],
+    teams: [],
+    chats: [
+      {
+        chatId: 'chat-default-title',
+        chatName: 'default',
+        firstAgentKey: 'planner',
+        lastRunContent: 'done',
+      },
+    ],
+  });
+
+  assert.equal(projection.conversationSummaries[0]?.title, undefined);
+});
+
 test('projects chat summaries into latest directory conversations without duplicating message text', () => {
   const projection = projectRemoteHomeDirectory({
     agents: [

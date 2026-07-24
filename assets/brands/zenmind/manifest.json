@@ -1,8 +1,8 @@
 {
   "version": 1,
   "brandId": "zenmind",
-  "appVersion": "2.0.0",
-  "runtimeFingerprint": "94dde20818b2e74b99598a1b51077ea9722365d3f0666bba049393fdf7ea5290",
+  "appVersion": "1.0.0",
+  "runtimeFingerprint": "9138b93084a23203ba4742a7d3c1610d7a0afa980a8ee67e2989160245b40fea",
   "assetFingerprint": "766416f7bb4d9f57eddaa90e7134f8147459575af70b7a92a843a5fbec1c1a34",
   "assetGeneratorVersion": 8,
   "assets": {
