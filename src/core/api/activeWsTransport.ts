@@ -1,6 +1,6 @@
-import { ensureFreshAccessToken, getAccessTokenForRequest } from '../auth/appAuth';
+import { ensureFreshAccessToken } from '../auth/appAuth';
 import { getActiveDeviceProfile } from '../auth/deviceProfiles';
-import { getApiBaseUrl } from './apiClient';
+import { getDefaultSourceConfig } from '../config/appEnvironment';
 import type { WsTransportConfig, WsTransportNamespace } from '../ws/wsTransportConfig';
 
 export async function resolveActiveWsTransportConfig(
@@ -31,22 +31,23 @@ export async function resolveActiveWsTransportConfig(
       tokenMode: refreshedTransport.tokenMode,
       accessToken,
       namespace,
+      connectionKey: `paired:${refreshedProfile?.desktopDeviceId || activeProfile.desktopDeviceId}`
     };
   }
 
-  const backendUrl = getApiBaseUrl();
-  if (!backendUrl) {
+  return null;
+}
+
+export function resolveDefaultWsTransportConfig(): WsTransportConfig | null {
+  const source = getDefaultSourceConfig();
+  if (!source.apiBaseUrl && !source.wsUrl) {
     return null;
   }
-
-  const accessToken = await getAccessTokenForRequest(backendUrl);
-  if (!accessToken) {
-    return null;
-  }
-
   return {
     kind: 'agent-platform',
-    backendUrl,
-    accessToken,
+    backendUrl: source.apiBaseUrl,
+    wsUrl: source.wsUrl || undefined,
+    accessToken: source.accessToken,
+    connectionKey: `default:${source.sourceId}`
   };
 }

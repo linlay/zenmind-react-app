@@ -1,4 +1,5 @@
 import type { AgentAvatarIcon } from '../../shared/visual/agentAvatarTypes';
+import type { ChatSource } from './chatSource';
 
 export type ChatReadState = {
   isRead: boolean;
@@ -7,6 +8,7 @@ export type ChatReadState = {
 };
 
 export type ChatHomeItem = {
+  source: ChatSource;
   conversationId: string;
   title: string;
   lastMessageText: string;
@@ -25,6 +27,7 @@ export type ChatConversationHistoryScope = {
 export type ChatReasoningEffort = 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
 
 export type ChatConversationTarget = {
+  source: ChatSource;
   kind: ChatDirectoryKind;
   title: string;
   subtitle: string;
@@ -47,6 +50,7 @@ export type ChatDirectoryKind = 'agent' | 'team';
 export type ChatDirectoryIcon = AgentAvatarIcon;
 
 export type ChatDirectoryItem = {
+  source: ChatSource;
   id: string;
   kind: ChatDirectoryKind;
   title: string;
@@ -68,7 +72,7 @@ export type ChatDirectoryItem = {
 
 export type ChatDirectoryProjectionItem = Omit<
   ChatDirectoryItem,
-  'lastMessageText' | 'lastMessageAt'
+  'source' | 'lastMessageText' | 'lastMessageAt'
 > & {
   unreadCountSource?: 'server' | 'projection';
 };

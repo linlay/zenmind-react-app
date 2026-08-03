@@ -37,6 +37,9 @@ Thumbs.db
 # typescript
 *.tsbuildinfo
 
+# Build-time app environment registry may contain a distributable client token.
+/src/shared/generated/appEnv.ts
+
 # generated native folders
 /ios
 /android

@@ -1,6 +1,7 @@
 import type { ChatHomeItemPatch } from '../chatRealtime/types';
 import type { ChatDirectoryItem, ChatHomeItem, ChatMessageItem } from './types';
 import { normalizeChatReadState, normalizeConversationUnreadCount } from './chatReadState.ts';
+import { getChatSourceFromId } from './chatSource.ts';
 
 export type ChatHomeListState = {
   orderedIds: string[];
@@ -130,6 +131,7 @@ export function patchHomeListState(
       ? normalizeChatReadState({ unreadCount: nextUnreadCount })
       : (current?.read ?? normalizeChatReadState({ unreadCount: nextUnreadCount })));
   const nextItem: ChatHomeItem = {
+    source: current?.source ?? getChatSourceFromId(conversationId),
     conversationId,
     title: patch.title ?? current?.title ?? conversationId,
     lastMessageText: patch.lastMessageText ?? current?.lastMessageText ?? '',

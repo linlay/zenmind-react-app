@@ -28,7 +28,10 @@ import {
   readStateToUnreadBit,
 } from './chatReadState.ts';
 
-type ProjectedConversationSummary = Omit<ChatHomeItem, 'title' | 'read' | 'unreadCount'> & {
+type ProjectedConversationSummary = Omit<
+  ChatHomeItem,
+  'source' | 'title' | 'read' | 'unreadCount'
+> & {
   title?: string;
   read?: ChatReadState;
   unreadCount?: number;

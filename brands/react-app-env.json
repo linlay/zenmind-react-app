@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 2,
+  "artifactVersion": "local-example",
+  "brands": {
+    "cutej": {
+      "environmentId": "example",
+      "defaultSource": {
+        "id": "cutej-example",
+        "displayName": "CuteJ Example",
+        "apiBaseUrl": "https://cutej.example.invalid",
+        "wsUrl": "wss://cutej.example.invalid/ap/ws",
+        "wsPath": "/ap/ws",
+        "authMode": "query-token",
+        "accessToken": "TOKEN"
+      }
+    },
+    "zenmind": {
+      "environmentId": "example",
+      "defaultSource": {
+        "id": "zenmind-example",
+        "displayName": "ZenMind Example",
+        "apiBaseUrl": "https://zenmind.example.invalid",
+        "wsUrl": "wss://zenmind.example.invalid/ap/ws",
+        "wsPath": "/ap/ws",
+        "authMode": "query-token",
+        "accessToken": "TOKEN"
+      }
+    }
+  }
+}

@@ -80,8 +80,22 @@ type ChatAttachPayload = {
   lastSeq: number;
 };
 
-let unsubscribePush: SharedWsSubscription | null = null;
-let unsubscribeStatus: SharedWsSubscription | null = null;
+const subscriptions = new Map<
+  string,
+  {
+    unsubscribePush: SharedWsSubscription | null;
+    unsubscribeStatus: SharedWsSubscription | null;
+  }
+>();
+
+function getSubscriptionKey(config: ChatTransportConfig): string {
+  if (config.connectionKey) {
+    return config.connectionKey;
+  }
+  return config.kind === 'desktop-ws'
+    ? `desktop-ws:${config.wsUrl}:${config.tokenMode}`
+    : `agent-platform:${config.wsUrl || ''}:${config.backendUrl}`;
+}
 
 function getTransportNamespace(config: ChatTransportConfig): WsTransportNamespace | undefined {
   return config.kind === 'desktop-ws' ? config.namespace : undefined;
@@ -172,15 +186,18 @@ export function toWsPushEvent(frame: WsPushFrame): Record<string, unknown> {
   });
 }
 
-function clearChatSubscriptions() {
-  unsubscribePush?.();
-  unsubscribeStatus?.();
-  unsubscribePush = null;
-  unsubscribeStatus = null;
+function clearChatSubscriptions(config?: ChatTransportConfig) {
+  const keys = config ? [getSubscriptionKey(config)] : [...subscriptions.keys()];
+  keys.forEach((key) => {
+    const subscription = subscriptions.get(key);
+    subscription?.unsubscribePush?.();
+    subscription?.unsubscribeStatus?.();
+    subscriptions.delete(key);
+  });
 }
 
-export function getChatTransportStatus(): ChatSocketStatus {
-  return sharedWsTransport.getStatus();
+export function getChatTransportStatus(config?: ChatTransportConfig): ChatSocketStatus {
+  return sharedWsTransport.getStatus(config);
 }
 
 export function updateChatTransportAuth(configInput: ChatTransportConfig): boolean {
@@ -191,15 +208,26 @@ export async function startChatPushTransport(
   config: ChatTransportConfig,
   callbacks: ChatTransportCallbacks = {}
 ): Promise<void> {
-  clearChatSubscriptions();
+  clearChatSubscriptions(config);
+  const subscription = {
+    unsubscribePush: null as SharedWsSubscription | null,
+    unsubscribeStatus: null as SharedWsSubscription | null
+  };
   if (callbacks.onPush) {
-    unsubscribePush = sharedWsTransport.subscribePush((frame) => {
-      callbacks.onPush?.(toWsPushEvent(frame as WsPushFrame));
-    });
+    subscription.unsubscribePush = sharedWsTransport.subscribePush(
+      (frame) => {
+        callbacks.onPush?.(toWsPushEvent(frame as WsPushFrame));
+      },
+      config
+    );
   }
   if (callbacks.onStatusChange) {
-    unsubscribeStatus = sharedWsTransport.subscribeStatus(callbacks.onStatusChange);
+    subscription.unsubscribeStatus = sharedWsTransport.subscribeStatus(
+      callbacks.onStatusChange,
+      config
+    );
   }
+  subscriptions.set(getSubscriptionKey(config), subscription);
   await sharedWsTransport.connect(config);
 }
 
@@ -213,8 +241,8 @@ export async function requestChatTransport<T>(options: RequestOptions): Promise<
   });
 }
 
-export function stopChatPushTransport() {
-  clearChatSubscriptions();
+export function stopChatPushTransport(config?: ChatTransportConfig) {
+  clearChatSubscriptions(config);
 }
 
 export async function streamChatQuery(

@@ -12,6 +12,10 @@ import {
 import { buildKanbanAssistantPrompt } from '../../src/features/agentTaskBoard/kanbanAssistantPrompt.ts';
 import { buildKanbanChatDetailParams } from '../../src/features/agentTaskBoard/kanbanChatRoute.ts';
 import {
+  createChatSource,
+  encodeChatSourceId
+} from '../../src/features/chatPersistence/chatSource.ts';
+import {
   nextAppliedSnapshotRevision,
   nextIssueIdSet,
   reconcileStartedRunIssueIds,
@@ -42,6 +46,7 @@ const issue: KanbanIssue = {
   updatedAt: '2026-06-23T09:30:00Z',
   revision: 7
 };
+const pairedSource = createChatSource('paired', 'desktop-test', 'Test Desktop');
 
 const assignableIssue: KanbanIssue = {
   ...issue,
@@ -65,17 +70,27 @@ test('kanban assistant prompt keeps task context in feature code', () => {
 });
 
 test('kanban chat route builds ChatDetail params only for started tasks', () => {
-  const params = buildKanbanChatDetailParams(issue, 'Planner');
+  const params = buildKanbanChatDetailParams(issue, 'Planner', pairedSource);
 
-  assert.equal(params?.conversationId, 'chat-1');
+  assert.equal(params?.conversationId, encodeChatSourceId(pairedSource, 'chat-1'));
   assert.equal(params?.conversationSubtitle, 'Planner');
-  assert.equal(params?.conversationTarget?.agentKey, 'planner');
+  assert.equal(params?.conversationTarget?.source, pairedSource);
+  assert.equal(
+    params?.conversationTarget?.agentKey,
+    encodeChatSourceId(pairedSource, 'planner')
+  );
   assert.equal(params?.conversationTarget?.subtitle, 'Ship the mobile flow');
-  assert.deepEqual(params?.historyScope, { agentKey: 'planner', teamId: null });
+  assert.deepEqual(params?.historyScope, {
+    agentKey: encodeChatSourceId(pairedSource, 'planner'),
+    teamId: null
+  });
   assert.equal(params?.initialConversation?.lastMessageStatus, 'sent');
   assert.equal(params?.initialConversation?.lastMessageAt, Date.parse('2026-06-23T09:30:00Z'));
 
-  assert.equal(buildKanbanChatDetailParams({ ...issue, chatId: '' }, 'Planner'), null);
+  assert.equal(
+    buildKanbanChatDetailParams({ ...issue, chatId: '' }, 'Planner', pairedSource),
+    null
+  );
 });
 
 test('kanban start run protocol starts assistant then updates the issue', async () => {

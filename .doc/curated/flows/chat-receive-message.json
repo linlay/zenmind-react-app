@@ -4,13 +4,13 @@
   "title": "收到服务端消息",
   "trigger": "WebSocket 收到 push / stream / run complete 等聊天实时事件时触发。",
   "sourceOfTruth": [
-    "core/ws WsClient 只处理 AP/Desktop WS 帧和 namespace，chatWsTransport 只做聊天事件归一，不直接写 UI 或数据库。",
+    "core/ws sharedWsTransport pool 按 endpoint/connectionKey 隔离默认 AP 与 Desktop WS；chatWsTransport 只做来源相关的聊天事件归一，不直接写 UI 或数据库。",
     "收到消息、流式 delta 和单会话校准后的持久化、去重和摘要更新都通过 chatRepository 完成。"
   ],
   "steps": [
     {
       "order": 1,
-      "label": "core WsClient 解析 HTTP /ap/ws 或 Desktop /ws request / stream / push / error 帧，chatWsTransport 归一化聊天事件类型。",
+      "label": "core WsClient 分别解析默认 /ap/ws 与 Desktop /ws request / stream / push / error 帧；chatWsTransport 保持 config 隔离，ChatSyncService 在业务处理前给服务端标识增加来源命名空间。",
       "moduleId": "core-ws-transport",
       "file": "src/core/ws/wsClient.ts",
       "symbol": "WsClient"
@@ -56,6 +56,7 @@
     "去重逻辑失效会导致同一条 server message 重复入库。",
     "把 unreadRunCount 当 run 数累加会让首页 agent/team 角标偏离未读会话数语义。",
     "UI 如果直接监听 socket 而不经 sync service，会破坏实时边界。",
+    "来自不同 endpoint 的相同 chatId/messageId 如果未先加来源命名空间，会在 repository 去重时互相覆盖。",
     "sync 事件不带会话作用域会让详情页因为无关会话更新而重复查询 SQLite。",
     "把普通 push 扩大成目录全量刷新会破坏首页 agent/team 目录的性能边界。",
     "把原始 reasoning / tool / awaiting event history 直接写进 SQLite，或绕过 normalized timeline snapshot/hash-diff，会把详情页热路径和落库链路无意义放大。",

@@ -168,7 +168,7 @@ test('shared transport startStream preserves stream done metadata', async () => 
   }
 });
 
-test('shared transport disconnects the old socket once when endpoint changes', async () => {
+test('shared transport keeps independent sockets when endpoint changes', async () => {
   const sockets: FakeSocket[] = [];
   const restoreWebSocket = installFakeWebSocket(sockets);
   const transport = createSharedWsTransport();
@@ -200,9 +200,50 @@ test('shared transport disconnects the old socket once when endpoint changes', a
     });
     await flushMicrotasks();
     assert.equal(sockets.length, 2);
-    assert.equal(sockets[0].closeCount, 1);
+    assert.equal(sockets[0].closeCount, 0);
     completeLatestRequest(sockets[1], { ok: true });
     await second;
+  } finally {
+    transport.stop();
+    restoreWebSocket();
+  }
+});
+
+test('shared transport isolates default and paired push subscriptions', async () => {
+  const sockets: FakeSocket[] = [];
+  const restoreWebSocket = installFakeWebSocket(sockets);
+  const transport = createSharedWsTransport();
+  const defaultEvents: unknown[] = [];
+  const pairedEvents: unknown[] = [];
+  const defaultConfig = {
+    kind: 'agent-platform' as const,
+    backendUrl: 'https://default.example.com',
+    wsUrl: 'wss://default.example.com/ws',
+    accessToken: '',
+    connectionKey: 'chat:default'
+  };
+  const pairedConfig = {
+    kind: 'desktop-ws' as const,
+    wsUrl: 'wss://desktop.example.com/ws',
+    tokenMode: 'query' as const,
+    accessToken: 'paired-token',
+    namespace: 'ap' as const,
+    connectionKey: 'chat:paired'
+  };
+
+  try {
+    transport.subscribePush((frame) => defaultEvents.push(frame), defaultConfig);
+    transport.subscribePush((frame) => pairedEvents.push(frame), pairedConfig);
+    await Promise.all([transport.connect(defaultConfig), transport.connect(pairedConfig)]);
+
+    assert.equal(sockets.length, 2);
+    sockets[0].receive({ frame: 'push', type: 'chat.updated', payload: { chatId: 'default-1' } });
+    sockets[1].receive({ frame: 'push', type: 'chat.updated', payload: { chatId: 'paired-1' } });
+
+    assert.equal(defaultEvents.length, 1);
+    assert.equal(pairedEvents.length, 1);
+    assert.equal(transport.getStatus(defaultConfig), 'connected');
+    assert.equal(transport.getStatus(pairedConfig), 'connected');
   } finally {
     transport.stop();
     restoreWebSocket();

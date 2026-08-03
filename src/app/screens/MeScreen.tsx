@@ -5,11 +5,10 @@ import { memo, ReactNode, useCallback, useEffect, useMemo, useRef, useState, use
 import { ActivityIndicator, Platform, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { getApiBaseUrl } from '../../core/api/apiClient';
 import { logoutCurrentDevice } from '../../core/auth/appAuth';
-import { isAuthRequired } from '../../core/auth/authConfig';
 import { getActiveDeviceProfile } from '../../core/auth/deviceProfiles';
-import { useAuthSession } from '../../core/auth/useAuthSession';
+import { useAppAccess } from '../../core/auth/useAppAccess';
+import { getDefaultSourceConfig } from '../../core/config/appEnvironment';
 import { notificationService } from '../../features/notifications/notificationService';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { APP_VERSION, PRODUCT_NAME } from '../../shared/generated/brand';
@@ -68,12 +67,12 @@ function getDevelopmentDebugPanelEnabledSnapshot() {
   return getDevelopmentDebugPanelSnapshot().enabled;
 }
 
-function getActiveConnectionUrl(apiBaseUrl: string): string {
+function getActiveConnectionUrl(): string {
   const profile = getActiveDeviceProfile();
   if (profile?.transportKind === 'desktop-ws') {
     return profile.desktopWs?.wsUrl || '';
   }
-  return apiBaseUrl.trim();
+  return '';
 }
 
 type RowAccessory = { kind: 'badge'; label: string } | { kind: 'check' } | { kind: 'copy' } | { kind: 'chevron' };
@@ -314,7 +313,7 @@ const LogoutButton = memo(function LogoutButton({ disabled, title, onPress }: Lo
 export function MeScreen() {
   const { locale, t } = useI18n();
   const { preference: themePreference } = useAppTheme();
-  const { session } = useAuthSession();
+  const access = useAppAccess();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const tabBarHeight = useAppTabBarHeight();
   const debugPanelEnabled = useSyncExternalStore(
@@ -322,29 +321,24 @@ export function MeScreen() {
     getDevelopmentDebugPanelEnabledSnapshot,
     getDevelopmentDebugPanelEnabledSnapshot
   );
-  const authRequired = isAuthRequired();
   const [isSubmittingLogout, setIsSubmittingLogout] = useState(false);
   const isMountedRef = useRef(true);
-  const currentSession = session;
-  const showLogout = authRequired && Boolean(currentSession);
-  const apiBaseUrl = getApiBaseUrl();
-  const normalizedApiBaseUrl = getActiveConnectionUrl(apiBaseUrl);
+  const isPaired = access.status === 'ready' && access.pairingState === 'paired';
+  const currentSession = isPaired ? access.pairedSession : null;
+  const defaultSource = useMemo(() => getDefaultSourceConfig(), []);
+  const showLogout = isPaired;
+  const activeConnectionUrl = getActiveConnectionUrl();
+  const defaultConnectionUrl = defaultSource.wsUrl || defaultSource.apiBaseUrl;
   const handleVersionPress = useDevelopmentDebugVersionTrigger();
-  const accountName = authRequired
+  const accountName = isPaired
     ? currentSession?.username || t('me.accountName.loggedOut')
-    : t('common.localAccess');
+    : t('me.accountName.default');
   const deviceName = currentSession?.deviceName || t('common.currentDevice');
   const avatarTone = getAvatarTone(accountName);
-  const sessionStateText = authRequired
-    ? currentSession
-      ? t('me.session.loggedIn')
-      : t('me.session.loggedOut')
-    : t('me.session.disabled');
-  const sessionSummary = authRequired
-    ? currentSession
-      ? formatAccessExpiryLabel(locale, t, currentSession.accessExpireAtMs)
-      : t('me.description.noSession')
-    : t('me.description.authDisabled');
+  const sessionStateText = isPaired ? t('me.session.paired') : t('me.session.unpaired');
+  const sessionSummary = isPaired
+    ? t('me.description.paired')
+    : t('me.description.unpaired');
   const modeLabel = __DEV__ ? t('me.value.dev') : t('me.value.prod');
   const contentBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
   const handleOpenSettings = useCallback(() => {
@@ -353,12 +347,21 @@ export function MeScreen() {
   const handleOpenAgentWaitingDemo = useCallback(() => {
     navigation.navigate('AgentWaitingDemo');
   }, [navigation]);
-  const handleCopyServiceUrl = useCallback(() => {
-    if (!normalizedApiBaseUrl) {
+  const handleOpenPairing = useCallback(() => {
+    navigation.navigate('Login');
+  }, [navigation]);
+  const handleCopyActiveConnectionUrl = useCallback(() => {
+    if (!activeConnectionUrl) {
       return;
     }
-    void Clipboard.setStringAsync(normalizedApiBaseUrl).catch(() => {});
-  }, [normalizedApiBaseUrl]);
+    void Clipboard.setStringAsync(activeConnectionUrl).catch(() => {});
+  }, [activeConnectionUrl]);
+  const handleCopyDefaultConnectionUrl = useCallback(() => {
+    if (!defaultConnectionUrl) {
+      return;
+    }
+    void Clipboard.setStringAsync(defaultConnectionUrl).catch(() => {});
+  }, [defaultConnectionUrl]);
   const handleLogout = useCallback(() => {
     if (isSubmittingLogout) {
       return;
@@ -366,14 +369,14 @@ export function MeScreen() {
 
     setIsSubmittingLogout(true);
     void notificationService.clearRegistration().catch(() => {});
-    logoutCurrentDevice(apiBaseUrl)
+    logoutCurrentDevice()
       .catch(() => {})
       .finally(() => {
         if (isMountedRef.current) {
           setIsSubmittingLogout(false);
         }
       });
-  }, [apiBaseUrl, isSubmittingLogout]);
+  }, [isSubmittingLogout]);
 
   useEffect(() => {
     return () => {
@@ -381,14 +384,19 @@ export function MeScreen() {
     };
   }, []);
 
-  const sessionRows = useMemo(
-    () =>
-      [
+  const sessionRows = useMemo(() => {
+    if (isPaired) {
+      return [
         {
-          key: 'authGate',
-          title: t('me.row.authGate'),
-          detail: authRequired ? t('me.value.enabled') : t('me.value.disabled'),
-          accessory: authRequired ? ({ kind: 'check' } as const) : undefined
+          key: 'pairingState',
+          title: t('me.row.pairingState'),
+          detail: t('me.session.paired'),
+          accessory: { kind: 'check' } as const
+        },
+        {
+          key: 'defaultSource',
+          title: t('me.row.defaultSource'),
+          detail: t('me.value.defaultAlongsidePaired', { name: defaultSource.displayName })
         },
         {
           key: 'accessExpiry',
@@ -398,16 +406,58 @@ export function MeScreen() {
             : t('common.noActiveSession')
         },
         {
-          key: 'apiBaseUrl',
-          title: t('me.row.apiBaseUrl'),
-          detail: normalizedApiBaseUrl || t('common.notConfigured'),
-          valueTone: normalizedApiBaseUrl ? ('link' as const) : ('muted' as const),
-          accessory: normalizedApiBaseUrl ? ({ kind: 'copy' } as const) : undefined,
-          onPress: normalizedApiBaseUrl ? handleCopyServiceUrl : undefined
+          key: 'pairedService',
+          title: t('me.row.pairedService'),
+          detail: activeConnectionUrl || t('common.notConfigured'),
+          valueTone: activeConnectionUrl ? ('link' as const) : ('muted' as const),
+          accessory: activeConnectionUrl ? ({ kind: 'copy' } as const) : undefined,
+          onPress: activeConnectionUrl ? handleCopyActiveConnectionUrl : undefined
         }
-      ] satisfies MeRowModel[],
-    [authRequired, currentSession, handleCopyServiceUrl, locale, normalizedApiBaseUrl, t]
-  );
+      ] satisfies MeRowModel[];
+    }
+
+    return [
+      {
+        key: 'pairingState',
+        title: t('me.row.pairingState'),
+        detail: t('me.session.unpaired'),
+        accessory: { kind: 'badge', label: t('me.value.defaultMode') } as const
+      },
+      {
+        key: 'defaultSource',
+        title: t('me.row.defaultSource'),
+        detail: defaultSource.displayName,
+        accessory: { kind: 'check' } as const
+      },
+      {
+        key: 'defaultService',
+        title: t('me.row.defaultService'),
+        detail: defaultConnectionUrl || t('common.notConfigured'),
+        valueTone: defaultConnectionUrl ? ('link' as const) : ('muted' as const),
+        accessory: defaultConnectionUrl ? ({ kind: 'copy' } as const) : undefined,
+        onPress: defaultConnectionUrl ? handleCopyDefaultConnectionUrl : undefined
+      },
+      {
+        key: 'pair',
+        title: t('me.action.pair'),
+        detail: t('me.action.pairDetail'),
+        iconUsage: 'tab.me' as const,
+        accessory: { kind: 'chevron' } as const,
+        onPress: handleOpenPairing
+      }
+    ] satisfies MeRowModel[];
+  }, [
+    activeConnectionUrl,
+    currentSession,
+    defaultConnectionUrl,
+    defaultSource.displayName,
+    handleCopyActiveConnectionUrl,
+    handleCopyDefaultConnectionUrl,
+    handleOpenPairing,
+    isPaired,
+    locale,
+    t
+  ]);
   const deviceRows = useMemo(
     () =>
       [
@@ -420,7 +470,7 @@ export function MeScreen() {
         {
           key: 'deviceId',
           title: t('me.row.deviceId'),
-          detail: formatDeviceId(currentSession?.deviceId, t)
+          detail: formatDeviceId(currentSession?.deviceId || access.defaultIdentity?.id, t)
         },
         {
           key: 'platform',
@@ -428,7 +478,7 @@ export function MeScreen() {
           detail: formatPlatformName(Platform.OS, t)
         }
       ] satisfies MeRowModel[],
-    [currentSession?.deviceId, deviceName, t]
+    [access.defaultIdentity?.id, currentSession?.deviceId, deviceName, t]
   );
   const aboutRows = useMemo(
     () =>

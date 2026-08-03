@@ -1,5 +1,6 @@
 const packageJson = require('./package.json');
 const { resolveBrandId, syncBrandArtifacts } = require('./scripts/lib/brand-config');
+const { syncReactAppEnvArtifact } = require('./scripts/lib/app-env-config');
 
 function assetPath(relativePath) {
   return `./${relativePath}`;
@@ -12,6 +13,7 @@ module.exports = () => {
     appVersion: packageJson.version,
     syncNativeProject: false,
   });
+  const appEnv = syncReactAppEnvArtifact({ rootDir: __dirname });
 
   return {
     expo: {
@@ -79,6 +81,10 @@ module.exports = () => {
         brand: {
           id: brand.id,
           productName: brand.productName,
+        },
+        appEnvironment: {
+          schemaVersion: appEnv.schemaVersion,
+          artifactVersion: appEnv.artifactVersion,
         },
         eas: {
           projectId: brand.updates.projectId,

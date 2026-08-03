@@ -8,15 +8,15 @@
   "summary": {
     "purpose": "核心 WebSocket 传输: 提供与业务无关的 WebSocket transport config、底层 WsClient 和生产 sharedWsTransport 单例。",
     "ownedConcepts": [
-      "提供与业务无关的 WebSocket transport config、底层 WsClient 和生产 sharedWsTransport 单例。",
-      "同时支持 HTTP/AP profile 的 agent-platform `/ap/ws` 连接，以及 Desktop WS profile 的精确 `/ws` endpoint、query/subprotocol token mode 和 `ap` / `d` namespace。",
-      "维护 request、stream、push、连接状态、心跳、重连和 endpoint 复用策略；endpoint 不变时更新 token 或 namespace 不重连。",
+      "提供与业务无关的 WebSocket transport config、底层 WsClient 和生产 sharedWsTransport 多 endpoint client pool。",
+      "同时支持 react-app-env 默认源的 agent-platform `/ap/ws` query-token 连接，以及 Desktop WS profile 的精确 `/ws` endpoint、query/subprotocol token mode 和 `ap` / `d` namespace。",
+      "按 connectionKey + endpoint 维护独立 client 的 request、stream、push、连接状态、心跳和重连；endpoint 不变时更新 token 或 namespace 不重连，不同 endpoint 可并行存活。",
       "只处理 URL、token 注入、frame 收发和 socket 生命周期，不读取 active auth profile、不持久化 token、不做聊天业务 payload 归一或落库。",
       "Public entry WsTransportConfig (transport-types): 定义 agent-platform 与 desktop-ws 两种 WebSocket transport config。",
       "Public entry WsClient (transport-client): 底层 WebSocket client，负责连接解析、request、stream、push、状态、心跳、重连和 namespace 注入。",
-      "Public entry createSharedWsTransport (transport-factory): 为测试创建隔离的 shared WS transport，复用同一 endpoint 的 socket。",
-      "Public entry sharedWsTransport (transport-singleton): 生产共享 WebSocket 单例，向 feature adapter 暴露 request、stream、push/status subscription、updateTransport 和 stop。",
-      "State/data touch: 共享 WebSocket client 与 endpoint key",
+      "Public entry createSharedWsTransport (transport-factory): 为测试创建隔离的 shared WS transport pool，同一 endpoint 复用、不同 endpoint 隔离。",
+      "Public entry sharedWsTransport (transport-singleton): 生产共享 WebSocket pool，向 feature adapter 暴露按 config 作用域的 request、stream、push/status subscription、updateTransport 和 stop。",
+      "State/data touch: 按稳定 endpoint key 索引的共享 WebSocket client map",
       "State/data touch: pending request / active stream maps",
       "State/data touch: push 与 status subscriber sets",
       "State/data touch: 开发态 WS frame recorder",
@@ -56,7 +56,7 @@
       "feature-web-apps"
     ],
     "tests": [],
-    "lastScannedAt": ""
+    "lastScannedAt": "2026-08-03T01:02:18Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -90,9 +90,10 @@
   "riskRules": [
     "core/ws 不读取 active device profile；profile 到 transport config 的解析留在 core/api/activeWsTransport。",
     "core/ws 不持久化 refreshed token；Desktop WS refresh 后的 profile 写入留在 core auth。",
-    "endpoint key 只包含稳定连接身份：agent-platform 的 normalized backendUrl，或 desktop-ws 的 exact wsUrl + tokenMode；不能包含 accessToken、namespace、payload 或 request type。",
-    "agent-platform 连接继续从 backend URL 推导 `/ap/ws`，默认不发送 namespace；Desktop WS 连接使用 profile 保存的 exact wsUrl，并按请求 namespace 发送 `ns`。",
+    "endpoint key 只包含稳定连接身份：显式 connectionKey 与 agent-platform normalized ws/backend URL，或 desktop-ws exact wsUrl + tokenMode；不能包含 accessToken、namespace、payload 或 request type。",
+    "agent-platform 显式 wsUrl 优先，缺失时从 backend URL 推导 `/ap/ws`；query-token accessToken 只在建连时加入 URL，默认不发送 namespace。Desktop WS 连接使用 profile 保存的 exact wsUrl，并按请求 namespace 发送 `ns`。",
     "业务 payload 归一、chat envelope 解包、timeline 更新和 SQLite/MMKV 写入都留在 feature-chat-realtime 与 chatRepository。",
+    "feature stop/subscribe 必须携带对应 config；停止默认源不能关闭 Desktop，WebApps close 不能移除 Chat/Kanban 监听。",
     "开发态 `EXPO_PUBLIC_CHAT_WS_URL` 只覆盖 agent-platform 连接，不能覆盖 Desktop WS profile 的 QR endpoint。"
   ],
   "recentChanges": []

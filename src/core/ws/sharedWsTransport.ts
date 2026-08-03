@@ -24,6 +24,11 @@ export type SharedWsStreamHandle = {
 
 type SharedWsPushListener = (frame: unknown) => void;
 type SharedWsStatusListener = (status: WsSocketStatus) => void;
+type ClientEntry = {
+  client: WsClient;
+  endpointKey: string;
+  transport: WsTransportConfig;
+};
 
 type StreamQueueItem<T> = { kind: 'event'; value: T } | { kind: 'done' } | { kind: 'error'; error: Error };
 
@@ -49,6 +54,10 @@ function normalizeDesktopEndpointUrl(raw: string): string {
   }
 }
 
+function normalizeConnectionKey(raw: string | undefined): string {
+  return String(raw || '').trim();
+}
+
 function normalizeTransport(transport: WsTransportConfig): WsTransportConfig {
   const accessToken = String(transport.accessToken || '').trim();
   if (transport.kind === 'desktop-ws') {
@@ -57,14 +66,17 @@ function normalizeTransport(transport: WsTransportConfig): WsTransportConfig {
       wsUrl: normalizeDesktopEndpointUrl(transport.wsUrl),
       tokenMode: transport.tokenMode,
       accessToken,
-      namespace: transport.namespace
+      namespace: transport.namespace,
+      connectionKey: normalizeConnectionKey(transport.connectionKey)
     };
   }
 
   return {
     kind: 'agent-platform',
     backendUrl: normalizeBackendUrl(transport.backendUrl),
-    accessToken
+    wsUrl: normalizeDesktopEndpointUrl(transport.wsUrl || ''),
+    accessToken,
+    connectionKey: normalizeConnectionKey(transport.connectionKey)
   };
 }
 
@@ -72,7 +84,14 @@ function getEndpointKey(transport: WsTransportConfig): string {
   if (transport.kind === 'desktop-ws') {
     return `desktop-ws:${normalizeDesktopEndpointUrl(transport.wsUrl)}:${transport.tokenMode}`;
   }
-  return `agent-platform:${normalizeBackendUrl(transport.backendUrl)}`;
+  return `agent-platform:${normalizeDesktopEndpointUrl(
+    transport.wsUrl || ''
+  )}:${normalizeBackendUrl(transport.backendUrl)}`;
+}
+
+function getClientKey(transport: WsTransportConfig): string {
+  const connectionKey = normalizeConnectionKey(transport.connectionKey);
+  return connectionKey ? `${connectionKey}:${getEndpointKey(transport)}` : getEndpointKey(transport);
 }
 
 function createAbortError(message = 'The operation was aborted.'): Error {
@@ -89,41 +108,56 @@ function toError(error: unknown, fallback = 'WebSocket stream failed'): Error {
 }
 
 export function createSharedWsTransport() {
-  let client: WsClient | null = null;
-  let endpointKey = '';
-  const pushListeners = new Set<SharedWsPushListener>();
-  const statusListeners = new Set<SharedWsStatusListener>();
+  const clients = new Map<string, ClientEntry>();
+  const pushListeners = new Map<
+    SharedWsPushListener,
+    { clientKey: string | null }
+  >();
+  const statusListeners = new Map<
+    SharedWsStatusListener,
+    { clientKey: string | null }
+  >();
 
-  const dispatchPush = (frame: WsPushFrame) => {
-    pushListeners.forEach((listener) => listener(frame));
+  const dispatchPush = (clientKey: string, frame: WsPushFrame) => {
+    pushListeners.forEach((subscription, listener) => {
+      if (!subscription.clientKey || subscription.clientKey === clientKey) {
+        listener(frame);
+      }
+    });
   };
 
-  const dispatchStatus = (status: WsSocketStatus) => {
-    statusListeners.forEach((listener) => listener(status));
+  const dispatchStatus = (clientKey: string, status: WsSocketStatus) => {
+    statusListeners.forEach((subscription, listener) => {
+      if (!subscription.clientKey || subscription.clientKey === clientKey) {
+        listener(status);
+      }
+    });
   };
 
   const ensureClient = (transportInput: WsTransportConfig): WsClient => {
     const transport = normalizeTransport(transportInput);
-    const nextEndpointKey = getEndpointKey(transport);
-    if (client && endpointKey === nextEndpointKey) {
-      client.updateOptions({
+    const clientKey = getClientKey(transport);
+    const existing = clients.get(clientKey);
+    if (existing) {
+      existing.transport = transport;
+      existing.client.updateOptions({
         transport,
-        onPush: dispatchPush,
-        onStatusChange: dispatchStatus
+        onPush: (frame) => dispatchPush(clientKey, frame),
+        onStatusChange: (status) => dispatchStatus(clientKey, status)
       });
-      return client;
+      return existing.client;
     }
 
-    if (client) {
-      client.disconnect();
-    }
-
-    client = new WsClient({
+    const client = new WsClient({
       transport,
-      onPush: dispatchPush,
-      onStatusChange: dispatchStatus
+      onPush: (frame) => dispatchPush(clientKey, frame),
+      onStatusChange: (status) => dispatchStatus(clientKey, status)
     });
-    endpointKey = nextEndpointKey;
+    clients.set(clientKey, {
+      client,
+      endpointKey: getEndpointKey(transport),
+      transport
+    });
     return client;
   };
 
@@ -236,41 +270,83 @@ export function createSharedWsTransport() {
   };
 
   const updateTransport = (transportInput: WsTransportConfig): boolean => {
-    if (!client) {
-      return false;
-    }
-
     const transport = normalizeTransport(transportInput);
-    if (endpointKey !== getEndpointKey(transport)) {
+    const clientKey = getClientKey(transport);
+    const entry = clients.get(clientKey);
+    if (!entry || entry.endpointKey !== getEndpointKey(transport)) {
       return false;
     }
 
-    client.updateOptions({ transport });
+    entry.transport = transport;
+    entry.client.updateOptions({ transport });
     return true;
   };
 
-  const subscribePush = (listener: SharedWsPushListener): SharedWsSubscription => {
-    pushListeners.add(listener);
+  const subscribePush = (
+    listener: SharedWsPushListener,
+    transport?: WsTransportConfig
+  ): SharedWsSubscription => {
+    pushListeners.set(listener, {
+      clientKey: transport ? getClientKey(normalizeTransport(transport)) : null
+    });
     return () => {
       pushListeners.delete(listener);
     };
   };
 
-  const subscribeStatus = (listener: SharedWsStatusListener): SharedWsSubscription => {
-    statusListeners.add(listener);
-    listener(client?.getStatus() ?? 'idle');
+  const subscribeStatus = (
+    listener: SharedWsStatusListener,
+    transport?: WsTransportConfig
+  ): SharedWsSubscription => {
+    const clientKey = transport ? getClientKey(normalizeTransport(transport)) : null;
+    statusListeners.set(listener, { clientKey });
+    listener(clientKey ? clients.get(clientKey)?.client.getStatus() ?? 'idle' : getAggregateStatus());
     return () => {
       statusListeners.delete(listener);
     };
   };
 
-  const stop = () => {
-    if (client) {
-      client.disconnect();
+  const getAggregateStatus = (): WsSocketStatus => {
+    const statuses = [...clients.values()].map((entry) => entry.client.getStatus());
+    if (statuses.includes('connected')) {
+      return 'connected';
     }
-    client = null;
-    endpointKey = '';
-    dispatchStatus('idle');
+    if (statuses.includes('connecting')) {
+      return 'connecting';
+    }
+    if (statuses.includes('reconnecting')) {
+      return 'reconnecting';
+    }
+    if (statuses.includes('error')) {
+      return 'error';
+    }
+    if (statuses.includes('disconnected')) {
+      return 'disconnected';
+    }
+    return 'idle';
+  };
+
+  const getStatus = (transport?: WsTransportConfig): WsSocketStatus => {
+    if (!transport) {
+      return getAggregateStatus();
+    }
+    const clientKey = getClientKey(normalizeTransport(transport));
+    return clients.get(clientKey)?.client.getStatus() ?? 'idle';
+  };
+
+  const stop = (transport?: WsTransportConfig) => {
+    if (transport) {
+      const clientKey = getClientKey(normalizeTransport(transport));
+      clients.get(clientKey)?.client.disconnect();
+      clients.delete(clientKey);
+      dispatchStatus(clientKey, 'idle');
+      return;
+    }
+
+    const clientKeys = [...clients.keys()];
+    clients.forEach((entry) => entry.client.disconnect());
+    clients.clear();
+    clientKeys.forEach((clientKey) => dispatchStatus(clientKey, 'idle'));
   };
 
   return {
@@ -281,7 +357,7 @@ export function createSharedWsTransport() {
     updateTransport,
     subscribePush,
     subscribeStatus,
-    getStatus: (): WsSocketStatus => client?.getStatus() ?? 'idle',
+    getStatus,
     stop
   };
 }

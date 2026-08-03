@@ -7,6 +7,12 @@ import { createChatConversationTarget } from './chatConversationTarget';
 import { normalizeAgentMode } from './agentMode.ts';
 import { normalizeChatReasoningEffort } from './agentModelSettings.ts';
 import {
+  encodeChatSourceId,
+  getChatSourceFromId,
+  getChatSourceStoragePrefix,
+  type ChatSource
+} from './chatSource';
+import {
   isActiveTimelinePayload,
   shouldOpenLatestConversationFromSummary,
 } from './chatDirectoryOpenDecision';
@@ -119,6 +125,7 @@ function mapChatHomeItem(row: {
 }): ChatHomeItem {
   const read = mapConversationReadState(row);
   return {
+    source: getChatSourceFromId(row.conversationId),
     conversationId: row.conversationId,
     title: row.title,
     lastMessageText: row.lastMessageText,
@@ -161,6 +168,7 @@ function mapChatDirectoryItem(row: {
   lastMessageAt?: number | null;
 }): ChatDirectoryItem {
   return {
+    source: getChatSourceFromId(row.id),
     id: row.id,
     kind: row.kind === 'team' ? 'team' : 'agent',
     title: row.title,
@@ -746,7 +754,8 @@ async function createLocalConversationForHistoryScope(
   }
 
   const createdAt = Date.now();
-  const conversationId = createLocalId('conversation');
+  const source = getChatSourceFromId(historyScope.teamId || historyScope.agentKey);
+  const conversationId = encodeChatSourceId(source, createLocalId('conversation'));
   await chatDb.insert(conversations).values({
     id: conversationId,
     title: normalizeLocalConversationTitle(title),
@@ -1748,7 +1757,10 @@ function normalizeConversationSummaryProjection(
   };
 }
 
-export async function replaceChatHomeProjection(input: ChatHomeProjection) {
+export async function replaceChatHomeProjection(
+  input: ChatHomeProjection,
+  source?: ChatSource
+) {
   await ensureChatDatabase();
 
   const conversationById = new Map<string, ChatConversationSummaryProjection>();
@@ -1852,12 +1864,30 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection) {
       existingDirectoryRows.map((row) => [row.id, Number(row.pinnedAt || 0)])
     );
 
+    const sourceStoragePrefix = source
+      ? getChatSourceStoragePrefix(source).replace(/[\\%_]/gu, '\\$&')
+      : '';
+    const sourceDirectoryFilter = source
+      ? sql<boolean>`${chatDirectoryItems.id} LIKE ${`${sourceStoragePrefix}%`} ESCAPE '\\'`
+      : undefined;
+
     if (directoryIds.length <= 0) {
-      tx.delete(chatDirectoryItems).run();
+      if (sourceDirectoryFilter) {
+        tx.delete(chatDirectoryItems).where(sourceDirectoryFilter).run();
+      } else {
+        tx.delete(chatDirectoryItems).run();
+      }
       return;
     }
 
-    tx.delete(chatDirectoryItems).where(notInArray(chatDirectoryItems.id, directoryIds)).run();
+    tx
+      .delete(chatDirectoryItems)
+      .where(
+        sourceDirectoryFilter
+          ? and(sourceDirectoryFilter, notInArray(chatDirectoryItems.id, directoryIds))
+          : notInArray(chatDirectoryItems.id, directoryIds)
+      )
+      .run();
 
     for (const item of normalizedDirectoryItems) {
       const pinnedAt = directoryPinnedById.get(item.id) || item.pinnedAt;
@@ -1908,6 +1938,28 @@ export async function refreshChatDirectorySnapshot(pageSize: number = CHAT_DIREC
   const firstPage = await getChatDirectoryPage(1, pageSize);
   writeChatDirectorySnapshot(firstPage.items);
   return firstPage.items;
+}
+
+export async function retainChatDirectorySources(
+  sources: readonly ChatSource[]
+): Promise<boolean> {
+  await ensureChatDatabase();
+  const prefixes = sources.map(getChatSourceStoragePrefix);
+  const rows = await chatDb.select({ id: chatDirectoryItems.id }).from(chatDirectoryItems);
+  const staleIds = rows
+    .map((row) => row.id)
+    .filter((id) => !prefixes.some((prefix) => id.startsWith(prefix)));
+  if (staleIds.length <= 0) {
+    return false;
+  }
+
+  for (let offset = 0; offset < staleIds.length; offset += 200) {
+    await chatDb
+      .delete(chatDirectoryItems)
+      .where(inArray(chatDirectoryItems.id, staleIds.slice(offset, offset + 200)));
+  }
+  await refreshChatDirectorySnapshot();
+  return true;
 }
 
 export async function setChatDirectoryItemPinned(itemId: string, pinned: boolean) {

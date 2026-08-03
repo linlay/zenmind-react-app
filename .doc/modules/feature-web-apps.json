@@ -12,9 +12,9 @@
       "WebAppsGateway 只接受活动 Desktop WS Profile，复用 resolveActiveWsTransportConfig、JWT 刷新和 sharedWsTransport；HTTP Profile 不向 Agent Platform 发送 WebApp 请求。",
       "Gateway open 后先挂本地 push/status 监听，再确认 event.subscribe，缓存同步窗口内的 push，读取 web.webapp.list，校验 desktopDeviceId，以快照覆盖并顺序重放缓存；实时阶段按 webappId upsert/remove 并按 order 稳定排序。",
       "Desktop WS 重连后 Gateway 使用 single-flight 与 generation 重新订阅和读取快照；close 只移除自身监听并尽力 event.unsubscribe，不停止共享 Socket，不影响 Chat 或 Kanban 监听。",
-      "WebAppsRuntimeProvider 在登录会话挂载时立即 open Gateway，统一维护 catalog、连接状态、当前 App、最近 URL、resident LRU 与详情/选择框可见性；App 回前台只做一次去重快照补偿，不轮询、不写 SQLite 或 MMKV。",
+      "WebAppsRuntimeProvider 只在 AppAccess 为 paired 时 open Gateway，统一维护 catalog、连接状态、当前 App、最近 URL、resident LRU 与详情/选择框可见性；未配对时不连接 Gateway、不挂 WebView Host，WebAppsScreen 展示配对说明空态。",
       "新建 WebView 仅允许 runtimeStatus=running、availability=available 且 publicUrl 为 HTTPS；stopped、unpublished、removed 会卸载 resident，desktop-offline、publish-error 等瞬态保留已挂载页面并显示连接异常。",
-      "WebAppsScreen 使用 FlashList 展示真实目录和单一启动/暂停按钮；首期 Gateway capabilities 均为 false，按钮统一禁用，禁止通过 action.call 绕过脱敏控制边界。",
+      "WebAppsScreen 在已配对时使用 FlashList 展示真实目录和单一启动/暂停按钮；未配对时展示空态和 Login 配对入口；首期 Gateway capabilities 均为 false，按钮统一禁用，禁止通过 action.call 绕过脱敏控制边界。",
       "WebAppsRuntimeHost 在登录态 RootStack 外层常驻，最多保留 6 个 WebView；WebAppDetail route 只负责导航与返回语义，离开详情或切换 Tab 不卸载 resident。",
       "webAppsMobileAccess 纯校验 `\u003cdevice\u003e-\u003cport\u003e.m.\u003cdomain\u003e` 是否匹配活动 Desktop WS host，并只为合法配对地址构造带启动 token 的临时 URL；非 `.m` HTTPS 地址保持匿名直载。",
       "ResidentWebView 每个 appId + generation 只解析一次初始地址，复用 appAuth 的现有 token 刷新与 single-flight；Tunnel Hub 303 后继续使用第一方 HttpOnly Cookie，启动 token 不写入 resident、lastUrlById 或日志。",
@@ -96,7 +96,7 @@
       "app-shell-navigation"
     ],
     "tests": [],
-    "lastScannedAt": "2026-07-23T10:29:12Z"
+    "lastScannedAt": "2026-08-03T01:02:18Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -133,6 +133,7 @@
   },
   "riskRules": [
     "Screen 只消费 WebAppsRuntimeProvider，不直接连接 HTTP、WebSocket、SQLite 或 MMKV。",
+    "AppAccess 未配对时 Provider 不得 open Gateway 或挂载 Resident WebView；空态只能导航到新版二维码配对页。",
     "WebApps 必须复用 sharedWsTransport；close 不得调用 sharedWsTransport.stop 或移除其他 feature 的 push/status listener。",
     "同步顺序固定为本地监听、event.subscribe 确认、push 缓存、web.webapp.list、设备校验、快照覆盖、缓存重放、实时增量。",
     "活动 Profile 不是 desktop-ws 时必须返回需要连接 Desktop，不得把 WebApp 请求发往 Agent Platform。",

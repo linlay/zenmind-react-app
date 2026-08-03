@@ -49,7 +49,6 @@
     "dependents": [
       "app-development-debug",
       "core-api-client",
-      "core-auth-session",
       "core-ws-transport",
       "feature-chat-persistence"
     ],

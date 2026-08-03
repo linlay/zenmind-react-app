@@ -74,6 +74,8 @@
       "AGENT_ICON_NAMES",
       "APP_BRAND",
       "APP_BRANDS",
+      "APP_ENVIRONMENT",
+      "APP_ENVIRONMENTS",
       "APP_LINE_ICON_OUTLINE_NAMES",
       "APP_LINE_ICON_PATHS",
       "APP_RESOLVED_THEME_PREFERENCES",
@@ -89,6 +91,7 @@
       "AgentBuiltinIconName",
       "AgentBuiltinIconProps",
       "AppBrandId",
+      "AppEnvironment",
       "AppIcon",
       "AppIconButton",
       "AppIconButtonProps",
@@ -118,10 +121,14 @@
       "DEFAULT_APP_RESOLVED_THEME_PREFERENCE",
       "DEFAULT_APP_THEME_PREFERENCE",
       "DEFAULT_BRAND_ID",
+      "DEFAULT_SOURCE_ENVIRONMENT",
+      "DefaultSourceEnvironment",
       "EXPO_NAME",
       "INSTALLED_BRAND_ID",
       "OUTLINE_ICON_VIEW_BOX",
       "PRODUCT_NAME",
+      "REACT_APP_ENV_ARTIFACT_VERSION",
+      "REACT_APP_ENV_SCHEMA_VERSION",
       "ResolvedAgentAvatarUri",
       "STORAGE_NAMESPACE",
       "VisualAvatarTone",
@@ -159,6 +166,8 @@
     "dependents": [
       "app-development-debug",
       "app-shell-navigation",
+      "core-auth-session",
+      "core-runtime-config",
       "feature-agent-task-board",
       "feature-auth-login",
       "feature-chat-persistence",
@@ -169,7 +178,7 @@
       "shared-screen-header"
     ],
     "tests": [],
-    "lastScannedAt": "2026-07-23T02:43:03Z"
+    "lastScannedAt": "2026-08-03T01:02:18Z"
   },
   "readHints": {
     "alwaysRead": [],

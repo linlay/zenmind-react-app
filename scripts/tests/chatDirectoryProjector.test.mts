@@ -85,6 +85,12 @@ test('projects remote agents and teams into stable directory items', () => {
   assert.equal(items[2].reasoningEffort, 'HIGH');
   assert.equal(items[2].subtitle, '默认 planner');
   assert.deepEqual(createChatConversationTarget(items[0]), {
+    source: {
+      kind: 'paired',
+      key: 'paired:legacy',
+      sourceId: 'legacy',
+      displayName: '已配对设备',
+    },
     kind: 'agent',
     title: 'Planner',
     subtitle: 'Planning agent',

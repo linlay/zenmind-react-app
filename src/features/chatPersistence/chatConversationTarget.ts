@@ -1,8 +1,12 @@
 import type { ChatConversationTarget, ChatDirectoryKind } from './types';
+import type { ChatSource } from './chatSource.ts';
 import { normalizeAgentMode } from './agentMode.ts';
 import { normalizeChatReasoningEffort } from './agentModelSettings.ts';
+import { getChatSourceFromId } from './chatSource.ts';
 
 type ChatConversationTargetSource = {
+  source?: ChatSource;
+  id?: string | null;
   kind: ChatDirectoryKind | string;
   title?: string | null;
   subtitle?: string | null;
@@ -35,6 +39,7 @@ export function createChatConversationTarget(
   const agentKey = kind === 'team' ? null : normalizeKey(source.agentKey || source.defaultAgentKey);
 
   return {
+    source: source.source ?? getChatSourceFromId(source.id || agentKey || teamId),
     kind,
     title,
     subtitle: normalizeText(source.subtitle),

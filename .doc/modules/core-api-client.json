@@ -246,6 +246,7 @@
       "resolveAuthenticatedResourceImageSource",
       "resolveAuthenticatedResourceSource",
       "resolveChatUploadRoute",
+      "resolveDefaultWsTransportConfig",
       "shouldHandleKanbanInvalidation",
       "startKanbanIssueRunApi",
       "startKanbanIssueRunProtocol",
@@ -271,11 +272,11 @@
     "dependencies": [
       "core-auth-session",
       "core-debug-logging",
+      "core-runtime-config",
       "core-ws-transport"
     ],
     "dependents": [
       "app-development-debug",
-      "app-shell-navigation",
       "feature-agent-task-board",
       "feature-chat-persistence",
       "feature-chat-realtime",
@@ -284,7 +285,7 @@
       "feature-web-apps"
     ],
     "tests": [],
-    "lastScannedAt": "2026-07-23T02:43:03Z"
+    "lastScannedAt": "2026-08-03T01:02:18Z"
   },
   "readHints": {
     "alwaysRead": [

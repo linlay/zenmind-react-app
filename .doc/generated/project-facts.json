@@ -27,6 +27,7 @@
   ],
   "testFiles": [
     "scripts/tests/agentWaitingDemo.test.mts",
+    "scripts/tests/appEnvConfig.test.mts",
     "scripts/tests/appIconRegistry.test.mts",
     "scripts/tests/authenticatedResourceModel.test.mts",
     "scripts/tests/awaitingOptionPreview.test.mts",
@@ -65,6 +66,7 @@
     "scripts/tests/chatResponseWaiting.test.mts",
     "scripts/tests/chatResponseWaitingLayout.test.mts",
     "scripts/tests/chatRuntimeState.test.mts",
+    "scripts/tests/chatSource.test.mts",
     "scripts/tests/chatTimelineAction.test.mts",
     "scripts/tests/chatTimelineArtifact.test.mts",
     "scripts/tests/chatTimelineContextCompact.test.mts",
@@ -795,6 +797,7 @@
     ".generated/react-native-worklets/.worklets/15960764466239.js",
     ".generated/react-native-worklets/.worklets/15970330743450.js",
     ".generated/react-native-worklets/.worklets/15974127613449.js",
+    ".generated/react-native-worklets/.worklets/15988198590355.js",
     ".generated/react-native-worklets/.worklets/15989846308618.js",
     ".generated/react-native-worklets/.worklets/15992296871009.js",
     ".generated/react-native-worklets/.worklets/15993059429066.js",
@@ -1215,6 +1218,7 @@
     ".generated/react-native-worklets/.worklets/3469078863114.js",
     ".generated/react-native-worklets/.worklets/3477051264454.js",
     ".generated/react-native-worklets/.worklets/3482140414026.js",
+    ".generated/react-native-worklets/.worklets/3487345304467.js",
     ".generated/react-native-worklets/.worklets/3489784428729.js",
     ".generated/react-native-worklets/.worklets/3495257198992.js",
     ".generated/react-native-worklets/.worklets/3497622560690.js",
@@ -1433,6 +1437,7 @@
     ".generated/react-native-worklets/.worklets/5232276321166.js",
     ".generated/react-native-worklets/.worklets/5232397720804.js",
     ".generated/react-native-worklets/.worklets/5235679431215.js",
+    ".generated/react-native-worklets/.worklets/5238646848757.js",
     ".generated/react-native-worklets/.worklets/5241984095219.js",
     ".generated/react-native-worklets/.worklets/5244475777443.js",
     ".generated/react-native-worklets/.worklets/5251757035714.js",
@@ -2051,6 +2056,7 @@
     "plugins/withAndroidNdkVersionForSubprojects.js",
     "scripts/dev-proxy.mjs",
     "scripts/generate-zenmind-assets.js",
+    "scripts/lib/app-env-config.js",
     "scripts/lib/brand-config.js",
     "scripts/markdown-preview/pregenerate.js",
     "scripts/submit-ios-ipa.js",
@@ -2099,6 +2105,7 @@
     "src/core/api/services/uploadApi.ts",
     "src/core/api/services/uploadApiModel.ts",
     "src/core/api/services/workspaceResource.ts",
+    "src/core/auth/appAccess.ts",
     "src/core/auth/appAuth.ts",
     "src/core/auth/authConfig.ts",
     "src/core/auth/authRequestModel.ts",
@@ -2106,7 +2113,9 @@
     "src/core/auth/desktopWsTransport.ts",
     "src/core/auth/deviceProfileModel.ts",
     "src/core/auth/deviceProfiles.ts",
+    "src/core/auth/useAppAccess.ts",
     "src/core/auth/useAuthSession.ts",
+    "src/core/config/appEnvironment.ts",
     "src/core/config/endpoint.ts",
     "src/core/config/runtimeEnv.ts",
     "src/core/debug/httpDebugLogger.ts",
@@ -2153,6 +2162,8 @@
     "src/features/chatPersistence/chatReadState.ts",
     "src/features/chatPersistence/chatRealtimeUiState.ts",
     "src/features/chatPersistence/chatRepository.ts",
+    "src/features/chatPersistence/chatSource.ts",
+    "src/features/chatPersistence/chatSourceRuntime.ts",
     "src/features/chatPersistence/components/ActionTimelineRow.tsx",
     "src/features/chatPersistence/components/ArtifactTimelineRow.tsx",
     "src/features/chatPersistence/components/ChatArtifactDrawer.tsx",
@@ -2230,6 +2241,7 @@
     "src/features/chatPersistence/useChatDetailConversationController.ts",
     "src/features/chatPersistence/useChatDetailLocalUiState.ts",
     "src/features/chatPersistence/useConversationActionRuntime.ts",
+    "src/features/chatRealtime/chatSourcePayload.ts",
     "src/features/chatRealtime/chatSyncService.ts",
     "src/features/chatRealtime/chatWsTransport.ts",
     "src/features/chatRealtime/routing.ts",
@@ -2285,6 +2297,7 @@
     "src/shared/components/conversationPreview/useConversationPreviewRuntime.ts",
     "src/shared/components/conversationPreview/usePreviewExecutionState.ts",
     "src/shared/components/conversationPreview/visibilityStore.ts",
+    "src/shared/generated/appEnv.ts",
     "src/shared/generated/brand.ts",
     "src/shared/generated/brandAssets.ts",
     "src/shared/i18n/I18nProvider.tsx",
@@ -5042,6 +5055,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "15988198590355.js",
+                    "type": "file"
+                  },
+                  {
                     "name": "15989846308618.js",
                     "type": "file"
                   },
@@ -6722,6 +6739,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "3487345304467.js",
+                    "type": "file"
+                  },
+                  {
                     "name": "3489784428729.js",
                     "type": "file"
                   },
@@ -7591,6 +7612,10 @@
                   },
                   {
                     "name": "5235679431215.js",
+                    "type": "file"
+                  },
+                  {
+                    "name": "5238646848757.js",
                     "type": "file"
                   },
                   {
@@ -10136,6 +10161,10 @@
             "type": "directory",
             "children": [
               {
+                "name": "app-env-config.js",
+                "type": "file"
+              },
+              {
                 "name": "brand-config.js",
                 "type": "file"
               }
@@ -10412,6 +10441,10 @@
                 "type": "directory",
                 "children": [
                   {
+                    "name": "appAccess.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "appAuth.ts",
                     "type": "file"
                   },
@@ -10440,6 +10473,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "useAppAccess.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "useAuthSession.ts",
                     "type": "file"
                   }
@@ -10449,6 +10486,10 @@
                 "name": "config",
                 "type": "directory",
                 "children": [
+                  {
+                    "name": "appEnvironment.ts",
+                    "type": "file"
+                  },
                   {
                     "name": "endpoint.ts",
                     "type": "file"
@@ -10974,6 +11015,14 @@
                     "type": "file"
                   },
                   {
+                    "name": "chatSource.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatSourceRuntime.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "conversationActionService.ts",
                     "type": "file"
                   },
@@ -11019,6 +11068,10 @@
                 "name": "chatRealtime",
                 "type": "directory",
                 "children": [
+                  {
+                    "name": "chatSourcePayload.ts",
+                    "type": "file"
+                  },
                   {
                     "name": "chatSyncService.ts",
                     "type": "file"
@@ -11294,6 +11347,10 @@
                 "type": "directory",
                 "children": [
                   {
+                    "name": "appEnv.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "brand.ts",
                     "type": "file"
                   },
@@ -11532,6 +11589,7 @@
       "plugins/withAndroidAutolinkingCacheGuard.js",
       "scripts/dev-proxy.mjs",
       "scripts/generate-zenmind-assets.js",
+      "scripts/lib/app-env-config.js",
       "scripts/lib/brand-config.js",
       "scripts/markdown-preview/pregenerate.js",
       "scripts/submit-ios-ipa.js",
@@ -11583,6 +11641,7 @@
       "src/core/api/services/workspaceResource.ts"
     ],
     "core-auth-session": [
+      "src/core/auth/appAccess.ts",
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
       "src/core/auth/authRequestModel.ts",
@@ -11590,6 +11649,7 @@
       "src/core/auth/desktopWsTransport.ts",
       "src/core/auth/deviceProfileModel.ts",
       "src/core/auth/deviceProfiles.ts",
+      "src/core/auth/useAppAccess.ts",
       "src/core/auth/useAuthSession.ts"
     ],
     "core-debug-logging": [
@@ -11597,6 +11657,7 @@
       "src/core/debug/wsDebugRecorder.ts"
     ],
     "core-runtime-config": [
+      "src/core/config/appEnvironment.ts",
       "src/core/config/endpoint.ts",
       "src/core/config/runtimeEnv.ts"
     ],
@@ -11649,6 +11710,8 @@
       "src/features/chatPersistence/chatReadState.ts",
       "src/features/chatPersistence/chatRealtimeUiState.ts",
       "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/chatSource.ts",
+      "src/features/chatPersistence/chatSourceRuntime.ts",
       "src/features/chatPersistence/components/ActionTimelineRow.tsx",
       "src/features/chatPersistence/components/ArtifactTimelineRow.tsx",
       "src/features/chatPersistence/components/ChatArtifactDrawer.tsx",
@@ -11728,6 +11791,7 @@
       "src/features/chatPersistence/useConversationActionRuntime.ts"
     ],
     "feature-chat-realtime": [
+      "src/features/chatRealtime/chatSourcePayload.ts",
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatRealtime/chatWsTransport.ts",
       "src/features/chatRealtime/routing.ts",
@@ -11811,6 +11875,7 @@
     ],
     "shared-visual-foundation": [
       "src/shared/branding/installedBrand.ts",
+      "src/shared/generated/appEnv.ts",
       "src/shared/generated/brand.ts",
       "src/shared/generated/brandAssets.ts",
       "src/shared/icons/AppIcon.tsx",
@@ -11846,6 +11911,7 @@
     "plugins/withAndroidAutolinkingCacheGuard.js": "app-shell-navigation",
     "scripts/dev-proxy.mjs": "app-shell-navigation",
     "scripts/generate-zenmind-assets.js": "app-shell-navigation",
+    "scripts/lib/app-env-config.js": "app-shell-navigation",
     "scripts/lib/brand-config.js": "app-shell-navigation",
     "scripts/markdown-preview/pregenerate.js": "app-shell-navigation",
     "scripts/submit-ios-ipa.js": "app-shell-navigation",
@@ -11894,6 +11960,7 @@
     "src/core/api/services/uploadApi.ts": "core-api-client",
     "src/core/api/services/uploadApiModel.ts": "core-api-client",
     "src/core/api/services/workspaceResource.ts": "core-api-client",
+    "src/core/auth/appAccess.ts": "core-auth-session",
     "src/core/auth/appAuth.ts": "core-auth-session",
     "src/core/auth/authConfig.ts": "core-auth-session",
     "src/core/auth/authRequestModel.ts": "core-auth-session",
@@ -11901,7 +11968,9 @@
     "src/core/auth/desktopWsTransport.ts": "core-auth-session",
     "src/core/auth/deviceProfileModel.ts": "core-auth-session",
     "src/core/auth/deviceProfiles.ts": "core-auth-session",
+    "src/core/auth/useAppAccess.ts": "core-auth-session",
     "src/core/auth/useAuthSession.ts": "core-auth-session",
+    "src/core/config/appEnvironment.ts": "core-runtime-config",
     "src/core/config/endpoint.ts": "core-runtime-config",
     "src/core/config/runtimeEnv.ts": "core-runtime-config",
     "src/core/debug/httpDebugLogger.ts": "core-debug-logging",
@@ -11948,6 +12017,8 @@
     "src/features/chatPersistence/chatReadState.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatRealtimeUiState.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatRepository.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatSource.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatSourceRuntime.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/ActionTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ArtifactTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatArtifactDrawer.tsx": "feature-chat-persistence",
@@ -12025,6 +12096,7 @@
     "src/features/chatPersistence/useChatDetailConversationController.ts": "feature-chat-persistence",
     "src/features/chatPersistence/useChatDetailLocalUiState.ts": "feature-chat-persistence",
     "src/features/chatPersistence/useConversationActionRuntime.ts": "feature-chat-persistence",
+    "src/features/chatRealtime/chatSourcePayload.ts": "feature-chat-realtime",
     "src/features/chatRealtime/chatSyncService.ts": "feature-chat-realtime",
     "src/features/chatRealtime/chatWsTransport.ts": "feature-chat-realtime",
     "src/features/chatRealtime/routing.ts": "feature-chat-realtime",
@@ -12080,6 +12152,7 @@
     "src/shared/components/conversationPreview/useConversationPreviewRuntime.ts": "shared-conversation-content-renderer",
     "src/shared/components/conversationPreview/usePreviewExecutionState.ts": "shared-conversation-content-renderer",
     "src/shared/components/conversationPreview/visibilityStore.ts": "shared-conversation-content-renderer",
+    "src/shared/generated/appEnv.ts": "shared-visual-foundation",
     "src/shared/generated/brand.ts": "shared-visual-foundation",
     "src/shared/generated/brandAssets.ts": "shared-visual-foundation",
     "src/shared/i18n/I18nProvider.tsx": "shared-i18n",
@@ -12130,8 +12203,8 @@
     "app-shell-navigation": {
       "dependsOn": [
         "app-development-debug",
-        "core-api-client",
         "core-auth-session",
+        "core-runtime-config",
         "feature-agent-task-board",
         "feature-auth-login",
         "feature-chat-persistence",
@@ -12144,6 +12217,7 @@
       ],
       "dependedBy": [
         "feature-agent-task-board",
+        "feature-auth-login",
         "feature-chat-persistence",
         "feature-web-apps"
       ]
@@ -12152,11 +12226,11 @@
       "dependsOn": [
         "core-auth-session",
         "core-debug-logging",
+        "core-runtime-config",
         "core-ws-transport"
       ],
       "dependedBy": [
         "app-development-debug",
-        "app-shell-navigation",
         "feature-agent-task-board",
         "feature-chat-persistence",
         "feature-chat-realtime",
@@ -12167,13 +12241,14 @@
     },
     "core-auth-session": {
       "dependsOn": [
-        "core-debug-logging",
-        "core-runtime-config"
+        "core-runtime-config",
+        "shared-visual-foundation"
       ],
       "dependedBy": [
         "app-shell-navigation",
         "core-api-client",
         "feature-auth-login",
+        "feature-chat-persistence",
         "feature-chat-realtime",
         "feature-web-apps"
       ]
@@ -12185,18 +12260,21 @@
       "dependedBy": [
         "app-development-debug",
         "core-api-client",
-        "core-auth-session",
         "core-ws-transport",
         "feature-chat-persistence"
       ]
     },
     "core-runtime-config": {
-      "dependsOn": [],
+      "dependsOn": [
+        "shared-visual-foundation"
+      ],
       "dependedBy": [
+        "app-shell-navigation",
+        "core-api-client",
         "core-auth-session",
         "core-debug-logging",
         "core-ws-transport",
-        "feature-auth-login"
+        "feature-chat-persistence"
       ]
     },
     "core-ws-transport": {
@@ -12225,8 +12303,8 @@
     },
     "feature-auth-login": {
       "dependsOn": [
+        "app-shell-navigation",
         "core-auth-session",
-        "core-runtime-config",
         "shared-i18n",
         "shared-visual-foundation"
       ],
@@ -12238,7 +12316,9 @@
       "dependsOn": [
         "app-shell-navigation",
         "core-api-client",
+        "core-auth-session",
         "core-debug-logging",
+        "core-runtime-config",
         "feature-chat-realtime",
         "feature-chat-timeline",
         "shared-conversation-content-renderer",
@@ -12347,6 +12427,8 @@
       "dependedBy": [
         "app-development-debug",
         "app-shell-navigation",
+        "core-auth-session",
+        "core-runtime-config",
         "feature-agent-task-board",
         "feature-auth-login",
         "feature-chat-persistence",
@@ -14387,6 +14469,9 @@
     ".generated/react-native-worklets/.worklets/15974127613449.js": [
       "default"
     ],
+    ".generated/react-native-worklets/.worklets/15988198590355.js": [
+      "default"
+    ],
     ".generated/react-native-worklets/.worklets/15989846308618.js": [
       "default"
     ],
@@ -15647,6 +15732,9 @@
     ".generated/react-native-worklets/.worklets/3482140414026.js": [
       "default"
     ],
+    ".generated/react-native-worklets/.worklets/3487345304467.js": [
+      "default"
+    ],
     ".generated/react-native-worklets/.worklets/3489784428729.js": [
       "default"
     ],
@@ -16299,6 +16387,9 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/5235679431215.js": [
+      "default"
+    ],
+    ".generated/react-native-worklets/.worklets/5238646848757.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/5241984095219.js": [
@@ -18128,6 +18219,15 @@
     "plugins/withAndroidNdkVersionForSubprojects.js": null,
     "scripts/dev-proxy.mjs": null,
     "scripts/generate-zenmind-assets.js": null,
+    "scripts/lib/app-env-config.js": [
+      "APP_ENVIRONMENT",
+      "APP_ENVIRONMENTS",
+      "AppEnvironment",
+      "DEFAULT_SOURCE_ENVIRONMENT",
+      "DefaultSourceEnvironment",
+      "REACT_APP_ENV_ARTIFACT_VERSION",
+      "REACT_APP_ENV_SCHEMA_VERSION"
+    ],
     "scripts/lib/brand-config.js": [
       "APP_BRAND",
       "APP_BRANDS",
@@ -18213,7 +18313,8 @@
       "GeminiLogo"
     ],
     "src/core/api/activeWsTransport.ts": [
-      "resolveActiveWsTransportConfig"
+      "resolveActiveWsTransportConfig",
+      "resolveDefaultWsTransportConfig"
     ],
     "src/core/api/apiClient.ts": [
       "ApiError",
@@ -18475,6 +18576,16 @@
       "WorkspaceFileResourceRequest",
       "buildWorkspaceFileResourceUrl"
     ],
+    "src/core/auth/appAccess.ts": [
+      "AppAccessSnapshot",
+      "DefaultSourceIdentity",
+      "bootstrapAppAccess",
+      "completeAccessOnboarding",
+      "continueWithoutPairing",
+      "getAppAccessSnapshot",
+      "getDefaultSourceIdentity",
+      "subscribeAppAccessStore"
+    ],
     "src/core/auth/appAuth.ts": [
       "AuthStoreSnapshot",
       "EnsureFreshAccessTokenOptions",
@@ -18489,7 +18600,6 @@
       "getAuthSnapshot",
       "getCurrentSession",
       "getDefaultDeviceName",
-      "loginWithMasterPassword",
       "loginWithPairingPayload",
       "logoutCurrentDevice",
       "readPreferredDeviceName",
@@ -18516,7 +18626,6 @@
       "DesktopWsNamespace",
       "DesktopWsPairingPayload",
       "DesktopWsTokenMode",
-      "LegacyPairingPayload",
       "ParsedPairingPayload",
       "applyDesktopTokenToUrl",
       "buildDesktopBusinessFrame",
@@ -18558,8 +18667,15 @@
       "upsertDeviceProfile",
       "upsertManualDeviceProfile"
     ],
+    "src/core/auth/useAppAccess.ts": [
+      "useAppAccess"
+    ],
     "src/core/auth/useAuthSession.ts": [
       "useAuthSession"
+    ],
+    "src/core/config/appEnvironment.ts": [
+      "DefaultSourceConfig",
+      "getDefaultSourceConfig"
     ],
     "src/core/config/endpoint.ts": [
       "looksLikeLocalAddress",
@@ -18893,6 +19009,7 @@
       "replaceChatHomeProjection",
       "replaceConversationProjection",
       "resolveDirectoryItemConversationOpenTarget",
+      "retainChatDirectorySources",
       "searchChatDirectoryItems",
       "setChatDirectoryItemPinned",
       "setConversationActiveRunId",
@@ -18901,6 +19018,20 @@
       "setConversationUnreadCountLocal",
       "upsertProjectedMessage",
       "upsertServerMessageDetail"
+    ],
+    "src/features/chatPersistence/chatSource.ts": [
+      "ChatSource",
+      "ChatSourceKind",
+      "createChatSource",
+      "encodeChatSourceId",
+      "getChatSourceFromId",
+      "getChatSourceStoragePrefix",
+      "getRemoteChatSourceId",
+      "parseChatSourceId"
+    ],
+    "src/features/chatPersistence/chatSourceRuntime.ts": [
+      "getDefaultChatSource",
+      "getPairedChatSource"
     ],
     "src/features/chatPersistence/components/ActionTimelineRow.tsx": [
       "ActionTimelineRow"
@@ -19304,6 +19435,11 @@
     ],
     "src/features/chatPersistence/useConversationActionRuntime.ts": [
       "useConversationActionRuntime"
+    ],
+    "src/features/chatRealtime/chatSourcePayload.ts": [
+      "scopeChatPayload",
+      "scopeRemoteHomePayload",
+      "unscopeChatPayload"
     ],
     "src/features/chatRealtime/chatSyncService.ts": [
       "ChatCacheScopeClearResult",
@@ -19815,6 +19951,15 @@
     "src/shared/components/conversationPreview/visibilityStore.ts": [
       "ConversationPreviewVisibilityStore",
       "createConversationPreviewVisibilityStore"
+    ],
+    "src/shared/generated/appEnv.ts": [
+      "APP_ENVIRONMENT",
+      "APP_ENVIRONMENTS",
+      "AppEnvironment",
+      "DEFAULT_SOURCE_ENVIRONMENT",
+      "DefaultSourceEnvironment",
+      "REACT_APP_ENV_ARTIFACT_VERSION",
+      "REACT_APP_ENV_SCHEMA_VERSION"
     ],
     "src/shared/generated/brand.ts": [
       "APP_BRAND",
@@ -20868,6 +21013,7 @@
     ".generated/react-native-worklets/.worklets/15960764466239.js": null,
     ".generated/react-native-worklets/.worklets/15970330743450.js": null,
     ".generated/react-native-worklets/.worklets/15974127613449.js": null,
+    ".generated/react-native-worklets/.worklets/15988198590355.js": null,
     ".generated/react-native-worklets/.worklets/15989846308618.js": null,
     ".generated/react-native-worklets/.worklets/15992296871009.js": null,
     ".generated/react-native-worklets/.worklets/15993059429066.js": null,
@@ -21395,6 +21541,7 @@
     ".generated/react-native-worklets/.worklets/3469078863114.js": null,
     ".generated/react-native-worklets/.worklets/3477051264454.js": null,
     ".generated/react-native-worklets/.worklets/3482140414026.js": null,
+    ".generated/react-native-worklets/.worklets/3487345304467.js": null,
     ".generated/react-native-worklets/.worklets/3489784428729.js": null,
     ".generated/react-native-worklets/.worklets/3495257198992.js": null,
     ".generated/react-native-worklets/.worklets/3497622560690.js": null,
@@ -21683,6 +21830,7 @@
     ".generated/react-native-worklets/.worklets/5232276321166.js": null,
     ".generated/react-native-worklets/.worklets/5232397720804.js": null,
     ".generated/react-native-worklets/.worklets/5235679431215.js": null,
+    ".generated/react-native-worklets/.worklets/5238646848757.js": null,
     ".generated/react-native-worklets/.worklets/5241984095219.js": null,
     ".generated/react-native-worklets/.worklets/5244475777443.js": null,
     ".generated/react-native-worklets/.worklets/5251757035714.js": null,
@@ -22436,6 +22584,7 @@
     "android/app/src/main/java/com/zqfrank/agentterminalapp/MainApplication.kt": [],
     "app.config.js": [
       "./package.json",
+      "./scripts/lib/app-env-config",
       "./scripts/lib/brand-config"
     ],
     "babel.config.js": null,
@@ -22476,6 +22625,11 @@
       "path",
       "pngjs"
     ],
+    "scripts/lib/app-env-config.js": [
+      "./brand",
+      "fs",
+      "path"
+    ],
     "scripts/lib/brand-config.js": [
       "${importPath}",
       "../branding/installedBrand",
@@ -22497,6 +22651,7 @@
       "path"
     ],
     "scripts/sync-brand.js": [
+      "./lib/app-env-config",
       "./lib/brand-config"
     ],
     "scripts/worklets/generated-import-paths.js": [
@@ -22511,10 +22666,9 @@
       "path"
     ],
     "src/app/AppRoot.tsx": [
-      "../core/api/apiClient",
+      "../core/auth/appAccess",
       "../core/auth/appAuth",
-      "../core/auth/authConfig",
-      "../core/auth/useAuthSession",
+      "../core/auth/useAppAccess",
       "../features/chatPersistence/database",
       "../features/chatPersistence/homeSnapshot",
       "../features/chatRealtime/chatSyncService",
@@ -22541,9 +22695,7 @@
     ],
     "src/app/debug/developmentDebugPanel.ts": null,
     "src/app/navigation/RootNavigator.tsx": [
-      "../../core/api/apiClient",
-      "../../core/auth/authConfig",
-      "../../core/auth/useAuthSession",
+      "../../core/auth/useAppAccess",
       "../../features/agentTaskBoard/AgentTaskBoardFlowNavigator",
       "../../features/agentTaskBoard/AgentTaskBoardProvider",
       "../../features/auth/LoginScreen",
@@ -22624,11 +22776,10 @@
       "react-native"
     ],
     "src/app/screens/MeScreen.tsx": [
-      "../../core/api/apiClient",
       "../../core/auth/appAuth",
-      "../../core/auth/authConfig",
       "../../core/auth/deviceProfiles",
-      "../../core/auth/useAuthSession",
+      "../../core/auth/useAppAccess",
+      "../../core/config/appEnvironment",
       "../../features/notifications/notificationService",
       "../../shared/components/ScreenHeader",
       "../../shared/generated/brand",
@@ -22690,8 +22841,8 @@
     "src/core/api/activeWsTransport.ts": [
       "../auth/appAuth",
       "../auth/deviceProfiles",
-      "../ws/wsTransportConfig",
-      "./apiClient"
+      "../config/appEnvironment",
+      "../ws/wsTransportConfig"
     ],
     "src/core/api/apiClient.ts": [
       "../auth/appAuth",
@@ -22781,12 +22932,14 @@
       "../apiError.ts"
     ],
     "src/core/api/services/workspaceResource.ts": null,
+    "src/core/auth/appAccess.ts": [
+      "../../shared/generated/brand",
+      "../config/appEnvironment",
+      "./appAuth",
+      "react-native-mmkv"
+    ],
     "src/core/auth/appAuth.ts": [
-      "../debug/httpDebugLogger",
-      "./authConfig",
-      "./authRequestModel.ts",
       "./desktopWsProtocol",
-      "./deviceProfileModel.ts",
       "./deviceProfiles",
       "react-native",
       "react-native-mmkv"
@@ -22812,9 +22965,17 @@
       "./deviceProfileModel.ts",
       "react-native-mmkv"
     ],
+    "src/core/auth/useAppAccess.ts": [
+      "./appAccess",
+      "react"
+    ],
     "src/core/auth/useAuthSession.ts": [
       "./appAuth",
       "react"
+    ],
+    "src/core/config/appEnvironment.ts": [
+      "../../shared/generated/appEnv",
+      "./endpoint"
     ],
     "src/core/config/endpoint.ts": null,
     "src/core/config/runtimeEnv.ts": null,
@@ -22854,6 +23015,7 @@
       "../../shared/visual/className",
       "../../shared/visual/foundation",
       "../../shared/visual/useAppTabBarHeight",
+      "../chatPersistence/chatSourceRuntime",
       "./AgentTaskBoardProvider",
       "./kanbanChatRoute",
       "./kanbanViewModel",
@@ -22875,6 +23037,7 @@
     ],
     "src/features/agentTaskBoard/kanbanChatRoute.ts": [
       "../../core/api/services/kanbanApi",
+      "../chatPersistence/chatSource.ts",
       "../chatPersistence/types"
     ],
     "src/features/agentTaskBoard/kanbanRunGuards.ts": [
@@ -22892,14 +23055,15 @@
       "react"
     ],
     "src/features/auth/LoginScreen.tsx": [
+      "../../app/navigation/types",
+      "../../core/auth/appAccess",
       "../../core/auth/appAuth",
-      "../../core/auth/authConfig",
       "../../core/auth/deviceProfiles",
-      "../../core/config/endpoint",
       "../../shared/i18n",
       "../../shared/icons/brandAssets",
       "../../shared/visual/AppThemeProvider",
       "../../shared/visual/className",
+      "@react-navigation/native",
       "expo-camera",
       "expo-clipboard",
       "react",
@@ -22970,6 +23134,7 @@
       "./chatDetailPrefetch",
       "./chatRealtimeUiState",
       "./chatRepository",
+      "./chatSourceRuntime",
       "./components/ChatDirectoryRow",
       "./components/ChatDirectorySearchOverlay",
       "./homeSnapshot",
@@ -23008,6 +23173,7 @@
     "src/features/chatPersistence/chatConversationTarget.ts": [
       "./agentMode.ts",
       "./agentModelSettings.ts",
+      "./chatSource.ts",
       "./types"
     ],
     "src/features/chatPersistence/chatConversationTitle.ts": null,
@@ -23047,6 +23213,7 @@
       "./agentModelSettings.ts",
       "./chatConversationTitle.ts",
       "./chatReadState.ts",
+      "./chatSource.ts",
       "./types"
     ],
     "src/features/chatPersistence/chatDrawerOverlayGeometry.ts": null,
@@ -23068,6 +23235,7 @@
     "src/features/chatPersistence/chatRealtimeUiState.ts": [
       "../chatRealtime/types",
       "./chatReadState.ts",
+      "./chatSource.ts",
       "./types"
     ],
     "src/features/chatPersistence/chatRepository.ts": [
@@ -23082,11 +23250,18 @@
       "./chatDirectoryOpenDecision",
       "./chatHistoryScope",
       "./chatReadState.ts",
+      "./chatSource",
       "./database",
       "./homeSnapshot",
       "./schema",
       "./types",
       "drizzle-orm"
+    ],
+    "src/features/chatPersistence/chatSource.ts": null,
+    "src/features/chatPersistence/chatSourceRuntime.ts": [
+      "../../core/auth/deviceProfiles",
+      "../../core/config/appEnvironment",
+      "./chatSource"
     ],
     "src/features/chatPersistence/components/ActionTimelineRow.tsx": [
       "../../../shared/i18n/index.ts",
@@ -23680,6 +23855,7 @@
       "../../shared/visual/agentAvatarIcon.ts",
       "./agentModelSettings.ts",
       "./cacheScope",
+      "./chatSource",
       "./types",
       "react-native-mmkv"
     ],
@@ -23703,7 +23879,8 @@
       "drizzle-orm/sqlite-core"
     ],
     "src/features/chatPersistence/types.ts": [
-      "../../shared/visual/agentAvatarTypes"
+      "../../shared/visual/agentAvatarTypes",
+      "./chatSource"
     ],
     "src/features/chatPersistence/useChatComposerAttachments.ts": [
       "../../core/api/services/uploadApi",
@@ -23752,6 +23929,11 @@
       "./conversationActionService.ts",
       "react"
     ],
+    "src/features/chatRealtime/chatSourcePayload.ts": [
+      "../../core/api/services/chatApi",
+      "../chatPersistence/chatDirectoryProjector",
+      "../chatPersistence/chatSource.ts"
+    ],
     "src/features/chatRealtime/chatSyncService.ts": [
       "../../core/api/activeWsTransport",
       "../../core/api/apiClient",
@@ -23760,7 +23942,6 @@
       "../../core/api/services/modelOptionsProtocol",
       "../../core/auth/appAuth",
       "../../core/auth/deviceProfiles",
-      "../../core/ws/sharedWsTransport",
       "../../core/ws/wsClient",
       "../../shared/generated/brand",
       "../chatPersistence/cacheScope",
@@ -23770,8 +23951,11 @@
       "../chatPersistence/chatProjector",
       "../chatPersistence/chatReadState",
       "../chatPersistence/chatRepository",
+      "../chatPersistence/chatSource",
+      "../chatPersistence/chatSourceRuntime",
       "../chatPersistence/types",
       "../chatTimeline/index.ts",
+      "./chatSourcePayload",
       "./chatWsTransport",
       "./routing",
       "./types",
@@ -24122,6 +24306,9 @@
       "react"
     ],
     "src/shared/components/conversationPreview/visibilityStore.ts": null,
+    "src/shared/generated/appEnv.ts": [
+      "./brand"
+    ],
     "src/shared/generated/brand.ts": [
       "../branding/installedBrand"
     ],
@@ -24993,6 +25180,7 @@
     ".generated/react-native-worklets/.worklets/15960764466239.js": null,
     ".generated/react-native-worklets/.worklets/15970330743450.js": null,
     ".generated/react-native-worklets/.worklets/15974127613449.js": null,
+    ".generated/react-native-worklets/.worklets/15988198590355.js": null,
     ".generated/react-native-worklets/.worklets/15989846308618.js": null,
     ".generated/react-native-worklets/.worklets/15992296871009.js": null,
     ".generated/react-native-worklets/.worklets/15993059429066.js": null,
@@ -25466,6 +25654,7 @@
     ".generated/react-native-worklets/.worklets/3469078863114.js": null,
     ".generated/react-native-worklets/.worklets/3477051264454.js": null,
     ".generated/react-native-worklets/.worklets/3482140414026.js": null,
+    ".generated/react-native-worklets/.worklets/3487345304467.js": null,
     ".generated/react-native-worklets/.worklets/3489784428729.js": null,
     ".generated/react-native-worklets/.worklets/3495257198992.js": null,
     ".generated/react-native-worklets/.worklets/3497622560690.js": null,
@@ -25715,6 +25904,7 @@
     ".generated/react-native-worklets/.worklets/5232276321166.js": null,
     ".generated/react-native-worklets/.worklets/5232397720804.js": null,
     ".generated/react-native-worklets/.worklets/5235679431215.js": null,
+    ".generated/react-native-worklets/.worklets/5238646848757.js": null,
     ".generated/react-native-worklets/.worklets/5241984095219.js": null,
     ".generated/react-native-worklets/.worklets/5244475777443.js": null,
     ".generated/react-native-worklets/.worklets/5251757035714.js": null,
@@ -26393,6 +26583,7 @@
     "android/app/src/main/java/com/zqfrank/agentterminalapp/MainApplication.kt": null,
     "app.config.js": [
       "package.json",
+      "scripts/lib/app-env-config.js",
       "scripts/lib/brand-config.js"
     ],
     "babel.config.js": null,
@@ -26409,10 +26600,12 @@
     "plugins/withAndroidNdkVersionForSubprojects.js": null,
     "scripts/dev-proxy.mjs": null,
     "scripts/generate-zenmind-assets.js": null,
+    "scripts/lib/app-env-config.js": null,
     "scripts/lib/brand-config.js": null,
     "scripts/markdown-preview/pregenerate.js": null,
     "scripts/submit-ios-ipa.js": null,
     "scripts/sync-brand.js": [
+      "scripts/lib/app-env-config.js",
       "scripts/lib/brand-config.js"
     ],
     "scripts/worklets/generated-import-paths.js": null,
@@ -26423,10 +26616,9 @@
       "src/app/debug/DevelopmentDebugPanelHost.tsx",
       "src/app/navigation/RootNavigator.tsx",
       "src/app/navigation/types.ts",
-      "src/core/api/apiClient.ts",
+      "src/core/auth/appAccess.ts",
       "src/core/auth/appAuth.ts",
-      "src/core/auth/authConfig.ts",
-      "src/core/auth/useAuthSession.ts",
+      "src/core/auth/useAppAccess.ts",
       "src/features/chatPersistence/database.ts",
       "src/features/chatPersistence/homeSnapshot.ts",
       "src/features/chatRealtime/chatSyncService.ts",
@@ -26448,9 +26640,7 @@
       "src/app/navigation/types.ts",
       "src/app/screens/AgentWaitingDemoScreen.tsx",
       "src/app/screens/SettingsScreen.tsx",
-      "src/core/api/apiClient.ts",
-      "src/core/auth/authConfig.ts",
-      "src/core/auth/useAuthSession.ts",
+      "src/core/auth/useAppAccess.ts",
       "src/features/agentTaskBoard/AgentTaskBoardFlowNavigator.tsx",
       "src/features/agentTaskBoard/AgentTaskBoardProvider.tsx",
       "src/features/auth/LoginScreen.tsx",
@@ -26513,11 +26703,10 @@
     "src/app/screens/MeScreen.tsx": [
       "src/app/debug/developmentDebugPanel.ts",
       "src/app/navigation/types.ts",
-      "src/core/api/apiClient.ts",
       "src/core/auth/appAuth.ts",
-      "src/core/auth/authConfig.ts",
       "src/core/auth/deviceProfiles.ts",
-      "src/core/auth/useAuthSession.ts",
+      "src/core/auth/useAppAccess.ts",
+      "src/core/config/appEnvironment.ts",
       "src/features/notifications/notificationService.ts",
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/generated/brand.ts",
@@ -26560,9 +26749,9 @@
       "src/shared/icons/brandAssets.ts"
     ],
     "src/core/api/activeWsTransport.ts": [
-      "src/core/api/apiClient.ts",
       "src/core/auth/appAuth.ts",
       "src/core/auth/deviceProfiles.ts",
+      "src/core/config/appEnvironment.ts",
       "src/core/ws/wsTransportConfig.ts"
     ],
     "src/core/api/apiClient.ts": [
@@ -26650,13 +26839,14 @@
       "src/core/auth/deviceProfiles.ts"
     ],
     "src/core/api/services/workspaceResource.ts": null,
+    "src/core/auth/appAccess.ts": [
+      "src/core/auth/appAuth.ts",
+      "src/core/config/appEnvironment.ts",
+      "src/shared/generated/brand.ts"
+    ],
     "src/core/auth/appAuth.ts": [
-      "src/core/auth/authConfig.ts",
-      "src/core/auth/authRequestModel.ts",
       "src/core/auth/desktopWsProtocol.ts",
-      "src/core/auth/deviceProfileModel.ts",
-      "src/core/auth/deviceProfiles.ts",
-      "src/core/debug/httpDebugLogger.ts"
+      "src/core/auth/deviceProfiles.ts"
     ],
     "src/core/auth/authConfig.ts": [
       "src/core/config/endpoint.ts",
@@ -26677,8 +26867,15 @@
       "src/core/auth/deviceProfileModel.ts",
       "src/core/config/endpoint.ts"
     ],
+    "src/core/auth/useAppAccess.ts": [
+      "src/core/auth/appAccess.ts"
+    ],
     "src/core/auth/useAuthSession.ts": [
       "src/core/auth/appAuth.ts"
+    ],
+    "src/core/config/appEnvironment.ts": [
+      "src/core/config/endpoint.ts",
+      "src/shared/generated/appEnv.ts"
     ],
     "src/core/config/endpoint.ts": null,
     "src/core/config/runtimeEnv.ts": null,
@@ -26713,6 +26910,7 @@
       "src/features/agentTaskBoard/kanbanViewModel.ts",
       "src/features/agentTaskBoard/navigationTypes.ts",
       "src/features/agentTaskBoard/useDesktopKanbanBoard.ts",
+      "src/features/chatPersistence/chatSourceRuntime.ts",
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
@@ -26730,6 +26928,7 @@
     ],
     "src/features/agentTaskBoard/kanbanChatRoute.ts": [
       "src/core/api/services/kanbanApi.ts",
+      "src/features/chatPersistence/chatSource.ts",
       "src/features/chatPersistence/types.ts"
     ],
     "src/features/agentTaskBoard/kanbanRunGuards.ts": [
@@ -26746,10 +26945,10 @@
       "src/features/agentTaskBoard/kanbanViewModel.ts"
     ],
     "src/features/auth/LoginScreen.tsx": [
+      "src/app/navigation/types.ts",
+      "src/core/auth/appAccess.ts",
       "src/core/auth/appAuth.ts",
-      "src/core/auth/authConfig.ts",
       "src/core/auth/deviceProfiles.ts",
-      "src/core/config/endpoint.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/brandAssets.ts",
       "src/shared/visual/AppThemeProvider.tsx",
@@ -26802,6 +27001,7 @@
       "src/features/chatPersistence/chatDetailPrefetch.ts",
       "src/features/chatPersistence/chatRealtimeUiState.ts",
       "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/chatSourceRuntime.ts",
       "src/features/chatPersistence/components/ChatDirectoryRow.tsx",
       "src/features/chatPersistence/components/ChatDirectorySearchOverlay.tsx",
       "src/features/chatPersistence/homeSnapshot.ts",
@@ -26845,6 +27045,7 @@
     "src/features/chatPersistence/chatConversationTarget.ts": [
       "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/agentModelSettings.ts",
+      "src/features/chatPersistence/chatSource.ts",
       "src/features/chatPersistence/types.ts"
     ],
     "src/features/chatPersistence/chatConversationTitle.ts": null,
@@ -26883,6 +27084,7 @@
       "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/chatConversationTitle.ts",
       "src/features/chatPersistence/chatReadState.ts",
+      "src/features/chatPersistence/chatSource.ts",
       "src/features/chatPersistence/types.ts",
       "src/shared/visual/agentAvatarIcon.ts"
     ],
@@ -26904,6 +27106,7 @@
     ],
     "src/features/chatPersistence/chatRealtimeUiState.ts": [
       "src/features/chatPersistence/chatReadState.ts",
+      "src/features/chatPersistence/chatSource.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatRealtime/types.ts"
     ],
@@ -26917,12 +27120,19 @@
       "src/features/chatPersistence/chatDirectoryOpenDecision.ts",
       "src/features/chatPersistence/chatHistoryScope.ts",
       "src/features/chatPersistence/chatReadState.ts",
+      "src/features/chatPersistence/chatSource.ts",
       "src/features/chatPersistence/database.ts",
       "src/features/chatPersistence/homeSnapshot.ts",
       "src/features/chatPersistence/schema.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/index.ts",
       "src/shared/visual/agentAvatarIcon.ts"
+    ],
+    "src/features/chatPersistence/chatSource.ts": null,
+    "src/features/chatPersistence/chatSourceRuntime.ts": [
+      "src/core/auth/deviceProfiles.ts",
+      "src/core/config/appEnvironment.ts",
+      "src/features/chatPersistence/chatSource.ts"
     ],
     "src/features/chatPersistence/components/ActionTimelineRow.tsx": [
       "src/features/chatPersistence/components/ExecutionTimelineRow.tsx",
@@ -27397,6 +27607,7 @@
     "src/features/chatPersistence/homeSnapshot.ts": [
       "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/cacheScope.ts",
+      "src/features/chatPersistence/chatSource.ts",
       "src/features/chatPersistence/types.ts",
       "src/shared/visual/agentAvatarIcon.ts"
     ],
@@ -27415,6 +27626,7 @@
     ],
     "src/features/chatPersistence/schema.ts": null,
     "src/features/chatPersistence/types.ts": [
+      "src/features/chatPersistence/chatSource.ts",
       "src/shared/visual/agentAvatarTypes.ts"
     ],
     "src/features/chatPersistence/useChatComposerAttachments.ts": [
@@ -27455,6 +27667,11 @@
       "src/features/chatRealtime/chatSyncService.ts",
       "src/shared/visual/AppThemeProvider.tsx"
     ],
+    "src/features/chatRealtime/chatSourcePayload.ts": [
+      "src/core/api/services/chatApi.ts",
+      "src/features/chatPersistence/chatDirectoryProjector.ts",
+      "src/features/chatPersistence/chatSource.ts"
+    ],
     "src/features/chatRealtime/chatSyncService.ts": [
       "src/core/api/activeWsTransport.ts",
       "src/core/api/apiClient.ts",
@@ -27463,7 +27680,6 @@
       "src/core/api/services/modelOptionsProtocol.ts",
       "src/core/auth/appAuth.ts",
       "src/core/auth/deviceProfiles.ts",
-      "src/core/ws/sharedWsTransport.ts",
       "src/core/ws/wsClient.ts",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
@@ -27472,7 +27688,10 @@
       "src/features/chatPersistence/chatProjector.ts",
       "src/features/chatPersistence/chatReadState.ts",
       "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/chatSource.ts",
+      "src/features/chatPersistence/chatSourceRuntime.ts",
       "src/features/chatPersistence/types.ts",
+      "src/features/chatRealtime/chatSourcePayload.ts",
       "src/features/chatRealtime/chatWsTransport.ts",
       "src/features/chatRealtime/routing.ts",
       "src/features/chatRealtime/types.ts",
@@ -27770,6 +27989,9 @@
     ],
     "src/shared/components/conversationPreview/usePreviewExecutionState.ts": null,
     "src/shared/components/conversationPreview/visibilityStore.ts": null,
+    "src/shared/generated/appEnv.ts": [
+      "src/shared/generated/brand.ts"
+    ],
     "src/shared/generated/brand.ts": [
       "src/shared/branding/installedBrand.ts"
     ],
@@ -28563,6 +28785,7 @@
     ".generated/react-native-worklets/.worklets/15960764466239.js",
     ".generated/react-native-worklets/.worklets/15970330743450.js",
     ".generated/react-native-worklets/.worklets/15974127613449.js",
+    ".generated/react-native-worklets/.worklets/15988198590355.js",
     ".generated/react-native-worklets/.worklets/15989846308618.js",
     ".generated/react-native-worklets/.worklets/15992296871009.js",
     ".generated/react-native-worklets/.worklets/15993059429066.js",
@@ -28983,6 +29206,7 @@
     ".generated/react-native-worklets/.worklets/3469078863114.js",
     ".generated/react-native-worklets/.worklets/3477051264454.js",
     ".generated/react-native-worklets/.worklets/3482140414026.js",
+    ".generated/react-native-worklets/.worklets/3487345304467.js",
     ".generated/react-native-worklets/.worklets/3489784428729.js",
     ".generated/react-native-worklets/.worklets/3495257198992.js",
     ".generated/react-native-worklets/.worklets/3497622560690.js",
@@ -29201,6 +29425,7 @@
     ".generated/react-native-worklets/.worklets/5232276321166.js",
     ".generated/react-native-worklets/.worklets/5232397720804.js",
     ".generated/react-native-worklets/.worklets/5235679431215.js",
+    ".generated/react-native-worklets/.worklets/5238646848757.js",
     ".generated/react-native-worklets/.worklets/5241984095219.js",
     ".generated/react-native-worklets/.worklets/5244475777443.js",
     ".generated/react-native-worklets/.worklets/5251757035714.js",

@@ -26,6 +26,7 @@ export const appIconUsages = {
   'tab.me': { glyph: 'user', colorRole: 'brand', sizeRole: 'tab' },
 
   'webApps.openContainer': { glyph: 'apps', colorRole: 'brand', sizeRole: 'lg' },
+  'webApps.pairRequired': { glyph: 'apps', colorRole: 'brand', sizeRole: 'xxl' },
   'webApps.navigate': { glyph: 'chevron_right', colorRole: 'tertiary', sizeRole: 'md' },
   'webApps.back': { glyph: 'chevron_left', colorRole: 'brand', sizeRole: 'xxl' },
   'webApps.openSelector': { glyph: 'apps', colorRole: 'brand', sizeRole: 'md' },
@@ -44,6 +45,8 @@ export const appIconUsages = {
     colorRole: 'tertiary',
     sizeRole: 'pinMarker'
   },
+  'chatHome.sourceDefault': { glyph: 'smart_toy', colorRole: 'brand', sizeRole: 'sm' },
+  'chatHome.sourcePaired': { glyph: 'apps', colorRole: 'secondary', sizeRole: 'sm' },
   'chatHome.pinnedFold.leading': { glyph: 'list_arrow', colorRole: 'tertiary', sizeRole: 'md' },
   'chatHome.pinnedFold.expand': { glyph: 'keyboard_arrow_down', colorRole: 'tertiary', sizeRole: 'md' },
   'chatHome.pinnedFold.collapse': { glyph: 'keyboard_arrow_up', colorRole: 'tertiary', sizeRole: 'md' },

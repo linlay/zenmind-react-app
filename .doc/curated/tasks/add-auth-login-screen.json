@@ -58,26 +58,27 @@
     "src/app/navigation/types.ts",
     "src/features/auth/LoginScreen.tsx",
     "src/core/auth/appAuth.ts",
+    "src/core/auth/appAccess.ts",
     "src/core/auth/deviceProfiles.ts",
     "src/core/auth/deviceProfileModel.ts",
     "src/core/auth/desktopWsProtocol.ts",
     "src/core/auth/desktopWsTransport.ts",
-    "src/core/auth/useAuthSession.ts"
+    "src/core/auth/useAppAccess.ts"
   ],
   "acceptanceChecks": [
-    "无本地设备令牌时，应用能稳定落到登录页。",
-    "登录成功后根路由自动切到业务 Tabs，不依赖手写 navigation reset。",
+    "首次启动无配对会话时稳定落到新版二维码/跳过登录页；跳过后选择按品牌持久化，后续冷启动直接进入业务 Tabs。",
+    "配对成功后根路由自动切到业务 Tabs，不依赖手写 navigation reset。",
     "v2 Desktop WS pairing 成功后能创建 desktop-ws profile，冷启动时通过 session.hello 恢复，并在 token 临期时走 auth.refresh。",
-    "legacy pairing 与账号/密码登录仍保持 HTTP deviceToken refresh 行为。",
-    "退出登录后本地认证缓存被清理，重新回到登录页。"
+    "legacy pairing JSON 与账号/密码登录不可达且会被新版协议校验拒绝。",
+    "解除配对后只清理 Desktop 会话并回到 ready/unpaired；默认源对话和持久跳过选择继续保留。"
   ],
   "doNotMiss": [
     "登录页属于 feature，认证状态和设备令牌缓存属于 core，不要把 token 逻辑散到 screen 里。",
-    "扫码配对入口只负责相机权限、扫码 UI 和提交反馈，legacy JSON 与 zmpair:v2 QR payload 的解析、claim、session.hello 校验和 token/profile 写入继续留在 core auth。",
+    "扫码配对入口只负责相机权限、扫码 UI 和提交反馈，zmpair:v2 QR payload 的解析、session.hello 校验和 token/profile 写入继续留在 core auth；legacy JSON 必须拒绝。",
     "Desktop WS profile 不写旧 auth_device_token_v1；它只保存 wsUrl、tokenMode、Desktop access token 和过期时间。",
     "profile 到 WebSocket transport config 的解析走 core/api/activeWsTransport，底层 socket 生命周期走 core-ws-transport。",
-    "RootNavigator 必须同时覆盖 bootstrapping、unauthenticated 和 authenticated 三种状态。",
-    "如果存在关闭登录要求的配置，AppRoot 和 RootNavigator 要共享同一个开关入口。",
-    "如果登录接口字段或 base URL 读取方式变化，同步检查 refresh、logout 和冷启动恢复链路。"
+    "RootNavigator 必须覆盖 bootstrapping、onboarding、ready/unpaired 和 ready/paired；ready 状态都能进入 Tabs。",
+    "Login 在 onboarding 时是根入口，在 ready 时是可关闭的再次配对 route；Me 和 WebApps 未配对空态都走同一入口。",
+    "如果 Desktop v2 pairing 字段或 wsUrl 解析变化，同步检查 session.hello、auth.refresh、解除配对和冷启动恢复链路。"
   ]
 }

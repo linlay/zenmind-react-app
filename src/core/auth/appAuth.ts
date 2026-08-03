@@ -1,15 +1,12 @@
-import { saveStoredApiBaseUrl } from './authConfig';
 import { Platform } from 'react-native';
 import { MMKV } from 'react-native-mmkv';
 
-import { logHttpError, logHttpRequest, logHttpResponse } from '../debug/httpDebugLogger';
 import {
   clearActiveDeviceProfileAuth,
   getActiveDeviceProfile,
   setActiveDeviceProfileId,
   updateActiveDeviceProfileAuth,
   upsertDeviceProfile,
-  upsertManualDeviceProfile,
   type DesktopWsProfileTransport,
   type DeviceProfile
 } from './deviceProfiles';
@@ -17,11 +14,8 @@ import {
   buildDesktopTokenTransport,
   normalizeDesktopWsUrlInput,
   parsePairingPayload,
-  type DesktopWsPairingPayload,
-  type LegacyPairingPayload as PairingPayload
+  type DesktopWsPairingPayload
 } from './desktopWsProtocol';
-import { legacyDeviceTokenForProfile } from './deviceProfileModel.ts';
-import { buildMasterPasswordLoginRequest, buildPairingClaimRequest } from './authRequestModel.ts';
 
 const authStorage = new MMKV({ id: 'zenmind-auth-session' });
 
@@ -29,7 +23,6 @@ const DEVICE_TOKEN_KEY = 'auth_device_token_v1';
 const DEVICE_NAME_KEY = 'auth_device_name_v1';
 const DEFAULT_TOKEN_MIN_VALIDITY_MS = 90_000;
 const DEFAULT_TOKEN_JITTER_MS = 8_000;
-const FALLBACK_TOKEN_VALIDITY_MS = 5 * 60_000;
 const DESKTOP_WS_NAMESPACE = 'd';
 const DESKTOP_WS_CONNECT_TIMEOUT_MS = 8_000;
 const DESKTOP_WS_REQUEST_TIMEOUT_MS = 8_000;
@@ -55,36 +48,6 @@ export interface SessionState {
 export interface AuthStoreSnapshot {
   isBootstrapping: boolean;
   session: SessionState | null;
-}
-
-interface LoginResponse {
-  username: string;
-  deviceId: string;
-  deviceName: string;
-  accessToken: string;
-  accessTokenExpireAtMs?: number | string;
-  accessTokenExpireAt?: number | string;
-  accessExpireAt?: number | string;
-  deviceToken: string;
-}
-
-interface PairingClaimResponse extends LoginResponse {
-  desktopDeviceId: string;
-  desktopIdentityCreatedAt?: string;
-  desktopUsername?: string;
-  desktopHostname?: string;
-  appServerIssuer?: string;
-  appServerPublicKeySha256?: string;
-  apiBaseUrl?: string;
-}
-
-interface RefreshResponse {
-  deviceId: string;
-  accessToken: string;
-  accessTokenExpireAtMs?: number | string;
-  accessTokenExpireAt?: number | string;
-  accessExpireAt?: number | string;
-  deviceToken: string;
 }
 
 type DesktopWsRequestFrame = {
@@ -158,7 +121,6 @@ const noopAuthCacheRuntime: AuthCacheRuntime = {
 
 let currentSession: SessionState | null = null;
 let currentProfile: DeviceProfile | null = null;
-let currentBaseUrl = '';
 const refreshInFlightByKey = new Map<string, RefreshInFlight>();
 let bootstrapPromise: Promise<SessionState | null> | null = null;
 let bootstrapKey = '';
@@ -209,32 +171,8 @@ function readString(record: Record<string, unknown>, key: string): string {
   return typeof record[key] === 'string' ? record[key].trim() : '';
 }
 
-function defaultDisplayNameFromPairing(payload: PairingPayload | PairingClaimResponse): string {
-  return String(payload.desktopUsername || '').trim() || String(payload.desktopHostname || '').trim() || 'Desktop';
-}
-
 function buildProfileRefreshKey(profile: DeviceProfile): string {
   return `${profile.transportKind}:${profile.desktopDeviceId}`;
-}
-
-function buildHttpRefreshKey(baseUrl: string): string {
-  if (currentProfile?.transportKind === 'http' && !currentProfile.needsRelink) {
-    return buildProfileRefreshKey(currentProfile);
-  }
-  return `http:${normalizeBaseUrl(baseUrl)}`;
-}
-
-function isHttpRefreshStillCurrent(refreshKey: string, baseUrl: string): boolean {
-  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
-  if (currentProfile?.transportKind === 'desktop-ws') {
-    return false;
-  }
-
-  if (currentProfile?.transportKind === 'http' && !currentProfile.needsRelink) {
-    return currentProfile.apiBaseUrl === normalizedBaseUrl && refreshKey === buildProfileRefreshKey(currentProfile);
-  }
-
-  return currentBaseUrl === normalizedBaseUrl && refreshKey === `http:${normalizedBaseUrl}`;
 }
 
 function isCurrentProfile(profile: DeviceProfile): boolean {
@@ -246,19 +184,11 @@ function isCurrentProfile(profile: DeviceProfile): boolean {
 
 function applyDeviceProfileRuntime(profile: DeviceProfile) {
   currentProfile = profile;
-  currentBaseUrl = normalizeBaseUrl(profile.apiBaseUrl);
-  authCacheRuntime.switchScope(profile.cacheScopeId);
-  if (currentBaseUrl) {
-    saveStoredApiBaseUrl(currentBaseUrl);
-  } else {
-    saveStoredApiBaseUrl('');
-  }
-  saveDeviceToken(legacyDeviceTokenForProfile(profile));
 }
 
 function hydrateActiveProfileRuntime(): DeviceProfile | null {
   const profile = getActiveDeviceProfile();
-  if (!profile || profile.needsRelink) {
+  if (!profile || profile.needsRelink || profile.transportKind !== 'desktop-ws') {
     currentProfile = null;
     return null;
   }
@@ -336,88 +266,6 @@ function parseExpireAt(raw: unknown): number | null {
   }
 
   return null;
-}
-
-function resolveAccessExpireAtMs(payload: LoginResponse | RefreshResponse): number {
-  const candidates = [payload.accessTokenExpireAtMs, payload.accessTokenExpireAt, payload.accessExpireAt];
-
-  for (let index = 0; index < candidates.length; index += 1) {
-    const ts = parseExpireAt(candidates[index]);
-    if (ts) {
-      return ts;
-    }
-  }
-
-  return Date.now() + FALLBACK_TOKEN_VALIDITY_MS;
-}
-
-function resolveErrorMessage(status: number, payload: unknown): string {
-  if (payload && typeof payload === 'object') {
-    const data = payload as Record<string, unknown>;
-    const candidates = [data.error, data.msg, data.message];
-    for (let index = 0; index < candidates.length; index += 1) {
-      const value = candidates[index];
-      if (typeof value === 'string' && value.trim()) {
-        return value;
-      }
-    }
-  }
-
-  return `HTTP ${status}`;
-}
-
-function parseJsonPayload(text: string): unknown {
-  if (!text) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    return text;
-  }
-}
-
-async function requestJson<T>(baseUrl: string, path: string, options: RequestInit = {}): Promise<T> {
-  const url = `${baseUrl}${path}`;
-  const method = String(options.method || 'GET');
-  const startedAt = Date.now();
-
-  logHttpRequest({
-    url,
-    method,
-    body: options.body
-  });
-
-  let response: Response;
-  let payload: unknown;
-  try {
-    response = await fetch(url, options);
-    const text = await response.text();
-    payload = parseJsonPayload(text);
-  } catch (error) {
-    logHttpError({
-      url,
-      method,
-      durationMs: Date.now() - startedAt,
-      error
-    });
-    throw error;
-  }
-
-  logHttpResponse({
-    url,
-    method,
-    status: response.status,
-    durationMs: Date.now() - startedAt,
-    payload
-  });
-
-  if (!response.ok) {
-    throw new Error(resolveErrorMessage(response.status, payload));
-  }
-
-  return payload as T;
 }
 
 function normalizeDesktopWsUrl(
@@ -682,10 +530,6 @@ class DesktopWsAuthClient {
   }
 }
 
-function readDeviceTokenFromStorage(): string {
-  return String(authStorage.getString(DEVICE_TOKEN_KEY) || '').trim();
-}
-
 function saveDeviceToken(deviceToken: string) {
   const normalized = String(deviceToken || '').trim();
   if (!normalized) {
@@ -713,55 +557,12 @@ function clearSessionAndDeviceToken() {
   setCurrentSession(null);
 }
 
-function ensureBaseUrl(baseUrl: string): string {
-  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
-  if (normalizedBaseUrl === currentBaseUrl) {
-    return normalizedBaseUrl;
-  }
-
-  const preservedProfile =
-    currentProfile?.transportKind === 'http' && currentProfile.apiBaseUrl === normalizedBaseUrl ? currentProfile : null;
-  currentBaseUrl = normalizedBaseUrl;
-  currentProfile = preservedProfile;
-  currentSession = null;
-  refreshInFlightByKey.clear();
-  bootstrapPromise = null;
-  bootstrapKey = '';
-  setAuthSnapshot({
-    isBootstrapping: false,
-    session: null
-  });
-  return normalizedBaseUrl;
-}
-
 function setCurrentSession(session: SessionState | null, isBootstrapping = false) {
   currentSession = session;
   setAuthSnapshot({
     isBootstrapping,
     session
   });
-}
-
-function buildSessionFromLogin(payload: LoginResponse, fallbackDeviceName: string): SessionState {
-  return {
-    username: String(payload.username || 'app'),
-    deviceId: String(payload.deviceId || ''),
-    deviceName: String(payload.deviceName || fallbackDeviceName || 'Device'),
-    accessToken: String(payload.accessToken || ''),
-    accessExpireAtMs: resolveAccessExpireAtMs(payload),
-    deviceToken: String(payload.deviceToken || '')
-  };
-}
-
-function buildSessionFromRefresh(payload: RefreshResponse): SessionState {
-  return {
-    username: currentSession?.username || 'app',
-    deviceId: String(payload.deviceId || currentSession?.deviceId || ''),
-    deviceName: currentSession?.deviceName || readPreferredDeviceName(),
-    accessToken: String(payload.accessToken || ''),
-    accessExpireAtMs: resolveAccessExpireAtMs(payload),
-    deviceToken: String(payload.deviceToken || currentSession?.deviceToken || '')
-  };
 }
 
 function buildSessionFromDesktopWs(
@@ -950,95 +751,6 @@ async function bootstrapDesktopWsAuth(profile: DeviceProfile): Promise<SessionSt
   }
 }
 
-async function refreshAccessToken(
-  baseUrl: string,
-  forceRefresh: boolean,
-  failureMode: RefreshFailureMode
-): Promise<string | null> {
-  if (currentProfile?.transportKind === 'desktop-ws') {
-    return null;
-  }
-
-  const normalizedBaseUrl = ensureBaseUrl(baseUrl);
-  const refreshKey = buildHttpRefreshKey(normalizedBaseUrl);
-  if (!normalizedBaseUrl) {
-    if (failureMode === 'hard') {
-      clearSessionAndDeviceToken();
-    }
-    return null;
-  }
-
-  if (
-    !forceRefresh &&
-    currentSession &&
-    currentSession.accessToken &&
-    currentSession.accessExpireAtMs - Date.now() > 30_000
-  ) {
-    return currentSession.accessToken;
-  }
-
-  const inFlight = refreshInFlightByKey.get(refreshKey);
-  if (inFlight) {
-    const token = await inFlight.promise;
-    if (token || failureMode !== 'hard' || inFlight.failureMode === 'hard') {
-      return token;
-    }
-    return refreshAccessToken(normalizedBaseUrl, true, 'hard');
-  }
-
-  const refreshTask = (async () => {
-    const deviceToken = readDeviceTokenFromStorage() || currentSession?.deviceToken || '';
-    if (!deviceToken) {
-      if (failureMode === 'hard') {
-        clearSessionAndDeviceToken();
-      }
-      return null;
-    }
-
-    try {
-      const payload = await requestJson<RefreshResponse>(normalizedBaseUrl, '/api/auth/refresh', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ deviceToken })
-      });
-
-      const nextSession = buildSessionFromRefresh(payload);
-      if (!isHttpRefreshStillCurrent(refreshKey, normalizedBaseUrl)) {
-        return null;
-      }
-      saveDeviceToken(nextSession.deviceToken);
-      savePreferredDeviceName(nextSession.deviceName);
-      const profileResult = updateActiveDeviceProfileAuth({
-        apiBaseUrl: normalizedBaseUrl,
-        deviceToken: nextSession.deviceToken,
-        serverDeviceId: nextSession.deviceId
-      });
-      if (profileResult) {
-        currentProfile = profileResult.profile;
-        cleanupEvictedDeviceCaches(profileResult.evictedCacheScopeIds);
-      }
-      setCurrentSession(nextSession);
-      return nextSession.accessToken;
-    } catch {
-      if (failureMode === 'hard') {
-        clearSessionAndDeviceToken();
-      }
-      return null;
-    }
-  })();
-
-  refreshInFlightByKey.set(refreshKey, { failureMode, promise: refreshTask });
-  try {
-    return await refreshTask;
-  } finally {
-    if (refreshInFlightByKey.get(refreshKey)?.promise === refreshTask) {
-      refreshInFlightByKey.delete(refreshKey);
-    }
-  }
-}
-
 export function getAuthSnapshot(): AuthStoreSnapshot {
   return authSnapshot;
 }
@@ -1056,15 +768,15 @@ export function getCurrentSession(): SessionState | null {
 
 export async function getAccessTokenForRequest(baseUrl: string, forceRefresh = false): Promise<string | null> {
   const activeProfile = currentProfile;
-  if (activeProfile?.transportKind === 'desktop-ws') {
-    const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
-    if (!normalizedBaseUrl || normalizeBaseUrl(activeProfile.apiBaseUrl) !== normalizedBaseUrl) {
-      return null;
-    }
-    return refreshDesktopWsAccessToken(activeProfile, forceRefresh, 'hard');
+  if (activeProfile?.transportKind !== 'desktop-ws') {
+    return null;
   }
 
-  return refreshAccessToken(baseUrl, forceRefresh, 'hard');
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+  if (!normalizedBaseUrl || normalizeBaseUrl(activeProfile.apiBaseUrl) !== normalizedBaseUrl) {
+    return null;
+  }
+  return refreshDesktopWsAccessToken(activeProfile, forceRefresh, 'hard');
 }
 
 export async function ensureFreshAccessToken(
@@ -1077,20 +789,15 @@ export async function ensureFreshAccessToken(
   const forceRefresh = Boolean(options.forceRefresh);
   const failureMode = options.failureMode || 'soft';
 
-  if (activeProfile?.transportKind === 'desktop-ws') {
-    return refreshDesktopWsAccessToken(activeProfile, forceRefresh, failureMode, minValidityMs, maxJitterMs);
+  if (activeProfile?.transportKind !== 'desktop-ws') {
+    return null;
   }
 
-  const normalizedBaseUrl = ensureBaseUrl(baseUrl);
-
-  if (!forceRefresh && currentSession && currentSession.accessToken) {
-    const remainingMs = currentSession.accessExpireAtMs - Date.now();
-    if (remainingMs > minValidityMs + getRandomJitterMs(maxJitterMs)) {
-      return currentSession.accessToken;
-    }
+  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
+  if (normalizedBaseUrl && normalizeBaseUrl(activeProfile.apiBaseUrl) !== normalizedBaseUrl) {
+    return null;
   }
-
-  return refreshAccessToken(normalizedBaseUrl, true, failureMode);
+  return refreshDesktopWsAccessToken(activeProfile, forceRefresh, failureMode, minValidityMs, maxJitterMs);
 }
 
 export function applyActiveDesktopWsRefreshPayload(payload: unknown): string | null {
@@ -1102,10 +809,9 @@ export function applyActiveDesktopWsRefreshPayload(payload: unknown): string | n
   return persistDesktopWsRefresh(activeProfile, transport, readDesktopWsRefreshData(payload));
 }
 
-export async function bootstrapAuth(baseUrl: string): Promise<SessionState | null> {
+export async function bootstrapAuth(_baseUrl: string): Promise<SessionState | null> {
   const activeProfile = hydrateActiveProfileRuntime();
   if (activeProfile?.transportKind === 'desktop-ws') {
-    currentBaseUrl = '';
     refreshInFlightByKey.clear();
     const activeBootstrapKey = buildProfileRefreshKey(activeProfile);
 
@@ -1139,121 +845,24 @@ export async function bootstrapAuth(baseUrl: string): Promise<SessionState | nul
     }
   }
 
-  const normalizedBaseUrl = normalizeBaseUrl(activeProfile?.apiBaseUrl || baseUrl);
-  if (!normalizedBaseUrl) {
-    ensureBaseUrl('');
-    setCurrentSession(null);
-    return null;
-  }
-
-  ensureBaseUrl(normalizedBaseUrl);
-  const activeBootstrapKey = buildHttpRefreshKey(normalizedBaseUrl);
-
-  if (bootstrapPromise && bootstrapKey === activeBootstrapKey) {
-    return bootstrapPromise;
-  }
-
+  currentSession = null;
+  refreshInFlightByKey.clear();
+  bootstrapPromise = null;
+  bootstrapKey = '';
   setAuthSnapshot({
-    isBootstrapping: true,
-    session: currentSession
+    isBootstrapping: false,
+    session: null
   });
-
-  const task = (async () => {
-    const accessToken = await refreshAccessToken(normalizedBaseUrl, true, 'hard');
-    setAuthSnapshot({
-      isBootstrapping: false,
-      session: currentSession
-    });
-    return accessToken && currentSession ? currentSession : null;
-  })();
-
-  bootstrapPromise = task;
-  bootstrapKey = activeBootstrapKey;
-  try {
-    return await task;
-  } finally {
-    if (bootstrapPromise === task) {
-      bootstrapPromise = null;
-      bootstrapKey = '';
-    }
-  }
+  return null;
 }
 
 export async function restoreSession(baseUrl: string): Promise<SessionState | null> {
   return bootstrapAuth(baseUrl);
 }
 
-export async function loginWithMasterPassword(
-  baseUrl: string,
-  masterPassword: string,
-  deviceName: string
-): Promise<SessionState> {
-  const normalizedBaseUrl = ensureBaseUrl(baseUrl);
-  if (!normalizedBaseUrl) {
-    throw new Error('EXPO_PUBLIC_API_BASE_URL is not configured');
-  }
-
-  const request = buildMasterPasswordLoginRequest(masterPassword, deviceName, getDefaultDeviceName());
-  const payload = await requestJson<LoginResponse>(normalizedBaseUrl, request.path, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(request.body)
-  });
-
-  const nextSession = buildSessionFromLogin(payload, request.deviceName);
-  const profileResult = upsertManualDeviceProfile({
-    apiBaseUrl: normalizedBaseUrl,
-    deviceName: nextSession.deviceName,
-    deviceToken: nextSession.deviceToken,
-    serverDeviceId: nextSession.deviceId
-  });
-  applyDeviceProfileRuntime(profileResult.profile);
-  cleanupEvictedDeviceCaches(profileResult.evictedCacheScopeIds);
-  savePreferredDeviceName(nextSession.deviceName);
-  setCurrentSession(nextSession);
-  return nextSession;
-}
-
 export async function loginWithPairingPayload(pairingPayloadText: string, deviceName: string): Promise<SessionState> {
   const parsedPairing = parsePairingPayload(pairingPayloadText);
-  if (parsedPairing.transportKind === 'desktop-ws') {
-    return loginWithDesktopWsPairingPayload(parsedPairing.payload, deviceName);
-  }
-
-  const pairing = parsedPairing.payload;
-  const normalizedBaseUrl = ensureBaseUrl(pairing.apiBaseUrl);
-  if (!normalizedBaseUrl) {
-    throw new Error('二维码缺少服务地址');
-  }
-
-  const request = buildPairingClaimRequest(pairing.pairingId, pairing.secret, deviceName, getDefaultDeviceName());
-  const payload = await requestJson<PairingClaimResponse>(normalizedBaseUrl, request.path, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(request.body)
-  });
-
-  const nextSession = buildSessionFromLogin(payload, request.deviceName);
-  const apiBaseUrl = normalizeBaseUrl(payload.apiBaseUrl || pairing.apiBaseUrl);
-  const profileResult = upsertDeviceProfile({
-    desktopDeviceId: payload.desktopDeviceId || pairing.desktopDeviceId,
-    defaultDisplayName: defaultDisplayNameFromPairing(payload) || defaultDisplayNameFromPairing(pairing),
-    apiBaseUrl,
-    deviceToken: nextSession.deviceToken,
-    serverDeviceId: nextSession.deviceId,
-    identityCreatedAt: payload.desktopIdentityCreatedAt || pairing.desktopIdentityCreatedAt,
-    hostname: payload.desktopHostname || pairing.desktopHostname,
-    appServerPublicKeySha256: payload.appServerPublicKeySha256 || pairing.appServerPublicKeySha256
-  });
-  applyDeviceProfileRuntime(profileResult.profile);
-  cleanupEvictedDeviceCaches(profileResult.evictedCacheScopeIds);
-  savePreferredDeviceName(nextSession.deviceName);
-  setCurrentSession(nextSession);
-  return nextSession;
+  return loginWithDesktopWsPairingPayload(parsedPairing.payload, deviceName);
 }
 
 async function loginWithDesktopWsPairingPayload(
@@ -1310,7 +919,7 @@ async function loginWithDesktopWsPairingPayload(
 
 export function activateProfile(desktopDeviceId: string): DeviceProfile {
   const profile = setActiveDeviceProfileId(desktopDeviceId);
-  if (!profile) {
+  if (!profile || profile.transportKind !== 'desktop-ws') {
     throw new Error('profile not found');
   }
   applyDeviceProfileRuntime(profile);
@@ -1325,24 +934,7 @@ export function activateProfile(desktopDeviceId: string): DeviceProfile {
   return profile;
 }
 
-export async function logoutCurrentDevice(baseUrl: string): Promise<void> {
-  const activeProfile = currentProfile ?? getActiveDeviceProfile();
-  const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
-  const token = currentSession?.accessToken || '';
-
-  try {
-    if (activeProfile?.transportKind !== 'desktop-ws' && normalizedBaseUrl && token) {
-      await requestJson<unknown>(normalizedBaseUrl, '/api/auth/logout', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-    }
-  } catch {
-    // Ignore network failures and continue clearing local session.
-  }
-
+export async function logoutCurrentDevice(_baseUrl = ''): Promise<void> {
   refreshInFlightByKey.clear();
   bootstrapPromise = null;
   bootstrapKey = '';

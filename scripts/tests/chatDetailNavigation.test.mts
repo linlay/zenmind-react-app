@@ -8,7 +8,15 @@ import {
 import type { DirectoryConversationOpenResult } from '../../src/features/chatPersistence/chatRepository.ts';
 import type { ChatDirectoryItem } from '../../src/features/chatPersistence/types.ts';
 
+const source = {
+  kind: 'paired',
+  key: 'paired:desktop-test',
+  sourceId: 'desktop-test',
+  displayName: 'Test Desktop',
+} as const;
+
 const baseDirectoryItem: ChatDirectoryItem = {
+  source,
   id: 'agent:assistant',
   kind: 'agent',
   title: 'Assistant',
@@ -30,6 +38,7 @@ const baseDirectoryItem: ChatDirectoryItem = {
 
 const baseOpenResult: DirectoryConversationOpenResult = {
   conversation: {
+    source,
     conversationId: 'conversation-1',
     title: 'Assistant',
     lastMessageText: '',
@@ -54,6 +63,7 @@ test('chat detail route params carry directory target and open result', () => {
   assert.equal(params.historyScope, baseOpenResult.historyScope);
   assert.equal(params.skipInitialReconcile, true);
   assert.deepEqual(params.conversationTarget, {
+    source,
     kind: 'agent',
     title: 'Assistant',
     subtitle: 'Helpful agent',

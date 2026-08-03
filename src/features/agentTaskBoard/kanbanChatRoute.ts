@@ -1,5 +1,9 @@
 import type { KanbanIssue } from '../../core/api/services/kanbanApi';
 import type { ChatDetailRouteParams } from '../chatPersistence/types';
+import {
+  encodeChatSourceId,
+  type ChatSource
+} from '../chatPersistence/chatSource.ts';
 
 function readText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -10,18 +14,25 @@ function issueTimestamp(issue: KanbanIssue): number {
   return Number.isFinite(parsed) ? parsed : Date.now();
 }
 
-export function buildKanbanChatDetailParams(issue: KanbanIssue, agentName: string): ChatDetailRouteParams | null {
-  const conversationId = readText(issue.chatId);
-  if (!conversationId) {
+export function buildKanbanChatDetailParams(
+  issue: KanbanIssue,
+  agentName: string,
+  source: ChatSource
+): ChatDetailRouteParams | null {
+  const remoteConversationId = readText(issue.chatId);
+  if (!remoteConversationId) {
     return null;
   }
-  const agentKey = readText(issue.assigneeAgentKey) || readText(issue.workerAgent);
-  const title = readText(agentName) || agentKey;
+  const conversationId = encodeChatSourceId(source, remoteConversationId);
+  const remoteAgentKey = readText(issue.assigneeAgentKey) || readText(issue.workerAgent);
+  const agentKey = encodeChatSourceId(source, remoteAgentKey);
+  const title = readText(agentName) || remoteAgentKey;
 
   return {
     conversationId,
     conversationSubtitle: title,
     conversationTarget: {
+      source,
       kind: 'agent',
       title,
       subtitle: readText(issue.title),
@@ -33,6 +44,7 @@ export function buildKanbanChatDetailParams(issue: KanbanIssue, agentName: strin
     },
     historyScope: { agentKey: agentKey || null, teamId: null },
     initialConversation: {
+      source,
       conversationId,
       title: readText(issue.title),
       lastMessageText: readText(issue.description),

@@ -2,18 +2,18 @@
   "schemaVersion": "1.0",
   "id": "webapps-runtime",
   "title": "WebApps Desktop WS 目录同步与常驻 WebView 运行时",
-  "trigger": "认证会话挂载、Desktop WS 重连、App 回前台、进入 WebAppDetail、切换运行项或系统终止 WebContent 进程时触发。",
+  "trigger": "AppAccess 进入 paired、Desktop WS 重连、App 回前台、进入 WebAppDetail、切换运行项或系统终止 WebContent 进程时触发；unpaired 只展示空态。",
   "sourceOfTruth": [
     "Desktop web.webapp.list 快照与 webapp.changed 增量是远端目录真源；webAppsDesktopProtocol 负责把原始 frame 转成安全领域模型。",
     "WebAppsGateway 是共享 Desktop WS 上订阅、快照、重连和设备隔离的唯一边界，页面不解析原始 frame。",
-    "WebAppsRuntimeProvider 是登录会话内 catalog、connection、active、resident LRU 和恢复队列的唯一内存状态源。",
+    "WebAppsRuntimeProvider 是 paired 会话内 catalog、connection、active、resident LRU 和恢复队列的唯一内存状态源；unpaired 时保持 disabled。",
     "WebAppsRuntimeHost 位于登录态 RootStack 外层；WebAppDetail route pop 只隐藏 Host，不卸载 resident WebView。",
     "webAppsMobileAccess 是配对 `.m` host 校验、临时启动 token URL 构造和 token 导航识别的纯函数边界；appAuth 继续提供已有 fresh token 与 single-flight 刷新。"
   ],
   "steps": [
     {
       "order": 1,
-      "label": "认证 session 可用后 RootNavigator 挂载 WebAppsRuntimeProvider；Provider 立即 open Gateway，不等待 WebApps Tab 聚焦。",
+      "label": "RootNavigator 始终挂载 WebAppsRuntimeProvider，但只有 AppAccess paired 时 enabled；enabled 后立即 open Gateway，不等待 WebApps Tab 聚焦，unpaired 时不连接且 WebAppsScreen 展示配对空态。",
       "moduleId": "feature-web-apps",
       "file": "src/features/webApps/WebAppsRuntimeProvider.tsx",
       "symbol": "WebAppsRuntimeProvider"
@@ -66,6 +66,7 @@
     "重连后不重新 event.subscribe 会让连接恢复但目录永远不再收到增量。",
     "不校验 desktopDeviceId 会把旧 Profile 或其他 Desktop 的目录写入当前会话。",
     "WebApps 自建或停止 Socket 会破坏 Chat/Kanban 与 WebApps 的共享连接和监听。",
+    "unpaired 时打开 Gateway 或挂载 WebView Host 会制造无效 Desktop 请求和空 resident；Provider 必须由 AppAccess paired 显式启用。",
     "把 WebView 放进 WebAppDetail screen 会在 route pop 时全部卸载，无法跨页面或 Tab 保活。",
     "把 Tunnel 短暂离线等同 stopped 会丢失表单、滚动和前端内存状态。",
     "不限制 resident 数量或并发恢复会造成 WebContent 内存、CPU 与网络峰值。",

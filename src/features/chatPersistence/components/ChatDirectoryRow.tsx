@@ -18,6 +18,9 @@ const CHAT_ROW_DISABLED_CLASS = 'opacity-[0.74]';
 const CHAT_ROW_BODY_CLASS =
   'min-w-0 flex-1 self-stretch flex-row items-center gap-app-md border-app-line py-[10px] pr-app-xl';
 const CHAT_ROW_MAIN_CLASS = 'min-w-0 flex-1 gap-app-xs';
+const CHAT_TITLE_ROW_CLASS = 'min-w-0 flex-row items-center gap-[6px]';
+const CHAT_SOURCE_ICON_CLASS =
+  'h-[20px] w-[20px] shrink-0 items-center justify-center rounded-app-pill bg-app-surface-muted';
 const CHAT_TITLE_CLASS = 'shrink text-app-body-lg font-medium text-app-primary';
 const CHAT_SUMMARY_CLASS = 'text-app-footnote text-app-tertiary';
 const CHAT_ROW_META_CLASS = 'min-h-[46px] min-w-[74px] items-end justify-between gap-app-xs';
@@ -101,9 +104,17 @@ export const ChatDirectoryRow = memo(function ChatDirectoryRow({
 
         <View className={CHAT_ROW_BODY_CLASS} style={appHairlineStyles.borderBottom}>
           <View className={CHAT_ROW_MAIN_CLASS}>
-            <Text numberOfLines={1} className={CHAT_TITLE_CLASS}>
-              {item.title}
-            </Text>
+            <View className={CHAT_TITLE_ROW_CLASS}>
+              <View className={CHAT_SOURCE_ICON_CLASS}>
+                <AppIcon
+                  usage={item.source.kind === 'default' ? 'chatHome.sourceDefault' : 'chatHome.sourcePaired'}
+                  size={13}
+                />
+              </View>
+              <Text numberOfLines={1} className={CHAT_TITLE_CLASS}>
+                {item.title}
+              </Text>
+            </View>
             <Text numberOfLines={1} className={CHAT_SUMMARY_CLASS}>
               {item.lastMessagePreview}
             </Text>

@@ -14,6 +14,7 @@ import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { cn } from '../../shared/visual/className';
 import { appVisualTokens, getAvatarLabel, getAvatarTone } from '../../shared/visual/foundation';
 import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
+import { getPairedChatSource } from '../chatPersistence/chatSourceRuntime';
 import { useAgentTaskBoard } from './AgentTaskBoardProvider';
 import { buildKanbanChatDetailParams } from './kanbanChatRoute';
 import type { AgentTaskBoardStackParamList } from './navigationTypes';
@@ -1134,7 +1135,11 @@ export function AgentTaskBoardTaskDetailScreen({ navigation, route }: AgentTaskB
   );
   const openKanbanChat = useCallback(
     (nextIssue: KanbanIssue, agentName: string) => {
-      const params = buildKanbanChatDetailParams(nextIssue, agentName);
+      const source = getPairedChatSource();
+      if (!source) {
+        return;
+      }
+      const params = buildKanbanChatDetailParams(nextIssue, agentName, source);
       if (params) {
         navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('ChatDetail', params);
       }

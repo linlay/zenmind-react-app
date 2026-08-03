@@ -17,19 +17,6 @@ export type DesktopTokenTransport = {
   protocols?: string[];
 };
 
-export type LegacyPairingPayload = {
-  desktopDeviceId: string;
-  desktopIdentityCreatedAt?: string;
-  desktopUsername?: string;
-  desktopHostname?: string;
-  appServerIssuer?: string;
-  appServerPublicKeySha256?: string;
-  apiBaseUrl: string;
-  pairingId: string;
-  secret: string;
-  expiresAt?: string;
-};
-
 export type DesktopWsPairingPayload = {
   v: 2;
   kind: 'desktop-ws';
@@ -41,14 +28,14 @@ export type DesktopWsPairingPayload = {
   desktopDeviceId: string;
 };
 
-export type ParsedPairingPayload =
-  | { transportKind: 'http'; payload: LegacyPairingPayload }
-  | { transportKind: 'desktop-ws'; payload: DesktopWsPairingPayload };
+export type ParsedPairingPayload = {
+  transportKind: 'desktop-ws';
+  payload: DesktopWsPairingPayload;
+};
 
 const DESKTOP_WS_PAIRING_PREFIX = 'zmpair:v2:';
 const DESKTOP_WS_PATH = '/ws';
 const INVALID_PAIRING_MESSAGE = '二维码内容格式不正确';
-const MISSING_LEGACY_PAIRING_MESSAGE = '二维码缺少必要配对字段';
 const MISSING_DESKTOP_WS_PAIRING_MESSAGE = '二维码缺少必要 Desktop WS 配对字段或已过期';
 
 type BufferCtor = {
@@ -214,25 +201,6 @@ function parsePairingJson(payloadText: string): unknown {
   }
 }
 
-function parseLegacyPairingPayload(record: Record<string, unknown>): LegacyPairingPayload {
-  const payload: LegacyPairingPayload = {
-    desktopDeviceId: readText(record.desktopDeviceId),
-    desktopIdentityCreatedAt: readText(record.desktopIdentityCreatedAt),
-    desktopUsername: readText(record.desktopUsername),
-    desktopHostname: readText(record.desktopHostname),
-    appServerIssuer: readText(record.appServerIssuer),
-    appServerPublicKeySha256: readText(record.appServerPublicKeySha256),
-    apiBaseUrl: normalizeHttpBaseUrl(record.apiBaseUrl),
-    pairingId: readText(record.pairingId),
-    secret: readText(record.secret),
-    expiresAt: readText(record.expiresAt),
-  };
-  if (!payload.desktopDeviceId || !payload.apiBaseUrl || !payload.pairingId || !payload.secret) {
-    throw new Error(MISSING_LEGACY_PAIRING_MESSAGE);
-  }
-  return payload;
-}
-
 function parseDesktopWsPairingPayload(record: Record<string, unknown>): DesktopWsPairingPayload {
   const expiresAtMs = Number(record.expiresAtMs);
   const wsUrl = normalizeDesktopWsUrlInput(record.wsUrl);
@@ -267,15 +235,12 @@ export function parsePairingPayload(payloadText: string): ParsedPairingPayload {
     throw new Error(INVALID_PAIRING_MESSAGE);
   }
 
-  if (Number(parsed.v) === 2 && readText(parsed.kind) === 'desktop-ws') {
-    return {
-      transportKind: 'desktop-ws',
-      payload: parseDesktopWsPairingPayload(parsed),
-    };
+  if (Number(parsed.v) !== 2 || readText(parsed.kind) !== 'desktop-ws') {
+    throw new Error('仅支持新版 Desktop WS 二维码');
   }
 
   return {
-    transportKind: 'http',
-    payload: parseLegacyPairingPayload(parsed),
+    transportKind: 'desktop-ws',
+    payload: parseDesktopWsPairingPayload(parsed),
   };
 }

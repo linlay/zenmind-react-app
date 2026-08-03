@@ -46,6 +46,10 @@ import {
   type ChatDirectoryListState,
 } from './chatRealtimeUiState';
 import { readChatDirectorySnapshot } from './homeSnapshot';
+import {
+  getDefaultChatSource,
+  getPairedChatSource
+} from './chatSourceRuntime';
 import type { ChatDirectoryItem } from './types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../app/navigation/types';
@@ -81,6 +85,16 @@ const PIN_MENU_ELEVATION_STYLE = {
   shadowRadius: 18,
   elevation: 8
 } satisfies ViewStyle;
+
+function filterActiveSourceItems(items: ChatDirectoryItem[]): ChatDirectoryItem[] {
+  const defaultSource = getDefaultChatSource();
+  const pairedSource = getPairedChatSource();
+  const activeKeys = new Set([
+    defaultSource.key,
+    ...(pairedSource ? [pairedSource.key] : [])
+  ]);
+  return items.filter((item) => activeKeys.has(item.source.key));
+}
 
 type ChatRowComponentProps = {
   item: ChatListItem;
@@ -351,10 +365,13 @@ export function ChatHomeScreen() {
 
     try {
       const snapshot = readChatDirectorySnapshot();
-      hasSnapshot = Boolean(snapshot?.items.length);
-      if (snapshot?.items.length) {
-        setHomeState(buildDirectoryListState(snapshot.items, snapshot.items.length));
-        setPinnedTotal(snapshot.items.filter((item) => item.pinnedAt > 0).length);
+      const snapshotItems = snapshot
+        ? filterActiveSourceItems(snapshot.items)
+        : [];
+      hasSnapshot = snapshotItems.length > 0;
+      if (snapshotItems.length) {
+        setHomeState(buildDirectoryListState(snapshotItems, snapshotItems.length));
+        setPinnedTotal(snapshotItems.filter((item) => item.pinnedAt > 0).length);
       }
     } catch {
       hasSnapshot = false;

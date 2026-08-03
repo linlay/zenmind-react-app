@@ -4,9 +4,9 @@
   "title": "应用启动与导航挂载",
   "trigger": "Expo 启动应用并注册根组件时触发。",
   "sourceOfTruth": [
-    "app.config.js 通过 --brand 或 BRAND 选择 brands/<id>/brand.json，并合成 brands/shared.json 决定 expo-splash-screen 的原生启动图资源、背景色、imageWidth、展示名称、共享 Expo slug、共享包名 / bundle id、EAS updates 入口和安装壳 embedded brand id；Android 使用从品牌 imageWidth 派生的安全宽度，避免系统圆形 splash 遮罩裁切笔画。",
+    "app.config.js 通过 --brand 或 BRAND 选择 brands/<id>/brand.json，并合成 brands/shared.json 与固定版本 schema v2 react-app-env 构建产物，决定品牌展示、共享 native identity、安装壳 embedded brand id 以及该品牌默认数据源 endpoint/query-token；extra.appEnvironment 记录产物 schemaVersion/artifactVersion，Android 使用从品牌 imageWidth 派生的安全宽度，避免系统圆形 splash 遮罩裁切笔画。",
     "App.tsx 和 AppRoot.tsx 决定根 provider 树、I18nProvider、AppThemeProvider 与导航挂载顺序。",
-    "src/core/auth/appAuth.ts 决定冷启动时的认证恢复、HTTP/Desktop WS 设备 profile、token 缓存、前台预刷新和登录态切换。",
+    "src/core/auth/appAccess.ts 合并持久默认源身份、跳过选择和 Desktop WS 会话，决定 onboarding、ready/unpaired、ready/paired；appAuth 只恢复新版 Desktop WS 配对会话。",
     "notificationService 决定登录后的系统通知权限、原生 push token 注册和冷启动通知点击缓存。",
     "src/shared/branding/installedBrand.ts 从安装壳 embedded app.config.extra.brand.id 解析 INSTALLED_BRAND_ID；AppLaunchSkeleton.tsx 和 src/shared/icons/brandAssets.ts 决定应用冷启动期间的加载遮罩展示效果与 generated brand logo 入口。",
     "AndroidManifest.xml、MainActivity.kt、MainApplication.kt 和 res/values/styles.xml 决定 React 挂载前的原生启动窗口外观与 ReactHost 创建方式。",
@@ -36,14 +36,14 @@
     },
     {
       "order": 4,
-      "label": "AppRoot 先向 core auth 注入聊天缓存 scope runtime，再在挂载 NavigationContainer 前触发 bootstrapAuth；HTTP profile 尝试用本地 device token 恢复会话，Desktop WS profile 用保存的 wsUrl/token 校验 session.hello 并按需 auth.refresh，然后按当前主题生成 NavigationContainer theme 与 StatusBar，再渲染 RootNavigator 和 __DEV__ 下隐藏的 Debug 面板宿主。",
+      "label": "AppRoot 在挂载 NavigationContainer 前触发 bootstrapAppAccess：恢复或创建默认源本地身份与持久跳过选择，再用保存的 Desktop WS wsUrl/token 校验 session.hello 并按需 auth.refresh；随后按当前主题渲染 RootNavigator 和开发态 Debug 面板宿主。",
       "moduleId": "app-shell-navigation",
       "file": "src/app/AppRoot.tsx",
       "symbol": "AppRoot"
     },
     {
       "order": 5,
-      "label": "AppRoot 在认证 session 可用后触发 notificationService.registerForSession，预热 Chat 首页目录，订阅通知点击 payload，并在前台 active 状态下按 active profile 做轻量 token 预刷新。",
+      "label": "AppRoot 在 AppAccess ready 后始终预热并启动默认源 Chat；paired 时同时启动 Desktop Chat、注册 notificationService，并在前台 active 状态下刷新 Desktop token。",
       "moduleId": "feature-notifications",
       "file": "src/features/notifications/notificationService.ts",
       "symbol": "notificationService"
@@ -57,7 +57,7 @@
     },
     {
       "order": 7,
-      "label": "RootNavigator 根据认证快照切到 AuthBootstrapScreen、LoginScreen 或 Tabs；已登录 Tabs 挂载 Chat、WebApps 与 Me，任务 Tab 保持隐藏；WebAppsRuntimeProvider 按登录会话包裹 RootStack，立即复用 sharedWsTransport 订阅 Desktop webapp.changed、同步目录并持有常驻 WebView Host，ChatDetail、WebAppDetail 和 TaskBoardFlow 作为上层路由。",
+      "label": "RootNavigator 根据 AppAccess 切到 AuthBootstrapScreen、首次 Login 或 Tabs；ready/unpaired 与 ready/paired 都挂载 Chat、WebApps 与 Me。WebAppsRuntimeProvider 只有 paired 时才订阅 Desktop webapp.changed 并挂常驻 WebView Host；Login 保留为 Tabs 之上的再次配对 route。",
       "moduleId": "app-shell-navigation",
       "file": "src/app/navigation/RootNavigator.tsx",
       "symbol": "RootNavigator"
@@ -78,11 +78,11 @@
     }
   ],
   "failureModes": [
-    "bootstrapAuth 没有在冷启动时执行，会导致已登录 HTTP 或 Desktop WS profile 总是回到登录页。",
+    "bootstrapAppAccess 没有在冷启动时执行，会丢失持久跳过选择并无法恢复默认源身份或 Desktop WS profile。",
     "前台 token 预刷新没有使用 soft failure，会因短暂网络或 Desktop WS 临时不可达误清理登录态。",
     "Desktop WS profile 冷启动没有校验 session.hello 或 deviceId，会把过期/错误 Desktop endpoint 当成有效 session。",
     "RootNavigator 和 TabScreens 映射不一致会导致错误页面或无效路由。",
-    "认证快照切屏和 RootStack 路由定义不一致时，会出现登录后仍卡在登录页或未登录进入业务页。",
+    "AppAccess 切屏和 RootStack 路由定义不一致时，会出现跳过后仍卡在登录页、解除配对回到 onboarding 或未配对无法从 Me 再次打开配对页。",
     "Theme.App.SplashScreen 和 AppTheme 背景不连续时，会在 React loading 出现前露出白屏或占位底图。",
     "AppThemeProvider 没有挂在 NavigationContainer 上层时，导航背景、StatusBar 和底部 Tab 不会随主题偏好同步更新。",
     "native splash 使用的 logo 与 React loading 首帧不一致时，会在 hideAsync() 接棒瞬间出现明显跳变。",

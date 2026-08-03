@@ -146,12 +146,16 @@ function normalizeBackendUrl(raw: string): string {
 
 function resolveAgentPlatformWsConnection(
   backendUrlInput: string,
-  accessTokenInput: string
+  accessTokenInput: string,
+  configuredWsUrl = ''
 ): ResolvedWsConnection | null {
   const backendUrl = normalizeBackendUrl(backendUrlInput);
-  const explicitDevUrl =
-    typeof __DEV__ !== 'undefined' && __DEV__ ? String(readPublicEnv('EXPO_PUBLIC_CHAT_WS_URL') || '').trim() : '';
-  const baseUrl = explicitDevUrl || backendUrl;
+  const explicitWsUrl =
+    String(configuredWsUrl || '').trim() ||
+    (typeof __DEV__ !== 'undefined' && __DEV__
+      ? String(readPublicEnv('EXPO_PUBLIC_CHAT_WS_URL') || '').trim()
+      : '');
+  const baseUrl = explicitWsUrl || backendUrl;
   if (!baseUrl) {
     return null;
   }
@@ -160,7 +164,7 @@ function resolveAgentPlatformWsConnection(
     const url = new URL(baseUrl);
     url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
     url.hash = '';
-    if (!explicitDevUrl) {
+    if (!explicitWsUrl) {
       url.pathname = '/ap/ws';
       url.search = '';
     }
@@ -205,7 +209,7 @@ function resolveWsConnection(config: WsTransportConfig): ResolvedWsConnection | 
   if (config.kind === 'desktop-ws') {
     return resolveDesktopWsConnection(config);
   }
-  return resolveAgentPlatformWsConnection(config.backendUrl, config.accessToken);
+  return resolveAgentPlatformWsConnection(config.backendUrl, config.accessToken, config.wsUrl);
 }
 
 function createFrameId(kind: 'request' | 'stream'): string {

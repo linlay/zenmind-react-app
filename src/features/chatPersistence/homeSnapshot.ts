@@ -9,6 +9,7 @@ import {
 } from './cacheScope';
 import { normalizeChatReasoningEffort } from './agentModelSettings.ts';
 import { ChatDirectoryItem, ChatDirectorySnapshot } from './types';
+import { getChatSourceFromId } from './chatSource';
 
 const storage = new MMKV({ id: 'zenmind-chat-home-snapshot' });
 const LEGACY_HOME_SNAPSHOT_KEY = 'chat_home_snapshot_v1';
@@ -17,6 +18,7 @@ const DIRECTORY_SNAPSHOT_KEY = 'chat_directory_snapshot_v1';
 function normalizeDirectorySnapshotItem(item: ChatDirectoryItem): ChatDirectoryItem {
   return {
     ...item,
+    source: getChatSourceFromId(item.id),
     icon: normalizeAgentAvatarIcon(item.icon),
     unreadCount: Math.max(0, Math.trunc(Number(item.unreadCount || 0))),
     pinnedAt: Number(item.pinnedAt || 0),

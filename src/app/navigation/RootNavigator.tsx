@@ -1,8 +1,6 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { getApiBaseUrl } from '../../core/api/apiClient';
-import { useAuthSession } from '../../core/auth/useAuthSession';
-import { isAuthRequired } from '../../core/auth/authConfig';
+import { useAppAccess } from '../../core/auth/useAppAccess';
 import { AgentTaskBoardFlowNavigator } from '../../features/agentTaskBoard/AgentTaskBoardFlowNavigator';
 import { AgentTaskBoardProvider } from '../../features/agentTaskBoard/AgentTaskBoardProvider';
 import { AuthBootstrapScreen, LoginScreen } from '../../features/auth/LoginScreen';
@@ -20,13 +18,16 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   const { theme } = useAppTheme();
-  const { isBootstrapping, session } = useAuthSession();
-  const authRequired = isAuthRequired();
-  const webAppsSessionKey = session
-    ? JSON.stringify([getApiBaseUrl(), session.deviceId, session.username])
-    : 'anonymous';
+  const access = useAppAccess();
+  const pairedSession = access.pairedSession;
+  const webAppsEnabled =
+    access.status === 'ready' && access.pairingState === 'paired' && Boolean(pairedSession);
+  const webAppsSessionKey =
+    access.status === 'ready' && access.pairingState === 'paired' && pairedSession
+      ? JSON.stringify([pairedSession.deviceId, pairedSession.username])
+      : 'unpaired';
 
-  if (authRequired && isBootstrapping) {
+  if (access.status === 'bootstrapping') {
     return (
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Login" component={AuthBootstrapScreen} />
@@ -34,7 +35,7 @@ export function RootNavigator() {
     );
   }
 
-  if (authRequired && !session) {
+  if (access.status === 'onboarding') {
     return (
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Login" component={LoginScreen} />
@@ -44,8 +45,16 @@ export function RootNavigator() {
 
   return (
     <AgentTaskBoardProvider>
-      <WebAppsRuntimeProvider key={webAppsSessionKey}>
+      <WebAppsRuntimeProvider key={webAppsSessionKey} enabled={webAppsEnabled}>
         <RootStack.Navigator initialRouteName="Tabs" screenOptions={{ headerShown: false }}>
+          <RootStack.Screen
+            name="Login"
+            component={LoginScreen}
+            options={{
+              animation: 'slide_from_bottom',
+              gestureEnabled: true
+            }}
+          />
           <RootStack.Screen name="Tabs" component={TabsNavigator} options={{ freezeOnBlur: true }} />
           <RootStack.Screen
             name="TaskBoardFlow"

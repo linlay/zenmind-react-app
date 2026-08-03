@@ -9,6 +9,11 @@ import { normalizeAgentMode } from './agentMode.ts';
 import { resolveAgentModelSettings, type AgentModelSettings } from './agentModelSettings.ts';
 import { resolveChatConversationTitleCandidate } from './chatConversationTitle.ts';
 import { normalizeChatReadPatch, readStateToUnreadBit } from './chatReadState.ts';
+import {
+  encodeChatSourceId,
+  getRemoteChatSourceId,
+  parseChatSourceId
+} from './chatSource.ts';
 
 export type RemoteAgent = {
   key?: string;
@@ -88,11 +93,18 @@ function buildAgentSubtitle(agent: RemoteAgent) {
 function buildTeamSubtitle(team: RemoteTeam) {
   const defaultAgentKey = toText(team.meta?.defaultAgentKey);
   if (defaultAgentKey) {
-    return `默认 ${defaultAgentKey}`;
+    return `默认 ${getRemoteChatSourceId(defaultAgentKey)}`;
   }
 
   const agentCount = Array.isArray(team.agentKeys) ? team.agentKeys.length : 0;
   return agentCount > 0 ? `${agentCount} 个智能体` : '团队';
+}
+
+function buildDirectoryItemId(kind: 'agent' | 'team', scopedId: string): string {
+  const parsed = parseChatSourceId(scopedId);
+  return parsed
+    ? encodeChatSourceId(parsed.source, `${kind}:${parsed.remoteId}`)
+    : `${kind}:${scopedId}`;
 }
 
 export function projectRemoteAgent(
@@ -107,9 +119,9 @@ export function projectRemoteAgent(
   const modelSettings = resolveAgentModelSettings(agent);
 
   return {
-    id: `agent:${agentKey}`,
+    id: buildDirectoryItemId('agent', agentKey),
     kind: 'agent',
-    title: toDirectoryTitle(agent.name, agentKey),
+    title: toDirectoryTitle(agent.name, getRemoteChatSourceId(agentKey)),
     subtitle: buildAgentSubtitle(agent),
     icon: normalizeAgentAvatarIcon(agent.icon),
     unreadCount: toUnreadCount(explicitUnread),
@@ -139,9 +151,9 @@ export function projectRemoteTeam(
   const modelSettings = defaultAgentKey ? agentModelSettingsByKey?.get(defaultAgentKey) : null;
 
   return {
-    id: `team:${teamId}`,
+    id: buildDirectoryItemId('team', teamId),
     kind: 'team',
-    title: toDirectoryTitle(team.name, teamId),
+    title: toDirectoryTitle(team.name, getRemoteChatSourceId(teamId)),
     subtitle: buildTeamSubtitle(team),
     icon: normalizeAgentAvatarIcon(team.icon),
     unreadCount: 0,

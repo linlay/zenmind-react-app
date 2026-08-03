@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-import { buildMasterPasswordLoginRequest, buildPairingClaimRequest } from '../../src/core/auth/authRequestModel.ts';
 import { legacyDeviceTokenForProfile, normalizeDeviceProfile } from '../../src/core/auth/deviceProfileModel.ts';
 import {
   applyDesktopTokenToUrl,
@@ -14,22 +13,20 @@ import {
   type DesktopWsNamespace,
 } from '../../src/core/auth/desktopWsProtocol.ts';
 
-test('legacy v1 JSON pairing payload still parses as HTTP profile input', () => {
-  const parsed = parsePairingPayload(
-    JSON.stringify({
-      desktopDeviceId: 'desktop-1',
-      desktopUsername: 'Ada',
-      apiBaseUrl: 'http://127.0.0.1:7080///',
-      pairingId: 'pairing-1',
-      secret: 'secret-1',
-    })
+test('legacy v1 JSON pairing payload is rejected', () => {
+  assert.throws(
+    () =>
+      parsePairingPayload(
+        JSON.stringify({
+          desktopDeviceId: 'desktop-1',
+          desktopUsername: 'Ada',
+          apiBaseUrl: 'http://127.0.0.1:7080///',
+          pairingId: 'pairing-1',
+          secret: 'secret-1',
+        })
+      ),
+    /仅支持新版 Desktop WS 二维码/u
   );
-
-  assert.equal(parsed.transportKind, 'http');
-  assert.equal(parsed.payload.desktopDeviceId, 'desktop-1');
-  assert.equal(parsed.payload.apiBaseUrl, 'http://127.0.0.1:7080');
-  assert.equal(parsed.payload.pairingId, 'pairing-1');
-  assert.equal(parsed.payload.secret, 'secret-1');
 });
 
 test('zmpair v2 payload parses into Desktop WS transport input', () => {
@@ -138,41 +135,4 @@ test('Desktop WS profile rules never expose Desktop token as legacy device token
   assert.equal(profile.deviceToken, '');
   assert.equal(profile.desktopWs?.wsUrl, 'ws://127.0.0.1:7082/ws');
   assert.equal(legacyDeviceTokenForProfile(profile), '');
-});
-
-test('HTTP profile migration defaults missing transportKind to http', () => {
-  const profile = normalizeDeviceProfile({
-    desktopDeviceId: 'desktop-device-1',
-    displayName: 'Office Desktop',
-    apiBaseUrl: '127.0.0.1:7080///',
-    deviceToken: 'http-device-token',
-    serverDeviceId: 'server-device-1',
-    cacheScopeId: 'legacy',
-  });
-
-  assert.ok(profile);
-  assert.equal(profile.transportKind, 'http');
-  assert.equal(profile.apiBaseUrl, 'http://127.0.0.1:7080');
-  assert.equal(profile.deviceToken, 'http-device-token');
-  assert.equal(legacyDeviceTokenForProfile(profile), 'http-device-token');
-});
-
-test('password and legacy pairing login request builders stay on HTTP auth endpoints', () => {
-  const loginRequest = buildMasterPasswordLoginRequest(' master-password ', ' My Phone ', 'Fallback Device');
-  assert.equal(loginRequest.path, '/api/auth/login');
-  assert.equal(loginRequest.deviceName, 'My Phone');
-  assert.deepEqual(loginRequest.body, {
-    masterPassword: 'master-password',
-    deviceName: 'My Phone',
-  });
-
-  assert.throws(() => buildMasterPasswordLoginRequest('   ', '', 'Fallback Device'), /请输入主密码/u);
-
-  const pairingRequest = buildPairingClaimRequest(' pairing-1 ', ' secret-1 ', '', 'Fallback Device');
-  assert.equal(pairingRequest.path, '/api/auth/pairing/claim');
-  assert.deepEqual(pairingRequest.body, {
-    pairingId: 'pairing-1',
-    secret: 'secret-1',
-    deviceName: 'Fallback Device',
-  });
 });
