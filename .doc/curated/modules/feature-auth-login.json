@@ -2,23 +2,23 @@
   "schemaVersion": "1.0",
   "module": "feature-auth-login",
   "status": "confirmed",
-  "paths": [
-    "src/features/auth"
-  ],
+  "paths": ["src/features/auth"],
   "summary": {
-    "purpose": "登录页与认证门卫界面: 承载设备登录表单、Desktop 二维码扫码配对、粘贴配对内容备用入口、最近 profile 快捷入口、启动恢复中的认证占位屏和最小会话交互。",
+    "purpose": "登录页与认证门卫界面: 承载 Desktop 配对码输入、全屏二维码扫码、最近 profile 快捷入口、跳过登录、启动恢复占位屏和最小会话交互。",
     "ownedConcepts": [
-      "承载 Desktop 新版二维码扫码配对、粘贴配对内容备用入口、最近 Desktop WS profile 快捷入口、跳过登录、启动恢复占位屏和最小会话交互；不再展示手动登录 Tab。",
+      "以配对码和扫码配对两个 Tab 承载 Desktop WS v2 pairing，默认显示配对码输入；扫码态只在获得相机权限后挂载全屏 CameraView。配对码、扫码和最近 Profile 成功后统一完成 AppAccess onboarding，由 RootNavigator 根据 paired 状态移除 Login；页面不手写成功 goBack/reset。",
+      "全屏扫码页保留中央二维码取景框与框下的关闭图标；连接中暂停重复扫码但关闭图标始终可用，失败在扫码页显示不拦截点击的轻提示，短暂冷却后恢复扫描。",
+      "保留最近 Desktop WS profile 快捷入口、跳过登录、启动恢复占位屏和最小会话交互；登录页不再输入设备名称，也不展示 legacy 手动登录入口。",
       "通过 core auth 与 AppAccess 读取访问状态，不在页面层直接碰 MMKV、fetch、WebSocket 或 token 细节。",
-      "扫码/粘贴入口只接受 Desktop WS v2 pairing；UI 只把 QR 文本交给 core auth，不解析 zmpair 或保存 Desktop token。",
+      "扫码、输入和粘贴入口只接受 Desktop WS v2 pairing；UI 只把原始配对内容交给 core auth，不解析 zmpair 或保存 Desktop token。",
       "保持登录界面为纯 screen 级 UI，实现 root stack 的认证前置入口，并通过 shared-i18n 获取表单文案与校验提示，通过 shared-visual-foundation 复用 generated 品牌 logo。",
       "Public entry LoginScreen (screen): 未登录时显示的设备登录页面。",
       "Public entry AuthBootstrapScreen (screen): 冷启动恢复会话期间显示的认证占位页。",
-      "State/data touch: 设备名称和配对提交本地输入态",
-      "State/data touch: 相机权限与扫码面板状态",
+      "State/data touch: 配对码和配对提交本地输入态",
+      "State/data touch: 配对 Tab、相机权限与全屏扫码状态",
       "State/data touch: 最近 profile 展示与快捷激活状态",
       "State/data touch: 登录提交中状态",
-      "State/data touch: 认证错误提示",
+      "State/data touch: 可取消的扫码配对 attempt、短暂重扫冷却与认证错误轻提示",
       "Related flow: app-startup",
       "Related task: add-auth-login-screen",
       "Related task: add-internationalization",
@@ -29,22 +29,13 @@
   "facts": {
     "entrypoints": [],
     "publicApi": [],
-    "dependencies": [
-      "core-auth-session",
-      "core-runtime-config",
-      "shared-i18n",
-      "shared-visual-foundation"
-    ],
-    "dependents": [
-      "app-shell-navigation"
-    ],
+    "dependencies": ["core-auth-session", "core-runtime-config", "shared-i18n", "shared-visual-foundation"],
+    "dependents": ["app-shell-navigation"],
     "tests": [],
     "lastScannedAt": ""
   },
   "readHints": {
-    "alwaysRead": [
-      "src/features/auth/LoginScreen.tsx"
-    ],
+    "alwaysRead": ["src/features/auth/LoginScreen.tsx"],
     "readFor": [
       {
         "when": "legacy readNext",
@@ -67,7 +58,11 @@
   },
   "riskRules": [
     "登录页只管表单与提交反馈，不在 UI 层自己保存 token。",
+    "登录页不得恢复设备名称输入；设备名称默认值、旧值迁移和持久化修改统一留在 core auth，并由 Me 页通过公开入口修改。",
     "扫码配对只把 QR 文本交给 core auth 的 loginWithPairingPayload，不在 UI 层解析 zmpair:v2、保存或刷新 token；legacy JSON 必须显示新版二维码错误。",
+    "CameraView 只在扫码 Tab 激活且权限已授予时挂载；扫码必须全屏展示，退出扫码、页面卸载或配对成功后立即卸载。",
+    "全屏扫码页的退出操作收敛为取景框下方的单个关闭图标；连接中也不得禁用退出，退出必须 abort 当前配对并阻止旧异步结果回写。",
+    "扫码解析、连接或 session.hello 失败时留在扫码页显示非阻塞轻提示；提示期间暂停扫码，提示结束后再恢复，避免同一二维码并发或循环建连。",
     "最近 profile 快捷入口只列出可恢复的 desktop-ws profile，并调用 activateProfile + bootstrapAuth。",
     "跳过登录调用 continueWithoutPairing 并持久完成 onboarding；从 Me 再次打开 Login 时允许关闭，不能清理已有默认源会话。",
     "扫码能力依赖 expo-camera；新增或调整扫码入口时同步检查 package.json 和 app.config.js 的相机权限插件配置，不修改 lock 文件或运行安装命令。",

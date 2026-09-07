@@ -23,10 +23,10 @@ test('paired mobile WebApp receives an encoded token without losing its route', 
   );
 });
 
-test('public .wa and other HTTPS URLs keep anonymous direct loading', () => {
-  assert.deepEqual(resolveWebAppAccessTarget('https://device-id-51416.wa.zenmind.cc/?view=public', DESKTOP_WS_URL), {
+test('public -wa and other HTTPS URLs keep anonymous direct loading', () => {
+  assert.deepEqual(resolveWebAppAccessTarget('https://abcdefghijk23-wa.zenmind.cc/?view=public', DESKTOP_WS_URL), {
     kind: 'direct',
-    uri: 'https://device-id-51416.wa.zenmind.cc/?view=public'
+    uri: 'https://abcdefghijk23-wa.zenmind.cc/?view=public'
   });
   assert.deepEqual(resolveWebAppAccessTarget('https://example.com/app', DESKTOP_WS_URL), {
     kind: 'direct',
@@ -44,5 +44,5 @@ test('mobile hosts must match the active device, domain and port format', () => 
 test('temporary launch token URLs can be excluded from resident navigation', () => {
   assert.equal(containsWebAppAccessToken('https://device-id-51416.m.zenmind.cc/path?token=secret'), true);
   assert.equal(containsWebAppAccessToken('https://device-id-51416.m.zenmind.cc/path?view=clean'), false);
-  assert.equal(containsWebAppAccessToken('https://device-id-51416.wa.zenmind.cc/path?token=public-value'), false);
+  assert.equal(containsWebAppAccessToken('https://abcdefghijk23-wa.zenmind.cc/path?token=public-value'), false);
 });

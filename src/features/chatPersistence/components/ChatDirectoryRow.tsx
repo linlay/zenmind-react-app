@@ -12,7 +12,6 @@ export const CHAT_DIRECTORY_ROW_HEIGHT = 84;
 
 const CHAT_ROW_PRESSABLE_CLASS = 'flex-1 active:opacity-[0.72]';
 const CHAT_ROW_CLASS = 'flex-1 flex-row items-center gap-app-md bg-app-surface pl-app-xl';
-const CHAT_ROW_PINNED_CLASS = 'bg-app-surface-muted';
 const CHAT_ROW_MENU_TARGET_CLASS = 'bg-app-background-muted';
 const CHAT_ROW_DISABLED_CLASS = 'opacity-[0.74]';
 const CHAT_ROW_BODY_CLASS =
@@ -52,7 +51,7 @@ export function createChatDirectoryDisplayItem(
     ...item,
     lastMessagePreview: item.lastMessageText || noConversationLabel,
     lastMessageTimeLabel: formatConversationTimestamp(item.lastMessageAt),
-    unreadLabel: item.unreadCount > 0 ? formatUnreadCount(item.unreadCount) : '',
+    unreadLabel: item.unreadCount > 0 ? formatUnreadCount(item.unreadCount) : ''
   };
 }
 
@@ -61,7 +60,7 @@ export const ChatDirectoryRow = memo(function ChatDirectoryRow({
   onPress,
   onLongPress,
   isMenuTarget = false,
-  disabled = false,
+  disabled = false
 }: {
   item: ChatDirectoryDisplayItem;
   onPress: (item: ChatDirectoryItem) => void;
@@ -95,7 +94,6 @@ export const ChatDirectoryRow = memo(function ChatDirectoryRow({
       <View
         className={cn(
           CHAT_ROW_CLASS,
-          item.pinnedAt > 0 ? CHAT_ROW_PINNED_CLASS : null,
           isMenuTarget ? CHAT_ROW_MENU_TARGET_CLASS : null,
           disabled ? CHAT_ROW_DISABLED_CLASS : null
         )}

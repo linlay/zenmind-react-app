@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Path, Svg } from 'react-native-svg';
+import { Path, Rect, Svg } from 'react-native-svg';
 
 import {
   APP_LINE_ICON_OUTLINE_NAMES,
@@ -54,6 +54,15 @@ const renderOutlineIcon = (name: AppLineIconOutlineName, color: string, strokeWi
         <Path d="M12 3.8 21 19.2H3L12 3.8Z" {...strokeProps} />
         <Path d="M12 9.2v4.2" {...strokeProps} />
         <Path d="M12 16.6h.01" {...strokeProps} />
+      </>
+    );
+  }
+
+  if (name === 'content_copy') {
+    return (
+      <>
+        <Rect x={9} y={9} width={13} height={13} rx={2} ry={2} {...strokeProps} />
+        <Path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" {...strokeProps} />
       </>
     );
   }

@@ -36,6 +36,7 @@ type WebAppsRuntimeProviderProps = {
   children: ReactNode;
   enabled: boolean;
   gateway?: WebAppsGateway;
+  sessionKey: string;
 };
 
 const WebAppsRuntimeContext = createContext<WebAppsRuntimeContextValue | null>(null);
@@ -44,7 +45,8 @@ const PROVIDER_ROOT_CLASS = 'flex-1';
 export function WebAppsRuntimeProvider({
   children,
   enabled,
-  gateway = webAppsGateway
+  gateway = webAppsGateway,
+  sessionKey
 }: WebAppsRuntimeProviderProps) {
   const [state, setState] = useState(INITIAL_WEB_APPS_RUNTIME_STATE);
   const stateRef = useRef(state);
@@ -54,6 +56,7 @@ export function WebAppsRuntimeProvider({
   const recoveryQueueRef = useRef<string[]>([]);
   const recoveringAppIdRef = useRef<string | null>(null);
   const recoveryAttemptsByIdRef = useRef(new Map<string, number>());
+  const sessionGenerationRef = useRef(0);
 
   const commit = useCallback((action: WebAppsRuntimeAction) => {
     if (!mountedRef.current) {
@@ -260,25 +263,44 @@ export function WebAppsRuntimeProvider({
   const selectApp = useCallback((appId: string) => commit({ type: 'app.selected', appId }), [commit]);
 
   useEffect(() => {
-    mountedRef.current = true;
+    const sessionGeneration = sessionGenerationRef.current + 1;
+    sessionGenerationRef.current = sessionGeneration;
+    mountedRef.current = enabled;
+    requestDetailCloseRef.current = null;
+    appStateRef.current = AppState.currentState;
+    recoveryQueueRef.current = [];
+    recoveringAppIdRef.current = null;
+    recoveryAttemptsByIdRef.current.clear();
+    stateRef.current = INITIAL_WEB_APPS_RUNTIME_STATE;
+    setState(INITIAL_WEB_APPS_RUNTIME_STATE);
+
     if (!enabled) {
-      stateRef.current = INITIAL_WEB_APPS_RUNTIME_STATE;
-      setState(INITIAL_WEB_APPS_RUNTIME_STATE);
       return () => {
-        mountedRef.current = false;
+        if (sessionGenerationRef.current === sessionGeneration) {
+          sessionGenerationRef.current += 1;
+          mountedRef.current = false;
+        }
       };
     }
     const recoveryAttempts = recoveryAttemptsByIdRef.current;
+    const handleSessionGatewayEvent = (event: WebAppsGatewayEvent) => {
+      if (sessionGenerationRef.current === sessionGeneration) {
+        handleGatewayEvent(event);
+      }
+    };
     commit({ type: 'sync.started' });
-    gateway.open(handleGatewayEvent);
+    gateway.open(handleSessionGatewayEvent);
     return () => {
-      mountedRef.current = false;
+      if (sessionGenerationRef.current === sessionGeneration) {
+        sessionGenerationRef.current += 1;
+        mountedRef.current = false;
+      }
       gateway.close();
       recoveryQueueRef.current = [];
       recoveringAppIdRef.current = null;
       recoveryAttempts.clear();
     };
-  }, [commit, enabled, gateway, handleGatewayEvent]);
+  }, [commit, enabled, gateway, handleGatewayEvent, sessionKey]);
 
   useEffect(() => {
     if (!enabled) {

@@ -2,53 +2,21 @@ import { MMKV } from 'react-native-mmkv';
 
 import { BRAND_ID, STORAGE_NAMESPACE } from '../../shared/generated/brand';
 import { getDefaultSourceConfig } from '../config/appEnvironment';
-import {
-  bootstrapAuth,
-  getAuthSnapshot,
-  subscribeAuthStore,
-  type SessionState
-} from './appAuth';
+import { bootstrapAuth, getAuthSnapshot, subscribeAuthStore } from './appAuth';
+import { reduceAppAccessSnapshot, type AppAccessSnapshot, type DefaultSourceIdentity } from './appAccessSnapshotModel';
+
+export type { AppAccessSnapshot, DefaultSourceIdentity } from './appAccessSnapshotModel';
 
 const accessStorage = new MMKV({ id: `${STORAGE_NAMESPACE}-${BRAND_ID}-app-access` });
 const ACCESS_CHOICE_KEY = 'access_choice_v1';
 const DEFAULT_IDENTITY_KEY = 'default_source_identity_v1';
 
-export type DefaultSourceIdentity = {
-  id: string;
-  sourceId: string;
-  createdAtMs: number;
-};
-
-export type AppAccessSnapshot =
-  | {
-      status: 'bootstrapping';
-      defaultIdentity: DefaultSourceIdentity | null;
-      pairedSession: SessionState | null;
-    }
-  | {
-      status: 'onboarding';
-      defaultIdentity: DefaultSourceIdentity;
-      pairedSession: null;
-    }
-  | {
-      status: 'ready';
-      pairingState: 'unpaired';
-      entryChoice: 'skipped';
-      defaultIdentity: DefaultSourceIdentity;
-      pairedSession: null;
-    }
-  | {
-      status: 'ready';
-      pairingState: 'paired';
-      entryChoice: 'paired';
-      defaultIdentity: DefaultSourceIdentity;
-      pairedSession: SessionState;
-    };
-
 type StoreListener = () => void;
 
 let isAccessBootstrapping = true;
 let defaultIdentity: DefaultSourceIdentity | null = null;
+let onboardingCompleted = accessStorage.getString(ACCESS_CHOICE_KEY) === 'completed';
+let currentSnapshot: AppAccessSnapshot | null = null;
 const listeners = new Set<StoreListener>();
 let bootstrapPromise: Promise<AppAccessSnapshot> | null = null;
 
@@ -108,42 +76,14 @@ function readOrCreateDefaultIdentity(): DefaultSourceIdentity {
   return identity;
 }
 
-function hasCompletedOnboarding(): boolean {
-  return accessStorage.getString(ACCESS_CHOICE_KEY) === 'completed';
-}
-
 export function getAppAccessSnapshot(): AppAccessSnapshot {
-  const authSnapshot = getAuthSnapshot();
-  if (isAccessBootstrapping || authSnapshot.isBootstrapping || !defaultIdentity) {
-    return {
-      status: 'bootstrapping',
-      defaultIdentity,
-      pairedSession: authSnapshot.session
-    };
-  }
-  if (authSnapshot.session) {
-    return {
-      status: 'ready',
-      pairingState: 'paired',
-      entryChoice: 'paired',
-      defaultIdentity,
-      pairedSession: authSnapshot.session
-    };
-  }
-  if (hasCompletedOnboarding()) {
-    return {
-      status: 'ready',
-      pairingState: 'unpaired',
-      entryChoice: 'skipped',
-      defaultIdentity,
-      pairedSession: null
-    };
-  }
-  return {
-    status: 'onboarding',
+  currentSnapshot = reduceAppAccessSnapshot(currentSnapshot, {
+    authSnapshot: getAuthSnapshot(),
     defaultIdentity,
-    pairedSession: null
-  };
+    isAccessBootstrapping,
+    onboardingCompleted
+  });
+  return currentSnapshot;
 }
 
 export function subscribeAppAccessStore(listener: StoreListener): () => void {
@@ -181,6 +121,7 @@ export async function bootstrapAppAccess(): Promise<AppAccessSnapshot> {
 
 export function completeAccessOnboarding() {
   accessStorage.set(ACCESS_CHOICE_KEY, 'completed');
+  onboardingCompleted = true;
   if (!defaultIdentity) {
     defaultIdentity = readOrCreateDefaultIdentity();
   }

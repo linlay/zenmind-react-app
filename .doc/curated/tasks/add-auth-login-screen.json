@@ -57,7 +57,9 @@
     "src/app/navigation/RootNavigator.tsx",
     "src/app/navigation/types.ts",
     "src/features/auth/LoginScreen.tsx",
+    "src/features/auth/FullScreenPairingScanner.tsx",
     "src/core/auth/appAuth.ts",
+    "src/core/auth/deviceNameModel.ts",
     "src/core/auth/appAccess.ts",
     "src/core/auth/deviceProfiles.ts",
     "src/core/auth/deviceProfileModel.ts",
@@ -66,8 +68,9 @@
     "src/core/auth/useAppAccess.ts"
   ],
   "acceptanceChecks": [
-    "首次启动无配对会话时稳定落到新版二维码/跳过登录页；跳过后选择按品牌持久化，后续冷启动直接进入业务 Tabs。",
-    "配对成功后根路由自动切到业务 Tabs，不依赖手写 navigation reset。",
+    "首次启动无配对会话时稳定落到默认配对码 Tab；扫码配对切换到全屏 CameraView，跳过登录固定在页面底部；跳过后选择按品牌持久化，后续冷启动直接进入业务 Tabs。",
+    "登录页不要求输入设备名称；无自定义名称时未配对使用本机默认身份 ID、配对后使用 session.hello 校验的 Desktop deviceId，自定义名称只从 Me 页修改。",
+    "输入配对码、扫码和最近 Profile 配对成功后都由 AppAccess paired 状态驱动 RootNavigator 自动移除 Login，返回原业务 Tab，不依赖 screen 手写 navigation goBack/reset。",
     "v2 Desktop WS pairing 成功后能创建 desktop-ws profile，冷启动时通过 session.hello 恢复，并在 token 临期时走 auth.refresh。",
     "legacy pairing JSON 与账号/密码登录不可达且会被新版协议校验拒绝。",
     "解除配对后只清理 Desktop 会话并回到 ready/unpaired；默认源对话和持久跳过选择继续保留。"
@@ -75,10 +78,14 @@
   "doNotMiss": [
     "登录页属于 feature，认证状态和设备令牌缓存属于 core，不要把 token 逻辑散到 screen 里。",
     "扫码配对入口只负责相机权限、扫码 UI 和提交反馈，zmpair:v2 QR payload 的解析、session.hello 校验和 token/profile 写入继续留在 core auth；legacy JSON 必须拒绝。",
+    "相机只在扫码 Tab 激活且权限已授予时挂载；切回配对码、退出页面或配对成功后必须卸载。",
+    "扫码连接中关闭图标始终可用；退出必须取消当前短连接，扫码失败留在扫码页轻提示并在短暂冷却后恢复扫描。",
+    "设备名称覆盖值的迁移、校验、持久化和活动会话刷新属于 core auth，Me 页不得直接读写 MMKV。",
     "Desktop WS profile 不写旧 auth_device_token_v1；它只保存 wsUrl、tokenMode、Desktop access token 和过期时间。",
     "profile 到 WebSocket transport config 的解析走 core/api/activeWsTransport，底层 socket 生命周期走 core-ws-transport。",
+    "配对短连接复用 core-ws-transport 的 WsClient 和脱敏 WS debug recorder，不在 LoginScreen 或 appAuth 内复制原始 WebSocket 帧处理。",
     "RootNavigator 必须覆盖 bootstrapping、onboarding、ready/unpaired 和 ready/paired；ready 状态都能进入 Tabs。",
-    "Login 在 onboarding 时是根入口，在 ready 时是可关闭的再次配对 route；Me 和 WebApps 未配对空态都走同一入口。",
+    "Login 在 onboarding 时是根入口，在 ready/unpaired 时是可关闭的再次配对 route；Me 和 WebApps 未配对空态都走同一入口，paired 后该 route 必须从 RootNavigator 声明中移除。",
     "如果 Desktop v2 pairing 字段或 wsUrl 解析变化，同步检查 session.hello、auth.refresh、解除配对和冷启动恢复链路。"
   ]
 }

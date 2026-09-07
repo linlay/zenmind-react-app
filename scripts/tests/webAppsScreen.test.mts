@@ -22,11 +22,12 @@ test('start and pause remain a single capability-gated control without action.ca
   assert.doesNotMatch(gateway, /action\.call/);
 });
 
-test('WebApps provider opens Gateway at authenticated-session mount and not on tab focus', () => {
+test('WebApps provider opens Gateway for the active authenticated session and not on tab focus', () => {
   const provider = read('src/features/webApps/WebAppsRuntimeProvider.tsx');
   const screen = read('src/features/webApps/WebAppsScreen.tsx');
 
-  assert.match(provider, /gateway\.open\(handleGatewayEvent\)/);
+  assert.match(provider, /gateway\.open\(handleSessionGatewayEvent\)/);
+  assert.match(provider, /sessionGenerationRef\.current === sessionGeneration/);
   assert.match(provider, /void refresh\(\)/);
   assert.doesNotMatch(screen, /useFocusEffect|activate\(\)/);
 });

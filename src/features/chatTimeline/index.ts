@@ -49,6 +49,9 @@ export type {
   ChatTimelinePlanStatus,
   ChatTimelinePlanStep,
   ChatTimelinePlanDisplayItem,
+  ChatTimelinePresentationItem,
+  ChatTimelineProcessSummaryDisplayItem,
+  ChatTimelineProcessTerminalStatus,
   ChatTimelineRuntimeEntry,
   ChatTimelineRuntimeEntryKind,
   ChatTimelineRuntimeState,
@@ -68,13 +71,13 @@ export type {
   ChatTimelineUsageEstimatedCost,
   ChatTimelineUsageStats,
   ChatTimelineUsageSummary,
-  ChatTimelineUsageTiming,
+  ChatTimelineUsageTiming
 } from './types.ts';
 export {
   isChatTimelineCommandMessageVariant,
   migratePersistedChatTimelineMessageNode,
   normalizeChatTimelineMessageVariant,
-  normalizeChatTimelineRequestMessageVariant,
+  normalizeChatTimelineRequestMessageVariant
 } from './timelineRequest.ts';
 export type { MergeChatTimelineStateOptions } from './timelineReducer.ts';
 export {
@@ -89,25 +92,26 @@ export {
   deriveChatTimelineStateFromMessages,
   getChatTimelineActiveRunId,
   mergeChatTimelineState,
-  patchChatTimelineMessage,
+  patchChatTimelineMessage
 } from './timelineReducer.ts';
 export {
   formatAwaitingDecisionLabel,
   getAwaitingInteractiveSignature,
-  getAwaitingInteractiveTimeout,
+  getAwaitingInteractiveTimeout
 } from './awaitingInteraction.ts';
 export {
   buildChatTimelineDisplayModel,
   buildChatTimelineDisplayItems,
-  getChatTimelineDisplayItemType,
+  getChatTimelineDisplayItemType
 } from './timelineDisplay.ts';
+export { buildChatTimelinePresentationItems, getChatTimelinePresentationItemType } from './timelinePresentation.ts';
 export { resolveChatTimelineUsageModelKey } from './usageSummary.ts';
 export {
   createChatTimelineContextCompactNodeId,
   getChatTimelineContextCompactContentLength,
   mergeChatTimelineContextCompactValues,
   normalizeChatTimelineContextCompactEvent,
-  type NormalizedChatTimelineContextCompact,
+  type NormalizedChatTimelineContextCompact
 } from './timelineContextCompact.ts';
 export {
   createChatTimelineActionNodeId,
@@ -119,17 +123,17 @@ export {
   resolveChatTimelineActionId,
   resolveConversationActionDefinition,
   type ConversationActionDefinition,
-  type NormalizedChatTimelineAction,
+  type NormalizedChatTimelineAction
 } from './timelineAction.ts';
 export {
   normalizeChatTimelineArtifactEvent,
   resolveChatTimelineArtifactPreviewKind,
-  type NormalizedChatTimelineArtifact,
+  type NormalizedChatTimelineArtifact
 } from './timelineArtifact.ts';
 export {
   createChatTimelinePlanNodeId,
   normalizeChatTimelinePlanEvent,
-  normalizeChatTimelinePlanStatus,
+  normalizeChatTimelinePlanStatus
 } from './timelinePlan.ts';
 export {
   buildChatTimelineTaskView,
@@ -138,27 +142,20 @@ export {
   resolveChatTimelineTaskId,
   type ChatTimelineTaskFallback,
   type NormalizedChatTimelineTask,
-  type ChatTimelineTaskViewItem,
+  type ChatTimelineTaskViewItem
 } from './timelineTask.ts';
 export {
   getActiveChatTimelineFrontendTool,
   normalizeFrontendToolParams,
   normalizeFrontendToolType,
   parseFrontendToolArgs,
-  resolveChatTimelineFrontendTool,
+  resolveChatTimelineFrontendTool
 } from './timelineFrontendTool.ts';
-export type {
-  ChatTimelineDisplayModel,
-  ChatTimelineDisplayTailSignature,
-} from './timelineDisplay.ts';
+export type { ChatTimelineDisplayModel, ChatTimelineDisplayTailSignature } from './timelineDisplay.ts';
 export { projectTimelineMessages, projectTimelineRuntimeState } from './messageProjection.ts';
-export type {
-  SerializedTimelineMeta,
-  SerializedTimelineNode,
-  SerializedTimelineState,
-} from './timelinePersistence.ts';
+export type { SerializedTimelineMeta, SerializedTimelineNode, SerializedTimelineState } from './timelinePersistence.ts';
 export {
   deserializeChatTimelineState,
   serializeChatTimelineState,
-  timelinePersistenceInternals,
+  timelinePersistenceInternals
 } from './timelinePersistence.ts';

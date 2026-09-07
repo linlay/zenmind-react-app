@@ -17,7 +17,7 @@
     "ownedConcepts": [
       "提供共享视觉 token、NativeWind/Tailwind 静态 class token、运行时 light/dark 主题 Provider、system 偏好解析、底部 Tab 指标与避让 hook、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
       "通过 AppIcon/AppIconButton 与 appIconUsages 把业务语义映射到底层 glyph，页面和 feature 组件不直接选择 AppLineIcon 底层图标名。",
-      "统一管理 light/dark 两套语义色、蓝色主强调、灰色辅助信息、文本层级、分隔线、圆角、头像色板、generated 品牌资产和内置 agent icon 名称映射。",
+      "统一管理 light/dark 两套语义色、蓝色主强调、灰色辅助信息、文本层级、分隔线、Tab 半透明表面与专用顶边界、圆角、头像色板、generated 品牌资产和内置 agent icon 名称映射。",
       "以 src/shared/visual/foundation.tokens.json 作为视觉 token 单源，foundation.ts 派生运行时 token，tailwind.config.js 派生 NativeWind/Tailwind 语义颜色变量、spacing、radius 和 font size alias，避免手抄两份主题值。",
       "提供 NativeWind/Tailwind utility 样式的项目级入口，允许后续逐屏迁移样式代码，但语义色、圆角、间距和底部避让仍以 shared visual token 与主题 Provider 为准。",
       "提供构建期生成的品牌 registry、logo map 与 installed brand resolver；页面只读静态 productName / version / storage namespace / logo，不在运行时解析品牌 manifest 或扫描文件系统。",
@@ -25,7 +25,7 @@
       "主题偏好只保存 system/light/dark 选择，system 在 Provider 内解析到 light/dark 生效主题；使用 MMKV 同步读取首帧偏好，不承载业务状态、聊天数据或 repository 写入。",
       "Public entry tailwind.config.js (tailwind-config): NativeWind preset、darkMode class、Tailwind content 扫描入口与从 foundation.tokens.json 派生的 app 语义颜色变量、spacing、radius、font size alias；后续扩展 token 时应先更新共享 token 源。",
       "Public entry global.css (nativewind-input): NativeWind 输入 CSS，只包含 Tailwind 基础层声明，不承载单页私有主题规则。",
-      "Public entry foundation.tokens.json (visual-token-source): light/dark 语义色、spacing、radius、font size、icon size 和头像色板的共享 JSON token 源，供运行时视觉 token 与 Tailwind 配置共同消费。",
+      "Public entry foundation.tokens.json (visual-token-source): light/dark 语义色、Tab 半透明表面与专用顶边界、spacing、radius、font size、icon size 和头像色板的共享 JSON token 源，供运行时视觉 token 与 Tailwind 配置共同消费。",
       "Public entry APP_BRAND (generated-brand-constant): 由 scripts/sync-brand.js 生成的全量品牌 registry；通过 installedBrand resolver 从安装壳 embedded app.config.extra.brand.id 得到 INSTALLED_BRAND_ID，再 O(1) 选择 APP_BRAND。",
       "Public entry BRAND_LOGO (generated-brand-asset): 由 scripts/sync-brand.js 生成的全量品牌静态 logo map，并按 INSTALLED_BRAND_ID 指向 assets/brands/<id>/logo.png。",
       "Public entry resolveInstalledBrandId (runtime-brand-resolver): 同步读取 Expo native constants 的 embedded app.config.extra.brand.id，校验后返回 registry 内的 installed brand id；失败时回退默认品牌，不读取远端 OTA manifest。",
@@ -116,6 +116,7 @@
     "高频列表、timeline row 和抽屉组件的静态样式优先使用稳定 className 常量；若确有运行时 theme shadowColor、动画值、测量值或公开 style API，才保留最小 style 对象，不在 item render 内临时构造整套样式对象。",
     "一级页面和 feature 内二级滚动页只能通过 useAppTabBarHeight 获取底部避让，不直接调用 useBottomTabBarHeight；Native Bottom Tabs 不提供 JS BottomTabBarHeightContext。",
     "图标和 token 的变更要同步检查 Tab、Header、聊天首页和详情页的一致性。",
+    "底部 Tab 的模糊只允许存在于导航级单一合成层：iOS 使用系统 material、Web 使用单层 backdrop blur、Android 使用稳定实色降级；禁止把 blur 或 filter 下沉到 FlashList 行。",
     "如果主题规则变更，同步更新 .doc/reference/ui-visual-theme.md，避免代码与文档脱节。",
     "底部导航避让和长列表层级策略属于主题约束的一部分，不要回退到页面内硬编码 padding、重卡片或逐项阴影；共享 tab metrics 是跨平台底部高度的唯一公式入口。"
   ],

@@ -49,6 +49,7 @@
         "src/app/screens",
         "src/app/settings",
         "src/app/startup",
+        "src/shared/components/AppKeyboardAwareScrollView.tsx",
         "src/types/assets.d.ts",
         "tailwind.config.js"
       ],
@@ -111,7 +112,7 @@
     {
       "id": "feature-auth-login",
       "title": "feature-auth-login",
-      "summary": "登录页与认证门卫界面: 承载设备登录表单、Desktop 二维码扫码配对、粘贴配对内容备用入口、最近 profile 快捷入口、启动恢复中的认证占位屏和最小会话交互。",
+      "summary": "登录页与认证门卫界面: 承载 Desktop 配对码输入、全屏二维码扫码、最近 profile 快捷入口、跳过登录、启动恢复占位屏和最小会话交互。",
       "pathHints": [
         "src/features/auth"
       ],

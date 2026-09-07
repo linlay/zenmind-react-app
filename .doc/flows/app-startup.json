@@ -56,7 +56,7 @@
     },
     {
       "order": 7,
-      "label": "RootNavigator 根据 AppAccess 切到 AuthBootstrapScreen、首次 Login 或 Tabs；ready/unpaired 与 ready/paired 都挂载 Chat、WebApps 与 Me。WebAppsRuntimeProvider 只有 paired 时才订阅 Desktop webapp.changed 并挂常驻 WebView Host；Login 保留为 Tabs 之上的再次配对 route。",
+      "label": "RootNavigator 根据 AppAccess 切到 AuthBootstrapScreen、首次 Login 或 Tabs；ready/unpaired 与 ready/paired 都挂载 Chat、WebApps 与 Me。ready/unpaired 可在 Tabs 之上打开 Login，输入配对码、扫码或最近 Profile 成功使 AppAccess 进入 paired 后，RootNavigator 自动移除 Login 并保留原 Tab 状态。WebAppsRuntimeProvider 只有 paired 时才订阅 Desktop webapp.changed，并按 sessionKey 重置自身目录和常驻 WebView Host，而不重挂 RootStack。",
       "moduleId": "app-shell-navigation",
       "file": "src/app/navigation/RootNavigator.tsx",
       "symbol": "RootNavigator"

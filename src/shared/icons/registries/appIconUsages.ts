@@ -37,6 +37,8 @@ export const appIconUsages = {
   'preview.driveFiles': { glyph: 'drive', colorRole: 'brand', sizeRole: 'md' },
   'preview.driveReference': { glyph: 'chat', colorRole: 'brand', sizeRole: 'md' },
 
+  'authScanner.close': { glyph: 'close', colorRole: 'primary', sizeRole: 'lg' },
+
   'chatHome.openDirectory': { glyph: 'menu', colorRole: 'brand', sizeRole: 'lg' },
   'chatHome.search': { glyph: 'search', colorRole: 'brand', sizeRole: 'lg' },
   'chatHome.add': { glyph: 'edit_square', colorRole: 'brand', sizeRole: 'md' },
@@ -70,11 +72,11 @@ export const appIconUsages = {
     sizeRole: 'sm'
   },
 
-  'settings.cache': { glyph: 'history', colorRole: 'brand', sizeRole: 'md' },
-  'settings.developer': { glyph: 'tool', colorRole: 'brand', sizeRole: 'md' },
-  'settings.openPanel': { glyph: 'spark', colorRole: 'brand', sizeRole: 'md' },
-  'settings.language': { glyph: 'chat', colorRole: 'brand', sizeRole: 'md' },
-  'settings.theme': { glyph: 'moon', colorRole: 'brand', sizeRole: 'md' },
+  'settings.cache': { glyph: 'history', colorRole: 'secondary', sizeRole: 'md' },
+  'settings.developer': { glyph: 'tool', colorRole: 'secondary', sizeRole: 'md' },
+  'settings.openPanel': { glyph: 'spark', colorRole: 'secondary', sizeRole: 'md' },
+  'settings.language': { glyph: 'chat', colorRole: 'secondary', sizeRole: 'md' },
+  'settings.theme': { glyph: 'moon', colorRole: 'secondary', sizeRole: 'md' },
   'settings.selected': { glyph: 'check', colorRole: 'brand', sizeRole: 'md' },
 
   'composer.attach': { glyph: 'add', colorRole: 'secondary', sizeRole: 'md' },
@@ -119,7 +121,12 @@ export const appIconUsages = {
   },
   'timeline.systemAlertRail': { glyph: 'warning', colorRole: 'warning', sizeRole: 'rail' },
   'timeline.contextCompactRail': { glyph: 'history', colorRole: 'secondary', sizeRole: 'rail' },
-  'timeline.copy': { glyph: 'content_copy', colorRole: 'secondary', sizeRole: 'toolbar' },
+  'timeline.copy': {
+    glyph: 'content_copy',
+    colorRole: 'secondary',
+    sizeRole: 'toolbar',
+    strokeWidth: 1.8
+  },
   'timeline.reask': { glyph: 'refresh', colorRole: 'secondary', sizeRole: 'toolbar' },
   'timeline.reaskNewConversation': { glyph: 'open_in_new', colorRole: 'primary', sizeRole: 'toolbar' },
   'timeline.scrollToEnd': {
@@ -128,7 +135,12 @@ export const appIconUsages = {
     sizeRole: 'md'
   },
 
-  'markdownPreview.copy': { glyph: 'content_copy', colorRole: 'secondary', sizeRole: 'toolbar' },
+  'markdownPreview.copy': {
+    glyph: 'content_copy',
+    colorRole: 'secondary',
+    sizeRole: 'toolbar',
+    strokeWidth: 1.8
+  },
   'markdownPreview.expand': { glyph: 'keyboard_arrow_down', colorRole: 'secondary', sizeRole: 'toolbar' },
   'markdownPreview.collapse': { glyph: 'keyboard_arrow_up', colorRole: 'secondary', sizeRole: 'toolbar' },
   'markdownPreview.open': { glyph: 'open_in_new', colorRole: 'brand', sizeRole: 'toolbar' },
@@ -154,7 +166,12 @@ export const appIconUsages = {
   },
   'runtime.wrapEnabled': { glyph: 'format_text_wrap', colorRole: 'secondary', sizeRole: 'toolbar' },
   'runtime.wrapDisabled': { glyph: 'format_text_overflow', colorRole: 'secondary', sizeRole: 'toolbar' },
-  'runtime.copy': { glyph: 'content_copy', colorRole: 'secondary', sizeRole: 'toolbar' },
+  'runtime.copy': {
+    glyph: 'content_copy',
+    colorRole: 'secondary',
+    sizeRole: 'toolbar',
+    strokeWidth: 1.8
+  },
   'runtime.planExpand': { glyph: 'keyboard_arrow_down', colorRole: 'secondary', sizeRole: 'toolbar' },
   'runtime.planCollapse': { glyph: 'keyboard_arrow_up', colorRole: 'secondary', sizeRole: 'toolbar' },
 

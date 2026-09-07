@@ -16,6 +16,8 @@ const APP_COLOR_ALIASES = {
   surface: 'surface',
   'surface-muted': 'surfaceMuted',
   'surface-raised': 'surfaceRaised',
+  'tab-bar-surface': 'tabBarSurface',
+  'tab-bar-border': 'tabBarBorder',
   background: 'background',
   'background-muted': 'backgroundMuted',
   badge: 'badge',
@@ -84,12 +86,12 @@ function toColorVariables(colors) {
 
 function toSemanticColors() {
   return Object.fromEntries(
-    Object.keys(APP_COLOR_ALIASES).map((alias) => {
+    Object.entries(APP_COLOR_ALIASES).map(([alias, tokenKey]) => {
       const variable = colorVariableName(alias);
-      const colorValue =
-        alias === 'overlay'
-          ? `rgb(var(${variable}) / var(${variable}-alpha))`
-          : `rgb(var(${variable}) / <alpha-value>)`;
+      const tokenColor = parseColor(foundationTokens.colors.light[tokenKey]);
+      const colorValue = tokenColor.alpha
+        ? `rgb(var(${variable}) / var(${variable}-alpha))`
+        : `rgb(var(${variable}) / <alpha-value>)`;
       return [alias, colorValue];
     })
   );

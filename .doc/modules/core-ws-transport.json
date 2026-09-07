@@ -52,6 +52,7 @@
     ],
     "dependents": [
       "core-api-client",
+      "core-auth-session",
       "feature-chat-realtime",
       "feature-web-apps"
     ],

@@ -27,6 +27,7 @@
   ],
   "testFiles": [
     "scripts/tests/agentWaitingDemo.test.mts",
+    "scripts/tests/appAccessSnapshotModel.test.mts",
     "scripts/tests/appEnvConfig.test.mts",
     "scripts/tests/appIconRegistry.test.mts",
     "scripts/tests/authenticatedResourceModel.test.mts",
@@ -74,6 +75,7 @@
     "scripts/tests/chatTimelineFooterLayout.test.mts",
     "scripts/tests/chatTimelinePersistence.test.mts",
     "scripts/tests/chatTimelinePlan.test.mts",
+    "scripts/tests/chatTimelinePresentation.test.mts",
     "scripts/tests/chatTimelineReducer.test.mts",
     "scripts/tests/chatTimelineRequestVariant.test.mts",
     "scripts/tests/chatTimelineRunUnavailable.test.mts",
@@ -82,8 +84,10 @@
     "scripts/tests/chatWonderDisplay.test.mts",
     "scripts/tests/chatWsTransportPayload.test.mts",
     "scripts/tests/conversationMarkdownLinks.test.mts",
+    "scripts/tests/desktopWsAuthClient.test.mts",
     "scripts/tests/desktopWsProtocol.test.mts",
     "scripts/tests/desktopWsTransport.test.mts",
+    "scripts/tests/deviceNameModel.test.mts",
     "scripts/tests/httpDebugLogger.test.mts",
     "scripts/tests/i18n.test.mts",
     "scripts/tests/importBoundary.test.mts",
@@ -91,6 +95,8 @@
     "scripts/tests/kanbanAssignRunHelpers.test.mts",
     "scripts/tests/kanbanInvalidation.test.mts",
     "scripts/tests/kanbanViewModel.test.mts",
+    "scripts/tests/keyboardAwareScrollView.test.mts",
+    "scripts/tests/loginExperience.test.mts",
     "scripts/tests/markdownPipeline.test.mts",
     "scripts/tests/markdownPreview.test.mts",
     "scripts/tests/runtimePayloadDescriptor.test.mts",
@@ -101,6 +107,7 @@
     "scripts/tests/submitIosIpaScript.test.mts",
     "scripts/tests/tabIconAssets.test.mts",
     "scripts/tests/uploadApiModel.test.mts",
+    "scripts/tests/userInterfaceSample.test.mts",
     "scripts/tests/visualFoundation.test.mts",
     "scripts/tests/webAppsDesktopProtocol.test.mts",
     "scripts/tests/webAppsGateway.test.mts",
@@ -797,7 +804,6 @@
     ".generated/react-native-worklets/.worklets/15960764466239.js",
     ".generated/react-native-worklets/.worklets/15970330743450.js",
     ".generated/react-native-worklets/.worklets/15974127613449.js",
-    ".generated/react-native-worklets/.worklets/15988198590355.js",
     ".generated/react-native-worklets/.worklets/15989846308618.js",
     ".generated/react-native-worklets/.worklets/15992296871009.js",
     ".generated/react-native-worklets/.worklets/15993059429066.js",
@@ -1218,7 +1224,6 @@
     ".generated/react-native-worklets/.worklets/3469078863114.js",
     ".generated/react-native-worklets/.worklets/3477051264454.js",
     ".generated/react-native-worklets/.worklets/3482140414026.js",
-    ".generated/react-native-worklets/.worklets/3487345304467.js",
     ".generated/react-native-worklets/.worklets/3489784428729.js",
     ".generated/react-native-worklets/.worklets/3495257198992.js",
     ".generated/react-native-worklets/.worklets/3497622560690.js",
@@ -1437,7 +1442,6 @@
     ".generated/react-native-worklets/.worklets/5232276321166.js",
     ".generated/react-native-worklets/.worklets/5232397720804.js",
     ".generated/react-native-worklets/.worklets/5235679431215.js",
-    ".generated/react-native-worklets/.worklets/5238646848757.js",
     ".generated/react-native-worklets/.worklets/5241984095219.js",
     ".generated/react-native-worklets/.worklets/5244475777443.js",
     ".generated/react-native-worklets/.worklets/5251757035714.js",
@@ -2061,6 +2065,7 @@
     "scripts/markdown-preview/pregenerate.js",
     "scripts/submit-ios-ipa.js",
     "scripts/sync-brand.js",
+    "scripts/worklets/bundle-mode-config.js",
     "scripts/worklets/generated-import-paths.js",
     "scripts/worklets/pregenerate.js",
     "src/app/AppRoot.tsx",
@@ -2075,6 +2080,7 @@
     "src/app/screens/AppScreenFrame.tsx",
     "src/app/screens/DriveScreen.tsx",
     "src/app/screens/MeScreen.tsx",
+    "src/app/screens/MeScreenParts.tsx",
     "src/app/screens/SettingsScreen.tsx",
     "src/app/screens/TabScreens.tsx",
     "src/app/settings/settingsActions.ts",
@@ -2106,11 +2112,14 @@
     "src/core/api/services/uploadApiModel.ts",
     "src/core/api/services/workspaceResource.ts",
     "src/core/auth/appAccess.ts",
+    "src/core/auth/appAccessSnapshotModel.ts",
     "src/core/auth/appAuth.ts",
     "src/core/auth/authConfig.ts",
     "src/core/auth/authRequestModel.ts",
+    "src/core/auth/desktopWsAuthClient.ts",
     "src/core/auth/desktopWsProtocol.ts",
     "src/core/auth/desktopWsTransport.ts",
+    "src/core/auth/deviceNameModel.ts",
     "src/core/auth/deviceProfileModel.ts",
     "src/core/auth/deviceProfiles.ts",
     "src/core/auth/useAppAccess.ts",
@@ -2133,6 +2142,7 @@
     "src/features/agentTaskBoard/kanbanViewModel.ts",
     "src/features/agentTaskBoard/navigationTypes.ts",
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts",
+    "src/features/auth/FullScreenPairingScanner.tsx",
     "src/features/auth/LoginScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx",
@@ -2190,6 +2200,7 @@
     "src/features/chatPersistence/components/CopyToast.tsx",
     "src/features/chatPersistence/components/ExecutionTimelineRow.tsx",
     "src/features/chatPersistence/components/PlanTimelineRow.tsx",
+    "src/features/chatPersistence/components/ProcessSummaryTimelineRow.tsx",
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
     "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
     "src/features/chatPersistence/components/RuntimeStructuredPayloadBlock.tsx",
@@ -2259,6 +2270,7 @@
     "src/features/chatTimeline/timelinePersistence.ts",
     "src/features/chatTimeline/timelinePlan.ts",
     "src/features/chatTimeline/timelinePlatformError.ts",
+    "src/features/chatTimeline/timelinePresentation.ts",
     "src/features/chatTimeline/timelineReasoningIdentity.ts",
     "src/features/chatTimeline/timelineReducer.ts",
     "src/features/chatTimeline/timelineRequest.ts",
@@ -2280,6 +2292,7 @@
     "src/features/webApps/webAppsMobileAccess.ts",
     "src/features/webApps/webAppsRuntimeModel.ts",
     "src/shared/branding/installedBrand.ts",
+    "src/shared/components/AppKeyboardAwareScrollView.tsx",
     "src/shared/components/ConversationMarkdownRenderer.tsx",
     "src/shared/components/PaginatedCardList.tsx",
     "src/shared/components/ScreenHeader.tsx",
@@ -5055,10 +5068,6 @@
                     "type": "file"
                   },
                   {
-                    "name": "15988198590355.js",
-                    "type": "file"
-                  },
-                  {
                     "name": "15989846308618.js",
                     "type": "file"
                   },
@@ -6739,10 +6748,6 @@
                     "type": "file"
                   },
                   {
-                    "name": "3487345304467.js",
-                    "type": "file"
-                  },
-                  {
                     "name": "3489784428729.js",
                     "type": "file"
                   },
@@ -7612,10 +7617,6 @@
                   },
                   {
                     "name": "5235679431215.js",
-                    "type": "file"
-                  },
-                  {
-                    "name": "5238646848757.js",
                     "type": "file"
                   },
                   {
@@ -10185,6 +10186,10 @@
             "type": "directory",
             "children": [
               {
+                "name": "bundle-mode-config.js",
+                "type": "file"
+              },
+              {
                 "name": "generated-import-paths.js",
                 "type": "file"
               },
@@ -10278,6 +10283,10 @@
                   },
                   {
                     "name": "MeScreen.tsx",
+                    "type": "file"
+                  },
+                  {
+                    "name": "MeScreenParts.tsx",
                     "type": "file"
                   },
                   {
@@ -10445,6 +10454,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "appAccessSnapshotModel.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "appAuth.ts",
                     "type": "file"
                   },
@@ -10457,11 +10470,19 @@
                     "type": "file"
                   },
                   {
+                    "name": "desktopWsAuthClient.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "desktopWsProtocol.ts",
                     "type": "file"
                   },
                   {
                     "name": "desktopWsTransport.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "deviceNameModel.ts",
                     "type": "file"
                   },
                   {
@@ -10588,6 +10609,10 @@
                 "name": "auth",
                 "type": "directory",
                 "children": [
+                  {
+                    "name": "FullScreenPairingScanner.tsx",
+                    "type": "file"
+                  },
                   {
                     "name": "LoginScreen.tsx",
                     "type": "file"
@@ -10780,6 +10805,10 @@
                       },
                       {
                         "name": "PlanTimelineRow.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ProcessSummaryTimelineRow.tsx",
                         "type": "file"
                       },
                       {
@@ -11147,6 +11176,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "timelinePresentation.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "timelineReasoningIdentity.ts",
                     "type": "file"
                   },
@@ -11327,6 +11360,10 @@
                         "type": "file"
                       }
                     ]
+                  },
+                  {
+                    "name": "AppKeyboardAwareScrollView.tsx",
+                    "type": "file"
                   },
                   {
                     "name": "ConversationMarkdownRenderer.tsx",
@@ -11594,6 +11631,7 @@
       "scripts/markdown-preview/pregenerate.js",
       "scripts/submit-ios-ipa.js",
       "scripts/sync-brand.js",
+      "scripts/worklets/bundle-mode-config.js",
       "scripts/worklets/generated-import-paths.js",
       "scripts/worklets/pregenerate.js",
       "src/app/AppRoot.tsx",
@@ -11606,11 +11644,13 @@
       "src/app/screens/AppScreenFrame.tsx",
       "src/app/screens/DriveScreen.tsx",
       "src/app/screens/MeScreen.tsx",
+      "src/app/screens/MeScreenParts.tsx",
       "src/app/screens/SettingsScreen.tsx",
       "src/app/screens/TabScreens.tsx",
       "src/app/settings/settingsActions.ts",
       "src/app/startup/AppLaunchSkeleton.tsx",
       "src/app/startup/GeminiLogo.tsx",
+      "src/shared/components/AppKeyboardAwareScrollView.tsx",
       "src/types/assets.d.ts"
     ],
     "core-api-client": [
@@ -11642,11 +11682,14 @@
     ],
     "core-auth-session": [
       "src/core/auth/appAccess.ts",
+      "src/core/auth/appAccessSnapshotModel.ts",
       "src/core/auth/appAuth.ts",
       "src/core/auth/authConfig.ts",
       "src/core/auth/authRequestModel.ts",
+      "src/core/auth/desktopWsAuthClient.ts",
       "src/core/auth/desktopWsProtocol.ts",
       "src/core/auth/desktopWsTransport.ts",
+      "src/core/auth/deviceNameModel.ts",
       "src/core/auth/deviceProfileModel.ts",
       "src/core/auth/deviceProfiles.ts",
       "src/core/auth/useAppAccess.ts",
@@ -11679,6 +11722,7 @@
       "src/features/agentTaskBoard/useDesktopKanbanBoard.ts"
     ],
     "feature-auth-login": [
+      "src/features/auth/FullScreenPairingScanner.tsx",
       "src/features/auth/LoginScreen.tsx"
     ],
     "feature-chat-persistence": [
@@ -11738,6 +11782,7 @@
       "src/features/chatPersistence/components/CopyToast.tsx",
       "src/features/chatPersistence/components/ExecutionTimelineRow.tsx",
       "src/features/chatPersistence/components/PlanTimelineRow.tsx",
+      "src/features/chatPersistence/components/ProcessSummaryTimelineRow.tsx",
       "src/features/chatPersistence/components/RuntimePayloadFrame.tsx",
       "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
       "src/features/chatPersistence/components/RuntimeStructuredPayloadBlock.tsx",
@@ -11811,6 +11856,7 @@
       "src/features/chatTimeline/timelinePersistence.ts",
       "src/features/chatTimeline/timelinePlan.ts",
       "src/features/chatTimeline/timelinePlatformError.ts",
+      "src/features/chatTimeline/timelinePresentation.ts",
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
       "src/features/chatTimeline/timelineReducer.ts",
       "src/features/chatTimeline/timelineRequest.ts",
@@ -11916,6 +11962,7 @@
     "scripts/markdown-preview/pregenerate.js": "app-shell-navigation",
     "scripts/submit-ios-ipa.js": "app-shell-navigation",
     "scripts/sync-brand.js": "app-shell-navigation",
+    "scripts/worklets/bundle-mode-config.js": "app-shell-navigation",
     "scripts/worklets/generated-import-paths.js": "app-shell-navigation",
     "scripts/worklets/pregenerate.js": "app-shell-navigation",
     "src/app/AppRoot.tsx": "app-shell-navigation",
@@ -11930,6 +11977,7 @@
     "src/app/screens/AppScreenFrame.tsx": "app-shell-navigation",
     "src/app/screens/DriveScreen.tsx": "app-shell-navigation",
     "src/app/screens/MeScreen.tsx": "app-shell-navigation",
+    "src/app/screens/MeScreenParts.tsx": "app-shell-navigation",
     "src/app/screens/SettingsScreen.tsx": "app-shell-navigation",
     "src/app/screens/TabScreens.tsx": "app-shell-navigation",
     "src/app/settings/settingsActions.ts": "app-shell-navigation",
@@ -11961,11 +12009,14 @@
     "src/core/api/services/uploadApiModel.ts": "core-api-client",
     "src/core/api/services/workspaceResource.ts": "core-api-client",
     "src/core/auth/appAccess.ts": "core-auth-session",
+    "src/core/auth/appAccessSnapshotModel.ts": "core-auth-session",
     "src/core/auth/appAuth.ts": "core-auth-session",
     "src/core/auth/authConfig.ts": "core-auth-session",
     "src/core/auth/authRequestModel.ts": "core-auth-session",
+    "src/core/auth/desktopWsAuthClient.ts": "core-auth-session",
     "src/core/auth/desktopWsProtocol.ts": "core-auth-session",
     "src/core/auth/desktopWsTransport.ts": "core-auth-session",
+    "src/core/auth/deviceNameModel.ts": "core-auth-session",
     "src/core/auth/deviceProfileModel.ts": "core-auth-session",
     "src/core/auth/deviceProfiles.ts": "core-auth-session",
     "src/core/auth/useAppAccess.ts": "core-auth-session",
@@ -11988,6 +12039,7 @@
     "src/features/agentTaskBoard/kanbanViewModel.ts": "feature-agent-task-board",
     "src/features/agentTaskBoard/navigationTypes.ts": "feature-agent-task-board",
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts": "feature-agent-task-board",
+    "src/features/auth/FullScreenPairingScanner.tsx": "feature-auth-login",
     "src/features/auth/LoginScreen.tsx": "feature-auth-login",
     "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx": "feature-chat-persistence",
@@ -12045,6 +12097,7 @@
     "src/features/chatPersistence/components/CopyToast.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ExecutionTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/PlanTimelineRow.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ProcessSummaryTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimePlanningBlock.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/RuntimeStructuredPayloadBlock.tsx": "feature-chat-persistence",
@@ -12114,6 +12167,7 @@
     "src/features/chatTimeline/timelinePersistence.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelinePlan.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelinePlatformError.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelinePresentation.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineReasoningIdentity.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineReducer.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineRequest.ts": "feature-chat-timeline",
@@ -12135,6 +12189,7 @@
     "src/features/webApps/webAppsMobileAccess.ts": "feature-web-apps",
     "src/features/webApps/webAppsRuntimeModel.ts": "feature-web-apps",
     "src/shared/branding/installedBrand.ts": "shared-visual-foundation",
+    "src/shared/components/AppKeyboardAwareScrollView.tsx": "app-shell-navigation",
     "src/shared/components/ConversationMarkdownRenderer.tsx": "shared-conversation-content-renderer",
     "src/shared/components/PaginatedCardList.tsx": "shared-paginated-list",
     "src/shared/components/ScreenHeader.tsx": "shared-screen-header",
@@ -12241,7 +12296,9 @@
     },
     "core-auth-session": {
       "dependsOn": [
+        "core-debug-logging",
         "core-runtime-config",
+        "core-ws-transport",
         "shared-visual-foundation"
       ],
       "dependedBy": [
@@ -12260,6 +12317,7 @@
       "dependedBy": [
         "app-development-debug",
         "core-api-client",
+        "core-auth-session",
         "core-ws-transport",
         "feature-chat-persistence"
       ]
@@ -12284,6 +12342,7 @@
       ],
       "dependedBy": [
         "core-api-client",
+        "core-auth-session",
         "feature-chat-realtime",
         "feature-web-apps"
       ]
@@ -14469,9 +14528,6 @@
     ".generated/react-native-worklets/.worklets/15974127613449.js": [
       "default"
     ],
-    ".generated/react-native-worklets/.worklets/15988198590355.js": [
-      "default"
-    ],
     ".generated/react-native-worklets/.worklets/15989846308618.js": [
       "default"
     ],
@@ -15732,9 +15788,6 @@
     ".generated/react-native-worklets/.worklets/3482140414026.js": [
       "default"
     ],
-    ".generated/react-native-worklets/.worklets/3487345304467.js": [
-      "default"
-    ],
     ".generated/react-native-worklets/.worklets/3489784428729.js": [
       "default"
     ],
@@ -16387,9 +16440,6 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/5235679431215.js": [
-      "default"
-    ],
-    ".generated/react-native-worklets/.worklets/5238646848757.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/5241984095219.js": [
@@ -18249,6 +18299,7 @@
     "scripts/markdown-preview/pregenerate.js": null,
     "scripts/submit-ios-ipa.js": null,
     "scripts/sync-brand.js": null,
+    "scripts/worklets/bundle-mode-config.js": null,
     "scripts/worklets/generated-import-paths.js": null,
     "scripts/worklets/pregenerate.js": null,
     "src/app/AppRoot.tsx": [
@@ -18293,6 +18344,15 @@
     ],
     "src/app/screens/MeScreen.tsx": [
       "MeScreen"
+    ],
+    "src/app/screens/MeScreenParts.tsx": [
+      "MeAccountHeader",
+      "MeDeviceNameEditor",
+      "MeLogoutButton",
+      "MeRowAccessory",
+      "MeScreenRow",
+      "MeScreenRowModel",
+      "MeScreenSection"
     ],
     "src/app/screens/SettingsScreen.tsx": [
       "SettingsScreen"
@@ -18577,8 +18637,6 @@
       "buildWorkspaceFileResourceUrl"
     ],
     "src/core/auth/appAccess.ts": [
-      "AppAccessSnapshot",
-      "DefaultSourceIdentity",
       "bootstrapAppAccess",
       "completeAccessOnboarding",
       "continueWithoutPairing",
@@ -18586,9 +18644,16 @@
       "getDefaultSourceIdentity",
       "subscribeAppAccessStore"
     ],
+    "src/core/auth/appAccessSnapshotModel.ts": [
+      "AppAccessSnapshot",
+      "AppAccessSnapshotInput",
+      "DefaultSourceIdentity",
+      "reduceAppAccessSnapshot"
+    ],
     "src/core/auth/appAuth.ts": [
       "AuthStoreSnapshot",
       "EnsureFreshAccessTokenOptions",
+      "LoginWithPairingPayloadOptions",
       "RefreshFailureMode",
       "SessionState",
       "activateProfile",
@@ -18599,12 +18664,12 @@
       "getAccessTokenForRequest",
       "getAuthSnapshot",
       "getCurrentSession",
-      "getDefaultDeviceName",
       "loginWithPairingPayload",
       "logoutCurrentDevice",
       "readPreferredDeviceName",
       "restoreSession",
-      "subscribeAuthStore"
+      "subscribeAuthStore",
+      "updatePreferredDeviceName"
     ],
     "src/core/auth/authConfig.ts": [
       "isAuthRequired",
@@ -18619,6 +18684,14 @@
       "PairingClaimRequest",
       "buildMasterPasswordLoginRequest",
       "buildPairingClaimRequest"
+    ],
+    "src/core/auth/desktopWsAuthClient.ts": [
+      "DesktopWsAuthClient",
+      "DesktopWsAuthErrorCode",
+      "DesktopWsTransportError",
+      "getDesktopWsAuthErrorCode",
+      "isAbortError",
+      "isDesktopWsTransportError"
     ],
     "src/core/auth/desktopWsProtocol.ts": [
       "DesktopBusinessFrame",
@@ -18640,6 +18713,14 @@
       "deriveDesktopApiBaseUrlFromWsUrl",
       "normalizeDesktopWsStorageUrl",
       "normalizeDesktopWsTokenMode"
+    ],
+    "src/core/auth/deviceNameModel.ts": [
+      "MAX_DEVICE_NAME_LENGTH",
+      "applyDeviceNameToSession",
+      "normalizeDeviceName",
+      "resolveMigratedDeviceNameOverride",
+      "resolvePreferredDeviceName",
+      "validateDeviceNameOverride"
     ],
     "src/core/auth/deviceProfileModel.ts": [
       "DesktopWsProfileTransport",
@@ -18773,6 +18854,9 @@
       "createEmptyTaskDraft",
       "useDesktopKanbanBoard"
     ],
+    "src/features/auth/FullScreenPairingScanner.tsx": [
+      "FullScreenPairingScanner"
+    ],
     "src/features/auth/LoginScreen.tsx": [
       "AuthBootstrapScreen",
       "LoginScreen"
@@ -18861,6 +18945,7 @@
     ],
     "src/features/chatPersistence/chatDetailFormatters.ts": [
       "formatChatDetailDuration",
+      "formatChatDetailRunDuration",
       "formatChatDetailRunningDuration",
       "formatChatDetailTimestamp",
       "formatChatStatusLabel",
@@ -19120,6 +19205,9 @@
     ],
     "src/features/chatPersistence/components/PlanTimelineRow.tsx": [
       "PlanTimelineRow"
+    ],
+    "src/features/chatPersistence/components/ProcessSummaryTimelineRow.tsx": [
+      "ProcessSummaryTimelineRow"
     ],
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": [
       "RuntimePayloadFrame"
@@ -19529,6 +19617,7 @@
       "applyChatTimelineStreamDelta",
       "buildChatTimelineDisplayItems",
       "buildChatTimelineDisplayModel",
+      "buildChatTimelinePresentationItems",
       "buildChatTimelineTaskView",
       "compactChatTimelineRequestEchoes",
       "createChatTimelineActionNodeId",
@@ -19546,6 +19635,7 @@
       "getChatTimelineActiveRunId",
       "getChatTimelineContextCompactContentLength",
       "getChatTimelineDisplayItemType",
+      "getChatTimelinePresentationItemType",
       "getConversationActionWhitelist",
       "isChatTimelineCommandMessageVariant",
       "mergeChatTimelineContextCompactValues",
@@ -19670,6 +19760,10 @@
       "formatChatTimelinePlatformErrorForDisplay",
       "getChatTimelineErrorDetailSignature"
     ],
+    "src/features/chatTimeline/timelinePresentation.ts": [
+      "buildChatTimelinePresentationItems",
+      "getChatTimelinePresentationItemType"
+    ],
     "src/features/chatTimeline/timelineReasoningIdentity.ts": [
       "activeReasoningRunKey",
       "buildActiveReasoningNodeIdsByRun",
@@ -19773,6 +19867,9 @@
       "ChatTimelinePlanNode",
       "ChatTimelinePlanStatus",
       "ChatTimelinePlanStep",
+      "ChatTimelinePresentationItem",
+      "ChatTimelineProcessSummaryDisplayItem",
+      "ChatTimelineProcessTerminalStatus",
       "ChatTimelineRunNode",
       "ChatTimelineRuntimeEntry",
       "ChatTimelineRuntimeEntryKind",
@@ -19875,6 +19972,10 @@
     ],
     "src/shared/branding/installedBrand.ts": [
       "resolveInstalledBrandId"
+    ],
+    "src/shared/components/AppKeyboardAwareScrollView.tsx": [
+      "AppKeyboardAwareScrollView",
+      "AppKeyboardAwareScrollViewProps"
     ],
     "src/shared/components/ConversationMarkdownRenderer.tsx": [
       "ConversationMarkdownRenderer",
@@ -21013,7 +21114,6 @@
     ".generated/react-native-worklets/.worklets/15960764466239.js": null,
     ".generated/react-native-worklets/.worklets/15970330743450.js": null,
     ".generated/react-native-worklets/.worklets/15974127613449.js": null,
-    ".generated/react-native-worklets/.worklets/15988198590355.js": null,
     ".generated/react-native-worklets/.worklets/15989846308618.js": null,
     ".generated/react-native-worklets/.worklets/15992296871009.js": null,
     ".generated/react-native-worklets/.worklets/15993059429066.js": null,
@@ -21541,7 +21641,6 @@
     ".generated/react-native-worklets/.worklets/3469078863114.js": null,
     ".generated/react-native-worklets/.worklets/3477051264454.js": null,
     ".generated/react-native-worklets/.worklets/3482140414026.js": null,
-    ".generated/react-native-worklets/.worklets/3487345304467.js": null,
     ".generated/react-native-worklets/.worklets/3489784428729.js": null,
     ".generated/react-native-worklets/.worklets/3495257198992.js": null,
     ".generated/react-native-worklets/.worklets/3497622560690.js": null,
@@ -21830,7 +21929,6 @@
     ".generated/react-native-worklets/.worklets/5232276321166.js": null,
     ".generated/react-native-worklets/.worklets/5232397720804.js": null,
     ".generated/react-native-worklets/.worklets/5235679431215.js": null,
-    ".generated/react-native-worklets/.worklets/5238646848757.js": null,
     ".generated/react-native-worklets/.worklets/5241984095219.js": null,
     ".generated/react-native-worklets/.worklets/5244475777443.js": null,
     ".generated/react-native-worklets/.worklets/5251757035714.js": null,
@@ -22587,7 +22685,9 @@
       "./scripts/lib/app-env-config",
       "./scripts/lib/brand-config"
     ],
-    "babel.config.js": null,
+    "babel.config.js": [
+      "./scripts/worklets/bundle-mode-config"
+    ],
     "eslint.config.mjs": [
       "@typescript-eslint/eslint-plugin",
       "@typescript-eslint/parser",
@@ -22602,6 +22702,7 @@
     "ios/Pods/ReachabilitySwift/Sources/Reachability.swift": [],
     "ios/Pods/Target Support Files/Pods-CuteJ/ExpoModulesProvider.swift": [],
     "metro.config.js": [
+      "./scripts/worklets/bundle-mode-config",
       "expo/metro-config",
       "fs",
       "nativewind/metro",
@@ -22654,6 +22755,7 @@
       "./lib/app-env-config",
       "./lib/brand-config"
     ],
+    "scripts/worklets/bundle-mode-config.js": null,
     "scripts/worklets/generated-import-paths.js": [
       "path"
     ],
@@ -22726,7 +22828,9 @@
       "../screens/TabScreens",
       "./TabIcon",
       "./types",
-      "@react-navigation/bottom-tabs/unstable"
+      "@react-navigation/bottom-tabs/unstable",
+      "react",
+      "react-native-screens/experimental"
     ],
     "src/app/navigation/TabsNavigator.tsx": [
       "../../features/webApps/WebAppsScreen",
@@ -22777,27 +22881,34 @@
     ],
     "src/app/screens/MeScreen.tsx": [
       "../../core/auth/appAuth",
+      "../../core/auth/deviceNameModel",
       "../../core/auth/deviceProfiles",
       "../../core/auth/useAppAccess",
       "../../core/config/appEnvironment",
       "../../features/notifications/notificationService",
+      "../../shared/components/AppKeyboardAwareScrollView",
       "../../shared/components/ScreenHeader",
       "../../shared/generated/brand",
       "../../shared/i18n",
-      "../../shared/icons/AppIcon",
       "../../shared/visual/AppThemeProvider",
-      "../../shared/visual/className",
       "../../shared/visual/foundation",
       "../../shared/visual/themePreference",
-      "../../shared/visual/useAppTabBarHeight",
       "../debug/developmentDebugPanel",
       "../navigation/types",
+      "./MeScreenParts",
       "@react-navigation/native",
       "@react-navigation/native-stack",
       "expo-clipboard",
       "react",
       "react-native",
       "react-native-safe-area-context"
+    ],
+    "src/app/screens/MeScreenParts.tsx": [
+      "../../shared/icons/AppIcon",
+      "../../shared/visual/AppThemeProvider",
+      "../../shared/visual/className",
+      "react",
+      "react-native"
     ],
     "src/app/screens/SettingsScreen.tsx": [
       "../../core/auth/deviceProfiles",
@@ -22935,13 +23046,19 @@
     "src/core/auth/appAccess.ts": [
       "../../shared/generated/brand",
       "../config/appEnvironment",
+      "./appAccessSnapshotModel",
       "./appAuth",
       "react-native-mmkv"
     ],
+    "src/core/auth/appAccessSnapshotModel.ts": [
+      "./appAuth"
+    ],
     "src/core/auth/appAuth.ts": [
+      "../debug/wsDebugRecorder",
+      "./desktopWsAuthClient",
       "./desktopWsProtocol",
+      "./deviceNameModel",
       "./deviceProfiles",
-      "react-native",
       "react-native-mmkv"
     ],
     "src/core/auth/authConfig.ts": [
@@ -22950,12 +23067,18 @@
       "react-native-mmkv"
     ],
     "src/core/auth/authRequestModel.ts": null,
+    "src/core/auth/desktopWsAuthClient.ts": [
+      "../debug/wsDebugRecorder.ts",
+      "../ws/wsClient.ts",
+      "./deviceProfiles.ts"
+    ],
     "src/core/auth/desktopWsProtocol.ts": [
       "../config/endpoint.ts"
     ],
     "src/core/auth/desktopWsTransport.ts": [
       "./desktopWsProtocol.ts"
     ],
+    "src/core/auth/deviceNameModel.ts": null,
     "src/core/auth/deviceProfileModel.ts": [
       "../config/endpoint.ts",
       "./desktopWsTransport.ts"
@@ -23008,6 +23131,7 @@
     "src/features/agentTaskBoard/AgentTaskBoardScreen.tsx": [
       "../../app/navigation/types",
       "../../core/api/services/kanbanApi",
+      "../../shared/components/AppKeyboardAwareScrollView",
       "../../shared/components/ScreenHeader",
       "../../shared/i18n",
       "../../shared/icons/AppIcon",
@@ -23054,15 +23178,26 @@
       "./kanbanViewModel",
       "react"
     ],
+    "src/features/auth/FullScreenPairingScanner.tsx": [
+      "../../shared/i18n",
+      "../../shared/icons/AppIcon",
+      "../../shared/visual/AppThemeProvider",
+      "expo-camera",
+      "react-native",
+      "react-native-safe-area-context"
+    ],
     "src/features/auth/LoginScreen.tsx": [
       "../../app/navigation/types",
       "../../core/auth/appAccess",
       "../../core/auth/appAuth",
+      "../../core/auth/desktopWsAuthClient",
       "../../core/auth/deviceProfiles",
+      "../../shared/components/AppKeyboardAwareScrollView",
       "../../shared/i18n",
       "../../shared/icons/brandAssets",
       "../../shared/visual/AppThemeProvider",
       "../../shared/visual/className",
+      "./FullScreenPairingScanner",
       "@react-navigation/native",
       "expo-camera",
       "expo-clipboard",
@@ -23478,6 +23613,7 @@
       "./ChatTimelineRail",
       "./ContextCompactTimelineRow.tsx",
       "./PlanTimelineRow.tsx",
+      "./ProcessSummaryTimelineRow.tsx",
       "./RuntimePlanningBlock",
       "./RuntimeTimelineRow",
       "./SourceTimelineRow",
@@ -23550,6 +23686,16 @@
       "./ExecutionTimelineRow.tsx",
       "./TaskTimelineContent.tsx",
       "./useRunningElapsedMs.ts",
+      "react",
+      "react-native"
+    ],
+    "src/features/chatPersistence/components/ProcessSummaryTimelineRow.tsx": [
+      "../../../shared/i18n/index.ts",
+      "../../../shared/visual/AppThemeProvider.tsx",
+      "../../../shared/visual/className.ts",
+      "../../chatTimeline/index.ts",
+      "../chatDetailFormatters.ts",
+      "./ChatTimelineRail.tsx",
       "react",
       "react-native"
     ],
@@ -23996,6 +24142,7 @@
       "./timelineFrontendTool.ts",
       "./timelinePersistence.ts",
       "./timelinePlan.ts",
+      "./timelinePresentation.ts",
       "./timelineReducer.ts",
       "./timelineRequest.ts",
       "./timelineTask.ts",
@@ -24049,6 +24196,9 @@
       "./types.ts"
     ],
     "src/features/chatTimeline/timelinePlatformError.ts": [
+      "./types.ts"
+    ],
+    "src/features/chatTimeline/timelinePresentation.ts": [
       "./types.ts"
     ],
     "src/features/chatTimeline/timelineReasoningIdentity.ts": [
@@ -24191,6 +24341,10 @@
     ],
     "src/shared/branding/installedBrand.ts": [
       "expo-modules-core"
+    ],
+    "src/shared/components/AppKeyboardAwareScrollView.tsx": [
+      "react",
+      "react-native"
     ],
     "src/shared/components/ConversationMarkdownRenderer.tsx": [
       "../markdown/preprocess",
@@ -25180,7 +25334,6 @@
     ".generated/react-native-worklets/.worklets/15960764466239.js": null,
     ".generated/react-native-worklets/.worklets/15970330743450.js": null,
     ".generated/react-native-worklets/.worklets/15974127613449.js": null,
-    ".generated/react-native-worklets/.worklets/15988198590355.js": null,
     ".generated/react-native-worklets/.worklets/15989846308618.js": null,
     ".generated/react-native-worklets/.worklets/15992296871009.js": null,
     ".generated/react-native-worklets/.worklets/15993059429066.js": null,
@@ -25654,7 +25807,6 @@
     ".generated/react-native-worklets/.worklets/3469078863114.js": null,
     ".generated/react-native-worklets/.worklets/3477051264454.js": null,
     ".generated/react-native-worklets/.worklets/3482140414026.js": null,
-    ".generated/react-native-worklets/.worklets/3487345304467.js": null,
     ".generated/react-native-worklets/.worklets/3489784428729.js": null,
     ".generated/react-native-worklets/.worklets/3495257198992.js": null,
     ".generated/react-native-worklets/.worklets/3497622560690.js": null,
@@ -25904,7 +26056,6 @@
     ".generated/react-native-worklets/.worklets/5232276321166.js": null,
     ".generated/react-native-worklets/.worklets/5232397720804.js": null,
     ".generated/react-native-worklets/.worklets/5235679431215.js": null,
-    ".generated/react-native-worklets/.worklets/5238646848757.js": null,
     ".generated/react-native-worklets/.worklets/5241984095219.js": null,
     ".generated/react-native-worklets/.worklets/5244475777443.js": null,
     ".generated/react-native-worklets/.worklets/5251757035714.js": null,
@@ -26586,7 +26737,9 @@
       "scripts/lib/app-env-config.js",
       "scripts/lib/brand-config.js"
     ],
-    "babel.config.js": null,
+    "babel.config.js": [
+      "scripts/worklets/bundle-mode-config.js"
+    ],
     "eslint.config.mjs": null,
     "index.js": [
       "App.tsx"
@@ -26594,7 +26747,9 @@
     "ios/CuteJ/AppDelegate.swift": null,
     "ios/Pods/ReachabilitySwift/Sources/Reachability.swift": null,
     "ios/Pods/Target Support Files/Pods-CuteJ/ExpoModulesProvider.swift": null,
-    "metro.config.js": null,
+    "metro.config.js": [
+      "scripts/worklets/bundle-mode-config.js"
+    ],
     "nativewind-env.d.ts": null,
     "plugins/withAndroidAutolinkingCacheGuard.js": null,
     "plugins/withAndroidNdkVersionForSubprojects.js": null,
@@ -26608,6 +26763,7 @@
       "scripts/lib/app-env-config.js",
       "scripts/lib/brand-config.js"
     ],
+    "scripts/worklets/bundle-mode-config.js": null,
     "scripts/worklets/generated-import-paths.js": null,
     "scripts/worklets/pregenerate.js": [
       "scripts/worklets/generated-import-paths.js"
@@ -26703,20 +26859,25 @@
     "src/app/screens/MeScreen.tsx": [
       "src/app/debug/developmentDebugPanel.ts",
       "src/app/navigation/types.ts",
+      "src/app/screens/MeScreenParts.tsx",
       "src/core/auth/appAuth.ts",
+      "src/core/auth/deviceNameModel.ts",
       "src/core/auth/deviceProfiles.ts",
       "src/core/auth/useAppAccess.ts",
       "src/core/config/appEnvironment.ts",
       "src/features/notifications/notificationService.ts",
+      "src/shared/components/AppKeyboardAwareScrollView.tsx",
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/generated/brand.ts",
       "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/foundation.ts",
+      "src/shared/visual/themePreference.ts"
+    ],
+    "src/app/screens/MeScreenParts.tsx": [
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/className.ts",
-      "src/shared/visual/foundation.ts",
-      "src/shared/visual/themePreference.ts",
-      "src/shared/visual/useAppTabBarHeight.ts"
+      "src/shared/visual/className.ts"
     ],
     "src/app/screens/SettingsScreen.tsx": [
       "src/app/debug/developmentDebugPanel.ts",
@@ -26840,25 +27001,38 @@
     ],
     "src/core/api/services/workspaceResource.ts": null,
     "src/core/auth/appAccess.ts": [
+      "src/core/auth/appAccessSnapshotModel.ts",
       "src/core/auth/appAuth.ts",
       "src/core/config/appEnvironment.ts",
       "src/shared/generated/brand.ts"
     ],
+    "src/core/auth/appAccessSnapshotModel.ts": [
+      "src/core/auth/appAuth.ts"
+    ],
     "src/core/auth/appAuth.ts": [
+      "src/core/auth/desktopWsAuthClient.ts",
       "src/core/auth/desktopWsProtocol.ts",
-      "src/core/auth/deviceProfiles.ts"
+      "src/core/auth/deviceNameModel.ts",
+      "src/core/auth/deviceProfiles.ts",
+      "src/core/debug/wsDebugRecorder.ts"
     ],
     "src/core/auth/authConfig.ts": [
       "src/core/config/endpoint.ts",
       "src/core/config/runtimeEnv.ts"
     ],
     "src/core/auth/authRequestModel.ts": null,
+    "src/core/auth/desktopWsAuthClient.ts": [
+      "src/core/auth/deviceProfiles.ts",
+      "src/core/debug/wsDebugRecorder.ts",
+      "src/core/ws/wsClient.ts"
+    ],
     "src/core/auth/desktopWsProtocol.ts": [
       "src/core/config/endpoint.ts"
     ],
     "src/core/auth/desktopWsTransport.ts": [
       "src/core/auth/desktopWsProtocol.ts"
     ],
+    "src/core/auth/deviceNameModel.ts": null,
     "src/core/auth/deviceProfileModel.ts": [
       "src/core/auth/desktopWsTransport.ts",
       "src/core/config/endpoint.ts"
@@ -26911,6 +27085,7 @@
       "src/features/agentTaskBoard/navigationTypes.ts",
       "src/features/agentTaskBoard/useDesktopKanbanBoard.ts",
       "src/features/chatPersistence/chatSourceRuntime.ts",
+      "src/shared/components/AppKeyboardAwareScrollView.tsx",
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
@@ -26944,11 +27119,19 @@
       "src/features/agentTaskBoard/kanbanRunGuards.ts",
       "src/features/agentTaskBoard/kanbanViewModel.ts"
     ],
+    "src/features/auth/FullScreenPairingScanner.tsx": [
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx"
+    ],
     "src/features/auth/LoginScreen.tsx": [
       "src/app/navigation/types.ts",
       "src/core/auth/appAccess.ts",
       "src/core/auth/appAuth.ts",
+      "src/core/auth/desktopWsAuthClient.ts",
       "src/core/auth/deviceProfiles.ts",
+      "src/features/auth/FullScreenPairingScanner.tsx",
+      "src/shared/components/AppKeyboardAwareScrollView.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/brandAssets.ts",
       "src/shared/visual/AppThemeProvider.tsx",
@@ -27294,6 +27477,7 @@
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx",
       "src/features/chatPersistence/components/PlanTimelineRow.tsx",
+      "src/features/chatPersistence/components/ProcessSummaryTimelineRow.tsx",
       "src/features/chatPersistence/components/RuntimePlanningBlock.tsx",
       "src/features/chatPersistence/components/RuntimeTimelineRow.tsx",
       "src/features/chatPersistence/components/SourceTimelineRow.tsx",
@@ -27359,6 +27543,14 @@
       "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/visual/AppThemeProvider.tsx"
+    ],
+    "src/features/chatPersistence/components/ProcessSummaryTimelineRow.tsx": [
+      "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/components/ChatTimelineRail.tsx",
+      "src/features/chatTimeline/index.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/RuntimePayloadFrame.tsx": [
       "src/features/chatPersistence/components/runtimePayloadDescriptor.ts",
@@ -27733,6 +27925,7 @@
       "src/features/chatTimeline/timelineFrontendTool.ts",
       "src/features/chatTimeline/timelinePersistence.ts",
       "src/features/chatTimeline/timelinePlan.ts",
+      "src/features/chatTimeline/timelinePresentation.ts",
       "src/features/chatTimeline/timelineReducer.ts",
       "src/features/chatTimeline/timelineRequest.ts",
       "src/features/chatTimeline/timelineTask.ts",
@@ -27786,6 +27979,9 @@
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelinePlatformError.ts": [
+      "src/features/chatTimeline/types.ts"
+    ],
+    "src/features/chatTimeline/timelinePresentation.ts": [
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineReasoningIdentity.ts": [
@@ -27905,6 +28101,7 @@
       "src/features/webApps/webAppsDesktopProtocol.ts"
     ],
     "src/shared/branding/installedBrand.ts": null,
+    "src/shared/components/AppKeyboardAwareScrollView.tsx": null,
     "src/shared/components/ConversationMarkdownRenderer.tsx": [
       "src/shared/components/conversationPreview/PreviewCodeBlock.tsx",
       "src/shared/markdown/preprocess.ts",
@@ -28785,7 +28982,6 @@
     ".generated/react-native-worklets/.worklets/15960764466239.js",
     ".generated/react-native-worklets/.worklets/15970330743450.js",
     ".generated/react-native-worklets/.worklets/15974127613449.js",
-    ".generated/react-native-worklets/.worklets/15988198590355.js",
     ".generated/react-native-worklets/.worklets/15989846308618.js",
     ".generated/react-native-worklets/.worklets/15992296871009.js",
     ".generated/react-native-worklets/.worklets/15993059429066.js",
@@ -29206,7 +29402,6 @@
     ".generated/react-native-worklets/.worklets/3469078863114.js",
     ".generated/react-native-worklets/.worklets/3477051264454.js",
     ".generated/react-native-worklets/.worklets/3482140414026.js",
-    ".generated/react-native-worklets/.worklets/3487345304467.js",
     ".generated/react-native-worklets/.worklets/3489784428729.js",
     ".generated/react-native-worklets/.worklets/3495257198992.js",
     ".generated/react-native-worklets/.worklets/3497622560690.js",
@@ -29425,7 +29620,6 @@
     ".generated/react-native-worklets/.worklets/5232276321166.js",
     ".generated/react-native-worklets/.worklets/5232397720804.js",
     ".generated/react-native-worklets/.worklets/5235679431215.js",
-    ".generated/react-native-worklets/.worklets/5238646848757.js",
     ".generated/react-native-worklets/.worklets/5241984095219.js",
     ".generated/react-native-worklets/.worklets/5244475777443.js",
     ".generated/react-native-worklets/.worklets/5251757035714.js",

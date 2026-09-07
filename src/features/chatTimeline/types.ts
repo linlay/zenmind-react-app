@@ -51,12 +51,7 @@ export type ChatTimelineActionPolicy = 'allowed' | 'unsupported' | 'unknown';
 
 export type ChatTimelineActionExecutorKind = 'theme';
 
-export type ChatTimelineActionStatus =
-  | 'collecting'
-  | 'ready'
-  | 'completed'
-  | 'failed'
-  | 'blocked';
+export type ChatTimelineActionStatus = 'collecting' | 'ready' | 'completed' | 'failed' | 'blocked';
 
 export type ChatTimelineContextCompactStatus = 'running' | 'completed' | 'failed';
 
@@ -562,10 +557,7 @@ export type ChatTimelineDisplayItemKind =
 
 export type ChatTimelineNodeDisplayItem = {
   key: string;
-  kind: Exclude<
-    ChatTimelineDisplayItemKind,
-    'tool-group' | 'assistant-reply-footer' | 'plan' | 'task'
-  >;
+  kind: Exclude<ChatTimelineDisplayItemKind, 'tool-group' | 'assistant-reply-footer' | 'plan' | 'task'>;
   node: ChatTimelineNode;
   nodeId: string;
   runId: string;
@@ -608,9 +600,26 @@ export type ChatTimelineAssistantReplyFooterDisplayItem = {
   footer: ChatTimelineAssistantReplyFooter;
 };
 
+export type ChatTimelineProcessTerminalStatus = 'completed' | 'cancelled' | 'error';
+
+export type ChatTimelineProcessSummaryDisplayItem = {
+  key: string;
+  kind: 'process-summary';
+  processId: string;
+  runId: string;
+  terminalStatus: ChatTimelineProcessTerminalStatus;
+  durationMs: number | null;
+  expanded: boolean;
+  isFirstInRun: boolean;
+  isLastInRun: boolean;
+  groupIndex: number;
+};
+
 export type ChatTimelineDisplayItem =
   | ChatTimelineNodeDisplayItem
   | ChatTimelinePlanDisplayItem
   | ChatTimelineTaskDisplayItem
   | ChatTimelineToolGroupDisplayItem
   | ChatTimelineAssistantReplyFooterDisplayItem;
+
+export type ChatTimelinePresentationItem = ChatTimelineDisplayItem | ChatTimelineProcessSummaryDisplayItem;

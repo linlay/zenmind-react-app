@@ -20,8 +20,8 @@ export function RootNavigator() {
   const { theme } = useAppTheme();
   const access = useAppAccess();
   const pairedSession = access.pairedSession;
-  const webAppsEnabled =
-    access.status === 'ready' && access.pairingState === 'paired' && Boolean(pairedSession);
+  const pairingAvailable = access.status === 'ready' && access.pairingState === 'unpaired';
+  const webAppsEnabled = access.status === 'ready' && access.pairingState === 'paired' && Boolean(pairedSession);
   const webAppsSessionKey =
     access.status === 'ready' && access.pairingState === 'paired' && pairedSession
       ? JSON.stringify([pairedSession.deviceId, pairedSession.username])
@@ -45,16 +45,18 @@ export function RootNavigator() {
 
   return (
     <AgentTaskBoardProvider>
-      <WebAppsRuntimeProvider key={webAppsSessionKey} enabled={webAppsEnabled}>
+      <WebAppsRuntimeProvider enabled={webAppsEnabled} sessionKey={webAppsSessionKey}>
         <RootStack.Navigator initialRouteName="Tabs" screenOptions={{ headerShown: false }}>
-          <RootStack.Screen
-            name="Login"
-            component={LoginScreen}
-            options={{
-              animation: 'slide_from_bottom',
-              gestureEnabled: true
-            }}
-          />
+          {pairingAvailable ? (
+            <RootStack.Screen
+              name="Login"
+              component={LoginScreen}
+              options={{
+                animation: 'slide_from_bottom',
+                gestureEnabled: true
+              }}
+            />
+          ) : null}
           <RootStack.Screen name="Tabs" component={TabsNavigator} options={{ freezeOnBlur: true }} />
           <RootStack.Screen
             name="TaskBoardFlow"
@@ -74,11 +76,13 @@ export function RootNavigator() {
               gestureEnabled: true
             }}
           />
-          <RootStack.Screen
-            name="WebAppDetail"
-            component={WebAppDetailScreen}
-            options={{ animation: 'none', gestureEnabled: true }}
-          />
+          {webAppsEnabled ? (
+            <RootStack.Screen
+              name="WebAppDetail"
+              component={WebAppDetailScreen}
+              options={{ animation: 'none', gestureEnabled: true }}
+            />
+          ) : null}
           <RootStack.Screen
             name="ChatDirectoryPickerOverlay"
             component={ChatDirectoryPickerOverlayScreen}

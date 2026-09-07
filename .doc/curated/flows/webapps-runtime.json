@@ -6,14 +6,14 @@
   "sourceOfTruth": [
     "Desktop web.webapp.list 快照与 webapp.changed 增量是远端目录真源；webAppsDesktopProtocol 负责把原始 frame 转成安全领域模型。",
     "WebAppsGateway 是共享 Desktop WS 上订阅、快照、重连和设备隔离的唯一边界，页面不解析原始 frame。",
-    "WebAppsRuntimeProvider 是 paired 会话内 catalog、connection、active、resident LRU 和恢复队列的唯一内存状态源；unpaired 时保持 disabled。",
+    "WebAppsRuntimeProvider 是 paired 会话内 catalog、connection、active、resident LRU 和恢复队列的唯一内存状态源；sessionKey 变化时只重置这份 runtime 并丢弃旧会话迟到事件，不重挂 RootStack；unpaired 时保持 disabled。",
     "WebAppsRuntimeHost 位于登录态 RootStack 外层；WebAppDetail route pop 只隐藏 Host，不卸载 resident WebView。",
     "webAppsMobileAccess 是配对 `.m` host 校验、临时启动 token URL 构造和 token 导航识别的纯函数边界；appAuth 继续提供已有 fresh token 与 single-flight 刷新。"
   ],
   "steps": [
     {
       "order": 1,
-      "label": "RootNavigator 始终挂载 WebAppsRuntimeProvider，但只有 AppAccess paired 时 enabled；enabled 后立即 open Gateway，不等待 WebApps Tab 聚焦，unpaired 时不连接且 WebAppsScreen 展示配对空态。",
+      "label": "RootNavigator 始终挂载 WebAppsRuntimeProvider，但只有 AppAccess paired 时 enabled；enabled 后立即 open Gateway，不等待 WebApps Tab 聚焦。Provider 接收非敏感 sessionKey，在配对身份变化时关闭旧 Gateway、清空 runtime 并隔离迟到事件，再打开新会话；导航树保持挂载。unpaired 时不连接且 WebAppsScreen 展示配对空态。",
       "moduleId": "feature-web-apps",
       "file": "src/features/webApps/WebAppsRuntimeProvider.tsx",
       "symbol": "WebAppsRuntimeProvider"

@@ -1,10 +1,7 @@
 import type { AppLocale } from '../../shared/i18n/locales.ts';
 import { defaultT, type TFunction } from '../../shared/i18n/translate.ts';
 import type { ChatSocketStatus } from '../chatRealtime/types';
-import type {
-  ChatTimelineUsageEstimatedCost,
-  ChatTimelineUsageStats,
-} from '../chatTimeline/index.ts';
+import type { ChatTimelineUsageEstimatedCost, ChatTimelineUsageStats } from '../chatTimeline/index.ts';
 import type { ChatMessageItem } from './types';
 
 const SECONDS_PER_MINUTE = 60;
@@ -36,9 +33,7 @@ function resolveChatUsageFirstTokenLatency(stats: ChatTimelineUsageStats | null 
   return totalLatency / count;
 }
 
-export function formatChatUsageFirstTokenLatency(
-  stats: ChatTimelineUsageStats | null | undefined
-): string | null {
+export function formatChatUsageFirstTokenLatency(stats: ChatTimelineUsageStats | null | undefined): string | null {
   const latencyMs = resolveChatUsageFirstTokenLatency(stats);
   if (latencyMs === null) {
     return null;
@@ -48,9 +43,7 @@ export function formatChatUsageFirstTokenLatency(
     : `${(latencyMs / MILLISECONDS_PER_SECOND).toFixed(1)}s`;
 }
 
-export function formatChatUsageOutputSpeed(
-  stats: ChatTimelineUsageStats | null | undefined
-): string | null {
+export function formatChatUsageOutputSpeed(stats: ChatTimelineUsageStats | null | undefined): string | null {
   const completionTokens = readUsageTimingNumber(stats?.completionTokens);
   const generationDurationMs = readUsageTimingNumber(stats?.timing.generationDurationMs);
   if (
@@ -67,10 +60,10 @@ export function formatChatUsageOutputSpeed(
 function hasChatUsageEstimatedCost(cost: ChatTimelineUsageEstimatedCost | null): boolean {
   return Boolean(
     cost &&
-      (readUsageTimingNumber(cost.inputCacheHit) !== null ||
-        readUsageTimingNumber(cost.inputCacheMiss) !== null ||
-        readUsageTimingNumber(cost.output) !== null ||
-        readUsageTimingNumber(cost.total) !== null)
+    (readUsageTimingNumber(cost.inputCacheHit) !== null ||
+      readUsageTimingNumber(cost.inputCacheMiss) !== null ||
+      readUsageTimingNumber(cost.output) !== null ||
+      readUsageTimingNumber(cost.total) !== null)
   );
 }
 
@@ -88,22 +81,20 @@ export function hasChatUsageStatsData(
 ): stats is ChatTimelineUsageStats {
   return Boolean(
     stats &&
-      (readUsageTimingNumber(stats.promptTokens) !== null ||
-        readUsageTimingNumber(stats.completionTokens) !== null ||
-        readUsageTimingNumber(stats.totalTokens) !== null ||
-        readUsageTimingNumber(stats.reasoningTokens) !== null ||
-        readUsageTimingNumber(stats.cacheHitTokens) !== null ||
-        readUsageTimingNumber(stats.cacheMissTokens) !== null ||
-        readUsageTimingNumber(stats.llmChatCompletionCount) !== null ||
-        readUsageTimingNumber(stats.toolCallCount) !== null ||
-        hasChatUsageEstimatedCost(stats.estimatedCost) ||
-        hasChatUsageTiming(stats))
+    (readUsageTimingNumber(stats.promptTokens) !== null ||
+      readUsageTimingNumber(stats.completionTokens) !== null ||
+      readUsageTimingNumber(stats.totalTokens) !== null ||
+      readUsageTimingNumber(stats.reasoningTokens) !== null ||
+      readUsageTimingNumber(stats.cacheHitTokens) !== null ||
+      readUsageTimingNumber(stats.cacheMissTokens) !== null ||
+      readUsageTimingNumber(stats.llmChatCompletionCount) !== null ||
+      readUsageTimingNumber(stats.toolCallCount) !== null ||
+      hasChatUsageEstimatedCost(stats.estimatedCost) ||
+      hasChatUsageTiming(stats))
   );
 }
 
-export function resolveChatUsageToolCallCount(
-  stats: ChatTimelineUsageStats | null | undefined
-): number | null {
+export function resolveChatUsageToolCallCount(stats: ChatTimelineUsageStats | null | undefined): number | null {
   const toolCallCount = readUsageTimingNumber(stats?.toolCallCount);
   if (toolCallCount !== null) {
     return toolCallCount;
@@ -125,7 +116,7 @@ export function formatChatUsageEstimatedCost(
     return new Intl.NumberFormat(locale, {
       style: 'currency',
       currencyDisplay: 'symbol',
-      currency: 'USD',
+      currency: 'USD'
     }).format(total);
   }
   if (currency === 'CNY' || currency === 'RMB' || currency === 'CNH') {
@@ -134,12 +125,12 @@ export function formatChatUsageEstimatedCost(
       currencyDisplay: 'symbol',
       currency: 'CNY',
       minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
+      maximumFractionDigits: 4
     }).format(total);
   }
   return new Intl.NumberFormat(locale, {
     minimumFractionDigits: 2,
-    maximumFractionDigits: 6,
+    maximumFractionDigits: 6
   }).format(total);
 }
 
@@ -177,9 +168,7 @@ export function formatChatDetailTimestamp(
   yesterdayLabel?: string
 ): string {
   const hasTodayLabel = yesterdayLabel !== undefined;
-  const todayLabel = hasTodayLabel
-    ? todayLabelOrYesterdayLabel || DEFAULT_TODAY_LABEL
-    : DEFAULT_TODAY_LABEL;
+  const todayLabel = hasTodayLabel ? todayLabelOrYesterdayLabel || DEFAULT_TODAY_LABEL : DEFAULT_TODAY_LABEL;
   const resolvedYesterdayLabel = hasTodayLabel
     ? yesterdayLabel || DEFAULT_YESTERDAY_LABEL
     : todayLabelOrYesterdayLabel || DEFAULT_YESTERDAY_LABEL;
@@ -239,7 +228,23 @@ export function formatChatDetailDuration(value: number | null | undefined, t: TF
   return t('chatDetail.duration.seconds', { seconds });
 }
 
-export function formatChatDetailRunningDuration(startedAt: number | null | undefined, now: number = Date.now()): string {
+export function formatChatDetailRunDuration(value: number | null | undefined, t: TFunction = defaultT): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  const durationMs = Number(value);
+  if (!Number.isFinite(durationMs) || durationMs < 0) {
+    return '';
+  }
+
+  return formatChatDetailDuration(Math.round(durationMs / MILLISECONDS_PER_SECOND) * MILLISECONDS_PER_SECOND, t);
+}
+
+export function formatChatDetailRunningDuration(
+  startedAt: number | null | undefined,
+  now: number = Date.now()
+): string {
   const startTime = Number(startedAt);
   const currentTime = Number(now);
   if (!Number.isFinite(startTime) || startTime <= 0 || !Number.isFinite(currentTime) || currentTime <= startTime) {
@@ -281,9 +286,6 @@ export function formatMessageDeliveryStatusLabel(
   }
 }
 
-export function formatMessageRoleLabel(
-  role: ChatMessageItem['role'],
-  t: TFunction = defaultT
-): string {
+export function formatMessageRoleLabel(role: ChatMessageItem['role'], t: TFunction = defaultT): string {
   return role === 'user' ? t('chatDetail.role.user') : t('chatDetail.role.assistant');
 }

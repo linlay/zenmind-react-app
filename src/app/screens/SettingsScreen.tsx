@@ -22,7 +22,7 @@ import {
 import {
   clearSettingsProfileCache,
   hasSettingsLegacyLocalCache,
-  SETTINGS_LEGACY_CACHE_SCOPE_ID,
+  SETTINGS_LEGACY_CACHE_SCOPE_ID
 } from '../settings/settingsActions';
 import type { RootStackParamList } from '../navigation/types';
 
@@ -48,6 +48,7 @@ type SettingsRowProps = {
   detail?: string;
   value?: string;
   disabled?: boolean;
+  selected?: boolean;
   rightAccessory?: ReactNode;
   onPress?: () => void;
 };
@@ -64,30 +65,30 @@ type ThemeOption = {
   detailKey: I18nKey;
 };
 
-const SCREEN_CLASS = 'flex-1 bg-app-surface';
+const SCREEN_CLASS = 'flex-1 bg-app-background';
 const HEADER_SAFE_AREA_CLASS = 'bg-app-surface';
 const SCROLL_VIEW_CLASS = 'flex-1';
-const CONTENT_CLASS = 'gap-app-xl px-app-xl pt-app-lg';
-const SECTION_CLASS = 'border-t border-app-line pt-app-lg';
-const SECTION_TITLE_CLASS = 'mb-app-md text-app-caption font-bold text-app-brand-blue';
-const SECTION_ROWS_CLASS = 'border-b border-app-line';
-const ROW_CLASS = 'min-h-[62px] flex-row items-center gap-app-md border-t border-app-line py-app-md';
-const ROW_PRESSABLE_CLASS = `${ROW_CLASS} active:opacity-[0.66]`;
+const CONTENT_CLASS = 'gap-app-lg px-app-lg pt-app-lg';
+const SECTION_CLASS = 'gap-app-sm';
+const SECTION_TITLE_CLASS = 'ml-app-xs text-app-footnote font-semibold text-app-secondary';
+const SECTION_ROWS_CLASS = 'overflow-hidden rounded-app-md border border-app-line bg-app-surface';
+const ROW_CLASS = 'min-h-[58px] flex-row items-center gap-app-md border-t border-app-line px-app-lg py-app-sm';
+const ROW_PRESSABLE_CLASS = `${ROW_CLASS} active:bg-app-surface-muted`;
+const ROW_SELECTED_CLASS = 'bg-app-surface-muted';
 const ROW_DISABLED_CLASS = 'opacity-[0.58]';
-const ROW_ICON_SHELL_CLASS = 'h-9 w-9 items-center justify-center rounded-app-pill';
-const ROW_ICON_SHELL_ENABLED_CLASS = 'bg-app-brand-blue-soft';
-const ROW_ICON_SHELL_DISABLED_CLASS = 'bg-app-surface-muted';
-const ROW_TEXT_BLOCK_CLASS = 'min-w-0 flex-1 gap-0.5';
-const ROW_TITLE_CLASS = 'text-[15px] font-bold leading-[21px] text-app-primary';
-const ROW_DETAIL_CLASS = 'text-[13px] leading-[19px] text-app-secondary';
-const ROW_VALUE_CLASS = 'max-w-24 shrink text-[13px] font-semibold leading-[19px] text-app-secondary';
+const ROW_ICON_SLOT_CLASS = 'h-8 w-8 shrink-0 items-center justify-center';
+const ROW_TEXT_BLOCK_CLASS = 'min-w-0 flex-1 gap-[2px]';
+const ROW_TITLE_CLASS = 'text-app-body font-semibold text-app-primary';
+const ROW_DETAIL_CLASS = 'text-app-footnote text-app-secondary';
+const ROW_VALUE_CLASS = 'max-w-24 shrink text-app-footnote font-medium text-app-secondary';
 const ROW_TEXT_DISABLED_CLASS = 'text-app-tertiary';
 const CACHE_ROW_ACTIONS_CLASS = 'flex-row items-center gap-app-sm';
-const CACHE_CLEAR_BUTTON_CLASS = 'rounded-app-pill bg-app-brand-blue-soft px-app-md py-app-sm active:opacity-[0.68]';
+const CACHE_CLEAR_BUTTON_CLASS =
+  'min-h-[36px] items-center justify-center rounded-app-sm border border-app-danger-line bg-app-surface px-app-md active:bg-app-danger-soft';
 const CACHE_CLEAR_BUTTON_DISABLED_CLASS = 'opacity-[0.5]';
-const CACHE_CLEAR_BUTTON_TEXT_CLASS = 'text-[13px] font-bold text-app-brand-blue';
+const CACHE_CLEAR_BUTTON_TEXT_CLASS = 'text-app-footnote font-semibold text-app-danger';
 const SELECTION_PLACEHOLDER_CLASS = 'h-[22px] w-[22px]';
-const HEADER_ACTION_BUTTON_CLASS = 'h-10 w-10 items-center justify-center rounded-app-pill active:opacity-[0.64]';
+const HEADER_ACTION_BUTTON_CLASS = 'h-11 w-11 items-center justify-center rounded-app-pill active:bg-app-surface-muted';
 
 const THEME_OPTIONS = [
   {
@@ -134,18 +135,27 @@ function SettingsSection({ title, children }: SettingsSectionProps) {
   );
 }
 
-function SettingsRow({ iconUsage, title, detail, value, disabled = false, rightAccessory, onPress }: SettingsRowProps) {
-  const rowClass = cn(onPress ? ROW_PRESSABLE_CLASS : ROW_CLASS, disabled && ROW_DISABLED_CLASS);
-  const iconShellClass = cn(
-    ROW_ICON_SHELL_CLASS,
-    disabled ? ROW_ICON_SHELL_DISABLED_CLASS : ROW_ICON_SHELL_ENABLED_CLASS
+function SettingsRow({
+  iconUsage,
+  title,
+  detail,
+  value,
+  disabled = false,
+  selected = false,
+  rightAccessory,
+  onPress
+}: SettingsRowProps) {
+  const rowClass = cn(
+    onPress ? ROW_PRESSABLE_CLASS : ROW_CLASS,
+    selected && ROW_SELECTED_CLASS,
+    disabled && ROW_DISABLED_CLASS
   );
   const disabledTextClass = disabled && ROW_TEXT_DISABLED_CLASS;
 
   const content = (
     <>
-      <View className={iconShellClass}>
-        <AppIcon usage={iconUsage} />
+      <View className={ROW_ICON_SLOT_CLASS}>
+        <AppIcon usage={iconUsage} size={19} />
       </View>
       <View className={ROW_TEXT_BLOCK_CLASS}>
         <Text className={cn(ROW_TITLE_CLASS, disabledTextClass)} numberOfLines={1}>
@@ -171,12 +181,7 @@ function SettingsRow({ iconUsage, title, detail, value, disabled = false, rightA
   }
 
   return (
-    <Pressable
-      accessibilityRole="button"
-      disabled={disabled}
-      onPress={onPress}
-      className={rowClass}
-    >
+    <Pressable accessibilityRole="button" disabled={disabled} onPress={onPress} className={rowClass}>
       {content}
     </Pressable>
   );
@@ -203,7 +208,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
       displayName: t('settings.cache.localConversation'),
       endpoint: t('settings.cache.localConversationDetail'),
       needsRelink: false,
-      current: true,
+      current: true
     }),
     [t]
   );
@@ -213,7 +218,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
         ? deviceProfiles.map((profile) => ({
             ...profile,
             endpoint: `${getDeviceProfileEndpoint(profile)} · ${profile.desktopDeviceId.slice(0, 8)}`,
-            current: activeProfile?.desktopDeviceId === profile.desktopDeviceId,
+            current: activeProfile?.desktopDeviceId === profile.desktopDeviceId
           }))
         : legacyCachePresent
           ? [legacyCacheProfile]
@@ -265,37 +270,33 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
         return;
       }
 
-      Alert.alert(
-        t('settings.cache.confirmTitle'),
-        t('settings.cache.confirmMessage', { name: profile.displayName }),
-        [
-          {
-            text: t('common.cancel'),
-            style: 'cancel',
-          },
-          {
-            text: t('settings.cache.clear'),
-            style: 'destructive',
-            onPress: () => {
-              setCacheAction({ scopeId: profile.cacheScopeId, status: 'clearing', errorText: '' });
-              clearSettingsProfileCache(profile.cacheScopeId, Boolean(session) && profile.current)
-                .then(() => {
-                  setCacheAction({ scopeId: profile.cacheScopeId, status: 'success', errorText: '' });
-                  if (profile.desktopDeviceId === 'legacy-local-cache') {
-                    setLegacyCachePresent(false);
-                  }
-                })
-                .catch((error) => {
-                  setCacheAction({
-                    scopeId: profile.cacheScopeId,
-                    status: 'error',
-                    errorText: error instanceof Error ? error.message : String(error),
-                  });
+      Alert.alert(t('settings.cache.confirmTitle'), t('settings.cache.confirmMessage', { name: profile.displayName }), [
+        {
+          text: t('common.cancel'),
+          style: 'cancel'
+        },
+        {
+          text: t('settings.cache.clear'),
+          style: 'destructive',
+          onPress: () => {
+            setCacheAction({ scopeId: profile.cacheScopeId, status: 'clearing', errorText: '' });
+            clearSettingsProfileCache(profile.cacheScopeId, Boolean(session) && profile.current)
+              .then(() => {
+                setCacheAction({ scopeId: profile.cacheScopeId, status: 'success', errorText: '' });
+                if (profile.desktopDeviceId === 'legacy-local-cache') {
+                  setLegacyCachePresent(false);
+                }
+              })
+              .catch((error) => {
+                setCacheAction({
+                  scopeId: profile.cacheScopeId,
+                  status: 'error',
+                  errorText: error instanceof Error ? error.message : String(error)
                 });
-            },
-          },
-        ]
-      );
+              });
+          }
+        }
+      ]);
     },
     [cacheAction?.status, session, t]
   );
@@ -333,10 +334,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
         <ScreenHeader title={t('settings.title')} leftActions={leftActions} />
       </SafeAreaView>
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        className={SCROLL_VIEW_CLASS}
-      >
+      <ScrollView showsVerticalScrollIndicator={false} className={SCROLL_VIEW_CLASS}>
         <View className={CONTENT_CLASS} style={{ paddingBottom: insets.bottom + appVisualTokens.spacing.xxl }}>
           <SettingsSection title={t('settings.section.cache')}>
             {cacheProfiles.map((profile) => {
@@ -347,7 +345,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                   ? t('settings.cache.success')
                   : profileAction?.status === 'error'
                     ? t('settings.cache.error', {
-                        message: profileAction.errorText || t('common.unknown'),
+                        message: profileAction.errorText || t('common.unknown')
                       })
                     : '';
               return (
@@ -376,7 +374,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                         onPress={() => handleClearCache(profile)}
                       >
                         {clearing ? (
-                          <ActivityIndicator size="small" color={theme.colors.brandBlue} />
+                          <ActivityIndicator size="small" color={theme.colors.danger} />
                         ) : (
                           <Text className={CACHE_CLEAR_BUTTON_TEXT_CLASS}>{t('settings.cache.clear')}</Text>
                         )}
@@ -402,9 +400,9 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                   onValueChange={handleDeveloperToggle}
                   trackColor={{
                     false: theme.colors.lineStrong,
-                    true: theme.colors.brandBlueSoft
+                    true: theme.colors.brandBlueAction
                   }}
-                  thumbColor={developerModeEnabled ? theme.colors.brandBlue : theme.colors.surface}
+                  thumbColor={developerModeEnabled ? theme.colors.onBrandBlueAction : theme.colors.surface}
                 />
               }
             />
@@ -433,6 +431,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                   title={t(option.titleKey)}
                   detail={t(option.detailKey)}
                   value={value}
+                  selected={selected}
                   onPress={selected ? undefined : () => handleThemeSelect(option.preference)}
                   rightAccessory={
                     selected ? <AppIcon usage="settings.selected" /> : <View className={SELECTION_PLACEHOLDER_CLASS} />
@@ -454,6 +453,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
                   title={t(option.titleKey)}
                   detail={t(option.detailKey)}
                   value={value}
+                  selected={selected}
                   onPress={selected ? undefined : () => handleLanguageSelect(option.preference)}
                   rightAccessory={
                     selected ? <AppIcon usage="settings.selected" /> : <View className={SELECTION_PLACEHOLDER_CLASS} />

@@ -5,6 +5,7 @@ import test from 'node:test';
 
 import { appIconRegistry } from '../../src/shared/icons/registries/appIconRegistry.ts';
 import { appIconUsages } from '../../src/shared/icons/registries/appIconUsages.ts';
+import { APP_LINE_ICON_OUTLINE_NAMES, APP_LINE_ICON_PATHS } from '../../src/shared/visual/appLineIconRegistry.ts';
 
 const CHAT_PERSISTENCE_ROOT = path.join(process.cwd(), 'src/features/chatPersistence');
 
@@ -39,6 +40,15 @@ test('app icon registry exposes no unused glyphs', () => {
     .sort();
 
   assert.deepEqual(unusedGlyphs, []);
+});
+
+test('copy usages match the webclient outline glyph', () => {
+  assert.equal('content_copy' in APP_LINE_ICON_OUTLINE_NAMES, true);
+  assert.equal('content_copy' in APP_LINE_ICON_PATHS, false);
+
+  const copyUsages = Object.values(appIconUsages).filter((config) => config.glyph === 'content_copy');
+  assert.ok(copyUsages.length > 0);
+  assert.equal(copyUsages.every((config) => config.strokeWidth === 1.8), true);
 });
 
 test('chat persistence components use AppIcon instead of AppLineIcon directly', () => {

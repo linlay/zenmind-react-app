@@ -1,6 +1,6 @@
 import { createBottomTabNavigator, type BottomTabBarButtonProps } from '@react-navigation/bottom-tabs';
 import type { ComponentProps } from 'react';
-import { Pressable, StyleSheet, type TextStyle, type ViewStyle } from 'react-native';
+import { Pressable, View, type TextStyle, type ViewStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '../../shared/i18n';
@@ -14,13 +14,13 @@ import { RootTabParamList } from './types';
 
 const Tab = createBottomTabNavigator<RootTabParamList>();
 type PressableProps = ComponentProps<typeof Pressable>;
+type WebBackdropStyle = ViewStyle & { backdropFilter: string };
 const SCENE_STYLE = { backgroundColor: 'transparent' } satisfies ViewStyle;
 const TAB_BAR_BASE_STYLE = {
   position: 'absolute',
   left: 0,
   right: 0,
-  paddingHorizontal: appVisualTokens.spacing.md,
-  borderTopWidth: StyleSheet.hairlineWidth
+  paddingHorizontal: appVisualTokens.spacing.md
 } satisfies ViewStyle;
 const TAB_ITEM_STYLE = {
   paddingTop: 2,
@@ -33,6 +33,29 @@ const TAB_LABEL_STYLE = {
   fontSize: 12,
   fontWeight: '500'
 } satisfies TextStyle;
+const TAB_BAR_BACKGROUND_STYLE = {
+  position: 'absolute',
+  top: 0,
+  right: 0,
+  bottom: 0,
+  left: 0,
+  backdropFilter: 'blur(28px)'
+} satisfies WebBackdropStyle;
+const TAB_BAR_DIVIDER_STYLE = {
+  position: 'absolute',
+  top: 0,
+  right: 0,
+  left: 0,
+  height: 1
+} satisfies ViewStyle;
+
+function TabBarBackground({ backgroundColor, dividerColor }: { backgroundColor: string; dividerColor: string }) {
+  return (
+    <View pointerEvents="none" style={[TAB_BAR_BACKGROUND_STYLE, { backgroundColor }]}>
+      <View style={[TAB_BAR_DIVIDER_STYLE, { backgroundColor: dividerColor }]} />
+    </View>
+  );
+}
 
 function TabBarButtonWithoutRipple({
   android_ripple: _androidRipple,
@@ -72,10 +95,12 @@ export function TabsNavigator() {
             height: tabBarMetrics.height,
             paddingTop: tabBarMetrics.paddingTop,
             paddingBottom: tabBarMetrics.paddingBottom,
-            borderColor: theme.colors.line,
-            backgroundColor: theme.colors.surface
+            backgroundColor: 'transparent'
           }
         ],
+        tabBarBackground: () => (
+          <TabBarBackground backgroundColor={theme.colors.tabBarSurface} dividerColor={theme.colors.tabBarBorder} />
+        ),
         tabBarItemStyle: TAB_ITEM_STYLE,
         tabBarIconStyle: TAB_ICON_STYLE,
         tabBarLabelStyle: TAB_LABEL_STYLE,

@@ -37,19 +37,16 @@ import {
   ChatDirectoryRow,
   createChatDirectoryDisplayItem,
   type ChatDirectoryDisplayItem,
-  type ChatDirectoryRowActionAnchor,
+  type ChatDirectoryRowActionAnchor
 } from './components/ChatDirectoryRow';
 import { ChatDirectorySearchOverlay } from './components/ChatDirectorySearchOverlay';
 import {
   buildDirectoryListState,
   patchDirectoryListPreviewByConversation,
-  type ChatDirectoryListState,
+  type ChatDirectoryListState
 } from './chatRealtimeUiState';
 import { readChatDirectorySnapshot } from './homeSnapshot';
-import {
-  getDefaultChatSource,
-  getPairedChatSource
-} from './chatSourceRuntime';
+import { getDefaultChatSource, getPairedChatSource } from './chatSourceRuntime';
 import type { ChatDirectoryItem } from './types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../app/navigation/types';
@@ -58,13 +55,12 @@ const CHAT_PAGE_SIZE = 6;
 const CHAT_HOME_AUTOSCROLL_TO_TOP_THRESHOLD = CHAT_DIRECTORY_ROW_HEIGHT;
 const PIN_FOLD_ROW_HEIGHT = 54;
 const PIN_MENU_ROW_HEIGHT = 58;
-const SCREEN_CLASS = 'flex-1 bg-app-surface';
+const SCREEN_CLASS = 'flex-1 bg-app-background-muted';
 const HEADER_SAFE_AREA_CLASS = 'bg-app-surface';
 const HEADER_ICON_BUTTON_CLASS = 'h-10 w-10 items-center justify-center active:opacity-[0.68]';
 const HEADER_WITHOUT_DIVIDER_CLASS = 'h-14 bg-app-surface';
-const LIST_SHELL_CLASS = 'flex-1 bg-app-surface';
-const FEEDBACK_CARD_CLASS =
-  'mx-app-xl mb-app-sm border-app-danger-line bg-app-danger-soft px-app-lg py-app-sm';
+const LIST_SHELL_CLASS = 'flex-1 bg-app-background-muted';
+const FEEDBACK_CARD_CLASS = 'mx-app-xl mb-app-sm border-app-danger-line bg-app-danger-soft px-app-lg py-app-sm';
 const ERROR_TEXT_CLASS = 'text-[13px] leading-[20px] text-app-danger';
 const PINNED_FOLD_ROW_CLASS =
   'min-h-[54px] flex-1 flex-row items-center justify-between border-app-line bg-app-surface-muted px-app-xl active:bg-app-background-muted';
@@ -75,8 +71,7 @@ const EMPTY_STATE_TITLE_CLASS = 'text-app-title font-bold text-app-primary';
 const EMPTY_STATE_BODY_CLASS = 'mt-app-sm text-center text-[14px] leading-[21px] text-app-secondary';
 const MENU_BACKDROP_CLASS = 'flex-1 bg-transparent';
 const PIN_MENU_CLASS = 'absolute w-[176px] overflow-hidden rounded-app-lg border border-app-line bg-app-surface';
-const PIN_MENU_ACTION_CLASS =
-  'min-h-[58px] flex-row items-center gap-app-md px-app-xl active:bg-app-surface-muted';
+const PIN_MENU_ACTION_CLASS = 'min-h-[58px] flex-row items-center gap-app-md px-app-xl active:bg-app-surface-muted';
 const PIN_MENU_ACTION_TEXT_CLASS = 'shrink text-app-title-sm font-medium text-app-primary';
 const CHAT_LIST_CONTENT_STYLE = { paddingTop: appVisualTokens.spacing.xs } satisfies ViewStyle;
 const PIN_MENU_ELEVATION_STYLE = {
@@ -89,10 +84,7 @@ const PIN_MENU_ELEVATION_STYLE = {
 function filterActiveSourceItems(items: ChatDirectoryItem[]): ChatDirectoryItem[] {
   const defaultSource = getDefaultChatSource();
   const pairedSource = getPairedChatSource();
-  const activeKeys = new Set([
-    defaultSource.key,
-    ...(pairedSource ? [pairedSource.key] : [])
-  ]);
+  const activeKeys = new Set([defaultSource.key, ...(pairedSource ? [pairedSource.key] : [])]);
   return items.filter((item) => activeKeys.has(item.source.key));
 }
 
@@ -365,9 +357,7 @@ export function ChatHomeScreen() {
 
     try {
       const snapshot = readChatDirectorySnapshot();
-      const snapshotItems = snapshot
-        ? filterActiveSourceItems(snapshot.items)
-        : [];
+      const snapshotItems = snapshot ? filterActiveSourceItems(snapshot.items) : [];
       hasSnapshot = snapshotItems.length > 0;
       if (snapshotItems.length) {
         setHomeState(buildDirectoryListState(snapshotItems, snapshotItems.length));

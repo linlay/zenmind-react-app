@@ -2,11 +2,12 @@ import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { memo, ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, View, type ViewStyle } from 'react-native';
+import { Alert, Pressable, Text, TextInput, View, type ViewStyle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { RootStackParamList } from '../../app/navigation/types';
 import type { KanbanIssue } from '../../core/api/services/kanbanApi';
+import { AppKeyboardAwareScrollView } from '../../shared/components/AppKeyboardAwareScrollView';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { type I18nKey, useT } from '../../shared/i18n';
@@ -555,14 +556,11 @@ function SecondaryPage({ title, onBack, children }: SecondaryPageProps) {
       <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
         <ScreenHeader title={title} leftActions={backAction} />
       </SafeAreaView>
-      <ScrollView
-        className={SCROLL_VIEW_CLASS}
-        showsVerticalScrollIndicator={false}
-      >
+      <AppKeyboardAwareScrollView className={SCROLL_VIEW_CLASS} showsVerticalScrollIndicator={false}>
         <View className={SECONDARY_CONTENT_CLASS} style={contentBottomStyle}>
           {children}
         </View>
-      </ScrollView>
+      </AppKeyboardAwareScrollView>
     </View>
   );
 }

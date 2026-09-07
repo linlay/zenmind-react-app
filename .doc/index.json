@@ -81,6 +81,7 @@
         "src/app/screens",
         "src/app/settings",
         "src/app/startup",
+        "src/shared/components/AppKeyboardAwareScrollView.tsx",
         "src/types/assets.d.ts",
         "tailwind.config.js"
       ],
@@ -236,7 +237,7 @@
     "moduleCount": 19,
     "flowCount": 8,
     "taskCount": 16,
-    "sourceFileCount": 2212,
+    "sourceFileCount": 2218,
     "factsRef": ".doc/generated/project-facts.json",
     "contextIndexRef": ".doc/generated/context-index.json",
     "entrypoints": [

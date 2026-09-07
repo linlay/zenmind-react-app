@@ -1,8 +1,8 @@
 {
   "version": 1,
   "brandId": "cutej",
-  "appVersion": "2.0.0",
-  "runtimeFingerprint": "94dde20818b2e74b99598a1b51077ea9722365d3f0666bba049393fdf7ea5290",
+  "appVersion": "1.0.0",
+  "runtimeFingerprint": "9138b93084a23203ba4742a7d3c1610d7a0afa980a8ee67e2989160245b40fea",
   "assetFingerprint": "c5bb156777c61a0ac9128bec4660b6ff2d8dbe06cbc54e518bf9baedff1ed068",
   "assetGeneratorVersion": 8,
   "assets": {
