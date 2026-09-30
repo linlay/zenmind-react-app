@@ -72,6 +72,7 @@
         "package.json",
         "patches",
         "plugins/withAndroidAutolinkingCacheGuard.js",
+        "plugins/withLocalCacheBackupExclusion.js",
         "scripts",
         "scripts/lib/brand-config.js",
         "scripts/sync-brand.js",
@@ -132,7 +133,8 @@
     },
     "feature-auth-login": {
       "paths": [
-        "src/features/auth"
+        "src/features/auth",
+        "src/features/deviceLink"
       ],
       "context": ".doc/modules/feature-auth-login.json",
       "confidence": "confirmed"
@@ -237,7 +239,7 @@
     "moduleCount": 19,
     "flowCount": 8,
     "taskCount": 16,
-    "sourceFileCount": 2218,
+    "sourceFileCount": 2230,
     "factsRef": ".doc/generated/project-facts.json",
     "contextIndexRef": ".doc/generated/context-index.json",
     "entrypoints": [

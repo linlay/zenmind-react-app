@@ -1,8 +1,4 @@
-import type {
-  ChatMessageItem,
-  ChatMessageStatus,
-  ChatReadState,
-} from '../chatPersistence/types.ts';
+import type { ChatMessageItem, ChatMessageStatus, ChatReadState } from '../chatPersistence/types.ts';
 import type {
   ChatTimelineAwaitingMode,
   ChatTimelineAwaitingState,
@@ -10,7 +6,7 @@ import type {
   ChatTimelineRuntimeEntry,
   ChatTimelineRuntimeEntryKind,
   ChatTimelineRuntimeState,
-  ChatTimelineState,
+  ChatTimelineState
 } from '../chatTimeline/index.ts';
 import type { WsSocketStatus } from '../../core/ws/wsClient.ts';
 
@@ -46,6 +42,7 @@ export type ChatHomeItemPatch = {
   pinnedAt?: number;
   shouldMoveToTop?: boolean;
   directoryProjectionChanged?: boolean;
+  sourceDeleted?: boolean;
 };
 
 export type ChatConnectionStatusEvent = {
@@ -82,13 +79,7 @@ export type ChatConversationMessagePatchEvent = {
   patch: Partial<
     Pick<
       ChatMessageItem,
-      | 'content'
-      | 'createdAt'
-      | 'deliveryStatus'
-      | 'errorReason'
-      | 'serverMessageId'
-      | 'streamStatus'
-      | 'attachments'
+      'content' | 'createdAt' | 'deliveryStatus' | 'errorReason' | 'serverMessageId' | 'streamStatus' | 'attachments'
     >
   >;
 };

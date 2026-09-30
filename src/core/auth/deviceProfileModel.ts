@@ -3,7 +3,7 @@ import {
   deriveDesktopApiBaseUrlFromWsUrl,
   normalizeDesktopWsStorageUrl,
   normalizeDesktopWsTokenMode,
-  type DesktopWsTokenMode,
+  type DesktopWsTokenMode
 } from './desktopWsTransport.ts';
 
 export type DeviceProfileTransportKind = 'http' | 'desktop-ws';
@@ -40,7 +40,6 @@ export interface DeviceProfileRegistrySnapshot {
 
 export interface DeviceProfileWriteResult {
   profile: DeviceProfile;
-  evictedCacheScopeIds: string[];
 }
 
 export type DeviceProfileInput = {
@@ -92,7 +91,7 @@ export function normalizeDesktopWsProfileTransport(raw: unknown): DesktopWsProfi
     wsUrl,
     tokenMode: normalizeDesktopWsTokenMode(record.tokenMode),
     accessToken,
-    accessExpireAtMs,
+    accessExpireAtMs
   };
 }
 
@@ -146,7 +145,7 @@ export function normalizeDeviceProfile(raw: unknown): DeviceProfile | null {
     identityCreatedAt: normalizeText(record.identityCreatedAt),
     hostname: normalizeText(record.hostname),
     appServerPublicKeySha256: normalizeText(record.appServerPublicKeySha256),
-    desktopWs,
+    desktopWs
   };
 }
 

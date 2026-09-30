@@ -174,7 +174,7 @@ test('chat directory search stays scoped to directory summaries', () => {
   const searchSource = extractSourceSection(
     repositorySource,
     'export async function searchChatDirectoryItems',
-    'export async function removeConversation'
+    'export async function markConversationSourceDeleted'
   );
 
   assert.match(searchSource, /getChatDirectorySearchTokens/);

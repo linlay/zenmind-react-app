@@ -1,11 +1,12 @@
 import { drizzle } from 'drizzle-orm/expo-sqlite';
-import { deleteDatabaseSync, openDatabaseSync } from 'expo-sqlite';
+import { File } from 'expo-file-system';
+import { defaultDatabaseDirectory, deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
 
 import {
   buildChatDatabaseName,
   getChatCacheScopeId,
   normalizeChatCacheScopeId,
-  setChatCacheScopeId,
+  setChatCacheScopeId
 } from './cacheScope';
 import * as schema from './schema';
 
@@ -19,7 +20,232 @@ const CHAT_DIRECTORY_ICON_SCHEMA_VERSION = 3;
 const MESSAGE_ATTACHMENTS_SCHEMA_VERSION = 4;
 const CHAT_QUERY_INDEX_SCHEMA_VERSION = 6;
 const CHAT_DIRECTORY_MODEL_SETTINGS_SCHEMA_VERSION = 7;
+const SOURCE_DELETED_SCHEMA_VERSION = 8;
 let initialized = false;
+
+export type ChatCacheConversationStorage = {
+  conversationId: string;
+  title: string;
+  sizeBytes: number;
+  lastLoadedAt: number;
+};
+
+export type ChatDatabaseScopeInventory = {
+  scopeId: string;
+  database: 'present' | 'missing';
+  sizeBytes: number;
+  lastLoadedAt: number;
+  conversationCount: number;
+  conversations: ChatCacheConversationStorage[];
+};
+
+type ChatCacheConversationStorageRow = {
+  conversationId: string;
+  title: string;
+  sizeBytes: number;
+  lastLoadedAt: number;
+};
+
+function readTableColumns(database: SQLiteDatabase, tableName: string): Set<string> {
+  return new Set(database.getAllSync<{ name: string }>(`PRAGMA table_info(${tableName})`).map((row) => row.name));
+}
+
+function blobLengthExpression(alias: string, columns: ReadonlySet<string>, candidates: readonly string[]): string {
+  const terms = candidates.filter((column) => columns.has(column)).map((column) => `coalesce(${alias}.${column}, '')`);
+  return terms.length > 0 ? `length(cast(${terms.join(' || ')} AS blob))` : '0';
+}
+
+function chatDatabaseFileSize(databaseName: string): number {
+  let total = 0;
+  for (const suffix of ['', '-wal', '-shm']) {
+    try {
+      const file = new File(defaultDatabaseDirectory, `${databaseName}${suffix}`);
+      if (file.exists) {
+        total += Math.max(0, Number(file.size || 0));
+      }
+    } catch {
+      // Some web/test runtimes do not expose SQLite as regular files.
+    }
+  }
+  return total;
+}
+
+function chatDatabaseFileExists(databaseName: string): boolean {
+  try {
+    return new File(defaultDatabaseDirectory, databaseName).exists;
+  } catch {
+    return databaseName === buildChatDatabaseName();
+  }
+}
+
+function readChatDatabaseScopeInventory(
+  database: SQLiteDatabase,
+  scopeId: string,
+  databaseName: string
+): ChatDatabaseScopeInventory {
+  const tableNames = new Set(
+    database.getAllSync<{ name: string }>(`SELECT name FROM sqlite_master WHERE type = 'table'`).map((row) => row.name)
+  );
+  if (!tableNames.has('conversations')) {
+    return {
+      scopeId,
+      database: 'present',
+      sizeBytes: chatDatabaseFileSize(databaseName),
+      lastLoadedAt: 0,
+      conversationCount: 0,
+      conversations: []
+    };
+  }
+  const conversationColumns = readTableColumns(database, 'conversations');
+  if (!conversationColumns.has('id')) {
+    return {
+      scopeId,
+      database: 'present',
+      sizeBytes: chatDatabaseFileSize(databaseName),
+      lastLoadedAt: 0,
+      conversationCount: 0,
+      conversations: []
+    };
+  }
+  const syncColumns = tableNames.has('conversation_sync_state')
+    ? readTableColumns(database, 'conversation_sync_state')
+    : new Set<string>();
+  const timelineMetaColumns = tableNames.has('conversation_timeline_meta')
+    ? readTableColumns(database, 'conversation_timeline_meta')
+    : new Set<string>();
+  const canJoinSync = syncColumns.has('conversation_id');
+  const canJoinTimelineMeta = timelineMetaColumns.has('conversation_id');
+  const lastLoadedTerms = [
+    ...(conversationColumns.has('updated_at') ? ['coalesce(c.updated_at, 0)'] : []),
+    ...(conversationColumns.has('last_message_at') ? ['coalesce(c.last_message_at, 0)'] : []),
+    ...(canJoinSync && syncColumns.has('last_synced_at') ? ['coalesce(s.last_synced_at, 0)'] : []),
+    ...(canJoinTimelineMeta && timelineMetaColumns.has('persisted_at') ? ['coalesce(tm.persisted_at, 0)'] : [])
+  ];
+  const sizeTerms = [
+    blobLengthExpression('c', conversationColumns, ['id', 'title', 'last_message_text', 'agent_key', 'team_id'])
+  ];
+  for (const [tableName, alias, columns] of [
+    ['messages', 'm', ['id', 'content', 'role', 'delivery_status', 'error_reason']],
+    ['message_attachments', 'a', ['id', 'name', 'kind', 'mime_type', 'resource_url', 'sha256', 'references_json']],
+    ['conversation_timeline_nodes', 'n', ['node_id', 'kind', 'run_id', 'payload_json']]
+  ] as const) {
+    if (!tableNames.has(tableName)) continue;
+    const tableColumns = readTableColumns(database, tableName);
+    if (!tableColumns.has('conversation_id')) continue;
+    sizeTerms.push(
+      `coalesce((SELECT sum(${blobLengthExpression(alias, tableColumns, columns)}) FROM ${tableName} ${alias} WHERE ${alias}.conversation_id = c.id), 0)`
+    );
+  }
+  const joins = [
+    ...(canJoinSync ? ['LEFT JOIN conversation_sync_state s ON s.conversation_id = c.id'] : []),
+    ...(canJoinTimelineMeta ? ['LEFT JOIN conversation_timeline_meta tm ON tm.conversation_id = c.id'] : [])
+  ];
+  const rows = database.getAllSync<ChatCacheConversationStorageRow>(`
+    SELECT
+      c.id AS conversationId,
+      ${conversationColumns.has('title') ? `coalesce(c.title, '')` : `''`} AS title,
+      ${lastLoadedTerms.length > 0 ? `max(${lastLoadedTerms.join(', ')})` : '0'} AS lastLoadedAt,
+      ${sizeTerms.join(' + ')} AS sizeBytes
+    FROM conversations c
+    ${joins.join('\n')}
+    ORDER BY lastLoadedAt DESC, c.id ASC
+  `);
+  const conversations = rows.map((row) => ({
+    conversationId: String(row.conversationId || '').trim(),
+    title: String(row.title || '').trim(),
+    sizeBytes: Math.max(0, Number(row.sizeBytes || 0)),
+    lastLoadedAt: Math.max(0, Number(row.lastLoadedAt || 0))
+  }));
+  return {
+    scopeId,
+    database: 'present',
+    sizeBytes: chatDatabaseFileSize(databaseName),
+    lastLoadedAt: conversations.reduce((latest, item) => Math.max(latest, item.lastLoadedAt), 0),
+    conversationCount: conversations.length,
+    conversations
+  };
+}
+
+export function inspectChatDatabaseScope(scopeId: string): ChatDatabaseScopeInventory {
+  const rawScopeId = String(scopeId || '').trim();
+  const normalizedScopeId = normalizeChatCacheScopeId(rawScopeId);
+  if (!rawScopeId || normalizedScopeId !== rawScopeId) {
+    throw new Error('Invalid chat cache scope id');
+  }
+  const databaseName = buildChatDatabaseName(normalizedScopeId);
+  if (!chatDatabaseFileExists(databaseName)) {
+    return {
+      scopeId: normalizedScopeId,
+      database: 'missing',
+      sizeBytes: 0,
+      lastLoadedAt: 0,
+      conversationCount: 0,
+      conversations: []
+    };
+  }
+  if (normalizedScopeId === getChatCacheScopeId()) {
+    return readChatDatabaseScopeInventory(sqlite, normalizedScopeId, databaseName);
+  }
+  const inspected = openDatabaseSync(databaseName, { useNewConnection: true });
+  try {
+    return readChatDatabaseScopeInventory(inspected, normalizedScopeId, databaseName);
+  } finally {
+    inspected.closeSync();
+  }
+}
+
+export function deleteChatConversationFromScopeIfExists(scopeId: string, conversationId: string): boolean {
+  const rawScopeId = String(scopeId || '').trim();
+  const normalizedScopeId = normalizeChatCacheScopeId(rawScopeId);
+  const normalizedConversationId = String(conversationId || '').trim();
+  if (!rawScopeId || normalizedScopeId !== rawScopeId || !normalizedConversationId) {
+    throw new Error('Valid chat cache scope and conversation ids are required');
+  }
+  const databaseName = buildChatDatabaseName(normalizedScopeId);
+  if (!chatDatabaseFileExists(databaseName)) {
+    return false;
+  }
+  const active = normalizedScopeId === getChatCacheScopeId();
+  const target = active ? sqlite : openDatabaseSync(databaseName, { useNewConnection: true });
+  try {
+    const tableNames = new Set(
+      target.getAllSync<{ name: string }>(`SELECT name FROM sqlite_master WHERE type = 'table'`).map((row) => row.name)
+    );
+    if (!tableNames.has('conversations')) {
+      return false;
+    }
+    const conversation = target.getFirstSync<{ id: string }>(
+      `SELECT id FROM conversations WHERE id = ? LIMIT 1`,
+      normalizedConversationId
+    );
+    if (!conversation) {
+      return false;
+    }
+    target.withTransactionSync(() => {
+      for (const tableName of [
+        'conversation_timeline_nodes',
+        'conversation_timeline_meta',
+        'outbox_messages',
+        'message_attachments',
+        'messages',
+        'conversation_sync_state'
+      ]) {
+        if (tableNames.has(tableName) && readTableColumns(target, tableName).has('conversation_id')) {
+          target.runSync(`DELETE FROM ${tableName} WHERE conversation_id = ?`, normalizedConversationId);
+        }
+      }
+      target.runSync(`DELETE FROM conversations WHERE id = ?`, normalizedConversationId);
+      if (tableNames.has('chat_directory_items')) {
+        target.runSync(`DELETE FROM chat_directory_items`);
+      }
+    });
+    return true;
+  } finally {
+    if (!active) {
+      target.closeSync();
+    }
+  }
+}
 
 export function switchChatDatabaseScope(scopeId: string) {
   const nextScopeId = normalizeChatCacheScopeId(scopeId);
@@ -112,7 +338,8 @@ export async function ensureChatDatabase() {
 	      pinned_at INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL,
       agent_key TEXT,
-      team_id TEXT
+      team_id TEXT,
+      source_deleted INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS chat_directory_items (
@@ -270,6 +497,12 @@ export async function ensureChatDatabase() {
   }
 
   try {
+    sqlite.execSync('ALTER TABLE conversations ADD COLUMN source_deleted INTEGER NOT NULL DEFAULT 0;');
+  } catch (error) {
+    ignoreDuplicateColumn(error);
+  }
+
+  try {
     sqlite.execSync('ALTER TABLE chat_directory_items ADD COLUMN latest_conversation_id TEXT;');
   } catch (error) {
     ignoreDuplicateColumn(error);
@@ -422,6 +655,10 @@ export async function ensureChatDatabase() {
 
   if (getDatabaseUserVersion() < CHAT_DIRECTORY_MODEL_SETTINGS_SCHEMA_VERSION) {
     sqlite.execSync(`PRAGMA user_version = ${CHAT_DIRECTORY_MODEL_SETTINGS_SCHEMA_VERSION};`);
+  }
+
+  if (getDatabaseUserVersion() < SOURCE_DELETED_SCHEMA_VERSION) {
+    sqlite.execSync(`PRAGMA user_version = ${SOURCE_DELETED_SCHEMA_VERSION};`);
   }
 
   initialized = true;

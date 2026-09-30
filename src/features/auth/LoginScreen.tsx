@@ -18,6 +18,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../../app/navigation/types';
 import { completeAccessOnboarding, continueWithoutPairing } from '../../core/auth/appAccess';
 import { activateProfile, bootstrapAuth, loginWithPairingPayload } from '../../core/auth/appAuth';
+import { loginWithAccountCredentials } from '../../core/auth/accountAuth.ts';
+import { getAccountAuthSnapshot } from '../../core/auth/accountAuth.ts';
+import type { TrustLevel } from '../../core/api/contracts/deviceLink.ts';
+import { confirmAccountLoginChallenge } from '../../core/api/services/deviceLinkApi.ts';
 import { getDesktopWsAuthErrorCode, isAbortError } from '../../core/auth/desktopWsAuthClient';
 import { listDeviceProfiles, type DeviceProfile } from '../../core/auth/deviceProfiles';
 import { AppKeyboardAwareScrollView } from '../../shared/components/AppKeyboardAwareScrollView';
@@ -26,10 +30,12 @@ import { useT } from '../../shared/i18n';
 import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { cn } from '../../shared/visual/className';
 import { FullScreenPairingScanner } from './FullScreenPairingScanner';
+import { AccountChallengeLogin } from './AccountChallengeLogin.tsx';
 
 type PairingMode = 'code' | 'scan';
 type PairingSubmitSource = 'code' | 'scan';
-type SubmissionKind = PairingSubmitSource | 'profile' | null;
+type LoginMode = 'account' | 'pairing';
+type SubmissionKind = PairingSubmitSource | 'profile' | 'account' | null;
 
 const SCANNER_RETRY_DELAY_MS = 1_800;
 
@@ -65,6 +71,10 @@ const PASTE_BUTTON_CLASS = 'rounded-app-sm px-app-sm py-app-xs active:bg-app-sur
 const PASTE_BUTTON_TEXT_CLASS = 'text-app-footnote font-bold text-app-action';
 const PAIRING_INPUT_CLASS =
   'min-h-[128px] rounded-app-md bg-app-surface-muted px-app-lg py-app-md text-[15px] leading-6 text-app-primary';
+const TEXT_INPUT_CLASS = 'min-h-[52px] rounded-app-md bg-app-surface-muted px-app-lg text-[15px] text-app-primary';
+const TRUST_ROW_CLASS = 'flex-row gap-app-sm';
+const TRUST_BUTTON_CLASS = 'flex-1 items-center rounded-app-sm border border-app-line px-app-xs py-app-sm';
+const TRUST_BUTTON_ACTIVE_CLASS = 'border-app-action bg-app-action-soft';
 const ERROR_TEXT_CLASS = 'text-app-body-sm leading-5 text-app-danger';
 const PRIMARY_BUTTON_CLASS =
   'min-h-[52px] items-center justify-center rounded-app-md bg-app-action active:opacity-[0.86]';
@@ -105,8 +115,14 @@ export function LoginScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const [cameraPermission, requestCameraPermission] = useCameraPermissions();
+  const [loginMode, setLoginMode] = useState<LoginMode>('account');
   const [pairingMode, setPairingMode] = useState<PairingMode>('code');
   const [pairingPayload, setPairingPayload] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [deviceName, setDeviceName] = useState(Platform.OS === 'ios' ? 'iPhone' : 'Android Device');
+  const [trustLevel, setTrustLevel] = useState<TrustLevel>('trusted');
+  const [showAccountChallenge, setShowAccountChallenge] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [scannerErrorMessage, setScannerErrorMessage] = useState('');
   const [isScannerUnavailable, setIsScannerUnavailable] = useState(false);
@@ -125,6 +141,7 @@ export function LoginScreen() {
   const isScannerConnecting = submissionKind === 'scan';
   const isScannerPaused = isScannerConnecting || Boolean(scannerErrorMessage) || isScannerUnavailable;
   const canSubmitPairingCode = Boolean(normalizedPairingPayload && !isSubmitting);
+  const canSubmitAccount = Boolean(username.trim() && password && deviceName.trim() && !isSubmitting);
   const canClose = navigation.canGoBack();
 
   useEffect(
@@ -264,6 +281,29 @@ export function LoginScreen() {
   function handleBarcodeScanned(result: BarcodeScanningResult) {
     const data = String(result.data || '').trim();
     if (data) {
+      try {
+        const payload = JSON.parse(data) as unknown;
+        const challengeId =
+          payload && typeof payload === 'object' && !Array.isArray(payload)
+            ? String((payload as Record<string, unknown>).challengeId || '').trim()
+            : '';
+        if (challengeId && getAccountAuthSnapshot().session) {
+          pairingSubmitLockedRef.current = true;
+          setSubmissionKind('scan');
+          confirmAccountLoginChallenge(challengeId, trustLevel)
+            .then(() => {
+              handleCloseScanner();
+              if (navigation.canGoBack()) navigation.goBack();
+            })
+            .catch((error) =>
+              showRetryableScannerError(String((error as Error)?.message || t('auth.error.loginFailed')))
+            )
+            .finally(() => setSubmissionKind(null));
+          return;
+        }
+      } catch {
+        // Continue with the legacy Desktop pairing parser.
+      }
       submitPairingPayload(data, 'scan').catch(() => {});
     }
   }
@@ -288,6 +328,26 @@ export function LoginScreen() {
         throw new Error(t('auth.error.loginFailed'));
       }
       completeSuccessfulPairing();
+    } catch (error) {
+      setErrorMessage(String((error as Error)?.message || t('auth.error.loginFailed')));
+    } finally {
+      setSubmissionKind(null);
+    }
+  }
+
+  async function handleAccountLogin() {
+    if (!canSubmitAccount) return;
+    setSubmissionKind('account');
+    setErrorMessage('');
+    try {
+      await loginWithAccountCredentials({
+        username,
+        password,
+        deviceName,
+        deviceKind: 'mobile',
+        trustLevel
+      });
+      completeAccessOnboarding();
     } catch (error) {
       setErrorMessage(String((error as Error)?.message || t('auth.error.loginFailed')));
     } finally {
@@ -343,79 +403,174 @@ export function LoginScreen() {
 
             <View className={FORM_CLASS}>
               <View accessibilityRole="tablist" className={SEGMENTED_CONTROL_CLASS}>
-                <View
-                  accessibilityRole="tab"
-                  accessibilityState={{ selected: true }}
-                  className={cn(SEGMENT_CLASS, SEGMENT_ACTIVE_CLASS)}
-                >
-                  <Text className={cn(SEGMENT_TEXT_CLASS, SEGMENT_ACTIVE_TEXT_CLASS)}>{t('auth.mode.code')}</Text>
-                </View>
                 <Pressable
                   accessibilityRole="tab"
-                  accessibilityState={{ selected: false }}
+                  accessibilityState={{ selected: loginMode === 'account' }}
                   disabled={isSubmitting}
-                  onPress={() => {
-                    handleSelectScanner().catch((error) => {
-                      setErrorMessage(String((error as Error)?.message || t('auth.error.loginFailed')));
-                    });
-                  }}
-                  className={SEGMENT_CLASS}
+                  onPress={() => setLoginMode('account')}
+                  className={cn(SEGMENT_CLASS, loginMode === 'account' && SEGMENT_ACTIVE_CLASS)}
                 >
-                  <Text className={SEGMENT_TEXT_CLASS}>{t('auth.mode.scan')}</Text>
+                  <Text className={cn(SEGMENT_TEXT_CLASS, loginMode === 'account' && SEGMENT_ACTIVE_TEXT_CLASS)}>
+                    {t('auth.mode.account')}
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: loginMode === 'pairing' }}
+                  disabled={isSubmitting}
+                  onPress={() => setLoginMode('pairing')}
+                  className={cn(SEGMENT_CLASS, loginMode === 'pairing' && SEGMENT_ACTIVE_CLASS)}
+                >
+                  <Text className={cn(SEGMENT_TEXT_CLASS, loginMode === 'pairing' && SEGMENT_ACTIVE_TEXT_CLASS)}>
+                    {t('auth.mode.pairing')}
+                  </Text>
                 </Pressable>
               </View>
 
-              <View className={INPUT_GROUP_CLASS}>
-                <View className={INPUT_LABEL_ROW_CLASS}>
-                  <Text className={INPUT_LABEL_CLASS}>{t('auth.pairingPayload.label')}</Text>
+              {loginMode === 'account' ? (
+                <>
+                  <View className={INPUT_GROUP_CLASS}>
+                    <Text className={INPUT_LABEL_CLASS}>{t('auth.account.username')}</Text>
+                    <TextInput
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!isSubmitting}
+                      onChangeText={setUsername}
+                      placeholder={t('auth.account.usernamePlaceholder')}
+                      placeholderTextColor={theme.colors.textTertiary}
+                      className={TEXT_INPUT_CLASS}
+                      value={username}
+                    />
+                  </View>
+                  <View className={INPUT_GROUP_CLASS}>
+                    <Text className={INPUT_LABEL_CLASS}>{t('auth.account.password')}</Text>
+                    <TextInput
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!isSubmitting}
+                      onChangeText={setPassword}
+                      placeholder={t('auth.account.passwordPlaceholder')}
+                      placeholderTextColor={theme.colors.textTertiary}
+                      secureTextEntry
+                      className={TEXT_INPUT_CLASS}
+                      value={password}
+                    />
+                  </View>
+                  <View className={INPUT_GROUP_CLASS}>
+                    <Text className={INPUT_LABEL_CLASS}>{t('auth.device.label')}</Text>
+                    <TextInput
+                      editable={!isSubmitting}
+                      maxLength={64}
+                      onChangeText={setDeviceName}
+                      placeholder={t('auth.device.placeholder')}
+                      placeholderTextColor={theme.colors.textTertiary}
+                      className={TEXT_INPUT_CLASS}
+                      value={deviceName}
+                    />
+                  </View>
+                  <View className={INPUT_GROUP_CLASS}>
+                    <Text className={INPUT_LABEL_CLASS}>{t('auth.account.trustLevel')}</Text>
+                    <View className={TRUST_ROW_CLASS}>
+                      {(['session', 'trusted', 'fully_trusted'] as const).map((level) => (
+                        <Pressable
+                          key={level}
+                          disabled={isSubmitting}
+                          onPress={() => setTrustLevel(level)}
+                          className={cn(TRUST_BUTTON_CLASS, trustLevel === level && TRUST_BUTTON_ACTIVE_CLASS)}
+                        >
+                          <Text className={cn(SEGMENT_TEXT_CLASS, trustLevel === level && SEGMENT_ACTIVE_TEXT_CLASS)}>
+                            {t(`auth.trust.${level}`)}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                  </View>
+                  {errorMessage ? <Text className={ERROR_TEXT_CLASS}>{errorMessage}</Text> : null}
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={!canSubmitAccount}
+                    onPress={() => handleAccountLogin().catch(() => {})}
+                    className={cn(PRIMARY_BUTTON_CLASS, !canSubmitAccount && PRIMARY_BUTTON_DISABLED_CLASS)}
+                  >
+                    {submissionKind === 'account' ? (
+                      <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
+                    ) : (
+                      <Text className={PRIMARY_BUTTON_TEXT_CLASS}>{t('auth.submitAccount')}</Text>
+                    )}
+                  </Pressable>
                   <Pressable
                     disabled={isSubmitting}
-                    hitSlop={8}
+                    onPress={() => setShowAccountChallenge((visible) => !visible)}
+                    className={SKIP_BUTTON_CLASS}
+                  >
+                    <Text className={PASTE_BUTTON_TEXT_CLASS}>
+                      {showAccountChallenge ? t('auth.challenge.hide') : t('auth.challenge.show')}
+                    </Text>
+                  </Pressable>
+                  {showAccountChallenge ? (
+                    <AccountChallengeLogin deviceName={deviceName} onSuccess={completeSuccessfulPairing} />
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <View className={INPUT_GROUP_CLASS}>
+                    <View className={INPUT_LABEL_ROW_CLASS}>
+                      <Text className={INPUT_LABEL_CLASS}>{t('auth.pairingPayload.label')}</Text>
+                      <Pressable
+                        disabled={isSubmitting}
+                        hitSlop={8}
+                        onPress={() => {
+                          handlePastePairingPayload().catch((error) => {
+                            setErrorMessage(String((error as Error)?.message || t('auth.error.loginFailed')));
+                          });
+                        }}
+                        className={PASTE_BUTTON_CLASS}
+                      >
+                        <Text className={PASTE_BUTTON_TEXT_CLASS}>{t('auth.pairingPayload.paste')}</Text>
+                      </Pressable>
+                    </View>
+                    <TextInput
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      editable={!isSubmitting}
+                      maxLength={4096}
+                      multiline
+                      onChangeText={(value) => {
+                        setPairingPayload(value);
+                        if (errorMessage) setErrorMessage('');
+                      }}
+                      placeholder={t('auth.pairingPayload.placeholder')}
+                      placeholderTextColor={theme.colors.textTertiary}
+                      className={PAIRING_INPUT_CLASS}
+                      value={pairingPayload}
+                    />
+                  </View>
+                  <Pressable
+                    disabled={isSubmitting}
                     onPress={() => {
-                      handlePastePairingPayload().catch((error) => {
+                      handleSelectScanner().catch((error) => {
                         setErrorMessage(String((error as Error)?.message || t('auth.error.loginFailed')));
                       });
                     }}
-                    className={PASTE_BUTTON_CLASS}
+                    className={SKIP_BUTTON_CLASS}
                   >
-                    <Text className={PASTE_BUTTON_TEXT_CLASS}>{t('auth.pairingPayload.paste')}</Text>
+                    <Text className={PASTE_BUTTON_TEXT_CLASS}>{t('auth.mode.scan')}</Text>
                   </Pressable>
-                </View>
-                <TextInput
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={!isSubmitting}
-                  maxLength={4096}
-                  multiline
-                  onChangeText={(value) => {
-                    setPairingPayload(value);
-                    if (errorMessage) {
-                      setErrorMessage('');
-                    }
-                  }}
-                  placeholder={t('auth.pairingPayload.placeholder')}
-                  placeholderTextColor={theme.colors.textTertiary}
-                  className={PAIRING_INPUT_CLASS}
-                  value={pairingPayload}
-                />
-              </View>
-
-              {errorMessage ? <Text className={ERROR_TEXT_CLASS}>{errorMessage}</Text> : null}
-
-              <Pressable
-                accessibilityRole="button"
-                disabled={!canSubmitPairingCode}
-                onPress={() => {
-                  submitPairingPayload(normalizedPairingPayload, 'code').catch(() => {});
-                }}
-                className={cn(PRIMARY_BUTTON_CLASS, !canSubmitPairingCode && PRIMARY_BUTTON_DISABLED_CLASS)}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
-                ) : (
-                  <Text className={PRIMARY_BUTTON_TEXT_CLASS}>{t('auth.submitPairing')}</Text>
-                )}
-              </Pressable>
+                  {errorMessage ? <Text className={ERROR_TEXT_CLASS}>{errorMessage}</Text> : null}
+                  <Pressable
+                    accessibilityRole="button"
+                    disabled={!canSubmitPairingCode}
+                    onPress={() => submitPairingPayload(normalizedPairingPayload, 'code').catch(() => {})}
+                    className={cn(PRIMARY_BUTTON_CLASS, !canSubmitPairingCode && PRIMARY_BUTTON_DISABLED_CLASS)}
+                  >
+                    {isSubmitting ? (
+                      <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
+                    ) : (
+                      <Text className={PRIMARY_BUTTON_TEXT_CLASS}>{t('auth.submitPairing')}</Text>
+                    )}
+                  </Pressable>
+                </>
+              )}
 
               {recentProfiles.length > 0 ? (
                 <View className={RECENT_SECTION_CLASS}>

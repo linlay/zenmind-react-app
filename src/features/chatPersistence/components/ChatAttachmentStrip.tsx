@@ -2,7 +2,10 @@ import { memo, useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { ApiUriSource } from '../../../core/api/apiClient';
-import { resolveAuthenticatedResourceImageSource } from '../../../core/api/services/authenticatedResourceImage';
+import {
+  releaseAuthenticatedResourceImageSource,
+  resolveAuthenticatedResourceImageSource
+} from '../../../core/api/services/authenticatedResourceImage';
 import { logHttpError } from '../../../core/debug/httpDebugLogger';
 import { useConversationPreviewRowActive } from '../../../shared/components/conversationPreview/ConversationPreviewProvider.tsx';
 import { AppIcon } from '../../../shared/icons/AppIcon';
@@ -90,6 +93,7 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
     }
 
     const controller = new AbortController();
+    let retainedImage = false;
     setLoadState('loading');
     void resolveAuthenticatedResourceImageSource({
       resourceUrl: imageUri,
@@ -97,8 +101,12 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
       signal: controller.signal
     })
       .then((source) => {
+        retainedImage = true;
         if (!controller.signal.aborted) {
           setImageSource(source);
+        } else {
+          releaseAuthenticatedResourceImageSource({ resourceUrl: imageUri, fileName: attachment.name });
+          retainedImage = false;
         }
       })
       .catch(() => {
@@ -110,6 +118,10 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
 
     return () => {
       controller.abort();
+      if (retainedImage) {
+        releaseAuthenticatedResourceImageSource({ resourceUrl: imageUri, fileName: attachment.name });
+        retainedImage = false;
+      }
     };
   }, [active, attachment.name, imageUri]);
 

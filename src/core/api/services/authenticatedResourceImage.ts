@@ -12,3 +12,7 @@ export async function resolveAuthenticatedResourceImageSource(
 ): Promise<ApiUriSource> {
   return buildAuthenticatedApiUriSource(request.resourceUrl);
 }
+
+export function releaseAuthenticatedResourceImageSource(_request: AuthenticatedResourceImageRequest): void {
+  // Native authenticated previews use temporary files; other platforms do not own a local file here.
+}

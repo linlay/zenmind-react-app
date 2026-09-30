@@ -17,7 +17,8 @@ test('login defaults to pairing code and keeps skip guidance below the scrollabl
   assert.match(loginScreen, /new AbortController\(\)/u);
   assert.match(loginScreen, /multiline/u);
   assert.match(loginScreen, /handlePastePairingPayload/u);
-  assert.doesNotMatch(loginScreen, /readPreferredDeviceName|auth\.device\.label/u);
+  assert.doesNotMatch(loginScreen, /readPreferredDeviceName/u);
+  assert.match(loginScreen, /auth\.device\.label/u);
   assert.ok(scrollEndIndex >= 0);
   assert.ok(footerIndex > scrollEndIndex);
 });

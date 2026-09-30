@@ -1,26 +1,25 @@
 import { and, asc, count, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
 
 import { normalizeAgentAvatarIcon } from '../../shared/visual/agentAvatarIcon.ts';
-import { chatDb, deleteChatDatabaseScopeIfExists, ensureChatDatabase } from './database';
+import {
+  chatDb,
+  deleteChatConversationFromScopeIfExists,
+  deleteChatDatabaseScopeIfExists,
+  ensureChatDatabase,
+  inspectChatDatabaseScope,
+  type ChatDatabaseScopeInventory
+} from './database';
 import { getChatCacheScopeId, normalizeChatCacheScopeId } from './cacheScope';
 import { createChatConversationTarget } from './chatConversationTarget';
 import { normalizeAgentMode } from './agentMode.ts';
 import { normalizeChatReasoningEffort } from './agentModelSettings.ts';
-import {
-  encodeChatSourceId,
-  getChatSourceFromId,
-  getChatSourceStoragePrefix,
-  type ChatSource
-} from './chatSource';
-import {
-  isActiveTimelinePayload,
-  shouldOpenLatestConversationFromSummary,
-} from './chatDirectoryOpenDecision';
+import { encodeChatSourceId, getChatSourceFromId, getChatSourceStoragePrefix, type ChatSource } from './chatSource';
+import { isActiveTimelinePayload, shouldOpenLatestConversationFromSummary } from './chatDirectoryOpenDecision';
 import { normalizeChatConversationHistoryScope } from './chatHistoryScope';
 import {
   clearChatDirectorySnapshot,
   clearChatDirectorySnapshotForScope,
-  writeChatDirectorySnapshot,
+  writeChatDirectorySnapshot
 } from './homeSnapshot';
 import {
   chatDirectoryItems,
@@ -30,7 +29,7 @@ import {
   conversations,
   messageAttachments,
   messages,
-  outboxMessages,
+  outboxMessages
 } from './schema';
 import {
   applyChatTimelineMessage,
@@ -41,7 +40,7 @@ import {
   serializeChatTimelineState,
   type ChatTimelineState,
   type SerializedTimelineMeta,
-  type SerializedTimelineNode,
+  type SerializedTimelineNode
 } from '../chatTimeline/index.ts';
 import {
   mergeChatReadState,
@@ -50,18 +49,15 @@ import {
   normalizeConversationUnreadCount,
   normalizePersistedConversationReadState,
   readStateToUnreadBit,
-  type ChatReadStateInput,
+  type ChatReadStateInput
 } from './chatReadState.ts';
 import {
   formatChatAttachmentsMessageText,
   getChatAttachmentKind,
   parseChatAttachmentReferencesJson,
-  serializeChatAttachmentReferences,
+  serializeChatAttachmentReferences
 } from './chatAttachmentModels.ts';
-import {
-  resolveChatConversationStoredTitle,
-  resolveChatConversationTitleCandidate,
-} from './chatConversationTitle.ts';
+import { resolveChatConversationStoredTitle, resolveChatConversationTitleCandidate } from './chatConversationTitle.ts';
 import {
   ChatComposerAttachment,
   ChatConversationHistoryPage,
@@ -80,7 +76,7 @@ import {
   ChatMessageStatus,
   ChatReadState,
   PendingOutboxMessage,
-  ServerMessageDetail,
+  ServerMessageDetail
 } from './types';
 
 const CHAT_DIRECTORY_DEFAULT_PAGE_SIZE = 6;
@@ -122,6 +118,7 @@ function mapChatHomeItem(row: {
   readRunId?: string | null;
   lastMessageStatus: string;
   pinnedAt: number;
+  sourceDeleted?: number | boolean | null;
 }): ChatHomeItem {
   const read = mapConversationReadState(row);
   return {
@@ -134,6 +131,7 @@ function mapChatHomeItem(row: {
     read,
     lastMessageStatus: row.lastMessageStatus as ChatMessageStatus,
     pinnedAt: Number(row.pinnedAt || 0),
+    sourceDeleted: Boolean(row.sourceDeleted)
   };
 }
 
@@ -176,7 +174,7 @@ function mapChatDirectoryItem(row: {
     icon: normalizeAgentAvatarIcon({
       name: row.iconName || null,
       color: row.iconColor || null,
-      uri: row.iconUri || null,
+      uri: row.iconUri || null
     }),
     unreadCount: Math.max(0, Math.trunc(Number(row.unreadCount || 0))),
     pinnedAt: Number(row.pinnedAt || 0),
@@ -189,7 +187,7 @@ function mapChatDirectoryItem(row: {
     reasoningEffort: normalizeChatReasoningEffort(row.reasoningEffort),
     latestConversationId: row.latestConversationId || null,
     lastMessageText: String(row.lastMessageText || ''),
-    lastMessageAt: Number.isFinite(Number(row.lastMessageAt)) ? Number(row.lastMessageAt) : 0,
+    lastMessageAt: Number.isFinite(Number(row.lastMessageAt)) ? Number(row.lastMessageAt) : 0
   };
 }
 
@@ -201,7 +199,7 @@ async function getConversationRecord(conversationId: string) {
       unreadCount: conversations.unreadCount,
       isRead: conversations.isRead,
       readAt: conversations.readAt,
-      readRunId: conversations.readRunId,
+      readRunId: conversations.readRunId
     })
     .from(conversations)
     .where(eq(conversations.id, conversationId))
@@ -228,7 +226,7 @@ function mapChatMessageItem(row: {
     role: row.role as ChatMessageRole,
     errorReason: row.errorReason ?? null,
     deliveryStatus: row.deliveryStatus as ChatMessageStatus,
-    attachments: [],
+    attachments: []
   };
 }
 
@@ -260,7 +258,7 @@ function mapMessageAttachmentRow(row: {
     kind: getChatAttachmentKind({
       type: row.kind,
       name: row.name,
-      mimeType: row.mimeType,
+      mimeType: row.mimeType
     }),
     mimeType: row.mimeType || null,
     sizeBytes: Number.isFinite(Number(row.sizeBytes)) ? Number(row.sizeBytes) : 0,
@@ -274,16 +272,14 @@ function mapMessageAttachmentRow(row: {
     errorReason: row.errorReason || null,
     references: parseChatAttachmentReferencesJson(row.referencesJson),
     createdAt: Number(row.createdAt || 0),
-    updatedAt: Number(row.updatedAt || 0),
+    updatedAt: Number(row.updatedAt || 0)
   };
 }
 
 async function getAttachmentsByMessageIds(
   messageIds: readonly string[]
 ): Promise<Map<string, ChatMessageAttachment[]>> {
-  const normalizedIds = [
-    ...new Set(messageIds.map((id) => String(id || '').trim()).filter(Boolean)),
-  ];
+  const normalizedIds = [...new Set(messageIds.map((id) => String(id || '').trim()).filter(Boolean))];
   const attachmentsByMessageId = new Map<string, ChatMessageAttachment[]>();
   if (normalizedIds.length === 0) {
     return attachmentsByMessageId;
@@ -308,7 +304,7 @@ async function getAttachmentsByMessageIds(
       errorReason: messageAttachments.errorReason,
       referencesJson: messageAttachments.referencesJson,
       createdAt: messageAttachments.createdAt,
-      updatedAt: messageAttachments.updatedAt,
+      updatedAt: messageAttachments.updatedAt
     })
     .from(messageAttachments)
     .where(inArray(messageAttachments.messageId, normalizedIds))
@@ -325,12 +321,10 @@ async function getAttachmentsByMessageIds(
 }
 
 async function attachMessageAttachments<T extends ChatMessageItem>(items: T[]): Promise<T[]> {
-  const attachmentsByMessageId = await getAttachmentsByMessageIds(
-    items.map((item) => item.messageId)
-  );
+  const attachmentsByMessageId = await getAttachmentsByMessageIds(items.map((item) => item.messageId));
   return items.map((item) => ({
     ...item,
-    attachments: attachmentsByMessageId.get(item.messageId) || [],
+    attachments: attachmentsByMessageId.get(item.messageId) || []
   }));
 }
 
@@ -361,17 +355,14 @@ function buildMessageAttachmentInsertRows(input: {
     referencesJson: serializeChatAttachmentReferences(attachment.references),
     sortOrder: index,
     createdAt: attachment.createdAt || input.createdAt,
-    updatedAt: attachment.updatedAt || input.createdAt,
+    updatedAt: attachment.updatedAt || input.createdAt
   }));
 }
 
-function withMessageAttachmentIdentity(
-  attachment: ChatComposerAttachment,
-  messageId: string
-): ChatMessageAttachment {
+function withMessageAttachmentIdentity(attachment: ChatComposerAttachment, messageId: string): ChatMessageAttachment {
   return {
     ...attachment,
-    messageId,
+    messageId
   };
 }
 
@@ -389,6 +380,7 @@ type ConversationSummaryRow = {
   updatedAt: number;
   agentKey: string | null;
   teamId: string | null;
+  sourceDeleted: number;
 };
 
 type ConversationDirectoryKeys = {
@@ -444,13 +436,14 @@ const CHAT_HOME_ITEM_SELECT = {
   readRunId: conversations.readRunId,
   lastMessageStatus: conversations.lastMessageStatus,
   pinnedAt: conversations.pinnedAt,
+  sourceDeleted: conversations.sourceDeleted
 };
 
 const CONVERSATION_SUMMARY_SELECT = {
   ...CHAT_HOME_ITEM_SELECT,
   updatedAt: conversations.updatedAt,
   agentKey: conversations.agentKey,
-  teamId: conversations.teamId,
+  teamId: conversations.teamId
 };
 
 const CHAT_DIRECTORY_ITEM_SELECT = {
@@ -470,29 +463,23 @@ const CHAT_DIRECTORY_ITEM_SELECT = {
   agentMode: chatDirectoryItems.agentMode,
   modelKey: chatDirectoryItems.modelKey,
   reasoningEffort: chatDirectoryItems.reasoningEffort,
-  latestConversationId: chatDirectoryItems.latestConversationId,
+  latestConversationId: chatDirectoryItems.latestConversationId
 };
 
 const CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT = {
   ...CHAT_DIRECTORY_ITEM_SELECT,
   lastMessageText: conversations.lastMessageText,
-  lastMessageAt: conversations.lastMessageAt,
+  lastMessageAt: conversations.lastMessageAt
 };
 
 const CHAT_DIRECTORY_LATEST_MESSAGE_AT = sql<number>`coalesce(${conversations.lastMessageAt}, 0)`;
 const CHAT_DIRECTORY_STABLE_ORDER = [asc(chatDirectoryItems.sortRank), asc(chatDirectoryItems.id)];
-const CHAT_DIRECTORY_RECENCY_ORDER = [
-  desc(CHAT_DIRECTORY_LATEST_MESSAGE_AT),
-  ...CHAT_DIRECTORY_STABLE_ORDER,
-];
-const CHAT_DIRECTORY_PINNED_ORDER = [
-  desc(chatDirectoryItems.pinnedAt),
-  ...CHAT_DIRECTORY_RECENCY_ORDER,
-];
+const CHAT_DIRECTORY_RECENCY_ORDER = [desc(CHAT_DIRECTORY_LATEST_MESSAGE_AT), ...CHAT_DIRECTORY_STABLE_ORDER];
+const CHAT_DIRECTORY_PINNED_ORDER = [desc(chatDirectoryItems.pinnedAt), ...CHAT_DIRECTORY_RECENCY_ORDER];
 const CONVERSATION_RECENCY_ORDER = [
   desc(conversations.lastMessageAt),
   desc(conversations.updatedAt),
-  asc(conversations.id),
+  asc(conversations.id)
 ];
 const CONVERSATION_HISTORY_VISIBLE_FILTER = sql<boolean>`length(trim(${conversations.lastMessageText})) > 0`;
 const CHAT_DIRECTORY_SEARCH_QUERY_MAX_LENGTH = 80;
@@ -521,10 +508,7 @@ export type ProjectedMessageUpsertInput = {
 };
 
 export type MessagePatch = Partial<
-  Pick<
-    ChatMessageItem,
-    'content' | 'createdAt' | 'deliveryStatus' | 'errorReason' | 'serverMessageId'
-  >
+  Pick<ChatMessageItem, 'content' | 'createdAt' | 'deliveryStatus' | 'errorReason' | 'serverMessageId'>
 >;
 
 export type ConversationSummaryPatch = {
@@ -556,10 +540,7 @@ function normalizeChatDirectorySearchQuery(query: string): string {
 }
 
 function getChatDirectorySearchTokens(normalizedQuery: string): string[] {
-  return normalizedQuery
-    .split(' ')
-    .filter(Boolean)
-    .slice(0, CHAT_DIRECTORY_SEARCH_TOKEN_MAX_COUNT);
+  return normalizedQuery.split(' ').filter(Boolean).slice(0, CHAT_DIRECTORY_SEARCH_TOKEN_MAX_COUNT);
 }
 
 function getChatDirectorySearchTextExpression() {
@@ -603,13 +584,10 @@ async function ensureConversationRecord(conversationId: string, createdAt: numbe
   if (existing) {
     const nextTitle = resolveChatConversationStoredTitle(title, existing.title);
     if (nextTitle !== existing.title) {
-      await chatDb
-        .update(conversations)
-        .set({ title: nextTitle })
-        .where(eq(conversations.id, conversationId));
+      await chatDb.update(conversations).set({ title: nextTitle }).where(eq(conversations.id, conversationId));
       return {
         ...existing,
-        title: nextTitle,
+        title: nextTitle
       };
     }
 
@@ -628,7 +606,7 @@ async function ensureConversationRecord(conversationId: string, createdAt: numbe
     readRunId: null,
     lastMessageStatus: 'sent',
     pinnedAt: 0,
-    updatedAt: createdAt,
+    updatedAt: createdAt
   });
 
   return {
@@ -637,13 +615,11 @@ async function ensureConversationRecord(conversationId: string, createdAt: numbe
     unreadCount: 0,
     isRead: 1,
     readAt: null,
-    readRunId: null,
+    readRunId: null
   };
 }
 
-async function getConversationSummaryRow(
-  conversationId: string
-): Promise<ConversationSummaryRow | null> {
+async function getConversationSummaryRow(conversationId: string): Promise<ConversationSummaryRow | null> {
   const rows = await chatDb
     .select(CONVERSATION_SUMMARY_SELECT)
     .from(conversations)
@@ -653,13 +629,11 @@ async function getConversationSummaryRow(
   return rows[0] ?? null;
 }
 
-async function getConversationDirectoryKeys(
-  conversationId: string
-): Promise<ConversationDirectoryKeys | null> {
+async function getConversationDirectoryKeys(conversationId: string): Promise<ConversationDirectoryKeys | null> {
   const rows = await chatDb
     .select({
       agentKey: conversations.agentKey,
-      teamId: conversations.teamId,
+      teamId: conversations.teamId
     })
     .from(conversations)
     .where(eq(conversations.id, conversationId))
@@ -671,7 +645,7 @@ async function getConversationDirectoryKeys(
 
   return {
     agentKey: rows[0].agentKey || null,
-    teamId: rows[0].teamId || null,
+    teamId: rows[0].teamId || null
   };
 }
 
@@ -707,7 +681,7 @@ function getDirectoryConversationKeys(item: {
 
   return {
     agentKey: agentKey || null,
-    teamId: teamId || null,
+    teamId: teamId || null
   };
 }
 
@@ -731,16 +705,14 @@ async function getDirectoryItemOpenScope(itemId: string): Promise<DirectoryItemO
     return null;
   }
 
-  const historyScope = normalizeChatConversationHistoryScope(
-    getDirectoryConversationKeys(directoryItem)
-  );
+  const historyScope = normalizeChatConversationHistoryScope(getDirectoryConversationKeys(directoryItem));
   if (!historyScope) {
     return null;
   }
 
   return {
     directoryItem,
-    historyScope,
+    historyScope
   };
 }
 
@@ -769,7 +741,7 @@ async function createLocalConversationForHistoryScope(
     pinnedAt: 0,
     updatedAt: createdAt,
     agentKey: historyScope.agentKey,
-    teamId: historyScope.teamId,
+    teamId: historyScope.teamId
   });
 
   const conversation = await getConversationDetail(conversationId);
@@ -780,18 +752,12 @@ async function createLocalConversationForHistoryScope(
   return {
     conversation,
     historyScope,
-    skipInitialReconcile: true,
+    skipInitialReconcile: true
   };
 }
 
-function didDirectoryKeysChange(
-  current: ConversationDirectoryKeys,
-  next: ConversationDirectoryKeys
-): boolean {
-  return (
-    (current.agentKey || null) !== (next.agentKey || null) ||
-    (current.teamId || null) !== (next.teamId || null)
-  );
+function didDirectoryKeysChange(current: ConversationDirectoryKeys, next: ConversationDirectoryKeys): boolean {
+  return (current.agentKey || null) !== (next.agentKey || null) || (current.teamId || null) !== (next.teamId || null);
 }
 
 function normalizeMessageId(value: string | null | undefined, fallback: string): string {
@@ -800,20 +766,12 @@ function normalizeMessageId(value: string | null | undefined, fallback: string):
 }
 
 function buildTailSignatureFromMessage(
-  message:
-    | Pick<ChatMessageItem, 'messageId' | 'createdAt' | 'content' | 'deliveryStatus'>
-    | null
-    | undefined
+  message: Pick<ChatMessageItem, 'messageId' | 'createdAt' | 'content' | 'deliveryStatus'> | null | undefined
 ): string {
   if (!message) {
     return '';
   }
-  return [
-    message.messageId,
-    message.createdAt,
-    message.deliveryStatus,
-    String(message.content || '').length,
-  ].join(':');
+  return [message.messageId, message.createdAt, message.deliveryStatus, String(message.content || '').length].join(':');
 }
 
 function buildTailSignatureFromTimelineState(state: ChatTimelineState): string {
@@ -837,7 +795,7 @@ function mapSerializedTimelineMetaRow(row: {
     usageLabel: row.usageLabel || '',
     updatedAt: Number(row.updatedAt || 0),
     revision: Number(row.revision || 0),
-    nextOrder: Number(row.nextOrder || 0),
+    nextOrder: Number(row.nextOrder || 0)
   };
 }
 
@@ -861,7 +819,7 @@ function mapSerializedTimelineNodeRow(row: {
     createdAt: Number(row.createdAt || 0),
     updatedAt: Number(row.updatedAt || 0),
     payloadHash: row.payloadHash || '',
-    payloadJson: row.payloadJson || '',
+    payloadJson: row.payloadJson || ''
   };
 }
 
@@ -877,7 +835,7 @@ function mapConversationSyncStateRow(row: {
     activeRunId: row.activeRunId || '',
     lastSyncedAt: Number(row.lastSyncedAt || 0),
     dirtyReason: row.dirtyReason || '',
-    tailSignature: row.tailSignature || '',
+    tailSignature: row.tailSignature || ''
   };
 }
 
@@ -897,7 +855,7 @@ async function getMessageRowByClientMessageId(clientMessageId: string) {
       content: messages.content,
       createdAt: messages.createdAt,
       deliveryStatus: messages.deliveryStatus,
-      errorReason: messages.errorReason,
+      errorReason: messages.errorReason
     })
     .from(messages)
     .where(eq(messages.clientMessageId, normalizedClientMessageId))
@@ -922,7 +880,7 @@ async function getMessageRowByMessageId(messageId: string) {
       content: messages.content,
       createdAt: messages.createdAt,
       deliveryStatus: messages.deliveryStatus,
-      errorReason: messages.errorReason,
+      errorReason: messages.errorReason
     })
     .from(messages)
     .where(eq(messages.id, normalizedMessageId))
@@ -942,7 +900,7 @@ async function getLatestConversationMessage(conversationId: string) {
       content: messages.content,
       createdAt: messages.createdAt,
       deliveryStatus: messages.deliveryStatus,
-      errorReason: messages.errorReason,
+      errorReason: messages.errorReason
     })
     .from(messages)
     .where(eq(messages.conversationId, conversationId))
@@ -952,9 +910,7 @@ async function getLatestConversationMessage(conversationId: string) {
   return rows[0] ? mapChatMessageItem(rows[0]) : null;
 }
 
-async function upsertConversationSyncState(
-  input: Partial<ConversationSyncState> & { conversationId: string }
-) {
+async function upsertConversationSyncState(input: Partial<ConversationSyncState> & { conversationId: string }) {
   const conversationId = String(input.conversationId || '').trim();
   if (!conversationId) {
     return null;
@@ -963,22 +919,11 @@ async function upsertConversationSyncState(
   const current = await getConversationSyncState(conversationId);
   const nextState: ConversationSyncState = {
     conversationId,
-    activeRunId:
-      input.activeRunId !== undefined
-        ? String(input.activeRunId || '').trim()
-        : current?.activeRunId || '',
-    lastSyncedAt:
-      input.lastSyncedAt !== undefined
-        ? Number(input.lastSyncedAt || 0)
-        : current?.lastSyncedAt || 0,
-    dirtyReason:
-      input.dirtyReason !== undefined
-        ? String(input.dirtyReason || '').trim()
-        : current?.dirtyReason || '',
+    activeRunId: input.activeRunId !== undefined ? String(input.activeRunId || '').trim() : current?.activeRunId || '',
+    lastSyncedAt: input.lastSyncedAt !== undefined ? Number(input.lastSyncedAt || 0) : current?.lastSyncedAt || 0,
+    dirtyReason: input.dirtyReason !== undefined ? String(input.dirtyReason || '').trim() : current?.dirtyReason || '',
     tailSignature:
-      input.tailSignature !== undefined
-        ? String(input.tailSignature || '').trim()
-        : current?.tailSignature || '',
+      input.tailSignature !== undefined ? String(input.tailSignature || '').trim() : current?.tailSignature || ''
   };
 
   if (current) {
@@ -988,7 +933,7 @@ async function upsertConversationSyncState(
         activeRunId: nextState.activeRunId,
         lastSyncedAt: nextState.lastSyncedAt,
         dirtyReason: nextState.dirtyReason,
-        tailSignature: nextState.tailSignature,
+        tailSignature: nextState.tailSignature
       })
       .where(eq(conversationSyncState.conversationId, conversationId));
   } else {
@@ -997,7 +942,7 @@ async function upsertConversationSyncState(
       activeRunId: nextState.activeRunId,
       lastSyncedAt: nextState.lastSyncedAt,
       dirtyReason: nextState.dirtyReason,
-      tailSignature: nextState.tailSignature,
+      tailSignature: nextState.tailSignature
     });
   }
 
@@ -1020,7 +965,7 @@ function writeTimelineSnapshotInTransaction(
   const now = Date.now();
   const existingMeta = tx
     .select({
-      conversationId: conversationTimelineMeta.conversationId,
+      conversationId: conversationTimelineMeta.conversationId
     })
     .from(conversationTimelineMeta)
     .where(eq(conversationTimelineMeta.conversationId, conversationId))
@@ -1035,7 +980,7 @@ function writeTimelineSnapshotInTransaction(
     revision: serialized.meta.revision,
     nextOrder: serialized.meta.nextOrder,
     messageTailSignature,
-    persistedAt: now,
+    persistedAt: now
   };
 
   if (existingMeta[0]) {
@@ -1047,7 +992,7 @@ function writeTimelineSnapshotInTransaction(
     tx.insert(conversationTimelineMeta)
       .values({
         conversationId,
-        ...metaValues,
+        ...metaValues
       })
       .run();
   }
@@ -1056,21 +1001,17 @@ function writeTimelineSnapshotInTransaction(
     .select({
       nodeId: conversationTimelineNodes.nodeId,
       orderIndex: conversationTimelineNodes.orderIndex,
-      payloadHash: conversationTimelineNodes.payloadHash,
+      payloadHash: conversationTimelineNodes.payloadHash
     })
     .from(conversationTimelineNodes)
     .where(eq(conversationTimelineNodes.conversationId, conversationId))
     .all();
   const existingById = new Map(existingRows.map((row) => [row.nodeId, row]));
   const nextNodeIdSet = new Set(serialized.nodes.map((node) => node.nodeId));
-  const staleNodeIds = existingRows
-    .map((row) => row.nodeId)
-    .filter((nodeId) => !nextNodeIdSet.has(nodeId));
+  const staleNodeIds = existingRows.map((row) => row.nodeId).filter((nodeId) => !nextNodeIdSet.has(nodeId));
 
   if (serialized.nodes.length <= 0 && existingRows.length > 0) {
-    tx.delete(conversationTimelineNodes)
-      .where(eq(conversationTimelineNodes.conversationId, conversationId))
-      .run();
+    tx.delete(conversationTimelineNodes).where(eq(conversationTimelineNodes.conversationId, conversationId)).run();
   } else {
     for (let index = 0; index < staleNodeIds.length; index += TIMELINE_STALE_DELETE_BATCH_SIZE) {
       const batch = staleNodeIds.slice(index, index + TIMELINE_STALE_DELETE_BATCH_SIZE);
@@ -1097,7 +1038,7 @@ function writeTimelineSnapshotInTransaction(
       createdAt: node.createdAt,
       updatedAt: node.updatedAt,
       payloadHash: node.payloadHash,
-      payloadJson: node.payloadJson,
+      payloadJson: node.payloadJson
     };
 
     if (existing) {
@@ -1120,7 +1061,7 @@ function writeTimelineSnapshotInTransaction(
       .values({
         conversationId,
         nodeId: node.nodeId,
-        ...values,
+        ...values
       })
       .run();
   }
@@ -1133,12 +1074,12 @@ async function syncConversationSummary(conversationId: string, readOverride?: Ch
       .select({
         content: messages.content,
         createdAt: messages.createdAt,
-        deliveryStatus: messages.deliveryStatus,
+        deliveryStatus: messages.deliveryStatus
       })
       .from(messages)
       .where(eq(messages.conversationId, conversationId))
       .orderBy(desc(messages.createdAt))
-      .limit(1),
+      .limit(1)
   ]);
 
   if (!conversation || !latestMessage[0]) {
@@ -1146,9 +1087,7 @@ async function syncConversationSummary(conversationId: string, readOverride?: Ch
   }
 
   const read =
-    readOverride !== undefined
-      ? normalizeChatReadState(readOverride)
-      : mapConversationReadState(conversation);
+    readOverride !== undefined ? normalizeChatReadState(readOverride) : mapConversationReadState(conversation);
 
   await chatDb
     .update(conversations)
@@ -1160,7 +1099,7 @@ async function syncConversationSummary(conversationId: string, readOverride?: Ch
       isRead: read.isRead ? 1 : 0,
       readAt: read.readAt,
       readRunId: read.readRunId,
-      updatedAt: latestMessage[0].createdAt,
+      updatedAt: latestMessage[0].createdAt
     })
     .where(eq(conversations.id, conversationId));
 }
@@ -1173,25 +1112,18 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
     return null;
   }
 
-  const seedTime = Number.isFinite(Number(patch.lastMessageAt))
-    ? Number(patch.lastMessageAt)
-    : Date.now();
+  const seedTime = Number.isFinite(Number(patch.lastMessageAt)) ? Number(patch.lastMessageAt) : Date.now();
   const ensured = await ensureConversationRecord(conversationId, seedTime, patch.title);
   const current = await getConversationSummaryRow(conversationId);
   const currentKeys: ConversationDirectoryKeys = {
     agentKey: current?.agentKey || null,
-    teamId: current?.teamId || null,
+    teamId: current?.teamId || null
   };
   const patchAgentKey = normalizeProvidedDirectoryKey(patch.agentKey);
   const patchTeamId = normalizeProvidedDirectoryKey(patch.teamId);
-  const nextTitle = resolveChatConversationStoredTitle(
-    patch.title,
-    current?.title || ensured.title
-  );
+  const nextTitle = resolveChatConversationStoredTitle(patch.title, current?.title || ensured.title);
   const nextLastMessageText =
-    patch.lastMessageText !== undefined
-      ? String(patch.lastMessageText || '')
-      : String(current?.lastMessageText || '');
+    patch.lastMessageText !== undefined ? String(patch.lastMessageText || '') : String(current?.lastMessageText || '');
   const nextLastMessageAt = Number.isFinite(Number(patch.lastMessageAt))
     ? Number(patch.lastMessageAt)
     : Number(current?.lastMessageAt || seedTime);
@@ -1206,7 +1138,7 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
               unreadCount: resolveConversationUnreadCountDelta(
                 readStateToUnreadBit(currentRead),
                 patch.unreadCountDelta
-              ),
+              )
             })
           : currentRead;
   const currentUnreadCount = readStateToUnreadBit(currentRead);
@@ -1222,7 +1154,7 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
   const persistedUpdatedAt = nextUpdatedAt || Date.now();
   const nextKeys: ConversationDirectoryKeys = {
     agentKey: patchAgentKey !== undefined ? patchAgentKey : currentKeys.agentKey,
-    teamId: patchTeamId !== undefined ? patchTeamId : currentKeys.teamId,
+    teamId: patchTeamId !== undefined ? patchTeamId : currentKeys.teamId
   };
   const keysChanged = didDirectoryKeysChange(currentKeys, nextKeys);
   const summaryChanged =
@@ -1249,7 +1181,7 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
         lastMessageStatus: nextLastMessageStatus,
         updatedAt: persistedUpdatedAt,
         agentKey: nextKeys.agentKey,
-        teamId: nextKeys.teamId,
+        teamId: nextKeys.teamId
       })
       .where(eq(conversations.id, conversationId));
   }
@@ -1260,17 +1192,14 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
   }
 
   const shouldRefreshDirectory =
-    keysChanged ||
-    !current ||
-    nextLastMessageAt !== current.lastMessageAt ||
-    nextUnreadCount !== currentUnreadCount;
+    keysChanged || !current || nextLastMessageAt !== current.lastMessageAt || nextUnreadCount !== currentUnreadCount;
   const directoryChanged = shouldRefreshDirectory
     ? await refreshChatDirectoryProjectionForKeys([currentKeys, nextKeys])
     : false;
   return {
     summary: nextSummary,
     changed: summaryChanged,
-    directoryChanged,
+    directoryChanged
   };
 }
 
@@ -1285,7 +1214,7 @@ export async function patchConversationSummary(patch: ConversationSummaryPatch) 
 export async function incrementConversationUnread(conversationId: string, delta: number = 1) {
   return writeConversationSummaryPatch({
     conversationId,
-    unreadCountDelta: delta,
+    unreadCountDelta: delta
   });
 }
 
@@ -1314,13 +1243,13 @@ export async function setConversationReadStateLocal(
   const nextUnreadCount = readStateToUnreadBit(nextRead);
   const currentKeys: ConversationDirectoryKeys = {
     agentKey: current.agentKey || null,
-    teamId: current.teamId || null,
+    teamId: current.teamId || null
   };
   const patchAgentKey = normalizeProvidedDirectoryKey(scope?.agentKey);
   const patchTeamId = normalizeProvidedDirectoryKey(scope?.teamId);
   const nextKeys: ConversationDirectoryKeys = {
     agentKey: patchAgentKey !== undefined ? patchAgentKey : currentKeys.agentKey,
-    teamId: patchTeamId !== undefined ? patchTeamId : currentKeys.teamId,
+    teamId: patchTeamId !== undefined ? patchTeamId : currentKeys.teamId
   };
   const keysChanged = didDirectoryKeysChange(currentKeys, nextKeys);
   const readChanged = !areReadStatesEqual(currentRead, nextRead);
@@ -1328,7 +1257,7 @@ export async function setConversationReadStateLocal(
     return {
       summary: mapChatHomeItem(current),
       changed: false,
-      directoryChanged: false,
+      directoryChanged: false
     };
   }
 
@@ -1336,7 +1265,7 @@ export async function setConversationReadStateLocal(
     return {
       summary: mapChatHomeItem(current),
       changed: false,
-      directoryChanged: false,
+      directoryChanged: false
     };
   }
 
@@ -1348,7 +1277,7 @@ export async function setConversationReadStateLocal(
       readAt: nextRead.readAt,
       readRunId: nextRead.readRunId,
       agentKey: nextKeys.agentKey,
-      teamId: nextKeys.teamId,
+      teamId: nextKeys.teamId
     })
     .where(eq(conversations.id, normalizedConversationId));
   const directoryChanged = await refreshChatDirectoryProjectionForKeys([currentKeys, nextKeys]);
@@ -1357,7 +1286,7 @@ export async function setConversationReadStateLocal(
     ? {
         summary,
         changed: true,
-        directoryChanged,
+        directoryChanged
       }
     : null;
 }
@@ -1383,8 +1312,8 @@ export async function markConversationReadLocal(
       read: {
         isRead: true,
         readAt: options?.readAt ?? Date.now(),
-        readRunId: options?.readRunId ?? null,
-      },
+        readRunId: options?.readRunId ?? null
+      }
     },
     undefined,
     { onlyIfUnread: true }
@@ -1406,7 +1335,7 @@ export async function markConversationReadScopeLocal(scope: ConversationReadScop
   if (!agentKey && !teamId) {
     return {
       changedActiveConversationId: null,
-      directoryChanged: false,
+      directoryChanged: false
     };
   }
 
@@ -1425,7 +1354,7 @@ export async function markConversationReadScopeLocal(scope: ConversationReadScop
     chatDb
       .select({
         agentKey: conversations.agentKey,
-        teamId: conversations.teamId,
+        teamId: conversations.teamId
       })
       .from(conversations)
       .where(whereClause)
@@ -1433,18 +1362,18 @@ export async function markConversationReadScopeLocal(scope: ConversationReadScop
     activeConversationId
       ? chatDb
           .select({
-            conversationId: conversations.id,
+            conversationId: conversations.id
           })
           .from(conversations)
           .where(and(whereClause, eq(conversations.id, activeConversationId)))
           .limit(1)
-      : Promise.resolve([]),
+      : Promise.resolve([])
   ]);
 
   if (Number(changedCountRows[0]?.value || 0) <= 0) {
     return {
       changedActiveConversationId: null,
-      directoryChanged: false,
+      directoryChanged: false
     };
   }
 
@@ -1454,19 +1383,19 @@ export async function markConversationReadScopeLocal(scope: ConversationReadScop
       unreadCount: 0,
       isRead: 1,
       readAt: Date.now(),
-      readRunId: null,
+      readRunId: null
     })
     .where(whereClause);
   const directoryChanged = await refreshChatDirectoryProjectionForKeys(
     affectedKeyRows.map((row) => ({
       agentKey: row.agentKey || null,
-      teamId: row.teamId || null,
+      teamId: row.teamId || null
     }))
   );
 
   return {
     changedActiveConversationId: activeRows[0]?.conversationId || null,
-    directoryChanged,
+    directoryChanged
   };
 }
 
@@ -1496,9 +1425,7 @@ export async function setConversationPinned(conversationId: string, pinned: bool
   return getConversationDetail(normalizedConversationId);
 }
 
-function normalizeChatDirectoryItem(
-  item: ChatDirectoryProjectionItem
-): ChatDirectoryProjectionItem | null {
+function normalizeChatDirectoryItem(item: ChatDirectoryProjectionItem): ChatDirectoryProjectionItem | null {
   const id = String(item.id || '').trim();
   const title = String(item.title || '').trim();
   if (!id || !title) {
@@ -1520,22 +1447,16 @@ function normalizeChatDirectoryItem(
     agentMode: normalizeAgentMode(item.agentMode),
     modelKey: item.modelKey ? String(item.modelKey).trim() || null : null,
     reasoningEffort: normalizeChatReasoningEffort(item.reasoningEffort),
-    latestConversationId: item.latestConversationId
-      ? String(item.latestConversationId).trim() || null
-      : null,
+    latestConversationId: item.latestConversationId ? String(item.latestConversationId).trim() || null : null,
     unreadCountSource:
       item.unreadCountSource === 'server' || item.unreadCountSource === 'projection'
         ? item.unreadCountSource
-        : undefined,
+        : undefined
   };
 }
 
-function normalizeDirectoryProjectionKeys(
-  keys: readonly (string | null | undefined)[]
-): string[] {
-  return Array.from(
-    new Set(keys.map((item) => String(item || '').trim()).filter(Boolean))
-  );
+function normalizeDirectoryProjectionKeys(keys: readonly (string | null | undefined)[]): string[] {
+  return Array.from(new Set(keys.map((item) => String(item || '').trim()).filter(Boolean)));
 }
 
 function buildDirectoryProjectionChange(
@@ -1552,7 +1473,7 @@ function buildDirectoryProjectionChange(
   return {
     id: target.id,
     latestConversationId: projection.latestConversationId,
-    unreadCount: projection.unreadCount,
+    unreadCount: projection.unreadCount
   };
 }
 
@@ -1570,7 +1491,7 @@ async function loadDirectoryProjectionTargets(
       id: chatDirectoryItems.id,
       scopeKey: scopeColumn,
       latestConversationId: chatDirectoryItems.latestConversationId,
-      unreadCount: chatDirectoryItems.unreadCount,
+      unreadCount: chatDirectoryItems.unreadCount
     })
     .from(chatDirectoryItems)
     .where(inArray(scopeColumn, keys));
@@ -1580,7 +1501,7 @@ async function loadDirectoryProjectionTargets(
       id: row.id,
       scopeKey: String(row.scopeKey || '').trim(),
       latestConversationId: row.latestConversationId || null,
-      unreadCount: clampUnreadCount(Number(row.unreadCount || 0)),
+      unreadCount: clampUnreadCount(Number(row.unreadCount || 0))
     }))
     .filter((row) => Boolean(row.scopeKey));
 }
@@ -1594,7 +1515,10 @@ async function loadLatestConversationIdsByScope(
   }
 
   const scopeColumn = sql.raw(kind === 'agent' ? 'agent_key' : 'team_id');
-  const scopeValues = sql.join(keys.map((key) => sql`${key}`), sql`, `);
+  const scopeValues = sql.join(
+    keys.map((key) => sql`${key}`),
+    sql`, `
+  );
   const rows = await chatDb.all<LatestConversationScopeRow>(sql`
     SELECT scope_key, conversation_id
     FROM (
@@ -1631,7 +1555,7 @@ async function loadUnreadCountsByScope(
   const rows = await chatDb
     .select({
       scopeKey: scopeColumn,
-      value: count(),
+      value: count()
     })
     .from(conversations)
     .where(and(inArray(scopeColumn, keys), eq(conversations.isRead, 0)))
@@ -1661,14 +1585,14 @@ async function collectDirectoryProjectionChanges(
   const targetKeys = normalizeDirectoryProjectionKeys(targets.map((row) => row.scopeKey));
   const [latestConversationIdByScope, unreadCountByScope] = await Promise.all([
     loadLatestConversationIdsByScope(kind, targetKeys),
-    loadUnreadCountsByScope(kind, targetKeys),
+    loadUnreadCountsByScope(kind, targetKeys)
   ]);
   const changes: DirectoryProjectionChange[] = [];
 
   for (const target of targets) {
     const change = buildDirectoryProjectionChange(target, {
       latestConversationId: latestConversationIdByScope.get(target.scopeKey) || null,
-      unreadCount: unreadCountByScope.get(target.scopeKey) || 0,
+      unreadCount: unreadCountByScope.get(target.scopeKey) || 0
     });
     if (change) {
       changes.push(change);
@@ -1678,14 +1602,12 @@ async function collectDirectoryProjectionChanges(
   return changes;
 }
 
-async function refreshChatDirectoryProjectionForKeys(
-  keys: ConversationDirectoryKeys[]
-): Promise<boolean> {
+async function refreshChatDirectoryProjectionForKeys(keys: ConversationDirectoryKeys[]): Promise<boolean> {
   const agentKeys = normalizeDirectoryProjectionKeys(keys.map((item) => item.agentKey));
   const teamIds = normalizeDirectoryProjectionKeys(keys.map((item) => item.teamId));
   const [agentChanges, teamChanges] = await Promise.all([
     collectDirectoryProjectionChanges('agent', agentKeys),
-    collectDirectoryProjectionChanges('team', teamIds),
+    collectDirectoryProjectionChanges('team', teamIds)
   ]);
   const changes = [...agentChanges, ...teamChanges];
   if (changes.length <= 0) {
@@ -1697,7 +1619,7 @@ async function refreshChatDirectoryProjectionForKeys(
       tx.update(chatDirectoryItems)
         .set({
           latestConversationId: change.latestConversationId,
-          unreadCount: change.unreadCount,
+          unreadCount: change.unreadCount
         })
         .where(eq(chatDirectoryItems.id, change.id))
         .run();
@@ -1707,9 +1629,7 @@ async function refreshChatDirectoryProjectionForKeys(
   return true;
 }
 
-export async function refreshChatDirectoryProjectionForConversation(
-  conversationId: string
-): Promise<boolean> {
+export async function refreshChatDirectoryProjectionForConversation(conversationId: string): Promise<boolean> {
   await ensureChatDatabase();
 
   const normalizedConversationId = String(conversationId || '').trim();
@@ -1733,9 +1653,7 @@ function normalizeConversationSummaryProjection(
     return null;
   }
 
-  const lastMessageAt = Number.isFinite(Number(item.lastMessageAt))
-    ? Number(item.lastMessageAt)
-    : Date.now();
+  const lastMessageAt = Number.isFinite(Number(item.lastMessageAt)) ? Number(item.lastMessageAt) : Date.now();
 
   const read =
     item.read !== undefined
@@ -1753,14 +1671,11 @@ function normalizeConversationSummaryProjection(
     ...(read ? { unreadCount: readStateToUnreadBit(read), read } : {}),
     lastMessageStatus: (item.lastMessageStatus || 'sent') as ChatMessageStatus,
     agentKey: item.agentKey ? String(item.agentKey).trim() || null : null,
-    teamId: item.teamId ? String(item.teamId).trim() || null : null,
+    teamId: item.teamId ? String(item.teamId).trim() || null : null
   };
 }
 
-export async function replaceChatHomeProjection(
-  input: ChatHomeProjection,
-  source?: ChatSource
-) {
+export async function replaceChatHomeProjection(input: ChatHomeProjection, source?: ChatSource) {
   await ensureChatDatabase();
 
   const conversationById = new Map<string, ChatConversationSummaryProjection>();
@@ -1800,15 +1715,13 @@ export async function replaceChatHomeProjection(
               unreadCount: conversations.unreadCount,
               isRead: conversations.isRead,
               readAt: conversations.readAt,
-              readRunId: conversations.readRunId,
+              readRunId: conversations.readRunId
             })
             .from(conversations)
             .where(inArray(conversations.id, conversationIds))
             .all()
         : [];
-    const existingConversationById = new Map(
-      existingConversationRows.map((row) => [row.id, row])
-    );
+    const existingConversationById = new Map(existingConversationRows.map((row) => [row.id, row]));
     const unreadByAgentKey = new Map<string, number>();
     const unreadByTeamId = new Map<string, number>();
 
@@ -1837,6 +1750,7 @@ export async function replaceChatHomeProjection(
         updatedAt: item.lastMessageAt,
         agentKey: item.agentKey,
         teamId: item.teamId,
+        sourceDeleted: 0
       };
 
       if (existing) {
@@ -1848,7 +1762,7 @@ export async function replaceChatHomeProjection(
         .values({
           id: item.conversationId,
           pinnedAt: 0,
-          ...values,
+          ...values
         })
         .run();
     }
@@ -1856,17 +1770,13 @@ export async function replaceChatHomeProjection(
     const existingDirectoryRows = tx
       .select({
         id: chatDirectoryItems.id,
-        pinnedAt: chatDirectoryItems.pinnedAt,
+        pinnedAt: chatDirectoryItems.pinnedAt
       })
       .from(chatDirectoryItems)
       .all();
-    const directoryPinnedById = new Map(
-      existingDirectoryRows.map((row) => [row.id, Number(row.pinnedAt || 0)])
-    );
+    const directoryPinnedById = new Map(existingDirectoryRows.map((row) => [row.id, Number(row.pinnedAt || 0)]));
 
-    const sourceStoragePrefix = source
-      ? getChatSourceStoragePrefix(source).replace(/[\\%_]/gu, '\\$&')
-      : '';
+    const sourceStoragePrefix = source ? getChatSourceStoragePrefix(source).replace(/[\\%_]/gu, '\\$&') : '';
     const sourceDirectoryFilter = source
       ? sql<boolean>`${chatDirectoryItems.id} LIKE ${`${sourceStoragePrefix}%`} ESCAPE '\\'`
       : undefined;
@@ -1880,8 +1790,7 @@ export async function replaceChatHomeProjection(
       return;
     }
 
-    tx
-      .delete(chatDirectoryItems)
+    tx.delete(chatDirectoryItems)
       .where(
         sourceDirectoryFilter
           ? and(sourceDirectoryFilter, notInArray(chatDirectoryItems.id, directoryIds))
@@ -1896,8 +1805,7 @@ export async function replaceChatHomeProjection(
         item.kind === 'team'
           ? unreadByTeamId.get(item.teamId || '') || 0
           : unreadByAgentKey.get(item.agentKey || '') || 0;
-      const unreadCount =
-        item.unreadCountSource === 'projection' ? knownConversationUnreadCount : item.unreadCount;
+      const unreadCount = item.unreadCountSource === 'projection' ? knownConversationUnreadCount : item.unreadCount;
       const values = {
         kind: item.kind,
         title: item.title,
@@ -1914,7 +1822,7 @@ export async function replaceChatHomeProjection(
         agentMode: item.agentMode,
         modelKey: item.modelKey,
         reasoningEffort: item.reasoningEffort,
-        latestConversationId: item.latestConversationId,
+        latestConversationId: item.latestConversationId
       };
 
       if (existing) {
@@ -1925,7 +1833,7 @@ export async function replaceChatHomeProjection(
       tx.insert(chatDirectoryItems)
         .values({
           id: item.id,
-          ...values,
+          ...values
         })
         .run();
     }
@@ -1940,23 +1848,17 @@ export async function refreshChatDirectorySnapshot(pageSize: number = CHAT_DIREC
   return firstPage.items;
 }
 
-export async function retainChatDirectorySources(
-  sources: readonly ChatSource[]
-): Promise<boolean> {
+export async function retainChatDirectorySources(sources: readonly ChatSource[]): Promise<boolean> {
   await ensureChatDatabase();
   const prefixes = sources.map(getChatSourceStoragePrefix);
   const rows = await chatDb.select({ id: chatDirectoryItems.id }).from(chatDirectoryItems);
-  const staleIds = rows
-    .map((row) => row.id)
-    .filter((id) => !prefixes.some((prefix) => id.startsWith(prefix)));
+  const staleIds = rows.map((row) => row.id).filter((id) => !prefixes.some((prefix) => id.startsWith(prefix)));
   if (staleIds.length <= 0) {
     return false;
   }
 
   for (let offset = 0; offset < staleIds.length; offset += 200) {
-    await chatDb
-      .delete(chatDirectoryItems)
-      .where(inArray(chatDirectoryItems.id, staleIds.slice(offset, offset + 200)));
+    await chatDb.delete(chatDirectoryItems).where(inArray(chatDirectoryItems.id, staleIds.slice(offset, offset + 200)));
   }
   await refreshChatDirectorySnapshot();
   return true;
@@ -2002,14 +1904,11 @@ export async function setChatDirectoryItemPinned(itemId: string, pinned: boolean
 async function isPersistedTimelineNodeActive(conversationId: string, nodeId: string): Promise<boolean> {
   const rows = await chatDb
     .select({
-      payloadJson: conversationTimelineNodes.payloadJson,
+      payloadJson: conversationTimelineNodes.payloadJson
     })
     .from(conversationTimelineNodes)
     .where(
-      and(
-        eq(conversationTimelineNodes.conversationId, conversationId),
-        eq(conversationTimelineNodes.nodeId, nodeId)
-      )
+      and(eq(conversationTimelineNodes.conversationId, conversationId), eq(conversationTimelineNodes.nodeId, nodeId))
     )
     .limit(1);
 
@@ -2019,7 +1918,7 @@ async function isPersistedTimelineNodeActive(conversationId: string, nodeId: str
 async function isPersistedTimelineTailActive(conversationId: string): Promise<boolean> {
   const rows = await chatDb
     .select({
-      payloadJson: conversationTimelineNodes.payloadJson,
+      payloadJson: conversationTimelineNodes.payloadJson
     })
     .from(conversationTimelineNodes)
     .where(eq(conversationTimelineNodes.conversationId, conversationId))
@@ -2029,9 +1928,7 @@ async function isPersistedTimelineTailActive(conversationId: string): Promise<bo
   return isActiveTimelinePayload(rows[0]?.payloadJson);
 }
 
-async function getOpenableLatestConversation(
-  conversationId: string | null | undefined
-): Promise<ChatHomeItem | null> {
+async function getOpenableLatestConversation(conversationId: string | null | undefined): Promise<ChatHomeItem | null> {
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
     return null;
@@ -2042,7 +1939,7 @@ async function getOpenableLatestConversation(
       ...CHAT_HOME_ITEM_SELECT,
       timelineConversationId: conversationTimelineMeta.conversationId,
       activeRunId: conversationTimelineMeta.activeRunId,
-      awaitingId: conversationTimelineMeta.awaitingId,
+      awaitingId: conversationTimelineMeta.awaitingId
     })
     .from(conversations)
     .leftJoin(conversationTimelineMeta, eq(conversations.id, conversationTimelineMeta.conversationId))
@@ -2086,7 +1983,7 @@ export async function resolveDirectoryItemConversationOpenTarget(
     return {
       conversation: latestConversation,
       historyScope,
-      skipInitialReconcile: false,
+      skipInitialReconcile: false
     };
   }
 
@@ -2119,7 +2016,7 @@ export async function createConversationForHistoryScope(
 export async function replaceChatDirectoryItems(items: ChatDirectoryProjectionItem[]) {
   return replaceChatHomeProjection({
     directoryItems: items,
-    conversationSummaries: [],
+    conversationSummaries: []
   });
 }
 
@@ -2140,14 +2037,14 @@ export async function getChatDirectoryPage(
       .orderBy(...CHAT_DIRECTORY_PINNED_ORDER)
       .limit(pageSize)
       .offset(offset),
-    chatDb.select({ value: count() }).from(chatDirectoryItems),
+    chatDb.select({ value: count() }).from(chatDirectoryItems)
   ]);
 
   return {
     items: rows.map(mapChatDirectoryItem),
     total: totals[0]?.value ?? 0,
     page: safePage,
-    pageSize,
+    pageSize
   };
 }
 
@@ -2164,17 +2061,19 @@ export async function getChatDirectorySlice(
       .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
       .orderBy(...CHAT_DIRECTORY_PINNED_ORDER)
       .limit(safeLimit),
-    chatDb.select({
-      total: count(),
-      pinnedTotal: getPinnedDirectoryCountExpression(),
-    }).from(chatDirectoryItems),
+    chatDb
+      .select({
+        total: count(),
+        pinnedTotal: getPinnedDirectoryCountExpression()
+      })
+      .from(chatDirectoryItems)
   ]);
   const countRow = totals[0];
 
   return {
     items: rows.map(mapChatDirectoryItem),
     total: normalizeCountValue(countRow?.total),
-    pinnedTotal: normalizeCountValue(countRow?.pinnedTotal),
+    pinnedTotal: normalizeCountValue(countRow?.pinnedTotal)
   };
 }
 
@@ -2192,17 +2091,19 @@ export async function getCollapsedChatDirectorySlice(
       .where(eq(chatDirectoryItems.pinnedAt, 0))
       .orderBy(...CHAT_DIRECTORY_RECENCY_ORDER)
       .limit(safeLimit),
-    chatDb.select({
-      total: getUnpinnedDirectoryCountExpression(),
-      pinnedTotal: getPinnedDirectoryCountExpression(),
-    }).from(chatDirectoryItems),
+    chatDb
+      .select({
+        total: getUnpinnedDirectoryCountExpression(),
+        pinnedTotal: getPinnedDirectoryCountExpression()
+      })
+      .from(chatDirectoryItems)
   ]);
   const countRow = totals[0];
 
   return {
     items: rows.map(mapChatDirectoryItem),
     total: normalizeCountValue(countRow?.total),
-    pinnedTotal: normalizeCountValue(countRow?.pinnedTotal),
+    pinnedTotal: normalizeCountValue(countRow?.pinnedTotal)
   };
 }
 
@@ -2223,14 +2124,14 @@ export async function getChatDirectoryCatalogPage(
       .orderBy(...CHAT_DIRECTORY_STABLE_ORDER)
       .limit(safePageSize)
       .offset(offset),
-    chatDb.select({ value: count() }).from(chatDirectoryItems),
+    chatDb.select({ value: count() }).from(chatDirectoryItems)
   ]);
 
   return {
     items: rows.map(mapChatDirectoryItem),
     total: totals[0]?.value ?? 0,
     page: safePage,
-    pageSize: safePageSize,
+    pageSize: safePageSize
   };
 }
 
@@ -2252,7 +2153,7 @@ export async function searchChatDirectoryItems(
       query: normalizedQuery,
       offset: safeOffset,
       pageSize: safePageSize,
-      hasMore: false,
+      hasMore: false
     };
   }
 
@@ -2273,42 +2174,21 @@ export async function searchChatDirectoryItems(
     query: normalizedQuery,
     offset: safeOffset,
     pageSize: safePageSize,
-    hasMore: rows.length > safePageSize,
+    hasMore: rows.length > safePageSize
   };
 }
 
-export async function removeConversation(conversationId: string) {
+export async function markConversationSourceDeleted(conversationId: string) {
   await ensureChatDatabase();
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
-    return;
+    return null;
   }
-
-  const keys = await getConversationDirectoryKeys(normalizedConversationId);
-
   await chatDb
-    .delete(conversationTimelineNodes)
-    .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId));
-  await chatDb
-    .delete(conversationTimelineMeta)
-    .where(eq(conversationTimelineMeta.conversationId, normalizedConversationId));
-  await chatDb
-    .delete(outboxMessages)
-    .where(eq(outboxMessages.conversationId, normalizedConversationId));
-  await chatDb
-    .delete(messageAttachments)
-    .where(eq(messageAttachments.conversationId, normalizedConversationId));
-  await chatDb.delete(messages).where(eq(messages.conversationId, normalizedConversationId));
-  await chatDb
-    .delete(conversationSyncState)
-    .where(eq(conversationSyncState.conversationId, normalizedConversationId));
-  await chatDb.delete(conversations).where(eq(conversations.id, normalizedConversationId));
-
-  if (keys?.agentKey || keys?.teamId) {
-    await refreshChatDirectoryProjectionForKeys([keys]);
-  } else {
-    await refreshChatDirectorySnapshot();
-  }
+    .update(conversations)
+    .set({ sourceDeleted: 1, unreadCount: 0, isRead: 1, readAt: Date.now() })
+    .where(eq(conversations.id, normalizedConversationId));
+  return getConversationDetail(normalizedConversationId);
 }
 
 export async function clearChatLocalCache() {
@@ -2336,9 +2216,7 @@ export type ChatLocalCacheScopeClearResult = {
   database: 'cleared' | 'deleted' | 'missing';
 };
 
-export async function clearChatLocalCacheForScope(
-  scopeId: string
-): Promise<ChatLocalCacheScopeClearResult> {
+export async function clearChatLocalCacheForScope(scopeId: string): Promise<ChatLocalCacheScopeClearResult> {
   const rawScopeId = String(scopeId || '').trim();
   const normalizedScopeId = normalizeChatCacheScopeId(rawScopeId);
   if (!rawScopeId || normalizedScopeId !== rawScopeId) {
@@ -2350,7 +2228,7 @@ export async function clearChatLocalCacheForScope(
     return {
       scopeId: normalizedScopeId,
       active: true,
-      database: 'cleared',
+      database: 'cleared'
     };
   }
 
@@ -2359,8 +2237,20 @@ export async function clearChatLocalCacheForScope(
   return {
     scopeId: normalizedScopeId,
     active: false,
-    database,
+    database
   };
+}
+
+export async function inspectChatLocalCacheScope(scopeId: string): Promise<ChatDatabaseScopeInventory> {
+  return inspectChatDatabaseScope(scopeId);
+}
+
+export async function clearChatConversationForScope(scopeId: string, conversationId: string): Promise<boolean> {
+  const deleted = deleteChatConversationFromScopeIfExists(scopeId, conversationId);
+  if (deleted) {
+    clearChatDirectorySnapshotForScope(scopeId);
+  }
+  return deleted;
 }
 
 export async function prewarmChatHomeDirectory(pageSize: number = CHAT_DIRECTORY_DEFAULT_PAGE_SIZE) {
@@ -2407,7 +2297,7 @@ export async function getConversationHistoryScope(
   const rows = await chatDb
     .select({
       agentKey: conversations.agentKey,
-      teamId: conversations.teamId,
+      teamId: conversations.teamId
     })
     .from(conversations)
     .where(eq(conversations.id, normalizedConversationId))
@@ -2429,7 +2319,7 @@ export async function getConversationHistorySlice(
       items: [],
       total: 0,
       unreadTotal: 0,
-      limit: safeLimit,
+      limit: safeLimit
     };
   }
 
@@ -2446,14 +2336,14 @@ export async function getConversationHistorySlice(
     chatDb
       .select({ value: count() })
       .from(conversations)
-      .where(and(historyWhereClause, eq(conversations.isRead, 0))),
+      .where(and(historyWhereClause, eq(conversations.isRead, 0)))
   ]);
 
   return {
     items: rows.map(mapChatHomeItem),
     total: totalRows[0]?.value ?? 0,
     unreadTotal: unreadRows[0]?.value ?? 0,
-    limit: safeLimit,
+    limit: safeLimit
   };
 }
 
@@ -2504,10 +2394,7 @@ export async function getConversationTarget(conversationId: string): Promise<Cha
   return createChatConversationTarget(rows[0]);
 }
 
-export async function getConversationMessages(
-  conversationId: string,
-  limit: number = 20
-): Promise<ChatMessageItem[]> {
+export async function getConversationMessages(conversationId: string, limit: number = 20): Promise<ChatMessageItem[]> {
   await ensureChatDatabase();
 
   const rows = await chatDb
@@ -2520,7 +2407,7 @@ export async function getConversationMessages(
       content: messages.content,
       createdAt: messages.createdAt,
       deliveryStatus: messages.deliveryStatus,
-      errorReason: messages.errorReason,
+      errorReason: messages.errorReason
     })
     .from(messages)
     .where(eq(messages.conversationId, conversationId))
@@ -2551,16 +2438,13 @@ export async function getConversationMessagesDiagnosticSnapshot(
       total: 0,
       limit: safeLimit,
       truncated: false,
-      order: 'newest-first',
+      order: 'newest-first'
     };
   }
 
   const [items, totalRows] = await Promise.all([
     getConversationMessages(normalizedConversationId, safeLimit),
-    chatDb
-      .select({ value: count() })
-      .from(messages)
-      .where(eq(messages.conversationId, normalizedConversationId)),
+    chatDb.select({ value: count() }).from(messages).where(eq(messages.conversationId, normalizedConversationId))
   ]);
   const total = totalRows[0]?.value ?? 0;
   return {
@@ -2568,7 +2452,7 @@ export async function getConversationMessagesDiagnosticSnapshot(
     total,
     limit: safeLimit,
     truncated: total > items.length,
-    order: 'newest-first',
+    order: 'newest-first'
   };
 }
 
@@ -2595,7 +2479,7 @@ export async function getConversationTimelineDiagnosticSnapshot(
       total: 0,
       limit: safeLimit,
       truncated: false,
-      order: 'oldest-first',
+      order: 'oldest-first'
     };
   }
 
@@ -2609,7 +2493,7 @@ export async function getConversationTimelineDiagnosticSnapshot(
         updatedAt: conversationTimelineMeta.updatedAt,
         revision: conversationTimelineMeta.revision,
         nextOrder: conversationTimelineMeta.nextOrder,
-        messageTailSignature: conversationTimelineMeta.messageTailSignature,
+        messageTailSignature: conversationTimelineMeta.messageTailSignature
       })
       .from(conversationTimelineMeta)
       .where(eq(conversationTimelineMeta.conversationId, normalizedConversationId))
@@ -2624,7 +2508,7 @@ export async function getConversationTimelineDiagnosticSnapshot(
         createdAt: conversationTimelineNodes.createdAt,
         updatedAt: conversationTimelineNodes.updatedAt,
         payloadHash: conversationTimelineNodes.payloadHash,
-        payloadJson: conversationTimelineNodes.payloadJson,
+        payloadJson: conversationTimelineNodes.payloadJson
       })
       .from(conversationTimelineNodes)
       .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId))
@@ -2633,7 +2517,7 @@ export async function getConversationTimelineDiagnosticSnapshot(
     chatDb
       .select({ value: count() })
       .from(conversationTimelineNodes)
-      .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId)),
+      .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId))
   ]);
   const total = totalRows[0]?.value ?? 0;
   return {
@@ -2642,7 +2526,7 @@ export async function getConversationTimelineDiagnosticSnapshot(
     total,
     limit: safeLimit,
     truncated: total > nodeRows.length,
-    order: 'oldest-first',
+    order: 'oldest-first'
   };
 }
 
@@ -2667,12 +2551,12 @@ export async function getConversationInitialTimelineState(
         updatedAt: conversationTimelineMeta.updatedAt,
         revision: conversationTimelineMeta.revision,
         nextOrder: conversationTimelineMeta.nextOrder,
-        messageTailSignature: conversationTimelineMeta.messageTailSignature,
+        messageTailSignature: conversationTimelineMeta.messageTailSignature
       })
       .from(conversationTimelineMeta)
       .where(eq(conversationTimelineMeta.conversationId, normalizedConversationId))
       .limit(1),
-    getLatestConversationMessage(normalizedConversationId),
+    getLatestConversationMessage(normalizedConversationId)
   ]);
   const metaRow = metaRows[0];
   const currentTailSignature = buildTailSignatureFromMessage(latestMessage);
@@ -2688,7 +2572,7 @@ export async function getConversationInitialTimelineState(
         createdAt: conversationTimelineNodes.createdAt,
         updatedAt: conversationTimelineNodes.updatedAt,
         payloadHash: conversationTimelineNodes.payloadHash,
-        payloadJson: conversationTimelineNodes.payloadJson,
+        payloadJson: conversationTimelineNodes.payloadJson
       })
       .from(conversationTimelineNodes)
       .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId))
@@ -2722,9 +2606,7 @@ export async function persistConversationTimelineState(state: ChatTimelineState)
   return state;
 }
 
-export async function getConversationSyncState(
-  conversationId: string
-): Promise<ConversationSyncState | null> {
+export async function getConversationSyncState(conversationId: string): Promise<ConversationSyncState | null> {
   await ensureChatDatabase();
 
   const normalizedConversationId = String(conversationId || '').trim();
@@ -2738,7 +2620,7 @@ export async function getConversationSyncState(
       activeRunId: conversationSyncState.activeRunId,
       lastSyncedAt: conversationSyncState.lastSyncedAt,
       dirtyReason: conversationSyncState.dirtyReason,
-      tailSignature: conversationSyncState.tailSignature,
+      tailSignature: conversationSyncState.tailSignature
     })
     .from(conversationSyncState)
     .where(eq(conversationSyncState.conversationId, normalizedConversationId))
@@ -2766,21 +2648,18 @@ export async function replaceConversationProjection(input: {
 
   const existingMessages = await getConversationMessages(conversationId, 500);
   const unsyncedLocalMessages = existingMessages.filter(
-    (message) =>
-      message.deliveryStatus !== 'sent' && message.clientMessageId && !message.serverMessageId
+    (message) => message.deliveryStatus !== 'sent' && message.clientMessageId && !message.serverMessageId
   );
   const pendingOutboxMessages = unsyncedLocalMessages.filter(
     (message) => message.clientMessageId && message.deliveryStatus === 'pending'
   );
-  const pendingOutboxClientMessageIds = pendingOutboxMessages.map((message) =>
-    String(message.clientMessageId)
-  );
+  const pendingOutboxClientMessageIds = pendingOutboxMessages.map((message) => String(message.clientMessageId));
   const currentOutboxRows =
     pendingOutboxClientMessageIds.length > 0
       ? await chatDb
           .select({
             clientMessageId: outboxMessages.clientMessageId,
-            planningMode: outboxMessages.planningMode,
+            planningMode: outboxMessages.planningMode
           })
           .from(outboxMessages)
           .where(inArray(outboxMessages.clientMessageId, pendingOutboxClientMessageIds))
@@ -2789,9 +2668,7 @@ export async function replaceConversationProjection(input: {
     currentOutboxRows.map((row) => [row.clientMessageId, Number(row.planningMode) === 1])
   );
   const summaryTime = Number(
-    input.summary?.lastMessageAt ||
-      input.messages[input.messages.length - 1]?.createdAt ||
-      Date.now()
+    input.summary?.lastMessageAt || input.messages[input.messages.length - 1]?.createdAt || Date.now()
   );
 
   const conversation = await ensureConversationRecord(conversationId, summaryTime, input.title);
@@ -2828,7 +2705,7 @@ export async function replaceConversationProjection(input: {
         createdAt: message.createdAt,
         deliveryStatus: message.deliveryStatus,
         errorReason: message.errorReason,
-        attachments: message.attachments || [],
+        attachments: message.attachments || []
       });
     });
   const projectedMessageItems = [...projectedMessageRowsById.values()];
@@ -2841,7 +2718,7 @@ export async function replaceConversationProjection(input: {
     content: message.content,
     createdAt: message.createdAt,
     deliveryStatus: message.deliveryStatus,
-    errorReason: message.errorReason,
+    errorReason: message.errorReason
   }));
   const projectedAttachmentRows = projectedMessageItems.flatMap((message) =>
     buildMessageAttachmentInsertRows({
@@ -2849,7 +2726,7 @@ export async function replaceConversationProjection(input: {
       messageId: message.id,
       clientMessageId: message.clientMessageId,
       attachments: message.attachments,
-      createdAt: message.createdAt,
+      createdAt: message.createdAt
     })
   );
 
@@ -2858,7 +2735,7 @@ export async function replaceConversationProjection(input: {
     conversationId: message.conversationId,
     content: message.content,
     planningMode: currentOutboxPlanningModeByClientId.get(String(message.clientMessageId)) ? 1 : 0,
-    createdAt: message.createdAt,
+    createdAt: message.createdAt
   }));
   const latestProjectedMessage = projectedMessages[projectedMessages.length - 1] || null;
   const messageTailSignature = latestProjectedMessage
@@ -2866,7 +2743,7 @@ export async function replaceConversationProjection(input: {
         messageId: latestProjectedMessage.id,
         createdAt: latestProjectedMessage.createdAt,
         content: latestProjectedMessage.content,
-        deliveryStatus: latestProjectedMessage.deliveryStatus,
+        deliveryStatus: latestProjectedMessage.deliveryStatus
       })
     : '';
   const timelineStateToPersist = input.timelineState
@@ -2877,9 +2754,7 @@ export async function replaceConversationProjection(input: {
     : null;
 
   chatDb.transaction((tx) => {
-    tx.delete(messageAttachments)
-      .where(eq(messageAttachments.conversationId, conversationId))
-      .run();
+    tx.delete(messageAttachments).where(eq(messageAttachments.conversationId, conversationId)).run();
     tx.delete(messages).where(eq(messages.conversationId, conversationId)).run();
 
     if (projectedMessages.length > 0) {
@@ -2904,9 +2779,7 @@ export async function replaceConversationProjection(input: {
             ? { unreadCount: input.unreadCount }
             : undefined;
       const read =
-        readOverride !== undefined
-          ? normalizeChatReadState(readOverride)
-          : mapConversationReadState(conversation);
+        readOverride !== undefined ? normalizeChatReadState(readOverride) : mapConversationReadState(conversation);
 
       tx.update(conversations)
         .set({
@@ -2918,7 +2791,8 @@ export async function replaceConversationProjection(input: {
           readAt: read.readAt,
           readRunId: read.readRunId,
           lastMessageStatus: latestProjectedMessage.deliveryStatus,
-          updatedAt: latestProjectedMessage.createdAt,
+          sourceDeleted: 0,
+          updatedAt: latestProjectedMessage.createdAt
         })
         .where(eq(conversations.id, conversationId))
         .run();
@@ -2939,7 +2813,8 @@ export async function replaceConversationProjection(input: {
           readAt: read.readAt,
           readRunId: read.readRunId,
           lastMessageStatus: (input.summary?.lastMessageStatus || 'sent') as ChatMessageStatus,
-          updatedAt: summaryTime,
+          sourceDeleted: 0,
+          updatedAt: summaryTime
         })
         .where(eq(conversations.id, conversationId))
         .run();
@@ -2947,7 +2822,7 @@ export async function replaceConversationProjection(input: {
 
     const syncRows = tx
       .select({
-        conversationId: conversationSyncState.conversationId,
+        conversationId: conversationSyncState.conversationId
       })
       .from(conversationSyncState)
       .where(eq(conversationSyncState.conversationId, conversationId))
@@ -2957,7 +2832,7 @@ export async function replaceConversationProjection(input: {
       activeRunId: String(input.activeRunId || '').trim(),
       lastSyncedAt: Date.now(),
       dirtyReason: '',
-      tailSignature: messageTailSignature,
+      tailSignature: messageTailSignature
     };
 
     if (syncRows[0]) {
@@ -2969,7 +2844,7 @@ export async function replaceConversationProjection(input: {
       tx.insert(conversationSyncState)
         .values({
           conversationId,
-          ...syncValues,
+          ...syncValues
         })
         .run();
     }
@@ -2997,7 +2872,7 @@ export async function markConversationDirty(conversationId: string, dirtyReason:
   await ensureConversationRecord(normalizedConversationId, Date.now());
   return upsertConversationSyncState({
     conversationId: normalizedConversationId,
-    dirtyReason: String(dirtyReason || '').trim(),
+    dirtyReason: String(dirtyReason || '').trim()
   });
 }
 
@@ -3012,7 +2887,7 @@ export async function setConversationActiveRunId(conversationId: string, activeR
   await ensureConversationRecord(normalizedConversationId, Date.now());
   return upsertConversationSyncState({
     conversationId: normalizedConversationId,
-    activeRunId: String(activeRunId || '').trim(),
+    activeRunId: String(activeRunId || '').trim()
   });
 }
 
@@ -3039,7 +2914,7 @@ export async function markConversationSynced(
     tailSignature:
       input?.tailSignature !== undefined
         ? String(input.tailSignature || '').trim()
-        : buildTailSignatureFromMessage(latestMessage),
+        : buildTailSignatureFromMessage(latestMessage)
   });
 }
 
@@ -3056,9 +2931,7 @@ export async function reconcileConversationDetail(input: {
   return replaceConversationProjection(input);
 }
 
-export async function getMessageByServerMessageId(
-  serverMessageId: string
-): Promise<ChatMessageItem | null> {
+export async function getMessageByServerMessageId(serverMessageId: string): Promise<ChatMessageItem | null> {
   await ensureChatDatabase();
 
   const normalizedServerMessageId = String(serverMessageId || '').trim();
@@ -3076,7 +2949,7 @@ export async function getMessageByServerMessageId(
       content: messages.content,
       createdAt: messages.createdAt,
       deliveryStatus: messages.deliveryStatus,
-      errorReason: messages.errorReason,
+      errorReason: messages.errorReason
     })
     .from(messages)
     .where(eq(messages.serverMessageId, normalizedServerMessageId))
@@ -3085,9 +2958,7 @@ export async function getMessageByServerMessageId(
   return rows[0] ? mapChatMessageItem(rows[0]) : null;
 }
 
-export async function getMessageByClientMessageId(
-  clientMessageId: string
-): Promise<ChatMessageItem | null> {
+export async function getMessageByClientMessageId(clientMessageId: string): Promise<ChatMessageItem | null> {
   await ensureChatDatabase();
   return getMessageRowByClientMessageId(clientMessageId);
 }
@@ -3134,7 +3005,7 @@ export async function upsertProjectedMessage(
         content: input.content,
         createdAt,
         deliveryStatus: input.deliveryStatus || existing.deliveryStatus,
-        errorReason: input.errorReason ?? existing.errorReason,
+        errorReason: input.errorReason ?? existing.errorReason
       })
       .where(eq(messages.id, existing.messageId));
   } else {
@@ -3147,20 +3018,18 @@ export async function upsertProjectedMessage(
       content: input.content,
       createdAt,
       deliveryStatus: input.deliveryStatus || 'sent',
-      errorReason: input.errorReason ?? null,
+      errorReason: input.errorReason ?? null
     });
   }
 
   if (input.attachments !== undefined) {
-    await chatDb
-      .delete(messageAttachments)
-      .where(eq(messageAttachments.messageId, persistedMessageId));
+    await chatDb.delete(messageAttachments).where(eq(messageAttachments.messageId, persistedMessageId));
     const attachmentRows = buildMessageAttachmentInsertRows({
       conversationId,
       messageId: persistedMessageId,
       clientMessageId: input.clientMessageId ?? existing?.clientMessageId ?? null,
       attachments: input.attachments,
-      createdAt,
+      createdAt
     });
     if (attachmentRows.length > 0) {
       await chatDb.insert(messageAttachments).values(attachmentRows);
@@ -3180,7 +3049,7 @@ export async function upsertProjectedMessage(
   const latestMessage = await getLatestConversationMessage(conversationId);
   await upsertConversationSyncState({
     conversationId,
-    tailSignature: buildTailSignatureFromMessage(latestMessage),
+    tailSignature: buildTailSignatureFromMessage(latestMessage)
   });
 
   const [message] = await attachMessageAttachments(
@@ -3209,21 +3078,19 @@ async function patchMessageByMessageId(
       ...(patch.createdAt !== undefined ? { createdAt: patch.createdAt } : {}),
       ...(patch.deliveryStatus !== undefined ? { deliveryStatus: patch.deliveryStatus } : {}),
       ...(patch.errorReason !== undefined ? { errorReason: patch.errorReason } : {}),
-      ...(patch.serverMessageId !== undefined ? { serverMessageId: patch.serverMessageId } : {}),
+      ...(patch.serverMessageId !== undefined ? { serverMessageId: patch.serverMessageId } : {})
     })
     .where(eq(messages.id, existing.messageId));
 
   if (options?.removeOutbox && existing.clientMessageId) {
-    await chatDb
-      .delete(outboxMessages)
-      .where(eq(outboxMessages.clientMessageId, existing.clientMessageId));
+    await chatDb.delete(outboxMessages).where(eq(outboxMessages.clientMessageId, existing.clientMessageId));
   }
 
   await syncConversationSummary(existing.conversationId, options?.unreadCountOverride);
   const latestMessage = await getLatestConversationMessage(existing.conversationId);
   await upsertConversationSyncState({
     conversationId: existing.conversationId,
-    tailSignature: buildTailSignatureFromMessage(latestMessage),
+    tailSignature: buildTailSignatureFromMessage(latestMessage)
   });
   return getMessageRowByMessageId(existing.messageId);
 }
@@ -3265,9 +3132,7 @@ export async function appendAssistantDelta(
 
   if (!existing) {
     const initialContent =
-      input.snapshotText !== undefined
-        ? String(input.snapshotText || '')
-        : String(input.delta || '');
+      input.snapshotText !== undefined ? String(input.snapshotText || '') : String(input.delta || '');
     return upsertProjectedMessage(
       {
         messageId: input.messageId,
@@ -3279,10 +3144,10 @@ export async function appendAssistantDelta(
         createdAt: input.createdAt,
         deliveryStatus: 'sent',
         errorReason: null,
-        title: input.title,
+        title: input.title
       },
       {
-        suppressUnread: options?.suppressUnread,
+        suppressUnread: options?.suppressUnread
       }
     );
   }
@@ -3294,24 +3159,17 @@ export async function appendAssistantDelta(
   return patchMessageByMessageId(existing.messageId, {
     content: nextContent,
     createdAt: Math.max(existing.createdAt, input.createdAt),
-    ...(input.serverMessageId !== undefined ? { serverMessageId: input.serverMessageId } : {}),
+    ...(input.serverMessageId !== undefined ? { serverMessageId: input.serverMessageId } : {})
   });
 }
 
 export async function upsertServerMessageDetail(input: ServerMessageDetail) {
   await ensureChatDatabase();
 
-  const conversationId = String(
-    input.message.conversationId || input.conversation.conversationId || ''
-  ).trim();
+  const conversationId = String(input.message.conversationId || input.conversation.conversationId || '').trim();
   const serverMessageId = String(input.message.serverMessageId || '').trim();
   const isSupportedRole = input.message.role === 'assistant' || input.message.role === 'user';
-  if (
-    !conversationId ||
-    !serverMessageId ||
-    !isSupportedRole ||
-    !Number.isFinite(input.message.createdAt)
-  ) {
+  if (!conversationId || !serverMessageId || !isSupportedRole || !Number.isFinite(input.message.createdAt)) {
     throw new Error('Invalid server message detail payload');
   }
 
@@ -3335,18 +3193,18 @@ export async function upsertServerMessageDetail(input: ServerMessageDetail) {
         content: input.message.content,
         createdAt: input.message.createdAt,
         deliveryStatus: 'sent',
-        errorReason: null,
+        errorReason: null
       })
       .where(eq(messages.id, existing.messageId));
 
     await syncConversationSummary(conversationId, {
-      unreadCount: input.conversation.unreadCount,
+      unreadCount: input.conversation.unreadCount
     });
     await refreshChatDirectoryProjectionForConversation(conversationId);
     const latestMessage = await getLatestConversationMessage(conversationId);
     await upsertConversationSyncState({
       conversationId,
-      tailSignature: buildTailSignatureFromMessage(latestMessage),
+      tailSignature: buildTailSignatureFromMessage(latestMessage)
     });
     return;
   }
@@ -3360,15 +3218,12 @@ export async function upsertServerMessageDetail(input: ServerMessageDetail) {
     content: input.message.content,
     createdAt: input.message.createdAt,
     deliveryStatus: 'sent',
-    errorReason: null,
+    errorReason: null
   });
 
-  const hasRemoteReadState =
-    input.conversation.read !== undefined || input.conversation.unreadCount !== undefined;
+  const hasRemoteReadState = input.conversation.read !== undefined || input.conversation.unreadCount !== undefined;
   const nextRead = hasRemoteReadState
-    ? normalizeChatReadState(
-        input.conversation.read ?? { unreadCount: input.conversation.unreadCount }
-      )
+    ? normalizeChatReadState(input.conversation.read ?? { unreadCount: input.conversation.unreadCount })
     : input.message.role === 'assistant'
       ? normalizeChatReadState({ read: { isRead: false } })
       : mapConversationReadState(conversation);
@@ -3378,7 +3233,7 @@ export async function upsertServerMessageDetail(input: ServerMessageDetail) {
   const latestMessage = await getLatestConversationMessage(conversationId);
   await upsertConversationSyncState({
     conversationId,
-    tailSignature: buildTailSignatureFromMessage(latestMessage),
+    tailSignature: buildTailSignatureFromMessage(latestMessage)
   });
 }
 
@@ -3404,8 +3259,7 @@ export async function createOutgoingMessage(
     .limit(1);
   const isFirstUserMessage = firstUserMessageRows.length === 0;
   const firstUserConversationTitle = resolveChatConversationStoredTitle(content);
-  const normalizedContent =
-    String(content || '').trim() || formatChatAttachmentsMessageText(attachments);
+  const normalizedContent = String(content || '').trim() || formatChatAttachmentsMessageText(attachments);
   if (!normalizedContent) {
     throw new Error('Message content or attachments are required');
   }
@@ -3424,7 +3278,7 @@ export async function createOutgoingMessage(
         content: normalizedContent,
         createdAt,
         deliveryStatus: 'pending',
-        errorReason: null,
+        errorReason: null
       })
       .run();
 
@@ -3433,7 +3287,7 @@ export async function createOutgoingMessage(
       messageId: clientMessageId,
       clientMessageId,
       attachments: messageAttachmentsForTimeline,
-      createdAt,
+      createdAt
     });
     if (attachmentRows.length > 0) {
       tx.insert(messageAttachments).values(attachmentRows).run();
@@ -3452,7 +3306,7 @@ export async function createOutgoingMessage(
         conversationId,
         content: normalizedContent,
         planningMode: options.planningMode === true ? 1 : 0,
-        createdAt,
+        createdAt
       })
       .run();
   });
@@ -3464,8 +3318,8 @@ export async function createOutgoingMessage(
       messageId: clientMessageId,
       createdAt,
       content: normalizedContent,
-      deliveryStatus: 'pending',
-    }),
+      deliveryStatus: 'pending'
+    })
   });
 
   return {
@@ -3482,14 +3336,12 @@ export async function createOutgoingMessage(
       createdAt,
       deliveryStatus: 'pending' as const,
       errorReason: null,
-      attachments: messageAttachmentsForTimeline,
-    },
+      attachments: messageAttachmentsForTimeline
+    }
   };
 }
 
-export async function getPendingOutboxMessages(
-  limit: number = 50
-): Promise<PendingOutboxMessage[]> {
+export async function getPendingOutboxMessages(limit: number = 50): Promise<PendingOutboxMessage[]> {
   await ensureChatDatabase();
 
   const rows = await chatDb
@@ -3498,22 +3350,20 @@ export async function getPendingOutboxMessages(
       conversationId: outboxMessages.conversationId,
       content: outboxMessages.content,
       createdAt: outboxMessages.createdAt,
-      planningMode: outboxMessages.planningMode,
+      planningMode: outboxMessages.planningMode
     })
     .from(outboxMessages)
     .orderBy(desc(outboxMessages.createdAt))
     .limit(limit);
 
-  const attachmentsByMessageId = await getAttachmentsByMessageIds(
-    rows.map((row) => row.clientMessageId)
-  );
+  const attachmentsByMessageId = await getAttachmentsByMessageIds(rows.map((row) => row.clientMessageId));
   return rows.map((row) => ({
     clientMessageId: row.clientMessageId,
     conversationId: row.conversationId,
     content: row.content,
     createdAt: row.createdAt,
     planningMode: Number(row.planningMode) === 1,
-    attachments: attachmentsByMessageId.get(row.clientMessageId) || [],
+    attachments: attachmentsByMessageId.get(row.clientMessageId) || []
   }));
 }
 

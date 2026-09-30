@@ -66,6 +66,7 @@ function normalizeTransport(transport: WsTransportConfig): WsTransportConfig {
       wsUrl: normalizeDesktopEndpointUrl(transport.wsUrl),
       tokenMode: transport.tokenMode,
       accessToken,
+      accessTokenProvider: transport.accessTokenProvider,
       namespace: transport.namespace,
       connectionKey: normalizeConnectionKey(transport.connectionKey)
     };
@@ -109,14 +110,8 @@ function toError(error: unknown, fallback = 'WebSocket stream failed'): Error {
 
 export function createSharedWsTransport() {
   const clients = new Map<string, ClientEntry>();
-  const pushListeners = new Map<
-    SharedWsPushListener,
-    { clientKey: string | null }
-  >();
-  const statusListeners = new Map<
-    SharedWsStatusListener,
-    { clientKey: string | null }
-  >();
+  const pushListeners = new Map<SharedWsPushListener, { clientKey: string | null }>();
+  const statusListeners = new Map<SharedWsStatusListener, { clientKey: string | null }>();
 
   const dispatchPush = (clientKey: string, frame: WsPushFrame) => {
     pushListeners.forEach((subscription, listener) => {
@@ -282,10 +277,7 @@ export function createSharedWsTransport() {
     return true;
   };
 
-  const subscribePush = (
-    listener: SharedWsPushListener,
-    transport?: WsTransportConfig
-  ): SharedWsSubscription => {
+  const subscribePush = (listener: SharedWsPushListener, transport?: WsTransportConfig): SharedWsSubscription => {
     pushListeners.set(listener, {
       clientKey: transport ? getClientKey(normalizeTransport(transport)) : null
     });
@@ -294,13 +286,10 @@ export function createSharedWsTransport() {
     };
   };
 
-  const subscribeStatus = (
-    listener: SharedWsStatusListener,
-    transport?: WsTransportConfig
-  ): SharedWsSubscription => {
+  const subscribeStatus = (listener: SharedWsStatusListener, transport?: WsTransportConfig): SharedWsSubscription => {
     const clientKey = transport ? getClientKey(normalizeTransport(transport)) : null;
     statusListeners.set(listener, { clientKey });
-    listener(clientKey ? clients.get(clientKey)?.client.getStatus() ?? 'idle' : getAggregateStatus());
+    listener(clientKey ? (clients.get(clientKey)?.client.getStatus() ?? 'idle') : getAggregateStatus());
     return () => {
       statusListeners.delete(listener);
     };

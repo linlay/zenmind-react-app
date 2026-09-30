@@ -141,6 +141,33 @@ test('desktop subprotocol transport keeps token out of url', async () => {
   client.disconnect();
 });
 
+test('desktop reconnect obtains a fresh one-time credential', async () => {
+  const sockets: FakeSocket[] = [];
+  let issued = 0;
+  const client = new WsClient({
+    transport: {
+      kind: 'desktop-ws',
+      wsUrl: 'wss://desktop.example.test/ws',
+      tokenMode: 'query',
+      accessToken: 'route-initial',
+      accessTokenProvider: async () => `route-reconnect-${++issued}`,
+      namespace: 'ap'
+    },
+    createWebSocket: createSocketFactory(sockets),
+    reconnectBaseDelayMs: 100,
+    reconnectMaxDelayMs: 100
+  });
+
+  await client.connect();
+  assert.equal(new URL(sockets[0].url).searchParams.get('token'), 'route-initial');
+  sockets[0].onclose?.({ code: 1006, reason: 'network changed' });
+  await new Promise((resolve) => setTimeout(resolve, 130));
+  assert.equal(sockets.length, 2);
+  assert.equal(new URL(sockets[1].url).searchParams.get('token'), 'route-reconnect-1');
+  assert.equal(issued, 1);
+  client.disconnect();
+});
+
 test('shared chat transport keeps the socket when only token or namespace changes', async () => {
   const originalWebSocket = globalThis.WebSocket;
   const sockets: FakeSocket[] = [];

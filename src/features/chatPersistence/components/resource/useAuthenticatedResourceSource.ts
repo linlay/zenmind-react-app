@@ -5,7 +5,10 @@ import {
   resolveAuthenticatedResourceSource,
   type AuthenticatedResourceErrorCode
 } from '../../../../core/api/services/authenticatedResource.ts';
-import { resolveAuthenticatedResourceImageSource } from '../../../../core/api/services/authenticatedResourceImage';
+import {
+  releaseAuthenticatedResourceImageSource,
+  resolveAuthenticatedResourceImageSource
+} from '../../../../core/api/services/authenticatedResourceImage';
 import type { ApiUriSource } from '../../../../core/api/apiClient.ts';
 
 type AuthenticatedResourceSourceState = {
@@ -33,6 +36,7 @@ export function useAuthenticatedResourceSource(resourceUrl: string, active: bool
     }
 
     const controller = new AbortController();
+    let retainedImage = false;
     const forceRefresh = retryNonce > resolvedRetryNonceRef.current;
     resolvedRetryNonceRef.current = retryNonce;
     setState({ source: null, loading: true, error: '' });
@@ -46,8 +50,12 @@ export function useAuthenticatedResourceSource(resourceUrl: string, active: bool
       : resolveAuthenticatedResourceSource(resourceUrl);
     void resolveSource
       .then((source) => {
+        retainedImage = Boolean(imageFileName);
         if (!controller.signal.aborted) {
           setState({ source, loading: false, error: '' });
+        } else if (retainedImage) {
+          releaseAuthenticatedResourceImageSource({ resourceUrl, fileName: imageFileName });
+          retainedImage = false;
         }
       })
       .catch((error: unknown) => {
@@ -63,6 +71,10 @@ export function useAuthenticatedResourceSource(resourceUrl: string, active: bool
 
     return () => {
       controller.abort();
+      if (retainedImage) {
+        releaseAuthenticatedResourceImageSource({ resourceUrl, fileName: imageFileName });
+        retainedImage = false;
+      }
     };
   }, [active, imageFileName, resourceUrl, retryNonce]);
 

@@ -40,6 +40,7 @@
         "package.json",
         "patches",
         "plugins/withAndroidAutolinkingCacheGuard.js",
+        "plugins/withLocalCacheBackupExclusion.js",
         "scripts",
         "scripts/lib/brand-config.js",
         "scripts/sync-brand.js",
@@ -112,9 +113,10 @@
     {
       "id": "feature-auth-login",
       "title": "feature-auth-login",
-      "summary": "登录页与认证门卫界面: 承载 Desktop 配对码输入、全屏二维码扫码、最近 profile 快捷入口、跳过登录、启动恢复占位屏和最小会话交互。",
+      "summary": "登录、认证门卫与账号设备界面: 承载独立账号登录、设备信任等级、Desktop 配对、一次性挑战确认、账号设备选择/改名/撤销和启动恢复占位。",
       "pathHints": [
-        "src/features/auth"
+        "src/features/auth",
+        "src/features/deviceLink"
       ],
       "card": ".doc/modules/feature-auth-login.json"
     },

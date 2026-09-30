@@ -86,6 +86,7 @@ type ChatTimelineListProps = {
   reaskNewConversationDisabled?: boolean;
   artifactCount?: number;
   onOpenArtifacts?: () => void;
+  historyHeader?: ReactNode;
 };
 
 const SCROLL_TO_END_BUTTON_THRESHOLD = 96;
@@ -943,7 +944,8 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   reaskCurrentDisabled = false,
   reaskNewConversationDisabled = false,
   artifactCount = 0,
-  onOpenArtifacts
+  onOpenArtifacts,
+  historyHeader = null
 }: ChatTimelineListProps) {
   const t = useT();
   const { theme } = useAppTheme();
@@ -1391,6 +1393,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
           drawDistance={620}
           getItemType={getChatTimelinePresentationItemType}
           ListEmptyComponent={emptyStateElement}
+          ListHeaderComponent={historyHeader ? <>{historyHeader}</> : null}
           ListFooterComponent={listFooter}
           keyboardShouldPersistTaps="handled"
           onScroll={handleScroll}

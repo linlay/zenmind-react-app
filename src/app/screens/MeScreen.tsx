@@ -9,8 +9,10 @@ import { logoutCurrentDevice, readPreferredDeviceName, updatePreferredDeviceName
 import { MAX_DEVICE_NAME_LENGTH } from '../../core/auth/deviceNameModel';
 import { getActiveDeviceProfile } from '../../core/auth/deviceProfiles';
 import { useAppAccess } from '../../core/auth/useAppAccess';
+import { useAccountAuth } from '../../core/auth/useAccountAuth.ts';
 import { getDefaultSourceConfig } from '../../core/config/appEnvironment';
 import { notificationService } from '../../features/notifications/notificationService';
+import { AccountDevicesPanel } from '../../features/deviceLink/AccountDevicesPanel.tsx';
 import { AppKeyboardAwareScrollView } from '../../shared/components/AppKeyboardAwareScrollView';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { APP_VERSION, PRODUCT_NAME } from '../../shared/generated/brand';
@@ -140,6 +142,7 @@ export function MeScreen() {
   const { locale, t } = useI18n();
   const { preference: themePreference } = useAppTheme();
   const access = useAppAccess();
+  const accountAuth = useAccountAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const debugPanelEnabled = useSyncExternalStore(
     subscribeDevelopmentDebugPanel,
@@ -154,18 +157,29 @@ export function MeScreen() {
   const isMountedRef = useRef(true);
   const isPaired = access.status === 'ready' && access.pairingState === 'paired';
   const currentSession = isPaired ? access.pairedSession : null;
-  const effectiveDeviceId = currentSession?.deviceId || access.defaultIdentity?.id || '';
+  const accountSession = accountAuth.session;
+  const effectiveDeviceId = accountSession?.deviceId || currentSession?.deviceId || access.defaultIdentity?.id || '';
   const defaultSource = useMemo(() => getDefaultSourceConfig(), []);
-  const showLogout = isPaired;
+  const showLogout = Boolean(accountSession || isPaired);
   const activeConnectionUrl = getActiveConnectionUrl();
   const defaultConnectionUrl = defaultSource.wsUrl || defaultSource.apiBaseUrl;
   const handleVersionPress = useDevelopmentDebugVersionTrigger();
-  const accountName = isPaired
-    ? currentSession?.username || t('me.accountName.loggedOut')
-    : t('me.accountName.default');
+  const accountName = accountSession
+    ? accountSession.username
+    : isPaired
+      ? currentSession?.username || t('me.accountName.loggedOut')
+      : t('me.accountName.default');
   const avatarTone = getAvatarTone(accountName);
-  const sessionStateText = isPaired ? t('me.session.paired') : t('me.session.unpaired');
-  const sessionSummary = isPaired ? t('me.description.paired') : t('me.description.unpaired');
+  const sessionStateText = accountSession
+    ? t('me.session.loggedIn')
+    : isPaired
+      ? t('me.session.paired')
+      : t('me.session.unpaired');
+  const sessionSummary = accountSession
+    ? t('me.description.account')
+    : isPaired
+      ? t('me.description.paired')
+      : t('me.description.unpaired');
   const modeLabel = __DEV__ ? t('me.value.dev') : t('me.value.prod');
   const handleOpenSettings = useCallback(() => {
     navigation.navigate('Settings');
@@ -442,6 +456,11 @@ export function MeScreen() {
           />
 
           <View className={SECTION_STACK_CLASS}>
+            {accountSession ? (
+              <MeScreenSection title={t('me.section.accountDevices')}>
+                <AccountDevicesPanel />
+              </MeScreenSection>
+            ) : null}
             <MeScreenSection title={t('me.section.session')}>
               {sessionRows.map(({ key, ...row }, index) => (
                 <MeScreenRow key={key} {...row} isFirst={index === 0} />

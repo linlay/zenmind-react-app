@@ -126,10 +126,11 @@
     "dependents": [
       "app-development-debug",
       "app-shell-navigation",
+      "feature-auth-login",
       "feature-chat-persistence"
     ],
     "tests": [],
-    "lastScannedAt": "2026-08-03T01:02:18Z"
+    "lastScannedAt": "2026-09-08T02:25:55Z"
   },
   "readHints": {
     "alwaysRead": [

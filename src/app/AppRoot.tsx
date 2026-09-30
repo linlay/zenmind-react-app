@@ -3,10 +3,11 @@ import { DefaultTheme, NavigationContainer, createNavigationContainerRef } from 
 import { AppState, StatusBar, View } from 'react-native';
 
 import { bootstrapAppAccess } from '../core/auth/appAccess';
-import { configureAuthCacheRuntime, ensureFreshAccessToken } from '../core/auth/appAuth';
+import { ensureFreshAccessToken } from '../core/auth/appAuth';
 import { useAppAccess } from '../core/auth/useAppAccess';
-import { deleteChatDatabaseScope, switchChatDatabaseScope } from '../features/chatPersistence/database';
-import { clearChatDirectorySnapshotForScope } from '../features/chatPersistence/homeSnapshot';
+import { readActiveDesktopId } from '../core/auth/activeDesktop.ts';
+import { useAccountAuth } from '../core/auth/useAccountAuth.ts';
+import { restoreAccountDesktopSource } from '../features/chatPersistence/accountDesktopSource.ts';
 import { ChatNotificationPayload, notificationService } from '../features/notifications/notificationService';
 import { chatSyncService } from '../features/chatRealtime/chatSyncService';
 import { useAppTheme } from '../shared/visual/AppThemeProvider';
@@ -25,12 +26,6 @@ const PREFRESH_JITTER_MS = 8_000;
 const ACTIVE_REFRESH_DEBOUNCE_MS = 20_000;
 const FOREGROUND_REFRESH_INTERVAL_MS = 60_000;
 const APP_ROOT_CLASS = 'flex-1 bg-app-background';
-
-configureAuthCacheRuntime({
-  switchScope: switchChatDatabaseScope,
-  clearDirectorySnapshotForScope: clearChatDirectorySnapshotForScope,
-  deleteScope: deleteChatDatabaseScope
-});
 
 function createNavigationTheme(theme: AppThemeTokens) {
   return {
@@ -65,16 +60,18 @@ function syncActiveConversationForNotifications() {
 export function AppRoot({ onNavigationReady }: AppRootProps) {
   const { theme } = useAppTheme();
   const access = useAppAccess();
+  const accountAuth = useAccountAuth();
   const isBootstrapping = access.status === 'bootstrapping';
   const isReady = access.status === 'ready';
   const session = access.pairedSession;
   const hasSession = Boolean(session);
   const sessionUsername = session?.username || '';
   const sessionDeviceId = session?.deviceId || '';
-  const sessionIdentityKey = sessionDeviceId
-    ? JSON.stringify([sessionUsername, sessionDeviceId])
-    : '';
+  const sessionIdentityKey = sessionDeviceId ? JSON.stringify([sessionUsername, sessionDeviceId]) : '';
   const sessionAccessToken = session?.accessToken || '';
+  const accountId = accountAuth.session?.accountId || '';
+  const accountDesktopId = accountId ? readActiveDesktopId(accountId) : '';
+  const accountSourceKey = accountDesktopId ? `${accountId}:${accountDesktopId}` : '';
   const [isNavigationReady, setIsNavigationReady] = useState(false);
   const [currentRouteName, setCurrentRouteName] = useState<string | null>(null);
   const pendingNotificationPayloadRef = useRef<ChatNotificationPayload | null>(null);
@@ -164,12 +161,23 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
   }, [routeNotificationPayload]);
 
   useEffect(() => {
+    if (!accountId || !accountDesktopId) {
+      return;
+    }
+    try {
+      restoreAccountDesktopSource(accountId, accountDesktopId);
+    } catch {
+      // Ambiguous legacy ownership remains available for explicit cleanup.
+    }
+  }, [accountDesktopId, accountId]);
+
+  useEffect(() => {
     if (!isReady) {
       return;
     }
 
     chatSyncService.prewarmHome().catch(() => {});
-  }, [isReady, sessionIdentityKey]);
+  }, [accountSourceKey, isReady, sessionIdentityKey]);
 
   useEffect(() => {
     if (!isReady) {
@@ -194,7 +202,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
     return () => {
       chatSyncService.stop();
     };
-  }, [isReady, sessionDeviceId, sessionIdentityKey, sessionUsername]);
+  }, [accountSourceKey, isReady, sessionDeviceId, sessionIdentityKey, sessionUsername]);
 
   useEffect(() => {
     if (isBootstrapping || !sessionIdentityKey || !sessionAccessToken) {

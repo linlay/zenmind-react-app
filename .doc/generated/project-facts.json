@@ -26,6 +26,8 @@
     "index.js"
   ],
   "testFiles": [
+    "scripts/tests/accountAuthModel.test.mts",
+    "scripts/tests/accountDesktopCacheScopeModel.test.mts",
     "scripts/tests/agentWaitingDemo.test.mts",
     "scripts/tests/appAccessSnapshotModel.test.mts",
     "scripts/tests/appEnvConfig.test.mts",
@@ -35,6 +37,7 @@
     "scripts/tests/awaitingQuestionState.test.mts",
     "scripts/tests/awaitingSubmitState.test.mts",
     "scripts/tests/brandConfig.test.mts",
+    "scripts/tests/cacheRetentionBoundaries.test.mts",
     "scripts/tests/chatAgentDetail.test.mts",
     "scripts/tests/chatApiDetail.test.mts",
     "scripts/tests/chatArtifactDrawer.test.mts",
@@ -87,7 +90,9 @@
     "scripts/tests/desktopWsAuthClient.test.mts",
     "scripts/tests/desktopWsProtocol.test.mts",
     "scripts/tests/desktopWsTransport.test.mts",
+    "scripts/tests/deviceLinkContract.test.mts",
     "scripts/tests/deviceNameModel.test.mts",
+    "scripts/tests/devicePresence.test.mts",
     "scripts/tests/httpDebugLogger.test.mts",
     "scripts/tests/i18n.test.mts",
     "scripts/tests/importBoundary.test.mts",
@@ -96,6 +101,7 @@
     "scripts/tests/kanbanInvalidation.test.mts",
     "scripts/tests/kanbanViewModel.test.mts",
     "scripts/tests/keyboardAwareScrollView.test.mts",
+    "scripts/tests/localCacheBackupExclusion.test.mts",
     "scripts/tests/loginExperience.test.mts",
     "scripts/tests/markdownPipeline.test.mts",
     "scripts/tests/markdownPreview.test.mts",
@@ -1267,7 +1273,6 @@
     ".generated/react-native-worklets/.worklets/3796851510421.js",
     ".generated/react-native-worklets/.worklets/3802887966048.js",
     ".generated/react-native-worklets/.worklets/3804326125319.js",
-    ".generated/react-native-worklets/.worklets/3812827726569.js",
     ".generated/react-native-worklets/.worklets/3829620526333.js",
     ".generated/react-native-worklets/.worklets/3843804944633.js",
     ".generated/react-native-worklets/.worklets/3846245719320.js",
@@ -1588,7 +1593,6 @@
     ".generated/react-native-worklets/.worklets/6377905670264.js",
     ".generated/react-native-worklets/.worklets/6395724719418.js",
     ".generated/react-native-worklets/.worklets/6398033576128.js",
-    ".generated/react-native-worklets/.worklets/639934121359.js",
     ".generated/react-native-worklets/.worklets/6415608556631.js",
     ".generated/react-native-worklets/.worklets/6429571220286.js",
     ".generated/react-native-worklets/.worklets/6431469011262.js",
@@ -2058,6 +2062,7 @@
     "nativewind-env.d.ts",
     "plugins/withAndroidAutolinkingCacheGuard.js",
     "plugins/withAndroidNdkVersionForSubprojects.js",
+    "plugins/withLocalCacheBackupExclusion.js",
     "scripts/dev-proxy.mjs",
     "scripts/generate-zenmind-assets.js",
     "scripts/lib/app-env-config.js",
@@ -2086,9 +2091,12 @@
     "src/app/settings/settingsActions.ts",
     "src/app/startup/AppLaunchSkeleton.tsx",
     "src/app/startup/GeminiLogo.tsx",
+    "src/core/api/accountApiClient.ts",
     "src/core/api/activeWsTransport.ts",
     "src/core/api/apiClient.ts",
     "src/core/api/apiError.ts",
+    "src/core/api/contracts/deviceLink.ts",
+    "src/core/api/contracts/devicePresence.ts",
     "src/core/api/resourceUrl.ts",
     "src/core/api/services/authenticatedResource.ts",
     "src/core/api/services/authenticatedResourceDownload.native.ts",
@@ -2099,6 +2107,7 @@
     "src/core/api/services/authenticatedResourceModel.ts",
     "src/core/api/services/chatApi.ts",
     "src/core/api/services/chatEventProtocol.ts",
+    "src/core/api/services/deviceLinkApi.ts",
     "src/core/api/services/frontendToolSubmitProtocol.ts",
     "src/core/api/services/kanbanApi.ts",
     "src/core/api/services/kanbanInvalidation.ts",
@@ -2111,6 +2120,11 @@
     "src/core/api/services/uploadApi.ts",
     "src/core/api/services/uploadApiModel.ts",
     "src/core/api/services/workspaceResource.ts",
+    "src/core/auth/accountAuth.ts",
+    "src/core/auth/accountAuthModel.ts",
+    "src/core/auth/accountDesktopCacheScopeModel.ts",
+    "src/core/auth/accountDesktopCacheScopes.ts",
+    "src/core/auth/activeDesktop.ts",
     "src/core/auth/appAccess.ts",
     "src/core/auth/appAccessSnapshotModel.ts",
     "src/core/auth/appAuth.ts",
@@ -2122,6 +2136,7 @@
     "src/core/auth/deviceNameModel.ts",
     "src/core/auth/deviceProfileModel.ts",
     "src/core/auth/deviceProfiles.ts",
+    "src/core/auth/useAccountAuth.ts",
     "src/core/auth/useAppAccess.ts",
     "src/core/auth/useAuthSession.ts",
     "src/core/config/appEnvironment.ts",
@@ -2142,11 +2157,13 @@
     "src/features/agentTaskBoard/kanbanViewModel.ts",
     "src/features/agentTaskBoard/navigationTypes.ts",
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts",
+    "src/features/auth/AccountChallengeLogin.tsx",
     "src/features/auth/FullScreenPairingScanner.tsx",
     "src/features/auth/LoginScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx",
     "src/features/chatPersistence/ChatHomeScreen.tsx",
+    "src/features/chatPersistence/accountDesktopSource.ts",
     "src/features/chatPersistence/agentMode.ts",
     "src/features/chatPersistence/agentModelSettings.ts",
     "src/features/chatPersistence/authenticatedResourcePreview.ts",
@@ -2278,6 +2295,7 @@
     "src/features/chatTimeline/timelineTask.ts",
     "src/features/chatTimeline/types.ts",
     "src/features/chatTimeline/usageSummary.ts",
+    "src/features/deviceLink/AccountDevicesPanel.tsx",
     "src/features/notifications/notificationService.ts",
     "src/features/webApps/WebAppDetailScreen.tsx",
     "src/features/webApps/WebAppsRuntimeHost.native.tsx",
@@ -6920,10 +6938,6 @@
                     "type": "file"
                   },
                   {
-                    "name": "3812827726569.js",
-                    "type": "file"
-                  },
-                  {
                     "name": "3829620526333.js",
                     "type": "file"
                   },
@@ -8201,10 +8215,6 @@
                   },
                   {
                     "name": "6398033576128.js",
-                    "type": "file"
-                  },
-                  {
-                    "name": "639934121359.js",
                     "type": "file"
                   },
                   {
@@ -10150,6 +10160,10 @@
           {
             "name": "withAndroidNdkVersionForSubprojects.js",
             "type": "file"
+          },
+          {
+            "name": "withLocalCacheBackupExclusion.js",
+            "type": "file"
           }
         ]
       },
@@ -10338,6 +10352,20 @@
                 "type": "directory",
                 "children": [
                   {
+                    "name": "contracts",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "deviceLink.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "devicePresence.ts",
+                        "type": "file"
+                      }
+                    ]
+                  },
+                  {
                     "name": "services",
                     "type": "directory",
                     "children": [
@@ -10375,6 +10403,10 @@
                       },
                       {
                         "name": "chatEventProtocol.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "deviceLinkApi.ts",
                         "type": "file"
                       },
                       {
@@ -10428,6 +10460,10 @@
                     ]
                   },
                   {
+                    "name": "accountApiClient.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "activeWsTransport.ts",
                     "type": "file"
                   },
@@ -10449,6 +10485,26 @@
                 "name": "auth",
                 "type": "directory",
                 "children": [
+                  {
+                    "name": "accountAuth.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "accountAuthModel.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "accountDesktopCacheScopeModel.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "accountDesktopCacheScopes.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "activeDesktop.ts",
+                    "type": "file"
+                  },
                   {
                     "name": "appAccess.ts",
                     "type": "file"
@@ -10491,6 +10547,10 @@
                   },
                   {
                     "name": "deviceProfiles.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "useAccountAuth.ts",
                     "type": "file"
                   },
                   {
@@ -10609,6 +10669,10 @@
                 "name": "auth",
                 "type": "directory",
                 "children": [
+                  {
+                    "name": "AccountChallengeLogin.tsx",
+                    "type": "file"
+                  },
                   {
                     "name": "FullScreenPairingScanner.tsx",
                     "type": "file"
@@ -10944,6 +11008,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "accountDesktopSource.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "agentMode.ts",
                     "type": "file"
                   },
@@ -11205,6 +11273,16 @@
                   },
                   {
                     "name": "usageSummary.ts",
+                    "type": "file"
+                  }
+                ]
+              },
+              {
+                "name": "deviceLink",
+                "type": "directory",
+                "children": [
+                  {
+                    "name": "AccountDevicesPanel.tsx",
                     "type": "file"
                   }
                 ]
@@ -11624,6 +11702,7 @@
       "metro.config.js",
       "nativewind-env.d.ts",
       "plugins/withAndroidAutolinkingCacheGuard.js",
+      "plugins/withLocalCacheBackupExclusion.js",
       "scripts/dev-proxy.mjs",
       "scripts/generate-zenmind-assets.js",
       "scripts/lib/app-env-config.js",
@@ -11654,9 +11733,12 @@
       "src/types/assets.d.ts"
     ],
     "core-api-client": [
+      "src/core/api/accountApiClient.ts",
       "src/core/api/activeWsTransport.ts",
       "src/core/api/apiClient.ts",
       "src/core/api/apiError.ts",
+      "src/core/api/contracts/deviceLink.ts",
+      "src/core/api/contracts/devicePresence.ts",
       "src/core/api/resourceUrl.ts",
       "src/core/api/services/authenticatedResource.ts",
       "src/core/api/services/authenticatedResourceDownload.native.ts",
@@ -11667,6 +11749,7 @@
       "src/core/api/services/authenticatedResourceModel.ts",
       "src/core/api/services/chatApi.ts",
       "src/core/api/services/chatEventProtocol.ts",
+      "src/core/api/services/deviceLinkApi.ts",
       "src/core/api/services/frontendToolSubmitProtocol.ts",
       "src/core/api/services/kanbanApi.ts",
       "src/core/api/services/kanbanInvalidation.ts",
@@ -11681,6 +11764,11 @@
       "src/core/api/services/workspaceResource.ts"
     ],
     "core-auth-session": [
+      "src/core/auth/accountAuth.ts",
+      "src/core/auth/accountAuthModel.ts",
+      "src/core/auth/accountDesktopCacheScopeModel.ts",
+      "src/core/auth/accountDesktopCacheScopes.ts",
+      "src/core/auth/activeDesktop.ts",
       "src/core/auth/appAccess.ts",
       "src/core/auth/appAccessSnapshotModel.ts",
       "src/core/auth/appAuth.ts",
@@ -11692,6 +11780,7 @@
       "src/core/auth/deviceNameModel.ts",
       "src/core/auth/deviceProfileModel.ts",
       "src/core/auth/deviceProfiles.ts",
+      "src/core/auth/useAccountAuth.ts",
       "src/core/auth/useAppAccess.ts",
       "src/core/auth/useAuthSession.ts"
     ],
@@ -11722,13 +11811,16 @@
       "src/features/agentTaskBoard/useDesktopKanbanBoard.ts"
     ],
     "feature-auth-login": [
+      "src/features/auth/AccountChallengeLogin.tsx",
       "src/features/auth/FullScreenPairingScanner.tsx",
-      "src/features/auth/LoginScreen.tsx"
+      "src/features/auth/LoginScreen.tsx",
+      "src/features/deviceLink/AccountDevicesPanel.tsx"
     ],
     "feature-chat-persistence": [
       "src/features/chatPersistence/ChatDetailScreen.tsx",
       "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx",
       "src/features/chatPersistence/ChatHomeScreen.tsx",
+      "src/features/chatPersistence/accountDesktopSource.ts",
       "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/authenticatedResourcePreview.ts",
@@ -11955,6 +12047,7 @@
     "metro.config.js": "app-shell-navigation",
     "nativewind-env.d.ts": "app-shell-navigation",
     "plugins/withAndroidAutolinkingCacheGuard.js": "app-shell-navigation",
+    "plugins/withLocalCacheBackupExclusion.js": "app-shell-navigation",
     "scripts/dev-proxy.mjs": "app-shell-navigation",
     "scripts/generate-zenmind-assets.js": "app-shell-navigation",
     "scripts/lib/app-env-config.js": "app-shell-navigation",
@@ -11983,9 +12076,12 @@
     "src/app/settings/settingsActions.ts": "app-shell-navigation",
     "src/app/startup/AppLaunchSkeleton.tsx": "app-shell-navigation",
     "src/app/startup/GeminiLogo.tsx": "app-shell-navigation",
+    "src/core/api/accountApiClient.ts": "core-api-client",
     "src/core/api/activeWsTransport.ts": "core-api-client",
     "src/core/api/apiClient.ts": "core-api-client",
     "src/core/api/apiError.ts": "core-api-client",
+    "src/core/api/contracts/deviceLink.ts": "core-api-client",
+    "src/core/api/contracts/devicePresence.ts": "core-api-client",
     "src/core/api/resourceUrl.ts": "core-api-client",
     "src/core/api/services/authenticatedResource.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceDownload.native.ts": "core-api-client",
@@ -11996,6 +12092,7 @@
     "src/core/api/services/authenticatedResourceModel.ts": "core-api-client",
     "src/core/api/services/chatApi.ts": "core-api-client",
     "src/core/api/services/chatEventProtocol.ts": "core-api-client",
+    "src/core/api/services/deviceLinkApi.ts": "core-api-client",
     "src/core/api/services/frontendToolSubmitProtocol.ts": "core-api-client",
     "src/core/api/services/kanbanApi.ts": "core-api-client",
     "src/core/api/services/kanbanInvalidation.ts": "core-api-client",
@@ -12008,6 +12105,11 @@
     "src/core/api/services/uploadApi.ts": "core-api-client",
     "src/core/api/services/uploadApiModel.ts": "core-api-client",
     "src/core/api/services/workspaceResource.ts": "core-api-client",
+    "src/core/auth/accountAuth.ts": "core-auth-session",
+    "src/core/auth/accountAuthModel.ts": "core-auth-session",
+    "src/core/auth/accountDesktopCacheScopeModel.ts": "core-auth-session",
+    "src/core/auth/accountDesktopCacheScopes.ts": "core-auth-session",
+    "src/core/auth/activeDesktop.ts": "core-auth-session",
     "src/core/auth/appAccess.ts": "core-auth-session",
     "src/core/auth/appAccessSnapshotModel.ts": "core-auth-session",
     "src/core/auth/appAuth.ts": "core-auth-session",
@@ -12019,6 +12121,7 @@
     "src/core/auth/deviceNameModel.ts": "core-auth-session",
     "src/core/auth/deviceProfileModel.ts": "core-auth-session",
     "src/core/auth/deviceProfiles.ts": "core-auth-session",
+    "src/core/auth/useAccountAuth.ts": "core-auth-session",
     "src/core/auth/useAppAccess.ts": "core-auth-session",
     "src/core/auth/useAuthSession.ts": "core-auth-session",
     "src/core/config/appEnvironment.ts": "core-runtime-config",
@@ -12039,11 +12142,13 @@
     "src/features/agentTaskBoard/kanbanViewModel.ts": "feature-agent-task-board",
     "src/features/agentTaskBoard/navigationTypes.ts": "feature-agent-task-board",
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts": "feature-agent-task-board",
+    "src/features/auth/AccountChallengeLogin.tsx": "feature-auth-login",
     "src/features/auth/FullScreenPairingScanner.tsx": "feature-auth-login",
     "src/features/auth/LoginScreen.tsx": "feature-auth-login",
     "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/ChatHomeScreen.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/accountDesktopSource.ts": "feature-chat-persistence",
     "src/features/chatPersistence/agentMode.ts": "feature-chat-persistence",
     "src/features/chatPersistence/agentModelSettings.ts": "feature-chat-persistence",
     "src/features/chatPersistence/authenticatedResourcePreview.ts": "feature-chat-persistence",
@@ -12175,6 +12280,7 @@
     "src/features/chatTimeline/timelineTask.ts": "feature-chat-timeline",
     "src/features/chatTimeline/types.ts": "feature-chat-timeline",
     "src/features/chatTimeline/usageSummary.ts": "feature-chat-timeline",
+    "src/features/deviceLink/AccountDevicesPanel.tsx": "feature-auth-login",
     "src/features/notifications/notificationService.ts": "feature-notifications",
     "src/features/webApps/WebAppDetailScreen.tsx": "feature-web-apps",
     "src/features/webApps/WebAppsRuntimeHost.native.tsx": "feature-web-apps",
@@ -12286,7 +12392,9 @@
       ],
       "dependedBy": [
         "app-development-debug",
+        "core-auth-session",
         "feature-agent-task-board",
+        "feature-auth-login",
         "feature-chat-persistence",
         "feature-chat-realtime",
         "feature-chat-timeline",
@@ -12296,6 +12404,7 @@
     },
     "core-auth-session": {
       "dependsOn": [
+        "core-api-client",
         "core-debug-logging",
         "core-runtime-config",
         "core-ws-transport",
@@ -12363,7 +12472,10 @@
     "feature-auth-login": {
       "dependsOn": [
         "app-shell-navigation",
+        "core-api-client",
         "core-auth-session",
+        "feature-chat-persistence",
+        "feature-chat-realtime",
         "shared-i18n",
         "shared-visual-foundation"
       ],
@@ -12389,6 +12501,7 @@
       "dependedBy": [
         "app-shell-navigation",
         "feature-agent-task-board",
+        "feature-auth-login",
         "feature-chat-realtime",
         "feature-chat-timeline"
       ]
@@ -12405,6 +12518,7 @@
       "dependedBy": [
         "app-development-debug",
         "app-shell-navigation",
+        "feature-auth-login",
         "feature-chat-persistence"
       ]
     },
@@ -15917,9 +16031,6 @@
     ".generated/react-native-worklets/.worklets/3804326125319.js": [
       "default"
     ],
-    ".generated/react-native-worklets/.worklets/3812827726569.js": [
-      "default"
-    ],
     ".generated/react-native-worklets/.worklets/3829620526333.js": [
       "default"
     ],
@@ -16878,9 +16989,6 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/6398033576128.js": [
-      "default"
-    ],
-    ".generated/react-native-worklets/.worklets/639934121359.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/6415608556631.js": [
@@ -18267,6 +18375,9 @@
       "addAutolinkingCacheGuard"
     ],
     "plugins/withAndroidNdkVersionForSubprojects.js": null,
+    "plugins/withLocalCacheBackupExclusion.js": [
+      "addLocalCacheBackupExclusion"
+    ],
     "scripts/dev-proxy.mjs": null,
     "scripts/generate-zenmind-assets.js": null,
     "scripts/lib/app-env-config.js": [
@@ -18363,14 +18474,22 @@
     ],
     "src/app/settings/settingsActions.ts": [
       "SETTINGS_LEGACY_CACHE_SCOPE_ID",
-      "clearSettingsProfileCache",
-      "hasSettingsLegacyLocalCache"
+      "SettingsCacheScope",
+      "clearSettingsAccountCache",
+      "clearSettingsConversationCache",
+      "clearSettingsDesktopCache",
+      "listSettingsCacheScopes"
     ],
     "src/app/startup/AppLaunchSkeleton.tsx": [
       "AppLaunchSkeleton"
     ],
     "src/app/startup/GeminiLogo.tsx": [
       "GeminiLogo"
+    ],
+    "src/core/api/accountApiClient.ts": [
+      "AccountApiRequestOptions",
+      "authenticatedAccountApiRequest",
+      "publicAccountApiRequest"
     ],
     "src/core/api/activeWsTransport.ts": [
       "resolveActiveWsTransportConfig",
@@ -18389,6 +18508,27 @@
     ],
     "src/core/api/apiError.ts": [
       "ApiError"
+    ],
+    "src/core/api/contracts/deviceLink.ts": [
+      "AccountDevice",
+      "AccountDeviceEventV1",
+      "AccountDeviceListV1",
+      "DEVICE_LINK_SCHEMA_VERSION",
+      "DeviceKind",
+      "DeviceLinkContractError",
+      "REMOTE_CONVERSATION_PAGE_SIZE",
+      "ROUTE_CREDENTIAL_TTL_MS",
+      "TrustLevel",
+      "TrustedRouteContext",
+      "parseAccountDeviceEventV1",
+      "parseAccountDeviceListV1",
+      "parseTrustedRouteContext",
+      "validateTrustedRouteContext"
+    ],
+    "src/core/api/contracts/devicePresence.ts": [
+      "DesktopPresence",
+      "mergeAccountDevicePresence",
+      "parseDesktopPresence"
     ],
     "src/core/api/resourceUrl.ts": [
       "normalizeApiResourcePath"
@@ -18417,10 +18557,12 @@
       "downloadAuthenticatedResource"
     ],
     "src/core/api/services/authenticatedResourceImage.native.ts": [
+      "releaseAuthenticatedResourceImageSource",
       "resolveAuthenticatedResourceImageSource"
     ],
     "src/core/api/services/authenticatedResourceImage.ts": [
       "AuthenticatedResourceImageRequest",
+      "releaseAuthenticatedResourceImageSource",
       "resolveAuthenticatedResourceImageSource"
     ],
     "src/core/api/services/authenticatedResourceModel.ts": [
@@ -18444,6 +18586,7 @@
       "AwaitingSubmitPayloadData",
       "CHAT_AGENT_DETAIL_TRANSPORT_TYPE",
       "CHAT_DETAIL_TRANSPORT_TYPE",
+      "CHAT_OPERATION_TRANSPORT_TYPE",
       "CHAT_READ_TRANSPORT_TYPE",
       "CHAT_SUBMIT_TRANSPORT_TYPE",
       "CHAT_SUMMARIES_TRANSPORT_TYPE",
@@ -18454,6 +18597,7 @@
       "MarkChatReadPayload",
       "MarkChatReadRequest",
       "MarkChatReadResponse",
+      "REMOTE_CHAT_PAGE_SIZE",
       "RemoteAgentDetail",
       "RemoteChatActiveRun",
       "RemoteChatArtifactFile",
@@ -18461,6 +18605,7 @@
       "RemoteChatContextWindow",
       "RemoteChatDetail",
       "RemoteChatEvent",
+      "RemoteChatEventPage",
       "RemoteChatPlanSnapshot",
       "RemoteChatPlanningSnapshot",
       "RemoteChatRawMessage",
@@ -18469,11 +18614,13 @@
       "RemoteChatSummary",
       "RemoteChatUsageData",
       "RemoteChatUsageStats",
+      "RemoteOperationStatus",
       "SubmitAwaitingRequest",
       "SubmitAwaitingResponse",
       "SubmitFrontendToolResponse",
       "buildAgentDetailPayload",
       "buildChatDetailPayload",
+      "buildChatSummariesPayload",
       "buildMarkChatReadPayload",
       "buildSubmitAwaitingPayload",
       "buildSubmitFrontendToolPayload",
@@ -18508,6 +18655,15 @@
       "normalizeProtocolTimestampMs",
       "toFiniteNumber",
       "toText"
+    ],
+    "src/core/api/services/deviceLinkApi.ts": [
+      "changeAccountDeviceTrust",
+      "confirmAccountLoginChallenge",
+      "issueDesktopRouteCredential",
+      "listAccountDevices",
+      "renameAccountDevice",
+      "revokeAccountDevice",
+      "startAccountLoginChallenge"
     ],
     "src/core/api/services/frontendToolSubmitProtocol.ts": [
       "SubmitFrontendToolRequest",
@@ -18636,6 +18792,43 @@
       "WorkspaceFileResourceRequest",
       "buildWorkspaceFileResourceUrl"
     ],
+    "src/core/auth/accountAuth.ts": [
+      "AccountAuthSnapshot",
+      "bootstrapAccountAuth",
+      "claimAccountLoginChallenge",
+      "getAccountAccessTokenForRequest",
+      "getAccountAuthSnapshot",
+      "loginWithAccountCredentials",
+      "logoutAccount",
+      "subscribeAccountAuth"
+    ],
+    "src/core/auth/accountAuthModel.ts": [
+      "AccountSession",
+      "canPersistAccountSession",
+      "parseAccountSession"
+    ],
+    "src/core/auth/accountDesktopCacheScopeModel.ts": [
+      "AccountDesktopCacheScopeEntry",
+      "AccountDesktopCacheScopeSnapshot",
+      "CacheScopeResolution",
+      "LEGACY_DEFAULT_CACHE_SCOPE_ID",
+      "buildAccountDesktopCacheScopeKey",
+      "createEmptyAccountDesktopCacheScopeSnapshot",
+      "listUnassignedLegacyCacheScopes",
+      "normalizeAccountDesktopCacheScopeSnapshot",
+      "resolveAccountDesktopCacheScope"
+    ],
+    "src/core/auth/accountDesktopCacheScopes.ts": [
+      "listAccountDesktopCacheScopeEntries",
+      "listPersistedUnassignedLegacyCacheScopes",
+      "readAccountDesktopCacheScopeSnapshot",
+      "resolveAndPersistAccountDesktopCacheScope"
+    ],
+    "src/core/auth/activeDesktop.ts": [
+      "clearActiveDesktop",
+      "commitActiveDesktop",
+      "readActiveDesktopId"
+    ],
     "src/core/auth/appAccess.ts": [
       "bootstrapAppAccess",
       "completeAccessOnboarding",
@@ -18659,7 +18852,6 @@
       "activateProfile",
       "applyActiveDesktopWsRefreshPayload",
       "bootstrapAuth",
-      "configureAuthCacheRuntime",
       "ensureFreshAccessToken",
       "getAccessTokenForRequest",
       "getAuthSnapshot",
@@ -18673,8 +18865,11 @@
     ],
     "src/core/auth/authConfig.ts": [
       "isAuthRequired",
+      "readIdentityApiBaseUrl",
       "readResolvedApiBaseUrl",
       "readStoredApiBaseUrl",
+      "readTunnelHubApiBaseUrl",
+      "saveAccountServiceBaseUrls",
       "saveStoredApiBaseUrl"
     ],
     "src/core/auth/authRequestModel.ts": [
@@ -18747,6 +18942,9 @@
       "updateActiveDeviceProfileAuth",
       "upsertDeviceProfile",
       "upsertManualDeviceProfile"
+    ],
+    "src/core/auth/useAccountAuth.ts": [
+      "useAccountAuth"
     ],
     "src/core/auth/useAppAccess.ts": [
       "useAppAccess"
@@ -18854,6 +19052,9 @@
       "createEmptyTaskDraft",
       "useDesktopKanbanBoard"
     ],
+    "src/features/auth/AccountChallengeLogin.tsx": [
+      "AccountChallengeLogin"
+    ],
     "src/features/auth/FullScreenPairingScanner.tsx": [
       "FullScreenPairingScanner"
     ],
@@ -18869,6 +19070,10 @@
     ],
     "src/features/chatPersistence/ChatHomeScreen.tsx": [
       "ChatHomeScreen"
+    ],
+    "src/features/chatPersistence/accountDesktopSource.ts": [
+      "activateAccountDesktopSource",
+      "restoreAccountDesktopSource"
     ],
     "src/features/chatPersistence/agentMode.ts": [
       "canUsePlanMode",
@@ -19053,6 +19258,7 @@
       "ProjectedMessageUpsertInput",
       "appendAssistantDelta",
       "applyConversationSummaryPatch",
+      "clearChatConversationForScope",
       "clearChatLocalCache",
       "clearChatLocalCacheForScope",
       "createConversationForDirectoryItem",
@@ -19077,9 +19283,11 @@
       "getPendingOutboxMessages",
       "hasChatLocalConversations",
       "incrementConversationUnread",
+      "inspectChatLocalCacheScope",
       "markConversationDirty",
       "markConversationReadLocal",
       "markConversationReadScopeLocal",
+      "markConversationSourceDeleted",
       "markConversationSynced",
       "markConversationUnreadLocal",
       "patchConversationSummary",
@@ -19089,7 +19297,6 @@
       "reconcileConversationDetail",
       "refreshChatDirectoryProjectionForConversation",
       "refreshChatDirectorySnapshot",
-      "removeConversation",
       "replaceChatDirectoryItems",
       "replaceChatHomeProjection",
       "replaceConversationProjection",
@@ -19116,7 +19323,8 @@
     ],
     "src/features/chatPersistence/chatSourceRuntime.ts": [
       "getDefaultChatSource",
-      "getPairedChatSource"
+      "getPairedChatSource",
+      "isAccountDesktopChatSource"
     ],
     "src/features/chatPersistence/components/ActionTimelineRow.tsx": [
       "ActionTimelineRow"
@@ -19422,11 +19630,15 @@
       "createConversationViewportDocumentStore"
     ],
     "src/features/chatPersistence/database.ts": [
+      "ChatCacheConversationStorage",
       "ChatDatabaseScopeDeleteStatus",
+      "ChatDatabaseScopeInventory",
       "chatDb",
+      "deleteChatConversationFromScopeIfExists",
       "deleteChatDatabaseScope",
       "deleteChatDatabaseScopeIfExists",
       "ensureChatDatabase",
+      "inspectChatDatabaseScope",
       "switchChatDatabaseScope"
     ],
     "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx": [
@@ -19896,6 +20108,9 @@
       "chatTimelineUsageSummaryEquals",
       "mergeChatTimelineUsageSummaryForContextCompact",
       "resolveChatTimelineUsageModelKey"
+    ],
+    "src/features/deviceLink/AccountDevicesPanel.tsx": [
+      "AccountDevicesPanel"
     ],
     "src/features/notifications/notificationService.ts": [
       "notificationService"
@@ -21709,7 +21924,6 @@
       "react-native-worklets/.worklets/12572076258850.js",
       "react-native-worklets/.worklets/16553735205395.js"
     ],
-    ".generated/react-native-worklets/.worklets/3812827726569.js": null,
     ".generated/react-native-worklets/.worklets/3829620526333.js": null,
     ".generated/react-native-worklets/.worklets/3843804944633.js": null,
     ".generated/react-native-worklets/.worklets/3846245719320.js": null,
@@ -22111,7 +22325,6 @@
     ".generated/react-native-worklets/.worklets/6377905670264.js": null,
     ".generated/react-native-worklets/.worklets/6395724719418.js": null,
     ".generated/react-native-worklets/.worklets/6398033576128.js": null,
-    ".generated/react-native-worklets/.worklets/639934121359.js": null,
     ".generated/react-native-worklets/.worklets/6415608556631.js": null,
     ".generated/react-native-worklets/.worklets/6429571220286.js": null,
     ".generated/react-native-worklets/.worklets/6431469011262.js": null,
@@ -22716,6 +22929,9 @@
     "plugins/withAndroidNdkVersionForSubprojects.js": [
       "expo/config-plugins"
     ],
+    "plugins/withLocalCacheBackupExclusion.js": [
+      "expo/config-plugins"
+    ],
     "scripts/dev-proxy.mjs": [
       "node:http",
       "node:https",
@@ -22768,11 +22984,12 @@
       "path"
     ],
     "src/app/AppRoot.tsx": [
+      "../core/auth/activeDesktop.ts",
       "../core/auth/appAccess",
       "../core/auth/appAuth",
+      "../core/auth/useAccountAuth.ts",
       "../core/auth/useAppAccess",
-      "../features/chatPersistence/database",
-      "../features/chatPersistence/homeSnapshot",
+      "../features/chatPersistence/accountDesktopSource.ts",
       "../features/chatRealtime/chatSyncService",
       "../features/notifications/notificationService",
       "../shared/visual/AppThemeProvider",
@@ -22883,8 +23100,10 @@
       "../../core/auth/appAuth",
       "../../core/auth/deviceNameModel",
       "../../core/auth/deviceProfiles",
+      "../../core/auth/useAccountAuth.ts",
       "../../core/auth/useAppAccess",
       "../../core/config/appEnvironment",
+      "../../features/deviceLink/AccountDevicesPanel.tsx",
       "../../features/notifications/notificationService",
       "../../shared/components/AppKeyboardAwareScrollView",
       "../../shared/components/ScreenHeader",
@@ -22911,8 +23130,7 @@
       "react-native"
     ],
     "src/app/screens/SettingsScreen.tsx": [
-      "../../core/auth/deviceProfiles",
-      "../../core/auth/useAuthSession",
+      "../../core/auth/useAccountAuth.ts",
       "../../shared/components/ScreenHeader",
       "../../shared/i18n",
       "../../shared/icons/AppIcon",
@@ -22934,7 +23152,10 @@
       "./MeScreen"
     ],
     "src/app/settings/settingsActions.ts": [
+      "../../core/auth/accountDesktopCacheScopes",
+      "../../core/auth/deviceProfiles",
       "../../features/chatPersistence/cacheScope",
+      "../../features/chatPersistence/database",
       "../../features/chatRealtime/chatSyncService"
     ],
     "src/app/startup/AppLaunchSkeleton.tsx": [
@@ -22949,11 +23170,18 @@
       "react-native-reanimated",
       "react-native-svg"
     ],
+    "src/core/api/accountApiClient.ts": [
+      "../auth/accountAuth.ts",
+      "./apiError.ts"
+    ],
     "src/core/api/activeWsTransport.ts": [
+      "../auth/accountAuth.ts",
+      "../auth/activeDesktop.ts",
       "../auth/appAuth",
       "../auth/deviceProfiles",
       "../config/appEnvironment",
-      "../ws/wsTransportConfig"
+      "../ws/wsTransportConfig",
+      "./services/deviceLinkApi.ts"
     ],
     "src/core/api/apiClient.ts": [
       "../auth/appAuth",
@@ -22962,6 +23190,10 @@
       "./apiError.ts"
     ],
     "src/core/api/apiError.ts": null,
+    "src/core/api/contracts/deviceLink.ts": null,
+    "src/core/api/contracts/devicePresence.ts": [
+      "./deviceLink.ts"
+    ],
     "src/core/api/resourceUrl.ts": null,
     "src/core/api/services/authenticatedResource.ts": [
       "../../auth/deviceProfiles.ts",
@@ -22995,6 +23227,12 @@
       "./frontendToolSubmitProtocol.ts"
     ],
     "src/core/api/services/chatEventProtocol.ts": null,
+    "src/core/api/services/deviceLinkApi.ts": [
+      "../../auth/authConfig.ts",
+      "../accountApiClient.ts",
+      "../contracts/deviceLink.ts",
+      "../contracts/devicePresence.ts"
+    ],
     "src/core/api/services/frontendToolSubmitProtocol.ts": null,
     "src/core/api/services/kanbanApi.ts": [
       "../../auth/deviceProfiles",
@@ -23043,9 +23281,32 @@
       "../apiError.ts"
     ],
     "src/core/api/services/workspaceResource.ts": null,
+    "src/core/auth/accountAuth.ts": [
+      "../api/apiError.ts",
+      "../api/contracts/deviceLink.ts",
+      "./accountAuthModel.ts",
+      "./authConfig.ts",
+      "react-native-mmkv"
+    ],
+    "src/core/auth/accountAuthModel.ts": [
+      "../api/contracts/deviceLink.ts"
+    ],
+    "src/core/auth/accountDesktopCacheScopeModel.ts": [
+      "./deviceProfileModel.ts"
+    ],
+    "src/core/auth/accountDesktopCacheScopes.ts": [
+      "./accountDesktopCacheScopeModel.ts",
+      "./deviceProfiles",
+      "react-native-mmkv"
+    ],
+    "src/core/auth/activeDesktop.ts": [
+      "../api/contracts/deviceLink.ts",
+      "react-native-mmkv"
+    ],
     "src/core/auth/appAccess.ts": [
       "../../shared/generated/brand",
       "../config/appEnvironment",
+      "./accountAuth.ts",
       "./appAccessSnapshotModel",
       "./appAuth",
       "react-native-mmkv"
@@ -23055,6 +23316,7 @@
     ],
     "src/core/auth/appAuth.ts": [
       "../debug/wsDebugRecorder",
+      "./accountAuth.ts",
       "./desktopWsAuthClient",
       "./desktopWsProtocol",
       "./deviceNameModel",
@@ -23087,6 +23349,10 @@
       "../config/endpoint",
       "./deviceProfileModel.ts",
       "react-native-mmkv"
+    ],
+    "src/core/auth/useAccountAuth.ts": [
+      "./accountAuth.ts",
+      "react"
     ],
     "src/core/auth/useAppAccess.ts": [
       "./appAccess",
@@ -23178,6 +23444,15 @@
       "./kanbanViewModel",
       "react"
     ],
+    "src/features/auth/AccountChallengeLogin.tsx": [
+      "../../core/api/apiError.ts",
+      "../../core/api/services/deviceLinkApi.ts",
+      "../../core/auth/accountAuth.ts",
+      "../../shared/i18n",
+      "react",
+      "react-native",
+      "react-native-qrcode-svg"
+    ],
     "src/features/auth/FullScreenPairingScanner.tsx": [
       "../../shared/i18n",
       "../../shared/icons/AppIcon",
@@ -23188,6 +23463,9 @@
     ],
     "src/features/auth/LoginScreen.tsx": [
       "../../app/navigation/types",
+      "../../core/api/contracts/deviceLink.ts",
+      "../../core/api/services/deviceLinkApi.ts",
+      "../../core/auth/accountAuth.ts",
       "../../core/auth/appAccess",
       "../../core/auth/appAuth",
       "../../core/auth/desktopWsAuthClient",
@@ -23197,6 +23475,7 @@
       "../../shared/icons/brandAssets",
       "../../shared/visual/AppThemeProvider",
       "../../shared/visual/className",
+      "./AccountChallengeLogin.tsx",
       "./FullScreenPairingScanner",
       "@react-navigation/native",
       "expo-camera",
@@ -23216,6 +23495,8 @@
       "./chatArtifactPresentation.ts",
       "./chatDetailFormatters",
       "./chatRepository",
+      "./chatSource.ts",
+      "./chatSourceRuntime.ts",
       "./components/ChatArtifactDrawer.tsx",
       "./components/ChatAwaitingOverlay",
       "./components/ChatConversationDiagnosticCard",
@@ -23279,6 +23560,12 @@
       "react",
       "react-native",
       "react-native-safe-area-context"
+    ],
+    "src/features/chatPersistence/accountDesktopSource.ts": [
+      "../../core/api/contracts/deviceLink.ts",
+      "../../core/auth/accountDesktopCacheScopes.ts",
+      "../../core/auth/activeDesktop.ts",
+      "./database.ts"
     ],
     "src/features/chatPersistence/agentMode.ts": null,
     "src/features/chatPersistence/agentModelSettings.ts": [
@@ -23394,6 +23681,8 @@
     ],
     "src/features/chatPersistence/chatSource.ts": null,
     "src/features/chatPersistence/chatSourceRuntime.ts": [
+      "../../core/auth/accountAuth.ts",
+      "../../core/auth/activeDesktop.ts",
       "../../core/auth/deviceProfiles",
       "../../core/config/appEnvironment",
       "./chatSource"
@@ -23980,6 +24269,7 @@
       "./cacheScope",
       "./schema",
       "drizzle-orm/expo-sqlite",
+      "expo-file-system",
       "expo-sqlite"
     ],
     "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx": [
@@ -24244,6 +24534,18 @@
     ],
     "src/features/chatTimeline/usageSummary.ts": [
       "./types.ts"
+    ],
+    "src/features/deviceLink/AccountDevicesPanel.tsx": [
+      "../../core/api/contracts/deviceLink.ts",
+      "../../core/api/services/deviceLinkApi.ts",
+      "../../core/auth/activeDesktop.ts",
+      "../../core/auth/useAccountAuth.ts",
+      "../../shared/i18n",
+      "../../shared/visual/className.ts",
+      "../chatPersistence/accountDesktopSource.ts",
+      "../chatRealtime/chatSyncService.ts",
+      "react",
+      "react-native"
     ],
     "src/features/notifications/notificationService.ts": [
       "../../core/api/services/notificationApi",
@@ -25866,7 +26168,6 @@
     ".generated/react-native-worklets/.worklets/3796851510421.js": null,
     ".generated/react-native-worklets/.worklets/3802887966048.js": null,
     ".generated/react-native-worklets/.worklets/3804326125319.js": null,
-    ".generated/react-native-worklets/.worklets/3812827726569.js": null,
     ".generated/react-native-worklets/.worklets/3829620526333.js": null,
     ".generated/react-native-worklets/.worklets/3843804944633.js": null,
     ".generated/react-native-worklets/.worklets/3846245719320.js": null,
@@ -26226,7 +26527,6 @@
     ".generated/react-native-worklets/.worklets/6377905670264.js": null,
     ".generated/react-native-worklets/.worklets/6395724719418.js": null,
     ".generated/react-native-worklets/.worklets/6398033576128.js": null,
-    ".generated/react-native-worklets/.worklets/639934121359.js": null,
     ".generated/react-native-worklets/.worklets/6415608556631.js": null,
     ".generated/react-native-worklets/.worklets/6429571220286.js": null,
     ".generated/react-native-worklets/.worklets/6431469011262.js": null,
@@ -26753,6 +27053,7 @@
     "nativewind-env.d.ts": null,
     "plugins/withAndroidAutolinkingCacheGuard.js": null,
     "plugins/withAndroidNdkVersionForSubprojects.js": null,
+    "plugins/withLocalCacheBackupExclusion.js": null,
     "scripts/dev-proxy.mjs": null,
     "scripts/generate-zenmind-assets.js": null,
     "scripts/lib/app-env-config.js": null,
@@ -26772,11 +27073,12 @@
       "src/app/debug/DevelopmentDebugPanelHost.tsx",
       "src/app/navigation/RootNavigator.tsx",
       "src/app/navigation/types.ts",
+      "src/core/auth/activeDesktop.ts",
       "src/core/auth/appAccess.ts",
       "src/core/auth/appAuth.ts",
+      "src/core/auth/useAccountAuth.ts",
       "src/core/auth/useAppAccess.ts",
-      "src/features/chatPersistence/database.ts",
-      "src/features/chatPersistence/homeSnapshot.ts",
+      "src/features/chatPersistence/accountDesktopSource.ts",
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/notifications/notificationService.ts",
       "src/shared/visual/AppThemeProvider.tsx",
@@ -26863,8 +27165,10 @@
       "src/core/auth/appAuth.ts",
       "src/core/auth/deviceNameModel.ts",
       "src/core/auth/deviceProfiles.ts",
+      "src/core/auth/useAccountAuth.ts",
       "src/core/auth/useAppAccess.ts",
       "src/core/config/appEnvironment.ts",
+      "src/features/deviceLink/AccountDevicesPanel.tsx",
       "src/features/notifications/notificationService.ts",
       "src/shared/components/AppKeyboardAwareScrollView.tsx",
       "src/shared/components/ScreenHeader.tsx",
@@ -26883,8 +27187,7 @@
       "src/app/debug/developmentDebugPanel.ts",
       "src/app/navigation/types.ts",
       "src/app/settings/settingsActions.ts",
-      "src/core/auth/deviceProfiles.ts",
-      "src/core/auth/useAuthSession.ts",
+      "src/core/auth/useAccountAuth.ts",
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
@@ -26899,7 +27202,10 @@
       "src/features/chatPersistence/ChatHomeScreen.tsx"
     ],
     "src/app/settings/settingsActions.ts": [
+      "src/core/auth/accountDesktopCacheScopes.ts",
+      "src/core/auth/deviceProfiles.ts",
       "src/features/chatPersistence/cacheScope.ts",
+      "src/features/chatPersistence/database.ts",
       "src/features/chatRealtime/chatSyncService.ts"
     ],
     "src/app/startup/AppLaunchSkeleton.tsx": [
@@ -26909,7 +27215,14 @@
     "src/app/startup/GeminiLogo.tsx": [
       "src/shared/icons/brandAssets.ts"
     ],
+    "src/core/api/accountApiClient.ts": [
+      "src/core/api/apiError.ts",
+      "src/core/auth/accountAuth.ts"
+    ],
     "src/core/api/activeWsTransport.ts": [
+      "src/core/api/services/deviceLinkApi.ts",
+      "src/core/auth/accountAuth.ts",
+      "src/core/auth/activeDesktop.ts",
       "src/core/auth/appAuth.ts",
       "src/core/auth/deviceProfiles.ts",
       "src/core/config/appEnvironment.ts",
@@ -26922,6 +27235,10 @@
       "src/core/debug/httpDebugLogger.ts"
     ],
     "src/core/api/apiError.ts": null,
+    "src/core/api/contracts/deviceLink.ts": null,
+    "src/core/api/contracts/devicePresence.ts": [
+      "src/core/api/contracts/deviceLink.ts"
+    ],
     "src/core/api/resourceUrl.ts": null,
     "src/core/api/services/authenticatedResource.ts": [
       "src/core/api/apiClient.ts",
@@ -26953,6 +27270,12 @@
       "src/core/api/services/frontendToolSubmitProtocol.ts"
     ],
     "src/core/api/services/chatEventProtocol.ts": null,
+    "src/core/api/services/deviceLinkApi.ts": [
+      "src/core/api/accountApiClient.ts",
+      "src/core/api/contracts/deviceLink.ts",
+      "src/core/api/contracts/devicePresence.ts",
+      "src/core/auth/authConfig.ts"
+    ],
     "src/core/api/services/frontendToolSubmitProtocol.ts": null,
     "src/core/api/services/kanbanApi.ts": [
       "src/core/api/activeWsTransport.ts",
@@ -27000,7 +27323,27 @@
       "src/core/auth/deviceProfiles.ts"
     ],
     "src/core/api/services/workspaceResource.ts": null,
+    "src/core/auth/accountAuth.ts": [
+      "src/core/api/apiError.ts",
+      "src/core/api/contracts/deviceLink.ts",
+      "src/core/auth/accountAuthModel.ts",
+      "src/core/auth/authConfig.ts"
+    ],
+    "src/core/auth/accountAuthModel.ts": [
+      "src/core/api/contracts/deviceLink.ts"
+    ],
+    "src/core/auth/accountDesktopCacheScopeModel.ts": [
+      "src/core/auth/deviceProfileModel.ts"
+    ],
+    "src/core/auth/accountDesktopCacheScopes.ts": [
+      "src/core/auth/accountDesktopCacheScopeModel.ts",
+      "src/core/auth/deviceProfiles.ts"
+    ],
+    "src/core/auth/activeDesktop.ts": [
+      "src/core/api/contracts/deviceLink.ts"
+    ],
     "src/core/auth/appAccess.ts": [
+      "src/core/auth/accountAuth.ts",
       "src/core/auth/appAccessSnapshotModel.ts",
       "src/core/auth/appAuth.ts",
       "src/core/config/appEnvironment.ts",
@@ -27010,6 +27353,7 @@
       "src/core/auth/appAuth.ts"
     ],
     "src/core/auth/appAuth.ts": [
+      "src/core/auth/accountAuth.ts",
       "src/core/auth/desktopWsAuthClient.ts",
       "src/core/auth/desktopWsProtocol.ts",
       "src/core/auth/deviceNameModel.ts",
@@ -27040,6 +27384,9 @@
     "src/core/auth/deviceProfiles.ts": [
       "src/core/auth/deviceProfileModel.ts",
       "src/core/config/endpoint.ts"
+    ],
+    "src/core/auth/useAccountAuth.ts": [
+      "src/core/auth/accountAuth.ts"
     ],
     "src/core/auth/useAppAccess.ts": [
       "src/core/auth/appAccess.ts"
@@ -27119,6 +27466,12 @@
       "src/features/agentTaskBoard/kanbanRunGuards.ts",
       "src/features/agentTaskBoard/kanbanViewModel.ts"
     ],
+    "src/features/auth/AccountChallengeLogin.tsx": [
+      "src/core/api/apiError.ts",
+      "src/core/api/services/deviceLinkApi.ts",
+      "src/core/auth/accountAuth.ts",
+      "src/shared/i18n/index.ts"
+    ],
     "src/features/auth/FullScreenPairingScanner.tsx": [
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
@@ -27126,10 +27479,14 @@
     ],
     "src/features/auth/LoginScreen.tsx": [
       "src/app/navigation/types.ts",
+      "src/core/api/contracts/deviceLink.ts",
+      "src/core/api/services/deviceLinkApi.ts",
+      "src/core/auth/accountAuth.ts",
       "src/core/auth/appAccess.ts",
       "src/core/auth/appAuth.ts",
       "src/core/auth/desktopWsAuthClient.ts",
       "src/core/auth/deviceProfiles.ts",
+      "src/features/auth/AccountChallengeLogin.tsx",
       "src/features/auth/FullScreenPairingScanner.tsx",
       "src/shared/components/AppKeyboardAwareScrollView.tsx",
       "src/shared/i18n/index.ts",
@@ -27142,6 +27499,8 @@
       "src/features/chatPersistence/chatArtifactPresentation.ts",
       "src/features/chatPersistence/chatDetailFormatters.ts",
       "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/chatSource.ts",
+      "src/features/chatPersistence/chatSourceRuntime.ts",
       "src/features/chatPersistence/components/ChatArtifactDrawer.tsx",
       "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
       "src/features/chatPersistence/components/ChatConversationDiagnosticCard.tsx",
@@ -27199,6 +27558,12 @@
       "src/shared/visual/foundation.ts",
       "src/shared/visual/hairline.ts",
       "src/shared/visual/useAppTabBarHeight.ts"
+    ],
+    "src/features/chatPersistence/accountDesktopSource.ts": [
+      "src/core/api/contracts/deviceLink.ts",
+      "src/core/auth/accountDesktopCacheScopes.ts",
+      "src/core/auth/activeDesktop.ts",
+      "src/features/chatPersistence/database.ts"
     ],
     "src/features/chatPersistence/agentMode.ts": null,
     "src/features/chatPersistence/agentModelSettings.ts": [
@@ -27313,6 +27678,8 @@
     ],
     "src/features/chatPersistence/chatSource.ts": null,
     "src/features/chatPersistence/chatSourceRuntime.ts": [
+      "src/core/auth/accountAuth.ts",
+      "src/core/auth/activeDesktop.ts",
       "src/core/auth/deviceProfiles.ts",
       "src/core/config/appEnvironment.ts",
       "src/features/chatPersistence/chatSource.ts"
@@ -28027,6 +28394,16 @@
     ],
     "src/features/chatTimeline/usageSummary.ts": [
       "src/features/chatTimeline/types.ts"
+    ],
+    "src/features/deviceLink/AccountDevicesPanel.tsx": [
+      "src/core/api/contracts/deviceLink.ts",
+      "src/core/api/services/deviceLinkApi.ts",
+      "src/core/auth/activeDesktop.ts",
+      "src/core/auth/useAccountAuth.ts",
+      "src/features/chatPersistence/accountDesktopSource.ts",
+      "src/features/chatRealtime/chatSyncService.ts",
+      "src/shared/i18n/index.ts",
+      "src/shared/visual/className.ts"
     ],
     "src/features/notifications/notificationService.ts": [
       "src/core/api/services/notificationApi.ts"
@@ -29445,7 +29822,6 @@
     ".generated/react-native-worklets/.worklets/3796851510421.js",
     ".generated/react-native-worklets/.worklets/3802887966048.js",
     ".generated/react-native-worklets/.worklets/3804326125319.js",
-    ".generated/react-native-worklets/.worklets/3812827726569.js",
     ".generated/react-native-worklets/.worklets/3829620526333.js",
     ".generated/react-native-worklets/.worklets/3843804944633.js",
     ".generated/react-native-worklets/.worklets/3846245719320.js",
@@ -29766,7 +30142,6 @@
     ".generated/react-native-worklets/.worklets/6377905670264.js",
     ".generated/react-native-worklets/.worklets/6395724719418.js",
     ".generated/react-native-worklets/.worklets/6398033576128.js",
-    ".generated/react-native-worklets/.worklets/639934121359.js",
     ".generated/react-native-worklets/.worklets/6415608556631.js",
     ".generated/react-native-worklets/.worklets/6429571220286.js",
     ".generated/react-native-worklets/.worklets/6431469011262.js",

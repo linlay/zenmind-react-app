@@ -44,6 +44,7 @@ export type ChatQueryModelOverride = {
 
 type ChatQueryPayloadInput = {
   requestId: string;
+  operationId?: string;
   chatId?: string | null;
   message: string;
   references?: unknown[];
@@ -56,6 +57,7 @@ type ChatQueryPayloadInput = {
 
 type ChatQueryPayload = {
   requestId: string;
+  operationId?: string;
   chatId?: string;
   message: string;
   references?: unknown[];
@@ -152,6 +154,7 @@ export function buildChatQueryPayload(input: ChatQueryPayloadInput): ChatQueryPa
 
   return {
     requestId: String(input.requestId || '').trim(),
+    ...(String(input.operationId || '').trim() ? { operationId: String(input.operationId || '').trim() } : {}),
     chatId: String(input.chatId || '').trim() || undefined,
     message: input.message,
     ...(input.references !== undefined ? { references: input.references } : {}),
@@ -214,18 +217,12 @@ export async function startChatPushTransport(
     unsubscribeStatus: null as SharedWsSubscription | null
   };
   if (callbacks.onPush) {
-    subscription.unsubscribePush = sharedWsTransport.subscribePush(
-      (frame) => {
-        callbacks.onPush?.(toWsPushEvent(frame as WsPushFrame));
-      },
-      config
-    );
+    subscription.unsubscribePush = sharedWsTransport.subscribePush((frame) => {
+      callbacks.onPush?.(toWsPushEvent(frame as WsPushFrame));
+    }, config);
   }
   if (callbacks.onStatusChange) {
-    subscription.unsubscribeStatus = sharedWsTransport.subscribeStatus(
-      callbacks.onStatusChange,
-      config
-    );
+    subscription.unsubscribeStatus = sharedWsTransport.subscribeStatus(callbacks.onStatusChange, config);
   }
   subscriptions.set(getSubscriptionKey(config), subscription);
   await sharedWsTransport.connect(config);

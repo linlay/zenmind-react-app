@@ -3,6 +3,7 @@ import { MMKV } from 'react-native-mmkv';
 import { BRAND_ID, STORAGE_NAMESPACE } from '../../shared/generated/brand';
 import { getDefaultSourceConfig } from '../config/appEnvironment';
 import { bootstrapAuth, getAuthSnapshot, subscribeAuthStore } from './appAuth';
+import { bootstrapAccountAuth } from './accountAuth.ts';
 import { reduceAppAccessSnapshot, type AppAccessSnapshot, type DefaultSourceIdentity } from './appAccessSnapshotModel';
 
 export type { AppAccessSnapshot, DefaultSourceIdentity } from './appAccessSnapshotModel';
@@ -104,7 +105,7 @@ export async function bootstrapAppAccess(): Promise<AppAccessSnapshot> {
   emitStoreChange();
   const task = (async () => {
     defaultIdentity = readOrCreateDefaultIdentity();
-    await bootstrapAuth('');
+    await Promise.all([bootstrapAuth(''), bootstrapAccountAuth()]);
     isAccessBootstrapping = false;
     emitStoreChange();
     return getAppAccessSnapshot();

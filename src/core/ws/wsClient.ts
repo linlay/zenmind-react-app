@@ -152,9 +152,7 @@ function resolveAgentPlatformWsConnection(
   const backendUrl = normalizeBackendUrl(backendUrlInput);
   const explicitWsUrl =
     String(configuredWsUrl || '').trim() ||
-    (typeof __DEV__ !== 'undefined' && __DEV__
-      ? String(readPublicEnv('EXPO_PUBLIC_CHAT_WS_URL') || '').trim()
-      : '');
+    (typeof __DEV__ !== 'undefined' && __DEV__ ? String(readPublicEnv('EXPO_PUBLIC_CHAT_WS_URL') || '').trim() : '');
   const baseUrl = explicitWsUrl || backendUrl;
   if (!baseUrl) {
     return null;
@@ -178,10 +176,13 @@ function resolveAgentPlatformWsConnection(
   }
 }
 
-function resolveDesktopWsConnection(
-  config: Extract<WsTransportConfig, { kind: 'desktop-ws' }>
-): ResolvedWsConnection | null {
-  const accessToken = String(config.accessToken || '').trim();
+async function resolveDesktopWsConnection(
+  config: Extract<WsTransportConfig, { kind: 'desktop-ws' }>,
+  refreshCredential: boolean
+): Promise<ResolvedWsConnection | null> {
+  const accessToken = String(
+    refreshCredential && config.accessTokenProvider ? await config.accessTokenProvider() : config.accessToken
+  ).trim();
   if (!accessToken) {
     return null;
   }
@@ -205,9 +206,12 @@ function resolveDesktopWsConnection(
   }
 }
 
-function resolveWsConnection(config: WsTransportConfig): ResolvedWsConnection | null {
+async function resolveWsConnection(
+  config: WsTransportConfig,
+  refreshCredential: boolean
+): Promise<ResolvedWsConnection | null> {
   if (config.kind === 'desktop-ws') {
-    return resolveDesktopWsConnection(config);
+    return resolveDesktopWsConnection(config, refreshCredential);
   }
   return resolveAgentPlatformWsConnection(config.backendUrl, config.accessToken, config.wsUrl);
 }
@@ -277,6 +281,7 @@ export class WsClient {
   private readonly activeStreams = new Map<string, ActiveStream>();
   private expectedClose = false;
   private reconnectAttempt = 0;
+  private connectionAttempted = false;
   private lastSeenAt = 0;
   private status: WsSocketStatus = 'idle';
   private onPush?: (frame: WsPushFrame) => void;
@@ -502,7 +507,8 @@ export class WsClient {
       return this.waitForConnection(signal);
     }
 
-    const connection = resolveWsConnection(this.transport);
+    const connection = await resolveWsConnection(this.transport, this.connectionAttempted);
+    this.connectionAttempted = true;
     if (!connection) {
       this.setStatus('disconnected');
       throw new WsClientDisconnectedError('WebSocket transport is not initialized');

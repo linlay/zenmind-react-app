@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  buildChatAttachPayload,
-  buildChatQueryPayload,
-} from '../../src/features/chatRealtime/chatWsTransport.ts';
+import { buildChatAttachPayload, buildChatQueryPayload } from '../../src/features/chatRealtime/chatWsTransport.ts';
 
 test('chat query payload includes agent scope only', () => {
   const payload = buildChatQueryPayload({
@@ -12,7 +9,7 @@ test('chat query payload includes agent scope only', () => {
     chatId: ' chat-1 ',
     message: 'hello',
     agentKey: ' agent-a ',
-    teamId: null,
+    teamId: null
   });
 
   assert.deepEqual(payload, {
@@ -21,9 +18,21 @@ test('chat query payload includes agent scope only', () => {
     message: 'hello',
     agentKey: 'agent-a',
     role: 'user',
-    stream: true,
+    stream: true
   });
   assert.equal('teamId' in payload, false);
+});
+
+test('chat query payload keeps operation and transport identities separate', () => {
+  const payload = buildChatQueryPayload({
+    requestId: 'request-attempt-2',
+    operationId: 'operation-1',
+    chatId: 'chat-1',
+    message: 'retry safely',
+    agentKey: 'agent-a'
+  });
+  assert.equal(payload.requestId, 'request-attempt-2');
+  assert.equal(payload.operationId, 'operation-1');
 });
 
 test('chat query payload prefers team scope over agent scope', () => {
@@ -32,7 +41,7 @@ test('chat query payload prefers team scope over agent scope', () => {
     chatId: 'chat-2',
     message: 'hello team',
     agentKey: 'agent-a',
-    teamId: ' team-a ',
+    teamId: ' team-a '
   });
 
   assert.deepEqual(payload, {
@@ -41,7 +50,7 @@ test('chat query payload prefers team scope over agent scope', () => {
     message: 'hello team',
     teamId: 'team-a',
     role: 'user',
-    stream: true,
+    stream: true
   });
   assert.equal('agentKey' in payload, false);
 });
@@ -52,7 +61,7 @@ test('chat query payload omits empty scope fields', () => {
     chatId: 'chat-3',
     message: 'legacy chat',
     agentKey: ' ',
-    teamId: '',
+    teamId: ''
   });
 
   assert.deepEqual(payload, {
@@ -60,7 +69,7 @@ test('chat query payload omits empty scope fields', () => {
     chatId: 'chat-3',
     message: 'legacy chat',
     role: 'user',
-    stream: true,
+    stream: true
   });
   assert.equal('agentKey' in payload, false);
   assert.equal('teamId' in payload, false);
@@ -72,7 +81,7 @@ test('chat query payload includes planning mode only when enabled', () => {
     chatId: 'chat-plan',
     message: 'draft a plan',
     agentKey: 'coder-pomodoro-app',
-    planningMode: true,
+    planningMode: true
   });
 
   assert.deepEqual(payload, {
@@ -82,7 +91,7 @@ test('chat query payload includes planning mode only when enabled', () => {
     agentKey: 'coder-pomodoro-app',
     planningMode: true,
     role: 'user',
-    stream: true,
+    stream: true
   });
   assert.equal('model' in payload, false);
 });
@@ -97,8 +106,8 @@ test('chat query payload includes access level and compact model override', () =
     model: {
       key: 'qwen-max',
       reasoningEffort: 'HIGH',
-      serviceTier: 'FLEX',
-    },
+      serviceTier: 'FLEX'
+    }
   });
 
   assert.deepEqual(payload, {
@@ -110,10 +119,10 @@ test('chat query payload includes access level and compact model override', () =
     model: {
       key: 'qwen-max',
       reasoningEffort: 'HIGH',
-      serviceTier: 'FLEX',
+      serviceTier: 'FLEX'
     },
     role: 'user',
-    stream: true,
+    stream: true
   });
 });
 
@@ -127,8 +136,8 @@ test('chat query payload omits default access level and empty model override', (
     model: {
       key: ' ',
       reasoningEffort: undefined,
-      serviceTier: undefined,
-    },
+      serviceTier: undefined
+    }
   });
 
   assert.equal('accessLevel' in payload, false);
@@ -141,7 +150,7 @@ test('chat query payload omits disabled planning mode', () => {
     chatId: 'chat-no-plan',
     message: 'plain question',
     agentKey: 'coder-pomodoro-app',
-    planningMode: false,
+    planningMode: false
   });
 
   assert.equal('planningMode' in payload, false);
@@ -151,12 +160,12 @@ test('chat attach payload includes required agent scope', () => {
   const payload = buildChatAttachPayload({
     runId: ' run-1 ',
     agentKey: ' askUser.demo ',
-    lastSeq: Number.NaN,
+    lastSeq: Number.NaN
   });
 
   assert.deepEqual(payload, {
     runId: 'run-1',
     agentKey: 'askUser.demo',
-    lastSeq: 0,
+    lastSeq: 0
   });
 });

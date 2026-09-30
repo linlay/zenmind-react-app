@@ -165,6 +165,8 @@
     ]
   },
   "riskRules": [
+    "远端已加载列表、历史和详情必须进入 accountId + desktopId 专属 scope；刷新只按稳定 ID upsert，不因当前页缺失、退出、离线、设备删除或源端删除自动删除本地副本。",
+    "legacy 默认 scope 不得自动归属远端 Desktop；旧 scope 只在 canonical serverDeviceId 精确匹配后复用且不复制/改写行，冲突或未匹配 scope 保留给显式清理页。",
     "SQLite 仍是聊天、会话摘要和首页目录排序真源，MMKV 只镜像冷启动第一页快照。",
     "任何改动只要影响首页目录，都要继续刷新 chat_directory_snapshot_v1；conversation 摘要自身不单独写 MMKV 首页快照。",
     "首页目录置顶状态只写 chat_directory_items.pinned_at；非置顶排序统一按 latest_conversation_id 关联的 conversations.last_message_at DESC，sort_rank 只做稳定兜底。",

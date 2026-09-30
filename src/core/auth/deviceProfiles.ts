@@ -16,8 +16,6 @@ import {
   type DeviceProfileWriteResult
 } from './deviceProfileModel.ts';
 
-const MAX_RETAINED_DEVICE_CACHE_PROFILES = 3;
-
 export type {
   DesktopWsProfileTransport,
   DesktopWsTokenMode,
@@ -55,7 +53,7 @@ function readRegistry(): DeviceProfileRegistrySnapshot {
   }
 }
 
-function writeRegistry(snapshot: DeviceProfileRegistrySnapshot): DeviceProfile[] {
+function writeRegistry(snapshot: DeviceProfileRegistrySnapshot): void {
   const seen = new Set<string>();
   const uniqueProfiles = snapshot.profiles
     .filter((profile) => {
@@ -66,8 +64,7 @@ function writeRegistry(snapshot: DeviceProfileRegistrySnapshot): DeviceProfile[]
       return true;
     })
     .sort((left, right) => right.lastUsedAt - left.lastUsedAt);
-  const profiles = uniqueProfiles.slice(0, MAX_RETAINED_DEVICE_CACHE_PROFILES);
-  const evictedProfiles = uniqueProfiles.slice(MAX_RETAINED_DEVICE_CACHE_PROFILES);
+  const profiles = uniqueProfiles;
   const activeDesktopDeviceId = profiles.some((profile) => profile.desktopDeviceId === snapshot.activeDesktopDeviceId)
     ? snapshot.activeDesktopDeviceId
     : profiles[0]?.desktopDeviceId || '';
@@ -80,7 +77,6 @@ function writeRegistry(snapshot: DeviceProfileRegistrySnapshot): DeviceProfile[]
       profiles
     })
   );
-  return evictedProfiles;
 }
 
 function resolveUniqueDisplayName(baseName: string, profiles: DeviceProfile[], excludeDesktopDeviceId = '') {
@@ -177,14 +173,13 @@ export function upsertDeviceProfile(input: DeviceProfileInput): DeviceProfileWri
   const profiles = existing
     ? snapshot.profiles.map((profile) => (profile.desktopDeviceId === desktopDeviceId ? nextProfile : profile))
     : [nextProfile, ...snapshot.profiles];
-  const evictedProfiles = writeRegistry({
+  writeRegistry({
     version: 1,
     activeDesktopDeviceId: desktopDeviceId,
     profiles
   });
   return {
-    profile: nextProfile,
-    evictedCacheScopeIds: evictedProfiles.map((profile) => profile.cacheScopeId)
+    profile: nextProfile
   };
 }
 
@@ -247,10 +242,9 @@ export function updateActiveDeviceProfileAuth(input: {
   if (!updated) {
     return null;
   }
-  const evictedProfiles = writeRegistry({ ...snapshot, profiles });
+  writeRegistry({ ...snapshot, profiles });
   return {
-    profile: updated,
-    evictedCacheScopeIds: evictedProfiles.map((profile) => profile.cacheScopeId)
+    profile: updated
   };
 }
 

@@ -1,15 +1,14 @@
 import { ApiError, authenticatedApiRequest } from '../apiClient.ts';
 
-export {
-  buildSubmitFrontendToolPayload,
-  type SubmitFrontendToolRequest,
-} from './frontendToolSubmitProtocol.ts';
+export { buildSubmitFrontendToolPayload, type SubmitFrontendToolRequest } from './frontendToolSubmitProtocol.ts';
 
 export const CHAT_SUMMARIES_TRANSPORT_TYPE = '/api/chats';
 export const CHAT_DETAIL_TRANSPORT_TYPE = '/api/chat';
 export const CHAT_AGENT_DETAIL_TRANSPORT_TYPE = '/api/agent';
 export const CHAT_READ_TRANSPORT_TYPE = '/api/read';
 export const CHAT_SUBMIT_TRANSPORT_TYPE = '/api/submit';
+export const CHAT_OPERATION_TRANSPORT_TYPE = '/api/operation';
+export const REMOTE_CHAT_PAGE_SIZE = 10 as const;
 
 export type RemoteChatSummary = {
   chatId?: string;
@@ -43,6 +42,14 @@ export type RemoteChatEvent = Record<string, unknown> & {
 export type ChatDetailRequest = {
   chatId: string;
   includeRawMessages: boolean;
+  eventLimit?: typeof REMOTE_CHAT_PAGE_SIZE;
+  beforeEventSeq?: number;
+};
+
+export type RemoteChatEventPage = {
+  pageSize?: number;
+  nextBeforeSeq?: number;
+  hasMore?: boolean;
 };
 
 export type RemoteChatUsageStats = Record<string, unknown>;
@@ -173,6 +180,20 @@ export type RemoteChatDetail = {
   references?: RemoteChatReference[];
   usage?: RemoteChatUsageData | RemoteChatUsageStats | null;
   contextWindow?: RemoteChatContextWindow | null;
+  eventPage?: RemoteChatEventPage;
+  [key: string]: unknown;
+};
+
+export type RemoteOperationStatus = {
+  operationId?: string;
+  actionName?: string;
+  argumentsDigest?: string;
+  taskId?: string;
+  chatId?: string;
+  status?: string;
+  verificationStatus?: 'WAITING' | 'APPROVED' | 'CANCELLED' | 'FAILED';
+  lastSeq?: number;
+  createdAt?: number;
   [key: string]: unknown;
 };
 
@@ -329,11 +350,7 @@ export function unwrapChatApiEnvelope<T>(payload: unknown): T {
 
   const code = Number(envelope.code ?? 0);
   if (Number.isFinite(code) && code !== 0) {
-    throw new ApiError(
-      String(envelope.msg || envelope.error || 'API returned non-zero code'),
-      200,
-      payload
-    );
+    throw new ApiError(String(envelope.msg || envelope.error || 'API returned non-zero code'), 200, payload);
   }
 
   return (envelope.data ?? null) as T;
@@ -361,7 +378,7 @@ function normalizeWonderSuggestion(input: unknown, index: number): AgentWonderSu
       id: buildWonderId(index, text),
       title: text,
       text,
-      raw: input,
+      raw: input
     };
   }
 
@@ -385,23 +402,43 @@ function normalizeWonderSuggestion(input: unknown, index: number): AgentWonderSu
     id,
     title,
     text,
-    raw: input,
+    raw: input
   };
 }
 
 export function buildAgentDetailPayload(agentKey: string) {
   return {
-    agentKey: toCleanText(agentKey),
+    agentKey: toCleanText(agentKey)
   };
 }
 
 export function buildChatDetailPayload(
-  request: string | { chatId?: string; includeRawMessages?: boolean }
+  request:
+    | string
+    | {
+        chatId?: string;
+        includeRawMessages?: boolean;
+        paginateEvents?: boolean;
+        beforeEventSeq?: number;
+      }
 ): ChatDetailRequest {
   const source = typeof request === 'string' ? { chatId: request } : request;
+  const beforeEventSeq = Number(source.beforeEventSeq);
   return {
     chatId: toCleanText(source.chatId),
     includeRawMessages: source.includeRawMessages === true,
+    ...(source.paginateEvents === true ? { eventLimit: REMOTE_CHAT_PAGE_SIZE } : {}),
+    ...(source.paginateEvents === true && Number.isInteger(beforeEventSeq) && beforeEventSeq > 0
+      ? { beforeEventSeq }
+      : {})
+  };
+}
+
+export function buildChatSummariesPayload(lastRunId?: string) {
+  const cursor = toCleanText(lastRunId);
+  return {
+    limit: REMOTE_CHAT_PAGE_SIZE,
+    ...(cursor ? { lastRunId: cursor } : {})
   };
 }
 
@@ -415,9 +452,7 @@ export function projectRemoteAgentDetail(
   }
 
   const agentKey =
-    toCleanText(detail.agentKey) ||
-    toCleanText(detail.key || detail.id) ||
-    toCleanText(fallbackAgentKey);
+    toCleanText(detail.agentKey) || toCleanText(detail.key || detail.id) || toCleanText(fallbackAgentKey);
   if (!agentKey) {
     return null;
   }
@@ -435,20 +470,17 @@ export function projectRemoteAgentDetail(
     description: toCleanText(detail.description),
     wonders,
     raw: detail,
-    fetchedAt,
+    fetchedAt
   };
 }
 
-export function buildMarkChatReadPayload(
-  request: MarkChatReadRequest,
-  runId?: string
-): MarkChatReadPayload {
+export function buildMarkChatReadPayload(request: MarkChatReadRequest, runId?: string): MarkChatReadPayload {
   const fallbackRunId = String(runId || '').trim();
   if (typeof request === 'string') {
     const chatId = String(request || '').trim();
     return {
       chatId,
-      ...(fallbackRunId ? { runId: fallbackRunId } : {}),
+      ...(fallbackRunId ? { runId: fallbackRunId } : {})
     };
   }
 
@@ -461,20 +493,18 @@ export function buildMarkChatReadPayload(
     ...(chatId ? { chatId } : {}),
     ...(agentKey ? { agentKey } : {}),
     ...(teamId ? { teamId } : {}),
-    ...(readRunId ? { runId: readRunId } : {}),
+    ...(readRunId ? { runId: readRunId } : {})
   };
 }
 
-export function buildSubmitAwaitingPayload(
-  request: SubmitAwaitingRequest
-): SubmitAwaitingRequest {
+export function buildSubmitAwaitingPayload(request: SubmitAwaitingRequest): SubmitAwaitingRequest {
   const chatId = String(request.chatId || '').trim();
   const submitId = String(request.submitId || '').trim();
   const payload: SubmitAwaitingRequest = {
     runId: String(request.runId || '').trim(),
     agentKey: String(request.agentKey || '').trim(),
     awaitingId: String(request.awaitingId || '').trim(),
-    params: request.params,
+    params: request.params
   };
 
   if (chatId) {
@@ -488,13 +518,11 @@ export function buildSubmitAwaitingPayload(
 }
 
 export async function getChatViewportApi(viewportKey: string): Promise<ChatViewportResponse> {
-  const payload = await authenticatedApiRequest<
-    ChatViewportResponse | ChatApiEnvelope<ChatViewportResponse> | string
-  >({
+  const payload = await authenticatedApiRequest<ChatViewportResponse | ChatApiEnvelope<ChatViewportResponse> | string>({
     path: '/ap/api/viewport',
     query: {
-      viewportKey: String(viewportKey || '').trim(),
-    },
+      viewportKey: String(viewportKey || '').trim()
+    }
   });
 
   if (typeof payload === 'string') {

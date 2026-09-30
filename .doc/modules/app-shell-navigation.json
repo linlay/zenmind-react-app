@@ -28,6 +28,7 @@
     "package.json",
     "patches",
     "plugins/withAndroidAutolinkingCacheGuard.js",
+    "plugins/withLocalCacheBackupExclusion.js",
     "scripts",
     "scripts/lib/brand-config.js",
     "scripts/sync-brand.js",
@@ -61,6 +62,7 @@
       "Public entry tailwind.config.js (tailwind-config): 声明 NativeWind preset、darkMode class、App/src content 扫描范围，并从 shared visual token 源派生 app 语义颜色变量、spacing、radius 与 font size alias，供 Metro 的 NativeWind 编译入口消费。",
       "Public entry global.css (nativewind-input): NativeWind 输入 CSS，只承载 Tailwind base/components/utilities 层，由 App.tsx 副作用 import 并交给 Metro 按平台转换。",
       "Public entry plugins/withAndroidAutolinkingCacheGuard.js (expo-config-plugin): 在 Expo prebuild 阶段向 Android settings.gradle 注入 autolinking cache guard，使 pnpm workspace lock 和 cached Android sourceDir 存在性参与缓存失效判断。",
+      "Public entry plugins/withLocalCacheBackupExclusion.js (expo-config-plugin): 在 iOS prebuild 阶段注入启动时备份排除逻辑，将 Documents 下 SQLite 与 MMKV 本地缓存目录标记为不进入系统备份。",
       "Public entry android/settings.gradle (android-gradle-settings): 配置 React Native / Expo Android settings 插件和 autolinking 缓存失效输入；pnpm workspace 下同时校验 cached Android sourceDir 是否仍存在，避免重装依赖后 include 旧 .pnpm 物理路径。",
       "Public entry package.json (npm-scripts): 声明 prepare:runtime / prepare:bundle、brand:sync、android / android:device / web、EAS build、iOS submit 和 iOS release 等 Expo 运行与发布脚本，并通过 scripts/submit-ios-ipa.js 包装本地 IPA submit 参数解析；开发启动只同步品牌资源和离线 Markdown preview runtime，生产导出与 EAS 构建再预生成 Worklets bundle 文件；通过 pnpm.patchedDependencies 注册 Worklets Bundle Mode 路径边界补丁。",
       "Public entry patches/react-native-worklets@0.8.3.patch (dependency-patch): 修正 Worklets Babel 插件对允许转发相对 import 的模块路径判断，只接受真实路径边界，避免 pnpm Reanimated peer suffix 中的 react-native-worklets 字样造成误判。",
@@ -154,14 +156,18 @@
       "RootTabParamList",
       "SETTINGS_LEGACY_CACHE_SCOPE_ID",
       "STORAGE_NAMESPACE",
+      "SettingsCacheScope",
       "SettingsScreen",
       "TAB_LABEL_KEYS",
       "TabsNavigator",
       "addAutolinkingCacheGuard",
-      "clearSettingsProfileCache",
+      "addLocalCacheBackupExclusion",
+      "clearSettingsAccountCache",
+      "clearSettingsConversationCache",
+      "clearSettingsDesktopCache",
       "default",
       "getBrandLogo",
-      "hasSettingsLegacyLocalCache"
+      "listSettingsCacheScopes"
     ],
     "dependencies": [
       "app-development-debug",
@@ -184,6 +190,8 @@
       "feature-web-apps"
     ],
     "tests": [
+      "scripts/tests/accountAuthModel.test.mts",
+      "scripts/tests/accountDesktopCacheScopeModel.test.mts",
       "scripts/tests/agentWaitingDemo.test.mts",
       "scripts/tests/appAccessSnapshotModel.test.mts",
       "scripts/tests/appEnvConfig.test.mts",
@@ -193,6 +201,7 @@
       "scripts/tests/awaitingQuestionState.test.mts",
       "scripts/tests/awaitingSubmitState.test.mts",
       "scripts/tests/brandConfig.test.mts",
+      "scripts/tests/cacheRetentionBoundaries.test.mts",
       "scripts/tests/chatAgentDetail.test.mts",
       "scripts/tests/chatApiDetail.test.mts",
       "scripts/tests/chatArtifactDrawer.test.mts",
@@ -245,7 +254,9 @@
       "scripts/tests/desktopWsAuthClient.test.mts",
       "scripts/tests/desktopWsProtocol.test.mts",
       "scripts/tests/desktopWsTransport.test.mts",
+      "scripts/tests/deviceLinkContract.test.mts",
       "scripts/tests/deviceNameModel.test.mts",
+      "scripts/tests/devicePresence.test.mts",
       "scripts/tests/httpDebugLogger.test.mts",
       "scripts/tests/i18n.test.mts",
       "scripts/tests/importBoundary.test.mts",
@@ -254,6 +265,7 @@
       "scripts/tests/kanbanInvalidation.test.mts",
       "scripts/tests/kanbanViewModel.test.mts",
       "scripts/tests/keyboardAwareScrollView.test.mts",
+      "scripts/tests/localCacheBackupExclusion.test.mts",
       "scripts/tests/loginExperience.test.mts",
       "scripts/tests/markdownPipeline.test.mts",
       "scripts/tests/markdownPreview.test.mts",
@@ -277,7 +289,7 @@
       "scripts/tests/workletsPregenerate.test.mts",
       "scripts/tests/wsClientTransport.test.mts"
     ],
-    "lastScannedAt": "2026-09-07T02:25:14Z"
+    "lastScannedAt": "2026-09-08T02:25:55Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -329,6 +341,7 @@
     "启动加载层如果依赖 Reanimated 或其他 UI 线程动画库，要同步保持 package.json 依赖和 babel.config.js 插件配置一致。",
     "Web 构建如果依赖 expo-sqlite，要保持 metro.config.js 中 wasm assetExts 配置可用。",
     "Android settings 的 autolinking 缓存必须通过 withAndroidAutolinkingCacheGuard 跟踪 pnpm workspace lock，并在 cached Android sourceDir 不存在时删除 autolinking.json 触发重扫，避免 pnpm peer-hash 物理路径过期导致 native module include 失败。",
+    "聊天 SQLite/MMKV 本地缓存不得进入系统备份：Android 保持 expo.android.allowBackup=false，iOS 保持 withLocalCacheBackupExclusion 插件注册并覆盖 Documents/SQLite 与 Documents/mmkv。",
     "Metro watchFolders 必须限制在 workspace 根 node_modules 和项目内 .generated/react-native-worklets/.worklets，不要继承 Expo 自动发现的 sibling frontend workspace；否则 pan-webclient 等其他项目的 node_modules 变化会污染移动端 Metro file map。",
     "NativeWind 接入必须保持 global.css 通过 App.tsx 副作用 import，metro.config.js 通过 withNativeWind(config, { input: './global.css' }) 包装既有配置，babel.config.js 中 nativewind/babel 作为 preset 接入；react-native-worklets/plugin 开发态关闭 bundleMode，production 构建启用 bundleMode。",
     "生产 Worklets bundle mode 生成物必须同步到项目内 .generated/react-native-worklets/.worklets，并让生产 Metro 只 resolve 这个项目内稳定目录；预生成时要同时覆盖 node_modules symlink 路径和 pnpm 当前 .pnpm realpath，因为 Worklets hash 会受源码 filename 影响；复制生成文件时必须保持 path.resolve(packageGeneratedDir, oldSpecifier) 与 path.resolve(projectGeneratedDir, newSpecifier) 指向同一目标，并兼容 POSIX 与 Windows 路径分隔符。",

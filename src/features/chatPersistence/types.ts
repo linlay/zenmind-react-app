@@ -17,6 +17,7 @@ export type ChatHomeItem = {
   read?: ChatReadState;
   lastMessageStatus: ChatMessageStatus;
   pinnedAt: number;
+  sourceDeleted?: boolean;
 };
 
 export type ChatConversationHistoryScope = {
@@ -70,10 +71,7 @@ export type ChatDirectoryItem = {
   lastMessageAt: number;
 };
 
-export type ChatDirectoryProjectionItem = Omit<
-  ChatDirectoryItem,
-  'source' | 'lastMessageText' | 'lastMessageAt'
-> & {
+export type ChatDirectoryProjectionItem = Omit<ChatDirectoryItem, 'source' | 'lastMessageText' | 'lastMessageAt'> & {
   unreadCountSource?: 'server' | 'projection';
 };
 

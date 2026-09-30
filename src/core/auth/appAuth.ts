@@ -1,6 +1,7 @@
 import { MMKV } from 'react-native-mmkv';
 
 import { wsDebugRecorder } from '../debug/wsDebugRecorder';
+import { getAccountAccessTokenForRequest, logoutAccount } from './accountAuth.ts';
 import {
   clearActiveDeviceProfileAuth,
   getActiveDeviceProfile,
@@ -77,18 +78,6 @@ type RefreshInFlight = {
   promise: Promise<string | null>;
 };
 
-type AuthCacheRuntime = {
-  switchScope: (scopeId: string) => void;
-  clearDirectorySnapshotForScope: (scopeId: string) => void;
-  deleteScope: (scopeId: string) => void;
-};
-
-const noopAuthCacheRuntime: AuthCacheRuntime = {
-  switchScope: () => {},
-  clearDirectorySnapshotForScope: () => {},
-  deleteScope: () => {}
-};
-
 let currentSession: SessionState | null = null;
 let currentProfile: DeviceProfile | null = null;
 const refreshInFlightByKey = new Map<string, RefreshInFlight>();
@@ -98,15 +87,7 @@ let authSnapshot: AuthStoreSnapshot = {
   isBootstrapping: true,
   session: null
 };
-let authCacheRuntime = noopAuthCacheRuntime;
 const listeners = new Set<StoreListener>();
-
-export function configureAuthCacheRuntime(runtime: Partial<AuthCacheRuntime>) {
-  authCacheRuntime = {
-    ...noopAuthCacheRuntime,
-    ...runtime
-  };
-}
 
 function emitStoreChange() {
   listeners.forEach((listener) => {
@@ -164,19 +145,6 @@ function hydrateActiveProfileRuntime(): DeviceProfile | null {
   }
   applyDeviceProfileRuntime(profile);
   return profile;
-}
-
-function cleanupEvictedDeviceCaches(cacheScopeIds: string[]) {
-  const seen = new Set<string>();
-  for (const cacheScopeId of cacheScopeIds) {
-    const normalized = String(cacheScopeId || '').trim();
-    if (!normalized || seen.has(normalized)) {
-      continue;
-    }
-    seen.add(normalized);
-    authCacheRuntime.clearDirectorySnapshotForScope(normalized);
-    authCacheRuntime.deleteScope(normalized);
-  }
 }
 
 function parseNumericEpochMs(raw: unknown): number | null {
@@ -362,7 +330,6 @@ function persistDesktopWsRefresh(
   });
   if (profileResult) {
     currentProfile = profileResult.profile;
-    cleanupEvictedDeviceCaches(profileResult.evictedCacheScopeIds);
   }
   setCurrentSession(
     buildSessionFromDesktopWs(profileResult?.profile || profile, nextTransport, {
@@ -476,7 +443,6 @@ async function bootstrapDesktopWsAuth(profile: DeviceProfile): Promise<SessionSt
     });
     if (profileResult) {
       currentProfile = profileResult.profile;
-      cleanupEvictedDeviceCaches(profileResult.evictedCacheScopeIds);
     }
 
     const nextProfile = profileResult?.profile || profile;
@@ -514,6 +480,10 @@ export function getCurrentSession(): SessionState | null {
 }
 
 export async function getAccessTokenForRequest(baseUrl: string, forceRefresh = false): Promise<string | null> {
+  const accountToken = await getAccountAccessTokenForRequest(baseUrl, forceRefresh);
+  if (accountToken) {
+    return accountToken;
+  }
   const activeProfile = currentProfile;
   if (activeProfile?.transportKind !== 'desktop-ws') {
     return null;
@@ -530,6 +500,10 @@ export async function ensureFreshAccessToken(
   baseUrl: string,
   options: EnsureFreshAccessTokenOptions = {}
 ): Promise<string | null> {
+  const accountToken = await getAccountAccessTokenForRequest(baseUrl, Boolean(options.forceRefresh));
+  if (accountToken) {
+    return accountToken;
+  }
   const activeProfile = currentProfile;
   const minValidityMs = Math.max(0, Number(options.minValidityMs ?? DEFAULT_TOKEN_MIN_VALIDITY_MS));
   const maxJitterMs = Math.max(0, Number(options.jitterMs ?? DEFAULT_TOKEN_JITTER_MS));
@@ -668,7 +642,6 @@ async function loginWithDesktopWsPairingPayload(
       desktopWs: transport
     });
     applyDeviceProfileRuntime(profileResult.profile);
-    cleanupEvictedDeviceCaches(profileResult.evictedCacheScopeIds);
     const nextSession = buildSessionFromDesktopWs(profileResult.profile, transport, {
       subject: hello.subject,
       deviceId: hello.deviceId
@@ -698,6 +671,7 @@ export function activateProfile(desktopDeviceId: string): DeviceProfile {
 }
 
 export async function logoutCurrentDevice(_baseUrl = ''): Promise<void> {
+  await logoutAccount();
   refreshInFlightByKey.clear();
   bootstrapPromise = null;
   bootstrapKey = '';

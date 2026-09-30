@@ -21,7 +21,7 @@ export function buildHomeListState(items: ChatHomeItem[], total: number): ChatHo
   return {
     orderedIds,
     itemsById,
-    total,
+    total
   };
 }
 
@@ -35,7 +35,7 @@ function normalizeHomeItem(item: ChatHomeItem): ChatHomeItem {
     ...item,
     unreadCount: normalizeConversationUnreadCount(item.unreadCount),
     read: item.read ?? normalizeChatReadState({ unreadCount: item.unreadCount }),
-    pinnedAt: normalizePinnedAt(item.pinnedAt),
+    pinnedAt: normalizePinnedAt(item.pinnedAt)
   };
 }
 
@@ -54,11 +54,7 @@ function resolvePatchedUnreadCount(currentUnreadCount: number, patch: ChatHomeIt
   return normalizeConversationUnreadCount(currentUnreadCount);
 }
 
-function insertByPinnedAt(
-  orderedIds: string[],
-  itemsById: Record<string, ChatHomeItem>,
-  item: ChatHomeItem
-): string[] {
+function insertByPinnedAt(orderedIds: string[], itemsById: Record<string, ChatHomeItem>, item: ChatHomeItem): string[] {
   const nextPinnedAt = normalizePinnedAt(item.pinnedAt);
   const insertIndex = orderedIds.findIndex((id) => {
     const currentPinnedAt = normalizePinnedAt(itemsById[id]?.pinnedAt);
@@ -69,11 +65,7 @@ function insertByPinnedAt(
     return [...orderedIds, item.conversationId];
   }
 
-  return [
-    ...orderedIds.slice(0, insertIndex),
-    item.conversationId,
-    ...orderedIds.slice(insertIndex),
-  ];
+  return [...orderedIds.slice(0, insertIndex), item.conversationId, ...orderedIds.slice(insertIndex)];
 }
 
 function insertAfterPinned(
@@ -87,11 +79,7 @@ function insertAfterPinned(
   return [...orderedIds.slice(0, insertIndex), conversationId, ...orderedIds.slice(insertIndex)];
 }
 
-function sliceHomeState(
-  orderedIds: string[],
-  itemsById: Record<string, ChatHomeItem>,
-  visibleLimit: number
-) {
+function sliceHomeState(orderedIds: string[], itemsById: Record<string, ChatHomeItem>, visibleLimit: number) {
   const limitedOrderedIds = orderedIds.slice(0, Math.max(1, visibleLimit));
   const limitedItemsById: Record<string, ChatHomeItem> = {};
 
@@ -104,7 +92,7 @@ function sliceHomeState(
 
   return {
     orderedIds: limitedOrderedIds,
-    itemsById: limitedItemsById,
+    itemsById: limitedItemsById
   };
 }
 
@@ -139,17 +127,15 @@ export function patchHomeListState(
     unreadCount: nextUnreadCount,
     read: nextRead,
     lastMessageStatus: patch.lastMessageStatus ?? current?.lastMessageStatus ?? 'sent',
-    pinnedAt:
-      patch.pinnedAt !== undefined
-        ? normalizePinnedAt(patch.pinnedAt)
-        : normalizePinnedAt(current?.pinnedAt),
+    pinnedAt: patch.pinnedAt !== undefined ? normalizePinnedAt(patch.pinnedAt) : normalizePinnedAt(current?.pinnedAt),
+    sourceDeleted: patch.sourceDeleted ?? current?.sourceDeleted ?? false
   };
 
   const alreadyLoaded = Boolean(current);
   const withoutCurrent = state.orderedIds.filter((id) => id !== conversationId);
   const mergedItemsById = {
     ...state.itemsById,
-    [conversationId]: nextItem,
+    [conversationId]: nextItem
   };
   const currentPinnedAt = normalizePinnedAt(current?.pinnedAt);
   const nextPinnedAt = normalizePinnedAt(nextItem.pinnedAt);
@@ -167,14 +153,11 @@ export function patchHomeListState(
   return {
     orderedIds: sliced.orderedIds,
     itemsById: sliced.itemsById,
-    total: alreadyLoaded ? state.total : state.total + 1,
+    total: alreadyLoaded ? state.total : state.total + 1
   };
 }
 
-export function removeHomeListItem(
-  state: ChatHomeListState,
-  conversationId: string
-): ChatHomeListState {
+export function removeHomeListItem(state: ChatHomeListState, conversationId: string): ChatHomeListState {
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId || !state.itemsById[normalizedConversationId]) {
     return state;
@@ -185,7 +168,7 @@ export function removeHomeListItem(
   return {
     orderedIds: state.orderedIds.filter((id) => id !== normalizedConversationId),
     itemsById: restItems,
-    total: Math.max(0, state.total - 1),
+    total: Math.max(0, state.total - 1)
   };
 }
 
@@ -207,7 +190,7 @@ export function buildDirectoryListState(items: ChatDirectoryItem[], total: numbe
   return {
     orderedIds,
     itemsById,
-    total,
+    total
   };
 }
 
@@ -229,7 +212,7 @@ export function appendDirectoryListState(
   return {
     orderedIds,
     itemsById,
-    total,
+    total
   };
 }
 
@@ -255,10 +238,8 @@ export function patchDirectoryListPreviewByConversation(
       return;
     }
 
-    const nextPreview =
-      patch.lastMessageText !== undefined ? patch.lastMessageText : current.lastMessageText;
-    const nextTimestamp =
-      patch.lastMessageAt !== undefined ? patch.lastMessageAt : current.lastMessageAt;
+    const nextPreview = patch.lastMessageText !== undefined ? patch.lastMessageText : current.lastMessageText;
+    const nextTimestamp = patch.lastMessageAt !== undefined ? patch.lastMessageAt : current.lastMessageAt;
     if (nextPreview === current.lastMessageText && nextTimestamp === current.lastMessageAt) {
       nextItemsById[id] = current;
       return;
@@ -268,22 +249,19 @@ export function patchDirectoryListPreviewByConversation(
     nextItemsById[id] = {
       ...current,
       lastMessageText: nextPreview,
-      lastMessageAt: nextTimestamp,
+      lastMessageAt: nextTimestamp
     };
   });
 
   return changed
     ? {
         ...state,
-        itemsById: nextItemsById,
+        itemsById: nextItemsById
       }
     : state;
 }
 
-export function patchDetailFromHomeEvent(
-  detail: ChatHomeItem | null,
-  patch: ChatHomeItemPatch
-): ChatHomeItem | null {
+export function patchDetailFromHomeEvent(detail: ChatHomeItem | null, patch: ChatHomeItemPatch): ChatHomeItem | null {
   if (!detail || detail.conversationId !== patch.conversationId) {
     return detail;
   }
@@ -301,14 +279,10 @@ export function patchDetailFromHomeEvent(
     unreadCount: nextUnreadCount,
     read:
       patch.read ??
-      (patch.unreadCount !== undefined
-        ? normalizeChatReadState({ unreadCount: nextUnreadCount })
-        : detail.read),
+      (patch.unreadCount !== undefined ? normalizeChatReadState({ unreadCount: nextUnreadCount }) : detail.read),
     lastMessageStatus: patch.lastMessageStatus ?? detail.lastMessageStatus,
-    pinnedAt:
-      patch.pinnedAt !== undefined
-        ? normalizePinnedAt(patch.pinnedAt)
-        : normalizePinnedAt(detail.pinnedAt),
+    pinnedAt: patch.pinnedAt !== undefined ? normalizePinnedAt(patch.pinnedAt) : normalizePinnedAt(detail.pinnedAt),
+    sourceDeleted: patch.sourceDeleted ?? detail.sourceDeleted ?? false
   };
 }
 
@@ -316,9 +290,7 @@ export function upsertConversationMessage(
   currentMessages: ChatMessageItem[],
   message: ChatMessageItem
 ): ChatMessageItem[] {
-  const existingIndex = currentMessages.findIndex(
-    (current) => current.messageId === message.messageId
-  );
+  const existingIndex = currentMessages.findIndex((current) => current.messageId === message.messageId);
   if (existingIndex >= 0) {
     const nextMessages = [...currentMessages];
     nextMessages[existingIndex] = message;
@@ -334,12 +306,7 @@ export function patchConversationMessage(
   patch: Partial<
     Pick<
       ChatMessageItem,
-      | 'content'
-      | 'createdAt'
-      | 'deliveryStatus'
-      | 'errorReason'
-      | 'serverMessageId'
-      | 'streamStatus'
+      'content' | 'createdAt' | 'deliveryStatus' | 'errorReason' | 'serverMessageId' | 'streamStatus'
     >
   >
 ): ChatMessageItem[] {
@@ -351,7 +318,7 @@ export function patchConversationMessage(
   const nextMessages = [...currentMessages];
   nextMessages[existingIndex] = {
     ...nextMessages[existingIndex],
-    ...patch,
+    ...patch
   };
   return nextMessages;
 }
@@ -365,9 +332,7 @@ export function applyConversationStreamDelta(
     snapshotText?: string;
   }
 ): ChatMessageItem[] {
-  const existingIndex = currentMessages.findIndex(
-    (message) => message.messageId === input.messageId
-  );
+  const existingIndex = currentMessages.findIndex((message) => message.messageId === input.messageId);
   if (existingIndex < 0) {
     return currentMessages;
   }
@@ -376,12 +341,9 @@ export function applyConversationStreamDelta(
   const target = nextMessages[existingIndex];
   nextMessages[existingIndex] = {
     ...target,
-    content:
-      input.snapshotText !== undefined
-        ? input.snapshotText
-        : `${target.content}${String(input.delta || '')}`,
+    content: input.snapshotText !== undefined ? input.snapshotText : `${target.content}${String(input.delta || '')}`,
     createdAt: Math.max(target.createdAt, input.createdAt),
-    streamStatus: 'streaming',
+    streamStatus: 'streaming'
   };
   return nextMessages;
 }

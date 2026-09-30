@@ -1,13 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
-import {
-  Animated,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  View,
-} from 'react-native';
+import { Animated, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '../../shared/i18n';
@@ -33,7 +27,7 @@ import type { ChatSyncEvent } from '../chatRealtime/types';
 import type {
   AwaitingSubmitPayloadData,
   FrontendToolSubmitPayloadData,
-  SubmitFrontendToolResponse,
+  SubmitFrontendToolResponse
 } from '../../core/api/services/chatApi';
 import type { ChatTimelineFrontendToolResolution } from '../chatTimeline/index.ts';
 import { getConversationHistorySlice } from './chatRepository';
@@ -43,6 +37,8 @@ import { useChatDetailAwaitingOverlay } from './useChatDetailAwaitingOverlay';
 import { useChatDetailConversationController } from './useChatDetailConversationController';
 import { useChatDetailLocalUiState } from './useChatDetailLocalUiState';
 import { useConversationActionRuntime } from './useConversationActionRuntime.ts';
+import { getChatSourceFromId } from './chatSource.ts';
+import { isAccountDesktopChatSource } from './chatSourceRuntime.ts';
 
 type ChatDetailScreenProps = NativeStackScreenProps<{ ChatDetail: ChatDetailRouteParams }, 'ChatDetail'>;
 const IS_IOS = Platform.OS === 'ios';
@@ -52,6 +48,9 @@ const SAFE_AREA_CLASS = 'flex-1 bg-app-background';
 const KEYBOARD_ROOT_CLASS = 'flex-1';
 const SCREEN_CLASS = 'flex-1 bg-app-background';
 const INITIAL_SKELETON_OVERLAY_CLASS = 'absolute inset-0';
+const SOURCE_DELETED_NOTICE_CLASS =
+  'mx-app-lg mb-app-sm rounded-app-md border border-app-line bg-app-surface-muted px-app-lg py-app-md';
+const SOURCE_DELETED_NOTICE_TEXT_CLASS = 'text-app-footnote text-app-secondary';
 
 function useKeyboardVisibility() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(() => Keyboard.isVisible());
@@ -94,6 +93,8 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   const t = useT();
   const insets = useSafeAreaInsets();
   const [isArtifactDrawerOpen, setIsArtifactDrawerOpen] = useState(false);
+  const [canLoadOlderRemoteHistory, setCanLoadOlderRemoteHistory] = useState(true);
+  const [isLoadingOlderRemoteHistory, setIsLoadingOlderRemoteHistory] = useState(false);
   const {
     conversationId,
     conversationSubtitle = '',
@@ -104,6 +105,13 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     fromNotification = false,
     skipInitialReconcile = false
   } = route.params;
+  const isRemoteAccountConversation = useMemo(
+    () => isAccountDesktopChatSource(getChatSourceFromId(conversationId)),
+    [conversationId]
+  );
+  useEffect(() => {
+    setCanLoadOlderRemoteHistory(true);
+  }, [conversationId]);
   const conversationPreviewStore = useMemo(() => createConversationPreviewVisibilityStore(), []);
   useConversationActionRuntime(conversationId);
   const {
@@ -168,6 +176,16 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
       chatSyncService.submitFrontendTool(conversationId, payload),
     [conversationId]
   );
+  const handleLoadOlderRemoteHistory = useCallback(async () => {
+    if (isLoadingOlderRemoteHistory) return;
+    setIsLoadingOlderRemoteHistory(true);
+    try {
+      const hasMore = await chatSyncService.loadOlderConversationHistory(conversationId);
+      setCanLoadOlderRemoteHistory(hasMore);
+    } finally {
+      setIsLoadingOlderRemoteHistory(false);
+    }
+  }, [conversationId, isLoadingOlderRemoteHistory]);
   const handleResolveFrontendTool = useCallback(
     (toolKey: string, reason: ChatTimelineFrontendToolResolution) => {
       chatSyncService.resolveFrontendTool(conversationId, toolKey, reason);
@@ -275,9 +293,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                     )
                   }
                   diagnosticVersion={
-                    diagnosticState.status === 'idle'
-                      ? ''
-                      : `${diagnosticState.requestId}:${diagnosticState.status}`
+                    diagnosticState.status === 'idle' ? '' : `${diagnosticState.requestId}:${diagnosticState.status}`
                   }
                   emptyState={
                     newConversationIntro ? (
@@ -293,15 +309,35 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                   previewStore={conversationPreviewStore}
                   workspaceAgentKey={composerOptions.agentKey}
                   onReaskMessage={handleReaskMessage}
-                  reaskCurrentDisabled={composerAction === 'sending' || Boolean(headerRuntimeState.runAction)}
+                  reaskCurrentDisabled={
+                    summary.sourceDeleted || composerAction === 'sending' || Boolean(headerRuntimeState.runAction)
+                  }
                   reaskNewConversationDisabled={
-                    composerAction === 'sending' || Boolean(headerRuntimeState.runAction) || !historyScope
+                    summary.sourceDeleted ||
+                    composerAction === 'sending' ||
+                    Boolean(headerRuntimeState.runAction) ||
+                    !historyScope
                   }
                   artifactCount={artifacts.length}
                   onOpenArtifacts={handleOpenArtifactDrawer}
+                  historyHeader={
+                    canLoadOlderRemoteHistory && isRemoteAccountConversation ? (
+                      <Pressable
+                        disabled={isLoadingOlderRemoteHistory}
+                        onPress={() => handleLoadOlderRemoteHistory().catch(() => {})}
+                        className="self-center rounded-app-pill px-app-md py-app-sm active:bg-app-surface-muted"
+                      >
+                        <Text className="text-app-caption font-bold text-app-brand">
+                          {isLoadingOlderRemoteHistory
+                            ? t('chatDetail.history.loadingOlder')
+                            : t('chatDetail.history.loadOlder')}
+                        </Text>
+                      </Pressable>
+                    ) : null
+                  }
                 />
 
-                {activeFrontendTool ? (
+                {!summary.sourceDeleted && activeFrontendTool ? (
                   <FrontendToolDock
                     key={activeFrontendTool.key}
                     tool={activeFrontendTool}
@@ -310,7 +346,11 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                   />
                 ) : null}
 
-                {interactiveAwaiting ? (
+                {summary.sourceDeleted ? (
+                  <View className={SOURCE_DELETED_NOTICE_CLASS}>
+                    <Text className={SOURCE_DELETED_NOTICE_TEXT_CLASS}>{t('chatDetail.sourceDeleted')}</Text>
+                  </View>
+                ) : interactiveAwaiting ? (
                   <ChatAwaitingDock awaiting={interactiveAwaiting} onSubmit={handleSubmitAwaiting} />
                 ) : (
                   <>
