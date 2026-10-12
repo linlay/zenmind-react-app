@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { AppState, StatusBar, View } from 'react-native';
 
-import { bootstrapAppAccess } from '../core/auth/appAccess';
-import { ensureFreshAccessToken } from '../core/auth/appAuth';
-import { useAppAccess } from '../core/auth/useAppAccess';
-import { readActiveDesktopId } from '../core/auth/activeDesktop.ts';
+import { bootstrapAccountAuth, getAccountAccessTokenForRequest } from '../core/auth/accountAuth.ts';
+import { readIdentityApiBaseUrl } from '../core/auth/authConfig';
+import { getSelectedSource, subscribeActiveDesktop } from '../core/auth/activeDesktop.ts';
 import { useAccountAuth } from '../core/auth/useAccountAuth.ts';
-import { restoreAccountDesktopSource } from '../features/chatPersistence/accountDesktopSource.ts';
+import { getChatCacheScopeId, subscribeChatCacheScope } from '../features/chatPersistence/cacheScope';
+import { getCloudAuthSnapshot, subscribeCloudAuth } from '../core/auth/cloudAuth';
+import { startAccountSourceLifecycle } from '../features/chatPersistence/accountDesktopSource.ts';
 import { ChatNotificationPayload, notificationService } from '../features/notifications/notificationService';
+import { getActiveChatSource } from '../features/chatPersistence/chatSourceRuntime';
+import { parseChatSourceId } from '../features/chatPersistence/chatSource';
 import { chatSyncService } from '../features/chatRealtime/chatSyncService';
 import { useAppTheme } from '../shared/visual/AppThemeProvider';
 import type { AppThemeTokens } from '../shared/visual/foundation';
@@ -21,8 +24,6 @@ type AppRootProps = {
 };
 
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
-const PREFRESH_MIN_VALIDITY_MS = 120_000;
-const PREFRESH_JITTER_MS = 8_000;
 const ACTIVE_REFRESH_DEBOUNCE_MS = 20_000;
 const FOREGROUND_REFRESH_INTERVAL_MS = 60_000;
 const APP_ROOT_CLASS = 'flex-1 bg-app-background';
@@ -59,19 +60,17 @@ function syncActiveConversationForNotifications() {
 
 export function AppRoot({ onNavigationReady }: AppRootProps) {
   const { theme } = useAppTheme();
-  const access = useAppAccess();
   const accountAuth = useAccountAuth();
-  const isBootstrapping = access.status === 'bootstrapping';
-  const isReady = access.status === 'ready';
-  const session = access.pairedSession;
+  const isBootstrapping = accountAuth.isBootstrapping;
+  const cloud = useSyncExternalStore(subscribeCloudAuth, getCloudAuthSnapshot, getCloudAuthSnapshot);
+  const isReady = !isBootstrapping || cloud.cacheAllowed;
+  const session = accountAuth.session;
   const hasSession = Boolean(session);
-  const sessionUsername = session?.username || '';
   const sessionDeviceId = session?.deviceId || '';
-  const sessionIdentityKey = sessionDeviceId ? JSON.stringify([sessionUsername, sessionDeviceId]) : '';
+  const sessionIdentityKey = sessionDeviceId ? JSON.stringify([session?.accountId, sessionDeviceId]) : '';
   const sessionAccessToken = session?.accessToken || '';
-  const accountId = accountAuth.session?.accountId || '';
-  const accountDesktopId = accountId ? readActiveDesktopId(accountId) : '';
-  const accountSourceKey = accountDesktopId ? `${accountId}:${accountDesktopId}` : '';
+  const selected = useSyncExternalStore(subscribeActiveDesktop, getSelectedSource, getSelectedSource);
+  const scopeId = useSyncExternalStore(subscribeChatCacheScope, getChatCacheScopeId, getChatCacheScopeId);
   const [isNavigationReady, setIsNavigationReady] = useState(false);
   const [currentRouteName, setCurrentRouteName] = useState<string | null>(null);
   const pendingNotificationPayloadRef = useRef<ChatNotificationPayload | null>(null);
@@ -85,6 +84,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
         return;
       }
 
+      if (parseChatSourceId(payload.conversationId)?.source.key !== getActiveChatSource()?.key) return;
       navigationRef.navigate('ChatDetail', {
         conversationId: payload.conversationId,
         serverMessageId: payload.serverMessageId,
@@ -104,15 +104,11 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
       return null;
     }
 
-    return ensureFreshAccessToken('', {
-      minValidityMs: PREFRESH_MIN_VALIDITY_MS,
-      jitterMs: PREFRESH_JITTER_MS,
-      failureMode: 'soft'
-    });
+    return getAccountAccessTokenForRequest(readIdentityApiBaseUrl());
   }, [hasSession, isBootstrapping]);
 
   useEffect(() => {
-    bootstrapAppAccess().catch(() => {
+    bootstrapAccountAuth().catch(() => {
       // The bootstrap screen remains visible if local access state cannot initialize.
     });
   }, []);
@@ -160,57 +156,38 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
     return notificationService.subscribe(routeNotificationPayload);
   }, [routeNotificationPayload]);
 
-  useEffect(() => {
-    if (!accountId || !accountDesktopId) {
-      return;
-    }
-    try {
-      restoreAccountDesktopSource(accountId, accountDesktopId);
-    } catch {
-      // Ambiguous legacy ownership remains available for explicit cleanup.
-    }
-  }, [accountDesktopId, accountId]);
+  useEffect(() => startAccountSourceLifecycle(), []);
 
   useEffect(() => {
-    if (!isReady) {
+    if (selected?.kind !== 'cloud' || !cloud.cacheAllowed) {
+      void notificationService.clearRegistration().catch(() => {});
       return;
     }
-
-    chatSyncService.prewarmHome().catch(() => {});
-  }, [accountSourceKey, isReady, sessionIdentityKey]);
+    const sourceKey = getActiveChatSource()?.key;
+    if (cloud.status === 'available' && sourceKey)
+      void notificationService
+        .registerForSession({ sourceKey, username: 'cloud', deviceId: cloud.scopeId })
+        .catch(() => {});
+  }, [cloud.status, cloud.cacheAllowed, cloud.scopeId, selected]);
 
   useEffect(() => {
-    if (!isReady) {
-      chatSyncService.stop();
-      return;
+    const route = navigationRef.getCurrentRoute();
+    const params = route?.params as RootStackParamList['ChatDetail'] | undefined;
+    if (
+      route?.name === 'ChatDetail' &&
+      parseChatSourceId(params?.conversationId)?.source.key !== getActiveChatSource()?.key
+    ) {
+      navigationRef.resetRoot({ index: 0, routes: [{ name: 'Tabs' }] });
     }
-
-    if (sessionIdentityKey) {
-      notificationService
-        .registerForSession({
-          username: sessionUsername,
-          deviceId: sessionDeviceId
-        })
-        .catch(() => {
-          // Push token registration is best-effort and must not block app startup.
-        });
-    }
-    chatSyncService.start().catch(() => {
-      // Real-time bootstrap is best-effort; SQLite still serves the current UI.
-    });
-
-    return () => {
-      chatSyncService.stop();
-    };
-  }, [accountSourceKey, isReady, sessionDeviceId, sessionIdentityKey, sessionUsername]);
+  }, [selected, scopeId]);
 
   useEffect(() => {
     if (isBootstrapping || !sessionIdentityKey || !sessionAccessToken) {
       return;
     }
 
-    chatSyncService.refreshAuth().catch(() => {});
-  }, [isBootstrapping, sessionAccessToken, sessionIdentityKey]);
+    if (selected?.kind === 'desktop') chatSyncService.refreshAuth().catch(() => {});
+  }, [isBootstrapping, selected, sessionAccessToken, sessionIdentityKey]);
 
   useEffect(() => {
     const canRouteNotification = isNavigationReady && isReady;

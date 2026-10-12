@@ -114,6 +114,8 @@ export const outboxMessages = sqliteTable(
       .references(() => conversations.id),
     content: text('content').notNull(),
     planningMode: integer('planning_mode').notNull().default(0),
+    editingMode: integer('editing_mode').notNull().default(0),
+    mustUseSkillsJson: text('must_use_skills_json').notNull().default('[]'),
     createdAt: integer('created_at').notNull()
   },
   (table) => [

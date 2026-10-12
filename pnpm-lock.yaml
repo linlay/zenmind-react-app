@@ -33,6 +33,7 @@ specifiers:
   expo-image-picker: 56.0.15
   expo-localization: 56.0.6
   expo-notifications: 56.0.15
+  expo-sharing: 56.0.15
   expo-splash-screen: 56.0.10
   expo-sqlite: 56.0.4
   expo-updates: 56.0.18
@@ -79,6 +80,7 @@ dependencies:
   expo-image-picker: 56.0.15_expo@56.0.8
   expo-localization: 56.0.6_expo@56.0.8+react@19.2.3
   expo-notifications: 56.0.15_tuis2rmi4v44sq6tu2v6vann5y
+  expo-sharing: 56.0.15_tuis2rmi4v44sq6tu2v6vann5y
   expo-splash-screen: 56.0.10_uei6d7x7kfbqyplr44vthi66o4
   expo-sqlite: 56.0.4_uxuajdwuqf43uva2ovpcn5faje
   expo-updates: 56.0.18_uxuajdwuqf43uva2ovpcn5faje
@@ -4071,6 +4073,24 @@ packages:
   /expo-server/56.0.5:
     resolution: {integrity: sha512-SmM2p2g3Jrktpiazcst+OxhjSzOHXKAY4BPURHYHXvApzzoybMmrNF4IEZ8DKZ145BhSe4ydAmlEFCRTsdtgUQ==}
     engines: {node: '>=20.16.0'}
+
+  /expo-sharing/56.0.15_tuis2rmi4v44sq6tu2v6vann5y:
+    resolution: {integrity: sha512-6Hy1+Mjy4UYXkFiDK3Ea934NUmA71i8dmZkDe+rrUHRzZAv4FR+q/VyiT7LzNFEqpT4wn4wcI66lc2QY526RsA==}
+    peerDependencies:
+      expo: '*'
+      react: '*'
+      react-native: '*'
+    dependencies:
+      '@expo/config-plugins': 56.0.8_typescript@6.0.3
+      '@expo/config-types': 56.0.5
+      '@expo/plist': 0.7.0
+      expo: 56.0.8_5klxhuam7tep6q5zj7mxkcgnya
+      react: 19.2.3
+      react-native: 0.85.3_duoncxq23czldf2ikltubzpp54
+    transitivePeerDependencies:
+      - supports-color
+      - typescript
+    dev: false
 
   /expo-splash-screen/56.0.10_uei6d7x7kfbqyplr44vthi66o4:
     resolution: {integrity: sha512-vDIlo8hzt9HlCZQ0kSY66v83D1WEXOJbVMeyPDfXDu9tbDdPMNUyDpi4WGJXikAjxnAKfbt5Mv5NnEbxINy+VA==}

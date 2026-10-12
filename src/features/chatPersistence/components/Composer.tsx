@@ -38,8 +38,7 @@ const PRIMARY_ACTION_SLOT_GAP = appVisualTokens.spacing.sm;
 const PLAN_COLLAPSED_WIDTH = 34;
 const PLAN_EXPANDED_WIDTH = 112;
 const COLLAPSED_INPUT_SIDE_GAP = 5;
-const COLLAPSED_INPUT_SIDE_TOOL_GUTTER =
-  COMPOSER_HORIZONTAL_PADDING + PLAN_COLLAPSED_WIDTH + COLLAPSED_INPUT_SIDE_GAP;
+const COLLAPSED_INPUT_SIDE_TOOL_GUTTER = COMPOSER_HORIZONTAL_PADDING + PLAN_COLLAPSED_WIDTH + COLLAPSED_INPUT_SIDE_GAP;
 const COMPOSER_ANIMATION_CONFIG = {
   duration: 180,
   easing: Easing.out(Easing.cubic)
@@ -53,8 +52,7 @@ const CONTAINER_CLASS =
   'relative justify-end overflow-hidden rounded-[22px] bg-[#f5f5f5] px-[12px] py-[5px] dark:bg-app-surface-muted';
 const ATTACHMENT_STRIP_FRAME_CLASS = 'absolute left-app-md right-app-md top-app-md h-[58px]';
 const INPUT_FRAME_CLASS = 'absolute overflow-hidden';
-const INPUT_CLASS =
-  'min-h-[30px] min-w-0 flex-1 max-h-[82px] px-[10px] py-1 text-[15px] text-app-primary';
+const INPUT_CLASS = 'min-h-[30px] min-w-0 flex-1 max-h-[82px] px-[10px] py-1 text-[15px] text-app-primary';
 const INPUT_EXPANDED_CLASS = 'pt-0';
 const TOOLBAR_ROW_CLASS = 'h-[34px] flex-row items-center';
 const TOOLBAR_SPACER_CLASS = 'min-w-app-sm flex-1';
@@ -82,6 +80,11 @@ type ComposerProgressValue = {
 export type ComposerAttachmentType = 'image' | 'file';
 
 type ComposerProps = {
+  attachmentEnabled?: boolean;
+  onOpenChatReferences?: () => void;
+  inputDisabled?: boolean;
+  steerAvailable?: boolean;
+  onSteer?: () => void;
   value: string;
   attachments: ChatComposerAttachment[];
   onChangeText: (text: string) => void;
@@ -92,9 +95,12 @@ type ComposerProps = {
   onSelectAttachment: (type: ComposerAttachmentType) => void;
   onRemoveAttachment: (attachmentId: string) => void;
   onRetryAttachment: (attachmentId: string) => void;
+  onUpdateSelectionAnnotation?: (attachmentId: string, annotation: string) => void;
   disabled?: boolean;
   placeholder?: string;
   planModeAvailable?: boolean;
+  queryModeLabel?: string;
+  queryModeDisabled?: boolean;
   planModeEnabled?: boolean;
   onTogglePlanMode?: () => void;
 };
@@ -156,20 +162,22 @@ const ComposerIconButton = memo(function ComposerIconButton({
 
 type PlanModeButtonProps = {
   expandedProgress: ComposerProgressValue;
+  label: string;
+  disabled: boolean;
   enabled: boolean;
   onPress: () => void;
 };
 
-const PlanModeButton = memo(function PlanModeButton({ expandedProgress, enabled, onPress }: PlanModeButtonProps) {
-  const t = useT();
+const PlanModeButton = memo(function PlanModeButton({
+  expandedProgress,
+  label,
+  disabled,
+  enabled,
+  onPress
+}: PlanModeButtonProps) {
   const { theme } = useAppTheme();
   const planButtonStyle = useAnimatedStyle(() => ({
-    width: interpolate(
-      expandedProgress.value,
-      [0, 1],
-      [PLAN_COLLAPSED_WIDTH, PLAN_EXPANDED_WIDTH],
-      Extrapolation.CLAMP
-    )
+    width: interpolate(expandedProgress.value, [0, 1], [PLAN_COLLAPSED_WIDTH, PLAN_EXPANDED_WIDTH], Extrapolation.CLAMP)
   }));
   const planLabelStyle = useAnimatedStyle(() => ({
     opacity: expandedProgress.value,
@@ -184,8 +192,13 @@ const PlanModeButton = memo(function PlanModeButton({ expandedProgress, enabled,
     <Animated.View className={PLAN_BUTTON_FRAME_CLASS} style={planButtonStyle}>
       <Pressable
         onPress={onPress}
-        className={cn(PLAN_BUTTON_CLASS, enabled ? PLAN_BUTTON_ENABLED_CLASS : null)}
-        accessibilityLabel={t('composer.planMode')}
+        disabled={disabled}
+        className={cn(
+          PLAN_BUTTON_CLASS,
+          enabled ? PLAN_BUTTON_ENABLED_CLASS : null,
+          disabled ? ICON_BUTTON_DISABLED_CLASS : null
+        )}
+        accessibilityLabel={label}
         accessibilityRole="switch"
         accessibilityState={{ checked: enabled }}
       >
@@ -201,7 +214,7 @@ const PlanModeButton = memo(function PlanModeButton({ expandedProgress, enabled,
           className={PLAN_BUTTON_TEXT_CLASS}
           style={planLabelStyle}
         >
-          {t('composer.planMode')}
+          {label}
         </Animated.Text>
       </Pressable>
     </Animated.View>
@@ -283,9 +296,17 @@ export const Composer = memo(function Composer({
   onSelectAttachment,
   onRemoveAttachment,
   onRetryAttachment,
+  onUpdateSelectionAnnotation,
   disabled = false,
+  attachmentEnabled = true,
+  onOpenChatReferences,
+  inputDisabled = false,
+  steerAvailable = false,
+  onSteer,
   placeholder,
   planModeAvailable = false,
+  queryModeLabel,
+  queryModeDisabled = false,
   planModeEnabled = false,
   onTogglePlanMode
 }: ComposerProps) {
@@ -299,13 +320,14 @@ export const Composer = memo(function Composer({
   const placeholderText = placeholder ?? t('composer.placeholder');
   const isExpanded = isFocused || hasComposerContent;
   const showPrimaryAction =
-    primaryAction === 'stop' ||
-    primaryAction === 'resume' ||
-    primaryAction === 'sending' ||
-    hasComposerContent;
+    primaryAction === 'stop' || primaryAction === 'resume' || primaryAction === 'sending' || hasComposerContent;
   const primaryDisabled = disabled || primaryAction === 'send-disabled' || primaryAction === 'sending';
   const attachmentDisabled =
-    disabled || primaryAction === 'sending' || primaryAction === 'stop' || primaryAction === 'resume';
+    (!attachmentEnabled && !onOpenChatReferences) ||
+    disabled ||
+    primaryAction === 'sending' ||
+    (primaryAction === 'stop' && !steerAvailable) ||
+    primaryAction === 'resume';
   const expandedProgress = useDerivedValue(
     () => withTiming(isExpanded ? 1 : 0, COMPOSER_ANIMATION_CONFIG),
     [isExpanded]
@@ -325,14 +347,17 @@ export const Composer = memo(function Composer({
     COMPOSER_EXPANDED_INPUT_GAP +
     COMPOSER_TOOLBAR_HEIGHT +
     COMPOSER_VERTICAL_PADDING;
-  const containerAnimatedStyle = useAnimatedStyle(() => ({
-    minHeight: interpolate(
-      expandedProgress.value,
-      [0, 1],
-      [COMPOSER_COLLAPSED_HEIGHT, expandedContainerHeight],
-      Extrapolation.CLAMP
-    )
-  }), [expandedContainerHeight]);
+  const containerAnimatedStyle = useAnimatedStyle(
+    () => ({
+      minHeight: interpolate(
+        expandedProgress.value,
+        [0, 1],
+        [COMPOSER_COLLAPSED_HEIGHT, expandedContainerHeight],
+        Extrapolation.CLAMP
+      )
+    }),
+    [expandedContainerHeight]
+  );
 
   const handleContentSizeChange = useCallback((event: { nativeEvent: { contentSize: { height: number } } }) => {
     const contentHeight = Math.round(event.nativeEvent.contentSize.height);
@@ -400,44 +425,37 @@ export const Composer = memo(function Composer({
 
   const iconUsage = getPrimaryIconUsage(primaryAction);
   const iconColor = primaryDisabled ? theme.colors.textTertiary : undefined;
-  const inputFrameStyle = useAnimatedStyle(
-    () => {
-      const primaryActionWidth = primaryProgress.value * (PRIMARY_ACTION_SLOT_WIDTH + PRIMARY_ACTION_SLOT_GAP);
-      const collapsedLeftGutter = planModeAvailable
-        ? COLLAPSED_INPUT_SIDE_TOOL_GUTTER
-        : COMPOSER_HORIZONTAL_PADDING;
-      const collapsedRightGutter = planModeAvailable
-        ? COLLAPSED_INPUT_SIDE_TOOL_GUTTER
-        : COMPOSER_HORIZONTAL_PADDING;
-      return {
-        left: interpolate(
-          expandedProgress.value,
-          [0, 1],
-          [collapsedLeftGutter, COMPOSER_EXPANDED_INPUT_SIDE_INSET],
-          Extrapolation.CLAMP
-        ),
-        right: interpolate(
-          expandedProgress.value,
-          [0, 1],
-          [collapsedRightGutter + primaryActionWidth, COMPOSER_EXPANDED_INPUT_SIDE_INSET],
-          Extrapolation.CLAMP
-        ),
-        top: interpolate(
-          expandedProgress.value,
-          [0, 1],
-          [COMPOSER_COLLAPSED_INPUT_TOP, expandedInputTop],
-          Extrapolation.CLAMP
-        ),
-        height: interpolate(
-          expandedProgress.value,
-          [0, 1],
-          [COLLAPSED_INPUT_HEIGHT, expandedInputHeight],
-          Extrapolation.CLAMP
-        )
-      };
-    },
-    [expandedInputHeight, expandedInputTop, planModeAvailable]
-  );
+  const inputFrameStyle = useAnimatedStyle(() => {
+    const primaryActionWidth = primaryProgress.value * (PRIMARY_ACTION_SLOT_WIDTH + PRIMARY_ACTION_SLOT_GAP);
+    const collapsedLeftGutter = planModeAvailable ? COLLAPSED_INPUT_SIDE_TOOL_GUTTER : COMPOSER_HORIZONTAL_PADDING;
+    const collapsedRightGutter = planModeAvailable ? COLLAPSED_INPUT_SIDE_TOOL_GUTTER : COMPOSER_HORIZONTAL_PADDING;
+    return {
+      left: interpolate(
+        expandedProgress.value,
+        [0, 1],
+        [collapsedLeftGutter, COMPOSER_EXPANDED_INPUT_SIDE_INSET],
+        Extrapolation.CLAMP
+      ),
+      right: interpolate(
+        expandedProgress.value,
+        [0, 1],
+        [collapsedRightGutter + primaryActionWidth, COMPOSER_EXPANDED_INPUT_SIDE_INSET],
+        Extrapolation.CLAMP
+      ),
+      top: interpolate(
+        expandedProgress.value,
+        [0, 1],
+        [COMPOSER_COLLAPSED_INPUT_TOP, expandedInputTop],
+        Extrapolation.CLAMP
+      ),
+      height: interpolate(
+        expandedProgress.value,
+        [0, 1],
+        [COLLAPSED_INPUT_HEIGHT, expandedInputHeight],
+        Extrapolation.CLAMP
+      )
+    };
+  }, [expandedInputHeight, expandedInputTop, planModeAvailable]);
   useEffect(() => {
     if (attachmentDisabled) {
       setAttachmentTrayOpen(false);
@@ -458,37 +476,53 @@ export const Composer = memo(function Composer({
     <View className={ROOT_CLASS}>
       {attachmentTrayOpen ? (
         <View className={ATTACHMENT_TRAY_CLASS}>
-          <Pressable
-            onPress={handleSelectImageAttachment}
-            disabled={attachmentDisabled}
-            className={ATTACHMENT_OPTION_CLASS}
-            accessibilityLabel={t('composer.uploadImage')}
-            accessibilityRole="button"
-          >
-            <AppIcon usage="composer.attachImage" />
-            <Text allowFontScaling={false} className={ATTACHMENT_OPTION_TEXT_CLASS}>
-              {t('composer.image')}
-            </Text>
-          </Pressable>
-          <Pressable
-            onPress={handleSelectFileAttachment}
-            disabled={attachmentDisabled}
-            className={ATTACHMENT_OPTION_CLASS}
-            accessibilityLabel={t('composer.uploadFile')}
-            accessibilityRole="button"
-          >
-            <AppIcon usage="composer.attachFile" />
-            <Text allowFontScaling={false} className={ATTACHMENT_OPTION_TEXT_CLASS}>
-              {t('composer.file')}
-            </Text>
-          </Pressable>
+          {attachmentEnabled ? (
+            <>
+              <Pressable
+                onPress={handleSelectImageAttachment}
+                disabled={attachmentDisabled}
+                className={ATTACHMENT_OPTION_CLASS}
+                accessibilityLabel={t('composer.uploadImage')}
+                accessibilityRole="button"
+              >
+                <AppIcon usage="composer.attachImage" />
+                <Text allowFontScaling={false} className={ATTACHMENT_OPTION_TEXT_CLASS}>
+                  {t('composer.image')}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={handleSelectFileAttachment}
+                disabled={attachmentDisabled}
+                className={ATTACHMENT_OPTION_CLASS}
+                accessibilityLabel={t('composer.uploadFile')}
+                accessibilityRole="button"
+              >
+                <AppIcon usage="composer.attachFile" />
+                <Text allowFontScaling={false} className={ATTACHMENT_OPTION_TEXT_CLASS}>
+                  {t('composer.file')}
+                </Text>
+              </Pressable>
+            </>
+          ) : null}
+          {onOpenChatReferences ? (
+            <Pressable
+              disabled={attachmentDisabled}
+              onPress={() => {
+                setAttachmentTrayOpen(false);
+                onOpenChatReferences();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t('contextReference.chooseChat')}
+              className={ATTACHMENT_OPTION_CLASS}
+            >
+              <AppIcon usage="composer.attachFile" />
+              <Text className={ATTACHMENT_OPTION_TEXT_CLASS}>{t('contextReference.chooseChat')}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
 
-      <Animated.View
-        className={CONTAINER_CLASS}
-        style={containerAnimatedStyle}
-      >
+      <Animated.View className={CONTAINER_CLASS} style={containerAnimatedStyle}>
         {attachments.length > 0 ? (
           <View className={ATTACHMENT_STRIP_FRAME_CLASS}>
             <ChatAttachmentStrip
@@ -496,6 +530,7 @@ export const Composer = memo(function Composer({
               variant="composer"
               onRemoveAttachment={onRemoveAttachment}
               onRetryAttachment={onRetryAttachment}
+              onUpdateSelectionAnnotation={onUpdateSelectionAnnotation}
             />
           </View>
         ) : null}
@@ -514,7 +549,7 @@ export const Composer = memo(function Composer({
             onContentSizeChange={handleContentSizeChange}
             onFocus={handleInputFocus}
             onBlur={handleInputBlur}
-            editable={!disabled}
+            editable={!disabled && !inputDisabled}
             accessibilityLabel={placeholderText}
           />
         </Animated.View>
@@ -522,6 +557,8 @@ export const Composer = memo(function Composer({
           {planModeAvailable ? (
             <PlanModeButton
               expandedProgress={expandedProgress}
+              label={queryModeLabel ?? t('composer.planMode')}
+              disabled={queryModeDisabled}
               enabled={planModeEnabled}
               onPress={handleTogglePlanMode}
             />
@@ -535,6 +572,16 @@ export const Composer = memo(function Composer({
             iconColor={attachmentDisabled ? theme.colors.textTertiary : theme.colors.textPrimary}
             strokeWidth={2.2}
           />
+          {steerAvailable && hasComposerContent && onSteer ? (
+            <ComposerIconButton
+              onPress={onSteer}
+              disabled={
+                !hasComposerContent || disabled || inputDisabled || attachments.some((item) => item.status !== 'ready')
+              }
+              accessibilityLabel={t('composer.steer')}
+              iconUsage="composer.send"
+            />
+          ) : null}
           <PrimaryActionSlot
             disabled={primaryDisabled}
             iconColor={iconColor}

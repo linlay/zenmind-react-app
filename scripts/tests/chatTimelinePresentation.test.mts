@@ -263,7 +263,12 @@ test('multiple completed runs expand independently and retain stable rail framin
   if (!firstSummary || firstSummary.kind !== 'process-summary') {
     throw new Error('expected first process summary');
   }
-  const firstExpanded = buildChatTimelinePresentationItems(state, displayItems, new Set([firstSummary.processId]));
+  const firstExpanded = buildChatTimelinePresentationItems(
+    state,
+    displayItems,
+    new Set([firstSummary.processId]),
+    collapsed
+  );
   assert.deepEqual(presentationKinds(firstExpanded), [
     'process-summary',
     'reasoning',
@@ -282,5 +287,26 @@ test('multiple completed runs expand independently and retain stable rail framin
       [1, false, false],
       [2, false, true]
     ]
+  );
+  const secondRunItems = collapsed.filter((item) => item.runId === 'run-2');
+  secondRunItems.forEach((item) =>
+    assert.equal(
+      firstExpanded.find((next) => next.key === item.key),
+      item
+    )
+  );
+  const unchanged = buildChatTimelinePresentationItems(
+    state,
+    displayItems,
+    new Set([firstSummary.processId]),
+    firstExpanded
+  );
+  unchanged.forEach((item, index) => assert.equal(item, firstExpanded[index]));
+  const collapsedAgain = buildChatTimelinePresentationItems(state, displayItems, new Set(), firstExpanded);
+  secondRunItems.forEach((item) =>
+    assert.equal(
+      collapsedAgain.find((next) => next.key === item.key),
+      item
+    )
   );
 });

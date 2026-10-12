@@ -5,10 +5,15 @@ import { ConversationViewportBlock } from './ConversationViewportBlock';
 import { ChatConversationMarkdownRenderer } from '../markdownLinks/ChatConversationMarkdownRenderer.tsx';
 import {
   CONVERSATION_VIEWPORT_FENCE_EXTENSIONS,
-  isConversationViewportFenceData
+  isConversationViewportFenceData,
+  type ConversationViewFenceData
 } from './conversationViewportFence';
 
 function renderConversationFence(segment: ConversationMarkdownFenceExtensionSegment) {
+  if (segment.extensionKey === 'view') {
+    const data = segment.data as ConversationViewFenceData;
+    return <ConversationViewportBlock viewportKey={data.view.key} view={data.view} viewError={data.viewError} payload={data.payload} sourceHash={segment.sourceHash} />;
+  }
   if (segment.extensionKey !== 'viewport' || !isConversationViewportFenceData(segment.data)) {
     return undefined;
   }

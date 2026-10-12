@@ -1,5 +1,9 @@
+import type { ChatSkillsCatalog } from '../../../core/api/services/chatSkillsProtocol';
+import type { ChatPendingSteer } from '../../chatRealtime/types';
+import { useT } from '../../../shared/i18n';
+import type { AgentInteraction } from '../agentInteraction';
 import { memo } from 'react';
-import { Text, View } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 
 import type { ChatComposerAttachment } from '../types';
 import { Composer, type ComposerAttachmentType } from './Composer';
@@ -15,6 +19,16 @@ const COMPOSER_WRAP_CLASS = 'bg-app-background px-app-md pb-[6px] pt-[5px]';
 const ERROR_TEXT_CLASS = 'mt-app-sm px-app-md text-[13px] leading-[20px] text-app-danger';
 
 type ChatComposerOptionsState = {
+  interaction: AgentInteraction;
+  runtimeAccess: { runId: string; level?: QueryAccessLevel; phase?: 'sending' | 'unknown' } | null;
+  onRuntimeAccessChange: (level: QueryAccessLevel) => void;
+  onRuntimeAccessRefresh: () => void;
+  skillsCatalog: ChatSkillsCatalog | null;
+  selectedSkills: readonly string[];
+  skillsLoading: boolean;
+  skillsError: string;
+  onLoadSkills: () => void;
+  onToggleSkills: (ids: readonly string[]) => void;
   accessLevel: QueryAccessLevel;
   agentKey: string;
   modelOverride: QueryModelOverride;
@@ -24,46 +38,78 @@ type ChatComposerOptionsState = {
 
 type ChatDetailComposerCardProps = {
   draft: string;
+  pendingSteer: ChatPendingSteer | null;
+  steerAvailable: boolean;
+  onSteer: () => void;
+  onRestoreSteer: () => void;
   attachments: ChatComposerAttachment[];
   composerOptions: ChatComposerOptionsState;
   errorText: string;
   planModeAvailable: boolean;
   planModeEnabled: boolean;
+  editingModeAvailable: boolean;
+  editingModeEnabled: boolean;
+  onToggleEditingMode: () => void;
   primaryAction: ChatComposerPrimaryAction;
   onChangeDraft: (value: string) => void;
   onSubmit: () => void;
   onStop: () => void;
   onResume: () => void;
   onTogglePlanMode: () => void;
+  onOpenChatReferences?: () => void;
   onSelectAttachment: (type: ComposerAttachmentType) => void;
   onRemoveAttachment: (attachmentId: string) => void;
   onRetryAttachment: (attachmentId: string) => void;
+  onUpdateSelectionAnnotation?: (attachmentId: string, annotation: string) => void;
   onAccessLevelChange: (value: QueryAccessLevel) => void;
   onModelOverrideChange: (value: QueryModelOverride) => void;
 };
 
 export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
   draft,
+  pendingSteer,
+  steerAvailable,
+  onSteer,
+  onRestoreSteer,
   attachments,
   composerOptions,
   errorText,
   planModeAvailable,
   planModeEnabled,
+  editingModeAvailable,
+  editingModeEnabled,
+  onToggleEditingMode,
   primaryAction,
   onChangeDraft,
   onSubmit,
   onStop,
   onResume,
   onTogglePlanMode,
+  onOpenChatReferences,
   onSelectAttachment,
   onRemoveAttachment,
   onRetryAttachment,
+  onUpdateSelectionAnnotation,
   onAccessLevelChange,
-  onModelOverrideChange,
+  onModelOverrideChange
 }: ChatDetailComposerCardProps) {
+  const t = useT();
   return (
     <View className={COMPOSER_WRAP_CLASS}>
       <ChatComposerOptionRow
+        skillsEnabled={composerOptions.interaction.mustUseSkills && Boolean(composerOptions.agentKey)}
+        skillsDisabled={Boolean(pendingSteer) || ['stop', 'sending', 'resume'].includes(primaryAction)}
+        skillsCatalog={composerOptions.skillsCatalog}
+        selectedSkills={composerOptions.selectedSkills}
+        skillsLoading={composerOptions.skillsLoading}
+        skillsError={composerOptions.skillsError}
+        onLoadSkills={composerOptions.onLoadSkills}
+        onToggleSkills={composerOptions.onToggleSkills}
+        modelEnabled={composerOptions.interaction.model}
+        accessLevelEnabled={composerOptions.interaction.accessLevel}
+        runtimeAccess={composerOptions.runtimeAccess}
+        onRuntimeAccessChange={composerOptions.onRuntimeAccessChange}
+        onRuntimeAccessRefresh={composerOptions.onRuntimeAccessRefresh}
         accessLevel={composerOptions.accessLevel}
         agentKey={composerOptions.agentKey}
         modelOverride={composerOptions.modelOverride}
@@ -72,7 +118,32 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
         onAccessLevelChange={onAccessLevelChange}
         onModelOverrideChange={onModelOverrideChange}
       />
+      {pendingSteer ? (
+        <View className="mb-app-sm gap-app-xs">
+          <Text className="text-[13px] text-app-secondary">
+            {t(
+              pendingSteer.runEnded
+                ? 'chatDetail.steer.runEnded'
+                : pendingSteer.phase === 'sending'
+                  ? 'chatDetail.steer.sending'
+                  : pendingSteer.phase === 'accepted'
+                    ? 'chatDetail.steer.accepted'
+                    : 'chatDetail.steer.unknown'
+            )}
+          </Text>
+          {pendingSteer.phase !== 'sending' ? (
+            <Pressable onPress={onRestoreSteer} accessibilityRole="button">
+              <Text className="text-[13px] text-app-brand-blue">{t('chatDetail.steer.restore')}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
       <Composer
+        inputDisabled={Boolean(pendingSteer)}
+        steerAvailable={steerAvailable}
+        onSteer={onSteer}
+        onOpenChatReferences={onOpenChatReferences}
+        attachmentEnabled={composerOptions.interaction.attachment.localFiles && !pendingSteer}
         value={draft}
         attachments={attachments}
         onChangeText={onChangeDraft}
@@ -83,9 +154,12 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
         onSelectAttachment={onSelectAttachment}
         onRemoveAttachment={onRemoveAttachment}
         onRetryAttachment={onRetryAttachment}
-        planModeAvailable={planModeAvailable}
-        planModeEnabled={planModeEnabled}
-        onTogglePlanMode={onTogglePlanMode}
+        onUpdateSelectionAnnotation={onUpdateSelectionAnnotation}
+        planModeAvailable={planModeAvailable || editingModeAvailable}
+        planModeEnabled={editingModeAvailable ? editingModeEnabled : planModeEnabled}
+        queryModeLabel={editingModeAvailable ? t('composer.editingMode') : t('composer.planMode')}
+        queryModeDisabled={Boolean(pendingSteer) || ['stop', 'sending', 'resume'].includes(primaryAction)}
+        onTogglePlanMode={editingModeAvailable ? onToggleEditingMode : onTogglePlanMode}
       />
       {errorText ? (
         <Text allowFontScaling={false} className={ERROR_TEXT_CLASS}>

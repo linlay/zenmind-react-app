@@ -29,7 +29,7 @@ test('chat detail request defaults to event history without raw messages', () =>
   assert.match(chatApiSource, /eventLimit: REMOTE_CHAT_PAGE_SIZE/);
   assert.match(chatApiSource, /function buildChatSummariesPayload/);
   assert.match(chatSyncServiceSource, /paginateEvents: paginated/);
-  assert.match(chatSyncServiceSource, /payload: buildChatSummariesPayload\(\)/);
+  assert.match(chatSyncServiceSource, /readChatDirectory<RemoteAgent, RemoteTeam>/);
   const normalDetailRequest = chatSyncServiceSource.slice(
     chatSyncServiceSource.indexOf('private async getChatDetailViaTransport'),
     chatSyncServiceSource.indexOf('private async fetchAgentDetail')
@@ -41,7 +41,7 @@ test('account Desktop history is merged with persisted pages and offline writes 
   assert.match(chatSyncServiceSource, /remoteHistoryCursors/);
   assert.match(chatSyncServiceSource, /getConversationInitialTimelineState\(projection\.conversationId, 500\)/);
   const sendMessage = chatSyncServiceSource.slice(
-    chatSyncServiceSource.indexOf('async sendMessage('),
+    chatSyncServiceSource.indexOf('private async sendConversationMessage('),
     chatSyncServiceSource.indexOf('private emit(')
   );
   assert.ok(sendMessage.indexOf('TARGET_OFFLINE') < sendMessage.indexOf('createOutgoingMessage('));

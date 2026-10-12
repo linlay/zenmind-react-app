@@ -34,7 +34,6 @@
       "shared-visual-foundation"
     ],
     "dependents": [
-      "app-shell-navigation",
       "core-api-client",
       "core-auth-session",
       "core-debug-logging",
@@ -42,7 +41,7 @@
       "feature-chat-persistence"
     ],
     "tests": [],
-    "lastScannedAt": "2026-08-03T01:02:18Z"
+    "lastScannedAt": "2026-10-12T07:02:33Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -72,7 +71,7 @@
     "react-app-env Git 只提交无效 endpoint 与占位 token 的 env.example；真实 env.\u003cenvironment\u003e 由安全打包配置提供。authMode=none 禁止 accessToken，authMode=query-token 必须提供客户端 accessToken；该 token 会进入 Bundle，只能是低权限、可撤销、可轮换的分发凭据，不能作为服务端 Secret。",
     "REACT_APP_ENV_ARTIFACT 相对路径以 React App 根目录解析；EAS 远端构建必须先把固定版本产物复制进临时 App 构建上下文，不能依赖未上传的 sibling 路径。",
     "正式 artifact 直接携带配置文件解析后的 endpoint 与可选客户端 token；syncReactAppEnvArtifact 只校验并生成 registry，不再从动态 process.env 补全默认源。",
-    "改变量名时同时检查 REST、HTTP profile WebSocket 和开发态调试面板；Desktop WS profile 的 wsUrl 来自 pairing profile，不走环境变量。",
+    "改变量名时同时检查云端 REST、WebSocket 和开发态调试面板；Desktop wsUrl 来自当前账号路由，不走云端环境变量。",
     "调用方仍需自行处理空值分支。",
     "共享 OTA bundle 必须包含完整品牌 app env registry，运行时只按安装壳品牌选择；不得在构建时生成单一 active brand 常量。"
   ],

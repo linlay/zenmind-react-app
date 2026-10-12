@@ -1,22 +1,10 @@
 import { memo, type ReactNode } from 'react';
-import { ActivityIndicator, Pressable, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { cn } from '../../shared/visual/className';
 
-const ACCOUNT_HEADER_CLASS =
-  'mx-app-lg mt-app-md flex-row items-center gap-app-md rounded-app-md border border-app-line bg-app-surface px-app-lg py-app-lg';
-const AVATAR_CLASS = 'h-[52px] w-[52px] shrink-0 items-center justify-center rounded-app-pill';
-const AVATAR_TEXT_CLASS = 'text-app-title-lg font-semibold';
-const ACCOUNT_BODY_CLASS = 'min-w-0 flex-1';
-const ACCOUNT_NAME_CLASS = 'text-app-title-sm font-semibold text-app-primary';
-const ACCOUNT_STATUS_ROW_CLASS = 'mt-[3px] flex-row items-center gap-[6px]';
-const ACCOUNT_STATUS_DOT_CLASS = 'h-[6px] w-[6px] rounded-app-pill';
-const ACCOUNT_STATUS_PAIRED_CLASS = 'bg-app-success';
-const ACCOUNT_STATUS_DEFAULT_CLASS = 'bg-app-tertiary';
-const ACCOUNT_STATUS_TEXT_CLASS = 'text-app-footnote font-medium text-app-secondary';
-const ACCOUNT_SUMMARY_CLASS = 'mt-[3px] text-app-caption text-app-tertiary';
 const SECTION_CLASS = 'gap-app-sm';
 const SECTION_TITLE_CLASS = 'ml-app-xs text-app-footnote font-semibold text-app-secondary';
 const SECTION_CARD_CLASS = 'overflow-hidden rounded-app-md border border-app-line bg-app-surface';
@@ -38,18 +26,6 @@ const STATUS_DOT_NEUTRAL_CLASS = 'bg-app-tertiary';
 const STATUS_LABEL_CLASS = 'text-app-footnote font-medium text-app-secondary';
 const CHECK_SLOT_CLASS = 'h-[22px] w-[22px] items-center justify-center';
 const CHEVRON_RIGHT_CLASS = 'rotate-180';
-const DEVICE_NAME_EDITOR_CLASS = 'gap-app-md border-t border-app-line bg-app-surface px-app-lg py-app-lg';
-const DEVICE_NAME_INPUT_CLASS =
-  'min-h-[44px] rounded-app-sm border border-app-line-strong bg-app-background px-app-md text-app-body text-app-primary';
-const DEVICE_NAME_EDITOR_HINT_CLASS = 'text-app-caption leading-5 text-app-tertiary';
-const DEVICE_NAME_EDITOR_ERROR_CLASS = 'text-app-caption leading-5 text-app-danger';
-const DEVICE_NAME_ACTIONS_CLASS = 'flex-row justify-end gap-app-sm';
-const DEVICE_NAME_ACTION_CLASS =
-  'min-h-[44px] items-center justify-center rounded-app-sm px-app-lg active:bg-app-surface-muted';
-const DEVICE_NAME_SAVE_CLASS = 'bg-app-action active:opacity-[0.86]';
-const DEVICE_NAME_SAVE_DISABLED_CLASS = 'opacity-[0.42]';
-const DEVICE_NAME_ACTION_TEXT_CLASS = 'text-app-body-sm font-semibold text-app-secondary';
-const DEVICE_NAME_SAVE_TEXT_CLASS = 'text-app-body-sm font-semibold text-app-on-action';
 const LOGOUT_BUTTON_CLASS =
   'mb-app-lg min-h-[48px] items-center justify-center rounded-app-md border border-app-danger-line bg-app-surface active:bg-app-danger-soft';
 const LOGOUT_BUTTON_DISABLED_CLASS = 'opacity-[0.58]';
@@ -81,73 +57,11 @@ type MeScreenRowProps = Omit<MeScreenRowModel, 'key'> & {
   isFirst?: boolean;
 };
 
-type MeAccountHeaderProps = {
-  accountName: string;
-  avatarLabel: string;
-  avatarBackgroundColor: string;
-  avatarForegroundColor: string;
-  paired: boolean;
-  statusLabel: string;
-  summary: string;
-};
-
-type MeDeviceNameEditorProps = {
-  value: string;
-  error: string;
-  hint: string;
-  placeholder: string;
-  cancelLabel: string;
-  saveLabel: string;
-  maxLength: number;
-  onChangeText: (value: string) => void;
-  onCancel: () => void;
-  onSave: () => void;
-};
-
 type MeLogoutButtonProps = {
   disabled: boolean;
   title: string;
   onPress: () => void;
 };
-
-export const MeAccountHeader = memo(function MeAccountHeader({
-  accountName,
-  avatarLabel,
-  avatarBackgroundColor,
-  avatarForegroundColor,
-  paired,
-  statusLabel,
-  summary
-}: MeAccountHeaderProps) {
-  return (
-    <View className={ACCOUNT_HEADER_CLASS}>
-      <View className={AVATAR_CLASS} style={{ backgroundColor: avatarBackgroundColor }}>
-        <Text className={AVATAR_TEXT_CLASS} style={{ color: avatarForegroundColor }}>
-          {avatarLabel}
-        </Text>
-      </View>
-      <View className={ACCOUNT_BODY_CLASS}>
-        <Text className={ACCOUNT_NAME_CLASS} numberOfLines={1}>
-          {accountName}
-        </Text>
-        <View className={ACCOUNT_STATUS_ROW_CLASS}>
-          <View
-            className={cn(
-              ACCOUNT_STATUS_DOT_CLASS,
-              paired ? ACCOUNT_STATUS_PAIRED_CLASS : ACCOUNT_STATUS_DEFAULT_CLASS
-            )}
-          />
-          <Text className={ACCOUNT_STATUS_TEXT_CLASS} numberOfLines={1}>
-            {statusLabel}
-          </Text>
-        </View>
-        <Text className={ACCOUNT_SUMMARY_CLASS} numberOfLines={2}>
-          {summary}
-        </Text>
-      </View>
-    </View>
-  );
-});
 
 export const MeScreenSection = memo(function MeScreenSection({ title, children }: MeScreenSectionProps) {
   return (
@@ -251,58 +165,6 @@ export const MeScreenRow = memo(function MeScreenRow({
     <Pressable accessibilityRole="button" accessibilityLabel={title} onPress={onPress} className={rowClass}>
       {content}
     </Pressable>
-  );
-});
-
-export const MeDeviceNameEditor = memo(function MeDeviceNameEditor({
-  value,
-  error,
-  hint,
-  placeholder,
-  cancelLabel,
-  saveLabel,
-  maxLength,
-  onChangeText,
-  onCancel,
-  onSave
-}: MeDeviceNameEditorProps) {
-  const { theme } = useAppTheme();
-  const saveDisabled = !value.trim();
-
-  return (
-    <View className={DEVICE_NAME_EDITOR_CLASS}>
-      <TextInput
-        autoCapitalize="words"
-        autoCorrect={false}
-        autoFocus
-        maxLength={maxLength}
-        onChangeText={onChangeText}
-        onSubmitEditing={onSave}
-        placeholder={placeholder}
-        placeholderTextColor={theme.colors.textTertiary}
-        returnKeyType="done"
-        className={DEVICE_NAME_INPUT_CLASS}
-        value={value}
-      />
-      <Text className={error ? DEVICE_NAME_EDITOR_ERROR_CLASS : DEVICE_NAME_EDITOR_HINT_CLASS}>{error || hint}</Text>
-      <View className={DEVICE_NAME_ACTIONS_CLASS}>
-        <Pressable accessibilityRole="button" onPress={onCancel} className={DEVICE_NAME_ACTION_CLASS}>
-          <Text className={DEVICE_NAME_ACTION_TEXT_CLASS}>{cancelLabel}</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          disabled={saveDisabled}
-          onPress={onSave}
-          className={cn(
-            DEVICE_NAME_ACTION_CLASS,
-            DEVICE_NAME_SAVE_CLASS,
-            saveDisabled && DEVICE_NAME_SAVE_DISABLED_CLASS
-          )}
-        >
-          <Text className={DEVICE_NAME_SAVE_TEXT_CLASS}>{saveLabel}</Text>
-        </Pressable>
-      </View>
-    </View>
   );
 });
 

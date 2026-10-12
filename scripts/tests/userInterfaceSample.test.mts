@@ -27,18 +27,6 @@ test('user interface sample keeps static styling on shared semantic tokens', () 
   }
 });
 
-test('Me keeps business state in the screen and delegates only presentation', () => {
-  const screen = readSource('src/app/screens/MeScreen.tsx');
-  const parts = readSource('src/app/screens/MeScreenParts.tsx');
-
-  assert.match(screen, /from '\.\/MeScreenParts'/u);
-  assert.match(screen, /<MeAccountHeader/u);
-  assert.match(screen, /updatePreferredDeviceName\(normalizedDeviceName\)/u);
-  assert.match(screen, /logoutCurrentDevice\(\)/u);
-  assert.doesNotMatch(parts, /appAuth|deviceProfiles|notificationService|useAppAccess/u);
-  assert.doesNotMatch(screen, /PROFILE_HERO_CLASS/u);
-});
-
 test('settings and tab navigation use neutral selection surfaces', () => {
   const settings = readSource('src/app/screens/SettingsScreen.tsx');
   const nativeTabs = readSource('src/app/navigation/TabsNavigator.native.tsx');

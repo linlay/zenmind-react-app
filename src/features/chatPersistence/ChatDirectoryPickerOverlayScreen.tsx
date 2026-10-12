@@ -1,19 +1,18 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getChatCacheScopeId, subscribeChatCacheScope } from './cacheScope';
+import { AccountSourceSheet } from './components/AccountSourceSheet';
+import type { AccountDevice } from '../../core/api/contracts/deviceLink';
+import { readActiveDesktopId, subscribeActiveDesktop } from '../../core/auth/activeDesktop';
+import { useAccountAuth } from '../../core/auth/useAccountAuth';
+import { activateAccountDesktopSource, refreshAccountDesktopDirectory } from './accountDesktopSource';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { View } from 'react-native';
 
 import { useT } from '../../shared/i18n';
 import { buildChatDetailRouteParams } from './chatDetailNavigation';
 import { prewarmAgentDetailForEmptyConversation } from './chatDetailPrefetch';
 import { createDirectoryPickerLoadGate } from './chatDirectoryPickerOverlayState';
-import {
-  createConversationForDirectoryItem,
-  getChatDirectoryCatalogPage,
-} from './chatRepository';
-import {
-  appendDirectoryListState,
-  buildDirectoryListState,
-  type ChatDirectoryListState,
-} from './chatRealtimeUiState';
+import { createConversationForDirectoryItem, getChatDirectoryCatalogPage } from './chatRepository';
+import { appendDirectoryListState, buildDirectoryListState, type ChatDirectoryListState } from './chatRealtimeUiState';
 import { ChatDirectoryPickerDrawer } from './components/ChatDirectoryPickerDrawer';
 import type { ChatDetailRouteParams, ChatDirectoryItem } from './types';
 
@@ -28,6 +27,7 @@ type ChatDirectoryPickerOverlayNavigation = {
   addListener: (eventName: 'beforeRemove', listener: (event: BeforeRemoveEvent) => void) => () => void;
   goBack: () => void;
   replace: (screen: 'ChatDetail', params: ChatDetailRouteParams) => void;
+  navigate: (screen: 'Login', params?: { mode: 'account' | 'cloud' }) => void;
 };
 
 type ChatDirectoryPickerOverlayScreenProps = {
@@ -36,6 +36,55 @@ type ChatDirectoryPickerOverlayScreenProps = {
 
 export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPickerOverlayScreenProps) {
   const t = useT();
+  const auth = useAccountAuth();
+  const accountId = auth.session?.accountId || '';
+  const readDesktopId = () => readActiveDesktopId(accountId);
+  const selectedId = useSyncExternalStore(subscribeActiveDesktop, readDesktopId, readDesktopId);
+  const scopeId = useSyncExternalStore(subscribeChatCacheScope, getChatCacheScopeId, getChatCacheScopeId);
+  const [sourceVisible, setSourceVisible] = useState(false);
+  const [devices, setDevices] = useState<AccountDevice[]>([]);
+  const [sourceLoading, setSourceLoading] = useState(false);
+  const [sourceSwitching, setSourceSwitching] = useState(false);
+  const [sourceError, setSourceError] = useState('');
+  const deviceRequestRef = useRef<AbortController | null>(null);
+  const refreshDevices = useCallback(async () => {
+    if (!accountId || deviceRequestRef.current) return;
+    const controller = new AbortController();
+    deviceRequestRef.current = controller;
+    setSourceLoading(true);
+    setSourceError('');
+    try {
+      const result = await refreshAccountDesktopDirectory(controller.signal);
+      if (controller.signal.aborted) return;
+      setDevices(result.items);
+    } catch (error) {
+      if (!controller.signal.aborted) setSourceError(error instanceof Error ? error.message : String(error));
+    } finally {
+      if (deviceRequestRef.current === controller) deviceRequestRef.current = null;
+      if (!controller.signal.aborted) setSourceLoading(false);
+    }
+  }, [accountId]);
+  useEffect(() => {
+    setDevices([]);
+    void refreshDevices();
+    return () => {
+      deviceRequestRef.current?.abort();
+      deviceRequestRef.current = null;
+    };
+  }, [refreshDevices]);
+  const selectSource = async (device: AccountDevice | null) => {
+    if (sourceSwitching) return;
+    setSourceSwitching(true);
+    setSourceError('');
+    try {
+      await activateAccountDesktopSource(accountId, device);
+      setSourceVisible(false);
+    } catch (error) {
+      setSourceError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setSourceSwitching(false);
+    }
+  };
   const [drawerVisible, setDrawerVisible] = useState(true);
   const [directoryState, setDirectoryState] = useState<ChatDirectoryListState>(() => buildDirectoryListState([], 0));
   const [loading, setLoading] = useState(true);
@@ -43,6 +92,7 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
   const [errorText, setErrorText] = useState('');
   const [openingItemId, setOpeningItemId] = useState<string | null>(null);
   const pageRef = useRef(1);
+  const stateScopeRef = useRef(scopeId);
   const directoryRequestIdRef = useRef(0);
   const mountedRef = useRef(true);
   const closingRequestedRef = useRef(false);
@@ -51,10 +101,12 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
   const loadMoreGate = useMemo(() => createDirectoryPickerLoadGate(), []);
   const items = useMemo(
     () =>
-      directoryState.orderedIds
-        .map((id) => directoryState.itemsById[id])
-        .filter((item): item is ChatDirectoryItem => Boolean(item)),
-    [directoryState.itemsById, directoryState.orderedIds]
+      stateScopeRef.current === scopeId
+        ? directoryState.orderedIds
+            .map((id) => directoryState.itemsById[id])
+            .filter((item): item is ChatDirectoryItem => Boolean(item))
+        : [],
+    [directoryState.itemsById, directoryState.orderedIds, scopeId]
   );
   const total = directoryState.total;
   const hasMore = items.length < total;
@@ -75,19 +127,26 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
     setLoadingMore(false);
   }, [loadMoreGate]);
 
-  const loadPage = useCallback(async (pageCount: number, requestId: number) => {
-    const directory = await getChatDirectoryCatalogPage(pageCount, DIRECTORY_PICKER_PAGE_SIZE);
-    if (!isDirectoryRequestActive(requestId)) {
-      return;
-    }
+  const loadPage = useCallback(
+    async (pageCount: number, requestId: number) => {
+      const directory =
+        accountId && scopeId !== 'signed_out'
+          ? await getChatDirectoryCatalogPage(pageCount, DIRECTORY_PICKER_PAGE_SIZE)
+          : { items: [], total: 0, page: 1 };
+      if (!isDirectoryRequestActive(requestId)) {
+        return;
+      }
 
-    setDirectoryState((current) =>
-      directory.page <= 1
-        ? buildDirectoryListState(directory.items, directory.total)
-        : appendDirectoryListState(current, directory.items, directory.total)
-    );
-    pageRef.current = directory.page;
-  }, [isDirectoryRequestActive]);
+      stateScopeRef.current = scopeId;
+      setDirectoryState((current) =>
+        directory.page <= 1
+          ? buildDirectoryListState(directory.items, directory.total)
+          : appendDirectoryListState(current, directory.items, directory.total)
+      );
+      pageRef.current = directory.page;
+    },
+    [accountId, scopeId, isDirectoryRequestActive]
+  );
 
   useEffect(() => {
     return () => {
@@ -132,6 +191,11 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
   useEffect(
     () =>
       navigation.addListener('beforeRemove', (event) => {
+        if (sourceVisible) {
+          event.preventDefault();
+          setSourceVisible(false);
+          return;
+        }
         if (!drawerVisible || closingRequestedRef.current || pendingDetailParamsRef.current) {
           return;
         }
@@ -139,7 +203,7 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
         event.preventDefault();
         closeDrawer();
       }),
-    [closeDrawer, drawerVisible, navigation]
+    [closeDrawer, drawerVisible, navigation, sourceVisible]
   );
 
   const handleDrawerDismissed = useCallback(() => {
@@ -184,6 +248,7 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
       }
 
       const openConversation = async () => {
+        const requestedScope = getChatCacheScopeId();
         openingItemIdRef.current = item.id;
         setOpeningItemId(item.id);
         setErrorText('');
@@ -195,6 +260,7 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
             return;
           }
 
+          if (requestedScope !== getChatCacheScopeId()) return;
           prewarmAgentDetailForEmptyConversation(item, result);
           pendingDetailParamsRef.current = buildChatDetailRouteParams(item, result);
           invalidateDirectoryRequests();
@@ -215,6 +281,15 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
   return (
     <View className={SCREEN_CLASS}>
       <ChatDirectoryPickerDrawer
+        sourceLabel={
+          selectedId
+            ? devices.find((device) => device.deviceId === selectedId)?.deviceName || 'Desktop'
+            : scopeId === 'signed_out'
+              ? t('cloud.chooseSource')
+              : t('accountSource.cloud')
+        }
+        isDesktop={Boolean(selectedId)}
+        onOpenSource={() => setSourceVisible(true)}
         visible={drawerVisible}
         items={items}
         total={total}
@@ -227,6 +302,26 @@ export function ChatDirectoryPickerOverlayScreen({ navigation }: ChatDirectoryPi
         onDismissed={handleDrawerDismissed}
         onLoadMore={handleLoadMore}
         onSelectItem={handleSelectItem}
+      />
+      <AccountSourceSheet
+        visible={sourceVisible}
+        loggedIn={Boolean(auth.session)}
+        devices={devices}
+        selectedId={selectedId}
+        loading={sourceLoading}
+        switching={sourceSwitching}
+        error={sourceError}
+        onClose={() => setSourceVisible(false)}
+        onRefresh={() => {
+          void refreshDevices();
+        }}
+        onSelect={(device) => {
+          void selectSource(device);
+        }}
+        onLogin={(mode) => {
+          setSourceVisible(false);
+          navigation.navigate('Login', { mode });
+        }}
       />
     </View>
   );

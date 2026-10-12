@@ -1,3 +1,5 @@
+import type { ChatSkillsCatalog } from '../../../core/api/services/chatSkillsProtocol';
+import { ChatComposerSkillsMenu } from './ChatComposerSkillsMenu';
 import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Keyboard, Modal, Pressable, ScrollView, Text, useWindowDimensions, View, type ViewStyle } from 'react-native';
 
@@ -16,6 +18,19 @@ import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 
 type ChatComposerOptionRowProps = {
+  skillsEnabled: boolean;
+  skillsDisabled: boolean;
+  skillsCatalog: ChatSkillsCatalog | null;
+  selectedSkills: readonly string[];
+  skillsLoading: boolean;
+  skillsError: string;
+  onLoadSkills: () => void;
+  onToggleSkills: (ids: readonly string[]) => void;
+  modelEnabled?: boolean;
+  accessLevelEnabled?: boolean;
+  runtimeAccess?: { runId: string; level?: QueryAccessLevel; phase?: 'sending' | 'unknown' } | null;
+  onRuntimeAccessChange?: (level: QueryAccessLevel) => void;
+  onRuntimeAccessRefresh?: () => void;
   accessLevel: QueryAccessLevel;
   agentKey: string;
   disabled?: boolean;
@@ -26,7 +41,7 @@ type ChatComposerOptionRowProps = {
   onModelOverrideChange: (value: QueryModelOverride) => void;
 };
 
-type OptionMenu = 'access' | 'model';
+type OptionMenu = 'access' | 'model' | 'skills';
 
 type ModelMenuView = 'settings' | 'models';
 
@@ -82,7 +97,8 @@ const MENU_PANEL_CLASS =
   'max-h-[360px] gap-[10px] rounded-[28px] border border-app-line bg-app-surface-raised px-app-md py-app-md';
 const MENU_CONTENT_CLASS = 'gap-[8px]';
 const MENU_SCROLL_CLASS = 'shrink';
-const MENU_HEADER_CLASS = 'z-[1] min-h-[38px] flex-row items-center gap-app-xs rounded-[18px] bg-app-surface-raised px-app-xs py-[2px] active:bg-app-surface-muted';
+const MENU_HEADER_CLASS =
+  'z-[1] min-h-[38px] flex-row items-center gap-app-xs rounded-[18px] bg-app-surface-raised px-app-xs py-[2px] active:bg-app-surface-muted';
 const MENU_BACK_ICON_CLASS = 'h-[34px] w-[34px] items-center justify-center rounded-app-pill';
 const MENU_HEADER_TITLE_CLASS = 'text-[17px] font-semibold leading-[23px] text-app-primary';
 const MENU_SECTION_CLASS = 'gap-[4px]';
@@ -207,7 +223,7 @@ function buildModelOverride(
   return {
     ...(key ? { key } : {}),
     ...(reasoningEffort ? { reasoningEffort } : {}),
-    ...(serviceTier && serviceTier !== 'STANDARD' ? { serviceTier } : {})
+    ...(serviceTier ? { serviceTier } : {})
   };
 }
 
@@ -328,7 +344,20 @@ function MenuScrollView({ children }: MenuScrollViewProps) {
 }
 
 export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
+  skillsEnabled,
+  skillsDisabled,
+  skillsCatalog,
+  selectedSkills,
+  skillsLoading,
+  skillsError,
+  onLoadSkills,
+  onToggleSkills,
+  modelEnabled = true,
+  accessLevelEnabled = true,
   accessLevel,
+  runtimeAccess,
+  onRuntimeAccessChange,
+  onRuntimeAccessRefresh,
   agentKey,
   disabled = false,
   modelOptionsLoading,
@@ -345,6 +374,8 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
   const keyboardSettleFrameRef = useRef<number | null>(null);
   const pendingMenuRef = useRef<OptionMenu | null>(null);
   const [activeMenu, setActiveMenu] = useState<OptionMenu | null>(null);
+  const activeMenuRef = useRef(activeMenu);
+  activeMenuRef.current = activeMenu;
   const [modelMenuView, setModelMenuView] = useState<ModelMenuView>('settings');
   const [menuAnchorLayout, setMenuAnchorLayout] = useState<MenuAnchorLayout | null>(null);
   const models = modelOptionsSnapshot?.models || EMPTY_MODELS;
@@ -383,19 +414,23 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
     serviceTiers.length,
     t
   ]);
-  const modelChipDisabled = disabled || !agentKey || modelOptionsLoading || !modelOptionsSnapshot?.recognized;
+  const modelChipDisabled =
+    !modelEnabled || disabled || !agentKey || modelOptionsLoading || !modelOptionsSnapshot?.recognized;
   const popoverFrameStyle = useMemo<ViewStyle>(() => {
     if (!menuAnchorLayout || !menuAnchorLayout.width || !menuAnchorLayout.height) {
       return DEFAULT_POPOVER_FRAME_STYLE;
     }
 
     const maxWidth = Math.max(windowDimensions.width - POPOVER_HORIZONTAL_INSET * 2, POPOVER_HORIZONTAL_INSET);
-    const left = Math.max(POPOVER_HORIZONTAL_INSET, Math.min(menuAnchorLayout.x, windowDimensions.width - POPOVER_HORIZONTAL_INSET));
-    const width = Math.min(menuAnchorLayout.width, Math.max(maxWidth - (left - POPOVER_HORIZONTAL_INSET), POPOVER_HORIZONTAL_INSET));
-    const bottom = Math.max(
-      POPOVER_VERTICAL_GAP,
-      windowDimensions.height - menuAnchorLayout.y + POPOVER_VERTICAL_GAP
+    const left = Math.max(
+      POPOVER_HORIZONTAL_INSET,
+      Math.min(menuAnchorLayout.x, windowDimensions.width - POPOVER_HORIZONTAL_INSET)
     );
+    const width = Math.min(
+      menuAnchorLayout.width,
+      Math.max(maxWidth - (left - POPOVER_HORIZONTAL_INSET), POPOVER_HORIZONTAL_INSET)
+    );
+    const bottom = Math.max(POPOVER_VERTICAL_GAP, windowDimensions.height - menuAnchorLayout.y + POPOVER_VERTICAL_GAP);
 
     return {
       bottom,
@@ -438,6 +473,7 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
   const toggleMenu = useCallback(
     (menu: OptionMenu) => {
       if (activeMenu === menu) {
+        if (menu === 'skills') Keyboard.dismiss();
         pendingMenuRef.current = null;
         setModelMenuView('settings');
         setActiveMenu(null);
@@ -456,10 +492,31 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
     [activeMenu, openMenu]
   );
   const handleDismissMenu = useCallback(() => {
+    if (activeMenuRef.current === 'skills') Keyboard.dismiss();
     pendingMenuRef.current = null;
     setModelMenuView('settings');
     setActiveMenu(null);
   }, []);
+  const handleSkillsChipPress = useCallback(() => {
+    if (skillsDisabled || !skillsEnabled) return;
+    if (activeMenu !== 'skills') onLoadSkills();
+    toggleMenu('skills');
+  }, [activeMenu, onLoadSkills, skillsDisabled, skillsEnabled, toggleMenu]);
+  useEffect(() => {
+    if (activeMenu === 'skills' && (skillsDisabled || !skillsEnabled)) handleDismissMenu();
+  }, [activeMenu, handleDismissMenu, skillsDisabled, skillsEnabled]);
+  useEffect(() => {
+    if (activeMenuRef.current === 'skills') handleDismissMenu();
+  }, [agentKey, handleDismissMenu]);
+  const handleRuntimeAccessSelect = useCallback(
+    (key: string) => {
+      const level = ACCESS_LEVELS.find((value) => value === key);
+      if (!level || runtimeAccess?.phase) return;
+      onRuntimeAccessChange?.(level);
+      setActiveMenu(null);
+    },
+    [onRuntimeAccessChange, runtimeAccess?.phase]
+  );
   const handleAccessChipPress = useCallback(() => toggleMenu('access'), [toggleMenu]);
   const handleModelChipPress = useCallback(() => {
     if (!modelChipDisabled) {
@@ -491,7 +548,7 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
           modelOverride,
           {
             key: model.key,
-            serviceTier: nextServiceTier === 'STANDARD' ? undefined : nextServiceTier
+            serviceTier: nextServiceTier
           },
           modelOptionsSnapshot
         )
@@ -516,13 +573,7 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
       if (!option) {
         return;
       }
-      onModelOverrideChange(
-        buildModelOverride(
-          modelOverride,
-          { serviceTier: option.key === 'STANDARD' ? undefined : option.key },
-          modelOptionsSnapshot
-        )
-      );
+      onModelOverrideChange(buildModelOverride(modelOverride, { serviceTier: option.key }, modelOptionsSnapshot));
     },
     [modelOptionsSnapshot, modelOverride, onModelOverrideChange, serviceTiers]
   );
@@ -537,6 +588,10 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
   useEffect(() => {
     const showSubscription = Keyboard.addListener('keyboardDidShow', () => {
       keyboardVisibleRef.current = true;
+      if (activeMenuRef.current === 'skills') {
+        measureMenuAnchor();
+        return;
+      }
       pendingMenuRef.current = null;
       cancelKeyboardSettleFrame();
       setModelMenuView('settings');
@@ -544,6 +599,7 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
     });
     const hideSubscription = Keyboard.addListener('keyboardDidHide', () => {
       keyboardVisibleRef.current = false;
+      if (activeMenuRef.current === 'skills') measureMenuAnchor();
       const pendingMenu = pendingMenuRef.current;
       pendingMenuRef.current = null;
       if (pendingMenu) {
@@ -557,7 +613,7 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
       cancelKeyboardSettleFrame();
       pendingMenuRef.current = null;
     };
-  }, [cancelKeyboardSettleFrame, openMenuAfterKeyboardSettled]);
+  }, [cancelKeyboardSettleFrame, measureMenuAnchor, openMenuAfterKeyboardSettled]);
 
   return (
     <View ref={rootRef} className={cn(ROOT_CLASS, activeMenu ? ROOT_ACTIVE_CLASS : null)}>
@@ -570,9 +626,17 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
       >
         <OptionChip
           active={activeMenu === 'access'}
-          disabled={disabled}
+          disabled={disabled || !accessLevelEnabled}
           iconUsage={ACCESS_ICON_USAGE[accessLevel]}
-          label={t(`composer.query.access.${accessLevel}`)}
+          label={
+            runtimeAccess
+              ? runtimeAccess.phase === 'unknown' || !runtimeAccess.level
+                ? t('composer.runtimeAccess.unknown')
+                : runtimeAccess.phase === 'sending'
+                  ? t('composer.runtimeAccess.sending')
+                  : `${t('composer.runtimeAccess.current')} · ${t(`composer.query.access.${runtimeAccess.level}`)}`
+              : t(`composer.query.access.${accessLevel}`)
+          }
           onPress={handleAccessChipPress}
         />
         <OptionChip
@@ -582,6 +646,15 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
           label={modelChipLabel}
           onPress={handleModelChipPress}
         />
+        {skillsEnabled ? (
+          <OptionChip
+            active={selectedSkills.length > 0 || activeMenu === 'skills'}
+            disabled={skillsDisabled}
+            iconUsage="composer.reasoning"
+            label={`${t('composer.skills.title')}${selectedSkills.length ? ` · ${selectedSkills.length}` : ''}`}
+            onPress={handleSkillsChipPress}
+          />
+        ) : null}
       </ScrollView>
 
       {activeMenu ? (
@@ -594,8 +667,20 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
               onPress={handleDismissMenu}
             />
             <View className={MENU_POPOVER_CONTAINER_CLASS} pointerEvents="box-none" style={popoverFrameStyle}>
-              <View className={MENU_PANEL_CLASS} style={[POPOVER_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}>
-                {isModelListMenu ? (
+              <View
+                className={MENU_PANEL_CLASS}
+                style={[POPOVER_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}
+              >
+                {activeMenu === 'skills' ? (
+                  <ChatComposerSkillsMenu
+                    catalog={skillsCatalog}
+                    selected={selectedSkills}
+                    loading={skillsLoading}
+                    error={skillsError}
+                    onRetry={onLoadSkills}
+                    onToggle={onToggleSkills}
+                  />
+                ) : isModelListMenu ? (
                   <>
                     <Pressable
                       accessibilityLabel={t('composer.query.model.back')}
@@ -636,17 +721,45 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
                 ) : (
                   <MenuScrollView>
                     {activeMenu === 'access' ? (
-                      ACCESS_LEVELS.map((value) => (
-                        <MenuChoiceRow
-                          key={value}
-                          checked={value === accessLevel}
-                          iconUsage={ACCESS_ICON_USAGE[value]}
-                          label={t(`composer.query.access.${value}`)}
-                          description={getAccessDescription(value, t)}
-                          onSelect={handleAccessSelect}
-                          selectKey={value}
-                        />
-                      ))
+                      <>
+                        {runtimeAccess ? (
+                          <View className={MENU_SECTION_CLASS}>
+                            <Text className={MENU_SECTION_TITLE_CLASS}>{t('composer.runtimeAccess.current')}</Text>
+                            {runtimeAccess.phase === 'unknown' || !runtimeAccess.level ? (
+                              <Text className={EMPTY_TEXT_CLASS}>{t('composer.runtimeAccess.unknown')}</Text>
+                            ) : null}
+                            {ACCESS_LEVELS.map((value) => (
+                              <MenuChoiceRow
+                                key={value}
+                                checked={runtimeAccess.level === value && runtimeAccess.phase !== 'unknown'}
+                                disabled={Boolean(runtimeAccess.phase)}
+                                label={t(`composer.query.access.${value}`)}
+                                selectKey={value}
+                                onSelect={handleRuntimeAccessSelect}
+                              />
+                            ))}
+                            {runtimeAccess.phase === 'unknown' ? (
+                              <Pressable onPress={onRuntimeAccessRefresh} accessibilityRole="button">
+                                <Text className="px-app-sm text-[13px] text-app-brand-blue">
+                                  {t('composer.runtimeAccess.refresh')}
+                                </Text>
+                              </Pressable>
+                            ) : null}
+                          </View>
+                        ) : null}
+                        <Text className={MENU_SECTION_TITLE_CLASS}>{t('composer.runtimeAccess.future')}</Text>
+                        {ACCESS_LEVELS.map((value) => (
+                          <MenuChoiceRow
+                            key={value}
+                            checked={value === accessLevel}
+                            iconUsage={ACCESS_ICON_USAGE[value]}
+                            label={t(`composer.query.access.${value}`)}
+                            description={getAccessDescription(value, t)}
+                            onSelect={handleAccessSelect}
+                            selectKey={value}
+                          />
+                        ))}
+                      </>
                     ) : (
                       <>
                         {reasoningEfforts.length > 0 ? (

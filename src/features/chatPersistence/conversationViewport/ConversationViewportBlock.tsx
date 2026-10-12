@@ -1,3 +1,6 @@
+import type { ChatViewReference } from '../../../core/api/services/chatViewProtocol';
+import { buildConversationViewDocumentKey } from './viewportDocument';
+import { useConversationViewChatId } from './ConversationViewScope';
 import { memo, useCallback, useMemo } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
@@ -29,16 +32,24 @@ const STATUS_TEXT_CLASS = 'text-center text-[12px] leading-[18px] text-app-secon
 export const ConversationViewportBlock = memo(function ConversationViewportBlock({
   payload,
   sourceHash,
-  viewportKey
+  viewportKey,
+  view,
+  viewError = '',
+  memberKey = ''
 }: {
   payload: unknown;
   sourceHash: string;
   viewportKey: string;
+  view?: ChatViewReference;
+  viewError?: string;
+  memberKey?: string;
 }) {
   const t = useT();
   const active = useConversationPreviewRowActive();
   const { resolvedPreference, theme } = useAppTheme();
-  const { html, loading, error: documentError, reload } = useConversationViewportDocument(viewportKey, active);
+  const chatId = useConversationViewChatId();
+  const documentKey = view ? buildConversationViewDocumentKey(chatId, view, 'display', viewError, memberKey) : viewportKey;
+  const { html, loading, error: documentError, reload } = useConversationViewportDocument(documentKey, active);
   const {
     error: executionError,
     handleError,
@@ -51,9 +62,13 @@ export const ConversationViewportBlock = memo(function ConversationViewportBlock
     handleRetry();
     reload();
   }, [handleRetry, reload]);
+  const viewPayload = useMemo(() => {
+    if (typeof payload !== 'string') return payload;
+    try { return JSON.parse(payload); } catch { return payload; }
+  }, [payload]);
   const cacheKey = useMemo(
-    () => `viewport:${hashConversationPreviewSource(viewportKey)}:${hashConversationPreviewSource(html)}:${sourceHash}:${resolvedPreference}`,
-    [html, resolvedPreference, sourceHash, viewportKey]
+    () => `viewport:${hashConversationPreviewSource(documentKey)}:${hashConversationPreviewSource(html)}:${sourceHash}:${resolvedPreference}`,
+    [documentKey, html, resolvedPreference, sourceHash]
   );
   const loadError = documentError
     ? t('timeline.viewport.loadFailed', { detail: documentError })
@@ -98,7 +113,7 @@ export const ConversationViewportBlock = memo(function ConversationViewportBlock
           active={active && !executionError}
           cacheKey={cacheKey}
           heightBounds={VIEWPORT_HEIGHT_BOUNDS}
-          initialData={payload}
+          initialData={view ? {type: 'view_init', data: {view, payload: viewPayload}} : payload}
           kind="html"
           mode="inline"
           retryNonce={retryNonce}

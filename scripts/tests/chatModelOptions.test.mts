@@ -31,7 +31,7 @@ test('model options payload strips agent prefix and omits empty agent key', () =
   assert.deepEqual(buildModelOptionsPayload('  '), {});
 });
 
-test('agent model config payload strips agent prefix and omits standard service tier', () => {
+test('agent model config payload strips agent prefix and explicitly clears standard service tier', () => {
   assert.deepEqual(
     buildAgentModelConfigPayload(' agent:coder-demo ', {
       key: ' qwen-max ',
@@ -42,6 +42,7 @@ test('agent model config payload strips agent prefix and omits standard service 
       agentKey: 'coder-demo',
       modelKey: 'qwen-max',
       reasoningEffort: 'HIGH',
+      serviceTier: null,
     }
   );
   assert.deepEqual(
@@ -134,10 +135,10 @@ test('model options api uses the active AP WebSocket transport without dynamic i
   assert.match(modelOptionsApiSource, /sharedWsTransport\.request<unknown>\(\{/);
   assert.match(modelOptionsApiSource, /type,/);
   assert.match(modelOptionsApiSource, /payload,/);
-  assert.match(modelOptionsApiSource, /requestApTransport\(MODEL_OPTIONS_API_PATH, buildModelOptionsPayload\(agentKey\), signal\)/);
+  assert.match(modelOptionsApiSource, /requestApTransport\(MODEL_OPTIONS_API_PATH, buildModelOptionsPayload\(agentKey\), signal, transport\)/);
   assert.match(
     modelOptionsApiSource,
-    /requestApTransport\(\s*MODEL_CONFIG_API_PATH,\s*buildAgentModelConfigPayload\(agentKey, modelOverride\),\s*signal\s*\)/s
+    /requestApTransport\(\s*MODEL_CONFIG_API_PATH,\s*buildAgentModelConfigPayload\(agentKey, modelOverride\),\s*signal,\s*transport\s*\)/s
   );
   assert.match(modelOptionsApiSource, /return unwrapModelOptionsApiEnvelope\(payload\)/);
   assert.match(modelOptionsApiSource, /namespace: config\.kind === 'desktop-ws' \? config\.namespace : undefined/);

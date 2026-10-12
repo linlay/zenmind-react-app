@@ -1,510 +1,144 @@
+import { useCloudAuth } from '../../core/auth/useCloudAuth';
+import { logoutCloud } from '../../core/auth/cloudAuth';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import * as Clipboard from 'expo-clipboard';
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
-import { Platform, View } from 'react-native';
+import { useMemo } from 'react';
+import { Platform, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { logoutCurrentDevice, readPreferredDeviceName, updatePreferredDeviceName } from '../../core/auth/appAuth';
-import { MAX_DEVICE_NAME_LENGTH } from '../../core/auth/deviceNameModel';
-import { getActiveDeviceProfile } from '../../core/auth/deviceProfiles';
-import { useAppAccess } from '../../core/auth/useAppAccess';
 import { useAccountAuth } from '../../core/auth/useAccountAuth.ts';
-import { getDefaultSourceConfig } from '../../core/config/appEnvironment';
-import { notificationService } from '../../features/notifications/notificationService';
-import { AccountDevicesPanel } from '../../features/deviceLink/AccountDevicesPanel.tsx';
 import { AppKeyboardAwareScrollView } from '../../shared/components/AppKeyboardAwareScrollView';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
-import { APP_VERSION, PRODUCT_NAME } from '../../shared/generated/brand';
-import { type AppLocale, formatAccessExpiryLabel, type TFunction, useI18n } from '../../shared/i18n';
+import { AppIcon } from '../../shared/icons/AppIcon';
+import { useI18n } from '../../shared/i18n';
 import { useAppTheme } from '../../shared/visual/AppThemeProvider';
-import { getAvatarLabel, getAvatarTone } from '../../shared/visual/foundation';
-import type { AppThemePreference } from '../../shared/visual/themePreference';
-import {
-  getDevelopmentDebugPanelSnapshot,
-  openDevelopmentDebugPanel,
-  subscribeDevelopmentDebugPanel
-} from '../debug/developmentDebugPanel';
+import { cn } from '../../shared/visual/className';
+import { appVisualTokens, getAvatarLabel, getAvatarTone } from '../../shared/visual/foundation';
+import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
 import type { RootStackParamList } from '../navigation/types';
-import {
-  MeAccountHeader,
-  MeDeviceNameEditor,
-  MeLogoutButton,
-  MeScreenRow,
-  type MeScreenRowModel,
-  MeScreenSection
-} from './MeScreenParts';
+import { MeScreenRow, MeScreenSection } from './MeScreenParts';
 
-const DEBUG_TRIGGER_TAP_COUNT = 3;
-const DEBUG_TRIGGER_RESET_MS = 1200;
-const SCREEN_CLASS = 'flex-1 bg-app-background';
-const HEADER_SAFE_AREA_CLASS = 'bg-app-surface';
-const SCROLL_VIEW_CLASS = 'flex-1';
-const CONTENT_CLASS = 'w-full pb-app-xxl';
-const SECTION_STACK_CLASS = 'gap-app-lg px-app-lg pt-app-lg';
-
-function getDevelopmentDebugPanelEnabledSnapshot() {
-  return getDevelopmentDebugPanelSnapshot().enabled;
-}
-
-function getActiveConnectionUrl(): string {
-  const profile = getActiveDeviceProfile();
-  if (profile?.transportKind === 'desktop-ws') {
-    return profile.desktopWs?.wsUrl || '';
-  }
-  return '';
-}
-
-function formatDeviceId(deviceId: string | undefined, t: TFunction): string {
-  const normalized = String(deviceId || '').trim();
-  if (!normalized) {
-    return t('common.notReturned');
-  }
-  if (normalized.length <= 14) {
-    return normalized;
-  }
-  return `${normalized.slice(0, 7)}...${normalized.slice(-5)}`;
-}
-
-function formatPlatformName(platform: string, t: TFunction): string {
-  if (platform === 'ios') {
-    return 'iOS';
-  }
-  if (platform === 'android') {
-    return 'Android';
-  }
-  if (platform === 'web') {
-    return 'Web';
-  }
-  return platform || t('common.unknown');
-}
-
-function formatLocaleName(locale: AppLocale, t: TFunction): string {
-  if (locale === 'zh-CN') {
-    return t('settings.language.zhCN');
-  }
-  if (locale === 'en-US') {
-    return t('settings.language.enUS');
-  }
-  return locale;
-}
-
-function formatThemePreferenceName(preference: AppThemePreference, t: TFunction): string {
-  if (preference === 'system') {
-    return t('settings.theme.system');
-  }
-
-  return preference === 'dark' ? t('settings.theme.dark') : t('settings.theme.light');
-}
-
-function useDevelopmentDebugVersionTrigger() {
-  const tapCountRef = useRef(0);
-  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!__DEV__) {
-      return;
-    }
-
-    return () => {
-      if (resetTimerRef.current) {
-        clearTimeout(resetTimerRef.current);
-      }
-    };
-  }, []);
-
-  const openPanelAfterTripleTap = useCallback(() => {
-    if (!__DEV__) {
-      return;
-    }
-
-    if (resetTimerRef.current) {
-      clearTimeout(resetTimerRef.current);
-    }
-
-    tapCountRef.current += 1;
-    if (tapCountRef.current >= DEBUG_TRIGGER_TAP_COUNT) {
-      tapCountRef.current = 0;
-      openDevelopmentDebugPanel();
-      return;
-    }
-
-    resetTimerRef.current = setTimeout(() => {
-      tapCountRef.current = 0;
-      resetTimerRef.current = null;
-    }, DEBUG_TRIGGER_RESET_MS);
-  }, []);
-
-  return __DEV__ ? openPanelAfterTripleTap : undefined;
-}
+const THEME_PREFERENCES = ['system', 'light', 'dark'] as const;
 
 export function MeScreen() {
-  const { locale, t } = useI18n();
-  const { preference: themePreference } = useAppTheme();
-  const access = useAppAccess();
-  const accountAuth = useAccountAuth();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
-  const debugPanelEnabled = useSyncExternalStore(
-    subscribeDevelopmentDebugPanel,
-    getDevelopmentDebugPanelEnabledSnapshot,
-    getDevelopmentDebugPanelEnabledSnapshot
+  const { session } = useAccountAuth();
+  const cloud = useCloudAuth();
+  const { locale, t } = useI18n();
+  const { theme, preference, setThemePreference } = useAppTheme();
+  const tabBarHeight = useAppTabBarHeight();
+  const contentContainerStyle = useMemo(
+    () => ({ paddingBottom: (Platform.OS === 'web' ? tabBarHeight : 0) + appVisualTokens.spacing.xxl }),
+    [tabBarHeight]
   );
-  const [isSubmittingLogout, setIsSubmittingLogout] = useState(false);
-  const [isEditingDeviceName, setIsEditingDeviceName] = useState(false);
-  const [deviceName, setDeviceName] = useState('');
-  const [deviceNameDraft, setDeviceNameDraft] = useState('');
-  const [deviceNameError, setDeviceNameError] = useState('');
-  const isMountedRef = useRef(true);
-  const isPaired = access.status === 'ready' && access.pairingState === 'paired';
-  const currentSession = isPaired ? access.pairedSession : null;
-  const accountSession = accountAuth.session;
-  const effectiveDeviceId = accountSession?.deviceId || currentSession?.deviceId || access.defaultIdentity?.id || '';
-  const defaultSource = useMemo(() => getDefaultSourceConfig(), []);
-  const showLogout = Boolean(accountSession || isPaired);
-  const activeConnectionUrl = getActiveConnectionUrl();
-  const defaultConnectionUrl = defaultSource.wsUrl || defaultSource.apiBaseUrl;
-  const handleVersionPress = useDevelopmentDebugVersionTrigger();
-  const accountName = accountSession
-    ? accountSession.username
-    : isPaired
-      ? currentSession?.username || t('me.accountName.loggedOut')
-      : t('me.accountName.default');
+  const accountName = session?.username || t('me.accountName.loggedOut');
   const avatarTone = getAvatarTone(accountName);
-  const sessionStateText = accountSession
-    ? t('me.session.loggedIn')
-    : isPaired
-      ? t('me.session.paired')
-      : t('me.session.unpaired');
-  const sessionSummary = accountSession
-    ? t('me.description.account')
-    : isPaired
-      ? t('me.description.paired')
-      : t('me.description.unpaired');
-  const modeLabel = __DEV__ ? t('me.value.dev') : t('me.value.prod');
-  const handleOpenSettings = useCallback(() => {
-    navigation.navigate('Settings');
-  }, [navigation]);
-  const handleOpenAgentWaitingDemo = useCallback(() => {
-    navigation.navigate('AgentWaitingDemo');
-  }, [navigation]);
-  const handleOpenPairing = useCallback(() => {
-    navigation.navigate('Login');
-  }, [navigation]);
-  const handleOpenDeviceNameEditor = useCallback(() => {
-    setDeviceNameDraft(deviceName);
-    setDeviceNameError('');
-    setIsEditingDeviceName(true);
-  }, [deviceName]);
-  const handleCancelDeviceNameEditor = useCallback(() => {
-    setDeviceNameDraft(deviceName);
-    setDeviceNameError('');
-    setIsEditingDeviceName(false);
-  }, [deviceName]);
-  const handleDeviceNameDraftChange = useCallback((value: string) => {
-    setDeviceNameDraft(value);
-    setDeviceNameError('');
-  }, []);
-  const handleSaveDeviceName = useCallback(() => {
-    const normalizedDeviceName = deviceNameDraft.trim();
-    if (!normalizedDeviceName) {
-      setDeviceNameError(t('me.deviceName.error.required'));
-      return;
-    }
-    if (normalizedDeviceName.length > MAX_DEVICE_NAME_LENGTH) {
-      setDeviceNameError(t('me.deviceName.error.tooLong', { count: MAX_DEVICE_NAME_LENGTH }));
-      return;
-    }
-
-    try {
-      const savedDeviceName = updatePreferredDeviceName(normalizedDeviceName);
-      setDeviceName(savedDeviceName);
-      setDeviceNameDraft(savedDeviceName);
-      setDeviceNameError('');
-      setIsEditingDeviceName(false);
-    } catch {
-      setDeviceNameError(t('me.deviceName.error.saveFailed'));
-    }
-  }, [deviceNameDraft, t]);
-  const handleCopyActiveConnectionUrl = useCallback(() => {
-    if (!activeConnectionUrl) {
-      return;
-    }
-    void Clipboard.setStringAsync(activeConnectionUrl).catch(() => {});
-  }, [activeConnectionUrl]);
-  const handleCopyDefaultConnectionUrl = useCallback(() => {
-    if (!defaultConnectionUrl) {
-      return;
-    }
-    void Clipboard.setStringAsync(defaultConnectionUrl).catch(() => {});
-  }, [defaultConnectionUrl]);
-  const handleLogout = useCallback(() => {
-    if (isSubmittingLogout) {
-      return;
-    }
-
-    setIsSubmittingLogout(true);
-    void notificationService.clearRegistration().catch(() => {});
-    logoutCurrentDevice()
-      .catch(() => {})
-      .finally(() => {
-        if (isMountedRef.current) {
-          setIsSubmittingLogout(false);
-        }
-      });
-  }, [isSubmittingLogout]);
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  useEffect(() => {
-    const nextDeviceName = currentSession?.deviceName || readPreferredDeviceName(effectiveDeviceId);
-    setDeviceName(nextDeviceName);
-    if (!isEditingDeviceName) {
-      setDeviceNameDraft(nextDeviceName);
-    }
-  }, [currentSession?.deviceName, effectiveDeviceId, isEditingDeviceName]);
-
-  const sessionRows = useMemo(() => {
-    if (isPaired) {
-      return [
-        {
-          key: 'pairingState',
-          title: t('me.row.pairingState'),
-          accessory: { kind: 'status', label: t('me.session.paired'), tone: 'positive' } as const
-        },
-        {
-          key: 'defaultSource',
-          title: t('me.row.defaultSource'),
-          detail: t('me.value.defaultAlongsidePaired', { name: defaultSource.displayName })
-        },
-        {
-          key: 'accessExpiry',
-          title: t('me.row.accessExpiry'),
-          detail: currentSession
-            ? formatAccessExpiryLabel(locale, t, currentSession.accessExpireAtMs)
-            : t('common.noActiveSession')
-        },
-        {
-          key: 'pairedService',
-          title: t('me.row.pairedService'),
-          detail: activeConnectionUrl || t('common.notConfigured'),
-          valueTone: activeConnectionUrl ? ('link' as const) : ('muted' as const),
-          accessory: activeConnectionUrl ? ({ kind: 'copy' } as const) : undefined,
-          onPress: activeConnectionUrl ? handleCopyActiveConnectionUrl : undefined
-        }
-      ] satisfies MeScreenRowModel[];
-    }
-
-    return [
-      {
-        key: 'pairingState',
-        title: t('me.row.pairingState'),
-        accessory: { kind: 'status', label: t('me.session.unpaired'), tone: 'neutral' } as const
-      },
-      {
-        key: 'defaultSource',
-        title: t('me.row.defaultSource'),
-        detail: defaultSource.displayName,
-        accessory: { kind: 'check' } as const
-      },
-      {
-        key: 'defaultService',
-        title: t('me.row.defaultService'),
-        detail: defaultConnectionUrl || t('common.notConfigured'),
-        valueTone: defaultConnectionUrl ? ('link' as const) : ('muted' as const),
-        accessory: defaultConnectionUrl ? ({ kind: 'copy' } as const) : undefined,
-        onPress: defaultConnectionUrl ? handleCopyDefaultConnectionUrl : undefined
-      },
-      {
-        key: 'pair',
-        title: t('me.action.pair'),
-        detail: t('me.action.pairDetail'),
-        iconUsage: 'tab.me' as const,
-        accessory: { kind: 'chevron' } as const,
-        onPress: handleOpenPairing
-      }
-    ] satisfies MeScreenRowModel[];
-  }, [
-    activeConnectionUrl,
-    currentSession,
-    defaultConnectionUrl,
-    defaultSource.displayName,
-    handleCopyActiveConnectionUrl,
-    handleCopyDefaultConnectionUrl,
-    handleOpenPairing,
-    isPaired,
-    locale,
-    t
-  ]);
-  const deviceRows = useMemo(
-    () =>
-      [
-        {
-          key: 'deviceName',
-          title: t('me.row.deviceName'),
-          detail: deviceName,
-          iconUsage: 'tab.me' as const,
-          accessory: { kind: 'chevron' as const },
-          onPress: handleOpenDeviceNameEditor
-        },
-        {
-          key: 'deviceId',
-          title: t('me.row.deviceId'),
-          detail: formatDeviceId(effectiveDeviceId, t)
-        },
-        {
-          key: 'platform',
-          title: t('me.row.platform'),
-          detail: formatPlatformName(Platform.OS, t)
-        }
-      ] satisfies MeScreenRowModel[],
-    [effectiveDeviceId, deviceName, handleOpenDeviceNameEditor, t]
-  );
-  const aboutRows = useMemo(
-    () =>
-      [
-        {
-          key: 'app',
-          title: t('me.row.app'),
-          value: PRODUCT_NAME,
-          valueTone: 'muted' as const
-        },
-        {
-          key: 'version',
-          title: t('me.row.version'),
-          value: `v${APP_VERSION}`,
-          valueTone: 'muted' as const,
-          onPress: handleVersionPress
-        },
-        {
-          key: 'mode',
-          title: t('me.row.mode'),
-          value: modeLabel,
-          valueTone: 'muted' as const
-        }
-      ] satisfies MeScreenRowModel[],
-    [handleVersionPress, modeLabel, t]
-  );
-  const actionRows = useMemo(
-    () =>
-      [
-        {
-          key: 'waitingEffects',
-          title: t('me.action.waitingEffects'),
-          detail: t('me.action.waitingEffectsDetail'),
-          iconUsage: 'settings.openPanel' as const,
-          accessory: { kind: 'chevron' as const },
-          onPress: handleOpenAgentWaitingDemo
-        },
-        {
-          key: 'cache',
-          title: t('me.action.cacheManagement'),
-          iconUsage: 'settings.cache' as const,
-          accessory: { kind: 'chevron' as const },
-          onPress: handleOpenSettings
-        },
-        {
-          key: 'developer',
-          title: t('me.action.developerMode'),
-          value: __DEV__ && debugPanelEnabled ? t('settings.value.enabled') : t('settings.value.disabled'),
-          valueTone: 'muted' as const,
-          iconUsage: 'settings.developer' as const,
-          accessory: { kind: 'chevron' as const },
-          onPress: handleOpenSettings
-        },
-        {
-          key: 'theme',
-          title: t('me.action.themeSettings'),
-          value: formatThemePreferenceName(themePreference, t),
-          valueTone: 'muted' as const,
-          iconUsage: 'settings.theme' as const,
-          accessory: { kind: 'chevron' as const },
-          onPress: handleOpenSettings
-        },
-        {
-          key: 'language',
-          title: t('me.action.languageSettings'),
-          value: formatLocaleName(locale, t),
-          valueTone: 'muted' as const,
-          iconUsage: 'settings.language' as const,
-          accessory: { kind: 'chevron' as const },
-          onPress: handleOpenSettings
-        }
-      ] satisfies MeScreenRowModel[],
-    [debugPanelEnabled, handleOpenAgentWaitingDemo, handleOpenSettings, locale, t, themePreference]
-  );
 
   return (
-    <View className={SCREEN_CLASS}>
-      <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
+    <View className="flex-1 bg-app-background">
+      <SafeAreaView edges={['top']} className="bg-app-surface">
         <ScreenHeader title={t('me.title')} />
       </SafeAreaView>
-
-      <AppKeyboardAwareScrollView className={SCROLL_VIEW_CLASS} showsVerticalScrollIndicator={false}>
-        <View className={CONTENT_CLASS}>
-          <MeAccountHeader
-            accountName={accountName}
-            avatarLabel={getAvatarLabel(accountName)}
-            avatarBackgroundColor={avatarTone.backgroundColor}
-            avatarForegroundColor={avatarTone.foregroundColor}
-            paired={isPaired}
-            statusLabel={`${sessionStateText} · ${modeLabel}`}
-            summary={sessionSummary}
-          />
-
-          <View className={SECTION_STACK_CLASS}>
-            {accountSession ? (
-              <MeScreenSection title={t('me.section.accountDevices')}>
-                <AccountDevicesPanel />
-              </MeScreenSection>
-            ) : null}
-            <MeScreenSection title={t('me.section.session')}>
-              {sessionRows.map(({ key, ...row }, index) => (
-                <MeScreenRow key={key} {...row} isFirst={index === 0} />
+      <AppKeyboardAwareScrollView
+        className="flex-1"
+        contentContainerStyle={contentContainerStyle}
+        showsVerticalScrollIndicator={false}
+      >
+        <View className="gap-app-lg px-app-lg pt-app-lg">
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={t('account.title')}
+            onPress={() =>
+              session ? navigation.navigate('Settings', { section: 'account' }) : navigation.navigate('Login')
+            }
+            className="flex-row items-center gap-app-md rounded-app-md border border-app-line bg-app-surface px-app-lg py-app-lg active:bg-app-surface-muted"
+          >
+            <View
+              className="h-[52px] w-[52px] items-center justify-center rounded-app-pill"
+              style={{ backgroundColor: avatarTone.backgroundColor }}
+            >
+              <Text className="text-app-title-lg font-semibold" style={{ color: avatarTone.foregroundColor }}>
+                {getAvatarLabel(accountName)}
+              </Text>
+            </View>
+            <View className="min-w-0 flex-1 gap-app-xs">
+              <Text className="text-app-title-sm font-semibold text-app-primary" numberOfLines={1}>
+                {accountName}
+              </Text>
+              <Text className="text-app-footnote text-app-secondary">
+                {t(session ? 'me.session.loggedIn' : 'account.loginHint')}
+              </Text>
+            </View>
+            <View className="rotate-180">
+              <AppIcon usage="chatDetail.back" size={19} color={theme.colors.textTertiary} />
+            </View>
+          </Pressable>
+          <MeScreenSection title={t('accountSource.cloud')}>
+            <MeScreenRow
+              isFirst
+              title={t('cloud.login')}
+              value={t(`cloud.status.${cloud.status}`)}
+              iconUsage="accountSource.cloud"
+              accessory={{ kind: 'chevron' }}
+              onPress={() => navigation.navigate('Login', { mode: 'cloud' })}
+            />
+            {cloud.scopeId ? <MeScreenRow title={t('cloud.logout')} iconUsage="tab.me" onPress={logoutCloud} /> : null}
+          </MeScreenSection>
+          <MeScreenSection title={t('me.action.themeSettings')}>
+            <View accessibilityRole="radiogroup" className="flex-row flex-wrap gap-app-xs p-app-sm">
+              {THEME_PREFERENCES.map((option) => (
+                <Pressable
+                  key={option}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: preference === option }}
+                  onPress={() => setThemePreference(option)}
+                  className={cn(
+                    'min-h-11 min-w-[80px] flex-1 items-center justify-center rounded-app-sm px-app-sm py-app-sm',
+                    preference === option ? 'bg-app-action' : 'bg-app-surface-muted'
+                  )}
+                >
+                  <Text
+                    className={cn(
+                      'text-app-body-sm font-semibold',
+                      preference === option ? 'text-app-on-action' : 'text-app-secondary'
+                    )}
+                  >
+                    {t(`settings.theme.${option}`)}
+                  </Text>
+                </Pressable>
               ))}
-            </MeScreenSection>
-
-            <MeScreenSection title={t('me.section.device')}>
-              {deviceRows.map(({ key, ...row }, index) => (
-                <View key={key}>
-                  <MeScreenRow {...row} isFirst={index === 0} />
-                  {key === 'deviceName' && isEditingDeviceName ? (
-                    <MeDeviceNameEditor
-                      value={deviceNameDraft}
-                      error={deviceNameError}
-                      hint={t('me.deviceName.hint', { count: MAX_DEVICE_NAME_LENGTH })}
-                      placeholder={t('me.deviceName.placeholder')}
-                      cancelLabel={t('common.cancel')}
-                      saveLabel={t('me.deviceName.save')}
-                      maxLength={MAX_DEVICE_NAME_LENGTH}
-                      onChangeText={handleDeviceNameDraftChange}
-                      onCancel={handleCancelDeviceNameEditor}
-                      onSave={handleSaveDeviceName}
-                    />
-                  ) : null}
-                </View>
-              ))}
-            </MeScreenSection>
-
-            <MeScreenSection title={t('me.section.actions')}>
-              {actionRows.map(({ key, ...row }, index) => (
-                <MeScreenRow key={key} {...row} isFirst={index === 0} />
-              ))}
-            </MeScreenSection>
-
-            <MeScreenSection title={t('me.section.about')}>
-              {aboutRows.map(({ key, ...row }, index) => (
-                <MeScreenRow key={key} {...row} isFirst={index === 0} />
-              ))}
-            </MeScreenSection>
-
-            {showLogout ? (
-              <MeLogoutButton disabled={isSubmittingLogout} title={t('me.logout')} onPress={handleLogout} />
-            ) : null}
-          </View>
+            </View>
+          </MeScreenSection>
+          <MeScreenSection title={t('me.section.actions')}>
+            <MeScreenRow
+              isFirst
+              title={t('me.action.languageSettings')}
+              value={t(locale === 'zh-CN' ? 'settings.language.zhCN' : 'settings.language.enUS')}
+              iconUsage="settings.language"
+              accessory={{ kind: 'chevron' }}
+              onPress={() => navigation.navigate('Settings', { section: 'language' })}
+            />
+            <MeScreenRow
+              title={t('account.storage')}
+              iconUsage="settings.cache"
+              accessory={{ kind: 'chevron' }}
+              onPress={() => navigation.navigate('Settings', { section: 'storage' })}
+            />
+            <MeScreenRow
+              title={t('me.section.accountDevices')}
+              iconUsage="tab.me"
+              accessory={{ kind: 'chevron' }}
+              onPress={() =>
+                session ? navigation.navigate('Settings', { section: 'devices' }) : navigation.navigate('Login')
+              }
+            />
+            <MeScreenRow
+              title={t('me.section.about')}
+              iconUsage="settings.openPanel"
+              accessory={{ kind: 'chevron' }}
+              onPress={() => navigation.navigate('About')}
+            />
+          </MeScreenSection>
         </View>
       </AppKeyboardAwareScrollView>
     </View>

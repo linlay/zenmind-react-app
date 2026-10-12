@@ -12,8 +12,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 
-import { ensureFreshAccessToken } from '../../core/auth/appAuth';
-import { getActiveDeviceProfile } from '../../core/auth/deviceProfiles';
+import { resolveActiveWsTransportConfig } from '../../core/api/activeWsTransport';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { AppIcon } from '../../shared/icons/AppIcon';
 import { AppIconButton } from '../../shared/icons/AppIconButton';
@@ -78,10 +77,11 @@ type ResidentWebViewSource = {
 
 async function resolveResidentWebViewSource(
   initialUrl: string,
-  forceRefresh: boolean
+  _forceRefresh: boolean
 ): Promise<Omit<ResidentWebViewSource, 'revision'> | null> {
-  const activeProfile = getActiveDeviceProfile();
-  const desktopWsUrl = activeProfile?.transportKind === 'desktop-ws' ? activeProfile.desktopWs?.wsUrl : '';
+  const transport = await resolveActiveWsTransportConfig('d');
+  if (transport?.kind !== 'desktop-ws') return null;
+  const desktopWsUrl = transport.wsUrl;
   const target = resolveWebAppAccessTarget(initialUrl, desktopWsUrl);
   if (!target) {
     return null;
@@ -94,10 +94,7 @@ async function resolveResidentWebViewSource(
     };
   }
 
-  const accessToken = await ensureFreshAccessToken('', {
-    failureMode: 'hard',
-    forceRefresh
-  });
+  const accessToken = transport.accessToken;
   const uri = addWebAppAccessToken(target, accessToken);
   return uri
     ? {

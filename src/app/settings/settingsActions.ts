@@ -1,8 +1,5 @@
-import {
-  listAccountDesktopCacheScopeEntries,
-  listPersistedUnassignedLegacyCacheScopes
-} from '../../core/auth/accountDesktopCacheScopes';
-import { listDeviceProfiles } from '../../core/auth/deviceProfiles';
+import { getCloudAuthSnapshot } from '../../core/auth/cloudAuth';
+import { listAccountDesktopCacheScopeEntries } from '../../core/auth/accountDesktopCacheScopes';
 import { CHAT_LEGACY_CACHE_SCOPE_ID, getChatCacheScopeId } from '../../features/chatPersistence/cacheScope';
 import type { ChatCacheConversationStorage } from '../../features/chatPersistence/database';
 import { chatSyncService } from '../../features/chatRealtime/chatSyncService';
@@ -22,51 +19,24 @@ export type SettingsCacheScope = {
   conversations: ChatCacheConversationStorage[];
 };
 
-function profileNameForDesktop(desktopId: string): string {
-  const normalizedDesktopId = String(desktopId || '')
-    .trim()
-    .toLowerCase();
-  const profile = listDeviceProfiles().find(
-    (item) =>
-      item.serverDeviceId.trim().toLowerCase() === normalizedDesktopId ||
-      item.desktopDeviceId.trim().toLowerCase() === normalizedDesktopId
-  );
-  return profile?.displayName || '';
-}
-
 export async function listSettingsCacheScopes(currentAccountId: string | null): Promise<SettingsCacheScope[]> {
   const normalizedCurrentAccountId = String(currentAccountId || '').trim();
-  const mapped = listAccountDesktopCacheScopeEntries();
-  const mappedScopeIds = new Set(mapped.map((entry) => entry.cacheScopeId));
-  const unassigned = listPersistedUnassignedLegacyCacheScopes();
-  const candidates = [
-    ...mapped.map((entry) => ({
-      accountId: entry.accountId,
-      desktopId: entry.desktopId,
-      desktopName: profileNameForDesktop(entry.desktopId),
-      cacheScopeId: entry.cacheScopeId,
+  const candidates: {
+    accountId: string | null;
+    desktopId: string;
+    desktopName: string;
+    cacheScopeId: string;
+    unassigned: boolean;
+  }[] = listAccountDesktopCacheScopeEntries()
+    .filter((entry) => Boolean(entry.desktopId))
+    .map((entry) => ({
+      ...entry,
+      desktopName: '',
       unassigned: false
-    })),
-    ...unassigned.map((entry) => ({
-      accountId: null,
-      desktopId: entry.legacyProfileId,
-      desktopName: profileNameForDesktop(entry.legacyProfileId),
-      cacheScopeId: entry.cacheScopeId,
-      unassigned: true
-    })),
-    ...(!mappedScopeIds.has(CHAT_LEGACY_CACHE_SCOPE_ID) &&
-    !unassigned.some((entry) => entry.cacheScopeId === CHAT_LEGACY_CACHE_SCOPE_ID)
-      ? [
-          {
-            accountId: null,
-            desktopId: 'legacy-local-cache',
-            desktopName: '',
-            cacheScopeId: CHAT_LEGACY_CACHE_SCOPE_ID,
-            unassigned: true
-          }
-        ]
-      : [])
-  ];
+    }));
+  const cloud = getCloudAuthSnapshot();
+  if (cloud.scopeId)
+    candidates.push({ accountId: null, desktopId: '', desktopName: '', cacheScopeId: cloud.scopeId, unassigned: true });
   const seen = new Set<string>();
   const scopes: SettingsCacheScope[] = [];
   for (const candidate of candidates) {

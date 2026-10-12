@@ -1,17 +1,66 @@
+import { readChatDirectory, classifyCloudFailure } from '../../core/api/services/chatDirectoryApi';
+import { getCloudAuthSnapshot, reportCloudFailure } from '../../core/auth/cloudAuth';
+import { verifyDefaultCloud } from '../chatPersistence/cloudAccess';
+import { applyChatTimelineRunDerivation } from '../chatTimeline/timelineRunDerivation.ts';
+import {
+  CHAT_DERIVE_TRANSPORT_TYPE,
+  validateChatDerivationResponse,
+  isDefinitiveChatDerivationRejection,
+  type ChatDerivation
+} from '../../core/api/services/chatDerivationProtocol.ts';
+import { applyChatTimelineRunFeedback } from '../chatTimeline/timelineRunFeedback.ts';
+import {
+  CHAT_FEEDBACK_TRANSPORT_TYPE,
+  MAX_FEEDBACK_COMMENT_CHARS,
+  validateChatFeedbackResponse,
+  type ChatFeedbackType
+} from '../../core/api/services/chatFeedbackProtocol.ts';
+import { assertChatReferenceScope, type ChatReferenceOption } from '../chatPersistence/chatContextReference.ts';
+import {
+  applyChatTimelineRunAccess,
+  getChatTimelineRun,
+  readRunAccessLevel
+} from '../chatTimeline/timelineRunAccess.ts';
+import {
+  CHAT_SKILLS_TRANSPORT_TYPE,
+  normalizeChatSkills,
+  normalizeRequiredSkills,
+  resolveRequiredSkillIds,
+  type ChatSkillsCatalog
+} from '../../core/api/services/chatSkillsProtocol.ts';
+import { canUseEditingMode } from '../chatPersistence/agentMode.ts';
+import {
+  readChatViewReference,
+  type ChatViewDocument,
+  type ChatViewRequest
+} from '../../core/api/services/chatViewProtocol.ts';
+import { canContinueChatTimeline, hasEstablishedChatQuery } from '../chatPersistence/chatDetailViewModel';
+import { resolveAgentInteraction } from '../chatPersistence/agentInteraction';
+import { assertRemoteChatDetailTimes } from '../../core/api/services/chatRemoteTimeProtocol';
+import {
+  isChatTimelineContentEventClosed,
+  reconcileChatTimelineAwaitingSnapshot,
+  clearChatTimelineToolOutput
+} from '../chatTimeline/timelineReducer';
+import { buildChatRunOwnerPayload } from '../../core/api/services/chatRunOwner';
 import { Platform } from 'react-native';
+import { encodeChatSourceId } from '../chatPersistence/chatSource.ts';
 
 import { ApiError } from '../../core/api/apiClient';
 import { resolveActiveWsTransportConfig, resolveDefaultWsTransportConfig } from '../../core/api/activeWsTransport';
-import { applyActiveDesktopWsRefreshPayload } from '../../core/auth/appAuth';
-import { getActiveDeviceProfile } from '../../core/auth/deviceProfiles';
 import { APP_VERSION } from '../../shared/generated/brand';
 import {
   CHAT_DETAIL_TRANSPORT_TYPE,
+  CHAT_ACCESS_LEVEL_TRANSPORT_TYPE,
+  type ChatAccessLevelResponse,
   CHAT_AGENT_DETAIL_TRANSPORT_TYPE,
   CHAT_OPERATION_TRANSPORT_TYPE,
   CHAT_READ_TRANSPORT_TYPE,
   CHAT_SUBMIT_TRANSPORT_TYPE,
+  CHAT_STEER_TRANSPORT_TYPE,
+  type ChatSteerResponse,
   CHAT_SUMMARIES_TRANSPORT_TYPE,
+  REMOTE_CHAT_PAGE_SIZE,
   buildAgentDetailPayload,
   buildChatDetailPayload,
   buildChatSummariesPayload,
@@ -36,9 +85,11 @@ import {
 import {
   buildAgentModelConfigPayload,
   normalizeModelOptionsAgentKey,
+  normalizeModelOptionServiceTier,
   type ModelOptionsSnapshot,
   type QueryModelOverride
 } from '../../core/api/services/modelOptionsProtocol';
+import { resolveAgentModelSettings } from '../chatPersistence/agentModelSettings';
 import { getModelOptionsApi, updateAgentModelConfigApi } from '../../core/api/services/modelOptionsApi';
 import {
   appendAssistantDelta,
@@ -68,7 +119,6 @@ import {
   refreshChatDirectoryProjectionForConversation,
   markConversationSourceDeleted,
   replaceChatHomeProjection,
-  retainChatDirectorySources,
   setConversationActiveRunId,
   setConversationReadStateLocal,
   upsertProjectedMessage
@@ -118,17 +168,16 @@ import {
   type ChatQueryModelOverride,
   type ChatTransportConfig
 } from './chatWsTransport';
-import { ChatHomeItemPatch, ChatSocketStatus, ChatSyncEvent, ChatSyncReason } from './types';
+import { ChatHomeItemPatch, ChatPendingSteer, ChatSocketStatus, ChatSyncEvent, ChatSyncReason } from './types';
 import { WsClientDisconnectedError, WsClientRequestTimeoutError } from '../../core/ws/wsClient';
 import { getChatSourceFromId, getRemoteChatSourceId, type ChatSource } from '../chatPersistence/chatSource';
 import {
   getDefaultChatSource,
-  getPairedChatSource,
+  getActiveChatSource,
   isAccountDesktopChatSource
 } from '../chatPersistence/chatSourceRuntime';
 import { scopeChatPayload, scopeRemoteHomePayload, unscopeChatPayload } from './chatSourcePayload';
 import {
-  applyChatTimelineLocalCancel,
   applyChatTimelineEvent,
   applyChatTimelineMessage,
   applyChatTimelineRunUnavailable,
@@ -154,10 +203,18 @@ type ChatSendMessageOptions = {
   dispatchErrorMode?: 'throw' | 'return';
   model?: ChatQueryModelOverride;
   planningMode?: boolean;
+  editingMode?: boolean;
+  mustUseSkills?: readonly string[];
+  continuation?: boolean;
 };
 
 type ChatSendMessageResult = Awaited<ReturnType<typeof createOutgoingMessage>> & {
   dispatchError: Error | null;
+};
+
+export type ChatHomeRefreshFailure = {
+  source: ChatSource;
+  message: string;
 };
 
 export type ChatCacheScopeClearResult = {
@@ -220,7 +277,8 @@ type ReconcileState = {
 type ActiveAttachState = {
   token: number;
   runId: string;
-  agentKey: string;
+  agentKey?: string;
+  teamId?: string;
   lastSeq: number;
   phase: 'pending' | 'active';
   promise: Promise<void>;
@@ -229,7 +287,8 @@ type ActiveAttachState = {
 
 type DuplicateAttachState = {
   runId: string;
-  agentKey: string;
+  agentKey?: string;
+  teamId?: string;
   observedAt: number;
 };
 
@@ -242,11 +301,6 @@ type ActiveOutgoingStreamState = {
 type ReadMarkState = {
   markedAt: number;
   marker: string;
-};
-
-type LocalTerminatedRunState = {
-  runId: string;
-  terminatedAt: number;
 };
 
 type StoppingConversationState = {
@@ -286,7 +340,6 @@ function operationReplayTaskId(error: Error): string {
 }
 const RECONCILE_DEBOUNCE_MS = 180;
 const READ_MARK_DEBOUNCE_MS = 1_500;
-const LOCAL_TERMINATED_RUN_TTL_MS = 120_000;
 const STOPPING_CONVERSATION_TTL_MS = 8_000;
 const DUPLICATE_ATTACH_COOLDOWN_MS = 8_000;
 const UNAVAILABLE_ATTACH_RUN_TTL_MS = 30 * 60_000;
@@ -351,14 +404,11 @@ function buildInterruptChatPayload(input: {
   agentKey?: string;
   teamId?: string;
 }) {
-  const agentKey = toText(input.agentKey);
-  const teamId = toText(input.teamId);
   return {
     requestId: toText(input.requestId),
     chatId: toText(input.chatId),
     runId: toText(input.runId),
-    ...(agentKey ? { agentKey } : {}),
-    ...(teamId ? { teamId } : {}),
+    ...buildChatRunOwnerPayload(input),
     message: ''
   };
 }
@@ -389,19 +439,6 @@ function isRecoverableReconcileError(error: unknown): boolean {
     error instanceof WsClientRequestTimeoutError ||
     isApiStatusError(error, 401) ||
     isApiStatusError(error, 404)
-  );
-}
-
-function isInactiveInterruptResponse(response: InterruptChatResponse | null | undefined): boolean {
-  if (response?.accepted !== false) {
-    return false;
-  }
-
-  const status = toText(response.status).toLowerCase();
-  const detail = toText(response.detail).toLowerCase();
-  return (
-    status === 'unmatched' &&
-    (!detail || detail.includes('no longer active') || detail.includes('not active') || detail.includes('inactive'))
   );
 }
 
@@ -498,16 +535,6 @@ function findTimelineAwaitingAgentKey(state: ChatTimelineState, runId: string): 
   return '';
 }
 
-function hasTerminalTimelineRun(state: ChatTimelineState, runId: string): boolean {
-  if (!runId) {
-    return false;
-  }
-  return state.orderedNodeIds.some((nodeId) => {
-    const node = state.nodesById[nodeId];
-    return node?.kind === 'run' && node.runId === runId && node.lifecycle !== 'active';
-  });
-}
-
 class ChatSyncService {
   private readonly listeners = new Set<SyncListener>();
   private status: ChatSocketStatus = 'idle';
@@ -515,21 +542,32 @@ class ChatSyncService {
   private startPromise: Promise<void> | null = null;
   private homeRefreshPromise: Promise<void> | null = null;
   private activeConversationId: string | null = null;
+  private visibleConversationId: string | null = null;
   private readonly inFlightOutgoingIds = new Set<string>();
   private readonly streamBuffers = new Map<string, StreamBuffer>();
   private readonly reconcileStates = new Map<string, ReconcileState>();
   private readonly activeAttaches = new Map<string, ActiveAttachState>();
+  private readonly attachRecoveryFailures = new Map<string, { runId: string; count: number }>();
+  private readonly streamSequences = new Map<string, number>();
   private readonly recentDuplicateAttaches = new Map<string, DuplicateAttachState>();
   private readonly activeOutgoingStreams = new Map<string, ActiveOutgoingStreamState>();
   private readonly lastReadMarks = new Map<string, ReadMarkState>();
   private readonly readConfirmations = new Map<string, Promise<void>>();
+  private readonly derivationRequests = new Set<string>();
+  private readonly feedbackRequests = new Map<string, symbol>();
+  private readonly runtimeAccessRequests = new Map<string, symbol>();
+  private readonly pendingSteers = new Map<string, ChatPendingSteer>();
+  private readonly conversationSendRequests = new Map<string, symbol>();
+  private readonly awaitingSubmitRequests = new Map<string, Promise<SubmitAwaitingResponse>>();
   private readonly frontendToolSubmitRequests = new Map<string, Promise<SubmitFrontendToolResponse>>();
   private readonly timelineStates = new Map<string, ChatTimelineState>();
+  private readonly agentSkills = new Map<string, ChatSkillsCatalog>();
+  private readonly agentSkillRequests = new Map<string, Promise<ChatSkillsCatalog | null>>();
   private readonly agentDetails = new Map<string, AgentDetailSnapshot | null>();
   private readonly agentDetailRequests = new Map<string, Promise<AgentDetailSnapshot | null>>();
+  private readonly agentModelConfigRequests = new Map<string, Promise<ModelOptionsSnapshot | null>>();
   private readonly agentModelOptions = new Map<string, ModelOptionsSnapshot>();
   private readonly agentModelOptionRequests = new Map<string, Promise<ModelOptionsSnapshot | null>>();
-  private readonly locallyTerminatedRuns = new Map<string, LocalTerminatedRunState>();
   private readonly stoppingConversations = new Map<string, StoppingConversationState>();
   private readonly unavailableAttachRuns = new Map<string, UnavailableAttachRunState>();
   private readonly remoteHistoryCursors = new Map<string, number | null>();
@@ -547,6 +585,21 @@ class ChatSyncService {
     private readonly transportResolver: ChatTransportResolver
   ) {}
 
+  async getViewDocument(request: ChatViewRequest): Promise<ChatViewDocument> {
+    const lifecycleVersion = this.lifecycleVersion;
+    const document = await this.requestChatApi<ChatViewDocument>('/api/view', request);
+    const view = readChatViewReference(document?.view);
+    if (!this.isLifecycleCurrent(lifecycleVersion)) throw new Error('VIEW source changed');
+    if (
+      !view ||
+      view.connectorId !== request.connectorId ||
+      view.key !== request.key ||
+      (request.hash && view.hash !== request.hash)
+    )
+      throw new Error('VIEW snapshot identity mismatch');
+    return { ...document, view };
+  }
+
   getStatus() {
     return this.status;
   }
@@ -560,29 +613,21 @@ class ChatSyncService {
     const timelineState = this.getConversationTimelineState(normalizedConversationId);
     const attachedRunId = this.activeAttaches.get(normalizedConversationId)?.runId ?? '';
     const interruptRunId = getChatTimelineActiveRunId(timelineState) || attachedRunId;
-    const alreadyStopping = this.isStoppingConversation(normalizedConversationId, interruptRunId);
-    this.stopAttachedRun(normalizedConversationId);
-    const stoppedOutgoingIds = this.stopOutgoingStreams(normalizedConversationId);
+    if (!interruptRunId || this.isStoppingConversation(normalizedConversationId, interruptRunId)) return;
     this.rememberStoppingConversation(normalizedConversationId, interruptRunId);
-    this.rememberLocalTerminatedRun(normalizedConversationId, interruptRunId);
-    this.publishLocalRunCancel(normalizedConversationId, interruptRunId);
-    void this.clearConversationActiveRun(normalizedConversationId);
-    if (interruptRunId && !alreadyStopping) {
-      void this.requestConversationInterrupt(normalizedConversationId, interruptRunId);
-    }
-    void this.finishStoppedOutgoingStreams(normalizedConversationId, stoppedOutgoingIds);
+    // Keep observing until the server confirms a terminal run. Rejection and
+    // timeout must not manufacture a cancelled run or clear its persisted owner.
+    void this.requestConversationInterrupt(normalizedConversationId, interruptRunId).catch(() => {
+      void markConversationDirty(normalizedConversationId, 'interrupt');
+    });
   }
 
-  resumeStreaming(conversationId: string) {
-    const normalizedConversationId = toText(conversationId);
-    if (!normalizedConversationId) {
-      return;
-    }
-
-    this.clearLocalTerminatedRun(normalizedConversationId);
-    this.clearStoppingConversation(normalizedConversationId);
-    void this.attachActiveConversationRun(normalizedConversationId, 'attach');
-    void this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', true);
+  async resumeStreaming(conversationId: string) {
+    const id = toText(conversationId);
+    if (!id) return;
+    await this.scheduleConversationReconcile(id, 'reconcile', true);
+    if (!canContinueChatTimeline(this.getConversationTimelineState(id))) throw new Error('Chat cannot continue');
+    return this.sendMessage(id, '', [], { continuation: true });
   }
 
   getConversationRuntimeState(conversationId: string) {
@@ -606,20 +651,20 @@ class ChatSyncService {
     return this.agentDetails.get(normalizedAgentKey) ?? null;
   }
 
-  async ensureAgentDetail(agentKey: string): Promise<AgentDetailSnapshot | null> {
+  async ensureAgentDetail(
+    agentKey: string,
+    options: { refresh?: boolean; throwOnError?: boolean } = {}
+  ): Promise<AgentDetailSnapshot | null> {
     const normalizedAgentKey = toText(agentKey);
     if (!normalizedAgentKey) {
       return null;
     }
 
-    if (this.agentDetails.has(normalizedAgentKey)) {
-      return this.agentDetails.get(normalizedAgentKey) ?? null;
-    }
+    const cached = this.agentDetails.get(normalizedAgentKey);
+    if (!options.refresh && cached && Date.now() - cached.fetchedAt < 30_000) return cached;
 
     const inFlight = this.agentDetailRequests.get(normalizedAgentKey);
-    if (inFlight) {
-      return inFlight;
-    }
+    if (inFlight) return options.throwOnError ? inFlight : inFlight.catch(() => null);
 
     const cacheVersion = this.agentDetailCacheVersion;
     const request = this.fetchAgentDetail(normalizedAgentKey, cacheVersion).finally(() => {
@@ -628,6 +673,34 @@ class ChatSyncService {
       }
     });
     this.agentDetailRequests.set(normalizedAgentKey, request);
+    return options.throwOnError ? request : request.catch(() => null);
+  }
+
+  async ensureAgentSkills(agentKey: string): Promise<ChatSkillsCatalog | null> {
+    const key = toText(agentKey);
+    if (!key) return null;
+    const cached = this.agentSkills.get(key);
+    if (cached && Date.now() - cached.fetchedAt < 30_000) return cached;
+    const pending = this.agentSkillRequests.get(key);
+    if (pending) return pending;
+    const version = this.agentDetailCacheVersion;
+    const request = (async () => {
+      const [response, detail] = await Promise.all([
+        this.requestChatApi<unknown>(CHAT_SKILLS_TRANSPORT_TYPE, { agentKey: key }),
+        this.ensureAgentDetail(key, { throwOnError: true })
+      ]);
+      if (version !== this.agentDetailCacheVersion) return null;
+      if (!detail || !resolveAgentInteraction(toText(detail.raw.mode), detail.raw.interactionConfig).mustUseSkills)
+        throw new Error('Agent does not support required skills');
+      const catalog = normalizeChatSkills(response, detail.raw.skills);
+      if (!this.agentSkills.has(key) && this.agentSkills.size >= 32)
+        this.agentSkills.delete(this.agentSkills.keys().next().value!);
+      this.agentSkills.set(key, catalog);
+      return catalog;
+    })().finally(() => {
+      if (this.agentSkillRequests.get(key) === request) this.agentSkillRequests.delete(key);
+    });
+    this.agentSkillRequests.set(key, request);
     return request;
   }
 
@@ -664,46 +737,76 @@ class ChatSyncService {
     return request;
   }
 
-  async updateAgentModelConfig(
-    agentKey: string,
-    modelOverride: QueryModelOverride
-  ): Promise<ModelOptionsSnapshot | null> {
+  updateAgentModelConfig(agentKey: string, modelOverride: QueryModelOverride): Promise<ModelOptionsSnapshot | null> {
     const normalizedAgentKey = normalizeModelOptionsAgentKey(agentKey);
     const normalizedPayload = buildAgentModelConfigPayload(normalizedAgentKey, modelOverride);
     const nextModelKey = String(normalizedPayload.modelKey || '').trim();
     if (!normalizedAgentKey || !nextModelKey) {
-      return normalizedAgentKey ? (this.agentModelOptions.get(normalizedAgentKey) ?? null) : null;
+      return Promise.resolve(null);
     }
 
-    await updateAgentModelConfigApi(getRemoteChatSourceId(normalizedAgentKey), modelOverride);
-
-    const currentSnapshot = this.agentModelOptions.get(normalizedAgentKey) ?? null;
-    if (!currentSnapshot) {
-      return null;
-    }
-    const defaultReasoningEffort = normalizedPayload.reasoningEffort || currentSnapshot.defaultReasoningEffort;
-    const nextSnapshot: ModelOptionsSnapshot = {
-      ...currentSnapshot,
-      defaultModelKey: nextModelKey,
-      ...(defaultReasoningEffort ? { defaultReasoningEffort } : {}),
-      defaultServiceTier: normalizedPayload.serviceTier || 'STANDARD',
-      fetchedAt: Date.now()
-    };
-    this.agentModelOptions.set(normalizedAgentKey, nextSnapshot);
-    return nextSnapshot;
-  }
-
-  private rememberLocalTerminatedRun(conversationId: string, runId: string) {
-    const normalizedConversationId = toText(conversationId);
-    const normalizedRunId = toText(runId);
-    if (!normalizedConversationId || !normalizedRunId) {
-      return;
-    }
-
-    this.locallyTerminatedRuns.set(normalizedConversationId, {
-      runId: normalizedRunId,
-      terminatedAt: Date.now()
-    });
+    const cacheVersion = this.agentDetailCacheVersion;
+    const previous = this.agentModelConfigRequests.get(normalizedAgentKey);
+    const request = (previous ? previous.catch(() => null) : Promise.resolve(null))
+      .then(async () => {
+        if (this.agentDetailCacheVersion !== cacheVersion) {
+          return null;
+        }
+        const transport = await this.resolveTransportConfig();
+        if (!transport || this.agentDetailCacheVersion !== cacheVersion) {
+          return null;
+        }
+        const response = await updateAgentModelConfigApi(
+          getRemoteChatSourceId(normalizedAgentKey),
+          modelOverride,
+          undefined,
+          transport
+        );
+        if (this.agentDetailCacheVersion !== cacheVersion) {
+          return null;
+        }
+        const saved = isPlainRecord(response) ? response : {};
+        const currentSnapshot = this.agentModelOptions.get(normalizedAgentKey);
+        const modelKey = toText(saved.modelKey) || nextModelKey;
+        const reasoningEffort =
+          resolveAgentModelSettings(saved).reasoningEffort ||
+          normalizedPayload.reasoningEffort ||
+          currentSnapshot?.defaultReasoningEffort;
+        const serviceTier =
+          normalizeModelOptionServiceTier(
+            'serviceTier' in saved
+              ? saved.serviceTier
+              : normalizedPayload.serviceTier === undefined
+                ? currentSnapshot?.defaultServiceTier
+                : normalizedPayload.serviceTier
+          ) || 'STANDARD';
+        const detail = this.agentDetails.get(normalizedAgentKey);
+        if (detail) {
+          this.agentDetails.set(normalizedAgentKey, {
+            ...detail,
+            raw: { ...detail.raw, modelKey, reasoningEffort, serviceTier }
+          });
+        }
+        if (!currentSnapshot) {
+          return null;
+        }
+        const nextSnapshot: ModelOptionsSnapshot = {
+          ...currentSnapshot,
+          defaultModelKey: modelKey,
+          ...(reasoningEffort ? { defaultReasoningEffort: reasoningEffort } : {}),
+          defaultServiceTier: serviceTier,
+          fetchedAt: Date.now()
+        };
+        this.agentModelOptions.set(normalizedAgentKey, nextSnapshot);
+        return nextSnapshot;
+      })
+      .finally(() => {
+        if (this.agentModelConfigRequests.get(normalizedAgentKey) === request) {
+          this.agentModelConfigRequests.delete(normalizedAgentKey);
+        }
+      });
+    this.agentModelConfigRequests.set(normalizedAgentKey, request);
+    return request;
   }
 
   private rememberStoppingConversation(conversationId: string, runId: string) {
@@ -744,36 +847,6 @@ class ChatSyncService {
     }
   }
 
-  private getLocalTerminatedRun(conversationId: string): LocalTerminatedRunState | null {
-    const normalizedConversationId = toText(conversationId);
-    if (!normalizedConversationId) {
-      return null;
-    }
-
-    const state = this.locallyTerminatedRuns.get(normalizedConversationId);
-    if (!state) {
-      return null;
-    }
-    if (Date.now() - state.terminatedAt > LOCAL_TERMINATED_RUN_TTL_MS) {
-      this.locallyTerminatedRuns.delete(normalizedConversationId);
-      return null;
-    }
-    return state;
-  }
-
-  private clearLocalTerminatedRun(conversationId: string, runId?: string) {
-    const normalizedConversationId = toText(conversationId);
-    if (!normalizedConversationId) {
-      return;
-    }
-
-    const normalizedRunId = toText(runId);
-    const state = this.locallyTerminatedRuns.get(normalizedConversationId);
-    if (!normalizedRunId || state?.runId === normalizedRunId) {
-      this.locallyTerminatedRuns.delete(normalizedConversationId);
-    }
-  }
-
   private getUnavailableAttachRun(conversationId: string): UnavailableAttachRunState | null {
     const normalizedConversationId = toText(conversationId);
     if (!normalizedConversationId) {
@@ -795,24 +868,6 @@ class ChatSyncService {
     const normalizedRunId = toText(runId);
     const state = this.getUnavailableAttachRun(conversationId);
     return Boolean(normalizedRunId && state?.runId === normalizedRunId);
-  }
-
-  private refreshLocalTerminatedRunAfterReconcile(
-    conversationId: string,
-    remoteState: ChatTimelineState,
-    mergedState: ChatTimelineState
-  ) {
-    const terminatedRun = this.getLocalTerminatedRun(conversationId);
-    if (!terminatedRun) {
-      return;
-    }
-
-    if (
-      hasTerminalTimelineRun(remoteState, terminatedRun.runId) ||
-      (mergedState.activeRunId && mergedState.activeRunId !== terminatedRun.runId)
-    ) {
-      this.clearLocalTerminatedRun(conversationId, terminatedRun.runId);
-    }
   }
 
   subscribe(listener: SyncListener) {
@@ -874,21 +929,7 @@ class ChatSyncService {
         updateChatTransportAuth(this.activeTransportConfig);
         return;
       }
-      const payload = await requestChatTransport<unknown>({
-        ...config,
-        namespace: 'd',
-        type: 'auth.refresh'
-      });
-      const nextToken = applyActiveDesktopWsRefreshPayload(payload);
-      if (!nextToken) {
-        await this.refreshAuth();
-        return;
-      }
-      const nextConfig = await resolveActiveWsTransportConfig('ap');
-      if (nextConfig) {
-        this.activeTransportConfig = nextConfig;
-        updateChatTransportAuth(nextConfig);
-      }
+      await this.refreshAuth();
     } catch {
       await this.refreshAuth();
     }
@@ -898,15 +939,18 @@ class ChatSyncService {
     await prewarmChatHomeDirectory();
   }
 
-  stop() {
+  stop(releaseConnection = false) {
+    this.timelineStates.forEach((state, id) =>
+      this.timelineStates.set(id, { ...clearChatTimelineToolOutput(state), modelRetry: undefined })
+    );
     this.lifecycleVersion += 1;
     this.agentDetailCacheVersion += 1;
     this.started = false;
     this.hasConnectedOnce = false;
     const activeTransportConfig = this.activeTransportConfig;
     this.activeTransportConfig = null;
-    stopChatPushTransport(activeTransportConfig ?? undefined);
     this.clearTransientWork();
+    stopChatPushTransport(activeTransportConfig ?? undefined, releaseConnection);
     this.setStatus('disconnected');
   }
 
@@ -948,6 +992,8 @@ class ChatSyncService {
       this.lastReadMarks.clear();
       this.readConfirmations.clear();
       this.frontendToolSubmitRequests.clear();
+      this.awaitingSubmitRequests.clear();
+      this.conversationSendRequests.clear();
       this.timelineStates.clear();
       this.pendingRuntimeEmitReasons.clear();
     }
@@ -995,7 +1041,7 @@ class ChatSyncService {
     }
 
     const generatedAt = Date.now();
-    const profile = getActiveDeviceProfile();
+    const transport = this.activeTransportConfig;
     const request = buildChatDetailPayload({
       chatId: normalizedConversationId,
       includeRawMessages: true
@@ -1022,16 +1068,14 @@ class ChatSyncService {
         appVersion: APP_VERSION,
         generatedAt,
         generatedAtIso: new Date(generatedAt).toISOString(),
-        profile: profile
-          ? {
-              desktopDeviceId: profile.desktopDeviceId,
-              displayName: profile.displayName,
-              transportKind: profile.transportKind,
-              endpoint: profile.transportKind === 'desktop-ws' ? profile.desktopWs?.wsUrl || '' : profile.apiBaseUrl,
-              cacheScopeId: profile.cacheScopeId,
-              needsRelink: profile.needsRelink
-            }
-          : null
+        profile: {
+          desktopDeviceId: this.source.kind === 'paired' ? this.source.sourceId : '',
+          displayName: this.source.displayName,
+          transportKind: transport?.kind === 'desktop-ws' ? 'desktop-ws' : 'http',
+          endpoint: transport?.kind === 'desktop-ws' ? transport.wsUrl : transport?.backendUrl || '',
+          cacheScopeId: getChatCacheScopeId(),
+          needsRelink: false
+        }
       },
       remote: {
         transportType: CHAT_DETAIL_TRANSPORT_TYPE,
@@ -1052,6 +1096,8 @@ class ChatSyncService {
   private clearTransientWork() {
     this.activeAttaches.forEach((attach) => attach.abort());
     this.activeAttaches.clear();
+    this.attachRecoveryFailures.clear();
+    this.streamSequences.clear();
     this.recentDuplicateAttaches.clear();
     this.activeOutgoingStreams.forEach((stream) => stream.abort());
     this.activeOutgoingStreams.clear();
@@ -1082,12 +1128,21 @@ class ChatSyncService {
     this.timelinePersistTimers.clear();
     this.readConfirmations.clear();
     this.frontendToolSubmitRequests.clear();
+    this.awaitingSubmitRequests.clear();
+    this.pendingSteers.forEach((_, conversationId) =>
+      this.emit({ type: 'conversation.steer.changed', conversationId, pending: null })
+    );
+    this.pendingSteers.clear();
+    this.runtimeAccessRequests.clear();
+    this.conversationSendRequests.clear();
     this.inFlightOutgoingIds.clear();
+    this.agentSkills.clear();
+    this.agentSkillRequests.clear();
     this.agentDetails.clear();
     this.agentDetailRequests.clear();
     this.agentModelOptions.clear();
+    this.agentModelConfigRequests.clear();
     this.agentModelOptionRequests.clear();
-    this.locallyTerminatedRuns.clear();
     this.stoppingConversations.clear();
     this.unavailableAttachRuns.clear();
     this.remoteHistoryCursors.clear();
@@ -1101,8 +1156,16 @@ class ChatSyncService {
 
     const previousConversationId = this.activeConversationId;
     this.activeConversationId = normalizedConversationId;
+    if (this.visibleConversationId !== normalizedConversationId) this.visibleConversationId = null;
 
     if (previousConversationId) {
+      const state = this.timelineStates.get(previousConversationId);
+      if (state)
+        this.timelineStates.set(previousConversationId, {
+          ...clearChatTimelineToolOutput(state),
+          modelRetry: undefined
+        });
+      this.attachRecoveryFailures.delete(previousConversationId);
       this.stopAttachedRun(previousConversationId);
     }
 
@@ -1116,6 +1179,16 @@ class ChatSyncService {
     void this.attachActiveConversationRun(normalizedConversationId, 'attach');
   }
 
+  setConversationVisible(conversationId: string, visible: boolean) {
+    if (!visible) {
+      if (this.visibleConversationId === conversationId) this.visibleConversationId = null;
+      return;
+    }
+    if (this.activeConversationId !== conversationId) return;
+    this.visibleConversationId = conversationId;
+    void this.requestConversationReadConfirmation(conversationId, { onlyIfUnread: true });
+  }
+
   async refreshHome(_reason: ChatSyncReason = 'manual_refresh') {
     if (this.homeRefreshPromise) {
       return this.homeRefreshPromise;
@@ -1124,33 +1197,23 @@ class ChatSyncService {
     const lifecycleVersion = this.lifecycleVersion;
     this.homeRefreshPromise = (async () => {
       const config = await this.resolveTransportConfig();
-      if (!config || !this.isLifecycleCurrent(lifecycleVersion)) {
-        return;
-      }
-
-      const [remoteAgents, remoteTeams, remoteChats] = await Promise.all([
-        requestChatTransport<RemoteAgent[]>({
-          ...config,
-          type: '/api/agents'
-        }),
-        requestChatTransport<RemoteTeam[]>({
-          ...config,
-          type: '/api/teams'
-        }),
-        requestChatTransport<RemoteChatSummary[]>({
-          ...config,
-          type: CHAT_SUMMARIES_TRANSPORT_TYPE,
-          payload: buildChatSummariesPayload()
-        })
-      ]);
       if (!this.isLifecycleCurrent(lifecycleVersion)) {
         return;
       }
+      if (!config) {
+        throw new ApiError('Not authenticated', 401, null);
+      }
 
+      const {
+        agents: remoteAgents,
+        teams: remoteTeams,
+        chats: remoteChats
+      } = await readChatDirectory<RemoteAgent, RemoteTeam>(config);
+      if (!this.isLifecycleCurrent(lifecycleVersion)) return;
       const scopedHome = scopeRemoteHomePayload(this.source, {
-        agents: Array.isArray(remoteAgents) ? remoteAgents : [],
-        teams: Array.isArray(remoteTeams) ? remoteTeams : [],
-        chats: Array.isArray(remoteChats) ? remoteChats : []
+        agents: remoteAgents,
+        teams: remoteTeams,
+        chats: remoteChats
       });
       const projection = projectRemoteHomeDirectory(scopedHome);
       await replaceChatHomeProjection(projection, this.source);
@@ -1197,10 +1260,13 @@ class ChatSyncService {
   }
 
   async reconcileConversation(conversationId: string, reason: ChatSyncReason = 'reconcile') {
+    if (reason === 'manual_refresh' || reason === 'detail_open') this.attachRecoveryFailures.delete(conversationId);
     return this.scheduleConversationReconcile(conversationId, reason, true);
   }
 
   private async assertConversationWritable(conversationId: string) {
+    if (this.source.kind === 'default' && getCloudAuthSnapshot().status !== 'available')
+      throw new ApiError('Cloud is read-only while unavailable', 503, null);
     const summary = await getConversationDetail(conversationId);
     if (summary?.sourceDeleted) {
       throw new ApiError('Source conversation was deleted; cached content is read-only', 409, {
@@ -1296,18 +1362,25 @@ class ChatSyncService {
       return pendingRequest;
     }
 
+    const lifecycleVersion = this.lifecycleVersion;
     const request: Promise<SubmitFrontendToolResponse> = (async () => {
       await this.assertConversationWritable(normalizedConversationId);
       const scope = await this.resolveRunControlScope(normalizedConversationId, runId);
       const currentTool = getActiveChatTimelineFrontendTool(
         this.getConversationTimelineState(normalizedConversationId)
       );
-      if (!currentTool || currentTool.key !== toolKey || currentTool.runId !== runId || currentTool.toolId !== toolId) {
+      if (
+        !this.isLifecycleCurrent(lifecycleVersion) ||
+        !currentTool ||
+        currentTool.key !== toolKey ||
+        currentTool.runId !== runId ||
+        currentTool.toolId !== toolId
+      ) {
         throw new Error('Frontend tool is no longer active');
       }
 
       const teamId = toText(scope.teamId);
-      const agentKey = teamId ? '' : currentTool.agentKey || toText(scope.agentKey);
+      const agentKey = teamId ? '' : toText(scope.agentKey) || currentTool.agentKey;
       if (!agentKey && !teamId) {
         throw new Error('agentKey or teamId is required for frontend tool submit');
       }
@@ -1323,7 +1396,10 @@ class ChatSyncService {
             params: payload.params
           })
         )) || {};
-      const accepted = Boolean(response.accepted);
+      if (!this.isLifecycleCurrent(lifecycleVersion)) return response;
+      const latestTool = getActiveChatTimelineFrontendTool(this.getConversationTimelineState(normalizedConversationId));
+      if (latestTool?.key !== toolKey || latestTool.runId !== runId || latestTool.toolId !== toolId) return response;
+      const accepted = response.accepted === true;
       const detail = toText(response.detail) || (accepted ? 'accepted' : 'unmatched');
       if (!accepted) {
         await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
@@ -1333,53 +1409,101 @@ class ChatSyncService {
       this.resolveFrontendTool(normalizedConversationId, toolKey, 'submitted');
       await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
       return response;
-    })().finally(() => {
-      if (this.frontendToolSubmitRequests.get(requestKey) === request) {
-        this.frontendToolSubmitRequests.delete(requestKey);
-      }
-    });
+    })()
+      .catch(async (error) => {
+        if (this.isLifecycleCurrent(lifecycleVersion))
+          await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
+        throw error;
+      })
+      .finally(() => {
+        if (this.frontendToolSubmitRequests.get(requestKey) === request) {
+          this.frontendToolSubmitRequests.delete(requestKey);
+        }
+      });
     this.frontendToolSubmitRequests.set(requestKey, request);
     return request;
   }
 
-  async submitAwaiting(conversationId: string, payload: AwaitingSubmitPayloadData) {
+  submitAwaiting(conversationId: string, payload: AwaitingSubmitPayloadData): Promise<SubmitAwaitingResponse> {
+    const key = JSON.stringify([conversationId, payload.runId]);
+    const pending = this.awaitingSubmitRequests.get(key);
+    if (pending) return pending;
+    const request = this.submitCurrentAwaiting(conversationId, payload).finally(() => {
+      if (this.awaitingSubmitRequests.get(key) === request) this.awaitingSubmitRequests.delete(key);
+    });
+    this.awaitingSubmitRequests.set(key, request);
+    return request;
+  }
+
+  private async submitCurrentAwaiting(conversationId: string, payload: AwaitingSubmitPayloadData) {
     const normalizedConversationId = toText(conversationId);
     const runId = toText(payload.runId);
     const awaitingId = toText(payload.awaitingId);
     if (!normalizedConversationId || !runId || !awaitingId) {
       throw new Error('Conversation id, run id and awaiting id are required');
     }
+    const lifecycleVersion = this.lifecycleVersion;
     await this.assertConversationWritable(normalizedConversationId);
 
     const currentAwaiting = this.getConversationTimelineState(normalizedConversationId).awaiting;
-    const matchesCurrentAwaiting = currentAwaiting?.awaitingId === awaitingId || currentAwaiting?.id === awaitingId;
-    const scopedAgentKey =
-      matchesCurrentAwaiting && currentAwaiting?.interactive ? currentAwaiting.interactive.agentKey || '' : '';
-    const historyScope = scopedAgentKey ? null : await getConversationHistoryScope(normalizedConversationId);
-    const agentKey = scopedAgentKey || historyScope?.agentKey || '';
-    if (!agentKey) {
-      throw new Error('agentKey is required for awaiting submit');
+    if (
+      !currentAwaiting ||
+      currentAwaiting.runId !== runId ||
+      (currentAwaiting.awaitingId !== awaitingId && currentAwaiting.id !== awaitingId)
+    ) {
+      throw new Error('Awaiting interaction is no longer active');
+    }
+    const owner = await this.resolveRunControlScope(normalizedConversationId, runId);
+    if (!owner.agentKey && !owner.teamId) {
+      throw new Error('agentKey or teamId is required for awaiting submit');
     }
 
+    const latestAwaiting = this.getConversationTimelineState(normalizedConversationId).awaiting;
+    if (
+      !this.isLifecycleCurrent(lifecycleVersion) ||
+      latestAwaiting?.id !== currentAwaiting.id ||
+      latestAwaiting.runId !== runId
+    )
+      throw new Error('Awaiting interaction changed');
     const response =
       (await this.requestChatApi<SubmitAwaitingResponse>(
         CHAT_SUBMIT_TRANSPORT_TYPE,
         buildSubmitAwaitingPayload({
           chatId: normalizedConversationId,
           runId,
-          agentKey,
+          ...owner,
           awaitingId,
           submitId: createAwaitingSubmitId(),
           params: payload.params
         })
-      )) || {};
-    const accepted = Boolean(response.accepted ?? true);
+      ).catch(async (error) => {
+        if (this.isLifecycleCurrent(lifecycleVersion))
+          await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
+        throw error;
+      })) || {};
+    if (!this.isLifecycleCurrent(lifecycleVersion)) return response;
+    const responseAwaiting = this.getConversationTimelineState(normalizedConversationId).awaiting;
+    if (responseAwaiting?.id !== currentAwaiting.id || responseAwaiting.runId !== runId) return response;
+    const accepted = response.accepted === true;
     const status = toText(response.status);
     const detail = toText(response.detail) || (accepted ? 'accepted' : 'unmatched');
 
     if (!accepted) {
       await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
-      if (status === 'already_resolved') {
+      if (['already_resolved', 'expired', 'completed', 'cancelled'].includes(status)) {
+        const state = this.getConversationTimelineState(normalizedConversationId);
+        if (
+          this.isLifecycleCurrent(lifecycleVersion) &&
+          state.awaiting?.id === currentAwaiting.id &&
+          state.awaiting.runId === runId
+        ) {
+          this.publishTimelineState(
+            normalizedConversationId,
+            'awaiting_submit',
+            reconcileChatTimelineAwaitingSnapshot(state, null),
+            { emitRuntime: true }
+          );
+        }
         return response;
       }
       throw new Error(detail);
@@ -1399,6 +1523,7 @@ class ChatSyncService {
       true
     );
 
+    if (!this.isLifecycleCurrent(lifecycleVersion)) return response;
     const continuedRunId = toText(response.continuationRunId) || toText(response.runId) || runId;
     if (
       response.continued &&
@@ -1406,6 +1531,7 @@ class ChatSyncService {
       !this.isUnavailableAttachRun(normalizedConversationId, continuedRunId)
     ) {
       await setConversationActiveRunId(normalizedConversationId, continuedRunId);
+      if (!this.isLifecycleCurrent(lifecycleVersion)) return response;
       await this.attachActiveConversationRun(normalizedConversationId, 'attach');
     }
 
@@ -1413,53 +1539,593 @@ class ChatSyncService {
     return response;
   }
 
-  async sendMessage(
+  async listReferenceChats(
+    conversationId: string,
+    lastRunId?: string
+  ): Promise<{ items: ChatReferenceOption[]; nextCursor: string | null }> {
+    const lifecycle = this.lifecycleVersion;
+    const owner = buildChatRunOwnerPayload(await this.resolveRunControlScope(conversationId, ''));
+    await this.assertChatReferenceCapability(owner);
+    if (!this.isLifecycleCurrent(lifecycle)) throw new Error('Chat source changed');
+    const response = await this.requestChatApi<RemoteChatSummary[]>(CHAT_SUMMARIES_TRANSPORT_TYPE, {
+      ...buildChatSummariesPayload(lastRunId),
+      ...(owner.agentKey ? { agentKey: owner.agentKey } : {})
+    });
+    if (!this.isLifecycleCurrent(lifecycle)) throw new Error('Chat source changed');
+    if (!Array.isArray(response)) throw new Error('Invalid reference chat list');
+    const seen = new Set<string>();
+    const items = response.flatMap((chat) => {
+      const id = toText(chat.chatId);
+      if (!id || id === conversationId || seen.has(id)) return [];
+      seen.add(id);
+      return [{ id, name: toText(chat.chatName || chat.title) || getRemoteChatSourceId(id) }];
+    });
+    const cursor = response.length >= REMOTE_CHAT_PAGE_SIZE ? toText(response.at(-1)?.lastRunId) : '';
+    if (cursor && cursor === lastRunId) throw new Error('Reference chat cursor did not advance');
+    return { items, nextCursor: cursor || null };
+  }
+
+  private async assertChatReferenceCapability(owner: { agentKey?: string; teamId?: string }) {
+    // Team uses the backend's Team defaults, never a member Agent's interaction config.
+    if (owner.teamId) return;
+    if (!owner.agentKey) throw new Error('Chat reference owner is unavailable. Remove the reference and retry.');
+    const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
+    if (
+      !detail ||
+      !resolveAgentInteraction(toText(detail.raw.mode), detail.raw.interactionConfig).attachment.chatRecords
+    )
+      throw new Error('Chat references are disabled. Remove the reference or choose another Agent.');
+  }
+
+  private async validateContextReferences(
+    conversationId: string,
+    owner: { agentKey?: string; teamId?: string },
+    references: readonly import('../chatPersistence/types').ChatAttachmentReference[]
+  ) {
+    assertChatReferenceScope(conversationId, references);
+    if (references.some((ref) => ref.type === 'chat')) await this.assertChatReferenceCapability(owner);
+  }
+
+  async deriveConversation(conversationId: string, runId: string) {
+    const id = toText(conversationId),
+      run = toText(runId),
+      key = JSON.stringify([id, run]);
+    const state = this.getConversationTimelineState(id),
+      node = getChatTimelineRun(state, run);
+    if (!id || !run || !node || node.lifecycle === 'active' || node.completedAt === null)
+      throw new Error('Derivation requires a completed run');
+    if (this.derivationRequests.has(key)) throw new Error('Derivation is already in progress');
+    if (!node.derivation && (state.activeRunId || state.awaiting))
+      throw new Error('Finish the current run before deriving');
+    this.derivationRequests.add(key);
+    const lifecycle = this.lifecycleVersion;
+    let target = node.derivation,
+      rejected = false;
+    const current = () => {
+      if (!this.isLifecycleCurrent(lifecycle)) throw new Error('Chat source changed');
+    };
+    try {
+      await this.assertConversationWritable(id);
+      const owner = buildChatRunOwnerPayload(await this.resolveRunControlScope(id, run));
+      current();
+      if (!owner.agentKey && !owner.teamId) throw new Error('Run owner is unavailable');
+      if (!target) {
+        // Persist the exact destination before sending. Recovery only queries this ID, never retries creation.
+        target = {
+          chatId: encodeChatSourceId(this.source, createRunControlRequestId('derived-chat')),
+          phase: 'unknown',
+          ...owner
+        };
+        await this.setRunDerivation(id, run, target);
+        current();
+        const response = await this.requestChatApi(CHAT_DERIVE_TRANSPORT_TYPE, {
+          sourceChatId: id,
+          sourceRunId: run,
+          chatId: target.chatId
+        }).catch((error) => {
+          rejected = isDefinitiveChatDerivationRejection(error);
+          throw error;
+        });
+        current();
+        validateChatDerivationResponse(response, id, run, target);
+      }
+      const targetBeforeRequest = this.timelineStates.get(target.chatId);
+      const detail = await this.getChatDetailViaTransport(target.chatId);
+      current();
+      if (
+        detail.chatId !== target.chatId ||
+        (target.teamId
+          ? detail.teamId !== target.teamId || !!detail.agentKey
+          : detail.agentKey !== target.agentKey || !!detail.teamId)
+      )
+        throw new Error('Derived conversation owner or identity could not be verified');
+      const projection = projectRemoteChatDetail(detail);
+      if (!projection || !projection.messages.length) throw new Error('Derived conversation history is unavailable');
+      const targetCurrent = this.timelineStates.get(target.chatId);
+      const changedDuringRequest = targetCurrent !== targetBeforeRequest;
+      let timeline = mergeChatTimelineState(
+        targetCurrent,
+        projection.timelineState,
+        isAccountDesktopChatSource(this.source),
+        { baseline: targetBeforeRequest, historicalPage: false }
+      );
+      if (changedDuringRequest && targetCurrent)
+        timeline = { ...timeline, awaiting: targetCurrent.awaiting, canContinue: targetCurrent.canContinue };
+      this.timelineStates.set(target.chatId, timeline);
+      await reconcileConversationDetail({
+        conversationId: target.chatId,
+        title: projection.title,
+        ...(projection.hasExplicitReadState && !changedDuringRequest ? { read: projection.read } : {}),
+        activeRunId: timeline.activeRunId,
+        summary: projection.summary,
+        messages: projectTimelineMessages(timeline),
+        timelineState: timeline
+      });
+      current();
+      if (this.timelineStates.get(target.chatId) !== timeline) this.scheduleTimelinePersist(target.chatId);
+      const patch = await patchConversationSummary({
+        conversationId: target.chatId,
+        agentKey: target.agentKey || null,
+        teamId: target.teamId || null,
+        shouldMoveToTop: true
+      });
+      current();
+      if (patch) this.emitHomePatch(patch.summary, { shouldMoveToTop: true }, patch.directoryChanged);
+      await this.setRunDerivation(id, run, { ...target, phase: 'ready' });
+      current();
+      const summary = await getConversationDetail(target.chatId);
+      current();
+      if (!summary) throw new Error('Derived conversation could not be loaded');
+      return {
+        conversation: summary,
+        historyScope: { agentKey: target.agentKey || null, teamId: target.teamId || null }
+      };
+    } catch (error) {
+      if (this.isLifecycleCurrent(lifecycle) && rejected) await this.setRunDerivation(id, run, undefined);
+      throw error;
+    } finally {
+      this.derivationRequests.delete(key);
+    }
+  }
+
+  private async setRunDerivation(conversationId: string, runId: string, derivation: ChatDerivation | undefined) {
+    const previous = this.getConversationTimelineState(conversationId),
+      next = applyChatTimelineRunDerivation(previous, runId, derivation),
+      lifecycle = this.lifecycleVersion;
+    if (previous === next) return;
+    this.timelineStates.set(conversationId, next);
+    this.emitConversationTimelineState(conversationId, 'reconcile', next);
+    try {
+      await persistConversationTimelineState(next);
+    } catch (error) {
+      if (this.isLifecycleCurrent(lifecycle)) {
+        const latest = this.getConversationTimelineState(conversationId);
+        if (getChatTimelineRun(latest, runId)?.derivation === derivation) {
+          const restored = applyChatTimelineRunDerivation(
+            latest,
+            runId,
+            getChatTimelineRun(previous, runId)?.derivation
+          );
+          this.timelineStates.set(conversationId, restored);
+          this.emitConversationTimelineState(conversationId, 'reconcile', restored);
+        }
+      }
+      throw error;
+    }
+    if (this.isLifecycleCurrent(lifecycle) && this.timelineStates.get(conversationId) !== next)
+      this.scheduleTimelinePersist(conversationId);
+  }
+
+  async submitRunFeedback(conversationId: string, runId: string, type: ChatFeedbackType, comment = '') {
+    const id = toText(conversationId),
+      run = toText(runId),
+      text = type === 'clear' ? '' : comment.trim();
+    const node = getChatTimelineRun(this.getConversationTimelineState(id), run);
+    if (!id || !run || !node || node.lifecycle === 'active' || node.completedAt === null)
+      throw new Error('Feedback requires a completed run');
+    if (!['thumbs_down', 'clear'].includes(type) || text.length > MAX_FEEDBACK_COMMENT_CHARS)
+      throw new Error('Invalid feedback or comment is too long');
+    const key = JSON.stringify([id, run]),
+      token = Symbol(),
+      requestId = createRunControlRequestId('feedback');
+    if (this.feedbackRequests.has(key) || node.feedbackPending) throw new Error('Feedback is already being submitted');
+    const lifecycle = this.lifecycleVersion;
+    this.feedbackRequests.set(key, token);
+    this.setRunFeedback(id, run, {
+      pending: { requestId, feedback: type === 'clear' ? null : { type, comment: text } }
+    });
+    const current = () =>
+      this.isLifecycleCurrent(lifecycle) &&
+      getChatTimelineRun(this.getConversationTimelineState(id), run)?.feedbackPending?.requestId === requestId;
+    try {
+      await this.assertConversationWritable(id);
+      const owner = buildChatRunOwnerPayload(await this.resolveRunControlScope(id, run));
+      if (!owner.agentKey && !owner.teamId) throw new Error('Run owner is unavailable');
+      if (!current()) return;
+      const response = await this.requestChatApi(CHAT_FEEDBACK_TRANSPORT_TYPE, {
+        chatId: id,
+        runId: run,
+        type,
+        ...owner,
+        ...(text ? { comment: text } : {})
+      });
+      if (!current()) return;
+      const confirmed = validateChatFeedbackResponse(response, id, run, type);
+      this.setRunFeedback(id, run, {
+        feedback: type === 'clear' ? null : { type: 'thumbs_down', comment: text, at: confirmed.setAt! },
+        pending: null
+      });
+    } catch (error) {
+      if (current()) {
+        this.setRunFeedback(id, run, { pending: null });
+        throw error;
+      }
+    } finally {
+      if (this.feedbackRequests.get(key) === token) this.feedbackRequests.delete(key);
+    }
+  }
+
+  private setRunFeedback(
+    conversationId: string,
+    runId: string,
+    input: Parameters<typeof applyChatTimelineRunFeedback>[2]
+  ) {
+    const previous = this.getConversationTimelineState(conversationId),
+      next = applyChatTimelineRunFeedback(previous, runId, input);
+    if (next === previous) return;
+    this.timelineStates.set(conversationId, next);
+    this.emitConversationTimelineState(conversationId, 'reconcile', next);
+    if (getChatTimelineRun(previous, runId)?.feedback !== getChatTimelineRun(next, runId)?.feedback)
+      this.scheduleTimelinePersist(conversationId);
+  }
+
+  async updateRuntimeAccessLevel(conversationId: string, runId: string, nextLevel: ChatQueryAccessLevel) {
+    const id = toText(conversationId),
+      run = toText(runId);
+    const level = readRunAccessLevel(nextLevel);
+    const state = this.getConversationTimelineState(id),
+      node = getChatTimelineRun(state, run);
+    if (!id || !run || !level || state.activeRunId !== run || node?.lifecycle !== 'active')
+      throw new Error('Run is no longer active');
+    const key = JSON.stringify([id, run]);
+    if (this.runtimeAccessRequests.has(key) || node.accessUpdate)
+      throw new Error('Run access change is awaiting confirmation');
+    if (node.accessLevel === level) return { status: 'confirmed' as const, detail: '' };
+    const token = Symbol(),
+      requestId = createRunControlRequestId('access');
+    const lifecycle = this.lifecycleVersion,
+      baselineVersion = Math.max(1, node.accessLevelVersion ?? 1);
+    this.runtimeAccessRequests.set(key, token);
+    this.setRunAccessUpdate(id, run, { update: { phase: 'sending', requestId, baselineVersion } });
+    const current = () =>
+      this.isLifecycleCurrent(lifecycle) &&
+      this.getConversationTimelineState(id).activeRunId === run &&
+      getChatTimelineRun(this.getConversationTimelineState(id), run)?.accessUpdate?.requestId === requestId;
+    let dispatched = false;
+    try {
+      await this.assertConversationWritable(id);
+      const owner = buildChatRunOwnerPayload(await this.resolveRunControlScope(id, run));
+      if (owner.agentKey) {
+        const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
+        if (!detail || !resolveAgentInteraction(toText(detail.raw.mode), detail.raw.interactionConfig).accessLevel)
+          throw new Error('Agent does not support access changes');
+      }
+      if (!current()) return { status: 'rejected' as const, detail: 'Run changed' };
+      dispatched = true;
+      const response = await this.requestChatApi<ChatAccessLevelResponse>(CHAT_ACCESS_LEVEL_TRANSPORT_TYPE, {
+        requestId,
+        runId: run,
+        ...owner,
+        accessLevel: level,
+        reason: 'user toggled permission'
+      });
+      if (!current()) return { status: 'rejected' as const, detail: 'Run changed' };
+      if (response.accepted === false && (!response.runId || toText(response.runId) === run)) {
+        this.setRunAccessUpdate(id, run, { update: null });
+        return { status: 'rejected' as const, detail: toText(response.detail) };
+      }
+      if (
+        response.accepted === true &&
+        toText(response.runId) === run &&
+        readRunAccessLevel(response.accessLevel) &&
+        typeof response.version === 'number' &&
+        Number.isSafeInteger(response.version) &&
+        response.version >= 1
+      ) {
+        this.setRunAccessUpdate(id, run, {
+          accessLevel: response.accessLevel,
+          version: response.version,
+          update: null
+        });
+        return { status: 'confirmed' as const, detail: '' };
+      }
+    } catch (error) {
+      if (!current()) return { status: 'rejected' as const, detail: 'Run changed' };
+      if (!dispatched || (error instanceof ApiError && [400, 401, 403, 404, 409].includes(error.status))) {
+        this.setRunAccessUpdate(id, run, { update: null });
+        return { status: 'rejected' as const, detail: error instanceof Error ? error.message : String(error) };
+      }
+    } finally {
+      if (this.runtimeAccessRequests.get(key) === token) this.runtimeAccessRequests.delete(key);
+    }
+    if (current()) {
+      this.setRunAccessUpdate(id, run, { update: { phase: 'unknown', requestId, baselineVersion } });
+      if (getChatTimelineRun(this.getConversationTimelineState(id), run)?.accessUpdate?.phase === 'unknown')
+        await this.scheduleConversationReconcile(id, 'reconcile', true).catch(() => {});
+    }
+    const latest = getChatTimelineRun(this.getConversationTimelineState(id), run);
+    return {
+      status:
+        latest && !latest.accessUpdate && (latest.accessLevelVersion ?? 0) > baselineVersion
+          ? ('confirmed' as const)
+          : ('unknown' as const),
+      detail: ''
+    };
+  }
+
+  private setRunAccessUpdate(
+    conversationId: string,
+    runId: string,
+    input: Parameters<typeof applyChatTimelineRunAccess>[2]
+  ) {
+    const previous = this.getConversationTimelineState(conversationId);
+    const next = applyChatTimelineRunAccess(previous, runId, input);
+    if (next === previous) return;
+    this.timelineStates.set(conversationId, next);
+    this.emitConversationTimelineState(conversationId, 'reconcile', next);
+    const previousRun = getChatTimelineRun(previous, runId),
+      nextRun = getChatTimelineRun(next, runId);
+    if (
+      previousRun?.accessLevel !== nextRun?.accessLevel ||
+      previousRun?.accessLevelVersion !== nextRun?.accessLevelVersion
+    )
+      this.scheduleTimelinePersist(conversationId);
+  }
+
+  getPendingSteer(conversationId: string): ChatPendingSteer | null {
+    return this.pendingSteers.get(toText(conversationId)) || null;
+  }
+
+  restorePendingSteer(conversationId: string): ChatPendingSteer | null {
+    const id = toText(conversationId);
+    const pending = this.pendingSteers.get(id);
+    if (!pending || pending.phase === 'sending') return null;
+    this.pendingSteers.delete(id);
+    this.emit({ type: 'conversation.steer.changed', conversationId: id, pending: null });
+    return pending;
+  }
+
+  async steerConversation(
+    conversationId: string,
+    message: string,
+    attachments: readonly ChatComposerAttachment[] = []
+  ): Promise<ChatSteerResponse> {
+    const id = toText(conversationId);
+    const state = this.getConversationTimelineState(id);
+    const runId = state.activeRunId;
+    const references = normalizeChatAttachmentReferences(attachments.flatMap((item) => item.references));
+    if (references.some((ref) => ref.type === 'chat' || ref.type === 'site'))
+      throw new Error('Chat and Site references cannot be used for steering. Remove them or wait for the run to end.');
+    if (!id || !runId || state.awaiting?.status === 'ask' || (!message.trim() && !references.length))
+      throw new Error('An active run and steering input are required');
+    if (attachments.some((item) => item.status !== 'ready') || (attachments.length && !references.length))
+      throw new Error('Steering attachments are not ready');
+    if (this.pendingSteers.has(id)) throw new Error('A steering request is awaiting confirmation');
+    if (this.pendingSteers.size >= 16) throw new Error('Resolve existing steering requests before sending another');
+    const lifecycleVersion = this.lifecycleVersion;
+    const pending: ChatPendingSteer = {
+      steerId: createRunControlRequestId('steer'),
+      runId,
+      message,
+      attachments: [...attachments],
+      phase: 'sending',
+      runEnded: false
+    };
+    this.pendingSteers.set(id, pending);
+    this.emit({ type: 'conversation.steer.changed', conversationId: id, pending });
+    let sent = false;
+    try {
+      await this.assertConversationWritable(id);
+      const owner = await this.resolveRunControlScope(id, runId);
+      const latest = this.getConversationTimelineState(id);
+      if (
+        !this.isLifecycleCurrent(lifecycleVersion) ||
+        latest.activeRunId !== runId ||
+        latest.awaiting?.status === 'ask'
+      )
+        throw new Error('Steering run changed');
+      if ((!owner.agentKey && !owner.teamId) || this.status !== 'connected')
+        throw new Error('Steering target is unavailable');
+      if (owner.agentKey) {
+        const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
+        if (
+          !detail ||
+          (attachments.some((item) => item.kind === 'image' || item.kind === 'file') &&
+            !resolveAgentInteraction(toText(detail.raw.mode), detail.raw.interactionConfig).attachment.localFiles)
+        )
+          throw new Error('Agent execution or attachments are unavailable');
+      }
+      if (
+        !this.isLifecycleCurrent(lifecycleVersion) ||
+        this.getConversationTimelineState(id).activeRunId !== runId ||
+        this.getConversationTimelineState(id).awaiting?.status === 'ask'
+      )
+        throw new Error('Steering run changed');
+      this.pendingSteers.set(id, { ...pending, ...owner });
+      sent = true;
+      const response = await this.requestChatApi<Record<string, unknown>>(CHAT_STEER_TRANSPORT_TYPE, {
+        chatId: id,
+        runId,
+        requestId: pending.steerId,
+        steerId: pending.steerId,
+        ...owner,
+        message,
+        ...(references.length ? { references } : {})
+      });
+      if (!this.isLifecycleCurrent(lifecycleVersion)) return { accepted: null, status: 'source_changed', detail: '' };
+      this.syncPendingSteerFromTimeline(id, this.getConversationTimelineState(id), true);
+      const current = this.pendingSteers.get(id);
+      if (current?.steerId !== pending.steerId) return { accepted: true, status: 'confirmed', detail: '' };
+      const accepted = typeof response?.accepted === 'boolean' ? response.accepted : null;
+      const result = {
+        accepted,
+        status:
+          toText(response?.status) || (accepted === true ? 'accepted' : accepted === false ? 'rejected' : 'unknown'),
+        detail: toText(response?.detail)
+      };
+      if (accepted === false) {
+        this.pendingSteers.delete(id);
+        this.emit({ type: 'conversation.steer.changed', conversationId: id, pending: null });
+      } else {
+        const next = { ...current, phase: accepted === true ? ('accepted' as const) : ('unknown' as const) };
+        this.pendingSteers.set(id, next);
+        this.emit({ type: 'conversation.steer.changed', conversationId: id, pending: next });
+      }
+      await this.scheduleConversationReconcile(id, 'reconcile', false).catch(() => {});
+      return result;
+    } catch (error) {
+      if (!this.isLifecycleCurrent(lifecycleVersion)) throw error;
+      this.syncPendingSteerFromTimeline(id, this.getConversationTimelineState(id), true);
+      const current = this.pendingSteers.get(id);
+      if (current?.steerId !== pending.steerId) return { accepted: true, status: 'confirmed', detail: '' };
+      if (sent) {
+        const next = { ...current, phase: 'unknown' as const };
+        this.pendingSteers.set(id, next);
+        this.emit({ type: 'conversation.steer.changed', conversationId: id, pending: next });
+        void this.scheduleConversationReconcile(id, 'reconcile', false).catch(() => {});
+      } else {
+        this.pendingSteers.delete(id);
+        this.emit({ type: 'conversation.steer.changed', conversationId: id, pending: null });
+      }
+      throw error;
+    }
+  }
+
+  sendMessage(
+    conversationId: string,
+    content: string,
+    attachments: readonly ChatComposerAttachment[] = [],
+    options: ChatSendMessageOptions = {}
+  ): Promise<ChatSendMessageResult> {
+    const id = toText(conversationId);
+    if (this.conversationSendRequests.has(id)) return Promise.reject(new Error('Query is already being sent'));
+    const token = Symbol();
+    this.conversationSendRequests.set(id, token);
+    return this.sendConversationMessage(id, content, attachments, options).finally(() => {
+      if (this.conversationSendRequests.get(id) === token) this.conversationSendRequests.delete(id);
+    });
+  }
+
+  private async sendConversationMessage(
     conversationId: string,
     content: string,
     attachments: readonly ChatComposerAttachment[] = [],
     options: ChatSendMessageOptions = {}
   ): Promise<ChatSendMessageResult> {
     const normalizedConversationId = toText(conversationId);
+    const lifecycleVersion = this.lifecycleVersion;
     const normalizedContent = String(content || '').trim();
-    if (!normalizedConversationId || (!normalizedContent && attachments.length === 0)) {
+    if (!normalizedConversationId || (!normalizedContent && attachments.length === 0 && !options.continuation)) {
       throw new Error('Conversation id and message content or attachments are required');
     }
+    const currentState = this.getConversationTimelineState(normalizedConversationId);
+    if (currentState.activeRunId || currentState.awaiting?.status === 'ask')
+      throw new Error('Chat is running or awaiting a response');
+    if (options.continuation && (!canContinueChatTimeline(currentState) || normalizedContent || attachments.length))
+      throw new Error('Empty continuation is not permitted');
+    if (!normalizedContent && attachments.length && !hasEstablishedChatQuery(currentState))
+      throw new Error('The first query requires text');
+    const contextReferences = normalizeChatAttachmentReferences(attachments.flatMap((item) => item.references));
+    if (
+      !normalizedContent &&
+      contextReferences.length &&
+      contextReferences.every((ref) => ref.type === 'chat' || ref.type === 'site')
+    )
+      throw new Error('Context references require a question. Enter text before sending.');
+    let mustUseSkills = normalizeRequiredSkills(options.mustUseSkills);
     const currentSummary = await this.assertConversationWritable(normalizedConversationId);
-    if (isAccountDesktopChatSource(this.source) && this.status !== 'connected') {
+    const owner = buildChatRunOwnerPayload(await this.resolveRunControlScope(normalizedConversationId, ''));
+    await this.validateContextReferences(normalizedConversationId, owner, contextReferences);
+    if (mustUseSkills.length && !owner.agentKey) throw new Error('Required skills need an Agent owner');
+    if (options.editingMode && !owner.agentKey) throw new Error('Editing requires a KBASE Agent');
+    if (owner.agentKey) {
+      const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
+      if (!detail) throw new Error('Agent is unavailable for execution');
+      if (options.editingMode && (!canUseEditingMode(toText(detail.raw.mode)) || options.planningMode))
+        throw new Error('Editing requires a KBASE Agent and cannot be combined with Planning');
+      const interaction = resolveAgentInteraction(toText(detail.raw.mode), detail.raw.interactionConfig);
+      if (
+        (!interaction.model && options.model && Object.keys(options.model).length) ||
+        (!interaction.accessLevel && options.accessLevel && options.accessLevel !== 'default') ||
+        (!interaction.mustUseSkills && mustUseSkills.length) ||
+        (!interaction.attachment.localFiles &&
+          contextReferences.some((ref) => !['selection', 'chat', 'site'].includes(ref.type || '')))
+      ) {
+        throw new Error('Agent input capabilities changed; refresh the conversation');
+      }
+    }
+
+    if (mustUseSkills.length) {
+      const catalog = await this.ensureAgentSkills(owner.agentKey!);
+      if (!catalog) throw new Error('Skills catalog is unavailable');
+      mustUseSkills = resolveRequiredSkillIds(mustUseSkills, catalog);
+    }
+
+    if (
+      this.status !== 'connected' ||
+      (this.source.kind === 'default' && getCloudAuthSnapshot().status !== 'available')
+    ) {
       throw new ApiError('Target Desktop is offline; remote operations are not queued', 503, {
         code: 'TARGET_OFFLINE'
       });
     }
 
-    this.clearLocalTerminatedRun(normalizedConversationId);
+    const latestState = this.getConversationTimelineState(normalizedConversationId);
+    if (
+      !this.isLifecycleCurrent(lifecycleVersion) ||
+      latestState.activeRunId ||
+      latestState.awaiting?.status === 'ask' ||
+      (options.continuation && !canContinueChatTimeline(latestState))
+    )
+      throw new Error('Conversation execution state changed');
     this.clearStoppingConversation(normalizedConversationId);
 
     const created = await createOutgoingMessage(normalizedConversationId, normalizedContent, attachments, {
-      planningMode: options.planningMode === true
+      planningMode: options.planningMode === true,
+      editingMode: options.editingMode === true,
+      mustUseSkills,
+      continuation: options.continuation === true
     });
-    this.emit({
-      type: 'conversation.message.insert',
-      conversationId: normalizedConversationId,
-      reason: 'local_send',
-      message: created.message
+    if (!this.isLifecycleCurrent(lifecycleVersion)) throw new Error('Conversation source changed');
+    this.timelineStates.set(normalizedConversationId, {
+      ...this.getConversationTimelineState(normalizedConversationId),
+      canContinue: false
     });
-    this.publishTimelineMessage(created.message, 'local_send');
-    await this.emitHomePatchFromSummary(
-      {
-        source: currentSummary?.source ?? getChatSourceFromId(normalizedConversationId),
+    if (!options.continuation)
+      this.emit({
+        type: 'conversation.message.insert',
         conversationId: normalizedConversationId,
-        title: currentSummary?.title || normalizedConversationId,
-        lastMessageText: created.message.content,
-        lastMessageAt: created.createdAt,
-        unreadCount: 0,
-        read: normalizeChatReadState({ read: { isRead: true } }),
-        lastMessageStatus: 'pending',
-        pinnedAt: currentSummary?.pinnedAt || 0
-      },
-      {
-        shouldMoveToTop: true
-      }
-    );
+        reason: 'local_send',
+        message: created.message
+      });
+    if (!options.continuation) this.publishTimelineMessage(created.message, 'local_send');
+    if (!options.continuation)
+      await this.emitHomePatchFromSummary(
+        {
+          source: currentSummary?.source ?? getChatSourceFromId(normalizedConversationId),
+          conversationId: normalizedConversationId,
+          title: currentSummary?.title || normalizedConversationId,
+          lastMessageText: created.message.content,
+          lastMessageAt: created.createdAt,
+          unreadCount: 0,
+          read: normalizeChatReadState({ read: { isRead: true } }),
+          lastMessageStatus: 'pending',
+          pinnedAt: currentSummary?.pinnedAt || 0
+        },
+        {
+          shouldMoveToTop: true
+        }
+      );
 
     try {
       await this.dispatchOutgoingMessage({
@@ -1469,7 +2135,9 @@ class ChatSyncService {
         attachments: created.message.attachments,
         accessLevel: options.accessLevel,
         model: options.model,
-        planningMode: options.planningMode === true
+        planningMode: options.planningMode === true,
+        editingMode: options.editingMode === true,
+        mustUseSkills
       });
       return {
         ...created,
@@ -1609,7 +2277,7 @@ class ChatSyncService {
   }
 
   private isLifecycleCurrent(lifecycleVersion: number) {
-    return this.lifecycleVersion === lifecycleVersion;
+    return this.lifecycleVersion === lifecycleVersion && this.source.key === getActiveChatSource()?.key;
   }
 
   private async startInternal(lifecycleVersion: number) {
@@ -1629,6 +2297,11 @@ class ChatSyncService {
           return;
         }
         void this.handlePushEvent(scopeChatPayload(this.source, event), 'push');
+      },
+      onProtocolError: (event, error) => {
+        if (!this.isLifecycleCurrent(lifecycleVersion)) return;
+        const conversationId = extractConversationId(scopeChatPayload(this.source, event));
+        if (conversationId) void this.handleStreamSideError(conversationId, error);
       },
       onStatusChange: (status) => {
         if (!this.isLifecycleCurrent(lifecycleVersion)) {
@@ -1652,23 +2325,40 @@ class ChatSyncService {
   }
 
   private async resolveTransportConfig() {
+    if (this.source.key !== getActiveChatSource()?.key) return null;
+    const lifecycleVersion = this.lifecycleVersion;
     const config = await this.transportResolver();
+    if (!this.isLifecycleCurrent(lifecycleVersion)) return null;
     this.activeTransportConfig = config;
     return config;
   }
 
   private async requestChatApi<T>(type: string, payload?: unknown): Promise<T> {
+    const lifecycleVersion = this.lifecycleVersion;
     const config = await this.resolveTransportConfig();
+    if (!this.isLifecycleCurrent(lifecycleVersion)) throw new Error('Chat source changed');
     if (!config) {
       throw new ApiError('Not authenticated', 401, null);
     }
 
+    const cloudGeneration = getCloudAuthSnapshot().generation;
     const response = await requestChatTransport<T | ChatApiEnvelope<T>>({
       ...config,
       type,
       payload: unscopeChatPayload(payload)
-    });
-    return scopeChatPayload(this.source, unwrapChatApiEnvelope<T>(response));
+    })
+      .then(unwrapChatApiEnvelope<T>)
+      .catch((error: unknown) => {
+        if (this.source.kind === 'default' && this.isLifecycleCurrent(lifecycleVersion))
+          reportCloudFailure(classifyCloudFailure(error), cloudGeneration);
+        throw error;
+      });
+    if (!this.isLifecycleCurrent(lifecycleVersion)) throw new Error('Chat source changed');
+    const unwrapped = response;
+    if (type === CHAT_DETAIL_TRANSPORT_TYPE && isPlainRecord(unwrapped)) {
+      assertRemoteChatDetailTimes(unwrapped);
+    }
+    return scopeChatPayload(this.source, unwrapped);
   }
 
   private async requestRawChatApi(type: string, payload?: unknown): Promise<unknown> {
@@ -1741,17 +2431,30 @@ class ChatSyncService {
       }
       this.agentDetails.set(agentKey, detail);
       return detail;
-    } catch {
-      if (this.agentDetailCacheVersion === cacheVersion) {
-        this.agentDetails.set(agentKey, null);
-      }
-      return null;
+    } catch (error) {
+      if (this.agentDetailCacheVersion === cacheVersion) this.agentDetails.delete(agentKey);
+      throw error;
     }
   }
 
   private async fetchAgentModelOptions(agentKey: string, cacheVersion: number): Promise<ModelOptionsSnapshot | null> {
     try {
-      const options = await getModelOptionsApi(getRemoteChatSourceId(agentKey));
+      const transport = await this.resolveTransportConfig();
+      if (!transport || this.agentDetailCacheVersion !== cacheVersion) {
+        return null;
+      }
+      const [options, detail] = await Promise.all([
+        getModelOptionsApi(getRemoteChatSourceId(agentKey), undefined, transport),
+        this.ensureAgentDetail(agentKey)
+      ]);
+      if (detail) {
+        const settings = resolveAgentModelSettings(detail.raw);
+        if (settings.modelKey) options.defaultModelKey = settings.modelKey;
+        if (settings.reasoningEffort) options.defaultReasoningEffort = settings.reasoningEffort;
+        if ('serviceTier' in detail.raw) {
+          options.defaultServiceTier = normalizeModelOptionServiceTier(detail.raw.serviceTier) || 'STANDARD';
+        }
+      }
       if (this.agentDetailCacheVersion !== cacheVersion) {
         return null;
       }
@@ -1771,6 +2474,20 @@ class ChatSyncService {
 
   private async handleTransportStatusChange(status: ChatSocketStatus) {
     const previousStatus = this.status;
+    const lifecycleVersion = this.lifecycleVersion;
+    if (this.source.kind === 'default') {
+      if (status === 'connected' && getCloudAuthSnapshot().status !== 'available') {
+        if ((await verifyDefaultCloud()) !== 'available' || !this.isLifecycleCurrent(lifecycleVersion)) {
+          this.setStatus('disconnected');
+          return;
+        }
+      } else if (
+        ['error', 'disconnected', 'reconnecting'].includes(status) &&
+        getCloudAuthSnapshot().status === 'available'
+      ) {
+        reportCloudFailure('network_error', getCloudAuthSnapshot().generation);
+      }
+    }
     this.setStatus(status);
 
     if (status !== 'connected') {
@@ -1784,6 +2501,7 @@ class ChatSyncService {
         await this.scheduleConversationReconcile(this.activeConversationId, 'reconcile', true);
       }
     }
+    if (this.source.kind === 'default' && this.hasConnectedOnce) await this.refreshHome('bootstrap');
     this.hasConnectedOnce = true;
   }
 
@@ -1792,10 +2510,14 @@ class ChatSyncService {
     conversationId: string;
     content: string;
     attachments?: readonly ChatMessageAttachment[];
+    optionsError?: string;
     accessLevel?: ChatQueryAccessLevel;
     model?: ChatQueryModelOverride;
     planningMode?: boolean;
+    editingMode?: boolean;
+    mustUseSkills?: readonly string[];
   }) {
+    if (input.optionsError) throw new Error(input.optionsError);
     if (this.inFlightOutgoingIds.has(input.clientMessageId)) {
       return;
     }
@@ -1818,9 +2540,44 @@ class ChatSyncService {
         return;
       }
 
+      // Reconnect replay must recheck capabilities, while preserving the stored option.
+      if (input.editingMode) {
+        const owner = buildChatRunOwnerPayload(historyScope || {});
+        if (!owner.agentKey || owner.teamId || input.planningMode) throw new Error('Editing requires a KBASE Agent');
+        const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
+        if (!detail || !canUseEditingMode(toText(detail.raw.mode)))
+          throw new Error('Editing is no longer available for this Agent');
+        if (!this.isLifecycleCurrent(lifecycleVersion)) {
+          this.inFlightOutgoingIds.delete(input.clientMessageId);
+          return;
+        }
+      }
+
+      const mustUseSkills = normalizeRequiredSkills(input.mustUseSkills);
+      if (mustUseSkills.length) {
+        const owner = buildChatRunOwnerPayload(historyScope || {});
+        if (!owner.agentKey || owner.teamId) throw new Error('Required skills need an Agent owner');
+        const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
+        if (!detail || !resolveAgentInteraction(toText(detail.raw.mode), detail.raw.interactionConfig).mustUseSkills)
+          throw new Error('Required skills are no longer supported');
+        const catalog = await this.ensureAgentSkills(owner.agentKey);
+        if (!catalog) throw new Error('Skills catalog is unavailable');
+        resolveRequiredSkillIds(mustUseSkills, catalog);
+        if (!this.isLifecycleCurrent(lifecycleVersion)) {
+          this.inFlightOutgoingIds.delete(input.clientMessageId);
+          return;
+        }
+      }
+
       const references = normalizeChatAttachmentReferences(
         (input.attachments || []).flatMap((attachment) => attachment.references)
       );
+      await this.validateContextReferences(
+        input.conversationId,
+        buildChatRunOwnerPayload(historyScope || {}),
+        references
+      );
+      if (!this.isLifecycleCurrent(lifecycleVersion)) return;
       if ((input.attachments || []).length > 0 && references.length === 0) {
         throw new Error('Message attachments are not ready');
       }
@@ -1833,11 +2590,12 @@ class ChatSyncService {
           chatId: input.conversationId,
           message: input.content,
           ...(references.length > 0 ? { references } : {}),
-          agentKey: historyScope?.agentKey,
-          teamId: historyScope?.teamId,
+          ...buildChatRunOwnerPayload(historyScope || {}),
           accessLevel: input.accessLevel,
           model: input.model,
-          planningMode: input.planningMode === true
+          planningMode: input.planningMode === true,
+          editingMode: input.editingMode === true,
+          mustUseSkills
         }),
         onEvent: (event) => {
           if (!this.isLifecycleCurrent(lifecycleVersion)) {
@@ -2024,6 +2782,7 @@ class ChatSyncService {
   }
 
   private async flushPendingOutbox() {
+    if (this.source.kind === 'default' && getCloudAuthSnapshot().status !== 'available') return;
     const pendingMessages = await getPendingOutboxMessages(50);
     for (const message of pendingMessages.reverse()) {
       if (this.inFlightOutgoingIds.has(message.clientMessageId)) {
@@ -2052,7 +2811,33 @@ class ChatSyncService {
     }
 
     const conversationId = extractConversationId(event);
+    const pendingSteer = this.pendingSteers.get(conversationId);
+    if (
+      type === 'request.steer' &&
+      pendingSteer?.steerId === toText(event.steerId) &&
+      ((pendingSteer.teamId && toText(event.teamId) && pendingSteer.teamId !== toText(event.teamId)) ||
+        (!pendingSteer.teamId &&
+          pendingSteer.agentKey &&
+          toText(event.agentKey) &&
+          pendingSteer.agentKey !== toText(event.agentKey)))
+    )
+      return;
     const family = classifyChatProtocolEvent(event);
+    const eventRunId = toText(event.runId);
+    if (source === 'stream' && conversationId && eventRunId && Number.isSafeInteger(event.seq)) {
+      const key = JSON.stringify([conversationId, eventRunId]);
+      const sequence = Number(event.seq);
+      if (sequence <= (this.streamSequences.get(key) ?? -1)) return;
+      this.streamSequences.delete(key);
+      this.streamSequences.set(key, sequence);
+      if (this.streamSequences.size > 128) this.streamSequences.delete(this.streamSequences.keys().next().value!);
+    }
+    if (type === 'tool.output' && (source !== 'stream' || conversationId !== this.activeConversationId)) return;
+    if (type === 'run.activity' && conversationId) {
+      if (conversationId === this.activeConversationId)
+        await this.applyRuntimeConversationEvent(conversationId, event, source, true);
+      return;
+    }
 
     if (family === 'heartbeat' || family === 'live') {
       return;
@@ -2090,17 +2875,18 @@ class ChatSyncService {
 
     if (family === 'run' && conversationId) {
       await this.applyRuntimeConversationEvent(conversationId, event, source, true);
+      if (type === 'run.access_level.changed') return;
+      this.syncPendingSteerFromTimeline(conversationId, this.getConversationTimelineState(conversationId), true);
       if (type === 'run.start') {
-        const runId = toText(event.runId);
         this.unavailableAttachRuns.delete(conversationId);
-        await setConversationActiveRunId(conversationId, runId);
+        await setConversationActiveRunId(conversationId, this.getConversationTimelineState(conversationId).activeRunId);
         if (this.activeConversationId === conversationId) {
           await this.attachActiveConversationRun(conversationId, 'attach');
         }
         return;
       }
 
-      await setConversationActiveRunId(conversationId, '');
+      await setConversationActiveRunId(conversationId, this.getConversationTimelineState(conversationId).activeRunId);
       await this.flushConversationStreamBuffers(conversationId);
       await this.scheduleConversationReconcile(conversationId, 'reconcile', true);
       if (this.activeConversationId === conversationId) {
@@ -2147,7 +2933,7 @@ class ChatSyncService {
                 lastMessageStatus: projected.lastMessageStatus
               }
             : {}),
-          ...(projectedRead !== undefined ? { read: projectedRead } : {}),
+          ...(projectedRead !== undefined ? { read: { ...event, read: projectedRead } } : {}),
           shouldMoveToTop: hasLatestMessage,
           agentKey: projected.agentKey,
           teamId: projected.teamId
@@ -2189,7 +2975,7 @@ class ChatSyncService {
         conversationId,
         event,
         source,
-        !type.endsWith('.delta') && !type.endsWith('.args')
+        !type.endsWith('.delta') && !type.endsWith('.args') && type !== 'tool.output'
       );
       return;
     }
@@ -2248,10 +3034,14 @@ class ChatSyncService {
         readRunId: event.readRunId || event.runId
       }
     });
-    const result = await setConversationReadStateLocal(conversationId, serverRead, {
-      agentKey: extractAgentKey(event) || null,
-      teamId: extractTeamId(event) || null
-    });
+    const result = await setConversationReadStateLocal(
+      conversationId,
+      { ...event, read: serverRead },
+      {
+        agentKey: extractAgentKey(event) || null,
+        teamId: extractTeamId(event) || null
+      }
+    );
     if (result?.changed) {
       this.emitHomePatch(
         result.summary,
@@ -2309,7 +3099,7 @@ class ChatSyncService {
       clientMessageId,
       {
         serverMessageId: toText(event.serverMessageId) || undefined,
-        createdAt: toFiniteNumber(event.createdAt, Date.now()),
+        createdAt: toFiniteNumber(event.createdAt ?? event.timestamp, Date.now()),
         deliveryStatus: 'sent',
         errorReason: null
       },
@@ -2345,7 +3135,7 @@ class ChatSyncService {
     const conversationId = extractConversationId(event);
     const serverMessageId = toText(event.serverMessageId || event.messageId);
     const content = extractEventText(event);
-    const createdAt = toFiniteNumber(event.createdAt, Date.now());
+    const createdAt = toFiniteNumber(event.createdAt ?? event.timestamp, Date.now());
     const incomingAttachments = createMessageAttachmentsFromReferences({
       conversationId,
       messageId: serverMessageId,
@@ -2428,6 +3218,8 @@ class ChatSyncService {
       return;
     }
 
+    if (isChatTimelineContentEventClosed(this.getConversationTimelineState(conversationId), conversationId, event))
+      return;
     const type = normalizeEventType(event.type);
     const createdAt = toFiniteNumber(
       event.timestamp || event.ts || event.time || event.createdAt || event.updatedAt,
@@ -2474,11 +3266,13 @@ class ChatSyncService {
       this.streamBuffers.set(messageId, buffer);
 
       if (initialContent) {
-        this.publishStreamBufferInitialMessage(buffer, type === 'content.end' ? 'done' : 'streaming');
+        this.publishStreamBufferInitialMessage(
+          buffer,
+          type === 'content.end' && event.status !== 'failed' ? 'done' : 'streaming'
+        );
       }
     } else {
       buffer.reason = reason;
-      buffer.createdAt = Math.max(buffer.createdAt, createdAt);
       shouldPatchServerMessageId = Boolean(serverMessageId) && buffer.serverMessageId !== serverMessageId;
       if (serverMessageId) {
         buffer.serverMessageId = serverMessageId;
@@ -2519,7 +3313,10 @@ class ChatSyncService {
     }
 
     if (!buffer.publishedToTimeline && buffer.content) {
-      this.publishStreamBufferInitialMessage(buffer, type === 'content.end' ? 'done' : 'streaming');
+      this.publishStreamBufferInitialMessage(
+        buffer,
+        type === 'content.end' && event.status !== 'failed' ? 'done' : 'streaming'
+      );
     }
 
     const hasPendingUiPatch = buffer.pendingUiSnapshotText !== undefined || Boolean(buffer.pendingUiDelta);
@@ -2533,6 +3330,16 @@ class ChatSyncService {
       await this.flushStreamBufferToUi(buffer.key);
       await this.flushStreamBufferToDb(buffer.key);
       this.streamBuffers.delete(buffer.key);
+      if (event.status === 'failed') {
+        await this.applyRuntimeConversationEvent(
+          conversationId,
+          { ...event, messageId: buffer.messageId },
+          reason,
+          true
+        );
+        await this.emitHomePatchFromConversation(conversationId, { shouldMoveToTop: true });
+        return;
+      }
       if (buffer.publishedToTimeline) {
         const shouldPatchStreamDone = buffer.publishedStreamStatus !== 'done';
         if (shouldPatchServerMessageId || shouldPatchStreamDone) {
@@ -2706,7 +3513,6 @@ class ChatSyncService {
       this.timelinePersistTimers.delete(normalizedConversationId);
     }
     this.pendingRuntimeEmitReasons.delete(normalizedConversationId);
-    this.locallyTerminatedRuns.delete(normalizedConversationId);
     this.stoppingConversations.delete(normalizedConversationId);
     this.unavailableAttachRuns.delete(normalizedConversationId);
     const hadTimelineState = this.timelineStates.delete(normalizedConversationId);
@@ -2750,12 +3556,43 @@ class ChatSyncService {
     this.emitConversationTimelineState(normalizedConversationId, reason, timelineState);
   }
 
+  private syncPendingSteerFromTimeline(conversationId: string, state: ChatTimelineState, checkRunTerminal = false) {
+    const timeline = state;
+    const pending = this.pendingSteers.get(conversationId);
+    if (pending) {
+      const confirmed = timeline.nodesById[`message:${conversationId}:request:${pending.steerId}`];
+      if (confirmed?.kind === 'message' && confirmed.messageVariant === 'steer' && confirmed.runId === pending.runId) {
+        this.pendingSteers.delete(conversationId);
+        this.emit({
+          type: 'conversation.steer.changed',
+          conversationId: conversationId,
+          pending: null,
+          confirmed: pending
+        });
+      } else if (checkRunTerminal && !pending.runEnded && timeline.activeRunId !== pending.runId) {
+        const ended = Object.values(timeline.nodesById).some(
+          (node) => node.kind === 'run' && node.runId === pending.runId && node.lifecycle !== 'active'
+        );
+        if (ended) {
+          const next = { ...pending, runEnded: true };
+          this.pendingSteers.set(conversationId, next);
+          this.emit({ type: 'conversation.steer.changed', conversationId: conversationId, pending: next });
+        }
+      }
+    }
+  }
+
   private emitConversationTimelineState(conversationId: string, reason: ChatSyncReason, state?: ChatTimelineState) {
     const normalizedConversationId = toText(conversationId);
     if (!normalizedConversationId) {
       return;
     }
 
+    this.syncPendingSteerFromTimeline(
+      normalizedConversationId,
+      state ?? this.getConversationTimelineState(normalizedConversationId),
+      reason !== 'stream' && reason !== 'push' && reason !== 'local_send'
+    );
     this.emit({
       type: 'conversation.timeline.replace',
       conversationId: normalizedConversationId,
@@ -2810,7 +3647,8 @@ class ChatSyncService {
     }
 
     this.timelineStates.set(normalizedConversationId, nextState);
-    this.scheduleTimelinePersist(normalizedConversationId);
+    if (event.type !== 'tool.output' && event.type !== 'run.activity')
+      this.scheduleTimelinePersist(normalizedConversationId);
     this.scheduleConversationRuntimeEmit(normalizedConversationId, reason, immediate);
   }
 
@@ -2822,7 +3660,7 @@ class ChatSyncService {
     }
   ) {
     const normalizedConversationId = toText(conversationId);
-    if (!normalizedConversationId) {
+    if (!normalizedConversationId || this.visibleConversationId !== normalizedConversationId) {
       return;
     }
 
@@ -2839,20 +3677,27 @@ class ChatSyncService {
 
     const now = Date.now();
     const syncState = await getConversationSyncState(normalizedConversationId);
-    const readRunId = syncState?.activeRunId ? syncState.activeRunId : null;
+    const timeline = this.getConversationTimelineState(normalizedConversationId);
+    let readRunId = syncState?.activeRunId || null;
+    for (let index = timeline.orderedNodeIds.length - 1; !readRunId && index >= 0; index -= 1) {
+      const node = timeline.nodesById[timeline.orderedNodeIds[index]];
+      if (node?.kind === 'run') readRunId = node.runId || null;
+    }
     const confirmMarker = String(options?.confirmMarker || '').trim() || `run:${readRunId || 'none'}`;
     const lastMark = this.lastReadMarks.get(normalizedConversationId);
     if (lastMark && lastMark.marker === confirmMarker && now - lastMark.markedAt < READ_MARK_DEBOUNCE_MS) {
       return;
     }
 
+    if (this.visibleConversationId !== normalizedConversationId) return;
     this.lastReadMarks.set(normalizedConversationId, {
       markedAt: now,
       marker: confirmMarker
     });
     const confirmation = this.confirmConversationReadWithServer(normalizedConversationId, readRunId, now).finally(
       () => {
-        this.readConfirmations.delete(normalizedConversationId);
+        if (this.readConfirmations.get(normalizedConversationId) === confirmation)
+          this.readConfirmations.delete(normalizedConversationId);
       }
     );
     this.readConfirmations.set(normalizedConversationId, confirmation);
@@ -2860,11 +3705,14 @@ class ChatSyncService {
   }
 
   private async confirmConversationReadWithServer(conversationId: string, readRunId: string | null, readAt: number) {
+    const lifecycleVersion = this.lifecycleVersion;
     try {
+      if (this.visibleConversationId !== conversationId) return;
       const response = await this.markChatReadViaTransport({
         chatId: conversationId,
         ...(readRunId ? { runId: readRunId } : {})
       });
+      if (!this.isLifecycleCurrent(lifecycleVersion)) return;
       const result = await setConversationReadStateLocal(
         conversationId,
         hasChatReadStateInput(response)
@@ -2987,8 +3835,12 @@ class ChatSyncService {
   }
 
   private async runConversationReconcile(conversationId: string, reason: ChatSyncReason, beforeEventSeq?: number) {
+    const lifecycleVersion = this.lifecycleVersion;
     await markConversationDirty(conversationId, reason);
+    if (!this.isLifecycleCurrent(lifecycleVersion)) return;
 
+    const timelineBeforeRequest = this.timelineStates.get(conversationId);
+    const revisionBeforeRequest = timelineBeforeRequest?.revision;
     const remoteDetailPromise = this.getChatDetailViaTransport(conversationId, beforeEventSeq).catch((error) => {
       if (isApiStatusError(error, 404)) {
         return null;
@@ -2999,6 +3851,7 @@ class ChatSyncService {
       remoteDetailPromise,
       getConversationDetail(conversationId)
     ]);
+    if (!this.isLifecycleCurrent(lifecycleVersion)) return;
     if (!remoteDetail) {
       if (localSummary) {
         await this.emitHomePatchFromConversation(conversationId, {
@@ -3007,28 +3860,42 @@ class ChatSyncService {
       }
       return;
     }
-    const projection = projectRemoteChatDetail(remoteDetail, buildFallbackSummary(localSummary));
+    const projection = projectRemoteChatDetail(
+      remoteDetail,
+      buildFallbackSummary(localSummary),
+      beforeEventSeq !== undefined || this.timelineStates.get(conversationId)?.revision !== revisionBeforeRequest
+    );
     if (!projection) {
       return;
     }
 
-    const read = projection.hasExplicitReadState ? projection.read : undefined;
+    const read =
+      beforeEventSeq === undefined &&
+      this.timelineStates.get(conversationId)?.revision === revisionBeforeRequest &&
+      projection.hasExplicitReadState
+        ? projection.read
+        : undefined;
     const unreadCount = read ? (read.isRead ? 0 : 1) : undefined;
     const currentTimelineState =
       this.timelineStates.get(projection.conversationId) ??
       (isAccountDesktopChatSource(this.source)
         ? await getConversationInitialTimelineState(projection.conversationId, 500)
         : undefined);
-    const terminatedRun = this.getLocalTerminatedRun(projection.conversationId);
-    const mergedTimelineState = mergeChatTimelineState(
+    let mergedTimelineState = mergeChatTimelineState(
       currentTimelineState,
       projection.timelineState,
-      terminatedRun
-        ? {
-            preserveTerminalRunIds: [terminatedRun.runId]
-          }
-        : undefined
+      beforeEventSeq !== undefined || isAccountDesktopChatSource(this.source),
+      { baseline: timelineBeforeRequest, historicalPage: beforeEventSeq !== undefined }
     );
+    if (beforeEventSeq === undefined && currentTimelineState?.revision === revisionBeforeRequest) {
+      mergedTimelineState = reconcileChatTimelineAwaitingSnapshot(mergedTimelineState, remoteDetail.awaiting);
+    } else if (currentTimelineState) {
+      mergedTimelineState = { ...mergedTimelineState, awaiting: currentTimelineState.awaiting };
+    }
+    if (currentTimelineState && currentTimelineState.revision !== revisionBeforeRequest) {
+      mergedTimelineState = { ...mergedTimelineState, canContinue: currentTimelineState.canContinue };
+    }
+    if (!this.isLifecycleCurrent(lifecycleVersion)) return;
     const unavailableRun = this.getUnavailableAttachRun(projection.conversationId);
     const nextTimelineState =
       unavailableRun &&
@@ -3039,12 +3906,8 @@ class ChatSyncService {
             timestamp: unavailableRun.markedAt
           })
         : mergedTimelineState;
-    this.refreshLocalTerminatedRunAfterReconcile(
-      projection.conversationId,
-      projection.timelineState,
-      nextTimelineState
-    );
     const nextMessages = projectTimelineMessages(nextTimelineState);
+    this.timelineStates.set(projection.conversationId, nextTimelineState);
 
     await reconcileConversationDetail({
       conversationId: projection.conversationId,
@@ -3060,10 +3923,13 @@ class ChatSyncService {
       messages: nextMessages,
       timelineState: nextTimelineState
     });
-    this.timelineStates.set(projection.conversationId, nextTimelineState);
+    if (!this.isLifecycleCurrent(lifecycleVersion)) return;
+    if (this.timelineStates.get(projection.conversationId) !== nextTimelineState) {
+      this.scheduleTimelinePersist(projection.conversationId);
+    }
     this.emitConversationRuntimeState(projection.conversationId, reason);
     await markConversationSynced(conversationId, {
-      activeRunId: nextTimelineState.activeRunId
+      activeRunId: this.getConversationTimelineState(conversationId).activeRunId
     });
 
     if (this.activeConversationId === conversationId) {
@@ -3113,44 +3979,37 @@ class ChatSyncService {
     return this.activeAttaches.get(conversationId)?.token === token;
   }
 
-  private rememberDuplicateAttach(conversationId: string, runId: string, agentKey: string) {
+  private rememberDuplicateAttach(
+    conversationId: string,
+    runId: string,
+    owner: { agentKey?: string; teamId?: string }
+  ) {
     this.recentDuplicateAttaches.set(conversationId, {
       runId,
-      agentKey,
+      ...owner,
       observedAt: Date.now()
     });
   }
 
-  private shouldSkipRecentlyDuplicatedAttach(conversationId: string, runId: string, agentKey: string): boolean {
+  private shouldSkipRecentlyDuplicatedAttach(
+    conversationId: string,
+    runId: string,
+    owner: { agentKey?: string; teamId?: string }
+  ): boolean {
     const duplicate = this.recentDuplicateAttaches.get(conversationId);
     if (!duplicate) {
       return false;
     }
     if (
       duplicate.runId !== runId ||
-      duplicate.agentKey !== agentKey ||
+      duplicate.agentKey !== owner.agentKey ||
+      duplicate.teamId !== owner.teamId ||
       Date.now() - duplicate.observedAt > DUPLICATE_ATTACH_COOLDOWN_MS
     ) {
       this.recentDuplicateAttaches.delete(conversationId);
       return false;
     }
     return true;
-  }
-
-  private stopOutgoingStreams(conversationId: string) {
-    const stoppedClientMessageIds: string[] = [];
-    this.activeOutgoingStreams.forEach((stream, clientMessageId) => {
-      if (stream.conversationId !== conversationId) {
-        return;
-      }
-
-      stream.abort();
-      this.activeOutgoingStreams.delete(clientMessageId);
-      this.inFlightOutgoingIds.delete(clientMessageId);
-      stoppedClientMessageIds.push(stream.clientMessageId);
-    });
-
-    return stoppedClientMessageIds;
   }
 
   private async requestConversationInterrupt(conversationId: string, runId: string) {
@@ -3160,76 +4019,31 @@ class ChatSyncService {
       return;
     }
 
+    const lifecycleVersion = this.lifecycleVersion;
     try {
       const scope = await this.resolveRunControlScope(normalizedConversationId, normalizedRunId);
-      const response = await this.requestChatApi<InterruptChatResponse>(
+      if (!this.isLifecycleCurrent(lifecycleVersion)) return;
+      await this.requestChatApi<InterruptChatResponse>(
         CHAT_INTERRUPT_TRANSPORT_TYPE,
         buildInterruptChatPayload({
           requestId: createRunControlRequestId('interrupt'),
           chatId: normalizedConversationId,
           runId: normalizedRunId,
-          agentKey: scope.agentKey,
-          teamId: scope.teamId
+          ...scope
         })
       );
-      if (response?.accepted === false) {
-        if (isInactiveInterruptResponse(response)) {
-          return;
+    } catch {
+      // Rejection, run_not_found and unknown outcomes all require authority.
+    } finally {
+      if (this.isLifecycleCurrent(lifecycleVersion)) {
+        try {
+          await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', true);
+        } finally {
+          if (this.stoppingConversations.get(normalizedConversationId)?.runId === normalizedRunId) {
+            this.clearStoppingConversation(normalizedConversationId);
+          }
         }
-        this.clearLocalTerminatedRun(normalizedConversationId, normalizedRunId);
-        throw new Error(toText(response.detail) || toText(response.status) || 'interrupt rejected');
       }
-    } catch (error) {
-      if (isInactiveRunError(error)) {
-        return;
-      }
-      this.clearLocalTerminatedRun(normalizedConversationId, normalizedRunId);
-      this.clearStoppingConversation(normalizedConversationId);
-      await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
-    }
-  }
-
-  private async clearConversationActiveRun(conversationId: string) {
-    const normalizedConversationId = toText(conversationId);
-    if (!normalizedConversationId) {
-      return;
-    }
-
-    try {
-      await setConversationActiveRunId(normalizedConversationId, '');
-    } catch {
-      await markConversationDirty(normalizedConversationId, 'stop');
-    }
-  }
-
-  private publishLocalRunCancel(conversationId: string, fallbackRunId: string) {
-    const currentState = this.getConversationTimelineState(conversationId);
-    const nextState = applyChatTimelineLocalCancel(currentState, conversationId, {
-      runId: fallbackRunId,
-      reason: '用户已停止生成',
-      timestamp: Date.now()
-    });
-    if (nextState === currentState) {
-      return;
-    }
-
-    this.timelineStates.set(conversationId, nextState);
-    this.scheduleTimelinePersist(conversationId);
-    this.scheduleConversationRuntimeEmit(conversationId, 'stream', true);
-  }
-
-  private async finishStoppedOutgoingStreams(conversationId: string, clientMessageIds: readonly string[]) {
-    try {
-      await this.flushConversationStreamBuffers(conversationId);
-      for (const clientMessageId of clientMessageIds) {
-        await this.markOutgoingSentIfPending({
-          clientMessageId,
-          conversationId
-        });
-      }
-      await markConversationDirty(conversationId, 'stop');
-    } catch {
-      await this.scheduleConversationReconcile(conversationId, 'reconcile', false);
     }
   }
 
@@ -3248,17 +4062,26 @@ class ChatSyncService {
       return;
     }
 
-    const agentKey = await this.resolveActiveRunAgentKey(normalizedConversationId, runId);
-    if (!agentKey) {
+    const recovery = this.attachRecoveryFailures.get(normalizedConversationId);
+    if (recovery?.runId === runId && recovery.count >= 3) return;
+    if (recovery && recovery.runId !== runId) this.attachRecoveryFailures.delete(normalizedConversationId);
+    const owner = await this.resolveRunControlScope(normalizedConversationId, runId);
+    if (!owner.agentKey && !owner.teamId) {
       return;
     }
 
+    if (this.activeConversationId !== normalizedConversationId) return;
+    if (
+      this.timelineStates.has(normalizedConversationId) &&
+      this.getConversationTimelineState(normalizedConversationId).activeRunId !== runId
+    )
+      return;
     const existing = this.activeAttaches.get(normalizedConversationId);
-    if (existing?.runId === runId && existing.agentKey === agentKey) {
+    if (existing?.runId === runId && existing.agentKey === owner.agentKey && existing.teamId === owner.teamId) {
       return existing.promise;
     }
 
-    if (this.shouldSkipRecentlyDuplicatedAttach(normalizedConversationId, runId, agentKey)) {
+    if (this.shouldSkipRecentlyDuplicatedAttach(normalizedConversationId, runId, owner)) {
       return;
     }
 
@@ -3267,7 +4090,7 @@ class ChatSyncService {
     const attachState: ActiveAttachState = {
       token: attachToken,
       runId,
-      agentKey,
+      ...owner,
       lastSeq: normalizeAttachLastSeq(initialLastSeq),
       phase: 'pending',
       promise: Promise.resolve(),
@@ -3286,6 +4109,13 @@ class ChatSyncService {
     }
   }
 
+  private recordAttachRecoveryFailure(conversationId: string, runId: string) {
+    const previous = this.attachRecoveryFailures.get(conversationId);
+    const count = previous?.runId === runId ? previous.count + 1 : 1;
+    this.attachRecoveryFailures.set(conversationId, { runId, count });
+    if (count === 3) this.emit({ type: 'conversation.recovery.error', conversationId, runId });
+  }
+
   private async startAttachActiveConversationRun(
     normalizedConversationId: string,
     reason: ChatSyncReason,
@@ -3300,11 +4130,13 @@ class ChatSyncService {
       return;
     }
 
+    const initialSeq = attachState.lastSeq;
     const handle = await attachChatRun({
       ...config,
       payload: unscopeChatPayload({
         runId: attachState.runId,
         agentKey: attachState.agentKey,
+        teamId: attachState.teamId,
         lastSeq: attachState.lastSeq
       }),
       onEvent: (event) => {
@@ -3313,7 +4145,8 @@ class ChatSyncService {
         }
         const attachEvent = scopeChatPayload(this.source, event as Record<string, unknown>);
         if (typeof attachEvent.seq === 'number') {
-          attachState.lastSeq = attachEvent.seq;
+          attachState.lastSeq = Math.max(attachState.lastSeq, attachEvent.seq);
+          if (attachState.lastSeq > initialSeq) this.attachRecoveryFailures.delete(normalizedConversationId);
         }
         void this.handlePushEvent(
           {
@@ -3330,7 +4163,9 @@ class ChatSyncService {
           return;
         }
         this.activeAttaches.delete(normalizedConversationId);
-        void this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', true);
+        if (attachState.lastSeq <= initialSeq)
+          this.recordAttachRecoveryFailure(normalizedConversationId, attachState.runId);
+        void this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
       },
       onError: (error) => {
         if (!this.isActiveAttachCurrent(normalizedConversationId, attachState.token)) {
@@ -3338,7 +4173,7 @@ class ChatSyncService {
         }
         this.activeAttaches.delete(normalizedConversationId);
         if (isDuplicateObserveError(error)) {
-          this.rememberDuplicateAttach(normalizedConversationId, attachState.runId, attachState.agentKey);
+          this.rememberDuplicateAttach(normalizedConversationId, attachState.runId, attachState);
           return;
         }
         if (isMissingAgentKeyError(error)) {
@@ -3349,6 +4184,7 @@ class ChatSyncService {
           void this.handleUnavailableAttachRun(normalizedConversationId, attachState.runId);
           return;
         }
+        this.recordAttachRecoveryFailure(normalizedConversationId, attachState.runId);
         void this.handleStreamSideError(normalizedConversationId, error);
       }
     });
@@ -3366,21 +4202,16 @@ class ChatSyncService {
     await markConversationDirty(normalizedConversationId, reason);
   }
 
-  private async resolveActiveRunAgentKey(conversationId: string, runId: string) {
-    const scope = await this.resolveRunControlScope(conversationId, runId);
-    return scope.agentKey;
-  }
-
   private async resolveRunControlScope(conversationId: string, runId: string) {
     const currentState = this.getConversationTimelineState(conversationId);
     const timelineAgentKey =
       findTimelineRunAgentKey(currentState, runId) || findTimelineAwaitingAgentKey(currentState, runId);
     const historyScope = await getConversationHistoryScope(conversationId);
 
-    return {
-      agentKey: timelineAgentKey || toText(historyScope?.agentKey),
+    return buildChatRunOwnerPayload({
+      agentKey: toText(historyScope?.agentKey) || timelineAgentKey,
       teamId: toText(historyScope?.teamId)
-    };
+    });
   }
 
   private async handleUnavailableAttachRun(conversationId: string, runId: string) {
@@ -3427,74 +4258,45 @@ class ChatSyncService {
 
 class ChatSyncCoordinator {
   private readonly listeners = new Set<SyncListener>();
-  private readonly defaultService = new ChatSyncService(getDefaultChatSource(), () =>
-    resolveDefaultWsTransportConfig()
-  );
-  private pairedService: ChatSyncService | null = null;
-  private readonly serviceSubscriptions = new Map<string, () => void>();
-
-  constructor() {
-    this.attachService(this.defaultService);
-  }
-
-  private attachService(service: ChatSyncService) {
-    if (this.serviceSubscriptions.has(service.source.key)) {
-      return;
-    }
-    const unsubscribe = service.subscribe((event) => {
-      if (event.type === 'connection.status') {
-        this.emit({
-          type: 'connection.status',
-          status: this.getStatus()
-        });
-        return;
-      }
-      this.emit(event);
-    });
-    this.serviceSubscriptions.set(service.source.key, unsubscribe);
-  }
+  private activeService: ChatSyncService | null = null;
+  private unsubscribeService: (() => void) | null = null;
 
   private emit(event: ChatSyncEvent) {
     this.listeners.forEach((listener) => listener(event));
   }
 
-  private ensurePairedService(): ChatSyncService | null {
-    const source = getPairedChatSource();
-    if (!source) {
-      if (this.pairedService) {
-        this.serviceSubscriptions.get(this.pairedService.source.key)?.();
-        this.serviceSubscriptions.delete(this.pairedService.source.key);
-        this.pairedService.stop();
-        this.pairedService = null;
-      }
-      return null;
-    }
-    if (this.pairedService?.source.key === source.key) {
-      return this.pairedService;
-    }
-    if (this.pairedService) {
-      this.serviceSubscriptions.get(this.pairedService.source.key)?.();
-      this.serviceSubscriptions.delete(this.pairedService.source.key);
-      this.pairedService.stop();
-    }
-    this.pairedService = new ChatSyncService(source, () => resolveActiveWsTransportConfig('ap'));
-    this.attachService(this.pairedService);
-    return this.pairedService;
+  private ensureActiveService(): ChatSyncService | null {
+    const source = getActiveChatSource();
+    if (this.activeService?.source.key === source?.key) return this.activeService;
+    this.unsubscribeService?.();
+    this.unsubscribeService = null;
+    this.activeService?.stop(true);
+    this.activeService = source
+      ? new ChatSyncService(source, () =>
+          source.kind === 'paired' ? resolveActiveWsTransportConfig('ap') : resolveDefaultWsTransportConfig()
+        )
+      : null;
+    const service = this.activeService;
+    if (service)
+      this.unsubscribeService = service.subscribe((event) => {
+        if (this.activeService === service) this.emit(event);
+      });
+    return service;
+  }
+
+  private getLocalService(): ChatSyncService {
+    return this.ensureActiveService() ?? new ChatSyncService(getDefaultChatSource(), () => null);
   }
 
   private getServiceForId(value: string | null | undefined): ChatSyncService | null {
-    const source = getChatSourceFromId(value);
-    if (source.kind === 'default') {
-      return source.key === this.defaultService.source.key ? this.defaultService : null;
-    }
-    const paired = this.ensurePairedService();
-    return paired?.source.key === source.key ? paired : null;
+    const service = this.ensureActiveService();
+    return service?.source.key === getChatSourceFromId(value).key ? service : null;
   }
 
   private requireServiceForId(value: string | null | undefined): ChatSyncService {
     const service = this.getServiceForId(value);
     if (!service) {
-      throw new Error('请先完成 Desktop 配对');
+      throw new Error('当前账号或来源已变更');
     }
     return service;
   }
@@ -3510,76 +4312,69 @@ class ChatSyncCoordinator {
     };
   }
 
+  getViewDocument(request: ChatViewRequest) {
+    return this.requireServiceForId(request.chatId).getViewDocument(request);
+  }
+
+  getSourceStatus(source: ChatSource | null): ChatSocketStatus {
+    const service = this.ensureActiveService();
+    if (source?.kind === 'default' && getCloudAuthSnapshot().status !== 'available') return 'disconnected';
+    return source && service?.source.key === source.key ? service.getStatus() : 'idle';
+  }
+
   getStatus(sourceId?: string): ChatSocketStatus {
-    if (sourceId) {
-      return this.getServiceForId(sourceId)?.getStatus() ?? 'disconnected';
-    }
-    const statuses = [this.defaultService.getStatus(), this.pairedService?.getStatus() ?? 'idle'];
-    if (statuses.includes('connected')) {
-      return 'connected';
-    }
-    if (statuses.includes('connecting')) {
-      return 'connecting';
-    }
-    if (statuses.includes('reconnecting')) {
-      return 'reconnecting';
-    }
-    if (statuses.includes('error')) {
-      return 'error';
-    }
-    if (statuses.includes('disconnected')) {
-      return 'disconnected';
-    }
-    return 'idle';
+    const service = sourceId ? this.getServiceForId(sourceId) : this.ensureActiveService();
+    return service?.source.kind === 'default' && getCloudAuthSnapshot().status !== 'available'
+      ? 'disconnected'
+      : (service?.getStatus() ?? 'idle');
+  }
+
+  notifySourceAccessChanged() {
+    this.emit({ type: 'connection.status', status: this.getStatus() });
   }
 
   async start() {
-    const paired = this.ensurePairedService();
-    const directoryChanged = await retainChatDirectorySources([
-      this.defaultService.source,
-      ...(paired ? [paired.source] : [])
-    ]);
-    if (directoryChanged) {
-      this.emit({ type: 'home.directory.replace' });
-    }
-    await Promise.all([this.defaultService.start(), paired?.start() ?? Promise.resolve()]);
+    await this.ensureActiveService()?.start();
   }
 
   stop() {
-    this.defaultService.stop();
-    this.pairedService?.stop();
+    this.unsubscribeService?.();
+    this.unsubscribeService = null;
+    this.activeService?.stop(true);
+    this.activeService = null;
   }
 
   async refreshAuth() {
-    await this.ensurePairedService()?.refreshAuth();
+    await this.ensureActiveService()?.refreshAuth();
   }
 
   async refreshActiveDesktop() {
-    const paired = this.ensurePairedService();
-    const directoryChanged = await retainChatDirectorySources([
-      this.defaultService.source,
-      ...(paired ? [paired.source] : [])
-    ]);
-    if (directoryChanged) {
-      this.emit({ type: 'home.directory.replace' });
-    }
-    await paired?.start();
+    await this.start();
+    this.emit({ type: 'home.directory.replace' });
   }
 
   async prewarmHome() {
-    await this.defaultService.prewarmHome();
+    if (getActiveChatSource()) await this.ensureActiveService()?.prewarmHome();
   }
 
-  async refreshHome(reason: ChatSyncReason = 'manual_refresh') {
-    const paired = this.ensurePairedService();
-    await Promise.all([this.defaultService.refreshHome(reason), paired?.refreshHome(reason) ?? Promise.resolve()]);
+  async refreshHome(reason: ChatSyncReason = 'manual_refresh'): Promise<ChatHomeRefreshFailure[]> {
+    const service = this.ensureActiveService();
+    if (!service) return [];
+    try {
+      await service.refreshHome(reason);
+      return [];
+    } catch (error) {
+      return [{ source: service.source, message: error instanceof Error ? error.message : String(error) }];
+    }
+  }
+
+  setConversationVisible(conversationId: string, visible: boolean) {
+    this.getServiceForId(conversationId)?.setConversationVisible(conversationId, visible);
   }
 
   setActiveConversationId(conversationId: string | null) {
-    const target = conversationId ? this.getServiceForId(conversationId) : null;
-    this.defaultService.setActiveConversationId(target === this.defaultService ? conversationId : null);
-    const paired = this.ensurePairedService();
-    paired?.setActiveConversationId(target === paired ? conversationId : null);
+    const service = this.ensureActiveService();
+    service?.setActiveConversationId(conversationId && this.getServiceForId(conversationId) ? conversationId : null);
   }
 
   stopStreaming(conversationId: string) {
@@ -3587,7 +4382,7 @@ class ChatSyncCoordinator {
   }
 
   resumeStreaming(conversationId: string) {
-    this.requireServiceForId(conversationId).resumeStreaming(conversationId);
+    return this.requireServiceForId(conversationId).resumeStreaming(conversationId);
   }
 
   getConversationRuntimeState(conversationId: string) {
@@ -3602,9 +4397,19 @@ class ChatSyncCoordinator {
     return this.getServiceForId(agentKey)?.getAgentDetailSnapshot(agentKey) ?? null;
   }
 
-  ensureAgentDetail(agentKey: string) {
+  ensureAgentDetail(agentKey: string, options?: { refresh?: boolean; throwOnError?: boolean }) {
     const service = this.getServiceForId(agentKey);
-    return service ? service.ensureAgentDetail(agentKey) : Promise.resolve(null);
+    return service ? service.ensureAgentDetail(agentKey, options) : Promise.resolve(null);
+  }
+
+  listReferenceChats(conversationId: string, lastRunId?: string) {
+    const service = this.getServiceForId(conversationId);
+    if (!service) return Promise.reject(new Error('Chat source is unavailable'));
+    return service.listReferenceChats(conversationId, lastRunId);
+  }
+
+  ensureAgentSkills(agentKey: string) {
+    return this.getServiceForId(agentKey)?.ensureAgentSkills(agentKey) ?? Promise.resolve(null);
   }
 
   getAgentModelOptionsSnapshot(agentKey: string) {
@@ -3664,6 +4469,30 @@ class ChatSyncCoordinator {
     return this.requireServiceForId(conversationId).submitAwaiting(conversationId, payload);
   }
 
+  deriveConversation(conversationId: string, runId: string) {
+    return this.requireServiceForId(conversationId).deriveConversation(conversationId, runId);
+  }
+
+  submitRunFeedback(conversationId: string, runId: string, type: ChatFeedbackType, comment?: string) {
+    return this.requireServiceForId(conversationId).submitRunFeedback(conversationId, runId, type, comment);
+  }
+
+  updateRuntimeAccessLevel(conversationId: string, runId: string, level: ChatQueryAccessLevel) {
+    return this.requireServiceForId(conversationId).updateRuntimeAccessLevel(conversationId, runId, level);
+  }
+
+  getPendingSteer(conversationId: string) {
+    return this.getServiceForId(conversationId)?.getPendingSteer(conversationId) || null;
+  }
+
+  restorePendingSteer(conversationId: string) {
+    return this.requireServiceForId(conversationId).restorePendingSteer(conversationId);
+  }
+
+  steerConversation(conversationId: string, message: string, attachments: readonly ChatComposerAttachment[] = []) {
+    return this.requireServiceForId(conversationId).steerConversation(conversationId, message, attachments);
+  }
+
   sendMessage(
     conversationId: string,
     content: string,
@@ -3679,23 +4508,23 @@ class ChatSyncCoordinator {
 
   async resetLocalCacheForDevelopment() {
     this.stop();
-    return this.defaultService.resetLocalCacheForDevelopment();
+    return this.getLocalService().resetLocalCacheForDevelopment();
   }
 
   hasActiveLocalConversations() {
-    return this.defaultService.hasActiveLocalConversations();
+    return this.getLocalService().hasActiveLocalConversations();
   }
 
   inspectLocalCacheScope(scopeId: string) {
-    return this.defaultService.inspectLocalCacheScope(scopeId);
+    return this.getLocalService().inspectLocalCacheScope(scopeId);
   }
 
   async clearLocalConversationCache(scopeId: string, conversationId: string) {
-    return this.defaultService.clearLocalConversationCache(scopeId, conversationId);
+    return this.getLocalService().clearLocalConversationCache(scopeId, conversationId);
   }
 
   async clearLocalCacheScope(scopeId: string) {
-    return this.defaultService.clearLocalCacheScope(scopeId);
+    return this.getLocalService().clearLocalCacheScope(scopeId);
   }
 }
 

@@ -1,5 +1,6 @@
 import { buildAuthenticatedApiUriSource, type ApiUriSource } from '../apiClient.ts';
-import { getActiveDeviceProfile } from '../../auth/deviceProfiles.ts';
+import { getAccountAuthSnapshot } from '../../auth/accountAuth';
+import { readActiveDesktopId } from '../../auth/activeDesktop';
 import {
   isAuthenticatedResourceContentTypeCompatible,
   requiresAuthenticatedResourceHttpDataPlane
@@ -37,7 +38,7 @@ export class AuthenticatedResourceError extends Error {
 
 export async function resolveAuthenticatedResourceSource(resourceUrl: string): Promise<ApiUriSource> {
   if (
-    getActiveDeviceProfile()?.transportKind === 'desktop-ws' &&
+    readActiveDesktopId(getAccountAuthSnapshot().session?.accountId || '') &&
     requiresAuthenticatedResourceHttpDataPlane(resourceUrl)
   ) {
     throw new AuthenticatedResourceError(
@@ -86,10 +87,7 @@ export async function fetchAuthenticatedResourceText(
     }
     if (
       options.expectedFileName &&
-      !isAuthenticatedResourceContentTypeCompatible(
-        options.expectedFileName,
-        response.headers.get('content-type')
-      )
+      !isAuthenticatedResourceContentTypeCompatible(options.expectedFileName, response.headers.get('content-type'))
     ) {
       throw new AuthenticatedResourceError(
         'unexpected_content_type',

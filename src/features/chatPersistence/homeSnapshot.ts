@@ -5,7 +5,7 @@ import {
   buildChatDirectorySnapshotKey,
   CHAT_LEGACY_CACHE_SCOPE_ID,
   getChatCacheScopeId,
-  normalizeChatCacheScopeId,
+  normalizeChatCacheScopeId
 } from './cacheScope';
 import { normalizeChatReasoningEffort } from './agentModelSettings.ts';
 import { ChatDirectoryItem, ChatDirectorySnapshot } from './types';
@@ -31,15 +31,13 @@ function normalizeDirectorySnapshotItem(item: ChatDirectoryItem): ChatDirectoryI
     reasoningEffort: normalizeChatReasoningEffort(item.reasoningEffort),
     latestConversationId: item.latestConversationId ? String(item.latestConversationId) : null,
     lastMessageText: String(item.lastMessageText || ''),
-    lastMessageAt: Number.isFinite(Number(item.lastMessageAt)) ? Number(item.lastMessageAt) : 0,
+    lastMessageAt: Number.isFinite(Number(item.lastMessageAt)) ? Number(item.lastMessageAt) : 0
   };
 }
 
 export function readChatDirectorySnapshot(): ChatDirectorySnapshot | null {
   const scopeId = getChatCacheScopeId();
-  const raw =
-    storage.getString(buildChatDirectorySnapshotKey(scopeId)) ||
-    (scopeId === CHAT_LEGACY_CACHE_SCOPE_ID ? storage.getString(DIRECTORY_SNAPSHOT_KEY) : '');
+  const raw = storage.getString(buildChatDirectorySnapshotKey(scopeId));
   if (!raw) {
     return null;
   }
@@ -51,7 +49,7 @@ export function readChatDirectorySnapshot(): ChatDirectorySnapshot | null {
     }
     return {
       ...parsed,
-      items: parsed.items.map(normalizeDirectorySnapshotItem),
+      items: parsed.items.map(normalizeDirectorySnapshotItem)
     };
   } catch {
     return null;
@@ -62,12 +60,9 @@ export function writeChatDirectorySnapshot(items: ChatDirectoryItem[]) {
   const snapshot: ChatDirectorySnapshot = {
     version: 1,
     updatedAt: Date.now(),
-    items,
+    items
   };
 
-  if (getChatCacheScopeId() === CHAT_LEGACY_CACHE_SCOPE_ID) {
-    storage.set(DIRECTORY_SNAPSHOT_KEY, JSON.stringify(snapshot));
-  }
   storage.set(buildChatDirectorySnapshotKey(), JSON.stringify(snapshot));
 }
 

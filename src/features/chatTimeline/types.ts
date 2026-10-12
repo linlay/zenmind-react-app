@@ -1,3 +1,5 @@
+import type { ChatViewReference } from '../../core/api/services/chatViewProtocol.ts';
+import type { ChatToolOutput } from './toolOutput.ts';
 import type { ChatRequestMessageVariant } from '../../core/api/services/chatEventProtocol.ts';
 import type { AuthenticatedResourcePreviewKind } from '../chatPersistence/authenticatedResourcePreview.ts';
 import type { ChatMessageAttachment } from '../chatPersistence/types.ts';
@@ -185,6 +187,8 @@ export type ChatTimelineAwaitingPlan = {
 };
 
 export type ChatTimelineAwaitingInteractiveBase = {
+  view?: ChatViewReference;
+  viewError?: string;
   viewportType: string;
   viewportKey: string;
   timeout: number | null;
@@ -245,6 +249,7 @@ export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
   kind: 'message';
   role: ChatTimelineMessageRole;
   messageVariant: ChatTimelineMessageVariant;
+  queryAccessLevel?: 'default' | 'auto_approve' | 'full_access';
   content: string;
   messageId: string;
   clientMessageId: string | null;
@@ -254,6 +259,7 @@ export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
   errorDetail?: ChatTimelineErrorDetail | null;
   streaming: boolean;
   attachments: ChatMessageAttachment[];
+  references?: unknown[];
 };
 
 export type ChatTimelineTextNode = ChatTimelineBaseNode & {
@@ -262,11 +268,15 @@ export type ChatTimelineTextNode = ChatTimelineBaseNode & {
   body: string;
   status: ChatTimelineRuntimeStatus | string;
   streaming: boolean;
+  errorDetail?: ChatTimelineErrorDetail | null;
   usageSummary?: ChatTimelineUsageSummary | null;
 };
 
 export type ChatTimelineContextCompactNode = ChatTimelineBaseNode & {
   kind: 'context';
+  cycleId?: string;
+  level?: string;
+  cycleComplete?: boolean;
   compactId: string;
   requestId: string;
   status: ChatTimelineContextCompactStatus;
@@ -340,7 +350,11 @@ export type ChatTimelineActionNode = ChatTimelineBaseNode & {
 };
 
 export type ChatTimelineToolNode = ChatTimelineBaseNode & {
+  errorDetail?: ChatTimelineErrorDetail | null;
   kind: 'tool';
+  view?: ChatViewReference;
+  viewError?: string;
+  toolOutput?: ChatToolOutput;
   agentKey: string;
   toolId: string;
   toolName: string;
@@ -411,6 +425,12 @@ export type ChatTimelineAwaitingNode = ChatTimelineBaseNode & {
 
 export type ChatTimelineRunNode = ChatTimelineBaseNode & {
   kind: 'run';
+  derivation?: import('../../core/api/services/chatDerivationProtocol.ts').ChatDerivation;
+  feedback?: import('./timelineRunFeedback.ts').ChatRunFeedback | null;
+  feedbackPending?: { requestId: string; feedback: { type: 'thumbs_down'; comment: string } | null };
+  accessLevel?: 'default' | 'auto_approve' | 'full_access';
+  accessLevelVersion?: number;
+  accessUpdate?: { phase: 'sending' | 'unknown'; requestId: string; baselineVersion: number };
   title: string;
   body: string;
   status: ChatTimelineRuntimeStatus | string;
@@ -524,6 +544,17 @@ export type ChatTimelineAssistantReplyFooter = {
 };
 
 export type ChatTimelineState = {
+  toolOutputBytes?: number;
+  canContinue?: boolean;
+  modelRetry?: {
+    runId: string;
+    taskId: string;
+    attempt: number;
+    maxAttempts: number;
+    delayMs: number;
+    retryAt: number;
+    reason: string;
+  };
   conversationId: string;
   orderedNodeIds: string[];
   nodesById: Record<string, ChatTimelineNode>;

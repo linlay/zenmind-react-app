@@ -1,3 +1,10 @@
+import { normalizeRequiredSkills } from '../../core/api/services/chatSkillsProtocol.ts';
+import {
+  hasValidRemoteChatStreamTime,
+  hasValidRemoteChatPushTime,
+  withRemoteChatPushInstant
+} from '../../core/api/services/chatRemoteTimeProtocol.ts';
+import { buildChatRunOwnerPayload } from '../../core/api/services/chatRunOwner.ts';
 import type { ChatSocketStatus } from './types.ts';
 import { normalizeEventType } from '../../core/api/services/chatEventProtocol.ts';
 import {
@@ -16,6 +23,7 @@ export type ChatTransportConfig = WsTransportConfig;
 
 type ChatTransportCallbacks = {
   onPush?: (event: Record<string, unknown>) => void;
+  onProtocolError?: (event: Record<string, unknown>, error: Error) => void;
   onStatusChange?: (status: ChatSocketStatus) => void;
 };
 
@@ -51,6 +59,8 @@ type ChatQueryPayloadInput = {
   agentKey?: string | null;
   teamId?: string | null;
   planningMode?: boolean;
+  editingMode?: boolean;
+  mustUseSkills?: readonly string[];
   accessLevel?: ChatQueryAccessLevel;
   model?: ChatQueryModelOverride;
 };
@@ -64,6 +74,8 @@ type ChatQueryPayload = {
   agentKey?: string;
   teamId?: string;
   planningMode?: true;
+  editingMode?: true;
+  mustUseSkills?: string[];
   accessLevel?: Exclude<ChatQueryAccessLevel, 'default'>;
   model?: ChatQueryModelOverride;
   role: 'user';
@@ -72,13 +84,15 @@ type ChatQueryPayload = {
 
 type ChatAttachPayloadInput = {
   runId: string;
-  agentKey: string;
+  agentKey?: string;
+  teamId?: string;
   lastSeq?: number;
 };
 
 type ChatAttachPayload = {
   runId: string;
-  agentKey: string;
+  agentKey?: string;
+  teamId?: string;
   lastSeq: number;
 };
 
@@ -147,10 +161,12 @@ function compactQueryModelOverride(model: ChatQueryModelOverride | undefined): C
 }
 
 export function buildChatQueryPayload(input: ChatQueryPayloadInput): ChatQueryPayload {
-  const teamId = String(input.teamId || '').trim();
-  const agentKey = teamId ? '' : String(input.agentKey || '').trim();
   const accessLevel = normalizeQueryAccessLevel(input.accessLevel);
   const model = compactQueryModelOverride(input.model);
+  const owner = buildChatRunOwnerPayload(input);
+  const mustUseSkills = normalizeRequiredSkills(input.mustUseSkills);
+  if (input.editingMode === true && input.planningMode === true)
+    throw new Error('Editing and Planning cannot be combined');
 
   return {
     requestId: String(input.requestId || '').trim(),
@@ -158,9 +174,10 @@ export function buildChatQueryPayload(input: ChatQueryPayloadInput): ChatQueryPa
     chatId: String(input.chatId || '').trim() || undefined,
     message: input.message,
     ...(input.references !== undefined ? { references: input.references } : {}),
-    ...(teamId ? { teamId } : {}),
-    ...(agentKey ? { agentKey } : {}),
+    ...owner,
     ...(input.planningMode === true ? { planningMode: true } : {}),
+    ...(input.editingMode === true && !owner.teamId ? { editingMode: true } : {}),
+    ...(mustUseSkills.length && !owner.teamId ? { mustUseSkills } : {}),
     ...(accessLevel ? { accessLevel } : {}),
     ...(model ? { model } : {}),
     role: 'user',
@@ -171,8 +188,8 @@ export function buildChatQueryPayload(input: ChatQueryPayloadInput): ChatQueryPa
 export function buildChatAttachPayload(input: ChatAttachPayloadInput): ChatAttachPayload {
   return {
     runId: String(input.runId || '').trim(),
-    agentKey: String(input.agentKey || '').trim(),
-    lastSeq: Number.isFinite(Number(input.lastSeq)) ? Number(input.lastSeq) : 0
+    ...buildChatRunOwnerPayload(input),
+    lastSeq: Number.isSafeInteger(input.lastSeq) && Number(input.lastSeq) >= 0 ? Number(input.lastSeq) : 0
   };
 }
 
@@ -218,7 +235,9 @@ export async function startChatPushTransport(
   };
   if (callbacks.onPush) {
     subscription.unsubscribePush = sharedWsTransport.subscribePush((frame) => {
-      callbacks.onPush?.(toWsPushEvent(frame as WsPushFrame));
+      const event = toWsPushEvent(frame as WsPushFrame);
+      if (hasValidRemoteChatPushTime(event, frame)) callbacks.onPush?.(withRemoteChatPushInstant(event));
+      else callbacks.onProtocolError?.(event, new Error('Invalid remote chat push timestamp'));
     }, config);
   }
   if (callbacks.onStatusChange) {
@@ -238,8 +257,9 @@ export async function requestChatTransport<T>(options: RequestOptions): Promise<
   });
 }
 
-export function stopChatPushTransport(config?: ChatTransportConfig) {
+export function stopChatPushTransport(config?: ChatTransportConfig, releaseConnection = false) {
   clearChatSubscriptions(config);
+  if (releaseConnection && config) sharedWsTransport.releaseIfIdle(config);
 }
 
 export async function streamChatQuery(
@@ -253,14 +273,22 @@ export async function streamChatQuery(
     payload: buildChatQueryPayload(options.payload),
     signal: options.signal,
     namespace: getTransportNamespace(options),
-    onEvent: (event) => options.onEvent(normalizeTransportEvent(event)),
+    onEvent: (event) => {
+      const normalized = normalizeTransportEvent(event);
+      if (
+        hasValidRemoteChatStreamTime(normalized) &&
+        (normalized.seq === undefined || (Number.isSafeInteger(normalized.seq) && Number(normalized.seq) >= 0))
+      )
+        options.onEvent(normalized);
+      else options.onError?.(new Error('Invalid remote chat stream timestamp'));
+    },
     onDone: options.onDone,
     onError: options.onError
   });
 }
 
 export async function attachChatRun(
-  options: StreamOptions & { payload: { runId: string; agentKey: string; lastSeq?: number } }
+  options: StreamOptions & { payload: ChatAttachPayloadInput }
 ): Promise<SharedWsStreamHandle> {
   return sharedWsTransport.startStream<Record<string, unknown>>({
     transport: options,
@@ -268,7 +296,16 @@ export async function attachChatRun(
     payload: buildChatAttachPayload(options.payload),
     signal: options.signal,
     namespace: getTransportNamespace(options),
-    onEvent: (event) => options.onEvent(normalizeTransportEvent(event)),
+    onEvent: (event) => {
+      const normalized = normalizeTransportEvent(event);
+      if (
+        (!normalized.runId || normalized.runId === options.payload.runId) &&
+        hasValidRemoteChatStreamTime(normalized) &&
+        (normalized.seq === undefined || (Number.isSafeInteger(normalized.seq) && Number(normalized.seq) >= 0))
+      )
+        options.onEvent(normalized);
+      else options.onError?.(new Error('Invalid remote chat stream timestamp'));
+    },
     onDone: options.onDone,
     onError: options.onError
   });

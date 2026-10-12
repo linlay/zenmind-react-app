@@ -4,22 +4,25 @@
   "title": "发送消息与 ack 落库",
   "trigger": "用户在 Chat 详情页输入消息并提交时触发。",
   "sourceOfTruth": [
-    "消息先按 conversationId 中的来源写入统一 SQLite 和 outbox，再由 ChatSyncCoordinator 选择默认源或 Desktop 源 WebSocket；计划模式只作为 outbox 发送选项保存，用于 replay 时继续带 planningMode。",
+    "消息先按 conversationId 中的来源写入统一 SQLite 和 outbox，再由 ChatSyncCoordinator 选择默认源或 Desktop 源 WebSocket；Planning/Editing 和技能 ID 集合只作为 outbox 本次发送选项保存，replay 继续带原值并复核能力。",
     "开发态无附件输入精确等于“输出当前会话全部相关数据”时，在 createOutgoingMessage 之前拦截并生成页面 footer 临时诊断卡；该分支不创建消息、不写 outbox/timeline SQLite、不发 query，正式包和相似文本继续走普通发送。",
     "ack 或 stream done/error 由后台回调通过 repository patch 命中消息状态和会话摘要。",
-    "详情页停止/继续生成和 awaiting question/approval/form/plan 提交只通过 chatSyncService 管理 active outgoing/attach stream、/api/interrupt、activeRunId、本地终止 run guard、/ap/ws /api/submit 本地投影和 timeline，不在页面层直接操作 WebSocket 或 HTTP submit。"
+    "停止只请求真实 interrupt 并持续观察，响应后 reconcile；续聊是显式 canContinue 的空 query，awaiting/frontend submit 保持 service 内身份校验与 single-flight。",
+    "运行中 steer 走独立 /api/steer 单次在途请求，保留输入直到 command 确认；accepted/unknown 不进入自动重发 query outbox，不自动转 query，输入区仍保留停止按钮。",
+    "2026-10-09：当前账号与唯一所选来源决定独立 SQLite scope；chatSyncService 只连接当前来源，旧账号/来源的异步结果失效，不回退旧电脑 Profile；云端保留既有配置凭证，本地账号 scope 不表示服务端隔离。",
+    "2026-10-12：activeDesktop 是 cloud/desktop/null 唯一选择；电脑 accountId+desktopId 缓存与默认云端 credential scope 独立。cloudAccess 只读验证后才开放云端，断线缓存只读、认证失效隐藏、撤销不自动回落。"
   ],
   "steps": [
     {
       "order": 1,
-      "label": "useChatDetailConversationController.handleSend 先识别开发态无附件会话诊断指令；命中时调用 collectConversationDiagnosticData 并更新临时 footer state 后返回，未命中时读取受控计划模式状态并调用 chatSyncService.sendMessage。",
+      "label": "useChatDetailConversationController.handleSend 先识别开发态无附件会话诊断指令；命中时调用 collectConversationDiagnosticData 并更新临时 footer state 后返回，未命中时读取受控 Planning/Editing 与技能 ID 单次状态并调用 chatSyncService.sendMessage。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
       "symbol": "handleSend"
     },
     {
       "order": 2,
-      "label": "chatSyncService.sendMessage 先调用 createOutgoingMessage 写入本地 pending 消息和 planningMode 发送选项，并通过 feature-chat-timeline 更新内存 timeline，再发出 conversation.message.insert / conversation.timeline.replace 和 conversation 摘要 home.item.patch。",
+      "label": "sendMessage 校验当前 Agent 能力、active/awaiting、首轮内容与 canContinue，按 conversation single-flight 写 outbox；普通消息投影气泡/摘要，合法空续聊仅保存控制操作供 replay，不生成空气泡。",
       "moduleId": "feature-chat-realtime",
       "file": "src/features/chatRealtime/chatSyncService.ts",
       "symbol": "sendMessage"
@@ -33,14 +36,14 @@
     },
     {
       "order": 4,
-      "label": "createOutgoingMessage 写 messages、outbox_messages、conversation 摘要并刷新 MMKV 快照；outbox_messages.planning_mode 仅用于 pending replay，不参与排序查询。",
+      "label": "createOutgoingMessage 写 messages、outbox_messages、conversation 摘要并刷新 MMKV 快照；outbox_messages.planning_mode/editing_mode/must_use_skills_json 仅用于 pending replay，不参与排序查询。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/chatRepository.ts",
       "symbol": "createOutgoingMessage"
     },
     {
       "order": 5,
-      "label": "chatSyncService.dispatchOutgoingMessage 按 conversationId 来源选择对应 service/transport，从 repository 读取 agent/team scope，移除 zsrc 本地命名空间后通过 /ap/ws 发送 /api/query stream；计划模式开启时只额外发送 planningMode: true。",
+      "label": "chatSyncService.dispatchOutgoingMessage 按 conversationId 来源选择对应 service/transport，从 repository 读取 agent/team scope，移除 zsrc 本地命名空间后通过 /ap/ws 发送 /api/query stream；Planning/Editing 各自开启时只额外发送对应 true 字段；Editing 校验 KBASE，禁止与 Team/Planning 混用；技能仅 Agent 能力允许且目录 ID 有效时传非空 mustUseSkills，Team/steer 不透传。",
       "moduleId": "feature-chat-realtime",
       "file": "src/features/chatRealtime/chatWsTransport.ts",
       "symbol": "streamChatQuery"
@@ -54,7 +57,7 @@
     },
     {
       "order": 7,
-      "label": "详情页停止生成调用 chatSyncService.stopStreaming，中断 active outgoing/attach stream、调用 /api/interrupt，并通过 feature-chat-timeline 本地 cancel 收敛 active/streaming 节点、清空 activeRunId、记录本地终止 run guard，后续 reconcile 合并 stale /api/chat detail 时不允许同 run active 状态复活；继续生成调用 chatSyncService.resumeStreaming 复用 attach 和单会话 reconcile。",
+      "label": "stopStreaming single-flight 请求 Team/Agent owner 的 /api/interrupt，保留 outgoing/attach 观察；所有结果校准真实详情，不发本地 cancel、不清 duration。resumeStreaming 先 reconcile 再按 canContinue 发空 query。",
       "moduleId": "feature-chat-realtime",
       "file": "src/features/chatRealtime/chatSyncService.ts",
       "symbol": "stopStreaming"
@@ -65,6 +68,13 @@
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
       "symbol": "useChatDetailConversationController"
+    },
+    {
+      "order": 9,
+      "label": "chat/Site 使用 type+ID/meta 附件引用；chat query/outbox 复核当前 source、canonical owner 和 chatRecords，失败保留供修改。Site 无 Native bridge 时不可选择/重发，chat/Site 不透传 steer。",
+      "moduleId": "feature-chat-realtime",
+      "file": "src/features/chatRealtime/chatSyncService.ts",
+      "symbol": "validateContextReferences"
     }
   ],
   "failureModes": [
@@ -75,7 +85,9 @@
     "新建本地空会话发送首条消息时如果不从 repository 补齐 agentKey/teamId，服务端会缺少 agent/team 上下文。",
     "按当前登录态而不是 conversationId 来源选连接，会把历史默认源会话误发到 Desktop，或把配对会话误发到默认服务。",
     "发送失败路径如果不回写 errorReason，UI 无法区分失败和待发送。",
-    "停止/继续或 awaiting submit 如果在页面层维护临时状态或直接请求接口，会导致 timeline lifecycle、输入区按钮、awaiting answer 摘要和 reconnect/reconcile 后状态不一致。"
+    "停止/继续或 awaiting submit 如果在页面层维护临时状态或直接请求接口，会导致 timeline lifecycle、输入区按钮、awaiting answer 摘要和 reconnect/reconcile 后状态不一致。",
+    "运行权限修改独立于未来 query 默认；/api/access-level 同 run 只允许一次在途请求，Team 不混用成员 Agent，超时未知阻止重发并用现有 reconcile/手动核对。",
+    "selection 不得按文件名合并或按 localFiles 权限过滤；同一 text/annotation/annotationIndex 在 query、steer 与 outbox 保留，发送后编号稳定，未发送选择按 chat/run 边界清理。"
   ],
   "mustCheckModules": [
     "feature-chat-persistence",
@@ -84,10 +96,11 @@
   ],
   "relatedTasks": [
     "modify-chat-persistence",
-    "modify-chat-realtime"
+    "modify-chat-realtime",
+    "sync-chat-detail-webclient"
   ],
   "generated": {
-    "stepCount": 8,
+    "stepCount": 9,
     "files": [
       "src/features/chatPersistence/chatRepository.ts",
       "src/features/chatPersistence/useChatDetailConversationController.ts",

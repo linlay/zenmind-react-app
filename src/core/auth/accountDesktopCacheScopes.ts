@@ -1,53 +1,57 @@
 import { MMKV } from 'react-native-mmkv';
-
-import { listDeviceProfiles } from './deviceProfiles';
 import {
   createEmptyAccountDesktopCacheScopeSnapshot,
-  listUnassignedLegacyCacheScopes,
   normalizeAccountDesktopCacheScopeSnapshot,
   resolveAccountDesktopCacheScope,
-  type AccountDesktopCacheScopeSnapshot,
-  type CacheScopeResolution
+  type AccountDesktopCacheScopeSnapshot
 } from './accountDesktopCacheScopeModel.ts';
 
-const cacheScopeStorage = new MMKV({ id: 'zenmind-account-desktop-cache-scopes' });
-const CACHE_SCOPE_REGISTRY_KEY = 'account_desktop_cache_scope_registry_v1';
+const storage = new MMKV({ id: 'zenmind-account-desktop-cache-scopes' });
+const REGISTRY_KEY = 'account_source_cache_scopes_v2';
+const PURGED_KEY = 'legacy_chat_cache_purged_v2';
 
 export function readAccountDesktopCacheScopeSnapshot(): AccountDesktopCacheScopeSnapshot {
-  const raw = cacheScopeStorage.getString(CACHE_SCOPE_REGISTRY_KEY);
-  if (!raw) {
-    return createEmptyAccountDesktopCacheScopeSnapshot();
-  }
   try {
-    return normalizeAccountDesktopCacheScopeSnapshot(JSON.parse(raw) as unknown);
+    return normalizeAccountDesktopCacheScopeSnapshot(JSON.parse(storage.getString(REGISTRY_KEY) || 'null'));
   } catch {
     return createEmptyAccountDesktopCacheScopeSnapshot();
   }
 }
 
-export function resolveAndPersistAccountDesktopCacheScope(accountId: string, desktopId: string): CacheScopeResolution {
+export function resolveAndPersistAccountDesktopCacheScope(accountId: string, desktopId: string) {
   const resolution = resolveAccountDesktopCacheScope({
     snapshot: readAccountDesktopCacheScopeSnapshot(),
     accountId,
     desktopId,
-    legacyProfiles: listDeviceProfiles()
+    createScopeId: () => `as_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`
   });
-  if (resolution.result === 'resolved' && resolution.created) {
-    // Persist ownership before any caller is allowed to switch the active SQLite scope.
-    cacheScopeStorage.set(CACHE_SCOPE_REGISTRY_KEY, JSON.stringify(resolution.snapshot));
-  }
+  if (resolution.created) storage.set(REGISTRY_KEY, JSON.stringify(resolution.snapshot));
   return resolution;
 }
 
-export function listPersistedUnassignedLegacyCacheScopes() {
-  return listUnassignedLegacyCacheScopes(readAccountDesktopCacheScopeSnapshot(), listDeviceProfiles());
+export function listAccountDesktopCacheScopeEntries() {
+  return Object.values(readAccountDesktopCacheScopeSnapshot().mappings);
 }
 
-export function listAccountDesktopCacheScopeEntries() {
-  return Object.values(readAccountDesktopCacheScopeSnapshot().mappings).sort(
-    (left, right) =>
-      left.accountId.localeCompare(right.accountId) ||
-      left.desktopId.localeCompare(right.desktopId) ||
-      left.cacheScopeId.localeCompare(right.cacheScopeId)
-  );
+export function isLegacyChatCachePurged(): boolean {
+  return storage.getBoolean(PURGED_KEY) === true;
+}
+
+export function completeLegacyChatCachePurge(): void {
+  storage.delete('account_desktop_cache_scope_registry_v1');
+  storage.set(PURGED_KEY, true);
+}
+
+// Drop only the obsolete account-owned cloud mapping; Desktop mappings remain intact.
+export function removeLegacyAccountCloudCacheScope(entry: {
+  accountId: string;
+  desktopId: string;
+  cacheScopeId: string;
+}): void {
+  if (entry.desktopId) return;
+  const snapshot = readAccountDesktopCacheScopeSnapshot();
+  const key = JSON.stringify([entry.accountId, '']);
+  if (snapshot.mappings[key]?.cacheScopeId !== entry.cacheScopeId) return;
+  delete snapshot.mappings[key];
+  storage.set(REGISTRY_KEY, JSON.stringify(snapshot));
 }

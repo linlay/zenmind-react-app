@@ -1,3 +1,4 @@
+import { ChatRunCopyButton } from './ChatRunCopyButton.tsx';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -25,6 +26,7 @@ const DIAGNOSTICS_TEXT_CLASS = 'font-mono text-[12px] leading-[18px] text-app-pr
 type ChatSystemAlertProps = {
   node: ChatTimelineMessageNode;
   isLastInRun: boolean;
+  onCopyRun?: (runId: string) => void;
 };
 
 type DetailLabels = {
@@ -45,13 +47,13 @@ type DetailRow = {
 function hasTechnicalDetail(errorDetail: ChatTimelineMessageNode['errorDetail']): boolean {
   return Boolean(
     errorDetail &&
-      (errorDetail.message ||
-        errorDetail.code ||
-        errorDetail.category ||
-        errorDetail.scope ||
-        errorDetail.status != null ||
-        errorDetail.retryable != null ||
-        errorDetail.diagnostics != null)
+    (errorDetail.message ||
+      errorDetail.code ||
+      errorDetail.category ||
+      errorDetail.scope ||
+      errorDetail.status != null ||
+      errorDetail.retryable != null ||
+      errorDetail.diagnostics != null)
   );
 }
 
@@ -69,10 +71,7 @@ function formatDetailValue(value: unknown): string {
   }
 }
 
-function buildDetailRows(
-  errorDetail: ChatTimelineMessageNode['errorDetail'],
-  labels: DetailLabels
-): DetailRow[] {
+function buildDetailRows(errorDetail: ChatTimelineMessageNode['errorDetail'], labels: DetailLabels): DetailRow[] {
   if (!errorDetail) {
     return [];
   }
@@ -81,33 +80,33 @@ function buildDetailRows(
     {
       key: 'code',
       label: labels.code,
-      value: formatDetailValue(errorDetail.code),
+      value: formatDetailValue(errorDetail.code)
     },
     {
       key: 'status',
       label: labels.status,
-      value: formatDetailValue(errorDetail.status),
+      value: formatDetailValue(errorDetail.status)
     },
     {
       key: 'category',
       label: labels.category,
-      value: formatDetailValue(errorDetail.category),
+      value: formatDetailValue(errorDetail.category)
     },
     {
       key: 'scope',
       label: labels.scope,
-      value: formatDetailValue(errorDetail.scope),
+      value: formatDetailValue(errorDetail.scope)
     },
     {
       key: 'retryable',
       label: labels.retryable,
-      value: formatDetailValue(errorDetail.retryable),
+      value: formatDetailValue(errorDetail.retryable)
     },
     {
       key: 'message',
       label: labels.message,
-      value: formatDetailValue(errorDetail.message),
-    },
+      value: formatDetailValue(errorDetail.message)
+    }
   ].filter((row) => row.value);
 }
 
@@ -121,9 +120,11 @@ function translateIfAvailable(t: TFunction, key: string): string {
 
 function includesRetryIntent(message: string, retryHint: string): boolean {
   const normalized = message.toLowerCase();
-  return Boolean(
-    retryHint && message.includes(retryHint)
-  ) || normalized.includes('retry') || normalized.includes('try again');
+  return (
+    Boolean(retryHint && message.includes(retryHint)) ||
+    normalized.includes('retry') ||
+    normalized.includes('try again')
+  );
 }
 
 function resolveSystemAlertMessage(
@@ -131,27 +132,18 @@ function resolveSystemAlertMessage(
   errorDetail: ChatTimelineMessageNode['errorDetail'],
   t: TFunction
 ): string {
-  const codeMessage = translateIfAvailable(
-    t,
-    errorDetail?.code ? `platformError.code.${errorDetail.code}` : ''
-  );
+  const codeMessage = translateIfAvailable(t, errorDetail?.code ? `platformError.code.${errorDetail.code}` : '');
   const categoryMessage = translateIfAvailable(
     t,
     errorDetail?.category ? `platformError.category.${errorDetail.category}` : ''
   );
   const fallbackMessage = nodeContent || errorDetail?.message || t('platformError.generic');
-  const retryHint =
-    errorDetail?.retryable === true ? translateIfAvailable(t, 'platformError.retryableHint') : '';
+  const retryHint = errorDetail?.retryable === true ? translateIfAvailable(t, 'platformError.retryableHint') : '';
   const baseMessage = codeMessage || categoryMessage || fallbackMessage;
-  return retryHint && !includesRetryIntent(baseMessage, retryHint)
-    ? `${baseMessage} ${retryHint}`
-    : baseMessage;
+  return retryHint && !includesRetryIntent(baseMessage, retryHint) ? `${baseMessage} ${retryHint}` : baseMessage;
 }
 
-export const ChatSystemAlert = memo(function ChatSystemAlert({
-  node,
-  isLastInRun,
-}: ChatSystemAlertProps) {
+export const ChatSystemAlert = memo(function ChatSystemAlert({ node, isLastInRun, onCopyRun }: ChatSystemAlertProps) {
   const t = useT();
   const { theme } = useAppTheme();
   const [expanded, setExpanded] = useState(false);
@@ -168,14 +160,11 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
       category: t('platformError.detail.category'),
       scope: t('platformError.detail.scope'),
       retryable: t('platformError.detail.retryable'),
-      message: t('platformError.detail.message'),
+      message: t('platformError.detail.message')
     });
   }, [errorDetail, expanded, t]);
   const diagnosticsText = useMemo(
-    () =>
-      expanded && errorDetail?.diagnostics != null
-        ? formatDetailValue(errorDetail.diagnostics)
-        : '',
+    () => (expanded && errorDetail?.diagnostics != null ? formatDetailValue(errorDetail.diagnostics) : ''),
     [errorDetail, expanded]
   );
 
@@ -187,11 +176,7 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
 
   return (
     <View className={TIMELINE_ROW_CLASS}>
-      <ChatTimelineRail
-        iconUsage="timeline.systemAlertRail"
-        terminal={isLastInRun}
-        toneColor={theme.colors.danger}
-      />
+      <ChatTimelineRail iconUsage="timeline.systemAlertRail" terminal={isLastInRun} toneColor={theme.colors.danger} />
       <View className={TIMELINE_BODY_CLASS}>
         <View className={SYSTEM_ALERT_CLASS}>
           <Text allowFontScaling={false} selectable className={SYSTEM_ALERT_MESSAGE_CLASS}>
@@ -199,9 +184,7 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
           </Text>
           {canExpand ? (
             <Pressable
-              accessibilityLabel={
-                expanded ? t('timeline.collapseContent') : t('timeline.expandContent')
-              }
+              accessibilityLabel={expanded ? t('timeline.collapseContent') : t('timeline.expandContent')}
               accessibilityRole="button"
               onPress={handleToggle}
               className={DETAILS_HEADER_CLASS}
@@ -209,10 +192,7 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
               <Text allowFontScaling={false} className={DETAILS_TITLE_CLASS}>
                 {t('platformError.technicalDetails')}
               </Text>
-              <AppIcon
-                usage={expanded ? 'runtime.collapse' : 'runtime.expand'}
-                color={theme.colors.textSecondary}
-              />
+              <AppIcon usage={expanded ? 'runtime.collapse' : 'runtime.expand'} color={theme.colors.textSecondary} />
             </Pressable>
           ) : null}
           {expanded ? (
@@ -222,11 +202,7 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
                   <Text allowFontScaling={false} className={DETAIL_LABEL_CLASS}>
                     {row.label}
                   </Text>
-                  <Text
-                    allowFontScaling={false}
-                    selectable
-                    className={DETAIL_VALUE_CLASS}
-                  >
+                  <Text allowFontScaling={false} selectable className={DETAIL_VALUE_CLASS}>
                     {row.value}
                   </Text>
                 </View>
@@ -238,11 +214,7 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
                   className={DIAGNOSTICS_SCROLL_CLASS}
                   contentContainerClassName={DIAGNOSTICS_CONTENT_CLASS}
                 >
-                  <Text
-                    allowFontScaling={false}
-                    selectable
-                    className={DIAGNOSTICS_TEXT_CLASS}
-                  >
+                  <Text allowFontScaling={false} selectable className={DIAGNOSTICS_TEXT_CLASS}>
                     {diagnosticsText}
                   </Text>
                 </ScrollView>
@@ -250,6 +222,7 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({
             </View>
           ) : null}
         </View>
+        <ChatRunCopyButton runId={node.runId} onCopyRun={onCopyRun} />
       </View>
     </View>
   );

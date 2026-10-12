@@ -1,4 +1,4 @@
-import type { DeviceProfile } from '../../auth/deviceProfiles.ts';
+import type { WsTransportConfig } from '../../ws/wsTransportConfig.ts';
 import { ApiError } from '../apiError.ts';
 
 export const CHAT_UPLOAD_API_PATH = '/api/upload';
@@ -78,21 +78,17 @@ export function createChatUploadFormData(fields: ChatUploadFormFields, file: Blo
   return formData;
 }
 
-export function resolveChatUploadRoute(profile: DeviceProfile | null): ChatUploadRoute {
-  if (!profile) {
-    throw new ChatUploadError('invalid_tunnel_profile', 'Active device profile is unavailable');
+export function resolveChatUploadRoute(transport: WsTransportConfig | null): ChatUploadRoute {
+  if (!transport) {
+    throw new ChatUploadError('invalid_tunnel_profile', 'Source is unavailable');
   }
-  if (profile.transportKind === 'http') {
+  if (transport.kind === 'agent-platform') {
     return {
       kind: 'direct-http',
       path: CHAT_UPLOAD_API_PATH
     };
   }
 
-  const transport = profile.desktopWs;
-  if (!transport) {
-    throw new ChatUploadError('invalid_tunnel_profile', 'Desktop tunnel profile is incomplete');
-  }
   try {
     const wsUrl = new URL(transport.wsUrl);
     if (wsUrl.protocol !== 'wss:' || !wsUrl.host || wsUrl.username || wsUrl.password) {

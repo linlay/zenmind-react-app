@@ -1,3 +1,4 @@
+import { getActiveChatSource } from '../chatPersistence/chatSourceRuntime';
 import { Platform } from 'react-native';
 import { MMKV } from 'react-native-mmkv';
 import * as Notifications from 'expo-notifications';
@@ -6,7 +7,7 @@ import {
   PushTokenPlatform,
   PushTokenProvider,
   registerPushTokenApi,
-  unregisterPushTokenApi,
+  unregisterPushTokenApi
 } from '../../core/api/services/notificationApi';
 
 const CHAT_NOTIFICATION_CHANNEL_ID = 'chat-messages';
@@ -28,12 +29,14 @@ type StoredPushRegistration = {
 type NotificationPayloadListener = (payload: ChatNotificationPayload) => void;
 
 type NotificationRegistrationSession = {
+  sourceKey: string;
   username: string;
   deviceId: string;
 };
 
 const notificationStorage = new MMKV({ id: 'zenmind-notifications' });
 const notificationPayloadListeners = new Set<NotificationPayloadListener>();
+let registrationGeneration = 0;
 
 let responseSubscription: { remove: () => void } | null = null;
 let pendingNotificationPayload: ChatNotificationPayload | null = null;
@@ -94,12 +97,12 @@ function buildRegistrationFingerprint(input: {
     input.provider,
     input.platform,
     input.nativePushToken,
-    input.environment,
+    input.environment
   ]);
 }
 
 function buildSessionRegistrationKey(session: NotificationRegistrationSession) {
-  return JSON.stringify([session.username, session.deviceId]);
+  return JSON.stringify([session.sourceKey, session.username, session.deviceId]);
 }
 
 function parseChatNotificationPayload(data: unknown): ChatNotificationPayload | null {
@@ -119,7 +122,7 @@ function parseChatNotificationPayload(data: unknown): ChatNotificationPayload | 
   return {
     type: 'chat.message',
     conversationId,
-    serverMessageId,
+    serverMessageId
   };
 }
 
@@ -152,9 +155,7 @@ function ensureNotificationResponseListener() {
     return;
   }
 
-  responseSubscription = Notifications.addNotificationResponseReceivedListener(
-    handleNotificationResponse
-  );
+  responseSubscription = Notifications.addNotificationResponseReceivedListener(handleNotificationResponse);
 
   try {
     const lastResponse = Notifications.getLastNotificationResponse();
@@ -176,13 +177,11 @@ async function ensureNotificationPermission(): Promise<boolean> {
     ios: {
       allowAlert: true,
       allowBadge: true,
-      allowSound: true,
-    },
+      allowSound: true
+    }
   });
 
-  return (
-    requested.granted || requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL
-  );
+  return requested.granted || requested.ios?.status === Notifications.IosAuthorizationStatus.PROVISIONAL;
 }
 
 async function ensureAndroidChannel() {
@@ -197,12 +196,17 @@ async function ensureAndroidChannel() {
     name: 'Chat messages',
     importance: Notifications.AndroidImportance.HIGH,
     vibrationPattern: [0, 250, 180, 250],
-    lightColor: '#2f80ed',
+    lightColor: '#2f80ed'
   });
   isAndroidChannelConfigured = true;
 }
 
-async function syncPushTokenRegistration(session: NotificationRegistrationSession) {
+async function syncPushTokenRegistration(session: NotificationRegistrationSession, generation: number) {
+  const assertCurrent = () => {
+    if (generation !== registrationGeneration || session.sourceKey !== getActiveChatSource()?.key)
+      throw new Error('Notification source superseded');
+  };
+  assertCurrent();
   if (!isNativePushPlatform() || !session.deviceId) {
     return;
   }
@@ -218,6 +222,7 @@ async function syncPushTokenRegistration(session: NotificationRegistrationSessio
     return;
   }
 
+  assertCurrent();
   const platform = Platform.OS as PushTokenPlatform;
   const provider = resolveProvider(platform);
   const nativePushToken = devicePushToken.data.trim();
@@ -228,7 +233,7 @@ async function syncPushTokenRegistration(session: NotificationRegistrationSessio
     provider,
     platform,
     nativePushToken,
-    environment,
+    environment
   });
 
   if (readStoredRegistration()?.fingerprint === fingerprint) {
@@ -240,14 +245,15 @@ async function syncPushTokenRegistration(session: NotificationRegistrationSessio
     platform,
     nativePushToken,
     deviceId: session.deviceId,
-    environment,
+    environment
   });
 
+  assertCurrent();
   writeStoredRegistration({
     fingerprint,
     provider,
     platform,
-    nativePushToken,
+    nativePushToken
   });
 }
 
@@ -255,16 +261,15 @@ if (isNativePushPlatform()) {
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
       const payload = parseChatNotificationPayload(notification.request.content.data);
-      const isAlreadyOpen =
-        payload && activeConversationId && payload.conversationId === activeConversationId;
+      const isAlreadyOpen = payload && activeConversationId && payload.conversationId === activeConversationId;
 
       return {
         shouldShowBanner: !isAlreadyOpen,
         shouldShowList: !isAlreadyOpen,
         shouldPlaySound: !isAlreadyOpen,
-        shouldSetBadge: false,
+        shouldSetBadge: false
       };
-    },
+    }
   });
 }
 
@@ -298,9 +303,10 @@ export const notificationService = {
     }
 
     registrationPromiseKey = nextRegistrationPromiseKey;
-    registrationPromise = syncPushTokenRegistration(session)
+    const generation = registrationGeneration;
+    registrationPromise = syncPushTokenRegistration(session, generation)
       .then(() => {
-        completedRegistrationSessionKey = nextRegistrationPromiseKey;
+        if (generation === registrationGeneration) completedRegistrationSessionKey = nextRegistrationPromiseKey;
       })
       .finally(() => {
         if (registrationPromiseKey === nextRegistrationPromiseKey) {
@@ -313,6 +319,7 @@ export const notificationService = {
   },
 
   async clearRegistration() {
+    registrationGeneration++;
     const registration = readStoredRegistration();
     completedRegistrationSessionKey = '';
     clearStoredRegistration();
@@ -325,7 +332,7 @@ export const notificationService = {
     } catch {
       // Logout must not be blocked by best-effort push token cleanup.
     }
-  },
+  }
 };
 
 export type { ChatNotificationPayload };

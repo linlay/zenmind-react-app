@@ -1,3 +1,6 @@
+import { getCloudAuthSnapshot } from '../../core/auth/cloudAuth';
+import { normalizeRequiredSkills, parseStoredRequiredSkills } from '../../core/api/services/chatSkillsProtocol.ts';
+import { isActiveDesktopOffline } from '../../core/auth/activeDesktop.ts';
 import { and, asc, count, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
 
 import { normalizeAgentAvatarIcon } from '../../shared/visual/agentAvatarIcon.ts';
@@ -14,6 +17,7 @@ import { createChatConversationTarget } from './chatConversationTarget';
 import { normalizeAgentMode } from './agentMode.ts';
 import { normalizeChatReasoningEffort } from './agentModelSettings.ts';
 import { encodeChatSourceId, getChatSourceFromId, getChatSourceStoragePrefix, type ChatSource } from './chatSource';
+import { getActiveChatSource } from './chatSourceRuntime';
 import { isActiveTimelinePayload, shouldOpenLatestConversationFromSummary } from './chatDirectoryOpenDecision';
 import { normalizeChatConversationHistoryScope } from './chatHistoryScope';
 import {
@@ -79,6 +83,12 @@ import {
   ServerMessageDetail
 } from './types';
 
+async function awaitInChatScope<T>(pending: T | PromiseLike<T>, scopeId: string): Promise<T> {
+  const result = await pending;
+  if (scopeId !== getChatCacheScopeId()) throw new Error('Chat cache scope changed');
+  return result;
+}
+
 const CHAT_DIRECTORY_DEFAULT_PAGE_SIZE = 6;
 const TIMELINE_STALE_DELETE_BATCH_SIZE = 240;
 
@@ -96,6 +106,7 @@ function normalizeCountValue(value: unknown): number {
 }
 
 let localIdCounter = 0;
+let chatHomeDirectoryPrewarmScopeId = '';
 let chatHomeDirectoryPrewarmPromise: Promise<{
   items: ChatDirectoryItem[];
   total: number;
@@ -192,18 +203,22 @@ function mapChatDirectoryItem(row: {
 }
 
 async function getConversationRecord(conversationId: string) {
-  const rows = await chatDb
-    .select({
-      id: conversations.id,
-      title: conversations.title,
-      unreadCount: conversations.unreadCount,
-      isRead: conversations.isRead,
-      readAt: conversations.readAt,
-      readRunId: conversations.readRunId
-    })
-    .from(conversations)
-    .where(eq(conversations.id, conversationId))
-    .limit(1);
+  const requestedScopeId = getChatCacheScopeId();
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        id: conversations.id,
+        title: conversations.title,
+        unreadCount: conversations.unreadCount,
+        isRead: conversations.isRead,
+        readAt: conversations.readAt,
+        readRunId: conversations.readRunId
+      })
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1),
+    requestedScopeId
+  );
 
   return rows[0] ?? null;
 }
@@ -279,36 +294,40 @@ function mapMessageAttachmentRow(row: {
 async function getAttachmentsByMessageIds(
   messageIds: readonly string[]
 ): Promise<Map<string, ChatMessageAttachment[]>> {
+  const requestedScopeId = getChatCacheScopeId();
   const normalizedIds = [...new Set(messageIds.map((id) => String(id || '').trim()).filter(Boolean))];
   const attachmentsByMessageId = new Map<string, ChatMessageAttachment[]>();
   if (normalizedIds.length === 0) {
     return attachmentsByMessageId;
   }
 
-  const rows = await chatDb
-    .select({
-      attachmentId: messageAttachments.id,
-      messageId: messageAttachments.messageId,
-      conversationId: messageAttachments.conversationId,
-      name: messageAttachments.name,
-      kind: messageAttachments.kind,
-      mimeType: messageAttachments.mimeType,
-      sizeBytes: messageAttachments.sizeBytes,
-      width: messageAttachments.width,
-      height: messageAttachments.height,
-      localUri: messageAttachments.localUri,
-      previewUri: messageAttachments.previewUri,
-      resourceUrl: messageAttachments.resourceUrl,
-      sha256: messageAttachments.sha256,
-      status: messageAttachments.status,
-      errorReason: messageAttachments.errorReason,
-      referencesJson: messageAttachments.referencesJson,
-      createdAt: messageAttachments.createdAt,
-      updatedAt: messageAttachments.updatedAt
-    })
-    .from(messageAttachments)
-    .where(inArray(messageAttachments.messageId, normalizedIds))
-    .orderBy(asc(messageAttachments.sortOrder), asc(messageAttachments.createdAt));
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        attachmentId: messageAttachments.id,
+        messageId: messageAttachments.messageId,
+        conversationId: messageAttachments.conversationId,
+        name: messageAttachments.name,
+        kind: messageAttachments.kind,
+        mimeType: messageAttachments.mimeType,
+        sizeBytes: messageAttachments.sizeBytes,
+        width: messageAttachments.width,
+        height: messageAttachments.height,
+        localUri: messageAttachments.localUri,
+        previewUri: messageAttachments.previewUri,
+        resourceUrl: messageAttachments.resourceUrl,
+        sha256: messageAttachments.sha256,
+        status: messageAttachments.status,
+        errorReason: messageAttachments.errorReason,
+        referencesJson: messageAttachments.referencesJson,
+        createdAt: messageAttachments.createdAt,
+        updatedAt: messageAttachments.updatedAt
+      })
+      .from(messageAttachments)
+      .where(inArray(messageAttachments.messageId, normalizedIds))
+      .orderBy(asc(messageAttachments.sortOrder), asc(messageAttachments.createdAt)),
+    requestedScopeId
+  );
 
   rows.forEach((row) => {
     const attachment = mapMessageAttachmentRow(row);
@@ -321,7 +340,11 @@ async function getAttachmentsByMessageIds(
 }
 
 async function attachMessageAttachments<T extends ChatMessageItem>(items: T[]): Promise<T[]> {
-  const attachmentsByMessageId = await getAttachmentsByMessageIds(items.map((item) => item.messageId));
+  const requestedScopeId = getChatCacheScopeId();
+  const attachmentsByMessageId = await awaitInChatScope(
+    getAttachmentsByMessageIds(items.map((item) => item.messageId)),
+    requestedScopeId
+  );
   return items.map((item) => ({
     ...item,
     attachments: attachmentsByMessageId.get(item.messageId) || []
@@ -580,11 +603,15 @@ function areReadStatesEqual(left: ChatReadState, right: ChatReadState): boolean 
 }
 
 async function ensureConversationRecord(conversationId: string, createdAt: number, title?: string) {
-  const existing = await getConversationRecord(conversationId);
+  const requestedScopeId = getChatCacheScopeId();
+  const existing = await awaitInChatScope(getConversationRecord(conversationId), requestedScopeId);
   if (existing) {
     const nextTitle = resolveChatConversationStoredTitle(title, existing.title);
     if (nextTitle !== existing.title) {
-      await chatDb.update(conversations).set({ title: nextTitle }).where(eq(conversations.id, conversationId));
+      await awaitInChatScope(
+        chatDb.update(conversations).set({ title: nextTitle }).where(eq(conversations.id, conversationId)),
+        requestedScopeId
+      );
       return {
         ...existing,
         title: nextTitle
@@ -595,19 +622,22 @@ async function ensureConversationRecord(conversationId: string, createdAt: numbe
   }
 
   const fallbackTitle = resolveChatConversationStoredTitle(title);
-  await chatDb.insert(conversations).values({
-    id: conversationId,
-    title: fallbackTitle,
-    lastMessageText: '',
-    lastMessageAt: createdAt,
-    unreadCount: 0,
-    isRead: 1,
-    readAt: null,
-    readRunId: null,
-    lastMessageStatus: 'sent',
-    pinnedAt: 0,
-    updatedAt: createdAt
-  });
+  await awaitInChatScope(
+    chatDb.insert(conversations).values({
+      id: conversationId,
+      title: fallbackTitle,
+      lastMessageText: '',
+      lastMessageAt: createdAt,
+      unreadCount: 0,
+      isRead: 1,
+      readAt: null,
+      readRunId: null,
+      lastMessageStatus: 'sent',
+      pinnedAt: 0,
+      updatedAt: createdAt
+    }),
+    requestedScopeId
+  );
 
   return {
     id: conversationId,
@@ -620,24 +650,28 @@ async function ensureConversationRecord(conversationId: string, createdAt: numbe
 }
 
 async function getConversationSummaryRow(conversationId: string): Promise<ConversationSummaryRow | null> {
-  const rows = await chatDb
-    .select(CONVERSATION_SUMMARY_SELECT)
-    .from(conversations)
-    .where(eq(conversations.id, conversationId))
-    .limit(1);
+  const requestedScopeId = getChatCacheScopeId();
+  const rows = await awaitInChatScope(
+    chatDb.select(CONVERSATION_SUMMARY_SELECT).from(conversations).where(eq(conversations.id, conversationId)).limit(1),
+    requestedScopeId
+  );
 
   return rows[0] ?? null;
 }
 
 async function getConversationDirectoryKeys(conversationId: string): Promise<ConversationDirectoryKeys | null> {
-  const rows = await chatDb
-    .select({
-      agentKey: conversations.agentKey,
-      teamId: conversations.teamId
-    })
-    .from(conversations)
-    .where(eq(conversations.id, conversationId))
-    .limit(1);
+  const requestedScopeId = getChatCacheScopeId();
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        agentKey: conversations.agentKey,
+        teamId: conversations.teamId
+      })
+      .from(conversations)
+      .where(eq(conversations.id, conversationId))
+      .limit(1),
+    requestedScopeId
+  );
 
   if (!rows[0]) {
     return null;
@@ -690,16 +724,20 @@ function normalizeLocalConversationTitle(title: string | null | undefined): stri
 }
 
 async function getDirectoryItemOpenScope(itemId: string): Promise<DirectoryItemOpenScope | null> {
+  const requestedScopeId = getChatCacheScopeId();
   const normalizedItemId = String(itemId || '').trim();
   if (!normalizedItemId) {
     return null;
   }
 
-  const directoryRows = await chatDb
-    .select(CHAT_DIRECTORY_ITEM_SELECT)
-    .from(chatDirectoryItems)
-    .where(eq(chatDirectoryItems.id, normalizedItemId))
-    .limit(1);
+  const directoryRows = await awaitInChatScope(
+    chatDb
+      .select(CHAT_DIRECTORY_ITEM_SELECT)
+      .from(chatDirectoryItems)
+      .where(eq(chatDirectoryItems.id, normalizedItemId))
+      .limit(1),
+    requestedScopeId
+  );
   const directoryItem = directoryRows[0];
   if (!directoryItem) {
     return null;
@@ -720,31 +758,43 @@ async function createLocalConversationForHistoryScope(
   scope: ChatConversationHistoryScope,
   title?: string | null
 ): Promise<DirectoryConversationOpenResult | null> {
+  const requestedScopeId = getChatCacheScopeId();
   const historyScope = normalizeChatConversationHistoryScope(scope);
   if (!historyScope) {
     return null;
   }
 
-  const createdAt = Date.now();
   const source = getChatSourceFromId(historyScope.teamId || historyScope.agentKey);
+  if (source.key !== getActiveChatSource()?.key) {
+    throw new Error('Conversation source changed');
+  }
+  if (source.kind === 'default' && getCloudAuthSnapshot().status !== 'available')
+    throw new Error('Cloud is unavailable; new conversations are disabled');
+  if (isActiveDesktopOffline()) {
+    throw new Error('Target Desktop is offline; new conversations are unavailable');
+  }
+  const createdAt = Date.now();
   const conversationId = encodeChatSourceId(source, createLocalId('conversation'));
-  await chatDb.insert(conversations).values({
-    id: conversationId,
-    title: normalizeLocalConversationTitle(title),
-    lastMessageText: '',
-    lastMessageAt: createdAt,
-    unreadCount: 0,
-    isRead: 1,
-    readAt: null,
-    readRunId: null,
-    lastMessageStatus: 'sent',
-    pinnedAt: 0,
-    updatedAt: createdAt,
-    agentKey: historyScope.agentKey,
-    teamId: historyScope.teamId
-  });
+  await awaitInChatScope(
+    chatDb.insert(conversations).values({
+      id: conversationId,
+      title: normalizeLocalConversationTitle(title),
+      lastMessageText: '',
+      lastMessageAt: createdAt,
+      unreadCount: 0,
+      isRead: 1,
+      readAt: null,
+      readRunId: null,
+      lastMessageStatus: 'sent',
+      pinnedAt: 0,
+      updatedAt: createdAt,
+      agentKey: historyScope.agentKey,
+      teamId: historyScope.teamId
+    }),
+    requestedScopeId
+  );
 
-  const conversation = await getConversationDetail(conversationId);
+  const conversation = await awaitInChatScope(getConversationDetail(conversationId), requestedScopeId);
   if (!conversation) {
     return null;
   }
@@ -840,83 +890,96 @@ function mapConversationSyncStateRow(row: {
 }
 
 async function getMessageRowByClientMessageId(clientMessageId: string) {
+  const requestedScopeId = getChatCacheScopeId();
   const normalizedClientMessageId = String(clientMessageId || '').trim();
   if (!normalizedClientMessageId) {
     return null;
   }
 
-  const rows = await chatDb
-    .select({
-      messageId: messages.id,
-      clientMessageId: messages.clientMessageId,
-      serverMessageId: messages.serverMessageId,
-      conversationId: messages.conversationId,
-      role: messages.role,
-      content: messages.content,
-      createdAt: messages.createdAt,
-      deliveryStatus: messages.deliveryStatus,
-      errorReason: messages.errorReason
-    })
-    .from(messages)
-    .where(eq(messages.clientMessageId, normalizedClientMessageId))
-    .limit(1);
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        messageId: messages.id,
+        clientMessageId: messages.clientMessageId,
+        serverMessageId: messages.serverMessageId,
+        conversationId: messages.conversationId,
+        role: messages.role,
+        content: messages.content,
+        createdAt: messages.createdAt,
+        deliveryStatus: messages.deliveryStatus,
+        errorReason: messages.errorReason
+      })
+      .from(messages)
+      .where(eq(messages.clientMessageId, normalizedClientMessageId))
+      .limit(1),
+    requestedScopeId
+  );
 
   return rows[0] ? mapChatMessageItem(rows[0]) : null;
 }
 
 async function getMessageRowByMessageId(messageId: string) {
+  const requestedScopeId = getChatCacheScopeId();
   const normalizedMessageId = String(messageId || '').trim();
   if (!normalizedMessageId) {
     return null;
   }
 
-  const rows = await chatDb
-    .select({
-      messageId: messages.id,
-      clientMessageId: messages.clientMessageId,
-      serverMessageId: messages.serverMessageId,
-      conversationId: messages.conversationId,
-      role: messages.role,
-      content: messages.content,
-      createdAt: messages.createdAt,
-      deliveryStatus: messages.deliveryStatus,
-      errorReason: messages.errorReason
-    })
-    .from(messages)
-    .where(eq(messages.id, normalizedMessageId))
-    .limit(1);
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        messageId: messages.id,
+        clientMessageId: messages.clientMessageId,
+        serverMessageId: messages.serverMessageId,
+        conversationId: messages.conversationId,
+        role: messages.role,
+        content: messages.content,
+        createdAt: messages.createdAt,
+        deliveryStatus: messages.deliveryStatus,
+        errorReason: messages.errorReason
+      })
+      .from(messages)
+      .where(eq(messages.id, normalizedMessageId))
+      .limit(1),
+    requestedScopeId
+  );
 
   return rows[0] ? mapChatMessageItem(rows[0]) : null;
 }
 
 async function getLatestConversationMessage(conversationId: string) {
-  const rows = await chatDb
-    .select({
-      messageId: messages.id,
-      clientMessageId: messages.clientMessageId,
-      serverMessageId: messages.serverMessageId,
-      conversationId: messages.conversationId,
-      role: messages.role,
-      content: messages.content,
-      createdAt: messages.createdAt,
-      deliveryStatus: messages.deliveryStatus,
-      errorReason: messages.errorReason
-    })
-    .from(messages)
-    .where(eq(messages.conversationId, conversationId))
-    .orderBy(desc(messages.createdAt))
-    .limit(1);
+  const requestedScopeId = getChatCacheScopeId();
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        messageId: messages.id,
+        clientMessageId: messages.clientMessageId,
+        serverMessageId: messages.serverMessageId,
+        conversationId: messages.conversationId,
+        role: messages.role,
+        content: messages.content,
+        createdAt: messages.createdAt,
+        deliveryStatus: messages.deliveryStatus,
+        errorReason: messages.errorReason
+      })
+      .from(messages)
+      .where(eq(messages.conversationId, conversationId))
+      .orderBy(desc(messages.createdAt))
+      .limit(1),
+    requestedScopeId
+  );
 
   return rows[0] ? mapChatMessageItem(rows[0]) : null;
 }
 
 async function upsertConversationSyncState(input: Partial<ConversationSyncState> & { conversationId: string }) {
+  const requestedScopeId = getChatCacheScopeId();
   const conversationId = String(input.conversationId || '').trim();
   if (!conversationId) {
     return null;
   }
 
-  const current = await getConversationSyncState(conversationId);
+  const current = await awaitInChatScope(getConversationSyncState(conversationId), requestedScopeId);
   const nextState: ConversationSyncState = {
     conversationId,
     activeRunId: input.activeRunId !== undefined ? String(input.activeRunId || '').trim() : current?.activeRunId || '',
@@ -927,23 +990,29 @@ async function upsertConversationSyncState(input: Partial<ConversationSyncState>
   };
 
   if (current) {
-    await chatDb
-      .update(conversationSyncState)
-      .set({
+    await awaitInChatScope(
+      chatDb
+        .update(conversationSyncState)
+        .set({
+          activeRunId: nextState.activeRunId,
+          lastSyncedAt: nextState.lastSyncedAt,
+          dirtyReason: nextState.dirtyReason,
+          tailSignature: nextState.tailSignature
+        })
+        .where(eq(conversationSyncState.conversationId, conversationId)),
+      requestedScopeId
+    );
+  } else {
+    await awaitInChatScope(
+      chatDb.insert(conversationSyncState).values({
+        conversationId,
         activeRunId: nextState.activeRunId,
         lastSyncedAt: nextState.lastSyncedAt,
         dirtyReason: nextState.dirtyReason,
         tailSignature: nextState.tailSignature
-      })
-      .where(eq(conversationSyncState.conversationId, conversationId));
-  } else {
-    await chatDb.insert(conversationSyncState).values({
-      conversationId,
-      activeRunId: nextState.activeRunId,
-      lastSyncedAt: nextState.lastSyncedAt,
-      dirtyReason: nextState.dirtyReason,
-      tailSignature: nextState.tailSignature
-    });
+      }),
+      requestedScopeId
+    );
   }
 
   return nextState;
@@ -1068,19 +1137,23 @@ function writeTimelineSnapshotInTransaction(
 }
 
 async function syncConversationSummary(conversationId: string, readOverride?: ChatReadStateInput) {
-  const [conversation, latestMessage] = await Promise.all([
-    getConversationRecord(conversationId),
-    chatDb
-      .select({
-        content: messages.content,
-        createdAt: messages.createdAt,
-        deliveryStatus: messages.deliveryStatus
-      })
-      .from(messages)
-      .where(eq(messages.conversationId, conversationId))
-      .orderBy(desc(messages.createdAt))
-      .limit(1)
-  ]);
+  const requestedScopeId = getChatCacheScopeId();
+  const [conversation, latestMessage] = await awaitInChatScope(
+    Promise.all([
+      getConversationRecord(conversationId),
+      chatDb
+        .select({
+          content: messages.content,
+          createdAt: messages.createdAt,
+          deliveryStatus: messages.deliveryStatus
+        })
+        .from(messages)
+        .where(eq(messages.conversationId, conversationId))
+        .orderBy(desc(messages.createdAt))
+        .limit(1)
+    ]),
+    requestedScopeId
+  );
 
   if (!conversation || !latestMessage[0]) {
     return;
@@ -1089,23 +1162,27 @@ async function syncConversationSummary(conversationId: string, readOverride?: Ch
   const read =
     readOverride !== undefined ? normalizeChatReadState(readOverride) : mapConversationReadState(conversation);
 
-  await chatDb
-    .update(conversations)
-    .set({
-      lastMessageText: latestMessage[0].content,
-      lastMessageAt: latestMessage[0].createdAt,
-      lastMessageStatus: latestMessage[0].deliveryStatus,
-      unreadCount: readStateToUnreadBit(read),
-      isRead: read.isRead ? 1 : 0,
-      readAt: read.readAt,
-      readRunId: read.readRunId,
-      updatedAt: latestMessage[0].createdAt
-    })
-    .where(eq(conversations.id, conversationId));
+  await awaitInChatScope(
+    chatDb
+      .update(conversations)
+      .set({
+        lastMessageText: latestMessage[0].content,
+        lastMessageAt: latestMessage[0].createdAt,
+        lastMessageStatus: latestMessage[0].deliveryStatus,
+        unreadCount: readStateToUnreadBit(read),
+        isRead: read.isRead ? 1 : 0,
+        readAt: read.readAt,
+        readRunId: read.readRunId,
+        updatedAt: latestMessage[0].createdAt
+      })
+      .where(eq(conversations.id, conversationId)),
+    requestedScopeId
+  );
 }
 
 async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const conversationId = String(patch.conversationId || '').trim();
   if (!conversationId) {
@@ -1113,8 +1190,11 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
   }
 
   const seedTime = Number.isFinite(Number(patch.lastMessageAt)) ? Number(patch.lastMessageAt) : Date.now();
-  const ensured = await ensureConversationRecord(conversationId, seedTime, patch.title);
-  const current = await getConversationSummaryRow(conversationId);
+  const ensured = await awaitInChatScope(
+    ensureConversationRecord(conversationId, seedTime, patch.title),
+    requestedScopeId
+  );
+  const current = await awaitInChatScope(getConversationSummaryRow(conversationId), requestedScopeId);
   const currentKeys: ConversationDirectoryKeys = {
     agentKey: current?.agentKey || null,
     teamId: current?.teamId || null
@@ -1130,7 +1210,7 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
   const currentRead = mapConversationReadState(current ?? ensured);
   const nextRead =
     patch.read !== undefined
-      ? mergeChatReadState(currentRead, patch.read)
+      ? mergeChatReadState({ ...currentRead, updatedAt: current?.lastMessageAt }, patch.read)
       : patch.unreadCount !== undefined
         ? mergeChatReadState(currentRead, { unreadCount: patch.unreadCount })
         : patch.unreadCountDelta !== undefined
@@ -1168,25 +1248,28 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
     keysChanged;
 
   if (summaryChanged) {
-    await chatDb
-      .update(conversations)
-      .set({
-        title: nextTitle,
-        lastMessageText: nextLastMessageText,
-        lastMessageAt: persistedLastMessageAt,
-        unreadCount: nextUnreadCount,
-        isRead: nextRead.isRead ? 1 : 0,
-        readAt: nextRead.readAt,
-        readRunId: nextRead.readRunId,
-        lastMessageStatus: nextLastMessageStatus,
-        updatedAt: persistedUpdatedAt,
-        agentKey: nextKeys.agentKey,
-        teamId: nextKeys.teamId
-      })
-      .where(eq(conversations.id, conversationId));
+    await awaitInChatScope(
+      chatDb
+        .update(conversations)
+        .set({
+          title: nextTitle,
+          lastMessageText: nextLastMessageText,
+          lastMessageAt: persistedLastMessageAt,
+          unreadCount: nextUnreadCount,
+          isRead: nextRead.isRead ? 1 : 0,
+          readAt: nextRead.readAt,
+          readRunId: nextRead.readRunId,
+          lastMessageStatus: nextLastMessageStatus,
+          updatedAt: persistedUpdatedAt,
+          agentKey: nextKeys.agentKey,
+          teamId: nextKeys.teamId
+        })
+        .where(eq(conversations.id, conversationId)),
+      requestedScopeId
+    );
   }
 
-  const nextSummary = await getConversationDetail(conversationId);
+  const nextSummary = await awaitInChatScope(getConversationDetail(conversationId), requestedScopeId);
   if (!nextSummary) {
     return null;
   }
@@ -1194,7 +1277,7 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
   const shouldRefreshDirectory =
     keysChanged || !current || nextLastMessageAt !== current.lastMessageAt || nextUnreadCount !== currentUnreadCount;
   const directoryChanged = shouldRefreshDirectory
-    ? await refreshChatDirectoryProjectionForKeys([currentKeys, nextKeys])
+    ? await awaitInChatScope(refreshChatDirectoryProjectionForKeys([currentKeys, nextKeys]), requestedScopeId)
     : false;
   return {
     summary: nextSummary,
@@ -1226,20 +1309,21 @@ export async function setConversationReadStateLocal(
     onlyIfUnread?: boolean;
   }
 ): Promise<ConversationUnreadLocalResult | null> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
     return null;
   }
 
-  const current = await getConversationSummaryRow(normalizedConversationId);
+  const current = await awaitInChatScope(getConversationSummaryRow(normalizedConversationId), requestedScopeId);
   if (!current) {
     return null;
   }
 
   const currentRead = mapConversationReadState(current);
-  const nextRead = mergeChatReadState(currentRead, readInput);
+  const nextRead = mergeChatReadState({ ...currentRead, updatedAt: current.lastMessageAt }, readInput);
   const nextUnreadCount = readStateToUnreadBit(nextRead);
   const currentKeys: ConversationDirectoryKeys = {
     agentKey: current.agentKey || null,
@@ -1269,19 +1353,25 @@ export async function setConversationReadStateLocal(
     };
   }
 
-  await chatDb
-    .update(conversations)
-    .set({
-      unreadCount: nextUnreadCount,
-      isRead: nextRead.isRead ? 1 : 0,
-      readAt: nextRead.readAt,
-      readRunId: nextRead.readRunId,
-      agentKey: nextKeys.agentKey,
-      teamId: nextKeys.teamId
-    })
-    .where(eq(conversations.id, normalizedConversationId));
-  const directoryChanged = await refreshChatDirectoryProjectionForKeys([currentKeys, nextKeys]);
-  const summary = await getConversationDetail(normalizedConversationId);
+  await awaitInChatScope(
+    chatDb
+      .update(conversations)
+      .set({
+        unreadCount: nextUnreadCount,
+        isRead: nextRead.isRead ? 1 : 0,
+        readAt: nextRead.readAt,
+        readRunId: nextRead.readRunId,
+        agentKey: nextKeys.agentKey,
+        teamId: nextKeys.teamId
+      })
+      .where(eq(conversations.id, normalizedConversationId)),
+    requestedScopeId
+  );
+  const directoryChanged = await awaitInChatScope(
+    refreshChatDirectoryProjectionForKeys([currentKeys, nextKeys]),
+    requestedScopeId
+  );
+  const summary = await awaitInChatScope(getConversationDetail(normalizedConversationId), requestedScopeId);
   return summary
     ? {
         summary,
@@ -1328,7 +1418,8 @@ export async function markConversationReadScopeLocal(scope: ConversationReadScop
   changedActiveConversationId: string | null;
   directoryChanged: boolean;
 }> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const agentKey = String(scope.agentKey || '').trim();
   const teamId = String(scope.teamId || '').trim();
@@ -1349,26 +1440,29 @@ export async function markConversationReadScopeLocal(scope: ConversationReadScop
 
   const whereClause = and(...whereConditions);
   const activeConversationId = String(scope.activeConversationId || '').trim();
-  const [changedCountRows, affectedKeyRows, activeRows] = await Promise.all([
-    chatDb.select({ value: count() }).from(conversations).where(whereClause),
-    chatDb
-      .select({
-        agentKey: conversations.agentKey,
-        teamId: conversations.teamId
-      })
-      .from(conversations)
-      .where(whereClause)
-      .groupBy(conversations.agentKey, conversations.teamId),
-    activeConversationId
-      ? chatDb
-          .select({
-            conversationId: conversations.id
-          })
-          .from(conversations)
-          .where(and(whereClause, eq(conversations.id, activeConversationId)))
-          .limit(1)
-      : Promise.resolve([])
-  ]);
+  const [changedCountRows, affectedKeyRows, activeRows] = await awaitInChatScope(
+    Promise.all([
+      chatDb.select({ value: count() }).from(conversations).where(whereClause),
+      chatDb
+        .select({
+          agentKey: conversations.agentKey,
+          teamId: conversations.teamId
+        })
+        .from(conversations)
+        .where(whereClause)
+        .groupBy(conversations.agentKey, conversations.teamId),
+      activeConversationId
+        ? chatDb
+            .select({
+              conversationId: conversations.id
+            })
+            .from(conversations)
+            .where(and(whereClause, eq(conversations.id, activeConversationId)))
+            .limit(1)
+        : Promise.resolve([])
+    ]),
+    requestedScopeId
+  );
 
   if (Number(changedCountRows[0]?.value || 0) <= 0) {
     return {
@@ -1377,20 +1471,26 @@ export async function markConversationReadScopeLocal(scope: ConversationReadScop
     };
   }
 
-  await chatDb
-    .update(conversations)
-    .set({
-      unreadCount: 0,
-      isRead: 1,
-      readAt: Date.now(),
-      readRunId: null
-    })
-    .where(whereClause);
-  const directoryChanged = await refreshChatDirectoryProjectionForKeys(
-    affectedKeyRows.map((row) => ({
-      agentKey: row.agentKey || null,
-      teamId: row.teamId || null
-    }))
+  await awaitInChatScope(
+    chatDb
+      .update(conversations)
+      .set({
+        unreadCount: 0,
+        isRead: 1,
+        readAt: Date.now(),
+        readRunId: null
+      })
+      .where(whereClause),
+    requestedScopeId
+  );
+  const directoryChanged = await awaitInChatScope(
+    refreshChatDirectoryProjectionForKeys(
+      affectedKeyRows.map((row) => ({
+        agentKey: row.agentKey || null,
+        teamId: row.teamId || null
+      }))
+    ),
+    requestedScopeId
   );
 
   return {
@@ -1400,14 +1500,15 @@ export async function markConversationReadScopeLocal(scope: ConversationReadScop
 }
 
 export async function setConversationPinned(conversationId: string, pinned: boolean) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
     return null;
   }
 
-  const current = await getConversationSummaryRow(normalizedConversationId);
+  const current = await awaitInChatScope(getConversationSummaryRow(normalizedConversationId), requestedScopeId);
   if (!current) {
     return null;
   }
@@ -1418,10 +1519,10 @@ export async function setConversationPinned(conversationId: string, pinned: bool
     return mapChatHomeItem(current);
   }
 
-  await chatDb
-    .update(conversations)
-    .set({ pinnedAt: nextPinnedAt })
-    .where(eq(conversations.id, normalizedConversationId));
+  await awaitInChatScope(
+    chatDb.update(conversations).set({ pinnedAt: nextPinnedAt }).where(eq(conversations.id, normalizedConversationId)),
+    requestedScopeId
+  );
   return getConversationDetail(normalizedConversationId);
 }
 
@@ -1481,20 +1582,24 @@ async function loadDirectoryProjectionTargets(
   kind: DirectoryProjectionKind,
   keys: readonly string[]
 ): Promise<DirectoryProjectionTargetRow[]> {
+  const requestedScopeId = getChatCacheScopeId();
   if (keys.length <= 0) {
     return [];
   }
 
   const scopeColumn = kind === 'agent' ? chatDirectoryItems.agentKey : chatDirectoryItems.teamId;
-  const rows = await chatDb
-    .select({
-      id: chatDirectoryItems.id,
-      scopeKey: scopeColumn,
-      latestConversationId: chatDirectoryItems.latestConversationId,
-      unreadCount: chatDirectoryItems.unreadCount
-    })
-    .from(chatDirectoryItems)
-    .where(inArray(scopeColumn, keys));
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        id: chatDirectoryItems.id,
+        scopeKey: scopeColumn,
+        latestConversationId: chatDirectoryItems.latestConversationId,
+        unreadCount: chatDirectoryItems.unreadCount
+      })
+      .from(chatDirectoryItems)
+      .where(inArray(scopeColumn, keys)),
+    requestedScopeId
+  );
 
   return rows
     .map((row) => ({
@@ -1510,6 +1615,7 @@ async function loadLatestConversationIdsByScope(
   kind: DirectoryProjectionKind,
   keys: readonly string[]
 ): Promise<Map<string, string>> {
+  const requestedScopeId = getChatCacheScopeId();
   if (keys.length <= 0) {
     return new Map();
   }
@@ -1519,7 +1625,8 @@ async function loadLatestConversationIdsByScope(
     keys.map((key) => sql`${key}`),
     sql`, `
   );
-  const rows = await chatDb.all<LatestConversationScopeRow>(sql`
+  const rows = await awaitInChatScope(
+    chatDb.all<LatestConversationScopeRow>(sql`
     SELECT scope_key, conversation_id
     FROM (
       SELECT
@@ -1534,7 +1641,9 @@ async function loadLatestConversationIdsByScope(
         AND length(trim(last_message_text)) > 0
     )
     WHERE row_rank = 1
-  `);
+  `),
+    requestedScopeId
+  );
 
   return new Map(
     rows
@@ -1547,19 +1656,23 @@ async function loadUnreadCountsByScope(
   kind: DirectoryProjectionKind,
   keys: readonly string[]
 ): Promise<Map<string, number>> {
+  const requestedScopeId = getChatCacheScopeId();
   if (keys.length <= 0) {
     return new Map();
   }
 
   const scopeColumn = kind === 'agent' ? conversations.agentKey : conversations.teamId;
-  const rows = await chatDb
-    .select({
-      scopeKey: scopeColumn,
-      value: count()
-    })
-    .from(conversations)
-    .where(and(inArray(scopeColumn, keys), eq(conversations.isRead, 0)))
-    .groupBy(scopeColumn);
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        scopeKey: scopeColumn,
+        value: count()
+      })
+      .from(conversations)
+      .where(and(inArray(scopeColumn, keys), eq(conversations.isRead, 0)))
+      .groupBy(scopeColumn),
+    requestedScopeId
+  );
 
   return new Map(
     rows
@@ -1572,21 +1685,22 @@ async function collectDirectoryProjectionChanges(
   kind: DirectoryProjectionKind,
   rawKeys: readonly string[]
 ): Promise<DirectoryProjectionChange[]> {
+  const requestedScopeId = getChatCacheScopeId();
   const keys = normalizeDirectoryProjectionKeys(rawKeys);
   if (keys.length <= 0) {
     return [];
   }
 
-  const targets = await loadDirectoryProjectionTargets(kind, keys);
+  const targets = await awaitInChatScope(loadDirectoryProjectionTargets(kind, keys), requestedScopeId);
   if (targets.length <= 0) {
     return [];
   }
 
   const targetKeys = normalizeDirectoryProjectionKeys(targets.map((row) => row.scopeKey));
-  const [latestConversationIdByScope, unreadCountByScope] = await Promise.all([
-    loadLatestConversationIdsByScope(kind, targetKeys),
-    loadUnreadCountsByScope(kind, targetKeys)
-  ]);
+  const [latestConversationIdByScope, unreadCountByScope] = await awaitInChatScope(
+    Promise.all([loadLatestConversationIdsByScope(kind, targetKeys), loadUnreadCountsByScope(kind, targetKeys)]),
+    requestedScopeId
+  );
   const changes: DirectoryProjectionChange[] = [];
 
   for (const target of targets) {
@@ -1603,12 +1717,16 @@ async function collectDirectoryProjectionChanges(
 }
 
 async function refreshChatDirectoryProjectionForKeys(keys: ConversationDirectoryKeys[]): Promise<boolean> {
+  const requestedScopeId = getChatCacheScopeId();
   const agentKeys = normalizeDirectoryProjectionKeys(keys.map((item) => item.agentKey));
   const teamIds = normalizeDirectoryProjectionKeys(keys.map((item) => item.teamId));
-  const [agentChanges, teamChanges] = await Promise.all([
-    collectDirectoryProjectionChanges('agent', agentKeys),
-    collectDirectoryProjectionChanges('team', teamIds)
-  ]);
+  const [agentChanges, teamChanges] = await awaitInChatScope(
+    Promise.all([
+      collectDirectoryProjectionChanges('agent', agentKeys),
+      collectDirectoryProjectionChanges('team', teamIds)
+    ]),
+    requestedScopeId
+  );
   const changes = [...agentChanges, ...teamChanges];
   if (changes.length <= 0) {
     return false;
@@ -1625,19 +1743,20 @@ async function refreshChatDirectoryProjectionForKeys(keys: ConversationDirectory
         .run();
     }
   });
-  await refreshChatDirectorySnapshot();
+  await awaitInChatScope(refreshChatDirectorySnapshot(), requestedScopeId);
   return true;
 }
 
 export async function refreshChatDirectoryProjectionForConversation(conversationId: string): Promise<boolean> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
     return false;
   }
 
-  const keys = await getConversationDirectoryKeys(normalizedConversationId);
+  const keys = await awaitInChatScope(getConversationDirectoryKeys(normalizedConversationId), requestedScopeId);
   if (!keys?.agentKey && !keys?.teamId) {
     return false;
   }
@@ -1676,7 +1795,8 @@ function normalizeConversationSummaryProjection(
 }
 
 export async function replaceChatHomeProjection(input: ChatHomeProjection, source?: ChatSource) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const conversationById = new Map<string, ChatConversationSummaryProjection>();
   input.conversationSummaries.forEach((item) => {
@@ -1839,44 +1959,56 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection, sourc
     }
   });
 
-  await refreshChatDirectorySnapshot();
+  await awaitInChatScope(refreshChatDirectorySnapshot(), requestedScopeId);
 }
 
 export async function refreshChatDirectorySnapshot(pageSize: number = CHAT_DIRECTORY_DEFAULT_PAGE_SIZE) {
-  const firstPage = await getChatDirectoryPage(1, pageSize);
+  const requestedScopeId = getChatCacheScopeId();
+  const firstPage = await awaitInChatScope(getChatDirectoryPage(1, pageSize), requestedScopeId);
   writeChatDirectorySnapshot(firstPage.items);
   return firstPage.items;
 }
 
 export async function retainChatDirectorySources(sources: readonly ChatSource[]): Promise<boolean> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
   const prefixes = sources.map(getChatSourceStoragePrefix);
-  const rows = await chatDb.select({ id: chatDirectoryItems.id }).from(chatDirectoryItems);
+  const rows = await awaitInChatScope(
+    chatDb.select({ id: chatDirectoryItems.id }).from(chatDirectoryItems),
+    requestedScopeId
+  );
   const staleIds = rows.map((row) => row.id).filter((id) => !prefixes.some((prefix) => id.startsWith(prefix)));
   if (staleIds.length <= 0) {
     return false;
   }
 
   for (let offset = 0; offset < staleIds.length; offset += 200) {
-    await chatDb.delete(chatDirectoryItems).where(inArray(chatDirectoryItems.id, staleIds.slice(offset, offset + 200)));
+    await awaitInChatScope(
+      chatDb.delete(chatDirectoryItems).where(inArray(chatDirectoryItems.id, staleIds.slice(offset, offset + 200))),
+      requestedScopeId
+    );
   }
-  await refreshChatDirectorySnapshot();
+  await awaitInChatScope(refreshChatDirectorySnapshot(), requestedScopeId);
   return true;
 }
 
 export async function setChatDirectoryItemPinned(itemId: string, pinned: boolean) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const normalizedItemId = String(itemId || '').trim();
   if (!normalizedItemId) {
     return null;
   }
 
-  const rows = await chatDb
-    .select(CHAT_DIRECTORY_ITEM_SELECT)
-    .from(chatDirectoryItems)
-    .where(eq(chatDirectoryItems.id, normalizedItemId))
-    .limit(1);
+  const rows = await awaitInChatScope(
+    chatDb
+      .select(CHAT_DIRECTORY_ITEM_SELECT)
+      .from(chatDirectoryItems)
+      .where(eq(chatDirectoryItems.id, normalizedItemId))
+      .limit(1),
+    requestedScopeId
+  );
   const current = rows[0];
   if (!current) {
     return null;
@@ -1885,66 +2017,84 @@ export async function setChatDirectoryItemPinned(itemId: string, pinned: boolean
   const currentPinnedAt = Number(current.pinnedAt || 0);
   const nextPinnedAt = pinned ? currentPinnedAt || Date.now() : 0;
   if (currentPinnedAt !== nextPinnedAt) {
-    await chatDb
-      .update(chatDirectoryItems)
-      .set({ pinnedAt: nextPinnedAt })
-      .where(eq(chatDirectoryItems.id, normalizedItemId));
-    await refreshChatDirectorySnapshot();
+    await awaitInChatScope(
+      chatDb
+        .update(chatDirectoryItems)
+        .set({ pinnedAt: nextPinnedAt })
+        .where(eq(chatDirectoryItems.id, normalizedItemId)),
+      requestedScopeId
+    );
+    await awaitInChatScope(refreshChatDirectorySnapshot(), requestedScopeId);
   }
 
-  const nextRows = await chatDb
-    .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
-    .from(chatDirectoryItems)
-    .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
-    .where(eq(chatDirectoryItems.id, normalizedItemId))
-    .limit(1);
+  const nextRows = await awaitInChatScope(
+    chatDb
+      .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
+      .from(chatDirectoryItems)
+      .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
+      .where(eq(chatDirectoryItems.id, normalizedItemId))
+      .limit(1),
+    requestedScopeId
+  );
   return nextRows[0] ? mapChatDirectoryItem(nextRows[0]) : null;
 }
 
 async function isPersistedTimelineNodeActive(conversationId: string, nodeId: string): Promise<boolean> {
-  const rows = await chatDb
-    .select({
-      payloadJson: conversationTimelineNodes.payloadJson
-    })
-    .from(conversationTimelineNodes)
-    .where(
-      and(eq(conversationTimelineNodes.conversationId, conversationId), eq(conversationTimelineNodes.nodeId, nodeId))
-    )
-    .limit(1);
+  const requestedScopeId = getChatCacheScopeId();
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        payloadJson: conversationTimelineNodes.payloadJson
+      })
+      .from(conversationTimelineNodes)
+      .where(
+        and(eq(conversationTimelineNodes.conversationId, conversationId), eq(conversationTimelineNodes.nodeId, nodeId))
+      )
+      .limit(1),
+    requestedScopeId
+  );
 
   return isActiveTimelinePayload(rows[0]?.payloadJson);
 }
 
 async function isPersistedTimelineTailActive(conversationId: string): Promise<boolean> {
-  const rows = await chatDb
-    .select({
-      payloadJson: conversationTimelineNodes.payloadJson
-    })
-    .from(conversationTimelineNodes)
-    .where(eq(conversationTimelineNodes.conversationId, conversationId))
-    .orderBy(desc(conversationTimelineNodes.orderIndex))
-    .limit(1);
+  const requestedScopeId = getChatCacheScopeId();
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        payloadJson: conversationTimelineNodes.payloadJson
+      })
+      .from(conversationTimelineNodes)
+      .where(eq(conversationTimelineNodes.conversationId, conversationId))
+      .orderBy(desc(conversationTimelineNodes.orderIndex))
+      .limit(1),
+    requestedScopeId
+  );
 
   return isActiveTimelinePayload(rows[0]?.payloadJson);
 }
 
 async function getOpenableLatestConversation(conversationId: string | null | undefined): Promise<ChatHomeItem | null> {
+  const requestedScopeId = getChatCacheScopeId();
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
     return null;
   }
 
-  const rows = await chatDb
-    .select({
-      ...CHAT_HOME_ITEM_SELECT,
-      timelineConversationId: conversationTimelineMeta.conversationId,
-      activeRunId: conversationTimelineMeta.activeRunId,
-      awaitingId: conversationTimelineMeta.awaitingId
-    })
-    .from(conversations)
-    .leftJoin(conversationTimelineMeta, eq(conversations.id, conversationTimelineMeta.conversationId))
-    .where(eq(conversations.id, normalizedConversationId))
-    .limit(1);
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        ...CHAT_HOME_ITEM_SELECT,
+        timelineConversationId: conversationTimelineMeta.conversationId,
+        activeRunId: conversationTimelineMeta.activeRunId,
+        awaitingId: conversationTimelineMeta.awaitingId
+      })
+      .from(conversations)
+      .leftJoin(conversationTimelineMeta, eq(conversations.id, conversationTimelineMeta.conversationId))
+      .where(eq(conversations.id, normalizedConversationId))
+      .limit(1),
+    requestedScopeId
+  );
   const row = rows[0];
   if (!row) {
     return null;
@@ -1956,11 +2106,17 @@ async function getOpenableLatestConversation(conversationId: string | null | und
   }
 
   const awaitingId = String(row.awaitingId || '').trim();
-  if (awaitingId && (await isPersistedTimelineNodeActive(normalizedConversationId, awaitingId))) {
+  if (
+    awaitingId &&
+    (await awaitInChatScope(isPersistedTimelineNodeActive(normalizedConversationId, awaitingId), requestedScopeId))
+  ) {
     return conversation;
   }
 
-  if (row.timelineConversationId && (await isPersistedTimelineTailActive(normalizedConversationId))) {
+  if (
+    row.timelineConversationId &&
+    (await awaitInChatScope(isPersistedTimelineTailActive(normalizedConversationId), requestedScopeId))
+  ) {
     return conversation;
   }
 
@@ -1970,15 +2126,19 @@ async function getOpenableLatestConversation(conversationId: string | null | und
 export async function resolveDirectoryItemConversationOpenTarget(
   itemId: string
 ): Promise<DirectoryConversationOpenResult | null> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
-  const openScope = await getDirectoryItemOpenScope(itemId);
+  const openScope = await awaitInChatScope(getDirectoryItemOpenScope(itemId), requestedScopeId);
   if (!openScope) {
     return null;
   }
   const { directoryItem, historyScope } = openScope;
 
-  const latestConversation = await getOpenableLatestConversation(directoryItem.latestConversationId);
+  const latestConversation = await awaitInChatScope(
+    getOpenableLatestConversation(directoryItem.latestConversationId),
+    requestedScopeId
+  );
   if (latestConversation) {
     return {
       conversation: latestConversation,
@@ -1993,9 +2153,10 @@ export async function resolveDirectoryItemConversationOpenTarget(
 export async function createConversationForDirectoryItem(
   itemId: string
 ): Promise<DirectoryConversationOpenResult | null> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
-  const openScope = await getDirectoryItemOpenScope(itemId);
+  const openScope = await awaitInChatScope(getDirectoryItemOpenScope(itemId), requestedScopeId);
   if (!openScope) {
     return null;
   }
@@ -2008,7 +2169,8 @@ export async function createConversationForHistoryScope(
   scope: ChatConversationHistoryScope,
   title?: string | null
 ): Promise<DirectoryConversationOpenResult | null> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   return createLocalConversationForHistoryScope(scope, title);
 }
@@ -2024,21 +2186,25 @@ export async function getChatDirectoryPage(
   page: number,
   pageSize: number = CHAT_DIRECTORY_DEFAULT_PAGE_SIZE
 ): Promise<ChatDirectoryPage> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const safePage = Math.max(1, page);
   const offset = (safePage - 1) * pageSize;
 
-  const [rows, totals] = await Promise.all([
-    chatDb
-      .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
-      .from(chatDirectoryItems)
-      .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
-      .orderBy(...CHAT_DIRECTORY_PINNED_ORDER)
-      .limit(pageSize)
-      .offset(offset),
-    chatDb.select({ value: count() }).from(chatDirectoryItems)
-  ]);
+  const [rows, totals] = await awaitInChatScope(
+    Promise.all([
+      chatDb
+        .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
+        .from(chatDirectoryItems)
+        .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
+        .orderBy(...CHAT_DIRECTORY_PINNED_ORDER)
+        .limit(pageSize)
+        .offset(offset),
+      chatDb.select({ value: count() }).from(chatDirectoryItems)
+    ]),
+    requestedScopeId
+  );
 
   return {
     items: rows.map(mapChatDirectoryItem),
@@ -2051,23 +2217,27 @@ export async function getChatDirectoryPage(
 export async function getChatDirectorySlice(
   limit: number
 ): Promise<{ items: ChatDirectoryItem[]; total: number; pinnedTotal: number }> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const safeLimit = Math.max(1, limit);
-  const [rows, totals] = await Promise.all([
-    chatDb
-      .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
-      .from(chatDirectoryItems)
-      .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
-      .orderBy(...CHAT_DIRECTORY_PINNED_ORDER)
-      .limit(safeLimit),
-    chatDb
-      .select({
-        total: count(),
-        pinnedTotal: getPinnedDirectoryCountExpression()
-      })
-      .from(chatDirectoryItems)
-  ]);
+  const [rows, totals] = await awaitInChatScope(
+    Promise.all([
+      chatDb
+        .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
+        .from(chatDirectoryItems)
+        .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
+        .orderBy(...CHAT_DIRECTORY_PINNED_ORDER)
+        .limit(safeLimit),
+      chatDb
+        .select({
+          total: count(),
+          pinnedTotal: getPinnedDirectoryCountExpression()
+        })
+        .from(chatDirectoryItems)
+    ]),
+    requestedScopeId
+  );
   const countRow = totals[0];
 
   return {
@@ -2080,24 +2250,28 @@ export async function getChatDirectorySlice(
 export async function getCollapsedChatDirectorySlice(
   limit: number
 ): Promise<{ items: ChatDirectoryItem[]; total: number; pinnedTotal: number }> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const safeLimit = Math.max(1, limit);
-  const [rows, totals] = await Promise.all([
-    chatDb
-      .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
-      .from(chatDirectoryItems)
-      .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
-      .where(eq(chatDirectoryItems.pinnedAt, 0))
-      .orderBy(...CHAT_DIRECTORY_RECENCY_ORDER)
-      .limit(safeLimit),
-    chatDb
-      .select({
-        total: getUnpinnedDirectoryCountExpression(),
-        pinnedTotal: getPinnedDirectoryCountExpression()
-      })
-      .from(chatDirectoryItems)
-  ]);
+  const [rows, totals] = await awaitInChatScope(
+    Promise.all([
+      chatDb
+        .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
+        .from(chatDirectoryItems)
+        .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
+        .where(eq(chatDirectoryItems.pinnedAt, 0))
+        .orderBy(...CHAT_DIRECTORY_RECENCY_ORDER)
+        .limit(safeLimit),
+      chatDb
+        .select({
+          total: getUnpinnedDirectoryCountExpression(),
+          pinnedTotal: getPinnedDirectoryCountExpression()
+        })
+        .from(chatDirectoryItems)
+    ]),
+    requestedScopeId
+  );
   const countRow = totals[0];
 
   return {
@@ -2111,21 +2285,25 @@ export async function getChatDirectoryCatalogPage(
   page: number,
   pageSize: number = CHAT_DIRECTORY_DEFAULT_PAGE_SIZE
 ): Promise<ChatDirectoryPage> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const safePage = Math.max(1, page);
   const safePageSize = Math.max(1, pageSize);
   const offset = (safePage - 1) * safePageSize;
-  const [rows, totals] = await Promise.all([
-    chatDb
-      .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
-      .from(chatDirectoryItems)
-      .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
-      .orderBy(...CHAT_DIRECTORY_STABLE_ORDER)
-      .limit(safePageSize)
-      .offset(offset),
-    chatDb.select({ value: count() }).from(chatDirectoryItems)
-  ]);
+  const [rows, totals] = await awaitInChatScope(
+    Promise.all([
+      chatDb
+        .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
+        .from(chatDirectoryItems)
+        .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
+        .orderBy(...CHAT_DIRECTORY_STABLE_ORDER)
+        .limit(safePageSize)
+        .offset(offset),
+      chatDb.select({ value: count() }).from(chatDirectoryItems)
+    ]),
+    requestedScopeId
+  );
 
   return {
     items: rows.map(mapChatDirectoryItem),
@@ -2140,7 +2318,8 @@ export async function searchChatDirectoryItems(
   offset: number = 0,
   pageSize: number = 24
 ): Promise<ChatDirectorySearchPage> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const normalizedQuery = normalizeChatDirectorySearchQuery(query);
   const tokens = getChatDirectorySearchTokens(normalizedQuery);
@@ -2159,14 +2338,17 @@ export async function searchChatDirectoryItems(
 
   const searchText = getChatDirectorySearchTextExpression();
   const whereClause = and(...tokens.map((token) => sql<boolean>`instr(${searchText}, ${token}) > 0`));
-  const rows = await chatDb
-    .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
-    .from(chatDirectoryItems)
-    .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
-    .where(whereClause)
-    .orderBy(...CHAT_DIRECTORY_PINNED_ORDER)
-    .limit(safePageSize + 1)
-    .offset(safeOffset);
+  const rows = await awaitInChatScope(
+    chatDb
+      .select(CHAT_DIRECTORY_ITEM_WITH_SUMMARY_SELECT)
+      .from(chatDirectoryItems)
+      .leftJoin(conversations, eq(chatDirectoryItems.latestConversationId, conversations.id))
+      .where(whereClause)
+      .orderBy(...CHAT_DIRECTORY_PINNED_ORDER)
+      .limit(safePageSize + 1)
+      .offset(safeOffset),
+    requestedScopeId
+  );
   const pageRows = rows.slice(0, safePageSize);
 
   return {
@@ -2179,34 +2361,40 @@ export async function searchChatDirectoryItems(
 }
 
 export async function markConversationSourceDeleted(conversationId: string) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
     return null;
   }
-  await chatDb
-    .update(conversations)
-    .set({ sourceDeleted: 1, unreadCount: 0, isRead: 1, readAt: Date.now() })
-    .where(eq(conversations.id, normalizedConversationId));
+  await awaitInChatScope(
+    chatDb
+      .update(conversations)
+      .set({ sourceDeleted: 1, unreadCount: 0, isRead: 1, readAt: Date.now() })
+      .where(eq(conversations.id, normalizedConversationId)),
+    requestedScopeId
+  );
   return getConversationDetail(normalizedConversationId);
 }
 
 export async function clearChatLocalCache() {
-  await ensureChatDatabase();
-  await chatDb.delete(conversationTimelineNodes);
-  await chatDb.delete(conversationTimelineMeta);
-  await chatDb.delete(conversationSyncState);
-  await chatDb.delete(messageAttachments);
-  await chatDb.delete(messages);
-  await chatDb.delete(outboxMessages);
-  await chatDb.delete(conversations);
-  await chatDb.delete(chatDirectoryItems);
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
+  await awaitInChatScope(chatDb.delete(conversationTimelineNodes), requestedScopeId);
+  await awaitInChatScope(chatDb.delete(conversationTimelineMeta), requestedScopeId);
+  await awaitInChatScope(chatDb.delete(conversationSyncState), requestedScopeId);
+  await awaitInChatScope(chatDb.delete(messageAttachments), requestedScopeId);
+  await awaitInChatScope(chatDb.delete(messages), requestedScopeId);
+  await awaitInChatScope(chatDb.delete(outboxMessages), requestedScopeId);
+  await awaitInChatScope(chatDb.delete(conversations), requestedScopeId);
+  await awaitInChatScope(chatDb.delete(chatDirectoryItems), requestedScopeId);
   clearChatDirectorySnapshot();
 }
 
 export async function hasChatLocalConversations(): Promise<boolean> {
-  await ensureChatDatabase();
-  const rows = await chatDb.select({ value: count() }).from(conversations);
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
+  const rows = await awaitInChatScope(chatDb.select({ value: count() }).from(conversations), requestedScopeId);
   return (rows[0]?.value ?? 0) > 0;
 }
 
@@ -2217,6 +2405,7 @@ export type ChatLocalCacheScopeClearResult = {
 };
 
 export async function clearChatLocalCacheForScope(scopeId: string): Promise<ChatLocalCacheScopeClearResult> {
+  const requestedScopeId = getChatCacheScopeId();
   const rawScopeId = String(scopeId || '').trim();
   const normalizedScopeId = normalizeChatCacheScopeId(rawScopeId);
   if (!rawScopeId || normalizedScopeId !== rawScopeId) {
@@ -2224,7 +2413,7 @@ export async function clearChatLocalCacheForScope(scopeId: string): Promise<Chat
   }
 
   if (normalizedScopeId === getChatCacheScopeId()) {
-    await clearChatLocalCache();
+    await awaitInChatScope(clearChatLocalCache(), requestedScopeId);
     return {
       scopeId: normalizedScopeId,
       active: true,
@@ -2254,23 +2443,20 @@ export async function clearChatConversationForScope(scopeId: string, conversatio
 }
 
 export async function prewarmChatHomeDirectory(pageSize: number = CHAT_DIRECTORY_DEFAULT_PAGE_SIZE) {
-  if (chatHomeDirectoryPrewarmPromise) {
+  const requestedScopeId = getChatCacheScopeId();
+  if (chatHomeDirectoryPrewarmPromise && chatHomeDirectoryPrewarmScopeId === requestedScopeId) {
     return chatHomeDirectoryPrewarmPromise;
   }
-
-  chatHomeDirectoryPrewarmPromise = (async () => {
-    const directory = await getChatDirectorySlice(pageSize);
-
-    if (directory.items.length > 0 || directory.total > 0) {
-      writeChatDirectorySnapshot(directory.items);
-    }
-
+  chatHomeDirectoryPrewarmScopeId = requestedScopeId;
+  const task = (async () => {
+    const directory = await awaitInChatScope(getChatDirectorySlice(pageSize), requestedScopeId);
+    if (directory.items.length > 0 || directory.total > 0) writeChatDirectorySnapshot(directory.items);
     return directory;
   })().finally(() => {
-    chatHomeDirectoryPrewarmPromise = null;
+    if (chatHomeDirectoryPrewarmPromise === task) chatHomeDirectoryPrewarmPromise = null;
   });
-
-  return chatHomeDirectoryPrewarmPromise;
+  chatHomeDirectoryPrewarmPromise = task;
+  return task;
 }
 
 function getConversationHistoryWhereClause(scope?: Partial<ChatConversationHistoryScope> | null) {
@@ -2287,21 +2473,25 @@ function getConversationHistoryWhereClause(scope?: Partial<ChatConversationHisto
 export async function getConversationHistoryScope(
   conversationId: string
 ): Promise<ChatConversationHistoryScope | null> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
     return null;
   }
 
-  const rows = await chatDb
-    .select({
-      agentKey: conversations.agentKey,
-      teamId: conversations.teamId
-    })
-    .from(conversations)
-    .where(eq(conversations.id, normalizedConversationId))
-    .limit(1);
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        agentKey: conversations.agentKey,
+        teamId: conversations.teamId
+      })
+      .from(conversations)
+      .where(eq(conversations.id, normalizedConversationId))
+      .limit(1),
+    requestedScopeId
+  );
 
   return normalizeChatConversationHistoryScope(rows[0] ?? null);
 }
@@ -2310,7 +2500,8 @@ export async function getConversationHistorySlice(
   scope?: Partial<ChatConversationHistoryScope> | null,
   limit: number = 20
 ): Promise<ChatConversationHistoryPage> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const safeLimit = Math.max(1, Math.trunc(Number(limit) || 20));
   const whereClause = getConversationHistoryWhereClause(scope);
@@ -2325,19 +2516,22 @@ export async function getConversationHistorySlice(
 
   const historyWhereClause = and(whereClause, CONVERSATION_HISTORY_VISIBLE_FILTER);
 
-  const [rows, totalRows, unreadRows] = await Promise.all([
-    chatDb
-      .select(CHAT_HOME_ITEM_SELECT)
-      .from(conversations)
-      .where(historyWhereClause)
-      .orderBy(...CONVERSATION_RECENCY_ORDER)
-      .limit(safeLimit),
-    chatDb.select({ value: count() }).from(conversations).where(historyWhereClause),
-    chatDb
-      .select({ value: count() })
-      .from(conversations)
-      .where(and(historyWhereClause, eq(conversations.isRead, 0)))
-  ]);
+  const [rows, totalRows, unreadRows] = await awaitInChatScope(
+    Promise.all([
+      chatDb
+        .select(CHAT_HOME_ITEM_SELECT)
+        .from(conversations)
+        .where(historyWhereClause)
+        .orderBy(...CONVERSATION_RECENCY_ORDER)
+        .limit(safeLimit),
+      chatDb.select({ value: count() }).from(conversations).where(historyWhereClause),
+      chatDb
+        .select({ value: count() })
+        .from(conversations)
+        .where(and(historyWhereClause, eq(conversations.isRead, 0)))
+    ]),
+    requestedScopeId
+  );
 
   return {
     items: rows.map(mapChatHomeItem),
@@ -2348,13 +2542,13 @@ export async function getConversationHistorySlice(
 }
 
 export async function getConversationDetail(conversationId: string): Promise<ChatHomeItem | null> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
-  const conversationRows = await chatDb
-    .select(CHAT_HOME_ITEM_SELECT)
-    .from(conversations)
-    .where(eq(conversations.id, conversationId))
-    .limit(1);
+  const conversationRows = await awaitInChatScope(
+    chatDb.select(CHAT_HOME_ITEM_SELECT).from(conversations).where(eq(conversations.id, conversationId)).limit(1),
+    requestedScopeId
+  );
 
   const conversation = conversationRows[0];
   if (!conversation) {
@@ -2365,54 +2559,62 @@ export async function getConversationDetail(conversationId: string): Promise<Cha
 }
 
 export async function getConversationTarget(conversationId: string): Promise<ChatConversationTarget | null> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
-  const keys = await getConversationDirectoryKeys(conversationId);
+  const keys = await awaitInChatScope(getConversationDirectoryKeys(conversationId), requestedScopeId);
   const scopeValue = keys?.teamId || keys?.agentKey || '';
   if (!scopeValue) {
     return null;
   }
 
   const scopeColumn = keys?.teamId ? chatDirectoryItems.teamId : chatDirectoryItems.agentKey;
-  const rows = await chatDb
-    .select({
-      kind: chatDirectoryItems.kind,
-      title: chatDirectoryItems.title,
-      subtitle: chatDirectoryItems.subtitle,
-      agentKey: chatDirectoryItems.agentKey,
-      teamId: chatDirectoryItems.teamId,
-      defaultAgentKey: chatDirectoryItems.defaultAgentKey,
-      agentMode: chatDirectoryItems.agentMode,
-      modelKey: chatDirectoryItems.modelKey,
-      reasoningEffort: chatDirectoryItems.reasoningEffort
-    })
-    .from(chatDirectoryItems)
-    .where(eq(scopeColumn, scopeValue))
-    .orderBy(...CHAT_DIRECTORY_STABLE_ORDER)
-    .limit(1);
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        kind: chatDirectoryItems.kind,
+        title: chatDirectoryItems.title,
+        subtitle: chatDirectoryItems.subtitle,
+        agentKey: chatDirectoryItems.agentKey,
+        teamId: chatDirectoryItems.teamId,
+        defaultAgentKey: chatDirectoryItems.defaultAgentKey,
+        agentMode: chatDirectoryItems.agentMode,
+        modelKey: chatDirectoryItems.modelKey,
+        reasoningEffort: chatDirectoryItems.reasoningEffort
+      })
+      .from(chatDirectoryItems)
+      .where(eq(scopeColumn, scopeValue))
+      .orderBy(...CHAT_DIRECTORY_STABLE_ORDER)
+      .limit(1),
+    requestedScopeId
+  );
 
   return createChatConversationTarget(rows[0]);
 }
 
 export async function getConversationMessages(conversationId: string, limit: number = 20): Promise<ChatMessageItem[]> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
-  const rows = await chatDb
-    .select({
-      messageId: messages.id,
-      clientMessageId: messages.clientMessageId,
-      serverMessageId: messages.serverMessageId,
-      conversationId: messages.conversationId,
-      role: messages.role,
-      content: messages.content,
-      createdAt: messages.createdAt,
-      deliveryStatus: messages.deliveryStatus,
-      errorReason: messages.errorReason
-    })
-    .from(messages)
-    .where(eq(messages.conversationId, conversationId))
-    .orderBy(desc(messages.createdAt))
-    .limit(limit);
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        messageId: messages.id,
+        clientMessageId: messages.clientMessageId,
+        serverMessageId: messages.serverMessageId,
+        conversationId: messages.conversationId,
+        role: messages.role,
+        content: messages.content,
+        createdAt: messages.createdAt,
+        deliveryStatus: messages.deliveryStatus,
+        errorReason: messages.errorReason
+      })
+      .from(messages)
+      .where(eq(messages.conversationId, conversationId))
+      .orderBy(desc(messages.createdAt))
+      .limit(limit),
+    requestedScopeId
+  );
 
   return attachMessageAttachments(rows.map(mapChatMessageItem));
 }
@@ -2429,7 +2631,8 @@ export async function getConversationMessagesDiagnosticSnapshot(
   conversationId: string,
   limit: number = 500
 ): Promise<ChatConversationMessagesDiagnosticSnapshot> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
   const normalizedConversationId = String(conversationId || '').trim();
   const safeLimit = Math.max(1, Math.min(500, Math.trunc(Number(limit) || 500)));
   if (!normalizedConversationId) {
@@ -2442,10 +2645,13 @@ export async function getConversationMessagesDiagnosticSnapshot(
     };
   }
 
-  const [items, totalRows] = await Promise.all([
-    getConversationMessages(normalizedConversationId, safeLimit),
-    chatDb.select({ value: count() }).from(messages).where(eq(messages.conversationId, normalizedConversationId))
-  ]);
+  const [items, totalRows] = await awaitInChatScope(
+    Promise.all([
+      getConversationMessages(normalizedConversationId, safeLimit),
+      chatDb.select({ value: count() }).from(messages).where(eq(messages.conversationId, normalizedConversationId))
+    ]),
+    requestedScopeId
+  );
   const total = totalRows[0]?.value ?? 0;
   return {
     items,
@@ -2469,7 +2675,8 @@ export async function getConversationTimelineDiagnosticSnapshot(
   conversationId: string,
   limit: number = 500
 ): Promise<ChatConversationTimelineDiagnosticSnapshot> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
   const normalizedConversationId = String(conversationId || '').trim();
   const safeLimit = Math.max(1, Math.min(500, Math.trunc(Number(limit) || 500)));
   if (!normalizedConversationId) {
@@ -2483,42 +2690,45 @@ export async function getConversationTimelineDiagnosticSnapshot(
     };
   }
 
-  const [metaRows, nodeRows, totalRows] = await Promise.all([
-    chatDb
-      .select({
-        conversationId: conversationTimelineMeta.conversationId,
-        activeRunId: conversationTimelineMeta.activeRunId,
-        awaitingId: conversationTimelineMeta.awaitingId,
-        usageLabel: conversationTimelineMeta.usageLabel,
-        updatedAt: conversationTimelineMeta.updatedAt,
-        revision: conversationTimelineMeta.revision,
-        nextOrder: conversationTimelineMeta.nextOrder,
-        messageTailSignature: conversationTimelineMeta.messageTailSignature
-      })
-      .from(conversationTimelineMeta)
-      .where(eq(conversationTimelineMeta.conversationId, normalizedConversationId))
-      .limit(1),
-    chatDb
-      .select({
-        conversationId: conversationTimelineNodes.conversationId,
-        nodeId: conversationTimelineNodes.nodeId,
-        kind: conversationTimelineNodes.kind,
-        runId: conversationTimelineNodes.runId,
-        orderIndex: conversationTimelineNodes.orderIndex,
-        createdAt: conversationTimelineNodes.createdAt,
-        updatedAt: conversationTimelineNodes.updatedAt,
-        payloadHash: conversationTimelineNodes.payloadHash,
-        payloadJson: conversationTimelineNodes.payloadJson
-      })
-      .from(conversationTimelineNodes)
-      .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId))
-      .orderBy(desc(conversationTimelineNodes.orderIndex))
-      .limit(safeLimit),
-    chatDb
-      .select({ value: count() })
-      .from(conversationTimelineNodes)
-      .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId))
-  ]);
+  const [metaRows, nodeRows, totalRows] = await awaitInChatScope(
+    Promise.all([
+      chatDb
+        .select({
+          conversationId: conversationTimelineMeta.conversationId,
+          activeRunId: conversationTimelineMeta.activeRunId,
+          awaitingId: conversationTimelineMeta.awaitingId,
+          usageLabel: conversationTimelineMeta.usageLabel,
+          updatedAt: conversationTimelineMeta.updatedAt,
+          revision: conversationTimelineMeta.revision,
+          nextOrder: conversationTimelineMeta.nextOrder,
+          messageTailSignature: conversationTimelineMeta.messageTailSignature
+        })
+        .from(conversationTimelineMeta)
+        .where(eq(conversationTimelineMeta.conversationId, normalizedConversationId))
+        .limit(1),
+      chatDb
+        .select({
+          conversationId: conversationTimelineNodes.conversationId,
+          nodeId: conversationTimelineNodes.nodeId,
+          kind: conversationTimelineNodes.kind,
+          runId: conversationTimelineNodes.runId,
+          orderIndex: conversationTimelineNodes.orderIndex,
+          createdAt: conversationTimelineNodes.createdAt,
+          updatedAt: conversationTimelineNodes.updatedAt,
+          payloadHash: conversationTimelineNodes.payloadHash,
+          payloadJson: conversationTimelineNodes.payloadJson
+        })
+        .from(conversationTimelineNodes)
+        .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId))
+        .orderBy(desc(conversationTimelineNodes.orderIndex))
+        .limit(safeLimit),
+      chatDb
+        .select({ value: count() })
+        .from(conversationTimelineNodes)
+        .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId))
+    ]),
+    requestedScopeId
+  );
   const total = totalRows[0]?.value ?? 0;
   return {
     meta: metaRows[0] ? mapSerializedTimelineMetaRow(metaRows[0]) : null,
@@ -2534,49 +2744,56 @@ export async function getConversationInitialTimelineState(
   conversationId: string,
   limit: number = 60
 ): Promise<ChatTimelineState> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
     return deriveChatTimelineStateFromMessages('', []);
   }
 
-  const [metaRows, latestMessage] = await Promise.all([
-    chatDb
-      .select({
-        conversationId: conversationTimelineMeta.conversationId,
-        activeRunId: conversationTimelineMeta.activeRunId,
-        awaitingId: conversationTimelineMeta.awaitingId,
-        usageLabel: conversationTimelineMeta.usageLabel,
-        updatedAt: conversationTimelineMeta.updatedAt,
-        revision: conversationTimelineMeta.revision,
-        nextOrder: conversationTimelineMeta.nextOrder,
-        messageTailSignature: conversationTimelineMeta.messageTailSignature
-      })
-      .from(conversationTimelineMeta)
-      .where(eq(conversationTimelineMeta.conversationId, normalizedConversationId))
-      .limit(1),
-    getLatestConversationMessage(normalizedConversationId)
-  ]);
+  const [metaRows, latestMessage] = await awaitInChatScope(
+    Promise.all([
+      chatDb
+        .select({
+          conversationId: conversationTimelineMeta.conversationId,
+          activeRunId: conversationTimelineMeta.activeRunId,
+          awaitingId: conversationTimelineMeta.awaitingId,
+          usageLabel: conversationTimelineMeta.usageLabel,
+          updatedAt: conversationTimelineMeta.updatedAt,
+          revision: conversationTimelineMeta.revision,
+          nextOrder: conversationTimelineMeta.nextOrder,
+          messageTailSignature: conversationTimelineMeta.messageTailSignature
+        })
+        .from(conversationTimelineMeta)
+        .where(eq(conversationTimelineMeta.conversationId, normalizedConversationId))
+        .limit(1),
+      getLatestConversationMessage(normalizedConversationId)
+    ]),
+    requestedScopeId
+  );
   const metaRow = metaRows[0];
   const currentTailSignature = buildTailSignatureFromMessage(latestMessage);
 
   if (metaRow && metaRow.messageTailSignature === currentTailSignature) {
-    const nodeRows = await chatDb
-      .select({
-        conversationId: conversationTimelineNodes.conversationId,
-        nodeId: conversationTimelineNodes.nodeId,
-        kind: conversationTimelineNodes.kind,
-        runId: conversationTimelineNodes.runId,
-        orderIndex: conversationTimelineNodes.orderIndex,
-        createdAt: conversationTimelineNodes.createdAt,
-        updatedAt: conversationTimelineNodes.updatedAt,
-        payloadHash: conversationTimelineNodes.payloadHash,
-        payloadJson: conversationTimelineNodes.payloadJson
-      })
-      .from(conversationTimelineNodes)
-      .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId))
-      .orderBy(asc(conversationTimelineNodes.orderIndex));
+    const nodeRows = await awaitInChatScope(
+      chatDb
+        .select({
+          conversationId: conversationTimelineNodes.conversationId,
+          nodeId: conversationTimelineNodes.nodeId,
+          kind: conversationTimelineNodes.kind,
+          runId: conversationTimelineNodes.runId,
+          orderIndex: conversationTimelineNodes.orderIndex,
+          createdAt: conversationTimelineNodes.createdAt,
+          updatedAt: conversationTimelineNodes.updatedAt,
+          payloadHash: conversationTimelineNodes.payloadHash,
+          payloadJson: conversationTimelineNodes.payloadJson
+        })
+        .from(conversationTimelineNodes)
+        .where(eq(conversationTimelineNodes.conversationId, normalizedConversationId))
+        .orderBy(asc(conversationTimelineNodes.orderIndex)),
+      requestedScopeId
+    );
     const snapshot = deserializeChatTimelineState(
       mapSerializedTimelineMetaRow(metaRow),
       nodeRows.map(mapSerializedTimelineNodeRow)
@@ -2586,19 +2803,23 @@ export async function getConversationInitialTimelineState(
     }
   }
 
-  const fallbackMessages = await getConversationMessages(normalizedConversationId, limit);
+  const fallbackMessages = await awaitInChatScope(
+    getConversationMessages(normalizedConversationId, limit),
+    requestedScopeId
+  );
   return deriveChatTimelineStateFromMessages(normalizedConversationId, fallbackMessages.reverse());
 }
 
 export async function persistConversationTimelineState(state: ChatTimelineState) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const conversationId = String(state.conversationId || '').trim();
   if (!conversationId) {
     return null;
   }
 
-  await ensureConversationRecord(conversationId, state.updatedAt || Date.now());
+  await awaitInChatScope(ensureConversationRecord(conversationId, state.updatedAt || Date.now()), requestedScopeId);
   const messageTailSignature = buildTailSignatureFromTimelineState(state);
   chatDb.transaction((tx) => {
     writeTimelineSnapshotInTransaction(tx, state, messageTailSignature);
@@ -2607,24 +2828,28 @@ export async function persistConversationTimelineState(state: ChatTimelineState)
 }
 
 export async function getConversationSyncState(conversationId: string): Promise<ConversationSyncState | null> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
     return null;
   }
 
-  const rows = await chatDb
-    .select({
-      conversationId: conversationSyncState.conversationId,
-      activeRunId: conversationSyncState.activeRunId,
-      lastSyncedAt: conversationSyncState.lastSyncedAt,
-      dirtyReason: conversationSyncState.dirtyReason,
-      tailSignature: conversationSyncState.tailSignature
-    })
-    .from(conversationSyncState)
-    .where(eq(conversationSyncState.conversationId, normalizedConversationId))
-    .limit(1);
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        conversationId: conversationSyncState.conversationId,
+        activeRunId: conversationSyncState.activeRunId,
+        lastSyncedAt: conversationSyncState.lastSyncedAt,
+        dirtyReason: conversationSyncState.dirtyReason,
+        tailSignature: conversationSyncState.tailSignature
+      })
+      .from(conversationSyncState)
+      .where(eq(conversationSyncState.conversationId, normalizedConversationId))
+      .limit(1),
+    requestedScopeId
+  );
 
   return rows[0] ? mapConversationSyncStateRow(rows[0]) : null;
 }
@@ -2639,14 +2864,15 @@ export async function replaceConversationProjection(input: {
   messages: ChatMessageItem[];
   timelineState?: ChatTimelineState | null;
 }) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const conversationId = String(input.conversationId || '').trim();
   if (!conversationId) {
     throw new Error('Conversation id is required');
   }
 
-  const existingMessages = await getConversationMessages(conversationId, 500);
+  const existingMessages = await awaitInChatScope(getConversationMessages(conversationId, 500), requestedScopeId);
   const unsyncedLocalMessages = existingMessages.filter(
     (message) => message.deliveryStatus !== 'sent' && message.clientMessageId && !message.serverMessageId
   );
@@ -2656,22 +2882,28 @@ export async function replaceConversationProjection(input: {
   const pendingOutboxClientMessageIds = pendingOutboxMessages.map((message) => String(message.clientMessageId));
   const currentOutboxRows =
     pendingOutboxClientMessageIds.length > 0
-      ? await chatDb
-          .select({
-            clientMessageId: outboxMessages.clientMessageId,
-            planningMode: outboxMessages.planningMode
-          })
-          .from(outboxMessages)
-          .where(inArray(outboxMessages.clientMessageId, pendingOutboxClientMessageIds))
+      ? await awaitInChatScope(
+          chatDb
+            .select({
+              clientMessageId: outboxMessages.clientMessageId,
+              planningMode: outboxMessages.planningMode,
+              editingMode: outboxMessages.editingMode,
+              mustUseSkillsJson: outboxMessages.mustUseSkillsJson
+            })
+            .from(outboxMessages)
+            .where(inArray(outboxMessages.clientMessageId, pendingOutboxClientMessageIds)),
+          requestedScopeId
+        )
       : [];
-  const currentOutboxPlanningModeByClientId = new Map(
-    currentOutboxRows.map((row) => [row.clientMessageId, Number(row.planningMode) === 1])
-  );
+  const currentOutboxModesByClientId = new Map(currentOutboxRows.map((row) => [row.clientMessageId, row]));
   const summaryTime = Number(
     input.summary?.lastMessageAt || input.messages[input.messages.length - 1]?.createdAt || Date.now()
   );
 
-  const conversation = await ensureConversationRecord(conversationId, summaryTime, input.title);
+  const conversation = await awaitInChatScope(
+    ensureConversationRecord(conversationId, summaryTime, input.title),
+    requestedScopeId
+  );
 
   const projectedMessageRowsById = new Map<
     string,
@@ -2734,7 +2966,9 @@ export async function replaceConversationProjection(input: {
     clientMessageId: String(message.clientMessageId),
     conversationId: message.conversationId,
     content: message.content,
-    planningMode: currentOutboxPlanningModeByClientId.get(String(message.clientMessageId)) ? 1 : 0,
+    planningMode: currentOutboxModesByClientId.get(String(message.clientMessageId))?.planningMode ?? 0,
+    editingMode: currentOutboxModesByClientId.get(String(message.clientMessageId))?.editingMode ?? 0,
+    mustUseSkillsJson: currentOutboxModesByClientId.get(String(message.clientMessageId))?.mustUseSkillsJson ?? '[]',
     createdAt: message.createdAt
   }));
   const latestProjectedMessage = projectedMessages[projectedMessages.length - 1] || null;
@@ -2862,14 +3096,15 @@ export async function replaceConversationProjection(input: {
 }
 
 export async function markConversationDirty(conversationId: string, dirtyReason: string) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
     return null;
   }
 
-  await ensureConversationRecord(normalizedConversationId, Date.now());
+  await awaitInChatScope(ensureConversationRecord(normalizedConversationId, Date.now()), requestedScopeId);
   return upsertConversationSyncState({
     conversationId: normalizedConversationId,
     dirtyReason: String(dirtyReason || '').trim()
@@ -2877,14 +3112,15 @@ export async function markConversationDirty(conversationId: string, dirtyReason:
 }
 
 export async function setConversationActiveRunId(conversationId: string, activeRunId: string) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
     return null;
   }
 
-  await ensureConversationRecord(normalizedConversationId, Date.now());
+  await awaitInChatScope(ensureConversationRecord(normalizedConversationId, Date.now()), requestedScopeId);
   return upsertConversationSyncState({
     conversationId: normalizedConversationId,
     activeRunId: String(activeRunId || '').trim()
@@ -2898,14 +3134,18 @@ export async function markConversationSynced(
     tailSignature?: string;
   }
 ) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const normalizedConversationId = String(conversationId || '').trim();
   if (!normalizedConversationId) {
     return null;
   }
 
-  const latestMessage = await getLatestConversationMessage(normalizedConversationId);
+  const latestMessage = await awaitInChatScope(
+    getLatestConversationMessage(normalizedConversationId),
+    requestedScopeId
+  );
   return upsertConversationSyncState({
     conversationId: normalizedConversationId,
     activeRunId: input?.activeRunId,
@@ -2932,34 +3172,39 @@ export async function reconcileConversationDetail(input: {
 }
 
 export async function getMessageByServerMessageId(serverMessageId: string): Promise<ChatMessageItem | null> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const normalizedServerMessageId = String(serverMessageId || '').trim();
   if (!normalizedServerMessageId) {
     return null;
   }
 
-  const rows = await chatDb
-    .select({
-      messageId: messages.id,
-      clientMessageId: messages.clientMessageId,
-      serverMessageId: messages.serverMessageId,
-      conversationId: messages.conversationId,
-      role: messages.role,
-      content: messages.content,
-      createdAt: messages.createdAt,
-      deliveryStatus: messages.deliveryStatus,
-      errorReason: messages.errorReason
-    })
-    .from(messages)
-    .where(eq(messages.serverMessageId, normalizedServerMessageId))
-    .limit(1);
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        messageId: messages.id,
+        clientMessageId: messages.clientMessageId,
+        serverMessageId: messages.serverMessageId,
+        conversationId: messages.conversationId,
+        role: messages.role,
+        content: messages.content,
+        createdAt: messages.createdAt,
+        deliveryStatus: messages.deliveryStatus,
+        errorReason: messages.errorReason
+      })
+      .from(messages)
+      .where(eq(messages.serverMessageId, normalizedServerMessageId))
+      .limit(1),
+    requestedScopeId
+  );
 
   return rows[0] ? mapChatMessageItem(rows[0]) : null;
 }
 
 export async function getMessageByClientMessageId(clientMessageId: string): Promise<ChatMessageItem | null> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
   return getMessageRowByClientMessageId(clientMessageId);
 }
 
@@ -2971,7 +3216,8 @@ export async function upsertProjectedMessage(
     readOverride?: ChatReadStateInput;
   }
 ): Promise<ChatMessageItem> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const conversationId = String(input.conversationId || '').trim();
   if (!conversationId) {
@@ -2979,13 +3225,16 @@ export async function upsertProjectedMessage(
   }
 
   const createdAt = Number.isFinite(Number(input.createdAt)) ? Number(input.createdAt) : Date.now();
-  const conversation = await ensureConversationRecord(conversationId, createdAt, input.title);
-  const existingByMessageId = await getMessageRowByMessageId(input.messageId);
+  const conversation = await awaitInChatScope(
+    ensureConversationRecord(conversationId, createdAt, input.title),
+    requestedScopeId
+  );
+  const existingByMessageId = await awaitInChatScope(getMessageRowByMessageId(input.messageId), requestedScopeId);
   const existingByServerMessageId = input.serverMessageId
-    ? await getMessageByServerMessageId(input.serverMessageId)
+    ? await awaitInChatScope(getMessageByServerMessageId(input.serverMessageId), requestedScopeId)
     : null;
   const existingByClientMessageId = input.clientMessageId
-    ? await getMessageRowByClientMessageId(input.clientMessageId)
+    ? await awaitInChatScope(getMessageRowByClientMessageId(input.clientMessageId), requestedScopeId)
     : null;
   const existing = existingByMessageId || existingByServerMessageId || existingByClientMessageId;
   const normalizedMessageId = normalizeMessageId(
@@ -2995,35 +3244,44 @@ export async function upsertProjectedMessage(
   const persistedMessageId = existing?.messageId || normalizedMessageId;
 
   if (existing) {
-    await chatDb
-      .update(messages)
-      .set({
-        clientMessageId: input.clientMessageId ?? existing.clientMessageId,
-        serverMessageId: input.serverMessageId ?? existing.serverMessageId,
+    await awaitInChatScope(
+      chatDb
+        .update(messages)
+        .set({
+          clientMessageId: input.clientMessageId ?? existing.clientMessageId,
+          serverMessageId: input.serverMessageId ?? existing.serverMessageId,
+          conversationId,
+          role: input.role,
+          content: input.content,
+          createdAt,
+          deliveryStatus: input.deliveryStatus || existing.deliveryStatus,
+          errorReason: input.errorReason ?? existing.errorReason
+        })
+        .where(eq(messages.id, existing.messageId)),
+      requestedScopeId
+    );
+  } else {
+    await awaitInChatScope(
+      chatDb.insert(messages).values({
+        id: normalizedMessageId,
+        clientMessageId: input.clientMessageId ?? null,
+        serverMessageId: input.serverMessageId ?? null,
         conversationId,
         role: input.role,
         content: input.content,
         createdAt,
-        deliveryStatus: input.deliveryStatus || existing.deliveryStatus,
-        errorReason: input.errorReason ?? existing.errorReason
-      })
-      .where(eq(messages.id, existing.messageId));
-  } else {
-    await chatDb.insert(messages).values({
-      id: normalizedMessageId,
-      clientMessageId: input.clientMessageId ?? null,
-      serverMessageId: input.serverMessageId ?? null,
-      conversationId,
-      role: input.role,
-      content: input.content,
-      createdAt,
-      deliveryStatus: input.deliveryStatus || 'sent',
-      errorReason: input.errorReason ?? null
-    });
+        deliveryStatus: input.deliveryStatus || 'sent',
+        errorReason: input.errorReason ?? null
+      }),
+      requestedScopeId
+    );
   }
 
   if (input.attachments !== undefined) {
-    await chatDb.delete(messageAttachments).where(eq(messageAttachments.messageId, persistedMessageId));
+    await awaitInChatScope(
+      chatDb.delete(messageAttachments).where(eq(messageAttachments.messageId, persistedMessageId)),
+      requestedScopeId
+    );
     const attachmentRows = buildMessageAttachmentInsertRows({
       conversationId,
       messageId: persistedMessageId,
@@ -3032,7 +3290,7 @@ export async function upsertProjectedMessage(
       createdAt
     });
     if (attachmentRows.length > 0) {
-      await chatDb.insert(messageAttachments).values(attachmentRows);
+      await awaitInChatScope(chatDb.insert(messageAttachments).values(attachmentRows), requestedScopeId);
     }
   }
 
@@ -3045,15 +3303,23 @@ export async function upsertProjectedMessage(
           ? normalizeChatReadState({ read: { isRead: false } })
           : mapConversationReadState(conversation);
 
-  await syncConversationSummary(conversationId, nextRead);
-  const latestMessage = await getLatestConversationMessage(conversationId);
-  await upsertConversationSyncState({
-    conversationId,
-    tailSignature: buildTailSignatureFromMessage(latestMessage)
-  });
+  await awaitInChatScope(syncConversationSummary(conversationId, nextRead), requestedScopeId);
+  const latestMessage = await awaitInChatScope(getLatestConversationMessage(conversationId), requestedScopeId);
+  await awaitInChatScope(
+    upsertConversationSyncState({
+      conversationId,
+      tailSignature: buildTailSignatureFromMessage(latestMessage)
+    }),
+    requestedScopeId
+  );
 
-  const [message] = await attachMessageAttachments(
-    [(await getMessageRowByMessageId(persistedMessageId)) as ChatMessageItem].filter(Boolean)
+  const [message] = await awaitInChatScope(
+    attachMessageAttachments(
+      [
+        (await awaitInChatScope(getMessageRowByMessageId(persistedMessageId), requestedScopeId)) as ChatMessageItem
+      ].filter(Boolean)
+    ),
+    requestedScopeId
   );
   return message;
 }
@@ -3066,32 +3332,45 @@ async function patchMessageByMessageId(
     unreadCountOverride?: number;
   }
 ) {
-  const existing = await getMessageRowByMessageId(messageId);
+  const requestedScopeId = getChatCacheScopeId();
+  const existing = await awaitInChatScope(getMessageRowByMessageId(messageId), requestedScopeId);
   if (!existing) {
     return null;
   }
 
-  await chatDb
-    .update(messages)
-    .set({
-      ...(patch.content !== undefined ? { content: patch.content } : {}),
-      ...(patch.createdAt !== undefined ? { createdAt: patch.createdAt } : {}),
-      ...(patch.deliveryStatus !== undefined ? { deliveryStatus: patch.deliveryStatus } : {}),
-      ...(patch.errorReason !== undefined ? { errorReason: patch.errorReason } : {}),
-      ...(patch.serverMessageId !== undefined ? { serverMessageId: patch.serverMessageId } : {})
-    })
-    .where(eq(messages.id, existing.messageId));
+  await awaitInChatScope(
+    chatDb
+      .update(messages)
+      .set({
+        ...(patch.content !== undefined ? { content: patch.content } : {}),
+        ...(patch.createdAt !== undefined ? { createdAt: patch.createdAt } : {}),
+        ...(patch.deliveryStatus !== undefined ? { deliveryStatus: patch.deliveryStatus } : {}),
+        ...(patch.errorReason !== undefined ? { errorReason: patch.errorReason } : {}),
+        ...(patch.serverMessageId !== undefined ? { serverMessageId: patch.serverMessageId } : {})
+      })
+      .where(eq(messages.id, existing.messageId)),
+    requestedScopeId
+  );
 
   if (options?.removeOutbox && existing.clientMessageId) {
-    await chatDb.delete(outboxMessages).where(eq(outboxMessages.clientMessageId, existing.clientMessageId));
+    await awaitInChatScope(
+      chatDb.delete(outboxMessages).where(eq(outboxMessages.clientMessageId, existing.clientMessageId)),
+      requestedScopeId
+    );
   }
 
-  await syncConversationSummary(existing.conversationId, options?.unreadCountOverride);
-  const latestMessage = await getLatestConversationMessage(existing.conversationId);
-  await upsertConversationSyncState({
-    conversationId: existing.conversationId,
-    tailSignature: buildTailSignatureFromMessage(latestMessage)
-  });
+  await awaitInChatScope(
+    syncConversationSummary(existing.conversationId, options?.unreadCountOverride),
+    requestedScopeId
+  );
+  const latestMessage = await awaitInChatScope(getLatestConversationMessage(existing.conversationId), requestedScopeId);
+  await awaitInChatScope(
+    upsertConversationSyncState({
+      conversationId: existing.conversationId,
+      tailSignature: buildTailSignatureFromMessage(latestMessage)
+    }),
+    requestedScopeId
+  );
   return getMessageRowByMessageId(existing.messageId);
 }
 
@@ -3102,8 +3381,9 @@ export async function patchMessageByClientMessageId(
     removeOutbox?: boolean;
   }
 ) {
-  await ensureChatDatabase();
-  const existing = await getMessageRowByClientMessageId(clientMessageId);
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
+  const existing = await awaitInChatScope(getMessageRowByClientMessageId(clientMessageId), requestedScopeId);
   if (!existing) {
     return null;
   }
@@ -3124,11 +3404,14 @@ export async function appendAssistantDelta(
     suppressUnread?: boolean;
   }
 ) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const existing =
-    (await getMessageRowByMessageId(input.messageId)) ||
-    (input.serverMessageId ? await getMessageByServerMessageId(input.serverMessageId) : null);
+    (await awaitInChatScope(getMessageRowByMessageId(input.messageId), requestedScopeId)) ||
+    (input.serverMessageId
+      ? await awaitInChatScope(getMessageByServerMessageId(input.serverMessageId), requestedScopeId)
+      : null);
 
   if (!existing) {
     const initialContent =
@@ -3164,7 +3447,8 @@ export async function appendAssistantDelta(
 }
 
 export async function upsertServerMessageDetail(input: ServerMessageDetail) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const conversationId = String(input.message.conversationId || input.conversation.conversationId || '').trim();
   const serverMessageId = String(input.message.serverMessageId || '').trim();
@@ -3173,53 +3457,64 @@ export async function upsertServerMessageDetail(input: ServerMessageDetail) {
     throw new Error('Invalid server message detail payload');
   }
 
-  const existing = await getMessageByServerMessageId(serverMessageId);
+  const existing = await awaitInChatScope(getMessageByServerMessageId(serverMessageId), requestedScopeId);
   if (existing && existing.conversationId !== conversationId) {
     throw new Error('Server message belongs to a different conversation');
   }
 
-  const conversation = await ensureConversationRecord(
-    conversationId,
-    input.message.createdAt,
-    input.conversation.title
+  const conversation = await awaitInChatScope(
+    ensureConversationRecord(conversationId, input.message.createdAt, input.conversation.title),
+    requestedScopeId
   );
 
   if (existing) {
-    await chatDb
-      .update(messages)
-      .set({
-        conversationId,
-        role: input.message.role,
-        content: input.message.content,
-        createdAt: input.message.createdAt,
-        deliveryStatus: 'sent',
-        errorReason: null
-      })
-      .where(eq(messages.id, existing.messageId));
+    await awaitInChatScope(
+      chatDb
+        .update(messages)
+        .set({
+          conversationId,
+          role: input.message.role,
+          content: input.message.content,
+          createdAt: input.message.createdAt,
+          deliveryStatus: 'sent',
+          errorReason: null
+        })
+        .where(eq(messages.id, existing.messageId)),
+      requestedScopeId
+    );
 
-    await syncConversationSummary(conversationId, {
-      unreadCount: input.conversation.unreadCount
-    });
-    await refreshChatDirectoryProjectionForConversation(conversationId);
-    const latestMessage = await getLatestConversationMessage(conversationId);
-    await upsertConversationSyncState({
-      conversationId,
-      tailSignature: buildTailSignatureFromMessage(latestMessage)
-    });
+    await awaitInChatScope(
+      syncConversationSummary(conversationId, {
+        unreadCount: input.conversation.unreadCount
+      }),
+      requestedScopeId
+    );
+    await awaitInChatScope(refreshChatDirectoryProjectionForConversation(conversationId), requestedScopeId);
+    const latestMessage = await awaitInChatScope(getLatestConversationMessage(conversationId), requestedScopeId);
+    await awaitInChatScope(
+      upsertConversationSyncState({
+        conversationId,
+        tailSignature: buildTailSignatureFromMessage(latestMessage)
+      }),
+      requestedScopeId
+    );
     return;
   }
 
-  await chatDb.insert(messages).values({
-    id: serverMessageId,
-    clientMessageId: null,
-    serverMessageId,
-    conversationId,
-    role: input.message.role,
-    content: input.message.content,
-    createdAt: input.message.createdAt,
-    deliveryStatus: 'sent',
-    errorReason: null
-  });
+  await awaitInChatScope(
+    chatDb.insert(messages).values({
+      id: serverMessageId,
+      clientMessageId: null,
+      serverMessageId,
+      conversationId,
+      role: input.message.role,
+      content: input.message.content,
+      createdAt: input.message.createdAt,
+      deliveryStatus: 'sent',
+      errorReason: null
+    }),
+    requestedScopeId
+  );
 
   const hasRemoteReadState = input.conversation.read !== undefined || input.conversation.unreadCount !== undefined;
   const nextRead = hasRemoteReadState
@@ -3228,39 +3523,51 @@ export async function upsertServerMessageDetail(input: ServerMessageDetail) {
       ? normalizeChatReadState({ read: { isRead: false } })
       : mapConversationReadState(conversation);
 
-  await syncConversationSummary(conversationId, nextRead);
-  await refreshChatDirectoryProjectionForConversation(conversationId);
-  const latestMessage = await getLatestConversationMessage(conversationId);
-  await upsertConversationSyncState({
-    conversationId,
-    tailSignature: buildTailSignatureFromMessage(latestMessage)
-  });
+  await awaitInChatScope(syncConversationSummary(conversationId, nextRead), requestedScopeId);
+  await awaitInChatScope(refreshChatDirectoryProjectionForConversation(conversationId), requestedScopeId);
+  const latestMessage = await awaitInChatScope(getLatestConversationMessage(conversationId), requestedScopeId);
+  await awaitInChatScope(
+    upsertConversationSyncState({
+      conversationId,
+      tailSignature: buildTailSignatureFromMessage(latestMessage)
+    }),
+    requestedScopeId
+  );
 }
 
 export async function createOutgoingMessage(
   conversationId: string,
   content: string,
   attachments: readonly ChatComposerAttachment[] = [],
-  options: { planningMode?: boolean } = {}
+  options: {
+    planningMode?: boolean;
+    editingMode?: boolean;
+    mustUseSkills?: readonly string[];
+    continuation?: boolean;
+  } = {}
 ) {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
-  const conversation = await getConversationRecord(conversationId);
+  const conversation = await awaitInChatScope(getConversationRecord(conversationId), requestedScopeId);
   if (!conversation) {
     throw new Error(`Conversation not found: ${conversationId}`);
   }
 
   const clientMessageId = createLocalId('client-message');
   const createdAt = Date.now();
-  const firstUserMessageRows = await chatDb
-    .select({ messageId: messages.id })
-    .from(messages)
-    .where(and(eq(messages.conversationId, conversationId), eq(messages.role, 'user')))
-    .limit(1);
+  const firstUserMessageRows = await awaitInChatScope(
+    chatDb
+      .select({ messageId: messages.id })
+      .from(messages)
+      .where(and(eq(messages.conversationId, conversationId), eq(messages.role, 'user')))
+      .limit(1),
+    requestedScopeId
+  );
   const isFirstUserMessage = firstUserMessageRows.length === 0;
   const firstUserConversationTitle = resolveChatConversationStoredTitle(content);
   const normalizedContent = String(content || '').trim() || formatChatAttachmentsMessageText(attachments);
-  if (!normalizedContent) {
+  if (!normalizedContent && options.continuation !== true) {
     throw new Error('Message content or attachments are required');
   }
   const messageAttachmentsForTimeline = attachments.map((attachment) =>
@@ -3306,21 +3613,30 @@ export async function createOutgoingMessage(
         conversationId,
         content: normalizedContent,
         planningMode: options.planningMode === true ? 1 : 0,
+        editingMode: options.editingMode === true ? 1 : 0,
+        mustUseSkillsJson: JSON.stringify(normalizeRequiredSkills(options.mustUseSkills)),
         createdAt
       })
       .run();
   });
 
-  await syncConversationSummary(conversationId, mapConversationReadState(conversation));
-  await upsertConversationSyncState({
-    conversationId,
-    tailSignature: buildTailSignatureFromMessage({
-      messageId: clientMessageId,
-      createdAt,
-      content: normalizedContent,
-      deliveryStatus: 'pending'
-    })
-  });
+  if (!options.continuation)
+    await awaitInChatScope(
+      syncConversationSummary(conversationId, mapConversationReadState(conversation)),
+      requestedScopeId
+    );
+  await awaitInChatScope(
+    upsertConversationSyncState({
+      conversationId,
+      tailSignature: buildTailSignatureFromMessage({
+        messageId: clientMessageId,
+        createdAt,
+        content: normalizedContent,
+        deliveryStatus: 'pending'
+      })
+    }),
+    requestedScopeId
+  );
 
   return {
     clientMessageId,
@@ -3341,34 +3657,81 @@ export async function createOutgoingMessage(
   };
 }
 
+// Failed-message reask reads the original per-send options, without loading the outbox.
+export async function getOutboxMessageOptions(clientMessageId: string) {
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
+  const [row] = await awaitInChatScope(
+    chatDb
+      .select({
+        planningMode: outboxMessages.planningMode,
+        editingMode: outboxMessages.editingMode,
+        mustUseSkillsJson: outboxMessages.mustUseSkillsJson
+      })
+      .from(outboxMessages)
+      .where(eq(outboxMessages.clientMessageId, clientMessageId))
+      .limit(1),
+    requestedScopeId
+  );
+  return row
+    ? {
+        planningMode: row.planningMode === 1,
+        editingMode: row.editingMode === 1,
+        mustUseSkills: parseStoredRequiredSkills(row.mustUseSkillsJson)
+      }
+    : null;
+}
+
 export async function getPendingOutboxMessages(limit: number = 50): Promise<PendingOutboxMessage[]> {
-  await ensureChatDatabase();
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
-  const rows = await chatDb
-    .select({
-      clientMessageId: outboxMessages.clientMessageId,
-      conversationId: outboxMessages.conversationId,
-      content: outboxMessages.content,
-      createdAt: outboxMessages.createdAt,
-      planningMode: outboxMessages.planningMode
-    })
-    .from(outboxMessages)
-    .orderBy(desc(outboxMessages.createdAt))
-    .limit(limit);
+  const rows = await awaitInChatScope(
+    chatDb
+      .select({
+        clientMessageId: outboxMessages.clientMessageId,
+        conversationId: outboxMessages.conversationId,
+        content: outboxMessages.content,
+        createdAt: outboxMessages.createdAt,
+        planningMode: outboxMessages.planningMode,
+        editingMode: outboxMessages.editingMode,
+        mustUseSkillsJson: outboxMessages.mustUseSkillsJson
+      })
+      .from(outboxMessages)
+      .orderBy(desc(outboxMessages.createdAt))
+      .limit(limit),
+    requestedScopeId
+  );
 
-  const attachmentsByMessageId = await getAttachmentsByMessageIds(rows.map((row) => row.clientMessageId));
-  return rows.map((row) => ({
-    clientMessageId: row.clientMessageId,
-    conversationId: row.conversationId,
-    content: row.content,
-    createdAt: row.createdAt,
-    planningMode: Number(row.planningMode) === 1,
-    attachments: attachmentsByMessageId.get(row.clientMessageId) || []
-  }));
+  const attachmentsByMessageId = await awaitInChatScope(
+    getAttachmentsByMessageIds(rows.map((row) => row.clientMessageId)),
+    requestedScopeId
+  );
+  return rows.map((row) => {
+    let mustUseSkills: string[] = [];
+    let optionsError: string | undefined;
+    try {
+      mustUseSkills = parseStoredRequiredSkills(row.mustUseSkillsJson);
+    } catch (error) {
+      optionsError = error instanceof Error ? error.message : String(error);
+    }
+    return {
+      clientMessageId: row.clientMessageId,
+      conversationId: row.conversationId,
+      content: row.content,
+      createdAt: row.createdAt,
+      planningMode: Number(row.planningMode) === 1,
+      editingMode: Number(row.editingMode) === 1,
+      mustUseSkills,
+      optionsError,
+      attachments: attachmentsByMessageId.get(row.clientMessageId) || []
+    };
+  });
 }
 
 export async function getPendingOutboxCount(): Promise<number> {
-  await ensureChatDatabase();
-  const [{ value }] = await chatDb.select({ value: count() }).from(outboxMessages);
+  const requestedScopeId = getChatCacheScopeId();
+  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
+  const [{ value }] = await awaitInChatScope(chatDb.select({ value: count() }).from(outboxMessages), requestedScopeId);
   return value ?? 0;
 }

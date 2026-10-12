@@ -1,5 +1,6 @@
 import { resolveActiveWsTransportConfig } from '../activeWsTransport';
 import { ApiError } from '../apiError.ts';
+import type { WsTransportConfig } from '../../ws/wsTransportConfig.ts';
 import { sharedWsTransport } from '../../ws/sharedWsTransport.ts';
 import {
   buildAgentModelConfigPayload,
@@ -14,8 +15,8 @@ import {
 
 export * from './modelOptionsProtocol.ts';
 
-async function requestApTransport(type: string, payload: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
-  const config = await resolveActiveWsTransportConfig('ap');
+async function requestApTransport(type: string, payload: Record<string, unknown>, signal?: AbortSignal, transport?: WsTransportConfig): Promise<unknown> {
+  const config = transport ?? await resolveActiveWsTransportConfig('ap');
   if (!config) {
     throw new ApiError('Not authenticated', 401, null);
   }
@@ -29,20 +30,22 @@ async function requestApTransport(type: string, payload: Record<string, unknown>
   });
 }
 
-export async function getModelOptionsApi(agentKey: string, signal?: AbortSignal): Promise<ModelOptionsSnapshot> {
-  const payload = await requestApTransport(MODEL_OPTIONS_API_PATH, buildModelOptionsPayload(agentKey), signal);
+export async function getModelOptionsApi(agentKey: string, signal?: AbortSignal, transport?: WsTransportConfig): Promise<ModelOptionsSnapshot> {
+  const payload = await requestApTransport(MODEL_OPTIONS_API_PATH, buildModelOptionsPayload(agentKey), signal, transport);
   return normalizeModelOptionsResponse(payload);
 }
 
 export async function updateAgentModelConfigApi(
   agentKey: string,
   modelOverride: QueryModelOverride,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  transport?: WsTransportConfig
 ): Promise<unknown> {
   const payload = await requestApTransport(
     MODEL_CONFIG_API_PATH,
     buildAgentModelConfigPayload(agentKey, modelOverride),
-    signal
+    signal,
+    transport
   );
   return unwrapModelOptionsApiEnvelope(payload);
 }

@@ -166,7 +166,7 @@
     "dependents": [
       "app-development-debug",
       "app-shell-navigation",
-      "core-auth-session",
+      "core-api-client",
       "core-runtime-config",
       "feature-agent-task-board",
       "feature-auth-login",
@@ -178,7 +178,7 @@
       "shared-screen-header"
     ],
     "tests": [],
-    "lastScannedAt": "2026-09-07T02:25:14Z"
+    "lastScannedAt": "2026-10-12T07:02:33Z"
   },
   "readHints": {
     "alwaysRead": [],

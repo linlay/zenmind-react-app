@@ -15,24 +15,13 @@ import {
   unscopeChatPayload
 } from '../../src/features/chatRealtime/chatSourcePayload.ts';
 
-const defaultSource = createChatSource(
-  'default',
-  'brand/default:cn',
-  'Default service'
-);
-const pairedSource = createChatSource(
-  'paired',
-  'desktop:office/1',
-  'Office Desktop'
-);
+const defaultSource = createChatSource('default', 'brand/default:cn', 'Default service');
+const pairedSource = createChatSource('paired', 'desktop:office/1', 'Office Desktop');
 
 test('chat source ids roundtrip reserved identifiers and stay idempotent', () => {
   const scopedId = encodeChatSourceId(defaultSource, 'chat:alpha/beta?tab=1');
 
-  assert.equal(
-    scopedId,
-    'zsrc:default%3Abrand%2Fdefault%3Acn:chat%3Aalpha%2Fbeta%3Ftab%3D1'
-  );
+  assert.equal(scopedId, 'zsrc:default%3Abrand%2Fdefault%3Acn:chat%3Aalpha%2Fbeta%3Ftab%3D1');
   assert.equal(encodeChatSourceId(defaultSource, scopedId), scopedId);
   assert.deepEqual(parseChatSourceId(scopedId), {
     source: {
@@ -42,10 +31,7 @@ test('chat source ids roundtrip reserved identifiers and stay idempotent', () =>
     remoteId: 'chat:alpha/beta?tab=1'
   });
   assert.equal(getRemoteChatSourceId(scopedId), 'chat:alpha/beta?tab=1');
-  assert.equal(
-    getChatSourceStoragePrefix(defaultSource),
-    'zsrc:default%3Abrand%2Fdefault%3Acn:'
-  );
+  assert.equal(getChatSourceStoragePrefix(defaultSource), 'zsrc:default%3Abrand%2Fdefault%3Acn:');
 });
 
 test('unscoped records remain classified as paired legacy data', () => {
@@ -90,8 +76,15 @@ test('home payload scoping namespaces agent, team and conversation keys together
   assert.equal(getRemoteChatSourceId(scoped.teams[0]?.teamId), 'team-a');
   assert.equal(getRemoteChatSourceId(scoped.chats[0]?.chatId), 'chat-1');
   assert.equal(getRemoteChatSourceId(scoped.chats[0]?.firstAgentKey), 'planner');
-  assert.equal(
-    getChatSourceFromId(scoped.chats[0]?.firstAgentKey).kind,
-    'default'
-  );
+  assert.equal(getChatSourceFromId(scoped.chats[0]?.firstAgentKey).kind, 'default');
+});
+
+test('derivation source and target chat IDs namespace together while run IDs remain opaque', () => {
+  const wire = { sourceChatId: 'original', sourceRunId: 'run', chatId: 'child', lastRunId: 'copied-run' };
+  const scoped = scopeChatPayload(pairedSource, wire);
+  assert.equal(scoped.sourceChatId, encodeChatSourceId(pairedSource, 'original'));
+  assert.equal(scoped.chatId, encodeChatSourceId(pairedSource, 'child'));
+  assert.equal(scoped.sourceRunId, 'run');
+  assert.equal(scoped.lastRunId, 'copied-run');
+  assert.deepEqual(unscopeChatPayload(scoped), wire);
 });

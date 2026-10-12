@@ -1,18 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Pressable, Text, View } from 'react-native';
+import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { ActivityIndicator, Alert, Pressable, Text, TextInput, View } from 'react-native';
 
 import type { AccountDevice } from '../../core/api/contracts/deviceLink.ts';
-import {
-  changeAccountDeviceTrust,
-  listAccountDevices,
-  revokeAccountDevice
-} from '../../core/api/services/deviceLinkApi.ts';
-import { readActiveDesktopId } from '../../core/auth/activeDesktop.ts';
+import { renameAccountDevice, revokeAccountDevice } from '../../core/api/services/deviceLinkApi.ts';
+import { readActiveDesktopId, subscribeActiveDesktop } from '../../core/auth/activeDesktop.ts';
 import { useAccountAuth } from '../../core/auth/useAccountAuth.ts';
 import { useT } from '../../shared/i18n';
 import { cn } from '../../shared/visual/className.ts';
-import { activateAccountDesktopSource } from '../chatPersistence/accountDesktopSource.ts';
-import { chatSyncService } from '../chatRealtime/chatSyncService.ts';
+import {
+  activateAccountDesktopSource,
+  refreshAccountDesktopDirectory
+} from '../chatPersistence/accountDesktopSource.ts';
 
 const ROW_CLASS = 'border-t border-app-line px-app-lg py-app-md first:border-t-0';
 const ROW_TOP_CLASS = 'flex-row items-center justify-between gap-app-md';
@@ -31,22 +29,28 @@ export function AccountDevicesPanel() {
   const t = useT();
   const auth = useAccountAuth();
   const accountId = auth.session?.accountId || '';
-  const [devices, setDevices] = useState<AccountDevice[]>([]);
-  const [activeDesktopId, setActiveDesktopId] = useState(() => readActiveDesktopId(accountId));
+  const [deviceList, setDeviceList] = useState<{ accountId: string; items: AccountDevice[] }>({
+    accountId: '',
+    items: []
+  });
+  const devices = deviceList.accountId === accountId ? deviceList.items : [];
+  const readDesktopId = () => readActiveDesktopId(accountId);
+  const activeDesktopId = useSyncExternalStore(subscribeActiveDesktop, readDesktopId, readDesktopId);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [switchingId, setSwitchingId] = useState('');
   const [mutatingId, setMutatingId] = useState('');
-
+  const [editingId, setEditingId] = useState('');
+  const [nameDraft, setNameDraft] = useState('');
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       if (!accountId) return;
       setLoading(true);
       setError('');
       try {
-        const result = await listAccountDevices(signal);
-        setDevices(result.items);
-        setActiveDesktopId(readActiveDesktopId(accountId));
+        const result = await refreshAccountDesktopDirectory(signal);
+        if (signal?.aborted) return;
+        setDeviceList({ accountId, items: result.items });
       } catch (requestError) {
         if (!signal?.aborted) setError(String((requestError as Error)?.message || t('devices.error.load')));
       } finally {
@@ -63,13 +67,11 @@ export function AccountDevicesPanel() {
   }, [refresh]);
 
   async function selectDesktop(device: AccountDevice) {
-    if (!accountId || device.online !== true || switchingId) return;
+    if (!accountId || switchingId) return;
     setSwitchingId(device.deviceId);
     setError('');
     try {
-      activateAccountDesktopSource(accountId, device);
-      await chatSyncService.refreshActiveDesktop();
-      setActiveDesktopId(device.deviceId);
+      await activateAccountDesktopSource(accountId, device);
     } catch (selectionError) {
       setError(String((selectionError as Error)?.message || t('devices.error.switch')));
     } finally {
@@ -94,14 +96,19 @@ export function AccountDevicesPanel() {
     ]);
   }
 
-  async function downgradeToSession(device: AccountDevice) {
+  async function saveDeviceName(device: AccountDevice) {
+    const name = nameDraft.trim();
+    if (!name || [...name].length > 64) {
+      setError(t('me.deviceName.error.required'));
+      return;
+    }
     setMutatingId(device.deviceId);
-    setError('');
     try {
-      await changeAccountDeviceTrust(device.deviceId, 'session');
+      await renameAccountDevice(device.deviceId, name);
+      setEditingId('');
       await refresh();
-    } catch (mutationError) {
-      setError(String((mutationError as Error)?.message || t('devices.error.update')));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : t('devices.error.update'));
     } finally {
       setMutatingId('');
     }
@@ -118,48 +125,68 @@ export function AccountDevicesPanel() {
   return (
     <View>
       {devices.map((device) => {
-        const isDesktop = device.deviceKind === 'desktop';
         const selected = device.deviceId === activeDesktopId;
-        const canSelect = isDesktop && device.online === true && !selected && !switchingId;
-        const isCurrentDevice = device.deviceId === auth.session?.deviceId;
-        const canDowngrade =
-          !isCurrentDevice &&
-          auth.session?.trustLevel === 'fully_trusted' &&
-          device.trustLevel !== 'session' &&
-          mutatingId !== device.deviceId;
+        const canSelect = !selected && !switchingId;
         return (
           <View key={device.deviceId} className={ROW_CLASS}>
             <View className={ROW_TOP_CLASS}>
               <Text className={NAME_CLASS} numberOfLines={1}>
                 {device.deviceName}
               </Text>
-              {isDesktop ? (
-                <Pressable
-                  disabled={!canSelect}
-                  onPress={() => selectDesktop(device).catch(() => {})}
-                  className={cn(ACTION_CLASS, !canSelect && ACTION_DISABLED_CLASS)}
-                >
-                  <Text className={cn(ACTION_TEXT_CLASS, !canSelect && ACTION_DISABLED_TEXT_CLASS)}>
-                    {selected ? t('devices.active') : device.online ? t('devices.connect') : t('devices.offline')}
-                  </Text>
-                </Pressable>
-              ) : null}
+              <Pressable
+                disabled={!canSelect}
+                onPress={() => selectDesktop(device).catch(() => {})}
+                className={cn(ACTION_CLASS, !canSelect && ACTION_DISABLED_CLASS)}
+              >
+                <Text className={cn(ACTION_TEXT_CLASS, !canSelect && ACTION_DISABLED_TEXT_CLASS)}>
+                  {selected ? t('devices.active') : device.online ? t('devices.connect') : t('devices.offline')}
+                </Text>
+              </Pressable>
             </View>
-            <Text className={META_CLASS}>
-              {t(`auth.trust.${device.trustLevel}`)} · {isDesktop ? 'Desktop' : t('devices.mobile')}
+            <Text className={META_CLASS} selectable>
+              {device.deviceId}
             </Text>
-            {!isCurrentDevice ? (
-              <View className={ROW_ACTIONS_CLASS}>
-                {canDowngrade ? (
-                  <Pressable onPress={() => downgradeToSession(device).catch(() => {})}>
-                    <Text className={LINK_ACTION_CLASS}>{t('devices.downgrade')}</Text>
+            <Text className={META_CLASS}>
+              {t(
+                device.online === undefined
+                  ? 'devices.unknown'
+                  : device.online
+                    ? 'me.connection.connected'
+                    : 'devices.offline'
+              )}
+            </Text>
+            {editingId === device.deviceId ? (
+              <View className="mt-app-sm gap-app-sm">
+                <TextInput
+                  value={nameDraft}
+                  onChangeText={setNameDraft}
+                  maxLength={64}
+                  className="min-h-11 rounded-app-sm border border-app-line bg-app-background px-app-md text-app-body text-app-primary"
+                />
+                <View className={ROW_ACTIONS_CLASS}>
+                  <Pressable onPress={() => setEditingId('')}>
+                    <Text className={LINK_ACTION_CLASS}>{t('common.cancel')}</Text>
                   </Pressable>
-                ) : null}
-                <Pressable disabled={mutatingId === device.deviceId} onPress={() => confirmRevoke(device)}>
-                  <Text className={DANGER_ACTION_CLASS}>{t('devices.revoke')}</Text>
-                </Pressable>
+                  <Pressable disabled={Boolean(mutatingId)} onPress={() => void saveDeviceName(device)}>
+                    <Text className={LINK_ACTION_CLASS}>{t('me.deviceName.save')}</Text>
+                  </Pressable>
+                </View>
               </View>
-            ) : null}
+            ) : (
+              <Pressable
+                onPress={() => {
+                  setEditingId(device.deviceId);
+                  setNameDraft(device.deviceName);
+                }}
+              >
+                <Text className={LINK_ACTION_CLASS}>{t('me.row.deviceName')}</Text>
+              </Pressable>
+            )}
+            <View className={ROW_ACTIONS_CLASS}>
+              <Pressable disabled={mutatingId === device.deviceId} onPress={() => confirmRevoke(device)}>
+                <Text className={DANGER_ACTION_CLASS}>{t('devices.revoke')}</Text>
+              </Pressable>
+            </View>
           </View>
         );
       })}

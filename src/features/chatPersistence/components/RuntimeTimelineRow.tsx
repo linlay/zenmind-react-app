@@ -1,36 +1,38 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Animated,
-  Easing,
-  Pressable,
-  Text,
-  View,
-} from 'react-native';
+import { ChatImageGeneration } from './ChatImageGeneration.tsx';
+import { ConversationViewportBlock } from '../conversationViewport/ConversationViewportBlock';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import { useRecyclingState } from '@shopify/flash-list';
+import { Animated, Easing, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
+import { ConversationPreviewRowScope } from '../../../shared/components/conversationPreview/ConversationPreviewProvider';
 import { useT } from '../../../shared/i18n';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { type AppVisualColors } from '../../../shared/visual/foundation';
 import type {
   ChatTimelineAssistantReplyFooterDisplayItem,
   ChatTimelineDisplayItem,
+  ChatTimelineNode,
+  ChatTimelineLifecycle
 } from '../../chatTimeline/index.ts';
 import { ChatTimelineRail } from './ChatTimelineRail';
 import {
   RuntimePlanningBlock,
   type RuntimePlanningBlockMode,
-  type RuntimePlanningCollapseOverlayRequest,
+  type RuntimePlanningCollapseOverlayRequest
 } from './RuntimePlanningBlock';
 import { RuntimePayloadFrame } from './RuntimePayloadFrame';
 import {
   buildRuntimePayloadDescriptor,
   type RuntimePayloadDescriptor,
-  type RuntimePayloadSource,
+  type RuntimePayloadSource
 } from './runtimePayloadDescriptor';
 import { RuntimePayloadContent } from './runtimePayloadRenderers';
 import { getRuntimeToolStatusColor } from './runtimeToolStatusVisual';
 
 type RuntimeTimelineRowProps = {
+  conversationId?: string;
+  imageRunLifecycle?: ChatTimelineLifecycle;
   item: Exclude<ChatTimelineDisplayItem, ChatTimelineAssistantReplyFooterDisplayItem>;
   onCopyText: (text: string) => void;
   getInitialExpanded: (nodeId: string, fallback: boolean) => boolean;
@@ -68,10 +70,7 @@ function getToneColor(colors: AppVisualColors, tone: RuntimePayloadDescriptor['t
   return colors.textSecondary;
 }
 
-function getRuntimePayloadSource(
-  item: Exclude<ChatTimelineDisplayItem, ChatTimelineAssistantReplyFooterDisplayItem>
-): RuntimePayloadSource {
-  const source = item.kind === 'tool-group' ? item : item.node;
+function getRuntimePayloadSource(source: ChatTimelineNode): RuntimePayloadSource {
   if (
     source.kind === 'source' ||
     source.kind === 'action' ||
@@ -87,7 +86,7 @@ function getRuntimePayloadSource(
 
 const RunningToolStatusDot = memo(function RunningToolStatusDot({
   accessibilityLabel,
-  color,
+  color
 }: {
   accessibilityLabel: string;
   color: string;
@@ -129,7 +128,7 @@ const RunningToolStatusDot = memo(function RunningToolStatusDot({
 
 const ReasoningInlineLoading = memo(function ReasoningInlineLoading({
   accessibilityLabel,
-  color,
+  color
 }: {
   accessibilityLabel: string;
   color: string;
@@ -143,7 +142,7 @@ const ReasoningInlineLoading = memo(function ReasoningInlineLoading({
         toValue: 1,
         duration: REASONING_LOADING_DURATION_MS,
         easing: Easing.linear,
-        useNativeDriver: true,
+        useNativeDriver: true
       })
     );
 
@@ -160,12 +159,7 @@ const ReasoningInlineLoading = memo(function ReasoningInlineLoading({
       {[0, 1, 2].map((index) => {
         const opacity = progress.interpolate({
           inputRange: [0, 0.33, 0.66, 1],
-          outputRange:
-            index === 0
-              ? [1, 0.35, 0.35, 1]
-              : index === 1
-                ? [0.35, 1, 0.35, 0.35]
-                : [0.35, 0.35, 1, 0.35],
+          outputRange: index === 0 ? [1, 0.35, 0.35, 1] : index === 1 ? [0.35, 1, 0.35, 0.35] : [0.35, 0.35, 1, 0.35]
         });
         return (
           <Animated.View
@@ -181,36 +175,51 @@ const ReasoningInlineLoading = memo(function ReasoningInlineLoading({
 
 export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
   item,
+  conversationId = '',
+  imageRunLifecycle,
   onCopyText,
   getInitialExpanded,
   onExpandedChange,
   getInitialPlanningMode,
   onPlanningCollapseOverlayChange,
-  onPlanningModeChange,
+  onPlanningModeChange
 }: RuntimeTimelineRowProps) {
   const t = useT();
   const { theme } = useAppTheme();
-  const descriptor = useMemo(
-    () => buildRuntimePayloadDescriptor(getRuntimePayloadSource(item), t),
-    [item, t]
+  const node = item.node;
+  const groupKey = item.kind === 'tool-group' ? item.key : '';
+  const groupNodes = item.kind === 'tool-group' ? item.nodes : null;
+  const imageNodes = useMemo(
+    () =>
+      (groupNodes || (node.kind === 'tool' ? [node] : [])).filter((tool) => tool.toolName.trim() === 'image_generate'),
+    [groupNodes, node]
   );
-  const [expanded, setExpanded] = useState(() => getInitialExpanded(descriptor.id, descriptor.defaultExpanded));
-
-  useEffect(() => {
-    setExpanded(getInitialExpanded(descriptor.id, descriptor.defaultExpanded));
-  }, [descriptor.defaultExpanded, descriptor.id, getInitialExpanded]);
+  const toolName = item.kind === 'tool-group' ? item.toolName : '';
+  const toolLabel = item.kind === 'tool-group' ? item.toolLabel : '';
+  const descriptor = useMemo(
+    () =>
+      buildRuntimePayloadDescriptor(
+        groupNodes
+          ? { kind: 'tool-group', key: groupKey, nodes: groupNodes, toolName, toolLabel }
+          : getRuntimePayloadSource(node),
+        t
+      ),
+    [groupKey, groupNodes, node, t, toolLabel, toolName]
+  );
+  const [{ expanded, hasMounted }, setPayloadState] = useRecyclingState(() => {
+    const initialExpanded = getInitialExpanded(descriptor.id, descriptor.defaultExpanded);
+    return { expanded: initialExpanded, hasMounted: initialExpanded };
+  }, [descriptor.id]);
 
   const handleToggle = useCallback(() => {
     if (!descriptor.canExpand) {
       return;
     }
 
-    setExpanded((value) => {
-      const nextValue = !value;
-      onExpandedChange(descriptor.id, nextValue);
-      return nextValue;
-    });
-  }, [descriptor.canExpand, descriptor.id, onExpandedChange]);
+    const nextExpanded = !expanded;
+    setPayloadState({ expanded: nextExpanded, hasMounted: hasMounted || nextExpanded });
+    onExpandedChange(descriptor.id, nextExpanded);
+  }, [descriptor.canExpand, descriptor.id, expanded, hasMounted, onExpandedChange, setPayloadState]);
 
   const renderPayloadContent = useCallback(
     (wrap: boolean) => <RuntimePayloadContent descriptor={descriptor} wrap={wrap} />,
@@ -239,10 +248,7 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
           {descriptor.title}
         </Text>
         {showReasoningLoading ? (
-          <ReasoningInlineLoading
-            accessibilityLabel={t('chatDetail.status.running')}
-            color={theme.colors.warning}
-          />
+          <ReasoningInlineLoading accessibilityLabel={t('chatDetail.status.running')} color={theme.colors.warning} />
         ) : null}
         {showToolStatusDots ? (
           <View className={TOOL_STATUS_DOTS_CLASS}>
@@ -250,13 +256,7 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
               const color = getRuntimeToolStatusColor(theme.colors, record.status);
               const accessibilityLabel = `${record.title}${record.statusLabel}`;
               if (record.status === 'running') {
-                return (
-                  <RunningToolStatusDot
-                    key={record.key}
-                    accessibilityLabel={accessibilityLabel}
-                    color={color}
-                  />
-                );
+                return <RunningToolStatusDot key={record.key} accessibilityLabel={accessibilityLabel} color={color} />;
               }
               return (
                 <View
@@ -300,14 +300,63 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
             <View className={RUNTIME_HEADER_CLASS}>{headerContent}</View>
           )}
 
-          {expanded && descriptor.canExpand ? (
-            <RuntimePayloadFrame
-              descriptorId={descriptor.id}
-              copyText={descriptor.copyText}
-              defaultWrap={descriptor.defaultWrap}
-              onCopyText={onCopyText}
-              renderContent={renderPayloadContent}
-            />
+          {(groupNodes || (node.kind === 'tool' ? [node] : [])).map((tool) =>
+            tool.view ? (
+              <ConversationViewportBlock
+                key={tool.id + ':view'}
+                view={tool.view}
+                viewError={tool.viewError}
+                memberKey={tool.agentKey}
+                viewportKey={tool.view.key}
+                payload={tool.resultText}
+                sourceHash={tool.id}
+              />
+            ) : null
+          )}
+          {(groupNodes || (node.kind === 'tool' ? [node] : [])).map((tool) =>
+            tool.toolOutput ? (
+              <ScrollView
+                key={tool.id}
+                nestedScrollEnabled
+                className="mt-2 max-h-[180px] rounded-app-sm bg-app-surface p-2"
+              >
+                {tool.toolOutput.stdout ? (
+                  <Text
+                    selectable
+                    className="font-mono text-[12px] text-app-primary"
+                  >{`stdout\n${tool.toolOutput.stdout}`}</Text>
+                ) : null}
+                {tool.toolOutput.stderr ? (
+                  <Text
+                    selectable
+                    className="font-mono text-[12px] text-app-danger"
+                  >{`stderr\n${tool.toolOutput.stderr}`}</Text>
+                ) : null}
+              </ScrollView>
+            ) : null
+          )}
+
+          {imageNodes.length ? (
+            <ChatImageGeneration nodes={imageNodes} conversationId={conversationId} runLifecycle={imageRunLifecycle} />
+          ) : null}
+          {descriptor.canExpand && (expanded || (descriptor.kind === 'reasoning' && hasMounted)) ? (
+            <View
+              key={descriptor.id}
+              className={expanded ? undefined : 'hidden'}
+              pointerEvents={expanded ? 'auto' : 'none'}
+              accessibilityElementsHidden={!expanded}
+              importantForAccessibility={expanded ? 'auto' : 'no-hide-descendants'}
+            >
+              <ConversationPreviewRowScope rowKey={expanded ? item.key : ''}>
+                <RuntimePayloadFrame
+                  descriptorId={descriptor.id}
+                  copyText={descriptor.copyText}
+                  defaultWrap={descriptor.defaultWrap}
+                  onCopyText={onCopyText}
+                  renderContent={renderPayloadContent}
+                />
+              </ConversationPreviewRowScope>
+            </View>
           ) : null}
         </View>
       </View>

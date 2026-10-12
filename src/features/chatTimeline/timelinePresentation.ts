@@ -97,6 +97,9 @@ function isProcessItem(
   if (!item.runId || !terminalRuns.has(item.runId) || !PROCESS_ITEM_KINDS.has(item.kind)) {
     return false;
   }
+  // Image outputs stay visible when the surrounding completed process is folded.
+  if (item.kind === 'tool-group' && item.nodes.some((node) => node.toolName.trim() === 'image_generate')) return false;
+  if (item.kind === 'tool' && item.node.kind === 'tool' && item.node.toolName.trim() === 'image_generate') return false;
   return item.kind !== 'assistant-content' || finalAssistantKeys.get(item.runId) !== item.key;
 }
 
@@ -125,7 +128,56 @@ function createProcessSummary(
   };
 }
 
-function reframePresentationItems(items: readonly ChatTimelinePresentationItem[]): ChatTimelinePresentationItem[] {
+function canReusePresentationItem(
+  previous: FramedChatTimelinePresentationItem,
+  next: FramedChatTimelinePresentationItem
+): boolean {
+  if (previous === next) return true;
+  if (previous.key !== next.key || previous.kind !== next.kind || previous.runId !== next.runId) return false;
+  if (
+    previous.groupIndex !== next.groupIndex ||
+    previous.isFirstInRun !== next.isFirstInRun ||
+    previous.isLastInRun !== next.isLastInRun
+  )
+    return false;
+  if (previous.kind === 'process-summary' || next.kind === 'process-summary') {
+    return (
+      previous.kind === 'process-summary' &&
+      next.kind === 'process-summary' &&
+      previous.processId === next.processId &&
+      previous.terminalStatus === next.terminalStatus &&
+      previous.durationMs === next.durationMs &&
+      previous.expanded === next.expanded
+    );
+  }
+  if (previous.node !== next.node || previous.nodeId !== next.nodeId) return false;
+  if (previous.kind === 'tool-group' && next.kind === 'tool-group') {
+    return (
+      previous.toolName === next.toolName &&
+      previous.toolLabel === next.toolLabel &&
+      previous.count === next.count &&
+      previous.nodes.length === next.nodes.length &&
+      previous.nodes.every((node, index) => node === next.nodes[index])
+    );
+  }
+  if (previous.kind === 'plan' && next.kind === 'plan') {
+    return (
+      previous.tasks.length === next.tasks.length && previous.tasks.every((node, index) => node === next.tasks[index])
+    );
+  }
+  if (previous.kind === 'task' && next.kind === 'task') {
+    return (
+      previous.nodes.length === next.nodes.length && previous.nodes.every((node, index) => node === next.nodes[index])
+    );
+  }
+  return true;
+}
+
+function reframePresentationItems(
+  items: readonly ChatTimelinePresentationItem[],
+  previousItems: readonly ChatTimelinePresentationItem[]
+): ChatTimelinePresentationItem[] {
+  const previousByKey = new Map(previousItems.map((item) => [item.key, item]));
   const runCounts = new Map<string, number>();
   items.forEach((item) => {
     if (item.kind !== 'assistant-reply-footer') {
@@ -145,23 +197,27 @@ function reframePresentationItems(items: readonly ChatTimelinePresentationItem[]
     const isLastInRun = groupIndex === groupCount - 1;
     runIndexes.set(item.runId, groupIndex + 1);
 
-    if (item.groupIndex === groupIndex && item.isFirstInRun === isFirstInRun && item.isLastInRun === isLastInRun) {
-      return item;
-    }
-
-    return {
-      ...item,
-      groupIndex,
-      isFirstInRun,
-      isLastInRun
-    } satisfies FramedChatTimelinePresentationItem;
+    const framedItem =
+      item.groupIndex === groupIndex && item.isFirstInRun === isFirstInRun && item.isLastInRun === isLastInRun
+        ? item
+        : ({
+            ...item,
+            groupIndex,
+            isFirstInRun,
+            isLastInRun
+          } satisfies FramedChatTimelinePresentationItem);
+    const previous = previousByKey.get(item.key);
+    return previous && previous.kind !== 'assistant-reply-footer' && canReusePresentationItem(previous, framedItem)
+      ? previous
+      : framedItem;
   });
 }
 
 export function buildChatTimelinePresentationItems(
   state: ChatTimelineState,
   items: readonly ChatTimelineDisplayItem[],
-  expandedProcessIds: ReadonlySet<string>
+  expandedProcessIds: ReadonlySet<string>,
+  previousItems: readonly ChatTimelinePresentationItem[] = []
 ): ChatTimelinePresentationItem[] {
   const terminalRuns = collectTerminalRuns(state);
   if (terminalRuns.size === 0 || items.length === 0) {
@@ -169,16 +225,6 @@ export function buildChatTimelinePresentationItems(
   }
 
   const finalAssistantKeys = collectFinalAssistantKeys(items);
-  const processRunIds = new Set<string>();
-  items.forEach((item) => {
-    if (isProcessItem(item, terminalRuns, finalAssistantKeys)) {
-      processRunIds.add(item.runId);
-    }
-  });
-  if (processRunIds.size === 0) {
-    return [...items];
-  }
-
   const insertedSummaryRunIds = new Set<string>();
   const presentationItems: ChatTimelinePresentationItem[] = [];
 
@@ -205,7 +251,7 @@ export function buildChatTimelinePresentationItems(
     }
   });
 
-  return reframePresentationItems(presentationItems);
+  return reframePresentationItems(presentationItems, previousItems);
 }
 
 export function getChatTimelinePresentationItemType(item: ChatTimelinePresentationItem): string {

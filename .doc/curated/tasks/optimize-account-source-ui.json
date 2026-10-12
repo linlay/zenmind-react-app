@@ -1,0 +1,92 @@
+{
+  "schemaVersion": "1.0",
+  "id": "optimize-account-source-ui",
+  "title": "优化用户界面与账号云端电脑来源",
+  "intentKeywords": [
+    "账号来源改造",
+    "用户界面优化计划",
+    "云端电脑切换",
+    "取消扫码配对",
+    "同账号设备在线状态",
+    "account source ui",
+    "用户页主题关于"
+  ],
+  "entryDecision": [
+    "2026-10-12 后续登录、默认云端 Token、来源与缓存改造优先进入 docs/mobile-auth-source-2026-10-12/README.md；新计划仅落档，业务实施未开始。本卡保留前期范围和证据，不覆盖新计划已确认决定。",
+    "执行用户页、账号来源、云端/电脑切换与同账号设备相关改造时，从 docs/account-source-ui-2026-10-09/README.md 进入 T00–T09。",
+    "2026-10-09 最新决定：云端保持现状，T03 暂缓；T05/T06/T09 不再依赖 T03。Platform 的 T03 补丁已逐项撤除，工作区干净；App 云端恢复既有 authMode/accessToken，不发手机 JWT。真实验收由用户执行。",
+    "历史实现：App、Identity、Hub、Desktop、Platform 本地代码曾应用；T03 补充账号主体/source 等边界，但影响评估未通过完整兼容性与隔离验收。",
+    "影响评估见 docs/account-source-ui-2026-10-09/impact-assessment.md：三项云端问题对应补丁已撤除，保留历史记录；Desktop 远端撤销失败仍完成本地退出并提示重试，已通过回归，真实验收待用户执行。",
+    "绝对禁止过度设计：复用既有认证、来源、缓存、同步和主题边界；已具备能力凭证据关闭，不预建通用框架，不保留冗余新旧运行逻辑。",
+    "2026-10-09 补充指导：手机旧缓存可以完全清空，不保留、匹配、认领或迁移；从干净缓存按当前账号/来源重新拉取，不要求恢复旧草稿或未发送 outbox。"
+  ],
+  "mustRead": [
+    {
+      "type": "doc",
+      "ref": "docs/mobile-auth-source-2026-10-12/README.md"
+    },
+    {
+      "type": "doc",
+      "ref": "docs/account-source-ui-2026-10-09/README.md"
+    },
+    {
+      "type": "module",
+      "ref": "app-shell-navigation"
+    },
+    {
+      "type": "module",
+      "ref": "core-auth-session"
+    },
+    {
+      "type": "module",
+      "ref": "feature-chat-persistence"
+    },
+    {
+      "type": "module",
+      "ref": "feature-web-apps"
+    },
+    {
+      "type": "module",
+      "ref": "shared-visual-foundation"
+    }
+  ],
+  "likelyFiles": [
+    "docs/account-source-ui-2026-10-09/README.md",
+    "docs/account-source-ui-2026-10-09/tasks/T00-identity-contract.md",
+    "docs/account-source-ui-2026-10-09/tasks/T01-account-device-presence.md",
+    "docs/account-source-ui-2026-10-09/tasks/T02-desktop-access.md",
+    "docs/account-source-ui-2026-10-09/tasks/T03-cloud-account-isolation.md",
+    "docs/account-source-ui-2026-10-09/tasks/T04-mobile-auth-source.md",
+    "docs/account-source-ui-2026-10-09/tasks/T05-chat-source-cache.md",
+    "docs/account-source-ui-2026-10-09/tasks/T06-webapps-source.md",
+    "docs/account-source-ui-2026-10-09/tasks/T07-me-theme-about.md",
+    "docs/account-source-ui-2026-10-09/tasks/T08-source-drawers-empty.md",
+    "docs/account-source-ui-2026-10-09/tasks/T09-integration-cleanup.md",
+    "src/app/navigation/RootNavigator.tsx",
+    "src/app/screens/MeScreen.tsx",
+    "src/core/auth/activeDesktop.ts",
+    "src/core/api/services/deviceLinkApi.ts",
+    "src/core/api/activeWsTransport.ts",
+    "src/features/chatPersistence/chatSourceRuntime.ts",
+    "src/features/chatPersistence/chatRepository.ts",
+    "src/features/chatRealtime/chatSyncService.ts",
+    "src/features/webApps/WebAppsRuntimeProvider.tsx"
+  ],
+  "acceptanceChecks": [
+    "总览与 T00–T09 范围、依赖、状态和证据一致；文档建档不等于业务实现。",
+    "手机账号驱动有效设备、电脑授权、来源选择与本地缓存；未登录不回退旧电脑配对凭证，App 云端沿用现有可接受凭证。",
+    "SQLite 真源、账号/来源 scope、共享 transport 与主题 Provider 保持边界；清空旧缓存不删除账号凭据、用户设置或服务端数据。",
+    "Hub/Desktop 真实授权与手机本地账号/来源缓存隔离通过验证；云端原有契约兼容，T03 不作当前完成前置，无冗余框架和新旧并行逻辑。",
+    "每项 mutating task 完成清理审计；本地缓存按补充指导可清空，缓存范围外的原有用户状态仍保留。"
+  ],
+  "doNotMiss": [
+    "云端保持现状；本地账号缓存分区不表示新增服务端隔离。T03 补丁已撤除，Platform 无本次差异；保留现有合法 Token/Cookie，保护原有用户改动。",
+    "同账号 Desktop 的归属与撤销由 Hub 持久化，在线以实际 Tunnel 连接为依据；Identity 只管理账号登录会话。",
+    "来源抽屉刷新仅更新列表与状态，无扫码或全局新对话按钮；设备管理列全部有效 Desktop。",
+    "手机退出不是电脑退出；已提交远端任务继续，本地缓存无需保留，重新登录从所属远端重新拉取。",
+    "旧缓存清空由 T05 现有 service/repository 承担，删除旧匹配和迁移分支；新缓存仍按账号/来源隔离。",
+    "账号迟到请求必须失效，临时错误不误删设备凭据；来源切换统一由 feature service 协调选择、scope 和连接，不由页面自行回滚。",
+    "跨仓库执行先读对应 AGENTS.md；真实部署和已有能力由 T00 核实。",
+    "只在实现职责/链路发生变化时更新对应 module/flow，不把本计划当成当前运行事实。"
+  ]
+}

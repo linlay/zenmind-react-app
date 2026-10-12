@@ -18,7 +18,8 @@
       "Related flow: app-startup",
       "Related flow: notification-open-chat-message",
       "Related task: add-system-notifications",
-      "Search phrase: 系统通知 / 推送通知 / 通知点击 / 通知补拉"
+      "Search phrase: 系统通知 / 推送通知 / 通知点击 / 通知补拉",
+      "默认云端注册沿用现有 API 与 native permission/token，注册身份绑定 cloud scope；权限等待或 RPC 期间切源/退出不能恢复旧注册。"
     ],
     "nonGoals": []
   },
@@ -28,13 +29,14 @@
       "notificationService"
     ],
     "dependencies": [
-      "core-api-client"
+      "core-api-client",
+      "feature-chat-persistence"
     ],
     "dependents": [
       "app-shell-navigation"
     ],
     "tests": [],
-    "lastScannedAt": ""
+    "lastScannedAt": "2026-10-12T07:02:33Z"
   },
   "readHints": {
     "alwaysRead": [

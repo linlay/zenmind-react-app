@@ -1,7 +1,7 @@
 import {
   CHAT_DIRECTORY_PICKER_DRAWER_GEOMETRY,
   getChatDrawerHiddenOffset,
-  getChatDrawerPanelWidth,
+  getChatDrawerPanelWidth
 } from './chatDrawerOverlayGeometry.ts';
 
 export type DirectoryPickerLoadGate = {
@@ -27,7 +27,7 @@ export function createDirectoryPickerLoadGate(): DirectoryPickerLoadGate {
     },
     reset() {
       locked = false;
-    },
+    }
   };
 }
 

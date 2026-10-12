@@ -25,7 +25,7 @@ export type ChatConversationHistoryScope = {
   teamId: string | null;
 };
 
-export type ChatReasoningEffort = 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
+export type ChatReasoningEffort = 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE' | 'XHIGH' | 'MAX';
 
 export type ChatConversationTarget = {
   source: ChatSource;
@@ -128,7 +128,7 @@ export type ChatMessageRole = 'assistant' | 'user';
 
 export type ChatMessageStreamStatus = 'streaming' | 'done';
 
-export type ChatAttachmentKind = 'image' | 'file';
+export type ChatAttachmentKind = 'image' | 'file' | 'selection' | 'chat' | 'site';
 
 export type ChatAttachmentStatus = 'uploading' | 'ready' | 'failed';
 
@@ -140,6 +140,18 @@ export type ChatAttachmentReference = {
   sizeBytes?: number;
   url?: string;
   sha256?: string;
+  text?: string;
+  annotation?: string;
+  annotationIndex?: number;
+  meta?: Record<string, unknown> & { sourceKind?: 'message' | 'code' };
+};
+
+export type ChatContextReference = {
+  type: 'chat' | 'site';
+  id: string;
+  name: string;
+  url?: string;
+  meta?: Record<string, unknown>;
 };
 
 export type ChatAttachmentBase = {
@@ -190,6 +202,9 @@ export type PendingOutboxMessage = {
   content: string;
   createdAt: number;
   planningMode: boolean;
+  editingMode: boolean;
+  mustUseSkills: string[];
+  optionsError?: string;
   attachments: ChatMessageAttachment[];
 };
 

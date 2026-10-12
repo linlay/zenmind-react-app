@@ -160,7 +160,14 @@ function resolveAgentPlatformWsConnection(
 
   try {
     const url = new URL(baseUrl);
-    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (url.protocol === 'https:') {
+      url.protocol = 'wss:';
+    } else if (url.protocol === 'http:') {
+      url.protocol = 'ws:';
+    }
+    if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
+      return null;
+    }
     url.hash = '';
     if (!explicitWsUrl) {
       url.pathname = '/ap/ws';
@@ -213,7 +220,8 @@ async function resolveWsConnection(
   if (config.kind === 'desktop-ws') {
     return resolveDesktopWsConnection(config, refreshCredential);
   }
-  return resolveAgentPlatformWsConnection(config.backendUrl, config.accessToken, config.wsUrl);
+  const token = config.accessTokenProvider ? await config.accessTokenProvider() : config.accessToken;
+  return resolveAgentPlatformWsConnection(config.backendUrl, token, config.wsUrl);
 }
 
 function createFrameId(kind: 'request' | 'stream'): string {
@@ -323,6 +331,10 @@ export class WsClient {
 
   getStatus() {
     return this.status;
+  }
+
+  hasActiveOperations(): boolean {
+    return this.pendingRequests.size > 0 || this.activeStreams.size > 0;
   }
 
   connect(signal?: AbortSignal) {
@@ -507,65 +519,68 @@ export class WsClient {
       return this.waitForConnection(signal);
     }
 
-    const connection = await resolveWsConnection(this.transport, this.connectionAttempted);
-    this.connectionAttempted = true;
-    if (!connection) {
-      this.setStatus('disconnected');
-      throw new WsClientDisconnectedError('WebSocket transport is not initialized');
-    }
+    // Publish the shared attempt before endpoint/credential resolution yields.
+    this.connectPromise = (async () => {
+      const connection = await resolveWsConnection(this.transport, this.connectionAttempted);
+      this.connectionAttempted = true;
+      if (!connection) {
+        this.setStatus('disconnected');
+        throw new WsClientDisconnectedError('WebSocket transport is not initialized');
+      }
 
-    this.expectedClose = false;
-    this.lastSeenAt = Date.now();
-    this.setStatus(this.status === 'reconnecting' ? 'reconnecting' : 'connecting');
+      this.expectedClose = false;
+      this.lastSeenAt = Date.now();
+      this.setStatus(this.status === 'reconnecting' ? 'reconnecting' : 'connecting');
 
-    this.connectPromise = new Promise<void>((resolve, reject) => {
-      const socket = this.createWebSocket(connection.url, connection.protocols);
-      this.socket = socket;
-      let opened = false;
+      return new Promise<void>((resolve, reject) => {
+        const socket = this.createWebSocket(connection.url, connection.protocols);
+        this.socket = socket;
+        let opened = false;
 
-      socket.onopen = () => {
-        opened = true;
-        this.lastSeenAt = Date.now();
-        this.reconnectAttempt = 0;
-        this.startHealthCheck();
-        this.setStatus('connected');
-        socket.onmessage = this.handleMessage;
-        socket.onclose = (event) => {
-          this.handleClose(event);
+        socket.onopen = () => {
+          opened = true;
+          this.lastSeenAt = Date.now();
+          this.reconnectAttempt = 0;
+          this.startHealthCheck();
+          this.setStatus('connected');
+          socket.onmessage = this.handleMessage;
+          socket.onclose = (event) => {
+            this.handleClose(event);
+          };
+          socket.onerror = () => {
+            this.handleSocketError();
+          };
+          resolve();
         };
+
         socket.onerror = () => {
-          this.handleSocketError();
-        };
-        resolve();
-      };
-
-      socket.onerror = () => {
-        if (opened) {
-          this.handleSocketError();
-          return;
-        }
-        this.socket = null;
-        this.setStatus('error');
-        this.scheduleReconnect();
-        reject(new WsClientDisconnectedError('WebSocket connection failed'));
-      };
-
-      socket.onclose = (event) => {
-        if (opened) {
-          this.handleClose(event);
-          return;
-        }
-        this.socket = null;
-        if (!this.expectedClose) {
+          if (opened) {
+            this.handleSocketError();
+            return;
+          }
+          this.socket = null;
           this.setStatus('error');
           this.scheduleReconnect();
-        } else {
-          this.expectedClose = false;
-          this.setStatus('disconnected');
-        }
-        reject(new WsClientDisconnectedError('WebSocket transport disconnected'));
-      };
-    }).finally(() => {
+          reject(new WsClientDisconnectedError('WebSocket connection failed'));
+        };
+
+        socket.onclose = (event) => {
+          if (opened) {
+            this.handleClose(event);
+            return;
+          }
+          this.socket = null;
+          if (!this.expectedClose) {
+            this.setStatus('error');
+            this.scheduleReconnect();
+          } else {
+            this.expectedClose = false;
+            this.setStatus('disconnected');
+          }
+          reject(new WsClientDisconnectedError('WebSocket transport disconnected'));
+        };
+      });
+    })().finally(() => {
       this.connectPromise = null;
     });
 

@@ -1,3 +1,5 @@
+import { ChatContextReferencePicker } from './components/ChatContextReferencePicker';
+import { ConversationViewScope } from './conversationViewport/ConversationViewScope';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
@@ -15,6 +17,7 @@ import { ChatDetailComposerCard } from './components/ChatDetailComposerCard';
 import { ChatDetailHistoryDrawer } from './components/ChatDetailDrawers';
 import { ChatDetailEmptyState } from './components/ChatDetailEmptyState';
 import { ChatDetailHeader } from './components/ChatDetailHeader';
+import { ChatExportMenu } from './components/ChatExportMenu';
 import { ChatTimelineList } from './components/ChatTimelineList';
 import { ChatDetailSkeleton } from './components/ChatDetailSkeleton';
 import { ChatNewConversationIntro } from './components/ChatNewConversationIntro';
@@ -127,25 +130,39 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     skeletonOverlayOpacity,
     socketStatus,
     errorText,
+    modelRetryText,
+    agentAvailability,
+    agentAvailabilityText,
     diagnosticState,
     draft,
     setDraft,
     composerAttachments,
     composerOptions,
     composerAction,
+    pendingSteer,
+    steerAvailable,
+    handleSteer,
+    handleRestoreSteer,
     setAccessLevel,
     setModelOverride,
     planModeAvailable,
     planModeEnabled,
+    editingModeAvailable,
+    editingModeEnabled,
+    handleToggleEditingMode,
     handleSend,
     handleStop,
     handleResume,
     handleTogglePlanMode,
+    handleDeriveRun,
     handleReaskMessage,
     handleStartNewConversation,
     handleSelectAttachment,
     handleRemoveAttachment,
     handleRetryAttachment,
+    addSelection,
+    updateSelectionAnnotation,
+    addContextReference,
     handleRetryFromNotification,
     handleSelectWonder,
     historyScope
@@ -160,6 +177,23 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     fromNotification,
     skipInitialReconcile
   });
+  const [contextPickerOpen, setContextPickerOpen] = useState(false);
+  const handleOpenContextPicker = useCallback(() => setContextPickerOpen(true), []);
+  const handleCloseContextPicker = useCallback(() => setContextPickerOpen(false), []);
+  const contextPickerAvailable =
+    composerOptions.interaction.attachment.chatRecords &&
+    !!(composerOptions.agentKey || conversationTarget?.teamId || historyScope?.teamId) &&
+    agentAvailability === 'available' &&
+    !summary?.sourceDeleted &&
+    !pendingSteer &&
+    !headerRuntimeState.runAction &&
+    composerAction !== 'sending';
+  useEffect(() => {
+    setContextPickerOpen(false);
+  }, [conversationId]);
+  useEffect(() => {
+    if (!contextPickerAvailable) setContextPickerOpen(false);
+  }, [contextPickerAvailable]);
   const artifacts = useMemo(() => selectChatTimelineArtifacts(timelineState), [timelineState]);
   const { awaitingSummary, handleOpenAwaitingOverlay, handleDismissAwaitingOverlay } = useChatDetailAwaitingOverlay(
     runtimeState,
@@ -285,6 +319,11 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                   onOpenMenu={handleOpenHistoryDrawer}
                 />
 
+                <ChatExportMenu
+                  key={`export:${conversationId}`}
+                  conversationId={conversationId}
+                  disabled={Boolean(summary.sourceDeleted)}
+                />
                 <ChatTimelineList
                   timelineState={timelineState}
                   diagnosticCard={
@@ -306,8 +345,21 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                     ) : null
                   }
                   onCopyText={handleCopyMessage}
+                  onAddSelection={
+                    !summary.sourceDeleted &&
+                    !pendingSteer &&
+                    agentAvailability === 'available' &&
+                    composerAction !== 'sending' &&
+                    composerAction !== 'resume'
+                      ? addSelection
+                      : undefined
+                  }
                   previewStore={conversationPreviewStore}
                   workspaceAgentKey={composerOptions.agentKey}
+                  onDeriveRun={summary.sourceDeleted ? undefined : handleDeriveRun}
+                  deriveDisabled={
+                    composerAction === 'sending' || Boolean(timelineState.activeRunId || timelineState.awaiting)
+                  }
                   onReaskMessage={handleReaskMessage}
                   reaskCurrentDisabled={
                     summary.sourceDeleted || composerAction === 'sending' || Boolean(headerRuntimeState.runAction)
@@ -337,6 +389,17 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                   }
                 />
 
+                {contextPickerOpen && contextPickerAvailable ? (
+                  <ChatContextReferencePicker
+                    key={conversationId}
+                    conversationId={conversationId}
+                    onClose={handleCloseContextPicker}
+                    onSelect={(item) =>
+                      addContextReference({ type: 'chat', id: item.id, name: item.name, meta: item.meta })
+                    }
+                  />
+                ) : null}
+
                 {!summary.sourceDeleted && activeFrontendTool ? (
                   <FrontendToolDock
                     key={activeFrontendTool.key}
@@ -360,21 +423,43 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                       onPress={handleOpenAwaitingOverlay}
                     />
 
+                    {agentAvailabilityText ? (
+                      <Pressable
+                        disabled={agentAvailability === 'checking'}
+                        onPress={handleRetryFromNotification}
+                        accessibilityRole="button"
+                        className="px-app-md py-2"
+                      >
+                        <Text className="text-[13px] text-app-secondary">{agentAvailabilityText}</Text>
+                      </Pressable>
+                    ) : null}
+                    {modelRetryText ? (
+                      <Text className="px-app-md text-[13px] text-app-secondary">{modelRetryText}</Text>
+                    ) : null}
                     <ChatDetailComposerCard
+                      pendingSteer={pendingSteer}
+                      steerAvailable={steerAvailable}
+                      onSteer={handleSteer}
+                      onRestoreSteer={handleRestoreSteer}
                       draft={draft}
                       attachments={composerAttachments}
                       errorText={errorText}
                       planModeAvailable={planModeAvailable}
                       planModeEnabled={planModeEnabled}
+                      editingModeAvailable={editingModeAvailable}
+                      editingModeEnabled={editingModeEnabled}
+                      onToggleEditingMode={handleToggleEditingMode}
                       primaryAction={composerAction}
                       onChangeDraft={setDraft}
                       onSubmit={handleSend}
                       onStop={handleStop}
                       onResume={handleResume}
                       onTogglePlanMode={handleTogglePlanMode}
+                      onOpenChatReferences={contextPickerAvailable ? handleOpenContextPicker : undefined}
                       onSelectAttachment={handleSelectAttachment}
                       onRemoveAttachment={handleRemoveAttachment}
                       onRetryAttachment={handleRetryAttachment}
+                      onUpdateSelectionAnnotation={pendingSteer ? undefined : updateSelectionAnnotation}
                       composerOptions={composerOptions}
                       onAccessLevelChange={setAccessLevel}
                       onModelOverrideChange={setModelOverride}
@@ -439,7 +524,11 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
       store={conversationPreviewStore}
       onCopyText={handleCopyMessage}
     >
-      <AuthenticatedResourcePreviewProvider key={conversationId}>{content}</AuthenticatedResourcePreviewProvider>
+      <ConversationViewScope.Provider value={conversationId}>
+        <AuthenticatedResourcePreviewProvider key={conversationId} conversationId={conversationId}>
+          {content}
+        </AuthenticatedResourcePreviewProvider>
+      </ConversationViewScope.Provider>
     </ConversationPreviewProvider>
   );
 }

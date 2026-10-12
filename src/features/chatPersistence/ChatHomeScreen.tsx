@@ -1,5 +1,12 @@
+import { useCloudAuth } from '../../core/auth/useCloudAuth';
+import { getSelectedSource } from '../../core/auth/activeDesktop';
+import { verifyDefaultCloud } from './cloudAccess';
+import { ActivityIndicator } from 'react-native';
+import { isActiveDesktopOffline, subscribeActiveDesktop } from '../../core/auth/activeDesktop';
+import { ChatSignedOutIllustration } from './components/ChatSignedOutIllustration';
+import { getChatCacheScopeId, subscribeChatCacheScope } from './cacheScope';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   InteractionManager,
   Modal,
@@ -25,7 +32,6 @@ import { chatSyncService } from '../chatRealtime/chatSyncService';
 import { buildChatDetailRouteParams } from './chatDetailNavigation';
 import { prewarmAgentDetailForEmptyConversation } from './chatDetailPrefetch';
 import {
-  createConversationForDirectoryItem,
   getCollapsedChatDirectorySlice,
   getChatDirectorySlice,
   prewarmChatHomeDirectory,
@@ -46,7 +52,7 @@ import {
   type ChatDirectoryListState
 } from './chatRealtimeUiState';
 import { readChatDirectorySnapshot } from './homeSnapshot';
-import { getDefaultChatSource, getPairedChatSource } from './chatSourceRuntime';
+import { getActiveChatSource } from './chatSourceRuntime';
 import type { ChatDirectoryItem } from './types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../app/navigation/types';
@@ -82,9 +88,7 @@ const PIN_MENU_ELEVATION_STYLE = {
 } satisfies ViewStyle;
 
 function filterActiveSourceItems(items: ChatDirectoryItem[]): ChatDirectoryItem[] {
-  const defaultSource = getDefaultChatSource();
-  const pairedSource = getPairedChatSource();
-  const activeKeys = new Set([defaultSource.key, ...(pairedSource ? [pairedSource.key] : [])]);
+  const activeKeys = new Set([getActiveChatSource()?.key]);
   return items.filter((item) => activeKeys.has(item.source.key));
 }
 
@@ -169,6 +173,10 @@ const CHAT_EMPTY_STATE = <ChatEmptyState />;
 
 export function ChatHomeScreen() {
   const t = useT();
+  const cloud = useCloudAuth();
+  const desktopOffline = useSyncExternalStore(subscribeActiveDesktop, isActiveDesktopOffline, isActiveDesktopOffline);
+  const scopeId = useSyncExternalStore(subscribeChatCacheScope, getChatCacheScopeId, getChatCacheScopeId);
+  const hasSource = scopeId !== 'signed_out' && Boolean(getActiveChatSource());
   const { theme } = useAppTheme();
   const tabBarHeight = useAppTabBarHeight();
   const windowDimensions = useWindowDimensions();
@@ -186,19 +194,21 @@ export function ChatHomeScreen() {
   const [pinnedTotal, setPinnedTotal] = useState(0);
 
   const currentPageRef = useRef(1);
+  const homeStateScopeRef = useRef(scopeId);
   const previousFocusRef = useRef(isFocused);
   const visibleConversationIdsRef = useRef<Set<string>>(new Set());
   const openingDirectoryItemIdRef = useRef<string | null>(null);
   const items = useMemo(
     () =>
-      homeState.orderedIds
-        .map((id) => homeState.itemsById[id])
-        .filter((item): item is ChatDirectoryItem => Boolean(item)),
-    [homeState.itemsById, homeState.orderedIds]
+      hasSource && homeStateScopeRef.current === scopeId
+        ? homeState.orderedIds
+            .map((id) => homeState.itemsById[id])
+            .filter((item): item is ChatDirectoryItem => Boolean(item))
+        : [],
+    [homeState.itemsById, homeState.orderedIds, scopeId, hasSource]
   );
   const total = homeState.total;
   const hasMore = items.length < total;
-  const firstVisibleAgent = useMemo(() => items.find((item) => item.kind === 'agent') ?? null, [items]);
 
   useEffect(() => {
     visibleConversationIdsRef.current = new Set(
@@ -239,6 +249,7 @@ export function ChatHomeScreen() {
       }
 
       const openDirectoryItem = async () => {
+        const requestedScope = getChatCacheScopeId();
         openingDirectoryItemIdRef.current = item.id;
         setErrorText('');
 
@@ -249,6 +260,7 @@ export function ChatHomeScreen() {
             return;
           }
 
+          if (requestedScope !== getChatCacheScopeId()) return;
           prewarmAgentDetailForEmptyConversation(item, result);
           navigation.navigate('ChatDetail', buildChatDetailRouteParams(item, result));
         } catch (error) {
@@ -264,9 +276,13 @@ export function ChatHomeScreen() {
   );
 
   const loadVisibleSlice = useCallback(async (pageCount: number, collapsed: boolean = false) => {
+    const requestedScope = getChatCacheScopeId();
+    if (!getActiveChatSource()) return;
     const limit = Math.max(1, pageCount) * CHAT_PAGE_SIZE;
     const home = collapsed ? await getCollapsedChatDirectorySlice(limit) : await getChatDirectorySlice(limit);
 
+    if (requestedScope !== getChatCacheScopeId()) return;
+    homeStateScopeRef.current = requestedScope;
     setHomeState(buildDirectoryListState(home.items, home.total));
     setPinnedTotal(home.pinnedTotal);
     currentPageRef.current = pageCount;
@@ -284,8 +300,12 @@ export function ChatHomeScreen() {
   }, [navigation]);
 
   const handleOpenSearch = useCallback(() => {
+    if (!hasSource) {
+      navigation.navigate('Login');
+      return;
+    }
     setIsSearchOpen(true);
-  }, []);
+  }, [hasSource, navigation]);
 
   const handleCloseSearch = useCallback(() => {
     setIsSearchOpen(false);
@@ -298,42 +318,6 @@ export function ChatHomeScreen() {
     },
     [handleItemPress]
   );
-
-  const openNewConversationForDirectoryItem = useCallback(
-    async (item: ChatDirectoryItem) => {
-      if (openingDirectoryItemIdRef.current) {
-        return;
-      }
-
-      openingDirectoryItemIdRef.current = item.id;
-      setErrorText('');
-
-      try {
-        const result = await createConversationForDirectoryItem(item.id);
-        if (!result) {
-          setErrorText(t('chatHome.error.missingDirectoryTarget'));
-          return;
-        }
-
-        prewarmAgentDetailForEmptyConversation(item, result);
-        navigation.navigate('ChatDetail', buildChatDetailRouteParams(item, result));
-      } catch (error) {
-        setErrorText(error instanceof Error ? error.message : String(error));
-      } finally {
-        openingDirectoryItemIdRef.current = null;
-      }
-    },
-    [navigation, t]
-  );
-
-  const handleAddConversationPress = useCallback(() => {
-    if (!firstVisibleAgent) {
-      handleOpenDirectoryPicker();
-      return;
-    }
-
-    void openNewConversationForDirectoryItem(firstVisibleAgent);
-  }, [firstVisibleAgent, handleOpenDirectoryPicker, openNewConversationForDirectoryItem]);
 
   const CardComponent = useCallback(
     ({ item }: ChatRowComponentProps) =>
@@ -352,6 +336,13 @@ export function ChatHomeScreen() {
 
   useEffect(() => {
     let mounted = true;
+    homeStateScopeRef.current = scopeId;
+    setHomeState(buildDirectoryListState([], 0));
+    setPinnedTotal(0);
+    setIsBootstrapReady(false);
+    setIsSearchOpen(false);
+    setErrorText('');
+    if (!hasSource) return;
     let interactionTask: { cancel: () => void } | null = null;
     let hasSnapshot = false;
 
@@ -396,7 +387,7 @@ export function ChatHomeScreen() {
       mounted = false;
       interactionTask?.cancel();
     };
-  }, []);
+  }, [scopeId, hasSource]);
 
   useEffect(() => {
     if (!isFocused || !isBootstrapReady) {
@@ -449,8 +440,19 @@ export function ChatHomeScreen() {
     setErrorText('');
 
     try {
-      await chatSyncService.refreshHome('manual_refresh');
+      if (getSelectedSource()?.kind === 'cloud' || !getActiveChatSource()) await verifyDefaultCloud();
+      const failures = await chatSyncService.refreshHome('manual_refresh');
       await loadVisibleSlice(1, arePinnedItemsCollapsed);
+      setErrorText(
+        failures
+          .map(({ source, message }) =>
+            t('chatHome.error.sourceRefreshFailed', {
+              source: source.kind === 'default' ? t('me.row.defaultSource') : 'Desktop',
+              message
+            })
+          )
+          .join('\n')
+      );
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : String(error));
     } finally {
@@ -540,15 +542,9 @@ export function ChatHomeScreen() {
           usage="chatHome.search"
           accessibilityLabel={t('chatHome.search.open')}
           onPress={handleOpenSearch}
-        />,
-        <HeaderIconButton
-          key="add"
-          usage="chatHome.add"
-          accessibilityLabel={t('chatHome.add')}
-          onPress={handleAddConversationPress}
         />
       ] as const,
-    [handleAddConversationPress, handleOpenSearch, t]
+    [handleOpenSearch, t]
   );
   const listBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
   const listContentStyle = useMemo<StyleProp<ViewStyle>>(
@@ -604,13 +600,59 @@ export function ChatHomeScreen() {
           onRefresh={handleRefresh}
           itemHeight={CHAT_DIRECTORY_ROW_HEIGHT}
           ListHeaderComponent={
-            errorText ? (
+            errorText || (getSelectedSource()?.kind === 'cloud' && cloud.status !== 'available') ? (
               <View className={FEEDBACK_CARD_CLASS} style={appHairlineStyles.borderTopBottom}>
-                <Text className={ERROR_TEXT_CLASS}>{t('chatHome.error.readFailed', { message: errorText })}</Text>
+                <Text className={ERROR_TEXT_CLASS}>
+                  {errorText
+                    ? t('chatHome.error.readFailed', { message: errorText })
+                    : t(`cloud.status.${cloud.status}`)}
+                </Text>
+                {getSelectedSource()?.kind === 'cloud' ? (
+                  <Pressable
+                    onPress={() =>
+                      cloud.status === 'login_required'
+                        ? navigation.navigate('Login', { mode: 'cloud' })
+                        : void verifyDefaultCloud()
+                    }
+                    className="min-h-11 justify-center"
+                  >
+                    <Text className="font-bold text-app-action">
+                      {t(cloud.status === 'login_required' ? 'cloud.login' : 'common.retry')}
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             ) : null
           }
-          ListEmptyComponent={CHAT_EMPTY_STATE}
+          ListEmptyComponent={
+            hasSource ? (
+              !isBootstrapReady ? (
+                <View className={EMPTY_STATE_CLASS}>
+                  <ActivityIndicator />
+                </View>
+              ) : desktopOffline ? (
+                <View className={EMPTY_STATE_CLASS}>
+                  <Text className={EMPTY_STATE_BODY_CLASS}>{t('accountSource.offlineEmpty')}</Text>
+                </View>
+              ) : (
+                CHAT_EMPTY_STATE
+              )
+            ) : (
+              <View className={EMPTY_STATE_CLASS}>
+                <ChatSignedOutIllustration />
+                <Text className={EMPTY_STATE_TITLE_CLASS}>{t('accountSource.signedOutTitle')}</Text>
+                <Text className={EMPTY_STATE_BODY_CLASS}>{t('accountSource.signedOutBody')}</Text>
+                <Text className={EMPTY_STATE_BODY_CLASS}>{t(`cloud.status.${cloud.status}`)}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => navigation.navigate('ChatDirectoryPickerOverlay')}
+                  className="mt-app-xl min-h-11 justify-center rounded-app-pill bg-app-action px-app-xxl"
+                >
+                  <Text className="font-bold text-app-on-action">{t('cloud.chooseSource')}</Text>
+                </Pressable>
+              </View>
+            )
+          }
           contentContainerStyle={listContentStyle}
           showScrollTopButton={false}
           itemSpacing={0}
@@ -623,7 +665,8 @@ export function ChatHomeScreen() {
       </View>
 
       <ChatDirectorySearchOverlay
-        visible={isSearchOpen}
+        key={scopeId}
+        visible={hasSource && isSearchOpen}
         onClose={handleCloseSearch}
         onSelectItem={handleSearchItemPress}
       />

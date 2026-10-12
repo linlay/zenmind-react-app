@@ -102,7 +102,10 @@ test('conversation detail keeps one preview host while rows only dispatch previe
     'src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx'
   );
 
-  assert.match(screenSource, /<AuthenticatedResourcePreviewProvider key=\{conversationId\}>/);
+  assert.match(
+    screenSource,
+    /<AuthenticatedResourcePreviewProvider key=\{conversationId\} conversationId=\{conversationId\}>/
+  );
   assert.match(attachmentSource, /useConversationPreviewRowActive\(\)/);
   assert.match(attachmentSource, /useAuthenticatedResourcePreview\(\)/);
   assert.doesNotMatch(artifactSource, /AuthenticatedResourcePreviewModal/);

@@ -178,6 +178,11 @@ export function useConversationPreviewRowActive(): boolean {
     (listener: () => void) => (store && rowKey ? store.subscribe(rowKey, listener) : () => {}),
     [rowKey, store]
   );
-  const getSnapshot = useCallback(() => (store && rowKey ? store.getSnapshot(rowKey) : true), [rowKey, store]);
+  // An explicit empty scope suspends previews in a retained, collapsed body.
+  // No scope (null) still permits standalone Markdown previews.
+  const getSnapshot = useCallback(
+    () => rowKey !== '' && (store && rowKey ? store.getSnapshot(rowKey) : true),
+    [rowKey, store]
+  );
   return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 }

@@ -3,6 +3,7 @@ export type WsTransportNamespace = 'ap' | 'd';
 export type AgentPlatformWsTransportConfig = {
   kind: 'agent-platform';
   backendUrl: string;
+  accessTokenProvider?: () => Promise<string>;
   wsUrl?: string;
   accessToken: string;
   connectionKey?: string;

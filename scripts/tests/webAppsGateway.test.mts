@@ -76,10 +76,7 @@ function createHarness(options: { profileKind?: 'http' | 'desktop-ws'; status?: 
   };
 
   const dependencies: WebAppsGatewayDependencies = {
-    getActiveProfile: () => ({
-      transportKind: options.profileKind ?? 'desktop-ws',
-      desktopDeviceId: 'desktop-1'
-    }),
+    getActiveDesktopId: () => options.profileKind === 'http' ? '' : 'desktop-1',
     resolveTransport: async () => transport,
     request: async <T,>(request: RequestOptions): Promise<T> => {
       requests.push(request);

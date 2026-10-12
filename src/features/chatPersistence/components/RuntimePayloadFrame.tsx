@@ -1,4 +1,5 @@
-import { memo, type ReactNode, useCallback, useEffect, useState } from 'react';
+import { memo, type ReactNode, useCallback } from 'react';
+import { useRecyclingState } from '@shopify/flash-list';
 import { Pressable, ScrollView, View } from 'react-native';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
@@ -52,13 +53,9 @@ export const RuntimePayloadFrame = memo(function RuntimePayloadFrame({
 }: RuntimePayloadFrameProps) {
   const t = useT();
   const { theme } = useAppTheme();
-  const [wrap, setWrap] = useState(defaultWrap);
+  const [wrap, setWrap] = useRecyclingState(defaultWrap, [descriptorId, defaultWrap]);
 
-  useEffect(() => {
-    setWrap(defaultWrap);
-  }, [descriptorId, defaultWrap]);
-
-  const handleToggleWrap = useCallback(() => setWrap((value) => !value), []);
+  const handleToggleWrap = useCallback(() => setWrap((value) => !value), [setWrap]);
 
   const content = renderContent(wrap);
 

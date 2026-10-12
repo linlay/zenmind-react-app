@@ -24,6 +24,7 @@ function loadGeneratedImportPathHelpers() {
 function loadBundleModeConfig() {
   return require('../worklets/bundle-mode-config.js') as {
     isWorkletsBundleModeEnabled: (environment?: Record<string, string | undefined>) => boolean;
+    isProductionBuild: (environment?: Record<string, string | undefined>) => boolean;
   };
 }
 
@@ -130,24 +131,28 @@ test('rebases escaped Windows relative imports emitted by the Worklets plugin', 
   assert.equal(rewrittenSpecifier.includes('\\'), false);
 });
 
-test('enables Worklets bundle mode only for production builds', () => {
-  const { isWorkletsBundleModeEnabled } = loadBundleModeConfig();
+test('keeps Streamdown Bundle Mode enabled in development and production', () => {
+  const { isWorkletsBundleModeEnabled, isProductionBuild } = loadBundleModeConfig();
 
-  assert.equal(isWorkletsBundleModeEnabled({}), false);
-  assert.equal(isWorkletsBundleModeEnabled({ NODE_ENV: 'development' }), false);
-  assert.equal(isWorkletsBundleModeEnabled({ BABEL_ENV: 'development', NODE_ENV: 'production' }), false);
+  assert.equal(isWorkletsBundleModeEnabled({}), true);
+  assert.equal(isWorkletsBundleModeEnabled({ NODE_ENV: 'development' }), true);
+  assert.equal(isWorkletsBundleModeEnabled({ BABEL_ENV: 'development', NODE_ENV: 'production' }), true);
   assert.equal(isWorkletsBundleModeEnabled({ NODE_ENV: 'production' }), true);
   assert.equal(isWorkletsBundleModeEnabled({ BABEL_ENV: 'production', NODE_ENV: 'development' }), true);
+  assert.equal(isProductionBuild({}), false);
+  assert.equal(isProductionBuild({ NODE_ENV: 'development' }), false);
+  assert.equal(isProductionBuild({ BABEL_ENV: 'development', NODE_ENV: 'production' }), false);
+  assert.equal(isProductionBuild({ NODE_ENV: 'production' }), true);
+  assert.equal(isProductionBuild({ BABEL_ENV: 'production', NODE_ENV: 'development' }), true);
 });
 
-test('development scripts avoid Worklets pregeneration while production export keeps it', () => {
+test('development and production entry points pregenerate Worklets before Metro starts', () => {
   const packageJson = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'package.json'), 'utf8')) as {
     scripts: Record<string, string>;
   };
 
-  for (const scriptName of ['start', 'android', 'android:device', 'web']) {
-    assert.match(packageJson.scripts[scriptName], /prepare:runtime/u);
-    assert.doesNotMatch(packageJson.scripts[scriptName], /prepare:bundle/u);
+  for (const scriptName of ['start', 'android', 'android:device', 'ios', 'web']) {
+    assert.match(packageJson.scripts[scriptName], /^pnpm prepare:bundle && expo/u);
   }
   assert.match(packageJson.scripts.build, /prepare:bundle/u);
   assert.match(packageJson.scripts['eas-build-post-install'], /prepare:bundle/u);

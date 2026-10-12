@@ -34,7 +34,7 @@ export type RuntimePayloadSource =
       | ChatTimelineSourceNode
       | ChatTimelineTaskNode
     >
-  | ChatTimelineToolGroupDisplayItem;
+  | Pick<ChatTimelineToolGroupDisplayItem, 'kind' | 'key' | 'nodes' | 'toolName' | 'toolLabel'>;
 
 export type RuntimePayloadKind =
   | Exclude<ChatTimelineNode['kind'], 'action' | 'artifact' | 'context' | 'message' | 'plan' | 'source' | 'task'>
@@ -132,7 +132,9 @@ function formatRunBody(node: ChatTimelineRunNode, t: TFunction): string {
   return compactJoin([node.body, duration ? t('runtime.duration', { duration }) : '']);
 }
 
-function isToolGroupSource(source: RuntimePayloadSource): source is ChatTimelineToolGroupDisplayItem {
+function isToolGroupSource(
+  source: RuntimePayloadSource
+): source is Extract<RuntimePayloadSource, { kind: 'tool-group' }> {
   return source.kind === 'tool-group';
 }
 
@@ -181,7 +183,7 @@ function titleForNode(node: ChatTimelineNode, t: TFunction): string {
 }
 
 export function formatToolPillTitle(
-  source: ChatTimelineToolNode | ChatTimelineToolGroupDisplayItem,
+  source: Pick<ChatTimelineToolNode, 'toolName' | 'toolLabel'>,
   t: TFunction = defaultT
 ): string {
   return resolveToolLabel(source, t);
@@ -381,7 +383,7 @@ function getCompletedToolDurationMs(node: ChatTimelineToolNode, status: RuntimeT
 }
 
 export function buildToolPillRecords(
-  source: ChatTimelineToolNode | ChatTimelineToolGroupDisplayItem,
+  source: ChatTimelineToolNode | Extract<RuntimePayloadSource, { kind: 'tool-group' }>,
   t: TFunction = defaultT
 ): RuntimeToolRecord[] {
   const nodes = isToolGroupSource(source) ? source.nodes : [source];
@@ -585,7 +587,7 @@ export function buildRuntimePayloadDescriptor(
     tone: icon.tone,
     renderer,
     defaultExpanded: defaultExpandedForKind(kind),
-    defaultWrap: false,
+    defaultWrap: kind === 'reasoning',
     canExpand,
     copyText: kind === 'tool' ? createToolRecordsCopyText(toolRecords, t) : sectionCopyText(sections),
     sections,

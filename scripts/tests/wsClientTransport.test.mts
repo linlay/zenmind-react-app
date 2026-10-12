@@ -96,6 +96,61 @@ test('agent-platform transport keeps /ap/ws and sends no namespace', async () =>
   client.disconnect();
 });
 
+test('explicit Agent Platform ws URLs retain their protocol, path and query', async () => {
+  for (const endpoint of ['wss://api.example.test/custom?source=mobile', 'ws://localhost:7080/custom']) {
+    const sockets: FakeSocket[] = [];
+    const client = new WsClient({
+      transport: {
+        kind: 'agent-platform',
+        backendUrl: 'https://ignored.example.test',
+        wsUrl: endpoint,
+        accessToken: 'ap-token'
+      },
+      createWebSocket: createSocketFactory(sockets)
+    });
+    try {
+      await client.connect();
+      const expected = new URL(endpoint);
+      expected.searchParams.set('token', 'ap-token');
+      assert.equal(sockets[0].url, expected.toString());
+    } finally {
+      client.disconnect();
+    }
+  }
+});
+
+test('concurrent connect and directory requests share one socket and all responses resolve', async () => {
+  const sockets: FakeSocket[] = [];
+  const client = new WsClient({
+    transport: {
+      kind: 'desktop-ws',
+      wsUrl: 'wss://desktop.example.test/ws',
+      tokenMode: 'query',
+      accessToken: 'desktop-token',
+      namespace: 'ap'
+    },
+    createWebSocket: createSocketFactory(sockets)
+  });
+  try {
+    const connected = client.connect();
+    const requests = ['/api/agents', '/api/teams', '/api/chats'].map((type) => client.request({ type }));
+    const settled = Promise.all(requests);
+    settled.catch(() => {});
+    await connected;
+    await flushMicrotasks();
+    assert.equal(sockets.length, 1);
+    assert.equal(sockets[0].sent.length, 3);
+    for (const raw of sockets[0].sent) {
+      const frame = JSON.parse(raw) as { id: string; ns: string; type: string };
+      assert.equal(frame.ns, 'ap');
+      sockets[0].receive({ frame: 'response', id: frame.id, code: 0, data: [frame.type] });
+    }
+    assert.deepEqual(await settled, [['/api/agents'], ['/api/teams'], ['/api/chats']]);
+  } finally {
+    client.disconnect();
+  }
+});
+
 test('desktop query transport uses exact ws url and sends namespace', async () => {
   const sockets: FakeSocket[] = [];
   const client = new WsClient({
@@ -250,7 +305,7 @@ test('chat push stop only removes chat listeners without closing shared socket',
       }
     );
 
-    sockets[0].receive({ frame: 'push', type: 'chat.updated', payload: { chatId: 'chat-1' } });
+    sockets[0].receive({ frame: 'push', type: 'chat.updated', payload: { chatId: 'chat-1', updatedAt: 1_791_400_000_000 } });
     assert.equal(pushEvents.length, 1);
 
     stopChatPushTransport();
@@ -323,6 +378,7 @@ test('chat stream forwards done reason and last sequence', async () => {
       event: {
         type: 'content.delta',
         seq: 7,
+        timestamp: 1_791_400_000_000,
         payload: { delta: 'hi' }
       }
     });
@@ -333,7 +389,7 @@ test('chat stream forwards done reason and last sequence', async () => {
       lastSeq: 8
     });
 
-    assert.deepEqual(events, [{ delta: 'hi', type: 'content.delta', seq: 7 }]);
+    assert.deepEqual(events, [{ delta: 'hi', type: 'content.delta', seq: 7, timestamp: 1_791_400_000_000 }]);
     assert.equal(doneReason, 'complete');
     assert.equal(doneLastSeq, 8);
     handle.abort();

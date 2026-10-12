@@ -169,3 +169,24 @@ test('chat attach payload includes required agent scope', () => {
     lastSeq: 0
   });
 });
+
+test('editing query is opt-in, Team-safe and exclusive with Planning', () => {
+  const query = { requestId: 'edit', message: 'revise', agentKey: 'kbase' };
+  assert.equal(buildChatQueryPayload({ ...query, editingMode: true }).editingMode, true);
+  assert.equal('editingMode' in buildChatQueryPayload({ ...query, editingMode: false }), false);
+  assert.equal('editingMode' in buildChatQueryPayload({ ...query, editingMode: true, teamId: 'team' }), false);
+  assert.equal(buildChatQueryPayload({ ...query, editingMode: true, teamId: ' ' }).editingMode, true);
+  assert.throws(() => buildChatQueryPayload({ ...query, editingMode: true, planningMode: true }), /cannot be combined/);
+});
+
+test('query skill IDs are deduplicated and omitted for empty or Team selections', () => {
+  const query = { requestId: 'skill', message: 'use pdf', agentKey: 'agent' };
+  assert.deepEqual(buildChatQueryPayload({ ...query, mustUseSkills: [' office/pdf ', 'OFFICE/PDF'] }).mustUseSkills, [
+    'office/pdf'
+  ]);
+  assert.equal('mustUseSkills' in buildChatQueryPayload({ ...query, mustUseSkills: [] }), false);
+  assert.equal(
+    'mustUseSkills' in buildChatQueryPayload({ ...query, teamId: 'team', mustUseSkills: ['office/pdf'] }),
+    false
+  );
+});

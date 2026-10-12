@@ -1,3 +1,4 @@
+import { isOfficeFile } from '../../../core/api/services/documentPreviewProtocol.ts';
 import { buildWorkspaceFileResourceUrl } from '../../../core/api/services/workspaceResource.ts';
 import {
   isAuthenticatedResourceTextFileName,
@@ -80,7 +81,8 @@ function stripLineSuffix(filePath: string): { filePath: string; line?: number } 
 }
 
 function hasWorkspaceFileExtension(filePath: string): boolean {
-  return isAuthenticatedResourceTextFileName(fileNameFromPath(filePath, ''));
+  const name = fileNameFromPath(filePath, '');
+  return isAuthenticatedResourceTextFileName(name) || isOfficeFile(name);
 }
 
 function looksLikeWorkspacePath(filePath: string): boolean {
@@ -212,7 +214,7 @@ export function resolveConversationMarkdownLinkPreview(
     key: `workspace:${link.filePath}:${link.line || ''}`,
     name: link.fileName,
     resourceUrl: resourceUrl || '',
-    previewKind: 'text',
+    previewKind: resolveAuthenticatedResourcePreviewKind({ name: link.fileName }),
     sourcePath: link.filePath,
     line: link.line,
     ...(resourceUrl ? {} : { errorCode: 'missing_agent_scope' as const })

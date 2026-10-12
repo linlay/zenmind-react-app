@@ -24,7 +24,13 @@ export function useAuthenticatedResourcePreview(): AuthenticatedResourcePreviewC
   return value;
 }
 
-export function AuthenticatedResourcePreviewProvider({ children }: { children: ReactNode }) {
+export function AuthenticatedResourcePreviewProvider({
+  children,
+  conversationId = ''
+}: {
+  children: ReactNode;
+  conversationId?: string;
+}) {
   const t = useT();
   const [request, setRequest] = useState<AuthenticatedResourcePreviewRequest | null>(null);
   const resourceDownload = useAuthenticatedResourceDownload(
@@ -58,6 +64,7 @@ export function AuthenticatedResourcePreviewProvider({ children }: { children: R
         <AuthenticatedResourcePreviewModal
           key={request.target.key}
           target={request.target}
+          conversationId={conversationId}
           visible
           initialError={request.initialError}
           downloadState={resourceDownload.state}

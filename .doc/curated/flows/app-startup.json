@@ -6,11 +6,12 @@
   "sourceOfTruth": [
     "app.config.js 通过 --brand 或 BRAND 选择 brands/<id>/brand.json，并合成 brands/shared.json 与固定版本 schema v2 react-app-env 构建产物，决定品牌展示、共享 native identity、安装壳 embedded brand id 以及该品牌默认数据源 endpoint/query-token；extra.appEnvironment 记录产物 schemaVersion/artifactVersion，Android 使用从品牌 imageWidth 派生的安全宽度，避免系统圆形 splash 遮罩裁切笔画。",
     "App.tsx 和 AppRoot.tsx 决定根 provider 树、I18nProvider、AppThemeProvider 与导航挂载顺序。",
-    "src/core/auth/appAccess.ts 合并持久默认源身份、跳过选择和 Desktop WS 会话，决定 onboarding、ready/unpaired、ready/paired；appAuth 只恢复新版 Desktop WS 配对会话。",
     "notificationService 决定登录后的系统通知权限、原生 push token 注册和冷启动通知点击缓存。",
     "src/shared/branding/installedBrand.ts 从安装壳 embedded app.config.extra.brand.id 解析 INSTALLED_BRAND_ID；AppLaunchSkeleton.tsx 和 src/shared/icons/brandAssets.ts 决定应用冷启动期间的加载遮罩展示效果与 generated brand logo 入口。",
     "AndroidManifest.xml、MainActivity.kt、MainApplication.kt 和 res/values/styles.xml 决定 React 挂载前的原生启动窗口外观与 ReactHost 创建方式。",
-    "RootNavigator.tsx 决定 root stack 与底部 Tab 的真实路由结构。"
+    "RootNavigator.tsx 决定 root stack 与底部 Tab 的真实路由结构。",
+    "accountDesktopSource 独立订阅账号与云端凭证，协调当前来源、SQLite 与连接；默认云端不要求 Identity 登录。",
+    "2026-10-12：activeDesktop 是 cloud/desktop/null 唯一选择；电脑 accountId+desktopId 缓存与默认云端 credential scope 独立。cloudAccess 只读验证后才开放云端，断线缓存只读、认证失效隐藏、撤销不自动回落。"
   ],
   "steps": [
     {
@@ -36,14 +37,14 @@
     },
     {
       "order": 4,
-      "label": "AppRoot 在挂载 NavigationContainer 前触发 bootstrapAppAccess：恢复或创建默认源本地身份与持久跳过选择，再用保存的 Desktop WS wsUrl/token 校验 session.hello 并按需 auth.refresh；随后按当前主题渲染 RootNavigator 和开发态 Debug 面板宿主。",
+      "label": "AppRoot 并行启动账号恢复与默认云端只读业务验证；有效云端不等待 Identity。首次验证成功才选云端，已有电脑选择等待匹配账号恢复。",
       "moduleId": "app-shell-navigation",
       "file": "src/app/AppRoot.tsx",
       "symbol": "AppRoot"
     },
     {
       "order": 5,
-      "label": "AppRoot 在 AppAccess ready 后始终预热并启动默认源 Chat；paired 时同时启动 Desktop Chat、注册 notificationService，并在前台 active 状态下刷新 Desktop token。",
+      "label": "accountDesktopSource 同步交接唯一选择与 SQLite scope，预热并启动单个 chatSyncService；账号和云端退出互不影响。默认云端通知注册按本地 cloud scope 绑定并拒绝迟到结果。",
       "moduleId": "feature-notifications",
       "file": "src/features/notifications/notificationService.ts",
       "symbol": "notificationService"
@@ -57,14 +58,14 @@
     },
     {
       "order": 7,
-      "label": "RootNavigator 根据 AppAccess 切到 AuthBootstrapScreen、首次 Login 或 Tabs；ready/unpaired 与 ready/paired 都挂载 Chat、WebApps 与 Me。ready/unpaired 可在 Tabs 之上打开 Login，输入配对码、扫码或最近 Profile 成功使 AppAccess 进入 paired 后，RootNavigator 自动移除 Login 并保留原 Tab 状态。WebAppsRuntimeProvider 只有 paired 时才订阅 Desktop webapp.changed，并按 sessionKey 重置自身目录和常驻 WebView Host，而不重挂 RootStack。",
+      "label": "RootNavigator 挂载 Chat/WebApps/Me，账号与云端 Token Login 始终可达；WebApps 仅在已确认账号所选电脑启用。",
       "moduleId": "app-shell-navigation",
       "file": "src/app/navigation/RootNavigator.tsx",
       "symbol": "RootNavigator"
     },
     {
       "order": 8,
-      "label": "DevelopmentDebugPanelHost 在开发态挂载隐藏调试面板宿主；Me 页版本信息三连点通过 developmentDebugPanel 启用 Debug 模式并打开面板，普通关闭后保留右下角 Debug 浮动按钮，彻底关闭才移除入口；面板显示当前 API Base URL、reload、缓存清理和 WS frame 调试入口，并只在可见时订阅 WS frame 快照。",
+      "label": "DevelopmentDebugPanelHost 在开发态挂载隐藏调试面板宿主；About 页版本信息三连点通过 developmentDebugPanel 启用 Debug 模式并打开面板，普通关闭后保留右下角 Debug 浮动按钮，彻底关闭才移除入口；面板显示当前 API Base URL、reload、缓存清理和 WS frame 调试入口，并只在可见时订阅 WS frame 快照。",
       "moduleId": "app-development-debug",
       "file": "src/app/debug/DevelopmentDebugPanelHost.tsx",
       "symbol": "DevelopmentDebugPanelHost"
@@ -78,11 +79,8 @@
     }
   ],
   "failureModes": [
-    "bootstrapAppAccess 没有在冷启动时执行，会丢失持久跳过选择并无法恢复默认源身份或 Desktop WS profile。",
     "前台 token 预刷新没有使用 soft failure，会因短暂网络或 Desktop WS 临时不可达误清理登录态。",
-    "Desktop WS profile 冷启动没有校验 session.hello 或 deviceId，会把过期/错误 Desktop endpoint 当成有效 session。",
     "RootNavigator 和 TabScreens 映射不一致会导致错误页面或无效路由。",
-    "AppAccess 切屏和 RootStack 路由定义不一致时，会出现跳过后仍卡在登录页、解除配对回到 onboarding 或未配对无法从 Me 再次打开配对页。",
     "Theme.App.SplashScreen 和 AppTheme 背景不连续时，会在 React loading 出现前露出白屏或占位底图。",
     "AppThemeProvider 没有挂在 NavigationContainer 上层时，导航背景、StatusBar 和底部 Tab 不会随主题偏好同步更新。",
     "native splash 使用的 logo 与 React loading 首帧不一致时，会在 hideAsync() 接棒瞬间出现明显跳变。",

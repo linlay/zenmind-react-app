@@ -64,7 +64,7 @@ test('chat outbox keeps planning mode replayable without new query shape', () =>
   const planningModeLookupSource = extractSourceSection(
     replaceProjectionSource,
     'const currentOutboxRows =',
-    'const currentOutboxPlanningModeByClientId'
+    'const currentOutboxModesByClientId'
   );
   const createOutgoingSource = extractSourceSection(
     repositorySource,

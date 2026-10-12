@@ -1,8 +1,7 @@
 import { MMKV } from 'react-native-mmkv';
 
 import { readIdentityApiBaseUrl, readTunnelHubApiBaseUrl } from './authConfig.ts';
-import { canPersistAccountSession, parseAccountSession, type AccountSession } from './accountAuthModel.ts';
-import type { DeviceKind, TrustLevel } from '../api/contracts/deviceLink.ts';
+import { parseAccountSession, type AccountSession } from './accountAuthModel.ts';
 import { ApiError } from '../api/apiError.ts';
 
 const storage = new MMKV({ id: 'zenmind-account-session' });
@@ -17,12 +16,14 @@ type PersistedCredential = {
 export type AccountAuthSnapshot = {
   isBootstrapping: boolean;
   session: AccountSession | null;
+  error?: string;
 };
 
 type Listener = () => void;
 
 let snapshot: AccountAuthSnapshot = { isBootstrapping: true, session: null };
 let refreshPromise: Promise<AccountSession | null> | null = null;
+let authGeneration = 0;
 const listeners = new Set<Listener>();
 
 function normalizeBaseUrl(value: string): string {
@@ -54,14 +55,10 @@ function readPersistedCredential(): PersistedCredential | null {
 }
 
 function persistSession(identityBaseUrl: string, session: AccountSession) {
-  if (canPersistAccountSession(session)) {
-    storage.set(
-      PERSISTED_CREDENTIAL_KEY,
-      JSON.stringify({ identityBaseUrl: normalizeBaseUrl(identityBaseUrl), deviceToken: session.deviceToken })
-    );
-  } else {
-    storage.delete(PERSISTED_CREDENTIAL_KEY);
-  }
+  storage.set(
+    PERSISTED_CREDENTIAL_KEY,
+    JSON.stringify({ identityBaseUrl: normalizeBaseUrl(identityBaseUrl), deviceToken: session.deviceToken })
+  );
   setSnapshot({ isBootstrapping: false, session });
 }
 
@@ -92,6 +89,10 @@ export function getAccountAuthSnapshot(): AccountAuthSnapshot {
   return snapshot;
 }
 
+export function getAccountAuthGeneration(): number {
+  return authGeneration;
+}
+
 export function subscribeAccountAuth(listener: Listener): () => void {
   listeners.add(listener);
   return () => listeners.delete(listener);
@@ -101,24 +102,31 @@ export async function loginWithAccountCredentials(input: {
   username: string;
   password: string;
   deviceName: string;
-  deviceKind?: DeviceKind;
-  trustLevel?: TrustLevel;
   signal?: AbortSignal;
 }): Promise<AccountSession> {
+  if (
+    !input.username.trim() ||
+    !input.password ||
+    !input.deviceName.trim() ||
+    [...input.deviceName.trim()].length > 64
+  ) {
+    throw new Error('Account, password and a device name of 1–64 characters are required');
+  }
   const identityBaseUrl = readIdentityApiBaseUrl();
   if (!identityBaseUrl) throw new Error('Identity API is not configured');
+  const generation = ++authGeneration;
+  refreshPromise = null;
   const session = await requestAccountSession(
     identityBaseUrl,
     '/api/auth/account/login',
     {
       username: input.username.trim(),
       password: input.password,
-      deviceName: input.deviceName.trim(),
-      deviceKind: input.deviceKind || 'mobile',
-      trustLevel: input.trustLevel || 'trusted'
+      deviceName: input.deviceName.trim()
     },
     input.signal
   );
+  if (generation !== authGeneration || input.signal?.aborted) throw new Error('Account login superseded');
   persistSession(identityBaseUrl, session);
   return session;
 }
@@ -130,12 +138,15 @@ export async function claimAccountLoginChallenge(
 ): Promise<AccountSession> {
   const identityBaseUrl = readIdentityApiBaseUrl();
   if (!identityBaseUrl) throw new Error('Identity API is not configured');
+  const generation = ++authGeneration;
+  refreshPromise = null;
   const session = await requestAccountSession(
     identityBaseUrl,
     `/api/auth/account/login-challenges/${encodeURIComponent(challengeId.trim())}/claim`,
     { claimToken: claimToken.trim() },
     signal
   );
+  if (generation !== authGeneration || signal?.aborted) throw new Error('Account login superseded');
   persistSession(identityBaseUrl, session);
   return session;
 }
@@ -146,19 +157,28 @@ async function refreshAccountSession(force = false): Promise<AccountSession | nu
   if (refreshPromise) return refreshPromise;
   const credential = readPersistedCredential();
   if (!credential) {
+    if (current && current.accessExpireAtMs > Date.now()) return current;
     setSnapshot({ isBootstrapping: false, session: null });
     return null;
   }
+  const generation = authGeneration;
   const task = requestAccountSession(credential.identityBaseUrl, '/api/auth/refresh', {
     deviceToken: credential.deviceToken
   })
     .then((session) => {
+      if (generation !== authGeneration) return null;
       persistSession(credential.identityBaseUrl, session);
       return session;
     })
-    .catch(() => {
-      storage.delete(PERSISTED_CREDENTIAL_KEY);
-      setSnapshot({ isBootstrapping: false, session: null });
+    .catch((error: unknown) => {
+      if (generation !== authGeneration) return null;
+      const invalid = error instanceof ApiError && (error.status === 401 || error.status === 403);
+      if (invalid) storage.delete(PERSISTED_CREDENTIAL_KEY);
+      setSnapshot({
+        isBootstrapping: false,
+        session: null,
+        ...(invalid ? {} : { error: error instanceof Error ? error.message : 'Account recovery failed' })
+      });
       return null;
     });
   refreshPromise = task;
@@ -191,6 +211,7 @@ export async function getAccountAccessTokenForRequest(baseUrl: string, forceRefr
 }
 
 export async function logoutAccount(): Promise<void> {
+  authGeneration++;
   const current = snapshot.session;
   storage.delete(PERSISTED_CREDENTIAL_KEY);
   refreshPromise = null;

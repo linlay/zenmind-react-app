@@ -1,3 +1,4 @@
+import { createMessageAttachmentsFromReferences } from '../../src/features/chatPersistence/chatAttachmentModels.ts';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -38,15 +39,26 @@ test('authenticated image previews release native temporary files when their las
 });
 
 test('remote attachment projection persists metadata but never a local binary path', () => {
-  const models = readSource('src/features/chatPersistence/chatAttachmentModels.ts');
-  const projectionStart = models.indexOf('export function createMessageAttachmentsFromReferences');
-  const projectionEnd = models.indexOf('export function formatChatAttachmentsMessageText', projectionStart);
-  const projection = models.slice(projectionStart, projectionEnd);
-
-  assert.ok(projectionStart >= 0 && projectionEnd > projectionStart);
-  assert.match(projection, /localUri: ''/u);
-  assert.match(projection, /previewUri: null/u);
-  assert.match(projection, /resourceUrl: reference\.url \|\| null/u);
+  const projected = createMessageAttachmentsFromReferences({
+    conversationId: 'chat',
+    messageId: 'message',
+    createdAt: 1,
+    references: [
+      {
+        type: 'file',
+        id: 'file',
+        name: 'report.pdf',
+        url: '/api/resource/report.pdf',
+        localUri: '/private/report.pdf'
+      },
+      { type: 'site', id: 'website:a', name: 'Site', url: 'https://example.com', meta: { kind: 'website' } }
+    ]
+  });
+  assert.equal(projected.length, 2);
+  assert.ok(projected.every((item) => item.localUri === '' && item.previewUri === null));
+  assert.equal(projected[0].resourceUrl, '/api/resource/report.pdf');
+  assert.equal(projected[1].resourceUrl, null);
+  assert.equal(projected[1].references[0].url, 'https://example.com');
 });
 
 test('cache management contains no automatic TTL or LRU deletion path', () => {

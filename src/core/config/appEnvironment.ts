@@ -1,7 +1,4 @@
-import {
-  APP_ENVIRONMENT,
-  DEFAULT_SOURCE_ENVIRONMENT
-} from '../../shared/generated/appEnv';
+import { APP_ENVIRONMENT, DEFAULT_SOURCE_ENVIRONMENT } from '../../shared/generated/appEnv';
 import { normalizeApiBaseUrl } from './endpoint';
 
 export type DefaultSourceConfig = {

@@ -4,7 +4,7 @@ import type {
   ChatTimelineState,
   ChatTimelineUsageStats,
   ChatTimelineUsageSummary,
-  ChatTimelineUsageTiming,
+  ChatTimelineUsageTiming
 } from './types.ts';
 import { buildActiveReasoningNodeIdsByRun } from './timelineReasoningIdentity.ts';
 import { migratePersistedChatTimelineActionNode } from './timelineAction.ts';
@@ -102,7 +102,7 @@ function normalizePersistedUsageTiming(value: unknown): ChatTimelineUsageTiming 
     firstTokenLatencyMs: toNullableUsageNumber(timing.firstTokenLatencyMs),
     firstTokenLatencyTotalMs: toNullableUsageNumber(timing.firstTokenLatencyTotalMs),
     firstTokenLatencyCount: toNullableUsageNumber(timing.firstTokenLatencyCount),
-    generationDurationMs: toNullableUsageNumber(timing.generationDurationMs),
+    generationDurationMs: toNullableUsageNumber(timing.generationDurationMs)
   };
 }
 
@@ -110,7 +110,7 @@ function normalizePersistedUsageStats(value: Record<string, unknown>): ChatTimel
   const stats = value as ChatTimelineUsageStats;
   return {
     ...stats,
-    timing: normalizePersistedUsageTiming(value.timing),
+    timing: normalizePersistedUsageTiming(value.timing)
   };
 }
 
@@ -137,9 +137,7 @@ function normalizePersistedUsageSummary(value: unknown): ChatTimelineUsageSummar
     contextWindow: {
       ...summary.contextWindow,
       reasoningEffort:
-        typeof value.contextWindow.reasoningEffort === 'string'
-          ? value.contextWindow.reasoningEffort
-          : ''
+        typeof value.contextWindow.reasoningEffort === 'string' ? value.contextWindow.reasoningEffort : ''
     }
   };
 }
@@ -169,7 +167,13 @@ export function serializeChatTimelineState(state: ChatTimelineState): Serialized
       if (!node) {
         return null;
       }
-      const payloadJson = stableStringify(node);
+      const persistedNode = { ...node };
+      if (persistedNode.kind === 'tool') delete persistedNode.toolOutput;
+      if (persistedNode.kind === 'run') {
+        delete persistedNode.accessUpdate;
+        delete persistedNode.feedbackPending;
+      }
+      const payloadJson = stableStringify(persistedNode);
       return {
         conversationId,
         nodeId: node.id,
@@ -179,7 +183,7 @@ export function serializeChatTimelineState(state: ChatTimelineState): Serialized
         createdAt: node.createdAt,
         updatedAt: node.updatedAt,
         payloadHash: hashText(payloadJson),
-        payloadJson,
+        payloadJson
       };
     })
     .filter((node): node is SerializedTimelineNode => Boolean(node));
@@ -192,9 +196,9 @@ export function serializeChatTimelineState(state: ChatTimelineState): Serialized
       usageLabel: state.usageLabel,
       updatedAt: state.updatedAt,
       revision: state.revision,
-      nextOrder: state.nextOrder,
+      nextOrder: state.nextOrder
     },
-    nodes,
+    nodes
   };
 }
 
@@ -236,12 +240,17 @@ export function deserializeChatTimelineState(
     node = migratePersistedChatTimelineActionNode(node, conversationId);
     node = migratePersistedChatTimelineContextCompactNode(node, conversationId);
     node = migratePersistedChatTimelineMessageNode(node);
+    if (node.kind === 'run' && (node.accessUpdate || node.feedbackPending)) {
+      node = { ...node };
+      delete node.accessUpdate;
+      delete node.feedbackPending;
+    }
     if (node.kind === 'usage' || node.kind === 'context') {
       const usageSummary = normalizePersistedUsageSummary(node.usageSummary);
       if (usageSummary) {
         node = {
           ...node,
-          usageSummary,
+          usageSummary
         };
       }
     }
@@ -266,6 +275,7 @@ export function deserializeChatTimelineState(
 
   return {
     conversationId,
+    toolOutputBytes: 0,
     orderedNodeIds,
     nodesById,
     activeRunId: String(meta.activeRunId || ''),
@@ -283,18 +293,18 @@ export function deserializeChatTimelineState(
           status: awaitingNode.status,
           interactive: awaitingNode.interactive ?? null,
           answerSummary: awaitingNode.answerSummary ?? null,
-          updatedAt: awaitingNode.updatedAt,
+          updatedAt: awaitingNode.updatedAt
         }
       : null,
     usageLabel,
     usageSummary,
     updatedAt,
     revision: toFiniteNumber(meta.revision, 0),
-    nextOrder: toFiniteNumber(meta.nextOrder, orderedNodeIds.length),
+    nextOrder: toFiniteNumber(meta.nextOrder, orderedNodeIds.length)
   };
 }
 
 export const timelinePersistenceInternals = {
   hashText,
-  stableStringify,
+  stableStringify
 };

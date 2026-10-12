@@ -8,7 +8,7 @@ import {
   Text,
   View,
   type Insets,
-  useWindowDimensions,
+  useWindowDimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -34,7 +34,6 @@ const HEADER_CLASS = 'min-h-[58px] flex-row items-center gap-app-sm border-app-l
 const HEADER_TEXT_CLASS = 'min-w-0 flex-1';
 const TITLE_CLASS = 'text-app-title-sm font-bold text-app-primary';
 const SUBTITLE_CLASS = 'mt-[2px] text-[12px] font-semibold leading-[17px] text-app-secondary';
-const CLOSE_BUTTON_CLASS = 'h-[34px] w-[34px] items-center justify-center rounded-app-pill active:bg-app-surface-muted';
 const ERROR_TEXT_CLASS = 'px-app-md py-app-sm text-[12px] leading-[17px] text-app-danger';
 const LIST_FRAME_CLASS = 'flex-1 px-app-sm';
 const STATE_BLOCK_CLASS = 'flex-1 items-center justify-center';
@@ -59,6 +58,9 @@ type ChatDirectoryPickerDrawerProps = {
   errorText: string;
   hasMore: boolean;
   openingItemId: string | null;
+  sourceLabel: string;
+  isDesktop: boolean;
+  onOpenSource: () => void;
   onClose: () => void;
   onDismissed?: () => void;
   onLoadMore: () => void;
@@ -145,6 +147,9 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
   errorText,
   hasMore,
   openingItemId,
+  sourceLabel,
+  isDesktop,
+  onOpenSource,
   onClose,
   onDismissed,
   onLoadMore,
@@ -164,7 +169,7 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
       bottom: ROW_PRESS_RETENTION_VERTICAL_OFFSET,
       left: panelWidth,
       right: panelWidth,
-      top: ROW_PRESS_RETENTION_VERTICAL_OFFSET,
+      top: ROW_PRESS_RETENTION_VERTICAL_OFFSET
     }),
     [panelWidth]
   );
@@ -264,22 +269,21 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
         ]}
       >
         <View className={HEADER_CLASS} style={appHairlineStyles.borderBottom}>
-          <View className={HEADER_TEXT_CLASS}>
-            <Text numberOfLines={1} className={TITLE_CLASS}>
-              {t('directoryPicker.title')}
-            </Text>
-            <Text numberOfLines={1} className={SUBTITLE_CLASS}>
-              {t('directoryPicker.subtitle', { count: countLabel })}
-            </Text>
-          </View>
           <Pressable
-            accessibilityLabel={t('directoryPicker.close')}
             accessibilityRole="button"
-            onPressIn={onClose}
-            onPress={onClose}
-            className={CLOSE_BUTTON_CLASS}
+            onPress={onOpenSource}
+            className="min-h-11 min-w-0 flex-1 flex-row items-center gap-app-sm"
           >
-            <AppIcon usage="directoryPicker.close" />
+            <AppIcon usage={isDesktop ? 'accountSource.desktop' : 'accountSource.cloud'} />
+            <View className={HEADER_TEXT_CLASS}>
+              <Text numberOfLines={1} className={TITLE_CLASS}>
+                {sourceLabel}
+              </Text>
+              <Text numberOfLines={1} className={SUBTITLE_CLASS}>
+                {countLabel}
+              </Text>
+            </View>
+            <AppIcon usage="accountSource.expand" />
           </Pressable>
         </View>
 

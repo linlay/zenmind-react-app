@@ -72,6 +72,7 @@ function buildViewportData({
   const resolvedActiveFormIndex = clampActiveFormIndex(activeFormIndex, forms.length);
   const activeForm = forms[resolvedActiveFormIndex];
   return {
+    view: awaiting.interactive?.view,
     runId: awaiting.runId,
     awaitingId: awaiting.awaitingId,
     viewportKey,
@@ -258,7 +259,8 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
               JSON.stringify({
                 type: 'awaiting_collect',
                 data: {
-                  runId: awaiting.runId,
+                  view: awaiting.interactive?.view,
+    runId: awaiting.runId,
                   awaitingId: awaiting.awaitingId,
                   decision,
                 },
@@ -267,11 +269,12 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
           });
         },
       }),
-      [awaiting.awaitingId, awaiting.runId, clearPendingCollect, disabled, html, t]
+      [awaiting.awaitingId, awaiting.interactive?.view, awaiting.runId, clearPendingCollect, disabled, html, t]
     );
 
     const handleMessage = useCallback(
       (event: WebViewMessageEvent) => {
+        if (disabled) return;
         const data = parseFrameMessage(event.nativeEvent.data);
         if (!isObjectRecord(data)) {
           return;
@@ -286,6 +289,7 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
         }
 
         if (data.type === 'close' || data.type === 'done') {
+          if (awaiting.interactive?.view) return;
           clearPendingCollect();
           onSubmitParams(forms.map((form) => ({ id: form.id, decision: 'reject' })));
           return;
@@ -317,9 +321,9 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
           pending.resolve(params);
           return;
         }
-        onSubmitParams(params);
+        if (!awaiting.interactive?.view) onSubmitParams(params);
       },
-      [clearPendingCollect, forms, onError, onSubmitParams, t]
+      [awaiting.interactive?.view, clearPendingCollect, disabled, forms, onError, onSubmitParams, t]
     );
 
     if (loading) {
@@ -366,6 +370,10 @@ const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, Awaitin
           injectedJavaScriptBeforeContentLoaded={AWAITING_FORM_VIEWPORT_BRIDGE_SCRIPT}
           onLoadEnd={() => postToFrame('awaiting_init')}
           onMessage={handleMessage}
+          onShouldStartLoadWithRequest={(request) => !awaiting.interactive?.view || request.url === 'about:blank' || request.url.startsWith('data:')}
+          javaScriptCanOpenWindowsAutomatically={false}
+          allowFileAccess={false}
+          mixedContentMode="never"
           style={{ flex: 1, backgroundColor: theme.colors.background }}
         />
       </View>

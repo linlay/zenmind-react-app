@@ -1,3 +1,4 @@
+import { isOfficeFile } from '../../core/api/services/documentPreviewProtocol.ts';
 import { getChatAttachmentExtension, getChatAttachmentKind } from './chatAttachmentModels.ts';
 
 export type AuthenticatedResourcePreviewKind = 'image' | 'text' | 'pdf' | 'unsupported';
@@ -67,6 +68,7 @@ export function resolveAuthenticatedResourcePreviewKind(input: {
     .toLowerCase()
     .split(';', 1)[0];
   const extension = getChatAttachmentExtension(input.name);
+  if (isOfficeFile(input.name || '')) return 'unsupported';
   if (mimeType === 'application/pdf' || extension === 'pdf') {
     return 'pdf';
   }

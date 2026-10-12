@@ -9,6 +9,9 @@ import type {
 export type NormalizedChatTimelineContextCompact = {
   compactId: string;
   requestId: string;
+  cycleId?: string;
+  level?: string;
+  cycleComplete?: boolean;
   status: ChatTimelineContextCompactStatus;
   preCompactTokens: number | null;
   postCompactTokens: number | null;
@@ -113,14 +116,17 @@ export function normalizeChatTimelineContextCompactEvent(
   const savings = deriveSavings(
     preCompactTokens,
     postCompactTokens,
-    firstNumber(event.savedTokens, event.tokensSaved, payload.savedTokens, payload.tokensSaved),
+    firstNumber(event.tokensFreed, event.savedTokens, event.tokensSaved, payload.tokensFreed, payload.savedTokens, payload.tokensSaved),
     firstNumber(event.savedPercent, event.savingsPercent, payload.savedPercent, payload.savingsPercent)
   );
 
   return {
     compactId: firstText(event.compactId, event.compact_id, payload.compactId, payload.compact_id),
     requestId: firstText(event.requestId, event.request_id, payload.requestId, payload.request_id),
-    status: resolveStatus(type),
+    ...(firstText(event.cycleId, payload.cycleId) ? {cycleId: firstText(event.cycleId, payload.cycleId)} : {}),
+    ...(firstText(event.level, payload.level) ? {level: firstText(event.level, payload.level)} : {}),
+    ...(typeof (event.cycleComplete ?? payload.cycleComplete) === 'boolean' ? {cycleComplete: (event.cycleComplete ?? payload.cycleComplete) as boolean} : {}),
+    status: resolveStatus(type) === 'completed' && (event.cycleComplete ?? payload.cycleComplete) === false ? 'running' : resolveStatus(type),
     preCompactTokens,
     postCompactTokens,
     ...savings,
@@ -139,10 +145,10 @@ export function normalizeChatTimelineContextCompactEvent(
 
 export function createChatTimelineContextCompactNodeId(
   conversationId: string,
-  normalized: Pick<NormalizedChatTimelineContextCompact, 'compactId' | 'requestId'>,
+  normalized: Pick<NormalizedChatTimelineContextCompact, 'compactId' | 'requestId' | 'cycleId'>,
   fallback: string
 ): string {
-  const stableId = normalized.requestId || normalized.compactId || String(fallback || 'compact');
+  const stableId = normalized.cycleId || normalized.requestId || normalized.compactId || String(fallback || 'compact');
   return `context:${String(conversationId || '').trim()}:compact:${stableId}`;
 }
 
@@ -161,6 +167,9 @@ export function mergeChatTimelineContextCompactValues(
   );
 
   return {
+    ...(incoming.cycleId || current?.cycleId ? {cycleId: incoming.cycleId || current?.cycleId} : {}),
+    ...(incoming.level || current?.level ? {level: incoming.level || current?.level} : {}),
+    ...(incoming.cycleComplete !== undefined ? {cycleComplete: incoming.cycleComplete} : {}),
     compactId: incoming.compactId || current?.compactId || '',
     requestId: incoming.requestId || current?.requestId || '',
     status: incoming.status,
@@ -176,6 +185,7 @@ export function chatTimelineContextCompactNodePayloadEquals(
   right: ChatTimelineContextCompactNode
 ): boolean {
   return (
+    left.cycleId === right.cycleId && left.level === right.level && left.cycleComplete === right.cycleComplete &&
     left.compactId === right.compactId &&
     left.requestId === right.requestId &&
     left.status === right.status &&
@@ -250,6 +260,9 @@ export function migratePersistedChatTimelineContextCompactNode(
   return {
     id: firstText(record.id) || createChatTimelineContextCompactNodeId(conversationId, normalized, fallback),
     kind: 'context',
+    ...(normalized.cycleId ? {cycleId: normalized.cycleId} : {}),
+    ...(normalized.level ? {level: normalized.level} : {}),
+    ...(normalized.cycleComplete !== undefined ? {cycleComplete: normalized.cycleComplete} : {}),
     compactId: normalized.compactId,
     requestId: normalized.requestId,
     status: normalized.status,

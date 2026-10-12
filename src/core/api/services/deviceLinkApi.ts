@@ -5,67 +5,48 @@ import {
   parseAccountDeviceListV1,
   parseTrustedRouteContext,
   type AccountDeviceListV1,
-  type DeviceKind,
-  type TrustedRouteContext,
-  type TrustLevel
+  type TrustedRouteContext
 } from '../contracts/deviceLink.ts';
-import { mergeAccountDevicePresence, parseDesktopPresence } from '../contracts/devicePresence.ts';
 
 export async function listAccountDevices(signal?: AbortSignal): Promise<AccountDeviceListV1> {
-  const identityBaseUrl = readIdentityApiBaseUrl();
-  const hubBaseUrl = readTunnelHubApiBaseUrl();
-  const [devicesPayload, presencePayload] = await Promise.all([
-    authenticatedAccountApiRequest<unknown>(identityBaseUrl, { path: '/api/auth/account-devices', signal }),
-    authenticatedAccountApiRequest<unknown>(hubBaseUrl, { path: '/api/desktop/account-presence', signal })
-  ]);
-  return mergeAccountDevicePresence(parseAccountDeviceListV1(devicesPayload), parseDesktopPresence(presencePayload));
+  const payload = await authenticatedAccountApiRequest<unknown>(readTunnelHubApiBaseUrl(), {
+    path: '/api/desktop/account-devices',
+    signal
+  });
+  return parseAccountDeviceListV1(payload);
 }
 
 export async function renameAccountDevice(deviceId: string, deviceName: string): Promise<void> {
-  await authenticatedAccountApiRequest(readIdentityApiBaseUrl(), {
-    path: `/api/auth/account-devices/${encodeURIComponent(deviceId)}`,
+  await authenticatedAccountApiRequest(readTunnelHubApiBaseUrl(), {
+    path: `/api/desktop/account-devices/${encodeURIComponent(deviceId)}`,
     method: 'PATCH',
     body: { deviceName }
   });
 }
 
 export async function revokeAccountDevice(deviceId: string): Promise<void> {
-  await authenticatedAccountApiRequest(readIdentityApiBaseUrl(), {
-    path: `/api/auth/account-devices/${encodeURIComponent(deviceId)}`,
+  await authenticatedAccountApiRequest(readTunnelHubApiBaseUrl(), {
+    path: `/api/desktop/account-devices/${encodeURIComponent(deviceId)}`,
     method: 'DELETE'
-  });
-}
-
-export async function changeAccountDeviceTrust(deviceId: string, trustLevel: TrustLevel): Promise<void> {
-  await authenticatedAccountApiRequest(readIdentityApiBaseUrl(), {
-    path: `/api/auth/account-devices/${encodeURIComponent(deviceId)}/trust`,
-    method: 'PATCH',
-    body: { trustLevel }
   });
 }
 
 export async function startAccountLoginChallenge(input: {
   deviceName: string;
-  deviceKind: DeviceKind;
   signal?: AbortSignal;
 }): Promise<{ challengeId: string; claimToken: string; expiresAt: string; qrPayload: { challengeId: string } }> {
   return publicAccountApiRequest(readIdentityApiBaseUrl(), {
     path: '/api/auth/account/login-challenges',
     method: 'POST',
-    body: { deviceName: input.deviceName, deviceKind: input.deviceKind },
+    body: { deviceName: input.deviceName },
     signal: input.signal
   });
 }
 
-export async function confirmAccountLoginChallenge(
-  challengeId: string,
-  trustLevel: TrustLevel,
-  signal?: AbortSignal
-): Promise<void> {
+export async function confirmAccountLoginChallenge(challengeId: string, signal?: AbortSignal): Promise<void> {
   await authenticatedAccountApiRequest(readIdentityApiBaseUrl(), {
     path: `/api/auth/account/login-challenges/${encodeURIComponent(challengeId)}/confirm`,
     method: 'POST',
-    body: { trustLevel },
     signal
   });
 }
@@ -89,6 +70,7 @@ export async function issueDesktopRouteCredential(
   if (
     payload.schemaVersion !== DEVICE_LINK_SCHEMA_VERSION ||
     typeof payload.credential !== 'string' ||
+    !/^tr_[A-Za-z0-9_-]{43}$/u.test(payload.credential) ||
     typeof payload.webSocketUrl !== 'string' ||
     (payload.tokenMode !== 'query' && payload.tokenMode !== 'subprotocol')
   ) {

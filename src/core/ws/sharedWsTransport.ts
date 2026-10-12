@@ -77,6 +77,7 @@ function normalizeTransport(transport: WsTransportConfig): WsTransportConfig {
     backendUrl: normalizeBackendUrl(transport.backendUrl),
     wsUrl: normalizeDesktopEndpointUrl(transport.wsUrl || ''),
     accessToken,
+    accessTokenProvider: transport.accessTokenProvider,
     connectionKey: normalizeConnectionKey(transport.connectionKey)
   };
 }
@@ -110,6 +111,7 @@ function toError(error: unknown, fallback = 'WebSocket stream failed'): Error {
 
 export function createSharedWsTransport() {
   const clients = new Map<string, ClientEntry>();
+  const idleReleaseRequested = new Set<string>();
   const pushListeners = new Map<SharedWsPushListener, { clientKey: string | null }>();
   const statusListeners = new Map<SharedWsStatusListener, { clientKey: string | null }>();
 
@@ -157,12 +159,17 @@ export function createSharedWsTransport() {
   };
 
   const request = <T>(options: SharedWsRequestOptions): Promise<T> =>
-    ensureClient(options.transport).request<T>({
-      type: options.type,
-      payload: options.payload,
-      signal: options.signal,
-      namespace: options.namespace
-    });
+    ensureClient(options.transport)
+      .request<T>({
+        type: options.type,
+        payload: options.payload,
+        signal: options.signal,
+        namespace: options.namespace
+      })
+      .finally(() => {
+        if (idleReleaseRequested.has(getClientKey(normalizeTransport(options.transport))))
+          releaseIfIdle(options.transport);
+      });
 
   const connect = (transport: WsTransportConfig, signal?: AbortSignal): Promise<void> =>
     ensureClient(transport).connect(signal);
@@ -328,6 +335,7 @@ export function createSharedWsTransport() {
       const clientKey = getClientKey(normalizeTransport(transport));
       clients.get(clientKey)?.client.disconnect();
       clients.delete(clientKey);
+      idleReleaseRequested.delete(clientKey);
       dispatchStatus(clientKey, 'idle');
       return;
     }
@@ -335,7 +343,24 @@ export function createSharedWsTransport() {
     const clientKeys = [...clients.keys()];
     clients.forEach((entry) => entry.client.disconnect());
     clients.clear();
+    idleReleaseRequested.clear();
     clientKeys.forEach((clientKey) => dispatchStatus(clientKey, 'idle'));
+  };
+
+  const releaseIfIdle = (transport: WsTransportConfig): boolean => {
+    const key = getClientKey(normalizeTransport(transport));
+    const entry = clients.get(key);
+    if (!entry) return false;
+    if ([...pushListeners.values(), ...statusListeners.values()].some((listener) => listener.clientKey === key)) {
+      idleReleaseRequested.delete(key);
+      return false;
+    }
+    if (entry.client.hasActiveOperations()) {
+      idleReleaseRequested.add(key);
+      return false;
+    }
+    stop(transport);
+    return true;
   };
 
   return {
@@ -347,7 +372,8 @@ export function createSharedWsTransport() {
     subscribePush,
     subscribeStatus,
     getStatus,
-    stop
+    stop,
+    releaseIfIdle
   };
 }
 

@@ -109,6 +109,8 @@ const USAGE_SHEET_SPRING_CONFIG = {
 };
 
 const USAGE_REASONING_LABEL_KEYS: Record<ChatReasoningEffort, I18nKey> = {
+  XHIGH: 'usage.reasoning.XHIGH',
+  MAX: 'usage.reasoning.MAX',
   HIGH: 'usage.reasoning.HIGH',
   MEDIUM: 'usage.reasoning.MEDIUM',
   LOW: 'usage.reasoning.LOW',

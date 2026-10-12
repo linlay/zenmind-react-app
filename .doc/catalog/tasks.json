@@ -180,6 +180,22 @@
       "card": ".doc/tasks/configure-multi-brand-builds.json"
     },
     {
+      "id": "decouple-default-cloud-device-access",
+      "title": "移动端账号电脑与默认云端 Token 改造",
+      "intentKeywords": [
+        "默认云端 Token 独立登录",
+        "默认云端可用性",
+        "移动端登录改造计划",
+        "云端置灰",
+        "账号电脑访问",
+        "独立退出",
+        "mobile auth source",
+        "default cloud token"
+      ],
+      "entryDecision": "2026-10-12 登录、默认云端、账号电脑来源及缓存改造从 docs/mobile-auth-source-2026-10-12/README.md 进入 T00–T05。",
+      "card": ".doc/tasks/decouple-default-cloud-device-access.json"
+    },
+    {
       "id": "initialize-project-context",
       "title": "Initialize project context",
       "intentKeywords": [
@@ -271,6 +287,21 @@
       "card": ".doc/tasks/modify-runtime-environment.json"
     },
     {
+      "id": "optimize-account-source-ui",
+      "title": "优化用户界面与账号云端电脑来源",
+      "intentKeywords": [
+        "账号来源改造",
+        "用户界面优化计划",
+        "云端电脑切换",
+        "取消扫码配对",
+        "同账号设备在线状态",
+        "account source ui",
+        "用户页主题关于"
+      ],
+      "entryDecision": "2026-10-12 后续登录、默认云端 Token、来源与缓存改造优先进入 docs/mobile-auth-source-2026-10-12/README.md；新计划仅落档，业务实施未开始。本卡保留前期范围和证据，不覆盖新计划已确认决定。",
+      "card": ".doc/tasks/optimize-account-source-ui.json"
+    },
+    {
       "id": "remove-development-debug-entry",
       "title": "删除开发态 Debug 入口",
       "intentKeywords": [
@@ -286,6 +317,19 @@
       ],
       "entryDecision": "任务明确要求删除或隐藏右下角 Debug 按钮时，从这张卡开始。",
       "card": ".doc/tasks/remove-development-debug-entry.json"
+    },
+    {
+      "id": "sync-chat-detail-webclient",
+      "title": "同步 WebClient 对话详情数据与能力",
+      "intentKeywords": [
+        "对话详情同步",
+        "WebClient 对齐",
+        "对话同步执行大纲",
+        "chat detail sync",
+        "同步对话详情"
+      ],
+      "entryDecision": "执行对话详情与 agent-webclient 的数据或能力同步时，从 docs/sync/chat-detail-webclient-2026-10-08/README.md 开始，再读取对应 T00–T31 子任务。",
+      "card": ".doc/tasks/sync-chat-detail-webclient.json"
     },
     {
       "id": "update-agent-protocol",

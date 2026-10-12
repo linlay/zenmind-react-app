@@ -36,11 +36,11 @@ test('WebAppDetail is registered above tabs and backed by the persistent runtime
   assert.match(rootNavigator, /name="WebAppDetail"/);
 });
 
-test('pairing completion preserves tab state while WebApps resets by session identity', () => {
+test('account login preserves tab state while WebApps resets by session identity', () => {
   const rootNavigator = read('src/app/navigation/RootNavigator.tsx');
   const runtimeProvider = read('src/features/webApps/WebAppsRuntimeProvider.tsx');
 
-  assert.match(rootNavigator, /pairingAvailable \? \(/);
+  assert.doesNotMatch(rootNavigator, /loginAvailable/);
   assert.match(rootNavigator, /<WebAppsRuntimeProvider enabled=\{webAppsEnabled\} sessionKey=\{webAppsSessionKey\}>/);
   assert.doesNotMatch(rootNavigator, /<WebAppsRuntimeProvider key=/);
   assert.match(runtimeProvider, /sessionKey: string/);

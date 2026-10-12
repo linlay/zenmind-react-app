@@ -6,10 +6,8 @@ import path from 'node:path';
 import test from 'node:test';
 
 const require = createRequire(import.meta.url);
-const {
-  loadReactAppEnvArtifact,
-  syncReactAppEnvArtifact
-} = require('../lib/app-env-config.js') as typeof import('../lib/app-env-config.js');
+const { loadReactAppEnvArtifact, syncReactAppEnvArtifact } =
+  require('../lib/app-env-config.js') as typeof import('../lib/app-env-config.js');
 
 const inheritedArtifactPath = process.env.REACT_APP_ENV_ARTIFACT;
 delete process.env.REACT_APP_ENV_ARTIFACT;
@@ -55,10 +53,7 @@ test('schema v2 artifact generates a full runtime registry with query token', ()
     assert.equal(artifact.brands.cutej.defaultSource.authMode, 'query-token');
     assert.equal(artifact.brands.cutej.defaultSource.accessToken, 'TOKEN');
 
-    const generated = fs.readFileSync(
-      path.join(rootDir, 'src', 'shared', 'generated', 'appEnv.ts'),
-      'utf8'
-    );
+    const generated = fs.readFileSync(path.join(rootDir, 'src', 'shared', 'generated', 'appEnv.ts'), 'utf8');
     assert.match(generated, /APP_ENVIRONMENTS = \{/u);
     assert.match(generated, /"cutej": \{/u);
     assert.match(generated, /"accessToken": "TOKEN"/u);
@@ -75,10 +70,7 @@ test('artifact rejects missing brand coverage', () => {
     delete artifact.brands.cutej;
     writeFixtureArtifact(artifactPath, artifact);
 
-    assert.throws(
-      () => syncReactAppEnvArtifact({ rootDir }),
-      /brands must match installed brands/u
-    );
+    assert.throws(() => syncReactAppEnvArtifact({ rootDir }), /brands must match installed brands/u);
   } finally {
     fs.rmSync(rootDir, { recursive: true, force: true });
   }
@@ -90,28 +82,19 @@ test('query-token requires a token and none forbids one', () => {
     const { artifactPath, artifact } = readFixtureArtifact(rootDir);
     delete artifact.brands.zenmind.defaultSource.accessToken;
     writeFixtureArtifact(artifactPath, artifact);
-    assert.throws(
-      () => loadReactAppEnvArtifact(rootDir),
-      /accessToken.*required for query-token/u
-    );
+    assert.throws(() => loadReactAppEnvArtifact(rootDir), /accessToken.*required for query-token/u);
 
     artifact.brands.zenmind.defaultSource.authMode = 'none';
     artifact.brands.zenmind.defaultSource.accessToken = 'unexpected-token';
     writeFixtureArtifact(artifactPath, artifact);
-    assert.throws(
-      () => loadReactAppEnvArtifact(rootDir),
-      /accessToken.*requires query-token/u
-    );
+    assert.throws(() => loadReactAppEnvArtifact(rootDir), /accessToken.*requires query-token/u);
   } finally {
     fs.rmSync(rootDir, { recursive: true, force: true });
   }
 });
 
 test('explicit wsUrl remains authoritative and default transport receives the configured token', () => {
-  const generated = fs.readFileSync(
-    path.join(process.cwd(), 'src', 'shared', 'generated', 'appEnv.ts'),
-    'utf8'
-  );
+  const generated = fs.readFileSync(path.join(process.cwd(), 'src', 'shared', 'generated', 'appEnv.ts'), 'utf8');
   const appEnvironmentSource = fs.readFileSync(
     path.join(process.cwd(), 'src', 'core', 'config', 'appEnvironment.ts'),
     'utf8'
@@ -124,9 +107,8 @@ test('explicit wsUrl remains authoritative and default transport receives the co
   assert.match(generated, /wss:\/\/zenmind\.example\.invalid\/ap\/ws/u);
   assert.match(generated, /"authMode": "query-token"/u);
   assert.match(generated, /"accessToken": "TOKEN"/u);
-  assert.match(
-    appEnvironmentSource,
-    /resolveWsUrl\(environment\.wsUrl,\s*apiBaseUrl,\s*wsPath\)/su
-  );
-  assert.match(activeTransportSource, /accessToken:\s*source\.accessToken/u);
+  assert.match(appEnvironmentSource, /resolveWsUrl\(environment\.wsUrl,\s*apiBaseUrl,\s*wsPath\)/su);
+  assert.match(appEnvironmentSource, /authMode:\s*environment\.authMode/u);
+  assert.match(appEnvironmentSource, /accessToken:\s*environment\.accessToken/u);
+  assert.match(activeTransportSource, /accessToken: credential.token/u);
 });

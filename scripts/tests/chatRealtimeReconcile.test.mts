@@ -23,7 +23,7 @@ test('detail reconcile treats disconnected websocket as recoverable background w
   const recoverableSource = extractSourceSection(
     chatSyncServiceSource,
     'function isRecoverableReconcileError',
-    'function isInactiveInterruptResponse'
+    'function getUnknownErrorText'
   );
   const detailOpenSource = extractSourceSection(
     chatDetailControllerSource,
@@ -42,7 +42,7 @@ test('detail reconcile treats websocket request timeout as recoverable backgroun
   const recoverableSource = extractSourceSection(
     chatSyncServiceSource,
     'function isRecoverableReconcileError',
-    'function isInactiveInterruptResponse'
+    'function getUnknownErrorText'
   );
 
   assert.match(chatSyncServiceSource, /WsClientRequestTimeoutError/);

@@ -11,7 +11,10 @@ import { type I18nKey, type LocalePreference, useI18n } from '../../shared/i18n'
 import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { cn } from '../../shared/visual/className';
 import { appVisualTokens } from '../../shared/visual/foundation';
-import type { AppThemePreference } from '../../shared/visual/themePreference';
+import { logoutAccount } from '../../core/auth/accountAuth.ts';
+import { AccountLoginApproval } from '../../features/auth/AccountLoginApproval.tsx';
+import { AccountDevicesPanel } from '../../features/deviceLink/AccountDevicesPanel.tsx';
+import { MeLogoutButton } from './MeScreenParts';
 import {
   getDevelopmentDebugPanelSnapshot,
   openDevelopmentDebugPanel,
@@ -64,12 +67,6 @@ type LanguageOption = {
   detailKey: I18nKey;
 };
 
-type ThemeOption = {
-  preference: AppThemePreference;
-  titleKey: I18nKey;
-  detailKey: I18nKey;
-};
-
 const SCREEN_CLASS = 'flex-1 bg-app-background';
 const HEADER_SAFE_AREA_CLASS = 'bg-app-surface';
 const SCROLL_VIEW_CLASS = 'flex-1';
@@ -104,24 +101,6 @@ function formatCacheLastLoaded(lastLoadedAt: number, locale: string): string {
   if (!lastLoadedAt) return '—';
   return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(lastLoadedAt);
 }
-
-const THEME_OPTIONS = [
-  {
-    preference: 'system',
-    titleKey: 'settings.theme.system',
-    detailKey: 'settings.theme.systemDetail'
-  },
-  {
-    preference: 'light',
-    titleKey: 'settings.theme.light',
-    detailKey: 'settings.theme.lightDetail'
-  },
-  {
-    preference: 'dark',
-    titleKey: 'settings.theme.dark',
-    detailKey: 'settings.theme.darkDetail'
-  }
-] as const satisfies readonly ThemeOption[];
 
 const LANGUAGE_OPTIONS = [
   {
@@ -202,9 +181,11 @@ function SettingsRow({
   );
 }
 
-export function SettingsScreen({ navigation }: SettingsScreenProps) {
+export function SettingsScreen({ navigation, route }: SettingsScreenProps) {
   const { locale, preference: localePreference, setLocalePreference, t } = useI18n();
-  const { theme, preference: themePreference, resolvedPreference, setThemePreference } = useAppTheme();
+  const { theme } = useAppTheme();
+  const section = route.params?.section || 'development';
+  const [loggingOut, setLoggingOut] = useState(false);
   const { session: accountSession } = useAccountAuth();
   const insets = useSafeAreaInsets();
   const debugSnapshot = useSyncExternalStore(
@@ -261,6 +242,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
   }, [currentAccountId]);
 
   useEffect(() => {
+    if (section !== 'storage') return;
     let cancelled = false;
     void loadCacheScopes().catch(() => {
       if (!cancelled) setCacheLoading(false);
@@ -268,7 +250,7 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
     return () => {
       cancelled = true;
     };
-  }, [loadCacheScopes]);
+  }, [loadCacheScopes, section]);
 
   const handleClearCache = useCallback(
     (key: string, name: string, detail: string, clear: () => Promise<unknown>) => {
@@ -329,17 +311,6 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
     },
     [localePreference, setLocalePreference]
   );
-  const handleThemeSelect = useCallback(
-    (nextPreference: AppThemePreference) => {
-      if (nextPreference === themePreference) {
-        return;
-      }
-
-      setThemePreference(nextPreference);
-    },
-    [setThemePreference, themePreference]
-  );
-
   const renderCacheClearButton = (key: string, accessibilityLabel: string, onPress: () => void) => {
     const clearing = cacheAction?.key === key && cacheAction.status === 'clearing';
     return (
@@ -374,207 +345,253 @@ export function SettingsScreen({ navigation }: SettingsScreenProps) {
   return (
     <View className={SCREEN_CLASS}>
       <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
-        <ScreenHeader title={t('settings.title')} leftActions={leftActions} />
+        <ScreenHeader
+          title={t(
+            section === 'account'
+              ? 'account.title'
+              : section === 'devices'
+                ? 'me.section.accountDevices'
+                : section === 'storage'
+                  ? 'account.storage'
+                  : section === 'language'
+                    ? 'me.action.languageSettings'
+                    : 'me.action.developerMode'
+          )}
+          leftActions={leftActions}
+        />
       </SafeAreaView>
 
       <ScrollView showsVerticalScrollIndicator={false} className={SCROLL_VIEW_CLASS}>
         <View className={CONTENT_CLASS} style={{ paddingBottom: insets.bottom + appVisualTokens.spacing.xxl }}>
-          <SettingsSection title={t('settings.section.cache')}>
-            {cacheLoading ? (
-              <SettingsRow iconUsage="settings.cache" title={t('settings.cache.loading')} />
-            ) : cacheLoadError ? (
+          {section === 'account' ? (
+            <SettingsSection title={t('account.title')}>
               <SettingsRow
-                iconUsage="settings.cache"
-                title={t('settings.cache.loadError')}
-                detail={cacheLoadError}
-                onPress={() => void loadCacheScopes()}
+                iconUsage="tab.me"
+                title={accountSession?.username || t('me.accountName.loggedOut')}
+                detail={accountSession?.deviceName}
               />
-            ) : cacheScopes.length === 0 ? (
-              <SettingsRow iconUsage="settings.cache" title={t('settings.cache.empty')} />
-            ) : (
-              <>
-                {cacheAccounts.map((account) => {
-                  const accountKey = `account:${account.accountId}`;
-                  const accountName = t('settings.cache.account', { id: account.accountId });
-                  const accountStats = cacheDetail(account.sizeBytes, account.conversationCount, account.lastLoadedAt);
-                  const feedback = cacheFeedback(accountKey);
-                  return (
-                    <Fragment key={accountKey}>
+              {accountSession ? <AccountLoginApproval key={accountSession.deviceId} /> : null}
+              {accountSession ? (
+                <MeLogoutButton
+                  disabled={loggingOut}
+                  title={t('me.logout')}
+                  onPress={() => {
+                    setLoggingOut(true);
+                    void logoutAccount().finally(() => {
+                      setLoggingOut(false);
+                      navigation.goBack();
+                    });
+                  }}
+                />
+              ) : (
+                <SettingsRow
+                  iconUsage="tab.me"
+                  title={t('auth.mode.account')}
+                  onPress={() => navigation.navigate('Login')}
+                />
+              )}
+            </SettingsSection>
+          ) : null}
+          {section === 'devices' ? (
+            <SettingsSection title={t('me.section.accountDevices')}>
+              <AccountDevicesPanel />
+            </SettingsSection>
+          ) : null}
+          {section === 'storage' ? (
+            <SettingsSection title={t('settings.section.cache')}>
+              {cacheLoading ? (
+                <SettingsRow iconUsage="settings.cache" title={t('settings.cache.loading')} />
+              ) : cacheLoadError ? (
+                <SettingsRow
+                  iconUsage="settings.cache"
+                  title={t('settings.cache.loadError')}
+                  detail={cacheLoadError}
+                  onPress={() => void loadCacheScopes()}
+                />
+              ) : cacheScopes.length === 0 ? (
+                <SettingsRow iconUsage="settings.cache" title={t('settings.cache.empty')} />
+              ) : (
+                <>
+                  {cacheAccounts.map((account) => {
+                    const accountKey = `account:${account.accountId}`;
+                    const accountName = t('settings.cache.account', { id: account.accountId });
+                    const accountStats = cacheDetail(
+                      account.sizeBytes,
+                      account.conversationCount,
+                      account.lastLoadedAt
+                    );
+                    const feedback = cacheFeedback(accountKey);
+                    return (
+                      <Fragment key={accountKey}>
+                        <SettingsRow
+                          iconUsage="tab.me"
+                          title={accountName}
+                          detail={`${accountStats}${feedback ? `\n${feedback}` : ''}`}
+                          rightAccessory={renderCacheClearButton(
+                            accountKey,
+                            t('settings.cache.clearAccount', { name: accountName }),
+                            () =>
+                              handleClearCache(accountKey, accountName, accountStats, () =>
+                                clearSettingsAccountCache(account.accountId)
+                              )
+                          )}
+                        />
+                        {account.scopes.map((scope) => {
+                          const desktopKey = `desktop:${scope.cacheScopeId}`;
+                          const desktopName =
+                            scope.desktopName || t('settings.cache.desktop', { id: scope.desktopId.slice(0, 8) });
+                          const desktopStats = cacheDetail(
+                            scope.sizeBytes,
+                            scope.conversationCount,
+                            scope.lastLoadedAt
+                          );
+                          const desktopFeedback = cacheFeedback(desktopKey);
+                          return (
+                            <Fragment key={desktopKey}>
+                              <SettingsRow
+                                iconUsage="settings.cache"
+                                title={desktopName}
+                                detail={`${scope.desktopId}\n${desktopStats}${desktopFeedback ? `\n${desktopFeedback}` : ''}`}
+                                value={scope.current ? t('settings.cache.currentDevice') : undefined}
+                                rightAccessory={renderCacheClearButton(
+                                  desktopKey,
+                                  t('settings.cache.clearDesktop', { name: desktopName }),
+                                  () =>
+                                    handleClearCache(desktopKey, desktopName, desktopStats, () =>
+                                      clearSettingsDesktopCache(scope.cacheScopeId)
+                                    )
+                                )}
+                              />
+                              {scope.conversations.map((conversation) => {
+                                const conversationKey = `conversation:${scope.cacheScopeId}:${conversation.conversationId}`;
+                                const conversationName =
+                                  conversation.title ||
+                                  t('settings.cache.conversation', { id: conversation.conversationId.slice(0, 8) });
+                                const conversationStats = cacheDetail(
+                                  conversation.sizeBytes,
+                                  1,
+                                  conversation.lastLoadedAt
+                                );
+                                const conversationFeedback = cacheFeedback(conversationKey);
+                                return (
+                                  <SettingsRow
+                                    key={conversationKey}
+                                    iconUsage="tab.chat"
+                                    title={conversationName}
+                                    detail={`${conversationStats}${conversationFeedback ? `\n${conversationFeedback}` : ''}`}
+                                    rightAccessory={renderCacheClearButton(
+                                      conversationKey,
+                                      t('settings.cache.clearConversation', { name: conversationName }),
+                                      () =>
+                                        handleClearCache(conversationKey, conversationName, conversationStats, () =>
+                                          clearSettingsConversationCache(
+                                            currentAccountId,
+                                            scope.cacheScopeId,
+                                            conversation.conversationId
+                                          )
+                                        )
+                                    )}
+                                  />
+                                );
+                              })}
+                            </Fragment>
+                          );
+                        })}
+                      </Fragment>
+                    );
+                  })}
+                  {unassignedCacheScopes.map((scope) => {
+                    const desktopKey = `desktop:${scope.cacheScopeId}`;
+                    const desktopName = scope.cacheScopeId.startsWith('cs_')
+                      ? t('accountSource.cloud')
+                      : scope.desktopName || t('settings.cache.unassigned');
+                    const desktopStats = cacheDetail(scope.sizeBytes, scope.conversationCount, scope.lastLoadedAt);
+                    const feedback = cacheFeedback(desktopKey);
+                    return (
                       <SettingsRow
-                        iconUsage="tab.me"
-                        title={accountName}
-                        detail={`${accountStats}${feedback ? `\n${feedback}` : ''}`}
+                        key={desktopKey}
+                        iconUsage="settings.cache"
+                        title={desktopName}
+                        detail={`${scope.cacheScopeId.startsWith('cs_') ? '' : t('settings.cache.unassignedDetail') + ' · ' + scope.desktopId + '\n'}${desktopStats}${feedback ? `\n${feedback}` : ''}`}
                         rightAccessory={renderCacheClearButton(
-                          accountKey,
-                          t('settings.cache.clearAccount', { name: accountName }),
+                          desktopKey,
+                          t('settings.cache.clearDesktop', { name: desktopName }),
                           () =>
-                            handleClearCache(accountKey, accountName, accountStats, () =>
-                              clearSettingsAccountCache(account.accountId)
+                            handleClearCache(desktopKey, desktopName, desktopStats, () =>
+                              clearSettingsDesktopCache(scope.cacheScopeId)
                             )
                         )}
                       />
-                      {account.scopes.map((scope) => {
-                        const desktopKey = `desktop:${scope.cacheScopeId}`;
-                        const desktopName =
-                          scope.desktopName || t('settings.cache.desktop', { id: scope.desktopId.slice(0, 8) });
-                        const desktopStats = cacheDetail(scope.sizeBytes, scope.conversationCount, scope.lastLoadedAt);
-                        const desktopFeedback = cacheFeedback(desktopKey);
-                        return (
-                          <Fragment key={desktopKey}>
-                            <SettingsRow
-                              iconUsage="settings.cache"
-                              title={desktopName}
-                              detail={`${scope.desktopId}\n${desktopStats}${desktopFeedback ? `\n${desktopFeedback}` : ''}`}
-                              value={scope.current ? t('settings.cache.currentDevice') : undefined}
-                              rightAccessory={renderCacheClearButton(
-                                desktopKey,
-                                t('settings.cache.clearDesktop', { name: desktopName }),
-                                () =>
-                                  handleClearCache(desktopKey, desktopName, desktopStats, () =>
-                                    clearSettingsDesktopCache(scope.cacheScopeId)
-                                  )
-                              )}
-                            />
-                            {scope.conversations.map((conversation) => {
-                              const conversationKey = `conversation:${scope.cacheScopeId}:${conversation.conversationId}`;
-                              const conversationName =
-                                conversation.title ||
-                                t('settings.cache.conversation', { id: conversation.conversationId.slice(0, 8) });
-                              const conversationStats = cacheDetail(
-                                conversation.sizeBytes,
-                                1,
-                                conversation.lastLoadedAt
-                              );
-                              const conversationFeedback = cacheFeedback(conversationKey);
-                              return (
-                                <SettingsRow
-                                  key={conversationKey}
-                                  iconUsage="tab.chat"
-                                  title={conversationName}
-                                  detail={`${conversationStats}${conversationFeedback ? `\n${conversationFeedback}` : ''}`}
-                                  rightAccessory={renderCacheClearButton(
-                                    conversationKey,
-                                    t('settings.cache.clearConversation', { name: conversationName }),
-                                    () =>
-                                      handleClearCache(conversationKey, conversationName, conversationStats, () =>
-                                        clearSettingsConversationCache(
-                                          currentAccountId,
-                                          scope.cacheScopeId,
-                                          conversation.conversationId
-                                        )
-                                      )
-                                  )}
-                                />
-                              );
-                            })}
-                          </Fragment>
-                        );
-                      })}
-                    </Fragment>
-                  );
-                })}
-                {unassignedCacheScopes.map((scope) => {
-                  const desktopKey = `desktop:${scope.cacheScopeId}`;
-                  const desktopName = scope.desktopName || t('settings.cache.unassigned');
-                  const desktopStats = cacheDetail(scope.sizeBytes, scope.conversationCount, scope.lastLoadedAt);
-                  const feedback = cacheFeedback(desktopKey);
-                  return (
-                    <SettingsRow
-                      key={desktopKey}
-                      iconUsage="settings.cache"
-                      title={desktopName}
-                      detail={`${t('settings.cache.unassignedDetail')} · ${scope.desktopId}\n${desktopStats}${feedback ? `\n${feedback}` : ''}`}
-                      rightAccessory={renderCacheClearButton(
-                        desktopKey,
-                        t('settings.cache.clearDesktop', { name: desktopName }),
-                        () =>
-                          handleClearCache(desktopKey, desktopName, desktopStats, () =>
-                            clearSettingsDesktopCache(scope.cacheScopeId)
-                          )
-                      )}
-                    />
-                  );
-                })}
-              </>
-            )}
-          </SettingsSection>
+                    );
+                  })}
+                </>
+              )}
+            </SettingsSection>
+          ) : null}
 
-          <SettingsSection title={t('settings.section.developer')}>
-            <SettingsRow
-              iconUsage="settings.developer"
-              title={t('settings.developer.mode')}
-              detail={__DEV__ ? t('settings.developer.modeDetail') : t('settings.developer.unavailable')}
-              value={developerModeEnabled ? t('settings.value.enabled') : t('settings.value.disabled')}
-              disabled={!__DEV__}
-              rightAccessory={
-                <Switch
-                  disabled={!__DEV__}
-                  value={developerModeEnabled}
-                  onValueChange={handleDeveloperToggle}
-                  trackColor={{
-                    false: theme.colors.lineStrong,
-                    true: theme.colors.brandBlueAction
-                  }}
-                  thumbColor={developerModeEnabled ? theme.colors.onBrandBlueAction : theme.colors.surface}
-                />
-              }
-            />
-            <SettingsRow
-              iconUsage="settings.openPanel"
-              title={t('settings.developer.openPanel')}
-              detail={t('settings.developer.openPanelDetail')}
-              disabled={!developerModeEnabled}
-              onPress={handleOpenDebugPanel}
-            />
-          </SettingsSection>
+          {section === 'development' ? (
+            <SettingsSection title={t('settings.section.developer')}>
+              <SettingsRow
+                iconUsage="settings.developer"
+                title={t('settings.developer.mode')}
+                detail={__DEV__ ? t('settings.developer.modeDetail') : t('settings.developer.unavailable')}
+                value={developerModeEnabled ? t('settings.value.enabled') : t('settings.value.disabled')}
+                disabled={!__DEV__}
+                rightAccessory={
+                  <Switch
+                    disabled={!__DEV__}
+                    value={developerModeEnabled}
+                    onValueChange={handleDeveloperToggle}
+                    trackColor={{
+                      false: theme.colors.lineStrong,
+                      true: theme.colors.brandBlueAction
+                    }}
+                    thumbColor={developerModeEnabled ? theme.colors.onBrandBlueAction : theme.colors.surface}
+                  />
+                }
+              />
+              <SettingsRow
+                iconUsage="settings.openPanel"
+                title={t('settings.developer.openPanel')}
+                detail={t('settings.developer.openPanelDetail')}
+                disabled={!developerModeEnabled}
+                onPress={handleOpenDebugPanel}
+              />
+              <SettingsRow
+                iconUsage="settings.openPanel"
+                title={t('me.action.waitingEffects')}
+                onPress={() => navigation.navigate('AgentWaitingDemo')}
+              />
+            </SettingsSection>
+          ) : null}
 
-          <SettingsSection title={t('settings.section.appearance')}>
-            {THEME_OPTIONS.map((option) => {
-              const selected = themePreference === option.preference;
-              const value =
-                option.preference === 'system' && selected
-                  ? t('settings.theme.current', {
-                      theme: t(resolvedPreference === 'dark' ? 'settings.theme.dark' : 'settings.theme.light')
-                    })
-                  : undefined;
-              return (
-                <SettingsRow
-                  key={option.preference}
-                  iconUsage="settings.theme"
-                  title={t(option.titleKey)}
-                  detail={t(option.detailKey)}
-                  value={value}
-                  selected={selected}
-                  onPress={selected ? undefined : () => handleThemeSelect(option.preference)}
-                  rightAccessory={
-                    selected ? <AppIcon usage="settings.selected" /> : <View className={SELECTION_PLACEHOLDER_CLASS} />
-                  }
-                />
-              );
-            })}
-          </SettingsSection>
-
-          <SettingsSection title={t('settings.section.language')}>
-            {LANGUAGE_OPTIONS.map((option) => {
-              const selected = localePreference === option.preference;
-              const value =
-                option.preference === 'system' && selected ? t('settings.language.current', { locale }) : undefined;
-              return (
-                <SettingsRow
-                  key={option.preference}
-                  iconUsage="settings.language"
-                  title={t(option.titleKey)}
-                  detail={t(option.detailKey)}
-                  value={value}
-                  selected={selected}
-                  onPress={selected ? undefined : () => handleLanguageSelect(option.preference)}
-                  rightAccessory={
-                    selected ? <AppIcon usage="settings.selected" /> : <View className={SELECTION_PLACEHOLDER_CLASS} />
-                  }
-                />
-              );
-            })}
-          </SettingsSection>
+          {section === 'language' ? (
+            <SettingsSection title={t('settings.section.language')}>
+              {LANGUAGE_OPTIONS.map((option) => {
+                const selected = localePreference === option.preference;
+                const value =
+                  option.preference === 'system' && selected ? t('settings.language.current', { locale }) : undefined;
+                return (
+                  <SettingsRow
+                    key={option.preference}
+                    iconUsage="settings.language"
+                    title={t(option.titleKey)}
+                    detail={t(option.detailKey)}
+                    value={value}
+                    selected={selected}
+                    onPress={selected ? undefined : () => handleLanguageSelect(option.preference)}
+                    rightAccessory={
+                      selected ? (
+                        <AppIcon usage="settings.selected" />
+                      ) : (
+                        <View className={SELECTION_PLACEHOLDER_CLASS} />
+                      )
+                    }
+                  />
+                );
+              })}
+            </SettingsSection>
+          ) : null}
         </View>
       </ScrollView>
     </View>

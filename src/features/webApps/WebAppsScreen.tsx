@@ -1,3 +1,4 @@
+import { useAccountAuth } from '../../core/auth/useAccountAuth';
 import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -41,7 +42,7 @@ const ROW_PAUSE_TEXT_CLASS = 'text-app-primary';
 const STATE_CLASS = 'items-center justify-center px-app-xl py-[56px]';
 const STATE_TITLE_CLASS = 'text-center text-app-title-sm font-bold text-app-primary';
 const STATE_BODY_CLASS = 'mt-app-sm text-center text-app-body-sm text-app-secondary';
-const UNPAIRED_STATE_CLASS = 'flex-1 items-center justify-center px-app-xxl pb-[96px]';
+const UNPAIRED_STATE_CLASS = 'flex-1 items-center justify-center px-app-xxl';
 const UNPAIRED_ICON_CLASS =
   'mb-app-lg h-[72px] w-[72px] items-center justify-center rounded-app-pill bg-app-brand-blue-soft';
 const PAIR_BUTTON_CLASS =
@@ -112,6 +113,7 @@ const WebAppRow = memo(function WebAppRow({ item, capabilities }: WebAppRowProps
 });
 
 export function WebAppsScreen() {
+  const auth = useAccountAuth();
   const t = useT();
   const { theme } = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
@@ -209,19 +211,23 @@ export function WebAppsScreen() {
         <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
           <ScreenHeader title={t('webApps.title')} />
         </SafeAreaView>
-        <View className={UNPAIRED_STATE_CLASS}>
+        <View className={UNPAIRED_STATE_CLASS} style={listContentStyle}>
           <View className={UNPAIRED_ICON_CLASS}>
             <AppIcon usage="webApps.pairRequired" />
           </View>
-          <Text className={STATE_TITLE_CLASS}>{t('webApps.unpairedTitle')}</Text>
-          <Text className={STATE_BODY_CLASS}>{t('webApps.unpairedBody')}</Text>
-          <Pressable
-            accessibilityRole="button"
-            onPress={() => navigation.navigate('Login')}
-            className={PAIR_BUTTON_CLASS}
-          >
-            <Text className={PAIR_BUTTON_TEXT_CLASS}>{t('webApps.pairAction')}</Text>
-          </Pressable>
+          <Text className={STATE_TITLE_CLASS}>{auth.session ? t('webApps.emptyTitle') : t('accountSource.login')}</Text>
+          <Text className={STATE_BODY_CLASS}>
+            {auth.session ? t('webApps.cloudUnsupported') : t('accountSource.signedOutBody')}
+          </Text>
+          {!auth.session ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('Login')}
+              className={PAIR_BUTTON_CLASS}
+            >
+              <Text className={PAIR_BUTTON_TEXT_CLASS}>{t('accountSource.login')}</Text>
+            </Pressable>
+          ) : null}
         </View>
       </View>
     );

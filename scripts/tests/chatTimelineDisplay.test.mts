@@ -563,7 +563,7 @@ test('timeline display keeps one assistant footer item across visible reply runs
       timestamp: 100,
     },
     {
-      type: 'tool.snapshot',
+      type: 'tool.result',
       runId: 'run-2',
       toolId: 'tool-1',
       toolName: 'find_files',

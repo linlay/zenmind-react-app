@@ -1,3 +1,4 @@
+import { buildChatRunOwnerPayload } from './chatRunOwner.ts';
 export type SubmitFrontendToolRequest = {
   chatId?: string;
   runId: string;
@@ -11,13 +12,10 @@ export function buildSubmitFrontendToolPayload(
   request: SubmitFrontendToolRequest
 ): SubmitFrontendToolRequest {
   const chatId = String(request.chatId || '').trim();
-  const teamId = String(request.teamId || '').trim();
-  const agentKey = teamId ? '' : String(request.agentKey || '').trim();
   return {
     ...(chatId ? { chatId } : {}),
     runId: String(request.runId || '').trim(),
-    ...(teamId ? { teamId } : {}),
-    ...(agentKey ? { agentKey } : {}),
+    ...buildChatRunOwnerPayload(request),
     toolId: String(request.toolId || '').trim(),
     params: request.params,
   };

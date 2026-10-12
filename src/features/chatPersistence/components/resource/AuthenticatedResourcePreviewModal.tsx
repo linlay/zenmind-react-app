@@ -23,12 +23,15 @@ import {
   splitAuthenticatedResourceTextAtLine,
   type AuthenticatedResourcePreviewTarget
 } from '../../authenticatedResourcePreview.ts';
+import { isOnlineOfficeFile } from '../../../../core/api/services/documentPreviewProtocol.ts';
+import { AuthenticatedOfficePreview } from './AuthenticatedOfficePreview.tsx';
 import { AuthenticatedResourcePdfPreview } from './AuthenticatedResourcePdfPreview.tsx';
 import type { AuthenticatedResourceDownloadState } from './useAuthenticatedResourceDownload.ts';
 import { useAuthenticatedResourceSource } from './useAuthenticatedResourceSource.ts';
 
 type AuthenticatedResourcePreviewModalProps = {
   target: AuthenticatedResourcePreviewTarget;
+  conversationId?: string;
   visible: boolean;
   initialError?: string;
   downloadState: AuthenticatedResourceDownloadState;
@@ -149,6 +152,7 @@ const AuthenticatedResourceTextPreview = memo(function AuthenticatedResourceText
 
 export const AuthenticatedResourcePreviewModal = memo(function AuthenticatedResourcePreviewModal({
   target,
+  conversationId = '',
   visible,
   initialError = '',
   downloadState,
@@ -239,6 +243,8 @@ export const AuthenticatedResourcePreviewModal = memo(function AuthenticatedReso
                 </Pressable>
               ) : null}
             </View>
+          ) : target.previewKind === 'unsupported' && isOnlineOfficeFile(target.name) ? (
+            <AuthenticatedOfficePreview target={target} conversationId={conversationId} />
           ) : target.previewKind === 'unsupported' ? (
             <View className={CENTER_CLASS}>
               <Text allowFontScaling={false} className="text-center text-app-body text-app-secondary">

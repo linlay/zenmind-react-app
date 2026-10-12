@@ -49,9 +49,11 @@ export function getChatAttachmentExtension(name?: string | null): string {
 export function getChatAttachmentKind(input: {
   type?: string | null;
   name?: string | null;
+  kind?: ChatAttachmentKind;
   mimeType?: string | null;
 }): ChatAttachmentKind {
-  const rawType = normalizeLowerText(input.type);
+  const rawType = normalizeLowerText(input.type || input.kind);
+  if (rawType === 'selection' || rawType === 'chat' || rawType === 'site') return rawType;
   if (rawType === 'image') {
     return 'image';
   }
@@ -121,15 +123,60 @@ export function normalizeChatAttachmentReferences(input: unknown): ChatAttachmen
     return [];
   }
 
-  const references = input
-    .filter(isObjectRecord)
-    .map(normalizeReference)
-    .filter((item) => Boolean(item.name || item.id || item.url));
-  return keepLatestChatAttachmentsByName(
-    references.map((reference, index) => ({
-      ...reference,
-      name: reference.name || reference.id || reference.url || `attachment-${index + 1}`
-    }))
+  const references: ChatAttachmentReference[] = [];
+  const seenSelections = new Set<string>(),
+    seenContexts = new Set<string>(),
+    lastFileIndex = new Map<string, number>();
+  for (const value of input) {
+    if (!isObjectRecord(value)) continue;
+    if (value.type === 'chat' || value.type === 'site') {
+      const id = normalizeText(value.id);
+      if (!id) continue;
+      const key = `${value.type}:${id}`;
+      if (seenContexts.has(key)) continue;
+      seenContexts.add(key);
+      references.push({
+        type: value.type,
+        id,
+        ...(normalizeText(value.name) ? { name: normalizeText(value.name) } : {}),
+        ...(isObjectRecord(value.meta) ? { meta: { ...value.meta } } : {}),
+        ...(value.type === 'site' && normalizeText(value.url) ? { url: normalizeText(value.url) } : {})
+      });
+      continue;
+    }
+    if (value.type === 'selection') {
+      // Selected text has no file/resource capabilities.
+      if (typeof value.text !== 'string' || !value.text.trim()) continue;
+      const id = normalizeText(value.id);
+      if (id && seenSelections.has(id)) continue;
+      if (id) seenSelections.add(id);
+      const sourceKind = isObjectRecord(value.meta) ? value.meta.sourceKind : undefined;
+      references.push({
+        type: 'selection',
+        ...(id ? { id } : {}),
+        text: value.text,
+        ...(typeof value.annotation === 'string' ? { annotation: value.annotation } : {}),
+        ...(typeof value.annotationIndex === 'number' &&
+        Number.isSafeInteger(value.annotationIndex) &&
+        value.annotationIndex > 0
+          ? { annotationIndex: value.annotationIndex }
+          : {}),
+        ...(sourceKind === 'message' || sourceKind === 'code' ? { meta: { sourceKind } } : {})
+      });
+    } else {
+      const item = normalizeReference(value),
+        name = item.name || item.id || item.url;
+      if (!name) continue;
+      lastFileIndex.set(name, references.length);
+      references.push({ ...item, name });
+    }
+  }
+  return references.filter(
+    (item, index) =>
+      item.type === 'selection' ||
+      item.type === 'chat' ||
+      item.type === 'site' ||
+      lastFileIndex.get(item.name!) === index
   );
 }
 
@@ -170,7 +217,12 @@ export function createMessageAttachmentsFromReferences(input: {
 }): ChatMessageAttachment[] {
   const references = normalizeChatAttachmentReferences(input.references);
   return references.map((reference, index) => {
-    const name = reference.name || reference.id || `attachment-${index + 1}`;
+    const name =
+      reference.type === 'selection'
+        ? reference.meta?.sourceKind === 'code'
+          ? 'Selected code'
+          : 'Selected text'
+        : reference.name || reference.id || `attachment-${index + 1}`;
     return {
       attachmentId: createMessageAttachmentId({
         messageId: input.messageId,
@@ -188,7 +240,7 @@ export function createMessageAttachmentsFromReferences(input: {
       height: null,
       localUri: '',
       previewUri: null,
-      resourceUrl: reference.url || null,
+      resourceUrl: reference.type === 'chat' || reference.type === 'site' ? null : reference.url || null,
       sha256: reference.sha256 || null,
       status: 'ready',
       errorReason: null,
@@ -207,15 +259,26 @@ export function formatChatAttachmentsMessageText(
   }
 
   const imageCount = attachments.filter((attachment) => attachment.kind === 'image').length;
-  const fileCount = attachments.length - imageCount;
+  const selectionCount = attachments.filter((attachment) => attachment.kind === 'selection').length;
+  const contextCount = attachments.filter(
+    (attachment) => attachment.kind === 'chat' || attachment.kind === 'site'
+  ).length;
+  const fileCount = attachments.length - imageCount - selectionCount - contextCount;
   const firstName = normalizeText(attachments[0]?.name);
+  if (contextCount === attachments.length) return `引用了 ${contextCount} 个上下文`;
+  if (selectionCount === attachments.length) return `引用了 ${selectionCount} 段文本`;
   if (attachments.length === 1) {
     return attachments[0].kind === 'image'
       ? `上传了图片${firstName ? `：${firstName}` : ''}`
       : `上传了文件${firstName ? `：${firstName}` : ''}`;
   }
 
-  const parts = [imageCount ? `${imageCount} 张图片` : '', fileCount ? `${fileCount} 个文件` : ''].filter(Boolean);
+  const parts = [
+    imageCount ? `${imageCount} 张图片` : '',
+    fileCount ? `${fileCount} 个文件` : '',
+    selectionCount ? `${selectionCount} 段引用` : '',
+    contextCount ? `${contextCount} 个上下文` : ''
+  ].filter(Boolean);
   return `上传了 ${parts.join('、')}`;
 }
 

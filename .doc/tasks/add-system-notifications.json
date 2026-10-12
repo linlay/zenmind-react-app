@@ -65,7 +65,7 @@
     "src/app/screens/TabScreens.tsx",
     "src/core/api/apiClient.ts",
     "src/core/api/services/notificationApi.ts",
-    "src/core/auth/appAuth.ts",
+    "src/core/auth/accountAuth.ts",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/features/chatPersistence/chatRepository.ts",
     "src/features/chatPersistence/types.ts",

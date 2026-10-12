@@ -1,4 +1,9 @@
-import type { ChatMessageItem, ChatMessageStatus, ChatReadState } from '../chatPersistence/types.ts';
+import type {
+  ChatComposerAttachment,
+  ChatMessageItem,
+  ChatMessageStatus,
+  ChatReadState
+} from '../chatPersistence/types.ts';
 import type {
   ChatTimelineAwaitingMode,
   ChatTimelineAwaitingState,
@@ -141,7 +146,33 @@ export type ChatConversationActionProtocolEvent = {
   event: Record<string, unknown>;
 };
 
+export type ChatConversationRecoveryErrorEvent = {
+  type: 'conversation.recovery.error';
+  conversationId: string;
+  runId: string;
+};
+
+export type ChatPendingSteer = {
+  steerId: string;
+  runId: string;
+  message: string;
+  attachments: ChatComposerAttachment[];
+  phase: 'sending' | 'accepted' | 'unknown';
+  runEnded: boolean;
+  agentKey?: string;
+  teamId?: string;
+};
+
+export type ChatConversationSteerChangedEvent = {
+  type: 'conversation.steer.changed';
+  conversationId: string;
+  pending: ChatPendingSteer | null;
+  confirmed?: ChatPendingSteer;
+};
+
 export type ChatSyncEvent =
+  | ChatConversationSteerChangedEvent
+  | ChatConversationRecoveryErrorEvent
   | ChatConnectionStatusEvent
   | ChatHomeItemPatchEvent
   | ChatHomeItemRemoveEvent

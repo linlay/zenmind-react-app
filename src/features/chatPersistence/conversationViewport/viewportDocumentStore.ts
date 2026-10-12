@@ -32,6 +32,7 @@ export function createConversationViewportDocumentStore(
   const cache = new Map<string, CachedViewportDocument>();
   const inFlight = new Map<string, InFlightViewportDocument>();
   const versions = new Map<string, number>();
+  let generation = 0;
 
   const normalizeKey = (viewportKey: string) => String(viewportKey || '').trim();
   const readCached = (viewportKey: string): string => {
@@ -69,6 +70,7 @@ export function createConversationViewportDocumentStore(
 
   return {
     clear() {
+      generation += 1;
       cache.clear();
       inFlight.clear();
       versions.clear();
@@ -95,6 +97,7 @@ export function createConversationViewportDocumentStore(
         return existing.promise;
       }
 
+      const loadGeneration = generation;
       const promise = loader(key)
         .then((response) => {
           const html = String(response.html || '').trim();
@@ -104,6 +107,7 @@ export function createConversationViewportDocumentStore(
           if (getConversationPreviewSourceByteLength(html) > CONVERSATION_PREVIEW_MAX_SOURCE_BYTES) {
             throw new Error('Viewport html exceeds the 256 KiB safety limit.');
           }
+          if (loadGeneration !== generation) throw new Error('Viewport cache was released');
           if (versions.get(key) === version) {
             writeCached(key, html);
           }

@@ -79,10 +79,8 @@ export {
   normalizeChatTimelineMessageVariant,
   normalizeChatTimelineRequestMessageVariant
 } from './timelineRequest.ts';
-export type { MergeChatTimelineStateOptions } from './timelineReducer.ts';
 export {
   applyChatTimelineEvent,
-  applyChatTimelineLocalCancel,
   applyChatTimelineMessage,
   applyChatTimelineRunUnavailable,
   applyChatTimelineStreamDelta,
@@ -159,3 +157,5 @@ export {
   serializeChatTimelineState,
   timelinePersistenceInternals
 } from './timelinePersistence.ts';
+
+export { applyChatTimelineRunAccess, getChatTimelineRun, readRunAccessLevel } from './timelineRunAccess.ts';

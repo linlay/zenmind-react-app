@@ -293,6 +293,8 @@ export function classifyChatProtocolEvent(event: Record<string, unknown>): ChatP
     return 'conversation_remove';
   }
   if (
+    type === 'run.activity' ||
+    type === 'run.access_level.changed' ||
     type === 'run.start' ||
     type === 'run.complete' ||
     type === 'run.cancel' ||

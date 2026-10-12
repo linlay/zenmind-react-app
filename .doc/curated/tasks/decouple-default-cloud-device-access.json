@@ -1,0 +1,90 @@
+{
+  "schemaVersion": "1.0",
+  "id": "decouple-default-cloud-device-access",
+  "title": "移动端账号电脑与默认云端 Token 改造",
+  "intentKeywords": [
+    "默认云端 Token 独立登录",
+    "默认云端可用性",
+    "移动端登录改造计划",
+    "云端置灰",
+    "账号电脑访问",
+    "独立退出",
+    "mobile auth source",
+    "default cloud token"
+  ],
+  "entryDecision": [
+    "2026-10-12 登录、默认云端、账号电脑来源及缓存改造从 docs/mobile-auth-source-2026-10-12/README.md 进入 T00–T05。",
+    "2026-10-12：代码实施及本地验证已完成，真实服务与 iOS/Android 验收按用户指示由用户执行；总计划仍为进行中。",
+    "账号访问所属电脑，默认云端独立使用配置或手动 Token；不实现账号专属云端，不新增或恢复扫码，不扩展工作能力。",
+    "绝对不允许过度设计：复用现有认证、唯一来源选择、sharedWsTransport、chatSyncService、SQLite 和 WebApps，不引入通用框架或新旧并行逻辑。"
+  ],
+  "mustRead": [
+    {
+      "type": "doc",
+      "ref": "docs/mobile-auth-source-2026-10-12/README.md"
+    },
+    {
+      "type": "module",
+      "ref": "core-auth-session"
+    },
+    {
+      "type": "module",
+      "ref": "core-api-client"
+    },
+    {
+      "type": "module",
+      "ref": "app-shell-navigation"
+    },
+    {
+      "type": "module",
+      "ref": "feature-chat-persistence"
+    },
+    {
+      "type": "module",
+      "ref": "feature-auth-login"
+    },
+    {
+      "type": "flow",
+      "ref": "app-startup"
+    }
+  ],
+  "likelyFiles": [
+    "docs/mobile-auth-source-2026-10-12/README.md",
+    "docs/mobile-auth-source-2026-10-12/tasks/T00-baseline-verification.md",
+    "docs/mobile-auth-source-2026-10-12/tasks/T01-cloud-token-credentials.md",
+    "docs/mobile-auth-source-2026-10-12/tasks/T02-cloud-availability.md",
+    "docs/mobile-auth-source-2026-10-12/tasks/T03-source-cache-lifecycle.md",
+    "docs/mobile-auth-source-2026-10-12/tasks/T04-login-source-ui.md",
+    "docs/mobile-auth-source-2026-10-12/tasks/T05-validation-cleanup.md",
+    "src/core/api/activeWsTransport.ts",
+    "src/core/api/apiClient.ts",
+    "src/core/api/services/chatExport.ts",
+    "src/core/auth/activeDesktop.ts",
+    "src/core/auth/accountDesktopCacheScopes.ts",
+    "src/features/chatPersistence/chatSourceRuntime.ts",
+    "src/features/chatPersistence/accountDesktopSource.ts",
+    "src/features/chatPersistence/ChatHomeScreen.tsx",
+    "src/features/chatPersistence/components/AccountSourceSheet.tsx",
+    "src/features/auth/LoginScreen.tsx",
+    "src/app/AppRoot.tsx",
+    "src/app/navigation/RootNavigator.tsx",
+    "src/core/auth/cloudAuth.ts",
+    "src/features/chatPersistence/cloudAccess.ts",
+    "src/core/api/services/chatDirectoryApi.ts",
+    "scripts/tests/mobileAuthSource.test.mts"
+  ],
+  "acceptanceChecks": [
+    "总览与六个子任务状态一致；区分本地行为测试/导出通过与未完成真实验收。",
+    "仅 Token 可访问默认云端，仅账号可访问所属电脑，两类退出互不影响。",
+    "云端真实业务验证通过才可选；失败灰态但独立登录/重试可达，网络故障保留凭证及已选缓存。",
+    "离线电脑保留缓存，权威撤销停止访问并引导，不自动回落云端；换 Token、切源和迟到请求不串数据。",
+    "没有账号专属云端、扫码或工作扩展，完成相关真实验收和清理后才标记整体完成。"
+  ],
+  "doNotMiss": [
+    "导出当前仍依赖 Identity Token，以源码核实为准；统一所有实际支持的默认云端数据面凭证。",
+    "探测复用现有只读协议，不调用会写 SQLite 的首页刷新，不以 Socket onopen 或聚合状态代替业务验证。",
+    "手动 Token 验证后保存并恢复，不静默回退配置凭证；主动退出阻止配置凭证自动复活。",
+    "一个来源选择真源，由 feature service 协调缓存与连接；不新增同步服务、状态机库、连接池或迁移框架。",
+    "只在实现职责或链路改变后更新 module/flow；保护原有用户改动，依赖只改 package.json、不安装、不改 lock。"
+  ]
+}

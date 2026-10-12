@@ -1,37 +1,26 @@
+import { applyChatTimelineRunFeedback, readChatRunFeedback } from '../chatTimeline/timelineRunFeedback.ts';
+import { reconcileChatTimelineAwaitingSnapshot } from '../chatTimeline/timelineReducer.ts';
 import type {
   RemoteChatActiveRun,
   RemoteChatDetail,
   RemoteChatEvent,
-  RemoteChatSummary,
+  RemoteChatSummary
 } from '../../core/api/services/chatApi';
-import {
-  normalizeProtocolTimestampMs,
-  toText,
-} from '../../core/api/services/chatEventProtocol.ts';
+import { normalizeProtocolTimestampMs, toText } from '../../core/api/services/chatEventProtocol.ts';
 import type { ChatConversationRuntimeState } from '../chatRealtime/types';
 import {
   deriveChatTimelineState,
   normalizeChatTimelineArtifactEvent,
   projectTimelineMessages,
   projectTimelineRuntimeState,
-  resolveChatTimelineUsageModelKey,
+  resolveChatTimelineUsageModelKey
 } from '../chatTimeline/index.ts';
 import type { ChatTimelineState } from '../chatTimeline/index.ts';
-import {
-  CHAT_CONVERSATION_FALLBACK_TITLE,
-  resolveChatConversationTitleCandidate,
-} from './chatConversationTitle.ts';
+import { CHAT_CONVERSATION_FALLBACK_TITLE, resolveChatConversationTitleCandidate } from './chatConversationTitle.ts';
 import type { ChatHomeItem, ChatMessageItem, ChatMessageStatus, ChatReadState } from './types';
-import {
-  hasChatReadStateInput,
-  normalizeChatReadState,
-  readStateToUnreadBit,
-} from './chatReadState.ts';
+import { hasChatReadStateInput, normalizeChatReadState, readStateToUnreadBit } from './chatReadState.ts';
 
-type ProjectedConversationSummary = Omit<
-  ChatHomeItem,
-  'source' | 'title' | 'read' | 'unreadCount'
-> & {
+type ProjectedConversationSummary = Omit<ChatHomeItem, 'source' | 'title' | 'read' | 'unreadCount'> & {
   title?: string;
   read?: ChatReadState;
   unreadCount?: number;
@@ -115,7 +104,7 @@ function createDetailTimelineEventIndex(): DetailTimelineEventIndex {
     requestQueryRunIds: new Set(),
     runCompleteIds: new Set(),
     runStartIds: new Set(),
-    artifactKeys: new Set(),
+    artifactKeys: new Set()
   };
 }
 
@@ -132,15 +121,8 @@ function getArtifactSnapshotKey(value: unknown, fallbackIndex = -1): string {
   }
   return (
     toText(
-      value.artifactId ||
-        value.id ||
-        value.sha256 ||
-        value.url ||
-        value.name ||
-        value.path ||
-        value.sandboxPath
-    ) ||
-    (fallbackIndex >= 0 ? `artifact-${fallbackIndex}` : '')
+      value.artifactId || value.id || value.sha256 || value.url || value.name || value.path || value.sandboxPath
+    ) || (fallbackIndex >= 0 ? `artifact-${fallbackIndex}` : '')
   );
 }
 
@@ -171,7 +153,7 @@ function addDetailTimelineEventIndex(
   if (type === 'usage.snapshot') {
     index.latestUsageSnapshot = {
       event,
-      index: eventOrder,
+      index: eventOrder
     };
     index.latestCompactPostTokensAfterUsage = null;
   }
@@ -245,7 +227,7 @@ function appendDetailPlanSnapshotEvent(
     status: toText(plan.status),
     text: toText(plan.text || plan.summary || plan.title),
     payload: plan,
-    timestamp,
+    timestamp
   });
 }
 
@@ -278,10 +260,7 @@ function appendDetailArtifactSnapshotEvents(
       sha256: toText(item.sha256),
       sizeBytes: toFiniteNumber(item.sizeBytes) ?? toFiniteNumber(item.size) ?? undefined,
       payload: item,
-      timestamp: parseTimestamp(
-        item.timestamp || item.createdAt || item.updatedAt,
-        timestamp + itemIndex
-      ),
+      timestamp: parseTimestamp(item.timestamp || item.createdAt || item.updatedAt, timestamp + itemIndex)
     });
   });
 }
@@ -324,9 +303,7 @@ function isTerminalActiveRunState(value: unknown): boolean {
   );
 }
 
-function readDetailActiveRun(
-  detail: RemoteChatDetail
-): (RemoteChatActiveRun & Record<string, unknown>) | null {
+function readDetailActiveRun(detail: RemoteChatDetail): (RemoteChatActiveRun & Record<string, unknown>) | null {
   return isObjectRecord(detail.activeRun) ? detail.activeRun : null;
 }
 
@@ -339,7 +316,7 @@ function projectDetailActiveRun(detail: RemoteChatDetail): ProjectedDetailActive
   return {
     runId,
     agentKey: toText(activeRun.agentKey),
-    lastSeq: toNonNegativeInteger(activeRun.lastSeq),
+    lastSeq: toNonNegativeInteger(activeRun.lastSeq)
   };
 }
 
@@ -369,7 +346,7 @@ function resolveRunUsageSources(runs: readonly Record<string, unknown>[]): Detai
 
   return {
     latestRun,
-    runWithUsage,
+    runWithUsage
   };
 }
 
@@ -379,9 +356,7 @@ function buildMergedDetailUsagePayload(
   runWithUsage: Record<string, unknown> | null,
   compactUsage: Record<string, unknown> | null
 ): Record<string, unknown> | null {
-  const eventUsage = isObjectRecord(latestUsageSnapshot?.event.usage)
-    ? latestUsageSnapshot.event.usage
-    : null;
+  const eventUsage = isObjectRecord(latestUsageSnapshot?.event.usage) ? latestUsageSnapshot.event.usage : null;
   const detailUsage = isObjectRecord(detail.usage) ? detail.usage : null;
   const runUsage = isObjectRecord(runWithUsage?.usage) ? runWithUsage.usage : null;
   const usage: Record<string, unknown> = eventUsage ? { ...eventUsage } : {};
@@ -420,38 +395,27 @@ function buildDetailUsageSnapshotEvent(
   timestamp: number
 ): RemoteChatEvent | null {
   const latestUsageSnapshot = eventIndex.latestUsageSnapshot;
-  const eventUsage = isObjectRecord(latestUsageSnapshot?.event.usage)
-    ? latestUsageSnapshot.event.usage
-    : null;
+  const eventUsage = isObjectRecord(latestUsageSnapshot?.event.usage) ? latestUsageSnapshot.event.usage : null;
   const detailUsage = isObjectRecord(detail.usage) ? detail.usage : null;
   const compactUsage = eventIndex.latestCompactUsage;
   const { latestRun, runWithUsage } = resolveRunUsageSources(runs);
   const runUsage = isObjectRecord(runWithUsage?.usage) ? runWithUsage.usage : null;
-  const usage = buildMergedDetailUsagePayload(
-    detail,
-    latestUsageSnapshot,
-    runWithUsage,
-    compactUsage
-  );
+  const usage = buildMergedDetailUsagePayload(detail, latestUsageSnapshot, runWithUsage, compactUsage);
   const compactPostTokens = eventIndex.latestCompactPostTokensAfterUsage;
   const baseContextWindow =
-    (isObjectRecord(latestUsageSnapshot?.event.contextWindow)
-      ? latestUsageSnapshot.event.contextWindow
-      : null) ?? (isObjectRecord(detail.contextWindow) ? detail.contextWindow : null);
+    (isObjectRecord(latestUsageSnapshot?.event.contextWindow) ? latestUsageSnapshot.event.contextWindow : null) ??
+    (isObjectRecord(detail.contextWindow) ? detail.contextWindow : null);
   const contextWindow =
     compactPostTokens === null
       ? baseContextWindow
       : {
           ...(baseContextWindow ?? {}),
           currentSize: compactPostTokens,
-          estimatedNextCallSize: compactPostTokens,
+          estimatedNextCallSize: compactPostTokens
         };
   const activeRun = isObjectRecord(detail.activeRun) ? detail.activeRun : null;
   const runId =
-    getRunId(activeRun) ||
-    getRunId(runWithUsage) ||
-    getRunId(latestRun) ||
-    getRunId(latestUsageSnapshot?.event);
+    getRunId(activeRun) || getRunId(runWithUsage) || getRunId(latestRun) || getRunId(latestUsageSnapshot?.event);
   const latestUsageEventModelKey = resolveChatTimelineUsageModelKey(latestUsageSnapshot?.event);
   const modelKey =
     resolveChatTimelineUsageModelKey(activeRun) ||
@@ -466,12 +430,10 @@ function buildDetailUsageSnapshotEvent(
   const hasContextEnrichment =
     compactPostTokens !== null ||
     (Boolean(baseContextWindow) && !isObjectRecord(latestUsageSnapshot?.event.contextWindow));
-  const hasModelEnrichment =
-    Boolean(modelKey) && modelKey !== latestUsageEventModelKey;
+  const hasModelEnrichment = Boolean(modelKey) && modelKey !== latestUsageEventModelKey;
   const shouldAppend =
-    Boolean(
-      detailUsage || runUsage || compactUsage || hasContextEnrichment || hasModelEnrichment
-    ) || !latestUsageSnapshot;
+    Boolean(detailUsage || runUsage || compactUsage || hasContextEnrichment || hasModelEnrichment) ||
+    !latestUsageSnapshot;
 
   if (!shouldAppend || (!usage && !eventUsage)) {
     return null;
@@ -484,7 +446,7 @@ function buildDetailUsageSnapshotEvent(
     ...(modelKey ? { model: { key: modelKey } } : {}),
     ...(enrichedContextWindow ? { contextWindow: enrichedContextWindow } : {}),
     ...(usage ? { usage } : {}),
-    timestamp,
+    timestamp
   };
 }
 
@@ -509,7 +471,7 @@ function buildDetailTimelineEvents(
         planningId: toText(planning?.planningId) || 'planning',
         planningFile: toText(planning?.planningFile),
         text: planningText,
-        timestamp: baseTimestamp + 1,
+        timestamp: baseTimestamp + 1
       });
     }
   }
@@ -525,13 +487,14 @@ function buildDetailTimelineEvents(
     if (toText(run.initialMessage) && !hasRequestQueryForRun(eventIndex, runId)) {
       appendDetailTimelineEvent(events, eventIndex, {
         type: 'request.query',
+        accessLevel: run.accessLevel ?? null,
         chatId: conversationId,
         chatName: title,
         runId,
         requestId: toText(run.requestId) || `run_${runId || index}_request`,
         role: 'user',
         message: toText(run.initialMessage),
-        timestamp: runTimestamp,
+        timestamp: runTimestamp
       });
     }
 
@@ -541,7 +504,7 @@ function buildDetailTimelineEvents(
         chatId: conversationId,
         runId,
         agentKey: toText(run.agentKey),
-        timestamp: runTimestamp,
+        timestamp: runTimestamp
       });
     }
 
@@ -552,41 +515,30 @@ function buildDetailTimelineEvents(
         runId,
         contentId: toText(run.contentId) || `run_${runId || index}_content`,
         text: toText(run.assistantText),
-        timestamp: runCompletedAt,
+        timestamp: runCompletedAt
       });
     }
 
-    if (
-      runId &&
-      (toText(run.finishReason) || run.completedAt !== undefined) &&
-      !eventIndex.runCompleteIds.has(runId)
-    ) {
+    if (runId && (toText(run.finishReason) || run.completedAt !== undefined) && !eventIndex.runCompleteIds.has(runId)) {
       appendDetailTimelineEvent(events, eventIndex, {
         type: 'run.complete',
         chatId: conversationId,
         runId,
         finishReason: toText(run.finishReason),
         usage: run.usage,
-        timestamp: runCompletedAt,
+        timestamp: runCompletedAt
       });
     }
   });
 
-  if (
-    activeRun &&
-    !eventIndex.runStartIds.has(activeRun.runId) &&
-    !eventIndex.runCompleteIds.has(activeRun.runId)
-  ) {
+  if (activeRun && !eventIndex.runStartIds.has(activeRun.runId) && !eventIndex.runCompleteIds.has(activeRun.runId)) {
     const activeRunRecord = readDetailActiveRun(detail);
     appendDetailTimelineEvent(events, eventIndex, {
       type: 'run.start',
       chatId: conversationId,
       runId: activeRun.runId,
       agentKey: activeRun.agentKey,
-      timestamp: parseTimestamp(
-        activeRunRecord?.startedAt,
-        (eventIndex.lastTimestamp || baseTimestamp) + 1
-      ),
+      timestamp: parseTimestamp(activeRunRecord?.startedAt, (eventIndex.lastTimestamp || baseTimestamp) + 1)
     });
   }
 
@@ -635,23 +587,17 @@ function buildSummaryFromMessage(
     lastMessageAt,
     ...(read ? { unreadCount: readStateToUnreadBit(read), read } : {}),
     lastMessageStatus: message?.deliveryStatus || 'sent',
-    pinnedAt: 0,
+    pinnedAt: 0
   };
 }
 
-export function projectRemoteChatSummary(
-  summary: RemoteChatSummary
-): ProjectedChatSummaryPatch | null {
+export function projectRemoteChatSummary(summary: RemoteChatSummary): ProjectedChatSummaryPatch | null {
   const conversationId = toText(summary.chatId || summary.conversationId);
   if (!conversationId) {
     return null;
   }
 
-  const title = resolveChatConversationTitleCandidate(
-    summary.chatName,
-    summary.title,
-    summary.name
-  );
+  const title = resolveChatConversationTitleCandidate(summary.chatName, summary.title, summary.name);
   const lastMessageText = toText(summary.lastRunContent || summary.lastMessageText);
   const hasLastMessageText = Boolean(lastMessageText);
   const updatedAt = parseTimestamp(
@@ -670,18 +616,19 @@ export function projectRemoteChatSummary(
       ? {
           lastMessageText,
           lastMessageAt: updatedAt,
-          lastMessageStatus: 'sent' as const,
+          lastMessageStatus: 'sent' as const
         }
       : {}),
     ...(read ? { unreadCount: readStateToUnreadBit(read), read } : {}),
     agentKey: agentKey || null,
-    teamId: teamId || null,
+    teamId: teamId || null
   };
 }
 
 export function projectRemoteChatDetail(
   detail: RemoteChatDetail,
-  fallbackSummary?: RemoteChatSummary | null
+  fallbackSummary?: RemoteChatSummary | null,
+  historicalPage = false
 ): ProjectedConversationDetail | null {
   const conversationId = toText(detail.chatId || fallbackSummary?.chatId);
   if (!conversationId) {
@@ -696,9 +643,7 @@ export function projectRemoteChatDetail(
     fallbackSummary?.title
   );
   const hasExplicitReadState = hasChatReadStateInput(detail);
-  const read = hasExplicitReadState
-    ? normalizeChatReadState(detail)
-    : normalizeChatReadState(fallbackSummary);
+  const read = hasExplicitReadState ? normalizeChatReadState(detail) : normalizeChatReadState(fallbackSummary);
   const detailActiveRun = projectDetailActiveRun(detail);
   const events = buildDetailTimelineEvents(
     detail,
@@ -706,18 +651,27 @@ export function projectRemoteChatDetail(
     remoteTitle || CHAT_CONVERSATION_FALLBACK_TITLE,
     detailActiveRun
   );
-  const timelineState = deriveChatTimelineState(conversationId, events);
+  const replayState = deriveChatTimelineState(
+    conversationId,
+    events.filter((event) => event.type !== 'tool.output' && event.type !== 'run.activity')
+  );
+  const awaitingState = historicalPage
+    ? replayState
+    : reconcileChatTimelineAwaitingSnapshot(replayState, detail.awaiting);
+  let timelineState = historicalPage ? awaitingState : { ...awaitingState, canContinue: detail.canContinue === true };
+  for (const run of Array.isArray(detail.runs) ? detail.runs : []) {
+    if (!isObjectRecord(run)) continue;
+    const feedback = readChatRunFeedback(run);
+    if (feedback !== undefined)
+      timelineState = applyChatTimelineRunFeedback(timelineState, toText(run.runId), { feedback });
+  }
   const activeRun = detailActiveRun?.runId === timelineState.activeRunId ? detailActiveRun : null;
   const runtimeState = projectTimelineRuntimeState(timelineState);
   const messages = projectTimelineMessages(timelineState);
   const firstUserMessage = messages.find((message) => message.role === 'user');
-  const title =
-    resolveChatConversationTitleCandidate(firstUserMessage?.content) || remoteTitle;
+  const title = resolveChatConversationTitleCandidate(firstUserMessage?.content) || remoteTitle;
 
-  const fallbackUpdatedAt = parseTimestamp(
-    detail.updatedAt || fallbackSummary?.updatedAt,
-    Date.now()
-  );
+  const fallbackUpdatedAt = parseTimestamp(detail.updatedAt || fallbackSummary?.updatedAt, Date.now());
   const summary = buildSummaryFromMessage(
     conversationId,
     title,
@@ -737,6 +691,6 @@ export function projectRemoteChatDetail(
     timelineState,
     runtimeState,
     summary,
-    messages,
+    messages
   };
 }

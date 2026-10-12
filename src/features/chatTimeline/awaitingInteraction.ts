@@ -1,3 +1,4 @@
+import { readChatViewReference } from '../../core/api/services/chatViewProtocol.ts';
 import {
   normalizeEventType,
   normalizeAwaitingTimeoutMs,
@@ -351,6 +352,8 @@ function readCommonInteraction(
   event: Record<string, unknown>
 ) {
   return {
+    view: readChatViewReference(record.view ?? event.view),
+    viewError: readOptionalText(record, 'viewError') || readOptionalText(event, 'viewError'),
     viewportType: readOptionalText(record, 'viewportType') || readOptionalText(event, 'viewportType'),
     viewportKey: readOptionalText(record, 'viewportKey') || readOptionalText(event, 'viewportKey'),
     timeout: normalizeAwaitingTimeoutMs(record.timeout ?? event.timeout),
@@ -385,7 +388,7 @@ function normalizeDirectInteractive(
       readOptionalText(event, 'action') ||
       common.viewportKey;
     const forms = normalizeForms(value.forms, fallbackAction, cloneRecord(value.form ?? event.form));
-    return forms.length > 0 || common.viewportKey ? { kind: 'form', ...common, forms } : null;
+    return forms.length > 0 || common.viewportKey || common.view ? { kind: 'form', ...common, forms } : null;
   }
   if (kind === 'plan') {
     const plan = normalizePlan(value.plan ?? event.plan, value);
@@ -433,7 +436,7 @@ function normalizeAwaitingInteractive(
       readOptionalText(event, 'viewportKey') ||
       readOptionalText(event, 'id');
     const forms = normalizeForms(event.forms, fallbackAction, cloneRecord(event.form));
-    if (forms.length > 0 || common.viewportKey) {
+    if (forms.length > 0 || common.viewportKey || common.view) {
       return { kind: 'form', ...common, forms };
     }
   }
@@ -468,7 +471,7 @@ function formatStructuredItems(items: unknown): string {
     return formatTimelineEventValue(items);
   }
   return items
-    .map((item, index) => {
+    .map((item) => {
       if (!isTimelineObjectRecord(item)) {
         return formatTimelineEventValue(item);
       }
@@ -875,6 +878,8 @@ export function getAwaitingInteractiveSignature(
   const common = [
     interactive.kind,
     signatureText(interactive.agentKey),
+    JSON.stringify(interactive.view),
+    signatureText(interactive.viewError),
     signatureText(interactive.viewportType),
     signatureText(interactive.viewportKey),
     signatureText(getAwaitingInteractiveTimeout(interactive)),

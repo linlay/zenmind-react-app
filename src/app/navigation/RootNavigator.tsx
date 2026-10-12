@@ -1,6 +1,9 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
-import { useAppAccess } from '../../core/auth/useAppAccess';
+import { useSyncExternalStore } from 'react';
+import { getCloudAuthSnapshot, subscribeCloudAuth } from '../../core/auth/cloudAuth';
+import { useAccountAuth } from '../../core/auth/useAccountAuth.ts';
+import { readActiveDesktopId, subscribeActiveDesktop } from '../../core/auth/activeDesktop.ts';
 import { AgentTaskBoardFlowNavigator } from '../../features/agentTaskBoard/AgentTaskBoardFlowNavigator';
 import { AgentTaskBoardProvider } from '../../features/agentTaskBoard/AgentTaskBoardProvider';
 import { AuthBootstrapScreen, LoginScreen } from '../../features/auth/LoginScreen';
@@ -10,6 +13,7 @@ import { WebAppDetailScreen } from '../../features/webApps/WebAppDetailScreen';
 import { WebAppsRuntimeProvider } from '../../features/webApps/WebAppsRuntimeProvider';
 import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { AgentWaitingDemoScreen } from '../screens/AgentWaitingDemoScreen';
+import { AboutScreen } from '../screens/AboutScreen';
 import { SettingsScreen } from '../screens/SettingsScreen';
 import { TabsNavigator } from './TabsNavigator';
 import { RootStackParamList } from './types';
@@ -18,27 +22,20 @@ const RootStack = createNativeStackNavigator<RootStackParamList>();
 
 export function RootNavigator() {
   const { theme } = useAppTheme();
-  const access = useAppAccess();
-  const pairedSession = access.pairedSession;
-  const pairingAvailable = access.status === 'ready' && access.pairingState === 'unpaired';
-  const webAppsEnabled = access.status === 'ready' && access.pairingState === 'paired' && Boolean(pairedSession);
-  const webAppsSessionKey =
-    access.status === 'ready' && access.pairingState === 'paired' && pairedSession
-      ? JSON.stringify([pairedSession.deviceId, pairedSession.username])
-      : 'unpaired';
+  const account = useAccountAuth();
+  const accountId = account.session?.accountId || '';
+  const readDesktopId = () => readActiveDesktopId(accountId);
+  const desktopId = useSyncExternalStore(subscribeActiveDesktop, readDesktopId, readDesktopId);
+  const cloud = useSyncExternalStore(subscribeCloudAuth, getCloudAuthSnapshot, getCloudAuthSnapshot);
+  const webAppsEnabled = Boolean(account.session && desktopId);
+  const webAppsSessionKey = account.session
+    ? JSON.stringify([accountId, account.session.deviceId, desktopId])
+    : 'signed-out';
 
-  if (access.status === 'bootstrapping') {
+  if (account.isBootstrapping && !cloud.cacheAllowed) {
     return (
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         <RootStack.Screen name="Login" component={AuthBootstrapScreen} />
-      </RootStack.Navigator>
-    );
-  }
-
-  if (access.status === 'onboarding') {
-    return (
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        <RootStack.Screen name="Login" component={LoginScreen} />
       </RootStack.Navigator>
     );
   }
@@ -47,16 +44,14 @@ export function RootNavigator() {
     <AgentTaskBoardProvider>
       <WebAppsRuntimeProvider enabled={webAppsEnabled} sessionKey={webAppsSessionKey}>
         <RootStack.Navigator initialRouteName="Tabs" screenOptions={{ headerShown: false }}>
-          {pairingAvailable ? (
-            <RootStack.Screen
-              name="Login"
-              component={LoginScreen}
-              options={{
-                animation: 'slide_from_bottom',
-                gestureEnabled: true
-              }}
-            />
-          ) : null}
+          <RootStack.Screen
+            name="Login"
+            component={LoginScreen}
+            options={{
+              animation: 'slide_from_bottom',
+              gestureEnabled: true
+            }}
+          />
           <RootStack.Screen name="Tabs" component={TabsNavigator} options={{ freezeOnBlur: true }} />
           <RootStack.Screen
             name="TaskBoardFlow"
@@ -92,6 +87,11 @@ export function RootNavigator() {
               gestureEnabled: false,
               presentation: 'transparentModal'
             }}
+          />
+          <RootStack.Screen
+            name="About"
+            component={AboutScreen}
+            options={{ animation: 'slide_from_right', gestureEnabled: true }}
           />
           <RootStack.Screen
             name="Settings"

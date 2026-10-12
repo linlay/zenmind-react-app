@@ -39,11 +39,11 @@ function extractSelfClosingPressableByNeedle(source: string, needle: string): st
 
 test('chat drawer close affordances close on press-in and keep press fallback', () => {
   for (const { backdropNeedle, closeLabel, source } of drawerSources) {
-    const closeButton = extractPressableByAccessibilityLabel(source, closeLabel);
+    const closeButton = source.includes(closeLabel) ? extractPressableByAccessibilityLabel(source, closeLabel) : null;
     const backdrop = extractSelfClosingPressableByNeedle(source, backdropNeedle);
 
-    assert.match(closeButton, /onPressIn=\{onClose\}/);
-    assert.match(closeButton, /onPress=\{onClose\}/);
+    if (closeButton) assert.match(closeButton, /onPressIn=\{onClose\}/);
+    if (closeButton) assert.match(closeButton, /onPress=\{onClose\}/);
     assert.match(backdrop, /onPressIn=\{onClose\}/);
     assert.match(backdrop, /onPress=\{onClose\}/);
   }

@@ -92,7 +92,7 @@ test('runtime descriptor defers tool payload parsing and redaction until copy is
   assert.match(copied, /\[redacted\]/);
 });
 
-test('runtime descriptor keeps reasoning markdown lightweight and nowrap by default', () => {
+test('runtime descriptor keeps reasoning markdown collapsed and wrapped by default', () => {
   const node: ChatTimelineTextNode = {
     ...baseNode,
     id: 'reasoning-1',
@@ -109,7 +109,7 @@ test('runtime descriptor keeps reasoning markdown lightweight and nowrap by defa
   assert.equal(descriptor.iconUsage, 'runtime.reasoning');
   assert.equal(descriptor.tone, 'reasoning');
   assert.equal(descriptor.defaultExpanded, false);
-  assert.equal(descriptor.defaultWrap, false);
+  assert.equal(descriptor.defaultWrap, true);
   assert.equal(descriptor.copyText, 'Let me inspect the context.');
 });
 

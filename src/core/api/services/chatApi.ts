@@ -1,3 +1,4 @@
+import { buildChatRunOwnerPayload } from './chatRunOwner.ts';
 import { ApiError, authenticatedApiRequest } from '../apiClient.ts';
 
 export { buildSubmitFrontendToolPayload, type SubmitFrontendToolRequest } from './frontendToolSubmitProtocol.ts';
@@ -7,6 +8,10 @@ export const CHAT_DETAIL_TRANSPORT_TYPE = '/api/chat';
 export const CHAT_AGENT_DETAIL_TRANSPORT_TYPE = '/api/agent';
 export const CHAT_READ_TRANSPORT_TYPE = '/api/read';
 export const CHAT_SUBMIT_TRANSPORT_TYPE = '/api/submit';
+export const CHAT_ACCESS_LEVEL_TRANSPORT_TYPE = '/api/access-level';
+export type ChatAccessLevelResponse = { accepted?: boolean; runId?: string; accessLevel?: unknown; version?: unknown; detail?: string };
+export const CHAT_STEER_TRANSPORT_TYPE = '/api/steer';
+export type ChatSteerResponse = { accepted: boolean | null; status: string; detail: string };
 export const CHAT_OPERATION_TRANSPORT_TYPE = '/api/operation';
 export const REMOTE_CHAT_PAGE_SIZE = 10 as const;
 
@@ -302,7 +307,8 @@ export type AwaitingSubmitPayloadData = {
 
 export type SubmitAwaitingRequest = AwaitingSubmitPayloadData & {
   chatId?: string;
-  agentKey: string;
+  agentKey?: string;
+  teamId?: string;
   submitId?: string;
 };
 
@@ -491,8 +497,7 @@ export function buildMarkChatReadPayload(request: MarkChatReadRequest, runId?: s
 
   return {
     ...(chatId ? { chatId } : {}),
-    ...(agentKey ? { agentKey } : {}),
-    ...(teamId ? { teamId } : {}),
+    ...buildChatRunOwnerPayload({ agentKey, teamId }),
     ...(readRunId ? { runId: readRunId } : {})
   };
 }
@@ -502,7 +507,7 @@ export function buildSubmitAwaitingPayload(request: SubmitAwaitingRequest): Subm
   const submitId = String(request.submitId || '').trim();
   const payload: SubmitAwaitingRequest = {
     runId: String(request.runId || '').trim(),
-    agentKey: String(request.agentKey || '').trim(),
+    ...buildChatRunOwnerPayload(request),
     awaitingId: String(request.awaitingId || '').trim(),
     params: request.params
   };

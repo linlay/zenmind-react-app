@@ -13,7 +13,7 @@
     {
       "id": "app-shell-navigation",
       "title": "app-shell-navigation",
-      "summary": "应用壳层与底部导航: 挂载 SafeAreaProvider、I18nProvider、AppThemeProvider、应用启动加载遮罩、NavigationContainer、root stack 和底部 Tab。",
+      "summary": "App shell 独立恢复账号与默认云端；Login 始终可达，两种访问使用同一 Tabs 与来源生命周期。",
       "pathHints": [
         ".generated/brand",
         "App.tsx",
@@ -59,7 +59,7 @@
     {
       "id": "core-api-client",
       "title": "core-api-client",
-      "summary": "统一 API 客户端: 统一拼接 API base URL、path 和 query。",
+      "summary": "统一 HTTP/WS API；默认云端使用独立凭证，Desktop 使用绑定账号/手机/目标的短期票据。",
       "pathHints": [
         "src/core/api"
       ],
@@ -68,7 +68,7 @@
     {
       "id": "core-auth-session",
       "title": "core-auth-session",
-      "summary": "认证会话与设备 Profile: 维护设备登录后的会话状态、HTTP device token、Desktop WS token、Desktop 同源 HTTP base URL、设备 profile、聊天缓存 scope 切换、冷启动恢复和前台预刷新逻辑。",
+      "summary": "账号电脑认证、唯一来源选择及独立默认云端凭证；云端不依赖 Identity 登录。",
       "pathHints": [
         "src/core/auth"
       ],
@@ -113,7 +113,7 @@
     {
       "id": "feature-auth-login",
       "title": "feature-auth-login",
-      "summary": "登录、认证门卫与账号设备界面: 承载独立账号登录、设备信任等级、Desktop 配对、一次性挑战确认、账号设备选择/改名/撤销和启动恢复占位。",
+      "summary": "独立电脑账号登录和默认云端 Token 登录；沿用现有电脑目录与授权。",
       "pathHints": [
         "src/features/auth",
         "src/features/deviceLink"
@@ -123,7 +123,7 @@
     {
       "id": "feature-chat-persistence",
       "title": "feature-chat-persistence",
-      "summary": "聊天持久化与首页数据读取: 维护 Chat 首页 agent/team 目录、目录 icon 展示字段、远端 chat 摘要投影、聊天会话、置顶状态、消息、outbox、conversation_sync_state、conversation_timeline_meta/nodes、本地数据库和目录快照。",
+      "summary": "SQLite 是当前所选来源的聊天真源；默认云端按凭证、电脑按账号+电脑隔离。",
       "pathHints": [
         "src/features/chatPersistence"
       ],
@@ -132,7 +132,7 @@
     {
       "id": "feature-chat-realtime",
       "title": "feature-chat-realtime",
-      "summary": "聊天实时同步: 管理聊天实时业务同步、连接状态投递、pending stream 清理、首页目录预热入口，以及详情页停止/继续生成入口。",
+      "summary": "单个所选来源的 chatSyncService，云端独立业务验证与远端操作门控。",
       "pathHints": [
         "src/features/chatRealtime"
       ],
@@ -159,7 +159,7 @@
     {
       "id": "feature-web-apps",
       "title": "feature-web-apps",
-      "summary": "移动端 WebApps Desktop WS 只读目录与常驻多 WebView 容器：登录后同步真实列表和增量状态，并在一级 Apps 列表与 WebAppDetail 二级容器之间复用登录会话级 resident。",
+      "summary": "WebApps 跟随当前账号所选电脑；云端没有应用能力时展示空态。",
       "pathHints": [
         "src/features/webApps"
       ],

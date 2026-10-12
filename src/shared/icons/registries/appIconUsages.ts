@@ -20,6 +20,11 @@ export type AppIconUsageConfig = {
 };
 
 export const appIconUsages = {
+  'accountSource.cloud': { glyph: 'cloud', colorRole: 'brand', sizeRole: 'md' },
+  'accountSource.desktop': { glyph: 'computer', colorRole: 'secondary', sizeRole: 'md' },
+  'accountSource.expand': { glyph: 'expand_more', colorRole: 'secondary', sizeRole: 'md' },
+  'accountSource.refresh': { glyph: 'refresh', colorRole: 'brand', sizeRole: 'md' },
+  'accountSource.selected': { glyph: 'check', colorRole: 'brand', sizeRole: 'md' },
   'tab.chat': { glyph: 'chat', colorRole: 'brand', sizeRole: 'tab' },
   'tab.webApps': { glyph: 'apps', colorRole: 'brand', sizeRole: 'tab' },
   'tab.drive': { glyph: 'drive', colorRole: 'brand', sizeRole: 'tab' },

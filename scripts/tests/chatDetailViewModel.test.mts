@@ -16,7 +16,6 @@ import {
 import { useChatDetailAwaitingOverlay } from '../../src/features/chatPersistence/useChatDetailAwaitingOverlay.ts';
 import {
   applyChatTimelineEvent,
-  applyChatTimelineLocalCancel,
   createChatTimelineState,
 } from '../../src/features/chatTimeline/index.ts';
 import type { ChatTimelineUsageStats, ChatTimelineUsageSummary } from '../../src/features/chatTimeline/index.ts';
@@ -278,7 +277,8 @@ test('detail header runtime state is derived from the timeline in one place', ()
   assert.equal(headerState.statusTone, 'error');
   assert.equal(headerState.usageLabel, '');
   assert.equal(headerState.usageSummary?.current.totalTokens, 14);
-  assert.equal(headerState.runAction, 'resume');
+  assert.equal(headerState.runAction, null);
+  assert.equal(deriveChatDetailHeaderRuntimeState({...state, canContinue:true}).runAction, 'resume');
 
   state = applyChatTimelineEvent(state, 'chat-1', {
     type: 'run.start',
@@ -337,45 +337,4 @@ test('detail header ignores stale active child nodes after a terminal run event'
 
   assert.equal(headerState.statusTone, 'idle');
   assert.equal(headerState.runAction, null);
-});
-
-test('local run cancel returns detail header and composer to idle send state', () => {
-  let state = createChatTimelineState('chat-1');
-  state = applyChatTimelineEvent(state, 'chat-1', {
-    type: 'run.start',
-    runId: 'run-1',
-    timestamp: 100,
-  });
-  state = applyChatTimelineEvent(state, 'chat-1', {
-    type: 'content.delta',
-    runId: 'run-1',
-    contentId: 'answer-1',
-    delta: 'partial',
-    timestamp: 110,
-  });
-
-  state = applyChatTimelineLocalCancel(state, 'chat-1', {
-    runId: 'run-1',
-    timestamp: 120,
-  });
-  const headerState = deriveChatDetailHeaderRuntimeState(state);
-
-  assert.equal(headerState.statusTone, 'idle');
-  assert.equal(headerState.runAction, null);
-  assert.equal(
-    deriveChatComposerPrimaryAction({
-      draft: '',
-      sending: false,
-      runAction: headerState.runAction,
-    }),
-    'send-disabled'
-  );
-  assert.equal(
-    deriveChatComposerPrimaryAction({
-      draft: '继续',
-      sending: false,
-      runAction: headerState.runAction,
-    }),
-    'send'
-  );
 });

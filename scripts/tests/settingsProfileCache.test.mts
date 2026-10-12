@@ -21,7 +21,7 @@ test('settings exposes account, Desktop, and conversation cache actions without 
   assert.doesNotMatch(settings, /expo-sqlite|react-native-mmkv|chatRepository|database\.ts/u);
   assert.match(actions, /candidate\.accountId === normalizedCurrentAccountId/u);
   assert.match(actions, /conversations: canReadConversationMetadata \? inventory\.conversations : \[\]/u);
-  assert.match(actions, /listPersistedUnassignedLegacyCacheScopes/u);
+  assert.doesNotMatch(actions, /listPersistedUnassignedLegacyCacheScopes|listDeviceProfiles/u);
 });
 
 test('scoped cache clearing stops realtime only for the current scope and reports idempotent missing databases', () => {

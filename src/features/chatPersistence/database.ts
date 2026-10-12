@@ -6,7 +6,8 @@ import {
   buildChatDatabaseName,
   getChatCacheScopeId,
   normalizeChatCacheScopeId,
-  setChatCacheScopeId
+  setChatCacheScopeId,
+  notifyChatCacheScopeChanged
 } from './cacheScope';
 import * as schema from './schema';
 
@@ -247,7 +248,7 @@ export function deleteChatConversationFromScopeIfExists(scopeId: string, convers
   }
 }
 
-export function switchChatDatabaseScope(scopeId: string) {
+export function switchChatDatabaseScope(scopeId: string, notify = true) {
   const nextScopeId = normalizeChatCacheScopeId(scopeId);
   if (getChatCacheScopeId() === nextScopeId) {
     return;
@@ -259,6 +260,7 @@ export function switchChatDatabaseScope(scopeId: string) {
   sqlite = nextSqlite;
   chatDb = drizzle(sqlite, { schema });
   initialized = false;
+  if (notify) notifyChatCacheScopeChanged();
 
   try {
     previousSqlite.closeSync();
@@ -420,6 +422,8 @@ export async function ensureChatDatabase() {
       conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
       content TEXT NOT NULL,
       planning_mode INTEGER NOT NULL DEFAULT 0,
+      editing_mode INTEGER NOT NULL DEFAULT 0,
+      must_use_skills_json TEXT NOT NULL DEFAULT '[]',
       created_at INTEGER NOT NULL
     );
 
@@ -546,6 +550,18 @@ export async function ensureChatDatabase() {
 
   try {
     sqlite.execSync('ALTER TABLE outbox_messages ADD COLUMN planning_mode INTEGER NOT NULL DEFAULT 0;');
+  } catch (error) {
+    ignoreDuplicateColumn(error);
+  }
+
+  try {
+    sqlite.execSync('ALTER TABLE outbox_messages ADD COLUMN editing_mode INTEGER NOT NULL DEFAULT 0;');
+  } catch (error) {
+    ignoreDuplicateColumn(error);
+  }
+
+  try {
+    sqlite.execSync("ALTER TABLE outbox_messages ADD COLUMN must_use_skills_json TEXT NOT NULL DEFAULT '[]';");
   } catch (error) {
     ignoreDuplicateColumn(error);
   }

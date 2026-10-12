@@ -94,49 +94,27 @@
 
 ### `api/activeWsTransport.ts`
 
-职责：
+按当前账号与唯一来源解析 `WsTransportConfig`。云端使用账号 JWT，Desktop 使用 Hub 返回的短期路由凭证；明确离线时不签发凭证，未登录不回退旧 Token。
 
-- 按 active device profile 解析聊天/AP 请求所需的 `WsTransportConfig`。
-- HTTP profile 使用 `getApiBaseUrl()` 和 `getAccessTokenForRequest()` 生成 agent-platform transport。
-- Desktop WS profile 使用保存的 `wsUrl`、`tokenMode` 和 `ensureFreshAccessToken()` 生成带 namespace 的 desktop-ws transport。
+### `auth/accountAuth.ts` / `auth/useAccountAuth.ts`
 
-### `auth/appAuth.ts`
+维护账号登录、账号挑战、恢复、单飞刷新和退出。请求 generation 使迟到结果失效；临时网络错误保留恢复材料，未确认有效时不开放业务连接。
 
-职责：
+### `auth/activeDesktop.ts`
 
-- 登录、登出、刷新 access token，并按 profile 分支处理 HTTP refresh 与 Desktop WS `auth.refresh`。
-- 持久化 legacy HTTP device token、Desktop WS profile token、设备 profile registry 与 session snapshot。
-- 解析 legacy pairing 与 v2 Desktop WS pairing payload，Desktop WS 登录会短连接校验 `session.hello`。
-- 为请求侧提供 `getAccessTokenForRequest()` 和 `ensureFreshAccessToken()`。
-- 通过 `configureAuthCacheRuntime()` 接收 app 层注入的聊天缓存 scope 操作，不直接 import feature 持久化实现。
+按账号持久化唯一 Desktop UUID 并发布选择订阅；未选择时为云端。有效性与在线状态分别处理，撤销后的选择由 feature 与 SQLite 一起切换。
 
-### `auth/deviceProfiles.ts`
+### `auth/accountDesktopCacheScopes.ts`
 
-职责：
-
-- 管理最近设备 profile registry、active profile、manual HTTP profile 和 Desktop WS profile。
-- `transportKind: "http"` 保存 `apiBaseUrl` 与 `deviceToken`；`transportKind: "desktop-ws"` 保存 `wsUrl`、`tokenMode`、Desktop access token 和过期时间。
-- profile 淘汰时返回需要清理的聊天缓存 scope。
+保存账号/来源 v2 缓存映射；不迁移、匹配或认领旧 Profile。清除旧聊天缓存和切换 SQLite 由 `accountDesktopSource` 承担。
 
 ### `auth/desktopWsProtocol.ts`
 
-职责：
-
-- 提供 Desktop WS v2 pairing payload 编解码、legacy v1 payload 兼容解析、Desktop WS URL/token mode 归一化和 namespace frame helper。
+保留精确 WS URL/token mode 归一化与 namespace frame helper；旧配对 payload 编解码已删除。
 
 ### `auth/authConfig.ts`
 
-职责：
-
-- 保存和读取登录页配置的 API base URL。
-- 提供认证门卫开关 `isAuthRequired()`。
-
-### `auth/useAuthSession.ts`
-
-职责：
-
-- 订阅认证 session snapshot。
-- 供 `AppRoot`、`RootNavigator`、Me 页等 UI 使用。
+读取既有 Identity/Hub 账号服务地址。
 
 ### `ws/*`
 
@@ -277,7 +255,7 @@
 ```text
 AppRoot
   -> RootNavigator
-  -> useAuthSession / appAuth
+  -> useAccountAuth / accountAuth
   -> notificationService
   -> chatSyncService
 

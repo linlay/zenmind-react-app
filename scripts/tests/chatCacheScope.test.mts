@@ -27,7 +27,7 @@ test('chat cache scope maps valid profile scopes to isolated files and keys', ()
 });
 
 test('chat cache scope rejects unsafe file name characters', () => {
-  assert.equal(normalizeChatCacheScopeId('../bad'), 'legacy');
-  assert.equal(normalizeChatCacheScopeId('has space'), 'legacy');
-  assert.equal(normalizeChatCacheScopeId(''), 'legacy');
+  assert.equal(normalizeChatCacheScopeId('../bad'), 'signed_out');
+  assert.equal(normalizeChatCacheScopeId('has space'), 'signed_out');
+  assert.equal(normalizeChatCacheScopeId(''), 'signed_out');
 });

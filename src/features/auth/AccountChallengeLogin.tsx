@@ -21,18 +21,22 @@ export function AccountChallengeLogin({ deviceName, onSuccess }: { deviceName: s
   const [challenge, setChallenge] = useState<ActiveChallenge | null>(null);
   const [error, setError] = useState('');
   const generationRef = useRef(0);
+  const createControllerRef = useRef<AbortController | null>(null);
   const onSuccessRef = useRef(onSuccess);
   onSuccessRef.current = onSuccess;
 
   const createChallenge = useCallback(async () => {
     const generation = generationRef.current + 1;
     generationRef.current = generation;
+    createControllerRef.current?.abort();
+    const controller = new AbortController();
+    createControllerRef.current = controller;
     setChallenge(null);
     setError('');
     try {
       const created = await startAccountLoginChallenge({
         deviceName: deviceName.trim() || 'Mobile Device',
-        deviceKind: 'mobile'
+        signal: controller.signal
       });
       if (generationRef.current !== generation) return;
       const expiresAtMs = Date.parse(created.expiresAt);
@@ -57,12 +61,14 @@ export function AccountChallengeLogin({ deviceName, onSuccess }: { deviceName: s
     createChallenge().catch(() => {});
     return () => {
       generationRef.current += 1;
+      createControllerRef.current?.abort();
     };
   }, [createChallenge]);
 
   useEffect(() => {
     if (!challenge) return;
     const generation = generationRef.current;
+    const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async () => {
       if (generationRef.current !== generation) return;
@@ -71,7 +77,7 @@ export function AccountChallengeLogin({ deviceName, onSuccess }: { deviceName: s
         return;
       }
       try {
-        await claimAccountLoginChallenge(challenge.challengeId, challenge.claimToken);
+        await claimAccountLoginChallenge(challenge.challengeId, challenge.claimToken, controller.signal);
         if (generationRef.current === generation) onSuccessRef.current();
       } catch (requestError) {
         if (generationRef.current !== generation) return;
@@ -88,6 +94,7 @@ export function AccountChallengeLogin({ deviceName, onSuccess }: { deviceName: s
     };
     timer = setTimeout(poll, POLL_INTERVAL_MS);
     return () => {
+      controller.abort();
       if (timer) clearTimeout(timer);
     };
   }, [challenge, createChallenge, t]);

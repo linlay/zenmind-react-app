@@ -7,27 +7,12 @@
     "src/features/deviceLink"
   ],
   "summary": {
-    "purpose": "登录、认证门卫与账号设备界面: 承载独立账号登录、设备信任等级、Desktop 配对、一次性挑战确认、账号设备选择/改名/撤销和启动恢复占位。",
+    "purpose": "独立电脑账号登录和默认云端 Token 登录；沿用现有电脑目录与授权。",
     "ownedConcepts": [
-      "登录页以账号登录和 Desktop 配对两种模式承载首次访问；账号登录提交账号、密码、本机名称和 session/trusted/fully_trusted 信任等级，配对模式继续支持配对码、扫码和最近 Profile。成功后统一完成 AppAccess onboarding，由 RootNavigator 根据认证状态移除 Login；页面不手写成功 goBack/reset。",
-      "全屏扫码页保留中央二维码取景框与框下的关闭图标；连接中暂停重复扫码但关闭图标始终可用，失败在扫码页显示不拦截点击的轻提示，短暂冷却后恢复扫描。",
-      "账号登录允许输入本机设备名称并选择信任等级；AccountChallengeLogin 只负责展示并确认 Identity 一次性挑战，不持久化凭据。配对模式保留最近 Desktop WS profile 快捷入口与扫码迁移能力。",
-      "通过 core auth、core api 与 AppAccess 读取账号和设备状态，不在页面层直接碰 MMKV、fetch、WebSocket 或 token 细节。",
-      "扫码、输入和粘贴入口只接受 Desktop WS v2 pairing；UI 只把原始配对内容交给 core auth，不解析 zmpair 或保存 Desktop token。",
-      "保持登录界面为纯 screen 级 UI，实现 root stack 的认证前置入口，并通过 shared-i18n 获取表单文案与校验提示，通过 shared-visual-foundation 复用 generated 品牌 logo。",
-      "Public entry LoginScreen (screen): 未登录时显示的设备登录页面。",
-      "Public entry AuthBootstrapScreen (screen): 冷启动恢复会话期间显示的认证占位页。",
-      "Public entry AccountDevicesPanel (account-device-ui): 基于账号设备底表与 Hub presence 展示在线 Desktop，支持显式选择目标、改名、降级和撤销。",
-      "State/data touch: 配对码和配对提交本地输入态",
-      "State/data touch: 配对 Tab、相机权限与全屏扫码状态",
-      "State/data touch: 最近 profile 展示与快捷激活状态",
-      "State/data touch: 账号凭据、设备名称、信任等级、挑战确认与登录提交中状态",
-      "State/data touch: 账号设备列表、在线 presence 和 active Desktop 选择状态",
-      "State/data touch: 可取消的扫码配对 attempt、短暂重扫冷却与认证错误轻提示",
-      "Related flow: app-startup",
-      "Related task: add-auth-login-screen",
-      "Related task: add-internationalization",
-      "Related task: add-or-edit-tab-screen"
+      "LoginScreen 在现有主题与表单中提供账号/云端切换，Token 支持输入及系统粘贴，业务验证成功后才保存并选择云端；已登录另一条路径时入口仍可达。",
+      "现有 AccountChallengeLogin/AccountLoginApproval/AccountChallengeScanner 继续服务 Identity 登录挑战；本期未新增或恢复扫码协议。",
+      "AccountDevicesPanel 与来源抽屉复用 Hub 权威目录；刷新失败保留已知列表，离线电脑可选所属缓存，撤销由 service 关闭到暂无来源。",
+      "云端行仅业务验证通过才可选；不可用文字置灰并 disabled，登录/重试独立可点击。页面不操作 SQLite/MMKV/WebSocket。"
     ],
     "nonGoals": []
   },
@@ -35,9 +20,10 @@
     "entrypoints": [],
     "publicApi": [
       "AccountChallengeLogin",
+      "AccountChallengeScanner",
       "AccountDevicesPanel",
+      "AccountLoginApproval",
       "AuthBootstrapScreen",
-      "FullScreenPairingScanner",
       "LoginScreen"
     ],
     "dependencies": [
@@ -45,7 +31,6 @@
       "core-api-client",
       "core-auth-session",
       "feature-chat-persistence",
-      "feature-chat-realtime",
       "shared-i18n",
       "shared-visual-foundation"
     ],
@@ -53,7 +38,7 @@
       "app-shell-navigation"
     ],
     "tests": [],
-    "lastScannedAt": "2026-09-08T02:25:55Z"
+    "lastScannedAt": "2026-10-12T07:02:33Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -80,20 +65,9 @@
     ]
   },
   "riskRules": [
-    "登录页只管表单与提交反馈，不在 UI 层自己保存或刷新 token；账号会话持久化统一留在 core auth。",
-    "账号登录设备名称限制为 1-64 字符并由 core auth 校验；登录后修改继续通过公开入口完成，页面不得直接写 MMKV。",
-    "扫码配对只把 QR 文本交给 core auth 的 loginWithPairingPayload，不在 UI 层解析 zmpair:v2、保存或刷新 token；legacy JSON 必须显示新版二维码错误。",
-    "CameraView 只在扫码 Tab 激活且权限已授予时挂载；扫码必须全屏展示，退出扫码、页面卸载或配对成功后立即卸载。",
-    "全屏扫码页的退出操作收敛为取景框下方的单个关闭图标；连接中也不得禁用退出，退出必须 abort 当前配对并阻止旧异步结果回写。",
-    "扫码解析、连接或 session.hello 失败时留在扫码页显示非阻塞轻提示；提示期间暂停扫码，提示结束后再恢复，避免同一二维码并发或循环建连。",
-    "最近 profile 快捷入口只列出可恢复的 desktop-ws profile，并调用 activateProfile + bootstrapAuth；账号设备列表以 Identity 底表为准，presence 只补充 Desktop 在线状态。",
-    "账号设备操作必须通过 core api 服务并显式绑定当前账号/设备；未知 deviceKind、trustLevel 或 presence 枚举失败关闭，手机设备不得显示为可连接目标。",
-    "跳过登录调用 continueWithoutPairing 并持久完成 onboarding；从 Me 再次打开 Login 时允许关闭，不能清理已有默认源会话。",
-    "扫码能力依赖 expo-camera；新增或调整扫码入口时同步检查 package.json 和 app.config.js 的相机权限插件配置，不修改 lock 文件或运行安装命令。",
-    "默认源地址与可选 query-token 来自构建期 react-app-env 产物，不在登录 feature 内展示、编辑或持久化。",
-    "登录页文案和本地校验提示走 shared-i18n，不直接读取 expo-localization 或 i18n storage。",
-    "登录页品牌图走 shared/icons/brandAssets，不直接 import assets/brands 或具体品牌资源。",
-    "认证中间态保持轻量，避免把复杂初始化逻辑塞进登录 screen。"
+    "账号恢复未确认有效时显示恢复状态，不建立业务连接。",
+    "来源切换和失败回滚统一交由 feature service，权威列表确认撤销后关闭到暂无来源并同步 SQLite。",
+    "账号登录挑战与旧电脑配对协议是不同入口；不得回退旧凭据。"
   ],
   "recentChanges": []
 }

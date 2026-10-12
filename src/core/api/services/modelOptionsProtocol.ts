@@ -214,7 +214,7 @@ export function buildAgentModelConfigPayload(
   agentKey?: string;
   modelKey?: string;
   reasoningEffort?: ModelOptionReasoningEffort;
-  serviceTier?: ModelOptionServiceTier;
+  serviceTier?: ModelOptionServiceTier | null;
 } {
   const normalizedAgentKey = normalizeModelOptionsAgentKey(agentKey);
   const modelKey = toText(modelOverride.key);
@@ -224,7 +224,7 @@ export function buildAgentModelConfigPayload(
     ...(normalizedAgentKey ? { agentKey: normalizedAgentKey } : {}),
     ...(modelKey ? { modelKey } : {}),
     ...(reasoningEffort ? { reasoningEffort } : {}),
-    ...(serviceTier && serviceTier !== 'STANDARD' ? { serviceTier } : {})
+    ...(modelOverride.serviceTier !== undefined ? { serviceTier: serviceTier === 'STANDARD' ? null : serviceTier } : {})
   };
 }
 

@@ -10,12 +10,13 @@ export type RootTabParamList = {
 };
 
 export type RootStackParamList = {
-  Login: undefined;
+  Login: { mode?: 'account' | 'cloud' } | undefined;
   Tabs: NavigatorScreenParams<RootTabParamList>;
   TaskBoardFlow: NavigatorScreenParams<AgentTaskBoardStackParamList>;
   ChatDetail: ChatDetailRouteParams;
   WebAppDetail: { initialAppId: string };
   ChatDirectoryPickerOverlay: undefined;
-  Settings: undefined;
+  Settings: { section?: 'account' | 'language' | 'storage' | 'devices' | 'development' } | undefined;
+  About: undefined;
   AgentWaitingDemo: undefined;
 };
