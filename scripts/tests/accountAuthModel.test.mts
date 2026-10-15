@@ -1,28 +1,30 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseAccountSession } from '../../src/core/auth/accountAuthModel.ts';
+import { parseAccountSession, parseOfficialUser } from '../../src/core/auth/accountAuthModel.ts';
 const now = Date.parse('2030-01-01T00:00:00Z');
-const session = {
-  schemaVersion: 1,
-  accountId: 'account',
-  username: 'alice',
-  deviceId: '11111111-1111-4111-8111-111111111111',
-  deviceName: 'Phone',
-  accessToken: 'access',
-  accessTokenExpireAt: '2030-01-01T01:00:00Z',
-  deviceToken: 'credential'
+const user = { id: 42, email: 'user@example.test', displayName: 'User', avatarUrl: '', enabled: true };
+const response = {
+  ok: true,
+  user,
+  accessToken: 'official-token',
+  tokenType: 'Bearer',
+  expiresAt: '2030-01-01T01:00:00Z'
 };
-test('account session requires persistent credentials without device trust tiers', () => {
-  const parsed = parseAccountSession(session, now);
-  assert.equal(parsed.deviceToken, 'credential');
-  assert.equal(parsed.accountId, 'account');
-  assert.equal('trustLevel' in parsed, false);
-  assert.equal('deviceKind' in parsed, false);
-  assert.throws(() => parseAccountSession({ ...session, deviceToken: undefined }, now));
+test('official session uses verified user and a new cache namespace without persistent device credentials', () => {
+  const session = parseAccountSession(response, 'https://official.test', user, now);
+  assert.equal(session.accountId, 'official:https://official.test:42');
+  assert.equal('deviceToken' in session, false);
+  assert.equal('deviceId' in session, false);
+  assert.notEqual(session.accountId, '42');
+  assert.equal(parseOfficialUser(user).displayName, 'User');
 });
-test('account session rejects invalid identity, missing account and expired access', () => {
-  assert.throws(() => parseAccountSession({ ...session, accountId: '' }, now));
-  assert.throws(() => parseAccountSession({ ...session, deviceId: 'mobile-1' }, now));
-  assert.throws(() => parseAccountSession({ ...session, accessTokenExpireAt: '2029-12-31T23:59:59Z' }, now));
-  assert.throws(() => parseAccountSession({ ...session, deviceName: '字'.repeat(65) }, now));
+test('official session rejects disabled users, mismatched identities, expired or incompatible responses', () => {
+  assert.throws(() => parseOfficialUser({ ...user, enabled: false }));
+  assert.throws(() =>
+    parseAccountSession({ ...response, user: { ...user, id: 7 } }, 'https://official.test', user, now)
+  );
+  assert.throws(() =>
+    parseAccountSession({ ...response, expiresAt: '2029-12-31T00:00:00Z' }, 'https://official.test', user, now)
+  );
+  assert.throws(() => parseAccountSession({ ...response, tokenType: 'Device' }, 'https://official.test', user, now));
 });

@@ -30,6 +30,8 @@
     "scripts/tests/accountAuthSession.test.mts",
     "scripts/tests/accountDesktopCacheScopeModel.test.mts",
     "scripts/tests/accountDeviceApi.test.mts",
+    "scripts/tests/accountEmailApi.test.mts",
+    "scripts/tests/accountEmailForm.test.mts",
     "scripts/tests/accountSourceSelection.test.mts",
     "scripts/tests/accountSourceTransport.test.mts",
     "scripts/tests/activeDesktopSelection.test.mts",
@@ -129,6 +131,7 @@
     "scripts/tests/markdownPipeline.test.mts",
     "scripts/tests/markdownPreview.test.mts",
     "scripts/tests/mobileAuthSource.test.mts",
+    "scripts/tests/nativeAccountDataPlane.test.mts",
     "scripts/tests/notificationSourceLifecycle.test.mts",
     "scripts/tests/runtimePayloadDescriptor.test.mts",
     "scripts/tests/runtimePlanningShimmer.test.mts",
@@ -2135,15 +2138,19 @@
     "src/app/startup/AppLaunchSkeleton.tsx",
     "src/app/startup/GeminiLogo.tsx",
     "src/core/api/accountApiClient.ts",
+    "src/core/api/accountRequest.ts",
     "src/core/api/activeWsTransport.ts",
     "src/core/api/apiClient.ts",
     "src/core/api/apiError.ts",
+    "src/core/api/contracts/accountEmail.ts",
     "src/core/api/contracts/deviceLink.ts",
     "src/core/api/resourceUrl.ts",
+    "src/core/api/services/accountEmailApi.ts",
     "src/core/api/services/authenticatedResource.ts",
     "src/core/api/services/authenticatedResourceDownload.native.ts",
     "src/core/api/services/authenticatedResourceDownload.ts",
     "src/core/api/services/authenticatedResourceDownload.web.ts",
+    "src/core/api/services/authenticatedResourceFile.native.ts",
     "src/core/api/services/authenticatedResourceImage.native.ts",
     "src/core/api/services/authenticatedResourceImage.ts",
     "src/core/api/services/authenticatedResourceModel.ts",
@@ -2204,9 +2211,7 @@
     "src/features/agentTaskBoard/kanbanViewModel.ts",
     "src/features/agentTaskBoard/navigationTypes.ts",
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts",
-    "src/features/auth/AccountChallengeLogin.tsx",
-    "src/features/auth/AccountChallengeScanner.tsx",
-    "src/features/auth/AccountLoginApproval.tsx",
+    "src/features/auth/EmailVerificationForm.tsx",
     "src/features/auth/LoginScreen.tsx",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx",
@@ -2378,6 +2383,7 @@
     "src/features/webApps/WebAppsRuntimeHost.types.ts",
     "src/features/webApps/WebAppsRuntimeProvider.tsx",
     "src/features/webApps/WebAppsScreen.tsx",
+    "src/features/webApps/mobileWebAppSession.native.ts",
     "src/features/webApps/types.ts",
     "src/features/webApps/webAppsDesktopProtocol.ts",
     "src/features/webApps/webAppsGateway.ts",
@@ -10491,6 +10497,10 @@
                     "type": "directory",
                     "children": [
                       {
+                        "name": "accountEmail.ts",
+                        "type": "file"
+                      },
+                      {
                         "name": "deviceLink.ts",
                         "type": "file"
                       }
@@ -10500,6 +10510,10 @@
                     "name": "services",
                     "type": "directory",
                     "children": [
+                      {
+                        "name": "accountEmailApi.ts",
+                        "type": "file"
+                      },
                       {
                         "name": "authenticatedResource.ts",
                         "type": "file"
@@ -10514,6 +10528,10 @@
                       },
                       {
                         "name": "authenticatedResourceDownload.web.ts",
+                        "type": "file"
+                      },
+                      {
+                        "name": "authenticatedResourceFile.native.ts",
                         "type": "file"
                       },
                       {
@@ -10648,6 +10666,10 @@
                   },
                   {
                     "name": "accountApiClient.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "accountRequest.ts",
                     "type": "file"
                   },
                   {
@@ -10821,15 +10843,7 @@
                 "type": "directory",
                 "children": [
                   {
-                    "name": "AccountChallengeLogin.tsx",
-                    "type": "file"
-                  },
-                  {
-                    "name": "AccountChallengeScanner.tsx",
-                    "type": "file"
-                  },
-                  {
-                    "name": "AccountLoginApproval.tsx",
+                    "name": "EmailVerificationForm.tsx",
                     "type": "file"
                   },
                   {
@@ -11589,6 +11603,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "mobileWebAppSession.native.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "types.ts",
                     "type": "file"
                   },
@@ -11998,15 +12016,19 @@
     ],
     "core-api-client": [
       "src/core/api/accountApiClient.ts",
+      "src/core/api/accountRequest.ts",
       "src/core/api/activeWsTransport.ts",
       "src/core/api/apiClient.ts",
       "src/core/api/apiError.ts",
+      "src/core/api/contracts/accountEmail.ts",
       "src/core/api/contracts/deviceLink.ts",
       "src/core/api/resourceUrl.ts",
+      "src/core/api/services/accountEmailApi.ts",
       "src/core/api/services/authenticatedResource.ts",
       "src/core/api/services/authenticatedResourceDownload.native.ts",
       "src/core/api/services/authenticatedResourceDownload.ts",
       "src/core/api/services/authenticatedResourceDownload.web.ts",
+      "src/core/api/services/authenticatedResourceFile.native.ts",
       "src/core/api/services/authenticatedResourceImage.native.ts",
       "src/core/api/services/authenticatedResourceImage.ts",
       "src/core/api/services/authenticatedResourceModel.ts",
@@ -12079,9 +12101,7 @@
       "src/features/agentTaskBoard/useDesktopKanbanBoard.ts"
     ],
     "feature-auth-login": [
-      "src/features/auth/AccountChallengeLogin.tsx",
-      "src/features/auth/AccountChallengeScanner.tsx",
-      "src/features/auth/AccountLoginApproval.tsx",
+      "src/features/auth/EmailVerificationForm.tsx",
       "src/features/auth/LoginScreen.tsx",
       "src/features/deviceLink/AccountDevicesPanel.tsx"
     ],
@@ -12263,6 +12283,7 @@
       "src/features/webApps/WebAppsRuntimeHost.types.ts",
       "src/features/webApps/WebAppsRuntimeProvider.tsx",
       "src/features/webApps/WebAppsScreen.tsx",
+      "src/features/webApps/mobileWebAppSession.native.ts",
       "src/features/webApps/types.ts",
       "src/features/webApps/webAppsDesktopProtocol.ts",
       "src/features/webApps/webAppsGateway.ts",
@@ -12270,6 +12291,7 @@
       "src/features/webApps/webAppsMobileAccess.ts",
       "src/features/webApps/webAppsRuntimeModel.ts"
     ],
+    "mobile-account-ticket-plan": null,
     "shared-conversation-content-renderer": [
       "src/shared/components/ConversationMarkdownRenderer.tsx",
       "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
@@ -12374,15 +12396,19 @@
     "src/app/startup/AppLaunchSkeleton.tsx": "app-shell-navigation",
     "src/app/startup/GeminiLogo.tsx": "app-shell-navigation",
     "src/core/api/accountApiClient.ts": "core-api-client",
+    "src/core/api/accountRequest.ts": "core-api-client",
     "src/core/api/activeWsTransport.ts": "core-api-client",
     "src/core/api/apiClient.ts": "core-api-client",
     "src/core/api/apiError.ts": "core-api-client",
+    "src/core/api/contracts/accountEmail.ts": "core-api-client",
     "src/core/api/contracts/deviceLink.ts": "core-api-client",
     "src/core/api/resourceUrl.ts": "core-api-client",
+    "src/core/api/services/accountEmailApi.ts": "core-api-client",
     "src/core/api/services/authenticatedResource.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceDownload.native.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceDownload.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceDownload.web.ts": "core-api-client",
+    "src/core/api/services/authenticatedResourceFile.native.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceImage.native.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceImage.ts": "core-api-client",
     "src/core/api/services/authenticatedResourceModel.ts": "core-api-client",
@@ -12443,9 +12469,7 @@
     "src/features/agentTaskBoard/kanbanViewModel.ts": "feature-agent-task-board",
     "src/features/agentTaskBoard/navigationTypes.ts": "feature-agent-task-board",
     "src/features/agentTaskBoard/useDesktopKanbanBoard.ts": "feature-agent-task-board",
-    "src/features/auth/AccountChallengeLogin.tsx": "feature-auth-login",
-    "src/features/auth/AccountChallengeScanner.tsx": "feature-auth-login",
-    "src/features/auth/AccountLoginApproval.tsx": "feature-auth-login",
+    "src/features/auth/EmailVerificationForm.tsx": "feature-auth-login",
     "src/features/auth/LoginScreen.tsx": "feature-auth-login",
     "src/features/chatPersistence/ChatDetailScreen.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/ChatDirectoryPickerOverlayScreen.tsx": "feature-chat-persistence",
@@ -12617,6 +12641,7 @@
     "src/features/webApps/WebAppsRuntimeHost.types.ts": "feature-web-apps",
     "src/features/webApps/WebAppsRuntimeProvider.tsx": "feature-web-apps",
     "src/features/webApps/WebAppsScreen.tsx": "feature-web-apps",
+    "src/features/webApps/mobileWebAppSession.native.ts": "feature-web-apps",
     "src/features/webApps/types.ts": "feature-web-apps",
     "src/features/webApps/webAppsDesktopProtocol.ts": "feature-web-apps",
     "src/features/webApps/webAppsGateway.ts": "feature-web-apps",
@@ -12717,6 +12742,7 @@
         "core-debug-logging",
         "core-runtime-config",
         "core-ws-transport",
+        "shared-i18n",
         "shared-visual-foundation"
       ],
       "dependedBy": [
@@ -12734,7 +12760,8 @@
     "core-auth-session": {
       "dependsOn": [
         "core-api-client",
-        "core-runtime-config"
+        "core-runtime-config",
+        "shared-visual-foundation"
       ],
       "dependedBy": [
         "app-shell-navigation",
@@ -12879,6 +12906,10 @@
         "app-shell-navigation"
       ]
     },
+    "mobile-account-ticket-plan": {
+      "dependsOn": [],
+      "dependedBy": []
+    },
     "shared-conversation-content-renderer": {
       "dependsOn": [
         "shared-i18n",
@@ -12892,6 +12923,7 @@
       "dependsOn": [],
       "dependedBy": [
         "app-shell-navigation",
+        "core-api-client",
         "feature-agent-task-board",
         "feature-auth-login",
         "feature-chat-persistence",
@@ -12926,6 +12958,7 @@
         "app-development-debug",
         "app-shell-navigation",
         "core-api-client",
+        "core-auth-session",
         "core-runtime-config",
         "feature-agent-task-board",
         "feature-auth-login",
@@ -18855,14 +18888,15 @@
       "GeminiLogo"
     ],
     "src/core/api/accountApiClient.ts": [
+      "authenticatedAccountApiRequest"
+    ],
+    "src/core/api/accountRequest.ts": [
       "AccountApiRequestOptions",
-      "authenticatedAccountApiRequest",
-      "publicAccountApiRequest"
+      "sendAccountApiRequest"
     ],
     "src/core/api/activeWsTransport.ts": [
-      "clearDesktopRouteCredentialCache",
+      "clearDesktopPlatformCredentialCache",
       "createDefaultWsTransportConfig",
-      "createRequestId",
       "resolveActiveWsTransportConfig",
       "resolveDefaultWsTransportConfig"
     ],
@@ -18880,19 +18914,28 @@
     "src/core/api/apiError.ts": [
       "ApiError"
     ],
+    "src/core/api/contracts/accountEmail.ts": [
+      "AccountEmailReceipt",
+      "isAccountEmailVerification",
+      "normalizeAccountEmail",
+      "parseAccountEmailReceipt"
+    ],
     "src/core/api/contracts/deviceLink.ts": [
       "AccountDevice",
       "AccountDeviceListV1",
       "DEVICE_LINK_SCHEMA_VERSION",
+      "DesktopPlatformCredential",
       "DeviceLinkContractError",
       "REMOTE_CONVERSATION_PAGE_SIZE",
-      "ROUTE_CREDENTIAL_TTL_MS",
-      "TrustedRouteContext",
       "parseAccountDeviceListV1",
-      "parseTrustedRouteContext"
+      "parseDesktopPlatformCredential"
     ],
     "src/core/api/resourceUrl.ts": [
       "normalizeApiResourcePath"
+    ],
+    "src/core/api/services/accountEmailApi.ts": [
+      "accountEmailErrorKey",
+      "requestEmailLoginCode"
     ],
     "src/core/api/services/authenticatedResource.ts": [
       "AUTHENTICATED_TEXT_PREVIEW_MAX_BYTES",
@@ -18916,6 +18959,9 @@
     ],
     "src/core/api/services/authenticatedResourceDownload.web.ts": [
       "downloadAuthenticatedResource"
+    ],
+    "src/core/api/services/authenticatedResourceFile.native.ts": [
+      "downloadAuthenticatedResourceFile"
     ],
     "src/core/api/services/authenticatedResourceImage.native.ts": [
       "releaseAuthenticatedResourceImageSource",
@@ -19092,12 +19138,10 @@
       "readChatViewReference"
     ],
     "src/core/api/services/deviceLinkApi.ts": [
-      "confirmAccountLoginChallenge",
-      "issueDesktopRouteCredential",
+      "getDesktopPlatformCredential",
       "listAccountDevices",
       "renameAccountDevice",
-      "revokeAccountDevice",
-      "startAccountLoginChallenge"
+      "revokeAccountDevice"
     ],
     "src/core/api/services/documentPreview.ts": [
       "prepareAuthenticatedDocumentPreview"
@@ -19242,17 +19286,18 @@
     "src/core/auth/accountAuth.ts": [
       "AccountAuthSnapshot",
       "bootstrapAccountAuth",
-      "claimAccountLoginChallenge",
       "getAccountAccessTokenForRequest",
       "getAccountAuthGeneration",
       "getAccountAuthSnapshot",
-      "loginWithAccountCredentials",
+      "loginWithAccountEmail",
       "logoutAccount",
       "subscribeAccountAuth"
     ],
     "src/core/auth/accountAuthModel.ts": [
       "AccountSession",
-      "parseAccountSession"
+      "OfficialUser",
+      "parseAccountSession",
+      "parseOfficialUser"
     ],
     "src/core/auth/accountDesktopCacheScopeModel.ts": [
       "AccountDesktopCacheScopeEntry",
@@ -19263,11 +19308,8 @@
       "resolveAccountDesktopCacheScope"
     ],
     "src/core/auth/accountDesktopCacheScopes.ts": [
-      "completeLegacyChatCachePurge",
-      "isLegacyChatCachePurged",
       "listAccountDesktopCacheScopeEntries",
       "readAccountDesktopCacheScopeSnapshot",
-      "removeLegacyAccountCloudCacheScope",
       "resolveAndPersistAccountDesktopCacheScope"
     ],
     "src/core/auth/activeDesktop.ts": [
@@ -19284,11 +19326,10 @@
       "updateAccountDesktopAvailability"
     ],
     "src/core/auth/authConfig.ts": [
-      "readIdentityApiBaseUrl",
+      "readOfficialApiBaseUrl",
       "readResolvedApiBaseUrl",
       "readStoredApiBaseUrl",
-      "readTunnelHubApiBaseUrl",
-      "saveAccountServiceBaseUrls"
+      "readTunnelHubApiBaseUrl"
     ],
     "src/core/auth/cloudAuth.ts": [
       "CloudAuthSnapshot",
@@ -19422,14 +19463,8 @@
       "createEmptyTaskDraft",
       "useDesktopKanbanBoard"
     ],
-    "src/features/auth/AccountChallengeLogin.tsx": [
-      "AccountChallengeLogin"
-    ],
-    "src/features/auth/AccountChallengeScanner.tsx": [
-      "AccountChallengeScanner"
-    ],
-    "src/features/auth/AccountLoginApproval.tsx": [
-      "AccountLoginApproval"
+    "src/features/auth/EmailVerificationForm.tsx": [
+      "EmailVerificationForm"
     ],
     "src/features/auth/LoginScreen.tsx": [
       "AuthBootstrapScreen",
@@ -20640,6 +20675,10 @@
     "src/features/webApps/WebAppsScreen.tsx": [
       "WebAppsScreen"
     ],
+    "src/features/webApps/mobileWebAppSession.native.ts": [
+      "openMobileWebAppSession",
+      "retainMobileWebAppSession"
+    ],
     "src/features/webApps/types.ts": [
       "OpenableWebApp",
       "WebAppAvailability",
@@ -20676,8 +20715,6 @@
     ],
     "src/features/webApps/webAppsMobileAccess.ts": [
       "WebAppAccessTarget",
-      "addWebAppAccessToken",
-      "containsWebAppAccessToken",
       "resolveWebAppAccessTarget"
     ],
     "src/features/webApps/webAppsRuntimeModel.ts": [
@@ -23537,6 +23574,7 @@
     ],
     "src/app/debug/developmentDebugPanel.ts": null,
     "src/app/navigation/RootNavigator.tsx": [
+      "../../core/auth/accountAuth",
       "../../core/auth/activeDesktop.ts",
       "../../core/auth/cloudAuth",
       "../../core/auth/useAccountAuth.ts",
@@ -23667,7 +23705,6 @@
     "src/app/screens/SettingsScreen.tsx": [
       "../../core/auth/accountAuth.ts",
       "../../core/auth/useAccountAuth.ts",
-      "../../features/auth/AccountLoginApproval.tsx",
       "../../features/deviceLink/AccountDevicesPanel.tsx",
       "../../shared/components/ScreenHeader",
       "../../shared/i18n",
@@ -23710,17 +23747,24 @@
     ],
     "src/core/api/accountApiClient.ts": [
       "../auth/accountAuth.ts",
+      "./accountRequest.ts",
       "./apiError.ts"
+    ],
+    "src/core/api/accountRequest.ts": [
+      "./apiError.ts",
+      "expo/fetch"
     ],
     "src/core/api/activeWsTransport.ts": [
       "../auth/accountAuth.ts",
       "../auth/activeDesktop.ts",
+      "../auth/authConfig.ts",
       "../auth/cloudAuth",
       "../config/appEnvironment",
       "../ws/wsTransportConfig",
       "./services/deviceLinkApi.ts"
     ],
     "src/core/api/apiClient.ts": [
+      "../auth/accountAuth",
       "../auth/activeDesktop",
       "../auth/cloudAuth",
       "../config/appEnvironment",
@@ -23730,16 +23774,28 @@
       "./services/chatDirectoryApi"
     ],
     "src/core/api/apiError.ts": null,
+    "src/core/api/contracts/accountEmail.ts": null,
     "src/core/api/contracts/deviceLink.ts": null,
     "src/core/api/resourceUrl.ts": null,
+    "src/core/api/services/accountEmailApi.ts": [
+      "../../../shared/i18n/messages/zh-CN.ts",
+      "../../auth/authConfig.ts",
+      "../accountRequest.ts",
+      "../apiError.ts",
+      "../contracts/accountEmail.ts"
+    ],
     "src/core/api/services/authenticatedResource.ts": [
       "../../auth/accountAuth",
       "../../auth/activeDesktop",
+      "../../auth/cloudAuth",
+      "../activeWsTransport",
       "../apiClient.ts",
-      "./authenticatedResourceModel.ts"
+      "./authenticatedResourceModel.ts",
+      "expo/fetch"
     ],
     "src/core/api/services/authenticatedResourceDownload.native.ts": [
       "./authenticatedResource.ts",
+      "./authenticatedResourceFile.native",
       "expo-file-system"
     ],
     "src/core/api/services/authenticatedResourceDownload.ts": [
@@ -23748,10 +23804,20 @@
     "src/core/api/services/authenticatedResourceDownload.web.ts": [
       "./authenticatedResource.ts"
     ],
+    "src/core/api/services/authenticatedResourceFile.native.ts": [
+      "../../auth/accountAuth",
+      "../../auth/activeDesktop",
+      "../../auth/cloudAuth",
+      "../activeWsTransport",
+      "../apiClient",
+      "expo-file-system",
+      "expo/fetch"
+    ],
     "src/core/api/services/authenticatedResourceImage.native.ts": [
       "../../debug/httpDebugLogger.ts",
       "../apiClient.ts",
       "./authenticatedResource.ts",
+      "./authenticatedResourceFile.native",
       "./authenticatedResourceImage.ts",
       "./authenticatedResourceModel.ts",
       "expo-file-system"
@@ -23869,7 +23935,8 @@
       "../apiClient",
       "../resourceUrl",
       "./uploadApiModel",
-      "expo-file-system"
+      "expo-file-system",
+      "expo/fetch"
     ],
     "src/core/api/services/uploadApiModel.ts": [
       "../../ws/wsTransportConfig.ts",
@@ -23877,7 +23944,9 @@
     ],
     "src/core/api/services/workspaceResource.ts": null,
     "src/core/auth/accountAuth.ts": [
+      "../api/accountRequest.ts",
       "../api/apiError.ts",
+      "../api/contracts/accountEmail.ts",
       "./accountAuthModel.ts",
       "./authConfig.ts",
       "react-native-mmkv"
@@ -23894,6 +23963,7 @@
       "react-native-mmkv"
     ],
     "src/core/auth/authConfig.ts": [
+      "../../shared/generated/appEnv",
       "../config/endpoint",
       "../config/runtimeEnv",
       "react-native-mmkv"
@@ -23994,35 +24064,20 @@
       "./kanbanViewModel",
       "react"
     ],
-    "src/features/auth/AccountChallengeLogin.tsx": [
-      "../../core/api/apiError.ts",
-      "../../core/api/services/deviceLinkApi.ts",
+    "src/features/auth/EmailVerificationForm.tsx": [
+      "../../core/api/contracts/accountEmail.ts",
+      "../../core/api/services/accountEmailApi.ts",
       "../../core/auth/accountAuth.ts",
+      "../../core/auth/useAccountAuth",
       "../../shared/i18n",
-      "react",
-      "react-native",
-      "react-native-qrcode-svg"
-    ],
-    "src/features/auth/AccountChallengeScanner.tsx": [
-      "../../shared/i18n",
-      "../../shared/icons/AppIcon",
       "../../shared/visual/AppThemeProvider",
-      "expo-camera",
-      "react-native",
-      "react-native-safe-area-context"
-    ],
-    "src/features/auth/AccountLoginApproval.tsx": [
-      "../../core/api/services/deviceLinkApi.ts",
-      "../../shared/i18n",
-      "./AccountChallengeScanner",
-      "expo-camera",
+      "../../shared/visual/className",
+      "@react-navigation/native",
       "react",
       "react-native"
     ],
     "src/features/auth/LoginScreen.tsx": [
       "../../app/navigation/types",
-      "../../core/auth/accountAuth.ts",
-      "../../core/auth/useAccountAuth",
       "../../shared/components/AppKeyboardAwareScrollView",
       "../../shared/i18n",
       "../../shared/icons/brandAssets",
@@ -24030,7 +24085,7 @@
       "../../shared/visual/className",
       "../chatPersistence/accountDesktopSource",
       "../chatPersistence/cloudAccess",
-      "./AccountChallengeLogin.tsx",
+      "./EmailVerificationForm",
       "@react-navigation/native",
       "react",
       "react-native",
@@ -24140,11 +24195,7 @@
       "./cacheScope.ts",
       "./chatSourceRuntime",
       "./cloudAccess.ts",
-      "./database.ts",
-      "./homeSnapshot.ts",
-      "expo-file-system",
-      "expo-sqlite",
-      "react-native-mmkv"
+      "./database.ts"
     ],
     "src/features/chatPersistence/agentInteraction.ts": [
       "../../core/api/apiError.ts"
@@ -24369,6 +24420,7 @@
       "../../../shared/visual/AppThemeProvider",
       "../../../shared/visual/className",
       "../../../shared/visual/foundation",
+      "../cacheScope",
       "../chatAttachmentIcon.ts",
       "../chatAttachmentModels",
       "../chatAttachmentPreview.ts",
@@ -24955,6 +25007,7 @@
       "../../../../core/api/apiClient.ts",
       "../../../../core/api/services/authenticatedResource.ts",
       "../../../../core/api/services/authenticatedResourceImage",
+      "../../cacheScope",
       "react"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
@@ -25393,6 +25446,7 @@
       "../../shared/visual/foundation",
       "../../shared/visual/hairline",
       "./WebAppsRuntimeHost.types",
+      "./mobileWebAppSession.native",
       "./types",
       "./webAppsMobileAccess",
       "./webAppsRuntimeModel",
@@ -25441,6 +25495,9 @@
       "react",
       "react-native",
       "react-native-safe-area-context"
+    ],
+    "src/features/webApps/mobileWebAppSession.native.ts": [
+      "expo/fetch"
     ],
     "src/features/webApps/types.ts": null,
     "src/features/webApps/webAppsDesktopProtocol.ts": [
@@ -27939,6 +27996,7 @@
       "src/app/screens/AboutScreen.tsx",
       "src/app/screens/AgentWaitingDemoScreen.tsx",
       "src/app/screens/SettingsScreen.tsx",
+      "src/core/auth/accountAuth.ts",
       "src/core/auth/activeDesktop.ts",
       "src/core/auth/cloudAuth.ts",
       "src/core/auth/useAccountAuth.ts",
@@ -28038,7 +28096,6 @@
       "src/app/settings/settingsActions.ts",
       "src/core/auth/accountAuth.ts",
       "src/core/auth/useAccountAuth.ts",
-      "src/features/auth/AccountLoginApproval.tsx",
       "src/features/deviceLink/AccountDevicesPanel.tsx",
       "src/shared/components/ScreenHeader.tsx",
       "src/shared/i18n/index.ts",
@@ -28067,13 +28124,18 @@
       "src/shared/icons/brandAssets.ts"
     ],
     "src/core/api/accountApiClient.ts": [
+      "src/core/api/accountRequest.ts",
       "src/core/api/apiError.ts",
       "src/core/auth/accountAuth.ts"
+    ],
+    "src/core/api/accountRequest.ts": [
+      "src/core/api/apiError.ts"
     ],
     "src/core/api/activeWsTransport.ts": [
       "src/core/api/services/deviceLinkApi.ts",
       "src/core/auth/accountAuth.ts",
       "src/core/auth/activeDesktop.ts",
+      "src/core/auth/authConfig.ts",
       "src/core/auth/cloudAuth.ts",
       "src/core/config/appEnvironment.ts",
       "src/core/ws/wsTransportConfig.ts"
@@ -28082,22 +28144,34 @@
       "src/core/api/activeWsTransport.ts",
       "src/core/api/apiError.ts",
       "src/core/api/services/chatDirectoryApi.ts",
+      "src/core/auth/accountAuth.ts",
       "src/core/auth/activeDesktop.ts",
       "src/core/auth/cloudAuth.ts",
       "src/core/config/appEnvironment.ts",
       "src/core/debug/httpDebugLogger.ts"
     ],
     "src/core/api/apiError.ts": null,
+    "src/core/api/contracts/accountEmail.ts": null,
     "src/core/api/contracts/deviceLink.ts": null,
     "src/core/api/resourceUrl.ts": null,
+    "src/core/api/services/accountEmailApi.ts": [
+      "src/core/api/accountRequest.ts",
+      "src/core/api/apiError.ts",
+      "src/core/api/contracts/accountEmail.ts",
+      "src/core/auth/authConfig.ts",
+      "src/shared/i18n/messages/zh-CN.ts"
+    ],
     "src/core/api/services/authenticatedResource.ts": [
+      "src/core/api/activeWsTransport.ts",
       "src/core/api/apiClient.ts",
       "src/core/api/services/authenticatedResourceModel.ts",
       "src/core/auth/accountAuth.ts",
-      "src/core/auth/activeDesktop.ts"
+      "src/core/auth/activeDesktop.ts",
+      "src/core/auth/cloudAuth.ts"
     ],
     "src/core/api/services/authenticatedResourceDownload.native.ts": [
-      "src/core/api/services/authenticatedResource.ts"
+      "src/core/api/services/authenticatedResource.ts",
+      "src/core/api/services/authenticatedResourceFile.native.ts"
     ],
     "src/core/api/services/authenticatedResourceDownload.ts": [
       "src/core/api/services/authenticatedResource.ts"
@@ -28105,9 +28179,17 @@
     "src/core/api/services/authenticatedResourceDownload.web.ts": [
       "src/core/api/services/authenticatedResource.ts"
     ],
+    "src/core/api/services/authenticatedResourceFile.native.ts": [
+      "src/core/api/activeWsTransport.ts",
+      "src/core/api/apiClient.ts",
+      "src/core/auth/accountAuth.ts",
+      "src/core/auth/activeDesktop.ts",
+      "src/core/auth/cloudAuth.ts"
+    ],
     "src/core/api/services/authenticatedResourceImage.native.ts": [
       "src/core/api/apiClient.ts",
       "src/core/api/services/authenticatedResource.ts",
+      "src/core/api/services/authenticatedResourceFile.native.ts",
       "src/core/api/services/authenticatedResourceImage.ts",
       "src/core/api/services/authenticatedResourceModel.ts",
       "src/core/debug/httpDebugLogger.ts"
@@ -28230,7 +28312,9 @@
     ],
     "src/core/api/services/workspaceResource.ts": null,
     "src/core/auth/accountAuth.ts": [
+      "src/core/api/accountRequest.ts",
       "src/core/api/apiError.ts",
+      "src/core/api/contracts/accountEmail.ts",
       "src/core/auth/accountAuthModel.ts",
       "src/core/auth/authConfig.ts"
     ],
@@ -28245,7 +28329,8 @@
     ],
     "src/core/auth/authConfig.ts": [
       "src/core/config/endpoint.ts",
-      "src/core/config/runtimeEnv.ts"
+      "src/core/config/runtimeEnv.ts",
+      "src/shared/generated/appEnv.ts"
     ],
     "src/core/auth/cloudAuth.ts": [
       "src/core/config/appEnvironment.ts"
@@ -28329,27 +28414,18 @@
       "src/features/agentTaskBoard/kanbanRunGuards.ts",
       "src/features/agentTaskBoard/kanbanViewModel.ts"
     ],
-    "src/features/auth/AccountChallengeLogin.tsx": [
-      "src/core/api/apiError.ts",
-      "src/core/api/services/deviceLinkApi.ts",
+    "src/features/auth/EmailVerificationForm.tsx": [
+      "src/core/api/contracts/accountEmail.ts",
+      "src/core/api/services/accountEmailApi.ts",
       "src/core/auth/accountAuth.ts",
-      "src/shared/i18n/index.ts"
-    ],
-    "src/features/auth/AccountChallengeScanner.tsx": [
+      "src/core/auth/useAccountAuth.ts",
       "src/shared/i18n/index.ts",
-      "src/shared/icons/AppIcon.tsx",
-      "src/shared/visual/AppThemeProvider.tsx"
-    ],
-    "src/features/auth/AccountLoginApproval.tsx": [
-      "src/core/api/services/deviceLinkApi.ts",
-      "src/features/auth/AccountChallengeScanner.tsx",
-      "src/shared/i18n/index.ts"
+      "src/shared/visual/AppThemeProvider.tsx",
+      "src/shared/visual/className.ts"
     ],
     "src/features/auth/LoginScreen.tsx": [
       "src/app/navigation/types.ts",
-      "src/core/auth/accountAuth.ts",
-      "src/core/auth/useAccountAuth.ts",
-      "src/features/auth/AccountChallengeLogin.tsx",
+      "src/features/auth/EmailVerificationForm.tsx",
       "src/features/chatPersistence/accountDesktopSource.ts",
       "src/features/chatPersistence/cloudAccess.ts",
       "src/shared/components/AppKeyboardAwareScrollView.tsx",
@@ -28449,7 +28525,6 @@
       "src/features/chatPersistence/chatSourceRuntime.ts",
       "src/features/chatPersistence/cloudAccess.ts",
       "src/features/chatPersistence/database.ts",
-      "src/features/chatPersistence/homeSnapshot.ts",
       "src/features/chatRealtime/chatSyncService.ts"
     ],
     "src/features/chatPersistence/agentInteraction.ts": [
@@ -28657,6 +28732,7 @@
       "src/core/api/apiClient.ts",
       "src/core/api/services/authenticatedResourceImage.ts",
       "src/core/debug/httpDebugLogger.ts",
+      "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentIcon.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatAttachmentPreview.ts",
@@ -29117,7 +29193,8 @@
     "src/features/chatPersistence/components/resource/useAuthenticatedResourceSource.ts": [
       "src/core/api/apiClient.ts",
       "src/core/api/services/authenticatedResource.ts",
-      "src/core/api/services/authenticatedResourceImage.ts"
+      "src/core/api/services/authenticatedResourceImage.ts",
+      "src/features/chatPersistence/cacheScope.ts"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
       "src/features/chatPersistence/components/runtimeStructuredPayload.ts",
@@ -29506,6 +29583,7 @@
     "src/features/webApps/WebAppsRuntimeHost.native.tsx": [
       "src/core/api/activeWsTransport.ts",
       "src/features/webApps/WebAppsRuntimeHost.types.ts",
+      "src/features/webApps/mobileWebAppSession.native.ts",
       "src/features/webApps/types.ts",
       "src/features/webApps/webAppsMobileAccess.ts",
       "src/features/webApps/webAppsRuntimeModel.ts",
@@ -29547,6 +29625,7 @@
       "src/shared/visual/hairline.ts",
       "src/shared/visual/useAppTabBarHeight.ts"
     ],
+    "src/features/webApps/mobileWebAppSession.native.ts": null,
     "src/features/webApps/types.ts": null,
     "src/features/webApps/webAppsDesktopProtocol.ts": [
       "src/features/webApps/types.ts"

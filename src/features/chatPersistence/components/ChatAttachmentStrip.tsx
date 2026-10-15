@@ -1,5 +1,6 @@
+import { getChatCacheScopeId, subscribeChatCacheScope } from '../cacheScope';
 import { ChatSelectionSheet } from './ChatSelectionSheet';
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { ApiUriSource } from '../../../core/api/apiClient';
@@ -75,6 +76,7 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
   t: ChatAttachmentTranslate;
 }) {
   const [loadState, setLoadState] = useState<'loading' | 'loaded' | 'failed'>('loading');
+  const cacheScopeId = useSyncExternalStore(subscribeChatCacheScope, getChatCacheScopeId, getChatCacheScopeId);
   const [imageSource, setImageSource] = useState<ApiUriSource | null>(null);
   const imageUri = resolveChatAttachmentImageUri(attachment, variant);
   const isMessage = variant === 'message';
@@ -98,6 +100,7 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
     let retainedImage = false;
     setLoadState('loading');
     void resolveAuthenticatedResourceImageSource({
+      cacheScopeId,
       resourceUrl: imageUri,
       fileName: attachment.name,
       signal: controller.signal
@@ -107,7 +110,7 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
         if (!controller.signal.aborted) {
           setImageSource(source);
         } else {
-          releaseAuthenticatedResourceImageSource({ resourceUrl: imageUri, fileName: attachment.name });
+          releaseAuthenticatedResourceImageSource({ cacheScopeId, resourceUrl: imageUri, fileName: attachment.name });
           retainedImage = false;
         }
       })
@@ -121,11 +124,11 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
     return () => {
       controller.abort();
       if (retainedImage) {
-        releaseAuthenticatedResourceImageSource({ resourceUrl: imageUri, fileName: attachment.name });
+        releaseAuthenticatedResourceImageSource({ cacheScopeId, resourceUrl: imageUri, fileName: attachment.name });
         retainedImage = false;
       }
     };
-  }, [active, attachment.name, imageUri]);
+  }, [active, attachment.name, imageUri, cacheScopeId]);
 
   const canActivate = attachment.status !== 'uploading' && loadState !== 'loading';
 

@@ -60,12 +60,11 @@
     "src/core/auth/activeDesktop.ts",
     "src/core/auth/desktopWsProtocol.ts",
     "src/core/auth/useAccountAuth.ts",
-    "src/features/auth/AccountChallengeScanner.tsx",
     "src/features/auth/LoginScreen.tsx"
   ],
   "acceptanceChecks": [
     "首次进入对话 Tab；未登录显示本地插图和账号 Login，账号恢复显示加载态。",
-    "账号登录与账号 QR 挑战共用 accountAuth，旧电脑配对入口不可达。",
+    "密码和邮箱登录共用 accountAuth；账号扫码授权和旧电脑配对入口不可达。",
     "手机退出隐藏账号数据、断开手机连接，不退出电脑或取消远端任务。"
   ],
   "doNotMiss": [
@@ -75,6 +74,6 @@
   ],
   "generated": {
     "mustReadCount": 7,
-    "likelyFileCount": 13
+    "likelyFileCount": 12
   }
 }

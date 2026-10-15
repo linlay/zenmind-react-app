@@ -31,7 +31,7 @@ export function MeScreen() {
     () => ({ paddingBottom: (Platform.OS === 'web' ? tabBarHeight : 0) + appVisualTokens.spacing.xxl }),
     [tabBarHeight]
   );
-  const accountName = session?.username || t('me.accountName.loggedOut');
+  const accountName = session?.user.displayName || session?.user.email || t('me.accountName.loggedOut');
   const avatarTone = getAvatarTone(accountName);
 
   return (

@@ -918,7 +918,7 @@ class ChatSyncService {
 
     try {
       if (config.accessTokenProvider) {
-        const token = await config.accessTokenProvider();
+        const token = await config.accessTokenProvider(true);
         await requestChatTransport<unknown>({
           ...config,
           namespace: 'd',

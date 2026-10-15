@@ -67,6 +67,7 @@ function normalizeTransport(transport: WsTransportConfig): WsTransportConfig {
       tokenMode: transport.tokenMode,
       accessToken,
       accessTokenProvider: transport.accessTokenProvider,
+      requestHeadersProvider: transport.requestHeadersProvider,
       namespace: transport.namespace,
       connectionKey: normalizeConnectionKey(transport.connectionKey)
     };

@@ -12,7 +12,6 @@ import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { cn } from '../../shared/visual/className';
 import { appVisualTokens } from '../../shared/visual/foundation';
 import { logoutAccount } from '../../core/auth/accountAuth.ts';
-import { AccountLoginApproval } from '../../features/auth/AccountLoginApproval.tsx';
 import { AccountDevicesPanel } from '../../features/deviceLink/AccountDevicesPanel.tsx';
 import { MeLogoutButton } from './MeScreenParts';
 import {
@@ -367,10 +366,9 @@ export function SettingsScreen({ navigation, route }: SettingsScreenProps) {
             <SettingsSection title={t('account.title')}>
               <SettingsRow
                 iconUsage="tab.me"
-                title={accountSession?.username || t('me.accountName.loggedOut')}
-                detail={accountSession?.deviceName}
+                title={accountSession?.user.displayName || accountSession?.user.email || t('me.accountName.loggedOut')}
+                detail={accountSession?.user.email}
               />
-              {accountSession ? <AccountLoginApproval key={accountSession.deviceId} /> : null}
               {accountSession ? (
                 <MeLogoutButton
                   disabled={loggingOut}

@@ -2,8 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { AppState, StatusBar, View } from 'react-native';
 
-import { bootstrapAccountAuth, getAccountAccessTokenForRequest } from '../core/auth/accountAuth.ts';
-import { readIdentityApiBaseUrl } from '../core/auth/authConfig';
+import {
+  bootstrapAccountAuth,
+  getAccountAccessTokenForRequest,
+  getAccountAuthGeneration
+} from '../core/auth/accountAuth.ts';
+import { readOfficialApiBaseUrl } from '../core/auth/authConfig';
 import { getSelectedSource, subscribeActiveDesktop } from '../core/auth/activeDesktop.ts';
 import { useAccountAuth } from '../core/auth/useAccountAuth.ts';
 import { getChatCacheScopeId, subscribeChatCacheScope } from '../features/chatPersistence/cacheScope';
@@ -66,8 +70,8 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
   const isReady = !isBootstrapping || cloud.cacheAllowed;
   const session = accountAuth.session;
   const hasSession = Boolean(session);
-  const sessionDeviceId = session?.deviceId || '';
-  const sessionIdentityKey = sessionDeviceId ? JSON.stringify([session?.accountId, sessionDeviceId]) : '';
+  const sessionGenerationKey = hasSession ? String(getAccountAuthGeneration()) : '';
+  const sessionIdentityKey = sessionGenerationKey ? JSON.stringify([session?.accountId, sessionGenerationKey]) : '';
   const sessionAccessToken = session?.accessToken || '';
   const selected = useSyncExternalStore(subscribeActiveDesktop, getSelectedSource, getSelectedSource);
   const scopeId = useSyncExternalStore(subscribeChatCacheScope, getChatCacheScopeId, getChatCacheScopeId);
@@ -104,7 +108,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
       return null;
     }
 
-    return getAccountAccessTokenForRequest(readIdentityApiBaseUrl());
+    return getAccountAccessTokenForRequest(readOfficialApiBaseUrl());
   }, [hasSession, isBootstrapping]);
 
   useEffect(() => {

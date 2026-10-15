@@ -24,7 +24,8 @@ class FakeSocket {
 
   constructor(
     readonly url: string,
-    readonly protocols?: string | string[]
+    readonly protocols?: string | string[],
+    readonly headers?: Record<string, string>
   ) {}
 
   open() {
@@ -48,8 +49,8 @@ class FakeSocket {
 }
 
 function createSocketFactory(instances: FakeSocket[]) {
-  return (url: string, protocols?: string | string[]) => {
-    const socket = new FakeSocket(url, protocols);
+  return (url: string, protocols?: string | string[], headers?: Record<string, string>) => {
+    const socket = new FakeSocket(url, protocols, headers);
     instances.push(socket);
     queueMicrotask(() => socket.open());
     return socket;
@@ -196,16 +197,17 @@ test('desktop subprotocol transport keeps token out of url', async () => {
   client.disconnect();
 });
 
-test('desktop reconnect obtains a fresh one-time credential', async () => {
+test('Desktop reconnect resolves its Platform bearer and independent account proof', async () => {
   const sockets: FakeSocket[] = [];
   let issued = 0;
   const client = new WsClient({
     transport: {
       kind: 'desktop-ws',
       wsUrl: 'wss://desktop.example.test/ws',
-      tokenMode: 'query',
-      accessToken: 'route-initial',
-      accessTokenProvider: async () => `route-reconnect-${++issued}`,
+      tokenMode: 'subprotocol',
+      accessToken: 'identity-initial',
+      accessTokenProvider: async () => `identity-${++issued}`,
+      requestHeadersProvider: async () => ({ 'X-Account-Authorization': 'Bearer official-proof' }),
       namespace: 'ap'
     },
     createWebSocket: createSocketFactory(sockets),
@@ -214,12 +216,14 @@ test('desktop reconnect obtains a fresh one-time credential', async () => {
   });
 
   await client.connect();
-  assert.equal(new URL(sockets[0].url).searchParams.get('token'), 'route-initial');
+  assert.equal(new URL(sockets[0].url).searchParams.has('token'), false);
+  assert.deepEqual(sockets[0].protocols, ['bearer.identity-1']);
+  assert.equal(sockets[0].headers?.['X-Account-Authorization'], 'Bearer official-proof');
   sockets[0].onclose?.({ code: 1006, reason: 'network changed' });
   await new Promise((resolve) => setTimeout(resolve, 130));
   assert.equal(sockets.length, 2);
-  assert.equal(new URL(sockets[1].url).searchParams.get('token'), 'route-reconnect-1');
-  assert.equal(issued, 1);
+  assert.deepEqual(sockets[1].protocols, ['bearer.identity-2']);
+  assert.equal(issued, 2);
   client.disconnect();
 });
 
@@ -229,8 +233,8 @@ test('shared chat transport keeps the socket when only token or namespace change
   (globalThis as typeof globalThis & { WebSocket: unknown }).WebSocket = class {
     private readonly socket: FakeSocket;
 
-    constructor(url: string, protocols?: string | string[]) {
-      this.socket = new FakeSocket(url, protocols);
+    constructor(url: string, protocols?: string | string[], options?: { headers?: Record<string, string> }) {
+      this.socket = new FakeSocket(url, protocols, options?.headers);
       sockets.push(this.socket);
       queueMicrotask(() => this.socket.open());
       return this.socket;
@@ -283,8 +287,8 @@ test('chat push stop only removes chat listeners without closing shared socket',
   (globalThis as typeof globalThis & { WebSocket: unknown }).WebSocket = class {
     private readonly socket: FakeSocket;
 
-    constructor(url: string, protocols?: string | string[]) {
-      this.socket = new FakeSocket(url, protocols);
+    constructor(url: string, protocols?: string | string[], options?: { headers?: Record<string, string> }) {
+      this.socket = new FakeSocket(url, protocols, options?.headers);
       sockets.push(this.socket);
       queueMicrotask(() => this.socket.open());
       return this.socket;
@@ -305,7 +309,11 @@ test('chat push stop only removes chat listeners without closing shared socket',
       }
     );
 
-    sockets[0].receive({ frame: 'push', type: 'chat.updated', payload: { chatId: 'chat-1', updatedAt: 1_791_400_000_000 } });
+    sockets[0].receive({
+      frame: 'push',
+      type: 'chat.updated',
+      payload: { chatId: 'chat-1', updatedAt: 1_791_400_000_000 }
+    });
     assert.equal(pushEvents.length, 1);
 
     stopChatPushTransport();
@@ -343,8 +351,8 @@ test('chat stream forwards done reason and last sequence', async () => {
   (globalThis as typeof globalThis & { WebSocket: unknown }).WebSocket = class {
     private readonly socket: FakeSocket;
 
-    constructor(url: string, protocols?: string | string[]) {
-      this.socket = new FakeSocket(url, protocols);
+    constructor(url: string, protocols?: string | string[], options?: { headers?: Record<string, string> }) {
+      this.socket = new FakeSocket(url, protocols, options?.headers);
       sockets.push(this.socket);
       queueMicrotask(() => this.socket.open());
       return this.socket;

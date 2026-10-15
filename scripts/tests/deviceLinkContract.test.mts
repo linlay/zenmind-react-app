@@ -1,17 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { parseAccountDeviceListV1, parseTrustedRouteContext } from '../../src/core/api/contracts/deviceLink.ts';
-const id = '11111111-1111-4111-8111-111111111111';
-const route = {
-  schemaVersion: 1,
-  accountId: 'account',
-  sourceDeviceId: id,
-  targetDesktopId: 'existing-desktop',
-  requestId: id,
-  jti: id,
-  issuedAt: '2030-01-01T00:00:00Z',
-  expiresAt: '2030-01-01T00:02:00Z'
-};
+import { parseAccountDeviceListV1, parseDesktopPlatformCredential } from '../../src/core/api/contracts/deviceLink.ts';
 test('Hub directory requires explicit presence and preserves persisted Desktop IDs', () => {
   const list = { schemaVersion: 1, items: [{ deviceId: 'existing-desktop', deviceName: '电脑', online: false }] };
   assert.deepEqual(parseAccountDeviceListV1(list), list);
@@ -26,11 +15,24 @@ test('Hub directory requires explicit presence and preserves persisted Desktop I
     })
   );
 });
-test('route context validates session, target, request and maximum lifetime without JWT fields', () => {
-  assert.deepEqual(parseTrustedRouteContext(route), route);
-  assert.throws(() => parseTrustedRouteContext({ ...route, sourceDeviceId: 'phone' }));
-  assert.throws(() => parseTrustedRouteContext({ ...route, jti: '' }));
-  assert.throws(() => parseTrustedRouteContext({ ...route, targetDesktopId: '../target' }));
-  assert.throws(() => parseTrustedRouteContext({ ...route, expiresAt: '2030-01-01T00:02:01Z' }));
-  assert.throws(() => parseTrustedRouteContext({ ...route, expiresAt: route.issuedAt }));
+test('Platform credential validates expiry, local device and safe bearer transport', () => {
+  const now = Date.parse('2030-01-01T00:00:00Z');
+  const credential = {
+    schemaVersion: 1,
+    credential: 'header.payload.signature',
+    platformDeviceId: 'local-device',
+    webSocketUrl: 'wss://desktop.test/ws',
+    tokenMode: 'subprotocol',
+    expiresAt: '2030-01-01T00:30:00Z'
+  };
+  assert.deepEqual(parseDesktopPlatformCredential(credential, now), credential);
+  for (const wrong of [
+    { credential: 'tr_old' },
+    { platformDeviceId: '' },
+    { tokenMode: 'query' },
+    { expiresAt: '2029-01-01T00:00:00Z' },
+    { webSocketUrl: 'wss://desktop.test/ws?token=secret' },
+    { webSocketUrl: 'wss://user:secret@desktop.test/ws' }
+  ])
+    assert.throws(() => parseDesktopPlatformCredential({ ...credential, ...wrong }, now));
 });

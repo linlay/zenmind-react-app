@@ -167,6 +167,7 @@
       "app-development-debug",
       "app-shell-navigation",
       "core-api-client",
+      "core-auth-session",
       "core-runtime-config",
       "feature-agent-task-board",
       "feature-auth-login",
@@ -178,7 +179,7 @@
       "shared-screen-header"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-12T07:02:33Z"
+    "lastScannedAt": "2026-10-15T07:18:02Z"
   },
   "readHints": {
     "alwaysRead": [],

@@ -2,6 +2,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { useSyncExternalStore } from 'react';
 import { getCloudAuthSnapshot, subscribeCloudAuth } from '../../core/auth/cloudAuth';
+import { getAccountAuthGeneration } from '../../core/auth/accountAuth';
 import { useAccountAuth } from '../../core/auth/useAccountAuth.ts';
 import { readActiveDesktopId, subscribeActiveDesktop } from '../../core/auth/activeDesktop.ts';
 import { AgentTaskBoardFlowNavigator } from '../../features/agentTaskBoard/AgentTaskBoardFlowNavigator';
@@ -29,7 +30,7 @@ export function RootNavigator() {
   const cloud = useSyncExternalStore(subscribeCloudAuth, getCloudAuthSnapshot, getCloudAuthSnapshot);
   const webAppsEnabled = Boolean(account.session && desktopId);
   const webAppsSessionKey = account.session
-    ? JSON.stringify([accountId, account.session.deviceId, desktopId])
+    ? JSON.stringify([accountId, getAccountAuthGeneration(), desktopId])
     : 'signed-out';
 
   if (account.isBootstrapping && !cloud.cacheAllowed) {

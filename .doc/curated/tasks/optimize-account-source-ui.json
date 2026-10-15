@@ -12,7 +12,7 @@
     "用户页主题关于"
   ],
   "entryDecision": [
-    "2026-10-12 后续登录、默认云端 Token、来源与缓存改造优先进入 docs/mobile-auth-source-2026-10-12/README.md；新计划仅落档，业务实施未开始。本卡保留前期范围和证据，不覆盖新计划已确认决定。",
+    "后续登录、默认云端 Token、来源与缓存改造进入 docs/mobile-auth-source-2026-10-12/README.md；代码与本地检查已实施，真实服务和真机验收待完成。本卡保留历史记录，不恢复旧配对或双目录。邮箱认证独立按 docs/account-email-auth-2026-10-13/README.md 交付。",
     "执行用户页、账号来源、云端/电脑切换与同账号设备相关改造时，从 docs/account-source-ui-2026-10-09/README.md 进入 T00–T09。",
     "2026-10-09 最新决定：云端保持现状，T03 暂缓；T05/T06/T09 不再依赖 T03。Platform 的 T03 补丁已逐项撤除，工作区干净；App 云端恢复既有 authMode/accessToken，不发手机 JWT。真实验收由用户执行。",
     "历史实现：App、Identity、Hub、Desktop、Platform 本地代码曾应用；T03 补充账号主体/source 等边界，但影响评估未通过完整兼容性与隔离验收。",

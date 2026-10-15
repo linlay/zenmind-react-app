@@ -15,6 +15,7 @@
       "title": "app-shell-navigation",
       "summary": "App shell 独立恢复账号与默认云端；Login 始终可达，两种访问使用同一 Tabs 与来源生命周期。",
       "pathHints": [
+        "docs/react-app-env-sync-2026-10-13",
         ".generated/brand",
         "App.tsx",
         "android/app/src/main/java",
@@ -59,7 +60,7 @@
     {
       "id": "core-api-client",
       "title": "core-api-client",
-      "summary": "统一 HTTP/WS API；默认云端使用独立凭证，Desktop 使用绑定账号/手机/目标的短期票据。",
+      "summary": "统一 HTTP/WS 数据面；默认云端使用独立凭证，Desktop 使用 Hub 授权交付的原本地 Identity 票据及独立官网证明。",
       "pathHints": [
         "src/core/api"
       ],
@@ -68,7 +69,7 @@
     {
       "id": "core-auth-session",
       "title": "core-auth-session",
-      "summary": "账号电脑认证、唯一来源选择及独立默认云端凭证；云端不依赖 Identity 登录。",
+      "summary": "官网邮箱 Cookie 会话与可信用户、账号电脑访问、唯一来源选择及独立默认云端凭证。",
       "pathHints": [
         "src/core/auth"
       ],
@@ -113,10 +114,11 @@
     {
       "id": "feature-auth-login",
       "title": "feature-auth-login",
-      "summary": "独立电脑账号登录和默认云端 Token 登录；沿用现有电脑目录与授权。",
+      "summary": "原生官网邮箱验证码登录、Hub 电脑管理与独立云端 Token 登录。",
       "pathHints": [
         "src/features/auth",
-        "src/features/deviceLink"
+        "src/features/deviceLink",
+        "docs/account-email-auth-2026-10-13"
       ],
       "card": ".doc/modules/feature-auth-login.json"
     },
@@ -164,6 +166,15 @@
         "src/features/webApps"
       ],
       "card": ".doc/modules/feature-web-apps.json"
+    },
+    {
+      "id": "mobile-account-ticket-plan",
+      "title": "mobile-account-ticket-plan",
+      "summary": "官网原生邮箱登录与 Desktop 原 Identity 票据同步的执行与验收入口；本地实现、真实环境和发布分开记录。",
+      "pathHints": [
+        "docs/mobile-account-ticket-sync-2026-10-14"
+      ],
+      "card": ".doc/modules/mobile-account-ticket-plan.json"
     },
     {
       "id": "shared-conversation-content-renderer",

@@ -58,6 +58,7 @@
     "dependencies": [],
     "dependents": [
       "app-shell-navigation",
+      "core-api-client",
       "feature-agent-task-board",
       "feature-auth-login",
       "feature-chat-persistence",
@@ -66,7 +67,7 @@
       "shared-paginated-list"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-12T07:02:33Z"
+    "lastScannedAt": "2026-10-15T07:18:02Z"
   },
   "readHints": {
     "alwaysRead": [

@@ -98,7 +98,7 @@ type WsClientOptions = {
   transport: WsTransportConfig;
   onPush?: (frame: WsPushFrame) => void;
   onStatusChange?: (status: WsSocketStatus) => void;
-  createWebSocket?: (url: string, protocols?: string | string[]) => WebSocketLike;
+  createWebSocket?: (url: string, protocols?: string | string[], headers?: Record<string, string>) => WebSocketLike;
   heartbeatTimeoutMs?: number;
   healthCheckIntervalMs?: number;
   reconnectBaseDelayMs?: number;
@@ -107,6 +107,7 @@ type WsClientOptions = {
 };
 
 type ResolvedWsConnection = {
+  headers?: Record<string, string>;
   url: string;
   protocols?: string | string[];
 };
@@ -184,11 +185,10 @@ function resolveAgentPlatformWsConnection(
 }
 
 async function resolveDesktopWsConnection(
-  config: Extract<WsTransportConfig, { kind: 'desktop-ws' }>,
-  refreshCredential: boolean
+  config: Extract<WsTransportConfig, { kind: 'desktop-ws' }>
 ): Promise<ResolvedWsConnection | null> {
   const accessToken = String(
-    refreshCredential && config.accessTokenProvider ? await config.accessTokenProvider() : config.accessToken
+    config.accessTokenProvider ? await config.accessTokenProvider() : config.accessToken
   ).trim();
   if (!accessToken) {
     return null;
@@ -199,6 +199,8 @@ async function resolveDesktopWsConnection(
     if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
       return null;
     }
+    if (config.requestHeadersProvider && config.tokenMode !== 'subprotocol')
+      throw new Error('Account Desktop requires bearer subprotocol');
     url.hash = '';
     url.searchParams.delete('token');
     if (config.tokenMode === 'query') {
@@ -206,6 +208,7 @@ async function resolveDesktopWsConnection(
     }
     return {
       url: url.toString(),
+      headers: await config.requestHeadersProvider?.(),
       protocols: config.tokenMode === 'subprotocol' ? [`bearer.${accessToken}`] : undefined
     };
   } catch {
@@ -213,12 +216,9 @@ async function resolveDesktopWsConnection(
   }
 }
 
-async function resolveWsConnection(
-  config: WsTransportConfig,
-  refreshCredential: boolean
-): Promise<ResolvedWsConnection | null> {
+async function resolveWsConnection(config: WsTransportConfig): Promise<ResolvedWsConnection | null> {
   if (config.kind === 'desktop-ws') {
-    return resolveDesktopWsConnection(config, refreshCredential);
+    return resolveDesktopWsConnection(config);
   }
   const token = config.accessTokenProvider ? await config.accessTokenProvider() : config.accessToken;
   return resolveAgentPlatformWsConnection(config.backendUrl, token, config.wsUrl);
@@ -280,7 +280,11 @@ function toStreamEvent(frameEvent: WsStreamEventFrame): Record<string, unknown> 
 
 export class WsClient {
   private transport: WsTransportConfig;
-  private readonly createWebSocket: (url: string, protocols?: string | string[]) => WebSocketLike;
+  private readonly createWebSocket: (
+    url: string,
+    protocols?: string | string[],
+    headers?: Record<string, string>
+  ) => WebSocketLike;
   private socket: WebSocketLike | null = null;
   private connectPromise: Promise<void> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -289,7 +293,6 @@ export class WsClient {
   private readonly activeStreams = new Map<string, ActiveStream>();
   private expectedClose = false;
   private reconnectAttempt = 0;
-  private connectionAttempted = false;
   private lastSeenAt = 0;
   private status: WsSocketStatus = 'idle';
   private onPush?: (frame: WsPushFrame) => void;
@@ -304,10 +307,16 @@ export class WsClient {
     this.transport = options.transport;
     this.createWebSocket =
       options.createWebSocket ||
-      ((url, protocols) =>
-        protocols
-          ? (new WebSocket(url, protocols) as unknown as WebSocketLike)
-          : (new WebSocket(url) as unknown as WebSocketLike));
+      ((url, protocols, headers) => {
+        if (headers && (typeof navigator === 'undefined' || navigator.product !== 'ReactNative'))
+          throw new Error('Account Desktop WebSocket headers require Native');
+        const NativeWebSocket = WebSocket as unknown as new (
+          url: string,
+          protocols?: string | string[],
+          options?: { headers: Record<string, string> }
+        ) => WebSocketLike;
+        return new NativeWebSocket(url, protocols, headers ? { headers } : undefined);
+      });
     this.onPush = options.onPush;
     this.onStatusChange = options.onStatusChange;
     this.heartbeatTimeoutMs = Math.max(1_000, options.heartbeatTimeoutMs ?? 45_000);
@@ -521,8 +530,7 @@ export class WsClient {
 
     // Publish the shared attempt before endpoint/credential resolution yields.
     this.connectPromise = (async () => {
-      const connection = await resolveWsConnection(this.transport, this.connectionAttempted);
-      this.connectionAttempted = true;
+      const connection = await resolveWsConnection(this.transport);
       if (!connection) {
         this.setStatus('disconnected');
         throw new WsClientDisconnectedError('WebSocket transport is not initialized');
@@ -533,7 +541,7 @@ export class WsClient {
       this.setStatus(this.status === 'reconnecting' ? 'reconnecting' : 'connecting');
 
       return new Promise<void>((resolve, reject) => {
-        const socket = this.createWebSocket(connection.url, connection.protocols);
+        const socket = this.createWebSocket(connection.url, connection.protocols, connection.headers);
         this.socket = socket;
         let opened = false;
 

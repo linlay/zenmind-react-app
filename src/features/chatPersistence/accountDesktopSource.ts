@@ -1,7 +1,5 @@
-import { Directory, File } from 'expo-file-system';
-import { defaultDatabaseDirectory } from 'expo-sqlite';
 import type { AccountDevice } from '../../core/api/contracts/deviceLink.ts';
-import { issueDesktopRouteCredential } from '../../core/api/services/deviceLinkApi.ts';
+import { getDesktopPlatformCredential } from '../../core/api/services/deviceLinkApi.ts';
 import { getAccountAuthGeneration, getAccountAuthSnapshot, subscribeAccountAuth } from '../../core/auth/accountAuth.ts';
 import {
   commitActiveDesktop,
@@ -13,52 +11,19 @@ import {
   subscribeActiveDesktop,
   isActiveDesktopOffline
 } from '../../core/auth/activeDesktop.ts';
-import {
-  listAccountDesktopCacheScopeEntries,
-  removeLegacyAccountCloudCacheScope,
-  completeLegacyChatCachePurge,
-  isLegacyChatCachePurged,
-  resolveAndPersistAccountDesktopCacheScope
-} from '../../core/auth/accountDesktopCacheScopes.ts';
+import { resolveAndPersistAccountDesktopCacheScope } from '../../core/auth/accountDesktopCacheScopes.ts';
 import { getCloudAuthSnapshot, restoreCloudCredential, subscribeCloudAuth } from '../../core/auth/cloudAuth.ts';
 import { verifyDefaultCloud, cancelCloudVerification } from './cloudAccess.ts';
 import { listAccountDevices } from '../../core/api/services/deviceLinkApi.ts';
 import { updateAccountDesktopAvailability } from '../../core/auth/activeDesktop.ts';
 import { getActiveChatSource } from './chatSourceRuntime';
 import { getChatCacheScopeId } from './cacheScope';
-import { MMKV } from 'react-native-mmkv';
-import { createRequestId, clearDesktopRouteCredentialCache } from '../../core/api/activeWsTransport.ts';
+import { clearDesktopPlatformCredentialCache } from '../../core/api/activeWsTransport.ts';
 import { chatSyncService } from '../chatRealtime/chatSyncService.ts';
-import { deleteChatDatabaseScopeIfExists, ensureChatDatabase, switchChatDatabaseScope } from './database.ts';
-import { clearChatDirectorySnapshotForScope } from './homeSnapshot.ts';
+import { ensureChatDatabase, switchChatDatabaseScope } from './database.ts';
 import { notifyChatCacheScopeChanged } from './cacheScope.ts';
 
 let selectionGeneration = 0;
-
-function purgeLegacyCaches(): void {
-  for (const entry of listAccountDesktopCacheScopeEntries()) {
-    if (entry.desktopId) continue;
-    deleteChatDatabaseScopeIfExists(entry.cacheScopeId);
-    clearChatDirectorySnapshotForScope(entry.cacheScopeId);
-    removeLegacyAccountCloudCacheScope(entry);
-  }
-  if (!isLegacyChatCachePurged()) {
-    const directory = new Directory(defaultDatabaseDirectory);
-    if (directory.exists) {
-      for (const file of directory.list()) {
-        if (!(file instanceof File)) continue;
-        const match = /^zenmind-chat-(demo|[a-zA-Z0-9_-]+)\.db$/u.exec(file.name);
-        if (!match || match[1] === 'signed_out' || match[1].startsWith('as_') || match[1].startsWith('cs_')) continue;
-        const scopeId = match[1] === 'demo' ? 'legacy' : match[1];
-        deleteChatDatabaseScopeIfExists(scopeId);
-        clearChatDirectorySnapshotForScope(scopeId);
-      }
-    }
-    new MMKV({ id: 'zenmind-device-profiles' }).clearAll();
-    new MMKV({ id: 'zenmind-auth-session' }).delete('auth_device_token_v1');
-    completeLegacyChatCachePurge();
-  }
-}
 
 function reconcileSource(): void {
   const selected = getSelectedSource();
@@ -76,7 +41,7 @@ function reconcileSource(): void {
         : 'signed_out';
   if (scopeId !== getChatCacheScopeId()) {
     selectionGeneration++;
-    clearDesktopRouteCredentialCache();
+    clearDesktopPlatformCredentialCache();
     chatSyncService.stop();
     switchChatDatabaseScope(scopeId);
   }
@@ -89,7 +54,6 @@ function reconcileSource(): void {
 }
 
 export function startAccountSourceLifecycle(): () => void {
-  purgeLegacyCaches();
   restoreCloudCredential();
   const firstLaunch = !hasSavedSourceSelection() && !hasLegacyDesktopSelection();
   let stopped = false;
@@ -154,15 +118,8 @@ export async function activateAccountDesktopSource(accountId: string, device: Ac
   if (device) {
     if (!accountId || getAccountAuthSnapshot().session?.accountId !== accountId) throw new Error('Account changed');
     if (device.online !== false) {
-      const route = await issueDesktopRouteCredential(device.deviceId, createRequestId());
-      const session = getAccountAuthSnapshot().session;
-      if (
-        !session ||
-        route.routeContext.accountId !== accountId ||
-        route.routeContext.sourceDeviceId !== session.deviceId ||
-        route.routeContext.targetDesktopId !== device.deviceId
-      )
-        throw new Error('Route credential identity mismatch');
+      await getDesktopPlatformCredential(device.deviceId);
+      if (getAccountAuthSnapshot().session?.accountId !== accountId) throw new Error('Account changed');
     }
     if (authGeneration !== getAccountAuthGeneration()) throw new Error('Source selection superseded');
   } else if (getCloudAuthSnapshot().status !== 'available') throw new Error('Cloud access unavailable');
@@ -172,7 +129,7 @@ export async function activateAccountDesktopSource(accountId: string, device: Ac
   const scopeId = device
     ? resolveAndPersistAccountDesktopCacheScope(accountId, device.deviceId).entry.cacheScopeId
     : getCloudAuthSnapshot().scopeId;
-  clearDesktopRouteCredentialCache();
+  clearDesktopPlatformCredentialCache();
   chatSyncService.stop();
   try {
     switchChatDatabaseScope(scopeId, false);

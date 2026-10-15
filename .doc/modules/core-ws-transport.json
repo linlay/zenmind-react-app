@@ -9,7 +9,7 @@
     "purpose": "核心 WebSocket 传输: 提供与业务无关的 WebSocket transport config、底层 WsClient 和生产 sharedWsTransport 单例。",
     "ownedConcepts": [
       "提供与业务无关的 WebSocket transport config、底层 WsClient 和生产 sharedWsTransport 多 endpoint client pool。",
-      "支持现有云端 agent-platform `/ap/ws` 配置 authMode（none/query-token）连接，以及账号 Desktop 路由的精确 `/ws` endpoint、query/subprotocol token mode 和 `ap` / `d` namespace。",
+      "支持云端原有 query-token 与 Desktop 精确 /ws 的 subprotocol 业务票据；Native 工厂用独立 headers 发送官网证明，不以 query 作为账号证明回退。",
       "按 connectionKey + endpoint 维护独立 client 的 request、stream、push、连接状态、心跳和重连；endpoint 不变时更新 token 或 namespace 不重连，不同 endpoint 可并行存活。",
       "只处理 URL、token 注入、frame 收发和 socket 生命周期，不读取 账号来源选择、不持久化 token、不做聊天业务 payload 归一或落库。",
       "Public entry WsTransportConfig (transport-types): 定义 agent-platform 与 desktop-ws 两种 WebSocket transport config。",
@@ -24,7 +24,8 @@
       "Related flow: chat-send-message",
       "Related task: add-auth-login-screen",
       "Related task: modify-chat-realtime",
-      "releaseIfIdle 根据 scoped listener 与 pending request/active stream 判断所有权；全局观测监听不持有连接，待完成请求结束后执行延迟回收，不关闭另一 endpoint。"
+      "releaseIfIdle 根据 scoped listener 与 pending request/active stream 判断所有权；全局观测监听不持有连接，待完成请求结束后执行延迟回收，不关闭另一 endpoint。",
+      "可选 requestHeadersProvider 与 token provider 分开解析；首次物理连接和重连读取当前凭据，provider 的 forceRefresh 只用于显式更新。浏览器无 Native headers 能力时拒绝账号连接。"
     ],
     "nonGoals": []
   },
@@ -58,7 +59,7 @@
       "feature-web-apps"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-12T07:02:33Z"
+    "lastScannedAt": "2026-10-15T07:18:02Z"
   },
   "readHints": {
     "alwaysRead": [

@@ -19,12 +19,12 @@ export async function readChatDirectory<TAgent, TTeam>(transport: WsTransportCon
       throw new ApiError('Invalid chat directory response', 502, { code: 'INVALID_DIRECTORY' });
     return response as T[];
   };
-  const [agents, teams, chats] = await Promise.all([
+  const [agents, chats] = await Promise.all([
     request<TAgent>('/api/agents'),
-    request<TTeam>('/api/teams'),
     request<RemoteChatSummary>('/api/chats', buildChatSummariesPayload())
   ]);
-  return { agents, teams, chats };
+  // TEAM is an Agent mode; retain the projection shape without the retired teams route.
+  return { agents, teams: [] as TTeam[], chats };
 }
 
 export function classifyCloudFailure(error: unknown) {

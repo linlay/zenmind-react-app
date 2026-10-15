@@ -36,9 +36,13 @@ function fixture() {
     './cloudAccess.ts': {},
     '../../core/auth/cloudAuth.ts': { getCloudAuthSnapshot: () => ({ status: 'available', scopeId: 'cs_cloud' }) },
     '../../core/api/services/deviceLinkApi.ts': {
-      issueDesktopRouteCredential: async (targetDesktopId: string) => {
+      getDesktopPlatformCredential: async (targetDesktopId: string) => {
         issued++;
-        return { routeContext: { accountId: 'account', sourceDeviceId: 'phone', targetDesktopId } };
+        return {
+          credential: 'header.payload.signature',
+          platformDeviceId: targetDesktopId,
+          expiresAt: new Date(Date.now() + 3600_000).toISOString()
+        };
       }
     },
     '../../core/auth/accountAuth.ts': {
@@ -63,7 +67,8 @@ function fixture() {
         entry: { cacheScopeId: `account:${id || 'cloud'}` }
       })
     },
-    '../../core/api/activeWsTransport.ts': { createRequestId: () => 'request', clearDesktopRouteCredentialCache() {} },
+    '../../core/api/activeWsTransport.ts': { clearDesktopPlatformCredentialCache() {} },
+    '../../core/api/requestId.ts': { createRequestId: () => 'request' },
     '../chatRealtime/chatSyncService.ts': {
       chatSyncService: {
         stop() {},

@@ -42,8 +42,6 @@ export const appIconUsages = {
   'preview.driveFiles': { glyph: 'drive', colorRole: 'brand', sizeRole: 'md' },
   'preview.driveReference': { glyph: 'chat', colorRole: 'brand', sizeRole: 'md' },
 
-  'authScanner.close': { glyph: 'close', colorRole: 'primary', sizeRole: 'lg' },
-
   'chatHome.openDirectory': { glyph: 'menu', colorRole: 'brand', sizeRole: 'lg' },
   'chatHome.search': { glyph: 'search', colorRole: 'brand', sizeRole: 'lg' },
   'chatHome.add': { glyph: 'edit_square', colorRole: 'brand', sizeRole: 'md' },

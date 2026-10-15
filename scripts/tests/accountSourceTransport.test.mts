@@ -21,15 +21,11 @@ function fixture(authMode: 'none' | 'query-token' = 'query-token') {
   let cloudScope = 'cs_cloud';
   let cloudStatus = 'available';
   const route = () => ({
-    credential: 'route-token',
-    webSocketUrl: 'wss://desktop.test/ws',
-    tokenMode: 'query',
-    routeContext: {
-      accountId: 'a',
-      sourceDeviceId: 'phone',
-      targetDesktopId: desktopId,
-      expiresAt: new Date(Date.now() + 120_000).toISOString()
-    }
+    credential: 'header.payload.signature',
+    platformDeviceId: `local-${desktopId}`,
+    expiresAt: new Date(Date.now() + 3600_000).toISOString(),
+    webSocketUrl: `wss://${desktopId}.test/ws`,
+    tokenMode: 'subprotocol'
   });
   let issue = async () => route();
   const dependencies: Record<string, unknown> = {
@@ -38,7 +34,7 @@ function fixture(authMode: 'none' | 'query-token' = 'query-token') {
       getAccountAuthGeneration: () => generation,
       getAccountAccessTokenForRequest: async () => session?.accessToken || null
     },
-    '../auth/authConfig': { readIdentityApiBaseUrl: () => 'https://identity.test' },
+    '../auth/authConfig.ts': { readTunnelHubApiBaseUrl: () => 'https://hub.test' },
     '../auth/activeDesktop.ts': {
       readActiveDesktopId: () => desktopId,
       isActiveDesktopOffline: () => false,
@@ -58,7 +54,7 @@ function fixture(authMode: 'none' | 'query-token' = 'query-token') {
       })
     },
     './services/deviceLinkApi.ts': {
-      issueDesktopRouteCredential: async () => {
+      getDesktopPlatformCredential: async () => {
         requests++;
         return issue();
       }
@@ -87,7 +83,6 @@ function fixture(authMode: 'none' | 'query-token' = 'query-token') {
       generation++;
       session = {
         accountId: 'a',
-        deviceId: 'phone',
         accessToken: 'account-token',
         accessExpireAtMs: Date.now() + 3600000
       } as AccountSession;
@@ -163,19 +158,20 @@ test('a delayed Desktop route cannot cross a source switch', async () => {
   await assert.rejects(request, /superseded/);
 });
 
-test('a route for the wrong account, caller or target is rejected', async () => {
-  for (const key of ['accountId', 'sourceDeviceId', 'targetDesktopId'] as const) {
-    const f = fixture();
-    f.login();
-    f.select('desktop-a');
-    const route = f.route();
-    route.routeContext[key] = 'other';
-    f.setIssue(async () => route);
-    await assert.rejects(f.transport.resolveActiveWsTransportConfig('ap'), /identity mismatch/);
-  }
+test('account proof is separate from the Platform credential and a stale provider cannot cross logout', async () => {
+  const f = fixture();
+  f.login();
+  f.select('desktop-a');
+  const config = await f.transport.resolveActiveWsTransportConfig('ap');
+  assert.equal(config!.accessToken, 'header.payload.signature');
+  const headers = await (config as import('../../src/core/ws/wsTransportConfig.ts').DesktopWsTransportConfig)
+    .requestHeadersProvider!();
+  assert.equal(headers['X-Account-Authorization'], 'Bearer account-token');
+  f.logout();
+  await assert.rejects(config!.accessTokenProvider!(), /superseded/);
 });
 
-test('route resolution shares one pending issuance, while each socket authentication gets a fresh JTI', async () => {
+test('credential resolution is single flight and reuses a valid Desktop ticket across socket consumers', async () => {
   const f = fixture();
   f.login();
   f.select('desktop-a');
@@ -195,6 +191,8 @@ test('route resolution shares one pending issuance, while each socket authentica
   assert.equal(f.requests(), 1);
   f.setIssue(async () => f.route());
   await first!.accessTokenProvider!();
+  assert.equal(f.requests(), 1);
+  await first!.accessTokenProvider!(true);
   assert.equal(f.requests(), 2);
   assert.equal(f.transport.resolveDefaultWsTransportConfig(), null);
 });

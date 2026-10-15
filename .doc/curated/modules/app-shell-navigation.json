@@ -3,6 +3,7 @@
   "module": "app-shell-navigation",
   "status": "confirmed",
   "paths": [
+    "docs/react-app-env-sync-2026-10-13",
     ".generated/brand",
     "App.tsx",
     "android/app/src/main/java",
@@ -45,10 +46,11 @@
   "summary": {
     "purpose": "App shell 独立恢复账号与默认云端；Login 始终可达，两种访问使用同一 Tabs 与来源生命周期。",
     "ownedConcepts": [
-      "AppRoot 挂载 accountDesktopSource 生命周期，账号恢复与 cloudAccess 验证独立进行；有效云端不等待 Identity，所选 scope 交接由 feature 负责。",
+      "AppRoot 挂载 accountDesktopSource 生命周期，账号恢复与 cloudAccess 验证独立进行；有效云端不等待 官网账号，所选 scope 交接由 feature 负责。",
       "RootNavigator 保留 Chat/WebApps/Me，Login 同时提供电脑账号和云端 Token 入口，不以另一条登录态删除 Login。Me 分别展示和退出账号与云端。",
-      "ChatDetail 在所属来源失效或切换时返回 Tabs；WebApps sessionKey 仍绑定已确认账号/手机/所选电脑，只在电脑来源启用。",
-      "云端通知注册用本地云端 scope 作为客户端身份，使用云端凭证；账号退出不清除当前云端注册，迟到注册及点击按来源拒绝。"
+      "ChatDetail 按所选来源交接；WebApps sessionKey 绑定官网 accountId、auth generation 与所选 Desktop，只在电脑来源启用。",
+      "云端通知注册用本地云端 scope 作为客户端身份，使用云端凭证；账号退出不清除当前云端注册，迟到注册及点击按来源拒绝。",
+      "Me 显示官网已确认用户信息；RootStack 不再挂旧账号安全/邮箱绑定解绑页面。"
     ],
     "nonGoals": []
   },
@@ -69,12 +71,17 @@
       "shared-visual-foundation",
       "shared-screen-header"
     ],
-    "dependents": ["feature-agent-task-board", "feature-chat-persistence"],
+    "dependents": [
+      "feature-agent-task-board",
+      "feature-chat-persistence"
+    ],
     "tests": [],
     "lastScannedAt": ""
   },
   "readHints": {
-    "alwaysRead": ["src/app/navigation/RootNavigator.tsx"],
+    "alwaysRead": [
+      "src/app/navigation/RootNavigator.tsx"
+    ],
     "readFor": [
       {
         "when": "legacy readNext",
@@ -165,7 +172,9 @@
   ],
   "recentChanges": [
     "2026-10-09：账号来源改造，本地实现与实际部署验收分开记录。",
-    "2026-10-12：默认云端 Token 独立访问实施；本地测试与导出验证，真实服务/真机验收由用户执行。"
+    "2026-10-12：默认云端 Token 独立访问实施；本地测试与导出验证，真实服务/真机验收由用户执行。",
+    "2026-10-13：邮箱验证码登录与账号邮箱绑定解绑本地实现；真实 SMTP、部署和真机验收未完成，详见 docs/account-email-auth-2026-10-13/IMPLEMENTATION.md。",
+    "2026-10-15：官网原生邮箱登录与原 Identity 票据接入已在本地实现；真实环境由用户验收，见 docs/mobile-account-ticket-sync-2026-10-14/IMPLEMENTATION.md。"
   ],
   "legacy": {
     "title": "应用壳层与底部导航",

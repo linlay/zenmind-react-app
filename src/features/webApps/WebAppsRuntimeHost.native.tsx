@@ -1,3 +1,4 @@
+import { openMobileWebAppSession, retainMobileWebAppSession } from './mobileWebAppSession.native';
 import { FlashList } from '@shopify/flash-list';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -12,7 +13,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WebView, type WebViewNavigation } from 'react-native-webview';
 
-import { resolveActiveWsTransportConfig } from '../../core/api/activeWsTransport';
+import { clearDesktopPlatformCredentialCache, resolveActiveWsTransportConfig } from '../../core/api/activeWsTransport';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { AppIcon } from '../../shared/icons/AppIcon';
 import { AppIconButton } from '../../shared/icons/AppIconButton';
@@ -22,7 +23,7 @@ import { cn } from '../../shared/visual/className';
 import { appVisualTokens } from '../../shared/visual/foundation';
 import { appHairlineStyles } from '../../shared/visual/hairline';
 import type { OpenableWebApp, WebAppResident } from './types';
-import { addWebAppAccessToken, containsWebAppAccessToken, resolveWebAppAccessTarget } from './webAppsMobileAccess';
+import { resolveWebAppAccessTarget } from './webAppsMobileAccess';
 import { isOpenableWebApp, normalizeWebAppUrl } from './webAppsRuntimeModel';
 import type { WebAppsRuntimeHostProps } from './WebAppsRuntimeHost.types';
 
@@ -71,14 +72,16 @@ type ResidentWebViewProps = Pick<
 
 type ResidentWebViewSource = {
   uri: string;
-  usesPairingToken: boolean;
+  usesPlatformCredential: boolean;
+  expiresAt?: number;
   revision: number;
 };
 
 async function resolveResidentWebViewSource(
   initialUrl: string,
-  _forceRefresh: boolean
+  forceRefresh = false
 ): Promise<Omit<ResidentWebViewSource, 'revision'> | null> {
+  if (forceRefresh) clearDesktopPlatformCredentialCache();
   const transport = await resolveActiveWsTransportConfig('d');
   if (transport?.kind !== 'desktop-ws') return null;
   const desktopWsUrl = transport.wsUrl;
@@ -90,18 +93,15 @@ async function resolveResidentWebViewSource(
   if (target.kind === 'direct') {
     return {
       uri: target.uri,
-      usesPairingToken: false
+      usesPlatformCredential: false
     };
   }
 
-  const accessToken = transport.accessToken;
-  const uri = addWebAppAccessToken(target, accessToken);
-  return uri
-    ? {
-        uri,
-        usesPairingToken: true
-      }
-    : null;
+  const token = transport.accessTokenProvider ? await transport.accessTokenProvider(true) : transport.accessToken;
+  const headers = await transport.requestHeadersProvider?.();
+  if (!headers) return null;
+  const expiresAt = await openMobileWebAppSession(target.uri, { ...headers, Authorization: `Bearer ${token}` });
+  return { uri: target.uri, usesPlatformCredential: true, expiresAt };
 }
 
 function ResidentWebView({
@@ -112,17 +112,16 @@ function ResidentWebView({
   onResidentTerminated
 }: ResidentWebViewProps) {
   const [initialUrl] = useState(() => resident.url);
+  useEffect(() => retainMobileWebAppSession(initialUrl), [initialUrl]);
   const [source, setSource] = useState<ResidentWebViewSource | null>(null);
   const sourceRevisionRef = useRef(0);
   const authRetryAttemptedRef = useRef(false);
   const authRetryInFlightRef = useRef(false);
-  const completedInitialLoadRef = useRef(false);
 
   const loadSource = useCallback(
-    async (forceRefresh: boolean) => {
+    async (forceRefresh = false) => {
       const revision = sourceRevisionRef.current + 1;
       sourceRevisionRef.current = revision;
-      completedInitialLoadRef.current = false;
       onResidentLoadState(resident.appId, resident.generation, 'loading');
 
       try {
@@ -148,20 +147,46 @@ function ResidentWebView({
   );
 
   useEffect(() => {
-    void loadSource(false);
+    void loadSource();
     return () => {
       sourceRevisionRef.current += 1;
     };
   }, [loadSource]);
 
+  useEffect(() => {
+    if (!source?.usesPlatformCredential || !source.expiresAt) return;
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const renew = async (attempt = 0) => {
+      try {
+        const next = await resolveResidentWebViewSource(initialUrl, true);
+        if (disposed) return;
+        if (!next?.expiresAt || next.expiresAt <= source.expiresAt!)
+          throw new Error('Updated WebApp credential unavailable');
+        setSource((previous) => (previous ? { ...previous, expiresAt: next.expiresAt } : previous));
+      } catch {
+        if (disposed) return;
+        if (attempt < 2) timer = setTimeout(() => void renew(attempt + 1), 5000);
+        else onResidentLoadState(resident.appId, resident.generation, 'error');
+      }
+    };
+    timer = setTimeout(() => void renew(), Math.max(1000, source.expiresAt - Date.now() - 15_000));
+    return () => {
+      disposed = true;
+      clearTimeout(timer);
+    };
+  }, [
+    source?.expiresAt,
+    source?.usesPlatformCredential,
+    initialUrl,
+    onResidentLoadState,
+    resident.appId,
+    resident.generation
+  ]);
+
   const handleHttpError = useCallback(
     (statusCode: number) => {
-      if (
-        statusCode === 401 &&
-        source?.usesPairingToken &&
-        !completedInitialLoadRef.current &&
-        !authRetryAttemptedRef.current
-      ) {
+      if (statusCode === 401 && source?.usesPlatformCredential && !authRetryAttemptedRef.current) {
         authRetryAttemptedRef.current = true;
         authRetryInFlightRef.current = true;
         void loadSource(true);
@@ -172,7 +197,7 @@ function ResidentWebView({
       }
       onResidentLoadState(resident.appId, resident.generation, 'error');
     },
-    [loadSource, onResidentLoadState, resident.appId, resident.generation, source?.usesPairingToken]
+    [loadSource, onResidentLoadState, resident.appId, resident.generation, source?.usesPlatformCredential]
   );
 
   if (!source) {
@@ -189,7 +214,7 @@ function ResidentWebView({
       cacheEnabled
       incognito={false}
       mixedContentMode="never"
-      sharedCookiesEnabled={false}
+      sharedCookiesEnabled={source.usesPlatformCredential}
       thirdPartyCookiesEnabled={false}
       setSupportMultipleWindows={false}
       allowsLinkPreview={false}
@@ -201,7 +226,6 @@ function ResidentWebView({
         onResidentLoadState(resident.appId, resident.generation, 'loading');
       }}
       onLoad={() => {
-        completedInitialLoadRef.current = true;
         onResidentLoadState(resident.appId, resident.generation, 'ready');
       }}
       onError={() => onResidentLoadState(resident.appId, resident.generation, 'error')}
@@ -209,11 +233,12 @@ function ResidentWebView({
       onContentProcessDidTerminate={() => onResidentTerminated(resident.appId, resident.generation)}
       onRenderProcessGone={() => onResidentTerminated(resident.appId, resident.generation)}
       onNavigationStateChange={(navigation: WebViewNavigation) => {
-        if (!containsWebAppAccessToken(navigation.url)) {
-          onResidentNavigation(resident.appId, navigation.url);
-        }
+        onResidentNavigation(resident.appId, navigation.url);
       }}
-      onShouldStartLoadWithRequest={(navigation) => isAllowedWebAppNavigation(navigation.url)}
+      onShouldStartLoadWithRequest={(navigation) =>
+        isAllowedWebAppNavigation(navigation.url) &&
+        (!source.usesPlatformCredential || new URL(navigation.url).origin === new URL(source.uri).origin)
+      }
       style={style}
     />
   );

@@ -1,6 +1,23 @@
 import type { I18nKey } from './zh-CN.ts';
 
 export const enUS: Record<I18nKey, string> = {
+  'accountEmail.email': 'Email address',
+  'accountEmail.code': 'Verification code',
+  'accountEmail.getCode': 'Get code',
+  'accountEmail.resend': 'Resend in {seconds}s',
+  'accountEmail.deliveryHint':
+    'Check your email address and spam folder. The server sets code expiry; you can request another code after 60 seconds.',
+  'accountEmail.loginHint':
+    'Sign in with your website email code. First-time verification follows the website account policy.',
+  'accountEmail.error.format': 'Enter a valid email address and a 6-digit code.',
+  'accountEmail.error.authentication': 'The code is incorrect or expired. Use the latest code.',
+  'accountEmail.error.session': 'Sign in to your account first.',
+  'accountEmail.error.rate': 'Too many requests. Please wait before trying again.',
+  'accountEmail.error.service': 'Email verification is temporarily unavailable. Try again later.',
+  'accountEmail.error.network': 'The request failed or timed out. Check your connection and try again.',
+  'accountEmail.error.protocol': 'The server response is incompatible. Try again later.',
+  'accountEmail.error.expired': 'The code expired. Request a new code.',
+
   'chatExport.title': 'Export and share',
   'chatExport.scope':
     'Export the full server conversation. Sharing sends a file without creating a public link. Artifact references contain no credentials or file copies.',
@@ -260,22 +277,9 @@ export const enUS: Record<I18nKey, string> = {
   'auth.welcome.title': 'Connect your ZenMind',
   'auth.welcome.subtitle': 'Sign in independently, then choose a Desktop from your account.',
   'auth.close': 'Close',
-  'auth.error.cameraPermissionDenied': 'Camera access is unavailable. Allow camera permission in system settings.',
   'auth.error.loginFailed': 'Login failed',
   'auth.mode.account': 'Account',
-  'auth.account.username': 'Account',
-  'auth.account.usernamePlaceholder': 'Enter account',
-  'auth.account.password': 'Password',
-  'auth.account.passwordPlaceholder': 'Enter password',
-  'auth.device.label': 'Device name',
-  'auth.device.placeholder': 'Example: iPhone 15 Pro',
-  'auth.scan.close': 'Close scanner',
-  'auth.scan.connecting': 'Confirming sign-in',
   'auth.submitAccount': 'Sign in',
-  'auth.challenge.show': 'Sign in with QR',
-  'auth.challenge.hide': 'Hide login QR',
-  'auth.challenge.scanHint': 'Scan with a signed-in device. This code refreshes after two minutes.',
-  'auth.challenge.failed': 'Failed to create login QR',
 
   'drive.eyebrow': 'Drive',
   'drive.title': 'Drive',
@@ -290,7 +294,6 @@ export const enUS: Record<I18nKey, string> = {
     'Upload, reference, and sharing actions can plug in here without breaking the visual language.',
 
   'me.eyebrow': 'Account',
-  'account.confirmLogin': 'Scan to confirm account sign-in',
   'devices.unknown': 'Status unknown',
   'accountSource.accessEndedTitle': 'Desktop account access ended',
   'accountSource.accessEndedBody': 'This Desktop signed out or was revoked. Choose another source.',

@@ -58,7 +58,6 @@ export function subscribeActiveDesktop(listener: () => void): () => void {
 export function commitSelectedSource(value: SelectedSource): void {
   selected = value;
   storage.set(SOURCE_KEY, JSON.stringify(value));
-  storage.delete('active_desktop_by_account_v1');
   listeners.forEach((listener) => listener());
 }
 export function readActiveDesktopId(accountId: string): string {

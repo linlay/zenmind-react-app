@@ -2,22 +2,35 @@
   "schemaVersion": "1.0",
   "module": "core-auth-session",
   "status": "confirmed",
-  "paths": ["src/core/auth"],
+  "paths": [
+    "src/core/auth"
+  ],
   "summary": {
-    "purpose": "账号电脑认证、唯一来源选择及独立默认云端凭证；云端不依赖 Identity 登录。",
+    "purpose": "官网邮箱 Cookie 会话与可信用户、账号电脑访问、唯一来源选择及独立默认云端凭证。",
     "ownedConcepts": [
-      "accountAuth 只管理账号与电脑访问；账号凭证仍只发到受信 Identity/Hub。cloudAuth 复用原生 MMKV 凭证入口，Web Token 只留内存；配置凭证、已确认手动凭证、主动退出和 generation 独立于账号。",
+      "accountAuth 仅将 Cookie 发往显式配置的官网同源接口；me 确认用户后交换官网 SSO 证明，内存保存，Hub 不接收 Cookie。cloudAuth 保持独立原生凭据与 scope。",
       "activeDesktop 在内存与持久化保存一个 cloud/desktop/null 选择；旧电脑偏好只在匹配账号恢复后恢复，云端验证不自动覆盖已有电脑选择。",
       "电脑缓存保持 accountId+desktopId；云端缓存以固定默认来源绑定及随机本地凭证 scope 隔离，不含 Token；更换 Token 仅在验证成功后持久化，新 scope 不重放旧 outbox。",
-      "账号退出只关闭当前电脑；云端退出阻止配置 Token 自动复活。明确云端认证失效隐藏缓存，网络/服务/权限失败保留凭证；业务验证由 feature cloudAccess 执行。"
+      "账号退出只关闭当前电脑；云端退出阻止配置 Token 自动复活。明确云端认证失效隐藏缓存，网络/服务/权限失败保留凭证；业务验证由 feature cloudAccess 执行。",
+      "邮箱验证码登录复用官网 email-code/start、verify、me、csrf 和 desktop-sso/token；Cookie 变更串行，generation 拒绝取消/退出/新登录后的迟到结果。只持久化本地退出标记，不保存官网证明或业务票据。",
+      "官网 accountId 使用 official origin + 真实用户 ID 的独立命名空间，旧 Identity 聊天数据保留且不自动合并、删除或重放 outbox。"
     ],
     "nonGoals": []
   },
   "facts": {
     "entrypoints": [],
     "publicApi": [],
-    "dependencies": ["core-debug-logging", "core-runtime-config", "core-ws-transport"],
-    "dependents": ["app-shell-navigation", "core-api-client", "feature-auth-login", "feature-chat-realtime"],
+    "dependencies": [
+      "core-debug-logging",
+      "core-runtime-config",
+      "core-ws-transport"
+    ],
+    "dependents": [
+      "app-shell-navigation",
+      "core-api-client",
+      "feature-auth-login",
+      "feature-chat-realtime"
+    ],
     "tests": [],
     "lastScannedAt": ""
   },
@@ -35,11 +48,13 @@
     "来源切换由 accountDesktopSource 协调，core 不直接 import feature、SQLite、MMKV 聊天目录或业务 WebSocket。",
     "Hub 一次返回有效 Desktop 目录及在线状态；请求失败保留已知列表，不当作撤销或离线。",
     "账号凭据、来源记录、主题和语言不在旧聊天缓存清除范围。",
-    "手机 Identity JWT 仅发往配置的 Identity/Hub origin，不发往云端；本地账号缓存隔离不能表示服务端隔离。"
+    "官网证明只访问显式 Hub/官网 endpoint；原 Identity 票据由所选 Desktop 的 transport provider 取得，不与云端凭据混用。"
   ],
   "recentChanges": [
     "2026-10-09：账号认证与来源模型替换 AppAccess/Profile；真实跨仓库验收由用户执行。",
-    "2026-10-12：默认云端 Token 独立访问实施；本地测试与导出验证，真实服务/真机验收由用户执行。"
+    "2026-10-12：默认云端 Token 独立访问实施；本地测试与导出验证，真实服务/真机验收由用户执行。",
+    "2026-10-13：邮箱验证码登录与账号邮箱绑定解绑本地实现；真实 SMTP、部署和真机验收未完成，详见 docs/account-email-auth-2026-10-13/IMPLEMENTATION.md。",
+    "2026-10-15：官网原生邮箱登录与原 Identity 票据接入已在本地实现；真实环境由用户验收，见 docs/mobile-account-ticket-sync-2026-10-14/IMPLEMENTATION.md。"
   ],
   "legacy": {
     "title": "认证会话与设备 Profile",

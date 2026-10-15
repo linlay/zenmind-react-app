@@ -60,7 +60,7 @@ function chatDatabaseFileSize(databaseName: string): number {
   let total = 0;
   for (const suffix of ['', '-wal', '-shm']) {
     try {
-      const file = new File(defaultDatabaseDirectory, `${databaseName}${suffix}`);
+      const file = new File(defaultDatabaseDirectory.replace(/^\//u, 'file:///'), `${databaseName}${suffix}`);
       if (file.exists) {
         total += Math.max(0, Number(file.size || 0));
       }
@@ -73,7 +73,7 @@ function chatDatabaseFileSize(databaseName: string): number {
 
 function chatDatabaseFileExists(databaseName: string): boolean {
   try {
-    return new File(defaultDatabaseDirectory, databaseName).exists;
+    return new File(defaultDatabaseDirectory.replace(/^\//u, 'file:///'), databaseName).exists;
   } catch {
     return databaseName === buildChatDatabaseName();
   }

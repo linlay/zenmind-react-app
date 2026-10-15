@@ -17,7 +17,7 @@ import type { WsTransportConfig } from '../../src/core/ws/wsTransportConfig.ts';
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const compiled = new Map<string, string>();
 type Storage = Map<string, Map<string, string | boolean>>;
-function fixture(input: { token?: string; storage?: Storage; web?: boolean } = {}) {
+function fixture(input: { token?: string; storage?: Storage; web?: boolean; databaseDirectory?: string } = {}) {
   const storage: Storage = input.storage || new Map();
   const exportsCache = new Map<string, Record<string, unknown>>();
   const accountListeners = new Set<() => void>();
@@ -29,6 +29,7 @@ function fixture(input: { token?: string; storage?: Storage; web?: boolean } = {
   let scope = 'signed_out';
   let stopped = 0;
   let releases = 0;
+  let deletedScopes = 0;
   let deviceItems: { deviceId: string; deviceName: string; online: boolean }[] = [];
   let devicesFail = false;
   const wire: { transport: WsTransportConfig; type: string; signal?: AbortSignal }[] = [];
@@ -46,6 +47,7 @@ function fixture(input: { token?: string; storage?: Storage; web?: boolean } = {
   const override = new Map<string, unknown>();
   const at = (name: string, value: unknown) => override.set(path.join(root, name), value);
   const observe = () => observations.push({ scope, source: runtime.getActiveChatSource()?.key || null });
+  override.set('expo/fetch', { fetch: () => http() });
   override.set('react-native', { Platform: { OS: input.web ? 'web' : 'android' } });
   override.set('react-native-mmkv', {
     MMKV: class {
@@ -77,15 +79,20 @@ function fixture(input: { token?: string; storage?: Storage; web?: boolean } = {
   });
   override.set('expo-file-system', {
     Directory: class {
+      constructor(uri: string) {
+        assert.equal(uri, 'file:///test', 'FileSystem requires an absolute file URI');
+      }
       exists = false;
     },
     File: class {}
   });
-  override.set('expo-sqlite', { defaultDatabaseDirectory: '/test' });
+  override.set('expo-sqlite', { defaultDatabaseDirectory: input.databaseDirectory ?? '/test' });
+  at('src/core/auth/authConfig.ts', { readTunnelHubApiBaseUrl: () => 'https://hub.test' });
   at('src/core/config/appEnvironment.ts', { getDefaultSourceConfig: () => config });
   at('src/core/auth/accountAuth.ts', {
     getAccountAuthSnapshot: () => account,
     getAccountAuthGeneration: () => accountGeneration,
+    getAccountAccessTokenForRequest: async () => 'official-proof',
     subscribeAccountAuth: (listener: () => void) => {
       accountListeners.add(listener);
       return () => accountListeners.delete(listener);
@@ -96,16 +103,12 @@ function fixture(input: { token?: string; storage?: Storage; web?: boolean } = {
       if (devicesFail) throw new Error('Hub unavailable');
       return { items: deviceItems };
     },
-    issueDesktopRouteCredential: async (id: string) => ({
-      credential: 'route',
+    getDesktopPlatformCredential: async (id: string) => ({
+      credential: 'header.payload.signature',
       webSocketUrl: 'wss://desktop.test/ws',
-      tokenMode: 'query',
-      routeContext: {
-        accountId: account.session?.accountId,
-        sourceDeviceId: account.session?.deviceId,
-        targetDesktopId: id,
-        expiresAt: new Date(Date.now() + 120000).toISOString()
-      }
+      tokenMode: 'subprotocol',
+      platformDeviceId: `local-${id}`,
+      expiresAt: new Date(Date.now() + 3600_000).toISOString()
     })
   });
   at('src/core/debug/httpDebugLogger.ts', { logHttpError() {}, logHttpRequest() {}, logHttpResponse() {} });
@@ -138,7 +141,9 @@ function fixture(input: { token?: string; storage?: Storage; web?: boolean } = {
       if (notify) cache.notifyChatCacheScopeChanged();
     },
     ensureChatDatabase: async () => {},
-    deleteChatDatabaseScopeIfExists() {}
+    deleteChatDatabaseScopeIfExists() {
+      deletedScopes++;
+    }
   });
   at('src/features/chatPersistence/homeSnapshot.ts', { clearChatDirectorySnapshotForScope() {} });
   function load(name: string): Record<string, unknown> {
@@ -201,6 +206,7 @@ function fixture(input: { token?: string; storage?: Storage; web?: boolean } = {
     scope: () => scope,
     stopped: () => stopped,
     releases: () => releases,
+    deletedScopes: () => deletedScopes,
     respond: (next: typeof respond) => {
       respond = next;
     },
@@ -222,7 +228,7 @@ const tick = async () => {
   for (let i = 0; i < 30; i++) await Promise.resolve();
 };
 
-test('first launch verifies all three empty directory responses and enters cloud without waiting for Identity', async () => {
+test('first launch verifies both empty directory responses and enters cloud without waiting for Identity', async () => {
   const f = fixture();
   const stop = f.lifecycle.startAccountSourceLifecycle();
   try {
@@ -232,9 +238,27 @@ test('first launch verifies all three empty directory responses and enters cloud
     assert.ok(f.scope().startsWith('cs_'));
     assert.deepEqual(
       f.wire.map((r) => r.type),
-      ['/api/agents', '/api/teams', '/api/chats']
+      ['/api/agents', '/api/chats']
     );
     assert.ok(f.wire.every((r) => r.transport.accessToken === 'configured-token'));
+  } finally {
+    stop();
+  }
+});
+
+test('startup preserves historical cache files and credentials instead of purging them', async () => {
+  const old = new Map<string, string | boolean>([['auth_device_token_v1', 'historical-credential']]);
+  const storage: Storage = new Map([
+    ['zenmind-auth-session', old],
+    ['zenmind-device-profiles', new Map([['legacy-profile', 'retained']])]
+  ]);
+  const f = fixture({ storage });
+  const stop = f.lifecycle.startAccountSourceLifecycle();
+  try {
+    await tick();
+    assert.equal(f.deletedScopes(), 0);
+    assert.equal(old.get('auth_device_token_v1'), 'historical-credential');
+    assert.equal(storage.get('zenmind-device-profiles')?.get('legacy-profile'), 'retained');
   } finally {
     stop();
   }
@@ -335,12 +359,12 @@ test('verification is single flight and late completion cannot reopen cloud afte
   const one = f.access.verifyDefaultCloud();
   assert.equal(f.access.verifyDefaultCloud(), one);
   f.cloud.logoutCloud();
-  finishes.forEach((finish) => finish());
+  finishes.splice(0).forEach((finish) => finish());
   await one;
   assert.equal(f.cloud.getCloudAuthSnapshot().status, 'login_required');
   const old = f.access.verifyDefaultCloud('old');
   await tick();
-  const oldFinishes = finishes.splice(3);
+  const oldFinishes = finishes.splice(0);
   f.respond(async () => []);
   assert.equal(await f.access.verifyDefaultCloud('new'), 'available');
   oldFinishes.forEach((finish) => finish());

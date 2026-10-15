@@ -4,7 +4,8 @@ import { classifyCloudFailure } from './services/chatDirectoryApi';
 import { getDefaultSourceConfig } from '../config/appEnvironment';
 import { logHttpError, logHttpRequest, logHttpResponse } from '../debug/httpDebugLogger';
 import { ApiError } from './apiError.ts';
-import { resolveDefaultWsTransportConfig } from './activeWsTransport';
+import { resolveActiveWsTransportConfig, resolveDefaultWsTransportConfig } from './activeWsTransport';
+import { getAccountAuthGeneration } from '../auth/accountAuth';
 
 export { ApiError } from './apiError.ts';
 
@@ -187,6 +188,33 @@ export async function buildAuthenticatedApiUriSource(
     return { uri: target };
   }
 
+  if (getSelectedSource()?.kind === 'desktop') {
+    const selection = getSelectedSource();
+    const generation = getAccountAuthGeneration();
+    const transport = await resolveActiveWsTransportConfig('d');
+    if (!transport || transport.kind !== 'desktop-ws') throw new ApiError('Desktop unavailable', 401, null);
+    const base = new URL(transport.wsUrl);
+    base.protocol = base.protocol === 'wss:' ? 'https:' : 'http:';
+    base.pathname = '/';
+    const url = new URL(target, base);
+    if (
+      url.origin !== base.origin ||
+      url.username ||
+      url.password ||
+      url.hash ||
+      url.pathname !== '/api/resource' ||
+      url.searchParams.has('token')
+    )
+      throw new Error('Invalid Desktop resource origin or path');
+    Object.entries(query || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
+    });
+    const token = transport.accessTokenProvider ? await transport.accessTokenProvider() : transport.accessToken;
+    const headers = await transport.requestHeadersProvider?.();
+    if (selection !== getSelectedSource() || generation !== getAccountAuthGeneration())
+      throw new Error('Desktop resource superseded');
+    return { uri: url.toString(), headers: { ...headers, Authorization: `Bearer ${token}` } };
+  }
   const baseUrl = getApiBaseUrl();
   if (!baseUrl || !isApiUrlTargetWithBase(target, baseUrl)) {
     return { uri: target };

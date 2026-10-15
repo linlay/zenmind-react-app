@@ -8,7 +8,6 @@ import {
 
 const storage = new MMKV({ id: 'zenmind-account-desktop-cache-scopes' });
 const REGISTRY_KEY = 'account_source_cache_scopes_v2';
-const PURGED_KEY = 'legacy_chat_cache_purged_v2';
 
 export function readAccountDesktopCacheScopeSnapshot(): AccountDesktopCacheScopeSnapshot {
   try {
@@ -31,27 +30,4 @@ export function resolveAndPersistAccountDesktopCacheScope(accountId: string, des
 
 export function listAccountDesktopCacheScopeEntries() {
   return Object.values(readAccountDesktopCacheScopeSnapshot().mappings);
-}
-
-export function isLegacyChatCachePurged(): boolean {
-  return storage.getBoolean(PURGED_KEY) === true;
-}
-
-export function completeLegacyChatCachePurge(): void {
-  storage.delete('account_desktop_cache_scope_registry_v1');
-  storage.set(PURGED_KEY, true);
-}
-
-// Drop only the obsolete account-owned cloud mapping; Desktop mappings remain intact.
-export function removeLegacyAccountCloudCacheScope(entry: {
-  accountId: string;
-  desktopId: string;
-  cacheScopeId: string;
-}): void {
-  if (entry.desktopId) return;
-  const snapshot = readAccountDesktopCacheScopeSnapshot();
-  const key = JSON.stringify([entry.accountId, '']);
-  if (snapshot.mappings[key]?.cacheScopeId !== entry.cacheScopeId) return;
-  delete snapshot.mappings[key];
-  storage.set(REGISTRY_KEY, JSON.stringify(snapshot));
 }

@@ -61,7 +61,10 @@ function isSensitiveKey(key: string) {
     normalized.includes('authorization') ||
     normalized.includes('password') ||
     normalized.includes('secret') ||
-    normalized.includes('token')
+    normalized.includes('token') ||
+    normalized.includes('email') ||
+    normalized === 'code' ||
+    normalized.includes('otp')
   );
 }
 

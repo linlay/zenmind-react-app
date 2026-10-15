@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { getChatCacheScopeId, subscribeChatCacheScope } from '../../cacheScope';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
 import {
   AuthenticatedResourceError,
@@ -25,6 +26,7 @@ const IDLE_STATE: AuthenticatedResourceSourceState = {
 };
 
 export function useAuthenticatedResourceSource(resourceUrl: string, active: boolean, imageFileName = '') {
+  const cacheScopeId = useSyncExternalStore(subscribeChatCacheScope, getChatCacheScopeId, getChatCacheScopeId);
   const [retryNonce, setRetryNonce] = useState(0);
   const [state, setState] = useState<AuthenticatedResourceSourceState>(IDLE_STATE);
   const resolvedRetryNonceRef = useRef(0);
@@ -42,6 +44,7 @@ export function useAuthenticatedResourceSource(resourceUrl: string, active: bool
     setState({ source: null, loading: true, error: '' });
     const resolveSource = imageFileName
       ? resolveAuthenticatedResourceImageSource({
+          cacheScopeId,
           resourceUrl,
           fileName: imageFileName,
           forceRefresh,
@@ -54,7 +57,7 @@ export function useAuthenticatedResourceSource(resourceUrl: string, active: bool
         if (!controller.signal.aborted) {
           setState({ source, loading: false, error: '' });
         } else if (retainedImage) {
-          releaseAuthenticatedResourceImageSource({ resourceUrl, fileName: imageFileName });
+          releaseAuthenticatedResourceImageSource({ cacheScopeId, resourceUrl, fileName: imageFileName });
           retainedImage = false;
         }
       })
@@ -72,11 +75,11 @@ export function useAuthenticatedResourceSource(resourceUrl: string, active: bool
     return () => {
       controller.abort();
       if (retainedImage) {
-        releaseAuthenticatedResourceImageSource({ resourceUrl, fileName: imageFileName });
+        releaseAuthenticatedResourceImageSource({ cacheScopeId, resourceUrl, fileName: imageFileName });
         retainedImage = false;
       }
     };
-  }, [active, imageFileName, resourceUrl, retryNonce]);
+  }, [active, imageFileName, resourceUrl, retryNonce, cacheScopeId]);
 
   const retry = useCallback(() => setRetryNonce((value) => value + 1), []);
   return { ...state, retry };

@@ -1,6 +1,7 @@
 import { buildAuthenticatedApiUriSource, type ApiUriSource } from '../apiClient.ts';
 
 export type AuthenticatedResourceImageRequest = {
+  cacheScopeId: string;
   fileName: string;
   forceRefresh?: boolean;
   resourceUrl: string;

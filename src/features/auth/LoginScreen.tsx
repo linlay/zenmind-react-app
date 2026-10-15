@@ -15,14 +15,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { RootStackParamList } from '../../app/navigation/types';
 import { verifyDefaultCloud } from '../chatPersistence/cloudAccess';
 import { activateAccountDesktopSource } from '../chatPersistence/accountDesktopSource';
-import { useAccountAuth } from '../../core/auth/useAccountAuth';
-import { loginWithAccountCredentials } from '../../core/auth/accountAuth.ts';
 import { AppKeyboardAwareScrollView } from '../../shared/components/AppKeyboardAwareScrollView';
 import { brandAssets } from '../../shared/icons/brandAssets';
 import { useT } from '../../shared/i18n';
 import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { cn } from '../../shared/visual/className';
-import { AccountChallengeLogin } from './AccountChallengeLogin.tsx';
+import { EmailVerificationForm } from './EmailVerificationForm';
 
 const SAFE_AREA_CLASS = 'flex-1 bg-app-background';
 const BOOTSTRAP_SHELL_CLASS = 'flex-1 items-center justify-center gap-app-md px-app-xl';
@@ -38,7 +36,6 @@ const LOGO_CLASS = 'h-16 w-16';
 const TITLE_CLASS = 'text-center text-app-title font-extrabold text-app-primary';
 const SUBTITLE_CLASS = 'max-w-[340px] text-center text-app-body-sm leading-6 text-app-secondary';
 const FORM_CLASS = 'gap-app-lg';
-const INPUT_GROUP_CLASS = 'gap-app-sm';
 const INPUT_LABEL_CLASS = 'text-app-footnote font-bold text-app-secondary';
 const TEXT_INPUT_CLASS = 'min-h-[52px] rounded-app-md bg-app-surface-muted px-app-lg text-[15px] text-app-primary';
 const ERROR_TEXT_CLASS = 'text-app-body-sm leading-5 text-app-danger';
@@ -66,45 +63,14 @@ export function LoginScreen() {
   const { theme } = useAppTheme();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Login'>>();
-  const account = useAccountAuth();
   const [mode, setMode] = useState<'account' | 'cloud'>(route.params?.mode || 'account');
   const [token, setToken] = useState('');
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [deviceName, setDeviceName] = useState(
-    Platform.OS === 'ios' ? 'iPhone' : Platform.OS === 'android' ? 'Android Device' : 'Web Device'
-  );
-  const [showAccountChallenge, setShowAccountChallenge] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [isSubmitting, setSubmitting] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
   useEffect(() => () => controllerRef.current?.abort(), []);
-  const canSubmitAccount = Boolean(username.trim() && password && deviceName.trim() && !isSubmitting);
   function handleLoginSuccess() {
-    setPassword('');
     navigation.goBack();
-  }
-  async function handleAccountLogin() {
-    if (!canSubmitAccount || controllerRef.current) return;
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    setSubmitting(true);
-    setErrorMessage('');
-    try {
-      await loginWithAccountCredentials({
-        username,
-        password,
-        deviceName,
-        signal: controller.signal
-      });
-      if (!controller.signal.aborted) handleLoginSuccess();
-    } catch (error) {
-      if (!controller.signal.aborted)
-        setErrorMessage(error instanceof Error ? error.message : t('auth.error.loginFailed'));
-    } finally {
-      if (controllerRef.current === controller) controllerRef.current = null;
-      if (!controller.signal.aborted) setSubmitting(false);
-    }
   }
   async function handleCloudLogin() {
     if (!token.trim() || controllerRef.current) return;
@@ -165,6 +131,9 @@ export function LoginScreen() {
                   key={option}
                   disabled={isSubmitting}
                   onPress={() => {
+                    controllerRef.current?.abort();
+                    controllerRef.current = null;
+                    setSubmitting(false);
                     setMode(option);
                     setErrorMessage('');
                   }}
@@ -210,74 +179,9 @@ export function LoginScreen() {
                   )}
                 </Pressable>
               </View>
-            ) : account.session ? (
-              <Text className={SUBTITLE_CLASS}>{t('me.session.loggedIn')}</Text>
             ) : (
               <View className={FORM_CLASS}>
-                <View className={INPUT_GROUP_CLASS}>
-                  <Text className={INPUT_LABEL_CLASS}>{t('auth.account.username')}</Text>
-                  <TextInput
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    editable={!isSubmitting}
-                    onChangeText={setUsername}
-                    placeholder={t('auth.account.usernamePlaceholder')}
-                    placeholderTextColor={theme.colors.textTertiary}
-                    className={TEXT_INPUT_CLASS}
-                    value={username}
-                  />
-                </View>
-                <View className={INPUT_GROUP_CLASS}>
-                  <Text className={INPUT_LABEL_CLASS}>{t('auth.account.password')}</Text>
-                  <TextInput
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    editable={!isSubmitting}
-                    onChangeText={setPassword}
-                    placeholder={t('auth.account.passwordPlaceholder')}
-                    placeholderTextColor={theme.colors.textTertiary}
-                    secureTextEntry
-                    className={TEXT_INPUT_CLASS}
-                    value={password}
-                  />
-                </View>
-                <View className={INPUT_GROUP_CLASS}>
-                  <Text className={INPUT_LABEL_CLASS}>{t('auth.device.label')}</Text>
-                  <TextInput
-                    editable={!isSubmitting}
-                    maxLength={64}
-                    onChangeText={setDeviceName}
-                    placeholder={t('auth.device.placeholder')}
-                    placeholderTextColor={theme.colors.textTertiary}
-                    className={TEXT_INPUT_CLASS}
-                    value={deviceName}
-                  />
-                </View>
-                {errorMessage ? <Text className={ERROR_TEXT_CLASS}>{errorMessage}</Text> : null}
-                <Pressable
-                  accessibilityRole="button"
-                  disabled={!canSubmitAccount}
-                  onPress={() => handleAccountLogin().catch(() => {})}
-                  className={cn(PRIMARY_BUTTON_CLASS, !canSubmitAccount && PRIMARY_BUTTON_DISABLED_CLASS)}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
-                  ) : (
-                    <Text className={PRIMARY_BUTTON_TEXT_CLASS}>{t('auth.submitAccount')}</Text>
-                  )}
-                </Pressable>
-                <Pressable
-                  disabled={isSubmitting}
-                  onPress={() => setShowAccountChallenge((visible) => !visible)}
-                  className="min-h-11 items-center justify-center rounded-app-sm active:bg-app-surface-muted"
-                >
-                  <Text className="text-app-footnote font-bold text-app-action">
-                    {showAccountChallenge ? t('auth.challenge.hide') : t('auth.challenge.show')}
-                  </Text>
-                </Pressable>
-                {showAccountChallenge ? (
-                  <AccountChallengeLogin deviceName={deviceName} onSuccess={handleLoginSuccess} />
-                ) : null}
+                <EmailVerificationForm onSuccess={handleLoginSuccess} />
               </View>
             )}
           </AppKeyboardAwareScrollView>

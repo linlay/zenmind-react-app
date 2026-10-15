@@ -1,30 +1,20 @@
-import { getAccountAuthGeneration, getAccountAuthSnapshot } from '../auth/accountAuth.ts';
+import {
+  getAccountAccessTokenForRequest,
+  getAccountAuthGeneration,
+  getAccountAuthSnapshot
+} from '../auth/accountAuth.ts';
 import { readActiveDesktopId, isActiveDesktopOffline, getSelectedSource } from '../auth/activeDesktop.ts';
 import { getCloudAuthSnapshot, readCloudCredential, type CloudCredential } from '../auth/cloudAuth';
 import { getDefaultSourceConfig } from '../config/appEnvironment';
 import type { WsTransportConfig, WsTransportNamespace } from '../ws/wsTransportConfig';
-import { issueDesktopRouteCredential } from './services/deviceLinkApi.ts';
+import { getDesktopPlatformCredential } from './services/deviceLinkApi.ts';
 
-export function createRequestId(): string {
-  const value = new Uint8Array(16);
-  const runtimeCrypto = globalThis.crypto as Crypto | undefined;
-  if (runtimeCrypto?.getRandomValues) {
-    runtimeCrypto.getRandomValues(value);
-  } else {
-    for (let index = 0; index < value.length; index += 1) {
-      value[index] = Math.floor(Math.random() * 256);
-    }
-  }
-  value[6] = (value[6] & 0x0f) | 0x40;
-  value[8] = (value[8] & 0x3f) | 0x80;
-  const hex = [...value].map((byte) => byte.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-}
+import { readTunnelHubApiBaseUrl } from '../auth/authConfig.ts';
 
-type DesktopRoute = Awaited<ReturnType<typeof issueDesktopRouteCredential>>;
+type DesktopRoute = Awaited<ReturnType<typeof getDesktopPlatformCredential>>;
 let routeCache: { key: string; route?: DesktopRoute; pending?: Promise<DesktopRoute> } | null = null;
 
-export function clearDesktopRouteCredentialCache() {
+export function clearDesktopPlatformCredentialCache() {
   routeCache = null;
 }
 
@@ -45,13 +35,12 @@ export async function resolveActiveWsTransportConfig(
     ) {
       throw new Error('Source request superseded');
     }
-    const key = JSON.stringify([generation, accountSession.accountId, accountSession.deviceId, desktopId]);
+    const key = JSON.stringify([generation, accountSession.accountId, desktopId]);
     if (routeCache?.key !== key) routeCache = { key };
     const cache = routeCache;
-    if (!forceRefresh && cache.route && Date.parse(cache.route.routeContext.expiresAt) > Date.now() + 15_000)
-      return cache.route;
+    if (!forceRefresh && cache.route && Date.parse(cache.route.expiresAt) > Date.now() + 15_000) return cache.route;
     if (!cache.pending) {
-      cache.pending = issueDesktopRouteCredential(desktopId, createRequestId()).finally(() => {
+      cache.pending = getDesktopPlatformCredential(desktopId).finally(() => {
         cache.pending = undefined;
       });
     }
@@ -65,12 +54,10 @@ export async function resolveActiveWsTransportConfig(
       throw new Error('Source request superseded');
     }
     if (
-      route.routeContext.accountId !== accountSession.accountId ||
-      route.routeContext.sourceDeviceId !== accountSession.deviceId ||
-      route.routeContext.targetDesktopId !== desktopId
-    ) {
-      throw new Error('Route credential identity mismatch');
-    }
+      cache.route &&
+      (cache.route.platformDeviceId !== route.platformDeviceId || cache.route.webSocketUrl !== route.webSocketUrl)
+    )
+      throw new Error('Desktop credential identity changed');
     cache.route = route;
     return route;
   };
@@ -80,9 +67,16 @@ export async function resolveActiveWsTransportConfig(
     wsUrl: route.webSocketUrl,
     tokenMode: route.tokenMode,
     accessToken: route.credential,
-    accessTokenProvider: async () => (await issueCredential(true)).credential,
+    accessTokenProvider: async (forceRefresh = false) => (await issueCredential(forceRefresh)).credential,
+    requestHeadersProvider: async () => {
+      await issueCredential();
+      const token = await getAccountAccessTokenForRequest(readTunnelHubApiBaseUrl());
+      if (selected !== getSelectedSource() || generation !== getAccountAuthGeneration() || !token)
+        throw new Error('Account source superseded');
+      return { 'X-Account-Authorization': `Bearer ${token}` };
+    },
     namespace,
-    connectionKey: `account:${accountSession.accountId}:${accountSession.deviceId}:${desktopId}`
+    connectionKey: `account:${accountSession.accountId}:${generation}:${desktopId}:${route.platformDeviceId}`
   };
 }
 

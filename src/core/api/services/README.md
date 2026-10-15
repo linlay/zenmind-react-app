@@ -2,6 +2,8 @@
 
 统一把业务请求接口放在这个目录下。
 
+账号相关接口按实际服务职责划分：`accountEmailApi.ts` 访问 Identity 邮箱与安全摘要；`deviceLinkApi.ts` 只访问 Hub 的 Desktop 目录、管理与连接票据。密码和邮箱登录结果的提交、凭据恢复、刷新和退出仍由 `core/auth/accountAuth.ts` 负责。Identity 的 `deviceId` 表示登录会话，Hub 目录中的 `deviceId` 表示实体 Desktop；不合成两份设备目录。
+
 建议约定：
 
 - 一个业务域一个文件，例如 `chatApi.ts`、`driveApi.ts`

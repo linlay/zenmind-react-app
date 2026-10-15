@@ -35,22 +35,10 @@ function parseUrl(value: unknown, protocols: readonly string[]): URL | null {
   }
 }
 
-function parseMobileHostname(hostname: string): MobileHostname | null {
-  const normalizedHostname = hostname.toLowerCase();
-  const markerIndex = normalizedHostname.indexOf('.m.');
-  if (markerIndex <= 0) {
-    return null;
-  }
-
-  const deviceLabel = normalizedHostname.slice(0, markerIndex);
-  if (!deviceLabel || deviceLabel.includes('.')) {
-    return null;
-  }
-
-  return {
-    deviceLabel,
-    domainSuffix: normalizedHostname.slice(markerIndex)
-  };
+function parseDesktopHostname(hostname: string): MobileHostname | null {
+  const dot = hostname.indexOf('.');
+  if (dot <= 0 || dot === hostname.length - 1) return null;
+  return { deviceLabel: hostname.slice(0, dot).toLowerCase(), domainSuffix: hostname.slice(dot).toLowerCase() };
 }
 
 function isValidPortLabel(value: string): boolean {
@@ -68,52 +56,21 @@ export function resolveWebAppAccessTarget(webAppUrl: unknown, desktopWsUrl: unkn
     return null;
   }
 
-  const mobileWebApp = parseMobileHostname(webApp.hostname);
-  if (!mobileWebApp) {
-    return {
-      kind: 'direct',
-      uri: webApp.toString()
-    };
-  }
-
   const desktopWs = parseUrl(desktopWsUrl, ['ws:', 'wss:']);
-  const mobileDesktop = desktopWs ? parseMobileHostname(desktopWs.hostname) : null;
-  if (!mobileDesktop || webApp.port || mobileWebApp.domainSuffix !== mobileDesktop.domainSuffix) {
-    return null;
-  }
-
-  const expectedPrefix = `${mobileDesktop.deviceLabel}-`;
+  const desktop = desktopWs ? parseDesktopHostname(desktopWs.hostname) : null;
+  if (!desktop) return null;
+  if (!webApp.hostname.toLowerCase().endsWith(desktop.domainSuffix)) return { kind: 'direct', uri: webApp.toString() };
+  const prefix = `${desktop.deviceLabel}-`;
+  const label = webApp.hostname.slice(0, -desktop.domainSuffix.length).toLowerCase();
   if (
-    !mobileWebApp.deviceLabel.startsWith(expectedPrefix) ||
-    !isValidPortLabel(mobileWebApp.deviceLabel.slice(expectedPrefix.length))
-  ) {
+    webApp.port ||
+    webApp.searchParams.has('token') ||
+    !label.startsWith(prefix) ||
+    !isValidPortLabel(label.slice(prefix.length))
+  )
     return null;
-  }
-
   return {
     kind: 'paired-mobile',
     uri: webApp.toString()
   };
-}
-
-export function addWebAppAccessToken(
-  target: Extract<WebAppAccessTarget, { kind: 'paired-mobile' }>,
-  accessToken: unknown
-): string | null {
-  if (typeof accessToken !== 'string' || !accessToken.trim()) {
-    return null;
-  }
-
-  const url = parseUrl(target.uri, ['https:']);
-  if (!url || !parseMobileHostname(url.hostname)) {
-    return null;
-  }
-
-  url.searchParams.set('token', accessToken.trim());
-  return url.toString();
-}
-
-export function containsWebAppAccessToken(urlValue: unknown): boolean {
-  const url = parseUrl(urlValue, ['https:']);
-  return Boolean(url && parseMobileHostname(url.hostname) && url.searchParams.has('token'));
 }

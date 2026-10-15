@@ -1,3 +1,4 @@
+import { fetch } from 'expo/fetch';
 import { File as ExpoFile } from 'expo-file-system';
 
 import { authenticatedFormDataRequest } from '../apiClient';
@@ -5,7 +6,7 @@ import { normalizeApiResourcePath } from '../resourceUrl';
 import {
   resolveActiveWsTransportConfig,
   resolveDefaultWsTransportConfig,
-  clearDesktopRouteCredentialCache
+  clearDesktopPlatformCredentialCache
 } from '../activeWsTransport';
 import type { DesktopWsTransportConfig } from '../../ws/wsTransportConfig';
 import { getAccountAuthGeneration } from '../../auth/accountAuth';
@@ -121,9 +122,10 @@ async function uploadThroughDesktopPublicHost(
     signal: input.signal,
     fetchImpl: fetch,
     getAccessToken: async (forceRefresh) => {
-      if (forceRefresh) clearDesktopRouteCredentialCache();
+      if (forceRefresh) clearDesktopPlatformCredentialCache();
       return transport.accessTokenProvider ? transport.accessTokenProvider() : transport.accessToken;
     },
+    getRequestHeaders: transport.requestHeadersProvider,
     createBody: () => createUploadFormData(input),
     hooks: {
       onRequest: ({ attempt }) => {

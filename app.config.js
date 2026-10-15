@@ -45,14 +45,6 @@ module.exports = () => {
           }
         ],
         [
-          'expo-camera',
-          {
-            cameraPermission: 'Allow $(PRODUCT_NAME) to use the camera to scan login QR codes.',
-            microphonePermission: false,
-            recordAudioAndroid: false
-          }
-        ],
-        [
           'react-native-enriched-markdown',
           {
             enableMath: true

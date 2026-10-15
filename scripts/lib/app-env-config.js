@@ -35,14 +35,10 @@ function optionalUrl(value, label, protocols) {
     throw new Error(`React app env field "${label}" must be an absolute URL.`);
   }
   if (!protocols.includes(parsed.protocol)) {
-    throw new Error(
-      `React app env field "${label}" must use ${protocols.join(' or ')}.`
-    );
+    throw new Error(`React app env field "${label}" must use ${protocols.join(' or ')}.`);
   }
   if (parsed.username || parsed.password || parsed.search || parsed.hash) {
-    throw new Error(
-      `React app env field "${label}" must not include credentials, query, or hash.`
-    );
+    throw new Error(`React app env field "${label}" must not include credentials, query, or hash.`);
   }
   return normalized;
 }
@@ -64,59 +60,33 @@ function normalizeDefaultSource(source, brandId) {
     throw new Error(`React app env default source id is invalid: ${id}`);
   }
 
-  const apiBaseUrl = optionalUrl(
-    source.apiBaseUrl,
-    `brands.${brandId}.defaultSource.apiBaseUrl`,
-    ['http:', 'https:']
-  );
-  const wsUrl = optionalUrl(
-    source.wsUrl,
-    `brands.${brandId}.defaultSource.wsUrl`,
-    ['ws:', 'wss:']
-  );
+  const apiBaseUrl = optionalUrl(source.apiBaseUrl, `brands.${brandId}.defaultSource.apiBaseUrl`, ['http:', 'https:']);
+  const wsUrl = optionalUrl(source.wsUrl, `brands.${brandId}.defaultSource.wsUrl`, ['ws:', 'wss:']);
   if (!apiBaseUrl && !wsUrl) {
-    throw new Error(
-      `React app env default source "${id}" must configure an API or WebSocket endpoint.`
-    );
+    throw new Error(`React app env default source "${id}" must configure an API or WebSocket endpoint.`);
   }
 
-  const wsPath = requireString(
-    source.wsPath,
-    `brands.${brandId}.defaultSource.wsPath`
-  );
+  const wsPath = requireString(source.wsPath, `brands.${brandId}.defaultSource.wsPath`);
   if (!wsPath.startsWith('/') || wsPath.includes('?') || wsPath.includes('#')) {
     throw new Error(
       `React app env field "brands.${brandId}.defaultSource.wsPath" must be a path without query or hash.`
     );
   }
-  const authMode = requireString(
-    source.authMode,
-    `brands.${brandId}.defaultSource.authMode`
-  );
+  const authMode = requireString(source.authMode, `brands.${brandId}.defaultSource.authMode`);
   if (authMode !== 'none' && authMode !== 'query-token') {
     throw new Error(`Unsupported React app env default source authMode: ${authMode}`);
   }
-  const accessToken = optionalString(
-    source.accessToken,
-    `brands.${brandId}.defaultSource.accessToken`
-  );
+  const accessToken = optionalString(source.accessToken, `brands.${brandId}.defaultSource.accessToken`);
   if (authMode === 'query-token' && !accessToken) {
-    throw new Error(
-      `React app env field "brands.${brandId}.defaultSource.accessToken" is required for query-token.`
-    );
+    throw new Error(`React app env field "brands.${brandId}.defaultSource.accessToken" is required for query-token.`);
   }
   if (authMode === 'none' && accessToken) {
-    throw new Error(
-      `React app env field "brands.${brandId}.defaultSource.accessToken" requires query-token.`
-    );
+    throw new Error(`React app env field "brands.${brandId}.defaultSource.accessToken" requires query-token.`);
   }
 
   return {
     id,
-    displayName: requireString(
-      source.displayName,
-      `brands.${brandId}.defaultSource.displayName`
-    ),
+    displayName: requireString(source.displayName, `brands.${brandId}.defaultSource.displayName`),
     apiBaseUrl,
     wsUrl,
     wsPath,
@@ -125,11 +95,29 @@ function normalizeDefaultSource(source, brandId) {
   };
 }
 
+function normalizeAccountServices(value, brandId) {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    Object.keys(value).some((key) => !['officialApiBaseUrl', 'tunnelHubApiBaseUrl'].includes(key))
+  )
+    throw new Error(`Invalid accountServices for ${brandId}`);
+  const result = {};
+  for (const key of ['officialApiBaseUrl', 'tunnelHubApiBaseUrl']) {
+    const url = optionalUrl(value[key], `brands.${brandId}.accountServices.${key}`, ['http:', 'https:']);
+    if (!url) throw new Error(`Missing accountServices.${key} for ${brandId}`);
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:' && !['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname))
+      throw new Error('Account services require HTTPS');
+    result[key] = url;
+  }
+  return result;
+}
+
 function loadReactAppEnvArtifact(rootDir = process.cwd()) {
   const configuredPath = String(process.env.REACT_APP_ENV_ARTIFACT || '').trim();
-  const artifactPath = configuredPath
-    ? path.resolve(rootDir, configuredPath)
-    : path.join(rootDir, APP_ENV_ARTIFACT);
+  const artifactPath = configuredPath ? path.resolve(rootDir, configuredPath) : path.join(rootDir, APP_ENV_ARTIFACT);
   if (!fs.existsSync(artifactPath)) {
     throw new Error(`React app env artifact not found: ${artifactPath}`);
   }
@@ -160,10 +148,10 @@ function loadReactAppEnvArtifact(rootDir = process.cwd()) {
             brandId,
             {
               brandId,
-              environmentId: requireString(
-                brand.environmentId,
-                `brands.${brandId}.environmentId`
-              ),
+              environmentId: requireString(brand.environmentId, `brands.${brandId}.environmentId`),
+              ...(brand.accountServices === undefined
+                ? {}
+                : { accountServices: normalizeAccountServices(brand.accountServices, brandId) }),
               defaultSource: normalizeDefaultSource(brand.defaultSource, brandId)
             }
           ];
@@ -199,11 +187,7 @@ function syncReactAppEnvArtifact({
   rootDir = process.cwd(),
   brandIds = fs
     .readdirSync(path.join(rootDir, 'brands'), { withFileTypes: true })
-    .filter(
-      (entry) =>
-        entry.isDirectory() &&
-        fs.existsSync(path.join(rootDir, 'brands', entry.name, 'brand.json'))
-    )
+    .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(rootDir, 'brands', entry.name, 'brand.json')))
     .map((entry) => entry.name)
 } = {}) {
   const appEnv = loadReactAppEnvArtifact(rootDir);
@@ -213,15 +197,9 @@ function syncReactAppEnvArtifact({
     "import { INSTALLED_BRAND_ID } from './brand';",
     '',
     `export const REACT_APP_ENV_SCHEMA_VERSION = ${APP_ENV_SCHEMA_VERSION} as const;`,
-    `export const REACT_APP_ENV_ARTIFACT_VERSION = ${JSON.stringify(
-      appEnv.artifactVersion
-    )} as const;`,
+    `export const REACT_APP_ENV_ARTIFACT_VERSION = ${JSON.stringify(appEnv.artifactVersion)} as const;`,
     '',
-    `export const APP_ENVIRONMENTS = ${JSON.stringify(
-      appEnv.brands,
-      null,
-      2
-    )} as const;`,
+    `export const APP_ENVIRONMENTS = ${JSON.stringify(appEnv.brands, null, 2)} as const;`,
     '',
     'export type AppEnvironment = (typeof APP_ENVIRONMENTS)[keyof typeof APP_ENVIRONMENTS];',
     'export type DefaultSourceEnvironment = AppEnvironment["defaultSource"];',

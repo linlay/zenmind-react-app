@@ -3,27 +3,28 @@
   "module": "feature-auth-login",
   "status": "confirmed",
   "paths": [
+    "docs/account-email-auth-2026-10-13",
     "src/features/auth",
     "src/features/deviceLink"
   ],
   "summary": {
-    "purpose": "独立电脑账号登录和默认云端 Token 登录；沿用现有电脑目录与授权。",
+    "purpose": "原生官网邮箱验证码登录、Hub 电脑管理与独立云端 Token 登录。",
     "ownedConcepts": [
       "LoginScreen 在现有主题与表单中提供账号/云端切换，Token 支持输入及系统粘贴，业务验证成功后才保存并选择云端；已登录另一条路径时入口仍可达。",
-      "现有 AccountChallengeLogin/AccountLoginApproval/AccountChallengeScanner 继续服务 Identity 登录挑战；本期未新增或恢复扫码协议。",
+      "账号分支只展示原生邮箱/验证码输入，accountAuth 确认官网用户与 Cookie 会话；电脑管理只访问 Hub，不提供旧密码/扫码/邮箱绑定入口。",
       "AccountDevicesPanel 与来源抽屉复用 Hub 权威目录；刷新失败保留已知列表，离线电脑可选所属缓存，撤销由 service 关闭到暂无来源。",
-      "云端行仅业务验证通过才可选；不可用文字置灰并 disabled，登录/重试独立可点击。页面不操作 SQLite/MMKV/WebSocket。"
+      "云端行仅业务验证通过才可选；不可用文字置灰并 disabled，登录/重试独立可点击。页面不操作 SQLite/MMKV/WebSocket。",
+      "EmailVerificationForm 使用真实 expiresAt 和本地发送冷却；取消、失焦、身份变化拒绝迟到结果，不把验证码持久化。",
+      "Me 展示已确认官网用户资料，旧 AccountSecurity/EmailBinding/EmailUnbinding 导航、页面与文案已移除。"
     ],
     "nonGoals": []
   },
   "facts": {
     "entrypoints": [],
     "publicApi": [
-      "AccountChallengeLogin",
-      "AccountChallengeScanner",
       "AccountDevicesPanel",
-      "AccountLoginApproval",
       "AuthBootstrapScreen",
+      "EmailVerificationForm",
       "LoginScreen"
     ],
     "dependencies": [
@@ -38,7 +39,7 @@
       "app-shell-navigation"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-12T07:02:33Z"
+    "lastScannedAt": "2026-10-15T07:18:02Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -67,7 +68,8 @@
   "riskRules": [
     "账号恢复未确认有效时显示恢复状态，不建立业务连接。",
     "来源切换和失败回滚统一交由 feature service，权威列表确认撤销后关闭到暂无来源并同步 SQLite。",
-    "账号登录挑战与旧电脑配对协议是不同入口；不得回退旧凭据。"
+    "账号登录复用官网现有邮箱接口；保持独立云端 Token 登录，不使用 Identity 公网认证或旧配对凭据回退。",
+    "邮箱注册/账号策略以官网实际接口为准，不沿用旧 Identity 已绑定邮箱规则。表单取消或身份变化拒绝迟到结果，不建全局邮箱 Provider。"
   ],
   "recentChanges": []
 }

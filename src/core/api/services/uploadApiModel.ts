@@ -191,6 +191,7 @@ export async function requestDesktopPublicUpload(input: {
   endpointUrl: string;
   fetchImpl: typeof fetch;
   getAccessToken: (forceRefresh: boolean) => Promise<string | null>;
+  getRequestHeaders?: () => Promise<Record<string, string>>;
   hooks?: DesktopPublicUploadRequestHooks;
   signal?: AbortSignal;
 }): Promise<ChatUploadResponseData> {
@@ -201,6 +202,8 @@ export async function requestDesktopPublicUpload(input: {
       throw new ApiError('Not authenticated', 401, null);
     }
 
+    const accountHeaders = await input.getRequestHeaders?.();
+    throwIfAborted(input.signal);
     const startedAt = Date.now();
     let response: Response;
     let responseText = '';
@@ -209,10 +212,13 @@ export async function requestDesktopPublicUpload(input: {
       response = await input.fetchImpl(input.endpointUrl, {
         method: 'POST',
         headers: {
+          ...accountHeaders,
           Authorization: `Bearer ${accessToken}`
         },
         body: input.createBody(),
-        signal: input.signal
+        signal: input.signal,
+        redirect: 'error',
+        credentials: 'omit'
       });
       responseText = await response.text();
     } catch (error) {

@@ -3,7 +3,7 @@ export type WsTransportNamespace = 'ap' | 'd';
 export type AgentPlatformWsTransportConfig = {
   kind: 'agent-platform';
   backendUrl: string;
-  accessTokenProvider?: () => Promise<string>;
+  accessTokenProvider?: (forceRefresh?: boolean) => Promise<string>;
   wsUrl?: string;
   accessToken: string;
   connectionKey?: string;
@@ -14,8 +14,9 @@ export type DesktopWsTransportConfig = {
   wsUrl: string;
   tokenMode: 'query' | 'subprotocol';
   accessToken: string;
-  /** Supplies a fresh one-time credential for physical reconnects. Never persisted. */
-  accessTokenProvider?: () => Promise<string>;
+  /** Resolves the selected Desktop credential from the in-memory provider. */
+  accessTokenProvider?: (forceRefresh?: boolean) => Promise<string>;
+  requestHeadersProvider?: () => Promise<Record<string, string>>;
   namespace: WsTransportNamespace;
   connectionKey?: string;
 };

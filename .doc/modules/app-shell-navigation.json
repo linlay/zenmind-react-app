@@ -20,6 +20,7 @@
     "assets/tabs",
     "babel.config.js",
     "brands",
+    "docs/react-app-env-sync-2026-10-13",
     "eas.json",
     "global.css",
     "index.js",
@@ -45,10 +46,11 @@
   "summary": {
     "purpose": "App shell 独立恢复账号与默认云端；Login 始终可达，两种访问使用同一 Tabs 与来源生命周期。",
     "ownedConcepts": [
-      "AppRoot 挂载 accountDesktopSource 生命周期，账号恢复与 cloudAccess 验证独立进行；有效云端不等待 Identity，所选 scope 交接由 feature 负责。",
+      "AppRoot 挂载 accountDesktopSource 生命周期，账号恢复与 cloudAccess 验证独立进行；有效云端不等待 官网账号，所选 scope 交接由 feature 负责。",
       "RootNavigator 保留 Chat/WebApps/Me，Login 同时提供电脑账号和云端 Token 入口，不以另一条登录态删除 Login。Me 分别展示和退出账号与云端。",
-      "ChatDetail 在所属来源失效或切换时返回 Tabs；WebApps sessionKey 仍绑定已确认账号/手机/所选电脑，只在电脑来源启用。",
-      "云端通知注册用本地云端 scope 作为客户端身份，使用云端凭证；账号退出不清除当前云端注册，迟到注册及点击按来源拒绝。"
+      "ChatDetail 按所选来源交接；WebApps sessionKey 绑定官网 accountId、auth generation 与所选 Desktop，只在电脑来源启用。",
+      "云端通知注册用本地云端 scope 作为客户端身份，使用云端凭证；账号退出不清除当前云端注册，迟到注册及点击按来源拒绝。",
+      "Me 显示官网已确认用户信息；RootStack 不再挂旧账号安全/邮箱绑定解绑页面。"
     ],
     "nonGoals": []
   },
@@ -139,6 +141,8 @@
       "scripts/tests/accountAuthSession.test.mts",
       "scripts/tests/accountDesktopCacheScopeModel.test.mts",
       "scripts/tests/accountDeviceApi.test.mts",
+      "scripts/tests/accountEmailApi.test.mts",
+      "scripts/tests/accountEmailForm.test.mts",
       "scripts/tests/accountSourceSelection.test.mts",
       "scripts/tests/accountSourceTransport.test.mts",
       "scripts/tests/activeDesktopSelection.test.mts",
@@ -238,6 +242,7 @@
       "scripts/tests/markdownPipeline.test.mts",
       "scripts/tests/markdownPreview.test.mts",
       "scripts/tests/mobileAuthSource.test.mts",
+      "scripts/tests/nativeAccountDataPlane.test.mts",
       "scripts/tests/notificationSourceLifecycle.test.mts",
       "scripts/tests/runtimePayloadDescriptor.test.mts",
       "scripts/tests/runtimePlanningShimmer.test.mts",
@@ -262,7 +267,7 @@
       "scripts/tests/workletsPregenerate.test.mts",
       "scripts/tests/wsClientTransport.test.mts"
     ],
-    "lastScannedAt": "2026-10-12T07:02:33Z"
+    "lastScannedAt": "2026-10-15T07:18:02Z"
   },
   "readHints": {
     "alwaysRead": [

@@ -18,6 +18,7 @@ function fixture(token = 'existing-cloud-token') {
   const requests: { url: string; init: RequestInit }[] = [];
   let respond = async () => new Response(JSON.stringify({ ok: true }));
   const dependencies: Record<string, unknown> = {
+    '../auth/accountAuth': { getAccountAuthGeneration: () => 0 },
     '../auth/activeDesktop': { getSelectedSource: () => selection },
     '../auth/cloudAuth': {
       getCloudAuthSnapshot: () => ({ generation, status: signedIn ? 'available' : 'login_required' }),
