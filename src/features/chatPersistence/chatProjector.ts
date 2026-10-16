@@ -55,7 +55,6 @@ export type ProjectedChatSummaryPatch = {
   read?: ChatReadState;
   lastMessageStatus?: ChatMessageStatus;
   agentKey: string | null;
-  teamId: string | null;
 };
 
 function toFiniteNumber(value: unknown): number | null {
@@ -535,6 +534,8 @@ function buildDetailTimelineEvents(
     const activeRunRecord = readDetailActiveRun(detail);
     appendDetailTimelineEvent(events, eventIndex, {
       type: 'run.start',
+      planningMode: activeRunRecord?.planningMode,
+      editingMode: activeRunRecord?.editingMode,
       chatId: conversationId,
       runId: activeRun.runId,
       agentKey: activeRun.agentKey,
@@ -604,8 +605,7 @@ export function projectRemoteChatSummary(summary: RemoteChatSummary): ProjectedC
     summary.updatedAt || summary.lastRunCompletedAt || summary.createdAt || summary.timestamp,
     Date.now()
   );
-  const agentKey = toText(summary.firstAgentKey || summary.agentKey);
-  const teamId = toText(summary.teamId);
+  const agentKey = toText(summary.agentKey);
   const hasUnreadState = hasChatReadStateInput(summary);
   const read = hasUnreadState ? normalizeChatReadState(summary) : undefined;
 
@@ -620,8 +620,7 @@ export function projectRemoteChatSummary(summary: RemoteChatSummary): ProjectedC
         }
       : {}),
     ...(read ? { unreadCount: readStateToUnreadBit(read), read } : {}),
-    agentKey: agentKey || null,
-    teamId: teamId || null
+    agentKey: agentKey || null
   };
 }
 
@@ -666,6 +665,25 @@ export function projectRemoteChatDetail(
       timelineState = applyChatTimelineRunFeedback(timelineState, toText(run.runId), { feedback });
   }
   const activeRun = detailActiveRun?.runId === timelineState.activeRunId ? detailActiveRun : null;
+  if (activeRun) {
+    const snapshot = readDetailActiveRun(detail);
+    const run = Object.values(timelineState.nodesById).find(
+      (node) => node.kind === 'run' && node.runId === activeRun.runId
+    );
+    if (run?.kind === 'run' && snapshot) {
+      timelineState = {
+        ...timelineState,
+        nodesById: {
+          ...timelineState.nodesById,
+          [run.id]: {
+            ...run,
+            editingMode: typeof snapshot.editingMode === 'boolean' ? snapshot.editingMode : undefined,
+            planningMode: typeof snapshot.planningMode === 'boolean' ? snapshot.planningMode : undefined
+          }
+        }
+      };
+    }
+  }
   const runtimeState = projectTimelineRuntimeState(timelineState);
   const messages = projectTimelineMessages(timelineState);
   const firstUserMessage = messages.find((message) => message.role === 'user');

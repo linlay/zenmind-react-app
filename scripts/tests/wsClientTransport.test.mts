@@ -134,7 +134,7 @@ test('concurrent connect and directory requests share one socket and all respons
   });
   try {
     const connected = client.connect();
-    const requests = ['/api/agents', '/api/teams', '/api/chats'].map((type) => client.request({ type }));
+    const requests = ['/api/agents', '/api/models', '/api/chats'].map((type) => client.request({ type }));
     const settled = Promise.all(requests);
     settled.catch(() => {});
     await connected;
@@ -146,7 +146,7 @@ test('concurrent connect and directory requests share one socket and all respons
       assert.equal(frame.ns, 'ap');
       sockets[0].receive({ frame: 'response', id: frame.id, code: 0, data: [frame.type] });
     }
-    assert.deepEqual(await settled, [['/api/agents'], ['/api/teams'], ['/api/chats']]);
+    assert.deepEqual(await settled, [['/api/agents'], ['/api/models'], ['/api/chats']]);
   } finally {
     client.disconnect();
   }

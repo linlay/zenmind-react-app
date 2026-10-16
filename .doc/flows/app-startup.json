@@ -57,7 +57,7 @@
     },
     {
       "order": 7,
-      "label": "RootNavigator 挂载 Chat/WebApps/Me，账号与云端 Token Login 始终可达；WebApps 仅在已确认账号所选电脑启用。",
+      "label": "账号恢复期间只展示恢复视图，不注册临时 Login 根路由；恢复结束后 RootNavigator 首次挂载正式栈，以 Tabs 为初始路由，保留 Chat/WebApps/Me 和始终可达的账号/云端 Token Login；WebApps 仅在已确认账号所选电脑启用。",
       "moduleId": "app-shell-navigation",
       "file": "src/app/navigation/RootNavigator.tsx",
       "symbol": "RootNavigator"

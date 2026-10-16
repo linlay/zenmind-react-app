@@ -168,7 +168,13 @@ export function createDesktopWebAppsGateway(dependencies: WebAppsGatewayDependen
       }
 
       transport = resolvedTransport;
-      expectedDesktopDeviceId = desktopId;
+      expectedDesktopDeviceId = String(resolvedTransport.platformDeviceId || '').trim();
+      if (!expectedDesktopDeviceId) {
+        throw new WebAppsGatewayFailure(
+          'invalid-protocol',
+          'Desktop credential is missing its Platform device identity.'
+        );
+      }
       if (!remoteSubscribed) {
         const subscription = await dependencies.request<unknown>({
           transport: resolvedTransport,
@@ -187,7 +193,7 @@ export function createDesktopWebAppsGateway(dependencies: WebAppsGatewayDependen
       const rawCatalog = await dependencies.request<unknown>({
         transport: resolvedTransport,
         namespace: 'd',
-        type: 'web.webapp.list',
+        type: 'webapp.list',
         payload: {},
         signal: controller.signal
       });

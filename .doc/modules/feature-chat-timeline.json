@@ -8,6 +8,9 @@
   "summary": {
     "purpose": "聊天详情 Timeline 投影: 提供纯函数 timeline reducer，把 request.query、content.*、run.*、reasoning/planning/tool/source/awaiting/artifact/action/plan/task/usage/context 等事件归并为单会话有序节点。",
     "ownedConcepts": [
+      "timelineOrder 统一维护创建时间顺序及同 Run 请求锚点；实时插入、合并和旧快照恢复使用同一规则，delta 不改变位置，message/display/repository 不另行排序。失败用户消息在既有 errorDetail/references 中保留服务端拒绝和实际引用，沿用 rich snapshot。",
+      "主 Run 保存 request.query 的 queryModel 与已确认权限；实际模型沿用同 Run 的 usageSummary（含可选 serviceTier），请求设置优先、用量补缺。isMainRun 排除子任务、BTW、解读与其他会话；空白继续也保留请求元数据。请求已确认但尚未 run.start 的 pending 节点不冒充运行中；新增元数据沿用 timeline JSON snapshot，不新增表或 schema。",
+      "用量 totalTokens 优先使用上游明确值，仅输入与输出均存在时允许求和兜底；缺失一项保持未知，避免比例展示把缺失当零。",
       "提供纯函数 timeline reducer，把 request.query、content.*、run.*、reasoning/planning/tool/source/awaiting/artifact/action/plan/task/usage/context 等事件归并为单会话有序节点。",
       "作为详情页消息、头部运行态、输入区结构化用量摘要、输入区主操作、awaiting question/approval/form/plan 与 active frontend tool 交互数据、streaming 判断、历史抽屉和 FlashList 展示数据的统一投影源，避免页面层和 sync service 各自维护重复状态。",
       "显示派生层区分 request.query 默认用户消息、request.steer/remember/learn 命令消息与未知 request.* 控制输入；三类命令以 canonical messageVariant 保存在同一 typed message node 中并映射为左侧 request display row，未知 request 继续通用 fallback。其余节点按 run 内连续同名同标签工具调用生成 tool-group 展示项，把 source.publish 投影为稳定 source 展示项，把单条或数组 artifact.publish 归一为按 artifactId 幂等更新的 typed artifact 展示项，把 plan.create/update/complete 归一为按 planId 稳定更新的 typed plan/step 展示项，把 task.start/complete/fail/cancel 归一为按 taskId 稳定更新、携带 plan/parent/run/group/agent 关系的 typed task，把 action.start/args/end/snapshot/result/fail 归一为按 actionId 幂等更新、携带动作名/目标/参数/结果/执行策略的 typed action，并把 context.compact start/complete/failed 归一为只保留压缩状态、前后 token、节省量与失败原因的 typed context 节点；task 只保留一份实体，display 层将关联 task 注入 plan item，未关联 task 按并行组输出；高频流式尾节点及可安全局部替换的非尾部 structured row 通过 display model 做保守增量派生，结构变化回退全量派生时仍按 key/node 引用复用未变化行；运行态、source、artifact、plan、task、action、context、awaiting 与 usage 的默认展示文案不写入 timeline state，state 只保留语义值、后端原始文本和结构化数据，最终文案由展示层 shared i18n / 专用 row 解析。",
@@ -178,7 +181,7 @@
       "chatTimelineTaskNodePayloadEquals",
       "chatTimelineUsageSummaryEquals",
       "clearActiveReasoningNodeIdForRun",
-      "clearChatTimelineToolOutput",
+      "clearChatTimelineToolTransientState",
       "closeChatTimelineActionNode",
       "closeChatTimelineContextCompactNode",
       "closeChatTimelinePlanNode",
@@ -222,6 +225,7 @@
       "hasTimelineEventValue",
       "isChatTimelineCommandMessageVariant",
       "isChatTimelineContentEventClosed",
+      "isMainChatRunEvent",
       "isTimelineObjectRecord",
       "mergeChatTimelineContextCompactValues",
       "mergeChatTimelineState",
@@ -247,6 +251,7 @@
       "normalizeConversationActionName",
       "normalizeFrontendToolParams",
       "normalizeFrontendToolType",
+      "orderChatTimelineNodes",
       "parseChatTimelinePlanStatus",
       "parseFrontendToolArgs",
       "patchChatTimelineMessage",
@@ -256,6 +261,7 @@
       "readConversationActionEventArguments",
       "readRunAccessLevel",
       "reconcileChatTimelineAwaitingSnapshot",
+      "resolveChatComposerHistory",
       "resolveChatTimelineActionId",
       "resolveChatTimelineArtifactPreviewKind",
       "resolveChatTimelineFrontendTool",
@@ -286,7 +292,7 @@
       "feature-chat-realtime"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-12T07:02:33Z"
+    "lastScannedAt": "2026-10-16T08:54:52Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -335,7 +341,8 @@
     "上下文引用沿用消息附件和 rich snapshot，chat/Site echo 按 type+稳定 ID 匹配，不把后端重写标题/meta 视为另一消息；禁止以文件 URL 伪造上下文。",
     "整轮 process 折叠必须把 image_generate 工具/分组留在可见列表，产物与工具 payload 的折叠分离；图像结果仍保留原 tool/result 和 run 状态，live/replay/rich snapshot 使用同一投影，不写另一份图槽状态。",
     "反馈确认值只存在对应 RunNode.feedback，提交意图只存在瞬态 feedbackPending，serializer/restore 排除 pending。server runs 缺失反馈字段表示 clear；合并按实际历史页和请求前 feedback 基线保护本地新确认值，最新详情可以清除，反馈不得改变 run 生命周期/起止时间/耗时。",
-    "RunNode.derivation 是 source/run 绑定的本地派生恢复意图（目标 chatId、owner、unknown/ready），创建前同步保存；run 事件及 live/history merge 保留，截断历史也保留带意图的 run，冷恢复后只允许精确 GET 核对。它不改变 run lifecycle、updatedAt 或耗时。"
+    "RunNode.derivation 是 source/run 绑定的本地派生恢复意图（目标 chatId、owner、unknown/ready），创建前同步保存；run 事件及 live/history merge 保留，截断历史也保留带意图的 run，冷恢复后只允许精确 GET 核对。它不改变 run lifecycle、updatedAt 或耗时。",
+    "ToolNode.toolWait 是实时/attach 瞬态；工具结果、Run 终态及离开会话释放，serializer 不保存倒计时。活动 Run 输入模式从服务端快照投影，不从历史 query 恢复 UI 默认。"
   ],
   "recentChanges": []
 }

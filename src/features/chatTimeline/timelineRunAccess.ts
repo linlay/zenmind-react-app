@@ -1,3 +1,5 @@
+import { normalizeQueryModelOverride, type QueryModelOverride } from '../../core/api/services/modelOptionsProtocol.ts';
+import { getRemoteChatSourceId } from '../chatPersistence/chatSource.ts';
 import type { ChatTimelineRunNode, ChatTimelineState } from './types.ts';
 export type ChatRunAccessLevel = 'default' | 'auto_approve' | 'full_access';
 export function readRunAccessLevel(value: unknown): ChatRunAccessLevel | undefined {
@@ -18,17 +20,23 @@ export function mergeRunAccessMetadata(
   incoming: ChatTimelineRunNode
 ): ChatTimelineRunNode {
   const confirmed = (current.accessLevelVersion ?? 0) >= (incoming.accessLevelVersion ?? 0) ? current : incoming;
+  const queryModel = chosen.queryModel ?? current.queryModel ?? incoming.queryModel;
+  const isMainRun = current.isMainRun ?? incoming.isMainRun;
   let accessUpdate = chosen.lifecycle === 'active' ? current.accessUpdate : undefined;
   if (accessUpdate?.phase === 'unknown' && (confirmed.accessLevelVersion ?? 0) > accessUpdate.baselineVersion)
     accessUpdate = undefined;
   if (
     chosen.accessLevel === confirmed.accessLevel &&
     chosen.accessLevelVersion === confirmed.accessLevelVersion &&
-    chosen.accessUpdate === accessUpdate
+    chosen.accessUpdate === accessUpdate &&
+    chosen.queryModel === queryModel &&
+    chosen.isMainRun === isMainRun
   )
     return chosen;
   return {
     ...chosen,
+    queryModel,
+    isMainRun,
     accessLevel: confirmed.accessLevel,
     accessLevelVersion: confirmed.accessLevelVersion,
     accessUpdate
@@ -72,4 +80,47 @@ export function applyChatTimelineRunAccess(
     return state;
   // Permission metadata must not change run duration or business ordering timestamps.
   return { ...state, nodesById: { ...state.nodesById, [node.id]: next }, revision: state.revision + 1 };
+}
+
+// Scope checks apply before metadata is projected, so child Runs cannot supply Composer defaults.
+export function isMainChatRunEvent(event: Record<string, unknown>, conversationId: string): boolean {
+  return (
+    (!event.chatId || getRemoteChatSourceId(String(event.chatId)) === getRemoteChatSourceId(conversationId)) &&
+    !event.taskId &&
+    !event.subAgentKey &&
+    !event.btwId &&
+    !['btw', 'explain'].includes(String(event.lane || '')) &&
+    !['btw', 'explain'].includes(String(event.kind || ''))
+  );
+}
+
+export function resolveChatComposerHistory(state: ChatTimelineState): {
+  established: boolean;
+  accessLevel?: ChatRunAccessLevel;
+  model?: QueryModelOverride;
+} {
+  const runs = state.orderedNodeIds
+    .map((id) => state.nodesById[id])
+    .filter((node): node is ChatTimelineRunNode => node?.kind === 'run' && node.isMainRun !== false);
+  const run = runs.find((node) => node.runId === state.activeRunId) ?? runs.at(-1);
+  if (!run) return { established: false };
+  let actual: QueryModelOverride = {};
+  for (const id of state.orderedNodeIds) {
+    const node = state.nodesById[id];
+    if (node?.kind !== 'usage' || node.isMainRun === false || node.runId !== run.runId || !node.usageSummary) continue;
+    actual = {
+      ...actual,
+      ...normalizeQueryModelOverride({
+        key: node.usageSummary.modelKey,
+        reasoningEffort: node.usageSummary.contextWindow.reasoningEffort,
+        serviceTier: node.usageSummary.serviceTier
+      })
+    };
+  }
+  const model = { ...actual, ...run.queryModel };
+  return {
+    established: true,
+    accessLevel: run.accessLevel,
+    ...(model.key ? { model: { ...model, serviceTier: model.serviceTier || 'STANDARD' } } : {})
+  };
 }

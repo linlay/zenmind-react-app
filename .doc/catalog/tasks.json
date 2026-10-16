@@ -252,7 +252,7 @@
         "修改快照",
         "修改聊天首页数据",
         "修改聊天置顶",
-        "修改 outbox",
+        "修改消息提交状态",
         "修改消息持久化",
         "修改聊天持久化逻辑",
         "修改聊天持久化",
@@ -361,7 +361,7 @@
         "chat detail sync",
         "同步对话详情"
       ],
-      "entryDecision": "执行对话详情与 agent-webclient 的数据或能力同步时，从 docs/sync/chat-detail-webclient-2026-10-08/README.md 开始，再读取对应 T00–T31 子任务。",
+      "entryDecision": "输入区对齐使用 useChatComposerSettings 与进程内 chatComposerPreferences；已有 Chat 与新 Agent 默认模型分离，主 Run 请求设置与既有 usage 补缺，禁止增加持久化草稿或平行能力状态机。配置/目录错误可重试，能力关闭保留偏好与附件，所有迟到异步结果需复核目标。",
       "card": ".doc/tasks/sync-chat-detail-webclient.json"
     },
     {

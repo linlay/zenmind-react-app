@@ -69,8 +69,10 @@ export function LoginScreen() {
   const [isSubmitting, setSubmitting] = useState(false);
   const controllerRef = useRef<AbortController | null>(null);
   useEffect(() => () => controllerRef.current?.abort(), []);
-  function handleLoginSuccess() {
-    navigation.goBack();
+  function closeLogin() {
+    controllerRef.current?.abort();
+    if (navigation.canGoBack()) navigation.goBack();
+    else navigation.reset({ index: 0, routes: [{ name: 'Tabs' }] });
   }
   async function handleCloudLogin() {
     if (!token.trim() || controllerRef.current) return;
@@ -88,7 +90,7 @@ export function LoginScreen() {
       await activateAccountDesktopSource('', null);
       if (!controller.signal.aborted) {
         setToken('');
-        navigation.goBack();
+        closeLogin();
       }
     } catch {
       if (!controller.signal.aborted) setErrorMessage(t('auth.error.loginFailed'));
@@ -107,14 +109,7 @@ export function LoginScreen() {
             contentContainerClassName="grow px-app-xl pt-app-md pb-app-xl"
           >
             <View className={TOP_ACTIONS_CLASS}>
-              <Pressable
-                accessibilityRole="button"
-                onPress={() => {
-                  controllerRef.current?.abort();
-                  navigation.goBack();
-                }}
-                className={CLOSE_BUTTON_CLASS}
-              >
+              <Pressable accessibilityRole="button" onPress={closeLogin} className={CLOSE_BUTTON_CLASS}>
                 <Text className={CLOSE_BUTTON_TEXT_CLASS}>{t('auth.close')}</Text>
               </Pressable>
             </View>
@@ -181,7 +176,7 @@ export function LoginScreen() {
               </View>
             ) : (
               <View className={FORM_CLASS}>
-                <EmailVerificationForm onSuccess={handleLoginSuccess} />
+                <EmailVerificationForm onSuccess={closeLogin} />
               </View>
             )}
           </AppKeyboardAwareScrollView>

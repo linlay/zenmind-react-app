@@ -4,7 +4,7 @@
   "title": "WebApps Desktop WS 目录同步与常驻 WebView 运行时",
   "trigger": "已确认账号所选 Desktop、Desktop WS 重连、App 回前台、进入 WebAppDetail、切换运行项或系统终止 WebContent 进程时触发；未登录或云端只展示空态。",
   "sourceOfTruth": [
-    "Desktop web.webapp.list 快照与 webapp.changed 增量是远端目录真源；webAppsDesktopProtocol 负责把原始 frame 转成安全领域模型。",
+    "Desktop webapp.list 快照与 webapp.changed 增量是远端目录真源；webAppsDesktopProtocol 负责把原始 frame 转成安全领域模型。",
     "WebAppsGateway 是共享 Desktop WS 上订阅、快照、重连和设备隔离的唯一边界，页面不解析原始 frame。",
     "WebAppsRuntimeProvider 是当前账号/auth generation/所选电脑会话内 catalog、connection、active、resident LRU 和恢复队列的唯一内存状态源；sessionKey 变化时重置 runtime 并丢弃迟到事件，未登录或云端时 disabled。",
     "WebAppsRuntimeHost 位于登录态 RootStack 外层；WebAppDetail route pop 只隐藏 Host，不卸载 resident WebView。",
@@ -27,7 +27,7 @@
     },
     {
       "order": 3,
-      "label": "订阅确认后读取 web.webapp.list，校验 desktopDeviceId，以快照覆盖目录，按接收顺序重放同步窗口缓存的 webapp.changed，然后进入实时 upsert/remove。",
+      "label": "订阅确认后读取 webapp.list，校验 desktopDeviceId，以快照覆盖目录，按接收顺序重放同步窗口缓存的 webapp.changed，然后进入实时 upsert/remove。",
       "moduleId": "feature-web-apps",
       "file": "src/features/webApps/webAppsGatewayCore.ts",
       "symbol": "createDesktopWebAppsGateway"

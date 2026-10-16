@@ -43,7 +43,7 @@
     },
     {
       "id": "chat-send-message",
-      "title": "发送消息与 ack 落库",
+      "title": "发送消息与服务端确认",
       "trigger": "用户在 Chat 详情页输入消息并提交时触发。",
       "mustCheckModules": [
         "feature-chat-persistence",

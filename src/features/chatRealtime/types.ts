@@ -65,6 +65,17 @@ export type ChatHomeItemRemoveEvent = {
   conversationId: string;
 };
 
+export type ChatDirectorySyncSnapshot = {
+  sourceKey: string;
+  scopeId: string;
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  error: string;
+};
+
+export type ChatDirectorySyncEvent = {
+  type: 'home.directory.sync';
+};
+
 export type ChatDirectoryReplaceEvent = {
   type: 'home.directory.replace';
 };
@@ -86,7 +97,7 @@ export type ChatConversationMessagePatchEvent = {
       ChatMessageItem,
       'content' | 'createdAt' | 'deliveryStatus' | 'errorReason' | 'serverMessageId' | 'streamStatus' | 'attachments'
     >
-  >;
+  > & { errorDetail?: import('../chatTimeline/types.ts').ChatTimelineErrorDetail | null };
 };
 
 export type ChatConversationStreamDeltaEvent = {
@@ -160,7 +171,6 @@ export type ChatPendingSteer = {
   phase: 'sending' | 'accepted' | 'unknown';
   runEnded: boolean;
   agentKey?: string;
-  teamId?: string;
 };
 
 export type ChatConversationSteerChangedEvent = {
@@ -176,6 +186,7 @@ export type ChatSyncEvent =
   | ChatConnectionStatusEvent
   | ChatHomeItemPatchEvent
   | ChatHomeItemRemoveEvent
+  | ChatDirectorySyncEvent
   | ChatDirectoryReplaceEvent
   | ChatConversationMessageInsertEvent
   | ChatConversationMessagePatchEvent

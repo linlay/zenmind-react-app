@@ -1,5 +1,4 @@
 import { getCloudAuthSnapshot } from '../../core/auth/cloudAuth';
-import { normalizeRequiredSkills, parseStoredRequiredSkills } from '../../core/api/services/chatSkillsProtocol.ts';
 import { isActiveDesktopOffline } from '../../core/auth/activeDesktop.ts';
 import { and, asc, count, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
 
@@ -32,8 +31,7 @@ import {
   conversationSyncState,
   conversations,
   messageAttachments,
-  messages,
-  outboxMessages
+  messages
 } from './schema';
 import {
   applyChatTimelineMessage,
@@ -79,7 +77,6 @@ import {
   ChatMessageRole,
   ChatMessageStatus,
   ChatReadState,
-  PendingOutboxMessage,
   ServerMessageDetail
 } from './types';
 
@@ -167,8 +164,6 @@ function mapChatDirectoryItem(row: {
   pinnedAt: number;
   sortRank: number;
   agentKey: string | null;
-  teamId: string | null;
-  defaultAgentKey: string | null;
   agentMode?: string | null;
   modelKey?: string | null;
   reasoningEffort?: string | null;
@@ -179,7 +174,7 @@ function mapChatDirectoryItem(row: {
   return {
     source: getChatSourceFromId(row.id),
     id: row.id,
-    kind: row.kind === 'team' ? 'team' : 'agent',
+    kind: 'agent',
     title: row.title,
     subtitle: row.subtitle,
     icon: normalizeAgentAvatarIcon({
@@ -191,8 +186,6 @@ function mapChatDirectoryItem(row: {
     pinnedAt: Number(row.pinnedAt || 0),
     sortRank: Number.isFinite(Number(row.sortRank)) ? Number(row.sortRank) : 0,
     agentKey: row.agentKey || null,
-    teamId: row.teamId || null,
-    defaultAgentKey: row.defaultAgentKey || null,
     agentMode: normalizeAgentMode(row.agentMode),
     modelKey: row.modelKey || null,
     reasoningEffort: normalizeChatReasoningEffort(row.reasoningEffort),
@@ -402,13 +395,11 @@ type ConversationSummaryRow = {
   pinnedAt: number;
   updatedAt: number;
   agentKey: string | null;
-  teamId: string | null;
   sourceDeleted: number;
 };
 
 type ConversationDirectoryKeys = {
   agentKey: string | null;
-  teamId: string | null;
 };
 
 type DirectoryItemOpenScope = {
@@ -416,8 +407,6 @@ type DirectoryItemOpenScope = {
     kind: string;
     title: string;
     agentKey: string | null;
-    teamId: string | null;
-    defaultAgentKey: string | null;
     latestConversationId: string | null;
   };
   historyScope: ChatConversationHistoryScope;
@@ -427,8 +416,6 @@ type ConversationDirectoryProjection = {
   latestConversationId: string | null;
   unreadCount: number;
 };
-
-type DirectoryProjectionKind = 'agent' | 'team';
 
 type DirectoryProjectionTargetRow = {
   id: string;
@@ -465,8 +452,7 @@ const CHAT_HOME_ITEM_SELECT = {
 const CONVERSATION_SUMMARY_SELECT = {
   ...CHAT_HOME_ITEM_SELECT,
   updatedAt: conversations.updatedAt,
-  agentKey: conversations.agentKey,
-  teamId: conversations.teamId
+  agentKey: conversations.agentKey
 };
 
 const CHAT_DIRECTORY_ITEM_SELECT = {
@@ -481,8 +467,6 @@ const CHAT_DIRECTORY_ITEM_SELECT = {
   pinnedAt: chatDirectoryItems.pinnedAt,
   sortRank: chatDirectoryItems.sortRank,
   agentKey: chatDirectoryItems.agentKey,
-  teamId: chatDirectoryItems.teamId,
-  defaultAgentKey: chatDirectoryItems.defaultAgentKey,
   agentMode: chatDirectoryItems.agentMode,
   modelKey: chatDirectoryItems.modelKey,
   reasoningEffort: chatDirectoryItems.reasoningEffort,
@@ -545,7 +529,6 @@ export type ConversationSummaryPatch = {
   lastMessageStatus?: ChatMessageStatus;
   shouldMoveToTop?: boolean;
   agentKey?: string | null;
-  teamId?: string | null;
 };
 
 export type ConversationSummaryPatchResult = {
@@ -571,14 +554,12 @@ function getChatDirectorySearchTextExpression() {
     coalesce(${chatDirectoryItems.title}, '') || ' ' ||
     coalesce(${chatDirectoryItems.subtitle}, '') || ' ' ||
     coalesce(${chatDirectoryItems.agentKey}, '') || ' ' ||
-    coalesce(${chatDirectoryItems.teamId}, '') || ' ' ||
     coalesce(${conversations.lastMessageText}, '')
   )`;
 }
 
 export type ConversationReadScope = {
   agentKey?: string | null;
-  teamId?: string | null;
   activeConversationId?: string | null;
 };
 
@@ -664,8 +645,7 @@ async function getConversationDirectoryKeys(conversationId: string): Promise<Con
   const rows = await awaitInChatScope(
     chatDb
       .select({
-        agentKey: conversations.agentKey,
-        teamId: conversations.teamId
+        agentKey: conversations.agentKey
       })
       .from(conversations)
       .where(eq(conversations.id, conversationId))
@@ -678,8 +658,7 @@ async function getConversationDirectoryKeys(conversationId: string): Promise<Con
   }
 
   return {
-    agentKey: rows[0].agentKey || null,
-    teamId: rows[0].teamId || null
+    agentKey: rows[0].agentKey || null
   };
 }
 
@@ -704,18 +683,11 @@ function normalizeProvidedDirectoryKey(value: string | null | undefined): string
   return normalized || undefined;
 }
 
-function getDirectoryConversationKeys(item: {
-  kind: string;
-  agentKey: string | null;
-  teamId: string | null;
-  defaultAgentKey: string | null;
-}): ConversationDirectoryKeys {
-  const teamId = item.kind === 'team' ? String(item.teamId || '').trim() : '';
-  const agentKey = teamId ? '' : String(item.agentKey || item.defaultAgentKey || '').trim();
+function getDirectoryConversationKeys(item: { kind: string; agentKey: string | null }): ConversationDirectoryKeys {
+  const agentKey = String(item.agentKey || '').trim();
 
   return {
-    agentKey: agentKey || null,
-    teamId: teamId || null
+    agentKey: agentKey || null
   };
 }
 
@@ -764,7 +736,7 @@ async function createLocalConversationForHistoryScope(
     return null;
   }
 
-  const source = getChatSourceFromId(historyScope.teamId || historyScope.agentKey);
+  const source = getChatSourceFromId(historyScope.agentKey);
   if (source.key !== getActiveChatSource()?.key) {
     throw new Error('Conversation source changed');
   }
@@ -788,8 +760,7 @@ async function createLocalConversationForHistoryScope(
       lastMessageStatus: 'sent',
       pinnedAt: 0,
       updatedAt: createdAt,
-      agentKey: historyScope.agentKey,
-      teamId: historyScope.teamId
+      agentKey: historyScope.agentKey
     }),
     requestedScopeId
   );
@@ -807,7 +778,7 @@ async function createLocalConversationForHistoryScope(
 }
 
 function didDirectoryKeysChange(current: ConversationDirectoryKeys, next: ConversationDirectoryKeys): boolean {
-  return (current.agentKey || null) !== (next.agentKey || null) || (current.teamId || null) !== (next.teamId || null);
+  return (current.agentKey || null) !== (next.agentKey || null);
 }
 
 function normalizeMessageId(value: string | null | undefined, fallback: string): string {
@@ -1196,11 +1167,9 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
   );
   const current = await awaitInChatScope(getConversationSummaryRow(conversationId), requestedScopeId);
   const currentKeys: ConversationDirectoryKeys = {
-    agentKey: current?.agentKey || null,
-    teamId: current?.teamId || null
+    agentKey: current?.agentKey || null
   };
   const patchAgentKey = normalizeProvidedDirectoryKey(patch.agentKey);
-  const patchTeamId = normalizeProvidedDirectoryKey(patch.teamId);
   const nextTitle = resolveChatConversationStoredTitle(patch.title, current?.title || ensured.title);
   const nextLastMessageText =
     patch.lastMessageText !== undefined ? String(patch.lastMessageText || '') : String(current?.lastMessageText || '');
@@ -1233,8 +1202,7 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
   const persistedLastMessageAt = nextLastMessageAt || Date.now();
   const persistedUpdatedAt = nextUpdatedAt || Date.now();
   const nextKeys: ConversationDirectoryKeys = {
-    agentKey: patchAgentKey !== undefined ? patchAgentKey : currentKeys.agentKey,
-    teamId: patchTeamId !== undefined ? patchTeamId : currentKeys.teamId
+    agentKey: patchAgentKey !== undefined ? patchAgentKey : currentKeys.agentKey
   };
   const keysChanged = didDirectoryKeysChange(currentKeys, nextKeys);
   const summaryChanged =
@@ -1261,8 +1229,7 @@ async function writeConversationSummaryPatch(patch: ConversationSummaryPatch) {
           readRunId: nextRead.readRunId,
           lastMessageStatus: nextLastMessageStatus,
           updatedAt: persistedUpdatedAt,
-          agentKey: nextKeys.agentKey,
-          teamId: nextKeys.teamId
+          agentKey: nextKeys.agentKey
         })
         .where(eq(conversations.id, conversationId)),
       requestedScopeId
@@ -1326,14 +1293,11 @@ export async function setConversationReadStateLocal(
   const nextRead = mergeChatReadState({ ...currentRead, updatedAt: current.lastMessageAt }, readInput);
   const nextUnreadCount = readStateToUnreadBit(nextRead);
   const currentKeys: ConversationDirectoryKeys = {
-    agentKey: current.agentKey || null,
-    teamId: current.teamId || null
+    agentKey: current.agentKey || null
   };
   const patchAgentKey = normalizeProvidedDirectoryKey(scope?.agentKey);
-  const patchTeamId = normalizeProvidedDirectoryKey(scope?.teamId);
   const nextKeys: ConversationDirectoryKeys = {
-    agentKey: patchAgentKey !== undefined ? patchAgentKey : currentKeys.agentKey,
-    teamId: patchTeamId !== undefined ? patchTeamId : currentKeys.teamId
+    agentKey: patchAgentKey !== undefined ? patchAgentKey : currentKeys.agentKey
   };
   const keysChanged = didDirectoryKeysChange(currentKeys, nextKeys);
   const readChanged = !areReadStatesEqual(currentRead, nextRead);
@@ -1361,8 +1325,7 @@ export async function setConversationReadStateLocal(
         isRead: nextRead.isRead ? 1 : 0,
         readAt: nextRead.readAt,
         readRunId: nextRead.readRunId,
-        agentKey: nextKeys.agentKey,
-        teamId: nextKeys.teamId
+        agentKey: nextKeys.agentKey
       })
       .where(eq(conversations.id, normalizedConversationId)),
     requestedScopeId
@@ -1422,8 +1385,7 @@ export async function markConversationReadScopeLocal(scope: ConversationReadScop
   await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const agentKey = String(scope.agentKey || '').trim();
-  const teamId = String(scope.teamId || '').trim();
-  if (!agentKey && !teamId) {
+  if (!agentKey) {
     return {
       changedActiveConversationId: null,
       directoryChanged: false
@@ -1434,9 +1396,6 @@ export async function markConversationReadScopeLocal(scope: ConversationReadScop
   if (agentKey) {
     whereConditions.push(eq(conversations.agentKey, agentKey));
   }
-  if (teamId) {
-    whereConditions.push(eq(conversations.teamId, teamId));
-  }
 
   const whereClause = and(...whereConditions);
   const activeConversationId = String(scope.activeConversationId || '').trim();
@@ -1445,12 +1404,11 @@ export async function markConversationReadScopeLocal(scope: ConversationReadScop
       chatDb.select({ value: count() }).from(conversations).where(whereClause),
       chatDb
         .select({
-          agentKey: conversations.agentKey,
-          teamId: conversations.teamId
+          agentKey: conversations.agentKey
         })
         .from(conversations)
         .where(whereClause)
-        .groupBy(conversations.agentKey, conversations.teamId),
+        .groupBy(conversations.agentKey),
       activeConversationId
         ? chatDb
             .select({
@@ -1486,8 +1444,7 @@ export async function markConversationReadScopeLocal(scope: ConversationReadScop
   const directoryChanged = await awaitInChatScope(
     refreshChatDirectoryProjectionForKeys(
       affectedKeyRows.map((row) => ({
-        agentKey: row.agentKey || null,
-        teamId: row.teamId || null
+        agentKey: row.agentKey || null
       }))
     ),
     requestedScopeId
@@ -1535,7 +1492,7 @@ function normalizeChatDirectoryItem(item: ChatDirectoryProjectionItem): ChatDire
 
   return {
     id,
-    kind: item.kind === 'team' ? 'team' : 'agent',
+    kind: 'agent',
     title,
     subtitle: String(item.subtitle || '').trim(),
     icon: normalizeAgentAvatarIcon(item.icon),
@@ -1543,8 +1500,6 @@ function normalizeChatDirectoryItem(item: ChatDirectoryProjectionItem): ChatDire
     pinnedAt: Number(item.pinnedAt || 0) > 0 ? Number(item.pinnedAt || 0) : 0,
     sortRank: Number.isFinite(Number(item.sortRank)) ? Number(item.sortRank) : 0,
     agentKey: item.agentKey ? String(item.agentKey).trim() || null : null,
-    teamId: item.teamId ? String(item.teamId).trim() || null : null,
-    defaultAgentKey: item.defaultAgentKey ? String(item.defaultAgentKey).trim() || null : null,
     agentMode: normalizeAgentMode(item.agentMode),
     modelKey: item.modelKey ? String(item.modelKey).trim() || null : null,
     reasoningEffort: normalizeChatReasoningEffort(item.reasoningEffort),
@@ -1578,16 +1533,13 @@ function buildDirectoryProjectionChange(
   };
 }
 
-async function loadDirectoryProjectionTargets(
-  kind: DirectoryProjectionKind,
-  keys: readonly string[]
-): Promise<DirectoryProjectionTargetRow[]> {
+async function loadDirectoryProjectionTargets(keys: readonly string[]): Promise<DirectoryProjectionTargetRow[]> {
   const requestedScopeId = getChatCacheScopeId();
   if (keys.length <= 0) {
     return [];
   }
 
-  const scopeColumn = kind === 'agent' ? chatDirectoryItems.agentKey : chatDirectoryItems.teamId;
+  const scopeColumn = chatDirectoryItems.agentKey;
   const rows = await awaitInChatScope(
     chatDb
       .select({
@@ -1611,16 +1563,13 @@ async function loadDirectoryProjectionTargets(
     .filter((row) => Boolean(row.scopeKey));
 }
 
-async function loadLatestConversationIdsByScope(
-  kind: DirectoryProjectionKind,
-  keys: readonly string[]
-): Promise<Map<string, string>> {
+async function loadLatestConversationIdsByScope(keys: readonly string[]): Promise<Map<string, string>> {
   const requestedScopeId = getChatCacheScopeId();
   if (keys.length <= 0) {
     return new Map();
   }
 
-  const scopeColumn = sql.raw(kind === 'agent' ? 'agent_key' : 'team_id');
+  const scopeColumn = sql.raw('agent_key');
   const scopeValues = sql.join(
     keys.map((key) => sql`${key}`),
     sql`, `
@@ -1652,16 +1601,13 @@ async function loadLatestConversationIdsByScope(
   );
 }
 
-async function loadUnreadCountsByScope(
-  kind: DirectoryProjectionKind,
-  keys: readonly string[]
-): Promise<Map<string, number>> {
+async function loadUnreadCountsByScope(keys: readonly string[]): Promise<Map<string, number>> {
   const requestedScopeId = getChatCacheScopeId();
   if (keys.length <= 0) {
     return new Map();
   }
 
-  const scopeColumn = kind === 'agent' ? conversations.agentKey : conversations.teamId;
+  const scopeColumn = conversations.agentKey;
   const rows = await awaitInChatScope(
     chatDb
       .select({
@@ -1681,24 +1627,21 @@ async function loadUnreadCountsByScope(
   );
 }
 
-async function collectDirectoryProjectionChanges(
-  kind: DirectoryProjectionKind,
-  rawKeys: readonly string[]
-): Promise<DirectoryProjectionChange[]> {
+async function collectDirectoryProjectionChanges(rawKeys: readonly string[]): Promise<DirectoryProjectionChange[]> {
   const requestedScopeId = getChatCacheScopeId();
   const keys = normalizeDirectoryProjectionKeys(rawKeys);
   if (keys.length <= 0) {
     return [];
   }
 
-  const targets = await awaitInChatScope(loadDirectoryProjectionTargets(kind, keys), requestedScopeId);
+  const targets = await awaitInChatScope(loadDirectoryProjectionTargets(keys), requestedScopeId);
   if (targets.length <= 0) {
     return [];
   }
 
   const targetKeys = normalizeDirectoryProjectionKeys(targets.map((row) => row.scopeKey));
   const [latestConversationIdByScope, unreadCountByScope] = await awaitInChatScope(
-    Promise.all([loadLatestConversationIdsByScope(kind, targetKeys), loadUnreadCountsByScope(kind, targetKeys)]),
+    Promise.all([loadLatestConversationIdsByScope(targetKeys), loadUnreadCountsByScope(targetKeys)]),
     requestedScopeId
   );
   const changes: DirectoryProjectionChange[] = [];
@@ -1719,15 +1662,7 @@ async function collectDirectoryProjectionChanges(
 async function refreshChatDirectoryProjectionForKeys(keys: ConversationDirectoryKeys[]): Promise<boolean> {
   const requestedScopeId = getChatCacheScopeId();
   const agentKeys = normalizeDirectoryProjectionKeys(keys.map((item) => item.agentKey));
-  const teamIds = normalizeDirectoryProjectionKeys(keys.map((item) => item.teamId));
-  const [agentChanges, teamChanges] = await awaitInChatScope(
-    Promise.all([
-      collectDirectoryProjectionChanges('agent', agentKeys),
-      collectDirectoryProjectionChanges('team', teamIds)
-    ]),
-    requestedScopeId
-  );
-  const changes = [...agentChanges, ...teamChanges];
+  const changes = await awaitInChatScope(collectDirectoryProjectionChanges(agentKeys), requestedScopeId);
   if (changes.length <= 0) {
     return false;
   }
@@ -1757,7 +1692,7 @@ export async function refreshChatDirectoryProjectionForConversation(conversation
   }
 
   const keys = await awaitInChatScope(getConversationDirectoryKeys(normalizedConversationId), requestedScopeId);
-  if (!keys?.agentKey && !keys?.teamId) {
+  if (!keys?.agentKey) {
     return false;
   }
 
@@ -1789,8 +1724,7 @@ function normalizeConversationSummaryProjection(
     lastMessageAt,
     ...(read ? { unreadCount: readStateToUnreadBit(read), read } : {}),
     lastMessageStatus: (item.lastMessageStatus || 'sent') as ChatMessageStatus,
-    agentKey: item.agentKey ? String(item.agentKey).trim() || null : null,
-    teamId: item.teamId ? String(item.teamId).trim() || null : null
+    agentKey: item.agentKey ? String(item.agentKey).trim() || null : null
   };
 }
 
@@ -1831,6 +1765,7 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection, sourc
             .select({
               id: conversations.id,
               title: conversations.title,
+              lastMessageText: conversations.lastMessageText,
               pinnedAt: conversations.pinnedAt,
               unreadCount: conversations.unreadCount,
               isRead: conversations.isRead,
@@ -1843,7 +1778,6 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection, sourc
         : [];
     const existingConversationById = new Map(existingConversationRows.map((row) => [row.id, row]));
     const unreadByAgentKey = new Map<string, number>();
-    const unreadByTeamId = new Map<string, number>();
 
     for (const item of normalizedConversations) {
       const existing = existingConversationById.get(item.conversationId);
@@ -1855,12 +1789,9 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection, sourc
       if (unreadBit > 0 && item.agentKey) {
         unreadByAgentKey.set(item.agentKey, (unreadByAgentKey.get(item.agentKey) || 0) + 1);
       }
-      if (unreadBit > 0 && item.teamId) {
-        unreadByTeamId.set(item.teamId, (unreadByTeamId.get(item.teamId) || 0) + 1);
-      }
       const values = {
         title: resolveChatConversationStoredTitle(item.title, existing?.title),
-        lastMessageText: item.lastMessageText,
+        lastMessageText: item.lastMessageText || existing?.lastMessageText || '',
         lastMessageAt: item.lastMessageAt,
         unreadCount: unreadBit,
         isRead: read.isRead ? 1 : 0,
@@ -1869,7 +1800,6 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection, sourc
         lastMessageStatus: item.lastMessageStatus,
         updatedAt: item.lastMessageAt,
         agentKey: item.agentKey,
-        teamId: item.teamId,
         sourceDeleted: 0
       };
 
@@ -1921,10 +1851,7 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection, sourc
     for (const item of normalizedDirectoryItems) {
       const pinnedAt = directoryPinnedById.get(item.id) || item.pinnedAt;
       const existing = directoryPinnedById.has(item.id);
-      const knownConversationUnreadCount =
-        item.kind === 'team'
-          ? unreadByTeamId.get(item.teamId || '') || 0
-          : unreadByAgentKey.get(item.agentKey || '') || 0;
+      const knownConversationUnreadCount = unreadByAgentKey.get(item.agentKey || '') || 0;
       const unreadCount = item.unreadCountSource === 'projection' ? knownConversationUnreadCount : item.unreadCount;
       const values = {
         kind: item.kind,
@@ -1937,8 +1864,6 @@ export async function replaceChatHomeProjection(input: ChatHomeProjection, sourc
         pinnedAt,
         sortRank: item.sortRank,
         agentKey: item.agentKey,
-        teamId: item.teamId,
-        defaultAgentKey: item.defaultAgentKey,
         agentMode: item.agentMode,
         modelKey: item.modelKey,
         reasoningEffort: item.reasoningEffort,
@@ -2385,7 +2310,6 @@ export async function clearChatLocalCache() {
   await awaitInChatScope(chatDb.delete(conversationSyncState), requestedScopeId);
   await awaitInChatScope(chatDb.delete(messageAttachments), requestedScopeId);
   await awaitInChatScope(chatDb.delete(messages), requestedScopeId);
-  await awaitInChatScope(chatDb.delete(outboxMessages), requestedScopeId);
   await awaitInChatScope(chatDb.delete(conversations), requestedScopeId);
   await awaitInChatScope(chatDb.delete(chatDirectoryItems), requestedScopeId);
   clearChatDirectorySnapshot();
@@ -2465,9 +2389,7 @@ function getConversationHistoryWhereClause(scope?: Partial<ChatConversationHisto
     return null;
   }
 
-  return normalizedScope.teamId
-    ? eq(conversations.teamId, normalizedScope.teamId)
-    : eq(conversations.agentKey, normalizedScope.agentKey || '');
+  return eq(conversations.agentKey, normalizedScope.agentKey || '');
 }
 
 export async function getConversationHistoryScope(
@@ -2484,8 +2406,7 @@ export async function getConversationHistoryScope(
   const rows = await awaitInChatScope(
     chatDb
       .select({
-        agentKey: conversations.agentKey,
-        teamId: conversations.teamId
+        agentKey: conversations.agentKey
       })
       .from(conversations)
       .where(eq(conversations.id, normalizedConversationId))
@@ -2563,12 +2484,12 @@ export async function getConversationTarget(conversationId: string): Promise<Cha
   await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
 
   const keys = await awaitInChatScope(getConversationDirectoryKeys(conversationId), requestedScopeId);
-  const scopeValue = keys?.teamId || keys?.agentKey || '';
+  const scopeValue = keys?.agentKey || '';
   if (!scopeValue) {
     return null;
   }
 
-  const scopeColumn = keys?.teamId ? chatDirectoryItems.teamId : chatDirectoryItems.agentKey;
+  const scopeColumn = chatDirectoryItems.agentKey;
   const rows = await awaitInChatScope(
     chatDb
       .select({
@@ -2576,8 +2497,6 @@ export async function getConversationTarget(conversationId: string): Promise<Cha
         title: chatDirectoryItems.title,
         subtitle: chatDirectoryItems.subtitle,
         agentKey: chatDirectoryItems.agentKey,
-        teamId: chatDirectoryItems.teamId,
-        defaultAgentKey: chatDirectoryItems.defaultAgentKey,
         agentMode: chatDirectoryItems.agentMode,
         modelKey: chatDirectoryItems.modelKey,
         reasoningEffort: chatDirectoryItems.reasoningEffort
@@ -2775,7 +2694,15 @@ export async function getConversationInitialTimelineState(
   const metaRow = metaRows[0];
   const currentTailSignature = buildTailSignatureFromMessage(latestMessage);
 
-  if (metaRow && metaRow.messageTailSignature === currentTailSignature) {
+  const interruptedTailSignature =
+    latestMessage?.deliveryStatus === 'failed' && latestMessage.errorReason === 'submission_unconfirmed'
+      ? buildTailSignatureFromMessage({ ...latestMessage, deliveryStatus: 'pending' })
+      : '';
+  if (
+    metaRow &&
+    (metaRow.messageTailSignature === currentTailSignature ||
+      (interruptedTailSignature && metaRow.messageTailSignature === interruptedTailSignature))
+  ) {
     const nodeRows = await awaitInChatScope(
       chatDb
         .select({
@@ -2876,34 +2803,11 @@ export async function replaceConversationProjection(input: {
   const unsyncedLocalMessages = existingMessages.filter(
     (message) => message.deliveryStatus !== 'sent' && message.clientMessageId && !message.serverMessageId
   );
-  const pendingOutboxMessages = unsyncedLocalMessages.filter(
-    (message) => message.clientMessageId && message.deliveryStatus === 'pending'
-  );
-  const pendingOutboxClientMessageIds = pendingOutboxMessages.map((message) => String(message.clientMessageId));
-  const currentOutboxRows =
-    pendingOutboxClientMessageIds.length > 0
-      ? await awaitInChatScope(
-          chatDb
-            .select({
-              clientMessageId: outboxMessages.clientMessageId,
-              planningMode: outboxMessages.planningMode,
-              editingMode: outboxMessages.editingMode,
-              mustUseSkillsJson: outboxMessages.mustUseSkillsJson
-            })
-            .from(outboxMessages)
-            .where(inArray(outboxMessages.clientMessageId, pendingOutboxClientMessageIds)),
-          requestedScopeId
-        )
-      : [];
-  const currentOutboxModesByClientId = new Map(currentOutboxRows.map((row) => [row.clientMessageId, row]));
   const summaryTime = Number(
     input.summary?.lastMessageAt || input.messages[input.messages.length - 1]?.createdAt || Date.now()
   );
 
-  const conversation = await awaitInChatScope(
-    ensureConversationRecord(conversationId, summaryTime, input.title),
-    requestedScopeId
-  );
+  await awaitInChatScope(ensureConversationRecord(conversationId, summaryTime, input.title), requestedScopeId);
 
   const projectedMessageRowsById = new Map<
     string,
@@ -2962,15 +2866,6 @@ export async function replaceConversationProjection(input: {
     })
   );
 
-  const pendingOutboxItems = pendingOutboxMessages.map((message) => ({
-    clientMessageId: String(message.clientMessageId),
-    conversationId: message.conversationId,
-    content: message.content,
-    planningMode: currentOutboxModesByClientId.get(String(message.clientMessageId))?.planningMode ?? 0,
-    editingMode: currentOutboxModesByClientId.get(String(message.clientMessageId))?.editingMode ?? 0,
-    mustUseSkillsJson: currentOutboxModesByClientId.get(String(message.clientMessageId))?.mustUseSkillsJson ?? '[]',
-    createdAt: message.createdAt
-  }));
   const latestProjectedMessage = projectedMessages[projectedMessages.length - 1] || null;
   const messageTailSignature = latestProjectedMessage
     ? buildTailSignatureFromMessage({
@@ -2997,61 +2892,6 @@ export async function replaceConversationProjection(input: {
 
     if (projectedAttachmentRows.length > 0) {
       tx.insert(messageAttachments).values(projectedAttachmentRows).run();
-    }
-
-    tx.delete(outboxMessages).where(eq(outboxMessages.conversationId, conversationId)).run();
-
-    if (pendingOutboxItems.length > 0) {
-      tx.insert(outboxMessages).values(pendingOutboxItems).run();
-    }
-
-    if (projectedMessages.length > 0 && latestProjectedMessage) {
-      const readOverride =
-        input.read !== undefined
-          ? input.read
-          : input.unreadCount !== undefined
-            ? { unreadCount: input.unreadCount }
-            : undefined;
-      const read =
-        readOverride !== undefined ? normalizeChatReadState(readOverride) : mapConversationReadState(conversation);
-
-      tx.update(conversations)
-        .set({
-          title: conversation.title,
-          lastMessageText: latestProjectedMessage.content,
-          lastMessageAt: latestProjectedMessage.createdAt,
-          unreadCount: readStateToUnreadBit(read),
-          isRead: read.isRead ? 1 : 0,
-          readAt: read.readAt,
-          readRunId: read.readRunId,
-          lastMessageStatus: latestProjectedMessage.deliveryStatus,
-          sourceDeleted: 0,
-          updatedAt: latestProjectedMessage.createdAt
-        })
-        .where(eq(conversations.id, conversationId))
-        .run();
-    } else {
-      const read =
-        input.read !== undefined
-          ? normalizeChatReadState(input.read)
-          : input.unreadCount !== undefined
-            ? normalizeChatReadState({ unreadCount: input.unreadCount })
-            : mapConversationReadState(conversation);
-      tx.update(conversations)
-        .set({
-          title: conversation.title,
-          lastMessageText: String(input.summary?.lastMessageText || ''),
-          lastMessageAt: summaryTime,
-          unreadCount: readStateToUnreadBit(read),
-          isRead: read.isRead ? 1 : 0,
-          readAt: read.readAt,
-          readRunId: read.readRunId,
-          lastMessageStatus: (input.summary?.lastMessageStatus || 'sent') as ChatMessageStatus,
-          sourceDeleted: 0,
-          updatedAt: summaryTime
-        })
-        .where(eq(conversations.id, conversationId))
-        .run();
     }
 
     const syncRows = tx
@@ -3328,7 +3168,6 @@ async function patchMessageByMessageId(
   messageId: string,
   patch: MessagePatch,
   options?: {
-    removeOutbox?: boolean;
     unreadCountOverride?: number;
   }
 ) {
@@ -3352,13 +3191,6 @@ async function patchMessageByMessageId(
     requestedScopeId
   );
 
-  if (options?.removeOutbox && existing.clientMessageId) {
-    await awaitInChatScope(
-      chatDb.delete(outboxMessages).where(eq(outboxMessages.clientMessageId, existing.clientMessageId)),
-      requestedScopeId
-    );
-  }
-
   await awaitInChatScope(
     syncConversationSummary(existing.conversationId, options?.unreadCountOverride),
     requestedScopeId
@@ -3374,20 +3206,14 @@ async function patchMessageByMessageId(
   return getMessageRowByMessageId(existing.messageId);
 }
 
-export async function patchMessageByClientMessageId(
-  clientMessageId: string,
-  patch: MessagePatch,
-  options?: {
-    removeOutbox?: boolean;
-  }
-) {
+export async function patchMessageByClientMessageId(clientMessageId: string, patch: MessagePatch) {
   const requestedScopeId = getChatCacheScopeId();
   await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
   const existing = await awaitInChatScope(getMessageRowByClientMessageId(clientMessageId), requestedScopeId);
   if (!existing) {
     return null;
   }
-  return patchMessageByMessageId(existing.messageId, patch, options);
+  return patchMessageByMessageId(existing.messageId, patch);
 }
 
 export async function appendAssistantDelta(
@@ -3535,14 +3361,34 @@ export async function upsertServerMessageDetail(input: ServerMessageDetail) {
   );
 }
 
+export async function retryOutgoingMessage(conversationId: string, clientMessageId: string) {
+  const requestedScopeId = getChatCacheScopeId();
+  const original = await awaitInChatScope(getMessageByClientMessageId(clientMessageId), requestedScopeId);
+  if (
+    !original ||
+    original.conversationId !== conversationId ||
+    original.role !== 'user' ||
+    original.deliveryStatus !== 'failed'
+  ) {
+    throw new Error('Failed request is no longer available for recovery');
+  }
+  const patched = await awaitInChatScope(
+    patchMessageByClientMessageId(clientMessageId, {
+      deliveryStatus: 'pending',
+      errorReason: null
+    }),
+    requestedScopeId
+  );
+  if (!patched) throw new Error('Failed request is no longer available for recovery');
+  const [message] = await awaitInChatScope(attachMessageAttachments([patched]), requestedScopeId);
+  return { clientMessageId, conversationId, createdAt: message.createdAt, message };
+}
+
 export async function createOutgoingMessage(
   conversationId: string,
   content: string,
   attachments: readonly ChatComposerAttachment[] = [],
   options: {
-    planningMode?: boolean;
-    editingMode?: boolean;
-    mustUseSkills?: readonly string[];
     continuation?: boolean;
   } = {}
 ) {
@@ -3606,18 +3452,6 @@ export async function createOutgoingMessage(
         .where(eq(conversations.id, conversationId))
         .run();
     }
-
-    tx.insert(outboxMessages)
-      .values({
-        clientMessageId,
-        conversationId,
-        content: normalizedContent,
-        planningMode: options.planningMode === true ? 1 : 0,
-        editingMode: options.editingMode === true ? 1 : 0,
-        mustUseSkillsJson: JSON.stringify(normalizeRequiredSkills(options.mustUseSkills)),
-        createdAt
-      })
-      .run();
   });
 
   if (!options.continuation)
@@ -3655,83 +3489,4 @@ export async function createOutgoingMessage(
       attachments: messageAttachmentsForTimeline
     }
   };
-}
-
-// Failed-message reask reads the original per-send options, without loading the outbox.
-export async function getOutboxMessageOptions(clientMessageId: string) {
-  const requestedScopeId = getChatCacheScopeId();
-  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
-  const [row] = await awaitInChatScope(
-    chatDb
-      .select({
-        planningMode: outboxMessages.planningMode,
-        editingMode: outboxMessages.editingMode,
-        mustUseSkillsJson: outboxMessages.mustUseSkillsJson
-      })
-      .from(outboxMessages)
-      .where(eq(outboxMessages.clientMessageId, clientMessageId))
-      .limit(1),
-    requestedScopeId
-  );
-  return row
-    ? {
-        planningMode: row.planningMode === 1,
-        editingMode: row.editingMode === 1,
-        mustUseSkills: parseStoredRequiredSkills(row.mustUseSkillsJson)
-      }
-    : null;
-}
-
-export async function getPendingOutboxMessages(limit: number = 50): Promise<PendingOutboxMessage[]> {
-  const requestedScopeId = getChatCacheScopeId();
-  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
-
-  const rows = await awaitInChatScope(
-    chatDb
-      .select({
-        clientMessageId: outboxMessages.clientMessageId,
-        conversationId: outboxMessages.conversationId,
-        content: outboxMessages.content,
-        createdAt: outboxMessages.createdAt,
-        planningMode: outboxMessages.planningMode,
-        editingMode: outboxMessages.editingMode,
-        mustUseSkillsJson: outboxMessages.mustUseSkillsJson
-      })
-      .from(outboxMessages)
-      .orderBy(desc(outboxMessages.createdAt))
-      .limit(limit),
-    requestedScopeId
-  );
-
-  const attachmentsByMessageId = await awaitInChatScope(
-    getAttachmentsByMessageIds(rows.map((row) => row.clientMessageId)),
-    requestedScopeId
-  );
-  return rows.map((row) => {
-    let mustUseSkills: string[] = [];
-    let optionsError: string | undefined;
-    try {
-      mustUseSkills = parseStoredRequiredSkills(row.mustUseSkillsJson);
-    } catch (error) {
-      optionsError = error instanceof Error ? error.message : String(error);
-    }
-    return {
-      clientMessageId: row.clientMessageId,
-      conversationId: row.conversationId,
-      content: row.content,
-      createdAt: row.createdAt,
-      planningMode: Number(row.planningMode) === 1,
-      editingMode: Number(row.editingMode) === 1,
-      mustUseSkills,
-      optionsError,
-      attachments: attachmentsByMessageId.get(row.clientMessageId) || []
-    };
-  });
-}
-
-export async function getPendingOutboxCount(): Promise<number> {
-  const requestedScopeId = getChatCacheScopeId();
-  await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
-  const [{ value }] = await awaitInChatScope(chatDb.select({ value: count() }).from(outboxMessages), requestedScopeId);
-  return value ?? 0;
 }

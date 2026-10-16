@@ -147,7 +147,7 @@
 
 职责：
 
-- 维护 Chat 首页目录、会话摘要、消息、outbox、read state、conversation sync state、rich timeline snapshot、本地数据库和 MMKV 目录快照。
+- 维护 Chat 首页目录、会话摘要、消息、read state、conversation sync state、rich timeline snapshot、本地数据库和 MMKV 目录快照。
 - 提供 Chat 首页与详情页 UI 入口。
 - 作为 SQLite / MMKV 的统一 repository 边界。
 
@@ -156,7 +156,7 @@
 - `ChatHomeScreen.tsx`：Chat 首页目录、冷启动回显、分页、置顶折叠、新对话入口。
 - `ChatDetailScreen.tsx`：详情页组合入口。
 - `chatRepository.ts`：本地读写唯一入口。
-- `chatDirectoryProjector.ts`：把远端 agents / teams / chats 投影为首页目录和会话摘要。
+- `chatDirectoryProjector.ts`：把远端 agents / chats 投影为首页目录和会话摘要。
 - `chatProjector.ts`：把远端会话详情投影为 summary、messages、runtime state 和 timeline state。
 - `chatReadState.ts`：归一 read / unread 字段。
 - `homeSnapshot.ts`：MMKV 首页目录快照。
@@ -188,7 +188,7 @@
 
 职责：
 
-- 管理聊天实时业务同步、request、stream、push、outbox replay 和 scoped sync event。
+- 管理聊天实时业务同步、request、stream、push、历史核对与运行观察恢复 和 scoped sync event。
 - 通过 `core/ws/sharedWsTransport` 复用 HTTP `/ap/ws` 或 Desktop `/ws` 连接。
 - 把实时帧转成 timeline state 与 repository patch / upsert / reconcile。
 - 提供发送、停止、继续、awaiting question submit、mark read 和开发态 reset 入口。

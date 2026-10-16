@@ -1,5 +1,5 @@
 import { memo, useCallback, useRef } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
 import { useT } from '../../i18n';
@@ -42,6 +42,7 @@ export const PreviewSurface = memo(function PreviewSurface(props: ConversationPr
 
   return (
     <View style={mode === 'overlay' ? styles.overlay : { height }}>
+      {/* Android incognito clears the app-wide CookieManager used by account requests. */}
       <WebView
         key={requestId}
         ref={webViewRef}
@@ -50,7 +51,7 @@ export const PreviewSurface = memo(function PreviewSurface(props: ConversationPr
         javaScriptEnabled
         domStorageEnabled={false}
         cacheEnabled={false}
-        incognito
+        incognito={Platform.OS === 'ios'}
         mixedContentMode="never"
         sharedCookiesEnabled={false}
         thirdPartyCookiesEnabled={false}

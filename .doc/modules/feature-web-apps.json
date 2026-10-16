@@ -9,6 +9,7 @@
     "purpose": "WebApps 跟随当前账号所选电脑；云端没有应用能力时展示空态。",
     "ownedConcepts": [
       "网关复用当前账号所选 Desktop 与原 Identity 业务票据；官网证明由独立 header provider 提供，不回退旧 Profile 或 appAuth。",
+      "目录加载失败与成功空目录分别展示；刷新失败保留已有列表，错误信息只展示一处，页面复用 Provider 状态与下拉刷新。",
       "runtime pool 通过 sessionKey 在账号/来源改变时重置；关闭应用仅移除本 feature 监听，不关闭其他共享业务。",
       "匹配当前 Desktop 的 HTTPS WebApp 先经 Native 受控请求建立 HttpOnly Cookie 会话，再加载干净 URL；同源子资源和 WS 使用 Cookie，页面不接触任何 Token。到期前单计时器更新、关闭最后 resident 或切换身份时清理。"
     ],
@@ -80,7 +81,7 @@
       "app-shell-navigation"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-15T07:18:02Z"
+    "lastScannedAt": "2026-10-16T07:39:25Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -119,7 +120,7 @@
     "Screen 只消费 WebAppsRuntimeProvider，不直接连接 HTTP、WebSocket、SQLite 或 MMKV。",
     "未登录或当前来源为云端时 Provider 不得 open Gateway 或挂载 Resident WebView；分别展示登录或云端能力空态。",
     "WebApps 必须复用 sharedWsTransport；close 不得调用 sharedWsTransport.stop 或移除其他 feature 的 push/status listener。",
-    "同步顺序固定为本地监听、event.subscribe 确认、push 缓存、web.webapp.list、设备校验、快照覆盖、缓存重放、实时增量。",
+    "同步顺序固定为本地监听、event.subscribe 确认、push 缓存、webapp.list、设备校验、快照覆盖、缓存重放、实时增量。",
     "当前来源未选择账号 Desktop 时不得把 WebApp 请求发往 Agent Platform。",
     "removed + item=null 删除条目；其他 webapp.changed 必须校验 item.id 与 webappId 一致并按 order 稳定排序。",
     "只有 running + available + HTTPS 可以创建或选择 WebView；连接断开时保留 resident，但禁止创建新实例。",
@@ -129,7 +130,8 @@
     "WebView 保持 mixed content、第三方 cookie、多窗口和通用 bridge 关闭。",
     "受控 WebApp 地址由所选 Desktop WS 的设备标签与域后缀匹配，端口必须 1–65535；域名不匹配时不得附加任何凭据，公开 HTTPS 应用保留匿名加载。",
     "WebView source、resident、lastUrl 不包含 Token/header；Cookie bootstrap 禁止重定向，首次加载 401 最多重取一次；网络重试有界，关闭或 generation 变化必须丢弃迟到会话。",
-    "启动/暂停能力只能由脱敏直连协议开启，禁止临时调用 action.call。"
+    "启动/暂停能力只能由脱敏直连协议开启，禁止临时调用 action.call。",
+    "webapp.list 返回的 desktopDeviceId 必须与已验证票据的 platformDeviceId 比较；Hub 目录 deviceId 只标识用户所选来源，不能与 Platform 身份混用。"
   ],
   "recentChanges": []
 }

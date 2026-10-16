@@ -64,7 +64,6 @@ function createDirectoryReader(request: (input: DirectoryRequest) => Promise<unk
     signal?: AbortSignal
   ) => Promise<{
     agents: { key: string; mode?: string }[];
-    teams: unknown[];
     chats: unknown[];
   }>;
 }
@@ -79,12 +78,11 @@ for (const transport of [
   },
   { kind: 'agent-platform', backendUrl: 'https://cloud.test', accessToken: 'test' }
 ] satisfies WsTransportConfig[]) {
-  test(`${transport.kind} reads agents and chats without the retired teams route`, async () => {
+  test(`${transport.kind} reads Agent modes and chats through current routes`, async () => {
     const calls: DirectoryRequest[] = [];
     const controller = new AbortController();
     const read = createDirectoryReader(async (request) => {
       calls.push(request);
-      assert.notEqual(request.type, '/api/teams');
       return {
         code: 0,
         data: request.type === '/api/agents' ? [{ key: 'research', name: 'Research', mode: 'TEAM' }] : []
@@ -97,12 +95,10 @@ for (const transport of [
     );
     assert.ok(calls.every((call) => call.transport === transport && call.signal === controller.signal));
     assert.ok(calls.every((call) => call.namespace === (transport.kind === 'desktop-ws' ? 'ap' : undefined)));
-    assert.equal(result.teams.length, 0);
     const projection = projectRemoteHomeDirectory({ ...result, chats: [] });
     assert.equal(projection.directoryItems[0].agentKey, 'research');
     assert.equal(projection.directoryItems[0].agentMode, 'TEAM');
     assert.equal(projection.directoryItems[0].kind, 'agent');
-    assert.equal(projection.directoryItems[0].teamId, null);
   });
 }
 
@@ -113,7 +109,6 @@ test('directory accepts empty arrays and rejects malformed entries in either res
     accessToken: 'test'
   };
   const empty = await createDirectoryReader(async () => [])(transport);
-  assert.equal(empty.agents.length + empty.chats.length + empty.teams.length, 0);
   for (const failedType of ['/api/agents', '/api/chats']) {
     for (const payload of [{ unexpected: true }, [null], [[]], ['invalid']]) {
       const read = createDirectoryReader(async ({ type }) => (type === failedType ? payload : []));
@@ -219,6 +214,11 @@ test('one source requires authentication and complete agents/chats before replac
     }).outputText,
     {
       ApiError: class extends Error {},
+      AbortController,
+      setTimeout,
+      clearTimeout,
+      WsClientRequestTimeoutError: Error,
+      CHAT_DIRECTORY_READ_TIMEOUT_MS: 15_000,
       CHAT_SUMMARIES_TRANSPORT_TYPE: '/api/chats',
       buildChatSummariesPayload: () => ({}),
       readChatDirectory: createDirectoryReader(async ({ type }) => {
@@ -252,6 +252,8 @@ test('one source requires authentication and complete agents/chats before replac
   const service = {
     homeRefreshPromise: null,
     lifecycleVersion: 0,
+    homeRefreshController: null,
+    setDirectorySyncStatus() {},
     source: pairedSource,
     resolveTransportConfig: async () => (authenticated ? {} : null),
     isLifecycleCurrent: () => lifecycleCurrent,

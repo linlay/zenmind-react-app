@@ -15,6 +15,8 @@
   "summary": {
     "purpose": "共享视觉 token 与统一图标基础: 提供共享视觉 token、运行时 light/dark 主题 Provider、system 偏好解析、底部 Tab 指标与避让 hook、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
     "ownedConcepts": [
+      "聊天引用使用 timeline.quote/format_quote 的静态 24px 描边图标，经 AppIcon 复用统一颜色与工具栏尺寸，不在 feature 内绘制另一套图标。",
+      "用量视图切换复用 AppIconButton 与 usage.toggleMode/swap_horiz 注册；比例条推理色来自 light/dark usageReasoning token 及 app-usage-reasoning Tailwind alias，不在 feature 内硬编码主题色。",
       "提供共享视觉 token、NativeWind/Tailwind 静态 class token、运行时 light/dark 主题 Provider、system 偏好解析、底部 Tab 指标与避让 hook、格式化 helper、统一语义图标入口和 agent/team 头像组件，给 app shell 与聊天功能复用。",
       "通过 AppIcon/AppIconButton 与 appIconUsages 把业务语义映射到底层 glyph，页面和 feature 组件不直接选择 AppLineIcon 底层图标名。",
       "统一管理 light/dark 两套语义色、蓝色主强调、灰色辅助信息、文本层级、分隔线、Tab 半透明表面与专用顶边界、圆角、头像色板、generated 品牌资产和内置 agent icon 名称映射。",
@@ -44,7 +46,7 @@
       "Public entry appIconUsages (registry): 业务语义 icon usage 到底层 glyph、默认颜色角色、默认尺寸角色和 strokeWidth 的集中映射；常规图标尺寸角色覆盖 18 到 28px。",
       "Public entry appIconRegistry (registry): 当前可用底层 AppLineIcon glyph key 的静态注册表。",
       "Public entry brandAssets (asset-registry): 品牌 logo / splash 相关 generated 资产入口。",
-      "Public entry AppLineIcon (component): 底层 24px react-native-svg glyph renderer，优先用静态 1024 viewBox 填充 path 渲染统一线性风格图标，仅保留少量未替换 glyph 的描边 fallback。",
+      "Public entry AppLineIcon (component): 底层 react-native-svg glyph renderer；静态填充 path 与 24px 描边 path 复用 agent-webclient 图形，删除已替换的旧填充图形与分支，不在运行时解析 SVG。",
       "Public entry AgentAvatar (component): agent/team 头像组件，agent 按服务端 icon.name 命中内置静态图标，支持 icon.uri 图片兜底，缺失或未知 icon 时回落 default 内置头像；team 使用团队符号和稳定色板。",
       "Public entry AgentBuiltinIcon (component): 内置 agent icon 的 react-native-svg 静态组件集合，避免列表头像运行时解析 SVG XML。",
       "Public entry normalizeAgentAvatarIcon (helper): 把远端或持久化 icon 输入归一为 name/color/uri 三个展示字段，并提供内置 icon 名称和 uri 类型判断。",

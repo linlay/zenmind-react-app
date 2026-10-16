@@ -35,11 +35,6 @@ function replay(events: Record<string, unknown>[]) {
   return events.reduce((state, item) => applyChatTimelineEvent(state, chatId, item), createChatTimelineState(chatId));
 }
 
-test('Team control identity wins over a stale member while Agent identity is retained otherwise', () => {
-  assert.deepEqual(buildChatRunOwnerPayload({ teamId: ' team ', agentKey: 'member' }), { teamId: 'team' });
-  assert.deepEqual(buildChatRunOwnerPayload({ agentKey: ' agent ' }), { agentKey: 'agent' });
-});
-
 test('STANDARD is an explicit clear; omitted tier preserves the server setting', () => {
   assert.equal(buildAgentModelConfigPayload('agent', { key: 'model', serviceTier: 'STANDARD' }).serviceTier, null);
   assert.equal('serviceTier' in buildAgentModelConfigPayload('agent', { key: 'model' }), false);
@@ -324,25 +319,19 @@ test('remote detail time validation covers message and artifact records without 
 });
 
 test('Agent capability overrides distinguish execution availability without erasing history', () => {
-  const defaults = resolveAgentInteraction('KBASE', undefined);
+  const defaults = resolveAgentInteraction(undefined);
   assert.equal(defaults.model, false);
-  assert.equal(defaults.accessLevel, false);
-  assert.equal(defaults.attachment.localFiles, true);
-  const resolved = resolveAgentInteraction('KBASE', {
+  assert.equal(defaults.attachment.localFiles, false);
+  const config = {
     model: true,
     accessLevel: true,
-    mustUseSkills: false,
     connectors: true,
-    attachment: { localFiles: false, chatRecords: true }
-  });
-  assert.deepEqual(resolved, {
-    model: true,
-    accessLevel: true,
-    mustUseSkills: false,
-    connectors: true,
-    attachment: { localFiles: false, chatRecords: true }
-  });
-  assert.equal(resolveAgentInteraction('TEAM', null).model, false);
+    showPlanningMode: true,
+    showEditingMode: false,
+    showTerminal: false,
+    attachment: { localFiles: false, chatRecords: true, skills: true, kbases: false }
+  };
+  assert.deepEqual(resolveAgentInteraction(config), config);
   for (const [status, expected] of [
     [401, 'authentication_required'],
     [403, 'forbidden'],
@@ -372,4 +361,47 @@ test('attachment-only and selection-only command echoes preserve references thro
     assert.equal(restoredNode?.kind, 'message');
     if (restoredNode?.kind === 'message') assert.deepEqual(restoredNode.references, references);
   }
+});
+
+test('wait updates are transient, clear on results and never survive a cold snapshot', () => {
+  const time = 1792057310000;
+  let state = applyChatTimelineEvent(createChatTimelineState('chat'), 'chat', {
+    type: 'run.start',
+    runId: 'run',
+    timestamp: time
+  });
+  state = applyChatTimelineEvent(state, 'chat', {
+    type: 'tool.wait',
+    runId: 'run',
+    toolId: 'wait',
+    toolName: 'wait',
+    startedAt: time,
+    deadlineAt: time + 60000,
+    timestamp: time + 1,
+    description: 'Waiting for a result',
+    match: 'all',
+    conditions: [{ index: 0, satisfied: false, status: 'pending' }]
+  });
+  const wait = Object.values(state.nodesById).find((node) => node.kind === 'tool')!;
+  assert.equal(wait.kind === 'tool' && wait.toolWait?.description, 'Waiting for a result');
+  const stored = serializeChatTimelineState(state);
+  assert.equal(
+    stored.nodes.some((node) => node.payloadJson.includes('toolWait')),
+    false
+  );
+  state = applyChatTimelineEvent(state, 'chat', {
+    type: 'tool.wait.update',
+    runId: 'run',
+    toolId: 'wait',
+    toolName: 'wait',
+    startedAt: time,
+    deadlineAt: time + 60000,
+    timestamp: time + 2,
+    conditions: [{ index: 0, satisfied: true, status: 'ready' }]
+  });
+  const updated = state.nodesById[wait.id];
+  assert.equal(updated.kind === 'tool' && updated.toolWait?.conditions[0].satisfied, true);
+  state = applyChatTimelineEvent(state, 'chat', { type: 'run.complete', runId: 'run', timestamp: time + 3 });
+  const terminal = state.nodesById[wait.id];
+  assert.equal(terminal.kind === 'tool' && terminal.toolWait, undefined);
 });

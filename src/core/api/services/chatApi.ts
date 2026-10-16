@@ -9,21 +9,23 @@ export const CHAT_AGENT_DETAIL_TRANSPORT_TYPE = '/api/agent';
 export const CHAT_READ_TRANSPORT_TYPE = '/api/read';
 export const CHAT_SUBMIT_TRANSPORT_TYPE = '/api/submit';
 export const CHAT_ACCESS_LEVEL_TRANSPORT_TYPE = '/api/access-level';
-export type ChatAccessLevelResponse = { accepted?: boolean; runId?: string; accessLevel?: unknown; version?: unknown; detail?: string };
+export type ChatAccessLevelResponse = {
+  accepted?: boolean;
+  runId?: string;
+  accessLevel?: unknown;
+  version?: unknown;
+  detail?: string;
+};
 export const CHAT_STEER_TRANSPORT_TYPE = '/api/steer';
 export type ChatSteerResponse = { accepted: boolean | null; status: string; detail: string };
-export const CHAT_OPERATION_TRANSPORT_TYPE = '/api/operation';
 export const REMOTE_CHAT_PAGE_SIZE = 10 as const;
 
 export type RemoteChatSummary = {
   chatId?: string;
   chatName?: string;
   title?: string;
-  teamId?: string;
   agentKey?: string;
   agentName?: string;
-  firstAgentKey?: string;
-  firstAgentName?: string;
   lastRunContent?: string;
   lastRunId?: string;
   read?: unknown;
@@ -102,6 +104,7 @@ export type RemoteChatActiveRun = {
   oldestSeq?: number;
   startedAt?: string | number | null;
   planningMode?: boolean;
+  editingMode?: boolean;
   agentKey?: string;
   modelKey?: string;
   [key: string]: unknown;
@@ -151,7 +154,7 @@ export type RemoteChatReference = {
   sizeBytes?: number;
   url?: string;
   sha256?: string;
-  sandboxPath?: string;
+  path?: string;
   meta?: Record<string, unknown>;
   [key: string]: unknown;
 };
@@ -164,9 +167,7 @@ export type RemoteChatDetail = {
   title?: string;
   name?: string;
   chatImageToken?: string;
-  firstAgentKey?: string;
   agentKey?: string;
-  teamId?: string;
   read?: unknown;
   unreadRunCount?: number;
   readStatus?: number;
@@ -186,19 +187,6 @@ export type RemoteChatDetail = {
   usage?: RemoteChatUsageData | RemoteChatUsageStats | null;
   contextWindow?: RemoteChatContextWindow | null;
   eventPage?: RemoteChatEventPage;
-  [key: string]: unknown;
-};
-
-export type RemoteOperationStatus = {
-  operationId?: string;
-  actionName?: string;
-  argumentsDigest?: string;
-  taskId?: string;
-  chatId?: string;
-  status?: string;
-  verificationStatus?: 'WAITING' | 'APPROVED' | 'CANCELLED' | 'FAILED';
-  lastSeq?: number;
-  createdAt?: number;
   [key: string]: unknown;
 };
 
@@ -234,14 +222,12 @@ export type MarkChatReadRequest =
   | {
       chatId?: string;
       agentKey?: string;
-      teamId?: string;
       runId?: string;
     };
 
 export type MarkChatReadResponse = {
   chatId?: string;
   agentKey?: string;
-  teamId?: string;
   read?: unknown;
   readStatus?: number;
   readAt?: string | number | null;
@@ -253,7 +239,6 @@ export type MarkChatReadResponse = {
 export type MarkChatReadPayload = {
   chatId?: string;
   agentKey?: string;
-  teamId?: string;
   runId?: string;
 };
 
@@ -308,7 +293,6 @@ export type AwaitingSubmitPayloadData = {
 export type SubmitAwaitingRequest = AwaitingSubmitPayloadData & {
   chatId?: string;
   agentKey?: string;
-  teamId?: string;
   submitId?: string;
 };
 
@@ -492,12 +476,11 @@ export function buildMarkChatReadPayload(request: MarkChatReadRequest, runId?: s
 
   const chatId = String(request.chatId || '').trim();
   const agentKey = String(request.agentKey || '').trim();
-  const teamId = String(request.teamId || '').trim();
   const readRunId = String(request.runId || '').trim() || fallbackRunId;
 
   return {
     ...(chatId ? { chatId } : {}),
-    ...buildChatRunOwnerPayload({ agentKey, teamId }),
+    ...buildChatRunOwnerPayload({ agentKey }),
     ...(readRunId ? { runId: readRunId } : {})
   };
 }

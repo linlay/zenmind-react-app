@@ -14,6 +14,7 @@ import type {
   ChatTimelineToolNode,
   ChatTimelineUsageStats
 } from '../../chatTimeline/index.ts';
+import { resolveChatToolIconUsage } from '../chatToolIcon.ts';
 import { sanitizeRuntimeStructuredPayloadForCopy } from './runtimeStructuredPayload.ts';
 
 export type RuntimePayloadRendererType = 'markdown' | 'tool' | 'awaiting' | 'plain' | 'metric';
@@ -442,10 +443,11 @@ function createToolRecordsCopyText(records: readonly RuntimeToolRecord[], t: TFu
   return hasPayload ? () => formatToolRecordsCopyText(records, t) : '';
 }
 
-function iconForKind(kind: RuntimePayloadKind): {
+function iconForSource(source: RuntimePayloadSource): {
   iconUsage: AppIconUsage;
   tone: RuntimePayloadTone;
 } {
+  const kind = source.kind;
   if (kind === 'reasoning') {
     return { iconUsage: 'runtime.reasoning', tone: 'reasoning' };
   }
@@ -453,7 +455,8 @@ function iconForKind(kind: RuntimePayloadKind): {
     return { iconUsage: 'runtime.awaiting', tone: 'reasoning' };
   }
   if (kind === 'tool' || kind === 'tool-group') {
-    return { iconUsage: 'runtime.tool', tone: 'tool' };
+    const names = source.kind === 'tool-group' ? source.nodes.map((node) => node.toolName) : [source.toolName];
+    return { iconUsage: resolveChatToolIconUsage(names), tone: 'tool' };
   }
   if (kind === 'planning') {
     return { iconUsage: 'runtime.planning', tone: 'tool' };
@@ -520,7 +523,7 @@ export function buildRuntimePayloadDescriptor(
   if (isToolGroupSource(source)) {
     const records = buildToolPillRecords(source, t);
     const latestRecord = records[records.length - 1];
-    const icon = iconForKind(source.kind);
+    const icon = iconForSource(source);
     const canExpand = getExpandableToolPillRecords(records).length > 0;
 
     return {
@@ -562,7 +565,7 @@ export function buildRuntimePayloadDescriptor(
 
   const kind = source.kind;
   const statusView = resolveRuntimeStatusView(source, t);
-  const icon = iconForKind(kind);
+  const icon = iconForSource(source);
   const renderer = rendererForKind(kind);
   const toolRecords = kind === 'tool' ? buildToolPillRecords(source, t) : [];
   const sections =

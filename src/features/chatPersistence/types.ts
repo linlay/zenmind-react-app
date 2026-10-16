@@ -22,7 +22,6 @@ export type ChatHomeItem = {
 
 export type ChatConversationHistoryScope = {
   agentKey: string | null;
-  teamId: string | null;
 };
 
 export type ChatReasoningEffort = 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE' | 'XHIGH' | 'MAX';
@@ -33,7 +32,6 @@ export type ChatConversationTarget = {
   title: string;
   subtitle: string;
   agentKey: string | null;
-  teamId: string | null;
   agentMode: string | null;
   modelKey: string | null;
   reasoningEffort: ChatReasoningEffort | null;
@@ -46,7 +44,7 @@ export type ChatConversationHistoryPage = {
   limit: number;
 };
 
-export type ChatDirectoryKind = 'agent' | 'team';
+export type ChatDirectoryKind = 'agent';
 
 export type ChatDirectoryIcon = AgentAvatarIcon;
 
@@ -61,8 +59,6 @@ export type ChatDirectoryItem = {
   pinnedAt: number;
   sortRank: number;
   agentKey: string | null;
-  teamId: string | null;
-  defaultAgentKey: string | null;
   agentMode: string | null;
   modelKey: string | null;
   reasoningEffort: ChatReasoningEffort | null;
@@ -84,7 +80,6 @@ export type ChatConversationSummaryProjection = {
   read?: ChatReadState;
   lastMessageStatus: ChatMessageStatus;
   agentKey: string | null;
-  teamId: string | null;
 };
 
 export type ChatHomeProjection = {
@@ -119,7 +114,7 @@ export type ChatDirectorySearchPage = {
 };
 
 export type ChatDirectorySnapshot = {
-  version: 1;
+  version: number;
   updatedAt: number;
   items: ChatDirectoryItem[];
 };
@@ -128,7 +123,7 @@ export type ChatMessageRole = 'assistant' | 'user';
 
 export type ChatMessageStreamStatus = 'streaming' | 'done';
 
-export type ChatAttachmentKind = 'image' | 'file' | 'selection' | 'chat' | 'site';
+export type ChatAttachmentKind = 'image' | 'file' | 'selection' | 'chat' | 'site' | 'skill' | 'kbase';
 
 export type ChatAttachmentStatus = 'uploading' | 'ready' | 'failed';
 
@@ -140,6 +135,7 @@ export type ChatAttachmentReference = {
   sizeBytes?: number;
   url?: string;
   sha256?: string;
+  path?: string;
   text?: string;
   annotation?: string;
   annotationIndex?: number;
@@ -147,7 +143,7 @@ export type ChatAttachmentReference = {
 };
 
 export type ChatContextReference = {
-  type: 'chat' | 'site';
+  type: 'chat' | 'site' | 'skill' | 'kbase';
   id: string;
   name: string;
   url?: string;
@@ -195,18 +191,6 @@ export type ChatMessageItem = {
 };
 
 export type ChatMessageStatus = 'pending' | 'sent' | 'failed';
-
-export type PendingOutboxMessage = {
-  clientMessageId: string;
-  conversationId: string;
-  content: string;
-  createdAt: number;
-  planningMode: boolean;
-  editingMode: boolean;
-  mustUseSkills: string[];
-  optionsError?: string;
-  attachments: ChatMessageAttachment[];
-};
 
 export type ServerMessageDetail = {
   conversation: {

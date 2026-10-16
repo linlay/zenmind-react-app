@@ -7,6 +7,7 @@ import type {
   ChatTimelineUsageTiming
 } from './types.ts';
 import { buildActiveReasoningNodeIdsByRun } from './timelineReasoningIdentity.ts';
+import { orderChatTimelineNodes } from './timelineOrder.ts';
 import { migratePersistedChatTimelineActionNode } from './timelineAction.ts';
 import { migratePersistedChatTimelineContextCompactNode } from './timelineContextCompact.ts';
 import { migratePersistedChatTimelinePlanNode } from './timelinePlan.ts';
@@ -168,7 +169,10 @@ export function serializeChatTimelineState(state: ChatTimelineState): Serialized
         return null;
       }
       const persistedNode = { ...node };
-      if (persistedNode.kind === 'tool') delete persistedNode.toolOutput;
+      if (persistedNode.kind === 'tool') {
+        delete persistedNode.toolOutput;
+        delete persistedNode.toolWait;
+      }
       if (persistedNode.kind === 'run') {
         delete persistedNode.accessUpdate;
         delete persistedNode.feedbackPending;
@@ -213,7 +217,7 @@ export function deserializeChatTimelineState(
 
   const orderedRows = [...rows].sort((left, right) => left.orderIndex - right.orderIndex);
   const nodesById: Record<string, ChatTimelineNode> = {};
-  const orderedNodeIds: string[] = [];
+  let orderedNodeIds: string[] = [];
   const orderedNodeIdSet = new Set<string>();
 
   for (const row of orderedRows) {
@@ -236,6 +240,8 @@ export function deserializeChatTimelineState(
     }
 
     let node = migratePersistedChatTimelinePlanNode(parsed, conversationId);
+    if (node.kind === 'message' && node.deliveryStatus === 'pending')
+      node = { ...node, deliveryStatus: 'failed', errorReason: 'submission_unconfirmed' };
     node = migratePersistedChatTimelineTaskNode(node, conversationId);
     node = migratePersistedChatTimelineActionNode(node, conversationId);
     node = migratePersistedChatTimelineContextCompactNode(node, conversationId);
@@ -264,6 +270,7 @@ export function deserializeChatTimelineState(
     }
   }
 
+  orderedNodeIds = orderChatTimelineNodes(orderedNodeIds, nodesById);
   const awaitingNode =
     meta.awaitingId && nodesById[meta.awaitingId]?.kind === 'awaiting'
       ? (nodesById[meta.awaitingId] as ChatTimelineAwaitingNode)

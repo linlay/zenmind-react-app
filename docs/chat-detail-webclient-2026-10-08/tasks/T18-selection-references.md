@@ -23,7 +23,7 @@ WebClient 增加选中文本引用与 annotation/annotationIndex；当前附件�
 1. 新增选择引用结构并完整透传 text/annotation/annotationIndex。
 2. 编号限定到对应 chat/run，发送后历史稳定、未发送状态按生命周期清理。
 3. 实现适合 Native 的文本选择入口，避免依赖浏览器 DOM。
-4. 在乐观消息、outbox、历史回放保持一致。
+4. 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 
 ## 当前项目接入点
 
@@ -64,17 +64,17 @@ WebClient 增加选中文本引用与 annotation/annotationIndex；当前附件�
 | 实际代码、参考代码与后端版本 | React HEAD `64e015bf28bf12c43f50640257f3ab7d402dbb73` 加已有工作区改动；WebClient HEAD `eeec6f12b29bdf440b47b3d6f108aba67981e2ea`；本地 Backend `b60bbf8a67e02cb569e90e08691b0821537438c6`，实际部署版本待 T00                                                                                                                                                                            |
 | 范围决定与协议样本           | selection 保留 id/type/text/annotation/annotationIndex，sourceKind 为可选 client meta；不携带文件 URL、sha256、路径能力。核对 WebClient selectedTextReference/useSelectedTextFragments 与 Backend contracts/queryinput/selection.go/input.go、runtime/reference/prepare.go。query 和 steer 使用同一 reference                                                                             |
 | 变更文件与设计取舍           | chatAttachmentModels/types 与 chatSelectionReference helper；复用附件 hook、附件条、composer、controller 和 TimelineList。新增按需选择/批注面板，无第二份草稿 store、数据库表、依赖或 DOM/剪贴板读取                                                                                                                                                                                      |
-| 编号和生命周期               | 编号限定当前会话/run；当前 run 已发送引用占用原编号，草稿新增取后续编号，删除不重编号，发送/重问/outbox/replay 保留原 ID 和批注。换会话/run 边界清除未提交选择；已尝试发送且状态未知的 steer 属于原 T14 pending，明确恢复时保留原引用，不当新草稿自动重发                                                                                                                                 |
+| 编号和生命周期               | 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。 |
 | 性能和交互                   | 只有点击消息引用入口才打开原生选区控件；使用 onSelectionChange 读取本消息选区并拒绝半个 emoji/非法/超长范围。最长选区 50,000 字符，超长源按需 100,000 字符窗口、50,000 步长重叠分页；不丢源的后半段，不每帧扫描历史。编号使用缓存当前 run 的 message IDs，只读这些节点的 reference 元数据。附件条点击可查看引用，草稿可编辑批注，历史只读；批注输入上限 10,000 字符，协议恢复保留历史全文 |
-| 测试命令、结果与证据位置     | chatSelectionReferences.test.mts 与 chatSelectionNative.test.mts；扩展 chatWebclientService.test.mts。覆盖混合文件去重、纯文字、元数据透传、UTF-16 选区、跨窗口、多个引用恢复、编号边界、run/chat 清理、query/steer/outbox/replay/snapshot。最终验证结果见下文                                                                                                                            |
+| 测试命令、结果与证据位置     | 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。 |
 | 真实后端 / Native 联调       | 未完成。React host 测试验证生产组件回调；Native 原生长按、选区拖动、键盘和双平台真实交互待 T31。TextInput API 核对 https://reactnative.dev/docs/textinput.html；Android 原生 editable=false 会禁用 EditText，因此保持受控内容、关闭自动软键盘并即时恢复任何编辑；iOS 使用只读选择                                                                                                         |
-| 迁移与回滚方式               | 沿用 message_attachments.kind 与 references_json 和现有 rich snapshot，无 schema/outbox 列变更。回滚代码保留 SQLite，旧文件引用规则继续使用；旧版已经丢失的文字字段不可凭空恢复，真实历史 reconcile 取得原字段后按新路径归一                                                                                                                                                              |
+| 迁移与回滚方式               | 聊天缓存使用 schema 9；旧 scope 首次打开时一次性清空聊天表、对应目录快照及应用管理的资源图片缓存，新版本不重复清空，高版本拒绝降级打开；认证、来源配置、远端数据和用户原始文件保留。 |
 | 阻塞项与后续事项             | 实际 AP/Desktop/Agent/Team 样本与 Native 操作待 T00/T31；完整目标继续 T19–T27                                                                                                                                                                                                                                                                                                             |
 | 临时状态清理与原有改动保护   | 执行前保存基线文件哈希/暂存区，记录生成产物状态；最终审计见下文                                                                                                                                                                                                                                                                                                                           |
 
 ## 本次范围记录
 
-落实计划四步：纯文字引用独立于文件过滤和文件权限；当前 run 与后续 run 编号作用域分离；原生选择和批注入口；复用既有附件/outbox/历史快照。不新增通用引用引擎、选区事件总线或网页 DOM 依赖，旧文件归一分支保留实际用途。
+联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 
 验收清单待真实联调后勾选；本地验证不能替代线上契约和 Native 选区手势验收。
 

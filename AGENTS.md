@@ -61,7 +61,7 @@ Expo SDK 56 + React Native 0.85 + TypeScript 6。当前仓库是迁移后的 `ze
 
 `ChatDetail` 由 root stack 承载，入口是 `src/features/chatPersistence/ChatDetailScreen.tsx`。
 `WebAppDetail` 由 root stack 承载导航语义，常驻 WebView 池由登录态根层的 `WebAppsRuntimeProvider` 持有。
-WebApps 目录只同步活动 Desktop WS Profile：登录后立即通过 `sharedWsTransport` 订阅 `webapp.changed` 并读取 `web.webapp.list`；页面不得直连 WebSocket 或调用通用 `action.call`。
+WebApps 目录只同步活动 Desktop WS Profile：登录后立即通过 `sharedWsTransport` 订阅 `webapp.changed` 并读取 `webapp.list`；页面不得直连 WebSocket 或调用通用 `action.call`。
 
 XGraph 上下文主入口：`.doc/index.json`
 
@@ -93,12 +93,14 @@ XGraph 上下文主入口：`.doc/index.json`
 当前硬约束：
 
 - 页面不直接 import `database.ts`、`schema.ts`、`chatWsTransport.ts`、`wsClient.ts`
-- SQLite 是聊天目录、会话摘要、消息、outbox、read state 和 rich timeline snapshot 的本地真源
+- SQLite 是聊天目录、会话摘要、消息、read state 和 rich timeline snapshot 的本地真源
 - MMKV 只保存首页冷启动目录快照
 - `chatWsTransport` / `WsClient` 只负责 transport，不直接写 UI 或 SQLite
 - WebApps 必须复用 `sharedWsTransport`；关闭 WebApps 会话不得停止共享 Socket 或移除其他 feature 的监听
 - 实时业务写入必须继续走 `chatSyncService` / `chatRepository`
 - 影响首页目录的持久化改动必须继续刷新 MMKV 目录快照
+
+聊天协议统一：TEAM 使用根 `agentKey`；技能/知识库走 `references`；输入入口读取 `interactionConfig`，编辑入口展示时显式发送布尔值。聊天只在联网时显式提交一次，断线/重启只回读历史和 attach；旧聊天缓存按当前 schema 清空重建，不保留自动重发队列。
 
 ## 包依赖变更边界
 

@@ -65,6 +65,8 @@ const SCREEN_CLASS = 'flex-1 bg-app-background-muted';
 const HEADER_SAFE_AREA_CLASS = 'bg-app-surface';
 const HEADER_ICON_BUTTON_CLASS = 'h-10 w-10 items-center justify-center active:opacity-[0.68]';
 const HEADER_WITHOUT_DIVIDER_CLASS = 'h-14 bg-app-surface';
+const HEADER_TITLE_CLASS = 'max-w-full flex-row items-center gap-app-sm';
+const HEADER_TITLE_TEXT_CLASS = 'shrink text-center text-app-title font-semibold text-app-primary';
 const LIST_SHELL_CLASS = 'flex-1 bg-app-background-muted';
 const FEEDBACK_CARD_CLASS = 'mx-app-xl mb-app-sm border-app-danger-line bg-app-danger-soft px-app-lg py-app-sm';
 const ERROR_TEXT_CLASS = 'text-[13px] leading-[20px] text-app-danger';
@@ -174,6 +176,7 @@ const CHAT_EMPTY_STATE = <ChatEmptyState />;
 export function ChatHomeScreen() {
   const t = useT();
   const cloud = useCloudAuth();
+  const selectedSource = useSyncExternalStore(subscribeActiveDesktop, getSelectedSource, getSelectedSource);
   const desktopOffline = useSyncExternalStore(subscribeActiveDesktop, isActiveDesktopOffline, isActiveDesktopOffline);
   const scopeId = useSyncExternalStore(subscribeChatCacheScope, getChatCacheScopeId, getChatCacheScopeId);
   const hasSource = scopeId !== 'signed_out' && Boolean(getActiveChatSource());
@@ -512,8 +515,7 @@ export function ChatHomeScreen() {
 
     try {
       await chatSyncService.markScopeRead({
-        agentKey: target.agentKey,
-        teamId: target.teamId
+        agentKey: target.agentKey
       });
       await loadVisibleSlice(currentPageRef.current, arePinnedItemsCollapsed);
     } catch (error) {
@@ -579,7 +581,27 @@ export function ChatHomeScreen() {
     <View className={SCREEN_CLASS}>
       <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
         <ScreenHeader
-          title={t('chatHome.title')}
+          title={
+            selectedSource ? (
+              <View
+                accessible
+                accessibilityRole="header"
+                accessibilityLabel={`${selectedSource.kind === 'desktop' ? 'PC' : t('accountSource.cloud')} ${t('chatHome.title')}`}
+                className={HEADER_TITLE_CLASS}
+              >
+                <AppIcon
+                  usage={selectedSource.kind === 'desktop' ? 'accountSource.desktop' : 'accountSource.cloud'}
+                  size={appVisualTokens.iconSizes.sm}
+                  color={theme.colors.textSecondary}
+                />
+                <Text numberOfLines={1} className={HEADER_TITLE_TEXT_CLASS}>
+                  {t('chatHome.title')}
+                </Text>
+              </View>
+            ) : (
+              t('chatHome.title')
+            )
+          }
           leftActions={headerLeftActions}
           rightActions={headerRightActions}
           className={isListEmpty ? HEADER_WITHOUT_DIVIDER_CLASS : undefined}

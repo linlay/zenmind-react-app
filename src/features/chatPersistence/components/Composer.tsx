@@ -82,6 +82,7 @@ export type ComposerAttachmentType = 'image' | 'file';
 type ComposerProps = {
   attachmentEnabled?: boolean;
   onOpenChatReferences?: () => void;
+  onOpenKbaseReferences?: () => void;
   inputDisabled?: boolean;
   steerAvailable?: boolean;
   onSteer?: () => void;
@@ -100,6 +101,7 @@ type ComposerProps = {
   placeholder?: string;
   planModeAvailable?: boolean;
   queryModeLabel?: string;
+  queryModeIconUsage?: 'composer.plan' | 'composer.edit';
   queryModeDisabled?: boolean;
   planModeEnabled?: boolean;
   onTogglePlanMode?: () => void;
@@ -163,6 +165,7 @@ const ComposerIconButton = memo(function ComposerIconButton({
 type PlanModeButtonProps = {
   expandedProgress: ComposerProgressValue;
   label: string;
+  iconUsage: 'composer.plan' | 'composer.edit';
   disabled: boolean;
   enabled: boolean;
   onPress: () => void;
@@ -171,6 +174,7 @@ type PlanModeButtonProps = {
 const PlanModeButton = memo(function PlanModeButton({
   expandedProgress,
   label,
+  iconUsage,
   disabled,
   enabled,
   onPress
@@ -203,10 +207,9 @@ const PlanModeButton = memo(function PlanModeButton({
         accessibilityState={{ checked: enabled }}
       >
         <AppIcon
-          usage={enabled ? 'composer.planActive' : 'composer.plan'}
+          usage={iconUsage}
           size={appVisualTokens.iconSizes.md}
           color={enabled ? theme.colors.brandBlueAction : theme.colors.textPrimary}
-          strokeWidth={2.1}
         />
         <Animated.Text
           allowFontScaling={false}
@@ -300,12 +303,14 @@ export const Composer = memo(function Composer({
   disabled = false,
   attachmentEnabled = true,
   onOpenChatReferences,
+  onOpenKbaseReferences,
   inputDisabled = false,
   steerAvailable = false,
   onSteer,
   placeholder,
   planModeAvailable = false,
   queryModeLabel,
+  queryModeIconUsage = 'composer.plan',
   queryModeDisabled = false,
   planModeEnabled = false,
   onTogglePlanMode
@@ -323,7 +328,7 @@ export const Composer = memo(function Composer({
     primaryAction === 'stop' || primaryAction === 'resume' || primaryAction === 'sending' || hasComposerContent;
   const primaryDisabled = disabled || primaryAction === 'send-disabled' || primaryAction === 'sending';
   const attachmentDisabled =
-    (!attachmentEnabled && !onOpenChatReferences) ||
+    (!attachmentEnabled && !onOpenChatReferences && !onOpenKbaseReferences) ||
     disabled ||
     primaryAction === 'sending' ||
     (primaryAction === 'stop' && !steerAvailable) ||
@@ -504,6 +509,20 @@ export const Composer = memo(function Composer({
               </Pressable>
             </>
           ) : null}
+          {onOpenKbaseReferences ? (
+            <Pressable
+              disabled={attachmentDisabled}
+              onPress={() => {
+                setAttachmentTrayOpen(false);
+                onOpenKbaseReferences();
+              }}
+              accessibilityRole="button"
+              accessibilityLabel={t('contextReference.chooseKbase')}
+              className={ATTACHMENT_OPTION_CLASS}
+            >
+              <Text className={ATTACHMENT_OPTION_TEXT_CLASS}>{t('contextReference.chooseKbase')}</Text>
+            </Pressable>
+          ) : null}
           {onOpenChatReferences ? (
             <Pressable
               disabled={attachmentDisabled}
@@ -515,7 +534,7 @@ export const Composer = memo(function Composer({
               accessibilityLabel={t('contextReference.chooseChat')}
               className={ATTACHMENT_OPTION_CLASS}
             >
-              <AppIcon usage="composer.attachFile" />
+              <AppIcon usage="composer.attachChatReference" />
               <Text className={ATTACHMENT_OPTION_TEXT_CLASS}>{t('contextReference.chooseChat')}</Text>
             </Pressable>
           ) : null}
@@ -558,6 +577,7 @@ export const Composer = memo(function Composer({
             <PlanModeButton
               expandedProgress={expandedProgress}
               label={queryModeLabel ?? t('composer.planMode')}
+              iconUsage={queryModeIconUsage}
               disabled={queryModeDisabled}
               enabled={planModeEnabled}
               onPress={handleTogglePlanMode}

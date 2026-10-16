@@ -51,7 +51,7 @@ function fixture(source: typeof cloud | null, offline = false) {
     getConversationDetail: async (id: string) => ({ conversationId: id }),
     Error,
     Date
-  }) as (scope: { agentKey?: string; teamId?: string }) => Promise<unknown>;
+  }) as (scope: { agentKey?: string }) => Promise<unknown>;
   return { create, writes };
 }
 
@@ -61,10 +61,10 @@ test('signed-out creation cannot write a conversation into the signed-out cache'
   assert.equal(f.writes.length, 0);
 });
 
-test('stale Agent and Team targets cannot create in another account or Desktop cache', async () => {
+test('stale Agent targets cannot create in another account or Desktop cache', async () => {
   const foreign = createChatSource('paired', JSON.stringify(['account-b', 'desktop-b']), 'Other');
   for (const target of [cloud, foreign]) {
-    for (const key of ['agentKey', 'teamId']) {
+    for (const key of ['agentKey']) {
       const f = fixture(desktop);
       await assert.rejects(f.create({ [key]: encodeChatSourceId(target, 'target') }), /source changed/);
       assert.equal(f.writes.length, 0);
@@ -72,8 +72,8 @@ test('stale Agent and Team targets cannot create in another account or Desktop c
   }
 });
 
-test('known offline Desktop rejects Agent and Team creation before any database write', async () => {
-  for (const key of ['agentKey', 'teamId']) {
+test('known offline Desktop rejects Agent creation before any database write', async () => {
+  for (const key of ['agentKey']) {
     const f = fixture(desktop, true);
     await assert.rejects(f.create({ [key]: encodeChatSourceId(desktop, 'target') }), /offline/);
     assert.equal(f.writes.length, 0);
@@ -82,7 +82,7 @@ test('known offline Desktop rejects Agent and Team creation before any database 
 
 test('current cloud and online Desktop still create a scoped conversation for each owner kind', async () => {
   for (const source of [cloud, desktop]) {
-    for (const key of ['agentKey', 'teamId']) {
+    for (const key of ['agentKey']) {
       const f = fixture(source);
       const target = encodeChatSourceId(source, 'target');
       const result = (await f.create({ [key]: target })) as { conversation: { conversationId: string } };

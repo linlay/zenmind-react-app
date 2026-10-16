@@ -22,6 +22,7 @@ const APP_COLOR_ALIASES = {
   'background-muted': 'backgroundMuted',
   badge: 'badge',
   success: 'success',
+  'usage-reasoning': 'usageReasoning',
   warning: 'warning',
   danger: 'danger',
   'danger-soft': 'dangerSoft',

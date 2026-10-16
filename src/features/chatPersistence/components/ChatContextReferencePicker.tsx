@@ -8,10 +8,12 @@ import type { ChatReferenceOption } from '../chatContextReference.ts';
 
 export function ChatContextReferencePicker({
   conversationId,
+  kind = 'chat',
   onSelect,
   onClose
 }: {
   conversationId: string;
+  kind?: 'chat' | 'kbase';
   onSelect: (item: ChatReferenceOption) => boolean;
   onClose: () => void;
 }) {
@@ -30,7 +32,10 @@ export function ChatContextReferencePicker({
       setLoading(true);
       setError('');
       try {
-        const page = await chatSyncService.listReferenceChats(conversationId, lastRunId);
+        const page =
+          kind === 'kbase'
+            ? await chatSyncService.listReferenceKbases(conversationId)
+            : await chatSyncService.listReferenceChats(conversationId, lastRunId);
         if (!alive.current) return;
         setItems((current) =>
           lastRunId ? [...new Map([...current, ...page.items].map((item) => [item.id, item])).values()] : page.items
@@ -43,7 +48,7 @@ export function ChatContextReferencePicker({
         if (alive.current) setLoading(false);
       }
     },
-    [conversationId]
+    [conversationId, kind]
   );
   useEffect(() => {
     alive.current = true;
@@ -60,7 +65,7 @@ export function ChatContextReferencePicker({
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <SafeAreaView className="flex-1 bg-app-background">
         <ScreenHeader
-          title={t('contextReference.chooseChat')}
+          title={t(kind === 'kbase' ? 'contextReference.chooseKbase' : 'contextReference.chooseChat')}
           leftActions={[
             <Pressable key="close" onPress={onClose} accessibilityRole="button" className="px-app-sm py-app-sm">
               <Text className="text-app-footnote text-app-brand">{t('selection.close')}</Text>

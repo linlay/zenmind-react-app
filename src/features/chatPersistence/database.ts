@@ -4,24 +4,20 @@ import { defaultDatabaseDirectory, deleteDatabaseSync, openDatabaseSync, type SQ
 
 import {
   buildChatDatabaseName,
+  CHAT_CACHE_SCHEMA_VERSION,
   getChatCacheScopeId,
   normalizeChatCacheScopeId,
   setChatCacheScopeId,
   notifyChatCacheScopeChanged
 } from './cacheScope';
 import * as schema from './schema';
+import { clearChatDirectorySnapshot } from './homeSnapshot';
+import { clearAuthenticatedResourceImageCache } from '../../core/api/services/authenticatedResourceImage';
 
 let sqlite = openDatabaseSync(buildChatDatabaseName(), { enableChangeListener: true });
 
 export let chatDb = drizzle(sqlite, { schema });
 
-const READ_STATE_SCHEMA_VERSION = 1;
-const RICH_TIMELINE_SCHEMA_VERSION = 2;
-const CHAT_DIRECTORY_ICON_SCHEMA_VERSION = 3;
-const MESSAGE_ATTACHMENTS_SCHEMA_VERSION = 4;
-const CHAT_QUERY_INDEX_SCHEMA_VERSION = 6;
-const CHAT_DIRECTORY_MODEL_SETTINGS_SCHEMA_VERSION = 7;
-const SOURCE_DELETED_SCHEMA_VERSION = 8;
 let initialized = false;
 
 export type ChatCacheConversationStorage = {
@@ -122,9 +118,7 @@ function readChatDatabaseScopeInventory(
     ...(canJoinSync && syncColumns.has('last_synced_at') ? ['coalesce(s.last_synced_at, 0)'] : []),
     ...(canJoinTimelineMeta && timelineMetaColumns.has('persisted_at') ? ['coalesce(tm.persisted_at, 0)'] : [])
   ];
-  const sizeTerms = [
-    blobLengthExpression('c', conversationColumns, ['id', 'title', 'last_message_text', 'agent_key', 'team_id'])
-  ];
+  const sizeTerms = [blobLengthExpression('c', conversationColumns, ['id', 'title', 'last_message_text', 'agent_key'])];
   for (const [tableName, alias, columns] of [
     ['messages', 'm', ['id', 'content', 'role', 'delivery_status', 'error_reason']],
     ['message_attachments', 'a', ['id', 'name', 'kind', 'mime_type', 'resource_url', 'sha256', 'references_json']],
@@ -226,7 +220,6 @@ export function deleteChatConversationFromScopeIfExists(scopeId: string, convers
       for (const tableName of [
         'conversation_timeline_nodes',
         'conversation_timeline_meta',
-        'outbox_messages',
         'message_attachments',
         'messages',
         'conversation_sync_state'
@@ -306,28 +299,23 @@ export function deleteChatDatabaseScopeIfExists(scopeId: string): ChatDatabaseSc
   }
 }
 
-function ignoreDuplicateColumn(error: unknown) {
-  if (!String(error instanceof Error ? error.message : error).includes('duplicate column name')) {
-    throw error;
-  }
-}
-
-function getDatabaseUserVersion(): number {
-  const row = sqlite.getFirstSync<{ user_version: number }>('PRAGMA user_version;');
-  const version = Number(row?.user_version || 0);
-  return Number.isFinite(version) ? version : 0;
-}
-
 export async function ensureChatDatabase() {
-  if (initialized) {
-    return;
-  }
-
-  sqlite.execSync(`
-    PRAGMA journal_mode = WAL;
-    PRAGMA foreign_keys = ON;
-
-	    CREATE TABLE IF NOT EXISTS conversations (
+  if (initialized) return;
+  const version = Number(sqlite.getFirstSync<{ user_version: number }>('PRAGMA user_version;')?.user_version || 0);
+  if (version > CHAT_CACHE_SCHEMA_VERSION) throw new Error('Chat cache was created by a newer app');
+  sqlite.execSync('PRAGMA journal_mode = WAL;');
+  if (version < CHAT_CACHE_SCHEMA_VERSION) {
+    clearChatDirectorySnapshot();
+    clearAuthenticatedResourceImageCache();
+    sqlite.execSync('PRAGMA foreign_keys = OFF;');
+    try {
+      sqlite.withTransactionSync(() => {
+        const tables = sqlite.getAllSync<{ name: string }>(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+        );
+        for (const { name } of tables) sqlite.execSync(`DROP TABLE "${name.replace(/"/g, '""')}";`);
+        sqlite.execSync(`
+    CREATE TABLE IF NOT EXISTS conversations (
 	      id TEXT PRIMARY KEY NOT NULL,
 	      title TEXT NOT NULL,
 	      last_message_text TEXT NOT NULL,
@@ -340,7 +328,6 @@ export async function ensureChatDatabase() {
 	      pinned_at INTEGER NOT NULL DEFAULT 0,
       updated_at INTEGER NOT NULL,
       agent_key TEXT,
-      team_id TEXT,
       source_deleted INTEGER NOT NULL DEFAULT 0
     );
 
@@ -356,8 +343,6 @@ export async function ensureChatDatabase() {
       pinned_at INTEGER NOT NULL DEFAULT 0,
       sort_rank INTEGER NOT NULL,
       agent_key TEXT,
-      team_id TEXT,
-      default_agent_key TEXT,
       agent_mode TEXT,
       model_key TEXT,
       reasoning_effort TEXT,
@@ -417,16 +402,6 @@ export async function ensureChatDatabase() {
     CREATE INDEX IF NOT EXISTS message_attachments_client_message_idx
       ON message_attachments(client_message_id);
 
-    CREATE TABLE IF NOT EXISTS outbox_messages (
-      client_message_id TEXT PRIMARY KEY NOT NULL,
-      conversation_id TEXT NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-      content TEXT NOT NULL,
-      planning_mode INTEGER NOT NULL DEFAULT 0,
-      editing_mode INTEGER NOT NULL DEFAULT 0,
-      must_use_skills_json TEXT NOT NULL DEFAULT '[]',
-      created_at INTEGER NOT NULL
-    );
-
     CREATE TABLE IF NOT EXISTS conversation_sync_state (
       conversation_id TEXT PRIMARY KEY NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
       active_run_id TEXT NOT NULL DEFAULT '',
@@ -462,180 +437,23 @@ export async function ensureChatDatabase() {
 
     CREATE INDEX IF NOT EXISTS conversation_timeline_nodes_order_idx
       ON conversation_timeline_nodes(conversation_id, order_index);
-  `);
-
-  try {
-    sqlite.execSync('ALTER TABLE conversations ADD COLUMN pinned_at INTEGER NOT NULL DEFAULT 0;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE conversations ADD COLUMN agent_key TEXT;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE conversations ADD COLUMN team_id TEXT;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE conversations ADD COLUMN is_read INTEGER NOT NULL DEFAULT 1;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE conversations ADD COLUMN read_at INTEGER;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE conversations ADD COLUMN read_run_id TEXT;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE conversations ADD COLUMN source_deleted INTEGER NOT NULL DEFAULT 0;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE chat_directory_items ADD COLUMN latest_conversation_id TEXT;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE chat_directory_items ADD COLUMN icon_name TEXT;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE chat_directory_items ADD COLUMN icon_color TEXT;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE chat_directory_items ADD COLUMN icon_uri TEXT;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE chat_directory_items ADD COLUMN agent_mode TEXT;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE chat_directory_items ADD COLUMN model_key TEXT;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE chat_directory_items ADD COLUMN reasoning_effort TEXT;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE outbox_messages ADD COLUMN planning_mode INTEGER NOT NULL DEFAULT 0;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync('ALTER TABLE outbox_messages ADD COLUMN editing_mode INTEGER NOT NULL DEFAULT 0;');
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  try {
-    sqlite.execSync("ALTER TABLE outbox_messages ADD COLUMN must_use_skills_json TEXT NOT NULL DEFAULT '[]';");
-  } catch (error) {
-    ignoreDuplicateColumn(error);
-  }
-
-  if (getDatabaseUserVersion() < READ_STATE_SCHEMA_VERSION) {
-    sqlite.execSync(`
-      BEGIN IMMEDIATE;
-
-      DROP INDEX IF EXISTS conversations_updated_at_idx;
-      DROP INDEX IF EXISTS conversations_home_order_idx;
-      DROP INDEX IF EXISTS conversations_agent_updated_at_idx;
-      DROP INDEX IF EXISTS conversations_team_updated_at_idx;
-      DROP INDEX IF EXISTS conversations_agent_read_idx;
-      DROP INDEX IF EXISTS conversations_team_read_idx;
-
-      UPDATE conversations
-      SET is_read = CASE WHEN unread_count > 0 THEN 0 ELSE 1 END,
-          unread_count = CASE WHEN unread_count > 0 THEN 1 ELSE 0 END;
-
-      PRAGMA user_version = ${READ_STATE_SCHEMA_VERSION};
-
-      COMMIT;
-    `);
-  }
-
-  if (getDatabaseUserVersion() < RICH_TIMELINE_SCHEMA_VERSION) {
-    sqlite.execSync(`PRAGMA user_version = ${RICH_TIMELINE_SCHEMA_VERSION};`);
-  }
-
-  if (getDatabaseUserVersion() < CHAT_DIRECTORY_ICON_SCHEMA_VERSION) {
-    sqlite.execSync(`PRAGMA user_version = ${CHAT_DIRECTORY_ICON_SCHEMA_VERSION};`);
-  }
-
-  if (getDatabaseUserVersion() < MESSAGE_ATTACHMENTS_SCHEMA_VERSION) {
-    sqlite.execSync(`PRAGMA user_version = ${MESSAGE_ATTACHMENTS_SCHEMA_VERSION};`);
-  }
-
-  if (getDatabaseUserVersion() < CHAT_QUERY_INDEX_SCHEMA_VERSION) {
-    sqlite.execSync(`
-      DROP INDEX IF EXISTS conversations_agent_last_message_idx;
-      DROP INDEX IF EXISTS conversations_team_last_message_idx;
-      DROP INDEX IF EXISTS conversations_agent_draft_recency_idx;
-      DROP INDEX IF EXISTS conversations_team_draft_recency_idx;
-    `);
-  }
-
-  sqlite.execSync(`
     CREATE INDEX IF NOT EXISTS conversations_agent_recency_idx
       ON conversations(agent_key, last_message_at DESC, updated_at DESC, id ASC);
 
-    CREATE INDEX IF NOT EXISTS conversations_team_recency_idx
-      ON conversations(team_id, last_message_at DESC, updated_at DESC, id ASC);
 
     CREATE INDEX IF NOT EXISTS conversations_agent_non_empty_recency_idx
       ON conversations(agent_key, last_message_at DESC, updated_at DESC, id ASC)
       WHERE length(trim(last_message_text)) > 0;
 
-    CREATE INDEX IF NOT EXISTS conversations_team_non_empty_recency_idx
-      ON conversations(team_id, last_message_at DESC, updated_at DESC, id ASC)
-      WHERE length(trim(last_message_text)) > 0;
 
     CREATE INDEX IF NOT EXISTS conversations_agent_non_empty_count_idx
       ON conversations(agent_key)
       WHERE length(trim(last_message_text)) > 0;
 
-    CREATE INDEX IF NOT EXISTS conversations_team_non_empty_count_idx
-      ON conversations(team_id)
-      WHERE length(trim(last_message_text)) > 0;
 
     CREATE INDEX IF NOT EXISTS conversations_agent_read_idx
       ON conversations(agent_key, is_read);
 
-    CREATE INDEX IF NOT EXISTS conversations_team_read_idx
-      ON conversations(team_id, is_read);
 
     CREATE INDEX IF NOT EXISTS chat_directory_items_home_order_idx
       ON chat_directory_items(pinned_at DESC, sort_rank ASC, latest_conversation_id);
@@ -643,39 +461,28 @@ export async function ensureChatDatabase() {
     CREATE INDEX IF NOT EXISTS chat_directory_items_agent_idx
       ON chat_directory_items(agent_key);
 
-    CREATE INDEX IF NOT EXISTS chat_directory_items_team_idx
-      ON chat_directory_items(team_id);
 
     CREATE INDEX IF NOT EXISTS chat_directory_items_stable_order_idx
       ON chat_directory_items(sort_rank ASC, id ASC);
 
-    CREATE INDEX IF NOT EXISTS message_attachments_message_idx
-      ON message_attachments(message_id, sort_order);
 
-    CREATE INDEX IF NOT EXISTS message_attachments_conversation_idx
-      ON message_attachments(conversation_id, created_at);
 
-    CREATE INDEX IF NOT EXISTS message_attachments_client_message_idx
-      ON message_attachments(client_message_id);
 
-    CREATE INDEX IF NOT EXISTS outbox_messages_created_at_idx
-      ON outbox_messages(created_at DESC, client_message_id);
 
-    CREATE INDEX IF NOT EXISTS outbox_messages_conversation_idx
-      ON outbox_messages(conversation_id);
-  `);
 
-  if (getDatabaseUserVersion() < CHAT_QUERY_INDEX_SCHEMA_VERSION) {
-    sqlite.execSync(`PRAGMA user_version = ${CHAT_QUERY_INDEX_SCHEMA_VERSION};`);
+
+
+          PRAGMA user_version = ${CHAT_CACHE_SCHEMA_VERSION};
+        `);
+      });
+    } finally {
+      sqlite.execSync('PRAGMA foreign_keys = ON;');
+    }
   }
-
-  if (getDatabaseUserVersion() < CHAT_DIRECTORY_MODEL_SETTINGS_SCHEMA_VERSION) {
-    sqlite.execSync(`PRAGMA user_version = ${CHAT_DIRECTORY_MODEL_SETTINGS_SCHEMA_VERSION};`);
-  }
-
-  if (getDatabaseUserVersion() < SOURCE_DELETED_SCHEMA_VERSION) {
-    sqlite.execSync(`PRAGMA user_version = ${SOURCE_DELETED_SCHEMA_VERSION};`);
-  }
-
+  sqlite.execSync('PRAGMA foreign_keys = ON;');
+  // An interrupted submission is never automatically replayed after opening a scope.
+  sqlite.runSync(
+    "UPDATE messages SET delivery_status = 'failed', error_reason = 'submission_unconfirmed' WHERE delivery_status = 'pending'"
+  );
   initialized = true;
 }

@@ -20,6 +20,14 @@ type InflightDownload = {
 const inflightDownloads = new Map<string, InflightDownload>();
 const resolvedConsumers = new Map<string, number>();
 
+export function clearAuthenticatedResourceImageCache(): void {
+  for (const download of inflightDownloads.values()) download.controller.abort();
+  inflightDownloads.clear();
+  resolvedConsumers.clear();
+  const directory = new Directory(Paths.cache, CACHE_DIRECTORY_NAME);
+  if (directory.exists) directory.delete();
+}
+
 function createAbortError(reason?: unknown): Error {
   const error = new Error(typeof reason === 'string' && reason ? reason : 'The operation was aborted.');
   error.name = 'AbortError';

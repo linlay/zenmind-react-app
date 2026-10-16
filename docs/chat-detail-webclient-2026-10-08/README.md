@@ -89,12 +89,12 @@ P1 表示建议优先纳入的数据正确性、协议兼容或稳定性工作�
 - **绝对禁止过度设计。**新增代码必须对应已确认的需求或缺陷，并采用满足验收的最简单方案；不为未来需求预建框架，不因 WebClient 更复杂就照搬，不为单个功能建立第二套状态。身份隔离、幂等、内存上限与真实终态属于必要正确性要求，不能省略。
 - 优先修改现有入口；只有实际重复才提取公共代码，只有实际恢复需求才新增持久化，只有旧数据确实不兼容才迁移。避免新增通用状态机、动作路由、模式、能力、导出或会话引擎；这些计划不授权建设公共基础框架。
 - 页面与组件消费 controller/service 产物；API 走 core 服务，实时业务写入走 `chatSyncService` / `chatRepository`。页面不得直接访问 SQLite、MMKV 或 WebSocket。
-- SQLite 是会话、消息、outbox、read state 和 rich timeline snapshot 的本地真源。影响首页目录的持久化改动必须刷新 MMKV 目录快照。
+- 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 - reducer/projector 保持数据投影职责；资源请求、提交、复制、分享和恢复操作放在对应 service/controller，不在 replay 中执行副作用。
 - 每个异步操作明确 source namespace、connection、owner、chatId 和 runId 的适用范围，防止切换账号、Profile、Agent/Team 后旧结果回写。
 - transport done、detach、本地停止展示、interrupt 接受与服务端业务终态分别处理。关闭单个功能不得停止共享 socket 或移除其他 feature 的监听。
 - 区分 missing、null、未知结果、实时事件、权威详情和旧页历史；历史事件不能无条件覆盖当前 awaiting、read state 或 canContinue。
-- 数据契约变更同时考虑 live、回放、旧 SQLite、outbox 重发及升级回滚；不得要求用户删库来完成迁移。
+- 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 - UI 使用现有主题、NativeWind 和共享组件；平台差异应显式降级，不把 Web/Desktop bridge 直接搬到 Native。
 - 新增或调整依赖只修改 `package.json`，不运行安装命令、不改 lock 文件；需要安装时由用户手动执行。
 - 任务改变公共入口、职责、运行链路或规则时，同步 `.doc/curated` 并执行 `xgraph index`、`xgraph status` 和仓库要求的 `xgraph sync` / finish 流程。
@@ -121,7 +121,7 @@ P1 表示建议优先纳入的数据正确性、协议兼容或稳定性工作�
 | 维度         | 必须考虑的场景                                                                  |
 | ------------ | ------------------------------------------------------------------------------- |
 | 身份与来源   | Agent / Team 及成员事件；AP / Desktop；Profile 与 namespace 切换                |
-| 数据入口     | query stream、push、attach、详情快照、历史分页、SQLite 冷启动、outbox 重发      |
+| 数据入口     | 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。 |
 | 生命周期     | 首轮/续聊、active、awaiting、success、failure、cancel、重试等待、压缩、多轮交错 |
 | 网络时序     | 断网、重连、超时未知结果、重复、迟到、乱序、快照交接、快速切换会话              |
 | 存储与资源   | 旧 schema/snapshot、长历史、大输出、中文/emoji、鉴权资源、过期或权限撤销        |
@@ -182,9 +182,9 @@ P1 表示建议优先纳入的数据正确性、协议兼容或稳定性工作�
 
 ## P2 继续执行：T16 KBASE Editing
 
-按 T12 已取得的 Agent detail.mode 区分 KBASE Editing 与 CODER Planning，复用原模式按钮但保留独立状态、文案和 query 字段；成功发送清除 Editing，失败保留，切换 Agent/会话及能力失效清除。运行/发送/steer 时模式按钮禁用，steer 不带 query 模式。T15 技能目录、技能包及 mustUseSkills 协议已核对，下一步继续其实现。
+技能目录读取 id，单次选择经 references 的 skill 引用提交；TEAM 同样按根 agentKey 和 interactionConfig 校验能力，不单独持久化待重放发送选项。
 
-outbox 新增 `editing_mode INTEGER NOT NULL DEFAULT 0`，使用现有增量初始化方式，无删库、无新索引、无依赖/配置变更。历史合并只按 pending client IDs 读取并保留两种模式；失败消息重问按主键读取原始选项，重连派发仍校验 KBASE 能力，失败不会静默去掉 Editing。
+聊天缓存使用 schema 9；旧 scope 首次打开时一次性清空聊天表、对应目录快照及应用管理的资源图片缓存，新版本不重复清空，高版本拒绝降级打开；认证、来源配置、远端数据和用户原始文件保留。
 
 全量脚本测试 626/626、类型检查、lint 通过；新增真实 SQLite 旧表升级与重复启动测试，并覆盖 query true-only、Team、混用拒绝、保存、默认下一轮和重连能力变化。最终定向回归 58/58、Web 导出成功；真实后端与 Native 仍待 T00/T31 联合验收，整个目标未完成。
 
@@ -194,7 +194,7 @@ outbox 新增 `editing_mode INTEGER NOT NULL DEFAULT 0`，使用现有增量初�
 
 `/api/skills` 从会话 source service 读取，合并全局 catalog、用户级 pinned、Agent configured 技能，按 full ID 去重；30 秒成功缓存/同 Agent single-flight/32 项上限，reset 后旧响应不入缓存。技能包使用具体成员 ID，目录缺失成员显示部分不可用。菜单复用现有浮层，以虚拟列表、名称/完整 ID 搜索和复选框支持本次选择。搜索键盘保持菜单打开，切换 Agent 关闭菜单。
 
-选择绑定当前 Agent/会话，成功发送清除、失败保留，目标/能力变化清除；query 与 outbox 都使用一致的具体 ID，关闭/空选择不加字段，Team/steer 不透传。发送与重连复核能力和目录；失效或损坏的 pending 不降级普通 query。新增 `must_use_skills_json TEXT NOT NULL DEFAULT '[]'`，初始化幂等、旧行默认空、历史合并保留；失败重问按 client ID 读原选项，不新增索引、全局默认或通用选项引擎。旧 `getOutboxMessageModes` 已由实际包含技能的 `getOutboxMessageOptions` 替代，无兼容空壳。
+技能目录读取 id，单次选择经 references 的 skill 引用提交；TEAM 同样按根 agentKey 和 interactionConfig 校验能力，不单独持久化待重放发送选项。
 
 全量测试 635/635、`pnpm exec tsc --noEmit`、`pnpm lint`、Web 导出通过；XGraph status 通过。真实后端/AP/Desktop 与 Native 联合验收仍待 T00/T31，整个目标继续执行 T17–T27 等剩余任务。
 
@@ -212,7 +212,7 @@ outbox 新增 `editing_mode INTEGER NOT NULL DEFAULT 0`，使用现有增量初�
 
 ## P2 继续执行：T18 划词引用与批注
 
-selection 与文件分别归一，保留 text/annotation/annotationIndex/sourceKind 并剥离文件访问能力；纯文字无文件名/URL 也不会丢失。复用现有附件 JSON、outbox、乐观消息、历史回放和 rich snapshot，query/steer 一致；禁用本地文件的 Agent 仍可发送文字引用。失败重问、显式 steer 恢复保持原 ID/编号/批注，不增加 schema 或默认草稿持久化。
+联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 
 详情消息新增按需引用入口，原生选区控件只捕获当前消息的明确范围，支持批注和文字/代码来源；半个 emoji、空或超长范围不能提交。当前 run 编号接在已发送引用后，未发送选择在 run/chat 边界清除；已发送不重编号。历史引用只读，输入区引用可编辑批注。最长选区 50,000 字符，源控件采用重叠窗口按需分页，正文热路径不加载选择控件，也不逐帧扫描整份历史。未创建引用事件总线、独立存储、通用引擎或新依赖。
 
@@ -226,7 +226,7 @@ selection 与文件分别归一，保留 text/annotation/annotationIndex/sourceK
 
 聊天选择按当前来源读取摘要页，Agent 使用当前 agentKey，Team 使用 canonical Team owner 和该来源可见目录，避免借成员 Agent 能力。分页 10 条、虚拟列表、搜索已加载摘要，不预取引用聊天完整历史。按 type+ID 去重，保留 meta；同名不同 ID、后端重写标题/context、跨来源、自引用与回放均有专项覆盖。
 
-复用附件 JSON/outbox/rich snapshot，typed context 不走上传或文件资源预览。失败保留正文和引用并提示替换/移除；重开失败重问先回输入区，query/outbox 都复查当前能力，异步结果不覆盖下一会话。Native 没有 WebClient 的 Desktop host bridge，Site 关闭选择但保留只读历史，禁止重发；chat/Site 不支持 steer，UI/service 双层拦截。无新 schema、全局 store、轮询或依赖。真实后端/Native 仍待 T00/T31，整个目标继续 T20–T27。
+联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 
 本轮最终验证：定向 46/46、全量 665/665、`pnpm exec tsc --noEmit`、`pnpm lint`、Web 导出、`xgraph sync` 与 `xgraph status` 均通过。真实后端与 Native 联调未完成。
 
@@ -246,7 +246,7 @@ image_generate 从现有 argsText/resultText 和对应 run/tool 状态派生最�
 
 当前 WebClient/Backend 只接受 thumbs_down/clear；按此契约接入可选评语与清除，点赞仍缺真实后端协议，保留未完成。反馈绑定 source/owner/chat/run，Team canonical owner 不带成员 Agent；物理互斥覆盖预检和 RPC，optimistic 只在 RunNode 瞬态，不落 SQL。拒绝回滚已确认状态并保留新评语草稿；切来源的旧响应不写替换实例。
 
-server runs 恢复反馈，clear 响应省略 setAt、detail 省略全部字段；确认值进 rich snapshot，pending 在保存/恢复时剥离。reconcile 的请求前基线保护新确认值免受在途旧快照覆盖，旧页不撤销新反馈，最新 Desktop 详情可权威 clear。Run 身份兼容请求前缀，UI ID 索引只在有序节点列表改变时重建，正文不每帧扫描历史。无新 schema/store/outbox/轮询；真实 AP/Desktop/Native 验收及点赞协议仍待 T00/T31，整个目标继续 T22–T27。
+联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 
 本轮最终验证：定向 40/40、全量 675/675、`pnpm exec tsc --noEmit`、`pnpm lint`、Web 导出、`xgraph sync` 与 `xgraph status` 均通过。点赞协议、真实后端与 Native 联合验收仍未完成。
 
@@ -256,7 +256,7 @@ server runs 恢复反馈，clear 响应省略 setAt、detail 省略全部字段�
 
 /api/chat/derive 接受指定源 Run 和客户端目标 ID，服务端保留截止该轮的上下文并重写 Run/资源；没有复制 query 模拟。创建前 await 现有 rich snapshot 保存最小目标 ID/owner，完成 Run 且无运行/awaiting 才能创建。物理互斥覆盖预检/落盘/RPC；超时、5xx 或 chat_exists 保留未知，恢复仅 GET 精确目标。明确创建拒绝允许显式新尝试，目标查询 404/403 绝不清意图。已确认再次点击打开同一派生对话。
 
-确认目标身份/owner 后合并服务端历史，新实时状态不会被核对旧详情覆盖；复用 repository 写 owner、刷新 MMKV 目录，最后由 controller replace。切 source/页面不会晚导航。Run 意图沿用 rich snapshot、事件/历史合并与冷恢复，无新 schema/操作表/store/outbox/轮询/依赖。UI 复用 memo footer 与只在有序 ID 改变时重建的索引。T00/T31 的实际部署/Native 联合验收待完成，整个目标继续 T23–T27。
+联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 
 本轮最终验证：定向 50/50、全量 684/684、`pnpm exec tsc --noEmit`、`pnpm lint`、Web 导出、`xgraph sync` 与 `xgraph status` 均通过；真实部署/Native 联合验收未完成。
 
@@ -304,7 +304,7 @@ T25 已确认后端 HTTP 启动、attach 和 interrupt 可完整控制 BTW；普
 
 完整目标尚未达成；逐项证据和缺口见 [T31 当前完成性审计](tasks/T31-integration-acceptance.md)。最新本地回归为 702/702、类型/lint/Web 构建通过，本次额外 `pnpm exec tsc --noEmit --noUnusedLocals --noUnusedParameters` 通过；不把这些检查当作真实部署/Native 验收。
 
-T24 所需 expo-sharing 仍未安装，AGENTS 要求用户手动执行安装。T25 计划要求共享 transport，后端普通主 WS 不支持 BTW，必须确认移动端通道或完整 HTTP 策略及 AP/Desktop 路由/认证。部署版本、可操作联调会话与 Native 条件仍待补充；当前现有 ADB 服务无设备、iOS 无已启动模拟器。旧 T00/T31 的 P1“无 schema/依赖变更”已标为历史状态，实际 P2 增加 Editing/skills outbox 字段、分享依赖仅声明；旧数据升级与幂等有真实内存 SQLite 测试，Native 升级仍待验收。
+联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 
 本轮未改业务代码、依赖、lock、Git 配置或设备状态。ADB 沙箱探测写入的系统诊断日志原有所有权不明，按 AGENTS 保留并在 T31 记录；不删除原有 ADB 服务或用户状态。本轮 662 个基线文件中 646 个保持原哈希，16 个变化仅为 T00/T25/T31/总览记录与 XGraph 派生；无新增工作区文件。暂存区与 1,964 个 `.expo`/生成文件保持原样，业务代码、依赖/lock、配置和原有改动不变；owned 审计临时目录/日志移除并复核。系统 ADB 日志所有权不明，保留项不计为已恢复；目标仍未完成。
 

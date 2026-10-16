@@ -7,6 +7,7 @@ import {
   type ChatSkillPackage
 } from '../../../core/api/services/chatSkillsProtocol';
 import { useT } from '../../../shared/i18n';
+import { AppIcon } from '../../../shared/icons/AppIcon';
 import { cn } from '../../../shared/visual/className';
 
 type Props = {
@@ -33,7 +34,7 @@ export const ChatComposerSkillsMenu = memo(function ChatComposerSkillsMenu({
   const rows = useMemo<Row[]>(() => {
     if (!catalog) return [];
     const needle = search.trim().toLowerCase();
-    const available = new Map(catalog.skills.map((skill) => [skillIdentity(skill.key), skill]));
+    const available = new Map(catalog.skills.map((skill) => [skillIdentity(skill.id), skill]));
     const grouped = new Set<string>();
     const result: Row[] = [];
     const matches = (key: string, label: string) => !needle || `${key}\n${label}`.toLowerCase().includes(needle);
@@ -45,16 +46,16 @@ export const ChatComposerSkillsMenu = memo(function ChatComposerSkillsMenu({
         grouped.add(id);
         return [skill];
       });
-      const packageMatch = matches(pkg.key, pkg.label);
-      const visible = members.filter((skill) => packageMatch || matches(skill.key, skill.label));
+      const packageMatch = matches(pkg.id, pkg.label);
+      const visible = members.filter((skill) => packageMatch || matches(skill.id, skill.label));
       if (!packageMatch && !visible.length) continue;
-      result.push({ id: `package:${pkg.key}`, pkg });
-      if (expanded.has(pkg.key) || needle)
-        for (const skill of visible) result.push({ id: `skill:${skill.key}`, skill, parent: pkg.key });
+      result.push({ id: `package:${pkg.id}`, pkg });
+      if (expanded.has(pkg.id) || needle)
+        for (const skill of visible) result.push({ id: `skill:${skill.id}`, skill, parent: pkg.id });
     }
     for (const skill of catalog.skills)
-      if (!grouped.has(skillIdentity(skill.key)) && matches(skill.key, skill.label))
-        result.push({ id: `skill:${skill.key}`, skill });
+      if (!grouped.has(skillIdentity(skill.id)) && matches(skill.id, skill.label))
+        result.push({ id: `skill:${skill.id}`, skill });
     const ranks = new Map(catalog.pinned.map((key, index) => [skillIdentity(key), index]));
     // Sort blocks, preserving each package's child order.
     const blocks: Row[][] = [];
@@ -63,7 +64,7 @@ export const ChatComposerSkillsMenu = memo(function ChatComposerSkillsMenu({
       else blocks.push([row]);
     }
     blocks.sort((a, b) => {
-      const key = (row: Row) => ('pkg' in row ? row.pkg.key : row.skill.key);
+      const key = (row: Row) => ('pkg' in row ? row.pkg.id : row.skill.id);
       const label = (row: Row) => ('pkg' in row ? row.pkg.label : row.skill.label);
       return (
         (ranks.get(skillIdentity(key(a[0]))) ?? catalog.pinned.length) -
@@ -106,7 +107,7 @@ export const ChatComposerSkillsMenu = memo(function ChatComposerSkillsMenu({
         renderItem={({ item }) => {
           const pkg = 'pkg' in item ? item.pkg : null;
           const skill = 'skill' in item ? item.skill : null;
-          const ids = pkg ? pkg.members : [skill!.key];
+          const ids = pkg ? pkg.members : [skill!.id];
           const isChecked = ids.length > 0 && ids.every((key) => checked.has(skillIdentity(key)));
           return (
             <View
@@ -126,17 +127,26 @@ export const ChatComposerSkillsMenu = memo(function ChatComposerSkillsMenu({
                   isChecked ? 'bg-app-brand-blue-soft' : null
                 )}
               >
-                <Text className="text-[18px] text-app-brand-blue">{isChecked ? '☑' : '☐'}</Text>
+                <AppIcon
+                  usage={
+                    pkg
+                      ? expanded.has(pkg.id)
+                        ? 'composer.skillPackageOpen'
+                        : 'composer.skillPackage'
+                      : 'composer.skills'
+                  }
+                />
                 <View className="flex-1">
                   <Text numberOfLines={1} className="text-[15px] text-app-primary">
                     {pkg?.label ?? skill!.label}
                   </Text>
                   <Text numberOfLines={1} className="text-[12px] text-app-tertiary">
                     {pkg
-                      ? `${pkg.members.length} · ${pkg.incomplete ? t('composer.skills.incomplete') : pkg.key}`
-                      : `${skill!.key}${skill!.configured ? ` · ${t('composer.skills.configured')}` : ''}`}
+                      ? `${pkg.members.length} · ${pkg.incomplete ? t('composer.skills.incomplete') : pkg.id}`
+                      : `${skill!.id}${skill!.configured ? ` · ${t('composer.skills.configured')}` : ''}`}
                   </Text>
                 </View>
+                {isChecked ? <AppIcon usage="composer.optionSelected" size={18} /> : null}
               </Pressable>
               {pkg ? (
                 <Pressable
@@ -145,14 +155,14 @@ export const ChatComposerSkillsMenu = memo(function ChatComposerSkillsMenu({
                   onPress={() =>
                     setExpanded((current) => {
                       const next = new Set(current);
-                      if (next.has(pkg.key)) next.delete(pkg.key);
-                      else next.add(pkg.key);
+                      if (next.has(pkg.id)) next.delete(pkg.id);
+                      else next.add(pkg.id);
                       return next;
                     })
                   }
                   className="h-[44px] w-[44px] items-center justify-center"
                 >
-                  <Text className="text-[20px] text-app-secondary">{expanded.has(pkg.key) ? '−' : '+'}</Text>
+                  <AppIcon usage={expanded.has(pkg.id) ? 'runtime.planCollapse' : 'runtime.planExpand'} />
                 </Pressable>
               ) : null}
             </View>

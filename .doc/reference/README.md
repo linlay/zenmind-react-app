@@ -32,19 +32,19 @@ xgraph status
 
 当前底部 Tab：
 
-| Tab | 标签 | 实际入口 |
-| --- | --- | -------- |
-| `Chat` | 对话 | `src/features/chatPersistence/ChatHomeScreen.tsx` |
+| Tab        | 标签 | 实际入口                                               |
+| ---------- | ---- | ------------------------------------------------------ |
+| `Chat`     | 对话 | `src/features/chatPersistence/ChatHomeScreen.tsx`      |
 | `Terminal` | 任务 | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` |
-| `Drive` | 网盘 | `src/app/screens/TabScreens.tsx` 占位页 |
-| `Me` | 用户 | `src/app/screens/TabScreens.tsx` 用户与会话信息页 |
+| `Drive`    | 网盘 | `src/app/screens/TabScreens.tsx` 占位页                |
+| `Me`       | 用户 | `src/app/screens/TabScreens.tsx` 用户与会话信息页      |
 
 `ChatDetail` 是 root stack 上层 route，由 `src/features/chatPersistence/ChatDetailScreen.tsx` 承载。
 
 ## 维护原则
 
 - 页面不直接读写 SQLite、MMKV 或底层 WebSocket transport。
-- SQLite 是聊天目录、会话摘要、消息、outbox、read state 和 rich timeline snapshot 的本地真源。
+- SQLite 是聊天目录、会话摘要、消息、read state 和 rich timeline snapshot 的本地真源。
 - MMKV 只保存首页首屏目录冷启动快照。
 - 实时业务写入继续走 `chatSyncService` / `chatRepository`。
 - HTTP 认证 profile 继续走 `deviceToken` + `/api/auth/refresh`；Desktop WS profile 只保存 Desktop WS token、`wsUrl` 和 token mode，不写入旧 device token key。

@@ -1,9 +1,6 @@
 import type { KanbanIssue } from '../../core/api/services/kanbanApi';
 import type { ChatDetailRouteParams } from '../chatPersistence/types';
-import {
-  encodeChatSourceId,
-  type ChatSource
-} from '../chatPersistence/chatSource.ts';
+import { encodeChatSourceId, type ChatSource } from '../chatPersistence/chatSource.ts';
 
 function readText(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
@@ -37,12 +34,11 @@ export function buildKanbanChatDetailParams(
       title,
       subtitle: readText(issue.title),
       agentKey: agentKey || null,
-      teamId: null,
       agentMode: null,
       modelKey: null,
       reasoningEffort: null
     },
-    historyScope: { agentKey: agentKey || null, teamId: null },
+    historyScope: { agentKey: agentKey || null },
     initialConversation: {
       source,
       conversationId,

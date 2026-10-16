@@ -10,25 +10,28 @@ export type AgentAvailability =
 export type AgentInteraction = {
   model: boolean;
   accessLevel: boolean;
-  mustUseSkills: boolean;
   connectors: boolean;
-  attachment: { localFiles: boolean; chatRecords: boolean };
+  showPlanningMode: boolean;
+  showEditingMode: boolean;
+  showTerminal: boolean;
+  attachment: { localFiles: boolean; chatRecords: boolean; skills: boolean; kbases: boolean };
 };
-export function resolveAgentInteraction(mode: string, value: unknown): AgentInteraction {
-  const normalized = mode.toUpperCase();
-  const kbase = normalized === 'KBASE';
+export function resolveAgentInteraction(value: unknown): AgentInteraction {
   const input = value && typeof value === 'object' ? (value as Record<string, unknown>) : {};
-  const attachments =
+  const attachment =
     input.attachment && typeof input.attachment === 'object' ? (input.attachment as Record<string, unknown>) : {};
-  const flag = (value: unknown, fallback: boolean) => (typeof value === 'boolean' ? value : fallback);
   return {
-    model: flag(input.model, !kbase && !['TEAM', 'PROXY', 'CHANNEL'].includes(normalized)),
-    accessLevel: flag(input.accessLevel, !kbase),
-    mustUseSkills: flag(input.mustUseSkills, normalized !== 'TEAM'),
-    connectors: flag(input.connectors, !kbase && normalized !== 'TEAM'),
+    model: input.model === true,
+    accessLevel: input.accessLevel === true,
+    connectors: input.connectors === true,
+    showPlanningMode: input.showPlanningMode === true,
+    showEditingMode: input.showEditingMode === true,
+    showTerminal: input.showTerminal === true,
     attachment: {
-      localFiles: flag(attachments.localFiles, true),
-      chatRecords: flag(attachments.chatRecords, !kbase && normalized !== 'CODER')
+      localFiles: attachment.localFiles === true,
+      chatRecords: attachment.chatRecords === true,
+      skills: attachment.skills === true,
+      kbases: attachment.kbases === true
     }
   };
 }
@@ -39,4 +42,20 @@ export function classifyAgentAvailabilityError(error: unknown): AgentAvailabilit
     if (error.status === 404) return 'unavailable';
   }
   return 'error';
+}
+
+export function hasValidAgentInteraction(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const input = value as Record<string, unknown>;
+  const attachment = input.attachment;
+  return (
+    typeof input.model === 'boolean' &&
+    typeof input.accessLevel === 'boolean' &&
+    Boolean(
+      attachment &&
+      typeof attachment === 'object' &&
+      !Array.isArray(attachment) &&
+      typeof (attachment as Record<string, unknown>).localFiles === 'boolean'
+    )
+  );
 }

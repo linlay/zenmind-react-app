@@ -4,7 +4,7 @@ export type WorkspaceFileResourceRequest = {
   line?: number | null;
 };
 
-const WORKSPACE_FILE_PATH = '/api/workspace/file';
+const WORKSPACE_FILE_PATH = '/api/file';
 
 export function buildWorkspaceFileResourceUrl(request: WorkspaceFileResourceRequest): string | null {
   const agentKey = String(request.agentKey || '').trim();
@@ -13,10 +13,6 @@ export function buildWorkspaceFileResourceUrl(request: WorkspaceFileResourceRequ
     return null;
   }
 
-  const query = new URLSearchParams({ agentKey, path: filePath });
-  const line = Math.floor(Number(request.line));
-  if (Number.isFinite(line) && line > 0) {
-    query.set('line', String(line));
-  }
+  const query = new URLSearchParams({ agentKey, path: filePath, response: 'content' });
   return `${WORKSPACE_FILE_PATH}?${query.toString()}`;
 }

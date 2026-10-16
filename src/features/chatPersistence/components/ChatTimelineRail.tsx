@@ -11,7 +11,6 @@ type ChatTimelineRailProps = {
   toneColor?: string;
 };
 
-const RAIL_ICON_SIZE = 16;
 const RAIL_LINE_COLOR_CLASS = 'bg-app-line-strong';
 const ICON_SLOT_CLASS = 'mt-[3px] h-[18px] w-[18px] items-center justify-center';
 const RAIL_STYLES = StyleSheet.create({
@@ -46,7 +45,7 @@ export const ChatTimelineRail = memo(function ChatTimelineRail({
       <View className={RAIL_LINE_COLOR_CLASS} style={RAIL_STYLES.railLineAbove} />
       {!terminal ? <View className={RAIL_LINE_COLOR_CLASS} style={RAIL_STYLES.railLineBelow} /> : null}
       <View className={ICON_SLOT_CLASS}>
-        <AppIcon usage={iconUsage} size={RAIL_ICON_SIZE} color={resolvedToneColor} />
+        <AppIcon usage={iconUsage} color={resolvedToneColor} />
       </View>
     </View>
   );

@@ -22,7 +22,7 @@ WebClient 附件已扩展聊天与 Site 上下文引用；移动端文件型附�
 
 1. 新增类型化引用而非伪造文件 URL/文件名。
 2. 按类型和稳定 ID 去重并保留 meta。
-3. 将选择、发送、outbox、历史展示和权限失效串起来。
+3. 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 4. 为依赖 Desktop bridge 的 Site 选择明确移动端替代或能力关闭，steer 不支持时禁止透传。
 
 ## 当前项目接入点
@@ -64,7 +64,7 @@ WebClient 附件已扩展聊天与 Site 上下文引用；移动端文件型附�
 | 开始 / 完成日期              | 2026-10-08 本地实施；真实验收未完成                                                                                                                                                                                                                                                                                                                                                                                                 |
 | 实际代码、参考代码与后端版本 | React HEAD `64e015bf28bf12c43f50640257f3ab7d402dbb73`（含既有未提交改动）；WebClient HEAD `eeec6f12b29bdf440b47b3d6f108aba67981e2ea`；本地 Backend HEAD `b60bbf8a67e02cb569e90e08691b0821537438c6`，只读核对。部署版本待 T00                                                                                                                                                                                                        |
 | 范围决定与协议样本           | 聊天引用选择/发送/恢复/历史；Site 仅类型化历史展示，Native 无 Desktop host bridge，关闭选择并拦截重发。WebClient composerAttachments / ComposerAddMenu / desktopWebs；Backend runtime/reference/prepare.go、interaction/config.go、runtime/query/admission.go、chatresource/steer_references.go；样本固定于 chatContextReferences/chatWebclientService/chatSelectionNative 测试                                                     |
-| 变更文件与设计取舍           | types、attachment models/hook/strip、按需 ChatContextReferencePicker、Composer/Card/Screen/controller、chatSourcePayload、chatSyncService、timelineReducer、i18n 与专项测试。复用 references_json/outbox/rich snapshot，不新增表/索引/全局 store/轮询。淘汰上下文走文件 URL/同名文件去重的旧路径；文件行为保留。Team canonical owner 不借成员能力，Agent 复核 chatRecords；摘要分页只取 /api/chats，避免逐项 /api/chat 加载完整事件 |
+| 变更文件与设计取舍           | 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。 |
 | 测试命令、结果与证据位置     | 本轮最终记录见下；node 脚本测试、pnpm exec tsc --noEmit、pnpm lint、Web 导出及 XGraph 检查。未执行会刷新 Native/品牌文件的 prepare:runtime                                                                                                                                                                                                                                                                                          |
 | 真实后端 / Native 联调       | 未执行；Agent/Team、AP/Desktop 引用权限失效与真实选取/回显操作待 T00/T31。React host 测试不能代替原生手势验收                                                                                                                                                                                                                                                                                                                       |
 | 迁移与回滚方式               | 无 schema 变更，沿用附件 JSON；旧 kind=file 的 context references 按 reference.type 校验，回放保留 ID/meta。回滚当前类型投影和 UI，不删库；旧版不能编辑新引用时保留数据                                                                                                                                                                                                                                                             |
@@ -73,7 +73,7 @@ WebClient 附件已扩展聊天与 Site 上下文引用；移动端文件型附�
 
 ## 本次范围记录
 
-2026-10-08：继续执行完整目标，聊天引用纳入本期。选择器按 source service 查询 10 条摘要页，Agent 限当前 agentKey，Team 使用该来源的可见目录（Backend /api/chats 不支持 teamId 筛选），不伪造筛选参数。排除当前聊天、按 ID 分页合并，搜索只针对已加载摘要；不读原始消息或事件。组件按需挂载、虚拟列表，不进入正文流式热路径。
+聊天归属与历史范围统一使用根 agentKey，TEAM 是普通 Agent mode；引用选择继续按来源和根 Agent 分页读取摘要。
 
 chat/site 按 type+ID 去重，标题只是展示，meta 完整保留；Site URL 不能进入文件资源预览。chat 引用 ID 随 source namespace 映射，file/selection/Site ID 保持不透明；发送前禁止跨来源和自引用。Backend 重写标题/context 时 echo 仅按 type+ID 匹配，避免重复气泡；历史与冷 rich snapshot 仍显示服务端引用。非法/失效/禁用引用不静默删除；失败正文与附件可更换后重新发送。上下文单独不能形成 query，需问题文字；steer 不支持的类型在 service 前置拒绝且不建立 pending。
 

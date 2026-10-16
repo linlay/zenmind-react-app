@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { resolveChatToolIconUsage } from '../../src/features/chatPersistence/chatToolIcon.ts';
 
 import {
   buildRuntimePayloadDescriptor,
@@ -23,6 +24,17 @@ const baseNode = {
   lifecycle: 'complete' as const
 };
 
+test('tool icons distinguish builtin identities and homogeneous groups without guessing connector names', () => {
+  assert.equal(resolveChatToolIconUsage([' FILE_READ ', 'catalog_query']), 'runtime.toolRead');
+  assert.equal(resolveChatToolIconUsage(['file_write', 'file_edit']), 'runtime.tool');
+  assert.equal(resolveChatToolIconUsage(['bash_sandbox', '_sandbox_bash_']), 'runtime.toolBash');
+  for (const name of [undefined, null, '', '__proto__', 'toString', 'mcp__files__file_read', '读取文件']) {
+    assert.equal(resolveChatToolIconUsage([name]), 'runtime.tool');
+    assert.equal(resolveChatToolIconUsage(['file_read', name]), 'runtime.tool');
+  }
+  assert.equal(resolveChatToolIconUsage([]), 'runtime.tool');
+});
+
 test('runtime descriptor maps tool nodes to tool renderer with copyable sections', () => {
   const node: ChatTimelineToolNode = {
     ...baseNode,
@@ -43,7 +55,7 @@ test('runtime descriptor maps tool nodes to tool renderer with copyable sections
   const descriptor = buildRuntimePayloadDescriptor(node);
 
   assert.equal(descriptor.renderer, 'tool');
-  assert.equal(descriptor.iconUsage, 'runtime.tool');
+  assert.equal(descriptor.iconUsage, 'runtime.toolAgent');
   assert.equal(descriptor.tone, 'tool');
   assert.equal(descriptor.statusTone, 'error');
   assert.equal(descriptor.defaultWrap, false);

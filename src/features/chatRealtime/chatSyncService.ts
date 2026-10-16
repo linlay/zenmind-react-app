@@ -24,23 +24,22 @@ import {
 import {
   CHAT_SKILLS_TRANSPORT_TYPE,
   normalizeChatSkills,
-  normalizeRequiredSkills,
-  resolveRequiredSkillIds,
+  normalizeSkillIds,
+  resolveSkillIds,
   type ChatSkillsCatalog
 } from '../../core/api/services/chatSkillsProtocol.ts';
-import { canUseEditingMode } from '../chatPersistence/agentMode.ts';
 import {
   readChatViewReference,
   type ChatViewDocument,
   type ChatViewRequest
 } from '../../core/api/services/chatViewProtocol.ts';
 import { canContinueChatTimeline, hasEstablishedChatQuery } from '../chatPersistence/chatDetailViewModel';
-import { resolveAgentInteraction } from '../chatPersistence/agentInteraction';
+import { hasValidAgentInteraction, resolveAgentInteraction } from '../chatPersistence/agentInteraction';
 import { assertRemoteChatDetailTimes } from '../../core/api/services/chatRemoteTimeProtocol';
 import {
   isChatTimelineContentEventClosed,
   reconcileChatTimelineAwaitingSnapshot,
-  clearChatTimelineToolOutput
+  clearChatTimelineToolTransientState
 } from '../chatTimeline/timelineReducer';
 import { buildChatRunOwnerPayload } from '../../core/api/services/chatRunOwner';
 import { Platform } from 'react-native';
@@ -54,7 +53,6 @@ import {
   CHAT_ACCESS_LEVEL_TRANSPORT_TYPE,
   type ChatAccessLevelResponse,
   CHAT_AGENT_DETAIL_TRANSPORT_TYPE,
-  CHAT_OPERATION_TRANSPORT_TYPE,
   CHAT_READ_TRANSPORT_TYPE,
   CHAT_SUBMIT_TRANSPORT_TYPE,
   CHAT_STEER_TRANSPORT_TYPE,
@@ -76,7 +74,6 @@ import {
   type MarkChatReadResponse,
   type RemoteAgentDetail,
   type RemoteChatDetail,
-  type RemoteOperationStatus,
   type RemoteChatSummary,
   type SubmitAwaitingResponse,
   type SubmitFrontendToolResponse,
@@ -84,18 +81,18 @@ import {
 } from '../../core/api/services/chatApi';
 import {
   buildAgentModelConfigPayload,
+  readAgentModelOverride,
   normalizeModelOptionsAgentKey,
-  normalizeModelOptionServiceTier,
   type ModelOptionsSnapshot,
   type QueryModelOverride
 } from '../../core/api/services/modelOptionsProtocol';
-import { resolveAgentModelSettings } from '../chatPersistence/agentModelSettings';
 import { getModelOptionsApi, updateAgentModelConfigApi } from '../../core/api/services/modelOptionsApi';
 import {
   appendAssistantDelta,
   clearChatLocalCacheForScope,
   clearChatConversationForScope,
   createOutgoingMessage,
+  retryOutgoingMessage,
   getConversationDetail,
   getConversationHistoryScope,
   getConversationInitialTimelineState,
@@ -107,7 +104,6 @@ import {
   inspectChatLocalCacheScope,
   getMessageByClientMessageId,
   getMessageByServerMessageId,
-  getPendingOutboxMessages,
   markConversationDirty,
   markConversationReadScopeLocal,
   markConversationSynced,
@@ -126,11 +122,7 @@ import {
 import { getChatCacheScopeId, normalizeChatCacheScopeId } from '../chatPersistence/cacheScope';
 import type { ChatConversationDiagnosticSource } from '../chatPersistence/chatConversationDiagnostic';
 import { hasChatReadStateInput, normalizeChatReadState } from '../chatPersistence/chatReadState';
-import {
-  projectRemoteHomeDirectory,
-  type RemoteAgent,
-  type RemoteTeam
-} from '../chatPersistence/chatDirectoryProjector';
+import { projectRemoteHomeDirectory, type RemoteAgent } from '../chatPersistence/chatDirectoryProjector';
 import { projectRemoteChatDetail, projectRemoteChatSummary } from '../chatPersistence/chatProjector';
 import {
   createMessageAttachmentsFromReferences,
@@ -151,7 +143,6 @@ import {
   extractConversationId,
   extractEventText,
   extractMessageRole,
-  extractTeamId,
   extractTitle,
   normalizeEventType,
   toFiniteNumber,
@@ -168,7 +159,14 @@ import {
   type ChatQueryModelOverride,
   type ChatTransportConfig
 } from './chatWsTransport';
-import { ChatHomeItemPatch, ChatPendingSteer, ChatSocketStatus, ChatSyncEvent, ChatSyncReason } from './types';
+import {
+  type ChatDirectorySyncSnapshot,
+  ChatHomeItemPatch,
+  ChatPendingSteer,
+  ChatSocketStatus,
+  ChatSyncEvent,
+  ChatSyncReason
+} from './types';
 import { WsClientDisconnectedError, WsClientRequestTimeoutError } from '../../core/ws/wsClient';
 import { getChatSourceFromId, getRemoteChatSourceId, type ChatSource } from '../chatPersistence/chatSource';
 import {
@@ -194,6 +192,8 @@ import {
   type ChatTimelineFrontendToolResolution
 } from '../chatTimeline/index.ts';
 import type { ChatTimelineState } from '../chatTimeline/index.ts';
+import { getLatestFailedChatSubmission, getRecoverableChatSubmission } from './chatSubmissionRecovery.ts';
+import { formatChatTimelinePlatformErrorForDisplay } from '../chatTimeline/timelinePlatformError.ts';
 
 type SyncListener = (event: ChatSyncEvent) => void;
 type ChatTransportResolver = () => ChatTransportConfig | null | Promise<ChatTransportConfig | null>;
@@ -204,11 +204,12 @@ type ChatSendMessageOptions = {
   model?: ChatQueryModelOverride;
   planningMode?: boolean;
   editingMode?: boolean;
-  mustUseSkills?: readonly string[];
+  skillIds?: readonly string[];
   continuation?: boolean;
 };
 
-type ChatSendMessageResult = Awaited<ReturnType<typeof createOutgoingMessage>> & {
+type ChatSendMessageResult = Omit<Awaited<ReturnType<typeof createOutgoingMessage>>, 'message'> & {
+  message: ChatMessageItem;
   dispatchError: Error | null;
 };
 
@@ -278,7 +279,6 @@ type ActiveAttachState = {
   token: number;
   runId: string;
   agentKey?: string;
-  teamId?: string;
   lastSeq: number;
   phase: 'pending' | 'active';
   promise: Promise<void>;
@@ -288,7 +288,6 @@ type ActiveAttachState = {
 type DuplicateAttachState = {
   runId: string;
   agentKey?: string;
-  teamId?: string;
   observedAt: number;
 };
 
@@ -324,20 +323,6 @@ const STREAM_UI_FLUSH_MS = 64;
 const STREAM_DB_FLUSH_MS = 320;
 const RUNTIME_EMIT_FLUSH_MS = 48;
 const TIMELINE_PERSIST_DEBOUNCE_MS = 420;
-let remoteRequestCounter = 0;
-
-function createRemoteRequestId(operationId: string): string {
-  remoteRequestCounter += 1;
-  return `${operationId}:attempt:${Date.now()}:${remoteRequestCounter}`;
-}
-
-function operationReplayTaskId(error: Error): string {
-  const transportError = error as Error & { code?: string | number; data?: unknown };
-  if (transportError.code !== 'operation_replay' || !isPlainRecord(transportError.data)) {
-    return '';
-  }
-  return toText(transportError.data.taskId);
-}
 const RECONCILE_DEBOUNCE_MS = 180;
 const READ_MARK_DEBOUNCE_MS = 1_500;
 const STOPPING_CONVERSATION_TTL_MS = 8_000;
@@ -397,13 +382,7 @@ function createRunControlRequestId(kind: string): string {
   return `${kind}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
-function buildInterruptChatPayload(input: {
-  requestId: string;
-  chatId: string;
-  runId: string;
-  agentKey?: string;
-  teamId?: string;
-}) {
+function buildInterruptChatPayload(input: { requestId: string; chatId: string; runId: string; agentKey?: string }) {
   return {
     requestId: toText(input.requestId),
     chatId: toText(input.chatId),
@@ -535,12 +514,22 @@ function findTimelineAwaitingAgentKey(state: ChatTimelineState, runId: string): 
   return '';
 }
 
+const CHAT_DIRECTORY_READ_TIMEOUT_MS = 15_000;
+const EMPTY_DIRECTORY_SYNC_SNAPSHOT: ChatDirectorySyncSnapshot = {
+  sourceKey: '',
+  scopeId: 'signed_out',
+  status: 'idle',
+  error: ''
+};
+
 class ChatSyncService {
   private readonly listeners = new Set<SyncListener>();
   private status: ChatSocketStatus = 'idle';
   private started = false;
   private startPromise: Promise<void> | null = null;
   private homeRefreshPromise: Promise<void> | null = null;
+  private homeRefreshController: AbortController | null = null;
+  private directorySyncSnapshot: ChatDirectorySyncSnapshot;
   private activeConversationId: string | null = null;
   private visibleConversationId: string | null = null;
   private readonly inFlightOutgoingIds = new Set<string>();
@@ -565,7 +554,7 @@ class ChatSyncService {
   private readonly agentSkillRequests = new Map<string, Promise<ChatSkillsCatalog | null>>();
   private readonly agentDetails = new Map<string, AgentDetailSnapshot | null>();
   private readonly agentDetailRequests = new Map<string, Promise<AgentDetailSnapshot | null>>();
-  private readonly agentModelConfigRequests = new Map<string, Promise<ModelOptionsSnapshot | null>>();
+  private readonly agentModelConfigRequests = new Map<string, Promise<QueryModelOverride | null>>();
   private readonly agentModelOptions = new Map<string, ModelOptionsSnapshot>();
   private readonly agentModelOptionRequests = new Map<string, Promise<ModelOptionsSnapshot | null>>();
   private readonly stoppingConversations = new Map<string, StoppingConversationState>();
@@ -583,7 +572,23 @@ class ChatSyncService {
   constructor(
     readonly source: ChatSource,
     private readonly transportResolver: ChatTransportResolver
-  ) {}
+  ) {
+    this.directorySyncSnapshot = {
+      sourceKey: source.key,
+      scopeId: getChatCacheScopeId(),
+      status: 'idle',
+      error: ''
+    };
+  }
+
+  getDirectorySyncSnapshot(): ChatDirectorySyncSnapshot {
+    return this.directorySyncSnapshot;
+  }
+
+  private setDirectorySyncStatus(status: ChatDirectorySyncSnapshot['status'], error = '') {
+    this.directorySyncSnapshot = { ...this.directorySyncSnapshot, status, error };
+    this.emit({ type: 'home.directory.sync' });
+  }
 
   async getViewDocument(request: ChatViewRequest): Promise<ChatViewDocument> {
     const lifecycleVersion = this.lifecycleVersion;
@@ -690,7 +695,7 @@ class ChatSyncService {
         this.ensureAgentDetail(key, { throwOnError: true })
       ]);
       if (version !== this.agentDetailCacheVersion) return null;
-      if (!detail || !resolveAgentInteraction(toText(detail.raw.mode), detail.raw.interactionConfig).mustUseSkills)
+      if (!detail || !resolveAgentInteraction(detail.raw.interactionConfig).attachment.skills)
         throw new Error('Agent does not support required skills');
       const catalog = normalizeChatSkills(response, detail.raw.skills);
       if (!this.agentSkills.has(key) && this.agentSkills.size >= 32)
@@ -712,13 +717,16 @@ class ChatSyncService {
     return this.agentModelOptions.get(normalizedAgentKey) ?? null;
   }
 
-  async ensureAgentModelOptions(agentKey: string): Promise<ModelOptionsSnapshot | null> {
+  async ensureAgentModelOptions(
+    agentKey: string,
+    options: { refresh?: boolean } = {}
+  ): Promise<ModelOptionsSnapshot | null> {
     const normalizedAgentKey = normalizeModelOptionsAgentKey(agentKey);
     if (!normalizedAgentKey) {
       return null;
     }
 
-    if (this.agentModelOptions.has(normalizedAgentKey)) {
+    if (!options.refresh && this.agentModelOptions.has(normalizedAgentKey)) {
       return this.agentModelOptions.get(normalizedAgentKey) ?? null;
     }
 
@@ -737,7 +745,7 @@ class ChatSyncService {
     return request;
   }
 
-  updateAgentModelConfig(agentKey: string, modelOverride: QueryModelOverride): Promise<ModelOptionsSnapshot | null> {
+  updateAgentModelConfig(agentKey: string, modelOverride: QueryModelOverride): Promise<QueryModelOverride | null> {
     const normalizedAgentKey = normalizeModelOptionsAgentKey(agentKey);
     const normalizedPayload = buildAgentModelConfigPayload(normalizedAgentKey, modelOverride);
     const nextModelKey = String(normalizedPayload.modelKey || '').trim();
@@ -765,40 +773,22 @@ class ChatSyncService {
         if (this.agentDetailCacheVersion !== cacheVersion) {
           return null;
         }
-        const saved = isPlainRecord(response) ? response : {};
-        const currentSnapshot = this.agentModelOptions.get(normalizedAgentKey);
-        const modelKey = toText(saved.modelKey) || nextModelKey;
-        const reasoningEffort =
-          resolveAgentModelSettings(saved).reasoningEffort ||
-          normalizedPayload.reasoningEffort ||
-          currentSnapshot?.defaultReasoningEffort;
-        const serviceTier =
-          normalizeModelOptionServiceTier(
-            'serviceTier' in saved
-              ? saved.serviceTier
-              : normalizedPayload.serviceTier === undefined
-                ? currentSnapshot?.defaultServiceTier
-                : normalizedPayload.serviceTier
-          ) || 'STANDARD';
+        const saved = readAgentModelOverride(response);
+        if (!saved.key) throw new Error('Invalid Agent model configuration response');
         const detail = this.agentDetails.get(normalizedAgentKey);
         if (detail) {
           this.agentDetails.set(normalizedAgentKey, {
             ...detail,
-            raw: { ...detail.raw, modelKey, reasoningEffort, serviceTier }
+            raw: {
+              ...detail.raw,
+              modelKey: saved.key,
+              reasoningEffort: saved.reasoningEffort,
+              serviceTier: saved.serviceTier
+            },
+            fetchedAt: Date.now()
           });
         }
-        if (!currentSnapshot) {
-          return null;
-        }
-        const nextSnapshot: ModelOptionsSnapshot = {
-          ...currentSnapshot,
-          defaultModelKey: modelKey,
-          ...(reasoningEffort ? { defaultReasoningEffort: reasoningEffort } : {}),
-          defaultServiceTier: serviceTier,
-          fetchedAt: Date.now()
-        };
-        this.agentModelOptions.set(normalizedAgentKey, nextSnapshot);
-        return nextSnapshot;
+        return saved;
       })
       .finally(() => {
         if (this.agentModelConfigRequests.get(normalizedAgentKey) === request) {
@@ -941,9 +931,13 @@ class ChatSyncService {
 
   stop(releaseConnection = false) {
     this.timelineStates.forEach((state, id) =>
-      this.timelineStates.set(id, { ...clearChatTimelineToolOutput(state), modelRetry: undefined })
+      this.timelineStates.set(id, { ...clearChatTimelineToolTransientState(state), modelRetry: undefined })
     );
     this.lifecycleVersion += 1;
+    this.homeRefreshController?.abort();
+    this.homeRefreshController = null;
+    this.homeRefreshPromise = null;
+    this.setDirectorySyncStatus('idle');
     this.agentDetailCacheVersion += 1;
     this.started = false;
     this.hasConnectedOnce = false;
@@ -1162,7 +1156,7 @@ class ChatSyncService {
       const state = this.timelineStates.get(previousConversationId);
       if (state)
         this.timelineStates.set(previousConversationId, {
-          ...clearChatTimelineToolOutput(state),
+          ...clearChatTimelineToolTransientState(state),
           modelRetry: undefined
         });
       this.attachRecoveryFailures.delete(previousConversationId);
@@ -1190,57 +1184,66 @@ class ChatSyncService {
   }
 
   async refreshHome(_reason: ChatSyncReason = 'manual_refresh') {
-    if (this.homeRefreshPromise) {
-      return this.homeRefreshPromise;
-    }
+    if (this.homeRefreshPromise) return this.homeRefreshPromise;
 
     const lifecycleVersion = this.lifecycleVersion;
-    this.homeRefreshPromise = (async () => {
-      const config = await this.resolveTransportConfig();
-      if (!this.isLifecycleCurrent(lifecycleVersion)) {
-        return;
-      }
-      if (!config) {
-        throw new ApiError('Not authenticated', 401, null);
-      }
-
-      const {
-        agents: remoteAgents,
-        teams: remoteTeams,
-        chats: remoteChats
-      } = await readChatDirectory<RemoteAgent, RemoteTeam>(config);
-      if (!this.isLifecycleCurrent(lifecycleVersion)) return;
-      const scopedHome = scopeRemoteHomePayload(this.source, {
-        agents: remoteAgents,
-        teams: remoteTeams,
-        chats: remoteChats
-      });
-      const projection = projectRemoteHomeDirectory(scopedHome);
-      await replaceChatHomeProjection(projection, this.source);
-      if (!this.isLifecycleCurrent(lifecycleVersion)) {
-        return;
-      }
-
-      this.emit({
-        type: 'home.directory.replace'
-      });
-    })().finally(() => {
-      this.homeRefreshPromise = null;
+    const controller = new AbortController();
+    this.homeRefreshController = controller;
+    const isCurrent = () => this.isLifecycleCurrent(lifecycleVersion) && this.homeRefreshController === controller;
+    const timer = setTimeout(() => controller.abort(), CHAT_DIRECTORY_READ_TIMEOUT_MS);
+    const cancelled = new Promise<never>((_, reject) => {
+      controller.signal.addEventListener(
+        'abort',
+        () => reject(new WsClientRequestTimeoutError('Chat directory read timed out')),
+        { once: true }
+      );
     });
-
-    return this.homeRefreshPromise;
+    // Publish the single flight before notifying subscribers or resolving credentials.
+    const task = Promise.resolve().then(async () => {
+      try {
+        const directory = await Promise.race([
+          (async () => {
+            if (!isCurrent() || controller.signal.aborted) return null;
+            const config = await this.resolveTransportConfig();
+            if (!isCurrent() || controller.signal.aborted) return null;
+            if (!config) throw new ApiError('Not authenticated', 401, null);
+            return readChatDirectory<RemoteAgent>(config, controller.signal);
+          })(),
+          cancelled
+        ]);
+        clearTimeout(timer);
+        if (!directory || !isCurrent() || controller.signal.aborted) return;
+        const scopedHome = scopeRemoteHomePayload(this.source, directory);
+        await replaceChatHomeProjection(projectRemoteHomeDirectory(scopedHome), this.source);
+        if (!isCurrent()) return;
+        this.emit({ type: 'home.directory.replace' });
+        this.setDirectorySyncStatus('ready');
+      } catch (error) {
+        if (!isCurrent()) return;
+        this.setDirectorySyncStatus('error', error instanceof Error ? error.message : String(error));
+        throw error;
+      } finally {
+        clearTimeout(timer);
+        controller.abort(); // Also cancel a sibling directory read after either request fails.
+        if (this.homeRefreshController === controller) {
+          this.homeRefreshController = null;
+          this.homeRefreshPromise = null;
+        }
+      }
+    });
+    this.homeRefreshPromise = task;
+    this.setDirectorySyncStatus('loading');
+    return task;
   }
 
-  async markScopeRead(scope: { agentKey?: string | null; teamId?: string | null }) {
+  async markScopeRead(scope: { agentKey?: string | null }) {
     const agentKey = toText(scope.agentKey);
-    const teamId = toText(scope.teamId);
-    if (!agentKey && !teamId) {
+    if (!agentKey) {
       return;
     }
 
     const result = await markConversationReadScopeLocal({
       agentKey: agentKey || null,
-      teamId: teamId || null,
       activeConversationId: this.activeConversationId
     });
     if (result.directoryChanged) {
@@ -1251,8 +1254,7 @@ class ChatSyncService {
 
     try {
       await this.markChatReadViaTransport({
-        ...(agentKey ? { agentKey } : {}),
-        ...(teamId ? { teamId } : {})
+        ...(agentKey ? { agentKey } : {})
       });
     } catch {
       await this.refreshHome('manual_refresh');
@@ -1379,10 +1381,9 @@ class ChatSyncService {
         throw new Error('Frontend tool is no longer active');
       }
 
-      const teamId = toText(scope.teamId);
-      const agentKey = teamId ? '' : toText(scope.agentKey) || currentTool.agentKey;
-      if (!agentKey && !teamId) {
-        throw new Error('agentKey or teamId is required for frontend tool submit');
+      const agentKey = toText(scope.agentKey);
+      if (!agentKey) {
+        throw new Error('agentKey is required for frontend tool submit');
       }
 
       const response =
@@ -1391,7 +1392,7 @@ class ChatSyncService {
           buildSubmitFrontendToolPayload({
             chatId: normalizedConversationId,
             runId,
-            ...(teamId ? { teamId } : { agentKey }),
+            agentKey,
             toolId,
             params: payload.params
           })
@@ -1454,8 +1455,8 @@ class ChatSyncService {
       throw new Error('Awaiting interaction is no longer active');
     }
     const owner = await this.resolveRunControlScope(normalizedConversationId, runId);
-    if (!owner.agentKey && !owner.teamId) {
-      throw new Error('agentKey or teamId is required for awaiting submit');
+    if (!owner.agentKey) {
+      throw new Error('agentKey is required for awaiting submit');
     }
 
     const latestAwaiting = this.getConversationTimelineState(normalizedConversationId).awaiting;
@@ -1565,21 +1566,16 @@ class ChatSyncService {
     return { items, nextCursor: cursor || null };
   }
 
-  private async assertChatReferenceCapability(owner: { agentKey?: string; teamId?: string }) {
-    // Team uses the backend's Team defaults, never a member Agent's interaction config.
-    if (owner.teamId) return;
+  private async assertChatReferenceCapability(owner: { agentKey?: string }) {
     if (!owner.agentKey) throw new Error('Chat reference owner is unavailable. Remove the reference and retry.');
     const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
-    if (
-      !detail ||
-      !resolveAgentInteraction(toText(detail.raw.mode), detail.raw.interactionConfig).attachment.chatRecords
-    )
+    if (!detail || !resolveAgentInteraction(detail.raw.interactionConfig).attachment.chatRecords)
       throw new Error('Chat references are disabled. Remove the reference or choose another Agent.');
   }
 
   private async validateContextReferences(
     conversationId: string,
-    owner: { agentKey?: string; teamId?: string },
+    owner: { agentKey?: string },
     references: readonly import('../chatPersistence/types').ChatAttachmentReference[]
   ) {
     assertChatReferenceScope(conversationId, references);
@@ -1608,7 +1604,7 @@ class ChatSyncService {
       await this.assertConversationWritable(id);
       const owner = buildChatRunOwnerPayload(await this.resolveRunControlScope(id, run));
       current();
-      if (!owner.agentKey && !owner.teamId) throw new Error('Run owner is unavailable');
+      if (!owner.agentKey) throw new Error('Run owner is unavailable');
       if (!target) {
         // Persist the exact destination before sending. Recovery only queries this ID, never retries creation.
         target = {
@@ -1632,12 +1628,7 @@ class ChatSyncService {
       const targetBeforeRequest = this.timelineStates.get(target.chatId);
       const detail = await this.getChatDetailViaTransport(target.chatId);
       current();
-      if (
-        detail.chatId !== target.chatId ||
-        (target.teamId
-          ? detail.teamId !== target.teamId || !!detail.agentKey
-          : detail.agentKey !== target.agentKey || !!detail.teamId)
-      )
+      if (detail.chatId !== target.chatId || detail.agentKey !== target.agentKey)
         throw new Error('Derived conversation owner or identity could not be verified');
       const projection = projectRemoteChatDetail(detail);
       if (!projection || !projection.messages.length) throw new Error('Derived conversation history is unavailable');
@@ -1666,7 +1657,6 @@ class ChatSyncService {
       const patch = await patchConversationSummary({
         conversationId: target.chatId,
         agentKey: target.agentKey || null,
-        teamId: target.teamId || null,
         shouldMoveToTop: true
       });
       current();
@@ -1678,7 +1668,7 @@ class ChatSyncService {
       if (!summary) throw new Error('Derived conversation could not be loaded');
       return {
         conversation: summary,
-        historyScope: { agentKey: target.agentKey || null, teamId: target.teamId || null }
+        historyScope: { agentKey: target.agentKey || null }
       };
     } catch (error) {
       if (this.isLifecycleCurrent(lifecycle) && rejected) await this.setRunDerivation(id, run, undefined);
@@ -1740,7 +1730,7 @@ class ChatSyncService {
     try {
       await this.assertConversationWritable(id);
       const owner = buildChatRunOwnerPayload(await this.resolveRunControlScope(id, run));
-      if (!owner.agentKey && !owner.teamId) throw new Error('Run owner is unavailable');
+      if (!owner.agentKey) throw new Error('Run owner is unavailable');
       if (!current()) return;
       const response = await this.requestChatApi(CHAT_FEEDBACK_TRANSPORT_TYPE, {
         chatId: id,
@@ -1807,7 +1797,7 @@ class ChatSyncService {
       const owner = buildChatRunOwnerPayload(await this.resolveRunControlScope(id, run));
       if (owner.agentKey) {
         const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
-        if (!detail || !resolveAgentInteraction(toText(detail.raw.mode), detail.raw.interactionConfig).accessLevel)
+        if (!detail || !resolveAgentInteraction(detail.raw.interactionConfig).accessLevel)
           throw new Error('Agent does not support access changes');
       }
       if (!current()) return { status: 'rejected' as const, detail: 'Run changed' };
@@ -1895,10 +1885,30 @@ class ChatSyncService {
     return pending;
   }
 
+  continueWait(conversationId: string, toolId: string) {
+    return this.steerConversation(conversationId, '', [], toolId);
+  }
+
+  private assertRootWait(conversationId: string, toolId: string) {
+    const state = this.getConversationTimelineState(conversationId);
+    const node = Object.values(state.nodesById).find((value) => value.kind === 'tool' && value.toolId === toolId);
+    if (
+      !node ||
+      node.kind !== 'tool' ||
+      !node.toolWait ||
+      node.lifecycle !== 'active' ||
+      !state.activeRunId ||
+      node.runId !== state.activeRunId ||
+      (node.taskId && node.toolId.startsWith(`${node.taskId}:`))
+    )
+      throw new Error('This wait is no longer active');
+  }
+
   async steerConversation(
     conversationId: string,
     message: string,
-    attachments: readonly ChatComposerAttachment[] = []
+    attachments: readonly ChatComposerAttachment[] = [],
+    waitToolId = ''
   ): Promise<ChatSteerResponse> {
     const id = toText(conversationId);
     const state = this.getConversationTimelineState(id);
@@ -1906,7 +1916,8 @@ class ChatSyncService {
     const references = normalizeChatAttachmentReferences(attachments.flatMap((item) => item.references));
     if (references.some((ref) => ref.type === 'chat' || ref.type === 'site'))
       throw new Error('Chat and Site references cannot be used for steering. Remove them or wait for the run to end.');
-    if (!id || !runId || state.awaiting?.status === 'ask' || (!message.trim() && !references.length))
+    if (waitToolId) this.assertRootWait(id, waitToolId);
+    if (!id || !runId || state.awaiting?.status === 'ask' || (!waitToolId && !message.trim() && !references.length))
       throw new Error('An active run and steering input are required');
     if (attachments.some((item) => item.status !== 'ready') || (attachments.length && !references.length))
       throw new Error('Steering attachments are not ready');
@@ -1926,6 +1937,7 @@ class ChatSyncService {
     let sent = false;
     try {
       await this.assertConversationWritable(id);
+      if (waitToolId) this.assertRootWait(id, waitToolId);
       const owner = await this.resolveRunControlScope(id, runId);
       const latest = this.getConversationTimelineState(id);
       if (
@@ -1934,14 +1946,14 @@ class ChatSyncService {
         latest.awaiting?.status === 'ask'
       )
         throw new Error('Steering run changed');
-      if ((!owner.agentKey && !owner.teamId) || this.status !== 'connected')
-        throw new Error('Steering target is unavailable');
+      if (!owner.agentKey || this.status !== 'connected') throw new Error('Steering target is unavailable');
       if (owner.agentKey) {
         const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
         if (
           !detail ||
+          !hasValidAgentInteraction(detail.raw.interactionConfig) ||
           (attachments.some((item) => item.kind === 'image' || item.kind === 'file') &&
-            !resolveAgentInteraction(toText(detail.raw.mode), detail.raw.interactionConfig).attachment.localFiles)
+            !resolveAgentInteraction(detail.raw.interactionConfig).attachment.localFiles)
         )
           throw new Error('Agent execution or attachments are unavailable');
       }
@@ -1951,6 +1963,7 @@ class ChatSyncService {
         this.getConversationTimelineState(id).awaiting?.status === 'ask'
       )
         throw new Error('Steering run changed');
+      if (waitToolId) this.assertRootWait(id, waitToolId);
       this.pendingSteers.set(id, { ...pending, ...owner });
       sent = true;
       const response = await this.requestChatApi<Record<string, unknown>>(CHAT_STEER_TRANSPORT_TYPE, {
@@ -2001,17 +2014,116 @@ class ChatSyncService {
     }
   }
 
+  async listReferenceKbases(conversationId: string) {
+    const version = this.lifecycleVersion;
+    const owner = await this.resolveRunControlScope(conversationId, '');
+    const detail = owner.agentKey ? await this.ensureAgentDetail(owner.agentKey, { throwOnError: true }) : null;
+    if (!detail || !resolveAgentInteraction(detail.raw.interactionConfig).attachment.kbases)
+      throw new Error('Knowledge references are unavailable');
+    const response = await this.requestChatApi<{
+      capability?: { available?: boolean };
+      libraries?: { id: string; name: string; readable: boolean }[];
+    }>('/api/kbases', owner);
+    if (!this.isLifecycleCurrent(version)) throw new Error('Conversation source changed');
+    if (!response.capability?.available || !Array.isArray(response.libraries))
+      throw new Error('Knowledge references are unavailable');
+    return {
+      items: response.libraries
+        .filter((item) => item.readable && item.id)
+        .map((item) => ({ id: item.id, name: item.name || item.id })),
+      nextCursor: null
+    };
+  }
+
+  async getWorkspaceFile(resourceUrl: string): Promise<{ contentKind: 'text' | 'binary'; content?: string }> {
+    const url = new URL(resourceUrl, 'https://resource.invalid');
+    if (url.origin !== 'https://resource.invalid' || url.pathname !== '/api/file')
+      throw new Error('Invalid file request');
+    const agentKey = toText(url.searchParams.get('agentKey'));
+    const path = toText(url.searchParams.get('path'));
+    if (!agentKey || !path) throw new Error('Missing file owner or path');
+    const version = this.lifecycleVersion;
+    const file = await this.requestChatApi<{
+      agentKey: string;
+      requestedPath: string;
+      contentKind: 'text' | 'binary';
+      content?: string;
+      truncated?: boolean;
+    }>('/api/file', { agentKey, path });
+    if (
+      !this.isLifecycleCurrent(version) ||
+      file.agentKey !== getRemoteChatSourceId(agentKey) ||
+      file.requestedPath !== path ||
+      !['text', 'binary'].includes(file.contentKind)
+    )
+      throw new Error('Invalid file response');
+    if (file.truncated) throw new Error('File preview exceeds the limit');
+    return file;
+  }
+
+  async recoverSubmission(conversationId: string, clientMessageId: string): Promise<boolean> {
+    const version = this.lifecycleVersion;
+    let detail: RemoteChatDetail;
+    try {
+      detail = await this.getChatDetailViaTransport(conversationId);
+    } catch (error) {
+      if (isApiStatusError(error, 404)) return false;
+      throw error;
+    }
+    if (!this.isLifecycleCurrent(version)) throw new Error('Conversation source changed');
+    const matched =
+      (detail.runs || []).some((run) => run.requestId === clientMessageId && !!run.runId) ||
+      (detail.events || []).some((event) => event.requestId === clientMessageId && !!event.runId);
+    if (!matched) return false;
+    await this.markOutgoingSentIfPending({ conversationId, clientMessageId });
+    if (!this.isLifecycleCurrent(version)) return true;
+    await this.reconcileConversation(conversationId, 'manual_refresh');
+    return true;
+  }
+
   sendMessage(
     conversationId: string,
     content: string,
     attachments: readonly ChatComposerAttachment[] = [],
     options: ChatSendMessageOptions = {}
   ): Promise<ChatSendMessageResult> {
+    const state = this.getConversationTimelineState(conversationId);
+    const failed = getLatestFailedChatSubmission(state);
+    const recovery = options.continuation
+      ? null
+      : (getRecoverableChatSubmission(state) ?? (failed?.errorReason === 'submission_unconfirmed' ? failed : null));
+    return this.submitMessage(conversationId, content, attachments, options, recovery?.clientMessageId ?? undefined);
+  }
+
+  retryMessage(
+    conversationId: string,
+    clientMessageId: string,
+    options: ChatSendMessageOptions = {},
+    allowUnconfirmedResubmission = false
+  ): Promise<ChatSendMessageResult> {
+    return this.submitMessage(conversationId, '', [], options, clientMessageId, allowUnconfirmedResubmission);
+  }
+
+  private submitMessage(
+    conversationId: string,
+    content: string,
+    attachments: readonly ChatComposerAttachment[],
+    options: ChatSendMessageOptions,
+    retryClientMessageId?: string,
+    allowUnconfirmedResubmission = false
+  ): Promise<ChatSendMessageResult> {
     const id = toText(conversationId);
     if (this.conversationSendRequests.has(id)) return Promise.reject(new Error('Query is already being sent'));
     const token = Symbol();
     this.conversationSendRequests.set(id, token);
-    return this.sendConversationMessage(id, content, attachments, options).finally(() => {
+    return this.sendConversationMessage(
+      id,
+      content,
+      attachments,
+      options,
+      retryClientMessageId,
+      allowUnconfirmedResubmission
+    ).finally(() => {
       if (this.conversationSendRequests.get(id) === token) this.conversationSendRequests.delete(id);
     });
   }
@@ -2020,15 +2132,61 @@ class ChatSyncService {
     conversationId: string,
     content: string,
     attachments: readonly ChatComposerAttachment[] = [],
-    options: ChatSendMessageOptions = {}
+    options: ChatSendMessageOptions = {},
+    retryClientMessageId?: string,
+    allowUnconfirmedResubmission = false
   ): Promise<ChatSendMessageResult> {
     const normalizedConversationId = toText(conversationId);
     const lifecycleVersion = this.lifecycleVersion;
-    const normalizedContent = String(content || '').trim();
+    let normalizedContent = String(content || '').trim();
+    const currentState = this.getConversationTimelineState(normalizedConversationId);
+    const previousRequest = retryClientMessageId ? getLatestFailedChatSubmission(currentState) : null;
+    const retryOriginal = !!retryClientMessageId && !normalizedContent && attachments.length === 0;
+    if (retryClientMessageId) {
+      const original = await getMessageByClientMessageId(retryClientMessageId);
+      if (!this.isLifecycleCurrent(lifecycleVersion)) throw new Error('Conversation source changed');
+      if (
+        !original ||
+        original.conversationId !== normalizedConversationId ||
+        original.role !== 'user' ||
+        original.deliveryStatus !== 'failed'
+      )
+        throw new Error('Failed request is no longer available for recovery');
+      const recoverable = getRecoverableChatSubmission(currentState);
+      if (recoverable?.clientMessageId !== retryClientMessageId) {
+        if (original.errorReason !== 'submission_unconfirmed') throw new Error('Request is not eligible for recovery');
+        if (await this.recoverSubmission(normalizedConversationId, retryClientMessageId)) {
+          return {
+            clientMessageId: retryClientMessageId,
+            conversationId: normalizedConversationId,
+            createdAt: original.createdAt,
+            message: { ...original, deliveryStatus: 'sent' },
+            dispatchError: null
+          };
+        }
+        if (!allowUnconfirmedResubmission) throw new Error('submission_unconfirmed');
+      }
+      if (retryOriginal) {
+        normalizedContent = original.content;
+        attachments = previousRequest?.attachments || [];
+      } else {
+        // A new input stays a new message; the rejected task is ordinary quoted context.
+        attachments = createMessageAttachmentsFromReferences({
+          conversationId: normalizedConversationId,
+          messageId: retryClientMessageId,
+          createdAt: Date.now(),
+          references: [
+            ...normalizeChatAttachmentReferences(previousRequest?.references).filter((ref) => ref.type !== 'skill'),
+            ...(previousRequest?.attachments || []).flatMap((item) => item.references),
+            { type: 'selection', id: retryClientMessageId, text: original.content },
+            ...attachments.flatMap((item) => item.references)
+          ]
+        });
+      }
+    }
     if (!normalizedConversationId || (!normalizedContent && attachments.length === 0 && !options.continuation)) {
       throw new Error('Conversation id and message content or attachments are required');
     }
-    const currentState = this.getConversationTimelineState(normalizedConversationId);
     if (currentState.activeRunId || currentState.awaiting?.status === 'ask')
       throw new Error('Chat is running or awaiting a response');
     if (options.continuation && (!canContinueChatTimeline(currentState) || normalizedContent || attachments.length))
@@ -2042,33 +2200,47 @@ class ChatSyncService {
       contextReferences.every((ref) => ref.type === 'chat' || ref.type === 'site')
     )
       throw new Error('Context references require a question. Enter text before sending.');
-    let mustUseSkills = normalizeRequiredSkills(options.mustUseSkills);
+    const previousReferences =
+      previousRequest?.clientMessageId === retryClientMessageId
+        ? normalizeChatAttachmentReferences(previousRequest?.references)
+        : [];
+    let skillIds = normalizeSkillIds([
+      ...(options.skillIds || []),
+      ...previousReferences.filter((ref) => ref.type === 'skill').map((ref) => ref.id || '')
+    ]);
+    let editingMode: boolean | undefined;
+    let planningMode = false;
     const currentSummary = await this.assertConversationWritable(normalizedConversationId);
     const owner = buildChatRunOwnerPayload(await this.resolveRunControlScope(normalizedConversationId, ''));
+    if (!owner.agentKey) throw new Error('Agent owner is unavailable');
     await this.validateContextReferences(normalizedConversationId, owner, contextReferences);
-    if (mustUseSkills.length && !owner.agentKey) throw new Error('Required skills need an Agent owner');
-    if (options.editingMode && !owner.agentKey) throw new Error('Editing requires a KBASE Agent');
     if (owner.agentKey) {
       const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
       if (!detail) throw new Error('Agent is unavailable for execution');
-      if (options.editingMode && (!canUseEditingMode(toText(detail.raw.mode)) || options.planningMode))
-        throw new Error('Editing requires a KBASE Agent and cannot be combined with Planning');
-      const interaction = resolveAgentInteraction(toText(detail.raw.mode), detail.raw.interactionConfig);
+      if (!hasValidAgentInteraction(detail.raw.interactionConfig))
+        throw new Error('Agent input configuration is invalid');
+      const interaction = resolveAgentInteraction(detail.raw.interactionConfig);
+      editingMode = interaction.showEditingMode ? options.editingMode === true : undefined;
+      planningMode = interaction.showPlanningMode && options.planningMode === true;
       if (
+        (!interaction.showEditingMode && options.editingMode === true) ||
+        (!interaction.showPlanningMode && options.planningMode === true) ||
         (!interaction.model && options.model && Object.keys(options.model).length) ||
         (!interaction.accessLevel && options.accessLevel && options.accessLevel !== 'default') ||
-        (!interaction.mustUseSkills && mustUseSkills.length) ||
+        (!interaction.attachment.skills &&
+          (skillIds.length || contextReferences.some((ref) => ref.type === 'skill'))) ||
+        (!interaction.attachment.kbases && contextReferences.some((ref) => ref.type === 'kbase')) ||
         (!interaction.attachment.localFiles &&
-          contextReferences.some((ref) => !['selection', 'chat', 'site'].includes(ref.type || '')))
+          contextReferences.some((ref) => !['selection', 'chat', 'site', 'skill', 'kbase'].includes(ref.type || '')))
       ) {
         throw new Error('Agent input capabilities changed; refresh the conversation');
       }
     }
 
-    if (mustUseSkills.length) {
+    if (skillIds.length) {
       const catalog = await this.ensureAgentSkills(owner.agentKey!);
       if (!catalog) throw new Error('Skills catalog is unavailable');
-      mustUseSkills = resolveRequiredSkillIds(mustUseSkills, catalog);
+      skillIds = resolveSkillIds(skillIds, catalog);
     }
 
     if (
@@ -2085,17 +2257,17 @@ class ChatSyncService {
       !this.isLifecycleCurrent(lifecycleVersion) ||
       latestState.activeRunId ||
       latestState.awaiting?.status === 'ask' ||
+      (retryClientMessageId && getLatestFailedChatSubmission(latestState)?.clientMessageId !== retryClientMessageId) ||
       (options.continuation && !canContinueChatTimeline(latestState))
     )
       throw new Error('Conversation execution state changed');
     this.clearStoppingConversation(normalizedConversationId);
 
-    const created = await createOutgoingMessage(normalizedConversationId, normalizedContent, attachments, {
-      planningMode: options.planningMode === true,
-      editingMode: options.editingMode === true,
-      mustUseSkills,
-      continuation: options.continuation === true
-    });
+    const created = retryOriginal
+      ? await retryOutgoingMessage(normalizedConversationId, retryClientMessageId!)
+      : await createOutgoingMessage(normalizedConversationId, normalizedContent, attachments, {
+          continuation: options.continuation === true
+        });
     if (!this.isLifecycleCurrent(lifecycleVersion)) throw new Error('Conversation source changed');
     this.timelineStates.set(normalizedConversationId, {
       ...this.getConversationTimelineState(normalizedConversationId),
@@ -2108,7 +2280,13 @@ class ChatSyncService {
         reason: 'local_send',
         message: created.message
       });
-    if (!options.continuation) this.publishTimelineMessage(created.message, 'local_send');
+    if (!options.continuation)
+      this.publishTimelineMessage(created.message, 'local_send', {
+        references: normalizeChatAttachmentReferences([
+          ...contextReferences,
+          ...skillIds.map((id) => ({ type: 'skill', id }))
+        ])
+      });
     if (!options.continuation)
       await this.emitHomePatchFromSummary(
         {
@@ -2135,9 +2313,9 @@ class ChatSyncService {
         attachments: created.message.attachments,
         accessLevel: options.accessLevel,
         model: options.model,
-        planningMode: options.planningMode === true,
-        editingMode: options.editingMode === true,
-        mustUseSkills
+        planningMode,
+        editingMode,
+        skillIds
       });
       return {
         ...created,
@@ -2145,28 +2323,11 @@ class ChatSyncService {
       };
     } catch (error) {
       const dispatchError = error instanceof Error ? error : new Error(String(error));
-      const patched = await patchMessageByClientMessageId(created.clientMessageId, {
-        deliveryStatus: 'failed',
-        errorReason: dispatchError.message
-      });
-
-      if (patched) {
-        const patch = {
-          deliveryStatus: patched.deliveryStatus,
-          errorReason: patched.errorReason
-        };
-        this.emit({
-          type: 'conversation.message.patch',
-          conversationId: normalizedConversationId,
-          reason: 'local_send',
-          messageId: patched.messageId,
-          patch
-        });
-        this.publishTimelineMessagePatch(normalizedConversationId, 'local_send', patched.messageId, patch);
-      }
-      await this.emitHomePatchFromConversation(normalizedConversationId, {
-        shouldMoveToTop: true
-      });
+      if (!this.isLifecycleCurrent(lifecycleVersion)) throw dispatchError;
+      await this.handleOutgoingStreamError(
+        { clientMessageId: created.clientMessageId, conversationId: normalizedConversationId },
+        dispatchError
+      );
       if (options.dispatchErrorMode === 'return') {
         return {
           ...created,
@@ -2281,6 +2442,10 @@ class ChatSyncService {
   }
 
   private async startInternal(lifecycleVersion: number) {
+    await Promise.all([this.refreshHome('bootstrap'), this.connectPushTransport(lifecycleVersion)]);
+  }
+
+  private async connectPushTransport(lifecycleVersion: number) {
     const config = await this.resolveTransportConfig();
     if (!this.isLifecycleCurrent(lifecycleVersion)) {
       return;
@@ -2317,11 +2482,6 @@ class ChatSyncService {
       }
       return;
     }
-    await this.flushPendingOutbox();
-    if (!this.isLifecycleCurrent(lifecycleVersion)) {
-      return;
-    }
-    await this.refreshHome('bootstrap');
   }
 
   private async resolveTransportConfig() {
@@ -2409,16 +2569,6 @@ class ChatSyncService {
     return Boolean(this.remoteHistoryCursors.get(normalizedConversationId));
   }
 
-  async getRemoteOperationStatus(operationId: string): Promise<RemoteOperationStatus> {
-    const normalizedOperationId = toText(operationId);
-    if (!normalizedOperationId || !isAccountDesktopChatSource(this.source)) {
-      throw new Error('A remote Desktop operation id is required');
-    }
-    return this.requestChatApi<RemoteOperationStatus>(CHAT_OPERATION_TRANSPORT_TYPE, {
-      operationId: normalizedOperationId
-    });
-  }
-
   private async fetchAgentDetail(agentKey: string, cacheVersion: number): Promise<AgentDetailSnapshot | null> {
     try {
       const response = await this.requestChatApi<RemoteAgentDetail>(
@@ -2438,31 +2588,14 @@ class ChatSyncService {
   }
 
   private async fetchAgentModelOptions(agentKey: string, cacheVersion: number): Promise<ModelOptionsSnapshot | null> {
-    try {
-      const transport = await this.resolveTransportConfig();
-      if (!transport || this.agentDetailCacheVersion !== cacheVersion) {
-        return null;
-      }
-      const [options, detail] = await Promise.all([
-        getModelOptionsApi(getRemoteChatSourceId(agentKey), undefined, transport),
-        this.ensureAgentDetail(agentKey)
-      ]);
-      if (detail) {
-        const settings = resolveAgentModelSettings(detail.raw);
-        if (settings.modelKey) options.defaultModelKey = settings.modelKey;
-        if (settings.reasoningEffort) options.defaultReasoningEffort = settings.reasoningEffort;
-        if ('serviceTier' in detail.raw) {
-          options.defaultServiceTier = normalizeModelOptionServiceTier(detail.raw.serviceTier) || 'STANDARD';
-        }
-      }
-      if (this.agentDetailCacheVersion !== cacheVersion) {
-        return null;
-      }
-      this.agentModelOptions.set(agentKey, options);
-      return options;
-    } catch {
-      return null;
+    const transport = await this.resolveTransportConfig();
+    if (!transport || this.agentDetailCacheVersion !== cacheVersion) {
+      throw new Error('Chat source is unavailable');
     }
+    const options = await getModelOptionsApi(getRemoteChatSourceId(agentKey), undefined, transport);
+    if (this.agentDetailCacheVersion !== cacheVersion) return null;
+    this.agentModelOptions.set(agentKey, options);
+    return options;
   }
 
   private async markChatReadViaTransport(request: MarkChatReadRequest, runId?: string): Promise<MarkChatReadResponse> {
@@ -2494,7 +2627,6 @@ class ChatSyncService {
       return;
     }
 
-    await this.flushPendingOutbox();
     if (this.activeConversationId) {
       await this.attachActiveConversationRun(this.activeConversationId, 'attach');
       if (this.hasConnectedOnce || previousStatus === 'reconnecting') {
@@ -2510,14 +2642,12 @@ class ChatSyncService {
     conversationId: string;
     content: string;
     attachments?: readonly ChatMessageAttachment[];
-    optionsError?: string;
     accessLevel?: ChatQueryAccessLevel;
     model?: ChatQueryModelOverride;
     planningMode?: boolean;
     editingMode?: boolean;
-    mustUseSkills?: readonly string[];
+    skillIds?: readonly string[];
   }) {
-    if (input.optionsError) throw new Error(input.optionsError);
     if (this.inFlightOutgoingIds.has(input.clientMessageId)) {
       return;
     }
@@ -2540,38 +2670,10 @@ class ChatSyncService {
         return;
       }
 
-      // Reconnect replay must recheck capabilities, while preserving the stored option.
-      if (input.editingMode) {
-        const owner = buildChatRunOwnerPayload(historyScope || {});
-        if (!owner.agentKey || owner.teamId || input.planningMode) throw new Error('Editing requires a KBASE Agent');
-        const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
-        if (!detail || !canUseEditingMode(toText(detail.raw.mode)))
-          throw new Error('Editing is no longer available for this Agent');
-        if (!this.isLifecycleCurrent(lifecycleVersion)) {
-          this.inFlightOutgoingIds.delete(input.clientMessageId);
-          return;
-        }
-      }
-
-      const mustUseSkills = normalizeRequiredSkills(input.mustUseSkills);
-      if (mustUseSkills.length) {
-        const owner = buildChatRunOwnerPayload(historyScope || {});
-        if (!owner.agentKey || owner.teamId) throw new Error('Required skills need an Agent owner');
-        const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
-        if (!detail || !resolveAgentInteraction(toText(detail.raw.mode), detail.raw.interactionConfig).mustUseSkills)
-          throw new Error('Required skills are no longer supported');
-        const catalog = await this.ensureAgentSkills(owner.agentKey);
-        if (!catalog) throw new Error('Skills catalog is unavailable');
-        resolveRequiredSkillIds(mustUseSkills, catalog);
-        if (!this.isLifecycleCurrent(lifecycleVersion)) {
-          this.inFlightOutgoingIds.delete(input.clientMessageId);
-          return;
-        }
-      }
-
-      const references = normalizeChatAttachmentReferences(
-        (input.attachments || []).flatMap((attachment) => attachment.references)
-      );
+      const references = normalizeChatAttachmentReferences([
+        ...(input.attachments || []).flatMap((attachment) => attachment.references),
+        ...normalizeSkillIds(input.skillIds).map((id) => ({ type: 'skill', id }))
+      ]);
       await this.validateContextReferences(
         input.conversationId,
         buildChatRunOwnerPayload(historyScope || {}),
@@ -2582,11 +2684,14 @@ class ChatSyncService {
         throw new Error('Message attachments are not ready');
       }
 
+      let accepted = false;
+      let acceptedRunId = '';
+      let ended = false;
+      let events = Promise.resolve();
       const handle = await streamChatQuery({
         ...config,
         payload: unscopeChatPayload({
-          requestId: createRemoteRequestId(input.clientMessageId),
-          operationId: input.clientMessageId,
+          requestId: input.clientMessageId,
           chatId: input.conversationId,
           message: input.content,
           ...(references.length > 0 ? { references } : {}),
@@ -2594,38 +2699,76 @@ class ChatSyncService {
           accessLevel: input.accessLevel,
           model: input.model,
           planningMode: input.planningMode === true,
-          editingMode: input.editingMode === true,
-          mustUseSkills
+          editingMode: input.editingMode
         }),
         onEvent: (event) => {
-          if (!this.isLifecycleCurrent(lifecycleVersion)) {
-            return;
-          }
+          if (!this.isLifecycleCurrent(lifecycleVersion) || ended) return;
           const streamEvent = scopeChatPayload(this.source, event as Record<string, unknown>);
-          void this.handlePushEvent(
-            {
-              ...streamEvent,
-              chatId: input.conversationId,
-              conversationId: input.conversationId,
-              clientMessageId: input.clientMessageId,
-              requestId: toText(streamEvent.requestId) || input.clientMessageId
-            },
-            'stream'
-          );
+          if (!accepted) {
+            const owner = buildChatRunOwnerPayload(historyScope || {});
+            if (
+              toText(streamEvent.requestId) !== input.clientMessageId ||
+              extractConversationId(streamEvent) !== input.conversationId ||
+              !toText(streamEvent.runId) ||
+              toText(streamEvent.agentKey) !== owner.agentKey
+            )
+              return;
+            accepted = true;
+            acceptedRunId = toText(streamEvent.runId);
+            events = events.then(() => this.markOutgoingSentIfPending(input));
+          }
+          if (
+            (streamEvent.type === 'request.query' &&
+              toText(streamEvent.requestId) &&
+              toText(streamEvent.requestId) !== input.clientMessageId) ||
+            (toText(streamEvent.runId) && toText(streamEvent.runId) !== acceptedRunId)
+          )
+            return;
+          events = events.then(async () => {
+            if (!this.isLifecycleCurrent(lifecycleVersion)) return;
+            await this.handlePushEvent(
+              {
+                ...streamEvent,
+                chatId: input.conversationId,
+                runId: toText(streamEvent.runId) || acceptedRunId,
+                agentKey: toText(streamEvent.agentKey) || historyScope?.agentKey,
+                clientMessageId: input.clientMessageId
+              },
+              'stream'
+            );
+          });
         },
         onDone: () => {
-          if (!this.isLifecycleCurrent(lifecycleVersion)) {
-            this.inFlightOutgoingIds.delete(input.clientMessageId);
-            return;
-          }
-          void this.handleOutgoingStreamDone(input);
+          if (ended) return;
+          ended = true;
+          events = events
+            .then(async () => {
+              if (!this.isLifecycleCurrent(lifecycleVersion)) return;
+              if (accepted) await this.handleOutgoingStreamDone(input);
+              else await this.handleOutgoingStreamError(input, new Error('submission_unconfirmed'));
+            })
+            .catch(() => {})
+            .finally(() => {
+              this.inFlightOutgoingIds.delete(input.clientMessageId);
+              this.activeOutgoingStreams.delete(input.clientMessageId);
+            });
         },
         onError: (error) => {
-          if (!this.isLifecycleCurrent(lifecycleVersion)) {
-            this.inFlightOutgoingIds.delete(input.clientMessageId);
-            return;
-          }
-          void this.handleOutgoingStreamError(input, error);
+          if (ended) return;
+          ended = true;
+          events = events
+            .then(async () => {
+              if (!this.isLifecycleCurrent(lifecycleVersion)) return;
+              if (accepted) {
+                await this.flushConversationStreamBuffers(input.conversationId);
+                await this.handleStreamSideError(input.conversationId, error);
+              } else await this.handleOutgoingStreamError(input, error);
+            })
+            .catch(() => {})
+            .finally(() => {
+              this.inFlightOutgoingIds.delete(input.clientMessageId);
+              this.activeOutgoingStreams.delete(input.clientMessageId);
+            });
         }
       });
       if (!this.isLifecycleCurrent(lifecycleVersion)) {
@@ -2633,11 +2776,12 @@ class ChatSyncService {
         this.inFlightOutgoingIds.delete(input.clientMessageId);
         return;
       }
-      this.activeOutgoingStreams.set(input.clientMessageId, {
-        conversationId: input.conversationId,
-        clientMessageId: input.clientMessageId,
-        abort: handle.abort
-      });
+      if (!ended)
+        this.activeOutgoingStreams.set(input.clientMessageId, {
+          conversationId: input.conversationId,
+          clientMessageId: input.clientMessageId,
+          abort: handle.abort
+        });
     } catch (error) {
       this.inFlightOutgoingIds.delete(input.clientMessageId);
       this.activeOutgoingStreams.delete(input.clientMessageId);
@@ -2649,26 +2793,24 @@ class ChatSyncService {
   }
 
   private async markOutgoingSentIfPending(input: { clientMessageId: string; conversationId: string }) {
+    const lifecycleVersion = this.lifecycleVersion;
     const current = await getMessageByClientMessageId(input.clientMessageId);
-    if (!current || current.deliveryStatus !== 'pending') {
+    if (!this.isLifecycleCurrent(lifecycleVersion)) return;
+    if (!current || current.conversationId !== input.conversationId || current.deliveryStatus === 'sent') {
       return;
     }
 
-    const patched = await patchMessageByClientMessageId(
-      input.clientMessageId,
-      {
-        deliveryStatus: 'sent',
-        errorReason: null
-      },
-      {
-        removeOutbox: true
-      }
-    );
+    const patched = await patchMessageByClientMessageId(input.clientMessageId, {
+      deliveryStatus: 'sent',
+      errorReason: null
+    });
 
+    if (!this.isLifecycleCurrent(lifecycleVersion)) return;
     if (patched) {
       const patch = {
         deliveryStatus: patched.deliveryStatus,
-        errorReason: patched.errorReason
+        errorReason: patched.errorReason,
+        errorDetail: null
       };
       this.emit({
         type: 'conversation.message.patch',
@@ -2691,8 +2833,10 @@ class ChatSyncService {
     },
     error: Error
   ) {
+    const lifecycleVersion = this.lifecycleVersion;
     const current = await getMessageByClientMessageId(input.clientMessageId);
-    if (!current || current.deliveryStatus !== 'pending') {
+    if (!this.isLifecycleCurrent(lifecycleVersion)) return;
+    if (!current || current.conversationId !== input.conversationId || current.deliveryStatus !== 'pending') {
       return;
     }
 
@@ -2701,10 +2845,19 @@ class ChatSyncService {
       errorReason: error.message || 'Stream failed'
     });
 
+    if (!this.isLifecycleCurrent(lifecycleVersion)) return;
     if (patched) {
       const patch = {
         deliveryStatus: patched.deliveryStatus,
-        errorReason: patched.errorReason
+        errorReason: patched.errorReason,
+        errorDetail: formatChatTimelinePlatformErrorForDisplay({
+          status:
+            Number(
+              (error as Error & { status?: number; code?: number }).status || (error as Error & { code?: number }).code
+            ) || null,
+          error: (error as Error & { payload?: unknown }).payload,
+          message: error.message
+        }).error
       };
       this.emit({
         type: 'conversation.message.patch',
@@ -2714,6 +2867,8 @@ class ChatSyncService {
         patch
       });
       this.publishTimelineMessagePatch(input.conversationId, 'local_send', patched.messageId, patch);
+      await persistConversationTimelineState(this.getConversationTimelineState(input.conversationId));
+      if (!this.isLifecycleCurrent(lifecycleVersion)) return;
     }
     await this.emitHomePatchFromConversation(input.conversationId, {
       shouldMoveToTop: true
@@ -2723,40 +2878,10 @@ class ChatSyncService {
   private async handleOutgoingStreamDone(input: { clientMessageId: string; conversationId: string }) {
     try {
       await this.flushConversationStreamBuffers(input.conversationId);
-      await this.markOutgoingSentIfPending(input);
     } finally {
       this.inFlightOutgoingIds.delete(input.clientMessageId);
       this.activeOutgoingStreams.delete(input.clientMessageId);
     }
-  }
-
-  private async recoverAcceptedRemoteOperation(
-    input: { clientMessageId: string; conversationId: string },
-    error: Error
-  ): Promise<boolean> {
-    if (!isAccountDesktopChatSource(this.source)) {
-      return false;
-    }
-    let taskId = operationReplayTaskId(error);
-    if (!taskId && this.status === 'connected') {
-      try {
-        const status = await this.getRemoteOperationStatus(input.clientMessageId);
-        taskId = toText(status.taskId);
-      } catch {
-        return false;
-      }
-    }
-    if (!taskId) {
-      return false;
-    }
-
-    await this.markOutgoingSentIfPending(input);
-    await setConversationActiveRunId(input.conversationId, taskId);
-    await this.scheduleConversationReconcile(input.conversationId, 'reconcile', true);
-    if (this.activeConversationId === input.conversationId) {
-      await this.attachActiveConversationRun(input.conversationId, 'attach');
-    }
-    return true;
   }
 
   private async handleOutgoingStreamError(
@@ -2767,32 +2892,13 @@ class ChatSyncService {
     error: Error
   ) {
     try {
-      if (await this.recoverAcceptedRemoteOperation(input, error)) {
-        return;
-      }
-      if (isAccountDesktopChatSource(this.source) && this.status !== 'connected') {
-        return;
-      }
-      await this.handleStreamSideError(input.conversationId, error);
-      await this.markOutgoingFailedIfPending(input, error);
+      const transportError = error as Error & { status?: number; code?: number | string };
+      const status = Number(transportError.status || transportError.code);
+      const rejected = status >= 400 && status < 500 && status !== 408;
+      await this.markOutgoingFailedIfPending(input, rejected ? error : new Error('submission_unconfirmed'));
     } finally {
       this.inFlightOutgoingIds.delete(input.clientMessageId);
       this.activeOutgoingStreams.delete(input.clientMessageId);
-    }
-  }
-
-  private async flushPendingOutbox() {
-    if (this.source.kind === 'default' && getCloudAuthSnapshot().status !== 'available') return;
-    const pendingMessages = await getPendingOutboxMessages(50);
-    for (const message of pendingMessages.reverse()) {
-      if (this.inFlightOutgoingIds.has(message.clientMessageId)) {
-        continue;
-      }
-      try {
-        await this.dispatchOutgoingMessage(message);
-      } catch {
-        // Keep the pending item in SQLite; the next reconnect or manual retry can replay it.
-      }
     }
   }
 
@@ -2815,11 +2921,9 @@ class ChatSyncService {
     if (
       type === 'request.steer' &&
       pendingSteer?.steerId === toText(event.steerId) &&
-      ((pendingSteer.teamId && toText(event.teamId) && pendingSteer.teamId !== toText(event.teamId)) ||
-        (!pendingSteer.teamId &&
-          pendingSteer.agentKey &&
-          toText(event.agentKey) &&
-          pendingSteer.agentKey !== toText(event.agentKey)))
+      pendingSteer.agentKey &&
+      toText(event.agentKey) &&
+      pendingSteer.agentKey !== toText(event.agentKey)
     )
       return;
     const family = classifyChatProtocolEvent(event);
@@ -2827,10 +2931,22 @@ class ChatSyncService {
     if (source === 'stream' && conversationId && eventRunId && Number.isSafeInteger(event.seq)) {
       const key = JSON.stringify([conversationId, eventRunId]);
       const sequence = Number(event.seq);
-      if (sequence <= (this.streamSequences.get(key) ?? -1)) return;
-      this.streamSequences.delete(key);
-      this.streamSequences.set(key, sequence);
+      if (sequence > 0 && sequence <= (this.streamSequences.get(key) ?? -1)) return;
+      if (sequence > 0) {
+        this.streamSequences.delete(key);
+        this.streamSequences.set(key, sequence);
+      }
       if (this.streamSequences.size > 128) this.streamSequences.delete(this.streamSequences.keys().next().value!);
+    }
+    if (
+      type === 'request.steer' &&
+      pendingSteer?.steerId === toText(event.steerId) &&
+      pendingSteer.runId === eventRunId &&
+      pendingSteer.agentKey &&
+      pendingSteer.agentKey === toText(event.agentKey)
+    ) {
+      this.pendingSteers.delete(conversationId);
+      this.emit({ type: 'conversation.steer.changed', conversationId, pending: null, confirmed: pendingSteer });
     }
     if (type === 'tool.output' && (source !== 'stream' || conversationId !== this.activeConversationId)) return;
     if (type === 'run.activity' && conversationId) {
@@ -2880,7 +2996,7 @@ class ChatSyncService {
       if (type === 'run.start') {
         this.unavailableAttachRuns.delete(conversationId);
         await setConversationActiveRunId(conversationId, this.getConversationTimelineState(conversationId).activeRunId);
-        if (this.activeConversationId === conversationId) {
+        if (source !== 'stream' && this.activeConversationId === conversationId) {
           await this.attachActiveConversationRun(conversationId, 'attach');
         }
         return;
@@ -2935,8 +3051,7 @@ class ChatSyncService {
             : {}),
           ...(projectedRead !== undefined ? { read: { ...event, read: projectedRead } } : {}),
           shouldMoveToTop: hasLatestMessage,
-          agentKey: projected.agentKey,
-          teamId: projected.teamId
+          agentKey: projected.agentKey
         });
 
         if (patchResult?.changed || patchResult?.directoryChanged) {
@@ -3038,8 +3153,7 @@ class ChatSyncService {
       conversationId,
       { ...event, read: serverRead },
       {
-        agentKey: extractAgentKey(event) || null,
-        teamId: extractTeamId(event) || null
+        agentKey: extractAgentKey(event) || null
       }
     );
     if (result?.changed) {
@@ -3060,10 +3174,9 @@ class ChatSyncService {
 
   private async handleReadAllEvent(event: Record<string, unknown>) {
     const agentKey = extractAgentKey(event);
-    const teamId = extractTeamId(event);
     const conversationId = extractConversationId(event);
 
-    if (!agentKey && !teamId) {
+    if (!agentKey) {
       if (conversationId) {
         await this.handleConversationUnreadStateEvent(event, 0);
       }
@@ -3071,8 +3184,7 @@ class ChatSyncService {
     }
 
     const result = await markConversationReadScopeLocal({
-      agentKey: agentKey || null,
-      teamId: teamId || null
+      agentKey: agentKey || null
     });
 
     if (result.directoryChanged) {
@@ -3095,18 +3207,12 @@ class ChatSyncService {
       return;
     }
 
-    const patched = await patchMessageByClientMessageId(
-      clientMessageId,
-      {
-        serverMessageId: toText(event.serverMessageId) || undefined,
-        createdAt: toFiniteNumber(event.createdAt ?? event.timestamp, Date.now()),
-        deliveryStatus: 'sent',
-        errorReason: null
-      },
-      {
-        removeOutbox: true
-      }
-    );
+    const patched = await patchMessageByClientMessageId(clientMessageId, {
+      serverMessageId: toText(event.serverMessageId) || undefined,
+      createdAt: toFiniteNumber(event.createdAt ?? event.timestamp, Date.now()),
+      deliveryStatus: 'sent',
+      errorReason: null
+    });
 
     if (!patched) {
       return;
@@ -3979,11 +4085,7 @@ class ChatSyncService {
     return this.activeAttaches.get(conversationId)?.token === token;
   }
 
-  private rememberDuplicateAttach(
-    conversationId: string,
-    runId: string,
-    owner: { agentKey?: string; teamId?: string }
-  ) {
+  private rememberDuplicateAttach(conversationId: string, runId: string, owner: { agentKey?: string }) {
     this.recentDuplicateAttaches.set(conversationId, {
       runId,
       ...owner,
@@ -3994,7 +4096,7 @@ class ChatSyncService {
   private shouldSkipRecentlyDuplicatedAttach(
     conversationId: string,
     runId: string,
-    owner: { agentKey?: string; teamId?: string }
+    owner: { agentKey?: string }
   ): boolean {
     const duplicate = this.recentDuplicateAttaches.get(conversationId);
     if (!duplicate) {
@@ -4003,7 +4105,6 @@ class ChatSyncService {
     if (
       duplicate.runId !== runId ||
       duplicate.agentKey !== owner.agentKey ||
-      duplicate.teamId !== owner.teamId ||
       Date.now() - duplicate.observedAt > DUPLICATE_ATTACH_COOLDOWN_MS
     ) {
       this.recentDuplicateAttaches.delete(conversationId);
@@ -4052,6 +4153,11 @@ class ChatSyncService {
     if (!normalizedConversationId || this.activeConversationId !== normalizedConversationId) {
       return;
     }
+    if (
+      this.conversationSendRequests.has(normalizedConversationId) ||
+      [...this.activeOutgoingStreams.values()].some((stream) => stream.conversationId === normalizedConversationId)
+    )
+      return;
 
     const syncState = await getConversationSyncState(normalizedConversationId);
     const runId = toText(syncState?.activeRunId);
@@ -4066,18 +4172,23 @@ class ChatSyncService {
     if (recovery?.runId === runId && recovery.count >= 3) return;
     if (recovery && recovery.runId !== runId) this.attachRecoveryFailures.delete(normalizedConversationId);
     const owner = await this.resolveRunControlScope(normalizedConversationId, runId);
-    if (!owner.agentKey && !owner.teamId) {
+    if (!owner.agentKey) {
       return;
     }
 
     if (this.activeConversationId !== normalizedConversationId) return;
+    if (
+      this.conversationSendRequests.has(normalizedConversationId) ||
+      [...this.activeOutgoingStreams.values()].some((stream) => stream.conversationId === normalizedConversationId)
+    )
+      return;
     if (
       this.timelineStates.has(normalizedConversationId) &&
       this.getConversationTimelineState(normalizedConversationId).activeRunId !== runId
     )
       return;
     const existing = this.activeAttaches.get(normalizedConversationId);
-    if (existing?.runId === runId && existing.agentKey === owner.agentKey && existing.teamId === owner.teamId) {
+    if (existing?.runId === runId && existing.agentKey === owner.agentKey) {
       return existing.promise;
     }
 
@@ -4135,8 +4246,8 @@ class ChatSyncService {
       ...config,
       payload: unscopeChatPayload({
         runId: attachState.runId,
+        chatId: normalizedConversationId,
         agentKey: attachState.agentKey,
-        teamId: attachState.teamId,
         lastSeq: attachState.lastSeq
       }),
       onEvent: (event) => {
@@ -4153,7 +4264,8 @@ class ChatSyncService {
             ...attachEvent,
             chatId: normalizedConversationId,
             conversationId: normalizedConversationId,
-            runId: attachState.runId
+            runId: attachState.runId,
+            agentKey: toText(attachEvent.agentKey) || attachState.agentKey
           },
           'stream'
         );
@@ -4209,8 +4321,7 @@ class ChatSyncService {
     const historyScope = await getConversationHistoryScope(conversationId);
 
     return buildChatRunOwnerPayload({
-      agentKey: toText(historyScope?.agentKey) || timelineAgentKey,
-      teamId: toText(historyScope?.teamId)
+      agentKey: toText(historyScope?.agentKey) || timelineAgentKey
     });
   }
 
@@ -4310,6 +4421,14 @@ class ChatSyncCoordinator {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  getDirectorySyncSnapshot(): ChatDirectorySyncSnapshot {
+    const service = this.activeService;
+    const snapshot = service?.getDirectorySyncSnapshot();
+    return service?.source.key === getActiveChatSource()?.key && snapshot?.scopeId === getChatCacheScopeId()
+      ? snapshot
+      : EMPTY_DIRECTORY_SYNC_SNAPSHOT;
   }
 
   getViewDocument(request: ChatViewRequest) {
@@ -4414,30 +4533,22 @@ class ChatSyncCoordinator {
 
   getAgentModelOptionsSnapshot(agentKey: string) {
     const service = this.getServiceForId(agentKey);
-    if (!service || service.source.kind === 'default') {
+    if (!service) {
       return null;
     }
     return service.getAgentModelOptionsSnapshot(agentKey);
   }
 
-  ensureAgentModelOptions(agentKey: string) {
-    const service = this.getServiceForId(agentKey);
-    if (!service || service.source.kind === 'default') {
-      return Promise.resolve(null);
-    }
-    return service.ensureAgentModelOptions(agentKey);
+  ensureAgentModelOptions(agentKey: string, options?: { refresh?: boolean }) {
+    return this.requireServiceForId(agentKey).ensureAgentModelOptions(agentKey, options);
   }
 
   updateAgentModelConfig(agentKey: string, modelOverride: QueryModelOverride) {
-    const service = this.getServiceForId(agentKey);
-    if (!service || service.source.kind === 'default') {
-      return Promise.resolve(null);
-    }
-    return service.updateAgentModelConfig(agentKey, modelOverride);
+    return this.requireServiceForId(agentKey).updateAgentModelConfig(agentKey, modelOverride);
   }
 
-  markScopeRead(scope: { agentKey?: string | null; teamId?: string | null }) {
-    const key = scope.teamId || scope.agentKey || '';
+  markScopeRead(scope: { agentKey?: string | null }) {
+    const key = scope.agentKey || '';
     return this.requireServiceForId(key).markScopeRead(scope);
   }
 
@@ -4447,10 +4558,6 @@ class ChatSyncCoordinator {
 
   loadOlderConversationHistory(conversationId: string) {
     return this.requireServiceForId(conversationId).loadOlderConversationHistory(conversationId);
-  }
-
-  getRemoteOperationStatus(conversationId: string, operationId: string) {
-    return this.requireServiceForId(conversationId).getRemoteOperationStatus(operationId);
   }
 
   resolveFrontendTool(conversationId: string, toolKey: string, reason: ChatTimelineFrontendToolResolution) {
@@ -4491,6 +4598,36 @@ class ChatSyncCoordinator {
 
   steerConversation(conversationId: string, message: string, attachments: readonly ChatComposerAttachment[] = []) {
     return this.requireServiceForId(conversationId).steerConversation(conversationId, message, attachments);
+  }
+
+  continueWait(conversationId: string, toolId: string) {
+    return this.requireServiceForId(conversationId).continueWait(conversationId, toolId);
+  }
+
+  listReferenceKbases(conversationId: string) {
+    return this.requireServiceForId(conversationId).listReferenceKbases(conversationId);
+  }
+
+  getWorkspaceFile(resourceUrl: string) {
+    return this.getLocalService().getWorkspaceFile(resourceUrl);
+  }
+
+  recoverSubmission(conversationId: string, clientMessageId: string) {
+    return this.requireServiceForId(conversationId).recoverSubmission(conversationId, clientMessageId);
+  }
+
+  retryMessage(
+    conversationId: string,
+    clientMessageId: string,
+    options: ChatSendMessageOptions = {},
+    allowUnconfirmedResubmission = false
+  ) {
+    return this.requireServiceForId(conversationId).retryMessage(
+      conversationId,
+      clientMessageId,
+      options,
+      allowUnconfirmedResubmission
+    );
   }
 
   sendMessage(

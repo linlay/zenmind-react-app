@@ -23,7 +23,7 @@ WebClient 通过 canContinue 与运行状态控制发送和空 query 续聊；�
 1. 接入服务端和有效历史派生的 canContinue。
 2. 区分首轮正文、后续允许的引用输入与受控空 query。
 3. 仅在协议允许的异常结束等状态提供空 query 续聊，阻止 active/awaiting 重复发起。
-4. 区分恢复 attach 和创建新 run，并保存 outbox 所需语义。
+4. 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 
 ## 当前项目接入点
 
@@ -65,9 +65,9 @@ WebClient 通过 canContinue 与运行状态控制发送和空 query 续聊；�
 | 开始 / 完成日期              | 2026-10-08 开始；本地实现完成，联合验收未完成                                                                                                                                            |
 | 实际代码、参考代码与后端版本 | RN `64e015bf28bf12c43f50640257f3ab7d402dbb73` + 原有未提交工作树；WebClient `eeec6f12b29bdf440b47b3d6f108aba67981e2ea`；实际后端版本未知                                                 |
 | 范围决定与协议样本           | query 准入与空续聊；AP/Desktop 与 Agent/Team 的可重复 fixture 位于 `scripts/tests`，未声称真实后端已支持                                                                                 |
-| 变更文件与设计取舍           | 已建立历史、显式 canContinue=true、无 active/awaiting 才发送空 query；同会话防并发；已有 outbox 保存空控制操作，replay 通过空正文无附件识别，不新增 schema，不生成空气泡或改写目录摘要。 |
+| 变更文件与设计取舍           | 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。 |
 | 测试命令、结果与证据位置     | chatDetailViewModel.ts、chatRepository.ts、timelineReducer.ts、chatSyncService.ts；service 测试覆盖权限、single-flight 与气泡隐藏。；总览记录正式检查结果                                |
 | 真实后端 / Native 联调       | 待提供目标部署版本与可操作会话；读取 CoreSimulator 确认当前无已启动设备，未操作真机                                                                                                      |
-| 迁移与回滚方式               | 无 schema 或依赖变更；新增 snapshot 字段可选，瞬态不落库；旧 SQLite 与 viewport 数据兼容保留，空续聊沿用 outbox；回滚代码无需删库                                                        |
+| 迁移与回滚方式               | 聊天缓存使用 schema 9；旧 scope 首次打开时一次性清空聊天表、对应目录快照及应用管理的资源图片缓存，新版本不重复清空，高版本拒绝降级打开；认证、来源配置、远端数据和用户原始文件保留。 |
 | 阻塞项与后续事项             | 真实协议样本、Native WebView/交互以及 P2 范围待确认；T31 不关闭                                                                                                                          |
 | 临时状态清理与原有改动保护   | 任务开始前保存状态与文件基线；正式检查前另存生成文件状态；最终恢复和哈希审计见总览                                                                                                       |

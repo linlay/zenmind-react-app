@@ -1,6 +1,6 @@
 import { isRemoteEpochMillis } from './chatRemoteTimeProtocol.ts';
 export const CHAT_DERIVE_TRANSPORT_TYPE = '/api/chat/derive';
-export type ChatDerivation = { chatId: string; phase: 'unknown' | 'ready'; agentKey?: string; teamId?: string };
+export type ChatDerivation = { chatId: string; phase: 'unknown' | 'ready'; agentKey?: string };
 export function validateChatDerivationResponse(
   value: unknown,
   sourceChatId: string,
@@ -19,9 +19,7 @@ export function validateChatDerivationResponse(
     Number(result.copiedRuns) < 1 ||
     typeof result.lastRunId !== 'string' ||
     !result.lastRunId.trim() ||
-    (target.teamId
-      ? result.teamId !== target.teamId || !!result.agentKey
-      : result.agentKey !== target.agentKey || !!result.teamId)
+    result.agentKey !== target.agentKey
   )
     throw new Error('Derivation response does not match this run and owner');
 }

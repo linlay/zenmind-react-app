@@ -3,7 +3,7 @@ import test from 'node:test';
 
 import {
   buildChatDetailRouteParams,
-  getAgentDetailPrewarmKeyForEmptyConversation,
+  getAgentDetailPrewarmKeyForEmptyConversation
 } from '../../src/features/chatPersistence/chatDetailNavigation.ts';
 import type { DirectoryConversationOpenResult } from '../../src/features/chatPersistence/chatRepository.ts';
 import type { ChatDirectoryItem } from '../../src/features/chatPersistence/types.ts';
@@ -12,7 +12,7 @@ const source = {
   kind: 'paired',
   key: 'paired:desktop-test',
   sourceId: 'desktop-test',
-  displayName: 'Test Desktop',
+  displayName: 'Test Desktop'
 } as const;
 
 const baseDirectoryItem: ChatDirectoryItem = {
@@ -26,14 +26,13 @@ const baseDirectoryItem: ChatDirectoryItem = {
   pinnedAt: 0,
   sortRank: 1,
   agentKey: 'assistant',
-  teamId: null,
   defaultAgentKey: null,
   agentMode: 'chat',
   modelKey: 'model-a',
   reasoningEffort: 'LOW',
   latestConversationId: null,
   lastMessageText: '',
-  lastMessageAt: 0,
+  lastMessageAt: 0
 };
 
 const baseOpenResult: DirectoryConversationOpenResult = {
@@ -45,13 +44,12 @@ const baseOpenResult: DirectoryConversationOpenResult = {
     lastMessageAt: 100,
     unreadCount: 0,
     lastMessageStatus: 'sent',
-    pinnedAt: 0,
+    pinnedAt: 0
   },
   historyScope: {
-    agentKey: 'assistant',
-    teamId: null,
+    agentKey: 'assistant'
   },
-  skipInitialReconcile: true,
+  skipInitialReconcile: true
 };
 
 test('chat detail route params carry directory target and open result', () => {
@@ -68,10 +66,9 @@ test('chat detail route params carry directory target and open result', () => {
     title: 'Assistant',
     subtitle: 'Helpful agent',
     agentKey: 'assistant',
-    teamId: null,
     agentMode: 'CHAT',
     modelKey: 'model-a',
-    reasoningEffort: 'LOW',
+    reasoningEffort: 'LOW'
   });
 });
 
@@ -80,7 +77,7 @@ test('agent detail prewarm key is only derived for empty skip-reconcile conversa
   assert.equal(
     getAgentDetailPrewarmKeyForEmptyConversation(baseDirectoryItem, {
       ...baseOpenResult,
-      skipInitialReconcile: false,
+      skipInitialReconcile: false
     }),
     null
   );
@@ -89,8 +86,8 @@ test('agent detail prewarm key is only derived for empty skip-reconcile conversa
       ...baseOpenResult,
       conversation: {
         ...baseOpenResult.conversation,
-        lastMessageText: 'already has content',
-      },
+        lastMessageText: 'already has content'
+      }
     }),
     null
   );

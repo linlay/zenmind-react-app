@@ -32,6 +32,11 @@ type ChatComposerOptionsState = {
   accessLevel: QueryAccessLevel;
   agentKey: string;
   modelOverride: QueryModelOverride;
+  modelOptionsError: string;
+  modelConfigSaving: boolean;
+  inputReady: boolean;
+  localFilesAllowed: boolean;
+  onRefreshModels: () => void;
   modelOptionsLoading: boolean;
   modelOptionsSnapshot: ModelOptionsSnapshot | null;
 };
@@ -45,6 +50,7 @@ type ChatDetailComposerCardProps = {
   attachments: ChatComposerAttachment[];
   composerOptions: ChatComposerOptionsState;
   errorText: string;
+  recoveryText?: string;
   planModeAvailable: boolean;
   planModeEnabled: boolean;
   editingModeAvailable: boolean;
@@ -57,6 +63,7 @@ type ChatDetailComposerCardProps = {
   onResume: () => void;
   onTogglePlanMode: () => void;
   onOpenChatReferences?: () => void;
+  onOpenKbaseReferences?: () => void;
   onSelectAttachment: (type: ComposerAttachmentType) => void;
   onRemoveAttachment: (attachmentId: string) => void;
   onRetryAttachment: (attachmentId: string) => void;
@@ -74,6 +81,7 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
   attachments,
   composerOptions,
   errorText,
+  recoveryText,
   planModeAvailable,
   planModeEnabled,
   editingModeAvailable,
@@ -86,6 +94,7 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
   onResume,
   onTogglePlanMode,
   onOpenChatReferences,
+  onOpenKbaseReferences,
   onSelectAttachment,
   onRemoveAttachment,
   onRetryAttachment,
@@ -97,7 +106,7 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
   return (
     <View className={COMPOSER_WRAP_CLASS}>
       <ChatComposerOptionRow
-        skillsEnabled={composerOptions.interaction.mustUseSkills && Boolean(composerOptions.agentKey)}
+        skillsEnabled={composerOptions.interaction.attachment.skills && Boolean(composerOptions.agentKey)}
         skillsDisabled={Boolean(pendingSteer) || ['stop', 'sending', 'resume'].includes(primaryAction)}
         skillsCatalog={composerOptions.skillsCatalog}
         selectedSkills={composerOptions.selectedSkills}
@@ -105,6 +114,10 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
         skillsError={composerOptions.skillsError}
         onLoadSkills={composerOptions.onLoadSkills}
         onToggleSkills={composerOptions.onToggleSkills}
+        disabled={!composerOptions.inputReady || Boolean(pendingSteer) || primaryAction === 'sending'}
+        modelDisabled={composerOptions.modelConfigSaving || ['stop', 'resume'].includes(primaryAction)}
+        modelOptionsError={composerOptions.modelOptionsError}
+        onRefreshModels={composerOptions.onRefreshModels}
         modelEnabled={composerOptions.interaction.model}
         accessLevelEnabled={composerOptions.interaction.accessLevel}
         runtimeAccess={composerOptions.runtimeAccess}
@@ -138,12 +151,14 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
           ) : null}
         </View>
       ) : null}
+      {recoveryText ? <Text className="mb-app-sm text-[13px] text-app-secondary">{recoveryText}</Text> : null}
       <Composer
         inputDisabled={Boolean(pendingSteer)}
         steerAvailable={steerAvailable}
         onSteer={onSteer}
         onOpenChatReferences={onOpenChatReferences}
-        attachmentEnabled={composerOptions.interaction.attachment.localFiles && !pendingSteer}
+        onOpenKbaseReferences={onOpenKbaseReferences}
+        attachmentEnabled={composerOptions.localFilesAllowed}
         value={draft}
         attachments={attachments}
         onChangeText={onChangeDraft}
@@ -158,9 +173,15 @@ export const ChatDetailComposerCard = memo(function ChatDetailComposerCard({
         planModeAvailable={planModeAvailable || editingModeAvailable}
         planModeEnabled={editingModeAvailable ? editingModeEnabled : planModeEnabled}
         queryModeLabel={editingModeAvailable ? t('composer.editingMode') : t('composer.planMode')}
+        queryModeIconUsage={editingModeAvailable ? 'composer.edit' : 'composer.plan'}
         queryModeDisabled={Boolean(pendingSteer) || ['stop', 'sending', 'resume'].includes(primaryAction)}
         onTogglePlanMode={editingModeAvailable ? onToggleEditingMode : onTogglePlanMode}
       />
+      {composerOptions.inputReady &&
+      !composerOptions.interaction.attachment.localFiles &&
+      attachments.some((item) => item.kind === 'file' || item.kind === 'image') ? (
+        <Text className={ERROR_TEXT_CLASS}>{t('composer.settings.filesForbidden')}</Text>
+      ) : null}
       {errorText ? (
         <Text allowFontScaling={false} className={ERROR_TEXT_CLASS}>
           {errorText}

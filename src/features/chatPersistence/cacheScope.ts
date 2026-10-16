@@ -1,3 +1,4 @@
+export const CHAT_CACHE_SCHEMA_VERSION = 9;
 const DEFAULT_CHAT_CACHE_SCOPE_ID = 'signed_out';
 const CACHE_SCOPE_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/u;
 

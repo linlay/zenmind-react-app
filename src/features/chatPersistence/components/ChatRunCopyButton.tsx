@@ -1,5 +1,6 @@
 import { memo } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable } from 'react-native';
+import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
 export const ChatRunCopyButton = memo(function ChatRunCopyButton({
   runId,
@@ -13,10 +14,11 @@ export const ChatRunCopyButton = memo(function ChatRunCopyButton({
   return (
     <Pressable
       accessibilityRole="button"
+      accessibilityLabel={t('transcript.copyRun')}
       onPress={() => onCopyRun(runId)}
-      className="min-h-[32px] justify-center px-app-sm"
+      className="min-h-[32px] min-w-[32px] items-center justify-center px-app-sm"
     >
-      <Text className="text-app-caption text-app-secondary">{t('transcript.copyRun')}</Text>
+      <AppIcon usage="timeline.copy" />
     </Pressable>
   );
 });

@@ -3,6 +3,7 @@ import { MMKV } from 'react-native-mmkv';
 import { normalizeAgentAvatarIcon } from '../../shared/visual/agentAvatarIcon.ts';
 import {
   buildChatDirectorySnapshotKey,
+  CHAT_CACHE_SCHEMA_VERSION,
   CHAT_LEGACY_CACHE_SCOPE_ID,
   getChatCacheScopeId,
   normalizeChatCacheScopeId
@@ -24,8 +25,6 @@ function normalizeDirectorySnapshotItem(item: ChatDirectoryItem): ChatDirectoryI
     pinnedAt: Number(item.pinnedAt || 0),
     sortRank: Number.isFinite(Number(item.sortRank)) ? Number(item.sortRank) : 0,
     agentKey: item.agentKey ? String(item.agentKey) : null,
-    teamId: item.teamId ? String(item.teamId) : null,
-    defaultAgentKey: item.defaultAgentKey ? String(item.defaultAgentKey) : null,
     agentMode: item.agentMode ? String(item.agentMode) : null,
     modelKey: item.modelKey ? String(item.modelKey) : null,
     reasoningEffort: normalizeChatReasoningEffort(item.reasoningEffort),
@@ -44,7 +43,8 @@ export function readChatDirectorySnapshot(): ChatDirectorySnapshot | null {
 
   try {
     const parsed = JSON.parse(raw) as ChatDirectorySnapshot;
-    if (parsed?.version !== 1 || !Array.isArray(parsed.items)) {
+    if (parsed?.version !== CHAT_CACHE_SCHEMA_VERSION || !Array.isArray(parsed.items)) {
+      storage.delete(buildChatDirectorySnapshotKey(scopeId));
       return null;
     }
     return {
@@ -58,7 +58,7 @@ export function readChatDirectorySnapshot(): ChatDirectorySnapshot | null {
 
 export function writeChatDirectorySnapshot(items: ChatDirectoryItem[]) {
   const snapshot: ChatDirectorySnapshot = {
-    version: 1,
+    version: CHAT_CACHE_SCHEMA_VERSION,
     updatedAt: Date.now(),
     items
   };

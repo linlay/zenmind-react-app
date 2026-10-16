@@ -26,7 +26,7 @@
 6. 默认云端、Identity/Hub 和 HTML 导出资源地址从生成配置读取。取消 authConfig 的旧 MMKV 地址优先、相关保存入口及服务地址的 EXPO_PUBLIC fallback；不再通过默认云端猜账号服务。仍被使用且无关的开发调试 env 读取保留。
 7. 持久化账号凭据记录当前账号服务 binding（brand/environment/规范化 Identity/Hub），恢复与凭据使用前核对。配置不一致时复用最小本地清理：generation 失效、清旧凭据与 pending、发布未登录状态；不调用会向新 Identity 发旧 Token 的远端 logout。
 8. 仅制品版本、资源地址或默认云端配置变化时保留账号登录；Identity/Hub 变化重新登录。独立安装目标天然隔离品牌/环境，不实现跨 App 会话迁移、环境切换或旧格式升级。
-9. 沿用 cloudAuth/cloudAccess：同来源手动 Token 优先，内置 Token 轮换仅替换自动凭据；endpoint/source/authMode 变化不带旧凭据。业务验证成功才切 scope，保留旧缓存/outbox，不跨 scope 重放；同 binding 的主动退出不被配置 Token 更新复活。
+9. 缓存按账号和来源隔离，切源使迟到回调失效；不自动重发 query，不迁移或认领旧聊天数据；认证、来源配置、远端数据和用户原始文件保留。
 10. 清理被替代的 env wrapper、重复命令与旧读取链路，检查调用方和失效报错文案。保留 API/service、sharedWsTransport、chatSyncService/chatRepository、SQLite 和 MMKV 目录快照边界。
 
 ## 防止过度设计
@@ -39,7 +39,7 @@
 - EAS 构建上下文中存在已校验的制品/manifest，不依赖本机 sibling；生产 JS 没有残留地址 fallback 或其他品牌配置。
 - 账号恢复、刷新、Token 转发、注销在配置变化时不会将旧凭据发往新服务；迟到结果不能恢复已失效会话。
 - 同 binding 的账号正常恢复；内置 Token 更新、手动 Token、主动退出和失败验证仍保持原有行为。
-- 新云端 scope 不使用旧 outbox；账号退出不影响独立云端，云端退出不影响电脑账号；来源切换仍刷新对应 MMKV 目录快照。
+- 缓存按账号和来源隔离，切源使迟到回调失效；不自动重发 query，不迁移或认领旧聊天数据；认证、来源配置、远端数据和用户原始文件保留。
 - 优先扩展现有 accountAuthSession、appEnvConfig、mobileAuthSource/cloudApiCredential 行为测试；已有行为通过即可，不复制整套测试框架。
 
 ## 清理与记录

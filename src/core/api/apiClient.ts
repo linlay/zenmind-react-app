@@ -22,6 +22,7 @@ export type ApiRequestOptions = {
 };
 
 export type ApiUriSource = {
+  textContent?: string;
   uri: string;
   headers?: Record<string, string>;
 };
@@ -202,7 +203,7 @@ export async function buildAuthenticatedApiUriSource(
       url.username ||
       url.password ||
       url.hash ||
-      url.pathname !== '/api/resource' ||
+      !['/api/resource', '/api/file'].includes(url.pathname) ||
       url.searchParams.has('token')
     )
       throw new Error('Invalid Desktop resource origin or path');

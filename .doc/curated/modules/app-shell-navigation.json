@@ -48,6 +48,7 @@
     "ownedConcepts": [
       "AppRoot 挂载 accountDesktopSource 生命周期，账号恢复与 cloudAccess 验证独立进行；有效云端不等待 官网账号，所选 scope 交接由 feature 负责。",
       "RootNavigator 保留 Chat/WebApps/Me，Login 同时提供电脑账号和云端 Token 入口，不以另一条登录态删除 Login。Me 分别展示和退出账号与云端。",
+      "启动恢复期间直接展示 AuthBootstrapScreen，不创建占用 Login 路由的临时 Navigator；恢复完成后首次挂载正式 root stack，初始路由为 Tabs，避免恢复成功仍停在无返回历史的登录页。",
       "ChatDetail 按所选来源交接；WebApps sessionKey 绑定官网 accountId、auth generation 与所选 Desktop，只在电脑来源启用。",
       "云端通知注册用本地云端 scope 作为客户端身份，使用云端凭证；账号退出不清除当前云端注册，迟到注册及点击按来源拒绝。",
       "Me 显示官网已确认用户信息；RootStack 不再挂旧账号安全/邮箱绑定解绑页面。"
@@ -71,17 +72,12 @@
       "shared-visual-foundation",
       "shared-screen-header"
     ],
-    "dependents": [
-      "feature-agent-task-board",
-      "feature-chat-persistence"
-    ],
+    "dependents": ["feature-agent-task-board", "feature-chat-persistence"],
     "tests": [],
     "lastScannedAt": ""
   },
   "readHints": {
-    "alwaysRead": [
-      "src/app/navigation/RootNavigator.tsx"
-    ],
+    "alwaysRead": ["src/app/navigation/RootNavigator.tsx"],
     "readFor": [
       {
         "when": "legacy readNext",
@@ -146,7 +142,7 @@
     "新增或修改品牌时只改 brands/<id>/brand.json 和必要资源生成逻辑，不在 screen、feature 或 repository 中添加品牌分支。",
     "当前多品牌模式不要求并排安装：不同品牌必须共享 android.package / ios.bundleIdentifier 与 EAS preview/production channel，只切换名称、logo、启动图、通知色和可配置环境字段；需要独立上架时再升级为独立 native identity 模式。",
     "AppThemeProvider 必须挂在 NavigationContainer 上层，AppRoot、RootNavigator、TabBar、StatusBar 和各 screen 才能同步消费同一个 theme 引用。",
-    "主题切换只改变 shared visual 语义色，不触发 SQLite、MMKV 聊天目录快照、WebSocket 或 outbox 写入链路。",
+    "主题切换只改变 shared visual 语义色，不触发 SQLite、MMKV 聊天目录快照、WebSocket 或消息写入链路。",
     "如果 React loading 之前出现空白窗口，同步检查 Android splash theme 与 AppTheme 的 windowBackground 是否连续，避免主题切换时露白。",
     "如果接入 expo-splash-screen，要同步维护 app.config.js 插件配置、brands manifest、assets/brands/<id>/logo.png、Android 当前 splash 资源和 iOS SplashScreenLogo.imageset，保证 native 首帧与 React 首帧一致；Android 原生 logo 必须保留系统圆形遮罩安全边距。",
     "新增登录页、Tab、设置页或上层 route 时同时检查 RootNavigator、TabScreens、RootTabParamList 和 RootStackParamList 是否一致。",

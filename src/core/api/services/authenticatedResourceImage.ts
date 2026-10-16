@@ -8,6 +8,10 @@ export type AuthenticatedResourceImageRequest = {
   signal?: AbortSignal;
 };
 
+export function clearAuthenticatedResourceImageCache(): void {
+  // Only the Native image cache owns files on disk.
+}
+
 export async function resolveAuthenticatedResourceImageSource(
   request: AuthenticatedResourceImageRequest
 ): Promise<ApiUriSource> {

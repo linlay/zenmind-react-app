@@ -1,4 +1,3 @@
-import { ChatRunCopyButton } from './ChatRunCopyButton.tsx';
 import { memo, useCallback, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -26,7 +25,6 @@ const DIAGNOSTICS_TEXT_CLASS = 'font-mono text-[12px] leading-[18px] text-app-pr
 type ChatSystemAlertProps = {
   node: ChatTimelineMessageNode;
   isLastInRun: boolean;
-  onCopyRun?: (runId: string) => void;
 };
 
 type DetailLabels = {
@@ -143,7 +141,7 @@ function resolveSystemAlertMessage(
   return retryHint && !includesRetryIntent(baseMessage, retryHint) ? `${baseMessage} ${retryHint}` : baseMessage;
 }
 
-export const ChatSystemAlert = memo(function ChatSystemAlert({ node, isLastInRun, onCopyRun }: ChatSystemAlertProps) {
+export const ChatSystemAlert = memo(function ChatSystemAlert({ node, isLastInRun }: ChatSystemAlertProps) {
   const t = useT();
   const { theme } = useAppTheme();
   const [expanded, setExpanded] = useState(false);
@@ -222,7 +220,6 @@ export const ChatSystemAlert = memo(function ChatSystemAlert({ node, isLastInRun
             </View>
           ) : null}
         </View>
-        <ChatRunCopyButton runId={node.runId} onCopyRun={onCopyRun} />
       </View>
     </View>
   );

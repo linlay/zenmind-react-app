@@ -45,6 +45,7 @@ import { isAccountDesktopChatSource } from './chatSourceRuntime.ts';
 
 type ChatDetailScreenProps = NativeStackScreenProps<{ ChatDetail: ChatDetailRouteParams }, 'ChatDetail'>;
 const IS_IOS = Platform.OS === 'ios';
+const SHOW_CONVERSATION_TOOLS = Platform.OS === 'web';
 const KEYBOARD_SHOW_EVENT = IS_IOS ? 'keyboardWillShow' : 'keyboardDidShow';
 const KEYBOARD_HIDE_EVENT = IS_IOS ? 'keyboardWillHide' : 'keyboardDidHide';
 const SAFE_AREA_CLASS = 'flex-1 bg-app-background';
@@ -130,9 +131,11 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     skeletonOverlayOpacity,
     socketStatus,
     errorText,
+    recoveryText,
     modelRetryText,
     agentAvailability,
     agentAvailabilityText,
+    retryConfiguration,
     diagnosticState,
     draft,
     setDraft,
@@ -178,11 +181,15 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     skipInitialReconcile
   });
   const [contextPickerOpen, setContextPickerOpen] = useState(false);
-  const handleOpenContextPicker = useCallback(() => setContextPickerOpen(true), []);
+  const [contextPickerKind, setContextPickerKind] = useState<'chat' | 'kbase'>('chat');
+  const handleOpenContextPicker = useCallback(() => {
+    setContextPickerKind('chat');
+    setContextPickerOpen(true);
+  }, []);
   const handleCloseContextPicker = useCallback(() => setContextPickerOpen(false), []);
   const contextPickerAvailable =
-    composerOptions.interaction.attachment.chatRecords &&
-    !!(composerOptions.agentKey || conversationTarget?.teamId || historyScope?.teamId) &&
+    (composerOptions.interaction.attachment.chatRecords || composerOptions.interaction.attachment.kbases) &&
+    !!composerOptions.agentKey &&
     agentAvailability === 'available' &&
     !summary?.sourceDeleted &&
     !pendingSteer &&
@@ -319,13 +326,18 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                   onOpenMenu={handleOpenHistoryDrawer}
                 />
 
-                <ChatExportMenu
-                  key={`export:${conversationId}`}
-                  conversationId={conversationId}
-                  disabled={Boolean(summary.sourceDeleted)}
-                />
                 <ChatTimelineList
                   timelineState={timelineState}
+                  showConversationTools={SHOW_CONVERSATION_TOOLS}
+                  conversationActions={
+                    SHOW_CONVERSATION_TOOLS ? (
+                      <ChatExportMenu
+                        key={`export:${conversationId}`}
+                        conversationId={conversationId}
+                        disabled={Boolean(summary.sourceDeleted)}
+                      />
+                    ) : null
+                  }
                   diagnosticCard={
                     diagnosticState.status === 'idle' ? null : (
                       <ChatConversationDiagnosticCard state={diagnosticState} />
@@ -391,11 +403,12 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
 
                 {contextPickerOpen && contextPickerAvailable ? (
                   <ChatContextReferencePicker
-                    key={conversationId}
+                    key={`${conversationId}:${contextPickerKind}`}
+                    kind={contextPickerKind}
                     conversationId={conversationId}
                     onClose={handleCloseContextPicker}
                     onSelect={(item) =>
-                      addContextReference({ type: 'chat', id: item.id, name: item.name, meta: item.meta })
+                      addContextReference({ type: contextPickerKind, id: item.id, name: item.name, meta: item.meta })
                     }
                   />
                 ) : null}
@@ -426,7 +439,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                     {agentAvailabilityText ? (
                       <Pressable
                         disabled={agentAvailability === 'checking'}
-                        onPress={handleRetryFromNotification}
+                        onPress={retryConfiguration}
                         accessibilityRole="button"
                         className="px-app-md py-2"
                       >
@@ -444,6 +457,7 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                       draft={draft}
                       attachments={composerAttachments}
                       errorText={errorText}
+                      recoveryText={recoveryText}
                       planModeAvailable={planModeAvailable}
                       planModeEnabled={planModeEnabled}
                       editingModeAvailable={editingModeAvailable}
@@ -455,7 +469,19 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                       onStop={handleStop}
                       onResume={handleResume}
                       onTogglePlanMode={handleTogglePlanMode}
-                      onOpenChatReferences={contextPickerAvailable ? handleOpenContextPicker : undefined}
+                      onOpenChatReferences={
+                        contextPickerAvailable && composerOptions.interaction.attachment.chatRecords
+                          ? handleOpenContextPicker
+                          : undefined
+                      }
+                      onOpenKbaseReferences={
+                        contextPickerAvailable && composerOptions.interaction.attachment.kbases
+                          ? () => {
+                              setContextPickerKind('kbase');
+                              setContextPickerOpen(true);
+                            }
+                          : undefined
+                      }
                       onSelectAttachment={handleSelectAttachment}
                       onRemoveAttachment={handleRemoveAttachment}
                       onRetryAttachment={handleRetryAttachment}

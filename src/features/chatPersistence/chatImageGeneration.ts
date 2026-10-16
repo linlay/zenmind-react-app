@@ -41,7 +41,8 @@ function reason(value: unknown): string {
 
 // Only the result's URL is a resource contract. Never infer a URL from path/relativePath/stdout.
 export function resolveGeneratedImageResourceUrl(value: unknown, conversationId: string): string {
-  const raw = text(value),
+  const input = text(value);
+  const raw = input.startsWith('@chat/') ? input.slice(6) : input,
     chatId = getRemoteChatSourceId(conversationId);
   if (!raw || raw.length > 4096 || !chatId || /[\u0000-\u001f\u007f\\]/u.test(raw)) return '';
   const safeSegments = (path: string) =>

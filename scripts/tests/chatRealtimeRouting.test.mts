@@ -8,7 +8,6 @@ import {
   extractConversationId,
   extractEventText,
   extractMessageRole,
-  extractTeamId,
   isAssistantContentEvent,
   isChatReadAllEvent,
   isChatReadEvent,
@@ -61,7 +60,6 @@ test('extracts scoped routing fields from common backend payload shapes', () => 
   assert.equal(extractEventText(event), 'partial answer');
   assert.equal(extractMessageRole(event), 'assistant');
   assert.equal(extractAgentKey({ agentKey: 'planner' }), 'planner');
-  assert.equal(extractTeamId({ teamId: 'team-alpha' }), 'team-alpha');
 });
 
 test('identifies assistant stream events and summary-like push events', () => {

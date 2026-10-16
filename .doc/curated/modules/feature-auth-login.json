@@ -11,6 +11,7 @@
     "purpose": "原生官网邮箱验证码登录、Hub 电脑管理与独立云端 Token 登录。",
     "ownedConcepts": [
       "LoginScreen 在现有主题与表单中提供账号/云端切换，Token 支持输入及系统粘贴，业务验证成功后才保存并选择云端；已登录另一条路径时入口仍可达。",
+      "登录页关闭、邮箱登录成功和云端登录成功共用 closeLogin：有返回历史时回到调用页，孤立根登录页则 reset 到 Tabs，不清理账号、Cookie 或来源选择。",
       "账号分支只展示原生邮箱/验证码输入，accountAuth 确认官网用户与 Cookie 会话；电脑管理只访问 Hub，不提供旧密码/扫码/邮箱绑定入口。",
       "AccountDevicesPanel 与来源抽屉复用 Hub 权威目录；刷新失败保留已知列表，离线电脑可选所属缓存，撤销由 service 关闭到暂无来源。",
       "云端行仅业务验证通过才可选；不可用文字置灰并 disabled，登录/重试独立可点击。页面不操作 SQLite/MMKV/WebSocket。",

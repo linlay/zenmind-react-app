@@ -64,6 +64,7 @@ export async function resolveActiveWsTransportConfig(
   const route = await issueCredential();
   return {
     kind: 'desktop-ws',
+    platformDeviceId: route.platformDeviceId,
     wsUrl: route.webSocketUrl,
     tokenMode: route.tokenMode,
     accessToken: route.credential,

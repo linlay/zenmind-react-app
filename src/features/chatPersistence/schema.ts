@@ -16,14 +16,11 @@ export const conversations = sqliteTable(
     pinnedAt: integer('pinned_at').notNull().default(0),
     updatedAt: integer('updated_at').notNull(),
     agentKey: text('agent_key'),
-    teamId: text('team_id'),
     sourceDeleted: integer('source_deleted').notNull().default(0)
   },
   (table) => [
     index('conversations_agent_recency_idx').on(table.agentKey, table.lastMessageAt, table.updatedAt, table.id),
-    index('conversations_team_recency_idx').on(table.teamId, table.lastMessageAt, table.updatedAt, table.id),
-    index('conversations_agent_read_idx').on(table.agentKey, table.isRead),
-    index('conversations_team_read_idx').on(table.teamId, table.isRead)
+    index('conversations_agent_read_idx').on(table.agentKey, table.isRead)
   ]
 );
 
@@ -41,8 +38,6 @@ export const chatDirectoryItems = sqliteTable(
     pinnedAt: integer('pinned_at').notNull().default(0),
     sortRank: integer('sort_rank').notNull(),
     agentKey: text('agent_key'),
-    teamId: text('team_id'),
-    defaultAgentKey: text('default_agent_key'),
     agentMode: text('agent_mode'),
     modelKey: text('model_key'),
     reasoningEffort: text('reasoning_effort'),
@@ -51,7 +46,6 @@ export const chatDirectoryItems = sqliteTable(
   (table) => [
     index('chat_directory_items_home_order_idx').on(table.pinnedAt, table.sortRank, table.latestConversationId),
     index('chat_directory_items_agent_idx').on(table.agentKey),
-    index('chat_directory_items_team_idx').on(table.teamId),
     index('chat_directory_items_stable_order_idx').on(table.sortRank, table.id)
   ]
 );
@@ -102,25 +96,6 @@ export const messageAttachments = sqliteTable(
     index('message_attachments_message_idx').on(table.messageId, table.sortOrder),
     index('message_attachments_conversation_idx').on(table.conversationId, table.createdAt),
     index('message_attachments_client_message_idx').on(table.clientMessageId)
-  ]
-);
-
-export const outboxMessages = sqliteTable(
-  'outbox_messages',
-  {
-    clientMessageId: text('client_message_id').primaryKey(),
-    conversationId: text('conversation_id')
-      .notNull()
-      .references(() => conversations.id),
-    content: text('content').notNull(),
-    planningMode: integer('planning_mode').notNull().default(0),
-    editingMode: integer('editing_mode').notNull().default(0),
-    mustUseSkillsJson: text('must_use_skills_json').notNull().default('[]'),
-    createdAt: integer('created_at').notNull()
-  },
-  (table) => [
-    index('outbox_messages_created_at_idx').on(table.createdAt, table.clientMessageId),
-    index('outbox_messages_conversation_idx').on(table.conversationId)
   ]
 );
 
@@ -177,8 +152,6 @@ export type MessageRow = InferSelectModel<typeof messages>;
 export type NewMessageRow = InferInsertModel<typeof messages>;
 export type MessageAttachmentRow = InferSelectModel<typeof messageAttachments>;
 export type NewMessageAttachmentRow = InferInsertModel<typeof messageAttachments>;
-export type OutboxMessageRow = InferSelectModel<typeof outboxMessages>;
-export type NewOutboxMessageRow = InferInsertModel<typeof outboxMessages>;
 export type ConversationSyncStateRow = InferSelectModel<typeof conversationSyncState>;
 export type NewConversationSyncStateRow = InferInsertModel<typeof conversationSyncState>;
 export type ConversationTimelineMetaRow = InferSelectModel<typeof conversationTimelineMeta>;

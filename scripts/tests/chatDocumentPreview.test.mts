@@ -78,20 +78,17 @@ test('Office sources preserve resource owner and Unicode/legacy percent, decode 
   );
   assert.deepEqual(source, { kind: 'chat-resource', chatId: 'owner', relativePath: 'artifacts/报告 #100%.docx' });
   assert.deepEqual(
-    protocol.resolveDocumentPreviewSource('/api/workspace/file?agentKey=a&path=%2Fworkspace%2Fr.xlsx', base + '/ap'),
+    protocol.resolveDocumentPreviewSource('/api/file?agentKey=a&path=%2Fworkspace%2Fr.xlsx', base + '/ap'),
     { kind: 'workspace-file', agentKey: 'a', path: '/workspace/r.xlsx' }
   );
   assert.equal(resolveAuthenticatedResourcePreviewKind({ name: 'report.docx', mimeType: 'text/plain' }), 'unsupported');
-  const workspace = parseConversationMarkdownInternalLink('/api/workspace/file?path=%2Fworkspace%2Freport.docx');
+  const workspace = parseConversationMarkdownInternalLink('@workspace/report.docx');
   assert.ok(workspace);
   assert.equal(workspace.kind, 'workspace');
   const preview = resolveConversationMarkdownLinkPreview(workspace, 'current-agent');
   assert.equal(preview.previewKind, 'unsupported');
   assert.match(preview.resourceUrl, /agentKey=current-agent/);
-  assert.equal(
-    parseConversationMarkdownInternalLink('/api/workspace/file?path=%2Fworkspace%2F..%2Freport.docx')?.kind,
-    'invalid'
-  );
+  assert.equal(parseConversationMarkdownInternalLink('@workspace/../report.docx')?.kind, 'invalid');
   assert.equal(protocol.isOnlineOfficeFile('unknown.doc'), false);
   assert.equal(protocol.isOnlineOfficeFile('REPORT.DOCX'), true);
   for (const file of [

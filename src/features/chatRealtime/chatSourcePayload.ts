@@ -1,4 +1,4 @@
-import type { RemoteAgent, RemoteTeam } from '../chatPersistence/chatDirectoryProjector';
+import type { RemoteAgent } from '../chatPersistence/chatDirectoryProjector';
 import type { RemoteChatSummary } from '../../core/api/services/chatApi';
 import { encodeChatSourceId, getRemoteChatSourceId, type ChatSource } from '../chatPersistence/chatSource.ts';
 
@@ -8,9 +8,6 @@ const SCOPED_IDENTIFIER_KEYS = new Set([
   'conversationId',
   'latestConversationId',
   'agentKey',
-  'defaultAgentKey',
-  'firstAgentKey',
-  'teamId',
   'messageId',
   'serverMessageId'
 ]);
@@ -53,7 +50,6 @@ export function scopeRemoteHomePayload(
   source: ChatSource,
   input: {
     agents: RemoteAgent[];
-    teams: RemoteTeam[];
     chats: RemoteChatSummary[];
   }
 ) {
@@ -69,7 +65,6 @@ export function scopeRemoteHomePayload(
         : {})
     };
   });
-  const teams = input.teams.map((team) => scopeChatPayload(source, team));
   const chats = input.chats.map((chat) => scopeChatPayload(source, chat));
-  return { agents, teams, chats };
+  return { agents, chats };
 }

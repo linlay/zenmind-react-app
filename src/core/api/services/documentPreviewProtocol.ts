@@ -67,7 +67,7 @@ export function resolveDocumentPreviewSource(resourceUrl: string, baseUrl: strin
       if (chatId.includes('..')) return null;
       return { kind: 'chat-resource', chatId, relativePath: segments.slice(1).join('/') };
     }
-    if (url.pathname === `${prefix}/api/workspace/file`) {
+    if (url.pathname === `${prefix}/api/file`) {
       const agentKey = url.searchParams.get('agentKey') || '',
         path = url.searchParams.get('path') || '';
       return agentKey.length > 0 && agentKey.length <= 512 && !/[\u0000-\u001f\u007f]/u.test(agentKey) && safePath(path)

@@ -171,6 +171,7 @@ function normalizeReference(input: Record<string, unknown>): ChatUploadReference
     mimeType: normalizeText(input.mimeType) || undefined,
     sizeBytes: Number.isFinite(sizeBytes) && sizeBytes >= 0 ? sizeBytes : undefined,
     url: normalizeApiResourcePath(normalizeText(input.url)) || undefined,
+    path: normalizeText(input.path) || undefined,
     sha256: normalizeText(input.sha256) || undefined
   };
 }

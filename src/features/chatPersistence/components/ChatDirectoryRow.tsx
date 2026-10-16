@@ -98,7 +98,7 @@ export const ChatDirectoryRow = memo(function ChatDirectoryRow({
           disabled ? CHAT_ROW_DISABLED_CLASS : null
         )}
       >
-        <AgentAvatar type={item.kind} icon={item.icon} fallbackSeed={item.agentKey || item.teamId || item.title} />
+        <AgentAvatar type={item.kind} icon={item.icon} fallbackSeed={item.agentKey || item.title} />
 
         <View className={CHAT_ROW_BODY_CLASS} style={appHairlineStyles.borderBottom}>
           <View className={CHAT_ROW_MAIN_CLASS}>

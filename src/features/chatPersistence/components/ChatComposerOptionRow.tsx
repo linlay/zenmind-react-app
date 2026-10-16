@@ -34,6 +34,9 @@ type ChatComposerOptionRowProps = {
   accessLevel: QueryAccessLevel;
   agentKey: string;
   disabled?: boolean;
+  modelDisabled: boolean;
+  modelOptionsError: string;
+  onRefreshModels: () => void;
   modelOptionsLoading: boolean;
   modelOptionsSnapshot: ModelOptionsSnapshot | null;
   modelOverride: QueryModelOverride;
@@ -190,41 +193,8 @@ function supportsServiceTier(model: ModelOptionItem | null, tier: ModelOptionSer
   return Boolean(model?.serviceTiers.includes(tier));
 }
 
-function resolveSelectedModelKey(modelOverride: QueryModelOverride, snapshot: ModelOptionsSnapshot | null): string {
-  return String(modelOverride.key || snapshot?.defaultModelKey || '').trim();
-}
-
-function resolveSelectedReasoning(
-  modelOverride: QueryModelOverride,
-  snapshot: ModelOptionsSnapshot | null
-): ModelOptionReasoningEffort | undefined {
-  return modelOverride.reasoningEffort || snapshot?.defaultReasoningEffort;
-}
-
-function resolveSelectedServiceTier(
-  modelOverride: QueryModelOverride,
-  snapshot: ModelOptionsSnapshot | null
-): ModelOptionServiceTier {
-  return modelOverride.serviceTier || snapshot?.defaultServiceTier || 'STANDARD';
-}
-
-function buildModelOverride(
-  current: QueryModelOverride,
-  patch: QueryModelOverride,
-  snapshot: ModelOptionsSnapshot | null
-): QueryModelOverride {
-  const key = patch.key || current.key || snapshot?.defaultModelKey || '';
-  const reasoningEffort = patch.reasoningEffort || current.reasoningEffort || snapshot?.defaultReasoningEffort;
-  const patchHasServiceTier = Object.prototype.hasOwnProperty.call(patch, 'serviceTier');
-  const serviceTier = patchHasServiceTier
-    ? patch.serviceTier
-    : current.serviceTier || (snapshot?.defaultServiceTier !== 'STANDARD' ? snapshot?.defaultServiceTier : undefined);
-
-  return {
-    ...(key ? { key } : {}),
-    ...(reasoningEffort ? { reasoningEffort } : {}),
-    ...(serviceTier ? { serviceTier } : {})
-  };
+function buildModelOverride(current: QueryModelOverride, patch: QueryModelOverride): QueryModelOverride {
+  return { ...current, ...patch };
 }
 
 const OptionChip = memo(function OptionChip({
@@ -360,6 +330,9 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
   onRuntimeAccessRefresh,
   agentKey,
   disabled = false,
+  modelDisabled,
+  modelOptionsError,
+  onRefreshModels,
   modelOptionsLoading,
   modelOptionsSnapshot,
   modelOverride,
@@ -381,18 +354,18 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
   const models = modelOptionsSnapshot?.models || EMPTY_MODELS;
   const reasoningEfforts = modelOptionsSnapshot?.reasoningEfforts || EMPTY_REASONING_EFFORTS;
   const serviceTiers = modelOptionsSnapshot?.serviceTiers || EMPTY_SERVICE_TIERS;
-  const selectedModelKey = resolveSelectedModelKey(modelOverride, modelOptionsSnapshot);
+  const selectedModelKey = modelOverride.key || '';
   const selectedModel = findModel(models, selectedModelKey);
-  const selectedReasoning = resolveSelectedReasoning(modelOverride, modelOptionsSnapshot);
-  const selectedServiceTier = resolveSelectedServiceTier(modelOverride, modelOptionsSnapshot);
+  const selectedReasoning = modelOverride.reasoningEffort;
+  const selectedServiceTier = modelOverride.serviceTier || 'STANDARD';
   const modelChipLabel = useMemo(() => {
     if (!agentKey) {
       return t('composer.query.model.unavailable');
     }
-    if (modelOptionsLoading) {
+    if (!selectedModelKey && modelOptionsLoading) {
       return t('composer.query.model.loading');
     }
-    if (!modelOptionsSnapshot?.recognized || models.length === 0) {
+    if (!selectedModelKey && models.length === 0) {
       return t('composer.query.model.empty');
     }
     const shouldShowServiceTierInChip = selectedServiceTier !== 'STANDARD' || serviceTiers.length > 1;
@@ -405,7 +378,6 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
   }, [
     agentKey,
     modelOptionsLoading,
-    modelOptionsSnapshot?.recognized,
     models.length,
     selectedModel?.name,
     selectedModelKey,
@@ -414,8 +386,7 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
     serviceTiers.length,
     t
   ]);
-  const modelChipDisabled =
-    !modelEnabled || disabled || !agentKey || modelOptionsLoading || !modelOptionsSnapshot?.recognized;
+  const modelChipDisabled = !modelEnabled || disabled || modelDisabled || !agentKey;
   const popoverFrameStyle = useMemo<ViewStyle>(() => {
     if (!menuAnchorLayout || !menuAnchorLayout.width || !menuAnchorLayout.height) {
       return DEFAULT_POPOVER_FRAME_STYLE;
@@ -544,18 +515,14 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
       }
       const nextServiceTier = supportsServiceTier(model, selectedServiceTier) ? selectedServiceTier : 'STANDARD';
       onModelOverrideChange(
-        buildModelOverride(
-          modelOverride,
-          {
-            key: model.key,
-            serviceTier: nextServiceTier
-          },
-          modelOptionsSnapshot
-        )
+        buildModelOverride(modelOverride, {
+          key: model.key,
+          serviceTier: nextServiceTier
+        })
       );
       setModelMenuView('settings');
     },
-    [modelOptionsSnapshot, modelOverride, models, onModelOverrideChange, selectedServiceTier]
+    [modelOverride, models, onModelOverrideChange, selectedServiceTier]
   );
   const handleReasoningSelect = useCallback(
     (key: string) => {
@@ -563,9 +530,9 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
       if (!option) {
         return;
       }
-      onModelOverrideChange(buildModelOverride(modelOverride, { reasoningEffort: option.key }, modelOptionsSnapshot));
+      onModelOverrideChange(buildModelOverride(modelOverride, { reasoningEffort: option.key }));
     },
-    [modelOptionsSnapshot, modelOverride, onModelOverrideChange, reasoningEfforts]
+    [modelOverride, onModelOverrideChange, reasoningEfforts]
   );
   const handleServiceTierSelect = useCallback(
     (key: string) => {
@@ -573,10 +540,21 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
       if (!option) {
         return;
       }
-      onModelOverrideChange(buildModelOverride(modelOverride, { serviceTier: option.key }, modelOptionsSnapshot));
+      onModelOverrideChange(buildModelOverride(modelOverride, { serviceTier: option.key }));
     },
-    [modelOptionsSnapshot, modelOverride, onModelOverrideChange, serviceTiers]
+    [modelOverride, onModelOverrideChange, serviceTiers]
   );
+  useEffect(() => {
+    if (disabled || (activeMenu === 'model' && modelChipDisabled) || (activeMenu === 'access' && !accessLevelEnabled)) {
+      pendingMenuRef.current = null;
+      setActiveMenu(null);
+    }
+  }, [disabled, activeMenu, modelChipDisabled, accessLevelEnabled]);
+  useEffect(() => {
+    pendingMenuRef.current = null;
+    setActiveMenu(null);
+  }, [agentKey]);
+
   const isModelListMenu = activeMenu === 'model' && modelMenuView === 'models';
 
   useEffect(() => {
@@ -624,33 +602,37 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
         showsHorizontalScrollIndicator={false}
         contentContainerClassName={CHIP_ROW_CONTENT_CLASS}
       >
-        <OptionChip
-          active={activeMenu === 'access'}
-          disabled={disabled || !accessLevelEnabled}
-          iconUsage={ACCESS_ICON_USAGE[accessLevel]}
-          label={
-            runtimeAccess
-              ? runtimeAccess.phase === 'unknown' || !runtimeAccess.level
-                ? t('composer.runtimeAccess.unknown')
-                : runtimeAccess.phase === 'sending'
-                  ? t('composer.runtimeAccess.sending')
-                  : `${t('composer.runtimeAccess.current')} · ${t(`composer.query.access.${runtimeAccess.level}`)}`
-              : t(`composer.query.access.${accessLevel}`)
-          }
-          onPress={handleAccessChipPress}
-        />
-        <OptionChip
-          active={activeMenu === 'model'}
-          disabled={modelChipDisabled}
-          iconUsage={selectedServiceTier === 'FAST' ? 'composer.modelFast' : 'composer.model'}
-          label={modelChipLabel}
-          onPress={handleModelChipPress}
-        />
+        {accessLevelEnabled ? (
+          <OptionChip
+            active={activeMenu === 'access'}
+            disabled={disabled || !accessLevelEnabled}
+            iconUsage={ACCESS_ICON_USAGE[accessLevel]}
+            label={
+              runtimeAccess
+                ? runtimeAccess.phase === 'unknown' || !runtimeAccess.level
+                  ? t('composer.runtimeAccess.unknown')
+                  : runtimeAccess.phase === 'sending'
+                    ? t('composer.runtimeAccess.sending')
+                    : `${t('composer.runtimeAccess.current')} · ${t(`composer.query.access.${runtimeAccess.level}`)}`
+                : t(`composer.query.access.${accessLevel}`)
+            }
+            onPress={handleAccessChipPress}
+          />
+        ) : null}
+        {modelEnabled ? (
+          <OptionChip
+            active={activeMenu === 'model'}
+            disabled={modelChipDisabled}
+            iconUsage={selectedServiceTier === 'FAST' ? 'composer.modelFast' : 'composer.model'}
+            label={modelChipLabel}
+            onPress={handleModelChipPress}
+          />
+        ) : null}
         {skillsEnabled ? (
           <OptionChip
             active={selectedSkills.length > 0 || activeMenu === 'skills'}
             disabled={skillsDisabled}
-            iconUsage="composer.reasoning"
+            iconUsage="composer.skills"
             label={`${t('composer.skills.title')}${selectedSkills.length ? ` · ${selectedSkills.length}` : ''}`}
             onPress={handleSkillsChipPress}
           />
@@ -671,6 +653,19 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
                 className={MENU_PANEL_CLASS}
                 style={[POPOVER_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}
               >
+                {activeMenu === 'model' ? (
+                  <View className={MENU_SECTION_CLASS}>
+                    {modelOptionsError ? <Text className={EMPTY_TEXT_CLASS}>{modelOptionsError}</Text> : null}
+                    {!modelOptionsLoading && selectedModelKey && !selectedModel ? (
+                      <Text className={EMPTY_TEXT_CLASS}>{t('composer.query.model.selectedUnavailable')}</Text>
+                    ) : null}
+                    <Pressable disabled={modelOptionsLoading} accessibilityRole="button" onPress={onRefreshModels}>
+                      <Text className="px-app-sm text-[13px] text-app-brand-blue">
+                        {t(modelOptionsLoading ? 'composer.query.model.loading' : 'composer.query.model.refresh')}
+                      </Text>
+                    </Pressable>
+                  </View>
+                ) : null}
                 {activeMenu === 'skills' ? (
                   <ChatComposerSkillsMenu
                     catalog={skillsCatalog}
@@ -747,18 +742,20 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
                             ) : null}
                           </View>
                         ) : null}
-                        <Text className={MENU_SECTION_TITLE_CLASS}>{t('composer.runtimeAccess.future')}</Text>
-                        {ACCESS_LEVELS.map((value) => (
-                          <MenuChoiceRow
-                            key={value}
-                            checked={value === accessLevel}
-                            iconUsage={ACCESS_ICON_USAGE[value]}
-                            label={t(`composer.query.access.${value}`)}
-                            description={getAccessDescription(value, t)}
-                            onSelect={handleAccessSelect}
-                            selectKey={value}
-                          />
-                        ))}
+                        <>
+                          <Text className={MENU_SECTION_TITLE_CLASS}>{t('composer.runtimeAccess.future')}</Text>
+                          {ACCESS_LEVELS.map((value) => (
+                            <MenuChoiceRow
+                              key={value}
+                              checked={value === accessLevel}
+                              iconUsage={ACCESS_ICON_USAGE[value]}
+                              label={t(`composer.query.access.${value}`)}
+                              description={getAccessDescription(value, t)}
+                              onSelect={handleAccessSelect}
+                              selectKey={value}
+                            />
+                          ))}
+                        </>
                       </>
                     ) : (
                       <>
@@ -806,7 +803,6 @@ export const ChatComposerOptionRow = memo(function ChatComposerOptionRow({
                             {t('composer.query.model.title')}
                           </Text>
                           <MenuNavigationRow
-                            disabled={models.length === 0}
                             iconUsage="composer.model"
                             label={selectedModel?.name || selectedModelKey || t('composer.query.model.empty')}
                             description={selectedModel ? getModelDescription(selectedModel) : undefined}

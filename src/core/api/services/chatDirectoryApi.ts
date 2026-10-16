@@ -4,7 +4,7 @@ import type { WsTransportConfig } from '../../ws/wsTransportConfig.ts';
 import { buildChatSummariesPayload, unwrapChatApiEnvelope, type RemoteChatSummary } from './chatApi.ts';
 
 // The same read-only directory contract serves verification and home projection.
-export async function readChatDirectory<TAgent, TTeam>(transport: WsTransportConfig, signal?: AbortSignal) {
+export async function readChatDirectory<TAgent>(transport: WsTransportConfig, signal?: AbortSignal) {
   const request = async <T>(type: string, payload?: unknown): Promise<T[]> => {
     const response = unwrapChatApiEnvelope<unknown>(
       await sharedWsTransport.request({
@@ -23,8 +23,7 @@ export async function readChatDirectory<TAgent, TTeam>(transport: WsTransportCon
     request<TAgent>('/api/agents'),
     request<RemoteChatSummary>('/api/chats', buildChatSummariesPayload())
   ]);
-  // TEAM is an Agent mode; retain the projection shape without the retired teams route.
-  return { agents, teams: [] as TTeam[], chats };
+  return { agents, chats };
 }
 
 export function classifyCloudFailure(error: unknown) {

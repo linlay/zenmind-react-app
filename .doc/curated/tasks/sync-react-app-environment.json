@@ -18,12 +18,30 @@
     "原共享身份/OTA规则描述当前实现；实施目标按本计划覆盖，并在实际落地任务中同步相关 curated 模块、链路与规则。"
   ],
   "mustRead": [
-    { "type": "doc", "ref": "docs/react-app-env-sync-2026-10-13/README.md" },
-    { "type": "module", "ref": "app-shell-navigation" },
-    { "type": "module", "ref": "core-runtime-config" },
-    { "type": "module", "ref": "core-auth-session" },
-    { "type": "module", "ref": "shared-visual-foundation" },
-    { "type": "flow", "ref": "app-startup" }
+    {
+      "type": "doc",
+      "ref": "docs/react-app-env-sync-2026-10-13/README.md"
+    },
+    {
+      "type": "module",
+      "ref": "app-shell-navigation"
+    },
+    {
+      "type": "module",
+      "ref": "core-runtime-config"
+    },
+    {
+      "type": "module",
+      "ref": "core-auth-session"
+    },
+    {
+      "type": "module",
+      "ref": "shared-visual-foundation"
+    },
+    {
+      "type": "flow",
+      "ref": "app-startup"
+    }
   ],
   "likelyFiles": [
     "docs/react-app-env-sync-2026-10-13/README.md",
@@ -47,7 +65,7 @@
     "总览与四个子任务状态一致，区分计划、本地检查和真实安装/服务/OTA验收。",
     "六个品牌环境目标身份独立，单 EAS 项目下 channel/runtime/配置目标一致，不动态切换或默认回落其他品牌。",
     "同一装配规则覆盖开发、导出、原生构建与更新；服务地址仅来自已校验的固定版本制品。",
-    "账号服务变化不转发旧凭据；云端沿用既有验证和scope，不跨scope重放outbox。",
+    "当前聊天提交遵循根 agentKey 与 references 协议；SQLite 保存消息及结果，重连只恢复观察，不自动重发；旧本地缓存按新版 schema 重建。",
     "删除本次替代的旧机制，保护原有用户改动；真实验收及临时状态清理完成后才标整体完成。"
   ],
   "doNotMiss": [

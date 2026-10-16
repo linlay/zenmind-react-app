@@ -10,6 +10,7 @@ export type ChatUploadReference = {
   mimeType?: string;
   sizeBytes?: number;
   url?: string;
+  path?: string;
   sha256?: string;
 };
 

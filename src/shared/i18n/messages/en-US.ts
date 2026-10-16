@@ -133,6 +133,8 @@ export const enUS: Record<I18nKey, string> = {
   'webApps.noRunning': 'No WebApps are running',
   'webApps.listTitle': 'Apps',
   'webApps.loading': 'Loading apps…',
+  'webApps.loadFailed': 'Unable to load apps',
+  'webApps.pullToRetry': 'Pull down to retry.',
   'webApps.emptyTitle': 'No apps yet',
   'webApps.emptyBody': 'WebApps installed on Desktop will appear here.',
   'webApps.controlsUnavailable':
@@ -479,6 +481,11 @@ export const enUS: Record<I18nKey, string> = {
   'directoryPicker.subtitle': 'Agents / Teams · {count}',
   'directoryPicker.close': 'Close new chat list',
   'directoryPicker.empty': 'No agents or teams',
+  'directoryPicker.status.loading': 'Loading agents…',
+  'directoryPicker.status.syncing': 'Syncing…',
+  'directoryPicker.status.error': 'Could not load agents',
+  'directoryPicker.status.offline': 'Device offline. Connect to sync agents.',
+  'directoryPicker.status.unselected': 'Choose a source',
   'directoryPicker.kind.team': 'Team',
   'directoryPicker.kind.agent': 'Agent',
   'directoryPicker.canStart': 'Can start a new chat',
@@ -504,6 +511,16 @@ export const enUS: Record<I18nKey, string> = {
   'chatDetail.empty.title': 'Conversation unavailable',
   'chatDetail.empty.body': 'This conversation could not be read from local SQLite.',
   'chatDetail.empty.back': 'Back to list',
+  'chatDetail.submissionUnconfirmed': 'Submission not confirmed',
+  'chatDetail.recovery.hint':
+    'The original request was rejected. After correcting the settings, send a new message with the original request as context.',
+  'chatDetail.resubmitWarning':
+    'The server may have accepted this message. Submitting again may run it twice. Continue?',
+  'timeline.wait.finished': 'Wait finished',
+  'timeline.wait.continue': 'Continue now',
+  'timeline.wait.pending': 'Waiting for server confirmation',
+  'timeline.wait.failed': 'Could not continue. Try again.',
+  'contextReference.chooseKbase': 'Reference knowledge base',
   'chatDetail.error.conversationGone': 'This conversation has been deleted or archived.',
   'chatDetail.error.missingConversationContext':
     'Cannot start a new chat: the current conversation has no agent or team context.',
@@ -568,6 +585,12 @@ export const enUS: Record<I18nKey, string> = {
   'composer.query.access.full_access': 'Full access',
   'composer.query.access.full_access.description': 'Allow broader tool access',
   'composer.query.closeOptions': 'Close options popover',
+  'composer.settings.invalidConfig': 'Agent input configuration is missing or invalid. Tap to retry.',
+  'composer.settings.filesForbidden': 'This agent disallows files. Remove images and files before sending.',
+  'composer.query.model.selectedUnavailable': 'The selected model is missing from this catalog. Review your selection.',
+  'composer.query.model.refresh': 'Refresh model catalog',
+  'composer.query.model.loadFailed': 'Could not load models. Try again.',
+  'composer.query.model.saveFailed': 'Could not save model settings. Try again.',
   'composer.query.model.title': 'Model',
   'composer.query.model.loading': 'Loading model',
   'composer.query.model.empty': 'No models',
@@ -928,6 +951,7 @@ export const enUS: Record<I18nKey, string> = {
 
   'usage.metric.prompt': 'Input',
   'usage.metric.completion': 'Output',
+  'usage.metric.outputWithoutReasoning': 'Output excluding reasoning',
   'usage.metric.total': 'Total',
   'usage.metric.reasoning': 'Reasoning',
   'usage.metric.cacheHit': 'Cache hit',
@@ -959,5 +983,7 @@ export const enUS: Record<I18nKey, string> = {
   'usage.section.compact': 'Context compaction',
   'usage.unknownModel': 'Unknown model',
   'usage.title': 'Usage stats',
-  'usage.close': 'Close usage stats'
+  'usage.close': 'Close usage stats',
+  'usage.showValues': 'Show token counts',
+  'usage.showBars': 'Show progress bars'
 };

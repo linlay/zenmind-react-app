@@ -133,6 +133,10 @@ test('Native feedback editor edits the existing comment, blocks repeated submit,
         React.createElement('Header', null, ...leftActions, ...rightActions)
     },
     '../../../shared/i18n': { useT: () => defaultT },
+    '../../../shared/icons/AppIcon': { AppIcon: 'AppIcon' },
+    '../../../shared/visual/AppThemeProvider': {
+      useAppTheme: () => ({ theme: { colors: { brandBlue: '#00f', textSecondary: '#666' } } })
+    },
     '../../chatRealtime/chatSyncService': {
       chatSyncService: {
         submitRunFeedback: async (...args: any[]) => {
@@ -163,16 +167,26 @@ test('Native feedback editor edits the existing comment, blocks repeated submit,
   const button = (key: any) =>
     renderer.root
       .findAllByType('Pressable')
-      .find((n: any) => n.findAllByType('Text').some((t: any) => t.props.children === defaultT(key)));
+      .find(
+        (n: any) =>
+          n.props.accessibilityLabel === defaultT(key) ||
+          n.findAllByType('Text').some((t: any) => t.props.children === defaultT(key))
+      );
   try {
+    assert.equal(renderer.root.findAllByType('Pressable').length, 1);
+    assert.equal(renderer.root.findAllByType('Text').length, 0);
     await act(async () => button('runFeedback.downvoted').props.onPress());
     assert.equal(renderer.root.findByType('TextInput').props.value, 'original');
     assert.equal(renderer.root.findByType('TextInput').props.maxLength, 4000);
     await act(async () => renderer.root.findByType('TextInput').props.onChangeText('new comment'));
-    await act(async () => button('runFeedback.submit').props.onPress());
+    const submit = button('runFeedback.submit').props.onPress;
+    await act(async () => {
+      submit();
+      submit();
+    });
     assert.deepEqual(calls[0], ['chat', 'run', 'thumbs_down', 'new comment']);
     assert.equal(renderer.root.findAllByType('Modal').length, 0);
-    await act(async () => button('runFeedback.clear').props.onPress());
+    assert.equal(button('runFeedback.clear'), undefined);
     assert.equal(calls.length, 1);
     const pending = {
       ...node,
@@ -185,10 +199,13 @@ test('Native feedback editor edits the existing comment, blocks repeated submit,
       await Promise.resolve();
     });
     await act(async () => renderer.update(React.createElement(Component, { conversationId: 'chat', node })));
+    assert.equal(renderer.root.findAllByType('Modal').length, 1);
     assert.ok(renderer.root.findAllByType('Text').some((n: any) => String(n.props.children).includes('not allowed')));
     await act(async () => button('runFeedback.downvoted').props.onPress());
     assert.equal(renderer.root.findByType('TextInput').props.value, 'new comment');
     await act(async () => button('runFeedback.cancel').props.onPress());
+    assert.equal(button('runFeedback.clear'), undefined);
+    await act(async () => button('runFeedback.downvoted').props.onPress());
     await act(async () => button('runFeedback.clear').props.onPress());
     assert.deepEqual(calls[1], ['chat', 'run', 'clear', undefined]);
     await act(async () => renderer.unmount());

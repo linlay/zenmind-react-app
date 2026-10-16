@@ -92,6 +92,10 @@ test('image slots retain request numbering, accept partial success and reject pa
     projection.resolveGeneratedImageResourceUrl('/api/resource?file=chat%2Fa.png', 'chat'),
     '/api/resource?file=chat%2Fa.png'
   );
+  assert.equal(
+    projection.resolveGeneratedImageResourceUrl('@chat/artifacts/a.png', 'chat'),
+    '/api/resource?file=chat%2Fartifacts%2Fa.png'
+  );
   const source = createChatSource('paired', 'desktop', 'Desktop');
   assert.equal(
     projection.resolveGeneratedImageResourceUrl(

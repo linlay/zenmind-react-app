@@ -1,3 +1,4 @@
+import { clearChatComposerPreferences } from './chatComposerPreferences.ts';
 import type { AccountDevice } from '../../core/api/contracts/deviceLink.ts';
 import { getDesktopPlatformCredential } from '../../core/api/services/deviceLinkApi.ts';
 import { getAccountAuthGeneration, getAccountAuthSnapshot, subscribeAccountAuth } from '../../core/auth/accountAuth.ts';
@@ -58,6 +59,8 @@ export function startAccountSourceLifecycle(): () => void {
   const firstLaunch = !hasSavedSourceSelection() && !hasLegacyDesktopSelection();
   let stopped = false;
   let directoryAccountId = '';
+  let preferenceAccountId = getAccountAuthSnapshot().session?.accountId || '';
+  let preferenceCloudScope = getCloudAuthSnapshot().scopeId;
   let directoryController: AbortController | null = null;
   const refreshRestoredDesktop = () => {
     const account = getAccountAuthSnapshot();
@@ -71,10 +74,22 @@ export function startAccountSourceLifecycle(): () => void {
   };
   const unsubscribers = [
     subscribeAccountAuth(() => {
+      const next = getAccountAuthSnapshot();
+      const accountId = next.session?.accountId || '';
+      if (!next.isBootstrapping && accountId !== preferenceAccountId) {
+        if (preferenceAccountId) clearChatComposerPreferences(`account:${preferenceAccountId}`);
+        preferenceAccountId = accountId;
+      }
       reconcileSource();
       refreshRestoredDesktop();
     }),
-    subscribeCloudAuth(reconcileSource),
+    subscribeCloudAuth(() => {
+      const next = getCloudAuthSnapshot();
+      if (preferenceCloudScope && (next.scopeId !== preferenceCloudScope || next.status === 'login_required'))
+        clearChatComposerPreferences(`cloud:${preferenceCloudScope}`);
+      preferenceCloudScope = next.scopeId;
+      reconcileSource();
+    }),
     subscribeActiveDesktop(reconcileSource)
   ];
   reconcileSource();

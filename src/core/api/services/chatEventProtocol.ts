@@ -26,11 +26,7 @@ export type ChatProtocolEventFamily =
 
 export type ChatRequestMessageVariant = 'steer' | 'remember' | 'learn';
 
-const CHAT_REQUEST_MESSAGE_VARIANTS = new Set<ChatRequestMessageVariant>([
-  'steer',
-  'remember',
-  'learn',
-]);
+const CHAT_REQUEST_MESSAGE_VARIANTS = new Set<ChatRequestMessageVariant>(['steer', 'remember', 'learn']);
 
 export function toText(value: unknown): string {
   return String(value || '').trim();
@@ -140,7 +136,7 @@ export function normalizeEventType(rawType: unknown): string {
     'chat.read.all': 'chat.read_all',
     'chat.mark_read_all': 'chat.read_all',
     'conversation.read_all': 'chat.read_all',
-    'agent.read_all': 'chat.read_all',
+    'agent.read_all': 'chat.read_all'
   };
 
   return aliasMap[type] || type;
@@ -170,10 +166,6 @@ export function extractTitle(event: Record<string, unknown>): string {
 
 export function extractAgentKey(event: Record<string, unknown>): string {
   return toText(event.agentKey || event.agentId || event.key);
-}
-
-export function extractTeamId(event: Record<string, unknown>): string {
-  return toText(event.teamId || event.teamID);
 }
 
 export function extractEventText(event: Record<string, unknown>): string {
@@ -206,12 +198,7 @@ export function extractMessageRole(event: Record<string, unknown>): 'user' | 'as
 }
 
 export function isAssistantContentEvent(type: string): boolean {
-  return (
-    type === 'content.start' ||
-    type === 'content.delta' ||
-    type === 'content.snapshot' ||
-    type === 'content.end'
-  );
+  return type === 'content.start' || type === 'content.delta' || type === 'content.snapshot' || type === 'content.end';
 }
 
 export function isSummaryLikeEvent(event: Record<string, unknown>): boolean {
@@ -243,10 +230,7 @@ export function isConversationRemovalEvent(type: string): boolean {
   return type === 'chat.deleted' || type === 'chat.archived';
 }
 
-export function buildAssistantMessageId(
-  conversationId: string,
-  event: Record<string, unknown>
-): string {
+export function buildAssistantMessageId(conversationId: string, event: Record<string, unknown>): string {
   const runId = toText(event.runId);
   const contentId =
     toText(event.contentId) ||

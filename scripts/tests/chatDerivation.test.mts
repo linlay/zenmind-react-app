@@ -9,12 +9,12 @@ import {
 } from '../../src/core/api/services/chatDerivationProtocol.ts';
 const now = 1_791_450_000_000;
 test('derivation acknowledgement verifies exact source/run/destination/owner and strict time; only definite creation rejections permit a fresh attempt', () => {
-  const target = { chatId: 'child', phase: 'unknown' as const, teamId: 'team' };
+  const target = { chatId: 'child', phase: 'unknown' as const, agentKey: 'team' };
   const response = {
     chatId: 'child',
     sourceChatId: 'source',
     sourceRunId: 'run',
-    teamId: 'team',
+    agentKey: 'team',
     copiedRuns: 2,
     lastRunId: 'mapped-run',
     createdAt: now,
@@ -73,12 +73,12 @@ test('actual derive controller replaces only after source service confirms local
     deferred = false;
   const result = {
     conversation: { conversationId: 'child', title: 'server context' },
-    historyScope: { teamId: 'team', agentKey: null }
+    historyScope: { agentKey: 'team' }
   };
   const callback = vm.runInNewContext(code, {
     conversationId: 'source',
     activeConversationIdRef: active,
-    conversationTargetRouteParams: { teamId: 'team', title: 'Team' },
+    conversationTargetRouteParams: { agentKey: 'team', title: 'Team' },
     navigation: { replace: (...args: any[]) => calls.push(args) },
     useCallback: (fn: any) => fn,
     setErrorText: (value: string) => errors.push(value),
@@ -100,7 +100,7 @@ test('actual derive controller replaces only after source service confirms local
   assert.equal(calls[0][0], 'ChatDetail');
   assert.equal(calls[0][1].conversationId, 'child');
   assert.equal(calls[0][1].initialConversation.title, 'server context');
-  assert.equal(calls[0][1].historyScope.teamId, 'team');
+  assert.equal(calls[0][1].historyScope.agentKey, 'team');
   assert.equal(calls[0][1].skipInitialReconcile, true);
   failure = true;
   await callback('selected-run');
@@ -136,7 +136,11 @@ test('Native derive control blocks same-frame duplicate taps and offers only ver
     module = { exports: {} as any };
   const deps: Record<string, unknown> = {
     'react-native': { ActivityIndicator: 'Spinner', Pressable: 'Button', Text: 'Text', View: 'View' },
-    '../../../shared/i18n': { useT: () => defaultT }
+    '../../../shared/i18n': { useT: () => defaultT },
+    '../../../shared/icons/AppIcon': { AppIcon: 'AppIcon' },
+    '../../../shared/visual/AppThemeProvider': {
+      useAppTheme: () => ({ theme: { colors: { textTertiary: '#999', textSecondary: '#666' } } })
+    }
   };
   new Function('require', 'module', 'exports', code)(
     (key: string) => deps[key] ?? require(key),
@@ -161,12 +165,14 @@ test('Native derive control blocks same-frame duplicate taps and offers only ver
   });
   try {
     const button = renderer.root.findByType('Button');
+    assert.equal(button.findAllByType('Text').length, 0);
     await act(async () => {
       button.props.onPress();
       button.props.onPress();
     });
     assert.equal(calls, 1);
     assert.equal(renderer.root.findByType('Button').props.disabled, true);
+    assert.equal(renderer.root.findByType('Button').findAllByType('Spinner').length, 1);
     await act(async () => finish());
     await act(async () =>
       renderer.update(React.createElement(Component, { node, disabled: true, onDerive: callback }))
@@ -182,7 +188,8 @@ test('Native derive control blocks same-frame duplicate taps and offers only ver
       )
     );
     assert.equal(renderer.root.findByType('Button').props.disabled, false);
-    assert.equal(renderer.root.findAllByType('Text')[0].props.children, defaultT('runDerivation.check'));
+    assert.equal(renderer.root.findByType('Button').props.accessibilityLabel, defaultT('runDerivation.check'));
+    assert.equal(renderer.root.findAllByType('Text').length, 0);
     await act(async () => renderer.root.findByType('Button').props.onPress());
     assert.equal(calls, 2);
     await act(async () => renderer.unmount());

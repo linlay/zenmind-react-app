@@ -38,6 +38,7 @@
     "scripts/tests/agentWaitingDemo.test.mts",
     "scripts/tests/appEnvConfig.test.mts",
     "scripts/tests/appIconRegistry.test.mts",
+    "scripts/tests/authNavigation.test.mts",
     "scripts/tests/authenticatedResourceModel.test.mts",
     "scripts/tests/awaitingOptionPreview.test.mts",
     "scripts/tests/awaitingQuestionState.test.mts",
@@ -50,8 +51,10 @@
     "scripts/tests/chatAttachmentPreview.test.mts",
     "scripts/tests/chatAttachmentResourceUrl.test.mts",
     "scripts/tests/chatCacheScope.test.mts",
+    "scripts/tests/chatComposerAttachments.test.mts",
     "scripts/tests/chatComposerNativePlaceholder.test.mts",
     "scripts/tests/chatComposerOptionsLayout.test.mts",
+    "scripts/tests/chatComposerSettings.test.mts",
     "scripts/tests/chatContextReferences.test.mts",
     "scripts/tests/chatConversationDiagnostic.test.mts",
     "scripts/tests/chatConversationSourceCreation.test.mts",
@@ -64,8 +67,10 @@
     "scripts/tests/chatDetailNavigation.test.mts",
     "scripts/tests/chatDetailViewModel.test.mts",
     "scripts/tests/chatDirectoryOpenDecision.test.mts",
+    "scripts/tests/chatDirectoryPickerOverlay.test.mts",
     "scripts/tests/chatDirectoryPickerOverlayState.test.mts",
     "scripts/tests/chatDirectoryProjector.test.mts",
+    "scripts/tests/chatDirectorySync.test.mts",
     "scripts/tests/chatDocumentPreview.test.mts",
     "scripts/tests/chatDocumentPreviewNative.test.mts",
     "scripts/tests/chatDrawerCloseInteraction.test.mts",
@@ -115,9 +120,11 @@
     "scripts/tests/chatWebclientService.test.mts",
     "scripts/tests/chatWebclientSync.test.mts",
     "scripts/tests/chatWonderDisplay.test.mts",
+    "scripts/tests/chatWsStreamRelease.test.mts",
     "scripts/tests/chatWsTransportPayload.test.mts",
     "scripts/tests/cloudApiCredential.test.mts",
     "scripts/tests/conversationMarkdownLinks.test.mts",
+    "scripts/tests/conversationPreviewSurface.test.mts",
     "scripts/tests/deviceLinkContract.test.mts",
     "scripts/tests/httpDebugLogger.test.mts",
     "scripts/tests/i18n.test.mts",
@@ -2226,6 +2233,7 @@
     "src/features/chatPersistence/chatAttachmentIcon.ts",
     "src/features/chatPersistence/chatAttachmentModels.ts",
     "src/features/chatPersistence/chatAttachmentPreview.ts",
+    "src/features/chatPersistence/chatComposerPreferences.ts",
     "src/features/chatPersistence/chatContextReference.ts",
     "src/features/chatPersistence/chatConversationDiagnostic.ts",
     "src/features/chatPersistence/chatConversationTarget.ts",
@@ -2251,6 +2259,8 @@
     "src/features/chatPersistence/chatSource.ts",
     "src/features/chatPersistence/chatSourceRuntime.ts",
     "src/features/chatPersistence/chatTimelineTextSearch.ts",
+    "src/features/chatPersistence/chatToolIcon.ts",
+    "src/features/chatPersistence/chatUsageComposition.ts",
     "src/features/chatPersistence/cloudAccess.ts",
     "src/features/chatPersistence/components/AccountSourceSheet.tsx",
     "src/features/chatPersistence/components/ActionTimelineRow.tsx",
@@ -2284,7 +2294,9 @@
     "src/features/chatPersistence/components/ChatTimelineList.tsx",
     "src/features/chatPersistence/components/ChatTimelineRail.tsx",
     "src/features/chatPersistence/components/ChatTimelineTextSearch.tsx",
+    "src/features/chatPersistence/components/ChatToolWait.tsx",
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx",
+    "src/features/chatPersistence/components/ChatUsageStackedMetrics.tsx",
     "src/features/chatPersistence/components/Composer.tsx",
     "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx",
     "src/features/chatPersistence/components/CopyToast.tsx",
@@ -2341,11 +2353,13 @@
     "src/features/chatPersistence/schema.ts",
     "src/features/chatPersistence/types.ts",
     "src/features/chatPersistence/useChatComposerAttachments.ts",
+    "src/features/chatPersistence/useChatComposerSettings.ts",
     "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts",
     "src/features/chatPersistence/useChatDetailConversationController.ts",
     "src/features/chatPersistence/useChatDetailLocalUiState.ts",
     "src/features/chatPersistence/useConversationActionRuntime.ts",
     "src/features/chatRealtime/chatSourcePayload.ts",
+    "src/features/chatRealtime/chatSubmissionRecovery.ts",
     "src/features/chatRealtime/chatSyncService.ts",
     "src/features/chatRealtime/chatWsTransport.ts",
     "src/features/chatRealtime/routing.ts",
@@ -2360,6 +2374,7 @@
     "src/features/chatTimeline/timelineDisplay.ts",
     "src/features/chatTimeline/timelineEventFormat.ts",
     "src/features/chatTimeline/timelineFrontendTool.ts",
+    "src/features/chatTimeline/timelineOrder.ts",
     "src/features/chatTimeline/timelinePersistence.ts",
     "src/features/chatTimeline/timelinePlan.ts",
     "src/features/chatTimeline/timelinePlatformError.ts",
@@ -11069,7 +11084,15 @@
                         "type": "file"
                       },
                       {
+                        "name": "ChatToolWait.tsx",
+                        "type": "file"
+                      },
+                      {
                         "name": "ChatUsageHeaderBadge.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatUsageStackedMetrics.tsx",
                         "type": "file"
                       },
                       {
@@ -11277,6 +11300,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "chatComposerPreferences.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "chatContextReference.ts",
                     "type": "file"
                   },
@@ -11377,6 +11404,14 @@
                     "type": "file"
                   },
                   {
+                    "name": "chatToolIcon.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatUsageComposition.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "cloudAccess.ts",
                     "type": "file"
                   },
@@ -11405,6 +11440,10 @@
                     "type": "file"
                   },
                   {
+                    "name": "useChatComposerSettings.ts",
+                    "type": "file"
+                  },
+                  {
                     "name": "useChatDetailAwaitingOverlay.ts",
                     "type": "file"
                   },
@@ -11428,6 +11467,10 @@
                 "children": [
                   {
                     "name": "chatSourcePayload.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatSubmissionRecovery.ts",
                     "type": "file"
                   },
                   {
@@ -11490,6 +11533,10 @@
                   },
                   {
                     "name": "timelineFrontendTool.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "timelineOrder.ts",
                     "type": "file"
                   },
                   {
@@ -12119,6 +12166,7 @@
       "src/features/chatPersistence/chatAttachmentIcon.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatAttachmentPreview.ts",
+      "src/features/chatPersistence/chatComposerPreferences.ts",
       "src/features/chatPersistence/chatContextReference.ts",
       "src/features/chatPersistence/chatConversationDiagnostic.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
@@ -12144,6 +12192,8 @@
       "src/features/chatPersistence/chatSource.ts",
       "src/features/chatPersistence/chatSourceRuntime.ts",
       "src/features/chatPersistence/chatTimelineTextSearch.ts",
+      "src/features/chatPersistence/chatToolIcon.ts",
+      "src/features/chatPersistence/chatUsageComposition.ts",
       "src/features/chatPersistence/cloudAccess.ts",
       "src/features/chatPersistence/components/AccountSourceSheet.tsx",
       "src/features/chatPersistence/components/ActionTimelineRow.tsx",
@@ -12177,7 +12227,9 @@
       "src/features/chatPersistence/components/ChatTimelineList.tsx",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatPersistence/components/ChatTimelineTextSearch.tsx",
+      "src/features/chatPersistence/components/ChatToolWait.tsx",
       "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx",
+      "src/features/chatPersistence/components/ChatUsageStackedMetrics.tsx",
       "src/features/chatPersistence/components/Composer.tsx",
       "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx",
       "src/features/chatPersistence/components/CopyToast.tsx",
@@ -12234,6 +12286,7 @@
       "src/features/chatPersistence/schema.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatPersistence/useChatComposerAttachments.ts",
+      "src/features/chatPersistence/useChatComposerSettings.ts",
       "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts",
       "src/features/chatPersistence/useChatDetailConversationController.ts",
       "src/features/chatPersistence/useChatDetailLocalUiState.ts",
@@ -12241,6 +12294,7 @@
     ],
     "feature-chat-realtime": [
       "src/features/chatRealtime/chatSourcePayload.ts",
+      "src/features/chatRealtime/chatSubmissionRecovery.ts",
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatRealtime/chatWsTransport.ts",
       "src/features/chatRealtime/routing.ts",
@@ -12257,6 +12311,7 @@
       "src/features/chatTimeline/timelineDisplay.ts",
       "src/features/chatTimeline/timelineEventFormat.ts",
       "src/features/chatTimeline/timelineFrontendTool.ts",
+      "src/features/chatTimeline/timelineOrder.ts",
       "src/features/chatTimeline/timelinePersistence.ts",
       "src/features/chatTimeline/timelinePlan.ts",
       "src/features/chatTimeline/timelinePlatformError.ts",
@@ -12484,6 +12539,7 @@
     "src/features/chatPersistence/chatAttachmentIcon.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatAttachmentModels.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatAttachmentPreview.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatComposerPreferences.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatContextReference.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatConversationDiagnostic.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatConversationTarget.ts": "feature-chat-persistence",
@@ -12509,6 +12565,8 @@
     "src/features/chatPersistence/chatSource.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatSourceRuntime.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatTimelineTextSearch.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatToolIcon.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatUsageComposition.ts": "feature-chat-persistence",
     "src/features/chatPersistence/cloudAccess.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/AccountSourceSheet.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ActionTimelineRow.tsx": "feature-chat-persistence",
@@ -12542,7 +12600,9 @@
     "src/features/chatPersistence/components/ChatTimelineList.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatTimelineRail.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatTimelineTextSearch.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatToolWait.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatUsageStackedMetrics.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/Composer.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/CopyToast.tsx": "feature-chat-persistence",
@@ -12599,11 +12659,13 @@
     "src/features/chatPersistence/schema.ts": "feature-chat-persistence",
     "src/features/chatPersistence/types.ts": "feature-chat-persistence",
     "src/features/chatPersistence/useChatComposerAttachments.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/useChatComposerSettings.ts": "feature-chat-persistence",
     "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": "feature-chat-persistence",
     "src/features/chatPersistence/useChatDetailConversationController.ts": "feature-chat-persistence",
     "src/features/chatPersistence/useChatDetailLocalUiState.ts": "feature-chat-persistence",
     "src/features/chatPersistence/useConversationActionRuntime.ts": "feature-chat-persistence",
     "src/features/chatRealtime/chatSourcePayload.ts": "feature-chat-realtime",
+    "src/features/chatRealtime/chatSubmissionRecovery.ts": "feature-chat-realtime",
     "src/features/chatRealtime/chatSyncService.ts": "feature-chat-realtime",
     "src/features/chatRealtime/chatWsTransport.ts": "feature-chat-realtime",
     "src/features/chatRealtime/routing.ts": "feature-chat-realtime",
@@ -12618,6 +12680,7 @@
     "src/features/chatTimeline/timelineDisplay.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineEventFormat.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineFrontendTool.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelineOrder.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelinePersistence.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelinePlan.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelinePlatformError.ts": "feature-chat-timeline",
@@ -18931,6 +18994,7 @@
       "parseDesktopPlatformCredential"
     ],
     "src/core/api/resourceUrl.ts": [
+      "buildChatResourceUrl",
       "normalizeApiResourcePath"
     ],
     "src/core/api/services/accountEmailApi.ts": [
@@ -18964,11 +19028,13 @@
       "downloadAuthenticatedResourceFile"
     ],
     "src/core/api/services/authenticatedResourceImage.native.ts": [
+      "clearAuthenticatedResourceImageCache",
       "releaseAuthenticatedResourceImageSource",
       "resolveAuthenticatedResourceImageSource"
     ],
     "src/core/api/services/authenticatedResourceImage.ts": [
       "AuthenticatedResourceImageRequest",
+      "clearAuthenticatedResourceImageCache",
       "releaseAuthenticatedResourceImageSource",
       "resolveAuthenticatedResourceImageSource"
     ],
@@ -18994,7 +19060,6 @@
       "CHAT_ACCESS_LEVEL_TRANSPORT_TYPE",
       "CHAT_AGENT_DETAIL_TRANSPORT_TYPE",
       "CHAT_DETAIL_TRANSPORT_TYPE",
-      "CHAT_OPERATION_TRANSPORT_TYPE",
       "CHAT_READ_TRANSPORT_TYPE",
       "CHAT_STEER_TRANSPORT_TYPE",
       "CHAT_SUBMIT_TRANSPORT_TYPE",
@@ -19025,7 +19090,6 @@
       "RemoteChatSummary",
       "RemoteChatUsageData",
       "RemoteChatUsageStats",
-      "RemoteOperationStatus",
       "SubmitAwaitingRequest",
       "SubmitAwaitingResponse",
       "SubmitFrontendToolResponse",
@@ -19060,7 +19124,6 @@
       "extractConversationId",
       "extractEventText",
       "extractMessageRole",
-      "extractTeamId",
       "extractTitle",
       "isAssistantContentEvent",
       "isChatReadAllEvent",
@@ -19125,11 +19188,10 @@
       "ChatSkillPackage",
       "ChatSkillsCatalog",
       "normalizeChatSkills",
-      "normalizeRequiredSkills",
-      "parseStoredRequiredSkills",
-      "resolveRequiredSkillIds",
+      "normalizeSkillIds",
+      "resolveSkillIds",
       "skillIdentity",
-      "toggleRequiredSkills"
+      "toggleSkills"
     ],
     "src/core/api/services/chatViewProtocol.ts": [
       "ChatViewDocument",
@@ -19236,6 +19298,8 @@
       "normalizeModelOptionServiceTier",
       "normalizeModelOptionsAgentKey",
       "normalizeModelOptionsResponse",
+      "normalizeQueryModelOverride",
+      "readAgentModelOverride",
       "unwrapModelOptionsApiEnvelope"
     ],
     "src/core/api/services/notificationApi.ts": [
@@ -19489,11 +19553,10 @@
       "AgentAvailability",
       "AgentInteraction",
       "classifyAgentAvailabilityError",
+      "hasValidAgentInteraction",
       "resolveAgentInteraction"
     ],
     "src/features/chatPersistence/agentMode.ts": [
-      "canUseEditingMode",
-      "canUsePlanMode",
       "normalizeAgentMode"
     ],
     "src/features/chatPersistence/agentModelSettings.ts": [
@@ -19510,6 +19573,7 @@
       "splitAuthenticatedResourceTextAtLine"
     ],
     "src/features/chatPersistence/cacheScope.ts": [
+      "CHAT_CACHE_SCHEMA_VERSION",
       "CHAT_LEGACY_CACHE_SCOPE_ID",
       "buildChatDatabaseName",
       "buildChatDirectorySnapshotKey",
@@ -19544,6 +19608,17 @@
       "ChatAttachmentPreviewResolution",
       "resolveChatAttachmentImageUri",
       "resolveChatAttachmentPreview"
+    ],
+    "src/features/chatPersistence/chatComposerPreferences.ts": [
+      "ChatComposerPreference",
+      "ChatComposerPreferenceTarget",
+      "clearChatComposerPreferences",
+      "confirmChatComposerSubmission",
+      "getChatComposerPreferenceRevision",
+      "readChatComposerPreference",
+      "rememberChatComposerSubmission",
+      "subscribeChatComposerPreferences",
+      "writeChatComposerPreference"
     ],
     "src/features/chatPersistence/chatContextReference.ts": [
       "ChatReferenceOption",
@@ -19613,17 +19688,17 @@
     ],
     "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts": [
       "DirectoryPickerLoadGate",
+      "DirectoryPickerStatus",
       "createDirectoryPickerLoadGate",
       "getDirectoryPickerHiddenOffset",
-      "getDirectoryPickerPanelWidth"
+      "getDirectoryPickerPanelWidth",
+      "getDirectoryPickerStatus"
     ],
     "src/features/chatPersistence/chatDirectoryProjector.ts": [
       "RemoteAgent",
-      "RemoteTeam",
       "projectRemoteAgent",
       "projectRemoteDirectory",
-      "projectRemoteHomeDirectory",
-      "projectRemoteTeam"
+      "projectRemoteHomeDirectory"
     ],
     "src/features/chatPersistence/chatDrawerOverlayGeometry.ts": [
       "CHAT_DIRECTORY_PICKER_DRAWER_GEOMETRY",
@@ -19717,9 +19792,6 @@
       "getConversationTimelineDiagnosticSnapshot",
       "getMessageByClientMessageId",
       "getMessageByServerMessageId",
-      "getOutboxMessageOptions",
-      "getPendingOutboxCount",
-      "getPendingOutboxMessages",
       "hasChatLocalConversations",
       "incrementConversationUnread",
       "inspectChatLocalCacheScope",
@@ -19741,6 +19813,7 @@
       "replaceConversationProjection",
       "resolveDirectoryItemConversationOpenTarget",
       "retainChatDirectorySources",
+      "retryOutgoingMessage",
       "searchChatDirectoryItems",
       "setChatDirectoryItemPinned",
       "setConversationActiveRunId",
@@ -19782,6 +19855,14 @@
       "chatSearchMatchKey",
       "createChatTimelineTextSearch",
       "getChatTimelineMessageTextSource"
+    ],
+    "src/features/chatPersistence/chatToolIcon.ts": [
+      "resolveChatToolIconUsage"
+    ],
+    "src/features/chatPersistence/chatUsageComposition.ts": [
+      "buildChatUsageComposition",
+      "formatChatUsageCompositionPercent",
+      "resolveChatUsageCompositionPercents"
     ],
     "src/features/chatPersistence/cloudAccess.ts": [
       "cancelCloudVerification",
@@ -19892,8 +19973,14 @@
     "src/features/chatPersistence/components/ChatTimelineTextSearch.tsx": [
       "ChatTimelineTextSearch"
     ],
+    "src/features/chatPersistence/components/ChatToolWait.tsx": [
+      "ChatToolWait"
+    ],
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": [
       "ChatUsageHeaderBadge"
+    ],
+    "src/features/chatPersistence/components/ChatUsageStackedMetrics.tsx": [
+      "ChatUsageStackedMetrics"
     ],
     "src/features/chatPersistence/components/Composer.tsx": [
       "Composer",
@@ -20188,16 +20275,13 @@
       "NewConversationTimelineNodeRow",
       "NewMessageAttachmentRow",
       "NewMessageRow",
-      "NewOutboxMessageRow",
-      "OutboxMessageRow",
       "chatDirectoryItems",
       "conversationSyncState",
       "conversationTimelineMeta",
       "conversationTimelineNodes",
       "conversations",
       "messageAttachments",
-      "messages",
-      "outboxMessages"
+      "messages"
     ],
     "src/features/chatPersistence/types.ts": [
       "ChatAttachmentBase",
@@ -20227,11 +20311,13 @@
       "ChatMessageStreamStatus",
       "ChatReadState",
       "ChatReasoningEffort",
-      "PendingOutboxMessage",
       "ServerMessageDetail"
     ],
     "src/features/chatPersistence/useChatComposerAttachments.ts": [
       "useChatComposerAttachments"
+    ],
+    "src/features/chatPersistence/useChatComposerSettings.ts": [
+      "useChatComposerSettings"
     ],
     "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": [
       "ChatDetailAwaitingOverlayState",
@@ -20251,6 +20337,10 @@
       "scopeChatPayload",
       "scopeRemoteHomePayload",
       "unscopeChatPayload"
+    ],
+    "src/features/chatRealtime/chatSubmissionRecovery.ts": [
+      "getLatestFailedChatSubmission",
+      "getRecoverableChatSubmission"
     ],
     "src/features/chatRealtime/chatSyncService.ts": [
       "ChatCacheScopeClearResult",
@@ -20282,7 +20372,6 @@
       "extractConversationId",
       "extractEventText",
       "extractMessageRole",
-      "extractTeamId",
       "extractTitle",
       "isAssistantContentEvent",
       "isChatReadAllEvent",
@@ -20317,6 +20406,8 @@
       "ChatConversationTimelineReplaceEvent",
       "ChatConversationTimelineResetEvent",
       "ChatDirectoryReplaceEvent",
+      "ChatDirectorySyncEvent",
+      "ChatDirectorySyncSnapshot",
       "ChatHomeItemPatch",
       "ChatHomeItemPatchEvent",
       "ChatHomeItemRemoveEvent",
@@ -20465,6 +20556,9 @@
       "parseFrontendToolArgs",
       "resolveChatTimelineFrontendTool"
     ],
+    "src/features/chatTimeline/timelineOrder.ts": [
+      "orderChatTimelineNodes"
+    ],
     "src/features/chatTimeline/timelinePersistence.ts": [
       "SerializedTimelineMeta",
       "SerializedTimelineNode",
@@ -20507,7 +20601,7 @@
       "applyChatTimelineMessage",
       "applyChatTimelineRunUnavailable",
       "applyChatTimelineStreamDelta",
-      "clearChatTimelineToolOutput",
+      "clearChatTimelineToolTransientState",
       "compactChatTimelineRequestEchoes",
       "createChatTimelineState",
       "deriveChatTimelineState",
@@ -20528,8 +20622,10 @@
       "ChatRunAccessLevel",
       "applyChatTimelineRunAccess",
       "getChatTimelineRun",
+      "isMainChatRunEvent",
       "mergeRunAccessMetadata",
-      "readRunAccessLevel"
+      "readRunAccessLevel",
+      "resolveChatComposerHistory"
     ],
     "src/features/chatTimeline/timelineRunDerivation.ts": [
       "applyChatTimelineRunDerivation"
@@ -20975,7 +21071,7 @@
       "AgentAvatarKind"
     ],
     "src/shared/visual/appLineIconRegistry.ts": [
-      "APP_LINE_ICON_OUTLINE_NAMES",
+      "APP_LINE_ICON_OUTLINE_PATHS",
       "APP_LINE_ICON_PATHS",
       "AppLineIconName",
       "AppLineIconOutlineName",
@@ -24137,6 +24233,7 @@
       "../../core/auth/activeDesktop",
       "../../core/auth/useAccountAuth",
       "../../shared/i18n",
+      "../chatRealtime/chatSyncService",
       "./accountDesktopSource",
       "./cacheScope",
       "./chatDetailNavigation",
@@ -24144,6 +24241,7 @@
       "./chatDirectoryPickerOverlayState",
       "./chatRealtimeUiState",
       "./chatRepository",
+      "./chatSourceRuntime",
       "./components/AccountSourceSheet",
       "./components/ChatDirectoryPickerDrawer",
       "./types",
@@ -24193,6 +24291,7 @@
       "../chatRealtime/chatSyncService.ts",
       "./cacheScope",
       "./cacheScope.ts",
+      "./chatComposerPreferences.ts",
       "./chatSourceRuntime",
       "./cloudAccess.ts",
       "./database.ts"
@@ -24219,12 +24318,16 @@
     "src/features/chatPersistence/chatAttachmentModels.ts": [
       "../../core/api/resourceUrl.ts",
       "../../shared/i18n/translate.ts",
+      "./chatSource.ts",
       "./types"
     ],
     "src/features/chatPersistence/chatAttachmentPreview.ts": [
       "./authenticatedResourcePreview.ts",
       "./chatAttachmentModels.ts",
       "./types.ts"
+    ],
+    "src/features/chatPersistence/chatComposerPreferences.ts": [
+      "../../core/api/services/modelOptionsProtocol.ts"
     ],
     "src/features/chatPersistence/chatContextReference.ts": [
       "./chatAttachmentModels.ts",
@@ -24266,6 +24369,7 @@
       "./chatReadState.ts"
     ],
     "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts": [
+      "../chatRealtime/types.ts",
       "./chatDrawerOverlayGeometry.ts"
     ],
     "src/features/chatPersistence/chatDirectoryProjector.ts": [
@@ -24310,7 +24414,6 @@
       "./types"
     ],
     "src/features/chatPersistence/chatRepository.ts": [
-      "../../core/api/services/chatSkillsProtocol.ts",
       "../../core/auth/activeDesktop.ts",
       "../../core/auth/cloudAuth",
       "../../shared/visual/agentAvatarIcon.ts",
@@ -24355,6 +24458,12 @@
       "../../shared/markdown/previewSegments.ts",
       "../chatTimeline/types.ts",
       "./conversationViewport/conversationViewportFence.ts"
+    ],
+    "src/features/chatPersistence/chatToolIcon.ts": [
+      "../../shared/icons/registries/appIconUsages.ts"
+    ],
+    "src/features/chatPersistence/chatUsageComposition.ts": [
+      "../chatTimeline/types.ts"
     ],
     "src/features/chatPersistence/cloudAccess.ts": [
       "../../core/api/activeWsTransport.ts",
@@ -24454,6 +24563,7 @@
     "src/features/chatPersistence/components/ChatComposerSkillsMenu.tsx": [
       "../../../core/api/services/chatSkillsProtocol",
       "../../../shared/i18n",
+      "../../../shared/icons/AppIcon",
       "../../../shared/visual/className",
       "react",
       "react-native"
@@ -24613,11 +24723,14 @@
     ],
     "src/features/chatPersistence/components/ChatRunCopyButton.tsx": [
       "../../../shared/i18n",
+      "../../../shared/icons/AppIcon",
       "react",
       "react-native"
     ],
     "src/features/chatPersistence/components/ChatRunDerivation.tsx": [
       "../../../shared/i18n",
+      "../../../shared/icons/AppIcon",
+      "../../../shared/visual/AppThemeProvider",
       "../../chatTimeline/types.ts",
       "react",
       "react-native"
@@ -24626,6 +24739,8 @@
       "../../../core/api/services/chatFeedbackProtocol.ts",
       "../../../shared/components/ScreenHeader",
       "../../../shared/i18n",
+      "../../../shared/icons/AppIcon",
+      "../../../shared/visual/AppThemeProvider",
       "../../chatRealtime/chatSyncService",
       "../../chatTimeline/types.ts",
       "react",
@@ -24649,7 +24764,6 @@
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AppThemeProvider",
       "../../chatTimeline/index.ts",
-      "./ChatRunCopyButton.tsx",
       "./ChatTimelineRail",
       "react",
       "react-native"
@@ -24675,13 +24789,13 @@
       "./ChatAttachmentStrip",
       "./ChatFileChanges.tsx",
       "./ChatResponseWaitingIndicator",
-      "./ChatRunCopyButton.tsx",
       "./ChatRunDerivation.tsx",
       "./ChatRunFeedback.tsx",
       "./ChatSelectionSheet",
       "./ChatSystemAlert",
       "./ChatTimelineRail",
       "./ChatTimelineTextSearch.tsx",
+      "./ChatToolWait",
       "./ContextCompactTimelineRow.tsx",
       "./PlanTimelineRow.tsx",
       "./ProcessSummaryTimelineRow.tsx",
@@ -24708,19 +24822,36 @@
       "react",
       "react-native"
     ],
+    "src/features/chatPersistence/components/ChatToolWait.tsx": [
+      "../../../shared/components/conversationPreview/ConversationPreviewProvider",
+      "../../../shared/i18n",
+      "../../chatRealtime/chatSyncService",
+      "../../chatTimeline",
+      "react",
+      "react-native"
+    ],
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": [
       "../../../shared/i18n",
-      "../../../shared/icons/AppIcon",
+      "../../../shared/icons/AppIconButton",
       "../../../shared/visual/AppThemeProvider",
       "../../../shared/visual/foundation",
       "../../chatTimeline/index.ts",
       "../agentModelSettings.ts",
       "../chatDetailFormatters.ts",
       "../types",
+      "./ChatUsageStackedMetrics",
       "react",
       "react-native",
       "react-native-safe-area-context",
       "react-native-svg"
+    ],
+    "src/features/chatPersistence/components/ChatUsageStackedMetrics.tsx": [
+      "../../../shared/i18n",
+      "../../chatTimeline/types.ts",
+      "../chatDetailFormatters.ts",
+      "../chatUsageComposition.ts",
+      "react",
+      "react-native"
     ],
     "src/features/chatPersistence/components/Composer.tsx": [
       "../../../shared/i18n",
@@ -25007,6 +25138,7 @@
       "../../../../core/api/apiClient.ts",
       "../../../../core/api/services/authenticatedResource.ts",
       "../../../../core/api/services/authenticatedResourceImage",
+      "../../../chatRealtime/chatSyncService",
       "../../cacheScope",
       "react"
     ],
@@ -25014,6 +25146,7 @@
       "../../../shared/i18n/translate.ts",
       "../../../shared/icons/AppIcon",
       "../../chatTimeline/index.ts",
+      "../chatToolIcon.ts",
       "./runtimeStructuredPayload.ts"
     ],
     "src/features/chatPersistence/components/runtimePayloadRenderers.tsx": [
@@ -25092,7 +25225,9 @@
       "../../../shared/components/conversationPreview/runtimeBridge.ts"
     ],
     "src/features/chatPersistence/database.ts": [
+      "../../core/api/services/authenticatedResourceImage",
       "./cacheScope",
+      "./homeSnapshot",
       "./schema",
       "drizzle-orm/expo-sqlite",
       "expo-file-system",
@@ -25128,11 +25263,13 @@
     ],
     "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx": [
       "../../../shared/i18n/index.ts",
+      "../chatSource.ts",
       "../components/resource/AuthenticatedResourcePreviewProvider.tsx",
       "./conversationMarkdownLinks.ts",
       "react"
     ],
     "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts": [
+      "../../../core/api/resourceUrl.ts",
       "../../../core/api/services/documentPreviewProtocol.ts",
       "../../../core/api/services/workspaceResource.ts",
       "../authenticatedResourcePreview.ts"
@@ -25146,14 +25283,31 @@
       "./chatSource"
     ],
     "src/features/chatPersistence/useChatComposerAttachments.ts": [
+      "../../core/api/resourceUrl",
       "../../core/api/services/uploadApi",
       "../../shared/i18n",
+      "./cacheScope",
       "./chatAttachmentModels",
       "./chatContextReference.ts",
       "./chatSelectionReference.ts",
+      "./chatSource",
       "./types",
       "expo-document-picker",
       "expo-image-picker",
+      "react"
+    ],
+    "src/features/chatPersistence/useChatComposerSettings.ts": [
+      "../../core/api/services/chatApi",
+      "../../core/api/services/modelOptionsProtocol",
+      "../../core/auth/accountAuth",
+      "../../shared/i18n",
+      "../chatRealtime/chatSyncService",
+      "../chatTimeline/timelineRunAccess",
+      "../chatTimeline/types",
+      "./agentInteraction",
+      "./cacheScope",
+      "./chatComposerPreferences",
+      "./chatSource",
       "react"
     ],
     "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": [
@@ -25166,11 +25320,11 @@
       "../../core/api/services/modelOptionsProtocol",
       "../../core/api/services/notificationApi",
       "../../shared/i18n",
+      "../chatRealtime/chatSubmissionRecovery",
       "../chatRealtime/chatSyncService",
       "../chatRealtime/types",
       "../chatTimeline/index.ts",
-      "./agentInteraction",
-      "./agentMode.ts",
+      "../chatTimeline/timelineRunAccess",
       "./chatConversationDiagnostic",
       "./chatConversationTarget",
       "./chatDetailAsyncScope",
@@ -25180,6 +25334,7 @@
       "./chatRepository",
       "./types",
       "./useChatComposerAttachments",
+      "./useChatComposerSettings",
       "@react-navigation/native",
       "@react-navigation/native-stack",
       "react",
@@ -25202,6 +25357,9 @@
       "../chatPersistence/chatDirectoryProjector",
       "../chatPersistence/chatSource.ts"
     ],
+    "src/features/chatRealtime/chatSubmissionRecovery.ts": [
+      "../chatTimeline/types.ts"
+    ],
     "src/features/chatRealtime/chatSyncService.ts": [
       "../../core/api/activeWsTransport",
       "../../core/api/apiClient",
@@ -25219,8 +25377,6 @@
       "../../core/ws/wsClient",
       "../../shared/generated/brand",
       "../chatPersistence/agentInteraction",
-      "../chatPersistence/agentMode.ts",
-      "../chatPersistence/agentModelSettings",
       "../chatPersistence/cacheScope",
       "../chatPersistence/chatAttachmentModels",
       "../chatPersistence/chatContextReference.ts",
@@ -25236,11 +25392,13 @@
       "../chatPersistence/cloudAccess",
       "../chatPersistence/types",
       "../chatTimeline/index.ts",
+      "../chatTimeline/timelinePlatformError.ts",
       "../chatTimeline/timelineReducer",
       "../chatTimeline/timelineRunAccess.ts",
       "../chatTimeline/timelineRunDerivation.ts",
       "../chatTimeline/timelineRunFeedback.ts",
       "./chatSourcePayload",
+      "./chatSubmissionRecovery.ts",
       "./chatWsTransport",
       "./routing",
       "./types",
@@ -25250,7 +25408,6 @@
       "../../core/api/services/chatEventProtocol.ts",
       "../../core/api/services/chatRemoteTimeProtocol.ts",
       "../../core/api/services/chatRunOwner.ts",
-      "../../core/api/services/chatSkillsProtocol.ts",
       "../../core/api/services/modelOptionsProtocol.ts",
       "../../core/ws/sharedWsTransport.ts",
       "../../core/ws/wsClient.ts",
@@ -25303,9 +25460,11 @@
       "./types.ts"
     ],
     "src/features/chatTimeline/timelineArtifact.ts": [
+      "../../core/api/resourceUrl.ts",
       "../../core/api/services/chatEventProtocol.ts",
       "../chatPersistence/authenticatedResourcePreview.ts",
       "../chatPersistence/chatAttachmentModels.ts",
+      "../chatPersistence/chatSource.ts",
       "./types.ts"
     ],
     "src/features/chatTimeline/timelineContextCompact.ts": [
@@ -25326,9 +25485,13 @@
     "src/features/chatTimeline/timelineFrontendTool.ts": [
       "./types.ts"
     ],
+    "src/features/chatTimeline/timelineOrder.ts": [
+      "./types.ts"
+    ],
     "src/features/chatTimeline/timelinePersistence.ts": [
       "./timelineAction.ts",
       "./timelineContextCompact.ts",
+      "./timelineOrder.ts",
       "./timelinePlan.ts",
       "./timelineReasoningIdentity.ts",
       "./timelineRequest.ts",
@@ -25352,6 +25515,7 @@
       "../../core/api/services/chatEventProtocol.ts",
       "../../core/api/services/chatRemoteTimeProtocol.ts",
       "../../core/api/services/chatViewProtocol.ts",
+      "../../core/api/services/modelOptionsProtocol.ts",
       "../chatPersistence/chatAttachmentModels.ts",
       "../chatPersistence/types.ts",
       "./awaitingInteraction.ts",
@@ -25360,6 +25524,7 @@
       "./timelineContextCompact.ts",
       "./timelineEventFormat.ts",
       "./timelineFrontendTool.ts",
+      "./timelineOrder.ts",
       "./timelinePlan.ts",
       "./timelinePlatformError.ts",
       "./timelineReasoningIdentity.ts",
@@ -25377,6 +25542,8 @@
       "./types.ts"
     ],
     "src/features/chatTimeline/timelineRunAccess.ts": [
+      "../../core/api/services/modelOptionsProtocol.ts",
+      "../chatPersistence/chatSource.ts",
       "./types.ts"
     ],
     "src/features/chatTimeline/timelineRunDerivation.ts": [
@@ -25403,6 +25570,7 @@
     "src/features/chatTimeline/types.ts": [
       "../../core/api/services/chatEventProtocol.ts",
       "../../core/api/services/chatViewProtocol.ts",
+      "../../core/api/services/modelOptionsProtocol.ts",
       "../chatPersistence/authenticatedResourcePreview.ts",
       "../chatPersistence/types.ts",
       "./toolOutput.ts"
@@ -28481,9 +28649,11 @@
       "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts",
       "src/features/chatPersistence/chatRealtimeUiState.ts",
       "src/features/chatPersistence/chatRepository.ts",
+      "src/features/chatPersistence/chatSourceRuntime.ts",
       "src/features/chatPersistence/components/AccountSourceSheet.tsx",
       "src/features/chatPersistence/components/ChatDirectoryPickerDrawer.tsx",
       "src/features/chatPersistence/types.ts",
+      "src/features/chatRealtime/chatSyncService.ts",
       "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/ChatHomeScreen.tsx": [
@@ -28522,6 +28692,7 @@
       "src/core/auth/activeDesktop.ts",
       "src/core/auth/cloudAuth.ts",
       "src/features/chatPersistence/cacheScope.ts",
+      "src/features/chatPersistence/chatComposerPreferences.ts",
       "src/features/chatPersistence/chatSourceRuntime.ts",
       "src/features/chatPersistence/cloudAccess.ts",
       "src/features/chatPersistence/database.ts",
@@ -28548,6 +28719,7 @@
     ],
     "src/features/chatPersistence/chatAttachmentModels.ts": [
       "src/core/api/resourceUrl.ts",
+      "src/features/chatPersistence/chatSource.ts",
       "src/features/chatPersistence/types.ts",
       "src/shared/i18n/translate.ts"
     ],
@@ -28555,6 +28727,9 @@
       "src/features/chatPersistence/authenticatedResourcePreview.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/types.ts"
+    ],
+    "src/features/chatPersistence/chatComposerPreferences.ts": [
+      "src/core/api/services/modelOptionsProtocol.ts"
     ],
     "src/features/chatPersistence/chatContextReference.ts": [
       "src/features/chatPersistence/chatAttachmentModels.ts",
@@ -28596,7 +28771,8 @@
       "src/features/chatPersistence/chatReadState.ts"
     ],
     "src/features/chatPersistence/chatDirectoryPickerOverlayState.ts": [
-      "src/features/chatPersistence/chatDrawerOverlayGeometry.ts"
+      "src/features/chatPersistence/chatDrawerOverlayGeometry.ts",
+      "src/features/chatRealtime/types.ts"
     ],
     "src/features/chatPersistence/chatDirectoryProjector.ts": [
       "src/core/api/services/chatApi.ts",
@@ -28640,7 +28816,6 @@
       "src/features/chatRealtime/types.ts"
     ],
     "src/features/chatPersistence/chatRepository.ts": [
-      "src/core/api/services/chatSkillsProtocol.ts",
       "src/core/auth/activeDesktop.ts",
       "src/core/auth/cloudAuth.ts",
       "src/features/chatPersistence/agentMode.ts",
@@ -28684,6 +28859,12 @@
       "src/features/chatPersistence/conversationViewport/conversationViewportFence.ts",
       "src/features/chatTimeline/types.ts",
       "src/shared/markdown/previewSegments.ts"
+    ],
+    "src/features/chatPersistence/chatToolIcon.ts": [
+      "src/shared/icons/registries/appIconUsages.ts"
+    ],
+    "src/features/chatPersistence/chatUsageComposition.ts": [
+      "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatPersistence/cloudAccess.ts": [
       "src/core/api/activeWsTransport.ts",
@@ -28765,6 +28946,7 @@
     "src/features/chatPersistence/components/ChatComposerSkillsMenu.tsx": [
       "src/core/api/services/chatSkillsProtocol.ts",
       "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/className.ts"
     ],
     "src/features/chatPersistence/components/ChatContextReferencePicker.tsx": [
@@ -28882,18 +29064,23 @@
       "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/ChatRunCopyButton.tsx": [
-      "src/shared/i18n/index.ts"
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx"
     ],
     "src/features/chatPersistence/components/ChatRunDerivation.tsx": [
       "src/features/chatTimeline/types.ts",
-      "src/shared/i18n/index.ts"
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/ChatRunFeedback.tsx": [
       "src/core/api/services/chatFeedbackProtocol.ts",
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatTimeline/types.ts",
       "src/shared/components/ScreenHeader.tsx",
-      "src/shared/i18n/index.ts"
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx",
+      "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/ChatSelectionSheet.tsx": [
       "src/features/chatPersistence/chatSelectionReference.ts",
@@ -28904,7 +29091,6 @@
       "src/shared/visual/AppThemeProvider.tsx"
     ],
     "src/features/chatPersistence/components/ChatSystemAlert.tsx": [
-      "src/features/chatPersistence/components/ChatRunCopyButton.tsx",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/index.ts",
@@ -28921,13 +29107,13 @@
       "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
       "src/features/chatPersistence/components/ChatFileChanges.tsx",
       "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx",
-      "src/features/chatPersistence/components/ChatRunCopyButton.tsx",
       "src/features/chatPersistence/components/ChatRunDerivation.tsx",
       "src/features/chatPersistence/components/ChatRunFeedback.tsx",
       "src/features/chatPersistence/components/ChatSelectionSheet.tsx",
       "src/features/chatPersistence/components/ChatSystemAlert.tsx",
       "src/features/chatPersistence/components/ChatTimelineRail.tsx",
       "src/features/chatPersistence/components/ChatTimelineTextSearch.tsx",
+      "src/features/chatPersistence/components/ChatToolWait.tsx",
       "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx",
       "src/features/chatPersistence/components/PlanTimelineRow.tsx",
       "src/features/chatPersistence/components/ProcessSummaryTimelineRow.tsx",
@@ -28958,15 +29144,28 @@
       "src/features/chatTimeline/types.ts",
       "src/shared/i18n/index.ts"
     ],
+    "src/features/chatPersistence/components/ChatToolWait.tsx": [
+      "src/features/chatRealtime/chatSyncService.ts",
+      "src/features/chatTimeline/index.ts",
+      "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
+      "src/shared/i18n/index.ts"
+    ],
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": [
       "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/components/ChatUsageStackedMetrics.tsx",
       "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/index.ts",
-      "src/shared/icons/AppIcon.tsx",
+      "src/shared/icons/AppIconButton.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatUsageStackedMetrics.tsx": [
+      "src/features/chatPersistence/chatDetailFormatters.ts",
+      "src/features/chatPersistence/chatUsageComposition.ts",
+      "src/features/chatTimeline/types.ts",
+      "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/components/Composer.tsx": [
       "src/features/chatPersistence/chatDetailViewModel.ts",
@@ -29194,9 +29393,11 @@
       "src/core/api/apiClient.ts",
       "src/core/api/services/authenticatedResource.ts",
       "src/core/api/services/authenticatedResourceImage.ts",
-      "src/features/chatPersistence/cacheScope.ts"
+      "src/features/chatPersistence/cacheScope.ts",
+      "src/features/chatRealtime/chatSyncService.ts"
     ],
     "src/features/chatPersistence/components/runtimePayloadDescriptor.ts": [
+      "src/features/chatPersistence/chatToolIcon.ts",
       "src/features/chatPersistence/components/runtimeStructuredPayload.ts",
       "src/features/chatTimeline/index.ts",
       "src/shared/i18n/translate.ts",
@@ -29268,7 +29469,9 @@
       "src/shared/components/conversationPreview/runtimeBridge.ts"
     ],
     "src/features/chatPersistence/database.ts": [
+      "src/core/api/services/authenticatedResourceImage.ts",
       "src/features/chatPersistence/cacheScope.ts",
+      "src/features/chatPersistence/homeSnapshot.ts",
       "src/features/chatPersistence/schema.ts"
     ],
     "src/features/chatPersistence/frontendTool/FrontendToolDock.tsx": [
@@ -29296,11 +29499,13 @@
       "src/shared/components/ConversationMarkdownRenderer.tsx"
     ],
     "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx": [
+      "src/features/chatPersistence/chatSource.ts",
       "src/features/chatPersistence/components/resource/AuthenticatedResourcePreviewProvider.tsx",
       "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts",
       "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts": [
+      "src/core/api/resourceUrl.ts",
       "src/core/api/services/documentPreviewProtocol.ts",
       "src/core/api/services/workspaceResource.ts",
       "src/features/chatPersistence/authenticatedResourcePreview.ts"
@@ -29311,11 +29516,27 @@
       "src/shared/visual/agentAvatarTypes.ts"
     ],
     "src/features/chatPersistence/useChatComposerAttachments.ts": [
+      "src/core/api/resourceUrl.ts",
       "src/core/api/services/uploadApi.ts",
+      "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatContextReference.ts",
       "src/features/chatPersistence/chatSelectionReference.ts",
+      "src/features/chatPersistence/chatSource.ts",
       "src/features/chatPersistence/types.ts",
+      "src/shared/i18n/index.ts"
+    ],
+    "src/features/chatPersistence/useChatComposerSettings.ts": [
+      "src/core/api/services/chatApi.ts",
+      "src/core/api/services/modelOptionsProtocol.ts",
+      "src/core/auth/accountAuth.ts",
+      "src/features/chatPersistence/agentInteraction.ts",
+      "src/features/chatPersistence/cacheScope.ts",
+      "src/features/chatPersistence/chatComposerPreferences.ts",
+      "src/features/chatPersistence/chatSource.ts",
+      "src/features/chatRealtime/chatSyncService.ts",
+      "src/features/chatTimeline/timelineRunAccess.ts",
+      "src/features/chatTimeline/types.ts",
       "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/useChatDetailAwaitingOverlay.ts": [
@@ -29326,8 +29547,6 @@
       "src/core/api/services/chatSkillsProtocol.ts",
       "src/core/api/services/modelOptionsProtocol.ts",
       "src/core/api/services/notificationApi.ts",
-      "src/features/chatPersistence/agentInteraction.ts",
-      "src/features/chatPersistence/agentMode.ts",
       "src/features/chatPersistence/chatConversationDiagnostic.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatDetailAsyncScope.ts",
@@ -29337,9 +29556,12 @@
       "src/features/chatPersistence/chatRepository.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatPersistence/useChatComposerAttachments.ts",
+      "src/features/chatPersistence/useChatComposerSettings.ts",
+      "src/features/chatRealtime/chatSubmissionRecovery.ts",
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatRealtime/types.ts",
       "src/features/chatTimeline/index.ts",
+      "src/features/chatTimeline/timelineRunAccess.ts",
       "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/useChatDetailLocalUiState.ts": [
@@ -29357,6 +29579,9 @@
       "src/features/chatPersistence/chatDirectoryProjector.ts",
       "src/features/chatPersistence/chatSource.ts"
     ],
+    "src/features/chatRealtime/chatSubmissionRecovery.ts": [
+      "src/features/chatTimeline/types.ts"
+    ],
     "src/features/chatRealtime/chatSyncService.ts": [
       "src/core/api/activeWsTransport.ts",
       "src/core/api/apiClient.ts",
@@ -29373,8 +29598,6 @@
       "src/core/auth/cloudAuth.ts",
       "src/core/ws/wsClient.ts",
       "src/features/chatPersistence/agentInteraction.ts",
-      "src/features/chatPersistence/agentMode.ts",
-      "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatContextReference.ts",
@@ -29389,10 +29612,12 @@
       "src/features/chatPersistence/cloudAccess.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatRealtime/chatSourcePayload.ts",
+      "src/features/chatRealtime/chatSubmissionRecovery.ts",
       "src/features/chatRealtime/chatWsTransport.ts",
       "src/features/chatRealtime/routing.ts",
       "src/features/chatRealtime/types.ts",
       "src/features/chatTimeline/index.ts",
+      "src/features/chatTimeline/timelinePlatformError.ts",
       "src/features/chatTimeline/timelineReducer.ts",
       "src/features/chatTimeline/timelineRunAccess.ts",
       "src/features/chatTimeline/timelineRunDerivation.ts",
@@ -29403,7 +29628,6 @@
       "src/core/api/services/chatEventProtocol.ts",
       "src/core/api/services/chatRemoteTimeProtocol.ts",
       "src/core/api/services/chatRunOwner.ts",
-      "src/core/api/services/chatSkillsProtocol.ts",
       "src/core/api/services/modelOptionsProtocol.ts",
       "src/core/ws/sharedWsTransport.ts",
       "src/core/ws/wsClient.ts",
@@ -29456,9 +29680,11 @@
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineArtifact.ts": [
+      "src/core/api/resourceUrl.ts",
       "src/core/api/services/chatEventProtocol.ts",
       "src/features/chatPersistence/authenticatedResourcePreview.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/chatSource.ts",
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineContextCompact.ts": [
@@ -29479,9 +29705,13 @@
     "src/features/chatTimeline/timelineFrontendTool.ts": [
       "src/features/chatTimeline/types.ts"
     ],
+    "src/features/chatTimeline/timelineOrder.ts": [
+      "src/features/chatTimeline/types.ts"
+    ],
     "src/features/chatTimeline/timelinePersistence.ts": [
       "src/features/chatTimeline/timelineAction.ts",
       "src/features/chatTimeline/timelineContextCompact.ts",
+      "src/features/chatTimeline/timelineOrder.ts",
       "src/features/chatTimeline/timelinePlan.ts",
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
       "src/features/chatTimeline/timelineRequest.ts",
@@ -29505,6 +29735,7 @@
       "src/core/api/services/chatEventProtocol.ts",
       "src/core/api/services/chatRemoteTimeProtocol.ts",
       "src/core/api/services/chatViewProtocol.ts",
+      "src/core/api/services/modelOptionsProtocol.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/awaitingInteraction.ts",
@@ -29513,6 +29744,7 @@
       "src/features/chatTimeline/timelineContextCompact.ts",
       "src/features/chatTimeline/timelineEventFormat.ts",
       "src/features/chatTimeline/timelineFrontendTool.ts",
+      "src/features/chatTimeline/timelineOrder.ts",
       "src/features/chatTimeline/timelinePlan.ts",
       "src/features/chatTimeline/timelinePlatformError.ts",
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
@@ -29530,6 +29762,8 @@
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineRunAccess.ts": [
+      "src/core/api/services/modelOptionsProtocol.ts",
+      "src/features/chatPersistence/chatSource.ts",
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineRunDerivation.ts": [
@@ -29556,6 +29790,7 @@
     "src/features/chatTimeline/types.ts": [
       "src/core/api/services/chatEventProtocol.ts",
       "src/core/api/services/chatViewProtocol.ts",
+      "src/core/api/services/modelOptionsProtocol.ts",
       "src/features/chatPersistence/authenticatedResourcePreview.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/toolOutput.ts"

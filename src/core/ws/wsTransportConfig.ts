@@ -11,6 +11,8 @@ export type AgentPlatformWsTransportConfig = {
 
 export type DesktopWsTransportConfig = {
   kind: 'desktop-ws';
+  /** Platform identity from the verified Desktop credential, distinct from the Hub directory ID. */
+  platformDeviceId?: string;
   wsUrl: string;
   tokenMode: 'query' | 'subprotocol';
   accessToken: string;

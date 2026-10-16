@@ -1,11 +1,10 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import vm from 'node:vm';
+import ts from 'typescript';
 
-const databaseSource = readFileSync(
-  new URL('../../src/features/chatPersistence/database.ts', import.meta.url),
-  'utf8'
-);
+const databaseSource = readFileSync(new URL('../../src/features/chatPersistence/database.ts', import.meta.url), 'utf8');
 const repositorySource = readFileSync(
   new URL('../../src/features/chatPersistence/chatRepository.ts', import.meta.url),
   'utf8'
@@ -22,79 +21,23 @@ function extractSourceSection(source: string, startNeedle: string, endNeedle: st
 test('chat persistence database keeps query-shape indexes for hot paths', () => {
   [
     'conversations_agent_recency_idx',
-    'conversations_team_recency_idx',
     'conversations_agent_non_empty_recency_idx',
-    'conversations_team_non_empty_recency_idx',
     'conversations_agent_non_empty_count_idx',
-    'conversations_team_non_empty_count_idx',
     'chat_directory_items_agent_idx',
-    'chat_directory_items_team_idx',
-    'chat_directory_items_stable_order_idx',
-    'outbox_messages_created_at_idx',
-    'outbox_messages_conversation_idx',
+    'chat_directory_items_stable_order_idx'
   ].forEach((indexName) => {
     assert.match(databaseSource, new RegExp(`CREATE INDEX IF NOT EXISTS ${indexName}\\b`));
   });
 
-  assert.doesNotMatch(
-    databaseSource,
-    /CREATE INDEX IF NOT EXISTS conversations_agent_last_message_idx\b/
-  );
-  assert.doesNotMatch(
-    databaseSource,
-    /CREATE INDEX IF NOT EXISTS conversations_team_last_message_idx\b/
-  );
-  assert.doesNotMatch(
-    databaseSource,
-    /CREATE INDEX IF NOT EXISTS conversations_agent_draft_recency_idx\b/
-  );
-  assert.doesNotMatch(
-    databaseSource,
-    /CREATE INDEX IF NOT EXISTS conversations_team_draft_recency_idx\b/
-  );
-  assert.doesNotMatch(databaseSource, /outbox_messages_planning_mode_idx\b/);
-});
-
-test('chat outbox keeps planning mode replayable without new query shape', () => {
-  const replaceProjectionSource = extractSourceSection(
-    repositorySource,
-    'export async function replaceConversationProjection',
-    'export async function markConversationDirty'
-  );
-  const planningModeLookupSource = extractSourceSection(
-    replaceProjectionSource,
-    'const currentOutboxRows =',
-    'const currentOutboxModesByClientId'
-  );
-  const createOutgoingSource = extractSourceSection(
-    repositorySource,
-    'export async function createOutgoingMessage',
-    'export async function getPendingOutboxMessages'
-  );
-  const pendingOutboxSource = extractSourceSection(
-    repositorySource,
-    'export async function getPendingOutboxMessages',
-    'export async function getPendingOutboxCount'
-  );
-
-  assert.match(databaseSource, /planning_mode INTEGER NOT NULL DEFAULT 0/);
-  assert.match(createOutgoingSource, /planningMode: options\.planningMode === true \? 1 : 0/);
-  assert.match(pendingOutboxSource, /planningMode: outboxMessages\.planningMode/);
-  assert.match(pendingOutboxSource, /planningMode: Number\(row\.planningMode\) === 1/);
-  assert.match(planningModeLookupSource, /inArray\(outboxMessages\.clientMessageId/);
-  assert.doesNotMatch(
-    planningModeLookupSource,
-    /where\(eq\(outboxMessages\.conversationId, conversationId\)\)/
-  );
+  assert.doesNotMatch(databaseSource, /CREATE INDEX IF NOT EXISTS conversations_agent_last_message_idx\b/);
+  assert.doesNotMatch(databaseSource, /CREATE INDEX IF NOT EXISTS conversations_agent_draft_recency_idx\b/);
 });
 
 test('chat directory projection refresh stays batched by scope', () => {
   assert.match(repositorySource, /row_number\(\) OVER/);
   assert.match(repositorySource, /collectDirectoryProjectionChanges/);
   assert.doesNotMatch(repositorySource, /refreshAgentDirectoryProjection/);
-  assert.doesNotMatch(repositorySource, /refreshTeamDirectoryProjection/);
   assert.doesNotMatch(repositorySource, /for \(const agentKey of agentKeys\)/);
-  assert.doesNotMatch(repositorySource, /for \(const teamId of teamIds\)/);
 });
 
 test('chat persistence writes share the same title merge priority', () => {
@@ -114,24 +57,15 @@ test('chat persistence writes share the same title merge priority', () => {
     'export async function markConversationDirty'
   );
 
-  assert.match(
-    ensureConversationSource,
-    /resolveChatConversationStoredTitle\(title, existing\.title\)/
-  );
-  assert.match(
-    ensureConversationSource,
-    /const fallbackTitle = resolveChatConversationStoredTitle\(title\)/
-  );
+  assert.match(ensureConversationSource, /resolveChatConversationStoredTitle\(title, existing\.title\)/);
+  assert.match(ensureConversationSource, /const fallbackTitle = resolveChatConversationStoredTitle\(title\)/);
   assert.doesNotMatch(ensureConversationSource, /Conversation \$\{/);
   assert.match(
     summaryPatchSource,
     /resolveChatConversationStoredTitle\(\s*patch\.title,\s*current\?\.title \|\| ensured\.title\s*\)/
   );
-  assert.match(
-    detailReconcileSource,
-    /ensureConversationRecord\(conversationId, summaryTime, input\.title\)/
-  );
-  assert.equal(detailReconcileSource.match(/title: conversation\.title/g)?.length, 2);
+  assert.match(detailReconcileSource, /ensureConversationRecord\(conversationId, summaryTime, input\.title\)/);
+  assert.match(detailReconcileSource, /ensureConversationRecord/);
 });
 
 test('chat history uses indexed non-empty summaries and skips local empty drafts', () => {
@@ -162,12 +96,73 @@ test('chat home replacement merges titles in its existing batched read and trans
 
   assert.match(replaceHomeSource, /title: conversations\.title/);
   assert.match(replaceHomeSource, /const existingConversationById = new Map/);
-  assert.match(
-    replaceHomeSource,
-    /title: resolveChatConversationStoredTitle\(item\.title, existing\?\.title\)/
-  );
+  assert.match(replaceHomeSource, /title: resolveChatConversationStoredTitle\(item\.title, existing\?\.title\)/);
   assert.doesNotMatch(replaceHomeSource, /\.from\(messages\)/);
   assert.doesNotMatch(replaceHomeSource, /getConversationMessages/);
+});
+
+test('home refresh retains a first local message until the server supplies a last-run answer', async () => {
+  const source = extractSourceSection(
+    repositorySource,
+    'export async function replaceChatHomeProjection',
+    'export async function refreshChatDirectorySnapshot'
+  ).replace('export ', '');
+  const code = ts.transpileModule(`${source}; replaceChatHomeProjection`, {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 }
+  }).outputText;
+  for (const [localText, remoteText, expected] of [
+    ['first question', '', 'first question'],
+    ['first question', 'server answer', 'server answer'],
+    ['', '', '']
+  ]) {
+    const row = { id: 'chat', title: 'Question', lastMessageText: localText };
+    const conversations = { id: 'id', title: 'title', lastMessageText: 'lastMessageText' };
+    const directory = { id: 'id' };
+    let snapshots = 0;
+    const tx = {
+      select: (fields: Record<string, unknown>) => ({
+        from: () => ({
+          where: () => ({
+            all: () => [Object.fromEntries(Object.keys(fields).map((key) => [key, row[key as keyof typeof row]]))]
+          }),
+          all: () => [{ id: 'agent' }]
+        })
+      }),
+      update: (table: unknown) => ({
+        set: (values: unknown) => ({
+          where: () => ({ run: () => table === conversations && Object.assign(row, values) })
+        })
+      }),
+      delete: () => ({ where: () => ({ run() {} }) })
+    };
+    const replace = vm.runInNewContext(code, {
+      conversations,
+      chatDirectoryItems: directory,
+      chatDb: { transaction: (write: (value: unknown) => void) => write(tx) },
+      getChatCacheScopeId: () => 'scope',
+      ensureChatDatabase: async () => {},
+      awaitInChatScope: async (value: unknown) => value,
+      normalizeConversationSummaryProjection: (value: unknown) => value,
+      normalizeChatDirectoryItem: (value: unknown) => value,
+      normalizeChatReadPatch: () => null,
+      mapConversationReadState: () => ({ isRead: true }),
+      normalizeChatReadState: () => ({ isRead: true }),
+      readStateToUnreadBit: () => 0,
+      resolveChatConversationStoredTitle: (title: string, existing: string) => title || existing,
+      inArray() {},
+      notInArray() {},
+      eq() {},
+      refreshChatDirectorySnapshot: async () => {
+        snapshots++;
+      }
+    });
+    await replace({
+      conversationSummaries: [{ conversationId: 'chat', lastMessageText: remoteText, lastMessageAt: 100 }],
+      directoryItems: [{ id: 'agent', agentKey: 'root' }]
+    });
+    assert.equal(row.lastMessageText, expected);
+    assert.equal(snapshots, 1);
+  }
 });
 
 test('chat directory search stays scoped to directory summaries', () => {

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { deserializeChatTimelineState, serializeChatTimelineState } from '../../src/features/chatTimeline/timelinePersistence.ts';
 
 import type { ChatMessageItem } from '../../src/features/chatPersistence/types.ts';
 import type { ChatTimelineState } from '../../src/features/chatTimeline/index.ts';
@@ -21,6 +22,45 @@ import {
   projectTimelineRuntimeState,
   resolveChatTimelineFrontendTool,
 } from '../../src/features/chatTimeline/index.ts';
+
+test('display keeps failed original before later conversation after reconcile and old snapshot restore', () => {
+  const original: ChatMessageItem = {
+    messageId: 'original', clientMessageId: 'original', serverMessageId: null,
+    conversationId: 'chat-order', role: 'user', content: '原任务', createdAt: 100,
+    deliveryStatus: 'failed', errorReason: 'model unavailable'
+  };
+  const remote = deriveChatTimelineState('chat-order', [
+    { type: 'request.query', requestId: 'next', runId: 'run-next', message: '继续', timestamp: 200 },
+    { type: 'content.snapshot', contentId: 'reply', runId: 'run-next', text: '回答', timestamp: 210 }
+  ]);
+  const current = applyChatTimelineMessage(remote, original);
+  const merged = mergeChatTimelineState(current, remote, true);
+  const contents = (state: ChatTimelineState) => buildChatTimelineDisplayItems(state)
+    .filter((item) => item.kind === 'user-query' || item.kind === 'assistant-content')
+    .map((item) => item.node.kind === 'message' ? item.node.content : '');
+  assert.deepEqual(contents(current), ['原任务', '继续', '回答']);
+  assert.deepEqual(contents(merged), ['原任务', '继续', '回答']);
+  assert.deepEqual(projectTimelineMessages(merged).map((message) => message.content), contents(merged));
+  const saved = serializeChatTimelineState(merged);
+  // Older clients persisted the failed local request after the remote reply.
+  saved.nodes.forEach((row) => { row.orderIndex = row.nodeId.includes('original') ? 999 : row.orderIndex; });
+  const restored = deserializeChatTimelineState(saved.meta, saved.nodes)!;
+  assert.deepEqual(contents(restored), ['原任务', '继续', '回答']);
+});
+
+test('late request precedes its same-time reply and deltas retain the ordering reference', () => {
+  let state = deriveChatTimelineState('chat-order', [
+    { type: 'content.snapshot', contentId: 'reply', runId: 'run', text: '回答', timestamp: 200 },
+    { type: 'request.query', requestId: 'request', runId: 'run', message: '问题', timestamp: 200 }
+  ]);
+  assert.deepEqual(buildChatTimelineDisplayItems(state)
+    .filter((item) => item.kind === 'user-query' || item.kind === 'assistant-content')
+    .map((item) => item.kind), ['user-query', 'assistant-content']);
+  const order = state.orderedNodeIds;
+  const message = projectTimelineMessages(state).find((item) => item.role === 'assistant')!;
+  state = applyChatTimelineStreamDelta(state, { messageId: message.messageId, createdAt: 300, delta: '更多', runId: 'run' });
+  assert.equal(state.orderedNodeIds, order);
+});
 
 const feedbackQuestion = {
   id: 'q1',
@@ -519,7 +559,7 @@ test('timeline merges request echo into the local pending attachment message', (
         height: null,
         localUri: '',
         previewUri: null,
-        resourceUrl: '/ap/api/resource?file=chat-attachments%2FScreenshot.jpg',
+        resourceUrl: '/api/resource?file=chat-attachments%2FScreenshot.jpg',
         sha256: 'hash',
         status: 'ready',
         errorReason: null,
@@ -530,7 +570,7 @@ test('timeline merges request echo into the local pending attachment message', (
             name: 'Screenshot.jpg',
             mimeType: 'image/jpeg',
             sizeBytes: 261475,
-            url: '/ap/api/resource?file=chat-attachments%2FScreenshot.jpg',
+            url: '/api/resource?file=chat-attachments%2FScreenshot.jpg',
             sha256: 'hash',
           },
         ],

@@ -28,7 +28,7 @@ App 与 react-app-env 的原有修改/未跟踪文件属于用户预先状态。
 - 数据面：WS 用业务 bearer subprotocol，Native 独立 `X-Account-Authorization`；上传和 `/api/resource` 用两类独立 header。Hub 在转发与缓冲上传前检查官网用户及目标，官网证明不进入 Platform。401 重取一次，403 不循环，携带认证请求禁止重定向。
 - WebApp：受控 POST `/api/mobile-session` 建立不透明、host-only、HttpOnly、Secure、SameSite Strict Cookie，期限不超过两类凭据。页面及其子资源/WS 使用 Cookie，网关内部透传原业务票据。WebView 仅收到干净 URL，不使用 Token query/header；现有 resident 生命周期内更新，关闭最后使用者或切号撤销。Cookie 不跨 Tunnel 重连继续有效。真实 Native Cookie/WebView 共享仍需用户验收。
 - 资源：Native 图片/下载按块写文件，按来源及认证 generation 拒绝迟到结果，文本按字节上限增量读取；下载失败仅删除本次创建的文件，不覆盖同名已有文件。尚无 Desktop HTTP 契约的 export/Office/workspace 能力继续明确失败，不伪造端点。
-- 缓存：官网账号使用 `official:<origin>:<userId>` scope，与旧 Identity 数据分开；不合并旧数据、不批量删除、不重放旧 outbox。默认云端凭据、scope 与退出保持独立。
+- 缓存按账号和来源隔离，切源使迟到回调失效；不自动重发 query，不迁移或认领旧聊天数据；认证、来源配置、远端数据和用户原始文件保留。
 
 ## 删除与保留
 

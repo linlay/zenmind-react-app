@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
-  projectRemoteChatDetail,
-  projectRemoteChatSummary,
-} from '../../src/features/chatPersistence/chatProjector.ts';
+import { projectRemoteChatDetail, projectRemoteChatSummary } from '../../src/features/chatPersistence/chatProjector.ts';
 
 test('projects chat.updated summary push with ownership and latest reply fields', () => {
   const projected = projectRemoteChatSummary({
@@ -13,12 +10,11 @@ test('projects chat.updated summary push with ownership and latest reply fields'
     lastRunContent: 'latest assistant reply',
     lastRunId: 'run-1',
     updatedAt: 1_780_023_877_038,
-    unreadRunCount: 2,
+    unreadRunCount: 2
   });
 
   assert.equal(projected?.conversationId, 'chat-1');
   assert.equal(projected?.agentKey, 'zenmi');
-  assert.equal(projected?.teamId, null);
   assert.equal(projected?.lastMessageText, 'latest assistant reply');
   assert.equal(projected?.lastMessageAt, 1_780_023_877_038);
   assert.equal(projected?.unreadCount, 1);
@@ -29,7 +25,7 @@ test('projects chat.created summary push without blanking latest message fields'
     chatId: 'chat-2',
     chatName: '你好',
     agentKey: 'zenmi',
-    timestamp: 1_780_023_872_732,
+    timestamp: 1_780_023_872_732
   });
 
   assert.equal(projected?.conversationId, 'chat-2');
@@ -43,7 +39,7 @@ test('projects chat.created summary push without blanking latest message fields'
 test('omits the remote default conversation title candidate', () => {
   const projected = projectRemoteChatSummary({
     chatId: 'chat-default-title',
-    chatName: 'default',
+    chatName: 'default'
   });
 
   assert.equal(projected?.title, undefined);
@@ -54,7 +50,7 @@ test('projects chat.updated without unread fields as summary-only patch', () => 
     chatId: 'chat-3',
     agentKey: 'zenmi',
     lastRunContent: 'reply without unread fields',
-    updatedAt: 1_780_023_877_038,
+    updatedAt: 1_780_023_877_038
   });
 
   assert.equal(projected?.lastMessageText, 'reply without unread fields');
@@ -69,7 +65,7 @@ test('does not treat read metadata as read state in summary patches', () => {
     lastRunContent: 'reply with metadata only',
     updatedAt: 1_780_023_877_038,
     readAt: 1_780_023_878_000,
-    readRunId: 'run-old',
+    readRunId: 'run-old'
   });
 
   assert.equal(projected?.lastMessageText, 'reply with metadata only');
@@ -81,12 +77,12 @@ test('marks detail read state as explicit only when the detail payload contains 
   const projected = projectRemoteChatDetail(
     {
       chatId: 'chat-5',
-      events: [],
+      events: []
     },
     {
       chatId: 'chat-5',
       read: { isRead: false },
-      unreadRunCount: 1,
+      unreadRunCount: 1
     }
   );
 
@@ -98,7 +94,7 @@ test('marks detail read state as explicit only when the detail payload contains 
   const explicit = projectRemoteChatDetail({
     chatId: 'chat-6',
     read: { isRead: false },
-    events: [],
+    events: []
   });
 
   assert.equal(explicit?.read.isRead, false);
@@ -115,21 +111,21 @@ test('projects message history and runtime state in a single remote detail pass'
         type: 'request.query',
         requestId: 'req-1',
         message: 'hello',
-        createdAt: 100,
+        createdAt: 100
       },
       {
         type: 'reasoning.start',
         runId: 'run-1',
         contentId: 'reason-1',
         text: 'thinking',
-        createdAt: 110,
+        createdAt: 110
       },
       {
         type: 'content.delta',
         runId: 'run-1',
         contentId: 'answer-1',
         delta: 'world',
-        createdAt: 120,
+        createdAt: 120
       },
       {
         type: 'tool.result',
@@ -137,14 +133,14 @@ test('projects message history and runtime state in a single remote detail pass'
         toolCallId: 'tool-1',
         toolName: 'search',
         result: { ok: true },
-        createdAt: 130,
+        createdAt: 130
       },
       {
         type: 'run.start',
         runId: 'run-1',
-        createdAt: 140,
-      },
-    ],
+        createdAt: 140
+      }
+    ]
   });
 
   assert.equal(projected?.messages.length, 2);
@@ -177,12 +173,12 @@ test('omits the title candidate when the first user message only contains an att
             type: 'image',
             name: 'photo.png',
             mimeType: 'image/png',
-            url: '/api/resource?file=chat-attachment-title%2Fphoto.png',
-          },
+            url: '/api/resource?file=chat-attachment-title%2Fphoto.png'
+          }
         ],
-        createdAt: 100,
-      },
-    ],
+        createdAt: 100
+      }
+    ]
   });
 
   assert.equal(projected?.messages[0]?.content, '');
@@ -205,12 +201,12 @@ test('uses first user text as the title when the message also contains an image'
             type: 'image',
             name: 'photo.png',
             mimeType: 'image/png',
-            url: '/api/resource?file=chat-image-text-title%2Fphoto.png',
-          },
+            url: '/api/resource?file=chat-image-text-title%2Fphoto.png'
+          }
         ],
-        createdAt: 100,
-      },
-    ],
+        createdAt: 100
+      }
+    ]
   });
 
   assert.equal(projected?.messages[0]?.content, '识别图片内容');
@@ -233,16 +229,16 @@ test('keeps a usable fallback title for an attachment-only remote detail', () =>
               id: 'image-1',
               type: 'image',
               name: 'photo.png',
-              mimeType: 'image/png',
-            },
+              mimeType: 'image/png'
+            }
           ],
-          createdAt: 100,
-        },
-      ],
+          createdAt: 100
+        }
+      ]
     },
     {
       chatId: 'chat-existing-title',
-      chatName: '已有文字标题',
+      chatName: '已有文字标题'
     }
   );
 
@@ -261,20 +257,20 @@ test('uses top-level runs planning and usage as detail timeline fallback', () =>
         assistantText: 'done',
         finishReason: 'complete',
         startedAt: 1_000,
-        completedAt: 2_500,
-      },
+        completedAt: 2_500
+      }
     ],
     planning: {
       planningId: 'planning-1',
-      text: '# Plan\n\nUpdate colors.',
+      text: '# Plan\n\nUpdate colors.'
     },
     usage: {
       lastRun: {
         promptTokens: 10,
         completionTokens: 5,
-        totalTokens: 15,
-      },
-    },
+        totalTokens: 15
+      }
+    }
   });
 
   assert.equal(projected?.messages.length, 2);
@@ -298,16 +294,16 @@ test('uses active run snapshot as timeline and attach cursor fallback', () => {
       runId: 'run-live',
       agentKey: 'coder',
       lastSeq: 42,
-      startedAt: 1_000,
+      startedAt: 1_000
     },
-    events: [],
+    events: []
   });
 
   assert.equal(projected?.activeRunId, 'run-live');
   assert.deepEqual(projected?.activeRun, {
     runId: 'run-live',
     agentKey: 'coder',
-    lastSeq: 42,
+    lastSeq: 42
   });
   assert.equal(
     projected?.timelineState.orderedNodeIds.some(
@@ -324,7 +320,7 @@ test('uses top-level plan and artifact snapshots as timeline event fallback', ()
       planId: 'plan-1',
       title: 'Implement detail contract',
       status: 'active',
-      tasks: [{ id: 'task-1', title: 'type api detail' }],
+      tasks: [{ id: 'task-1', title: 'type api detail' }]
     },
     artifact: {
       items: [
@@ -333,20 +329,30 @@ test('uses top-level plan and artifact snapshots as timeline event fallback', ()
           name: 'report.md',
           mimeType: 'text/markdown',
           url: 'https://example.test/report.md',
-          sizeBytes: 128,
-        },
-      ],
+          sizeBytes: 128
+        }
+      ]
     },
-    events: [],
+    events: []
   });
 
-  const nodes = projected?.timelineState.orderedNodeIds.map(
-    (nodeId) => projected.timelineState.nodesById[nodeId]
+  const nodes = projected?.timelineState.orderedNodeIds.map((nodeId) => projected.timelineState.nodesById[nodeId]);
+  assert.equal(
+    nodes?.some((node) => node?.kind === 'plan'),
+    true
   );
-  assert.equal(nodes?.some((node) => node?.kind === 'plan'), true);
-  assert.equal(nodes?.some((node) => node?.kind === 'artifact'), true);
-  assert.equal(projected?.runtimeState.entries.some((entry) => entry.kind === 'plan'), true);
-  assert.equal(projected?.runtimeState.entries.some((entry) => entry.kind === 'artifact'), true);
+  assert.equal(
+    nodes?.some((node) => node?.kind === 'artifact'),
+    true
+  );
+  assert.equal(
+    projected?.runtimeState.entries.some((entry) => entry.kind === 'plan'),
+    true
+  );
+  assert.equal(
+    projected?.runtimeState.entries.some((entry) => entry.kind === 'artifact'),
+    true
+  );
 });
 
 test('merges current usage events with historical detail cumulative usage', () => {
@@ -360,7 +366,7 @@ test('merges current usage events with historical detail cumulative usage', () =
         contextWindow: {
           currentSize: 9_752,
           estimatedNextCallSize: 10_202,
-          maxSize: 196_608,
+          maxSize: 196_608
         },
         usage: {
           current: {
@@ -369,17 +375,17 @@ test('merges current usage events with historical detail cumulative usage', () =
             totalTokens: 140,
             promptTokensDetails: {
               cacheHitTokens: 90,
-              cacheMissTokens: 30,
+              cacheMissTokens: 30
             },
             timing: {
               firstTokenLatencyMs: 820,
-              generationDurationMs: 880,
+              generationDurationMs: 880
             },
-            toolCallCount: 1,
-          },
+            toolCallCount: 1
+          }
         },
-        timestamp: 1_000,
-      },
+        timestamp: 1_000
+      }
     ],
     runs: [
       {
@@ -391,24 +397,24 @@ test('merges current usage events with historical detail cumulative usage', () =
           totalTokens: 55_313,
           promptTokensDetails: {
             cacheHitTokens: 42_535,
-            cacheMissTokens: 2_574,
+            cacheMissTokens: 2_574
           },
           completionTokensDetails: {
-            reasoningTokens: 1_656,
+            reasoningTokens: 1_656
           },
           estimatedCost: {
             currency: 'CNY',
-            total: 0.898,
+            total: 0.898
           },
           timing: {
             firstTokenLatencyTotalMs: 10_600,
             firstTokenLatencyCount: 1,
-            generationDurationMs: 42_600,
+            generationDurationMs: 42_600
           },
           llmChatCompletionCount: 8,
-          toolCallCount: 15,
-        },
-      },
+          toolCallCount: 15
+        }
+      }
     ],
     usage: {
       lastRun: {
@@ -417,18 +423,18 @@ test('merges current usage events with historical detail cumulative usage', () =
         totalTokens: 55_313,
         promptTokensDetails: {
           cacheHitTokens: 42_535,
-          cacheMissTokens: 2_574,
+          cacheMissTokens: 2_574
         },
         completionTokensDetails: {
-          reasoningTokens: 1_656,
+          reasoningTokens: 1_656
         },
         timing: {
           firstTokenLatencyTotalMs: 10_600,
           firstTokenLatencyCount: 1,
-          generationDurationMs: 42_600,
+          generationDurationMs: 42_600
         },
         llmChatCompletionCount: 8,
-        toolCallCount: 15,
+        toolCallCount: 15
       },
       chat: {
         promptTokens: 53_038,
@@ -436,24 +442,24 @@ test('merges current usage events with historical detail cumulative usage', () =
         totalTokens: 55_313,
         promptTokensDetails: {
           cacheHitTokens: 42_535,
-          cacheMissTokens: 2_574,
+          cacheMissTokens: 2_574
         },
         completionTokensDetails: {
-          reasoningTokens: 1_656,
+          reasoningTokens: 1_656
         },
         timing: {
           firstTokenLatencyTotalMs: 21_200,
           firstTokenLatencyCount: 2,
-          generationDurationMs: 42_600,
+          generationDurationMs: 42_600
         },
         estimatedCost: {
           currency: 'CNY',
-          total: 0.898,
+          total: 0.898
         },
         llmChatCompletionCount: 8,
-        toolCallCount: 15,
-      },
-    },
+        toolCallCount: 15
+      }
+    }
   });
 
   const usage = projected?.timelineState.usageSummary;
@@ -481,14 +487,14 @@ test('projects usage model from detail context window metadata', () => {
       estimatedNextCallSize: 10_954,
       maxSize: 196_608,
       modelKey: 'th-minimax-m2_7-highspeed',
-      reasoningEffort: 'HIGH',
+      reasoningEffort: 'HIGH'
     },
     usage: {
       promptTokens: 25_534,
       completionTokens: 1_353,
-      totalTokens: 26_887,
+      totalTokens: 26_887
     },
-    updatedAt: 1_000,
+    updatedAt: 1_000
   });
 
   const usage = projected?.timelineState.usageSummary;
@@ -508,14 +514,14 @@ test('projects context compaction usage into the usage summary', () => {
         contextWindow: {
           currentSize: 2_000,
           estimatedNextCallSize: 2_500,
-          maxSize: 10_000,
+          maxSize: 10_000
         },
         usage: {
           chat: {
-            totalTokens: 2_500,
-          },
+            totalTokens: 2_500
+          }
         },
-        timestamp: 1_000,
+        timestamp: 1_000
       },
       {
         type: 'context.compact.complete',
@@ -526,11 +532,11 @@ test('projects context compaction usage into the usage summary', () => {
           completionTokens: 50,
           totalTokens: 550,
           llmChatCompletionCount: 2,
-          toolCallCount: 4,
+          toolCallCount: 4
         },
-        timestamp: 1_100,
-      },
-    ],
+        timestamp: 1_100
+      }
+    ]
   });
 
   const usage = projected?.timelineState.usageSummary;
@@ -551,26 +557,26 @@ test('detail fallback reuses indexed run events without duplicating nodes', () =
         runId: 'run-1',
         requestId: 'req-1',
         message: 'change the theme',
-        createdAt: 1_000,
+        createdAt: 1_000
       },
       {
         type: 'run.start',
         runId: 'run-1',
-        createdAt: 1_000,
+        createdAt: 1_000
       },
       {
         type: 'content.snapshot',
         runId: 'run-1',
         contentId: 'content-1',
         text: 'done',
-        createdAt: 2_500,
+        createdAt: 2_500
       },
       {
         type: 'run.complete',
         runId: 'run-1',
         finishReason: 'complete',
-        createdAt: 2_500,
-      },
+        createdAt: 2_500
+      }
     ],
     runs: [
       {
@@ -579,9 +585,9 @@ test('detail fallback reuses indexed run events without duplicating nodes', () =
         assistantText: 'done',
         finishReason: 'complete',
         startedAt: 1_000,
-        completedAt: 2_500,
-      },
-    ],
+        completedAt: 2_500
+      }
+    ]
   });
 
   assert.ok(projected);
@@ -593,14 +599,8 @@ test('detail fallback reuses indexed run events without duplicating nodes', () =
   const timelineNodes = projected.timelineState.orderedNodeIds.map(
     (nodeId) => projected.timelineState.nodesById[nodeId]
   );
-  assert.equal(
-    timelineNodes.filter((node) => node.kind === 'run' && node.runId === 'run-1').length,
-    1
-  );
-  assert.equal(
-    timelineNodes.filter((node) => node.kind === 'message' && node.role === 'assistant').length,
-    1
-  );
+  assert.equal(timelineNodes.filter((node) => node.kind === 'run' && node.runId === 'run-1').length, 1);
+  assert.equal(timelineNodes.filter((node) => node.kind === 'message' && node.role === 'assistant').length, 1);
 });
 
 test('projects source publish history into the same structured timeline node used by realtime', () => {
@@ -624,14 +624,14 @@ test('projects source publish history into the same structured timeline node use
                 chunkId: 'expense-1',
                 index: 1,
                 content: '报销单需在当月提交。',
-                pageStart: 2,
-              },
-            ],
-          },
+                pageStart: 2
+              }
+            ]
+          }
         ],
-        timestamp: 100,
-      },
-    ],
+        timestamp: 100
+      }
+    ]
   });
   const source = projected?.timelineState.orderedNodeIds
     .map((nodeId) => projected.timelineState.nodesById[nodeId])
@@ -660,10 +660,10 @@ test('projects live and detail artifact resources through one typed timeline mod
             name: 'live.png',
             mimeType: 'image/png',
             sizeBytes: 1024,
-            url: '/api/resource?id=artifact-live',
-          },
-        ],
-      },
+            url: '/api/resource?id=artifact-live'
+          }
+        ]
+      }
     ],
     artifact: {
       items: [
@@ -673,7 +673,7 @@ test('projects live and detail artifact resources through one typed timeline mod
           mimeType: 'image/png',
           sizeBytes: 1024,
           url: '/api/resource?id=artifact-live',
-          timestamp: 100,
+          timestamp: 100
         },
         {
           artifactId: 'artifact-snapshot',
@@ -682,10 +682,10 @@ test('projects live and detail artifact resources through one typed timeline mod
           sizeBytes: 32,
           url: '/api/resource?id=artifact-snapshot',
           summary: 'Recovered from detail snapshot',
-          timestamp: 110,
-        },
-      ],
-    },
+          timestamp: 110
+        }
+      ]
+    }
   });
   const artifacts = projected?.timelineState.orderedNodeIds
     .map((nodeId) => projected.timelineState.nodesById[nodeId])
@@ -696,8 +696,18 @@ test('projects live and detail artifact resources through one typed timeline mod
     artifacts?.map((node) => (node.kind === 'artifact' ? node.artifactId : '')),
     ['artifact-live', 'artifact-snapshot']
   );
-  assert.equal(
-    artifacts?.[1]?.kind === 'artifact' ? artifacts[1].summary : '',
-    'Recovered from detail snapshot'
-  );
+  assert.equal(artifacts?.[1]?.kind === 'artifact' ? artifacts[1].summary : '', 'Recovered from detail snapshot');
+});
+
+test('activeRun input settings override historical run-start options', () => {
+  const projected = projectRemoteChatDetail({
+    chatId: 'chat',
+    activeRun: { runId: 'run', agentKey: 'root', state: 'running', editingMode: false, planningMode: true },
+    events: [
+      { type: 'run.start', runId: 'run', agentKey: 'root', editingMode: true, planningMode: false, timestamp: 1000 }
+    ]
+  });
+  const run = Object.values(projected!.timelineState.nodesById).find((node) => node.kind === 'run');
+  assert.equal(run?.kind === 'run' && run.editingMode, false);
+  assert.equal(run?.kind === 'run' && run.planningMode, true);
 });

@@ -62,6 +62,7 @@ function createHarness(options: { profileKind?: 'http' | 'desktop-ws'; status?: 
   const statusListeners = new Set<(status: WsSocketStatus) => void>();
   const transport: WsTransportConfig = {
     kind: 'desktop-ws',
+    platformDeviceId: 'desktop-1',
     wsUrl: 'wss://desktop.example.test/ws',
     tokenMode: 'subprotocol',
     accessToken: 'token',
@@ -76,7 +77,7 @@ function createHarness(options: { profileKind?: 'http' | 'desktop-ws'; status?: 
   };
 
   const dependencies: WebAppsGatewayDependencies = {
-    getActiveDesktopId: () => options.profileKind === 'http' ? '' : 'desktop-1',
+    getActiveDesktopId: () => (options.profileKind === 'http' ? '' : 'hub-directory-1'),
     resolveTransport: async () => transport,
     request: async <T,>(request: RequestOptions): Promise<T> => {
       requests.push(request);
@@ -140,10 +141,10 @@ test('Gateway subscribes before listing and replays buffered pushes over the sna
   const events: WebAppsGatewayEvent[] = [];
   gateway.open((event) => events.push(event));
 
-  await waitFor(() => harness.requests.some((request) => request.type === 'web.webapp.list'), 'catalog request');
+  await waitFor(() => harness.requests.some((request) => request.type === 'webapp.list'), 'catalog request');
   assert.deepEqual(
     harness.requests.slice(0, 2).map((request) => request.type),
-    ['event.subscribe', 'web.webapp.list']
+    ['event.subscribe', 'webapp.list']
   );
   harness.emitPush(changedPush('updated', 'a', rawItem('a', { label: 'Updated A' })));
   list.resolve(rawCatalog([rawItem('a')]));

@@ -12,19 +12,21 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import vm from 'node:vm';
 import ts from 'typescript';
-import { normalizeChatAttachmentReferences } from '../../src/features/chatPersistence/chatAttachmentModels.ts';
+import { normalizeChatAttachmentReferences, createMessageAttachmentsFromReferences } from '../../src/features/chatPersistence/chatAttachmentModels.ts';
 import * as reducer from '../../src/features/chatTimeline/timelineReducer.ts';
+import { getLatestFailedChatSubmission, getRecoverableChatSubmission } from '../../src/features/chatRealtime/chatSubmissionRecovery.ts';
+import { formatChatTimelinePlatformErrorForDisplay } from '../../src/features/chatTimeline/timelinePlatformError.ts';
+import { deserializeChatTimelineState, serializeChatTimelineState } from '../../src/features/chatTimeline/timelinePersistence.ts';
 import { projectRemoteChatDetail } from '../../src/features/chatPersistence/chatProjector.ts';
 import { projectTimelineMessages } from '../../src/features/chatTimeline/messageProjection.ts';
+import { buildChatTimelineDisplayItems } from '../../src/features/chatTimeline/index.ts';
 import { buildChatRunOwnerPayload } from '../../src/core/api/services/chatRunOwner.ts';
 import {
   buildAgentModelConfigPayload,
   normalizeModelOptionsAgentKey,
-  normalizeModelOptionServiceTier
+  readAgentModelOverride
 } from '../../src/core/api/services/modelOptionsProtocol.ts';
-import { canUseEditingMode } from '../../src/features/chatPersistence/agentMode.ts';
-import { resolveAgentInteraction } from '../../src/features/chatPersistence/agentInteraction.ts';
-import { resolveAgentModelSettings } from '../../src/features/chatPersistence/agentModelSettings.ts';
+import { hasValidAgentInteraction, resolveAgentInteraction } from '../../src/features/chatPersistence/agentInteraction.ts';
 import {
   canContinueChatTimeline,
   hasEstablishedChatQuery
@@ -46,8 +48,13 @@ const compiled = ts.transpileModule(
 function fixture(extra: Record<string, unknown> = {}) {
   const service = vm.runInNewContext(compiled, {
     ...reducer,
+    getRecoverableChatSubmission,
+    getLatestFailedChatSubmission,
+    formatChatTimelinePlatformErrorForDisplay,
     ApiError,
+    capabilities,
     getCloudAuthSnapshot: () => ({ status: 'available', generation: 1 }),
+    getChatCacheScopeId: () => 'cloud_scope',
     reportCloudFailure() {},
     classifyCloudFailure: () => 'network_error',
     getActiveChatSource: () => service.source,
@@ -60,6 +67,7 @@ function fixture(extra: Record<string, unknown> = {}) {
     ...feedbackProtocol,
     CHAT_ACCESS_LEVEL_TRANSPORT_TYPE: '/api/access-level',
     normalizeChatAttachmentReferences,
+    createMessageAttachmentsFromReferences,
     assertChatReferenceScope,
     CHAT_SUMMARIES_TRANSPORT_TYPE: '/api/chats',
     REMOTE_CHAT_PAGE_SIZE: 10,
@@ -70,10 +78,9 @@ function fixture(extra: Record<string, unknown> = {}) {
     buildChatRunOwnerPayload,
     buildAgentModelConfigPayload,
     normalizeModelOptionsAgentKey,
-    normalizeModelOptionServiceTier,
-    resolveAgentModelSettings,
+    readAgentModelOverride,
+    hasValidAgentInteraction,
     resolveAgentInteraction,
-    canUseEditingMode,
     canContinueChatTimeline,
     hasEstablishedChatQuery,
     toText: (value: unknown) => String(value || '').trim(),
@@ -90,6 +97,7 @@ function fixture(extra: Record<string, unknown> = {}) {
     getConversationDetail: async () => null,
     markConversationDirty: async () => {},
     markConversationSynced: async () => {},
+    persistConversationTimelineState: async () => {},
     isDuplicateObserveError: () => false,
     isMissingAgentKeyError: () => false,
     isInactiveRunError: () => false,
@@ -102,9 +110,18 @@ function fixture(extra: Record<string, unknown> = {}) {
     Date,
     ...extra
   }) as any;
+  service.ensureAgentDetail = async () => ({ raw: { interactionConfig: capabilities } });
   service.status = 'connected';
   return service;
 }
+const capabilities = {
+  model: true,
+  accessLevel: true,
+  connectors: true,
+  showPlanningMode: true,
+  showEditingMode: true,
+  attachment: { localFiles: true, chatRecords: true, skills: true, kbases: true }
+};
 const flush = async () => {
   for (let i = 0; i < 20; i++) await Promise.resolve();
 };
@@ -125,11 +142,10 @@ test('stop singleflights Team interrupt and never invents a cancelled run on rej
       reconciles = 0,
       finish!: (value: unknown) => void,
       fail!: (error: Error) => void;
-    service.resolveRunControlScope = async () => ({ teamId: 'team' });
+    service.resolveRunControlScope = async () => ({ agentKey: 'team' });
     service.requestChatApi = async (_type: string, payload: any) => {
       requests++;
-      assert.equal(payload.teamId, 'team');
-      assert.equal(payload.agentKey, undefined);
+      assert.equal(payload.agentKey, 'team');
       return new Promise((resolve, reject) => {
         finish = resolve;
         fail = reject;
@@ -152,6 +168,7 @@ test('stop singleflights Team interrupt and never invents a cancelled run on rej
 });
 test('Agent errors are retryable and concurrent refreshes issue one request', async () => {
   const service = fixture();
+  delete service.ensureAgentDetail;
   let calls = 0;
   service.fetchAgentDetail = async (key: string) => {
     calls++;
@@ -179,12 +196,9 @@ test('serialized model saves respect server normalization and cache generation',
       return new Promise((resolve) => completions.push(resolve));
     }
   });
-  service.agentModelOptions.set('agent', {
-    models: [],
-    reasoningEffortOptions: [],
-    defaultModelKey: 'old',
-    defaultServiceTier: 'FAST'
-  });
+  const catalog = { models: [], reasoningEfforts: [], serviceTiers: [], fetchedAt: 1 };
+  service.agentModelOptions.set('agent', catalog);
+  service.agentDetails.set('agent', { agentKey: 'agent', raw: { modelKey: 'old' } });
   const first = service.updateAgentModelConfig('agent', { key: 'first' });
   const second = service.updateAgentModelConfig('agent', { key: 'second', serviceTier: 'STANDARD' });
   await flush();
@@ -194,15 +208,16 @@ test('serialized model saves respect server normalization and cache generation',
   await flush();
   assert.equal(calls.length, 2);
   completions[1]({ modelKey: 'normalized-second', serviceTier: null });
-  await second;
-  assert.equal(service.getAgentModelOptionsSnapshot('agent').defaultModelKey, 'normalized-second');
-  assert.equal(service.getAgentModelOptionsSnapshot('agent').defaultServiceTier, 'STANDARD');
+  assert.equal((await second).key, 'normalized-second');
+  assert.equal(service.getAgentDetailSnapshot('agent').raw.modelKey, 'normalized-second');
+  assert.equal(service.getAgentDetailSnapshot('agent').raw.serviceTier, 'STANDARD');
+  assert.equal(service.getAgentModelOptionsSnapshot('agent'), catalog);
   const third = service.updateAgentModelConfig('agent', { key: 'obsolete' });
   await flush();
   service.agentDetailCacheVersion++;
   completions[2]({ modelKey: 'obsolete' });
   await third;
-  assert.equal(service.getAgentModelOptionsSnapshot('agent').defaultModelKey, 'normalized-second');
+  assert.equal(service.getAgentDetailSnapshot('agent').raw.modelKey, 'normalized-second');
 });
 test('awaiting submission cannot issue a request after a newer interaction replaces it during owner lookup', async () => {
   const service = fixture();
@@ -226,7 +241,7 @@ test('awaiting submission cannot issue a request after a newer interaction repla
   const request = service.submitAwaiting('chat', { runId: 'run', awaitingId: 'old', params: [] });
   await flush();
   service.timelineStates.set('chat', ask('new'));
-  release({ teamId: 'team' });
+  release({ agentKey: 'team' });
   await assert.rejects(request, /changed/);
   assert.equal(calls, 0);
   assert.equal(service.getConversationTimelineState('chat').awaiting.awaitingId, 'new');
@@ -329,7 +344,7 @@ test('three attach failures exhaust one recovery cycle; explicit refresh allows 
     }
   });
   service.activeConversationId = 'chat';
-  service.resolveRunControlScope = async () => ({ teamId: 'team' });
+  service.resolveRunControlScope = async () => ({ agentKey: 'team' });
   service.scheduleConversationReconcile = async () => {};
   service.handleStreamSideError = async () => {};
   for (let i = 0; i < 3; i++) {
@@ -358,7 +373,7 @@ test('empty continuation needs authority and established history, singleflights 
     }
   });
   service.assertConversationWritable = async () => null;
-  service.resolveRunControlScope = async () => ({ teamId: 'team' });
+  service.resolveRunControlScope = async () => ({ agentKey: 'team' });
   service.emit = (event: any) => emitted.push(event);
   service.dispatchOutgoingMessage = () => new Promise<void>((resolve) => (release = resolve));
   await assert.rejects(service.sendMessage('chat', '', [], { continuation: true }), /not permitted/);
@@ -433,7 +448,7 @@ test('uncertain awaiting submission reconciles authority and terminal rejection 
       });
     service.timelineStates.set('chat', ask('old'));
     service.assertConversationWritable = async () => null;
-    service.resolveRunControlScope = async () => ({ teamId: 'team' });
+    service.resolveRunControlScope = async () => ({ agentKey: 'team' });
     service.requestChatApi = async () => {
       if (timeout) throw new Error('timeout');
       return { accepted: false, status: 'expired' };
@@ -471,10 +486,11 @@ test('request boundary refuses a response from a previous source lifecycle', asy
 
 function steerFixture() {
   const service = fixture();
+  service.ensureAgentDetail = async () => ({ raw: { interactionConfig: capabilities } });
   service.status = 'connected';
   service.timelineStates.set('chat', active());
   service.assertConversationWritable = async () => null;
-  service.resolveRunControlScope = async () => ({ teamId: 'team' });
+  service.resolveRunControlScope = async () => ({ agentKey: 'team' });
   service.scheduleConversationReconcile = async () => {};
   return service;
 }
@@ -486,8 +502,7 @@ test('steer uses stable Team/run identity, single submission, and accepted is no
   service.requestChatApi = async (type: string, payload: any) => {
     requests++;
     assert.equal(type, '/api/steer');
-    assert.equal(payload.teamId, 'team');
-    assert.equal(payload.agentKey, undefined);
+    assert.equal(payload.agentKey, 'team');
     assert.equal(payload.requestId, payload.steerId);
     assert.equal(payload.runId, 'run');
     return new Promise((done) => (resolve = done));
@@ -582,11 +597,11 @@ test('steer run change during owner lookup sends nothing; ended unconfirmed runs
     timestamp: now + 1
   });
   service.timelineStates.set('chat', ended);
-  owner({ teamId: 'team' });
+  owner({ agentKey: 'team' });
   await assert.rejects(submission, /changed/);
   assert.equal(requests, 0);
   assert.equal(service.getPendingSteer('chat'), null);
-  service.resolveRunControlScope = async () => ({ teamId: 'team' });
+  service.resolveRunControlScope = async () => ({ agentKey: 'team' });
   service.timelineStates.set('chat', active());
   await service.steerConversation('chat', 'accepted');
   service.timelineStates.set('chat', ended);
@@ -615,12 +630,12 @@ test('Agent steering uses the conversation owner and requires an executable deta
   for (const available of [true, false]) {
     const service = steerFixture();
     service.resolveRunControlScope = async () => ({ agentKey: 'owner' });
-    service.ensureAgentDetail = async () => (available ? { raw: { mode: 'CODER' } } : null);
+    service.ensureAgentDetail = async () =>
+      available ? { raw: { mode: 'CODER', interactionConfig: capabilities } } : null;
     let requests = 0;
     service.requestChatApi = async (_type: string, payload: any) => {
       requests++;
       assert.equal(payload.agentKey, 'owner');
-      assert.equal(payload.teamId, undefined);
       return { accepted: true };
     };
     const request = service.steerConversation('chat', 'guide');
@@ -633,7 +648,7 @@ test('Agent steering uses the conversation owner and requires an executable deta
   }
 });
 
-test('a steer echo from a different Team cannot confirm the pending operation', async () => {
+test('a steer echo from a different owner cannot confirm the pending operation', async () => {
   const service = steerFixture();
   service.requestChatApi = async () => ({ accepted: true });
   await service.steerConversation('chat', 'guide');
@@ -650,13 +665,41 @@ test('a steer echo from a different Team cannot confirm the pending operation', 
       chatId: 'chat',
       runId: 'run',
       steerId: pending.steerId,
-      teamId: 'other',
+      agentKey: 'other',
       message: 'guide'
     },
     'stream'
   );
   assert.equal(source.getPendingSteer('chat'), pending);
   assert.equal(source.getConversationTimelineState('chat').orderedNodeIds.length, 1);
+});
+
+test('an empty steer echo confirms only the matching owner, Run and request without a message node', async () => {
+  const service = fixture({
+    normalizeEventType: (type: string) => type,
+    extractConversationId: (event: any) => event.chatId,
+    classifyChatProtocolEvent: () => 'heartbeat'
+  });
+  const pending = { steerId: 'continue', runId: 'run', agentKey: 'root', message: '', phase: 'accepted' };
+  service.pendingSteers.set('chat', pending);
+  const event = {
+    type: 'request.steer',
+    chatId: 'chat',
+    runId: 'run',
+    agentKey: 'root',
+    steerId: 'continue',
+    requestId: 'continue',
+    message: '',
+    role: 'user'
+  };
+  for (const mismatch of [{ agentKey: 'other' }, { runId: 'other' }, { steerId: 'other' }]) {
+    await service.handlePushEvent({ ...event, ...mismatch }, 'stream');
+    assert.equal(service.getPendingSteer('chat'), pending);
+  }
+  await service.handlePushEvent(event, 'stream');
+  assert.equal(service.getPendingSteer('chat'), null);
+  service.syncPendingSteerFromTimeline('chat', reducer.createChatTimelineState('chat'), true);
+  assert.equal(service.getPendingSteer('chat'), null);
 });
 
 test('high frequency timeline delivery checks steer confirmation directly without scanning history', () => {
@@ -679,89 +722,20 @@ test('high frequency timeline delivery checks steer confirmation directly withou
   assert.equal(service.getPendingSteer('chat').phase, 'accepted');
 });
 
-test('editing sends preserve the one-query option and reject stale Agent or Team before enqueue', async () => {
-  const saved: any[] = [],
-    sent: any[] = [];
-  const service = fixture({
-    createOutgoingMessage: async (conversationId: string, content: string, attachments: any[], options: any) => {
-      saved.push(options);
-      return {
-        clientMessageId: 'edit',
-        createdAt: now,
-        message: { messageId: 'edit', conversationId, role: 'user', content, attachments, createdAt: now }
-      };
-    }
-  });
-  service.assertConversationWritable = async () => null;
-  service.resolveRunControlScope = async () => ({ agentKey: 'kbase' });
-  service.ensureAgentDetail = async () => ({ raw: { mode: 'KBASE' } });
-  service.publishTimelineMessage = () => {};
-  service.emitHomePatchFromSummary = async () => {};
-  service.dispatchOutgoingMessage = async (input: any) => {
-    sent.push(input);
-  };
-  await service.sendMessage('chat', 'revise', [], { editingMode: true });
-  assert.equal(saved[0].editingMode, true);
-  assert.equal(sent[0].editingMode, true);
-  await service.sendMessage('chat', 'plain');
-  assert.equal(sent[1].editingMode, false);
-  service.ensureAgentDetail = async () => ({ raw: { mode: 'CODER' } });
-  await assert.rejects(service.sendMessage('chat', 'revise', [], { editingMode: true }), /KBASE/);
-  service.ensureAgentDetail = async () => ({ raw: { mode: 'KBASE' } });
-  await assert.rejects(
-    service.sendMessage('chat', 'revise', [], { editingMode: true, planningMode: true }),
-    /cannot be combined/
-  );
-  service.resolveRunControlScope = async () => ({ teamId: 'team' });
-  await assert.rejects(service.sendMessage('chat', 'revise', [], { editingMode: true }), /KBASE/);
-  assert.equal(saved.length, 2);
-});
-
-test('outbox reconnect replays Editing and blocks capability loss without dropping the item', async () => {
-  const sent: any[] = [];
-  const pending = {
-    clientMessageId: 'original',
-    conversationId: 'chat',
-    content: 'revise',
-    editingMode: true,
-    planningMode: false
-  };
-  const service = fixture({
-    getPendingOutboxMessages: async () => [pending],
-    getConversationHistoryScope: async () => ({ agentKey: 'kbase' }),
-    createRemoteRequestId: (id: string) => id,
-    unscopeChatPayload: (payload: any) => payload,
-    streamChatQuery: async (options: any) => {
-      sent.push(options.payload);
-      return { abort: () => {} };
-    }
-  });
-  service.resolveTransportConfig = async () => ({ namespace: 'ap' });
-  service.ensureAgentDetail = async () => ({ raw: { mode: 'KBASE' } });
-  await service.flushPendingOutbox();
-  assert.equal(sent.length, 1);
-  assert.equal(sent[0].editingMode, true);
-  assert.equal(sent[0].operationId, 'original');
-  service.inFlightOutgoingIds.clear();
-  service.ensureAgentDetail = async () => ({ raw: { mode: 'CODER' } });
-  await service.flushPendingOutbox();
-  assert.equal(sent.length, 1);
-  assert.equal(pending.editingMode, true);
-  assert.equal(service.inFlightOutgoingIds.size, 0);
-});
-
 test('skill catalog singleflights, caches only success and ignores old namespace responses', async () => {
   const service = fixture();
   let calls = 0,
     fail = true,
     release!: (value: any) => void;
-  service.ensureAgentDetail = async () => ({ raw: { mode: 'CODER', skills: [{ key: 'custom' }] } });
+  service.ensureAgentDetail = async () => ({
+    raw: { mode: 'CODER', interactionConfig: capabilities, skills: ['custom'] }
+  });
   service.requestChatApi = async (type: string, payload: any) => {
     assert.equal(type, '/api/skills');
     assert.equal(payload.agentKey, 'agent');
     calls++;
     if (fail) throw new Error('offline');
-    return { skills: [{ key: 'pdf' }], pinned: ['pdf'] };
+    return { skills: [{ id: 'pdf' }], pinned: ['pdf'] };
   };
   await assert.rejects(service.ensureAgentSkills('agent'), /offline/);
   fail = false;
@@ -783,7 +757,7 @@ test('skill catalog singleflights, caches only success and ignores old namespace
   assert.equal(service.agentSkills.size, 0);
 });
 
-test('query persists canonical one-send skill IDs and rejects unavailable skills, capability loss and Team before enqueue', async () => {
+test('query persists canonical one-send skill IDs and rejects unavailable skills, capability loss and missing owner before saving', async () => {
   const saved: any[] = [],
     sent: any[] = [];
   const service = fixture({
@@ -796,65 +770,42 @@ test('query persists canonical one-send skill IDs and rejects unavailable skills
       };
     }
   });
-  const catalog = skillsProtocol.normalizeChatSkills({ skills: [{ key: 'office/pdf' }], pinned: [] });
+  const catalog = skillsProtocol.normalizeChatSkills({ skills: [{ id: 'office/pdf' }], pinned: [] });
   service.assertConversationWritable = async () => null;
   service.resolveRunControlScope = async () => ({ agentKey: 'agent' });
-  service.ensureAgentDetail = async () => ({ raw: { mode: 'CODER' } });
+  service.ensureAgentDetail = async () => ({ raw: { mode: 'CODER', interactionConfig: capabilities } });
   service.ensureAgentSkills = async () => catalog;
   service.publishTimelineMessage = () => {};
   service.emitHomePatchFromSummary = async () => {};
   service.dispatchOutgoingMessage = async (input: any) => {
     sent.push(input);
   };
-  await service.sendMessage('chat', 'use pdf', [], { mustUseSkills: [' OFFICE/PDF ', 'office/pdf'] });
-  assert.deepEqual([...saved[0].mustUseSkills], ['office/pdf']);
-  assert.deepEqual([...sent[0].mustUseSkills], ['office/pdf']);
+  await service.sendMessage('chat', 'use pdf', [], { skillIds: [' OFFICE/PDF ', 'office/pdf'] });
+  assert.deepEqual([...sent[0].skillIds], ['office/pdf']);
   await service.sendMessage('chat', 'plain');
-  assert.deepEqual([...sent[1].mustUseSkills], []);
+  assert.deepEqual([...sent[1].skillIds], []);
+  assert.equal(sent[1].editingMode, false);
+  service.ensureAgentDetail = async () => ({ raw: { interactionConfig: { ...capabilities, showEditingMode: false } } });
+  await service.sendMessage('chat', 'hidden editing');
+  assert.equal(sent[2].editingMode, undefined);
+  service.ensureAgentDetail = async () => ({ raw: { interactionConfig: capabilities } });
   await assert.rejects(
-    service.sendMessage('chat', 'use missing', [], { mustUseSkills: ['missing'] }),
+    service.sendMessage('chat', 'use missing', [], { skillIds: ['missing'] }),
     /no longer available/
   );
-  service.ensureAgentDetail = async () => ({ raw: { mode: 'CODER', interactionConfig: { mustUseSkills: false } } });
-  await assert.rejects(
-    service.sendMessage('chat', 'use pdf', [], { mustUseSkills: ['office/pdf'] }),
-    /capabilities changed/
-  );
-  service.resolveRunControlScope = async () => ({ teamId: 'team' });
-  await assert.rejects(service.sendMessage('chat', 'use pdf', [], { mustUseSkills: ['office/pdf'] }), /Agent owner/);
-  assert.equal(saved.length, 2);
-});
-
-test('skill outbox replay retains original IDs and never silently drops unsupported or corrupt requirements', async () => {
-  const sent: any[] = [];
-  const service = fixture({
-    getConversationHistoryScope: async () => ({ agentKey: 'agent' }),
-    createRemoteRequestId: (id: string) => id,
-    unscopeChatPayload: (p: any) => p,
-    streamChatQuery: async (options: any) => {
-      sent.push(options.payload);
-      return { abort: () => {} };
+  service.ensureAgentDetail = async () => ({
+    raw: {
+      mode: 'CODER',
+      interactionConfig: { ...capabilities, attachment: { ...capabilities.attachment, skills: false } }
     }
   });
-  const catalog = skillsProtocol.normalizeChatSkills({ skills: [{ key: 'office/pdf' }], pinned: [] });
-  service.resolveTransportConfig = async () => ({ namespace: 'ap' });
-  service.ensureAgentDetail = async () => ({ raw: { mode: 'CODER' } });
-  service.ensureAgentSkills = async () => catalog;
-  const pending = {
-    clientMessageId: 'original',
-    conversationId: 'chat',
-    content: 'use pdf',
-    mustUseSkills: ['office/pdf']
-  };
-  await service.dispatchOutgoingMessage(pending);
-  assert.deepEqual([...sent[0].mustUseSkills], ['office/pdf']);
-  service.inFlightOutgoingIds.clear();
-  service.ensureAgentDetail = async () => ({ raw: { mode: 'CODER', interactionConfig: { mustUseSkills: false } } });
-  await assert.rejects(service.dispatchOutgoingMessage(pending), /no longer supported/);
-  await assert.rejects(service.dispatchOutgoingMessage({ ...pending, optionsError: 'Corrupt skill IDs' }), /Corrupt/);
-  assert.equal(sent.length, 1);
-  assert.equal(service.inFlightOutgoingIds.size, 0);
-  assert.deepEqual(pending.mustUseSkills, ['office/pdf']);
+  await assert.rejects(
+    service.sendMessage('chat', 'use pdf', [], { skillIds: ['office/pdf'] }),
+    /capabilities changed/
+  );
+  service.resolveRunControlScope = async () => ({});
+  await assert.rejects(service.sendMessage('chat', 'use pdf', [], { skillIds: ['office/pdf'] }), /Agent owner/);
+  assert.equal(saved.length, 3);
 });
 
 function accessFixture() {
@@ -864,8 +815,8 @@ function accessFixture() {
     runAccess.applyChatTimelineRunAccess(active(), 'run', { accessLevel: 'default', version: 1 })
   );
   service.assertConversationWritable = async () => null;
-  service.resolveRunControlScope = async () => ({ teamId: 'team', agentKey: 'member' });
-  service.ensureAgentDetail = async () => ({ raw: { mode: 'TEAM' } });
+  service.resolveRunControlScope = async () => ({ agentKey: 'team' });
+  service.ensureAgentDetail = async () => ({ raw: { mode: 'TEAM', interactionConfig: capabilities } });
   service.emitConversationTimelineState = () => {};
   service.scheduleTimelinePersist = () => {};
   service.scheduleConversationReconcile = async () => {};
@@ -877,8 +828,7 @@ test('runtime permission singleflights actual server writes, uses Team owner and
     calls = 0;
   service.requestChatApi = async (type: string, payload: any) => {
     assert.equal(type, '/api/access-level');
-    assert.equal(payload.teamId, 'team');
-    assert.equal(payload.agentKey, undefined);
+    assert.equal(payload.agentKey, 'team');
     assert.equal(payload.runId, 'run');
     assert.equal(payload.accessLevel, 'full_access');
     calls++;
@@ -1002,7 +952,7 @@ test('permission update rechecks the run after owner preflight and does not send
         timestamp: now + 1
       })
     );
-    return { teamId: 'team' };
+    return { agentKey: 'team' };
   };
   service.requestChatApi = async () => {
     calls++;
@@ -1040,7 +990,7 @@ test('permission phases avoid snapshot writes and a stale source response cannot
   assert.equal(service.runtimeAccessRequests.size, 0);
 });
 
-test('text selection survives query enqueue, outbox replay and steer when local file input is disabled', async () => {
+test('text selection survives query enqueue, submission and steer when local file input is disabled', async () => {
   const reference = {
     id: 'selected',
     type: 'selection',
@@ -1071,7 +1021,7 @@ test('text selection survives query enqueue, outbox replay and steer when local 
   service.assertConversationWritable = async () => null;
   service.resolveRunControlScope = async () => ({ agentKey: 'agent' });
   service.ensureAgentDetail = async () => ({
-    raw: { mode: 'CODER', interactionConfig: { attachment: { localFiles: false } } }
+    raw: { mode: 'CODER', interactionConfig: { model: false, accessLevel: false, attachment: { localFiles: false } } }
   });
   service.publishTimelineMessage = () => {};
   service.emitHomePatchFromSummary = async () => {};
@@ -1081,7 +1031,6 @@ test('text selection survives query enqueue, outbox replay and steer when local 
   const payloads: any[] = [];
   const replay = fixture({
     getConversationHistoryScope: async () => ({ agentKey: 'agent' }),
-    createRemoteRequestId: (id: string) => id,
     unscopeChatPayload: (payload: any) => payload,
     streamChatQuery: async (options: any) => {
       payloads.push(options.payload);
@@ -1110,7 +1059,7 @@ test('reference picker queries only current Agent summary pages, excludes self a
   const service = fixture();
   service.resolveRunControlScope = async () => ({ agentKey: 'agent' });
   service.ensureAgentDetail = async () => ({
-    raw: { mode: 'STANDARD', interactionConfig: { attachment: { chatRecords: true } } }
+    raw: { mode: 'STANDARD', interactionConfig: { model: false, accessLevel: false, attachment: { localFiles: false, chatRecords: true } } }
   });
   const payloads: any[] = [];
   service.requestChatApi = async (type: string, payload: any) => {
@@ -1130,18 +1079,18 @@ test('reference picker queries only current Agent summary pages, excludes self a
   assert.equal(payloads[0].agentKey, 'agent');
   assert.equal(payloads[0].limit, 10);
   service.ensureAgentDetail = async () => ({
-    raw: { mode: 'CODER', interactionConfig: { attachment: { chatRecords: false } } }
+    raw: { mode: 'CODER', interactionConfig: { model: false, accessLevel: false, attachment: { localFiles: false, chatRecords: false } } }
   });
   await assert.rejects(service.listReferenceChats('chat'), /disabled/);
   assert.equal(payloads.length, 1);
-  service.ensureAgentDetail = async () => ({ raw: { mode: 'STANDARD' } });
+  service.ensureAgentDetail = async () => ({ raw: { mode: 'STANDARD', interactionConfig: capabilities } });
   service.requestChatApi = async () => {
     service.lifecycleVersion++;
     return [{ chatId: 'wrong' }];
   };
   await assert.rejects(service.listReferenceChats('chat'), /source changed/);
 });
-test('query/outbox preserve context IDs/meta and recheck chatRecords; context-only, Site and steer are rejected', async () => {
+test('query preserve context IDs/meta and recheck chatRecords; context-only, Site and steer are rejected', async () => {
   const ref = { type: 'chat', id: 'other', name: 'Other', meta: { context: 'saved', updatedAt: now } },
     attachment = {
       attachmentId: 'ctx',
@@ -1165,7 +1114,7 @@ test('query/outbox preserve context IDs/meta and recheck chatRecords; context-on
   service.assertConversationWritable = async () => null;
   service.resolveRunControlScope = async () => ({ agentKey: 'agent' });
   service.ensureAgentDetail = async () => ({
-    raw: { mode: 'STANDARD', interactionConfig: { attachment: { chatRecords: true, localFiles: false } } }
+    raw: { mode: 'STANDARD', interactionConfig: { model: false, accessLevel: false, attachment: { chatRecords: true, localFiles: false } } }
   });
   service.publishTimelineMessage = () => {};
   service.emitHomePatchFromSummary = async () => {};
@@ -1189,14 +1138,13 @@ test('query/outbox preserve context IDs/meta and recheck chatRecords; context-on
     /unavailable/
   );
   service.ensureAgentDetail = async () => ({
-    raw: { mode: 'STANDARD', interactionConfig: { attachment: { chatRecords: false } } }
+    raw: { mode: 'STANDARD', interactionConfig: { model: false, accessLevel: false, attachment: { localFiles: false, chatRecords: false } } }
   });
   await assert.rejects(service.sendMessage('chat', 'question', [attachment]), /disabled/);
   assert.equal(saved.length, 1);
   const sent: any[] = [];
   const replay = fixture({
     getConversationHistoryScope: async () => ({ agentKey: 'agent' }),
-    createRemoteRequestId: (id: string) => id,
     unscopeChatPayload: (payload: any) => payload,
     streamChatQuery: async (options: any) => {
       sent.push(options.payload);
@@ -1204,7 +1152,7 @@ test('query/outbox preserve context IDs/meta and recheck chatRecords; context-on
     }
   });
   replay.resolveTransportConfig = async () => ({ namespace: 'ap' });
-  replay.ensureAgentDetail = async () => ({ raw: { mode: 'STANDARD' } });
+  replay.ensureAgentDetail = async () => ({ raw: { mode: 'STANDARD', interactionConfig: capabilities } });
   await replay.dispatchOutgoingMessage({
     clientMessageId: 'ctx',
     conversationId: 'chat',
@@ -1230,72 +1178,6 @@ test('query/outbox preserve context IDs/meta and recheck chatRecords; context-on
   assert.equal(steer.getPendingSteer('chat'), null);
 });
 
-test('Team chat references use canonical Team owner without borrowing member capability and paginate summaries', async () => {
-  const saved: any[] = [],
-    payloads: any[] = [];
-  const service = fixture({
-    createOutgoingMessage: async (conversationId: string, content: string, attachments: any[]) => {
-      saved.push(attachments);
-      return {
-        clientMessageId: 'team-query',
-        createdAt: now,
-        message: { messageId: 'team-query', conversationId, role: 'user', content, attachments, createdAt: now }
-      };
-    }
-  });
-  service.resolveRunControlScope = async () => ({ teamId: 'team', agentKey: 'member' });
-  service.ensureAgentDetail = async () => {
-    throw new Error('must not load a member Agent');
-  };
-  service.requestChatApi = async (_type: string, payload: any) => {
-    payloads.push(payload);
-    return Array.from({ length: 10 }, (_, i) => ({ chatId: `other${i}`, chatName: 'Same', lastRunId: `run${i}` }));
-  };
-  const first = await service.listReferenceChats('chat');
-  assert.equal(first.items.length, 10);
-  assert.equal(first.nextCursor, 'run9');
-  assert.deepEqual(Object.keys(payloads[0]), ['limit']);
-  await assert.rejects(service.listReferenceChats('chat', 'run9'), /cursor did not advance/);
-  assert.equal(payloads[1].lastRunId, 'run9');
-  const attachment = {
-    attachmentId: 'ctx',
-    conversationId: 'chat',
-    kind: 'chat',
-    status: 'ready',
-    name: 'Same',
-    references: [{ type: 'chat', id: 'other0', name: 'Same', meta: { updatedAt: now } }]
-  } as any;
-  service.assertConversationWritable = async () => null;
-  service.publishTimelineMessage = () => {};
-  service.emitHomePatchFromSummary = async () => {};
-  service.dispatchOutgoingMessage = async () => {};
-  await service.sendMessage('chat', 'question', [attachment]);
-  assert.equal(saved[0][0].references[0], attachment.references[0]);
-  const sent: any[] = [];
-  const replay = fixture({
-    getConversationHistoryScope: async () => ({ teamId: 'team', agentKey: 'member' }),
-    createRemoteRequestId: (id: string) => id,
-    unscopeChatPayload: (payload: any) => payload,
-    streamChatQuery: async (options: any) => {
-      sent.push(options.payload);
-      return { abort: () => {} };
-    }
-  });
-  replay.resolveTransportConfig = async () => ({ namespace: 'ap' });
-  replay.ensureAgentDetail = service.ensureAgentDetail;
-  await replay.dispatchOutgoingMessage({
-    clientMessageId: 'team-query',
-    conversationId: 'chat',
-    content: 'question',
-    attachments: [attachment]
-  });
-  assert.equal(sent[0].teamId, 'team');
-  assert.equal(sent[0].agentKey, undefined);
-  assert.deepEqual(sent[0].references, attachment.references);
-  service.resolveRunControlScope = async () => ({});
-  await assert.rejects(service.listReferenceChats('chat'), /owner is unavailable/);
-});
-
 test('Run feedback singleflights optimistic writes, uses Team owner, clears comments and rolls back failures without persisting pending', async () => {
   const service = fixture(),
     calls: any[] = [];
@@ -1314,7 +1196,7 @@ test('Run feedback singleflights optimistic writes, uses Team owner, clears comm
   });
   service.timelineStates.set('chat', completed);
   service.assertConversationWritable = async () => null;
-  service.resolveRunControlScope = async () => ({ teamId: 'team', agentKey: 'member' });
+  service.resolveRunControlScope = async () => ({ agentKey: 'team' });
   service.emitConversationTimelineState = () => {};
   service.scheduleTimelinePersist = () => {
     persisted++;
@@ -1334,8 +1216,7 @@ test('Run feedback singleflights optimistic writes, uses Team owner, clears comm
   assert.equal(persisted, 0);
   await assert.rejects(service.submitRunFeedback('chat', 'run', 'clear'), /already being submitted/);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0].teamId, 'team');
-  assert.equal(calls[0].agentKey, undefined);
+  assert.equal(calls[0].agentKey, 'team');
   finish({ chatId: 'chat', runId: 'run', type: 'thumbs_down', setAt: now + 2000 });
   await pending;
   const confirmed = runAccess.getChatTimelineRun(service.getConversationTimelineState('chat'), 'run')!;
@@ -1435,7 +1316,7 @@ test('derivation persists a scoped destination before POST, singleflights taps, 
   const source = createChatSource('paired', 'desktop', 'Desktop');
   service.source = source;
   service.timelineStates.set('chat', derivable());
-  service.resolveRunControlScope = async () => ({ teamId: 'team', agentKey: 'member' });
+  service.resolveRunControlScope = async () => ({ agentKey: 'team' });
   const calls: any[] = [],
     events: any[] = [];
   service.emit = (event: any) => events.push(event);
@@ -1446,7 +1327,7 @@ test('derivation persists a scoped destination before POST, singleflights taps, 
       finish = done;
     });
   };
-  service.getChatDetailViaTransport = async (id: string) => derivedDetail(id, { teamId: 'team' });
+  service.getChatDetailViaTransport = async (id: string) => derivedDetail(id, { agentKey: 'team' });
   const first = service.deriveConversation('chat', 'run');
   await assert.rejects(service.deriveConversation('chat', 'run'), /already in progress/);
   await flush();
@@ -1454,14 +1335,13 @@ test('derivation persists a scoped destination before POST, singleflights taps, 
   assert.equal(calls[0].type, '/api/chat/derive');
   assert.equal(calls[0].sourceChatId, 'chat');
   assert.equal(calls[0].sourceRunId, 'run');
-  assert.equal(calls[0].agentKey, undefined);
   const targetId = encodeChatSourceId(source, 'interrupt-operation');
   assert.equal(calls[0].chatId, targetId);
   finish({
     chatId: targetId,
     sourceChatId: 'chat',
     sourceRunId: 'run',
-    teamId: 'team',
+    agentKey: 'team',
     copiedRuns: 1,
     lastRunId: 'copied-run',
     createdAt: now,
@@ -1469,10 +1349,9 @@ test('derivation persists a scoped destination before POST, singleflights taps, 
   });
   const result = await first;
   assert.equal(result.conversation.conversationId, targetId);
-  assert.equal(result.historyScope.teamId, 'team');
-  assert.equal(result.historyScope.agentKey, null);
-  assert.equal(patch.teamId, 'team');
-  assert.equal(patch.agentKey, null);
+  assert.equal(result.historyScope.agentKey, 'team');
+  assert.equal(result.historyScope.agentKey, 'team');
+  assert.equal(patch.agentKey, 'team');
   assert.equal(projection.messages[1].content, 'server copied context');
   assert.equal(runAccess.getChatTimelineRun(persisted, 'run')!.derivation!.phase, 'ready');
   assert.equal(
@@ -1638,4 +1517,369 @@ test('derivation cannot send before durable identity or publish malformed acknow
   assert.equal(writes, 2, 'recovery only GETs the persisted target');
   assert.equal(persistedProjection.timelineState.activeRunId, 'new-run');
   assert.equal(service.getConversationTimelineState(targetId).activeRunId, 'new-run');
+});
+
+function submissionFixture() {
+  let options: any;
+  let sends = 0;
+  const row: any = {
+    messageId: 'message',
+    clientMessageId: 'message',
+    conversationId: 'chat',
+    deliveryStatus: 'pending',
+    errorReason: null
+  };
+  const handled: any[] = [];
+  const service = fixture({
+    getConversationHistoryScope: async () => ({ agentKey: 'root' }),
+    unscopeChatPayload: (value: any) => value,
+    scopeChatPayload: (_source: any, value: any) => value,
+    extractConversationId: (value: any) => value.chatId || value.conversationId || '',
+    getMessageByClientMessageId: async () => ({ ...row }),
+    patchMessageByClientMessageId: async (_id: string, patch: any) => Object.assign(row, patch),
+    streamChatQuery: async (value: any) => {
+      options = value;
+      sends++;
+      return { abort() {} };
+    }
+  });
+  service.resolveTransportConfig = async () => ({ namespace: 'ap' });
+  service.emitHomePatchFromConversation = async () => {};
+  service.publishTimelineMessagePatch = () => {};
+  service.flushConversationStreamBuffers = async () => {};
+  service.handlePushEvent = async (event: any) => {
+    handled.push(event);
+  };
+  service.requestChatApi = async () => {
+    throw new Error('Unexpected recovery request');
+  };
+  return { service, row, handled, options: () => options, sends: () => sends };
+}
+
+test('recovery keeps each input unchanged, carrying the rejected task through existing references after cold restore', async () => {
+  const original: any = { messageId: 'original', clientMessageId: 'original', serverMessageId: null,
+    conversationId: 'chat', role: 'user', content: '制作报告', createdAt: now, deliveryStatus: 'pending',
+    errorReason: null, attachments: [{ attachmentId: 'file', messageId: 'original',
+      conversationId: 'chat', references: [{ type: 'file', url: '/report.pdf' }] }] };
+  const rows = new Map<string, any>([['original', original]]), sent: any[] = [];
+  let persistedFailure: any, nextId = 0, retries = 0;
+  const service = fixture({
+    persistConversationTimelineState: async (state: any) => { persistedFailure = serializeChatTimelineState(state); },
+    getMessageByClientMessageId: async (id: string) => ({ ...rows.get(id) }),
+    patchMessageByClientMessageId: async (id: string, patch: any) => Object.assign(rows.get(id), patch),
+    createOutgoingMessage: async (conversationId: string, content: string, attachments: any[]) => {
+      const id = `input-${++nextId}`;
+      const message = { ...original, messageId: id, clientMessageId: id, content, attachments,
+        createdAt: now + nextId, deliveryStatus: 'pending', errorReason: null };
+      rows.set(id, message);
+      return { clientMessageId: id, conversationId, createdAt: message.createdAt, message };
+    },
+    retryOutgoingMessage: async (conversationId: string, id: string) => {
+      retries++;
+      const message = Object.assign(rows.get(id), { deliveryStatus: 'pending', errorReason: null });
+      return { clientMessageId: id, conversationId, createdAt: message.createdAt, message };
+    }
+  });
+  service.assertConversationWritable = async () => null;
+  service.resolveRunControlScope = async () => ({ agentKey: 'agent' });
+  service.validateContextReferences = async () => {};
+  service.emitHomePatchFromSummary = async () => {};
+  service.emitHomePatchFromConversation = async () => {};
+  service.scheduleTimelinePersist = () => {};
+  service.timelineStates.set('chat', reducer.applyChatTimelineMessage(null, original));
+  await service.handleOutgoingStreamError({ conversationId: 'chat', clientMessageId: 'original' },
+    new ApiError('model missing not found', 400, { code: 'model_not_found' }));
+  assert.ok(persistedFailure);
+  service.timelineStates.set('chat', deserializeChatTimelineState(persistedFailure.meta, persistedFailure.nodes)!);
+  service.dispatchOutgoingMessage = async (input: any) => sent.push(input);
+  await service.sendMessage('chat', '继续', [], { model: { key: 'valid' } });
+  assert.equal(retries, 0);
+  assert.equal(sent[0].clientMessageId, 'input-1');
+  assert.equal(sent[0].content, '继续');
+  const refs = sent[0].attachments.flatMap((item: any) => item.references);
+  assert.ok(refs.some((ref: any) => ref.type === 'selection' && ref.text === '制作报告'));
+  assert.ok(refs.some((ref: any) => ref.url === '/report.pdf'));
+  assert.equal(sent[0].model.key, 'valid');
+  assert.equal(original.content, '制作报告');
+  assert.deepEqual(projectTimelineMessages(service.getConversationTimelineState('chat')).map(m => m.content), ['制作报告', '继续']);
+  await service.handleOutgoingStreamError({ conversationId: 'chat', clientMessageId: 'input-1' }, new ApiError('invalid model', 400, null));
+  await service.sendMessage('chat', '请加上图表', [], { model: { key: 'valid-2' } });
+  assert.equal(sent[1].content, '请加上图表');
+  assert.ok(sent[1].attachments.flatMap((item: any) => item.references).some((ref: any) => ref.text === '制作报告'));
+  // Server echo and snapshot restoration preserve the same three literal inputs.
+  let state = reducer.applyChatTimelineEvent(service.getConversationTimelineState('chat'), 'chat', {
+    type: 'request.query', requestId: 'input-2', runId: 'run', chatId: 'chat',
+    message: '请加上图表', references: sent[1].attachments.flatMap((item: any) => item.references), timestamp: now + 10
+  });
+  const saved = serializeChatTimelineState(state);
+  state = deserializeChatTimelineState(saved.meta, saved.nodes)!;
+  assert.deepEqual(projectTimelineMessages(state).map(m => m.content), ['制作报告', '继续', '请加上图表']);
+  assert.deepEqual(buildChatTimelineDisplayItems(state)
+    .filter(item => item.kind === 'user-query')
+    .map(item => item.node.kind === 'message' ? item.node.content : ''), ['制作报告', '继续', '请加上图表']);
+  // Explicit retry reuses only the failed input; it cannot rewrite its text or files.
+  Object.assign(original, { deliveryStatus: 'pending', errorReason: null });
+  service.timelineStates.set('chat', reducer.applyChatTimelineMessage(null, original));
+  await service.handleOutgoingStreamError({ conversationId: 'chat', clientMessageId: 'original' }, new ApiError('invalid model', 400, null));
+  await service.retryMessage('chat', 'original', { model: { key: 'valid' } });
+  assert.equal(retries, 1);
+  assert.equal(sent.at(-1).content, '制作报告');
+  assert.equal(sent.at(-1).clientMessageId, 'original');
+  assert.ok(sent.at(-1).attachments.flatMap((item: any) => item.references).some((ref: any) => ref.url === '/report.pdf'));
+});
+
+test('unknown or already accepted submissions never qualify for automatic recovery', () => {
+  const message: any = { messageId: 'm', clientMessageId: 'm', serverMessageId: null,
+    conversationId: 'chat', role: 'user', content: '任务', createdAt: now,
+    deliveryStatus: 'failed', errorReason: 'submission_unconfirmed', attachments: [] };
+  let state = reducer.applyChatTimelineMessage(null, message);
+  assert.equal(getRecoverableChatSubmission(state), null);
+  state = reducer.patchChatTimelineMessage(state, 'm', { errorReason: 'model missing', errorDetail:
+    formatChatTimelinePlatformErrorForDisplay({ status: 400, message: 'model missing' }).error });
+  assert.equal(getRecoverableChatSubmission(state)?.messageId, 'm');
+  const accepted = reducer.applyChatTimelineEvent(state, 'chat', {
+    type: 'request.query', requestId: 'm', runId: 'run', message: '任务', timestamp: now
+  });
+  assert.equal(getRecoverableChatSubmission(accepted), null);
+  state = reducer.applyChatTimelineMessage(state, { ...message, messageId: 'later', clientMessageId: 'later',
+    deliveryStatus: 'sent', errorReason: null, createdAt: now + 1 });
+  assert.equal(getRecoverableChatSubmission(state), null);
+});
+
+test('sending after an unknown submission checks history and cannot create a context-free follow-up', async () => {
+  const f = submissionFixture();
+  Object.assign(f.row, { role: 'user', content: '原始工作', createdAt: now,
+    attachments: [], serverMessageId: null, deliveryStatus: 'failed', errorReason: 'submission_unconfirmed' });
+  f.service.timelineStates.set('chat', reducer.applyChatTimelineMessage(null, f.row));
+  f.service.getChatDetailViaTransport = async () => ({ runs: [] });
+  await assert.rejects(f.service.sendMessage('chat', '继续'), /submission_unconfirmed/);
+  assert.equal(f.row.deliveryStatus, 'failed');
+  assert.equal(f.sends(), 0);
+  f.service.getChatDetailViaTransport = async () => ({ runs: [{ requestId: 'message', runId: 'run' }] });
+  f.service.reconcileConversation = async () => {};
+  const result = await f.service.sendMessage('chat', '继续');
+  assert.equal(result.clientMessageId, 'message');
+  assert.equal(result.message.content, '原始工作');
+  assert.equal(f.row.deliveryStatus, 'sent');
+  assert.equal(f.sends(), 0);
+});
+
+test('submission uses message request ID and waits for a matching canonical server identity', async () => {
+  const f = submissionFixture();
+  await f.service.dispatchOutgoingMessage({
+    clientMessageId: 'message',
+    conversationId: 'chat',
+    content: 'hello',
+    editingMode: false,
+    skillIds: ['pdf']
+  });
+  const wire = f.options().payload;
+  assert.equal(wire.requestId, 'message');
+  assert.equal(wire.editingMode, false);
+  assert.equal('skillIds' in wire, false);
+  assert.deepEqual(
+    Array.from(wire.references, (ref: any) => ({ ...ref })),
+    [{ type: 'skill', id: 'pdf' }]
+  );
+  f.options().onEvent({ type: 'request.query', chatId: 'other', runId: 'run', agentKey: 'root', requestId: 'message' });
+  await flush();
+  assert.equal(f.row.deliveryStatus, 'pending');
+  f.options().onEvent({ type: 'request.query', chatId: 'chat', runId: 'run', agentKey: 'root', requestId: 'message' });
+  await flush();
+  assert.equal(f.row.deliveryStatus, 'sent');
+  assert.equal(f.handled.length, 1);
+  f.options().onEvent({
+    type: 'run.start',
+    chatId: 'chat',
+    runId: 'other-run',
+    agentKey: 'root',
+    requestId: 'message'
+  });
+  await flush();
+  assert.equal(f.handled.length, 1);
+  f.options().onDone();
+  await flush();
+  assert.equal(f.row.deliveryStatus, 'sent');
+});
+test('stream completion without acceptance is uncertain and explicit rejection keeps its original error', async () => {
+  for (const rejected of [false, true]) {
+    const f = submissionFixture();
+    await f.service.dispatchOutgoingMessage({ clientMessageId: 'message', conversationId: 'chat', content: 'hello' });
+    if (rejected) f.options().onError(Object.assign(new Error('Invalid query field'), { code: 400 }));
+    else f.options().onDone();
+    await flush();
+    assert.equal(f.row.deliveryStatus, 'failed');
+    assert.equal(f.row.errorReason, rejected ? 'Invalid query field' : 'submission_unconfirmed');
+    assert.equal(f.sends(), 1);
+  }
+});
+test('connection loss never replays a query; post-acceptance failure leaves the message sent', async () => {
+  for (const accepted of [false, true]) {
+    const f = submissionFixture();
+    f.service.handleStreamSideError = async () => {};
+    await f.service.dispatchOutgoingMessage({ clientMessageId: 'message', conversationId: 'chat', content: 'hello' });
+    if (accepted)
+      f.options().onEvent({
+        type: 'request.query',
+        chatId: 'chat',
+        runId: 'run',
+        agentKey: 'root',
+        requestId: 'message'
+      });
+    f.options().onError(new Error('Disconnected'));
+    await flush();
+    assert.equal(f.row.deliveryStatus, accepted ? 'sent' : 'failed');
+    f.service.hasConnectedOnce = false;
+    f.service.activeConversationId = '';
+    await f.service.handleTransportStatusChange('connected');
+    assert.equal(f.sends(), 1);
+  }
+});
+test('late submission callbacks cannot mutate the replacement source', async () => {
+  const f = submissionFixture();
+  await f.service.dispatchOutgoingMessage({ clientMessageId: 'message', conversationId: 'chat', content: 'hello' });
+  f.service.lifecycleVersion++;
+  f.options().onEvent({ type: 'request.query', chatId: 'chat', runId: 'run', agentKey: 'root', requestId: 'message' });
+  f.options().onError(Object.assign(new Error('Old rejection'), { code: 400 }));
+  await flush();
+  assert.equal(f.row.deliveryStatus, 'pending');
+  assert.equal(f.handled.length, 0);
+});
+test('manual retry first recovers a confirmed request and never creates another query', async () => {
+  const f = submissionFixture();
+  Object.assign(f.row, { deliveryStatus: 'failed', errorReason: 'submission_unconfirmed' });
+  let reads = 0;
+  f.service.getChatDetailViaTransport = async () => ({ runs: [{ requestId: 'message', runId: 'run' }] });
+  f.service.reconcileConversation = async () => {
+    reads++;
+  };
+  assert.equal(await f.service.recoverSubmission('chat', 'message'), true);
+  assert.equal(f.row.deliveryStatus, 'sent');
+  assert.equal(f.sends(), 0);
+  assert.equal(reads, 1);
+  f.service.getChatDetailViaTransport = async () => ({ runs: [] });
+  assert.equal(await f.service.recoverSubmission('chat', 'unmatched'), false);
+  assert.equal(f.sends(), 0);
+});
+
+test('root wait resumes through an empty steer and cannot resume a child or completed wait', async () => {
+  const service = fixture();
+  let state = active();
+  state = reducer.applyChatTimelineEvent(state, 'chat', {
+    type: 'tool.wait',
+    runId: 'run',
+    toolId: 'wait',
+    toolName: 'wait',
+    startedAt: now,
+    deadlineAt: now + 60000,
+    timestamp: now + 1,
+    description: 'Waiting',
+    conditions: []
+  });
+  service.timelineStates.set('chat', state);
+  service.assertConversationWritable = async () => null;
+  service.resolveRunControlScope = async () => ({ agentKey: 'root' });
+  service.scheduleConversationReconcile = async () => {};
+  const calls: any[] = [];
+  service.requestChatApi = async (type: string, payload: any) => {
+    calls.push({ type, payload });
+    return { accepted: true, status: 'accepted' };
+  };
+  await service.continueWait('chat', 'wait');
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].type, '/api/steer');
+  assert.equal(calls[0].payload.message, '');
+  assert.equal(calls[0].payload.agentKey, 'root');
+  assert.equal(service.getConversationTimelineState('chat').activeRunId, 'run');
+  await assert.rejects(service.continueWait('chat', 'wait'), /confirmation/);
+  service.pendingSteers.clear();
+  service.timelineStates.set(
+    'chat',
+    reducer.applyChatTimelineEvent(state, 'chat', {
+      type: 'tool.result',
+      runId: 'run',
+      toolId: 'wait',
+      timestamp: now + 2,
+      result: { reason: 'elapsed' }
+    })
+  );
+  await assert.rejects(service.continueWait('chat', 'wait'), /no longer active/);
+  const child = reducer.applyChatTimelineEvent(active(), 'chat', {
+    type: 'tool.wait',
+    runId: 'run',
+    taskId: 'child',
+    toolId: 'child:wait',
+    toolName: 'wait',
+    startedAt: now,
+    deadlineAt: now + 60000,
+    timestamp: now + 1
+  });
+  service.timelineStates.set('chat', child);
+  await assert.rejects(service.continueWait('chat', 'child:wait'), /no longer active/);
+  assert.equal(calls.length, 1);
+});
+
+test('query stream supplies conversation and confirmed Run to tool frames that omit envelope identity', async () => {
+  const f = submissionFixture();
+  await f.service.dispatchOutgoingMessage({ clientMessageId: 'message', conversationId: 'chat', content: 'hello' });
+  f.options().onEvent({ type: 'request.query', chatId: 'chat', runId: 'run', agentKey: 'root', requestId: 'message' });
+  f.options().onEvent({ type: 'tool.start', toolId: 'wait', toolName: 'wait' });
+  f.options().onEvent({
+    type: 'tool.wait',
+    runId: 'run',
+    toolId: 'wait',
+    toolName: 'wait',
+    startedAt: now,
+    deadlineAt: now + 45000
+  });
+  f.options().onEvent({ type: 'request.steer', requestId: 'continue', steerId: 'continue', runId: 'run', message: '' });
+  f.options().onEvent({ type: 'request.steer', requestId: 'other', steerId: 'other', runId: 'other', message: '' });
+  f.options().onEvent({ type: 'request.query', requestId: 'other', runId: 'run' });
+  await flush();
+  await flush();
+  assert.equal(f.handled.length, 4);
+  assert.equal(f.handled[3].steerId, 'continue');
+  assert.ok(f.handled.every((event) => event.chatId === 'chat' && event.runId === 'run' && event.agentKey === 'root'));
+});
+
+test('reconcile cannot attach while the conversation already owns a query stream', async () => {
+  const service = fixture({ getConversationSyncState: async () => ({ activeRunId: 'run' }) });
+  service.activeConversationId = 'chat';
+  service.timelineStates.set('chat', active());
+  service.resolveTransportConfig = async () => {
+    throw new Error('Unexpected second stream');
+  };
+  service.activeOutgoingStreams.set('message', { conversationId: 'chat', abort() {} });
+  await service.attachActiveConversationRun('chat', 'attach');
+  service.activeOutgoingStreams.clear();
+  let resolveOwner!: (owner: any) => void;
+  service.resolveRunControlScope = () =>
+    new Promise((resolve) => {
+      resolveOwner = resolve;
+    });
+  const attaching = service.attachActiveConversationRun('chat', 'attach');
+  await flush();
+  service.activeOutgoingStreams.set('message', { conversationId: 'chat', abort() {} });
+  resolveOwner({ agentKey: 'root' });
+  await attaching;
+  assert.equal(service.activeAttaches.size, 0);
+});
+
+test('model catalog refresh propagates errors, retains last success and never changes Agent defaults', async () => {
+  let calls = 0;
+  const old = { models: [], reasoningEfforts: [], serviceTiers: [], fetchedAt: 1 };
+  const fresh = { ...old, fetchedAt: 2 };
+  const service = fixture({ getModelOptionsApi: async () => {
+    calls++;
+    if (calls === 1) throw new Error('catalog unavailable');
+    return fresh;
+  } });
+  service.agentModelOptions.set('agent', old);
+  assert.equal(await service.ensureAgentModelOptions('agent'), old);
+  assert.equal(calls, 0);
+  await assert.rejects(service.ensureAgentModelOptions('agent', { refresh: true }), /catalog unavailable/);
+  assert.equal(service.getAgentModelOptionsSnapshot('agent'), old);
+  assert.equal(await service.ensureAgentModelOptions('agent', { refresh: true }), fresh);
+  assert.equal(service.getAgentModelOptionsSnapshot('agent'), fresh);
+  assert.equal(service.getAgentDetailSnapshot('agent'), null);
 });

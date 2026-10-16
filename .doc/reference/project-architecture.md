@@ -78,7 +78,7 @@ Reusable UI
 
 - `auth`：登录页和认证 bootstrap UI
 - `chatPersistence`：Chat 首页、详情页、本地数据库、目录快照、rich timeline 持久化
-- `chatRealtime`：聊天 WS request / stream / push 业务协调、outbox replay、scoped sync event
+- `chatRealtime`：聊天 WS request / stream / push 业务协调、历史核对与运行观察恢复、scoped sync event
 - `chatTimeline`：reasoning、tool、awaiting、usage、run lifecycle 等 timeline 状态归一
 - `notifications`：push token 注册、通知点击 payload、active conversation 抑制
 - `agentTaskBoard`：任务 Tab 的移动端 AI 任务看板设计稿
@@ -120,14 +120,14 @@ RootStack
   -> ChatDetail
 ```
 
-| Route / Tab | 实际入口 | 说明 |
-| ----------- | -------- | ---- |
-| `Login` | `src/features/auth/LoginScreen.tsx` | 认证冷启动和登录页 |
-| `Chat` | `src/features/chatPersistence/ChatHomeScreen.tsx` | Chat 首页目录 |
-| `Terminal` | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` | 任务 Tab / AI 任务看板 |
-| `Drive` | `src/app/screens/TabScreens.tsx` | 网盘占位页 |
-| `Me` | `src/app/screens/TabScreens.tsx` | 用户、会话和版本信息 |
-| `ChatDetail` | `src/features/chatPersistence/ChatDetailScreen.tsx` | Tabs 之上的详情页 route |
+| Route / Tab  | 实际入口                                               | 说明                    |
+| ------------ | ------------------------------------------------------ | ----------------------- |
+| `Login`      | `src/features/auth/LoginScreen.tsx`                    | 认证冷启动和登录页      |
+| `Chat`       | `src/features/chatPersistence/ChatHomeScreen.tsx`      | Chat 首页目录           |
+| `Terminal`   | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` | 任务 Tab / AI 任务看板  |
+| `Drive`      | `src/app/screens/TabScreens.tsx`                       | 网盘占位页              |
+| `Me`         | `src/app/screens/TabScreens.tsx`                       | 用户、会话和版本信息    |
+| `ChatDetail` | `src/features/chatPersistence/ChatDetailScreen.tsx`    | Tabs 之上的详情页 route |
 
 底部 Tab 的真实 safe area / tab bar height 由导航层和页面容器协同处理，页面内不要硬编码底栏避让。
 
@@ -140,7 +140,6 @@ SQLite 是本地真源，覆盖：
 - 首页目录 `chat_directory_items`
 - 会话摘要 `conversations`
 - 消息 `messages`
-- 待补发 `outbox_messages`
 - 同步状态 `conversation_sync_state`
 - rich timeline snapshot `conversation_timeline_meta` / `conversation_timeline_nodes`
 
@@ -150,7 +149,7 @@ MMKV 只保存首页首屏目录快照，用于冷启动回显。它不承担完
 
 ### Repository
 
-`chatRepository` 是本地数据统一读写入口，负责 SQLite 事务、目录投影、会话摘要 patch、outbox、通知补拉落库、timeline snapshot 持久化和目录快照刷新。
+`chatRepository` 是本地数据统一读写入口，负责 SQLite 事务、目录投影、会话摘要 patch、通知补拉落库、timeline snapshot 持久化和目录快照刷新。
 
 ## 6. 账号、电脑与默认云端边界
 
@@ -217,7 +216,7 @@ chatSyncService
 - `WsClient`：底层 WebSocket、request、stream、push、心跳和重连，支持 Desktop namespace 与 query/subprotocol token mode。
 - `sharedWsTransport`：维护每个 active endpoint 的共享 socket，token 或 namespace 变化时更新内存配置，不为每次请求重新建连。
 - `chatWsTransport`：聊天协议 adapter，转发 `/api/query`、`/api/attach` 和聊天 request，并把 push/stream 归一为 chat event。
-- `chatSyncService`：业务协调层，处理 outbox replay、发送、ack、incoming、summary push、read/unread、awaiting submit、stop/resume、reconcile 和 UI event。
+- `chatSyncService`：业务协调层，处理 历史核对与运行观察恢复、发送、ack、incoming、summary push、read/unread、awaiting submit、stop/resume、reconcile 和 UI event。
 - `chatRepository`：所有 SQLite / MMKV 写入入口。
 
 Desktop 访问票据失效或需要重新认证时，由现有账号路由入口取得新票据和 JTI；不恢复旧 Desktop Token 的 `auth.refresh` 配对链路。默认云端仍由自身凭证与既有重连入口恢复。
@@ -229,7 +228,6 @@ UI send
   -> chatSyncService.sendMessage()
   -> chatRepository.createOutgoingMessage()
      -> messages(pending)
-     -> outbox_messages
      -> conversations summary
      -> chat_directory_snapshot_v1
   -> chatWsTransport.streamChatQuery(/api/query)
@@ -286,6 +284,6 @@ HTTP profile 的 API base URL 优先读取登录页保存到 MMKV 的地址，�
 - `core/ws` 不读取 active auth profile、不持久化 token、不做聊天业务归一。
 - `chatWsTransport` / `WsClient` 不直接写 UI 或 SQLite。
 - `src/core/**` 不反向依赖 `src/features/**`。
-- SQLite 是聊天目录、摘要、消息、outbox 和 read state 真源。
+- SQLite 是聊天目录、摘要、消息和 read state 真源。
 - MMKV 只保存首页冷启动目录快照。
 - 影响首页目录的写入必须刷新 `chat_directory_snapshot_v1`。

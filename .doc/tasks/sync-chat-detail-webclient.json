@@ -10,8 +10,9 @@
     "同步对话详情"
   ],
   "entryDecision": [
+    "输入区对齐使用 useChatComposerSettings 与进程内 chatComposerPreferences；已有 Chat 与新 Agent 默认模型分离，主 Run 请求设置与既有 usage 补缺，禁止增加持久化草稿或平行能力状态机。配置/目录错误可重试，能力关闭保留偏好与附件，所有迟到异步结果需复核目标。",
     "执行对话详情与 agent-webclient 的数据或能力同步时，从 docs/sync/chat-detail-webclient-2026-10-08/README.md 开始，再读取对应 T00–T31 子任务。",
-    "P1 与 T28–T30 本地实现已落地，T10 仅周期；完整目标继续推进 P2，T14 按默认一次在途范围实施，T15 技能单次选择、T16 Editing、T17 运行权限及 T18 划词引用已本地落地；后续能力继续执行。真实后端/Native 联合验收与特定可选范围待确认，先读最新总览和子任务记录。 T19–T21 当前契约及 T22 服务端派生的本地实现已落地，真实部署/Native 验收仍待 T00/T31。 T23 整轮复制与已加载正文源码搜索已本地落地，真实 Native 验收仍待 T31。 T24 用户已安装 expo-sharing 56.0.15；默认源服务端完整 Markdown/条件 HTML 导出与 Native/Web 保存分享本地落地，13 项专项与 715 项全量通过；HTML 资产部署、paired 数据面和真实 Native 仍未验收。 T26 文件修改汇总已本地落地，真实 Native 待 T31；T25 已核对 HTTP 全控制与 WS 专用 lane 约束，移动端路由/认证尚未冻结。 T27 默认源 Office 服务端在线转换/系统浏览器打开已本地落地，paired HTTP 数据面与真机仍未验收。 T31 已按当前 P2 状态审计：outbox 有 Editing/skills 增量迁移；T24 部署/Native、T25 移动端通道门禁未关闭，不沿用早期无 schema/依赖变更的结论。 用户最新要求暂跳过当前阻塞任务及依赖部分，本轮按 T25 理解：T25/BTW 验收暂跳过，T26–T30 无此前置且已继续 64 项专项通过；T31 仅跳过 BTW 部分，其他门禁保留，范围澄清待回复。",
+    "当前聊天提交遵循根 agentKey 与 references 协议；SQLite 保存消息及结果，重连只恢复观察，不自动重发；旧本地缓存按新版 schema 重建。",
     "2026-10-08 Android 真机已连接 OnePlus 6T，历史/完成过程、正文搜索、文件修改空态、引用取消、技能 ID 搜索及权限/聊天引用面板部分验收通过；同级 React key 冲突最小修复后重测，全量 715 项与严格类型/lint 通过。T24 paired 降级通过，默认 API 示例地址导致成功保存/分享未验收；T31 仍未关闭，具体证据及剩余门禁见最新 T31。"
   ],
   "mustRead": [
@@ -41,6 +42,7 @@
     }
   ],
   "likelyFiles": [
+    ".doc/reference/chat-composer-alignment-verification.md",
     "docs/sync/chat-detail-webclient-2026-10-08/README.md",
     "scripts/tests/chatContextReferences.test.mts",
     "scripts/tests/chatDerivation.test.mts",
@@ -68,6 +70,7 @@
     "src/core/api/services/chatRemoteTimeProtocol.ts",
     "src/core/api/services/documentPreview.ts",
     "src/core/api/services/documentPreviewProtocol.ts",
+    "src/features/chatPersistence/chatComposerPreferences.ts",
     "src/features/chatPersistence/chatContextReference.ts",
     "src/features/chatPersistence/chatFileChanges.ts",
     "src/features/chatPersistence/chatImageGeneration.ts",
@@ -83,6 +86,7 @@
     "src/features/chatPersistence/components/ChatRunFeedback.tsx",
     "src/features/chatPersistence/components/ChatTimelineTextSearch.tsx",
     "src/features/chatPersistence/components/resource/AuthenticatedOfficePreview.tsx",
+    "src/features/chatPersistence/useChatComposerSettings.ts",
     "src/features/chatPersistence/useChatDetailConversationController.ts",
     "src/features/chatRealtime/chatSyncService.ts",
     "src/features/chatTimeline/timelineReducer.ts",
@@ -95,7 +99,7 @@
     "T31 根据 T00 纳入的任务、任务部分及必要前置验收；验证专项允许以无须代码变更的证据关闭。",
     "纳入范围按实际影响完成实时、历史回放、必要的持久化兼容与对应真实环境验证。",
     "新增代码对应已确认需求或缺陷；无预建框架、无第二套状态，仅为实际重复提取公共代码、为实际恢复需求新增持久化。",
-    "保持 SQLite 真源、共享连接、source namespace 与 Agent/Team owner 边界。",
+    "保持 SQLite 真源、共享连接、source namespace 与 根 agentKey owner 边界。",
     "完成临时状态清理，保留任务开始前已有用户改动。"
   ],
   "doNotMiss": [
@@ -109,6 +113,6 @@
   ],
   "generated": {
     "mustReadCount": 6,
-    "likelyFileCount": 48
+    "likelyFileCount": 51
   }
 }

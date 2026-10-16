@@ -183,7 +183,7 @@ export function WebAppsScreen() {
             <Text className={NOTICE_TEXT_CLASS}>{t('webApps.desktopDisconnected')}</Text>
           </View>
         ) : null}
-        {error ? (
+        {error && items.length > 0 ? (
           <View className={ERROR_CLASS}>
             <Text className={ERROR_TEXT_CLASS}>{getGatewayErrorMessage(t, error.code)}</Text>
           </View>
@@ -191,19 +191,36 @@ export function WebAppsScreen() {
         <Text className={SECTION_LABEL_CLASS}>{t('webApps.listTitle')}</Text>
       </>
     ),
-    [canOpenContainer, connectionStatus, controlsAvailable, error, initialized, openDetail, openableApps.length, t]
+    [
+      canOpenContainer,
+      connectionStatus,
+      controlsAvailable,
+      error,
+      initialized,
+      items.length,
+      openDetail,
+      openableApps.length,
+      t
+    ]
   );
-  const emptyState = loading ? (
-    <View className={STATE_CLASS}>
-      <ActivityIndicator color={theme.colors.brandBlue} />
-      <Text className={STATE_BODY_CLASS}>{t('webApps.loading')}</Text>
-    </View>
-  ) : (
-    <View className={STATE_CLASS}>
-      <Text className={STATE_TITLE_CLASS}>{t('webApps.emptyTitle')}</Text>
-      <Text className={STATE_BODY_CLASS}>{t('webApps.emptyBody')}</Text>
-    </View>
-  );
+  const emptyState =
+    loading || refreshing || !initialized ? (
+      <View className={STATE_CLASS}>
+        <ActivityIndicator color={theme.colors.brandBlue} />
+        <Text className={STATE_BODY_CLASS}>{t('webApps.loading')}</Text>
+      </View>
+    ) : error ? (
+      <View className={STATE_CLASS}>
+        <Text className={STATE_TITLE_CLASS}>{t('webApps.loadFailed')}</Text>
+        <Text className={STATE_BODY_CLASS}>{getGatewayErrorMessage(t, error.code)}</Text>
+        <Text className={STATE_BODY_CLASS}>{t('webApps.pullToRetry')}</Text>
+      </View>
+    ) : (
+      <View className={STATE_CLASS}>
+        <Text className={STATE_TITLE_CLASS}>{t('webApps.emptyTitle')}</Text>
+        <Text className={STATE_BODY_CLASS}>{t('webApps.emptyBody')}</Text>
+      </View>
+    );
 
   if (!enabled) {
     return (

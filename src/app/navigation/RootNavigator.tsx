@@ -34,11 +34,7 @@ export function RootNavigator() {
     : 'signed-out';
 
   if (account.isBootstrapping && !cloud.cacheAllowed) {
-    return (
-      <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        <RootStack.Screen name="Login" component={AuthBootstrapScreen} />
-      </RootStack.Navigator>
-    );
+    return <AuthBootstrapScreen />;
   }
 
   return (

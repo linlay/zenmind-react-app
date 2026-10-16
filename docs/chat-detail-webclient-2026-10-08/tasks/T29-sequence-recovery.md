@@ -69,6 +69,6 @@
 | 变更文件与设计取舍           | query/attach 共用按 conversation/run 的 seq 去重，容忍过滤后的跳号；最多 128 个 seq 游标；同 run 三次失败/无进展 done 后停止自动恢复并显示刷新错误，手动刷新/新 run/有效进展重置；保留 shared socket。 |
 | 测试命令、结果与证据位置     | chatSyncService.ts、types.ts、controller；chatWebclientService 去重/跨 run/三次恢复上限 fixture。；总览记录正式检查结果                                                                                |
 | 真实后端 / Native 联调       | 待提供目标部署版本与可操作会话；读取 CoreSimulator 确认当前无已启动设备，未操作真机                                                                                                                    |
-| 迁移与回滚方式               | 无 schema 或依赖变更；新增 snapshot 字段可选，瞬态不落库；旧 SQLite 与 viewport 数据兼容保留，空续聊沿用 outbox；回滚代码无需删库                                                                      |
+| 迁移与回滚方式               | 聊天缓存使用 schema 9；旧 scope 首次打开时一次性清空聊天表、对应目录快照及应用管理的资源图片缓存，新版本不重复清空，高版本拒绝降级打开；认证、来源配置、远端数据和用户原始文件保留。 |
 | 阻塞项与后续事项             | 真实协议样本、Native WebView/交互以及 P2 范围待确认；T31 不关闭                                                                                                                                        |
 | 临时状态清理与原有改动保护   | 任务开始前保存状态与文件基线；正式检查前另存生成文件状态；最终恢复和哈希审计见总览                                                                                                                     |

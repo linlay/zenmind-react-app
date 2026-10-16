@@ -290,7 +290,7 @@ test('account login and logout do not invalidate an in-flight cloud HTTP request
   }
 });
 
-test('manual Token persists only after verification, restores its scope, and changing Token never reuses old outbox scope', async () => {
+test('manual Token persists only after verification, restores its scope, and changing Token never reuses old message scope', async () => {
   const f = fixture();
   f.cloud.restoreCloudCredential();
   assert.equal(await f.access.verifyDefaultCloud('manual-one'), 'available');

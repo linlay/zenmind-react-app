@@ -22,7 +22,7 @@ WebClient 支持运行中 steer 和发送确认队列；accepted:true 只是接�
 
 1. 在 T00 明确是否需要多项队列、重启恢复和终态后自动转 query。默认只管理当前 run 的单次在途提交；只有明确需要排队才增加 queued，不建设通用持久任务队列。
 2. 使用协议确认的稳定 steerId/请求关联 ID 匹配 command 事件，限定 owner/chat/run；区分 sending、accepted 和 unknown，事件确认后移除 pending 项，由 timeline 保存 confirmed command。事件先于响应到达也不重复添加或回退。
-3. 保留正文与附件/引用，允许协议支持的空正文 command。accepted:false 恢复完整输入，未知结果不自动重发；只在明确需要重启恢复时增加相应持久化，不把未确认 steer 放入自动重发 query 的既有 outbox。
+3. 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 4. 只有 T00 明确纳入自动转换才在真实运行终态后处理尚未发送的 queued 项；accepted/unknown 项不得转 query。切换历史不触发转换。未纳入时不自动产生新 query，保留可由用户核对或重新发送的输入。
 
 ## 当前项目接入点

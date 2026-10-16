@@ -1,17 +1,10 @@
 import { memo, useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  Text,
-  TextInput,
-  View
-} from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Modal, Platform, Pressable, Text, TextInput } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MAX_FEEDBACK_COMMENT_CHARS } from '../../../core/api/services/chatFeedbackProtocol.ts';
 import { ScreenHeader } from '../../../shared/components/ScreenHeader';
+import { AppIcon } from '../../../shared/icons/AppIcon';
+import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { useT } from '../../../shared/i18n';
 import { chatSyncService } from '../../chatRealtime/chatSyncService';
 import type { ChatTimelineRunNode } from '../../chatTimeline/types.ts';
@@ -27,6 +20,7 @@ export const ChatRunFeedback = memo(function ChatRunFeedback({
     [open, setOpen] = useState(false),
     [comment, setComment] = useState(''),
     [error, setError] = useState('');
+  const { theme } = useAppTheme();
   const alive = useRef(true),
     busy = useRef(false);
   useEffect(() => {
@@ -48,6 +42,7 @@ export const ChatRunFeedback = memo(function ChatRunFeedback({
       if (alive.current) {
         if (type === 'clear') setComment(node.feedback?.comment || '');
         setError(e instanceof Error ? e.message : String(e));
+        setOpen(true);
       }
     } finally {
       busy.current = false;
@@ -55,44 +50,24 @@ export const ChatRunFeedback = memo(function ChatRunFeedback({
   };
   if (node.lifecycle === 'active' || node.completedAt === null) return null;
   return (
-    <View className="gap-app-xs">
-      <View className="flex-row items-center gap-app-sm">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityState={{ selected: !!feedback, disabled: pending }}
-          disabled={pending}
-          onPress={() => {
-            if (!error) setComment(feedback?.comment || '');
-            setOpen(true);
-          }}
-          className="min-h-[32px] justify-center px-app-sm"
-        >
-          <Text className={feedback ? 'text-app-caption text-app-brand' : 'text-app-caption text-app-secondary'}>
-            {t(feedback ? 'runFeedback.downvoted' : 'runFeedback.downvote')}
-          </Text>
-        </Pressable>
-        {feedback ? (
-          <Pressable
-            accessibilityRole="button"
-            disabled={pending}
-            onPress={() => void submit('clear')}
-            className="min-h-[32px] justify-center px-app-sm"
-          >
-            <Text className="text-app-caption text-app-secondary">{t('runFeedback.clear')}</Text>
-          </Pressable>
-        ) : null}
-        {pending ? <ActivityIndicator size="small" /> : null}
-      </View>
-      {feedback?.comment ? (
-        <Text selectable numberOfLines={3} className="text-app-caption text-app-secondary">
-          {feedback.comment}
-        </Text>
-      ) : null}
-      {error ? (
-        <Text selectable className="text-app-caption text-app-danger">
-          {t('runFeedback.failed')} · {error}
-        </Text>
-      ) : null}
+    <>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={t(feedback ? 'runFeedback.downvoted' : 'runFeedback.downvote')}
+        accessibilityState={{ selected: !!feedback, disabled: pending, busy: pending }}
+        disabled={pending}
+        onPress={() => {
+          if (!error) setComment(feedback?.comment || '');
+          setOpen(true);
+        }}
+        className="h-8 w-8 shrink-0 items-center justify-center rounded-app-sm active:opacity-[0.7]"
+      >
+        {pending ? (
+          <ActivityIndicator size="small" />
+        ) : (
+          <AppIcon usage="timeline.feedback" color={feedback ? theme.colors.brandBlue : theme.colors.textSecondary} />
+        )}
+      </Pressable>
       {open ? (
         <Modal visible animationType="slide" onRequestClose={() => setOpen(false)}>
           <SafeAreaView className="flex-1 bg-app-background">
@@ -121,6 +96,11 @@ export const ChatRunFeedback = memo(function ChatRunFeedback({
               ]}
             />
             <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className="flex-1 p-app-md">
+              {error ? (
+                <Text selectable accessibilityRole="alert" className="mb-2 text-app-caption text-app-danger">
+                  {t('runFeedback.failed')} · {error}
+                </Text>
+              ) : null}
               <TextInput
                 multiline
                 autoFocus
@@ -132,10 +112,21 @@ export const ChatRunFeedback = memo(function ChatRunFeedback({
                 accessibilityLabel={t('runFeedback.comment')}
                 className="min-h-[120px] rounded-app-md border border-app-line p-app-sm text-app-body text-app-primary"
               />
+              {feedback ? (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('runFeedback.clear')}
+                  disabled={pending}
+                  onPress={() => void submit('clear')}
+                  className="min-h-[44px] justify-center self-start px-app-sm"
+                >
+                  <Text className="text-app-caption text-app-secondary">{t('runFeedback.clear')}</Text>
+                </Pressable>
+              ) : null}
             </KeyboardAvoidingView>
           </SafeAreaView>
         </Modal>
       ) : null}
-    </View>
+    </>
   );
 });

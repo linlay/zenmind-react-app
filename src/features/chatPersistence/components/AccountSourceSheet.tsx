@@ -23,7 +23,7 @@ type Props = {
   devices: AccountDevice[];
   selectedId: string;
   loading: boolean;
-  switching: boolean;
+  switchingId: string | null;
   error: string;
   onClose: () => void;
   onRefresh: () => void;
@@ -35,7 +35,8 @@ export function AccountSourceSheet(props: Props) {
   const t = useT();
   const cloud = useCloudAuth();
   const selected = useSyncExternalStore(subscribeActiveDesktop, getSelectedSource, getSelectedSource);
-  const cloudDisabled = props.switching || cloud.status !== 'available';
+  const switching = props.switchingId !== null;
+  const cloudDisabled = switching || cloud.status !== 'available';
   const insets = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const closeRef = useRef(props.onClose);
@@ -66,7 +67,7 @@ export function AccountSourceSheet(props: Props) {
             <Text className="text-app-title-sm font-bold text-app-primary">{t('accountSource.title')}</Text>
             {props.loggedIn ? (
               <Pressable
-                disabled={props.loading || props.switching}
+                disabled={props.loading || switching}
                 onPress={props.onRefresh}
                 accessibilityRole="button"
                 accessibilityLabel={t('accountSource.refresh')}
@@ -83,7 +84,11 @@ export function AccountSourceSheet(props: Props) {
             <Pressable
               disabled={cloudDisabled}
               accessibilityRole="button"
-              accessibilityState={{ selected: selected?.kind === 'cloud', disabled: cloudDisabled }}
+              accessibilityState={{
+                selected: selected?.kind === 'cloud',
+                disabled: cloudDisabled,
+                busy: props.switchingId === ''
+              }}
               onPress={() => props.onSelect(null)}
               className="min-h-16 flex-row items-center gap-app-md px-app-xl"
             >
@@ -95,7 +100,11 @@ export function AccountSourceSheet(props: Props) {
               >
                 {t('accountSource.cloud')}
               </Text>
-              {selected?.kind === 'cloud' ? <AppIcon usage="accountSource.selected" /> : null}
+              {props.switchingId === '' ? (
+                <ActivityIndicator />
+              ) : selected?.kind === 'cloud' ? (
+                <AppIcon usage="accountSource.selected" />
+              ) : null}
             </Pressable>
             <View className="gap-app-sm px-app-xl pb-app-md">
               <Text className="text-app-footnote text-app-secondary">{t(`cloud.status.${cloud.status}`)}</Text>
@@ -108,7 +117,7 @@ export function AccountSourceSheet(props: Props) {
                   <Text className="font-bold text-app-action">{t('cloud.login')}</Text>
                 </Pressable>
                 <Pressable
-                  disabled={cloud.status === 'checking' || props.switching}
+                  disabled={cloud.status === 'checking' || switching}
                   onPress={() => void verifyDefaultCloud()}
                   accessibilityRole="button"
                   className="min-h-11 justify-center"
@@ -130,9 +139,13 @@ export function AccountSourceSheet(props: Props) {
               ? props.devices.map((device) => (
                   <Pressable
                     key={device.deviceId}
-                    disabled={props.switching}
+                    disabled={switching}
                     accessibilityRole="button"
-                    accessibilityState={{ selected: props.selectedId === device.deviceId }}
+                    accessibilityState={{
+                      selected: props.selectedId === device.deviceId,
+                      disabled: switching,
+                      busy: props.switchingId === device.deviceId
+                    }}
                     onPress={() => props.onSelect(device)}
                     className="min-h-16 flex-row items-center gap-app-md border-t border-app-line px-app-xl py-app-sm"
                   >
@@ -151,7 +164,11 @@ export function AccountSourceSheet(props: Props) {
                         )}
                       </Text>
                     </View>
-                    {props.selectedId === device.deviceId ? <AppIcon usage="accountSource.selected" /> : null}
+                    {props.switchingId === device.deviceId ? (
+                      <ActivityIndicator />
+                    ) : props.selectedId === device.deviceId ? (
+                      <AppIcon usage="accountSource.selected" />
+                    ) : null}
                   </Pressable>
                 ))
               : null}

@@ -92,13 +92,13 @@ WebClient HTML 使用专用模板，将快照嵌入 `__CONVERSATION_EXPORT_SNAPS
 
 已接入 ChatExportMenu、core chatExport/service/protocol 及 Native/Web 文件交付。默认源按 conversation namespace 的 sourceId 绑定配置 API/凭据，GET /api/chat/export?chatId=<remote>&format=markdown 或 snapshot 读取服务端完整历史，不经过详情分页、attach、read 或 SQLite。paired 来源的数据面尚未冻结，显式 unavailable，不借用默认源或当前 Desktop/Identity 的认证。
 
-响应按 expo/fetch 的字节流读取并在超过 20 MiB 时立即取消，无 Content-Length 仍有界；60 秒超时、单次在途、关闭/账号/会话变化/卸载取消。打开面板不请求，导出内容仅保留在本次操作，正文热路径不扫描历史，不新增 schema/store/outbox/缓存框架。旧 Native 二进制可能缺少 ExpoSharing，分享模块在点击时惰性加载，失败提示不可用。
+联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 
 HTML 使用公开构建变量 EXPO_PUBLIC_CONVERSATION_EXPORT_ASSET_ORIGIN（仅 HTTPS origin，无路径/凭据/query），从该域名 /assets/conversation-export/conversation.template.html 无凭据读取模板。未配置时只提供 Markdown。校验模板 profile conversation-snapshot-json-v2、asset-set、嵌入 marker 和 256 KiB 限制，快照须 V1/毫秒时间/合法节点及 canonical artifacts/<run>/<file>、SHA256/大小；拒绝 credential/ticket 字段。插入 JSON 前转义 script 结束符且不改变正文中的模板标记或替换符。已读取同级 WebClient dist/export 实际模板，本地兼容生成 70,114 字节；部署域名与实际资源认证仍待用户提供/联调，不自动假定 assets 域名或生产版本。
 
 Native 保存走用户目录，不覆盖已有文件；失败/等待取消仅删除自己创建的目标。分享使用唯一 cache 目录，只在用户明确点击后调用系统文件分享；系统窗口结束后 finally 删除目录，关闭页面不会提前撤销仍在系统使用的文件。Web 保存回收 Blob URL，文件分享按浏览器能力显式失败；未创建公共链接或复制产物二进制。进程被强杀后的系统 cache 回收及 Android 目标应用异步读取仍须真实设备验收，不能由 mock 测试宣称完成。
 
-专项 chatExport/chatExportNative 13/13、全量 pnpm test 715/715、严格 tsc noUnused 与 pnpm lint 通过；生产 Web 打包、XGraph 与清理审计结果在总览最后记录。测试覆盖未加载历史、长历史总节点大于 2,000（上限按每轮协议）、HTML 注入/版本、无长度超限取消、来源/凭据变化、重复点击、关闭与卸载、分享成功/失败回收及保存不覆盖。实时/回放/冷启动的状态写入不适用：本功能完全只读，测试验证仅专用导出 GET，无消息/outbox/timeline/已读写入。
+联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 
 未关闭项：真实部署/AP/Desktop/Agent/Team 的长历史与资源认证、HTML 资产域名/版本、Native 重建后的保存/分享/取消。无 storage 迁移，回滚删除本次能力入口及文件即可，不需删库；用户安装后的 lock 保留。
 

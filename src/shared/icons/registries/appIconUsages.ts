@@ -8,6 +8,7 @@ export type AppIconColorRole =
   | 'tertiary'
   | 'onBrandAction'
   | 'success'
+  | 'danger'
   | 'warning';
 
 export type AppIconSizeRole = 'rail' | 'pinMarker' | 'toolbar' | 'fold' | 'sm' | 'md' | 'lg' | 'xl' | 'xxl' | 'tab';
@@ -65,7 +66,7 @@ export const appIconUsages = {
     sizeRole: 'md'
   },
   'chatDetail.openHistory': {
-    glyph: 'menu',
+    glyph: 'history',
     colorRole: 'brand',
     sizeRole: 'md'
   },
@@ -84,14 +85,18 @@ export const appIconUsages = {
 
   'composer.attach': { glyph: 'add', colorRole: 'secondary', sizeRole: 'md' },
   'composer.plan': { glyph: 'checklist', colorRole: 'primary', sizeRole: 'md' },
-  'composer.planActive': { glyph: 'checklist', colorRole: 'brand', sizeRole: 'md' },
+  'composer.edit': { glyph: 'edit_square', colorRole: 'primary', sizeRole: 'md' },
   'composer.attachImage': { glyph: 'image', colorRole: 'brand', sizeRole: 'sm' },
-  'composer.attachFile': { glyph: 'draft', colorRole: 'success', sizeRole: 'sm' },
-  'composer.accessDefault': { glyph: 'tool', colorRole: 'secondary', sizeRole: 'sm' },
-  'composer.accessAutoApprove': { glyph: 'check', colorRole: 'warning', sizeRole: 'sm' },
-  'composer.accessFullAccess': { glyph: 'warning', colorRole: 'warning', sizeRole: 'sm' },
-  'composer.model': { glyph: 'smart_toy', colorRole: 'secondary', sizeRole: 'sm' },
-  'composer.modelFast': { glyph: 'spark', colorRole: 'brand', sizeRole: 'sm' },
+  'composer.attachFile': { glyph: 'attach_file', colorRole: 'secondary', sizeRole: 'sm' },
+  'composer.attachChatReference': { glyph: 'question_answer', colorRole: 'secondary', sizeRole: 'sm' },
+  'composer.accessDefault': { glyph: 'front_hand', colorRole: 'secondary', sizeRole: 'sm' },
+  'composer.accessAutoApprove': { glyph: 'verified_user', colorRole: 'warning', sizeRole: 'sm' },
+  'composer.accessFullAccess': { glyph: 'gpp_maybe', colorRole: 'danger', sizeRole: 'sm' },
+  'composer.model': { glyph: 'brain', colorRole: 'secondary', sizeRole: 'sm' },
+  'composer.modelFast': { glyph: 'bolt', colorRole: 'brand', sizeRole: 'sm' },
+  'composer.skills': { glyph: 'skills', colorRole: 'secondary', sizeRole: 'sm' },
+  'composer.skillPackage': { glyph: 'folder', colorRole: 'secondary', sizeRole: 'sm' },
+  'composer.skillPackageOpen': { glyph: 'folder_open', colorRole: 'secondary', sizeRole: 'sm' },
   'composer.reasoning': { glyph: 'psychology', colorRole: 'warning', sizeRole: 'sm' },
   'composer.optionExpand': { glyph: 'expand_more', colorRole: 'tertiary', sizeRole: 'fold' },
   'composer.optionNavigate': { glyph: 'chevron_right', colorRole: 'tertiary', sizeRole: 'fold' },
@@ -123,17 +128,20 @@ export const appIconUsages = {
     sizeRole: 'rail'
   },
   'timeline.systemAlertRail': { glyph: 'warning', colorRole: 'warning', sizeRole: 'rail' },
-  'timeline.contextCompactRail': { glyph: 'history', colorRole: 'secondary', sizeRole: 'rail' },
+  'timeline.contextCompactRail': { glyph: 'compress', colorRole: 'secondary', sizeRole: 'rail' },
   'timeline.copy': {
     glyph: 'content_copy',
     colorRole: 'secondary',
     sizeRole: 'toolbar',
     strokeWidth: 1.8
   },
+  'timeline.feedback': { glyph: 'thumb_down', colorRole: 'secondary', sizeRole: 'toolbar' },
+  'timeline.quote': { glyph: 'format_quote', colorRole: 'secondary', sizeRole: 'toolbar' },
+  'timeline.derive': { glyph: 'fork_chat', colorRole: 'secondary', sizeRole: 'toolbar' },
   'timeline.reask': { glyph: 'refresh', colorRole: 'secondary', sizeRole: 'toolbar' },
   'timeline.reaskNewConversation': { glyph: 'open_in_new', colorRole: 'primary', sizeRole: 'toolbar' },
   'timeline.scrollToEnd': {
-    glyph: 'keyboard_arrow_down',
+    glyph: 'arrow_downward',
     colorRole: 'primary',
     sizeRole: 'md'
   },
@@ -153,7 +161,26 @@ export const appIconUsages = {
   'runtime.reasoning': { glyph: 'psychology', colorRole: 'warning', sizeRole: 'rail' },
   'runtime.awaiting': { glyph: 'question_answer', colorRole: 'warning', sizeRole: 'rail' },
   'runtime.tool': { glyph: 'build', colorRole: 'brand', sizeRole: 'rail' },
-  'runtime.source': { glyph: 'article', colorRole: 'success', sizeRole: 'rail' },
+  'runtime.toolAgent': { glyph: 'tool_agent', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolBash': { glyph: 'tool_bash', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolWait': { glyph: 'tool_wait', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolRead': { glyph: 'tool_read', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolWrite': { glyph: 'tool_write', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolEdit': { glyph: 'tool_edit', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolGlob': { glyph: 'tool_glob', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolGrep': { glyph: 'tool_grep', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolWeb': { glyph: 'tool_web', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolDesktop': { glyph: 'tool_desktop', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolQuestion': { glyph: 'tool_question', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolRun': { glyph: 'tool_run', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolPublish': { glyph: 'tool_publish', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolDatetime': { glyph: 'tool_datetime', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolRegex': { glyph: 'tool_regex', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolImage': { glyph: 'image', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolVision': { glyph: 'visibility', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolBrowser': { glyph: 'code', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.toolPlan': { glyph: 'checklist', colorRole: 'brand', sizeRole: 'rail' },
+  'runtime.source': { glyph: 'search', colorRole: 'brand', sizeRole: 'rail' },
   'runtime.planning': { glyph: 'assignment', colorRole: 'brand', sizeRole: 'rail' },
   'runtime.file': { glyph: 'description', colorRole: 'success', sizeRole: 'rail' },
   'runtime.neutral': { glyph: 'smart_toy', colorRole: 'secondary', sizeRole: 'rail' },
@@ -193,7 +220,8 @@ export const appIconUsages = {
   'artifact.close': { glyph: 'close', colorRole: 'primary', sizeRole: 'md' },
   'artifact.retry': { glyph: 'refresh', colorRole: 'brand', sizeRole: 'toolbar' },
   'team.avatarFallback': { glyph: 'person', colorRole: 'onBrandAction', sizeRole: 'md' },
-  'usage.close': { glyph: 'close', colorRole: 'secondary', sizeRole: 'sm' }
+  'usage.close': { glyph: 'close', colorRole: 'secondary', sizeRole: 'sm' },
+  'usage.toggleMode': { glyph: 'swap_horiz', colorRole: 'secondary', sizeRole: 'sm' }
 } as const satisfies Record<string, AppIconUsageConfig>;
 
 export type AppIconUsage = keyof typeof appIconUsages;

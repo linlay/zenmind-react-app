@@ -66,7 +66,7 @@
 ## 3. 组件形态
 
 - 圆角：整体适中，头像和徽标保持圆形，按钮和输入区用小到中等圆角。
-- 图标：统一使用线性风格图标，不混入多套图标风格。
+- 图标：统一使用线性风格图标，不混入多套图标风格。聊天详情复用 agent-webclient 的图形和工具身份映射，时间线图标统一 18px；图标按钮保留可访问名称。
 - 操作按钮：优先系统感图标按钮和轻边框按钮；实心主按钮只能使用 `brandBlueAction` / `onBrandBlueAction`，不要复用 `brandBlue` 做按钮底色。
 - 输入框：背景使用 `surfaceMuted`，边框使用 `lineStrong`，placeholder 使用 `textTertiary`，焦点态使用 `brandBlue` 或 `brandBlueAction`。
 - 卡片：默认不用大卡片包页面内容；若必须分组，暗色下使用 `surface` 或 `surfaceMuted` 加 `lineStrong` 细边框，不给每个分组叠阴影。

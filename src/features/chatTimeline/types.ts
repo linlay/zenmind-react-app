@@ -1,3 +1,4 @@
+import type { QueryModelOverride } from '../../core/api/services/modelOptionsProtocol.ts';
 import type { ChatViewReference } from '../../core/api/services/chatViewProtocol.ts';
 import type { ChatToolOutput } from './toolOutput.ts';
 import type { ChatRequestMessageVariant } from '../../core/api/services/chatEventProtocol.ts';
@@ -264,6 +265,7 @@ export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
 
 export type ChatTimelineTextNode = ChatTimelineBaseNode & {
   kind: 'reasoning' | 'planning' | 'request' | 'usage';
+  isMainRun?: boolean;
   title: string;
   body: string;
   status: ChatTimelineRuntimeStatus | string;
@@ -352,9 +354,17 @@ export type ChatTimelineActionNode = ChatTimelineBaseNode & {
 export type ChatTimelineToolNode = ChatTimelineBaseNode & {
   errorDetail?: ChatTimelineErrorDetail | null;
   kind: 'tool';
+  taskId?: string;
   view?: ChatViewReference;
   viewError?: string;
   toolOutput?: ChatToolOutput;
+  toolWait?: {
+    startedAt: number;
+    deadlineAt: number;
+    description: string;
+    match: 'any' | 'all';
+    conditions: { index: number; satisfied: boolean; status: string }[];
+  };
   agentKey: string;
   toolId: string;
   toolName: string;
@@ -425,6 +435,10 @@ export type ChatTimelineAwaitingNode = ChatTimelineBaseNode & {
 
 export type ChatTimelineRunNode = ChatTimelineBaseNode & {
   kind: 'run';
+  isMainRun?: boolean;
+  queryModel?: QueryModelOverride;
+  editingMode?: boolean;
+  planningMode?: boolean;
   derivation?: import('../../core/api/services/chatDerivationProtocol.ts').ChatDerivation;
   feedback?: import('./timelineRunFeedback.ts').ChatRunFeedback | null;
   feedbackPending?: { requestId: string; feedback: { type: 'thumbs_down'; comment: string } | null };
@@ -528,6 +542,7 @@ export type ChatTimelineUsageContextWindow = {
 export type ChatTimelineUsageSummary = {
   label: string;
   modelKey: string;
+  serviceTier?: string;
   contextWindow: ChatTimelineUsageContextWindow;
   current: ChatTimelineUsageStats;
   run: ChatTimelineUsageStats;

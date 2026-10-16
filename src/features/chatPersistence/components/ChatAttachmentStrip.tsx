@@ -284,7 +284,7 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
   const selection = attachments.find((item) => item.attachmentId === selectionId && item.kind === 'selection');
   const selectionReference = selection?.references.find((ref) => ref.type === 'selection');
   const context = attachments.find(
-    (item) => item.attachmentId === selectionId && (item.kind === 'chat' || item.kind === 'site')
+    (item) => item.attachmentId === selectionId && ['chat', 'site', 'skill', 'kbase'].includes(item.kind)
   );
   const contextReference = context?.references[0];
   const { openPreview } = useAuthenticatedResourcePreview();
@@ -333,7 +333,7 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
                 attachment.status === 'failed' ? ATTACHMENT_FAILED_CLASS : null
               )}
             >
-              {attachment.kind === 'chat' || attachment.kind === 'site' ? (
+              {['chat', 'site', 'skill', 'kbase'].includes(attachment.kind) ? (
                 <Pressable
                   onPress={() => setSelectionId(attachment.attachmentId)}
                   accessibilityRole="button"
@@ -344,7 +344,15 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
                       {attachment.name}
                     </Text>
                     <Text numberOfLines={1} className={FILE_META_CLASS}>
-                      {t(attachment.kind === 'chat' ? 'contextReference.chat' : 'contextReference.site')}
+                      {t(
+                        attachment.kind === 'kbase'
+                          ? 'contextReference.chooseKbase'
+                          : attachment.kind === 'skill'
+                            ? 'composer.skills.title'
+                            : attachment.kind === 'chat'
+                              ? 'contextReference.chat'
+                              : 'contextReference.site'
+                      )}
                     </Text>
                   </View>
                 </Pressable>
@@ -398,7 +406,15 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
       {context && contextReference ? (
         <ChatSelectionSheet
           key={`${context.conversationId}:${context.attachmentId}`}
-          title={t(context.kind === 'chat' ? 'contextReference.chat' : 'contextReference.site')}
+          title={t(
+            context.kind === 'kbase'
+              ? 'contextReference.chooseKbase'
+              : context.kind === 'skill'
+                ? 'composer.skills.title'
+                : context.kind === 'chat'
+                  ? 'contextReference.chat'
+                  : 'contextReference.site'
+          )}
           text={[
             context.name,
             contextReference.id,

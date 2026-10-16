@@ -175,7 +175,7 @@ test('production search reveal expands a folded reply before scrolling; content 
   assert.match(raw, /onActiveChange=\{handleSearchActive\}/);
   assert.match(raw, /wasFollowingEnd && !searchOpenRef.current/);
 });
-test('production copy footer invokes the existing clipboard path once with current whole-run text, including late partial changes', async () => {
+test('dedicated whole-run copy control invokes the existing clipboard path once with current whole-run text, including late partial changes', async () => {
   (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
   const clipboard: string[] = [],
     timelineRef = { current: state() };
@@ -186,40 +186,27 @@ test('production copy footer invokes the existing clipboard path once with curre
     timelineRef,
     displayModelRef: { current: buildChatTimelineDisplayModel(timelineRef.current) }
   });
-  const Footer = evaluate(`const ${declaration('MessageFooter')}; return MessageFooter;`, {
-    memo: React.memo,
-    useT: () => defaultT,
-    View: 'View',
-    Text: 'Text',
-    Pressable: 'Button',
-    TIMELINE_LAYOUT_STYLES: { messageFooter: {}, footerActions: {}, footerMeta: {} },
-    MESSAGE_FOOTER_END_STYLE: {},
-    FOOTER_META_END_STYLE: {},
-    ChatRunCopyButton: ({ runId, onCopyRun }: any) =>
-      React.createElement(
-        'Button',
-        { onPress: () => onCopyRun(runId) },
-        React.createElement('Text', null, defaultT('transcript.copyRun'))
-      ),
-    MessageCopyButton: 'Copy',
-    QuoteButton: 'Quote',
-    MessageReaskButton: 'Reask'
-  });
+  const copySource = readFileSync(
+    new URL('../../src/features/chatPersistence/components/ChatRunCopyButton.tsx', import.meta.url),
+    'utf8'
+  );
+  const CopyRun = evaluate(
+    `${copySource.slice(copySource.indexOf('const ChatRunCopyButton'))}; return ChatRunCopyButton;`,
+    {
+      memo: React.memo,
+      useT: () => defaultT,
+      Pressable: 'Button',
+      AppIcon: 'AppIcon'
+    }
+  );
   let renderer: any;
   await act(async () => {
-    renderer = create(
-      React.createElement(Footer, {
-        text: 'local message',
-        timestamp: '',
-        onCopyText: () => {},
-        onCopyRun: handler,
-        copyRunId: 'run'
-      })
-    );
+    renderer = create(React.createElement(CopyRun, { runId: 'run', onCopyRun: handler }));
   });
   try {
     const control = renderer.root.findByType('Button');
-    assert.equal(control.findByType('Text').props.children, defaultT('transcript.copyRun'));
+    assert.equal(control.props.accessibilityLabel, defaultT('transcript.copyRun'));
+    assert.equal(control.findAllByType('Text').length, 0);
     timelineRef.current = applyChatTimelineEvent(timelineRef.current, 'chat', {
       type: 'content.snapshot',
       runId: 'next',
@@ -232,8 +219,291 @@ test('production copy footer invokes the existing clipboard path once with curre
     assert.match(clipboard[0], /^Query\nquery/);
     assert.match(clipboard[0], /needle earlier answer\n\nfinal answer/);
     assert.equal(clipboard[0].includes('UNRELATED'), false);
-    assert.match(raw, /copyRunId=\{node.runId\}/);
-    assert.match(raw, /copyRunId=\{item.runId\}/);
+    assert.doesNotMatch(raw, /copyRunId|<ChatRunCopyButton/);
+    assert.match(raw, /<ProcessSummaryTimelineRow[^>]*onCopyRun=\{handleCopyRun\}/);
+  } finally {
+    await act(async () => renderer.unmount());
+  }
+});
+
+test('message rows compose one body copy and icon-only actions in one row, with metadata and errors below', async () => {
+  (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+  const names = [
+    'ICON_BUTTON_CLASS',
+    'ICON_BUTTON_DISABLED_CLASS',
+    'MESSAGE_FOOTER_CLASS',
+    'MESSAGE_ACTIONS_CLASS',
+    'META_TEXT_CLASS',
+    'ERROR_TEXT_CLASS',
+    'USER_BUBBLE_CLASS',
+    'USER_ATTACHMENT_PANEL_CLASS',
+    'USER_ATTACHMENT_PANEL_BEFORE_TEXT_CLASS',
+    'MessageCopyButton',
+    'MessageReaskButton',
+    'QuoteButton',
+    'MessageFooter',
+    'UserQueryRow',
+    'AssistantReplyFooterRow'
+  ];
+  const { User, Assistant } = evaluate(
+    `${names.map((name) => `const ${declaration(name)};`).join('\n')} return { User: UserQueryRow, Assistant: AssistantReplyFooterRow };`,
+    {
+      memo: React.memo,
+      useCallback: React.useCallback,
+      useRef: React.useRef,
+      useT: () => defaultT,
+      useAppTheme: () => ({
+        theme: { colors: { textSecondary: '#666', textTertiary: '#999', onBrandBlueAction: '#fff' } }
+      }),
+      View: 'View',
+      Text: 'Text',
+      Pressable: 'Button',
+      AppIcon: 'AppIcon',
+      ChatConversationMarkdownRenderer: 'Markdown',
+      ChatAttachmentStrip: 'Attachments',
+      TIMELINE_LAYOUT_STYLES: {},
+      cn: (...values: string[]) => values.filter(Boolean).join(' '),
+      formatChatDetailTimestamp: () => '今天 09:48',
+      formatChatDetailRunDuration: () => '2分53秒',
+      ChatRunFeedback: () =>
+        React.createElement('Button', null, React.createElement('AppIcon', { usage: 'timeline.feedback' })),
+      ChatRunDerivation: () =>
+        React.createElement('Button', null, React.createElement('AppIcon', { usage: 'timeline.derive' }))
+    }
+  );
+  const timeline = state(),
+    model = buildChatTimelineDisplayModel(timeline);
+  const userItem = model.items.find((item) => item.kind === 'user-query')!;
+  assert.ok('node' in userItem && userItem.node.kind === 'message');
+  const footerItem = model.items.find((item) => item.kind === 'assistant-reply-footer')!;
+  assert.equal(footerItem.kind, 'assistant-reply-footer');
+  const copied: string[] = [],
+    quoted: string[] = [],
+    reasked: unknown[] = [];
+  const common = { onCopyText: (text: string) => copied.push(text), onQuoteText: (text: string) => quoted.push(text) };
+  let renderer: any;
+  await act(async () => {
+    renderer = create(
+      React.createElement(User, {
+        ...common,
+        node: { ...userItem.node, errorReason: 'A long submission error' },
+        onOpenReaskMenu: (node: unknown) => reasked.push(node)
+      })
+    );
+  });
+  try {
+    const usages = () => renderer.root.findAllByType('AppIcon').map((icon: any) => icon.props.usage);
+    const action = (usage: string) =>
+      renderer.root
+        .findAllByType('Button')
+        .find((button: any) => button.findAllByType('AppIcon').some((icon: any) => icon.props.usage === usage));
+    const actionsContainer = () => {
+      let parent = action('timeline.copy').parent;
+      while (parent.type !== 'View') parent = parent.parent;
+      return parent;
+    };
+    assert.deepEqual(usages(), ['timeline.copy', 'timeline.quote', 'timeline.reask']);
+    for (const button of renderer.root.findAllByType('Button')) assert.equal(button.findAllByType('Text').length, 0);
+    const actionRow = actionsContainer();
+    assert.match(actionRow.props.className, /flex-row/);
+    assert.equal(actionRow.findAllByType('Button').length, 3);
+    assert.equal(actionRow.findAllByType('Text').length, 0);
+    const error = renderer.root
+      .findAllByType('Text')
+      .find((text: any) => text.props.children === 'A long submission error');
+    assert.equal(error.props.numberOfLines, undefined);
+    assert.match(error.props.className, /text-right/);
+    await act(async () => action('timeline.copy').props.onPress());
+    await act(async () => action('timeline.quote').props.onPress());
+    await act(async () => action('timeline.reask').props.onPress());
+    assert.deepEqual(copied, ['query']);
+    assert.deepEqual(quoted, ['query']);
+    assert.equal(reasked.length, 1);
+    await act(async () =>
+      renderer.update(
+        React.createElement(Assistant, {
+          ...common,
+          item: footerItem,
+          conversationId: 'chat',
+          deriveDisabled: false,
+          onDeriveRun: async () => {},
+          feedbackRun: { runId: 'run', derivation: { phase: 'unknown' } }
+        })
+      )
+    );
+    assert.deepEqual(usages(), ['timeline.copy', 'timeline.quote', 'timeline.feedback', 'timeline.derive']);
+    assert.equal(actionsContainer().findAllByType('Button').length, 4);
+    assert.equal(actionsContainer().findAllByType('Text').length, 0);
+    assert.ok(
+      renderer.root.findAllByType('Text').some((text: any) => text.props.children === defaultT('runDerivation.unknown'))
+    );
+    await act(async () => action('timeline.copy').props.onPress());
+    await act(async () => action('timeline.quote').props.onPress());
+    assert.deepEqual(copied, ['query', 'needle earlier answer\n\nfinal answer']);
+    assert.deepEqual(quoted, copied);
+  } finally {
+    await act(async () => renderer.unmount());
+  }
+});
+
+test('timeline surface keeps native tools unmounted through history and derivation, preserves pagination and enables tools explicitly on web', async () => {
+  (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+  const listDeclaration = ts.createSourceFile(
+    'list.tsx',
+    `const ${declaration('ChatTimelineList')}`,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TSX
+  );
+  let surface: ts.Expression | undefined;
+  function visit(node: ts.Node) {
+    if (ts.isFunctionExpression(node) && node.name?.text === 'ChatTimelineList') {
+      const statement = node.body.statements.find(ts.isReturnStatement);
+      surface = statement?.expression;
+    } else ts.forEachChild(node, visit);
+  }
+  visit(listDeclaration);
+  assert.ok(surface);
+  const noop = () => {};
+  let searchMounts = 0;
+  let searchUnmounts = 0;
+  function Search() {
+    React.useEffect(() => {
+      searchMounts++;
+      return () => {
+        searchUnmounts++;
+      };
+    }, []);
+    return React.createElement('Search');
+  }
+  const scope = {
+    ConversationMarkdownLinkProvider: 'Provider',
+    View: 'View',
+    FlashList: 'List',
+    ChatTimelineTextSearch: Search,
+    ChatFileChanges: 'Files',
+    workspaceAgentKey: '',
+    THREAD_CLASS: 'flex-1',
+    conversationActions: React.createElement('Export'),
+    handleSearchReveal: noop,
+    setSearchNodeId: noop,
+    handleSearchActive: noop,
+    openFileChanges: noop,
+    closeFileChanges: noop,
+    threadRef: null,
+    handleThreadLayout: noop,
+    listRef: null,
+    listExtraData: {},
+    renderItem: noop,
+    keyExtractor: noop,
+    THREAD_SCROLLER_STYLE: {},
+    timelineListStyle: {},
+    getChatTimelinePresentationItemType: noop,
+    emptyStateElement: React.createElement('Empty'),
+    historyHeader: React.createElement('LoadOlder'),
+    listFooter: null,
+    handleScroll: noop,
+    updateMetricsFromScrollEvent: noop,
+    handleViewableItemsChanged: noop,
+    handleLayout: noop,
+    handleContentSizeChange: noop,
+    TIMELINE_VIEWABILITY_CONFIG: {},
+    waitingIndicatorDocked: false,
+    showScrollToEnd: false,
+    artifactCount: 0,
+    planningCollapseOverlay: null,
+    quoteSource: null,
+    selectionScope: 'scope',
+    reaskMenu: null
+  };
+  const Surface = evaluate(
+    `return function Surface({items, timelineState, fileChangesOpen, showConversationTools = false}) { const ${declaration('hasContent')}; return ${surface.getText(listDeclaration)}; };`,
+    scope
+  );
+  const props = (conversationId: string, items: unknown[], fileChangesOpen = false, showConversationTools = false) => ({
+    timelineState: { conversationId },
+    items,
+    fileChangesOpen,
+    showConversationTools
+  });
+  let renderer: any;
+  await act(async () => {
+    renderer = create(React.createElement(Surface, props('empty', [])));
+  });
+  try {
+    assert.equal(renderer.root.findAllByType('Export').length, 0);
+    assert.equal(renderer.root.findAllByType('Search').length, 0);
+    assert.equal(renderer.root.findByType('List').props.ListHeaderComponent, null);
+    for (const conversationId of ['native-history', 'native-derived', 'native-reopened']) {
+      await act(async () => renderer.update(React.createElement(Surface, props(conversationId, [{}], true))));
+      assert.equal(renderer.root.findAllByType('Export').length, 0);
+      assert.equal(renderer.root.findAllByType('Search').length, 0);
+      assert.equal(renderer.root.findAllByType('Files').length, 0);
+      assert.ok(renderer.root.findByType('List').props.ListHeaderComponent);
+      assert.equal(searchMounts, 0);
+    }
+    await act(async () => renderer.update(React.createElement(Surface, props('web-populated', [{}], true, true))));
+    assert.equal(renderer.root.findAllByType('Export').length, 1);
+    assert.equal(renderer.root.findAllByType('Search').length, 1);
+    assert.equal(renderer.root.findAllByType('Files').length, 1);
+    assert.ok(renderer.root.findByType('List').props.ListHeaderComponent);
+    await act(async () => renderer.update(React.createElement(Surface, props('web-another', [{}], true, true))));
+    assert.equal(searchMounts, 2);
+    assert.equal(searchUnmounts, 1);
+    await act(async () => renderer.update(React.createElement(Surface, props('another-empty', [], true, true))));
+    assert.equal(renderer.root.findAllByType('Export').length, 0);
+    assert.equal(renderer.root.findAllByType('Search').length, 0);
+    assert.equal(renderer.root.findAllByType('Files').length, 0);
+    assert.equal(renderer.root.findByType('List').props.ListHeaderComponent, null);
+    assert.equal(searchUnmounts, 2);
+  } finally {
+    await act(async () => renderer.unmount());
+  }
+});
+
+test('system alerts expose technical details without a whole-run copy action', async () => {
+  (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+  const alertSource = readFileSync(
+    new URL('../../src/features/chatPersistence/components/ChatSystemAlert.tsx', import.meta.url),
+    'utf8'
+  );
+  const Alert = evaluate(
+    `${alertSource.slice(alertSource.indexOf('const TIMELINE_ROW_CLASS')).replace('export const ChatSystemAlert', 'const ChatSystemAlert')}; return ChatSystemAlert;`,
+    {
+      memo: React.memo,
+      useCallback: React.useCallback,
+      useMemo: React.useMemo,
+      useState: React.useState,
+      useT: () => defaultT,
+      useAppTheme: () => ({ theme: { colors: { danger: 'red', textSecondary: 'gray' } } }),
+      View: 'View',
+      Text: 'Text',
+      Pressable: 'Button',
+      ScrollView: 'ScrollView',
+      AppIcon: 'AppIcon',
+      ChatTimelineRail: 'Rail'
+    }
+  );
+  let renderer: any;
+  await act(async () => {
+    renderer = create(
+      React.createElement(Alert, {
+        node: {
+          runId: 'failed-run',
+          content: 'Request failed',
+          errorDetail: { message: 'Permission denied', status: 403 }
+        },
+        isLastInRun: true
+      })
+    );
+  });
+  try {
+    const icons = () => renderer.root.findAllByType('AppIcon').map((icon: any) => icon.props.usage);
+    assert.equal(icons().includes('timeline.copy'), false);
+    assert.equal(renderer.root.findAllByType('Button').length, 1);
+    await act(async () => renderer.root.findByType('Button').props.onPress());
+    assert.ok(renderer.root.findAllByType('Text').some((text: any) => text.props.children === 'Permission denied'));
+    assert.equal(icons().includes('timeline.copy'), false);
   } finally {
     await act(async () => renderer.unmount());
   }

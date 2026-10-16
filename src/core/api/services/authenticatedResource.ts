@@ -54,6 +54,12 @@ export async function fetchAuthenticatedResourceText(
   } = {}
 ): Promise<string> {
   const maxBytes = Math.max(1, options.maxBytes ?? AUTHENTICATED_TEXT_PREVIEW_MAX_BYTES);
+  if (typeof resource !== 'string' && resource.textContent !== undefined) {
+    if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    if (new TextEncoder().encode(resource.textContent).length > maxBytes)
+      throw new AuthenticatedResourceError('too_large', 'Resource preview is too large');
+    return resource.textContent;
+  }
   const timeoutMs = Math.max(1, options.timeoutMs ?? AUTHENTICATED_TEXT_PREVIEW_TIMEOUT_MS);
   const selection = getSelectedSource();
   const generation = selection?.kind === 'desktop' ? getAccountAuthGeneration() : getCloudAuthSnapshot().generation;

@@ -1,4 +1,5 @@
-import { normalizeApiResourcePath } from '../../core/api/resourceUrl.ts';
+import { getRemoteChatSourceId } from './chatSource.ts';
+import { buildChatResourceUrl, normalizeApiResourcePath } from '../../core/api/resourceUrl.ts';
 import { defaultT, type TFunction } from '../../shared/i18n/translate.ts';
 import type {
   ChatAttachmentBase,
@@ -53,7 +54,7 @@ export function getChatAttachmentKind(input: {
   mimeType?: string | null;
 }): ChatAttachmentKind {
   const rawType = normalizeLowerText(input.type || input.kind);
-  if (rawType === 'selection' || rawType === 'chat' || rawType === 'site') return rawType;
+  if (['selection', 'chat', 'site', 'skill', 'kbase'].includes(rawType)) return rawType as ChatAttachmentKind;
   if (rawType === 'image') {
     return 'image';
   }
@@ -114,6 +115,7 @@ function normalizeReference(input: Record<string, unknown>): ChatAttachmentRefer
     mimeType: normalizeText(input.mimeType) || undefined,
     sizeBytes: Number.isFinite(sizeBytes) && sizeBytes >= 0 ? sizeBytes : undefined,
     url: normalizeChatAttachmentResourceUrl(input.url) || undefined,
+    path: normalizeText(input.path) || undefined,
     sha256: normalizeText(input.sha256) || undefined
   };
 }
@@ -129,14 +131,14 @@ export function normalizeChatAttachmentReferences(input: unknown): ChatAttachmen
     lastFileIndex = new Map<string, number>();
   for (const value of input) {
     if (!isObjectRecord(value)) continue;
-    if (value.type === 'chat' || value.type === 'site') {
+    if (['chat', 'site', 'skill', 'kbase'].includes(String(value.type))) {
       const id = normalizeText(value.id);
       if (!id) continue;
       const key = `${value.type}:${id}`;
       if (seenContexts.has(key)) continue;
       seenContexts.add(key);
       references.push({
-        type: value.type,
+        type: String(value.type),
         id,
         ...(normalizeText(value.name) ? { name: normalizeText(value.name) } : {}),
         ...(isObjectRecord(value.meta) ? { meta: { ...value.meta } } : {}),
@@ -176,6 +178,8 @@ export function normalizeChatAttachmentReferences(input: unknown): ChatAttachmen
       item.type === 'selection' ||
       item.type === 'chat' ||
       item.type === 'site' ||
+      item.type === 'skill' ||
+      item.type === 'kbase' ||
       lastFileIndex.get(item.name!) === index
   );
 }
@@ -240,7 +244,10 @@ export function createMessageAttachmentsFromReferences(input: {
       height: null,
       localUri: '',
       previewUri: null,
-      resourceUrl: reference.type === 'chat' || reference.type === 'site' ? null : reference.url || null,
+      resourceUrl: ['chat', 'site', 'skill', 'kbase', 'selection'].includes(reference.type || '')
+        ? null
+        : buildChatResourceUrl(reference.url || reference.path || '', getRemoteChatSourceId(input.conversationId)) ||
+          null,
       sha256: reference.sha256 || null,
       status: 'ready',
       errorReason: null,

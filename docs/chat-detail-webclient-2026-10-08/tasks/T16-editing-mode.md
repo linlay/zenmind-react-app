@@ -1,4 +1,4 @@
-# T16 KBASE Editing 模式
+# T16 编辑与规划输入选项
 
 [返回任务总览](../README.md)
 
@@ -14,7 +14,7 @@
 
 ## 背景与差异
 
-WebClient 已按 Agent 类型区分 KBASE Editing 与 CODER Planning；当前已有 planningMode，不能用同一个开关语义替代。
+编辑与规划分别读取 interactionConfig，保持独立选项，允许同时提交。配置未加载时隐藏入口。
 
 证据基于总览中记录的本地比较基线。“局部复现”指对现有纯数据处理路径的定向验证；“静态差异”不等于真实后端已支持；“待专项验证”不代表已确认存在缺陷。执行前复查相关代码和协议样本。
 
@@ -22,7 +22,7 @@ WebClient 已按 Agent 类型区分 KBASE Editing 与 CODER Planning；当前已
 
 1. 按类型和能力显式区分 editing/planning。
 2. editingMode 仅开启时以 true 发送。
-3. 保存本次 outbox 选项并在失败、重发时恢复。
+3. 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 4. 切换 Agent 或能力失效时清理不可用模式。
 
 ## 当前项目接入点
@@ -40,7 +40,7 @@ WebClient 已按 Agent 类型区分 KBASE Editing 与 CODER Planning；当前已
 
 ## 验收清单
 
-- [ ] KBASE 与 CODER 控件和 payload 不混用。
+- [ ] 能力只读取 interactionConfig，编辑关闭显式发送 false，入口隐藏时省略；规划与编辑可组合。
 - [ ] 关闭时不发送多余字段。
 - [ ] 重试不丢本次模式。
 - [ ] 能力关闭后无法带入陈旧模式。
@@ -61,9 +61,9 @@ WebClient 已按 Agent 类型区分 KBASE Editing 与 CODER Planning；当前已
 | 记录项 | 结果 |
 | --- | --- |
 | 日期与版本 | 2026-10-08；移动端 HEAD `64e015bf28bf12c43f50640257f3ab7d402dbb73`，参考 `eeec6f12b29bdf440b47b3d6f108aba67981e2ea`；均以实际工作树为准，部署版本未知 |
-| 协议 | 对齐 `isDedicatedKbaseWorker` 和 query DTO：仅 Agent detail.mode=KBASE 可 Editing；CODER Planning 保留独立选项；关闭时不发送 editingMode |
-| 设计 | 复用模式按钮、source service、现有 outbox 和主键查询；不增加设置引擎、全局默认、索引、依赖或持久连接 |
-| 状态 | Editing 成功发送清除、失败保留；Agent/会话切换或模式不可用清除；Team/Planning 混用发送前拒绝；steer 不透传；发送与运行时禁改模式 |
+| 协议 | 直接读取 interactionConfig；编辑入口可见时发送明确 true/false，隐藏时省略；规划与编辑独立，不按 mode 推断 |
+| 设计 | 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。 |
+| 状态 | 运行时从服务端 activeRun 恢复输入选项；TEAM 使用相同能力校验；规划与编辑允许组合；steer 不透传 query 选项 |
 | 持久化/恢复 | editing_mode 增量列默认 0；旧行不变，历史合并保留，冷启动/reconnect replay 读取原值并校验当前能力；失败消息重问按原 client ID 读取本次选项 |
 | 测试 | 全量 626/626，`pnpm exec tsc --noEmit`、`pnpm lint` 通过；定向 Editing/service/query/performance 43/43，最终扩大至 async scope/composer 的回归 58/58；Web 导出成功。SQLite 迁移使用 node:sqlite 内存数据库执行真实初始化代码 |
 | 证据 | `chatEditingMode.test.mts`、`chatWebclientService.test.mts`、`chatWsTransportPayload.test.mts`；不是实际后端样本 |

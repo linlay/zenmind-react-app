@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenHeader } from '../../../shared/components/ScreenHeader';
 import { useT } from '../../../shared/i18n';
 import {
@@ -8,6 +8,9 @@ import {
   MAX_SELECTION_ANNOTATION_CHARACTERS,
   readSelectedRange
 } from '../chatSelectionReference.ts';
+
+const SOURCE_TEXT_CLASS =
+  'min-h-0 flex-1 mx-app-md border border-app-line rounded-app-md p-app-md text-app-body text-app-primary';
 
 export function ChatSelectionSheet({
   text,
@@ -27,6 +30,7 @@ export function ChatSelectionSheet({
   onClose: () => void;
 }) {
   const t = useT();
+  const insets = useSafeAreaInsets();
   const [page, setPage] = useState(0);
   const window = useMemo(() => {
     const stride = MAX_SELECTED_TEXT_CHARACTERS;
@@ -44,7 +48,11 @@ export function ChatSelectionSheet({
   return (
     <Modal visible animationType="slide" onRequestClose={onClose}>
       <SafeAreaView className="flex-1 bg-app-background">
-        <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <KeyboardAvoidingView
+          className="min-h-0 flex-1"
+          behavior="padding"
+          keyboardVerticalOffset={Platform.OS === 'ios' ? insets.top : 0}
+        >
           <ScreenHeader
             title={title}
             leftActions={[
@@ -81,19 +89,22 @@ export function ChatSelectionSheet({
                 scrollEnabled
                 showSoftInputOnFocus={false}
                 editable={Platform.OS === 'android' || Platform.OS === 'web'}
-                onChangeText={() => {
+                onChangeText={(value) => {
+                  if (value === window.text) return;
                   inputRef.current?.setNativeProps({ text: window.text });
                   setSelected(null);
                 }}
                 onSelectionChange={(event) => {
                   const { start, end } = event.nativeEvent.selection;
+                  // Focus changes collapse the native range without cancelling the saved quote.
+                  if (start === end) return;
                   setSelected(readSelectedRange(window.text, start, end));
                 }}
                 autoCorrect={false}
                 spellCheck={false}
                 textAlignVertical="top"
                 accessibilityLabel={t('selection.source')}
-                className="flex-1 mx-app-md border border-app-line rounded-app-md p-app-md text-app-body text-app-primary"
+                className={SOURCE_TEXT_CLASS}
               />
               {text.length > MAX_SELECTED_TEXT_CHARACTERS * 2 ? (
                 <View className="flex-row items-center justify-between px-app-md py-app-sm">
@@ -158,6 +169,8 @@ export function ChatSelectionSheet({
               value={comment}
               onChangeText={setComment}
               multiline
+              scrollEnabled
+              textAlignVertical="top"
               maxLength={MAX_SELECTION_ANNOTATION_CHARACTERS}
               accessibilityLabel={t('selection.annotation')}
               placeholder={t('selection.annotation')}

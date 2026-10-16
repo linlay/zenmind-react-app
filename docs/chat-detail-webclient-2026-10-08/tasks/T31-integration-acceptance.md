@@ -21,7 +21,7 @@
 ## 实施步骤
 
 1. 根据 T00 的范围结论验收已纳入任务、任务部分及必要前置，按实际影响选择总览矩阵和跨任务组合。包括单独纳入的 T10 主动压缩与 T23 复制/搜索；暂缓项记录理由，验证专项有无须修改的证据即可关闭。
-2. 根据实际数据变更验证旧 SQLite/outbox/snapshot 兼容；只有需要迁移时才验收迁移，目录受影响时验证 MMKV 刷新，并覆盖相关 source 隔离。
+2. 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。
 3. 运行目标链路测试、typecheck/lint 和必要 Native 验证，按实际变更决定构建范围。
 4. 更新任务状态、实际提交、残留风险、灰度/回滚与 XGraph。
 5. 审计清理，只删除本任务临时产物并确认用户原有改动未动。
@@ -73,7 +73,7 @@
 | 变更文件与设计取舍           | P1 本地实现与协议/service 回归已落地；T00 后端版本/P2 范围及真实 Native 联调尚未完成，不标记整体完成。无新增依赖、无 lock 变更、无 storage schema 迁移。 |
 | 测试命令、结果与证据位置     | 测试命令与最终结果见总览；所有 fixture 保存在 scripts/tests，临时构建/日志和生成文件恢复将在清理审计中确认。；总览记录正式检查结果                       |
 | 真实后端 / Native 联调       | 待提供目标部署版本与可操作会话；读取 CoreSimulator 确认当前无已启动设备，未操作真机                                                                      |
-| 迁移与回滚方式               | 无 schema 或依赖变更；新增 snapshot 字段可选，瞬态不落库；旧 SQLite 与 viewport 数据兼容保留，空续聊沿用 outbox；回滚代码无需删库                        |
+| 迁移与回滚方式               | 聊天缓存使用 schema 9；旧 scope 首次打开时一次性清空聊天表、对应目录快照及应用管理的资源图片缓存，新版本不重复清空，高版本拒绝降级打开；认证、来源配置、远端数据和用户原始文件保留。 |
 | 阻塞项与后续事项             | 真实协议样本、Native WebView/交互以及 P2 范围待确认；T31 不关闭                                                                                          |
 | 临时状态清理与原有改动保护   | 任务开始前保存状态与文件基线；正式检查前另存生成文件状态；最终恢复和哈希审计见总览                                                                       |
 
@@ -98,8 +98,8 @@ T31 不关闭：真实后端版本/脱敏样本、Native VIEW 三入口、可见
 | T24 导出分享                                | 用户已安装 expo-sharing `56.0.15`；chatExport/service/protocol 与 Native/Web 交付及 13 项专项测试                          | 默认源本地导出/分享已落地，715 项回归通过；HTML 部署域名/版本、paired 数据面与真实 Native 重建/交付仍未验收                                                                                                             |
 | T25 BTW                                     | Backend ws_query_routes/controlscope、HTTP btw/attach/interrupt；T25 第 2 步要求复用共享 transport                                         | 功能未实施；普通共享 WS 无法启动 BTW，跨 HTTP/WS 控制被拒绝。必须先确认允许的移动端共享通道，或明确采用 HTTP 全链路及 AP/Desktop 路由/认证；不预建不可用的隔离引擎                                                       |
 | T27 Office                                  | Document preview capability/prepare、默认源静态身份、实际 service/组件与账号切换取消测试                                                   | 默认源在线转换/系统浏览器本地落地；paired HTTP 通道/实际 Document Hub 配置与 Native 打开/下载未验收                                                                                                                      |
-| 旧 SQLite/outbox/snapshot、MMKV             | database.ts/schema.ts 的实际字段与 chatEditingMode 真实内存 SQLite 迁移测试，目录 repository 回归                                          | P2 增加 `editing_mode INTEGER NOT NULL DEFAULT 0` 与 `must_use_skills_json TEXT NOT NULL DEFAULT '[]'`，旧 pending 行与已有值保留、重复初始化幂等；无删库/新操作表。旧 Native 安装升级仍需真机，不再声称“无 schema 变更” |
-| 性能与过度设计/旧代码                       | 有界输出/VIEW/cache/虚拟列表/按节点引用复用的计数与行为测试；`tsc --noUnusedLocals --noUnusedParameters`                                   | 严格未使用局部/参数检查通过；旧 getOutboxMessageModes 已无源码引用，兼容旧缓存的实际读取路径保留。没有为 BTW 预建框架，Native 长历史/资源/手势性能仍未测量                                                               |
+| 技能目录读取 id，单次选择经 references 的 skill 引用提交；TEAM 同样按根 agentKey 和 interactionConfig 校验能力，不单独持久化待重放发送选项。 | database.ts/schema.ts 的实际字段与 chatEditingMode 真实内存 SQLite 迁移测试，目录 repository 回归                                          | P2 增加 `editing_mode INTEGER NOT NULL DEFAULT 0` 与 `must_use_skills_json TEXT NOT NULL DEFAULT '[]'`，旧 pending 行与已有值保留、重复初始化幂等；无删库/新操作表。旧 Native 安装升级仍需真机，不再声称“无 schema 变更” |
+| 性能与过度设计/旧代码                       | 有界输出/VIEW/cache/虚拟列表/按节点引用复用的计数与行为测试；`tsc --noUnusedLocals --noUnusedParameters`                                   | 技能目录读取 id，单次选择经 references 的 skill 引用提交；TEAM 同样按根 agentKey 和 interactionConfig 校验能力，不单独持久化待重放发送选项。 |
 | 本地质量门禁与交付                          | T27 最终全量 702/702、tsc/lint/Web 导出；每轮基线/暂存区/生成文件清理审计                                                                  | 本地门禁通过，不替代以上真实门禁；没有创建 PR、发布或合并                                                                                                                                                                |
 
 ### 本次环境复核

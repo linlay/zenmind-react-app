@@ -240,8 +240,8 @@ function buildUsageStats(
   );
   const totalTokens =
     firstUsageNumber(source.totalTokens, fallback.totalTokens) ??
-    (promptTokens !== null || completionTokens !== null
-      ? (promptTokens ?? 0) + (completionTokens ?? 0)
+    (promptTokens !== null && completionTokens !== null
+      ? promptTokens + completionTokens
       : null);
 
   return {
@@ -330,6 +330,7 @@ export function buildChatTimelineUsageSummary(
     resolveChatTimelineUsageModelKey(runRecord) ||
     resolveChatTimelineUsageModelKey(chatRecord);
 
+  const serviceTier = firstUsageText(isObjectRecord(event.model) ? event.model.serviceTier : '', contextWindow.serviceTier);
   return {
     label: firstUsageText(
       event.usageLabel,
@@ -340,6 +341,7 @@ export function buildChatTimelineUsageSummary(
       event.label
     ),
     modelKey,
+    ...(serviceTier ? { serviceTier } : {}),
     contextWindow: buildContextWindow(contextWindow),
     current,
     run,
@@ -373,6 +375,7 @@ export function mergeChatTimelineUsageSummaryForContextCompact(
   return {
     label: current?.label || incoming.label,
     modelKey: current?.modelKey || incoming.modelKey,
+    ...((current?.serviceTier ?? incoming.serviceTier) ? { serviceTier: current?.serviceTier ?? incoming.serviceTier } : {}),
     contextWindow:
       postCompactTokens === null
         ? contextWindow
@@ -469,6 +472,7 @@ export function chatTimelineUsageSummaryEquals(
   return (
     left.label === right.label &&
     left.modelKey === right.modelKey &&
+    left.serviceTier === right.serviceTier &&
     left.updatedAt === right.updatedAt &&
     contextWindowEqual(left.contextWindow, right.contextWindow) &&
     usageStatsEqual(left.current, right.current) &&

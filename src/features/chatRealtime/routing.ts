@@ -6,7 +6,6 @@ export {
   extractConversationId,
   extractEventText,
   extractMessageRole,
-  extractTeamId,
   extractTitle,
   isAssistantContentEvent,
   isChatReadAllEvent,
@@ -17,5 +16,5 @@ export {
   normalizeEventType,
   toFiniteNumber,
   toText,
-  type ChatProtocolEventFamily,
+  type ChatProtocolEventFamily
 } from '../../core/api/services/chatEventProtocol.ts';

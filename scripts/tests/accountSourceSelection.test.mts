@@ -30,6 +30,7 @@ function fixture() {
     'expo-sqlite': {},
     'react-native-mmkv': {},
     './homeSnapshot.ts': {},
+    './chatComposerPreferences.ts': { clearChatComposerPreferences() {} },
     './cacheScope': { getChatCacheScopeId: () => scope },
     './cacheScope.ts': { notifyChatCacheScopeChanged: observe, getChatCacheScopeId: () => scope },
     './chatSourceRuntime': {},

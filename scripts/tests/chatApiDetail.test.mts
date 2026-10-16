@@ -29,7 +29,7 @@ test('chat detail request defaults to event history without raw messages', () =>
   assert.match(chatApiSource, /eventLimit: REMOTE_CHAT_PAGE_SIZE/);
   assert.match(chatApiSource, /function buildChatSummariesPayload/);
   assert.match(chatSyncServiceSource, /paginateEvents: paginated/);
-  assert.match(chatSyncServiceSource, /readChatDirectory<RemoteAgent, RemoteTeam>/);
+  assert.match(chatSyncServiceSource, /readChatDirectory<RemoteAgent>/);
   const normalDetailRequest = chatSyncServiceSource.slice(
     chatSyncServiceSource.indexOf('private async getChatDetailViaTransport'),
     chatSyncServiceSource.indexOf('private async fetchAgentDetail')
@@ -48,15 +48,6 @@ test('account Desktop history is merged with persisted pages and offline writes 
   assert.match(sendMessage, /remote operations are not queued/);
 });
 
-test('remote Desktop retries keep one operation identity and can recover its task status', () => {
-  assert.match(chatApiSource, /CHAT_OPERATION_TRANSPORT_TYPE = '\/api\/operation'/);
-  assert.match(chatSyncServiceSource, /operationId: input\.clientMessageId/);
-  assert.match(chatSyncServiceSource, /requestId: createRemoteRequestId\(input\.clientMessageId\)/);
-  assert.match(chatSyncServiceSource, /operationReplayTaskId/);
-  assert.match(chatSyncServiceSource, /getRemoteOperationStatus/);
-  assert.match(chatSyncServiceSource, /setConversationActiveRunId\(input\.conversationId, taskId\)/);
-});
-
 test('development diagnostics explicitly request raw chat messages without changing normal detail requests', () => {
   const diagnosticRequest = chatSyncServiceSource.slice(
     chatSyncServiceSource.indexOf('async collectConversationDiagnosticData'),
@@ -71,15 +62,14 @@ test('frontend tool submit payload uses one normalized run owner and no UI key',
     buildSubmitFrontendToolPayload({
       chatId: ' chat-1 ',
       runId: ' run-1 ',
-      agentKey: 'ignored-agent',
-      teamId: ' team-1 ',
+      agentKey: 'root-team',
       toolId: ' tool-1 ',
       params: { approved: true }
     }),
     {
       chatId: 'chat-1',
       runId: 'run-1',
-      teamId: 'team-1',
+      agentKey: 'root-team',
       toolId: 'tool-1',
       params: { approved: true }
     }

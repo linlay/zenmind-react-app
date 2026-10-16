@@ -67,7 +67,7 @@
       "shared-paginated-list"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-15T07:18:02Z"
+    "lastScannedAt": "2026-10-16T07:39:25Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -102,7 +102,7 @@
     "列表行、timeline 行和高频渲染路径不要在 render 内创建日期 formatter；统一走 formatters.ts 的缓存入口。",
     "纯 formatter、reducer 或 node:test 覆盖的 helper 如需默认翻译，只能 import src/shared/i18n/translate.ts，避免加载 Provider、MMKV 或 expo-localization。",
     "不要翻译用户输入、服务端返回正文、智能体消息、已持久化标题或 runtime payload 原始文本；UI 壳层文案才走 t()。",
-    "语言切换只应触发 Provider 下游 UI 重渲染，不应改写 SQLite、WebSocket、outbox 或聊天目录 MMKV 快照。"
+    "语言切换只应触发 Provider 下游 UI 重渲染，不应改写 SQLite、WebSocket 或聊天目录 MMKV 快照。"
   ],
   "recentChanges": []
 }

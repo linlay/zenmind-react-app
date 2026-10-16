@@ -1,3 +1,4 @@
+import { chatSyncService } from '../../../chatRealtime/chatSyncService';
 import { getChatCacheScopeId, subscribeChatCacheScope } from '../../cacheScope';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 
@@ -50,7 +51,12 @@ export function useAuthenticatedResourceSource(resourceUrl: string, active: bool
           forceRefresh,
           signal: controller.signal
         })
-      : resolveAuthenticatedResourceSource(resourceUrl);
+      : resourceUrl.startsWith('/api/file?')
+        ? chatSyncService.getWorkspaceFile(resourceUrl).then(async (file) => {
+            if (file.contentKind === 'text') return { uri: resourceUrl, textContent: file.content || '' };
+            return resolveAuthenticatedResourceSource(resourceUrl);
+          })
+        : resolveAuthenticatedResourceSource(resourceUrl);
     void resolveSource
       .then((source) => {
         retainedImage = Boolean(imageFileName);

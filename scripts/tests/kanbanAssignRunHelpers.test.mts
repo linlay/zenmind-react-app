@@ -11,10 +11,7 @@ import {
 } from '../../src/core/api/services/kanbanProtocol.ts';
 import { buildKanbanAssistantPrompt } from '../../src/features/agentTaskBoard/kanbanAssistantPrompt.ts';
 import { buildKanbanChatDetailParams } from '../../src/features/agentTaskBoard/kanbanChatRoute.ts';
-import {
-  createChatSource,
-  encodeChatSourceId
-} from '../../src/features/chatPersistence/chatSource.ts';
+import { createChatSource, encodeChatSourceId } from '../../src/features/chatPersistence/chatSource.ts';
 import {
   nextAppliedSnapshotRevision,
   nextIssueIdSet,
@@ -75,22 +72,15 @@ test('kanban chat route builds ChatDetail params only for started tasks', () => 
   assert.equal(params?.conversationId, encodeChatSourceId(pairedSource, 'chat-1'));
   assert.equal(params?.conversationSubtitle, 'Planner');
   assert.equal(params?.conversationTarget?.source, pairedSource);
-  assert.equal(
-    params?.conversationTarget?.agentKey,
-    encodeChatSourceId(pairedSource, 'planner')
-  );
+  assert.equal(params?.conversationTarget?.agentKey, encodeChatSourceId(pairedSource, 'planner'));
   assert.equal(params?.conversationTarget?.subtitle, 'Ship the mobile flow');
   assert.deepEqual(params?.historyScope, {
-    agentKey: encodeChatSourceId(pairedSource, 'planner'),
-    teamId: null
+    agentKey: encodeChatSourceId(pairedSource, 'planner')
   });
   assert.equal(params?.initialConversation?.lastMessageStatus, 'sent');
   assert.equal(params?.initialConversation?.lastMessageAt, Date.parse('2026-06-23T09:30:00Z'));
 
-  assert.equal(
-    buildKanbanChatDetailParams({ ...issue, chatId: '' }, 'Planner', pairedSource),
-    null
-  );
+  assert.equal(buildKanbanChatDetailParams({ ...issue, chatId: '' }, 'Planner', pairedSource), null);
 });
 
 test('kanban start run protocol starts assistant then updates the issue', async () => {

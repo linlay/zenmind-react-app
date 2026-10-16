@@ -92,7 +92,7 @@ export const ChatFileChanges = memo(function ChatFileChanges({
   );
   const onOpen = useCallback(
     (operation: ChatFileOperation) => {
-      const href = `/api/workspace/file?${new URLSearchParams({ path: operation.filePath })}`;
+      const href = operation.filePath.startsWith('/') ? operation.filePath : `@workspace/${operation.filePath}`;
       const link = parseConversationMarkdownInternalLink(href) || {
         kind: 'invalid' as const,
         href,

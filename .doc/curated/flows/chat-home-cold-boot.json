@@ -48,7 +48,7 @@
     },
     {
       "order": 6,
-      "label": "chatSyncService 协调当前账号唯一来源；sourceKey 与 cache scope 校验后才更新所属 repository，切换只释放手机连接，不取消远端任务。",
+      "label": "chatSyncService 协调当前账号唯一来源；sourceKey 与 cache scope 校验后才更新所属 repository，切换只释放手机连接，不取消远端任务。推送启动与目录读取并行；refreshHome 单飞维护目录同步快照，准备与远端读取限时 15 秒，失败可重试。",
       "moduleId": "app-shell-navigation",
       "file": "src/app/AppRoot.tsx",
       "symbol": "chatSyncService.start"
@@ -62,7 +62,7 @@
     },
     {
       "order": 8,
-      "label": "初始化、分页、手动刷新和失焦后恢复仍通过目录 repository 入口读取 SQLite 真源切片、置顶顺序和最近消息顺序。",
+      "label": "初始化、分页、手动刷新和失焦后恢复仍通过目录 repository 入口读取 SQLite 真源切片、置顶顺序和最近消息顺序。目录侧边栏在来源切换后立即显示当前源缓存或加载提示，订阅同步快照及 home.directory.replace，完成后整体回读已加载范围；真实空态必须等待远端成功与本地回读完成，失败/离线保留缓存并明确反馈。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/ChatHomeScreen.tsx",
       "symbol": "loadVisibleSlice"
@@ -72,9 +72,9 @@
     "把 MMKV 当真源会导致冷启动后目录列表和真实 SQLite 状态不一致。",
     "页面直接读写 database 或 schema 会让持久化边界失控。",
     "详情页如果绕过 repository 或 sync service 直接读写 socket / SQLite，会破坏首页与详情的一致性。",
-    "省略 AppRoot 的 chatSyncService.start 会导致实时刷新与 outbox flush 缺失。",
+    "省略 AppRoot 的 chatSyncService.start 会导致实时刷新与 运行观察恢复 缺失。",
     "远端目录刷新失败时如果用空数组覆盖 SQLite/MMKV，会丢失本地可用快照。",
-    "把 agent/team 目录硬塞入 conversations，或把 lastMessageText/lastMessageAt 冗余进 chat_directory_items，会混淆目录入口与聊天摘要真源。",
+    "把 Agent 目录硬塞入 conversations，或把 lastMessageText/lastMessageAt 冗余进 chat_directory_items，会混淆目录入口与聊天摘要真源。",
     "从指定 Run 派生必须先保存目标 ID，再由 server 复制上下文；确认真实目标并经 repository 写入 owner 目录后刷新 MMKV。重启/超时核对只查询保存的 ID，禁止自动重新派生或将未知目标当作空本地对话加入目录。",
     "切换来源必须在读取分页、计数、搜索前切换独立 SQLite 文件；迟到结果不得写入新 scope，页面不得闪出旧源。"
   ],

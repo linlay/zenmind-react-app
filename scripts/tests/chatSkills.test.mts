@@ -15,10 +15,10 @@ const require = createRequire(import.meta.url);
 const catalog = skills.normalizeChatSkills(
   {
     skills: [
-      { key: 'office/pdf', displayName: 'PDF', configured: false },
-      { key: 'OFFICE/PDF', name: 'duplicate' },
-      { key: 'office/doc', name: 'Document', configured: true },
-      { key: 'solo', name: 'Solo' }
+      { id: 'office/pdf', displayName: 'PDF', configured: false },
+      { id: 'OFFICE/PDF', name: 'duplicate' },
+      { id: 'office/doc', name: 'Document', configured: true },
+      { id: 'solo', name: 'Solo' }
     ],
     pinned: ['solo', 'office'],
     packages: [
@@ -31,28 +31,23 @@ const catalog = skills.normalizeChatSkills(
       }
     ]
   },
-  [{ key: 'custom', displayName: 'Custom' }, { key: 'OFFICE/PDF' }]
+  [{ id: 'custom', displayName: 'Custom' }, { id: 'OFFICE/PDF' }]
 );
 
 test('catalog merges configured skills, preserves full package member IDs and removes duplicates', () => {
   assert.equal(catalog.skills.length, 4);
-  assert.equal(catalog.skills[0].key, 'solo');
-  assert.equal(catalog.skills.find((s) => s.key === 'office/pdf')?.configured, true);
+  assert.equal(catalog.skills[0].id, 'solo');
+  assert.equal(catalog.skills.find((s) => s.id === 'office/pdf')?.configured, true);
   assert.deepEqual(catalog.packages[0].members, ['office/pdf', 'office/doc']);
   assert.equal(catalog.packages[0].incomplete, true);
-  assert.deepEqual(skills.resolveRequiredSkillIds([' OFFICE/PDF ', 'office/pdf', 'custom'], catalog), [
-    'office/pdf',
-    'custom'
-  ]);
-  assert.throws(() => skills.resolveRequiredSkillIds(['missing'], catalog), /no longer available/);
+  assert.deepEqual(skills.resolveSkillIds([' OFFICE/PDF ', 'office/pdf', 'custom'], catalog), ['office/pdf', 'custom']);
+  assert.throws(() => skills.resolveSkillIds(['missing'], catalog), /no longer available/);
 });
 test('package and individual selections dedupe, preserve other selections and use IDs rather than labels', () => {
-  const selected = skills.toggleRequiredSkills(['solo', 'office/pdf'], catalog.packages[0].members);
+  const selected = skills.toggleSkills(['solo', 'office/pdf'], catalog.packages[0].members);
   assert.deepEqual(selected, ['solo', 'office/pdf', 'office/doc']);
-  assert.deepEqual(skills.toggleRequiredSkills(selected, catalog.packages[0].members), ['solo']);
-  assert.deepEqual(skills.normalizeRequiredSkills([' PDF ', 'pdf', 'office/pdf', ' ']), ['PDF', 'office/pdf']);
-  for (const invalid of ['{', 'null', '{}', '[42]']) assert.throws(() => skills.parseStoredRequiredSkills(invalid));
-  assert.deepEqual(skills.parseStoredRequiredSkills('[]'), []);
+  assert.deepEqual(skills.toggleSkills(selected, catalog.packages[0].members), ['solo']);
+  assert.deepEqual(skills.normalizeSkillIds([' PDF ', 'pdf', 'office/pdf', ' ']), ['PDF', 'office/pdf']);
 });
 
 test('production virtual skill menu searches full IDs, expands packages and sends concrete selections', async () => {
@@ -78,6 +73,7 @@ test('production virtual skill menu searches full IDs, expands packages and send
     },
     '../../../core/api/services/chatSkillsProtocol': skills,
     '../../../shared/i18n': { useT: () => defaultT },
+    '../../../shared/icons/AppIcon': { AppIcon: 'AppIcon' },
     '../../../shared/visual/className': { cn }
   };
   new Function('require', 'module', 'exports', transformed!.code!)(
@@ -103,8 +99,8 @@ test('production virtual skill menu searches full IDs, expands packages and send
   try {
     let list = renderer.root.findByType('FlatList');
     assert.equal(list.props.initialNumToRender, 8);
-    assert.equal(list.props.data[0].skill.key, 'solo');
-    assert.equal(list.props.data.filter((row: any) => row.skill?.key === 'office/pdf').length, 0);
+    assert.equal(list.props.data[0].skill.id, 'solo');
+    assert.equal(list.props.data.filter((row: any) => row.skill?.id === 'office/pdf').length, 0);
     let row: ReactTestRenderer;
     await act(async () => {
       row = create(list.props.renderItem({ item: list.props.data.find((row: any) => row.pkg) }));
@@ -116,41 +112,10 @@ test('production virtual skill menu searches full IDs, expands packages and send
     await act(async () => renderer.root.findByType('TextInput').props.onChangeText('office/pdf'));
     list = renderer.root.findByType('FlatList');
     assert.equal(list.props.data.length, 2);
-    assert.equal(list.props.data[1].skill.key, 'office/pdf');
+    assert.equal(list.props.data[1].skill.id, 'office/pdf');
   } finally {
     await act(async () => renderer.unmount());
   }
-});
-
-test('corrupt stored requirements block only their own pending row, while healthy outbox entries remain replayable', async () => {
-  const file = readFileSync(new URL('../../src/features/chatPersistence/chatRepository.ts', import.meta.url), 'utf8');
-  const source = ts.createSourceFile('repository.ts', file, ts.ScriptTarget.Latest, true);
-  const node = source.statements.find(
-    (n) => ts.isFunctionDeclaration(n) && n.name?.text === 'getPendingOutboxMessages'
-  )!;
-  const code = ts.transpileModule(`${node.getText(source).replace(/^export /, '')}; getPendingOutboxMessages`, {
-    compilerOptions: { target: ts.ScriptTarget.ES2022 }
-  }).outputText;
-  const rows = [
-    { clientMessageId: 'corrupt', mustUseSkillsJson: 'null' },
-    { clientMessageId: 'healthy', mustUseSkillsJson: '["office/pdf"]' }
-  ];
-  const query = { from: () => query, orderBy: () => query, limit: async () => rows };
-  const read = vm.runInNewContext(code, {
-    Error,
-    getChatCacheScopeId: () => 'test',
-    awaitInChatScope: async (pending: unknown) => pending,
-    ensureChatDatabase: async () => {},
-    chatDb: { select: () => query },
-    outboxMessages: {},
-    desc: () => {},
-    getAttachmentsByMessageIds: async () => new Map(),
-    parseStoredRequiredSkills: skills.parseStoredRequiredSkills
-  });
-  const pending = await read();
-  assert.match(pending[0].optionsError, /Invalid stored/);
-  assert.equal(pending[1].optionsError, undefined);
-  assert.deepEqual([...pending[1].mustUseSkills], ['office/pdf']);
 });
 
 test('production option row keeps skill search open on keyboard show and closes it on Agent change', async () => {
@@ -226,7 +191,9 @@ test('production option row keeps skill search open on keyboard show and closes 
   try {
     const chip = renderer.root
       .findAllByType('Pressable')
-      .find((item) => item.findAllByType('Text').some(text => text.props.children === defaultT('composer.skills.title')))!;
+      .find((item) =>
+        item.findAllByType('Text').some((text) => text.props.children === defaultT('composer.skills.title'))
+      )!;
     assert.equal(chip.props.disabled, false);
     await act(async () => chip.props.onPress());
     assert.equal(renderer.root.findAllByType('SkillsMenu').length, 1);

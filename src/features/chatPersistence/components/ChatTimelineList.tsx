@@ -1,5 +1,5 @@
+import { ChatToolWait } from './ChatToolWait';
 import { ChatFileChanges } from './ChatFileChanges.tsx';
-import { ChatRunCopyButton } from './ChatRunCopyButton.tsx';
 import { ChatTimelineTextSearch } from './ChatTimelineTextSearch.tsx';
 import { serializeChatRunTranscript } from '../chatRunTranscript.ts';
 import { ChatRunDerivation } from './ChatRunDerivation.tsx';
@@ -97,6 +97,8 @@ type ChatTimelineListProps = {
   artifactCount?: number;
   onOpenArtifacts?: () => void;
   historyHeader?: ReactNode;
+  showConversationTools?: boolean;
+  conversationActions?: ReactNode;
 };
 
 const SCROLL_TO_END_BUTTON_THRESHOLD = 96;
@@ -117,8 +119,10 @@ const THREAD_EMPTY_STATE_CLASS = 'items-center gap-app-sm pt-[88px]';
 const THREAD_EMPTY_STATE_TITLE_CLASS = 'text-[18px] font-bold text-app-primary';
 const THREAD_EMPTY_STATE_BODY_CLASS = 'text-[15px] leading-[22px] text-app-secondary';
 const DIAGNOSTIC_FOOTER_CLASS = 'pt-app-sm';
-const ICON_BUTTON_CLASS = 'h-[28px] w-[28px] items-center justify-center rounded-app-sm active:opacity-[0.7]';
+const ICON_BUTTON_CLASS = 'h-8 w-8 shrink-0 items-center justify-center rounded-app-sm active:opacity-[0.7]';
 const ICON_BUTTON_DISABLED_CLASS = 'opacity-[0.45]';
+const MESSAGE_FOOTER_CLASS = 'max-w-full min-w-0 self-stretch gap-1';
+const MESSAGE_ACTIONS_CLASS = 'flex-row items-center gap-0.5';
 const META_TEXT_CLASS = 'text-[12px] font-medium text-app-tertiary';
 const ERROR_TEXT_CLASS = 'shrink text-[12px] font-semibold text-app-danger';
 const USER_BUBBLE_CLASS = 'max-w-full rounded-[16px] rounded-br-[8px] bg-app-action px-[14px] py-[10px]';
@@ -196,43 +200,8 @@ const TIMELINE_LAYOUT_STYLES = StyleSheet.create({
   timelineBody: {
     flex: 1,
     minWidth: 0
-  },
-  messageFooter: {
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: appVisualTokens.spacing.sm
-  },
-  messageFooterEnd: {
-    marginTop: 6,
-    alignSelf: 'flex-end',
-    justifyContent: 'flex-end'
-  },
-  footerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2
-  },
-  footerMeta: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: appVisualTokens.spacing.sm
-  },
-  footerMetaEnd: {
-    flex: 0
   }
 });
-const MESSAGE_FOOTER_END_STYLE = StyleSheet.compose(
-  TIMELINE_LAYOUT_STYLES.messageFooter,
-  TIMELINE_LAYOUT_STYLES.messageFooterEnd
-);
-const FOOTER_META_END_STYLE = StyleSheet.compose(
-  TIMELINE_LAYOUT_STYLES.footerMeta,
-  TIMELINE_LAYOUT_STYLES.footerMetaEnd
-);
 
 const REQUEST_PRESENTATION_BY_VARIANT = {
   default: { iconUsage: 'timeline.requestRail', label: '' },
@@ -418,59 +387,40 @@ const QuoteButton = memo(function QuoteButton({
       onPress={() => onQuoteText(text)}
       accessibilityRole="button"
       accessibilityLabel={t('selection.quote')}
-      className="px-app-sm py-app-xs"
+      hitSlop={8}
+      className={ICON_BUTTON_CLASS}
     >
-      <Text className="text-app-caption text-app-secondary">{t('selection.quote')}</Text>
+      <AppIcon usage="timeline.quote" />
     </Pressable>
   );
 });
 
 const MessageFooter = memo(function MessageFooter({
-  text,
+  actions,
   timestamp,
   errorReason = '',
-  align = 'spread',
-  onCopyText,
-  onQuoteText,
-  reaskNode,
-  onOpenReaskMenu,
-  onCopyRun,
-  copyRunId
+  align = 'start'
 }: {
-  text: string;
+  actions: ReactNode;
   timestamp: string;
   errorReason?: string | null;
-  align?: 'end' | 'spread';
-  onCopyText: (text: string) => void;
-  onQuoteText?: (text: string) => void;
-  onCopyRun?: (runId: string) => void;
-  copyRunId?: string;
-  reaskNode?: ChatTimelineMessageNode;
-  onOpenReaskMenu?: OpenReaskMenu;
+  align?: 'end' | 'start';
 }) {
-  const messageFooterStyle = align === 'end' ? MESSAGE_FOOTER_END_STYLE : TIMELINE_LAYOUT_STYLES.messageFooter;
-  const footerMetaStyle = align === 'end' ? FOOTER_META_END_STYLE : TIMELINE_LAYOUT_STYLES.footerMeta;
+  const textAlignClass = align === 'end' ? 'text-right' : 'text-left';
 
   return (
-    <View style={messageFooterStyle} className={onCopyRun ? 'max-w-full flex-wrap' : undefined}>
-      <View style={TIMELINE_LAYOUT_STYLES.footerActions}>
-        <ChatRunCopyButton runId={copyRunId || ''} onCopyRun={onCopyRun} />
-        <MessageCopyButton text={text} onCopyText={onCopyText} />
-        {text && onQuoteText ? <QuoteButton text={text} onQuoteText={onQuoteText} /> : null}
-        {reaskNode ? <MessageReaskButton node={reaskNode} onOpenMenu={onOpenReaskMenu} /> : null}
-      </View>
-      <View style={footerMetaStyle}>
-        {timestamp ? (
-          <Text allowFontScaling={false} className={META_TEXT_CLASS} ellipsizeMode="tail" numberOfLines={1}>
-            {timestamp}
-          </Text>
-        ) : null}
-        {errorReason ? (
-          <Text allowFontScaling={false} className={ERROR_TEXT_CLASS} ellipsizeMode="tail" numberOfLines={1}>
-            {errorReason}
-          </Text>
-        ) : null}
-      </View>
+    <View className={cn(MESSAGE_FOOTER_CLASS, align === 'end' ? 'mt-1.5 items-end' : 'items-start')}>
+      <View className={MESSAGE_ACTIONS_CLASS}>{actions}</View>
+      {timestamp ? (
+        <Text allowFontScaling={false} className={cn(META_TEXT_CLASS, 'self-stretch', textAlignClass)}>
+          {timestamp}
+        </Text>
+      ) : null}
+      {errorReason ? (
+        <Text allowFontScaling={false} className={cn(ERROR_TEXT_CLASS, 'self-stretch', textAlignClass)}>
+          {errorReason}
+        </Text>
+      ) : null}
     </View>
   );
 });
@@ -479,11 +429,9 @@ const UserQueryRow = memo(function UserQueryRow({
   node,
   onCopyText,
   onQuoteText,
-  onOpenReaskMenu,
-  onCopyRun
+  onOpenReaskMenu
 }: {
   node: ChatTimelineMessageNode;
-  onCopyRun: (runId: string) => void;
   onCopyText: (text: string) => void;
   onQuoteText?: (text: string) => void;
   onOpenReaskMenu?: OpenReaskMenu;
@@ -518,15 +466,18 @@ const UserQueryRow = memo(function UserQueryRow({
           </View>
         ) : null}
         <MessageFooter
-          text={node.content}
+          actions={
+            <>
+              <MessageCopyButton text={node.content} onCopyText={onCopyText} />
+              {text && onQuoteText ? <QuoteButton text={node.content} onQuoteText={onQuoteText} /> : null}
+              <MessageReaskButton node={node} onOpenMenu={onOpenReaskMenu} />
+            </>
+          }
           timestamp={timestamp}
+          errorReason={
+            node.errorReason === 'submission_unconfirmed' ? t('chatDetail.submissionUnconfirmed') : node.errorReason
+          }
           align="end"
-          onCopyRun={onCopyRun}
-          copyRunId={node.runId}
-          onCopyText={onCopyText}
-          onQuoteText={onQuoteText}
-          reaskNode={node}
-          onOpenReaskMenu={onOpenReaskMenu}
         />
       </View>
     </View>
@@ -599,7 +550,6 @@ const AssistantContentRow = memo(function AssistantContentRow({
 
 const AssistantReplyFooterRow = memo(function AssistantReplyFooterRow({
   item,
-  onCopyRun,
   onCopyText,
   onQuoteText,
   feedbackRun,
@@ -608,7 +558,6 @@ const AssistantReplyFooterRow = memo(function AssistantReplyFooterRow({
   conversationId
 }: {
   item: ChatTimelineAssistantReplyFooterDisplayItem;
-  onCopyRun: (runId: string) => void;
   onDeriveRun?: (runId: string) => Promise<void>;
   deriveDisabled: boolean;
   feedbackRun?: import('../../chatTimeline/types.ts').ChatTimelineRunNode;
@@ -632,19 +581,34 @@ const AssistantReplyFooterRow = memo(function AssistantReplyFooterRow({
       <View style={TIMELINE_LAYOUT_STYLES.assistantFooterRailSpacer} />
       <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <MessageFooter
-          text={footer.copyText}
+          actions={
+            <>
+              <MessageCopyButton text={footer.copyText} onCopyText={onCopyText} />
+              {footer.copyText && onQuoteText ? <QuoteButton text={footer.copyText} onQuoteText={onQuoteText} /> : null}
+              {feedbackRun ? (
+                <>
+                  <ChatRunFeedback
+                    key={`feedback:${conversationId}:${feedbackRun.runId}`}
+                    conversationId={conversationId}
+                    node={feedbackRun}
+                  />
+                  <ChatRunDerivation
+                    key={`derive:${conversationId}:${feedbackRun.runId}`}
+                    node={feedbackRun}
+                    disabled={deriveDisabled}
+                    onDerive={onDeriveRun}
+                  />
+                </>
+              ) : null}
+            </>
+          }
           timestamp={footerMeta}
           errorReason={footer.errorReason}
-          onCopyRun={onCopyRun}
-          copyRunId={item.runId}
-          onCopyText={onCopyText}
-          onQuoteText={onQuoteText}
         />
-        {feedbackRun ? (
-          <View key={`${conversationId}:${feedbackRun.runId}`}>
-            <ChatRunFeedback conversationId={conversationId} node={feedbackRun} />
-            <ChatRunDerivation node={feedbackRun} disabled={deriveDisabled} onDerive={onDeriveRun} />
-          </View>
+        {onDeriveRun && feedbackRun?.derivation?.phase === 'unknown' ? (
+          <Text selectable className="mt-1 text-app-caption text-app-secondary">
+            {t('runDerivation.unknown')}
+          </Text>
         ) : null}
       </View>
     </View>
@@ -886,7 +850,6 @@ const TimelineRow = memo(
     onDeriveRun,
     deriveDisabled,
     conversationId,
-    onCopyRun,
     onCopyText,
     onQuoteText,
     onOpenReaskMenu,
@@ -902,7 +865,6 @@ const TimelineRow = memo(
     deriveDisabled: boolean;
     feedbackRun?: import('../../chatTimeline/types.ts').ChatTimelineRunNode;
     conversationId: string;
-    onCopyRun: (runId: string) => void;
     onCopyText: (text: string) => void;
     onQuoteText?: (text: string) => void;
     onOpenReaskMenu?: OpenReaskMenu;
@@ -916,7 +878,6 @@ const TimelineRow = memo(
       return (
         <AssistantReplyFooterRow
           item={item}
-          onCopyRun={onCopyRun}
           onCopyText={onCopyText}
           onQuoteText={onQuoteText}
           feedbackRun={feedbackRun}
@@ -929,13 +890,7 @@ const TimelineRow = memo(
     const node = item.node;
     if (item.kind === 'user-query' && node.kind === 'message') {
       return (
-        <UserQueryRow
-          node={node}
-          onCopyRun={onCopyRun}
-          onCopyText={onCopyText}
-          onQuoteText={onQuoteText}
-          onOpenReaskMenu={onOpenReaskMenu}
-        />
+        <UserQueryRow node={node} onCopyText={onCopyText} onQuoteText={onQuoteText} onOpenReaskMenu={onOpenReaskMenu} />
       );
     }
     if (item.kind === 'assistant-content' && node.kind === 'message') {
@@ -1000,7 +955,38 @@ const TimelineRow = memo(
       return <RequestInputRow node={node} isLastInRun={item.isLastInRun} />;
     }
     if (item.kind === 'system-message' && node.kind === 'message') {
-      return <ChatSystemAlert node={node} isLastInRun={item.isLastInRun} onCopyRun={onCopyRun} />;
+      return <ChatSystemAlert node={node} isLastInRun={item.isLastInRun} />;
+    }
+    if (item.kind === 'tool' && node.kind === 'tool' && (node.toolWait || node.toolName === 'wait')) {
+      return <ChatToolWait node={node} conversationId={conversationId} />;
+    }
+    if (item.kind === 'tool-group' && item.nodes.some((tool) => tool.toolWait || tool.toolName === 'wait')) {
+      return (
+        <View>
+          {item.nodes.map((tool, index) =>
+            tool.toolWait || tool.toolName === 'wait' ? (
+              <ChatToolWait key={tool.id} node={tool} conversationId={conversationId} />
+            ) : (
+              <RuntimeTimelineRow
+                key={tool.id}
+                item={{
+                  ...item,
+                  node: tool,
+                  nodes: [tool],
+                  isLastInRun: item.isLastInRun && index === item.nodes.length - 1
+                }}
+                conversationId={conversationId}
+                onCopyText={onCopyText}
+                getInitialExpanded={getInitialRuntimeExpanded}
+                onExpandedChange={onRuntimeExpandedChange}
+                getInitialPlanningMode={getInitialPlanningMode}
+                onPlanningCollapseOverlayChange={onPlanningCollapseOverlayChange}
+                onPlanningModeChange={onPlanningModeChange}
+              />
+            )
+          )}
+        </View>
+      );
     }
     return (
       <RuntimeTimelineRow
@@ -1022,7 +1008,6 @@ const TimelineRow = memo(
     prev.feedbackRun === next.feedbackRun &&
     prev.onDeriveRun === next.onDeriveRun &&
     prev.deriveDisabled === next.deriveDisabled &&
-    prev.onCopyRun === next.onCopyRun &&
     prev.onCopyText === next.onCopyText &&
     prev.onQuoteText === next.onQuoteText &&
     prev.onOpenReaskMenu === next.onOpenReaskMenu &&
@@ -1056,7 +1041,9 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   reaskNewConversationDisabled = false,
   artifactCount = 0,
   onOpenArtifacts,
-  historyHeader = null
+  historyHeader = null,
+  showConversationTools = false,
+  conversationActions = null
 }: ChatTimelineListProps) {
   const t = useT();
   const { theme } = useAppTheme();
@@ -1163,6 +1150,10 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     [availableTimelineHeight]
   );
   const tailSignature = displayModel.tailSignature;
+  const hasContent = items.length > 0;
+  useEffect(() => {
+    if (!hasContent) closeFileChanges();
+  }, [closeFileChanges, hasContent]);
   const hasCustomEmptyState = Boolean(emptyState);
   const timelineListStyle = useMemo(
     () => [
@@ -1452,7 +1443,6 @@ export const ChatTimelineList = memo(function ChatTimelineList({
               }
               onDeriveRun={onDeriveRun}
               deriveDisabled={deriveDisabled}
-              onCopyRun={handleCopyRun}
               onCopyText={onCopyText}
               onQuoteText={onAddSelection ? handleQuoteText : undefined}
               onOpenReaskMenu={onReaskMessage ? handleOpenReaskMenu : undefined}
@@ -1641,17 +1631,22 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   }, [clearPendingAutoFollowSchedule]);
 
   return (
-    <ConversationMarkdownLinkProvider agentKey={workspaceAgentKey}>
+    <ConversationMarkdownLinkProvider agentKey={workspaceAgentKey} conversationId={timelineState.conversationId}>
       <View className={THREAD_CLASS}>
-        <ChatTimelineTextSearch
-          key={`search:${timelineState.conversationId}`}
-          timeline={timelineState}
-          onReveal={handleSearchReveal}
-          onSelectNode={setSearchNodeId}
-          onActiveChange={handleSearchActive}
-          onOpenFileChanges={openFileChanges}
-        />
-        {fileChangesOpen ? (
+        {showConversationTools && hasContent ? (
+          <>
+            {conversationActions}
+            <ChatTimelineTextSearch
+              key={`search:${timelineState.conversationId}`}
+              timeline={timelineState}
+              onReveal={handleSearchReveal}
+              onSelectNode={setSearchNodeId}
+              onActiveChange={handleSearchActive}
+              onOpenFileChanges={openFileChanges}
+            />
+          </>
+        ) : null}
+        {showConversationTools && hasContent && fileChangesOpen ? (
           <ChatFileChanges
             key={`file-changes:${timelineState.conversationId}`}
             timeline={timelineState}
@@ -1673,7 +1668,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
             drawDistance={620}
             getItemType={getChatTimelinePresentationItemType}
             ListEmptyComponent={emptyStateElement}
-            ListHeaderComponent={historyHeader ? <>{historyHeader}</> : null}
+            ListHeaderComponent={hasContent && historyHeader ? <>{historyHeader}</> : null}
             ListFooterComponent={listFooter}
             keyboardShouldPersistTaps="handled"
             onScroll={handleScroll}

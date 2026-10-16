@@ -139,10 +139,10 @@ index.js
 
 Chat 数据真源：
 
-- SQLite：目录项、会话摘要、消息、outbox、read state、conversation sync state、rich timeline snapshot。
+- SQLite：目录项、会话摘要、消息、read state、conversation sync state、rich timeline snapshot。
 - MMKV：只保存 Chat 首页首屏目录冷启动快照，不承担排序、查询或完整消息历史职责。
 - `chatRepository`：本地读写唯一入口，统一刷新 SQLite 与目录快照。
-- `chatSyncService`：实时同步业务协调层，负责 outbox replay、发送、ack、push、stream、awaiting submit、stop/resume 和 scoped UI event。
+- `chatSyncService`：实时同步业务协调层，负责 发送、ack、push、stream、awaiting submit、stop/resume 和 scoped UI event。
 - `chatWsTransport` / `WsClient`：只处理 `/ap/ws` transport、request、stream、push、重连和调试 frame 记录。
 
 发送链路：
@@ -151,7 +151,7 @@ Chat 数据真源：
 ChatDetail / Chat 首页
   -> chatSyncService.sendMessage()
   -> chatRepository.createOutgoingMessage()
-  -> SQLite messages + outbox + conversation summary
+  -> SQLite messages + conversation summary
   -> chatWsTransport.streamChatQuery(/api/query over /ap/ws)
   -> ack / stream event
   -> repository patch + timeline replace

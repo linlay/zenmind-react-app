@@ -14,14 +14,14 @@
 
 ## 背景与差异
 
-WebClient 支持 skills/skill packages 选择以及 mustUseSkills 单次发送；移动端尚无完整能力、选择、发送和重试链路。
+技能目录读取 id，单次选择经 references 的 skill 引用提交；TEAM 同样按根 agentKey 和 interactionConfig 校验能力，不单独持久化待重放发送选项。
 
 证据基于总览中记录的本地比较基线。“局部复现”指对现有纯数据处理路径的定向验证；“静态差异”不等于真实后端已支持；“待专项验证”不代表已确认存在缺陷。执行前复查相关代码和协议样本。
 
 ## 实施步骤
 
 1. 读取技能包能力，合并 pinned/configured/typed 等来源并以 ID 去重。
-2. 建立单次选择状态并将 mustUseSkills 写入本次 query/outbox。
+2. 技能目录读取 id，单次选择经 references 的 skill 引用提交；TEAM 同样按根 agentKey 和 interactionConfig 校验能力，不单独持久化待重放发送选项。
 3. 明确发送后重置与失败恢复，避免变成全局持久默认。
 4. 按实际协议禁用不支持的 Team/steer 路径。
 
@@ -61,11 +61,11 @@ WebClient 支持 skills/skill packages 选择以及 mustUseSkills 单次发送�
 | 记录项 | 结果 |
 | --- | --- |
 | 日期/版本 | 2026-10-08；移动端 HEAD `64e015bf28bf12c43f50640257f3ab7d402dbb73`、参考 `eeec6f12b29bdf440b47b3d6f108aba67981e2ea`，均按实际工作树；目标后端部署版本未知 |
-| 协议 | `/api/skills` 全局目录、pinned 顺序、configured 标记与技能包 full member IDs；合并 Agent raw.skills，typed 名称/完整 ID 搜索具体技能；发送 mustUseSkills 具体 ID，不发送包 ID |
+| 协议 | 技能目录读取 id，单次选择经 references 的 skill 引用提交；TEAM 同样按根 agentKey 和 interactionConfig 校验能力，不单独持久化待重放发送选项。 |
 | 设计 | source service 复用 shared transport，30 秒成功缓存、single-flight、32 项上限和原 namespace generation；现有浮层+FlatList，不造菜单框架/全局默认/后台任务 |
-| 选择/发送 | Agent+会话内单次状态，成功清除/失败保留，能力/目标切换清除；包和单选去重，具体 IDs 与 query/outbox 一致；Team/steer 禁透传，失效目录或能力阻止派发 |
+| 选择/发送 | 联网与能力校验通过后，先保存消息并提交一次 query；requestId 使用本地消息 ID。有效服务端事件确认后标记已发送；未确认断线记为失败，重连只回读详情并 attach 已确认 Run，手动重发先核对历史。 |
 | 恢复 | SQLite 增量 must_use_skills_json 默认 []；历史合并保留；reconnect 检查原始要求，损坏行单独报错且不阻止其他 pending；失败重问按 client ID 取原选项 |
-| 旧实现清理 | 用 getOutboxMessageOptions 替代旧 getOutboxMessageModes，更新实际调用者/测试，无弃用别名或第二套状态 |
+| 旧实现清理 | 技能目录读取 id，单次选择经 references 的 skill 引用提交；TEAM 同样按根 agentKey 和 interactionConfig 校验能力，不单独持久化待重放发送选项。 |
 | 测试/构建 | 全量 635/635、`pnpm exec tsc --noEmit`、`pnpm lint`、Web 导出通过；证据 `chatSkills.test.mts`（生产菜单组件、键盘/Agent 切换、ID/包去重和坏行隔离）、service/query 专项、真实 node:sqlite 旧表升级/重复启动保留选项 |
 | 迁移/回滚 | 追加列且默认空，无删库/新索引。旧客户端忽略列；带技能要求的 pending 保留新版处理或暂停派发，不能降级普通 query 自动重放 |
 | 实际联调 | 后端 AP/Desktop、Agent configured/pinned 实际样本和 Native 手势/键盘/发送失败/重连仍待 T00/T31；未增加事件类型，request.query/history/snapshot 投影沿用原链路 |

@@ -40,17 +40,10 @@ test('composer pins selected attachments to the top of the input surface', () =>
   assert.doesNotMatch(composerSource, /ATTACHMENT_STRIP_FRAME_CLASS = '[^']*justify-center/);
 });
 
-test('chat detail controller stores composer query options and forwards them on send', () => {
-  assert.match(controllerSource, /const \[accessLevel, setAccessLevel\]/);
-  assert.match(controllerSource, /const \[modelOverride, setModelOverride\]/);
-  assert.match(controllerSource, /ensureAgentModelOptions/);
-  assert.match(controllerSource, /updateAgentModelConfig/);
-  assert.match(controllerSource, /modelConfigUpdateIdRef\.current \+= 1;\s*\}, \[composerAgentKey\]\)/s);
-  assert.match(controllerSource, /getQueryModelOverrideSignature\(modelOverride\)/);
-  assert.match(controllerSource, /buildAgentModelConfigPayload\('', value\)/);
-  assert.match(controllerSource, /setModelOverride\(snapshot \? getDefaultQueryModelOverride\(snapshot\) : nextOverride\)/);
-  assert.doesNotMatch(controllerSource, /setModelOverride\(previousOverride\)/);
-  assert.match(controllerSource, /accessLevel,\s*model: modelOverride,\s*planningMode/s);
+test('chat detail delegates settings ownership and forwards only effective query settings', () => {
+  assert.match(controllerSource, /useChatComposerSettings/);
+  assert.doesNotMatch(controllerSource, /updateAgentModelConfig|ensureAgentModelOptions|setModelOptionsSnapshot|setAgentDetailSnapshot/);
+  assert.match(controllerSource, /accessLevel: submitAccessLevel,\s*model: submitModel,/s);
 });
 
 test('chat detail screen passes composer query option state into composer card', () => {

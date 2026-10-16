@@ -94,7 +94,14 @@ test('query-token requires a token and none forbids one', () => {
 });
 
 test('explicit wsUrl remains authoritative and default transport receives the configured token', () => {
-  const generated = fs.readFileSync(path.join(process.cwd(), 'src', 'shared', 'generated', 'appEnv.ts'), 'utf8');
+  const rootDir = createFixtureRoot();
+  let generated: string;
+  try {
+    syncReactAppEnvArtifact({ rootDir });
+    generated = fs.readFileSync(path.join(rootDir, 'src', 'shared', 'generated', 'appEnv.ts'), 'utf8');
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
   const appEnvironmentSource = fs.readFileSync(
     path.join(process.cwd(), 'src', 'core', 'config', 'appEnvironment.ts'),
     'utf8'

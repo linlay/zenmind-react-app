@@ -49,7 +49,6 @@ test('chat payload scoping isolates default and paired identifiers and reverses 
     chatId: 'chat-1',
     agentKey: 'planner',
     nested: {
-      teamId: 'team-a',
       agentKeys: ['planner', 'writer'],
       untouched: 'chat-1'
     }
@@ -64,19 +63,17 @@ test('chat payload scoping isolates default and paired identifiers and reverses 
   assert.deepEqual(unscopeChatPayload(pairedPayload), payload);
 });
 
-test('home payload scoping namespaces agent, team and conversation keys together', () => {
+test('home payload scoping namespaces Agent and conversation keys together', () => {
   const scoped = scopeRemoteHomePayload(defaultSource, {
     agents: [{ key: 'planner', name: 'Planner' }],
-    teams: [{ teamId: 'team-a', agentKeys: ['planner'] }],
-    chats: [{ chatId: 'chat-1', firstAgentKey: 'planner' }]
+    chats: [{ chatId: 'chat-1', agentKey: 'planner' }]
   });
 
   assert.equal(getRemoteChatSourceId(scoped.agents[0]?.key), 'planner');
   assert.equal(getChatSourceFromId(scoped.agents[0]?.key).kind, 'default');
-  assert.equal(getRemoteChatSourceId(scoped.teams[0]?.teamId), 'team-a');
   assert.equal(getRemoteChatSourceId(scoped.chats[0]?.chatId), 'chat-1');
-  assert.equal(getRemoteChatSourceId(scoped.chats[0]?.firstAgentKey), 'planner');
-  assert.equal(getChatSourceFromId(scoped.chats[0]?.firstAgentKey).kind, 'default');
+  assert.equal(getRemoteChatSourceId(scoped.chats[0]?.agentKey), 'planner');
+  assert.equal(getChatSourceFromId(scoped.chats[0]?.agentKey).kind, 'default');
 });
 
 test('derivation source and target chat IDs namespace together while run IDs remain opaque', () => {
