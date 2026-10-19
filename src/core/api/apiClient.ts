@@ -1,7 +1,11 @@
-import { readResolvedApiBaseUrl } from '../auth/authConfig';
-import { getAccessTokenForRequest } from '../auth/appAuth';
+import { getSelectedSource } from '../auth/activeDesktop';
+import { getCloudAuthSnapshot, reportCloudFailure } from '../auth/cloudAuth';
+import { classifyCloudFailure } from './services/chatDirectoryApi';
+import { getDefaultSourceConfig } from '../config/appEnvironment';
 import { logHttpError, logHttpRequest, logHttpResponse } from '../debug/httpDebugLogger';
 import { ApiError } from './apiError.ts';
+import { resolveActiveWsTransportConfig, resolveDefaultWsTransportConfig } from './activeWsTransport';
+import { getAccountAuthGeneration } from '../auth/accountAuth';
 
 export { ApiError } from './apiError.ts';
 
@@ -18,6 +22,7 @@ export type ApiRequestOptions = {
 };
 
 export type ApiUriSource = {
+  textContent?: string;
   uri: string;
   headers?: Record<string, string>;
 };
@@ -26,11 +31,13 @@ type ApiResponseResult = {
   ok: boolean;
   status: number;
   payload: unknown;
-  authScope: string;
 };
 
-const AUTH_SCOPE_HEADER = 'x-zenmind-auth-scope';
-const APP_AUTH_SCOPE = 'app';
+async function getCloudAccessTokenForRequest(): Promise<string> {
+  const transport = resolveDefaultWsTransportConfig();
+  if (!transport) throw new ApiError('Not authenticated', 401, null);
+  return transport.accessTokenProvider ? transport.accessTokenProvider() : transport.accessToken;
+}
 
 function normalizeBaseUrl(value: string | undefined): string {
   return String(value || '')
@@ -93,14 +100,10 @@ function resolveErrorMessage(status: number, payload: unknown): string {
 }
 
 export function getApiBaseUrl(): string {
-  return normalizeBaseUrl(readResolvedApiBaseUrl());
+  return normalizeBaseUrl(getDefaultSourceConfig().apiBaseUrl);
 }
 
-function buildApiUrlWithBase(
-  baseUrl: string,
-  path: string,
-  query?: Record<string, ApiPrimitive>
-): string {
+function buildApiUrlWithBase(baseUrl: string, path: string, query?: Record<string, ApiPrimitive>): string {
   if (!baseUrl) {
     throw new Error('EXPO_PUBLIC_API_BASE_URL is not configured');
   }
@@ -143,11 +146,7 @@ function isSameOriginUrl(leftUrl: string, rightUrl: string): boolean {
   }
 }
 
-function resolveApiUrlWithBase(
-  baseUrl: string,
-  pathOrUrl: string,
-  query?: Record<string, ApiPrimitive>
-): string {
+function resolveApiUrlWithBase(baseUrl: string, pathOrUrl: string, query?: Record<string, ApiPrimitive>): string {
   const target = String(pathOrUrl || '').trim();
   if (isProtocolRelativeUrl(target) || (hasUrlScheme(target) && !isHttpUrl(target))) {
     return target;
@@ -158,11 +157,7 @@ function resolveApiUrlWithBase(
   return buildApiUrlWithBase(baseUrl, target, query);
 }
 
-function buildDebugApiUrlWithBase(
-  baseUrl: string,
-  path: string,
-  query?: Record<string, ApiPrimitive>
-): string {
+function buildDebugApiUrlWithBase(baseUrl: string, path: string, query?: Record<string, ApiPrimitive>): string {
   const normalizedBaseUrl = normalizeBaseUrl(baseUrl);
   const requestPath = `${normalizePath(path)}${buildQueryString(query)}`;
   return normalizedBaseUrl ? `${normalizedBaseUrl}${requestPath}` : requestPath;
@@ -194,19 +189,50 @@ export async function buildAuthenticatedApiUriSource(
     return { uri: target };
   }
 
+  if (getSelectedSource()?.kind === 'desktop') {
+    const selection = getSelectedSource();
+    const generation = getAccountAuthGeneration();
+    const transport = await resolveActiveWsTransportConfig('d');
+    if (!transport || transport.kind !== 'desktop-ws') throw new ApiError('Desktop unavailable', 401, null);
+    const base = new URL(transport.wsUrl);
+    base.protocol = base.protocol === 'wss:' ? 'https:' : 'http:';
+    base.pathname = '/';
+    const url = new URL(target, base);
+    if (
+      url.origin !== base.origin ||
+      url.username ||
+      url.password ||
+      url.hash ||
+      !['/api/resource', '/api/file'].includes(url.pathname) ||
+      url.searchParams.has('token')
+    )
+      throw new Error('Invalid Desktop resource origin or path');
+    Object.entries(query || {}).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) url.searchParams.set(key, String(value));
+    });
+    const token = transport.accessTokenProvider ? await transport.accessTokenProvider() : transport.accessToken;
+    const headers = await transport.requestHeadersProvider?.();
+    if (selection !== getSelectedSource() || generation !== getAccountAuthGeneration())
+      throw new Error('Desktop resource superseded');
+    return { uri: url.toString(), headers: { ...headers, Authorization: `Bearer ${token}` } };
+  }
   const baseUrl = getApiBaseUrl();
   if (!baseUrl || !isApiUrlTargetWithBase(target, baseUrl)) {
     return { uri: target };
   }
 
   const uri = resolveApiUrlWithBase(baseUrl, pathOrUrl, query);
-  const accessToken = await getAccessTokenForRequest(baseUrl);
+  const selection = getSelectedSource();
+  const generation = getCloudAuthSnapshot().generation;
+  const accessToken = await getCloudAccessTokenForRequest();
+  if (selection !== getSelectedSource() || generation !== getCloudAuthSnapshot().generation)
+    throw new Error('Cloud resource superseded');
   return accessToken
     ? {
         uri,
         headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
+          Authorization: `Bearer ${accessToken}`
+        }
       }
     : { uri };
 }
@@ -239,6 +265,7 @@ function buildRequestInit(options: ApiRequestOptions, accessToken?: string): Req
     headers: buildRequestHeaders(options, accessToken),
     body,
     signal: options.signal,
+    redirect: 'error'
   };
 }
 
@@ -257,7 +284,7 @@ async function sendApiRequest(
     url,
     method,
     attempt,
-    body: options.body,
+    body: options.body
   });
 
   try {
@@ -271,14 +298,13 @@ async function sendApiRequest(
       attempt,
       status: response.status,
       durationMs: Date.now() - startedAt,
-      payload,
+      payload
     });
 
     return {
       ok: response.ok,
       status: response.status,
-      payload,
-      authScope: String(response.headers.get(AUTH_SCOPE_HEADER) || '').trim().toLowerCase(),
+      payload
     };
   } catch (error) {
     logHttpError({
@@ -286,7 +312,7 @@ async function sendApiRequest(
       method,
       attempt,
       durationMs: Date.now() - startedAt,
-      error,
+      error
     });
     throw error;
   }
@@ -294,24 +320,10 @@ async function sendApiRequest(
 
 function parseApiResponse<T>(response: ApiResponseResult): T {
   if (!response.ok) {
-    throw new ApiError(
-      resolveErrorMessage(response.status, response.payload),
-      response.status,
-      response.payload
-    );
+    throw new ApiError(resolveErrorMessage(response.status, response.payload), response.status, response.payload);
   }
 
   return response.payload as T;
-}
-
-function shouldRefreshAfterUnauthorized(response: ApiResponseResult, options: ApiRequestOptions): boolean {
-  if (response.status !== 401) {
-    return false;
-  }
-  if (normalizePath(options.path).startsWith('/ap/')) {
-    return response.authScope === APP_AUTH_SCOPE;
-  }
-  return true;
 }
 
 async function apiRequestWithBaseUrl<T>(baseUrl: string, options: ApiRequestOptions): Promise<T> {
@@ -323,53 +335,40 @@ export async function apiRequest<T>(options: ApiRequestOptions): Promise<T> {
 }
 
 export async function authenticatedApiRequest<T>(options: ApiRequestOptions): Promise<T> {
+  const generation = getCloudAuthSnapshot().generation;
+  const selection = getSelectedSource();
+  const assertCurrent = () => {
+    if (
+      generation !== getCloudAuthSnapshot().generation ||
+      getCloudAuthSnapshot().status !== 'available' ||
+      selection !== getSelectedSource() ||
+      options.signal?.aborted
+    )
+      throw new Error('Account or source request superseded');
+  };
   const baseUrl = getApiBaseUrl();
   const method = options.method || 'GET';
   const startedAt = Date.now();
-  let accessToken: string | null;
+  let accessToken: string;
 
   try {
-    accessToken = await getAccessTokenForRequest(baseUrl);
+    accessToken = await getCloudAccessTokenForRequest();
   } catch (error) {
     logHttpError({
       url: buildDebugApiUrlWithBase(baseUrl, options.path, options.query),
       method,
       attempt: 1,
       durationMs: Date.now() - startedAt,
-      error,
+      error
     });
     throw error;
   }
 
-  if (!accessToken) {
-    const error = new ApiError('Not authenticated', 401, null);
-    logHttpError({
-      url: buildDebugApiUrlWithBase(baseUrl, options.path, options.query),
-      method,
-      attempt: 1,
-      durationMs: Date.now() - startedAt,
-      error,
-    });
-    throw error;
-  }
+  assertCurrent();
+  const response = await sendApiRequest(baseUrl, options, accessToken, 1);
+  assertCurrent();
 
-  let response = await sendApiRequest(baseUrl, options, accessToken, 1);
-  if (shouldRefreshAfterUnauthorized(response, options)) {
-    const nextToken = await getAccessTokenForRequest(baseUrl, true);
-    if (!nextToken) {
-      const error = new ApiError('Not authenticated', 401, null);
-      logHttpError({
-        url: buildDebugApiUrlWithBase(baseUrl, options.path, options.query),
-        method,
-        attempt: 2,
-        durationMs: Date.now() - startedAt,
-        error,
-      });
-      throw error;
-    }
-    response = await sendApiRequest(baseUrl, options, nextToken, 2);
-  }
-
+  if (!response.ok) reportCloudFailure(classifyCloudFailure({ status: response.status }), generation);
   return parseApiResponse<T>(response);
 }
 
@@ -379,6 +378,6 @@ export async function authenticatedFormDataRequest<T>(
   return authenticatedApiRequest<T>({
     ...options,
     body: options.body,
-    bodyFormat: 'form',
+    bodyFormat: 'form'
   });
 }

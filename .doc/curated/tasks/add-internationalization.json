@@ -75,6 +75,6 @@
     "纯 helper 不要 import src/shared/i18n barrel；只从 translate.ts 取 defaultT 或 createTranslator。",
     "不要把用户消息、服务端返回正文、智能体回复、已持久化 conversation 标题或 runtime payload 原始文本当作 UI 文案翻译。",
     "如果改动 Provider 挂载、locale preference 存储或设备语言刷新行为，同步检查 app-startup flow 和 shared-i18n module card。",
-    "语言切换不能触发 SQLite、MMKV 聊天目录快照、WebSocket 或 outbox 写入。"
+    "当前聊天提交遵循根 agentKey 与 references 协议；SQLite 保存消息及结果，重连只恢复观察，不自动重发；旧本地缓存按新版 schema 重建。"
   ]
 }

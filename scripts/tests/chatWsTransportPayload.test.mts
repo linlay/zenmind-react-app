@@ -1,162 +1,54 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { buildChatAttachPayload, buildChatQueryPayload } from '../../src/features/chatRealtime/chatWsTransport.ts';
 
-import {
-  buildChatAttachPayload,
-  buildChatQueryPayload,
-} from '../../src/features/chatRealtime/chatWsTransport.ts';
-
-test('chat query payload includes agent scope only', () => {
+test('Platform query golden payload preserves root owner, references and explicit editing false', () => {
   const payload = buildChatQueryPayload({
-    requestId: ' req-1 ',
-    chatId: ' chat-1 ',
+    requestId: ' message-1 ',
+    chatId: ' chat ',
     message: 'hello',
-    agentKey: ' agent-a ',
-    teamId: null,
+    agentKey: ' root-team ',
+    editingMode: false,
+    planningMode: true,
+    references: [
+      { type: 'skill', id: 'pdf' },
+      { type: 'kbase', id: 'manual' }
+    ],
+    accessLevel: 'auto_approve',
+    model: { key: 'model', reasoningEffort: 'HIGH', serviceTier: 'FLEX' }
   });
-
   assert.deepEqual(payload, {
-    requestId: 'req-1',
-    chatId: 'chat-1',
+    requestId: 'message-1',
+    chatId: 'chat',
     message: 'hello',
-    agentKey: 'agent-a',
-    role: 'user',
-    stream: true,
-  });
-  assert.equal('teamId' in payload, false);
-});
-
-test('chat query payload prefers team scope over agent scope', () => {
-  const payload = buildChatQueryPayload({
-    requestId: 'req-2',
-    chatId: 'chat-2',
-    message: 'hello team',
-    agentKey: 'agent-a',
-    teamId: ' team-a ',
-  });
-
-  assert.deepEqual(payload, {
-    requestId: 'req-2',
-    chatId: 'chat-2',
-    message: 'hello team',
-    teamId: 'team-a',
-    role: 'user',
-    stream: true,
-  });
-  assert.equal('agentKey' in payload, false);
-});
-
-test('chat query payload omits empty scope fields', () => {
-  const payload = buildChatQueryPayload({
-    requestId: 'req-3',
-    chatId: 'chat-3',
-    message: 'legacy chat',
-    agentKey: ' ',
-    teamId: '',
-  });
-
-  assert.deepEqual(payload, {
-    requestId: 'req-3',
-    chatId: 'chat-3',
-    message: 'legacy chat',
-    role: 'user',
-    stream: true,
-  });
-  assert.equal('agentKey' in payload, false);
-  assert.equal('teamId' in payload, false);
-});
-
-test('chat query payload includes planning mode only when enabled', () => {
-  const payload = buildChatQueryPayload({
-    requestId: 'req-plan',
-    chatId: 'chat-plan',
-    message: 'draft a plan',
-    agentKey: 'coder-pomodoro-app',
+    agentKey: 'root-team',
+    editingMode: false,
     planningMode: true,
-  });
-
-  assert.deepEqual(payload, {
-    requestId: 'req-plan',
-    chatId: 'chat-plan',
-    message: 'draft a plan',
-    agentKey: 'coder-pomodoro-app',
-    planningMode: true,
-    role: 'user',
-    stream: true,
-  });
-  assert.equal('model' in payload, false);
-});
-
-test('chat query payload includes access level and compact model override', () => {
-  const payload = buildChatQueryPayload({
-    requestId: 'req-model',
-    chatId: 'chat-model',
-    message: 'use a stronger model',
-    agentKey: 'coder-pomodoro-app',
+    references: [
+      { type: 'skill', id: 'pdf' },
+      { type: 'kbase', id: 'manual' }
+    ],
     accessLevel: 'auto_approve',
-    model: {
-      key: 'qwen-max',
-      reasoningEffort: 'HIGH',
-      serviceTier: 'FLEX',
-    },
-  });
-
-  assert.deepEqual(payload, {
-    requestId: 'req-model',
-    chatId: 'chat-model',
-    message: 'use a stronger model',
-    agentKey: 'coder-pomodoro-app',
-    accessLevel: 'auto_approve',
-    model: {
-      key: 'qwen-max',
-      reasoningEffort: 'HIGH',
-      serviceTier: 'FLEX',
-    },
+    model: { key: 'model', reasoningEffort: 'HIGH', serviceTier: 'FLEX' },
     role: 'user',
-    stream: true,
+    stream: true
   });
 });
-
-test('chat query payload omits default access level and empty model override', () => {
-  const payload = buildChatQueryPayload({
-    requestId: 'req-default-model',
-    chatId: 'chat-default-model',
-    message: 'plain question',
-    agentKey: 'coder-pomodoro-app',
-    accessLevel: 'default',
-    model: {
-      key: ' ',
-      reasoningEffort: undefined,
-      serviceTier: undefined,
-    },
-  });
-
-  assert.equal('accessLevel' in payload, false);
-  assert.equal('model' in payload, false);
+test('omitted editing stays omitted and planning and editing can be expressed together', () => {
+  const base = { requestId: 'message', message: 'question', agentKey: 'agent' };
+  const plain = buildChatQueryPayload({ ...base, planningMode: false, accessLevel: 'default', model: { key: ' ' } });
+  assert.equal('editingMode' in plain, false);
+  assert.equal('planningMode' in plain, false);
+  assert.equal('accessLevel' in plain, false);
+  assert.equal('model' in plain, false);
+  assert.equal(buildChatQueryPayload({ ...base, planningMode: true, editingMode: true }).editingMode, true);
 });
-
-test('chat query payload omits disabled planning mode', () => {
-  const payload = buildChatQueryPayload({
-    requestId: 'req-no-plan',
-    chatId: 'chat-no-plan',
-    message: 'plain question',
-    agentKey: 'coder-pomodoro-app',
-    planningMode: false,
+test('attach carries the root Agent identity and an independent resume cursor', () => {
+  assert.equal(buildChatAttachPayload({ runId: 'run', chatId: ' chat ', agentKey: 'root', lastSeq: 7 }).chatId, 'chat');
+  assert.deepEqual(buildChatAttachPayload({ runId: ' run ', agentKey: ' root ', lastSeq: 7 }), {
+    runId: 'run',
+    agentKey: 'root',
+    lastSeq: 7
   });
-
-  assert.equal('planningMode' in payload, false);
-});
-
-test('chat attach payload includes required agent scope', () => {
-  const payload = buildChatAttachPayload({
-    runId: ' run-1 ',
-    agentKey: ' askUser.demo ',
-    lastSeq: Number.NaN,
-  });
-
-  assert.deepEqual(payload, {
-    runId: 'run-1',
-    agentKey: 'askUser.demo',
-    lastSeq: 0,
-  });
+  assert.equal(buildChatAttachPayload({ runId: 'run', agentKey: 'root', lastSeq: NaN }).lastSeq, 0);
 });

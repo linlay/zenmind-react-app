@@ -4,10 +4,7 @@ import { StyleProp, Text, TextStyle, View, ViewStyle } from 'react-native';
 import { cn } from '../visual/className';
 import { appHairlineStyles } from '../visual/hairline';
 
-type ScreenHeaderActions =
-  | readonly []
-  | readonly [ReactElement]
-  | readonly [ReactElement, ReactElement];
+type ScreenHeaderActions = readonly [] | readonly [ReactElement] | readonly [ReactElement, ReactElement];
 
 const EMPTY_ACTIONS = [] as const satisfies ScreenHeaderActions;
 const HEADER_CONTAINER_BASE_CLASS = 'flex-row items-center px-app-md';
@@ -18,7 +15,7 @@ const RIGHT_ACTION_RAIL_CLASS = `${ACTION_RAIL_CLASS} justify-end`;
 const ACTION_SLOT_CLASS = 'h-10 min-w-10 items-center justify-center';
 const TITLE_CONTAINER_BASE_CLASS = 'min-w-0 flex-1 items-center justify-center overflow-hidden px-app-xs';
 const TITLE_CONTAINER_DEFAULT_CLASS = 'h-14';
-const TITLE_TEXT_CLASS = 'text-center text-app-title font-bold text-app-primary';
+const TITLE_TEXT_CLASS = 'text-center text-app-title font-semibold text-app-primary';
 
 export type ScreenHeaderProps = {
   title: ReactNode;
@@ -43,7 +40,7 @@ export const ScreenHeader = memo(function ScreenHeader({
   titleTextClassName,
   style,
   titleContainerStyle,
-  titleTextStyle,
+  titleTextStyle
 }: ScreenHeaderProps) {
   const isPrimitiveTitle = typeof title === 'string' || typeof title === 'number';
   const actionRailWidthStyle = actionRailWidth ? { width: actionRailWidth } : null;

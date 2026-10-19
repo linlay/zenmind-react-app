@@ -1,4 +1,5 @@
 import type { AgentAvatarIcon } from '../../shared/visual/agentAvatarTypes';
+import type { ChatSource } from './chatSource';
 
 export type ChatReadState = {
   isRead: boolean;
@@ -7,6 +8,7 @@ export type ChatReadState = {
 };
 
 export type ChatHomeItem = {
+  source: ChatSource;
   conversationId: string;
   title: string;
   lastMessageText: string;
@@ -15,21 +17,21 @@ export type ChatHomeItem = {
   read?: ChatReadState;
   lastMessageStatus: ChatMessageStatus;
   pinnedAt: number;
+  sourceDeleted?: boolean;
 };
 
 export type ChatConversationHistoryScope = {
   agentKey: string | null;
-  teamId: string | null;
 };
 
-export type ChatReasoningEffort = 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
+export type ChatReasoningEffort = 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE' | 'XHIGH' | 'MAX';
 
 export type ChatConversationTarget = {
+  source: ChatSource;
   kind: ChatDirectoryKind;
   title: string;
   subtitle: string;
   agentKey: string | null;
-  teamId: string | null;
   agentMode: string | null;
   modelKey: string | null;
   reasoningEffort: ChatReasoningEffort | null;
@@ -42,11 +44,12 @@ export type ChatConversationHistoryPage = {
   limit: number;
 };
 
-export type ChatDirectoryKind = 'agent' | 'team';
+export type ChatDirectoryKind = 'agent';
 
 export type ChatDirectoryIcon = AgentAvatarIcon;
 
 export type ChatDirectoryItem = {
+  source: ChatSource;
   id: string;
   kind: ChatDirectoryKind;
   title: string;
@@ -56,8 +59,6 @@ export type ChatDirectoryItem = {
   pinnedAt: number;
   sortRank: number;
   agentKey: string | null;
-  teamId: string | null;
-  defaultAgentKey: string | null;
   agentMode: string | null;
   modelKey: string | null;
   reasoningEffort: ChatReasoningEffort | null;
@@ -66,10 +67,7 @@ export type ChatDirectoryItem = {
   lastMessageAt: number;
 };
 
-export type ChatDirectoryProjectionItem = Omit<
-  ChatDirectoryItem,
-  'lastMessageText' | 'lastMessageAt'
-> & {
+export type ChatDirectoryProjectionItem = Omit<ChatDirectoryItem, 'source' | 'lastMessageText' | 'lastMessageAt'> & {
   unreadCountSource?: 'server' | 'projection';
 };
 
@@ -82,7 +80,6 @@ export type ChatConversationSummaryProjection = {
   read?: ChatReadState;
   lastMessageStatus: ChatMessageStatus;
   agentKey: string | null;
-  teamId: string | null;
 };
 
 export type ChatHomeProjection = {
@@ -117,7 +114,7 @@ export type ChatDirectorySearchPage = {
 };
 
 export type ChatDirectorySnapshot = {
-  version: 1;
+  version: number;
   updatedAt: number;
   items: ChatDirectoryItem[];
 };
@@ -126,7 +123,7 @@ export type ChatMessageRole = 'assistant' | 'user';
 
 export type ChatMessageStreamStatus = 'streaming' | 'done';
 
-export type ChatAttachmentKind = 'image' | 'file';
+export type ChatAttachmentKind = 'image' | 'file' | 'selection' | 'chat' | 'site' | 'skill' | 'kbase';
 
 export type ChatAttachmentStatus = 'uploading' | 'ready' | 'failed';
 
@@ -138,6 +135,19 @@ export type ChatAttachmentReference = {
   sizeBytes?: number;
   url?: string;
   sha256?: string;
+  path?: string;
+  text?: string;
+  annotation?: string;
+  annotationIndex?: number;
+  meta?: Record<string, unknown> & { sourceKind?: 'message' | 'code' };
+};
+
+export type ChatContextReference = {
+  type: 'chat' | 'site' | 'skill' | 'kbase';
+  id: string;
+  name: string;
+  url?: string;
+  meta?: Record<string, unknown>;
 };
 
 export type ChatAttachmentBase = {
@@ -181,15 +191,6 @@ export type ChatMessageItem = {
 };
 
 export type ChatMessageStatus = 'pending' | 'sent' | 'failed';
-
-export type PendingOutboxMessage = {
-  clientMessageId: string;
-  conversationId: string;
-  content: string;
-  createdAt: number;
-  planningMode: boolean;
-  attachments: ChatMessageAttachment[];
-};
 
 export type ServerMessageDetail = {
   conversation: {

@@ -1,3 +1,4 @@
+import { downloadAuthenticatedResourceFile } from './authenticatedResourceFile.native';
 import { Directory, File, FileMode, Paths } from 'expo-file-system';
 
 import { buildAuthenticatedApiUriSource, type ApiUriSource } from '../apiClient.ts';
@@ -17,6 +18,15 @@ type InflightDownload = {
 };
 
 const inflightDownloads = new Map<string, InflightDownload>();
+const resolvedConsumers = new Map<string, number>();
+
+export function clearAuthenticatedResourceImageCache(): void {
+  for (const download of inflightDownloads.values()) download.controller.abort();
+  inflightDownloads.clear();
+  resolvedConsumers.clear();
+  const directory = new Directory(Paths.cache, CACHE_DIRECTORY_NAME);
+  if (directory.exists) directory.delete();
+}
 
 function createAbortError(reason?: unknown): Error {
   const error = new Error(typeof reason === 'string' && reason ? reason : 'The operation was aborted.');
@@ -35,7 +45,33 @@ function resolveCacheFile(request: AuthenticatedResourceImageRequest): File {
   if (!cacheDirectory.exists) {
     cacheDirectory.create({ idempotent: true, intermediates: true });
   }
-  return new File(cacheDirectory, createAuthenticatedResourceImageCacheFileName(request.resourceUrl, request.fileName));
+  return new File(
+    cacheDirectory,
+    createAuthenticatedResourceImageCacheFileName(`${request.cacheScopeId}:${request.resourceUrl}`, request.fileName)
+  );
+}
+
+function retainResolvedImage(destination: File): void {
+  resolvedConsumers.set(destination.uri, (resolvedConsumers.get(destination.uri) || 0) + 1);
+}
+
+export function releaseAuthenticatedResourceImageSource(request: AuthenticatedResourceImageRequest): void {
+  if (!requiresAuthenticatedResourceHttpDataPlane(request.resourceUrl)) {
+    return;
+  }
+  const destination = resolveCacheFile(request);
+  const consumers = resolvedConsumers.get(destination.uri) || 0;
+  if (consumers > 1) {
+    resolvedConsumers.set(destination.uri, consumers - 1);
+    return;
+  }
+  if (consumers === 0) {
+    return;
+  }
+  resolvedConsumers.delete(destination.uri);
+  if (destination.exists) {
+    destination.delete();
+  }
 }
 
 function assertDownloadedImageCandidate(file: File): void {
@@ -69,7 +105,6 @@ async function downloadImage(
 ): Promise<ApiUriSource> {
   const startedAt = Date.now();
   let sourceUrl = request.resourceUrl;
-  let exceededSizeLimit = false;
   try {
     const source = await buildAuthenticatedApiUriSource(request.resourceUrl);
     sourceUrl = source.uri;
@@ -86,16 +121,9 @@ async function downloadImage(
         forceRefresh: Boolean(request.forceRefresh)
       }
     });
-    const downloadedFile = await File.downloadFileAsync(source.uri, destination, {
-      headers: source.headers,
-      idempotent: true,
+    const downloadedFile = await downloadAuthenticatedResourceFile(request.resourceUrl, destination, {
       signal: controller.signal,
-      onProgress: ({ bytesWritten, totalBytes }) => {
-        if (Math.max(bytesWritten, totalBytes) > IMAGE_PREVIEW_MAX_BYTES) {
-          exceededSizeLimit = true;
-          controller.abort();
-        }
-      }
+      maxBytes: IMAGE_PREVIEW_MAX_BYTES
     });
     assertDownloadedImageCandidate(downloadedFile);
     logHttpResponse({
@@ -115,9 +143,7 @@ async function downloadImage(
     if (destination.exists) {
       destination.delete();
     }
-    const resolvedError = exceededSizeLimit
-      ? new AuthenticatedResourceError('too_large', 'Resource image preview is too large')
-      : error;
+    const resolvedError = error;
     if (!(resolvedError instanceof Error && resolvedError.name === 'AbortError')) {
       logHttpError({
         url: sourceUrl,
@@ -202,7 +228,9 @@ export async function resolveAuthenticatedResourceImageSource(
   const key = destination.uri;
   const activeDownload = inflightDownloads.get(key);
   if (activeDownload) {
-    return waitForInflightDownload(key, activeDownload, request.signal);
+    const source = await waitForInflightDownload(key, activeDownload, request.signal);
+    retainResolvedImage(destination);
+    return source;
   }
   if (request.forceRefresh && destination.exists) {
     destination.delete();
@@ -219,9 +247,12 @@ export async function resolveAuthenticatedResourceImageSource(
         sizeBytes: destination.size
       }
     });
+    retainResolvedImage(destination);
     return { uri: destination.uri };
   }
 
   const download = createInflightDownload(key, request, destination);
-  return waitForInflightDownload(key, download, request.signal);
+  const source = await waitForInflightDownload(key, download, request.signal);
+  retainResolvedImage(destination);
+  return source;
 }

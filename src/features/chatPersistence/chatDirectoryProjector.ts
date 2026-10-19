@@ -1,14 +1,11 @@
 import type { RemoteChatSummary } from '../../core/api/services/chatApi';
 import { normalizeAgentAvatarIcon } from '../../shared/visual/agentAvatarIcon.ts';
-import type {
-  ChatConversationSummaryProjection,
-  ChatDirectoryProjectionItem,
-  ChatHomeProjection,
-} from './types';
+import type { ChatConversationSummaryProjection, ChatDirectoryProjectionItem, ChatHomeProjection } from './types';
 import { normalizeAgentMode } from './agentMode.ts';
-import { resolveAgentModelSettings, type AgentModelSettings } from './agentModelSettings.ts';
+import { resolveAgentModelSettings } from './agentModelSettings.ts';
 import { resolveChatConversationTitleCandidate } from './chatConversationTitle.ts';
 import { normalizeChatReadPatch, readStateToUnreadBit } from './chatReadState.ts';
+import { encodeChatSourceId, getRemoteChatSourceId, parseChatSourceId } from './chatSource.ts';
 
 export type RemoteAgent = {
   key?: string;
@@ -32,20 +29,8 @@ export type RemoteAgent = {
   [key: string]: unknown;
 };
 
-export type RemoteTeam = {
-  teamId?: string;
-  name?: string;
-  icon?: unknown;
-  agentKeys?: string[];
-  meta?: {
-    defaultAgentKey?: string;
-  };
-  [key: string]: unknown;
-};
-
 type NormalizedRemoteChatSummary = ChatConversationSummaryProjection & {
   agentKey: string | null;
-  teamId: string | null;
 };
 
 function toText(value: unknown): string {
@@ -85,20 +70,12 @@ function buildAgentSubtitle(agent: RemoteAgent) {
   return toText(agent.role) || toText(agent.meta?.role) || '智能体';
 }
 
-function buildTeamSubtitle(team: RemoteTeam) {
-  const defaultAgentKey = toText(team.meta?.defaultAgentKey);
-  if (defaultAgentKey) {
-    return `默认 ${defaultAgentKey}`;
-  }
-
-  const agentCount = Array.isArray(team.agentKeys) ? team.agentKeys.length : 0;
-  return agentCount > 0 ? `${agentCount} 个智能体` : '团队';
+function buildDirectoryItemId(kind: 'agent', scopedId: string): string {
+  const parsed = parseChatSourceId(scopedId);
+  return parsed ? encodeChatSourceId(parsed.source, `${kind}:${parsed.remoteId}`) : `${kind}:${scopedId}`;
 }
 
-export function projectRemoteAgent(
-  agent: RemoteAgent,
-  index: number
-): ChatDirectoryProjectionItem | null {
+export function projectRemoteAgent(agent: RemoteAgent, index: number): ChatDirectoryProjectionItem | null {
   const agentKey = toText(agent.key || agent.id);
   if (!agentKey) {
     return null;
@@ -107,9 +84,9 @@ export function projectRemoteAgent(
   const modelSettings = resolveAgentModelSettings(agent);
 
   return {
-    id: `agent:${agentKey}`,
+    id: buildDirectoryItemId('agent', agentKey),
     kind: 'agent',
-    title: toDirectoryTitle(agent.name, agentKey),
+    title: toDirectoryTitle(agent.name, getRemoteChatSourceId(agentKey)),
     subtitle: buildAgentSubtitle(agent),
     icon: normalizeAgentAvatarIcon(agent.icon),
     unreadCount: toUnreadCount(explicitUnread),
@@ -117,108 +94,31 @@ export function projectRemoteAgent(
     pinnedAt: 0,
     sortRank: index,
     agentKey,
-    teamId: null,
-    defaultAgentKey: null,
     agentMode: normalizeAgentMode(agent.mode),
     modelKey: modelSettings.modelKey,
     reasoningEffort: modelSettings.reasoningEffort,
-    latestConversationId: null,
+    latestConversationId: null
   };
 }
 
-export function projectRemoteTeam(
-  team: RemoteTeam,
-  index: number,
-  agentModelSettingsByKey?: ReadonlyMap<string, AgentModelSettings> | null
-): ChatDirectoryProjectionItem | null {
-  const teamId = toText(team.teamId);
-  if (!teamId) {
-    return null;
-  }
-  const defaultAgentKey = toText(team.meta?.defaultAgentKey);
-  const modelSettings = defaultAgentKey ? agentModelSettingsByKey?.get(defaultAgentKey) : null;
-
-  return {
-    id: `team:${teamId}`,
-    kind: 'team',
-    title: toDirectoryTitle(team.name, teamId),
-    subtitle: buildTeamSubtitle(team),
-    icon: normalizeAgentAvatarIcon(team.icon),
-    unreadCount: 0,
-    unreadCountSource: 'projection',
-    pinnedAt: 0,
-    sortRank: index,
-    agentKey: null,
-    teamId,
-    defaultAgentKey: defaultAgentKey || null,
-    agentMode: null,
-    modelKey: modelSettings?.modelKey ?? null,
-    reasoningEffort: modelSettings?.reasoningEffort ?? null,
-    latestConversationId: null,
-  };
+export function projectRemoteDirectory(agents: RemoteAgent[]): ChatDirectoryProjectionItem[] {
+  const seen = new Set<string>();
+  return agents.flatMap((agent, index) => {
+    const item = projectRemoteAgent(agent, index);
+    if (!item || seen.has(item.id)) return [];
+    seen.add(item.id);
+    return [item];
+  });
 }
 
-export function projectRemoteDirectory(
-  agents: RemoteAgent[],
-  teams: RemoteTeam[]
-): ChatDirectoryProjectionItem[] {
-  const seenIds = new Set<string>();
-  const items: ChatDirectoryProjectionItem[] = [];
-  const agentModelSettingsByKey = teams.length > 0 ? new Map<string, AgentModelSettings>() : null;
-
-  agents.forEach((agent, index) => {
-    const projected = projectRemoteAgent(agent, index);
-    if (!projected || seenIds.has(projected.id)) {
-      return;
-    }
-    if (agentModelSettingsByKey && projected.agentKey) {
-      agentModelSettingsByKey.set(projected.agentKey, projected);
-    }
-    seenIds.add(projected.id);
-    items.push(projected);
-  });
-
-  const teamRankOffset = items.length;
-  teams.forEach((team, index) => {
-    const projected = projectRemoteTeam(team, teamRankOffset + index, agentModelSettingsByKey);
-    if (!projected || seenIds.has(projected.id)) {
-      return;
-    }
-    seenIds.add(projected.id);
-    items.push(projected);
-  });
-
-  return items;
-}
-
-function buildTeamById(teams: RemoteTeam[]): Map<string, RemoteTeam> {
-  const teamById = new Map<string, RemoteTeam>();
-  teams.forEach((team) => {
-    const teamId = toText(team.teamId);
-    if (teamId && !teamById.has(teamId)) {
-      teamById.set(teamId, team);
-    }
-  });
-  return teamById;
-}
-
-function normalizeRemoteChatSummary(
-  chat: RemoteChatSummary,
-  teamById: Map<string, RemoteTeam>
-): NormalizedRemoteChatSummary | null {
+function normalizeRemoteChatSummary(chat: RemoteChatSummary): NormalizedRemoteChatSummary | null {
   const conversationId = toText(chat.chatId);
   if (!conversationId) {
     return null;
   }
 
-  const teamId = toText(chat.teamId);
-  const team = teamId ? teamById.get(teamId) : undefined;
-  const agentKey =
-    toText(chat.firstAgentKey || chat.agentKey) || toText(team?.meta?.defaultAgentKey);
-  const lastMessageAt = parseTimestamp(
-    chat.updatedAt || chat.lastRunCompletedAt || chat.createdAt,
-    Date.now()
-  );
+  const agentKey = toText(chat.agentKey);
+  const lastMessageAt = parseTimestamp(chat.updatedAt || chat.lastRunCompletedAt || chat.createdAt, Date.now());
   const read = normalizeChatReadPatch(chat);
   const title = resolveChatConversationTitleCandidate(chat.chatName, chat.title);
 
@@ -229,8 +129,7 @@ function normalizeRemoteChatSummary(
     lastMessageAt,
     ...(read ? { unreadCount: readStateToUnreadBit(read), read } : {}),
     lastMessageStatus: 'sent',
-    agentKey: agentKey || null,
-    teamId: teamId || null,
+    agentKey: agentKey || null
   };
 }
 
@@ -249,11 +148,7 @@ function setLatestByKey(
   }
 }
 
-function addUnreadByKey(
-  unreadByKey: Map<string, number>,
-  key: string | null,
-  count: number | undefined
-) {
+function addUnreadByKey(unreadByKey: Map<string, number>, key: string | null, count: number | undefined) {
   if (!key || !count || count <= 0) {
     return;
   }
@@ -273,17 +168,12 @@ function addConversationSummary(
 
 export function projectRemoteHomeDirectory(input: {
   agents: RemoteAgent[];
-  teams: RemoteTeam[];
   chats: RemoteChatSummary[];
 }): ChatHomeProjection {
   const agents = Array.isArray(input.agents) ? input.agents : [];
-  const teams = Array.isArray(input.teams) ? input.teams : [];
   const chats = Array.isArray(input.chats) ? input.chats : [];
-  const teamById = buildTeamById(teams);
   const latestByAgentKey = new Map<string, NormalizedRemoteChatSummary>();
-  const latestByTeamId = new Map<string, NormalizedRemoteChatSummary>();
   const unreadByAgentKey = new Map<string, number>();
-  const unreadByTeamId = new Map<string, number>();
   const explicitAgentUnreadByKey = new Map<string, number>();
   const summariesById = new Map<string, ChatConversationSummaryProjection>();
 
@@ -296,28 +186,21 @@ export function projectRemoteHomeDirectory(input: {
   });
 
   chats.forEach((chat) => {
-    const summary = normalizeRemoteChatSummary(chat, teamById);
+    const summary = normalizeRemoteChatSummary(chat);
     if (!summary) {
       return;
     }
 
     addConversationSummary(summariesById, summary);
     setLatestByKey(latestByAgentKey, summary.agentKey, summary);
-    setLatestByKey(latestByTeamId, summary.teamId, summary);
     addUnreadByKey(unreadByAgentKey, summary.agentKey, summary.unreadCount);
-    addUnreadByKey(unreadByTeamId, summary.teamId, summary.unreadCount);
   });
 
-  const directoryItems = projectRemoteDirectory(agents, teams).map((item) => {
-    const latest =
-      item.kind === 'team'
-        ? latestByTeamId.get(item.teamId || '')
-        : latestByAgentKey.get(item.agentKey || '');
+  const directoryItems = projectRemoteDirectory(agents).map((item) => {
+    const latest = latestByAgentKey.get(item.agentKey || '');
     let unreadCount = 0;
     let unreadCountSource: ChatDirectoryProjectionItem['unreadCountSource'] = 'projection';
-    if (item.kind === 'team') {
-      unreadCount = unreadByTeamId.get(item.teamId || '') || 0;
-    } else if (explicitAgentUnreadByKey.has(item.agentKey || '')) {
+    if (explicitAgentUnreadByKey.has(item.agentKey || '')) {
       unreadCount = explicitAgentUnreadByKey.get(item.agentKey || '') || 0;
       unreadCountSource = 'server';
     } else {
@@ -328,12 +211,12 @@ export function projectRemoteHomeDirectory(input: {
       ...item,
       unreadCount,
       unreadCountSource,
-      latestConversationId: latest?.conversationId || null,
+      latestConversationId: latest?.conversationId || null
     };
   });
 
   return {
     directoryItems,
-    conversationSummaries: Array.from(summariesById.values()),
+    conversationSummaries: Array.from(summariesById.values())
   };
 }

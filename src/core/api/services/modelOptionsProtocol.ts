@@ -37,10 +37,6 @@ export type ModelOptionsSnapshot = {
   models: ModelOptionItem[];
   reasoningEfforts: ReasoningEffortOption[];
   serviceTiers: ServiceTierOption[];
-  defaultModelKey?: string;
-  defaultReasoningEffort?: ModelOptionReasoningEffort;
-  defaultServiceTier: ModelOptionServiceTier;
-  recognized: boolean;
   fetchedAt: number;
 };
 
@@ -143,7 +139,7 @@ function filterModels(value: unknown): ModelOptionItem[] {
         ...(toText(item.modelId) ? { modelId: toText(item.modelId) } : {}),
         ...(toText(item.provider) ? { provider: toText(item.provider) } : {}),
         serviceTiers: normalizeModelServiceTiers(item.serviceTiers),
-        raw: item,
+        raw: item
       };
     })
     .filter((item): item is ModelOptionItem => Boolean(item));
@@ -163,7 +159,7 @@ function filterReasoningOptions(value: unknown): ReasoningEffortOption[] {
       return {
         key,
         label: toText(item.label) || key,
-        raw: item,
+        raw: item
       };
     })
     .filter((item): item is ReasoningEffortOption => Boolean(item));
@@ -184,7 +180,7 @@ function filterServiceTierOptions(value: unknown): ServiceTierOption[] {
     options.push({
       key,
       label: toText(item.label) || key,
-      raw: item,
+      raw: item
     });
   });
   return options;
@@ -214,7 +210,7 @@ export function buildAgentModelConfigPayload(
   agentKey?: string;
   modelKey?: string;
   reasoningEffort?: ModelOptionReasoningEffort;
-  serviceTier?: ModelOptionServiceTier;
+  serviceTier?: ModelOptionServiceTier | null;
 } {
   const normalizedAgentKey = normalizeModelOptionsAgentKey(agentKey);
   const modelKey = toText(modelOverride.key);
@@ -224,7 +220,7 @@ export function buildAgentModelConfigPayload(
     ...(normalizedAgentKey ? { agentKey: normalizedAgentKey } : {}),
     ...(modelKey ? { modelKey } : {}),
     ...(reasoningEffort ? { reasoningEffort } : {}),
-    ...(serviceTier && serviceTier !== 'STANDARD' ? { serviceTier } : {})
+    ...(modelOverride.serviceTier !== undefined ? { serviceTier: serviceTier === 'STANDARD' ? null : serviceTier } : {})
   };
 }
 
@@ -233,37 +229,35 @@ export function unwrapModelOptionsApiEnvelope(response: unknown): unknown {
 }
 
 export function normalizeModelOptionsResponse(response: unknown, fetchedAt = Date.now()): ModelOptionsSnapshot {
-  const unwrapped = unwrapSuccessfulEnvelope(response);
-  const topLevel = isRecord(response) ? response : {};
-  const data = isRecord(topLevel.data) ? topLevel.data : null;
-  const nestedData = data && isRecord(data.data) ? data.data : null;
-  const direct = isRecord(unwrapped) ? unwrapped : null;
-  const candidates = [nestedData, data, direct].filter((item): item is Record<string, unknown> => Boolean(item));
-
-  for (const candidate of candidates) {
-    if (!Array.isArray(candidate.models) && !Array.isArray(candidate.reasoningEfforts)) {
-      continue;
-    }
-    const defaultModelKey = toModelKey(candidate.defaultModelKey);
-    const defaultReasoningEffort = normalizeModelOptionReasoningEffort(candidate.defaultReasoningEffort);
-    return {
-      models: filterModels(candidate.models),
-      reasoningEfforts: filterReasoningOptions(candidate.reasoningEfforts),
-      serviceTiers: filterServiceTierOptions(candidate.serviceTiers),
-      ...(defaultModelKey ? { defaultModelKey } : {}),
-      ...(defaultReasoningEffort ? { defaultReasoningEffort } : {}),
-      defaultServiceTier: normalizeModelOptionServiceTier(candidate.defaultServiceTier) || 'STANDARD',
-      recognized: true,
-      fetchedAt,
-    };
+  const data = unwrapSuccessfulEnvelope(response);
+  if (!isRecord(data) || !Array.isArray(data.models) || !Array.isArray(data.reasoningEfforts)) {
+    throw new ApiError('Invalid model options response', 200, response);
   }
-
   return {
-    models: [],
-    reasoningEfforts: [],
-    serviceTiers: filterServiceTierOptions([]),
-    defaultServiceTier: 'STANDARD',
-    recognized: false,
-    fetchedAt,
+    models: filterModels(data.models),
+    reasoningEfforts: filterReasoningOptions(data.reasoningEfforts),
+    serviceTiers: filterServiceTierOptions(data.serviceTiers),
+    fetchedAt
   };
+}
+
+export function normalizeQueryModelOverride(value: unknown): QueryModelOverride {
+  const input = isRecord(value) ? value : {};
+  const key = toText(input.key);
+  const reasoningEffort = normalizeModelOptionReasoningEffort(input.reasoningEffort);
+  const serviceTier = normalizeModelOptionServiceTier(input.serviceTier);
+  return {
+    ...(key ? { key } : {}),
+    ...(reasoningEffort ? { reasoningEffort } : {}),
+    ...(input.serviceTier !== undefined && serviceTier ? { serviceTier } : {})
+  };
+}
+
+export function readAgentModelOverride(value: unknown): QueryModelOverride {
+  const input = isRecord(value) ? value : {};
+  return normalizeQueryModelOverride({
+    key: input.modelKey,
+    reasoningEffort: input.reasoningEffort,
+    serviceTier: input.serviceTier ?? 'STANDARD'
+  });
 }

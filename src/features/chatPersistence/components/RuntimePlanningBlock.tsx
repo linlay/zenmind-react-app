@@ -1,12 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { useRecyclingState } from '@shopify/flash-list';
 import type { ComponentProps } from 'react';
-import {
-  AccessibilityInfo,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { AccessibilityInfo, Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import {
   cancelAnimation,
@@ -15,7 +10,7 @@ import {
   useAnimatedProps,
   useSharedValue,
   withRepeat,
-  withTiming,
+  withTiming
 } from 'react-native-reanimated';
 
 import { AppIcon } from '../../../shared/icons/AppIcon';
@@ -30,7 +25,7 @@ import {
   PLANNING_WRITING_TEXT_FONT_SIZE,
   PLANNING_WRITING_TEXT_FONT_WEIGHT,
   PLANNING_WRITING_TEXT_HEIGHT,
-  resolvePlanningWritingGradientWindow,
+  resolvePlanningWritingGradientWindow
 } from './planningWritingShimmerConfig';
 import { resolveRuntimePayloadCopyText, type RuntimePayloadDescriptor } from './runtimePayloadDescriptor';
 import { RuntimePayloadContent } from './runtimePayloadRenderers';
@@ -115,7 +110,7 @@ function writingGradientIdForDescriptor(descriptorId: string): string {
 
 const PlanningWritingTitle = memo(function PlanningWritingTitle({
   gradientId,
-  title,
+  title
 }: {
   gradientId: string;
   title: string;
@@ -129,7 +124,7 @@ const PlanningWritingTitle = memo(function PlanningWritingTitle({
 
     return {
       x1: gradientWindow.x1,
-      x2: gradientWindow.x2,
+      x2: gradientWindow.x2
     };
   });
 
@@ -144,7 +139,7 @@ const PlanningWritingTitle = memo(function PlanningWritingTitle({
     progress.value = withRepeat(
       withTiming(1, {
         duration: PLANNING_WRITING_SHIMMER_DURATION_MS,
-        easing: Easing.linear,
+        easing: Easing.linear
       }),
       -1,
       false
@@ -190,13 +185,7 @@ const PlanningWritingTitle = memo(function PlanningWritingTitle({
   );
 });
 
-function PlanFadeOverlay({
-  gradientId,
-  surfaceColor,
-}: {
-  gradientId: string;
-  surfaceColor: string;
-}) {
+function PlanFadeOverlay({ gradientId, surfaceColor }: { gradientId: string; surfaceColor: string }) {
   return (
     <View pointerEvents="none" className={FADE_OVERLAY_CLASS}>
       <Svg width="100%" height="100%" style={StyleSheet.absoluteFill}>
@@ -218,7 +207,7 @@ export const PlanningActionPill = memo(function PlanningActionPill({
   iconColor,
   iconUsage,
   label,
-  onPress,
+  onPress
 }: {
   accessibilityLabel: string;
   iconColor: string;
@@ -247,11 +236,14 @@ export const RuntimePlanningBlock = memo(function RuntimePlanningBlock({
   getInitialMode,
   onCopyText,
   onCollapseOverlayChange,
-  onModeChange,
+  onModeChange
 }: RuntimePlanningBlockProps) {
   const t = useT();
   const { theme } = useAppTheme();
-  const [mode, setMode] = useState<RuntimePlanningBlockMode>(() => getInitialMode(descriptor.id));
+  const [mode, setMode] = useRecyclingState<RuntimePlanningBlockMode>(
+    () => getInitialMode(descriptor.id),
+    [descriptor.id]
+  );
   const hasContent = descriptor.sections.some((section) => section.text.trim().length > 0);
   const isStreaming = descriptor.statusTone === 'active';
   const isPreview = mode === 'preview';
@@ -262,16 +254,12 @@ export const RuntimePlanningBlock = memo(function RuntimePlanningBlock({
   const expandLabel = t('runtime.planning.expand');
   const collapseLabel = t('runtime.planning.collapse');
 
-  useEffect(() => {
-    setMode(getInitialMode(descriptor.id));
-  }, [descriptor.id, getInitialMode]);
-
   const commitMode = useCallback(
     (nextMode: RuntimePlanningBlockMode) => {
       setMode(nextMode);
       onModeChange(descriptor.id, nextMode);
     },
-    [descriptor.id, onModeChange]
+    [descriptor.id, onModeChange, setMode]
   );
 
   const handleCopy = useCallback(() => {
@@ -293,7 +281,7 @@ export const RuntimePlanningBlock = memo(function RuntimePlanningBlock({
 
     onCollapseOverlayChange(descriptor.id, {
       label: collapseLabel,
-      onPress: handlePreview,
+      onPress: handlePreview
     });
 
     return () => {
@@ -305,11 +293,7 @@ export const RuntimePlanningBlock = memo(function RuntimePlanningBlock({
 
   return (
     <View className={TIMELINE_ROW_CLASS}>
-      <ChatTimelineRail
-        iconUsage={descriptor.iconUsage}
-        terminal={isLastInRun}
-        toneColor={theme.colors.brandBlue}
-      />
+      <ChatTimelineRail iconUsage={descriptor.iconUsage} terminal={isLastInRun} toneColor={theme.colors.brandBlue} />
       <View className={TIMELINE_BODY_CLASS}>
         <View
           className={cn(
@@ -353,9 +337,7 @@ export const RuntimePlanningBlock = memo(function RuntimePlanningBlock({
           </View>
 
           {!isCompact && hasContent ? (
-            <View className={isExpanded ? EXPANDED_CONTENT_CLASS : PREVIEW_CONTENT_CLASS}>
-              {content}
-            </View>
+            <View className={isExpanded ? EXPANDED_CONTENT_CLASS : PREVIEW_CONTENT_CLASS}>{content}</View>
           ) : !isCompact && !hasContent ? (
             <Text allowFontScaling={false} className={EMPTY_CONTENT_CLASS}>
               {t('runtime.planning.empty')}

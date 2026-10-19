@@ -12,12 +12,14 @@ export const CHAT_DIRECTORY_ROW_HEIGHT = 84;
 
 const CHAT_ROW_PRESSABLE_CLASS = 'flex-1 active:opacity-[0.72]';
 const CHAT_ROW_CLASS = 'flex-1 flex-row items-center gap-app-md bg-app-surface pl-app-xl';
-const CHAT_ROW_PINNED_CLASS = 'bg-app-surface-muted';
 const CHAT_ROW_MENU_TARGET_CLASS = 'bg-app-background-muted';
 const CHAT_ROW_DISABLED_CLASS = 'opacity-[0.74]';
 const CHAT_ROW_BODY_CLASS =
   'min-w-0 flex-1 self-stretch flex-row items-center gap-app-md border-app-line py-[10px] pr-app-xl';
 const CHAT_ROW_MAIN_CLASS = 'min-w-0 flex-1 gap-app-xs';
+const CHAT_TITLE_ROW_CLASS = 'min-w-0 flex-row items-center gap-[6px]';
+const CHAT_SOURCE_ICON_CLASS =
+  'h-[20px] w-[20px] shrink-0 items-center justify-center rounded-app-pill bg-app-surface-muted';
 const CHAT_TITLE_CLASS = 'shrink text-app-body-lg font-medium text-app-primary';
 const CHAT_SUMMARY_CLASS = 'text-app-footnote text-app-tertiary';
 const CHAT_ROW_META_CLASS = 'min-h-[46px] min-w-[74px] items-end justify-between gap-app-xs';
@@ -49,7 +51,7 @@ export function createChatDirectoryDisplayItem(
     ...item,
     lastMessagePreview: item.lastMessageText || noConversationLabel,
     lastMessageTimeLabel: formatConversationTimestamp(item.lastMessageAt),
-    unreadLabel: item.unreadCount > 0 ? formatUnreadCount(item.unreadCount) : '',
+    unreadLabel: item.unreadCount > 0 ? formatUnreadCount(item.unreadCount) : ''
   };
 }
 
@@ -58,7 +60,7 @@ export const ChatDirectoryRow = memo(function ChatDirectoryRow({
   onPress,
   onLongPress,
   isMenuTarget = false,
-  disabled = false,
+  disabled = false
 }: {
   item: ChatDirectoryDisplayItem;
   onPress: (item: ChatDirectoryItem) => void;
@@ -92,18 +94,25 @@ export const ChatDirectoryRow = memo(function ChatDirectoryRow({
       <View
         className={cn(
           CHAT_ROW_CLASS,
-          item.pinnedAt > 0 ? CHAT_ROW_PINNED_CLASS : null,
           isMenuTarget ? CHAT_ROW_MENU_TARGET_CLASS : null,
           disabled ? CHAT_ROW_DISABLED_CLASS : null
         )}
       >
-        <AgentAvatar type={item.kind} icon={item.icon} fallbackSeed={item.agentKey || item.teamId || item.title} />
+        <AgentAvatar type={item.kind} icon={item.icon} fallbackSeed={item.agentKey || item.title} />
 
         <View className={CHAT_ROW_BODY_CLASS} style={appHairlineStyles.borderBottom}>
           <View className={CHAT_ROW_MAIN_CLASS}>
-            <Text numberOfLines={1} className={CHAT_TITLE_CLASS}>
-              {item.title}
-            </Text>
+            <View className={CHAT_TITLE_ROW_CLASS}>
+              <View className={CHAT_SOURCE_ICON_CLASS}>
+                <AppIcon
+                  usage={item.source.kind === 'default' ? 'chatHome.sourceDefault' : 'chatHome.sourcePaired'}
+                  size={13}
+                />
+              </View>
+              <Text numberOfLines={1} className={CHAT_TITLE_CLASS}>
+                {item.title}
+              </Text>
+            </View>
             <Text numberOfLines={1} className={CHAT_SUMMARY_CLASS}>
               {item.lastMessagePreview}
             </Text>

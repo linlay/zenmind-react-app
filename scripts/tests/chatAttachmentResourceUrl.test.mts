@@ -1,21 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { normalizeApiResourcePath } from '../../src/core/api/resourceUrl.ts';
+import { buildChatResourceUrl, normalizeApiResourcePath } from '../../src/core/api/resourceUrl.ts';
 import { createAuthenticatedResourceImageCacheFileName } from '../../src/core/api/services/authenticatedResourceModel.ts';
 import { normalizeChatAttachmentReferences } from '../../src/features/chatPersistence/chatAttachmentModels.ts';
 
-test('normalizes chat resource paths without the app API prefix', () => {
+test('normalizes current chat resource paths', () => {
   assert.equal(
     normalizeApiResourcePath('/api/resource?file=conversation-1%2Fphoto.jpg'),
     '/api/resource?file=conversation-1%2Fphoto.jpg'
   );
   assert.equal(
     normalizeApiResourcePath('api/resource?file=conversation-1%2Fphoto.jpg'),
-    '/api/resource?file=conversation-1%2Fphoto.jpg'
-  );
-  assert.equal(
-    normalizeApiResourcePath('/ap/api/resource?file=conversation-1%2Fphoto.jpg'),
     '/api/resource?file=conversation-1%2Fphoto.jpg'
   );
 });
@@ -62,4 +58,11 @@ test('derives one safe image cache file from the canonical resource identity', (
       'Screenshot.jpg'
     )
   );
+});
+
+test('chat aliases and relative paths share scoped resources and reject traversal', () => {
+  assert.equal(buildChatResourceUrl('@chat/artifacts/a.png', 'chat'), '/api/resource?file=chat%2Fartifacts%2Fa.png');
+  assert.equal(buildChatResourceUrl('artifacts/a.png', 'chat'), '/api/resource?file=chat%2Fartifacts%2Fa.png');
+  for (const path of ['../a', '%2e%2e/a', 'a/%2fsecret', 'a/%00', '@chat/../a', 'a/%', '/private/a'])
+    assert.equal(buildChatResourceUrl(path, 'chat'), '', path);
 });

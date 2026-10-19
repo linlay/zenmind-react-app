@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "1.0",
+  "module": "mobile-account-ticket-plan",
+  "status": "confirmed",
+  "paths": [
+    "docs/mobile-account-ticket-sync-2026-10-14"
+  ],
+  "summary": {
+    "purpose": "官网原生邮箱登录与 Desktop 原 Identity 票据同步的执行与验收入口；本地实现、真实环境和发布分开记录。",
+    "ownedConcepts": [
+      "官网已有邮箱接口仅提供用户身份；Desktop 本地 Identity 票据通过 Hub 内存按电脑交付。",
+      "SSO_JWT_USER_ID_CLAIM 是用户 ID 权威字段，official-website 不参与改造。",
+      "T00–T07 按依赖实施与验收，清理错误账号/tr_实现，禁止过度设计。"
+    ],
+    "nonGoals": [
+      "不以单元测试或导出构建替代真实环境验收",
+      "不修改官网网站或重建认证框架"
+    ]
+  },
+  "facts": {
+    "entrypoints": [],
+    "publicApi": [],
+    "dependencies": [],
+    "dependents": [],
+    "tests": [],
+    "lastScannedAt": "2026-10-16T07:39:25Z"
+  },
+  "readHints": {
+    "alwaysRead": [
+      "docs/mobile-account-ticket-sync-2026-10-14/README.md",
+      "docs/mobile-account-ticket-sync-2026-10-14/DESIGN.md"
+    ],
+    "readFor": []
+  },
+  "riskRules": [
+    "T00–T07 逐项记录当前证据；真实环境由用户验收，T07 和清理审计完成前不标整体完成。",
+    "旧方案冲突按2026-10-14确认目标纠偏，保留不冲突的云端/来源/缓存设计。",
+    "保护用户预先存在修改，不整仓回滚。"
+  ],
+  "recentChanges": []
+}

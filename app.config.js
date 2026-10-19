@@ -1,5 +1,6 @@
 const packageJson = require('./package.json');
 const { resolveBrandId, syncBrandArtifacts } = require('./scripts/lib/brand-config');
+const { syncReactAppEnvArtifact } = require('./scripts/lib/app-env-config');
 
 function assetPath(relativePath) {
   return `./${relativePath}`;
@@ -10,8 +11,9 @@ module.exports = () => {
     rootDir: __dirname,
     brandId: resolveBrandId(process.argv.slice(2), process.env, __dirname, { allowPositional: false }),
     appVersion: packageJson.version,
-    syncNativeProject: false,
+    syncNativeProject: false
   });
+  const appEnv = syncReactAppEnvArtifact({ rootDir: __dirname });
 
   return {
     expo: {
@@ -31,66 +33,64 @@ module.exports = () => {
             imageWidth: brand.splash.imageWidth,
             resizeMode: 'contain',
             android: {
-              imageWidth: brand.splash.androidImageWidth,
-            },
-          },
+              imageWidth: brand.splash.androidImageWidth
+            }
+          }
         ],
         [
           'expo-notifications',
           {
             defaultChannel: brand.notification.channel,
-            color: brand.notification.color,
-          },
-        ],
-        [
-          'expo-camera',
-          {
-            cameraPermission: 'Allow $(PRODUCT_NAME) to use the camera to scan login QR codes.',
-            microphonePermission: false,
-            recordAudioAndroid: false,
-          },
+            color: brand.notification.color
+          }
         ],
         [
           'react-native-enriched-markdown',
           {
-            enableMath: true,
-          },
+            enableMath: true
+          }
         ],
         './plugins/withAndroidAutolinkingCacheGuard',
         './plugins/withAndroidNdkVersionForSubprojects',
+        './plugins/withLocalCacheBackupExclusion'
       ],
       ios: {
         supportsTablet: true,
-        bundleIdentifier: brand.ios.bundleIdentifier,
+        bundleIdentifier: brand.ios.bundleIdentifier
       },
       android: {
+        allowBackup: false,
         adaptiveIcon: {
           foregroundImage: assetPath(brand.generatedAssets.adaptiveIcon),
-          backgroundColor: brand.android.adaptiveIconBackgroundColor,
+          backgroundColor: brand.android.adaptiveIconBackgroundColor
         },
         usesCleartextTraffic: true,
         package: brand.android.package,
-        softwareKeyboardLayoutMode: 'adjustResize',
+        softwareKeyboardLayoutMode: 'adjustResize'
       },
       web: {
-        favicon: assetPath(brand.generatedAssets.favicon),
+        favicon: assetPath(brand.generatedAssets.favicon)
       },
       extra: {
         brand: {
           id: brand.id,
-          productName: brand.productName,
+          productName: brand.productName
+        },
+        appEnvironment: {
+          schemaVersion: appEnv.schemaVersion,
+          artifactVersion: appEnv.artifactVersion
         },
         eas: {
-          projectId: brand.updates.projectId,
-        },
+          projectId: brand.updates.projectId
+        }
       },
       owner: 'zqfrank',
       runtimeVersion: {
-        policy: 'appVersion',
+        policy: 'appVersion'
       },
       updates: {
-        url: brand.updates.url,
-      },
-    },
+        url: brand.updates.url
+      }
+    }
   };
 };

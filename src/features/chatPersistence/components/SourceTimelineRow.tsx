@@ -291,7 +291,7 @@ export const SourceTimelineRow = memo(function SourceTimelineRow({
       <ChatTimelineRail
         iconUsage="runtime.source"
         terminal={isLastInRun}
-        toneColor={hasError ? theme.colors.danger : theme.colors.success}
+        toneColor={hasError ? theme.colors.danger : theme.colors.brandBlue}
       />
       <View className={BODY_CLASS}>
         <Pressable

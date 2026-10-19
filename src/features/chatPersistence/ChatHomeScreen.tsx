@@ -1,5 +1,12 @@
+import { useCloudAuth } from '../../core/auth/useCloudAuth';
+import { getSelectedSource } from '../../core/auth/activeDesktop';
+import { verifyDefaultCloud } from './cloudAccess';
+import { ActivityIndicator } from 'react-native';
+import { isActiveDesktopOffline, subscribeActiveDesktop } from '../../core/auth/activeDesktop';
+import { ChatSignedOutIllustration } from './components/ChatSignedOutIllustration';
+import { getChatCacheScopeId, subscribeChatCacheScope } from './cacheScope';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import {
   InteractionManager,
   Modal,
@@ -25,7 +32,6 @@ import { chatSyncService } from '../chatRealtime/chatSyncService';
 import { buildChatDetailRouteParams } from './chatDetailNavigation';
 import { prewarmAgentDetailForEmptyConversation } from './chatDetailPrefetch';
 import {
-  createConversationForDirectoryItem,
   getCollapsedChatDirectorySlice,
   getChatDirectorySlice,
   prewarmChatHomeDirectory,
@@ -37,15 +43,16 @@ import {
   ChatDirectoryRow,
   createChatDirectoryDisplayItem,
   type ChatDirectoryDisplayItem,
-  type ChatDirectoryRowActionAnchor,
+  type ChatDirectoryRowActionAnchor
 } from './components/ChatDirectoryRow';
 import { ChatDirectorySearchOverlay } from './components/ChatDirectorySearchOverlay';
 import {
   buildDirectoryListState,
   patchDirectoryListPreviewByConversation,
-  type ChatDirectoryListState,
+  type ChatDirectoryListState
 } from './chatRealtimeUiState';
 import { readChatDirectorySnapshot } from './homeSnapshot';
+import { getActiveChatSource } from './chatSourceRuntime';
 import type { ChatDirectoryItem } from './types';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../../app/navigation/types';
@@ -54,13 +61,14 @@ const CHAT_PAGE_SIZE = 6;
 const CHAT_HOME_AUTOSCROLL_TO_TOP_THRESHOLD = CHAT_DIRECTORY_ROW_HEIGHT;
 const PIN_FOLD_ROW_HEIGHT = 54;
 const PIN_MENU_ROW_HEIGHT = 58;
-const SCREEN_CLASS = 'flex-1 bg-app-surface';
+const SCREEN_CLASS = 'flex-1 bg-app-background-muted';
 const HEADER_SAFE_AREA_CLASS = 'bg-app-surface';
 const HEADER_ICON_BUTTON_CLASS = 'h-10 w-10 items-center justify-center active:opacity-[0.68]';
 const HEADER_WITHOUT_DIVIDER_CLASS = 'h-14 bg-app-surface';
-const LIST_SHELL_CLASS = 'flex-1 bg-app-surface';
-const FEEDBACK_CARD_CLASS =
-  'mx-app-xl mb-app-sm border-app-danger-line bg-app-danger-soft px-app-lg py-app-sm';
+const HEADER_TITLE_CLASS = 'max-w-full flex-row items-center gap-app-sm';
+const HEADER_TITLE_TEXT_CLASS = 'shrink text-center text-app-title font-semibold text-app-primary';
+const LIST_SHELL_CLASS = 'flex-1 bg-app-background-muted';
+const FEEDBACK_CARD_CLASS = 'mx-app-xl mb-app-sm border-app-danger-line bg-app-danger-soft px-app-lg py-app-sm';
 const ERROR_TEXT_CLASS = 'text-[13px] leading-[20px] text-app-danger';
 const PINNED_FOLD_ROW_CLASS =
   'min-h-[54px] flex-1 flex-row items-center justify-between border-app-line bg-app-surface-muted px-app-xl active:bg-app-background-muted';
@@ -71,8 +79,7 @@ const EMPTY_STATE_TITLE_CLASS = 'text-app-title font-bold text-app-primary';
 const EMPTY_STATE_BODY_CLASS = 'mt-app-sm text-center text-[14px] leading-[21px] text-app-secondary';
 const MENU_BACKDROP_CLASS = 'flex-1 bg-transparent';
 const PIN_MENU_CLASS = 'absolute w-[176px] overflow-hidden rounded-app-lg border border-app-line bg-app-surface';
-const PIN_MENU_ACTION_CLASS =
-  'min-h-[58px] flex-row items-center gap-app-md px-app-xl active:bg-app-surface-muted';
+const PIN_MENU_ACTION_CLASS = 'min-h-[58px] flex-row items-center gap-app-md px-app-xl active:bg-app-surface-muted';
 const PIN_MENU_ACTION_TEXT_CLASS = 'shrink text-app-title-sm font-medium text-app-primary';
 const CHAT_LIST_CONTENT_STYLE = { paddingTop: appVisualTokens.spacing.xs } satisfies ViewStyle;
 const PIN_MENU_ELEVATION_STYLE = {
@@ -81,6 +88,11 @@ const PIN_MENU_ELEVATION_STYLE = {
   shadowRadius: 18,
   elevation: 8
 } satisfies ViewStyle;
+
+function filterActiveSourceItems(items: ChatDirectoryItem[]): ChatDirectoryItem[] {
+  const activeKeys = new Set([getActiveChatSource()?.key]);
+  return items.filter((item) => activeKeys.has(item.source.key));
+}
 
 type ChatRowComponentProps = {
   item: ChatListItem;
@@ -163,6 +175,11 @@ const CHAT_EMPTY_STATE = <ChatEmptyState />;
 
 export function ChatHomeScreen() {
   const t = useT();
+  const cloud = useCloudAuth();
+  const selectedSource = useSyncExternalStore(subscribeActiveDesktop, getSelectedSource, getSelectedSource);
+  const desktopOffline = useSyncExternalStore(subscribeActiveDesktop, isActiveDesktopOffline, isActiveDesktopOffline);
+  const scopeId = useSyncExternalStore(subscribeChatCacheScope, getChatCacheScopeId, getChatCacheScopeId);
+  const hasSource = scopeId !== 'signed_out' && Boolean(getActiveChatSource());
   const { theme } = useAppTheme();
   const tabBarHeight = useAppTabBarHeight();
   const windowDimensions = useWindowDimensions();
@@ -180,19 +197,21 @@ export function ChatHomeScreen() {
   const [pinnedTotal, setPinnedTotal] = useState(0);
 
   const currentPageRef = useRef(1);
+  const homeStateScopeRef = useRef(scopeId);
   const previousFocusRef = useRef(isFocused);
   const visibleConversationIdsRef = useRef<Set<string>>(new Set());
   const openingDirectoryItemIdRef = useRef<string | null>(null);
   const items = useMemo(
     () =>
-      homeState.orderedIds
-        .map((id) => homeState.itemsById[id])
-        .filter((item): item is ChatDirectoryItem => Boolean(item)),
-    [homeState.itemsById, homeState.orderedIds]
+      hasSource && homeStateScopeRef.current === scopeId
+        ? homeState.orderedIds
+            .map((id) => homeState.itemsById[id])
+            .filter((item): item is ChatDirectoryItem => Boolean(item))
+        : [],
+    [homeState.itemsById, homeState.orderedIds, scopeId, hasSource]
   );
   const total = homeState.total;
   const hasMore = items.length < total;
-  const firstVisibleAgent = useMemo(() => items.find((item) => item.kind === 'agent') ?? null, [items]);
 
   useEffect(() => {
     visibleConversationIdsRef.current = new Set(
@@ -233,6 +252,7 @@ export function ChatHomeScreen() {
       }
 
       const openDirectoryItem = async () => {
+        const requestedScope = getChatCacheScopeId();
         openingDirectoryItemIdRef.current = item.id;
         setErrorText('');
 
@@ -243,6 +263,7 @@ export function ChatHomeScreen() {
             return;
           }
 
+          if (requestedScope !== getChatCacheScopeId()) return;
           prewarmAgentDetailForEmptyConversation(item, result);
           navigation.navigate('ChatDetail', buildChatDetailRouteParams(item, result));
         } catch (error) {
@@ -258,9 +279,13 @@ export function ChatHomeScreen() {
   );
 
   const loadVisibleSlice = useCallback(async (pageCount: number, collapsed: boolean = false) => {
+    const requestedScope = getChatCacheScopeId();
+    if (!getActiveChatSource()) return;
     const limit = Math.max(1, pageCount) * CHAT_PAGE_SIZE;
     const home = collapsed ? await getCollapsedChatDirectorySlice(limit) : await getChatDirectorySlice(limit);
 
+    if (requestedScope !== getChatCacheScopeId()) return;
+    homeStateScopeRef.current = requestedScope;
     setHomeState(buildDirectoryListState(home.items, home.total));
     setPinnedTotal(home.pinnedTotal);
     currentPageRef.current = pageCount;
@@ -278,8 +303,12 @@ export function ChatHomeScreen() {
   }, [navigation]);
 
   const handleOpenSearch = useCallback(() => {
+    if (!hasSource) {
+      navigation.navigate('Login');
+      return;
+    }
     setIsSearchOpen(true);
-  }, []);
+  }, [hasSource, navigation]);
 
   const handleCloseSearch = useCallback(() => {
     setIsSearchOpen(false);
@@ -292,42 +321,6 @@ export function ChatHomeScreen() {
     },
     [handleItemPress]
   );
-
-  const openNewConversationForDirectoryItem = useCallback(
-    async (item: ChatDirectoryItem) => {
-      if (openingDirectoryItemIdRef.current) {
-        return;
-      }
-
-      openingDirectoryItemIdRef.current = item.id;
-      setErrorText('');
-
-      try {
-        const result = await createConversationForDirectoryItem(item.id);
-        if (!result) {
-          setErrorText(t('chatHome.error.missingDirectoryTarget'));
-          return;
-        }
-
-        prewarmAgentDetailForEmptyConversation(item, result);
-        navigation.navigate('ChatDetail', buildChatDetailRouteParams(item, result));
-      } catch (error) {
-        setErrorText(error instanceof Error ? error.message : String(error));
-      } finally {
-        openingDirectoryItemIdRef.current = null;
-      }
-    },
-    [navigation, t]
-  );
-
-  const handleAddConversationPress = useCallback(() => {
-    if (!firstVisibleAgent) {
-      handleOpenDirectoryPicker();
-      return;
-    }
-
-    void openNewConversationForDirectoryItem(firstVisibleAgent);
-  }, [firstVisibleAgent, handleOpenDirectoryPicker, openNewConversationForDirectoryItem]);
 
   const CardComponent = useCallback(
     ({ item }: ChatRowComponentProps) =>
@@ -346,15 +339,23 @@ export function ChatHomeScreen() {
 
   useEffect(() => {
     let mounted = true;
+    homeStateScopeRef.current = scopeId;
+    setHomeState(buildDirectoryListState([], 0));
+    setPinnedTotal(0);
+    setIsBootstrapReady(false);
+    setIsSearchOpen(false);
+    setErrorText('');
+    if (!hasSource) return;
     let interactionTask: { cancel: () => void } | null = null;
     let hasSnapshot = false;
 
     try {
       const snapshot = readChatDirectorySnapshot();
-      hasSnapshot = Boolean(snapshot?.items.length);
-      if (snapshot?.items.length) {
-        setHomeState(buildDirectoryListState(snapshot.items, snapshot.items.length));
-        setPinnedTotal(snapshot.items.filter((item) => item.pinnedAt > 0).length);
+      const snapshotItems = snapshot ? filterActiveSourceItems(snapshot.items) : [];
+      hasSnapshot = snapshotItems.length > 0;
+      if (snapshotItems.length) {
+        setHomeState(buildDirectoryListState(snapshotItems, snapshotItems.length));
+        setPinnedTotal(snapshotItems.filter((item) => item.pinnedAt > 0).length);
       }
     } catch {
       hasSnapshot = false;
@@ -389,7 +390,7 @@ export function ChatHomeScreen() {
       mounted = false;
       interactionTask?.cancel();
     };
-  }, []);
+  }, [scopeId, hasSource]);
 
   useEffect(() => {
     if (!isFocused || !isBootstrapReady) {
@@ -442,8 +443,19 @@ export function ChatHomeScreen() {
     setErrorText('');
 
     try {
-      await chatSyncService.refreshHome('manual_refresh');
+      if (getSelectedSource()?.kind === 'cloud' || !getActiveChatSource()) await verifyDefaultCloud();
+      const failures = await chatSyncService.refreshHome('manual_refresh');
       await loadVisibleSlice(1, arePinnedItemsCollapsed);
+      setErrorText(
+        failures
+          .map(({ source, message }) =>
+            t('chatHome.error.sourceRefreshFailed', {
+              source: source.kind === 'default' ? t('me.row.defaultSource') : 'Desktop',
+              message
+            })
+          )
+          .join('\n')
+      );
     } catch (error) {
       setErrorText(error instanceof Error ? error.message : String(error));
     } finally {
@@ -503,8 +515,7 @@ export function ChatHomeScreen() {
 
     try {
       await chatSyncService.markScopeRead({
-        agentKey: target.agentKey,
-        teamId: target.teamId
+        agentKey: target.agentKey
       });
       await loadVisibleSlice(currentPageRef.current, arePinnedItemsCollapsed);
     } catch (error) {
@@ -533,15 +544,9 @@ export function ChatHomeScreen() {
           usage="chatHome.search"
           accessibilityLabel={t('chatHome.search.open')}
           onPress={handleOpenSearch}
-        />,
-        <HeaderIconButton
-          key="add"
-          usage="chatHome.add"
-          accessibilityLabel={t('chatHome.add')}
-          onPress={handleAddConversationPress}
         />
       ] as const,
-    [handleAddConversationPress, handleOpenSearch, t]
+    [handleOpenSearch, t]
   );
   const listBottomPadding = tabBarHeight + appVisualTokens.spacing.xxl;
   const listContentStyle = useMemo<StyleProp<ViewStyle>>(
@@ -576,7 +581,27 @@ export function ChatHomeScreen() {
     <View className={SCREEN_CLASS}>
       <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
         <ScreenHeader
-          title={t('chatHome.title')}
+          title={
+            selectedSource ? (
+              <View
+                accessible
+                accessibilityRole="header"
+                accessibilityLabel={`${selectedSource.kind === 'desktop' ? 'PC' : t('accountSource.cloud')} ${t('chatHome.title')}`}
+                className={HEADER_TITLE_CLASS}
+              >
+                <AppIcon
+                  usage={selectedSource.kind === 'desktop' ? 'accountSource.desktop' : 'accountSource.cloud'}
+                  size={appVisualTokens.iconSizes.sm}
+                  color={theme.colors.textSecondary}
+                />
+                <Text numberOfLines={1} className={HEADER_TITLE_TEXT_CLASS}>
+                  {t('chatHome.title')}
+                </Text>
+              </View>
+            ) : (
+              t('chatHome.title')
+            )
+          }
           leftActions={headerLeftActions}
           rightActions={headerRightActions}
           className={isListEmpty ? HEADER_WITHOUT_DIVIDER_CLASS : undefined}
@@ -597,13 +622,59 @@ export function ChatHomeScreen() {
           onRefresh={handleRefresh}
           itemHeight={CHAT_DIRECTORY_ROW_HEIGHT}
           ListHeaderComponent={
-            errorText ? (
+            errorText || (getSelectedSource()?.kind === 'cloud' && cloud.status !== 'available') ? (
               <View className={FEEDBACK_CARD_CLASS} style={appHairlineStyles.borderTopBottom}>
-                <Text className={ERROR_TEXT_CLASS}>{t('chatHome.error.readFailed', { message: errorText })}</Text>
+                <Text className={ERROR_TEXT_CLASS}>
+                  {errorText
+                    ? t('chatHome.error.readFailed', { message: errorText })
+                    : t(`cloud.status.${cloud.status}`)}
+                </Text>
+                {getSelectedSource()?.kind === 'cloud' ? (
+                  <Pressable
+                    onPress={() =>
+                      cloud.status === 'login_required'
+                        ? navigation.navigate('Login', { mode: 'cloud' })
+                        : void verifyDefaultCloud()
+                    }
+                    className="min-h-11 justify-center"
+                  >
+                    <Text className="font-bold text-app-action">
+                      {t(cloud.status === 'login_required' ? 'cloud.login' : 'common.retry')}
+                    </Text>
+                  </Pressable>
+                ) : null}
               </View>
             ) : null
           }
-          ListEmptyComponent={CHAT_EMPTY_STATE}
+          ListEmptyComponent={
+            hasSource ? (
+              !isBootstrapReady ? (
+                <View className={EMPTY_STATE_CLASS}>
+                  <ActivityIndicator />
+                </View>
+              ) : desktopOffline ? (
+                <View className={EMPTY_STATE_CLASS}>
+                  <Text className={EMPTY_STATE_BODY_CLASS}>{t('accountSource.offlineEmpty')}</Text>
+                </View>
+              ) : (
+                CHAT_EMPTY_STATE
+              )
+            ) : (
+              <View className={EMPTY_STATE_CLASS}>
+                <ChatSignedOutIllustration />
+                <Text className={EMPTY_STATE_TITLE_CLASS}>{t('accountSource.signedOutTitle')}</Text>
+                <Text className={EMPTY_STATE_BODY_CLASS}>{t('accountSource.signedOutBody')}</Text>
+                <Text className={EMPTY_STATE_BODY_CLASS}>{t(`cloud.status.${cloud.status}`)}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  onPress={() => navigation.navigate('ChatDirectoryPickerOverlay')}
+                  className="mt-app-xl min-h-11 justify-center rounded-app-pill bg-app-action px-app-xxl"
+                >
+                  <Text className="font-bold text-app-on-action">{t('cloud.chooseSource')}</Text>
+                </Pressable>
+              </View>
+            )
+          }
           contentContainerStyle={listContentStyle}
           showScrollTopButton={false}
           itemSpacing={0}
@@ -616,7 +687,8 @@ export function ChatHomeScreen() {
       </View>
 
       <ChatDirectorySearchOverlay
-        visible={isSearchOpen}
+        key={scopeId}
+        visible={hasSource && isSearchOpen}
         onClose={handleCloseSearch}
         onSelectItem={handleSearchItemPress}
       />

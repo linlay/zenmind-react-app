@@ -21,8 +21,8 @@ test('directory picker load gate blocks duplicate page loads until release', () 
 });
 
 test('directory picker hidden offset moves the whole panel outside the screen', () => {
-  assert.equal(getDirectoryPickerPanelWidth(360), 310);
-  assert.equal(getDirectoryPickerHiddenOffset(360), -310);
-  assert.equal(getDirectoryPickerPanelWidth(1080), 390);
-  assert.equal(getDirectoryPickerHiddenOffset(1080), -390);
+  assert.equal(getDirectoryPickerPanelWidth(360), 296);
+  assert.equal(getDirectoryPickerHiddenOffset(360), -296);
+  assert.equal(getDirectoryPickerPanelWidth(1080), 370);
+  assert.equal(getDirectoryPickerHiddenOffset(1080), -370);
 });

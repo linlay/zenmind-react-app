@@ -16,7 +16,7 @@ test('composer uses the native TextInput placeholder instead of an animated over
 });
 
 test('composer lets native TextInput use one baseline path for placeholder and typed text', () => {
-  const inputClass = composerSource.match(/const INPUT_CLASS =\n\s+'([^']+)'/u)?.[1] ?? '';
+  const inputClass = composerSource.match(/const INPUT_CLASS =\s+'([^']+)'/u)?.[1] ?? '';
   assert.ok(inputClass, 'expected INPUT_CLASS to be a static class string');
   assert.doesNotMatch(inputClass, /leading-\[/u);
 });

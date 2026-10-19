@@ -3,26 +3,20 @@
   "module": "feature-auth-login",
   "status": "confirmed",
   "paths": [
-    "src/features/auth"
+    "src/features/auth",
+    "src/features/deviceLink",
+    "docs/account-email-auth-2026-10-13"
   ],
   "summary": {
-    "purpose": "登录页与认证门卫界面: 承载设备登录表单、Desktop 二维码扫码配对、粘贴配对内容备用入口、最近 profile 快捷入口、启动恢复中的认证占位屏和最小会话交互。",
+    "purpose": "原生官网邮箱验证码登录、Hub 电脑管理与独立云端 Token 登录。",
     "ownedConcepts": [
-      "承载设备登录表单、Desktop 二维码扫码配对、粘贴配对内容备用入口、最近 profile 快捷入口、启动恢复中的认证占位屏和最小会话交互。",
-      "通过 core auth 与 core api 读取认证状态、profile endpoint 和后端地址，不在页面层直接碰 MMKV、fetch、WebSocket 或 token 细节。",
-      "扫码/粘贴入口同时兼容 legacy HTTP pairing 与 Desktop WS v2 pairing，但 UI 只把 QR 文本交给 core auth，不解析 zmpair 或保存 Desktop token。",
-      "保持登录界面为纯 screen 级 UI，实现 root stack 的认证前置入口，并通过 shared-i18n 获取表单文案与校验提示，通过 shared-visual-foundation 复用 generated 品牌 logo。",
-      "Public entry LoginScreen (screen): 未登录时显示的设备登录页面。",
-      "Public entry AuthBootstrapScreen (screen): 冷启动恢复会话期间显示的认证占位页。",
-      "State/data touch: 登录表单本地输入态",
-      "State/data touch: 相机权限与扫码面板状态",
-      "State/data touch: 最近 profile 展示与快捷激活状态",
-      "State/data touch: 登录提交中状态",
-      "State/data touch: 认证错误提示",
-      "Related flow: app-startup",
-      "Related task: add-auth-login-screen",
-      "Related task: add-internationalization",
-      "Related task: add-or-edit-tab-screen"
+      "LoginScreen 在现有主题与表单中提供账号/云端切换，Token 支持输入及系统粘贴，业务验证成功后才保存并选择云端；已登录另一条路径时入口仍可达。",
+      "登录页关闭、邮箱登录成功和云端登录成功共用 closeLogin：有返回历史时回到调用页，孤立根登录页则 reset 到 Tabs，不清理账号、Cookie 或来源选择。",
+      "账号分支只展示原生邮箱/验证码输入，accountAuth 确认官网用户与 Cookie 会话；电脑管理只访问 Hub，不提供旧密码/扫码/邮箱绑定入口。",
+      "AccountDevicesPanel 与来源抽屉复用 Hub 权威目录；刷新失败保留已知列表，离线电脑可选所属缓存，撤销由 service 关闭到暂无来源。",
+      "云端行仅业务验证通过才可选；不可用文字置灰并 disabled，登录/重试独立可点击。页面不操作 SQLite/MMKV/WebSocket。",
+      "EmailVerificationForm 使用真实 expiresAt 和本地发送冷却；取消、失焦、身份变化拒绝迟到结果，不把验证码持久化。",
+      "Me 展示已确认官网用户资料，旧 AccountSecurity/EmailBinding/EmailUnbinding 导航、页面与文案已移除。"
     ],
     "nonGoals": []
   },
@@ -38,7 +32,11 @@
     "dependents": [
       "app-shell-navigation"
     ],
-    "tests": [],
+    "tests": [
+      "scripts/tests/accountEmailApi.test.mts",
+      "scripts/tests/accountEmailForm.test.mts",
+      "scripts/tests/accountAuthSession.test.mts"
+    ],
     "lastScannedAt": ""
   },
   "readHints": {
@@ -66,16 +64,16 @@
     ]
   },
   "riskRules": [
-    "登录页只管表单与提交反馈，不在 UI 层自己保存 token。",
-    "扫码配对只把 QR 文本交给 core auth 的 loginWithPairingPayload，不在 UI 层解析 legacy JSON、zmpair:v2、保存或刷新 token。",
-    "最近 profile 快捷入口只调用 activateProfile + bootstrapAuth，不在 UI 层分支处理 HTTP refresh 或 Desktop WS session.hello。",
-    "扫码能力依赖 expo-camera；新增或调整扫码入口时同步检查 package.json 和 app.config.js 的相机权限插件配置，不修改 lock 文件或运行安装命令。",
-    "后端地址继续来自统一 API 配置入口，不在 feature 内复制环境变量读取逻辑。",
-    "登录页文案和本地校验提示走 shared-i18n，不直接读取 expo-localization 或 i18n storage。",
-    "登录页品牌图走 shared/icons/brandAssets，不直接 import assets/brands 或具体品牌资源。",
-    "认证中间态保持轻量，避免把复杂初始化逻辑塞进登录 screen。"
+    "账号恢复未确认有效时显示恢复状态，不建立业务连接。",
+    "来源切换和失败回滚统一交由 feature service，权威列表确认撤销后关闭到暂无来源并同步 SQLite。",
+    "账号登录复用官网现有邮箱接口；保持独立云端 Token 登录，不使用 Identity 公网认证或旧配对凭据回退。",
+    "邮箱注册/账号策略以官网实际接口为准，不沿用旧 Identity 已绑定邮箱规则。表单取消或身份变化拒绝迟到结果，不建全局邮箱 Provider。"
   ],
-  "recentChanges": [],
+  "recentChanges": [
+    "2026-10-12：默认云端 Token 独立访问实施；本地测试与导出验证，真实服务/真机验收由用户执行。",
+    "2026-10-13：邮箱验证码登录与账号邮箱绑定解绑本地实现；真实 SMTP、部署和真机验收未完成，详见 docs/account-email-auth-2026-10-13/IMPLEMENTATION.md。",
+    "2026-10-15：官网原生邮箱登录与原 Identity 票据接入已在本地实现；真实环境由用户验收，见 docs/mobile-account-ticket-sync-2026-10-14/IMPLEMENTATION.md。"
+  ],
   "legacy": {
     "title": "登录页与认证门卫界面",
     "layer": "features"

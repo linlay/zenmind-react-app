@@ -47,13 +47,13 @@ test('agent waiting preview exposes five themed animation variants', () => {
   assert.doesNotMatch(indicator, /<Text/u);
 });
 
-test('agent waiting preview is registered as a secondary route from Me', () => {
+test('agent waiting preview is registered as a secondary route from development settings', () => {
   const rootTypes = readSource('src/app/navigation/types.ts');
   const rootNavigator = readSource('src/app/navigation/RootNavigator.tsx');
-  const meScreen = readSource('src/app/screens/MeScreen.tsx');
+  const settingsScreen = readSource('src/app/screens/SettingsScreen.tsx');
 
   assert.match(rootTypes, /AgentWaitingDemo: undefined/u);
   assert.match(rootNavigator, /name="AgentWaitingDemo"/u);
   assert.match(rootNavigator, /component=\{AgentWaitingDemoScreen\}/u);
-  assert.match(meScreen, /navigation\.navigate\('AgentWaitingDemo'\)/u);
+  assert.match(settingsScreen, /navigation\.navigate\('AgentWaitingDemo'\)/u);
 });

@@ -43,7 +43,7 @@
     },
     {
       "id": "chat-send-message",
-      "title": "发送消息与 ack 落库",
+      "title": "发送消息与服务端确认",
       "trigger": "用户在 Chat 详情页输入消息并提交时触发。",
       "mustCheckModules": [
         "feature-chat-persistence",
@@ -89,7 +89,7 @@
     {
       "id": "webapps-runtime",
       "title": "WebApps Desktop WS 目录同步与常驻 WebView 运行时",
-      "trigger": "认证会话挂载、Desktop WS 重连、App 回前台、进入 WebAppDetail、切换运行项或系统终止 WebContent 进程时触发。",
+      "trigger": "已确认账号所选 Desktop、Desktop WS 重连、App 回前台、进入 WebAppDetail、切换运行项或系统终止 WebContent 进程时触发；未登录或云端只展示空态。",
       "mustCheckModules": [
         "app-shell-navigation",
         "core-auth-session",

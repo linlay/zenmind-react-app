@@ -24,7 +24,7 @@ function createAttachment(overrides: Partial<ChatAttachmentBase> = {}): ChatAtta
     height: null,
     localUri: 'file:///cache/notes.md',
     previewUri: null,
-    resourceUrl: '/ap/api/resource?file=notes.md',
+    resourceUrl: '/api/resource?file=notes.md',
     sha256: null,
     status: 'ready',
     errorReason: null,
@@ -88,7 +88,7 @@ test('composer images prefer local previews while persisted messages prefer serv
     kind: 'image',
     localUri: 'file:///cache/full.png',
     previewUri: 'file:///cache/preview.png',
-    resourceUrl: '/ap/api/resource?file=photo.png'
+    resourceUrl: '/api/resource?file=photo.png'
   });
   assert.equal(resolveChatAttachmentImageUri(attachment, 'composer'), 'file:///cache/preview.png');
   assert.equal(resolveChatAttachmentImageUri(attachment, 'message'), '/api/resource?file=photo.png');
@@ -102,7 +102,10 @@ test('conversation detail keeps one preview host while rows only dispatch previe
     'src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx'
   );
 
-  assert.match(screenSource, /<AuthenticatedResourcePreviewProvider key=\{conversationId\}>/);
+  assert.match(
+    screenSource,
+    /<AuthenticatedResourcePreviewProvider key=\{conversationId\} conversationId=\{conversationId\}>/
+  );
   assert.match(attachmentSource, /useConversationPreviewRowActive\(\)/);
   assert.match(attachmentSource, /useAuthenticatedResourcePreview\(\)/);
   assert.doesNotMatch(artifactSource, /AuthenticatedResourcePreviewModal/);

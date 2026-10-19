@@ -575,7 +575,7 @@ function collectTimelineDisplaySource(state: ChatTimelineState): TimelineDisplay
     if (node.kind === 'run' && node.runId) {
       runStatesById.set(node.runId, {
         durationMs: normalizeDurationMs(node.durationMs),
-        active: node.lifecycle === 'active',
+        active: node.lifecycle === 'active' && node.status !== 'pending',
       });
     }
 

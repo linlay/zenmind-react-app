@@ -8,7 +8,7 @@
 - 导航：`React Navigation` root stack + bottom tabs
 - 高性能列表：`@shopify/flash-list`
 - 本地持久化：`expo-sqlite`、`drizzle-orm`、`react-native-mmkv`
-- 实时通信：`WebSocket`，HTTP profile 默认连接后端 `/ap/ws`，Desktop WS profile 使用配对 payload 中的 `/ws` endpoint 和 namespace
+- 实时通信：`WebSocket`，HTTP profile 默认连接后端 `/ap/ws`，Desktop WS profile 使用 Hub 访问票据返回的 `/ws` endpoint 和 namespace
 - 系统通知：`expo-notifications`
 - Markdown：`react-native-enriched-markdown`、`react-native-streamdown`
 - 动画：`react-native-reanimated`、`react-native-worklets`
@@ -78,7 +78,7 @@ Reusable UI
 
 - `auth`：登录页和认证 bootstrap UI
 - `chatPersistence`：Chat 首页、详情页、本地数据库、目录快照、rich timeline 持久化
-- `chatRealtime`：聊天 WS request / stream / push 业务协调、outbox replay、scoped sync event
+- `chatRealtime`：聊天 WS request / stream / push 业务协调、历史核对与运行观察恢复、scoped sync event
 - `chatTimeline`：reasoning、tool、awaiting、usage、run lifecycle 等 timeline 状态归一
 - `notifications`：push token 注册、通知点击 payload、active conversation 抑制
 - `agentTaskBoard`：任务 Tab 的移动端 AI 任务看板设计稿
@@ -120,14 +120,14 @@ RootStack
   -> ChatDetail
 ```
 
-| Route / Tab | 实际入口 | 说明 |
-| ----------- | -------- | ---- |
-| `Login` | `src/features/auth/LoginScreen.tsx` | 认证冷启动和登录页 |
-| `Chat` | `src/features/chatPersistence/ChatHomeScreen.tsx` | Chat 首页目录 |
-| `Terminal` | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` | 任务 Tab / AI 任务看板 |
-| `Drive` | `src/app/screens/TabScreens.tsx` | 网盘占位页 |
-| `Me` | `src/app/screens/TabScreens.tsx` | 用户、会话和版本信息 |
-| `ChatDetail` | `src/features/chatPersistence/ChatDetailScreen.tsx` | Tabs 之上的详情页 route |
+| Route / Tab  | 实际入口                                               | 说明                    |
+| ------------ | ------------------------------------------------------ | ----------------------- |
+| `Login`      | `src/features/auth/LoginScreen.tsx`                    | 认证冷启动和登录页      |
+| `Chat`       | `src/features/chatPersistence/ChatHomeScreen.tsx`      | Chat 首页目录           |
+| `Terminal`   | `src/features/agentTaskBoard/AgentTaskBoardScreen.tsx` | 任务 Tab / AI 任务看板  |
+| `Drive`      | `src/app/screens/TabScreens.tsx`                       | 网盘占位页              |
+| `Me`         | `src/app/screens/TabScreens.tsx`                       | 用户、会话和版本信息    |
+| `ChatDetail` | `src/features/chatPersistence/ChatDetailScreen.tsx`    | Tabs 之上的详情页 route |
 
 底部 Tab 的真实 safe area / tab bar height 由导航层和页面容器协同处理，页面内不要硬编码底栏避让。
 
@@ -140,7 +140,6 @@ SQLite 是本地真源，覆盖：
 - 首页目录 `chat_directory_items`
 - 会话摘要 `conversations`
 - 消息 `messages`
-- 待补发 `outbox_messages`
 - 同步状态 `conversation_sync_state`
 - rich timeline snapshot `conversation_timeline_meta` / `conversation_timeline_nodes`
 
@@ -150,18 +149,20 @@ MMKV 只保存首页首屏目录快照，用于冷启动回显。它不承担完
 
 ### Repository
 
-`chatRepository` 是本地数据统一读写入口，负责 SQLite 事务、目录投影、会话摘要 patch、outbox、通知补拉落库、timeline snapshot 持久化和目录快照刷新。
+`chatRepository` 是本地数据统一读写入口，负责 SQLite 事务、目录投影、会话摘要 patch、通知补拉落库、timeline snapshot 持久化和目录快照刷新。
 
-## 6. 认证 Profile 与 Transport
+## 6. 账号、电脑与默认云端边界
 
-认证层支持两种 active profile：
+- Identity 管理账号与登录会话。密码和邮箱登录共用 `accountAuth` 的会话提交、恢复、刷新和退出；协议中的 `deviceId` 是登录会话 ID。
+- Hub 管理 Desktop 注册、归属、目录、名称、撤销、在线状态与短期访问票据。App 不合成 Identity 设备目录与 Hub presence。
+- Desktop 使用自身 OAuth 身份向 Hub 注册，验证访问票据后执行本地业务，保留本地 Platform 主体。
+- 默认云端继续使用独立 `cloudAuth` Token；账号退出只释放电脑访问，云端退出只释放默认源访问。
 
-- `http`：账号/密码登录和 legacy pairing，保存 `apiBaseUrl`、`deviceToken`，冷启动和硬刷新继续走 `/api/auth/refresh`。
-- `desktop-ws`：Desktop v2 QR pairing，保存 `wsUrl`、`tokenMode`、Desktop access token 和过期时间，不把 Desktop token 写入旧 `auth_device_token_v1`。
+`accountEmailApi` 读取安全摘要与执行邮箱操作；`deviceLinkApi` 只访问 Hub 的电脑接口。登录结果由 `accountAuth` 保存，没有旧电脑配对入口、凭据回退或第二套登录态。
 
-`LoginScreen` 只负责扫码、粘贴和提交反馈。QR 文本解析、legacy v1 pairing claim、Desktop v2 `zmpair:v2:<base64url-json>` 解析、短连接 `session.hello` 校验、profile 写入和 token refresh 都收口在 `src/core/auth`。
+`activeDesktop` 保存唯一 `cloud / desktop / null` 来源选择，`accountDesktopSource` 协调聊天缓存与连接。`activeWsTransport` 为已验证云端解析原 HTTP/WS 配置，为当前账号电脑取得绑定来源会话和目标的 Hub 票据。页面不直接持有 WebSocket 或写入聊天数据库。
 
-`bootstrapAuth()` 会按 active profile 分支：HTTP profile 刷新 device token；Desktop WS profile 先用保存的 Desktop token 建立短连接校验 `session.hello`，必要时调用 `auth.refresh` 并更新 profile。`ensureFreshAccessToken()` 同样按 profile 走 HTTP refresh 或 Desktop WS refresh。
+账号电脑访问与邮箱认证分别审查和验收；邮箱复用账号会话，不修改 Hub、Desktop 或默认云端的认证协议。
 
 ## 7. Chat 首页冷启动链路
 
@@ -215,10 +216,10 @@ chatSyncService
 - `WsClient`：底层 WebSocket、request、stream、push、心跳和重连，支持 Desktop namespace 与 query/subprotocol token mode。
 - `sharedWsTransport`：维护每个 active endpoint 的共享 socket，token 或 namespace 变化时更新内存配置，不为每次请求重新建连。
 - `chatWsTransport`：聊天协议 adapter，转发 `/api/query`、`/api/attach` 和聊天 request，并把 push/stream 归一为 chat event。
-- `chatSyncService`：业务协调层，处理 outbox replay、发送、ack、incoming、summary push、read/unread、awaiting submit、stop/resume、reconcile 和 UI event。
+- `chatSyncService`：业务协调层，处理 历史核对与运行观察恢复、发送、ack、incoming、summary push、read/unread、awaiting submit、stop/resume、reconcile 和 UI event。
 - `chatRepository`：所有 SQLite / MMKV 写入入口。
 
-Desktop WS 收到 `ns: "d"` 的 `auth.expiring` push 时，`chatSyncService` 通过同一 shared transport 调用 `auth.refresh`，再让 core auth 持久化新 token，并用 `updateTransport` 更新当前 socket 配置。正式路径不把缺失 WS URL 当 mock fallback；开发态 HTTP profile 可用 `EXPO_PUBLIC_CHAT_WS_URL` 覆盖 WebSocket 地址。
+Desktop 访问票据失效或需要重新认证时，由现有账号路由入口取得新票据和 JTI；不恢复旧 Desktop Token 的 `auth.refresh` 配对链路。默认云端仍由自身凭证与既有重连入口恢复。
 
 ## 10. 发送消息链路
 
@@ -227,7 +228,6 @@ UI send
   -> chatSyncService.sendMessage()
   -> chatRepository.createOutgoingMessage()
      -> messages(pending)
-     -> outbox_messages
      -> conversations summary
      -> chat_directory_snapshot_v1
   -> chatWsTransport.streamChatQuery(/api/query)
@@ -284,6 +284,6 @@ HTTP profile 的 API base URL 优先读取登录页保存到 MMKV 的地址，�
 - `core/ws` 不读取 active auth profile、不持久化 token、不做聊天业务归一。
 - `chatWsTransport` / `WsClient` 不直接写 UI 或 SQLite。
 - `src/core/**` 不反向依赖 `src/features/**`。
-- SQLite 是聊天目录、摘要、消息、outbox 和 read state 真源。
+- SQLite 是聊天目录、摘要、消息和 read state 真源。
 - MMKV 只保存首页冷启动目录快照。
 - 影响首页目录的写入必须刷新 `chat_directory_snapshot_v1`。

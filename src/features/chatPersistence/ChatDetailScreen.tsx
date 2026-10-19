@@ -1,13 +1,9 @@
+import { ChatContextReferencePicker } from './components/ChatContextReferencePicker';
+import { ConversationViewScope } from './conversationViewport/ConversationViewScope';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import * as Clipboard from 'expo-clipboard';
-import {
-  Animated,
-  Keyboard,
-  KeyboardAvoidingView,
-  Platform,
-  View,
-} from 'react-native';
+import { Animated, Keyboard, KeyboardAvoidingView, Platform, Pressable, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useT } from '../../shared/i18n';
@@ -21,6 +17,7 @@ import { ChatDetailComposerCard } from './components/ChatDetailComposerCard';
 import { ChatDetailHistoryDrawer } from './components/ChatDetailDrawers';
 import { ChatDetailEmptyState } from './components/ChatDetailEmptyState';
 import { ChatDetailHeader } from './components/ChatDetailHeader';
+import { ChatExportMenu } from './components/ChatExportMenu';
 import { ChatTimelineList } from './components/ChatTimelineList';
 import { ChatDetailSkeleton } from './components/ChatDetailSkeleton';
 import { ChatNewConversationIntro } from './components/ChatNewConversationIntro';
@@ -33,7 +30,7 @@ import type { ChatSyncEvent } from '../chatRealtime/types';
 import type {
   AwaitingSubmitPayloadData,
   FrontendToolSubmitPayloadData,
-  SubmitFrontendToolResponse,
+  SubmitFrontendToolResponse
 } from '../../core/api/services/chatApi';
 import type { ChatTimelineFrontendToolResolution } from '../chatTimeline/index.ts';
 import { getConversationHistorySlice } from './chatRepository';
@@ -43,15 +40,21 @@ import { useChatDetailAwaitingOverlay } from './useChatDetailAwaitingOverlay';
 import { useChatDetailConversationController } from './useChatDetailConversationController';
 import { useChatDetailLocalUiState } from './useChatDetailLocalUiState';
 import { useConversationActionRuntime } from './useConversationActionRuntime.ts';
+import { getChatSourceFromId } from './chatSource.ts';
+import { isAccountDesktopChatSource } from './chatSourceRuntime.ts';
 
 type ChatDetailScreenProps = NativeStackScreenProps<{ ChatDetail: ChatDetailRouteParams }, 'ChatDetail'>;
 const IS_IOS = Platform.OS === 'ios';
+const SHOW_CONVERSATION_TOOLS = Platform.OS === 'web';
 const KEYBOARD_SHOW_EVENT = IS_IOS ? 'keyboardWillShow' : 'keyboardDidShow';
 const KEYBOARD_HIDE_EVENT = IS_IOS ? 'keyboardWillHide' : 'keyboardDidHide';
 const SAFE_AREA_CLASS = 'flex-1 bg-app-background';
 const KEYBOARD_ROOT_CLASS = 'flex-1';
 const SCREEN_CLASS = 'flex-1 bg-app-background';
 const INITIAL_SKELETON_OVERLAY_CLASS = 'absolute inset-0';
+const SOURCE_DELETED_NOTICE_CLASS =
+  'mx-app-lg mb-app-sm rounded-app-md border border-app-line bg-app-surface-muted px-app-lg py-app-md';
+const SOURCE_DELETED_NOTICE_TEXT_CLASS = 'text-app-footnote text-app-secondary';
 
 function useKeyboardVisibility() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(() => Keyboard.isVisible());
@@ -94,6 +97,8 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
   const t = useT();
   const insets = useSafeAreaInsets();
   const [isArtifactDrawerOpen, setIsArtifactDrawerOpen] = useState(false);
+  const [canLoadOlderRemoteHistory, setCanLoadOlderRemoteHistory] = useState(true);
+  const [isLoadingOlderRemoteHistory, setIsLoadingOlderRemoteHistory] = useState(false);
   const {
     conversationId,
     conversationSubtitle = '',
@@ -104,6 +109,13 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     fromNotification = false,
     skipInitialReconcile = false
   } = route.params;
+  const isRemoteAccountConversation = useMemo(
+    () => isAccountDesktopChatSource(getChatSourceFromId(conversationId)),
+    [conversationId]
+  );
+  useEffect(() => {
+    setCanLoadOlderRemoteHistory(true);
+  }, [conversationId]);
   const conversationPreviewStore = useMemo(() => createConversationPreviewVisibilityStore(), []);
   useConversationActionRuntime(conversationId);
   const {
@@ -119,25 +131,41 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     skeletonOverlayOpacity,
     socketStatus,
     errorText,
+    recoveryText,
+    modelRetryText,
+    agentAvailability,
+    agentAvailabilityText,
+    retryConfiguration,
     diagnosticState,
     draft,
     setDraft,
     composerAttachments,
     composerOptions,
     composerAction,
+    pendingSteer,
+    steerAvailable,
+    handleSteer,
+    handleRestoreSteer,
     setAccessLevel,
     setModelOverride,
     planModeAvailable,
     planModeEnabled,
+    editingModeAvailable,
+    editingModeEnabled,
+    handleToggleEditingMode,
     handleSend,
     handleStop,
     handleResume,
     handleTogglePlanMode,
+    handleDeriveRun,
     handleReaskMessage,
     handleStartNewConversation,
     handleSelectAttachment,
     handleRemoveAttachment,
     handleRetryAttachment,
+    addSelection,
+    updateSelectionAnnotation,
+    addContextReference,
     handleRetryFromNotification,
     handleSelectWonder,
     historyScope
@@ -152,6 +180,27 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
     fromNotification,
     skipInitialReconcile
   });
+  const [contextPickerOpen, setContextPickerOpen] = useState(false);
+  const [contextPickerKind, setContextPickerKind] = useState<'chat' | 'kbase'>('chat');
+  const handleOpenContextPicker = useCallback(() => {
+    setContextPickerKind('chat');
+    setContextPickerOpen(true);
+  }, []);
+  const handleCloseContextPicker = useCallback(() => setContextPickerOpen(false), []);
+  const contextPickerAvailable =
+    (composerOptions.interaction.attachment.chatRecords || composerOptions.interaction.attachment.kbases) &&
+    !!composerOptions.agentKey &&
+    agentAvailability === 'available' &&
+    !summary?.sourceDeleted &&
+    !pendingSteer &&
+    !headerRuntimeState.runAction &&
+    composerAction !== 'sending';
+  useEffect(() => {
+    setContextPickerOpen(false);
+  }, [conversationId]);
+  useEffect(() => {
+    if (!contextPickerAvailable) setContextPickerOpen(false);
+  }, [contextPickerAvailable]);
   const artifacts = useMemo(() => selectChatTimelineArtifacts(timelineState), [timelineState]);
   const { awaitingSummary, handleOpenAwaitingOverlay, handleDismissAwaitingOverlay } = useChatDetailAwaitingOverlay(
     runtimeState,
@@ -168,6 +217,16 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
       chatSyncService.submitFrontendTool(conversationId, payload),
     [conversationId]
   );
+  const handleLoadOlderRemoteHistory = useCallback(async () => {
+    if (isLoadingOlderRemoteHistory) return;
+    setIsLoadingOlderRemoteHistory(true);
+    try {
+      const hasMore = await chatSyncService.loadOlderConversationHistory(conversationId);
+      setCanLoadOlderRemoteHistory(hasMore);
+    } finally {
+      setIsLoadingOlderRemoteHistory(false);
+    }
+  }, [conversationId, isLoadingOlderRemoteHistory]);
   const handleResolveFrontendTool = useCallback(
     (toolKey: string, reason: ChatTimelineFrontendToolResolution) => {
       chatSyncService.resolveFrontendTool(conversationId, toolKey, reason);
@@ -269,15 +328,23 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
 
                 <ChatTimelineList
                   timelineState={timelineState}
+                  showConversationTools={SHOW_CONVERSATION_TOOLS}
+                  conversationActions={
+                    SHOW_CONVERSATION_TOOLS ? (
+                      <ChatExportMenu
+                        key={`export:${conversationId}`}
+                        conversationId={conversationId}
+                        disabled={Boolean(summary.sourceDeleted)}
+                      />
+                    ) : null
+                  }
                   diagnosticCard={
                     diagnosticState.status === 'idle' ? null : (
                       <ChatConversationDiagnosticCard state={diagnosticState} />
                     )
                   }
                   diagnosticVersion={
-                    diagnosticState.status === 'idle'
-                      ? ''
-                      : `${diagnosticState.requestId}:${diagnosticState.status}`
+                    diagnosticState.status === 'idle' ? '' : `${diagnosticState.requestId}:${diagnosticState.status}`
                   }
                   emptyState={
                     newConversationIntro ? (
@@ -290,18 +357,63 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                     ) : null
                   }
                   onCopyText={handleCopyMessage}
+                  onAddSelection={
+                    !summary.sourceDeleted &&
+                    !pendingSteer &&
+                    agentAvailability === 'available' &&
+                    composerAction !== 'sending' &&
+                    composerAction !== 'resume'
+                      ? addSelection
+                      : undefined
+                  }
                   previewStore={conversationPreviewStore}
                   workspaceAgentKey={composerOptions.agentKey}
+                  onDeriveRun={summary.sourceDeleted ? undefined : handleDeriveRun}
+                  deriveDisabled={
+                    composerAction === 'sending' || Boolean(timelineState.activeRunId || timelineState.awaiting)
+                  }
                   onReaskMessage={handleReaskMessage}
-                  reaskCurrentDisabled={composerAction === 'sending' || Boolean(headerRuntimeState.runAction)}
+                  reaskCurrentDisabled={
+                    summary.sourceDeleted || composerAction === 'sending' || Boolean(headerRuntimeState.runAction)
+                  }
                   reaskNewConversationDisabled={
-                    composerAction === 'sending' || Boolean(headerRuntimeState.runAction) || !historyScope
+                    summary.sourceDeleted ||
+                    composerAction === 'sending' ||
+                    Boolean(headerRuntimeState.runAction) ||
+                    !historyScope
                   }
                   artifactCount={artifacts.length}
                   onOpenArtifacts={handleOpenArtifactDrawer}
+                  historyHeader={
+                    canLoadOlderRemoteHistory && isRemoteAccountConversation ? (
+                      <Pressable
+                        disabled={isLoadingOlderRemoteHistory}
+                        onPress={() => handleLoadOlderRemoteHistory().catch(() => {})}
+                        className="self-center rounded-app-pill px-app-md py-app-sm active:bg-app-surface-muted"
+                      >
+                        <Text className="text-app-caption font-bold text-app-brand">
+                          {isLoadingOlderRemoteHistory
+                            ? t('chatDetail.history.loadingOlder')
+                            : t('chatDetail.history.loadOlder')}
+                        </Text>
+                      </Pressable>
+                    ) : null
+                  }
                 />
 
-                {activeFrontendTool ? (
+                {contextPickerOpen && contextPickerAvailable ? (
+                  <ChatContextReferencePicker
+                    key={`${conversationId}:${contextPickerKind}`}
+                    kind={contextPickerKind}
+                    conversationId={conversationId}
+                    onClose={handleCloseContextPicker}
+                    onSelect={(item) =>
+                      addContextReference({ type: contextPickerKind, id: item.id, name: item.name, meta: item.meta })
+                    }
+                  />
+                ) : null}
+
+                {!summary.sourceDeleted && activeFrontendTool ? (
                   <FrontendToolDock
                     key={activeFrontendTool.key}
                     tool={activeFrontendTool}
@@ -310,7 +422,11 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                   />
                 ) : null}
 
-                {interactiveAwaiting ? (
+                {summary.sourceDeleted ? (
+                  <View className={SOURCE_DELETED_NOTICE_CLASS}>
+                    <Text className={SOURCE_DELETED_NOTICE_TEXT_CLASS}>{t('chatDetail.sourceDeleted')}</Text>
+                  </View>
+                ) : interactiveAwaiting ? (
                   <ChatAwaitingDock awaiting={interactiveAwaiting} onSubmit={handleSubmitAwaiting} />
                 ) : (
                   <>
@@ -320,21 +436,56 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
                       onPress={handleOpenAwaitingOverlay}
                     />
 
+                    {agentAvailabilityText ? (
+                      <Pressable
+                        disabled={agentAvailability === 'checking'}
+                        onPress={retryConfiguration}
+                        accessibilityRole="button"
+                        className="px-app-md py-2"
+                      >
+                        <Text className="text-[13px] text-app-secondary">{agentAvailabilityText}</Text>
+                      </Pressable>
+                    ) : null}
+                    {modelRetryText ? (
+                      <Text className="px-app-md text-[13px] text-app-secondary">{modelRetryText}</Text>
+                    ) : null}
                     <ChatDetailComposerCard
+                      pendingSteer={pendingSteer}
+                      steerAvailable={steerAvailable}
+                      onSteer={handleSteer}
+                      onRestoreSteer={handleRestoreSteer}
                       draft={draft}
                       attachments={composerAttachments}
                       errorText={errorText}
+                      recoveryText={recoveryText}
                       planModeAvailable={planModeAvailable}
                       planModeEnabled={planModeEnabled}
+                      editingModeAvailable={editingModeAvailable}
+                      editingModeEnabled={editingModeEnabled}
+                      onToggleEditingMode={handleToggleEditingMode}
                       primaryAction={composerAction}
                       onChangeDraft={setDraft}
                       onSubmit={handleSend}
                       onStop={handleStop}
                       onResume={handleResume}
                       onTogglePlanMode={handleTogglePlanMode}
+                      onOpenChatReferences={
+                        contextPickerAvailable && composerOptions.interaction.attachment.chatRecords
+                          ? handleOpenContextPicker
+                          : undefined
+                      }
+                      onOpenKbaseReferences={
+                        contextPickerAvailable && composerOptions.interaction.attachment.kbases
+                          ? () => {
+                              setContextPickerKind('kbase');
+                              setContextPickerOpen(true);
+                            }
+                          : undefined
+                      }
                       onSelectAttachment={handleSelectAttachment}
                       onRemoveAttachment={handleRemoveAttachment}
                       onRetryAttachment={handleRetryAttachment}
+                      onUpdateSelectionAnnotation={pendingSteer ? undefined : updateSelectionAnnotation}
                       composerOptions={composerOptions}
                       onAccessLevelChange={setAccessLevel}
                       onModelOverrideChange={setModelOverride}
@@ -399,7 +550,11 @@ export function ChatDetailScreen({ navigation, route }: ChatDetailScreenProps) {
       store={conversationPreviewStore}
       onCopyText={handleCopyMessage}
     >
-      <AuthenticatedResourcePreviewProvider key={conversationId}>{content}</AuthenticatedResourcePreviewProvider>
+      <ConversationViewScope.Provider value={conversationId}>
+        <AuthenticatedResourcePreviewProvider key={conversationId} conversationId={conversationId}>
+          {content}
+        </AuthenticatedResourcePreviewProvider>
+      </ConversationViewScope.Provider>
     </ConversationPreviewProvider>
   );
 }

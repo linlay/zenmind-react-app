@@ -2,6 +2,21 @@
   "schemaVersion": "1.0",
   "items": [
     {
+      "id": "add-account-email-auth",
+      "title": "邮箱验证码登录与邮箱绑定解绑改造",
+      "intentKeywords": [
+        "邮箱登录",
+        "邮箱验证码登录",
+        "邮箱绑定",
+        "邮箱解绑",
+        "账号与安全",
+        "邮箱认证执行大纲",
+        "account email auth"
+      ],
+      "entryDecision": "2026-10-13：App/Identity 代码与本地验收已实施；从 docs/account-email-auth-2026-10-13/IMPLEMENTATION.md 查看契约、验证、清理及真实 SMTP/部署/真机缺口，整体未完成。",
+      "card": ".doc/tasks/add-account-email-auth.json"
+    },
+    {
       "id": "add-app-startup-loading-screen",
       "title": "新增应用启动加载屏",
       "intentKeywords": [
@@ -180,6 +195,22 @@
       "card": ".doc/tasks/configure-multi-brand-builds.json"
     },
     {
+      "id": "decouple-default-cloud-device-access",
+      "title": "移动端账号电脑与默认云端 Token 改造",
+      "intentKeywords": [
+        "默认云端 Token 独立登录",
+        "默认云端可用性",
+        "移动端登录改造计划",
+        "云端置灰",
+        "账号电脑访问",
+        "独立退出",
+        "mobile auth source",
+        "default cloud token"
+      ],
+      "entryDecision": "2026-10-12 登录、默认云端、账号电脑来源及缓存改造从 docs/mobile-auth-source-2026-10-12/README.md 进入 T00–T05。",
+      "card": ".doc/tasks/decouple-default-cloud-device-access.json"
+    },
+    {
       "id": "initialize-project-context",
       "title": "Initialize project context",
       "intentKeywords": [
@@ -195,6 +226,24 @@
       "card": ".doc/tasks/initialize-project-context.json"
     },
     {
+      "id": "mobile-account-ticket-sync",
+      "title": "官网原生邮箱登录与 Desktop Identity 票据同步执行大纲",
+      "intentKeywords": [
+        "票据同步",
+        "Identity票据",
+        "Desktop票据",
+        "官网邮箱登录",
+        "原生邮箱验证码",
+        "Hub内存票据",
+        "用户ID字段",
+        "SSO_JWT_USER_ID_CLAIM",
+        "移动端登录纠偏",
+        "mobile account ticket sync"
+      ],
+      "entryDecision": "2026-10-14 建档；2026-10-15 已落实本地代码与自动验证，T00–T07 等待用户真实环境验收，当前阻塞。真实环境由用户验收；基线门禁与清理例外见 docs/mobile-account-ticket-sync-2026-10-14/IMPLEMENTATION.md。",
+      "card": ".doc/tasks/mobile-account-ticket-sync.json"
+    },
+    {
       "id": "modify-chat-persistence",
       "title": "修改聊天持久化逻辑",
       "intentKeywords": [
@@ -203,7 +252,7 @@
         "修改快照",
         "修改聊天首页数据",
         "修改聊天置顶",
-        "修改 outbox",
+        "修改消息提交状态",
         "修改消息持久化",
         "修改聊天持久化逻辑",
         "修改聊天持久化",
@@ -271,6 +320,21 @@
       "card": ".doc/tasks/modify-runtime-environment.json"
     },
     {
+      "id": "optimize-account-source-ui",
+      "title": "优化用户界面与账号云端电脑来源",
+      "intentKeywords": [
+        "账号来源改造",
+        "用户界面优化计划",
+        "云端电脑切换",
+        "取消扫码配对",
+        "同账号设备在线状态",
+        "account source ui",
+        "用户页主题关于"
+      ],
+      "entryDecision": "后续登录、默认云端 Token、来源与缓存改造进入 docs/mobile-auth-source-2026-10-12/README.md；代码与本地检查已实施，真实服务和真机验收待完成。本卡保留历史记录，不恢复旧配对或双目录。邮箱认证独立按 docs/account-email-auth-2026-10-13/README.md 交付。",
+      "card": ".doc/tasks/optimize-account-source-ui.json"
+    },
+    {
       "id": "remove-development-debug-entry",
       "title": "删除开发态 Debug 入口",
       "intentKeywords": [
@@ -286,6 +350,33 @@
       ],
       "entryDecision": "任务明确要求删除或隐藏右下角 Debug 按钮时，从这张卡开始。",
       "card": ".doc/tasks/remove-development-debug-entry.json"
+    },
+    {
+      "id": "sync-chat-detail-webclient",
+      "title": "同步 WebClient 对话详情数据与能力",
+      "intentKeywords": [
+        "对话详情同步",
+        "WebClient 对齐",
+        "对话同步执行大纲",
+        "chat detail sync",
+        "同步对话详情"
+      ],
+      "entryDecision": "输入区对齐使用 useChatComposerSettings 与进程内 chatComposerPreferences；已有 Chat 与新 Agent 默认模型分离，主 Run 请求设置与既有 usage 补缺，禁止增加持久化草稿或平行能力状态机。配置/目录错误可重试，能力关闭保留偏好与附件，所有迟到异步结果需复核目标。",
+      "card": ".doc/tasks/sync-chat-detail-webclient.json"
+    },
+    {
+      "id": "sync-react-app-environment",
+      "title": "React App 品牌与环境配置同步改造",
+      "intentKeywords": [
+        "react-app-env",
+        "品牌环境同步",
+        "环境配置同步改造",
+        "独立品牌 App",
+        "品牌环境执行大纲",
+        "sync react app environment"
+      ],
+      "entryDecision": "2026-10-13 已确认方案从 docs/react-app-env-sync-2026-10-13/README.md 进入 T01–T04；当前仅建档，实施未开始。",
+      "card": ".doc/tasks/sync-react-app-environment.json"
     },
     {
       "id": "update-agent-protocol",

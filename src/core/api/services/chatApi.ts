@@ -1,25 +1,31 @@
+import { buildChatRunOwnerPayload } from './chatRunOwner.ts';
 import { ApiError, authenticatedApiRequest } from '../apiClient.ts';
 
-export {
-  buildSubmitFrontendToolPayload,
-  type SubmitFrontendToolRequest,
-} from './frontendToolSubmitProtocol.ts';
+export { buildSubmitFrontendToolPayload, type SubmitFrontendToolRequest } from './frontendToolSubmitProtocol.ts';
 
 export const CHAT_SUMMARIES_TRANSPORT_TYPE = '/api/chats';
 export const CHAT_DETAIL_TRANSPORT_TYPE = '/api/chat';
 export const CHAT_AGENT_DETAIL_TRANSPORT_TYPE = '/api/agent';
 export const CHAT_READ_TRANSPORT_TYPE = '/api/read';
 export const CHAT_SUBMIT_TRANSPORT_TYPE = '/api/submit';
+export const CHAT_ACCESS_LEVEL_TRANSPORT_TYPE = '/api/access-level';
+export type ChatAccessLevelResponse = {
+  accepted?: boolean;
+  runId?: string;
+  accessLevel?: unknown;
+  version?: unknown;
+  detail?: string;
+};
+export const CHAT_STEER_TRANSPORT_TYPE = '/api/steer';
+export type ChatSteerResponse = { accepted: boolean | null; status: string; detail: string };
+export const REMOTE_CHAT_PAGE_SIZE = 10 as const;
 
 export type RemoteChatSummary = {
   chatId?: string;
   chatName?: string;
   title?: string;
-  teamId?: string;
   agentKey?: string;
   agentName?: string;
-  firstAgentKey?: string;
-  firstAgentName?: string;
   lastRunContent?: string;
   lastRunId?: string;
   read?: unknown;
@@ -43,6 +49,14 @@ export type RemoteChatEvent = Record<string, unknown> & {
 export type ChatDetailRequest = {
   chatId: string;
   includeRawMessages: boolean;
+  eventLimit?: typeof REMOTE_CHAT_PAGE_SIZE;
+  beforeEventSeq?: number;
+};
+
+export type RemoteChatEventPage = {
+  pageSize?: number;
+  nextBeforeSeq?: number;
+  hasMore?: boolean;
 };
 
 export type RemoteChatUsageStats = Record<string, unknown>;
@@ -90,6 +104,7 @@ export type RemoteChatActiveRun = {
   oldestSeq?: number;
   startedAt?: string | number | null;
   planningMode?: boolean;
+  editingMode?: boolean;
   agentKey?: string;
   modelKey?: string;
   [key: string]: unknown;
@@ -139,7 +154,7 @@ export type RemoteChatReference = {
   sizeBytes?: number;
   url?: string;
   sha256?: string;
-  sandboxPath?: string;
+  path?: string;
   meta?: Record<string, unknown>;
   [key: string]: unknown;
 };
@@ -152,9 +167,7 @@ export type RemoteChatDetail = {
   title?: string;
   name?: string;
   chatImageToken?: string;
-  firstAgentKey?: string;
   agentKey?: string;
-  teamId?: string;
   read?: unknown;
   unreadRunCount?: number;
   readStatus?: number;
@@ -173,6 +186,7 @@ export type RemoteChatDetail = {
   references?: RemoteChatReference[];
   usage?: RemoteChatUsageData | RemoteChatUsageStats | null;
   contextWindow?: RemoteChatContextWindow | null;
+  eventPage?: RemoteChatEventPage;
   [key: string]: unknown;
 };
 
@@ -208,14 +222,12 @@ export type MarkChatReadRequest =
   | {
       chatId?: string;
       agentKey?: string;
-      teamId?: string;
       runId?: string;
     };
 
 export type MarkChatReadResponse = {
   chatId?: string;
   agentKey?: string;
-  teamId?: string;
   read?: unknown;
   readStatus?: number;
   readAt?: string | number | null;
@@ -227,7 +239,6 @@ export type MarkChatReadResponse = {
 export type MarkChatReadPayload = {
   chatId?: string;
   agentKey?: string;
-  teamId?: string;
   runId?: string;
 };
 
@@ -281,7 +292,7 @@ export type AwaitingSubmitPayloadData = {
 
 export type SubmitAwaitingRequest = AwaitingSubmitPayloadData & {
   chatId?: string;
-  agentKey: string;
+  agentKey?: string;
   submitId?: string;
 };
 
@@ -329,11 +340,7 @@ export function unwrapChatApiEnvelope<T>(payload: unknown): T {
 
   const code = Number(envelope.code ?? 0);
   if (Number.isFinite(code) && code !== 0) {
-    throw new ApiError(
-      String(envelope.msg || envelope.error || 'API returned non-zero code'),
-      200,
-      payload
-    );
+    throw new ApiError(String(envelope.msg || envelope.error || 'API returned non-zero code'), 200, payload);
   }
 
   return (envelope.data ?? null) as T;
@@ -361,7 +368,7 @@ function normalizeWonderSuggestion(input: unknown, index: number): AgentWonderSu
       id: buildWonderId(index, text),
       title: text,
       text,
-      raw: input,
+      raw: input
     };
   }
 
@@ -385,23 +392,43 @@ function normalizeWonderSuggestion(input: unknown, index: number): AgentWonderSu
     id,
     title,
     text,
-    raw: input,
+    raw: input
   };
 }
 
 export function buildAgentDetailPayload(agentKey: string) {
   return {
-    agentKey: toCleanText(agentKey),
+    agentKey: toCleanText(agentKey)
   };
 }
 
 export function buildChatDetailPayload(
-  request: string | { chatId?: string; includeRawMessages?: boolean }
+  request:
+    | string
+    | {
+        chatId?: string;
+        includeRawMessages?: boolean;
+        paginateEvents?: boolean;
+        beforeEventSeq?: number;
+      }
 ): ChatDetailRequest {
   const source = typeof request === 'string' ? { chatId: request } : request;
+  const beforeEventSeq = Number(source.beforeEventSeq);
   return {
     chatId: toCleanText(source.chatId),
     includeRawMessages: source.includeRawMessages === true,
+    ...(source.paginateEvents === true ? { eventLimit: REMOTE_CHAT_PAGE_SIZE } : {}),
+    ...(source.paginateEvents === true && Number.isInteger(beforeEventSeq) && beforeEventSeq > 0
+      ? { beforeEventSeq }
+      : {})
+  };
+}
+
+export function buildChatSummariesPayload(lastRunId?: string) {
+  const cursor = toCleanText(lastRunId);
+  return {
+    limit: REMOTE_CHAT_PAGE_SIZE,
+    ...(cursor ? { lastRunId: cursor } : {})
   };
 }
 
@@ -415,9 +442,7 @@ export function projectRemoteAgentDetail(
   }
 
   const agentKey =
-    toCleanText(detail.agentKey) ||
-    toCleanText(detail.key || detail.id) ||
-    toCleanText(fallbackAgentKey);
+    toCleanText(detail.agentKey) || toCleanText(detail.key || detail.id) || toCleanText(fallbackAgentKey);
   if (!agentKey) {
     return null;
   }
@@ -435,46 +460,39 @@ export function projectRemoteAgentDetail(
     description: toCleanText(detail.description),
     wonders,
     raw: detail,
-    fetchedAt,
+    fetchedAt
   };
 }
 
-export function buildMarkChatReadPayload(
-  request: MarkChatReadRequest,
-  runId?: string
-): MarkChatReadPayload {
+export function buildMarkChatReadPayload(request: MarkChatReadRequest, runId?: string): MarkChatReadPayload {
   const fallbackRunId = String(runId || '').trim();
   if (typeof request === 'string') {
     const chatId = String(request || '').trim();
     return {
       chatId,
-      ...(fallbackRunId ? { runId: fallbackRunId } : {}),
+      ...(fallbackRunId ? { runId: fallbackRunId } : {})
     };
   }
 
   const chatId = String(request.chatId || '').trim();
   const agentKey = String(request.agentKey || '').trim();
-  const teamId = String(request.teamId || '').trim();
   const readRunId = String(request.runId || '').trim() || fallbackRunId;
 
   return {
     ...(chatId ? { chatId } : {}),
-    ...(agentKey ? { agentKey } : {}),
-    ...(teamId ? { teamId } : {}),
-    ...(readRunId ? { runId: readRunId } : {}),
+    ...buildChatRunOwnerPayload({ agentKey }),
+    ...(readRunId ? { runId: readRunId } : {})
   };
 }
 
-export function buildSubmitAwaitingPayload(
-  request: SubmitAwaitingRequest
-): SubmitAwaitingRequest {
+export function buildSubmitAwaitingPayload(request: SubmitAwaitingRequest): SubmitAwaitingRequest {
   const chatId = String(request.chatId || '').trim();
   const submitId = String(request.submitId || '').trim();
   const payload: SubmitAwaitingRequest = {
     runId: String(request.runId || '').trim(),
-    agentKey: String(request.agentKey || '').trim(),
+    ...buildChatRunOwnerPayload(request),
     awaitingId: String(request.awaitingId || '').trim(),
-    params: request.params,
+    params: request.params
   };
 
   if (chatId) {
@@ -488,13 +506,11 @@ export function buildSubmitAwaitingPayload(
 }
 
 export async function getChatViewportApi(viewportKey: string): Promise<ChatViewportResponse> {
-  const payload = await authenticatedApiRequest<
-    ChatViewportResponse | ChatApiEnvelope<ChatViewportResponse> | string
-  >({
+  const payload = await authenticatedApiRequest<ChatViewportResponse | ChatApiEnvelope<ChatViewportResponse> | string>({
     path: '/ap/api/viewport',
     query: {
-      viewportKey: String(viewportKey || '').trim(),
-    },
+      viewportKey: String(viewportKey || '').trim()
+    }
   });
 
   if (typeof payload === 'string') {

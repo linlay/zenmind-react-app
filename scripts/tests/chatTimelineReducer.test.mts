@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { deserializeChatTimelineState, serializeChatTimelineState } from '../../src/features/chatTimeline/timelinePersistence.ts';
 
 import type { ChatMessageItem } from '../../src/features/chatPersistence/types.ts';
 import type { ChatTimelineState } from '../../src/features/chatTimeline/index.ts';
 import {
   applyChatTimelineEvent,
-  applyChatTimelineLocalCancel,
   applyChatTimelineMessage,
   applyChatTimelineStreamDelta,
   buildChatTimelineDisplayItems,
@@ -22,6 +22,45 @@ import {
   projectTimelineRuntimeState,
   resolveChatTimelineFrontendTool,
 } from '../../src/features/chatTimeline/index.ts';
+
+test('display keeps failed original before later conversation after reconcile and old snapshot restore', () => {
+  const original: ChatMessageItem = {
+    messageId: 'original', clientMessageId: 'original', serverMessageId: null,
+    conversationId: 'chat-order', role: 'user', content: '原任务', createdAt: 100,
+    deliveryStatus: 'failed', errorReason: 'model unavailable'
+  };
+  const remote = deriveChatTimelineState('chat-order', [
+    { type: 'request.query', requestId: 'next', runId: 'run-next', message: '继续', timestamp: 200 },
+    { type: 'content.snapshot', contentId: 'reply', runId: 'run-next', text: '回答', timestamp: 210 }
+  ]);
+  const current = applyChatTimelineMessage(remote, original);
+  const merged = mergeChatTimelineState(current, remote, true);
+  const contents = (state: ChatTimelineState) => buildChatTimelineDisplayItems(state)
+    .filter((item) => item.kind === 'user-query' || item.kind === 'assistant-content')
+    .map((item) => item.node.kind === 'message' ? item.node.content : '');
+  assert.deepEqual(contents(current), ['原任务', '继续', '回答']);
+  assert.deepEqual(contents(merged), ['原任务', '继续', '回答']);
+  assert.deepEqual(projectTimelineMessages(merged).map((message) => message.content), contents(merged));
+  const saved = serializeChatTimelineState(merged);
+  // Older clients persisted the failed local request after the remote reply.
+  saved.nodes.forEach((row) => { row.orderIndex = row.nodeId.includes('original') ? 999 : row.orderIndex; });
+  const restored = deserializeChatTimelineState(saved.meta, saved.nodes)!;
+  assert.deepEqual(contents(restored), ['原任务', '继续', '回答']);
+});
+
+test('late request precedes its same-time reply and deltas retain the ordering reference', () => {
+  let state = deriveChatTimelineState('chat-order', [
+    { type: 'content.snapshot', contentId: 'reply', runId: 'run', text: '回答', timestamp: 200 },
+    { type: 'request.query', requestId: 'request', runId: 'run', message: '问题', timestamp: 200 }
+  ]);
+  assert.deepEqual(buildChatTimelineDisplayItems(state)
+    .filter((item) => item.kind === 'user-query' || item.kind === 'assistant-content')
+    .map((item) => item.kind), ['user-query', 'assistant-content']);
+  const order = state.orderedNodeIds;
+  const message = projectTimelineMessages(state).find((item) => item.role === 'assistant')!;
+  state = applyChatTimelineStreamDelta(state, { messageId: message.messageId, createdAt: 300, delta: '更多', runId: 'run' });
+  assert.equal(state.orderedNodeIds, order);
+});
 
 const feedbackQuestion = {
   id: 'q1',
@@ -520,7 +559,7 @@ test('timeline merges request echo into the local pending attachment message', (
         height: null,
         localUri: '',
         previewUri: null,
-        resourceUrl: '/ap/api/resource?file=chat-attachments%2FScreenshot.jpg',
+        resourceUrl: '/api/resource?file=chat-attachments%2FScreenshot.jpg',
         sha256: 'hash',
         status: 'ready',
         errorReason: null,
@@ -531,7 +570,7 @@ test('timeline merges request echo into the local pending attachment message', (
             name: 'Screenshot.jpg',
             mimeType: 'image/jpeg',
             sizeBytes: 261475,
-            url: '/ap/api/resource?file=chat-attachments%2FScreenshot.jpg',
+            url: '/api/resource?file=chat-attachments%2FScreenshot.jpg',
             sha256: 'hash',
           },
         ],
@@ -1116,61 +1155,6 @@ test('timeline merge does not revive current reasoning identity after incoming s
   assert.equal(reasoningNodes[1]?.body, 'second reasoning');
 });
 
-test('timeline merge drops stale incoming reasoning identity after local cancel closes it', () => {
-  let current = deriveChatTimelineState('chat-1', [
-    {
-      type: 'run.start',
-      runId: 'run-1',
-      timestamp: 100,
-    },
-    {
-      type: 'reasoning.delta',
-      runId: 'run-1',
-      reasoningId: 'reason-1',
-      delta: 'first reasoning',
-      timestamp: 110,
-    },
-  ]);
-  current = applyChatTimelineLocalCancel(current, 'chat-1', {
-    runId: 'run-1',
-    timestamp: 125,
-  });
-  const incoming = deriveChatTimelineState('chat-1', [
-    {
-      type: 'run.start',
-      runId: 'run-1',
-      timestamp: 100,
-    },
-    {
-      type: 'reasoning.delta',
-      runId: 'run-1',
-      reasoningId: 'reason-1',
-      delta: 'first reasoning',
-      timestamp: 110,
-    },
-  ]);
-
-  const merged = mergeChatTimelineState(current, incoming, {
-    preserveTerminalRunIds: ['run-1'],
-  });
-  const afterDelta = applyChatTimelineEvent(merged, 'chat-1', {
-    type: 'reasoning.delta',
-    runId: 'run-1',
-    delta: 'second reasoning',
-    timestamp: 130,
-  });
-  const reasoningNodes = afterDelta.orderedNodeIds
-    .map((nodeId) => afterDelta.nodesById[nodeId])
-    .filter((node) => node?.kind === 'reasoning');
-
-  assert.deepEqual(merged.activeReasoningNodeIdsByRun, {});
-  assert.equal(reasoningNodes.length, 2);
-  assert.equal(reasoningNodes[0]?.body, 'first reasoning');
-  assert.equal(reasoningNodes[0]?.lifecycle, 'cancelled');
-  assert.equal(reasoningNodes[1]?.id, 'reasoning:chat-1:run-1:reasoning');
-  assert.equal(reasoningNodes[1]?.body, 'second reasoning');
-});
-
 test('timeline reducer completes active reasoning when realtime assistant message carries run id', () => {
   let state = createActiveReasoningState();
   const message = assistantStreamMessage('Final answer begins.', 120);
@@ -1299,279 +1283,6 @@ test('timeline reducer closes active run children when the run reaches a termina
   assert.equal(activeChildren.length, 0);
   assert.equal(message?.streamStatus, 'done');
   assert.equal(runtime.awaiting, null);
-});
-
-test('timeline local cancel closes active run and streaming children', () => {
-  let state = createChatTimelineState('chat-1');
-  state = applyChatTimelineEvent(state, 'chat-1', {
-    type: 'run.start',
-    runId: 'run-1',
-    timestamp: 100,
-  });
-  state = applyChatTimelineEvent(state, 'chat-1', {
-    type: 'reasoning.start',
-    runId: 'run-1',
-    reasoningId: 'reason-1',
-    text: 'thinking',
-    timestamp: 105,
-  });
-  state = applyChatTimelineEvent(state, 'chat-1', {
-    type: 'content.delta',
-    runId: 'run-1',
-    contentId: 'answer-1',
-    delta: 'partial',
-    timestamp: 110,
-  });
-
-  state = applyChatTimelineLocalCancel(state, 'chat-1', {
-    runId: 'run-1',
-    timestamp: 120,
-  });
-
-  assert.equal(state.activeRunId, '');
-  assert.equal(getChatTimelineActiveRunId(state), '');
-  for (const node of Object.values(state.nodesById)) {
-    if (node.runId !== 'run-1') {
-      continue;
-    }
-    assert.notEqual(node.lifecycle, 'active');
-    if ('streaming' in node) {
-      assert.equal(node.streaming, false);
-    }
-  }
-  const runNode = Object.values(state.nodesById).find(
-    (node) => node.kind === 'run' && node.runId === 'run-1'
-  );
-  assert.equal(runNode?.lifecycle, 'cancelled');
-});
-
-test('timeline local cancel handles active run events without a run id', () => {
-  let state = createChatTimelineState('chat-1');
-  state = applyChatTimelineEvent(state, 'chat-1', {
-    type: 'run.start',
-    timestamp: 100,
-  });
-
-  state = applyChatTimelineLocalCancel(state, 'chat-1', {
-    timestamp: 110,
-  });
-
-  assert.equal(state.activeRunId, '');
-  assert.equal(getChatTimelineActiveRunId(state), '');
-  const runNode = Object.values(state.nodesById).find((node) => node.kind === 'run');
-  assert.equal(runNode?.lifecycle, 'cancelled');
-});
-
-test('timeline local cancel closes the visible runless scope without creating a ghost run', () => {
-  let state = createChatTimelineState('chat-1');
-  state = applyChatTimelineEvent(state, 'chat-1', {
-    type: 'content.delta',
-    contentId: 'answer-1',
-    delta: 'partial',
-    timestamp: 100,
-  });
-  state = {
-    ...state,
-    activeRunId: 'ghost-run',
-    revision: state.revision + 1,
-  };
-
-  state = applyChatTimelineLocalCancel(state, 'chat-1', {
-    runId: 'ghost-run',
-    timestamp: 110,
-  });
-
-  assert.equal(state.activeRunId, '');
-  assert.equal(getChatTimelineActiveRunId(state), '');
-  assert.equal(
-    Object.values(state.nodesById).some(
-      (node) => node.kind === 'run' && node.runId === 'ghost-run'
-    ),
-    false
-  );
-  for (const node of Object.values(state.nodesById)) {
-    assert.notEqual(node.lifecycle, 'active');
-    if ('streaming' in node) {
-      assert.equal(node.streaming, false);
-    }
-  }
-});
-
-test('timeline local cancel does not rewrite completed run duration', () => {
-  let state = deriveChatTimelineState('chat-1', [
-    {
-      type: 'run.start',
-      runId: 'run-1',
-      timestamp: 100,
-    },
-    {
-      type: 'content.delta',
-      runId: 'run-1',
-      contentId: 'answer-1',
-      delta: 'done',
-      timestamp: 120,
-    },
-    {
-      type: 'run.complete',
-      runId: 'run-1',
-      timestamp: 180,
-    },
-  ]);
-  const runNodeBefore = Object.values(state.nodesById).find(
-    (node) => node.kind === 'run' && node.runId === 'run-1'
-  );
-  state = {
-    ...state,
-    activeRunId: 'ghost-run',
-    revision: state.revision + 1,
-  };
-
-  state = applyChatTimelineLocalCancel(state, 'chat-1', {
-    runId: 'ghost-run',
-    timestamp: 240,
-  });
-  const runNodeAfter = Object.values(state.nodesById).find(
-    (node) => node.kind === 'run' && node.runId === 'run-1'
-  );
-
-  assert.equal(state.activeRunId, '');
-  assert.equal(runNodeBefore?.durationMs, 80);
-  assert.equal(runNodeAfter?.durationMs, 80);
-  assert.equal(runNodeAfter?.lifecycle, 'complete');
-  assert.equal(
-    Object.values(state.nodesById).some(
-      (node) => node.kind === 'run' && node.runId === 'ghost-run'
-    ),
-    false
-  );
-});
-
-test('timeline merge keeps a locally cancelled run idle when remote replay is stale active', () => {
-  let current = deriveChatTimelineState('chat-1', [
-    {
-      type: 'run.start',
-      runId: 'run-1',
-      timestamp: 100,
-    },
-    {
-      type: 'content.delta',
-      runId: 'run-1',
-      contentId: 'answer-1',
-      delta: 'partial',
-      timestamp: 110,
-    },
-  ]);
-  current = applyChatTimelineLocalCancel(current, 'chat-1', {
-    runId: 'run-1',
-    timestamp: 120,
-  });
-  const staleRemote = deriveChatTimelineState('chat-1', [
-    {
-      type: 'request.query',
-      requestId: 'req-1',
-      message: 'hello',
-      timestamp: 90,
-    },
-    {
-      type: 'run.start',
-      runId: 'run-1',
-      timestamp: 100,
-    },
-    {
-      type: 'content.delta',
-      runId: 'run-1',
-      contentId: 'answer-1',
-      delta: 'partial from stale detail',
-      timestamp: 115,
-    },
-  ]);
-
-  const merged = mergeChatTimelineState(current, staleRemote, {
-    preserveTerminalRunIds: ['run-1'],
-  });
-  const activeRunNodes = Object.values(merged.nodesById).filter(
-    (node) =>
-      node.runId === 'run-1' &&
-      (node.lifecycle === 'active' || ('streaming' in node && node.streaming))
-  );
-  const runNode = Object.values(merged.nodesById).find(
-    (node) => node.kind === 'run' && node.runId === 'run-1'
-  );
-
-  assert.equal(merged.activeRunId, '');
-  assert.equal(getChatTimelineActiveRunId(merged), '');
-  assert.equal(activeRunNodes.length, 0);
-  assert.equal(runNode?.lifecycle, 'cancelled');
-});
-
-test('timeline merge still accepts a different active run after a local cancel guard', () => {
-  let current = deriveChatTimelineState('chat-1', [
-    {
-      type: 'run.start',
-      runId: 'run-1',
-      timestamp: 100,
-    },
-  ]);
-  current = applyChatTimelineLocalCancel(current, 'chat-1', {
-    runId: 'run-1',
-    timestamp: 120,
-  });
-  const remote = deriveChatTimelineState('chat-1', [
-    {
-      type: 'run.start',
-      runId: 'run-2',
-      timestamp: 200,
-    },
-  ]);
-
-  const merged = mergeChatTimelineState(current, remote, {
-    preserveTerminalRunIds: ['run-1'],
-  });
-
-  assert.equal(merged.activeRunId, 'run-2');
-  assert.equal(getChatTimelineActiveRunId(merged), 'run-2');
-});
-
-test('timeline merge suppresses a guarded ghost run without fabricating duration', () => {
-  const current = {
-    ...createChatTimelineState('chat-1'),
-    activeRunId: '',
-    revision: 1,
-  };
-  const staleRemote = deriveChatTimelineState('chat-1', [
-    {
-      type: 'run.start',
-      runId: 'ghost-run',
-      timestamp: 100,
-    },
-    {
-      type: 'content.delta',
-      runId: 'ghost-run',
-      contentId: 'answer-1',
-      delta: 'partial from stale detail',
-      timestamp: 110,
-    },
-  ]);
-
-  const merged = mergeChatTimelineState(current, staleRemote, {
-    preserveTerminalRunIds: ['ghost-run'],
-  });
-
-  assert.equal(merged.activeRunId, '');
-  assert.equal(getChatTimelineActiveRunId(merged), '');
-  assert.equal(
-    Object.values(merged.nodesById).some(
-      (node) =>
-        node.runId === 'ghost-run' &&
-        (node.lifecycle === 'active' || ('streaming' in node && node.streaming))
-    ),
-    false
-  );
-  const runNode = Object.values(merged.nodesById).find(
-    (node) => node.kind === 'run' && node.runId === 'ghost-run'
-  );
-  assert.equal(runNode?.lifecycle, 'cancelled');
-  assert.equal(runNode?.durationMs, null);
 });
 
 test('timeline reducer merges tool snapshot with runless string result', () => {

@@ -1,4 +1,6 @@
 import { createNativeBottomTabNavigator, type NativeBottomTabIcon } from '@react-navigation/bottom-tabs/unstable';
+import type { ReactElement } from 'react';
+import { SafeAreaView as NativeTabSafeAreaView } from 'react-native-screens/experimental';
 import chatIcon from '../../../assets/tabs/tab-chat.png';
 import meIcon from '../../../assets/tabs/tab-me.png';
 import webAppsIcon from '../../../assets/tabs/tab-terminal.png';
@@ -10,6 +12,14 @@ import { TAB_LABEL_KEYS } from './TabIcon';
 import { RootTabParamList } from './types';
 
 const Tab = createNativeBottomTabNavigator<RootTabParamList>();
+
+function MeTabScreenLayout({ children }: { children: ReactElement }) {
+  return (
+    <NativeTabSafeAreaView edges={{ bottom: true }} insetType="interface">
+      {children}
+    </NativeTabSafeAreaView>
+  );
+}
 
 const NATIVE_TAB_ICONS: Record<keyof RootTabParamList, NativeBottomTabIcon> = {
   Chat: {
@@ -40,23 +50,23 @@ export function TabsNavigator() {
         popToTopOnBlur: false,
         tabBarActiveTintColor: theme.colors.brandBlue,
         tabBarInactiveTintColor: theme.colors.textTertiary,
-        tabBarActiveIndicatorColor: theme.colors.brandBlueSoft,
-        tabBarRippleColor: theme.colors.brandBlueSoft,
-        tabBarBlurEffect: 'none',
+        tabBarActiveIndicatorColor: 'transparent',
+        tabBarRippleColor: theme.colors.surfaceRaised,
+        tabBarBlurEffect: theme.isDark ? 'systemMaterialDark' : 'systemMaterialLight',
         tabBarControllerMode: 'tabBar',
         tabBarIcon: NATIVE_TAB_ICONS[route.name],
         tabBarLabel: t(TAB_LABEL_KEYS[route.name]),
         tabBarMinimizeBehavior: 'none',
         tabBarStyle: {
-          backgroundColor: theme.colors.surface,
-          shadowColor: theme.colors.line
+          backgroundColor: theme.colors.tabBarSurface,
+          shadowColor: theme.colors.tabBarBorder
         }
       })}
     >
       <Tab.Screen name="Chat" component={ChatScreen} />
       <Tab.Screen name="WebApps" component={WebAppsScreen} />
       {/* Drive tab is temporarily hidden until the module ships. */}
-      <Tab.Screen name="Me" component={MeScreen} />
+      <Tab.Screen name="Me" component={MeScreen} layout={MeTabScreenLayout} />
     </Tab.Navigator>
   );
 }

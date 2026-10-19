@@ -15,11 +15,6 @@ import {
   type WebAppChanged
 } from './webAppsDesktopProtocol.ts';
 
-type ActiveWebAppsProfile = {
-  transportKind: 'http' | 'desktop-ws';
-  desktopDeviceId: string;
-};
-
 type WebAppsRequestOptions = {
   transport: WsTransportConfig;
   namespace: 'd';
@@ -29,7 +24,7 @@ type WebAppsRequestOptions = {
 };
 
 export type WebAppsGatewayDependencies = {
-  getActiveProfile: () => ActiveWebAppsProfile | null;
+  getActiveDesktopId: () => string;
   resolveTransport: (namespace: 'd') => Promise<WsTransportConfig | null>;
   request: <T>(options: WebAppsRequestOptions) => Promise<T>;
   subscribePush: (listener: (frame: unknown) => void) => () => void;
@@ -159,8 +154,8 @@ export function createDesktopWebAppsGateway(dependencies: WebAppsGatewayDependen
     bufferedChanges = [];
 
     syncPromise = (async () => {
-      const profile = dependencies.getActiveProfile();
-      if (!profile || profile.transportKind !== 'desktop-ws') {
+      const desktopId = dependencies.getActiveDesktopId();
+      if (!desktopId) {
         throw new WebAppsGatewayFailure('desktop-required', 'WebApps requires an active Desktop WebSocket connection.');
       }
 
@@ -173,7 +168,13 @@ export function createDesktopWebAppsGateway(dependencies: WebAppsGatewayDependen
       }
 
       transport = resolvedTransport;
-      expectedDesktopDeviceId = profile.desktopDeviceId;
+      expectedDesktopDeviceId = String(resolvedTransport.platformDeviceId || '').trim();
+      if (!expectedDesktopDeviceId) {
+        throw new WebAppsGatewayFailure(
+          'invalid-protocol',
+          'Desktop credential is missing its Platform device identity.'
+        );
+      }
       if (!remoteSubscribed) {
         const subscription = await dependencies.request<unknown>({
           transport: resolvedTransport,
@@ -192,7 +193,7 @@ export function createDesktopWebAppsGateway(dependencies: WebAppsGatewayDependen
       const rawCatalog = await dependencies.request<unknown>({
         transport: resolvedTransport,
         namespace: 'd',
-        type: 'web.webapp.list',
+        type: 'webapp.list',
         payload: {},
         signal: controller.signal
       });

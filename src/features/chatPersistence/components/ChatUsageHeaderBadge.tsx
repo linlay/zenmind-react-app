@@ -3,7 +3,7 @@ import { Animated, Keyboard, Modal, Pressable, ScrollView, Text, View, type View
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Circle, Svg } from 'react-native-svg';
 
-import { AppIcon } from '../../../shared/icons/AppIcon';
+import { AppIconButton } from '../../../shared/icons/AppIconButton';
 import { type I18nKey, type TFunction, useI18n, useT } from '../../../shared/i18n';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { appVisualTokens } from '../../../shared/visual/foundation';
@@ -18,9 +18,12 @@ import {
   formatChatUsageFirstTokenLatency,
   formatChatUsageNumber,
   formatChatUsageOutputSpeed,
-  resolveChatUsageToolCallCount,
+  resolveChatUsageToolCallCount
 } from '../chatDetailFormatters.ts';
 import type { ChatReasoningEffort } from '../types';
+import { ChatUsageStackedMetrics } from './ChatUsageStackedMetrics';
+
+type UsageDisplayMode = 'bar' | 'value';
 
 type ChatUsageHeaderBadgeProps = {
   usageSummary: ChatTimelineUsageSummary;
@@ -33,6 +36,8 @@ type ChatUsageStatsDrawerProps = {
   usageSummary: ChatTimelineUsageSummary;
   modelKey: string | null;
   reasoningEffort: ChatReasoningEffort | null;
+  mode: UsageDisplayMode;
+  onToggleMode: () => void;
   onClose: () => void;
   onDismissed: () => void;
 };
@@ -68,6 +73,9 @@ const USAGE_DRAWER_HEADER_CLASS = 'min-h-[38px] flex-row items-start justify-bet
 const USAGE_DRAWER_TITLE_BLOCK_CLASS = 'min-w-0 flex-1 gap-[2px]';
 const USAGE_DRAWER_TITLE_CLASS = 'text-[17px] font-extrabold leading-[22px] text-app-primary';
 const USAGE_DRAWER_MODEL_CLASS = 'text-[12px] font-bold leading-4 text-app-secondary';
+const USAGE_DRAWER_ACTIONS_CLASS = 'flex-row items-center gap-app-sm';
+const USAGE_DRAWER_TOGGLE_ACTIVE_CLASS =
+  'h-[30px] w-[30px] items-center justify-center rounded-app-pill bg-app-brand-blue-soft active:opacity-[0.68]';
 const USAGE_DRAWER_CLOSE_CLASS =
   'h-[30px] w-[30px] items-center justify-center rounded-app-pill bg-app-surface-muted active:opacity-[0.68]';
 const USAGE_DRAWER_SCROLL_CLASS = 'grow-0';
@@ -86,8 +94,7 @@ const USAGE_SECTION_CLASS = 'gap-[7px]';
 const USAGE_SECTION_HEADER_CLASS =
   'min-h-[18px] flex-row flex-wrap items-start justify-between gap-x-app-sm gap-y-[3px]';
 const USAGE_SECTION_TITLE_CLASS = 'text-[13px] font-extrabold leading-[17px] text-app-primary';
-const USAGE_CALL_COUNTS_CLASS =
-  'min-w-0 flex-1 flex-row flex-wrap justify-end gap-x-app-sm gap-y-[3px]';
+const USAGE_CALL_COUNTS_CLASS = 'min-w-0 flex-1 flex-row flex-wrap justify-end gap-x-app-sm gap-y-[3px]';
 const USAGE_CALL_COUNT_TEXT_CLASS = 'text-[11px] font-bold leading-[14px] text-app-secondary';
 const USAGE_CALL_COUNT_VALUE_CLASS = 'font-extrabold text-app-primary';
 const USAGE_METRIC_GRID_CLASS = 'flex-row flex-wrap gap-[7px]';
@@ -99,7 +106,7 @@ const USAGE_DRAWER_PANEL_ELEVATION_STYLE = {
   shadowOffset: { width: 0, height: -10 },
   shadowOpacity: 0.14,
   shadowRadius: 24,
-  elevation: 12,
+  elevation: 12
 } satisfies ViewStyle;
 
 const USAGE_SHEET_SPRING_CONFIG = {
@@ -109,6 +116,8 @@ const USAGE_SHEET_SPRING_CONFIG = {
 };
 
 const USAGE_REASONING_LABEL_KEYS: Record<ChatReasoningEffort, I18nKey> = {
+  XHIGH: 'usage.reasoning.XHIGH',
+  MAX: 'usage.reasoning.MAX',
   HIGH: 'usage.reasoning.HIGH',
   MEDIUM: 'usage.reasoning.MEDIUM',
   LOW: 'usage.reasoning.LOW',
@@ -282,48 +291,45 @@ const UsageCallCounts = memo(function UsageCallCounts({
   showTiming: boolean;
 }) {
   const t = useT();
-  const counts = useMemo(
-    () => {
-      const headerStats: UsageHeaderStat[] = [];
-      if (showTiming) {
-        const firstTokenLatency = formatChatUsageFirstTokenLatency(stats);
-        if (firstTokenLatency) {
-          headerStats.push({
-            key: 'firstTokenLatency',
-            label: t('usage.metric.firstTokenLatency'),
-            value: firstTokenLatency,
-          });
-        }
-        const outputSpeed = formatChatUsageOutputSpeed(stats);
-        if (outputSpeed) {
-          headerStats.push({
-            key: 'outputTokensPerSecond',
-            label: t('usage.metric.outputTokensPerSecond'),
-            value: outputSpeed,
-          });
-        }
+  const counts = useMemo(() => {
+    const headerStats: UsageHeaderStat[] = [];
+    if (showTiming) {
+      const firstTokenLatency = formatChatUsageFirstTokenLatency(stats);
+      if (firstTokenLatency) {
+        headerStats.push({
+          key: 'firstTokenLatency',
+          label: t('usage.metric.firstTokenLatency'),
+          value: firstTokenLatency
+        });
       }
+      const outputSpeed = formatChatUsageOutputSpeed(stats);
+      if (outputSpeed) {
+        headerStats.push({
+          key: 'outputTokensPerSecond',
+          label: t('usage.metric.outputTokensPerSecond'),
+          value: outputSpeed
+        });
+      }
+    }
 
-      const llmCallCount = stats?.llmChatCompletionCount ?? null;
-      if (llmCallCount !== null) {
-        headerStats.push({
-          key: 'llm',
-          label: t('usage.call.llm'),
-          value: formatChatUsageNumber(llmCallCount),
-        });
-      }
-      const toolCallCount = resolveChatUsageToolCallCount(stats);
-      if (toolCallCount !== null) {
-        headerStats.push({
-          key: 'tool',
-          label: t('usage.call.tool'),
-          value: formatChatUsageNumber(toolCallCount),
-        });
-      }
-      return headerStats;
-    },
-    [showTiming, stats, t]
-  );
+    const llmCallCount = stats?.llmChatCompletionCount ?? null;
+    if (llmCallCount !== null) {
+      headerStats.push({
+        key: 'llm',
+        label: t('usage.call.llm'),
+        value: formatChatUsageNumber(llmCallCount)
+      });
+    }
+    const toolCallCount = resolveChatUsageToolCallCount(stats);
+    if (toolCallCount !== null) {
+      headerStats.push({
+        key: 'tool',
+        label: t('usage.call.tool'),
+        value: formatChatUsageNumber(toolCallCount)
+      });
+    }
+    return headerStats;
+  }, [showTiming, stats, t]);
 
   if (!counts.length) {
     return null;
@@ -343,14 +349,15 @@ const UsageCallCounts = memo(function UsageCallCounts({
 const UsageSection = memo(function UsageSection({
   title,
   stats,
-  showTiming = true,
+  mode,
+  showTiming = true
 }: {
   title: string;
   stats: ChatTimelineUsageStats | null | undefined;
+  mode: UsageDisplayMode;
   showTiming?: boolean;
 }) {
   const t = useT();
-  const metrics = useMemo(() => buildUsageMetrics(stats, t), [stats, t]);
 
   return (
     <View className={USAGE_SECTION_CLASS}>
@@ -360,11 +367,15 @@ const UsageSection = memo(function UsageSection({
         </Text>
         <UsageCallCounts stats={stats} showTiming={showTiming} />
       </View>
-      <View className={USAGE_METRIC_GRID_CLASS}>
-        {metrics.map((metric) => (
-          <UsageMetricCell key={metric.key} metric={metric} />
-        ))}
-      </View>
+      {mode === 'bar' ? (
+        <ChatUsageStackedMetrics stats={stats} />
+      ) : (
+        <View className={USAGE_METRIC_GRID_CLASS}>
+          {buildUsageMetrics(stats, t).map((metric) => (
+            <UsageMetricCell key={metric.key} metric={metric} />
+          ))}
+        </View>
+      )}
     </View>
   );
 });
@@ -406,9 +417,11 @@ const UsageContextWindow = memo(function UsageContextWindow({ summary }: { summa
 });
 
 const ChatUsageStatsContent = memo(function ChatUsageStatsContent({
-  usageSummary
+  usageSummary,
+  mode
 }: {
   usageSummary: ChatTimelineUsageSummary;
+  mode: UsageDisplayMode;
 }) {
   const t = useT();
 
@@ -420,11 +433,11 @@ const ChatUsageStatsContent = memo(function ChatUsageStatsContent({
       contentContainerClassName={USAGE_DRAWER_CONTENT_CLASS}
     >
       <UsageContextWindow summary={usageSummary} />
-      <UsageSection title={t('usage.section.current')} stats={usageSummary.current} />
-      <UsageSection title={t('usage.section.run')} stats={usageSummary.run} />
-      <UsageSection title={t('usage.section.chat')} stats={usageSummary.chat} />
+      <UsageSection title={t('usage.section.current')} stats={usageSummary.current} mode={mode} />
+      <UsageSection title={t('usage.section.run')} stats={usageSummary.run} mode={mode} />
+      <UsageSection title={t('usage.section.chat')} stats={usageSummary.chat} mode={mode} />
       {usageSummary.compact ? (
-        <UsageSection title={t('usage.section.compact')} stats={usageSummary.compact} showTiming={false} />
+        <UsageSection title={t('usage.section.compact')} stats={usageSummary.compact} mode={mode} showTiming={false} />
       ) : null}
     </ScrollView>
   );
@@ -435,6 +448,8 @@ const ChatUsageStatsDrawer = memo(function ChatUsageStatsDrawer({
   usageSummary,
   modelKey,
   reasoningEffort,
+  mode,
+  onToggleMode,
   onClose,
   onDismissed
 }: ChatUsageStatsDrawerProps) {
@@ -525,17 +540,25 @@ const ChatUsageStatsDrawer = memo(function ChatUsageStatsDrawer({
                 {modelLabel}
               </Text>
             </View>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={t('usage.close')}
-              onPress={onClose}
-              hitSlop={8}
-              className={USAGE_DRAWER_CLOSE_CLASS}
-            >
-              <AppIcon usage="usage.close" />
-            </Pressable>
+            <View className={USAGE_DRAWER_ACTIONS_CLASS}>
+              <AppIconButton
+                usage="usage.toggleMode"
+                accessibilityLabel={t(mode === 'bar' ? 'usage.showValues' : 'usage.showBars')}
+                accessibilityState={{ selected: mode === 'value' }}
+                onPress={onToggleMode}
+                hitSlop={6}
+                className={mode === 'value' ? USAGE_DRAWER_TOGGLE_ACTIVE_CLASS : USAGE_DRAWER_CLOSE_CLASS}
+              />
+              <AppIconButton
+                usage="usage.close"
+                accessibilityLabel={t('usage.close')}
+                onPress={onClose}
+                hitSlop={8}
+                className={USAGE_DRAWER_CLOSE_CLASS}
+              />
+            </View>
           </View>
-          <ChatUsageStatsContent usageSummary={usageSummary} />
+          <ChatUsageStatsContent usageSummary={usageSummary} mode={mode} />
         </Animated.View>
       </View>
     </Modal>
@@ -550,10 +573,16 @@ export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
   const t = useT();
   const [mounted, setMounted] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [mode, setMode] = useState<UsageDisplayMode>('bar');
+  const handleToggleMode = useCallback(() => {
+    setMode((current) => (current === 'bar' ? 'value' : 'bar'));
+  }, []);
   const total = resolveDisplayTotal(usageSummary);
   const compactTotal = formatCompactUsageNumber(total);
   const accessibilityLabel =
-    total !== null ? `${t('usage.title')}, ${t('usage.metric.total')} ${formatChatUsageNumber(total)}` : t('usage.title');
+    total !== null
+      ? `${t('usage.title')}, ${t('usage.metric.total')} ${formatChatUsageNumber(total)}`
+      : t('usage.title');
   const handleOpen = useCallback(() => {
     Keyboard.dismiss();
     setMounted(true);
@@ -589,6 +618,8 @@ export const ChatUsageHeaderBadge = memo(function ChatUsageHeaderBadge({
           usageSummary={usageSummary}
           modelKey={modelKey}
           reasoningEffort={reasoningEffort}
+          mode={mode}
+          onToggleMode={handleToggleMode}
           onClose={handleClose}
           onDismissed={handleDismissed}
         />

@@ -18,12 +18,9 @@ function readStyleBlock(name: string, nextName: string): string {
 
 test('assistant reply footer never overlaps the previous FlashList cell', () => {
   const assistantFooterRow = readStyleBlock('assistantFooterRow', 'assistantFooterRailSpacer');
-  const messageFooter = readStyleBlock('messageFooter', 'messageFooterEnd');
-  const messageFooterEnd = readStyleBlock('messageFooterEnd', 'footerActions');
 
   assert.doesNotMatch(assistantFooterRow, /marginTop/u);
-  assert.doesNotMatch(messageFooter, /marginTop/u);
-  assert.match(messageFooterEnd, /marginTop:\s*6/u);
+  assert.doesNotMatch(timelineSource, /marginTop:\s*-/u);
 });
 
 test('user attachments render above the message text with spacing below', () => {

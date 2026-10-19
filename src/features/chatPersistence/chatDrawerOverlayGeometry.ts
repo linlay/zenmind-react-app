@@ -6,13 +6,13 @@ export type ChatDrawerGeometry = {
 };
 
 export const CHAT_DIRECTORY_PICKER_DRAWER_GEOMETRY = {
-  widthRatio: 0.86,
-  maxWidth: 390,
+  widthRatio: 0.82,
+  maxWidth: 370
 } as const satisfies ChatDrawerGeometry;
 
 export const CHAT_HISTORY_DRAWER_GEOMETRY = {
   widthRatio: 0.84,
-  maxWidth: 360,
+  maxWidth: 360
 } as const satisfies ChatDrawerGeometry;
 
 export function getChatDrawerPanelWidth(windowWidth: number, geometry: ChatDrawerGeometry): number {

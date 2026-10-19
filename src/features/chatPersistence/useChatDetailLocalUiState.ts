@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { ChatSyncEvent } from '../chatRealtime/types.ts';
-import {
-  getChatConversationHistoryScopeKey,
-  normalizeChatConversationHistoryScope,
-} from './chatHistoryScope.ts';
-import type {
-  ChatConversationHistoryPage,
-  ChatConversationHistoryScope,
-  ChatHomeItem,
-} from './types.ts';
+import { getChatConversationHistoryScopeKey, normalizeChatConversationHistoryScope } from './chatHistoryScope.ts';
+import type { ChatConversationHistoryPage, ChatConversationHistoryScope, ChatHomeItem } from './types.ts';
 
 const HISTORY_PAGE_SIZE = 20;
 const HISTORY_RELOAD_DEBOUNCE_MS = 120;
@@ -19,10 +12,7 @@ type HistoryLoadMode = 'initial' | 'more' | 'silent';
 
 type UseChatDetailLocalUiStateOptions = {
   copyText: (text: string) => Promise<unknown>;
-  loadHistory: (
-    scope: ChatConversationHistoryScope,
-    limit: number
-  ) => Promise<ChatConversationHistoryPage>;
+  loadHistory: (scope: ChatConversationHistoryScope, limit: number) => Promise<ChatConversationHistoryPage>;
   markHistoryScopeRead: (scope: ChatConversationHistoryScope) => Promise<unknown>;
   subscribeHistoryEvents?: (listener: (event: ChatSyncEvent) => void) => () => void;
 };
@@ -34,14 +24,12 @@ export function useChatDetailLocalUiState(
 ) {
   const { copyText, loadHistory, markHistoryScopeRead, subscribeHistoryEvents } = options;
   const historyAgentKey = historyScope?.agentKey ?? null;
-  const historyTeamId = historyScope?.teamId ?? null;
   const normalizedHistoryScope = useMemo(
     () =>
       normalizeChatConversationHistoryScope({
-        agentKey: historyAgentKey,
-        teamId: historyTeamId,
+        agentKey: historyAgentKey
       }),
-    [historyAgentKey, historyTeamId]
+    [historyAgentKey]
   );
   const historyScopeKey = useMemo(
     () => getChatConversationHistoryScopeKey(normalizedHistoryScope),
@@ -228,13 +216,7 @@ export function useChatDetailLocalUiState(
     } finally {
       setIsHistoryMarkingRead(false);
     }
-  }, [
-    historyUnreadTotal,
-    isHistoryMarkingRead,
-    loadHistorySlice,
-    markHistoryScopeRead,
-    normalizedHistoryScope,
-  ]);
+  }, [historyUnreadTotal, isHistoryMarkingRead, loadHistorySlice, markHistoryScopeRead, normalizedHistoryScope]);
 
   return {
     isHistoryDrawerOpen,
@@ -251,6 +233,6 @@ export function useChatDetailLocalUiState(
     handleOpenHistoryDrawer,
     handleCloseHistoryDrawer,
     handleLoadMoreHistory,
-    handleMarkAllHistoryRead,
+    handleMarkAllHistoryRead
   };
 }

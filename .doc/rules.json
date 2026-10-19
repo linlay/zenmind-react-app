@@ -76,7 +76,7 @@
     {
       "id": "sqlite-source-of-truth",
       "title": "SQLite 是聊天真源",
-      "statement": "Chat 首页目录排序、会话消息状态和 outbox 真源都在 SQLite，不能把权威状态挪到 UI 或 MMKV。",
+      "statement": "Chat 首页目录排序、会话消息状态 真源都在 SQLite，不能把权威状态挪到 UI 或 MMKV。",
       "appliesTo": [
         "feature-chat-persistence",
         "feature-chat-realtime"
@@ -85,7 +85,7 @@
         "feature-chat-persistence"
       ],
       "checkHints": [
-        "改首页目录排序先检查 chat_directory_items；改会话未读数、发送状态先检查 conversations/messages/outbox_messages。",
+        "改首页目录排序先检查 chat_directory_items；改会话未读数、发送状态先检查 conversations/messages_messages。",
         "影响首页目录的 SQLite 更新后要继续刷新目录快照；conversation 摘要不写 MMKV 首页快照。"
       ]
     },
@@ -101,13 +101,13 @@
       ],
       "checkHints": [
         "readChatDirectorySnapshot 只应服务启动回显。",
-        "不要把全量消息、线程详情或 outbox 真源挪进 MMKV。"
+        "当前聊天提交遵循根 agentKey 与 references 协议；SQLite 保存消息及结果，重连只恢复观察，不自动重发；旧本地缓存按新版 schema 重建。"
       ]
     },
     {
       "id": "realtime-write-through-repository",
       "title": "实时层通过 service 或 repository 落库",
-      "statement": "实时链路的 ack、incoming 和 outbox replay 必须继续通过 chatSyncService 与 chatRepository 落库，不直连 UI；底层 core/ws 只做 transport。",
+      "statement": "实时链路的 ack、incoming  replay 必须继续通过 chatSyncService 与 chatRepository 落库，不直连 UI；底层 core/ws 只做 transport。",
       "appliesTo": [
         "core-ws-transport",
         "feature-chat-persistence",
@@ -159,7 +159,7 @@
         "feature-chat-persistence"
       ],
       "checkHints": [
-        "不要新增本地通知队列表，也不要复用 outbox_messages 做通知投递。",
+        "当前聊天提交遵循根 agentKey 与 references 协议；SQLite 保存消息及结果，重连只恢复观察，不自动重发；旧本地缓存按新版 schema 重建。",
         "通知 payload 只携带 type、conversationId、serverMessageId。",
         "点击通知后先查本地 serverMessageId，未命中再补拉服务端详情并通过 repository 落库。"
       ]

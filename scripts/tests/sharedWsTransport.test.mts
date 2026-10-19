@@ -168,7 +168,7 @@ test('shared transport startStream preserves stream done metadata', async () => 
   }
 });
 
-test('shared transport disconnects the old socket once when endpoint changes', async () => {
+test('shared transport keeps independent sockets when endpoint changes', async () => {
   const sockets: FakeSocket[] = [];
   const restoreWebSocket = installFakeWebSocket(sockets);
   const transport = createSharedWsTransport();
@@ -200,9 +200,50 @@ test('shared transport disconnects the old socket once when endpoint changes', a
     });
     await flushMicrotasks();
     assert.equal(sockets.length, 2);
-    assert.equal(sockets[0].closeCount, 1);
+    assert.equal(sockets[0].closeCount, 0);
     completeLatestRequest(sockets[1], { ok: true });
     await second;
+  } finally {
+    transport.stop();
+    restoreWebSocket();
+  }
+});
+
+test('shared transport isolates default and paired push subscriptions', async () => {
+  const sockets: FakeSocket[] = [];
+  const restoreWebSocket = installFakeWebSocket(sockets);
+  const transport = createSharedWsTransport();
+  const defaultEvents: unknown[] = [];
+  const pairedEvents: unknown[] = [];
+  const defaultConfig = {
+    kind: 'agent-platform' as const,
+    backendUrl: 'https://default.example.com',
+    wsUrl: 'wss://default.example.com/ws',
+    accessToken: '',
+    connectionKey: 'chat:default'
+  };
+  const pairedConfig = {
+    kind: 'desktop-ws' as const,
+    wsUrl: 'wss://desktop.example.com/ws',
+    tokenMode: 'query' as const,
+    accessToken: 'paired-token',
+    namespace: 'ap' as const,
+    connectionKey: 'chat:paired'
+  };
+
+  try {
+    transport.subscribePush((frame) => defaultEvents.push(frame), defaultConfig);
+    transport.subscribePush((frame) => pairedEvents.push(frame), pairedConfig);
+    await Promise.all([transport.connect(defaultConfig), transport.connect(pairedConfig)]);
+
+    assert.equal(sockets.length, 2);
+    sockets[0].receive({ frame: 'push', type: 'chat.updated', payload: { chatId: 'default-1' } });
+    sockets[1].receive({ frame: 'push', type: 'chat.updated', payload: { chatId: 'paired-1' } });
+
+    assert.equal(defaultEvents.length, 1);
+    assert.equal(pairedEvents.length, 1);
+    assert.equal(transport.getStatus(defaultConfig), 'connected');
+    assert.equal(transport.getStatus(pairedConfig), 'connected');
   } finally {
     transport.stop();
     restoreWebSocket();
@@ -320,5 +361,72 @@ test('shared transport stop clears socket state and keeps subscribers reusable',
   } finally {
     transport.stop();
     restoreWebSocket();
+  }
+});
+
+test('cloud shared transport retains the account credential provider for each connection', async () => {
+  const sockets: FakeSocket[] = [];
+  const restoreWebSocket = installFakeWebSocket(sockets);
+  const transport = createSharedWsTransport();
+  let issued = 0;
+  const config = {
+    kind: 'agent-platform' as const,
+    backendUrl: 'https://cloud.test',
+    accessToken: 'stale',
+    accessTokenProvider: async () => `account-${++issued}`,
+    connectionKey: 'account:phone:cloud'
+  };
+  try {
+    await transport.connect(config);
+    assert.equal(new URL(sockets[0].url).searchParams.get('token'), 'account-1');
+    transport.stop(config);
+    await transport.connect(config);
+    assert.equal(new URL(sockets[1].url).searchParams.get('token'), 'account-2');
+  } finally {
+    transport.stop();
+    restoreWebSocket();
+  }
+});
+
+test('idle cloud verification releases its own socket while preserving Desktop listeners and active requests', async () => {
+  const sockets: FakeSocket[] = [];
+  const restore = installFakeWebSocket(sockets);
+  const shared = createSharedWsTransport();
+  const cloud = {
+    kind: 'agent-platform' as const,
+    backendUrl: 'https://cloud.test',
+    accessToken: 'cloud',
+    connectionKey: 'cloud'
+  };
+  const desktop = {
+    kind: 'desktop-ws' as const,
+    wsUrl: 'wss://desktop.test/ws',
+    accessToken: 'route',
+    tokenMode: 'query' as const,
+    namespace: 'd' as const,
+    connectionKey: 'desktop'
+  };
+  const unsubscribe = shared.subscribeStatus(() => {}, desktop);
+  const passive = shared.subscribeStatus(() => {});
+  try {
+    await shared.connect(desktop);
+    const request = shared.request({ transport: cloud, type: '/api/chats' });
+    await flushMicrotasks();
+    const cloudSocket = sockets.find((socket) => socket.url.includes('cloud.test'))!;
+    const desktopSocket = sockets.find((socket) => socket.url.includes('desktop.test'))!;
+    assert.equal(shared.releaseIfIdle(cloud), false);
+    completeLatestRequest(cloudSocket, []);
+    await request;
+    assert.equal(shared.getStatus(cloud), 'idle');
+    assert.equal(shared.releaseIfIdle(cloud), false);
+    assert.equal(cloudSocket.closeCount, 1);
+    assert.equal(desktopSocket.closeCount, 0);
+    assert.equal(shared.getStatus(desktop), 'connected');
+    assert.equal(shared.releaseIfIdle(desktop), false);
+  } finally {
+    unsubscribe();
+    passive();
+    shared.stop();
+    restore();
   }
 });

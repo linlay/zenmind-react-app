@@ -1,3 +1,4 @@
+import { getRemoteChatSourceId } from '../chatSource.ts';
 import { createContext, useCallback, useContext, useRef, type ReactNode } from 'react';
 
 import { useT } from '../../../shared/i18n/index.ts';
@@ -17,9 +18,11 @@ export function useConversationMarkdownLinkPress(): ConversationMarkdownLinkPres
 
 export function ConversationMarkdownLinkProvider({
   agentKey,
+  conversationId,
   children
 }: {
   agentKey?: string | null;
+  conversationId: string;
   children: ReactNode;
 }) {
   const t = useT();
@@ -34,7 +37,11 @@ export function ConversationMarkdownLinkProvider({
       if (!link) {
         return false;
       }
-      const preview = resolveConversationMarkdownLinkPreview(link, agentKeyRef.current);
+      const preview = resolveConversationMarkdownLinkPreview(
+        link,
+        agentKeyRef.current,
+        getRemoteChatSourceId(conversationId)
+      );
       const initialError =
         preview.errorCode === 'missing_agent_scope'
           ? t('markdownLink.workspaceScopeMissing')
@@ -44,7 +51,7 @@ export function ConversationMarkdownLinkProvider({
       openPreview(preview, initialError);
       return true;
     },
-    [openPreview, t]
+    [conversationId, openPreview, t]
   );
 
   return (

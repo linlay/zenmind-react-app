@@ -43,7 +43,7 @@ const DEFAULT_BOARD_ID = 'default';
 const DEFAULT_PROJECT_ID = 'default';
 const KANBAN_DESKTOP_NAMESPACE: WsTransportNamespace = 'd';
 const DESKTOP_REQUIRED_MESSAGE =
-  'Desktop Kanban requires an active Desktop WS profile. Pair this device with ZenMind Desktop and try again.';
+  'Desktop Kanban requires a signed-in account and a selected Desktop.';
 const DESKTOP_UNAVAILABLE_MESSAGE = 'Desktop is not connected. Open ZenMind Desktop and try again.';
 const RUN_UPDATE_FAILED_CODE = 'kanban_issue_run_update_failed';
 const RUN_UPDATE_FAILED_MESSAGE = 'Kanban run started, but the task card did not sync.';

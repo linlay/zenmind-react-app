@@ -1,3 +1,5 @@
+import { buildChatResourceUrl } from '../../../core/api/resourceUrl.ts';
+import { isOfficeFile } from '../../../core/api/services/documentPreviewProtocol.ts';
 import { buildWorkspaceFileResourceUrl } from '../../../core/api/services/workspaceResource.ts';
 import {
   isAuthenticatedResourceTextFileName,
@@ -37,9 +39,6 @@ export type ConversationMarkdownLinkPreview = {
 
 const MAX_LINK_LENGTH = 4_096;
 const MAX_LINE_NUMBER = 1_000_000;
-const INTERNAL_ORIGIN = 'https://conversation-link.invalid';
-const RESOURCE_PATH = '/api/resource';
-const WORKSPACE_FILE_PATH = '/api/workspace/file';
 const CONTROL_CHARACTER_RE = /[\u0000-\u001f\u007f]/;
 
 function fileNameFromPath(filePath: string, fallback: string): string {
@@ -80,7 +79,8 @@ function stripLineSuffix(filePath: string): { filePath: string; line?: number } 
 }
 
 function hasWorkspaceFileExtension(filePath: string): boolean {
-  return isAuthenticatedResourceTextFileName(fileNameFromPath(filePath, ''));
+  const name = fileNameFromPath(filePath, '');
+  return isAuthenticatedResourceTextFileName(name) || isOfficeFile(name);
 }
 
 function looksLikeWorkspacePath(filePath: string): boolean {
@@ -99,50 +99,6 @@ function isSafeWorkspacePath(filePath: string): boolean {
     looksLikeWorkspacePath(filePath) &&
     hasWorkspaceFileExtension(filePath)
   );
-}
-
-function parseInternalApiLink(href: string): ConversationMarkdownInternalLink | null {
-  if (!href.startsWith('/') || href.startsWith('//')) {
-    return null;
-  }
-
-  let url: URL;
-  try {
-    url = new URL(href, INTERNAL_ORIGIN);
-  } catch {
-    return null;
-  }
-  if (url.origin !== INTERNAL_ORIGIN) {
-    return null;
-  }
-
-  if (url.pathname === RESOURCE_PATH) {
-    const filePath = url.searchParams.get('file')?.trim() || '';
-    return isSafeResourcePath(filePath)
-      ? {
-          kind: 'resource',
-          href,
-          filePath,
-          fileName: fileNameFromPath(filePath, 'resource')
-        }
-      : { kind: 'invalid', href, target: 'resource' };
-  }
-
-  if (url.pathname === WORKSPACE_FILE_PATH) {
-    const filePath = url.searchParams.get('path')?.trim() || '';
-    const rawLine = url.searchParams.get('line');
-    const line = normalizeLine(rawLine);
-    return isSafeWorkspacePath(filePath) && (!rawLine || line)
-      ? {
-          kind: 'workspace',
-          href,
-          filePath,
-          fileName: fileNameFromPath(filePath, 'workspace-file'),
-          ...(line ? { line } : {})
-        }
-      : { kind: 'invalid', href, target: 'workspace' };
-  }
-  return null;
 }
 
 function parseWorkspacePathLink(href: string): ConversationMarkdownInternalLink | null {
@@ -177,12 +133,36 @@ export function parseConversationMarkdownInternalLink(value: unknown): Conversat
   if (!href || href.length > MAX_LINK_LENGTH) {
     return null;
   }
-  return parseInternalApiLink(href) || parseWorkspacePathLink(href);
+  if (href.startsWith('/api/') || href.startsWith('/ap/api/')) return null;
+  if (/^@workspace\//i.test(href)) {
+    let filePath: string;
+    try {
+      filePath = decodeURIComponent(href.slice(11));
+    } catch {
+      return { kind: 'invalid', href, target: 'workspace' };
+    }
+    return isSafeResourcePath(filePath)
+      ? { kind: 'workspace', href, filePath: `@workspace/${filePath}`, fileName: fileNameFromPath(filePath, 'file') }
+      : { kind: 'invalid', href, target: 'workspace' };
+  }
+  if (!href.startsWith('/') && !/^[a-z][a-z\d+.-]*:/i.test(href) && !href.startsWith('//')) {
+    let filePath: string;
+    try {
+      filePath = decodeURIComponent(href.startsWith('@chat/') ? href.slice(6) : href);
+    } catch {
+      return { kind: 'invalid', href, target: 'resource' };
+    }
+    return isSafeResourcePath(filePath)
+      ? { kind: 'resource', href, filePath, fileName: fileNameFromPath(filePath, 'resource') }
+      : { kind: 'invalid', href, target: 'resource' };
+  }
+  return parseWorkspacePathLink(href);
 }
 
 export function resolveConversationMarkdownLinkPreview(
   link: ConversationMarkdownInternalLink,
-  agentKey: string
+  agentKey: string,
+  remoteChatId = ''
 ): ConversationMarkdownLinkPreview {
   if (link.kind === 'invalid') {
     return {
@@ -197,7 +177,7 @@ export function resolveConversationMarkdownLinkPreview(
     return {
       key: `resource:${link.filePath}`,
       name: link.fileName,
-      resourceUrl: link.href,
+      resourceUrl: buildChatResourceUrl(link.filePath, remoteChatId),
       previewKind: resolveAuthenticatedResourcePreviewKind({ name: link.fileName }),
       sourcePath: link.filePath
     };
@@ -212,7 +192,7 @@ export function resolveConversationMarkdownLinkPreview(
     key: `workspace:${link.filePath}:${link.line || ''}`,
     name: link.fileName,
     resourceUrl: resourceUrl || '',
-    previewKind: 'text',
+    previewKind: resolveAuthenticatedResourcePreviewKind({ name: link.fileName }),
     sourcePath: link.filePath,
     line: link.line,
     ...(resourceUrl ? {} : { errorCode: 'missing_agent_scope' as const })

@@ -24,7 +24,8 @@ class FakeSocket {
 
   constructor(
     readonly url: string,
-    readonly protocols?: string | string[]
+    readonly protocols?: string | string[],
+    readonly headers?: Record<string, string>
   ) {}
 
   open() {
@@ -48,8 +49,8 @@ class FakeSocket {
 }
 
 function createSocketFactory(instances: FakeSocket[]) {
-  return (url: string, protocols?: string | string[]) => {
-    const socket = new FakeSocket(url, protocols);
+  return (url: string, protocols?: string | string[], headers?: Record<string, string>) => {
+    const socket = new FakeSocket(url, protocols, headers);
     instances.push(socket);
     queueMicrotask(() => socket.open());
     return socket;
@@ -94,6 +95,61 @@ test('agent-platform transport keeps /ap/ws and sends no namespace', async () =>
   assert.equal(sentFrame.type, '/api/chats');
   assert.equal('ns' in sentFrame, false);
   client.disconnect();
+});
+
+test('explicit Agent Platform ws URLs retain their protocol, path and query', async () => {
+  for (const endpoint of ['wss://api.example.test/custom?source=mobile', 'ws://localhost:7080/custom']) {
+    const sockets: FakeSocket[] = [];
+    const client = new WsClient({
+      transport: {
+        kind: 'agent-platform',
+        backendUrl: 'https://ignored.example.test',
+        wsUrl: endpoint,
+        accessToken: 'ap-token'
+      },
+      createWebSocket: createSocketFactory(sockets)
+    });
+    try {
+      await client.connect();
+      const expected = new URL(endpoint);
+      expected.searchParams.set('token', 'ap-token');
+      assert.equal(sockets[0].url, expected.toString());
+    } finally {
+      client.disconnect();
+    }
+  }
+});
+
+test('concurrent connect and directory requests share one socket and all responses resolve', async () => {
+  const sockets: FakeSocket[] = [];
+  const client = new WsClient({
+    transport: {
+      kind: 'desktop-ws',
+      wsUrl: 'wss://desktop.example.test/ws',
+      tokenMode: 'query',
+      accessToken: 'desktop-token',
+      namespace: 'ap'
+    },
+    createWebSocket: createSocketFactory(sockets)
+  });
+  try {
+    const connected = client.connect();
+    const requests = ['/api/agents', '/api/models', '/api/chats'].map((type) => client.request({ type }));
+    const settled = Promise.all(requests);
+    settled.catch(() => {});
+    await connected;
+    await flushMicrotasks();
+    assert.equal(sockets.length, 1);
+    assert.equal(sockets[0].sent.length, 3);
+    for (const raw of sockets[0].sent) {
+      const frame = JSON.parse(raw) as { id: string; ns: string; type: string };
+      assert.equal(frame.ns, 'ap');
+      sockets[0].receive({ frame: 'response', id: frame.id, code: 0, data: [frame.type] });
+    }
+    assert.deepEqual(await settled, [['/api/agents'], ['/api/models'], ['/api/chats']]);
+  } finally {
+    client.disconnect();
+  }
 });
 
 test('desktop query transport uses exact ws url and sends namespace', async () => {
@@ -141,14 +197,44 @@ test('desktop subprotocol transport keeps token out of url', async () => {
   client.disconnect();
 });
 
+test('Desktop reconnect resolves its Platform bearer and independent account proof', async () => {
+  const sockets: FakeSocket[] = [];
+  let issued = 0;
+  const client = new WsClient({
+    transport: {
+      kind: 'desktop-ws',
+      wsUrl: 'wss://desktop.example.test/ws',
+      tokenMode: 'subprotocol',
+      accessToken: 'identity-initial',
+      accessTokenProvider: async () => `identity-${++issued}`,
+      requestHeadersProvider: async () => ({ 'X-Account-Authorization': 'Bearer official-proof' }),
+      namespace: 'ap'
+    },
+    createWebSocket: createSocketFactory(sockets),
+    reconnectBaseDelayMs: 100,
+    reconnectMaxDelayMs: 100
+  });
+
+  await client.connect();
+  assert.equal(new URL(sockets[0].url).searchParams.has('token'), false);
+  assert.deepEqual(sockets[0].protocols, ['bearer.identity-1']);
+  assert.equal(sockets[0].headers?.['X-Account-Authorization'], 'Bearer official-proof');
+  sockets[0].onclose?.({ code: 1006, reason: 'network changed' });
+  await new Promise((resolve) => setTimeout(resolve, 130));
+  assert.equal(sockets.length, 2);
+  assert.deepEqual(sockets[1].protocols, ['bearer.identity-2']);
+  assert.equal(issued, 2);
+  client.disconnect();
+});
+
 test('shared chat transport keeps the socket when only token or namespace changes', async () => {
   const originalWebSocket = globalThis.WebSocket;
   const sockets: FakeSocket[] = [];
   (globalThis as typeof globalThis & { WebSocket: unknown }).WebSocket = class {
     private readonly socket: FakeSocket;
 
-    constructor(url: string, protocols?: string | string[]) {
-      this.socket = new FakeSocket(url, protocols);
+    constructor(url: string, protocols?: string | string[], options?: { headers?: Record<string, string> }) {
+      this.socket = new FakeSocket(url, protocols, options?.headers);
       sockets.push(this.socket);
       queueMicrotask(() => this.socket.open());
       return this.socket;
@@ -201,8 +287,8 @@ test('chat push stop only removes chat listeners without closing shared socket',
   (globalThis as typeof globalThis & { WebSocket: unknown }).WebSocket = class {
     private readonly socket: FakeSocket;
 
-    constructor(url: string, protocols?: string | string[]) {
-      this.socket = new FakeSocket(url, protocols);
+    constructor(url: string, protocols?: string | string[], options?: { headers?: Record<string, string> }) {
+      this.socket = new FakeSocket(url, protocols, options?.headers);
       sockets.push(this.socket);
       queueMicrotask(() => this.socket.open());
       return this.socket;
@@ -223,7 +309,11 @@ test('chat push stop only removes chat listeners without closing shared socket',
       }
     );
 
-    sockets[0].receive({ frame: 'push', type: 'chat.updated', payload: { chatId: 'chat-1' } });
+    sockets[0].receive({
+      frame: 'push',
+      type: 'chat.updated',
+      payload: { chatId: 'chat-1', updatedAt: 1_791_400_000_000 }
+    });
     assert.equal(pushEvents.length, 1);
 
     stopChatPushTransport();
@@ -261,8 +351,8 @@ test('chat stream forwards done reason and last sequence', async () => {
   (globalThis as typeof globalThis & { WebSocket: unknown }).WebSocket = class {
     private readonly socket: FakeSocket;
 
-    constructor(url: string, protocols?: string | string[]) {
-      this.socket = new FakeSocket(url, protocols);
+    constructor(url: string, protocols?: string | string[], options?: { headers?: Record<string, string> }) {
+      this.socket = new FakeSocket(url, protocols, options?.headers);
       sockets.push(this.socket);
       queueMicrotask(() => this.socket.open());
       return this.socket;
@@ -296,6 +386,7 @@ test('chat stream forwards done reason and last sequence', async () => {
       event: {
         type: 'content.delta',
         seq: 7,
+        timestamp: 1_791_400_000_000,
         payload: { delta: 'hi' }
       }
     });
@@ -306,7 +397,7 @@ test('chat stream forwards done reason and last sequence', async () => {
       lastSeq: 8
     });
 
-    assert.deepEqual(events, [{ delta: 'hi', type: 'content.delta', seq: 7 }]);
+    assert.deepEqual(events, [{ delta: 'hi', type: 'content.delta', seq: 7, timestamp: 1_791_400_000_000 }]);
     assert.equal(doneReason, 'complete');
     assert.equal(doneLastSeq, 8);
     handle.abort();

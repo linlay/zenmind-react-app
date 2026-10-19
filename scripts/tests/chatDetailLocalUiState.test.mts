@@ -7,7 +7,7 @@ import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import type {
   ChatConversationHistoryPage,
   ChatConversationHistoryScope,
-  ChatHomeItem,
+  ChatHomeItem
 } from '../../src/features/chatPersistence/types.ts';
 import { useChatDetailLocalUiState } from '../../src/features/chatPersistence/useChatDetailLocalUiState.ts';
 
@@ -23,8 +23,7 @@ function createDeferred<T>() {
 }
 
 const historyScope: ChatConversationHistoryScope = {
-  agentKey: 'agent-a',
-  teamId: null,
+  agentKey: 'agent-a'
 };
 
 const historyRows: ChatHomeItem[] = [
@@ -37,10 +36,10 @@ const historyRows: ChatHomeItem[] = [
     read: {
       isRead: false,
       readAt: null,
-      readRunId: null,
+      readRunId: null
     },
     lastMessageStatus: 'sent',
-    pinnedAt: 0,
+    pinnedAt: 0
   },
   {
     conversationId: 'chat-1',
@@ -51,11 +50,11 @@ const historyRows: ChatHomeItem[] = [
     read: {
       isRead: true,
       readAt: 9,
-      readRunId: null,
+      readRunId: null
     },
     lastMessageStatus: 'sent',
-    pinnedAt: 0,
-  },
+    pinnedAt: 0
+  }
 ];
 
 function HookHarness({
@@ -64,22 +63,19 @@ function HookHarness({
   copyText,
   loadHistory,
   markHistoryScopeRead,
-  onValue,
+  onValue
 }: {
   resetKey: string;
   scope: ChatConversationHistoryScope | null;
   copyText: (text: string) => Promise<unknown>;
-  loadHistory: (
-    scope: ChatConversationHistoryScope,
-    limit: number
-  ) => Promise<ChatConversationHistoryPage>;
+  loadHistory: (scope: ChatConversationHistoryScope, limit: number) => Promise<ChatConversationHistoryPage>;
   markHistoryScopeRead: (scope: ChatConversationHistoryScope) => Promise<unknown>;
   onValue: (value: HookSnapshot) => void;
 }) {
   const value = useChatDetailLocalUiState(resetKey, scope, {
     copyText,
     loadHistory,
-    markHistoryScopeRead,
+    markHistoryScopeRead
   });
 
   useEffect(() => {
@@ -102,7 +98,7 @@ test('local ui state loads history lazily and resets drawer on conversation swit
     items: historyRows.slice(0, limit),
     total: historyRows.length,
     unreadTotal: 1,
-    limit,
+    limit
   });
   const markHistoryScopeRead = async (_scope: ChatConversationHistoryScope) => undefined;
   let renderer: ReactTestRenderer;
@@ -115,7 +111,7 @@ test('local ui state loads history lazily and resets drawer on conversation swit
         copyText,
         loadHistory,
         markHistoryScopeRead,
-        onValue: handleValue,
+        onValue: handleValue
       })
     );
   });
@@ -141,7 +137,7 @@ test('local ui state loads history lazily and resets drawer on conversation swit
         copyText,
         loadHistory,
         markHistoryScopeRead,
-        onValue: handleValue,
+        onValue: handleValue
       })
     );
   });
@@ -171,7 +167,7 @@ test('local ui state ignores pending history load after drawer closes', async ()
         copyText,
         loadHistory,
         markHistoryScopeRead,
-        onValue: handleValue,
+        onValue: handleValue
       })
     );
   });
@@ -194,7 +190,7 @@ test('local ui state ignores pending history load after drawer closes', async ()
       items: historyRows,
       total: historyRows.length,
       unreadTotal: 1,
-      limit: historyRows.length,
+      limit: historyRows.length
     });
     await pendingPage.promise;
   });
@@ -230,7 +226,7 @@ test('local ui state does not start duplicate history loads while drawer is alre
         copyText,
         loadHistory,
         markHistoryScopeRead,
-        onValue: handleValue,
+        onValue: handleValue
       })
     );
   });
@@ -247,7 +243,7 @@ test('local ui state does not start duplicate history loads while drawer is alre
       items: historyRows,
       total: historyRows.length,
       unreadTotal: 1,
-      limit: historyRows.length,
+      limit: historyRows.length
     });
     await pendingPage.promise;
   });
@@ -270,7 +266,7 @@ test('local ui state marks the current history scope read and reloads the visibl
       items: historyRows.slice(0, limit),
       total: historyRows.length,
       unreadTotal: loadCount <= 1 ? 1 : 0,
-      limit,
+      limit
     };
   };
   const markHistoryScopeRead = async (scope: ChatConversationHistoryScope) => {
@@ -285,7 +281,7 @@ test('local ui state marks the current history scope read and reloads the visibl
         copyText,
         loadHistory,
         markHistoryScopeRead,
-        onValue: handleValue,
+        onValue: handleValue
       })
     );
   });
@@ -323,7 +319,7 @@ test('local ui state trims copied message text and bumps toast trigger', async (
     items: [],
     total: 0,
     unreadTotal: 0,
-    limit,
+    limit
   });
   const markHistoryScopeRead = async (_scope: ChatConversationHistoryScope) => undefined;
 
@@ -335,7 +331,7 @@ test('local ui state trims copied message text and bumps toast trigger', async (
         copyText,
         loadHistory,
         markHistoryScopeRead,
-        onValue: handleValue,
+        onValue: handleValue
       })
     );
   });

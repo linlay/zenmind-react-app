@@ -47,6 +47,7 @@
     },
     "app-shell-navigation": {
       "paths": [
+        "docs/react-app-env-sync-2026-10-13",
         ".generated/brand",
         "App.tsx",
         "android/app/src/main/java",
@@ -72,6 +73,7 @@
         "package.json",
         "patches",
         "plugins/withAndroidAutolinkingCacheGuard.js",
+        "plugins/withLocalCacheBackupExclusion.js",
         "scripts",
         "scripts/lib/brand-config.js",
         "scripts/sync-brand.js",
@@ -81,6 +83,7 @@
         "src/app/screens",
         "src/app/settings",
         "src/app/startup",
+        "src/shared/components/AppKeyboardAwareScrollView.tsx",
         "src/types/assets.d.ts",
         "tailwind.config.js"
       ],
@@ -131,7 +134,9 @@
     },
     "feature-auth-login": {
       "paths": [
-        "src/features/auth"
+        "src/features/auth",
+        "src/features/deviceLink",
+        "docs/account-email-auth-2026-10-13"
       ],
       "context": ".doc/modules/feature-auth-login.json",
       "confidence": "confirmed"
@@ -169,6 +174,13 @@
         "src/features/webApps"
       ],
       "context": ".doc/modules/feature-web-apps.json",
+      "confidence": "confirmed"
+    },
+    "mobile-account-ticket-plan": {
+      "paths": [
+        "docs/mobile-account-ticket-sync-2026-10-14"
+      ],
+      "context": ".doc/modules/mobile-account-ticket-plan.json",
       "confidence": "confirmed"
     },
     "shared-conversation-content-renderer": {
@@ -233,10 +245,10 @@
   },
   "rulesRef": ".doc/rules.json",
   "generated": {
-    "moduleCount": 19,
+    "moduleCount": 20,
     "flowCount": 8,
-    "taskCount": 16,
-    "sourceFileCount": 2201,
+    "taskCount": 22,
+    "sourceFileCount": 2288,
     "factsRef": ".doc/generated/project-facts.json",
     "contextIndexRef": ".doc/generated/context-index.json",
     "entrypoints": [

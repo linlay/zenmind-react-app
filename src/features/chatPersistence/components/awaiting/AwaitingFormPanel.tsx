@@ -1,3 +1,5 @@
+import { buildConversationViewDocumentKey } from '../../conversationViewport/viewportDocument';
+import { useConversationViewChatId } from '../../conversationViewport/ConversationViewScope';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, Text, View } from 'react-native';
 
@@ -95,7 +97,8 @@ export function AwaitingFormPanel({ awaiting, disabled, submitting, submitPayloa
   const [errorText, setErrorText] = useState('');
   const [collecting, setCollecting] = useState(false);
   const viewportRef = useRef<AwaitingFormViewportHandle | null>(null);
-  const viewportKey = awaiting.interactive.viewportKey.trim();
+  const chatId = useConversationViewChatId();
+  const viewportKey = awaiting.interactive.view ? buildConversationViewDocumentKey(chatId, awaiting.interactive.view, 'form', awaiting.interactive.viewError, awaiting.interactive.agentKey) : awaiting.interactive.viewportKey.trim();
   const hasHtmlViewport = viewportKey.length > 0;
   const resolvedActiveFormIndex = clampFormIndex(activeFormIndex, forms.length);
   const activeForm = forms[resolvedActiveFormIndex];

@@ -11,46 +11,12 @@ import {
   resolveChatUploadRoute,
   unwrapChatUploadResponse
 } from '../../src/core/api/services/uploadApiModel.ts';
-import type { DeviceProfile } from '../../src/core/auth/deviceProfiles.ts';
-
-function createHttpProfile(): DeviceProfile {
-  return {
-    transportKind: 'http',
-    desktopDeviceId: 'desktop-http',
-    displayName: 'HTTP Desktop',
-    apiBaseUrl: 'https://api.example.test',
-    deviceToken: 'device-token',
-    serverDeviceId: 'server-http',
-    cacheScopeId: 'cache-http',
-    lastUsedAt: 1,
-    needsRelink: false,
-    identityCreatedAt: '',
-    hostname: '',
-    appServerPublicKeySha256: ''
-  };
+import type { WsTransportConfig } from '../../src/core/ws/wsTransportConfig.ts';
+function createHttpProfile(): WsTransportConfig {
+  return { kind: 'agent-platform', backendUrl: 'https://cloud.test', accessToken: 'account-token' };
 }
-
-function createDesktopWsProfile(wsUrl = 'wss://zmupload.m.zenmind.cc/ws'): DeviceProfile {
-  return {
-    transportKind: 'desktop-ws',
-    desktopDeviceId: 'desktop-tunnel',
-    displayName: 'Desktop WS',
-    apiBaseUrl: wsUrl.replace(/^wss:/u, 'https:').replace(/\/ws$/u, ''),
-    deviceToken: '',
-    serverDeviceId: 'server-tunnel',
-    cacheScopeId: 'cache-tunnel',
-    lastUsedAt: 1,
-    needsRelink: false,
-    identityCreatedAt: '',
-    hostname: '',
-    appServerPublicKeySha256: '',
-    desktopWs: {
-      wsUrl,
-      tokenMode: 'query',
-      accessToken: 'desktop-access-token',
-      accessExpireAtMs: Date.now() + 600_000
-    }
-  };
+function createDesktopWsProfile(wsUrl = 'wss://zmupload.m.zenmind.cc/ws'): WsTransportConfig {
+  return { kind: 'desktop-ws', wsUrl, tokenMode: 'query', accessToken: 'route-token', namespace: 'ap' };
 }
 
 test('upload route keeps HTTP profiles direct and uses the Desktop public host for Desktop WS', () => {

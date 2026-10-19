@@ -1,0 +1,88 @@
+{
+  "schemaVersion": "1.0",
+  "id": "mobile-account-ticket-sync",
+  "title": "官网原生邮箱登录与 Desktop Identity 票据同步执行大纲",
+  "intentKeywords": [
+    "票据同步",
+    "Identity票据",
+    "Desktop票据",
+    "官网邮箱登录",
+    "原生邮箱验证码",
+    "Hub内存票据",
+    "用户ID字段",
+    "SSO_JWT_USER_ID_CLAIM",
+    "移动端登录纠偏",
+    "mobile account ticket sync"
+  ],
+  "entryDecision": [
+    "2026-10-14 建档；2026-10-15 已落实本地代码与自动验证，T00–T07 等待用户真实环境验收，当前阻塞。真实环境由用户验收；基线门禁与清理例外见 docs/mobile-account-ticket-sync-2026-10-14/IMPLEMENTATION.md。",
+    "手机在原生界面复用官网server邮箱接口，不跳网页、不修改official-website。",
+    "Desktop本地Identity票据登录后同步Hub内存，按配置用户ID匹配电脑，手机携带所选电脑原票据执行业务。",
+    "不新建Identity公网账号、tr_票据、OAuth/PKCE、同步框架或持久票据库；仅复用必要现有接口。",
+    "与旧Identity邮箱/手机账号/tr_计划冲突以本目录目标为准，当前源码事实在实际实施后再更新。",
+    "2026-10-15：官网原生邮箱、Desktop/Hub 原票据同步、各移动数据面及旧认证清理已本地实现；详见 IMPLEMENTATION.md，本地检查与用户真实验收分开记录。"
+  ],
+  "mustRead": [
+    {
+      "type": "doc",
+      "ref": "docs/mobile-account-ticket-sync-2026-10-14/README.md"
+    },
+    {
+      "type": "doc",
+      "ref": "docs/mobile-account-ticket-sync-2026-10-14/DESIGN.md"
+    },
+    {
+      "type": "module",
+      "ref": "mobile-account-ticket-plan"
+    },
+    {
+      "type": "module",
+      "ref": "core-auth-session"
+    },
+    {
+      "type": "module",
+      "ref": "core-api-client"
+    },
+    {
+      "type": "module",
+      "ref": "feature-auth-login"
+    },
+    {
+      "type": "module",
+      "ref": "feature-web-apps"
+    },
+    {
+      "type": "flow",
+      "ref": "app-startup"
+    }
+  ],
+  "likelyFiles": [
+    "docs/mobile-account-ticket-sync-2026-10-14/DESIGN.md",
+    "docs/mobile-account-ticket-sync-2026-10-14/README.md",
+    "docs/mobile-account-ticket-sync-2026-10-14/tasks/T00-contract-baseline.md",
+    "docs/mobile-account-ticket-sync-2026-10-14/tasks/T01-official-email-session.md",
+    "docs/mobile-account-ticket-sync-2026-10-14/tasks/T02-hub-owner-credential.md",
+    "docs/mobile-account-ticket-sync-2026-10-14/tasks/T03-desktop-credential-sync.md",
+    "docs/mobile-account-ticket-sync-2026-10-14/tasks/T04-mobile-email-login.md",
+    "docs/mobile-account-ticket-sync-2026-10-14/tasks/T05-mobile-device-transport.md",
+    "docs/mobile-account-ticket-sync-2026-10-14/tasks/T06-remove-wrong-auth.md",
+    "docs/mobile-account-ticket-sync-2026-10-14/tasks/T07-integration-release-cleanup.md"
+  ],
+  "acceptanceChecks": [
+    "总览和八任务状态一致；计划不冒充已实现。",
+    "官网邮箱原生真机登录、真实用户ID与双品牌字段配置验证。",
+    "真实Desktop票据上传/更新/重连，Hub内存按电脑隔离。",
+    "跨用户列表、取票、WS/HTTP/WebApp拒绝，默认云端独立。",
+    "旧错误认证收回，本地Identity保留，真实验收和清理后才整体完成。"
+  ],
+  "doNotMiss": [
+    "先T00核实原生Cookie及CuteJ真实契约，不自动升级认证体系。",
+    "identityToken目前是官网SSO；platformCredential独立承载本地票据，Hub注册ID不同于Platform设备ID。",
+    "Hub入口授权不能用列表隐藏代替，不把Token放日志、环境、URL或DB。",
+    "同步实际模块与 flow；保护原有无关改动，结束执行清理审计，不整仓回滚。"
+  ],
+  "generated": {
+    "mustReadCount": 8,
+    "likelyFileCount": 10
+  }
+}

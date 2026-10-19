@@ -21,6 +21,7 @@ import {
 } from './webAppsRuntimeModel';
 
 type WebAppsRuntimeContextValue = WebAppsRuntimeState & {
+  enabled: boolean;
   openableApps: readonly OpenableWebApp[];
   activeApp: WebAppItem | null;
   capabilities: WebAppsGatewayCapabilities;
@@ -33,13 +34,20 @@ type WebAppsRuntimeContextValue = WebAppsRuntimeState & {
 
 type WebAppsRuntimeProviderProps = {
   children: ReactNode;
+  enabled: boolean;
   gateway?: WebAppsGateway;
+  sessionKey: string;
 };
 
 const WebAppsRuntimeContext = createContext<WebAppsRuntimeContextValue | null>(null);
 const PROVIDER_ROOT_CLASS = 'flex-1';
 
-export function WebAppsRuntimeProvider({ children, gateway = webAppsGateway }: WebAppsRuntimeProviderProps) {
+export function WebAppsRuntimeProvider({
+  children,
+  enabled,
+  gateway = webAppsGateway,
+  sessionKey
+}: WebAppsRuntimeProviderProps) {
   const [state, setState] = useState(INITIAL_WEB_APPS_RUNTIME_STATE);
   const stateRef = useRef(state);
   const mountedRef = useRef(true);
@@ -48,6 +56,7 @@ export function WebAppsRuntimeProvider({ children, gateway = webAppsGateway }: W
   const recoveryQueueRef = useRef<string[]>([]);
   const recoveringAppIdRef = useRef<string | null>(null);
   const recoveryAttemptsByIdRef = useRef(new Map<string, number>());
+  const sessionGenerationRef = useRef(0);
 
   const commit = useCallback((action: WebAppsRuntimeAction) => {
     if (!mountedRef.current) {
@@ -193,13 +202,16 @@ export function WebAppsRuntimeProvider({ children, gateway = webAppsGateway }: W
   );
 
   const refresh = useCallback(async () => {
+    if (!enabled) {
+      return;
+    }
     commit({ type: 'sync.started' });
     try {
       await gateway.refresh();
     } catch {
       // Gateway emits the normalized error event. Abort/close requires no UI update.
     }
-  }, [commit, gateway]);
+  }, [commit, enabled, gateway]);
 
   const prepareDetail = useCallback(
     (preferredAppId?: string): string | null => {
@@ -251,20 +263,49 @@ export function WebAppsRuntimeProvider({ children, gateway = webAppsGateway }: W
   const selectApp = useCallback((appId: string) => commit({ type: 'app.selected', appId }), [commit]);
 
   useEffect(() => {
-    mountedRef.current = true;
+    const sessionGeneration = sessionGenerationRef.current + 1;
+    sessionGenerationRef.current = sessionGeneration;
+    mountedRef.current = enabled;
+    requestDetailCloseRef.current = null;
+    appStateRef.current = AppState.currentState;
+    recoveryQueueRef.current = [];
+    recoveringAppIdRef.current = null;
+    recoveryAttemptsByIdRef.current.clear();
+    stateRef.current = INITIAL_WEB_APPS_RUNTIME_STATE;
+    setState(INITIAL_WEB_APPS_RUNTIME_STATE);
+
+    if (!enabled) {
+      return () => {
+        if (sessionGenerationRef.current === sessionGeneration) {
+          sessionGenerationRef.current += 1;
+          mountedRef.current = false;
+        }
+      };
+    }
     const recoveryAttempts = recoveryAttemptsByIdRef.current;
+    const handleSessionGatewayEvent = (event: WebAppsGatewayEvent) => {
+      if (sessionGenerationRef.current === sessionGeneration) {
+        handleGatewayEvent(event);
+      }
+    };
     commit({ type: 'sync.started' });
-    gateway.open(handleGatewayEvent);
+    gateway.open(handleSessionGatewayEvent);
     return () => {
-      mountedRef.current = false;
+      if (sessionGenerationRef.current === sessionGeneration) {
+        sessionGenerationRef.current += 1;
+        mountedRef.current = false;
+      }
       gateway.close();
       recoveryQueueRef.current = [];
       recoveringAppIdRef.current = null;
       recoveryAttempts.clear();
     };
-  }, [commit, gateway, handleGatewayEvent]);
+  }, [commit, enabled, gateway, handleGatewayEvent, sessionKey]);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     const subscription = AppState.addEventListener('change', (nextState) => {
       const previousState = appStateRef.current;
       appStateRef.current = nextState;
@@ -275,7 +316,7 @@ export function WebAppsRuntimeProvider({ children, gateway = webAppsGateway }: W
       }
     });
     return () => subscription.remove();
-  }, [refresh, sortRecoveryQueue, startNextRecovery]);
+  }, [enabled, refresh, sortRecoveryQueue, startNextRecovery]);
 
   const openableApps = useMemo(() => getOpenableWebApps(state.items), [state.items]);
   const activeApp = useMemo(
@@ -285,6 +326,7 @@ export function WebAppsRuntimeProvider({ children, gateway = webAppsGateway }: W
   const contextValue = useMemo<WebAppsRuntimeContextValue>(
     () => ({
       ...state,
+      enabled,
       openableApps,
       activeApp,
       capabilities: gateway.capabilities,
@@ -298,6 +340,7 @@ export function WebAppsRuntimeProvider({ children, gateway = webAppsGateway }: W
       activeApp,
       closeSelector,
       enterDetail,
+      enabled,
       gateway.capabilities,
       leaveDetail,
       openableApps,
@@ -311,22 +354,24 @@ export function WebAppsRuntimeProvider({ children, gateway = webAppsGateway }: W
     <WebAppsRuntimeContext.Provider value={contextValue}>
       <View className={PROVIDER_ROOT_CLASS}>
         {children}
-        <WebAppsRuntimeHost
-          visible={state.detailVisible}
-          selectorVisible={state.selectorVisible}
-          activeApp={activeApp}
-          openableApps={openableApps}
-          residents={state.residents}
-          connectionStatus={state.connectionStatus}
-          onBack={requestBack}
-          onOpenSelector={openSelector}
-          onCloseSelector={closeSelector}
-          onSelectApp={selectApp}
-          onResidentLoadState={handleResidentLoadState}
-          onResidentTerminated={handleResidentTerminated}
-          onResidentNavigation={handleResidentNavigation}
-          onRetryResident={retryResident}
-        />
+        {enabled ? (
+          <WebAppsRuntimeHost
+            visible={state.detailVisible}
+            selectorVisible={state.selectorVisible}
+            activeApp={activeApp}
+            openableApps={openableApps}
+            residents={state.residents}
+            connectionStatus={state.connectionStatus}
+            onBack={requestBack}
+            onOpenSelector={openSelector}
+            onCloseSelector={closeSelector}
+            onSelectApp={selectApp}
+            onResidentLoadState={handleResidentLoadState}
+            onResidentTerminated={handleResidentTerminated}
+            onResidentNavigation={handleResidentNavigation}
+            onRetryResident={retryResident}
+          />
+        ) : null}
       </View>
     </WebAppsRuntimeContext.Provider>
   );

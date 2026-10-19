@@ -1,3 +1,4 @@
+import { downloadAuthenticatedResourceFile } from './authenticatedResourceFile.native';
 import { Directory, File } from 'expo-file-system';
 
 import {
@@ -10,13 +11,10 @@ import {
 export async function downloadAuthenticatedResource(
   request: AuthenticatedResourceDownloadRequest
 ): Promise<AuthenticatedResourceDownloadResult> {
-  const source = await resolveAuthenticatedResourceSource(request.resourceUrl);
+  await resolveAuthenticatedResourceSource(request.resourceUrl);
   const fileName = normalizeAuthenticatedResourceFileName(request.fileName);
   const directory = await Directory.pickDirectoryAsync();
   const destination = new File(directory, fileName);
-  await File.downloadFileAsync(source.uri, destination, {
-    headers: source.headers,
-    idempotent: true
-  });
+  await downloadAuthenticatedResourceFile(request.resourceUrl, destination);
   return { fileName };
 }

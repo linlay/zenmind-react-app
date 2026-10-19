@@ -7,7 +7,7 @@ import {
   patchDirectoryListPreviewByConversation,
   patchConversationMessage,
   patchHomeListState,
-  upsertConversationMessage,
+  upsertConversationMessage
 } from '../../src/features/chatPersistence/chatRealtimeUiState.ts';
 
 const baseItems = [
@@ -18,7 +18,7 @@ const baseItems = [
     lastMessageAt: 100,
     unreadCount: 0,
     lastMessageStatus: 'sent' as const,
-    pinnedAt: 0,
+    pinnedAt: 0
   },
   {
     conversationId: 'conv-2',
@@ -27,8 +27,8 @@ const baseItems = [
     lastMessageAt: 90,
     unreadCount: 2,
     lastMessageStatus: 'sent' as const,
-    pinnedAt: 0,
-  },
+    pinnedAt: 0
+  }
 ];
 
 test('home item patch only replaces the target item and can move it to the top', () => {
@@ -40,7 +40,7 @@ test('home item patch only replaces the target item and can move it to the top',
       lastMessageText: 'new two',
       lastMessageAt: 120,
       unreadCountDelta: 1,
-      shouldMoveToTop: true,
+      shouldMoveToTop: true
     },
     6
   );
@@ -56,7 +56,7 @@ test('unpinned home item patch moves after the pinned section', () => {
     [
       {
         ...baseItems[0],
-        pinnedAt: 300,
+        pinnedAt: 300
       },
       baseItems[1],
       {
@@ -66,8 +66,8 @@ test('unpinned home item patch moves after the pinned section', () => {
         lastMessageAt: 80,
         unreadCount: 0,
         lastMessageStatus: 'sent' as const,
-        pinnedAt: 0,
-      },
+        pinnedAt: 0
+      }
     ],
     3
   );
@@ -78,7 +78,7 @@ test('unpinned home item patch moves after the pinned section', () => {
       conversationId: 'conv-3',
       lastMessageText: 'new three',
       lastMessageAt: 130,
-      shouldMoveToTop: true,
+      shouldMoveToTop: true
     },
     6
   );
@@ -91,12 +91,12 @@ test('pinned home item patch updates the target without reordering pinned items'
     [
       {
         ...baseItems[0],
-        pinnedAt: 300,
+        pinnedAt: 300
       },
       {
         ...baseItems[1],
-        pinnedAt: 200,
-      },
+        pinnedAt: 200
+      }
     ],
     2
   );
@@ -107,7 +107,7 @@ test('pinned home item patch updates the target without reordering pinned items'
       conversationId: 'conv-2',
       lastMessageText: 'new pinned two',
       lastMessageAt: 140,
-      shouldMoveToTop: true,
+      shouldMoveToTop: true
     },
     6
   );
@@ -123,7 +123,7 @@ test('pinnedAt patch moves the conversation into pinned order', () => {
     state,
     {
       conversationId: 'conv-2',
-      pinnedAt: 500,
+      pinnedAt: 500
     },
     6
   );
@@ -146,11 +146,10 @@ test('directory preview patch only updates rows backed by the target conversatio
         pinnedAt: 0,
         sortRank: 1,
         agentKey: 'planner',
-        teamId: null,
         defaultAgentKey: null,
         latestConversationId: 'conv-2',
         lastMessageText: 'old preview',
-        lastMessageAt: 100,
+        lastMessageAt: 100
       },
       'agent:other': {
         id: 'agent:other',
@@ -161,20 +160,19 @@ test('directory preview patch only updates rows backed by the target conversatio
         pinnedAt: 0,
         sortRank: 2,
         agentKey: 'other',
-        teamId: null,
         defaultAgentKey: null,
         latestConversationId: 'conv-9',
         lastMessageText: 'keep me',
-        lastMessageAt: 90,
-      },
+        lastMessageAt: 90
+      }
     },
-    total: 2,
+    total: 2
   };
 
   const next = patchDirectoryListPreviewByConversation(state, {
     conversationId: 'conv-2',
     lastMessageText: 'new preview',
-    lastMessageAt: 180,
+    lastMessageAt: 180
   });
 
   assert.equal(next.itemsById['agent:planner'].lastMessageText, 'new preview');
@@ -193,7 +191,7 @@ test('message patch replaces only the matching message object', () => {
       content: 'first',
       createdAt: 100,
       deliveryStatus: 'sent' as const,
-      errorReason: null,
+      errorReason: null
     },
     {
       messageId: 'm2',
@@ -204,13 +202,13 @@ test('message patch replaces only the matching message object', () => {
       content: 'second',
       createdAt: 110,
       deliveryStatus: 'pending' as const,
-      errorReason: null,
-    },
+      errorReason: null
+    }
   ];
 
   const patched = patchConversationMessage(messages, 'm2', {
     deliveryStatus: 'sent',
-    serverMessageId: 's2',
+    serverMessageId: 's2'
   });
 
   assert.equal(patched[0], messages[0]);
@@ -230,14 +228,14 @@ test('stream delta appends to the matched assistant bubble without rebuilding th
       content: 'hello',
       createdAt: 100,
       deliveryStatus: 'sent' as const,
-      errorReason: null,
-    },
+      errorReason: null
+    }
   ];
 
   const next = applyConversationStreamDelta(messages, {
     messageId: 'assistant:run-1',
     createdAt: 140,
-    delta: ' world',
+    delta: ' world'
   });
 
   assert.equal(next[0].content, 'hello world');
@@ -255,15 +253,15 @@ test('stream snapshot replaces the assistant bubble instead of appending duplica
       content: 'hello',
       createdAt: 100,
       deliveryStatus: 'sent' as const,
-      errorReason: null,
-    },
+      errorReason: null
+    }
   ];
 
   const next = applyConversationStreamDelta(messages, {
     messageId: 'assistant:run-1',
     createdAt: 150,
     delta: ' ignored',
-    snapshotText: 'hello world',
+    snapshotText: 'hello world'
   });
 
   assert.equal(next[0].content, 'hello world');
@@ -281,14 +279,14 @@ test('stream delta for an unknown message leaves the list untouched', () => {
       content: 'hello',
       createdAt: 100,
       deliveryStatus: 'sent' as const,
-      errorReason: null,
-    },
+      errorReason: null
+    }
   ];
 
   const next = applyConversationStreamDelta(messages, {
     messageId: 'assistant:run-2',
     createdAt: 150,
-    delta: ' world',
+    delta: ' world'
   });
 
   assert.equal(next, messages);
@@ -306,8 +304,8 @@ test('message insert keeps chronological order', () => {
         content: 'second',
         createdAt: 200,
         deliveryStatus: 'sent' as const,
-        errorReason: null,
-      },
+        errorReason: null
+      }
     ],
     {
       messageId: 'm1',
@@ -318,7 +316,7 @@ test('message insert keeps chronological order', () => {
       content: 'first',
       createdAt: 100,
       deliveryStatus: 'sent' as const,
-      errorReason: null,
+      errorReason: null
     }
   );
 

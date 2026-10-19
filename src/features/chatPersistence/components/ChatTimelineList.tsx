@@ -1,5 +1,22 @@
-import { memo, type ReactNode, type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { FlashList, type FlashListRef, type ViewToken } from '@shopify/flash-list';
+import { ChatToolWait } from './ChatToolWait';
+import { ChatFileChanges } from './ChatFileChanges.tsx';
+import { ChatTimelineTextSearch } from './ChatTimelineTextSearch.tsx';
+import { serializeChatRunTranscript } from '../chatRunTranscript.ts';
+import { ChatRunDerivation } from './ChatRunDerivation.tsx';
+import { ChatRunFeedback } from './ChatRunFeedback.tsx';
+import { ChatSelectionSheet } from './ChatSelectionSheet';
+import {
+  memo,
+  type ReactNode,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState
+} from 'react';
+import { FlashList, useRecyclingState, type FlashListRef, type ViewToken } from '@shopify/flash-list';
 import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
@@ -11,9 +28,7 @@ import {
   type ViewStyle
 } from 'react-native';
 
-import {
-  ConversationPreviewRowScope,
-} from '../../../shared/components/conversationPreview/ConversationPreviewProvider';
+import { ConversationPreviewRowScope } from '../../../shared/components/conversationPreview/ConversationPreviewProvider';
 import type { ConversationPreviewVisibilityStore } from '../../../shared/components/conversationPreview/visibilityStore';
 import { AppIcon, type AppIconUsage } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
@@ -22,7 +37,8 @@ import { cn } from '../../../shared/visual/className';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 import {
   buildChatTimelineDisplayModel,
-  getChatTimelineDisplayItemType,
+  buildChatTimelinePresentationItems,
+  getChatTimelinePresentationItemType,
   type ChatTimelineAssistantReplyFooterDisplayItem,
   type ChatTimelineAwaitingNode,
   type ChatTimelineDisplayModel,
@@ -30,12 +46,13 @@ import {
   type ChatTimelineDisplayTailSignature,
   type ChatTimelineMessageNode,
   type ChatTimelineMessageVariant,
+  type ChatTimelinePresentationItem,
   type ChatTimelineTextNode,
   type ChatTimelineState
 } from '../../chatTimeline/index.ts';
 import { buildChatTimelineMainDisplayItems } from '../chatArtifactPresentation.ts';
 import { shouldShowChatResponseWaitingIndicator } from '../chatDetailViewModel';
-import { formatChatDetailDuration, formatChatDetailTimestamp } from '../chatDetailFormatters';
+import { formatChatDetailRunDuration, formatChatDetailTimestamp } from '../chatDetailFormatters';
 import { ChatConversationMarkdownRenderer } from '../markdownLinks/ChatConversationMarkdownRenderer.tsx';
 import { ConversationMarkdownLinkProvider } from '../markdownLinks/ConversationMarkdownLinkProvider.tsx';
 import { ActionTimelineRow } from './ActionTimelineRow.tsx';
@@ -55,9 +72,10 @@ import { ContextCompactTimelineRow } from './ContextCompactTimelineRow.tsx';
 import {
   PlanningActionPill,
   type RuntimePlanningBlockMode,
-  type RuntimePlanningCollapseOverlayRequest,
+  type RuntimePlanningCollapseOverlayRequest
 } from './RuntimePlanningBlock';
 import { PlanTimelineRow } from './PlanTimelineRow.tsx';
+import { ProcessSummaryTimelineRow } from './ProcessSummaryTimelineRow.tsx';
 import { RuntimeTimelineRow } from './RuntimeTimelineRow';
 import { SourceTimelineRow } from './SourceTimelineRow';
 import { TaskTimelineRow } from './TaskTimelineRow.tsx';
@@ -68,13 +86,19 @@ type ChatTimelineListProps = {
   diagnosticCard?: ReactNode;
   diagnosticVersion?: string;
   onCopyText: (text: string) => void;
+  onAddSelection?: (text: string, annotation: string, sourceKind: 'message' | 'code') => boolean;
   previewStore: ConversationPreviewVisibilityStore;
   workspaceAgentKey?: string | null;
+  onDeriveRun?: (runId: string) => Promise<void>;
+  deriveDisabled?: boolean;
   onReaskMessage?: (target: ChatTimelineReaskTarget, node: ChatTimelineMessageNode) => void;
   reaskCurrentDisabled?: boolean;
   reaskNewConversationDisabled?: boolean;
   artifactCount?: number;
   onOpenArtifacts?: () => void;
+  historyHeader?: ReactNode;
+  showConversationTools?: boolean;
+  conversationActions?: ReactNode;
 };
 
 const SCROLL_TO_END_BUTTON_THRESHOLD = 96;
@@ -89,14 +113,16 @@ const WAITING_DOCK_CLASS = 'w-full shrink-0';
 const TIMELINE_LIST_STYLE = {
   paddingHorizontal: appVisualTokens.spacing.md,
   paddingTop: appVisualTokens.spacing.sm,
-  paddingBottom: appVisualTokens.spacing.lg,
+  paddingBottom: appVisualTokens.spacing.lg
 } satisfies ViewStyle;
 const THREAD_EMPTY_STATE_CLASS = 'items-center gap-app-sm pt-[88px]';
 const THREAD_EMPTY_STATE_TITLE_CLASS = 'text-[18px] font-bold text-app-primary';
 const THREAD_EMPTY_STATE_BODY_CLASS = 'text-[15px] leading-[22px] text-app-secondary';
 const DIAGNOSTIC_FOOTER_CLASS = 'pt-app-sm';
-const ICON_BUTTON_CLASS = 'h-[28px] w-[28px] items-center justify-center rounded-app-sm active:opacity-[0.7]';
+const ICON_BUTTON_CLASS = 'h-8 w-8 shrink-0 items-center justify-center rounded-app-sm active:opacity-[0.7]';
 const ICON_BUTTON_DISABLED_CLASS = 'opacity-[0.45]';
+const MESSAGE_FOOTER_CLASS = 'max-w-full min-w-0 self-stretch gap-1';
+const MESSAGE_ACTIONS_CLASS = 'flex-row items-center gap-0.5';
 const META_TEXT_CLASS = 'text-[12px] font-medium text-app-tertiary';
 const ERROR_TEXT_CLASS = 'shrink text-[12px] font-semibold text-app-danger';
 const USER_BUBBLE_CLASS = 'max-w-full rounded-[16px] rounded-br-[8px] bg-app-action px-[14px] py-[10px]';
@@ -120,8 +146,7 @@ const REASK_MENU_OVERLAY_CLASS = 'absolute inset-0 z-[60]';
 const REASK_MENU_BACKDROP_CLASS = 'absolute inset-0';
 const REASK_MENU_CLASS =
   'absolute min-h-[100px] w-[188px] rounded-app-md border border-app-line bg-app-surface py-[6px]';
-const REASK_MENU_OPTION_CLASS =
-  'min-h-[44px] flex-row items-center gap-[10px] px-[14px] active:bg-app-surface-muted';
+const REASK_MENU_OPTION_CLASS = 'min-h-[44px] flex-row items-center gap-[10px] px-[14px] active:bg-app-surface-muted';
 const REASK_MENU_OPTION_DISABLED_CLASS = 'opacity-[0.45]';
 const REASK_MENU_OPTION_TEXT_CLASS = 'min-w-0 flex-1 text-[16px] font-bold leading-[22px] text-app-primary';
 const REASK_MENU_OPTION_TEXT_DISABLED_CLASS = 'text-app-tertiary';
@@ -133,95 +158,57 @@ const REQUEST_BUBBLE_ELEVATION_STYLE = {
   shadowOffset: { width: 0, height: 8 },
   shadowOpacity: 0.1,
   shadowRadius: 14,
-  elevation: 2,
+  elevation: 2
 } satisfies ViewStyle;
 const REASK_MENU_ELEVATION_STYLE = {
   shadowOffset: { width: 0, height: 10 },
   shadowOpacity: 0.12,
   shadowRadius: 18,
-  elevation: 4,
+  elevation: 4
 } satisfies ViewStyle;
 const SCROLL_TO_END_ELEVATION_STYLE = {
   shadowOffset: { width: 0, height: 8 },
   shadowOpacity: 0.08,
   shadowRadius: 16,
-  elevation: 3,
+  elevation: 3
 } satisfies ViewStyle;
 const TIMELINE_LAYOUT_STYLES = StyleSheet.create({
   userRow: {
     alignItems: 'flex-end',
-    marginBottom: 20,
+    marginBottom: 20
   },
   userMessageStack: {
     maxWidth: '78%',
     alignSelf: 'flex-end',
-    alignItems: 'flex-end',
+    alignItems: 'flex-end'
   },
   timelineRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 16
   },
   assistantFooterRow: {
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 16
   },
   assistantFooterRailSpacer: {
-    width: 18,
+    width: 18
   },
   timelineBody: {
     flex: 1,
-    minWidth: 0,
-  },
-  messageFooter: {
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: appVisualTokens.spacing.sm,
-  },
-  messageFooterEnd: {
-    marginTop: 6,
-    alignSelf: 'flex-end',
-    justifyContent: 'flex-end',
-  },
-  footerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  footerMeta: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: appVisualTokens.spacing.sm,
-  },
-  footerMetaEnd: {
-    flex: 0,
-  },
+    minWidth: 0
+  }
 });
-const MESSAGE_FOOTER_END_STYLE = StyleSheet.compose(
-  TIMELINE_LAYOUT_STYLES.messageFooter,
-  TIMELINE_LAYOUT_STYLES.messageFooterEnd
-);
-const FOOTER_META_END_STYLE = StyleSheet.compose(
-  TIMELINE_LAYOUT_STYLES.footerMeta,
-  TIMELINE_LAYOUT_STYLES.footerMetaEnd
-);
 
 const REQUEST_PRESENTATION_BY_VARIANT = {
   default: { iconUsage: 'timeline.requestRail', label: '' },
   steer: { iconUsage: 'timeline.requestCommandRail', label: '' },
   remember: { iconUsage: 'timeline.requestCommandRail', label: '/remember' },
-  learn: { iconUsage: 'timeline.requestCommandRail', label: '/learn' },
-} as const satisfies Record<
-  ChatTimelineMessageVariant,
-  { iconUsage: AppIconUsage; label: string }
->;
+  learn: { iconUsage: 'timeline.requestCommandRail', label: '/learn' }
+} as const satisfies Record<ChatTimelineMessageVariant, { iconUsage: AppIconUsage; label: string }>;
 
 type ChatTimelineReaskTarget = 'current' | 'new';
 
@@ -247,10 +234,10 @@ type ReaskAnchorRef = RefObject<View | null>;
 
 type OpenReaskMenu = (node: ChatTimelineMessageNode, anchorRef: ReaskAnchorRef) => void;
 
-const keyExtractor = (item: ChatTimelineDisplayItem) => item.key;
+const keyExtractor = (item: ChatTimelinePresentationItem) => item.key;
 
-function getPlanningNodeIdFromItem(item: ChatTimelineDisplayItem | null | undefined): string | null {
-  if (!item || item.kind === 'assistant-reply-footer') {
+function getPlanningNodeIdFromItem(item: ChatTimelinePresentationItem | null | undefined): string | null {
+  if (!item || item.kind === 'assistant-reply-footer' || item.kind === 'process-summary') {
     return null;
   }
   return item.node.kind === 'planning' ? item.node.id : null;
@@ -348,10 +335,7 @@ const MessageCopyButton = memo(function MessageCopyButton({
       onPress={handleCopy}
       className={cn(ICON_BUTTON_CLASS, disabled ? ICON_BUTTON_DISABLED_CLASS : null)}
     >
-      <AppIcon
-        usage="timeline.copy"
-        color={disabled ? theme.colors.textTertiary : theme.colors.textSecondary}
-      />
+      <AppIcon usage="timeline.copy" color={disabled ? theme.colors.textTertiary : theme.colors.textSecondary} />
     </Pressable>
   );
 });
@@ -385,52 +369,58 @@ const MessageReaskButton = memo(function MessageReaskButton({
       onPress={handlePress}
       className={cn(ICON_BUTTON_CLASS, disabled ? ICON_BUTTON_DISABLED_CLASS : null)}
     >
-      <AppIcon
-        usage="timeline.reask"
-        color={disabled ? theme.colors.textTertiary : theme.colors.textSecondary}
-      />
+      <AppIcon usage="timeline.reask" color={disabled ? theme.colors.textTertiary : theme.colors.textSecondary} />
+    </Pressable>
+  );
+});
+
+const QuoteButton = memo(function QuoteButton({
+  text,
+  onQuoteText
+}: {
+  text: string;
+  onQuoteText: (text: string) => void;
+}) {
+  const t = useT();
+  return (
+    <Pressable
+      onPress={() => onQuoteText(text)}
+      accessibilityRole="button"
+      accessibilityLabel={t('selection.quote')}
+      hitSlop={8}
+      className={ICON_BUTTON_CLASS}
+    >
+      <AppIcon usage="timeline.quote" />
     </Pressable>
   );
 });
 
 const MessageFooter = memo(function MessageFooter({
-  text,
+  actions,
   timestamp,
   errorReason = '',
-  align = 'spread',
-  onCopyText,
-  reaskNode,
-  onOpenReaskMenu
+  align = 'start'
 }: {
-  text: string;
+  actions: ReactNode;
   timestamp: string;
   errorReason?: string | null;
-  align?: 'end' | 'spread';
-  onCopyText: (text: string) => void;
-  reaskNode?: ChatTimelineMessageNode;
-  onOpenReaskMenu?: OpenReaskMenu;
+  align?: 'end' | 'start';
 }) {
-  const messageFooterStyle = align === 'end' ? MESSAGE_FOOTER_END_STYLE : TIMELINE_LAYOUT_STYLES.messageFooter;
-  const footerMetaStyle = align === 'end' ? FOOTER_META_END_STYLE : TIMELINE_LAYOUT_STYLES.footerMeta;
+  const textAlignClass = align === 'end' ? 'text-right' : 'text-left';
 
   return (
-    <View style={messageFooterStyle}>
-      <View style={TIMELINE_LAYOUT_STYLES.footerActions}>
-        <MessageCopyButton text={text} onCopyText={onCopyText} />
-        {reaskNode ? <MessageReaskButton node={reaskNode} onOpenMenu={onOpenReaskMenu} /> : null}
-      </View>
-      <View style={footerMetaStyle}>
-        {timestamp ? (
-          <Text allowFontScaling={false} className={META_TEXT_CLASS} ellipsizeMode="tail" numberOfLines={1}>
-            {timestamp}
-          </Text>
-        ) : null}
-        {errorReason ? (
-          <Text allowFontScaling={false} className={ERROR_TEXT_CLASS} ellipsizeMode="tail" numberOfLines={1}>
-            {errorReason}
-          </Text>
-        ) : null}
-      </View>
+    <View className={cn(MESSAGE_FOOTER_CLASS, align === 'end' ? 'mt-1.5 items-end' : 'items-start')}>
+      <View className={MESSAGE_ACTIONS_CLASS}>{actions}</View>
+      {timestamp ? (
+        <Text allowFontScaling={false} className={cn(META_TEXT_CLASS, 'self-stretch', textAlignClass)}>
+          {timestamp}
+        </Text>
+      ) : null}
+      {errorReason ? (
+        <Text allowFontScaling={false} className={cn(ERROR_TEXT_CLASS, 'self-stretch', textAlignClass)}>
+          {errorReason}
+        </Text>
+      ) : null}
     </View>
   );
 });
@@ -438,10 +428,12 @@ const MessageFooter = memo(function MessageFooter({
 const UserQueryRow = memo(function UserQueryRow({
   node,
   onCopyText,
+  onQuoteText,
   onOpenReaskMenu
 }: {
   node: ChatTimelineMessageNode;
   onCopyText: (text: string) => void;
+  onQuoteText?: (text: string) => void;
   onOpenReaskMenu?: OpenReaskMenu;
 }) {
   const { theme } = useAppTheme();
@@ -474,12 +466,18 @@ const UserQueryRow = memo(function UserQueryRow({
           </View>
         ) : null}
         <MessageFooter
-          text={node.content}
+          actions={
+            <>
+              <MessageCopyButton text={node.content} onCopyText={onCopyText} />
+              {text && onQuoteText ? <QuoteButton text={node.content} onQuoteText={onQuoteText} /> : null}
+              <MessageReaskButton node={node} onOpenMenu={onOpenReaskMenu} />
+            </>
+          }
           timestamp={timestamp}
+          errorReason={
+            node.errorReason === 'submission_unconfirmed' ? t('chatDetail.submissionUnconfirmed') : node.errorReason
+          }
           align="end"
-          onCopyText={onCopyText}
-          reaskNode={node}
-          onOpenReaskMenu={onOpenReaskMenu}
         />
       </View>
     </View>
@@ -500,11 +498,7 @@ const RequestInputRow = memo(function RequestInputRow({
 
   return (
     <View style={TIMELINE_LAYOUT_STYLES.timelineRow}>
-      <ChatTimelineRail
-        iconUsage={presentation.iconUsage}
-        terminal={isLastInRun}
-        toneColor={theme.colors.brandBlue}
-      />
+      <ChatTimelineRail iconUsage={presentation.iconUsage} terminal={isLastInRun} toneColor={theme.colors.brandBlue} />
       <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <View className={REQUEST_MESSAGE_STACK_CLASS}>
           {presentation.label ? (
@@ -512,7 +506,10 @@ const RequestInputRow = memo(function RequestInputRow({
               {presentation.label}
             </Text>
           ) : null}
-          <View className={REQUEST_BUBBLE_CLASS} style={[REQUEST_BUBBLE_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}>
+          <View
+            className={REQUEST_BUBBLE_CLASS}
+            style={[REQUEST_BUBBLE_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}
+          >
             <ChatConversationMarkdownRenderer
               markdown={text}
               selectable={false}
@@ -553,10 +550,20 @@ const AssistantContentRow = memo(function AssistantContentRow({
 
 const AssistantReplyFooterRow = memo(function AssistantReplyFooterRow({
   item,
-  onCopyText
+  onCopyText,
+  onQuoteText,
+  feedbackRun,
+  onDeriveRun,
+  deriveDisabled,
+  conversationId
 }: {
   item: ChatTimelineAssistantReplyFooterDisplayItem;
+  onDeriveRun?: (runId: string) => Promise<void>;
+  deriveDisabled: boolean;
+  feedbackRun?: import('../../chatTimeline/types.ts').ChatTimelineRunNode;
+  conversationId: string;
   onCopyText: (text: string) => void;
+  onQuoteText?: (text: string) => void;
 }) {
   const t = useT();
   const footer = item.footer;
@@ -566,7 +573,7 @@ const AssistantReplyFooterRow = memo(function AssistantReplyFooterRow({
     t('chatDetail.timestamp.today'),
     t('chatDetail.timestamp.yesterday')
   );
-  const duration = formatChatDetailDuration(footer.durationMs, t);
+  const duration = formatChatDetailRunDuration(footer.durationMs, t);
   const footerMeta = timestamp && duration ? `${timestamp} · ${duration}` : timestamp || duration;
 
   return (
@@ -574,11 +581,35 @@ const AssistantReplyFooterRow = memo(function AssistantReplyFooterRow({
       <View style={TIMELINE_LAYOUT_STYLES.assistantFooterRailSpacer} />
       <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <MessageFooter
-          text={footer.copyText}
+          actions={
+            <>
+              <MessageCopyButton text={footer.copyText} onCopyText={onCopyText} />
+              {footer.copyText && onQuoteText ? <QuoteButton text={footer.copyText} onQuoteText={onQuoteText} /> : null}
+              {feedbackRun ? (
+                <>
+                  <ChatRunFeedback
+                    key={`feedback:${conversationId}:${feedbackRun.runId}`}
+                    conversationId={conversationId}
+                    node={feedbackRun}
+                  />
+                  <ChatRunDerivation
+                    key={`derive:${conversationId}:${feedbackRun.runId}`}
+                    node={feedbackRun}
+                    disabled={deriveDisabled}
+                    onDerive={onDeriveRun}
+                  />
+                </>
+              ) : null}
+            </>
+          }
           timestamp={footerMeta}
           errorReason={footer.errorReason}
-          onCopyText={onCopyText}
         />
+        {onDeriveRun && feedbackRun?.derivation?.phase === 'unknown' ? (
+          <Text selectable className="mt-1 text-app-caption text-app-secondary">
+            {t('runDerivation.unknown')}
+          </Text>
+        ) : null}
       </View>
     </View>
   );
@@ -632,11 +663,7 @@ const AwaitingAnswerTimelineRow = memo(function AwaitingAnswerTimelineRow({
 
   return (
     <View style={TIMELINE_LAYOUT_STYLES.timelineRow}>
-      <ChatTimelineRail
-        iconUsage="runtime.awaiting"
-        terminal={isLastInRun}
-        toneColor={theme.colors.warning}
-      />
+      <ChatTimelineRail iconUsage="runtime.awaiting" terminal={isLastInRun} toneColor={theme.colors.warning} />
       <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <View className={AWAITING_ANSWER_BLOCK_CLASS}>
           {canExpand ? (
@@ -726,8 +753,15 @@ const ReaskMenuOverlay = memo(function ReaskMenuOverlay({
 
   return (
     <View pointerEvents="box-none" className={REASK_MENU_OVERLAY_CLASS}>
-      <Pressable accessibilityLabel={t('timeline.closeReaskMenu')} className={REASK_MENU_BACKDROP_CLASS} onPress={onClose} />
-      <View className={REASK_MENU_CLASS} style={[REASK_MENU_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }, position]}>
+      <Pressable
+        accessibilityLabel={t('timeline.closeReaskMenu')}
+        className={REASK_MENU_BACKDROP_CLASS}
+        onPress={onClose}
+      />
+      <View
+        className={REASK_MENU_CLASS}
+        style={[REASK_MENU_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }, position]}
+      >
         <ReaskMenuOption
           label={t('timeline.reaskCurrent')}
           iconUsage="timeline.reask"
@@ -755,10 +789,7 @@ function areToolGroupNodesEqual(previous: ChatTimelineDisplayItem, next: ChatTim
   return previous.nodes.every((node, index) => node === next.nodes[index]);
 }
 
-function areStructuredTaskNodesEqual(
-  previous: ChatTimelineDisplayItem,
-  next: ChatTimelineDisplayItem
-): boolean {
+function areStructuredTaskNodesEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
   if (previous.kind === 'task' || next.kind === 'task') {
     return (
       previous.kind === 'task' &&
@@ -814,7 +845,13 @@ function areDisplayItemGroupFieldsEqual(previous: ChatTimelineDisplayItem, next:
 const TimelineRow = memo(
   function TimelineRow({
     item,
+    imageRunLifecycle,
+    feedbackRun,
+    onDeriveRun,
+    deriveDisabled,
+    conversationId,
     onCopyText,
+    onQuoteText,
     onOpenReaskMenu,
     getInitialRuntimeExpanded,
     onRuntimeExpandedChange,
@@ -823,7 +860,13 @@ const TimelineRow = memo(
     onPlanningModeChange
   }: {
     item: ChatTimelineDisplayItem;
+    imageRunLifecycle?: import('../../chatTimeline/types.ts').ChatTimelineLifecycle;
+    onDeriveRun?: (runId: string) => Promise<void>;
+    deriveDisabled: boolean;
+    feedbackRun?: import('../../chatTimeline/types.ts').ChatTimelineRunNode;
+    conversationId: string;
     onCopyText: (text: string) => void;
+    onQuoteText?: (text: string) => void;
     onOpenReaskMenu?: OpenReaskMenu;
     getInitialRuntimeExpanded: (nodeId: string, fallback: boolean) => boolean;
     onRuntimeExpandedChange: (nodeId: string, expanded: boolean) => void;
@@ -832,19 +875,26 @@ const TimelineRow = memo(
     onPlanningModeChange: (nodeId: string, mode: RuntimePlanningBlockMode) => void;
   }) {
     if (item.kind === 'assistant-reply-footer') {
-      return <AssistantReplyFooterRow item={item} onCopyText={onCopyText} />;
+      return (
+        <AssistantReplyFooterRow
+          item={item}
+          onCopyText={onCopyText}
+          onQuoteText={onQuoteText}
+          feedbackRun={feedbackRun}
+          onDeriveRun={onDeriveRun}
+          deriveDisabled={deriveDisabled}
+          conversationId={conversationId}
+        />
+      );
     }
     const node = item.node;
     if (item.kind === 'user-query' && node.kind === 'message') {
-      return <UserQueryRow node={node} onCopyText={onCopyText} onOpenReaskMenu={onOpenReaskMenu} />;
+      return (
+        <UserQueryRow node={node} onCopyText={onCopyText} onQuoteText={onQuoteText} onOpenReaskMenu={onOpenReaskMenu} />
+      );
     }
     if (item.kind === 'assistant-content' && node.kind === 'message') {
-      return (
-        <AssistantContentRow
-          node={node}
-          isLastInRun={item.isLastInRun}
-        />
-      );
+      return <AssistantContentRow node={node} isLastInRun={item.isLastInRun} />;
     }
     if (item.kind === 'awaiting' && node.kind === 'awaiting' && node.answerSummary) {
       return (
@@ -899,25 +949,50 @@ const TimelineRow = memo(
       );
     }
     if (item.kind === 'context' && node.kind === 'context') {
-      return (
-        <ContextCompactTimelineRow
-          node={node}
-          isLastInRun={item.isLastInRun}
-        />
-      );
+      return <ContextCompactTimelineRow node={node} isLastInRun={item.isLastInRun} />;
     }
-    if (
-      item.kind === 'request' &&
-      (node.kind === 'request' || (node.kind === 'message' && node.role === 'user'))
-    ) {
+    if (item.kind === 'request' && (node.kind === 'request' || (node.kind === 'message' && node.role === 'user'))) {
       return <RequestInputRow node={node} isLastInRun={item.isLastInRun} />;
     }
     if (item.kind === 'system-message' && node.kind === 'message') {
       return <ChatSystemAlert node={node} isLastInRun={item.isLastInRun} />;
     }
+    if (item.kind === 'tool' && node.kind === 'tool' && (node.toolWait || node.toolName === 'wait')) {
+      return <ChatToolWait node={node} conversationId={conversationId} />;
+    }
+    if (item.kind === 'tool-group' && item.nodes.some((tool) => tool.toolWait || tool.toolName === 'wait')) {
+      return (
+        <View>
+          {item.nodes.map((tool, index) =>
+            tool.toolWait || tool.toolName === 'wait' ? (
+              <ChatToolWait key={tool.id} node={tool} conversationId={conversationId} />
+            ) : (
+              <RuntimeTimelineRow
+                key={tool.id}
+                item={{
+                  ...item,
+                  node: tool,
+                  nodes: [tool],
+                  isLastInRun: item.isLastInRun && index === item.nodes.length - 1
+                }}
+                conversationId={conversationId}
+                onCopyText={onCopyText}
+                getInitialExpanded={getInitialRuntimeExpanded}
+                onExpandedChange={onRuntimeExpandedChange}
+                getInitialPlanningMode={getInitialPlanningMode}
+                onPlanningCollapseOverlayChange={onPlanningCollapseOverlayChange}
+                onPlanningModeChange={onPlanningModeChange}
+              />
+            )
+          )}
+        </View>
+      );
+    }
     return (
       <RuntimeTimelineRow
         item={item}
+        conversationId={conversationId}
+        imageRunLifecycle={imageRunLifecycle}
         onCopyText={onCopyText}
         getInitialExpanded={getInitialRuntimeExpanded}
         onExpandedChange={onRuntimeExpandedChange}
@@ -928,7 +1003,13 @@ const TimelineRow = memo(
     );
   },
   (prev, next) =>
+    prev.conversationId === next.conversationId &&
+    prev.imageRunLifecycle === next.imageRunLifecycle &&
+    prev.feedbackRun === next.feedbackRun &&
+    prev.onDeriveRun === next.onDeriveRun &&
+    prev.deriveDisabled === next.deriveDisabled &&
     prev.onCopyText === next.onCopyText &&
+    prev.onQuoteText === next.onQuoteText &&
     prev.onOpenReaskMenu === next.onOpenReaskMenu &&
     prev.getInitialRuntimeExpanded === next.getInitialRuntimeExpanded &&
     prev.onRuntimeExpandedChange === next.onRuntimeExpandedChange &&
@@ -950,21 +1031,47 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   diagnosticCard = null,
   diagnosticVersion = '',
   onCopyText,
+  onAddSelection,
   previewStore,
   workspaceAgentKey = '',
+  onDeriveRun,
+  deriveDisabled = false,
   onReaskMessage,
   reaskCurrentDisabled = false,
   reaskNewConversationDisabled = false,
   artifactCount = 0,
-  onOpenArtifacts
+  onOpenArtifacts,
+  historyHeader = null,
+  showConversationTools = false,
+  conversationActions = null
 }: ChatTimelineListProps) {
   const t = useT();
   const { theme } = useAppTheme();
+  const selectionScope = `${timelineState.conversationId}:${timelineState.activeRunId || 'next'}`;
+  const [quoteSource, setQuoteSource] = useState<{ text: string; scope: string } | null>(null);
+  const handleQuoteText = useCallback(
+    (text: string) => setQuoteSource({ text, scope: selectionScope }),
+    [selectionScope]
+  );
+  useEffect(() => {
+    setQuoteSource(null);
+  }, [selectionScope]);
   const threadRef = useRef<View | null>(null);
-  const listRef = useRef<FlashListRef<ChatTimelineDisplayItem>>(null);
+  const searchOpenRef = useRef(false),
+    revealNodeRef = useRef('');
+  const [searchNodeId, setSearchNodeId] = useRecyclingState('', [timelineState.conversationId]);
+  const [revealVersion, setRevealVersion] = useState(0);
+  const [fileChangesOpen, setFileChangesOpen] = useRecyclingState(false, [timelineState.conversationId]);
+  const openFileChanges = useCallback(() => setFileChangesOpen(true), [setFileChangesOpen]);
+  const closeFileChanges = useCallback(() => setFileChangesOpen(false), [setFileChangesOpen]);
+
+  const listRef = useRef<FlashListRef<ChatTimelinePresentationItem>>(null);
   const displayModelRef = useRef<ChatTimelineDisplayModel | null>(null);
-  const expandedRuntimeNodesRef = useRef(new Map<string, boolean>());
-  const planningBlockModesRef = useRef(new Map<string, RuntimePlanningBlockMode>());
+  const presentationItemsRef = useRef<ChatTimelinePresentationItem[]>([]);
+  const [{ runtimeNodes: expandedRuntimeNodes, planningModes: planningBlockModes }] = useRecyclingState(
+    () => ({ runtimeNodes: new Map<string, boolean>(), planningModes: new Map<string, RuntimePlanningBlockMode>() }),
+    [timelineState.conversationId]
+  );
   const planningCollapseOverlayRef = useRef<PlanningCollapseOverlayState | null>(null);
   const viewablePlanningNodeIdsRef = useRef(new Set<string>());
   const availableTimelineHeightRef = useRef(0);
@@ -991,24 +1098,62 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   const [viewportHeight, setViewportHeight] = useState(0);
   const [availableTimelineHeight, setAvailableTimelineHeight] = useState(0);
   const [waitingPlacement, setWaitingPlacement] = useState<ChatResponseWaitingPlacement>('docked');
+  const [expandedProcessIds, setExpandedProcessIds] = useRecyclingState<Set<string>>(
+    () => new Set(),
+    [timelineState.conversationId]
+  );
+  const timelineRef = useRef(timelineState);
+  timelineRef.current = timelineState;
+  const handleCopyRun = useCallback(
+    (runId: string) =>
+      onCopyText(serializeChatRunTranscript(timelineRef.current, runId, displayModelRef.current?.items)),
+    [onCopyText]
+  );
+  const runIndexRef = useRef<{ orderedIds: readonly string[]; byRun: Map<string, string> } | null>(null);
+  if (runIndexRef.current?.orderedIds !== timelineState.orderedNodeIds) {
+    const byRun = new Map<string, string>();
+    for (const id of timelineState.orderedNodeIds) {
+      const node = timelineState.nodesById[id];
+      if (node?.kind === 'run') byRun.set(node.runId, id);
+    }
+    runIndexRef.current = { orderedIds: timelineState.orderedNodeIds, byRun };
+  }
+  const runNodeIds = runIndexRef.current.byRun;
   const displayModel = useMemo(() => {
     const nextModel = buildChatTimelineDisplayModel(timelineState, displayModelRef.current);
     displayModelRef.current = nextModel;
     return nextModel;
   }, [timelineState]);
-  const items = useMemo(() => buildChatTimelineMainDisplayItems(displayModel.items), [displayModel.items]);
+  const mainDisplayItems = useMemo(() => buildChatTimelineMainDisplayItems(displayModel.items), [displayModel.items]);
+  const items = useMemo(() => {
+    const nextItems = buildChatTimelinePresentationItems(
+      timelineState,
+      mainDisplayItems,
+      expandedProcessIds,
+      presentationItemsRef.current
+    );
+    presentationItemsRef.current = nextItems;
+    return nextItems;
+  }, [expandedProcessIds, mainDisplayItems, timelineState]);
+  const itemsRef = useRef(items),
+    mainItemsRef = useRef(mainDisplayItems);
+  itemsRef.current = items;
+  mainItemsRef.current = mainDisplayItems;
   const showResponseWaitingIndicator = useMemo(
     () => shouldShowChatResponseWaitingIndicator(timelineState.activeRunId, displayModel.items),
     [displayModel.items, timelineState.activeRunId]
   );
-  const waitingIndicatorInTimelineFooter =
-    showResponseWaitingIndicator && waitingPlacement === 'timeline-footer';
+  const waitingIndicatorInTimelineFooter = showResponseWaitingIndicator && waitingPlacement === 'timeline-footer';
   const waitingIndicatorDocked = showResponseWaitingIndicator && waitingPlacement === 'docked';
   const waitingDockStyle = useMemo(
     () => ({ paddingBottom: getChatResponseWaitingDockBottomOffset(availableTimelineHeight) }),
     [availableTimelineHeight]
   );
   const tailSignature = displayModel.tailSignature;
+  const hasContent = items.length > 0;
+  useEffect(() => {
+    if (!hasContent) closeFileChanges();
+  }, [closeFileChanges, hasContent]);
   const hasCustomEmptyState = Boolean(emptyState);
   const timelineListStyle = useMemo(
     () => [
@@ -1017,16 +1162,13 @@ export const ChatTimelineList = memo(function ChatTimelineList({
         ? {
             minHeight: viewportHeight,
             justifyContent: 'center' as const,
-            paddingBottom: Math.round(viewportHeight * 0.16),
+            paddingBottom: Math.round(viewportHeight * 0.16)
           }
-        : null,
+        : null
     ],
     [hasCustomEmptyState, items.length, viewportHeight]
   );
-  const emptyStateElement = useMemo(
-    () => (emptyState ? <>{emptyState}</> : <ThreadEmptyState />),
-    [emptyState]
-  );
+  const emptyStateElement = useMemo(() => (emptyState ? <>{emptyState}</> : <ThreadEmptyState />), [emptyState]);
   const updateWaitingPlacement = useCallback((availableHeight: number, contentHeight: number) => {
     const nextPlacement = resolveChatResponseWaitingPlacement({ availableHeight, contentHeight });
     if (waitingPlacementRef.current === nextPlacement) {
@@ -1046,8 +1188,8 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     [diagnosticCard, waitingIndicatorInTimelineFooter]
   );
   const listExtraData = useMemo(
-    () => ({ revision: timelineState.revision, diagnosticVersion, waitingPlacement }),
-    [diagnosticVersion, timelineState.revision, waitingPlacement]
+    () => ({ revision: timelineState.revision, diagnosticVersion, waitingPlacement, searchNodeId }),
+    [diagnosticVersion, timelineState.revision, waitingPlacement, searchNodeId]
   );
   const setScrollToEndVisible = useCallback((visible: boolean) => {
     if (showScrollToEndRef.current !== visible) {
@@ -1158,27 +1300,100 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     },
     [clearPendingAutoFollowSchedule, markMetricsAtEnd, scheduleScrollToEnd]
   );
-  const getInitialRuntimeExpanded = useCallback((nodeId: string, fallback: boolean) => {
-    return expandedRuntimeNodesRef.current.get(nodeId) ?? fallback;
-  }, []);
-  const handleRuntimeExpandedChange = useCallback((nodeId: string, expanded: boolean) => {
-    expandedRuntimeNodesRef.current.set(nodeId, expanded);
-  }, []);
-  const getInitialPlanningMode = useCallback((nodeId: string) => {
-    return planningBlockModesRef.current.get(nodeId) ?? 'preview';
-  }, []);
-  const handlePlanningModeChange = useCallback((nodeId: string, mode: RuntimePlanningBlockMode) => {
-    planningBlockModesRef.current.set(nodeId, mode);
-  }, []);
+  const handleSearchActive = useCallback(
+    (open: boolean) => {
+      searchOpenRef.current = open;
+      if (!open) return;
+      pendingAutoFollowRef.current = false;
+      clearPendingAutoFollowSchedule();
+      isFollowingEndRef.current = false;
+      hasUserScrolledRef.current = true;
+      if (pendingScrollFrameRef.current !== null) {
+        cancelAnimationFrame(pendingScrollFrameRef.current);
+        pendingScrollFrameRef.current = null;
+      }
+    },
+    [clearPendingAutoFollowSchedule]
+  );
+  const handleSearchReveal = useCallback(
+    (nodeId: string) => {
+      const nodeItem = mainItemsRef.current.find((item) => 'node' in item && item.node.id === nodeId);
+      if (!nodeItem) return;
+      const process = itemsRef.current.find((item) => item.kind === 'process-summary' && item.runId === nodeItem.runId);
+      if (process?.kind === 'process-summary')
+        setExpandedProcessIds((current) => {
+          if (current.has(process.processId)) return current;
+          const next = new Set(current);
+          next.add(process.processId);
+          return next;
+        });
+      revealNodeRef.current = nodeId;
+      setRevealVersion((current) => current + 1);
+    },
+    [setExpandedProcessIds]
+  );
+  useLayoutEffect(() => {
+    const nodeId = revealNodeRef.current;
+    if (!nodeId) return;
+    const index = items.findIndex((item) => 'node' in item && item.node.id === nodeId);
+    if (index < 0) {
+      if (!mainItemsRef.current.some((item) => 'node' in item && item.node.id === nodeId)) revealNodeRef.current = '';
+      return;
+    }
+    revealNodeRef.current = '';
+    pendingAutoFollowRef.current = false;
+    clearPendingAutoFollowSchedule();
+    isFollowingEndRef.current = false;
+    hasUserScrolledRef.current = true;
+    void listRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.1 }).catch(() => {});
+  }, [clearPendingAutoFollowSchedule, items, revealVersion]);
+  useLayoutEffect(() => {
+    revealNodeRef.current = '';
+  }, [timelineState.conversationId]);
+  const getInitialRuntimeExpanded = useCallback(
+    (nodeId: string, fallback: boolean) => {
+      return expandedRuntimeNodes.get(nodeId) ?? fallback;
+    },
+    [expandedRuntimeNodes]
+  );
+  const handleRuntimeExpandedChange = useCallback(
+    (nodeId: string, expanded: boolean) => {
+      expandedRuntimeNodes.set(nodeId, expanded);
+    },
+    [expandedRuntimeNodes]
+  );
+  const handleProcessToggle = useCallback(
+    (processId: string) => {
+      setExpandedProcessIds((current) => {
+        const next = new Set(current);
+        if (next.has(processId)) {
+          next.delete(processId);
+        } else {
+          next.add(processId);
+        }
+        return next;
+      });
+    },
+    [setExpandedProcessIds]
+  );
+  const getInitialPlanningMode = useCallback(
+    (nodeId: string) => {
+      return planningBlockModes.get(nodeId) ?? 'preview';
+    },
+    [planningBlockModes]
+  );
+  const handlePlanningModeChange = useCallback(
+    (nodeId: string, mode: RuntimePlanningBlockMode) => {
+      planningBlockModes.set(nodeId, mode);
+    },
+    [planningBlockModes]
+  );
   const applyPlanningCollapseOverlay = useCallback((nextOverlay: PlanningCollapseOverlayState | null) => {
     planningCollapseOverlayRef.current = nextOverlay;
     setPlanningCollapseOverlay(nextOverlay);
     const viewablePlanningNodeIds = viewablePlanningNodeIdsRef.current;
     setPlanningCollapseOverlayVisible(
-      Boolean(
-        nextOverlay &&
-          (viewablePlanningNodeIds.size === 0 || viewablePlanningNodeIds.has(nextOverlay.nodeId))
-      )
+      Boolean(nextOverlay && (viewablePlanningNodeIds.size === 0 || viewablePlanningNodeIds.has(nextOverlay.nodeId)))
     );
   }, []);
   const handlePlanningCollapseOverlayChange = useCallback(
@@ -1196,18 +1411,49 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     [applyPlanningCollapseOverlay]
   );
   const renderItem = useCallback(
-    ({ item }: { item: ChatTimelineDisplayItem }) => (
+    ({ item }: { item: ChatTimelinePresentationItem }) => (
       <ConversationPreviewRowScope rowKey={item.key}>
-        <TimelineRow
-          item={item}
-          onCopyText={onCopyText}
-          onOpenReaskMenu={onReaskMessage ? handleOpenReaskMenu : undefined}
-          getInitialRuntimeExpanded={getInitialRuntimeExpanded}
-          onRuntimeExpandedChange={handleRuntimeExpandedChange}
-          getInitialPlanningMode={getInitialPlanningMode}
-          onPlanningCollapseOverlayChange={handlePlanningCollapseOverlayChange}
-          onPlanningModeChange={handlePlanningModeChange}
-        />
+        <View
+          className={
+            'node' in item && item.node.id === searchNodeId ? 'rounded-app-sm bg-app-brand-blue-soft' : undefined
+          }
+        >
+          {item.kind === 'process-summary' ? (
+            <ProcessSummaryTimelineRow item={item} onToggle={handleProcessToggle} onCopyRun={handleCopyRun} />
+          ) : (
+            <TimelineRow
+              item={item}
+              conversationId={timelineState.conversationId}
+              feedbackRun={
+                item.kind === 'assistant-reply-footer'
+                  ? (timelineState.nodesById[runNodeIds.get(item.runId) || ''] as
+                      | import('../../chatTimeline/types.ts').ChatTimelineRunNode
+                      | undefined)
+                  : undefined
+              }
+              imageRunLifecycle={
+                (
+                  item.kind === 'tool-group'
+                    ? item.nodes.some((node) => node.toolName === 'image_generate')
+                    : item.kind === 'tool' && item.node.kind === 'tool' && item.node.toolName === 'image_generate'
+                )
+                  ? (timelineState.nodesById[runNodeIds.get(item.runId) || '']?.lifecycle ??
+                    (timelineState.activeRunId === item.runId ? 'active' : undefined))
+                  : undefined
+              }
+              onDeriveRun={onDeriveRun}
+              deriveDisabled={deriveDisabled}
+              onCopyText={onCopyText}
+              onQuoteText={onAddSelection ? handleQuoteText : undefined}
+              onOpenReaskMenu={onReaskMessage ? handleOpenReaskMenu : undefined}
+              getInitialRuntimeExpanded={getInitialRuntimeExpanded}
+              onRuntimeExpandedChange={handleRuntimeExpandedChange}
+              getInitialPlanningMode={getInitialPlanningMode}
+              onPlanningCollapseOverlayChange={handlePlanningCollapseOverlayChange}
+              onPlanningModeChange={handlePlanningModeChange}
+            />
+          )}
+        </View>
       </ConversationPreviewRowScope>
     ),
     [
@@ -1215,10 +1461,21 @@ export const ChatTimelineList = memo(function ChatTimelineList({
       getInitialRuntimeExpanded,
       handlePlanningCollapseOverlayChange,
       handleOpenReaskMenu,
+      handleProcessToggle,
       handlePlanningModeChange,
       handleRuntimeExpandedChange,
+      searchNodeId,
+      handleCopyRun,
       onCopyText,
+      onAddSelection,
+      handleQuoteText,
+      onDeriveRun,
+      deriveDisabled,
       onReaskMessage,
+      timelineState.conversationId,
+      timelineState.nodesById,
+      timelineState.activeRunId,
+      runNodeIds
     ]
   );
   const handleScrollToEnd = useCallback(() => {
@@ -1268,7 +1525,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
 
       const wasFollowingEnd = isFollowingEndRef.current || isNearTimelineEnd(scrollMetricsRef.current);
       scrollMetricsRef.current.viewportHeight = nextViewportHeight;
-      if (wasFollowingEnd) {
+      if (wasFollowingEnd && !searchOpenRef.current) {
         followTimelineEnd(false);
         return;
       }
@@ -1278,14 +1535,11 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   );
   const handleContentSizeChange = useCallback(
     (_width: number, height: number) => {
-      const baseContentHeight = getChatResponseWaitingBaseContentHeight(
-        height,
-        waitingIndicatorInTimelineFooter
-      );
+      const baseContentHeight = getChatResponseWaitingBaseContentHeight(height, waitingIndicatorInTimelineFooter);
       baseTimelineContentHeightRef.current = baseContentHeight;
       updateWaitingPlacement(availableTimelineHeightRef.current, baseContentHeight);
       scrollMetricsRef.current.contentHeight = height;
-      const shouldAutoFollow = pendingAutoFollowRef.current;
+      const shouldAutoFollow = !searchOpenRef.current && pendingAutoFollowRef.current;
       clearPendingAutoFollowSchedule();
       pendingAutoFollowRef.current = false;
 
@@ -1305,7 +1559,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     ]
   );
   const handleViewableItemsChanged = useCallback(
-    ({ viewableItems }: { viewableItems: ViewToken<ChatTimelineDisplayItem>[] }) => {
+    ({ viewableItems }: { viewableItems: ViewToken<ChatTimelinePresentationItem>[] }) => {
       const nextViewablePlanningNodeIds = new Set<string>();
       const nextViewablePreviewRowKeys = new Set<string>();
       viewableItems.forEach((token) => {
@@ -1333,6 +1587,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     const previousTailSignature = tailSignatureRef.current;
     const tailAdvanced = didTimelineTailAdvance(previousTailSignature, tailSignature);
     if (
+      !searchOpenRef.current &&
       tailAdvanced &&
       (isFollowingEndRef.current || isNearTimelineEnd(scrollMetricsRef.current) || !hasUserScrolledRef.current)
     ) {
@@ -1343,7 +1598,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   }, [schedulePendingAutoFollowReset, tailSignature]);
 
   useLayoutEffect(() => {
-    if (!diagnosticVersion) {
+    if (!diagnosticVersion || searchOpenRef.current) {
       return;
     }
     pendingAutoFollowRef.current = true;
@@ -1352,6 +1607,7 @@ export const ChatTimelineList = memo(function ChatTimelineList({
 
   useLayoutEffect(() => {
     if (
+      !searchOpenRef.current &&
       showResponseWaitingIndicator &&
       (isFollowingEndRef.current || isNearTimelineEnd(scrollMetricsRef.current) || !hasUserScrolledRef.current)
     ) {
@@ -1375,81 +1631,116 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   }, [clearPendingAutoFollowSchedule]);
 
   return (
-    <ConversationMarkdownLinkProvider agentKey={workspaceAgentKey}>
-      <View ref={threadRef} className={THREAD_CLASS} onLayout={handleThreadLayout}>
-      <FlashList
-        ref={listRef}
-        data={items}
-        extraData={listExtraData}
-        renderItem={renderItem}
-        keyExtractor={keyExtractor}
-        style={THREAD_SCROLLER_STYLE}
-        contentContainerStyle={timelineListStyle}
-        showsVerticalScrollIndicator={false}
-        drawDistance={620}
-        getItemType={getChatTimelineDisplayItemType}
-        ListEmptyComponent={emptyStateElement}
-        ListFooterComponent={listFooter}
-        keyboardShouldPersistTaps="handled"
-        onScroll={handleScroll}
-        onScrollEndDrag={updateMetricsFromScrollEvent}
-        onMomentumScrollEnd={updateMetricsFromScrollEvent}
-        onViewableItemsChanged={handleViewableItemsChanged}
-        onLayout={handleLayout}
-        onContentSizeChange={handleContentSizeChange}
-        viewabilityConfig={TIMELINE_VIEWABILITY_CONFIG}
-        scrollEventThrottle={64}
-      />
-
-      {waitingIndicatorDocked ? (
-        <View className={WAITING_DOCK_CLASS} style={waitingDockStyle}>
-          <ChatResponseWaitingIndicator variant="orbit" />
-        </View>
-      ) : null}
-
-      {showScrollToEnd ? (
-        <Pressable
-          accessibilityLabel={t('timeline.scrollToEnd')}
-          accessibilityRole="button"
-          onPress={handleScrollToEnd}
-          className={SCROLL_TO_END_BUTTON_CLASS}
-          style={[SCROLL_TO_END_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}
-        >
-          <AppIcon usage="timeline.scrollToEnd" />
-        </Pressable>
-      ) : null}
-
-      {artifactCount > 0 && onOpenArtifacts ? (
-        <ChatArtifactShortcut count={artifactCount} onPress={onOpenArtifacts} />
-      ) : null}
-
-      {planningCollapseOverlay && planningCollapseOverlayVisible ? (
-        <View
-          pointerEvents="box-none"
-          className={
-            artifactCount > 0 ? PLANNING_COLLAPSE_BUTTON_WITH_ARTIFACT_CLASS : PLANNING_COLLAPSE_BUTTON_CLASS
-          }
-        >
-          <PlanningActionPill
-            accessibilityLabel={planningCollapseOverlay.label}
-            iconColor={theme.colors.onBrandBlueAction}
-            iconUsage="runtime.planCollapse"
-            label={planningCollapseOverlay.label}
-            onPress={planningCollapseOverlay.onPress}
+    <ConversationMarkdownLinkProvider agentKey={workspaceAgentKey} conversationId={timelineState.conversationId}>
+      <View className={THREAD_CLASS}>
+        {showConversationTools && hasContent ? (
+          <>
+            {conversationActions}
+            <ChatTimelineTextSearch
+              key={`search:${timelineState.conversationId}`}
+              timeline={timelineState}
+              onReveal={handleSearchReveal}
+              onSelectNode={setSearchNodeId}
+              onActiveChange={handleSearchActive}
+              onOpenFileChanges={openFileChanges}
+            />
+          </>
+        ) : null}
+        {showConversationTools && hasContent && fileChangesOpen ? (
+          <ChatFileChanges
+            key={`file-changes:${timelineState.conversationId}`}
+            timeline={timelineState}
+            agentKey={workspaceAgentKey}
+            onClose={closeFileChanges}
           />
-        </View>
-      ) : null}
+        ) : null}
+        <View ref={threadRef} className={THREAD_CLASS} onLayout={handleThreadLayout}>
+          <FlashList
+            key={timelineState.conversationId}
+            ref={listRef}
+            data={items}
+            extraData={listExtraData}
+            renderItem={renderItem}
+            keyExtractor={keyExtractor}
+            style={THREAD_SCROLLER_STYLE}
+            contentContainerStyle={timelineListStyle}
+            showsVerticalScrollIndicator={false}
+            drawDistance={620}
+            getItemType={getChatTimelinePresentationItemType}
+            ListEmptyComponent={emptyStateElement}
+            ListHeaderComponent={hasContent && historyHeader ? <>{historyHeader}</> : null}
+            ListFooterComponent={listFooter}
+            keyboardShouldPersistTaps="handled"
+            onScroll={handleScroll}
+            onScrollEndDrag={updateMetricsFromScrollEvent}
+            onMomentumScrollEnd={updateMetricsFromScrollEvent}
+            onViewableItemsChanged={handleViewableItemsChanged}
+            onLayout={handleLayout}
+            onContentSizeChange={handleContentSizeChange}
+            viewabilityConfig={TIMELINE_VIEWABILITY_CONFIG}
+            scrollEventThrottle={64}
+          />
 
-      {reaskMenu && onReaskMessage ? (
-        <ReaskMenuOverlay
-          menu={reaskMenu}
-          currentDisabled={reaskCurrentDisabled}
-          newConversationDisabled={reaskNewConversationDisabled}
-          onClose={closeReaskMenu}
-          onCurrent={handleCurrentReask}
-          onNewConversation={handleNewConversationReask}
-        />
-      ) : null}
+          {waitingIndicatorDocked ? (
+            <View className={WAITING_DOCK_CLASS} style={waitingDockStyle}>
+              <ChatResponseWaitingIndicator variant="orbit" />
+            </View>
+          ) : null}
+
+          {showScrollToEnd ? (
+            <Pressable
+              accessibilityLabel={t('timeline.scrollToEnd')}
+              accessibilityRole="button"
+              onPress={handleScrollToEnd}
+              className={SCROLL_TO_END_BUTTON_CLASS}
+              style={[SCROLL_TO_END_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}
+            >
+              <AppIcon usage="timeline.scrollToEnd" />
+            </Pressable>
+          ) : null}
+
+          {artifactCount > 0 && onOpenArtifacts ? (
+            <ChatArtifactShortcut count={artifactCount} onPress={onOpenArtifacts} />
+          ) : null}
+
+          {planningCollapseOverlay && planningCollapseOverlayVisible ? (
+            <View
+              pointerEvents="box-none"
+              className={
+                artifactCount > 0 ? PLANNING_COLLAPSE_BUTTON_WITH_ARTIFACT_CLASS : PLANNING_COLLAPSE_BUTTON_CLASS
+              }
+            >
+              <PlanningActionPill
+                accessibilityLabel={planningCollapseOverlay.label}
+                iconColor={theme.colors.onBrandBlueAction}
+                iconUsage="runtime.planCollapse"
+                label={planningCollapseOverlay.label}
+                onPress={planningCollapseOverlay.onPress}
+              />
+            </View>
+          ) : null}
+
+          {quoteSource?.scope === selectionScope && onAddSelection ? (
+            <ChatSelectionSheet
+              key={selectionScope}
+              text={quoteSource.text}
+              selectRange
+              onSave={onAddSelection}
+              onClose={() => setQuoteSource(null)}
+            />
+          ) : null}
+
+          {reaskMenu && onReaskMessage ? (
+            <ReaskMenuOverlay
+              menu={reaskMenu}
+              currentDisabled={reaskCurrentDisabled}
+              newConversationDisabled={reaskNewConversationDisabled}
+              onClose={closeReaskMenu}
+              onCurrent={handleCurrentReask}
+              onNewConversation={handleNewConversationReask}
+            />
+          ) : null}
+        </View>
       </View>
     </ConversationMarkdownLinkProvider>
   );

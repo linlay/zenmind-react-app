@@ -1,4 +1,5 @@
-import { getActiveDeviceProfile } from '../../auth/deviceProfiles';
+import { getAccountAuthSnapshot } from '../../auth/accountAuth';
+import { readActiveDesktopId } from '../../auth/activeDesktop';
 import { sharedWsTransport } from '../../ws/sharedWsTransport';
 import { resolveActiveWsTransportConfig } from '../activeWsTransport';
 import { ensureKanbanInvalidationSubscribed } from './kanbanInvalidation.ts';
@@ -44,12 +45,12 @@ export type {
 
 const DEFAULT_PROJECT_ID = 'default';
 const KANBAN_DESKTOP_NAMESPACE = 'd';
-const DESKTOP_REQUIRED_MESSAGE =
-  'Desktop Kanban requires an active Desktop WS profile. Pair this device with ZenMind Desktop and try again.';
+const DESKTOP_REQUIRED_MESSAGE = 'Select an account Desktop to use Kanban.';
 const DESKTOP_UNAVAILABLE_MESSAGE = 'Desktop is not connected. Open ZenMind Desktop and try again.';
 
 const requestDesktopKanbanRequired = createRequiredDesktopKanbanRequester({
-  getActiveProfile: getActiveDeviceProfile,
+  getActiveProfile: () =>
+    readActiveDesktopId(getAccountAuthSnapshot().session?.accountId || '') ? { transportKind: 'desktop-ws' } : null,
   resolveTransport: resolveActiveWsTransportConfig,
   request: (options) => sharedWsTransport.request(options),
   namespace: KANBAN_DESKTOP_NAMESPACE,

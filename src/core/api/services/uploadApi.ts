@@ -1,9 +1,17 @@
+import { fetch } from 'expo/fetch';
 import { File as ExpoFile } from 'expo-file-system';
 
 import { authenticatedFormDataRequest } from '../apiClient';
 import { normalizeApiResourcePath } from '../resourceUrl';
-import { getAccessTokenForRequest } from '../../auth/appAuth';
-import { getActiveDeviceProfile, type DeviceProfile } from '../../auth/deviceProfiles';
+import {
+  resolveActiveWsTransportConfig,
+  resolveDefaultWsTransportConfig,
+  clearDesktopPlatformCredentialCache
+} from '../activeWsTransport';
+import type { DesktopWsTransportConfig } from '../../ws/wsTransportConfig';
+import { getAccountAuthGeneration } from '../../auth/accountAuth';
+import { getCloudAuthSnapshot } from '../../auth/cloudAuth';
+import { getSelectedSource } from '../../auth/activeDesktop';
 import { logHttpError, logHttpRequest, logHttpResponse } from '../../debug/httpDebugLogger';
 import {
   ChatUploadError,
@@ -94,7 +102,7 @@ function uploadLogBody(input: {
 }
 
 async function uploadThroughDesktopPublicHost(
-  profile: DeviceProfile,
+  transport: DesktopWsTransportConfig,
   route: Extract<ChatUploadRoute, { kind: 'desktop-public' }>,
   input: {
     chatId: string;
@@ -113,7 +121,11 @@ async function uploadThroughDesktopPublicHost(
     endpointUrl: route.endpointUrl,
     signal: input.signal,
     fetchImpl: fetch,
-    getAccessToken: (forceRefresh) => getAccessTokenForRequest(profile.apiBaseUrl, forceRefresh),
+    getAccessToken: async (forceRefresh) => {
+      if (forceRefresh) clearDesktopPlatformCredentialCache();
+      return transport.accessTokenProvider ? transport.accessTokenProvider() : transport.accessToken;
+    },
+    getRequestHeaders: transport.requestHeadersProvider,
     createBody: () => createUploadFormData(input),
     hooks: {
       onRequest: ({ attempt }) => {
@@ -159,6 +171,7 @@ function normalizeReference(input: Record<string, unknown>): ChatUploadReference
     mimeType: normalizeText(input.mimeType) || undefined,
     sizeBytes: Number.isFinite(sizeBytes) && sizeBytes >= 0 ? sizeBytes : undefined,
     url: normalizeApiResourcePath(normalizeText(input.url)) || undefined,
+    path: normalizeText(input.path) || undefined,
     sha256: normalizeText(input.sha256) || undefined
   };
 }
@@ -200,8 +213,18 @@ export async function uploadChatAttachmentApi(input: UploadChatAttachmentInput):
 
   const chatId = normalizeText(input.chatId);
   const mimeType = normalizeText(input.mimeType) || 'application/octet-stream';
-  const profile = getActiveDeviceProfile();
-  const route = resolveChatUploadRoute(profile);
+  const authGeneration = getAccountAuthGeneration();
+  const selection = getSelectedSource();
+  const cloudGeneration = getCloudAuthSnapshot().generation;
+  const transport = (await resolveActiveWsTransportConfig('ap')) ?? resolveDefaultWsTransportConfig();
+  if (
+    selection !== getSelectedSource() ||
+    (selection?.kind === 'desktop'
+      ? authGeneration !== getAccountAuthGeneration()
+      : cloudGeneration !== getCloudAuthSnapshot().generation)
+  )
+    throw new Error('Upload source changed');
+  const route = resolveChatUploadRoute(transport);
   const startedAt = Date.now();
 
   logHttpRequest({
@@ -217,10 +240,10 @@ export async function uploadChatAttachmentApi(input: UploadChatAttachmentInput):
   });
 
   if (route.kind === 'desktop-public') {
-    if (!profile) {
-      throw new ChatUploadError('invalid_tunnel_profile', 'Active device profile is unavailable');
+    if (transport?.kind !== 'desktop-ws') {
+      throw new ChatUploadError('invalid_tunnel_profile', 'Desktop source is unavailable');
     }
-    return uploadThroughDesktopPublicHost(profile, route, {
+    const result = await uploadThroughDesktopPublicHost(transport, route, {
       chatId,
       mimeType,
       name,
@@ -228,6 +251,9 @@ export async function uploadChatAttachmentApi(input: UploadChatAttachmentInput):
       signal: input.signal,
       uri
     });
+    if (selection !== getSelectedSource() || authGeneration !== getAccountAuthGeneration() || input.signal?.aborted)
+      throw new Error('Upload source changed');
+    return result;
   }
 
   try {

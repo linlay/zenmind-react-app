@@ -2,11 +2,12 @@ import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
 import { memo, ReactElement, ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, Text, TextInput, View, type ViewStyle } from 'react-native';
+import { Alert, Pressable, Text, TextInput, View, type ViewStyle } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import type { RootStackParamList } from '../../app/navigation/types';
 import type { KanbanIssue } from '../../core/api/services/kanbanApi';
+import { AppKeyboardAwareScrollView } from '../../shared/components/AppKeyboardAwareScrollView';
 import { ScreenHeader } from '../../shared/components/ScreenHeader';
 import { AppIcon, type AppIconUsage } from '../../shared/icons/AppIcon';
 import { type I18nKey, useT } from '../../shared/i18n';
@@ -14,6 +15,7 @@ import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { cn } from '../../shared/visual/className';
 import { appVisualTokens, getAvatarLabel, getAvatarTone } from '../../shared/visual/foundation';
 import { useAppTabBarHeight } from '../../shared/visual/useAppTabBarHeight';
+import { getPairedChatSource } from '../chatPersistence/chatSourceRuntime';
 import { useAgentTaskBoard } from './AgentTaskBoardProvider';
 import { buildKanbanChatDetailParams } from './kanbanChatRoute';
 import type { AgentTaskBoardStackParamList } from './navigationTypes';
@@ -554,14 +556,11 @@ function SecondaryPage({ title, onBack, children }: SecondaryPageProps) {
       <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
         <ScreenHeader title={title} leftActions={backAction} />
       </SafeAreaView>
-      <ScrollView
-        className={SCROLL_VIEW_CLASS}
-        showsVerticalScrollIndicator={false}
-      >
+      <AppKeyboardAwareScrollView className={SCROLL_VIEW_CLASS} showsVerticalScrollIndicator={false}>
         <View className={SECONDARY_CONTENT_CLASS} style={contentBottomStyle}>
           {children}
         </View>
-      </ScrollView>
+      </AppKeyboardAwareScrollView>
     </View>
   );
 }
@@ -1134,7 +1133,11 @@ export function AgentTaskBoardTaskDetailScreen({ navigation, route }: AgentTaskB
   );
   const openKanbanChat = useCallback(
     (nextIssue: KanbanIssue, agentName: string) => {
-      const params = buildKanbanChatDetailParams(nextIssue, agentName);
+      const source = getPairedChatSource();
+      if (!source) {
+        return;
+      }
+      const params = buildKanbanChatDetailParams(nextIssue, agentName, source);
       if (params) {
         navigation.getParent<NativeStackNavigationProp<RootStackParamList>>()?.navigate('ChatDetail', params);
       }

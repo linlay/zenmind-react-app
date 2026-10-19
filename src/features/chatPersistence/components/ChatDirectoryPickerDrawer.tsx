@@ -8,7 +8,7 @@ import {
   Text,
   View,
   type Insets,
-  useWindowDimensions,
+  useWindowDimensions
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,7 +19,11 @@ import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../shared/visual/className';
 import { appVisualTokens } from '../../../shared/visual/foundation';
 import { appHairlineStyles } from '../../../shared/visual/hairline';
-import { getDirectoryPickerHiddenOffset, getDirectoryPickerPanelWidth } from '../chatDirectoryPickerOverlayState';
+import {
+  type DirectoryPickerStatus,
+  getDirectoryPickerHiddenOffset,
+  getDirectoryPickerPanelWidth
+} from '../chatDirectoryPickerOverlayState';
 import type { ChatDirectoryItem } from '../types';
 
 const DIRECTORY_PICKER_ROW_HEIGHT = 72;
@@ -34,7 +38,6 @@ const HEADER_CLASS = 'min-h-[58px] flex-row items-center gap-app-sm border-app-l
 const HEADER_TEXT_CLASS = 'min-w-0 flex-1';
 const TITLE_CLASS = 'text-app-title-sm font-bold text-app-primary';
 const SUBTITLE_CLASS = 'mt-[2px] text-[12px] font-semibold leading-[17px] text-app-secondary';
-const CLOSE_BUTTON_CLASS = 'h-[34px] w-[34px] items-center justify-center rounded-app-pill active:bg-app-surface-muted';
 const ERROR_TEXT_CLASS = 'px-app-md py-app-sm text-[12px] leading-[17px] text-app-danger';
 const LIST_FRAME_CLASS = 'flex-1 px-app-sm';
 const STATE_BLOCK_CLASS = 'flex-1 items-center justify-center';
@@ -54,11 +57,15 @@ type ChatDirectoryPickerDrawerProps = {
   visible: boolean;
   items: ChatDirectoryItem[];
   total: number;
-  loading: boolean;
+  status: DirectoryPickerStatus;
+  onRetry: () => void;
   loadingMore: boolean;
   errorText: string;
   hasMore: boolean;
   openingItemId: string | null;
+  sourceLabel: string;
+  isDesktop: boolean;
+  onOpenSource: () => void;
   onClose: () => void;
   onDismissed?: () => void;
   onLoadMore: () => void;
@@ -81,8 +88,8 @@ function formatDirectoryPickerCount(loaded: number, total: number, t: TFunction)
     : t('common.countItems', { count: safeTotal });
 }
 
-function getDirectoryKindLabel(kind: ChatDirectoryItem['kind'], t: TFunction) {
-  return kind === 'team' ? t('directoryPicker.kind.team') : t('directoryPicker.kind.agent');
+function getDirectoryKindLabel(t: TFunction) {
+  return t('directoryPicker.kind.agent');
 }
 
 function getDirectoryItemType(item: ChatDirectoryItem) {
@@ -100,7 +107,7 @@ const DirectoryPickerRow = memo(function DirectoryPickerRow({
   const handlePress = useCallback(() => {
     onSelect(item);
   }, [item, onSelect]);
-  const subtitle = `${getDirectoryKindLabel(item.kind, t)} · ${item.subtitle || t('directoryPicker.canStart')}`;
+  const subtitle = `${getDirectoryKindLabel(t)} · ${item.subtitle || t('directoryPicker.canStart')}`;
 
   return (
     <Pressable
@@ -111,12 +118,7 @@ const DirectoryPickerRow = memo(function DirectoryPickerRow({
       className={cn(DIRECTORY_ROW_CLASS, opening ? DIRECTORY_ROW_OPENING_CLASS : null)}
       style={appHairlineStyles.borderBottom}
     >
-      <AgentAvatar
-        type={item.kind}
-        icon={item.icon}
-        fallbackSeed={item.agentKey || item.teamId || item.title}
-        size={42}
-      />
+      <AgentAvatar type={item.kind} icon={item.icon} fallbackSeed={item.agentKey || item.title} size={42} />
       <View className={DIRECTORY_ROW_TEXT_CLASS}>
         <Text numberOfLines={1} className={DIRECTORY_ROW_TITLE_CLASS}>
           {item.title}
@@ -140,11 +142,15 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
   visible,
   items,
   total,
-  loading,
+  status,
+  onRetry,
   loadingMore,
   errorText,
   hasMore,
   openingItemId,
+  sourceLabel,
+  isDesktop,
+  onOpenSource,
   onClose,
   onDismissed,
   onLoadMore,
@@ -164,7 +170,7 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
       bottom: ROW_PRESS_RETENTION_VERTICAL_OFFSET,
       left: panelWidth,
       right: panelWidth,
-      top: ROW_PRESS_RETENTION_VERTICAL_OFFSET,
+      top: ROW_PRESS_RETENTION_VERTICAL_OFFSET
     }),
     [panelWidth]
   );
@@ -181,14 +187,14 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
   );
   const keyExtractor = useCallback((item: ChatDirectoryItem) => item.id, []);
   const handleEndReached = useCallback(() => {
-    if (!hasMore || loading || loadingMore) {
+    if (!hasMore || status === 'loading' || loadingMore) {
       return;
     }
 
     onLoadMore();
-  }, [hasMore, loading, loadingMore, onLoadMore]);
+  }, [hasMore, status, loadingMore, onLoadMore]);
   const footer = useMemo(() => {
-    if (loading || items.length <= 0) {
+    if (items.length <= 0) {
       return null;
     }
 
@@ -201,7 +207,7 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
     }
 
     return <Text className={FOOTER_TEXT_CLASS}>{countLabel}</Text>;
-  }, [countLabel, items.length, loading, loadingMore, theme.colors.brandBlue]);
+  }, [countLabel, items.length, loadingMore, theme.colors.brandBlue]);
 
   useEffect(() => {
     if (visible) {
@@ -244,6 +250,25 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
     return () => animation.stop();
   }, [hiddenTranslateX, onDismissed, shouldRender, translateX, visible]);
 
+  const statusText = status === 'ready' ? '' : t(`directoryPicker.status.${status}`);
+  const statusContent = (
+    <View className="items-center gap-app-sm px-app-md py-app-md" accessibilityLiveRegion="polite">
+      {status === 'loading' || status === 'syncing' ? (
+        <ActivityIndicator size="small" color={theme.colors.brandBlue} />
+      ) : null}
+      <Text className="text-center text-app-footnote text-app-secondary">{statusText}</Text>
+      {status === 'error' ? (
+        <Pressable
+          accessibilityRole="button"
+          onPress={onRetry}
+          className="min-h-11 min-w-16 items-center justify-center"
+        >
+          <Text className="font-semibold text-app-action">{t('common.retry')}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+
   if (!shouldRender) {
     return null;
   }
@@ -264,32 +289,30 @@ export const ChatDirectoryPickerDrawer = memo(function ChatDirectoryPickerDrawer
         ]}
       >
         <View className={HEADER_CLASS} style={appHairlineStyles.borderBottom}>
-          <View className={HEADER_TEXT_CLASS}>
-            <Text numberOfLines={1} className={TITLE_CLASS}>
-              {t('directoryPicker.title')}
-            </Text>
-            <Text numberOfLines={1} className={SUBTITLE_CLASS}>
-              {t('directoryPicker.subtitle', { count: countLabel })}
-            </Text>
-          </View>
           <Pressable
-            accessibilityLabel={t('directoryPicker.close')}
             accessibilityRole="button"
-            onPressIn={onClose}
-            onPress={onClose}
-            className={CLOSE_BUTTON_CLASS}
+            onPress={onOpenSource}
+            className="min-h-11 min-w-0 flex-1 flex-row items-center gap-app-sm"
           >
-            <AppIcon usage="directoryPicker.close" />
+            <AppIcon usage={isDesktop ? 'accountSource.desktop' : 'accountSource.cloud'} />
+            <View className={HEADER_TEXT_CLASS}>
+              <Text numberOfLines={1} className={TITLE_CLASS}>
+                {sourceLabel}
+              </Text>
+              <Text numberOfLines={1} className={SUBTITLE_CLASS}>
+                {items.length === 0 && status !== 'ready' ? statusText : countLabel}
+              </Text>
+            </View>
+            <AppIcon usage="accountSource.expand" />
           </Pressable>
         </View>
 
         {errorText ? <Text className={ERROR_TEXT_CLASS}>{errorText}</Text> : null}
 
         <View className={LIST_FRAME_CLASS}>
-          {loading ? (
-            <View className={STATE_BLOCK_CLASS}>
-              <ActivityIndicator size="small" color={theme.colors.brandBlue} />
-            </View>
+          {items.length > 0 && status !== 'ready' ? statusContent : null}
+          {items.length === 0 && status !== 'ready' ? (
+            <View className={STATE_BLOCK_CLASS}>{statusContent}</View>
           ) : (
             <FlashList
               data={items}

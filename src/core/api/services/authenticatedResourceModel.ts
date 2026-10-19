@@ -7,16 +7,16 @@ export type AuthenticatedResourceDownloadResult = {
   fileName: string;
 };
 
-const INTERNAL_HTTP_RESOURCE_PATH_PATTERN = /^\/?(?:ap\/)?api\/(?:resource|workspace\/file)(?=$|[?#])/i;
+const INTERNAL_HTTP_RESOURCE_PATH_PATTERN = /^\/?api\/(?:resource|file)(?=$|[?#])/i;
 const HTML_CONTENT_TYPES = new Set(['text/html', 'application/xhtml+xml']);
 
 export function requiresAuthenticatedResourceHttpDataPlane(value: string): boolean {
   const normalized = String(value || '').trim();
   return Boolean(
     normalized &&
-      !normalized.startsWith('//') &&
-      !/^[a-z][a-z\d+.-]*:/i.test(normalized) &&
-      INTERNAL_HTTP_RESOURCE_PATH_PATTERN.test(normalized)
+    !normalized.startsWith('//') &&
+    !/^[a-z][a-z\d+.-]*:/i.test(normalized) &&
+    INTERNAL_HTTP_RESOURCE_PATH_PATTERN.test(normalized)
   );
 }
 

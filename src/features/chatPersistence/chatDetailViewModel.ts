@@ -119,7 +119,7 @@ export function deriveChatDetailHeaderRuntimeState(
       'error',
       usageLabel,
       usageSummary,
-      latestRunLifecycle === 'error' ? 'resume' : null
+      latestRunLifecycle === 'error' && canContinueChatTimeline(timelineState) ? 'resume' : null
     );
   }
 
@@ -162,4 +162,17 @@ export function deriveChatComposerPrimaryAction({
     return 'send-disabled';
   }
   return draft.trim() || hasReadyAttachments ? 'send' : 'send-disabled';
+}
+
+export function hasEstablishedChatQuery(state: ChatTimelineState): boolean {
+  return state.orderedNodeIds.some((id) => {
+    const node = state.nodesById[id];
+    return Boolean(node?.runId && (node.kind === 'run' ||
+      (node.kind === 'message' && node.role === 'user' && node.messageVariant === 'default' && node.deliveryStatus === 'sent')));
+  });
+}
+
+export function canContinueChatTimeline(state: ChatTimelineState): boolean {
+  return state.canContinue === true && !state.activeRunId &&
+    !(state.awaiting?.status === 'ask') && hasEstablishedChatQuery(state);
 }

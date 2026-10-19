@@ -1,7 +1,7 @@
+import { buildChatResourceUrl } from '../../core/api/resourceUrl.ts';
+import { getRemoteChatSourceId } from '../chatPersistence/chatSource.ts';
 import { normalizeProtocolTimestampMs, toText } from '../../core/api/services/chatEventProtocol.ts';
-import {
-  normalizeChatAttachmentResourceUrl
-} from '../chatPersistence/chatAttachmentModels.ts';
+import { normalizeChatAttachmentResourceUrl } from '../chatPersistence/chatAttachmentModels.ts';
 import { resolveAuthenticatedResourcePreviewKind } from '../chatPersistence/authenticatedResourcePreview.ts';
 import type { ChatTimelineArtifactNode, ChatTimelineArtifactPreviewKind, ChatTimelineArtifactStatus } from './types.ts';
 
@@ -34,9 +34,7 @@ function firstText(...values: unknown[]): string {
   return '';
 }
 
-export {
-  resolveAuthenticatedResourcePreviewKind as resolveChatTimelineArtifactPreviewKind
-};
+export { resolveAuthenticatedResourcePreviewKind as resolveChatTimelineArtifactPreviewKind };
 
 function normalizeArtifactStatus(value: unknown, resourceUrl: string): ChatTimelineArtifactStatus {
   const status = toText(value).toLowerCase();
@@ -52,8 +50,8 @@ function normalizeArtifactStatus(value: unknown, resourceUrl: string): ChatTimel
   return resourceUrl ? 'ready' : 'processing';
 }
 
-function normalizeResourceUrl(value: unknown): string {
-  const resourceUrl = normalizeChatAttachmentResourceUrl(value);
+function normalizeResourceUrl(value: unknown, chatId: string): string {
+  const resourceUrl = buildChatResourceUrl(normalizeChatAttachmentResourceUrl(value), getRemoteChatSourceId(chatId));
   if (
     !resourceUrl ||
     resourceUrl.startsWith('//') ||
@@ -85,7 +83,8 @@ function normalizeArtifactItem(
   fallbackTimestamp: number
 ): NormalizedChatTimelineArtifact | null {
   const resourceUrl = normalizeResourceUrl(
-    item.resourceUrl ?? item.downloadUrl ?? item.url ?? event.resourceUrl ?? event.downloadUrl ?? event.url
+    item.resourceUrl ?? item.downloadUrl ?? item.url ?? event.resourceUrl ?? event.downloadUrl ?? event.url,
+    toText(event.chatId || event.conversationId)
   );
   const sha256 = firstText(item.sha256, event.sha256);
   const artifactId = firstText(
@@ -176,10 +175,6 @@ export function chatTimelineArtifactNodePayloadEquals(
 
 export function getChatTimelineArtifactContentLength(node: ChatTimelineArtifactNode): number {
   return (
-    node.name.length +
-    node.mimeType.length +
-    node.resourceUrl.length +
-    node.summary.length +
-    node.errorReason.length
+    node.name.length + node.mimeType.length + node.resourceUrl.length + node.summary.length + node.errorReason.length
   );
 }

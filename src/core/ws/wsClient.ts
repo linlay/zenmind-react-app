@@ -98,7 +98,7 @@ type WsClientOptions = {
   transport: WsTransportConfig;
   onPush?: (frame: WsPushFrame) => void;
   onStatusChange?: (status: WsSocketStatus) => void;
-  createWebSocket?: (url: string, protocols?: string | string[]) => WebSocketLike;
+  createWebSocket?: (url: string, protocols?: string | string[], headers?: Record<string, string>) => WebSocketLike;
   heartbeatTimeoutMs?: number;
   healthCheckIntervalMs?: number;
   reconnectBaseDelayMs?: number;
@@ -107,6 +107,7 @@ type WsClientOptions = {
 };
 
 type ResolvedWsConnection = {
+  headers?: Record<string, string>;
   url: string;
   protocols?: string | string[];
 };
@@ -146,21 +147,30 @@ function normalizeBackendUrl(raw: string): string {
 
 function resolveAgentPlatformWsConnection(
   backendUrlInput: string,
-  accessTokenInput: string
+  accessTokenInput: string,
+  configuredWsUrl = ''
 ): ResolvedWsConnection | null {
   const backendUrl = normalizeBackendUrl(backendUrlInput);
-  const explicitDevUrl =
-    typeof __DEV__ !== 'undefined' && __DEV__ ? String(readPublicEnv('EXPO_PUBLIC_CHAT_WS_URL') || '').trim() : '';
-  const baseUrl = explicitDevUrl || backendUrl;
+  const explicitWsUrl =
+    String(configuredWsUrl || '').trim() ||
+    (typeof __DEV__ !== 'undefined' && __DEV__ ? String(readPublicEnv('EXPO_PUBLIC_CHAT_WS_URL') || '').trim() : '');
+  const baseUrl = explicitWsUrl || backendUrl;
   if (!baseUrl) {
     return null;
   }
 
   try {
     const url = new URL(baseUrl);
-    url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    if (url.protocol === 'https:') {
+      url.protocol = 'wss:';
+    } else if (url.protocol === 'http:') {
+      url.protocol = 'ws:';
+    }
+    if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
+      return null;
+    }
     url.hash = '';
-    if (!explicitDevUrl) {
+    if (!explicitWsUrl) {
       url.pathname = '/ap/ws';
       url.search = '';
     }
@@ -174,10 +184,12 @@ function resolveAgentPlatformWsConnection(
   }
 }
 
-function resolveDesktopWsConnection(
+async function resolveDesktopWsConnection(
   config: Extract<WsTransportConfig, { kind: 'desktop-ws' }>
-): ResolvedWsConnection | null {
-  const accessToken = String(config.accessToken || '').trim();
+): Promise<ResolvedWsConnection | null> {
+  const accessToken = String(
+    config.accessTokenProvider ? await config.accessTokenProvider() : config.accessToken
+  ).trim();
   if (!accessToken) {
     return null;
   }
@@ -187,6 +199,8 @@ function resolveDesktopWsConnection(
     if (url.protocol !== 'ws:' && url.protocol !== 'wss:') {
       return null;
     }
+    if (config.requestHeadersProvider && config.tokenMode !== 'subprotocol')
+      throw new Error('Account Desktop requires bearer subprotocol');
     url.hash = '';
     url.searchParams.delete('token');
     if (config.tokenMode === 'query') {
@@ -194,6 +208,7 @@ function resolveDesktopWsConnection(
     }
     return {
       url: url.toString(),
+      headers: await config.requestHeadersProvider?.(),
       protocols: config.tokenMode === 'subprotocol' ? [`bearer.${accessToken}`] : undefined
     };
   } catch {
@@ -201,11 +216,12 @@ function resolveDesktopWsConnection(
   }
 }
 
-function resolveWsConnection(config: WsTransportConfig): ResolvedWsConnection | null {
+async function resolveWsConnection(config: WsTransportConfig): Promise<ResolvedWsConnection | null> {
   if (config.kind === 'desktop-ws') {
     return resolveDesktopWsConnection(config);
   }
-  return resolveAgentPlatformWsConnection(config.backendUrl, config.accessToken);
+  const token = config.accessTokenProvider ? await config.accessTokenProvider() : config.accessToken;
+  return resolveAgentPlatformWsConnection(config.backendUrl, token, config.wsUrl);
 }
 
 function createFrameId(kind: 'request' | 'stream'): string {
@@ -264,7 +280,11 @@ function toStreamEvent(frameEvent: WsStreamEventFrame): Record<string, unknown> 
 
 export class WsClient {
   private transport: WsTransportConfig;
-  private readonly createWebSocket: (url: string, protocols?: string | string[]) => WebSocketLike;
+  private readonly createWebSocket: (
+    url: string,
+    protocols?: string | string[],
+    headers?: Record<string, string>
+  ) => WebSocketLike;
   private socket: WebSocketLike | null = null;
   private connectPromise: Promise<void> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -287,10 +307,16 @@ export class WsClient {
     this.transport = options.transport;
     this.createWebSocket =
       options.createWebSocket ||
-      ((url, protocols) =>
-        protocols
-          ? (new WebSocket(url, protocols) as unknown as WebSocketLike)
-          : (new WebSocket(url) as unknown as WebSocketLike));
+      ((url, protocols, headers) => {
+        if (headers && (typeof navigator === 'undefined' || navigator.product !== 'ReactNative'))
+          throw new Error('Account Desktop WebSocket headers require Native');
+        const NativeWebSocket = WebSocket as unknown as new (
+          url: string,
+          protocols?: string | string[],
+          options?: { headers: Record<string, string> }
+        ) => WebSocketLike;
+        return new NativeWebSocket(url, protocols, headers ? { headers } : undefined);
+      });
     this.onPush = options.onPush;
     this.onStatusChange = options.onStatusChange;
     this.heartbeatTimeoutMs = Math.max(1_000, options.heartbeatTimeoutMs ?? 45_000);
@@ -314,6 +340,10 @@ export class WsClient {
 
   getStatus() {
     return this.status;
+  }
+
+  hasActiveOperations(): boolean {
+    return this.pendingRequests.size > 0 || this.activeStreams.size > 0;
   }
 
   connect(signal?: AbortSignal) {
@@ -498,64 +528,67 @@ export class WsClient {
       return this.waitForConnection(signal);
     }
 
-    const connection = resolveWsConnection(this.transport);
-    if (!connection) {
-      this.setStatus('disconnected');
-      throw new WsClientDisconnectedError('WebSocket transport is not initialized');
-    }
+    // Publish the shared attempt before endpoint/credential resolution yields.
+    this.connectPromise = (async () => {
+      const connection = await resolveWsConnection(this.transport);
+      if (!connection) {
+        this.setStatus('disconnected');
+        throw new WsClientDisconnectedError('WebSocket transport is not initialized');
+      }
 
-    this.expectedClose = false;
-    this.lastSeenAt = Date.now();
-    this.setStatus(this.status === 'reconnecting' ? 'reconnecting' : 'connecting');
+      this.expectedClose = false;
+      this.lastSeenAt = Date.now();
+      this.setStatus(this.status === 'reconnecting' ? 'reconnecting' : 'connecting');
 
-    this.connectPromise = new Promise<void>((resolve, reject) => {
-      const socket = this.createWebSocket(connection.url, connection.protocols);
-      this.socket = socket;
-      let opened = false;
+      return new Promise<void>((resolve, reject) => {
+        const socket = this.createWebSocket(connection.url, connection.protocols, connection.headers);
+        this.socket = socket;
+        let opened = false;
 
-      socket.onopen = () => {
-        opened = true;
-        this.lastSeenAt = Date.now();
-        this.reconnectAttempt = 0;
-        this.startHealthCheck();
-        this.setStatus('connected');
-        socket.onmessage = this.handleMessage;
-        socket.onclose = (event) => {
-          this.handleClose(event);
+        socket.onopen = () => {
+          opened = true;
+          this.lastSeenAt = Date.now();
+          this.reconnectAttempt = 0;
+          this.startHealthCheck();
+          this.setStatus('connected');
+          socket.onmessage = this.handleMessage;
+          socket.onclose = (event) => {
+            this.handleClose(event);
+          };
+          socket.onerror = () => {
+            this.handleSocketError();
+          };
+          resolve();
         };
+
         socket.onerror = () => {
-          this.handleSocketError();
-        };
-        resolve();
-      };
-
-      socket.onerror = () => {
-        if (opened) {
-          this.handleSocketError();
-          return;
-        }
-        this.socket = null;
-        this.setStatus('error');
-        this.scheduleReconnect();
-        reject(new WsClientDisconnectedError('WebSocket connection failed'));
-      };
-
-      socket.onclose = (event) => {
-        if (opened) {
-          this.handleClose(event);
-          return;
-        }
-        this.socket = null;
-        if (!this.expectedClose) {
+          if (opened) {
+            this.handleSocketError();
+            return;
+          }
+          this.socket = null;
           this.setStatus('error');
           this.scheduleReconnect();
-        } else {
-          this.expectedClose = false;
-          this.setStatus('disconnected');
-        }
-        reject(new WsClientDisconnectedError('WebSocket transport disconnected'));
-      };
-    }).finally(() => {
+          reject(new WsClientDisconnectedError('WebSocket connection failed'));
+        };
+
+        socket.onclose = (event) => {
+          if (opened) {
+            this.handleClose(event);
+            return;
+          }
+          this.socket = null;
+          if (!this.expectedClose) {
+            this.setStatus('error');
+            this.scheduleReconnect();
+          } else {
+            this.expectedClose = false;
+            this.setStatus('disconnected');
+          }
+          reject(new WsClientDisconnectedError('WebSocket transport disconnected'));
+        };
+      });
+    })().finally(() => {
       this.connectPromise = null;
     });
 

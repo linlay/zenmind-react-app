@@ -1,80 +1,73 @@
 {
   "schemaVersion": "1.0",
   "id": "chat-send-message",
-  "title": "发送消息与 ack 落库",
+  "title": "发送消息与服务端确认",
   "trigger": "用户在 Chat 详情页输入消息并提交时触发。",
   "sourceOfTruth": [
-    "消息先落 SQLite 和 outbox，再尝试发给 WebSocket；计划模式只作为 outbox 发送选项保存，用于 replay 时继续带 planningMode。",
-    "开发态无附件输入精确等于“输出当前会话全部相关数据”时，在 createOutgoingMessage 之前拦截并生成页面 footer 临时诊断卡；该分支不创建消息、不写 outbox/timeline SQLite、不发 query，正式包和相似文本继续走普通发送。",
-    "ack 或 stream done/error 由后台回调通过 repository patch 命中消息状态和会话摘要。",
-    "详情页停止/继续生成和 awaiting question/approval/form/plan 提交只通过 chatSyncService 管理 active outgoing/attach stream、/api/interrupt、activeRunId、本地终止 run guard、/ap/ws /api/submit 本地投影和 timeline，不在页面层直接操作 WebSocket 或 HTTP submit。"
+    "最后一条明确未受理请求在下一次显式发送时通过既有 selection 引用恢复上下文及附件；原问题不改写，新气泡正文只保存本次输入。点击失败消息重试只重置原消息发送状态；未知受理状态先核对历史。切模型、断线和重启均不触发重新执行，服务端错误与引用保存在同一 rich timeline。",
+    "输入设置先等待历史就绪；恢复顺序为 Chat 手动选择、最近主 Run 请求/同 Run 用量、默认权限与 Agent 默认模型。预分配 conversationId 不代表已有 Chat；首次主 query/Run 确认才初始化发送时偏好，重复确认不覆盖手动选择。能力关闭时只省略模型覆盖并提交默认权限，保留原偏好。",
+    "联网、所选来源及 Agent 能力有效时，消息先写 SQLite messages，再由所属 service 发一次 /api/query；重连和重启不会重新提交。",
+    "requestId 使用本地消息标识，WS 帧 ID 独立；聊天 owner 统一为根 agentKey，技能和知识库使用 references。Planning 仅 true 时发送，Editing 在入口显示时发送明确布尔值，否则省略。",
+    "服务端确认匹配请求和 Run 后才标记 sent；明确拒绝标记 failed 并保留原始错误，受理前断线或重启标记 submission_unconfirmed。",
+    "显式重发先查询历史中的 requestId；找到时只恢复观察，未找到且无法确认时由用户明确选择是否再次提交。",
+    "开发态会话诊断指令在消息落库前拦截，诊断只保存在当前页面临时状态；切源后的异步响应不得修改替换实例。"
   ],
   "steps": [
     {
       "order": 1,
-      "label": "useChatDetailConversationController.handleSend 先识别开发态无附件会话诊断指令；命中时调用 collectConversationDiagnosticData 并更新临时 footer state 后返回，未命中时读取受控计划模式状态并调用 chatSyncService.sendMessage。",
+      "label": "controller 消费 useChatComposerSettings 解析的有效设置并记录发送快照，经 service 提交；本地诊断指令在普通提交前拦截。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
       "symbol": "handleSend"
     },
     {
       "order": 2,
-      "label": "chatSyncService.sendMessage 先调用 createOutgoingMessage 写入本地 pending 消息和 planningMode 发送选项，并通过 feature-chat-timeline 更新内存 timeline，再发出 conversation.message.insert / conversation.timeline.replace 和 conversation 摘要 home.item.patch。",
+      "label": "单会话 single-flight 校验来源、连接、Agent 能力、引用与运行态，先保存消息，再 dispatch 一次 query。",
       "moduleId": "feature-chat-realtime",
       "file": "src/features/chatRealtime/chatSyncService.ts",
       "symbol": "sendMessage"
     },
     {
       "order": 3,
-      "label": "feature-chat-timeline 用 applyChatTimelineMessage / patchChatTimelineMessage 维护本地发送、ack 和失败状态的同一份 timeline 节点。",
-      "moduleId": "feature-chat-timeline",
-      "file": "src/features/chatTimeline/timelineReducer.ts",
-      "symbol": "applyChatTimelineMessage"
-    },
-    {
-      "order": 4,
-      "label": "createOutgoingMessage 写 messages、outbox_messages、conversation 摘要并刷新 MMKV 快照；outbox_messages.planning_mode 仅用于 pending replay，不参与排序查询。",
+      "label": "保存 messages、附件和摘要，刷新目录快照；不持久化另一套发送选项或自动重发队列。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/chatRepository.ts",
       "symbol": "createOutgoingMessage"
     },
     {
-      "order": 5,
-      "label": "chatSyncService.dispatchOutgoingMessage 按 conversationId 从 repository 读取 agent/team scope，并通过 chatWsTransport.streamChatQuery 使用 /ap/ws 发送带 agentKey 或 teamId 的 /api/query stream 请求；计划模式开启时只额外发送 planningMode: true，缺少 scope 的旧会话保持只带 chatId。",
+      "order": 4,
+      "label": "构造 Platform 当前 DTO，移除本地 namespace 后通过共享连接发送 query。",
       "moduleId": "feature-chat-realtime",
       "file": "src/features/chatRealtime/chatWsTransport.ts",
       "symbol": "streamChatQuery"
     },
     {
-      "order": 6,
-      "label": "chatSyncService 发起 stream 后立即返回；ack 或 stream done 成功后再调用 patchMessageByClientMessageId 更新命中消息状态并移除 outbox。",
+      "order": 5,
+      "label": "串行处理服务端事件：匹配请求、会话和 owner 的有效 Run 才确认 sent；拒绝或未知结果分别写回失败原因。",
       "moduleId": "feature-chat-realtime",
       "file": "src/features/chatRealtime/chatSyncService.ts",
       "symbol": "dispatchOutgoingMessage"
     },
     {
-      "order": 7,
-      "label": "详情页停止生成调用 chatSyncService.stopStreaming，中断 active outgoing/attach stream、调用 /api/interrupt，并通过 feature-chat-timeline 本地 cancel 收敛 active/streaming 节点、清空 activeRunId、记录本地终止 run guard，后续 reconcile 合并 stale /api/chat detail 时不允许同 run active 状态复活；继续生成调用 chatSyncService.resumeStreaming 复用 attach 和单会话 reconcile。",
+      "order": 6,
+      "label": "仅由用户重发操作触发原请求核对；重连只恢复历史和已有 Run 观察，根等待继续走空白 steer。",
       "moduleId": "feature-chat-realtime",
       "file": "src/features/chatRealtime/chatSyncService.ts",
-      "symbol": "stopStreaming"
+      "symbol": "recoverSubmission"
     },
     {
-      "order": 8,
-      "label": "详情页消费 conversation.timeline.replace 和 conversation.message.patch；Chat 首页目录不消费 conversation 摘要 patch，普通发送路径不回读整页消息列表。",
-      "moduleId": "feature-chat-persistence",
-      "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
-      "symbol": "useChatDetailConversationController"
+      "order": 7,
+      "label": "本地消息、服务端回显、发送状态和工具等待归并进同一 timeline；页面不维护第二套运行真源。",
+      "moduleId": "feature-chat-timeline",
+      "file": "src/features/chatTimeline/timelineReducer.ts",
+      "symbol": "applyChatTimelineMessage"
     }
   ],
   "failureModes": [
-    "如果先发 socket 再落库，应用重启后会丢待发送消息；如果 planningMode 不随 outbox 保存，reconnect/restart replay 会静默降级为普通模式。",
-    "ack、stream done/error 不经过 repository 会导致 pending 状态和 conversation 摘要不一致。",
-    "详情页输入框如果直接调用 transport，会绕过 outbox 和快照刷新。",
-    "诊断指令如果在 createOutgoingMessage 之后识别，或复用 timeline message 节点展示，会污染 messages/outbox、触发发送或在重进会话后残留。",
-    "新建本地空会话发送首条消息时如果不从 repository 补齐 agentKey/teamId，服务端会缺少 agent/team 上下文。",
-    "发送失败路径如果不回写 errorReason，UI 无法区分失败和待发送。",
-    "停止/继续或 awaiting submit 如果在页面层维护临时状态或直接请求接口，会导致 timeline lifecycle、输入区按钮、awaiting answer 摘要和 reconnect/reconcile 后状态不一致。"
+    "未经匹配的服务端 Run 确认就把 stream 结束当成功，会产生虚假已发送状态。",
+    "未知结果自动重新提交会重复执行；恢复只能回读历史与 attach，用户重新提交前必须核对。",
+    "请求 owner 使用成员执行者而非根 Agent，会使 TEAM 控制和历史范围不一致。",
+    "页面直连传输或持久化会绕过来源隔离、消息状态和目录快照刷新。"
   ],
   "mustCheckModules": [
     "feature-chat-persistence",
@@ -83,10 +76,11 @@
   ],
   "relatedTasks": [
     "modify-chat-persistence",
-    "modify-chat-realtime"
+    "modify-chat-realtime",
+    "sync-chat-detail-webclient"
   ],
   "generated": {
-    "stepCount": 8,
+    "stepCount": 7,
     "files": [
       "src/features/chatPersistence/chatRepository.ts",
       "src/features/chatPersistence/useChatDetailConversationController.ts",

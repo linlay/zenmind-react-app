@@ -10,14 +10,18 @@ function readSource(relativePath: string): string {
   return readFileSync(path.join(appRoot, relativePath), 'utf8');
 }
 
-test('settings renders one scoped cache action per profile with a legacy fallback', () => {
+test('settings exposes account, Desktop, and conversation cache actions without direct storage access', () => {
   const settings = readSource('src/app/screens/SettingsScreen.tsx');
+  const actions = readSource('src/app/settings/settingsActions.ts');
 
-  assert.match(settings, /deviceProfiles\.map/u);
-  assert.match(settings, /cacheProfiles\.map/u);
-  assert.match(settings, /clearSettingsProfileCache\(profile\.cacheScopeId/u);
-  assert.match(settings, /SETTINGS_LEGACY_CACHE_SCOPE_ID/u);
-  assert.doesNotMatch(settings, /clearSettingsLocalCache/u);
+  assert.match(settings, /clearSettingsAccountCache/u);
+  assert.match(settings, /clearSettingsDesktopCache/u);
+  assert.match(settings, /clearSettingsConversationCache/u);
+  assert.match(settings, /Alert\.alert/u);
+  assert.doesNotMatch(settings, /expo-sqlite|react-native-mmkv|chatRepository|database\.ts/u);
+  assert.match(actions, /candidate\.accountId === normalizedCurrentAccountId/u);
+  assert.match(actions, /conversations: canReadConversationMetadata \? inventory\.conversations : \[\]/u);
+  assert.doesNotMatch(actions, /listPersistedUnassignedLegacyCacheScopes|listDeviceProfiles/u);
 });
 
 test('scoped cache clearing stops realtime only for the current scope and reports idempotent missing databases', () => {
@@ -25,7 +29,7 @@ test('scoped cache clearing stops realtime only for the current scope and report
   const repository = readSource('src/features/chatPersistence/chatRepository.ts');
   const database = readSource('src/features/chatPersistence/database.ts');
   const methodStart = service.indexOf('async clearLocalCacheScope');
-  const methodEnd = service.indexOf('async collectConversationDiagnosticData', methodStart);
+  const methodEnd = service.indexOf('async clearLocalConversationCache', methodStart);
   const method = service.slice(methodStart, methodEnd);
 
   assert.match(method, /if \(active\) \{\s*this\.stop\(\)/u);

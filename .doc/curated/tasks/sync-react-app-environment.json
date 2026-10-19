@@ -1,0 +1,77 @@
+{
+  "schemaVersion": "1.0",
+  "id": "sync-react-app-environment",
+  "title": "React App 品牌与环境配置同步改造",
+  "intentKeywords": [
+    "react-app-env",
+    "品牌环境同步",
+    "环境配置同步改造",
+    "独立品牌 App",
+    "品牌环境执行大纲",
+    "sync react app environment"
+  ],
+  "entryDecision": [
+    "2026-10-13 已确认方案从 docs/react-app-env-sync-2026-10-13/README.md 进入 T01–T04；当前仅建档，实施未开始。",
+    "两个品牌及各服务环境独立安装、固定品牌，共用一个 EAS 项目和应用版本号；目标分别构建并使用独立 channel/runtimeVersion。",
+    "本任务是构建期配置装配，不是在线配置或聊天数据同步；不兼容未正式发布的旧共享身份。",
+    "绝对不允许过度设计；扩展现有脚本/认证入口并删除被替代的旧路径，不建设配置、编排或迁移框架。",
+    "原共享身份/OTA规则描述当前实现；实施目标按本计划覆盖，并在实际落地任务中同步相关 curated 模块、链路与规则。"
+  ],
+  "mustRead": [
+    {
+      "type": "doc",
+      "ref": "docs/react-app-env-sync-2026-10-13/README.md"
+    },
+    {
+      "type": "module",
+      "ref": "app-shell-navigation"
+    },
+    {
+      "type": "module",
+      "ref": "core-runtime-config"
+    },
+    {
+      "type": "module",
+      "ref": "core-auth-session"
+    },
+    {
+      "type": "module",
+      "ref": "shared-visual-foundation"
+    },
+    {
+      "type": "flow",
+      "ref": "app-startup"
+    }
+  ],
+  "likelyFiles": [
+    "docs/react-app-env-sync-2026-10-13/README.md",
+    "docs/react-app-env-sync-2026-10-13/tasks/T01-environment-contract.md",
+    "docs/react-app-env-sync-2026-10-13/tasks/T02-brand-native-targets.md",
+    "docs/react-app-env-sync-2026-10-13/tasks/T03-entry-session-binding.md",
+    "docs/react-app-env-sync-2026-10-13/tasks/T04-ci-validation-cleanup.md",
+    "brands",
+    "app.config.js",
+    "eas.json",
+    "package.json",
+    "scripts/lib/brand-config.js",
+    "scripts/lib/app-env-config.js",
+    "scripts/sync-brand.js",
+    "src/core/config/appEnvironment.ts",
+    "src/core/auth/authConfig.ts",
+    "src/core/auth/accountAuth.ts",
+    "src/core/auth/cloudAuth.ts"
+  ],
+  "acceptanceChecks": [
+    "总览与四个子任务状态一致，区分计划、本地检查和真实安装/服务/OTA验收。",
+    "六个品牌环境目标身份独立，单 EAS 项目下 channel/runtime/配置目标一致，不动态切换或默认回落其他品牌。",
+    "同一装配规则覆盖开发、导出、原生构建与更新；服务地址仅来自已校验的固定版本制品。",
+    "当前聊天提交遵循根 agentKey 与 references 协议；SQLite 保存消息及结果，重连只恢复观察，不自动重发；旧本地缓存按新版 schema 重建。",
+    "删除本次替代的旧机制，保护原有用户改动；真实验收及临时状态清理完成后才标整体完成。"
+  ],
+  "doNotMiss": [
+    "配置 schema 与 producer 在 sibling react-app-env；跨仓库先读其 AGENTS.md，私有配置不输出、不提交。",
+    "计划未实施前不将现有模块事实写成新架构；实施后才替换共享身份与全品牌registry规则。",
+    "复用现有 prepare、资源缓存、Worklets、认证、sharedWsTransport和chatSyncService/chatRepository，不顺手重构或另建框架。",
+    "共用EAS不共用商店应用；提交选明确build ID/IPA，不使用latest猜品牌。"
+  ]
+}

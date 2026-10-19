@@ -1,3 +1,4 @@
+import { normalizeModelOptionReasoningEffort } from '../../core/api/services/modelOptionsProtocol.ts';
 import type { ChatReasoningEffort } from './types';
 
 const REASONING_STAGE_KEYS = ['execute', 'plan', 'summary'] as const;
@@ -26,18 +27,7 @@ function readModelKey(value: unknown): string {
 }
 
 export function normalizeChatReasoningEffort(value: unknown): ChatReasoningEffort | null {
-  switch (toText(value).toUpperCase()) {
-    case 'HIGH':
-      return 'HIGH';
-    case 'MEDIUM':
-      return 'MEDIUM';
-    case 'LOW':
-      return 'LOW';
-    case 'NONE':
-      return 'NONE';
-    default:
-      return null;
-  }
+  return normalizeModelOptionReasoningEffort(value) ?? null;
 }
 
 function readReasoningEffort(value: unknown): ChatReasoningEffort | null {
@@ -83,14 +73,14 @@ export function resolveAgentModelSettings(value: unknown): AgentModelSettings {
 
   const meta = isObjectRecord(value.meta) ? value.meta : null;
   const modelKey =
-    readModelKey(meta?.modelKey) ||
-    readModelKey(meta?.model) ||
     readModelKey(value.modelKey) ||
     readModelKey(value.model) ||
+    readModelKey(meta?.modelKey) ||
+    readModelKey(meta?.model) ||
     null;
 
   return {
     modelKey,
-    reasoningEffort: readStageReasoningEffort(meta?.stageSettings)
+    reasoningEffort: normalizeChatReasoningEffort(value.reasoningEffort) || readStageReasoningEffort(meta?.stageSettings)
   };
 }

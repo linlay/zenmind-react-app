@@ -68,7 +68,7 @@ const buildEnvironments = [
     dev: false
   }
 ];
-const buildPlatforms = ['android', 'web'];
+const buildPlatforms = ['android', 'ios', 'web'];
 const productionBuildEnvironment = buildEnvironments.find(
   (buildEnvironment) => buildEnvironment.label === 'production'
 );
@@ -234,7 +234,14 @@ function transformGeneratedFilesUntilStable(buildEnvironment, platform) {
   for (let pass = 0; pass < MAX_GENERATED_PASSES; pass += 1) {
     let transformedInPass = 0;
 
-    for (const filePath of listGeneratedWorkletFiles(projectGeneratedWorkletsDir)) {
+    // Development resolves package files directly, while production resolves
+    // project-local copies. Transform both: filenames affect nested Worklet
+    // hashes, so seeding only one directory leaves the other path unindexed.
+    const generatedFiles = [
+      ...listGeneratedWorkletFiles(packageGeneratedWorkletsDir),
+      ...listGeneratedWorkletFiles(projectGeneratedWorkletsDir)
+    ];
+    for (const filePath of generatedFiles) {
       if (processedGeneratedFiles.has(filePath)) {
         continue;
       }

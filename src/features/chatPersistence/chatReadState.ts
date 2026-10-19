@@ -10,6 +10,9 @@ export type ChatReadStateInput =
       unreadRunCount?: unknown;
       unreadCount?: unknown;
       readStatus?: unknown;
+      lastRunId?: unknown;
+      updatedAt?: unknown;
+      createdAt?: unknown;
     }
   | boolean
   | number
@@ -183,6 +186,18 @@ export function normalizeChatReadPatch(input: ChatReadStateInput): ChatReadState
   return hasChatReadStateInput(input) ? normalizeChatReadState(input) : undefined;
 }
 
+export function isChatRunIdAfter(runId: string, cursor: string): boolean {
+  const parse = (value: string): number | null => {
+    if (!/^[0-9a-z]+$/i.test(value)) return null;
+    const result = Number.parseInt(value, 36);
+    return Number.isSafeInteger(result) ? result : null;
+  };
+  const runTime = parse(runId);
+  const cursorTime = parse(cursor);
+  return runTime !== null && cursorTime !== null && runTime !== cursorTime
+    ? runTime > cursorTime : runId.localeCompare(cursor) > 0;
+}
+
 export function mergeChatReadState(
   current: ChatReadStateInput,
   patch: ChatReadStateInput
@@ -198,6 +213,22 @@ export function mergeChatReadState(
   }
 
   const readObject = isRecord(patch.read) ? patch.read : null;
+  if (nextState.isRead) {
+    const currentVersion = isRecord(current) ? current : null;
+    const latestRunId = String(currentVersion?.lastRunId || '').trim();
+    const latestMessageAt = parseTimestamp(currentVersion?.updatedAt);
+    if (!currentState.isRead && ((latestRunId && nextState.readRunId && isChatRunIdAfter(latestRunId, nextState.readRunId)) ||
+      (latestMessageAt && nextState.readAt && nextState.readAt < latestMessageAt))) return currentState;
+    if (currentState.readRunId && nextState.readRunId &&
+      isChatRunIdAfter(currentState.readRunId, nextState.readRunId)) return currentState;
+    if (currentState.readAt && nextState.readAt && currentState.readAt > nextState.readAt &&
+      (!nextState.readRunId || nextState.readRunId === currentState.readRunId)) return currentState;
+  } else if (currentState.isRead) {
+    const lastRunId = String(patch.lastRunId || '').trim();
+    const eventTime = parseTimestamp(patch.updatedAt ?? patch.createdAt);
+    if (lastRunId && currentState.readRunId && !isChatRunIdAfter(lastRunId, currentState.readRunId)) return currentState;
+    if (!lastRunId && currentState.readAt && eventTime && eventTime <= currentState.readAt) return currentState;
+  }
   const hasReadAt = (readObject && 'readAt' in readObject) || 'readAt' in patch;
   const hasReadRunId =
     (readObject && 'readRunId' in readObject) || 'readRunId' in patch || 'runId' in patch;

@@ -1,7 +1,8 @@
 import type {
+  ChatComposerAttachment,
   ChatMessageItem,
   ChatMessageStatus,
-  ChatReadState,
+  ChatReadState
 } from '../chatPersistence/types.ts';
 import type {
   ChatTimelineAwaitingMode,
@@ -10,7 +11,7 @@ import type {
   ChatTimelineRuntimeEntry,
   ChatTimelineRuntimeEntryKind,
   ChatTimelineRuntimeState,
-  ChatTimelineState,
+  ChatTimelineState
 } from '../chatTimeline/index.ts';
 import type { WsSocketStatus } from '../../core/ws/wsClient.ts';
 
@@ -46,6 +47,7 @@ export type ChatHomeItemPatch = {
   pinnedAt?: number;
   shouldMoveToTop?: boolean;
   directoryProjectionChanged?: boolean;
+  sourceDeleted?: boolean;
 };
 
 export type ChatConnectionStatusEvent = {
@@ -61,6 +63,17 @@ export type ChatHomeItemPatchEvent = {
 export type ChatHomeItemRemoveEvent = {
   type: 'home.item.remove';
   conversationId: string;
+};
+
+export type ChatDirectorySyncSnapshot = {
+  sourceKey: string;
+  scopeId: string;
+  status: 'idle' | 'loading' | 'ready' | 'error';
+  error: string;
+};
+
+export type ChatDirectorySyncEvent = {
+  type: 'home.directory.sync';
 };
 
 export type ChatDirectoryReplaceEvent = {
@@ -82,15 +95,9 @@ export type ChatConversationMessagePatchEvent = {
   patch: Partial<
     Pick<
       ChatMessageItem,
-      | 'content'
-      | 'createdAt'
-      | 'deliveryStatus'
-      | 'errorReason'
-      | 'serverMessageId'
-      | 'streamStatus'
-      | 'attachments'
+      'content' | 'createdAt' | 'deliveryStatus' | 'errorReason' | 'serverMessageId' | 'streamStatus' | 'attachments'
     >
-  >;
+  > & { errorDetail?: import('../chatTimeline/types.ts').ChatTimelineErrorDetail | null };
 };
 
 export type ChatConversationStreamDeltaEvent = {
@@ -150,10 +157,36 @@ export type ChatConversationActionProtocolEvent = {
   event: Record<string, unknown>;
 };
 
+export type ChatConversationRecoveryErrorEvent = {
+  type: 'conversation.recovery.error';
+  conversationId: string;
+  runId: string;
+};
+
+export type ChatPendingSteer = {
+  steerId: string;
+  runId: string;
+  message: string;
+  attachments: ChatComposerAttachment[];
+  phase: 'sending' | 'accepted' | 'unknown';
+  runEnded: boolean;
+  agentKey?: string;
+};
+
+export type ChatConversationSteerChangedEvent = {
+  type: 'conversation.steer.changed';
+  conversationId: string;
+  pending: ChatPendingSteer | null;
+  confirmed?: ChatPendingSteer;
+};
+
 export type ChatSyncEvent =
+  | ChatConversationSteerChangedEvent
+  | ChatConversationRecoveryErrorEvent
   | ChatConnectionStatusEvent
   | ChatHomeItemPatchEvent
   | ChatHomeItemRemoveEvent
+  | ChatDirectorySyncEvent
   | ChatDirectoryReplaceEvent
   | ChatConversationMessageInsertEvent
   | ChatConversationMessagePatchEvent

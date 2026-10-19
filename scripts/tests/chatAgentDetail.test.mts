@@ -41,11 +41,11 @@ test('new conversation intro filters agent-key-only display fields', () => {
   assert.match(chatDetailControllerSource, /description: getDisplayTextUnlessAgentKey\(\s*scopedAgentDetail\?\.description,\s*introAgentKey\s*\)/s);
 });
 
-test('chat sync service caches agent details for the app lifetime', () => {
+test('chat sync service caches successful Agent details briefly and singleflights requests', () => {
   assert.match(chatSyncServiceSource, /agentDetails = new Map<string, AgentDetailSnapshot \| null>/);
   assert.match(chatSyncServiceSource, /agentDetailRequests = new Map<string, Promise<AgentDetailSnapshot \| null>>/);
-  assert.match(chatSyncServiceSource, /if \(this\.agentDetails\.has\(normalizedAgentKey\)\)/);
-  assert.match(chatSyncServiceSource, /this\.agentDetails\.set\(agentKey, null\)/);
+  assert.match(chatSyncServiceSource, /cached && Date\.now\(\) - cached\.fetchedAt < 30_000/);
+  assert.match(chatSyncServiceSource, /this\.agentDetails\.delete\(agentKey\)/);
   assert.match(chatSyncServiceSource, /this\.agentDetailCacheVersion \+= 1/);
   assert.match(chatSyncServiceSource, /this\.agentDetailCacheVersion !== cacheVersion/);
 });

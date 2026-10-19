@@ -54,6 +54,8 @@
     "eas.json",
     "package.json",
     "brands/shared.json",
+    "brands/react-app-env.json",
+    "scripts/lib/app-env-config.js",
     "scripts/lib/brand-config.js",
     "scripts/sync-brand.js",
     "scripts/tests/brandConfig.test.mts",
@@ -61,6 +63,8 @@
     "assets/brands",
     "src/shared/generated/brand.ts",
     "src/shared/generated/brandAssets.ts",
+    "src/shared/generated/appEnv.ts",
+    "src/core/config/appEnvironment.ts",
     "src/shared/branding/installedBrand.ts",
     "src/shared/icons/brandAssets.ts",
     "src/app/screens/TabScreens.tsx"
@@ -68,6 +72,7 @@
   "acceptanceChecks": [
     "BRAND=zenmind 和 BRAND=cutej 生成的 Expo config 在 name、icon、splash 和通知色上可区分，但 slug、android.package、ios.bundleIdentifier、EAS projectId 和 EAS channel 保持共享。",
     "切换品牌壳不改变 src/shared/generated/brand.ts 的 active 选择，生成物不能包含 ACTIVE_BRAND_ID；共享 OTA 由安装壳 embedded app.config.extra.brand.id 决定展示品牌。",
+    "schema v2 react-app-env 产物必须覆盖完整品牌 registry，并按安装壳品牌选择默认 sourceId/displayName/API/WS/authMode/accessToken 配置；只有 query-token 模式允许携带低权限可分发客户端 token，其他 secret 或凭据仍禁止；Expo extra.appEnvironment 必须记录 schemaVersion/artifactVersion。",
     "切换品牌后 Android APK 的 package 与 launchable-activity 仍指向同一原生内核，避免 Expo/adb 按品牌包名推断不存在的 MainActivity。",
     "Login、React 启动遮罩和原生 splash 使用同一 assets/brands/<id>/logo.png 入口；Android 原生 splash 按系统圆形安全区缩放，iOS 和 React loading 保留品牌 imageWidth。",
     "重复执行同一品牌 sync 不重画 PNG，非视觉字段变更也不触发 PNG 读写。",
@@ -76,6 +81,8 @@
   ],
   "doNotMiss": [
     "品牌展示差异必须集中在 brands/<id>/brand.json；共享 storage namespace、Android package、iOS bundle id、EAS project slug 和 EAS updates 必须集中在 brands/shared.json；不在业务 screen 或 feature 内散落 brand 分支。",
+    "默认数据源集中在可替换的 schema v2 react-app-env artifact；本仓库 brands/react-app-env.json 只作无效 endpoint/占位 token example，独立 sibling react-app-env 只提交 env.example，真实 env.<environment> 由安全打包配置提供；产物与 SHA-256 manifest 必须先校验再通过 REACT_APP_ENV_ARTIFACT 接入。",
+    "EAS 远端构建不会上传 sibling 仓库；发布流水线必须固定 react-app-env tag/commit，把 artifact 复制进临时 App 构建上下文后再执行 Expo/EAS，并在回滚时重新选择上一版本产物。",
     "app.config.js 必须通过同步脚本生成图标、启动图和运行时常量，保证 EAS / expo config 直接读取时也有资源；但 config evaluation 不直接写 native project 文本资源，避免 Expo prebuild 中间态 AndroidManifest 缺少插件 meta-data 时失败。",
     "当前品牌模式共享 Android applicationId、iOS bundleIdentifier、Expo slug、EAS projectId 和 EAS preview/production channel，不追求并排安装；品牌差异只覆盖名称、logo、启动图、图标、通知色和少量环境配置。",
     "共享 OTA JS bundle 只能包含全量 APP_BRANDS / BRAND_LOGOS registry，不能生成 ACTIVE_BRAND_ID；运行时由 src/shared/branding/installedBrand.ts 从安装壳 embedded app.config.extra.brand.id 解析 INSTALLED_BRAND_ID。",

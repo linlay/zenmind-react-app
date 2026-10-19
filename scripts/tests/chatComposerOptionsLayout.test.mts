@@ -40,17 +40,10 @@ test('composer pins selected attachments to the top of the input surface', () =>
   assert.doesNotMatch(composerSource, /ATTACHMENT_STRIP_FRAME_CLASS = '[^']*justify-center/);
 });
 
-test('chat detail controller stores composer query options and forwards them on send', () => {
-  assert.match(controllerSource, /const \[accessLevel, setAccessLevel\]/);
-  assert.match(controllerSource, /const \[modelOverride, setModelOverride\]/);
-  assert.match(controllerSource, /ensureAgentModelOptions/);
-  assert.match(controllerSource, /updateAgentModelConfig/);
-  assert.match(controllerSource, /modelConfigUpdateIdRef\.current \+= 1;\s*\}, \[composerAgentKey\]\)/s);
-  assert.match(controllerSource, /getQueryModelOverrideSignature\(modelOverride\)/);
-  assert.match(controllerSource, /buildAgentModelConfigPayload\('', value\)/);
-  assert.match(controllerSource, /setModelOverride\(nextOverride\)/);
-  assert.doesNotMatch(controllerSource, /setModelOverride\(previousOverride\)/);
-  assert.match(controllerSource, /accessLevel,\s*model: modelOverride,\s*planningMode/s);
+test('chat detail delegates settings ownership and forwards only effective query settings', () => {
+  assert.match(controllerSource, /useChatComposerSettings/);
+  assert.doesNotMatch(controllerSource, /updateAgentModelConfig|ensureAgentModelOptions|setModelOptionsSnapshot|setAgentDetailSnapshot/);
+  assert.match(controllerSource, /accessLevel: submitAccessLevel,\s*model: submitModel,/s);
 });
 
 test('chat detail screen passes composer query option state into composer card', () => {
@@ -86,10 +79,10 @@ test('composer model popover groups settings and opens model choices inside the 
 test('composer model list keeps the return row outside the scroll responder and fully tappable', () => {
   assert.match(composerOptionRowSource, /const isModelListMenu = activeMenu === 'model' && modelMenuView === 'models'/);
   assert.match(composerOptionRowSource, /function MenuScrollView\(\{ children \}: MenuScrollViewProps\)/);
-  assert.match(composerOptionRowSource, /const MENU_HEADER_CLASS = '[^']*bg-app-surface-raised[^']*active:bg-app-surface-muted[^']*'/);
+  assert.match(composerOptionRowSource, /const MENU_HEADER_CLASS =\s*'[^']*bg-app-surface-raised[^']*active:bg-app-surface-muted[^']*'/);
   assert.match(
     composerOptionRowSource,
-    /\{isModelListMenu \? \(\s*<>\s*<Pressable\s+accessibilityLabel=\{t\('composer\.query\.model\.back'\)\}\s+accessibilityRole="button"\s+className=\{MENU_HEADER_CLASS\}\s+onPress=\{handleBackToModelSettings\}/
+    /(?:\{|:\s*)isModelListMenu \? \(\s*<>\s*<Pressable\s+accessibilityLabel=\{t\('composer\.query\.model\.back'\)\}\s+accessibilityRole="button"\s+className=\{MENU_HEADER_CLASS\}\s+onPress=\{handleBackToModelSettings\}/
   );
   assert.match(composerOptionRowSource, /<MenuScrollView>\s*<View className=\{MENU_SECTION_CLASS\}>\s*\{models\.length > 0 \?/);
   assert.equal((composerOptionRowSource.match(/className=\{MENU_SCROLL_CLASS\}/g) || []).length, 1);
@@ -111,7 +104,7 @@ test('composer option row opens settings in an elevated floating popover', () =>
 test('composer option row closes the floating popover from an outside tap backdrop', () => {
   assert.match(composerOptionRowSource, /import \{[^}]*Modal[^}]*Pressable[^}]*ScrollView[^}]*Text[^}]*View/s);
   assert.match(composerOptionRowSource, /MENU_DISMISS_BACKDROP_CLASS = 'absolute inset-0 z-\[20\]'/);
-  assert.match(composerOptionRowSource, /const handleDismissMenu = useCallback\(\(\) => \{\s*pendingMenuRef\.current = null;\s*setModelMenuView\('settings'\);\s*setActiveMenu\(null\);/s);
+  assert.match(composerOptionRowSource, /const handleDismissMenu = useCallback\(\(\) => \{\s*(?:if \(activeMenuRef\.current === 'skills'\) Keyboard\.dismiss\(\);\s*)?pendingMenuRef\.current = null;\s*setModelMenuView\('settings'\);\s*setActiveMenu\(null\);/s);
   assert.match(composerOptionRowSource, /<Modal[\s\S]+transparent[\s\S]+onRequestClose=\{handleDismissMenu\}/);
   assert.match(composerOptionRowSource, /<Pressable[\s\S]+className=\{MENU_DISMISS_BACKDROP_CLASS\}[\s\S]+onPress=\{handleDismissMenu\}/);
 });

@@ -1,8 +1,13 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { getChatCacheScopeId, subscribeChatCacheScope } from '../cacheScope';
+import { ChatSelectionSheet } from './ChatSelectionSheet';
+import { memo, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { ApiUriSource } from '../../../core/api/apiClient';
-import { resolveAuthenticatedResourceImageSource } from '../../../core/api/services/authenticatedResourceImage';
+import {
+  releaseAuthenticatedResourceImageSource,
+  resolveAuthenticatedResourceImageSource
+} from '../../../core/api/services/authenticatedResourceImage';
 import { logHttpError } from '../../../core/debug/httpDebugLogger';
 import { useConversationPreviewRowActive } from '../../../shared/components/conversationPreview/ConversationPreviewProvider.tsx';
 import { AppIcon } from '../../../shared/icons/AppIcon';
@@ -21,6 +26,7 @@ type ChatAttachmentStripProps = {
   variant: 'composer' | 'message';
   onRemoveAttachment?: (attachmentId: string) => void;
   onRetryAttachment?: (attachmentId: string) => void;
+  onUpdateSelectionAnnotation?: (attachmentId: string, annotation: string) => void;
 };
 
 type ChatAttachmentVariant = ChatAttachmentStripProps['variant'];
@@ -70,6 +76,7 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
   t: ChatAttachmentTranslate;
 }) {
   const [loadState, setLoadState] = useState<'loading' | 'loaded' | 'failed'>('loading');
+  const cacheScopeId = useSyncExternalStore(subscribeChatCacheScope, getChatCacheScopeId, getChatCacheScopeId);
   const [imageSource, setImageSource] = useState<ApiUriSource | null>(null);
   const imageUri = resolveChatAttachmentImageUri(attachment, variant);
   const isMessage = variant === 'message';
@@ -90,15 +97,21 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
     }
 
     const controller = new AbortController();
+    let retainedImage = false;
     setLoadState('loading');
     void resolveAuthenticatedResourceImageSource({
+      cacheScopeId,
       resourceUrl: imageUri,
       fileName: attachment.name,
       signal: controller.signal
     })
       .then((source) => {
+        retainedImage = true;
         if (!controller.signal.aborted) {
           setImageSource(source);
+        } else {
+          releaseAuthenticatedResourceImageSource({ cacheScopeId, resourceUrl: imageUri, fileName: attachment.name });
+          retainedImage = false;
         }
       })
       .catch(() => {
@@ -110,8 +123,12 @@ const AttachmentImageTile = memo(function AttachmentImageTile({
 
     return () => {
       controller.abort();
+      if (retainedImage) {
+        releaseAuthenticatedResourceImageSource({ cacheScopeId, resourceUrl: imageUri, fileName: attachment.name });
+        retainedImage = false;
+      }
     };
-  }, [active, attachment.name, imageUri]);
+  }, [active, attachment.name, imageUri, cacheScopeId]);
 
   const canActivate = attachment.status !== 'uploading' && loadState !== 'loading';
 
@@ -257,11 +274,19 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
   attachments,
   variant,
   onRemoveAttachment,
-  onRetryAttachment
+  onRetryAttachment,
+  onUpdateSelectionAnnotation
 }: ChatAttachmentStripProps) {
   const t = useT();
   const { theme } = useAppTheme();
   const rowActive = useConversationPreviewRowActive();
+  const [selectionId, setSelectionId] = useState<string | null>(null);
+  const selection = attachments.find((item) => item.attachmentId === selectionId && item.kind === 'selection');
+  const selectionReference = selection?.references.find((ref) => ref.type === 'selection');
+  const context = attachments.find(
+    (item) => item.attachmentId === selectionId && ['chat', 'site', 'skill', 'kbase'].includes(item.kind)
+  );
+  const contextReference = context?.references[0];
   const { openPreview } = useAuthenticatedResourcePreview();
 
   const handleActivate = useCallback(
@@ -289,54 +314,136 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
     : COMPACT_ATTACHMENT_HEIGHT_CLASS;
 
   return (
-    <ScrollView
-      horizontal
-      bounces={false}
-      keyboardShouldPersistTaps="handled"
-      showsHorizontalScrollIndicator={false}
-      className={variant === 'message' ? cn(MESSAGE_STRIP_CLASS, messageStripHeightClass) : undefined}
-      contentContainerClassName={cn(STRIP_CONTENT_CLASS, variant === 'message' ? MESSAGE_STRIP_CONTENT_CLASS : null)}
-    >
-      {attachments.map((attachment) => {
-        return (
-          <View
-            key={attachment.attachmentId}
-            className={cn(
-              ATTACHMENT_SHELL_CLASS,
-              variant === 'message' ? MESSAGE_ATTACHMENT_SHELL_CLASS : null,
-              attachment.status === 'failed' ? ATTACHMENT_FAILED_CLASS : null
-            )}
-          >
-            {attachment.kind === 'image' ? (
-              <AttachmentImageTile
-                attachment={attachment}
-                active={rowActive}
-                onActivate={handleActivate}
-                variant={variant}
-                theme={theme}
-                t={t}
-              />
-            ) : (
-              <AttachmentFileTile
-                attachment={attachment}
-                onActivate={handleActivate}
-                variant={variant}
-                theme={theme}
-                t={t}
-              />
-            )}
-            {variant === 'composer' ? (
-              <ComposerAttachmentActions
-                attachment={attachment}
-                onRemoveAttachment={onRemoveAttachment}
-                onRetryAttachment={onRetryAttachment}
-                theme={theme}
-                t={t}
-              />
-            ) : null}
-          </View>
-        );
-      })}
-    </ScrollView>
+    <>
+      <ScrollView
+        horizontal
+        bounces={false}
+        keyboardShouldPersistTaps="handled"
+        showsHorizontalScrollIndicator={false}
+        className={variant === 'message' ? cn(MESSAGE_STRIP_CLASS, messageStripHeightClass) : undefined}
+        contentContainerClassName={cn(STRIP_CONTENT_CLASS, variant === 'message' ? MESSAGE_STRIP_CONTENT_CLASS : null)}
+      >
+        {attachments.map((attachment) => {
+          return (
+            <View
+              key={attachment.attachmentId}
+              className={cn(
+                ATTACHMENT_SHELL_CLASS,
+                variant === 'message' ? MESSAGE_ATTACHMENT_SHELL_CLASS : null,
+                attachment.status === 'failed' ? ATTACHMENT_FAILED_CLASS : null
+              )}
+            >
+              {['chat', 'site', 'skill', 'kbase'].includes(attachment.kind) ? (
+                <Pressable
+                  onPress={() => setSelectionId(attachment.attachmentId)}
+                  accessibilityRole="button"
+                  className={cn(FILE_TILE_CLASS, variant === 'message' ? MESSAGE_FILE_TILE_CLASS : null)}
+                >
+                  <View className={FILE_TEXT_WRAP_CLASS}>
+                    <Text numberOfLines={1} className={FILE_NAME_CLASS}>
+                      {attachment.name}
+                    </Text>
+                    <Text numberOfLines={1} className={FILE_META_CLASS}>
+                      {t(
+                        attachment.kind === 'kbase'
+                          ? 'contextReference.chooseKbase'
+                          : attachment.kind === 'skill'
+                            ? 'composer.skills.title'
+                            : attachment.kind === 'chat'
+                              ? 'contextReference.chat'
+                              : 'contextReference.site'
+                      )}
+                    </Text>
+                  </View>
+                </Pressable>
+              ) : attachment.kind === 'selection' ? (
+                <Pressable
+                  onPress={() => setSelectionId(attachment.attachmentId)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('selection.reference')}
+                  className={cn(FILE_TILE_CLASS, variant === 'message' ? MESSAGE_FILE_TILE_CLASS : null)}
+                >
+                  <View className={FILE_TEXT_WRAP_CLASS}>
+                    <Text numberOfLines={1} className={FILE_NAME_CLASS}>
+                      [{attachment.references[0]?.annotationIndex || '–'}] {t('selection.reference')}
+                    </Text>
+                    <Text numberOfLines={1} className={FILE_META_CLASS}>
+                      {attachment.references[0]?.text}
+                    </Text>
+                  </View>
+                </Pressable>
+              ) : attachment.kind === 'image' ? (
+                <AttachmentImageTile
+                  attachment={attachment}
+                  active={rowActive}
+                  onActivate={handleActivate}
+                  variant={variant}
+                  theme={theme}
+                  t={t}
+                />
+              ) : (
+                <AttachmentFileTile
+                  attachment={attachment}
+                  onActivate={handleActivate}
+                  variant={variant}
+                  theme={theme}
+                  t={t}
+                />
+              )}
+              {variant === 'composer' ? (
+                <ComposerAttachmentActions
+                  attachment={attachment}
+                  onRemoveAttachment={onRemoveAttachment}
+                  onRetryAttachment={onRetryAttachment}
+                  theme={theme}
+                  t={t}
+                />
+              ) : null}
+            </View>
+          );
+        })}
+      </ScrollView>
+      {context && contextReference ? (
+        <ChatSelectionSheet
+          key={`${context.conversationId}:${context.attachmentId}`}
+          title={t(
+            context.kind === 'kbase'
+              ? 'contextReference.chooseKbase'
+              : context.kind === 'skill'
+                ? 'composer.skills.title'
+                : context.kind === 'chat'
+                  ? 'contextReference.chat'
+                  : 'contextReference.site'
+          )}
+          text={[
+            context.name,
+            contextReference.id,
+            typeof contextReference.meta?.context === 'string' ? contextReference.meta.context : '',
+            context.kind === 'site' ? contextReference.url : '',
+            context.kind === 'site' ? t('contextReference.siteUnavailable') : ''
+          ]
+            .filter(Boolean)
+            .join('\n\n')}
+          onClose={() => setSelectionId(null)}
+        />
+      ) : null}
+      {selection && selectionReference?.text ? (
+        <ChatSelectionSheet
+          key={`${selection.conversationId}:${selection.attachmentId}`}
+          text={selectionReference.text}
+          annotation={selectionReference.annotation}
+          sourceKind={selectionReference.meta?.sourceKind}
+          onSave={
+            variant === 'composer' && onUpdateSelectionAnnotation
+              ? (_text, annotation) => {
+                  onUpdateSelectionAnnotation(selection.attachmentId, annotation);
+                  return true;
+                }
+              : undefined
+          }
+          onClose={() => setSelectionId(null)}
+        />
+      ) : null}
+    </>
   );
 });

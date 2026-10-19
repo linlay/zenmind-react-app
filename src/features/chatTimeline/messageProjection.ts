@@ -1,8 +1,4 @@
-import type {
-  ChatMessageItem,
-  ChatMessageRole,
-  ChatMessageStreamStatus,
-} from '../chatPersistence/types.ts';
+import type { ChatMessageItem, ChatMessageRole, ChatMessageStreamStatus } from '../chatPersistence/types.ts';
 import type {
   ChatTimelineAwaitingNode,
   ChatTimelineMessageNode,
@@ -12,14 +8,11 @@ import type {
   ChatTimelineState,
   ChatTimelineSourceNode,
   ChatTimelineTextNode,
-  ChatTimelineToolNode,
+  ChatTimelineToolNode
 } from './types.ts';
 import { isChatTimelineCommandMessageVariant } from './timelineRequest.ts';
 
-type ProjectedRuntimeNode = Exclude<
-  ChatTimelineNode,
-  ChatTimelineMessageNode | ChatTimelineSourceNode
->;
+type ProjectedRuntimeNode = Exclude<ChatTimelineNode, ChatTimelineMessageNode | ChatTimelineSourceNode>;
 
 function runtimeStatusForProjectedNode(node: ProjectedRuntimeNode): string {
   if (node.kind === 'awaiting') {
@@ -39,11 +32,7 @@ function bodyForNode(node: ProjectedRuntimeNode): string {
     return node.errorReason || node.summary || node.resourceUrl;
   }
   if (node.kind === 'plan') {
-    return [
-      node.summary,
-      ...node.steps.map((step) => `${step.status}: ${step.description}`),
-      node.errorReason,
-    ]
+    return [node.summary, ...node.steps.map((step) => `${step.status}: ${step.description}`), node.errorReason]
       .filter(Boolean)
       .join('\n');
   }
@@ -58,7 +47,7 @@ function bodyForNode(node: ProjectedRuntimeNode): string {
       node.preCompactTokens !== null ? `before:${node.preCompactTokens}` : '',
       node.postCompactTokens !== null ? `after:${node.postCompactTokens}` : '',
       node.savedTokens !== null ? `saved:${node.savedTokens}` : '',
-      node.errorReason,
+      node.errorReason
     ]
       .filter(Boolean)
       .join('\n');
@@ -103,7 +92,7 @@ function runtimeEntryFromNode(node: ProjectedRuntimeNode): ChatTimelineRuntimeEn
     streaming:
       (node.kind === 'tool' && node.streaming) ||
       ((node.kind === 'reasoning' || node.kind === 'planning') &&
-        (node as ChatTimelineTextNode | ChatTimelineToolNode).streaming),
+        (node as ChatTimelineTextNode | ChatTimelineToolNode).streaming)
   };
 }
 
@@ -130,19 +119,15 @@ export function projectTimelineMessages(state: ChatTimelineState): ChatMessageIt
         deliveryStatus: node.deliveryStatus,
         streamStatus,
         errorReason: node.errorReason,
-        attachments: node.attachments || [],
+        attachments: node.attachments || []
       };
-    })
-    .sort((left, right) => left.createdAt - right.createdAt);
+    });
 }
 
 export function projectTimelineRuntimeState(state: ChatTimelineState): ChatTimelineRuntimeState {
   const entries = state.orderedNodeIds
     .map((id) => state.nodesById[id])
-    .filter(
-      (node): node is ProjectedRuntimeNode =>
-        Boolean(node) && node.kind !== 'message' && node.kind !== 'source'
-    )
+    .filter((node): node is ProjectedRuntimeNode => Boolean(node) && node.kind !== 'message' && node.kind !== 'source')
     .map(runtimeEntryFromNode)
     .filter((entry): entry is ChatTimelineRuntimeEntry => Boolean(entry))
     .sort((left, right) => right.updatedAt - left.updatedAt)
@@ -174,10 +159,10 @@ export function projectTimelineRuntimeState(state: ChatTimelineState): ChatTimel
             status: visibleAwaiting.status,
             interactive: visibleAwaiting.interactive,
             answerSummary: visibleAwaiting.answerSummary ?? awaitingNode.answerSummary ?? null,
-            updatedAt: visibleAwaiting.updatedAt,
+            updatedAt: visibleAwaiting.updatedAt
           }
         : null,
     usageLabel: state.usageLabel,
-    updatedAt: state.updatedAt,
+    updatedAt: state.updatedAt
   };
 }

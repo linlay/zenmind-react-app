@@ -129,7 +129,7 @@ test('desktop kanban change protocols use Desktop issue request names', async ()
   assert.equal(deleted.deletedIssueId, 'issue-1');
 });
 
-test('desktop kanban requester rejects clearly without a Desktop profile', async () => {
+test('desktop kanban requester rejects clearly without a selected account Desktop', async () => {
   let resolveCalled = false;
   const requestDesktopKanban = createRequiredDesktopKanbanRequester({
     getActiveProfile: () => null,
@@ -147,7 +147,7 @@ test('desktop kanban requester rejects clearly without a Desktop profile', async
     (error) =>
       error instanceof ApiError &&
       error.status === 503 &&
-      /Desktop Kanban requires an active Desktop WS profile/u.test(error.message) &&
+      /Desktop Kanban requires a signed-in account and a selected Desktop/u.test(error.message) &&
       readErrorCode(error) === 'desktop_ws_required'
   );
   assert.equal(resolveCalled, false);

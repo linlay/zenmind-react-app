@@ -64,7 +64,8 @@
   "acceptanceChecks": [
     "API base URL 仍能正确归一化，空值时报错行为不变。",
     "HTTP profile 的 WS URL 显式配置和从 API base URL 推导两条路径都仍正确；Desktop WS profile 不被 EXPO_PUBLIC_CHAT_WS_URL 覆盖。",
-    "开发态调试面板展示的 API Base URL 与真实读取结果一致。"
+    "开发态调试面板展示的 API Base URL 与真实读取结果一致。",
+    "真实真机 development 调试使用 react-app-env/examples/build-react-app.sh development ../zenmind-react-app start；环境产物需覆盖整个 Metro 生命周期，并核对真机实际 bundle 的环境版本、默认地址及 /ap/ws。示例文件仅用于契约测试，不写入真实凭据。"
   ],
   "doNotMiss": [
     "改变量名时同时检查 REST、HTTP profile WebSocket 和开发态调试面板；Desktop WS profile 的 wsUrl 来自 pairing profile。",

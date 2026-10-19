@@ -1,4 +1,4 @@
-import type { DeviceProfile } from '../../auth/deviceProfiles.ts';
+import type { WsTransportConfig } from '../../ws/wsTransportConfig.ts';
 import { ApiError } from '../apiError.ts';
 
 export const CHAT_UPLOAD_API_PATH = '/api/upload';
@@ -10,6 +10,7 @@ export type ChatUploadReference = {
   mimeType?: string;
   sizeBytes?: number;
   url?: string;
+  path?: string;
   sha256?: string;
 };
 
@@ -78,21 +79,17 @@ export function createChatUploadFormData(fields: ChatUploadFormFields, file: Blo
   return formData;
 }
 
-export function resolveChatUploadRoute(profile: DeviceProfile | null): ChatUploadRoute {
-  if (!profile) {
-    throw new ChatUploadError('invalid_tunnel_profile', 'Active device profile is unavailable');
+export function resolveChatUploadRoute(transport: WsTransportConfig | null): ChatUploadRoute {
+  if (!transport) {
+    throw new ChatUploadError('invalid_tunnel_profile', 'Source is unavailable');
   }
-  if (profile.transportKind === 'http') {
+  if (transport.kind === 'agent-platform') {
     return {
       kind: 'direct-http',
       path: CHAT_UPLOAD_API_PATH
     };
   }
 
-  const transport = profile.desktopWs;
-  if (!transport) {
-    throw new ChatUploadError('invalid_tunnel_profile', 'Desktop tunnel profile is incomplete');
-  }
   try {
     const wsUrl = new URL(transport.wsUrl);
     if (wsUrl.protocol !== 'wss:' || !wsUrl.host || wsUrl.username || wsUrl.password) {
@@ -195,6 +192,7 @@ export async function requestDesktopPublicUpload(input: {
   endpointUrl: string;
   fetchImpl: typeof fetch;
   getAccessToken: (forceRefresh: boolean) => Promise<string | null>;
+  getRequestHeaders?: () => Promise<Record<string, string>>;
   hooks?: DesktopPublicUploadRequestHooks;
   signal?: AbortSignal;
 }): Promise<ChatUploadResponseData> {
@@ -205,6 +203,8 @@ export async function requestDesktopPublicUpload(input: {
       throw new ApiError('Not authenticated', 401, null);
     }
 
+    const accountHeaders = await input.getRequestHeaders?.();
+    throwIfAborted(input.signal);
     const startedAt = Date.now();
     let response: Response;
     let responseText = '';
@@ -213,10 +213,13 @@ export async function requestDesktopPublicUpload(input: {
       response = await input.fetchImpl(input.endpointUrl, {
         method: 'POST',
         headers: {
+          ...accountHeaders,
           Authorization: `Bearer ${accessToken}`
         },
         body: input.createBody(),
-        signal: input.signal
+        signal: input.signal,
+        redirect: 'error',
+        credentials: 'omit'
       });
       responseText = await response.text();
     } catch (error) {

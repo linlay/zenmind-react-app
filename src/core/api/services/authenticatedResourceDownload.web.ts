@@ -9,7 +9,7 @@ export async function downloadAuthenticatedResource(
   request: AuthenticatedResourceDownloadRequest
 ): Promise<AuthenticatedResourceDownloadResult> {
   const source = await resolveAuthenticatedResourceSource(request.resourceUrl);
-  const response = await fetch(source.uri, { headers: source.headers });
+  const response = await fetch(source.uri, { headers: source.headers, redirect: 'error', credentials: 'omit' });
   if (!response.ok) {
     throw new Error(`HTTP ${response.status}`);
   }

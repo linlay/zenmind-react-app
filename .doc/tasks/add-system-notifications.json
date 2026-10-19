@@ -65,7 +65,7 @@
     "src/app/screens/TabScreens.tsx",
     "src/core/api/apiClient.ts",
     "src/core/api/services/notificationApi.ts",
-    "src/core/auth/appAuth.ts",
+    "src/core/auth/accountAuth.ts",
     "src/features/chatPersistence/ChatDetailScreen.tsx",
     "src/features/chatPersistence/chatRepository.ts",
     "src/features/chatPersistence/types.ts",
@@ -79,7 +79,7 @@
     "前台已打开同一会话时通知不会重复弹出系统横幅。"
   ],
   "doNotMiss": [
-    "移动端不要新增通知队列表，也不要复用聊天 outbox 承担通知投递。",
+    "当前聊天提交遵循根 agentKey 与 references 协议；SQLite 保存消息及结果，重连只恢复观察，不自动重发；旧本地缓存按新版 schema 重建。",
     "通知 payload 不承载完整消息正文，只携带 conversationId 和 serverMessageId。",
     "点击通知后先按 serverMessageId 查 SQLite，本地未命中才补拉详情。",
     "补拉落库必须通过 chatRepository 幂等 upsert，并更新 SQLite conversation 摘要。",

@@ -1,15 +1,20 @@
+import { createChatContextAttachment } from './chatContextReference.ts';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as DocumentPicker from 'expo-document-picker';
 import * as ImagePicker from 'expo-image-picker';
 
 import { ChatUploadError, extractUploadReferences, uploadChatAttachmentApi } from '../../core/api/services/uploadApi';
+import { buildChatResourceUrl } from '../../core/api/resourceUrl';
+import { getRemoteChatSourceId } from './chatSource';
+import { getChatCacheScopeId } from './cacheScope';
+import { createChatSelectionAttachment } from './chatSelectionReference.ts';
 import { useT } from '../../shared/i18n';
 import {
   getChatAttachmentExtension,
   getChatAttachmentKind,
   keepLatestChatAttachmentsByName
 } from './chatAttachmentModels';
-import type { ChatAttachmentKind, ChatComposerAttachment } from './types';
+import type { ChatAttachmentKind, ChatComposerAttachment, ChatContextReference } from './types';
 
 const MAX_COMPOSER_ATTACHMENTS = 6;
 const MAX_ATTACHMENT_SIZE_BYTES = 100 * 1024 * 1024;
@@ -29,6 +34,9 @@ type PickedComposerAttachment = {
 type UseChatComposerAttachmentsInput = {
   conversationId: string;
   disabled?: boolean;
+  localFilesAllowed?: boolean;
+  selectionScope?: string;
+  selectionStartIndex?: number;
   onError?: (message: string) => void;
 };
 
@@ -155,15 +163,34 @@ function normalizeDocumentAsset(asset: DocumentPicker.DocumentPickerAsset): Pick
 export function useChatComposerAttachments({
   conversationId,
   disabled = false,
+  localFilesAllowed = true,
+  selectionScope = 'next',
+  selectionStartIndex = 1,
   onError
 }: UseChatComposerAttachmentsInput) {
   const t = useT();
+  const scope = getChatCacheScopeId();
+  const targetKey = JSON.stringify([scope, conversationId]);
+  const targetRef = useRef({ key: targetKey, generation: 0, mounted: true, filesAllowed: false });
+  if (targetRef.current.key !== targetKey) {
+    targetRef.current = { ...targetRef.current, key: targetKey, generation: targetRef.current.generation + 1 };
+  }
+  targetRef.current.filesAllowed = !disabled && localFilesAllowed;
+  const isCurrentTarget = useCallback(
+    (generation: number) =>
+      targetRef.current.mounted &&
+      targetRef.current.key === targetKey &&
+      targetRef.current.generation === generation &&
+      getChatCacheScopeId() === scope,
+    [targetKey, scope]
+  );
   const [attachments, setAttachments] = useState<ChatComposerAttachment[]>([]);
   const attachmentsRef = useRef<ChatComposerAttachment[]>([]);
   const latestAttachmentIdByNameRef = useRef(new Map<string, string>());
   const abortControllersRef = useRef(new Map<string, AbortController>());
   const uploadQueueRef = useRef<ChatComposerAttachment[]>([]);
   const activeUploadCountRef = useRef(0);
+  const nextSelectionIndexRef = useRef(1);
 
   const readyAttachments = useMemo(
     () => attachments.filter((attachment) => attachment.status === 'ready'),
@@ -194,6 +221,7 @@ export function useChatComposerAttachments({
 
   const uploadAttachment = useCallback(
     async (attachment: ChatComposerAttachment) => {
+      const generation = targetRef.current.generation;
       const controller = new AbortController();
       abortControllersRef.current.set(attachment.attachmentId, controller);
       try {
@@ -206,7 +234,11 @@ export function useChatComposerAttachments({
           signal: controller.signal
         });
         const latestAttachmentId = latestAttachmentIdByNameRef.current.get(attachment.name);
-        if (latestAttachmentId !== attachment.attachmentId || controller.signal.aborted) {
+        if (
+          latestAttachmentId !== attachment.attachmentId ||
+          controller.signal.aborted ||
+          !isCurrentTarget(generation)
+        ) {
           return;
         }
         const references = extractUploadReferences(response);
@@ -231,7 +263,11 @@ export function useChatComposerAttachments({
                     Number.isFinite(Number(reference?.sizeBytes)) && Number(reference?.sizeBytes) >= 0
                       ? Number(reference?.sizeBytes)
                       : item.sizeBytes,
-                  resourceUrl: reference?.url || item.resourceUrl,
+                  resourceUrl:
+                    buildChatResourceUrl(
+                      reference?.url || reference?.path || '',
+                      getRemoteChatSourceId(conversationId)
+                    ) || item.resourceUrl,
                   sha256: reference?.sha256 || item.sha256,
                   status: 'ready',
                   errorReason: null,
@@ -242,7 +278,7 @@ export function useChatComposerAttachments({
           )
         );
       } catch (error) {
-        if (controller.signal.aborted) {
+        if (controller.signal.aborted || !isCurrentTarget(generation)) {
           return;
         }
         const latestAttachmentId = latestAttachmentIdByNameRef.current.get(attachment.name);
@@ -269,7 +305,7 @@ export function useChatComposerAttachments({
         abortControllersRef.current.delete(attachment.attachmentId);
       }
     },
-    [conversationId, reportError, t]
+    [conversationId, isCurrentTarget, reportError, t]
   );
 
   const drainUploadQueue = useCallback(() => {
@@ -302,7 +338,7 @@ export function useChatComposerAttachments({
 
   const addPickedAttachments = useCallback(
     (pickedAttachments: PickedComposerAttachment[]) => {
-      if (disabled || pickedAttachments.length === 0) {
+      if (!targetRef.current.filesAllowed || pickedAttachments.length === 0) {
         return;
       }
 
@@ -316,7 +352,8 @@ export function useChatComposerAttachments({
       const latestPickedAttachments = keepLatestChatAttachmentsByName(validPickedAttachments);
       const currentNamesToReplace = new Set(latestPickedAttachments.map((item) => item.name));
       const retainedCount = attachmentsRef.current.filter(
-        (attachment) => !currentNamesToReplace.has(attachment.name)
+        (attachment) =>
+          (attachment.kind !== 'image' && attachment.kind !== 'file') || !currentNamesToReplace.has(attachment.name)
       ).length;
       const availableSlots = Math.max(MAX_COMPOSER_ATTACHMENTS - retainedCount, 0);
       const acceptedPickedAttachments = latestPickedAttachments.slice(0, availableSlots);
@@ -336,7 +373,8 @@ export function useChatComposerAttachments({
       });
       setAttachments((current) => {
         const retainedAttachments = current.filter((attachment) => {
-          const shouldReplace = currentNamesToReplace.has(attachment.name);
+          const shouldReplace =
+            (attachment.kind === 'image' || attachment.kind === 'file') && currentNamesToReplace.has(attachment.name);
           if (shouldReplace) {
             uploadQueueRef.current = uploadQueueRef.current.filter(
               (item) => item.attachmentId !== attachment.attachmentId
@@ -352,14 +390,15 @@ export function useChatComposerAttachments({
         enqueueUpload(attachment);
       });
     },
-    [conversationId, disabled, enqueueUpload, reportError, t]
+    [conversationId, enqueueUpload, reportError, t]
   );
 
   const handleSelectAttachment = useCallback(
-    async (type: ChatAttachmentKind) => {
-      if (disabled) {
+    async (type: Extract<ChatAttachmentKind, 'image' | 'file'>) => {
+      if (!targetRef.current.filesAllowed) {
         return;
       }
+      const generation = targetRef.current.generation;
       try {
         if (type === 'image') {
           const result = await ImagePicker.launchImageLibraryAsync({
@@ -371,7 +410,7 @@ export function useChatComposerAttachments({
             exif: false,
             quality: 1
           });
-          if (!result.canceled) {
+          if (isCurrentTarget(generation) && targetRef.current.filesAllowed && !result.canceled) {
             addPickedAttachments(result.assets.map(normalizeImageAsset).filter(isPickedComposerAttachment));
           }
           return;
@@ -383,14 +422,14 @@ export function useChatComposerAttachments({
           copyToCacheDirectory: true,
           base64: false
         });
-        if (!result.canceled) {
+        if (isCurrentTarget(generation) && targetRef.current.filesAllowed && !result.canceled) {
           addPickedAttachments(result.assets.map(normalizeDocumentAsset).filter(isPickedComposerAttachment));
         }
       } catch (error) {
-        reportError(error instanceof Error ? error.message : String(error));
+        if (isCurrentTarget(generation)) reportError(error instanceof Error ? error.message : String(error));
       }
     },
-    [addPickedAttachments, disabled, reportError]
+    [addPickedAttachments, isCurrentTarget, reportError]
   );
 
   const handleRemoveAttachment = useCallback((attachmentId: string) => {
@@ -413,7 +452,7 @@ export function useChatComposerAttachments({
   const handleRetryAttachment = useCallback(
     (attachmentId: string) => {
       const attachment = attachmentsRef.current.find((item) => item.attachmentId === attachmentId);
-      if (!attachment || attachment.status !== 'failed') {
+      if (!targetRef.current.filesAllowed || !attachment || attachment.status !== 'failed') {
         return;
       }
       latestAttachmentIdByNameRef.current.set(attachment.name, attachment.attachmentId);
@@ -435,22 +474,124 @@ export function useChatComposerAttachments({
     abortControllersRef.current.forEach((controller) => controller.abort());
     abortControllersRef.current.clear();
     latestAttachmentIdByNameRef.current.clear();
+    attachmentsRef.current = [];
     setAttachments([]);
   }, []);
 
+  const restoreAttachments = useCallback((restored: readonly ChatComposerAttachment[]) => {
+    setAttachments((current) => {
+      const combined = [...current, ...restored],
+        seen = new Set<string>(),
+        retained: ChatComposerAttachment[] = [];
+      for (let index = combined.length - 1; index >= 0; index--) {
+        const item = combined[index],
+          key =
+            item.kind === 'selection'
+              ? `selection:${item.attachmentId}`
+              : ['chat', 'site', 'skill', 'kbase'].includes(item.kind)
+                ? `${item.kind}:${item.references[0]?.id}`
+                : `file:${item.name}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        retained.push(item);
+      }
+      return retained.reverse().slice(-MAX_COMPOSER_ATTACHMENTS);
+    });
+  }, []);
+
+  const addContextReference = useCallback(
+    (reference: ChatContextReference) => {
+      if (disabled) return false;
+      const existing = attachmentsRef.current.some(
+        (item) => item.kind === reference.type && item.references[0]?.id === reference.id
+      );
+      if (existing) return true;
+      if (attachmentsRef.current.length >= MAX_COMPOSER_ATTACHMENTS) {
+        reportError(t('attachment.error.tooMany', { count: MAX_COMPOSER_ATTACHMENTS }));
+        return false;
+      }
+      const attachment = createChatContextAttachment(conversationId, reference);
+      attachmentsRef.current = [...attachmentsRef.current, attachment];
+      setAttachments(attachmentsRef.current);
+      return true;
+    },
+    [conversationId, disabled, reportError, t]
+  );
+
+  const addSelection = useCallback(
+    (text: string, annotation: string, sourceKind: 'message' | 'code') => {
+      if (disabled) return false;
+      if (attachmentsRef.current.length >= MAX_COMPOSER_ATTACHMENTS) {
+        reportError(t('attachment.error.tooMany', { count: MAX_COMPOSER_ATTACHMENTS }));
+        return false;
+      }
+      const referenceIndex = attachmentsRef.current.reduce(
+        (next, item) =>
+          Math.max(
+            next,
+            ...item.references.filter((ref) => ref.type === 'selection').map((ref) => (ref.annotationIndex || 0) + 1)
+          ),
+        1
+      );
+      const index = Math.max(nextSelectionIndexRef.current, selectionStartIndex, referenceIndex);
+      const attachment = createChatSelectionAttachment({
+        conversationId,
+        text,
+        annotation,
+        sourceKind,
+        annotationIndex: index
+      });
+      nextSelectionIndexRef.current = index + 1;
+      attachmentsRef.current = [...attachmentsRef.current, attachment];
+      setAttachments(attachmentsRef.current);
+      return true;
+    },
+    [conversationId, disabled, reportError, selectionStartIndex, t]
+  );
+
+  const updateSelectionAnnotation = useCallback(
+    (attachmentId: string, annotation: string) => {
+      if (disabled) return;
+      setAttachments((current) =>
+        current.map((item) =>
+          item.attachmentId !== attachmentId || item.kind !== 'selection'
+            ? item
+            : {
+                ...item,
+                references: item.references.map((ref) => ({
+                  ...ref,
+                  annotation: annotation.trim() ? annotation : undefined
+                })),
+                updatedAt: Date.now()
+              }
+        )
+      );
+    },
+    [disabled]
+  );
+
+  useEffect(() => {
+    nextSelectionIndexRef.current = 1;
+    setAttachments((current) => current.filter((item) => item.kind !== 'selection'));
+  }, [conversationId, selectionScope]);
+
   useEffect(() => {
     clearAttachments();
-  }, [clearAttachments, conversationId]);
+  }, [clearAttachments, targetKey]);
 
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    targetRef.current.mounted = true;
+    const controllers = abortControllersRef.current;
+    const latestIds = latestAttachmentIdByNameRef.current;
+    return () => {
+      targetRef.current.mounted = false;
+      targetRef.current.generation++;
       uploadQueueRef.current = [];
-      abortControllersRef.current.forEach((controller) => controller.abort());
-      abortControllersRef.current.clear();
-      latestAttachmentIdByNameRef.current.clear();
-    },
-    []
-  );
+      controllers.forEach((controller) => controller.abort());
+      controllers.clear();
+      latestIds.clear();
+    };
+  }, []);
 
   return {
     attachments,
@@ -460,6 +601,10 @@ export function useChatComposerAttachments({
     handleSelectAttachment,
     handleRemoveAttachment,
     handleRetryAttachment,
-    clearAttachments
+    clearAttachments,
+    restoreAttachments,
+    addSelection,
+    addContextReference,
+    updateSelectionAnnotation
   };
 }

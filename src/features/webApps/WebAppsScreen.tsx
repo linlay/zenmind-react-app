@@ -1,3 +1,4 @@
+import { useAccountAuth } from '../../core/auth/useAccountAuth';
 import { FlashList } from '@shopify/flash-list';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -41,6 +42,12 @@ const ROW_PAUSE_TEXT_CLASS = 'text-app-primary';
 const STATE_CLASS = 'items-center justify-center px-app-xl py-[56px]';
 const STATE_TITLE_CLASS = 'text-center text-app-title-sm font-bold text-app-primary';
 const STATE_BODY_CLASS = 'mt-app-sm text-center text-app-body-sm text-app-secondary';
+const UNPAIRED_STATE_CLASS = 'flex-1 items-center justify-center px-app-xxl';
+const UNPAIRED_ICON_CLASS =
+  'mb-app-lg h-[72px] w-[72px] items-center justify-center rounded-app-pill bg-app-brand-blue-soft';
+const PAIR_BUTTON_CLASS =
+  'mt-app-xl min-h-[48px] min-w-[168px] items-center justify-center rounded-app-lg bg-app-action px-app-xl active:opacity-[0.76]';
+const PAIR_BUTTON_TEXT_CLASS = 'text-app-body font-extrabold text-app-on-action';
 const NOTICE_CLASS = 'mx-app-xl mb-app-sm rounded-app-md bg-app-brand-blue-soft px-app-md py-app-sm';
 const NOTICE_TEXT_CLASS = 'text-app-footnote text-app-secondary';
 const ERROR_CLASS = 'mx-app-xl mb-app-sm rounded-app-md bg-app-danger-soft px-app-md py-app-sm';
@@ -106,12 +113,14 @@ const WebAppRow = memo(function WebAppRow({ item, capabilities }: WebAppRowProps
 });
 
 export function WebAppsScreen() {
+  const auth = useAccountAuth();
   const t = useT();
   const { theme } = useAppTheme();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const tabBarHeight = useAppTabBarHeight();
   const {
     items,
+    enabled,
     openableApps,
     capabilities,
     connectionStatus,
@@ -174,7 +183,7 @@ export function WebAppsScreen() {
             <Text className={NOTICE_TEXT_CLASS}>{t('webApps.desktopDisconnected')}</Text>
           </View>
         ) : null}
-        {error ? (
+        {error && items.length > 0 ? (
           <View className={ERROR_CLASS}>
             <Text className={ERROR_TEXT_CLASS}>{getGatewayErrorMessage(t, error.code)}</Text>
           </View>
@@ -182,19 +191,64 @@ export function WebAppsScreen() {
         <Text className={SECTION_LABEL_CLASS}>{t('webApps.listTitle')}</Text>
       </>
     ),
-    [canOpenContainer, connectionStatus, controlsAvailable, error, initialized, openDetail, openableApps.length, t]
+    [
+      canOpenContainer,
+      connectionStatus,
+      controlsAvailable,
+      error,
+      initialized,
+      items.length,
+      openDetail,
+      openableApps.length,
+      t
+    ]
   );
-  const emptyState = loading ? (
-    <View className={STATE_CLASS}>
-      <ActivityIndicator color={theme.colors.brandBlue} />
-      <Text className={STATE_BODY_CLASS}>{t('webApps.loading')}</Text>
-    </View>
-  ) : (
-    <View className={STATE_CLASS}>
-      <Text className={STATE_TITLE_CLASS}>{t('webApps.emptyTitle')}</Text>
-      <Text className={STATE_BODY_CLASS}>{t('webApps.emptyBody')}</Text>
-    </View>
-  );
+  const emptyState =
+    loading || refreshing || !initialized ? (
+      <View className={STATE_CLASS}>
+        <ActivityIndicator color={theme.colors.brandBlue} />
+        <Text className={STATE_BODY_CLASS}>{t('webApps.loading')}</Text>
+      </View>
+    ) : error ? (
+      <View className={STATE_CLASS}>
+        <Text className={STATE_TITLE_CLASS}>{t('webApps.loadFailed')}</Text>
+        <Text className={STATE_BODY_CLASS}>{getGatewayErrorMessage(t, error.code)}</Text>
+        <Text className={STATE_BODY_CLASS}>{t('webApps.pullToRetry')}</Text>
+      </View>
+    ) : (
+      <View className={STATE_CLASS}>
+        <Text className={STATE_TITLE_CLASS}>{t('webApps.emptyTitle')}</Text>
+        <Text className={STATE_BODY_CLASS}>{t('webApps.emptyBody')}</Text>
+      </View>
+    );
+
+  if (!enabled) {
+    return (
+      <View className={SCREEN_CLASS}>
+        <SafeAreaView edges={['top']} className={HEADER_SAFE_AREA_CLASS}>
+          <ScreenHeader title={t('webApps.title')} />
+        </SafeAreaView>
+        <View className={UNPAIRED_STATE_CLASS} style={listContentStyle}>
+          <View className={UNPAIRED_ICON_CLASS}>
+            <AppIcon usage="webApps.pairRequired" />
+          </View>
+          <Text className={STATE_TITLE_CLASS}>{auth.session ? t('webApps.emptyTitle') : t('accountSource.login')}</Text>
+          <Text className={STATE_BODY_CLASS}>
+            {auth.session ? t('webApps.cloudUnsupported') : t('accountSource.signedOutBody')}
+          </Text>
+          {!auth.session ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => navigation.navigate('Login')}
+              className={PAIR_BUTTON_CLASS}
+            >
+              <Text className={PAIR_BUTTON_TEXT_CLASS}>{t('accountSource.login')}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View className={SCREEN_CLASS}>

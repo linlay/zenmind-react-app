@@ -1,3 +1,9 @@
+import {
+  hasValidRemoteChatStreamTime,
+  hasValidRemoteChatPushTime,
+  withRemoteChatPushInstant
+} from '../../core/api/services/chatRemoteTimeProtocol.ts';
+import { buildChatRunOwnerPayload } from '../../core/api/services/chatRunOwner.ts';
 import type { ChatSocketStatus } from './types.ts';
 import { normalizeEventType } from '../../core/api/services/chatEventProtocol.ts';
 import {
@@ -16,6 +22,7 @@ export type ChatTransportConfig = WsTransportConfig;
 
 type ChatTransportCallbacks = {
   onPush?: (event: Record<string, unknown>) => void;
+  onProtocolError?: (event: Record<string, unknown>, error: Error) => void;
   onStatusChange?: (status: ChatSocketStatus) => void;
 };
 
@@ -48,8 +55,8 @@ type ChatQueryPayloadInput = {
   message: string;
   references?: unknown[];
   agentKey?: string | null;
-  teamId?: string | null;
   planningMode?: boolean;
+  editingMode?: boolean;
   accessLevel?: ChatQueryAccessLevel;
   model?: ChatQueryModelOverride;
 };
@@ -60,8 +67,8 @@ type ChatQueryPayload = {
   message: string;
   references?: unknown[];
   agentKey?: string;
-  teamId?: string;
   planningMode?: true;
+  editingMode?: boolean;
   accessLevel?: Exclude<ChatQueryAccessLevel, 'default'>;
   model?: ChatQueryModelOverride;
   role: 'user';
@@ -70,18 +77,34 @@ type ChatQueryPayload = {
 
 type ChatAttachPayloadInput = {
   runId: string;
-  agentKey: string;
+  chatId?: string;
+  agentKey?: string;
   lastSeq?: number;
 };
 
 type ChatAttachPayload = {
   runId: string;
-  agentKey: string;
+  chatId?: string;
+  agentKey?: string;
   lastSeq: number;
 };
 
-let unsubscribePush: SharedWsSubscription | null = null;
-let unsubscribeStatus: SharedWsSubscription | null = null;
+const subscriptions = new Map<
+  string,
+  {
+    unsubscribePush: SharedWsSubscription | null;
+    unsubscribeStatus: SharedWsSubscription | null;
+  }
+>();
+
+function getSubscriptionKey(config: ChatTransportConfig): string {
+  if (config.connectionKey) {
+    return config.connectionKey;
+  }
+  return config.kind === 'desktop-ws'
+    ? `desktop-ws:${config.wsUrl}:${config.tokenMode}`
+    : `agent-platform:${config.wsUrl || ''}:${config.backendUrl}`;
+}
 
 function getTransportNamespace(config: ChatTransportConfig): WsTransportNamespace | undefined {
   return config.kind === 'desktop-ws' ? config.namespace : undefined;
@@ -131,19 +154,18 @@ function compactQueryModelOverride(model: ChatQueryModelOverride | undefined): C
 }
 
 export function buildChatQueryPayload(input: ChatQueryPayloadInput): ChatQueryPayload {
-  const teamId = String(input.teamId || '').trim();
-  const agentKey = teamId ? '' : String(input.agentKey || '').trim();
   const accessLevel = normalizeQueryAccessLevel(input.accessLevel);
   const model = compactQueryModelOverride(input.model);
+  const owner = buildChatRunOwnerPayload(input);
 
   return {
     requestId: String(input.requestId || '').trim(),
     chatId: String(input.chatId || '').trim() || undefined,
     message: input.message,
     ...(input.references !== undefined ? { references: input.references } : {}),
-    ...(teamId ? { teamId } : {}),
-    ...(agentKey ? { agentKey } : {}),
+    ...owner,
     ...(input.planningMode === true ? { planningMode: true } : {}),
+    ...(typeof input.editingMode === 'boolean' ? { editingMode: input.editingMode } : {}),
     ...(accessLevel ? { accessLevel } : {}),
     ...(model ? { model } : {}),
     role: 'user',
@@ -154,8 +176,9 @@ export function buildChatQueryPayload(input: ChatQueryPayloadInput): ChatQueryPa
 export function buildChatAttachPayload(input: ChatAttachPayloadInput): ChatAttachPayload {
   return {
     runId: String(input.runId || '').trim(),
-    agentKey: String(input.agentKey || '').trim(),
-    lastSeq: Number.isFinite(Number(input.lastSeq)) ? Number(input.lastSeq) : 0
+    ...(input.chatId ? { chatId: input.chatId.trim() } : {}),
+    ...buildChatRunOwnerPayload(input),
+    lastSeq: Number.isSafeInteger(input.lastSeq) && Number(input.lastSeq) >= 0 ? Number(input.lastSeq) : 0
   };
 }
 
@@ -172,15 +195,18 @@ export function toWsPushEvent(frame: WsPushFrame): Record<string, unknown> {
   });
 }
 
-function clearChatSubscriptions() {
-  unsubscribePush?.();
-  unsubscribeStatus?.();
-  unsubscribePush = null;
-  unsubscribeStatus = null;
+function clearChatSubscriptions(config?: ChatTransportConfig) {
+  const keys = config ? [getSubscriptionKey(config)] : [...subscriptions.keys()];
+  keys.forEach((key) => {
+    const subscription = subscriptions.get(key);
+    subscription?.unsubscribePush?.();
+    subscription?.unsubscribeStatus?.();
+    subscriptions.delete(key);
+  });
 }
 
-export function getChatTransportStatus(): ChatSocketStatus {
-  return sharedWsTransport.getStatus();
+export function getChatTransportStatus(config?: ChatTransportConfig): ChatSocketStatus {
+  return sharedWsTransport.getStatus(config);
 }
 
 export function updateChatTransportAuth(configInput: ChatTransportConfig): boolean {
@@ -191,15 +217,22 @@ export async function startChatPushTransport(
   config: ChatTransportConfig,
   callbacks: ChatTransportCallbacks = {}
 ): Promise<void> {
-  clearChatSubscriptions();
+  clearChatSubscriptions(config);
+  const subscription = {
+    unsubscribePush: null as SharedWsSubscription | null,
+    unsubscribeStatus: null as SharedWsSubscription | null
+  };
   if (callbacks.onPush) {
-    unsubscribePush = sharedWsTransport.subscribePush((frame) => {
-      callbacks.onPush?.(toWsPushEvent(frame as WsPushFrame));
-    });
+    subscription.unsubscribePush = sharedWsTransport.subscribePush((frame) => {
+      const event = toWsPushEvent(frame as WsPushFrame);
+      if (hasValidRemoteChatPushTime(event, frame)) callbacks.onPush?.(withRemoteChatPushInstant(event));
+      else callbacks.onProtocolError?.(event, new Error('Invalid remote chat push timestamp'));
+    }, config);
   }
   if (callbacks.onStatusChange) {
-    unsubscribeStatus = sharedWsTransport.subscribeStatus(callbacks.onStatusChange);
+    subscription.unsubscribeStatus = sharedWsTransport.subscribeStatus(callbacks.onStatusChange, config);
   }
+  subscriptions.set(getSubscriptionKey(config), subscription);
   await sharedWsTransport.connect(config);
 }
 
@@ -213,38 +246,99 @@ export async function requestChatTransport<T>(options: RequestOptions): Promise<
   });
 }
 
-export function stopChatPushTransport() {
-  clearChatSubscriptions();
+export function stopChatPushTransport(config?: ChatTransportConfig, releaseConnection = false) {
+  clearChatSubscriptions(config);
+  if (releaseConnection && config) sharedWsTransport.releaseIfIdle(config);
+}
+
+let nextChatStreamId = 0;
+
+function startChatProtocolStream(
+  options: StreamOptions,
+  type: '/api/query' | '/api/attach',
+  payload: unknown,
+  initialRunId = '',
+  agentKey?: string | null
+): SharedWsStreamHandle {
+  const requestId = `chat-stream-${Date.now().toString(36)}-${++nextChatStreamId}`;
+  let runId = initialRunId;
+  let ended = false;
+  const finish = () => {
+    ended = true;
+    options.signal?.removeEventListener('abort', abort);
+  };
+  const handle = sharedWsTransport.startStream<Record<string, unknown>>({
+    transport: options,
+    type,
+    payload,
+    requestId,
+    namespace: getTransportNamespace(options),
+    onEvent: (event) => {
+      const normalized = normalizeTransportEvent(event);
+      if (
+        (!initialRunId || !normalized.runId || normalized.runId === initialRunId) &&
+        hasValidRemoteChatStreamTime(normalized) &&
+        (normalized.seq === undefined || (Number.isSafeInteger(normalized.seq) && Number(normalized.seq) >= 0))
+      ) {
+        runId = String(normalized.runId || runId);
+        options.onEvent(normalized);
+      } else options.onError?.(new Error('Invalid remote chat stream timestamp'));
+    },
+    onDone: (reason, lastSeq) => {
+      finish();
+      options.onDone?.(reason, lastSeq);
+    },
+    onError: (error) => {
+      finish();
+      options.onError?.(error);
+    }
+  });
+  function abort() {
+    if (ended) return;
+    finish();
+    handle.abort();
+    // Desktop releases this connection's consumer; AP releases only this connection's observer.
+    if (options.kind === 'desktop-ws' || runId) {
+      void requestChatTransport({
+        ...options,
+        signal: undefined,
+        type: '/api/detach',
+        payload: {
+          ...(runId ? { runId } : {}),
+          ...(options.kind === 'desktop-ws' ? { streamRequestId: requestId } : {}),
+          ...buildChatRunOwnerPayload({ agentKey }),
+          reason: 'surface_inactive'
+        }
+      }).catch(() => {});
+    }
+  }
+  if (!ended) {
+    options.signal?.addEventListener('abort', abort, { once: true });
+    if (options.signal?.aborted) abort();
+  }
+  return { abort };
 }
 
 export async function streamChatQuery(
-  options: StreamOptions & {
-    payload: ChatQueryPayloadInput;
-  }
+  options: StreamOptions & { payload: ChatQueryPayloadInput }
 ): Promise<SharedWsStreamHandle> {
-  return sharedWsTransport.startStream<Record<string, unknown>>({
-    transport: options,
-    type: '/api/query',
-    payload: buildChatQueryPayload(options.payload),
-    signal: options.signal,
-    namespace: getTransportNamespace(options),
-    onEvent: (event) => options.onEvent(normalizeTransportEvent(event)),
-    onDone: options.onDone,
-    onError: options.onError
-  });
+  return startChatProtocolStream(
+    options,
+    '/api/query',
+    buildChatQueryPayload(options.payload),
+    '',
+    options.payload.agentKey
+  );
 }
 
 export async function attachChatRun(
-  options: StreamOptions & { payload: { runId: string; agentKey: string; lastSeq?: number } }
+  options: StreamOptions & { payload: ChatAttachPayloadInput }
 ): Promise<SharedWsStreamHandle> {
-  return sharedWsTransport.startStream<Record<string, unknown>>({
-    transport: options,
-    type: '/api/attach',
-    payload: buildChatAttachPayload(options.payload),
-    signal: options.signal,
-    namespace: getTransportNamespace(options),
-    onEvent: (event) => options.onEvent(normalizeTransportEvent(event)),
-    onDone: options.onDone,
-    onError: options.onError
-  });
+  return startChatProtocolStream(
+    options,
+    '/api/attach',
+    buildChatAttachPayload(options.payload),
+    options.payload.runId,
+    options.payload.agentKey
+  );
 }

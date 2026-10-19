@@ -3,13 +3,14 @@ import test from 'node:test';
 
 import {
   formatChatDetailDuration,
+  formatChatDetailRunDuration,
   formatChatDetailRunningDuration,
   formatChatDetailTimestamp,
   formatChatUsageEstimatedCost,
   formatChatUsageFirstTokenLatency,
   formatChatUsageOutputSpeed,
   hasChatUsageStatsData,
-  resolveChatUsageToolCallCount,
+  resolveChatUsageToolCallCount
 } from '../../src/features/chatPersistence/chatDetailFormatters.ts';
 import type { ChatTimelineUsageStats } from '../../src/features/chatTimeline/index.ts';
 import { createTranslator } from '../../src/shared/i18n/translate.ts';
@@ -29,9 +30,9 @@ function createUsageStats(patch: Partial<ChatTimelineUsageStats> = {}): ChatTime
       firstTokenLatencyMs: null,
       firstTokenLatencyTotalMs: null,
       firstTokenLatencyCount: null,
-      generationDurationMs: null,
+      generationDurationMs: null
     },
-    ...patch,
+    ...patch
   };
 }
 
@@ -44,29 +45,17 @@ test('formats chat detail timestamps for timeline footers and history rows', () 
     formatChatDetailTimestamp(new Date(2026, 5, 11, 8, 5).getTime(), now, 'Today', 'Yesterday'),
     'Today 08:05'
   );
-  assert.equal(
-    formatChatDetailTimestamp(new Date(2026, 5, 10, 8, 5).getTime(), now, 'Yesterday'),
-    'Yesterday 08:05'
-  );
+  assert.equal(formatChatDetailTimestamp(new Date(2026, 5, 10, 8, 5).getTime(), now, 'Yesterday'), 'Yesterday 08:05');
   assert.equal(
     formatChatDetailTimestamp(new Date(2026, 5, 10, 8, 5).getTime(), now, 'Today', 'Yesterday'),
     'Yesterday 08:05'
   );
   assert.equal(
-    formatChatDetailTimestamp(
-      new Date(2025, 11, 31, 23, 59).getTime(),
-      new Date(2026, 0, 1, 1, 0).getTime()
-    ),
+    formatChatDetailTimestamp(new Date(2025, 11, 31, 23, 59).getTime(), new Date(2026, 0, 1, 1, 0).getTime()),
     '昨天 23:59'
   );
-  assert.equal(
-    formatChatDetailTimestamp(new Date(2026, 5, 9, 8, 5).getTime(), now),
-    '06/09 08:05'
-  );
-  assert.equal(
-    formatChatDetailTimestamp(new Date(2025, 11, 21, 8, 5).getTime(), now),
-    '2025/12/21 08:05'
-  );
+  assert.equal(formatChatDetailTimestamp(new Date(2026, 5, 9, 8, 5).getTime(), now), '06/09 08:05');
+  assert.equal(formatChatDetailTimestamp(new Date(2025, 11, 21, 8, 5).getTime(), now), '2025/12/21 08:05');
   assert.equal(formatChatDetailTimestamp(0, now), '');
 });
 
@@ -85,6 +74,17 @@ test('formats chat detail durations from the largest unit down to seconds', () =
   assert.equal(formatChatDetailDuration(-1), '');
 });
 
+test('formats completed run durations as locale-aware whole seconds', () => {
+  const enT = createTranslator('en-US');
+
+  assert.equal(formatChatDetailRunDuration(800), '1秒');
+  assert.equal(formatChatDetailRunDuration(80_100), '1分20秒');
+  assert.equal(formatChatDetailRunDuration(172_000), '2分52秒');
+  assert.equal(formatChatDetailRunDuration(172_000, enT), '2m 52s');
+  assert.equal(formatChatDetailRunDuration(null), '');
+  assert.equal(formatChatDetailRunDuration(-1), '');
+});
+
 test('formats running tool duration in whole seconds after the first second', () => {
   assert.equal(formatChatDetailRunningDuration(1_000, 1_999), '');
   assert.equal(formatChatDetailRunningDuration(1_000, 2_000), '1s');
@@ -101,8 +101,8 @@ test('formats usage latency and output speed with PC-compatible rules', () => {
           firstTokenLatencyMs: 820,
           firstTokenLatencyTotalMs: null,
           firstTokenLatencyCount: null,
-          generationDurationMs: null,
-        },
+          generationDurationMs: null
+        }
       })
     ),
     '820ms'
@@ -114,8 +114,8 @@ test('formats usage latency and output speed with PC-compatible rules', () => {
           firstTokenLatencyMs: null,
           firstTokenLatencyTotalMs: 21_200,
           firstTokenLatencyCount: 2,
-          generationDurationMs: null,
-        },
+          generationDurationMs: null
+        }
       })
     ),
     '10.6s'
@@ -128,8 +128,8 @@ test('formats usage latency and output speed with PC-compatible rules', () => {
           firstTokenLatencyMs: null,
           firstTokenLatencyTotalMs: null,
           firstTokenLatencyCount: null,
-          generationDurationMs: 880,
-        },
+          generationDurationMs: 880
+        }
       })
     ),
     '53.4/s'
@@ -142,8 +142,8 @@ test('formats usage latency and output speed with PC-compatible rules', () => {
           firstTokenLatencyMs: null,
           firstTokenLatencyTotalMs: null,
           firstTokenLatencyCount: null,
-          generationDurationMs: 0,
-        },
+          generationDurationMs: 0
+        }
       })
     ),
     null
@@ -158,7 +158,7 @@ test('formats usage costs in yuan and preserves empty-section tool semantics', (
         inputCacheHit: null,
         inputCacheMiss: null,
         output: null,
-        total: 0.0174,
+        total: 0.0174
       },
       'zh-CN'
     ),
@@ -171,7 +171,7 @@ test('formats usage costs in yuan and preserves empty-section tool semantics', (
         inputCacheHit: null,
         inputCacheMiss: null,
         output: null,
-        total: 0.0123,
+        total: 0.0123
       },
       'en-US'
     ),
@@ -184,7 +184,7 @@ test('formats usage costs in yuan and preserves empty-section tool semantics', (
         inputCacheHit: null,
         inputCacheMiss: null,
         output: null,
-        total: 0.0174,
+        total: 0.0174
       },
       'zh-CN'
     ),

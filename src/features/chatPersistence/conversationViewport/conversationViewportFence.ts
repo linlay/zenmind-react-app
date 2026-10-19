@@ -1,3 +1,4 @@
+import { readChatViewReference, type ChatViewReference } from '../../../core/api/services/chatViewProtocol.ts';
 import {
   CONVERSATION_PREVIEW_MAX_SOURCE_BYTES,
   getConversationPreviewSourceByteLength
@@ -66,4 +67,19 @@ export const CONVERSATION_VIEWPORT_FENCE_EXTENSION: ConversationMarkdownFenceExt
   parse: ({ source }) => parseConversationViewportFence(source)
 };
 
-export const CONVERSATION_VIEWPORT_FENCE_EXTENSIONS = [CONVERSATION_VIEWPORT_FENCE_EXTENSION] as const;
+
+
+export type ConversationViewFenceData = { view: ChatViewReference; payload: unknown; viewError?: string };
+export const CONVERSATION_VIEW_FENCE_EXTENSION: ConversationMarkdownFenceExtension = {
+  key: 'view', aliases: ['view', 'VIEW'],
+  parse: ({ source }) => {
+    if (getConversationPreviewSourceByteLength(source) > CONVERSATION_PREVIEW_MAX_SOURCE_BYTES) return null;
+    try {
+      const value = JSON.parse(source);
+      const view = readChatViewReference(value?.view);
+      return view ? {view, payload: value.payload ?? {}, viewError: typeof value.viewError === 'string' ? value.viewError : ''} : null;
+    } catch { return null; }
+  }
+};
+
+export const CONVERSATION_VIEWPORT_FENCE_EXTENSIONS = [CONVERSATION_VIEWPORT_FENCE_EXTENSION, CONVERSATION_VIEW_FENCE_EXTENSION] as const;
