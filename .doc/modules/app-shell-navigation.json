@@ -51,7 +51,8 @@
       "启动恢复期间直接展示 AuthBootstrapScreen，不创建占用 Login 路由的临时 Navigator；恢复完成后首次挂载正式 root stack，初始路由为 Tabs，避免恢复成功仍停在无返回历史的登录页。",
       "ChatDetail 按所选来源交接；WebApps sessionKey 绑定官网 accountId、auth generation 与所选 Desktop，只在电脑来源启用。",
       "云端通知注册用本地云端 scope 作为客户端身份，使用云端凭证；账号退出不清除当前云端注册，迟到注册及点击按来源拒绝。",
-      "Me 显示官网已确认用户信息；RootStack 不再挂旧账号安全/邮箱绑定解绑页面。"
+      "Me 显示官网已确认用户信息；RootStack 不再挂旧账号安全/邮箱绑定解绑页面。",
+      "AppRoot 回前台调用 refreshAccountSession，认证层按安装品牌选择官网邮箱或企业 SSO；Login 继续使用单一路由承载账号与云端，企业页占用正文空间，不放进表单滚动区。"
     ],
     "nonGoals": []
   },
@@ -61,6 +62,7 @@
       "index.js"
     ],
     "publicApi": [
+      "ACCOUNT_SERVICES",
       "APP_BRAND",
       "APP_BRANDS",
       "APP_ENVIRONMENT",
@@ -152,6 +154,7 @@
       "scripts/tests/appIconRegistry.test.mts",
       "scripts/tests/authNavigation.test.mts",
       "scripts/tests/authenticatedResourceModel.test.mts",
+      "scripts/tests/awaitingFormFrame.test.mts",
       "scripts/tests/awaitingOptionPreview.test.mts",
       "scripts/tests/awaitingQuestionState.test.mts",
       "scripts/tests/awaitingSubmitState.test.mts",
@@ -211,6 +214,7 @@
       "scripts/tests/chatSelectionReferences.test.mts",
       "scripts/tests/chatSkills.test.mts",
       "scripts/tests/chatSource.test.mts",
+      "scripts/tests/chatSyncContractFixtures.test.mts",
       "scripts/tests/chatSyncCoordinator.test.mts",
       "scripts/tests/chatTextSearchNative.test.mts",
       "scripts/tests/chatTimelineAction.test.mts",
@@ -228,6 +232,7 @@
       "scripts/tests/chatTimelineTask.test.mts",
       "scripts/tests/chatTranscriptSearch.test.mts",
       "scripts/tests/chatUsageHeaderBadge.test.mts",
+      "scripts/tests/chatViewBinding.test.mts",
       "scripts/tests/chatViewProtocol.test.mts",
       "scripts/tests/chatWebclientService.test.mts",
       "scripts/tests/chatWebclientSync.test.mts",
@@ -238,6 +243,9 @@
       "scripts/tests/conversationMarkdownLinks.test.mts",
       "scripts/tests/conversationPreviewSurface.test.mts",
       "scripts/tests/deviceLinkContract.test.mts",
+      "scripts/tests/enterpriseAccount.test.mts",
+      "scripts/tests/enterpriseAuthSession.test.mts",
+      "scripts/tests/enterpriseLogin.test.mts",
       "scripts/tests/httpDebugLogger.test.mts",
       "scripts/tests/i18n.test.mts",
       "scripts/tests/importBoundary.test.mts",
@@ -275,7 +283,7 @@
       "scripts/tests/workletsPregenerate.test.mts",
       "scripts/tests/wsClientTransport.test.mts"
     ],
-    "lastScannedAt": "2026-10-16T08:54:52Z"
+    "lastScannedAt": "2026-10-29T03:25:58Z"
   },
   "readHints": {
     "alwaysRead": [

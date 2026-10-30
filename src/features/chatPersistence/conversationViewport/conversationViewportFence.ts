@@ -1,85 +1,32 @@
-import { readChatViewReference, type ChatViewReference } from '../../../core/api/services/chatViewProtocol.ts';
 import {
   CONVERSATION_PREVIEW_MAX_SOURCE_BYTES,
   getConversationPreviewSourceByteLength
 } from '../../../shared/components/conversationPreview/runtimeBridge.ts';
 import type { ConversationMarkdownFenceExtension } from '../../../shared/markdown/previewSegments.ts';
 
-export type ConversationViewportFenceData = {
-  viewportKey: string;
-  payload: unknown;
-};
-
-function parseHeaderFields(header: string): Record<string, string> {
-  const fields: Record<string, string> = {};
-  header.split(',').forEach((part) => {
-    const separator = part.indexOf('=');
-    if (separator <= 0) {
-      return;
-    }
-    const key = part.slice(0, separator).trim().toLowerCase();
-    const value = part.slice(separator + 1).trim();
-    if (key && value) {
-      fields[key] = value;
-    }
-  });
-  return fields;
-}
-
-export function parseConversationViewportFence(source: string): ConversationViewportFenceData | null {
-  if (getConversationPreviewSourceByteLength(source) > CONVERSATION_PREVIEW_MAX_SOURCE_BYTES) {
-    return null;
-  }
-  const lines = String(source || '').replace(/\r\n?/g, '\n').split('\n');
-  const headerIndex = lines.findIndex((line) => line.trim().length > 0);
-  if (headerIndex < 0) {
-    return null;
-  }
-  const fields = parseHeaderFields(lines[headerIndex]!.trim());
-  const viewportKey = fields.key || '';
-  if (fields.type?.toLowerCase() !== 'html' || !viewportKey || viewportKey.length > 256) {
-    return null;
-  }
-
-  const payloadRaw = lines.slice(headerIndex + 1).join('\n').trim();
-  let payload: unknown = {};
-  if (payloadRaw) {
-    try {
-      payload = JSON.parse(payloadRaw);
-    } catch {
-      payload = {};
-    }
-  }
-  return { viewportKey, payload };
-}
-
-export function isConversationViewportFenceData(value: unknown): value is ConversationViewportFenceData {
-  return Boolean(
-    value &&
-      typeof value === 'object' &&
-      typeof (value as ConversationViewportFenceData).viewportKey === 'string'
-  );
-}
-
-export const CONVERSATION_VIEWPORT_FENCE_EXTENSION: ConversationMarkdownFenceExtension = {
-  key: 'viewport',
-  aliases: ['viewport'],
-  parse: ({ source }) => parseConversationViewportFence(source)
-};
-
-
-
-export type ConversationViewFenceData = { view: ChatViewReference; payload: unknown; viewError?: string };
+export type ConversationViewFenceData = { index: number; key?: string; payload?: unknown; error?: string };
 export const CONVERSATION_VIEW_FENCE_EXTENSION: ConversationMarkdownFenceExtension = {
-  key: 'view', aliases: ['view', 'VIEW'],
-  parse: ({ source }) => {
-    if (getConversationPreviewSourceByteLength(source) > CONVERSATION_PREVIEW_MAX_SOURCE_BYTES) return null;
+  key: 'view',
+  aliases: ['view'],
+  requireLineEnd: true,
+  matchOpeningLine: (line) => /^```view(?:[ \t]|$)/i.test(line),
+  parse: ({ openingLine, source, index }) => {
+    const fields = openingLine
+      .slice(7)
+      .trim()
+      .split(/\s+/)
+      .filter((field) => field.startsWith('key='));
+    const key = fields.length === 1 ? fields[0].slice(4) : '';
+    if (!/^[a-z0-9][a-z0-9._-]*\/[a-z0-9][a-z0-9._-]*$/.test(key)) return { index, error: 'invalid_view' };
+    const body = source.trim();
     try {
-      const value = JSON.parse(source);
-      const view = readChatViewReference(value?.view);
-      return view ? {view, payload: value.payload ?? {}, viewError: typeof value.viewError === 'string' ? value.viewError : ''} : null;
-    } catch { return null; }
+      if (getConversationPreviewSourceByteLength(body) > CONVERSATION_PREVIEW_MAX_SOURCE_BYTES || !/^[{[]/.test(body))
+        throw new Error();
+      const payload: unknown = JSON.parse(body);
+      return { index, key, payload };
+    } catch {
+      return { index, key, error: 'view_data_invalid' };
+    }
   }
 };
-
-export const CONVERSATION_VIEWPORT_FENCE_EXTENSIONS = [CONVERSATION_VIEWPORT_FENCE_EXTENSION, CONVERSATION_VIEW_FENCE_EXTENSION] as const;
+export const CONVERSATION_VIEW_FENCE_EXTENSIONS = [CONVERSATION_VIEW_FENCE_EXTENSION] as const;

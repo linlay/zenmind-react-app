@@ -1,5 +1,5 @@
 import { buildChatRunOwnerPayload } from './chatRunOwner.ts';
-import { ApiError, authenticatedApiRequest } from '../apiClient.ts';
+import { ApiError } from '../apiError.ts';
 
 export { buildSubmitFrontendToolPayload, type SubmitFrontendToolRequest } from './frontendToolSubmitProtocol.ts';
 
@@ -264,31 +264,35 @@ export type AwaitingApprovalSubmitParamData =
       reason: string;
     };
 
-export type AwaitingFormSubmitParamData = {
-  id: string;
-  decision: 'approve' | 'reject';
-  reason?: string;
-  form?: Record<string, unknown> | null;
-};
+export type AwaitingSubmitParamData = AwaitingQuestionSubmitParamData | AwaitingApprovalSubmitParamData;
 
-export type AwaitingPlanSubmitParamData = {
-  id?: string;
-  decision: AwaitingPlanDecision;
+export type AwaitingSubmitParam = {
+  decision: 'approve' | 'reject' | 'dismiss';
   reason?: string;
-  planningId?: string;
+  data?: Record<string, unknown>;
 };
-
-export type AwaitingSubmitParamData =
-  | AwaitingQuestionSubmitParamData
-  | AwaitingApprovalSubmitParamData
-  | AwaitingFormSubmitParamData
-  | AwaitingPlanSubmitParamData;
 
 export type AwaitingSubmitPayloadData = {
   runId: string;
   awaitingId: string;
-  params: AwaitingSubmitParamData[];
-};
+} & ({ param: AwaitingSubmitParam; params?: never } | { params: AwaitingSubmitParamData[]; param?: never });
+
+export function readAwaitingSubmitParam(value: unknown, mode: 'form' | 'plan'): AwaitingSubmitParam | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const item = value as Record<string, unknown>;
+  if (['id', 'answer', 'answers', 'payload', 'form', 'action', 'planningId'].some((key) => key in item)) return null;
+  const { decision, data, reason } = item;
+  if (decision !== 'approve' && decision !== 'reject' && decision !== 'dismiss') return null;
+  if (reason !== undefined && typeof reason !== 'string') return null;
+  if (data !== undefined && (!data || typeof data !== 'object' || Array.isArray(data))) return null;
+  if ((mode === 'plan' || decision === 'dismiss') && 'data' in item) return null;
+  if (mode === 'form' && decision === 'approve' && !('data' in item)) return null;
+  return {
+    decision,
+    ...(reason ? { reason } : {}),
+    ...(data !== undefined ? { data: data as Record<string, unknown> } : {})
+  };
+}
 
 export type SubmitAwaitingRequest = AwaitingSubmitPayloadData & {
   chatId?: string;
@@ -314,11 +318,6 @@ export type FrontendToolSubmitPayloadData = {
 };
 
 export type SubmitFrontendToolResponse = SubmitAwaitingResponse;
-
-export type ChatViewportResponse = {
-  html?: string;
-  [key: string]: unknown;
-};
 
 export type ChatApiEnvelope<T> = {
   status?: string | number;
@@ -488,11 +487,17 @@ export function buildMarkChatReadPayload(request: MarkChatReadRequest, runId?: s
 export function buildSubmitAwaitingPayload(request: SubmitAwaitingRequest): SubmitAwaitingRequest {
   const chatId = String(request.chatId || '').trim();
   const submitId = String(request.submitId || '').trim();
+  const hasParam = Object.prototype.hasOwnProperty.call(request, 'param');
+  const hasParams = Object.prototype.hasOwnProperty.call(request, 'params');
+  if (hasParam === hasParams) throw new Error('Awaiting submit requires exactly one of param or params');
+  if (hasParam && (!request.param || typeof request.param !== 'object' || Array.isArray(request.param)))
+    throw new Error('Awaiting param must be an object');
+  if (hasParams && !Array.isArray(request.params)) throw new Error('Awaiting params must be an array');
   const payload: SubmitAwaitingRequest = {
     runId: String(request.runId || '').trim(),
     ...buildChatRunOwnerPayload(request),
     awaitingId: String(request.awaitingId || '').trim(),
-    params: request.params
+    ...(hasParam ? { param: request.param! } : { params: request.params! })
   };
 
   if (chatId) {
@@ -503,18 +508,4 @@ export function buildSubmitAwaitingPayload(request: SubmitAwaitingRequest): Subm
   }
 
   return payload;
-}
-
-export async function getChatViewportApi(viewportKey: string): Promise<ChatViewportResponse> {
-  const payload = await authenticatedApiRequest<ChatViewportResponse | ChatApiEnvelope<ChatViewportResponse> | string>({
-    path: '/ap/api/viewport',
-    query: {
-      viewportKey: String(viewportKey || '').trim()
-    }
-  });
-
-  if (typeof payload === 'string') {
-    return { html: payload };
-  }
-  return unwrapChatApiEnvelope<ChatViewportResponse>(payload) || {};
 }

@@ -5,16 +5,18 @@ import test from 'node:test';
 import React from 'react';
 import { act, create, type ReactTestRenderer } from 'react-test-renderer';
 import ts from 'typescript';
+import { createTranslator } from '../../src/shared/i18n/translate.ts';
+import type { AppLocale } from '../../src/shared/i18n/locales.ts';
 
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true });
 const require = createRequire(import.meta.url);
-function load(path: string, dependencies: Record<string, unknown>) {
+function load<T = Record<string, React.ComponentType>>(path: string, dependencies: Record<string, unknown>): T {
   const code = ts.transpileModule(readFileSync(path, 'utf8'), {
     compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, jsx: ts.JsxEmit.ReactJSX }
   }).outputText;
   const exported: Record<string, React.ComponentType> = {};
   new Function('require', 'exports', code)((id: string) => dependencies[id] ?? require(id), exported);
-  return exported;
+  return exported as T;
 }
 
 test('bootstrap does not register Login as the root route; recovered sessions start at Tabs', async () => {
@@ -78,7 +80,16 @@ test('bootstrap does not register Login as the root route; recovered sessions st
   }
 });
 
-function loginFixture(canGoBack: boolean, mode: 'account' | 'cloud' = 'account') {
+function loginFixture(
+  canGoBack: boolean,
+  mode: 'account' | 'cloud' = 'account',
+  brandId: 'zenmind' | 'cutej' = 'zenmind',
+  locale: AppLocale = 'zh-CN'
+) {
+  const brand = load<typeof import('../../src/shared/generated/brand')>('src/shared/generated/brand.ts', {
+    '../branding/installedBrand': { resolveInstalledBrandId: () => brandId }
+  });
+  const t = createTranslator(locale);
   const actions: string[] = [];
   const navigation = {
     canGoBack: () => canGoBack,
@@ -107,10 +118,16 @@ function loginFixture(canGoBack: boolean, mode: 'account' | 'cloud' = 'account')
     },
     '../../shared/components/AppKeyboardAwareScrollView': { AppKeyboardAwareScrollView: 'Scroll' },
     '../../shared/icons/brandAssets': { brandAssets: { logo: 1 } },
-    '../../shared/i18n': { useT: () => (key: string) => key },
+    '../../shared/generated/brand': brand,
+    '../../shared/i18n': { useT: () => t, useI18n: () => ({ t, locale }) },
     '../../shared/visual/AppThemeProvider': { useAppTheme: () => ({ theme: { colors: {} } }) },
     '../../shared/visual/className': { cn: (...values: unknown[]) => values.filter(Boolean).join(' ') },
-    './EmailVerificationForm': { EmailVerificationForm: 'EmailForm' }
+    './EmailVerificationForm': { EmailVerificationForm: 'EmailForm' },
+    './EnterpriseLogin': { EnterpriseLogin: 'SsoView' },
+    '../../core/auth/authConfig': {
+      ACCOUNT_LOGIN_METHOD: brand.APP_BRAND.accountLoginMethod,
+      readAccountApiBaseUrl: () => 'https://account.test'
+    }
   }).LoginScreen;
   return { Component, actions };
 }
@@ -145,5 +162,44 @@ test('cloud success uses the same safe close path after selecting its source', a
     assert.deepEqual(f.actions, ['select-cloud', 'tabs']);
   } finally {
     await act(async () => renderer.unmount());
+  }
+});
+
+for (const brand of ['zenmind', 'cutej'] as const) {
+  for (const locale of ['zh-CN', 'en-US'] as const) {
+    test(`Login welcomes the installed ${brand} brand in ${locale} in both sign-in modes`, async () => {
+      const name = brand === 'cutej' ? 'CuteJ' : 'ZenMind';
+      for (const mode of ['account', 'cloud'] as const) {
+        const f = loginFixture(false, mode, brand, locale);
+        let renderer!: ReactTestRenderer;
+        await act(async () => {
+          renderer = create(React.createElement(f.Component));
+        });
+        try {
+          const title = locale === 'zh-CN' ? `连接你的 ${name}` : `Connect your ${name}`;
+          assert.ok(renderer.root.findAllByType('Text').some((node) => node.props.children === title));
+        } finally {
+          await act(async () => renderer.unmount());
+        }
+      }
+    });
+  }
+}
+
+test('installed brand selects one account UI and SSO uses the existing close path', async () => {
+  for (const brand of ['zenmind', 'cutej'] as const) {
+    const f = loginFixture(true, 'account', brand);
+    let renderer!: ReactTestRenderer;
+    await act(async () => {
+      renderer = create(React.createElement(f.Component));
+    });
+    try {
+      assert.equal(renderer.root.findAllByType('EmailForm').length, brand === 'zenmind' ? 1 : 0);
+      assert.equal(renderer.root.findAllByType('SsoView').length, brand === 'cutej' ? 1 : 0);
+      if (brand === 'cutej') await act(async () => renderer.root.findByType('SsoView').props.onSuccess());
+      assert.deepEqual(f.actions, brand === 'cutej' ? ['back'] : []);
+    } finally {
+      await act(async () => renderer.unmount());
+    }
   }
 });

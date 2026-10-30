@@ -18,7 +18,7 @@ export function EmailVerificationForm({ onSuccess }: { onSuccess: () => void }) 
   const t = useT();
   const { theme } = useAppTheme();
   const [email, setEmail] = useState('');
-  const [code, setCode] = useState('');
+  const [secret, setSecret] = useState('');
   const [receipt, setReceipt] = useState<AccountEmailReceipt | null>(null);
   const [resendAt, setResendAt] = useState(0);
   const [now, setNow] = useState(Date.now());
@@ -32,7 +32,7 @@ export function EmailVerificationForm({ onSuccess }: { onSuccess: () => void }) 
     controllerRef.current = null;
     ownLoginGenerationRef.current = null;
     setBusy(null);
-    setCode('');
+    setSecret('');
     setReceipt(null);
   }, []);
   useFocusEffect(useCallback(() => () => cancel(), [cancel]));
@@ -72,21 +72,37 @@ export function EmailVerificationForm({ onSuccess }: { onSuccess: () => void }) 
   const normalized = normalizeAccountEmail(email);
   const seconds = Math.max(0, Math.ceil((resendAt - now) / 1000));
   const expired = Boolean(receipt && Date.parse(receipt.expiresAt) <= now);
-  const canSubmit = Boolean(receipt && !expired && normalized && /^\d{6}$/u.test(code) && !busy);
-  async function sendCode() {
-    if (controllerRef.current || seconds || !normalized) return;
+  const canSubmit = Boolean(normalized && !busy && receipt && !expired && /^\d{6}$/u.test(secret));
+  const accountLabel = t('accountEmail.email');
+  const secretLabel = t('accountEmail.code');
+  async function handleRequest(action: 'send' | 'submit') {
+    if (controllerRef.current || !normalized || (action === 'send' ? seconds : !canSubmit)) return;
     const controller = new AbortController();
     controllerRef.current = controller;
-    const generation = getAccountAuthGeneration();
-    setBusy('send');
+    let generation = getAccountAuthGeneration();
+    setBusy(action);
     setError('');
     try {
-      const value = await requestEmailLoginCode(normalized.email, controller.signal);
-      if (controller.signal.aborted || generation !== getAccountAuthGeneration()) return;
-      setReceipt(value);
-      setCode('');
-      setResendAt(Date.now() + RESEND_COOLDOWN_MS);
-      setNow(Date.now());
+      if (action === 'send') {
+        const value = await requestEmailLoginCode(normalized.email, controller.signal);
+        if (controller.signal.aborted || generation !== getAccountAuthGeneration()) return;
+        setReceipt(value);
+        setSecret('');
+        setResendAt(Date.now() + RESEND_COOLDOWN_MS);
+        setNow(Date.now());
+      } else {
+        ownLoginGenerationRef.current = generation + 1;
+        const request = loginWithAccountEmail({
+          email: normalized.email,
+          code: secret,
+          signal: controller.signal
+        });
+        ownLoginGenerationRef.current = generation = getAccountAuthGeneration();
+        await request;
+        if (controller.signal.aborted || generation !== getAccountAuthGeneration()) return;
+        cancel();
+        onSuccess();
+      }
     } catch (e) {
       if (!controller.signal.aborted && generation === getAccountAuthGeneration()) setError(t(accountEmailErrorKey(e)));
     } finally {
@@ -96,32 +112,9 @@ export function EmailVerificationForm({ onSuccess }: { onSuccess: () => void }) 
       }
     }
   }
-  async function submit() {
-    if (!canSubmit || !normalized || controllerRef.current) return;
-    const controller = new AbortController();
-    controllerRef.current = controller;
-    setBusy('submit');
-    setError('');
-    try {
-      ownLoginGenerationRef.current = getAccountAuthGeneration() + 1;
-      await loginWithAccountEmail({ email: normalized.email, code, signal: controller.signal });
-      if (!controller.signal.aborted) {
-        setCode('');
-        setReceipt(null);
-        onSuccess();
-      }
-    } catch (e) {
-      if (!controller.signal.aborted) setError(t(accountEmailErrorKey(e)));
-    } finally {
-      if (controllerRef.current === controller) {
-        controllerRef.current = null;
-        setBusy(null);
-      }
-    }
-  }
   return (
     <View className="gap-app-md">
-      <Text className="text-app-footnote font-bold text-app-secondary">{t('accountEmail.email')}</Text>
+      <Text className="text-app-footnote font-bold text-app-secondary">{accountLabel}</Text>
       <TextInput
         value={email}
         onChangeText={(value) => {
@@ -129,22 +122,23 @@ export function EmailVerificationForm({ onSuccess }: { onSuccess: () => void }) 
           setEmail(value);
           setError('');
         }}
-        accessibilityLabel={t('accountEmail.email')}
+        accessibilityLabel={accountLabel}
         autoCapitalize="none"
         autoCorrect={false}
         keyboardType="email-address"
         autoComplete="email"
+        textContentType="emailAddress"
         maxLength={254}
         editable={busy !== 'submit'}
         className={INPUT_CLASS}
-        placeholder={t('accountEmail.email')}
+        placeholder={accountLabel}
         placeholderTextColor={theme.colors.textTertiary}
       />
-      <Text className="text-app-footnote font-bold text-app-secondary">{t('accountEmail.code')}</Text>
+      <Text className="text-app-footnote font-bold text-app-secondary">{secretLabel}</Text>
       <TextInput
-        value={code}
-        onChangeText={(value) => setCode(value.replace(/\D/gu, '').slice(0, 6))}
-        accessibilityLabel={t('accountEmail.code')}
+        value={secret}
+        onChangeText={(value) => setSecret(value.replace(/\D/gu, '').slice(0, 6))}
+        accessibilityLabel={secretLabel}
         keyboardType="number-pad"
         textContentType="oneTimeCode"
         autoComplete="one-time-code"
@@ -159,7 +153,7 @@ export function EmailVerificationForm({ onSuccess }: { onSuccess: () => void }) 
       <Pressable
         accessibilityRole="button"
         disabled={Boolean(busy || seconds || !normalized)}
-        onPress={() => void sendCode()}
+        onPress={() => void handleRequest('send')}
         className={cn(
           'min-h-11 items-center justify-center rounded-app-sm border border-app-line',
           Boolean(busy || seconds || !normalized) && 'opacity-40'
@@ -182,7 +176,7 @@ export function EmailVerificationForm({ onSuccess }: { onSuccess: () => void }) 
       ) : null}
       <Pressable
         accessibilityRole="button"
-        onPress={() => void submit()}
+        onPress={() => void handleRequest('submit')}
         disabled={!canSubmit}
         className={cn(BUTTON_CLASS, !canSubmit && 'opacity-40')}
       >

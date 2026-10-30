@@ -1,384 +1,49 @@
-import { forwardRef, memo, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Text, View } from 'react-native';
-import { WebView, type WebViewMessageEvent } from 'react-native-webview';
+import { forwardRef, memo, useImperativeHandle, useRef } from 'react';
+import { ActivityIndicator, Platform, Text, View } from 'react-native';
+import { WebView } from 'react-native-webview';
+import type { AwaitingFormViewportHandle, AwaitingFormViewportProps } from './AwaitingFormViewportTypes';
+import { useAwaitingFormFrame } from './useAwaitingFormFrame';
 
-import type { AwaitingSubmitParamData } from '../../../../core/api/services/chatApi';
-import { useT } from '../../../../shared/i18n';
-import { useAppTheme } from '../../../../shared/visual/AppThemeProvider';
-import type { ChatTimelineAwaitingForm } from '../../../chatTimeline/index.ts';
-import { conversationViewportDocumentStore } from '../../conversationViewport/viewportDocument';
-import { normalizeAwaitingSubmitParams } from './awaitingSubmitState';
-import type {
-  AwaitingFormCollectDecision,
-  AwaitingFormViewportHandle,
-  AwaitingFormViewportProps,
-} from './AwaitingFormViewportTypes';
-
-const COLLECT_TIMEOUT_MS = 5_000;
-const DEFAULT_VIEWPORT_HEIGHT = 260;
-const MIN_VIEWPORT_HEIGHT = 180;
-const MAX_VIEWPORT_HEIGHT = 380;
-const STATUS_BOX_CLASS =
-  'min-h-28 items-center justify-center gap-app-sm rounded-app-md border border-app-line bg-app-surface-muted p-app-md';
-const STATUS_TEXT_CLASS = 'text-center text-[13px] leading-[18px] text-app-secondary';
-const ERROR_TEXT_CLASS = 'text-center text-[13px] font-bold leading-[18px] text-app-danger';
-const WEB_VIEW_FRAME_CLASS = 'overflow-hidden rounded-app-md border border-app-line bg-app-background';
-
-type PendingCollect = {
-  id: number;
-  resolve: (params: AwaitingSubmitParamData[]) => void;
-  reject: (error: Error) => void;
-  timer: ReturnType<typeof setTimeout>;
-};
-
-function cloneFormData(form: ChatTimelineAwaitingForm | undefined): Record<string, unknown> | null {
-  return form?.form ? { ...form.form } : null;
-}
-
-function clampViewportHeight(value: unknown): number | null {
-  const numeric = Number(value);
-  if (!Number.isFinite(numeric) || numeric <= 0) {
-    return null;
-  }
-  return Math.min(MAX_VIEWPORT_HEIGHT, Math.max(MIN_VIEWPORT_HEIGHT, Math.ceil(numeric)));
-}
-
-function parseFrameMessage(value: string): unknown {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-}
-
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
-}
-
-function clampActiveFormIndex(index: number, formsLength: number): number {
-  if (formsLength <= 1) {
-    return 0;
-  }
-  return Math.min(formsLength - 1, Math.max(0, index));
-}
-
-function buildViewportData({
-  activeFormIndex,
-  awaiting,
-  forms,
-  timeoutMs,
-  viewportKey,
-}: Pick<AwaitingFormViewportProps, 'activeFormIndex' | 'awaiting' | 'forms' | 'timeoutMs' | 'viewportKey'>) {
-  const resolvedActiveFormIndex = clampActiveFormIndex(activeFormIndex, forms.length);
-  const activeForm = forms[resolvedActiveFormIndex];
-  return {
-    view: awaiting.interactive?.view,
-    runId: awaiting.runId,
-    awaitingId: awaiting.awaitingId,
-    viewportKey,
-    mode: 'form',
-    timeout: timeoutMs,
-    activeFormIndex: resolvedActiveFormIndex,
-    activeFormId: activeForm?.id ?? '',
-    forms: forms.map((form) => ({
-      id: form.id,
-      action: form.action,
-      title: form.title,
-      form: cloneFormData(form),
-    })),
-    form: cloneFormData(activeForm),
-  };
-}
-
-function buildBridgeScript(): string {
-  return `
-    (function () {
-      if (window.__zenmindAwaitingBridgeInstalled) return true;
-      window.__zenmindAwaitingBridgeInstalled = true;
-      function send(value) {
-        try {
-          var payload = typeof value === 'string' ? value : JSON.stringify(value);
-          window.ReactNativeWebView && window.ReactNativeWebView.postMessage(payload);
-        } catch (error) {}
-      }
-      var originalWindowPostMessage = window.postMessage;
-      window.postMessage = function (value, targetOrigin) {
-        send(value);
-        if (typeof originalWindowPostMessage === 'function') {
-          try { return originalWindowPostMessage.call(window, value, targetOrigin || '*'); } catch (error) {}
-        }
-      };
-      if (window.parent && window.parent === window) {
-        window.parent.postMessage = window.postMessage;
-      }
-      function reportHeight() {
-        var body = document.body;
-        var root = document.documentElement;
-        var height = Math.max(
-          body ? body.scrollHeight : 0,
-          body ? body.offsetHeight : 0,
-          root ? root.scrollHeight : 0,
-          root ? root.offsetHeight : 0
-        );
-        send({ type: 'awaiting_resize', height: height });
-      }
-      if (typeof ResizeObserver !== 'undefined') {
-        var observer = new ResizeObserver(reportHeight);
-        if (document.body) observer.observe(document.body);
-      }
-      window.addEventListener('load', reportHeight);
-      setTimeout(reportHeight, 0);
-      setTimeout(reportHeight, 500);
-      return true;
-    })();
-  `;
-}
-
-const AWAITING_FORM_VIEWPORT_BRIDGE_SCRIPT = buildBridgeScript();
-
-const AwaitingFormViewportInner = forwardRef<AwaitingFormViewportHandle, AwaitingFormViewportProps>(
-  function AwaitingFormViewportInner(
-    { activeFormIndex, awaiting, disabled, forms, timeoutMs, viewportKey, onError, onSubmitParams },
-    ref
-  ) {
-    const t = useT();
-    const { theme } = useAppTheme();
-    const webViewRef = useRef<WebView>(null);
-    const pendingCollectRef = useRef<PendingCollect | null>(null);
-    const activeViewportKeyRef = useRef(viewportKey);
-    const collectSeqRef = useRef(0);
-    const viewportData = useMemo(
-      () => buildViewportData({ activeFormIndex, awaiting, forms, timeoutMs, viewportKey }),
-      [activeFormIndex, awaiting, forms, timeoutMs, viewportKey]
-    );
-    const [initialHtml] = useState(() => conversationViewportDocumentStore.getCached(viewportKey));
-    const [html, setHtml] = useState(initialHtml);
-    const [loading, setLoading] = useState(!initialHtml);
-    const [loadError, setLoadError] = useState('');
-    const [height, setHeight] = useState(DEFAULT_VIEWPORT_HEIGHT);
-
-    activeViewportKeyRef.current = viewportKey;
-
-    const clearPendingCollect = useCallback((error?: Error) => {
-      const pending = pendingCollectRef.current;
-      if (!pending) {
-        return;
-      }
-      pendingCollectRef.current = null;
-      clearTimeout(pending.timer);
-      if (error) {
-        pending.reject(error);
-      }
-    }, []);
-
-    const postToFrame = useCallback((type: 'awaiting_init' | 'awaiting_update') => {
-      webViewRef.current?.postMessage(
-        JSON.stringify({
-          type,
-          data: viewportData,
-        })
-      );
-    }, [viewportData]);
-
-    useEffect(() => {
-      const cached = conversationViewportDocumentStore.getCached(viewportKey);
-      if (cached) {
-        setHtml(cached);
-        setLoading(false);
-        setLoadError('');
-        return undefined;
-      }
-
-      let disposed = false;
-      setHtml('');
-      setLoading(true);
-      setLoadError('');
-      conversationViewportDocumentStore
-        .load(viewportKey)
-        .then((nextHtml) => {
-          if (disposed || activeViewportKeyRef.current !== viewportKey) {
-            return;
-          }
-          setHtml(nextHtml);
-          setLoadError('');
-        })
-        .catch((error) => {
-          if (disposed || activeViewportKeyRef.current !== viewportKey) {
-            return;
-          }
-          const message = t('awaiting.error.viewportLoadFailed', {
-            detail: error instanceof Error ? error.message : String(error),
-          });
-          setLoadError(message);
-          onError(message);
-        })
-        .finally(() => {
-          if (!disposed && activeViewportKeyRef.current === viewportKey) {
-            setLoading(false);
-          }
-        });
-
-      return () => {
-        disposed = true;
-      };
-    }, [onError, t, viewportKey]);
-
-    useEffect(
-      () => () => {
-        clearPendingCollect(new Error(t('awaiting.error.viewportCollectCancelled')));
-      },
-      [clearPendingCollect, t]
-    );
-
-    useEffect(() => {
-      if (html) {
-        postToFrame('awaiting_update');
-      }
-    }, [html, postToFrame]);
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        collect(decision: AwaitingFormCollectDecision) {
-          if (disabled || !html || !webViewRef.current) {
-            return Promise.reject(new Error(t('awaiting.error.viewportNotReady')));
-          }
-          clearPendingCollect(new Error(t('awaiting.error.viewportCollectSuperseded')));
-          const id = collectSeqRef.current + 1;
-          collectSeqRef.current = id;
-          return new Promise<AwaitingSubmitParamData[]>((resolve, reject) => {
-            const timer = setTimeout(() => {
-              if (pendingCollectRef.current?.id !== id) {
-                return;
-              }
-              pendingCollectRef.current = null;
-              reject(new Error(t('awaiting.error.viewportCollectTimeout')));
-            }, COLLECT_TIMEOUT_MS);
-            pendingCollectRef.current = { id, resolve, reject, timer };
-            webViewRef.current?.postMessage(
-              JSON.stringify({
-                type: 'awaiting_collect',
-                data: {
-                  view: awaiting.interactive?.view,
-    runId: awaiting.runId,
-                  awaitingId: awaiting.awaitingId,
-                  decision,
-                },
-              })
-            );
-          });
-        },
-      }),
-      [awaiting.awaitingId, awaiting.interactive?.view, awaiting.runId, clearPendingCollect, disabled, html, t]
-    );
-
-    const handleMessage = useCallback(
-      (event: WebViewMessageEvent) => {
-        if (disabled) return;
-        const data = parseFrameMessage(event.nativeEvent.data);
-        if (!isObjectRecord(data)) {
-          return;
-        }
-
-        if (data.type === 'awaiting_resize') {
-          const nextHeight = clampViewportHeight(data.height);
-          if (nextHeight) {
-            setHeight((current) => (current === nextHeight ? current : nextHeight));
-          }
-          return;
-        }
-
-        if (data.type === 'close' || data.type === 'done') {
-          if (awaiting.interactive?.view) return;
-          clearPendingCollect();
-          onSubmitParams(forms.map((form) => ({ id: form.id, decision: 'reject' })));
-          return;
-        }
-
-        if (data.type !== 'frontend_awaiting_submit') {
-          return;
-        }
-
-        if (!Array.isArray(data.params)) {
-          const message = t('awaiting.error.viewportSubmitInvalid');
-          onError(message);
-          clearPendingCollect(new Error(message));
-          return;
-        }
-
-        const params = normalizeAwaitingSubmitParams(data.params, 'form');
-        if (params.length === 0 || params.length !== data.params.length) {
-          const message = t('awaiting.error.viewportSubmitInvalid');
-          onError(message);
-          clearPendingCollect(new Error(message));
-          return;
-        }
-
-        const pending = pendingCollectRef.current;
-        if (pending) {
-          pendingCollectRef.current = null;
-          clearTimeout(pending.timer);
-          pending.resolve(params);
-          return;
-        }
-        if (!awaiting.interactive?.view) onSubmitParams(params);
-      },
-      [awaiting.interactive?.view, clearPendingCollect, disabled, forms, onError, onSubmitParams, t]
-    );
-
-    if (loading) {
+const FormViewport = forwardRef<AwaitingFormViewportHandle, AwaitingFormViewportProps>(
+  function FormViewport(props, ref) {
+    const webViewRef = useRef<WebView | null>(null);
+    const frame = useAwaitingFormFrame(props);
+    frame.sendRef.current = (message) => webViewRef.current?.postMessage(message);
+    useImperativeHandle(ref, () => ({ collect: frame.collect }), [frame.collect]);
+    if (!frame.frameHtml)
       return (
-        <View className={STATUS_BOX_CLASS}>
-          <ActivityIndicator size="small" color={theme.colors.brandBlue} />
-          <Text allowFontScaling={false} className={STATUS_TEXT_CLASS}>
-            {t('awaiting.form.loading')}
-          </Text>
+        <View className="min-h-28 items-center justify-center">
+          {frame.loading ? <ActivityIndicator /> : <Text className="text-app-danger">{frame.error}</Text>}
         </View>
       );
-    }
-
-    if (loadError) {
-      return (
-        <View className={STATUS_BOX_CLASS}>
-          <Text allowFontScaling={false} className={ERROR_TEXT_CLASS}>
-            {loadError}
-          </Text>
-        </View>
-      );
-    }
-
-    if (!html) {
-      return (
-        <View className={STATUS_BOX_CLASS}>
-          <Text allowFontScaling={false} className={STATUS_TEXT_CLASS}>
-            {t('awaiting.form.viewportUnavailable')}
-          </Text>
-        </View>
-      );
-    }
-
     return (
-      <View className={WEB_VIEW_FRAME_CLASS} style={{ height }}>
+      <View
+        className="overflow-hidden rounded-app-md border border-app-line bg-app-background"
+        style={{ height: frame.height }}
+      >
         <WebView
+          key={frame.frameId}
           ref={webViewRef}
+          source={{ html: frame.frameHtml, baseUrl: 'about:blank' }}
           originWhitelist={['*']}
-          source={{ html }}
           javaScriptEnabled
-          domStorageEnabled
-          nestedScrollEnabled
-          scrollEnabled
-          injectedJavaScriptBeforeContentLoaded={AWAITING_FORM_VIEWPORT_BRIDGE_SCRIPT}
-          onLoadEnd={() => postToFrame('awaiting_init')}
-          onMessage={handleMessage}
-          onShouldStartLoadWithRequest={(request) => !awaiting.interactive?.view || request.url === 'about:blank' || request.url.startsWith('data:')}
-          javaScriptCanOpenWindowsAutomatically={false}
-          allowFileAccess={false}
+          domStorageEnabled={false}
+          cacheEnabled={false}
+          incognito={Platform.OS === 'ios'}
           mixedContentMode="never"
-          style={{ flex: 1, backgroundColor: theme.colors.background }}
+          sharedCookiesEnabled={false}
+          thirdPartyCookiesEnabled={false}
+          allowFileAccess={false}
+          setSupportMultipleWindows={false}
+          javaScriptCanOpenWindowsAutomatically={false}
+          onMessage={(event) => frame.handleMessage(event.nativeEvent.data)}
+          onShouldStartLoadWithRequest={(request) =>
+            request.url === 'about:blank' || request.url.startsWith('data:text/html')
+          }
+          style={{ flex: 1, backgroundColor: 'transparent' }}
         />
       </View>
     );
   }
 );
-
-export const AwaitingFormViewport = memo(AwaitingFormViewportInner);
+export const AwaitingFormViewport = memo(FormViewport);

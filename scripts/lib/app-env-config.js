@@ -100,13 +100,19 @@ function normalizeAccountServices(value, brandId) {
     !value ||
     typeof value !== 'object' ||
     Array.isArray(value) ||
-    Object.keys(value).some((key) => !['officialApiBaseUrl', 'tunnelHubApiBaseUrl'].includes(key))
+    Object.keys(value).some((key) => !['officialApiBaseUrl', 'ssoBaseUrl', 'tunnelHubApiBaseUrl'].includes(key))
   )
     throw new Error(`Invalid accountServices for ${brandId}`);
   const result = {};
-  for (const key of ['officialApiBaseUrl', 'tunnelHubApiBaseUrl']) {
+  if (Boolean(value.officialApiBaseUrl) === Boolean(value.ssoBaseUrl))
+    throw new Error(`Configure exactly one account service for ${brandId}`);
+  for (const key of ['officialApiBaseUrl', 'ssoBaseUrl', 'tunnelHubApiBaseUrl']) {
     const url = optionalUrl(value[key], `brands.${brandId}.accountServices.${key}`, ['http:', 'https:']);
-    if (!url) throw new Error(`Missing accountServices.${key} for ${brandId}`);
+    if (!url) {
+      if (key === 'tunnelHubApiBaseUrl') throw new Error(`Missing accountServices.${key} for ${brandId}`);
+      result[key] = '';
+      continue;
+    }
     const parsed = new URL(url);
     if (parsed.protocol !== 'https:' && !['localhost', '127.0.0.1', '[::1]'].includes(parsed.hostname))
       throw new Error('Account services require HTTPS');
@@ -149,9 +155,8 @@ function loadReactAppEnvArtifact(rootDir = process.cwd()) {
             {
               brandId,
               environmentId: requireString(brand.environmentId, `brands.${brandId}.environmentId`),
-              ...(brand.accountServices === undefined
-                ? {}
-                : { accountServices: normalizeAccountServices(brand.accountServices, brandId) }),
+              accountServices:
+                brand.accountServices === undefined ? null : normalizeAccountServices(brand.accountServices, brandId),
               defaultSource: normalizeDefaultSource(brand.defaultSource, brandId)
             }
           ];
@@ -192,19 +197,30 @@ function syncReactAppEnvArtifact({
 } = {}) {
   const appEnv = loadReactAppEnvArtifact(rootDir);
   assertBrandCoverage(appEnv, brandIds);
+  for (const brandId of brandIds) {
+    const services = appEnv.brands[brandId].accountServices;
+    const method = readJson(path.join(rootDir, 'brands', brandId, 'brand.json')).accountLoginMethod;
+    if (
+      services &&
+      !(method === 'email-code' ? services.officialApiBaseUrl : method === 'enterprise-sso' && services.ssoBaseUrl)
+    )
+      throw new Error(`Account services do not match ${brandId} accountLoginMethod`);
+  }
   const generatedPath = path.join(rootDir, GENERATED_APP_ENV_TS);
   const generated = [
     "import { INSTALLED_BRAND_ID } from './brand';",
     '',
     `export const REACT_APP_ENV_SCHEMA_VERSION = ${APP_ENV_SCHEMA_VERSION} as const;`,
     `export const REACT_APP_ENV_ARTIFACT_VERSION = ${JSON.stringify(appEnv.artifactVersion)} as const;`,
+    'type AccountServices = { officialApiBaseUrl: string; ssoBaseUrl: string; tunnelHubApiBaseUrl: string };',
     '',
-    `export const APP_ENVIRONMENTS = ${JSON.stringify(appEnv.brands, null, 2)} as const;`,
+    `export const APP_ENVIRONMENTS = ${JSON.stringify(appEnv.brands, null, 2)} as const satisfies Record<string, { brandId: string; environmentId: string; accountServices: AccountServices | null; defaultSource: unknown }>;`,
     '',
     'export type AppEnvironment = (typeof APP_ENVIRONMENTS)[keyof typeof APP_ENVIRONMENTS];',
     'export type DefaultSourceEnvironment = AppEnvironment["defaultSource"];',
     '',
     'export const APP_ENVIRONMENT = APP_ENVIRONMENTS[INSTALLED_BRAND_ID];',
+    'export const ACCOUNT_SERVICES: AccountServices | null = APP_ENVIRONMENT.accountServices;',
     'export const DEFAULT_SOURCE_ENVIRONMENT = APP_ENVIRONMENT.defaultSource;',
     ''
   ].join('\n');

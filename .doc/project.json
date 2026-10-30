@@ -7,6 +7,7 @@
   "summary": "基于 Expo 56 / React Native 0.85 的迁移后移动端应用，当前重点是认证门卫、HTTP/Desktop WS 设备 profile、Chat 首页与详情页、SQLite 本地真源、MMKV 冷启动目录快照、共享 WebSocket 实时同步、系统通知和开发态调试能力。\n主要目标：让模型先靠索引定位任务入口、影响模块和关键链路，再下钻到具体代码。",
   "facts": {
     "manifests": [
+      ".generated/corepack/v1/pnpm/7.33.7/package.json",
       "package.json"
     ],
     "languages": [
@@ -35,6 +36,7 @@
       "scripts/tests/appIconRegistry.test.mts",
       "scripts/tests/authNavigation.test.mts",
       "scripts/tests/authenticatedResourceModel.test.mts",
+      "scripts/tests/awaitingFormFrame.test.mts",
       "scripts/tests/awaitingOptionPreview.test.mts",
       "scripts/tests/awaitingQuestionState.test.mts",
       "scripts/tests/awaitingSubmitState.test.mts",
@@ -94,6 +96,7 @@
       "scripts/tests/chatSelectionReferences.test.mts",
       "scripts/tests/chatSkills.test.mts",
       "scripts/tests/chatSource.test.mts",
+      "scripts/tests/chatSyncContractFixtures.test.mts",
       "scripts/tests/chatSyncCoordinator.test.mts",
       "scripts/tests/chatTextSearchNative.test.mts",
       "scripts/tests/chatTimelineAction.test.mts",
@@ -111,6 +114,7 @@
       "scripts/tests/chatTimelineTask.test.mts",
       "scripts/tests/chatTranscriptSearch.test.mts",
       "scripts/tests/chatUsageHeaderBadge.test.mts",
+      "scripts/tests/chatViewBinding.test.mts",
       "scripts/tests/chatViewProtocol.test.mts",
       "scripts/tests/chatWebclientService.test.mts",
       "scripts/tests/chatWebclientSync.test.mts",
@@ -121,6 +125,9 @@
       "scripts/tests/conversationMarkdownLinks.test.mts",
       "scripts/tests/conversationPreviewSurface.test.mts",
       "scripts/tests/deviceLinkContract.test.mts",
+      "scripts/tests/enterpriseAccount.test.mts",
+      "scripts/tests/enterpriseAuthSession.test.mts",
+      "scripts/tests/enterpriseLogin.test.mts",
       "scripts/tests/httpDebugLogger.test.mts",
       "scripts/tests/i18n.test.mts",
       "scripts/tests/importBoundary.test.mts",

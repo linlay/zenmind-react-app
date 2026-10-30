@@ -1,3 +1,4 @@
+import { readTimelineViewBindings } from '../chatTimeline/timelineView';
 import { readChatDirectory, classifyCloudFailure } from '../../core/api/services/chatDirectoryApi';
 import { getCloudAuthSnapshot, reportCloudFailure } from '../../core/auth/cloudAuth';
 import { verifyDefaultCloud } from '../chatPersistence/cloudAccess';
@@ -65,6 +66,7 @@ import {
   buildMarkChatReadPayload,
   buildSubmitFrontendToolPayload,
   buildSubmitAwaitingPayload,
+  readAwaitingSubmitParam,
   projectRemoteAgentDetail,
   type AgentDetailSnapshot,
   type AwaitingSubmitPayloadData,
@@ -591,12 +593,22 @@ class ChatSyncService {
   }
 
   async getViewDocument(request: ChatViewRequest): Promise<ChatViewDocument> {
+    const reference = readChatViewReference(request);
+    if (
+      !reference ||
+      !request.chatId ||
+      !['display', 'form'].includes(request.usage) ||
+      (reference.source === 'connector' && !reference.hash)
+    )
+      throw new Error('Invalid VIEW request or missing snapshot hash');
+    if (getChatSourceFromId(request.chatId).key !== this.source.key) throw new Error('VIEW belongs to another source');
     const lifecycleVersion = this.lifecycleVersion;
     const document = await this.requestChatApi<ChatViewDocument>('/api/view', request);
     const view = readChatViewReference(document?.view);
     if (!this.isLifecycleCurrent(lifecycleVersion)) throw new Error('VIEW source changed');
     if (
       !view ||
+      view.source !== reference.source ||
       view.connectorId !== request.connectorId ||
       view.key !== request.key ||
       (request.hash && view.hash !== request.hash)
@@ -1454,6 +1466,15 @@ class ChatSyncService {
     ) {
       throw new Error('Awaiting interaction is no longer active');
     }
+    if (!currentAwaiting.interactive || currentAwaiting.status !== 'ask') throw new Error('Awaiting is read-only');
+    const singleAnswer = currentAwaiting.mode === 'form' || currentAwaiting.mode === 'plan';
+    if (
+      singleAnswer
+        ? payload.params !== undefined ||
+          !readAwaitingSubmitParam(payload.param, currentAwaiting.mode as 'form' | 'plan')
+        : payload.param !== undefined || !Array.isArray(payload.params)
+    )
+      throw new Error('Invalid awaiting answer for the current mode');
     const owner = await this.resolveRunControlScope(normalizedConversationId, runId);
     if (!owner.agentKey) {
       throw new Error('agentKey is required for awaiting submit');
@@ -1463,6 +1484,8 @@ class ChatSyncService {
     if (
       !this.isLifecycleCurrent(lifecycleVersion) ||
       latestAwaiting?.id !== currentAwaiting.id ||
+      latestAwaiting.status !== 'ask' ||
+      !latestAwaiting.interactive ||
       latestAwaiting.runId !== runId
     )
       throw new Error('Awaiting interaction changed');
@@ -1475,7 +1498,7 @@ class ChatSyncService {
           ...owner,
           awaitingId,
           submitId: createAwaitingSubmitId(),
-          params: payload.params
+          ...(payload.param ? { param: payload.param } : { params: payload.params! })
         })
       ).catch(async (error) => {
         if (this.isLifecycleCurrent(lifecycleVersion))
@@ -1517,7 +1540,7 @@ class ChatSyncService {
         chatId: normalizedConversationId,
         awaitingId,
         runId,
-        params: payload.params,
+        ...(payload.param ? { param: payload.param } : { params: payload.params! }),
         timestamp: Date.now()
       },
       'awaiting_submit',
@@ -3013,6 +3036,11 @@ class ChatSyncService {
       return;
     }
 
+    if (type === 'content.view' && conversationId) {
+      await this.applyRuntimeConversationEvent(conversationId, event, source, true);
+      return;
+    }
+
     if (family === 'assistant_content' && conversationId) {
       await this.handleAssistantContentEvent(event, source);
       return;
@@ -3422,6 +3450,19 @@ class ChatSyncService {
       this.publishStreamBufferInitialMessage(
         buffer,
         type === 'content.end' && event.status !== 'failed' ? 'done' : 'streaming'
+      );
+    }
+
+    if (type === 'content.snapshot' && Array.isArray(event.views) && buffer.publishedToTimeline) {
+      this.publishTimelineMessagePatch(
+        conversationId,
+        reason,
+        buffer.messageId,
+        {},
+        {
+          runId: buffer.runId,
+          viewBindings: readTimelineViewBindings(event.views)
+        }
       );
     }
 

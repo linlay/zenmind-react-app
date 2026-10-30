@@ -1,3 +1,4 @@
+import type { ChatViewReference } from '../../../core/api/services/chatViewProtocol.ts';
 import {
   CONVERSATION_PREVIEW_MAX_SOURCE_BYTES,
   getConversationPreviewSourceByteLength
@@ -6,56 +7,57 @@ import {
 const DEFAULT_CACHE_LIMIT = 12;
 const DEFAULT_CACHE_TTL_MS = 5 * 60_000;
 
-type CachedViewportDocument = {
+export type CachedViewDocument = {
+  view: ChatViewReference;
   html: string;
   cachedAt: number;
 };
 
 type InFlightViewportDocument = {
   version: number;
-  promise: Promise<string>;
+  promise: Promise<CachedViewDocument>;
 };
 
 export type ConversationViewportDocumentStore = {
   clear: () => void;
-  getCached: (viewportKey: string) => string;
-  load: (viewportKey: string, options?: { force?: boolean }) => Promise<string>;
+  getCached: (viewportKey: string) => CachedViewDocument | null;
+  load: (viewportKey: string, options?: { force?: boolean }) => Promise<CachedViewDocument>;
 };
 
 export function createConversationViewportDocumentStore(
-  loader: (viewportKey: string) => Promise<{ html?: string }>,
+  loader: (viewportKey: string) => Promise<{ view: ChatViewReference; html: string }>,
   options: { cacheLimit?: number; cacheTtlMs?: number; now?: () => number } = {}
 ): ConversationViewportDocumentStore {
   const cacheLimit = Math.max(1, Math.trunc(options.cacheLimit ?? DEFAULT_CACHE_LIMIT));
   const cacheTtlMs = Math.max(0, Math.trunc(options.cacheTtlMs ?? DEFAULT_CACHE_TTL_MS));
   const now = options.now ?? Date.now;
-  const cache = new Map<string, CachedViewportDocument>();
+  const cache = new Map<string, CachedViewDocument>();
   const inFlight = new Map<string, InFlightViewportDocument>();
   const versions = new Map<string, number>();
   let generation = 0;
 
   const normalizeKey = (viewportKey: string) => String(viewportKey || '').trim();
-  const readCached = (viewportKey: string): string => {
+  const readCached = (viewportKey: string): CachedViewDocument | null => {
     const key = normalizeKey(viewportKey);
     const cached = cache.get(key);
     if (!cached) {
-      return '';
+      return null;
     }
     if (now() - cached.cachedAt > cacheTtlMs) {
       cache.delete(key);
       if (!inFlight.has(key)) {
         versions.delete(key);
       }
-      return '';
+      return null;
     }
     cache.delete(key);
     cache.set(key, cached);
-    return cached.html;
+    return cached;
   };
 
-  const writeCached = (key: string, html: string) => {
+  const writeCached = (key: string, document: CachedViewDocument) => {
     cache.delete(key);
-    cache.set(key, { html, cachedAt: now() });
+    cache.set(key, document);
     while (cache.size > cacheLimit) {
       const oldestKey = cache.keys().next().value;
       if (!oldestKey) {
@@ -108,10 +110,9 @@ export function createConversationViewportDocumentStore(
             throw new Error('Viewport html exceeds the 256 KiB safety limit.');
           }
           if (loadGeneration !== generation) throw new Error('Viewport cache was released');
-          if (versions.get(key) === version) {
-            writeCached(key, html);
-          }
-          return html;
+          const document = { view: response.view, html, cachedAt: now() };
+          if (versions.get(key) === version) writeCached(key, document);
+          return document;
         })
         .finally(() => {
           if (inFlight.get(key)?.promise === promise) {

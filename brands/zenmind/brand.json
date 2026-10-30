@@ -1,5 +1,6 @@
 {
   "id": "zenmind",
+  "accountLoginMethod": "email-code",
   "productName": "Zenmind",
   "expoName": "Zenmind",
   "appIcon": "app-icon.png",

@@ -6,9 +6,10 @@ export const APP_BRANDS = {
   "cutej": {
     "id": "cutej",
     "productName": "CuteJ",
+    "accountLoginMethod": "enterprise-sso",
     "expoName": "CuteJ",
     "slug": "zenmind-react-app",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "storageNamespace": "zenmind-app",
     "splash": {
       "backgroundColor": "#F5F7FA",
@@ -28,9 +29,10 @@ export const APP_BRANDS = {
   "zenmind": {
     "id": "zenmind",
     "productName": "Zenmind",
+    "accountLoginMethod": "email-code",
     "expoName": "Zenmind",
     "slug": "zenmind-react-app",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "storageNamespace": "zenmind-app",
     "splash": {
       "backgroundColor": "#EDF1F5",

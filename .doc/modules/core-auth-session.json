@@ -6,20 +6,22 @@
     "src/core/auth"
   ],
   "summary": {
-    "purpose": "官网邮箱 Cookie 会话与可信用户、账号电脑访问、唯一来源选择及独立默认云端凭证。",
+    "purpose": "官网邮箱验证码与企业 SSO Cookie 会话与可信用户、账号电脑访问、唯一来源选择及独立默认云端凭证。",
     "ownedConcepts": [
       "accountAuth 仅将 Cookie 发往显式配置的官网同源接口；me 确认用户后交换官网 SSO 证明，内存保存，Hub 不接收 Cookie。cloudAuth 保持独立原生凭据与 scope。",
       "activeDesktop 在内存与持久化保存一个 cloud/desktop/null 选择；旧电脑偏好只在匹配账号恢复后恢复，云端验证不自动覆盖已有电脑选择。",
       "电脑缓存保持 accountId+desktopId；云端缓存以固定默认来源绑定及随机本地凭证 scope 隔离，不含 Token；更换 Token 仅在验证成功后持久化，新 scope 不重放旧消息。",
       "账号退出只关闭当前电脑；云端退出阻止配置 Token 自动复活。明确云端认证失效隐藏缓存，网络/服务/权限失败保留凭证；业务验证由 feature cloudAccess 执行。",
-      "邮箱验证码登录复用官网 email-code/start、verify、me、csrf 和 desktop-sso/token；Cookie 变更串行，generation 拒绝取消/退出/新登录后的迟到结果。只持久化本地退出标记，不保存官网证明或业务票据。",
-      "官网 accountId 使用 official origin + 真实用户 ID 的独立命名空间，旧 Identity 聊天数据保留且不自动合并、删除或重发 query。"
+      "ZenMind 仅用 loginWithAccountEmail 接入 email-code/verify、me、csrf 和 desktop-sso/token；CuteJ WebView 认证后调用企业换票和用户接口。两条链路复用 accountAuth 的唯一快照、generation、串行操作及刷新单飞。官网证明只存内存，企业恢复凭据存 SecureStore。",
+      "官网 accountId 使用 official origin + 真实用户 ID 的独立命名空间，旧 Identity 聊天数据保留且不自动合并、删除或重发 query。",
+      "品牌环境 accountServices 是账号服务唯一地址来源：官网和企业地址互斥，缺失时关闭账号入口。企业交互使用 WebKit/Android 认证 Cookie，恢复与续期只向同源换票和用户接口发送 Bearer；退出定向清 Cookie 与 SecureStore，临时故障保留恢复材料。"
     ],
     "nonGoals": []
   },
   "facts": {
     "entrypoints": [],
     "publicApi": [
+      "ACCOUNT_LOGIN_METHOD",
       "AccountAuthSnapshot",
       "AccountDesktopCacheScopeEntry",
       "AccountDesktopCacheScopeSnapshot",
@@ -35,12 +37,16 @@
       "SelectedSource",
       "applyDesktopTokenToUrl",
       "beginCloudVerification",
+      "beginEnterpriseAccountLogin",
       "bootstrapAccountAuth",
       "buildAccountDesktopCacheScopeKey",
       "buildDesktopBusinessFrame",
       "buildDesktopTokenTransport",
+      "cancelEnterpriseAccountLogin",
+      "clearEnterpriseSession",
       "commitActiveDesktop",
       "commitSelectedSource",
+      "completeEnterpriseAccountLogin",
       "createCloudCredential",
       "createEmptyAccountDesktopCacheScopeSnapshot",
       "finishCloudVerification",
@@ -62,24 +68,28 @@
       "normalizeDesktopWsUrlInput",
       "parseAccountSession",
       "parseOfficialUser",
+      "readAccountApiBaseUrl",
       "readAccountDesktopCacheScopeSnapshot",
       "readActiveDesktopId",
       "readCloudCredential",
+      "readEnterpriseApiBaseUrl",
       "readOfficialApiBaseUrl",
-      "readResolvedApiBaseUrl",
-      "readStoredApiBaseUrl",
       "readTunnelHubApiBaseUrl",
+      "refreshAccountSession",
       "reportCloudFailure",
       "resolveAccountDesktopCacheScope",
       "resolveAndPersistAccountDesktopCacheScope",
       "restoreCloudCredential",
+      "restoreEnterpriseSession",
       "restoreLegacyDesktopSelection",
+      "saveEnterpriseSession",
       "subscribeAccountAuth",
       "subscribeActiveDesktop",
       "subscribeCloudAuth",
       "updateAccountDesktopAvailability",
       "useAccountAuth",
-      "useCloudAuth"
+      "useCloudAuth",
+      "verifyEnterpriseLogin"
     ],
     "dependencies": [
       "core-api-client",
@@ -95,13 +105,15 @@
       "feature-web-apps"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-15T07:18:02Z"
+    "lastScannedAt": "2026-10-29T03:25:58Z"
   },
   "readHints": {
     "alwaysRead": [
       "src/core/auth/accountAuth.ts",
       "src/core/auth/activeDesktop.ts",
-      "src/core/auth/accountDesktopCacheScopes.ts"
+      "src/core/auth/accountDesktopCacheScopes.ts",
+      "src/core/auth/enterpriseAccount.native.ts",
+      "src/core/auth/authConfig.ts"
     ],
     "readFor": []
   },

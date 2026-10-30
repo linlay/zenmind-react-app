@@ -91,7 +91,8 @@
     "本地调试切品牌优先使用单命令入口 pnpm android:device:\u003cid\u003e / pnpm android:\u003cid\u003e / pnpm ios:\u003cid\u003e；无参 sync/start/android/app.config.js 固定使用默认 zenmind，避免隐藏的本地品牌状态影响构建。",
     "显式 scripts/sync-brand.js 的原生文本同步必须命中 Android Manifest / Gradle / iOS project / Info.plist 的必需字段，缺失时直接失败，不写入 active native manifest 假装成功；app.config.js 读取配置时只生成 registry / PNG，不写 native 文本。",
     "多品牌改造不进入聊天 SQLite、MMKV 真源、WebSocket transport 或 repository 写入链路。",
-    "新增品牌后要跑 BRAND=\u003cid\u003e node ./scripts/sync-brand.js、expo config 和 APK badging 检查共享 native identity 与品牌展示是否同时正确。"
+    "新增品牌后要跑 BRAND=\u003cid\u003e node ./scripts/sync-brand.js、expo config 和 APK badging 检查共享 native identity 与品牌展示是否同时正确。",
+    "品牌 manifest 的 accountLoginMethod 是登录方式单源；email-code 对应 accountServices.officialApiBaseUrl，enterprise-sso 对应 ssoBaseUrl，两者与 tunnelHubApiBaseUrl 由构建校验，不携带用户凭据。"
   ],
   "generated": {
     "mustReadCount": 6,

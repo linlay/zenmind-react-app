@@ -40,8 +40,12 @@
   "facts": {
     "entrypoints": [],
     "publicApi": [],
-    "dependencies": ["shared-visual-foundation"],
-    "dependents": ["feature-chat-persistence"],
+    "dependencies": [
+      "shared-visual-foundation"
+    ],
+    "dependents": [
+      "feature-chat-persistence"
+    ],
     "tests": [
       "scripts/tests/markdownPipeline.test.mts",
       "scripts/tests/markdownPreview.test.mts",
@@ -51,7 +55,9 @@
     "lastScannedAt": ""
   },
   "readHints": {
-    "alwaysRead": ["src/shared/components/ConversationMarkdownRenderer.tsx"],
+    "alwaysRead": [
+      "src/shared/components/ConversationMarkdownRenderer.tsx"
+    ],
     "readFor": [
       {
         "when": "legacy readNext",
@@ -78,7 +84,9 @@
     "Android PreviewSurface 不得启用 react-native-webview 的 incognito 或清理共享 Cookie；该原生属性会调用全局 removeAllCookies，破坏 expo/fetch 的官网认证与 WebApps 会话。",
     "特殊 fence 只有闭合且内置/feature extension 校验成功后才挂载预览；单块源码最大 256 KiB、初始化最多 8 秒，离屏延迟释放和高度缓存必须保持有界。"
   ],
-  "recentChanges": [],
+  "recentChanges": [
+    "2026-10-28 B1：单一 fence scanner 暴露 openingLine 与闭合匹配序号，由 feature 声明严格 VIEW 头；无效 VIEW 仍占 index，streaming EOF 关闭须等换行或最终态。HTML runtime 同 request/source 的数据更新只转发 view_update，不重建 iframe；shared 不解释 binding、owner 或提交业务。"
+  ],
   "legacy": {
     "title": "对话内容渲染组件",
     "layer": "shared"

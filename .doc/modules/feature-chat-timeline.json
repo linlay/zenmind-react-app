@@ -146,6 +146,7 @@
       "ChatTimelineUsageStats",
       "ChatTimelineUsageSummary",
       "ChatTimelineUsageTiming",
+      "ChatTimelineViewBinding",
       "ChatToolOutput",
       "ConversationActionDefinition",
       "NormalizedChatTimelineAction",
@@ -260,6 +261,7 @@
       "readChatRunFeedback",
       "readConversationActionEventArguments",
       "readRunAccessLevel",
+      "readTimelineViewBindings",
       "reconcileChatTimelineAwaitingSnapshot",
       "resolveChatComposerHistory",
       "resolveChatTimelineActionId",
@@ -292,7 +294,7 @@
       "feature-chat-realtime"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-16T08:54:52Z"
+    "lastScannedAt": "2026-10-29T03:25:58Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -335,7 +337,7 @@
     "本地消息、ack、incoming、delta、服务端真实终态、unavailable liveness 和 reconcile 复用同一 reducer/merge。stop 不投影假 cancel；terminal run/tool/message 不被 stale active 复活。tool.end 不等于工具执行完成；run 真实终态收口对应活动子节点。",
     "display item 必须保持 flat list 和稳定 key；run 状态由详情 Header 消费、usage 节点由输入区用量入口消费，不进入主列表；连续同名工具只能在 display 层生成 tool-group，不写回 timeline state；source.publish 必须按 publishId 幂等归一；artifact.publish 必须按 conversation + artifactId 拆分稳定节点；plan.* 必须按 conversation + planId 合并稳定 typed plan 节点；task.* 必须按 taskId 幂等归一为单一 typed task，再由 display 按 planId/parentTaskId/runId/taskGroupId 组合，禁止把 task runtime 复制进 plan 或组件 store；action.* 必须按 conversation + actionId 归一，Reducer 只保存协议/执行结果并保持纯函数，白名单执行不得出现在 reducer、history replay 或 snapshot restore；旧时间戳不得覆盖新状态，终态 replay 不得无状态复活；结构化节点不得用重复 title/body 字段伪装通用 text node；列表行 memo 和 display model 缓存应基于 node 引用、关联 task 引用和分组元数据，避免单个结构化节点更新带动无关行重渲染。",
     "context.compact.* 必须归一为 typed context 节点，UI 只消费语义字段，不显示原始 payload/JSON；complete 事件对 contextWindow 和 compact usage 的修正必须写入同一节点参与 rich snapshot，并同步更新 ChatTimelineState.usageSummary，保证 Header、实时态和恢复态一致。",
-    "frontend tool 只允许 html/qlc 且必须同时存在 viewportKey；活动状态从 tool 节点派生，close/done/submitted/timeout resolution 写回同一节点并参与 snapshot/replay，禁止建立第二份 active tool 状态。",
+    "frontend tool 只允许 html/qlc 且必须同时存在合法 view/viewKey；活动状态从 tool 节点派生，close/done/submitted/timeout resolution 写回同一节点并参与 snapshot/replay，禁止建立第二份 active tool 状态。",
     "tool.output 按 chunkIndex 去重、UTF-8 字节预算截断并清理 ANSI，仅内存展示；序列化明确删除 toolOutput。重试 activity 限当前 run/task、保持瞬态、不改业务终态。",
     "cycleId 优先关联 context.compact，cycleComplete=false 不能提前完成整个 cycle；没有 cycle 的旧 snapshot 保留既有兼容。",
     "上下文引用沿用消息附件和 rich snapshot，chat/Site echo 按 type+稳定 ID 匹配，不把后端重写标题/meta 视为另一消息；禁止以文件 URL 伪造上下文。",

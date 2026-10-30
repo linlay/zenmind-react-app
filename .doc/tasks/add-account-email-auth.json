@@ -1,31 +1,24 @@
 {
   "schemaVersion": "1.0",
   "id": "add-account-email-auth",
-  "title": "邮箱验证码登录与邮箱绑定解绑改造",
+  "title": "按安装品牌登录：邮箱验证码与企业统一认证",
   "intentKeywords": [
+    "品牌登录",
+    "企业 SSO",
     "邮箱登录",
     "邮箱验证码登录",
-    "邮箱绑定",
-    "邮箱解绑",
-    "账号与安全",
-    "邮箱认证执行大纲",
+    "统一认证",
     "account email auth"
   ],
   "entryDecision": [
-    "2026-10-13：App/Identity 代码与本地验收已实施；从 docs/account-email-auth-2026-10-13/IMPLEMENTATION.md 查看契约、验证、清理及真实 SMTP/部署/真机缺口，整体未完成。",
-    "账号密码默认，邮箱验证码仅登录已绑定邮箱的已有账号；不限制域名，一对一，不自动注册。",
-    "用户页新增账号与安全；首次绑定用有效账号会话和新邮箱地址验证码，不验密码；解绑验证当前邮箱地址，保留已有设备会话。",
-    "解绑后可重新绑定；旧绑定的未完成验证码失效，邮箱地址不可用由管理员核实后人工解绑并审计。",
-    "邮箱验证码登录沿用原 AccountSession、accountId、权限及设备凭证；账号与安全摘要独立查询。",
-    "邮箱整地址小写匹配，保留已验证原地址投递，不折叠点号/+tag；账号与安全及解绑页显示完整邮箱。",
-    "标准 SMTP 发送固定中英双语纯文本；接受不等于到达收件箱，用户检查地址与垃圾邮件并在60秒后手动重发。",
-    "绝对不允许过度设计：复用现有 accountAuth、请求封装、Identity 会话签发与 SQLite，不建多服务商、认证、策略或状态框架。",
-    "用户确认公开登录采用统一受理回执，SMTP 未确认的挑战不得登录；回执不宣称投递成功。两个服务端新入口开关默认关闭。"
+    "ZenMind 仅使用原生邮箱验证码；CuteJ 在现有 Login 路由内打开企业统一认证 WebView。品牌方式在 manifest，地址在 accountServices；不按页面散落品牌判断。",
+    "accountAuth 统一持有会话、generation、串行变更和刷新单飞；企业协议、Cookie 和 SecureStore 放在 enterpriseAccount.native，无第二套 Provider。",
+    "官网密码和方式切换已删除；旧 Identity、扫码和绑定解绑只作历史，不恢复。"
   ],
   "mustRead": [
     {
       "type": "doc",
-      "ref": "docs/account-email-auth-2026-10-13/README.md"
+      "ref": "docs/mobile-account-ticket-sync-2026-10-14/IMPLEMENTATION.md"
     },
     {
       "type": "module",
@@ -53,43 +46,31 @@
     }
   ],
   "likelyFiles": [
-    "docs/account-email-auth-2026-10-13/README.md",
-    "docs/account-email-auth-2026-10-13/tasks/T01-contract-readiness.md",
-    "docs/account-email-auth-2026-10-13/tasks/T02-identity-email-storage.md",
-    "docs/account-email-auth-2026-10-13/tasks/T03-identity-account-api.md",
-    "docs/account-email-auth-2026-10-13/tasks/T04-app-api-session.md",
-    "docs/account-email-auth-2026-10-13/tasks/T05-account-security-ui.md",
-    "docs/account-email-auth-2026-10-13/tasks/T06-email-login-ui.md",
-    "docs/account-email-auth-2026-10-13/tasks/T07-integration-release-cleanup.md",
-    "src/app/navigation/RootNavigator.tsx",
-    "src/app/navigation/types.ts",
-    "src/app/screens/MeScreen.tsx",
-    "src/app/screens/SettingsScreen.tsx",
-    "src/core/api/accountApiClient.ts",
+    "brands/cutej/brand.json",
+    "brands/zenmind/brand.json",
+    "scripts/lib/app-env-config.js",
     "src/core/api/services/accountEmailApi.ts",
     "src/core/auth/accountAuth.ts",
-    "src/core/auth/accountAuthModel.ts",
-    "src/features/auth/LoginScreen.tsx",
-    "src/shared/i18n/messages/en-US.ts",
-    "src/shared/i18n/messages/zh-CN.ts"
+    "src/core/auth/authConfig.ts",
+    "src/core/auth/enterpriseAccount.native.ts",
+    "src/features/auth/EmailVerificationForm.tsx",
+    "src/features/auth/EnterpriseLogin.tsx",
+    "src/features/auth/LoginScreen.tsx"
   ],
   "acceptanceChecks": [
-    "总览与七个子任务状态一致，计划不冒充已落地事实。",
-    "绑定不验密码，解绑验证当前邮箱地址；账号会话与邮箱状态边界清楚。",
-    "一对一、用途隔离、一次性消费、累计限流和解绑后旧码失效均有真实验证。",
-    "邮箱验证码与密码同账号、权限和会话；独立云端 Token、QR 和电脑来源回归通过。",
-    "SMTP 接受、拒绝、延迟及结果不明已验证；完整邮箱展示不扩大到公开接口或日志。",
-    "真实邮件与真机验收、回滚及临时状态清理完成后才标整体完成。"
+    "双品牌安装壳选择对应账号 UI；云端 Token 独立，所有成功入口复用安全返回。",
+    "验证码冷却/过期/取消有效；企业回到完成地址后须探测会话、换票并确认稳定身份，拒绝不匹配。",
+    "企业凭据只存系统安全存储，Cookie 定向清理；取消/退出和新登录拒绝迟到结果，重启恢复和刷新不能复活旧身份。",
+    "回前台刷新使用当前账号会话，不固定官网地址；电脑 accountId+desktopId 缓存和业务票据保持原边界。",
+    "执行针对性测试、lint、typecheck、双品牌构建与真机验收；依赖安装和 lock 更新由用户执行，未验收项明确记录。"
   ],
   "doNotMiss": [
-    "后端能力在 sibling identity-center；先读其 AGENTS.md，不输出邮件凭证或真实用户邮箱地址。",
-    "发送渠道已定 SMTP，真实服务和发件账号待核实；mock 支持开发但不代表真实接入完成。",
-    "文档归 feature-auth-login 便于检索；模块行为已随本地实现更新，不能冒充生产已上线。",
-    "不新增 Token store、全局 Provider、Redis/队列平台、通用 OTP/认证工厂；仅抽取实际重复代码。",
-    "页面不操作 SQLite/MMKV/WebSocket；不借机改聊天同步、云端认证或品牌环境链路。"
+    "复用 accountRequest、accountAuth、现有导航和品牌生成流程；删除官网密码、旧通用文件和无引用的地址读取代码，不保留转发壳。",
+    "react-app-env 仅新增 ssoBaseUrl 地址契约，不增加凭据或可配置认证策略；生产服务与 Hub 的真实账号归属仍须验证。",
+    "CookieManager 和 SecureStore 属于原生能力；Web 预览关闭企业入口。新增原生模块使用新的 appVersion/runtime，不向旧原生壳下发。"
   ],
   "generated": {
     "mustReadCount": 7,
-    "likelyFileCount": 19
+    "likelyFileCount": 10
   }
 }

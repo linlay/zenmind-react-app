@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 9,
+  "capturedFromCommit": "38fb77cdc562b879a5f9e43e91eed905ebd428a7",
+  "evidence": "Synthetic non-private events serialized by the unchanged v9 production serializer; not a captured user database or evidence for legacy-template support.",
+  "snapshot": {
+    "meta": {
+      "conversationId": "t00-v9-chat",
+      "activeRunId": "t00-v9-run",
+      "awaitingId": "awaiting:t00-v9-chat:t00-v9-run:t00-current",
+      "usageLabel": "",
+      "updatedAt": 1793145600003,
+      "revision": 8,
+      "nextOrder": 3
+    },
+    "nodes": [
+      {
+        "conversationId": "t00-v9-chat",
+        "nodeId": "run:t00-v9-chat:t00-v9-run:run",
+        "kind": "run",
+        "runId": "t00-v9-run",
+        "orderIndex": 0,
+        "createdAt": 1793145600000,
+        "updatedAt": 1793145600000,
+        "payloadHash": "a8d725ad",
+        "payloadJson": "{\"accessLevel\":null,\"accessLevelVersion\":null,\"agentKey\":\"\",\"body\":\"runId: t00-v9-run\",\"completedAt\":null,\"createdAt\":1793145600000,\"derivation\":null,\"durationMs\":null,\"editingMode\":null,\"feedback\":null,\"id\":\"run:t00-v9-chat:t00-v9-run:run\",\"isMainRun\":true,\"kind\":\"run\",\"lifecycle\":\"active\",\"order\":0,\"planningMode\":null,\"queryModel\":null,\"runId\":\"t00-v9-run\",\"startedAt\":1793145600000,\"status\":\"running\",\"title\":\"\",\"updatedAt\":1793145600000}"
+      },
+      {
+        "conversationId": "t00-v9-chat",
+        "nodeId": "awaiting:t00-v9-chat:t00-v9-run:t00-history",
+        "kind": "awaiting",
+        "runId": "t00-v9-run",
+        "orderIndex": 1,
+        "createdAt": 1793145600001,
+        "updatedAt": 1793145600002,
+        "payloadHash": "fd7bc3f0",
+        "payloadJson": "{\"answer\":\"Historical title\\napprove · {\\n  \\\"days\\\": 2\\n}\",\"answerSummary\":{\"copyText\":\"\",\"itemCount\":1,\"items\":[{\"key\":\"f1:0\",\"title\":\"Historical title\",\"value\":\"approve · {\\n  \\\"days\\\": 2\\n}\"}],\"status\":\"answered\",\"title\":\"\"},\"awaitingId\":\"t00-history\",\"createdAt\":1793145600001,\"id\":\"awaiting:t00-v9-chat:t00-v9-run:t00-history\",\"interactive\":{\"agentKey\":\"\",\"forms\":[{\"form\":{\"days\":1},\"id\":\"f1\",\"title\":\"Historical title\"}],\"kind\":\"form\",\"timeout\":null,\"view\":null,\"viewError\":\"\",\"viewportKey\":\"\",\"viewportType\":\"\"},\"kind\":\"awaiting\",\"lifecycle\":\"complete\",\"mode\":\"form\",\"order\":1,\"payloadText\":\"Historical title\\n{\\n  \\\"days\\\": 1\\n}\",\"prompt\":\"Historical form\",\"runId\":\"t00-v9-run\",\"status\":\"answer\",\"updatedAt\":1793145600002}"
+      },
+      {
+        "conversationId": "t00-v9-chat",
+        "nodeId": "awaiting:t00-v9-chat:t00-v9-run:t00-current",
+        "kind": "awaiting",
+        "runId": "t00-v9-run",
+        "orderIndex": 2,
+        "createdAt": 1793145600003,
+        "updatedAt": 1793145600003,
+        "payloadHash": "df5ab275",
+        "payloadJson": "{\"answer\":\"Historical title\\napprove · {\\n  \\\"days\\\": 2\\n}\",\"answerSummary\":null,\"awaitingId\":\"t00-current\",\"createdAt\":1793145600003,\"id\":\"awaiting:t00-v9-chat:t00-v9-run:t00-current\",\"interactive\":{\"agentKey\":\"\",\"forms\":[{\"form\":{\"days\":3},\"id\":\"f2\",\"title\":\"Pending title\"}],\"kind\":\"form\",\"timeout\":null,\"view\":null,\"viewError\":\"\",\"viewportKey\":\"\",\"viewportType\":\"\"},\"kind\":\"awaiting\",\"lifecycle\":\"active\",\"mode\":\"form\",\"order\":2,\"payloadText\":\"Pending title\\n{\\n  \\\"days\\\": 3\\n}\",\"prompt\":\"Pending form\",\"runId\":\"t00-v9-run\",\"status\":\"ask\",\"updatedAt\":1793145600003}"
+      }
+    ]
+  },
+  "expected": {
+    "preservePrompts": [
+      "Historical form",
+      "Pending form"
+    ],
+    "legacyInteractiveAfterMigration": null,
+    "remoteReconcileRequiredBeforeSubmit": true
+  }
+}

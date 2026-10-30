@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { conversationViewportDocumentStore } from './viewportDocument';
+import type { CachedViewDocument } from './viewportDocumentStore';
 
 type ViewportDocumentState = {
   key: string;
-  html: string;
+  document: CachedViewDocument | null;
   loading: boolean;
   error: string;
 };
@@ -12,9 +13,9 @@ type ViewportDocumentState = {
 function initialState(viewportKey: string): ViewportDocumentState {
   return {
     key: viewportKey,
-    html: conversationViewportDocumentStore.getCached(viewportKey),
+    document: conversationViewportDocumentStore.getCached(viewportKey),
     loading: false,
-    error: '',
+    error: ''
   };
 }
 
@@ -27,13 +28,13 @@ export function useConversationViewportDocument(viewportKey: string, active: boo
   useEffect(() => {
     const cached = conversationViewportDocumentStore.getCached(viewportKey);
     if (!active) {
-      setState({ key: viewportKey, html: cached, loading: false, error: '' });
+      setState({ key: viewportKey, document: cached, loading: false, error: '' });
       return;
     }
     const force = forceReloadRef.current;
     forceReloadRef.current = false;
     if (cached && !force) {
-      setState({ key: viewportKey, html: cached, loading: false, error: '' });
+      setState({ key: viewportKey, document: cached, loading: false, error: '' });
       return;
     }
 
@@ -42,24 +43,24 @@ export function useConversationViewportDocument(viewportKey: string, active: boo
     let disposed = false;
     setState((current) => ({
       key: viewportKey,
-      html: current.key === viewportKey ? current.html : cached,
+      document: current.key === viewportKey ? current.document : cached,
       loading: true,
-      error: '',
+      error: ''
     }));
     void conversationViewportDocumentStore
       .load(viewportKey, { force })
-      .then((html) => {
+      .then((document) => {
         if (!disposed && loadGenerationRef.current === generation) {
-          setState({ key: viewportKey, html, loading: false, error: '' });
+          setState({ key: viewportKey, document, loading: false, error: '' });
         }
       })
       .catch((error: unknown) => {
         if (!disposed && loadGenerationRef.current === generation) {
           setState((current) => ({
             key: viewportKey,
-            html: current.key === viewportKey ? current.html : '',
+            document: current.key === viewportKey ? current.document : null,
             loading: false,
-            error: error instanceof Error ? error.message : String(error),
+            error: error instanceof Error ? error.message : String(error)
           }));
         }
       });

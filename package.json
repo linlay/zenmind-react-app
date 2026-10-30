@@ -1,6 +1,6 @@
 {
   "name": "zenmind-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "main": "index.js",
   "scripts": {
     "brand:sync": "node ./scripts/sync-brand.js",
@@ -42,6 +42,7 @@
   },
   "packageManager": "pnpm@7.33.7",
   "dependencies": {
+    "@preeternal/react-native-cookie-manager": "7.0.0",
     "@shopify/flash-list": "2.0.2",
     "@react-navigation/bottom-tabs": "7.16.1",
     "@react-navigation/native": "7.2.4",
@@ -57,6 +58,7 @@
     "expo-localization": "56.0.6",
     "expo-notifications": "56.0.15",
     "expo-sharing": "56.0.15",
+    "expo-secure-store": "56.0.4",
     "expo-splash-screen": "56.0.10",
     "expo-sqlite": "56.0.4",
     "expo-updates": "56.0.18",

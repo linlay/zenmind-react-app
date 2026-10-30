@@ -306,10 +306,8 @@ export const RuntimeTimelineRow = memo(function RuntimeTimelineRow({
                 key={tool.id + ':view'}
                 view={tool.view}
                 viewError={tool.viewError}
-                memberKey={tool.agentKey}
-                viewportKey={tool.view.key}
+                runId={tool.runId}
                 payload={tool.resultText}
-                sourceHash={tool.id}
               />
             ) : null
           )}

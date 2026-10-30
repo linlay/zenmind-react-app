@@ -1,0 +1,369 @@
+{
+  "evidence": "Contract examples derived from the pinned Platform tests; never deployment evidence.",
+  "validSubmits": [
+    {
+      "mode": "question",
+      "request": {
+        "chatId": "00000000-0000-4000-8000-000000000001",
+        "runId": "t00-run",
+        "agentKey": "mock-agent",
+        "awaitingId": "t00-awaiting",
+        "params": [
+          {
+            "id": "q1",
+            "answer": "yes"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "approval",
+      "request": {
+        "chatId": "00000000-0000-4000-8000-000000000001",
+        "runId": "t00-run",
+        "agentKey": "mock-agent",
+        "awaitingId": "t00-awaiting",
+        "params": [
+          {
+            "id": "a1",
+            "decision": "approve_rule_run"
+          }
+        ]
+      }
+    },
+    {
+      "mode": "form",
+      "request": {
+        "chatId": "00000000-0000-4000-8000-000000000001",
+        "runId": "t00-run",
+        "agentKey": "mock-agent",
+        "awaitingId": "t00-awaiting",
+        "param": {
+          "decision": "approve",
+          "data": {
+            "chatId": "ordinary-business-chat",
+            "agentKey": "ordinary-business-agent",
+            "nested": {
+              "chatId": "nested-business-chat",
+              "agentKey": "nested-business-agent"
+            }
+          }
+        }
+      }
+    },
+    {
+      "mode": "form",
+      "request": {
+        "chatId": "00000000-0000-4000-8000-000000000001",
+        "runId": "t00-run",
+        "agentKey": "mock-agent",
+        "awaitingId": "t00-awaiting",
+        "param": {
+          "decision": "reject",
+          "reason": "revise"
+        }
+      }
+    },
+    {
+      "mode": "form",
+      "request": {
+        "chatId": "00000000-0000-4000-8000-000000000001",
+        "runId": "t00-run",
+        "agentKey": "mock-agent",
+        "awaitingId": "t00-awaiting",
+        "param": {
+          "decision": "dismiss"
+        }
+      }
+    },
+    {
+      "mode": "planning",
+      "request": {
+        "chatId": "00000000-0000-4000-8000-000000000001",
+        "runId": "t00-run",
+        "agentKey": "mock-agent",
+        "awaitingId": "t00-awaiting",
+        "param": {
+          "decision": "approve"
+        }
+      }
+    },
+    {
+      "mode": "planning",
+      "request": {
+        "chatId": "00000000-0000-4000-8000-000000000001",
+        "runId": "t00-run",
+        "agentKey": "mock-agent",
+        "awaitingId": "t00-awaiting",
+        "param": {
+          "decision": "reject",
+          "reason": "revise"
+        }
+      }
+    },
+    {
+      "mode": "planning",
+      "request": {
+        "chatId": "00000000-0000-4000-8000-000000000001",
+        "runId": "t00-run",
+        "agentKey": "mock-agent",
+        "awaitingId": "t00-awaiting",
+        "param": {
+          "decision": "dismiss"
+        }
+      }
+    }
+  ],
+  "invalidSubmits": [
+    {
+      "mode": "form",
+      "answer": {
+        "params": []
+      },
+      "error": "form awaiting accepts param, not params"
+    },
+    {
+      "mode": "form",
+      "answer": {
+        "param": {
+          "decision": "approve"
+        }
+      },
+      "error": "param.data is required for approve"
+    },
+    {
+      "mode": "form",
+      "answer": {
+        "param": {
+          "decision": "dismiss",
+          "data": {}
+        }
+      },
+      "error": "param: dismiss does not allow data"
+    },
+    {
+      "mode": "planning",
+      "answer": {
+        "param": {
+          "decision": "approve",
+          "data": {}
+        }
+      },
+      "error": "param: planning awaiting does not allow data"
+    },
+    {
+      "mode": "question",
+      "answer": {
+        "param": {
+          "answer": "yes"
+        }
+      },
+      "error": "question awaiting accepts params, not param"
+    },
+    {
+      "mode": "approval",
+      "answer": {
+        "param": {
+          "decision": "approve"
+        }
+      },
+      "error": "approval awaiting accepts params, not param"
+    },
+    {
+      "mode": "form",
+      "answer": {
+        "param": {
+          "decision": "approve",
+          "data": {}
+        },
+        "params": []
+      },
+      "error": "form awaiting accepts param, not params"
+    }
+  ],
+  "views": {
+    "valid": [
+      {
+        "source": "builtin",
+        "key": "ask_user_form",
+        "renderer": "html"
+      },
+      {
+        "source": "builtin",
+        "key": "planning",
+        "renderer": "native"
+      },
+      {
+        "source": "connector",
+        "connectorId": "builtin.task-control",
+        "key": "automations",
+        "renderer": "html"
+      }
+    ],
+    "invalid": [
+      {
+        "source": "unknown",
+        "key": "ask_user_form"
+      },
+      {
+        "source": "builtin",
+        "connectorId": "crm",
+        "key": "ask_user_form"
+      },
+      {
+        "source": "builtin",
+        "key": "ask_user_form",
+        "hash": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      {
+        "source": "connector",
+        "connectorId": "builtin.task-control",
+        "key": "automations",
+        "renderer": "html",
+        "hash": "latest"
+      },
+      {
+        "source": "connector",
+        "connectorId": "builtin.task-control",
+        "key": "../orders",
+        "renderer": "html"
+      }
+    ]
+  },
+  "namespace": {
+    "outer": {
+      "chatId": "00000000-0000-4000-8000-000000000001",
+      "runId": "t00-run",
+      "agentKey": "mock-agent",
+      "awaitingId": "t00-awaiting"
+    },
+    "business": {
+      "chatId": "ordinary-business-chat",
+      "agentKey": "ordinary-business-agent",
+      "nested": {
+        "chatId": "nested-business-chat",
+        "agentKey": "nested-business-agent"
+      }
+    },
+    "locations": [
+      "content.view.data",
+      "view_init.data.payload",
+      "view_update.data.payload",
+      "param.data",
+      "tool.params",
+      "view/query.params",
+      "view/query/result.data"
+    ],
+    "expected": "Scope only known protocol identities. Preserve every business field exactly, including nested fields."
+  },
+  "query": {
+    "viewIdentity": {
+      "connectorId": "builtin.task-control",
+      "key": "automations",
+      "hash": null
+    },
+    "params": {
+      "limit": 5
+    },
+    "result": {
+      "data": {
+        "items": [
+          {
+            "id": "daily"
+          }
+        ],
+        "total": 1,
+        "limit": 5
+      },
+      "executedAt": 1793145600000
+    },
+    "errors": {
+      "undeclared": "view_not_found",
+      "foreignRun": "view_query_run_not_found",
+      "schema": "view_query_params_invalid",
+      "connectorAuth": "connector_auth_required"
+    },
+    "snapshotHash": "Must come from an actual frozen snapshot; no fabricated hash authorizes a query."
+  },
+  "display": {
+    "levels": [
+      "summary",
+      "full",
+      "none"
+    ],
+    "example": {
+      "defaultDetail": "summary",
+      "effectiveDetail": "full"
+    },
+    "raceExpected": "An older history page must not overwrite newer run.start display; attach inherits admitted Run detail and never sends a new detail."
+  },
+  "recovery": {
+    "expired": {
+      "kind": "error",
+      "type": "/api/attach",
+      "code": "seq_expired",
+      "status": 409,
+      "message": "SEQ_EXPIRED",
+      "data": {
+        "runId": "t00-run",
+        "chatId": "00000000-0000-4000-8000-000000000001",
+        "oldestSeq": 20,
+        "latestSeq": 40,
+        "lastSeq": 1
+      }
+    },
+    "stablePushIdentity": [
+      "source/cacheScope",
+      "rootAgentKey",
+      "chatId",
+      "runId",
+      "awaitingId"
+    ],
+    "timestampValidation": "createdAt must be Unix milliseconds; it is not a dedup nonce.",
+    "duplicatePushes": [
+      {
+        "type": "awaiting.asking",
+        "data": {
+          "chatId": "00000000-0000-4000-8000-000000000001",
+          "runId": "t00-run",
+          "agentKey": "mock-agent",
+          "awaitingId": "t00-awaiting",
+          "mode": "form",
+          "createdAt": 1793145600000,
+          "view": {
+            "source": "builtin",
+            "key": "ask_user_form",
+            "renderer": "html"
+          }
+        }
+      },
+      {
+        "type": "awaiting.asking",
+        "data": {
+          "chatId": "00000000-0000-4000-8000-000000000001",
+          "runId": "t00-run",
+          "agentKey": "mock-agent",
+          "awaitingId": "t00-awaiting",
+          "mode": "form",
+          "createdAt": 1793145600000,
+          "view": {
+            "source": "builtin",
+            "key": "ask_user_form",
+            "renderer": "html"
+          }
+        }
+      }
+    ],
+    "afterExhaustionExpected": "One valid new awaiting identity triggers at most one reconcile; duplicate, wrong source, owner or Run does not; no query/steer replay.",
+    "automaticBudget": null,
+    "budgetEvidence": "Deferred by user on 2026-10-28; no long-step sample available. T06 must not guess a count or timer budget."
+  },
+  "budgets": {
+    "documentSourceBytes": 262144,
+    "bridgeParamsBytes": 65536,
+    "queryParamsBytes": 65536,
+    "queryResultBytes": 65536,
+    "overflow": "Explicit error; do not truncate or raise shared global limits.",
+    "queryBudgetEvidence": "Retain the existing 64 KiB bridge envelope for each direction; contract sample sizes are measured in provenance. Runtime sample validation deferred by user."
+  }
+}

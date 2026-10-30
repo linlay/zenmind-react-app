@@ -1341,7 +1341,7 @@ test('timeline derives one active frontend tool and incrementally parses its par
       toolName: 'leave_form',
       toolLabel: '请假申请',
       toolType: 'HTML',
-      viewportKey: 'leave-form',
+      view: { source: 'builtin', key: 'ask_user_form', renderer: 'html' },
       toolTimeout: 60,
       timestamp: 1_700_000_000_100,
     },
@@ -1388,7 +1388,7 @@ test('timeline only resolves the current frontend tool without completing its se
       runId: 'run-tool',
       toolId: 'tool-form',
       toolType: 'qlc',
-      viewportKey: 'tool-form',
+      view: { source: 'builtin', key: 'ask_user_form', renderer: 'html' },
       timestamp: 1_700_000_000_000,
     },
   ]);
@@ -1416,7 +1416,7 @@ test('timeline does not resurrect an older frontend tool after the latest one re
       runId: 'run-tool',
       toolId: 'tool-old',
       toolType: 'html',
-      viewportKey: 'tool-old',
+      view: { source: 'builtin', key: 'ask_user_form', renderer: 'html' },
       timestamp: 1_700_000_000_000,
     },
     {
@@ -1424,7 +1424,7 @@ test('timeline does not resurrect an older frontend tool after the latest one re
       runId: 'run-tool',
       toolId: 'tool-latest',
       toolType: 'html',
-      viewportKey: 'tool-latest',
+      view: { source: 'builtin', key: 'ask_user_form', renderer: 'html' },
       timestamp: 1_700_000_000_100,
     },
   ]);
@@ -1559,63 +1559,20 @@ test('timeline reducer keeps absent awaiting options out of normalized payloads'
   assert.equal(planNode.interactive.plan.options, undefined);
 });
 
-test('timeline reducer keeps html form awaiting payload structured and handles push aliases', () => {
+test('timeline reducer keeps one Form and handles push aliases and param answers', () => {
   const state = deriveChatTimelineState('chat-form', [
-    {
-      type: 'awaiting.asking',
-      runId: 'run-form',
-      awaitingId: 'form-1',
-      mode: 'form',
-      viewportType: 'html',
-      viewportKey: 'leave_form',
-      forms: [
-        {
-          id: 'leave',
-          action: 'submit_leave_request',
-          title: '请假申请',
-          form: {
-            days: 1,
-          },
-        },
-      ],
-      timestamp: 100,
-    },
-    {
-      type: 'awaiting.answered',
-      runId: 'run-form',
-      awaitingId: 'form-1',
-      mode: 'form',
-      status: 'answered',
-      params: [
-        {
-          id: 'leave',
-          decision: 'approve',
-          form: {
-            days: 2,
-            reason: 'family',
-          },
-        },
-      ],
-      timestamp: 120,
-    },
+    { type: 'awaiting.asking', runId: 'run-form', awaitingId: 'form-1', mode: 'form',
+      view: { source: 'builtin', key: 'ask_user_form', renderer: 'html' }, form: { title: '请假申请', data: { days: 1 } }, timestamp: 100 },
+    { type: 'awaiting.answered', runId: 'run-form', awaitingId: 'form-1', mode: 'form',
+      param: { decision: 'approve', data: { days: 2, reason: 'family' } }, timestamp: 120 }
   ]);
-  const awaiting = state.orderedNodeIds
-    .map((id) => state.nodesById[id])
-    .find((node) => node?.kind === 'awaiting');
-
-  assert.equal(awaiting?.kind, 'awaiting');
-  if (awaiting?.kind !== 'awaiting') {
-    throw new Error('expected awaiting node');
-  }
-  assert.equal(awaiting.mode, 'form');
-  assert.equal(awaiting.status, 'answer');
-  assert.equal(awaiting.interactive?.kind, 'form');
-  assert.equal(awaiting.interactive?.viewportType, 'html');
-  assert.equal(awaiting.interactive?.viewportKey, 'leave_form');
-  assert.equal(awaiting.interactive?.forms[0]?.title, '请假申请');
-  assert.equal(awaiting.answerSummary?.itemCount, 1);
-  assert.match(awaiting.answerSummary?.items[0]?.value || '', /approve/);
-  assert.match(awaiting.answerSummary?.items[0]?.value || '', /family/);
+  const node = Object.values(state.nodesById).find(node => node.kind === 'awaiting');
+  assert.equal(node?.status, 'answer');
+  assert.equal(node?.interactive?.kind, 'form');
+  assert.equal(node?.interactive?.form.title, '请假申请');
+  assert.equal(node?.answerSummary?.itemCount, 1);
+  assert.match(node?.answerSummary?.items[0]?.value || '', /approve/);
+  assert.match(node?.answerSummary?.items[0]?.value || '', /family/);
 });
 
 test('timeline reducer merges request echo into the pending local user message', () => {

@@ -10,8 +10,12 @@ export type { ConversationPreviewKind } from './previewRegistry';
 export type ConversationMarkdownFenceExtension = {
   key: string;
   aliases: readonly string[];
+  matchOpeningLine?: (line: string) => boolean;
+  requireLineEnd?: boolean;
   parse: (input: {
     language: string;
+    openingLine: string;
+    index: number;
     source: string;
     sourceHash: string;
   }) => unknown | null;
@@ -51,6 +55,7 @@ type ActiveFence = {
   extension: ConversationMarkdownFenceExtension | null;
   previewKind: ConversationPreviewKind | null;
   language: string;
+  openingLine: string;
 };
 
 type ParserState = {
@@ -114,11 +119,7 @@ function createFenceLineCandidate(): FenceLineCandidate {
   };
 }
 
-function updateOpeningLanguage(
-  candidate: FenceLineCandidate,
-  character: string,
-  maximumAliasLength: number
-): void {
+function updateOpeningLanguage(candidate: FenceLineCandidate, character: string, maximumAliasLength: number): void {
   if (candidate.languageComplete) {
     return;
   }
@@ -217,6 +218,8 @@ function applyCompletedLine(
     try {
       extensionData = activeFence.extension?.parse({
         language: activeFence.language,
+        openingLine: activeFence.openingLine,
+        index: state.occurrences[activeFence.extension.key] ?? 0,
         source,
         sourceHash
       });
@@ -231,7 +234,7 @@ function applyCompletedLine(
       if (activeFence.extension) {
         state.completedSegments.push({
           type: 'extension',
-          key: `extension:${segmentKind}:${occurrence}:${sourceHash}`,
+          key: `extension:${segmentKind}:${occurrence}`,
           extensionKey: activeFence.extension.key,
           language: activeFence.language,
           source,
@@ -258,10 +261,16 @@ function applyCompletedLine(
     return;
   }
   const previewKind = getConversationPreviewKind(candidate.language);
-  const extension = previewKind ? null : extensionByAlias.get(candidate.language) ?? null;
+  const openingLine = content.slice(lineStart, lineNext).replace(/(?:\r\n|\r|\n)$/, '');
+  const candidateExtension = previewKind ? null : (extensionByAlias.get(candidate.language) ?? null);
+  const extension =
+    candidateExtension?.matchOpeningLine && !candidateExtension.matchOpeningLine(openingLine)
+      ? null
+      : candidateExtension;
   state.activeFence = {
     start: lineStart,
     bodyStart: lineNext,
+    openingLine,
     marker: candidate.marker,
     minimumLength: candidate.markerCount,
     extension,
@@ -276,14 +285,7 @@ function resetLine(scanner: ScannerState, lineStart: number): void {
 }
 
 function finishCommittedLine(scanner: ScannerState, content: string, lineNext: number): void {
-  applyCompletedLine(
-    scanner.parser,
-    scanner.candidate,
-    content,
-    scanner.lineStart,
-    lineNext,
-    scanner.extensionByAlias
-  );
+  applyCompletedLine(scanner.parser, scanner.candidate, content, scanner.lineStart, lineNext, scanner.extensionByAlias);
   resetLine(scanner, lineNext);
 }
 
@@ -318,9 +320,9 @@ function scanAppendedContent(scanner: ScannerState, content: string, startOffset
   scanner.scanOffset = content.length;
 }
 
-function materializeSegments(scanner: ScannerState, content: string): ConversationMarkdownSegment[] {
+function materializeSegments(scanner: ScannerState, content: string, final: boolean): ConversationMarkdownSegment[] {
   const displayState = cloneParserState(scanner.parser);
-  if (scanner.lineStart < content.length) {
+  if (scanner.lineStart < content.length && (final || !scanner.parser.activeFence?.extension?.requireLineEnd)) {
     applyCompletedLine(
       displayState,
       scanner.candidate,
@@ -357,7 +359,7 @@ function createScannerState(
 }
 
 export type ConversationMarkdownSegmentCache = {
-  parse: (content: string) => ConversationMarkdownSegment[];
+  parse: (content: string, final?: boolean) => ConversationMarkdownSegment[];
   reset: () => void;
 };
 
@@ -366,6 +368,7 @@ type ConversationMarkdownSegmentScanObserver = (scannedCharacters: number, fullP
 export type ConversationMarkdownSegmentParserOptions = {
   extensions?: readonly ConversationMarkdownFenceExtension[];
   onScan?: ConversationMarkdownSegmentScanObserver;
+  final?: boolean;
 };
 
 function buildExtensionConfiguration(extensions: readonly ConversationMarkdownFenceExtension[]) {
@@ -390,12 +393,13 @@ export function createConversationMarkdownSegmentCache(
   const { extensionByAlias, maximumAliasLength } = buildExtensionConfiguration(options.extensions ?? []);
   let hasPreviousContent = false;
   let previousContent = '';
+  let previousFinal = true;
   let scanner = createScannerState(extensionByAlias, maximumAliasLength);
   let previousSegments: ConversationMarkdownSegment[] = [];
   const cache: ConversationMarkdownSegmentCache = {
-    parse(input: string) {
+    parse(input: string, final = true) {
       const content = String(input || '');
-      if (hasPreviousContent && content === previousContent) {
+      if (hasPreviousContent && content === previousContent && final === previousFinal) {
         return previousSegments;
       }
       const appended =
@@ -407,8 +411,9 @@ export function createConversationMarkdownSegmentCache(
       scanAppendedContent(scanner, content, scanStart);
       options.onScan?.(content.length - scanStart, !appended);
       previousContent = content;
+      previousFinal = final;
       hasPreviousContent = true;
-      previousSegments = materializeSegments(scanner, content);
+      previousSegments = materializeSegments(scanner, content, final);
       return previousSegments;
     },
     reset() {
@@ -425,5 +430,5 @@ export function parseConversationMarkdownSegments(
   content: string,
   options: ConversationMarkdownSegmentParserOptions = {}
 ): ConversationMarkdownSegment[] {
-  return createConversationMarkdownSegmentCache(options).parse(content);
+  return createConversationMarkdownSegmentCache(options).parse(content, options.final ?? true);
 }

@@ -231,6 +231,10 @@ function normalizeManifest(rootDir, brandRoot, manifest, sharedConfig, i18n, app
   }
 
   const productName = requireString(manifest, 'productName');
+  const accountLoginMethod = requireString(manifest, 'accountLoginMethod');
+  if (!['email-code', 'enterprise-sso'].includes(accountLoginMethod)) {
+    throw new Error('Invalid brand accountLoginMethod');
+  }
   const expoName = requireString(manifest, 'expoName');
   const notificationChannel = requireNestedString(manifest, 'notification', 'channel');
   const splashImageWidth = Number(manifest.splash?.imageWidth);
@@ -252,6 +256,7 @@ function normalizeManifest(rootDir, brandRoot, manifest, sharedConfig, i18n, app
   return {
     id,
     productName,
+    accountLoginMethod,
     expoName,
     slug: sharedConfig.updates.projectSlug,
     version: appVersion,
@@ -334,6 +339,7 @@ function runtimeBrandPayload(brand) {
   return {
     id: brand.id,
     productName: brand.productName,
+    accountLoginMethod: brand.accountLoginMethod,
     expoName: brand.expoName,
     slug: brand.slug,
     version: brand.version,

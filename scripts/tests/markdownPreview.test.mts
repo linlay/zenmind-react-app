@@ -29,8 +29,8 @@ import {
 import { createConversationPreviewVisibilityStore } from '../../src/shared/components/conversationPreview/visibilityStore.ts';
 import { usePreviewExecutionState } from '../../src/shared/components/conversationPreview/usePreviewExecutionState.ts';
 import {
-  CONVERSATION_VIEWPORT_FENCE_EXTENSIONS,
-  type ConversationViewportFenceData
+  CONVERSATION_VIEW_FENCE_EXTENSIONS,
+  type ConversationViewFenceData
 } from '../../src/features/chatPersistence/conversationViewport/conversationViewportFence.ts';
 import { createConversationViewportDocumentStore } from '../../src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts';
 
@@ -177,27 +177,26 @@ test('incremental parser rescans when appended text extends a closing fence line
 });
 
 test('viewport fence extension preserves order and only extracts complete valid blocks', () => {
-  const options = { extensions: CONVERSATION_VIEWPORT_FENCE_EXTENSIONS };
+  const options = { extensions: CONVERSATION_VIEW_FENCE_EXTENSIONS };
   const closed = [
     'before',
-    '~~~VIEWPORT optional',
-    'type=html, key=weather-card',
+    '```VIEW key=weather/card',
     '{"city":"Shanghai"}',
-    '~~~',
+    '```',
     'after'
   ].join('\n');
   const segments = parseConversationMarkdownSegments(closed, options);
 
   assert.deepEqual(segments.map((segment) => segment.type), ['markdown', 'extension', 'markdown']);
   const viewport = segments[1];
-  assert.equal(viewport?.type === 'extension' ? viewport.extensionKey : '', 'viewport');
+  assert.equal(viewport?.type === 'extension' ? viewport.extensionKey : '', 'view');
   assert.deepEqual(
-    viewport?.type === 'extension' ? (viewport.data as ConversationViewportFenceData).payload : null,
+    viewport?.type === 'extension' ? (viewport.data as ConversationViewFenceData).payload : null,
     { city: 'Shanghai' }
   );
   assert.equal(
-    viewport?.type === 'extension' ? (viewport.data as ConversationViewportFenceData).viewportKey : '',
-    'weather-card'
+    viewport?.type === 'extension' ? (viewport.data as ConversationViewFenceData).key : '',
+    'weather/card'
   );
 
   const invalid = ['```viewport', 'type=html', '{}', '```'].join('\n');
@@ -209,13 +208,13 @@ test('viewport fence extension preserves order and only extracts complete valid 
 test('viewport fence extension remains append-only and switches after the closing fence', () => {
   const metrics = { fullParseCount: 0, scannedCharacters: 0 };
   const cache = createConversationMarkdownSegmentCache({
-    extensions: CONVERSATION_VIEWPORT_FENCE_EXTENSIONS,
+    extensions: CONVERSATION_VIEW_FENCE_EXTENSIONS,
     onScan: (scannedCharacters, fullParse) => {
       metrics.scannedCharacters += scannedCharacters;
       metrics.fullParseCount += Number(fullParse);
     }
   });
-  const chunks = ['prefix\n```view', 'port\ntype=html,key=map\n', '{"zoom":8}\n', '```'];
+  const chunks = ['prefix\n```vi', 'ew key=maps/map\n', '{"zoom":8}\n', '```'];
   let content = '';
   let segments = cache.parse(content);
   chunks.forEach((chunk) => {
@@ -232,7 +231,7 @@ test('viewport document store shares requests, expires LRU entries, and refreshe
   const store = createConversationViewportDocumentStore(
     async (viewportKey) => {
       calls += 1;
-      return { html: `<main>${viewportKey}-${calls}</main>` };
+      return { view: { source: 'builtin', key: 'ask_user_form' }, html: `<main>${viewportKey}-${calls}</main>` };
     },
     { cacheLimit: 2, cacheTtlMs: 50, now: () => now }
   );
@@ -240,20 +239,20 @@ test('viewport document store shares requests, expires LRU entries, and refreshe
   const first = store.load('alpha');
   const duplicate = store.load('alpha');
   assert.equal(first, duplicate);
-  assert.equal(await first, '<main>alpha-1</main>');
-  assert.equal(await store.load('alpha'), '<main>alpha-1</main>');
+  assert.equal((await first).html, '<main>alpha-1</main>');
+  assert.equal((await store.load('alpha')).html, '<main>alpha-1</main>');
   assert.equal(calls, 1);
 
-  assert.equal(await store.load('alpha', { force: true }), '<main>alpha-2</main>');
+  assert.equal((await store.load('alpha', { force: true })).html, '<main>alpha-2</main>');
   await store.load('beta');
   await store.load('gamma');
-  assert.equal(store.getCached('alpha'), '');
-  assert.equal(store.getCached('gamma'), '<main>gamma-4</main>');
+  assert.equal(store.getCached('alpha'), null);
+  assert.equal(store.getCached('gamma')?.html, '<main>gamma-4</main>');
 
   now += 51;
-  assert.equal(store.getCached('beta'), '');
+  assert.equal(store.getCached('beta'), null);
   store.clear();
-  assert.equal(store.getCached('gamma'), '');
+  assert.equal(store.getCached('gamma'), null);
 });
 
 test('visibility store delays release and cancels it when a row returns quickly', async () => {

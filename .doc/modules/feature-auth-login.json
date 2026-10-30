@@ -8,14 +8,14 @@
     "src/features/deviceLink"
   ],
   "summary": {
-    "purpose": "原生官网邮箱验证码登录、Hub 电脑管理与独立云端 Token 登录。",
+    "purpose": "原生官网邮箱验证码与企业 SSO登录、Hub 电脑管理与独立云端 Token 登录。",
     "ownedConcepts": [
       "LoginScreen 在现有主题与表单中提供账号/云端切换，Token 支持输入及系统粘贴，业务验证成功后才保存并选择云端；已登录另一条路径时入口仍可达。",
-      "登录页关闭、邮箱登录成功和云端登录成功共用 closeLogin：有返回历史时回到调用页，孤立根登录页则 reset 到 Tabs，不清理账号、Cookie 或来源选择。",
-      "账号分支只展示原生邮箱/验证码输入，accountAuth 确认官网用户与 Cookie 会话；电脑管理只访问 Hub，不提供旧密码/扫码/邮箱绑定入口。",
+      "登录页关闭、账号登录成功和云端登录成功共用 closeLogin：有返回历史时回到调用页，孤立根登录页则 reset 到 Tabs，不清理账号、Cookie 或来源选择。",
+      "安装品牌 accountLoginMethod 决定账号入口：ZenMind 用 EmailVerificationForm；CuteJ 用现有 Login 路由内的 EnterpriseLogin WebView。成功共用 closeLogin；云端 Token 独立。欢迎语和 logo 继续使用安装品牌 registry。",
       "AccountDevicesPanel 与来源抽屉复用 Hub 权威目录；刷新失败保留已知列表，离线电脑可选所属缓存，撤销由 service 关闭到暂无来源。",
       "云端行仅业务验证通过才可选；不可用文字置灰并 disabled，登录/重试独立可点击。页面不操作 SQLite/MMKV/WebSocket。",
-      "EmailVerificationForm 使用真实 expiresAt 和本地发送冷却；取消、失焦、身份变化拒绝迟到结果，不把验证码持久化。",
+      "EmailVerificationForm 只处理邮箱验证码；验证码 expiresAt、发送冷却、失焦取消和身份 generation 校验保持有效。EnterpriseLogin 只承载统一认证页面；到达完成地址仍需 service 确认会话和身份，不接收页面传来的凭据。",
       "Me 展示已确认官网用户资料，旧 AccountSecurity/EmailBinding/EmailUnbinding 导航、页面与文案已移除。"
     ],
     "nonGoals": []
@@ -26,6 +26,7 @@
       "AccountDevicesPanel",
       "AuthBootstrapScreen",
       "EmailVerificationForm",
+      "EnterpriseLogin",
       "LoginScreen"
     ],
     "dependencies": [
@@ -40,7 +41,7 @@
       "app-shell-navigation"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-16T07:39:25Z"
+    "lastScannedAt": "2026-10-29T03:25:58Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -69,7 +70,7 @@
   "riskRules": [
     "账号恢复未确认有效时显示恢复状态，不建立业务连接。",
     "来源切换和失败回滚统一交由 feature service，权威列表确认撤销后关闭到暂无来源并同步 SQLite。",
-    "账号登录复用官网现有邮箱接口；保持独立云端 Token 登录，不使用 Identity 公网认证或旧配对凭据回退。",
+    "ZenMind 只使用官网 email-code；CuteJ 复用企业统一认证与已确认的换票协议。保持独立云端 Token，不回退官网密码、Identity 或旧配对凭据。",
     "邮箱注册/账号策略以官网实际接口为准，不沿用旧 Identity 已绑定邮箱规则。表单取消或身份变化拒绝迟到结果，不建全局邮箱 Provider。"
   ],
   "recentChanges": []

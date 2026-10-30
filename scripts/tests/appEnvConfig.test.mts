@@ -23,8 +23,8 @@ function createFixtureRoot() {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zenmind-app-env-'));
   fs.mkdirSync(path.join(rootDir, 'brands', 'zenmind'), { recursive: true });
   fs.mkdirSync(path.join(rootDir, 'brands', 'cutej'), { recursive: true });
-  fs.writeFileSync(path.join(rootDir, 'brands', 'zenmind', 'brand.json'), '{}\n');
-  fs.writeFileSync(path.join(rootDir, 'brands', 'cutej', 'brand.json'), '{}\n');
+  fs.writeFileSync(path.join(rootDir, 'brands', 'zenmind', 'brand.json'), '{"accountLoginMethod":"email-code"}\n');
+  fs.writeFileSync(path.join(rootDir, 'brands', 'cutej', 'brand.json'), '{"accountLoginMethod":"enterprise-sso"}\n');
   fs.copyFileSync(
     path.join(process.cwd(), 'brands', 'react-app-env.json'),
     path.join(rootDir, 'brands', 'react-app-env.json')
@@ -118,4 +118,36 @@ test('explicit wsUrl remains authoritative and default transport receives the co
   assert.match(appEnvironmentSource, /authMode:\s*environment\.authMode/u);
   assert.match(appEnvironmentSource, /accessToken:\s*environment\.accessToken/u);
   assert.match(activeTransportSource, /accessToken: credential.token/u);
+});
+
+test('account service matches its installed-brand method and never carries credentials', () => {
+  const rootDir = createFixtureRoot();
+  try {
+    const { artifactPath, artifact } = readFixtureArtifact(rootDir);
+    artifact.brands.zenmind.accountServices = {
+      officialApiBaseUrl: 'https://official.test',
+      tunnelHubApiBaseUrl: 'https://hub.test'
+    };
+    artifact.brands.cutej.accountServices = { ssoBaseUrl: 'https://sso.test', tunnelHubApiBaseUrl: 'https://hub.test' };
+    writeFixtureArtifact(artifactPath, artifact);
+    const loaded = syncReactAppEnvArtifact({ rootDir });
+    assert.equal(loaded.brands.cutej.accountServices.ssoBaseUrl, 'https://sso.test');
+    assert.equal(loaded.brands.zenmind.accountServices.ssoBaseUrl, '');
+    artifact.brands.cutej.accountServices = { ...artifact.brands.zenmind.accountServices };
+    writeFixtureArtifact(artifactPath, artifact);
+    assert.throws(() => syncReactAppEnvArtifact({ rootDir }), /do not match/);
+    artifact.brands.cutej.accountServices = {
+      ssoBaseUrl: 'https://sso.test',
+      officialApiBaseUrl: 'https://official.test',
+      tunnelHubApiBaseUrl: 'https://hub.test'
+    };
+    writeFixtureArtifact(artifactPath, artifact);
+    assert.throws(() => syncReactAppEnvArtifact({ rootDir }), /exactly one/);
+    delete artifact.brands.cutej.accountServices.officialApiBaseUrl;
+    artifact.brands.cutej.accountServices.password = 'forbidden';
+    writeFixtureArtifact(artifactPath, artifact);
+    assert.throws(() => syncReactAppEnvArtifact({ rootDir }), /Invalid accountServices/);
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
 });

@@ -102,7 +102,8 @@
   "recentChanges": [
     "2026-10-08：同步 WebClient P1 协议与时序，移除无用本地假 cancel/terminal guard；本地回归通过，真实后端与 Native 联调待完成。",
     "2026-10-09：账号来源改造，本地实现与实际部署验收分开记录。",
-    "2026-10-12：默认云端 Token 独立访问实施；本地测试与导出验证，真实服务/真机验收由用户执行。"
+    "2026-10-12：默认云端 Token 独立访问实施；本地测试与导出验证，真实服务/真机验收由用户执行。",
+    "2026-10-28 B1：source namespace 只遍历已知协议外壳，VIEW/Form/tool 业务 JSON 保持原值；service 校验 VIEW source/Chat/hash/返回引用与当前 awaiting 生命周期，复用既有请求和共享连接。content.view 与快照 views 经同一 timeline/缓冲消息投影持久化。"
   ],
   "legacy": {
     "title": "聊天实时同步",

@@ -541,7 +541,12 @@ const AssistantContentRow = memo(function AssistantContentRow({
       />
       <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <View className={CONTENT_BLOCK_CLASS}>
-          <ConversationContentRenderer markdown={node.content} streaming={node.streaming} />
+          <ConversationContentRenderer
+            markdown={node.content}
+            streaming={node.streaming}
+            viewBindings={node.viewBindings}
+            runId={node.runId}
+          />
         </View>
       </View>
     </View>

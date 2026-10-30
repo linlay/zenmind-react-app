@@ -3,17 +3,16 @@
   "items": [
     {
       "id": "add-account-email-auth",
-      "title": "邮箱验证码登录与邮箱绑定解绑改造",
+      "title": "按安装品牌登录：邮箱验证码与企业统一认证",
       "intentKeywords": [
+        "品牌登录",
+        "企业 SSO",
         "邮箱登录",
         "邮箱验证码登录",
-        "邮箱绑定",
-        "邮箱解绑",
-        "账号与安全",
-        "邮箱认证执行大纲",
+        "统一认证",
         "account email auth"
       ],
-      "entryDecision": "2026-10-13：App/Identity 代码与本地验收已实施；从 docs/account-email-auth-2026-10-13/IMPLEMENTATION.md 查看契约、验证、清理及真实 SMTP/部署/真机缺口，整体未完成。",
+      "entryDecision": "ZenMind 仅使用原生邮箱验证码；CuteJ 在现有 Login 路由内打开企业统一认证 WebView。品牌方式在 manifest，地址在 accountServices；不按页面散落品牌判断。",
       "card": ".doc/tasks/add-account-email-auth.json"
     },
     {
@@ -361,7 +360,7 @@
         "chat detail sync",
         "同步对话详情"
       ],
-      "entryDecision": "输入区对齐使用 useChatComposerSettings 与进程内 chatComposerPreferences；已有 Chat 与新 Agent 默认模型分离，主 Run 请求设置与既有 usage 补缺，禁止增加持久化草稿或平行能力状态机。配置/目录错误可重试，能力关闭保留偏好与附件，所有迟到异步结果需复核目标。",
+      "entryDecision": "本轮执行入口为 docs/chat-detail-webclient-2026-10-28/README.md，状态以 ../plan/2026-10-28-react-app-chat-detail-webclient-sync 的 T00–T09 为准；2026-10-08 的 T00–T31 仅作历史。",
       "card": ".doc/tasks/sync-chat-detail-webclient.json"
     },
     {

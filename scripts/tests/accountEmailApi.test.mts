@@ -69,6 +69,14 @@ test('sending an email code uses the explicit official origin and email only', a
   assert.equal(calls[0].options.path, '/api/auth/email-code/start');
   assert.equal(calls[0].options.credentials, 'include');
   assert.deepEqual(JSON.parse(JSON.stringify(calls[0].options.body)), { email: 'a@example.test' });
+  for (const [code, status, key] of [
+    ['account_disabled', 403, 'auth.error.disabled'],
+    ['invalid_code', 401, 'accountEmail.error.authentication'],
+    ['rate_limited', 429, 'auth.error.rate'],
+    ['server_error', 500, 'auth.error.service']
+  ] as const) {
+    assert.equal(api.accountEmailErrorKey(new ApiError(code, status, null)), key);
+  }
 });
 test('account HTTP omits Cookie for Hub, includes it explicitly for official requests and refuses redirected/foreign origins', async () => {
   const calls: Array<{ url: string; init: RequestInit }> = [];
@@ -117,4 +125,26 @@ test('official structured error codes and timeouts remain distinguishable', asyn
     timeout.sendAccountApiRequest('https://official.test', { path: '/api/auth/me', timeoutMs: 1 }),
     (e) => e instanceof ApiError && e.message === 'account_request_timeout'
   );
+});
+
+test('account response metadata is available without changing the parsed body or following redirects', async () => {
+  const api = load<typeof import('../../src/core/api/accountRequest.ts')>('../../src/core/api/accountRequest.ts', {
+    './apiError.ts': { ApiError },
+    'expo/fetch': {
+      fetch: async (_url: string, init: RequestInit) => {
+        assert.equal(init.redirect, 'error');
+        return new Response('{"ok":true}', { status: 202, headers: { 'x-auth-request-user': 'employee' } });
+      }
+    }
+  });
+  let subject = '';
+  const value = await api.sendAccountApiRequest('https://sso.test', {
+    path: '/oauth2/auth',
+    onResponse: ({ status, headers }) => {
+      assert.equal(status, 202);
+      subject = headers.get('x-auth-request-user') || '';
+    }
+  });
+  assert.equal(subject, 'employee');
+  assert.equal(JSON.stringify(value), '{"ok":true}');
 });

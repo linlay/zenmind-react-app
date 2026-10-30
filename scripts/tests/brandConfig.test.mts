@@ -172,6 +172,8 @@ test('brand manifests share native identity and EAS project but keep presentatio
   const cutejManifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'brands', 'cutej', 'brand.json'), 'utf8'));
 
   assert.equal(zenmind.productName, 'Zenmind');
+  assert.equal(zenmind.accountLoginMethod, 'email-code');
+  assert.equal(cutej.accountLoginMethod, 'enterprise-sso');
   assert.equal(cutej.productName, 'CuteJ');
   assert.equal(zenmind.android.package, shared.androidPackage);
   assert.equal(cutej.android.package, shared.androidPackage);

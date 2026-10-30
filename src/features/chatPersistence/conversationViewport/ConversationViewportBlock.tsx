@@ -10,7 +10,7 @@ import { useConversationPreviewRowActive } from '../../../shared/components/conv
 import type { ConversationPreviewHeightBounds } from '../../../shared/components/conversationPreview/types';
 import { usePreviewExecutionState } from '../../../shared/components/conversationPreview/usePreviewExecutionState';
 import { AppIcon } from '../../../shared/icons/AppIcon';
-import { useT } from '../../../shared/i18n';
+import { useI18n, useT } from '../../../shared/i18n';
 import { hashConversationPreviewSource } from '../../../shared/markdown/previewSourceHash';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
 import { useConversationViewportDocument } from './useConversationViewportDocument';
@@ -31,32 +31,24 @@ const STATUS_TEXT_CLASS = 'text-center text-[12px] leading-[18px] text-app-secon
 
 export const ConversationViewportBlock = memo(function ConversationViewportBlock({
   payload,
-  sourceHash,
-  viewportKey,
   view,
   viewError = '',
-  memberKey = ''
+  runId = ''
 }: {
   payload: unknown;
-  sourceHash: string;
-  viewportKey: string;
-  view?: ChatViewReference;
+  view: ChatViewReference;
   viewError?: string;
-  memberKey?: string;
+  runId?: string;
 }) {
   const t = useT();
+  const { locale } = useI18n();
   const active = useConversationPreviewRowActive();
   const { resolvedPreference, theme } = useAppTheme();
   const chatId = useConversationViewChatId();
-  const documentKey = view ? buildConversationViewDocumentKey(chatId, view, 'display', viewError, memberKey) : viewportKey;
-  const { html, loading, error: documentError, reload } = useConversationViewportDocument(documentKey, active);
-  const {
-    error: executionError,
-    handleError,
-    handleReady,
-    handleRetry,
-    retryNonce
-  } = usePreviewExecutionState();
+  const documentKey = buildConversationViewDocumentKey(chatId, view, 'display', viewError);
+  const { document, loading, error: documentError, reload } = useConversationViewportDocument(documentKey, active);
+  const html = document?.html || '';
+  const { error: executionError, handleError, handleReady, handleRetry, retryNonce } = usePreviewExecutionState();
 
   const handleRefresh = useCallback(() => {
     handleRetry();
@@ -64,15 +56,18 @@ export const ConversationViewportBlock = memo(function ConversationViewportBlock
   }, [handleRetry, reload]);
   const viewPayload = useMemo(() => {
     if (typeof payload !== 'string') return payload;
-    try { return JSON.parse(payload); } catch { return payload; }
+    try {
+      return JSON.parse(payload);
+    } catch {
+      return payload;
+    }
   }, [payload]);
   const cacheKey = useMemo(
-    () => `viewport:${hashConversationPreviewSource(documentKey)}:${hashConversationPreviewSource(html)}:${sourceHash}:${resolvedPreference}`,
-    [documentKey, html, resolvedPreference, sourceHash]
+    () =>
+      `viewport:${hashConversationPreviewSource(documentKey)}:${hashConversationPreviewSource(html)}:${resolvedPreference}`,
+    [documentKey, html, resolvedPreference]
   );
-  const loadError = documentError
-    ? t('timeline.viewport.loadFailed', { detail: documentError })
-    : '';
+  const loadError = documentError ? t('timeline.viewport.loadFailed', { detail: documentError }) : '';
   const error = loadError || executionError;
   const handleErrorRetry = loadError ? reload : handleRetry;
 
@@ -84,7 +79,7 @@ export const ConversationViewportBlock = memo(function ConversationViewportBlock
             {t('timeline.viewport.title')}
           </Text>
           <Text allowFontScaling={false} className={KEY_CLASS} numberOfLines={1}>
-            {viewportKey}
+            {view.key}
           </Text>
         </View>
         <Pressable
@@ -113,7 +108,10 @@ export const ConversationViewportBlock = memo(function ConversationViewportBlock
           active={active && !executionError}
           cacheKey={cacheKey}
           heightBounds={VIEWPORT_HEIGHT_BOUNDS}
-          initialData={view ? {type: 'view_init', data: {view, payload: viewPayload}} : payload}
+          initialData={{
+            type: 'view_init',
+            data: { view, payload: viewPayload, context: { chatId, runId, colorScheme: resolvedPreference, locale } }
+          }}
           kind="html"
           mode="inline"
           retryNonce={retryNonce}

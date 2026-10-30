@@ -69,10 +69,12 @@ function fixture(signedOut = false) {
       }
     },
     './authConfig.ts': {
-      readOfficialApiBaseUrl: () => 'https://official.test',
+      ACCOUNT_LOGIN_METHOD: 'email-code',
+      readAccountApiBaseUrl: () => 'https://official.test',
       readTunnelHubApiBaseUrl: () => 'https://hub.test'
     },
     './accountAuthModel.ts': model,
+    './enterpriseAccount': {},
     '../api/apiError.ts': { ApiError },
     '../api/accountRequest.ts': { sendAccountApiRequest: request },
     '../api/contracts/accountEmail.ts': email
@@ -106,11 +108,10 @@ function deferred() {
   });
   return { promise, resolve };
 }
-const login = { email: 'a@example.test', code: '012345' };
 test('Cookie recovery validates me then obtains a CSRF-protected official JWT without persisting credentials', async () => {
   const f = fixture();
   const session = await f.auth.bootstrapAccountAuth();
-  assert.equal(session?.user.id, 1);
+  assert.equal(session?.user.displayName, 'A');
   assert.equal(session?.accessToken, 'official-1');
   assert.deepEqual(
     f.calls.map((c) => c.path),
@@ -119,17 +120,23 @@ test('Cookie recovery validates me then obtains a CSRF-protected official JWT wi
   assert.ok(f.calls.every((c) => c.credentials === 'include'));
   assert.equal(f.stored.size, 0);
 });
-test('email login preserves string codes and publishes only the confirmed official user', async () => {
+const login = { email: 'a@example.test', code: '012345' };
+test(`email login preserves credentials and publishes only the confirmed official user`, async () => {
   const f = fixture();
   const session = await f.auth.loginWithAccountEmail(login);
   assert.equal(session.accountId, 'official:https://official.test:1');
   assert.deepEqual(JSON.parse(JSON.stringify(f.calls[0].body)), login);
+  assert.deepEqual(
+    f.calls.map((c) => c.path),
+    ['/api/auth/email-code/verify', '/api/auth/me', '/api/auth/csrf', '/api/auth/desktop-sso/token']
+  );
+  assert.ok(f.calls.every((call) => call.credentials === 'include'));
   assert.deepEqual([...f.stored.entries()], [['signed_out', false]]);
   assert.equal(await f.auth.getAccountAccessTokenForRequest('https://hub.test'), 'official-1');
   assert.equal(await f.auth.getAccountAccessTokenForRequest('https://cloud.test'), null);
   assert.equal(await f.auth.getAccountAccessTokenForRequest('https://untrusted.test'), null);
 });
-test('logout discards a late verification and serializes Cookie cleanup before a new login', async () => {
+test(`email logout discards a late login and serializes Cookie cleanup before a new login`, async () => {
   const f = fixture();
   const gate = deferred();
   let reached = false;
@@ -149,12 +156,12 @@ test('logout discards a late verification and serializes Cookie cleanup before a
   await rejected;
   await logout;
   const session = await next;
-  assert.equal(session.user.id, 2);
-  assert.equal(f.auth.getAccountAuthSnapshot().session?.user.id, 2);
+  assert.equal(session.accountId, 'official:https://official.test:2');
+  assert.equal(f.auth.getAccountAuthSnapshot().session?.accountId, session.accountId);
   const paths = f.calls.map((c) => c.path);
   assert.ok(paths.indexOf('/api/auth/logout') < paths.lastIndexOf('/api/auth/email-code/verify'));
 });
-test('cancelled verification revokes its Cookie and never publishes a session', async () => {
+test(`cancelled email login revokes its Cookie and never publishes a session`, async () => {
   const f = fixture();
   const gate = deferred();
   f.setInterceptor(async (path) => {
@@ -171,7 +178,7 @@ test('cancelled verification revokes its Cookie and never publishes a session', 
   assert.equal(f.auth.getAccountAuthSnapshot().session, null);
   assert.equal(f.hasCookie(), false);
 });
-test('temporary refresh failure retains a still-valid session; confirmed invalidity clears it', async () => {
+test(`email temporary refresh failure retains a still-valid session; confirmed invalidity clears it`, async () => {
   const f = fixture();
   await f.auth.loginWithAccountEmail(login);
   f.setInterceptor(async () => {
@@ -185,7 +192,7 @@ test('temporary refresh failure retains a still-valid session; confirmed invalid
   assert.equal(await f.auth.getAccountAccessTokenForRequest('https://hub.test', true), null);
   assert.equal(f.auth.getAccountAuthSnapshot().session, null);
 });
-test('local logout intent survives a failed remote logout and prevents Cookie resurrection', async () => {
+test(`email local logout intent survives a failed remote logout and prevents Cookie resurrection`, async () => {
   const f = fixture();
   await f.auth.loginWithAccountEmail(login);
   f.setInterceptor(async () => {
@@ -197,4 +204,18 @@ test('local logout intent survives a failed remote logout and prevents Cookie re
   assert.equal(f.calls.length, count);
   assert.equal(f.stored.get('signed_out'), true);
   assert.equal(await fixture(true).auth.bootstrapAccountAuth(), null);
+});
+
+test('disabled email accounts do not exchange or publish a session', async () => {
+  const f = fixture();
+  f.setInterceptor(async () => {
+    throw new ApiError('account_disabled', 403, null);
+  });
+  await assert.rejects(f.auth.loginWithAccountEmail(login), /account_disabled/);
+  assert.deepEqual(
+    f.calls.map((call) => call.path),
+    ['/api/auth/email-code/verify']
+  );
+  assert.equal(f.auth.getAccountAuthSnapshot().session, null);
+  assert.equal(f.stored.get('signed_out'), true);
 });

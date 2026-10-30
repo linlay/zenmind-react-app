@@ -10,6 +10,7 @@ export type AccountApiRequestOptions = {
   timeoutMs?: number;
   headers?: Record<string, string>;
   credentials?: 'include' | 'omit';
+  onResponse?: (response: { status: number; headers: Headers }) => void;
 };
 
 export async function sendAccountApiRequest<T>(
@@ -66,6 +67,7 @@ export async function sendAccountApiRequest<T>(
             : `HTTP ${response.status}`;
       throw new ApiError(message, response.status, payload);
     }
+    options.onResponse?.({ status: response.status, headers: response.headers });
     return payload as T;
   } catch (error) {
     if (timedOut && !options.signal?.aborted) throw new ApiError('account_request_timeout', 0, null);

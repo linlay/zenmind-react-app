@@ -51,7 +51,8 @@
       "启动恢复期间直接展示 AuthBootstrapScreen，不创建占用 Login 路由的临时 Navigator；恢复完成后首次挂载正式 root stack，初始路由为 Tabs，避免恢复成功仍停在无返回历史的登录页。",
       "ChatDetail 按所选来源交接；WebApps sessionKey 绑定官网 accountId、auth generation 与所选 Desktop，只在电脑来源启用。",
       "云端通知注册用本地云端 scope 作为客户端身份，使用云端凭证；账号退出不清除当前云端注册，迟到注册及点击按来源拒绝。",
-      "Me 显示官网已确认用户信息；RootStack 不再挂旧账号安全/邮箱绑定解绑页面。"
+      "Me 显示官网已确认用户信息；RootStack 不再挂旧账号安全/邮箱绑定解绑页面。",
+      "AppRoot 回前台调用 refreshAccountSession，认证层按安装品牌选择官网邮箱或企业 SSO；Login 继续使用单一路由承载账号与云端，企业页占用正文空间，不放进表单滚动区。"
     ],
     "nonGoals": []
   },
@@ -72,12 +73,17 @@
       "shared-visual-foundation",
       "shared-screen-header"
     ],
-    "dependents": ["feature-agent-task-board", "feature-chat-persistence"],
+    "dependents": [
+      "feature-agent-task-board",
+      "feature-chat-persistence"
+    ],
     "tests": [],
     "lastScannedAt": ""
   },
   "readHints": {
-    "alwaysRead": ["src/app/navigation/RootNavigator.tsx"],
+    "alwaysRead": [
+      "src/app/navigation/RootNavigator.tsx"
+    ],
     "readFor": [
       {
         "when": "legacy readNext",

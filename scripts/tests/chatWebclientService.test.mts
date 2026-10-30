@@ -1,3 +1,5 @@
+import { readChatViewReference } from '../../src/core/api/services/chatViewProtocol.ts';
+import { readAwaitingSubmitParam, buildSubmitAwaitingPayload } from '../../src/core/api/services/chatApi.ts';
 import * as derivationProtocol from '../../src/core/api/services/chatDerivationProtocol.ts';
 import * as derivationState from '../../src/features/chatTimeline/timelineRunDerivation.ts';
 import { encodeChatSourceId, createChatSource } from '../../src/features/chatPersistence/chatSource.ts';
@@ -229,6 +231,7 @@ test('awaiting submission cannot issue a request after a newer interaction repla
       runId: 'run',
       awaitingId: id,
       mode: 'question',
+      questions: [{ id: 'q1', type: 'text', question: 'Continue?' }],
       timestamp: now + 1
     });
   service.timelineStates.set('chat', ask('old'));
@@ -444,6 +447,7 @@ test('uncertain awaiting submission reconciles authority and terminal rejection 
         runId: 'run',
         awaitingId: id,
         mode: 'question',
+        questions: [{ id: 'q1', type: 'text', question: 'Continue?' }],
         timestamp: now + 1
       });
     service.timelineStates.set('chat', ask('old'));
@@ -1882,4 +1886,39 @@ test('model catalog refresh propagates errors, retains last success and never ch
   assert.equal(await service.ensureAgentModelOptions('agent', { refresh: true }), fresh);
   assert.equal(service.getAgentModelOptionsSnapshot('agent'), fresh);
   assert.equal(service.getAgentDetailSnapshot('agent'), null);
+});
+
+
+test('VIEW service validates source, pinned hash and response identity without falling back to latest', async () => {
+  const source=createChatSource('default','ap','AP');
+  const chatId=encodeChatSourceId(source,'chat');
+  const request={chatId,source:'connector',connectorId:'builtin.task-control',key:'automations',hash:'a'.repeat(64),usage:'display'};
+  const service=fixture({readChatViewReference,getChatSourceFromId:()=>source});
+  service.source=source;
+  let calls=0;
+  service.requestChatApi=async()=>{calls++;return {view:{source:'connector',connectorId:'builtin.task-control',key:'automations',hash:'b'.repeat(64),renderer:'html'},html:'static'};};
+  await assert.rejects(service.getViewDocument(request),/identity mismatch/);
+  await assert.rejects(service.getViewDocument({...request,hash:undefined}),/missing snapshot/);
+  assert.equal(calls,1);
+  service.requestChatApi=async()=>{service.lifecycleVersion++;return {view:{...request,renderer:'html'},html:'static'};};
+  await assert.rejects(service.getViewDocument(request),/source changed/);
+});
+
+test('Form service rejects old array answers and submits one explicit param for the current owner', async () => {
+  const service=fixture({readAwaitingSubmitParam,buildSubmitAwaitingPayload,CHAT_SUBMIT_TRANSPORT_TYPE:'/api/submit',createAwaitingSubmitId:()=> 'submit'});
+  service.timelineStates.set('chat',reducer.applyChatTimelineEvent(active(),'chat',{type:'awaiting.ask',runId:'run',awaitingId:'form',mode:'form',form:{data:{}},view:{source:'builtin',key:'ask_user_form',renderer:'html'},timestamp:now+1}));
+  service.assertConversationWritable=async()=>null;
+  service.resolveRunControlScope=async()=>({agentKey:'root'});
+  const calls=[];
+  service.requestChatApi=async(type,payload)=>{calls.push(payload);return {accepted:true};};
+  service.scheduleConversationReconcile=async()=>{};
+  service.applyRuntimeConversationEvent=async()=>{};
+  await assert.rejects(service.submitAwaiting('chat',{runId:'run',awaitingId:'form',params:[]}),/Invalid awaiting answer/);
+  assert.equal(calls.length,0);
+  const payload={runId:'run',awaitingId:'form',param:{decision:'approve',data:{chatId:'business',agentKey:'ordinary'}}};
+  await service.submitAwaiting('chat',payload);
+  assert.equal(calls.length,1);
+  assert.equal(calls[0].agentKey,'root');
+  assert.deepEqual(calls[0].param.data,payload.param.data);
+  assert.equal('params' in calls[0],false);
 });

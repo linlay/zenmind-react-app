@@ -11,7 +11,8 @@
     "AndroidManifest.xml、MainActivity.kt、MainApplication.kt 和 res/values/styles.xml 决定 React 挂载前的原生启动窗口外观与 ReactHost 创建方式。",
     "RootNavigator.tsx 决定 root stack 与底部 Tab 的真实路由结构。",
     "accountDesktopSource 独立订阅账号与云端凭证，协调当前来源、SQLite 与连接；默认云端不要求 Identity 登录。",
-    "2026-10-12：activeDesktop 是 cloud/desktop/null 唯一选择；电脑 accountId+desktopId 缓存与默认云端 credential scope 独立。cloudAccess 只读验证后才开放云端，断线缓存只读、认证失效隐藏、撤销不自动回落。"
+    "2026-10-12：activeDesktop 是 cloud/desktop/null 唯一选择；电脑 accountId+desktopId 缓存与默认云端 credential scope 独立。cloudAccess 只读验证后才开放云端，断线缓存只读、认证失效隐藏、撤销不自动回落。",
+    "账号登录方式由安装品牌 accountLoginMethod 决定，accountServices 仅提供互斥的官网/企业地址及 Hub 地址；accountAuth 使用对应恢复协议，AppRoot 前台刷新直接调用统一 refreshAccountSession。"
   ],
   "steps": [
     {

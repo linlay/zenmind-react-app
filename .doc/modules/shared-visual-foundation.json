@@ -66,13 +66,15 @@
       "Related task: add-reusable-header-component",
       "Related task: add-reusable-list-screen",
       "Related task: configure-multi-brand-builds",
-      "Search phrase: 多品牌打包 / 品牌配置 / 共享视觉主题 / NativeWind"
+      "Search phrase: 多品牌打包 / 品牌配置 / 共享视觉主题 / NativeWind",
+      "全量品牌 registry 同时携带 accountLoginMethod，core/auth 读取安装品牌的登录方式；认证地址与用户凭据不属于视觉品牌 manifest。"
     ],
     "nonGoals": []
   },
   "facts": {
     "entrypoints": [],
     "publicApi": [
+      "ACCOUNT_SERVICES",
       "AGENT_ICON_NAMES",
       "APP_BRAND",
       "APP_BRANDS",
@@ -181,7 +183,7 @@
       "shared-screen-header"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-16T07:39:25Z"
+    "lastScannedAt": "2026-10-29T03:25:58Z"
   },
   "readHints": {
     "alwaysRead": [],

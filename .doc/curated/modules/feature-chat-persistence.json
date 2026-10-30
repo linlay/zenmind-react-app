@@ -2,7 +2,9 @@
   "schemaVersion": "1.0",
   "module": "feature-chat-persistence",
   "status": "confirmed",
-  "paths": ["src/features/chatPersistence"],
+  "paths": [
+    "src/features/chatPersistence"
+  ],
   "summary": {
     "purpose": "SQLite 是当前所选来源的聊天真源；默认云端按凭证、电脑按账号+电脑隔离。",
     "ownedConcepts": [
@@ -43,7 +45,9 @@
     "lastScannedAt": ""
   },
   "readHints": {
-    "alwaysRead": ["src/features/chatPersistence/chatRepository.ts"],
+    "alwaysRead": [
+      "src/features/chatPersistence/chatRepository.ts"
+    ],
     "readFor": [
       {
         "when": "legacy readNext",
@@ -136,7 +140,8 @@
   "recentChanges": [
     "2026-10-09：账号来源改造，本地实现与实际部署验收分开记录。",
     "2026-10-09：计划审计补齐新会话创建的当前来源及已知离线门禁，继续复用现有 repository 入口。",
-    "2026-10-12：默认云端 Token 独立访问实施；本地测试与导出验证，真实服务/真机验收由用户执行。"
+    "2026-10-12：默认云端 Token 独立访问实施；本地测试与导出验证，真实服务/真机验收由用户执行。",
+    "2026-10-28 B1：现有文档缓存只保留规范化 view、构建后 html 与 cachedAt；来源/Chat/view/hash/usage 隔离，单飞、TTL/LRU 和迟到失效继续复用。Native/Web Form 专用隔离宿主仅显式 collect 后接受当前帧回复，超时换帧、取消清 timer；普通 VIEW 继续 PreviewSurface。"
   ],
   "legacy": {
     "title": "聊天持久化与首页数据读取",

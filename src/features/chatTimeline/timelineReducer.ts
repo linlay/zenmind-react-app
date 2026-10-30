@@ -1,3 +1,4 @@
+import { readTimelineViewBindings, type ChatTimelineViewBinding } from './timelineView.ts';
 import { normalizeQueryModelOverride } from '../../core/api/services/modelOptionsProtocol.ts';
 import { orderChatTimelineNodes } from './timelineOrder.ts';
 import { mergeRunFeedbackMetadata } from './timelineRunFeedback.ts';
@@ -132,6 +133,7 @@ import {
 type ChatTimelineRunContextOptions = {
   runId?: string | null;
   references?: unknown[];
+  viewBindings?: Record<number, ChatTimelineViewBinding>;
 };
 const REQUEST_ECHO_MATCH_WINDOW_MS = 5 * 60 * 1000;
 
@@ -1267,6 +1269,7 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
       left.messageVariant !== right.messageVariant ||
       left.queryAccessLevel !== right.queryAccessLevel ||
       left.content !== right.content ||
+      safeJson(left.viewBindings) !== safeJson(right.viewBindings) ||
       left.messageId !== right.messageId ||
       left.clientMessageId !== right.clientMessageId ||
       left.serverMessageId !== right.serverMessageId ||
@@ -1290,7 +1293,7 @@ function didNodeChange(left: ChatTimelineNode | undefined, right: ChatTimelineNo
       left.toolName !== right.toolName ||
       left.toolLabel !== right.toolLabel ||
       left.toolType !== right.toolType ||
-      left.viewportKey !== right.viewportKey ||
+      left.viewKey !== right.viewKey ||
       left.toolTimeoutMs !== right.toolTimeoutMs ||
       (left.toolParams !== right.toolParams && safeJson(left.toolParams) !== safeJson(right.toolParams)) ||
       (left.frontendToolState !== right.frontendToolState &&
@@ -1822,10 +1825,22 @@ function applyContentEvent(
   event: Record<string, unknown>
 ): ChatTimelineState {
   const type = normalizeEventType(event.type);
-  const lifecycle = failedStreamEnd(event) ? 'error' : resolveLifecycle(type);
+
   const createdAt = resolveTimestamp(event, Date.now() + state.nextOrder);
   const current = findContentMessageNode(state, conversationId, event);
-  if (current && current.lifecycle !== 'active') return state;
+  if (current && current.lifecycle !== 'active' && type !== 'content.view') return state;
+  const lifecycle =
+    type === 'content.view'
+      ? (current?.lifecycle ?? 'active')
+      : failedStreamEnd(event)
+        ? 'error'
+        : resolveLifecycle(type);
+  const viewBindings =
+    type === 'content.snapshot' && Array.isArray(event.views)
+      ? readTimelineViewBindings(event.views)
+      : type === 'content.view'
+        ? { ...current?.viewBindings, ...readTimelineViewBindings([event]) }
+        : current?.viewBindings;
   const failure = lifecycle === 'error' ? formatChatTimelinePlatformErrorForDisplay(event).error : null;
   const runId = resolveEventRunId(event, state, current);
   const id = current?.id ?? contentNodeKey(conversationId, event);
@@ -1839,7 +1854,7 @@ function applyContentEvent(
       ? text
       : text || '';
 
-  if (!nextContent && !failure) {
+  if (!nextContent && !failure && !viewBindings) {
     return state;
   }
 
@@ -1851,6 +1866,7 @@ function applyContentEvent(
     role: 'assistant',
     messageVariant: 'default',
     content: nextContent,
+    ...(viewBindings ? { viewBindings } : {}),
     messageId,
     clientMessageId: null,
     serverMessageId: toText(event.serverMessageId) || current?.serverMessageId || null,
@@ -2126,8 +2142,9 @@ function applyToolEvent(
   const toolName = toText(event.toolName || event.name) || current?.toolName || '';
   const toolLabel = toText(event.toolLabel || event.title) || current?.toolLabel || '';
   const agentKey = toText(event.agentKey) || current?.agentKey || '';
-  const toolType = normalizeFrontendToolType(event.toolType) || current?.toolType || '';
-  const viewportKey = toText(event.viewportKey) || current?.viewportKey || '';
+  const view = Object.prototype.hasOwnProperty.call(event, 'view') ? readChatViewReference(event.view) : current?.view;
+  const toolType = normalizeFrontendToolType(view?.renderer || event.toolType) || current?.toolType || '';
+  const viewKey = view?.key || toText(event.viewKey) || current?.viewKey || '';
   const toolTimeoutMs = Object.prototype.hasOwnProperty.call(event, 'toolTimeout')
     ? normalizeProtocolTimeoutMs(event.toolTimeout)
     : (current?.toolTimeoutMs ?? null);
@@ -2148,7 +2165,7 @@ function applyToolEvent(
   const toolParams = directParams || parseFrontendToolArgs(argsText) || current?.toolParams || {};
   const frontendToolState =
     current?.frontendToolState ||
-    (type === 'tool.start' && toolType && viewportKey ? { status: 'active' as const } : null);
+    (type === 'tool.start' && toolType && view && viewKey ? { status: 'active' as const } : null);
   const resultText =
     firstFormattedText(event.result, event.output, event.error) ||
     (type.endsWith('.result') || type.endsWith('.end') ? bodyFromEvent(event) : current?.resultText || '');
@@ -2158,7 +2175,7 @@ function applyToolEvent(
     id,
     kind: 'tool',
     taskId: toText(event.taskId) || current?.taskId,
-    view: readChatViewReference(event.view) || current?.view,
+    view,
     viewError: toText(event.viewError) || current?.viewError,
     toolOutput,
     toolWait,
@@ -2167,7 +2184,7 @@ function applyToolEvent(
     toolName,
     toolLabel,
     toolType,
-    viewportKey,
+    viewKey,
     toolTimeoutMs,
     toolParams,
     frontendToolState,
@@ -2983,6 +3000,7 @@ export function applyChatTimelineMessage(
     streaming: message.streamStatus === 'streaming',
     attachments: message.attachments || [],
     references: options.references ?? current?.references,
+    viewBindings: options.viewBindings ?? current?.viewBindings,
     runId,
     createdAt: message.createdAt,
     updatedAt: message.createdAt,
@@ -3020,6 +3038,7 @@ export function patchChatTimelineMessage(
     : currentState;
   return upsertNode(baseState, {
     ...current,
+    viewBindings: options.viewBindings ?? current.viewBindings,
     content,
     createdAt: patch.createdAt ?? current.createdAt,
     updatedAt,
@@ -3172,6 +3191,16 @@ export function mergeChatTimelineState(
         ),
         matchedIncomingId
       );
+      return;
+    }
+    if (
+      currentNode.kind === 'message' &&
+      incomingNode?.kind === 'message' &&
+      (currentNode.viewBindings || incomingNode.viewBindings)
+    ) {
+      const chosen = shouldPreferCurrentTimelineNode(currentNode, incomingNode) ? currentNode : incomingNode;
+      const other = chosen === currentNode ? incomingNode : currentNode;
+      preserveNode({ ...chosen, viewBindings: chosen.viewBindings ?? other.viewBindings }, matchedIncomingId);
       return;
     }
     const shouldPreserve = incomingNode

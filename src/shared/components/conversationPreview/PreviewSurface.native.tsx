@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 import { ActivityIndicator, Platform, StyleSheet, View } from 'react-native';
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from 'react-native-webview';
 
@@ -18,6 +18,10 @@ export const PreviewSurface = memo(function PreviewSurface(props: ConversationPr
   const { theme: appTheme } = useAppTheme();
   const webViewRef = useRef<WebView>(null);
   const { handleRawEvent, height, requestId, runtimeHtml, serializedRequest } = useConversationPreviewRuntime(props);
+  useEffect(() => {
+    if (active && runtimeHtml) webViewRef.current?.postMessage(serializedRequest);
+  }, [active, runtimeHtml, serializedRequest]);
+
   const handleLoadEnd = useCallback(() => {
     webViewRef.current?.postMessage(serializedRequest);
   }, [serializedRequest]);

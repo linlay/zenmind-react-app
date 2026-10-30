@@ -69,7 +69,7 @@
     {
       "id": "core-auth-session",
       "title": "core-auth-session",
-      "summary": "官网邮箱 Cookie 会话与可信用户、账号电脑访问、唯一来源选择及独立默认云端凭证。",
+      "summary": "官网邮箱验证码与企业 SSO Cookie 会话与可信用户、账号电脑访问、唯一来源选择及独立默认云端凭证。",
       "pathHints": [
         "src/core/auth"
       ],
@@ -114,7 +114,7 @@
     {
       "id": "feature-auth-login",
       "title": "feature-auth-login",
-      "summary": "原生官网邮箱验证码登录、Hub 电脑管理与独立云端 Token 登录。",
+      "summary": "原生官网邮箱验证码与企业 SSO登录、Hub 电脑管理与独立云端 Token 登录。",
       "pathHints": [
         "src/features/auth",
         "src/features/deviceLink",

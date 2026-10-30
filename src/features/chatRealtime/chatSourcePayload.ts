@@ -16,6 +16,22 @@ function isObjectRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
 }
 
+// Traverse protocol containers only. A view/form/tool can contain arbitrary JSON,
+// including fields with the same names as protocol identities.
+const PROTOCOL_CONTAINERS = new Set([
+  'events',
+  'runs',
+  'activeRun',
+  'messages',
+  'rawMessages',
+  'awaiting',
+  'relatedChat',
+  'source',
+  'owner',
+  'member',
+  'members'
+]);
+
 function mapPayloadIdentifiers(value: unknown, mapIdentifier: (value: string) => string): unknown {
   if (Array.isArray(value)) {
     return value.map((item) => mapPayloadIdentifiers(item, mapIdentifier));
@@ -33,7 +49,27 @@ function mapPayloadIdentifiers(value: unknown, mapIdentifier: (value: string) =>
       if (key === 'agentKeys' && Array.isArray(entry)) {
         return [key, entry.map((item) => (typeof item === 'string' ? mapIdentifier(item) : item))];
       }
-      return [key, mapPayloadIdentifiers(entry, mapIdentifier)];
+      if (key === 'references' && Array.isArray(entry)) {
+        return [
+          key,
+          entry.map((reference) => {
+            if (!isObjectRecord(reference) || reference.type !== 'chat') return reference;
+            const scoped = mapPayloadIdentifiers(reference, mapIdentifier) as Record<string, unknown>;
+            return isObjectRecord(reference.meta)
+              ? {
+                  ...scoped,
+                  meta: {
+                    ...reference.meta,
+                    ...(typeof reference.meta.agentKey === 'string'
+                      ? { agentKey: mapIdentifier(reference.meta.agentKey) }
+                      : {})
+                  }
+                }
+              : scoped;
+          })
+        ];
+      }
+      return [key, PROTOCOL_CONTAINERS.has(key) ? mapPayloadIdentifiers(entry, mapIdentifier) : entry];
     })
   );
 }

@@ -240,6 +240,13 @@ export function deserializeChatTimelineState(
     }
 
     let node = migratePersistedChatTimelinePlanNode(parsed, conversationId);
+    if (
+      node.kind === 'awaiting' &&
+      node.interactive?.kind === 'form' &&
+      ('forms' in node.interactive || !isRecord(node.interactive.form) || !('data' in node.interactive.form))
+    ) {
+      node = { ...node, interactive: null };
+    }
     if (node.kind === 'message' && node.deliveryStatus === 'pending')
       node = { ...node, deliveryStatus: 'failed', errorReason: 'submission_unconfirmed' };
     node = migratePersistedChatTimelineTaskNode(node, conversationId);
