@@ -366,13 +366,13 @@ function generatedBrandLogoSymbol(brandId) {
   return `brandLogo_${brandId.replace(/[^A-Za-z0-9_$]/gu, '_')}`;
 }
 
-function writeGeneratedBrandFiles(rootDir, brands) {
+function writeGeneratedBrandFiles(rootDir, brands, brandId) {
   const registryPayload = brandRegistryPayload(brands);
   const brandTsPath = path.join(rootDir, GENERATED_BRAND_TS);
   const brandTsContent = [
     "import { resolveInstalledBrandId } from '../branding/installedBrand';",
     '',
-    `export const DEFAULT_BRAND_ID = ${JSON.stringify(DEFAULT_BRAND_ID)} as const;`,
+    `export const DEFAULT_BRAND_ID = ${JSON.stringify(brandId)} as const;`,
     '',
     `export const APP_BRANDS = ${JSON.stringify(registryPayload, null, 2)} as const;`,
     '',
@@ -1677,7 +1677,7 @@ function syncBrandArtifacts({
   const manifest = readGeneratedManifest(rootDir, brand);
   const activeNativeManifest = readActiveNativeManifest(rootDir);
   const shouldSyncNativeProject = syncNativeProject && nativeProjectExists(rootDir);
-  writeGeneratedBrandFiles(rootDir, brands);
+  writeGeneratedBrandFiles(rootDir, brands, brandId);
   const shouldWriteGeneratedAssets = force || !areGeneratedAssetsCurrent(manifest, rootDir, brand, fingerprints.asset);
   const shouldWriteNativeSplashImages = shouldSyncNativeProject
     ? force || !areNativeSplashImagesCurrent(activeNativeManifest, rootDir, brand, fingerprints.nativeSplashImage)

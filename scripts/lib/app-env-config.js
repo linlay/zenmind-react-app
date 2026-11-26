@@ -1,9 +1,11 @@
 const fs = require('fs');
 const path = require('path');
+const { resolveBrandId } = require('./brand-config');
 
 const APP_ENV_ARTIFACT = 'brands/react-app-env.json';
 const GENERATED_APP_ENV_TS = 'src/shared/generated/appEnv.ts';
-const APP_ENV_SCHEMA_VERSION = 2;
+const APP_ENV_SCHEMA_VERSION = 3;
+const LEGACY_APP_ENV_SCHEMA_VERSION = 2;
 
 const SOURCE_ID_PATTERN = /^[a-z0-9][a-z0-9_-]*$/u;
 
@@ -121,48 +123,60 @@ function normalizeAccountServices(value, brandId) {
   return result;
 }
 
-function loadReactAppEnvArtifact(rootDir = process.cwd()) {
-  const configuredPath = String(process.env.REACT_APP_ENV_ARTIFACT || '').trim();
+function loadReactAppEnvArtifact(
+  rootDir = process.cwd(),
+  { env = process.env, brandId = resolveBrandId([], env) } = {}
+) {
+  const configuredPath = String(env.REACT_APP_ENV_ARTIFACT || '').trim();
   const artifactPath = configuredPath ? path.resolve(rootDir, configuredPath) : path.join(rootDir, APP_ENV_ARTIFACT);
   if (!fs.existsSync(artifactPath)) {
     throw new Error(`React app env artifact not found: ${artifactPath}`);
   }
 
-  const artifact = readJson(artifactPath);
-  if (artifact.schemaVersion !== APP_ENV_SCHEMA_VERSION) {
-    throw new Error(
-      `React app env schemaVersion must be ${APP_ENV_SCHEMA_VERSION}, received ${artifact.schemaVersion}.`
-    );
-  }
-  const brands = artifact.brands;
-  if (!brands || typeof brands !== 'object' || Array.isArray(brands)) {
-    throw new Error('React app env field "brands" must be an object.');
+  return {
+    ...parseReactAppEnvArtifact(readJson(artifactPath), { rootDir, env, brandId }),
+    artifactPath
+  };
+}
+
+function parseReactAppEnvArtifact(artifact, { rootDir, env, brandId }) {
+  let config = artifact;
+  if (artifact.schemaVersion === LEGACY_APP_ENV_SCHEMA_VERSION) {
+    config = artifact.brands?.[brandId];
+    if (!config || !Object.hasOwn(artifact.brands, brandId)) {
+      throw new Error(`React app env artifact has no configuration for ${brandId}.`);
+    }
+  } else if (artifact.schemaVersion !== APP_ENV_SCHEMA_VERSION) {
+    throw new Error(`Unsupported React app env schemaVersion: ${artifact.schemaVersion}.`);
+  } else if (artifact.brandId !== brandId) {
+    throw new Error(`React app env artifact brand does not match build brand ${brandId}.`);
+  } else if (Object.hasOwn(artifact, 'brands')) {
+    throw new Error('React app env artifact must contain a single brand.');
   }
 
+  const environmentId = requireString(config.environmentId, 'environmentId');
+  const expectedEnvironment = String(env.REACT_APP_ENVIRONMENT || '').trim();
+  if (expectedEnvironment && environmentId !== expectedEnvironment) {
+    throw new Error(`React app env artifact does not match environment ${expectedEnvironment}.`);
+  }
+
+  const services =
+    config.accountServices === undefined ? null : normalizeAccountServices(config.accountServices, brandId);
+  if (services) {
+    const method = readJson(path.join(rootDir, 'brands', brandId, 'brand.json')).accountLoginMethod;
+    if (!(method === 'email-code' ? services.officialApiBaseUrl : method === 'enterprise-sso' && services.ssoBaseUrl)) {
+      throw new Error(`Account services do not match ${brandId} accountLoginMethod`);
+    }
+  }
   return {
-    schemaVersion: APP_ENV_SCHEMA_VERSION,
+    schemaVersion: artifact.schemaVersion,
     artifactVersion: requireString(artifact.artifactVersion, 'artifactVersion'),
-    brands: Object.fromEntries(
-      Object.keys(brands)
-        .sort()
-        .map((brandId) => {
-          const brand = brands[brandId];
-          if (!brand || typeof brand !== 'object' || Array.isArray(brand)) {
-            throw new Error(`React app env field "brands.${brandId}" must be an object.`);
-          }
-          return [
-            brandId,
-            {
-              brandId,
-              environmentId: requireString(brand.environmentId, `brands.${brandId}.environmentId`),
-              accountServices:
-                brand.accountServices === undefined ? null : normalizeAccountServices(brand.accountServices, brandId),
-              defaultSource: normalizeDefaultSource(brand.defaultSource, brandId)
-            }
-          ];
-        })
-    ),
-    artifactPath
+    environment: {
+      brandId,
+      environmentId,
+      accountServices: services,
+      defaultSource: normalizeDefaultSource(config.defaultSource, brandId)
+    }
   };
 }
 
@@ -176,50 +190,29 @@ function writeFileIfChanged(filePath, content) {
   return true;
 }
 
-function assertBrandCoverage(appEnv, brandIds) {
-  const envBrandIds = Object.keys(appEnv.brands).sort();
-  const expectedBrandIds = [...brandIds].sort();
-  if (JSON.stringify(envBrandIds) !== JSON.stringify(expectedBrandIds)) {
-    throw new Error(
-      `React app env brands must match installed brands. Expected ${expectedBrandIds.join(
-        ', '
-      )}; received ${envBrandIds.join(', ')}.`
-    );
-  }
-}
-
 function syncReactAppEnvArtifact({
   rootDir = process.cwd(),
-  brandIds = fs
-    .readdirSync(path.join(rootDir, 'brands'), { withFileTypes: true })
-    .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(rootDir, 'brands', entry.name, 'brand.json')))
-    .map((entry) => entry.name)
+  env = process.env,
+  brandId = resolveBrandId([], env)
 } = {}) {
-  const appEnv = loadReactAppEnvArtifact(rootDir);
-  assertBrandCoverage(appEnv, brandIds);
-  for (const brandId of brandIds) {
-    const services = appEnv.brands[brandId].accountServices;
-    const method = readJson(path.join(rootDir, 'brands', brandId, 'brand.json')).accountLoginMethod;
-    if (
-      services &&
-      !(method === 'email-code' ? services.officialApiBaseUrl : method === 'enterprise-sso' && services.ssoBaseUrl)
-    )
-      throw new Error(`Account services do not match ${brandId} accountLoginMethod`);
-  }
+  const appEnv = loadReactAppEnvArtifact(rootDir, { env, brandId });
   const generatedPath = path.join(rootDir, GENERATED_APP_ENV_TS);
   const generated = [
     "import { INSTALLED_BRAND_ID } from './brand';",
     '',
-    `export const REACT_APP_ENV_SCHEMA_VERSION = ${APP_ENV_SCHEMA_VERSION} as const;`,
+    `export const REACT_APP_ENV_SCHEMA_VERSION = ${appEnv.schemaVersion} as const;`,
     `export const REACT_APP_ENV_ARTIFACT_VERSION = ${JSON.stringify(appEnv.artifactVersion)} as const;`,
     'type AccountServices = { officialApiBaseUrl: string; ssoBaseUrl: string; tunnelHubApiBaseUrl: string };',
     '',
-    `export const APP_ENVIRONMENTS = ${JSON.stringify(appEnv.brands, null, 2)} as const satisfies Record<string, { brandId: string; environmentId: string; accountServices: AccountServices | null; defaultSource: unknown }>;`,
+    `export const APP_ENVIRONMENT = ${JSON.stringify(appEnv.environment, null, 2)} as const;`,
     '',
-    'export type AppEnvironment = (typeof APP_ENVIRONMENTS)[keyof typeof APP_ENVIRONMENTS];',
+    'if (INSTALLED_BRAND_ID !== APP_ENVIRONMENT.brandId) {',
+    '  throw new Error(`The ${APP_ENVIRONMENT.brandId} bundle requires a matching installed app.`);',
+    '}',
+    '',
+    'export type AppEnvironment = typeof APP_ENVIRONMENT;',
     'export type DefaultSourceEnvironment = AppEnvironment["defaultSource"];',
     '',
-    'export const APP_ENVIRONMENT = APP_ENVIRONMENTS[INSTALLED_BRAND_ID];',
     'export const ACCOUNT_SERVICES: AccountServices | null = APP_ENVIRONMENT.accountServices;',
     'export const DEFAULT_SOURCE_ENVIRONMENT = APP_ENVIRONMENT.defaultSource;',
     ''
@@ -233,5 +226,6 @@ module.exports = {
   APP_ENV_SCHEMA_VERSION,
   GENERATED_APP_ENV_TS,
   loadReactAppEnvArtifact,
+  parseReactAppEnvArtifact,
   syncReactAppEnvArtifact
 };

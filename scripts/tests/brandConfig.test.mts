@@ -251,7 +251,7 @@ test('brand sync redraws derived png assets only when visual inputs or logo sour
     syncBrandArtifacts({ rootDir, brandId: 'cutej' });
     assert.equal(
       fs.readFileSync(path.join(rootDir, 'src', 'shared', 'generated', 'brand.ts'), 'utf8'),
-      generatedBrandTs
+      generatedBrandTs.replace('DEFAULT_BRAND_ID = "zenmind"', 'DEFAULT_BRAND_ID = "cutej"')
     );
     assert.equal(pngEncodeCount, 3);
 
