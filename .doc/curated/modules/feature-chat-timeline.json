@@ -8,6 +8,10 @@
   "summary": {
     "purpose": "聊天详情 Timeline 投影: 提供纯函数 timeline reducer，把 request.query、content.*、run.*、reasoning/planning/tool/source/awaiting/artifact/action/plan/task/usage/context 等事件归并为单会话有序节点。",
     "ownedConcepts": [
+      "request.query 与 request.steer 先归一人工、自动化与 Agent 发送来源，再匹配本地回显。内部来信只保留稳定身份和 Run 关联，正文不进入富快照。可见来信通过既有 request 行显示发件人；基础消息、重问和自动标题使用人工提问。",
+      "普通审批仅投影仍需审批的策略叶项，路径和原因纳入交互比较。",
+      "终态过程折叠保留根级引导和可见来信的原始行与附件，子任务引导仍随过程展开。实时 planning 等待项和详情回放共用计划解析，按等待项及 Run 识别所属 Agent。",
+      "run.activity 普通公示按会话、Run 和任务归并，同任务开始输出或明确清空时撤下，Run 结束时释放。活跃详情只恢复当前 Run 的根级公示，按时间和请求期间的本地更新阻止旧快照复活。公示只存在于运行态，不进入富快照、消息历史或导出。",
       "timelineOrder 统一维护创建时间顺序及同 Run 请求锚点；实时插入、合并和旧快照恢复使用同一规则，delta 不改变位置，message/display/repository 不另行排序。失败用户消息在既有 errorDetail/references 中保留服务端拒绝和实际引用，沿用 rich snapshot。",
       "主 Run 保存 request.query 的 queryModel 与已确认权限；实际模型沿用同 Run 的 usageSummary（含可选 serviceTier），请求设置优先、用量补缺。isMainRun 排除子任务、BTW、解读与其他会话；空白继续也保留请求元数据。请求已确认但尚未 run.start 的 pending 节点不冒充运行中；新增元数据沿用 timeline JSON snapshot，不新增表或 schema。",
       "用量 totalTokens 优先使用上游明确值，仅输入与输出均存在时允许求和兜底；缺失一项保持未知，避免比例展示把缺失当零。",
@@ -56,7 +60,8 @@
       "request.steer/remember/learn 规范 command 保留正文、文件附件与原始 references；引用型空正文可回放，稳定 request/steerId 去重，references 可选字段沿用 rich snapshot。",
       "run.access_level.changed 只更新同一 RunNode 的 accessLevel/accessLevelVersion，不结束 run、不改起止时间；request.query 保留初始权限元数据，兼容先 query 后 run.start。live/request-specific 与 history run 按 runId 统一身份，合并保留最大已确认版本。",
       "Public entry applyChatTimelineRunAccess / getChatTimelineRun：运行权限按服务端正整数版本单调确认；sending/unknown 存在 RunNode 瞬态，不写 snapshot，结束 run 清除；历史合并不把低版本覆盖新权威值。",
-      "request.query/command selection 归一为 kind=selection 的同一附件，保留文本/批注/编号参与 echo identity 与 snapshot，不建立第二份引用实体。referencesSignature 使用后端保留的 selection ID/文本/批注/编号，忽略会被后端剥离的 client sourceKind，避免把不同批注或同名文字引用错认成文件 echo。"
+      "request.query/command selection 归一为 kind=selection 的同一附件，保留文本/批注/编号参与 echo identity 与 snapshot，不建立第二份引用实体。referencesSignature 使用后端保留的 selection ID/文本/批注/编号，忽略会被后端剥离的 client sourceKind，避免把不同批注或同名文字引用错认成文件 echo。",
+      "projectTimelineAwaitingState 按 awaiting.id 读取单个节点，保留交互可见性与 answerSummary 回退，供详情页和完整 runtime 投影复用。areChatTimelineDisplayItemsEqual 统一 display/presentation/列表行比较；reframeChatTimelineItems 统一过滤产物与折叠过程后的 run 内分组定位。"
     ],
     "nonGoals": []
   },

@@ -39,6 +39,8 @@
         "metro.config.js",
         "nativewind-env.d.ts",
         "package.json",
+        "package.sh",
+        "run.sh",
         "patches",
         "plugins/withAndroidAutolinkingCacheGuard.js",
         "plugins/withLocalCacheBackupExclusion.js",

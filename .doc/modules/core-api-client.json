@@ -28,6 +28,7 @@
       "AccountDevice",
       "AccountDeviceListV1",
       "AccountEmailReceipt",
+      "AgentDefaultAccessLevel",
       "AgentDetailSnapshot",
       "AgentWonderSuggestion",
       "ApiError",
@@ -207,6 +208,7 @@
       "extractUploadReferences",
       "fetchAuthenticatedResourceText",
       "fetchChatExport",
+      "getAgentDefaultAccessLevel",
       "getApiBaseUrl",
       "getChatExportAssetOrigin",
       "getDesktopPlatformCredential",
@@ -229,6 +231,7 @@
       "isDefinitiveChatDerivationRejection",
       "isKanbanAbortError",
       "isKanbanIssueRunUpdateError",
+      "isModelOverrideAvailable",
       "isOfficeFile",
       "isOnlineOfficeFile",
       "isRemoteEpochMillis",
@@ -328,7 +331,7 @@
       "feature-web-apps"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-29T03:25:58Z"
+    "lastScannedAt": "2026-11-26T01:01:15Z"
   },
   "readHints": {
     "alwaysRead": [

@@ -34,6 +34,7 @@
     "scripts/tests/accountEmailApi.test.mts",
     "scripts/tests/accountEmailForm.test.mts",
     "scripts/tests/accountSourceSelection.test.mts",
+    "scripts/tests/accountSourceSheet.test.mts",
     "scripts/tests/accountSourceTransport.test.mts",
     "scripts/tests/activeDesktopSelection.test.mts",
     "scripts/tests/agentWaitingDemo.test.mts",
@@ -54,9 +55,11 @@
     "scripts/tests/chatAttachmentResourceUrl.test.mts",
     "scripts/tests/chatCacheScope.test.mts",
     "scripts/tests/chatComposerAttachments.test.mts",
+    "scripts/tests/chatComposerDraft.test.mts",
     "scripts/tests/chatComposerNativePlaceholder.test.mts",
     "scripts/tests/chatComposerOptionsLayout.test.mts",
     "scripts/tests/chatComposerSettings.test.mts",
+    "scripts/tests/chatComposerSheet.test.mts",
     "scripts/tests/chatContextReferences.test.mts",
     "scripts/tests/chatConversationDiagnostic.test.mts",
     "scripts/tests/chatConversationSourceCreation.test.mts",
@@ -67,6 +70,7 @@
     "scripts/tests/chatDetailHistoryDrawerPlacement.test.mts",
     "scripts/tests/chatDetailLocalUiState.test.mts",
     "scripts/tests/chatDetailNavigation.test.mts",
+    "scripts/tests/chatDetailProjection.test.mts",
     "scripts/tests/chatDetailViewModel.test.mts",
     "scripts/tests/chatDirectoryOpenDecision.test.mts",
     "scripts/tests/chatDirectoryPickerOverlay.test.mts",
@@ -101,6 +105,7 @@
     "scripts/tests/chatSelectionReferences.test.mts",
     "scripts/tests/chatSkills.test.mts",
     "scripts/tests/chatSource.test.mts",
+    "scripts/tests/chatSteerComposer.test.mts",
     "scripts/tests/chatSyncContractFixtures.test.mts",
     "scripts/tests/chatSyncCoordinator.test.mts",
     "scripts/tests/chatTextSearchNative.test.mts",
@@ -130,6 +135,7 @@
     "scripts/tests/conversationMarkdownLinks.test.mts",
     "scripts/tests/conversationPreviewSurface.test.mts",
     "scripts/tests/deviceLinkContract.test.mts",
+    "scripts/tests/easBuildContext.test.mts",
     "scripts/tests/enterpriseAccount.test.mts",
     "scripts/tests/enterpriseAuthSession.test.mts",
     "scripts/tests/enterpriseLogin.test.mts",
@@ -461,7 +467,6 @@
     ".generated/react-native-worklets/.worklets/12496093665501.js",
     ".generated/react-native-worklets/.worklets/12517976864699.js",
     ".generated/react-native-worklets/.worklets/1251885997673.js",
-    ".generated/react-native-worklets/.worklets/12522079474517.js",
     ".generated/react-native-worklets/.worklets/12525349719229.js",
     ".generated/react-native-worklets/.worklets/12530215251082.js",
     ".generated/react-native-worklets/.worklets/12538691088788.js",
@@ -599,7 +604,6 @@
     ".generated/react-native-worklets/.worklets/13711823823654.js",
     ".generated/react-native-worklets/.worklets/13718892393619.js",
     ".generated/react-native-worklets/.worklets/13730894087975.js",
-    ".generated/react-native-worklets/.worklets/13740508877782.js",
     ".generated/react-native-worklets/.worklets/13760449121746.js",
     ".generated/react-native-worklets/.worklets/13761729733357.js",
     ".generated/react-native-worklets/.worklets/13761870457184.js",
@@ -1075,7 +1079,6 @@
     ".generated/react-native-worklets/.worklets/1761233951529.js",
     ".generated/react-native-worklets/.worklets/1765448099713.js",
     ".generated/react-native-worklets/.worklets/17689401263.js",
-    ".generated/react-native-worklets/.worklets/1780126652981.js",
     ".generated/react-native-worklets/.worklets/1786138185726.js",
     ".generated/react-native-worklets/.worklets/1789674141406.js",
     ".generated/react-native-worklets/.worklets/1791954850719.js",
@@ -1110,7 +1113,6 @@
     ".generated/react-native-worklets/.worklets/201722953761.js",
     ".generated/react-native-worklets/.worklets/2034686795132.js",
     ".generated/react-native-worklets/.worklets/2042412555041.js",
-    ".generated/react-native-worklets/.worklets/2050721687395.js",
     ".generated/react-native-worklets/.worklets/2051893356255.js",
     ".generated/react-native-worklets/.worklets/2059959224558.js",
     ".generated/react-native-worklets/.worklets/2065557600810.js",
@@ -1650,7 +1652,6 @@
     ".generated/react-native-worklets/.worklets/6368504730929.js",
     ".generated/react-native-worklets/.worklets/6377905670264.js",
     ".generated/react-native-worklets/.worklets/6395724719418.js",
-    ".generated/react-native-worklets/.worklets/6398033576128.js",
     ".generated/react-native-worklets/.worklets/639934121359.js",
     ".generated/react-native-worklets/.worklets/6415608556631.js",
     ".generated/react-native-worklets/.worklets/6429571220286.js",
@@ -1689,7 +1690,6 @@
     ".generated/react-native-worklets/.worklets/667357478741.js",
     ".generated/react-native-worklets/.worklets/6673649854527.js",
     ".generated/react-native-worklets/.worklets/6675177874690.js",
-    ".generated/react-native-worklets/.worklets/6688217782383.js",
     ".generated/react-native-worklets/.worklets/6690724664990.js",
     ".generated/react-native-worklets/.worklets/669119165337.js",
     ".generated/react-native-worklets/.worklets/669857181817.js",
@@ -1774,7 +1774,6 @@
     ".generated/react-native-worklets/.worklets/7425392373496.js",
     ".generated/react-native-worklets/.worklets/7437761805778.js",
     ".generated/react-native-worklets/.worklets/7438857771706.js",
-    ".generated/react-native-worklets/.worklets/7452974515017.js",
     ".generated/react-native-worklets/.worklets/7453628012605.js",
     ".generated/react-native-worklets/.worklets/7483121255852.js",
     ".generated/react-native-worklets/.worklets/7505709007343.js",
@@ -1980,7 +1979,6 @@
     ".generated/react-native-worklets/.worklets/9047825557105.js",
     ".generated/react-native-worklets/.worklets/9065322621897.js",
     ".generated/react-native-worklets/.worklets/908368800052.js",
-    ".generated/react-native-worklets/.worklets/9097856890761.js",
     ".generated/react-native-worklets/.worklets/9097937941768.js",
     ".generated/react-native-worklets/.worklets/9106575257510.js",
     ".generated/react-native-worklets/.worklets/9117239802023.js",
@@ -2124,11 +2122,13 @@
     "plugins/withAndroidAutolinkingCacheGuard.js",
     "plugins/withAndroidNdkVersionForSubprojects.js",
     "plugins/withLocalCacheBackupExclusion.js",
+    "scripts/app-env-release.js",
     "scripts/dev-proxy.mjs",
     "scripts/generate-zenmind-assets.js",
     "scripts/lib/app-env-config.js",
     "scripts/lib/brand-config.js",
     "scripts/markdown-preview/pregenerate.js",
+    "scripts/prepare-eas-context.js",
     "scripts/submit-ios-ipa.js",
     "scripts/sync-brand.js",
     "scripts/worklets/bundle-mode-config.js",
@@ -2245,6 +2245,7 @@
     "src/features/chatPersistence/chatAttachmentIcon.ts",
     "src/features/chatPersistence/chatAttachmentModels.ts",
     "src/features/chatPersistence/chatAttachmentPreview.ts",
+    "src/features/chatPersistence/chatComposerDraft.ts",
     "src/features/chatPersistence/chatComposerPreferences.ts",
     "src/features/chatPersistence/chatContextReference.ts",
     "src/features/chatPersistence/chatConversationDiagnostic.ts",
@@ -2280,7 +2281,9 @@
     "src/features/chatPersistence/components/ChatArtifactDrawer.tsx",
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
     "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
+    "src/features/chatPersistence/components/ChatBottomSheet.tsx",
     "src/features/chatPersistence/components/ChatComposerOptionRow.tsx",
+    "src/features/chatPersistence/components/ChatComposerSheet.tsx",
     "src/features/chatPersistence/components/ChatComposerSkillsMenu.tsx",
     "src/features/chatPersistence/components/ChatContextReferencePicker.tsx",
     "src/features/chatPersistence/components/ChatConversationDiagnosticCard.tsx",
@@ -2296,6 +2299,7 @@
     "src/features/chatPersistence/components/ChatFileChanges.tsx",
     "src/features/chatPersistence/components/ChatImageGeneration.tsx",
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
+    "src/features/chatPersistence/components/ChatPastedTextEditor.tsx",
     "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx",
     "src/features/chatPersistence/components/ChatRunCopyButton.tsx",
     "src/features/chatPersistence/components/ChatRunDerivation.tsx",
@@ -2310,6 +2314,9 @@
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx",
     "src/features/chatPersistence/components/ChatUsageStackedMetrics.tsx",
     "src/features/chatPersistence/components/Composer.tsx",
+    "src/features/chatPersistence/components/ComposerTextInput.native.tsx",
+    "src/features/chatPersistence/components/ComposerTextInput.tsx",
+    "src/features/chatPersistence/components/ComposerTextInput.types.ts",
     "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx",
     "src/features/chatPersistence/components/CopyToast.tsx",
     "src/features/chatPersistence/components/ExecutionTimelineRow.tsx",
@@ -2364,6 +2371,8 @@
     "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx",
     "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx",
     "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts",
+    "src/features/chatPersistence/native/ChatComposerInputModule.kt",
+    "src/features/chatPersistence/native/ChatComposerInputModule.swift",
     "src/features/chatPersistence/schema.ts",
     "src/features/chatPersistence/types.ts",
     "src/features/chatPersistence/useChatComposerAttachments.ts",
@@ -2397,6 +2406,7 @@
     "src/features/chatTimeline/timelineReducer.ts",
     "src/features/chatTimeline/timelineRequest.ts",
     "src/features/chatTimeline/timelineRunAccess.ts",
+    "src/features/chatTimeline/timelineRunAnnouncement.ts",
     "src/features/chatTimeline/timelineRunDerivation.ts",
     "src/features/chatTimeline/timelineRunFeedback.ts",
     "src/features/chatTimeline/timelineSource.ts",
@@ -3651,10 +3661,6 @@
                     "type": "file"
                   },
                   {
-                    "name": "12522079474517.js",
-                    "type": "file"
-                  },
-                  {
                     "name": "12525349719229.js",
                     "type": "file"
                   },
@@ -4200,10 +4206,6 @@
                   },
                   {
                     "name": "13730894087975.js",
-                    "type": "file"
-                  },
-                  {
-                    "name": "13740508877782.js",
                     "type": "file"
                   },
                   {
@@ -6107,10 +6109,6 @@
                     "type": "file"
                   },
                   {
-                    "name": "1780126652981.js",
-                    "type": "file"
-                  },
-                  {
                     "name": "1786138185726.js",
                     "type": "file"
                   },
@@ -6244,10 +6242,6 @@
                   },
                   {
                     "name": "2042412555041.js",
-                    "type": "file"
-                  },
-                  {
-                    "name": "2050721687395.js",
                     "type": "file"
                   },
                   {
@@ -8407,10 +8401,6 @@
                     "type": "file"
                   },
                   {
-                    "name": "6398033576128.js",
-                    "type": "file"
-                  },
-                  {
                     "name": "639934121359.js",
                     "type": "file"
                   },
@@ -8560,10 +8550,6 @@
                   },
                   {
                     "name": "6675177874690.js",
-                    "type": "file"
-                  },
-                  {
-                    "name": "6688217782383.js",
                     "type": "file"
                   },
                   {
@@ -8900,10 +8886,6 @@
                   },
                   {
                     "name": "7438857771706.js",
-                    "type": "file"
-                  },
-                  {
-                    "name": "7452974515017.js",
                     "type": "file"
                   },
                   {
@@ -9727,10 +9709,6 @@
                     "type": "file"
                   },
                   {
-                    "name": "9097856890761.js",
-                    "type": "file"
-                  },
-                  {
                     "name": "9097937941768.js",
                     "type": "file"
                   },
@@ -10419,11 +10397,19 @@
             ]
           },
           {
+            "name": "app-env-release.js",
+            "type": "file"
+          },
+          {
             "name": "dev-proxy.mjs",
             "type": "file"
           },
           {
             "name": "generate-zenmind-assets.js",
+            "type": "file"
+          },
+          {
+            "name": "prepare-eas-context.js",
             "type": "file"
           },
           {
@@ -11053,7 +11039,15 @@
                         "type": "file"
                       },
                       {
+                        "name": "ChatBottomSheet.tsx",
+                        "type": "file"
+                      },
+                      {
                         "name": "ChatComposerOptionRow.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatComposerSheet.tsx",
                         "type": "file"
                       },
                       {
@@ -11117,6 +11111,10 @@
                         "type": "file"
                       },
                       {
+                        "name": "ChatPastedTextEditor.tsx",
+                        "type": "file"
+                      },
+                      {
                         "name": "ChatResponseWaitingIndicator.tsx",
                         "type": "file"
                       },
@@ -11170,6 +11168,18 @@
                       },
                       {
                         "name": "Composer.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ComposerTextInput.native.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ComposerTextInput.tsx",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ComposerTextInput.types.ts",
                         "type": "file"
                       },
                       {
@@ -11321,6 +11331,20 @@
                     ]
                   },
                   {
+                    "name": "native",
+                    "type": "directory",
+                    "children": [
+                      {
+                        "name": "ChatComposerInputModule.kt",
+                        "type": "file"
+                      },
+                      {
+                        "name": "ChatComposerInputModule.swift",
+                        "type": "file"
+                      }
+                    ]
+                  },
+                  {
                     "name": "ChatDetailScreen.tsx",
                     "type": "file"
                   },
@@ -11370,6 +11394,10 @@
                   },
                   {
                     "name": "chatAttachmentPreview.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "chatComposerDraft.ts",
                     "type": "file"
                   },
                   {
@@ -11642,6 +11670,10 @@
                   },
                   {
                     "name": "timelineRunAccess.ts",
+                    "type": "file"
+                  },
+                  {
+                    "name": "timelineRunAnnouncement.ts",
                     "type": "file"
                   },
                   {
@@ -12108,11 +12140,13 @@
       "nativewind-env.d.ts",
       "plugins/withAndroidAutolinkingCacheGuard.js",
       "plugins/withLocalCacheBackupExclusion.js",
+      "scripts/app-env-release.js",
       "scripts/dev-proxy.mjs",
       "scripts/generate-zenmind-assets.js",
       "scripts/lib/app-env-config.js",
       "scripts/lib/brand-config.js",
       "scripts/markdown-preview/pregenerate.js",
+      "scripts/prepare-eas-context.js",
       "scripts/submit-ios-ipa.js",
       "scripts/sync-brand.js",
       "scripts/worklets/bundle-mode-config.js",
@@ -12246,6 +12280,7 @@
       "src/features/chatPersistence/chatAttachmentIcon.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/chatAttachmentPreview.ts",
+      "src/features/chatPersistence/chatComposerDraft.ts",
       "src/features/chatPersistence/chatComposerPreferences.ts",
       "src/features/chatPersistence/chatContextReference.ts",
       "src/features/chatPersistence/chatConversationDiagnostic.ts",
@@ -12281,7 +12316,9 @@
       "src/features/chatPersistence/components/ChatArtifactDrawer.tsx",
       "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
       "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
+      "src/features/chatPersistence/components/ChatBottomSheet.tsx",
       "src/features/chatPersistence/components/ChatComposerOptionRow.tsx",
+      "src/features/chatPersistence/components/ChatComposerSheet.tsx",
       "src/features/chatPersistence/components/ChatComposerSkillsMenu.tsx",
       "src/features/chatPersistence/components/ChatContextReferencePicker.tsx",
       "src/features/chatPersistence/components/ChatConversationDiagnosticCard.tsx",
@@ -12297,6 +12334,7 @@
       "src/features/chatPersistence/components/ChatFileChanges.tsx",
       "src/features/chatPersistence/components/ChatImageGeneration.tsx",
       "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
+      "src/features/chatPersistence/components/ChatPastedTextEditor.tsx",
       "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx",
       "src/features/chatPersistence/components/ChatRunCopyButton.tsx",
       "src/features/chatPersistence/components/ChatRunDerivation.tsx",
@@ -12311,6 +12349,9 @@
       "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx",
       "src/features/chatPersistence/components/ChatUsageStackedMetrics.tsx",
       "src/features/chatPersistence/components/Composer.tsx",
+      "src/features/chatPersistence/components/ComposerTextInput.native.tsx",
+      "src/features/chatPersistence/components/ComposerTextInput.tsx",
+      "src/features/chatPersistence/components/ComposerTextInput.types.ts",
       "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx",
       "src/features/chatPersistence/components/CopyToast.tsx",
       "src/features/chatPersistence/components/ExecutionTimelineRow.tsx",
@@ -12365,6 +12406,8 @@
       "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx",
       "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx",
       "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts",
+      "src/features/chatPersistence/native/ChatComposerInputModule.kt",
+      "src/features/chatPersistence/native/ChatComposerInputModule.swift",
       "src/features/chatPersistence/schema.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatPersistence/useChatComposerAttachments.ts",
@@ -12402,6 +12445,7 @@
       "src/features/chatTimeline/timelineReducer.ts",
       "src/features/chatTimeline/timelineRequest.ts",
       "src/features/chatTimeline/timelineRunAccess.ts",
+      "src/features/chatTimeline/timelineRunAnnouncement.ts",
       "src/features/chatTimeline/timelineRunDerivation.ts",
       "src/features/chatTimeline/timelineRunFeedback.ts",
       "src/features/chatTimeline/timelineSource.ts",
@@ -12504,11 +12548,13 @@
     "nativewind-env.d.ts": "app-shell-navigation",
     "plugins/withAndroidAutolinkingCacheGuard.js": "app-shell-navigation",
     "plugins/withLocalCacheBackupExclusion.js": "app-shell-navigation",
+    "scripts/app-env-release.js": "app-shell-navigation",
     "scripts/dev-proxy.mjs": "app-shell-navigation",
     "scripts/generate-zenmind-assets.js": "app-shell-navigation",
     "scripts/lib/app-env-config.js": "app-shell-navigation",
     "scripts/lib/brand-config.js": "app-shell-navigation",
     "scripts/markdown-preview/pregenerate.js": "app-shell-navigation",
+    "scripts/prepare-eas-context.js": "app-shell-navigation",
     "scripts/submit-ios-ipa.js": "app-shell-navigation",
     "scripts/sync-brand.js": "app-shell-navigation",
     "scripts/worklets/bundle-mode-config.js": "app-shell-navigation",
@@ -12625,6 +12671,7 @@
     "src/features/chatPersistence/chatAttachmentIcon.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatAttachmentModels.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatAttachmentPreview.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/chatComposerDraft.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatComposerPreferences.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatContextReference.ts": "feature-chat-persistence",
     "src/features/chatPersistence/chatConversationDiagnostic.ts": "feature-chat-persistence",
@@ -12660,7 +12707,9 @@
     "src/features/chatPersistence/components/ChatArtifactDrawer.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatAttachmentStrip.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatBottomSheet.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatComposerOptionRow.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatComposerSheet.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatComposerSkillsMenu.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatContextReferencePicker.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatConversationDiagnosticCard.tsx": "feature-chat-persistence",
@@ -12676,6 +12725,7 @@
     "src/features/chatPersistence/components/ChatFileChanges.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatImageGeneration.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ChatPastedTextEditor.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatRunCopyButton.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatRunDerivation.tsx": "feature-chat-persistence",
@@ -12690,6 +12740,9 @@
     "src/features/chatPersistence/components/ChatUsageHeaderBadge.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ChatUsageStackedMetrics.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/Composer.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ComposerTextInput.native.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ComposerTextInput.tsx": "feature-chat-persistence",
+    "src/features/chatPersistence/components/ComposerTextInput.types.ts": "feature-chat-persistence",
     "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/CopyToast.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/components/ExecutionTimelineRow.tsx": "feature-chat-persistence",
@@ -12744,6 +12797,8 @@
     "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx": "feature-chat-persistence",
     "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts": "feature-chat-persistence",
+    "src/features/chatPersistence/native/ChatComposerInputModule.kt": "feature-chat-persistence",
+    "src/features/chatPersistence/native/ChatComposerInputModule.swift": "feature-chat-persistence",
     "src/features/chatPersistence/schema.ts": "feature-chat-persistence",
     "src/features/chatPersistence/types.ts": "feature-chat-persistence",
     "src/features/chatPersistence/useChatComposerAttachments.ts": "feature-chat-persistence",
@@ -12777,6 +12832,7 @@
     "src/features/chatTimeline/timelineReducer.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineRequest.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineRunAccess.ts": "feature-chat-timeline",
+    "src/features/chatTimeline/timelineRunAnnouncement.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineRunDerivation.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineRunFeedback.ts": "feature-chat-timeline",
     "src/features/chatTimeline/timelineSource.ts": "feature-chat-timeline",
@@ -13966,9 +14022,6 @@
     ".generated/react-native-worklets/.worklets/1251885997673.js": [
       "default"
     ],
-    ".generated/react-native-worklets/.worklets/12522079474517.js": [
-      "default"
-    ],
     ".generated/react-native-worklets/.worklets/12525349719229.js": [
       "default"
     ],
@@ -14378,9 +14431,6 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/13730894087975.js": [
-      "default"
-    ],
-    ".generated/react-native-worklets/.worklets/13740508877782.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/13760449121746.js": [
@@ -15808,9 +15858,6 @@
     ".generated/react-native-worklets/.worklets/17689401263.js": [
       "default"
     ],
-    ".generated/react-native-worklets/.worklets/1780126652981.js": [
-      "default"
-    ],
     ".generated/react-native-worklets/.worklets/1786138185726.js": [
       "default"
     ],
@@ -15911,9 +15958,6 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/2042412555041.js": [
-      "default"
-    ],
-    ".generated/react-native-worklets/.worklets/2050721687395.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/2051893356255.js": [
@@ -17533,9 +17577,6 @@
     ".generated/react-native-worklets/.worklets/6395724719418.js": [
       "default"
     ],
-    ".generated/react-native-worklets/.worklets/6398033576128.js": [
-      "default"
-    ],
     ".generated/react-native-worklets/.worklets/639934121359.js": [
       "default"
     ],
@@ -17648,9 +17689,6 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/6675177874690.js": [
-      "default"
-    ],
-    ".generated/react-native-worklets/.worklets/6688217782383.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/6690724664990.js": [
@@ -17903,9 +17941,6 @@
       "default"
     ],
     ".generated/react-native-worklets/.worklets/7438857771706.js": [
-      "default"
-    ],
-    ".generated/react-native-worklets/.worklets/7452974515017.js": [
       "default"
     ],
     ".generated/react-native-worklets/.worklets/7453628012605.js": [
@@ -18523,9 +18558,6 @@
     ".generated/react-native-worklets/.worklets/908368800052.js": [
       "default"
     ],
-    ".generated/react-native-worklets/.worklets/9097856890761.js": [
-      "default"
-    ],
     ".generated/react-native-worklets/.worklets/9097937941768.js": [
       "default"
     ],
@@ -18932,12 +18964,12 @@
     "plugins/withLocalCacheBackupExclusion.js": [
       "addLocalCacheBackupExclusion"
     ],
+    "scripts/app-env-release.js": null,
     "scripts/dev-proxy.mjs": null,
     "scripts/generate-zenmind-assets.js": null,
     "scripts/lib/app-env-config.js": [
       "ACCOUNT_SERVICES",
       "APP_ENVIRONMENT",
-      "APP_ENVIRONMENTS",
       "AppEnvironment",
       "DEFAULT_SOURCE_ENVIRONMENT",
       "DefaultSourceEnvironment",
@@ -18963,6 +18995,7 @@
       "getBrandLogo"
     ],
     "scripts/markdown-preview/pregenerate.js": null,
+    "scripts/prepare-eas-context.js": null,
     "scripts/submit-ios-ipa.js": null,
     "scripts/sync-brand.js": null,
     "scripts/worklets/bundle-mode-config.js": null,
@@ -19139,6 +19172,7 @@
       "requiresAuthenticatedResourceHttpDataPlane"
     ],
     "src/core/api/services/chatApi.ts": [
+      "AgentDefaultAccessLevel",
       "AgentDetailSnapshot",
       "AgentWonderSuggestion",
       "AwaitingApprovalDecision",
@@ -19189,6 +19223,7 @@
       "buildMarkChatReadPayload",
       "buildSubmitAwaitingPayload",
       "buildSubmitFrontendToolPayload",
+      "getAgentDefaultAccessLevel",
       "projectRemoteAgentDetail",
       "readAwaitingSubmitParam",
       "type SubmitFrontendToolRequest",
@@ -19384,6 +19419,7 @@
       "ServiceTierOption",
       "buildAgentModelConfigPayload",
       "buildModelOptionsPayload",
+      "isModelOverrideAvailable",
       "normalizeModelOptionReasoningEffort",
       "normalizeModelOptionServiceTier",
       "normalizeModelOptionsAgentKey",
@@ -19567,8 +19603,10 @@
       "sharedWsTransport"
     ],
     "src/core/ws/wsClient.ts": [
+      "MAX_WS_FRAME_BYTES",
       "WsClient",
       "WsClientDisconnectedError",
+      "WsClientPayloadTooLargeError",
       "WsClientRequestTimeoutError",
       "WsPushFrame",
       "WsSocketStatus"
@@ -19719,6 +19757,17 @@
       "resolveChatAttachmentImageUri",
       "resolveChatAttachmentPreview"
     ],
+    "src/features/chatPersistence/chatComposerDraft.ts": [
+      "ChatComposerDraft",
+      "ComposerPaste",
+      "ComposerTextEdit",
+      "appendComposerDraft",
+      "applyComposerTextEdit",
+      "createComposerDraft",
+      "editComposerPaste",
+      "serializeComposerDraft",
+      "shouldCollapseComposerPaste"
+    ],
     "src/features/chatPersistence/chatComposerPreferences.ts": [
       "ChatComposerPreference",
       "ChatComposerPreferenceTarget",
@@ -19727,6 +19776,7 @@
       "getChatComposerPreferenceRevision",
       "readChatComposerPreference",
       "rememberChatComposerSubmission",
+      "reviseChatComposerSubmissionModel",
       "subscribeChatComposerPreferences",
       "writeChatComposerPreference"
     ],
@@ -19915,6 +19965,7 @@
       "patchMessageByClientMessageId",
       "persistConversationTimelineState",
       "prewarmChatHomeDirectory",
+      "readComposerConfiguration",
       "reconcileConversationDetail",
       "refreshChatDirectoryProjectionForConversation",
       "refreshChatDirectorySnapshot",
@@ -19924,6 +19975,7 @@
       "resolveDirectoryItemConversationOpenTarget",
       "retainChatDirectorySources",
       "retryOutgoingMessage",
+      "saveComposerConfiguration",
       "searchChatDirectoryItems",
       "setChatDirectoryItemPinned",
       "setConversationActiveRunId",
@@ -19998,8 +20050,14 @@
       "ChatAwaitingOverlay",
       "ChatAwaitingResumeBar"
     ],
+    "src/features/chatPersistence/components/ChatBottomSheet.tsx": [
+      "ChatBottomSheet"
+    ],
     "src/features/chatPersistence/components/ChatComposerOptionRow.tsx": [
       "ChatComposerOptionRow"
+    ],
+    "src/features/chatPersistence/components/ChatComposerSheet.tsx": [
+      "ChatComposerSheet"
     ],
     "src/features/chatPersistence/components/ChatComposerSkillsMenu.tsx": [
       "ChatComposerSkillsMenu"
@@ -20050,6 +20108,9 @@
     "src/features/chatPersistence/components/ChatNewConversationIntro.tsx": [
       "ChatNewConversationIntro"
     ],
+    "src/features/chatPersistence/components/ChatPastedTextEditor.tsx": [
+      "ChatPastedTextEditor"
+    ],
     "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx": [
       "CHAT_RESPONSE_WAITING_VARIANTS",
       "ChatResponseWaitingIndicator",
@@ -20095,6 +20156,16 @@
     "src/features/chatPersistence/components/Composer.tsx": [
       "Composer",
       "ComposerAttachmentType"
+    ],
+    "src/features/chatPersistence/components/ComposerTextInput.native.tsx": [
+      "ComposerTextInput"
+    ],
+    "src/features/chatPersistence/components/ComposerTextInput.tsx": [
+      "ComposerTextInput"
+    ],
+    "src/features/chatPersistence/components/ComposerTextInput.types.ts": [
+      "ComposerTextInputHandle",
+      "ComposerTextInputProps"
     ],
     "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx": [
       "ContextCompactTimelineRow"
@@ -20371,6 +20442,8 @@
       "parseConversationMarkdownInternalLink",
       "resolveConversationMarkdownLinkPreview"
     ],
+    "src/features/chatPersistence/native/ChatComposerInputModule.kt": [],
+    "src/features/chatPersistence/native/ChatComposerInputModule.swift": [],
     "src/features/chatPersistence/schema.ts": [
       "ChatDirectoryItemRow",
       "ConversationRow",
@@ -20387,6 +20460,7 @@
       "NewMessageAttachmentRow",
       "NewMessageRow",
       "chatDirectoryItems",
+      "composerPreferences",
       "conversationSyncState",
       "conversationTimelineMeta",
       "conversationTimelineNodes",
@@ -20606,6 +20680,7 @@
       "type NormalizedChatTimelineTask"
     ],
     "src/features/chatTimeline/messageProjection.ts": [
+      "projectTimelineAwaitingState",
       "projectTimelineMessages",
       "projectTimelineRuntimeState"
     ],
@@ -20649,6 +20724,7 @@
     "src/features/chatTimeline/timelineDisplay.ts": [
       "ChatTimelineDisplayModel",
       "ChatTimelineDisplayTailSignature",
+      "areChatTimelineDisplayItemsEqual",
       "buildChatTimelineDisplayItems",
       "buildChatTimelineDisplayModel",
       "getChatTimelineDisplayItemType"
@@ -20696,7 +20772,8 @@
     ],
     "src/features/chatTimeline/timelinePresentation.ts": [
       "buildChatTimelinePresentationItems",
-      "getChatTimelinePresentationItemType"
+      "getChatTimelinePresentationItemType",
+      "reframeChatTimelineItems"
     ],
     "src/features/chatTimeline/timelineReasoningIdentity.ts": [
       "activeReasoningRunKey",
@@ -20724,6 +20801,7 @@
       "reconcileChatTimelineAwaitingSnapshot"
     ],
     "src/features/chatTimeline/timelineRequest.ts": [
+      "classifyChatRequestInput",
       "isChatTimelineCommandMessageVariant",
       "migratePersistedChatTimelineMessageNode",
       "normalizeChatTimelineMessageVariant",
@@ -20737,6 +20815,11 @@
       "mergeRunAccessMetadata",
       "readRunAccessLevel",
       "resolveChatComposerHistory"
+    ],
+    "src/features/chatTimeline/timelineRunAnnouncement.ts": [
+      "applyChatTimelineRunAnnouncement",
+      "applyChatTimelineRunAnnouncementSnapshot",
+      "clearChatTimelineRunAnnouncementForContent"
     ],
     "src/features/chatTimeline/timelineRunDerivation.ts": [
       "applyChatTimelineRunDerivation"
@@ -20834,6 +20917,7 @@
       "ChatTimelinePresentationItem",
       "ChatTimelineProcessSummaryDisplayItem",
       "ChatTimelineProcessTerminalStatus",
+      "ChatTimelineRunAnnouncement",
       "ChatTimelineRunNode",
       "ChatTimelineRuntimeEntry",
       "ChatTimelineRuntimeEntryKind",
@@ -21025,7 +21109,6 @@
     "src/shared/generated/appEnv.ts": [
       "ACCOUNT_SERVICES",
       "APP_ENVIRONMENT",
-      "APP_ENVIRONMENTS",
       "AppEnvironment",
       "DEFAULT_SOURCE_ENVIRONMENT",
       "DefaultSourceEnvironment",
@@ -21599,7 +21682,6 @@
       "react-native-worklets"
     ],
     ".generated/react-native-worklets/.worklets/1251885997673.js": null,
-    ".generated/react-native-worklets/.worklets/12522079474517.js": null,
     ".generated/react-native-worklets/.worklets/12525349719229.js": [
       "react-native-worklets"
     ],
@@ -21769,7 +21851,6 @@
     ".generated/react-native-worklets/.worklets/13711823823654.js": null,
     ".generated/react-native-worklets/.worklets/13718892393619.js": null,
     ".generated/react-native-worklets/.worklets/13730894087975.js": null,
-    ".generated/react-native-worklets/.worklets/13740508877782.js": null,
     ".generated/react-native-worklets/.worklets/13760449121746.js": null,
     ".generated/react-native-worklets/.worklets/13761729733357.js": null,
     ".generated/react-native-worklets/.worklets/13761870457184.js": null,
@@ -22376,7 +22457,6 @@
     ],
     ".generated/react-native-worklets/.worklets/1765448099713.js": null,
     ".generated/react-native-worklets/.worklets/17689401263.js": null,
-    ".generated/react-native-worklets/.worklets/1780126652981.js": null,
     ".generated/react-native-worklets/.worklets/1786138185726.js": null,
     ".generated/react-native-worklets/.worklets/1789674141406.js": null,
     ".generated/react-native-worklets/.worklets/1791954850719.js": null,
@@ -22415,7 +22495,6 @@
     ".generated/react-native-worklets/.worklets/201722953761.js": null,
     ".generated/react-native-worklets/.worklets/2034686795132.js": null,
     ".generated/react-native-worklets/.worklets/2042412555041.js": null,
-    ".generated/react-native-worklets/.worklets/2050721687395.js": null,
     ".generated/react-native-worklets/.worklets/2051893356255.js": null,
     ".generated/react-native-worklets/.worklets/2059959224558.js": null,
     ".generated/react-native-worklets/.worklets/2065557600810.js": null,
@@ -23097,7 +23176,6 @@
     ".generated/react-native-worklets/.worklets/6368504730929.js": null,
     ".generated/react-native-worklets/.worklets/6377905670264.js": null,
     ".generated/react-native-worklets/.worklets/6395724719418.js": null,
-    ".generated/react-native-worklets/.worklets/6398033576128.js": null,
     ".generated/react-native-worklets/.worklets/639934121359.js": null,
     ".generated/react-native-worklets/.worklets/6415608556631.js": null,
     ".generated/react-native-worklets/.worklets/6429571220286.js": null,
@@ -23142,7 +23220,6 @@
     ".generated/react-native-worklets/.worklets/667357478741.js": null,
     ".generated/react-native-worklets/.worklets/6673649854527.js": null,
     ".generated/react-native-worklets/.worklets/6675177874690.js": null,
-    ".generated/react-native-worklets/.worklets/6688217782383.js": null,
     ".generated/react-native-worklets/.worklets/6690724664990.js": null,
     ".generated/react-native-worklets/.worklets/669119165337.js": null,
     ".generated/react-native-worklets/.worklets/669857181817.js": null,
@@ -23244,7 +23321,6 @@
     ".generated/react-native-worklets/.worklets/7425392373496.js": null,
     ".generated/react-native-worklets/.worklets/7437761805778.js": null,
     ".generated/react-native-worklets/.worklets/7438857771706.js": null,
-    ".generated/react-native-worklets/.worklets/7452974515017.js": null,
     ".generated/react-native-worklets/.worklets/7453628012605.js": null,
     ".generated/react-native-worklets/.worklets/7483121255852.js": null,
     ".generated/react-native-worklets/.worklets/7505709007343.js": null,
@@ -23490,7 +23566,6 @@
     ".generated/react-native-worklets/.worklets/9047825557105.js": null,
     ".generated/react-native-worklets/.worklets/9065322621897.js": null,
     ".generated/react-native-worklets/.worklets/908368800052.js": null,
-    ".generated/react-native-worklets/.worklets/9097856890761.js": null,
     ".generated/react-native-worklets/.worklets/9097937941768.js": null,
     ".generated/react-native-worklets/.worklets/9106575257510.js": null,
     ".generated/react-native-worklets/.worklets/9117239802023.js": [
@@ -23708,6 +23783,12 @@
     "plugins/withLocalCacheBackupExclusion.js": [
       "expo/config-plugins"
     ],
+    "scripts/app-env-release.js": [
+      "./lib/app-env-config",
+      "node:crypto",
+      "node:fs",
+      "node:path"
+    ],
     "scripts/dev-proxy.mjs": [
       "node:http",
       "node:https",
@@ -23720,6 +23801,7 @@
     ],
     "scripts/lib/app-env-config.js": [
       "./brand",
+      "./brand-config",
       "fs",
       "path"
     ],
@@ -23734,6 +23816,11 @@
     ],
     "scripts/markdown-preview/pregenerate.js": [
       "node:crypto",
+      "node:fs",
+      "node:path"
+    ],
+    "scripts/prepare-eas-context.js": [
+      "node:child_process",
       "node:fs",
       "node:path"
     ],
@@ -24343,11 +24430,10 @@
       "../chatRealtime/chatSyncService",
       "../chatRealtime/types",
       "../chatTimeline/index.ts",
+      "./cacheScope",
       "./chatArtifactPresentation.ts",
       "./chatDetailFormatters",
       "./chatRepository",
-      "./chatSource.ts",
-      "./chatSourceRuntime.ts",
       "./components/ChatArtifactDrawer.tsx",
       "./components/ChatAwaitingOverlay",
       "./components/ChatContextReferencePicker",
@@ -24360,6 +24446,7 @@
       "./components/ChatExportMenu",
       "./components/ChatNewConversationIntro",
       "./components/ChatTimelineList",
+      "./components/ComposerTextInput.types",
       "./components/CopyToast",
       "./components/awaiting/ChatAwaitingDock",
       "./components/resource/AuthenticatedResourcePreviewProvider.tsx",
@@ -24458,7 +24545,8 @@
     ],
     "src/features/chatPersistence/cacheScope.ts": null,
     "src/features/chatPersistence/chatArtifactPresentation.ts": [
-      "../chatTimeline/index.ts"
+      "../chatTimeline/index.ts",
+      "../chatTimeline/timelinePresentation.ts"
     ],
     "src/features/chatPersistence/chatAttachmentIcon.ts": [
       "../../shared/icons/AppIcon.tsx"
@@ -24474,6 +24562,7 @@
       "./chatAttachmentModels.ts",
       "./types.ts"
     ],
+    "src/features/chatPersistence/chatComposerDraft.ts": null,
     "src/features/chatPersistence/chatComposerPreferences.ts": [
       "../../core/api/services/modelOptionsProtocol.ts"
     ],
@@ -24547,6 +24636,7 @@
       "../chatRealtime/types",
       "../chatTimeline/index.ts",
       "../chatTimeline/timelineReducer.ts",
+      "../chatTimeline/timelineRunAnnouncement.ts",
       "../chatTimeline/timelineRunFeedback.ts",
       "./chatConversationTitle.ts",
       "./chatReadState.ts",
@@ -24570,6 +24660,7 @@
       "./agentModelSettings.ts",
       "./cacheScope",
       "./chatAttachmentModels.ts",
+      "./chatComposerPreferences",
       "./chatConversationTarget",
       "./chatConversationTitle.ts",
       "./chatDirectoryOpenDecision",
@@ -24626,6 +24717,7 @@
       "../../../shared/i18n",
       "../../../shared/icons/AppIcon",
       "../cloudAccess",
+      "./ChatBottomSheet",
       "react",
       "react-native",
       "react-native-safe-area-context"
@@ -24696,6 +24788,10 @@
       "react-native",
       "react-native-safe-area-context"
     ],
+    "src/features/chatPersistence/components/ChatBottomSheet.tsx": [
+      "react",
+      "react-native"
+    ],
     "src/features/chatPersistence/components/ChatComposerOptionRow.tsx": [
       "../../../core/api/services/chatSkillsProtocol",
       "../../../core/api/services/modelOptionsProtocol",
@@ -24704,9 +24800,16 @@
       "../../../shared/visual/AppThemeProvider",
       "../../../shared/visual/className",
       "../../../shared/visual/foundation",
+      "./ChatComposerSheet",
       "./ChatComposerSkillsMenu",
       "react",
       "react-native"
+    ],
+    "src/features/chatPersistence/components/ChatComposerSheet.tsx": [
+      "./ChatBottomSheet",
+      "react",
+      "react-native",
+      "react-native-safe-area-context"
     ],
     "src/features/chatPersistence/components/ChatComposerSkillsMenu.tsx": [
       "../../../core/api/services/chatSkillsProtocol",
@@ -24736,12 +24839,17 @@
       "../../../core/api/services/chatSkillsProtocol",
       "../../../core/api/services/modelOptionsProtocol",
       "../../../shared/i18n",
+      "../../../shared/icons/AppIcon",
       "../../chatRealtime/types",
       "../agentInteraction",
+      "../chatComposerDraft",
       "../chatDetailViewModel",
       "../types",
+      "./ChatAttachmentStrip",
       "./ChatComposerOptionRow",
+      "./ChatPastedTextEditor",
       "./Composer",
+      "./ComposerTextInput.types",
       "react",
       "react-native"
     ],
@@ -24838,6 +24946,7 @@
       "../../chatTimeline/types.ts",
       "../chatFileChanges.ts",
       "../markdownLinks/conversationMarkdownLinks.ts",
+      "./ChatBottomSheet",
       "./resource/AuthenticatedResourcePreviewProvider.tsx",
       "react",
       "react-native",
@@ -24861,6 +24970,13 @@
       "./chatWonderDisplay",
       "react",
       "react-native"
+    ],
+    "src/features/chatPersistence/components/ChatPastedTextEditor.tsx": [
+      "../../../shared/components/ScreenHeader",
+      "../../../shared/i18n",
+      "react",
+      "react-native",
+      "react-native-safe-area-context"
     ],
     "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx": [
       "../../../shared/i18n",
@@ -24925,6 +25041,7 @@
       "../../../shared/visual/className",
       "../../../shared/visual/foundation",
       "../../chatTimeline/index.ts",
+      "../../chatTimeline/timelineDisplay.ts",
       "../chatArtifactPresentation.ts",
       "../chatDetailFormatters",
       "../chatDetailViewModel",
@@ -25006,13 +25123,27 @@
       "../../../shared/icons/AppIcon",
       "../../../shared/visual/AppThemeProvider",
       "../../../shared/visual/className",
-      "../../../shared/visual/foundation",
+      "../chatComposerDraft",
       "../chatDetailViewModel",
-      "../types",
-      "./ChatAttachmentStrip",
+      "./ComposerTextInput",
+      "./ComposerTextInput.types",
       "react",
-      "react-native",
-      "react-native-reanimated"
+      "react-native"
+    ],
+    "src/features/chatPersistence/components/ComposerTextInput.native.tsx": [
+      "../chatComposerDraft",
+      "./ComposerTextInput.types",
+      "expo",
+      "react",
+      "react-native"
+    ],
+    "src/features/chatPersistence/components/ComposerTextInput.tsx": [
+      "../chatComposerDraft",
+      "./ComposerTextInput.types",
+      "react"
+    ],
+    "src/features/chatPersistence/components/ComposerTextInput.types.ts": [
+      "../chatComposerDraft"
     ],
     "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx": [
       "../../../shared/i18n",
@@ -25194,13 +25325,17 @@
       "../../../../shared/icons/AppIcon",
       "../../../../shared/visual/AppThemeProvider",
       "../../../../shared/visual/className",
+      "../../../chatRealtime/chatSyncService",
       "../../../chatRealtime/types",
       "../../../chatTimeline/index.ts",
+      "../../cacheScope",
+      "../ChatComposerSheet",
       "./AwaitingDateTimeInput",
       "./AwaitingFormPanel",
       "./AwaitingPanelFooter",
       "./awaitingQuestionState",
       "./awaitingSubmitState",
+      "@react-navigation/native",
       "react",
       "react-native"
     ],
@@ -25382,6 +25517,7 @@
     "src/features/chatPersistence/database.ts": [
       "../../core/api/services/authenticatedResourceImage",
       "./cacheScope",
+      "./chatComposerPreferences",
       "./homeSnapshot",
       "./schema",
       "drizzle-orm/expo-sqlite",
@@ -25430,6 +25566,8 @@
       "../../../core/api/services/workspaceResource.ts",
       "../authenticatedResourcePreview.ts"
     ],
+    "src/features/chatPersistence/native/ChatComposerInputModule.kt": [],
+    "src/features/chatPersistence/native/ChatComposerInputModule.swift": [],
     "src/features/chatPersistence/schema.ts": [
       "drizzle-orm",
       "drizzle-orm/sqlite-core"
@@ -25454,6 +25592,7 @@
     ],
     "src/features/chatPersistence/useChatComposerSettings.ts": [
       "../../core/api/services/chatApi",
+      "../../core/api/services/chatSkillsProtocol",
       "../../core/api/services/modelOptionsProtocol",
       "../../core/auth/accountAuth",
       "../../shared/i18n",
@@ -25463,6 +25602,7 @@
       "./agentInteraction",
       "./cacheScope",
       "./chatComposerPreferences",
+      "./chatRepository",
       "./chatSource",
       "react"
     ],
@@ -25480,7 +25620,10 @@
       "../chatRealtime/chatSyncService",
       "../chatRealtime/types",
       "../chatTimeline/index.ts",
+      "../chatTimeline/messageProjection.ts",
       "../chatTimeline/timelineRunAccess",
+      "./cacheScope",
+      "./chatComposerDraft",
       "./chatConversationDiagnostic",
       "./chatConversationTarget",
       "./chatDetailAsyncScope",
@@ -25535,6 +25678,7 @@
       "../chatPersistence/agentInteraction",
       "../chatPersistence/cacheScope",
       "../chatPersistence/chatAttachmentModels",
+      "../chatPersistence/chatComposerDraft",
       "../chatPersistence/chatContextReference.ts",
       "../chatPersistence/chatConversationDiagnostic",
       "../chatPersistence/chatDetailViewModel",
@@ -25550,7 +25694,9 @@
       "../chatTimeline/index.ts",
       "../chatTimeline/timelinePlatformError.ts",
       "../chatTimeline/timelineReducer",
+      "../chatTimeline/timelineRequest.ts",
       "../chatTimeline/timelineRunAccess.ts",
+      "../chatTimeline/timelineRunAnnouncement.ts",
       "../chatTimeline/timelineRunDerivation.ts",
       "../chatTimeline/timelineRunFeedback.ts",
       "../chatTimeline/timelineView",
@@ -25580,6 +25726,7 @@
     ],
     "src/features/chatRealtime/types.ts": [
       "../../core/ws/wsClient.ts",
+      "../chatPersistence/chatComposerDraft.ts",
       "../chatPersistence/types.ts",
       "../chatTimeline/index.ts"
     ],
@@ -25663,6 +25810,7 @@
       "./types.ts"
     ],
     "src/features/chatTimeline/timelinePresentation.ts": [
+      "./timelineDisplay.ts",
       "./types.ts"
     ],
     "src/features/chatTimeline/timelineReasoningIdentity.ts": [
@@ -25687,6 +25835,7 @@
       "./timelineReasoningIdentity.ts",
       "./timelineRequest.ts",
       "./timelineRunAccess.ts",
+      "./timelineRunAnnouncement.ts",
       "./timelineRunFeedback.ts",
       "./timelineSource.ts",
       "./timelineTask.ts",
@@ -25697,11 +25846,18 @@
     ],
     "src/features/chatTimeline/timelineRequest.ts": [
       "../../core/api/services/chatEventProtocol.ts",
+      "../chatPersistence/chatSource.ts",
       "./types.ts"
     ],
     "src/features/chatTimeline/timelineRunAccess.ts": [
       "../../core/api/services/modelOptionsProtocol.ts",
       "../chatPersistence/chatSource.ts",
+      "./types.ts"
+    ],
+    "src/features/chatTimeline/timelineRunAnnouncement.ts": [
+      "../../core/api/services/chatEventProtocol.ts",
+      "../../core/api/services/chatRemoteTimeProtocol.ts",
+      "./timelineRunAccess.ts",
       "./types.ts"
     ],
     "src/features/chatTimeline/timelineRunDerivation.ts": [
@@ -26408,7 +26564,6 @@
     ".generated/react-native-worklets/.worklets/12496093665501.js": null,
     ".generated/react-native-worklets/.worklets/12517976864699.js": null,
     ".generated/react-native-worklets/.worklets/1251885997673.js": null,
-    ".generated/react-native-worklets/.worklets/12522079474517.js": null,
     ".generated/react-native-worklets/.worklets/12525349719229.js": null,
     ".generated/react-native-worklets/.worklets/12530215251082.js": null,
     ".generated/react-native-worklets/.worklets/12538691088788.js": null,
@@ -26564,7 +26719,6 @@
     ".generated/react-native-worklets/.worklets/13711823823654.js": null,
     ".generated/react-native-worklets/.worklets/13718892393619.js": null,
     ".generated/react-native-worklets/.worklets/13730894087975.js": null,
-    ".generated/react-native-worklets/.worklets/13740508877782.js": null,
     ".generated/react-native-worklets/.worklets/13760449121746.js": null,
     ".generated/react-native-worklets/.worklets/13761729733357.js": null,
     ".generated/react-native-worklets/.worklets/13761870457184.js": null,
@@ -27098,7 +27252,6 @@
     ".generated/react-native-worklets/.worklets/1761233951529.js": null,
     ".generated/react-native-worklets/.worklets/1765448099713.js": null,
     ".generated/react-native-worklets/.worklets/17689401263.js": null,
-    ".generated/react-native-worklets/.worklets/1780126652981.js": null,
     ".generated/react-native-worklets/.worklets/1786138185726.js": null,
     ".generated/react-native-worklets/.worklets/1789674141406.js": null,
     ".generated/react-native-worklets/.worklets/1791954850719.js": null,
@@ -27133,7 +27286,6 @@
     ".generated/react-native-worklets/.worklets/201722953761.js": null,
     ".generated/react-native-worklets/.worklets/2034686795132.js": null,
     ".generated/react-native-worklets/.worklets/2042412555041.js": null,
-    ".generated/react-native-worklets/.worklets/2050721687395.js": null,
     ".generated/react-native-worklets/.worklets/2051893356255.js": null,
     ".generated/react-native-worklets/.worklets/2059959224558.js": null,
     ".generated/react-native-worklets/.worklets/2065557600810.js": null,
@@ -27753,7 +27905,6 @@
     ".generated/react-native-worklets/.worklets/6368504730929.js": null,
     ".generated/react-native-worklets/.worklets/6377905670264.js": null,
     ".generated/react-native-worklets/.worklets/6395724719418.js": null,
-    ".generated/react-native-worklets/.worklets/6398033576128.js": null,
     ".generated/react-native-worklets/.worklets/639934121359.js": null,
     ".generated/react-native-worklets/.worklets/6415608556631.js": null,
     ".generated/react-native-worklets/.worklets/6429571220286.js": null,
@@ -27792,7 +27943,6 @@
     ".generated/react-native-worklets/.worklets/667357478741.js": null,
     ".generated/react-native-worklets/.worklets/6673649854527.js": null,
     ".generated/react-native-worklets/.worklets/6675177874690.js": null,
-    ".generated/react-native-worklets/.worklets/6688217782383.js": null,
     ".generated/react-native-worklets/.worklets/6690724664990.js": null,
     ".generated/react-native-worklets/.worklets/669119165337.js": null,
     ".generated/react-native-worklets/.worklets/669857181817.js": null,
@@ -27882,7 +28032,6 @@
     ".generated/react-native-worklets/.worklets/7425392373496.js": null,
     ".generated/react-native-worklets/.worklets/7437761805778.js": null,
     ".generated/react-native-worklets/.worklets/7438857771706.js": null,
-    ".generated/react-native-worklets/.worklets/7452974515017.js": null,
     ".generated/react-native-worklets/.worklets/7453628012605.js": null,
     ".generated/react-native-worklets/.worklets/7483121255852.js": null,
     ".generated/react-native-worklets/.worklets/7505709007343.js": null,
@@ -28101,7 +28250,6 @@
     ".generated/react-native-worklets/.worklets/9047825557105.js": null,
     ".generated/react-native-worklets/.worklets/9065322621897.js": null,
     ".generated/react-native-worklets/.worklets/908368800052.js": null,
-    ".generated/react-native-worklets/.worklets/9097856890761.js": null,
     ".generated/react-native-worklets/.worklets/9097937941768.js": null,
     ".generated/react-native-worklets/.worklets/9106575257510.js": null,
     ".generated/react-native-worklets/.worklets/9117239802023.js": [
@@ -28284,11 +28432,17 @@
     "plugins/withAndroidAutolinkingCacheGuard.js": null,
     "plugins/withAndroidNdkVersionForSubprojects.js": null,
     "plugins/withLocalCacheBackupExclusion.js": null,
+    "scripts/app-env-release.js": [
+      "scripts/lib/app-env-config.js"
+    ],
     "scripts/dev-proxy.mjs": null,
     "scripts/generate-zenmind-assets.js": null,
-    "scripts/lib/app-env-config.js": null,
+    "scripts/lib/app-env-config.js": [
+      "scripts/lib/brand-config.js"
+    ],
     "scripts/lib/brand-config.js": null,
     "scripts/markdown-preview/pregenerate.js": null,
+    "scripts/prepare-eas-context.js": null,
     "scripts/submit-ios-ipa.js": null,
     "scripts/sync-brand.js": [
       "scripts/lib/app-env-config.js",
@@ -28791,11 +28945,10 @@
     ],
     "src/features/chatPersistence/ChatDetailScreen.tsx": [
       "src/core/api/services/chatApi.ts",
+      "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatArtifactPresentation.ts",
       "src/features/chatPersistence/chatDetailFormatters.ts",
       "src/features/chatPersistence/chatRepository.ts",
-      "src/features/chatPersistence/chatSource.ts",
-      "src/features/chatPersistence/chatSourceRuntime.ts",
       "src/features/chatPersistence/components/ChatArtifactDrawer.tsx",
       "src/features/chatPersistence/components/ChatAwaitingOverlay.tsx",
       "src/features/chatPersistence/components/ChatContextReferencePicker.tsx",
@@ -28808,6 +28961,7 @@
       "src/features/chatPersistence/components/ChatExportMenu.tsx",
       "src/features/chatPersistence/components/ChatNewConversationIntro.tsx",
       "src/features/chatPersistence/components/ChatTimelineList.tsx",
+      "src/features/chatPersistence/components/ComposerTextInput.types.ts",
       "src/features/chatPersistence/components/CopyToast.tsx",
       "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx",
       "src/features/chatPersistence/components/resource/AuthenticatedResourcePreviewProvider.tsx",
@@ -28899,7 +29053,8 @@
     ],
     "src/features/chatPersistence/cacheScope.ts": null,
     "src/features/chatPersistence/chatArtifactPresentation.ts": [
-      "src/features/chatTimeline/index.ts"
+      "src/features/chatTimeline/index.ts",
+      "src/features/chatTimeline/timelinePresentation.ts"
     ],
     "src/features/chatPersistence/chatAttachmentIcon.ts": [
       "src/shared/icons/AppIcon.tsx"
@@ -28915,6 +29070,7 @@
       "src/features/chatPersistence/chatAttachmentModels.ts",
       "src/features/chatPersistence/types.ts"
     ],
+    "src/features/chatPersistence/chatComposerDraft.ts": null,
     "src/features/chatPersistence/chatComposerPreferences.ts": [
       "src/core/api/services/modelOptionsProtocol.ts"
     ],
@@ -28991,6 +29147,7 @@
       "src/features/chatRealtime/types.ts",
       "src/features/chatTimeline/index.ts",
       "src/features/chatTimeline/timelineReducer.ts",
+      "src/features/chatTimeline/timelineRunAnnouncement.ts",
       "src/features/chatTimeline/timelineRunFeedback.ts"
     ],
     "src/features/chatPersistence/chatReadState.ts": [
@@ -29009,6 +29166,7 @@
       "src/features/chatPersistence/agentModelSettings.ts",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/chatComposerPreferences.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatConversationTitle.ts",
       "src/features/chatPersistence/chatDirectoryOpenDecision.ts",
@@ -29064,6 +29222,7 @@
       "src/core/auth/activeDesktop.ts",
       "src/core/auth/useCloudAuth.ts",
       "src/features/chatPersistence/cloudAccess.ts",
+      "src/features/chatPersistence/components/ChatBottomSheet.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx"
     ],
@@ -29120,15 +29279,20 @@
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/foundation.ts"
     ],
+    "src/features/chatPersistence/components/ChatBottomSheet.tsx": null,
     "src/features/chatPersistence/components/ChatComposerOptionRow.tsx": [
       "src/core/api/services/chatSkillsProtocol.ts",
       "src/core/api/services/modelOptionsProtocol.ts",
+      "src/features/chatPersistence/components/ChatComposerSheet.tsx",
       "src/features/chatPersistence/components/ChatComposerSkillsMenu.tsx",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
       "src/shared/visual/className.ts",
       "src/shared/visual/foundation.ts"
+    ],
+    "src/features/chatPersistence/components/ChatComposerSheet.tsx": [
+      "src/features/chatPersistence/components/ChatBottomSheet.tsx"
     ],
     "src/features/chatPersistence/components/ChatComposerSkillsMenu.tsx": [
       "src/core/api/services/chatSkillsProtocol.ts",
@@ -29151,12 +29315,17 @@
       "src/core/api/services/chatSkillsProtocol.ts",
       "src/core/api/services/modelOptionsProtocol.ts",
       "src/features/chatPersistence/agentInteraction.ts",
+      "src/features/chatPersistence/chatComposerDraft.ts",
       "src/features/chatPersistence/chatDetailViewModel.ts",
+      "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
       "src/features/chatPersistence/components/ChatComposerOptionRow.tsx",
+      "src/features/chatPersistence/components/ChatPastedTextEditor.tsx",
       "src/features/chatPersistence/components/Composer.tsx",
+      "src/features/chatPersistence/components/ComposerTextInput.types.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatRealtime/types.ts",
-      "src/shared/i18n/index.ts"
+      "src/shared/i18n/index.ts",
+      "src/shared/icons/AppIcon.tsx"
     ],
     "src/features/chatPersistence/components/ChatDetailDrawers.tsx": [
       "src/features/chatPersistence/chatConversationTitle.ts",
@@ -29225,6 +29394,7 @@
     ],
     "src/features/chatPersistence/components/ChatFileChanges.tsx": [
       "src/features/chatPersistence/chatFileChanges.ts",
+      "src/features/chatPersistence/components/ChatBottomSheet.tsx",
       "src/features/chatPersistence/components/resource/AuthenticatedResourcePreviewProvider.tsx",
       "src/features/chatPersistence/markdownLinks/conversationMarkdownLinks.ts",
       "src/features/chatTimeline/types.ts",
@@ -29244,6 +29414,10 @@
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIconButton.tsx",
       "src/shared/visual/className.ts"
+    ],
+    "src/features/chatPersistence/components/ChatPastedTextEditor.tsx": [
+      "src/shared/components/ScreenHeader.tsx",
+      "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/components/ChatResponseWaitingIndicator.tsx": [
       "src/shared/i18n/index.ts",
@@ -29313,6 +29487,7 @@
       "src/features/chatPersistence/markdownLinks/ChatConversationMarkdownRenderer.tsx",
       "src/features/chatPersistence/markdownLinks/ConversationMarkdownLinkProvider.tsx",
       "src/features/chatTimeline/index.ts",
+      "src/features/chatTimeline/timelineDisplay.ts",
       "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
       "src/shared/components/conversationPreview/visibilityStore.ts",
       "src/shared/i18n/index.ts",
@@ -29355,14 +29530,25 @@
       "src/shared/i18n/index.ts"
     ],
     "src/features/chatPersistence/components/Composer.tsx": [
+      "src/features/chatPersistence/chatComposerDraft.ts",
       "src/features/chatPersistence/chatDetailViewModel.ts",
-      "src/features/chatPersistence/components/ChatAttachmentStrip.tsx",
-      "src/features/chatPersistence/types.ts",
+      "src/features/chatPersistence/components/ComposerTextInput.tsx",
+      "src/features/chatPersistence/components/ComposerTextInput.types.ts",
       "src/shared/i18n/index.ts",
       "src/shared/icons/AppIcon.tsx",
       "src/shared/visual/AppThemeProvider.tsx",
-      "src/shared/visual/className.ts",
-      "src/shared/visual/foundation.ts"
+      "src/shared/visual/className.ts"
+    ],
+    "src/features/chatPersistence/components/ComposerTextInput.native.tsx": [
+      "src/features/chatPersistence/chatComposerDraft.ts",
+      "src/features/chatPersistence/components/ComposerTextInput.types.ts"
+    ],
+    "src/features/chatPersistence/components/ComposerTextInput.tsx": [
+      "src/features/chatPersistence/chatComposerDraft.ts",
+      "src/features/chatPersistence/components/ComposerTextInput.types.ts"
+    ],
+    "src/features/chatPersistence/components/ComposerTextInput.types.ts": [
+      "src/features/chatPersistence/chatComposerDraft.ts"
     ],
     "src/features/chatPersistence/components/ContextCompactTimelineRow.tsx": [
       "src/features/chatPersistence/chatDetailFormatters.ts",
@@ -29499,11 +29685,14 @@
     ],
     "src/features/chatPersistence/components/awaiting/ChatAwaitingDock.tsx": [
       "src/core/api/services/chatApi.ts",
+      "src/features/chatPersistence/cacheScope.ts",
+      "src/features/chatPersistence/components/ChatComposerSheet.tsx",
       "src/features/chatPersistence/components/awaiting/AwaitingDateTimeInput.tsx",
       "src/features/chatPersistence/components/awaiting/AwaitingFormPanel.tsx",
       "src/features/chatPersistence/components/awaiting/AwaitingPanelFooter.tsx",
       "src/features/chatPersistence/components/awaiting/awaitingQuestionState.ts",
       "src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts",
+      "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatRealtime/types.ts",
       "src/features/chatTimeline/index.ts",
       "src/shared/components/conversationPreview/ConversationPreviewProvider.tsx",
@@ -29664,6 +29853,7 @@
     "src/features/chatPersistence/database.ts": [
       "src/core/api/services/authenticatedResourceImage.ts",
       "src/features/chatPersistence/cacheScope.ts",
+      "src/features/chatPersistence/chatComposerPreferences.ts",
       "src/features/chatPersistence/homeSnapshot.ts",
       "src/features/chatPersistence/schema.ts"
     ],
@@ -29704,6 +29894,8 @@
       "src/core/api/services/workspaceResource.ts",
       "src/features/chatPersistence/authenticatedResourcePreview.ts"
     ],
+    "src/features/chatPersistence/native/ChatComposerInputModule.kt": null,
+    "src/features/chatPersistence/native/ChatComposerInputModule.swift": null,
     "src/features/chatPersistence/schema.ts": null,
     "src/features/chatPersistence/types.ts": [
       "src/features/chatPersistence/chatSource.ts",
@@ -29722,11 +29914,13 @@
     ],
     "src/features/chatPersistence/useChatComposerSettings.ts": [
       "src/core/api/services/chatApi.ts",
+      "src/core/api/services/chatSkillsProtocol.ts",
       "src/core/api/services/modelOptionsProtocol.ts",
       "src/core/auth/accountAuth.ts",
       "src/features/chatPersistence/agentInteraction.ts",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatComposerPreferences.ts",
+      "src/features/chatPersistence/chatRepository.ts",
       "src/features/chatPersistence/chatSource.ts",
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatTimeline/timelineRunAccess.ts",
@@ -29741,6 +29935,8 @@
       "src/core/api/services/chatSkillsProtocol.ts",
       "src/core/api/services/modelOptionsProtocol.ts",
       "src/core/api/services/notificationApi.ts",
+      "src/features/chatPersistence/cacheScope.ts",
+      "src/features/chatPersistence/chatComposerDraft.ts",
       "src/features/chatPersistence/chatConversationDiagnostic.ts",
       "src/features/chatPersistence/chatConversationTarget.ts",
       "src/features/chatPersistence/chatDetailAsyncScope.ts",
@@ -29755,6 +29951,7 @@
       "src/features/chatRealtime/chatSyncService.ts",
       "src/features/chatRealtime/types.ts",
       "src/features/chatTimeline/index.ts",
+      "src/features/chatTimeline/messageProjection.ts",
       "src/features/chatTimeline/timelineRunAccess.ts",
       "src/shared/i18n/index.ts"
     ],
@@ -29794,6 +29991,7 @@
       "src/features/chatPersistence/agentInteraction.ts",
       "src/features/chatPersistence/cacheScope.ts",
       "src/features/chatPersistence/chatAttachmentModels.ts",
+      "src/features/chatPersistence/chatComposerDraft.ts",
       "src/features/chatPersistence/chatContextReference.ts",
       "src/features/chatPersistence/chatConversationDiagnostic.ts",
       "src/features/chatPersistence/chatDetailViewModel.ts",
@@ -29813,7 +30011,9 @@
       "src/features/chatTimeline/index.ts",
       "src/features/chatTimeline/timelinePlatformError.ts",
       "src/features/chatTimeline/timelineReducer.ts",
+      "src/features/chatTimeline/timelineRequest.ts",
       "src/features/chatTimeline/timelineRunAccess.ts",
+      "src/features/chatTimeline/timelineRunAnnouncement.ts",
       "src/features/chatTimeline/timelineRunDerivation.ts",
       "src/features/chatTimeline/timelineRunFeedback.ts",
       "src/features/chatTimeline/timelineView.ts",
@@ -29838,6 +30038,7 @@
     ],
     "src/features/chatRealtime/types.ts": [
       "src/core/ws/wsClient.ts",
+      "src/features/chatPersistence/chatComposerDraft.ts",
       "src/features/chatPersistence/types.ts",
       "src/features/chatTimeline/index.ts"
     ],
@@ -29921,6 +30122,7 @@
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelinePresentation.ts": [
+      "src/features/chatTimeline/timelineDisplay.ts",
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineReasoningIdentity.ts": [
@@ -29945,6 +30147,7 @@
       "src/features/chatTimeline/timelineReasoningIdentity.ts",
       "src/features/chatTimeline/timelineRequest.ts",
       "src/features/chatTimeline/timelineRunAccess.ts",
+      "src/features/chatTimeline/timelineRunAnnouncement.ts",
       "src/features/chatTimeline/timelineRunFeedback.ts",
       "src/features/chatTimeline/timelineSource.ts",
       "src/features/chatTimeline/timelineTask.ts",
@@ -29955,11 +30158,18 @@
     ],
     "src/features/chatTimeline/timelineRequest.ts": [
       "src/core/api/services/chatEventProtocol.ts",
+      "src/features/chatPersistence/chatSource.ts",
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineRunAccess.ts": [
       "src/core/api/services/modelOptionsProtocol.ts",
       "src/features/chatPersistence/chatSource.ts",
+      "src/features/chatTimeline/types.ts"
+    ],
+    "src/features/chatTimeline/timelineRunAnnouncement.ts": [
+      "src/core/api/services/chatEventProtocol.ts",
+      "src/core/api/services/chatRemoteTimeProtocol.ts",
+      "src/features/chatTimeline/timelineRunAccess.ts",
       "src/features/chatTimeline/types.ts"
     ],
     "src/features/chatTimeline/timelineRunDerivation.ts": [
@@ -30571,7 +30781,6 @@
     ".generated/react-native-worklets/.worklets/12496093665501.js",
     ".generated/react-native-worklets/.worklets/12517976864699.js",
     ".generated/react-native-worklets/.worklets/1251885997673.js",
-    ".generated/react-native-worklets/.worklets/12522079474517.js",
     ".generated/react-native-worklets/.worklets/12525349719229.js",
     ".generated/react-native-worklets/.worklets/12530215251082.js",
     ".generated/react-native-worklets/.worklets/12538691088788.js",
@@ -30709,7 +30918,6 @@
     ".generated/react-native-worklets/.worklets/13711823823654.js",
     ".generated/react-native-worklets/.worklets/13718892393619.js",
     ".generated/react-native-worklets/.worklets/13730894087975.js",
-    ".generated/react-native-worklets/.worklets/13740508877782.js",
     ".generated/react-native-worklets/.worklets/13760449121746.js",
     ".generated/react-native-worklets/.worklets/13761729733357.js",
     ".generated/react-native-worklets/.worklets/13761870457184.js",
@@ -31185,7 +31393,6 @@
     ".generated/react-native-worklets/.worklets/1761233951529.js",
     ".generated/react-native-worklets/.worklets/1765448099713.js",
     ".generated/react-native-worklets/.worklets/17689401263.js",
-    ".generated/react-native-worklets/.worklets/1780126652981.js",
     ".generated/react-native-worklets/.worklets/1786138185726.js",
     ".generated/react-native-worklets/.worklets/1789674141406.js",
     ".generated/react-native-worklets/.worklets/1791954850719.js",
@@ -31220,7 +31427,6 @@
     ".generated/react-native-worklets/.worklets/201722953761.js",
     ".generated/react-native-worklets/.worklets/2034686795132.js",
     ".generated/react-native-worklets/.worklets/2042412555041.js",
-    ".generated/react-native-worklets/.worklets/2050721687395.js",
     ".generated/react-native-worklets/.worklets/2051893356255.js",
     ".generated/react-native-worklets/.worklets/2059959224558.js",
     ".generated/react-native-worklets/.worklets/2065557600810.js",
@@ -31760,7 +31966,6 @@
     ".generated/react-native-worklets/.worklets/6368504730929.js",
     ".generated/react-native-worklets/.worklets/6377905670264.js",
     ".generated/react-native-worklets/.worklets/6395724719418.js",
-    ".generated/react-native-worklets/.worklets/6398033576128.js",
     ".generated/react-native-worklets/.worklets/639934121359.js",
     ".generated/react-native-worklets/.worklets/6415608556631.js",
     ".generated/react-native-worklets/.worklets/6429571220286.js",
@@ -31799,7 +32004,6 @@
     ".generated/react-native-worklets/.worklets/667357478741.js",
     ".generated/react-native-worklets/.worklets/6673649854527.js",
     ".generated/react-native-worklets/.worklets/6675177874690.js",
-    ".generated/react-native-worklets/.worklets/6688217782383.js",
     ".generated/react-native-worklets/.worklets/6690724664990.js",
     ".generated/react-native-worklets/.worklets/669119165337.js",
     ".generated/react-native-worklets/.worklets/669857181817.js",
@@ -31884,7 +32088,6 @@
     ".generated/react-native-worklets/.worklets/7425392373496.js",
     ".generated/react-native-worklets/.worklets/7437761805778.js",
     ".generated/react-native-worklets/.worklets/7438857771706.js",
-    ".generated/react-native-worklets/.worklets/7452974515017.js",
     ".generated/react-native-worklets/.worklets/7453628012605.js",
     ".generated/react-native-worklets/.worklets/7483121255852.js",
     ".generated/react-native-worklets/.worklets/7505709007343.js",
@@ -32090,7 +32293,6 @@
     ".generated/react-native-worklets/.worklets/9047825557105.js",
     ".generated/react-native-worklets/.worklets/9065322621897.js",
     ".generated/react-native-worklets/.worklets/908368800052.js",
-    ".generated/react-native-worklets/.worklets/9097856890761.js",
     ".generated/react-native-worklets/.worklets/9097937941768.js",
     ".generated/react-native-worklets/.worklets/9106575257510.js",
     ".generated/react-native-worklets/.worklets/9117239802023.js",

@@ -25,7 +25,8 @@
       "Related task: add-auth-login-screen",
       "Related task: modify-chat-realtime",
       "releaseIfIdle 根据 scoped listener 与 pending request/active stream 判断所有权；全局观测监听不持有连接，待完成请求结束后执行延迟回收，不关闭另一 endpoint。",
-      "可选 requestHeadersProvider 与 token provider 分开解析；首次物理连接和重连读取当前凭据，provider 的 forceRefresh 只用于显式更新。浏览器无 Native headers 能力时拒绝账号连接。"
+      "可选 requestHeadersProvider 与 token provider 分开解析；首次物理连接和重连读取当前凭据，provider 的 forceRefresh 只用于显式更新。浏览器无 Native headers 能力时拒绝账号连接。",
+      "WsClient 按当前 Desktop MAX_FRAME_BYTES 与 agent-platform 默认预算限制完整 UTF-8 JSON 帧为 1 MiB，包含 namespace、ID、转义与 references，不设正文字符上限；超限在 socket.send 前以明确本地 413/WS_FRAME_TOO_LARGE 拒绝。stream 在返回 handle 前同步准备与校验帧，避免超限异步回调被误认为提交成功；校验通过的流式帧使用同一已序列化快照。"
     ],
     "nonGoals": []
   },
@@ -34,12 +35,14 @@
     "publicApi": [
       "AgentPlatformWsTransportConfig",
       "DesktopWsTransportConfig",
+      "MAX_WS_FRAME_BYTES",
       "SharedWsRequestOptions",
       "SharedWsStreamHandle",
       "SharedWsStreamOptions",
       "SharedWsSubscription",
       "WsClient",
       "WsClientDisconnectedError",
+      "WsClientPayloadTooLargeError",
       "WsClientRequestTimeoutError",
       "WsPushFrame",
       "WsSocketStatus",
@@ -59,7 +62,7 @@
       "feature-web-apps"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-16T07:39:25Z"
+    "lastScannedAt": "2026-11-25T11:32:24Z"
   },
   "readHints": {
     "alwaysRead": [

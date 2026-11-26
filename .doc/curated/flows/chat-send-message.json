@@ -5,12 +5,15 @@
   "trigger": "用户在 Chat 详情页输入消息并提交时触发。",
   "sourceOfTruth": [
     "最后一条明确未受理请求在下一次显式发送时通过既有 selection 引用恢复上下文及附件；原问题不改写，新气泡正文只保存本次输入。点击失败消息重试只重置原消息发送状态；未知受理状态先核对历史。切模型、断线和重启均不触发重新执行，服务端错误与引用保存在同一 rich timeline。",
-    "输入设置先等待历史就绪；恢复顺序为 Chat 手动选择、最近主 Run 请求/同 Run 用量、默认权限与 Agent 默认模型。预分配 conversationId 不代表已有 Chat；首次主 query/Run 确认才初始化发送时偏好，重复确认不覆盖手动选择。能力关闭时只省略模型覆盖并提交默认权限，保留原偏好。",
+    "输入设置先等待历史与作用域配置就绪；无历史仍保存 Agent 默认，已有 Chat 通过 repository 保存整组模型与技能 ID。首次确认只初始化未手动覆盖的模型，正常重启恢复并复核目录/能力；面板未应用值及正文/pending 不保存。运行事实来自 timeline，不回填下一次 query 的规划/编辑选择。模型仅后续 query 使用；STANDARD 保持明确请求值，不省略为 Agent 默认 FAST。",
     "联网、所选来源及 Agent 能力有效时，消息先写 SQLite messages，再由所属 service 发一次 /api/query；重连和重启不会重新提交。",
     "requestId 使用本地消息标识，WS 帧 ID 独立；聊天 owner 统一为根 agentKey，技能和知识库使用 references。Planning 仅 true 时发送，Editing 在入口显示时发送明确布尔值，否则省略。",
     "服务端确认匹配请求和 Run 后才标记 sent；明确拒绝标记 failed 并保留原始错误，受理前断线或重启标记 submission_unconfirmed。",
     "显式重发先查询历史中的 requestId；找到时只恢复观察，未找到且无法确认时由用户明确选择是否再次提交。",
-    "开发态会话诊断指令在消息落库前拦截，诊断只保存在当前页面临时状态；切源后的异步响应不得修改替换实例。"
+    "开发态会话诊断指令在消息落库前拦截，诊断只保存在当前页面临时状态；切源后的异步响应不得修改替换实例。",
+    "运行中 steer 使用同一 service 的逐条内存快照：主按钮先暂存 queued，逐条点击“引导”才同步进入 sending 并按操作顺序调用 transport，不等待前条消费；取消 queued 直接恢复原草稿和附件，不发送请求；技能引用复用 query 的目录归一与能力校验。输入仅在同步接纳后清除本次内容，后续确认不修改新草稿；只有匹配 owner/Chat/Run/steer 的消费才移除记录，拒绝与未知结果保留逐条恢复入口，不自动重发。 已提交且结果未知的恢复必须等待真实历史回读，而非等待后台调度；输入控制层同步确认接收后才删除对应快照，身份变化或读取失败保留记录。",
+    "一体式输入区只保留一个主操作，运行中合法内容先暂存 steer、空内容停止；上方 queued 条目提供手动“引导/取消”，未提交项在运行结束后仅允许恢复，不自动转为 query；普通 query 提交即移走对应正文和附件快照，失败只在同一 Chat/来源/访问代次合并恢复，迟到成功不清理新输入，技能选择持续保留。",
+    "长文本卡片只改变输入呈现：controller 将可见正文和有序文本块还原为完整消息，原样经过 repository 和 query/steer DTO；完整 JSON 请求的字节预算在 WsClient 统一执行，流式 query 在返回 handle 前即拒绝本地超限。query 失败按结构化快照恢复卡片与附件，超限 steer 通过既有逐条恢复交付归还原输入；迟到结果仍核对 Chat/来源/访问代次，不自动重发。"
   ],
   "steps": [
     {
@@ -69,6 +72,14 @@
     "请求 owner 使用成员执行者而非根 Agent，会使 TEAM 控制和历史范围不一致。",
     "页面直连传输或持久化会绕过来源隔离、消息状态和目录快照刷新。"
   ],
-  "mustCheckModules": ["feature-chat-persistence", "feature-chat-realtime", "feature-chat-timeline"],
-  "relatedTasks": ["modify-chat-persistence", "modify-chat-realtime", "sync-chat-detail-webclient"]
+  "mustCheckModules": [
+    "feature-chat-persistence",
+    "feature-chat-realtime",
+    "feature-chat-timeline"
+  ],
+  "relatedTasks": [
+    "modify-chat-persistence",
+    "modify-chat-realtime",
+    "sync-chat-detail-webclient"
+  ]
 }

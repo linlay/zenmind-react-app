@@ -11,7 +11,7 @@
     "sync react app environment"
   ],
   "entryDecision": [
-    "2026-10-13 已确认方案从 docs/react-app-env-sync-2026-10-13/README.md 进入 T01–T04；当前仅建档，实施未开始。",
+    "已落地 schema v3 单品牌环境产物及 App 构建校验。独立安装身份与完整 OTA 验收仍按 docs/react-app-env-sync-2026-10-13/README.md 追踪。",
     "两个品牌及各服务环境独立安装、固定品牌，共用一个 EAS 项目和应用版本号；目标分别构建并使用独立 channel/runtimeVersion。",
     "本任务是构建期配置装配，不是在线配置或聊天数据同步；不兼容未正式发布的旧共享身份。",
     "绝对不允许过度设计；扩展现有脚本/认证入口并删除被替代的旧路径，不建设配置、编排或迁移框架。",

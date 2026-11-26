@@ -374,7 +374,7 @@
         "品牌环境执行大纲",
         "sync react app environment"
       ],
-      "entryDecision": "2026-10-13 已确认方案从 docs/react-app-env-sync-2026-10-13/README.md 进入 T01–T04；当前仅建档，实施未开始。",
+      "entryDecision": "已落地 schema v3 单品牌环境产物及 App 构建校验。独立安装身份与完整 OTA 验收仍按 docs/react-app-env-sync-2026-10-13/README.md 追踪。",
       "card": ".doc/tasks/sync-react-app-environment.json"
     },
     {
