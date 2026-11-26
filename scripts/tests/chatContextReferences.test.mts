@@ -1,3 +1,4 @@
+import { appendComposerDraft, createComposerDraft, serializeComposerDraft } from '../../src/features/chatPersistence/chatComposerDraft.ts';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
@@ -145,9 +146,16 @@ test('a rejected context query restores editable text and references; success cl
     };
     const active = { current: 'chat' };
     const send = vm.runInNewContext(code, {
+      getChatCacheScopeId: () => 'scope',
+      socketStatus: 'connected',
+      hasUploadingAttachments: false, hasFailedAttachments: false,
+      handleRemoveAttachment: (id: string) => { state.attachments = state.attachments.filter((item) => item.attachmentId !== id); },
+      restoreAttachments: (items: typeof state.attachments) => { state.attachments.push(...items); },
       agentAvailability: 'available',
       pendingSteer: null,
       draft: state.draft,
+      composerDraft: createComposerDraft(state.draft), appendComposerDraft, createComposerDraft,
+      setComposerDraft: (update: (value: ReturnType<typeof createComposerDraft>) => ReturnType<typeof createComposerDraft>) => { state.draft = serializeComposerDraft(update(createComposerDraft(state.draft))); },
       readyAttachments: state.attachments,
       composerAttachments: state.attachments,
       sendingRef: { current: false },
@@ -172,8 +180,8 @@ test('a rejected context query restores editable text and references; success cl
       isChatConversationDiagnosticCommand: () => false,
       shouldApplyChatDetailAsyncResult: (input: any) =>
         input.activeConversationId === input.targetConversationId && input.currentRequestId === input.requestId,
-      setDraft: (value: string) => {
-        state.draft = value;
+      setDraft: (value: string | ((current: string) => string)) => {
+        state.draft = typeof value === 'function' ? value(state.draft) : value;
       },
       setErrorText: (value: string) => {
         state.error = value;

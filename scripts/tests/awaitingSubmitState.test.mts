@@ -11,6 +11,7 @@ import type {
   ChatTimelineAwaitingInteractive,
   ChatTimelineAwaitingState
 } from '../../src/features/chatTimeline/index.ts';
+import { getAgentDefaultAccessLevel, projectRemoteAgentDetail, readAwaitingSubmitParam } from '../../src/core/api/services/chatApi.ts';
 
 function awaitingWithInteractive(interactive: ChatTimelineAwaitingInteractive): ChatTimelineAwaitingState {
   return {
@@ -76,7 +77,8 @@ test('awaiting submit builder creates approval and plan submit payloads', () => 
     buildAwaitingSubmitPayload(planAwaiting, {
       kind: 'plan',
       decision: 'reject',
-      reason: 'narrow the scope'
+      reason: ' narrow the scope ',
+      executionAccessLevel: 'full_access'
     }),
     {
       runId: 'run-1',
@@ -84,6 +86,21 @@ test('awaiting submit builder creates approval and plan submit payloads', () => 
       param: { decision: 'reject', reason: 'narrow the scope' }
     }
   );
+
+  for (const [detail, expected] of [
+    [null, undefined],
+    [projectRemoteAgentDetail({ agentKey: 'planner' }), 'ask_for_approval'],
+    [projectRemoteAgentDetail({ agentKey: 'planner', defaultAccessLevel: 'auto_approve', accessLevel: 'full_access' }), 'auto_approve']
+  ] as const) {
+    const executionAccessLevel = getAgentDefaultAccessLevel(detail);
+    assert.equal(executionAccessLevel, expected);
+    const payload = buildAwaitingSubmitPayload(planAwaiting, { kind: 'plan', decision: 'approve', executionAccessLevel });
+    assert.deepEqual(payload, {
+      runId: 'run-1', awaitingId: 'plan-1',
+      param: expected ? { decision: 'approve', executionAccessLevel: expected } : { decision: 'approve' }
+    });
+    assert.deepEqual(readAwaitingSubmitParam(payload.param, 'plan'), payload.param);
+  }
 });
 
 test('awaiting submit builder accepts approval reason without a decision', () => {

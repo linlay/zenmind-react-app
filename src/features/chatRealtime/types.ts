@@ -14,6 +14,7 @@ import type {
   ChatTimelineState
 } from '../chatTimeline/index.ts';
 import type { WsSocketStatus } from '../../core/ws/wsClient.ts';
+import type { ChatComposerDraft } from '../chatPersistence/chatComposerDraft.ts';
 
 export type ChatSocketStatus = WsSocketStatus;
 
@@ -168,7 +169,11 @@ export type ChatPendingSteer = {
   runId: string;
   message: string;
   attachments: ChatComposerAttachment[];
-  phase: 'sending' | 'accepted' | 'unknown';
+  phase: 'queued' | 'sending' | 'accepted' | 'unknown' | 'failed';
+  draft?: ChatComposerDraft;
+  skillIds: string[];
+  waitToolId?: string;
+  error?: string;
   runEnded: boolean;
   agentKey?: string;
 };
@@ -176,8 +181,7 @@ export type ChatPendingSteer = {
 export type ChatConversationSteerChangedEvent = {
   type: 'conversation.steer.changed';
   conversationId: string;
-  pending: ChatPendingSteer | null;
-  confirmed?: ChatPendingSteer;
+  pending: readonly ChatPendingSteer[];
 };
 
 export type ChatSyncEvent =

@@ -1,3 +1,4 @@
+import { clearChatComposerPreferences } from './chatComposerPreferences';
 import { getCloudAuthSnapshot } from '../../core/auth/cloudAuth';
 import { isActiveDesktopOffline } from '../../core/auth/activeDesktop.ts';
 import { and, asc, count, desc, eq, inArray, notInArray, sql } from 'drizzle-orm';
@@ -25,6 +26,7 @@ import {
   writeChatDirectorySnapshot
 } from './homeSnapshot';
 import {
+  composerPreferences,
   chatDirectoryItems,
   conversationTimelineMeta,
   conversationTimelineNodes,
@@ -2305,6 +2307,7 @@ export async function markConversationSourceDeleted(conversationId: string) {
 export async function clearChatLocalCache() {
   const requestedScopeId = getChatCacheScopeId();
   await awaitInChatScope(ensureChatDatabase(), requestedScopeId);
+  await awaitInChatScope(chatDb.delete(composerPreferences), requestedScopeId);
   await awaitInChatScope(chatDb.delete(conversationTimelineNodes), requestedScopeId);
   await awaitInChatScope(chatDb.delete(conversationTimelineMeta), requestedScopeId);
   await awaitInChatScope(chatDb.delete(conversationSyncState), requestedScopeId);
@@ -2312,6 +2315,7 @@ export async function clearChatLocalCache() {
   await awaitInChatScope(chatDb.delete(messages), requestedScopeId);
   await awaitInChatScope(chatDb.delete(conversations), requestedScopeId);
   await awaitInChatScope(chatDb.delete(chatDirectoryItems), requestedScopeId);
+  clearChatComposerPreferences(undefined, requestedScopeId);
   clearChatDirectorySnapshot();
 }
 
@@ -2346,6 +2350,7 @@ export async function clearChatLocalCacheForScope(scopeId: string): Promise<Chat
   }
 
   const database = deleteChatDatabaseScopeIfExists(normalizedScopeId);
+  clearChatComposerPreferences(undefined, normalizedScopeId);
   clearChatDirectorySnapshotForScope(normalizedScopeId);
   return {
     scopeId: normalizedScopeId,
@@ -2361,6 +2366,7 @@ export async function inspectChatLocalCacheScope(scopeId: string): Promise<ChatD
 export async function clearChatConversationForScope(scopeId: string, conversationId: string): Promise<boolean> {
   const deleted = deleteChatConversationFromScopeIfExists(scopeId, conversationId);
   if (deleted) {
+    clearChatComposerPreferences(undefined, scopeId, conversationId);
     clearChatDirectorySnapshotForScope(scopeId);
   }
   return deleted;
@@ -3412,7 +3418,7 @@ export async function createOutgoingMessage(
   );
   const isFirstUserMessage = firstUserMessageRows.length === 0;
   const firstUserConversationTitle = resolveChatConversationStoredTitle(content);
-  const normalizedContent = String(content || '').trim() || formatChatAttachmentsMessageText(attachments);
+  const normalizedContent = String(content || '').trim() ? content : formatChatAttachmentsMessageText(attachments);
   if (!normalizedContent && options.continuation !== true) {
     throw new Error('Message content or attachments are required');
   }
@@ -3489,4 +3495,55 @@ export async function createOutgoingMessage(
       attachments: messageAttachmentsForTimeline
     }
   };
+}
+
+export async function readComposerConfiguration(
+  target: import('./chatComposerPreferences').ChatComposerPreferenceTarget
+) {
+  await awaitInChatScope(ensureChatDatabase(), target.scope);
+  const [row] = await awaitInChatScope(
+    chatDb
+      .select()
+      .from(composerPreferences)
+      .where(and(eq(composerPreferences.owner, target.owner), eq(composerPreferences.chatId, target.id)))
+      .limit(1),
+    target.scope
+  );
+  if (!row) return undefined;
+  return {
+    ...(row.modelJson
+      ? {
+          model: JSON.parse(row.modelJson) as import('../../core/api/services/modelOptionsProtocol').QueryModelOverride
+        }
+      : {}),
+    ...(row.skillIdsJson ? { skillIds: JSON.parse(row.skillIdsJson) as string[] } : {})
+  };
+}
+
+export async function saveComposerConfiguration(
+  target: import('./chatComposerPreferences').ChatComposerPreferenceTarget,
+  patch: Pick<import('./chatComposerPreferences').ChatComposerPreference, 'model' | 'skillIds'>,
+  initializeModel = false
+) {
+  await awaitInChatScope(ensureChatDatabase(), target.scope);
+  const values = {
+    ...(patch.model !== undefined ? { modelJson: JSON.stringify(patch.model) } : {}),
+    ...(patch.skillIds !== undefined ? { skillIdsJson: JSON.stringify(patch.skillIds) } : {})
+  };
+  if (!Object.keys(values).length) return;
+  await awaitInChatScope(
+    chatDb
+      .insert(composerPreferences)
+      .values({ owner: target.owner, chatId: target.id, ...values })
+      .onConflictDoUpdate({
+        target: [composerPreferences.owner, composerPreferences.chatId],
+        set: {
+          ...values,
+          ...(initializeModel && values.modelJson
+            ? { modelJson: sql`coalesce(${composerPreferences.modelJson}, ${values.modelJson})` }
+            : {})
+        }
+      }),
+    target.scope
+  );
 }

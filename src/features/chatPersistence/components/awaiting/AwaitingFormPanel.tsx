@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Text, View } from 'react-native';
+import { ScrollView, Text } from 'react-native';
 import type { AwaitingSubmitPayloadData } from '../../../../core/api/services/chatApi';
 import { useT } from '../../../../shared/i18n';
 import type { ChatConversationAwaitingState } from '../../../chatRealtime/types';
@@ -15,10 +15,17 @@ type AwaitingFormPanelProps = {
   awaiting: ChatConversationAwaitingState & { interactive: Extract<ChatTimelineAwaitingInteractive, { kind: 'form' }> };
   disabled: boolean;
   submitting: boolean;
+  submitError: string;
   submitPayload: (payload: AwaitingSubmitPayloadData) => void;
 };
 
-export function AwaitingFormPanel({ awaiting, disabled, submitting, submitPayload }: AwaitingFormPanelProps) {
+export function AwaitingFormPanel({
+  awaiting,
+  disabled,
+  submitting,
+  submitError,
+  submitPayload
+}: AwaitingFormPanelProps) {
   const t = useT();
   const chatId = useConversationViewChatId();
   const viewportRef = useRef<AwaitingFormViewportHandle | null>(null);
@@ -30,6 +37,7 @@ export function AwaitingFormPanel({ awaiting, disabled, submitting, submitPayloa
   const documentKey =
     view && !viewError && view.renderer !== 'native' ? buildConversationViewDocumentKey(chatId, view, 'form') : '';
   const timeoutMs = getAwaitingInteractiveTimeout(awaiting.interactive);
+  const title = form.title || awaiting.prompt;
 
   useEffect(() => {
     generationRef.current += 1;
@@ -64,29 +72,36 @@ export function AwaitingFormPanel({ awaiting, disabled, submitting, submitPayloa
 
   return (
     <>
-      <View className="gap-1">
-        <Text allowFontScaling={false} className="text-[15px] font-extrabold leading-[21px] text-app-primary">
-          {form.title || awaiting.prompt || t('awaiting.form.title')}
-        </Text>
-      </View>
-      {documentKey ? (
-        <AwaitingFormViewport
-          key={`${awaiting.id}:${documentKey}`}
-          ref={viewportRef}
-          awaiting={awaiting}
-          disabled={disabled || submitting}
-          documentKey={documentKey}
-          onError={setErrorText}
-        />
-      ) : (
-        <Text selectable className="text-[12px] text-app-secondary">
-          {viewError || t('awaiting.form.viewportUnavailable')}
-        </Text>
-      )}
+      <ScrollView
+        className="shrink"
+        contentContainerClassName="gap-app-sm px-app-lg pb-app-md"
+        keyboardShouldPersistTaps="handled"
+        nestedScrollEnabled
+      >
+        {title ? (
+          <Text allowFontScaling={false} className="text-[15px] font-semibold leading-[21px] text-app-primary">
+            {title}
+          </Text>
+        ) : null}
+        {documentKey ? (
+          <AwaitingFormViewport
+            key={`${awaiting.id}:${documentKey}`}
+            ref={viewportRef}
+            awaiting={awaiting}
+            disabled={disabled || submitting}
+            documentKey={documentKey}
+            onError={setErrorText}
+          />
+        ) : (
+          <Text selectable className="text-[12px] text-app-secondary">
+            {viewError || t('awaiting.form.viewportUnavailable')}
+          </Text>
+        )}
+      </ScrollView>
       <AwaitingPanelFooter
         awaiting={awaiting}
         disabled={disabled || collecting}
-        errorText={errorText}
+        errorText={errorText || submitError}
         primaryLabel={t('awaiting.approve')}
         secondaryLabel={t('awaiting.reject')}
         submitting={submitting || collecting}

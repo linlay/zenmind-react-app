@@ -1,5 +1,6 @@
 import { readChatViewReference } from '../../src/core/api/services/chatViewProtocol.ts';
-import { readAwaitingSubmitParam, buildSubmitAwaitingPayload } from '../../src/core/api/services/chatApi.ts';
+import { readAwaitingSubmitParam, buildSubmitAwaitingPayload, buildChatDetailPayload } from '../../src/core/api/services/chatApi.ts';
+import { classifyChatRequestInput } from '../../src/features/chatTimeline/timelineRequest.ts';
 import * as derivationProtocol from '../../src/core/api/services/chatDerivationProtocol.ts';
 import * as derivationState from '../../src/features/chatTimeline/timelineRunDerivation.ts';
 import { encodeChatSourceId, createChatSource } from '../../src/features/chatPersistence/chatSource.ts';
@@ -16,6 +17,11 @@ import vm from 'node:vm';
 import ts from 'typescript';
 import { normalizeChatAttachmentReferences, createMessageAttachmentsFromReferences } from '../../src/features/chatPersistence/chatAttachmentModels.ts';
 import * as reducer from '../../src/features/chatTimeline/timelineReducer.ts';
+import {
+  applyChatTimelineRunAnnouncementSnapshot,
+  clearChatTimelineRunAnnouncementForContent
+} from '../../src/features/chatTimeline/timelineRunAnnouncement.ts';
+import { buildAwaitingSubmitPayload } from '../../src/features/chatPersistence/components/awaiting/awaitingSubmitState.ts';
 import { getLatestFailedChatSubmission, getRecoverableChatSubmission } from '../../src/features/chatRealtime/chatSubmissionRecovery.ts';
 import { formatChatTimelinePlatformErrorForDisplay } from '../../src/features/chatTimeline/timelinePlatformError.ts';
 import { deserializeChatTimelineState, serializeChatTimelineState } from '../../src/features/chatTimeline/timelinePersistence.ts';
@@ -43,13 +49,20 @@ const source = ts.createSourceFile(
 const declaration = source.statements.find(
   (node) => ts.isClassDeclaration(node) && node.name?.text === 'ChatSyncService'
 )!;
+const errorTextDeclaration = source.statements.find(
+  (node) => ts.isFunctionDeclaration(node) && node.name?.text === 'getUnknownErrorText'
+)!;
 const compiled = ts.transpileModule(
-  `${declaration.getText(source)}; new ChatSyncService({key:'cloud',kind:'default'}, async()=>({namespace:'ap'}))`,
+  `${errorTextDeclaration.getText(source)}\n${declaration.getText(source)}; new ChatSyncService({key:'cloud',kind:'default'}, async()=>({namespace:'ap'}))`,
   { compilerOptions: { target: ts.ScriptTarget.ES2022 } }
 ).outputText;
 function fixture(extra: Record<string, unknown> = {}) {
+  let operation = 0;
   const service = vm.runInNewContext(compiled, {
     ...reducer,
+    applyChatTimelineRunAnnouncementSnapshot,
+    clearChatTimelineRunAnnouncementForContent,
+    classifyChatRequestInput,
     getRecoverableChatSubmission,
     getLatestFailedChatSubmission,
     formatChatTimelinePlatformErrorForDisplay,
@@ -89,7 +102,7 @@ function fixture(extra: Record<string, unknown> = {}) {
     isPlainRecord: (value: unknown) => !!value && typeof value === 'object' && !Array.isArray(value),
     getChatTimelineActiveRunId: (state: any) => state.activeRunId,
     buildInterruptChatPayload: (value: unknown) => value,
-    createRunControlRequestId: () => 'interrupt-operation',
+    createRunControlRequestId: () => operation++ ? `operation-${operation}` : 'interrupt-operation',
     CHAT_INTERRUPT_TRANSPORT_TYPE: '/api/interrupt',
     STOPPING_CONVERSATION_TTL_MS: 8000,
     UNAVAILABLE_ATTACH_RUN_TTL_MS: 120000,
@@ -128,10 +141,11 @@ const flush = async () => {
   for (let i = 0; i < 20; i++) await Promise.resolve();
 };
 const now = 1_791_400_000_000;
-function active() {
+function active(agentKey = '') {
   return reducer.applyChatTimelineEvent(reducer.createChatTimelineState('chat'), 'chat', {
     type: 'run.start',
     runId: 'run',
+    agentKey,
     timestamp: now
   });
 }
@@ -305,6 +319,45 @@ test('a detail response after service reset cannot write to the new namespace', 
   await reconcile;
   assert.equal(writes, 0);
   assert.equal(service.timelineStates.size, 0);
+});
+
+test('buffered live content clears an announcement before a stale detail can restore it', async () => {
+  let respond!: (value: unknown) => void;
+  const service = fixture({
+    extractConversationId: (event: Record<string, unknown>) => event.chatId,
+    isChatTimelineContentEventClosed: () => false,
+    normalizeEventType: (type: string) => type,
+    toFiniteNumber: (value: number) => value,
+    buildAssistantMessageId: (_chatId: string, event: Record<string, unknown>) => event.contentId,
+    buildFallbackAssistantMessageId: () => '',
+    findSingleStreamBufferByRun: () => undefined,
+    extractEventText: (event: Record<string, unknown>) => event.text,
+    extractTitle: () => '',
+    reconcileConversationDetail: async () => {}
+  });
+  service.emitConversationRuntimeState = () => {};
+  service.emitHomePatchFromConversation = async () => {};
+  service.scheduleConversationRuntimeEmit = () => {};
+  service.publishStreamBufferInitialMessage = () => {};
+  service.flushStreamBufferToUi = async () => {};
+  service.flushStreamBufferToDb = async () => {};
+  service.timelineStates.set('chat', reducer.applyChatTimelineEvent(active(), 'chat', {
+    type: 'run.activity', runId: 'run', message: 'Working', timestamp: now + 1
+  }));
+  service.getChatDetailViaTransport = () => new Promise((resolve) => (respond = resolve));
+  const reconcile = service.runConversationReconcile('chat', 'reconcile');
+  await flush();
+  await service.handleAssistantContentEvent({
+    type: 'content.end', chatId: 'chat', runId: 'run', contentId: 'reply', text: 'Ready', timestamp: now + 3
+  }, 'stream');
+  assert.equal(service.getConversationTimelineState('chat').runAnnouncement.message, '');
+  respond({
+    chatId: 'chat',
+    activeRun: { runId: 'run', state: 'running', announcement: { message: 'Outdated', timestamp: now + 2 } },
+    events: [{ type: 'run.start', runId: 'run', timestamp: now }]
+  });
+  await reconcile;
+  assert.equal(service.getConversationTimelineState('chat').runAnnouncement.message, '');
 });
 test('stream sequence deduplicates across query/attach, permits filtered jumps and isolates runs', async () => {
   const events: any[] = [];
@@ -488,15 +541,26 @@ test('request boundary refuses a response from a previous source lifecycle', asy
   await assert.rejects(request, /source changed/);
 });
 
-function steerFixture() {
-  const service = fixture();
+function steerFixture(extra: Record<string, unknown> = {}) {
+  const service = fixture({
+    isApiStatusError: (error: { status?: number }, status: number) => error.status === status,
+    ...extra
+  });
   service.ensureAgentDetail = async () => ({ raw: { interactionConfig: capabilities } });
   service.status = 'connected';
   service.timelineStates.set('chat', active());
   service.assertConversationWritable = async () => null;
   service.resolveRunControlScope = async () => ({ agentKey: 'team' });
   service.scheduleConversationReconcile = async () => {};
+  service.getChatDetailViaTransport = async () => null;
   return service;
+}
+
+// Tests exercise the same explicit queue -> submit path used by the composer.
+function submitSteer(service: ReturnType<typeof steerFixture>, chatId: string, message: string,
+  attachments: unknown[] = [], skillIds: readonly string[] = []) {
+  const pending = service.queueSteerConversation(chatId, message, attachments, skillIds);
+  return service.submitPendingSteer(chatId, pending.steerId);
 }
 
 test('steer uses stable Team/run identity, single submission, and accepted is not a confirmed message', async () => {
@@ -511,13 +575,12 @@ test('steer uses stable Team/run identity, single submission, and accepted is no
     assert.equal(payload.runId, 'run');
     return new Promise((done) => (resolve = done));
   };
-  const submission = service.steerConversation('chat', 'retain input');
+  const submission = submitSteer(service, 'chat', 'retain input');
   await flush();
-  await assert.rejects(service.steerConversation('chat', 'duplicate'), /awaiting confirmation/);
   resolve({ accepted: true });
   await submission;
   assert.equal(requests, 1);
-  assert.equal(service.getPendingSteer('chat').phase, 'accepted');
+  assert.equal(service.getPendingSteers('chat')[0].phase, 'accepted');
   assert.equal(
     Object.values(service.getConversationTimelineState('chat').nodesById).filter((node: any) => node.kind === 'message')
       .length,
@@ -530,9 +593,9 @@ test('steer event before response wins even before UI flush and duplicate echo s
     const service = steerFixture();
     let resolve!: (value: unknown) => void;
     service.requestChatApi = () => new Promise((done) => (resolve = done));
-    const submission = service.steerConversation('chat', 'guidance');
+    const submission = submitSteer(service, 'chat', 'guidance');
     await flush();
-    const pending = service.getPendingSteer('chat');
+    const pending = service.getPendingSteers('chat')[0];
     const event = {
       type: 'request.steer',
       runId: 'run',
@@ -540,12 +603,12 @@ test('steer event before response wins even before UI flush and duplicate echo s
       message: 'guidance',
       timestamp: now + 1
     };
-    const confirmed = reducer.applyChatTimelineEvent(active(), 'chat', event);
+    const confirmed = reducer.applyChatTimelineEvent(active('team'), 'chat', event);
     service.timelineStates.set('chat', confirmed);
     resolve({ accepted });
     const result = await submission;
     assert.equal(result.accepted, true);
-    assert.equal(service.getPendingSteer('chat'), null);
+    assert.equal(service.getPendingSteers('chat')[0], undefined);
     assert.equal(reducer.applyChatTimelineEvent(confirmed, 'chat', event), confirmed);
   }
 });
@@ -567,17 +630,20 @@ test('steer rejection retains input; timeout retains unknown without retry and e
       if (timeout) throw new Error('timeout');
       return { accepted: false, detail: 'rejected' };
     };
-    const submission = service.steerConversation('chat', '', [attachment]);
+    const submission = submitSteer(service, 'chat', '', [attachment]);
     if (timeout) {
       await assert.rejects(submission, /timeout/);
-      assert.equal(service.getPendingSteer('chat').phase, 'unknown');
-      await assert.rejects(service.steerConversation('chat', 'retry'), /awaiting confirmation/);
-      const restored = service.restorePendingSteer('chat');
+      assert.equal(service.getPendingSteers('chat')[0].phase, 'unknown');
+      const pending = service.getPendingSteers('chat')[0];
+      assert.equal(await service.restorePendingSteer('chat', pending.steerId, () => true), null);
+      service.pendingSteers.set('chat', [{ ...pending, runEnded: true }]);
+      const restored = await service.restorePendingSteer('chat', pending.steerId, () => true);
       assert.equal(restored.message, '');
-      assert.equal(restored.attachments[0], attachment);
+      assert.notEqual(restored.attachments[0], attachment);
+      assert.equal(restored.attachments[0].references[0].name, reference.name);
     } else {
       assert.equal((await submission).accepted, false);
-      assert.equal(service.getPendingSteer('chat'), null);
+      assert.equal(service.getPendingSteers('chat')[0].phase, 'failed');
     }
     assert.equal(requests, 1);
     assert.equal(attachment.references[0], reference);
@@ -593,7 +659,7 @@ test('steer run change during owner lookup sends nothing; ended unconfirmed runs
     requests++;
     return { accepted: true };
   };
-  const submission = service.steerConversation('chat', 'retained');
+  const submission = submitSteer(service, 'chat', 'retained');
   await flush();
   const ended = reducer.applyChatTimelineEvent(active(), 'chat', {
     type: 'run.complete',
@@ -604,24 +670,26 @@ test('steer run change during owner lookup sends nothing; ended unconfirmed runs
   owner({ agentKey: 'team' });
   await assert.rejects(submission, /changed/);
   assert.equal(requests, 0);
-  assert.equal(service.getPendingSteer('chat'), null);
+  const failed = service.getPendingSteers('chat')[0];
+  assert.equal(failed.phase, 'failed');
+  await service.restorePendingSteer('chat', failed.steerId, () => true);
   service.resolveRunControlScope = async () => ({ agentKey: 'team' });
   service.timelineStates.set('chat', active());
-  await service.steerConversation('chat', 'accepted');
+  await submitSteer(service, 'chat', 'accepted');
   service.timelineStates.set('chat', ended);
   service.emitConversationTimelineState('chat', 'reconcile', ended);
-  assert.equal(service.getPendingSteer('chat').runEnded, true);
-  assert.equal(service.getPendingSteer('chat').phase, 'accepted');
+  assert.equal(service.getPendingSteers('chat')[0].runEnded, true);
+  assert.equal(service.getPendingSteers('chat')[0].phase, 'accepted');
   assert.equal(requests, 1);
   service.activeConversationId = 'other';
-  assert.equal(service.getPendingSteer('chat').message, 'accepted');
+  assert.equal(service.getPendingSteers('chat')[0].message, 'accepted');
 });
 
 test('steer namespace cleanup releases pending state and refuses a late response', async () => {
   const service = steerFixture();
   let resolve!: (value: unknown) => void;
   service.requestChatApi = () => new Promise((done) => (resolve = done));
-  const request = service.steerConversation('chat', 'old');
+  const request = submitSteer(service, 'chat', 'old');
   await flush();
   service.lifecycleVersion++;
   service.clearTransientWork();
@@ -642,11 +710,11 @@ test('Agent steering uses the conversation owner and requires an executable deta
       assert.equal(payload.agentKey, 'owner');
       return { accepted: true };
     };
-    const request = service.steerConversation('chat', 'guide');
+    const request = submitSteer(service, 'chat', 'guide');
     if (available) await request;
     else {
       await assert.rejects(request, /execution/);
-      assert.equal(service.getPendingSteer('chat'), null);
+      assert.equal(service.getPendingSteers('chat')[0].phase, 'failed');
     }
     assert.equal(requests, available ? 1 : 0);
   }
@@ -655,13 +723,13 @@ test('Agent steering uses the conversation owner and requires an executable deta
 test('a steer echo from a different owner cannot confirm the pending operation', async () => {
   const service = steerFixture();
   service.requestChatApi = async () => ({ accepted: true });
-  await service.steerConversation('chat', 'guide');
-  const pending = service.getPendingSteer('chat');
+  await submitSteer(service, 'chat', 'guide');
+  const pending = service.getPendingSteers('chat')[0];
   const source = fixture({
     normalizeEventType: (type: string) => type,
     extractConversationId: (event: any) => event.chatId
   });
-  source.pendingSteers.set('chat', pending);
+  source.pendingSteers.set('chat', [pending]);
   source.timelineStates.set('chat', active());
   await source.handlePushEvent(
     {
@@ -674,7 +742,7 @@ test('a steer echo from a different owner cannot confirm the pending operation',
     },
     'stream'
   );
-  assert.equal(source.getPendingSteer('chat'), pending);
+  assert.equal(source.getPendingSteers('chat')[0], pending);
   assert.equal(source.getConversationTimelineState('chat').orderedNodeIds.length, 1);
 });
 
@@ -685,7 +753,7 @@ test('an empty steer echo confirms only the matching owner, Run and request with
     classifyChatProtocolEvent: () => 'heartbeat'
   });
   const pending = { steerId: 'continue', runId: 'run', agentKey: 'root', message: '', phase: 'accepted' };
-  service.pendingSteers.set('chat', pending);
+  service.pendingSteers.set('chat', [pending]);
   const event = {
     type: 'request.steer',
     chatId: 'chat',
@@ -698,24 +766,24 @@ test('an empty steer echo confirms only the matching owner, Run and request with
   };
   for (const mismatch of [{ agentKey: 'other' }, { runId: 'other' }, { steerId: 'other' }]) {
     await service.handlePushEvent({ ...event, ...mismatch }, 'stream');
-    assert.equal(service.getPendingSteer('chat'), pending);
+    assert.equal(service.getPendingSteers('chat')[0], pending);
   }
   await service.handlePushEvent(event, 'stream');
-  assert.equal(service.getPendingSteer('chat'), null);
+  assert.equal(service.getPendingSteers('chat')[0], undefined);
   service.syncPendingSteerFromTimeline('chat', reducer.createChatTimelineState('chat'), true);
-  assert.equal(service.getPendingSteer('chat'), null);
+  assert.equal(service.getPendingSteers('chat')[0], undefined);
 });
 
 test('high frequency timeline delivery checks steer confirmation directly without scanning history', () => {
   const service = steerFixture();
-  service.pendingSteers.set('chat', {
+  service.pendingSteers.set('chat', [{
     steerId: 'pending',
     runId: 'older',
     message: 'pending',
     attachments: [],
     phase: 'accepted',
     runEnded: false
-  });
+  }]);
   const state = active();
   state.nodesById = new Proxy(state.nodesById, {
     ownKeys() {
@@ -723,7 +791,7 @@ test('high frequency timeline delivery checks steer confirmation directly withou
     }
   });
   assert.doesNotThrow(() => service.emitConversationTimelineState('chat', 'stream', state));
-  assert.equal(service.getPendingSteer('chat').phase, 'accepted');
+  assert.equal(service.getPendingSteers('chat')[0].phase, 'accepted');
 });
 
 test('skill catalog singleflights, caches only success and ignores old namespace responses', async () => {
@@ -994,7 +1062,8 @@ test('permission phases avoid snapshot writes and a stale source response cannot
   assert.equal(service.runtimeAccessRequests.size, 0);
 });
 
-test('text selection survives query enqueue, submission and steer when local file input is disabled', async () => {
+test('full text and selection survive query enqueue, submission and steer when local file input is disabled', async () => {
+  const fullText = ` \n${'中😀文\r\n'.repeat(400)}\t `;
   const reference = {
     id: 'selected',
     type: 'selection',
@@ -1014,6 +1083,7 @@ test('text selection survives query enqueue, submission and steer when local fil
   let queued: any;
   const service = fixture({
     createOutgoingMessage: async (conversationId: string, content: string, attachments: any[]) => {
+      assert.equal(content, fullText);
       queued = attachments;
       return {
         clientMessageId: 'query',
@@ -1029,8 +1099,10 @@ test('text selection survives query enqueue, submission and steer when local fil
   });
   service.publishTimelineMessage = () => {};
   service.emitHomePatchFromSummary = async () => {};
-  service.dispatchOutgoingMessage = async () => {};
-  await service.sendMessage('chat', 'explain', [attachment]);
+  service.dispatchOutgoingMessage = async (message: { content: string }) => {
+    assert.equal(message.content, fullText);
+  };
+  await service.sendMessage('chat', fullText, [attachment]);
   assert.equal(queued[0].references[0], reference);
   const payloads: any[] = [];
   const replay = fixture({
@@ -1045,18 +1117,26 @@ test('text selection survives query enqueue, submission and steer when local fil
   await replay.dispatchOutgoingMessage({
     clientMessageId: 'query',
     conversationId: 'chat',
-    content: 'explain',
+    content: fullText,
     attachments: queued
   });
   assert.deepEqual(payloads[0].references, [reference]);
+  assert.equal(payloads[0].message, fullText);
   const steer = steerFixture();
   steer.ensureAgentDetail = service.ensureAgentDetail;
   steer.resolveRunControlScope = async () => ({ agentKey: 'agent' });
   steer.requestChatApi = async (_type: string, payload: any) => {
     assert.deepEqual(payload.references, [reference]);
+    assert.equal(payload.message, fullText);
     return { accepted: false };
   };
-  await steer.steerConversation('chat', '', [attachment]);
+  await submitSteer(steer, 'chat', fullText, [attachment]);
+  steer.requestChatApi = async (_type: string, payload: any) => {
+    assert.equal(payload.message, '');
+    assert.deepEqual(payload.references, [reference]);
+    return { accepted: false };
+  };
+  await submitSteer(steer, 'chat', '', [attachment]);
 });
 
 test('reference picker queries only current Agent summary pages, excludes self and rejects capability loss or stale source', async () => {
@@ -1178,8 +1258,8 @@ test('query preserve context IDs/meta and recheck chatRecords; context-only, Sit
   assert.equal(sent.length, 1);
   assert.equal(attachment.references[0], ref);
   const steer = steerFixture();
-  await assert.rejects(steer.steerConversation('chat', 'question', [attachment]), /cannot be used for steering/);
-  assert.equal(steer.getPendingSteer('chat'), null);
+  assert.throws(() => submitSteer(steer, 'chat', 'question', [attachment]), /cannot be used for steering/);
+  assert.equal(steer.getPendingSteers('chat')[0], undefined);
 });
 
 test('Run feedback singleflights optimistic writes, uses Team owner, clears comments and rolls back failures without persisting pending', async () => {
@@ -1921,4 +2001,334 @@ test('Form service rejects old array answers and submits one explicit param for 
   assert.equal(calls[0].agentKey,'root');
   assert.deepEqual(calls[0].param.data,payload.param.data);
   assert.equal('params' in calls[0],false);
+});
+
+test('planning submits the displayed access once per click and closes a terminal conflict', async () => {
+  const service = fixture({
+    readAwaitingSubmitParam, buildSubmitAwaitingPayload, CHAT_SUBMIT_TRANSPORT_TYPE: '/api/submit',
+    createAwaitingSubmitId: () => 'submit'
+  });
+  const ask = reducer.applyChatTimelineEvent(active(), 'chat', {
+    type: 'awaiting.ask', mode: 'planning', runId: 'run', awaitingId: 'plan', agentKey: 'planner', timestamp: now + 1,
+    planning: { planningId: 'plan-file', title: 'Proceed?' }
+  });
+  assert.ok(ask.awaiting);
+  service.timelineStates.set('chat', ask);
+  service.assertConversationWritable = async () => null;
+  service.resolveRunControlScope = async () => ({ agentKey: 'planner' });
+  service.scheduleConversationReconcile = async () => {};
+  service.publishTimelineState = (id: string, _reason: string, state: typeof ask) => service.timelineStates.set(id, state);
+  const calls: unknown[] = [];
+  service.requestChatApi = async (_type: string, payload: unknown) => {
+    calls.push(payload);
+    if (calls.length === 1) throw new Error('Agent default changed');
+    throw new ApiError('The plan can no longer be approved', 409, { code: 'awaiting_interrupted' });
+  };
+  const send = (executionAccessLevel: 'ask_for_approval' | 'auto_approve') => service.submitAwaiting('chat',
+    buildAwaitingSubmitPayload(ask.awaiting!, { kind: 'plan', decision: 'approve', executionAccessLevel }));
+  const pending = send('ask_for_approval');
+  assert.equal(send('ask_for_approval'), pending);
+  await assert.rejects(pending, /default changed/);
+  assert.equal(calls.length, 1);
+  assert.equal(service.getConversationTimelineState('chat').awaiting.awaitingId, 'plan');
+  assert.equal((await send('auto_approve')).status, 'awaiting_interrupted');
+  assert.equal(service.getConversationTimelineState('chat').awaiting, null);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)), ['ask_for_approval', 'auto_approve'].map((executionAccessLevel) => ({
+    runId: 'run', awaitingId: 'plan', agentKey: 'planner', chatId: 'chat', submitId: 'submit',
+    param: { decision: 'approve', executionAccessLevel }
+  })));
+});
+
+
+test('older-history entry requires a confirmed server cursor and disappears at the last page', async () => {
+  const service = fixture({
+    isAccountDesktopChatSource: () => true,
+    CHAT_DETAIL_TRANSPORT_TYPE: '/api/chat',
+    buildChatDetailPayload
+  });
+  assert.equal(service.hasOlderConversationHistory('chat'), false);
+  service.timelineStates.set('chat', active());
+  assert.equal(service.hasOlderConversationHistory('chat'), false, 'sending does not establish older history');
+  let response: unknown = { eventPage: { hasMore: true, nextBeforeSeq: 50 } };
+  service.requestChatApi = async () => response;
+  await service.getChatDetailViaTransport('chat');
+  assert.equal(service.hasOlderConversationHistory('chat'), true);
+  assert.equal(service.hasOlderConversationHistory('other-chat'), false);
+  service.runConversationReconcile = async (id: string, _reason: string, cursor: number) => {
+    assert.equal(cursor, 50);
+    response = { eventPage: { hasMore: false, nextBeforeSeq: 1 } };
+    await service.getChatDetailViaTransport(id, cursor);
+  };
+  assert.equal(await service.loadOlderConversationHistory('chat'), false);
+  assert.equal(service.hasOlderConversationHistory('chat'), false);
+  for (const eventPage of [undefined, { hasMore: true }, { hasMore: true, nextBeforeSeq: 0 }]) {
+    response = { eventPage };
+    await service.getChatDetailViaTransport('chat');
+    assert.equal(service.hasOlderConversationHistory('chat'), false);
+  }
+  const cloud = fixture();
+  cloud.remoteHistoryCursors.set('chat', 50);
+  assert.equal(cloud.hasOlderConversationHistory('chat'), false);
+});
+
+test('three steers retain independent snapshots and dispatch in tap order before any response', async () => {
+  const service = steerFixture();
+  service.timelineStates.set('chat', active('team'));
+  let releaseValidation!: () => void;
+  let validations = 0;
+  service.assertConversationWritable = async () => {
+    if (++validations === 1) await new Promise<void>((resolve) => { releaseValidation = resolve; });
+  };
+  service.ensureAgentSkills = async () => skillsProtocol.normalizeChatSkills({ skills: [{ id: 'PDF' }, { id: 'code' }] });
+  const calls: any[] = [], responses: ((value: any) => void)[] = [];
+  service.requestChatApi = (_type: string, payload: any) => {
+    calls.push(payload);
+    return new Promise((resolve) => responses.push(resolve));
+  };
+  const attachment = { attachmentId: 'file', kind: 'file', status: 'ready', name: 'original', references: [{ type: 'file', name: 'original', url: '/api/resource/original' }] };
+  const skills = ['pdf'];
+  const first = submitSteer(service, 'chat', 'first', [attachment], skills);
+  const second = submitSteer(service, 'chat', 'second', [], ['code']);
+  const third = submitSteer(service, 'chat', 'third');
+  attachment.name = 'changed';
+  attachment.references[0].name = 'changed';
+  skills.push('code');
+  assert.equal(service.getPendingSteers('chat').length, 3);
+  assert.equal(service.getPendingSteers('chat')[0].attachments[0].name, 'original');
+  await flush();
+  assert.equal(validations, 1);
+  assert.equal(calls.length, 0);
+  releaseValidation();
+  for (let i = 0; i < 4; i++) await flush();
+  assert.deepEqual(Array.from(calls, (call) => call.message), ['first', 'second', 'third']);
+  assert.equal(new Set(calls.map((call) => call.requestId)).size, 3);
+  assert.equal(calls[0].references[0].name, 'original');
+  assert.deepEqual(Array.from(calls[0].references, (ref: any) => ref.id || ref.name), ['original', 'PDF']);
+  assert.equal(calls[1].references[0].id, 'code');
+  for (const call of calls) {
+    assert.equal(call.agentKey, 'team');
+    assert.equal(call.runId, 'run');
+    assert.equal(call.requestId, call.steerId);
+  }
+  const secondEcho = reducer.applyChatTimelineEvent(active('team'), 'chat', {
+    type: 'request.steer', agentKey: 'team', runId: 'run', steerId: calls[1].steerId, message: 'second', timestamp: now + 1
+  });
+  service.timelineStates.set('chat', secondEcho);
+  service.syncPendingSteerFromTimeline('chat', secondEcho, true);
+  responses[1]({ accepted: false }); // consumption wins over a contradictory late response
+  responses[0]({ accepted: false, detail: 'policy rejected' });
+  responses[2]({ accepted: true });
+  await Promise.all([first, second, third]);
+  const remaining = service.getPendingSteers('chat');
+  assert.deepEqual(Array.from(remaining, (item: any) => [item.message, item.phase]), [['first', 'failed'], ['third', 'accepted']]);
+  assert.equal(remaining[0].error, 'policy rejected');
+  const restored = await service.restorePendingSteer('chat', remaining[0].steerId, () => true);
+  assert.equal(restored.message, 'first');
+  assert.equal(await service.restorePendingSteer('chat', remaining[0].steerId, () => true), null);
+  assert.equal(await service.restorePendingSteer('chat', remaining[1].steerId, () => true), null);
+  assert.equal(calls.length, 3);
+});
+
+test('steer capacity is sixteen records across Chats and admission failure leaves existing snapshots untouched', async () => {
+  const service = steerFixture();
+  service.timelineStates.set('other', active('team'));
+  const requests: Promise<unknown>[] = [];
+  let calls = 0;
+  service.requestChatApi = async () => { calls++; return { accepted: true }; };
+  for (let index = 0; index < 16; index++) requests.push(submitSteer(service, index % 2 ? 'chat' : 'other', `message-${index}`));
+  assert.throws(() => submitSteer(service, 'chat', 'retained draft'), /Resolve existing/);
+  assert.equal(service.getPendingSteers('chat').length, 8);
+  assert.equal(service.getPendingSteers('other').length, 8);
+  await Promise.all(requests);
+  assert.equal(calls, 16);
+  assert.equal(service.getPendingSteers('chat')[0].message, 'message-1');
+});
+
+test('steer failures classify explicit rejection and uncertain transport; restoration reconciles and never revives late responses', async () => {
+  for (const status of [403, 408, 503]) {
+    const service = steerFixture();
+    service.requestChatApi = async () => { throw new ApiError('original error', status, null); };
+    await assert.rejects(submitSteer(service, 'chat', 'snapshot'), /original error/);
+    assert.equal(service.getPendingSteers('chat')[0].phase, status === 403 ? 'failed' : 'unknown');
+  }
+  const service = steerFixture();
+  let respond!: (value: any) => void;
+  service.requestChatApi = () => new Promise((resolve) => { respond = resolve; });
+  const submission = submitSteer(service, 'chat', 'old');
+  await flush();
+  const pending = service.getPendingSteers('chat')[0];
+  // An uncertain outcome may be restored only after the Run ends, and only after history is checked.
+  service.setPendingSteer('chat', { ...pending, phase: 'unknown', runEnded: true });
+  let historyChecks = 0;
+  service.getChatDetailViaTransport = async () => { historyChecks++; return null; };
+  const restored = await Promise.all([
+    service.restorePendingSteer('chat', pending.steerId, () => true), service.restorePendingSteer('chat', pending.steerId, () => true)
+  ]);
+  assert.equal(restored.filter(Boolean).length, 1);
+  assert.equal(historyChecks, 2);
+  respond({ accepted: true });
+  await submission;
+  assert.equal(service.getPendingSteers('chat').length, 0);
+  assert.equal(await service.restorePendingSteer('chat', pending.steerId, () => true), null);
+});
+
+test('steer skill gates reject skill-only content, unavailable skills and foreign references without sending', async () => {
+  const service = steerFixture();
+  let calls = 0;
+  service.requestChatApi = async () => { calls++; return { accepted: true }; };
+  assert.throws(() => submitSteer(service, 'chat', '', [], ['pdf']), /input are required/);
+  service.ensureAgentSkills = async () => skillsProtocol.normalizeChatSkills({ skills: [] });
+  await assert.rejects(submitSteer(service, 'chat', 'question', [], ['missing']), /no longer available/);
+  service.ensureAgentDetail = async () => ({ raw: { interactionConfig: { ...capabilities, attachment: { ...capabilities.attachment, skills: false } } } });
+  await assert.rejects(submitSteer(service, 'chat', 'question', [], ['pdf']), /capabilities changed/);
+  assert.equal(calls, 0);
+  assert.equal(service.getPendingSteers('chat').length, 2);
+});
+
+test('history without matching owner cannot consume a pending steer and restore fails closed when history is unavailable', async () => {
+  const service = steerFixture();
+  service.requestChatApi = async () => ({ accepted: true });
+  await submitSteer(service, 'chat', 'content');
+  const pending = service.getPendingSteers('chat')[0];
+  for (const owner of ['', 'other']) {
+    const history = reducer.applyChatTimelineEvent(active(owner), 'chat', {
+      type: 'request.steer', runId: 'run', steerId: pending.steerId, message: 'content', timestamp: now + 1
+    });
+    service.syncPendingSteerFromTimeline('chat', history, true);
+    assert.equal(service.getPendingSteers('chat').length, 1);
+  }
+  service.setPendingSteer('chat', { ...pending, runEnded: true });
+  service.getChatDetailViaTransport = async () => { throw new Error('offline'); };
+  await assert.rejects(service.restorePendingSteer('chat', pending.steerId, () => true), /offline/);
+  assert.equal(service.getPendingSteers('chat').length, 1);
+});
+
+test('ordinary query stays single-flight while independent steer records exist', async () => {
+  const service = fixture();
+  let release!: (value: unknown) => void, calls = 0;
+  service.sendConversationMessage = () => { calls++; return new Promise((resolve) => { release = resolve; }); };
+  service.pendingSteers.set('chat', [{ steerId: 'old', runId: 'ended', phase: 'failed', message: 'old', attachments: [], skillIds: [], runEnded: true }]);
+  const first = service.sendMessage('chat', 'first');
+  await assert.rejects(service.sendMessage(' chat ', 'second'), /already being sent/);
+  assert.equal(calls, 1);
+  release({ clientMessageId: 'first' }); await first;
+  const next = service.sendMessage('chat', 'next');
+  assert.equal(calls, 2);
+  release({ clientMessageId: 'next' }); await next;
+  assert.equal(service.getPendingSteers('chat').length, 1);
+});
+
+test('steer recovery awaits the actual history read and retains the snapshot on read failure or abandoned delivery', async () => {
+  for (const outcome of ['missing', 'unauthorized', 'left-chat', 'consumed']) {
+    const service = steerFixture({
+      RECONCILE_DEBOUNCE_MS: 1,
+      isRecoverableReconcileError: () => true,
+      reconcileConversationDetail: async () => {}
+    });
+    service.timelineStates.set('chat', active('team'));
+    service.requestChatApi = async () => ({ accepted: true });
+    await submitSteer(service, 'chat', 'snapshot');
+    const pending = service.getPendingSteers('chat')[0];
+    service.setPendingSteer('chat', { ...pending, runEnded: true });
+    delete service.scheduleConversationReconcile;
+    service.emitConversationRuntimeState = () => {};
+    service.emitHomePatchFromConversation = async () => {};
+    service.scheduleTimelinePersist = () => {};
+    let resolve!: (value: unknown) => void, reject!: (error: Error) => void;
+    let reads = 0, deliveries = 0, settled = false;
+    service.getChatDetailViaTransport = () => {
+      reads++;
+      return new Promise((yes, no) => { resolve = yes; reject = no; });
+    };
+    const restoring = service.restorePendingSteer('chat', pending.steerId, () => {
+      deliveries++;
+      return outcome !== 'left-chat';
+    });
+    const completion = restoring.then(() => { settled = true; }, () => { settled = true; });
+    await flush();
+    // With the real debounced scheduler, awaiting "schedule" resolves before the read starts.
+    for (const state of service.reconcileStates.values()) if (state.timer) clearTimeout(state.timer);
+    assert.equal(settled, false, 'must not restore before checking history');
+    assert.equal(reads, 1);
+    assert.equal(deliveries, 0);
+    assert.equal(service.getPendingSteers('chat').length, 1);
+    if (outcome === 'unauthorized') {
+      reject(new ApiError('unauthorized', 401, null));
+      await assert.rejects(restoring, /unauthorized/);
+    } else {
+      resolve(outcome === 'consumed' ? {
+        chatId: 'chat', agentKey: 'team', events: [
+          { type: 'run.start', runId: 'run', agentKey: 'team', timestamp: now },
+          { type: 'request.steer', runId: 'run', agentKey: 'team', steerId: pending.steerId, message: 'snapshot', timestamp: now + 1 },
+          { type: 'run.complete', runId: 'run', agentKey: 'team', timestamp: now + 2 }
+        ]
+      } : null);
+      await restoring;
+    }
+    await completion;
+    assert.equal(deliveries, outcome === 'missing' || outcome === 'left-chat' ? 1 : 0);
+    assert.equal(service.getPendingSteers('chat').length, outcome === 'unauthorized' || outcome === 'left-chat' ? 1 : 0);
+  }
+});
+
+
+test('queued steer does not send until manual submit; duplicate taps submit only once', async () => {
+  const service = steerFixture();
+  const calls: unknown[] = [];
+  let finish!: (value: unknown) => void;
+  service.requestChatApi = (_type: string, payload: unknown) => {
+    calls.push(payload);
+    return new Promise(resolve => { finish = resolve; });
+  };
+  const draft = { input: 'before after', pastes: [{ id: 'paste', offset: 7, text: 'FULL' }] };
+  const pending = service.queueSteerConversation('chat', 'before FULLafter', [], [], { draft });
+  draft.pastes[0].text = 'later edit';
+  await flush();
+  assert.equal(calls.length, 0);
+  assert.equal(service.getPendingSteers('chat')[0].phase, 'queued');
+  assert.equal(pending.draft.pastes[0].text, 'FULL');
+  const submission = service.submitPendingSteer('chat', pending.steerId);
+  assert.equal(service.getPendingSteers('chat')[0].phase, 'sending');
+  assert.equal(await service.submitPendingSteer('chat', pending.steerId), null);
+  assert.equal(await service.restorePendingSteer('chat', pending.steerId, () => true), null);
+  await flush();
+  assert.equal(calls.length, 1);
+  finish({ accepted: true });
+  await submission;
+  assert.equal(service.getPendingSteers('chat')[0].phase, 'accepted');
+});
+
+test('cancel queued steer returns its snapshot without network and retains it when composer declines delivery', async () => {
+  const service = steerFixture();
+  service.requestChatApi = () => assert.fail('cancel must not send');
+  service.runConversationReconcile = () => assert.fail('unsent content needs no history check');
+  const pending = service.queueSteerConversation('chat', 'keep text');
+  assert.equal(await service.restorePendingSteer('chat', pending.steerId, () => false), null);
+  assert.equal(service.getPendingSteers('chat').length, 1);
+  const restored = await service.restorePendingSteer('chat', pending.steerId, () => true);
+  assert.equal(restored.message, 'keep text');
+  assert.equal(service.getPendingSteers('chat').length, 0);
+  assert.equal(await service.submitPendingSteer('chat', pending.steerId), null);
+});
+
+test('queued steer never auto submits on run end, a new run, disconnect or awaiting; cancellation stays available', async () => {
+  for (const change of ['ended', 'new-run', 'offline', 'awaiting']) {
+    const service = steerFixture();
+    service.requestChatApi = () => assert.fail('must not send');
+    const pending = service.queueSteerConversation('chat', 'held');
+    let state = service.getConversationTimelineState('chat');
+    if (change === 'ended' || change === 'new-run') {
+      state = reducer.applyChatTimelineEvent(state, 'chat', { type: 'run.complete', runId: 'run', timestamp: now + 1 });
+      if (change === 'new-run') state = reducer.applyChatTimelineEvent(state, 'chat', { type: 'run.start', runId: 'next', timestamp: now + 2 });
+    }
+    if (change === 'offline') service.status = 'disconnected';
+    if (change === 'awaiting') state = { ...state, awaiting: { status: 'ask' } };
+    service.timelineStates.set('chat', state);
+    service.syncPendingSteerFromTimeline('chat', state, true);
+    await flush();
+    assert.equal(service.getPendingSteers('chat')[0].phase, 'queued');
+    await assert.rejects(service.submitPendingSteer('chat', pending.steerId), /unavailable/);
+    service.runConversationReconcile = () => assert.fail('queued restore stays local');
+    assert.equal((await service.restorePendingSteer('chat', pending.steerId, () => true)).message, 'held');
+  }
 });

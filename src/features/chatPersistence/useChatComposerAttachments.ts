@@ -480,22 +480,9 @@ export function useChatComposerAttachments({
 
   const restoreAttachments = useCallback((restored: readonly ChatComposerAttachment[]) => {
     setAttachments((current) => {
-      const combined = [...current, ...restored],
-        seen = new Set<string>(),
-        retained: ChatComposerAttachment[] = [];
-      for (let index = combined.length - 1; index >= 0; index--) {
-        const item = combined[index],
-          key =
-            item.kind === 'selection'
-              ? `selection:${item.attachmentId}`
-              : ['chat', 'site', 'skill', 'kbase'].includes(item.kind)
-                ? `${item.kind}:${item.references[0]?.id}`
-                : `file:${item.name}`;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        retained.push(item);
-      }
-      return retained.reverse().slice(-MAX_COMPOSER_ATTACHMENTS);
+      // Restoring a submitted snapshot must not replace newer files or silently drop overflow.
+      const ids = new Set(current.map((item) => item.attachmentId));
+      return [...current, ...restored.filter((item) => !ids.has(item.attachmentId))];
     });
   }, []);
 

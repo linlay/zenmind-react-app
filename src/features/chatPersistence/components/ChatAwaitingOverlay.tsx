@@ -104,9 +104,13 @@ export const ChatAwaitingResumeBar = memo(function ChatAwaitingResumeBar({
     return null;
   }
 
+  const label = awaiting.interactive
+    ? t('awaiting.resume.answer')
+    : t('awaiting.resume.title', { mode: getModeLabel(awaiting.mode, t) });
+
   return (
     <Pressable
-      accessibilityLabel={t('awaiting.resume.open')}
+      accessibilityLabel={awaiting.interactive ? label : t('awaiting.resume.open')}
       accessibilityRole="button"
       onPress={onPress}
       className={RESUME_BAR_CLASS}
@@ -115,7 +119,7 @@ export const ChatAwaitingResumeBar = memo(function ChatAwaitingResumeBar({
         <AppIcon usage="awaiting.resume" />
       </View>
       <Text allowFontScaling={false} numberOfLines={1} className={RESUME_TITLE_CLASS}>
-        {t('awaiting.resume.title', { mode: getModeLabel(awaiting.mode, t) })}
+        {label}
       </Text>
     </Pressable>
   );

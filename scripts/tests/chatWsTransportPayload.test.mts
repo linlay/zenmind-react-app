@@ -52,3 +52,9 @@ test('attach carries the root Agent identity and an independent resume cursor', 
   });
   assert.equal(buildChatAttachPayload({ runId: 'run', agentKey: 'root', lastSeq: NaN }).lastSeq, 0);
 });
+
+test('explicit STANDARD survives the query wire payload while omitted tier stays absent', () => {
+  const query = { requestId:'id', agentKey:'agent-with-fast-default', message:'question' };
+  assert.equal(buildChatQueryPayload({ ...query, model:{ key:'model', serviceTier:'STANDARD' } }).model?.serviceTier, 'STANDARD');
+  assert.equal('serviceTier' in buildChatQueryPayload({ ...query, model:{ key:'model' } }).model!, false);
+});

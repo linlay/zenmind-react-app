@@ -59,7 +59,12 @@ function cloneRecord(value: unknown): Record<string, unknown> | null {
 function isPlanAwaitingRecord(record: Record<string, unknown>): boolean {
   const modeText = toText(record.mode).toLowerCase();
   const kindText = toText(record.kind).toLowerCase();
-  return modeText === 'planning' || modeText === 'plan' || kindText === 'plan' || hasTimelineEventValue(record.plan);
+  return modeText === 'planning' || modeText === 'plan' || kindText === 'plan' || Boolean(readAwaitingPlan(record));
+}
+
+function readAwaitingPlan(record: Record<string, unknown>): Record<string, unknown> | undefined {
+  if (isPlainRecord(record.planning)) return record.planning;
+  if (isPlainRecord(record.plan)) return record.plan;
 }
 
 function resolveAwaitingMode(
@@ -179,6 +184,21 @@ function normalizeApprovalOption(value: unknown): ChatTimelineAwaitingApprovalOp
   };
 }
 
+function pendingApprovalReasons(value: unknown): NonNullable<ChatTimelineAwaitingApproval['reasons']> {
+  if (!isPlainRecord(value) || (value.decision && value.decision !== 'requires_approval')) return [];
+  if (Array.isArray(value.requirements) && value.requirements.length) {
+    return value.requirements.flatMap(pendingApprovalReasons);
+  }
+  const code = readOptionalText(value, 'reasonCode') || readOptionalText(value, 'code') || '';
+  const detail = readOptionalText(value, 'reason') || readOptionalText(value, 'detail') || '';
+  const subject =
+    (value.scopeKind === 'invocation_version' && code === 'execution_effects_unknown'
+      ? readOptionalText(value, 'scope')
+      : '') ||
+    readOptionalText(value, 'subject') || readOptionalText(value, 'path') || readOptionalText(value, 'scope') || '';
+  return code || detail ? [{ code, subject, detail }] : [];
+}
+
 function normalizeApproval(value: unknown, index: number): ChatTimelineAwaitingApproval | null {
   if (!isPlainRecord(value)) {
     return null;
@@ -198,12 +218,19 @@ function normalizeApproval(value: unknown, index: number): ChatTimelineAwaitingA
         .map(normalizeApprovalOption)
         .filter((option): option is ChatTimelineAwaitingApprovalOption => Boolean(option))
     : [];
+  const policyReasons = pendingApprovalReasons(value.policy);
+  const policyRequirements = isPlainRecord(value.policy) ? value.policy.requirements : undefined;
+  const fallbackRequirements = value.requirements ?? value.reasons;
+  const reasons = policyReasons.length || (Array.isArray(policyRequirements) && policyRequirements.length)
+    ? policyReasons
+    : Array.isArray(fallbackRequirements) ? fallbackRequirements.flatMap(pendingApprovalReasons) : [];
 
   return {
     id,
     command,
     ...(ruleKey ? { ruleKey } : {}),
     ...(description ? { description } : {}),
+    ...(reasons.length ? { reasons } : {}),
     ...(options.length > 0 ? { options } : {}),
     ...(value.allowFreeText === true ? { allowFreeText: true } : {}),
     ...(freeTextPlaceholder ? { freeTextPlaceholder } : {})
@@ -260,8 +287,7 @@ function normalizePlan(value: unknown, fallback?: Record<string, unknown>): Chat
   const source = isPlainRecord(value)
     ? value
     : fallback &&
-        (isPlanAwaitingRecord(fallback) ||
-          hasTimelineEventValue(fallback.planningId) ||
+        (hasTimelineEventValue(fallback.planningId) ||
           hasTimelineEventValue(fallback.options) ||
           hasTimelineEventValue(fallback.title) ||
           hasTimelineEventValue(fallback.id))
@@ -322,7 +348,7 @@ function normalizeDirectInteractive(
     return form ? { kind: 'form', ...common, form } : null;
   }
   if (kind === 'plan') {
-    const plan = normalizePlan(value.plan ?? event.plan, value);
+    const plan = normalizePlan(readAwaitingPlan(value) ?? readAwaitingPlan(event), value);
     return plan ? { kind: 'plan', ...common, plan } : null;
   }
   return null;
@@ -367,7 +393,7 @@ function normalizeAwaitingInteractive(
   }
 
   if (mode === 'plan') {
-    const plan = normalizePlan(event.plan, event);
+    const plan = normalizePlan(readAwaitingPlan(event), event);
     if (plan) {
       return { kind: 'plan', ...common, plan };
     }
@@ -422,8 +448,9 @@ function readAwaitingPrompt(
   if (direct) {
     return direct;
   }
-  if (mode === 'plan' && isPlainRecord(event.plan)) {
-    return toText(event.plan.title) || current?.prompt || '';
+  const plan = mode === 'plan' ? readAwaitingPlan(event) : undefined;
+  if (plan) {
+    return toText(plan.title) || current?.prompt || '';
   }
   if (mode === 'approval' && Array.isArray(event.approvals)) {
     const firstApproval = event.approvals.find(isTimelineObjectRecord);
@@ -440,9 +467,10 @@ function readAwaitingPayloadText(
   mode: ChatTimelineAwaitingMode,
   current?: ChatTimelineAwaitingNode
 ): string {
-  if (mode === 'plan' && isPlainRecord(event.plan)) {
-    const options = Array.isArray(event.plan.options)
-      ? event.plan.options
+  const plan = mode === 'plan' ? readAwaitingPlan(event) : undefined;
+  if (plan) {
+    const options = Array.isArray(plan.options)
+      ? plan.options
           .map((option) => {
             if (!isTimelineObjectRecord(option)) {
               return formatTimelineEventValue(option);
@@ -452,7 +480,7 @@ function readAwaitingPayloadText(
           .filter(Boolean)
           .join('\n')
       : '';
-    const text = [toText(event.plan.title), options].filter(Boolean).join('\n');
+    const text = [toText(plan.title), options].filter(Boolean).join('\n');
     return text || current?.payloadText || '';
   }
   if (mode === 'approval') {
@@ -796,6 +824,7 @@ export function getAwaitingInteractiveSignature(
             signatureText(approval.command),
             signatureText(approval.ruleKey),
             signatureText(approval.description),
+            JSON.stringify(approval.reasons ?? []),
             approval.allowFreeText === true ? '1' : '0',
             signatureText(approval.freeTextPlaceholder),
             optionSignature(approval.options)

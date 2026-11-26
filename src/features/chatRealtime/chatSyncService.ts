@@ -1,4 +1,5 @@
 import { readTimelineViewBindings } from '../chatTimeline/timelineView';
+import { classifyChatRequestInput } from '../chatTimeline/timelineRequest.ts';
 import { readChatDirectory, classifyCloudFailure } from '../../core/api/services/chatDirectoryApi';
 import { getCloudAuthSnapshot, reportCloudFailure } from '../../core/auth/cloudAuth';
 import { verifyDefaultCloud } from '../chatPersistence/cloudAccess';
@@ -44,6 +45,7 @@ import {
 } from '../chatTimeline/timelineReducer';
 import { buildChatRunOwnerPayload } from '../../core/api/services/chatRunOwner';
 import { Platform } from 'react-native';
+import type { ChatComposerDraft } from '../chatPersistence/chatComposerDraft';
 import { encodeChatSourceId } from '../chatPersistence/chatSource.ts';
 
 import { ApiError } from '../../core/api/apiClient';
@@ -177,6 +179,10 @@ import {
   isAccountDesktopChatSource
 } from '../chatPersistence/chatSourceRuntime';
 import { scopeChatPayload, scopeRemoteHomePayload, unscopeChatPayload } from './chatSourcePayload';
+import {
+  applyChatTimelineRunAnnouncementSnapshot,
+  clearChatTimelineRunAnnouncementForContent
+} from '../chatTimeline/timelineRunAnnouncement.ts';
 import {
   applyChatTimelineEvent,
   applyChatTimelineMessage,
@@ -547,7 +553,8 @@ class ChatSyncService {
   private readonly derivationRequests = new Set<string>();
   private readonly feedbackRequests = new Map<string, symbol>();
   private readonly runtimeAccessRequests = new Map<string, symbol>();
-  private readonly pendingSteers = new Map<string, ChatPendingSteer>();
+  private readonly pendingSteers = new Map<string, ChatPendingSteer[]>();
+  private readonly steerDispatches = new Map<string, Promise<void>>();
   private readonly conversationSendRequests = new Map<string, symbol>();
   private readonly awaitingSubmitRequests = new Map<string, Promise<SubmitAwaitingResponse>>();
   private readonly frontendToolSubmitRequests = new Map<string, Promise<SubmitFrontendToolResponse>>();
@@ -943,7 +950,9 @@ class ChatSyncService {
 
   stop(releaseConnection = false) {
     this.timelineStates.forEach((state, id) =>
-      this.timelineStates.set(id, { ...clearChatTimelineToolTransientState(state), modelRetry: undefined })
+      this.timelineStates.set(id, {
+        ...clearChatTimelineToolTransientState(state), modelRetry: undefined, runAnnouncement: undefined
+      })
     );
     this.lifecycleVersion += 1;
     this.homeRefreshController?.abort();
@@ -1136,9 +1145,10 @@ class ChatSyncService {
     this.frontendToolSubmitRequests.clear();
     this.awaitingSubmitRequests.clear();
     this.pendingSteers.forEach((_, conversationId) =>
-      this.emit({ type: 'conversation.steer.changed', conversationId, pending: null })
+      this.emit({ type: 'conversation.steer.changed', conversationId, pending: [] })
     );
     this.pendingSteers.clear();
+    this.steerDispatches.clear();
     this.runtimeAccessRequests.clear();
     this.conversationSendRequests.clear();
     this.inFlightOutgoingIds.clear();
@@ -1438,7 +1448,7 @@ class ChatSyncService {
   }
 
   submitAwaiting(conversationId: string, payload: AwaitingSubmitPayloadData): Promise<SubmitAwaitingResponse> {
-    const key = JSON.stringify([conversationId, payload.runId]);
+    const key = JSON.stringify([conversationId, payload.runId, payload.awaitingId]);
     const pending = this.awaitingSubmitRequests.get(key);
     if (pending) return pending;
     const request = this.submitCurrentAwaiting(conversationId, payload).finally(() => {
@@ -1500,7 +1510,13 @@ class ChatSyncService {
           submitId: createAwaitingSubmitId(),
           ...(payload.param ? { param: payload.param } : { params: payload.params! })
         })
-      ).catch(async (error) => {
+      ).catch(async (error: unknown): Promise<SubmitAwaitingResponse> => {
+        const text = getUnknownErrorText(error).toLowerCase();
+        const terminal = text.match(/\b(already_resolved|awaiting_expired|awaiting_interrupted|unknown_awaiting)\b/)?.[1];
+        if (terminal) return { accepted: false, status: terminal };
+        if (error instanceof Error && /unknown awaiting|awaiting.*not found|awaiting.*expired/i.test(error.message)) {
+          return { accepted: false, status: 'expired' };
+        }
         if (this.isLifecycleCurrent(lifecycleVersion))
           await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
         throw error;
@@ -1514,7 +1530,7 @@ class ChatSyncService {
 
     if (!accepted) {
       await this.scheduleConversationReconcile(normalizedConversationId, 'reconcile', false);
-      if (['already_resolved', 'expired', 'completed', 'cancelled'].includes(status)) {
+      if (['already_resolved', 'expired', 'completed', 'cancelled', 'awaiting_expired', 'awaiting_interrupted', 'unknown_awaiting'].includes(status)) {
         const state = this.getConversationTimelineState(normalizedConversationId);
         if (
           this.isLifecycleCurrent(lifecycleVersion) &&
@@ -1895,21 +1911,54 @@ class ChatSyncService {
       this.scheduleTimelinePersist(conversationId);
   }
 
-  getPendingSteer(conversationId: string): ChatPendingSteer | null {
-    return this.pendingSteers.get(toText(conversationId)) || null;
+  getPendingSteers(conversationId: string): readonly ChatPendingSteer[] {
+    return this.pendingSteers.get(toText(conversationId)) || [];
   }
 
-  restorePendingSteer(conversationId: string): ChatPendingSteer | null {
-    const id = toText(conversationId);
-    const pending = this.pendingSteers.get(id);
-    if (!pending || pending.phase === 'sending') return null;
-    this.pendingSteers.delete(id);
-    this.emit({ type: 'conversation.steer.changed', conversationId: id, pending: null });
+  private setPendingSteer(conversationId: string, pending: ChatPendingSteer, remove = false) {
+    const records = this.getPendingSteers(conversationId);
+    const next = remove
+      ? records.filter((item) => item.steerId !== pending.steerId)
+      : records.some((item) => item.steerId === pending.steerId)
+        ? records.map((item) => (item.steerId === pending.steerId ? pending : item))
+        : [...records, pending];
+    if (next.length) this.pendingSteers.set(conversationId, next);
+    else this.pendingSteers.delete(conversationId);
+    this.emit({ type: 'conversation.steer.changed', conversationId, pending: next });
+  }
+
+  async restorePendingSteer(
+    conversationId: string,
+    steerId: string,
+    restoreDraft: (pending: ChatPendingSteer) => boolean
+  ): Promise<ChatPendingSteer | null> {
+    const id = toText(conversationId),
+      version = this.lifecycleVersion;
+    let pending = this.getPendingSteers(id).find((item) => item.steerId === steerId);
+    if (
+      !pending ||
+      pending.phase === 'sending' ||
+      (pending.phase !== 'queued' && pending.phase !== 'failed' && !pending.runEnded)
+    )
+      return null;
+    if (pending.phase !== 'queued' && pending.phase !== 'failed') {
+      // Recovery needs a completed read; background scheduling can resolve before the read starts.
+      await this.runConversationReconcile(id, 'reconcile');
+      if (!this.isLifecycleCurrent(version)) return null;
+      this.syncPendingSteerFromTimeline(id, this.getConversationTimelineState(id), true);
+      pending = this.getPendingSteers(id).find((item) => item.steerId === steerId);
+    }
+    // Deliver synchronously before removing the only copy. A departed composer cannot accept it.
+    if (!pending || !restoreDraft(pending)) return null;
+    this.setPendingSteer(id, pending, true);
     return pending;
   }
 
-  continueWait(conversationId: string, toolId: string) {
-    return this.steerConversation(conversationId, '', [], toolId);
+  async continueWait(conversationId: string, toolId: string) {
+    const pending = this.queueSteerConversation(conversationId, '', [], [], { waitToolId: toolId });
+    const result = await this.submitPendingSteer(conversationId, pending.steerId);
+    if (!result) throw new Error('This wait is awaiting confirmation');
+    return result;
   }
 
   private assertRootWait(conversationId: string, toolId: string) {
@@ -1927,41 +1976,131 @@ class ChatSyncService {
       throw new Error('This wait is no longer active');
   }
 
-  async steerConversation(
+  private async resolveRequiredSkills(agentKey: string, ids: readonly string[]) {
+    const normalized = normalizeSkillIds(ids);
+    if (!normalized.length) return normalized;
+    const catalog = await this.ensureAgentSkills(agentKey);
+    if (!catalog) throw new Error('Skills catalog is unavailable');
+    return resolveSkillIds(normalized, catalog);
+  }
+
+  // Admission is synchronous: callers clear only a snapshot that this service now owns.
+  queueSteerConversation(
     conversationId: string,
     message: string,
     attachments: readonly ChatComposerAttachment[] = [],
-    waitToolId = ''
-  ): Promise<ChatSteerResponse> {
-    const id = toText(conversationId);
-    const state = this.getConversationTimelineState(id);
-    const runId = state.activeRunId;
+    skillIds: readonly string[] = [],
+    options: { draft?: ChatComposerDraft; waitToolId?: string } = {}
+  ): ChatPendingSteer {
+    const { draft, waitToolId = '' } = options;
+    const id = toText(conversationId),
+      state = this.getConversationTimelineState(id),
+      runId = state.activeRunId;
     const references = normalizeChatAttachmentReferences(attachments.flatMap((item) => item.references));
     if (references.some((ref) => ref.type === 'chat' || ref.type === 'site'))
       throw new Error('Chat and Site references cannot be used for steering. Remove them or wait for the run to end.');
-    if (waitToolId) this.assertRootWait(id, waitToolId);
-    if (!id || !runId || state.awaiting?.status === 'ask' || (!waitToolId && !message.trim() && !references.length))
+    if (waitToolId) {
+      this.assertRootWait(id, waitToolId);
+      if (this.getPendingSteers(id).some((item) => item.waitToolId === waitToolId && item.phase !== 'failed'))
+        throw new Error('This wait is awaiting confirmation');
+    }
+    if (
+      !id ||
+      !runId ||
+      state.awaiting?.status === 'ask' ||
+      (!waitToolId && !message.trim() && !references.some((ref) => ref.type !== 'skill'))
+    )
       throw new Error('An active run and steering input are required');
     if (attachments.some((item) => item.status !== 'ready') || (attachments.length && !references.length))
       throw new Error('Steering attachments are not ready');
-    if (this.pendingSteers.has(id)) throw new Error('A steering request is awaiting confirmation');
-    if (this.pendingSteers.size >= 16) throw new Error('Resolve existing steering requests before sending another');
-    const lifecycleVersion = this.lifecycleVersion;
+    // Sixteen records total per source service, not sixteen Chats. Never evict unconfirmed input.
+    if ([...this.pendingSteers.values()].reduce((count, items) => count + items.length, 0) >= 16)
+      throw new Error('Resolve existing steering requests before sending another');
     const pending: ChatPendingSteer = {
       steerId: createRunControlRequestId('steer'),
       runId,
       message,
-      attachments: [...attachments],
-      phase: 'sending',
-      runEnded: false
+      attachments: attachments.map((item) => ({ ...item, references: item.references.map((ref) => ({ ...ref })) })),
+      skillIds: normalizeSkillIds([
+        ...skillIds,
+        ...references.filter((ref) => ref.type === 'skill').map((ref) => ref.id || '')
+      ]),
+      phase: 'queued',
+      ...(draft ? { draft: { input: draft.input, pastes: draft.pastes.map((paste) => ({ ...paste })) } } : {}),
+      runEnded: false,
+      ...(waitToolId ? { waitToolId } : {})
     };
-    this.pendingSteers.set(id, pending);
-    this.emit({ type: 'conversation.steer.changed', conversationId: id, pending });
+    this.setPendingSteer(id, pending);
+    return pending;
+  }
+
+  async submitPendingSteer(conversationId: string, steerId: string): Promise<ChatSteerResponse | null> {
+    const id = toText(conversationId);
+    const queued = this.getPendingSteers(id).find((item) => item.steerId === steerId);
+    if (!queued || queued.phase !== 'queued') return null;
+    const state = this.getConversationTimelineState(id);
+    if (
+      queued.runEnded ||
+      state.activeRunId !== queued.runId ||
+      state.awaiting?.status === 'ask' ||
+      this.status !== 'connected'
+    )
+      throw new Error('Steering target is unavailable');
+    const pending: ChatPendingSteer = { ...queued, phase: 'sending' };
+    // Claim synchronously before validation so repeated taps cannot submit twice.
+    this.setPendingSteer(id, pending);
+    const references = normalizeChatAttachmentReferences(pending.attachments.flatMap((item) => item.references));
+    // Serialize validation through the transport invocation, never through its response/consumption.
+    const previous = this.steerDispatches.get(id) || Promise.resolve();
+    let release!: () => void;
+    const dispatch = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.steerDispatches.set(id, dispatch);
+    return this.dispatchSteer(id, pending, references, pending.waitToolId || '', previous, () => {
+      release();
+      if (this.steerDispatches.get(id) === dispatch) this.steerDispatches.delete(id);
+    });
+  }
+
+  private async dispatchSteer(
+    id: string,
+    pending: ChatPendingSteer,
+    inputReferences: ReturnType<typeof normalizeChatAttachmentReferences>,
+    waitToolId: string,
+    previous: Promise<void>,
+    release: () => void
+  ): Promise<ChatSteerResponse> {
+    const lifecycleVersion = this.lifecycleVersion,
+      { runId, message } = pending;
     let sent = false;
     try {
+      await previous;
+      if (!this.isLifecycleCurrent(lifecycleVersion)) throw new Error('Conversation source changed');
       await this.assertConversationWritable(id);
-      if (waitToolId) this.assertRootWait(id, waitToolId);
       const owner = await this.resolveRunControlScope(id, runId);
+      if (!owner.agentKey || this.status !== 'connected') throw new Error('Steering target is unavailable');
+      const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
+      if (!detail || !hasValidAgentInteraction(detail.raw.interactionConfig))
+        throw new Error('Agent execution or attachments are unavailable');
+      const interaction = resolveAgentInteraction(detail.raw.interactionConfig);
+      if (
+        (!interaction.attachment.skills && pending.skillIds.length) ||
+        (!interaction.attachment.kbases && inputReferences.some((ref) => ref.type === 'kbase')) ||
+        (!interaction.attachment.localFiles &&
+          inputReferences.some((ref) => !['selection', 'skill', 'kbase'].includes(ref.type || '')))
+      )
+        throw new Error('Agent input capabilities changed; refresh the conversation');
+      await this.validateContextReferences(id, owner, inputReferences);
+      const skills = await this.resolveRequiredSkills(owner.agentKey, pending.skillIds);
+      const references = normalizeChatAttachmentReferences([
+        ...inputReferences.filter((ref) => ref.type !== 'skill'),
+        ...skills.map((skillId) => ({ type: 'skill', id: skillId }))
+      ]);
+      if (!this.isLifecycleCurrent(lifecycleVersion) || this.getConversationTimelineState(id).activeRunId !== runId)
+        throw new Error('Steering run changed');
+      const latestOwner = await this.resolveRunControlScope(id, runId);
+      if (latestOwner.agentKey !== owner.agentKey) throw new Error('Steering owner changed');
       const latest = this.getConversationTimelineState(id);
       if (
         !this.isLifecycleCurrent(lifecycleVersion) ||
@@ -1969,27 +2108,10 @@ class ChatSyncService {
         latest.awaiting?.status === 'ask'
       )
         throw new Error('Steering run changed');
-      if (!owner.agentKey || this.status !== 'connected') throw new Error('Steering target is unavailable');
-      if (owner.agentKey) {
-        const detail = await this.ensureAgentDetail(owner.agentKey, { throwOnError: true });
-        if (
-          !detail ||
-          !hasValidAgentInteraction(detail.raw.interactionConfig) ||
-          (attachments.some((item) => item.kind === 'image' || item.kind === 'file') &&
-            !resolveAgentInteraction(detail.raw.interactionConfig).attachment.localFiles)
-        )
-          throw new Error('Agent execution or attachments are unavailable');
-      }
-      if (
-        !this.isLifecycleCurrent(lifecycleVersion) ||
-        this.getConversationTimelineState(id).activeRunId !== runId ||
-        this.getConversationTimelineState(id).awaiting?.status === 'ask'
-      )
-        throw new Error('Steering run changed');
       if (waitToolId) this.assertRootWait(id, waitToolId);
-      this.pendingSteers.set(id, { ...pending, ...owner });
+      this.setPendingSteer(id, { ...pending, ...owner, skillIds: skills });
       sent = true;
-      const response = await this.requestChatApi<Record<string, unknown>>(CHAT_STEER_TRANSPORT_TYPE, {
+      const responsePromise = this.requestChatApi<Record<string, unknown>>(CHAT_STEER_TRANSPORT_TYPE, {
         chatId: id,
         runId,
         requestId: pending.steerId,
@@ -1998,10 +2120,12 @@ class ChatSyncService {
         message,
         ...(references.length ? { references } : {})
       });
+      release();
+      const response = await responsePromise;
       if (!this.isLifecycleCurrent(lifecycleVersion)) return { accepted: null, status: 'source_changed', detail: '' };
       this.syncPendingSteerFromTimeline(id, this.getConversationTimelineState(id), true);
-      const current = this.pendingSteers.get(id);
-      if (current?.steerId !== pending.steerId) return { accepted: true, status: 'confirmed', detail: '' };
+      const current = this.getPendingSteers(id).find((item) => item.steerId === pending.steerId);
+      if (!current) return { accepted: true, status: 'confirmed', detail: '' };
       const accepted = typeof response?.accepted === 'boolean' ? response.accepted : null;
       const result = {
         accepted,
@@ -2009,31 +2133,30 @@ class ChatSyncService {
           toText(response?.status) || (accepted === true ? 'accepted' : accepted === false ? 'rejected' : 'unknown'),
         detail: toText(response?.detail)
       };
-      if (accepted === false) {
-        this.pendingSteers.delete(id);
-        this.emit({ type: 'conversation.steer.changed', conversationId: id, pending: null });
-      } else {
-        const next = { ...current, phase: accepted === true ? ('accepted' as const) : ('unknown' as const) };
-        this.pendingSteers.set(id, next);
-        this.emit({ type: 'conversation.steer.changed', conversationId: id, pending: next });
-      }
-      await this.scheduleConversationReconcile(id, 'reconcile', false).catch(() => {});
+      this.setPendingSteer(id, {
+        ...current,
+        phase: accepted === false ? 'failed' : accepted === true ? 'accepted' : 'unknown',
+        ...(accepted === false ? { error: result.detail || result.status } : {})
+      });
+      void this.scheduleConversationReconcile(id, 'reconcile', false).catch(() => {});
       return result;
     } catch (error) {
       if (!this.isLifecycleCurrent(lifecycleVersion)) throw error;
       this.syncPendingSteerFromTimeline(id, this.getConversationTimelineState(id), true);
-      const current = this.pendingSteers.get(id);
-      if (current?.steerId !== pending.steerId) return { accepted: true, status: 'confirmed', detail: '' };
-      if (sent) {
-        const next = { ...current, phase: 'unknown' as const };
-        this.pendingSteers.set(id, next);
-        this.emit({ type: 'conversation.steer.changed', conversationId: id, pending: next });
-        void this.scheduleConversationReconcile(id, 'reconcile', false).catch(() => {});
-      } else {
-        this.pendingSteers.delete(id);
-        this.emit({ type: 'conversation.steer.changed', conversationId: id, pending: null });
-      }
+      const current = this.getPendingSteers(id).find((item) => item.steerId === pending.steerId);
+      if (!current) return { accepted: true, status: 'confirmed', detail: '' };
+      const transportError = error as { status?: number; code?: string | number };
+      const status = Number(transportError?.status || transportError?.code);
+      const rejected = status >= 400 && status < 500 && status !== 408;
+      this.setPendingSteer(id, {
+        ...current,
+        phase: sent && !rejected ? 'unknown' : 'failed',
+        error: error instanceof Error ? error.message : String(error)
+      });
+      if (sent) void this.scheduleConversationReconcile(id, 'reconcile', false).catch(() => {});
       throw error;
+    } finally {
+      release();
     }
   }
 
@@ -2161,10 +2284,10 @@ class ChatSyncService {
   ): Promise<ChatSendMessageResult> {
     const normalizedConversationId = toText(conversationId);
     const lifecycleVersion = this.lifecycleVersion;
-    let normalizedContent = String(content || '').trim();
+    let normalizedContent = String(content || '');
     const currentState = this.getConversationTimelineState(normalizedConversationId);
     const previousRequest = retryClientMessageId ? getLatestFailedChatSubmission(currentState) : null;
-    const retryOriginal = !!retryClientMessageId && !normalizedContent && attachments.length === 0;
+    const retryOriginal = !!retryClientMessageId && !normalizedContent.trim() && attachments.length === 0;
     if (retryClientMessageId) {
       const original = await getMessageByClientMessageId(retryClientMessageId);
       if (!this.isLifecycleCurrent(lifecycleVersion)) throw new Error('Conversation source changed');
@@ -2207,18 +2330,21 @@ class ChatSyncService {
         });
       }
     }
-    if (!normalizedConversationId || (!normalizedContent && attachments.length === 0 && !options.continuation)) {
+    if (!normalizedConversationId || (!normalizedContent.trim() && attachments.length === 0 && !options.continuation)) {
       throw new Error('Conversation id and message content or attachments are required');
     }
     if (currentState.activeRunId || currentState.awaiting?.status === 'ask')
       throw new Error('Chat is running or awaiting a response');
-    if (options.continuation && (!canContinueChatTimeline(currentState) || normalizedContent || attachments.length))
+    if (
+      options.continuation &&
+      (!canContinueChatTimeline(currentState) || normalizedContent.trim() || attachments.length)
+    )
       throw new Error('Empty continuation is not permitted');
-    if (!normalizedContent && attachments.length && !hasEstablishedChatQuery(currentState))
+    if (!normalizedContent.trim() && attachments.length && !hasEstablishedChatQuery(currentState))
       throw new Error('The first query requires text');
     const contextReferences = normalizeChatAttachmentReferences(attachments.flatMap((item) => item.references));
     if (
-      !normalizedContent &&
+      !normalizedContent.trim() &&
       contextReferences.length &&
       contextReferences.every((ref) => ref.type === 'chat' || ref.type === 'site')
     )
@@ -2260,11 +2386,7 @@ class ChatSyncService {
       }
     }
 
-    if (skillIds.length) {
-      const catalog = await this.ensureAgentSkills(owner.agentKey!);
-      if (!catalog) throw new Error('Skills catalog is unavailable');
-      skillIds = resolveSkillIds(skillIds, catalog);
-    }
+    skillIds = await this.resolveRequiredSkills(owner.agentKey, skillIds);
 
     if (
       this.status !== 'connected' ||
@@ -2574,6 +2696,10 @@ class ChatSyncService {
       );
     }
     return response || {};
+  }
+
+  hasOlderConversationHistory(conversationId: string): boolean {
+    return isAccountDesktopChatSource(this.source) && Boolean(this.remoteHistoryCursors.get(toText(conversationId)));
   }
 
   async loadOlderConversationHistory(conversationId: string): Promise<boolean> {
@@ -2940,7 +3066,9 @@ class ChatSyncService {
     }
 
     const conversationId = extractConversationId(event);
-    const pendingSteer = this.pendingSteers.get(conversationId);
+    const pendingSteer = type === 'request.steer' && !classifyChatRequestInput(event)
+      ? this.getPendingSteers(conversationId).find((item) => item.steerId === toText(event.steerId))
+      : undefined;
     if (
       type === 'request.steer' &&
       pendingSteer?.steerId === toText(event.steerId) &&
@@ -2968,8 +3096,7 @@ class ChatSyncService {
       pendingSteer.agentKey &&
       pendingSteer.agentKey === toText(event.agentKey)
     ) {
-      this.pendingSteers.delete(conversationId);
-      this.emit({ type: 'conversation.steer.changed', conversationId, pending: null, confirmed: pendingSteer });
+      this.setPendingSteer(conversationId, pendingSteer, true);
     }
     if (type === 'tool.output' && (source !== 'stream' || conversationId !== this.activeConversationId)) return;
     if (type === 'run.activity' && conversationId) {
@@ -3352,8 +3479,8 @@ class ChatSyncService {
       return;
     }
 
-    if (isChatTimelineContentEventClosed(this.getConversationTimelineState(conversationId), conversationId, event))
-      return;
+    const timeline = this.getConversationTimelineState(conversationId);
+    if (isChatTimelineContentEventClosed(timeline, conversationId, event)) return;
     const type = normalizeEventType(event.type);
     const createdAt = toFiniteNumber(
       event.timestamp || event.ts || event.time || event.createdAt || event.updatedAt,
@@ -3362,6 +3489,13 @@ class ChatSyncService {
     const eventMessageId = buildAssistantMessageId(conversationId, event);
     const runId = toText(event.runId);
     const text = extractEventText(event);
+    if (text.trim()) {
+      const next = clearChatTimelineRunAnnouncementForContent(timeline, event, runId || timeline.activeRunId, createdAt);
+      if (next !== timeline) {
+        this.timelineStates.set(conversationId, next);
+        if (timeline.runAnnouncement?.message) this.scheduleConversationRuntimeEmit(conversationId, reason, false);
+      }
+    }
     const title = extractTitle(event);
     const serverMessageId = toText(event.serverMessageId) || null;
     let shouldPatchServerMessageId = false;
@@ -3705,25 +3839,23 @@ class ChatSyncService {
 
   private syncPendingSteerFromTimeline(conversationId: string, state: ChatTimelineState, checkRunTerminal = false) {
     const timeline = state;
-    const pending = this.pendingSteers.get(conversationId);
-    if (pending) {
+    for (const pending of this.getPendingSteers(conversationId)) {
       const confirmed = timeline.nodesById[`message:${conversationId}:request:${pending.steerId}`];
-      if (confirmed?.kind === 'message' && confirmed.messageVariant === 'steer' && confirmed.runId === pending.runId) {
-        this.pendingSteers.delete(conversationId);
-        this.emit({
-          type: 'conversation.steer.changed',
-          conversationId: conversationId,
-          pending: null,
-          confirmed: pending
-        });
+      const owner = getChatTimelineRun(timeline, pending.runId)?.agentKey;
+      if (
+        confirmed?.kind === 'message' &&
+        confirmed.messageVariant === 'steer' &&
+        confirmed.runId === pending.runId &&
+        Boolean(owner && owner === pending.agentKey)
+      ) {
+        this.setPendingSteer(conversationId, pending, true);
       } else if (checkRunTerminal && !pending.runEnded && timeline.activeRunId !== pending.runId) {
         const ended = Object.values(timeline.nodesById).some(
           (node) => node.kind === 'run' && node.runId === pending.runId && node.lifecycle !== 'active'
         );
         if (ended) {
           const next = { ...pending, runEnded: true };
-          this.pendingSteers.set(conversationId, next);
-          this.emit({ type: 'conversation.steer.changed', conversationId: conversationId, pending: next });
+          this.setPendingSteer(conversationId, next);
         }
       }
     }
@@ -4041,6 +4173,12 @@ class ChatSyncService {
     }
     if (currentTimelineState && currentTimelineState.revision !== revisionBeforeRequest) {
       mergedTimelineState = { ...mergedTimelineState, canContinue: currentTimelineState.canContinue };
+    }
+    if (beforeEventSeq === undefined && projection.activeRun &&
+        currentTimelineState?.runAnnouncement === timelineBeforeRequest?.runAnnouncement) {
+      mergedTimelineState = applyChatTimelineRunAnnouncementSnapshot(
+        mergedTimelineState, projection.activeRun.runId, remoteDetail.activeRun?.announcement
+      );
     }
     if (!this.isLifecycleCurrent(lifecycleVersion)) return;
     const unavailableRun = this.getUnavailableAttachRun(projection.conversationId);
@@ -4597,6 +4735,10 @@ class ChatSyncCoordinator {
     return this.requireServiceForId(conversationId).reconcileConversation(conversationId, reason);
   }
 
+  hasOlderConversationHistory(conversationId: string): boolean {
+    return this.getServiceForId(conversationId)?.hasOlderConversationHistory(conversationId) ?? false;
+  }
+
   loadOlderConversationHistory(conversationId: string) {
     return this.requireServiceForId(conversationId).loadOlderConversationHistory(conversationId);
   }
@@ -4629,16 +4771,32 @@ class ChatSyncCoordinator {
     return this.requireServiceForId(conversationId).updateRuntimeAccessLevel(conversationId, runId, level);
   }
 
-  getPendingSteer(conversationId: string) {
-    return this.getServiceForId(conversationId)?.getPendingSteer(conversationId) || null;
+  getPendingSteers(conversationId: string) {
+    return this.getServiceForId(conversationId)?.getPendingSteers(conversationId) || [];
   }
 
-  restorePendingSteer(conversationId: string) {
-    return this.requireServiceForId(conversationId).restorePendingSteer(conversationId);
+  restorePendingSteer(conversationId: string, steerId: string, restoreDraft: (pending: ChatPendingSteer) => boolean) {
+    return this.requireServiceForId(conversationId).restorePendingSteer(conversationId, steerId, restoreDraft);
   }
 
-  steerConversation(conversationId: string, message: string, attachments: readonly ChatComposerAttachment[] = []) {
-    return this.requireServiceForId(conversationId).steerConversation(conversationId, message, attachments);
+  queueSteerConversation(
+    conversationId: string,
+    message: string,
+    attachments: readonly ChatComposerAttachment[] = [],
+    skillIds: readonly string[] = [],
+    options: { draft?: ChatComposerDraft } = {}
+  ) {
+    return this.requireServiceForId(conversationId).queueSteerConversation(
+      conversationId,
+      message,
+      attachments,
+      skillIds,
+      options
+    );
+  }
+
+  submitPendingSteer(conversationId: string, steerId: string) {
+    return this.requireServiceForId(conversationId).submitPendingSteer(conversationId, steerId);
   }
 
   continueWait(conversationId: string, toolId: string) {

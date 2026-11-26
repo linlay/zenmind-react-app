@@ -147,7 +147,7 @@ export function EmailVerificationForm({ onSuccess }: { onSuccess: () => void }) 
         maxLength={6}
         editable={!busy}
         className={INPUT_CLASS}
-        placeholder="000000"
+        placeholder={t('accountEmail.codePlaceholder')}
         placeholderTextColor={theme.colors.textTertiary}
       />
       <Pressable

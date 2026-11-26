@@ -3,6 +3,9 @@ import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import test from 'node:test';
 import vm from 'node:vm';
+import { drizzle } from 'drizzle-orm/sqlite-proxy';
+import { and, eq, sql } from 'drizzle-orm';
+import { composerPreferences } from '../../src/features/chatPersistence/schema.ts';
 import ts from 'typescript';
 import { resolveAgentInteraction } from '../../src/features/chatPersistence/agentInteraction.ts';
 import { CHAT_CACHE_SCHEMA_VERSION } from '../../src/features/chatPersistence/cacheScope.ts';
@@ -36,6 +39,8 @@ function cache(db: DatabaseSync) {
   ).outputText;
   const api = vm.runInNewContext(code, {
     CHAT_CACHE_SCHEMA_VERSION,
+    getChatCacheScopeId: () => "test-scope",
+    clearChatComposerPreferences: () => {},
     clearAuthenticatedResourceImageCache: () => {},
     clearChatDirectorySnapshot: () => {
       clears++;
@@ -100,4 +105,36 @@ test('future schema is refused and another scope remains untouched', async () =>
     future.close();
     other.close();
   }
+});
+
+
+test('composer repository stores only applied model and skills, isolates owner/Chat and preserves newer values on first confirmation', async () => {
+  const db = new DatabaseSync(':memory:');
+  const f = cache(db);
+  await f.open();
+  let scope = 'scope';
+  const chatDb = drizzle(async (query, params, method) => {
+    const statement = db.prepare(query);
+    if (method === 'run') { statement.run(...params); return { rows: [] }; }
+    return { rows: statement.all(...params).map(row => Object.values(row)) };
+  });
+  const file = ts.createSourceFile('repo.ts', readFileSync(new URL('../../src/features/chatPersistence/chatRepository.ts', import.meta.url), 'utf8'), ts.ScriptTarget.Latest, true);
+  const names = ['awaitInChatScope','readComposerConfiguration','saveComposerConfiguration'];
+  const code = file.statements.filter(node => ts.isFunctionDeclaration(node) && names.includes(node.name?.text || '')).map(node => node.getText(file).replace(/^export /, '')).join('\n');
+  const repo = vm.runInNewContext(ts.transpileModule(code + ';({readComposerConfiguration,saveComposerConfiguration})', { compilerOptions:{target:ts.ScriptTarget.ES2022} }).outputText,
+    { chatDb, composerPreferences, and, eq, sql, ensureChatDatabase: async () => {}, getChatCacheScopeId: () => scope });
+  const target = { owner:'account-a', scope, kind:'chat', id:'chat-a' };
+  try {
+    await repo.saveComposerConfiguration(target, { skillIds:['pdf'] });
+    await repo.saveComposerConfiguration(target, { model:{ key:'new',serviceTier:'STANDARD' } });
+    await repo.saveComposerConfiguration(target, { model:{ key:'old' } }, true);
+    assert.deepEqual(JSON.parse(JSON.stringify(await repo.readComposerConfiguration(target))), { model:{key:'new',serviceTier:'STANDARD'}, skillIds:['pdf'] });
+    assert.equal(await repo.readComposerConfiguration({ ...target, owner:'account-b' }), undefined);
+    assert.equal(await repo.readComposerConfiguration({ ...target, id:'chat-b' }), undefined);
+    f.reopen(); await f.open();
+    assert.equal((await repo.readComposerConfiguration(target)).model.key, 'new');
+    scope = 'other';
+    await assert.rejects(repo.saveComposerConfiguration(target, { skillIds:[] }), /scope changed/);
+    assert.equal(db.prepare('SELECT count(*) AS count FROM composer_preferences').get()?.count, 1);
+  } finally { db.close(); }
 });

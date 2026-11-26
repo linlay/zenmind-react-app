@@ -23,6 +23,63 @@ import {
   resolveChatTimelineFrontendTool,
 } from '../../src/features/chatTimeline/index.ts';
 
+test('only human requests echo a pending message and server input keeps its sender across snapshots', () => {
+  const chatId = 'input-origin';
+  const local = applyChatTimelineMessage(null, {
+    conversationId: chatId, messageId: 'local', clientMessageId: 'local', serverMessageId: null,
+    role: 'user', content: 'same text', deliveryStatus: 'pending', createdAt: 100, errorReason: null
+  });
+  const automation = {
+    type: 'request.query', requestId: 'automation', runId: 'automation-run', message: 'same text',
+    hidden: true, lane: 'main', origin: { type: 'automation', automationName: 'Daily report' }, timestamp: 101
+  };
+  const human = { type: 'request.query', requestId: 'human', runId: 'human-run', message: 'same text', timestamp: 102 };
+  const withAutomation = applyChatTimelineEvent(local, chatId, automation);
+  assert.equal(projectTimelineMessages(withAutomation)[0]?.deliveryStatus, 'pending');
+  const live = applyChatTimelineEvent(withAutomation, chatId, human);
+  assert.equal(applyChatTimelineEvent(live, chatId, automation), live);
+  assert.equal(applyChatTimelineEvent(live, chatId, human), live);
+
+  const rows = (state: ChatTimelineState) => buildChatTimelineDisplayItems(state).map((row) => {
+    assert.ok(row.kind === 'user-query' || row.kind === 'request');
+    assert.equal(row.node.kind, 'message');
+    return [row.kind, row.node.inputSource, row.node.content];
+  });
+  const expected = [
+    ['user-query', undefined, 'same text'],
+    ['request', { kind: 'automation', sender: 'Daily report' }, 'same text']
+  ];
+  assert.deepEqual(rows(live), expected);
+  const saved = serializeChatTimelineState(live);
+  const restored = deserializeChatTimelineState(saved.meta, saved.nodes)!;
+  assert.deepEqual(rows(restored), expected);
+  assert.deepEqual(rows(mergeChatTimelineState(restored, deriveChatTimelineState(chatId, [automation, human]), true)), expected);
+});
+
+test('history corrects an internal reply by request ID without guessing the sender of old text', () => {
+  const chatId = 'mail-origin';
+  const old = { type: 'request.query', requestId: 'reply', runId: 'root', message: 'internal reply', timestamp: 102 };
+  const start = { type: 'run.start', runId: 'root', agentKey: 'receiver', timestamp: 100 };
+  const replay = deriveChatTimelineState(chatId, [start, {
+    ...old, type: 'request.steer', mailId: 'mail-reply', mailKind: 'reply', origin: { type: 'agent', agentKey: 'receiver' }
+  }, {
+    type: 'request.steer', steerId: 'ask', runId: 'root', timestamp: 103, message: 'Please confirm',
+    mailId: 'mail-ask', mailKind: 'ask', origin: { type: 'agent', agentKey: 'sender' }
+  }]);
+  const merged = mergeChatTimelineState(deriveChatTimelineState(chatId, [old, {
+    ...old, requestId: 'legacy', message: 'older text', timestamp: 99
+  }]), replay, true);
+  assert.deepEqual(projectTimelineMessages(merged).map((message) => message.content), ['older text']);
+  const inputRows = buildChatTimelineDisplayItems(merged).filter((row) => row.kind === 'request');
+  assert.equal(inputRows.length, 1);
+  const ask = inputRows[0].node;
+  assert.equal(ask.kind, 'message');
+  assert.deepEqual(ask.inputSource, { kind: 'ask', sender: 'sender' });
+  assert.equal(ask.content, 'Please confirm');
+  assert.equal(ask.isRootInput, true);
+  assert.ok(!serializeChatTimelineState(merged).nodes.some((row) => row.payloadJson.includes('internal reply')));
+});
+
 test('display keeps failed original before later conversation after reconcile and old snapshot restore', () => {
   const original: ChatMessageItem = {
     messageId: 'original', clientMessageId: 'original', serverMessageId: null,

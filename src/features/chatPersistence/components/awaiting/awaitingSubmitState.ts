@@ -1,4 +1,5 @@
 import type {
+  AgentDefaultAccessLevel,
   AwaitingApprovalDecision,
   AwaitingApprovalSubmitParamData,
   AwaitingPlanDecision,
@@ -16,6 +17,7 @@ export type AwaitingApprovalDraft = {
 export type AwaitingPlanDraft = {
   decision: AwaitingPlanDecision;
   reason?: string;
+  executionAccessLevel?: AgentDefaultAccessLevel;
 };
 
 export type AwaitingFormDraft = AwaitingSubmitParam;
@@ -127,10 +129,12 @@ export function buildAwaitingSubmitPayload(
   }
 
   if (draft.kind === 'plan' && interaction.kind === 'plan') {
+    const reason = draft.decision === 'reject' ? trimText(draft.reason) : '';
+    const executionAccessLevel = draft.decision === 'approve' ? draft.executionAccessLevel : undefined;
     return {
       runId: awaiting.runId,
       awaitingId: awaiting.awaitingId,
-      param: { decision: draft.decision, ...(trimText(draft.reason) ? { reason: trimText(draft.reason) } : {}) }
+      param: { decision: draft.decision, ...(reason ? { reason } : {}), ...(executionAccessLevel ? { executionAccessLevel } : {}) }
     };
   }
 

@@ -338,3 +338,16 @@ test('detail header ignores stale active child nodes after a terminal run event'
   assert.equal(headerState.statusTone, 'idle');
   assert.equal(headerState.runAction, null);
 });
+
+test('composer uses one submit action for valid running content and keeps stop, resume and submission gates', () => {
+  const running = { draft: '', sending: false, runAction: 'stop' as const, steerAvailable: true };
+  assert.equal(deriveChatComposerPrimaryAction(running), 'stop');
+  assert.equal(deriveChatComposerPrimaryAction({ ...running, draft: 'next' }), 'send');
+  assert.equal(deriveChatComposerPrimaryAction({ ...running, hasReadyAttachments: true }), 'send');
+  assert.equal(deriveChatComposerPrimaryAction({ ...running, draft: 'next', steerAvailable: false }), 'send-disabled');
+  assert.equal(deriveChatComposerPrimaryAction({ ...running, draft: 'next', attachmentsBlocked: true }), 'send-disabled');
+  assert.equal(deriveChatComposerPrimaryAction({ ...running, draft: 'next', sending: true }), 'send-disabled');
+  assert.equal(deriveChatComposerPrimaryAction({ ...running, runAction: 'resume', draft: 'next' }), 'resume');
+  assert.equal(deriveChatComposerPrimaryAction({ ...running, runAction: null }), 'send-disabled');
+  assert.equal(deriveChatComposerPrimaryAction({ ...running, runAction: null, draft: 'query' }), 'send');
+});

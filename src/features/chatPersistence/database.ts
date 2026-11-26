@@ -1,3 +1,4 @@
+import { clearChatComposerPreferences } from './chatComposerPreferences';
 import { drizzle } from 'drizzle-orm/expo-sqlite';
 import { File } from 'expo-file-system';
 import { defaultDatabaseDirectory, deleteDatabaseSync, openDatabaseSync, type SQLiteDatabase } from 'expo-sqlite';
@@ -228,6 +229,8 @@ export function deleteChatConversationFromScopeIfExists(scopeId: string, convers
           target.runSync(`DELETE FROM ${tableName} WHERE conversation_id = ?`, normalizedConversationId);
         }
       }
+      if (tableNames.has('composer_preferences'))
+        target.runSync(`DELETE FROM composer_preferences WHERE chat_id = ?`, normalizedConversationId);
       target.runSync(`DELETE FROM conversations WHERE id = ?`, normalizedConversationId);
       if (tableNames.has('chat_directory_items')) {
         target.runSync(`DELETE FROM chat_directory_items`);
@@ -305,6 +308,7 @@ export async function ensureChatDatabase() {
   if (version > CHAT_CACHE_SCHEMA_VERSION) throw new Error('Chat cache was created by a newer app');
   sqlite.execSync('PRAGMA journal_mode = WAL;');
   if (version < CHAT_CACHE_SCHEMA_VERSION) {
+    clearChatComposerPreferences(undefined, getChatCacheScopeId());
     clearChatDirectorySnapshot();
     clearAuthenticatedResourceImageCache();
     sqlite.execSync('PRAGMA foreign_keys = OFF;');
@@ -315,6 +319,14 @@ export async function ensureChatDatabase() {
         );
         for (const { name } of tables) sqlite.execSync(`DROP TABLE "${name.replace(/"/g, '""')}";`);
         sqlite.execSync(`
+    CREATE TABLE IF NOT EXISTS composer_preferences (
+      owner TEXT NOT NULL,
+      chat_id TEXT NOT NULL,
+      model_json TEXT,
+      skill_ids_json TEXT,
+      PRIMARY KEY (owner, chat_id)
+    );
+
     CREATE TABLE IF NOT EXISTS conversations (
 	      id TEXT PRIMARY KEY NOT NULL,
 	      title TEXT NOT NULL,

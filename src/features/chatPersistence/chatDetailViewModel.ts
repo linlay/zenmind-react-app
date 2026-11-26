@@ -2,7 +2,7 @@ import type {
   ChatTimelineDisplayItem,
   ChatTimelineNode,
   ChatTimelineState,
-  ChatTimelineUsageSummary,
+  ChatTimelineUsageSummary
 } from '../chatTimeline/index.ts';
 import { hasChatUsageStatsData } from './chatDetailFormatters.ts';
 
@@ -23,6 +23,7 @@ type ComposerActionInput = {
   runAction: ChatComposerRunAction | null;
   hasReadyAttachments?: boolean;
   attachmentsBlocked?: boolean;
+  steerAvailable?: boolean;
 };
 
 function isStreamingTimelineNode(node: ChatTimelineNode): boolean {
@@ -43,7 +44,7 @@ function buildHeaderRuntimeState(
     statusTone,
     usageLabel,
     usageSummary,
-    runAction,
+    runAction
   };
 }
 
@@ -56,20 +57,18 @@ export function hasDisplayableChatTimelineUsageSummary(
 ): usageSummary is ChatTimelineUsageSummary {
   return Boolean(
     usageSummary &&
-      (hasUsageNumber(usageSummary.contextWindow.currentSize) ||
-        hasUsageNumber(usageSummary.contextWindow.maxSize) ||
-        hasUsageNumber(usageSummary.contextWindow.estimatedNextCallSize) ||
-        hasUsageNumber(usageSummary.contextWindow.percent) ||
-        hasChatUsageStatsData(usageSummary.current) ||
-        hasChatUsageStatsData(usageSummary.run) ||
-        hasChatUsageStatsData(usageSummary.chat) ||
-        hasChatUsageStatsData(usageSummary.compact))
+    (hasUsageNumber(usageSummary.contextWindow.currentSize) ||
+      hasUsageNumber(usageSummary.contextWindow.maxSize) ||
+      hasUsageNumber(usageSummary.contextWindow.estimatedNextCallSize) ||
+      hasUsageNumber(usageSummary.contextWindow.percent) ||
+      hasChatUsageStatsData(usageSummary.current) ||
+      hasChatUsageStatsData(usageSummary.run) ||
+      hasChatUsageStatsData(usageSummary.chat) ||
+      hasChatUsageStatsData(usageSummary.compact))
   );
 }
 
-export function deriveChatDetailHeaderRuntimeState(
-  timelineState: ChatTimelineState
-): ChatDetailHeaderRuntimeState {
+export function deriveChatDetailHeaderRuntimeState(timelineState: ChatTimelineState): ChatDetailHeaderRuntimeState {
   const usageLabel = timelineState.usageLabel;
   const usageSummary = timelineState.usageSummary;
 
@@ -102,10 +101,7 @@ export function deriveChatDetailHeaderRuntimeState(
       continue;
     }
 
-    if (
-      node.kind !== 'awaiting' &&
-      (isStreamingTimelineNode(node) || node.lifecycle === 'active')
-    ) {
+    if (node.kind !== 'awaiting' && (isStreamingTimelineNode(node) || node.lifecycle === 'active')) {
       const runScopeKey = getRunScopeKey(node.runId);
       if (terminalRunScopes.has(runScopeKey) || (!node.runId && terminalRunScopes.size > 0)) {
         continue;
@@ -123,12 +119,7 @@ export function deriveChatDetailHeaderRuntimeState(
     );
   }
 
-  return buildHeaderRuntimeState(
-    'idle',
-    usageLabel,
-    usageSummary,
-    null
-  );
+  return buildHeaderRuntimeState('idle', usageLabel, usageSummary, null);
 }
 
 export function shouldShowChatResponseWaitingIndicator(
@@ -151,9 +142,12 @@ export function deriveChatComposerPrimaryAction({
   runAction,
   hasReadyAttachments = false,
   attachmentsBlocked = false,
+  steerAvailable = false
 }: ComposerActionInput): ChatComposerPrimaryAction {
-  if (runAction) {
-    return runAction;
+  if (runAction === 'resume') return 'resume';
+  if (runAction === 'stop') {
+    if (!draft.trim() && !hasReadyAttachments) return 'stop';
+    return steerAvailable && !sending && !attachmentsBlocked ? 'send' : 'send-disabled';
   }
   if (sending) {
     return 'sending';
@@ -167,12 +161,22 @@ export function deriveChatComposerPrimaryAction({
 export function hasEstablishedChatQuery(state: ChatTimelineState): boolean {
   return state.orderedNodeIds.some((id) => {
     const node = state.nodesById[id];
-    return Boolean(node?.runId && (node.kind === 'run' ||
-      (node.kind === 'message' && node.role === 'user' && node.messageVariant === 'default' && node.deliveryStatus === 'sent')));
+    return Boolean(
+      node?.runId &&
+      (node.kind === 'run' ||
+        (node.kind === 'message' &&
+          node.role === 'user' &&
+          node.messageVariant === 'default' &&
+          node.deliveryStatus === 'sent'))
+    );
   });
 }
 
 export function canContinueChatTimeline(state: ChatTimelineState): boolean {
-  return state.canContinue === true && !state.activeRunId &&
-    !(state.awaiting?.status === 'ask') && hasEstablishedChatQuery(state);
+  return (
+    state.canContinue === true &&
+    !state.activeRunId &&
+    !(state.awaiting?.status === 'ask') &&
+    hasEstablishedChatQuery(state)
+  );
 }

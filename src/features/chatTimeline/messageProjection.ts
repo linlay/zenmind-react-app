@@ -104,6 +104,7 @@ export function projectTimelineMessages(state: ChatTimelineState): ChatMessageIt
         Boolean(node) &&
         node.kind === 'message' &&
         (node.role === 'user' || node.role === 'assistant') &&
+        !node.inputSource &&
         !isChatTimelineCommandMessageVariant(node.messageVariant)
     )
     .map((node) => {
@@ -132,6 +133,17 @@ export function projectTimelineRuntimeState(state: ChatTimelineState): ChatTimel
     .filter((entry): entry is ChatTimelineRuntimeEntry => Boolean(entry))
     .sort((left, right) => right.updatedAt - left.updatedAt)
     .slice(0, 18);
+  return {
+    conversationId: state.conversationId,
+    entries,
+    awaiting: projectTimelineAwaitingState(state),
+    usageLabel: state.usageLabel,
+    updatedAt: state.updatedAt
+  };
+}
+
+// The detail screen needs only the active interaction; keep history projection off its render path.
+export function projectTimelineAwaitingState(state: ChatTimelineState): ChatTimelineRuntimeState['awaiting'] {
   const awaitingNode = state.awaiting
     ? (state.nodesById[state.awaiting.id] as ChatTimelineAwaitingNode | undefined)
     : undefined;
@@ -142,27 +154,7 @@ export function projectTimelineRuntimeState(state: ChatTimelineState): ChatTimel
         ? state.awaiting
         : null;
 
-  return {
-    conversationId: state.conversationId,
-    entries,
-    awaiting:
-      visibleAwaiting && awaitingNode
-        ? {
-            id: visibleAwaiting.id,
-            awaitingId: visibleAwaiting.awaitingId,
-            runId: visibleAwaiting.runId,
-            createdAt: visibleAwaiting.createdAt,
-            prompt: visibleAwaiting.prompt,
-            answer: visibleAwaiting.answer,
-            payloadText: visibleAwaiting.payloadText,
-            mode: visibleAwaiting.mode,
-            status: visibleAwaiting.status,
-            interactive: visibleAwaiting.interactive,
-            answerSummary: visibleAwaiting.answerSummary ?? awaitingNode.answerSummary ?? null,
-            updatedAt: visibleAwaiting.updatedAt
-          }
-        : null,
-    usageLabel: state.usageLabel,
-    updatedAt: state.updatedAt
-  };
+  if (!visibleAwaiting || !awaitingNode) return null;
+  const answerSummary = visibleAwaiting.answerSummary ?? awaitingNode.answerSummary ?? null;
+  return visibleAwaiting.answerSummary === answerSummary ? visibleAwaiting : { ...visibleAwaiting, answerSummary };
 }

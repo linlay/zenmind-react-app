@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import type { AgentDetailSnapshot } from '../../core/api/services/chatApi';
 import {
   readAgentModelOverride,
+  isModelOverrideAvailable,
   type ModelOptionsSnapshot,
   type QueryAccessLevel,
   type QueryModelOverride
@@ -17,6 +18,8 @@ import {
   resolveAgentInteraction,
   type AgentAvailability
 } from './agentInteraction';
+import { readComposerConfiguration, saveComposerConfiguration } from './chatRepository';
+import { normalizeSkillIds, skillIdentity } from '../../core/api/services/chatSkillsProtocol';
 import { getChatCacheScopeId } from './cacheScope';
 import { getChatSourceFromId } from './chatSource';
 import {
@@ -24,6 +27,7 @@ import {
   getChatComposerPreferenceRevision,
   readChatComposerPreference,
   rememberChatComposerSubmission,
+  reviseChatComposerSubmissionModel,
   subscribeChatComposerPreferences,
   writeChatComposerPreference,
   type ChatComposerPreferenceTarget
@@ -38,12 +42,14 @@ type ModelState = {
   error: string;
 };
 const EMPTY_MODEL: QueryModelOverride = {};
+const EMPTY_SKILLS: string[] = [];
 const CLOSED_INTERACTION = resolveAgentInteraction(null);
 
 export function useChatComposerSettings({
   conversationId,
   agentKey,
   timeline,
+  history: suppliedHistory,
   historyReady,
   isFocused,
   reloadSeed
@@ -51,6 +57,7 @@ export function useChatComposerSettings({
   conversationId: string;
   agentKey: string;
   timeline: ChatTimelineState;
+  history?: ReturnType<typeof resolveChatComposerHistory>;
   historyReady: boolean;
   isFocused: boolean;
   reloadSeed: number;
@@ -76,13 +83,16 @@ export function useChatComposerSettings({
     saving: false,
     error: ''
   });
+  const [stored, setStored] = useState({ key: '', ready: false, error: '' });
+  const skillSavePending = useRef<symbol | null>(null);
+  const [skillsSaving, setSkillsSaving] = useState(false);
   const [retry, setRetry] = useState(0);
   const preferenceRevision = useSyncExternalStore(
     subscribeChatComposerPreferences,
     getChatComposerPreferenceRevision,
     getChatComposerPreferenceRevision
   );
-  const history = useMemo(() => resolveChatComposerHistory(timeline), [timeline]);
+  const history = useMemo(() => suppliedHistory ?? resolveChatComposerHistory(timeline), [suppliedHistory, timeline]);
   const established = history.established;
   const target = useMemo<ChatComposerPreferenceTarget>(
     () => ({ owner, scope, kind: established ? 'chat' : 'agent', id: established ? conversationId : agentKey }),
@@ -93,6 +103,7 @@ export function useChatComposerSettings({
     [owner, scope, conversationId]
   );
   const preference = readChatComposerPreference(target);
+  const selectedSkills = readChatComposerPreference(chatTarget)?.skillIds ?? EMPTY_SKILLS;
   const agentDetailSnapshot = agent.key === key ? agent.detail : null;
   const agentAvailability = agent.key === key ? agent.availability : 'checking';
   const interaction = useMemo(
@@ -102,18 +113,33 @@ export function useChatComposerSettings({
         : CLOSED_INTERACTION,
     [agentAvailability, agentDetailSnapshot]
   );
-  const modelOverride =
+  const selectedModel =
     preference?.model ?? (established ? history.model : undefined) ?? readAgentModelOverride(agentDetailSnapshot?.raw);
-  const accessLevel = preference?.accessLevel ?? (established ? history.accessLevel : undefined) ?? 'default';
+  const { key: modelKey, reasoningEffort, serviceTier } = selectedModel;
+  const modelOverride = useMemo(
+    () => ({
+      ...(modelKey ? { key: modelKey } : {}),
+      ...(reasoningEffort ? { reasoningEffort } : {}),
+      ...(serviceTier ? { serviceTier } : {})
+    }),
+    [modelKey, reasoningEffort, serviceTier]
+  );
+  const accessLevel =
+    readChatComposerPreference(chatTarget)?.accessLevel ?? (established ? history.accessLevel : undefined) ?? 'default';
   const activeRun = getChatTimelineRun(timeline, timeline.activeRunId);
   const runtimeAccess = useMemo(
     () =>
       activeRun?.isMainRun !== false && activeRun?.lifecycle === 'active'
-        ? { runId: activeRun.runId, level: activeRun.accessLevel, phase: activeRun.accessUpdate?.phase }
+        ? {
+            runId: activeRun.runId,
+            level: activeRun.accessLevel,
+            phase: activeRun.accessUpdate?.phase,
+            version: activeRun.accessLevelVersion ?? 0
+          }
         : null,
     [activeRun]
   );
-  const inputReady = agentAvailability === 'available' && historyReady;
+  const inputReady = agentAvailability === 'available' && historyReady && stored.key === key && stored.ready;
   const isCurrent = useCallback(
     () =>
       mounted.current &&
@@ -160,6 +186,30 @@ export function useChatComposerSettings({
     };
   }, [agentKey, key, isFocused, reloadSeed, retry, isCurrent, t]);
 
+  useEffect(() => {
+    let cancelled = false;
+    skillSavePending.current = null;
+    setSkillsSaving(false);
+    setStored({ key, ready: false, error: '' });
+    void readComposerConfiguration(chatTarget)
+      .then(async (value) => {
+        if (cancelled || !isCurrent()) return;
+        const local = readChatComposerPreference(chatTarget);
+        if (local?.model && !value?.model) {
+          await saveComposerConfiguration(chatTarget, { model: local.model }, true);
+          if (cancelled || !isCurrent()) return;
+        }
+        if (value) writeChatComposerPreference(chatTarget, { ...value, ...readChatComposerPreference(chatTarget) });
+        setStored({ key, ready: true, error: '' });
+      })
+      .catch((error) => {
+        if (!cancelled && isCurrent()) setStored({ key, ready: false, error: String(error) });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chatTarget, isCurrent, key, retry]);
+
   const loadModels = useCallback(
     async (refresh = false) => {
       if (!agentKey || !interaction.model || !isCurrent()) return;
@@ -192,7 +242,7 @@ export function useChatComposerSettings({
   }, [loadModels]);
 
   useEffect(() => {
-    if (historyReady && established) {
+    if (inputReady && established) {
       const confirmedIds = timeline.orderedNodeIds.flatMap((id) => {
         const node = timeline.nodesById[id];
         return node?.kind === 'message' &&
@@ -202,45 +252,103 @@ export function useChatComposerSettings({
           ? [node.clientMessageId]
           : [];
       });
-      confirmChatComposerSubmission(chatTarget, confirmedIds);
+      const confirmed = confirmChatComposerSubmission(chatTarget, confirmedIds);
+      if (confirmed?.model)
+        void saveComposerConfiguration(chatTarget, { model: confirmed.model }, true).catch((error) => {
+          if (isCurrent()) setStored((current) => ({ ...current, error: String(error) }));
+        });
     }
-  }, [historyReady, established, chatTarget, timeline, preferenceRevision]);
+  }, [inputReady, established, chatTarget, timeline, preferenceRevision, isCurrent]);
+  const observedAccess = useRef(runtimeAccess);
   useEffect(() => {
-    if (runtimeAccess?.level && !runtimeAccess.phase)
+    const previous = observedAccess.current;
+    observedAccess.current = runtimeAccess;
+    if (
+      runtimeAccess?.level &&
+      !runtimeAccess.phase &&
+      previous?.runId === runtimeAccess.runId &&
+      runtimeAccess.version > previous.version
+    )
       writeChatComposerPreference(chatTarget, { accessLevel: runtimeAccess.level });
-  }, [chatTarget, runtimeAccess?.level, runtimeAccess?.phase]);
+  }, [chatTarget, runtimeAccess]);
 
   const setAccessLevel = useCallback(
     (value: QueryAccessLevel) => {
       if (inputReady && interaction.accessLevel && isCurrent())
-        writeChatComposerPreference(target, { accessLevel: value });
+        writeChatComposerPreference(chatTarget, { accessLevel: value });
     },
-    [inputReady, interaction.accessLevel, isCurrent, target]
+    [inputReady, interaction.accessLevel, isCurrent, chatTarget]
   );
   const setModelOverride = useCallback(
     async (value: QueryModelOverride) => {
-      if (!inputReady || !interaction.model || runtimeAccess || models.saving || !value.key || !isCurrent()) return;
-      if (established) {
-        writeChatComposerPreference(target, { model: value });
-        return;
+      if (!inputReady || !interaction.model || models.saving || !isCurrent()) return false;
+      if (!models.snapshot || !isModelOverrideAvailable(value, models.snapshot)) {
+        setModels((current) => ({ ...current, error: t('composer.query.model.selectedUnavailable') }));
+        return false;
       }
       const request = ++modelSaveId.current;
       setModels((current) => ({ ...current, key, saving: true, error: '' }));
       try {
-        const saved = await chatSyncService.updateAgentModelConfig(agentKey, value);
-        if (!isCurrent() || request !== modelSaveId.current) return;
+        const saved = established ? value : await chatSyncService.updateAgentModelConfig(agentKey, value);
+        if (!isCurrent() || request !== modelSaveId.current) return false;
         if (!saved) throw new Error(t('composer.query.model.saveFailed'));
+        if (established) await saveComposerConfiguration(chatTarget, { model: saved });
+        if (!isCurrent() || request !== modelSaveId.current) return false;
         writeChatComposerPreference(target, { model: saved });
+        if (!established) reviseChatComposerSubmissionModel(chatTarget, saved);
+        // Confirmation may have established the Chat while Agent-default saving was in flight.
+        if (!established && readChatComposerPreference(chatTarget)?.model) {
+          await saveComposerConfiguration(chatTarget, { model: saved });
+          if (isCurrent()) writeChatComposerPreference(chatTarget, { model: saved });
+        }
         setAgent((current) => ({ ...current, detail: chatSyncService.getAgentDetailSnapshot(agentKey) }));
+        return true;
       } catch (error) {
         if (isCurrent() && request === modelSaveId.current)
           setModels((current) => ({ ...current, error: error instanceof Error ? error.message : String(error) }));
+        return false;
       } finally {
         if (isCurrent() && request === modelSaveId.current) setModels((current) => ({ ...current, saving: false }));
       }
     },
-    [inputReady, interaction.model, runtimeAccess, models.saving, isCurrent, established, target, agentKey, key, t]
+    [
+      inputReady,
+      interaction.model,
+      models.saving,
+      models.snapshot,
+      isCurrent,
+      established,
+      target,
+      chatTarget,
+      agentKey,
+      key,
+      t
+    ]
   );
+  const setSelectedSkills = useCallback(
+    async (ids: readonly string[]) => {
+      if (!inputReady || !isCurrent() || skillSavePending.current) return;
+      const existingIds = new Set(selectedSkills.map(skillIdentity));
+      if (!interaction.attachment.skills && ids.some((id) => !existingIds.has(skillIdentity(id)))) return;
+      const token = Symbol();
+      skillSavePending.current = token;
+      setSkillsSaving(true);
+      try {
+        const skillIds = normalizeSkillIds(ids);
+        await saveComposerConfiguration(chatTarget, { skillIds });
+        if (isCurrent()) writeChatComposerPreference(chatTarget, { skillIds });
+      } catch (error) {
+        if (isCurrent()) setStored((current) => ({ ...current, error: String(error) }));
+      } finally {
+        if (skillSavePending.current === token) {
+          skillSavePending.current = null;
+          if (isCurrent()) setSkillsSaving(false);
+        }
+      }
+    },
+    [chatTarget, inputReady, interaction.attachment.skills, isCurrent, selectedSkills]
+  );
+
   const captureSubmission = useCallback(
     (targetConversationId = conversationId) => {
       if (!isCurrent() || !inputReady) return () => {};
@@ -271,7 +379,11 @@ export function useChatComposerSettings({
   return {
     agentDetailSnapshot,
     agentAvailability,
-    configurationError: agent.key === key ? agent.error : '',
+    configurationError: (agent.key === key ? agent.error : '') || (stored.key === key ? stored.error : ''),
+    selectedSkills,
+    setSelectedSkills,
+    skillsSaving,
+    settingsKey: key,
     interaction,
     accessLevel,
     modelOverride,
@@ -279,7 +391,13 @@ export function useChatComposerSettings({
     inputReady,
     modelOptionsSnapshot: models.key === key ? models.snapshot : null,
     modelOptionsLoading: models.key === key && models.loading,
-    modelOptionsError: models.key === key ? models.error : '',
+    modelOptionsError:
+      models.key === key
+        ? models.error ||
+          (interaction.model && models.snapshot && !isModelOverrideAvailable(modelOverride, models.snapshot)
+            ? t('composer.query.model.selectedUnavailable')
+            : '')
+        : '',
     modelConfigSaving: models.key === key && models.saving,
     submitAccessLevel: interaction.accessLevel ? accessLevel : ('default' as QueryAccessLevel),
     submitModel: interaction.model ? modelOverride : EMPTY_MODEL,

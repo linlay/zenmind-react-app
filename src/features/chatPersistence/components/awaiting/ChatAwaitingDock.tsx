@@ -1,19 +1,23 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useIsFocused } from '@react-navigation/native';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   Keyboard,
   Pressable,
+  ScrollView,
   Text,
   TextInput,
   View,
-  type ViewStyle,
 } from 'react-native';
 
-import type { AwaitingSubmitPayloadData } from '../../../../core/api/services/chatApi';
+import { getAgentDefaultAccessLevel, type AgentDefaultAccessLevel, type AwaitingSubmitPayloadData } from '../../../../core/api/services/chatApi';
 import { useConversationPreviewActions } from '../../../../shared/components/conversationPreview/ConversationPreviewProvider';
 import { AppIcon } from '../../../../shared/icons/AppIcon';
 import { type TFunction, useT } from '../../../../shared/i18n';
 import { useAppTheme } from '../../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../../shared/visual/className';
+import { chatSyncService } from '../../../chatRealtime/chatSyncService';
+import { getChatCacheScopeId } from '../../cacheScope';
+import { ChatComposerSheet } from '../ChatComposerSheet';
 import type { ChatConversationAwaitingState } from '../../../chatRealtime/types';
 import {
   type ChatTimelineAwaitingApproval,
@@ -59,6 +63,8 @@ import { AwaitingFormPanel } from './AwaitingFormPanel';
 
 type ChatAwaitingDockProps = {
   awaiting: ChatConversationAwaitingState;
+  visible: boolean;
+  onClose: () => void;
   onSubmit: (payload: AwaitingSubmitPayloadData) => Promise<unknown>;
 };
 
@@ -71,55 +77,46 @@ type PanelProps<T extends ChatTimelineAwaitingInteractive> = {
   awaiting: ChatConversationAwaitingState & { interactive: T };
   disabled: boolean;
   submitting: boolean;
+  submitError: string;
   submitPayload: (payload: AwaitingSubmitPayloadData) => void;
 };
-const DOCK_WRAP_CLASS = 'bg-app-background px-app-md pb-[6px] pt-1';
-const PANEL_CLASS =
-  'gap-app-md rounded-app-lg border border-app-line-strong bg-app-surface px-app-lg pb-app-md pt-app-lg';
+const SHEET_HEADER_CLASS = 'min-h-[60px] flex-row items-center justify-between gap-app-sm px-app-lg pt-1';
+const SHEET_TITLE_CLASS = 'min-w-0 flex-1 text-app-title font-bold text-app-primary';
+const SHEET_CLOSE_CLASS = 'h-11 w-11 items-center justify-center rounded-app-pill active:bg-app-surface-muted';
+const PANEL_BODY_CLASS = 'gap-app-sm px-app-lg pb-app-md';
 const HEADER_CLASS = 'min-h-8 flex-row items-start justify-between gap-app-md';
 const QUESTION_TEXT_CLASS = 'min-w-0 flex-1 gap-1';
-const HEADING_CLASS = 'text-[15px] font-extrabold leading-[21px] text-app-primary';
+const HEADING_CLASS = 'text-[15px] font-semibold leading-[21px] text-app-primary';
 const PROMPT_CLASS = 'text-[12px] leading-[17px] text-app-secondary';
 const HEADER_SIDE_CLASS = 'shrink-0 items-end gap-1';
-const AWAITING_CARD_CLASS = 'relative gap-app-sm rounded-app-md border border-app-line bg-app-background p-app-md';
-const ITEM_TITLE_CLASS = 'pr-[22px] text-[14px] font-extrabold leading-[19px] text-app-primary';
-const ITEM_INDEX_CLASS = 'absolute right-[10px] top-[10px] text-[11px] font-extrabold leading-[14px] text-app-tertiary';
+const ITEM_TITLE_CLASS = 'text-[14px] font-semibold leading-[19px] text-app-primary';
 const MONO_PAYLOAD_CLASS =
   'rounded-app-sm bg-app-surface-muted px-2 py-[7px] text-[12px] leading-[17px] text-app-secondary';
 const PAGINATION_CLASS = 'h-[28px] flex-row items-center gap-[5px]';
 const PAGINATION_BUTTON_CLASS = 'h-[28px] w-[28px] items-center justify-center rounded-app-sm active:opacity-[0.72]';
-const PAGINATION_ARROW_CLASS = 'text-[26px] leading-[28px] text-app-primary';
-const PAGINATION_TEXT_CLASS = 'min-w-[34px] text-center text-[13px] font-extrabold leading-[18px] text-app-primary';
-const OPTIONS_BLOCK_CLASS = 'gap-app-sm';
-const OPTION_ROW_CLASS =
-  'min-h-10 flex-row items-center rounded-app-md border border-app-line bg-app-background';
+const PAGINATION_ARROW_CLASS = 'text-[22px] leading-[28px] text-app-secondary';
+const PAGINATION_TEXT_CLASS = 'min-w-[34px] text-center text-[12px] font-medium leading-4 text-app-secondary';
+const OPTIONS_BLOCK_CLASS = 'gap-[3px]';
+const OPTION_ROW_CLASS = 'min-h-11 flex-row items-center rounded-app-md';
 const OPTION_SELECT_ACTION_CLASS =
-  'min-h-10 min-w-0 flex-1 flex-row items-center gap-app-sm px-app-md py-[9px] active:opacity-[0.72]';
+  'min-h-11 min-w-0 flex-1 flex-row items-center gap-app-sm rounded-app-md px-app-md py-[9px] active:opacity-[0.72]';
 const OPTION_PREVIEW_ACTION_CLASS =
-  'mr-1 h-9 w-9 shrink-0 items-center justify-center rounded-app-sm active:bg-app-surface-muted';
-const SELECTED_OPTION_ROW_CLASS = 'border-app-brand-blue bg-app-brand-blue-soft';
-const OPTION_INDEX_CLASS = 'w-[22px] text-[13px] font-extrabold leading-[18px] text-app-secondary';
+  'mr-1 h-11 w-11 shrink-0 items-center justify-center rounded-app-sm active:bg-app-surface-muted';
+const SELECTED_OPTION_ROW_CLASS = 'bg-app-brand-blue-soft';
 const OPTION_TEXT_CLASS = 'min-w-0 flex-1 gap-[2px]';
-const OPTION_LABEL_CLASS = 'text-[14px] font-bold leading-[19px] text-app-primary';
+const OPTION_LABEL_CLASS = 'text-[14px] font-medium leading-[19px] text-app-primary';
 const OPTION_DESCRIPTION_CLASS = 'text-[12px] leading-4 text-app-secondary';
 const SELECTED_TEXT_CLASS = 'text-app-brand-blue-strong';
-const SELECTED_MARK_CLASS = 'h-[18px] w-[18px] items-center justify-center rounded-app-pill bg-app-brand-blue';
+const SELECTED_MARK_CLASS = 'h-5 w-5 items-center justify-center';
 const FREE_TEXT_ROW_CLASS =
-  'min-h-10 flex-row items-center gap-app-sm rounded-app-md border border-app-line px-app-md py-1';
+  'min-h-11 flex-row items-center gap-app-sm rounded-app-md bg-app-surface-muted px-app-md py-1';
 const FREE_TEXT_INPUT_CLASS = 'min-h-9 min-w-0 flex-1 text-[14px] leading-[19px] text-app-primary';
 const PLAN_REJECT_LABEL_CLASS = 'shrink-0 text-[14px] font-bold leading-[19px] text-app-primary';
 const FIELD_BLOCK_CLASS = 'min-h-[46px] justify-center';
 const INPUT_FIELD_CLASS =
-  'min-h-[44px] rounded-app-sm border-[1.5px] border-app-brand-blue px-app-md py-2 text-[15px] leading-5 text-app-primary';
-const OUTER_ERROR_TEXT_CLASS = '-mt-[2px] text-[12px] font-bold leading-4 text-app-danger';
+  'min-h-11 rounded-app-md border border-app-line bg-app-surface-muted px-app-md py-2 text-[15px] leading-5 text-app-primary';
 const DISABLED_BUTTON_CLASS = 'opacity-[0.38]';
 const DISABLED_TEXT_CLASS = 'text-app-tertiary';
-const PANEL_ELEVATION_STYLE = {
-  shadowOffset: { width: 0, height: 6 },
-  shadowOpacity: 0.08,
-  shadowRadius: 16,
-  elevation: 2,
-} satisfies ViewStyle;
 
 function getAwaitingDecisionLabel(
   decision: ChatTimelineAwaitingApprovalDecision | ChatTimelineAwaitingPlanDecision,
@@ -281,7 +278,6 @@ const ChoicePreviewButton = memo(function ChoicePreviewButton({
 const ChoiceRow = memo(function ChoiceRow({
   description,
   disabled,
-  index,
   label,
   previewHtml,
   selected,
@@ -290,14 +286,12 @@ const ChoiceRow = memo(function ChoiceRow({
 }: {
   description?: string;
   disabled: boolean;
-  index: number;
   label: string;
   previewHtml?: string;
   selected: boolean;
   value: string;
   onPress: (value: string) => void;
 }) {
-  const { theme } = useAppTheme();
   const handlePress = useCallback(() => onPress(value), [onPress, value]);
 
   return (
@@ -311,9 +305,6 @@ const ChoiceRow = memo(function ChoiceRow({
         onPress={handlePress}
         className={OPTION_SELECT_ACTION_CLASS}
       >
-        <Text allowFontScaling={false} className={OPTION_INDEX_CLASS}>
-          {index + 1}.
-        </Text>
         <View className={OPTION_TEXT_CLASS}>
           <Text allowFontScaling={false} className={cn(OPTION_LABEL_CLASS, selected ? SELECTED_TEXT_CLASS : null)}>
             {label}
@@ -326,7 +317,7 @@ const ChoiceRow = memo(function ChoiceRow({
         </View>
         {selected ? (
           <View className={SELECTED_MARK_CLASS}>
-            <AppIcon usage="historyDrawer.markAllRead" size={12} color={theme.colors.onBrandBlueAction} />
+            <AppIcon usage="composer.optionSelected" size={16} />
           </View>
         ) : null}
       </Pressable>
@@ -373,13 +364,12 @@ function QuestionInput({
 
     return (
       <View className={OPTIONS_BLOCK_CLASS}>
-        {options.map((option, index) => {
+        {options.map((option) => {
           const optionValue = getSelectOptionValue(option);
           return (
             <ChoiceRow
               key={optionValue}
               disabled={disabled}
-              index={index}
               label={option.label}
               description={option.description}
               previewHtml={option.previewHtml}
@@ -391,9 +381,6 @@ function QuestionInput({
         })}
         {question.allowFreeText ? (
           <View className={FREE_TEXT_ROW_CLASS}>
-            <Text allowFontScaling={false} className={OPTION_INDEX_CLASS}>
-              {options.length + 1}.
-            </Text>
             <TextInput
               value={freeTextAnswer}
               editable={!disabled}
@@ -451,6 +438,7 @@ function QuestionPanel({
   awaiting,
   disabled,
   submitting,
+  submitError,
   submitPayload,
 }: PanelProps<Extract<ChatTimelineAwaitingInteractive, { kind: 'question' }>>) {
   const t = useT();
@@ -580,40 +568,47 @@ function QuestionPanel({
 
   return (
     <>
-      <View className={HEADER_CLASS}>
-        <View className={QUESTION_TEXT_CLASS}>
-          <Text allowFontScaling={false} className={HEADING_CLASS}>
-            {heading}
-          </Text>
-          {prompt ? (
-            <Text allowFontScaling={false} className={PROMPT_CLASS}>
-              {prompt}
+      <ScrollView
+        key={currentQuestion.id}
+        className="shrink"
+        contentContainerClassName={PANEL_BODY_CLASS}
+        keyboardShouldPersistTaps="handled"
+      >
+        <View className={HEADER_CLASS}>
+          <View className={QUESTION_TEXT_CLASS}>
+            <Text allowFontScaling={false} className={HEADING_CLASS}>
+              {heading}
             </Text>
-          ) : null}
+            {prompt ? (
+              <Text allowFontScaling={false} className={PROMPT_CLASS}>
+                {prompt}
+              </Text>
+            ) : null}
+          </View>
+          <View className={HEADER_SIDE_CLASS}>
+            <PaginationControl
+              current={activeIndex}
+              disabled={disabled}
+              nextLabel={t('awaiting.nextQuestion')}
+              previousLabel={t('awaiting.previousQuestion')}
+              total={questions.length}
+              onMove={moveToIndex}
+            />
+          </View>
         </View>
-        <View className={HEADER_SIDE_CLASS}>
-          <PaginationControl
-            current={activeIndex}
-            disabled={disabled}
-            nextLabel={t('awaiting.nextQuestion')}
-            previousLabel={t('awaiting.previousQuestion')}
-            total={questions.length}
-            onMove={moveToIndex}
-          />
-        </View>
-      </View>
-      <QuestionInput
-        disabled={disabled}
-        question={currentQuestion}
-        value={currentValue}
-        onChange={patchCurrentValue}
-        onChangeAndAdvance={patchCurrentValueAndAdvance}
-        onSubmitCurrent={submitCurrentOrMove}
-      />
+        <QuestionInput
+          disabled={disabled}
+          question={currentQuestion}
+          value={currentValue}
+          onChange={patchCurrentValue}
+          onChangeAndAdvance={patchCurrentValueAndAdvance}
+          onSubmitCurrent={submitCurrentOrMove}
+        />
+      </ScrollView>
       <AwaitingPanelFooter
         awaiting={awaiting}
         disabled={disabled}
-        errorText={errorText}
+        errorText={errorText || submitError}
         primaryLabel={isLastQuestion ? t('awaiting.submit') : t('awaiting.continue')}
         secondaryLabel={t('awaiting.skip')}
         submitting={submitting}
@@ -629,7 +624,6 @@ const ApprovalItem = memo(function ApprovalItem({
   approval,
   decision,
   disabled,
-  index,
   reason,
   onDecision,
   onReason,
@@ -637,7 +631,6 @@ const ApprovalItem = memo(function ApprovalItem({
   approval: ChatTimelineAwaitingApproval;
   decision?: ChatTimelineAwaitingApprovalDecision;
   disabled: boolean;
-  index: number;
   reason: string;
   onDecision: (approvalId: string, decision: ChatTimelineAwaitingApprovalDecision) => void;
   onReason: (approvalId: string, reason: string) => void;
@@ -645,13 +638,19 @@ const ApprovalItem = memo(function ApprovalItem({
   const { theme } = useAppTheme();
   const t = useT();
   const options = useMemo(() => getApprovalOptions(approval, t), [approval, t]);
+  const reasonLabels = {
+    runtime_wrapper_arguments: 'awaiting.approval.reason.runtimeArguments',
+    path_outside_read_roots: 'awaiting.approval.reason.readPath',
+    path_outside_write_roots: 'awaiting.approval.reason.writePath',
+    execution_effects_unknown: 'awaiting.approval.reason.executionEffects'
+  } as const;
   const handleDecisionPress = useCallback(
     (value: string) => onDecision(approval.id, value as ChatTimelineAwaitingApprovalDecision),
     [approval.id, onDecision]
   );
 
   return (
-    <View className={AWAITING_CARD_CLASS}>
+    <View className="gap-app-sm">
       <Text allowFontScaling={false} className={ITEM_TITLE_CLASS}>
         {approval.description || approval.command}
       </Text>
@@ -660,12 +659,22 @@ const ApprovalItem = memo(function ApprovalItem({
           {approval.command}
         </Text>
       ) : null}
+      {approval.reasons?.map(({ code, subject, detail }, reasonIndex) => {
+        const label = Object.hasOwn(reasonLabels, code) ? reasonLabels[code as keyof typeof reasonLabels] : undefined;
+        const reasonText = label && subject
+          ? t(label, { subject })
+          : [detail, subject && !detail.includes(subject) ? subject : ''].filter(Boolean).join(' · ');
+        return reasonText ? (
+          <Text key={`${code}:${subject}:${reasonIndex}`} selectable className={MONO_PAYLOAD_CLASS}>
+            {reasonText}
+          </Text>
+        ) : null;
+      })}
       <View className={OPTIONS_BLOCK_CLASS}>
-        {options.map((option, optionIndex) => (
+        {options.map((option) => (
           <ChoiceRow
             key={`${approval.id}:${option.decision}`}
             disabled={disabled}
-            index={optionIndex}
             label={option.label || getAwaitingDecisionLabel(option.decision, t)}
             description={option.description}
             selected={decision === option.decision}
@@ -686,9 +695,6 @@ const ApprovalItem = memo(function ApprovalItem({
           className={INPUT_FIELD_CLASS}
         />
       ) : null}
-      <Text allowFontScaling={false} className={ITEM_INDEX_CLASS}>
-        {index + 1}
-      </Text>
     </View>
   );
 });
@@ -697,6 +703,7 @@ function ApprovalPanel({
   awaiting,
   disabled,
   submitting,
+  submitError,
   submitPayload,
 }: PanelProps<Extract<ChatTimelineAwaitingInteractive, { kind: 'approval' }>>) {
   const t = useT();
@@ -788,42 +795,46 @@ function ApprovalPanel({
 
   return (
     <>
-      <View className={HEADER_CLASS}>
-        <View className={QUESTION_TEXT_CLASS}>
-          <Text allowFontScaling={false} className={HEADING_CLASS}>
-            {t('awaiting.approval.title')}
-          </Text>
-          {awaiting.prompt ? (
-            <Text allowFontScaling={false} className={PROMPT_CLASS}>
-              {awaiting.prompt}
-            </Text>
-          ) : null}
-        </View>
-        <View className={HEADER_SIDE_CLASS}>
-          <PaginationControl
-            current={activeIndex}
-            disabled={disabled}
-            nextLabel={t('awaiting.nextApproval')}
-            previousLabel={t('awaiting.previousApproval')}
-            total={approvals.length}
-            onMove={moveToIndex}
-          />
-        </View>
-      </View>
-      <ApprovalItem
+      <ScrollView
         key={currentApproval.id}
-        approval={currentApproval}
-        decision={draft.decisions[currentApproval.id]}
-        disabled={disabled}
-        index={activeIndex}
-        reason={draft.reasons[currentApproval.id] || ''}
-        onDecision={setDecision}
-        onReason={setReason}
-      />
+        className="shrink"
+        contentContainerClassName={PANEL_BODY_CLASS}
+        keyboardShouldPersistTaps="handled"
+      >
+        {awaiting.prompt || approvals.length > 1 ? (
+          <View className={HEADER_CLASS}>
+            <View className={QUESTION_TEXT_CLASS}>
+              {awaiting.prompt ? (
+                <Text allowFontScaling={false} className={PROMPT_CLASS}>
+                  {awaiting.prompt}
+                </Text>
+              ) : null}
+            </View>
+            <View className={HEADER_SIDE_CLASS}>
+              <PaginationControl
+                current={activeIndex}
+                disabled={disabled}
+                nextLabel={t('awaiting.nextApproval')}
+                previousLabel={t('awaiting.previousApproval')}
+                total={approvals.length}
+                onMove={moveToIndex}
+              />
+            </View>
+          </View>
+        ) : null}
+        <ApprovalItem
+          approval={currentApproval}
+          decision={draft.decisions[currentApproval.id]}
+          disabled={disabled}
+          reason={draft.reasons[currentApproval.id] || ''}
+          onDecision={setDecision}
+          onReason={setReason}
+        />
+      </ScrollView>
       <AwaitingPanelFooter
         awaiting={awaiting}
         disabled={disabled}
-        errorText={errorText}
+        errorText={errorText || submitError}
         primaryLabel={isLastApproval ? t('awaiting.submit') : t('awaiting.continue')}
         submitting={submitting}
         timeoutMs={timeoutMs}
@@ -836,9 +847,13 @@ function ApprovalPanel({
 function PlanPanel({
   awaiting,
   disabled,
+  executionAccessLevel,
   submitting,
+  submitError,
   submitPayload,
-}: PanelProps<Extract<ChatTimelineAwaitingInteractive, { kind: 'plan' }>>) {
+}: PanelProps<Extract<ChatTimelineAwaitingInteractive, { kind: 'plan' }>> & {
+  executionAccessLevel?: AgentDefaultAccessLevel;
+}) {
   const t = useT();
   const { theme } = useAppTheme();
   const plan = awaiting.interactive.plan;
@@ -849,7 +864,7 @@ function PlanPanel({
   const [errorText, setErrorText] = useState('');
   const approveOption = options.find((option) => option.decision === 'approve');
   const rejectOption = options.find((option) => option.decision === 'reject');
-  const title = plan.title || awaiting.prompt || t('awaiting.plan.title');
+  const title = plan.title || awaiting.prompt;
   const prompt = awaiting.prompt && awaiting.prompt !== title ? awaiting.prompt : '';
   const rejectPlaceholder =
     rejectOption?.input?.placeholder || t('awaiting.plan.reject.placeholder');
@@ -880,10 +895,11 @@ function PlanPanel({
           kind: 'plan',
           decision: nextDecision,
           reason: normalizedReason,
+          executionAccessLevel,
         })
       );
     },
-    [awaiting, disabled, options, submitPayload, t]
+    [awaiting, disabled, executionAccessLevel, options, submitPayload, t]
   );
 
   const submitApprove = useCallback(() => {
@@ -924,58 +940,63 @@ function PlanPanel({
 
   return (
     <>
-      <View className={HEADER_CLASS}>
-        <View className={QUESTION_TEXT_CLASS}>
-          <Text allowFontScaling={false} className={HEADING_CLASS}>
-            {title}
-          </Text>
-          {prompt ? (
-            <Text allowFontScaling={false} numberOfLines={2} className={PROMPT_CLASS}>
-              {prompt}
-            </Text>
-          ) : null}
-        </View>
-      </View>
-      <View className={OPTIONS_BLOCK_CLASS}>
-        {approveOption ? (
-          <ChoiceRow
-            disabled={disabled}
-            index={0}
-            label={approveOption.label}
-            description={approveOption.description}
-            selected={false}
-            value="approve"
-            onPress={submitApprove}
-          />
-        ) : null}
-        {rejectOption ? (
-          <View className={cn(FREE_TEXT_ROW_CLASS, rejectActive ? SELECTED_OPTION_ROW_CLASS : null)}>
-            <Text allowFontScaling={false} className={OPTION_INDEX_CLASS}>
-              {(approveOption ? 2 : 1).toString()}.
-            </Text>
-            <Text allowFontScaling={false} className={cn(PLAN_REJECT_LABEL_CLASS, rejectActive ? SELECTED_TEXT_CLASS : null)}>
-              {t('awaiting.plan.reject.label')}
-            </Text>
-            <TextInput
-              value={reason}
-              editable={!disabled}
-              onBlur={deactivateEmptyRejectInput}
-              onChangeText={changeReason}
-              onFocus={activateRejectInput}
-              onSubmitEditing={disabled ? undefined : submitReject}
-              placeholder={rejectPlaceholder}
-              placeholderTextColor={theme.colors.textTertiary}
-              allowFontScaling={false}
-              returnKeyType="done"
-              className={FREE_TEXT_INPUT_CLASS}
-            />
+      <ScrollView className="shrink" contentContainerClassName={PANEL_BODY_CLASS} keyboardShouldPersistTaps="handled">
+        {title || executionAccessLevel ? (
+          <View className={QUESTION_TEXT_CLASS}>
+            {title ? (
+              <Text allowFontScaling={false} className={HEADING_CLASS}>
+                {title}
+              </Text>
+            ) : null}
+            {prompt ? (
+              <Text allowFontScaling={false} className={PROMPT_CLASS}>
+                {prompt}
+              </Text>
+            ) : null}
+            {executionAccessLevel ? (
+              <Text className={PROMPT_CLASS}>
+                {t('awaiting.plan.defaultAccess', { level: t(`awaiting.plan.access.${executionAccessLevel}`) })}
+              </Text>
+            ) : null}
           </View>
         ) : null}
-      </View>
+        <View className={OPTIONS_BLOCK_CLASS}>
+          {approveOption ? (
+            <ChoiceRow
+              disabled={disabled}
+              label={approveOption.label}
+              description={approveOption.description}
+              selected={false}
+              value="approve"
+              onPress={submitApprove}
+            />
+          ) : null}
+          {rejectOption ? (
+            <View className={cn(FREE_TEXT_ROW_CLASS, rejectActive ? SELECTED_OPTION_ROW_CLASS : null)}>
+              <Text allowFontScaling={false} className={cn(PLAN_REJECT_LABEL_CLASS, rejectActive ? SELECTED_TEXT_CLASS : null)}>
+                {t('awaiting.plan.reject.label')}
+              </Text>
+              <TextInput
+                value={reason}
+                editable={!disabled}
+                onBlur={deactivateEmptyRejectInput}
+                onChangeText={changeReason}
+                onFocus={activateRejectInput}
+                onSubmitEditing={disabled ? undefined : submitReject}
+                placeholder={rejectPlaceholder}
+                placeholderTextColor={theme.colors.textTertiary}
+                allowFontScaling={false}
+                returnKeyType="done"
+                className={FREE_TEXT_INPUT_CLASS}
+              />
+            </View>
+          ) : null}
+        </View>
+      </ScrollView>
       <AwaitingPanelFooter
         awaiting={awaiting}
         disabled={disabled}
-        errorText={errorText}
+        errorText={errorText || submitError}
         primaryLabel={rejectActive ? t('awaiting.submit') : undefined}
         secondaryLabel={rejectOption ? t('awaiting.skip') : undefined}
         submitting={submitting}
@@ -987,9 +1008,24 @@ function PlanPanel({
   );
 }
 
-export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSubmit }: ChatAwaitingDockProps) {
-  const { theme } = useAppTheme();
+const SHEET_TITLE_KEYS = {
+  question: 'awaiting.question.title',
+  approval: 'awaiting.approval.title',
+  plan: 'awaiting.plan.title',
+  form: 'awaiting.form.title'
+} as const;
+
+export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, visible, onClose, onSubmit }: ChatAwaitingDockProps) {
+  const t = useT();
+  const isFocused = useIsFocused();
   const interaction = awaiting.interactive;
+  const planAgentKey = interaction?.kind === 'plan' ? interaction.agentKey : '';
+  const [executionAccessLevel, setExecutionAccessLevel] = useState(() =>
+    planAgentKey ? getAgentDefaultAccessLevel(chatSyncService.getAgentDetailSnapshot(planAgentKey)) : undefined
+  );
+  const planAccessRequest = useRef<Promise<void> | null>(null);
+  const requestVersion = useRef(0);
+  const mounted = useRef(false);
   const [submitState, setSubmitState] = useState<SubmitState | null>(null);
   const [errorText, setErrorText] = useState('');
   const currentAwaitingIdRef = useRef(awaiting.id);
@@ -1001,6 +1037,27 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSub
   currentAwaitingIdRef.current = awaiting.id;
   currentAwaitingStatusRef.current = awaiting.status;
   formDisabledRef.current = formDisabled;
+
+  useLayoutEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+
+  const refreshPlanAccess = useCallback(async () => {
+    if (!planAgentKey || !isFocused || currentAwaitingStatusRef.current !== 'ask' || !mounted.current) return;
+    const version = ++requestVersion.current;
+    const scope = getChatCacheScopeId();
+    const detail = await chatSyncService.ensureAgentDetail(planAgentKey, { refresh: true });
+    if (detail && mounted.current && requestVersion.current === version && getChatCacheScopeId() === scope &&
+        currentAwaitingStatusRef.current === 'ask') {
+      setExecutionAccessLevel(getAgentDefaultAccessLevel(detail));
+    }
+  }, [isFocused, planAgentKey]);
+
+  useLayoutEffect(() => {
+    planAccessRequest.current = refreshPlanAccess();
+    return () => { requestVersion.current += 1; };
+  }, [refreshPlanAccess]);
 
   useEffect(() => {
     setSubmitState(null);
@@ -1018,6 +1075,7 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSub
       setErrorText('');
       try {
         await onSubmit(payload);
+        if (!mounted.current || currentAwaitingIdRef.current !== submittingAwaitingId) return;
         Keyboard.dismiss();
         setSubmitState((current) =>
           current?.awaitingId === submittingAwaitingId
@@ -1025,9 +1083,14 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSub
             : current
         );
       } catch (error) {
-        const isCurrentAwaiting =
+        const isCurrentAwaiting = () => mounted.current &&
           currentAwaitingIdRef.current === submittingAwaitingId && currentAwaitingStatusRef.current === 'ask';
-        if (isCurrentAwaiting) {
+        if (planAgentKey && isCurrentAwaiting()) {
+          const version = requestVersion.current;
+          await planAccessRequest.current;
+          if (isCurrentAwaiting() && requestVersion.current === version) await refreshPlanAccess();
+        }
+        if (isCurrentAwaiting()) {
           formDisabledRef.current = false;
           setErrorText(error instanceof Error ? error.message : String(error));
         }
@@ -1038,53 +1101,65 @@ export const ChatAwaitingDock = memo(function ChatAwaitingDock({ awaiting, onSub
         );
       }
     },
-    [awaiting.id, onSubmit]
+    [awaiting.id, onSubmit, planAgentKey, refreshPlanAccess]
   );
+
+  const handleClose = useCallback(() => {
+    Keyboard.dismiss();
+    onClose();
+  }, [onClose]);
 
   if (!interaction) {
     return null;
   }
 
   const normalizedAwaiting = awaiting as ChatConversationAwaitingState & { interactive: ChatTimelineAwaitingInteractive };
+  const closeLabel = t('awaiting.collapse');
 
   return (
-    <View className={DOCK_WRAP_CLASS}>
-      <View className={PANEL_CLASS} style={[PANEL_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}>
-        {interaction.kind === 'question' ? (
-          <QuestionPanel
-            awaiting={normalizedAwaiting as ChatConversationAwaitingState & { interactive: Extract<ChatTimelineAwaitingInteractive, { kind: 'question' }> }}
-            disabled={formDisabled}
-            submitting={submitting}
-            submitPayload={submitPayload}
-          />
-        ) : interaction.kind === 'approval' ? (
-          <ApprovalPanel
-            awaiting={normalizedAwaiting as ChatConversationAwaitingState & { interactive: Extract<ChatTimelineAwaitingInteractive, { kind: 'approval' }> }}
-            disabled={formDisabled}
-            submitting={submitting}
-            submitPayload={submitPayload}
-          />
-        ) : interaction.kind === 'plan' ? (
-          <PlanPanel
-            awaiting={normalizedAwaiting as ChatConversationAwaitingState & { interactive: Extract<ChatTimelineAwaitingInteractive, { kind: 'plan' }> }}
-            disabled={formDisabled}
-            submitting={submitting}
-            submitPayload={submitPayload}
-          />
-        ) : (
-          <AwaitingFormPanel
-            awaiting={normalizedAwaiting as ChatConversationAwaitingState & { interactive: Extract<ChatTimelineAwaitingInteractive, { kind: 'form' }> }}
-            disabled={formDisabled}
-            submitting={submitting}
-            submitPayload={submitPayload}
-          />
-        )}
-        {errorText ? (
-          <Text allowFontScaling={false} numberOfLines={1} className={OUTER_ERROR_TEXT_CLASS}>
-            {errorText}
-          </Text>
-        ) : null}
+    <ChatComposerSheet visible={visible && isFocused} presentation="contained" closeLabel={closeLabel} onClose={handleClose}>
+      <View className={SHEET_HEADER_CLASS}>
+        <Text accessibilityRole="header" className={SHEET_TITLE_CLASS}>
+          {t(SHEET_TITLE_KEYS[interaction.kind])}
+        </Text>
+        <Pressable accessibilityRole="button" accessibilityLabel={closeLabel} onPress={handleClose} className={SHEET_CLOSE_CLASS}>
+          <AppIcon usage="chatSearch.close" size={20} />
+        </Pressable>
       </View>
-    </View>
+      {interaction.kind === 'question' ? (
+        <QuestionPanel
+          awaiting={normalizedAwaiting as ChatConversationAwaitingState & { interactive: Extract<ChatTimelineAwaitingInteractive, { kind: 'question' }> }}
+          disabled={formDisabled}
+          submitting={submitting}
+          submitError={errorText}
+          submitPayload={submitPayload}
+        />
+      ) : interaction.kind === 'approval' ? (
+        <ApprovalPanel
+          awaiting={normalizedAwaiting as ChatConversationAwaitingState & { interactive: Extract<ChatTimelineAwaitingInteractive, { kind: 'approval' }> }}
+          disabled={formDisabled}
+          submitting={submitting}
+          submitError={errorText}
+          submitPayload={submitPayload}
+        />
+      ) : interaction.kind === 'plan' ? (
+        <PlanPanel
+          awaiting={normalizedAwaiting as ChatConversationAwaitingState & { interactive: Extract<ChatTimelineAwaitingInteractive, { kind: 'plan' }> }}
+          disabled={formDisabled}
+          executionAccessLevel={executionAccessLevel}
+          submitting={submitting}
+          submitError={errorText}
+          submitPayload={submitPayload}
+        />
+      ) : (
+        <AwaitingFormPanel
+          awaiting={normalizedAwaiting as ChatConversationAwaitingState & { interactive: Extract<ChatTimelineAwaitingInteractive, { kind: 'form' }> }}
+          disabled={formDisabled}
+          submitting={submitting}
+          submitError={errorText}
+          submitPayload={submitPayload}
+        />
+      )}
+    </ChatComposerSheet>
   );
 });

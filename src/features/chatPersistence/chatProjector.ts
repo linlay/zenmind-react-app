@@ -1,5 +1,6 @@
 import { applyChatTimelineRunFeedback, readChatRunFeedback } from '../chatTimeline/timelineRunFeedback.ts';
 import { reconcileChatTimelineAwaitingSnapshot } from '../chatTimeline/timelineReducer.ts';
+import { applyChatTimelineRunAnnouncementSnapshot } from '../chatTimeline/timelineRunAnnouncement.ts';
 import type {
   RemoteChatActiveRun,
   RemoteChatDetail,
@@ -85,6 +86,7 @@ type DetailTimelineEventIndex = {
   lastTimestamp: number;
   contentRunIds: Set<string>;
   requestQueryRunIds: Set<string>;
+  requestQueryIds: Set<string>;
   runCompleteIds: Set<string>;
   runStartIds: Set<string>;
   artifactKeys: Set<string>;
@@ -101,6 +103,7 @@ function createDetailTimelineEventIndex(): DetailTimelineEventIndex {
     lastTimestamp: 0,
     contentRunIds: new Set(),
     requestQueryRunIds: new Set(),
+    requestQueryIds: new Set(),
     runCompleteIds: new Set(),
     runStartIds: new Set(),
     artifactKeys: new Set()
@@ -173,6 +176,8 @@ function addDetailTimelineEventIndex(
   if (type === 'request.query') {
     index.hasAnyRequestQuery = true;
     index.requestQueryRunIds.add(runId);
+    const requestId = toText(event.requestId);
+    if (requestId) index.requestQueryIds.add(requestId);
   }
   if (type === 'run.start') {
     index.runStartIds.add(runId);
@@ -482,16 +487,24 @@ function buildDetailTimelineEvents(
     const runId = toText(run.runId);
     const runTimestamp = parseTimestamp(run.startedAt, baseTimestamp + index * 4 + 3);
     const runCompletedAt = parseTimestamp(run.completedAt, runTimestamp);
+    const requestId = toText(run.requestId);
 
-    if (toText(run.initialMessage) && !hasRequestQueryForRun(eventIndex, runId)) {
+    if (toText(run.initialMessage) && !hasRequestQueryForRun(eventIndex, runId) && !eventIndex.requestQueryIds.has(requestId)) {
       appendDetailTimelineEvent(events, eventIndex, {
         type: 'request.query',
         accessLevel: run.accessLevel ?? null,
         chatId: conversationId,
         chatName: title,
         runId,
-        requestId: toText(run.requestId) || `run_${runId || index}_request`,
-        role: 'user',
+        requestId: requestId || `run_${runId || index}_request`,
+        agentKey: run.agentKey,
+        role: run.role ?? 'user',
+        origin: run.origin,
+        hidden: run.hidden,
+        lane: run.lane,
+        mailId: run.mailId,
+        mailKind: run.mailKind,
+        mailOrigin: run.mailOrigin,
         message: toText(run.initialMessage),
         timestamp: runTimestamp
       });
@@ -682,6 +695,9 @@ export function projectRemoteChatDetail(
           }
         }
       };
+      if (!historicalPage) {
+        timelineState = applyChatTimelineRunAnnouncementSnapshot(timelineState, activeRun.runId, snapshot.announcement);
+      }
     }
   }
   const runtimeState = projectTimelineRuntimeState(timelineState);

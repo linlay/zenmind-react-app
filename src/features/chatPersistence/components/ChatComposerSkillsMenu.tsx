@@ -11,6 +11,7 @@ import { AppIcon } from '../../../shared/icons/AppIcon';
 import { cn } from '../../../shared/visual/className';
 
 type Props = {
+  disabled?: boolean;
   catalog: ChatSkillsCatalog | null;
   selected: readonly string[];
   loading: boolean;
@@ -20,6 +21,7 @@ type Props = {
 };
 type Row = { id: string; skill: ChatSkill; parent?: string } | { id: string; pkg: ChatSkillPackage };
 export const ChatComposerSkillsMenu = memo(function ChatComposerSkillsMenu({
+  disabled = false,
   catalog,
   selected,
   loading,
@@ -118,9 +120,9 @@ export const ChatComposerSkillsMenu = memo(function ChatComposerSkillsMenu({
             >
               <Pressable
                 onPress={() => onToggle(ids)}
-                disabled={ids.length === 0}
+                disabled={disabled || ids.length === 0}
                 accessibilityRole="checkbox"
-                accessibilityState={{ checked: isChecked, disabled: ids.length === 0 }}
+                accessibilityState={{ checked: isChecked, disabled: disabled || ids.length === 0 }}
                 accessibilityLabel={pkg?.label ?? skill!.label}
                 className={cn(
                   'min-h-[54px] flex-1 flex-row items-center gap-app-sm px-app-sm',

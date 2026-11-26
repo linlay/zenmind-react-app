@@ -137,8 +137,9 @@ function normalizeQueryAccessLevel(value: unknown): Exclude<ChatQueryAccessLevel
 }
 
 function normalizeQueryServiceTier(value: unknown): ChatQueryServiceTier | undefined {
+  if (value === undefined || value === null || !String(value).trim()) return undefined;
   const tier = normalizeModelOptionServiceTier(value);
-  return tier === 'STANDARD' ? undefined : tier;
+  return tier;
 }
 
 function compactQueryModelOverride(model: ChatQueryModelOverride | undefined): ChatQueryModelOverride | undefined {

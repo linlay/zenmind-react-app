@@ -1,6 +1,6 @@
 import { getChatCacheScopeId, subscribeChatCacheScope } from '../cacheScope';
 import { ChatSelectionSheet } from './ChatSelectionSheet';
-import { memo, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { Children, memo, type ReactNode, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
 import type { ApiUriSource } from '../../../core/api/apiClient';
@@ -22,6 +22,7 @@ import type { ChatAttachmentBase } from '../types';
 import { useAuthenticatedResourcePreview } from './resource/AuthenticatedResourcePreviewProvider.tsx';
 
 type ChatAttachmentStripProps = {
+  children?: ReactNode;
   attachments: readonly ChatAttachmentBase[];
   variant: 'composer' | 'message';
   onRemoveAttachment?: (attachmentId: string) => void;
@@ -271,6 +272,7 @@ const ComposerAttachmentActions = memo(function ComposerAttachmentActions({
 });
 
 export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
+  children,
   attachments,
   variant,
   onRemoveAttachment,
@@ -305,7 +307,7 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
     [openPreview, t]
   );
 
-  if (attachments.length === 0) {
+  if (attachments.length === 0 && Children.toArray(children).length === 0) {
     return null;
   }
 
@@ -320,9 +322,10 @@ export const ChatAttachmentStrip = memo(function ChatAttachmentStrip({
         bounces={false}
         keyboardShouldPersistTaps="handled"
         showsHorizontalScrollIndicator={false}
-        className={variant === 'message' ? cn(MESSAGE_STRIP_CLASS, messageStripHeightClass) : undefined}
+        className={variant === 'message' ? cn(MESSAGE_STRIP_CLASS, messageStripHeightClass) : 'h-[58px] flex-none'}
         contentContainerClassName={cn(STRIP_CONTENT_CLASS, variant === 'message' ? MESSAGE_STRIP_CONTENT_CLASS : null)}
       >
+        {children}
         {attachments.map((attachment) => {
           return (
             <View

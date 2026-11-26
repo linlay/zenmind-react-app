@@ -107,6 +107,7 @@ export type RemoteChatActiveRun = {
   editingMode?: boolean;
   agentKey?: string;
   modelKey?: string;
+  announcement?: { message: string; timestamp: number } | null;
   [key: string]: unknown;
 };
 
@@ -253,6 +254,17 @@ export type AwaitingApprovalDecision = 'approve' | 'reject' | 'approve_rule_run'
 
 export type AwaitingPlanDecision = 'approve' | 'reject';
 
+export type AgentDefaultAccessLevel = 'ask_for_approval' | 'auto_approve' | 'full_access';
+
+function readAgentDefaultAccessLevel(value: unknown): AgentDefaultAccessLevel | undefined {
+  return value === 'ask_for_approval' || value === 'auto_approve' || value === 'full_access' ? value : undefined;
+}
+
+export function getAgentDefaultAccessLevel(detail: AgentDetailSnapshot | null): AgentDefaultAccessLevel | undefined {
+  if (!detail) return undefined;
+  return readAgentDefaultAccessLevel(detail.raw.defaultAccessLevel || 'ask_for_approval');
+}
+
 export type AwaitingApprovalSubmitParamData =
   | {
       id: string;
@@ -270,6 +282,7 @@ export type AwaitingSubmitParam = {
   decision: 'approve' | 'reject' | 'dismiss';
   reason?: string;
   data?: Record<string, unknown>;
+  executionAccessLevel?: AgentDefaultAccessLevel;
 };
 
 export type AwaitingSubmitPayloadData = {
@@ -287,10 +300,13 @@ export function readAwaitingSubmitParam(value: unknown, mode: 'form' | 'plan'): 
   if (data !== undefined && (!data || typeof data !== 'object' || Array.isArray(data))) return null;
   if ((mode === 'plan' || decision === 'dismiss') && 'data' in item) return null;
   if (mode === 'form' && decision === 'approve' && !('data' in item)) return null;
+  const executionAccessLevel = readAgentDefaultAccessLevel(item.executionAccessLevel);
+  if ('executionAccessLevel' in item && (mode !== 'plan' || decision !== 'approve' || !executionAccessLevel)) return null;
   return {
     decision,
     ...(reason ? { reason } : {}),
-    ...(data !== undefined ? { data: data as Record<string, unknown> } : {})
+    ...(data !== undefined ? { data: data as Record<string, unknown> } : {}),
+    ...(executionAccessLevel ? { executionAccessLevel } : {})
   };
 }
 

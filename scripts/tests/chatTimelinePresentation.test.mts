@@ -6,13 +6,64 @@ import {
   applyChatTimelineRunUnavailable,
   buildChatTimelineDisplayItems,
   buildChatTimelinePresentationItems,
+  deserializeChatTimelineState,
   deriveChatTimelineState,
+  serializeChatTimelineState,
   type ChatTimelinePresentationItem
 } from '../../src/features/chatTimeline/index.ts';
+import { resolveChatAttachmentPreview } from '../../src/features/chatPersistence/chatAttachmentPreview.ts';
 
 function presentationKinds(items: readonly ChatTimelinePresentationItem[]): string[] {
   return items.map((item) => item.kind);
 }
+
+test('completed runs keep root steer attachments and visible incoming requests in order after snapshot restore', () => {
+  const runId = 'run-steer';
+  const steer = { type: 'request.steer', runId, timestamp: 1200 };
+  const image = { id: 'image', type: 'image', name: 'photo.png', url: '/api/resource?file=photo.png' };
+  const live = deriveChatTimelineState('chat-steer', [
+    { type: 'run.start', runId, agentKey: 'receiver', timestamp: 1000 },
+    { type: 'reasoning.snapshot', runId, reasoningId: 'thought', text: 'Working', timestamp: 1100 },
+    { ...steer, steerId: 'image', references: [image] },
+    { ...steer, steerId: 'mixed', message: 'Use this', references: [image], timestamp: 1300 },
+    { ...steer, steerId: 'text', message: 'Continue', timestamp: 1400 },
+    { ...steer, steerId: 'child', taskId: 'subtask', message: 'Child input', timestamp: 1500 },
+    { ...steer, steerId: 'ask', mailId: 'mail-1', mailKind: 'ask', message: 'Please confirm',
+      origin: { type: 'agent', agentKey: 'sender' }, timestamp: 1600 },
+    { ...steer, steerId: 'hidden', mailId: 'mail-2', mailKind: 'reply', message: 'Internal',
+      origin: { type: 'agent', agentKey: 'receiver' }, timestamp: 1700 }
+  ]);
+  const terminal = applyChatTimelineEvent(live, live.conversationId, { type: 'run.complete', runId, timestamp: 1800 });
+  const saved = serializeChatTimelineState(terminal);
+  const restored = deserializeChatTimelineState(saved.meta, saved.nodes);
+  assert.ok(restored);
+
+  const readInputs = (items: readonly ChatTimelinePresentationItem[]) => items.flatMap((item) => {
+    if (item.kind !== 'request' || item.node.kind !== 'message') return [];
+    return [{ key: item.key, content: item.node.content, attachments: item.node.attachments }];
+  });
+  const liveInputs = readInputs(buildChatTimelineDisplayItems(live));
+  assert.deepEqual(liveInputs.map(({ content }) => content), ['', 'Use this', 'Continue', 'Child input', 'Please confirm']);
+  for (const state of [terminal, restored]) {
+    const rows = buildChatTimelineDisplayItems(state);
+    const collapsed = buildChatTimelinePresentationItems(state, rows, new Set());
+    const summary = collapsed.find((item) => item.kind === 'process-summary');
+    assert.ok(summary);
+    const inputs = readInputs(collapsed);
+    const visibleInputs = liveInputs.filter(({ content }) => content !== 'Child input');
+    const stableFields = (rows: typeof liveInputs) => rows.map(({ key, content, attachments }) => ({
+      key, content, attachments: attachments.map(({ attachmentId, kind, resourceUrl }) => ({ attachmentId, kind, resourceUrl }))
+    }));
+    assert.deepEqual(stableFields(inputs), stableFields(visibleInputs));
+    const attachment = inputs[0]?.attachments?.[0];
+    assert.ok(attachment);
+    const preview = resolveChatAttachmentPreview(attachment);
+    assert.equal(preview.kind, 'preview');
+    assert.equal(preview.target.previewKind, 'image');
+    const expanded = buildChatTimelinePresentationItems(state, rows, new Set([summary.processId]));
+    assert.deepEqual(stableFields(readInputs(expanded)), stableFields(liveInputs));
+  }
+});
 
 test('active runs and content end keep the existing timeline visible', () => {
   const active = deriveChatTimelineState('chat-active', [

@@ -27,6 +27,7 @@ test('production file panel virtualizes call rows, opens existing authenticated 
   const deps: Record<string, unknown> = {
     'react-native': { FlatList: 'List', Modal: 'Modal', Pressable: 'Button', Text: 'Text', View: 'View' },
     'react-native-safe-area-context': { useSafeAreaInsets: () => ({ bottom: 23 }) },
+    './ChatBottomSheet': { ChatBottomSheet: 'BottomSheet' },
     '../../../shared/i18n': { useT: () => defaultT },
     '../chatFileChanges.ts': projection,
     '../markdownLinks/conversationMarkdownLinks.ts': links,
@@ -85,6 +86,9 @@ test('production file panel virtualizes call rows, opens existing authenticated 
     await act(async () => {
       rowRenderer!.root.findByType('Button').props.onPress();
     });
+    assert.deepEqual(order, [], 'preview must wait for the drawer to finish dismissing');
+    assert.equal(renderer!.root.findByType('BottomSheet').props.visible, false);
+    await act(async () => renderer!.root.findByType('BottomSheet').props.onDismiss());
     assert.deepEqual(order, ['close', 'preview']);
     assert.equal(previews[0][1], '');
     assert.match(previews[0][0].resourceUrl, /agentKey=call-agent/);
@@ -93,7 +97,7 @@ test('production file panel virtualizes call rows, opens existing authenticated 
     const tool = Object.values(state.nodesById).find((node) => node.kind === 'tool')!;
     const missing = { ...state, nodesById: { ...state.nodesById, [tool.id]: { ...tool, agentKey: '' } } };
     await act(async () => {
-      renderer!.update(React.createElement(Component, { ...props, timeline: missing, agentKey: '' }));
+      renderer!.update(React.createElement(Component, { ...props, key: 'missing', timeline: missing, agentKey: '' }));
     });
     const missingList = renderer!.root.findByType('List');
     await act(async () => {
@@ -102,6 +106,7 @@ test('production file panel virtualizes call rows, opens existing authenticated 
     await act(async () => {
       rowRenderer!.root.findByType('Button').props.onPress();
     });
+    await act(async () => renderer!.root.findByType('BottomSheet').props.onDismiss());
     assert.equal(previews[1][0].resourceUrl, '');
     assert.equal(previews[1][1], defaultT('markdownLink.workspaceScopeMissing'));
     const unsafe = {
@@ -112,7 +117,7 @@ test('production file panel virtualizes call rows, opens existing authenticated 
       }
     };
     await act(async () => {
-      renderer!.update(React.createElement(Component, { ...props, timeline: unsafe }));
+      renderer!.update(React.createElement(Component, { ...props, key: 'unsafe', timeline: unsafe }));
     });
     const unsafeList = renderer!.root.findByType('List');
     await act(async () => {
@@ -121,6 +126,7 @@ test('production file panel virtualizes call rows, opens existing authenticated 
     await act(async () => {
       rowRenderer!.root.findByType('Button').props.onPress();
     });
+    await act(async () => renderer!.root.findByType('BottomSheet').props.onDismiss());
     assert.equal(previews[2][0].resourceUrl, '');
     assert.equal(previews[2][1], defaultT('markdownLink.invalid'));
     const listSource = readFileSync(

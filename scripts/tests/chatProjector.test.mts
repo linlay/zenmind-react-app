@@ -2,6 +2,132 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { projectRemoteChatDetail, projectRemoteChatSummary } from '../../src/features/chatPersistence/chatProjector.ts';
+import { applyChatTimelineEvent, mergeChatTimelineState } from '../../src/features/chatTimeline/timelineReducer.ts';
+import { deserializeChatTimelineState, serializeChatTimelineState } from '../../src/features/chatTimeline/timelinePersistence.ts';
+
+test('run announcements use the latest activity, clear only for matching output, and stay out of replay', () => {
+  const chatId = 'live-announcement';
+  const runId = 'run';
+  const timestamp = 1_780_023_877_038;
+  const start = { type: 'run.start', runId, timestamp };
+  let state = applyChatTimelineEvent(null, chatId, start);
+  const apply = (event: Record<string, unknown>) => { state = applyChatTimelineEvent(state, chatId, { runId, ...event }); };
+  apply({ type: 'run.activity', message: 'First', timestamp: timestamp + 1 });
+  apply({ type: 'run.activity', message: ' Current ', timestamp: timestamp + 2 });
+  apply({ type: 'run.activity', message: 'Wrong run', runId: 'other', timestamp: timestamp + 3 });
+  apply({ type: 'content.delta', contentId: 'child', taskId: 'subtask', text: 'Child output', timestamp: timestamp + 4 });
+  assert.equal(state.runAnnouncement?.message, 'Current');
+  apply({ type: 'run.activity', phase: 'model_call', status: 'retrying', timestamp: timestamp + 5,
+    retry: { attempt: 2, maxAttempts: 3, delayMs: 1000, reason: 'model_stream_idle_timeout' } });
+  assert.equal(state.modelRetry?.attempt, 2);
+  assert.equal(state.runAnnouncement?.message, 'Current');
+
+  const remote = {
+    chatId, events: [start], activeRun: { runId, state: 'running', announcement: { message: 'Current', timestamp: timestamp + 2 } }
+  };
+  const reopened = projectRemoteChatDetail(remote);
+  assert.equal(reopened?.timelineState.runAnnouncement?.message, 'Current');
+  assert.equal(projectRemoteChatDetail(remote, null, true)?.timelineState.runAnnouncement, undefined);
+  const snapshot = serializeChatTimelineState(state);
+  assert.ok(!JSON.stringify(snapshot).includes('Current'));
+  assert.equal(deserializeChatTimelineState(snapshot.meta, snapshot.nodes)?.runAnnouncement, undefined);
+  assert.deepEqual(reopened?.messages, []);
+
+  apply({ type: 'content.delta', contentId: 'root', text: 'Answer', timestamp: timestamp + 6 });
+  assert.equal(state.runAnnouncement?.message, '');
+  assert.ok(reopened);
+  assert.equal(mergeChatTimelineState(state, reopened.timelineState).runAnnouncement?.message, '');
+  apply({ type: 'run.activity', taskId: 'subtask-2', message: 'New task', timestamp: timestamp + 7 });
+  apply({ type: 'content.delta', contentId: 'another-root', text: 'More output', timestamp: timestamp + 8 });
+  assert.equal(state.runAnnouncement?.message, 'New task');
+  apply({ type: 'content.delta', taskId: 'subtask-2', contentId: 'another-child', text: 'Done', timestamp: timestamp + 9 });
+  assert.equal(state.runAnnouncement?.message, '');
+  apply({ type: 'run.activity', message: 'Check', timestamp: timestamp + 10 });
+  apply({ type: 'run.activity', message: '', timestamp: timestamp + 11 });
+  apply({ type: 'run.activity', message: 'Outdated', timestamp: timestamp + 10 });
+  assert.equal(state.runAnnouncement?.message, '');
+  apply({ type: 'run.activity', message: 'Finishing', timestamp: timestamp + 12 });
+  apply({ type: 'run.complete', timestamp: timestamp + 13 });
+  assert.equal(state.runAnnouncement, undefined);
+  assert.equal(mergeChatTimelineState(state, reopened.timelineState).runAnnouncement, undefined);
+  const ended = projectRemoteChatDetail({ ...remote, events: [start,
+    { type: 'run.activity', runId, timestamp: timestamp + 12, message: 'Finishing' },
+    { type: 'run.complete', runId, timestamp: timestamp + 13 }
+  ] });
+  assert.equal(ended?.timelineState.runAnnouncement, undefined);
+});
+
+test('detail replay keeps the same planning confirmation and its run owner as the live event', () => {
+  const chatId = 'live-plan';
+  const timestamp = 1_780_023_877_038;
+  const start = { type: 'run.start', runId: 'run', agentKey: 'planner', timestamp };
+  const ask = {
+    type: 'awaiting.ask', mode: 'planning', runId: 'run', awaitingId: 'awaiting-plan', timestamp: timestamp + 1,
+    planning: { planningId: 'plan', title: 'Build the report?', options: [{ decision: 'approve', label: 'Proceed' }] }
+  };
+  const live = applyChatTimelineEvent(applyChatTimelineEvent(null, chatId, start), chatId, ask);
+  const replay = projectRemoteChatDetail({
+    chatId,
+    activeRun: { runId: 'run', state: 'running', agentKey: 'planner' },
+    events: [start, ask],
+    awaiting: { ...ask, status: 'awaiting', createdAt: ask.timestamp }
+  });
+  assert.equal(replay?.timelineState.awaiting?.prompt, 'Build the report?');
+  assert.deepEqual(replay.timelineState.awaiting?.interactive, live.awaiting?.interactive);
+  assert.deepEqual(live.awaiting?.interactive, {
+    kind: 'plan', agentKey: 'planner', timeout: null, view: undefined, viewError: '',
+    plan: { id: 'confirm', planningId: 'plan', title: 'Build the report?', options: [{ decision: 'approve', label: 'Proceed' }] }
+  });
+});
+
+test('detail replay does not synthesize a question or title from a hidden request', () => {
+  const detail = projectRemoteChatDetail({
+    chatId: 'hidden-history',
+    events: [
+      { type: 'request.query', requestId: 'hidden', runId: 'first', hidden: true, message: 'internal prompt', timestamp: 100 },
+      { type: 'request.query', requestId: 'automation', runId: 'second', role: 'automation', hidden: true, lane: 'main', message: 'automated prompt', timestamp: 110 },
+      { type: 'request.query', requestId: 'user', runId: 'third', message: 'human title', timestamp: 120 }
+    ],
+    runs: [{ runId: 'first', initialMessage: 'internal prompt', startedAt: 100 }]
+  });
+  assert.equal(detail?.title, 'human title');
+  assert.deepEqual(detail?.messages.map((message) => message.content), ['human title']);
+  assert.ok(detail?.timelineState.orderedNodeIds.some((id) => detail.timelineState.nodesById[id]?.kind === 'run'));
+});
+
+test('approval details update for the same awaiting ID and replay only the pending policy leaves', () => {
+  const chatId = 'approval-reasons';
+  const timestamp = 1_780_023_877_038;
+  const ask = (path: string) => ({
+    type: 'awaiting.ask', mode: 'approval', runId: 'run', awaitingId: 'approval', timestamp,
+    approvals: [{
+      id: 'approval-1', command: 'read', description: 'Read files',
+      policy: { requirements: [
+        { decision: 'allow', requirements: [{ reason: 'Already permitted' }] },
+        { decision: 'requires_approval', requirements: [
+          { decision: 'requires_approval', reasonCode: 'path_outside_read_roots', path },
+          { reasonCode: 'future_code', subject: 'target', reason: 'Server explanation' }
+        ] }
+      ] },
+      requirements: [{ reason: 'Duplicate fallback' }]
+    }]
+  });
+  const initial = applyChatTimelineEvent(null, chatId, ask('/path/A'));
+  const changed = applyChatTimelineEvent(initial, chatId, ask('/path/B'));
+  const detail = projectRemoteChatDetail({
+    chatId, events: [ask('/path/A'), ask('/path/B')],
+    awaiting: { status: 'awaiting', mode: 'approval', runId: 'run', awaitingId: 'approval', createdAt: timestamp }
+  });
+  assert.notEqual(changed, initial);
+  for (const state of [changed, detail?.timelineState]) {
+    const approval = state?.awaiting?.interactive;
+    assert.equal(approval?.kind, 'approval');
+    assert.deepEqual(approval.approvals[0].reasons, [
+      { code: 'path_outside_read_roots', subject: '/path/B', detail: '' },
+      { code: 'future_code', subject: 'target', detail: 'Server explanation' }
+    ]);
+  }
+});
 
 test('projects chat.updated summary push with ownership and latest reply fields', () => {
   const projected = projectRemoteChatSummary({

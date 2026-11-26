@@ -156,6 +156,7 @@ export type ChatTimelineAwaitingApproval = {
   command: string;
   ruleKey?: string;
   description?: string;
+  reasons?: { code: string; subject: string; detail: string }[];
   options?: ChatTimelineAwaitingApprovalOption[];
   allowFreeText?: boolean;
   freeTextPlaceholder?: string;
@@ -248,6 +249,9 @@ export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
   kind: 'message';
   role: ChatTimelineMessageRole;
   messageVariant: ChatTimelineMessageVariant;
+  inputSource?: { kind: 'hidden' } | { kind: 'automation' | 'agent' | 'ask'; sender: string };
+  isRootInput?: boolean;
+  requestKey?: string;
   queryAccessLevel?: 'default' | 'auto_approve' | 'full_access';
   content: string;
   messageId: string;
@@ -558,9 +562,17 @@ export type ChatTimelineAssistantReplyFooter = {
   errorReason: string | null;
 };
 
+export type ChatTimelineRunAnnouncement = {
+  runId: string;
+  taskId: string;
+  timestamp: number;
+  message: string;
+};
+
 export type ChatTimelineState = {
   toolOutputBytes?: number;
   canContinue?: boolean;
+  runAnnouncement?: ChatTimelineRunAnnouncement;
   modelRetry?: {
     runId: string;
     taskId: string;

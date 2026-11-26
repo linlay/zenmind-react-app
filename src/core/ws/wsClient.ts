@@ -126,6 +126,19 @@ export class WsClientRequestTimeoutError extends Error {
   }
 }
 
+// Desktop ws-wire MAX_FRAME_BYTES and agent-platform's defaultMaxMessageSizeBytes.
+// This bounds the serialized frame (including namespace, JSON escaping and references), not body characters.
+export const MAX_WS_FRAME_BYTES = 1024 * 1024;
+
+export class WsClientPayloadTooLargeError extends Error {
+  readonly status = 413;
+  readonly code = 'WS_FRAME_TOO_LARGE';
+  constructor(readonly requestId: string) {
+    super('The complete request exceeds the 1 MiB transport limit. Shorten the text or remove references.');
+    this.name = 'WsClientPayloadTooLargeError';
+  }
+}
+
 function createAbortError(message = 'The operation was aborted.'): Error {
   const error = new Error(message);
   error.name = 'AbortError';
@@ -455,6 +468,12 @@ export class WsClient {
     namespace?: WsTransportNamespace;
   }) {
     const id = opts.requestId || createFrameId('stream');
+    // A local size failure must reject the submit call, rather than arrive after it
+    // has returned a stream handle and the composer has considered submission successful.
+    const prepared = this.prepareFrame(
+      { frame: 'request', type: opts.type, id, payload: opts.payload },
+      opts.namespace
+    );
     let aborted = false;
 
     const abort = () => {
@@ -493,15 +512,7 @@ export class WsClient {
           return;
         }
         try {
-          this.sendFrame(
-            {
-              frame: 'request',
-              type: opts.type,
-              id,
-              payload: opts.payload
-            },
-            opts.namespace
-          );
+          this.sendPreparedFrame(prepared);
         } catch (error) {
           this.cleanupStream(id, opts.signal);
           opts.onError?.(toError(error));
@@ -725,12 +736,29 @@ export class WsClient {
   }
 
   private sendFrame(frame: WsRequestFrame, namespace?: WsTransportNamespace) {
-    if (!this.socket || this.socket.readyState !== 1) {
-      throw new WsClientDisconnectedError('WebSocket transport is not connected');
-    }
+    this.sendPreparedFrame(this.prepareFrame(frame, namespace));
+  }
+
+  private prepareFrame(frame: WsRequestFrame, namespace?: WsTransportNamespace) {
     const resolvedNamespace = namespace || this.getDefaultNamespace();
     const outgoingFrame = resolvedNamespace ? { ...frame, ns: resolvedNamespace } : frame;
     const payload = JSON.stringify(outgoingFrame);
+    let bytes = 0;
+    for (const character of payload) {
+      const point = character.codePointAt(0)!;
+      bytes += point <= 0x7f ? 1 : point <= 0x7ff ? 2 : point <= 0xffff ? 3 : 4;
+      if (bytes > MAX_WS_FRAME_BYTES) {
+        const body = frame.payload as { requestId?: unknown } | undefined;
+        throw new WsClientPayloadTooLargeError(typeof body?.requestId === 'string' ? body.requestId : frame.id);
+      }
+    }
+    return { outgoingFrame, payload };
+  }
+
+  private sendPreparedFrame({ outgoingFrame, payload }: { outgoingFrame: WsRequestFrame; payload: string }) {
+    if (!this.socket || this.socket.readyState !== 1) {
+      throw new WsClientDisconnectedError('WebSocket transport is not connected');
+    }
     wsDebugRecorder.recordOutgoingFrame(outgoingFrame, payload);
     this.socket.send(payload);
   }
