@@ -7,7 +7,7 @@ export type OfficialUser = {
 };
 export type AccountSession = {
   accountId: string;
-  user: OfficialUser;
+  user: Pick<OfficialUser, 'displayName' | 'email' | 'avatarUrl'>;
   accessToken: string;
   accessExpireAtMs: number;
 };
@@ -49,7 +49,7 @@ export function parseAccountSession(
   // A new namespace deliberately does not map or merge former Identity account caches.
   return {
     accountId: `official:${new URL(baseUrl).origin}:${user.id}`,
-    user,
+    user: { displayName: user.displayName, email: user.email, avatarUrl: user.avatarUrl },
     accessToken: v.accessToken,
     accessExpireAtMs: expires
   };

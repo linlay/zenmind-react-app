@@ -184,6 +184,7 @@ function createOuterRuntime(kind, childDocument = '') {
       let capabilityToken = '';
       let activeRequest = null;
       let htmlLoadGeneration = 0;
+      let htmlReady = false;
       const createToken = () => {
         if (!globalThis.crypto || typeof globalThis.crypto.getRandomValues !== 'function') {
           throw new Error('Secure random capability tokens are unavailable.');
@@ -205,13 +206,15 @@ function createOuterRuntime(kind, childDocument = '') {
         emit({ type: 'error', requestId, message: message.slice(0, 2000) });
       };
       const renderHtml = (request) => {
+        htmlReady = false;
         const generation = ++htmlLoadGeneration;
         const csp = ${JSON.stringify(`<meta http-equiv="Content-Security-Policy" content="${CHILD_CSP.html}">`)};
         const guard = '<script>(()=>{const channel=' + JSON.stringify(CHANNEL) + ';const requestId=' + JSON.stringify(request.requestId) + ';const emit=event=>parent.postMessage({channel,event:{...event,requestId}},"*");try{delete window.ReactNativeWebView;Object.defineProperty(window,"ReactNativeWebView",{value:undefined,writable:false,configurable:false})}catch{}const reportHeight=()=>emit({type:"resize",height:Math.max(document.documentElement.scrollHeight,document.body?document.body.scrollHeight:0,1)});addEventListener("click",event=>{const target=event.target;target&&target.closest&&target.closest("a")&&event.preventDefault()},true);addEventListener("submit",event=>event.preventDefault(),true);addEventListener("error",event=>emit({type:"error",message:String(event.message||"Viewport failed.").slice(0,2000)}));addEventListener("unhandledrejection",event=>emit({type:"error",message:String(event.reason||"Viewport failed.").slice(0,2000)}));addEventListener("load",()=>requestAnimationFrame(reportHeight));if(typeof ResizeObserver!=="undefined")new ResizeObserver(reportHeight).observe(document.documentElement);window.open=()=>null;})();<\\/script>';
         frame.onload = () => {
           if (generation !== htmlLoadGeneration) return;
-          if (Object.prototype.hasOwnProperty.call(request, 'initialData')) {
-            frame.contentWindow.postMessage(request.initialData, '*');
+          htmlReady = true;
+          if (activeRequest && Object.prototype.hasOwnProperty.call(activeRequest, 'initialData')) {
+            frame.contentWindow.postMessage(activeRequest.initialData, '*');
           }
           emit({ type: 'ready', requestId: request.requestId });
         };
@@ -256,6 +259,11 @@ function createOuterRuntime(kind, childDocument = '') {
             }
             return;
           }
+          if (payload.type === 'view_resize' && activeRequest.initialData && activeRequest.initialData.type === 'view_init') {
+            if (typeof payload.height === 'number' && Number.isFinite(payload.height) && payload.height > 0)
+              emit({type: 'resize', requestId: activeRequest.requestId, height: payload.height});
+            return;
+          }
           if (activeRequest.bridge !== 'frontend-tool') return;
           if (payload.type === 'close' || payload.type === 'done') {
             emit({ type: payload.type, requestId: activeRequest.requestId });
@@ -276,6 +284,15 @@ function createOuterRuntime(kind, childDocument = '') {
         const request = payload && payload.channel === CHANNEL ? payload.request : null;
         if (!request || request.kind !== KIND || typeof request.requestId !== 'string' || typeof request.source !== 'string') return;
         try {
+          if (KIND === 'html' && activeRequest && request.requestId === activeRequest.requestId && request.source === activeRequest.source) {
+            activeRequest = request;
+            if (htmlReady && request.initialData) {
+              const message = request.initialData.type === 'view_init'
+                ? {type: 'view_update', data: request.initialData.data} : request.initialData;
+              frame.contentWindow.postMessage(message, '*');
+            }
+            return;
+          }
           capabilityToken = createToken();
           activeRequest = request;
           if (KIND === 'html') renderHtml(request);

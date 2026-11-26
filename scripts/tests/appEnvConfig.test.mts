@@ -9,22 +9,14 @@ const require = createRequire(import.meta.url);
 const { loadReactAppEnvArtifact, syncReactAppEnvArtifact } =
   require('../lib/app-env-config.js') as typeof import('../lib/app-env-config.js');
 
-const inheritedArtifactPath = process.env.REACT_APP_ENV_ARTIFACT;
-delete process.env.REACT_APP_ENV_ARTIFACT;
-test.after(() => {
-  if (inheritedArtifactPath === undefined) {
-    delete process.env.REACT_APP_ENV_ARTIFACT;
-  } else {
-    process.env.REACT_APP_ENV_ARTIFACT = inheritedArtifactPath;
-  }
-});
+const env = {};
 
 function createFixtureRoot() {
   const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zenmind-app-env-'));
   fs.mkdirSync(path.join(rootDir, 'brands', 'zenmind'), { recursive: true });
   fs.mkdirSync(path.join(rootDir, 'brands', 'cutej'), { recursive: true });
-  fs.writeFileSync(path.join(rootDir, 'brands', 'zenmind', 'brand.json'), '{}\n');
-  fs.writeFileSync(path.join(rootDir, 'brands', 'cutej', 'brand.json'), '{}\n');
+  fs.writeFileSync(path.join(rootDir, 'brands', 'zenmind', 'brand.json'), '{"accountLoginMethod":"email-code"}\n');
+  fs.writeFileSync(path.join(rootDir, 'brands', 'cutej', 'brand.json'), '{"accountLoginMethod":"enterprise-sso"}\n');
   fs.copyFileSync(
     path.join(process.cwd(), 'brands', 'react-app-env.json'),
     path.join(rootDir, 'brands', 'react-app-env.json')
@@ -44,33 +36,34 @@ function writeFixtureArtifact(artifactPath: string, artifact: unknown) {
   fs.writeFileSync(artifactPath, `${JSON.stringify(artifact, null, 2)}\n`);
 }
 
-test('schema v2 artifact generates a full runtime registry with query token', () => {
+test('legacy artifact generates only the selected brand configuration', () => {
   const rootDir = createFixtureRoot();
   try {
-    const artifact = syncReactAppEnvArtifact({ rootDir });
+    const artifact = syncReactAppEnvArtifact({ rootDir, brandId: 'cutej', env });
     assert.equal(artifact.schemaVersion, 2);
-    assert.equal(artifact.brands.zenmind.defaultSource.id, 'zenmind-example');
-    assert.equal(artifact.brands.cutej.defaultSource.authMode, 'query-token');
-    assert.equal(artifact.brands.cutej.defaultSource.accessToken, 'TOKEN');
+    assert.equal(artifact.environment.defaultSource.id, 'cutej-example');
+    assert.equal(artifact.environment.defaultSource.authMode, 'query-token');
+    assert.equal(artifact.environment.defaultSource.accessToken, 'TOKEN');
 
     const generated = fs.readFileSync(path.join(rootDir, 'src', 'shared', 'generated', 'appEnv.ts'), 'utf8');
-    assert.match(generated, /APP_ENVIRONMENTS = \{/u);
-    assert.match(generated, /"cutej": \{/u);
+    assert.match(generated, /APP_ENVIRONMENT = \{/u);
+    assert.match(generated, /"brandId": "cutej"/u);
     assert.match(generated, /"accessToken": "TOKEN"/u);
-    assert.match(generated, /APP_ENVIRONMENTS\[INSTALLED_BRAND_ID\]/u);
+    assert.doesNotMatch(generated, /zenmind-example|APP_ENVIRONMENTS/u);
+    assert.match(generated, /INSTALLED_BRAND_ID !== APP_ENVIRONMENT.brandId/u);
   } finally {
     fs.rmSync(rootDir, { recursive: true, force: true });
   }
 });
 
-test('artifact rejects missing brand coverage', () => {
+test('legacy artifact rejects missing target brand', () => {
   const rootDir = createFixtureRoot();
   try {
     const { artifactPath, artifact } = readFixtureArtifact(rootDir);
     delete artifact.brands.cutej;
     writeFixtureArtifact(artifactPath, artifact);
 
-    assert.throws(() => syncReactAppEnvArtifact({ rootDir }), /brands must match installed brands/u);
+    assert.throws(() => syncReactAppEnvArtifact({ rootDir, brandId: 'cutej', env }), /no configuration for cutej/u);
   } finally {
     fs.rmSync(rootDir, { recursive: true, force: true });
   }
@@ -82,12 +75,12 @@ test('query-token requires a token and none forbids one', () => {
     const { artifactPath, artifact } = readFixtureArtifact(rootDir);
     delete artifact.brands.zenmind.defaultSource.accessToken;
     writeFixtureArtifact(artifactPath, artifact);
-    assert.throws(() => loadReactAppEnvArtifact(rootDir), /accessToken.*required for query-token/u);
+    assert.throws(() => loadReactAppEnvArtifact(rootDir, { env }), /accessToken.*required for query-token/u);
 
     artifact.brands.zenmind.defaultSource.authMode = 'none';
     artifact.brands.zenmind.defaultSource.accessToken = 'unexpected-token';
     writeFixtureArtifact(artifactPath, artifact);
-    assert.throws(() => loadReactAppEnvArtifact(rootDir), /accessToken.*requires query-token/u);
+    assert.throws(() => loadReactAppEnvArtifact(rootDir, { env }), /accessToken.*requires query-token/u);
   } finally {
     fs.rmSync(rootDir, { recursive: true, force: true });
   }
@@ -97,7 +90,7 @@ test('explicit wsUrl remains authoritative and default transport receives the co
   const rootDir = createFixtureRoot();
   let generated: string;
   try {
-    syncReactAppEnvArtifact({ rootDir });
+    syncReactAppEnvArtifact({ rootDir, env });
     generated = fs.readFileSync(path.join(rootDir, 'src', 'shared', 'generated', 'appEnv.ts'), 'utf8');
   } finally {
     fs.rmSync(rootDir, { recursive: true, force: true });
@@ -118,4 +111,62 @@ test('explicit wsUrl remains authoritative and default transport receives the co
   assert.match(appEnvironmentSource, /authMode:\s*environment\.authMode/u);
   assert.match(appEnvironmentSource, /accessToken:\s*environment\.accessToken/u);
   assert.match(activeTransportSource, /accessToken: credential.token/u);
+});
+
+test('account service matches its installed-brand method and never carries credentials', () => {
+  const rootDir = createFixtureRoot();
+  try {
+    const { artifactPath, artifact } = readFixtureArtifact(rootDir);
+    artifact.brands.zenmind.accountServices = {
+      officialApiBaseUrl: 'https://official.test',
+      tunnelHubApiBaseUrl: 'https://hub.test'
+    };
+    artifact.brands.cutej.accountServices = { ssoBaseUrl: 'https://sso.test', tunnelHubApiBaseUrl: 'https://hub.test' };
+    writeFixtureArtifact(artifactPath, artifact);
+    const loaded = syncReactAppEnvArtifact({ rootDir, brandId: 'cutej', env });
+    assert.equal(loaded.environment.accountServices.ssoBaseUrl, 'https://sso.test');
+    assert.equal(syncReactAppEnvArtifact({ rootDir, env }).environment.accountServices.ssoBaseUrl, '');
+    artifact.brands.cutej.accountServices = { ...artifact.brands.zenmind.accountServices };
+    writeFixtureArtifact(artifactPath, artifact);
+    assert.throws(() => syncReactAppEnvArtifact({ rootDir, brandId: 'cutej', env }), /do not match/);
+    artifact.brands.cutej.accountServices = {
+      ssoBaseUrl: 'https://sso.test',
+      officialApiBaseUrl: 'https://official.test',
+      tunnelHubApiBaseUrl: 'https://hub.test'
+    };
+    writeFixtureArtifact(artifactPath, artifact);
+    assert.throws(() => syncReactAppEnvArtifact({ rootDir, brandId: 'cutej', env }), /exactly one/);
+    delete artifact.brands.cutej.accountServices.officialApiBaseUrl;
+    artifact.brands.cutej.accountServices.password = 'forbidden';
+    writeFixtureArtifact(artifactPath, artifact);
+    assert.throws(() => syncReactAppEnvArtifact({ rootDir, brandId: 'cutej', env }), /Invalid accountServices/);
+  } finally {
+    fs.rmSync(rootDir, { recursive: true, force: true });
+  }
+});
+
+test('single-brand artifact rejects a mismatched build brand and environment', (t) => {
+  const rootDir = createFixtureRoot();
+  t.after(() => fs.rmSync(rootDir, { recursive: true, force: true }));
+  const { artifactPath, artifact } = readFixtureArtifact(rootDir);
+  writeFixtureArtifact(artifactPath, {
+    schemaVersion: 3,
+    artifactVersion: 'cutej-development-3.0.0',
+    brandId: 'cutej',
+    ...artifact.brands.cutej,
+    environmentId: 'development'
+  });
+
+  assert.throws(() => syncReactAppEnvArtifact({ rootDir, env }), /brand does not match build brand zenmind/u);
+  assert.throws(
+    () => syncReactAppEnvArtifact({ rootDir, brandId: 'cutej', env: { REACT_APP_ENVIRONMENT: 'production' } }),
+    /does not match environment production/u
+  );
+  const parsed = syncReactAppEnvArtifact({
+    rootDir,
+    brandId: 'cutej',
+    env: { REACT_APP_ENVIRONMENT: 'development' }
+  });
+  assert.equal(parsed.environment.brandId, 'cutej');
+  assert.equal(parsed.environment.environmentId, 'development');
 });

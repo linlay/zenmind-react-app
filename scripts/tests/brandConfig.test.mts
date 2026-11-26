@@ -172,6 +172,8 @@ test('brand manifests share native identity and EAS project but keep presentatio
   const cutejManifest = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'brands', 'cutej', 'brand.json'), 'utf8'));
 
   assert.equal(zenmind.productName, 'Zenmind');
+  assert.equal(zenmind.accountLoginMethod, 'email-code');
+  assert.equal(cutej.accountLoginMethod, 'enterprise-sso');
   assert.equal(cutej.productName, 'CuteJ');
   assert.equal(zenmind.android.package, shared.androidPackage);
   assert.equal(cutej.android.package, shared.androidPackage);
@@ -249,7 +251,7 @@ test('brand sync redraws derived png assets only when visual inputs or logo sour
     syncBrandArtifacts({ rootDir, brandId: 'cutej' });
     assert.equal(
       fs.readFileSync(path.join(rootDir, 'src', 'shared', 'generated', 'brand.ts'), 'utf8'),
-      generatedBrandTs
+      generatedBrandTs.replace('DEFAULT_BRAND_ID = "zenmind"', 'DEFAULT_BRAND_ID = "cutej"')
     );
     assert.equal(pngEncodeCount, 3);
 

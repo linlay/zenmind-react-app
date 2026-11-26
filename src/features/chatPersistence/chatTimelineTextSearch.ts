@@ -1,6 +1,6 @@
 import type { ChatTimelineMessageNode, ChatTimelineState } from '../chatTimeline/types.ts';
 import { parseConversationMarkdownSegments } from '../../shared/markdown/previewSegments.ts';
-import { CONVERSATION_VIEWPORT_FENCE_EXTENSIONS } from './conversationViewport/conversationViewportFence.ts';
+import { CONVERSATION_VIEW_FENCE_EXTENSIONS } from './conversationViewport/conversationViewportFence.ts';
 
 export const MAX_CHAT_SEARCH_MATCHES = 1000;
 export type ChatTextSearchMatch = {
@@ -20,7 +20,7 @@ export function chatSearchMatchKey(match: Pick<ChatTextSearchMatch, 'nodeId' | '
 /** The same source text feeds copy and search; rendered VIEW metadata is excluded. */
 export function getChatTimelineMessageTextSource(node: Pick<ChatTimelineMessageNode, 'role' | 'content'>): string {
   if (node.role !== 'assistant') return node.content;
-  return parseConversationMarkdownSegments(node.content, { extensions: CONVERSATION_VIEWPORT_FENCE_EXTENSIONS })
+  return parseConversationMarkdownSegments(node.content, { extensions: CONVERSATION_VIEW_FENCE_EXTENSIONS })
     .filter((segment) => segment.type !== 'extension')
     .map((segment) => (segment.type === 'markdown' ? segment.markdown : segment.source))
     .join('\n');

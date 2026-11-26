@@ -29,16 +29,17 @@ pnpm build
 
 当前未安装 Worklets 的 Metro 热更新补丁。修改 Worklet 或动画回调后，需停止 Metro、重新运行上述启动入口完成预生成，再完整重载应用；只做 Fast Refresh 可能出现 SHA-1 或 Worklet hash 错误。
 
-真实默认源需要使用私有环境产物启动 Metro。先停止旧 Metro，在 `react-app-env/env.development` 中保留已有 ZenMind 客户端凭据，再执行：
+在 App 仓库根目录运行，第二个参数是配置包版本，第三个参数是运行方式。
 
 ```bash
-cd ../react-app-env
-bash examples/build-react-app.sh development ../zenmind-react-app start
+./run.sh zenmind-dev 3.0.0 android:device
+./run.sh zenmind-dev 3.0.0 ios
+./run.sh zenmind-dev 3.0.0 start --clear
 ```
 
-该入口依次构建 development 产物、校验 manifest 与 consumer，并让 `REACT_APP_ENV_ARTIFACT` 覆盖整个 Metro 生命周期；退出时恢复原生成文件。已安装调试客户端的真机连接这个 Metro 并重新加载 bundle。首次安装可将末尾 `start` 换为 `android:device`，同样使用环境产物。不要在旁边另开不带环境产物的 Metro。
+`android:device` 编译并安装到 Android 真机，`ios` 使用 iOS 设备选择入口。已安装目标品牌客户端时，用 `start` 只启动 Metro。也可传入 `android` 或 `web`。
 
-验收需从真机实际加载的 bundle 核对 `REACT_APP_ENV_ARTIFACT_VERSION` 为 development 版本、ZenMind 默认源地址为 `https://app.zenmind.cc`、WS 路径为 `/ap/ws`，并完成目录加载与一轮对话；仅检查源码不算通过。示例配置继续用于契约测试，不覆盖私有真实配置，不手改生成文件或提交客户端凭据。
+App 从同级 env-releases/zenmind-development-3.0.0 读取配置和 manifest。两份文件的品牌、环境、版本和摘要必须匹配，缺包会在启动前报错。构建机可用 REACT_APP_ENV_RELEASES_DIR 指定同一结构的制品目录。
 
 Desktop 修复重启后，使用它当前生成的二维码重新扫码；旧地址不会自动改写，旧聊天历史继续保留。“配对信息已保存”仅表示绑定存在，默认源与 Desktop 的在线状态分别显示。下拉刷新等待两个来源各自结束，成功来源写入本地目录，失败提示标明来源。
 
@@ -195,6 +196,23 @@ ChatHomeScreen mount
 
 ## 构建与发布
 
+在 App 仓库根目录运行。两个项目使用相同的目标名，`-dev` 对应 development，`-staging` 对应 staging，裸品牌和 `-prod` 对应 production。
+
+```bash
+./package.sh zenmind-dev 3.0.0 android          # EAS 云构建 Android 内测 APK
+./package.sh cutej-staging 3.0.0 ios            # EAS 云构建 iOS 内测 IPA
+./package.sh cutej 3.0.0 android                # EAS 云构建 Android 生产 AAB
+./package.sh zenmind 3.0.0 ios                  # EAS 云构建 iOS 生产 IPA
+./package.sh zenmind-dev 3.0.0 android --local  # 本地 Android 内测 APK
+./package.sh zenmind 3.0.0 ios --local          # 本地 iOS 生产 IPA
+```
+
+打包使用与运行相同的目标和版本查找规则，再由第三个参数明确选择 Android 或 iOS。校验通过后，脚本把 App 源码和目标配置复制到临时目录，再使用相应的 EAS profile 发起构建。默认使用 EAS 云构建，追加 `--local` 才在本机编译。构建位置不改变包的用途：开发和预发使用内测 profile，生产使用商店 profile，两种位置都支持内测包和正式包。日常连接设备调试使用 `run.sh`，不需要生成分发安装包。
+
+本地安装包统一输出到项目根目录的 `zenmind-app-output/`，文件名为 `<品牌>-<环境>-<env版本>.<apk|aab|ipa>`，例如 `zenmind-app-output/zenmind-development-3.0.0.apk`。输出目录已加入 Git 忽略，退出时只清理临时构建上下文，保留安装包。重复构建同一目标和配置版本会使用同一输出路径，需要保留旧包时先改名。云构建产物通过 EAS 返回的构建链接下载，不自动写入本地输出目录。
+
+本地构建仍需登录 Expo 并配置签名；Android 需要 JDK、Android SDK/NDK，iOS 需要 macOS、Xcode、CocoaPods 和 fastlane。以下 `pnpm build:android` / `build:ios` / `release:ios` 等旧入口仍使用 EAS 云构建。
+
 ```bash
 pnpm build
 pnpm build:android
@@ -212,6 +230,8 @@ pnpm release:ios:cutej
 ```
 
 默认品牌为 ZenMind；当前多品牌共享 native identity，Android package 为 `com.zqfrank.agentterminalapp`，iOS bundle id 为 `cc.zenmind.ios`。CuteJ 通过 `BRAND=cutej` 切换展示名称、图标、启动图和通知色。`BRAND=<id> pnpm brand:sync` 会校验 `brands/<id>/brand.json`，生成运行时品牌常量，并把 PNG 缓存在 `assets/generated/brand/<id>/` 下。
+
+EAS 构建在临时 App 构建目录内按目标品牌设置产物路径和服务环境。preview 与 production 的 OTA channel 按品牌分开，旧安装包接收新 channel 的更新需要重新构建安装。
 
 ### iOS 发布到 TestFlight
 

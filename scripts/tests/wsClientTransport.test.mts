@@ -407,3 +407,34 @@ test('chat stream forwards done reason and last sequence', async () => {
     (globalThis as typeof globalThis & { WebSocket: unknown }).WebSocket = originalWebSocket;
   }
 });
+
+test('request budget counts the exact UTF-8 JSON frame, references, escaping and namespace before socket.send', async () => {
+  const sockets: FakeSocket[] = [];
+  const client = new WsClient({ transport: { kind: 'desktop-ws', wsUrl: 'ws://localhost/ws', tokenMode: 'subprotocol', token: 'ticket', namespace: 'agent-platform' }, createWebSocket: createSocketFactory(sockets) });
+  try {
+    const limit = 1024 * 1024;
+    const base = { frame:'request', type:'/api/query', id:'fixed', payload:{ requestId:'message', message:'' }, ns:'agent-platform' };
+    const overhead = Buffer.byteLength(JSON.stringify(base));
+    const errors: Error[] = [];
+    const stream = client.stream({ type: '/api/query', requestId:'fixed', payload: { requestId:'message', message:'a'.repeat(limit-overhead) }, onEvent() {}, onError: error => errors.push(error) });
+    await flushMicrotasks();
+    assert.equal(errors.length, 0);
+    assert.equal(Buffer.byteLength(sockets[0].sent[0]), limit);
+    stream.abort();
+    for (const payload of [
+      {requestId:'oversized', message:'a'.repeat(limit-overhead+1)},
+      {requestId:'oversized', message:'中'.repeat(Math.ceil(limit/3))},
+      {requestId:'oversized', message:'short', references:[{type:'selection',text:'\\"\n'.repeat(limit/6)}]}
+    ]) {
+      await assert.rejects(client.request({type:'/api/chat/steer',payload}), (error: unknown) => {
+        assert.ok(error instanceof Error);
+        assert.equal((error as Error & {status:number}).status, 413);
+        assert.equal((error as Error & {requestId:string}).requestId, 'oversized');
+        return true;
+      });
+      assert.equal(sockets[0].sent.length, 1, 'oversized request must never reach the socket');
+      assert.throws(() => client.stream({type:'/api/query',payload,requestId:'oversized-stream',onEvent(){}}), /complete request/);
+      assert.equal(sockets[0].sent.length, 1, 'stream preflight must fail synchronously without sending');
+    }
+  } finally { client.disconnect(); }
+});

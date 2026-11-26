@@ -52,7 +52,10 @@ export const ConversationMarkdownRenderer = memo(function ConversationMarkdownRe
     () => createConversationMarkdownSegmentCache({ extensions: fenceExtensions }),
     [fenceExtensions]
   );
-  const segments = useMemo(() => segmentCache.parse(renderedMarkdown), [renderedMarkdown, segmentCache]);
+  const segments = useMemo(
+    () => segmentCache.parse(renderedMarkdown, !streaming),
+    [renderedMarkdown, segmentCache, streaming]
+  );
   const containerStyle = useMemo(() => StyleSheet.flatten(style), [style]);
   const markdownStyle = useMemo<MarkdownStyle>(
     () => ({

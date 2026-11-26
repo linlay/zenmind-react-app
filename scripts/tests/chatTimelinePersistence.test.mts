@@ -18,7 +18,7 @@ test('timeline persistence keeps frontend tool dismissal across restore and stal
     runId: 'run-tool',
     toolId: 'tool-form',
     toolType: 'html',
-    viewportKey: 'leave-form',
+    view: { source: 'builtin', key: 'ask_user_form', renderer: 'html' },
     toolParams: { days: 1 },
     timestamp: 1_700_000_000_000,
   };
@@ -42,8 +42,8 @@ test('timeline persistence keeps frontend tool dismissal across restore and stal
 });
 import { parseConversationMarkdownSegments } from '../../src/shared/markdown/previewSegments.ts';
 import {
-  CONVERSATION_VIEWPORT_FENCE_EXTENSIONS,
-  type ConversationViewportFenceData
+  CONVERSATION_VIEW_FENCE_EXTENSIONS,
+  type ConversationViewFenceData
 } from '../../src/features/chatPersistence/conversationViewport/conversationViewportFence.ts';
 
 test('timeline persistence roundtrips rich runtime nodes without replaying events', () => {
@@ -397,7 +397,7 @@ test('timeline persistence roundtrips structured question awaiting payloads', ()
       awaitingId: 'awaiting-question',
       mode: 'question',
       viewportType: 'builtin',
-      viewportKey: 'question',
+      view: { source: 'builtin', key: 'ask_user_form', renderer: 'html' },
       timeout: 120000,
       agentKey: 'askUser.demo',
       questions: [
@@ -561,8 +561,7 @@ test('timeline persistence roundtrips typed artifact resource nodes without repl
 test('timeline persistence derives the same viewport segments from restored assistant content', () => {
   const content = [
     '天气如下：',
-    '```viewport',
-    'type=html,key=weather-card',
+    '```view key=weather/card',
     '{"city":"Shanghai"}',
     '```',
     '以上为实时结果。'
@@ -585,14 +584,14 @@ test('timeline persistence derives the same viewport segments from restored assi
   assert.equal(message?.kind, 'message');
   const segments = parseConversationMarkdownSegments(
     message?.kind === 'message' ? message.content : '',
-    { extensions: CONVERSATION_VIEWPORT_FENCE_EXTENSIONS }
+    { extensions: CONVERSATION_VIEW_FENCE_EXTENSIONS }
   );
   assert.deepEqual(segments.map((segment) => segment.type), ['markdown', 'extension', 'markdown']);
   const viewport = segments[1];
   assert.equal(
     viewport?.type === 'extension'
-      ? (viewport.data as ConversationViewportFenceData).viewportKey
+      ? (viewport.data as ConversationViewFenceData).key
       : '',
-    'weather-card'
+    'weather/card'
   );
 });

@@ -13,7 +13,9 @@
       "ChatSyncCoordinator 只维护一个 activeService；云端与电脑共用既有同步/投影/持久化链路。",
       "目录同步快照由当前 service 持有，按来源与 cache scope 隔离 idle/loading/ready/error；复用 refreshHome 单飞及 home.directory.sync 通知。目录准备与远端读取限时 15 秒，只取消本次读取，不关闭共享 Socket；入库后先通知目录替换，再标记 ready。启动推送与目录读取并行，切源/停止取消所属目录操作，迟到结果和旧 finally 不得覆盖新请求。",
       "默认源 availability 由当前凭证完成目录请求决定；断线保留缓存，重连先验证再开放操作，明确认证失败隐藏内容。",
-      "业务写入继续经 repository；切源/退出只释放本机访问，不发送远端 interrupt/cancel。Chat 停止仅移除自身监听，sharedWsTransport 只在没有 scoped owner 或 active operation 时回收连接。"
+      "业务写入继续经 repository；切源/退出只释放本机访问，不发送远端 interrupt/cancel。Chat 停止仅移除自身监听，sharedWsTransport 只在没有 scoped owner 或 active operation 时回收连接。",
+      "hasOlderConversationHistory 以所属 Desktop 来源已确认的 remoteHistoryCursors 为准；首次未知、服务端无更多页、无有效游标或来源不匹配均返回 false，详情 UI 复用既有 reconcile/timeline 更新读取该状态。",
+      "steer pending 由当前来源 service 按 Chat 保存有序多条内存快照，全来源最多 16 条且不淘汰未确认内容；正文、折叠草稿、附件、手选技能与 Run/request 身份独立。queueSteerConversation 仅生成 queued；submitPendingSteer 由逐条手动引导触发，同步转 sending 防重复点击，并复验活动 Run/联网/awaiting。queued 取消复用 restorePendingSteer 本地交付，不读历史、不发请求；Run 结束、重连或切换均不自动提交或转 query。根 wait 的立即继续仍显式一次提交空白 steer。校验至 request 调用串行，响应与消费独立；accepted 不等于消费，明确拒绝保留 failed，未知不重发。消费按 owner/Chat/Run/steer 精确确认；未提交或失败条可本地恢复，其他条需 Run 结束并核对历史，恢复直接等待真实历史回读，读取失败保留 pending；原输入控制层按 Chat/来源/访问代次同步接收快照后才移除，离开页面不丢未交付内容。恢复幂等且不提交。切源/退出清空，重启不恢复。"
     ],
     "nonGoals": []
   },
@@ -102,7 +104,8 @@
   "recentChanges": [
     "2026-10-08：同步 WebClient P1 协议与时序，移除无用本地假 cancel/terminal guard；本地回归通过，真实后端与 Native 联调待完成。",
     "2026-10-09：账号来源改造，本地实现与实际部署验收分开记录。",
-    "2026-10-12：默认云端 Token 独立访问实施；本地测试与导出验证，真实服务/真机验收由用户执行。"
+    "2026-10-12：默认云端 Token 独立访问实施；本地测试与导出验证，真实服务/真机验收由用户执行。",
+    "2026-10-28 B1：source namespace 只遍历已知协议外壳，VIEW/Form/tool 业务 JSON 保持原值；service 校验 VIEW source/Chat/hash/返回引用与当前 awaiting 生命周期，复用既有请求和共享连接。content.view 与快照 views 经同一 timeline/缓冲消息投影持久化。"
   ],
   "legacy": {
     "title": "聊天实时同步",

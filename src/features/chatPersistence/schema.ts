@@ -1,4 +1,4 @@
-import { InferInsertModel, InferSelectModel } from 'drizzle-orm';
+import type { InferInsertModel, InferSelectModel } from 'drizzle-orm';
 import { index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core';
 
 export const conversations = sqliteTable(
@@ -158,3 +158,15 @@ export type ConversationTimelineMetaRow = InferSelectModel<typeof conversationTi
 export type NewConversationTimelineMetaRow = InferInsertModel<typeof conversationTimelineMeta>;
 export type ConversationTimelineNodeRow = InferSelectModel<typeof conversationTimelineNodes>;
 export type NewConversationTimelineNodeRow = InferInsertModel<typeof conversationTimelineNodes>;
+
+// Only applied composer configuration; never drafts, attachments or pending submissions.
+export const composerPreferences = sqliteTable(
+  'composer_preferences',
+  {
+    owner: text('owner').notNull(),
+    chatId: text('chat_id').notNull(),
+    modelJson: text('model_json'),
+    skillIdsJson: text('skill_ids_json')
+  },
+  (table) => [primaryKey({ columns: [table.owner, table.chatId] })]
+);

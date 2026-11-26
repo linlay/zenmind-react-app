@@ -5,10 +5,7 @@ import { type TFunction, useT } from '../../../../shared/i18n';
 import { useAppTheme } from '../../../../shared/visual/AppThemeProvider';
 import { cn } from '../../../../shared/visual/className';
 import type { ChatConversationAwaitingState } from '../../../chatRealtime/types';
-import {
-  getAwaitingCountdownRemainingSeconds,
-  resolveAwaitingCountdownDeadline,
-} from './awaitingQuestionState';
+import { getAwaitingCountdownRemainingSeconds, resolveAwaitingCountdownDeadline } from './awaitingQuestionState';
 
 type AwaitingPanelFooterProps = {
   awaiting: ChatConversationAwaitingState;
@@ -23,17 +20,17 @@ type AwaitingPanelFooterProps = {
 };
 
 const COUNTDOWN_TICK_MS = 1000;
-const FOOTER_CLASS = 'min-h-9 flex-row items-center justify-between gap-app-md';
-const FOOTER_STATUS_CLASS = 'min-w-0 flex-1 gap-[2px]';
-const COUNTDOWN_CLASS = 'max-w-[128px] text-[12px] font-bold leading-4 text-app-secondary';
+const FOOTER_CLASS = 'shrink-0 gap-app-sm border-t border-app-line px-app-lg pt-app-sm';
+const FOOTER_STATUS_CLASS = 'gap-1';
+const COUNTDOWN_CLASS = 'text-[12px] leading-4 text-app-secondary';
 const ACTIONS_CLASS = 'flex-row items-center gap-app-sm';
 const SKIP_BUTTON_CLASS =
-  'min-h-[34px] min-w-[62px] items-center justify-center rounded-app-md bg-app-surface-muted px-app-md active:opacity-[0.72]';
-const SKIP_TEXT_CLASS = 'text-[13px] font-extrabold leading-[18px] text-app-secondary';
+  'min-h-11 flex-1 items-center justify-center rounded-app-md bg-app-surface-muted px-app-md active:opacity-[0.72]';
+const SKIP_TEXT_CLASS = 'text-[14px] font-medium leading-[19px] text-app-secondary';
 const PRIMARY_BUTTON_CLASS =
-  'min-h-[34px] min-w-[72px] items-center justify-center rounded-app-md bg-app-brand-blue px-app-md active:bg-app-brand-blue-strong';
-const PRIMARY_TEXT_CLASS = 'text-[13px] font-black leading-[18px] text-app-on-action';
-const ERROR_TEXT_CLASS = 'text-[12px] font-bold leading-4 text-app-danger';
+  'min-h-11 flex-[2] items-center justify-center rounded-app-md bg-app-action px-app-md active:opacity-[0.82]';
+const PRIMARY_TEXT_CLASS = 'text-[14px] font-semibold leading-[19px] text-app-on-action';
+const ERROR_TEXT_CLASS = 'text-[12px] leading-4 text-app-danger';
 const DISABLED_BUTTON_CLASS = 'opacity-[0.38]';
 
 type CountdownState = {
@@ -60,7 +57,7 @@ function useCountdownLabel({
   awaitingId,
   createdAt,
   id,
-  timeoutMs,
+  timeoutMs
 }: {
   awaitingId: string;
   createdAt: number;
@@ -79,13 +76,13 @@ function useCountdownLabel({
       resolveAwaitingCountdownDeadline({
         createdAt,
         timeout: timeoutMs,
-        displayedAt,
+        displayedAt
       }),
     [createdAt, displayedAt, timeoutMs]
   );
   const [countdownState, setCountdownState] = useState<CountdownState>(() => ({
     deadline,
-    remainingSeconds: getAwaitingCountdownRemainingSeconds(deadline, Date.now()),
+    remainingSeconds: getAwaitingCountdownRemainingSeconds(deadline, Date.now())
   }));
   const remainingSeconds =
     countdownState.deadline === deadline
@@ -132,7 +129,7 @@ const AwaitingCountdownText = memo(function AwaitingCountdownText({
   awaitingId,
   createdAt,
   id,
-  timeoutMs,
+  timeoutMs
 }: {
   awaitingId: string;
   createdAt: number;
@@ -160,59 +157,67 @@ export const AwaitingPanelFooter = memo(function AwaitingPanelFooter({
   submitting,
   timeoutMs,
   onPrimary,
-  onSecondary,
+  onSecondary
 }: AwaitingPanelFooterProps) {
   const { theme } = useAppTheme();
   const actionDisabled = disabled || submitting;
   const hasPrimaryAction = Boolean(primaryLabel && onPrimary);
+  const hasSecondaryAction = Boolean(secondaryLabel && onSecondary);
+  const hasStatus = Boolean(errorText || timeoutMs !== null);
+
+  if (!hasPrimaryAction && !hasSecondaryAction && !hasStatus) return null;
 
   return (
     <View className={FOOTER_CLASS}>
-      <View className={FOOTER_STATUS_CLASS}>
-        {errorText ? (
-          <Text allowFontScaling={false} numberOfLines={1} className={ERROR_TEXT_CLASS}>
-            {errorText}
-          </Text>
-        ) : null}
-        <AwaitingCountdownText
-          awaitingId={awaiting.awaitingId}
-          createdAt={awaiting.createdAt}
-          id={awaiting.id}
-          timeoutMs={timeoutMs}
-        />
-      </View>
-      <View className={ACTIONS_CLASS}>
-        {secondaryLabel && onSecondary ? (
-          <Pressable
-            accessibilityLabel={secondaryLabel}
-            accessibilityRole="button"
-            disabled={actionDisabled}
-            onPress={onSecondary}
-            className={cn(SKIP_BUTTON_CLASS, actionDisabled ? DISABLED_BUTTON_CLASS : null)}
-          >
-            <Text allowFontScaling={false} className={SKIP_TEXT_CLASS}>
-              {secondaryLabel}
+      {hasStatus ? (
+        <View className={FOOTER_STATUS_CLASS}>
+          {errorText ? (
+            <Text accessibilityLiveRegion="polite" allowFontScaling={false} className={ERROR_TEXT_CLASS}>
+              {errorText}
             </Text>
-          </Pressable>
-        ) : null}
-        {hasPrimaryAction ? (
-          <Pressable
-            accessibilityLabel={primaryLabel}
-            accessibilityRole="button"
-            disabled={actionDisabled}
-            onPress={onPrimary}
-            className={cn(PRIMARY_BUTTON_CLASS, disabled && !submitting ? DISABLED_BUTTON_CLASS : null)}
-          >
-            {submitting ? (
-              <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
-            ) : (
-              <Text allowFontScaling={false} className={PRIMARY_TEXT_CLASS}>
-                {primaryLabel}
+          ) : null}
+          <AwaitingCountdownText
+            awaitingId={awaiting.awaitingId}
+            createdAt={awaiting.createdAt}
+            id={awaiting.id}
+            timeoutMs={timeoutMs}
+          />
+        </View>
+      ) : null}
+      {hasPrimaryAction || hasSecondaryAction ? (
+        <View className={ACTIONS_CLASS}>
+          {secondaryLabel && onSecondary ? (
+            <Pressable
+              accessibilityLabel={secondaryLabel}
+              accessibilityRole="button"
+              disabled={actionDisabled}
+              onPress={onSecondary}
+              className={cn(SKIP_BUTTON_CLASS, actionDisabled ? DISABLED_BUTTON_CLASS : null)}
+            >
+              <Text allowFontScaling={false} className={SKIP_TEXT_CLASS}>
+                {secondaryLabel}
               </Text>
-            )}
-          </Pressable>
-        ) : null}
-      </View>
+            </Pressable>
+          ) : null}
+          {hasPrimaryAction ? (
+            <Pressable
+              accessibilityLabel={primaryLabel}
+              accessibilityRole="button"
+              disabled={actionDisabled}
+              onPress={onPrimary}
+              className={cn(PRIMARY_BUTTON_CLASS, disabled && !submitting ? DISABLED_BUTTON_CLASS : null)}
+            >
+              {submitting ? (
+                <ActivityIndicator size="small" color={theme.colors.onBrandBlueAction} />
+              ) : (
+                <Text allowFontScaling={false} className={PRIMARY_TEXT_CLASS}>
+                  {primaryLabel}
+                </Text>
+              )}
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
     </View>
   );
 });

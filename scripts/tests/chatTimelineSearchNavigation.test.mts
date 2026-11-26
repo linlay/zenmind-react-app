@@ -135,7 +135,8 @@ test('production search reveal expands a folded reply before scrolling; content 
     tailSignature: {},
     didTimelineTailAdvance: () => true,
     diagnosticVersion: 'changed',
-    showResponseWaitingIndicator: true
+    showResponseWaitingIndicator: false,
+    announcement: 'Preparing output'
   };
   const actions = evaluate(
     `const ${declaration('handleSearchActive')}; const ${declaration('handleSearchReveal')}; const ${declaration('handleContentSizeChange')}; return {handleSearchActive,handleSearchReveal,handleContentSizeChange};`,
@@ -165,7 +166,7 @@ test('production search reveal expands a folded reply before scrolling; content 
   pending.current = true;
   actions.handleContentSizeChange(400, 1200);
   assert.equal(follows, 0);
-  for (const text of ['const previousTailSignature', 'if (!diagnosticVersion', 'showResponseWaitingIndicator &&']) {
+  for (const text of ['const previousTailSignature', 'if (!diagnosticVersion', '(showResponseWaitingIndicator || announcement)']) {
     pending.current = false;
     evaluate(`return ${layoutEffectContaining(text)};`, scope)();
     assert.equal(pending.current, false);

@@ -1,3 +1,4 @@
+import type { ChatTimelineViewBinding } from './timelineView.ts';
 import type { QueryModelOverride } from '../../core/api/services/modelOptionsProtocol.ts';
 import type { ChatViewReference } from '../../core/api/services/chatViewProtocol.ts';
 import type { ChatToolOutput } from './toolOutput.ts';
@@ -155,16 +156,15 @@ export type ChatTimelineAwaitingApproval = {
   command: string;
   ruleKey?: string;
   description?: string;
+  reasons?: { code: string; subject: string; detail: string }[];
   options?: ChatTimelineAwaitingApprovalOption[];
   allowFreeText?: boolean;
   freeTextPlaceholder?: string;
 };
 
 export type ChatTimelineAwaitingForm = {
-  id: string;
-  action?: string;
-  form?: Record<string, unknown> | null;
   title?: string;
+  data: Record<string, unknown> | null;
 };
 
 export type ChatTimelineAwaitingPlanInput = {
@@ -190,8 +190,6 @@ export type ChatTimelineAwaitingPlan = {
 export type ChatTimelineAwaitingInteractiveBase = {
   view?: ChatViewReference;
   viewError?: string;
-  viewportType: string;
-  viewportKey: string;
   timeout: number | null;
   agentKey: string;
 };
@@ -208,7 +206,7 @@ export type ChatTimelineAwaitingInteractiveApproval = ChatTimelineAwaitingIntera
 
 export type ChatTimelineAwaitingInteractiveForm = ChatTimelineAwaitingInteractiveBase & {
   kind: 'form';
-  forms: ChatTimelineAwaitingForm[];
+  form: ChatTimelineAwaitingForm;
 };
 
 export type ChatTimelineAwaitingInteractivePlan = ChatTimelineAwaitingInteractiveBase & {
@@ -247,9 +245,13 @@ export type ChatTimelineBaseNode = {
 };
 
 export type ChatTimelineMessageNode = ChatTimelineBaseNode & {
+  viewBindings?: Record<number, ChatTimelineViewBinding>;
   kind: 'message';
   role: ChatTimelineMessageRole;
   messageVariant: ChatTimelineMessageVariant;
+  inputSource?: { kind: 'hidden' } | { kind: 'automation' | 'agent' | 'ask'; sender: string };
+  isRootInput?: boolean;
+  requestKey?: string;
   queryAccessLevel?: 'default' | 'auto_approve' | 'full_access';
   content: string;
   messageId: string;
@@ -370,7 +372,7 @@ export type ChatTimelineToolNode = ChatTimelineBaseNode & {
   toolName: string;
   toolLabel: string;
   toolType: string;
-  viewportKey: string;
+  viewKey: string;
   toolTimeoutMs: number | null;
   toolParams: Record<string, unknown>;
   frontendToolState: ChatTimelineFrontendToolState | null;
@@ -402,7 +404,9 @@ export type ChatTimelineActiveFrontendTool = {
   toolName: string;
   toolLabel: string;
   toolType: 'html' | 'qlc';
-  viewportKey: string;
+  view: ChatViewReference;
+  viewError?: string;
+  viewKey: string;
   toolTimeoutMs: number | null;
   toolParams: Record<string, unknown>;
   description: string;
@@ -558,9 +562,17 @@ export type ChatTimelineAssistantReplyFooter = {
   errorReason: string | null;
 };
 
+export type ChatTimelineRunAnnouncement = {
+  runId: string;
+  taskId: string;
+  timestamp: number;
+  message: string;
+};
+
 export type ChatTimelineState = {
   toolOutputBytes?: number;
   canContinue?: boolean;
+  runAnnouncement?: ChatTimelineRunAnnouncement;
   modelRetry?: {
     runId: string;
     taskId: string;

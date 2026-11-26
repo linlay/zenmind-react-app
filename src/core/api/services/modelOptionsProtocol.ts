@@ -261,3 +261,15 @@ export function readAgentModelOverride(value: unknown): QueryModelOverride {
     serviceTier: input.serviceTier ?? 'STANDARD'
   });
 }
+
+export function isModelOverrideAvailable(model: QueryModelOverride, options: ModelOptionsSnapshot): boolean {
+  const selected = options.models.find((item) => item.key === model.key);
+  if (!selected) return false;
+  if (model.reasoningEffort && !options.reasoningEfforts.some((item) => item.key === model.reasoningEffort))
+    return false;
+  const tier = model.serviceTier || 'STANDARD';
+  return (
+    tier === 'STANDARD' ||
+    (selected.serviceTiers.includes(tier) && options.serviceTiers.some((item) => item.key === tier))
+  );
+}

@@ -2,7 +2,7 @@ import type {
   ChatTimelineActiveFrontendTool,
   ChatTimelineFrontendToolResolution,
   ChatTimelineState,
-  ChatTimelineToolNode,
+  ChatTimelineToolNode
 } from './types.ts';
 
 const FRONTEND_TOOL_VIEWPORT_TYPES = ['html', 'qlc'] as const;
@@ -21,9 +21,7 @@ function isPlainRecord(value: unknown): value is Record<string, unknown> {
 
 export function normalizeFrontendToolType(value: unknown): 'html' | 'qlc' | '' {
   const type = normalizeText(value).toLowerCase();
-  return FRONTEND_TOOL_VIEWPORT_TYPES.some((candidate) => candidate === type)
-    ? (type as 'html' | 'qlc')
-    : '';
+  return FRONTEND_TOOL_VIEWPORT_TYPES.some((candidate) => candidate === type) ? (type as 'html' | 'qlc') : '';
 }
 
 export function normalizeFrontendToolParams(value: unknown): Record<string, unknown> | null {
@@ -49,7 +47,8 @@ function toActiveFrontendTool(
   const toolType = normalizeFrontendToolType(node.toolType);
   if (
     !toolType ||
-    !normalizeText(node.viewportKey) ||
+    !node.view ||
+    !normalizeText(node.viewKey) ||
     node.lifecycle !== 'active' ||
     node.frontendToolState?.status !== 'active'
   ) {
@@ -65,23 +64,23 @@ function toActiveFrontendTool(
     toolName: node.toolName,
     toolLabel: node.toolLabel,
     toolType,
-    viewportKey: node.viewportKey,
+    view: node.view,
+    viewError: node.viewError,
+    viewKey: node.viewKey,
     toolTimeoutMs: node.toolTimeoutMs,
     toolParams: node.toolParams,
     description: node.description,
-    createdAt: node.createdAt,
+    createdAt: node.createdAt
   };
 }
 
-export function getActiveChatTimelineFrontendTool(
-  state: ChatTimelineState
-): ChatTimelineActiveFrontendTool | null {
+export function getActiveChatTimelineFrontendTool(state: ChatTimelineState): ChatTimelineActiveFrontendTool | null {
   for (let index = state.orderedNodeIds.length - 1; index >= 0; index -= 1) {
     const node = state.nodesById[state.orderedNodeIds[index]];
     if (node?.kind !== 'tool') {
       continue;
     }
-    if (!normalizeFrontendToolType(node.toolType) || !normalizeText(node.viewportKey)) {
+    if (!normalizeFrontendToolType(node.toolType) || !normalizeText(node.viewKey)) {
       continue;
     }
     // Frontend tools form a single-slot interaction. Once the latest candidate is
@@ -99,11 +98,7 @@ export function resolveChatTimelineFrontendTool(
 ): ChatTimelineState {
   const normalizedKey = normalizeText(toolKey);
   const node = normalizedKey ? state.nodesById[normalizedKey] : null;
-  if (
-    node?.kind !== 'tool' ||
-    node.lifecycle !== 'active' ||
-    node.frontendToolState?.status !== 'active'
-  ) {
+  if (node?.kind !== 'tool' || node.lifecycle !== 'active' || node.frontendToolState?.status !== 'active') {
     return state;
   }
 
@@ -117,12 +112,12 @@ export function resolveChatTimelineFrontendTool(
         frontendToolState: {
           status: 'resolved',
           reason,
-          resolvedAt: nextUpdatedAt,
+          resolvedAt: nextUpdatedAt
         },
-        updatedAt: nextUpdatedAt,
-      },
+        updatedAt: nextUpdatedAt
+      }
     },
     updatedAt: Math.max(state.updatedAt, nextUpdatedAt),
-    revision: state.revision + 1,
+    revision: state.revision + 1
   };
 }

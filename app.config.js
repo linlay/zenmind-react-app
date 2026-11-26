@@ -7,14 +7,14 @@ function assetPath(relativePath) {
 }
 
 module.exports = () => {
+  const brandId = resolveBrandId(process.argv.slice(2), process.env, __dirname, { allowPositional: false });
+  const appEnv = syncReactAppEnvArtifact({ rootDir: __dirname, brandId });
   const brand = syncBrandArtifacts({
     rootDir: __dirname,
-    brandId: resolveBrandId(process.argv.slice(2), process.env, __dirname, { allowPositional: false }),
+    brandId,
     appVersion: packageJson.version,
     syncNativeProject: false
   });
-  const appEnv = syncReactAppEnvArtifact({ rootDir: __dirname });
-
   return {
     expo: {
       name: brand.expoName,
@@ -23,6 +23,7 @@ module.exports = () => {
       orientation: 'portrait',
       icon: assetPath(brand.generatedAssets.icon),
       userInterfaceStyle: 'light',
+      experiments: { inlineModules: { watchedDirectories: ['./src/features/chatPersistence/native'] } },
       newArchEnabled: true,
       plugins: [
         [
@@ -78,7 +79,9 @@ module.exports = () => {
         },
         appEnvironment: {
           schemaVersion: appEnv.schemaVersion,
-          artifactVersion: appEnv.artifactVersion
+          artifactVersion: appEnv.artifactVersion,
+          brandId: appEnv.environment.brandId,
+          environmentId: appEnv.environment.environmentId
         },
         eas: {
           projectId: brand.updates.projectId

@@ -66,7 +66,7 @@ function displayKindForNode(
 ): Exclude<ChatTimelineDisplayItemKind, 'tool-group' | 'assistant-reply-footer'> {
   if (node.kind === 'message') {
     if (node.role === 'user') {
-      return isChatTimelineCommandMessageVariant(node.messageVariant)
+      return node.inputSource || isChatTimelineCommandMessageVariant(node.messageVariant)
         ? 'request'
         : 'user-query';
     }
@@ -109,6 +109,7 @@ function isVisibleTimelineNode(
     return false;
   }
   if (node.kind === 'message') {
+    if (node.inputSource?.kind === 'hidden') return false;
     return (
       node.content.trim().length > 0 ||
       node.role === 'user' ||
@@ -451,6 +452,7 @@ function isUserQueryEntry(entry: PendingDisplayEntry): boolean {
     entry.kind === 'node' &&
     entry.node.kind === 'message' &&
     entry.node.role === 'user' &&
+    !entry.node.inputSource &&
     !isChatTimelineCommandMessageVariant(entry.node.messageVariant)
   );
 }
@@ -1204,10 +1206,11 @@ function hasSameDisplayFrame(
   );
 }
 
-function canReuseDisplayItem(
+export function areChatTimelineDisplayItemsEqual(
   previous: ChatTimelineDisplayItem,
   next: ChatTimelineDisplayItem
 ): boolean {
+  if (previous === next) return true;
   if (previous.key !== next.key || previous.kind !== next.kind) {
     return false;
   }
@@ -1252,7 +1255,7 @@ function reuseStableDisplayItems(
   const previousByKey = new Map(previous.items.map((item) => [item.key, item]));
   return items.map((item) => {
     const candidate = previousByKey.get(item.key);
-    return candidate && canReuseDisplayItem(candidate, item) ? candidate : item;
+    return candidate && areChatTimelineDisplayItemsEqual(candidate, item) ? candidate : item;
   });
 }
 

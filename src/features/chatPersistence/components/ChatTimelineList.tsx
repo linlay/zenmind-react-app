@@ -1,3 +1,4 @@
+import { areChatTimelineDisplayItemsEqual } from '../../chatTimeline/timelineDisplay.ts';
 import { ChatToolWait } from './ChatToolWait';
 import { ChatFileChanges } from './ChatFileChanges.tsx';
 import { ChatTimelineTextSearch } from './ChatTimelineTextSearch.tsx';
@@ -492,31 +493,52 @@ const RequestInputRow = memo(function RequestInputRow({
   isLastInRun: boolean;
 }) {
   const { theme } = useAppTheme();
+  const t = useT();
   const variant = node.kind === 'message' ? node.messageVariant : 'default';
   const presentation = REQUEST_PRESENTATION_BY_VARIANT[variant];
   const text = node.kind === 'message' ? node.content : node.body || node.title;
+  const hasText = Boolean(text.trim());
+  const attachments = node.kind === 'message' ? node.attachments : undefined;
+  const source = node.kind === 'message' ? node.inputSource : undefined;
+  const sender = source?.kind === 'automation'
+    ? source.sender || t('timeline.input.automation')
+    : source && source.kind !== 'hidden'
+      ? source.sender || t('timeline.input.unknownSender')
+      : '';
 
   return (
     <View style={TIMELINE_LAYOUT_STYLES.timelineRow}>
       <ChatTimelineRail iconUsage={presentation.iconUsage} terminal={isLastInRun} toneColor={theme.colors.brandBlue} />
       <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <View className={REQUEST_MESSAGE_STACK_CLASS}>
+          {sender ? (
+            <Text className={REQUEST_COMMAND_LABEL_CLASS}>
+              {source?.kind === 'ask' ? t('timeline.input.ask', { sender }) : t('timeline.input.inbound', { sender })}
+            </Text>
+          ) : null}
           {presentation.label ? (
             <Text allowFontScaling={false} className={REQUEST_COMMAND_LABEL_CLASS}>
               {presentation.label}
             </Text>
           ) : null}
-          <View
-            className={REQUEST_BUBBLE_CLASS}
-            style={[REQUEST_BUBBLE_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}
-          >
-            <ChatConversationMarkdownRenderer
-              markdown={text}
-              selectable={false}
-              textColor={theme.colors.onBrandBlueAction}
-              linkColor={theme.colors.onBrandBlueAction}
-            />
-          </View>
+          {attachments?.length ? (
+            <View className={cn('max-w-full self-start', hasText && USER_ATTACHMENT_PANEL_BEFORE_TEXT_CLASS)}>
+              <ChatAttachmentStrip attachments={attachments} variant="message" />
+            </View>
+          ) : null}
+          {hasText ? (
+            <View
+              className={REQUEST_BUBBLE_CLASS}
+              style={[REQUEST_BUBBLE_ELEVATION_STYLE, { shadowColor: theme.colors.shadow }]}
+            >
+              <ChatConversationMarkdownRenderer
+                markdown={text}
+                selectable={false}
+                textColor={theme.colors.onBrandBlueAction}
+                linkColor={theme.colors.onBrandBlueAction}
+              />
+            </View>
+          ) : null}
         </View>
       </View>
     </View>
@@ -541,7 +563,12 @@ const AssistantContentRow = memo(function AssistantContentRow({
       />
       <View style={TIMELINE_LAYOUT_STYLES.timelineBody}>
         <View className={CONTENT_BLOCK_CLASS}>
-          <ConversationContentRenderer markdown={node.content} streaming={node.streaming} />
+          <ConversationContentRenderer
+            markdown={node.content}
+            streaming={node.streaming}
+            viewBindings={node.viewBindings}
+            runId={node.runId}
+          />
         </View>
       </View>
     </View>
@@ -779,69 +806,6 @@ const ReaskMenuOverlay = memo(function ReaskMenuOverlay({
   );
 });
 
-function areToolGroupNodesEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
-  if (previous.kind !== 'tool-group' || next.kind !== 'tool-group') {
-    return true;
-  }
-  if (previous.nodes.length !== next.nodes.length) {
-    return false;
-  }
-  return previous.nodes.every((node, index) => node === next.nodes[index]);
-}
-
-function areStructuredTaskNodesEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
-  if (previous.kind === 'task' || next.kind === 'task') {
-    return (
-      previous.kind === 'task' &&
-      next.kind === 'task' &&
-      previous.nodes.length === next.nodes.length &&
-      previous.nodes.every((node, index) => node === next.nodes[index])
-    );
-  }
-  if (previous.kind === 'plan' || next.kind === 'plan') {
-    return (
-      previous.kind === 'plan' &&
-      next.kind === 'plan' &&
-      previous.tasks.length === next.tasks.length &&
-      previous.tasks.every((node, index) => node === next.tasks[index])
-    );
-  }
-  return true;
-}
-
-function areDisplayItemNodesEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
-  if (previous.kind === 'assistant-reply-footer' || next.kind === 'assistant-reply-footer') {
-    return previous.kind === next.kind;
-  }
-  return previous.node === next.node;
-}
-
-function areAssistantReplyFooterItemsEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
-  if (previous.kind !== 'assistant-reply-footer' || next.kind !== 'assistant-reply-footer') {
-    return true;
-  }
-  const previousFooter = previous.footer;
-  const nextFooter = next.footer;
-  return (
-    previous.runId === next.runId &&
-    previousFooter.copyText === nextFooter.copyText &&
-    previousFooter.timestamp === nextFooter.timestamp &&
-    previousFooter.durationMs === nextFooter.durationMs &&
-    previousFooter.errorReason === nextFooter.errorReason
-  );
-}
-
-function areDisplayItemGroupFieldsEqual(previous: ChatTimelineDisplayItem, next: ChatTimelineDisplayItem): boolean {
-  if (previous.kind === 'assistant-reply-footer' || next.kind === 'assistant-reply-footer') {
-    return previous.kind === next.kind;
-  }
-  return (
-    previous.isFirstInRun === next.isFirstInRun &&
-    previous.isLastInRun === next.isLastInRun &&
-    previous.groupIndex === next.groupIndex
-  );
-}
-
 const TimelineRow = memo(
   function TimelineRow({
     item,
@@ -1016,13 +980,7 @@ const TimelineRow = memo(
     prev.getInitialPlanningMode === next.getInitialPlanningMode &&
     prev.onPlanningCollapseOverlayChange === next.onPlanningCollapseOverlayChange &&
     prev.onPlanningModeChange === next.onPlanningModeChange &&
-    prev.item.key === next.item.key &&
-    prev.item.kind === next.item.kind &&
-    areDisplayItemNodesEqual(prev.item, next.item) &&
-    areToolGroupNodesEqual(prev.item, next.item) &&
-    areStructuredTaskNodesEqual(prev.item, next.item) &&
-    areAssistantReplyFooterItemsEqual(prev.item, next.item) &&
-    areDisplayItemGroupFieldsEqual(prev.item, next.item)
+    areChatTimelineDisplayItemsEqual(prev.item, next.item)
 );
 
 export const ChatTimelineList = memo(function ChatTimelineList({
@@ -1139,9 +1097,11 @@ export const ChatTimelineList = memo(function ChatTimelineList({
     mainItemsRef = useRef(mainDisplayItems);
   itemsRef.current = items;
   mainItemsRef.current = mainDisplayItems;
+  const announcement = timelineState.runAnnouncement?.runId === timelineState.activeRunId
+    ? timelineState.runAnnouncement.message : '';
   const showResponseWaitingIndicator = useMemo(
-    () => shouldShowChatResponseWaitingIndicator(timelineState.activeRunId, displayModel.items),
-    [displayModel.items, timelineState.activeRunId]
+    () => !announcement && shouldShowChatResponseWaitingIndicator(timelineState.activeRunId, displayModel.items),
+    [announcement, displayModel.items, timelineState.activeRunId]
   );
   const waitingIndicatorInTimelineFooter = showResponseWaitingIndicator && waitingPlacement === 'timeline-footer';
   const waitingIndicatorDocked = showResponseWaitingIndicator && waitingPlacement === 'docked';
@@ -1179,13 +1139,18 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   }, []);
   const listFooter = useMemo(
     () =>
-      diagnosticCard || waitingIndicatorInTimelineFooter ? (
+      diagnosticCard || announcement || waitingIndicatorInTimelineFooter ? (
         <>
           {diagnosticCard ? <View className={DIAGNOSTIC_FOOTER_CLASS}>{diagnosticCard}</View> : null}
+          {announcement ? (
+            <Text accessibilityLiveRegion="polite" className="px-app-lg py-app-sm text-app-footnote text-app-secondary">
+              {announcement}
+            </Text>
+          ) : null}
           {waitingIndicatorInTimelineFooter ? <ChatResponseWaitingIndicator variant="orbit" /> : null}
         </>
       ) : null,
-    [diagnosticCard, waitingIndicatorInTimelineFooter]
+    [announcement, diagnosticCard, waitingIndicatorInTimelineFooter]
   );
   const listExtraData = useMemo(
     () => ({ revision: timelineState.revision, diagnosticVersion, waitingPlacement, searchNodeId }),
@@ -1608,13 +1573,13 @@ export const ChatTimelineList = memo(function ChatTimelineList({
   useLayoutEffect(() => {
     if (
       !searchOpenRef.current &&
-      showResponseWaitingIndicator &&
+      (showResponseWaitingIndicator || announcement) &&
       (isFollowingEndRef.current || isNearTimelineEnd(scrollMetricsRef.current) || !hasUserScrolledRef.current)
     ) {
       pendingAutoFollowRef.current = true;
       schedulePendingAutoFollowReset();
     }
-  }, [schedulePendingAutoFollowReset, showResponseWaitingIndicator]);
+  }, [announcement, schedulePendingAutoFollowReset, showResponseWaitingIndicator]);
 
   useEffect(() => {
     updateScrollToEndVisibility();

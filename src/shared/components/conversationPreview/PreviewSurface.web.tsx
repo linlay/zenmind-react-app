@@ -32,6 +32,10 @@ export const PreviewSurface = memo(function PreviewSurface(props: ConversationPr
     return () => window.removeEventListener('message', handleMessage);
   }, [active, handleRawEvent]);
 
+  useEffect(() => {
+    if (active && runtimeHtml) iframeRef.current?.contentWindow?.postMessage(serializedRequest, '*');
+  }, [active, runtimeHtml, serializedRequest]);
+
   const handleLoad = useCallback(() => {
     iframeRef.current?.contentWindow?.postMessage(serializedRequest, '*');
   }, [serializedRequest]);

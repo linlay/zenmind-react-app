@@ -10,7 +10,7 @@ export type ChatDetailAwaitingOverlayState = ChatConversationAwaitingState & {
 };
 
 export function useChatDetailAwaitingOverlay(
-  runtimeState: ChatConversationRuntimeState,
+  runtimeState: Pick<ChatConversationRuntimeState, 'conversationId' | 'awaiting'>,
   resetKey: string
 ) {
   const [overlayAwaitingId, setOverlayAwaitingId] = useState<string | null>(null);

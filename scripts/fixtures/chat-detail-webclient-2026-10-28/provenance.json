@@ -1,0 +1,50 @@
+{
+  "capturedAt": "2026-10-28",
+  "platform": "d6aac5f84a399c5a251a70b7bd6b41cb248f71d3",
+  "webclient": "404ae3cb99d31a06697f2ee1192b4b025abda57a",
+  "goldenCasesIdentical": true,
+  "upstreamAssets": [
+    {
+      "file": "view-markdown-cases.json",
+      "repository": "agent-platform",
+      "commit": "d6aac5f84a399c5a251a70b7bd6b41cb248f71d3",
+      "source": "internal/view/testdata/markdown_cases.json",
+      "sha256": "04b221e4ffb6da7587ea0e13b7b18e8cb03d78d85a7fe6fe92a05b9d536053b5",
+      "bytes": 6054
+    },
+    {
+      "file": "ask_user_form.html",
+      "repository": "agent-platform",
+      "commit": "d6aac5f84a399c5a251a70b7bd6b41cb248f71d3",
+      "source": "internal/resources/views/ask_user_form.html",
+      "sha256": "f66a4ee8bbafeaf6eb3b5afd82f8cce7b80090f338fc2b9e6d3ed96d8bdd9987",
+      "bytes": 9883
+    },
+    {
+      "file": "task-control-view.json",
+      "repository": "agent-platform",
+      "commit": "d6aac5f84a399c5a251a70b7bd6b41cb248f71d3",
+      "source": "internal/resources/connectors/builtin.task-control/view.json",
+      "sha256": "20f40be7985bb9ede0fed6e06149a2f99e90417b8a7b6dce18c5661c2d947ffa",
+      "bytes": 961
+    },
+    {
+      "file": "automations.html",
+      "repository": "agent-platform",
+      "commit": "d6aac5f84a399c5a251a70b7bd6b41cb248f71d3",
+      "source": "internal/resources/connectors/builtin.task-control/views/automations.html",
+      "sha256": "50a929ca859e47c90580e6bb7876b250c22a4428eded1b0f33a62dd47d8ebc39",
+      "bytes": 8095
+    }
+  ],
+  "pending": [
+    "Cloud environment and deployment validation deferred by user",
+    "Desktop HTTP authentication returned 401; paired mobile auth is unverified",
+    "Actual connector frozen snapshot and long-step duration sample unavailable; do not infer legacy-template support"
+  ],
+  "bytes": {
+    "queryParamsSample": 11,
+    "queryResultSample": 82,
+    "formDataSample": 150
+  }
+}

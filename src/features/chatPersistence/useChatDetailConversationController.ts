@@ -1,7 +1,22 @@
+import {
+  appendComposerDraft,
+  applyComposerTextEdit,
+  createComposerDraft,
+  editComposerPaste,
+  serializeComposerDraft,
+  type ComposerTextEdit
+} from './chatComposerDraft';
+import { projectTimelineAwaitingState } from '../chatTimeline/messageProjection.ts';
 import { Alert } from 'react-native';
-import { toggleSkills, type ChatSkillsCatalog } from '../../core/api/services/chatSkillsProtocol';
+import {
+  toggleSkills,
+  resolveSkillIds,
+  skillIdentity,
+  type ChatSkillsCatalog
+} from '../../core/api/services/chatSkillsProtocol';
+import { getChatCacheScopeId, subscribeChatCacheScope } from './cacheScope';
 import { useChatComposerSettings } from './useChatComposerSettings';
-import { resolveChatComposerHistory } from '../chatTimeline/timelineRunAccess';
+import { getChatTimelineRun, resolveChatComposerHistory } from '../chatTimeline/timelineRunAccess';
 import { startTransition, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useIsFocused } from '@react-navigation/native';
@@ -189,14 +204,18 @@ export function useChatDetailConversationController({
   const [isInitialSkeletonVisible, setIsInitialSkeletonVisible] = useState(true);
   const [isTransitionSettled, setIsTransitionSettled] = useState(false);
   const [sending, setSending] = useState(false);
-  const [draft, setDraft] = useState('');
+  const [composerDraft, setComposerDraft] = useState(() => createComposerDraft());
+  const draft = useMemo(() => serializeComposerDraft(composerDraft), [composerDraft]);
+  const setDraft = useCallback((text: string) => setComposerDraft(createComposerDraft(text)), []);
+  const handleComposerEdit = useCallback((edit: ComposerTextEdit) => {
+    const pasteId = `paste-${Date.now()}-${edit.eventCount}`;
+    setComposerDraft((current) => applyComposerTextEdit(current, edit, pasteId));
+  }, []);
+  const handleEditPaste = useCallback((id: string, text: string) => {
+    setComposerDraft((current) => editComposerPaste(current, id, text));
+  }, []);
   const [planModeEnabled, setPlanModeEnabled] = useState(false);
   const [editingModeEnabled, setEditingModeEnabled] = useState(false);
-  const [skillSelection, setSkillSelection] = useState<{
-    conversationId: string;
-    agentKey: string;
-    ids: string[];
-  } | null>(null);
   const [skillsState, setSkillsState] = useState<{
     agentKey: string;
     catalog: ChatSkillsCatalog | null;
@@ -206,7 +225,7 @@ export function useChatDetailConversationController({
   const skillsRequestIdRef = useRef(0);
   const [socketStatus, setSocketStatus] = useState<ChatSocketStatus>(chatSyncService.getStatus());
   const [errorText, setErrorText] = useState('');
-  const [pendingSteer, setPendingSteer] = useState<ChatPendingSteer | null>(null);
+  const [pendingSteers, setPendingSteers] = useState<readonly ChatPendingSteer[]>([]);
   const [diagnosticState, setDiagnosticState] = useState<ChatConversationDiagnosticState>({
     status: 'idle',
     requestId: 0
@@ -253,19 +272,17 @@ export function useChatDetailConversationController({
     [conversationTarget?.agentKey, historyScope?.agentKey, isNewConversationEmpty]
   );
   const composerAgentKey = normalizeIntroAgentKey(conversationTarget?.agentKey || historyScope?.agentKey);
-  const composerHistoryEstablished = useMemo(
-    () => resolveChatComposerHistory(timelineState).established,
-    [timelineState]
-  );
+  const composerHistory = useMemo(() => resolveChatComposerHistory(timelineState), [timelineState]);
   const settings = useChatComposerSettings({
     conversationId,
     agentKey: composerAgentKey,
     timeline: timelineState,
+    history: composerHistory,
     isFocused,
     reloadSeed,
     historyReady:
       isInitialContentReady &&
-      (skipInitialReconcile || composerHistoryEstablished || reconciledConversationId === conversationId)
+      (skipInitialReconcile || composerHistory.established || reconciledConversationId === conversationId)
   });
   const {
     interaction,
@@ -285,15 +302,7 @@ export function useChatDetailConversationController({
     captureSubmission,
     retryConfiguration
   } = settings;
-  const selectedSkills = useMemo(
-    () =>
-      interaction.attachment.skills &&
-      skillSelection?.agentKey === composerAgentKey &&
-      skillSelection.conversationId === conversationId
-        ? skillSelection.ids
-        : [],
-    [composerAgentKey, conversationId, interaction.attachment.skills, skillSelection]
-  );
+  const { selectedSkills, setSelectedSkills } = settings;
   const scopedSkills = skillsState?.agentKey === composerAgentKey ? skillsState : null;
   const handleLoadSkills = useCallback(async () => {
     if (!composerAgentKey || !interaction.attachment.skills) return;
@@ -307,6 +316,7 @@ export function useChatDetailConversationController({
     try {
       const catalog = await chatSyncService.ensureAgentSkills(composerAgentKey);
       if (requestId !== skillsRequestIdRef.current) return;
+      if (catalog) resolveSkillIds(selectedSkills, catalog);
       setSkillsState({
         agentKey: composerAgentKey,
         catalog,
@@ -322,27 +332,24 @@ export function useChatDetailConversationController({
         error: error instanceof Error ? error.message : String(error)
       }));
     }
-  }, [composerAgentKey, interaction.attachment.skills, t]);
+  }, [composerAgentKey, interaction.attachment.skills, selectedSkills, t]);
   const handleToggleSkills = useCallback(
     (ids: readonly string[]) => {
-      if (
-        !composerAgentKey ||
-        !interaction.attachment.skills ||
-        pendingSteer ||
-        sendingRef.current ||
-        composerRunActionRef.current
-      )
-        return;
-      setSkillSelection((current) => ({
-        agentKey: composerAgentKey,
-        conversationId,
-        ids: toggleSkills(
-          current?.agentKey === composerAgentKey && current.conversationId === conversationId ? current.ids : [],
-          ids
-        )
-      }));
+      if (!composerAgentKey || sendingRef.current || composerRunActionRef.current === 'resume') return;
+      const next = toggleSkills(selectedSkills, ids);
+      const existingIds = new Set(selectedSkills.map(skillIdentity));
+      if (next.some((id) => !existingIds.has(skillIdentity(id)))) {
+        if (!interaction.attachment.skills || !scopedSkills?.catalog) return;
+        try {
+          resolveSkillIds(next, scopedSkills.catalog);
+        } catch (error) {
+          setErrorText(error instanceof Error ? error.message : String(error));
+          return;
+        }
+      }
+      void setSelectedSkills(next);
     },
-    [composerAgentKey, conversationId, interaction.attachment.skills, pendingSteer]
+    [composerAgentKey, interaction.attachment.skills, selectedSkills, scopedSkills?.catalog, setSelectedSkills]
   );
 
   const runtimeRunIdRef = useRef(timelineState.activeRunId);
@@ -354,6 +361,7 @@ export function useChatDetailConversationController({
       try {
         const result = await chatSyncService.updateRuntimeAccessLevel(targetId, runId, level);
         if (activeConversationIdRef.current !== targetId || runtimeRunIdRef.current !== runId) return;
+        if (result.status === 'confirmed') setAccessLevel(level);
         if (result.status === 'rejected')
           setErrorText(`${t('composer.runtimeAccess.rejected')}${result.detail ? ` · ${result.detail}` : ''}`);
       } catch (error) {
@@ -361,7 +369,7 @@ export function useChatDetailConversationController({
           setErrorText(error instanceof Error ? error.message : String(error));
       }
     },
-    [conversationId, timelineState.activeRunId, t]
+    [conversationId, timelineState.activeRunId, setAccessLevel, t]
   );
   const handleRuntimeAccessRefresh = useCallback(() => {
     void chatSyncService.reconcileConversation(conversationId, 'manual_refresh').catch(() => {});
@@ -398,24 +406,11 @@ export function useChatDetailConversationController({
   const editingModeAvailable = interaction.showEditingMode;
   const effectiveEditingModeEnabled = editingModeAvailable && editingModeEnabled;
   const effectivePlanModeEnabled = planModeAvailable && planModeEnabled;
-  const syncedInputRunRef = useRef('');
-  useEffect(() => {
-    const run = Object.values(timelineState.nodesById).find(
-      (node) => node.kind === 'run' && node.runId === timelineState.activeRunId
-    );
-    const key = `${conversationId}:${timelineState.activeRunId}`;
-    if (
-      !run ||
-      run.kind !== 'run' ||
-      syncedInputRunRef.current === key ||
-      (typeof run.editingMode !== 'boolean' && typeof run.planningMode !== 'boolean')
-    )
-      return;
-    syncedInputRunRef.current = key;
-    if (typeof run.editingMode === 'boolean') setEditingModeEnabled(run.editingMode);
-    if (typeof run.planningMode === 'boolean') setPlanModeEnabled(run.planningMode);
-  }, [conversationId, timelineState.activeRunId, timelineState.nodesById]);
-  const runtimeState = useMemo(() => projectTimelineRuntimeState(timelineState), [timelineState]);
+  const actualInputRun = getChatTimelineRun(timelineState, timelineState.activeRunId);
+  const runtimeState = {
+    conversationId: timelineState.conversationId,
+    awaiting: projectTimelineAwaitingState(timelineState)
+  };
   const activeFrontendTool = useMemo(() => getActiveChatTimelineFrontendTool(timelineState), [timelineState]);
   const headerRuntimeState = useMemo(() => deriveChatDetailHeaderRuntimeState(timelineState), [timelineState]);
   const composerRunAction = headerRuntimeState.runAction;
@@ -450,7 +445,6 @@ export function useChatDetailConversationController({
     inputReady &&
     interaction.attachment.localFiles &&
     !sending &&
-    !pendingSteer &&
     (!composerRunAction || (composerRunAction === 'stop' && !timelineState.awaiting));
   const {
     attachments: composerAttachments,
@@ -460,7 +454,6 @@ export function useChatDetailConversationController({
     handleSelectAttachment,
     handleRemoveAttachment,
     handleRetryAttachment,
-    clearAttachments,
     restoreAttachments,
     addSelection,
     addContextReference,
@@ -469,72 +462,108 @@ export function useChatDetailConversationController({
     conversationId,
     selectionScope: timelineState.activeRunId || 'next',
     selectionStartIndex,
-    disabled: sending || composerRunAction === 'resume' || Boolean(pendingSteer),
+    disabled: sending || composerRunAction === 'resume',
     localFilesAllowed,
     onError: setErrorText
   });
   useEffect(() => {
-    setPendingSteer(chatSyncService.getPendingSteer(conversationId));
+    setPendingSteers(chatSyncService.getPendingSteers(conversationId));
     return chatSyncService.subscribe((event) => {
-      if (event.type !== 'conversation.steer.changed' || event.conversationId !== conversationId) return;
-      setPendingSteer(event.pending);
-      if (event.confirmed) {
-        setDraft((current) => (current === event.confirmed?.message ? '' : current));
-        event.confirmed.attachments.forEach((attachment) => handleRemoveAttachment(attachment.attachmentId));
-      }
+      if (event.type === 'conversation.steer.changed' && event.conversationId === conversationId)
+        setPendingSteers(event.pending);
     });
-  }, [handleRemoveAttachment, conversationId]);
+  }, [conversationId]);
 
+  const steerRunId =
+    !timelineState.awaiting && agentAvailability === 'available' && socketStatus === 'connected' && !sending
+      ? timelineState.activeRunId
+      : '';
   const steerAvailable = Boolean(
-    timelineState.activeRunId &&
-    !timelineState.awaiting &&
-    agentAvailability === 'available' &&
-    !pendingSteer &&
-    !sending &&
+    steerRunId &&
     (interaction.attachment.localFiles ||
       !composerAttachments.some((item) => item.kind === 'image' || item.kind === 'file')) &&
     !composerAttachments.some((item) => item.kind === 'chat' || item.kind === 'site')
   );
-  const handleSteer = useCallback(async () => {
+  const handleQueueSteer = useCallback(() => {
     if (!steerAvailable || hasUploadingAttachments || hasFailedAttachments) return;
-    const targetConversationId = conversationId;
-    const requestId = ++sendRequestIdRef.current;
     setErrorText('');
     try {
-      const response = await chatSyncService.steerConversation(targetConversationId, draft, readyAttachments);
-      if (
-        !shouldApplyChatDetailAsyncResult({
-          activeConversationId: activeConversationIdRef.current,
-          targetConversationId,
-          currentRequestId: sendRequestIdRef.current,
-          requestId
-        })
-      )
-        return;
-      if (response.accepted === false) setErrorText(response.detail || t('chatDetail.steer.rejected'));
-      else if (response.accepted === null) setErrorText(t('chatDetail.steer.unknown'));
+      chatSyncService.queueSteerConversation(conversationId, draft, readyAttachments, selectedSkills, {
+        draft: composerDraft
+      });
+      setDraft('');
+      readyAttachments.forEach((attachment) => handleRemoveAttachment(attachment.attachmentId));
     } catch (error) {
-      if (
-        shouldApplyChatDetailAsyncResult({
-          activeConversationId: activeConversationIdRef.current,
-          targetConversationId,
-          currentRequestId: sendRequestIdRef.current,
-          requestId
-        })
-      )
-        setErrorText(error instanceof Error ? error.message : String(error));
+      setErrorText(error instanceof Error ? error.message : String(error));
     }
-  }, [conversationId, draft, hasFailedAttachments, hasUploadingAttachments, readyAttachments, steerAvailable, t]);
-  const handleRestoreSteer = useCallback(() => {
-    const pending = chatSyncService.restorePendingSteer(conversationId);
-    if (!pending) return;
-    sendRequestIdRef.current += 1;
-    setDraft((current) =>
-      !current || current === pending.message ? pending.message : `${current}\n\n${pending.message}`
-    );
-    restoreAttachments(pending.attachments);
-    setErrorText(t('chatDetail.steer.verifyBeforeResend'));
-  }, [conversationId, restoreAttachments, t]);
+  }, [
+    conversationId,
+    draft,
+    composerDraft,
+    setDraft,
+    handleRemoveAttachment,
+    hasFailedAttachments,
+    hasUploadingAttachments,
+    readyAttachments,
+    selectedSkills,
+    steerAvailable
+  ]);
+  const handleSteer = useCallback(
+    async (steerId: string) => {
+      const targetConversationId = conversationId,
+        targetScope = getChatCacheScopeId(),
+        visit = sendRequestIdRef.current;
+      const isCurrent = () =>
+        activeConversationIdRef.current === targetConversationId &&
+        getChatCacheScopeId() === targetScope &&
+        sendRequestIdRef.current === visit;
+      setErrorText('');
+      try {
+        await chatSyncService.submitPendingSteer(targetConversationId, steerId);
+      } catch (error) {
+        if (!isCurrent()) return;
+        if ((error as { code?: string })?.code === 'WS_FRAME_TOO_LARGE') {
+          await chatSyncService.restorePendingSteer(targetConversationId, steerId, (pending) => {
+            if (!isCurrent()) return false;
+            setComposerDraft((current) =>
+              appendComposerDraft(current, pending.draft ?? createComposerDraft(pending.message))
+            );
+            restoreAttachments(pending.attachments);
+            setErrorText(t('composer.requestTooLarge'));
+            return true;
+          });
+        } else setErrorText(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [conversationId, restoreAttachments, t]
+  );
+  const handleRestoreSteer = useCallback(
+    async (steerId: string) => {
+      const targetConversationId = conversationId,
+        cacheScope = getChatCacheScopeId(),
+        requestId = sendRequestIdRef.current;
+      const isCurrent = () =>
+        activeConversationIdRef.current === targetConversationId &&
+        getChatCacheScopeId() === cacheScope &&
+        sendRequestIdRef.current === requestId;
+      try {
+        await chatSyncService.restorePendingSteer(conversationId, steerId, (pending) => {
+          if (!isCurrent()) return false;
+          setComposerDraft((current) =>
+            appendComposerDraft(current, pending.draft ?? createComposerDraft(pending.message))
+          );
+          restoreAttachments(pending.attachments);
+          setErrorText(
+            pending.phase === 'queued' || pending.phase === 'failed' ? '' : t('chatDetail.steer.verifyBeforeResend')
+          );
+          return true;
+        });
+      } catch (error) {
+        if (isCurrent()) setErrorText(error instanceof Error ? error.message : String(error));
+      }
+    },
+    [conversationId, restoreAttachments, t]
+  );
 
   const composerOptions = useMemo(
     () => ({
@@ -554,8 +583,11 @@ export function useChatDetailConversationController({
       onRuntimeAccessRefresh: handleRuntimeAccessRefresh,
       skillsCatalog: scopedSkills?.catalog ?? null,
       selectedSkills,
-      skillsLoading: scopedSkills?.loading ?? false,
-      skillsError: scopedSkills?.error ?? '',
+      skillsLoading: settings.skillsSaving || (scopedSkills?.loading ?? false),
+      settingsKey: settings.settingsKey,
+      skillsError:
+        scopedSkills?.error ||
+        (selectedSkills.length && !interaction.attachment.skills ? t('composer.skills.unavailable') : ''),
       onLoadSkills: handleLoadSkills,
       onToggleSkills: handleToggleSkills
     }),
@@ -575,6 +607,9 @@ export function useChatDetailConversationController({
       handleRuntimeAccessChange,
       handleRuntimeAccessRefresh,
       scopedSkills,
+      t,
+      settings.skillsSaving,
+      settings.settingsKey,
       selectedSkills,
       handleLoadSkills,
       handleToggleSkills
@@ -591,20 +626,22 @@ export function useChatDetailConversationController({
         draft,
         sending,
         runAction: composerRunAction,
-        hasReadyAttachments: readyAttachments.some((item) => item.kind !== 'chat' && item.kind !== 'site'),
+        steerAvailable,
+        hasReadyAttachments: readyAttachments.some((item) => !['chat', 'site', 'skill'].includes(item.kind)),
         attachmentsBlocked:
           hasUploadingAttachments ||
           hasFailedAttachments ||
           !inputReady ||
+          socketStatus !== 'connected' ||
           hasBlockedFiles ||
-          settings.modelConfigSaving ||
-          Boolean(pendingSteer)
+          settings.modelConfigSaving
       }),
     [
       inputReady,
+      socketStatus,
+      steerAvailable,
       hasBlockedFiles,
       settings.modelConfigSaving,
-      pendingSteer,
       composerRunAction,
       draft,
       hasFailedAttachments,
@@ -647,6 +684,13 @@ export function useChatDetailConversationController({
   );
 
   useEffect(() => clearSkeletonFadeSchedule, [clearSkeletonFadeSchedule]);
+  useEffect(
+    () =>
+      subscribeChatCacheScope(() => {
+        sendRequestIdRef.current += 1;
+      }),
+    []
+  );
 
   useEffect(() => {
     activeConversationIdRef.current = conversationId;
@@ -658,14 +702,16 @@ export function useChatDetailConversationController({
     sendingRef.current = false;
     reaskInFlightRef.current = false;
     setDraft('');
-    setSkillSelection(null);
     setSkillsState(null);
     skillsRequestIdRef.current += 1;
     setEditingModeEnabled(false);
     setPlanModeEnabled(false);
     setSending(false);
     setDiagnosticState({ status: 'idle', requestId: diagnosticRequestIdRef.current });
-  }, [conversationId]);
+    return () => {
+      activeConversationIdRef.current = '';
+    };
+  }, [conversationId, setDraft]);
 
   useEffect(
     () => () => {
@@ -686,7 +732,6 @@ export function useChatDetailConversationController({
   useEffect(() => {
     setEditingModeEnabled(false);
     setPlanModeEnabled(false);
-    setSkillSelection(null);
     setSkillsState(null);
     skillsRequestIdRef.current += 1;
   }, [composerAgentKey]);
@@ -702,8 +747,8 @@ export function useChatDetailConversationController({
   }, [conversationTarget, planModeAvailable, planModeEnabled]);
 
   useEffect(() => {
-    if (agentAvailability === 'available' && !interaction.attachment.skills) setSkillSelection(null);
-  }, [agentAvailability, interaction.attachment.skills]);
+    if (selectedSkills.length && interaction.attachment.skills) void handleLoadSkills();
+  }, [handleLoadSkills, interaction.attachment.skills, selectedSkills.length]);
 
   useEffect(() => {
     if (!sending) {
@@ -1060,10 +1105,19 @@ export function useChatDetailConversationController({
   ]);
 
   const handleSend = useCallback(async () => {
-    if (!inputReady || hasBlockedFiles || settings.modelConfigSaving || pendingSteer) return;
-    const nextDraft = draft.trim();
+    if (
+      !inputReady ||
+      hasBlockedFiles ||
+      settings.modelConfigSaving ||
+      hasUploadingAttachments ||
+      hasFailedAttachments ||
+      socketStatus !== 'connected'
+    )
+      return;
+    const nextDraft = draft;
+    const submittedDraft = composerDraft;
     const nextAttachments = readyAttachments;
-    if ((!nextDraft && nextAttachments.length === 0) || sendingRef.current || reaskInFlightRef.current) {
+    if ((!nextDraft.trim() && nextAttachments.length === 0) || sendingRef.current || reaskInFlightRef.current) {
       return;
     }
 
@@ -1073,7 +1127,7 @@ export function useChatDetailConversationController({
       const pageProjection = {
         conversationId,
         timeline: timelineState,
-        runtime: runtimeState,
+        runtime: projectTimelineRuntimeState(timelineState),
         header: headerRuntimeState,
         modelConfiguration: {
           selectedOverride: modelOverride,
@@ -1122,11 +1176,13 @@ export function useChatDetailConversationController({
 
     const requestId = sendRequestIdRef.current + 1;
     const targetConversationId = conversationId;
+    const targetCacheScope = getChatCacheScopeId();
     sendRequestIdRef.current = requestId;
     hasObservedPendingSendRef.current = false;
     sendingRef.current = true;
     setSending(true);
     setDraft('');
+    nextAttachments.forEach((attachment) => handleRemoveAttachment(attachment.attachmentId));
     setErrorText('');
 
     const finishSubmission = captureSubmission();
@@ -1143,6 +1199,7 @@ export function useChatDetailConversationController({
       });
       finishSubmission(result.clientMessageId);
       if (
+        getChatCacheScopeId() !== targetCacheScope ||
         !shouldApplyChatDetailAsyncResult({
           activeConversationId: activeConversationIdRef.current,
           targetConversationId,
@@ -1152,19 +1209,23 @@ export function useChatDetailConversationController({
       )
         return;
       if (result.dispatchError && nextAttachments.some((item) => item.kind === 'chat' || item.kind === 'site')) {
-        setDraft(nextDraft);
-        setErrorText(`${t('contextReference.correct')} · ${result.dispatchError.message}`);
+        setComposerDraft((current) => appendComposerDraft(current, submittedDraft));
+        restoreAttachments(nextAttachments);
+        setErrorText(
+          (result.dispatchError as { code?: string }).code === 'WS_FRAME_TOO_LARGE'
+            ? t('composer.requestTooLarge')
+            : `${t('contextReference.correct')} · ${result.dispatchError.message}`
+        );
         hasObservedPendingSendRef.current = false;
         sendingRef.current = false;
         setSending(false);
         return;
       }
       setEditingModeEnabled(false);
-      setSkillSelection(null);
-      clearAttachments();
     } catch (error) {
       finishSubmission();
       if (
+        getChatCacheScopeId() !== targetCacheScope ||
         !shouldApplyChatDetailAsyncResult({
           activeConversationId: activeConversationIdRef.current,
           targetConversationId,
@@ -1174,8 +1235,15 @@ export function useChatDetailConversationController({
       ) {
         return;
       }
-      setDraft(nextDraft);
-      setErrorText(error instanceof Error ? error.message : String(error));
+      setComposerDraft((current) => appendComposerDraft(current, submittedDraft));
+      restoreAttachments(nextAttachments);
+      setErrorText(
+        (error as { code?: string })?.code === 'WS_FRAME_TOO_LARGE'
+          ? t('composer.requestTooLarge')
+          : error instanceof Error
+            ? error.message
+            : String(error)
+      );
       hasObservedPendingSendRef.current = false;
       sendingRef.current = false;
       setSending(false);
@@ -1187,13 +1255,17 @@ export function useChatDetailConversationController({
     captureSubmission,
     submitAccessLevel,
     submitModel,
-    pendingSteer,
     accessLevel,
-    clearAttachments,
+    handleRemoveAttachment,
+    restoreAttachments,
+    hasUploadingAttachments,
+    hasFailedAttachments,
     composerAction,
     composerAttachments,
     conversationId,
     draft,
+    composerDraft,
+    setDraft,
     effectivePlanModeEnabled,
     effectiveEditingModeEnabled,
     editingModeAvailable,
@@ -1205,29 +1277,28 @@ export function useChatDetailConversationController({
     modelOverride,
     planModeAvailable,
     readyAttachments,
-    runtimeState,
     socketStatus,
     timelineState,
     t
   ]);
 
   const handleToggleEditingMode = useCallback(() => {
-    if (editingModeAvailable && !pendingSteer && !sendingRef.current && !composerRunActionRef.current)
+    if (editingModeAvailable && !sendingRef.current && !composerRunActionRef.current)
       setEditingModeEnabled((current) => !current);
-  }, [editingModeAvailable, pendingSteer]);
+  }, [editingModeAvailable]);
 
   const handleTogglePlanMode = useCallback(() => {
-    if (!planModeAvailable || pendingSteer || sendingRef.current || composerRunActionRef.current) {
+    if (!planModeAvailable || sendingRef.current || composerRunActionRef.current) {
       return;
     }
     setPlanModeEnabled((current) => !current);
-  }, [planModeAvailable, pendingSteer]);
+  }, [planModeAvailable]);
 
   const handleReaskMessage = useCallback(
     async (target: 'current' | 'new', node: ChatTimelineMessageNode) => {
       const nextContent = String(node.content || '').trim();
       const nextAttachments = node.attachments || [];
-      if (!inputReady || settings.modelConfigSaving) return;
+      if (!inputReady || settings.modelConfigSaving || node.inputSource) return;
       if ((!nextContent && nextAttachments.length === 0) || node.deliveryStatus === 'pending') {
         return;
       }
@@ -1274,11 +1345,14 @@ export function useChatDetailConversationController({
           node.deliveryStatus === 'failed' &&
           nextAttachments.some((item) => item.kind === 'chat' || item.kind === 'site')
         ) {
-          setDraft((current) => (!current || current === nextContent ? nextContent : `${current}\n\n${nextContent}`));
+          setComposerDraft((current) =>
+            serializeComposerDraft(current) === nextContent
+              ? current
+              : appendComposerDraft(current, createComposerDraft(nextContent))
+          );
           restoreAttachments(nextAttachments);
           setPlanModeEnabled(queryModes.planningMode);
           setEditingModeEnabled(queryModes.editingMode === true);
-          setSkillSelection({ agentKey: composerAgentKey, conversationId, ids: queryModes.skillIds });
           setErrorText(t('contextReference.correct'));
           return;
         }
@@ -1312,7 +1386,6 @@ export function useChatDetailConversationController({
             })
           ) {
             setEditingModeEnabled(false);
-            setSkillSelection(null);
           }
           return;
         }
@@ -1391,7 +1464,6 @@ export function useChatDetailConversationController({
       editingModeAvailable,
       selectedSkills,
       restoreAttachments,
-      composerAgentKey,
       historyScope,
       navigation,
       t
@@ -1488,14 +1560,17 @@ export function useChatDetailConversationController({
     setReloadSeed((value) => value + 1);
   }, []);
 
-  const handleSelectWonder = useCallback((text: string) => {
-    const nextText = String(text || '').trim();
-    if (!nextText) {
-      return;
-    }
-    setDraft(nextText);
-    setErrorText('');
-  }, []);
+  const handleSelectWonder = useCallback(
+    (text: string) => {
+      const nextText = String(text || '').trim();
+      if (!nextText) {
+        return;
+      }
+      setDraft(nextText);
+      setErrorText('');
+    },
+    [setDraft]
+  );
 
   return {
     summary,
@@ -1543,21 +1618,25 @@ export function useChatDetailConversationController({
       diagnosticConversationIdRef.current === conversationId
         ? diagnosticState
         : { status: 'idle' as const, requestId: diagnosticRequestIdRef.current },
-    draft: pendingSteer?.message ?? draft,
-    setDraft,
-    pendingSteer,
+    draft,
+    composerDraft,
+    handleComposerEdit,
+    handleEditPaste,
+    pendingSteers,
     steerAvailable,
+    steerRunId,
+    handleQueueSteer,
     handleSteer,
     handleRestoreSteer,
-    composerAttachments: pendingSteer?.attachments ?? composerAttachments,
+    composerAttachments,
     composerOptions,
     setAccessLevel,
     setModelOverride: handleModelOverrideChange,
     composerAction,
     planModeAvailable,
-    planModeEnabled: effectivePlanModeEnabled,
+    planModeEnabled: actualInputRun ? actualInputRun.planningMode === true : effectivePlanModeEnabled,
     editingModeAvailable,
-    editingModeEnabled: effectiveEditingModeEnabled,
+    editingModeEnabled: actualInputRun ? actualInputRun.editingMode === true : effectiveEditingModeEnabled,
     handleToggleEditingMode,
     handleSend,
     handleReaskMessage,

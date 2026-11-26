@@ -1,7 +1,8 @@
-import { memo, useCallback, useMemo, useRef } from 'react';
-import { FlatList, Modal, Pressable, Text, View } from 'react-native';
+import { memo, useCallback, useMemo, useRef, useState } from 'react';
+import { FlatList, Pressable, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useT } from '../../../shared/i18n';
+import { ChatBottomSheet } from './ChatBottomSheet';
 import type { ChatTimelineState } from '../../chatTimeline/types.ts';
 import { createChatFileChangesProjector, type ChatFileChange, type ChatFileOperation } from '../chatFileChanges.ts';
 import {
@@ -74,6 +75,9 @@ export const ChatFileChanges = memo(function ChatFileChanges({
 }) {
   const t = useT(),
     insets = useSafeAreaInsets();
+  const [visible, setVisible] = useState(true);
+  const afterDismiss = useRef<(() => void) | null>(null);
+  const close = useCallback(() => setVisible(false), []);
   const { openPreview } = useAuthenticatedResourcePreview();
   const project = useRef<ReturnType<typeof createChatFileChangesProjector> | null>(null);
   if (!project.current) project.current = createChatFileChangesProjector();
@@ -99,53 +103,56 @@ export const ChatFileChanges = memo(function ChatFileChanges({
         target: 'workspace' as const
       };
       const preview = resolveConversationMarkdownLinkPreview(link, operation.agentKey || agentKey || '');
-      onClose();
-      openPreview(
-        preview,
-        preview.errorCode === 'missing_agent_scope'
-          ? t('markdownLink.workspaceScopeMissing')
-          : preview.errorCode
-            ? t('markdownLink.invalid')
-            : ''
-      );
+      afterDismiss.current = () =>
+        openPreview(
+          preview,
+          preview.errorCode === 'missing_agent_scope'
+            ? t('markdownLink.workspaceScopeMissing')
+            : preview.errorCode
+              ? t('markdownLink.invalid')
+              : ''
+        );
+      close();
     },
-    [agentKey, onClose, openPreview, t]
+    [agentKey, close, openPreview, t]
   );
   const renderItem = useCallback(
     ({ item }: { item: FileRow }) => <FileChangeRow row={item} onOpen={onOpen} />,
     [onOpen]
   );
   return (
-    <Modal visible transparent animationType="slide" onRequestClose={onClose}>
-      <View className="flex-1 justify-end">
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={t('fileChanges.close')}
-          onPress={onClose}
-          className="absolute inset-0 bg-app-overlay"
-        />
-        <View className="h-[75%] rounded-t-app-lg bg-app-surface" style={{ paddingBottom: insets.bottom }}>
-          <View className="flex-row items-center justify-between border-b border-app-line px-app-lg py-app-md">
-            <Text className="text-app-body font-semibold text-app-primary">{t('fileChanges.title')}</Text>
-            <Pressable accessibilityRole="button" onPress={onClose} className="min-h-[36px] justify-center px-app-sm">
-              <Text className="text-app-footnote text-app-brand">{t('fileChanges.close')}</Text>
-            </Pressable>
-          </View>
-          <Text className="px-app-lg py-app-sm text-app-caption text-app-secondary">{t('fileChanges.scope')}</Text>
-          <FlatList
-            data={rows}
-            renderItem={renderItem}
-            keyExtractor={(row) => row.key}
-            initialNumToRender={12}
-            maxToRenderPerBatch={12}
-            windowSize={5}
-            className="flex-1"
-            ListEmptyComponent={
-              <Text className="px-app-lg py-app-xl text-app-footnote text-app-secondary">{t('fileChanges.empty')}</Text>
-            }
-          />
-        </View>
+    <ChatBottomSheet
+      visible={visible}
+      closeLabel={t('fileChanges.close')}
+      onClose={close}
+      onDismiss={() => {
+        const action = afterDismiss.current;
+        afterDismiss.current = null;
+        onClose();
+        action?.();
+      }}
+      panelClassName="h-[75%] rounded-t-app-lg bg-app-surface"
+      panelStyle={{ paddingBottom: insets.bottom }}
+    >
+      <View className="flex-row items-center justify-between border-b border-app-line px-app-lg py-app-md">
+        <Text className="text-app-body font-semibold text-app-primary">{t('fileChanges.title')}</Text>
+        <Pressable accessibilityRole="button" onPress={close} className="min-h-[36px] justify-center px-app-sm">
+          <Text className="text-app-footnote text-app-brand">{t('fileChanges.close')}</Text>
+        </Pressable>
       </View>
-    </Modal>
+      <Text className="px-app-lg py-app-sm text-app-caption text-app-secondary">{t('fileChanges.scope')}</Text>
+      <FlatList
+        data={rows}
+        renderItem={renderItem}
+        keyExtractor={(row) => row.key}
+        initialNumToRender={12}
+        maxToRenderPerBatch={12}
+        windowSize={5}
+        className="flex-1"
+        ListEmptyComponent={
+          <Text className="px-app-lg py-app-xl text-app-footnote text-app-secondary">{t('fileChanges.empty')}</Text>
+        }
+      />
+    </ChatBottomSheet>
   );
 });

@@ -1,3 +1,4 @@
+import { areChatTimelineDisplayItemsEqual } from './timelineDisplay.ts';
 import type {
   ChatTimelineDisplayItem,
   ChatTimelinePresentationItem,
@@ -26,8 +27,6 @@ type TerminalRunPresentation = {
   durationMs: number | null;
   status: ChatTimelineProcessTerminalStatus;
 };
-
-type FramedChatTimelinePresentationItem = Exclude<ChatTimelinePresentationItem, { kind: 'assistant-reply-footer' }>;
 
 function normalizeDurationMs(value: number | null | undefined): number | null {
   return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null;
@@ -97,6 +96,12 @@ function isProcessItem(
   if (!item.runId || !terminalRuns.has(item.runId) || !PROCESS_ITEM_KINDS.has(item.kind)) {
     return false;
   }
+  if (item.kind === 'request' && item.node.kind === 'message' && item.node.role === 'user') {
+    const { isRootInput, inputSource, messageVariant } = item.node;
+    if (isRootInput !== false && (messageVariant === 'steer' || (inputSource && inputSource.kind !== 'hidden'))) {
+      return false;
+    }
+  }
   // Image outputs stay visible when the surrounding completed process is folded.
   if (item.kind === 'tool-group' && item.nodes.some((node) => node.toolName.trim() === 'image_generate')) return false;
   if (item.kind === 'tool' && item.node.kind === 'tool' && item.node.toolName.trim() === 'image_generate') return false;
@@ -129,10 +134,14 @@ function createProcessSummary(
 }
 
 function canReusePresentationItem(
-  previous: FramedChatTimelinePresentationItem,
-  next: FramedChatTimelinePresentationItem
+  previous: ChatTimelinePresentationItem,
+  next: ChatTimelinePresentationItem
 ): boolean {
   if (previous === next) return true;
+  if (previous.kind !== 'process-summary' && next.kind !== 'process-summary') {
+    return areChatTimelineDisplayItemsEqual(previous, next);
+  }
+  if (previous.kind === 'assistant-reply-footer' || next.kind === 'assistant-reply-footer') return false;
   if (previous.key !== next.key || previous.kind !== next.kind || previous.runId !== next.runId) return false;
   if (
     previous.groupIndex !== next.groupIndex ||
@@ -150,34 +159,14 @@ function canReusePresentationItem(
       previous.expanded === next.expanded
     );
   }
-  if (previous.node !== next.node || previous.nodeId !== next.nodeId) return false;
-  if (previous.kind === 'tool-group' && next.kind === 'tool-group') {
-    return (
-      previous.toolName === next.toolName &&
-      previous.toolLabel === next.toolLabel &&
-      previous.count === next.count &&
-      previous.nodes.length === next.nodes.length &&
-      previous.nodes.every((node, index) => node === next.nodes[index])
-    );
-  }
-  if (previous.kind === 'plan' && next.kind === 'plan') {
-    return (
-      previous.tasks.length === next.tasks.length && previous.tasks.every((node, index) => node === next.tasks[index])
-    );
-  }
-  if (previous.kind === 'task' && next.kind === 'task') {
-    return (
-      previous.nodes.length === next.nodes.length && previous.nodes.every((node, index) => node === next.nodes[index])
-    );
-  }
-  return true;
+  return false;
 }
 
-function reframePresentationItems(
-  items: readonly ChatTimelinePresentationItem[],
-  previousItems: readonly ChatTimelinePresentationItem[]
-): ChatTimelinePresentationItem[] {
-  const previousByKey = new Map(previousItems.map((item) => [item.key, item]));
+export function reframeChatTimelineItems<T extends ChatTimelinePresentationItem>(
+  items: readonly T[],
+  previousItems: readonly T[] = []
+): T[] {
+  const previousByKey = previousItems.length ? new Map(previousItems.map((item) => [item.key, item])) : null;
   const runCounts = new Map<string, number>();
   items.forEach((item) => {
     if (item.kind !== 'assistant-reply-footer') {
@@ -197,7 +186,7 @@ function reframePresentationItems(
     const isLastInRun = groupIndex === groupCount - 1;
     runIndexes.set(item.runId, groupIndex + 1);
 
-    const framedItem =
+    const framedItem: T =
       item.groupIndex === groupIndex && item.isFirstInRun === isFirstInRun && item.isLastInRun === isLastInRun
         ? item
         : ({
@@ -205,8 +194,8 @@ function reframePresentationItems(
             groupIndex,
             isFirstInRun,
             isLastInRun
-          } satisfies FramedChatTimelinePresentationItem);
-    const previous = previousByKey.get(item.key);
+          });
+    const previous = previousByKey?.get(item.key);
     return previous && previous.kind !== 'assistant-reply-footer' && canReusePresentationItem(previous, framedItem)
       ? previous
       : framedItem;
@@ -251,7 +240,7 @@ export function buildChatTimelinePresentationItems(
     }
   });
 
-  return reframePresentationItems(presentationItems, previousItems);
+  return reframeChatTimelineItems(presentationItems, previousItems);
 }
 
 export function getChatTimelinePresentationItemType(item: ChatTimelinePresentationItem): string {

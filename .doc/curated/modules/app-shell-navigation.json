@@ -27,6 +27,8 @@
     "metro.config.js",
     "nativewind-env.d.ts",
     "package.json",
+    "package.sh",
+    "run.sh",
     "patches",
     "plugins/withAndroidAutolinkingCacheGuard.js",
     "plugins/withLocalCacheBackupExclusion.js",
@@ -51,7 +53,9 @@
       "启动恢复期间直接展示 AuthBootstrapScreen，不创建占用 Login 路由的临时 Navigator；恢复完成后首次挂载正式 root stack，初始路由为 Tabs，避免恢复成功仍停在无返回历史的登录页。",
       "ChatDetail 按所选来源交接；WebApps sessionKey 绑定官网 accountId、auth generation 与所选 Desktop，只在电脑来源启用。",
       "云端通知注册用本地云端 scope 作为客户端身份，使用云端凭证；账号退出不清除当前云端注册，迟到注册及点击按来源拒绝。",
-      "Me 显示官网已确认用户信息；RootStack 不再挂旧账号安全/邮箱绑定解绑页面。"
+      "Me 显示官网已确认用户信息；RootStack 不再挂旧账号安全/邮箱绑定解绑页面。",
+      "AppRoot 回前台调用 refreshAccountSession，认证层按安装品牌选择官网邮箱或企业 SSO；Login 继续使用单一路由承载账号与云端，企业页占用正文空间，不放进表单滚动区。",
+      "app.config.js 的 experiments.inlineModules.watchedDirectories 仅指向 src/features/chatPersistence/native；Expo 56 内联模块在 Android 按类名 ChatComposerInputModule 注册，iOS 沿用 Name(\"ChatComposerInput\")，ComposerTextInput.native.tsx 必须按平台匹配注册名。新增扫描目录后需先 prebuild 同步原生配置再重建开发客户端，旧客户端或 Expo Go 不提供该模块；不新增第三方原生/npm 依赖。"
     ],
     "nonGoals": []
   },
@@ -72,12 +76,17 @@
       "shared-visual-foundation",
       "shared-screen-header"
     ],
-    "dependents": ["feature-agent-task-board", "feature-chat-persistence"],
+    "dependents": [
+      "feature-agent-task-board",
+      "feature-chat-persistence"
+    ],
     "tests": [],
     "lastScannedAt": ""
   },
   "readHints": {
-    "alwaysRead": ["src/app/navigation/RootNavigator.tsx"],
+    "alwaysRead": [
+      "src/app/navigation/RootNavigator.tsx"
+    ],
     "readFor": [
       {
         "when": "legacy readNext",
@@ -133,14 +142,15 @@
     "Expo 开发启动、生产导出与 EAS 构建必须先执行 scripts/worklets/pregenerate.js，提前生成并同步 Reanimated、Streamdown、Worklets、remend、NativeWind css-interop 和二级 Worklets bundle 文件；开发启动同样启用 bundleMode；当前未安装 Metro/metro-runtime 热更新补丁，修改 Worklet 代码后必须停止 Metro、重新预生成、重启并完整重载，不能只依赖 Fast Refresh。",
     "Expo 开发运行、类型检查、测试和导出脚本必须先执行 prepare:runtime，确保品牌资源和 .generated/conversation-preview 离线 HTML asset 存在；开发启动与 production 导出/EAS 构建均通过 prepare:bundle 追加 Worklets 预生成，类型检查与 node:test 继续使用 prepare:runtime。",
     "Expo 运行、导出和 EAS post install 脚本必须先执行 scripts/sync-brand.js，保证 app.config.js、React loading、Login 和 Me 页消费的 generated 品牌资源一致；app.config.js 读取配置时必须跳过 native project 文本同步，避免 Expo prebuild 刚创建 AndroidManifest 但插件尚未写入 meta-data 时失败。",
+    "package.sh 保留固定版本品牌环境配置校验，默认 EAS 云构建，显式 --local 才在本机编译；两种构建位置均保留内测/生产 profile 选择。本地 --output 使用项目根目录 zenmind-app-output 的绝对路径，Android 内测 APK、生产 AAB、iOS IPA 均按品牌、环境、配置版本命名，安装包不得随临时构建上下文清理；云端产物通过构建链接下载。EAS_PROJECT_ROOT 必须使用构建目录 pwd -P 的真实路径；临时上下文必须纳入 Git 已跟踪文件和未忽略的新文件，并保留当前工作区修改，不要求提前暂存或提交。",
     "ZenMind / CuteJ iOS 发布到 TestFlight 共享同一个 App Store Connect app 和 iOS bundle id；确认对应品牌是最新远端 EAS iOS 构建时用 submit:ios:<brand> 提交 latest build，不确定最新构建品牌时用 submit:ios:<brand>:ipa -- <path> 通过 scripts/submit-ios-ipa.js 提交本地 IPA，一键构建提交用 release:ios:<brand>。",
     "scripts/sync-brand.js 必须按品牌目录使用 assetFingerprint 缓存派生 PNG，并使用 .generated/brand/native-active-manifest.json 按显式 brand 拆分缓存 native splash image、launcher image 和 native text；文本字段变化不读写 PNG，重复同步同一品牌不重画 PNG。",
     "独立手机图标源必须通过 brands/<id>/brand.json 的 appIcon 声明并留在对应品牌目录内；只影响 iOS / Android launcher 资源，不替换启动图和运行时 BRAND_LOGO。",
-    "src/shared/generated/brand.ts 只能包含全量 APP_BRANDS registry、DEFAULT_BRAND_ID 与 INSTALLED_BRAND_ID resolver 调用，不能重新生成 ACTIVE_BRAND_ID；共享 OTA 展示品牌必须来自安装壳 embedded app.config.extra.brand.id。",
+    "src/shared/generated/brand.ts 只能包含全量 APP_BRANDS registry、DEFAULT_BRAND_ID 与 INSTALLED_BRAND_ID resolver 调用，DEFAULT_BRAND_ID 为本次构建品牌，原生展示品牌来自安装壳 embedded app.config.extra.brand.id。",
     "本地调试和打包切品牌必须通过显式 --brand 或 BRAND；无参 sync、start、android、web、test 和 app.config.js 使用默认 zenmind，避免隐藏的本地品牌状态影响构建。",
     "本地 native text 同步必须同时覆盖 Android app_name / colors / update URL / versionName 与 iOS display name / URL scheme / bundle id / marketing version；applicationId 和 bundle id 必须保持共享 native identity，必需字段缺失时直接失败，不写入 active native manifest。",
     "新增或修改品牌时只改 brands/<id>/brand.json 和必要资源生成逻辑，不在 screen、feature 或 repository 中添加品牌分支。",
-    "当前多品牌模式不要求并排安装：不同品牌必须共享 android.package / ios.bundleIdentifier 与 EAS preview/production channel，只切换名称、logo、启动图、通知色和可配置环境字段；需要独立上架时再升级为独立 native identity 模式。",
+    "当前多品牌模式不要求并排安装：不同品牌共享 android.package / ios.bundleIdentifier，OTA channel 按品牌划分，只切换名称、logo、启动图、通知色和可配置环境字段；需要独立上架时再升级为独立 native identity 模式。",
     "AppThemeProvider 必须挂在 NavigationContainer 上层，AppRoot、RootNavigator、TabBar、StatusBar 和各 screen 才能同步消费同一个 theme 引用。",
     "主题切换只改变 shared visual 语义色，不触发 SQLite、MMKV 聊天目录快照、WebSocket 或消息写入链路。",
     "如果 React loading 之前出现空白窗口，同步检查 Android splash theme 与 AppTheme 的 windowBackground 是否连续，避免主题切换时露白。",

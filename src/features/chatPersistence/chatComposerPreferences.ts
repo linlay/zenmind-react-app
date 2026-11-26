@@ -1,6 +1,10 @@
 import type { QueryAccessLevel, QueryModelOverride } from '../../core/api/services/modelOptionsProtocol.ts';
 
-export type ChatComposerPreference = { accessLevel?: QueryAccessLevel; model?: QueryModelOverride };
+export type ChatComposerPreference = {
+  accessLevel?: QueryAccessLevel;
+  model?: QueryModelOverride;
+  skillIds?: string[];
+};
 export type ChatComposerPreferenceTarget = { owner: string; scope: string; kind: 'chat' | 'agent'; id: string };
 const preferences = new Map<string, { target: ChatComposerPreferenceTarget; value: ChatComposerPreference }>();
 const submissions = new Map<
@@ -37,7 +41,7 @@ export function rememberChatComposerSubmission(
   value: ChatComposerPreference
 ): (requestId?: string) => void {
   const key = keyOf(target);
-  if (preferences.has(key)) return () => {};
+  if (preferences.get(key)?.value.model) return () => {};
   const submitted = { target, value, requestId: '' };
   submissions.set(key, submitted);
   return (requestId) => {
@@ -50,17 +54,30 @@ export function rememberChatComposerSubmission(
 export function confirmChatComposerSubmission(
   target: ChatComposerPreferenceTarget,
   confirmedRequestIds: readonly string[]
-): void {
+): ChatComposerPreference | undefined {
   const key = keyOf(target),
     submitted = submissions.get(key);
   if (!submitted?.requestId || !confirmedRequestIds.includes(submitted.requestId)) return;
   submissions.delete(key);
   const existing = preferences.get(key)?.value;
-  writeChatComposerPreference(target, { ...submitted.value, ...existing });
+  const value = { ...submitted.value, ...existing };
+  writeChatComposerPreference(target, value);
+  return value;
 }
-export function clearChatComposerPreferences(owner: string): void {
+export function clearChatComposerPreferences(owner?: string, scope?: string, chatId?: string): void {
   for (const map of [preferences, submissions]) {
-    for (const [key, entry] of map) if (entry.target.owner === owner) map.delete(key);
+    for (const [key, entry] of map)
+      if (
+        (!owner || entry.target.owner === owner) &&
+        (!scope || entry.target.scope === scope) &&
+        (!chatId || (entry.target.kind === 'chat' && entry.target.id === chatId))
+      )
+        map.delete(key);
   }
   notify();
+}
+
+export function reviseChatComposerSubmissionModel(target: ChatComposerPreferenceTarget, model: QueryModelOverride) {
+  const submitted = submissions.get(keyOf(target));
+  if (submitted) submitted.value = { ...submitted.value, model };
 }

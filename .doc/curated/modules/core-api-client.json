@@ -12,7 +12,7 @@
       "Desktop 业务票据按 auth generation/账号/电脑单飞缓存；物理首次连接与重连获取有效票据，auth.expiring 强制向 Hub 取更新并执行 auth.refresh，不引入 JTI 或新的路由身份。",
       "云端 HTTP、WS、资源、上传、导出及 Office 预览统一使用 cloudAuth；不读取 Identity Token、不随账号退出失效。迟到结果按凭证 generation 和所选来源拒绝；HTTP 禁止携带认证跨重定向。",
       "chatDirectoryApi 只读请求 agents/chats 并校验 envelope；TEAM 作为普通 Agent mode 返回；不写 SQLite/MMKV，空数组成功，认证、权限、服务、协议、网络失败分类明确。",
-      "accountEmailApi 仅调用官网 email-code/start；邮箱校验与 expiresAt 解析对齐真实服务器，不再提供 Identity 绑定/解绑/挑战接口。",
+      "accountEmailApi 只调用官网 email-code/start 并映射邮箱登录错误；邮箱校验和 expiresAt 继续使用真实契约。accountRequest 的 onResponse 支持企业会话状态/响应头读取，保留同源、超时、取消和禁止认证重定向。",
       "accountRequest 复用 expo/fetch 的 Native Cookie 能力，15 秒超时、外部取消、同源与禁止重定向；官网显式 include，Hub 默认 omit。",
       "资源、图片和文件共用受控 header 解析；Native 流式写入、大小限制和来源/generation 复验，401 最多重取一次，403 不重试，失败只删除本次创建的文件。",
       "deviceLinkApi 只调用 Hub 管理所属电脑并取得所选 Desktop 的原 Platform 票据；官网证明与 Platform 票据分别传输，不包含旧手机 session/JTI。"
@@ -86,7 +86,8 @@
     "2026-10-09：T03 撤除，云端恢复配置 authMode/accessToken；手机 JWT 限定 Identity/Hub origin。",
     "2026-10-12：默认云端 Token 独立访问实施；本地测试与导出验证，真实服务/真机验收由用户执行。",
     "2026-10-13：邮箱验证码登录与账号邮箱绑定解绑本地实现；真实 SMTP、部署和真机验收未完成，详见 docs/account-email-auth-2026-10-13/IMPLEMENTATION.md。",
-    "2026-10-15：官网原生邮箱登录与原 Identity 票据接入已在本地实现；真实环境由用户验收，见 docs/mobile-account-ticket-sync-2026-10-14/IMPLEMENTATION.md。"
+    "2026-10-15：官网原生邮箱登录与原 Identity 票据接入已在本地实现；真实环境由用户验收，见 docs/mobile-account-ticket-sync-2026-10-14/IMPLEMENTATION.md。",
+    "2026-10-28 B1：VIEW DTO 区分 builtin/connector，Form/Planning 单 param 与 Question/Approval params 互斥；纯协议 helper 不加载 Native API。旧 /api/viewport 与 getChatViewportApi 已删除。"
   ],
   "legacy": {
     "title": "统一 API 客户端",

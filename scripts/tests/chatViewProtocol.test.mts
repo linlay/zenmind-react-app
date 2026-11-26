@@ -3,13 +3,18 @@ import test from 'node:test';
 import { readChatViewReference } from '../../src/core/api/services/chatViewProtocol.ts';
 import { buildChatViewDocumentHtml } from '../../src/features/chatPersistence/conversationViewport/viewDocumentHtml.ts';
 import { createConversationViewportDocumentStore } from '../../src/features/chatPersistence/conversationViewport/viewportDocumentStore.ts';
-import { CONVERSATION_VIEW_FENCE_EXTENSION } from '../../src/features/chatPersistence/conversationViewport/conversationViewportFence.ts';
 import { applyChatTimelineEvent, createChatTimelineState } from '../../src/features/chatTimeline/timelineReducer.ts';
 import {
   deserializeChatTimelineState,
   serializeChatTimelineState
 } from '../../src/features/chatTimeline/timelinePersistence.ts';
-const view = { connectorId: 'crm', key: 'result', hash: 'a'.repeat(64), renderer: 'html' as const };
+const view = {
+  source: 'connector' as const,
+  connectorId: 'crm',
+  key: 'result',
+  hash: 'a'.repeat(64),
+  renderer: 'html' as const
+};
 test('VIEW reference pins valid hash and rejects paths and malformed hashes', () => {
   assert.deepEqual(readChatViewReference(view), view);
   assert.equal(readChatViewReference({ ...view, connectorId: '../crm' }), undefined);
@@ -51,11 +56,7 @@ test('QLC provides a JSON fallback; display mode cannot submit; form collects on
     /safety limit/
   );
 });
-test('VIEW fence, tool result and awaiting retain references through replay and SQLite serialization', () => {
-  const parsed = CONVERSATION_VIEW_FENCE_EXTENSION.parse({
-    source: JSON.stringify({ view, payload: { value: 1 } })
-  } as any);
-  assert.deepEqual((parsed as any).view, view);
+test('VIEW tool and single Form references retain identity through replay and SQLite serialization', () => {
   let state = createChatTimelineState('chat');
   state = applyChatTimelineEvent(state, 'chat', {
     type: 'tool.result',
@@ -63,7 +64,7 @@ test('VIEW fence, tool result and awaiting retain references through replay and 
     runId: 'run',
     view,
     result: { value: 1 },
-    timestamp: 1_791_400_000_000
+    timestamp: 1791400000000
   });
   state = applyChatTimelineEvent(state, 'chat', {
     type: 'awaiting.ask',
@@ -71,10 +72,9 @@ test('VIEW fence, tool result and awaiting retain references through replay and 
     runId: 'run',
     mode: 'form',
     view,
-    forms: [{ id: 'f', form: { value: 1 } }],
-    timestamp: 1_791_400_000_001
+    form: { data: { value: 1 } },
+    timestamp: 1791400000001
   });
-  assert.deepEqual(state.awaiting?.interactive?.view, view);
   const serialized = serializeChatTimelineState(state);
   const restored = deserializeChatTimelineState(serialized.meta, serialized.nodes)!;
   assert.deepEqual(restored.awaiting?.interactive?.view, view);
@@ -87,21 +87,21 @@ test('clearing a cache while an old response is pending cannot overwrite a new s
   const firstRejected = assert.rejects(first, /released/);
   store.clear();
   const second = store.load('fixed-hash');
-  responses[1]({ html: 'new' });
-  assert.equal(await second, 'new');
-  responses[0]({ html: 'obsolete' });
+  responses[1]({ view, html: 'new' });
+  assert.equal((await second).html, 'new');
+  responses[0]({ view, html: 'obsolete' });
   await firstRejected;
-  assert.equal(store.getCached('fixed-hash'), 'new');
+  assert.equal(store.getCached('fixed-hash')?.html, 'new');
 });
 test('a force refresh cannot let an older fixed-hash response replace the cache', async () => {
   const responses: ((value: { html: string }) => void)[] = [];
   const store = createConversationViewportDocumentStore(() => new Promise((resolve) => responses.push(resolve)));
   const first = store.load('chat-a:member-a:hash');
   const second = store.load('chat-a:member-a:hash', { force: true });
-  responses[1]({ html: 'new' });
+  responses[1]({ view, html: 'new' });
   await second;
-  responses[0]({ html: 'old' });
+  responses[0]({ view, html: 'old' });
   await first;
-  assert.equal(store.getCached('chat-a:member-a:hash'), 'new');
-  assert.equal(store.getCached('chat-a:member-b:hash'), '');
+  assert.equal(store.getCached('chat-a:member-a:hash')?.html, 'new');
+  assert.equal(store.getCached('chat-a:member-b:hash'), null);
 });

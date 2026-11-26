@@ -171,3 +171,20 @@ test('switching Chat aborts uploads and late success cannot populate the replace
     await f.close();
   }
 });
+
+test('restoring submitted files preserves newer same-name files and never truncates either snapshot', async () => {
+  const f = await fixture();
+  try {
+    await act(async () => { await f.value.handleSelectAttachment('image'); });
+    const newer = f.value.attachments[0];
+    const restored = Array.from({ length: 10 }, (_, index) => ({
+      ...newer, attachmentId: `old-${index}`, references: [{ type: 'image', name: newer.name, url: `/old-${index}.png` }]
+    }));
+    await act(async () => { f.value.restoreAttachments(restored); });
+    assert.equal(f.value.attachments.length, 11);
+    assert.equal(f.value.attachments[0], newer);
+    assert.equal(f.value.attachments[1].references[0].url, '/old-0.png');
+    await act(async () => { f.value.restoreAttachments(restored); });
+    assert.equal(f.value.attachments.length, 11);
+  } finally { await f.close(); }
+});

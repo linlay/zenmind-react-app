@@ -2,17 +2,24 @@
   "schemaVersion": "1.0",
   "id": "sync-chat-detail-webclient",
   "title": "同步 WebClient 对话详情数据与能力",
-  "intentKeywords": ["对话详情同步", "WebClient 对齐", "对话同步执行大纲", "chat detail sync", "同步对话详情"],
+  "intentKeywords": [
+    "对话详情同步",
+    "WebClient 对齐",
+    "对话同步执行大纲",
+    "chat detail sync",
+    "同步对话详情"
+  ],
   "entryDecision": [
-    "输入区对齐使用 useChatComposerSettings 与进程内 chatComposerPreferences；已有 Chat 与新 Agent 默认模型分离，主 Run 请求设置与既有 usage 补缺，禁止增加持久化草稿或平行能力状态机。配置/目录错误可重试，能力关闭保留偏好与附件，所有迟到异步结果需复核目标。",
-    "执行对话详情与 agent-webclient 的数据或能力同步时，从 docs/sync/chat-detail-webclient-2026-10-08/README.md 开始，再读取对应 T00–T31 子任务。",
-    "当前聊天提交遵循根 agentKey 与 references 协议；SQLite 保存消息及结果，重连只恢复观察，不自动重发；旧本地缓存按新版 schema 重建。",
-    "2026-10-08 Android 真机已连接 OnePlus 6T，历史/完成过程、正文搜索、文件修改空态、引用取消、技能 ID 搜索及权限/聊天引用面板部分验收通过；同级 React key 冲突最小修复后重测，全量 715 项与严格类型/lint 通过。T24 paired 降级通过，默认 API 示例地址导致成功保存/分享未验收；T31 仍未关闭，具体证据及剩余门禁见最新 T31。"
+    "本轮执行入口为 docs/chat-detail-webclient-2026-10-28/README.md，状态以 ../plan/2026-10-28-react-app-chat-detail-webclient-sync 的 T00–T09 为准；2026-10-08 的 T00–T31 仅作历史。",
+    "2026-10-28 用户暂跳云端环境与超长 step 样本验证；T00 未验证门禁保留，继续独立 B1 本地实现，不据此声称 M1 完成。",
+    "B1（T01–T03）本地实现已落地：800/800、严格类型/lint 和三平台生产静态导出通过；真实来源与真机门禁仍未关闭，状态进行中。T04 按 B1 整体通过的前置尚未启动。",
+    "B1 是 T01/T02/T03 同批可合并闭环；不单独删除旧 API 破坏调用方。复用 chatSyncService、repository、timeline、单一 fence scanner 与文档缓存；禁止平行 service/store/运行状态机。",
+    "SQLite 仍为消息、摘要、read state 和 rich snapshot 真源；source namespace 只转换已知协议外壳，VIEW/Form/tool 业务 JSON 原样保留；根 agentKey 控制 owner；显式提交一次，未知结果先核对。"
   ],
   "mustRead": [
     {
       "type": "doc",
-      "ref": "docs/sync/chat-detail-webclient-2026-10-08/README.md"
+      "ref": "docs/chat-detail-webclient-2026-10-28/README.md"
     },
     {
       "type": "module",
@@ -36,10 +43,16 @@
     }
   ],
   "likelyFiles": [
+    "scripts/tests/chatViewBinding.test.mts",
+    "scripts/tests/awaitingFormFrame.test.mts",
+    "src/features/chatTimeline/timelineView.ts",
+    "docs/chat-detail-webclient-2026-10-28/README.md",
+    "scripts/fixtures/chat-detail-webclient-2026-10-28",
+    "scripts/tests/chatSyncContractFixtures.test.mts",
     ".doc/reference/chat-composer-alignment-verification.md",
     "src/features/chatPersistence/useChatComposerSettings.ts",
     "src/features/chatPersistence/chatComposerPreferences.ts",
-    "docs/sync/chat-detail-webclient-2026-10-08/README.md",
+    "docs/chat-detail-webclient-2026-10-08/README.md",
     "src/features/chatRealtime/chatSyncService.ts",
     "src/features/chatTimeline/timelineReducer.ts",
     "src/features/chatPersistence/chatProjector.ts",
@@ -89,20 +102,19 @@
     "scripts/tests/chatExportNative.test.mts"
   ],
   "acceptanceChecks": [
-    "任务总览与子任务的范围、依赖、状态和执行证据一致。",
-    "T31 根据 T00 纳入的任务、任务部分及必要前置验收；验证专项允许以无须代码变更的证据关闭。",
-    "纳入范围按实际影响完成实时、历史回放、必要的持久化兼容与对应真实环境验证。",
-    "新增代码对应已确认需求或缺陷；无预建框架、无第二套状态，仅为实际重复提取公共代码、为实际恢复需求新增持久化。",
-    "保持 SQLite 真源、共享连接、source namespace 与 根 agentKey owner 边界。",
-    "完成临时状态清理，保留任务开始前已有用户改动。"
+    "执行总览与各子任务逐项记录状态、变更、验证和清理，未验证条件明确保留。",
+    "B1–B5 与 T09 构成 M1；T08/E1 独立，不以原文 HTTP 缺口阻塞 M1，也不以本地模拟代替实际部署/设备验收。",
+    "当前职责与真实调用优先复用；不增加框架、无调用类型、平行 store 或预留功能。",
+    "保持 SQLite 真源、MMKV 首页镜像、共享连接与消费者独立释放、source namespace、根 owner 和单次显式提交边界。",
+    "旧 v9 Form 可读且不可误操作；display 升级不丢聊天消息、读状态或完成历史。",
+    "完成临时状态清理并验证任务前用户状态未变。"
   ],
   "doNotMiss": [
-    "基线为本地比较结果，必须确认执行时代码与后端协议。",
-    "T28–T30 为验证专项，不预设存在缺陷；已具备能力补证据即可。",
-    "P2 按范围选择，依赖完整后实施；不要重复执行 7 月旧清单同类任务。",
-    "T10 周期修复与主动压缩分别确认，后者纳入时依赖 T05/T12；T20 不依赖 T02。",
-    "T02 为有界轻量文本面板；T14 队列、持久化和自动转 query 仅按明确范围实施；T23 默认只搜索已加载正文。",
-    "T17 同 run 提交互斥，超时校准权威值；T25 隔离状态实例并复用适用纯函数，不预建通用会话引擎。",
+    "参考 Git 对象不是部署版本；2026-10-28 本地源码 v0.5.26，运行 Desktop/Platform v0.5.25，现有本地 HTTP 认证探测 401。",
+    "Form/Planning 用单 param；Question/Approval 用 params；Frontend Tool 真实 params 不删除。",
+    "无效 VIEW header 仍占平台 index；正文 key 不是冻结模板授权；只有平台 binding 指定 snapshot hash。",
+    "文档源码 256 KiB，bridge/query params/result 各 64 KiB；恢复预算缺真实长 step 样本，用户暂跳，不猜次数。",
+    "替代入口与全部调用者同批迁移并删除旧 API/props/runtime；旧快照只读归一属于 B1。",
     "依赖变更只改 package.json，不自动安装或修改 lock。"
   ]
 }

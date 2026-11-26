@@ -1,31 +1,26 @@
+import { buildConversationViewDocumentKey } from '../conversationViewport/viewportDocument';
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
-import type {
-  FrontendToolSubmitPayloadData,
-  SubmitFrontendToolResponse,
-} from '../../../core/api/services/chatApi';
+import type { FrontendToolSubmitPayloadData, SubmitFrontendToolResponse } from '../../../core/api/services/chatApi';
 import { PreviewErrorPanel } from '../../../shared/components/conversationPreview/PreviewErrorPanel';
 import { PreviewSurface } from '../../../shared/components/conversationPreview/PreviewSurface';
 import type {
   ConversationPreviewBridgeEvent,
-  ConversationPreviewHeightBounds,
+  ConversationPreviewHeightBounds
 } from '../../../shared/components/conversationPreview/types';
 import { usePreviewExecutionState } from '../../../shared/components/conversationPreview/usePreviewExecutionState';
 import { AppIcon } from '../../../shared/icons/AppIcon';
 import { useT } from '../../../shared/i18n';
 import { hashConversationPreviewSource } from '../../../shared/markdown/previewSourceHash';
 import { useAppTheme } from '../../../shared/visual/AppThemeProvider';
-import type {
-  ChatTimelineActiveFrontendTool,
-  ChatTimelineFrontendToolResolution,
-} from '../../chatTimeline/index.ts';
+import type { ChatTimelineActiveFrontendTool, ChatTimelineFrontendToolResolution } from '../../chatTimeline/index.ts';
 import { useConversationViewportDocument } from '../conversationViewport/useConversationViewportDocument';
 
 const HEIGHT_BOUNDS: ConversationPreviewHeightBounds = {
   initial: 320,
   minimum: 240,
-  maximum: 420,
+  maximum: 420
 };
 const MAX_TIMER_DELAY_MS = 2_147_000_000;
 const CONTAINER_CLASS =
@@ -46,28 +41,24 @@ type FrontendToolDockProps = {
   onSubmit: (payload: FrontendToolSubmitPayloadData) => Promise<SubmitFrontendToolResponse>;
 };
 
-export const FrontendToolDock = memo(function FrontendToolDock({
-  tool,
-  onResolve,
-  onSubmit,
-}: FrontendToolDockProps) {
+export const FrontendToolDock = memo(function FrontendToolDock({ tool, onResolve, onSubmit }: FrontendToolDockProps) {
   const t = useT();
   const { resolvedPreference, theme } = useAppTheme();
   const submitGenerationRef = useRef(0);
   const resolvedRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
-  const { html, loading, error: documentError, reload } = useConversationViewportDocument(
-    tool.viewportKey,
+  const {
+    document,
+    loading,
+    error: documentError,
+    reload
+  } = useConversationViewportDocument(
+    buildConversationViewDocumentKey(tool.conversationId, tool.view, 'form', tool.viewError),
     true
   );
-  const {
-    error: executionError,
-    handleError,
-    handleReady,
-    handleRetry,
-    retryNonce,
-  } = usePreviewExecutionState();
+  const html = document?.html || '';
+  const { error: executionError, handleError, handleReady, handleRetry, retryNonce } = usePreviewExecutionState();
 
   const resolve = useCallback(
     (reason: ChatTimelineFrontendToolResolution) => {
@@ -124,13 +115,13 @@ export const FrontendToolDock = memo(function FrontendToolDock({
         toolKey: tool.key,
         runId: tool.runId,
         toolId: tool.toolId,
-        params,
+        params
       })
         .catch((error: unknown) => {
           if (submitGenerationRef.current === generation && !resolvedRef.current) {
             setSubmitError(
               t('frontendTool.submitFailed', {
-                detail: error instanceof Error ? error.message : String(error),
+                detail: error instanceof Error ? error.message : String(error)
               })
             );
           }
@@ -171,11 +162,12 @@ export const FrontendToolDock = memo(function FrontendToolDock({
       data: {
         runId: tool.runId,
         toolId: tool.toolId,
-        viewportKey: tool.viewportKey,
+        view: tool.view,
+        viewKey: tool.viewKey,
         toolType: tool.toolType,
         toolTimeout: tool.toolTimeoutMs,
-        params: tool.toolParams,
-      },
+        params: tool.toolParams
+      }
     }),
     [tool]
   );
@@ -184,9 +176,7 @@ export const FrontendToolDock = memo(function FrontendToolDock({
       `frontend-tool:${hashConversationPreviewSource(tool.key)}:${hashConversationPreviewSource(html)}:${resolvedPreference}`,
     [html, resolvedPreference, tool.key]
   );
-  const loadError = documentError
-    ? t('frontendTool.loadFailed', { detail: documentError })
-    : '';
+  const loadError = documentError ? t('frontendTool.loadFailed', { detail: documentError }) : '';
   const error = loadError || executionError || submitError;
   const title = tool.toolLabel || tool.toolName || t('frontendTool.title');
 
@@ -201,9 +191,7 @@ export const FrontendToolDock = memo(function FrontendToolDock({
             {tool.toolType} · {tool.toolId}
           </Text>
         </View>
-        {loading && html ? (
-          <ActivityIndicator size="small" color={theme.colors.brandBlue} />
-        ) : null}
+        {loading && html ? <ActivityIndicator size="small" color={theme.colors.brandBlue} /> : null}
         <Pressable
           accessibilityLabel={t('frontendTool.close')}
           accessibilityRole="button"

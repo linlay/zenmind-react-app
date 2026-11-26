@@ -198,7 +198,13 @@ export function extractMessageRole(event: Record<string, unknown>): 'user' | 'as
 }
 
 export function isAssistantContentEvent(type: string): boolean {
-  return type === 'content.start' || type === 'content.delta' || type === 'content.snapshot' || type === 'content.end';
+  return (
+    type === 'content.view' ||
+    type === 'content.start' ||
+    type === 'content.delta' ||
+    type === 'content.snapshot' ||
+    type === 'content.end'
+  );
 }
 
 export function isSummaryLikeEvent(event: Record<string, unknown>): boolean {

@@ -10,7 +10,7 @@
       "让通用 API/WebSocket 配置与安装品牌对应的 react-app-env 默认数据源都从同一层取值。",
       "保持返回值稳定为 string，由调用方自行做缺省和校验。",
       "Public entry readPublicEnv (runtime-config): 统一读取 EXPO_PUBLIC_* 变量。",
-      "Public entry getDefaultSourceConfig (default-source-config): 从 schema v2 generated appEnv 完整品牌 registry 按 INSTALLED_BRAND_ID 选择 sourceId/displayName/API/WS/authMode/accessToken；显式 wsUrl 优先，缺失时才从 apiBaseUrl 与 wsPath 推导。",
+      "Public entry getDefaultSourceConfig (default-source-config): 从单品牌静态 appEnv 读取 sourceId/displayName/API/WS/authMode/accessToken；显式 wsUrl 优先，缺失时才从 apiBaseUrl 与 wsPath 推导。",
       "State/data touch: 构建期 REACT_APP_ENV_ARTIFACT 生成的 src/shared/generated/appEnv.ts",
       "State/data touch: process.env / Expo public env bridge",
       "Related task: add-business-api-service",
@@ -52,10 +52,10 @@
   "riskRules": [
     "react-app-env Git 只提交无效 endpoint 与占位 token 的 env.example；真实 env.<environment> 由安全打包配置提供。authMode=none 禁止 accessToken，authMode=query-token 必须提供客户端 accessToken；该 token 会进入 Bundle，只能是低权限、可撤销、可轮换的分发凭据，不能作为服务端 Secret。",
     "REACT_APP_ENV_ARTIFACT 相对路径以 React App 根目录解析；EAS 远端构建必须先把固定版本产物复制进临时 App 构建上下文，不能依赖未上传的 sibling 路径。",
-    "正式 artifact 直接携带配置文件解析后的 endpoint 与可选客户端 token；syncReactAppEnvArtifact 只校验并生成 registry，不再从动态 process.env 补全默认源。",
+    "正式 artifact 直接携带配置文件解析后的 endpoint 与可选客户端 token；syncReactAppEnvArtifact 校验品牌与指定环境后生成目标配置，不再从动态 process.env 补全默认源。",
     "改变量名时同时检查云端 REST、WebSocket 和开发态调试面板；Desktop wsUrl 来自当前账号路由，不走云端环境变量。",
     "调用方仍需自行处理空值分支。",
-    "共享 OTA bundle 必须包含完整品牌 app env registry，运行时只按安装壳品牌选择；不得在构建时生成单一 active brand 常量。"
+    "每个 Bundle 只包含目标品牌环境配置。运行时校验安装壳品牌与配置一致，OTA channel 按品牌划分。"
   ],
   "recentChanges": [],
   "legacy": {

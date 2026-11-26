@@ -22,12 +22,12 @@ export async function requestEmailLoginCode(email: string, signal?: AbortSignal)
 export function accountEmailErrorKey(error: unknown): I18nKey {
   if (error instanceof ApiError) {
     if (error.message === 'invalid_code') return 'accountEmail.error.authentication';
-    if (error.status === 400) return 'accountEmail.error.format';
-    if (error.status === 401 || error.status === 403) return 'accountEmail.error.session';
-    if (error.status === 429) return 'accountEmail.error.rate';
-    if (error.status >= 500) return 'accountEmail.error.service';
+    if (error.message === 'account_disabled') return 'auth.error.disabled';
+    if (error.status === 400) return 'auth.error.format';
+    if (error.status === 401 || error.status === 403) return 'auth.error.session';
+    if (error.status === 429) return 'auth.error.rate';
+    if (error.status >= 500) return 'auth.error.service';
   }
-  if (error instanceof Error && error.message === 'Invalid account email response')
-    return 'accountEmail.error.protocol';
-  return 'accountEmail.error.network';
+  if (error instanceof Error && error.message === 'Invalid account email response') return 'auth.error.protocol';
+  return 'auth.error.network';
 }

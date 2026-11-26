@@ -1,5 +1,6 @@
 {
   "id": "cutej",
+  "accountLoginMethod": "enterprise-sso",
   "productName": "CuteJ",
   "expoName": "CuteJ",
   "appIcon": "app-icon.png",

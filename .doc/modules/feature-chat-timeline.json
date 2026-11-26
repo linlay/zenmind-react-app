@@ -8,6 +8,10 @@
   "summary": {
     "purpose": "聊天详情 Timeline 投影: 提供纯函数 timeline reducer，把 request.query、content.*、run.*、reasoning/planning/tool/source/awaiting/artifact/action/plan/task/usage/context 等事件归并为单会话有序节点。",
     "ownedConcepts": [
+      "request.query 与 request.steer 先归一人工、自动化与 Agent 发送来源，再匹配本地回显。内部来信只保留稳定身份和 Run 关联，正文不进入富快照。可见来信通过既有 request 行显示发件人；基础消息、重问和自动标题使用人工提问。",
+      "普通审批仅投影仍需审批的策略叶项，路径和原因纳入交互比较。",
+      "终态过程折叠保留根级引导和可见来信的原始行与附件，子任务引导仍随过程展开。实时 planning 等待项和详情回放共用计划解析，按等待项及 Run 识别所属 Agent。",
+      "run.activity 普通公示按会话、Run 和任务归并，同任务开始输出或明确清空时撤下，Run 结束时释放。活跃详情只恢复当前 Run 的根级公示，按时间和请求期间的本地更新阻止旧快照复活。公示只存在于运行态，不进入富快照、消息历史或导出。",
       "timelineOrder 统一维护创建时间顺序及同 Run 请求锚点；实时插入、合并和旧快照恢复使用同一规则，delta 不改变位置，message/display/repository 不另行排序。失败用户消息在既有 errorDetail/references 中保留服务端拒绝和实际引用，沿用 rich snapshot。",
       "主 Run 保存 request.query 的 queryModel 与已确认权限；实际模型沿用同 Run 的 usageSummary（含可选 serviceTier），请求设置优先、用量补缺。isMainRun 排除子任务、BTW、解读与其他会话；空白继续也保留请求元数据。请求已确认但尚未 run.start 的 pending 节点不冒充运行中；新增元数据沿用 timeline JSON snapshot，不新增表或 schema。",
       "用量 totalTokens 优先使用上游明确值，仅输入与输出均存在时允许求和兜底；缺失一项保持未知，避免比例展示把缺失当零。",
@@ -56,7 +60,8 @@
       "request.steer/remember/learn 规范 command 保留正文、文件附件与原始 references；引用型空正文可回放，稳定 request/steerId 去重，references 可选字段沿用 rich snapshot。",
       "run.access_level.changed 只更新同一 RunNode 的 accessLevel/accessLevelVersion，不结束 run、不改起止时间；request.query 保留初始权限元数据，兼容先 query 后 run.start。live/request-specific 与 history run 按 runId 统一身份，合并保留最大已确认版本。",
       "Public entry applyChatTimelineRunAccess / getChatTimelineRun：运行权限按服务端正整数版本单调确认；sending/unknown 存在 RunNode 瞬态，不写 snapshot，结束 run 清除；历史合并不把低版本覆盖新权威值。",
-      "request.query/command selection 归一为 kind=selection 的同一附件，保留文本/批注/编号参与 echo identity 与 snapshot，不建立第二份引用实体。referencesSignature 使用后端保留的 selection ID/文本/批注/编号，忽略会被后端剥离的 client sourceKind，避免把不同批注或同名文字引用错认成文件 echo。"
+      "request.query/command selection 归一为 kind=selection 的同一附件，保留文本/批注/编号参与 echo identity 与 snapshot，不建立第二份引用实体。referencesSignature 使用后端保留的 selection ID/文本/批注/编号，忽略会被后端剥离的 client sourceKind，避免把不同批注或同名文字引用错认成文件 echo。",
+      "projectTimelineAwaitingState 按 awaiting.id 读取单个节点，保留交互可见性与 answerSummary 回退，供详情页和完整 runtime 投影复用。areChatTimelineDisplayItemsEqual 统一 display/presentation/列表行比较；reframeChatTimelineItems 统一过滤产物与折叠过程后的 run 内分组定位。"
     ],
     "nonGoals": []
   },
@@ -124,6 +129,7 @@
       "ChatTimelinePresentationItem",
       "ChatTimelineProcessSummaryDisplayItem",
       "ChatTimelineProcessTerminalStatus",
+      "ChatTimelineRunAnnouncement",
       "ChatTimelineRunNode",
       "ChatTimelineRuntimeEntry",
       "ChatTimelineRuntimeEntryKind",
@@ -146,6 +152,7 @@
       "ChatTimelineUsageStats",
       "ChatTimelineUsageSummary",
       "ChatTimelineUsageTiming",
+      "ChatTimelineViewBinding",
       "ChatToolOutput",
       "ConversationActionDefinition",
       "NormalizedChatTimelineAction",
@@ -163,10 +170,13 @@
       "applyChatTimelineEvent",
       "applyChatTimelineMessage",
       "applyChatTimelineRunAccess",
+      "applyChatTimelineRunAnnouncement",
+      "applyChatTimelineRunAnnouncementSnapshot",
       "applyChatTimelineRunDerivation",
       "applyChatTimelineRunFeedback",
       "applyChatTimelineRunUnavailable",
       "applyChatTimelineStreamDelta",
+      "areChatTimelineDisplayItemsEqual",
       "buildActiveReasoningNodeIdsByRun",
       "buildChatTimelineDisplayItems",
       "buildChatTimelineDisplayModel",
@@ -180,7 +190,9 @@
       "chatTimelineSourceNodePayloadEquals",
       "chatTimelineTaskNodePayloadEquals",
       "chatTimelineUsageSummaryEquals",
+      "classifyChatRequestInput",
       "clearActiveReasoningNodeIdForRun",
+      "clearChatTimelineRunAnnouncementForContent",
       "clearChatTimelineToolTransientState",
       "closeChatTimelineActionNode",
       "closeChatTimelineContextCompactNode",
@@ -255,12 +267,15 @@
       "parseChatTimelinePlanStatus",
       "parseFrontendToolArgs",
       "patchChatTimelineMessage",
+      "projectTimelineAwaitingState",
       "projectTimelineMessages",
       "projectTimelineRuntimeState",
       "readChatRunFeedback",
       "readConversationActionEventArguments",
       "readRunAccessLevel",
+      "readTimelineViewBindings",
       "reconcileChatTimelineAwaitingSnapshot",
+      "reframeChatTimelineItems",
       "resolveChatComposerHistory",
       "resolveChatTimelineActionId",
       "resolveChatTimelineArtifactPreviewKind",
@@ -292,7 +307,7 @@
       "feature-chat-realtime"
     ],
     "tests": [],
-    "lastScannedAt": "2026-10-16T08:54:52Z"
+    "lastScannedAt": "2026-11-26T01:01:15Z"
   },
   "readHints": {
     "alwaysRead": [
@@ -335,7 +350,7 @@
     "本地消息、ack、incoming、delta、服务端真实终态、unavailable liveness 和 reconcile 复用同一 reducer/merge。stop 不投影假 cancel；terminal run/tool/message 不被 stale active 复活。tool.end 不等于工具执行完成；run 真实终态收口对应活动子节点。",
     "display item 必须保持 flat list 和稳定 key；run 状态由详情 Header 消费、usage 节点由输入区用量入口消费，不进入主列表；连续同名工具只能在 display 层生成 tool-group，不写回 timeline state；source.publish 必须按 publishId 幂等归一；artifact.publish 必须按 conversation + artifactId 拆分稳定节点；plan.* 必须按 conversation + planId 合并稳定 typed plan 节点；task.* 必须按 taskId 幂等归一为单一 typed task，再由 display 按 planId/parentTaskId/runId/taskGroupId 组合，禁止把 task runtime 复制进 plan 或组件 store；action.* 必须按 conversation + actionId 归一，Reducer 只保存协议/执行结果并保持纯函数，白名单执行不得出现在 reducer、history replay 或 snapshot restore；旧时间戳不得覆盖新状态，终态 replay 不得无状态复活；结构化节点不得用重复 title/body 字段伪装通用 text node；列表行 memo 和 display model 缓存应基于 node 引用、关联 task 引用和分组元数据，避免单个结构化节点更新带动无关行重渲染。",
     "context.compact.* 必须归一为 typed context 节点，UI 只消费语义字段，不显示原始 payload/JSON；complete 事件对 contextWindow 和 compact usage 的修正必须写入同一节点参与 rich snapshot，并同步更新 ChatTimelineState.usageSummary，保证 Header、实时态和恢复态一致。",
-    "frontend tool 只允许 html/qlc 且必须同时存在 viewportKey；活动状态从 tool 节点派生，close/done/submitted/timeout resolution 写回同一节点并参与 snapshot/replay，禁止建立第二份 active tool 状态。",
+    "frontend tool 只允许 html/qlc 且必须同时存在合法 view/viewKey；活动状态从 tool 节点派生，close/done/submitted/timeout resolution 写回同一节点并参与 snapshot/replay，禁止建立第二份 active tool 状态。",
     "tool.output 按 chunkIndex 去重、UTF-8 字节预算截断并清理 ANSI，仅内存展示；序列化明确删除 toolOutput。重试 activity 限当前 run/task、保持瞬态、不改业务终态。",
     "cycleId 优先关联 context.compact，cycleComplete=false 不能提前完成整个 cycle；没有 cycle 的旧 snapshot 保留既有兼容。",
     "上下文引用沿用消息附件和 rich snapshot，chat/Site echo 按 type+稳定 ID 匹配，不把后端重写标题/meta 视为另一消息；禁止以文件 URL 伪造上下文。",

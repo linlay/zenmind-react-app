@@ -4,6 +4,11 @@
   "title": "收到服务端消息",
   "trigger": "WebSocket 收到 push / stream / run complete 等聊天实时事件时触发。",
   "sourceOfTruth": [
+    "实时和详情回放由同一 timeline reducer 判断发送来源并匹配稳定请求标识。旧快照可按标识修正展示；该链路仍使用 SQLite rich snapshot，只有人工 query 参与本地回显和会话标题。",
+    "普通审批依据进入等待项比较。同一等待项的原因或路径更新时，实时呈现和详情回放均采用最新依据。",
+    "运行中的引导行复用消息附件预览。显式终态后，根级追加和可见来信依原顺序保留在过程摘要外，SQLite 快照恢复同一行。",
+    "活动计划卡按所属 Agent 经 chatSyncService 读取 /api/agent 默认权限。批准时通过现有 /api/submit 单个 param 发送所显示的档位，可重试失败刷新详情后由用户再次提交。",
+    "普通运行公示经实时 run.activity 和当前 activeRun.announcement 进入内存。等待动画在没有公示或其他可见过程时沿用原布局，同任务开始输出或 Run 结束时撤下公示。",
     "消息与 display 共用 timeline 的创建时间顺序，迟到节点插入正确位置、旧快照读取校准；query/attach 消费同一 RunChannel，离开页面按 streamRequestId 只释放本端订阅。",
     "core/ws sharedWsTransport pool 按 endpoint/connectionKey 隔离默认 AP 与 Desktop WS；chatWsTransport 只做来源相关的聊天事件归一，不直接写 UI 或数据库。",
     "收到消息、流式 delta 和单会话校准后的持久化、去重和摘要更新都通过 chatRepository 完成。",
@@ -42,7 +47,7 @@
     },
     {
       "order": 5,
-      "label": "Chat 首页目录只在 directoryProjectionChanged 或 home.directory.replace 时回读目录切片；普通 home.item.patch 只 patch 当前可见目录项 preview。useChatDetailConversationController 只用 conversation.timeline.replace/reset 驱动详情主消息区；ChatTimelineList 通过单一 variant registry 把 steer/remember/learn 显示为带专用图标和命令标签的左侧 request 行，并在列表根部通过 ConversationMarkdownLinkProvider 把资源/workspace Markdown 链接路由到共用认证预览下载层，workspace 请求只使用当前 agent scope，普通外链仍由系统打开；awaiting 与 active frontend tool 都从 timeline 派生，分别由 ChatAwaitingDock / FrontendToolDock 消费并调用 chatSyncService 提交；ActionTimelineRow 展示 typed action，ContextCompactTimelineRow 展示 typed compact 语义且 Header 消费同一 usageSummary；useConversationActionRuntime 只消费命中当前会话的实时 action protocol 并交给有界幂等 conversationActionService；FrontendToolDock 复用安全 HTML runtime 发送 tool_init，只接收 frontend_submit/close/done 白名单，message/stream/runtime scoped event 保留兼容但不再维护页面第二套状态。",
+      "label": "Chat 首页目录只在 directoryProjectionChanged 或 home.directory.replace 时回读目录切片；普通 home.item.patch 只 patch 当前可见目录项 preview。useChatDetailConversationController 只用 conversation.timeline.replace/reset 驱动详情主消息区；ChatTimelineList 通过单一 variant registry 把 steer/remember/learn 显示为带专用图标和命令标签的左侧 request 行，并在列表根部通过 ConversationMarkdownLinkProvider 把资源/workspace Markdown 链接路由到共用认证预览下载层，workspace 请求只使用当前 agent scope，普通外链仍由系统打开；awaiting 与 active frontend tool 都从 timeline 派生，分别由 ChatAwaitingDock / FrontendToolDock 消费并调用 chatSyncService 提交；ActionTimelineRow 展示 typed action，ContextCompactTimelineRow 展示 typed compact 语义且 Header 消费同一 usageSummary；useConversationActionRuntime 只消费命中当前会话的实时 action protocol 并交给有界幂等 conversationActionService；FrontendToolDock 复用安全 HTML runtime 发送 tool_init，只接收 frontend_submit/close/done 白名单，message/stream/runtime scoped event 保留兼容但不再维护页面第二套状态。 详情渲染只按 awaiting.id 读取交互状态，完整 runtime entries 在诊断提交时才投影；Controller 与输入设置共享 composer history，列表项比较和分组定位复用 timeline helper。",
       "moduleId": "feature-chat-persistence",
       "file": "src/features/chatPersistence/useChatDetailConversationController.ts",
       "symbol": "useChatDetailConversationController"

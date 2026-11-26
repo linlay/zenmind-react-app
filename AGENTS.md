@@ -13,6 +13,8 @@
 
 ## 常用命令
 
+品牌环境入口 `./run.sh <目标> <env版本> <运行方式>` 和 `./package.sh <目标> <env版本> <android|ios> [--local]` 从制品目录精确读取对应配置包。默认使用同级 env-releases，也可设置 REACT_APP_ENV_RELEASES_DIR。缺少目标版本或第三个参数时直接报错。`package.sh` 默认使用 EAS 云构建，显式 `--local` 才在本机编译并输出到项目根目录 `zenmind-app-output/<品牌>-<环境>-<env版本>.<apk|aab|ipa>`；本地与云端均保留内测/生产 profile 选择。
+
 ```bash
 pnpm start            # Expo 开发服务器
 pnpm web              # Web 预览

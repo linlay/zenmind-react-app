@@ -2,12 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { DefaultTheme, NavigationContainer, createNavigationContainerRef } from '@react-navigation/native';
 import { AppState, StatusBar, View } from 'react-native';
 
-import {
-  bootstrapAccountAuth,
-  getAccountAccessTokenForRequest,
-  getAccountAuthGeneration
-} from '../core/auth/accountAuth.ts';
-import { readOfficialApiBaseUrl } from '../core/auth/authConfig';
+import { bootstrapAccountAuth, refreshAccountSession, getAccountAuthGeneration } from '../core/auth/accountAuth.ts';
 import { getSelectedSource, subscribeActiveDesktop } from '../core/auth/activeDesktop.ts';
 import { useAccountAuth } from '../core/auth/useAccountAuth.ts';
 import { getChatCacheScopeId, subscribeChatCacheScope } from '../features/chatPersistence/cacheScope';
@@ -108,7 +103,7 @@ export function AppRoot({ onNavigationReady }: AppRootProps) {
       return null;
     }
 
-    return getAccountAccessTokenForRequest(readOfficialApiBaseUrl());
+    return refreshAccountSession();
   }, [hasSession, isBootstrapping]);
 
   useEffect(() => {

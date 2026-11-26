@@ -17,10 +17,13 @@ import { verifyDefaultCloud } from '../chatPersistence/cloudAccess';
 import { activateAccountDesktopSource } from '../chatPersistence/accountDesktopSource';
 import { AppKeyboardAwareScrollView } from '../../shared/components/AppKeyboardAwareScrollView';
 import { brandAssets } from '../../shared/icons/brandAssets';
-import { useT } from '../../shared/i18n';
+import { APP_BRAND } from '../../shared/generated/brand';
+import { useI18n, useT } from '../../shared/i18n';
 import { useAppTheme } from '../../shared/visual/AppThemeProvider';
 import { cn } from '../../shared/visual/className';
 import { EmailVerificationForm } from './EmailVerificationForm';
+import { EnterpriseLogin } from './EnterpriseLogin';
+import { ACCOUNT_LOGIN_METHOD, readAccountApiBaseUrl } from '../../core/auth/authConfig';
 
 const SAFE_AREA_CLASS = 'flex-1 bg-app-background';
 const BOOTSTRAP_SHELL_CLASS = 'flex-1 items-center justify-center gap-app-md px-app-xl';
@@ -59,7 +62,7 @@ export function AuthBootstrapScreen() {
 }
 
 export function LoginScreen() {
-  const t = useT();
+  const { locale, t } = useI18n();
   const { theme } = useAppTheme();
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'Login'>>();
@@ -101,87 +104,111 @@ export function LoginScreen() {
   }
   return (
     <SafeAreaView edges={['top', 'bottom']} className={SAFE_AREA_CLASS}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className={KEYBOARD_SHELL_CLASS}>
-        <View className={CONTENT_SHELL_CLASS}>
-          <AppKeyboardAwareScrollView
-            className={SCROLL_VIEW_CLASS}
-            showsVerticalScrollIndicator={false}
-            contentContainerClassName="grow px-app-xl pt-app-md pb-app-xl"
-          >
-            <View className={TOP_ACTIONS_CLASS}>
-              <Pressable accessibilityRole="button" onPress={closeLogin} className={CLOSE_BUTTON_CLASS}>
-                <Text className={CLOSE_BUTTON_TEXT_CLASS}>{t('auth.close')}</Text>
-              </Pressable>
-            </View>
-            <View className={LOGO_WRAP_CLASS}>
-              <Image source={brandAssets.logo} className={LOGO_CLASS} resizeMode="contain" />
-              <Text className={TITLE_CLASS}>{t('auth.welcome.title')}</Text>
-              <Text className={SUBTITLE_CLASS}>
-                {t(mode === 'cloud' ? 'cloud.loginHint' : 'auth.welcome.subtitle')}
-              </Text>
-            </View>
-            <View className="mb-app-lg flex-row gap-app-sm">
-              {(['account', 'cloud'] as const).map((option) => (
-                <Pressable
-                  key={option}
-                  disabled={isSubmitting}
-                  onPress={() => {
-                    controllerRef.current?.abort();
-                    controllerRef.current = null;
-                    setSubmitting(false);
-                    setMode(option);
-                    setErrorMessage('');
-                  }}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked: mode === option }}
-                  className={cn(
-                    'min-h-11 flex-1 items-center justify-center rounded-app-sm',
-                    mode === option ? 'bg-app-action' : 'bg-app-surface-muted'
-                  )}
-                >
-                  <Text className={mode === option ? 'font-bold text-app-on-action' : 'text-app-secondary'}>
-                    {t(option === 'cloud' ? 'cloud.login' : 'auth.mode.account')}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-            {mode === 'cloud' ? (
-              <View className={FORM_CLASS}>
-                <Text className={INPUT_LABEL_CLASS}>{t('cloud.token')}</Text>
-                <TextInput
-                  value={token}
-                  onChangeText={setToken}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  secureTextEntry
-                  maxLength={8192}
-                  editable={!isSubmitting}
-                  className={TEXT_INPUT_CLASS}
-                  placeholder={t('cloud.tokenPlaceholder')}
-                  placeholderTextColor={theme.colors.textTertiary}
-                />
-                {errorMessage ? <Text className={ERROR_TEXT_CLASS}>{errorMessage}</Text> : null}
-                <Pressable
-                  disabled={!token.trim() || isSubmitting}
-                  onPress={() => void handleCloudLogin()}
-                  accessibilityRole="button"
-                  className={cn(PRIMARY_BUTTON_CLASS, (!token.trim() || isSubmitting) && PRIMARY_BUTTON_DISABLED_CLASS)}
-                >
-                  {isSubmitting ? (
-                    <ActivityIndicator color={theme.colors.onBrandBlueAction} />
-                  ) : (
-                    <Text className={PRIMARY_BUTTON_TEXT_CLASS}>{t('cloud.login')}</Text>
-                  )}
-                </Pressable>
-              </View>
-            ) : (
-              <View className={FORM_CLASS}>
-                <EmailVerificationForm onSuccess={closeLogin} />
-              </View>
-            )}
-          </AppKeyboardAwareScrollView>
+      <View className="mx-auto w-full max-w-[440px] px-app-xl">
+        <View className={TOP_ACTIONS_CLASS}>
+          <Pressable accessibilityRole="button" onPress={closeLogin} className={CLOSE_BUTTON_CLASS}>
+            <Text className={CLOSE_BUTTON_TEXT_CLASS}>{t('auth.close')}</Text>
+          </Pressable>
         </View>
-      </KeyboardAvoidingView>
+        <View className="mb-app-lg flex-row gap-app-sm">
+          {(['account', 'cloud'] as const).map((option) => (
+            <Pressable
+              key={option}
+              disabled={isSubmitting}
+              onPress={() => {
+                controllerRef.current?.abort();
+                controllerRef.current = null;
+                setSubmitting(false);
+                setMode(option);
+                setErrorMessage('');
+              }}
+              accessibilityRole="radio"
+              accessibilityState={{ checked: mode === option }}
+              className={cn(
+                'min-h-11 flex-1 items-center justify-center rounded-app-sm',
+                mode === option ? 'bg-app-action' : 'bg-app-surface-muted'
+              )}
+            >
+              <Text className={mode === option ? 'font-bold text-app-on-action' : 'text-app-secondary'}>
+                {t(option === 'cloud' ? 'cloud.login' : 'auth.mode.account')}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+      </View>
+      {mode === 'account' && ACCOUNT_LOGIN_METHOD === 'enterprise-sso' ? (
+        <View className="flex-1">
+          <Text className="px-app-xl pb-app-md text-center text-app-title font-bold text-app-primary">
+            {t('auth.welcome.title', { productName: APP_BRAND.i18n[locale]['app.productName'] })}
+          </Text>
+          {readAccountApiBaseUrl() ? (
+            <EnterpriseLogin onSuccess={closeLogin} />
+          ) : (
+            <Text className="px-app-xl text-app-secondary">{t('auth.error.notConfigured')}</Text>
+          )}
+        </View>
+      ) : (
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} className={KEYBOARD_SHELL_CLASS}>
+          <View className={CONTENT_SHELL_CLASS}>
+            <AppKeyboardAwareScrollView
+              className={SCROLL_VIEW_CLASS}
+              showsVerticalScrollIndicator={false}
+              contentContainerClassName="grow px-app-xl pt-app-md pb-app-xl"
+            >
+              <View className={LOGO_WRAP_CLASS}>
+                <Image source={brandAssets.logo} className={LOGO_CLASS} resizeMode="contain" />
+                <Text className={TITLE_CLASS}>
+                  {t('auth.welcome.title', { productName: APP_BRAND.i18n[locale]['app.productName'] })}
+                </Text>
+                <Text className={SUBTITLE_CLASS}>
+                  {t(mode === 'cloud' ? 'cloud.loginHint' : 'auth.welcome.subtitle')}
+                </Text>
+              </View>
+              {mode === 'cloud' ? (
+                <View className={FORM_CLASS}>
+                  <Text className={INPUT_LABEL_CLASS}>{t('cloud.token')}</Text>
+                  <TextInput
+                    value={token}
+                    onChangeText={setToken}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    secureTextEntry
+                    maxLength={8192}
+                    editable={!isSubmitting}
+                    className={TEXT_INPUT_CLASS}
+                    placeholder={t('cloud.tokenPlaceholder')}
+                    placeholderTextColor={theme.colors.textTertiary}
+                  />
+                  {errorMessage ? <Text className={ERROR_TEXT_CLASS}>{errorMessage}</Text> : null}
+                  <Pressable
+                    disabled={!token.trim() || isSubmitting}
+                    onPress={() => void handleCloudLogin()}
+                    accessibilityRole="button"
+                    className={cn(
+                      PRIMARY_BUTTON_CLASS,
+                      (!token.trim() || isSubmitting) && PRIMARY_BUTTON_DISABLED_CLASS
+                    )}
+                  >
+                    {isSubmitting ? (
+                      <ActivityIndicator color={theme.colors.onBrandBlueAction} />
+                    ) : (
+                      <Text className={PRIMARY_BUTTON_TEXT_CLASS}>{t('cloud.login')}</Text>
+                    )}
+                  </Pressable>
+                </View>
+              ) : (
+                <View className={FORM_CLASS}>
+                  {readAccountApiBaseUrl() ? (
+                    <EmailVerificationForm onSuccess={closeLogin} />
+                  ) : (
+                    <Text className="text-app-secondary">{t('auth.error.notConfigured')}</Text>
+                  )}
+                </View>
+              )}
+            </AppKeyboardAwareScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      )}
     </SafeAreaView>
   );
 }

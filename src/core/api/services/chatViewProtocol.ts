@@ -1,17 +1,21 @@
-export type ChatViewReference = {
-  connectorId: string;
+type ChatViewIdentity = {
   key: string;
-  version?: string;
-  hash?: string;
-  renderer?: 'html' | 'qlc';
+  renderer?: 'native' | 'html' | 'qlc';
 };
+export type ChatViewReference = ChatViewIdentity &
+  (
+    | { source: 'builtin'; connectorId?: never; hash?: never; version?: never }
+    | { source: 'connector'; connectorId: string; hash?: string; version?: string }
+  );
 export type ChatViewRequest = {
   chatId: string;
-  connectorId: string;
   key: string;
-  hash?: string;
   usage: 'display' | 'form';
-};
+} & (
+  | { source: 'builtin'; connectorId?: never; hash?: never }
+  | { source: 'connector'; connectorId: string; hash: string }
+);
+
 export type ChatViewDocument = {
   view: ChatViewReference;
   entry?: string;
@@ -22,20 +26,28 @@ export type ChatViewDocument = {
 export function readChatViewReference(value: unknown): ChatViewReference | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return;
   const record = value as Record<string, unknown>;
-  const { connectorId, key, hash, version, renderer } = record;
+  const { source, connectorId, key, hash, version, renderer } = record;
   if (
-    typeof connectorId !== 'string' ||
+    (source !== 'builtin' && source !== 'connector') ||
     typeof key !== 'string' ||
-    !/^[a-z0-9][a-z0-9._-]*$/.test(connectorId) ||
     !/^[a-z0-9][a-z0-9._-]*$/.test(key) ||
-    (hash !== undefined && (typeof hash !== 'string' || !/^[a-f0-9]{64}$/.test(hash)))
+    (source === 'connector' && (typeof connectorId !== 'string' || !/^[a-z0-9][a-z0-9._-]*$/.test(connectorId))) ||
+    (source === 'builtin' && (connectorId !== undefined || hash !== undefined || version !== undefined)) ||
+    (hash !== undefined && (typeof hash !== 'string' || !/^[a-f0-9]{64}$/.test(hash))) ||
+    (version !== undefined && typeof version !== 'string') ||
+    (renderer !== undefined && renderer !== 'native' && renderer !== 'html' && renderer !== 'qlc')
   )
     return;
   return {
-    connectorId,
     key,
-    ...(hash ? { hash: hash as string } : {}),
-    ...(typeof version === 'string' ? { version } : {}),
-    ...(renderer === 'html' || renderer === 'qlc' ? { renderer } : {})
+    ...(source === 'builtin'
+      ? { source }
+      : {
+          source,
+          connectorId: connectorId as string,
+          ...(hash ? { hash: hash as string } : {}),
+          ...(typeof version === 'string' ? { version } : {})
+        }),
+    ...(renderer === 'native' || renderer === 'html' || renderer === 'qlc' ? { renderer } : {})
   };
 }

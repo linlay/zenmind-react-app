@@ -23,6 +23,63 @@ import {
   resolveChatTimelineFrontendTool,
 } from '../../src/features/chatTimeline/index.ts';
 
+test('only human requests echo a pending message and server input keeps its sender across snapshots', () => {
+  const chatId = 'input-origin';
+  const local = applyChatTimelineMessage(null, {
+    conversationId: chatId, messageId: 'local', clientMessageId: 'local', serverMessageId: null,
+    role: 'user', content: 'same text', deliveryStatus: 'pending', createdAt: 100, errorReason: null
+  });
+  const automation = {
+    type: 'request.query', requestId: 'automation', runId: 'automation-run', message: 'same text',
+    hidden: true, lane: 'main', origin: { type: 'automation', automationName: 'Daily report' }, timestamp: 101
+  };
+  const human = { type: 'request.query', requestId: 'human', runId: 'human-run', message: 'same text', timestamp: 102 };
+  const withAutomation = applyChatTimelineEvent(local, chatId, automation);
+  assert.equal(projectTimelineMessages(withAutomation)[0]?.deliveryStatus, 'pending');
+  const live = applyChatTimelineEvent(withAutomation, chatId, human);
+  assert.equal(applyChatTimelineEvent(live, chatId, automation), live);
+  assert.equal(applyChatTimelineEvent(live, chatId, human), live);
+
+  const rows = (state: ChatTimelineState) => buildChatTimelineDisplayItems(state).map((row) => {
+    assert.ok(row.kind === 'user-query' || row.kind === 'request');
+    assert.equal(row.node.kind, 'message');
+    return [row.kind, row.node.inputSource, row.node.content];
+  });
+  const expected = [
+    ['user-query', undefined, 'same text'],
+    ['request', { kind: 'automation', sender: 'Daily report' }, 'same text']
+  ];
+  assert.deepEqual(rows(live), expected);
+  const saved = serializeChatTimelineState(live);
+  const restored = deserializeChatTimelineState(saved.meta, saved.nodes)!;
+  assert.deepEqual(rows(restored), expected);
+  assert.deepEqual(rows(mergeChatTimelineState(restored, deriveChatTimelineState(chatId, [automation, human]), true)), expected);
+});
+
+test('history corrects an internal reply by request ID without guessing the sender of old text', () => {
+  const chatId = 'mail-origin';
+  const old = { type: 'request.query', requestId: 'reply', runId: 'root', message: 'internal reply', timestamp: 102 };
+  const start = { type: 'run.start', runId: 'root', agentKey: 'receiver', timestamp: 100 };
+  const replay = deriveChatTimelineState(chatId, [start, {
+    ...old, type: 'request.steer', mailId: 'mail-reply', mailKind: 'reply', origin: { type: 'agent', agentKey: 'receiver' }
+  }, {
+    type: 'request.steer', steerId: 'ask', runId: 'root', timestamp: 103, message: 'Please confirm',
+    mailId: 'mail-ask', mailKind: 'ask', origin: { type: 'agent', agentKey: 'sender' }
+  }]);
+  const merged = mergeChatTimelineState(deriveChatTimelineState(chatId, [old, {
+    ...old, requestId: 'legacy', message: 'older text', timestamp: 99
+  }]), replay, true);
+  assert.deepEqual(projectTimelineMessages(merged).map((message) => message.content), ['older text']);
+  const inputRows = buildChatTimelineDisplayItems(merged).filter((row) => row.kind === 'request');
+  assert.equal(inputRows.length, 1);
+  const ask = inputRows[0].node;
+  assert.equal(ask.kind, 'message');
+  assert.deepEqual(ask.inputSource, { kind: 'ask', sender: 'sender' });
+  assert.equal(ask.content, 'Please confirm');
+  assert.equal(ask.isRootInput, true);
+  assert.ok(!serializeChatTimelineState(merged).nodes.some((row) => row.payloadJson.includes('internal reply')));
+});
+
 test('display keeps failed original before later conversation after reconcile and old snapshot restore', () => {
   const original: ChatMessageItem = {
     messageId: 'original', clientMessageId: 'original', serverMessageId: null,
@@ -1341,7 +1398,7 @@ test('timeline derives one active frontend tool and incrementally parses its par
       toolName: 'leave_form',
       toolLabel: '请假申请',
       toolType: 'HTML',
-      viewportKey: 'leave-form',
+      view: { source: 'builtin', key: 'ask_user_form', renderer: 'html' },
       toolTimeout: 60,
       timestamp: 1_700_000_000_100,
     },
@@ -1388,7 +1445,7 @@ test('timeline only resolves the current frontend tool without completing its se
       runId: 'run-tool',
       toolId: 'tool-form',
       toolType: 'qlc',
-      viewportKey: 'tool-form',
+      view: { source: 'builtin', key: 'ask_user_form', renderer: 'html' },
       timestamp: 1_700_000_000_000,
     },
   ]);
@@ -1416,7 +1473,7 @@ test('timeline does not resurrect an older frontend tool after the latest one re
       runId: 'run-tool',
       toolId: 'tool-old',
       toolType: 'html',
-      viewportKey: 'tool-old',
+      view: { source: 'builtin', key: 'ask_user_form', renderer: 'html' },
       timestamp: 1_700_000_000_000,
     },
     {
@@ -1424,7 +1481,7 @@ test('timeline does not resurrect an older frontend tool after the latest one re
       runId: 'run-tool',
       toolId: 'tool-latest',
       toolType: 'html',
-      viewportKey: 'tool-latest',
+      view: { source: 'builtin', key: 'ask_user_form', renderer: 'html' },
       timestamp: 1_700_000_000_100,
     },
   ]);
@@ -1559,63 +1616,20 @@ test('timeline reducer keeps absent awaiting options out of normalized payloads'
   assert.equal(planNode.interactive.plan.options, undefined);
 });
 
-test('timeline reducer keeps html form awaiting payload structured and handles push aliases', () => {
+test('timeline reducer keeps one Form and handles push aliases and param answers', () => {
   const state = deriveChatTimelineState('chat-form', [
-    {
-      type: 'awaiting.asking',
-      runId: 'run-form',
-      awaitingId: 'form-1',
-      mode: 'form',
-      viewportType: 'html',
-      viewportKey: 'leave_form',
-      forms: [
-        {
-          id: 'leave',
-          action: 'submit_leave_request',
-          title: '请假申请',
-          form: {
-            days: 1,
-          },
-        },
-      ],
-      timestamp: 100,
-    },
-    {
-      type: 'awaiting.answered',
-      runId: 'run-form',
-      awaitingId: 'form-1',
-      mode: 'form',
-      status: 'answered',
-      params: [
-        {
-          id: 'leave',
-          decision: 'approve',
-          form: {
-            days: 2,
-            reason: 'family',
-          },
-        },
-      ],
-      timestamp: 120,
-    },
+    { type: 'awaiting.asking', runId: 'run-form', awaitingId: 'form-1', mode: 'form',
+      view: { source: 'builtin', key: 'ask_user_form', renderer: 'html' }, form: { title: '请假申请', data: { days: 1 } }, timestamp: 100 },
+    { type: 'awaiting.answered', runId: 'run-form', awaitingId: 'form-1', mode: 'form',
+      param: { decision: 'approve', data: { days: 2, reason: 'family' } }, timestamp: 120 }
   ]);
-  const awaiting = state.orderedNodeIds
-    .map((id) => state.nodesById[id])
-    .find((node) => node?.kind === 'awaiting');
-
-  assert.equal(awaiting?.kind, 'awaiting');
-  if (awaiting?.kind !== 'awaiting') {
-    throw new Error('expected awaiting node');
-  }
-  assert.equal(awaiting.mode, 'form');
-  assert.equal(awaiting.status, 'answer');
-  assert.equal(awaiting.interactive?.kind, 'form');
-  assert.equal(awaiting.interactive?.viewportType, 'html');
-  assert.equal(awaiting.interactive?.viewportKey, 'leave_form');
-  assert.equal(awaiting.interactive?.forms[0]?.title, '请假申请');
-  assert.equal(awaiting.answerSummary?.itemCount, 1);
-  assert.match(awaiting.answerSummary?.items[0]?.value || '', /approve/);
-  assert.match(awaiting.answerSummary?.items[0]?.value || '', /family/);
+  const node = Object.values(state.nodesById).find(node => node.kind === 'awaiting');
+  assert.equal(node?.status, 'answer');
+  assert.equal(node?.interactive?.kind, 'form');
+  assert.equal(node?.interactive?.form.title, '请假申请');
+  assert.equal(node?.answerSummary?.itemCount, 1);
+  assert.match(node?.answerSummary?.items[0]?.value || '', /approve/);
+  assert.match(node?.answerSummary?.items[0]?.value || '', /family/);
 });
 
 test('timeline reducer merges request echo into the pending local user message', () => {

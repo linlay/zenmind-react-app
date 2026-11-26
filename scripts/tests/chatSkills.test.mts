@@ -140,6 +140,8 @@ test('production option row keeps skill search open on keyboard show and closes 
       Pressable: 'Pressable',
       Modal: 'Modal',
       ScrollView: 'ScrollView',
+      KeyboardAvoidingView: 'KeyboardAvoidingView',
+      Switch: 'Switch',
       useWindowDimensions: () => ({ width: 400, height: 800 }),
       Keyboard: {
         isVisible: () => false,
@@ -152,6 +154,8 @@ test('production option row keeps skill search open on keyboard show and closes 
         }
       }
     },
+    'react-native-safe-area-context': { useSafeAreaInsets: () => ({ top: 24, bottom: 20, left: 0, right: 0 }) },
+    './ChatComposerSheet': { ChatComposerSheet: ({ visible, children }: { visible: boolean; children: React.ReactNode }) => visible ? React.createElement('Modal', {}, children) : null },
     './ChatComposerSkillsMenu': { ChatComposerSkillsMenu: 'SkillsMenu' },
     '../../../shared/i18n': { useT: () => defaultT },
     '../../../shared/visual/className': { cn },
@@ -189,6 +193,7 @@ test('production option row keeps skill search open on keyboard show and closes 
     });
   });
   try {
+    await act(async () => renderer.root.findAllByType('Pressable').find((item) => item.props.accessibilityLabel === defaultT('composer.addContent'))!.props.onPress());
     const chip = renderer.root
       .findAllByType('Pressable')
       .find((item) =>
@@ -197,6 +202,9 @@ test('production option row keeps skill search open on keyboard show and closes 
     assert.equal(chip.props.disabled, false);
     await act(async () => chip.props.onPress());
     assert.equal(renderer.root.findAllByType('SkillsMenu').length, 1);
+    await act(async () => renderer.update(React.createElement(Row, { ...props, skillsLoading: true, skillsDisabled: true })));
+    assert.equal(renderer.root.findAllByType('SkillsMenu').length, 1, 'loading/saving disables choices without closing the menu');
+    assert.equal(renderer.root.findByType('SkillsMenu').props.disabled, true);
     await act(async () => events.get('keyboardDidShow')!());
     assert.equal(renderer.root.findAllByType('SkillsMenu').length, 1);
     await act(async () => renderer.update(React.createElement(Row, { ...props, agentKey: 'other' })));

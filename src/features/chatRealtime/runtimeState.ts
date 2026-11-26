@@ -75,7 +75,7 @@ function restoreTimelineStateFromRuntimeState(
           toolName: '',
           toolLabel: entry.title,
           toolType: '',
-          viewportKey: '',
+          viewKey: '',
           toolTimeoutMs: null,
           toolParams: {},
           frontendToolState: null,
